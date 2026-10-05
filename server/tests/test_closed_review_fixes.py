@@ -94,6 +94,25 @@ def test_pdf_fast_png_keeps_identical_pixels_and_original_byte_limit_acceptance(
     faster = render_pages(source,indexes)
     for before, after in zip(original,faster,strict=True):
         with Image.open(BytesIO(before)) as a, Image.open(BytesIO(after)) as b:
-            assert (a.mode,a.size,a.tobytes()) == (b.mode,b.size,b.tobytes())
-    monkeypatch.setenv('AI_MAX_VISION_BYTES',str(sum(map(len,original))))
-    assert render_pages(source,indexes) == original
+            assert (a.mode,a.size,hashlib.sha256(a.tobytes()).hexdigest()) == (b.mode,b.size,hashlib.sha256(b.tobytes()).hexdigest())
+    limit = sum(map(len,original))
+    monkeypatch.setenv('AI_MAX_VISION_BYTES',str(limit))
+    bounded = render_pages(source,indexes)
+    assert sum(map(len,bounded)) <= limit
+    expected = faster if sum(map(len,faster)) <= limit else original
+    assert [hashlib.sha256(image).hexdigest() for image in bounded] == [hashlib.sha256(image).hexdigest() for image in expected]
+
+
+@pytest.mark.parametrize('per_page', [False, True])
+def test_pdf_fast_png_falls_back_at_aggregate_and_per_page_byte_limits(monkeypatch, per_page):
+    from practiq_ai.extractors import VISION_BYTES_LIMIT_DETAIL, pdf
+    levels = []
+    def limited_render(source, indexes, *, compress_level=3):
+        levels.append(compress_level)
+        if compress_level == 3:
+            raise DocumentProcessingError(413, 'Per-page byte limit' if per_page else VISION_BYTES_LIMIT_DETAIL,
+                                          code='IMAGE_TOO_LARGE' if per_page else 'DOCUMENT_PROCESSING_FAILED')
+        return [b'original-level-6']
+    monkeypatch.setattr(pdf, '_render_pages', limited_render)
+    assert render_pages(b'pdf', [0]) == [b'original-level-6']
+    assert levels == [3, 6]
