@@ -70,6 +70,16 @@ The first full service run found regressions in rehydrating cross-unit conflict 
 
 A review-association test reproduced a collision between a special question ID and an internal unit key. Distinct-length JSON array encodings for global/unit keys fixed it; all 45 Web unit and 9 browser tests pass. Running app coverage concurrently with other checks produced 3 failures: two timeouts and one callback assertion failure. A serial rerun passed all 349 tests without increasing timeouts; the original log remains. Final service probes were checked again against the current source and report PASSED.
 
+## PR review and CI follow-up
+
+The first hosted runs at `f1be92f68fab6ba42fbf58f168d27a0fb8b99d2f` are retained separately: [Service quality](https://github.com/shenyankm/PractiQ/actions/runs/37283567789/job/111677091219) failed the long-material PDF byte comparison, and [macOS packaging](https://github.com/shenyankm/PractiQ/actions/runs/37283567776/job/111679645214) passed Rust tests and native compilation but failed `bundle_dmg.sh`. The latter log did not identify an underlying disk-image error; a fresh hosted package run is required before claiming macOS CI passes.
+
+The PDF regression incorrectly assumed PNG level 3 always produces more bytes than level 6. On Linux, the long-material fixture fits the original byte limit at level 3, so no fallback is required. The corrected test accepts the bounded encoding selected by that condition, checks identical decoded pixel hashes, and uses deterministic aggregate/per-page limit faults to verify level-6 fallback. Hash-based assertions avoid dumping raw images; the original hosted assertion produced a 143,922,950-byte job log. Runtime rendering, DPI and byte limits are unchanged.
+
+[Review](https://github.com/shenyankm/PractiQ/pull/155#discussion_r4182131649) also found that a missing local parent/option owner could resolve to another unit's duplicated ID. A regression first reproduced that wrong material. The global map now marks duplicate IDs ambiguous while retaining stage/unit lookups. The test verifies both local duplicate owners, no ambiguous cross-unit material/options, the child's own-option fallback, and a globally unique cross-unit owner.
+
+After these corrections, local verification passes 23 focused service regressions, all 1,724 service tests with 93% coverage and recovery/package checks, 46 Web unit tests, 9 Web browser tests, and the Web production build. Failure excerpts and corrected runs are retained in `/tmp/practiq-pr155-*`. Latest hosted CI and review results are tracked on [PR #155](https://github.com/shenyankm/PractiQ/pull/155); earlier successes do not substitute for checks of its current head.
+
 ## Recovery and operational constraints
 
 Successful unit artifacts use existing atomic writes and fsync before their checksum references enter checkpoints; reads verify checksums. Recovery requires the task/checkpoint/Store SQLite files together with the local object directory. Do not separately remove `unit-result` files referenced by checkpoints. Existing service-signature compatibility rules still decide whether tasks from older code can resume. This change retains checkpoint history, fsync, isolated workers, model budgets, authentication and storage boundaries.
