@@ -1,7 +1,7 @@
 //! Group-aware selection and score allocation run only in Rust.
 use crate::question_metadata::{COMPOSITE_SQL, FILTER_MODES};
 use crate::{
-    contract::{list, text, Result},
+    contract::{text, Result},
     questions,
     store::{hash, Store},
 };
@@ -91,6 +91,7 @@ fn split(total: i64, count: usize) -> Result<Vec<i64>> {
 fn selection_paths(weights: &[usize], target: usize) -> Vec<Option<(usize, usize)>> {
     let mut paths = vec![None; target + 1];
     paths[0] = Some((0, usize::MAX));
+    let mut reachable = 1;
     for (i, &weight) in weights.iter().enumerate() {
         if weight == 0 || weight > target {
             continue;
@@ -98,12 +99,19 @@ fn selection_paths(weights: &[usize], target: usize) -> Vec<Option<(usize, usize
         for n in (weight..=target).rev() {
             if paths[n].is_none() && paths[n - weight].is_some() {
                 paths[n] = Some((n - weight, i));
+                reachable += 1;
             }
+        }
+        if reachable == paths.len() {
+            break;
         }
     }
     paths
 }
 pub(crate) fn feasible_counts(weights: &[usize]) -> Vec<usize> {
+    if weights.iter().all(|&weight| weight == 1) {
+        return (1..=weights.len().min(1000)).collect();
+    }
     selection_paths(weights, weights.iter().sum::<usize>().min(1000))
         .iter()
         .enumerate()
@@ -135,30 +143,11 @@ fn exact(weights: &[usize], target: usize) -> Result<Vec<usize>> {
 impl Store {
     fn paper_candidates(&self, p: &Preview) -> Result<Vec<Candidate>> {
         questions::validate_filter(&p.bank_ids, &p.mode, &p.filter)?;
-        if !p.search.is_empty() {
-            let roots = self.query_questions(&p.bank_ids, (&p.search, &p.mode, &p.filter), None)?;
-            return roots
-                .as_array()
-                .ok_or("Invalid question selection")?
-                .iter()
-                .map(|root| {
-                    Ok(Candidate {
-                        id: text(root, "id").to_owned(),
-                        category: category(&root["question"]).to_owned(),
-                        weight: if questions::composite(&root["question"]) {
-                            list(root, "children")
-                                .iter()
-                                .filter(|child| !questions::composite(&child["question"]))
-                                .count()
-                        } else {
-                            1
-                        },
-                    })
-                })
-                .collect();
-        }
         let db = self.connect()?;
-        let ids = questions::matching_roots(&db, &p.bank_ids, &p.mode, &p.filter)?;
+        let mut ids = questions::matching_roots(&db, &p.bank_ids, &p.mode, &p.filter)?;
+        if !p.search.is_empty() {
+            ids = crate::store::search_roots(&db, &p.bank_ids, ids, &p.search, &p.mode, &p.filter)?;
+        }
         if ids.is_empty() {
             return Ok(Vec::new());
         }
@@ -287,6 +276,7 @@ impl Store {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::contract::list;
     #[test]
     fn reallocates_all_supported_types_without_changing_selection_or_content() {
         let directory = tempfile::tempdir().unwrap();
@@ -333,6 +323,15 @@ mod tests {
         assert_eq!(feasible_counts(&[1000, 3]), vec![3, 1000]);
         assert!(feasible_counts(&[1001]).is_empty());
         assert!(feasible_counts(&[]).is_empty());
+        assert_eq!(
+            feasible_counts(&vec![1; 100_000]),
+            (1..=1000).collect::<Vec<_>>()
+        );
+        assert_eq!(feasible_counts(&[0, 1, 1, 4]), vec![1, 2, 4, 5, 6]);
+        assert_eq!(
+            exact(&[1; 2000], 1000).unwrap(),
+            (0..1000).collect::<Vec<_>>()
+        );
         assert!(exact(&[1001], 1001).is_err());
     }
     #[test]

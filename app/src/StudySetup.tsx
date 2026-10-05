@@ -1,7 +1,7 @@
 import { COMPOSITE_FILTERS } from "./contracts.generated";
 import { message, MessageError, t, useI18n } from "./i18n";
 import { useEffect, useRef, useState } from "react";
-import { api, errorMessage, isComposite, type BankChoice, type Session, type SessionKind, type QuestionRow, type QuestionStats, type PaperPreview } from "./api";
+import { api, errorMessage, isComposite, type BankChoice, type Session, type SessionKind, type QuestionRow, type QuestionSummary, type QuestionStats, type PaperPreview } from "./api";
 import { cents, defaultPaperCount, questionType, types } from "./paper";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -14,7 +14,7 @@ export function StudySetup({banks, initialBank, initialBankIds, initialFilter, i
   const [bankIds, setBanks] = useState<string[]>(() => initialBankIds ?? (initialBank ? [initialBank] : banks.filter(b => b.count > 0).map(b => b.id)));
   const [kind, setKind] = useState<SessionKind>("practice");
   const [mode, setMode] = useState(initialMode), [filter, setFilter] = useState(initialFilter), [search, setSearch] = useState(initialSearch);
-  const [rows, setRows] = useState<QuestionRow[]>([]), [loadedQuery, setLoadedQuery] = useState("");
+  const [rows, setRows] = useState<QuestionSummary[]>([]), [loadedQuery, setLoadedQuery] = useState("");
   const [stats, setStats] = useState<QuestionStats>({ count: 0, types: {} });
   const [offset, setOffset] = useState(0), [rootCount, setRootCount] = useState(0), [loadedPage, setLoadedPage] = useState("");
   const [error, setError] = useState<unknown>(null);
@@ -38,41 +38,51 @@ export function StudySetup({banks, initialBank, initialBankIds, initialFilter, i
   const statsLoading = loadedQuery !== statsQuery;
   const pageLoading = selection === "manual" && loadedPage !== pageQuery;
   const loading = statsLoading || pageLoading;
+  const completedStats = useRef(""), completedPage = useRef("");
   useEffect(() => {
     countEditedForQuery.current = false;
+    completedStats.current = ""; completedPage.current = "";
+    setLoadedQuery(""); setLoadedPage("");
     setError(null); setStatsError(null); setPageError(null); setPreview([]); setPaper(null); setSelected({}); setOffset(0);
     setStatsRetry({query:"",attempt:0}); setPageRetry({query:"",attempt:0});
   }, [query]);
   useEffect(() => {
     let active = true;
     const values = JSON.parse(query);
-    if (!values.bank_ids.length) {
-      setRows([]); setStats({ count: 0, types: {} }); setCount(0); setLoadedQuery(statsQuery);
-      return;
+    const needStats = completedStats.current !== statsQuery;
+    const needPage = selection === "manual" && completedPage.current !== pageQuery;
+    if (!needStats && !needPage) return;
+    if (needPage) { setRows([]); if (!pageAttempt) setPageError(null); }
+    function acceptStats(result: QuestionStats) {
+      setStats(result); setStatsError(null);
+      if (!countEditedForQuery.current) setCount(defaultPaperCount(result.feasibleCounts ?? Array.from({length:Math.min(1000,result.count)},(_,i)=>i+1)));
     }
-    const timer = setTimeout(() => {
-      void api({type:"question_stats", ...values})
-        .then(result => { if (active) { setStats(result); setStatsError(null); if (!countEditedForQuery.current) setCount(defaultPaperCount(result.feasibleCounts ?? Array.from({length:Math.min(1000, result.count)}, (_, i) => i + 1))); } })
-        .catch(e => { if (active) { setStats({ count: 0, types: {} }); setStatsError(e); } })
-        .finally(() => { if (active) setLoadedQuery(statsQuery); });
-    }, 150);
+    async function readStats() {
+      try { const result = await api({type:"question_stats",...values}); if (active) acceptStats(result); }
+      catch (e) { if (active) { setStats({count:0,types:{}}); setStatsError(e); } }
+      finally { if (active) { completedStats.current = statsQuery; setLoadedQuery(statsQuery); } }
+    }
+    async function read() {
+      if (!values.bank_ids.length) {
+        if (active) { setRows([]); setStats({count:0,types:{}}); setCount(0); setRootCount(0); completedStats.current = statsQuery; completedPage.current = pageQuery; setLoadedQuery(statsQuery); setLoadedPage(pageQuery); }
+        return;
+      }
+      if (!needPage) { await readStats(); return; }
+      let statsRead = false;
+      try {
+        const result = await api({type:"questions_page",...values,limit:30,offset,...(needStats ? {include_stats:true} : {})});
+        if (active) {
+          setRows(result.items); setRootCount(result.total); setOffset(result.offset); setPageError(null);
+          if (result.stats && needStats) { acceptStats(result.stats); completedStats.current = statsQuery; setLoadedQuery(statsQuery); statsRead = true; }
+        }
+      } catch (e) { if (active) { setRootCount(0); setPageError(e); } }
+      finally { if (active) { completedPage.current = pageQuery; setLoadedPage(pageQuery); } }
+      // Independent diagnostics/retry remain available if a combined read fails.
+      if (active && needStats && !statsRead) await readStats();
+    }
+    const timer = setTimeout(() => void read(),150);
     return () => { active = false; clearTimeout(timer); };
-  }, [query, statsQuery]);
-  useEffect(() => {
-    if (selection !== "manual") return;
-    let active = true;
-    setRows([]);
-    if (!pageAttempt) setPageError(null);
-    const values = JSON.parse(query);
-    if (!values.bank_ids.length) { setRootCount(0); setLoadedPage(pageQuery); return; }
-    const timer = setTimeout(() => {
-      void api({type:"questions_page", ...values, limit:30, offset})
-        .then(result => { if (active) { setRows(result.items); setRootCount(result.total); setOffset(result.offset); setPageError(null); } })
-        .catch(e => { if (active) { setRootCount(0); setPageError(e); } })
-        .finally(() => { if (active) setLoadedPage(pageQuery); });
-    }, 150);
-    return () => { active = false; clearTimeout(timer); };
-  }, [query, pageQuery, pageAttempt, selection, offset]);
+  }, [query,statsQuery,pageQuery,pageAttempt,selection,offset]);
     const perform = (job:()=>Promise<void>) => run(async()=>{setError(null);try{await job();}catch(e){setError(e);}});
   const invalidate = () => { setPreview([]); setPaper(null); setScorePage(0); };
   async function generate(withBudgets = false) {

@@ -39,6 +39,7 @@ function setup(mutation: Mutation, delayMutation = false) {
       case "banks_page": return { items: [{ id: "bank", title: "Test bank", description: "", count: 61, createdAt: 1 }], total: 1, offset: 0 } as never;
       case "info": return { version: "test", dataDirectory: "/tmp/test" } as never;
       case "unfinished_session": return null as never;
+      case "question_detail": return (request.id === "alpha" ? alpha : beta) as never;
       case "questions_page":
         if (mutated && holdReload && !request.search) {
           holdReload = false;

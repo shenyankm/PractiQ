@@ -383,6 +383,41 @@ pub fn read(db: &Connection) -> Result<Vec<Value>> {
     read_scoped(db, &[], None)
 }
 
+pub(crate) fn summaries(db: &Connection, roots: &[String]) -> Result<Vec<Value>> {
+    let mut statement = db.prepare(&format!("
+        WITH RECURSIVE tree(root,id) AS (
+            SELECT value,value FROM json_each(?1)
+            UNION ALL SELECT t.root,q.id FROM questions q JOIN tree t ON q.parent_id=t.id
+        ), flags AS (
+            SELECT t.root,SUM(n.mode IS NULL OR n.mode NOT IN ({COMPOSITE_SQL})) AS count,
+                MAX(n.favorite) AS favorite,
+                MAX(n.needs_review=1 AND review.question_id IS NULL) AS review,
+                MAX(COALESCE(a.result=0,0)) AS wrong,
+                MAX(COALESCE(a.result=0 AND a.earned_cents>0 AND a.earned_cents<a.max_cents,0)) AS partial
+            FROM tree t JOIN questions n ON n.id=t.id
+            LEFT JOIN question_reviews review ON review.question_id=n.id
+            LEFT JOIN attempts a ON a.rowid=(SELECT rowid FROM attempts WHERE question_id=n.id AND result IS NOT NULL ORDER BY submitted_at DESC,rowid DESC LIMIT 1)
+            GROUP BY t.root
+        ) SELECT q.id,q.bank_id,b.title,substr(q.stem,1,200),substr(q.source_text,1,200),q.mode,q.question_kind,c.variant,
+            f.count,f.favorite,f.review,f.wrong,f.partial,
+            a.earned_cents,a.max_cents,a.grade_kind
+        FROM questions q JOIN banks b ON b.id=q.bank_id JOIN flags f ON f.root=q.id
+        LEFT JOIN choice_questions c ON c.question_id=q.id
+        LEFT JOIN attempts a ON a.rowid=(SELECT rowid FROM attempts WHERE question_id=q.id AND result IS NOT NULL ORDER BY submitted_at DESC,rowid DESC LIMIT 1)
+        ORDER BY b.created_at DESC,q.position,q.id
+    ")).map_err(err)?;
+    let result = statement.query_map([json!(roots).to_string()], |r| {
+        let earned = r.get::<_, Option<i64>>(13)?;
+        let max = r.get::<_, Option<i64>>(14)?;
+        let grade = r.get::<_, Option<String>>(15)?;
+        Ok(json!({"id":r.get::<_,String>(0)?,"bankId":r.get::<_,String>(1)?,"bankTitle":r.get::<_,String>(2)?,
+            "question":{"id":r.get::<_,String>(0)?,"stem":r.get::<_,Option<String>>(3)?,"sourceText":r.get::<_,Option<String>>(4)?,"answerMode":r.get::<_,Option<String>>(5)?,"questionKind":r.get::<_,Option<String>>(6)?,"choiceVariant":r.get::<_,Option<String>>(7)?},
+            "answerableCount":r.get::<_,usize>(8)?,"favorite":r.get::<_,bool>(9)?,"reviewRequired":r.get::<_,bool>(10)?,"hasWrong":r.get::<_,bool>(11)?,"hasPartialScore":r.get::<_,bool>(12)?,
+            "latestScore":earned.zip(max).map(|(earned,max)|json!({"earnedCents":earned,"maxCents":max,"gradeKind":grade.unwrap_or_default()}))}))
+    }).map_err(err)?.collect::<std::result::Result<Vec<_>,_>>().map_err(err);
+    result
+}
+
 fn related(db: &Connection, sql: &str, scope: &str) -> Result<HashMap<String, Vec<Value>>> {
     let mut statement = db.prepare(sql).map_err(err)?;
     let records = statement

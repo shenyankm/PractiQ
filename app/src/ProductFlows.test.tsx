@@ -48,9 +48,11 @@ function setup(question = row, failReview = false) {
       case "sessions_page": return { items: request.filter === "finished" ? [] : [exam], total: request.filter === "finished" ? 0 : 1, offset: 0 } as never;
       case "questions_page": {
         const pending = [question, ...(question.children || [])].some(item => item.question.needsReview && item.reviewedAt == null);
-        const items = request.filter === "review" && !pending ? [] : [question];
+        const nodes = [question,...(question.children || [])];
+        const items = request.filter === "review" && !pending ? [] : [{...question,reviewRequired:pending,hasWrong:nodes.some(n=>n.latestResult===false),hasPartialScore:nodes.some(n=>n.latestResult===false && n.latestScore && n.latestScore.earnedCents>0 && n.latestScore.earnedCents<n.latestScore.maxCents)}];
         return { items, total: items.length, offset: 0 } as never;
       }
+      case "question_detail": return question as never;
       case "review_question": {
         if (failReview) throw new Error("Review failed");
         const reviewedAt = request.reviewed ? 123 : null;
@@ -145,7 +147,7 @@ it("filters pending reviews and confirms or revokes the whole material tree with
   await userEvent.click(screen.getByRole("checkbox", { name: "仅看待复核" }));
   await waitFor(() => expect(api).toHaveBeenCalledWith(expect.objectContaining({ type: "questions_page", filter: "review", offset: 0 })));
   await userEvent.click(screen.getByRole("button", { name: /Shared material/ }));
-  let dialog = screen.getByRole("dialog", { name: "题目详情" });
+  let dialog = await screen.findByRole("dialog", { name: "题目详情" });
   expect(within(dialog).getByText("此操作应用于本题及全部子题；原始质量提示会保留。")).toBeTruthy();
   expect(await within(dialog).findByText("内容待复核，仍可练习。")).toBeTruthy();
   await userEvent.click(within(dialog).getByRole("button", { name: "标记已复核" }));
@@ -160,7 +162,7 @@ it("filters pending reviews and confirms or revokes the whole material tree with
   const reviewedRow = await screen.findByRole("button", { name: /Shared material/ });
   expect(screen.queryByRole("img", { name: "待复核" })).toBeNull();
   await userEvent.click(reviewedRow);
-  dialog = screen.getByRole("dialog", { name: "题目详情" });
+  dialog = await screen.findByRole("dialog", { name: "题目详情" });
   await userEvent.click(within(dialog).getByRole("button", { name: "撤销复核确认" }));
   expect(await within(dialog).findByRole("button", { name: "标记已复核" })).toBeTruthy();
   expect(api).toHaveBeenCalledWith({ type: "review_question", id: "root", reviewed: false });
@@ -177,7 +179,7 @@ it.each([null, 123])("preserves review state when saving the confirmation fails 
   await screen.findByText("English");
   await userEvent.click(screen.getByRole("button", { name: "查看题目" }));
   await userEvent.click(await screen.findByRole("button", { name: new RegExp(row.question.stem!) }));
-  const dialog = screen.getByRole("dialog", { name: "题目详情" });
+  const dialog = await screen.findByRole("dialog", { name: "题目详情" });
   const action = reviewedAt == null ? "标记已复核" : "撤销复核确认";
   await userEvent.click(within(dialog).getByRole("button", { name: action }));
   await waitFor(() => expect(toast.error).toHaveBeenCalledWith(new Error("Review failed")));

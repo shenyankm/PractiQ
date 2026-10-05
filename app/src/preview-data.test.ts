@@ -1,5 +1,5 @@
 import { beforeEach, expect, it, vi } from "vitest";
-import { canInteract, type Bank, type PaperPreview, type Question, type QuestionPage, type QuestionRow, type Session, type SessionPage, type SettingsResult } from "./api";
+import { canInteract, type Bank, type PaperPreview, type Question, type QuestionPage as SummaryPage, type QuestionRow, type Session, type SessionPage, type SettingsResult } from "./api";
 import composite from "../fixtures/composite.json";
 import sample from "../fixtures/sample.json";
 import type { PreviewScenario } from "./preview-mode";
@@ -7,7 +7,16 @@ const mode=vi.hoisted(()=>({value:"normal" as PreviewScenario}));
 vi.mock("./preview-mode",()=>({previewMode:()=>mode.value}));
 vi.mock("@tauri-apps/api/core",()=>({invoke:vi.fn(()=>{throw new Error("Native IPC must not run");})}));
 beforeEach(()=>{vi.resetModules();mode.value="normal";});
-async function call<T>(request:Record<string,unknown>, command="request") {const {invoke}=await import("./transport");return invoke<T>(command,{request});}
+type QuestionPage = Omit<SummaryPage,"items"> & {items:QuestionRow[]};
+async function call<T>(request:Record<string,unknown>, command="request") {
+ const {invoke}=await import("./transport");
+ const result=await invoke<T>(command,{request});
+ if(command==="request" && request.type==="questions_page") {
+  const page=result as SummaryPage;
+  return {...page,items:await Promise.all(page.items.map(row=>invoke<QuestionRow>(command,{request:{type:"question_detail",id:row.id}})))} as T;
+ }
+ return result;
+}
 const query={type:"questions_page",bank_ids:[],search:"",mode:"",filter:"",offset:0,limit:100};
 
 it.each([

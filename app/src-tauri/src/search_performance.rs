@@ -41,9 +41,11 @@ fn search_pages_and_stats_do_not_construct_unselected_details() {
             .unwrap()["count"],
         60
     );
-    assert!(store
+    let second = store
         .query_questions(&["bank".into()], ("文 mix", "", ""), Some((30, 30)))
-        .is_err());
+        .unwrap();
+    assert_eq!(list(&second, "items").len(), 30);
+    assert!(store.question_detail("q00059").is_err());
 }
 
 #[test]
@@ -169,9 +171,9 @@ fn search_projection_preserves_text_fields_associations_and_unicode() {
             .unwrap();
         assert_eq!(page["total"], 1, "{term}");
         assert_eq!(page["items"][0]["id"], root, "{term}");
+        assert!(page["items"][0]["children"].is_null());
         assert_eq!(
-            list(&page["items"][0], "children").len(),
-            list(&full[0], "children").len(),
+            page["items"][0]["answerableCount"], full[0]["answerableCount"],
             "{term}"
         );
         assert_eq!(
