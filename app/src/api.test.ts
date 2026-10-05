@@ -110,3 +110,25 @@ it("shares the immutable cache with grading transport and ignores grading that f
   await pending;
   expect(sessionSnapshotKey(session.id)).toBeUndefined();
 });
+
+
+it("applies only changed attempts and keeps the base snapshots and unchanged objects", async () => {
+  const snapshot = {question:{id:"q"}};
+  const initial = {id:"attempt-delta",snapshotKey:"same",attemptKey:"before",attempts:[{ordinal:0,answer:null,snapshot},{ordinal:1,answer:null,snapshot}]} as unknown as Session;
+  vi.mocked(invoke).mockResolvedValueOnce(initial);
+  const full = await api({type:"session",id:initial.id});
+  vi.mocked(invoke).mockResolvedValueOnce({...initial,attemptKey:"after",attemptsBase:"before",attemptCount:2,attempts:[{ordinal:1,answer:{value:true}}]});
+  const changed = await api({type:"position",id:initial.id,position:1});
+  expect(changed.attempts[0]).toBe(full.attempts[0]);
+  expect(changed.attempts[1].snapshot).toBe(snapshot);
+  expect(changed.attempts[1].answer).toEqual({value:true});
+  expect(invoke).toHaveBeenLastCalledWith("request",expect.objectContaining({request:{type:"position",id:initial.id,position:1,snapshot_key:"same:before"}}));
+  expect(changed).not.toHaveProperty("attemptsBase");
+});
+it.each([{attemptsBase:"missing",attemptCount:1,attempts:[]},{attemptsBase:"base",attemptCount:2,attempts:[]},{attemptsBase:"base",attemptCount:1,attempts:[{ordinal:3}]},{attemptsBase:"base",attemptCount:1,attempts:[{ordinal:0},{ordinal:0}]}])("reloads a full session after a malformed mutable delta: %j", async invalid => {
+  const initial = {id:"delta-recovery",snapshotKey:"same",attemptKey:"base",attempts:[{ordinal:0,snapshot:{question:{id:"q"}}}]} as unknown as Session;
+  vi.mocked(invoke).mockResolvedValueOnce(initial); await api({type:"session",id:initial.id});
+  vi.mocked(invoke).mockResolvedValueOnce({...initial,...invalid}).mockResolvedValueOnce(initial);
+  expect((await api({type:"session",id:initial.id})).attempts).toEqual(initial.attempts);
+  expect(invoke).toHaveBeenLastCalledWith("request",expect.objectContaining({request:{type:"session",id:initial.id}}));
+});

@@ -91,6 +91,7 @@ def _write_entry(archive: ZipFile, output: BinaryIO, name: str, payload: bytes) 
     entry.create_system = 3
     entry.external_attr = 0o100600 << 16
     entry.compress_type = ZIP_DEFLATED
+    entry.compress_level = 1
     with archive.open(entry, "w") as target:
         view = memoryview(payload)
         for offset in range(0, len(view), ZIP_CHUNK_BYTES):

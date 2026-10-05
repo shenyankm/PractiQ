@@ -43,6 +43,8 @@ export default function App() {
   const [listError, setListError] = useState<string | null>(null);
   const [listLoading, setListLoading] = useState(false);
   const [offset, setOffset] = useState(0);
+  const [cursors, setCursors] = useState<(string | undefined)[]>([undefined]);
+  const cursor = cursors[offset / 20];
   const [filter, setFilter] = useState("");
   const [listRevision, setListRevision] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
@@ -71,45 +73,87 @@ export default function App() {
     if (!client) return;
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout>;
+    let reading = false, stopped = false;
     async function poll() {
-      let again = true;
-      setListLoading(true);
+      if (reading || stopped || document.hidden || controller.signal.aborted) return;
+      reading = true; setListLoading(true);
+      let delay = 3000;
       try {
-        const result = await client!.list(offset, filter, controller.signal);
-        if (!controller.signal.aborted) { setTasks(result); setListError(null); }
+        const result = await client!.list(offset, filter, controller.signal, cursor);
+        if (!controller.signal.aborted) { setTasks(previous => JSON.stringify(previous) === JSON.stringify(result) ? previous : result); setListError(null); }
+        if (filter && filter !== "active" || result.items.length > 0 && result.items.every(item => !["PENDING", "RUNNING", "PAUSING"].includes(item.state))) delay = 30000;
       } catch (error) {
         if (!controller.signal.aborted) { setTasks({ items: [], hasMore: false }); setListError(errorText(error)); }
-        again = !authFailure(error);
+        stopped = authFailure(error);
       } finally {
-        if (!controller.signal.aborted) { setListLoading(false); if (again) timer = setTimeout(() => void poll(), 3000); }
+        reading = false;
+        if (!controller.signal.aborted) { setListLoading(false); if (!stopped) timer = setTimeout(() => void poll(), delay); }
       }
     }
+    function wake() { clearTimeout(timer); void poll(); }
+    document.addEventListener("visibilitychange", wake); window.addEventListener("focus", wake);
     void poll();
-    return () => { controller.abort(); clearTimeout(timer); };
-  }, [client, offset, filter, listRevision]);
+    return () => { controller.abort(); clearTimeout(timer); document.removeEventListener("visibilitychange", wake); window.removeEventListener("focus", wake); };
+  }, [client, offset, filter, listRevision, cursor]);
   useEffect(() => {
     setDetail(null); setPreview(null); setDetailError(null); setPreviewError(null); setDetailFresh(false);
     if (!client || !selected) return;
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout>;
-    async function poll() {
-      const [current, review] = await Promise.allSettled([client!.detail(selected!, controller.signal), client!.preview(selected!, controller.signal)]);
-      if (controller.signal.aborted) return;
-      if (current.status === "fulfilled") { setDetail(current.value); setDetailError(null); setDetailFresh(true); }
-      else { setDetailError(errorText(current.reason)); setDetailFresh(false); }
-      if (review.status === "fulfilled") { setPreview(review.value); setPreviewError(null); }
-      else { setPreviewError(errorText(review.reason)); setPreview(null); }
-      if (!((current.status === "rejected" && authFailure(current.reason)) || (review.status === "rejected" && authFailure(review.reason)))) timer = setTimeout(() => void poll(), 3000);
+    let reading = false, stopped = false;
+    let currentDetail: DocumentTaskDetail | null = null, currentPreview: DocumentTaskReview | null = null;
+    async function poll(force = false) {
+      if (reading || stopped || document.hidden || controller.signal.aborted) return;
+      reading = true;
+      try {
+        if (!currentDetail) {
+          const [current, review] = await Promise.allSettled([client!.detail(selected!, controller.signal), client!.preview(selected!, controller.signal)]);
+          if (controller.signal.aborted) return;
+          if (current.status === "fulfilled") { currentDetail = current.value; setDetail(current.value); setDetailError(null); setDetailFresh(true); }
+          else { setDetailError(errorText(current.reason)); setDetailFresh(false); stopped = authFailure(current.reason); }
+          if (review.status === "fulfilled") { currentPreview = review.value; setPreview(review.value); setPreviewError(null); }
+          else { currentPreview = null; setPreview(null); setPreviewError(errorText(review.reason)); stopped ||= authFailure(review.reason); }
+          return;
+        }
+        if (!force) {
+          const head = await client!.head(selected!, controller.signal);
+          if (controller.signal.aborted) return;
+          if (head.checkpointId === currentDetail.checkpointId && head.runId === currentDetail.runId && head.state === currentDetail.state && head.updatedAt === currentDetail.updatedAt && head.modelConfigured === currentDetail.modelConfigured && head.resumeCompatible === currentDetail.resumeCompatible && currentPreview?.checkpointId === head.checkpointId && head.state === "COMPLETED") {
+            setDetailFresh(true); setDetailError(null); return;
+          }
+        }
+        const current = await client!.detail(selected!, controller.signal);
+        if (controller.signal.aborted) return;
+        currentDetail = current; setDetail(current); setDetailError(null); setDetailFresh(true);
+        if (force || !currentPreview || currentPreview.checkpointId !== current.checkpointId || currentPreview.state !== current.state || ["PAUSED", "WAITING_REVIEW"].includes(current.state)) {
+          try {
+            const review = await client!.preview(selected!, controller.signal);
+            if (controller.signal.aborted) return;
+            currentPreview = review; setPreview(review); setPreviewError(null);
+          } catch (error) {
+            if (!controller.signal.aborted) { currentPreview = null; setPreview(null); setPreviewError(errorText(error)); }
+            stopped = authFailure(error);
+          }
+        }
+      } catch (error) {
+        if (!controller.signal.aborted) { setDetailError(errorText(error)); setDetailFresh(false); }
+        stopped = authFailure(error);
+      } finally {
+        reading = false;
+        if (!controller.signal.aborted && !stopped) timer = setTimeout(() => void poll(), currentDetail && !["PENDING", "RUNNING", "PAUSING"].includes(currentDetail.state) ? 30000 : 3000);
+      }
     }
-    void poll();
-    return () => { controller.abort(); clearTimeout(timer); };
+    function wake() { clearTimeout(timer); void poll(true); }
+    document.addEventListener("visibilitychange", wake); window.addEventListener("focus", wake);
+    void poll(true);
+    return () => { controller.abort(); clearTimeout(timer); document.removeEventListener("visibilitychange", wake); window.removeEventListener("focus", wake); };
   }, [client, selected, detailRevision]);
   function connect() {
     try { setClient(new Client(draftToken.trim())); setDraftToken(""); setOperationError(null); setNotice(null); }
     catch (error) { setCapError(errorText(error)); }
   }
   function disconnect() {
-    client?.disconnect(); job.current = null; setClient(null); setDraftToken(""); setSelected(null); setDeleteTarget(null); setFiles([]); setBusy(false); setOperationError(null); setNotice(null); setFileError(null); setOffset(0); setFilter("");
+    client?.disconnect(); job.current = null; setClient(null); setDraftToken(""); setSelected(null); setDeleteTarget(null); setFiles([]); setBusy(false); setOperationError(null); setNotice(null); setFileError(null); setOffset(0); setCursors([undefined]); setFilter("");
   }
   async function run(perform: (current: Client) => Promise<void>) {
     if (!client || job.current) return;
@@ -171,11 +215,11 @@ export default function App() {
             </>}
           </CardContent></Card>
           <Card><CardHeader><div className="flex items-center justify-between"><CardTitle>文档任务</CardTitle><Button variant="ghost" size="icon" aria-label="刷新任务列表" onClick={() => setListRevision(value => value + 1)}><RefreshCw /></Button></div></CardHeader><CardContent className="space-y-3">
-            <label className="block"><span className="sr-only">筛选任务状态</span><select value={filter} onChange={event => { setFilter(event.target.value); setOffset(0); }}>{[["", "全部任务"], ["active", "正在处理"], ["paused", "已暂停"], ["review", "等待复核"], ["failed", "失败"], ["completed", "已完成"], ["interrupted", "已中断"], ["expired", "已过期"]].map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+            <label className="block"><span className="sr-only">筛选任务状态</span><select value={filter} onChange={event => { setFilter(event.target.value); setOffset(0); setCursors([undefined]); }}>{[["", "全部任务"], ["active", "正在处理"], ["paused", "已暂停"], ["review", "等待复核"], ["failed", "失败"], ["completed", "已完成"], ["interrupted", "已中断"], ["expired", "已过期"]].map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
             {listError && <div role="alert" className="space-y-2"><p className="text-destructive">{listError}</p><Button variant="outline" onClick={() => setListRevision(value => value + 1)}>重试任务列表</Button></div>}
             {!tasks.items.length && !listError && <p className="text-muted-foreground">{listLoading ? "正在读取任务…" : "当前没有任务。"}</p>}
             <div className="task-list">{tasks.items.map(task => <div key={task.threadId} className="task-list-item"><button type="button" className="task-row" aria-pressed={selected === task.threadId} onClick={() => { setSelected(task.threadId); setDeleteTarget(null); }}><strong>{task.fileName}</strong><span><Badge variant="outline">{stateLabels[task.state]}</Badge>{task.status === "PARTIAL" && <Badge variant="secondary">部分结果</Badge>}</span><small>{task.questionCount} 条题目 · {task.reviewCount} 条待复核</small></button>{task.state === "EXPIRED" && <Button variant="destructive" size="sm" disabled={busy} aria-label={`删除已过期任务 ${task.fileName}`} onClick={() => setDeleteTarget({ threadId: task.threadId, fileName: task.fileName })}><Trash2 />删除已过期任务</Button>}</div>)}</div>
-            <nav aria-label="任务列表分页" className="flex items-center justify-between"><Button variant="outline" size="icon" aria-label="上一页任务" disabled={!offset || listLoading} onClick={() => setOffset(value => Math.max(0, value - 20))}><ChevronLeft /></Button><span className="text-xs">第 {Math.floor(offset / 20) + 1} 页</span><Button variant="outline" size="icon" aria-label="下一页任务" disabled={!tasks.hasMore || listLoading} onClick={() => setOffset(value => value + 20)}><ChevronRight /></Button></nav>
+            <nav aria-label="任务列表分页" className="flex items-center justify-between"><Button variant="outline" size="icon" aria-label="上一页任务" disabled={!offset || listLoading} onClick={() => setOffset(value => Math.max(0, value - 20))}><ChevronLeft /></Button><span className="text-xs">第 {Math.floor(offset / 20) + 1} 页</span><Button variant="outline" size="icon" aria-label="下一页任务" disabled={!tasks.hasMore || listLoading} onClick={() => { setCursors(previous => [...previous.slice(0, offset / 20 + 1), tasks.nextCursor ?? undefined]); setOffset(value => value + 20); }}><ChevronRight /></Button></nav>
           </CardContent></Card>
         </aside><section className="task-panel" aria-label="任务详情">
           {deleteTarget && <div className="notice" role="group" aria-label="删除任务确认"><p>确认删除「{deleteTarget.fileName}」及其检查点？已下载的题库不受影响。</p><div className="flex gap-2 mt-3"><Button variant="destructive" disabled={busy} onClick={() => void run(async current => { await current.delete(deleteTarget.threadId); if (current.active) { setSelected(value => value === deleteTarget.threadId ? null : value); setListRevision(value => value + 1); setDeleteTarget(null); setNotice("任务已删除。"); } })}>确认删除</Button><Button variant="outline" disabled={busy} onClick={() => setDeleteTarget(null)}>保留任务</Button></div></div>}

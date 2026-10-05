@@ -43,6 +43,7 @@ import {
   type Preview,
   type Question,
   type QuestionRow,
+  type QuestionSummary,
   type Session,
   type SessionFilter,
 } from "./api";
@@ -131,7 +132,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
   const [restoreOpen, setRestoreOpen] = useState(false);
   const [banks, setBanks] = useState<BankChoice[]>([]);
   const [bank, setBank] = useState<string | null>(null);
-  const [questions, setQuestions] = useState<QuestionRow[]>([]);
+  const [questions, setQuestions] = useState<QuestionSummary[]>([]);
   const [questionTotal, setQuestionTotal] = useState(0);
   const [questionRevision, setQuestionRevision] = useState(0);
   const [questionError, setQuestionError] = useState<unknown>(null);
@@ -611,7 +612,8 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                         </span>
                         <button
                           className="grid min-w-0 flex-1 grid-cols-1 items-center gap-2 md:grid-cols-[max-content_minmax(0,1fr)] md:gap-4 rounded-sm text-left focus-visible:outline-2 focus-visible:outline-ring"
-                          onClick={() => setDetail(row)}
+                          disabled={busy}
+                          onClick={() => run(async () => setDetail(await api({type:"question_detail",id:row.id})))}
                         >
                           <div className="min-w-0 space-y-2 md:min-w-40">
                             <div className="flex flex-wrap items-center gap-2">
@@ -619,11 +621,11 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                                 {modeNames()[row.question.answerMode || ""] ||
                                   t("未知题型")}
                               </Badge>
-                              {[row, ...(row.children || [])].some(item => item.question.needsReview && item.reviewedAt == null) && (
+                              {row.reviewRequired && (
                                 <CircleAlert className="size-4 text-amber-600 dark:text-amber-400" role="img" aria-label={t("待复核")} />
                               )}
-                              {[row, ...(row.children || [])].some(item => item.latestResult === false) && (
-                                <Badge variant="destructive">{[row, ...(row.children || [])].some(item => item.latestScore && item.latestScore.earnedCents > 0 && item.latestScore.earnedCents < item.latestScore.maxCents) ? t("部分得分") : t("错题")}</Badge>
+                              {row.hasWrong && (
+                                <Badge variant="destructive">{row.hasPartialScore ? t("部分得分") : t("错题")}</Badge>
                               )}
                             </div>
                             {row.latestScore && <span className="text-xs text-muted-foreground">{t("上次 {0} / {1} 分", { 0: row.latestScore.earnedCents / 100, 1: row.latestScore.maxCents / 100 })}</span>}
@@ -664,15 +666,16 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                           variant="ghost"
                           aria-label={t("编辑题目")}
                           disabled={busy}
-                          onClick={() => {
+                          onClick={() => run(async () => {
+                            const full = await api({type:"question_detail",id:row.id});
                             setBank(row.bankId);
-                            const visuals = [row, ...(row.children || [])].flatMap(r=>r.visuals);
+                            const visuals = [full, ...(full.children || [])].flatMap(r=>r.visuals);
                             const images = Array.from(new Map(visuals.flatMap(v=>{
                               const ref = v.imageRef || v.sourceRef;
                               return ref ? [[ref.sha256,{hash:ref.sha256,label:v.label || v.description || ""}] as const] : [];
                             })).values());
-                            setEditor({ id: row.id, question: row.question, images, children: (row.children || []).map(c=>({...c.question, options:c.question.optionSourceId ? [] : c.question.options})) });
-                          }}
+                            setEditor({ id: row.id, question: full.question, images, children: (full.children || []).map(c=>({...c.question, options:c.question.optionSourceId ? [] : c.question.options})) });
+                          })}
                         >
                           <Pencil />
                         </Button>

@@ -413,3 +413,36 @@ it("mounts only 30 score inputs and preserves edits across a 1000-question paper
   expect(start.paper.scores[30]).toBe(0);
   expect(start.paper.scores.reduce((n,score)=>n+score,0)).toBe(10000);
 });
+
+
+it("reloads a manual page when a pending filter is immediately reverted",async()=>{
+  setup();
+  await screen.findByText(/可用 2 题/);
+  await userEvent.click(screen.getByText(/高级设置/,{selector:"summary"}));
+  await userEvent.selectOptions(screen.getByLabelText("选题方式"),"manual");
+  await screen.findByRole("checkbox",{name:rows[0].question.stem!});
+  const search = screen.getByRole("textbox",{name:"搜索题目"});
+  fireEvent.change(search,{target:{value:"temporary"}});
+  expect(screen.queryByRole("checkbox",{name:rows[0].question.stem!})).toBeNull();
+  fireEvent.change(search,{target:{value:""}});
+  await screen.findByRole("checkbox",{name:rows[0].question.stem!});
+  expect(vi.mocked(api).mock.calls.filter(([request])=>request.type==="questions_page")).toHaveLength(2);
+});
+
+it("combines fresh manual-page statistics without scanning the filter twice",async()=>{
+  const stats = {count:2,types:{single:2},feasibleCounts:[1,2]};
+  vi.mocked(api).mockImplementation(async request=>{
+    if(request.type==="question_stats")return stats as never;
+    if(request.type==="questions_page")return {items:rows,total:2,offset:0,...(request.include_stats ? {stats}:{})} as never;
+    throw new Error(request.type);
+  });
+  render(<StudySetup banks={banks} initialBank="one" initialFilter="" busy={false} run={job=>{void job();}} onStart={async()=>{}} onClose={()=>{}}/>);
+  await screen.findByText(/可用 2 题/);
+  await userEvent.click(screen.getByText(/高级设置/,{selector:"summary"}));
+  await userEvent.selectOptions(screen.getByLabelText("选题方式"),"manual");
+  await screen.findByRole("checkbox",{name:rows[0].question.stem!});
+  await userEvent.type(screen.getByRole("textbox",{name:"搜索题目"}),"shared");
+  await waitFor(()=>expect(api).toHaveBeenCalledWith(expect.objectContaining({type:"questions_page",search:"shared",include_stats:true})));
+  await screen.findByText(/关键词：shared/);
+  expect(vi.mocked(api).mock.calls.filter(([r])=>r.type==="question_stats")).toHaveLength(1);
+});

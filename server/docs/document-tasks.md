@@ -21,6 +21,8 @@ First obtain a `document` reference through the [authenticated upload API](servi
 
 `GET /api/document-tasks/{threadId}` returns `threadId`, `runId`, `parentThreadId`, `fileName`, `modelConfigured`, `resumeCompatible`, `state`, `phase`, `progress`, `failures`, `blocking`, `allowedActions`, `checkpointId`, `expiresAt`, `updatedAt`, `status`, `result`, `processing`, `usage`, `unknownUsageCalls`, and `modelBudget`. Before the first checkpoint, it returns an opaque `pending:<runId>` token used only for task control. This is not a LangGraph checkpoint; clients must not parse or construct it.
 
+`GET /api/document-tasks/{threadId}/head` returns only `threadId`, `runId`, `state`, `checkpointId`, `updatedAt`, `modelConfigured` and `resumeCompatible`, using the same authentication, expiry and saved-state checks. `DocumentTaskHead` is the authoritative response model. The Web frontend uses this endpoint for subsequent polls of unchanged completed tasks; it still loads full details and previews initially, on changes and after explicit actions. Active tasks poll every 3 seconds and quiescent tasks every 30 seconds; hidden pages pause polling, and focus or visibility restoration refreshes. Head reads start no model work and still read the authoritative checkpoint.
+
 `DocumentTaskDetail` in `contracts.py` is the authoritative response model. The existing exporter derives `taskDetail` in `app/src-tauri/contracts.json` and shared TypeScript contracts for `app/` and `web/`; `app/scripts/export-contracts.py --check` rejects field, nullability, state, phase, or action drift.
 
 All detail fields are present. `runId`, `parentThreadId`, `checkpointId`, `status`, `result`, and `processing` can be null. `status` is `SUCCEEDED`, `PARTIAL`, or null; a running task may retain a previous result. `modelConfigured` reports whether the service has model settings, and `resumeCompatible` also checks the saved execution signature. `allowedActions` describes the saved task state; these flags do not start work or replace the model configuration and signature checks performed during control.
@@ -94,6 +96,8 @@ See [operations](operations.md) for deployment, exclusive locking, recovery acce
 
 Optional `sha256` filters by the source document's 64-character lowercase hexadecimal digest, with the same pagination. This supports duplicate-source reminders without parsing or making a model call. Optional `officeMode=pdf|text` filters Office deduplication by the persisted mode.
 
+List responses also include `nextCursor`, an opaque continuation token or null when there is no next page. Send a non-null token as `cursor` with the same `sha256`, `state_filter` and `officeMode` values to continue after the last returned creation time/task ID. Do not combine it with a nonzero `offset` or construct it yourself; invalid encoding, position or filter bindings return `INVALID_CURSOR`. Cursor length is limited to 2,048 characters. Existing offset pagination remains supported. Cursors do not freeze task states or the history; resetting filters starts a new first-page read. The Web frontend retains cursors for visited pages to avoid rescanning completed history.
+
 ## Read-only review preview
 
 `GET /api/document-tasks/{threadId}/preview` uses the same authentication and expiry checks. It returns threadId, checkpointId, state, phase, units, failures, quality, and questionSources. An example unit:
@@ -110,6 +114,8 @@ Optional `sha256` filters by the source document's 64-character lowercase hexade
 ```
 
 Stage review returns saved successful units and their source references; result review returns merged output plus source-only units with empty questions/groups and retained source references. Match `questionSources.stage` and `unitIndex` to these units to locate original text or page images. Failures identify failed scopes; quality and questionSources describe review issues and provenance. This endpoint does not merge, crop, call models, accept results, or write question banks. Read source content through the validated artifact API. Acceptance must carry the preview's checkpointId; an old preview cannot accept a newer result.
+
+Stage previews can contain the same question ID in different units. The Web review resolves material and shared-option references within the question's stage/unit first, and uses cross-unit fallback only for globally unique IDs. Ambiguous unresolved references retain their original metadata and the question's own options without displaying another unit's content.
 
 ## Recovery errors and request receipts
 

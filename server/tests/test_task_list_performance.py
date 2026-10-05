@@ -1,5 +1,6 @@
 import json
 from datetime import timedelta
+from typing import Any
 from unittest.mock import AsyncMock
 from uuid import uuid4
 
@@ -81,6 +82,29 @@ async def test_sparse_filter_and_completed_pages_do_not_decode_unrelated_history
     assert rejected.value.code == 'QUEUE_FULL' and admit.await_count == 1
     assert await service.db.rows('SELECT count(*) AS n FROM document_tasks') == before
     assert not model.calls
+
+    # Equal creation timestamps are ordered by thread ID; each cursor continues
+    # from the last returned match without decoding preceding pages again.
+    cursor = None
+    seen = set()
+    for _ in range(40):
+        service.task_summaries.clear()
+        snapshots.reset_mock()
+        page = await task_api.list_tasks(state_filter='completed', cursor=cursor)
+        ids = {item['threadId'] for item in page['items']}
+        assert not seen & ids
+        seen |= ids
+        assert snapshots.await_count <= 21
+        if not page['hasMore']:
+            assert page['nextCursor'] is None
+            break
+        cursor = page['nextCursor']
+    assert len(seen) == 600
+    invalid_requests: list[dict[str, Any]] = [{'cursor': cursor, 'offset': 1}, {'cursor': cursor, 'state_filter': 'paused'}, {'cursor': 'broken'}, {'cursor': '中文'}]
+    for kwargs in invalid_requests:
+        with pytest.raises(DocumentProcessingError) as invalid:
+            await task_api.list_tasks(**kwargs)
+        assert invalid.value.code == 'INVALID_CURSOR'
 
 
 async def test_filtered_candidates_use_latest_run_and_keep_ambiguous_interrupts_authoritative(monkeypatch):

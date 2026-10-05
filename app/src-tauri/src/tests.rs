@@ -128,7 +128,15 @@ fn paged_filters_preserve_complete_groups_and_drafts_survive_reopen() {
                         assert_eq!(page["total"], n);
                         combined.extend_from_slice(list(&page, "items"));
                     }
-                    assert_eq!(json!(combined), expected);
+                    assert_eq!(
+                        combined.iter().map(|r| &r["id"]).collect::<Vec<_>>(),
+                        expected
+                            .as_array()
+                            .unwrap()
+                            .iter()
+                            .map(|r| &r["id"])
+                            .collect::<Vec<_>>()
+                    );
                 }
             }
         }
@@ -141,18 +149,24 @@ fn paged_filters_preserve_complete_groups_and_drafts_survive_reopen() {
         )
         .unwrap();
     assert_eq!(favorites["items"][0]["id"], all[0]["id"]);
+    assert!(favorites["items"][0]["children"].is_null());
     assert_eq!(
-        list(&favorites["items"][0], "children").len(),
-        list(&all[0], "children").len()
+        favorites["items"][0]["answerableCount"],
+        all[0]["answerableCount"]
     );
+    assert_eq!(favorites["items"][0]["favorite"], true);
     assert_eq!(
         s.query_questions(
             &[plain.clone(), grouped.clone()],
             ("", "", ""),
             Some((30, 0))
         )
-        .unwrap()["items"],
-        s.questions(None, "", "", "").unwrap()
+        .unwrap()["total"],
+        s.questions(None, "", "", "")
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .len()
     );
     assert!(s.query_questions(&[], ("", "", ""), Some((0, 0))).is_err());
     assert!(s.question_stats(&[], ("", "invalid", "")).is_err());

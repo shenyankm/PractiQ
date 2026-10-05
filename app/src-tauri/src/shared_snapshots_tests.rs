@@ -45,6 +45,7 @@ fn shared_session(
 }
 
 fn expand(mut session: Value) -> Value {
+    session.as_object_mut().unwrap().remove("attemptKey");
     let content = session["snapshotDocument"].take();
     session.as_object_mut().unwrap().remove("snapshotDocument");
     for attempt in session["attempts"].as_array_mut().unwrap() {
@@ -411,4 +412,43 @@ fn shared_snapshot_stress() {
         std::fs::write(output, serde_json::to_vec_pretty(&report).unwrap()).unwrap();
     }
     println!("{report}");
+}
+
+#[test]
+fn mutable_deltas_are_bound_to_the_current_view_and_fall_back_after_visibility_changes() {
+    let (_dir, store) = shared_session(1000, "reading", "self_test", 1000);
+    let first = store.session_data("shared", None).unwrap();
+    let key = format!(
+        "{}:{}",
+        text(&first, "snapshotKey"),
+        text(&first, "attemptKey")
+    );
+    let delta = store
+        .flag_with_key("shared", 500, true, Some(&key))
+        .unwrap();
+    assert_eq!(delta["attemptCount"], 1000);
+    assert_eq!(delta["attemptsBase"], first["attemptKey"]);
+    assert_eq!(list(&delta, "attempts").len(), 1);
+    assert_eq!(delta["attempts"][0]["ordinal"], 500);
+    assert_eq!(delta["attempts"][0]["flagged"], true);
+    assert!(delta["attempts"][0]["snapshot"].is_null());
+    assert!(serde_json::to_vec(&delta).unwrap().len() < 2000);
+    // A stale base (including another concurrent view) receives all mutable attempts.
+    let fallback = store.session_data("shared", Some(&key)).unwrap();
+    assert!(fallback["attemptsBase"].is_null());
+    assert_eq!(list(&fallback, "attempts").len(), 1000);
+    let key = format!(
+        "{}:{}",
+        text(&fallback, "snapshotKey"),
+        text(&fallback, "attemptKey")
+    );
+    store
+        .connect()
+        .unwrap()
+        .execute("UPDATE sessions SET submitted_at=1 WHERE id='shared'", [])
+        .unwrap();
+    let revealed = store.session_data("shared", Some(&key)).unwrap();
+    assert!(revealed["attemptsBase"].is_null());
+    assert!(revealed["attempts"][0]["snapshot"].is_object());
+    assert_ne!(revealed["snapshotKey"], first["snapshotKey"]);
 }

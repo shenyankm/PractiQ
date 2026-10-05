@@ -66,7 +66,8 @@ fn confirmation_filters_complete_trees_and_persists_without_changing_source_flag
         )
         .unwrap();
     assert_eq!(page["total"], 1);
-    assert_eq!(page["items"], pending);
+    assert_eq!(page["items"][0]["id"], pending[0]["id"]);
+    assert_eq!(page["items"][0]["reviewRequired"], true);
     assert!(
         store
             .question_stats(std::slice::from_ref(&bank), ("", "", "review"))
@@ -155,7 +156,8 @@ fn review_search_matches_other_nodes_and_shared_content_in_a_pending_tree() {
                 Some((1, 0)),
             )
             .unwrap();
-        assert_eq!(page["items"], pending);
+        assert_eq!(page["items"][0]["id"], pending[0]["id"]);
+        assert_eq!(page["items"][0]["reviewRequired"], true);
         assert_eq!(page["total"], 1);
         assert_eq!(
             store
@@ -312,4 +314,53 @@ fn full_backup_keeps_confirmation_but_shared_copies_and_snapshots_exclude_it() {
         .unwrap();
     assert_eq!(merged_pending.as_array().unwrap().len(), 1);
     assert!(merged_pending[0]["reviewedAt"].is_null());
+}
+
+#[test]
+fn list_summaries_preserve_child_flags_and_fetch_the_material_only_on_demand() {
+    let (_dir, store, bank, root) = setup();
+    let detail = store.question_detail(&root).unwrap();
+    let child = text(&detail["children"][0], "id");
+    store.favorite(child, true).unwrap();
+    let db = store.connect().unwrap();
+    db.execute("INSERT INTO sessions(id,bank_title,created_at,position,mode,kind) VALUES('summary','Test',1,0,'ordered','practice')",[]).unwrap();
+    db.execute(
+        "INSERT INTO session_documents VALUES('summary',?1)",
+        [crate::questions::freeze(&store.question_rows().unwrap()).to_string()],
+    )
+    .unwrap();
+    db.execute("INSERT INTO attempts(session_id,ordinal,question_id,snapshot_question_id,result,submitted_at,max_cents,earned_cents) VALUES('summary',0,?1,?1,0,1,100,50)",[child]).unwrap();
+    let page = store
+        .questions_with_stats(&[bank], ("", "", ""), (30, 0))
+        .unwrap();
+    let summary = list(&page, "items")
+        .iter()
+        .find(|r| r["id"] == root)
+        .unwrap();
+    assert_eq!(summary["answerableCount"], 6);
+    assert_eq!(summary["reviewRequired"], true);
+    assert_eq!(summary["favorite"], true);
+    assert_eq!(summary["hasWrong"], true);
+    assert_eq!(summary["hasPartialScore"], true);
+    assert!(summary["children"].is_null() && summary["question"]["passage"].is_null());
+    assert_eq!(page["stats"]["count"], 10);
+    let full = store.question_detail(&root).unwrap();
+    assert_eq!(list(&full, "children").len(), 8);
+    assert_eq!(full["question"], detail["question"]);
+    assert!(list(&full, "children")
+        .iter()
+        .all(|row| row["materials"].is_null()));
+    assert!(store.question_detail(child).is_err());
+    assert!(store.question_detail("missing").is_err());
+    store.review_question(&root, true).unwrap();
+    let page = store
+        .query_questions(&[], ("", "", ""), Some((30, 0)))
+        .unwrap();
+    assert_eq!(
+        list(&page, "items")
+            .iter()
+            .find(|r| r["id"] == root)
+            .unwrap()["reviewRequired"],
+        false
+    );
 }

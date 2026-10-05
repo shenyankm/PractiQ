@@ -96,6 +96,7 @@ pub struct Store {
     pub session_clock: crate::session_clock::SessionClock,
     pub session_epoch: u64,
     pub session_document_cache: std::cell::RefCell<Option<(String, std::sync::Arc<Value>)>>,
+    pub session_attempt_cache: std::cell::RefCell<Option<(String, Vec<Value>)>>,
     pub locale: crate::language::Locale,
     pub dir: PathBuf,
     pub pending: Option<Pending>,
@@ -129,7 +130,7 @@ fn searchable_content_matches(value: &Value, search: &str) -> bool {
     }
 }
 
-fn search_roots(
+pub(crate) fn search_roots(
     db: &Connection,
     banks: &[String],
     candidates: Vec<String>,
@@ -636,10 +637,18 @@ impl Store {
         query: (&str, &str, &str),
         page: Option<(usize, usize)>,
     ) -> Result<Value> {
-        self.query_question_data(banks, query, page, false)
+        self.query_question_data(banks, query, page, false, false)
     }
     pub fn question_stats(&self, banks: &[String], query: (&str, &str, &str)) -> Result<Value> {
-        self.query_question_data(banks, query, None, true)
+        self.query_question_data(banks, query, None, true, false)
+    }
+    pub fn questions_with_stats(
+        &self,
+        banks: &[String],
+        query: (&str, &str, &str),
+        page: (usize, usize),
+    ) -> Result<Value> {
+        self.query_question_data(banks, query, Some(page), false, true)
     }
     fn query_question_data(
         &self,
@@ -647,6 +656,7 @@ impl Store {
         query: (&str, &str, &str),
         page: Option<(usize, usize)>,
         stats_only: bool,
+        include_stats: bool,
     ) -> Result<Value> {
         let (search, mode, filter) = query;
         crate::questions::validate_filter(banks, mode, filter)?;
@@ -664,7 +674,7 @@ impl Store {
             search_roots(&db, banks, candidates, search, mode, filter)?
         };
         let total = ids.len();
-        if stats_only {
+        let stats = if stats_only || include_stats {
             let mut statement = db.prepare(&format!("
                 WITH RECURSIVE tree(root,id) AS (
                     SELECT value,value FROM json_each(?1)
@@ -689,9 +699,14 @@ impl Store {
                 count += answerable;
                 weights.push(answerable);
             }
-            return Ok(
+            Some(
                 json!({"count":count,"types":types,"feasibleCounts":crate::paper::feasible_counts(&weights)}),
-            );
+            )
+        } else {
+            None
+        };
+        if stats_only {
+            return Ok(stats.unwrap());
         }
         let offset = if let Some((limit, offset)) = page {
             let offset = offset.min(total.saturating_sub(1) / limit * limit);
@@ -700,6 +715,13 @@ impl Store {
         } else {
             0
         };
+        if page.is_some() {
+            let mut result = json!({"items":crate::questions::summaries(&db, &ids)?,"total":total,"offset":offset});
+            if let Some(stats) = stats {
+                result["stats"] = stats;
+            }
+            return Ok(result);
+        }
         let rows = crate::questions::read_scoped(&db, banks, Some(&ids))?;
         let index = crate::questions::Index::new(&rows);
         let mut results = Vec::with_capacity(ids.len());
@@ -731,6 +753,27 @@ impl Store {
         } else {
             json!(results)
         })
+    }
+    pub fn question_detail(&self, qid: &str) -> Result<Value> {
+        let db = self.connect()?;
+        let rows = crate::questions::read_scoped(&db, &[], Some(&[qid.to_owned()]))?;
+        let row = rows
+            .iter()
+            .find(|r| text(r, "id") == qid && r["question"]["parentId"].is_null())
+            .ok_or("Question root is missing")?;
+        let index = crate::questions::Index::new(&rows);
+        let mut root = index.hydrate(row);
+        root["answerableCount"] = json!(index.trees[qid]
+            .iter()
+            .filter(|row| !crate::questions::composite(&row["question"]))
+            .count());
+        root["favorite"] = json!(index.trees[qid].iter().any(|row| row["favorite"] == true));
+        // The viewer/editor receives the tree once; ancestor material stays on its owner.
+        root["children"] = json!(index.trees[qid]
+            .iter()
+            .filter(|r| text(r, "id") != qid)
+            .collect::<Vec<_>>());
+        Ok(root)
     }
     #[cfg(test)]
     pub fn save_question(

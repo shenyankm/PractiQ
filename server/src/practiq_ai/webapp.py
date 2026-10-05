@@ -28,6 +28,7 @@ from practiq_ai.contracts import (
     DocumentTaskControl,
     DocumentTaskCreate,
     DocumentTaskDetail,
+    DocumentTaskHead,
     DocumentTaskList,
     DocumentTaskReceipt,
     DocumentTaskReparse,
@@ -184,13 +185,19 @@ async def create_document_task(request: DocumentTaskCreate) -> dict[str, Any]:
 @app.get("/api/document-tasks", response_model=DocumentTaskList, dependencies=[Depends(authorize)])
 async def list_document_tasks(limit: int = Query(default=20, ge=1, le=100), offset: int = Query(default=0, ge=0),
                               sha256: str | None = Query(default=None, pattern=r'^[a-f0-9]{64}$'),
-                              state_filter: task_api.TaskFilter | None = None, officeMode: OfficeMode | None = None):
-    return await _task_response(task_api.list_tasks(limit, offset, sha256, state_filter, officeMode))
+                              state_filter: task_api.TaskFilter | None = None, officeMode: OfficeMode | None = None,
+                              cursor: str | None = Query(default=None, max_length=2048)):
+    return await _task_response(task_api.list_tasks(limit, offset, sha256, state_filter, officeMode, cursor))
 
 
 @app.get("/api/document-tasks/{thread_id}", response_model=DocumentTaskDetail, dependencies=[Depends(authorize)])
 async def get_document_task(thread_id: UUID) -> dict[str, Any]:
     return await _task_response(task_api.get_task(str(thread_id)))
+
+
+@app.get("/api/document-tasks/{thread_id}/head", response_model=DocumentTaskHead, dependencies=[Depends(authorize)])
+async def get_document_task_head(thread_id: UUID) -> dict[str, Any]:
+    return await _task_response(task_api.get_task_head(str(thread_id)))
 
 
 @app.delete("/api/document-tasks/{thread_id}", dependencies=[Depends(authorize)])

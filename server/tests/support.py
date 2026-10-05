@@ -100,6 +100,8 @@ class FakeObjectStore:
     ):
         digest = hashlib.sha256(payload).hexdigest()
         key = f"artifact/{source_sha256}/{kind}/{index}/{digest}"
+        if kind == "unit-result":
+            key = f"practiq-agent/artifacts/{source_sha256}/{kind}/{index}-{digest}.json"
         self.blobs[key] = payload
         self.put_kinds.append(kind)
         return ArtifactReference(

@@ -139,6 +139,34 @@ fn desktop_stress() {
             .unwrap();
         store.session_data("exam0", Some(key)).unwrap()
     });
+    let mut cached = store.session_data("exam0", None).unwrap();
+    report["positionDelta"] = measure(|| {
+        let key = format!(
+            "{}:{}",
+            text(&cached, "snapshotKey"),
+            text(&cached, "attemptKey")
+        );
+        let update = store.position("exam0", 1, Some(&key)).unwrap();
+        assert!(list(&update, "attempts").is_empty());
+        cached = update.clone();
+        update
+    });
+    let mut answer = false;
+    report["saveAttemptDelta"] = measure(|| {
+        let key = format!(
+            "{}:{}",
+            text(&cached, "snapshotKey"),
+            text(&cached, "attemptKey")
+        );
+        store
+            .write_attempt(("exam0", 0), json!({"value":answer}), 0, false, false)
+            .unwrap();
+        answer = !answer;
+        let update = store.session_data("exam0", Some(&key)).unwrap();
+        assert_eq!(list(&update, "attempts").len(), 1);
+        cached = update.clone();
+        update
+    });
     report["saveDraft"] = measure(|| {
         store
             .save_draft(("exam0", 0), json!({"value":true}), 0)
@@ -201,4 +229,59 @@ fn desktop_stress() {
         std::env::var("PRACTIQ_BENCH_OUTPUT").expect("set PRACTIQ_BENCH_OUTPUT to the report path");
     std::fs::write(output, serde_json::to_vec_pretty(&report).unwrap()).unwrap();
     println!("{report}");
+}
+
+#[test]
+#[ignore = "large composite list and subset-sum profile"]
+fn list_and_selection_stress() {
+    let mut report = json!({"method":"Release Rust; disposable database; synthetic valid reading groups; 3 sequential samples; excludes IPC/WebView","compositeLists":[],"subsetCounts":[]});
+    for (children, material_bytes) in [(500usize, 50_000usize), (999, 100_000)] {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::new(dir.path().into()).unwrap();
+        let mut db = store.connect().unwrap();
+        let tx = db.transaction().unwrap();
+        tx.execute("INSERT INTO banks VALUES('bank','Bank','',1)", [])
+            .unwrap();
+        tx.execute("INSERT INTO questions(id,bank_id,position,stem,mode,content_blocks,confidence,needs_review,missing_fields) VALUES('root','bank',0,'Material','reading','[]',1,0,'[]')",[]).unwrap();
+        tx.execute(
+            "INSERT INTO reading_questions VALUES('root',?1)",
+            [json!([{"partType":"text","textValue":"x".repeat(material_bytes)}]).to_string()],
+        )
+        .unwrap();
+        for i in 0..children {
+            let qid = format!("q{i}");
+            tx.execute("INSERT INTO questions(id,bank_id,parent_id,position,stem,mode,content_blocks,confidence,needs_review,missing_fields) VALUES(?1,'bank','root',?2,?3,'true_false','[]',1,0,'[]')",params![qid,i+1,format!("Child {i}")]).unwrap();
+            tx.execute("INSERT INTO true_false_questions VALUES(?1,'true')", [qid])
+                .unwrap();
+        }
+        tx.commit().unwrap();
+        let measured = measure(|| {
+            let page = store
+                .query_questions(&[], ("", "", ""), Some((30, 0)))
+                .unwrap();
+            assert_eq!(page["total"], 1);
+            assert!(page["items"][0]["children"].is_null());
+            assert_eq!(page["items"][0]["answerableCount"], children);
+            page
+        });
+        report["compositeLists"].as_array_mut().unwrap().push(json!({"rootPageLimit":30,"returnedRoots":1,"children":children,"materialBytes":material_bytes,"measurement":measured}));
+    }
+    for count in [10_000usize, 100_000] {
+        let weights = vec![1usize; count];
+        let measured = measure(|| {
+            let counts = crate::paper::feasible_counts(&weights);
+            assert_eq!(counts, (1..=1000).collect::<Vec<_>>());
+            json!(counts)
+        });
+        report["subsetCounts"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!({"roots":count,"weight":1,"measurement":measured}));
+    }
+    std::fs::write(
+        std::env::var("PRACTIQ_BENCH_OUTPUT").expect("set PRACTIQ_BENCH_OUTPUT"),
+        serde_json::to_string_pretty(&report).unwrap(),
+    )
+    .unwrap();
+    println!("{}", report);
 }

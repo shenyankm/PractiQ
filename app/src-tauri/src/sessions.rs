@@ -104,6 +104,14 @@ impl Store {
         snapshot_key: Option<&str>,
         compact: bool,
     ) -> Result<Value> {
+        let (snapshot_key, attempt_key) = snapshot_key
+            .map(|key| {
+                key.split_once(':')
+                    .map_or((Some(key), None), |(snapshot, attempts)| {
+                        (Some(snapshot), Some(attempts))
+                    })
+            })
+            .unwrap_or((None, None));
         self.expire_exam_with(db, sid)?;
         let mut session=db.query_row("SELECT id,bank_title,created_at,finished_at,position,mode,kind,deadline_at,submitted_at FROM sessions WHERE id=?1",[sid],|r|Ok(json!({"id":r.get::<_,String>(0)?,"title":r.get::<_,String>(1)?,"createdAt":r.get::<_,i64>(2)?,"finishedAt":r.get::<_,Option<i64>>(3)?,"position":r.get::<_,i64>(4)?,"mode":r.get::<_,String>(5)?,"kind":r.get::<_,String>(6)?,"deadlineAt":r.get::<_,Option<i64>>(7)?,"submittedAt":r.get::<_,Option<i64>>(8)?}))).map_err(err)?;
         let mut stmt=db.prepare("SELECT a.ordinal,a.snapshot_question_id,a.answer,a.auto_result,a.result,a.grade_kind,a.submitted_at,a.skipped,a.elapsed_ms,a.max_cents,a.earned_cents,a.flagged,a.grading,q.favorite FROM attempts a LEFT JOIN questions q ON q.id=a.question_id WHERE a.session_id=?1 ORDER BY a.ordinal").map_err(err)?;
@@ -172,7 +180,7 @@ impl Store {
             session["clockNow"] = json!(self.session_clock.now()?);
         }
         session["snapshotKey"] = json!(key);
-        session["attempts"] = json!(attempts);
+        session["attempts"] = Value::Array(attempts);
         let mut banks = db.prepare("SELECT q.bank_id FROM attempts a JOIN questions q ON q.id=a.question_id WHERE a.session_id=?1 GROUP BY q.bank_id ORDER BY MIN(a.ordinal)").map_err(err)?;
         session["bankIds"] = json!(banks
             .query_map([sid], |r| r.get::<_, String>(0))
@@ -189,6 +197,50 @@ impl Store {
                     a["autoResult"] = Value::Null;
                 }
             }
+            let mutable = if snapshot_key == session["snapshotKey"].as_str() {
+                match session["attempts"].take() {
+                    Value::Array(attempts) => attempts,
+                    _ => unreachable!(),
+                }
+            } else {
+                list(&session, "attempts")
+                    .iter()
+                    .map(|attempt| {
+                        let mut value = attempt.clone();
+                        value.as_object_mut().unwrap().remove("snapshot");
+                        value
+                    })
+                    .collect()
+            };
+            let bytes =
+                serde_json::to_vec(&(sid, &session["snapshotKey"], &mutable)).map_err(err)?;
+            let attempt_revision = crate::store::hash(&bytes);
+            if snapshot_key == session["snapshotKey"].as_str() {
+                if let Some((cached_key, cached)) = self.session_attempt_cache.borrow().as_ref() {
+                    if attempt_key == Some(cached_key.as_str())
+                        && cached.len() == mutable.len()
+                        && cached
+                            .iter()
+                            .zip(&mutable)
+                            .all(|(old, new)| old["ordinal"] == new["ordinal"])
+                    {
+                        session["attempts"] = json!(mutable
+                            .iter()
+                            .zip(cached)
+                            .filter_map(|(new, old)| (new != old).then_some(new))
+                            .collect::<Vec<_>>());
+                        session["attemptsBase"] = json!(cached_key);
+                        session["attemptCount"] = json!(mutable.len());
+                    }
+                }
+            }
+            if session["attempts"].is_null() {
+                session["attempts"] = json!(mutable);
+            }
+            session["attemptKey"] = json!(attempt_revision);
+            // ponytail: cache one view, capped at 8 MiB; mismatched views use the full response.
+            *self.session_attempt_cache.borrow_mut() =
+                (bytes.len() <= 8 * 1024 * 1024).then_some((attempt_revision, mutable));
         } else {
             Self::enrich_session(&mut session)?;
             crate::audio::redact_session(&mut session);

@@ -59,8 +59,7 @@ test('preview question filters preserve imported warnings through review confirm
  await expect(dialog.getByRole('button',{name:'撤销复核确认',exact:true})).toBeVisible();
  const stored=await page.evaluate(async()=>{
   const {invoke}=await import('/src/transport.ts');
-  const result=await invoke('request',{request:{type:'questions_page',bank_ids:['preview-bank-0'],search:'',mode:'',filter:'',offset:0,limit:20}});
-  return result.items.find(row=>row.id==='0-q8');
+  return invoke('request',{request:{type:'question_detail',id:'0-q8'}});
  });
  expect(stored.question.needsReview).toBe(true);
  expect(stored.reviewedAt).toBeGreaterThan(0);
@@ -443,7 +442,8 @@ test('preview material dialog hides ancestor answer passage before submission',a
  const source=await page.evaluate(async()=>{
   const {invoke}=await import('/src/transport.ts');
   const result=await invoke('request',{request:{type:'questions_page',bank_ids:['preview-bank-2'],search:'',mode:'reading',filter:'',offset:0,limit:20}});
-  return result.items[0].question.passage;
+  const detail=await invoke('request',{request:{type:'question_detail',id:result.items[0].id}});
+  return detail.question.passage;
  });
  expect(source.some(block=>block.textValue==='Hidden preview solution marker')).toBe(true);
 });

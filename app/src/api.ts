@@ -5,7 +5,7 @@ import { invoke } from "./transport";
 import type { Question, Answer, ArtifactReference, ParsedOption as Option, ParsedItem as Item, ContentBlock as Block } from "./contracts.generated";
 export type { Question, Answer, Option, Item, Block };
 export type Mode = NonNullable<Question["answerMode"]>;
-export function isComposite(q: Question) { return COMPOSITE_MODES.includes(q.answerMode || ""); }
+export function isComposite(q: Pick<Question, "answerMode">) { return COMPOSITE_MODES.includes(q.answerMode || ""); }
 export function modeNames(): Record<string, string> { return {
   choice: t("选择题"),
   true_false: t("判断题"),
@@ -78,7 +78,13 @@ export interface QuestionRow extends Snapshot {
   favorite: boolean;
   latestResult: boolean | null;
 }
-export interface QuestionPage { items: QuestionRow[]; total: number; offset: number }
+export interface QuestionSummary extends Pick<QuestionRow, "id" | "bankId" | "bankTitle" | "favorite" | "answerableCount" | "latestScore"> {
+  question: Pick<Question, "id" | "stem" | "sourceText" | "answerMode" | "questionKind" | "choiceVariant">;
+  reviewRequired?: boolean;
+  hasWrong?: boolean;
+  hasPartialScore?: boolean;
+}
+export interface QuestionPage { items: QuestionSummary[]; total: number; offset: number; stats?: QuestionStats }
 export interface BankChoice { id: string; title: string; count: number }
 export interface BankPage { items: Bank[]; total: number; offset: number }
 export interface SessionPage { items: SessionSummary[]; total: number; offset: number }
@@ -114,6 +120,7 @@ export type SessionKind = "practice" | "self_test" | "mock_exam";
 export interface Session {
   clockNow?: number;
   snapshotKey?: string;
+  attemptKey?: string;
   bankIds?: string[];
   kind?: SessionKind;
   deadlineAt?: number | null;
@@ -216,11 +223,11 @@ export type Request =
   | { type: "import"; ticket: string; bank_id: string | null; title: string }
   | { type: "save_bank"; id: string | null; title: string; description: string }
   | {
-      type: "delete_bank" | "delete_question" | "session" | "finish";
+      type: "delete_bank" | "delete_question" | "question_detail" | "session" | "finish";
       id: string;
     }
   | ({ type: "question_stats" } & Query)
-  | ({ type: "questions_page"; limit: number; offset: number } & Query)
+  | ({ type: "questions_page"; limit: number; offset: number; include_stats?: boolean } & Query)
   | { type: "favorite"; id: string; value: boolean }
   | { type: "review_question"; id: string; reviewed: boolean }
   | { type: "save_draft"; id: string; ordinal: number; answer: Answer | null; elapsed_ms: number }
@@ -264,6 +271,7 @@ type ResponseMap = {
   position: Session;
   preview_paper: PaperPreview;
   question_stats: QuestionStats;
+  question_detail: QuestionRow;
   questions_page: QuestionPage;
   restore: { recoveryPath: string } | null;
   retry_wrong: Session;
@@ -285,10 +293,20 @@ type ResponseMap = {
 let lastSession: Session | undefined;
 let sessionEpoch = 0;
 export function sessionSnapshotKey(id: string): string | undefined {
-  return lastSession?.id === id ? lastSession.snapshotKey : undefined;
+  return lastSession?.id === id ? lastSession.attemptKey ? `${lastSession.snapshotKey}:${lastSession.attemptKey}` : lastSession.snapshotKey : undefined;
 }
-function expandSession(session: Session): Session {
-  const wire = session as Session & {snapshotDocument?: unknown[]};
+function expandSession(session: Session, base?: Session): Session {
+  const wire = session as Session & {snapshotDocument?: unknown[]; attemptsBase?: string; attemptCount?: number};
+  if (wire.attemptsBase != null) {
+    if (!base || base.id !== session.id || base.snapshotKey !== session.snapshotKey || base.attemptKey !== wire.attemptsBase || base.attempts.length !== wire.attemptCount) throw new Error("Missing session attempt base");
+    const patches = new Map<number, typeof session.attempts[number]>();
+    for (const patch of session.attempts) {
+      if (!Number.isInteger(patch.ordinal) || base.attempts[patch.ordinal]?.ordinal !== patch.ordinal || patches.has(patch.ordinal) || patch.snapshot) throw new Error("Invalid session attempt patch");
+      patches.set(patch.ordinal,patch);
+    }
+    const {attemptsBase:_base,attemptCount:_count,...fields} = wire;
+    return {...fields,attempts:base.attempts.map(attempt => patches.has(attempt.ordinal) ? {...patches.get(attempt.ordinal)!,snapshot:attempt.snapshot} : attempt)};
+  }
   if (!wire.snapshotDocument) {
     if (session.attempts.some(a => a.snapshot && "snapshotRefs" in a.snapshot)) throw new Error("Missing session snapshot document");
     return session;
@@ -318,11 +336,11 @@ function expandSession(session: Session): Session {
 export async function runSessionRequest<T>(id: string, send: (snapshotKey?: string) => Promise<T>): Promise<T> {
   const epoch = sessionEpoch;
   const base = lastSession?.id === id ? lastSession : undefined;
-  let result: T = await send(base?.snapshotKey);
+  let result: T = await send(base?.attemptKey ? `${base.snapshotKey}:${base.attemptKey}` : base?.snapshotKey);
   if (result && typeof result === "object" && "snapshotKey" in result && "attempts" in result) {
     let session: Session;
     try {
-      session = expandSession(result as unknown as Session);
+      session = expandSession(result as unknown as Session, base);
     } catch {
       session = expandSession(await invoke<Session>("request", {request:{type:"session",id:(result as unknown as Session).id},locale:locale()}));
     }

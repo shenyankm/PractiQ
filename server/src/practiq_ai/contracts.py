@@ -839,6 +839,17 @@ class DocumentTaskSummary(StrictModel):
 class DocumentTaskList(StrictModel):
     items: list[DocumentTaskSummary]
     hasMore: bool
+    nextCursor: str | None = None
+
+
+class DocumentTaskHead(StrictModel):
+    threadId: UUID
+    runId: UUID | None
+    state: TaskState
+    checkpointId: str | None
+    updatedAt: str
+    modelConfigured: bool
+    resumeCompatible: bool
 
 
 class ReviewUnit(StrictModel):

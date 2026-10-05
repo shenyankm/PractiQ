@@ -162,3 +162,36 @@ it("deletes an expired row despite 410 detail reads only after confirmation, ret
   expect(http.calls.filter(call => call.method === "DELETE")).toHaveLength(2); expect(http.records.has(taskId)).toBe(false);
   expect(screen.getByText("选择一个任务查看结果")).toBeTruthy();
 });
+
+
+it("uses lightweight completed heads, skips unchanged previews and refreshes on focus", async () => {
+  const user = userEvent.setup(); const http = fakeHTTP(); render(<App />); await connect(user); await openTask(user);
+  const reads = () => ({detail:http.calls.filter(c=>c.url.endsWith(`/${taskId}`)).length,preview:http.calls.filter(c=>c.url.endsWith("/preview")).length,head:http.calls.filter(c=>c.url.endsWith("/head")).length});
+  expect(reads()).toEqual({detail:1,preview:1,head:0});
+  vi.useFakeTimers(); await act(async()=>{window.dispatchEvent(new Event("focus"));});
+  expect(reads()).toEqual({detail:2,preview:2,head:0});
+  await act(async()=>vi.advanceTimersByTimeAsync(30000));
+  expect(reads()).toEqual({detail:2,preview:2,head:1});
+  await act(async()=>{ window.dispatchEvent(new Event("focus")); });
+  expect(reads()).toEqual({detail:3,preview:3,head:1}); vi.useRealTimers();
+});
+it("pauses background polling and reloads when the document becomes visible", async () => {
+  const user = userEvent.setup(); const http = fakeHTTP({...task,state:"RUNNING",allowedActions:["pause"]}); render(<App/>); await connect(user); await openTask(user);
+  vi.useFakeTimers(); await act(async()=>{window.dispatchEvent(new Event("focus"));});
+  const count = http.calls.length;
+  Object.defineProperty(document,"hidden",{configurable:true,value:true});
+  await act(async()=>{document.dispatchEvent(new Event("visibilitychange"));await vi.advanceTimersByTimeAsync(9000);});
+  expect(http.calls).toHaveLength(count);
+  Object.defineProperty(document,"hidden",{configurable:true,value:false});
+  await act(async()=>{document.dispatchEvent(new Event("visibilitychange"));});
+  expect(http.calls.length).toBeGreaterThan(count); vi.useRealTimers();
+});
+it("keeps a cursor per visited page and resets it when filters change", async () => {
+  const user = userEvent.setup(); const http = fakeHTTP(); http.server.intercept = url => url.startsWith("/api/document-tasks?") ? json({items:[summary],hasMore:true,nextCursor:"next-page"}):undefined;
+  render(<App/>); await connect(user); await screen.findByRole("button",{name:/sample.docx/});
+  await user.click(screen.getByRole("button",{name:"下一页任务"})); await waitFor(()=>expect(http.calls.at(-1)?.url).toContain("cursor=next-page"));
+  await user.click(screen.getByRole("button",{name:"上一页任务"})); await waitFor(()=>expect(http.calls.at(-1)?.url).toContain("offset=0"));
+  expect(http.calls.at(-1)?.url).not.toContain("cursor=");
+  await user.selectOptions(screen.getByLabelText("筛选任务状态"),"failed"); await waitFor(()=>expect(http.calls.at(-1)?.url).toContain("state_filter=failed"));
+  expect(http.calls.at(-1)?.url).not.toContain("cursor=");
+});
