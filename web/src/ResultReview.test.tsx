@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { expect, it, vi } from "vitest";
 import ResultReview, { ImageArtifact, Markdown } from "./ResultReview";
 import { Client } from "./api";
-import { preview, question, task } from "./test-fixtures";
+import { material, preview, question, task } from "./test-fixtures";
 
 it("disables raw HTML, external links/images and trusted math extensions", () => {
   const { container } = render(<Markdown text={'<script>window.injected=true</script>\n\n![外图](https://untrusted.invalid/image.png) [链接](https://untrusted.invalid)\n\n$x^2$'} />);
@@ -96,4 +96,33 @@ it("paginates source resources and preserves unit-local duplicate question refer
   await user.click(screen.getByRole("button",{name:"下一页资源"}));
   expect(screen.getByText("Group 0-20")).toBeTruthy(); expect(screen.queryByText("Group 0-0")).toBeNull();
   await user.click(screen.getByRole("button",{name:"上一页资源"})); expect(screen.getByText("Group 0-0")).toBeTruthy();
+});
+
+it("uses local duplicate owners and only unique cross-unit material and options", async () => {
+  const user = userEvent.setup();
+  const owners = [0, 1].map(index => ({ ...material, id: "owner", stem: `Material ${index}`, passage: [{ partType: "text" as const, textValue: `Passage ${index}` }], options: [{ label: "A", content: `Shared option ${index}` }] }));
+  const unique = { ...material, id: "unique", stem: "Unique material", options: [{ label: "A", content: "Unique option" }] };
+  const units = [
+    [owners[0], unique, question({ id: "local-0", stem: "Local child 0", parentId: "owner", optionSourceId: "owner" })],
+    [owners[1], question({ id: "local-1", stem: "Local child 1", parentId: "owner", optionSourceId: "owner" })],
+    [question({ id: "unresolved", stem: "Unresolved child", parentId: "owner", optionSourceId: "owner", options: [{ label: "A", content: "Own unresolved option" }] }), question({ id: "unique-child", stem: "Unique child", parentId: "unique", optionSourceId: "unique" })],
+  ].map((questions, index) => ({ ...preview.units[0], stage: "document_parse" as const, index, questions, groups: [] }));
+  render(<ResultReview task={task} preview={{ ...preview, units, questionSources: [] }} client={new Client("fake")} />);
+  for (const index of [0, 1]) {
+    await user.click(screen.getByText(`Local child ${index}`));
+    const child = within(screen.getByText(`Local child ${index}`, { selector: "summary span" }).closest("details")!);
+    expect(child.getByText(`Material ${index}`)).toBeTruthy();
+    expect(child.getByText(`Passage ${index}`)).toBeTruthy();
+    expect(child.getByText(`Shared option ${index}`)).toBeTruthy();
+    expect(child.queryByText(`Shared option ${1 - index}`)).toBeNull();
+  }
+  await user.click(screen.getByText("Unresolved child"));
+  const unresolved = within(screen.getByText("Unresolved child", { selector: "summary span" }).closest("details")!);
+  expect(unresolved.queryByRole("heading", { name: "所属材料 · owner" })).toBeNull();
+  expect(unresolved.queryByRole("heading", { name: "共享选项 · owner" })).toBeNull();
+  expect(unresolved.getByText("Own unresolved option")).toBeTruthy();
+  await user.click(screen.getByText("Unique child"));
+  const child = within(screen.getByText("Unique child", { selector: "summary span" }).closest("details")!);
+  expect(child.getByText("Unique material")).toBeTruthy();
+  expect(child.getByText("Unique option")).toBeTruthy();
 });

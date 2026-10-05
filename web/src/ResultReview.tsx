@@ -53,7 +53,7 @@ export function ImageArtifact({ reference, description, client }: { reference: A
   </figure>;
 }
 type Entry = { question: ParsedQuestion; stage: string; index: number };
-function QuestionCard({ entry, questions, sourcesById }: { entry: Entry; questions: Map<string, ParsedQuestion>; sourcesById: Map<string, NonNullable<DocumentTaskReview>["questionSources"]> }) {
+function QuestionCard({ entry, questions, sourcesById }: { entry: Entry; questions: Map<string, ParsedQuestion | null>; sourcesById: Map<string, NonNullable<DocumentTaskReview>["questionSources"]> }) {
   const [expanded, setExpanded] = useState(false);
   const q = entry.question;
   const related = (id?: string | null) => id ? questions.get(JSON.stringify([entry.stage,entry.index,id])) || questions.get(JSON.stringify([id])) : undefined;
@@ -81,10 +81,13 @@ export default function ResultReview({ task, preview, client }: { task: Document
   const {units, entries, visuals, groups, questions, sourcesById, sources} = useMemo(() => {
     const units = preview?.units || [];
     const entries: Entry[] = units.length ? units.flatMap(unit => unit.questions.map(question => ({question,stage:unit.stage,index:unit.index}))) : (task.result?.questions || []).map(question => ({question,stage:"result",index:0}));
-    const questions = new Map<string,ParsedQuestion>();
+    const questions = new Map<string,ParsedQuestion | null>();
     for (const entry of entries) {
       if (!entry.question.id) continue;
-      for (const key of [JSON.stringify([entry.question.id]),JSON.stringify([entry.stage,entry.index,entry.question.id])]) if (!questions.has(key)) questions.set(key,entry.question);
+      const idKey = JSON.stringify([entry.question.id]);
+      questions.set(idKey, questions.has(idKey) ? null : entry.question);
+      const unitKey = JSON.stringify([entry.stage,entry.index,entry.question.id]);
+      if (!questions.has(unitKey)) questions.set(unitKey,entry.question);
     }
     const sources = preview?.questionSources || task.processing?.questionSources || [];
     const sourcesById = new Map<string, typeof sources>();

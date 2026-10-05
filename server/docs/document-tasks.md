@@ -115,6 +115,8 @@ List responses also include `nextCursor`, an opaque continuation token or null w
 
 Stage review returns saved successful units and their source references; result review returns merged output plus source-only units with empty questions/groups and retained source references. Match `questionSources.stage` and `unitIndex` to these units to locate original text or page images. Failures identify failed scopes; quality and questionSources describe review issues and provenance. This endpoint does not merge, crop, call models, accept results, or write question banks. Read source content through the validated artifact API. Acceptance must carry the preview's checkpointId; an old preview cannot accept a newer result.
 
+Stage previews can contain the same question ID in different units. The Web review resolves material and shared-option references within the question's stage/unit first, and uses cross-unit fallback only for globally unique IDs. Ambiguous unresolved references retain their original metadata and the question's own options without displaying another unit's content.
+
 ## Recovery errors and request receipts
 
 Records with unsupported source formats or graph identifiers return HTTP 409 / `TASK_FORMAT_UNSUPPORTED` for detail, preview, control and reparse requests. Lists filter these records before pagination. Startup recovery, scheduling, queue admission and metrics exclude them; their saved records and checkpoints remain unchanged. Supported tasks in the same service database continue to work.
