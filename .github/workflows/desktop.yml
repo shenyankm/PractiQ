@@ -75,6 +75,8 @@ jobs:
       - run: python app/scripts/export-contracts.py --check
       - run: python app/scripts/check-fixtures.py
       - run: python -m pytest server/tests/test_ci.py server/tests/test_ci_scope.py server/tests/test_release_checks.py server/tests/test_release_workflow.py server/tests/test_desktop_package.py server/tests/test_android_package.py server/tests/test_android_licenses.py
+        env:
+          PRACTIQ_REQUIRE_NATIVE_BUILD_GUARD: '1'
       - run: npm ci
         working-directory: app
       - name: Check frontend types, lint and coverage

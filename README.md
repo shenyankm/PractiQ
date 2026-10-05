@@ -138,7 +138,7 @@ The FastAPI/LangGraph service listens on `127.0.0.1:8090`, uses SQLite and local
 - [Release policy](docs/releases.md): version tags, downloads, checksums and the manual draft workflow
 - [Contributing](CONTRIBUTING.md): development checks and pull requests
 
-Run `make app-check` for shared app checks and follow the [Android guide](app/docs/android.md) for APK and native emulator checks, `make web-check` for the import Web frontend and `make verify` for the AI service. Playwright Test checks bilingual interactions, browser preview, and rich-content rendering with mocked native commands and no model calls:
+Run `make app-check` on macOS/Windows for app checks and follow the [Android guide](app/docs/android.md) for shared checks on any Android development host, APK builds and native emulator checks, `make web-check` for the import Web frontend and `make verify` for the AI service. Playwright Test checks bilingual interactions, browser preview, and rich-content rendering with mocked native commands and no model calls:
 
 ```sh
 cd app

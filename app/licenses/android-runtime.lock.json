@@ -1292,6 +1292,45 @@
       "artifactVariant": "com.fasterxml.jackson.core:jackson-databind:2.15.3 variant runtimeElements"
     },
     {
+      "coordinate": "com.fasterxml.jackson.datatype:jackson-datatype-json-org:2.15.3",
+      "extension": "jar",
+      "artifactSha256": "98069467c4ff9354311c52f0998fad340f29f51446e284e5dab1523a92dcbdac",
+      "pomSha256": "b8de601828358313189e10f45962cd4127fccc62aa7c87507e96eb23ad13214c",
+      "artifactSource": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/datatype/jackson-datatype-json-org/2.15.3/jackson-datatype-json-org-2.15.3.jar",
+      "pomSource": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/datatype/jackson-datatype-json-org/2.15.3/jackson-datatype-json-org-2.15.3.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "https://www.apache.org/licenses/LICENSE-2.0.txt"
+        },
+        {
+          "file": "texts/713eb53860bd112655daa3c7fec7fc30a840541972a7d0b2d525d8391e00eb38.txt",
+          "sha256": "713eb53860bd112655daa3c7fec7fc30a840541972a7d0b2d525d8391e00eb38",
+          "source": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/datatype/jackson-datatype-json-org/2.15.3/jackson-datatype-json-org-2.15.3.jar!META-INF/LICENSE",
+          "artifactEntry": "META-INF/LICENSE"
+        },
+        {
+          "file": "texts/7347397a0665f6898b32894a1869a514251abef7da7620902b0e57c5026cf1ed.txt",
+          "sha256": "7347397a0665f6898b32894a1869a514251abef7da7620902b0e57c5026cf1ed",
+          "source": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/datatype/jackson-datatype-json-org/2.15.3/jackson-datatype-json-org-2.15.3.jar!META-INF/NOTICE",
+          "artifactEntry": "META-INF/NOTICE"
+        }
+      ],
+      "artifactFileName": "jackson-datatype-json-org-2.15.3.jar",
+      "artifactIdentity": "jackson-datatype-json-org-2.15.3.jar (com.fasterxml.jackson.datatype:jackson-datatype-json-org:2.15.3)",
+      "artifactVariant": "com.fasterxml.jackson.datatype:jackson-datatype-json-org:2.15.3 variant runtimeElements",
+      "parentPoms": [
+        {
+          "file": "texts/4b2dc9ec4a10e051b98568633f01ca6d8d9d268cb9e266ec6ae432eeca59e09a.pom",
+          "sha256": "4b2dc9ec4a10e051b98568633f01ca6d8d9d268cb9e266ec6ae432eeca59e09a",
+          "source": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/datatype/jackson-datatypes-misc-parent/2.15.3/jackson-datatypes-misc-parent-2.15.3.pom"
+        }
+      ]
+    },
+    {
       "coordinate": "com.google.android.material:material:1.13.0",
       "extension": "aar",
       "artifactSha256": "6d5e1cbb67c05bcdcbbf84005787dafd354a155f59a4d3800fd45fa7eb3689f5",
@@ -1485,18 +1524,5 @@
       "artifactIdentity": "jspecify-1.0.0.jar (org.jspecify:jspecify:1.0.0)",
       "artifactVariant": "org.jspecify:jspecify:1.0.0 variant runtimeElements"
     }
-  ],
-  "projectOverrides": {
-    "tauri-android": [
-      {
-        "originalFile": "src/main/java/app/tauri/plugin/PluginManager.kt",
-        "originalSha256": "2b0ef3b8cc92182858456f4b504330d61d23a3fe62a2e4e08c8f5c09cbdb4312",
-        "replacementFile": "app/src-tauri/gen/android/patches/tauri-2.11.5/app/tauri/plugin/LifecyclePluginManager.kt",
-        "replacementSha256": "f57b27173278c5e40cbe0d2b3c05b10a144398e9d757ff871c42a13bfd247b71",
-        "compiledFile": "app/src-tauri/gen/android/build/generated/tauri-lifecycle-sources/app/tauri/plugin/LifecyclePluginManager.kt",
-        "provenanceFile": "tauri-android-lifecycle.provenance.json",
-        "provenanceSha256": "6b33dda2b926dcf1d3d0e778ab89aebc2a0aa642c5bdb66f7be84329d9a33a2b"
-      }
-    ]
-  }
+  ]
 }

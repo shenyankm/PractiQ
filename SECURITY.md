@@ -22,6 +22,33 @@ when a checker exits successfully. Evaluate compatible updates in focused pull
 requests, regenerate lockfiles, and run the affected checks. Do not suppress an
 advisory merely to pass CI. Record retained risks and upstream blockers.
 
+## Linux-only GLib lockfile advisory
+
+`Cargo.lock` retains `glib` 0.18.5 through Tauri's GTK3/WebKitGTK dependencies.
+[GHSA-wrw7-89jp-8q8g](https://github.com/advisories/GHSA-wrw7-89jp-8q8g)
+affects this version; the official fixed line is `glib >= 0.20.0`, which is
+incompatible with the currently locked GTK3 bindings. The upstream
+[Wry update](https://github.com/tauri-apps/wry/pull/1843) and
+[Tauri update](https://github.com/tauri-apps/tauri/pull/16170) are still pending
+as of 2026-10-04.
+
+PractiQ supports macOS, Windows and Android apps. Their locked dependency graphs
+do not include `glib`; Linux app builds are rejected by the native build script.
+`make audit-rust` retains the complete RustSec lockfile audit and then checks
+both macOS architectures, Windows MSVC, Android arm64 and the x86_64 Android
+emulator graph. The target check fails on reachable `glib`, missing app graphs
+or Cargo errors. This evidence supports a Dependabot disposition of
+**vulnerable code not used** for alert 1, rather than a claim that the locked
+crate has been upgraded or patched. Reassess the disposition when changing
+supported targets or Tauri dependencies; do not ship Linux app builds from an
+older development snapshot.
+
+The independent Python service may run on Linux and does not use this Rust GUI
+dependency. The lockfile remains intact, with no advisory ignore or vendored
+replacement.
+
+## Repository and deployment safeguards
+
 GitHub Dependabot security updates, secret scanning and push protection are
 enabled for this repository. [Dependabot configuration](.github/dependabot.yml)
 also groups weekly GitHub Actions version updates; it does not automatically

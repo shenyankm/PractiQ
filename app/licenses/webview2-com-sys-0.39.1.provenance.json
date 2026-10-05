@@ -1,0 +1,87 @@
+{
+  "checkedAt": "2026-10-05",
+  "package": "webview2-com-sys",
+  "version": "0.39.1",
+  "crate": {
+    "source": "https://static.crates.io/crates/webview2-com-sys/webview2-com-sys-0.39.1.crate",
+    "sha256": "b3a07132775117d6065853d9d1178157b8c90e228de47129d6bce2c7edebedfb",
+    "verification": "Downloaded official published crate bytes match this exact package and version checksum in app/src-tauri/Cargo.lock, and match the locally selected Cargo cache archive byte for byte."
+  },
+  "publishedCargoTomlSha256": "1a3e5684710cb1d2e7e7afdd32af011a4a8038c259f6592ade3f871ca31cad7d",
+  "publishedRepository": "https://github.com/wravery/webview2-rs",
+  "declaredLicense": "MIT",
+  "selectedLicense": "MIT",
+  "cargoVcsInfo": {
+    "archivePath": "webview2-com-sys-0.39.1/.cargo_vcs_info.json",
+    "sha256": "d4137410068017c3f66fe98578f2fd40f0e76d3fd628fa361c758f3b262351c7",
+    "contents": {
+      "git": {
+        "sha1": "edc2caf886175ccaebe86078c9cfe1ae2a187328"
+      },
+      "path_in_vcs": "crates/bindings"
+    }
+  },
+  "upstreamRepository": "https://github.com/wravery/webview2-rs",
+  "upstreamCommit": "edc2caf886175ccaebe86078c9cfe1ae2a187328",
+  "repositoryAttribution": "Published package repository; original manifest, all published src files and build.rs when present match this VCS commit, allowing only individually recorded CRLF/LF differences. Every downloaded upstream file independently matches the pinned commit tree Git blob SHA-1.",
+  "license": {
+    "source": "https://raw.githubusercontent.com/wravery/webview2-rs/edc2caf886175ccaebe86078c9cfe1ae2a187328/LICENSE",
+    "path": "LICENSE",
+    "sha256": "0dcf41516e608bbcb6cdc5229feb7b86fe4a643b85e7df251133c93408fdac73",
+    "gitBlobSha1": "de9a7e660e173136b351982a34f715af424ff812",
+    "sizeBytes": 1067,
+    "verification": "Complete upstream file, unchanged bytes, from the same commit recorded in this published crate; Git blob SHA-1 independently matches the commit tree."
+  },
+  "publishedSourceComparison": [
+    {
+      "archivePath": "Cargo.toml.orig",
+      "upstreamPath": "crates/bindings/Cargo.toml",
+      "archiveSha256": "00229c125c597e4f0ddb9e598738ee5b38a9086fd59eea6d2577cdda5f8e5875",
+      "upstreamSha256": "00229c125c597e4f0ddb9e598738ee5b38a9086fd59eea6d2577cdda5f8e5875",
+      "upstreamGitBlobSha1": "f229a893528a12d9c034f6f3a82582e6f1617848",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 627,
+      "upstreamSizeBytes": 627
+    },
+    {
+      "archivePath": "build.rs",
+      "upstreamPath": "crates/bindings/build.rs",
+      "archiveSha256": "deafb36ba38083bd048fadb28b2266a94322bb5a793e85f4c50a040cf3da5c8a",
+      "upstreamSha256": "deafb36ba38083bd048fadb28b2266a94322bb5a793e85f4c50a040cf3da5c8a",
+      "upstreamGitBlobSha1": "5a62387eb4f8702698c4858be4dd6cc2c0fb6f4f",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 2742,
+      "upstreamSizeBytes": 2742
+    },
+    {
+      "archivePath": "src/bindings.rs",
+      "upstreamPath": "crates/bindings/src/bindings.rs",
+      "archiveSha256": "be4a5291da4946ca04630dc9b6adbff5e13e61d39d205b08aff450339f30e1e5",
+      "upstreamSha256": "be4a5291da4946ca04630dc9b6adbff5e13e61d39d205b08aff450339f30e1e5",
+      "upstreamGitBlobSha1": "1cd6fce375605e8d60daf012a1c0beb36a9952ec",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 1694472,
+      "upstreamSizeBytes": 1694472
+    },
+    {
+      "archivePath": "src/declared_interfaces.rs",
+      "upstreamPath": "crates/bindings/src/declared_interfaces.rs",
+      "archiveSha256": "d30f5e7d36792f8f62a3aefb295e8c010a15c9c08cf27b08e957856512c29cc8",
+      "upstreamSha256": "d30f5e7d36792f8f62a3aefb295e8c010a15c9c08cf27b08e957856512c29cc8",
+      "upstreamGitBlobSha1": "d498ca37e8e1fef9bda6edfc6dbcd79239918219",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 7664,
+      "upstreamSizeBytes": 7664
+    },
+    {
+      "archivePath": "src/lib.rs",
+      "upstreamPath": "crates/bindings/src/lib.rs",
+      "archiveSha256": "9e8ead3a21710d872bcc1d6ed214af1b91eca24e158733305bb77b1199247ea1",
+      "upstreamSha256": "9e8ead3a21710d872bcc1d6ed214af1b91eca24e158733305bb77b1199247ea1",
+      "upstreamGitBlobSha1": "79a87a3089a2980ee3666ba8d171637c72a1dec0",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 1866,
+      "upstreamSizeBytes": 1866
+    }
+  ]
+}

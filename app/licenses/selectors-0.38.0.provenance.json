@@ -1,0 +1,56 @@
+{
+  "checkedAt": "2026-10-05",
+  "package": "selectors",
+  "version": "0.38.0",
+  "crate": {
+    "source": "https://static.crates.io/crates/selectors/selectors-0.38.0.crate",
+    "sha256": "8adfa1c298912827b8a28b223b3b874357397ae706e6190acd9bf28cee99114d",
+    "verification": "Official published crate download matches the exact package/version checksum in app/src-tauri/Cargo.lock."
+  },
+  "publishedCargoTomlSha256": "83630f5e117638281303f757127dfffc3f621c8d2ff03f99ff7f7589748bacd8",
+  "publishedRepository": "https://github.com/servo/stylo",
+  "declaredLicense": "MPL-2.0",
+  "selectedLicense": "MPL-2.0",
+  "cargoVcsInfo": {
+    "archivePath": "selectors-0.38.0/.cargo_vcs_info.json",
+    "sha256": "1ddc4845786a1b1ebc7fb2f940878d9b923c4385d7d66841f25c765d1312fe74",
+    "contents": {
+      "git": {
+        "sha1": "572ecba2d1600e7c3d490586692a209faf703baa"
+      },
+      "path_in_vcs": "selectors"
+    }
+  },
+  "upstreamRepository": "https://github.com/servo/stylo",
+  "upstreamCommit": "572ecba2d1600e7c3d490586692a209faf703baa",
+  "publishedSourceComparison": [
+    {
+      "archivePath": "Cargo.toml.orig",
+      "upstreamPath": "selectors/Cargo.toml",
+      "source": "https://raw.githubusercontent.com/servo/stylo/572ecba2d1600e7c3d490586692a209faf703baa/selectors/Cargo.toml",
+      "archiveSha256": "26a19ba53c3dfff3f572e04f72ed224dca7b03a76a8e0593fc48b458ec6ab535",
+      "upstreamSha256": "26a19ba53c3dfff3f572e04f72ed224dca7b03a76a8e0593fc48b458ec6ab535",
+      "comparison": "identical bytes",
+      "sizeBytes": 868
+    },
+    {
+      "archivePath": "lib.rs",
+      "upstreamPath": "selectors/lib.rs",
+      "source": "https://raw.githubusercontent.com/servo/stylo/572ecba2d1600e7c3d490586692a209faf703baa/selectors/lib.rs",
+      "archiveSha256": "d54c6e13e9e952dac17d209171df8657e3cae93beaddace4906150cdec8d02e9",
+      "upstreamSha256": "d54c6e13e9e952dac17d209171df8657e3cae93beaddace4906150cdec8d02e9",
+      "comparison": "identical bytes",
+      "sizeBytes": 643
+    }
+  ],
+  "license": {
+    "source": "https://www.mozilla.org/media/MPL/2.0/index.txt",
+    "path": "canonical MPL 2.0 terms",
+    "file": "texts/3f3d9e0024b1921b067d6f7f88deb4a60cbe7a78e76c64e3f1d7fc3b779b9d04.txt",
+    "sha256": "3f3d9e0024b1921b067d6f7f88deb4a60cbe7a78e76c64e3f1d7fc3b779b9d04",
+    "sizeBytes": 16726,
+    "license": "MPL-2.0",
+    "verification": "Complete canonical MPL 2.0 terms retrieved unchanged from Mozilla. The exact published manifest declares MPL-2.0; lib.rs matches the same VCS commit and retains its notice linking to Mozilla MPL 2.0."
+  },
+  "originalSourceHeader": "/* This Source Code Form is subject to the terms of the Mozilla Public\n * License, v. 2.0. If a copy of the MPL was not distributed with this\n * file, You can obtain one at https://mozilla.org/MPL/2.0/. */"
+}

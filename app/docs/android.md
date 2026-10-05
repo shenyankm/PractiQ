@@ -8,7 +8,7 @@ The Android application ID is `com.practiq.android`. Minimum SDK is 26 (Android 
 
 Use Node.js 22.12+, the repository-pinned Rust toolchain, JDK 21, Android SDK platform/build-tools 36 and NDK `28.2.13676358`. Select your existing SDK and Java installations through `ANDROID_HOME`, `NDK_HOME` and `JAVA_HOME`; keep machine paths out of tracked Gradle files. The Gradle wrapper is pinned to 8.14.3 with its distribution SHA-256. Android host sources under `app/src-tauri/gen/android/` are tracked; build outputs and local SDK settings are ignored. Python 3.14+ is a notice/contract build tool, never an app runtime; do not create a project `.venv`.
 
-The tracked Tauri 2.11.5 lifecycle replacement under `app/src-tauri/gen/android/patches/` rebinds system-result launchers when Android recreates the Activity. Gradle compiles that reviewed replacement instead of the original file; the Cargo cache stays unchanged. Runtime notice provenance binds the replacement source and the resulting local AAR. Keep this pinned patch and its source/license evidence synchronized when upgrading Tauri.
+The locked runtime uses Tauri 2.12.1, tauri-runtime-wry 2.12.1, Wry 0.57.0 and Tao 0.37.1. Tao includes the released Android event-loop fix that drains queued user events after every poll, preventing a concurrent file-descriptor event from hiding a wake and stranding an IPC response ([upstream fix](https://github.com/tauri-apps/tao/pull/1304)). Tauri now supplies the upstream Activity lifecycle and system-result launcher management. Gradle compiles unmodified Cargo sources; the former Tauri 2.11.5 replacement under `app/src-tauri/gen/android/patches/` and its source/license provenance remain inactive historical evidence, outside the build and current override lock.
 
 From the repository root, after installing the selected SDK components:
 
@@ -58,14 +58,18 @@ Android Back closes the current dialog or navigation drawer first. Unsaved edito
 
 ## Test the actual Android host
 
-Run shared native/frontend checks and the touch-browser scenarios first:
+On any Android development host, run the shared contracts, frontend checks and touch-browser scenarios first:
 
 ```sh
-make app-check AI_PYTHON=/absolute/path/to/python3.14
+/absolute/path/to/python3.14 app/scripts/export-contracts.py --check
+/absolute/path/to/python3.14 app/scripts/check-fixtures.py
+npm --prefix app run check:ui
 npm --prefix app run test:android-browser
 ```
 
-Browser scenarios mock native commands; they do not validate a device file picker, Keystore or Android lifecycle. For native checks, start a selected arm64 API 35 emulator and finish the actual CLI APK build above. Gradle can then reuse that JNI artifact for Kotlin unit and instrumented tests:
+On macOS/Windows, also run `make app-check AI_PYTHON=/absolute/path/to/python3.14` for host Rust integration tests and Clippy. That command compiles the host app and cannot run on Linux; Linux can build the Android target through the CLI commands above. Desktop CI runs the host Rust checks on macOS/Windows.
+
+Browser scenarios mock native commands; they do not validate a device file picker, Keystore or Android lifecycle. For native Android checks on any host, start a selected arm64 API 35 emulator and finish the actual CLI APK build above. Gradle can then reuse that JNI artifact for Kotlin unit and instrumented tests:
 
 ```sh
 app/src-tauri/gen/android/gradlew -p app/src-tauri/gen/android \
@@ -76,7 +80,7 @@ app/src-tauri/gen/android/gradlew -p app/src-tauri/gen/android \
 
 Skipping the Rust hook is valid only after compiling the same source and target through the Tauri CLI. CI uses the corresponding x86_64 tasks after its actual x86_64 APK build. Preserve Gradle test reports and first failures; a successful test compile is not a successful instrumentation run. The connected Gradle test task uninstalls its target app during cleanup, removing that installation's practice data. Use a disposable test installation for this task.
 
-The native picker regression waits for the completed WebView page and active system DocumentsUI before injecting Back. Both Back events must be accepted, and both picker rounds must return null and restore the Activity to RESUMED within the existing cancellation wait. Root Back requires a live resumed Activity with an enabled app callback; failed picker state must not dispatch the default finish path from a stopped Activity. Lifecycle state is collected on Android's main thread and checked on the instrumentation thread. The instrumentation test observes and forwards the existing system-result callback. A cancellation timeout reports the cycle, Activity identity, result count/code and whether the original delegate returned or threw; it logs no URI, token or result payload and restores the callback only while it still owns that observer. Preserve the existing waits and original failures; retries or longer timeouts do not establish acceptance.
+The native picker regression waits for the completed WebView page and active system DocumentsUI before injecting Back. Both Back events must be accepted, and both picker rounds must return null and restore the Activity to RESUMED within the existing cancellation wait. After cancellation and Activity resumption, the read-only native-command probe gets a fresh 15-second deadline starting before command submission. Root Back requires a live resumed Activity with an enabled app callback; failed picker state must not dispatch the default finish path from a stopped Activity. Lifecycle state is collected on Android's main thread and checked on the instrumentation thread. The instrumentation test observes and forwards the existing system-result callback. A cancellation timeout reports the cycle, Activity identity, result count/code and whether the original delegate returned or threw; it logs no URI, token or result payload and restores the callback only while it still owns that observer. Preserve the existing waits and original failures; retries or longer timeouts do not establish acceptance.
 
 For a manual flow, set the exact emulator/device serial, install the final APK, resolve the launch activity, and start it:
 

@@ -1,9 +1,12 @@
+import inspect
 import json
 import os
 import re
+import runpy
 import shutil
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -140,6 +143,8 @@ elif args[:2] == ["-m", "pip_audit"]:
     assert {"--strict", "--disable-pip", "--no-deps"} <= set(args)
     assert "langgraph==" in Path(args[args.index("-r") + 1]).read_text()
     sys.exit(int(os.environ["AUDIT_EXIT"]))
+elif args == ["app/scripts/check-rust-targets.py"]:
+    assert os.environ["AUDIT_EXIT"] == "0", "Target graphs must run only after audit succeeds"
 else:
     assert args == ["audit", "--file", "app/src-tauri/Cargo.lock"]
     sys.exit(int(os.environ["AUDIT_EXIT"]))
@@ -158,12 +163,210 @@ else:
         assert "Error 7" in result.stderr
 
 
+@pytest.mark.parametrize("failure", [None, "glib", "empty", "other-root", "cargo"])
+def test_rust_target_graph_gate_rejects_reachable_glib_and_incomplete_checks(tmp_path, failure):
+    root = Path(__file__).resolve().parents[2]
+    checker = tmp_path / "cargo"
+    checker.write_text(f"#!{sys.executable}\n" + '''
+import json
+import os
+import sys
+from pathlib import Path
+
+args = sys.argv[1:]
+assert args[:3] == ["tree", "--locked", "--manifest-path"]
+assert Path(args[3]).name == "Cargo.toml"
+assert args[4:5] == ["--target"]
+assert args[6:] == ["--prefix", "none", "--format", "{p}"]
+with Path(os.environ["TARGET_LOG"]).open("a") as log:
+    log.write(json.dumps(args[5]) + "\\n")
+failure = os.environ["GRAPH_FAILURE"]
+if args[5] == "x86_64-linux-android":
+    if failure == "cargo":
+        sys.exit(7)
+    if failure == "empty":
+        sys.exit(0)
+    if failure == "other-root":
+        print("unrelated v1.0.0")
+        sys.exit(0)
+print("practiq-desktop v0.1.0")
+print("tauri v2.11.5")
+if failure == "glib" and args[5] == "x86_64-linux-android":
+    print("glib v0.18.5 (*)")
+''')
+    checker.chmod(0o755)
+    log = tmp_path / "targets.jsonl"
+    result = subprocess.run(
+        [sys.executable, str(root / "app/scripts/check-rust-targets.py")],
+        env={**os.environ, "PATH": f"{tmp_path}{os.pathsep}{os.environ['PATH']}",
+             "TARGET_LOG": str(log), "GRAPH_FAILURE": failure or ""},
+        capture_output=True, text=True, check=False,
+    )
+    assert [json.loads(line) for line in log.read_text().splitlines()] == [
+        "aarch64-apple-darwin", "x86_64-apple-darwin", "x86_64-pc-windows-msvc",
+        "aarch64-linux-android", "x86_64-linux-android",
+    ]
+    assert (result.returncode != 0) == (failure is not None), result.stdout + result.stderr
+    if failure == "glib":
+        assert "GLib dependency is reachable on x86_64-linux-android" in result.stderr
+    elif failure == "cargo":
+        assert "exit status 7" in result.stderr
+    elif failure:
+        assert "Missing app dependency graph" in result.stderr
+    else:
+        assert result.stdout.count("app dependency graph contains no glib") == 5
+
+
+@pytest.mark.parametrize("with_glib", [False, True])
+def test_make_rust_audit_propagates_target_graph_failure(tmp_path, with_glib):
+    root = Path(__file__).resolve().parents[2]
+    shutil.copyfile(root / "Makefile", tmp_path / "Makefile")
+    script = tmp_path / "app/scripts/check-rust-targets.py"
+    script.parent.mkdir(parents=True)
+    shutil.copyfile(root / "app/scripts/check-rust-targets.py", script)
+    cargo = tmp_path / "cargo"
+    cargo.write_text(f"#!{sys.executable}\n" + '''
+import os
+import sys
+
+args = sys.argv[1:]
+if args == ["audit", "--file", "app/src-tauri/Cargo.lock"]:
+    print("FULL_LOCK_AUDIT_PASSED")
+elif args[0] == "tree":
+    print("practiq-desktop v0.1.0")
+    if os.environ["WITH_GLIB"] == "1":
+        print("glib v0.18.5")
+else:
+    sys.exit(7)
+''')
+    cargo.chmod(0o755)
+    result = subprocess.run(
+        ["make", "audit-rust", f"AI_PYTHON={sys.executable}"], cwd=tmp_path,
+        env={**os.environ, "PATH": f"{tmp_path}{os.pathsep}{os.environ['PATH']}",
+             "WITH_GLIB": "1" if with_glib else "0"},
+        capture_output=True, text=True, check=False,
+    )
+    assert "FULL_LOCK_AUDIT_PASSED" in result.stdout
+    assert (result.returncode != 0) == with_glib, result.stdout + result.stderr
+    if with_glib:
+        assert "GLib dependency is reachable on aarch64-apple-darwin" in result.stderr
+
+
+def test_rust_target_graph_timeout_fails_the_gate(monkeypatch):
+    root = Path(__file__).resolve().parents[2]
+
+    def timed_out(command, **kwargs):
+        assert kwargs["timeout"] == 300
+        assert command[command.index("--target") + 1] == "aarch64-apple-darwin"
+        raise subprocess.TimeoutExpired(command, kwargs["timeout"])
+
+    monkeypatch.setattr(subprocess, "run", timed_out)
+    with pytest.raises(subprocess.TimeoutExpired):
+        runpy.run_path(str(root / "app/scripts/check-rust-targets.py"), run_name="__main__")
+
+
+def native_guard_compiler(root):
+    compiler = shutil.which("rustc")
+    env = {**os.environ, "RUSTUP_AUTO_INSTALL": "0"}
+    pinned = tomllib.loads((root / "rust-toolchain.toml").read_text())["toolchain"]["channel"]
+    try:
+        if compiler is None:
+            raise FileNotFoundError("rustc is absent")
+        version = subprocess.run(
+            [compiler, "--version"], cwd=root, env=env, capture_output=True, text=True,
+            check=True, timeout=30,
+        ).stdout
+        if not version.startswith(f"rustc {pinned} "):
+            raise ValueError(f"Rust {pinned} is not the installed compiler")
+    except (OSError, ValueError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
+        message = f"Native build guard needs installed Rust {pinned}: {error}"
+        if os.environ.get("PRACTIQ_REQUIRE_NATIVE_BUILD_GUARD") == "1":
+            pytest.fail(message)
+        pytest.skip(message)
+    return compiler, env
+
+
+@pytest.mark.parametrize("strict", [False, True])
+@pytest.mark.parametrize("availability", ["installed", "absent", "missing-toolchain", "timeout", "wrong-version"])
+def test_native_guard_compiler_never_installs_missing_toolchains(monkeypatch, strict, availability):
+    root = Path(__file__).resolve().parents[2]
+    pinned = tomllib.loads((root / "rust-toolchain.toml").read_text())["toolchain"]["channel"]
+    monkeypatch.setenv("PRACTIQ_REQUIRE_NATIVE_BUILD_GUARD", "1" if strict else "0")
+    monkeypatch.setenv("RUSTUP_AUTO_INSTALL", "1")
+    monkeypatch.setattr(shutil, "which", lambda _: None if availability == "absent" else "/rustc")
+
+    def probe(command, **kwargs):
+        assert command == ["/rustc", "--version"]
+        assert kwargs["env"]["RUSTUP_AUTO_INSTALL"] == "0"
+        assert kwargs["cwd"] == root and kwargs["timeout"] == 30 and kwargs["check"]
+        if availability == "missing-toolchain":
+            raise subprocess.CalledProcessError(1, command)
+        if availability == "timeout":
+            raise subprocess.TimeoutExpired(command, 30)
+        version = "rustc 0.0.0 (unavailable)" if availability == "wrong-version" else f"rustc {pinned} (installed)"
+        return subprocess.CompletedProcess(command, 0, stdout=version)
+
+    monkeypatch.setattr(subprocess, "run", probe)
+    if availability == "installed":
+        compiler, env = native_guard_compiler(root)
+        assert compiler == "/rustc" and env["RUSTUP_AUTO_INSTALL"] == "0"
+    else:
+        with pytest.raises(pytest.fail.Exception if strict else pytest.skip.Exception):
+            native_guard_compiler(root)
+
+
+@pytest.fixture(scope="module")
+def app_build_guard(tmp_path_factory):
+    root = Path(__file__).resolve().parents[2]
+    compiler, env = native_guard_compiler(root)
+    folder = tmp_path_factory.mktemp("app-build-guard")
+    source = folder / "guard.rs"
+    source.write_text('mod tauri_build { pub fn build() { println!("TAURI_BUILD_CALLED"); } }\n'
+                      + (root / "app/src-tauri/build.rs").read_text())
+    executable = folder / "guard"
+    subprocess.run([compiler, str(source), "-o", str(executable)], cwd=root, env=env,
+                   check=True, capture_output=True, timeout=30)
+    return executable
+
+
+def test_native_guard_compile_errors_are_not_skipped(monkeypatch, tmp_path_factory):
+    monkeypatch.setattr(sys.modules[__name__], "native_guard_compiler", lambda _: ("/rustc", os.environ.copy()))
+
+    def compile_error(command, **kwargs):
+        raise subprocess.CalledProcessError(1, command, stderr=b"invalid build script")
+
+    monkeypatch.setattr(subprocess, "run", compile_error)
+    with pytest.raises(subprocess.CalledProcessError):
+        inspect.unwrap(app_build_guard)(tmp_path_factory)
+
+
+@pytest.mark.parametrize("target_os", ["macos", "windows", "android", "linux", "ios", "freebsd", None])
+def test_app_build_rejects_unsupported_os_before_native_packaging(app_build_guard, target_os):
+    env = {k: v for k, v in os.environ.items() if k != "CARGO_CFG_TARGET_OS"}
+    if target_os is not None:
+        env["CARGO_CFG_TARGET_OS"] = target_os
+    result = subprocess.run([str(app_build_guard)], env=env, capture_output=True, text=True, check=False)
+    supported = target_os in {"macos", "windows", "android"}
+    assert (result.returncode == 0) == supported, result.stdout + result.stderr
+    assert ("TAURI_BUILD_CALLED" in result.stdout) == supported
+    if target_os == "android":
+        assert "-Wl,-z,max-page-size=16384" in result.stdout
+        assert "-Wl,-z,common-page-size=16384" in result.stdout
+    elif supported:
+        assert "cargo:rustc-link-arg" not in result.stdout
+
+
 def test_workflows_deduplicate_common_checks_without_dropping_native_gates():
     root = Path(__file__).resolve().parents[2]
     workflows = {
         name: yaml.load((root / f".github/workflows/{name}.yml").read_text(), Loader=yaml.BaseLoader)
         for name in ("desktop", "server", "android")
     }
+    native_regressions, = (
+        step for step in workflows["desktop"]["jobs"]["quality"]["steps"]
+        if "python -m pytest server/tests/test_ci.py" in step.get("run", "")
+    )
+    assert native_regressions["env"]["PRACTIQ_REQUIRE_NATIVE_BUILD_GUARD"] == "1"
     for name, workflow in workflows.items():
         for job in workflow["jobs"].values():
             for step in job["steps"]:
