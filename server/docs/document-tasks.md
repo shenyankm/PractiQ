@@ -127,7 +127,7 @@ Model 401/403 responses are saved as `AI_PROVIDER_AUTH_ERROR` without automatic 
 
 Every creation or control mutation carries a UUID and binds it to the original payload in durable server receipts. Connection loss and uncertain responses require querying state and an explicit replay with the same ID; a new ID is new work. The Web frontend does not automatically replay a mutation.
 
-Old desktop `ai/requests/`, `ai/import-batches/`, `ai_imports` receipts and provider configuration remain preserved in their existing directories/database. They are not adopted by the independent service or exposed as a desktop import workflow. Schema 11, `v4/`, backup container 4 and ZIP bank format 2 remain unchanged; full restore still rejects older formats without migration.
+Old desktop `ai/requests/`, `ai/import-batches/`, `ai_imports` receipts and provider configuration remain preserved in their existing directories/database. They are not adopted by the independent service or exposed as a desktop import workflow. New bank ZIP imports do not read or write these receipts; the `ai_imports` table remains part of schema 11 and study-data backups. Schema 11, `v4/`, backup container 4 and ZIP bank format 2 remain unchanged; full restore still rejects older formats without migration.
 
 ## Office input boundary
 

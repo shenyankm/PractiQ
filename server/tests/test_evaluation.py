@@ -21,8 +21,6 @@ from pydantic import Field
 
 from practiq_ai.contracts import (
     DocumentParseResult,
-    DocumentReference,
-    DocumentUploadResponse,
     document_source_key,
 )
 from practiq_ai.errors import DocumentProcessingError
@@ -396,13 +394,6 @@ class CallbackModel(BaseChatModel):
 class EvaluationStore(FakeObjectStore):
     async def put_document(self, payload, request):
         return (await self.prepare_document(request)).document
-
-    async def prepare_document(self, request):
-        return DocumentUploadResponse(document=DocumentReference(
-            objectKey=document_source_key(request.sourceType, request.sha256), sha256=request.sha256,
-            mediaType=request.mediaType, sizeBytes=request.sizeBytes, sourceType=request.sourceType,
-            fileName=request.fileName,
-        ), upload=None)
 
 
 def setup_runner(tmp_path, monkeypatch, responses):

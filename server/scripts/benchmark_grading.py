@@ -16,7 +16,7 @@ from PIL import Image
 
 from practiq_ai.grading import GradeRequest, GradeWireRequest, digest_payload
 
-with patch.dict(os.environ, AI_SERVICE_TOKEN="synthetic-benchmark", AI_READ_ONLY="1", AI_DESKTOP_MODE="1"):
+with patch.dict(os.environ, AI_SERVICE_TOKEN="synthetic-benchmark", AI_READ_ONLY="1"):
     from practiq_ai import webapp
 
 

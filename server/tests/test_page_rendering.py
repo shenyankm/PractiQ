@@ -44,7 +44,6 @@ def paged_source(kind):
 @pytest.mark.parametrize("kind", ["text", "pdf"])
 def test_missing_model_fails_before_read_or_render(monkeypatch, kind):
     _, reference = paged_source(kind)
-    monkeypatch.setenv("AI_DESKTOP_MODE", "1")
     monkeypatch.setenv("AI_READ_ONLY", "1")
     monkeypatch.setattr(document, "get_model", llm.get_model.__wrapped__)
     monkeypatch.setattr(

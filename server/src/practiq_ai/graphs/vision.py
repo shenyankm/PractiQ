@@ -5,7 +5,6 @@ import json
 import re
 from html import unescape
 from io import BytesIO
-from math import isfinite
 from typing import Literal
 
 from langchain_core.messages import HumanMessage
@@ -20,7 +19,7 @@ from pydantic import (
     model_validator,
 )
 
-from ..contracts import VisualDescription, VisualLabel
+from ..contracts import VisualContent, VisualDescription, VisualLabel
 
 MAX_CROPS = 50
 MAX_CROP_BYTES = 200 * 1024
@@ -61,11 +60,7 @@ class PageFigure(BaseModel):
     @field_validator("bbox")
     @classmethod
     def validate_bbox(cls, bbox: list[float]) -> list[float]:
-        x0, y0, x1, y1 = bbox
-        if not all(isfinite(value) and 0 <= value <= 1 for value in bbox):
-            raise ValueError("bbox values must be finite and normalized")
-        if x1 <= x0 or y1 <= y0:
-            raise ValueError("bbox must have positive area")
+        VisualContent.validate_bbox(bbox)
         return bbox
 
     @field_validator("tableRows", mode="before")

@@ -109,7 +109,6 @@ async def test_reparse_receipt_replay_uses_child_expiry_not_expired_parent(monke
                            (utcnow() - timedelta(seconds=1), original['threadId']))
     # An accepted operation is still replayable without another source/model call.
     cast(FakeObjectStore, task_api.get_object_store()).blobs[reference['objectKey']] = b'corrupt'
-    monkeypatch.setenv('AI_DESKTOP_MODE', '1')
     monkeypatch.setenv('AI_READ_ONLY', '1')
     assert await task_api.reparse_task(original['threadId'], request) == child
     with pytest.raises(DocumentProcessingError) as error:

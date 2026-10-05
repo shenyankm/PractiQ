@@ -361,7 +361,6 @@ async def structured_attempt[ResultT: BaseModel](
     )
     if call_key is not None:
         usage = usage.model_copy(update={"callKey": call_key})
-    error = response["parsing_error"]
     try:
         parsed = validate_response(response, schema)
         if call_record is not None:

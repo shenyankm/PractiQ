@@ -98,7 +98,6 @@ async def test_completed_task_http_preserves_result_processing_usage_and_expiry(
             with pytest.raises(ValidationError) as error:
                 DocumentTaskDetail.model_validate({**wire, field: value})
             assert error.value.errors()[0]['loc'][0] == field
-        monkeypatch.setenv('AI_DESKTOP_MODE', '1')
         monkeypatch.setenv('AI_READ_ONLY', '1')
         readonly = (await http.get(path, headers=headers)).json()
         assert not readonly['modelConfigured'] and not readonly['resumeCompatible']

@@ -363,8 +363,10 @@ def test_page_result_retains_structured_questions_and_figures():
     })
     assert parsed.questions[0].stem == "Visible question"
     assert parsed.figures[0].bbox == [0.1, 0.1, 0.6, 0.6]
-    with pytest.raises(ValueError, match="bbox"):
-        document.PageParseResult.model_validate({"figures": [{"kind": "chart", "description": "bad", "bbox": [0, 0, 2, 1]}]})
+    for bbox in ([0, 0, 2, 1], [0, 0, 0, 1], [0, 0, 1, 0],
+                 [float("nan"), 0, 1, 1], [0, 0, float("inf"), 1], None):
+        with pytest.raises(ValueError, match="bbox"):
+            document.PageParseResult.model_validate({"figures": [{"kind": "chart", "description": "bad", "bbox": bbox}]})
 
 
 def test_crop_uploads_never_exceed_global_limit(monkeypatch):

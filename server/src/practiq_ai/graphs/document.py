@@ -1204,7 +1204,7 @@ async def _merge(state: DocumentState) -> dict[str, Any]:
         questionSources=[DocumentQuestionSource(questionId=questions[item.questionIndex].id or "", stage=item.stage, unitIndex=item.unitIndex) for item in question_sources],
         quality=ExportQuality.model_validate({
             "reviewRequired": bool(failures or truncated or not questions) or any(q.needsReview for q in questions),
-            "reviewQuestionCount": sum(q.needsReview and q.answerMode not in {"reading", "word_bank", "cloze", "listening", "gap_fill"} for q in questions),
+            "reviewQuestionCount": sum(q.needsReview and q.answerMode not in COMPOSITE_MODES for q in questions),
             "issues": [{"questionId": questions[item.questionIndex].id, "code": item.code} for item in quality.issues],
         }),
     )
@@ -1470,6 +1470,3 @@ def build_document_graph(
             {"max_concurrency": 2 * load().graph_max_concurrency, "recursion_limit": RECURSION_LIMIT}
         ),
     )
-
-
-graph = build_document_graph()

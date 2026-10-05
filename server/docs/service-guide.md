@@ -160,7 +160,7 @@ Storage uses local files. Non-local `AI_STORAGE_BACKEND` values prevent startup;
 
 ## Graphs and API examples
 
-The repository registers two format-specific graphs and one general entry point:
+Service startup builds two format-specific graphs and one general entry point with the durable SQLite checkpoint and Store. Importing the graph module does not construct a deployment graph:
 
 | Graph ID | `document.sourceType` |
 | --- | --- |
