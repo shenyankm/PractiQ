@@ -6,13 +6,7 @@ The runtime uses a single FastAPI/Uvicorn process, open-source LangGraph, and lo
 
 Use an existing Python 3.14+ interpreter without a project `.venv`. Startup commands load the root `.env`; process environment variables take precedence. `AI_DATABASE_DIR` identifies a dedicated local-disk directory, defaulting to `server/.local/database` in source checkouts. Deployments must use an absolute persistent path. Old `DATABASE_URI` settings prevent startup. Existing PostgreSQL data and volumes remain unchanged, and historical tasks are not automatically migrated. Unknown nonempty SQLite databases cannot be initialized.
 
-Install uv, complete the [configuration steps](service-guide.md#run-locally), then run from the repository root:
-
-```sh
-make install-locked AI_PYTHON=/path/to/python3.14
-make init-db AI_PYTHON=/path/to/python3.14
-make server-dev AI_PYTHON=/path/to/python3.14
-```
+Complete the [service configuration and startup steps](service-guide.md#run-locally), including building Web assets when that frontend is needed. Run commands from the repository root.
 
 `make server-dev` starts one Uvicorn process on `127.0.0.1:8090` with persistent local SQLite files. Missing or incompatible databases prevent startup; there is no in-memory fallback. Python registers graphs directly, without `langgraph.json` or the LangGraph CLI server.
 

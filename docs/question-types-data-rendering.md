@@ -108,7 +108,7 @@ The importer accepts a bare `DocumentParseResult` or the `result` inside task ou
 }
 ```
 
-Required envelope fields are `schemaVersion` (exactly 3), `questions` (1–1000 nodes including parents), `groups`, `visualElements`, `warnings` (each at most 1000 entries), and `confidenceScore` (0–100). Document confidence differs from a question's 0–1 `confidence`. Strict models forbid extra fields; `extra="forbid"` does not mean every Pydantic field forbids coercion. Strict booleans and integers follow their individual declarations.
+Required envelope fields are `schemaVersion` (exactly 3), `questions` (0–1000 nodes including parents), `groups`, `visualElements`, `warnings` (each at most 1000 entries), and `confidenceScore` (0–100). Document confidence differs from a question's 0–1 `confidence`. Strict models forbid extra fields; `extra="forbid"` does not mean every Pydantic field forbids coercion. Strict booleans and integers follow their individual declarations.
 
 ### 2.2 Common fields and the `questions` table
 
@@ -140,6 +140,8 @@ Nullable fields generally also permit omission, using contract defaults. Fragmen
 Sources: `ParsedQuestion` in [contracts.py](../server/src/practiq_ai/contracts.py), `write` and `read_scoped` in [questions.rs](../app/src-tauri/src/questions.rs), and [schema.sql](../app/src-tauri/src/schema.sql). Python/Rust enforce JSON ranges and cross-field consistency. SQL `json_valid` alone does not enforce the complete contract.
 
 ### 2.3 Missing data, reference answers, and drafts
+
+`DocumentParseResult.missingFields` marks document-level `questions` or `media` omissions. An empty question list is valid and automatically marks missing `questions`; the task can export a `PARTIAL` result. Zero-question source visuals become `documentOnly` and cannot also reference question IDs. An empty missing-fields list does not prove completeness.
 
 Specified text fields, including stem, type identifier, mode, variants, explanation, and source text, are trimmed and blank strings become null. Explicit null for `options`, `items`, `contentBlocks`, and `missingFields` becomes an empty array in Python. Use arrays or omission for `passage` and `transcript`; not every list field accepts explicit null.
 
@@ -301,7 +303,7 @@ See [composite.json](../app/fixtures/composite.json) for complete examples, `val
 
 `AudioReference` contains `objectKey` (relative resource path, 1–1024 characters), `sha256` (64 lowercase hexadecimal characters), `mediaType` (`audio/mpeg`, `audio/mp4`, `audio/aac`, or `audio/wav`), and `sizeBytes` (positive integer, maximum 25 MiB). Paths reject backslashes, colons, empty segments, `.` and `..`. Import also checks actual bytes, size, hash, and decoded duration; a valid JSON reference does not establish resource availability.
 
-Start must be before actual file duration, and end must not exceed duration plus a 0.05-second tolerance. Non-listening questions cannot carry audio references, nonempty transcripts, or nondefault audio parameters. Current native audio inspection uses macOS `/usr/bin/afinfo`. Playback uses local assets, without automatic transcription, TTS, or remote audio streaming.
+Start must be before actual file duration, and end must not exceed duration plus a 0.05-second tolerance. Non-listening questions cannot carry audio references, nonempty transcripts, or nondefault audio parameters. Native audio inspection probes and decodes bounded bytes with Symphonia on macOS, Windows and Android. Playback uses local assets, without automatic transcription, TTS, or remote audio streaming.
 
 This reference comes from [english.json](../app/fixtures/english.json) and requires the actual [chimes.wav](../app/fixtures/resources/audio/chimes.wav) resource in the package. The three-chime fixture tests playback structure, not English speech recognition.
 
@@ -399,7 +401,7 @@ Nonblank blocks require at least one nonblank string value or non-null `jsonValu
 
 Final `DocumentGroup` requires a title of 1–1000 characters, optional instructions up to 20000, and at most 1000 question IDs. Fragment `ParsedGroup.questionIndexes` uses zero-based positions in that fragment; final export converts them to IDs. Do not interchange the two.
 
-`DocumentVisual` contains `kind` (`image/table/chart/diagram/qr_code`), required nonblank `description` (maximum 20000), optional `label` (1000), `extractedText` (100000), `role` (64), nonnegative integer `page`, `bbox`, `imageRef`, `sourceRef`, and up to 1000 question IDs. `bbox` has four finite normalized values `[x0,y0,x1,y1]`, each between 0 and 1, with positive width and height.
+`DocumentVisual` also has `documentOnly` (default false) for retained source-only evidence that is excluded from question context. It contains `kind` (`image/table/chart/diagram/qr_code`), required nonblank `description` (maximum 20000), optional `label` (1000), `extractedText` (100000), `role` (64), nonnegative integer `page`, `bbox`, `imageRef`, `sourceRef`, and up to 1000 question IDs. `bbox` has four finite normalized values `[x0,y0,x1,y1]`, each between 0 and 1, with positive width and height.
 
 `imageRef` points to a question image/crop; `sourceRef` points to the complete verification page, which may include answers. Both use `ArtifactReference`: `objectKey` length 1–1024, a 64-character lowercase SHA-256, `mediaType` length 1–255, and nonnegative integer `sizeBytes`. Actual resource acceptance also checks formats, paths, and hashes. Unassociated visuals display a document-level association warning, not an assertion that they belong exclusively to the current question.
 

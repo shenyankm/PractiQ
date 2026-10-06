@@ -1,5 +1,7 @@
 # Review implementation and local acceptance — 2026-09-29
 
+> Historical evidence. This records a 2026-09-29 local candidate and its then-uncommitted state. Embedded-service, Linux app and bundled Office checks below apply only to that candidate; later implementation does not rewrite these observations. See the [documentation index](README.md) for current guides.
+
 This follows the remaining G-01–G-07 items in [the prior repair record](review-fixes-20260928.md). The user authorized implementation, selected `qwen3.7-flash` for live evaluations, and deferred independent human anchors and clean Windows/Linux machines. Earlier ISSUE-002–016 fixes are retained. Current v4/schema-11 policy rejects incompatible databases instead of migrating them; older directories remain untouched.
 
 This is a local development candidate, not Stable acceptance. Changes remain uncommitted. No release, signing, notarization, upload or publication was performed. Model credentials were read only by the local evaluation process; the model override did not change `.env`.

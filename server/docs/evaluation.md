@@ -36,8 +36,8 @@ These rule-based synthetic samples are not independent teacher annotations or cr
 
 - `id` is a stable, unique case identifier. `path` must point inside the manifest directory; path and symlink escapes are forbidden.
 - `tags` group cases by scenario. With `critical: true`, any discrepancy in an annotated field or structure fails the case.
-- Normal cases must specify `expectedQuestions` and expect `SUCCEEDED`.
-- Rejection cases specify only an error such as `expectedError: {"code": "NO_QUESTIONS_FOUND", "statusCode": 422}`. Both values must match. External-service unavailability cannot be labeled an expected success.
+- Non-rejection cases specify `expectedQuestions`; `expectedStatus` defaults to `SUCCEEDED`. The no-question fixture explicitly expects `PARTIAL` and missing `questions`, rather than an error.
+- Rejection cases specify only an error such as `expectedError: {"code": "DOCUMENT_PROCESSING_FAILED", "statusCode": 400}`. Both values must match. External-service unavailability cannot be labeled an expected success.
 - `expectedGroups` annotates titles and zero-based question indices. `expectedVisualKinds` annotates visual kinds and counts. Omission or `null` means unannotated; `[]` explicitly requires no such structure.
 - `stemAliases` and `answerAliases` allow only source-verified equivalents, such as LaTeX multiplication/division symbols or chemical subscripts. Aliases must obey the question-type contract. Do not add answer aliases when the source has no answer.
 - `sourceHasNoAnswers: true` explicitly marks an entire document as answerless. Every output answer must be null, including rewritten, unmatched, and extra questions. Do not use it for documents mixing answered and unanswered questions.
@@ -90,7 +90,7 @@ python scripts/evaluate.py --validate-only
 python -m pytest tests/test_evaluation.py
 ```
 
-CI checks coverage of all four formats, the nine answer modes in `ANSWER_MODES`, seven difficult-case tags, and a manifest entry for every fixture. `choice` covers both single and multiple choice. The manifest validator accepts any nonempty dataset size for small debugging sets.
+CI checks coverage of all four formats, the eleven answer modes in `ANSWER_MODES`, seven difficult-case tags, and a manifest entry for every fixture. `choice` covers both single and multiple choice. The manifest validator accepts any nonempty dataset size for small debugging sets.
 
 ## Scoring and gates
 
@@ -261,7 +261,7 @@ Human-defined synthetic gold labels added on 2026-09-18 cover embedded instructi
 
 Each model call's `validationIssues` records failing field paths and Pydantic error types, up to 20 entries. Unknown field names become `?`; field values, source text, and exception context are excluded. Locate `calls` for the failed case/repetition, then distinguish structural errors such as `list_type`, truncation, business validation, and final scoring differences. HTTP success and task completion do not imply gold-label quality acceptance.
 
-A captured response whose `questions` string wraps the remaining object fields is retained as an offline regression sample in `tests/fixtures/stringified-page-arguments.json`. Such responses remain rejected: trailing fields are not discarded, and content is not guessed. Shared correction explicitly requires real arrays and separate top-level fields; usage is counted normally. Initial prompts also specify array structure. The Bailian preset and the same custom Base URL in the desktop use identical Qwen3.7 thinking parameters. Other custom endpoints do not receive this provider-specific parameter.
+A captured response whose `questions` string wraps the remaining object fields is retained as an offline regression sample in `tests/fixtures/stringified-page-arguments.json`. Such responses remain rejected: trailing fields are not discarded, and content is not guessed. Shared correction explicitly requires real arrays and separate top-level fields; usage is counted normally. Initial prompts also specify array structure. The service applies the Qwen3.7 thinking parameter only when its configured endpoint matches the Bailian endpoint. Other custom endpoints do not receive this provider-specific parameter; clients do not configure providers.
 
 An experiment with `vl_high_resolution_images=true` on Bailian Qwen3.7 improved a scanned sample but introduced duplicate questions and missing answers in long PDFs during full regression, so the parameter was not adopted. A single improved high-resolution sample does not establish overall quality improvement. See [Bailian's vision documentation](https://help.aliyun.com/zh/model-studio/vision) for image parameters. Strict character scoring and human-review flags remain in place.
 
@@ -306,7 +306,7 @@ Only use consented material; these calls send the payload to the configured
 provider. Imported provenance is a declaration, not proof of independent review.
 The bundled synthetic anchors cannot establish teacher calibration.
 
-For the complete question-type input and expected-content checklist, see [the 16-type sample](../../app/fixtures/ai-import/README.md). The combined TXT is a manual desktop acceptance document; individual cases are scored by the existing manifest.
+For the complete question-type input and expected-content checklist, see [the 16-type sample](../../app/fixtures/ai-import/README.md). The combined TXT is a manual service/Web extraction and offline app acceptance document; individual cases are scored by the existing manifest.
 
 ### Incomplete exports (2026-09-29)
 

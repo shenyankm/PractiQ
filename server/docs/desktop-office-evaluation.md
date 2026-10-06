@@ -1,8 +1,8 @@
 # 本机 LibreOffice 接入评估（2026-09-28）
 
-> 以下为内置重构前的历史评估。当前版本改为随包提供 LibreOffice；此处原体积、系统安装发现和临时挂载结果不代表新包验收。新验证见下方追加记录。
+> Historical evidence from 2026-09-28: the initial system-install evaluation and appended embedded-engine evaluation both describe retired desktop builds. Current Office import runs in the independent service; the practice app includes no LibreOffice or Python. Follow the [service Office guide](desktop-office.md), not the historical setup below.
 
-> Archived evaluation of the initial implementation at `730a381`. Review fixes and their current validation are recorded in [PR #70](https://github.com/shenyankm/PractiQ/pull/70); the measurements below describe the original build.
+> Archived evaluation of the initial implementation at `730a381`. Review fixes and validation for that build are recorded in [PR #70](https://github.com/shenyankm/PractiQ/pull/70); the measurements below describe the original build.
 
 已接入桌面原生选文件、LibreOffice 检测、独立导出和确认后 AI 导入。独立服务的上传类型与解析图不变。当前场景无需引入 `python-docx`、`openpyxl` 或 Python UNO；相对现有版本，可以直接删除的大依赖为 **0**。
 

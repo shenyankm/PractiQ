@@ -149,77 +149,9 @@ the new reports to evidence, and regenerate the evidence hash and SHA256SUMS.
 Do not reuse an unsigned candidate's checksums or acceptance labels.
 Use the [explicit final-installer staging commands](final-package-acceptance.md#review-and-publication-handoff)
 to derive checked resources from the selected final file and rebuild local
-assets. Default `release.py stage` remains the CI path: unsigned desktop
-candidates or debug/test Android candidates with publisher verification unverified. Explicit
-staging requires the original CI platform candidate, installer and bound
-evidence, preserves its build URL, and checks the selected installer's actual
-application version. The original installer must be a regular non-link file with
-real parent directories and resolve within its downloaded candidate directory.
-The original evidence directory must resolve within the
-downloaded candidate directory, and each file must resolve within that evidence
-root. Previously restaged candidates cannot replace original build evidence.
-Windows PE headers require the executable flag (`0x0002`) set and the DLL flag
-(`0x2000`) clear, as defined in the
-[Microsoft PE specification](https://learn.microsoft.com/en-us/windows/win32/debug/pe-format#characteristics).
-macOS executables require POSIX execute permission; Windows PE checks remain
-independent of POSIX modes. Android staging explicitly selects `--platform android`
-and `--aapt2 /absolute/path/to/SDK/build-tools/<version>/aapt2`, plus
-`--android-runtime-inventory /absolute/path/to/source-checked-gradle-runtime.json`.
-The selected actual arm64 APK is staged at `app/.build/android-final/PractiQ.apk`
-in CI. Its Gradle runtime inventory is passed to the license gate and retained
-as `android-runtime-inventory.json` in candidate evidence. Release assets
-must contain only the `arm64-v8a` ABI. Windows payload extraction requires
-installed full 7-Zip; it does not execute NSIS or count as installation acceptance. Raw local reports
-remain private; the public evidence copy replaces machine paths, including `file:`
-URIs in values or keys, before hashing.
-Normal HTTP(S) path namespaces containing `file:` identifiers remain intact;
-local paths in query parameters and known machine roots remain redacted.
-If sanitized keys collide, deterministic
-numbered suffixes retain every value without overriding existing literal keys.
-Both ordinary CI staging and explicit final staging fingerprint the complete
-selected application/extraction tree before gates, after gates and before final
-asset handoff. Changes to file bytes, POSIX modes, file types, directory membership
-or link targets invalidate the staged result even when the installer snapshot is
-unchanged. This integrity check does not attest safety of executing a package.
-On Android, the full immutable APK remains bound by SHA-256; the tree fingerprint
-supplements checks of its temporary metadata extraction.
-The private reports retain the exact original CI candidate bytes. The public
-archive retains those same bytes as `evidence/original-candidate.json` only if the
-decoded candidate contains no machine paths requiring redaction; otherwise staging
-fails while retaining private diagnostics. Assembly verifies their byte digest
-against `candidateSha256` and requires their decoded identity to match the nested
-original candidate, in addition to its existing canonical semantic digest. A
-reformatted or sanitized serialization cannot substitute for the original bytes.
-Original candidate JSON rejects duplicate keys in every object, including nested
-objects, arrays and escaped equivalent names; harmless duplicates also fail.
-This prevents a later decoded value from hiding a private value still present in
-the original bytes. Rejection retains the private input or existing raw report
-and creates no public result; ordinary report JSON parsing is unchanged.
-Staging does not attest Actions provenance or verify signing. Archive actual
-signing results with artifactSha256 bound to the final SHA-256 and status of
-verified, unsigned or failed. Candidate and manifest preserve these declarations
-as externally_reported_verified, externally_reported_unsigned or
-externally_reported_failed. Without a report, final staging records unverified;
-assembly rejects a status that differs from its bound report. Independent
-verified acceptance requires the expected and observed publisher identity,
-commands and results for those same bytes; metadata alone does not establish
-verification. Review the original download's build provenance independently.
+assets. Default `release.py stage` remains the CI path for unsigned desktop or debug/test Android candidates. Explicit final staging requires the original CI candidate, installer and contained evidence; a previous restaging cannot replace original build provenance. Follow the [final-byte staging procedure](final-package-acceptance.md#review-and-publication-handoff) for installer snapshots, native identity, license gates, payload fingerprints, private/public evidence handling and unchanged original-candidate bytes. These checks fail on altered inputs and do not establish Actions provenance, signing or installation acceptance.
 
-Explicit final staging also accepts `--clean-machine-report` and
-`--live-model-report` for independently reviewed acceptance records. Each report
-uses schema 1 and binds its kind, candidate tag/commit/component versions,
-OS/architecture and exact final installer SHA-256. It requires a nonempty reviewer
-identity and verification-results list, with a declared `passed` or `failed`
-status. See the [report examples](final-package-acceptance.md#acceptance-report-inputs).
-The candidate and assembled manifest record `externally_reported_passed` or
-`externally_reported_failed`; an absent report remains `pending`. Assembly rejects
-mismatched identities, report paths and status drift, and verifies archived bytes
-against the candidate's evidence hashes. These inputs do not run installation or
-model checks, establish the truth of a supplied record, complete #91, or authorize
-publication. Independent publication review remains pending even when both reports
-declare success. Raw reports remain private; only sanitized, hash-bound copies
-enter public evidence. Synthetic test fixtures validate this contract and never
-establish actual clean-machine or live-model acceptance.
+Archive independently reviewed signing, clean-machine and live-model records bound to the exact final installer SHA-256. The [signing and acceptance report contract](final-package-acceptance.md#review-and-publication-handoff) defines the required fields, status bindings and public sanitization; [acceptance input examples](final-package-acceptance.md#acceptance-report-inputs) cover the two acceptance reports. Without a signing report, publisher verification stays unverified; missing acceptance reports stay pending. Supplied reports preserve externally reported outcomes and do not run the checks, attest their truth, complete #91 or authorize publication. Independently review the expected/observed publisher identity, commands/results, original build provenance and final bytes before publication.
 
 For each public platform record OS version, architecture, date and results for
 clean installation, upgrade/uninstall, native dialogs, credentials, audio,

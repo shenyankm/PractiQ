@@ -150,13 +150,7 @@ CI runs these Make targets on every PR, pushes to `main`, and manual dispatch. I
 
 Automated tests do not call real models. The [evaluation guide](evaluation.md) and historical reports remain available; historical failures do not establish a current quality baseline.
 
-See the [performance record](../reports/performance-20260921.md) for synthetic storage, scheduling, and extractor-transport checks. Startup adds ordering indexes to schema 1 task databases. Business reads reuse a dedicated connection and close cursors serially; write transactions, checkpoints, and Store remain isolated. Submission, control, completion, and shutdown events wake the scheduler. It also checks the persistent queue after at most one idle second, covering cancellation between transaction commit and notification. Startup scans the recovery queue.
-
-Storage is local and persistent. Upload and asset-read APIs enforce authentication, size, SHA-256, path, and reference validation.
-
-AI files default to `server/.local/ai-oss`. This historical directory name does not imply cloud storage support. Relative `AI_STORAGE_DIR` paths resolve from `server/`; production must use and back up an absolute persistent mount. Sources use `practiq-agent/sources/`; derived text and images use `practiq-agent/artifacts/`. Storage I/O uses a bounded thread pool and `AI_STORAGE_TIMEOUT_SECONDS`, with shared storage errors.
-
-Storage uses local files. Non-local `AI_STORAGE_BACKEND` values prevent startup; remove obsolete `AI_OSS_*` settings. Existing data is never automatically moved or deleted. See [storage configuration](operations.md#storage-configuration).
+Service storage is local and persistent. Upload and asset reads enforce authentication, size, SHA-256, path and reference validation. Relative `AI_STORAGE_DIR` paths resolve from `server/`; production requires an absolute persistent mount. See [operations](operations.md#data-and-backups) for matching SQLite/artifact backups, scheduler recovery, storage errors and maintenance. Historical capacity reports do not establish current deployment capacity.
 
 ## Graphs and API examples
 
