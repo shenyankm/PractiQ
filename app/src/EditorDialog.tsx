@@ -1,5 +1,6 @@
 import { useRef, useState, type ReactNode } from "react";
 import { t, useI18n } from "./i18n";
+import { useUnsavedChanges } from "./useUnsavedChanges";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
@@ -15,6 +16,7 @@ export function EditorDialog({ title, dirty, busy, onClose, className, children 
   children: ReactNode;
 }) {
   useI18n();
+  useUnsavedChanges(dirty);
   const [discardOpen, setDiscardOpen] = useState(false);
   const returnFocus = useRef<HTMLElement | null>(null);
   function requestClose() {

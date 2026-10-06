@@ -256,7 +256,8 @@ test('bilingual sidebar preserves alignment, keyboard navigation and language pr
 test('offline ZIP entry and service settings never submit documents or start model work',async ({page,observedCalls})=>{
  await expect(page.locator('aside').getByRole('button',{name:'Import',exact:true})).toHaveCount(0);
  await expect(page.getByRole('button',{name:'Start import',exact:true})).toHaveCount(0);
- await page.getByRole('button',{name:'Have a bank ZIP? Import it in Settings',exact:true}).click();
+ await page.getByRole('button',{name:'Import',exact:true}).click();
+ expect(observedCalls.filter(c=>c.request.type==='pick_import')).toHaveLength(0);
  await expect(page.getByRole('menuitem',{name:'Import bank ZIP',exact:true})).toBeVisible();
  await expect(page.getByRole('menuitem',{name:'Restore study-data backup',exact:true})).toBeVisible();
  await expectNoOverflow(page,'ZIP import and full restore choices');

@@ -59,8 +59,8 @@ export function ImportBankDialog({ preview, banks, initialBank, busy, run, onClo
             }
             finally { submitting.current = false; }
             onClose();
-            await onImported(result.bankId);
             toast.success(result.duplicate ? message("此题库已导入相同内容，本次已跳过") : message("已导入 {0} 道题目", { 0: result.count }));
+            await onImported(result.bankId);
           })}>{t("确认导入")}</Button>
         </DialogFooter>
       </DialogContent>

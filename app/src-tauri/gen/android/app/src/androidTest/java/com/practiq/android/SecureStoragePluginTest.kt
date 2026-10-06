@@ -1,5 +1,6 @@
 package com.practiq.android
 
+import android.accessibilityservice.AccessibilityServiceInfo
 import android.app.Activity
 import android.content.Intent
 import android.os.ParcelFileDescriptor
@@ -196,6 +197,11 @@ class SecureStoragePluginTest {
         awaitScript("Boolean(window.__TAURI_INTERNALS__) && document.readyState === 'complete' && document.documentElement.dataset.nativeInsets === 'true'",
             "true", "Recreated final page should initialize")
         requireResumedActivity("Picker precondition")
+        // Connect before launching DocumentsUI so its window events are observed.
+        val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
+        automation.serviceInfo = automation.serviceInfo.apply {
+            flags = flags or AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
+        }
         repeat(2) { cycle ->
         evaluate("window.__practiqPickerProbe='pending';window.__TAURI_INTERNALS__.invoke('request',{request:{type:'pick_import'},locale:'en'}).then(value=>{window.__practiqPickerProbe=value===null?'canceled':'unexpected'},()=>{window.__practiqPickerProbe='error'});true")
         val deadline = SystemClock.elapsedRealtime() + 15000
@@ -209,10 +215,15 @@ class SecureStoragePluginTest {
             assertTrue("Native picker should open", SystemClock.elapsedRealtime() < deadline)
             SystemClock.sleep(100)
         }
-        val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
-        while (automation.rootInActiveWindow?.packageName?.toString()?.endsWith(".documentsui") != true) {
-            assertEquals("Picker must remain pending before the system window is active", "\"pending\"", evaluate("window.__practiqPickerProbe"))
-            assertTrue("The actual DocumentsUI picker must become active", SystemClock.elapsedRealtime() < deadline)
+        while (true) {
+            // Back targets input focus, not the last accessibility-active window.
+            val windows = automation.windows
+            val focusedPackage = windows.firstOrNull { it.isFocused }?.root?.packageName?.toString()
+            if (focusedPackage?.endsWith(".documentsui") == true) break
+            assertEquals("Picker must remain pending before the system window is focused", "\"pending\"", evaluate("window.__practiqPickerProbe"))
+            assertTrue("The actual DocumentsUI picker must have input focus: focusedPackage=$focusedPackage windows=" +
+                windows.joinToString { "type=${it.type},active=${it.isActive},focused=${it.isFocused},package=${it.root?.packageName}" },
+                SystemClock.elapsedRealtime() < deadline)
             SystemClock.sleep(100)
         }
         // Observe the existing result callback without replacing its behavior.

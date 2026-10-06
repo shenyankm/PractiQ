@@ -77,6 +77,41 @@ async function openTask(page: Page) {
 const mutations = (calls: Call[]) => calls.filter(call => call.method !== "GET");
 const starts = (calls: Call[]) => calls.filter(call => call.path === "/api/document-tasks" && call.method === "POST");
 
+test("workspace fits narrow and desktop windows with keyboard shortcuts to content", async ({ page }, testInfo) => {
+  const http = await fakeHTTP(page, { ...task, fileName: "很长的来源文档名称-".repeat(12) + ".docx" });
+  await page.goto("/");
+  for (const width of [1440, 390, 320]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.screenshot({ path: testInfo.outputPath(`connection-${width}.png`), fullPage: true });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  }
+  await page.keyboard.press("Tab");
+  await expect(page.getByRole("link", { name: "跳到主要内容" })).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("main")).toBeFocused();
+  await connect(page);
+  await page.getByRole("button", { name: /很长的来源文档名称/ }).click();
+  await expect(page.getByRole("heading", { name: /很长的来源文档名称/ })).toBeVisible();
+  await expect(page.getByText("根据材料选择答案", { exact: true })).toBeVisible();
+  for (const width of [1440, 900, 390, 320]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.screenshot({ path: testInfo.outputPath(`workspace-${width}.png`), fullPage: true });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  }
+  await page.getByRole("link", { name: "查看当前任务详情" }).click();
+  await expect(page.getByRole("region", { name: "任务详情" })).toBeFocused();
+  await page.getByText("模型用量与任务诊断", { exact: true }).click();
+  const sourcesButton = page.getByRole("button", { name: "来源与资源", exact: true });
+  await sourcesButton.click();
+  await expect(sourcesButton).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "题目与材料", exact: true })).toHaveAttribute("aria-pressed", "false");
+  expect(await sourcesButton.evaluate(node => node.getBoundingClientRect().height)).toBeGreaterThanOrEqual(48);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.getByRole("link", { name: "返回任务列表" }).click();
+  await expect(page.getByText("文档任务", { exact: true })).toBeFocused();
+  expect(mutations(http.calls)).toHaveLength(0);
+});
+
 test("passive file selection becomes one authenticated SHA upload only after explicit Start", async ({ page }) => {
   const http = await fakeHTTP(page);
   await page.goto("/"); expect(http.calls).toHaveLength(0); await connect(page);

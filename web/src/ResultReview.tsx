@@ -101,7 +101,7 @@ export default function ResultReview({ task, preview, client }: { task: Document
   const currentResourcePage = Math.min(resourcePage, Math.max(0, Math.ceil(resourceCount / 20) - 1));
   const resourceStart = currentResourcePage * 20;
   return <section className="space-y-4" aria-label="解析结果检查">
-    <div className="flex items-center justify-between gap-3"><h3>解析结果 · {entries.length} 条题目记录</h3><div className="flex gap-2"><Button variant={tab === "questions" ? "default" : "outline"} onClick={() => setTab("questions")}>题目与材料</Button><Button variant={tab === "sources" ? "default" : "outline"} onClick={() => setTab("sources")}>来源与资源</Button></div></div>
+    <div className="review-header"><h3>解析结果 · {entries.length} 条题目记录</h3><div className="flex gap-2"><Button aria-pressed={tab === "questions"} variant={tab === "questions" ? "default" : "outline"} onClick={() => setTab("questions")}>题目与材料</Button><Button aria-pressed={tab === "sources"} variant={tab === "sources" ? "default" : "outline"} onClick={() => setTab("sources")}>来源与资源</Button></div></div>
     {task.status === "PARTIAL" && <p className="notice">这是部分结果，失败单元、缺失字段与原始警告会随题库保留。</p>}
     {!!task.result?.warnings.length && <div className="notice"><h4>结果警告</h4><ul>{task.result.warnings.map((warning, index) => <li key={index}>{warning}</li>)}</ul></div>}
     {!!task.result?.missingFields?.length && <p className="notice">文档缺失字段：{task.result.missingFields.join("、")}</p>}
