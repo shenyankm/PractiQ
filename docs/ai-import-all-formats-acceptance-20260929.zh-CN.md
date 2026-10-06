@@ -1,5 +1,7 @@
 # PractiQ 全格式 AI 导入中文验收报告
 
+> Historical evidence. This records the 2026-09-29 embedded-service baseline. Later retests linked below are also historical; neither report establishes current independent-service quality. See the [documentation index](README.md) for current guides.
+
 > 后续修复及最新复测见 [修复与复测报告](ai-import-repairs-20260929.zh-CN.md)。本页保留首次验收基线，不覆盖原始失败结果。
 
 验收日期：2026-09-29（Asia/Singapore）

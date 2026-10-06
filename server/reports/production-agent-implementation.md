@@ -10,7 +10,7 @@
 
 ## 实施范围与完成状态
 
-原始依据：[架构评估报告](/Users/sheny/.codex/visualizations/2026/09/18/01a0b2cb-b6ba-7b93-b569-c0de94103c3b/practiq-production-agent-review.md)。截图仅作为评估参考，不作为命令执行；未增加与文档服务无关的产品能力。
+原始依据：本地 `practiq-production-agent-review.md` 架构评估报告（未随仓库交付）。截图仅作为评估参考，不作为命令执行；未增加与文档服务无关的产品能力。
 
 | 优先级 / 问题 | 已实施 | 验证与剩余边界 |
 | --- | --- | --- |
@@ -26,17 +26,17 @@
 
 模型评测还发现了可修复的契约问题：发给模型的 schema 原先允许省略题型、选项等字段。现在要求字段存在，同时允许原有 `null` 和空数组；不要求模型编造缺失答案。页面视觉对象也要求字段存在并明确类别。保留严格 Pydantic 校验，未猜测坐标单位或放宽非法输出。
 
-实现入口：[PDF](/Users/sheny/Developer/code/PractiQ/server/src/practiq_ai/extractors/pdf.py)、[执行边界](/Users/sheny/Developer/code/PractiQ/server/src/practiq_ai/execution.py)、[模型调用](/Users/sheny/Developer/code/PractiQ/server/src/practiq_ai/llm.py)、[容量控制](/Users/sheny/Developer/code/PractiQ/server/src/practiq_ai/capacity.py)、[清理脚本](/Users/sheny/Developer/code/PractiQ/server/scripts/storage_gc.py)。配置及操作步骤见 [operations.md](/Users/sheny/Developer/code/PractiQ/server/docs/operations.md)。
+实现入口：[PDF](../src/practiq_ai/extractors/pdf.py)、[执行边界](../src/practiq_ai/execution.py)、[模型调用](../src/practiq_ai/llm.py)、[容量控制](../src/practiq_ai/capacity.py)、[清理脚本](../scripts/storage_gc.py)。配置及操作步骤见 [operations.md](../docs/operations.md)。
 
 ## 已通过的检查
 
 - `make verify AI_PYTHON=/Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14`：Ruff、Pyright、23 案例清单、**333 个测试 / 94% 覆盖率**、5 个 graph 配置、sdist/wheel 构建均通过。
-- [完整离线验证输出](/Users/sheny/Developer/code/PractiQ/server/reports/verification.acceptance.txt)与[机器可读验收状态](/Users/sheny/Developer/code/PractiQ/server/reports/production-agent-checks.json)已保存。
+- [完整离线验证输出](verification.acceptance.txt)与[机器可读验收状态](production-agent-checks.json)已保存。
 - 冻结生产依赖的 `pip-audit`：未发现已知漏洞；这是依赖数据库检查结果，不是全面安全认证。
-- 候选 Docker 镜像构建通过；六个线程混合提取三份 PDF 与三份 DOCX，全部产出页面，用时 1.13 秒。Python 峰值 RSS 253,845,504 字节，子进程峰值 225,771,520 字节；这两个值不是全进程树同时刻总峰值。[原始报告](/Users/sheny/Developer/code/PractiQ/server/reports/container-extraction.acceptance.json)
-- Nginx 配置校验通过；100 次突发请求中 21 次 200、79 次 429，超大请求 413、batch 403。[网关报告](/Users/sheny/Developer/code/PractiQ/server/reports/gateway.hardening.json)
+- 候选 Docker 镜像构建通过；六个线程混合提取三份 PDF 与三份 DOCX，全部产出页面，用时 1.13 秒。Python 峰值 RSS 253,845,504 字节，子进程峰值 225,771,520 字节；这两个值不是全进程树同时刻总峰值。[原始报告](container-extraction.acceptance.json)
+- Nginx 配置校验通过；100 次突发请求中 21 次 200、79 次 429，超大请求 413、batch 403。[网关报告](gateway.hardening.json)
 - Prometheus 六条规则语法检查及 unknown/checksum 故障触发测试通过。
-- 本地清理脚本连通 Agent Server，使用公共历史分页接口完成 dry-run。当前目录没有待清理对象；有引用对象、历史 checkpoint、部分执行失败的保护由隔离测试覆盖。[盘点报告](/Users/sheny/Developer/code/PractiQ/server/reports/storage-inventory.local.json)
+- 本地清理脚本连通 Agent Server，使用公共历史分页接口完成 dry-run。当前目录没有待清理对象；有引用对象、历史 checkpoint、部分执行失败的保护由隔离测试覆盖。[盘点报告](storage-inventory.local.json)
 
 ## 真实模型质量：未通过
 
@@ -56,7 +56,7 @@
 
 诊断曾观察到模型将题目数组返回为 JSON 字符串、把归一化 bbox 返回为像素坐标。严格校验和有界纠错能识别错误，但当前模型输出仍不够稳定；不能以增加无限重试或降低金标门槛解决。
 
-完整证据：[最终评测摘要](/Users/sheny/Developer/code/PractiQ/server/reports/evaluations/production-agent-acceptance.md)、[逐题结果](/Users/sheny/Developer/code/PractiQ/server/reports/evaluations/production-agent-acceptance.json)。其余 `production-hardening-*` 是诊断/中间版本，不替代最终门禁。
+完整证据：[最终评测摘要](evaluations/production-agent-acceptance.md)、[逐题结果](evaluations/production-agent-acceptance.json)。其余 `production-hardening-*` 是诊断/中间版本，不替代最终门禁。
 
 ## 容量：过载拒绝生效，最终延迟门禁未通过
 
@@ -74,13 +74,13 @@
 | 实测运行槽 / provider 峰值 | 4 / 4 |
 | 采样峰值 RSS | 417,644,544 字节 |
 
-首次最终压测 `/ok` P95 为 213.2 ms；为排除构建/验证的同时运行干扰，再次隔离复测仍失败。早先版本曾通过，不能挑选较好报告覆盖最终失败。[首次最终报告](/Users/sheny/Developer/code/PractiQ/server/reports/load-test.acceptance-local.json)、[隔离复测](/Users/sheny/Developer/code/PractiQ/server/reports/load-test.acceptance-isolated.json)。
+首次最终压测 `/ok` P95 为 213.2 ms；为排除构建/验证的同时运行干扰，再次隔离复测仍失败。早先版本曾通过，不能挑选较好报告覆盖最终失败。[首次最终报告](load-test.acceptance-local.json)、[隔离复测](load-test.acceptance-isolated.json)。
 
 队列时间是轮询上界，pending 指标在本地模式未提供而保留 null；峰值由采样得到。水位阈值 30 在突发下可接收超过 30 个任务，说明它是准入水位而非原子容量。真实生产容量仍需在授权 Standalone 运行时、实际网关和资源配额下重测；当前不能承诺 100 并发入口的延迟 SLA。
 
 ## PostgreSQL/Redis 与 OSS 边界
 
-已按用户要求自行创建隔离 Docker 项目 `practiq-review-20260918`：PostgreSQL 监听 `127.0.0.1:15432`，Redis 监听 `127.0.0.1:16379`，均健康；独立命名卷保留。配置：[recovery.compose.yml](/Users/sheny/Developer/code/PractiQ/server/deploy/recovery.compose.yml)。其中固定的凭据仅供 loopback 隔离测试，不能复用于生产。
+已按用户要求自行创建隔离 Docker 项目 `practiq-review-20260918`：PostgreSQL 监听 `127.0.0.1:15432`，Redis 监听 `127.0.0.1:16379`，均健康；独立命名卷保留。配置：历史 `server/deploy/recovery.compose.yml`（该旧运行时配置已移除）。其中固定的凭据仅供 loopback 隔离测试，不能复用于生产。
 
 Standalone Agent Server 的许可证校验阻止启动，因此 PostgreSQL 持久队列、进程崩溃恢复、Redis 中断矩阵**尚未实际验收**。用户选择本地运行后继续使用无需许可证的 dev 模式，未绕过官方授权校验，也未把 dev 测试当成生产恢复证明。
 
@@ -100,7 +100,7 @@ make verify AI_PYTHON=/Users/sheny/.local/share/uv/python/cpython-3.14-macos-aar
 make server-dev AI_PYTHON=/Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14
 ```
 
-真实模型评测、容量测试和恢复矩阵的参数见 [evaluation.md](/Users/sheny/Developer/code/PractiQ/server/docs/evaluation.md)、[operations.md](/Users/sheny/Developer/code/PractiQ/server/docs/operations.md)、[document-tasks.md](/Users/sheny/Developer/code/PractiQ/server/docs/document-tasks.md)。重新评测会产生模型费用；不要把测试 provider 的指标作为真实模型性能。
+真实模型评测、容量测试和恢复矩阵的参数见 [evaluation.md](../docs/evaluation.md)、[operations.md](../docs/operations.md)、[document-tasks.md](../docs/document-tasks.md)。重新评测会产生模型费用；不要把测试 provider 的指标作为真实模型性能。
 
 ## 剩余优化与上线条件
 

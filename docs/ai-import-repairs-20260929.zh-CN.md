@@ -1,5 +1,7 @@
 # PractiQ AI 导入修复与复测报告
 
+> Historical evidence. This records the 2026-09-29 repairs and retest, including the original failures. Current source import and Office conversion run in the independent service, not the practice app. See the [documentation index](README.md) for current guides.
+
 日期：2026-09-29。模型：`qwen3.7-flash`。原始基线见 [全格式验收报告](ai-import-all-formats-acceptance-20260929.zh-CN.md)。
 
 本次代码改动覆盖原报告六项优先级，并落实追加要求：**缺答案、缺题干、缺题目允许导出，通过结构化字段标记，供后续处理。** 这不等于识别质量全部通过；缺失内容不能靠自动补答案或删除校验来“修好”。

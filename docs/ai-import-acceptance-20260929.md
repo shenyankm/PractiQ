@@ -1,5 +1,7 @@
 # Native AI import acceptance — 2026-09-29
 
+> Historical evidence. This records the former desktop import UI and embedded Python service. Current source import uses the independent service/Web flow; it is not acceptance of that architecture. See the [documentation index](README.md) for current guides.
+
 **Verdict: the workflow works, but extraction quality does not pass acceptance.** This run used the actual macOS release application, native file picker, configured `qwen3.7-flash`, packaged Python service, import-history UI and local question-bank importer. No fake model responses or preview IPC were used. The user configured desktop credentials. Only synthetic repository fixtures were submitted. Three banks containing six questions were imported and preserved for inspection under `Acceptance-20260929-*`.
 
 ## Observations

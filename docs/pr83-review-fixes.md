@@ -1,5 +1,7 @@
 # PR 83 review follow-up
 
+> Historical evidence. This records PR 83 and its September follow-ups. Desktop conversion/import receipts and embedded-engine license checks below belong to the former architecture; current import runs in the independent service. See the [documentation index](README.md) for current guides.
+
 This follow-up addresses the twelve inline review findings and the question-tree
 index nit. It supersedes the writing-language fallback and license-completeness
 claims in the historical September acceptance reports; those reports remain

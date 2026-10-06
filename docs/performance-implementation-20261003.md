@@ -1,5 +1,7 @@
 # Performance implementation and validation (2026-10-03)
 
+> Historical evidence. Measurements and checks apply to the recorded October 3 baseline. Later source, platform and transport changes need their own measurements. See the [documentation index](README.md) for current guides.
+
 This work implements the source audit against baseline `b3fef87`. The scope includes
 issues #103–#109 and the additional desktop/service read, transport and rendering
 hotspots found in the October 3 audit. It preserves SQLite schema 11, immutable

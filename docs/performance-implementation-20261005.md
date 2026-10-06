@@ -1,5 +1,7 @@
 # Performance implementation record (2026-10-05)
 
+> Historical evidence. Measurements and checks apply to the recorded October 5 baseline. PR-head and CI references below describe that delivery, not the current release candidate. See the [documentation index](README.md) for current guides.
+
 Baseline: `b459d6496ada503f6d5c1978c55ddb0ae74eacbf`. This change implements the confirmed hotspots in audit priority order, reusing React/Vite, Tauri/Rust, SQLite, LangGraph and local object storage. It adds no dependencies, database migrations or model-call entry points.
 
 ## Implementation scope

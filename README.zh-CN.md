@@ -17,7 +17,7 @@
 
 首次启动按系统语言偏好选择支持的语言，也可从侧边栏切换。语言选择保存在本机并包含在完整备份中，保存失败后可重试；日期和数字使用与界面语言匹配的系统区域偏好。切换语言会保留题目原文和作答，有可靠语言信息的材料会声明自身语言，供辅助工具使用。AI 评分在开始时记录反馈语言，继续同一次请求会保留该语言。
 
-题目列表加载时会隐藏旧结果；读取失败后持续显示错误和“重试”，重试会保留当前题库、搜索、题型、复核筛选和页码。
+作答、自评、草稿保护、失败重试、语言设置和主动 AI 评分的详细规则见[练习指南（英文）](docs/practice-guide.md)。
 
 PractiQ 仍处于开发阶段，目前没有已发布的 GitHub Release；请按下方步骤从源码运行。平台构建检查不代表已完成签名发布或干净系统验收。
 
@@ -58,7 +58,7 @@ PractiQ 仍处于开发阶段，目前没有已发布的 GitHub Release；请按
 
 练习和本地判分可离线使用。需要主观题 AI 评分时，在桌面**设置 → AI 服务**中配置独立服务地址及访问令牌，再主动开始评分或重试。评分须有参考答案或评分细则；缺少依据、失败或结果未知时保持未判定。此功能用于个人练习，不作为正式考试阅卷依据。打开 app 或修改设置不会调用模型。
 
-app 访问令牌保存在 macOS Keychain、Windows Credential Manager 或 Android Keystore 保护的私有存储中，Web 令牌只保存在浏览器内存中。备份不含凭据及 AI 任务状态。旧模型配置与密钥原样保留，不会自动作为独立服务凭据使用。限时模考在关闭应用或电脑休眠后仍继续计时，重新进入超时考试时按最后保存的答案交卷。
+app 访问令牌保存在 macOS Keychain、Windows Credential Manager 或 Android Keystore 保护的私有存储中，Web 令牌只保存在浏览器内存中。服务地址保存在独立的 `v4/service-settings-v1.sqlite` 中，完整备份可包含版本化的地址设置，但不含凭据及 AI 任务状态；练习数据库仍为 schema 11。恢复和兼容边界见[数据模型](docs/question-model.md#versions-and-directories)。旧模型配置与密钥原样保留，不会自动作为独立服务凭据使用。限时模考在关闭应用或电脑休眠后仍继续计时，重新进入超时考试时按最后保存的答案交卷。
 
 开发模式默认使用内存示例数据；预览面板可切换场景或选择真实本地数据，详见[开发预览](app/docs/development-preview.md)。
 
@@ -123,6 +123,8 @@ make server-dev AI_PYTHON=/path/to/python3.14
 FastAPI/LangGraph 服务监听 `127.0.0.1:8090`，使用 SQLite 和本地文件存储，每个数据库只运行一个进程。上传、任务、素材和评分接口均需鉴权。打开 `http://127.0.0.1:8090/` 使用已构建的 Web 前端；开发时可另外运行 `make web-dev`，其本机 Vite 服务将 API 请求代理到独立服务。需要 Office 支持时，仅在服务部署端配置 `AI_OFFICE_EXECUTABLE` 与 `AI_OFFICE_VERSION`。详见[服务指南](server/docs/service-guide.md)。
 
 ## 文档与开发
+
+[文档索引（英文）](docs/README.md)区分使用指南、技术参考、验收工作表和历史证据。
 
 - [文档任务 API](server/docs/document-tasks.md)：进度、暂停、恢复、重试与复核
 - [部署与运维](server/docs/operations.md)：部署、存储与恢复
