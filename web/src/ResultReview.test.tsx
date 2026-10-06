@@ -1,9 +1,19 @@
+import { createRequire } from "node:module";
 import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { expect, it, vi } from "vitest";
 import ResultReview, { ImageArtifact, Markdown } from "./ResultReview";
 import { Client } from "./api";
 import { material, preview, question, task } from "./test-fixtures";
+
+it("keeps KaTeX CSS and every math renderer on the same version", () => {
+  const require = createRequire(import.meta.url);
+  const version = require("katex/package.json").version;
+  for (const name of ["rehype-katex", "micromark-extension-math"]) {
+    const renderer = createRequire(require.resolve(name));
+    expect(renderer("katex/package.json").version).toBe(version);
+  }
+});
 
 it("disables raw HTML, external links/images and trusted math extensions", () => {
   const { container } = render(<Markdown text={'<script>window.injected=true</script>\n\n![外图](https://untrusted.invalid/image.png) [链接](https://untrusted.invalid)\n\n$x^2$'} />);
