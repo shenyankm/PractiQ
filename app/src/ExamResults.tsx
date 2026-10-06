@@ -11,6 +11,8 @@ import { cents } from "./paper";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
+export interface GradingDraft { score: string; reason: string }
+
 function gradingStatus(status: string) { return ({graded: t("已完成"), ungraded:t("未能评分，需复核"), unknown:t("评分结果待确认")})[status] || status; }
 function eligible(a:Attempt){const q=a.snapshot.question;return q.answerMode==="short_answer"&&!!q.stem&&!!a.answer?.text?.trim()&&!!(q.scoringRubric||q.answerPayload?.text)&&!a.snapshot.missingAssets&&!q.missingFields.some(k=>["stem","material","media","answerMode"].includes(k))&&a.gradeKind!=="manual";}
 function GradeDetails({request}: {request: GradingResponse}) {
@@ -22,9 +24,13 @@ function GradeDetails({request}: {request: GradingResponse}) {
     {request.result?.reviewReasons.map((e,i)=><p key={i}>{t("复核提示：{0}", {0:e})}</p>)}
   </div>;
 }
-export function ExamResults({session,onSession,run,onNextUnattempted}:{session:Session;onSession:(s:Session)=>void;run:(j:()=>Promise<void>)=>void;onNextUnattempted?:()=>void}) {
+export function ExamResults({session,onSession,run,onNextUnattempted,draft,onDraftChange,onConfigure}:{session:Session;onSession:(s:Session)=>void;run:(j:()=>Promise<void>)=>void;onNextUnattempted?:()=>void;draft?:GradingDraft;onDraftChange?:(draft:GradingDraft)=>void;onConfigure?:()=>void}) {
   useI18n();
-  const [running,setRunning]=useState(false); const stopped=useRef(false);const [error, setError] = useState<unknown>(null);const [score,setScore]=useState("");const [reason,setReason]=useState("");
+  const [running,setRunning]=useState(false); const stopped=useRef(false);const [error, setError] = useState<unknown>(null);
+  const [localDraft, setLocalDraft] = useState<GradingDraft>({ score: "", reason: "" });
+  const [saving, setSaving] = useState(false);
+  const { score, reason } = draft ?? localDraft;
+  const changeDraft = onDraftChange ?? setLocalDraft;
   const [retryConfirm,setRetryConfirm]=useState(false);
   const exam=session.kind&&session.kind!=="practice";const submitted=exam?!!session.submittedAt:!!session.finishedAt;
   const a=session.attempts[session.position];
@@ -35,6 +41,8 @@ export function ExamResults({session,onSession,run,onNextUnattempted}:{session:S
   const pending=session.attempts.filter(a=>exam&&a.earnedCents==null);
   const pendingAi=pending.filter(a=>eligible(a)&&!a.grading?.ai&&!a.grading?.lastRequest);
   const latest=a.grading?.lastRequest;
+  const configurationError = error ?? latest?.appError;
+  const needsConfiguration = ["LOCAL_SERVICE_URL_REQUIRED", "LOCAL_SERVICE_TOKEN_REQUIRED", "LOCAL_SERVICE_TOKEN_INVALID", "INVALID_SERVICE_TOKEN"].includes(String((configurationError as { code?: string } | null)?.code ?? ""));
   const retryCount=session.attempts.filter(a=>a.result===false).length;
   function grade(items:Attempt[],retry=false){run(async()=>{stopped.current=false;setRunning(true);setError(null);try{for(const item of items){if(stopped.current)break;const s=await ai({type:"grade",id:session.id,ordinal:item.ordinal,retry});onSession(s);}}catch(e){setError(e);}finally{setRunning(false);}});}
   return <section className="space-y-3 rounded-lg border p-4" aria-label={t("本次结果")}>
@@ -70,8 +78,18 @@ export function ExamResults({session,onSession,run,onNextUnattempted}:{session:S
           </AlertDialogContent>
         </AlertDialog>
       )}
-      <div className="flex flex-wrap gap-2"><Input className="w-32" aria-label={t("人工得分")} placeholder={t("得分")} value={score} onChange={e=>setScore(e.target.value)}/><Input className="basis-full sm:basis-0 sm:flex-1" aria-label={t("改分原因")} placeholder={t("人工评分／改分原因（必填）")} value={reason} onChange={e=>setReason(e.target.value)}/><Button variant="outline" onClick={()=>{try{const value=cents(score);if(!reason.trim())throw new MessageError(message("请填写原因"));setError(null);run(async()=>onSession(await api({type:"manual_score",id:session.id,ordinal:a.ordinal,cents:value,reason})));}catch(e){setError(e);}}}>{t("保存人工评分")}</Button></div>
+      <div className="flex flex-wrap gap-2"><Input className="w-32" disabled={saving || running} aria-label={t("人工得分")} placeholder={t("得分")} value={score} onChange={e=>changeDraft({ score: e.target.value, reason })}/><Input className="basis-full sm:basis-0 sm:flex-1" disabled={saving || running} aria-label={t("改分原因")} placeholder={t("人工评分／改分原因（必填）")} value={reason} onChange={e=>changeDraft({ score, reason: e.target.value })}/><Button variant="outline" disabled={saving || running} onClick={()=>{try{const value=cents(score);if(!reason.trim())throw new MessageError(message("请填写原因"));setError(null);run(async()=>{
+        setSaving(true);
+        try {
+          const updated = await api({type:"manual_score",id:session.id,ordinal:a.ordinal,cents:value,reason});
+          changeDraft({ score: "", reason: "" });
+          onSession(updated);
+        } catch (error) { setError(error); }
+        finally { setSaving(false); }
+      });}catch(e){setError(e);}}}>{saving ? t("正在保存…") : t("保存人工评分")}</Button></div>
+      <p className="text-xs text-muted-foreground">{t("人工评分草稿仅在本次应用运行期间保留；点击保存后才写入记录。")}</p>
     </>}
     {error != null &&<p role="alert">{errorMessage(error)}</p>}
+    {needsConfiguration && onConfigure && <Button variant="outline" disabled={running || saving} onClick={onConfigure}>{t("配置 AI 服务")}</Button>}
   </section>;
 }

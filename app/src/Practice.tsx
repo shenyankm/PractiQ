@@ -1,7 +1,7 @@
 import { duration, t, useI18n } from "./i18n";
 import { ListeningPlayer } from "./ListeningPlayer";
 import { questionKinds } from "./english";
-import { ExamResults } from "./ExamResults";
+import { ExamResults, type GradingDraft } from "./ExamResults";
 import { memo, useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import {
   api,
@@ -26,6 +26,9 @@ type PracticeProps = {
   run: (job: () => Promise<void>) => void;
   flushRef: MutableRefObject<() => Promise<void>>;
   onNextUnattempted?: () => void;
+  gradingDrafts?: Record<string, GradingDraft>;
+  onGradingDraftChange?: (ordinal: number, draft: GradingDraft) => void;
+  onConfigureGrading?: () => void;
 };
 export function Practice(props: PracticeProps) {
   const { session, onSession, run, flushRef } = props;
@@ -84,6 +87,9 @@ function PracticeQuestion({
   run,
   flushRef,
   onNextUnattempted,
+  gradingDrafts,
+  onGradingDraftChange,
+  onConfigureGrading,
   go,
   onDraft,
   questionHeading,
@@ -237,7 +243,10 @@ function PracticeQuestion({
             {attempt.snapshot.id && favorite != null && <Button variant="outline" onClick={()=>run(async()=>{await api({type:"favorite",id:attempt.snapshot.id!,value:!favorite});onSession(await api({type:"session",id:session.id}));})}>{favorite?t("取消收藏"):t("收藏原题")}</Button>}
             {exam && !handedIn && <Button variant="outline" onClick={()=>run(async()=>{await flushRef.current();onSession(await api({type:"flag",id:session.id,ordinal:session.position,value:!attempt.flagged}));})}>{attempt.flagged?t("取消待检查标记"):t("标记待检查")}</Button>}
           </div>
-          <ExamResults session={session} onSession={onSession} run={run} onNextUnattempted={onNextUnattempted}/>
+          <ExamResults session={session} onSession={onSession} run={run} onNextUnattempted={onNextUnattempted}
+            draft={gradingDrafts ? gradingDrafts[`${session.id}:${attempt.ordinal}`] ?? { score: "", reason: "" } : undefined}
+            onDraftChange={onGradingDraftChange ? draft => onGradingDraftChange(attempt.ordinal, draft) : undefined}
+            onConfigure={onConfigureGrading}/>
           {!exam && <p role="status" aria-label={t("答题状态")} aria-live="polite" aria-atomic="true" className="sr-only">{submitted ? t("第 {0} 题：{1}", {0:attempt.ordinal+1,1:resultLabel}) : ""}</p>}
           <Content snapshot={attempt.snapshot} exam={exam&&!handedIn} revealOriginal={exam ? handedIn : submitted} materialDialog
             onBlank={blankTargets.length ? onBlank : undefined} blankAnswers={blankAnswers}/>

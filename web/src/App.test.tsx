@@ -104,6 +104,8 @@ it("recovers failed task/capability reads and ignores obsolete pages after a fil
   const user = userEvent.setup(); const http = fakeHTTP(); let failList = true, failCap = true;
   http.server.intercept = url => { if (url.includes("capabilities") && failCap) { failCap = false; return json({ detail: { code: "SERVICE_UNAVAILABLE" } }, 503); } if (url.startsWith("/api/document-tasks?") && failList) { failList = false; return json({ detail: { code: "TASK_SERVICE_UNAVAILABLE" } }, 503); } };
   render(<App />); await user.type(screen.getByLabelText("服务 Token"), "fake-service-token"); await user.click(screen.getByRole("button", { name: "连接服务" }));
+  await screen.findByText("连接验证失败");
+  expect(screen.queryByText("正在验证服务")).toBeNull();
   await user.click(await screen.findByRole("button", { name: "重试读取服务能力" })); await screen.findByText("服务已连接");
   await user.click(await screen.findByRole("button", { name: "重试任务列表" })); await screen.findByRole("button", { name: /sample.docx/ });
   let release!: (response: Response) => void;

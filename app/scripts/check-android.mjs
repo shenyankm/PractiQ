@@ -168,7 +168,10 @@ test('touch navigation works in both languages and consumes back only when neede
 test('ZIP and service settings stay local until an explicit connection test', async ({ page }) => {
   const calls = await serviceMock(page);
   await page.goto('/');
-  await page.getByRole('button', { name: '已有题库 ZIP？前往设置导入', exact: true }).tap();
+  const directImport = page.getByRole('button', { name: '导入', exact: true });
+  await touchTarget(directImport);
+  await directImport.tap();
+  expect(calls.filter(call => call.request.type === 'pick_import')).toHaveLength(0);
   const zip = page.getByRole('menuitem', { name: '导入题库 ZIP', exact: true });
   await touchTarget(zip);
   await expect(page.getByRole('menuitem', { name: '恢复学习数据备份', exact: true })).toBeVisible();
