@@ -216,10 +216,13 @@ class SecureStoragePluginTest {
             SystemClock.sleep(100)
         }
         while (true) {
-            val activePackage = automation.windows.firstOrNull { it.isActive }?.root?.packageName?.toString()
-            if (activePackage?.endsWith(".documentsui") == true) break
-            assertEquals("Picker must remain pending before the system window is active", "\"pending\"", evaluate("window.__practiqPickerProbe"))
-            assertTrue("The actual DocumentsUI picker must become active: activePackage=$activePackage",
+            // Back targets input focus, not the last accessibility-active window.
+            val windows = automation.windows
+            val focusedPackage = windows.firstOrNull { it.isFocused }?.root?.packageName?.toString()
+            if (focusedPackage?.endsWith(".documentsui") == true) break
+            assertEquals("Picker must remain pending before the system window is focused", "\"pending\"", evaluate("window.__practiqPickerProbe"))
+            assertTrue("The actual DocumentsUI picker must have input focus: focusedPackage=$focusedPackage windows=" +
+                windows.joinToString { "type=${it.type},active=${it.isActive},focused=${it.isFocused},package=${it.root?.packageName}" },
                 SystemClock.elapsedRealtime() < deadline)
             SystemClock.sleep(100)
         }
