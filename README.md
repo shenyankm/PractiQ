@@ -29,7 +29,7 @@ Development preview using in-memory sample data.
 
 [Run the desktop app](#run-the-desktop-app), then:
 
-1. Choose **Add example bank** when **My banks** is empty, or use **Import** in the **My banks** header to select a question-bank ZIP such as [sample.zip](app/fixtures/sample.zip). The file picker accepts ZIP files only. Import from an empty bank card or a bank’s question list defaults to appending to that bank; the header and first-use empty state default to creating a new bank. **Settings → Restore backup → Import bank ZIP** remains available.
+1. Choose **Add example bank** when **My banks** is empty, or import [sample.zip](app/fixtures/sample.zip) through **Settings → Restore backup → Import bank ZIP**. Import shortcuts in the bank header, empty states and question lists open this same restore menu, where bank import and full-data replacement remain distinct. Only choosing **Import bank ZIP** opens the native ZIP picker; select the destination bank in the preview and confirm to append content.
 2. Open the bank and choose **Start practice**. Try practice, an untimed self-test, or a timed mock exam.
 3. Submit your answers and review scores and explanations.
 

@@ -68,15 +68,16 @@ function setup(question = row, failReview = false) {
   });
 }
 
-it("opens the ZIP file picker directly from the bank header and stays on banks when cancelled", async () => {
+it("opens Restore backup from the bank header without starting the ZIP picker", async () => {
   setup(); render(<App/>);
   await screen.findByText("English");
   expect(api).not.toHaveBeenCalledWith({ type: "pick_import" });
   expect(screen.queryByRole("button", { name: "已有题库 ZIP？前往设置导入" })).toBeNull();
   await userEvent.click(within(screen.getByRole("banner")).getByRole("button", { name: "导入" }));
-  await waitFor(() => expect(api).toHaveBeenCalledWith({ type: "pick_import" }));
-  expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("我的题库");
-  expect(screen.queryByRole("menuitem", { name: "导入题库 ZIP" })).toBeNull();
+  expect(await screen.findByRole("menuitem", { name: "导入题库 ZIP" })).toBeTruthy();
+  expect(screen.getByRole("menuitem", { name: "恢复学习数据备份" })).toBeTruthy();
+  expect(screen.getByRole("heading", { level: 1, hidden: true }).textContent).toBe("设置");
+  expect(api).not.toHaveBeenCalledWith({ type: "pick_import" });
 });
 
 it("opens the existing offline ZIP entry with an explicit append/replace distinction", async () => {
@@ -91,7 +92,7 @@ it("opens the existing offline ZIP entry with an explicit append/replace distinc
   await waitFor(() => expect(api).toHaveBeenCalledWith({ type: "pick_import" }));
 });
 
-it.each([false, true])("opens ZIP selection from empty states with the correct default target (existing bank=%s)", async existing => {
+it.each([false, true])("routes empty states through Restore backup before ZIP selection (existing bank=%s)", async existing => {
   setup();
   const original = vi.mocked(api).getMockImplementation()!;
   vi.mocked(api).mockImplementation(async request => {
@@ -104,14 +105,16 @@ it.each([false, true])("opens ZIP selection from empty states with the correct d
   });
   render(<App />);
   await userEvent.click(await screen.findByRole("button", { name: "导入题库 ZIP" }));
+  await screen.findByRole("menuitem", { name: "导入题库 ZIP" });
+  expect(api).not.toHaveBeenCalledWith({ type: "pick_import" });
+  await userEvent.click(screen.getByRole("menuitem", { name: "导入题库 ZIP" }));
   await waitFor(() => expect(api).toHaveBeenCalledWith({ type: "pick_import" }));
   const target = await screen.findByRole("combobox", { name: "导入到" });
-  expect((target as HTMLSelectElement).value).toBe(existing ? "bank" : "new");
-  expect(screen.getByRole("heading", { level: 1, hidden: true }).textContent).toBe("我的题库");
-  expect(screen.queryByRole("menuitem", { name: "导入题库 ZIP" })).toBeNull();
+  expect((target as HTMLSelectElement).value).toBe("new");
+  expect(screen.getByRole("heading", { level: 1, hidden: true }).textContent).toBe("设置");
 });
 
-it("imports into the current bank directly from its question list", async () => {
+it("requires Restore backup and explicit destination selection from a question list", async () => {
   setup();
   const original = vi.mocked(api).getMockImplementation()!;
   vi.mocked(api).mockImplementation(async request => {
@@ -122,8 +125,12 @@ it("imports into the current bank directly from its question list", async () => 
   render(<App />);
   await userEvent.click(await screen.findByRole("button", { name: "查看题目" }));
   await userEvent.click(within(screen.getByRole("banner")).getByRole("button", { name: "导入题库 ZIP" }));
+  await screen.findByRole("menuitem", { name: "导入题库 ZIP" });
+  expect(api).not.toHaveBeenCalledWith({ type: "pick_import" });
+  await userEvent.click(screen.getByRole("menuitem", { name: "导入题库 ZIP" }));
   const target = await screen.findByRole("combobox", { name: "导入到" });
-  expect((target as HTMLSelectElement).value).toBe("bank");
+  expect((target as HTMLSelectElement).value).toBe("new");
+  await userEvent.selectOptions(target, "bank");
   expect(api).not.toHaveBeenCalledWith(expect.objectContaining({ type: "import" }));
   await userEvent.click(screen.getByRole("button", { name: "确认导入" }));
   await waitFor(() => expect(api).toHaveBeenCalledWith({ type: "import", ticket: "zip", bank_id: "bank", title: "Imported" }));

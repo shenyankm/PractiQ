@@ -117,7 +117,9 @@ it("reports committed import success, clears review filters and retries only rea
   await user.click(await screen.findByRole("button", { name: "查看题目" }));
   await user.click(screen.getByRole("checkbox", { name: "仅看待复核" }));
   await user.click(screen.getByRole("button", { name: "导入题库 ZIP" }));
-  await user.click(await screen.findByRole("button", { name: "确认导入" }));
+  await user.click(await screen.findByRole("menuitem", { name: "导入题库 ZIP" }));
+  await user.selectOptions(await screen.findByRole("combobox", { name: "导入到" }), "bank");
+  await user.click(screen.getByRole("button", { name: "确认导入" }));
   await screen.findByRole("button", { name: "重试读取概览" });
   expect(toast.success).toHaveBeenCalledWith({ key: "已导入 {0} 道题目", params: { 0: 1 } });
   expect(toast.error).not.toHaveBeenCalled();
@@ -132,6 +134,7 @@ it("keeps the import preview retryable when the write itself fails", async () =>
   vi.mocked(api).mockImplementation(async request => { if (request.type === "import") throw new Error("Write failed"); return original(request); });
   const user = userEvent.setup(); render(<App />);
   await user.click(await screen.findByRole("button", { name: "导入" }));
+  await user.click(await screen.findByRole("menuitem", { name: "导入题库 ZIP" }));
   await user.click(await screen.findByRole("button", { name: "确认导入" }));
   await waitFor(() => expect(toast.error).toHaveBeenCalled());
   expect(screen.getByRole("dialog", { name: "导入题库" })).toBeTruthy();

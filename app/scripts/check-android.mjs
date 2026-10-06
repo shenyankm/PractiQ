@@ -171,15 +171,12 @@ test('ZIP and service settings stay local until an explicit connection test', as
   const directImport = page.getByRole('button', { name: '导入', exact: true });
   await touchTarget(directImport);
   await directImport.tap();
-  await expect.poll(() => calls.filter(call => call.request.type === 'pick_import').length).toBe(1);
-  await expect(page.getByRole('heading', { name: '我的题库', exact: true })).toBeVisible();
-  await navigate(page, '设置');
-  await page.getByRole('button', { name: '恢复备份', exact: true }).tap();
+  expect(calls.filter(call => call.request.type === 'pick_import')).toHaveLength(0);
   const zip = page.getByRole('menuitem', { name: '导入题库 ZIP', exact: true });
   await touchTarget(zip);
   await expect(page.getByRole('menuitem', { name: '恢复学习数据备份', exact: true })).toBeVisible();
   await zip.tap();
-  await expect.poll(() => calls.filter(call => call.request.type === 'pick_import').length).toBe(2);
+  await expect.poll(() => calls.filter(call => call.request.type === 'pick_import').length).toBe(1);
   await expect(page.getByRole('heading', { name: '设置', exact: true })).toBeVisible();
   await page.getByRole('button', { name: '配置', exact: true }).tap();
   const url = page.getByLabel('AI 服务地址', { exact: true });

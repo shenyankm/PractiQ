@@ -43,7 +43,9 @@ for (const width of [1280, 360]) {
     const review = page.getByRole('checkbox', { name: '仅看待复核', exact: true });
     await review.check();
     await page.getByRole('button', { name: '导入题库 ZIP', exact: true }).click();
-    await expect(page.getByRole('combobox', { name: '导入到', exact: true })).toHaveValue('preview-bank-0');
+    expect(await page.evaluate(() => globalThis.auditImports || 0)).toBe(0);
+    await page.getByRole('menuitem', { name: '导入题库 ZIP', exact: true }).click();
+    await page.getByRole('combobox', { name: '导入到', exact: true }).selectOption('preview-bank-0');
     await page.getByRole('button', { name: '确认导入', exact: true }).click();
     await expect(page.getByText('已导入 9 道题目', { exact: true })).toBeVisible();
     await expect(retry).toBeVisible();

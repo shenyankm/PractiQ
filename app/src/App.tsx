@@ -367,9 +367,9 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
   function refreshQuestions() {
     setQuestionRevision(value => value + 1);
   }
-  async function pickImport(bankId = "new") {
+  async function pickImport() {
     const p = await api({ type: "pick_import" });
-    if (p) setImportPreview({ preview: p, initialBank: bankId });
+    if (p) setImportPreview({ preview: p, initialBank: "new" });
   }
   const heading =
     page === "banks"
@@ -526,7 +526,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
             )}
 
             {page === "banks" && (
-              <Button variant="outline" disabled={bankActionsUnavailable} onClick={() => run(pickImport)}><Upload />{t("导入")}</Button>
+              <Button variant="outline" disabled={bankActionsUnavailable} onClick={() => navigate("settings", null, true)}><Upload />{t("导入")}</Button>
             )}
             {page === "banks" && banks.length > 1 && (
               <Button ref={mergeTrigger} variant="outline" disabled={bankActionsUnavailable} onClick={() => setMergeOpen(true)}>{t("合并题库")}</Button>
@@ -536,7 +536,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                 {page === "questions" && <Button
                   variant="outline"
                   disabled={bankActionsUnavailable}
-                  onClick={() => run(() => pickImport(bank!))}
+                  onClick={() => navigate("settings", null, true)}
                 >
                   <Upload />{t("导入题库 ZIP")}</Button>}
                 {page === "questions" && (
@@ -585,7 +585,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
             run={run}
             onAddExample={() => run(async () => { await api({ type: "add_example_bank" }); await reloadBanks(); })}
             onOpenSession={openSession}
-            onImport={bankId => run(() => pickImport(bankId))}
+            onImport={() => navigate("settings", null, true)}
             onHistory={() => { setSessionFilter("active"); setSessionOffset(0); navigate("history"); }}
             onOpenQuestions={bankId => navigate("questions", bankId)}
             onPractice={bankId => setPracticeSetup({ bank: bankId })}
