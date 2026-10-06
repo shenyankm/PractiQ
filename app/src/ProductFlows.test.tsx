@@ -68,10 +68,22 @@ function setup(question = row, failReview = false) {
   });
 }
 
+it("opens the ZIP file picker directly from the bank header and stays on banks when cancelled", async () => {
+  setup(); render(<App/>);
+  await screen.findByText("English");
+  expect(api).not.toHaveBeenCalledWith({ type: "pick_import" });
+  expect(screen.queryByRole("button", { name: "已有题库 ZIP？前往设置导入" })).toBeNull();
+  await userEvent.click(within(screen.getByRole("banner")).getByRole("button", { name: "导入" }));
+  await waitFor(() => expect(api).toHaveBeenCalledWith({ type: "pick_import" }));
+  expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("我的题库");
+  expect(screen.queryByRole("menuitem", { name: "导入题库 ZIP" })).toBeNull();
+});
+
 it("opens the existing offline ZIP entry with an explicit append/replace distinction", async () => {
   setup(); render(<App/>);
   await screen.findByText("English");
-  await userEvent.click(screen.getByRole("button", { name: "已有题库 ZIP？前往设置导入" }));
+  await userEvent.click(screen.getByRole("button", { name: "设置" }));
+  await userEvent.click(await screen.findByRole("button", { name: "恢复备份" }));
   expect(await screen.findByRole("menuitem", { name: "导入题库 ZIP" })).toBeTruthy();
   expect(screen.getByText("追加题库，不替换已有学习记录")).toBeTruthy();
   expect(screen.getByText("替换全部本地数据，操作前需确认")).toBeTruthy();
@@ -79,7 +91,7 @@ it("opens the existing offline ZIP entry with an explicit append/replace distinc
   await waitFor(() => expect(api).toHaveBeenCalledWith({ type: "pick_import" }));
 });
 
-it.each([false, true])("routes the empty-bank action to the offline ZIP menu (existing bank=%s)", async existing => {
+it.each([false, true])("opens ZIP selection from empty states with the correct default target (existing bank=%s)", async existing => {
   setup();
   const original = vi.mocked(api).getMockImplementation()!;
   vi.mocked(api).mockImplementation(async request => {
@@ -87,16 +99,34 @@ it.each([false, true])("routes the empty-bank action to the offline ZIP menu (ex
     if (request.type === "banks") return banks as never;
     if (request.type === "banks_page") return { items: banks, total: banks.length, offset: 0 } as never;
     if (request.type === "unfinished_session") return null as never;
+    if (request.type === "pick_import") return { ticket: "zip", title: "Imported", count: 1, reviewCount: 0, assetCount: 0, missingAssets: [], warnings: [] } as never;
     return original(request);
   });
   render(<App />);
   await userEvent.click(await screen.findByRole("button", { name: "导入题库 ZIP" }));
-  expect(await screen.findByRole("menuitem", { name: "导入题库 ZIP" })).toBeTruthy();
-  expect(screen.getByRole("heading", { level: 1, hidden: true }).textContent).toBe("设置");
-  expect(screen.queryByRole("button", { name: "开始导入" })).toBeNull();
-  expect(api).not.toHaveBeenCalledWith({ type: "pick_import" });
-  await userEvent.click(screen.getByRole("menuitem", { name: "导入题库 ZIP" }));
   await waitFor(() => expect(api).toHaveBeenCalledWith({ type: "pick_import" }));
+  const target = await screen.findByRole("combobox", { name: "导入到" });
+  expect((target as HTMLSelectElement).value).toBe(existing ? "bank" : "new");
+  expect(screen.getByRole("heading", { level: 1, hidden: true }).textContent).toBe("我的题库");
+  expect(screen.queryByRole("menuitem", { name: "导入题库 ZIP" })).toBeNull();
+});
+
+it("imports into the current bank directly from its question list", async () => {
+  setup();
+  const original = vi.mocked(api).getMockImplementation()!;
+  vi.mocked(api).mockImplementation(async request => {
+    if (request.type === "pick_import") return { ticket: "zip", title: "Imported", count: 1, reviewCount: 0, assetCount: 0, missingAssets: [], warnings: [] } as never;
+    if (request.type === "import") return { bankId: "bank", count: 1, duplicate: false } as never;
+    return original(request);
+  });
+  render(<App />);
+  await userEvent.click(await screen.findByRole("button", { name: "查看题目" }));
+  await userEvent.click(within(screen.getByRole("banner")).getByRole("button", { name: "导入题库 ZIP" }));
+  const target = await screen.findByRole("combobox", { name: "导入到" });
+  expect((target as HTMLSelectElement).value).toBe("bank");
+  expect(api).not.toHaveBeenCalledWith(expect.objectContaining({ type: "import" }));
+  await userEvent.click(screen.getByRole("button", { name: "确认导入" }));
+  await waitFor(() => expect(api).toHaveBeenCalledWith({ type: "import", ticket: "zip", bank_id: "bank", title: "Imported" }));
 });
 
 it("shows saved exam answers, filters history natively and focuses the page heading", async () => {
@@ -132,6 +162,7 @@ it("shows partial credit from a material group's child when the parent has no re
   await userEvent.click(screen.getByRole("button", { name: "错题本" }));
   expect(await screen.findByText("部分得分")).toBeTruthy();
   expect(screen.getByText(/未评分不算错题。/)).toBeTruthy();
+  expect(within(screen.getByRole("banner")).queryByRole("button", { name: "导入题库 ZIP" })).toBeNull();
 });
 
 it("filters pending reviews and confirms or revokes the whole material tree without hiding original warnings", async () => {

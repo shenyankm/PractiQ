@@ -29,6 +29,8 @@ import {
   BookmarkX,
 } from "lucide-react";
 import { toast } from "./notifications";
+import { canCloseWindow, useUnsavedChanges } from "./useUnsavedChanges";
+import type { GradingDraft } from "./ExamResults";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem } from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
@@ -131,6 +133,9 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
   const previousPage = useRef<Page>(page);
   const [restoreOpen, setRestoreOpen] = useState(false);
   const [banks, setBanks] = useState<BankChoice[]>([]);
+  const [banksReady, setBanksReady] = useState(false);
+  const [bankError, setBankError] = useState<unknown>(null);
+  const [infoError, setInfoError] = useState<unknown>(null);
   const [bank, setBank] = useState<string | null>(null);
   const [questions, setQuestions] = useState<QuestionSummary[]>([]);
   const [questionTotal, setQuestionTotal] = useState(0);
@@ -144,6 +149,9 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
   const [summaryLoading, setSummaryLoading] = useState(true);
   const [summaryError, setSummaryError] = useState<unknown>(null);
   const [session, setSession] = useState<Session | null>(null);
+  const [gradingDrafts, setGradingDrafts] = useState<Record<string, GradingDraft>>({});
+  const [gradingReturn, setGradingReturn] = useState<string | null>(null);
+  useUnsavedChanges(Object.keys(gradingDrafts).length > 0);
   const [search, setSearch] = useState("");
   const [mode, setMode] = useState("");
   const [onlyReview, setOnlyReview] = useState(false);
@@ -205,18 +213,23 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
     if (next.finishedAt && !sessionFinishedAt)
       toast.success(message("练习已结束，记录已保存"));
   }, [sessionId, sessionFinishedAt]);
-  const reloadBanks = async () => {
-    setBanks(await api({ type: "banks" }));
+  const reloadBanks = useCallback(async () => {
+    try {
+      setBanks(await api({ type: "banks" }));
+      setBanksReady(true);
+      setBankError(null);
+    } catch (error) { setBankError(error); }
+    // A read failure must not disguise a previously committed mutation as failed.
     setListRevision(v => v + 1);
-  };
-  useEffect(() => {
-    run(async () => {
-      await Promise.all([
-        api({ type: "banks" }).then(setBanks),
-        api({ type: "info" }).then(setInfo),
-      ]);
-    });
-  }, [run]);
+  }, []);
+  const reloadOverview = useCallback(async () => {
+    await Promise.all([
+      reloadBanks(),
+      api({ type: "info" }).then(result => { setInfo(result); setInfoError(null); }).catch(setInfoError),
+    ]);
+  }, [reloadBanks]);
+  useEffect(() => { run(reloadOverview); }, [run, reloadOverview]);
+  const bankActionsUnavailable = busy || !banksReady || bankError != null;
   useEffect(() => {
     if (page !== "history") return;
     let active = true;
@@ -286,6 +299,14 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
           return;
         }
         try {
+          if (!canCloseWindow()) {
+            setConfirm({
+              title: message("放弃未保存的更改并退出？"),
+              description: message("未保存的编辑和人工评分草稿将丢失。取消后可继续编辑；已保存的数据不受影响。"),
+              action: async () => { await flushRef.current(); await getCurrentWindow().destroy(); },
+            });
+            return;
+          }
           await flushRef.current();
           await getCurrentWindow().destroy();
         } catch (e) {
@@ -306,6 +327,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
       await flushRef.current();
       flushRef.current = async () => {};
       setPage(next);
+      setGradingReturn(null);
       setNavigationOpen(false);
       setRestoreOpen(showRestore);
       setBank(bankId);
@@ -326,7 +348,8 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
     }
     if (page !== "banks") {
       event.preventDefault();
-      navigate(page === "service-settings" ? "settings" : page === "practice" ? "history" : "banks");
+      if (page === "service-settings" && gradingReturn) openSession(gradingReturn);
+      else navigate(page === "service-settings" ? "settings" : page === "practice" ? "history" : "banks");
     }
   });
   useEffect(() => {
@@ -337,15 +360,16 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
     run(async () => {
       await flushRef.current();
       setSession(await api({ type: "session", id }));
+      setGradingReturn(null);
       setPage("practice");
     });
   }
   function refreshQuestions() {
     setQuestionRevision(value => value + 1);
   }
-  async function pickImport() {
+  async function pickImport(bankId = "new") {
     const p = await api({ type: "pick_import" });
-    if (p) setImportPreview({ preview: p, initialBank: "new" });
+    if (p) setImportPreview({ preview: p, initialBank: bankId });
   }
   const heading =
     page === "banks"
@@ -473,8 +497,8 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
               </Button>
             )}
             {page === "service-settings" && (
-              <Button size="icon" variant="ghost" disabled={busy} aria-label={t("返回设置")} onClick={() => navigate("settings")}>
-                <ArrowLeft />
+              <Button size={gradingReturn ? "default" : "icon"} variant="ghost" disabled={busy} aria-label={gradingReturn ? t("返回评分") : t("返回设置")} onClick={() => gradingReturn ? openSession(gradingReturn) : navigate("settings")}>
+                <ArrowLeft />{gradingReturn && t("返回评分")}
               </Button>
             )}
             <div className="min-w-0">
@@ -483,7 +507,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
               </h1>
               <p className="mt-1 text-sm text-muted-foreground">
                 {page === "banks"
-                  ? t("{0} 个题库 · {1} 道题目", { 0: banks.length, 1: banks.reduce((n, b) => n + b.count, 0) })
+                  ? bankError != null ? t("题库概览读取失败") : !banksReady ? t("加载中…") : t("{0} 个题库 · {1} 道题目", { 0: banks.length, 1: banks.reduce((n, b) => n + b.count, 0) })
                   : listPage
                     ? questionError != null ? t("加载题目失败") : loading ? t("加载中…") : t("{0} 道题目{1}", { 0: questionTotal, 1: "" })
                     : page === "history"
@@ -501,15 +525,18 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
               <span role="status" className="text-sm text-muted-foreground">{t("处理中…")}</span>
             )}
 
+            {page === "banks" && (
+              <Button variant="outline" disabled={bankActionsUnavailable} onClick={() => run(pickImport)}><Upload />{t("导入")}</Button>
+            )}
             {page === "banks" && banks.length > 1 && (
-              <Button ref={mergeTrigger} variant="outline" disabled={busy} onClick={() => setMergeOpen(true)}>{t("合并题库")}</Button>
+              <Button ref={mergeTrigger} variant="outline" disabled={bankActionsUnavailable} onClick={() => setMergeOpen(true)}>{t("合并题库")}</Button>
             )}
             {listPage && (
               <>
-                {page !== "favorite" && <Button
+                {page === "questions" && <Button
                   variant="outline"
-                  disabled={busy}
-                  onClick={() => navigate("settings", null, true)}
+                  disabled={bankActionsUnavailable}
+                  onClick={() => run(() => pickImport(bank!))}
                 >
                   <Upload />{t("导入题库 ZIP")}</Button>}
                 {page === "questions" && (
@@ -523,7 +550,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                     <Plus />{t("新增题目")}</Button>
                 )}
                 <Button
-                  disabled={busy || !questions.length || loading || questionError != null}
+                  disabled={bankActionsUnavailable || !questions.length || loading || questionError != null}
                   onClick={() => {
                     setPracticeSetup({ bank: page === "questions" ? bank : null });
                   }}
@@ -534,6 +561,11 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
           </div>
         </header>
         <div className="app-content min-h-0 flex-1 overflow-y-auto">
+          {(bankError != null || infoError != null) && <div role="alert" className="mb-5 space-y-2 rounded-lg border border-destructive/40 p-4">
+            <p>{t("概览读取失败，已保存的数据和已完成的操作不受影响。请重试读取，不要重复导入或保存。")}</p>
+            <p className="text-sm">{errorMessage(bankError ?? infoError)}</p>
+            <Button variant="outline" disabled={busy} onClick={() => run(reloadOverview)}>{t("重试读取概览")}</Button>
+          </div>}
           <Suspense fallback={loadingView}>
           {page === "history" && <div className="mb-5 flex flex-wrap items-center gap-3"><Label htmlFor="history-filter">{t("练习记录状态")}</Label><NativeSelect id="history-filter" value={sessionFilter} disabled={busy} onChange={e => { setSessionFilter(e.target.value as SessionFilter); setSessionOffset(0); }}>
             <NativeSelectOption value="all">{t("全部")}</NativeSelectOption><NativeSelectOption value="active">{t("进行中")}</NativeSelectOption><NativeSelectOption value="review">{t("待核对")}</NativeSelectOption><NativeSelectOption value="finished">{t("已结束")}</NativeSelectOption>
@@ -548,12 +580,12 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
             offset={bankOffset}
             onOffsetChange={setBankOffset}
             revision={listRevision}
-            busy={busy}
-            ready={!!info}
+            busy={bankActionsUnavailable}
+            ready={!!info && banksReady}
             run={run}
             onAddExample={() => run(async () => { await api({ type: "add_example_bank" }); await reloadBanks(); })}
             onOpenSession={openSession}
-            onOpenZipSettings={() => navigate("settings", null, true)}
+            onImport={bankId => run(() => pickImport(bankId))}
             onHistory={() => { setSessionFilter("active"); setSessionOffset(0); navigate("history"); }}
             onOpenQuestions={bankId => navigate("questions", bankId)}
             onPractice={bankId => setPracticeSetup({ bank: bankId })}
@@ -799,6 +831,14 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
               onSession={onPracticeSession}
               run={run}
               flushRef={flushRef}
+              gradingDrafts={gradingDrafts}
+              onGradingDraftChange={(ordinal, draft) => setGradingDrafts(previous => {
+                const next = { ...previous }, key = `${session.id}:${ordinal}`;
+                if (draft.score || draft.reason) next[key] = draft;
+                else delete next[key];
+                return next;
+              })}
+              onConfigureGrading={() => run(async () => { await flushRef.current(); setGradingReturn(session.id); setPage("service-settings"); })}
               onNextUnattempted={session.bankIds?.some(id => banks.some(b => b.id === id)) ? () => setPracticeSetup({ bank: null, bankIds: session.bankIds!.filter(id => banks.some(b => b.id === id)), filter: "unattempted" }) : undefined}
             />
           )}
@@ -826,6 +866,8 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                     await language.reload();
                     setSettingsRevision(v => v + 1);
                     setSession(null);
+                    setGradingDrafts({});
+                    setGradingReturn(null);
                     setDetail(null);
                     setBank(null);
                     await reloadBanks();
@@ -885,6 +927,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
           setBank(bankId);
           setSearch("");
           setMode("");
+          setOnlyReview(false);
           setPage("questions");
           setOffset(0);
           setQuestions([]);
@@ -899,6 +942,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
           onSave={draft => run(async () => {
             await api({ type: "save_bank", ...draft });
             setBankEditor(null);
+            toast.success(message("题库已保存"));
             await reloadBanks();
           })}
         />
