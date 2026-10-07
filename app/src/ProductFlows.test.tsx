@@ -104,7 +104,9 @@ it.each([false, true])("routes empty states through Restore backup before ZIP se
     return original(request);
   });
   render(<App />);
-  await userEvent.click(await screen.findByRole("button", { name: "导入题库 ZIP" }));
+  const importButton = await screen.findByRole("button", { name: existing ? "导入" : "导入题库 ZIP" });
+  await waitFor(() => expect(importButton.hasAttribute("disabled")).toBe(false));
+  await userEvent.click(importButton);
   await screen.findByRole("menuitem", { name: "导入题库 ZIP" });
   expect(api).not.toHaveBeenCalledWith({ type: "pick_import" });
   await userEvent.click(screen.getByRole("menuitem", { name: "导入题库 ZIP" }));
@@ -195,7 +197,7 @@ it("filters pending reviews and confirms or revokes the whole material tree with
   expect(within(dialog).getAllByText(/缺失：/)).toHaveLength(1);
   expect(within(dialog).queryByText("内容待复核，仍可练习。")).toBeNull();
   await userEvent.click(within(dialog).getByRole("button", { name: "关闭" }));
-  expect(await screen.findByText("没有找到题目")).toBeTruthy();
+  expect(await screen.findByText("没有符合筛选的题目")).toBeTruthy();
   await userEvent.click(screen.getByRole("checkbox", { name: "仅看待复核" }));
   const reviewedRow = await screen.findByRole("button", { name: /Shared material/ });
   expect(screen.queryByRole("img", { name: "待复核" })).toBeNull();
@@ -226,4 +228,56 @@ it.each([null, 123])("preserves review state when saving the confirmation fails 
   expect(within(dialog).getByText(/缺失：/)).toBeTruthy();
   await userEvent.click(within(dialog).getByRole("button", { name: "关闭" }));
   expect(screen.queryByRole("img", { name: "待复核" }) != null).toBe(reviewedAt == null);
+});
+
+it("creates an empty bank through the existing editor and native command", async () => {
+  const user = userEvent.setup(); setup();
+  const original = vi.mocked(api).getMockImplementation()!;
+  let saved = false;
+  const empty = {id:"created",title:"My new bank",description:"A local collection",count:0};
+  vi.mocked(api).mockImplementation(async request => {
+    if(request.type === "save_bank") { saved=true; return empty.id as never; }
+    if(saved && request.type === "banks") return [empty] as never;
+    if(saved && request.type === "banks_page") return {items:[empty],total:1,offset:0} as never;
+    return original(request);
+  });
+  render(<App/>); await screen.findByText("English");
+  await user.click(screen.getByRole("button",{name:"新建题库"}));
+  const dialog = screen.getByRole("dialog",{name:"新建题库"});
+  await user.type(within(dialog).getByLabelText("题库名称"),empty.title);
+  await user.type(within(dialog).getByLabelText("说明"),empty.description);
+  await user.click(within(dialog).getByRole("button",{name:"保存题库"}));
+  await screen.findByRole("heading",{name:empty.title});
+  expect(api).toHaveBeenCalledWith({type:"save_bank",id:null,title:empty.title,description:empty.description});
+  expect(screen.queryByRole("button",{name:"导入题库 ZIP"})).toBeNull();
+});
+
+it("history emptiness offers a read-only return to all records", async () => {
+  const user = userEvent.setup(); setup(); render(<App/>);
+  await screen.findByText("English");
+  await user.click(screen.getByRole("button",{name:"练习记录"}));
+  await user.selectOptions(screen.getByLabelText("练习记录状态"),"finished");
+  await screen.findByText("没有符合此状态的记录");
+  await user.click(screen.getByRole("button",{name:"查看全部记录"}));
+  await screen.findByText("待核对");
+  expect(api).toHaveBeenCalledWith({type:"sessions_page",limit:30,offset:0});
+});
+
+it("appends an untitled import using the selected bank title without prompting for a new-bank title", async () => {
+  const user = userEvent.setup(); setup();
+  const original=vi.mocked(api).getMockImplementation()!;
+  vi.mocked(api).mockImplementation(async request => {
+    if(request.type === "pick_import")return {ticket:"untitled",title:"",count:1,reviewCount:0,assetCount:0,missingAssets:[],warnings:[]} as never;
+    if(request.type === "import")return {bankId:"bank",count:1,duplicate:false} as never;
+    return original(request);
+  });
+  render(<App/>); await screen.findByText("English");
+  await user.click(screen.getByRole("button",{name:"导入"}));
+  await user.click(await screen.findByRole("menuitem",{name:"导入题库 ZIP"}));
+  const dialog=await screen.findByRole("dialog",{name:"导入题库"});
+  expect(within(dialog).getByRole("button",{name:"确认导入"}).hasAttribute("disabled")).toBe(true);
+  await user.selectOptions(within(dialog).getByLabelText("导入到"),"bank");
+  expect(within(dialog).queryByLabelText("题库名称")).toBeNull();
+  await user.click(within(dialog).getByRole("button",{name:"确认导入"}));
+  await waitFor(()=>expect(api).toHaveBeenCalledWith({type:"import",ticket:"untitled",bank_id:"bank",title:"English"}));
 });

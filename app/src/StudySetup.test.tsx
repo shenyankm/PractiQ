@@ -446,3 +446,20 @@ it("combines fresh manual-page statistics without scanning the filter twice",asy
   await screen.findByText(/关键词：shared/);
   expect(vi.mocked(api).mock.calls.filter(([r])=>r.type==="question_stats")).toHaveLength(1);
 });
+
+it("offers only feasible quick counts and explains each session mode before starting", async () => {
+  const user=userEvent.setup();
+  vi.mocked(api).mockResolvedValue({count:50,types:{single:50},feasibleCounts:[5,20,50]} as never);
+  render(<StudySetup banks={banks} initialBank="one" initialFilter="" busy={false} run={job=>{void job();}} onStart={async()=>{}} onClose={()=>{}}/>);
+  await screen.findByText(/可用 50 题/);
+  const quick=screen.getByRole("group",{name:"快捷题数"});
+  expect(quick.querySelectorAll('button')).toHaveLength(3);
+  await user.click(screen.getByRole("button",{name:"5 题"}));
+  expect(screen.getByLabelText("题目数量")).toHaveProperty("value","5");
+  expect(screen.getByRole("button",{name:"5 题"}).getAttribute("aria-pressed")).toBe("true");
+  await user.selectOptions(screen.getByLabelText("模式"),"self_test");
+  expect(screen.getByText("作答时隐藏答案，交卷后统一核对评分，不限时。")).toBeTruthy();
+  await user.selectOptions(screen.getByLabelText("模式"),"mock_exam");
+  expect(screen.getByText(/倒计时结束自动交卷/)).toBeTruthy();
+  expect(vi.mocked(api).mock.calls.every(([request])=>request.type==="question_stats")).toBe(true);
+});

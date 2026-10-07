@@ -78,17 +78,23 @@ dependencies {
 
 apply(from = "tauri.build.gradle.kts")
 
-configurations.matching { it.name.endsWith("DebugRuntimeClasspath") }.configureEach {
+configurations.matching { it.name.endsWith("DebugRuntimeClasspath") || it.name == "arm64ReleaseRuntimeClasspath" }.configureEach {
     resolutionStrategy.activateDependencyLocking()
 }
 
 // Export the resolved runtime, not the declared dependency list. Python validates
 // every artifact and POM against the reviewed notice lock before preparing assets.
 tasks.register("exportRuntimeNoticeInventory") {
-    dependsOn(":tauri-android:bundleDebugAar", ":tauri-plugin-dialog:bundleDebugAar")
     val noticeConfigurationName = providers.gradleProperty("practiqNoticeConfiguration")
+    val noticeBuildType = noticeConfigurationName.map {
+        if (it == "arm64ReleaseRuntimeClasspath") "release" else "debug"
+    }
+    dependsOn(Callable {
+        val taskVariant = noticeBuildType.get().replaceFirstChar { it.uppercase() }
+        listOf(":tauri-android:bundle${taskVariant}Aar", ":tauri-plugin-dialog:bundle${taskVariant}Aar")
+    })
     val noticeRuntimeArtifacts = noticeConfigurationName.map { configurationName ->
-        require(configurationName in setOf("arm64DebugRuntimeClasspath", "x86_64DebugRuntimeClasspath", "universalDebugRuntimeClasspath"))
+        require(configurationName in setOf("arm64DebugRuntimeClasspath", "x86_64DebugRuntimeClasspath", "universalDebugRuntimeClasspath", "arm64ReleaseRuntimeClasspath"))
         configurations.getByName(configurationName).incoming.artifactView {
             attributes.attribute(Attribute.of("artifactType", String::class.java), "android-classes-jar")
         }.artifacts
@@ -136,7 +142,7 @@ tasks.register("exportRuntimeNoticeInventory") {
             } else {
                 require(component is org.gradle.api.artifacts.component.ProjectComponentIdentifier)
                 val dependencyProject = rootProject.project(component.projectPath)
-                val artifact = dependencyProject.layout.buildDirectory.file("outputs/aar/${dependencyProject.name}-debug.aar").get().asFile
+                val artifact = dependencyProject.layout.buildDirectory.file("outputs/aar/${dependencyProject.name}-${noticeBuildType.get()}.aar").get().asFile
                 runtime + mapOf("group" to dependencyProject.group.toString(), "name" to dependencyProject.name,
                     "version" to dependencyProject.version.toString(), "classifier" to null, "extension" to "aar",
                     "project" to true, "projectDirectory" to dependencyProject.projectDir.absolutePath,

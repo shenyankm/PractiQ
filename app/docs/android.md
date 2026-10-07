@@ -48,6 +48,27 @@ make android-package-check AI_PYTHON=/absolute/path/to/python3.14
 
 The split debug output is `app/src-tauri/gen/android/app/build/outputs/apk/arm64/debug/app-arm64-debug.apk`; the package report defaults to `server/reports/checks/android-package.json`. `ANDROID_RUNTIME_INVENTORY`, `ANDROID_APK`, `ANDROID_AAPT2` and `ANDROID_PACKAGE_REPORT` can select explicit inventory, package, SDK tool and report paths. Inspect the report for version, application ID, native ABI, package resources, notices and absence of embedded engines. A debug keystore signature establishes no release-signing or clean-device acceptance. Release signing credentials remain outside the repository and require separate release verification.
 
+### Measure an arm64 Release APK
+
+Release mode is the Tauri CLI default: omit `--debug`. On a fresh checkout, bootstrap with the resource-free command above **without** `--debug`, then export the Release runtime (not the Debug inventory). The committed Gradle lock includes the arm64 Release runtime; update it only when deliberately reviewing dependency changes.
+
+```sh
+app/src-tauri/gen/android/gradlew -p app/src-tauri/gen/android \
+  :app:exportRuntimeNoticeInventory \
+  -PpractiqNoticeConfiguration=arm64ReleaseRuntimeClasspath \
+  -PpractiqNoticeOutput="$PWD/app/.build/android-release-runtime.json" --no-daemon
+/absolute/path/to/python3.14 app/scripts/prepare-package.py --platform android --architecture arm64 \
+  --android-runtime-inventory app/.build/android-release-runtime.json
+(cd app && npm run tauri -- android build --apk --split-per-abi --target aarch64 --ci)
+/absolute/path/to/python3.14 app/scripts/check-apk.py \
+  --installer app/src-tauri/gen/android/app/build/outputs/apk/arm64/release/app-arm64-release-unsigned.apk \
+  --abi arm64-v8a --aapt2 "$ANDROID_HOME/build-tools/36.0.0/aapt2" \
+  --expected-notices app/src-tauri/bundled/THIRD-PARTY.txt \
+  --output server/reports/checks/android-release-package.json
+```
+
+Inventory and report destinations must be fresh; retain old evidence rather than overwriting it. Read `sizeBytes` in the final package report for the actual APK size (MB = bytes / 1,000,000; MiB = bytes / 1,048,576). With no configured release signing, this produces an **unsigned Release APK**, not an installable signed release. Signing changes the final bytes and requires measuring and checking that signed APK again. This local build does not change CI's Debug APK or publish a release. App 0.2.0 uses Android `versionCode` 2 (0.1.0 used 1).
+
 ## Files, backups and credentials
 
 Question-bank ZIP import, study-data restore, bank export and backup creation begin with the Android system file picker. The app never asks the frontend to supply a file path or content URI. Inputs become bounded private snapshots before the existing ZIP, checksum and database validation; outputs are complete verified private ZIPs before copying to the selected destination. Write/sync failures are reported, but a provider may retain partial destination bytes; the app does not promise provider-level atomic replacement or rollback. Cancellation starts no import. Bank import appends content; restoring full study data asks for replacement confirmation. The same `v4/`, SQLite schema 11, ZIP version 2 and backup container version 4 apply. Older full backups are rejected without altering old directories.

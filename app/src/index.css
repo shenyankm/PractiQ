@@ -90,7 +90,7 @@ SOFTWARE.
 }
 
 :root {
-  --background: oklch(1 0 0);
+  --background: #faf9fc;
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
@@ -101,14 +101,14 @@ SOFTWARE.
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
+  --muted-foreground: #625b6b;
   --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
+  --input: #8d8299;
   --ring: #805091;
-  --radius: 0.625rem;
+  --radius: 0.75rem;
 }
 
 .dark {
@@ -118,18 +118,18 @@ SOFTWARE.
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
+  --primary: #d5b6ea;
+  --primary-foreground: #281733;
   --secondary: oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
+  --muted-foreground: #bdb2c7;
   --accent: oklch(0.269 0 0);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
+  --input: #82768d;
+  --ring: #b890d0;
 }
 
 @layer base {
@@ -315,3 +315,22 @@ html[data-native-insets="true"] {
   .answer-card-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   summary { display: list-item; align-content: center; }
 }
+
+/* Product workspace: readable content, clear surfaces, and persistent practice controls. */
+.page-workspace { width: 100%; max-width: 80rem; margin-inline: auto; }
+.practice-workspace { max-width: 90rem; }
+.app-header { background: var(--card); }
+.app-content { line-height: 1.6; }
+.workflow-note { padding: 0.75rem 1rem; border: 1px solid color-mix(in oklch, var(--primary) 25%, var(--border)); border-radius: var(--radius); background: color-mix(in oklch, var(--primary) 5%, var(--card)); color: var(--foreground); font-size: 0.875rem; line-height: 1.6; }
+.practice-overview { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; }
+.practice-progress { display: block; width: 100%; height: 0.5rem; accent-color: var(--primary); }
+.practice-progress::-webkit-progress-bar { background: var(--muted); border-radius: var(--radius); }
+.practice-progress::-webkit-progress-value { background: var(--primary); border-radius: var(--radius); }
+.practice-progress::-moz-progress-bar { background: var(--primary); border-radius: var(--radius); }
+.result-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem; }
+.result-metrics > div { padding: 0.75rem; border-radius: var(--radius); background: var(--muted); }
+.result-metrics dt { color: var(--muted-foreground); font-size: 0.75rem; overflow-wrap: anywhere; }
+.result-metrics dd { margin-top: 0.25rem; font-size: 1.25rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+#answer-card, #current-question { scroll-margin-block: 1rem 7rem; }
+.practice-actions { box-shadow: 0 -8px 12px -12px var(--foreground); }
+.practice-workspace :is(input, textarea, button, a):focus { scroll-margin-block: 1rem 7rem; }

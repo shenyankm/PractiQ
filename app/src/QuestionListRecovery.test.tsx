@@ -116,3 +116,31 @@ it.each(["success", "failure"])("ignores obsolete %s after the current query suc
   expect(screen.getByText("1 道题目")).toBeTruthy();
   expect(screen.queryByRole("button", { name: "下一页" })).toBeNull();
 });
+
+it("clears search, type and review filters together while preserving the bank", async () => {
+  const user = userEvent.setup();
+  setup(async request => ({ items: request.search || request.mode || request.filter ? [] : [row], total: request.search || request.mode || request.filter ? 0 : 1, offset: 0 }));
+  await openBank(user);
+  await user.type(screen.getByLabelText("搜索题目"), "absent");
+  await user.selectOptions(screen.getByLabelText("筛选题型"), "single");
+  await user.click(screen.getByRole("checkbox", { name: "仅看待复核" }));
+  await screen.findByText("没有符合筛选的题目");
+  await user.click(screen.getByRole("button", { name: "清除筛选" }));
+  await screen.findByText(row.question.stem!);
+  expect(screen.getByLabelText("搜索题目")).toHaveProperty("value", "");
+  expect(screen.getByLabelText("筛选题型")).toHaveProperty("value", "");
+  expect(screen.getByRole("checkbox", { name: "仅看待复核" }).getAttribute("aria-checked")).toBe("false");
+  expect(api).toHaveBeenLastCalledWith({ type: "questions_page", bank_ids: ["bank"], search: "", mode: "", filter: "", limit: 30, offset: 0 });
+});
+
+it.each(["错题本", "收藏夹"])("distinguishes filtered emptiness from an empty %s", async label => {
+  const user = userEvent.setup();
+  setup(async () => ({ items: [], total: 0, offset: 0 }));
+  render(<App />);
+  await screen.findByRole("button", { name: "查看题目" });
+  await user.click(screen.getByRole("button", { name: label }));
+  await screen.findByText(label === "错题本" ? "暂时没有错题" : "还没有收藏题目");
+  await user.type(screen.getByLabelText("搜索题目"), "absent");
+  await screen.findByText("没有符合筛选的题目");
+  expect(screen.queryByText(label === "错题本" ? "暂时没有错题" : "还没有收藏题目")).toBeNull();
+});

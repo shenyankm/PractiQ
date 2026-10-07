@@ -64,6 +64,7 @@ export function Practice(props: PracticeProps) {
     });
   }
   return <div className="space-y-4">
+    <div className="practice-overview"><p className="text-sm text-muted-foreground">{t(exam ? "答案自动保存，交卷后统一核对评分。" : "草稿自动保存，提交后查看答案与解析。")}</p><Button asChild variant="outline"><a href="#answer-card">{t("查看答题卡")}</a></Button></div>
     {listening && <ListeningPlayer key={`${session.id}-${listening.id}-${listening.audioRef?.sha256}`} question={listening} session={session}/>}
     <div className="grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_240px]">
       <PracticeQuestion key={`${session.id}-${session.position}`} {...props} go={go} onDraft={onDraft} questionHeading={questionHeading}/>
@@ -230,7 +231,7 @@ function PracticeQuestion({
                     : t(" · 单选")
                   : ""}
               </Badge>
-              <h2 ref={questionHeading} tabIndex={-1} className="text-sm text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring">{t("第 {0} / {1} 题", { 0: session.position + 1, 1: session.attempts.length })}</h2>
+              <h2 id="current-question" ref={questionHeading} tabIndex={-1} className="text-sm text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring">{t("第 {0} / {1} 题", { 0: session.position + 1, 1: session.attempts.length })}</h2>
             </div>
             <PracticeClock elapsed={elapsed} active={!submitted && !finished} deadlineAt={exam && !handedIn ? session.deadlineAt : null} clockNow={session.clockNow} saved={saved} finished={finished} onAutosave={() => { void persist().catch(() => {}); }} loadSession={() => api({type:"session",id:session.id})} onSession={onSession}/>
 
@@ -243,10 +244,6 @@ function PracticeQuestion({
             {attempt.snapshot.id && favorite != null && <Button variant="outline" onClick={()=>run(async()=>{await api({type:"favorite",id:attempt.snapshot.id!,value:!favorite});onSession(await api({type:"session",id:session.id}));})}>{favorite?t("取消收藏"):t("收藏原题")}</Button>}
             {exam && !handedIn && <Button variant="outline" onClick={()=>run(async()=>{await flushRef.current();onSession(await api({type:"flag",id:session.id,ordinal:session.position,value:!attempt.flagged}));})}>{attempt.flagged?t("取消待检查标记"):t("标记待检查")}</Button>}
           </div>
-          <ExamResults session={session} onSession={onSession} run={run} onNextUnattempted={onNextUnattempted}
-            draft={gradingDrafts ? gradingDrafts[`${session.id}:${attempt.ordinal}`] ?? { score: "", reason: "" } : undefined}
-            onDraftChange={onGradingDraftChange ? draft => onGradingDraftChange(attempt.ordinal, draft) : undefined}
-            onConfigure={onConfigureGrading}/>
           {!exam && <p role="status" aria-label={t("答题状态")} aria-live="polite" aria-atomic="true" className="sr-only">{submitted ? t("第 {0} 题：{1}", {0:attempt.ordinal+1,1:resultLabel}) : ""}</p>}
           <Content snapshot={attempt.snapshot} exam={exam&&!handedIn} revealOriginal={exam ? handedIn : submitted} materialDialog
             onBlank={blankTargets.length ? onBlank : undefined} blankAnswers={blankAnswers}/>
@@ -314,7 +311,11 @@ function PracticeQuestion({
               <Markdown>{q.analysis || t("原文未提供解析。")}</Markdown>
             </section>
           )}
-          <div className="z-10 flex md:sticky md:bottom-0 flex-wrap items-center justify-between gap-3 border-t bg-card py-3">
+          <ExamResults session={session} onSession={onSession} run={run} onNextUnattempted={onNextUnattempted}
+            draft={gradingDrafts ? gradingDrafts[`${session.id}:${attempt.ordinal}`] ?? { score: "", reason: "" } : undefined}
+            onDraftChange={onGradingDraftChange ? draft => onGradingDraftChange(attempt.ordinal, draft) : undefined}
+            onConfigure={onConfigureGrading}/>
+          <div className="practice-actions z-10 flex sticky bottom-0 flex-wrap items-center justify-between gap-3 border-t bg-card py-3">
           {!exam && !submitted && !finished && (
             <div className="flex gap-3">
               <Button
@@ -490,7 +491,8 @@ const AnswerCard = memo(function AnswerCard({session, answer, exam, go}: {
               <Button variant="outline" size="icon" aria-label={t("定位当前题")} title={t("定位当前题")} onClick={() => revealCurrent(true)}><LocateFixed/></Button>
               <Button variant="outline" size="icon" aria-label={t("转到最后一题")} title={t("转到最后一题")} disabled={session.position === session.attempts.length - 1} onClick={() => go(session.attempts.length - 1)}><ArrowDownToLine/></Button>
             </div>
-            <div ref={grid} role="region" aria-label={t("答题卡")} tabIndex={0} className="answer-card-grid relative grid max-h-[min(45vh,24rem)] grid-cols-4 gap-2 overflow-y-auto rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <progress className="practice-progress mb-3" aria-label={exam ? t("作答进度") : t("提交进度")} max={Math.max(1, session.attempts.length)} value={session.attempts.filter(a => exam ? hasAnswer(a.ordinal === session.position ? answer : a.answer) : a.submittedAt != null).length}/>
+            <div id="answer-card" ref={grid} role="region" aria-label={t("答题卡")} tabIndex={0} className="answer-card-grid relative grid max-h-[min(45vh,24rem)] grid-cols-4 gap-2 overflow-y-auto rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring">
               {session.attempts.map(a => {
                 const current = a.ordinal === session.position;
                 const draft = current ? answer : a.answer;
@@ -499,6 +501,7 @@ const AnswerCard = memo(function AnswerCard({session, answer, exam, go}: {
             </div>
             <p className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground"><span className="flex items-center gap-1"><Circle className="size-3" aria-hidden="true"/>{t("未作答")}</span><span className="flex items-center gap-1"><Pencil className="size-3" aria-hidden="true"/>{t("草稿")}</span><span className="flex items-center gap-1"><Check className="size-3" aria-hidden="true"/>{t("已提交")}</span><span className="flex items-center gap-1"><X className="size-3" aria-hidden="true"/>{exam ? t("未得满分") : t("错误")}</span><span className="flex items-center gap-1"><SkipForward className="size-3" aria-hidden="true"/>{t("跳过")}</span></p>
             <p className="mt-4 text-xs leading-5 text-muted-foreground">{t("{0} {1} / {2}。草稿自动保存，可随时离开后继续。", { 0: exam ? t("已作答") : t("已提交"), 1: session.attempts.filter((a) => exam ? hasAnswer(a.ordinal === session.position ? answer : a.answer) : a.submittedAt != null).length, 2: session.attempts.length })}</p>
+            <Button asChild variant="ghost" className="mt-3 w-full"><a href="#current-question">{t("返回当前题")}</a></Button>
           </CardContent>
         </Card>
   );

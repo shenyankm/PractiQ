@@ -10,6 +10,7 @@ import { api, errorMessage, type Session, type Attempt, type GradingResponse } f
 import { cents } from "./paper";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export interface GradingDraft { score: string; reason: string }
 
@@ -44,11 +45,20 @@ export function ExamResults({session,onSession,run,onNextUnattempted,draft,onDra
   const configurationError = error ?? latest?.appError;
   const needsConfiguration = ["LOCAL_SERVICE_URL_REQUIRED", "LOCAL_SERVICE_TOKEN_REQUIRED", "LOCAL_SERVICE_TOKEN_INVALID", "INVALID_SERVICE_TOKEN"].includes(String((configurationError as { code?: string } | null)?.code ?? ""));
   const retryCount=session.attempts.filter(a=>a.result===false).length;
+  const skipped = session.attempts.filter(a => a.skipped).length;
+  const unresolved = session.attempts.length - graded.length - session.attempts.filter(a => !exam && a.skipped).length;
   function grade(items:Attempt[],retry=false){run(async()=>{stopped.current=false;setRunning(true);setError(null);try{for(const item of items){if(stopped.current)break;const s=await ai({type:"grade",id:session.id,ordinal:item.ordinal,retry});onSession(s);}}catch(e){setError(e);}finally{setRunning(false);}});}
   return <section className="space-y-3 rounded-lg border p-4" aria-label={t("本次结果")}>
     <h3 className="font-medium">{exam?(pending.length?t("暂定成绩"):t("本次成绩")):t("本次练习结果")}</h3>
-    {exam&&<p>{t("已确定得分 {0} / {1} 分；{2} {3}% · 待评分 {4} 题（共 {5} 分）", { 0: earned/100, 1: total/100, 2: pending.length?t("已确定得分率"):t("得分率"), 3: total?number(earned/total*100, 1):0, 4: pending.length, 5: pending.reduce((n,a)=>n+(a.maxCents||0),0)/100 })}</p>}
-    <p>{t("正确率（满分题 / 已判定题）：{0} · 未答／跳过 {1} · 未判定 {2}", { 0: graded.length?`${full}/${graded.length} · ${number(full/graded.length*100, 1)}%`:"—", 1: session.attempts.filter(a=>a.skipped).length, 2: session.attempts.length-graded.length-session.attempts.filter(a=>!exam&&a.skipped).length })}</p>
+    <dl className="result-metrics">
+      <div><dt>{exam ? t("已确定得分") : t("满分题 / 已判定题")}</dt><dd>{exam ? `${earned/100} / ${total/100}` : graded.length ? `${full} / ${graded.length}` : "—"}</dd></div>
+      <div><dt>{t("未答／跳过")}</dt><dd>{skipped}</dd></div>
+      <div><dt>{exam ? t("待评分") : t("未判定")}</dt><dd>{unresolved}</dd></div>
+    </dl>
+    <details className="text-sm text-muted-foreground"><summary className="cursor-pointer">{t("判定详情")}</summary>
+      {exam&&<p className="mt-2">{t("已确定得分 {0} / {1} 分；{2} {3}% · 待评分 {4} 题（共 {5} 分）", { 0: earned/100, 1: total/100, 2: pending.length?t("已确定得分率"):t("得分率"), 3: total?number(earned/total*100, 1):0, 4: pending.length, 5: pending.reduce((n,a)=>n+(a.maxCents||0),0)/100 })}</p>}
+      <p className="mt-2">{t("正确率（满分题 / 已判定题）：{0} · 未答／跳过 {1} · 未判定 {2}", { 0: graded.length?`${full}/${graded.length} · ${number(full/graded.length*100, 1)}%`:"—", 1: skipped, 2: unresolved })}</p>
+    </details>
     <div className="flex flex-wrap gap-2"><Button variant="outline" disabled={!retryCount||running} onClick={()=>run(async()=>onSession(await api({type:"retry_wrong",id:session.id})))}>{exam?t("重练本次未得满分题"):t("重练本次错题")}</Button>
     {onNextUnattempted&&<Button variant="outline" disabled={running} onClick={onNextUnattempted}>{t("继续下一批未做题")}</Button>}
     {exam&&<>{!!pendingAi.length&&<Button disabled={running} onClick={()=>grade(pendingAi)}>{t("AI 评分／继续（{0} 题，将调用模型）", { 0: pendingAi.length })}</Button>}{running&&<Button variant="outline" onClick={()=>{stopped.current=true;}}>{t("停止后续评分")}</Button>}{!session.finishedAt&&<Button variant="outline" disabled={running} onClick={()=>run(async()=>onSession(await api({type:"complete_review",id:session.id})))}>{t("结束核对（可保留未判定）")}</Button>}</>}
@@ -78,7 +88,7 @@ export function ExamResults({session,onSession,run,onNextUnattempted,draft,onDra
           </AlertDialogContent>
         </AlertDialog>
       )}
-      <div className="flex flex-wrap gap-2"><Input className="w-32" disabled={saving || running} aria-label={t("人工得分")} placeholder={t("得分")} value={score} onChange={e=>changeDraft({ score: e.target.value, reason })}/><Input className="basis-full sm:basis-0 sm:flex-1" disabled={saving || running} aria-label={t("改分原因")} placeholder={t("人工评分／改分原因（必填）")} value={reason} onChange={e=>changeDraft({ score, reason: e.target.value })}/><Button variant="outline" disabled={saving || running} onClick={()=>{try{const value=cents(score);if(!reason.trim())throw new MessageError(message("请填写原因"));setError(null);run(async()=>{
+      <div className="flex flex-wrap items-end gap-3"><div className="w-32 space-y-2"><Label htmlFor="manual-score">{t("人工得分")}</Label><Input id="manual-score" inputMode="decimal" disabled={saving || running} aria-label={t("人工得分")} placeholder={t("得分")} value={score} onChange={e=>changeDraft({ score: e.target.value, reason })}/></div><div className="basis-full space-y-2 sm:basis-0 sm:flex-1"><Label htmlFor="manual-reason">{t("改分原因")}</Label><Input id="manual-reason" disabled={saving || running} aria-label={t("改分原因")} placeholder={t("人工评分／改分原因（必填）")} value={reason} onChange={e=>changeDraft({ score, reason: e.target.value })}/></div><Button variant="outline" disabled={saving || running} onClick={()=>{try{const value=cents(score);if(!reason.trim())throw new MessageError(message("请填写原因"));setError(null);run(async()=>{
         setSaving(true);
         try {
           const updated = await api({type:"manual_score",id:session.id,ordinal:a.ordinal,cents:value,reason});
