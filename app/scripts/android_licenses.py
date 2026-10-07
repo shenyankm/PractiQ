@@ -122,7 +122,7 @@ def runtime_notices(root: Path, inventory_path: Path | None, architecture: str, 
     if inventory_path is None:
         raise ValueError("Android package requires the resolved Gradle runtime inventory")
     inventory = json.loads(inventory_path.read_bytes() if raw_inventory is None else raw_inventory)
-    configurations = {"arm64": {"arm64DebugRuntimeClasspath", "universalDebugRuntimeClasspath"},
+    configurations = {"arm64": {"arm64DebugRuntimeClasspath", "universalDebugRuntimeClasspath", "arm64ReleaseRuntimeClasspath"},
                       "x86_64": {"x86_64DebugRuntimeClasspath"}}[architecture]
     if inventory.get("schemaVersion") != 1 or inventory.get("configuration") not in configurations:
         raise ValueError("Android runtime configuration does not match the APK architecture")

@@ -62,6 +62,23 @@ def notice_runtime(tmp_path):
     return scope["runtime_notices"], tmp_path, report, cargo, rows, pinned
 
 
+@pytest.mark.parametrize("locked", [True, False])
+def test_android_release_notices_require_release_runtime_lock(notice_runtime, locked):
+    validate, root, report, cargo, _rows, _pinned = notice_runtime
+    data = json.loads(report.read_text())
+    data["configuration"] = "arm64ReleaseRuntimeClasspath"
+    report.write_text(json.dumps(data))
+    if locked:
+        (root / "app/src-tauri/gen/android/app/gradle.lockfile").write_text(
+            "example:runtime:1.0=arm64ReleaseRuntimeClasspath\n")
+        assert validate(root, report, "arm64", cargo)[0]["name"] == "example:runtime"
+    else:
+        with pytest.raises(ValueError, match="Gradle dependency lock"):
+            validate(root, report, "arm64", cargo)
+    with pytest.raises(ValueError, match="architecture"):
+        validate(root, report, "x86_64", cargo)
+
+
 @pytest.fixture
 def patched_runtime(notice_runtime):
     validate, root, report, cargo, rows, pinned = notice_runtime
