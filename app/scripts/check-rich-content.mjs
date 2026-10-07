@@ -20,7 +20,7 @@ test('rich content renders math, tables and images with keyboard zoom', async ({
   await expect(page.locator('.katex-display')).toHaveCount(3);
   await expect(page.locator('table td')).toHaveCount(12);
   // A .katex node alone misses incompatible renderer/CSS versions: fractions overlap.
-  await expect.poll(() => page.locator('.katex-display .sizing.reset-size6.size3').first().evaluate(el =>
+  await expect.poll(() => page.locator('.katex-display .katex-sizing.reset-size6.size3').first().evaluate(el =>
     Math.abs(parseFloat(getComputedStyle(el).fontSize) / parseFloat(getComputedStyle(el.closest('.katex')).fontSize) - 0.7))).toBeLessThan(0.01);
   await expect.poll(() => page.locator('figure img').evaluate(img => img.complete && img.naturalWidth > 0)).toBe(true);
   for (const width of [1280,960]) {
