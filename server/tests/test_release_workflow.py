@@ -106,6 +106,19 @@ def source(tmp_path):
         destination = tmp_path / name
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(ROOT / name, destination)
+    # Synthetic candidates below use 0.1.0 independently of the shipping version.
+    for name in ("app/package.json", "app/package-lock.json", "app/src-tauri/tauri.conf.json"):
+        path = tmp_path / name
+        payload = json.loads(path.read_text())
+        payload["version"] = "0.1.0"
+        if name.endswith("package-lock.json"):
+            payload["packages"][""]["version"] = "0.1.0"
+        path.write_text(json.dumps(payload))
+    version = json.loads((ROOT / "app/package.json").read_text())["version"]
+    for name in ("Cargo.toml", "Cargo.lock"):
+        path = tmp_path / "app/src-tauri" / name
+        old = f'version = "{version}"' if name.endswith(".toml") else f'name = "practiq-desktop"\nversion = "{version}"'
+        path.write_text(path.read_text().replace(old, old.replace(version, "0.1.0"), 1))
     return tmp_path
 
 
@@ -113,6 +126,11 @@ def source(tmp_path):
 def test_release_rejects_noncanonical_tags(release, source, tag):
     with pytest.raises(ValueError, match="Use vX"):
         release.versions(source, tag)
+
+
+def test_shipping_app_version_matches_manifests_and_lockfiles(release):
+    version = json.loads((ROOT / "app/package.json").read_text())["version"]
+    assert release.versions(ROOT, f"v{version}")["desktop"] == version
 
 
 def test_release_versions_preserve_independent_service_and_reject_lock_drift(release, source):
