@@ -27,8 +27,27 @@ it("renders matrices, aligned integrals, cases and every table cell without losi
 
 it("keeps KaTeX CSS and rehype renderer on the same version", () => {
   const require = createRequire(import.meta.url);
-  const renderer = createRequire(require.resolve("rehype-katex"));
-  expect(require("katex/package.json").version).toBe(renderer("katex/package.json").version);
+  for (const name of ["rehype-katex", "micromark-extension-math"]) {
+    const renderer = createRequire(require.resolve(name));
+    expect(require("katex/package.json").version).toBe(renderer("katex/package.json").version);
+  }
+});
+
+it.each(["trust", "default", "processor"])("rejects inherited KaTeX %s settings", property => {
+  const require = createRequire(import.meta.url);
+  const katex = require("katex");
+  const descriptor = Object.getOwnPropertyDescriptor(Object.prototype, property);
+  Object.defineProperty(Object.prototype, property, { configurable: true, writable: true, value: property === "processor" ? () => true : true });
+  try {
+    for (const options of [undefined, { trust: false, strict: "ignore", maxExpand: 1000 }, Object.create({ trust: true })]) {
+      const output = katex.renderToString(String.raw`\href{javascript:alert(1)}{x}\includegraphics{https://untrusted.invalid/image.png}`, options);
+      expect(output).not.toMatch(/<a\s|<img\s/);
+      expect(katex.renderToString(String.raw`\frac{1}{2}`, options)).toContain("<mfrac>");
+    }
+  } finally {
+    if (descriptor) Object.defineProperty(Object.prototype, property, descriptor);
+    else Reflect.deleteProperty(Object.prototype, property);
+  }
 });
 
 it("opens the full source lazily, even when the crop is missing, and hides it during exams", async () => {

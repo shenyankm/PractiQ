@@ -21,7 +21,7 @@
     "@tauri-apps/api": "^2.12.1",
     "class-variance-authority": "^0.7.1",
     "cn": "^0.3.3",
-    "katex": "^0.16.47",
+    "katex": "0.18.2",
     "lucide-react": "^1.47.0",
     "radix-ui": "^1.6.7",
     "react": "^19.3.0",
@@ -55,5 +55,8 @@
     "typescript": "^7.0.2",
     "vite": "^8.3.0",
     "vitest": "^5.0.1"
+  },
+  "overrides": {
+    "katex": "$katex"
   }
 }
