@@ -33,7 +33,7 @@ import { canCloseWindow, useUnsavedChanges } from "./useUnsavedChanges";
 import type { GradingDraft } from "./ExamResults";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem } from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
+import { Empty, EmptyContent, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import {
   api,
@@ -386,6 +386,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                 ? t("专注练习")
                 : page === "service-settings" ? t("AI 服务") : t("设置");
   const loadingView = <p role="status" className="p-4 text-sm text-muted-foreground">{t("加载中…")}</p>;
+  const hasQuestionFilters = !!(search || mode || onlyReview);
   const listPage = ["questions", "wrong", "favorite"].includes(page);
   const languageError = language.error != null && <div role="alert" className="text-xs text-destructive"><p>{t(language.error.key)}</p><p>{errorMessage(language.error.cause)}</p><Button size="sm" variant="outline" disabled={language.saving || busy} onClick={() => {
     if (language.error?.key === "保存语言设置失败") void language.change(language.error.locale).then(saved => { if (saved) setLanguageOpen(false); });
@@ -526,7 +527,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
             )}
 
             {page === "banks" && (
-              <Button variant="outline" disabled={bankActionsUnavailable} onClick={() => navigate("settings", null, true)}><Upload />{t("导入")}</Button>
+              <><Button variant="outline" disabled={bankActionsUnavailable} onClick={() => setBankEditor({ id: null, title: "", description: "" })}><Plus />{t("新建题库")}</Button><Button disabled={bankActionsUnavailable} onClick={() => navigate("settings", null, true)}><Upload />{t("导入")}</Button></>
             )}
             {page === "banks" && banks.length > 1 && (
               <Button ref={mergeTrigger} variant="outline" disabled={bankActionsUnavailable} onClick={() => setMergeOpen(true)}>{t("合并题库")}</Button>
@@ -561,6 +562,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
           </div>
         </header>
         <div className="app-content min-h-0 flex-1 overflow-y-auto">
+          <div className={`page-workspace ${page === "practice" ? "practice-workspace" : ""}`}>
           {(bankError != null || infoError != null) && <div role="alert" className="mb-5 space-y-2 rounded-lg border border-destructive/40 p-4">
             <p>{t("概览读取失败，已保存的数据和已完成的操作不受影响。请重试读取，不要重复导入或保存。")}</p>
             <p className="text-sm">{errorMessage(bankError ?? infoError)}</p>
@@ -602,29 +604,38 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
           />}
           {listPage && (
             <div className="space-y-5">
-              <div className="flex flex-wrap items-center gap-3">
-                <InputGroup className="min-w-0 basis-full sm:basis-0 sm:flex-1">
-                  <InputGroupAddon><Search /></InputGroupAddon>
-                  <InputGroupInput
-                    aria-label={t("搜索题目")}
-                    placeholder={t("搜索题干、选项或内容…")}
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                  />
-                </InputGroup>
-                <NativeSelect
-                  className="w-full sm:w-40"
-                  aria-label={t("筛选题型")}
-                  value={mode}
-                  onChange={(event) => setMode(event.target.value)}
-                >
-                  <NativeSelectOption value="">{t("全部题型")}</NativeSelectOption>
-                  <NativeSelectOption value="single">{t("单选题")}</NativeSelectOption>
-                  <NativeSelectOption value="multiple">{t("多选题")}</NativeSelectOption>
-                  {Object.entries({...modeNames(),...questionKinds()}).filter(([key])=>key!=="gap_fill").map(([v, label]) => (
-                    <NativeSelectOption key={v} value={v}>{label}</NativeSelectOption>
-                  ))}
-                </NativeSelect>
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="min-w-0 basis-full space-y-2 sm:basis-0 sm:flex-1">
+                  <Label htmlFor="question-search">{t("搜索题目")}</Label>
+                  <InputGroup>
+                    <InputGroupAddon><Search /></InputGroupAddon>
+                    <InputGroupInput
+                      id="question-search"
+                      aria-label={t("搜索题目")}
+                      placeholder={t("搜索题干、选项或内容…")}
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                    />
+                  </InputGroup>
+                </div>
+                <div className="w-full space-y-2 sm:w-40">
+                  <Label htmlFor="question-mode">{t("筛选题型")}</Label>
+                  <NativeSelect
+                    id="question-mode"
+                    className="w-full"
+                    aria-label={t("筛选题型")}
+                    value={mode}
+                    onChange={(event) => setMode(event.target.value)}
+                  >
+                    <NativeSelectOption value="">{t("全部题型")}</NativeSelectOption>
+                    <NativeSelectOption value="single">{t("单选题")}</NativeSelectOption>
+                    <NativeSelectOption value="multiple">{t("多选题")}</NativeSelectOption>
+                    {Object.entries({...modeNames(),...questionKinds()}).filter(([key])=>key!=="gap_fill").map(([v, label]) => (
+                      <NativeSelectOption key={v} value={v}>{label}</NativeSelectOption>
+                    ))}
+                  </NativeSelect>
+                </div>
+                {hasQuestionFilters && <Button variant="outline" disabled={busy} onClick={() => { setSearch(""); setMode(""); setOnlyReview(false); setOffset(0); document.getElementById("question-search")?.focus(); }}>{t("清除筛选")}</Button>}
                 {page === "questions" && <label className="flex shrink-0 items-center gap-2 text-sm"><Checkbox checked={onlyReview} disabled={busy} onCheckedChange={checked => setOnlyReview(checked === true)} />{t("仅看待复核")}</label>}
               </div>
               {page === "wrong" && questions.length > 0 && <p className="text-sm text-muted-foreground">{t("错误和未得满分的题目会出现在这里，再次答对或得满分后自动移出；未评分不算错题。")}</p>}
@@ -757,8 +768,8 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                   <Empty className="min-h-96 border border-dashed">
                     <EmptyHeader>
                       <EmptyMedia>{page === "favorite" ? <Star /> : <BookOpen />}</EmptyMedia>
-                      <EmptyTitle>{page === "wrong" ? t("暂时没有错题") : page === "favorite" ? t("还没有收藏题目") : t("没有找到题目")}</EmptyTitle>
-                      <EmptyDescription>{page === "wrong" ? t("错误和未得满分的题目会出现在这里，再次答对或得满分后自动移出；未评分不算错题。") : t("尝试调整筛选，或导入新的题目。")}</EmptyDescription>
+                      <EmptyTitle>{hasQuestionFilters ? t("没有符合筛选的题目") : page === "wrong" ? t("暂时没有错题") : page === "favorite" ? t("还没有收藏题目") : t("没有找到题目")}</EmptyTitle>
+                      <EmptyDescription>{hasQuestionFilters ? t("清除筛选以查看当前列表中的全部题目。") : page === "wrong" ? t("错误和未得满分的题目会出现在这里，再次答对或得满分后自动移出；未评分不算错题。") : t("尝试调整筛选，或导入新的题目。")}</EmptyDescription>
                     </EmptyHeader>
                   </Empty>
                 )
@@ -810,6 +821,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                   <EmptyTitle>{sessionFilter === "all" ? t("还没有练习记录") : t("没有符合此状态的记录")}</EmptyTitle>
                   <EmptyDescription>{sessionFilter === "all" ? t("开始练习后，即可在这里继续作答或回顾结果。") : t("尝试选择其他状态。")}</EmptyDescription>
                 </EmptyHeader>
+                <EmptyContent><Button variant="outline" disabled={busy} onClick={() => { if (sessionFilter === "all") navigate("banks"); else { setSessionFilter("all"); setSessionOffset(0); } }}>{sessionFilter === "all" ? t("查看题库") : t("查看全部记录")}</Button></EmptyContent>
               </Empty>
             ))}
           {page === "history" && <div className="mt-5 flex items-center justify-end gap-3">
@@ -877,6 +889,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
               })} />
           )}
           </Suspense>
+          </div>
         </div>
       </main>
       <Dialog open={mergeOpen} onOpenChange={(open) => { if (!busy && !open) closeMerge(); }}>

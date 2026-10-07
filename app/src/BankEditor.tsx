@@ -19,7 +19,7 @@ export function BankEditor({ initial, busy, onClose, onSave }: {
   const [draft, setDraft] = useState(() => ({ ...initial }));
   const [original] = useState(() => ({ ...initial }));
   const dirty = draft.title !== original.title || draft.description !== original.description;
-  return <EditorDialog title={t("编辑题库")} dirty={dirty} busy={busy} onClose={onClose}>
+  return <EditorDialog title={t(initial.id ? "编辑题库" : "新建题库")} dirty={dirty} busy={busy} onClose={onClose}>
     <fieldset disabled={busy} className="space-y-4">
       <Label htmlFor="bankTitle">{t("题库名称")}</Label>
       <Input id="bankTitle" value={draft.title} onChange={event => setDraft({ ...draft, title: event.target.value })} />

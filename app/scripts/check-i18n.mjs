@@ -286,7 +286,7 @@ test('offline ZIP entry and service settings never submit documents or start mod
  ]);
  await expectNoOverflow(page,'autosaved service settings');
  await page.getByRole('button',{name:'Test',exact:true}).click();
- await expect(page.getByText('Connection test passed',{exact:true})).toBeVisible();
+ await expect(page.getByRole('status').filter({hasText:'Connection test passed'})).toBeVisible();
  expect(savedRequests()).toHaveLength(2);
  await expect.poll(()=>observedCalls.filter(c=>c.request.type==='test_settings').map(c=>c.request)).toEqual([{type:'test_settings',config:{service_url:'https://service.example.test'},service_token:null}]);
  await url.fill('https://service-latest.example.test');

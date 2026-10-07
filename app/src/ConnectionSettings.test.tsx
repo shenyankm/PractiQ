@@ -172,3 +172,26 @@ it("does not clear while a reverted endpoint draft still follows an older pendin
   await userEvent.click(clear);
   expect(api).toHaveBeenLastCalledWith({type:"save_settings",config:settings.config,service_token:""});
 });
+
+it("retains connection test results inline and clears them when the address changes", async () => {
+  const user=userEvent.setup();
+  vi.mocked(api).mockImplementation(async request=>{
+    if(request.type === "test_settings")throw new Error("Service temporarily unavailable");
+    return settings as never;
+  });
+  mount(); await waitFor(()=>expect(screen.getByLabelText("AI 服务地址")).toHaveProperty("value",settings.config.service_url));
+  await user.click(screen.getByRole("button",{name:"测试"}));
+  expect((await screen.findByRole("alert")).textContent).toContain("Service temporarily unavailable");
+  await user.type(screen.getByLabelText("AI 服务地址"),"/changed");
+  expect(screen.queryByRole("alert")).toBeNull();
+});
+
+it("clears the previous connection verdict when the saved token is removed", async () => {
+  vi.mocked(api).mockResolvedValue(settings as never);
+  mount();
+  await waitFor(()=>expect(screen.getByLabelText("AI 服务地址")).toHaveProperty("value",settings.config.service_url));
+  await userEvent.click(screen.getByRole("button",{name:"测试"}));
+  expect((await screen.findByRole("status")).textContent).toContain("连接测试通过");
+  await userEvent.click(screen.getByRole("button",{name:"清除已保存的访问令牌"}));
+  expect(screen.queryByRole("status")).toBeNull();
+});

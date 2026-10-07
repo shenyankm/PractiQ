@@ -76,7 +76,7 @@ export function BankList({ offset, onOffsetChange, revision, busy, ready, run, o
       {!loading && !error && page.items.map(bank => <Card key={bank.id}>
         <CardHeader>
           <div className="flex items-start justify-between gap-2">
-            <CardTitle className="min-w-0 break-words pt-1">{bank.title}</CardTitle>
+            <CardTitle className="min-w-0 break-words pt-1"><h2>{bank.title}</h2></CardTitle>
             <div className="flex shrink-0 items-center gap-1">
               <Badge variant="secondary">{t("{0} 题", { 0: bank.count })}</Badge>
               <DropdownMenu>
@@ -93,12 +93,11 @@ export function BankList({ offset, onOffsetChange, revision, busy, ready, run, o
               </DropdownMenu>
             </div>
           </div>
-          <CardDescription className="line-clamp-2 min-h-10">{bank.description}</CardDescription>
+          <CardDescription className="line-clamp-2 min-h-10">{bank.description || t(bank.count ? "选择题目开始练习，或查看内容与复核提示。" : "题库还是空的，打开后可新增题目。")}</CardDescription>
         </CardHeader>
         <CardContent className="mt-auto grid grid-cols-2 gap-2">
-          <Button variant="outline" disabled={busy} onClick={() => onOpenQuestions(bank.id)}>{t("查看题目")}<ChevronRight /></Button>
-          {bank.count ? <Button disabled={busy} onClick={() => onPractice(bank.id)}><Play />{t("开始练习")}</Button>
-            : <Button disabled={busy} onClick={onImport}><Upload />{t("导入题库 ZIP")}</Button>}
+          <Button variant="outline" className={!bank.count ? "col-span-2" : ""} disabled={busy} onClick={() => onOpenQuestions(bank.id)}>{t("查看题目")}<ChevronRight /></Button>
+          {!!bank.count && <Button disabled={busy} onClick={() => onPractice(bank.id)}><Play />{t("开始练习")}</Button>}
         </CardContent>
       </Card>)}
     </div>

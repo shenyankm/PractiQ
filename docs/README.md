@@ -33,6 +33,7 @@ These documents define procedures and outstanding evidence, rather than complete
 
 | Work | Guide or worksheet |
 | --- | --- |
+| Review workspace interaction rules and UI checks | [Workspace UX decisions](ux-workspace.md) |
 | Prepare issues/PRs and choose checks | [Contributing](../CONTRIBUTING.md) |
 | Report vulnerabilities and review dependencies | [Security policy](../SECURITY.md) |
 | Review outstanding workstream status | [Roadmap evidence](roadmap-evidence.md) |

@@ -113,8 +113,8 @@ export function QuestionEditor({
     });
   }
   return (
-      <EditorDialog title={t("编辑题目")} dirty={dirty || audioPending || audioDraft} busy={busy} onClose={onClose} className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
-        <fieldset disabled={busy} className="space-y-5">
+      <EditorDialog title={t("编辑题目")} dirty={dirty || audioPending || audioDraft} busy={busy} onClose={onClose} className="flex max-h-[90vh] flex-col overflow-hidden sm:max-w-3xl">
+        <fieldset disabled={busy} className="min-h-0 min-w-0 flex-1 space-y-5 overflow-y-auto p-1">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor={`${formId}-answer-mode`}>{t("答题方式")}</Label>
@@ -368,7 +368,7 @@ export function QuestionEditor({
             />
           </div>
         </fieldset>
-        <DialogFooter>
+        <DialogFooter className="shrink-0 border-t pt-3">
           <Button variant="outline" disabled={busy} onClick={onClose}>{t("放弃更改")}</Button>
           <Button disabled={busy || audioPending || audioDraft} onClick={() => {if(!audioPending && !audioDraft)onSave(q,children);}}>{t("保存题目")}</Button>
         </DialogFooter>

@@ -195,7 +195,7 @@ test('ZIP and service settings stay local until an explicit connection test', as
   expect(calls.some(call => call.request.type === 'test_settings')).toBe(false);
   await touchTarget(connectionTest);
   await connectionTest.tap();
-  await expect(page.getByText('连接测试通过', { exact: true })).toBeVisible();
+  await expect(page.getByRole('status').filter({ hasText: '连接测试通过' })).toBeVisible();
   await url.fill('https://service-latest.example.test');
   expect(await nativeBack(page)).toBe(true);
   await expect(page.getByRole('heading', { name: '设置', exact: true })).toBeVisible();

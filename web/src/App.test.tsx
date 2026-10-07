@@ -197,3 +197,36 @@ it("keeps a cursor per visited page and resets it when filters change", async ()
   await user.selectOptions(screen.getByLabelText("筛选任务状态"),"failed"); await waitFor(()=>expect(http.calls.at(-1)?.url).toContain("state_filter=failed"));
   expect(http.calls.at(-1)?.url).not.toContain("cursor=");
 });
+
+it("empty task states guide file selection or clear the current filter without submitting", async () => {
+  const user = userEvent.setup(); const http = fakeHTTP();
+  http.server.intercept = url => url.startsWith("/api/document-tasks?") ? json({ items: [], hasMore: false }) : undefined;
+  render(<App />);
+  expect(screen.getByRole("list", { name: "文档导入流程" }).children).toHaveLength(3);
+  await connect(user);
+  await user.click(await screen.findByRole("button", { name: "选择第一份文档" }));
+  expect(document.activeElement).toBe(screen.getByLabelText("选择文档"));
+  await user.selectOptions(screen.getByLabelText("筛选任务状态"), "failed");
+  await screen.findByText("没有符合此状态的任务。");
+  await user.click(screen.getByRole("button", { name: "查看全部任务" }));
+  await screen.findByRole("button", { name: "选择第一份文档" });
+  expect(screen.getByLabelText("筛选任务状态")).toHaveProperty("value", "");
+  expect(http.calls.at(-1)?.url).toBe("/api/document-tasks?limit=20&offset=0");
+  expect(http.calls.every(call => call.method === "GET")).toBe(true);
+});
+
+it("removes only unsubmitted files locally and derives picker formats from service capabilities", async () => {
+  const user = userEvent.setup(); const http = fakeHTTP();
+  http.server.intercept = url => url.includes("capabilities") ? json({...capabilities,sourceTypes:["text"],officeAvailable:false,officeModes:[]}) : undefined;
+  render(<App/>); await connect(user);
+  expect(screen.getByLabelText("选择文档").getAttribute("accept")).toBe(".txt");
+  await user.upload(screen.getByLabelText("选择文档"), [new File(["a"],"first.txt"),new File(["b"],"second.txt")]);
+  await user.click(screen.getByRole("button", {name:"移除文件 first.txt"}));
+  expect(screen.queryByText("first.txt")).toBeNull();
+  expect(screen.getByText("second.txt")).toBeTruthy();
+  expect(http.calls.every(call => call.method === "GET")).toBe(true);
+  await user.click(screen.getByRole("button", {name:"开始导入"}));
+  await screen.findByText(/任务已创建。页面/);
+  expect(http.calls.filter(call => call.url === "/api/document-tasks" && call.method === "POST")).toHaveLength(1);
+  expect(screen.queryByRole("button",{name:"移除文件 second.txt"})).toBeNull();
+});

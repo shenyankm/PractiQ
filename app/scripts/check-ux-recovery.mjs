@@ -101,3 +101,77 @@ for (const width of [1280, 360]) {
     expect(await page.evaluate(async () => (await import('/src/useUnsavedChanges.ts')).canCloseWindow())).toBe(true);
   });
 }
+
+for (const width of [1280, 360]) {
+  test(`question filter reset restores results and keyboard focus at ${width}px`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 800 });
+    await page.goto('/');
+    await page.getByRole('button', { name: '查看题目', exact: true }).first().click();
+    await page.getByLabel('搜索题目', { exact: true }).fill('no-matching-question');
+    await page.getByLabel('筛选题型').selectOption('single');
+    await page.getByRole('checkbox', { name: '仅看待复核' }).check();
+    await expect(page.getByText('没有符合筛选的题目', { exact: true })).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath(`filters-empty-${width}.png`), fullPage: true });
+    await page.getByRole('button', { name: '清除筛选', exact: true }).click();
+    await expect(page.getByLabel('搜索题目', { exact: true })).toBeFocused();
+    await expect(page.getByLabel('筛选题型')).toHaveValue('');
+    await expect(page.getByRole('checkbox', { name: '仅看待复核' })).not.toBeChecked();
+    await expect(page.getByText('9 道题目', { exact: true })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  });
+}
+
+for (const width of [375, 768, 1440]) {
+  test(`complete study workspace keeps controls and context reachable at ${width}px`, async ({ page }, testInfo) => {
+    await page.emulateMedia({reducedMotion:'reduce'});
+    await page.setViewportSize({width,height:900});
+    await page.goto('/');
+    const bank=page.locator('[data-slot=card]').filter({has:page.getByRole('heading',{name:'基础知识 · 全题型',exact:true})});
+    await bank.getByRole('button',{name:'开始练习',exact:true}).click();
+    const setup=page.getByRole('dialog',{name:'开始练习或考试',exact:true});
+    await expect(setup.getByText('提交后立即查看参考答案，可对照答案自评。',{exact:true})).toBeVisible();
+    await expect(setup.getByRole('button',{name:'立即开始',exact:true})).toBeEnabled();
+    await page.screenshot({path:testInfo.outputPath(`setup-${width}.png`),fullPage:true});
+    await setup.getByRole('button',{name:'立即开始',exact:true}).click();
+    await expect(page.getByRole('progressbar',{name:'提交进度'})).toHaveAttribute('value','0');
+    await page.getByRole('link',{name:'查看答题卡',exact:true}).click();
+    await expect(page.getByRole('region',{name:'答题卡',exact:true})).toBeFocused();
+    await page.getByRole('link',{name:'返回当前题',exact:true}).click();
+    await expect(page.locator('#current-question')).toBeFocused();
+    await page.getByRole('radio').first().click();
+    await page.getByRole('button',{name:'提交答案',exact:true}).click();
+    await expect(page.getByRole('progressbar',{name:'提交进度'})).toHaveAttribute('value','1');
+    await page.screenshot({path:testInfo.outputPath(`practice-${width}.png`),fullPage:true});
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+    await navigate(page,'我的题库');
+    await page.getByRole('button',{name:'新建题库',exact:true}).click();
+    const editor=page.getByRole('dialog',{name:'新建题库',exact:true});
+    await editor.getByLabel('题库名称',{exact:true}).fill('新建的本地题库');
+    await editor.getByRole('button',{name:'保存题库',exact:true}).click();
+    await expect(page.getByRole('heading',{name:'新建的本地题库',exact:true})).toBeVisible();
+    const empty=page.locator('[data-slot=card]').filter({has:page.getByRole('heading',{name:'新建的本地题库',exact:true})});
+    await expect(empty.getByText('题库还是空的，打开后可新增题目。',{exact:true})).toBeVisible();
+    await navigate(page,'设置');
+    await page.screenshot({path:testInfo.outputPath(`settings-${width}.png`),fullPage:true});
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  });
+}
+
+for(const theme of ['light','dark']) {
+  test(`workspace text and input boundaries meet contrast targets in ${theme} theme`, async ({page},testInfo)=>{
+    await page.addInitScript(value=>localStorage.setItem('practiq-theme',value),theme);
+    await page.setViewportSize({width:375,height:900});
+    await page.goto('/');
+    await expect(page.getByRole('button',{name:'新建题库',exact:true})).toBeEnabled();
+    await expect(page.getByRole('heading',{name:'基础知识 · 全题型',exact:true})).toBeVisible();
+    const ratios=await page.evaluate(()=>{
+      const root=getComputedStyle(document.documentElement), canvas=document.createElement('canvas'), context=canvas.getContext('2d');
+      function luminance(token){context.fillStyle=root.getPropertyValue(token).trim();context.fillRect(0,0,1,1);return [...context.getImageData(0,0,1,1).data].slice(0,3).map(v=>v/255).map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4).reduce((n,v,i)=>n+v*[.2126,.7152,.0722][i],0);}
+      return [['--foreground','--background',4.5],['--card-foreground','--card',4.5],['--muted-foreground','--card',4.5],['--muted-foreground','--muted',4.5],['--primary-foreground','--primary',4.5],['--input','--card',3]].map(([a,b,min])=>{const x=luminance(a),y=luminance(b);return {a,b,min,ratio:(Math.max(x,y)+.05)/(Math.min(x,y)+.05)};});
+    });
+    for(const {a,b,min,ratio} of ratios)expect(ratio,`${a} on ${b}`).toBeGreaterThanOrEqual(min);
+    await page.evaluate(()=>document.documentElement.style.fontSize='200%');
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+    await page.screenshot({path:testInfo.outputPath(`large-text-${theme}.png`),fullPage:true});
+  });
+}
