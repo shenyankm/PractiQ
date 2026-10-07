@@ -6,6 +6,31 @@ import ResultReview, { ImageArtifact, Markdown } from "./ResultReview";
 import { Client } from "./api";
 import { material, preview, question, task } from "./test-fixtures";
 
+for (const source of ["checkpoint", "result"]) {
+  it(`does not transfer expanded idless cards after ${source} filtering`, async () => {
+    const user = userEvent.setup();
+    const records = [
+      question({ id: null, stem: "Alpha", needsReview: false }),
+      question({ id: null, stem: "Beta", needsReview: true }),
+    ];
+    const { container } = render(<ResultReview
+      task={{ ...task, result: { ...task.result!, questions: records } }}
+      preview={source === "checkpoint" ? { ...preview, units: [{ ...preview.units[0], questions: records }] } : null}
+      client={new Client("fake")}
+    />);
+    await user.click(screen.getByText("Alpha", { selector: "summary span" }));
+    expect(screen.getByRole("heading", { name: "完整题干" })).toBeTruthy();
+    await user.type(screen.getByRole("searchbox", { name: "搜索解析题目" }), "Beta");
+    expect(container.querySelector("details.question-card")?.hasAttribute("open")).toBe(false);
+    expect(screen.queryByRole("heading", { name: "完整题干" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "清除结果筛选" }));
+    await user.click(screen.getByText("Alpha", { selector: "summary span" }));
+    await user.click(screen.getByRole("checkbox", { name: "仅看需要复核" }));
+    expect(container.querySelector("details.question-card")?.hasAttribute("open")).toBe(false);
+    expect(screen.queryByRole("heading", { name: "完整题干" })).toBeNull();
+  });
+}
+
 it("keeps KaTeX CSS and every math renderer on the same version", () => {
   const require = createRequire(import.meta.url);
   const version = require("katex/package.json").version;

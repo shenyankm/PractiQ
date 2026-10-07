@@ -339,3 +339,21 @@ test('delete confirmation moves into view and Escape restores its trigger withou
   await expect(remove).toBeFocused();
   expect(mutations(http.calls)).toHaveLength(0);
 });
+
+for (const entry of ["detail", "expired"] as const) {
+  test(`successful ${entry} deletion leaves focus on the surviving task list heading`, async ({ page }) => {
+    const http = await fakeHTTP(page, entry === "expired" ? { ...task, state: "EXPIRED" } : task);
+    await connect(page);
+    if (entry === "detail") {
+      await openTask(page);
+      await page.getByText("其他任务操作", { exact: true }).click();
+      await page.getByRole("button", { name: "删除任务", exact: true }).click();
+    } else {
+      await page.getByRole("button", { name: "删除已过期任务 sample.docx", exact: true }).click();
+    }
+    await page.getByRole("button", { name: "确认删除", exact: true }).click();
+    await expect(page.getByRole("button", { name: /sample.docx/ })).toHaveCount(0);
+    await expect(page.locator("#task-list-heading")).toBeFocused();
+    expect(mutations(http.calls).map(call => call.method)).toEqual(["DELETE"]);
+  });
+}

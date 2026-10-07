@@ -62,11 +62,16 @@ export default function App() {
   const job = useRef<symbol | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const deletePrompt = useRef<HTMLDivElement>(null);
+  const deleteCompleted = useRef(false);
   useEffect(() => {
     if (!deleteTarget) return;
+    deleteCompleted.current = false;
     const trigger = document.activeElement;
     deletePrompt.current?.focus();
-    return () => { if (trigger instanceof HTMLElement && trigger.isConnected) trigger.focus(); };
+    return () => {
+      const target = deleteCompleted.current ? document.getElementById("task-list-heading") : trigger;
+      if (target instanceof HTMLElement && target.isConnected) target.focus();
+    };
   }, [deleteTarget]);
   useEffect(() => () => client?.disconnect(), [client]);
   useEffect(() => {
@@ -235,7 +240,7 @@ export default function App() {
           </CardContent></Card>
         </aside><section id="task-detail" tabIndex={-1} className="task-panel" aria-label="任务详情">
           <a className="workspace-link" href="#task-list-heading">返回任务列表</a>
-          {deleteTarget && <div ref={deletePrompt} tabIndex={-1} onKeyDown={event => { if (event.key === "Escape" && !busy) setDeleteTarget(null); }} className="notice delete-confirmation" role="group" aria-label="删除任务确认"><p>确认删除「{deleteTarget.fileName}」及其检查点？已下载的题库不受影响。</p><div className="flex gap-2 mt-3"><Button variant="destructive" disabled={busy} onClick={() => void run(async current => { await current.delete(deleteTarget.threadId); if (current.active) { setSelected(value => value === deleteTarget.threadId ? null : value); setListRevision(value => value + 1); setDeleteTarget(null); setNotice("任务已删除。"); } })}>确认删除</Button><Button variant="outline" disabled={busy} onClick={() => setDeleteTarget(null)}>保留任务</Button></div></div>}
+          {deleteTarget && <div ref={deletePrompt} tabIndex={-1} onKeyDown={event => { if (event.key === "Escape" && !busy) setDeleteTarget(null); }} className="notice delete-confirmation" role="group" aria-label="删除任务确认"><p>确认删除「{deleteTarget.fileName}」及其检查点？已下载的题库不受影响。</p><div className="flex gap-2 mt-3"><Button variant="destructive" disabled={busy} onClick={() => void run(async current => { await current.delete(deleteTarget.threadId); if (current.active) { deleteCompleted.current = true; setSelected(value => value === deleteTarget.threadId ? null : value); setListRevision(value => value + 1); setDeleteTarget(null); setNotice("任务已删除。"); } })}>确认删除</Button><Button variant="outline" disabled={busy} onClick={() => setDeleteTarget(null)}>保留任务</Button></div></div>}
           {!selected ? <div className="empty-panel"><FileText /><h2>选择一个任务查看结果</h2><p>页面会自动读取进度。暂停、继续、重试和重新解析都需要明确点击。</p></div> : <>
             {detailError && <div className="error-banner" role="alert">{detailError}<Button variant="outline" onClick={() => setDetailRevision(value => value + 1)}>重试任务详情</Button></div>}
             {previewError && <div className="error-banner" role="alert">{previewError}<Button variant="outline" onClick={() => setDetailRevision(value => value + 1)}>重试检查点预览</Button></div>}

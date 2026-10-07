@@ -53,7 +53,7 @@ export function ImageArtifact({ reference, description, client }: { reference: A
     <Button variant="outline" disabled={loading} onClick={() => void load()}><ImageIcon />{loading ? "正在校验图片…" : url ? "重新读取图片" : "查看图片"}</Button>
   </figure>;
 }
-type Entry = { question: ParsedQuestion; stage: string; index: number };
+type Entry = { question: ParsedQuestion; stage: string; index: number; ordinal: number };
 const questionTypes: Record<NonNullable<ParsedQuestion["answerMode"]>, string> = { choice: "选择题", true_false: "判断题", fill_blank: "填空题", short_answer: "简答题", ordering: "排序题", matching: "匹配题", reading: "阅读理解", word_bank: "选词填空", cloze: "完形填空", listening: "听力题", gap_fill: "语法填空" };
 function relatedQuestion(entry: Entry, questions: Map<string, ParsedQuestion | null>, id?: string | null) {
   return id ? questions.get(JSON.stringify([entry.stage, entry.index, id])) || questions.get(JSON.stringify([id])) : undefined;
@@ -86,7 +86,7 @@ export default function ResultReview({ task, preview, client }: { task: Document
   const [reviewOnly, setReviewOnly] = useState(false);
   const {units, entries, visuals, groups, questions, sourcesById, sources} = useMemo(() => {
     const units = preview?.units || [];
-    const entries: Entry[] = units.length ? units.flatMap(unit => unit.questions.map(question => ({question,stage:unit.stage,index:unit.index}))) : (task.result?.questions || []).map(question => ({question,stage:"result",index:0}));
+    const entries: Entry[] = units.length ? units.flatMap(unit => unit.questions.map((question, ordinal) => ({question,stage:unit.stage,index:unit.index,ordinal}))) : (task.result?.questions || []).map((question, ordinal) => ({question,stage:"result",index:0,ordinal}));
     const questions = new Map<string,ParsedQuestion | null>();
     for (const entry of entries) {
       if (!entry.question.id) continue;
@@ -122,7 +122,7 @@ export default function ResultReview({ task, preview, client }: { task: Document
     {preview?.quality.reviewRequired && <p className="notice">需要人工复核 · {preview.quality.reviewQuestionCount || 0} 条题目。复核标记不会在导出时自动清除。</p>}
     {tab === "questions" ? <>
       {!!entries.length && <div className="review-filters"><label><span>搜索解析题目</span><Input type="search" value={search} placeholder="搜索题干、选项或来源原文" onChange={event => { setSearch(event.target.value); setPage(0); }}/></label><label className="review-checkbox"><input type="checkbox" checked={reviewOnly} onChange={event => { setReviewOnly(event.target.checked); setPage(0); }}/>仅看需要复核</label>{(search || reviewOnly) && <Button variant="outline" onClick={() => { setSearch(""); setReviewOnly(false); setPage(0); }}>清除结果筛选</Button>}<p role="status">显示 {filteredEntries.length} / {entries.length} 条记录。筛选不会修改复核标记或导出内容。</p></div>}
-      {filteredEntries.length ? filteredEntries.slice(currentPage * 20, currentPage * 20 + 20).map((entry, index) => <QuestionCard key={`${entry.stage}:${entry.index}:${entry.question.id || currentPage * 20 + index}`} entry={entry} questions={questions} sourcesById={sourcesById} />) : <p className="text-muted-foreground">{entries.length ? "没有符合筛选的题目，请调整搜索或清除结果筛选。" : "当前检查点尚无可查看的题目，空结果不会补写内容。"}</p>}
+      {filteredEntries.length ? filteredEntries.slice(currentPage * 20, currentPage * 20 + 20).map(entry => <QuestionCard key={JSON.stringify([entry.stage, entry.index, entry.question.id || entry.ordinal])} entry={entry} questions={questions} sourcesById={sourcesById} />) : <p className="text-muted-foreground">{entries.length ? "没有符合筛选的题目，请调整搜索或清除结果筛选。" : "当前检查点尚无可查看的题目，空结果不会补写内容。"}</p>}
       {filteredEntries.length > 20 && <nav className="flex items-center justify-between" aria-label="结果分页"><Button variant="outline" disabled={!currentPage} onClick={() => setPage(currentPage - 1)}><ChevronLeft />上一页题目</Button><span>第 {currentPage * 20 + 1}–{Math.min(filteredEntries.length, currentPage * 20 + 20)} 条，共 {filteredEntries.length} 条</span><Button variant="outline" disabled={(currentPage + 1) * 20 >= filteredEntries.length} onClick={() => setPage(currentPage + 1)}>下一页题目<ChevronRight /></Button></nav>}
     </> : <div className="space-y-4">
       <section><h4>文档分组</h4>{groups.length ? groups.slice(resourceStart,resourceStart+20).map((group, index) => <div key={index} className="resource-card"><strong>{group.title}</strong><Markdown text={group.instructions} /><p>题目关联：{"questionIds" in group ? group.questionIds.join("、") : group.questionIndexes.join("、")}</p></div>) : <p>无文档分组。</p>}</section>

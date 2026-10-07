@@ -23,8 +23,8 @@ The same workflows must fit narrow touch windows and desktop windows. Touch cont
 | History | An empty filtered history can return to all records; a genuinely empty history leads to banks. Existing totals, resumable drafts and provisional-score labels are preserved. |
 | Settings | Explain whether a token is already saved without exposing it. Retain connection-test errors and success in the form until another test or relevant edit. Backup restoration and bank append remain distinct operations. |
 | Web upload | Derive file-picker extensions from current service capabilities. Files can be removed only before submission. Selecting/removing files never starts model work. |
-| Web tasks | Provide navigation between upload, list and detail. Keep allowed controls and ZIP export prominent; disclose reparse and delete separately. Keep stale-checkpoint and uncertain-mutation handling. |
-| Web result review | Search stems, supplied/shared option text and source text across loaded records; filter explicit review flags. Filtering resets local pagination and preserves the complete unit-scoped material/option lookup. It does not change export contents, DTOs, review flags or model usage. |
+| Web tasks | Provide navigation between upload, list and detail. Keep allowed controls and ZIP export prominent; disclose reparse and delete separately. Keep stale-checkpoint and uncertain-mutation handling. Successful deletion focuses the surviving task-list heading; cancellation returns to the delete trigger. |
+| Web result review | Search stems, supplied/shared option text and source text across loaded records; filter explicit review flags. Filtering resets local pagination and preserves the complete unit-scoped material/option lookup. Idless cards use their original unit ordinal so filtering cannot transfer expansion to another question. It does not change export contents, DTOs, review flags or model usage. |
 
 ## Verification
 
