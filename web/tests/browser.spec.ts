@@ -108,7 +108,7 @@ test("workspace fits narrow and desktop windows with keyboard shortcuts to conte
   expect(await sourcesButton.evaluate(node => node.getBoundingClientRect().height)).toBeGreaterThanOrEqual(48);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.getByRole("link", { name: "返回任务列表" }).click();
-  await expect(page.getByText("文档任务", { exact: true })).toBeFocused();
+  await expect(page.locator("#task-list-heading")).toBeFocused();
   expect(mutations(http.calls)).toHaveLength(0);
 });
 
@@ -255,10 +255,11 @@ test("expired task deletion stays explicit and recoverable when detail and previ
 test("reparse and delete require explicit actions and delete confirmation", async ({ page }) => {
   const http = await fakeHTTP(page); await connect(page); await openTask(page);
   expect(mutations(http.calls)).toHaveLength(0);
+  await page.getByText("其他任务操作", { exact: true }).click();
   await page.getByRole("button", { name: "删除任务", exact: true }).click(); expect(http.calls.some(call => call.method === "DELETE")).toBe(false); await page.getByRole("button", { name: "保留任务", exact: true }).click();
   await page.getByRole("button", { name: "重新解析为新任务", exact: true }).click(); await expect(page.getByRole("heading", { name: "reparsed.docx", exact: true })).toBeVisible();
   expect(http.calls.filter(call => call.path.endsWith("/reparse"))).toHaveLength(1); expect(http.server.modelStarts).toBe(1);
-  await openTask(page); await page.getByRole("button", { name: "删除任务", exact: true }).click(); await page.getByRole("button", { name: "确认删除", exact: true }).click();
+  await openTask(page); await page.getByText("其他任务操作", { exact: true }).click(); await page.getByRole("button", { name: "删除任务", exact: true }).click(); await page.getByRole("button", { name: "确认删除", exact: true }).click();
   await expect(page.getByText("任务已删除。", { exact: true })).toBeVisible(); await expect(page.getByRole("button", { name: /sample.docx/ })).toHaveCount(0); expect(http.calls.filter(call => call.method === "DELETE")).toHaveLength(1);
 });
 
@@ -271,3 +272,88 @@ test("server format, byte limit, and model availability gate submission before a
   await page.getByLabel("选择文档").setInputFiles({ name: "small.txt", mimeType: "text/plain", buffer: Buffer.from("x") }); await expect(page.getByRole("button", { name: "开始导入", exact: true })).toBeDisabled();
   await expect(page.getByText(/服务端尚未配置模型/)).toBeVisible(); expect(mutations(http.calls)).toHaveLength(0);
 });
+
+test("empty task guidance preserves keyboard focus and only reads when clearing a filter", async ({ page }) => {
+  const http = await fakeHTTP(page);
+  http.records.clear();
+  await connect(page);
+  await page.getByRole("button", { name: "选择第一份文档" }).click();
+  await expect(page.getByLabel("选择文档")).toBeFocused();
+  await page.getByLabel("筛选任务状态").selectOption("failed");
+  await expect(page.getByText("没有符合此状态的任务。", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "查看全部任务" }).click();
+  await expect(page.getByLabel("筛选任务状态")).toHaveValue("");
+  await expect(page.getByRole("button", { name: "选择第一份文档" })).toBeVisible();
+  expect(mutations(http.calls)).toHaveLength(0);
+});
+
+for(const width of [375,768,1440]) {
+  test(`import and review workspace supports passive filtering and file removal at ${width}px`, async ({page},testInfo)=>{
+    await page.setViewportSize({width,height:1000});
+    const http=await fakeHTTP(page); await connect(page);
+    await page.getByLabel('选择文档').setInputFiles([{name:'remove.txt',mimeType:'text/plain',buffer:Buffer.from('a')},{name:'keep.txt',mimeType:'text/plain',buffer:Buffer.from('b')}]);
+    await page.getByRole('button',{name:'移除文件 remove.txt',exact:true}).click();
+    await expect(page.getByText('remove.txt',{exact:true})).toHaveCount(0);
+    await openTask(page);
+    await page.getByRole('searchbox',{name:'搜索解析题目',exact:true}).fill('共享选项一');
+    await page.getByRole('checkbox',{name:'仅看需要复核',exact:true}).check();
+    await page.locator('details.question-card').filter({hasText:'根据材料选择答案'}).locator('summary').click();
+    await expect(page.getByRole('heading',{name:'所属材料 · q-material',exact:true})).toBeVisible();
+    await page.screenshot({path:testInfo.outputPath(`review-filtered-${width}.png`),fullPage:true});
+    await expect(page.getByRole('button',{name:'重新解析为新任务',exact:true})).toBeHidden();
+    await page.getByText('其他任务操作',{exact:true}).click();
+    await expect(page.getByRole('button',{name:'重新解析为新任务',exact:true})).toBeVisible();
+    expect(mutations(http.calls)).toHaveLength(0);
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  });
+}
+
+test('import workspace tokens preserve readable text in light and dark surfaces',async({page},testInfo)=>{
+  await fakeHTTP(page);await connect(page);await openTask(page);
+  for(const theme of ['light','dark']) {
+    await page.evaluate(value=>document.documentElement.classList.toggle('dark',value==='dark'),theme);
+    const pairs=await page.evaluate(()=>{
+      const root=getComputedStyle(document.documentElement), canvas=document.createElement('canvas'), context=canvas.getContext('2d')!;
+      const light=(token:string)=>{context.fillStyle=root.getPropertyValue(token).trim();context.fillRect(0,0,1,1);return [...context.getImageData(0,0,1,1).data].slice(0,3).map(v=>v/255).map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4).reduce((n,v,i)=>n+v*[.2126,.7152,.0722][i],0);};
+      return [['--foreground','--background',4.5],['--muted-foreground','--card',4.5],['--primary-foreground','--primary',4.5],['--warning-foreground','--warning-background',4.5],['--error-foreground','--error-background',4.5],['--input','--card',3]].map(([a,b,min])=>{const x=light(a as string),y=light(b as string);return {a,b,min,ratio:(Math.max(x,y)+.05)/(Math.min(x,y)+.05)};});
+    });
+    for(const {a,b,min,ratio} of pairs)expect(ratio,`${theme}: ${a} on ${b}`).toBeGreaterThanOrEqual(min as number);
+    const colors=await page.evaluate(()=>{const root=getComputedStyle(document.documentElement);return {primary:root.getPropertyValue('--primary').trim(),foreground:root.getPropertyValue('--foreground').trim()};});
+    const exportButton=page.getByRole('button',{name:'下载题库 ZIP',exact:true});
+    const expectedPrimary=await exportButton.evaluate((element,color)=>{const probe=document.createElement('span');probe.style.backgroundColor=color;document.body.append(probe);const value=getComputedStyle(probe).backgroundColor;probe.remove();return value;},colors.primary);
+    await expect(exportButton).toHaveCSS('background-color',expectedPrimary);
+    const badge=page.locator('[data-slot=badge][data-variant=outline]').first();
+    await expect(badge).toHaveCSS('color',colors.foreground);
+    await page.screenshot({path:testInfo.outputPath(`workspace-${theme}.png`),fullPage:true});
+  }
+});
+
+test('delete confirmation moves into view and Escape restores its trigger without a mutation',async({page})=>{
+  const http=await fakeHTTP(page);await connect(page);await openTask(page);
+  await page.getByText('其他任务操作',{exact:true}).click();
+  const remove=page.getByRole('button',{name:'删除任务',exact:true});
+  await remove.click();
+  await expect(page.getByRole('group',{name:'删除任务确认',exact:true})).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('group',{name:'删除任务确认',exact:true})).toHaveCount(0);
+  await expect(remove).toBeFocused();
+  expect(mutations(http.calls)).toHaveLength(0);
+});
+
+for (const entry of ["detail", "expired"] as const) {
+  test(`successful ${entry} deletion leaves focus on the surviving task list heading`, async ({ page }) => {
+    const http = await fakeHTTP(page, entry === "expired" ? { ...task, state: "EXPIRED" } : task);
+    await connect(page);
+    if (entry === "detail") {
+      await openTask(page);
+      await page.getByText("其他任务操作", { exact: true }).click();
+      await page.getByRole("button", { name: "删除任务", exact: true }).click();
+    } else {
+      await page.getByRole("button", { name: "删除已过期任务 sample.docx", exact: true }).click();
+    }
+    await page.getByRole("button", { name: "确认删除", exact: true }).click();
+    await expect(page.getByRole("button", { name: /sample.docx/ })).toHaveCount(0);
+    await expect(page.locator("#task-list-heading")).toBeFocused();
+    expect(mutations(http.calls).map(call => call.method)).toEqual(["DELETE"]);
+  });
+}

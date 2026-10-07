@@ -9,6 +9,7 @@ import type { ArtifactReference, ContentBlock, DocumentTaskDetail, DocumentTaskR
 import { Client } from "./api";
 import { Button } from "./components/ui/button";
 import { Badge } from "./components/ui/badge";
+import { Input } from "./components/ui/input";
 
 export function Markdown({ text }: { text: string | null | undefined }) {
   if (text == null) return <span className="text-muted-foreground">未提供（null）</span>;
@@ -52,16 +53,19 @@ export function ImageArtifact({ reference, description, client }: { reference: A
     <Button variant="outline" disabled={loading} onClick={() => void load()}><ImageIcon />{loading ? "正在校验图片…" : url ? "重新读取图片" : "查看图片"}</Button>
   </figure>;
 }
-type Entry = { question: ParsedQuestion; stage: string; index: number };
+type Entry = { question: ParsedQuestion; stage: string; index: number; ordinal: number };
+const questionTypes: Record<NonNullable<ParsedQuestion["answerMode"]>, string> = { choice: "选择题", true_false: "判断题", fill_blank: "填空题", short_answer: "简答题", ordering: "排序题", matching: "匹配题", reading: "阅读理解", word_bank: "选词填空", cloze: "完形填空", listening: "听力题", gap_fill: "语法填空" };
+function relatedQuestion(entry: Entry, questions: Map<string, ParsedQuestion | null>, id?: string | null) {
+  return id ? questions.get(JSON.stringify([entry.stage, entry.index, id])) || questions.get(JSON.stringify([id])) : undefined;
+}
 function QuestionCard({ entry, questions, sourcesById }: { entry: Entry; questions: Map<string, ParsedQuestion | null>; sourcesById: Map<string, NonNullable<DocumentTaskReview>["questionSources"]> }) {
   const [expanded, setExpanded] = useState(false);
   const q = entry.question;
-  const related = (id?: string | null) => id ? questions.get(JSON.stringify([entry.stage,entry.index,id])) || questions.get(JSON.stringify([id])) : undefined;
-  const parent = q.parentId ? related(q.parentId) : undefined;
-  const owner = q.optionSourceId ? related(q.optionSourceId) : undefined;
+  const parent = relatedQuestion(entry, questions, q.parentId);
+  const owner = relatedQuestion(entry, questions, q.optionSourceId);
   const sources = q.id ? sourcesById.get(q.id) || [] : [];
   return <details className="question-card" onToggle={event => setExpanded(event.currentTarget.open)}>
-    <summary><span className="font-medium">{q.stem?.slice(0, 160) || "题干未提供（null）"}</span><span className="flex flex-wrap gap-2"><Badge variant="outline">{q.answerMode || "题型未知（null）"}</Badge>{q.needsReview && <Badge variant="secondary">需要复核</Badge>}</span></summary>
+    <summary><span className="font-medium">{q.stem?.slice(0, 160) || "题干未提供（null）"}</span><span className="flex flex-wrap gap-2"><Badge variant="outline">{q.answerMode ? questionTypes[q.answerMode] : "题型未知（null）"}</Badge>{q.needsReview && <Badge variant="secondary">需要复核</Badge>}</span></summary>
     {expanded && <div className="space-y-5 pt-4">
       <dl className="metadata-grid"><dt>题目 ID</dt><dd>{q.id ?? "未提供（null）"}</dd><dt>所属材料</dt><dd>{q.parentId ?? "无（null）"}</dd><dt>共享选项来源</dt><dd>{q.optionSourceId ?? "无（null）"}</dd><dt>置信度</dt><dd>{q.confidence}</dd><dt>缺失字段</dt><dd>{q.missingFields.join("、") || "无"}</dd><dt>来源单元</dt><dd>{entry.stage} · {entry.index}{sources.map(source => <p key={`${source.stage}:${source.unitIndex}`}>{source.stage} · {source.unitIndex}</p>)}</dd></dl>
       <section><h4>完整题干</h4><Markdown text={q.stem} /><Markdown text={q.instructions} /><Blocks blocks={[...(q.passage || []), ...q.contentBlocks, ...(q.transcript || [])]} /></section>
@@ -78,9 +82,11 @@ export default function ResultReview({ task, preview, client }: { task: Document
   const [page, setPage] = useState(0);
   const [tab, setTab] = useState<"questions" | "sources">("questions");
   const [resourcePage, setResourcePage] = useState(0);
+  const [search, setSearch] = useState("");
+  const [reviewOnly, setReviewOnly] = useState(false);
   const {units, entries, visuals, groups, questions, sourcesById, sources} = useMemo(() => {
     const units = preview?.units || [];
-    const entries: Entry[] = units.length ? units.flatMap(unit => unit.questions.map(question => ({question,stage:unit.stage,index:unit.index}))) : (task.result?.questions || []).map(question => ({question,stage:"result",index:0}));
+    const entries: Entry[] = units.length ? units.flatMap(unit => unit.questions.map((question, ordinal) => ({question,stage:unit.stage,index:unit.index,ordinal}))) : (task.result?.questions || []).map((question, ordinal) => ({question,stage:"result",index:0,ordinal}));
     const questions = new Map<string,ParsedQuestion | null>();
     for (const entry of entries) {
       if (!entry.question.id) continue;
@@ -96,7 +102,15 @@ export default function ResultReview({ task, preview, client }: { task: Document
       visuals:units.length ? units.flatMap(unit => unit.visualElements || []) : task.result?.visualElements || [],
       groups:units.length ? units.flatMap(unit => unit.groups) : task.result?.groups || []};
   }, [preview, task.result, task.processing]);
-  const currentPage = Math.min(page, Math.max(0, Math.ceil(entries.length / 20) - 1));
+  const filteredEntries = useMemo(() => {
+    const keyword = search.trim().toLocaleLowerCase();
+    return entries.filter(entry => {
+      const q = entry.question;
+      const options = relatedQuestion(entry, questions, q.optionSourceId)?.options || q.options;
+      return (!reviewOnly || q.needsReview) && (!keyword || [q.stem, q.sourceText, ...options.map(option => option.content)].some(text => text?.toLocaleLowerCase().includes(keyword)));
+    });
+  }, [entries, questions, search, reviewOnly]);
+  const currentPage = Math.min(page, Math.max(0, Math.ceil(filteredEntries.length / 20) - 1));
   const resourceCount = Math.max(groups.length, visuals.length, units.length, sources.length);
   const currentResourcePage = Math.min(resourcePage, Math.max(0, Math.ceil(resourceCount / 20) - 1));
   const resourceStart = currentResourcePage * 20;
@@ -107,8 +121,9 @@ export default function ResultReview({ task, preview, client }: { task: Document
     {!!task.result?.missingFields?.length && <p className="notice">文档缺失字段：{task.result.missingFields.join("、")}</p>}
     {preview?.quality.reviewRequired && <p className="notice">需要人工复核 · {preview.quality.reviewQuestionCount || 0} 条题目。复核标记不会在导出时自动清除。</p>}
     {tab === "questions" ? <>
-      {entries.length ? entries.slice(currentPage * 20, currentPage * 20 + 20).map((entry, index) => <QuestionCard key={`${entry.stage}:${entry.index}:${entry.question.id || currentPage * 20 + index}`} entry={entry} questions={questions} sourcesById={sourcesById} />) : <p className="text-muted-foreground">当前检查点尚无可查看的题目，空结果不会补写内容。</p>}
-      {entries.length > 20 && <nav className="flex items-center justify-between" aria-label="结果分页"><Button variant="outline" disabled={!currentPage} onClick={() => setPage(currentPage - 1)}><ChevronLeft />上一页题目</Button><span>第 {currentPage * 20 + 1}–{Math.min(entries.length, currentPage * 20 + 20)} 条，共 {entries.length} 条</span><Button variant="outline" disabled={(currentPage + 1) * 20 >= entries.length} onClick={() => setPage(currentPage + 1)}>下一页题目<ChevronRight /></Button></nav>}
+      {!!entries.length && <div className="review-filters"><label><span>搜索解析题目</span><Input type="search" value={search} placeholder="搜索题干、选项或来源原文" onChange={event => { setSearch(event.target.value); setPage(0); }}/></label><label className="review-checkbox"><input type="checkbox" checked={reviewOnly} onChange={event => { setReviewOnly(event.target.checked); setPage(0); }}/>仅看需要复核</label>{(search || reviewOnly) && <Button variant="outline" onClick={() => { setSearch(""); setReviewOnly(false); setPage(0); }}>清除结果筛选</Button>}<p role="status">显示 {filteredEntries.length} / {entries.length} 条记录。筛选不会修改复核标记或导出内容。</p></div>}
+      {filteredEntries.length ? filteredEntries.slice(currentPage * 20, currentPage * 20 + 20).map(entry => <QuestionCard key={JSON.stringify([entry.stage, entry.index, entry.question.id || entry.ordinal])} entry={entry} questions={questions} sourcesById={sourcesById} />) : <p className="text-muted-foreground">{entries.length ? "没有符合筛选的题目，请调整搜索或清除结果筛选。" : "当前检查点尚无可查看的题目，空结果不会补写内容。"}</p>}
+      {filteredEntries.length > 20 && <nav className="flex items-center justify-between" aria-label="结果分页"><Button variant="outline" disabled={!currentPage} onClick={() => setPage(currentPage - 1)}><ChevronLeft />上一页题目</Button><span>第 {currentPage * 20 + 1}–{Math.min(filteredEntries.length, currentPage * 20 + 20)} 条，共 {filteredEntries.length} 条</span><Button variant="outline" disabled={(currentPage + 1) * 20 >= filteredEntries.length} onClick={() => setPage(currentPage + 1)}>下一页题目<ChevronRight /></Button></nav>}
     </> : <div className="space-y-4">
       <section><h4>文档分组</h4>{groups.length ? groups.slice(resourceStart,resourceStart+20).map((group, index) => <div key={index} className="resource-card"><strong>{group.title}</strong><Markdown text={group.instructions} /><p>题目关联：{"questionIds" in group ? group.questionIds.join("、") : group.questionIndexes.join("、")}</p></div>) : <p>无文档分组。</p>}</section>
       <section><h4>题目来源关联</h4><pre className="raw-data">{JSON.stringify(sources.slice(resourceStart,resourceStart+20), null, 2)}</pre></section>

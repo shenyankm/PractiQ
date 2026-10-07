@@ -6,6 +6,31 @@ import ResultReview, { ImageArtifact, Markdown } from "./ResultReview";
 import { Client } from "./api";
 import { material, preview, question, task } from "./test-fixtures";
 
+for (const source of ["checkpoint", "result"]) {
+  it(`does not transfer expanded idless cards after ${source} filtering`, async () => {
+    const user = userEvent.setup();
+    const records = [
+      question({ id: null, stem: "Alpha", needsReview: false }),
+      question({ id: null, stem: "Beta", needsReview: true }),
+    ];
+    const { container } = render(<ResultReview
+      task={{ ...task, result: { ...task.result!, questions: records } }}
+      preview={source === "checkpoint" ? { ...preview, units: [{ ...preview.units[0], questions: records }] } : null}
+      client={new Client("fake")}
+    />);
+    await user.click(screen.getByText("Alpha", { selector: "summary span" }));
+    expect(screen.getByRole("heading", { name: "完整题干" })).toBeTruthy();
+    await user.type(screen.getByRole("searchbox", { name: "搜索解析题目" }), "Beta");
+    expect(container.querySelector("details.question-card")?.hasAttribute("open")).toBe(false);
+    expect(screen.queryByRole("heading", { name: "完整题干" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "清除结果筛选" }));
+    await user.click(screen.getByText("Alpha", { selector: "summary span" }));
+    await user.click(screen.getByRole("checkbox", { name: "仅看需要复核" }));
+    expect(container.querySelector("details.question-card")?.hasAttribute("open")).toBe(false);
+    expect(screen.queryByRole("heading", { name: "完整题干" })).toBeNull();
+  });
+}
+
 it("keeps KaTeX CSS and every math renderer on the same version", () => {
   const require = createRequire(import.meta.url);
   const version = require("katex/package.json").version;
@@ -140,4 +165,30 @@ it("uses local duplicate owners and only unique cross-unit material and options"
   const child = within(screen.getByText("Unique child", { selector: "summary span" }).closest("details")!);
   expect(child.getByText("Unique material")).toBeTruthy();
   expect(child.getByText("Unique option")).toBeTruthy();
+});
+
+it("filters all checkpoints locally, resets pagination and retains shared material context", async () => {
+  const user = userEvent.setup();
+  const client = new Client("fake");
+  const image = vi.spyOn(client, "image");
+  const records = [material, ...Array.from({ length: 22 }, (_, index) => question({id:`filtered-${index}`, stem:`Record ${index}`, needsReview:index === 21}))];
+  const view = { ...preview, units: [{...preview.units[0], questions:records}] };
+  const before = JSON.stringify(view);
+  render(<ResultReview task={task} preview={view} client={client}/>);
+  await user.click(screen.getByRole("button", {name:"下一页题目"}));
+  await user.type(screen.getByRole("searchbox", {name:"搜索解析题目"}), "共享选项一");
+  await user.click(screen.getByRole("checkbox", {name:"仅看需要复核"}));
+  expect(screen.getByText("Record 21")).toBeTruthy();
+  expect(screen.queryByText("Record 20")).toBeNull();
+  await user.click(screen.getByText("Record 21"));
+  expect(screen.getByRole("heading", {name:"所属材料 · q-material"})).toBeTruthy();
+  expect(screen.getByText("共享选项一")).toBeTruthy();
+  await user.clear(screen.getByRole("searchbox", {name:"搜索解析题目"}));
+  await user.type(screen.getByRole("searchbox", {name:"搜索解析题目"}), "absent");
+  expect(screen.getByText(/没有符合筛选的题目/)).toBeTruthy();
+  await user.click(screen.getByRole("button", {name:"清除结果筛选"}));
+  expect(screen.getByText("Record 0")).toBeTruthy();
+  expect(screen.queryByText("Record 21")).toBeNull();
+  expect(JSON.stringify(view)).toBe(before);
+  expect(image).not.toHaveBeenCalled();
 });

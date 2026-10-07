@@ -47,6 +47,7 @@ export function ConnectionSettingsPanel({
   const [error, setError] = useState<unknown>(null);
   const [waiting, setWaiting] = useState(false);
   const [reading, setReading] = useState(true);
+  const [testResult, setTestResult] = useState<{ error?: unknown } | null>(null);
   const load = () => {
     let active = true;
     setWaiting(false);
@@ -73,6 +74,7 @@ export function ConnectionSettingsPanel({
     saved && saved.config.service_url === config.service_url ? saved.hasServiceToken : null;
   const missing = missingServiceSettings({ config, hasServiceToken: serviceToken.trim() ? true : configured });
   function field(name: keyof ServiceConfig, value: string) {
+    setTestResult(null);
     invalidate();
     setConfig((old) => ({ ...old, [name]: value || null }));
     if (name === "service_url") {
@@ -118,7 +120,7 @@ export function ConnectionSettingsPanel({
   }, [dirty, saved, busy, run, persist]);
   function clearToken() {
     if (busy || locked.current || dirty || pending.current || !saved?.config.service_url) return;
-    locked.current = true; setOperation("clear");
+    locked.current = true; setOperation("clear"); setTestResult(null);
     const version = ++revision.current;
     run(async () => {
       try {
@@ -163,6 +165,7 @@ export function ConnectionSettingsPanel({
             </div>
           )}
           {waiting && <p role="status" className="text-sm text-muted-foreground">{t("读取配置耗时较长；可继续离线练习，请勿重复请求。")}</p>}
+          {reading && !waiting && <p role="status" className="text-sm text-muted-foreground">{t("加载中…")}</p>}
           <p className="text-sm text-muted-foreground">{t("离开输入框时自动保存。AI 服务连接仅用于显式评分；离线练习无需配置。")}</p>
           <fieldset disabled={busy || operation !== null || !saved} className="min-w-0 space-y-4" onBlur={() => { void persist().catch(e => toast.error(e)); }}>
             <div className="space-y-2">
@@ -182,24 +185,27 @@ export function ConnectionSettingsPanel({
                   configured !== false && config.service_url ? "********************************" : t("填写此服务对应的访问令牌")
                 }
                 value={serviceToken}
-                onChange={(e) => { invalidate(); setServiceToken(e.target.value); }}
+                onChange={(e) => { invalidate(); setTestResult(null); setServiceToken(e.target.value); }}
               />
+              {saved && <p className="text-sm text-muted-foreground">{t(configured ? "此服务已有保存的令牌；留空会保留原令牌。" : "填写令牌后自动保存到此设备的安全存储。")}</p>}
             </div>
           </fieldset>
           {saveError != null && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 text-sm text-destructive"><span>{errorMessage(saveError)}</span><Button type="button" variant="outline" disabled={busy || operation !== null} onClick={save}>{t("重试保存")}</Button></div>}
+          {testResult && <p role={testResult.error ? "alert" : "status"} className={testResult.error ? "text-sm text-destructive" : "workflow-note"}>{testResult.error ? errorMessage(testResult.error) : t("连接测试通过")}</p>}
           <div className="flex flex-wrap items-center justify-end gap-3 border-t pt-4">
           <Button variant="outline" type="button" disabled={busy || operation !== null || dirty || !saved?.config.service_url || configured === false} onClick={clearToken}>{t("清除已保存的访问令牌")}</Button>
           <Button variant="outline" type="button" disabled={busy || operation !== null || !saved || missing.length > 0} onClick={() => {
             if (locked.current) return;
-            locked.current = true; setOperation("test"); setSaveError(null);
+            locked.current = true; setOperation("test"); setSaveError(null); setTestResult(null);
             const version = revision.current;
             run(async () => {
               try {
                 await persist();
                 await api({ type: "test_settings", config, service_token: null });
                 if (version !== revision.current) return;
+                setTestResult({});
                 toast.success(message("连接测试通过"));
-              } catch (e) { if (version === revision.current) toast.error(e); }
+              } catch (e) { if (version === revision.current) { setTestResult({error:e}); toast.error(e); } }
               finally { locked.current = false; setOperation(null); }
             });
           }}>
