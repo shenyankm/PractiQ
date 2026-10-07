@@ -11,6 +11,7 @@ import sys
 import warnings
 import zipfile
 from pathlib import Path
+from xml.etree import ElementTree
 
 import pytest
 
@@ -18,6 +19,14 @@ ROOT = Path(__file__).parents[2]
 VERSION = json.loads((ROOT / "app/package.json").read_text())["version"]
 MANIFEST_PATH = "assets/bundled/build-manifest.json"
 NOTICE_PATH = "assets/bundled/THIRD-PARTY.txt"
+
+
+def test_android_cleartext_domains_explicitly_exclude_subdomains():
+    config = ElementTree.parse(ROOT / "app/src-tauri/gen/android/app/src/main/res/xml/network_security_config.xml")
+    assert config.find("base-config").get("cleartextTrafficPermitted") == "false"
+    domains = config.findall("domain-config/domain")
+    assert {domain.text for domain in domains} == {"tauri.localhost", "localhost", "127.0.0.1", "ip6-localhost", "::1"}
+    assert all(domain.get("includeSubdomains") == "false" for domain in domains)
 
 
 def test_android_resource_whitelist_has_only_the_official_cli_asset_producer():
