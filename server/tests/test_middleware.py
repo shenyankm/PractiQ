@@ -125,16 +125,52 @@ async def test_json_reception_bounds_capacity_and_releases_it_on_every_exit(monk
             await asyncio.wait_for(task, 1)
         assert middleware.receiving[asyncio.get_running_loop()] == 0
         assert downstream.is_set() == (outcome == 'complete')
-        if outcome in {'timeout', 'too_large'}:
-            assert messages[0]['status'] == (408 if outcome == 'timeout' else 413)
-            detail = json.loads(messages[1]['body'])['detail']
-            assert detail['code'] == ('REQUEST_BODY_TIMEOUT' if outcome == 'timeout' else 'REQUEST_TOO_LARGE')
+        if outcome in {'timeout', 'too_large', 'disconnect'}:
+            status, code = {'timeout': (408, 'REQUEST_BODY_TIMEOUT'),
+                            'too_large': (413, 'REQUEST_TOO_LARGE'),
+                            'disconnect': (400, 'REQUEST_BODY_DISCONNECTED')}[outcome]
+            assert messages[0]['status'] == status
+            assert json.loads(messages[1]['body'])['detail']['code'] == code
         # A failed/disconnected request must not consume the next request's slot.
         await middleware(scope, AsyncMock(return_value={'type': 'http.request', 'body': b'{}'}), send)
         assert downstream.is_set()
     finally:
         task.cancel()
         await asyncio.gather(task, return_exceptions=True)
+
+
+@pytest.mark.parametrize('partial_body', [False, True])
+@pytest.mark.parametrize('spec_version', ['2.3', '2.4'])
+async def test_body_disconnect_completes_response_through_the_real_middleware_stack(monkeypatch, partial_body, spec_version):
+    create = AsyncMock()
+    monkeypatch.setattr(task_api, 'create_task', create)
+    monkeypatch.setenv('AI_SERVICE_TOKEN', 'test-token')
+    scope = {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': spec_version},
+             'http_version': '1.1', 'scheme': 'http', 'method': 'POST',
+             'path': '/api/document-tasks', 'root_path': '', 'query_string': b'',
+             'server': ('test', 80), 'client': ('127.0.0.1', 1234),
+             'headers': [(b'authorization', b'Bearer test-token'), (b'content-type', b'application/json')]}
+    messages = []
+    incoming = [{'type': 'http.request', 'body': b'{', 'more_body': True}] if partial_body else []
+    incoming.append({'type': 'http.disconnect'})
+
+    async def receive():
+        if incoming:
+            return incoming.pop(0)
+        await asyncio.Event().wait()
+        return {'type': 'http.disconnect'}
+
+    async def send(message):
+        messages.append(message)
+
+    await asyncio.wait_for(app(scope, receive, send), 1)
+    start = next(message for message in messages if message['type'] == 'http.response.start')
+    assert start['status'] == 400
+    assert (b'x-content-type-options', b'nosniff') in start['headers']
+    body = b''.join(message.get('body', b'') for message in messages if message['type'] == 'http.response.body')
+    assert json.loads(body)['detail']['code'] == 'REQUEST_BODY_DISCONNECTED'
+    assert messages[-1]['type'] == 'http.response.body' and not messages[-1].get('more_body', False)
+    create.assert_not_awaited()
 
 
 async def test_completed_body_does_not_hold_reception_capacity_during_downstream_work(monkeypatch):

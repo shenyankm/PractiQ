@@ -63,7 +63,7 @@ class JsonBodyLimitMiddleware:
                     while True:
                         message = await receive()
                         if message['type'] != 'http.request':
-                            return
+                            raise HTTPException(400, {'code': 'REQUEST_BODY_DISCONNECTED', 'message': 'Client disconnected during request body reception', 'params': {}})
                         chunk = message.get('body', b'')
                         if len(payload) + len(chunk) > maximum:
                             raise _BodyTooLarge
