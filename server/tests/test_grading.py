@@ -636,24 +636,21 @@ def test_wire_numbers_and_unicode_are_hashed_before_parsing(setup, monkeypatch):
         seen.append(request)
         return {"status":"ungraded", "usage":[]}
     monkeypatch.setattr(webapp, "grade", fake)
-    webapp.app.dependency_overrides[webapp.authorize]=lambda:None
-    try:
-        client=TestClient(webapp.app)
-        # Rust spells the exponent without Python's leading zero.
-        raw='{"answer":"中文\\n😀", "images":[], "materials":[], "maxCents":500, "question":{"stem":"题", "answerMode":"short_answer", "answerPayload":{"text":"参考"}, "confidence":1e-7, "sourceScore":1.5}}'
-        request={"requestId":str(uuid4()), "inputDigest":grading.digest_payload(raw), "payload":raw}
-        assert client.post("/api/subjective-grades", json=request).status_code == 200
-        assert seen[0].question.confidence == 1e-7
-        for invalid in [raw.replace("1e-7", "1e-6"), '[]', '{', '{"requestId":"nested"}', '{"maxCents":true}']:
-            bad={**request, "payload":invalid}
-            if invalid != raw.replace("1e-7", "1e-6"):
-                bad["inputDigest"]=grading.digest_payload(invalid)
-            response = client.post("/api/subjective-grades", json=bad)
-            assert response.status_code == 422
-            assert response.json()["detail"]["code"] == "GRADING_INPUT_INVALID"
-        assert len(seen) == 1
-    finally:
-        webapp.app.dependency_overrides.clear()
+    monkeypatch.setenv('AI_SERVICE_TOKEN', 'test-token')
+    client=TestClient(webapp.app, headers={"Authorization": "Bearer test-token"})
+    # Rust spells the exponent without Python's leading zero.
+    raw='{"answer":"中文\\n😀", "images":[], "materials":[], "maxCents":500, "question":{"stem":"题", "answerMode":"short_answer", "answerPayload":{"text":"参考"}, "confidence":1e-7, "sourceScore":1.5}}'
+    request={"requestId":str(uuid4()), "inputDigest":grading.digest_payload(raw), "payload":raw}
+    assert client.post("/api/subjective-grades", json=request).status_code == 200
+    assert seen[0].question.confidence == 1e-7
+    for invalid in [raw.replace("1e-7", "1e-6"), '[]', '{', '{"requestId":"nested"}', '{"maxCents":true}']:
+        bad={**request, "payload":invalid}
+        if invalid != raw.replace("1e-7", "1e-6"):
+            bad["inputDigest"]=grading.digest_payload(invalid)
+        response = client.post("/api/subjective-grades", json=bad)
+        assert response.status_code == 422
+        assert response.json()["detail"]["code"] == "GRADING_INPUT_INVALID"
+    assert len(seen) == 1
 
 
 @pytest.mark.parametrize("format", ["GIF", "WEBP"])

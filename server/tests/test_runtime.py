@@ -320,6 +320,49 @@ async def test_restart_preserves_deadline_and_does_not_refund_unknown_call(monke
     assert len(state['unknownUsageCalls']) == len(model.calls) == 1
 
 
+@pytest.mark.parametrize('failed_stage', ['checkpoint', 'store'])
+async def test_offline_cleanup_recovers_interrupted_task_deletion_without_touching_retained_state(monkeypatch, failed_stage):
+    from unittest.mock import AsyncMock
+
+    from practiq_ai.execution import namespace
+
+    service, reference, _ = await setup_api(monkeypatch, [parsed('Deleted'), parsed('Retained')])
+    deleted = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
+    await service.wait_idle()
+    kept = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
+    await service.wait_idle()
+    tid = deleted['threadId']
+    with monkeypatch.context() as patch:
+        target = service.db.checkpointer if failed_stage == 'checkpoint' else service.db.store
+        method = 'adelete_thread' if failed_stage == 'checkpoint' else 'adelete'
+        patch.setattr(target, method, AsyncMock(side_effect=OSError('injected deletion failure')))
+        with pytest.raises(OSError, match='deletion failure'):
+            await task_api.delete_task(tid)
+    assert not await service.db.rows('SELECT thread_id FROM document_tasks WHERE thread_id=?', (tid,))
+    assert await service.db.store.asearch(namespace(tid, '')[:2], refresh_ttl=False)
+    uri = service.db.directory
+    await service.stop(timeout=0)
+    db = Database(uri)
+    await db.open()
+    try:
+        # Namespace-only leftovers and unrelated Store data must be handled independently.
+        store_only = str(uuid4())
+        await db.store.aput(namespace(store_only, 'calls'), 'saved', {'value': 1}, index=False)
+        await db.store.aput(('unrelated', 'state'), 'saved', {'value': 2}, index=False)
+        monkeypatch.setenv('AI_MAINTENANCE_MODE', 'true')
+        assert await cleanup(db) == 2
+        assert await cleanup(db) == 0
+        assert await db.checkpointer.aget_tuple({'configurable': {'thread_id': tid}}) is None
+        assert not await db.store.asearch(namespace(tid, '')[:2], refresh_ttl=False)
+        assert not await db.store.asearch(namespace(store_only, '')[:2], refresh_ttl=False)
+        assert await db.checkpointer.aget_tuple({'configurable': {'thread_id': kept['threadId']}}) is not None
+        assert await db.store.asearch(namespace(kept['threadId'], '')[:2], refresh_ttl=False)
+        assert await db.store.aget(('unrelated', 'state'), 'saved', refresh_ttl=False) is not None
+        assert (await db.rows('SELECT thread_id FROM document_tasks'))[0]['thread_id'] == kept['threadId']
+    finally:
+        await db.close()
+
+
 async def test_maintenance_cleanup_skips_expired_queued_run(monkeypatch):
     service, reference, _ = await setup_api(monkeypatch, [(30, parsed())])
     receipt = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))

@@ -14,6 +14,29 @@ from scripts import load_test, storage_gc
 from tests.support import object_store, upload
 
 
+def test_proxy_grading_limit_matches_service_without_raising_document_upload_limit():
+    import re
+
+    from practiq_ai.middleware import GRADING_JSON_BODY_BYTES
+
+    config = (Path(__file__).parents[1] / 'deploy/nginx.conf').read_text()
+    default = re.search(r'client_max_body_size (\d+)m;', config)
+    assert default is not None
+    default_limit = int(default[1]) * 1024 * 1024
+    grading = re.search(r'location ~ ([^\s]+) \{([^}]+)\}', config)
+    assert grading is not None
+    for path in ('/api/subjective-grades', '/api/subjective-grades/'):
+        assert re.fullmatch(grading[1], path)
+    assert not re.fullmatch(grading[1], '/api/uploads/content')
+    limit = re.search(r'client_max_body_size (\d+)m;', grading[2])
+    assert limit is not None
+    grading_limit = int(limit[1]) * 1024 * 1024
+    encoded_image_size = 4 * ((20 * 1024 * 1024 + 2) // 3)
+    assert default_limit == 26 * 1024 * 1024 < encoded_image_size < grading_limit
+    assert grading_limit == GRADING_JSON_BODY_BYTES
+    assert 'proxy_pass http://127.0.0.1:8000;' in grading[2]
+
+
 def test_dev_launcher_uses_single_process(tmp_path):
     (tmp_path / 'server').mkdir()
     python = tmp_path / 'python'

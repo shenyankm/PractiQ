@@ -29,8 +29,18 @@ async def cleanup(db: Database) -> int:
         raise RuntimeError('Cleanup requires AI_MAINTENANCE_MODE=true')
     async with exclusive(db):
         tasks = await db.rows("SELECT thread_id FROM document_tasks t WHERE expires_at <= now() AND NOT EXISTS (SELECT 1 FROM document_runs r WHERE r.thread_id=t.thread_id AND r.status IN ('pending','running'))")
-        for task in tasks:
-            thread_id = task['thread_id']
+        retained = {row['thread_id'] for row in await db.rows('SELECT thread_id FROM document_tasks')}
+        # Interrupted API deletion can leave state after its task record was committed away.
+        async with db.checkpointer.lock, db.connections[0].execute(
+            'SELECT thread_id FROM checkpoints UNION SELECT thread_id FROM writes'
+        ) as cursor:
+            orphaned = {row[0] for row in await cursor.fetchall()} - retained
+        offset = 0
+        while namespaces := await db.store.alist_namespaces(prefix=('document_tasks',), max_depth=2, limit=100, offset=offset):
+            orphaned.update(parts[1] for parts in namespaces if len(parts) == 2 and parts[1] not in retained)
+            offset += len(namespaces)
+        threads = {task['thread_id'] for task in tasks} | orphaned
+        for thread_id in sorted(threads):
             await db.checkpointer.adelete_thread(thread_id)
             while items := await db.store.asearch(namespace(thread_id, '')[:2], limit=100, refresh_ttl=False):
                 for item in items:
@@ -39,7 +49,7 @@ async def cleanup(db: Database) -> int:
                 await conn.execute('DELETE FROM document_receipts WHERE thread_id=?', (thread_id,))
                 await conn.execute('DELETE FROM document_runs WHERE thread_id=?', (thread_id,))
                 await conn.execute('DELETE FROM document_tasks WHERE thread_id=?', (thread_id,))
-        return len(tasks)
+        return len(threads)
 
 
 async def run(action: str):
@@ -52,7 +62,7 @@ async def run(action: str):
             print('Initialized dedicated SQLite task database')
         else:
             await db.check_schema()
-            print(f'Expired tasks removed: {await cleanup(db)}')
+            print(f'Task states removed: {await cleanup(db)}')
     finally:
         await db.close()
 
