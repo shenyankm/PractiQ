@@ -39,7 +39,12 @@ from .execution import (
     signature,
     supported_task_sql,
 )
-from .graphs.document import _retry_update, load_unit_result, unit_failures
+from .graphs.document import (
+    _bounded_map,
+    _retry_update,
+    load_unit_result,
+    unit_failures,
+)
 from .storage import get_object_store, validate_source_size
 
 
@@ -133,13 +138,18 @@ async def _office_mode(service, thread_id: str) -> OfficeMode | None:
     return rows[0]['input'].get('officeMode') if rows else None
 
 
-async def _read_task(service, thread_id):
+async def _read_task_record(service, thread_id):
     tasks = await service.db.rows('SELECT * FROM document_tasks WHERE thread_id=?', (thread_id,))
     if not tasks:
         raise DocumentProcessingError(404, 'Document task not found', 'TASK_NOT_FOUND')
     task = tasks[0]
     require_supported_task(task)
     remaining_ttl({'expiresAt': task['expires_at'].isoformat()})
+    return task
+
+
+async def _read_task(service, thread_id):
+    task = await _read_task_record(service, thread_id)
     snapshot = await service.snapshot(task)
     runs = await service.db.rows('SELECT * FROM document_runs WHERE thread_id=? ORDER BY created_at DESC LIMIT 1', (thread_id,))
     return task, snapshot, runs[0] if runs else None
@@ -256,14 +266,18 @@ async def get_task(thread_id: str) -> dict[str, Any]:
 
 async def get_task_head(thread_id: str) -> dict[str, Any]:
     service = client()
-    task, snapshot, run = await _read_task(service, thread_id)
-    values = snapshot.values or {}
+    task = await _read_task_record(service, thread_id)
+    heads = await service.db.checkpoint_heads([thread_id])
+    runs = await service.db.rows('SELECT * FROM document_runs WHERE thread_id=? ORDER BY created_at DESC LIMIT 1', (thread_id,))
+    run = runs[0] if runs else None
+    summary = await _task_summary(service, task, run, heads.get(thread_id))
+    execution = summary['head']['execution']
     return DocumentTaskHead.model_validate({
         'threadId': thread_id, 'runId': run['run_id'] if run else None,
-        'state': _task_state(snapshot, run)[0], 'checkpointId': service.checkpoint_id(snapshot, run),
-        'updatedAt': snapshot.created_at or task['created_at'].isoformat(),
+        'state': summary['state'], 'checkpointId': summary['checkpointId'],
+        'updatedAt': summary['head']['updatedAt'],
         'modelConfigured': not load().read_only,
-        'resumeCompatible': not load().read_only and (not values.get('execution') or values['execution'].get('signature') == signature()),
+        'resumeCompatible': not load().read_only and (not execution or execution['signature'] == signature()),
     }).model_dump(mode='json')
 
 
@@ -485,29 +499,36 @@ async def _task_summaries(service, rows) -> AsyncIterator[dict[str, Any]]:
     heads = await service.db.checkpoint_heads([row['thread_id'] for row in rows])
     for row in rows:
         expired = row['expires_at'] <= utcnow()
-        run = runs_by_thread.get(row['thread_id'])
-        key = (heads.get(row['thread_id']), run['run_id'] if run else None, run['status'] if run else None)
-        cached = service.task_summaries.get(row['thread_id'])
-        if cached and cached[0] == key:
-            summary = cached[1]
-            service.task_summaries.move_to_end(row['thread_id'])
-        else:
-            snapshot = await service.snapshot(row)
-            values = snapshot.values or {}
-            questions = values.get('result', {}).get('questions', [])
-            summary = {'state': _task_state(snapshot, run)[0], 'status': values.get('status') or None,
-                       'checkpointId': service.checkpoint_id(snapshot, run), 'questionCount': scorable_count(questions),
-                       'reviewCount': sum(bool(q.get('needsReview')) and q.get('answerMode') not in COMPOSITE_MODES for q in questions)}
-            # Only completed, quiescent checkpoints are safe from same-checkpoint pending writes.
-            if summary['state'] == 'COMPLETED' and not snapshot.next and not snapshot.interrupts:
-                key = (summary['checkpointId'], key[1], key[2])
-                service.task_summaries[row['thread_id']] = (key, summary)
-                service.task_summaries.move_to_end(row['thread_id'])
-                while len(service.task_summaries) > 256:
-                    service.task_summaries.popitem(last=False)
+        summary = await _task_summary(service, row, runs_by_thread.get(row['thread_id']), heads.get(row['thread_id']))
         yield {'threadId': row['thread_id'], 'fileName': row['document'].get('fileName') or '文档',
                'createdAt': row['created_at'].isoformat(), 'expiresAt': row['expires_at'].isoformat(),
-               **summary, 'state': 'EXPIRED' if expired else summary['state']}
+               **{key: value for key, value in summary.items() if key != 'head'},
+               'state': 'EXPIRED' if expired else summary['state']}
+
+
+async def _task_summary(service, task, run, checkpoint_id):
+    thread_id = task['thread_id']
+    key = (checkpoint_id, run['run_id'] if run else None, run['status'] if run else None)
+    cached = service.task_summaries.get(thread_id)
+    if cached and cached[0] == key:
+        service.task_summaries.move_to_end(thread_id)
+        return cached[1]
+    snapshot = await service.snapshot(task)
+    values = snapshot.values or {}
+    questions = values.get('result', {}).get('questions', [])
+    summary = {'state': _task_state(snapshot, run)[0], 'status': values.get('status') or None,
+               'checkpointId': service.checkpoint_id(snapshot, run), 'questionCount': scorable_count(questions),
+               'reviewCount': sum(bool(q.get('needsReview')) and q.get('answerMode') not in COMPOSITE_MODES for q in questions),
+               'head': {'updatedAt': snapshot.created_at or task['created_at'].isoformat(),
+                        'execution': {'signature': values['execution'].get('signature')} if values.get('execution') else None}}
+    # Only completed, quiescent checkpoints are safe from same-checkpoint pending writes.
+    if summary['state'] == 'COMPLETED' and not snapshot.next and not snapshot.interrupts:
+        key = (summary['checkpointId'], key[1], key[2])
+        service.task_summaries[thread_id] = (key, summary)
+        service.task_summaries.move_to_end(thread_id)
+        while len(service.task_summaries) > 256:
+            service.task_summaries.popitem(last=False)
+    return summary
 
 
 async def review_task(thread_id: str) -> dict[str, Any]:
@@ -526,10 +547,9 @@ async def review_task(thread_id: str) -> dict[str, Any]:
                          for index, reference in enumerate(values.get(refs, [])))
     else:
         for key, stage, refs in (('visionResults', 'vision_parse', 'pageRefs'), ('chunkResults', 'document_parse', 'chunkRefs')):
-            for item in sorted(values.get(key, []), key=lambda item: item['index']):
-                if not item.get('parsed'):
-                    continue
-                item = await load_unit_result(item, _task['document']['sha256'])
+            candidates = [item for item in sorted(values.get(key, []), key=lambda item: item['index']) if item.get('parsed')]
+            loaded = await _bounded_map(candidates, lambda item: load_unit_result(item, _task['document']['sha256']))
+            for item in loaded:
                 references = values.get(refs, [])
                 units.append({'stage': stage, 'index': item['index'], 'questions': item['parsed'].get('questions', []),
                               'groups': item['parsed'].get('groups', []), 'visualElements': item.get('visuals', []),

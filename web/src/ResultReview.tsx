@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -11,10 +11,17 @@ import { Button } from "./components/ui/button";
 import { Badge } from "./components/ui/badge";
 import { Input } from "./components/ui/input";
 
-export function Markdown({ text }: { text: string | null | undefined }) {
+export const Markdown = memo(function Markdown({ text }: { text: string | null | undefined }) {
   if (text == null) return <span className="text-muted-foreground">未提供（null）</span>;
   return <div className="document-content"><ReactMarkdown skipHtml remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[[rehypeKatex, { trust: false, strict: "ignore", throwOnError: false, maxExpand: 1000 }]]} components={{ img: ({ alt }) => <span>[图片：{alt || "请查看关联资源"}]</span>, a: ({ children }) => <span className="underline">{children}</span> }}>{text}</ReactMarkdown></div>;
-}
+});
+const QuestionRecord = memo(function QuestionRecord({ question }: { question: ParsedQuestion }) {
+  const [loaded, setLoaded] = useState(false);
+  return <details onToggle={event => { if (event.currentTarget.open && !loaded) setLoaded(true); }}>
+    <summary>完整结构化记录（只读）</summary>
+    {loaded && <pre className="raw-data">{JSON.stringify(question, null, 2)}</pre>}
+  </details>;
+});
 function Blocks({ blocks }: { blocks: ContentBlock[] }) {
   return <div className="space-y-3">{blocks.map((block, index) => <div key={index}>
     {block.label && <p className="font-medium">{block.label}</p>}
@@ -74,7 +81,7 @@ function QuestionCard({ entry, questions, sourcesById }: { entry: Entry; questio
       {q.items.length > 0 && <section><h4>条目</h4>{q.items.map((item, index) => <div className="option-row" key={index}><span>{item.label ?? item.id ?? index + 1} {item.side}</span><Markdown text={item.content} /></div>)}</section>}
       <section><h4>文档提供的参考答案</h4><pre className="raw-data">{q.answerPayload == null ? "未提供（null），不会补写答案" : JSON.stringify(q.answerPayload, null, 2)}</pre><h4>解析与评分依据</h4><Markdown text={q.analysis} /><Markdown text={q.scoringRubric} /></section>
       <section><h4>来源原文</h4><Markdown text={q.sourceText} /></section>
-      <details><summary>完整结构化记录（只读）</summary><pre className="raw-data">{JSON.stringify(q, null, 2)}</pre></details>
+      <QuestionRecord question={q} />
     </div>}
   </details>;
 }
