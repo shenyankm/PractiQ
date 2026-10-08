@@ -1121,8 +1121,8 @@ async def _merge(state: DocumentState) -> dict[str, Any]:
     if not pages and text_ref:
         store = await asyncio.to_thread(get_object_store)
         source_text = (await store.get_verified(ArtifactReference.model_validate(text_ref))).decode("utf-8")
-    questions, groups, merge_warnings, merge_truncated, question_sources, quality = merge_chunk_results(
-        [(index, item.questions, item.groups) for index, item in parsed], overlapping=not pages,
+    questions, groups, merge_warnings, merge_truncated, question_sources, quality = await asyncio.to_thread(
+        merge_chunk_results, [(index, item.questions, item.groups) for index, item in parsed], overlapping=not pages,
         source_text=source_text, chunk_spans=state.get("chunkSpans") if not pages else None,
     )
     warnings.extend(merge_warnings)
