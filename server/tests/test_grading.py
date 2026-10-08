@@ -636,6 +636,7 @@ def test_wire_numbers_and_unicode_are_hashed_before_parsing(setup, monkeypatch):
         seen.append(request)
         return {"status":"ungraded", "usage":[]}
     monkeypatch.setattr(webapp, "grade", fake)
+    monkeypatch.setenv('AI_SERVICE_TOKEN', 'test-token')
     client=TestClient(webapp.app, headers={"Authorization": "Bearer test-token"})
     # Rust spells the exponent without Python's leading zero.
     raw='{"answer":"中文\\n😀", "images":[], "materials":[], "maxCents":500, "question":{"stem":"题", "answerMode":"short_answer", "answerPayload":{"text":"参考"}, "confidence":1e-7, "sourceScore":1.5}}'
