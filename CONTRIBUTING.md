@@ -40,7 +40,7 @@ Choose checks for every affected area; append `AI_PYTHON=/path/to/python3.14` to
 
 | Change | Checks |
 | --- | --- |
-| AI service | `make verify` (lockfile, lint, types, fixtures, tests with 90% coverage, recovery probes, package build) |
+| AI service | `make verify` (lockfile, lint, types, fixtures, tests with 90% coverage, recovery probes, package build and archive source/lock integrity) |
 | Shared AI contracts | `make verify`, `make web-check` and the app checks for the target host below; regenerate both tracked frontend contracts before checking |
 | Import Web frontend | `make web-install web-check web-build`; browser checks use an authenticated fake HTTP service and no real models |
 | Practice app UI (desktop and touch) | `npm --prefix app run check:ui` (types, lint, coverage) and `npm --prefix app run test:browser`; see [README.md](README.md) for Chromium setup |
@@ -85,6 +85,8 @@ Record evidence for the final release candidate before publication:
 - [ ] Record live-model parsing and grading examples, failures, and consented user feedback.
 
 Report validation separately for macOS, Windows and Android. Distinguish mocked touch-browser checks, emulator tests, physical devices and minimum Android/WebView versions. CI, model substitutes, hand-written samples, and historical reports do not establish clean-machine acceptance or live-model accuracy. Keep unchecked items explicit; AI grading remains a personal-practice aid and requires a reference answer or rubric.
+
+Service archive content is checked after building: modules and the lockfile must match the source bytes. See the [package-selection regression](docs/service-package-source-20261009.md); retain local reports and task data rather than deleting them to obtain a clean build.
 
 ## Submit a pull request
 
