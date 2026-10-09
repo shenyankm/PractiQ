@@ -1,0 +1,218 @@
+{
+  "baselineSha": "5b9210ee5b53b048987d5fe4b87aee50450f0480",
+  "environment": {
+    "os": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+    "node": "v22.23.2",
+    "npm": "10.9.8",
+    "docker": "29.8.2"
+  },
+  "scope": "Exact build-command subsequence: baseline web-build then image-check; candidate image-check only. Docker layers/dependencies/OS cache warm. Clean means deleted frontend output/Vite/TypeScript build state; not a cold image build. Live evaluation runs independently in the primary checkout; no other local build/test runs.",
+  "inputs": {
+    "Makefile": "bda081ff5b384d9ebacec4a22d54c59f4db53f73a16e4086f203a8fb8c430298",
+    ".github/workflows/server.yml": "43a0232b76bdabdfeb47f96c23c7d92fc9141e3f82c225a2dc09e960dec87191",
+    "Dockerfile.server": "48d2449f2811585439db9848aa3ac7d6147ad167c3e81639c53bebd9abdcda49",
+    "server/uv.lock": "4de7c60d5b8a22f9e72d58b0eb2033abae8cc96260dc03c84f9ab094781f1c7c",
+    "web/package-lock.json": "fa5f65691c154cec62016cf4683341210f88a8c1afb78fbfcaa91eafebe32e4d",
+    "web/vite.config.ts": "3ad3c2c77a5164c678b3a144fbe10d4cfc3beae2bef7330b45c5fc09f0edb148"
+  },
+  "samples": [
+    {
+      "cache": "clean-frontend",
+      "repeat": 1,
+      "phase": "before",
+      "seconds": 1.3363757909974083,
+      "webBuildInvocations": 2,
+      "staticBytes": 1240096,
+      "imageId": "sha256:ca3c8ad90253d56308151322c54a728a1928ae73e86271313abb8806528c715d",
+      "imageBytes": 1233552210,
+      "platformManifest": "sha256:b58d9b48dc009130153c26b246d78af039f985cc59a22b833c040408198c04ad",
+      "imageConfig": "sha256:a0074bd3747cdd3a7624923c0aeede74ac1bd706cecc9807fec5ef2eae9e49e4"
+    },
+    {
+      "cache": "clean-frontend",
+      "repeat": 1,
+      "phase": "after",
+      "seconds": 0.8154439999925671,
+      "webBuildInvocations": 1,
+      "staticBytes": 1240096,
+      "imageId": "sha256:0c7d0fca9822e597af6526b2b9083d61356e1ee2f4a02e5f4df32c80749b82be",
+      "imageBytes": 1233552210,
+      "platformManifest": "sha256:b58d9b48dc009130153c26b246d78af039f985cc59a22b833c040408198c04ad",
+      "imageConfig": "sha256:a0074bd3747cdd3a7624923c0aeede74ac1bd706cecc9807fec5ef2eae9e49e4"
+    },
+    {
+      "cache": "clean-frontend",
+      "repeat": 2,
+      "phase": "after",
+      "seconds": 0.8206190420023631,
+      "webBuildInvocations": 1,
+      "staticBytes": 1240096,
+      "imageId": "sha256:ef525f0917721d52e6486d9c3be5917896e54237f43e85ce17c3e4fe87239929",
+      "imageBytes": 1233552210,
+      "platformManifest": "sha256:b58d9b48dc009130153c26b246d78af039f985cc59a22b833c040408198c04ad",
+      "imageConfig": "sha256:a0074bd3747cdd3a7624923c0aeede74ac1bd706cecc9807fec5ef2eae9e49e4"
+    },
+    {
+      "cache": "clean-frontend",
+      "repeat": 2,
+      "phase": "before",
+      "seconds": 1.3275462909950875,
+      "webBuildInvocations": 2,
+      "staticBytes": 1240096,
+      "imageId": "sha256:335881f43f6d31ebfa9b29ac9a4d3a85620cbe987a3bf31c586fd2d9d47349e6",
+      "imageBytes": 1233552210,
+      "platformManifest": "sha256:b58d9b48dc009130153c26b246d78af039f985cc59a22b833c040408198c04ad",
+      "imageConfig": "sha256:a0074bd3747cdd3a7624923c0aeede74ac1bd706cecc9807fec5ef2eae9e49e4"
+    },
+    {
+      "cache": "clean-frontend",
+      "repeat": 3,
+      "phase": "before",
+      "seconds": 1.3332071250042645,
+      "webBuildInvocations": 2,
+      "staticBytes": 1240096,
+      "imageId": "sha256:234d5b0b36b5b73f08317ab9c5cdb7e25f8c4e6e37223a266d5a49db758a6e75",
+      "imageBytes": 1233552210,
+      "platformManifest": "sha256:b58d9b48dc009130153c26b246d78af039f985cc59a22b833c040408198c04ad",
+      "imageConfig": "sha256:a0074bd3747cdd3a7624923c0aeede74ac1bd706cecc9807fec5ef2eae9e49e4"
+    },
+    {
+      "cache": "clean-frontend",
+      "repeat": 3,
+      "phase": "after",
+      "seconds": 0.7987134590075584,
+      "webBuildInvocations": 1,
+      "staticBytes": 1240096,
+      "imageId": "sha256:ee94071c4b25886edfcae6899f44683a763b061c7e66f576e7754b4505e0da5b",
+      "imageBytes": 1233552210,
+      "platformManifest": "sha256:b58d9b48dc009130153c26b246d78af039f985cc59a22b833c040408198c04ad",
+      "imageConfig": "sha256:a0074bd3747cdd3a7624923c0aeede74ac1bd706cecc9807fec5ef2eae9e49e4"
+    },
+    {
+      "cache": "incremental",
+      "repeat": 1,
+      "phase": "before",
+      "seconds": 1.4008587080024881,
+      "webBuildInvocations": 2,
+      "staticBytes": 1240096,
+      "imageId": "sha256:ce08bb02d9f792cae3e765a4633ee24440aba601ef1a613af4631cb9bee56321",
+      "imageBytes": 1233552210,
+      "platformManifest": "sha256:b58d9b48dc009130153c26b246d78af039f985cc59a22b833c040408198c04ad",
+      "imageConfig": "sha256:a0074bd3747cdd3a7624923c0aeede74ac1bd706cecc9807fec5ef2eae9e49e4"
+    },
+    {
+      "cache": "incremental",
+      "repeat": 1,
+      "phase": "after",
+      "seconds": 0.8002230420097476,
+      "webBuildInvocations": 1,
+      "staticBytes": 1240096,
+      "imageId": "sha256:5319841646efc6dc0737d77df22dcdf366cadf56f4bca987e74e48c5f22277ad",
+      "imageBytes": 1233552210,
+      "platformManifest": "sha256:b58d9b48dc009130153c26b246d78af039f985cc59a22b833c040408198c04ad",
+      "imageConfig": "sha256:a0074bd3747cdd3a7624923c0aeede74ac1bd706cecc9807fec5ef2eae9e49e4"
+    },
+    {
+      "cache": "incremental",
+      "repeat": 2,
+      "phase": "after",
+      "seconds": 0.7947705419937847,
+      "webBuildInvocations": 1,
+      "staticBytes": 1240096,
+      "imageId": "sha256:7c18038c531850dfd969740bee81727ccfbc55838fe6ebf7cb52d3465e384ded",
+      "imageBytes": 1233552210,
+      "platformManifest": "sha256:b58d9b48dc009130153c26b246d78af039f985cc59a22b833c040408198c04ad",
+      "imageConfig": "sha256:a0074bd3747cdd3a7624923c0aeede74ac1bd706cecc9807fec5ef2eae9e49e4"
+    },
+    {
+      "cache": "incremental",
+      "repeat": 2,
+      "phase": "before",
+      "seconds": 1.3474694590113359,
+      "webBuildInvocations": 2,
+      "staticBytes": 1240096,
+      "imageId": "sha256:d0d8ad2116d580e60599e3b9279bb8da87bdf3ade82addd7e25bde834b787f8f",
+      "imageBytes": 1233552210,
+      "platformManifest": "sha256:b58d9b48dc009130153c26b246d78af039f985cc59a22b833c040408198c04ad",
+      "imageConfig": "sha256:a0074bd3747cdd3a7624923c0aeede74ac1bd706cecc9807fec5ef2eae9e49e4"
+    },
+    {
+      "cache": "incremental",
+      "repeat": 3,
+      "phase": "before",
+      "seconds": 1.336307333986042,
+      "webBuildInvocations": 2,
+      "staticBytes": 1240096,
+      "imageId": "sha256:96eff41a2a3cfa780a1f795cecb5ef32ae0b4954601e779b96360fe9959cd545",
+      "imageBytes": 1233552210,
+      "platformManifest": "sha256:b58d9b48dc009130153c26b246d78af039f985cc59a22b833c040408198c04ad",
+      "imageConfig": "sha256:a0074bd3747cdd3a7624923c0aeede74ac1bd706cecc9807fec5ef2eae9e49e4"
+    },
+    {
+      "cache": "incremental",
+      "repeat": 3,
+      "phase": "after",
+      "seconds": 0.8342705839895643,
+      "webBuildInvocations": 1,
+      "staticBytes": 1240096,
+      "imageId": "sha256:2d8866531b2d79226fe98b7dc6e4d93e92d153f2d0a41d15d2b3bfac6cd4f507",
+      "imageBytes": 1233552210,
+      "platformManifest": "sha256:b58d9b48dc009130153c26b246d78af039f985cc59a22b833c040408198c04ad",
+      "imageConfig": "sha256:a0074bd3747cdd3a7624923c0aeede74ac1bd706cecc9807fec5ef2eae9e49e4"
+    }
+  ],
+  "assetHashes": {
+    "assets/KaTeX_AMS-Regular-BQhdFMY1.woff2": "0cdd387c9590a1a9f9794560022dbb59654a7d86f187aa0c81495ad42d3a7308",
+    "assets/KaTeX_Caligraphic-Bold-Dq_IR9rO.woff2": "de7701e42cf1f4cf0b766c03fb27977207eee2f4fd5d76fa82188406da43ea4c",
+    "assets/KaTeX_Caligraphic-Regular-Di6jR-x-.woff2": "5d53e70ad607c2352162dec9e0923fb54ecdafaccbf604cd8dcf7d00facb989b",
+    "assets/KaTeX_Fraktur-Bold-CL6g_b3V.woff2": "74444efd593c005e3f4573b44524704c0af0a937fe911cca9e94068d0d140d3f",
+    "assets/KaTeX_Fraktur-Regular-CTYiF6lA.woff2": "51814d270d06ff0255dba0799994fa4d8c84d11f09951d47595f4abb1f3602dc",
+    "assets/KaTeX_Main-Bold-Cx986IdX.woff2": "0f60d1b897938ec918c8ce073092411baf9438f6739465693ff18b0f9d20b021",
+    "assets/KaTeX_Main-BoldItalic-DxDJ3AOS.woff2": "99cd42a3c072d918f2f44984a807cf7aa16e13545fd0875fc07c6c65f99e715b",
+    "assets/KaTeX_Main-Italic-NWA7e6Wa.woff2": "97479ca6cce906abc961ecac96faa5f9ca2e61b8e7670d475826bcdee9a7c267",
+    "assets/KaTeX_Main-Regular-B22Nviop.woff2": "c2342cd8b869e01752a9321dc17213fc40d4d04c79688c1d43f2cf316abd7866",
+    "assets/KaTeX_Math-BoldItalic-CZnvNsCZ.woff2": "dc47344dbb6cb5b655c8460d561f4df5f501b90c804ad3c6cec65fe322351ab1",
+    "assets/KaTeX_Math-Italic-t53AETM-.woff2": "7af58c5ec8f132a2ddde9027c6d7814decce4d3b822a11192a42a20e2e973264",
+    "assets/KaTeX_SansSerif-Bold-D1sUS0GD.woff2": "e99ae51144bf1232efcc1bfe5add36262c6866b0faab24fa75740e1b98577a62",
+    "assets/KaTeX_SansSerif-Italic-C3H0VqGB.woff2": "00b26ac825e2095056396e0553b8ac26d3f8ad158c3826e28b4c45b385c4714a",
+    "assets/KaTeX_SansSerif-Regular-DDBCnlJ7.woff2": "68e8c73ef42afd3ccec58bf0fba302cce448938e7fc020a5e31f8a952eee1342",
+    "assets/KaTeX_Script-Regular-D3wIWfF6.woff2": "036d4e95149b69ff9bcc0cd55771efeb25ffa3947293e69acd78d5ac328c684b",
+    "assets/KaTeX_Size1-Regular-mCD8mA8B.woff2": "6b47c40166b6dbe21a5dfca7718413f2147fd2399be1ba605d8ad39cedf25dfe",
+    "assets/KaTeX_Size2-Regular-Dy4dx90m.woff2": "d04c54219f9eaec6d4d4fd42dfb28785975a4794d6b2fc71e566b9cd6db842dd",
+    "assets/KaTeX_Size4-Regular-Dl5lxZxV.woff2": "a4af7d414440a1c1790825cfb700cf9cf43b0f2c4b04f0ebc523011ad9853ec0",
+    "assets/KaTeX_Typewriter-Regular-CO6r4hn1.woff2": "71d517d67827787cfabdf186914cc3358eda539e37931941f2b2fd4a21f68c0b",
+    "assets/ResultReview-BrHcVPOH.js": "247de467a640bd2a5aa7573e94650d37feb6a5fb369798f558aff14ada18eb0c",
+    "assets/ResultReview-CEde1aqi.css": "11bb6e0957d538fa2c559184d79e2b940b5a2da99ca6a8d25f9b078724c84c40",
+    "assets/index-BANBok7O.css": "e11186cdfcb79a330b72319f0549a628e9846bac6fd612f3acebf786529a3613",
+    "assets/index-qbUXcOjq.js": "3203c286e7fdf070dbccac3788ee4f09c56667c722923f91f26637844d5a5bef",
+    "assets/octopus-pB8TTRfc.png": "10b1085a34504e1188903f83604651a056f2551d3c674310685551b3576b75db",
+    "index.html": "459bae2865c4b1c1fe4b65facdffedcab2f61b6da465413f022518fbda228e05"
+  },
+  "summary": {
+    "clean-frontend": {
+      "before": {
+        "medianSeconds": 1.3332071250042645,
+        "minSeconds": 1.3275462909950875,
+        "maxSeconds": 1.3363757909974083
+      },
+      "after": {
+        "medianSeconds": 0.8154439999925671,
+        "minSeconds": 0.7987134590075584,
+        "maxSeconds": 0.8206190420023631
+      }
+    },
+    "incremental": {
+      "before": {
+        "medianSeconds": 1.3474694590113359,
+        "minSeconds": 1.336307333986042,
+        "maxSeconds": 1.4008587080024881
+      },
+      "after": {
+        "medianSeconds": 0.8002230420097476,
+        "minSeconds": 0.7947705419937847,
+        "maxSeconds": 0.8342705839895643
+      }
+    }
+  },
+  "firstMeasurementFailure": "The original assertion compared OCI indexes containing timestamped build attestations. Raw samples/logs are retained separately. These repetitions compare stable platform manifests/configuration and all static hashes; proof generation remains enabled."
+}
