@@ -86,6 +86,8 @@ Record evidence for the final release candidate before publication:
 
 Report validation separately for macOS, Windows and Android. Distinguish mocked touch-browser checks, emulator tests, physical devices and minimum Android/WebView versions. CI, model substitutes, hand-written samples, and historical reports do not establish clean-machine acceptance or live-model accuracy. Keep unchecked items explicit; AI grading remains a personal-practice aid and requires a reference answer or rubric.
 
+Service archive content is checked after building: modules and the lockfile must match the source bytes. See the [package-selection regression](docs/service-package-source-20261009.md); retain local reports and task data rather than deleting them to obtain a clean build.
+
 ## Submit a pull request
 
 Use Conventional Commits for commit messages and pull request titles, following [AGENTS.md](AGENTS.md#commit-conventions), for example `fix(server): reject oversized image payloads`.
