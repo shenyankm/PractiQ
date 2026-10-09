@@ -1,0 +1,15 @@
+{
+  "sourceSha": "09ec2fdfad8894dacf3031fd656e2ce2bc1c295e",
+  "makeVerify": "PASSED",
+  "tests": {
+    "name": "pytest",
+    "errors": "0",
+    "failures": "0",
+    "skipped": "0",
+    "tests": "1761",
+    "time": "201.699",
+    "timestamp": "2026-10-09T19:54:18.096456+08:00"
+  },
+  "combinedCoveragePercent": 93,
+  "logSha256": "f50b8aa129437e1e3bbc2535c1b777cd2c349991eb659ea6becaddb5df890c84"
+}

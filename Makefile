@@ -36,6 +36,7 @@ verify:
 	"$(AI_PYTHON)" scripts/evaluate.py --probes reports/checks/probes.xml --output reports/checks/probes.json || report_status=$$?; \
 	if [ "$$test_status" -ne 0 ]; then exit "$$test_status"; fi; exit "$$report_status"
 	cd server && uv build --python "$(AI_PYTHON)"
+	cd server && "$(AI_PYTHON)" scripts/check_package.py
 audit:
 	@set -eu; requirements=$$(mktemp); trap 'rm -f "$$requirements"' EXIT; \
 	cd server; uv export --locked --extra dev --no-emit-project --python "$(AI_PYTHON)" -o "$$requirements" >/dev/null; \
