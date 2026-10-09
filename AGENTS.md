@@ -2,7 +2,7 @@
 
 ## Architecture
 
-`server/src/practiq_ai/` is the sole Python 3.14+ LangGraph AI document import service. Keep its format extractors, shared parser graphs, structured contracts, local file storage and model usage accounting together. `webapp.py` exposes authenticated upload and artifact routes; The single-process open-source LangGraph runtime owns a SQLite task queue, checkpoints and Store; `/ok` and `/ready` are health checks. Do not restore official Agent Server APIs or Redis.
+`server/src/practiq_ai/` is the sole Python 3.14+ LangGraph AI document import service. Keep its format extractors, shared parser graphs, structured contracts, local file storage and model usage accounting together. `webapp.py` exposes authenticated upload and artifact routes; The single-process open-source LangGraph runtime owns a PostgreSQL task queue, checkpoints, Store and grading receipts; `/ok` and `/ready` are health checks. Do not restore official Agent Server APIs or Redis.
 
 `web/` is the independent React/Vite import frontend served by the AI service. It handles explicit source upload, task progress, saved-result review and question-bank ZIP download through the existing authenticated task APIs. Keep service tokens in browser memory only; model provider configuration and credentials belong to the service environment. Do not add Tauri imports, online practice, product accounts or a second document parser.
 
@@ -14,7 +14,7 @@ There is no product HTTP backend, login, billing, answer generation or learning 
 
 - Use an existing Python 3.14+ interpreter; no project `.venv`. Set `AI_PYTHON` when needed.
 - `make install`: install AI and development dependencies into that interpreter.
-- `make server-dev`: run Uvicorn on loopback with local SQLite, loading `.env`.
+- `make server-dev`: run Uvicorn on loopback with PostgreSQL, loading `.env`.
 - `make test` / `make test-server`: AI tests without external model calls.
 - `make install-locked`: install locked runtime/development dependencies into the selected interpreter without a project `.venv`.
 - `make verify`: lockfile consistency, Ruff, Pyright, evaluation fixtures, one test run with 90% coverage, recovery probes and package build. Reports go to `server/reports/checks/`, including on test failure.
@@ -30,7 +30,7 @@ There is no product HTTP backend, login, billing, answer generation or learning 
 
 ### AI service (`server/`)
 
-- Layout: `webapp.py` authenticated upload/artifact routes, `auth.py` shared Bearer authentication, `config.py` environment settings, `graphs/` workflows, `extractors/` format readers, `contracts.py` shared models, `runtime.py` graph registration, `database.py` SQLite task records, tests in `tests/`. Do not add another parser or restore product APIs.
+- Layout: `webapp.py` authenticated upload/artifact routes, `auth.py` shared Bearer authentication, `config.py` environment settings, `graphs/` workflows, `extractors/` format readers, `contracts.py` shared models, `runtime.py` graph registration, `database.py` PostgreSQL task records, tests in `tests/`. Do not add another parser or restore product APIs.
 - Style: four-space indentation, type annotations and small single-responsibility modules; `snake_case` functions/variables, `PascalCase` classes and Pydantic models, `UPPER_CASE` constants; keep public payload fields compatible with the existing camelCase API contracts; prefer async for I/O and reuse shared errors and models instead of duplicating validation. Run the configured Ruff checks and type-check with `pyrightconfig.json`.
 - Tests: pytest with `pytest-asyncio` in automatic mode, named `test_<behavior>` with fixtures or fakes close to each scenario and shared fakes in `tests/support.py`, not other test modules. Runtime tests explicitly request the `disposable_databases` fixture; pure tests must not start Docker. Cover success paths, validation failures, resumability and storage/checksum boundaries; never call real LLM services (monkeypatch them as existing tests do). Service CI exercises PDFium and the deployed Office adapter; desktop CI verifies that final packages contain no Python or LibreOffice runtime. Keep the 90% coverage threshold and add a focused regression test for every behavior change.
 

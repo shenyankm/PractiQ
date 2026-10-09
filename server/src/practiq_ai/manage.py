@@ -12,7 +12,7 @@ from .execution import namespace
 
 @asynccontextmanager
 async def exclusive(db: Database):
-    conn = db.acquire('Stop the service before offline maintenance')
+    conn = await db.acquire('Stop the service before offline maintenance')
     monitor = None
     try:
         monitor = asyncio.create_task(watch_ownership(conn, lambda: os._exit(70)))
@@ -31,10 +31,11 @@ async def cleanup(db: Database) -> int:
         tasks = await db.rows("SELECT thread_id FROM document_tasks t WHERE expires_at <= now() AND NOT EXISTS (SELECT 1 FROM document_runs r WHERE r.thread_id=t.thread_id AND r.status IN ('pending','running'))")
         retained = {row['thread_id'] for row in await db.rows('SELECT thread_id FROM document_tasks')}
         # Interrupted API deletion can leave state after its task record was committed away.
-        async with db.checkpointer.lock, db.connections[0].execute(
-            'SELECT thread_id FROM checkpoints UNION SELECT thread_id FROM writes'
-        ) as cursor:
-            orphaned = {row[0] for row in await cursor.fetchall()} - retained
+        async with db.checkpointer.lock, db.connections[0].cursor() as cursor:
+            await cursor.execute(
+                'SELECT thread_id FROM checkpoints UNION SELECT thread_id FROM checkpoint_writes UNION SELECT thread_id FROM checkpoint_blobs'
+            )
+            orphaned = {row['thread_id'] for row in await cursor.fetchall()} - retained
         offset = 0
         while namespaces := await db.store.alist_namespaces(prefix=('document_tasks',), max_depth=2, limit=100, offset=offset):
             orphaned.update(parts[1] for parts in namespaces if len(parts) == 2 and parts[1] not in retained)
@@ -46,9 +47,9 @@ async def cleanup(db: Database) -> int:
                 for item in items:
                     await db.store.adelete(item.namespace, item.key)
             async with db.transaction() as conn:
-                await conn.execute('DELETE FROM document_receipts WHERE thread_id=?', (thread_id,))
-                await conn.execute('DELETE FROM document_runs WHERE thread_id=?', (thread_id,))
-                await conn.execute('DELETE FROM document_tasks WHERE thread_id=?', (thread_id,))
+                await conn.execute('DELETE FROM document_receipts WHERE thread_id=%s', (thread_id,))
+                await conn.execute('DELETE FROM document_runs WHERE thread_id=%s', (thread_id,))
+                await conn.execute('DELETE FROM document_tasks WHERE thread_id=%s', (thread_id,))
         return len(threads)
 
 
@@ -59,7 +60,7 @@ async def run(action: str):
         if action == 'init-db':
             async with exclusive(db):
                 await db.initialize()
-            print('Initialized dedicated SQLite task database')
+            print('Initialized dedicated PostgreSQL service database')
         else:
             await db.check_schema()
             print(f'Task states removed: {await cleanup(db)}')

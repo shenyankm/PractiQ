@@ -45,9 +45,9 @@ async def test_task_detail_http_contract_for_saved_states(monkeypatch, state, ru
     expires = utcnow() + timedelta(days=1)
     document = {'sourceType': 'text', 'fileName': 'fixture.txt'}
     async with db.connection() as conn:
-        await conn.execute('INSERT INTO document_tasks(thread_id,request_hash,graph_id,document,failure_policy,expires_at) VALUES (?,?,?,?,?,?)',
+        await conn.execute('INSERT INTO document_tasks(thread_id,request_hash,graph_id,document,failure_policy,expires_at) VALUES (%s,%s,%s,%s,%s,%s)',
                            (thread_id, thread_id, 'document_parser', json.dumps(document), 'review', expires))
-        await conn.execute('INSERT INTO document_runs(run_id,thread_id,request_id,context,status,pause_requested,cancel_requested,error_code) VALUES (?,?,?,\'{}\',?,?,?,?)',
+        await conn.execute('INSERT INTO document_runs(run_id,thread_id,request_id,context,status,pause_requested,cancel_requested,error_code) VALUES (%s,%s,%s,\'{}\',%s,%s,%s,%s)',
                            (run_id, thread_id, run_id, run_status, pause, cancel, 'STAGE_ERROR' if state == 'FAILED' else None))
     values = {'phase': phase, 'status': 'SUCCEEDED' if state == 'COMPLETED' else '', 'result': {}, 'processing': {}}
     snapshot = SimpleNamespace(values=values, interrupts=[SimpleNamespace(id=str(i), value=value) for i, value in enumerate(blocking)],
@@ -103,7 +103,7 @@ async def test_completed_task_http_preserves_result_processing_usage_and_expiry(
         assert not readonly['modelConfigured'] and not readonly['resumeCompatible']
         assert readonly['result'] == wire['result'] and readonly['usage'] == wire['usage']
         async with service.db.connection() as conn:
-            await conn.execute('UPDATE document_tasks SET expires_at=? WHERE thread_id=?',
+            await conn.execute('UPDATE document_tasks SET expires_at=%s WHERE thread_id=%s',
                                (utcnow() - timedelta(seconds=1), created['threadId']))
         expired = await http.get(path, headers=headers)
         assert expired.status_code == 410 and expired.json()['detail']['code'] == 'TASK_EXPIRED'

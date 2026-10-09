@@ -106,7 +106,7 @@ The independent service provides document import through its Web frontend and AP
 cp -n .env.example .env
 ```
 
-Set the service token, model credentials, `LLM_MODEL`, database directory, and file storage in `.env`, then initialize a new database and start:
+Set the service token, model credentials, `LLM_MODEL`, the PostgreSQL URL `DATABASE_URI`, and file storage in `.env`. Provision an empty dedicated PostgreSQL database, then initialize its service tables and start:
 
 ```sh
 make install-locked AI_PYTHON=/path/to/python3.14
@@ -116,7 +116,7 @@ make web-build
 make server-dev AI_PYTHON=/path/to/python3.14
 ```
 
-The FastAPI/LangGraph service listens on `127.0.0.1:8090`, uses SQLite and local file storage, and runs one process per database. Uploads, tasks, artifacts, and grading require authentication. Open `http://127.0.0.1:8090/` for the built Web frontend. For development, run `make web-dev` separately; its loopback Vite server proxies API requests to the service. Configure `AI_OFFICE_EXECUTABLE` and `AI_OFFICE_VERSION` only on the service when Office support is needed. See the [service guide](server/docs/service-guide.md).
+The FastAPI/LangGraph service listens on `127.0.0.1:8090`, uses PostgreSQL and local file storage, and runs one process per database. Uploads, tasks, artifacts, and grading require authentication. Open `http://127.0.0.1:8090/` for the built Web frontend. For development, run `make web-dev` separately; its loopback Vite server proxies API requests to the service. Configure `AI_OFFICE_EXECUTABLE` and `AI_OFFICE_VERSION` only on the service when Office support is needed. See the [service guide](server/docs/service-guide.md).
 
 ## Documentation and development
 

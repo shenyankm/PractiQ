@@ -19,7 +19,7 @@ WORKDIR /app/server
 RUN UV_HTTP_TIMEOUT=120 uv pip install --system --no-cache-dir --no-deps .
 RUN groupadd --gid 10001 practiq && useradd --uid 10001 --gid 10001 --create-home practiq \
     && mkdir -p /var/lib/practiq && chown 10001:10001 /var/lib/practiq
-ENV LANGSMITH_TRACING=false LANGCHAIN_TRACING_V2=false AI_STORAGE_DIR=/var/lib/practiq/files AI_DATABASE_DIR=/var/lib/practiq/database AI_WEB_DIR=/app/web/dist
+ENV LANGSMITH_TRACING=false LANGCHAIN_TRACING_V2=false AI_STORAGE_DIR=/var/lib/practiq/files AI_WEB_DIR=/app/web/dist
 # Office is a service deployment dependency. Enable it only by configuring an
 # explicit absolute AI_OFFICE_EXECUTABLE and its exact AI_OFFICE_VERSION.
 USER 10001:10001

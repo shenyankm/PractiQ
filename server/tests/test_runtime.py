@@ -1,11 +1,11 @@
 import asyncio
 from contextlib import asynccontextmanager
 from datetime import timedelta
-from sqlite3 import OperationalError
 from types import SimpleNamespace
 from uuid import UUID, uuid4
 
 import pytest
+from psycopg import AsyncCursor, ProgrammingError, errors
 
 from practiq_ai import runtime, task_api
 from practiq_ai.contracts import (
@@ -67,7 +67,7 @@ async def test_dispatch_recovers_committed_work_when_request_is_cancelled_before
             with pytest.raises(asyncio.CancelledError):
                 await request
 
-    runs = await service.db.rows('SELECT * FROM document_runs WHERE request_id=?', (str(request_id),))
+    runs = await service.db.rows('SELECT * FROM document_runs WHERE request_id=%s', (str(request_id),))
     assert len(runs) == 1
     # Read-only observation: no new request, notification or restart rescues the run.
     await asyncio.wait_for(service.wait_idle(), 3)
@@ -120,18 +120,17 @@ async def test_reused_reader_does_not_inherit_another_requests_snapshot(monkeypa
         await conn.execute('CREATE TABLE reader_probe(value text)')
         await conn.execute("INSERT INTO reader_probe VALUES('old')")
     assert db.reader is not None
-    execute = db.reader.execute
+    execute = AsyncCursor.execute
     entered, release = asyncio.Event(), asyncio.Event()
 
-    @asynccontextmanager
-    async def gated(query, params=()):
-        async with execute(query, params) as cursor:
-            if not entered.is_set():
-                entered.set()
-                await release.wait()
-            yield cursor
+    async def gated(cursor, query, params=None, **kwargs):
+        await execute(cursor, query, params, **kwargs)
+        if cursor.connection is db.reader and not entered.is_set():
+            entered.set()
+            await release.wait()
+        return cursor
 
-    monkeypatch.setattr(db.reader, 'execute', gated)
+    monkeypatch.setattr(AsyncCursor, 'execute', gated)
     first = asyncio.create_task(db.rows('SELECT * FROM reader_probe'))
     try:
         await asyncio.wait_for(entered.wait(), 2)
@@ -155,11 +154,9 @@ async def test_existing_schema_one_gets_additive_sort_indexes():
     await db.check_schema()
     await db.ensure_indexes()
     await db.ensure_indexes()
-    assert await db.rows('PRAGMA user_version') == [{'user_version': 1}]
-    for query in ("SELECT * FROM document_runs WHERE thread_id='example' ORDER BY created_at DESC LIMIT 1",
-                  'SELECT * FROM document_tasks ORDER BY created_at DESC,thread_id DESC LIMIT 20'):
-        plan = await db.rows('EXPLAIN QUERY PLAN ' + query)
-        assert not any('TEMP B-TREE' in row['detail'] for row in plan)
+    assert await db.rows('SELECT version FROM practiq_schema') == [{'version': 1}]
+    indexes = await db.rows("SELECT indexname FROM pg_indexes WHERE schemaname='public'")
+    assert {'document_task_order', 'document_run_latest', 'document_active_order'} <= {row['indexname'] for row in indexes}
 
 
 async def test_schema_initialization_is_explicit_and_refuses_existing_data(monkeypatch):
@@ -167,7 +164,7 @@ async def test_schema_initialization_is_explicit_and_refuses_existing_data(monke
     with pytest.raises(RuntimeError, match='empty dedicated'):
         await db.initialize()
     async with db.connection() as conn:
-        await conn.execute("PRAGMA user_version=99")
+        await conn.execute("UPDATE practiq_schema SET version=99")
     with pytest.raises(RuntimeError, match='Initialize'):
         await db.check_schema()
     await db.close()
@@ -188,7 +185,7 @@ async def test_singleton_lock_readiness_and_failed_start_cleanup(monkeypatch):
         "pdf_parser": ("pdf",),
     }
     assert set(service.graphs) == {call.kwargs["name"] for call in build.call_args_list}
-    contender = runtime.Service(Database(db.directory))
+    contender = runtime.Service(Database(db.uri))
     with pytest.raises(RuntimeError, match='Another service'):
         await contender.start()
     with pytest.raises(RuntimeError, match='Stop the service'):
@@ -197,7 +194,7 @@ async def test_singleton_lock_readiness_and_failed_start_cleanup(monkeypatch):
     monkeypatch.setenv('AI_DEPLOYMENT_WORKERS', '2')
     monkeypatch.setenv('N_JOBS_PER_WORKER', '1')
     with pytest.raises(ValueError, match='one Uvicorn'):
-        await runtime.Service(Database(db.directory)).start()
+        await runtime.Service(Database(db.uri)).start()
     monkeypatch.setenv('AI_DEPLOYMENT_WORKERS', '1')
     await service.stop(timeout=0)
     assert not await service.ready()
@@ -207,7 +204,7 @@ async def test_expired_state_cleanup_is_offline_and_idempotent(monkeypatch):
     service, reference, _ = await setup_api(monkeypatch)
     receipt = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
     await service.wait_idle()
-    uri = service.db.directory
+    uri = service.db.uri
     await service.stop(timeout=0)
     db = Database(uri)
     await db.open()
@@ -216,7 +213,7 @@ async def test_expired_state_cleanup_is_offline_and_idempotent(monkeypatch):
             await cleanup(db)
         monkeypatch.setenv('AI_MAINTENANCE_MODE', 'true')
         async with db.connection() as conn:
-            await conn.execute('UPDATE document_tasks SET expires_at=?', (utcnow() - timedelta(days=1),))
+            await conn.execute('UPDATE document_tasks SET expires_at=%s', (utcnow() - timedelta(days=1),))
         assert await cleanup(db) == 1
         assert await cleanup(db) == 0
         assert not await db.rows('SELECT * FROM document_tasks')
@@ -253,7 +250,7 @@ async def test_parent_not_found_expired_task_and_invalid_checkpoint(monkeypatch)
     child = await task_api.create_task(request.model_copy(update={'requestId': uuid4(), 'parentThreadId': UUID(receipt['threadId'])}))
     assert child['threadId'] != receipt['threadId']
     async with service.db.connection() as conn:
-        await conn.execute('UPDATE document_tasks SET expires_at=? WHERE thread_id=?', (utcnow()-timedelta(seconds=1), receipt['threadId']))
+        await conn.execute('UPDATE document_tasks SET expires_at=%s WHERE thread_id=%s', (utcnow()-timedelta(seconds=1), receipt['threadId']))
     with pytest.raises(DocumentProcessingError) as error:
         await task_api.get_task(receipt['threadId'])
     assert error.value.code == 'TASK_EXPIRED'
@@ -300,12 +297,12 @@ async def test_restart_preserves_deadline_and_does_not_refund_unknown_call(monke
         while not model.calls:
             await asyncio.sleep(0.01)
     before = await task_api.get_task(receipt['threadId'])
-    uri = service.db.directory
+    uri = service.db.uri
     await service.stop(timeout=0)
     db = Database(uri)
     await db.open()
     async with db.connection() as conn:
-        await conn.execute('UPDATE document_runs SET deadline=? WHERE run_id=?', (utcnow()-timedelta(seconds=1), receipt['runId']))
+        await conn.execute('UPDATE document_runs SET deadline=%s WHERE run_id=%s', (utcnow()-timedelta(seconds=1), receipt['runId']))
     restarted = runtime.Service(db)
     await restarted.start()
     SERVICES.append(restarted)
@@ -338,9 +335,9 @@ async def test_offline_cleanup_recovers_interrupted_task_deletion_without_touchi
         patch.setattr(target, method, AsyncMock(side_effect=OSError('injected deletion failure')))
         with pytest.raises(OSError, match='deletion failure'):
             await task_api.delete_task(tid)
-    assert not await service.db.rows('SELECT thread_id FROM document_tasks WHERE thread_id=?', (tid,))
+    assert not await service.db.rows('SELECT thread_id FROM document_tasks WHERE thread_id=%s', (tid,))
     assert await service.db.store.asearch(namespace(tid, '')[:2], refresh_ttl=False)
-    uri = service.db.directory
+    uri = service.db.uri
     await service.stop(timeout=0)
     db = Database(uri)
     await db.open()
@@ -366,13 +363,13 @@ async def test_offline_cleanup_recovers_interrupted_task_deletion_without_touchi
 async def test_maintenance_cleanup_skips_expired_queued_run(monkeypatch):
     service, reference, _ = await setup_api(monkeypatch, [(30, parsed())])
     receipt = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
-    uri = service.db.directory
+    uri = service.db.uri
     await service.stop(timeout=0)
     db = Database(uri)
     await db.open()
     try:
         async with db.connection() as conn:
-            await conn.execute('UPDATE document_tasks SET expires_at=?', (utcnow()-timedelta(seconds=1),))
+            await conn.execute('UPDATE document_tasks SET expires_at=%s', (utcnow()-timedelta(seconds=1),))
         monkeypatch.setenv('AI_MAINTENANCE_MODE', 'true')
         assert await cleanup(db) == 0
         assert (await db.rows('SELECT thread_id FROM document_tasks'))[0]['thread_id'] == receipt['threadId']
@@ -428,22 +425,31 @@ async def test_initialization_retries_owned_partial_database(monkeypatch, stage)
                 await original()
                 raise RuntimeError('interrupted initialization')
             patch.setattr(owner, 'setup', fail)
-        with pytest.raises(OperationalError if stage == 'business' else RuntimeError):
+        with pytest.raises(ProgrammingError if stage == 'business' else RuntimeError):
             await db.initialize()
-    assert (await db.rows("SELECT name AS marker FROM sqlite_master WHERE name='practiq_initialization'"))[0]['marker']
+    assert (await db.rows("SELECT relname AS marker FROM pg_class WHERE relname='practiq_initialization' AND relnamespace='public'::regnamespace"))[0]['marker']
     await db.initialize()
     await db.check_schema()
-    assert not await db.rows("SELECT name FROM sqlite_master WHERE name='practiq_initialization'")
+    assert not await db.rows("SELECT relname FROM pg_class WHERE relname='practiq_initialization' AND relnamespace='public'::regnamespace")
     await db.close()
 
 
-async def test_initialization_refuses_unrecognized_nonempty_database():
+@pytest.mark.parametrize('foreign', ['table', 'sequence', 'schema'])
+async def test_initialization_refuses_unrecognized_nonempty_database(foreign):
     db = await new_database(initialize=False)
     async with db.connection() as conn:
-        await conn.executescript("CREATE TABLE foreign_data (value text); INSERT INTO foreign_data VALUES ('keep');")
+        if foreign == 'table':
+            await conn.execute("CREATE TABLE foreign_data (value text); INSERT INTO foreign_data VALUES ('keep');", prepare=False)
+        elif foreign == 'sequence':
+            await conn.execute('CREATE SEQUENCE foreign_data')
+        else:
+            await conn.execute('CREATE SCHEMA other; CREATE TABLE other.foreign_data(value text)', prepare=False)
+    before = await db.tables()
     with pytest.raises(RuntimeError, match='empty dedicated'):
         await db.initialize()
-    assert await db.rows('SELECT * FROM foreign_data') == [{'value': 'keep'}]
+    assert await db.tables() == before
+    if foreign == 'table':
+        assert await db.rows('SELECT * FROM foreign_data') == [{'value': 'keep'}]
     await db.close()
 
 
@@ -455,14 +461,14 @@ async def test_recovery_preflight_is_inside_run_deadline(monkeypatch, expired):
         while not model.calls:
             await asyncio.sleep(0.01)
     await service.stop(timeout=0)
-    db = Database(service.db.directory)
+    db = Database(service.db.uri)
     await db.open()
     # Restart/graph construction must not consume the interval under test.
     execution_time = utcnow()
     monkeypatch.setattr(runtime, 'utcnow', lambda: execution_time)
     deadline = execution_time + timedelta(seconds=-1 if expired else 0.3)
     async with db.connection() as conn:
-        await conn.execute('UPDATE document_runs SET deadline=? WHERE run_id=?', (deadline, created['runId']))
+        await conn.execute('UPDATE document_runs SET deadline=%s WHERE run_id=%s', (deadline, created['runId']))
     entered, stopped = asyncio.Event(), asyncio.Event()
     async def preflight(_):
         entered.set()
@@ -477,7 +483,7 @@ async def test_recovery_preflight_is_inside_run_deadline(monkeypatch, expired):
     SERVICES.append(restarted)
     await restarted.start()
     async with asyncio.timeout(3):
-        while (rows := await db.rows('SELECT status,error_code FROM document_runs WHERE run_id=?', (created['runId'],)))[0]['status'] != 'error':
+        while (rows := await db.rows('SELECT status,error_code FROM document_runs WHERE run_id=%s', (created['runId'],)))[0]['status'] != 'error':
             await asyncio.sleep(0.01)
     assert rows[0]['error_code'] == 'RUN_DEADLINE_EXCEEDED' and not fatal
     assert entered.is_set() == stopped.is_set() == (not expired)
@@ -490,7 +496,7 @@ async def test_read_only_restart_requires_explicit_resume_and_lists_tasks(monkey
     async with asyncio.timeout(10):
         while not model.calls:
             await asyncio.sleep(0.01)
-    directory = service.db.directory
+    directory = service.db.uri
     await service.stop(timeout=0)
     monkeypatch.setenv('AI_READ_ONLY', '1')
     restarted = runtime.Service(Database(directory))
@@ -525,13 +531,13 @@ async def test_restart_reconciles_final_checkpoint_without_model_work(monkeypatc
     service, reference, model = await setup_api(monkeypatch)
     created = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
     await service.wait_idle()
-    directory = service.db.directory
+    directory = service.db.uri
     await service.stop(timeout=0)
     monkeypatch.setenv('AI_READ_ONLY', '1' if read_only else '0')
     db = Database(directory)
     async with db.connection() as conn:
         # Disk state after checkpoint commit but before the run's finish commit.
-        await conn.execute("UPDATE document_runs SET status='running',finished_at=NULL WHERE run_id=?", (created['runId'],))
+        await conn.execute("UPDATE document_runs SET status='running',finished_at=NULL WHERE run_id=%s", (created['runId'],))
     restarted = runtime.Service(db)
     await restarted.start()
     SERVICES.append(restarted)
@@ -541,56 +547,39 @@ async def test_restart_reconciles_final_checkpoint_without_model_work(monkeypatc
     assert len(model.calls) == 1
 
 
-async def test_sqlite_write_contention_keeps_reads_responsive():
+async def test_postgres_write_contention_keeps_reads_responsive():
     db = await new_database()
-    async def contender():
-        async with db.transaction():
-            raise AssertionError('Competing writer must not enter')
-    try:
-        async with db.connection() as owner:
-            await owner.execute('BEGIN IMMEDIATE')
-            waiting = asyncio.create_task(contender())
-            try:
-                await asyncio.sleep(.05)
-                assert await asyncio.wait_for(db.rows('SELECT 1'), 1)
-                with pytest.raises(OperationalError, match='locked'):
-                    await asyncio.wait_for(waiting, 7)
-            finally:
-                await owner.rollback()
-                if not waiting.done():
-                    waiting.cancel()
-                    await asyncio.gather(waiting, return_exceptions=True)
+    async with db.transaction():
+        async def contend():
+            async with Database(db.uri).transaction():
+                raise AssertionError('Competing writer must not enter')
+        waiting = asyncio.create_task(contend())
+        try:
+            assert await asyncio.wait_for(db.rows('SELECT 1'), 1)
+            with pytest.raises(errors.LockNotAvailable):
+                await asyncio.wait_for(waiting, 7)
+        finally:
+            waiting.cancel()
+            await asyncio.gather(waiting, return_exceptions=True)
+    async with db.transaction() as conn:
+        await conn.execute('SELECT 1')
+
+
+async def test_postgres_constraint_failure_rolls_back_without_partial_task():
+    db = await new_database()
+    with pytest.raises(errors.ForeignKeyViolation):
         async with db.transaction() as conn:
-            await conn.execute('SELECT 1')
-    finally:
-        await db.close()
-
-
-async def test_sqlite_disk_full_rolls_back_without_partial_task():
-    db = await new_database()
-    try:
-        async with db.connection() as conn:
-            row = await (await conn.execute('PRAGMA page_count')).fetchone()
-            assert row is not None
-            pages = row['page_count']
-            await conn.execute(f'PRAGMA max_page_count={pages}')
-            with pytest.raises(OperationalError, match='full'):
-                await conn.execute("INSERT INTO document_tasks(thread_id,request_hash,graph_id,document,failure_policy,expires_at) VALUES('test','hash','document_parser',?,'review',?)", ('"' + 'x' * 1_000_000 + '"', utcnow()))
-            await conn.rollback()
-        assert not await db.rows('SELECT * FROM document_tasks')
-    finally:
-        await db.close()
+            await conn.execute("INSERT INTO document_tasks(thread_id,request_hash,graph_id,document,failure_policy,expires_at) VALUES('test','hash','document_parser','{}','review',%s)", (utcnow(),))
+            await conn.execute("INSERT INTO document_runs(run_id,thread_id,request_id,context) VALUES('run','missing','request','{}')")
+    assert not await db.rows('SELECT * FROM document_tasks')
 
 
 async def test_missing_checkpoint_tables_fail_closed():
     db = await new_database()
-    try:
-        await db.connections[0].execute('DROP TABLE writes')
-        with pytest.raises(RuntimeError, match='Incomplete SQLite state'):
-            await db.check_schema()
-        assert await db.rows('PRAGMA user_version') == [{'user_version': 1}]
-    finally:
-        await db.close()
+    await db.connections[0].execute('DROP TABLE checkpoint_writes')
+    with pytest.raises(RuntimeError, match='Incomplete PostgreSQL state'):
+        await db.check_schema()
+    assert await db.rows('SELECT version FROM practiq_schema') == [{'version': 1}]
 
 @pytest.mark.parametrize('pending', [False, True])
 @pytest.mark.parametrize(('graph_id', 'kind'), [('docx_parser', 'text'), ('document_parser', 'docm'), ('document_parser', 'xlsm')])
@@ -610,11 +599,11 @@ async def test_unsupported_tasks_are_unchanged_and_do_not_block_current_work(mon
     await service.db.open()
     thread_id = old['threadId']
     async with service.db.connection() as conn:
-        await conn.execute('UPDATE document_tasks SET graph_id=?,document=? WHERE thread_id=?',
+        await conn.execute('UPDATE document_tasks SET graph_id=%s,document=%s WHERE thread_id=%s',
                            (graph_id, dumps({**reference, 'sourceType': kind}), thread_id))
-        await conn.execute('UPDATE document_runs SET status=? WHERE thread_id=?', ('pending' if pending else 'running', thread_id))
-    before_task = await service.db.rows('SELECT * FROM document_tasks WHERE thread_id=?', (thread_id,))
-    before_runs = await service.db.rows('SELECT * FROM document_runs WHERE thread_id=?', (thread_id,))
+        await conn.execute('UPDATE document_runs SET status=%s WHERE thread_id=%s', ('pending' if pending else 'running', thread_id))
+    before_task = await service.db.rows('SELECT * FROM document_tasks WHERE thread_id=%s', (thread_id,))
+    before_runs = await service.db.rows('SELECT * FROM document_runs WHERE thread_id=%s', (thread_id,))
     before_heads = await service.db.checkpoint_heads([thread_id])
     restarted = runtime.Service(service.db)
     SERVICES.append(restarted)
@@ -654,8 +643,8 @@ async def test_unsupported_tasks_are_unchanged_and_do_not_block_current_work(mon
     assert [item['threadId'] for item in (await task_api.list_tasks(limit=1, offset=1))['items']] == [good['threadId']]
     # Even a stale dispatcher selection must not update the unsupported run.
     await restarted.execute(before_runs[0])
-    assert await service.db.rows('SELECT * FROM document_tasks WHERE thread_id=?', (thread_id,)) == before_task
-    assert await service.db.rows('SELECT * FROM document_runs WHERE thread_id=?', (thread_id,)) == before_runs
+    assert await service.db.rows('SELECT * FROM document_tasks WHERE thread_id=%s', (thread_id,)) == before_task
+    assert await service.db.rows('SELECT * FROM document_runs WHERE thread_id=%s', (thread_id,)) == before_runs
     assert await service.db.checkpoint_heads([thread_id]) == before_heads
     assert len(model.calls) == calls + 1
 
@@ -675,3 +664,16 @@ def test_reconciliation_requires_matching_finished_checkpoint():
     snapshot.values['result'] = {'questions': 'invalid'}
     with pytest.raises(ValueError):
         runtime.Service.saved_run_status(snapshot, {'run_id': 'new'})
+
+
+async def test_stopped_dispatcher_cleanup_releases_ownership(monkeypatch):
+    from tests.db_support import cleanup as cleanup_databases
+
+    service, _, _ = await setup_api(monkeypatch)
+    service.stopping = True
+    service.wake.set()
+    await service.loop
+    await cleanup_databases()
+    assert service.guard_task.done()
+    assert service.lock.connection.closed
+    assert service.db.store._task.done()

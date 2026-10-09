@@ -63,21 +63,21 @@ async def test_completed_heads_share_bounded_summaries_and_invalidate_on_changes
     monkeypatch.setenv('LLM_MODEL', 'test-model')
     run_id = str(uuid4())
     async with service.db.connection() as conn:
-        await conn.execute("INSERT INTO document_runs(run_id,thread_id,request_id,context,status,created_at) VALUES(?,?,?,'{}','pending',?)",
+        await conn.execute("INSERT INTO document_runs(run_id,thread_id,request_id,context,status,created_at) VALUES(%s,%s,%s,'{}','pending',%s)",
                            (run_id, tid, run_id, utcnow() + timedelta(seconds=1)))
     for _ in range(2):
         active = await task_api.get_task_head(tid)
         assert active['state'] == 'PENDING' and active['runId'] == run_id
     assert snapshots.await_count == 2
     async with service.db.connection() as conn:
-        await conn.execute('DELETE FROM document_runs WHERE run_id=?', (run_id,))
+        await conn.execute('DELETE FROM document_runs WHERE run_id=%s', (run_id,))
     await service.graph.aupdate_state({'configurable': {'thread_id': tid}}, {'status': 'SUCCEEDED', 'result': parsed('Changed')}, as_node='finish')
     changed = await task_api.get_task_head(tid)
     assert changed['checkpointId'] != head['checkpointId']
     assert await task_api.get_task_head(tid) == changed
     assert snapshots.await_count == 3
     async with service.db.connection() as conn:
-        await conn.execute('UPDATE document_tasks SET expires_at=? WHERE thread_id=?', (utcnow() - timedelta(seconds=1), tid))
+        await conn.execute('UPDATE document_tasks SET expires_at=%s WHERE thread_id=%s', (utcnow() - timedelta(seconds=1), tid))
     with pytest.raises(DocumentProcessingError) as expired:
         await task_api.get_task_head(tid)
     assert expired.value.code == 'TASK_EXPIRED'
@@ -96,7 +96,7 @@ async def saved_units(monkeypatch, count):
     await service.loop
     tid = str(uuid4())
     async with service.db.connection() as conn:
-        await conn.execute('INSERT INTO document_tasks(thread_id,request_hash,graph_id,document,failure_policy,expires_at) VALUES(?,?,?,?,?,?)',
+        await conn.execute('INSERT INTO document_tasks(thread_id,request_hash,graph_id,document,failure_policy,expires_at) VALUES(%s,%s,%s,%s,%s,%s)',
                            (tid, tid, 'document_parser', json.dumps(reference), 'return_partial', utcnow() + timedelta(days=1)))
     units = [{'index': index, 'parsed': parsed(f'Question {index}')} for index in reversed(range(count))]
     await service.graph.aupdate_state({'configurable': {'thread_id': tid}}, {'chunkResults': units}, as_node='finish')
@@ -166,7 +166,7 @@ async def test_preview_failure_or_cancellation_joins_pending_reads(monkeypatch, 
 async def test_heads_recheck_same_checkpoint_interrupts_without_caching(monkeypatch, disposable_databases):
     tid, model = await saved_units(monkeypatch, 1)
     service = task_api.client()
-    task = (await service.db.rows('SELECT * FROM document_tasks WHERE thread_id=?', (tid,)))[0]
+    task = (await service.db.rows('SELECT * FROM document_tasks WHERE thread_id=%s', (tid,)))[0]
     snapshot = await service.snapshot(task)
     current = snapshot._replace(interrupts=(Interrupt({'kind': 'pause'}),))
     snapshots = AsyncMock(side_effect=lambda _task: current)

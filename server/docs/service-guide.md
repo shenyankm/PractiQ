@@ -12,7 +12,7 @@ Use uv and an existing Python 3.14+ interpreter; do not create a project `.venv`
 cp -n .env.example .env
 ```
 
-Configure the service token, model, dedicated SQLite directory, and file storage in `.env`, then install locked dependencies and start the service:
+Provision an empty dedicated PostgreSQL database and its owner. Configure the service token, model, PostgreSQL URL (`DATABASE_URI`), and file storage in `.env`, then install locked dependencies, initialize the service tables and start:
 
 ```sh
 make install-locked AI_PYTHON=/path/to/python3.14
@@ -22,7 +22,7 @@ make web-build
 make server-dev AI_PYTHON=/path/to/python3.14
 ```
 
-The default address is `127.0.0.1:8090`. `GET /ok` checks liveness; `GET /ready` checks readiness. Both local and production deployments require SQLite. Initialization accepts only an empty database and does not read or migrate old Agent Server data. A single service process holds an exclusive lock. Restarting resumes unfinished tasks automatically; manually paused tasks and tasks awaiting review remain waiting.
+The default address is `127.0.0.1:8090`. `GET /ok` checks liveness; `GET /ready` checks readiness. Both local and production deployments require PostgreSQL. Initialization accepts only an empty database and does not read or migrate old Agent Server data. A single service process holds an exclusive lock. Restarting resumes unfinished tasks automatically; manually paused tasks and tasks awaiting review remain waiting.
 
 `LLM_MODEL` is required for model-enabled deployments and selects one model supporting text and image inputs. The old `LLM_TEXT_MODEL` / `LLM_VISION_MODEL` settings are no longer read. Set `LLM_MODEL` to the previous vision model ID, or the previous text model if no vision model was configured; the selected model must support both input types. TXT/CSV extraction uses text input; PDF/image extraction uses image input directly. PDFium renders PDFs. The deployment image includes Chinese fonts. Office uploads require the independently deployed LibreOffice configuration described in the [Office guide](desktop-office.md); they are normalized before entering these same extractors. Set `AI_READ_ONLY=1` to run without model configuration for reading saved results; unfinished tasks remain stopped and new model work is rejected.
 
@@ -142,7 +142,7 @@ make audit AI_PYTHON=/path/to/python3.14
 make image-check
 ```
 
-Database tests explicitly request `disposable_databases` and use temporary SQLite directories; no Docker database is needed. Pure unit tests, such as `cd server && python -m pytest tests/test_schemas.py tests/test_auth.py`, require neither a database nor Docker. Shared fakes and data builders live in `tests/support.py`; database helpers live in `tests/db_support.py`. CI installs PDF fallback fonts and uses real PDFium rendering for digital, scanned, and mixed PDFs. Office adapter tests use bounded temporary conversions and retain separate deployed-engine acceptance boundaries.
+Database tests explicitly request `disposable_databases` and use unique disposable PostgreSQL databases. Set `TEST_DATABASE_URI` to a dedicated test instance with permission to create/drop databases, or let the test helper launch a temporary loopback Docker PostgreSQL instance. Pure unit tests, such as `cd server && python -m pytest tests/test_schemas.py tests/test_auth.py`, require neither a database nor Docker. Shared fakes and data builders live in `tests/support.py`; database helpers live in `tests/db_support.py`. CI installs PDF fallback fonts and uses real PDFium rendering for digital, scanned, and mixed PDFs. Office adapter tests use bounded temporary conversions and retain separate deployed-engine acceptance boundaries.
 
 `make verify` checks lockfile consistency, Ruff, Pyright, evaluation fixtures, one test run with at least 90% coverage, recovery probes, and package builds. `make audit` audits locked runtime/development dependencies, requires network access, and fails on vulnerabilities or audit errors. `make image-check` requires Docker and builds the service image without publishing it.
 
@@ -150,11 +150,11 @@ CI runs these Make targets on every PR, pushes to `main`, and manual dispatch. I
 
 Automated tests do not call real models. The [evaluation guide](evaluation.md) and historical reports remain available; historical failures do not establish a current quality baseline.
 
-Service storage is local and persistent. Upload and asset reads enforce authentication, size, SHA-256, path and reference validation. Relative `AI_STORAGE_DIR` paths resolve from `server/`; production requires an absolute persistent mount. See [operations](operations.md#data-and-backups) for matching SQLite/artifact backups, scheduler recovery, storage errors and maintenance. Historical capacity reports do not establish current deployment capacity.
+Service storage is local and persistent. Upload and asset reads enforce authentication, size, SHA-256, path and reference validation. Relative `AI_STORAGE_DIR` paths resolve from `server/`; production requires an absolute persistent mount. See [operations](operations.md#data-and-backups) for matching PostgreSQL/artifact backups, scheduler recovery, storage errors and maintenance. Historical capacity reports do not establish current deployment capacity.
 
 ## Graphs and API examples
 
-Service startup builds two format-specific graphs and one general entry point with the durable SQLite checkpoint and Store. Importing the graph module does not construct a deployment graph:
+Service startup builds two format-specific graphs and one general entry point with the durable PostgreSQL checkpoint and Store. Importing the graph module does not construct a deployment graph:
 
 | Graph ID | `document.sourceType` |
 | --- | --- |
@@ -170,19 +170,19 @@ Graph results retain `{ "status": "SUCCEEDED", "result": {...}, "processing": {.
 
 ## Architecture
 
-Document tasks run through a SQLite queue. Subjective grading handles a single request directly, outside that queue:
+Document tasks run through a PostgreSQL queue. Subjective grading handles a single request directly, outside that queue:
 
 ```mermaid
 graph TD
     Client[Client] --> API[FastAPI authenticated upload and task APIs]
-    API --> DB[(SQLite task queue)]
+    API --> DB[(PostgreSQL task queue)]
     DB --> Runner[Single-process bounded scheduler]
     Runner --> Graph[Open-source LangGraph document parser]
-    Graph --> State[(SQLite checkpoint / Store)]
+    Graph --> State[(PostgreSQL checkpoint / Store)]
     Graph --> Model[Shared multimodal model]
     API --> Grading[Subjective grading]
     Grading --> Model
-    Grading --> Grades[(SQLite grading request cache)]
+    Grading --> Grades[(PostgreSQL grading request cache)]
     API --> Files[(Local persistent directory)]
     Graph --> Files
 ```
@@ -216,7 +216,7 @@ All three graphs share the [task API and recovery rules](document-tasks.md). The
 
 ## Verify model quality
 
-Engineering checks use model fakes and do not establish extraction or grading accuracy. See the [evaluation guide](evaluation.md) for real-call commands, datasets, comparisons, and historical failures, and the [operations guide](operations.md) for capacity/recovery drills. Historical Agent Server reports do not establish acceptance of the current SQLite runtime.
+Engineering checks use model fakes and do not establish extraction or grading accuracy. See the [evaluation guide](evaluation.md) for real-call commands, datasets, comparisons, and historical failures, and the [operations guide](operations.md) for capacity/recovery drills. Historical Agent Server reports do not establish acceptance of the current PostgreSQL runtime.
 
 ## Image validation and model correction
 

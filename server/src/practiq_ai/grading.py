@@ -4,16 +4,17 @@ import base64
 import hashlib
 import io
 import json
-import sqlite3
-from contextlib import closing, contextmanager
+from contextlib import contextmanager
 from typing import Any, Literal
 from uuid import UUID
 
+import psycopg
 from langchain_core.messages import HumanMessage, SystemMessage
 from PIL import Image
+from psycopg.types.json import Jsonb
 from pydantic import Field, PrivateAttr, field_validator, model_validator
 
-from .config import database_dir, load
+from .config import database_uri, load
 from .contracts import ModelCallUsage, ParsedQuestion, StrictModel
 from .errors import DocumentProcessingError
 from .llm import get_model, structured_call
@@ -120,33 +121,28 @@ assessmentMaxCents. Scores are integer hundredths of one point."""
 
 @contextmanager
 def _database():
-    with closing(sqlite3.connect(database_dir() / "subjective-grades.sqlite", timeout=5)) as db:
-        db.execute("PRAGMA foreign_keys = ON")
-        db.execute("CREATE TABLE IF NOT EXISTS grades(id TEXT PRIMARY KEY,digest TEXT NOT NULL,response TEXT)")
-        db.execute("""CREATE TABLE IF NOT EXISTS grade_calls(
-            grade_id TEXT NOT NULL REFERENCES grades(id),
-            call_key TEXT NOT NULL, record TEXT NOT NULL,
-            PRIMARY KEY(grade_id,call_key))""")
-        with db:
-            db.execute("BEGIN IMMEDIATE")
-            yield db
+    with psycopg.connect(database_uri(), connect_timeout=5, options='-c search_path=public -c lock_timeout=5000 -c synchronous_commit=on') as db:
+        yield db
 
 
 def _claim(request: GradeRequest):
     with _database() as db:
-        row = db.execute("SELECT digest,response FROM grades WHERE id=?", (str(request.requestId),)).fetchone()
-        if row:
-            if row[0] != request.inputDigest:
-                raise DocumentProcessingError(409, "Grading request content changed", "REQUEST_CONFLICT")
-            if row[1]:
-                return json.loads(row[1])
-            calls = [json.loads(record[0]) for record in db.execute(
-                "SELECT record FROM grade_calls WHERE grade_id=? ORDER BY rowid", (str(request.requestId),)
-            )]
-            usage = _known_usage(calls)
-            return {"status":"unknown", "error":"Result unknown; check the record before explicitly requesting another grade." if request.feedbackLocale == "en" else "结果未知；请检查记录后明确重新评分", "usage":usage, "usageStatus":"unknown", "calls":calls}
-        db.execute("INSERT INTO grades VALUES(?,?,NULL)", (str(request.requestId),request.inputDigest))
-    return None
+        # Concurrent requests wait for the first claim's commit, then observe its receipt.
+        claimed = db.execute("INSERT INTO grades VALUES(%s,%s,NULL) ON CONFLICT(id) DO NOTHING RETURNING id",
+                             (str(request.requestId), request.inputDigest)).fetchone()
+        if claimed:
+            return None
+        row = db.execute("SELECT digest,response FROM grades WHERE id=%s", (str(request.requestId),)).fetchone()
+        assert row is not None
+        if row[0] != request.inputDigest:
+            raise DocumentProcessingError(409, "Grading request content changed", "REQUEST_CONFLICT")
+        if row[1] is not None:
+            return row[1]
+        calls = [record[0] for record in db.execute(
+            "SELECT record FROM grade_calls WHERE grade_id=%s ORDER BY sequence", (str(request.requestId),)
+        )]
+        usage = _known_usage(calls)
+        return {"status":"unknown", "error":"Result unknown; check the record before explicitly requesting another grade." if request.feedbackLocale == "en" else "结果未知；请检查记录后明确重新评分", "usage":usage, "usageStatus":"unknown", "calls":calls}
 
 
 def _known_usage(calls: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -156,20 +152,20 @@ def _known_usage(calls: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def _save(request: GradeRequest, response: dict):
     with _database() as db:
-        db.execute("UPDATE grades SET response=? WHERE id=?", (json.dumps(response,ensure_ascii=False),str(request.requestId)))
+        db.execute("UPDATE grades SET response=%s WHERE id=%s", (Jsonb(response),str(request.requestId)))
 
 
 def _save_call(request: GradeRequest, record: dict[str, Any]) -> None:
     with _database() as db:
-        db.execute("""INSERT INTO grade_calls(grade_id,call_key,record) VALUES(?,?,?)
+        db.execute("""INSERT INTO grade_calls(grade_id,call_key,record) VALUES(%s,%s,%s)
             ON CONFLICT(grade_id,call_key) DO UPDATE SET record=excluded.record""",
-            (str(request.requestId), record["callKey"], json.dumps(record, ensure_ascii=False)))
+            (str(request.requestId), record["callKey"], Jsonb(record)))
 
 
 async def _record_call(request: GradeRequest, record: dict[str, Any]) -> None:
     try:
         await asyncio.to_thread(_save_call, request, record)
-    except sqlite3.Error as exc:
+    except psycopg.Error as exc:
         raise DocumentProcessingError(503, "Grading call storage is unavailable", "EXECUTION_STORE_UNAVAILABLE") from exc
 
 

@@ -57,7 +57,7 @@ def test_cli_failure_is_nonzero_and_existing_evidence_prevents_calls(tmp_path, m
     output = tmp_path/'report.json'
     monkeypatch.setattr(ev, 'evaluate', evaluate)
     monkeypatch.setattr(ev, 'load_dotenv', lambda *args, **kwargs: None)
-    for name in ['AI_DATABASE_DIR','LANGSMITH_TRACING','LANGCHAIN_TRACING_V2']:
+    for name in ['DATABASE_URI','LANGSMITH_TRACING','LANGCHAIN_TRACING_V2']:
         monkeypatch.setenv(name, 'test')
     monkeypatch.setattr('sys.argv', ['evaluate_grading.py','--live','--output',str(output)])
     assert ev.main() == 1

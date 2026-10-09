@@ -55,8 +55,8 @@ async def test_task_page_fetches_latest_runs_in_one_query(monkeypatch):
     assert snapshots.await_count == 3
     assert next(item for item in refreshed['items'] if item['threadId'] == ids[0])['checkpointId'] != next(item for item in page['items'] if item['threadId'] == ids[0])['checkpointId']
     async with api.db.connection() as conn:
-        await conn.execute('UPDATE document_tasks SET expires_at=? WHERE thread_id=?', (utcnow() - timedelta(seconds=1), ids[0]))
-        await conn.execute("UPDATE document_runs SET status='interrupted' WHERE thread_id=?", (ids[1],))
+        await conn.execute('UPDATE document_tasks SET expires_at=%s WHERE thread_id=%s', (utcnow() - timedelta(seconds=1), ids[0]))
+        await conn.execute("UPDATE document_runs SET status='interrupted' WHERE thread_id=%s", (ids[1],))
     changed = {item['threadId']: item for item in (await task_api.list_tasks(limit=2))['items']}
     assert changed[ids[0]]['state'] == 'EXPIRED'
     assert changed[ids[1]]['state'] == 'INTERRUPTED'
@@ -105,7 +105,7 @@ async def test_reparse_receipt_replay_uses_child_expiry_not_expired_parent(monke
     child = await task_api.reparse_task(original['threadId'], request)
     await api.wait_idle()
     async with api.db.connection() as conn:
-        await conn.execute('UPDATE document_tasks SET expires_at=? WHERE thread_id=?',
+        await conn.execute('UPDATE document_tasks SET expires_at=%s WHERE thread_id=%s',
                            (utcnow() - timedelta(seconds=1), original['threadId']))
     # An accepted operation is still replayable without another source/model call.
     cast(FakeObjectStore, task_api.get_object_store()).blobs[reference['objectKey']] = b'corrupt'
@@ -115,7 +115,7 @@ async def test_reparse_receipt_replay_uses_child_expiry_not_expired_parent(monke
         await task_api.reparse_task(original['threadId'], DocumentTaskReparse(requestId=uuid4()))
     assert error.value.code == 'TASK_EXPIRED'
     async with api.db.connection() as conn:
-        await conn.execute('UPDATE document_tasks SET expires_at=? WHERE thread_id=?',
+        await conn.execute('UPDATE document_tasks SET expires_at=%s WHERE thread_id=%s',
                            (utcnow() - timedelta(seconds=1), child['threadId']))
     with pytest.raises(DocumentProcessingError) as error:
         await task_api.reparse_task(original['threadId'], request)
@@ -334,12 +334,12 @@ async def test_api_retry_limits_concurrency_and_exhaustion(monkeypatch, review):
     assert state['failures'][0]['code'] == 'OUTPUT_STALLED'
     assert not state['failures'][0]['retryable']
     assert 'retry_failed' not in state['allowedActions']
-    runs_before = len(await api.db.rows("SELECT run_id FROM document_runs WHERE thread_id=?", (thread_id,)))
+    runs_before = len(await api.db.rows("SELECT run_id FROM document_runs WHERE thread_id=%s", (thread_id,)))
     request = DocumentTaskControl(requestId=uuid4(), action='retry_failed', checkpointId=state['checkpointId'], units=[FailedUnit(stage='document_parse', index=state['failures'][0]['index'])])
     with pytest.raises(DocumentProcessingError) as error:
         await task_api.control_task(thread_id, request)
     assert error.value.status_code == 409 and error.value.code == 'RETRY_LIMIT_EXCEEDED'
-    assert len(await api.db.rows("SELECT run_id FROM document_runs WHERE thread_id=?", (thread_id,))) == runs_before
+    assert len(await api.db.rows("SELECT run_id FROM document_runs WHERE thread_id=%s", (thread_id,))) == runs_before
     if review:
         assert state['allowedActions'] == ['accept_partial']
         await task_api.control_task(thread_id, DocumentTaskControl(requestId=uuid4(), action='accept_partial', checkpointId=state['checkpointId']))
@@ -373,7 +373,7 @@ async def test_control_replays_request_admitted_during_preflight_read(monkeypatc
 
     monkeypatch.setattr(task_api, '_read_task', admit_before_read)
     assert await task_api.control_task(thread_id, request) == receipts[0]
-    runs = await api.db.rows('SELECT run_id FROM document_runs WHERE thread_id=? AND request_id=?',
+    runs = await api.db.rows('SELECT run_id FROM document_runs WHERE thread_id=%s AND request_id=%s',
                              (thread_id, str(request.requestId)))
     assert len(runs) == 1
 
@@ -456,8 +456,8 @@ async def test_delete_record_rejects_active_tasks_and_removes_stopped_history(mo
     assert await task_api.delete_task(thread_id) == {'deleted': True}
     assert await task_api.delete_task(thread_id) == {'deleted': True}
     assert not (await task_api.list_tasks())['items']
-    assert not await api.db.rows('SELECT * FROM document_runs WHERE thread_id=?', (thread_id,))
-    assert not await api.db.rows('SELECT * FROM document_receipts WHERE thread_id=?', (thread_id,))
+    assert not await api.db.rows('SELECT * FROM document_runs WHERE thread_id=%s', (thread_id,))
+    assert not await api.db.rows('SELECT * FROM document_receipts WHERE thread_id=%s', (thread_id,))
     assert await api.db.checkpointer.aget_tuple({'configurable': {'thread_id': thread_id}}) is None
     assert len(model.calls) == calls
 
@@ -471,7 +471,7 @@ async def test_status_filter_paginates_after_scanning_all_records(monkeypatch):
         await api.wait_idle()
     async with api.db.transaction() as conn:
         for _ in range(101):
-            await conn.execute('INSERT INTO document_tasks(thread_id,request_hash,graph_id,document,failure_policy,expires_at) SELECT ?,request_hash,graph_id,document,failure_policy,? FROM document_tasks WHERE thread_id=?',
+            await conn.execute('INSERT INTO document_tasks(thread_id,request_hash,graph_id,document,failure_policy,expires_at) SELECT %s,request_hash,graph_id,document,failure_policy,%s FROM document_tasks WHERE thread_id=%s',
                                (str(uuid4()), utcnow() - timedelta(days=1), ids[0]))
     first = await task_api.list_tasks(1, state_filter='completed')
     second = await task_api.list_tasks(1, 1, state_filter='completed')

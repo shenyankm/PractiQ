@@ -5,7 +5,6 @@ import asyncio
 import hashlib
 import json
 import os
-import sqlite3
 import stat
 import subprocess
 import sys
@@ -105,50 +104,54 @@ async def page_profile(fixture, root):
 
 
 async def checkpoint_profile(pages, image, root):
-    from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
+    from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
     from langgraph.store.memory import InMemoryStore
 
     from practiq_ai.extractors import ExtractedDocument
     from practiq_ai.graphs import document
+    from tests.db_support import cleanup, new_database
     from tests.support import FakeModel, question, source
 
     store, reference = source("Synthetic page-count stress source")
     responses = [{"questions": [question(f"Synthetic page {i} question {j}: " + "source material " * 80) for j in range(10)]} for i in range(pages)]
     model = FakeModel(responses=deepcopy(responses))
     config = {"configurable": {"thread_id": str(uuid4())}, "run_id": uuid4()}
-    database = root / f"checkpoints-{pages}.sqlite"
-    write_ms = []
-    with pytest.MonkeyPatch.context() as patch:
-        patch.setattr(document, "get_object_store", lambda: store)
-        patch.setattr(document, "get_model", lambda: model)
-        patch.setattr(document, "extract", AsyncMock(return_value=ExtractedDocument(text="", page_images=[image] * pages)))
-        async with AsyncSqliteSaver.from_conn_string(str(database)) as saver:
-            original = saver.aput
-            async def write(*args, **kwargs):
+    database = await new_database()
+    try:
+        write_ms = []
+        with pytest.MonkeyPatch.context() as patch:
+            patch.setattr(document, "get_object_store", lambda: store)
+            patch.setattr(document, "get_model", lambda: model)
+            patch.setattr(document, "extract", AsyncMock(return_value=ExtractedDocument(text="", page_images=[image] * pages)))
+            async with AsyncPostgresSaver.from_conn_string(database.uri) as saver:
+                original = saver.aput
+                async def write(*args, **kwargs):
+                    started = perf_counter()
+                    result = await original(*args, **kwargs)
+                    write_ms.append((perf_counter() - started) * 1000)
+                    return result
+                patch.setattr(saver, "aput", write)
+                graph = document.build_document_graph(saver, store=InMemoryStore())
                 started = perf_counter()
-                result = await original(*args, **kwargs)
-                write_ms.append((perf_counter() - started) * 1000)
-                return result
-            patch.setattr(saver, "aput", write)
-            graph = document.build_document_graph(saver, store=InMemoryStore())
-            started = perf_counter()
-            result = await graph.ainvoke({"document": reference}, cast(Any, config), context=cast(Any, {"profile": True}), durability="sync")
-            elapsed = (perf_counter() - started) * 1000
-            assert result["status"] == "SUCCEEDED" and len(result["result"]["questions"]) == 10 * pages
-        calls = len(model.calls)
-        async with AsyncSqliteSaver.from_conn_string(str(database)) as reopened:
-            graph = document.build_document_graph(reopened, store=InMemoryStore())
-            started = perf_counter()
-            replay = await graph.ainvoke(None, cast(Any, config), context=cast(Any, {"profile": True}), durability="sync")
-            reopen_ms = (perf_counter() - started) * 1000
-            assert replay == result and len(model.calls) == calls
-    with sqlite3.connect(database) as connection:
-        checkpoint_bytes, count = connection.execute("SELECT sum(length(checkpoint)),count(*) FROM checkpoints").fetchone()
-        writes_bytes = connection.execute("SELECT coalesce(sum(length(value)),0) FROM writes").fetchone()[0]
-    return {"pages": pages, "syntheticQuestions": 10 * pages, "elapsedMs": elapsed, "checkpointRows": count,
-            "checkpointBytes": checkpoint_bytes, "pendingWriteBytes": writes_bytes,
-            "checkpointWriteWaitTotalMs": sum(write_ms), "checkpointWriteWaitMaxMs": max(write_ms),
-            "reopenedCompletedReplayMs": reopen_ms, "identicalReplayedOutput": True, "replayAddedModelCalls": 0}
+                result = await graph.ainvoke({"document": reference}, cast(Any, config), context=cast(Any, {"profile": True}), durability="sync")
+                elapsed = (perf_counter() - started) * 1000
+                assert result["status"] == "SUCCEEDED" and len(result["result"]["questions"]) == 10 * pages
+            calls = len(model.calls)
+            async with AsyncPostgresSaver.from_conn_string(database.uri) as reopened:
+                graph = document.build_document_graph(reopened, store=InMemoryStore())
+                started = perf_counter()
+                replay = await graph.ainvoke(None, cast(Any, config), context=cast(Any, {"profile": True}), durability="sync")
+                reopen_ms = (perf_counter() - started) * 1000
+                assert replay == result and len(model.calls) == calls
+        sizes = (await database.rows("SELECT coalesce(sum(pg_column_size(checkpoint)),0)+(SELECT coalesce(sum(octet_length(blob)),0) FROM checkpoint_blobs) AS bytes,count(*) AS n FROM checkpoints"))[0]
+        checkpoint_bytes, count = sizes['bytes'], sizes['n']
+        writes_bytes = (await database.rows("SELECT coalesce(sum(octet_length(blob)),0) AS bytes FROM checkpoint_writes"))[0]['bytes']
+        return {"pages": pages, "syntheticQuestions": 10 * pages, "elapsedMs": elapsed, "checkpointRows": count,
+                "checkpointBytes": checkpoint_bytes, "pendingWriteBytes": writes_bytes,
+                "checkpointWriteWaitTotalMs": sum(write_ms), "checkpointWriteWaitMaxMs": max(write_ms),
+                "reopenedCompletedReplayMs": reopen_ms, "identicalReplayedOutput": True, "replayAddedModelCalls": 0}
+    finally:
+        await cleanup()
 
 
 async def fsync_profile(root):

@@ -1,6 +1,6 @@
 # Create, control, and review document tasks
 
-This guide covers task creation, polling, pause, resume, and human review. Three graphs share LangGraph checkpoints, Store, and a persistent SQLite queue. Subjective grading uses a [separate endpoint](service-guide.md#request-subjective-grading).
+This guide covers task creation, polling, pause, resume, and human review. Three graphs share LangGraph checkpoints, Store, and a persistent PostgreSQL queue. Subjective grading uses a [separate endpoint](service-guide.md#request-subjective-grading).
 
 ## Create and query
 

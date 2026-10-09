@@ -3,7 +3,6 @@ import base64
 import hashlib
 import json
 import os
-import sqlite3
 import struct
 import subprocess
 import sys
@@ -18,6 +17,7 @@ from uuid import uuid4
 import anyio
 import httpx
 import httpx2
+import psycopg
 import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
@@ -37,8 +37,10 @@ def payload(**changes):
 
 
 @pytest.fixture
-def setup(monkeypatch,tmp_path):
-    monkeypatch.setattr(grading,"database_dir",lambda:tmp_path)
+async def setup(monkeypatch,tmp_path,disposable_databases):
+    from tests.db_support import new_database
+    db = await new_database()
+    monkeypatch.setenv('DATABASE_URI', db.uri)
     monkeypatch.setattr(grading,"load",lambda:SimpleNamespace(maintenance=False))
     monkeypatch.setattr(grading,"get_model",lambda: "unified")
     return tmp_path
@@ -110,7 +112,6 @@ from tests.support import FakeModel
 root = Path(sys.argv[1])
 config = SimpleNamespace(maintenance=False, model_max_input_chars=500_000,
     structured_output_method="function_calling", provider_concurrency=4, provider_rpm=1000)
-grading.database_dir = lambda: root
 grading.load = llm.load = capacity.load = lambda: config
 valid = {"scoreCents": 300, "maxCents": 500, "reason": "Supplied evidence", "evidence": [], "reviewReasons": []}
 def block(messages, schema):
@@ -194,7 +195,7 @@ async def test_grading_call_storage_failure_stops_before_more_provider_calls(sha
 
     def unavailable(request, record):
         if record["status"] == failed_write:
-            raise sqlite3.OperationalError("Storage unavailable")
+            raise psycopg.OperationalError("Storage unavailable")
         original(request, record)
 
     monkeypatch.setattr(grading, "_save_call", unavailable)
@@ -215,7 +216,7 @@ async def test_failed_correction_call_write_retains_unknown_attempt_and_telemetr
 
     def unavailable(request, record):
         if record["status"] == "failed":
-            raise sqlite3.OperationalError("Storage unavailable")
+            raise psycopg.OperationalError("Storage unavailable")
         original(request, record)
 
     monkeypatch.setattr(grading, "_save_call", unavailable)
@@ -249,10 +250,9 @@ async def test_existing_grading_cache_preserves_responses_and_unknown_requests(s
     saved = grading.GradeRequest.model_validate(payload())
     interrupted = grading.GradeRequest.model_validate(payload())
     response = {"status": "ungraded", "error": "OUTPUT_INVALID", "usage": []}
-    with sqlite3.connect(setup / "subjective-grades.sqlite") as db:
-        db.execute("CREATE TABLE grades(id TEXT PRIMARY KEY,digest TEXT NOT NULL,response TEXT)")
-        db.execute("INSERT INTO grades VALUES(?,?,?)", (str(saved.requestId), saved.inputDigest, json.dumps(response)))
-        db.execute("INSERT INTO grades VALUES(?,?,NULL)", (str(interrupted.requestId), interrupted.inputDigest))
+    with psycopg.connect(grading.database_uri()) as db:
+        db.execute("INSERT INTO grades VALUES(%s,%s,%s)", (str(saved.requestId), saved.inputDigest, json.dumps(response)))
+        db.execute("INSERT INTO grades VALUES(%s,%s,NULL)", (str(interrupted.requestId), interrupted.inputDigest))
 
     async def forbidden(*args, **kwargs):
         pytest.fail("Existing grading records must never automatically call the model")
@@ -666,3 +666,12 @@ def test_grade_images_reject_removed_formats_even_if_mislabeled(format, declared
     )
     with pytest.raises(ValueError, match="Invalid image"):
         image.verified_url()
+
+
+async def test_concurrent_grading_claims_preserve_one_durable_request(setup):
+    request = grading.GradeRequest.model_validate(payload())
+    results = await asyncio.gather(*(asyncio.to_thread(grading._claim, request) for _ in range(8)))
+    assert sum(value is None for value in results) == 1
+    assert all(value is None or value['status'] == 'unknown' and value['usage'] == [] for value in results)
+    with psycopg.connect(grading.database_uri()) as db:
+        assert db.execute('SELECT count(*) FROM grades WHERE id=%s', (str(request.requestId),)).fetchone() == (1,)

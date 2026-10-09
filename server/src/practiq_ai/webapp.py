@@ -1,11 +1,10 @@
-"""Authenticated document APIs with a SQLite-backed LangGraph runtime."""
+"""Authenticated document APIs with a PostgreSQL-backed LangGraph runtime."""
 
 import asyncio
 import os
 from collections.abc import AsyncGenerator, AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
-from sqlite3 import Error as DatabaseError
 from typing import Annotated, Any, BinaryIO, get_args
 from uuid import UUID
 from weakref import WeakKeyDictionary
@@ -14,6 +13,7 @@ from anyio import CancelScope
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response
 from fastapi.staticfiles import StaticFiles
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+from psycopg import Error as DatabaseError
 from starlette.responses import StreamingResponse
 from starlette.types import Receive, Scope, Send
 

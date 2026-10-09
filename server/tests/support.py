@@ -157,7 +157,7 @@ def run_config(thread: str = "thread-1") -> RunnableConfig:
 
 
 def local_graph(checkpointer=None, **kwargs):
-    """Explicit local Store; production uses SQLite-backed storage."""
+    """Explicit local Store; production uses PostgreSQL-backed storage."""
     kwargs.setdefault("store", InMemoryStore())
     return document.build_document_graph(checkpointer, **kwargs).with_config(run_config())
 

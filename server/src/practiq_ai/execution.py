@@ -56,7 +56,7 @@ def code_version() -> str:
 @lru_cache(maxsize=1)
 def runtime_version() -> dict[str, Any]:
     packages = {}
-    for name in ("langgraph", "langgraph-checkpoint-sqlite", "aiosqlite", "langchain-core", "langchain-openai", "pydantic", "pypdfium2", "pillow"):
+    for name in ("langgraph", "langgraph-checkpoint-postgres", "psycopg", "psycopg-binary", "langchain-core", "langchain-openai", "pydantic", "pypdfium2", "pillow"):
         try:
             packages[name] = version(name)
         except PackageNotFoundError:
@@ -93,7 +93,7 @@ def supported_task_sql(alias: LiteralString = '') -> LiteralString:
     return cast(LiteralString, (
         f"{prefix}graph_id IN ("
         + ",".join(f"'{name}'" for name in get_args(GraphId))
-        + f") AND json_extract({prefix}document, '$.sourceType') IN ("
+        + f") AND ({prefix}document->>'sourceType') IN ("
         + ",".join(f"'{name}'" for name in DOCUMENT_MEDIA_TYPES)
         + ")"
     ))
