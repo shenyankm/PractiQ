@@ -8,7 +8,7 @@ APP_PACKAGE_REPORT ?= server/reports/checks/desktop-bundle.json
 .PHONY: install server-install install-locked test test-server server-dev init-db verify audit audit-rust image-check
 install: server-install
 server-install:
-	uv pip install --break-system-packages --python "$(AI_PYTHON)" -e './server[dev]'
+	cd server && uv pip install --break-system-packages --python "$(AI_PYTHON)" -e '.[dev]'
 install-locked:
 	@set -eu; requirements=$$(mktemp); trap 'rm -f "$$requirements"' EXIT; \
 	cd server; uv export --locked --extra dev --no-emit-project --python "$(AI_PYTHON)" -o "$$requirements" >/dev/null; \

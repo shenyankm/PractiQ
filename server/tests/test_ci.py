@@ -83,6 +83,7 @@ def test_install_targets_use_the_selected_interpreter(tmp_path, explicit_path):
 import json, os, sys
 from pathlib import Path
 args = sys.argv[1:]
+assert Path.cwd().samefile(Path(os.environ['INSTALL_PROJECT'])), 'Build constraints must load from the service project'
 interpreter = args[args.index('--python') + 1]
 assert Path(interpreter).is_absolute(), 'Named interpreters trigger uv virtual-environment discovery'
 assert Path(interpreter).samefile(sys.executable)
@@ -93,7 +94,7 @@ with Path(os.environ['INSTALL_CALLS']).open('a') as log:
     calls = tmp_path / 'calls'
     selected = str(tmp_path / 'python') if explicit_path else 'python'
     result = subprocess.run(['make', 'server-install', 'install-locked', f'AI_PYTHON={selected}'],
-        cwd=root, env={**os.environ, 'PATH': f'{tmp_path}{os.pathsep}{os.environ["PATH"]}', 'INSTALL_CALLS': str(calls)},
+        cwd=root, env={**os.environ, 'PATH': f'{tmp_path}{os.pathsep}{os.environ["PATH"]}', 'INSTALL_CALLS': str(calls), 'INSTALL_PROJECT': str(root / 'server')},
         capture_output=True, text=True, check=False)
     assert result.returncode == 0, result.stdout + result.stderr
     assert [json.loads(line) for line in calls.read_text().splitlines()].count(['pip', 'install']) == 3
