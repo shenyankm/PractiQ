@@ -131,6 +131,7 @@ FastAPI/LangGraph 服务监听 `127.0.0.1:8090`，使用 PostgreSQL 和本地文
 - [单机部署验证](docs/operations-single-machine-20261009.md)：隔离资源配额、替身模型过载、故障恢复与备份还原
 - [效果评测](server/docs/evaluation.md)：数据集、检查与证据边界
 - [Web 资源测量](docs/performance-web-fonts-20261009.md)：完整静态资源体积、构建样本与字体验证
+- [服务 Web 构建测量](docs/performance-build-once-20261009.md)：每次镜像构建只构建一次 Web，本地配对耗时与产物一致性
 - [题型模型](docs/question-model.md)：题型与复合题规则
 - [发布验证](CONTRIBUTING.md#release-verification)：发布检查与验收证据
 - [发布规范](docs/releases.md)：版本标签、下载产物、校验值与手动草稿流程
