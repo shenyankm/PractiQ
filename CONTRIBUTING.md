@@ -40,7 +40,7 @@ Choose checks for every affected area; append `AI_PYTHON=/path/to/python3.14` to
 
 | Change | Checks |
 | --- | --- |
-| AI service | `make verify` (lockfile, lint, types, fixtures, tests with 90% coverage, recovery probes, package build) |
+| AI service | `make verify` (lockfile, lint, types, fixtures, tests with 90% coverage, recovery probes, package build and archive source/lock integrity) |
 | Shared AI contracts | `make verify`, `make web-check` and the app checks for the target host below; regenerate both tracked frontend contracts before checking |
 | Import Web frontend | `make web-install web-check web-build`; browser checks use an authenticated fake HTTP service and no real models |
 | Practice app UI (desktop and touch) | `npm --prefix app run check:ui` (types, lint, coverage) and `npm --prefix app run test:browser`; see [README.md](README.md) for Chromium setup |
