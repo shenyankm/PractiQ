@@ -1405,7 +1405,7 @@
           },
           "expectedEvidence": {
             "questionKind": "translation",
-            "sourceLanguage": "zh-CN",
+            "sourceLanguage": "zh",
             "targetLanguage": "en",
             "sourceScore": 10.0,
             "scoringRubric": "Preserve the meaning and use grammatical English."
