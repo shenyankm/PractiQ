@@ -1,0 +1,60 @@
+{
+  "scope": "Sequential explicit checkpoint recovery of all three observed shared-bind failures. Does not establish that shared filesystem passes sustained load. Original database/files remain unchanged except authorized recovery state.",
+  "status": "PASSED",
+  "samples": [
+    {
+      "threadId": "43ea6937-f314-53d6-9798-84a2bd685a17",
+      "previousState": "FAILED",
+      "blocking": [
+        "OBJECT_STORE_UNAVAILABLE"
+      ],
+      "checkpointPreservedAndExplicitlyResumed": true,
+      "completedState": "COMPLETED",
+      "sameSourceFileName": true,
+      "knownUsageCallsAfterRecovery": 1,
+      "unknownUsageCallsAfterRecovery": 0,
+      "receipt": {
+        "threadId": "43ea6937-f314-53d6-9798-84a2bd685a17",
+        "requestId": "34a1560f-5b19-4c2a-9687-608a8418a34f",
+        "runId": "bbedf222-e9ee-4bad-866c-7d9c942de915",
+        "accepted": true
+      }
+    },
+    {
+      "threadId": "0ed3dfde-5dcc-57fa-8e83-9aaa6c094ad5",
+      "previousState": "FAILED",
+      "blocking": [
+        "OBJECT_STORE_UNAVAILABLE"
+      ],
+      "checkpointPreservedAndExplicitlyResumed": true,
+      "completedState": "COMPLETED",
+      "sameSourceFileName": true,
+      "knownUsageCallsAfterRecovery": 1,
+      "unknownUsageCallsAfterRecovery": 0,
+      "receipt": {
+        "threadId": "0ed3dfde-5dcc-57fa-8e83-9aaa6c094ad5",
+        "requestId": "fac64726-4265-44cd-9638-ade5013c4c15",
+        "runId": "965fa9ea-b7ab-442c-aad7-f87485ba9683",
+        "accepted": true
+      }
+    },
+    {
+      "threadId": "8e167024-20f5-5799-81dc-9eeed34b03c3",
+      "previousState": "FAILED",
+      "blocking": [
+        "OBJECT_STORE_UNAVAILABLE"
+      ],
+      "checkpointPreservedAndExplicitlyResumed": true,
+      "completedState": "COMPLETED",
+      "sameSourceFileName": true,
+      "knownUsageCallsAfterRecovery": 1,
+      "unknownUsageCallsAfterRecovery": 0,
+      "receipt": {
+        "threadId": "8e167024-20f5-5799-81dc-9eeed34b03c3",
+        "requestId": "13d3f349-452c-4f23-b55d-0b05eda1b96e",
+        "runId": "98f791dd-790a-4c7e-a440-213553c19810",
+        "accepted": true
+      }
+    }
+  ]
+}

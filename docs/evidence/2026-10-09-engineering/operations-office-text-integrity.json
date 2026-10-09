@@ -1,0 +1,804 @@
+{
+  "scope": "Actual deployed text-mode normalization, visible/hidden fixture sheets and strict manifest/checksums; no AI or pixel-fidelity quality claim.",
+  "status": "PASSED",
+  "records": [
+    {
+      "storePrefix": "document_tasks.91102883-58a9-5b8b-8855-6dedb577a88f.normalization",
+      "sourceSha256": "27b8e595c7d8a136dd5d20f19d1236e9a9ca857174318a2421fc143d5f4c09c6",
+      "mode": "text",
+      "engine": {
+        "sha256": "eb926ee03b6ba1b18e89b4a94cbb7a060ceac31f171b4bf9db5677e848451f86",
+        "version": "LibreOffice 7.4.7.2 40(Build:2)"
+      },
+      "artifacts": [
+        {
+          "name": "source.txt",
+          "index": 0,
+          "sourceType": "text",
+          "sizeBytes": 2790,
+          "sha256": "9fac6b7d01b6f9c191aa0b10cad6b5c94503d0f91bf3ab9453cf15106b6cc100"
+        }
+      ]
+    },
+    {
+      "storePrefix": "document_tasks.9f18600c-f6fd-5e72-8fb5-85489c79d711.normalization",
+      "sourceSha256": "5ea72921b3f4d6a91e2bb59dbac70adae41a2a5cae13d9b061c6196a33420b3f",
+      "mode": "text",
+      "engine": {
+        "sha256": "eb926ee03b6ba1b18e89b4a94cbb7a060ceac31f171b4bf9db5677e848451f86",
+        "version": "LibreOffice 7.4.7.2 40(Build:2)"
+      },
+      "artifacts": [
+        {
+          "name": "source.txt",
+          "index": 0,
+          "sourceType": "text",
+          "sizeBytes": 2790,
+          "sha256": "9fac6b7d01b6f9c191aa0b10cad6b5c94503d0f91bf3ab9453cf15106b6cc100"
+        }
+      ]
+    },
+    {
+      "storePrefix": "document_tasks.73793f38-b95a-5176-90a0-e14c67991ddd.normalization",
+      "sourceSha256": "38937c01c8a41e7176b5c6767ab33d6ec0e86c6a689fe6e22ef7f7bef1e5682d",
+      "mode": "text",
+      "engine": {
+        "sha256": "eb926ee03b6ba1b18e89b4a94cbb7a060ceac31f171b4bf9db5677e848451f86",
+        "version": "LibreOffice 7.4.7.2 40(Build:2)"
+      },
+      "artifacts": [
+        {
+          "name": "source-\u9690\u85cf\u8868.csv",
+          "index": 0,
+          "sourceType": "csv",
+          "sizeBytes": 82,
+          "sha256": "3deafa274846c4e827c0ed5533d126e815d4a6fc8b71285833b4088328595ffc",
+          "rows": 8,
+          "cellCount": 24,
+          "firstCell": "\u9690\u85cf\u6570\u636e",
+          "cells": [
+            [
+              "\u9690\u85cf\u6570\u636e",
+              "",
+              ""
+            ],
+            [
+              "001",
+              "3",
+              "3/15/2023"
+            ],
+            [
+              "\u5408\u5e76\u5355\u5143\u683c",
+              "",
+              ""
+            ],
+            [
+              "",
+              "",
+              ""
+            ],
+            [
+              "",
+              "",
+              ""
+            ],
+            [
+              "",
+              "",
+              ""
+            ],
+            [
+              "",
+              "",
+              ""
+            ],
+            [
+              "OUTSIDE_PRINT_AREA",
+              "",
+              ""
+            ]
+          ]
+        },
+        {
+          "name": "source-\u9898\u76ee.csv",
+          "index": 1,
+          "sourceType": "csv",
+          "sizeBytes": 82,
+          "sha256": "821bc186723e983b45f74b271f81528a69e104d1275a479ec54aa188903b3750",
+          "rows": 8,
+          "cellCount": 24,
+          "firstCell": "\u4e2d\u6587\u9898\u76ee",
+          "cells": [
+            [
+              "\u4e2d\u6587\u9898\u76ee",
+              "",
+              ""
+            ],
+            [
+              "001",
+              "3",
+              "3/15/2023"
+            ],
+            [
+              "\u5408\u5e76\u5355\u5143\u683c",
+              "",
+              ""
+            ],
+            [
+              "",
+              "",
+              ""
+            ],
+            [
+              "",
+              "",
+              ""
+            ],
+            [
+              "",
+              "",
+              ""
+            ],
+            [
+              "",
+              "",
+              ""
+            ],
+            [
+              "OUTSIDE_PRINT_AREA",
+              "",
+              ""
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "storePrefix": "document_tasks.1dde9440-e4f7-50ab-9281-3177a63af28b.normalization",
+      "sourceSha256": "288d667dce51ce797886ef4ae35bd776c242fb0ebe2d3a1db6b6f8355ff38d2d",
+      "mode": "text",
+      "engine": {
+        "sha256": "eb926ee03b6ba1b18e89b4a94cbb7a060ceac31f171b4bf9db5677e848451f86",
+        "version": "LibreOffice 7.4.7.2 40(Build:2)"
+      },
+      "artifacts": [
+        {
+          "name": "source-\u9690\u85cf\u8868.csv",
+          "index": 0,
+          "sourceType": "csv",
+          "sizeBytes": 82,
+          "sha256": "3deafa274846c4e827c0ed5533d126e815d4a6fc8b71285833b4088328595ffc",
+          "rows": 8,
+          "cellCount": 24,
+          "firstCell": "\u9690\u85cf\u6570\u636e",
+          "cells": [
+            [
+              "\u9690\u85cf\u6570\u636e",
+              "",
+              ""
+            ],
+            [
+              "001",
+              "3",
+              "3/15/2023"
+            ],
+            [
+              "\u5408\u5e76\u5355\u5143\u683c",
+              "",
+              ""
+            ],
+            [
+              "",
+              "",
+              ""
+            ],
+            [
+              "",
+              "",
+              ""
+            ],
+            [
+              "",
+              "",
+              ""
+            ],
+            [
+              "",
+              "",
+              ""
+            ],
+            [
+              "OUTSIDE_PRINT_AREA",
+              "",
+              ""
+            ]
+          ]
+        },
+        {
+          "name": "source-\u9898\u76ee.csv",
+          "index": 1,
+          "sourceType": "csv",
+          "sizeBytes": 82,
+          "sha256": "821bc186723e983b45f74b271f81528a69e104d1275a479ec54aa188903b3750",
+          "rows": 8,
+          "cellCount": 24,
+          "firstCell": "\u4e2d\u6587\u9898\u76ee",
+          "cells": [
+            [
+              "\u4e2d\u6587\u9898\u76ee",
+              "",
+              ""
+            ],
+            [
+              "001",
+              "3",
+              "3/15/2023"
+            ],
+            [
+              "\u5408\u5e76\u5355\u5143\u683c",
+              "",
+              ""
+            ],
+            [
+              "",
+              "",
+              ""
+            ],
+            [
+              "",
+              "",
+              ""
+            ],
+            [
+              "",
+              "",
+              ""
+            ],
+            [
+              "",
+              "",
+              ""
+            ],
+            [
+              "OUTSIDE_PRINT_AREA",
+              "",
+              ""
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "storePrefix": "document_tasks.6a04533b-ac32-5074-a9c8-20d94c36a55e.normalization",
+      "sourceSha256": "27b8e595c7d8a136dd5d20f19d1236e9a9ca857174318a2421fc143d5f4c09c6",
+      "mode": "text",
+      "engine": {
+        "sha256": "eb926ee03b6ba1b18e89b4a94cbb7a060ceac31f171b4bf9db5677e848451f86",
+        "version": "LibreOffice 7.4.7.2 40(Build:2)"
+      },
+      "artifacts": [
+        {
+          "name": "source.txt",
+          "index": 0,
+          "sourceType": "text",
+          "sizeBytes": 2790,
+          "sha256": "9fac6b7d01b6f9c191aa0b10cad6b5c94503d0f91bf3ab9453cf15106b6cc100"
+        }
+      ]
+    },
+    {
+      "storePrefix": "document_tasks.538f5314-de25-5560-af58-9d032b3d36f8.normalization",
+      "sourceSha256": "5ea72921b3f4d6a91e2bb59dbac70adae41a2a5cae13d9b061c6196a33420b3f",
+      "mode": "text",
+      "engine": {
+        "sha256": "eb926ee03b6ba1b18e89b4a94cbb7a060ceac31f171b4bf9db5677e848451f86",
+        "version": "LibreOffice 7.4.7.2 40(Build:2)"
+      },
+      "artifacts": [
+        {
+          "name": "source.txt",
+          "index": 0,
+          "sourceType": "text",
+          "sizeBytes": 2790,
+          "sha256": "9fac6b7d01b6f9c191aa0b10cad6b5c94503d0f91bf3ab9453cf15106b6cc100"
+        }
+      ]
+    },
+    {
+      "storePrefix": "document_tasks.e06471ca-27ad-5dfa-94b5-cb2dad31c1e7.normalization",
+      "sourceSha256": "38937c01c8a41e7176b5c6767ab33d6ec0e86c6a689fe6e22ef7f7bef1e5682d",
+      "mode": "text",
+      "engine": {
+        "sha256": "eb926ee03b6ba1b18e89b4a94cbb7a060ceac31f171b4bf9db5677e848451f86",
+        "version": "LibreOffice 7.4.7.2 40(Build:2)"
+      },
+      "artifacts": [
+        {
+          "name": "source-\u9690\u85cf\u8868.csv",
+          "index": 0,
+          "sourceType": "csv",
+          "sizeBytes": 82,
+          "sha256": "3deafa274846c4e827c0ed5533d126e815d4a6fc8b71285833b4088328595ffc",
+          "rows": 8,
+          "cellCount": 24,
+          "firstCell": "\u9690\u85cf\u6570\u636e",
+          "cells": [
+            [
+              "\u9690\u85cf\u6570\u636e",
+              "",
+              ""
+            ],
+            [
+              "001",
+              "3",
+              "3/15/2023"
+            ],
+            [
+              "\u5408\u5e76\u5355\u5143\u683c",
+              "",
+              ""
+            ],
+            [
+              "",
+              "",
+              ""
+            ],
+            [
+              "",
+              "",
+              ""
+            ],
+            [
+              "",
+              "",
+              ""
+            ],
+            [
+              "",
+              "",
+              ""
+            ],
+            [
+              "OUTSIDE_PRINT_AREA",
+              "",
+              ""
+            ]
+          ]
+        },
+        {
+          "name": "source-\u9898\u76ee.csv",
+          "index": 1,
+          "sourceType": "csv",
+          "sizeBytes": 82,
+          "sha256": "821bc186723e983b45f74b271f81528a69e104d1275a479ec54aa188903b3750",
+          "rows": 8,
+          "cellCount": 24,
+          "firstCell": "\u4e2d\u6587\u9898\u76ee",
+          "cells": [
+            [
+              "\u4e2d\u6587\u9898\u76ee",
+              "",
+              ""
+            ],
+            [
+              "001",
+              "3",
+              "3/15/2023"
+            ],
+            [
+              "\u5408\u5e76\u5355\u5143\u683c",
+              "",
+              ""
+            ],
+            [
+              "",
+              "",
+              ""
+            ],
+            [
+              "",
+              "",
+              ""
+            ],
+            [
+              "",
+              "",
+              ""
+            ],
+            [
+              "",
+              "",
+              ""
+            ],
+            [
+              "OUTSIDE_PRINT_AREA",
+              "",
+              ""
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "storePrefix": "document_tasks.52e5488f-1627-5a79-80e3-cfaa9bc376ab.normalization",
+      "sourceSha256": "288d667dce51ce797886ef4ae35bd776c242fb0ebe2d3a1db6b6f8355ff38d2d",
+      "mode": "text",
+      "engine": {
+        "sha256": "eb926ee03b6ba1b18e89b4a94cbb7a060ceac31f171b4bf9db5677e848451f86",
+        "version": "LibreOffice 7.4.7.2 40(Build:2)"
+      },
+      "artifacts": [
+        {
+          "name": "source-\u9690\u85cf\u8868.csv",
+          "index": 0,
+          "sourceType": "csv",
+          "sizeBytes": 82,
+          "sha256": "3deafa274846c4e827c0ed5533d126e815d4a6fc8b71285833b4088328595ffc",
+          "rows": 8,
+          "cellCount": 24,
+          "firstCell": "\u9690\u85cf\u6570\u636e",
+          "cells": [
+            [
+              "\u9690\u85cf\u6570\u636e",
+              "",
+              ""
+            ],
+            [
+              "001",
+              "3",
+              "3/15/2023"
+            ],
+            [
+              "\u5408\u5e76\u5355\u5143\u683c",
+              "",
+              ""
+            ],
+            [
+              "",
+              "",
+              ""
+            ],
+            [
+              "",
+              "",
+              ""
+            ],
+            [
+              "",
+              "",
+              ""
+            ],
+            [
+              "",
+              "",
+              ""
+            ],
+            [
+              "OUTSIDE_PRINT_AREA",
+              "",
+              ""
+            ]
+          ]
+        },
+        {
+          "name": "source-\u9898\u76ee.csv",
+          "index": 1,
+          "sourceType": "csv",
+          "sizeBytes": 82,
+          "sha256": "821bc186723e983b45f74b271f81528a69e104d1275a479ec54aa188903b3750",
+          "rows": 8,
+          "cellCount": 24,
+          "firstCell": "\u4e2d\u6587\u9898\u76ee",
+          "cells": [
+            [
+              "\u4e2d\u6587\u9898\u76ee",
+              "",
+              ""
+            ],
+            [
+              "001",
+              "3",
+              "3/15/2023"
+            ],
+            [
+              "\u5408\u5e76\u5355\u5143\u683c",
+              "",
+              ""
+            ],
+            [
+              "",
+              "",
+              ""
+            ],
+            [
+              "",
+              "",
+              ""
+            ],
+            [
+              "",
+              "",
+              ""
+            ],
+            [
+              "",
+              "",
+              ""
+            ],
+            [
+              "OUTSIDE_PRINT_AREA",
+              "",
+              ""
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "storePrefix": "document_tasks.f208981c-4828-57f6-b402-f47fefcdcccd.normalization",
+      "sourceSha256": "27b8e595c7d8a136dd5d20f19d1236e9a9ca857174318a2421fc143d5f4c09c6",
+      "mode": "text",
+      "engine": {
+        "sha256": "eb926ee03b6ba1b18e89b4a94cbb7a060ceac31f171b4bf9db5677e848451f86",
+        "version": "LibreOffice 7.4.7.2 40(Build:2)"
+      },
+      "artifacts": [
+        {
+          "name": "source.txt",
+          "index": 0,
+          "sourceType": "text",
+          "sizeBytes": 2790,
+          "sha256": "9fac6b7d01b6f9c191aa0b10cad6b5c94503d0f91bf3ab9453cf15106b6cc100"
+        }
+      ]
+    },
+    {
+      "storePrefix": "document_tasks.4a62d6a5-3651-57e6-af14-f699542aa500.normalization",
+      "sourceSha256": "5ea72921b3f4d6a91e2bb59dbac70adae41a2a5cae13d9b061c6196a33420b3f",
+      "mode": "text",
+      "engine": {
+        "sha256": "eb926ee03b6ba1b18e89b4a94cbb7a060ceac31f171b4bf9db5677e848451f86",
+        "version": "LibreOffice 7.4.7.2 40(Build:2)"
+      },
+      "artifacts": [
+        {
+          "name": "source.txt",
+          "index": 0,
+          "sourceType": "text",
+          "sizeBytes": 2790,
+          "sha256": "9fac6b7d01b6f9c191aa0b10cad6b5c94503d0f91bf3ab9453cf15106b6cc100"
+        }
+      ]
+    },
+    {
+      "storePrefix": "document_tasks.f82d737d-335a-5f29-8f51-bad7ddfb7898.normalization",
+      "sourceSha256": "38937c01c8a41e7176b5c6767ab33d6ec0e86c6a689fe6e22ef7f7bef1e5682d",
+      "mode": "text",
+      "engine": {
+        "sha256": "eb926ee03b6ba1b18e89b4a94cbb7a060ceac31f171b4bf9db5677e848451f86",
+        "version": "LibreOffice 7.4.7.2 40(Build:2)"
+      },
+      "artifacts": [
+        {
+          "name": "source-\u9690\u85cf\u8868.csv",
+          "index": 0,
+          "sourceType": "csv",
+          "sizeBytes": 82,
+          "sha256": "3deafa274846c4e827c0ed5533d126e815d4a6fc8b71285833b4088328595ffc",
+          "rows": 8,
+          "cellCount": 24,
+          "firstCell": "\u9690\u85cf\u6570\u636e",
+          "cells": [
+            [
+              "\u9690\u85cf\u6570\u636e",
+              "",
+              ""
+            ],
+            [
+              "001",
+              "3",
+              "3/15/2023"
+            ],
+            [
+              "\u5408\u5e76\u5355\u5143\u683c",
+              "",
+              ""
+            ],
+            [
+              "",
+              "",
+              ""
+            ],
+            [
+              "",
+              "",
+              ""
+            ],
+            [
+              "",
+              "",
+              ""
+            ],
+            [
+              "",
+              "",
+              ""
+            ],
+            [
+              "OUTSIDE_PRINT_AREA",
+              "",
+              ""
+            ]
+          ]
+        },
+        {
+          "name": "source-\u9898\u76ee.csv",
+          "index": 1,
+          "sourceType": "csv",
+          "sizeBytes": 82,
+          "sha256": "821bc186723e983b45f74b271f81528a69e104d1275a479ec54aa188903b3750",
+          "rows": 8,
+          "cellCount": 24,
+          "firstCell": "\u4e2d\u6587\u9898\u76ee",
+          "cells": [
+            [
+              "\u4e2d\u6587\u9898\u76ee",
+              "",
+              ""
+            ],
+            [
+              "001",
+              "3",
+              "3/15/2023"
+            ],
+            [
+              "\u5408\u5e76\u5355\u5143\u683c",
+              "",
+              ""
+            ],
+            [
+              "",
+              "",
+              ""
+            ],
+            [
+              "",
+              "",
+              ""
+            ],
+            [
+              "",
+              "",
+              ""
+            ],
+            [
+              "",
+              "",
+              ""
+            ],
+            [
+              "OUTSIDE_PRINT_AREA",
+              "",
+              ""
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "storePrefix": "document_tasks.50071269-49e5-5d7b-b504-ee7a0f179067.normalization",
+      "sourceSha256": "288d667dce51ce797886ef4ae35bd776c242fb0ebe2d3a1db6b6f8355ff38d2d",
+      "mode": "text",
+      "engine": {
+        "sha256": "eb926ee03b6ba1b18e89b4a94cbb7a060ceac31f171b4bf9db5677e848451f86",
+        "version": "LibreOffice 7.4.7.2 40(Build:2)"
+      },
+      "artifacts": [
+        {
+          "name": "source-\u9690\u85cf\u8868.csv",
+          "index": 0,
+          "sourceType": "csv",
+          "sizeBytes": 82,
+          "sha256": "3deafa274846c4e827c0ed5533d126e815d4a6fc8b71285833b4088328595ffc",
+          "rows": 8,
+          "cellCount": 24,
+          "firstCell": "\u9690\u85cf\u6570\u636e",
+          "cells": [
+            [
+              "\u9690\u85cf\u6570\u636e",
+              "",
+              ""
+            ],
+            [
+              "001",
+              "3",
+              "3/15/2023"
+            ],
+            [
+              "\u5408\u5e76\u5355\u5143\u683c",
+              "",
+              ""
+            ],
+            [
+              "",
+              "",
+              ""
+            ],
+            [
+              "",
+              "",
+              ""
+            ],
+            [
+              "",
+              "",
+              ""
+            ],
+            [
+              "",
+              "",
+              ""
+            ],
+            [
+              "OUTSIDE_PRINT_AREA",
+              "",
+              ""
+            ]
+          ]
+        },
+        {
+          "name": "source-\u9898\u76ee.csv",
+          "index": 1,
+          "sourceType": "csv",
+          "sizeBytes": 82,
+          "sha256": "821bc186723e983b45f74b271f81528a69e104d1275a479ec54aa188903b3750",
+          "rows": 8,
+          "cellCount": 24,
+          "firstCell": "\u4e2d\u6587\u9898\u76ee",
+          "cells": [
+            [
+              "\u4e2d\u6587\u9898\u76ee",
+              "",
+              ""
+            ],
+            [
+              "001",
+              "3",
+              "3/15/2023"
+            ],
+            [
+              "\u5408\u5e76\u5355\u5143\u683c",
+              "",
+              ""
+            ],
+            [
+              "",
+              "",
+              ""
+            ],
+            [
+              "",
+              "",
+              ""
+            ],
+            [
+              "",
+              "",
+              ""
+            ],
+            [
+              "",
+              "",
+              ""
+            ],
+            [
+              "OUTSIDE_PRINT_AREA",
+              "",
+              ""
+            ]
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,109 @@
+{
+  "scope": "Three paced repetitions of 200 TXT tasks in 25 drained batches of eight. Existing load_test.py checks retained; 2-second synthetic provider, no live-provider capacity or stable tail-latency claim.",
+  "sourceSha": "2878ecad830b213010c4ca9d08853e01258a5a38",
+  "imageId": "sha256:edf0a70198028c9df59290d9f94cec0d8b6ef0beebd069cd3a52e22b92360364",
+  "batches": [
+    {
+      "schemaVersion": 1,
+      "status": "FAILED",
+      "generatedAt": "2026-10-09T13:34:42.723085+00:00",
+      "gitCommit": "2878ecad830b213010c4ca9d08853e01258a5a38",
+      "environment": "container",
+      "codeHash": "1e0680f2f60cf770beb4906a4e4db813cba031fd814530c9011ef649dc9b4694",
+      "runtime": {
+        "python": [
+          3,
+          14,
+          7
+        ],
+        "packages": {
+          "langgraph": "1.2.11",
+          "langgraph-checkpoint-postgres": "3.1.2",
+          "psycopg": "3.3.6",
+          "psycopg-binary": "3.3.6",
+          "langchain-core": "1.5.6",
+          "langchain-openai": "1.5.1",
+          "pydantic": "2.13.4",
+          "pypdfium2": "5.12.1",
+          "pillow": "12.3.0"
+        }
+      },
+      "imageDigest": "sha256:edf0a70198028c9df59290d9f94cec0d8b6ef0beebd069cd3a52e22b92360364",
+      "parameters": {
+        "total": 8,
+        "submitConcurrency": 8,
+        "maxRunning": 4,
+        "graphConcurrency": 2,
+        "api": "document-tasks",
+        "allowRejections": false
+      },
+      "results": {
+        "runs": {
+          "success": 6,
+          "rejected_429": 2
+        },
+        "batchSeconds": 5.718,
+        "successfulDocumentsPerMinute": 62.954,
+        "runCreateP95Ms": 52.6,
+        "healthP95Ms": 5.2,
+        "completionP50Seconds": 3.651,
+        "completionP95Seconds": 5.718,
+        "observedQueueWaitP95Seconds": 3.653,
+        "peakPendingRuns": 2,
+        "peakRunningRuns": 4,
+        "observedWorkerMaximum": 4,
+        "minimumAvailableWorkers": 0,
+        "peakRssBytes": 0,
+        "sampledProviderConcurrencyPeak": 4.0,
+        "configuredModelConcurrencyCeiling": 8
+      },
+      "runs": [
+        {
+          "threadId": "5fe31c32-b6f7-535b-9a5a-606347b5a3e9",
+          "runId": "391dbdeb-7d6c-4887-8d8e-77cc6ed5a58b",
+          "status": "success"
+        },
+        {
+          "threadId": "bcc7f16a-a5d5-5771-a324-3c901d278759",
+          "runId": "eadd0df9-187f-462f-ad9e-4121ff0b1983",
+          "status": "success"
+        },
+        {
+          "threadId": "0f97dc5a-8451-5e2f-b953-1d2d5f7b3b87",
+          "runId": "a85d19ee-da9a-4062-8444-6160e94e4668",
+          "status": "success"
+        },
+        {
+          "threadId": "ce19a875-53df-5224-943b-cfd36c2c5080",
+          "runId": "97a67097-fa62-4d8c-8109-cd2e424ece1d",
+          "status": "success"
+        },
+        {
+          "threadId": "3c74de0b-c009-5fbf-8d0e-1b470cfddc15",
+          "runId": "7ea0e616-fa85-42e9-a73c-3c2a72e62bf1",
+          "status": "success"
+        },
+        {
+          "threadId": "a4fe450e-093e-51f8-8527-41be4f4a37c6",
+          "runId": "03f97ba0-e7ba-4fbc-9dd2-ee086fed7371",
+          "status": "success"
+        },
+        {
+          "threadId": "",
+          "runId": "rejected_429",
+          "status": "rejected_429"
+        },
+        {
+          "threadId": "",
+          "runId": "rejected_429",
+          "status": "rejected_429"
+        }
+      ],
+      "failures": [
+        "not all runs succeeded: {'success': 6, 'rejected_429': 2}"
+      ],
+      "repeat": 1,
+      "batch": 1
+    }
+  ]
+}

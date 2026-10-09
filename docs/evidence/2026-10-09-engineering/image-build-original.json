@@ -1,0 +1,103 @@
+{
+  "sourceSha": "20b1f12c5e3eaaf34a15fcd73f0a7eeba684b60f",
+  "profile": "Docker Linux arm64, base images and OS cache warm; cold --no-cache rebuilds all Dockerfile layers; warm immediately reuses them; Web was built separately",
+  "inputs": {
+    "Dockerfile.server": "1f255e8b479ae9df529db3ce167917c0394cfa291fc5d508b667590e8b8734d4",
+    ".dockerignore": "501c3e5c8c003e1a31c2296dd798e50f3b04d86b8b7d9db9d15106c5f7be8c4e",
+    "server/pyproject.toml": "1ab289088da5463eb898b2e589a71fff16abcffa11c99cdcc1dd9386c20c2f32",
+    "server/uv.lock": "4de7c60d5b8a22f9e72d58b0eb2033abae8cc96260dc03c84f9ab094781f1c7c",
+    "server/LICENSE": "045e49d0a632ea4bf644d1db045d300b313c03097212268a6c3dc15235795079"
+  },
+  "samples": [
+    {
+      "cache": "cold-layers",
+      "repeat": 1,
+      "seconds": 183.68365824999637,
+      "imageId": "sha256:917b226e0fd48c812f182df5115aabd962771a7aeb1b7ff7b794898de4386e77",
+      "imageBytes": 1233563698,
+      "architecture": "arm64",
+      "os": "linux",
+      "aptVersions": [
+        "fonts-noto-cjk=1:20220127+repack1-1",
+        "libreoffice-calc=4:7.4.7-1+deb12u14",
+        "libreoffice-writer=4:7.4.7-1+deb12u14"
+      ],
+      "logSha256": "1e65b0b0adefa9df94a8664d935524864784985d57e775de96e59a76a4f34cca"
+    },
+    {
+      "cache": "incremental",
+      "repeat": 1,
+      "seconds": 0.5836289169965312,
+      "imageId": "sha256:7c8bb024d981be0c49d63194c01a9cb19e7535f480cc0671a04031eeade1a4d0",
+      "imageBytes": 1233563698,
+      "architecture": "arm64",
+      "os": "linux",
+      "aptVersions": [
+        "fonts-noto-cjk=1:20220127+repack1-1",
+        "libreoffice-calc=4:7.4.7-1+deb12u14",
+        "libreoffice-writer=4:7.4.7-1+deb12u14"
+      ],
+      "logSha256": "4b88c0b4ac0b800429ae89eacde3fce24258ba1152e9caf1bbc05ba090f09cd6"
+    },
+    {
+      "cache": "cold-layers",
+      "repeat": 2,
+      "seconds": 165.2748166250094,
+      "imageId": "sha256:1bd51c5b426030c846d2fe7cb29cf442b240a2fe7785ea78dee9d80db27c0927",
+      "imageBytes": 1233563181,
+      "architecture": "arm64",
+      "os": "linux",
+      "aptVersions": [
+        "fonts-noto-cjk=1:20220127+repack1-1",
+        "libreoffice-calc=4:7.4.7-1+deb12u14",
+        "libreoffice-writer=4:7.4.7-1+deb12u14"
+      ],
+      "logSha256": "50a22bb580ed2bac37ce1a713322c0f06f85a9848c69de59ea07b8d8e38b0c5f"
+    },
+    {
+      "cache": "incremental",
+      "repeat": 2,
+      "seconds": 0.6113830419926671,
+      "imageId": "sha256:2b9c74e3b444a42aef2e2383cb06efe5561b02aeda4b5065d075aa825e05dd56",
+      "imageBytes": 1233563181,
+      "architecture": "arm64",
+      "os": "linux",
+      "aptVersions": [
+        "fonts-noto-cjk=1:20220127+repack1-1",
+        "libreoffice-calc=4:7.4.7-1+deb12u14",
+        "libreoffice-writer=4:7.4.7-1+deb12u14"
+      ],
+      "logSha256": "d49d9c492e9c0d16b2ccf688c3f39f6fb7157643061882e688599306c953d574"
+    },
+    {
+      "cache": "cold-layers",
+      "repeat": 3,
+      "seconds": 101.63824345800094,
+      "imageId": "sha256:f4d2253c206ee33c045f4867fc73e9fd29ce58f527152302d6207a281996cf38",
+      "imageBytes": 1233563089,
+      "architecture": "arm64",
+      "os": "linux",
+      "aptVersions": [
+        "fonts-noto-cjk=1:20220127+repack1-1",
+        "libreoffice-calc=4:7.4.7-1+deb12u14",
+        "libreoffice-writer=4:7.4.7-1+deb12u14"
+      ],
+      "logSha256": "9160db1f1454316df34358b3f4c3f092932d1ae256499519fc0687fdacb0f5da"
+    },
+    {
+      "cache": "incremental",
+      "repeat": 3,
+      "seconds": 1.2375480409973534,
+      "imageId": "sha256:4adde8ba7593305db25e31407b2e2c62ac195ec58153e4583851a99fd70682b9",
+      "imageBytes": 1233563089,
+      "architecture": "arm64",
+      "os": "linux",
+      "aptVersions": [
+        "fonts-noto-cjk=1:20220127+repack1-1",
+        "libreoffice-calc=4:7.4.7-1+deb12u14",
+        "libreoffice-writer=4:7.4.7-1+deb12u14"
+      ],
+      "logSha256": "7f2ed1689162e013f366bda34126c92201b0a20355dd7312764c5feef45e7829"
+    }
+  ]
+}

@@ -1,0 +1,183 @@
+{
+  "scope": "Actual single-process, Linux VM local persistent files, PostgreSQL; synthetic provider only.",
+  "sourceSha": "2878ecad830b213010c4ca9d08853e01258a5a38",
+  "resourcesAfter600Tasks": {
+    "memory.peak": "609161216",
+    "memory.max": "2147483648",
+    "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+    "cpu.max": "200000 100000",
+    "pids.max": "128"
+  },
+  "containerControls": {
+    "user": "10001:10001",
+    "readOnlyRoot": true,
+    "cpuLimit": 2,
+    "memoryGiB": 2,
+    "pidLimit": 128,
+    "localLinuxBind": "/var/lib/docker/volumes/practiq-goal-20261009-final-linux-files/_data"
+  },
+  "gradingReceipt": {
+    "scoreCents": 300,
+    "cachedReplayAdditionalCalls": 0
+  },
+  "processKill": {
+    "sameRunId": true,
+    "restartCount": 1,
+    "unknownCalls": 1,
+    "knownUsagePreserved": true
+  },
+  "databaseUnavailable": {
+    "secondsUntilReady": 5.955799166011275,
+    "sameResultAndUsage": true,
+    "additionalProviderCalls": 0
+  },
+  "missingArtifact": {
+    "status": 404,
+    "body": {
+      "detail": {
+        "code": "OBJECT_NOT_FOUND",
+        "message": "Stored object was not found"
+      }
+    }
+  },
+  "checksumArtifact": {
+    "status": 409,
+    "body": {
+      "detail": {
+        "code": "DOCUMENT_CHECKSUM_MISMATCH",
+        "message": "Stored document checksum does not match"
+      }
+    }
+  },
+  "instanceExclusion": {
+    "offlineSecondOwnerRejected": true
+  },
+  "maintenance": {
+    "read": 200,
+    "newTask": 503,
+    "grade": 503
+  },
+  "backupRestoreRollback": {
+    "tableDigestsAndSequences": {
+      "tables": {
+        "checkpoint_migrations": {
+          "count": 10,
+          "sha256": "6bd31f9bfde196c60b82960c4cf588eb94584d1f55b53d774af73e9c0a851870"
+        },
+        "checkpoints": {
+          "count": 10478,
+          "sha256": "fe93dcbb5129d8cc26fcd59d8b6d35e11578908c28aaabeccc239d4068741a7a"
+        },
+        "checkpoint_blobs": {
+          "count": 21578,
+          "sha256": "f79bdc705de48770abca8c8156ae9b982c0a628e86459f9f5bcee41ed16c19e8"
+        },
+        "checkpoint_writes": {
+          "count": 51221,
+          "sha256": "ae36ebe15a3991fefbb73c5e06301980de5a8422900ab7fe7cf2091373745997"
+        },
+        "store_migrations": {
+          "count": 4,
+          "sha256": "000b97ff80c9059bad1bb2cc7092844ec5703c0ebf6b7059f03072e9d23729bd"
+        },
+        "store": {
+          "count": 3135,
+          "sha256": "9ce1603d18c71a895e03a7267e2fc3e101ce0f1ed16e1af4590b0d8535bb1220"
+        },
+        "practiq_schema": {
+          "count": 1,
+          "sha256": "8b4c6134e31b7bf9794db7da319e903caf8aaf30d68ca0d8b36fc774a6eafb7b"
+        },
+        "document_tasks": {
+          "count": 616,
+          "sha256": "0bc7d8631e2e008f11bcca7faeab35b527b103896771ee46d68dff237f515b3c"
+        },
+        "document_runs": {
+          "count": 616,
+          "sha256": "82b7721cbb0b51f1cf13e70065b713f3d9f715d54d0e4f02070af365d92103a7"
+        },
+        "document_receipts": {
+          "count": 616,
+          "sha256": "9eda92a0499fbcd2f180a4c79da2e0f17bd9fec0a6c39b45a11bdacea076c0be"
+        },
+        "grades": {
+          "count": 1,
+          "sha256": "993a8344ee4b7cc550dde182e50bc95d772a15f320b1460fd70c93be34528adc"
+        },
+        "grade_calls": {
+          "count": 1,
+          "sha256": "2aea2e605da3263927761304530d5d8c1ddcc6eb9f4e8afd75b462307e4db8a8"
+        }
+      },
+      "sequences": {
+        "grade_calls_sequence_seq": [
+          2,
+          true
+        ]
+      }
+    },
+    "allFileHashes": {
+      "practiq-agent/sources/ae3d928900cd0b00447ba8661979050d7eab947a080f5aef0f3647242bdbfe92/source.txt": "ae3d928900cd0b00447ba8661979050d7eab947a080f5aef0f3647242bdbfe92",
+      "practiq-agent/sources/5ea72921b3f4d6a91e2bb59dbac70adae41a2a5cae13d9b061c6196a33420b3f/source.docx": "5ea72921b3f4d6a91e2bb59dbac70adae41a2a5cae13d9b061c6196a33420b3f",
+      "practiq-agent/sources/6530accace3f39627e3aaa2131f1bbc033f553c5f4166ef120694feb40dad209/source.txt": "6530accace3f39627e3aaa2131f1bbc033f553c5f4166ef120694feb40dad209",
+      "practiq-agent/sources/288d667dce51ce797886ef4ae35bd776c242fb0ebe2d3a1db6b6f8355ff38d2d/source.xlsx": "288d667dce51ce797886ef4ae35bd776c242fb0ebe2d3a1db6b6f8355ff38d2d",
+      "practiq-agent/sources/38937c01c8a41e7176b5c6767ab33d6ec0e86c6a689fe6e22ef7f7bef1e5682d/source.xls": "38937c01c8a41e7176b5c6767ab33d6ec0e86c6a689fe6e22ef7f7bef1e5682d",
+      "practiq-agent/sources/c43131387eb3ef9bad8078c5b24f8ebf95ed2962d8deb4a6728adf40d69c5059/source.pdf": "c43131387eb3ef9bad8078c5b24f8ebf95ed2962d8deb4a6728adf40d69c5059",
+      "practiq-agent/sources/27b8e595c7d8a136dd5d20f19d1236e9a9ca857174318a2421fc143d5f4c09c6/source.doc": "27b8e595c7d8a136dd5d20f19d1236e9a9ca857174318a2421fc143d5f4c09c6",
+      "practiq-agent/artifacts/27b8e595c7d8a136dd5d20f19d1236e9a9ca857174318a2421fc143d5f4c09c6/text/0-9fac6b7d01b6f9c191aa0b10cad6b5c94503d0f91bf3ab9453cf15106b6cc100.txt": "9fac6b7d01b6f9c191aa0b10cad6b5c94503d0f91bf3ab9453cf15106b6cc100",
+      "practiq-agent/artifacts/27b8e595c7d8a136dd5d20f19d1236e9a9ca857174318a2421fc143d5f4c09c6/office/0-9fac6b7d01b6f9c191aa0b10cad6b5c94503d0f91bf3ab9453cf15106b6cc100.txt": "9fac6b7d01b6f9c191aa0b10cad6b5c94503d0f91bf3ab9453cf15106b6cc100",
+      "practiq-agent/artifacts/27b8e595c7d8a136dd5d20f19d1236e9a9ca857174318a2421fc143d5f4c09c6/chunk/0-9fac6b7d01b6f9c191aa0b10cad6b5c94503d0f91bf3ab9453cf15106b6cc100.txt": "9fac6b7d01b6f9c191aa0b10cad6b5c94503d0f91bf3ab9453cf15106b6cc100",
+      "practiq-agent/artifacts/27b8e595c7d8a136dd5d20f19d1236e9a9ca857174318a2421fc143d5f4c09c6/unit-result/0-22b493ed6e466a7943b04f1ca227230f6cb915885210857b385ae6fb9d993d61.json": "22b493ed6e466a7943b04f1ca227230f6cb915885210857b385ae6fb9d993d61",
+      "practiq-agent/artifacts/c43131387eb3ef9bad8078c5b24f8ebf95ed2962d8deb4a6728adf40d69c5059/page/3-4391666cea550fb23038e701c4de64b2fdcc71b0afc78b71be69120f47665535.png": "4391666cea550fb23038e701c4de64b2fdcc71b0afc78b71be69120f47665535",
+      "practiq-agent/artifacts/c43131387eb3ef9bad8078c5b24f8ebf95ed2962d8deb4a6728adf40d69c5059/page/1-bb5034d96297661f66f893ed463aa31083039bad3f35f0e5bc56b74c04fadacd.png": "bb5034d96297661f66f893ed463aa31083039bad3f35f0e5bc56b74c04fadacd",
+      "practiq-agent/artifacts/c43131387eb3ef9bad8078c5b24f8ebf95ed2962d8deb4a6728adf40d69c5059/page/2-38c4dbeb4b9db3e8c560041289b1e71e90812716de4e5b09c2147c1a58f9b684.png": "38c4dbeb4b9db3e8c560041289b1e71e90812716de4e5b09c2147c1a58f9b684",
+      "practiq-agent/artifacts/c43131387eb3ef9bad8078c5b24f8ebf95ed2962d8deb4a6728adf40d69c5059/page/0-2b27789e2e0718fde6761cb91aa8c795f9b517935310536ec889ca0c2fa16ad9.png": "2b27789e2e0718fde6761cb91aa8c795f9b517935310536ec889ca0c2fa16ad9",
+      "practiq-agent/artifacts/c43131387eb3ef9bad8078c5b24f8ebf95ed2962d8deb4a6728adf40d69c5059/crop-3/3-ca0454f191fb02ae9865f65c9704697eabdb4da0532e90b35d021d8c91e72dc5.jpg": "ca0454f191fb02ae9865f65c9704697eabdb4da0532e90b35d021d8c91e72dc5",
+      "practiq-agent/artifacts/c43131387eb3ef9bad8078c5b24f8ebf95ed2962d8deb4a6728adf40d69c5059/crop-0/0-9292bef2721027e933a9e4927d0fca8916b3bfd40653533e66e03f345c151141.jpg": "9292bef2721027e933a9e4927d0fca8916b3bfd40653533e66e03f345c151141",
+      "practiq-agent/artifacts/c43131387eb3ef9bad8078c5b24f8ebf95ed2962d8deb4a6728adf40d69c5059/crop-2/2-14db6db919ae807a0d1aa688033bed045479315c765a5de6a7767fa485ba3983.jpg": "14db6db919ae807a0d1aa688033bed045479315c765a5de6a7767fa485ba3983",
+      "practiq-agent/artifacts/c43131387eb3ef9bad8078c5b24f8ebf95ed2962d8deb4a6728adf40d69c5059/crop-1/1-1e200c899d35959638600fb3572297c7b520a6f77a6492533055763490797116.jpg": "1e200c899d35959638600fb3572297c7b520a6f77a6492533055763490797116",
+      "practiq-agent/artifacts/c43131387eb3ef9bad8078c5b24f8ebf95ed2962d8deb4a6728adf40d69c5059/unit-result/1-43a6904be549e9f1a83a8dd76947d9b9fc5ffc8d3b1caa0787091f8f04f4df10.json": "43a6904be549e9f1a83a8dd76947d9b9fc5ffc8d3b1caa0787091f8f04f4df10",
+      "practiq-agent/artifacts/c43131387eb3ef9bad8078c5b24f8ebf95ed2962d8deb4a6728adf40d69c5059/unit-result/2-c93a0b48f7ecaa50cfaacba1ae8709e1f7f3c5916239e37fddc8663b68e67e65.json": "c93a0b48f7ecaa50cfaacba1ae8709e1f7f3c5916239e37fddc8663b68e67e65",
+      "practiq-agent/artifacts/c43131387eb3ef9bad8078c5b24f8ebf95ed2962d8deb4a6728adf40d69c5059/unit-result/0-24d20d922756a5cbbb2b51d1d7b750d31ee460797a425ee0037790571056b8f1.json": "24d20d922756a5cbbb2b51d1d7b750d31ee460797a425ee0037790571056b8f1",
+      "practiq-agent/artifacts/c43131387eb3ef9bad8078c5b24f8ebf95ed2962d8deb4a6728adf40d69c5059/unit-result/3-a025a3877b4478d8d934ce09751f5c582b12977f94b6de02cd272569d762ecfe.json": "a025a3877b4478d8d934ce09751f5c582b12977f94b6de02cd272569d762ecfe",
+      "practiq-agent/artifacts/38937c01c8a41e7176b5c6767ab33d6ec0e86c6a689fe6e22ef7f7bef1e5682d/text/0-ce35f37cd1b4d157de46280bdcf92daf055d9f1b3a8c56447ae4c0dbbda33ac1.txt": "ce35f37cd1b4d157de46280bdcf92daf055d9f1b3a8c56447ae4c0dbbda33ac1",
+      "practiq-agent/artifacts/38937c01c8a41e7176b5c6767ab33d6ec0e86c6a689fe6e22ef7f7bef1e5682d/office/0-3deafa274846c4e827c0ed5533d126e815d4a6fc8b71285833b4088328595ffc.bin": "3deafa274846c4e827c0ed5533d126e815d4a6fc8b71285833b4088328595ffc",
+      "practiq-agent/artifacts/38937c01c8a41e7176b5c6767ab33d6ec0e86c6a689fe6e22ef7f7bef1e5682d/office/1-821bc186723e983b45f74b271f81528a69e104d1275a479ec54aa188903b3750.bin": "821bc186723e983b45f74b271f81528a69e104d1275a479ec54aa188903b3750",
+      "practiq-agent/artifacts/38937c01c8a41e7176b5c6767ab33d6ec0e86c6a689fe6e22ef7f7bef1e5682d/chunk/1-b8895d642a4093219f79e55ca9ceb47017c690933b6d9863cd82b232d5b80839.txt": "b8895d642a4093219f79e55ca9ceb47017c690933b6d9863cd82b232d5b80839",
+      "practiq-agent/artifacts/38937c01c8a41e7176b5c6767ab33d6ec0e86c6a689fe6e22ef7f7bef1e5682d/chunk/0-445a227766ecf292b7cb7cf25241987f60c5c376e9a2140e41c23f17cae6a542.txt": "445a227766ecf292b7cb7cf25241987f60c5c376e9a2140e41c23f17cae6a542",
+      "practiq-agent/artifacts/38937c01c8a41e7176b5c6767ab33d6ec0e86c6a689fe6e22ef7f7bef1e5682d/unit-result/0-22b493ed6e466a7943b04f1ca227230f6cb915885210857b385ae6fb9d993d61.json": "22b493ed6e466a7943b04f1ca227230f6cb915885210857b385ae6fb9d993d61",
+      "practiq-agent/artifacts/38937c01c8a41e7176b5c6767ab33d6ec0e86c6a689fe6e22ef7f7bef1e5682d/unit-result/1-22b493ed6e466a7943b04f1ca227230f6cb915885210857b385ae6fb9d993d61.json": "22b493ed6e466a7943b04f1ca227230f6cb915885210857b385ae6fb9d993d61",
+      "practiq-agent/artifacts/288d667dce51ce797886ef4ae35bd776c242fb0ebe2d3a1db6b6f8355ff38d2d/text/0-ce35f37cd1b4d157de46280bdcf92daf055d9f1b3a8c56447ae4c0dbbda33ac1.txt": "ce35f37cd1b4d157de46280bdcf92daf055d9f1b3a8c56447ae4c0dbbda33ac1",
+      "practiq-agent/artifacts/288d667dce51ce797886ef4ae35bd776c242fb0ebe2d3a1db6b6f8355ff38d2d/office/0-3deafa274846c4e827c0ed5533d126e815d4a6fc8b71285833b4088328595ffc.bin": "3deafa274846c4e827c0ed5533d126e815d4a6fc8b71285833b4088328595ffc",
+      "practiq-agent/artifacts/288d667dce51ce797886ef4ae35bd776c242fb0ebe2d3a1db6b6f8355ff38d2d/office/1-821bc186723e983b45f74b271f81528a69e104d1275a479ec54aa188903b3750.bin": "821bc186723e983b45f74b271f81528a69e104d1275a479ec54aa188903b3750",
+      "practiq-agent/artifacts/288d667dce51ce797886ef4ae35bd776c242fb0ebe2d3a1db6b6f8355ff38d2d/chunk/1-b8895d642a4093219f79e55ca9ceb47017c690933b6d9863cd82b232d5b80839.txt": "b8895d642a4093219f79e55ca9ceb47017c690933b6d9863cd82b232d5b80839",
+      "practiq-agent/artifacts/288d667dce51ce797886ef4ae35bd776c242fb0ebe2d3a1db6b6f8355ff38d2d/chunk/0-445a227766ecf292b7cb7cf25241987f60c5c376e9a2140e41c23f17cae6a542.txt": "445a227766ecf292b7cb7cf25241987f60c5c376e9a2140e41c23f17cae6a542",
+      "practiq-agent/artifacts/288d667dce51ce797886ef4ae35bd776c242fb0ebe2d3a1db6b6f8355ff38d2d/unit-result/0-22b493ed6e466a7943b04f1ca227230f6cb915885210857b385ae6fb9d993d61.json": "22b493ed6e466a7943b04f1ca227230f6cb915885210857b385ae6fb9d993d61",
+      "practiq-agent/artifacts/288d667dce51ce797886ef4ae35bd776c242fb0ebe2d3a1db6b6f8355ff38d2d/unit-result/1-22b493ed6e466a7943b04f1ca227230f6cb915885210857b385ae6fb9d993d61.json": "22b493ed6e466a7943b04f1ca227230f6cb915885210857b385ae6fb9d993d61",
+      "practiq-agent/artifacts/6530accace3f39627e3aaa2131f1bbc033f553c5f4166ef120694feb40dad209/text/0-6530accace3f39627e3aaa2131f1bbc033f553c5f4166ef120694feb40dad209.txt": "6530accace3f39627e3aaa2131f1bbc033f553c5f4166ef120694feb40dad209",
+      "practiq-agent/artifacts/6530accace3f39627e3aaa2131f1bbc033f553c5f4166ef120694feb40dad209/chunk/0-6530accace3f39627e3aaa2131f1bbc033f553c5f4166ef120694feb40dad209.txt": "6530accace3f39627e3aaa2131f1bbc033f553c5f4166ef120694feb40dad209",
+      "practiq-agent/artifacts/6530accace3f39627e3aaa2131f1bbc033f553c5f4166ef120694feb40dad209/unit-result/0-22b493ed6e466a7943b04f1ca227230f6cb915885210857b385ae6fb9d993d61.json": "22b493ed6e466a7943b04f1ca227230f6cb915885210857b385ae6fb9d993d61",
+      "practiq-agent/artifacts/5ea72921b3f4d6a91e2bb59dbac70adae41a2a5cae13d9b061c6196a33420b3f/text/0-9fac6b7d01b6f9c191aa0b10cad6b5c94503d0f91bf3ab9453cf15106b6cc100.txt": "9fac6b7d01b6f9c191aa0b10cad6b5c94503d0f91bf3ab9453cf15106b6cc100",
+      "practiq-agent/artifacts/5ea72921b3f4d6a91e2bb59dbac70adae41a2a5cae13d9b061c6196a33420b3f/office/0-9fac6b7d01b6f9c191aa0b10cad6b5c94503d0f91bf3ab9453cf15106b6cc100.txt": "9fac6b7d01b6f9c191aa0b10cad6b5c94503d0f91bf3ab9453cf15106b6cc100",
+      "practiq-agent/artifacts/5ea72921b3f4d6a91e2bb59dbac70adae41a2a5cae13d9b061c6196a33420b3f/chunk/0-9fac6b7d01b6f9c191aa0b10cad6b5c94503d0f91bf3ab9453cf15106b6cc100.txt": "9fac6b7d01b6f9c191aa0b10cad6b5c94503d0f91bf3ab9453cf15106b6cc100",
+      "practiq-agent/artifacts/5ea72921b3f4d6a91e2bb59dbac70adae41a2a5cae13d9b061c6196a33420b3f/unit-result/0-22b493ed6e466a7943b04f1ca227230f6cb915885210857b385ae6fb9d993d61.json": "22b493ed6e466a7943b04f1ca227230f6cb915885210857b385ae6fb9d993d61",
+      "practiq-agent/artifacts/ae3d928900cd0b00447ba8661979050d7eab947a080f5aef0f3647242bdbfe92/text/0-ae3d928900cd0b00447ba8661979050d7eab947a080f5aef0f3647242bdbfe92.txt": "ae3d928900cd0b00447ba8661979050d7eab947a080f5aef0f3647242bdbfe92",
+      "practiq-agent/artifacts/ae3d928900cd0b00447ba8661979050d7eab947a080f5aef0f3647242bdbfe92/chunk/0-ae3d928900cd0b00447ba8661979050d7eab947a080f5aef0f3647242bdbfe92.txt": "ae3d928900cd0b00447ba8661979050d7eab947a080f5aef0f3647242bdbfe92",
+      "practiq-agent/artifacts/ae3d928900cd0b00447ba8661979050d7eab947a080f5aef0f3647242bdbfe92/unit-result/0-22b493ed6e466a7943b04f1ca227230f6cb915885210857b385ae6fb9d993d61.json": "22b493ed6e466a7943b04f1ca227230f6cb915885210857b385ae6fb9d993d61"
+    },
+    "matchingDatabaseAndFileHashesRestored": true,
+    "originalDatabaseAndFilesPreserved": true,
+    "cachedGradingReceiptPreserved": true,
+    "additionalProviderCalls": 0,
+    "bankSha256": "4d1a60494ef1ebdab8d0d47d31257ea150cbe3b53a93a704b5067b778e1cd493",
+    "bankBytes": 928,
+    "databaseDumpSha256": "1e549d6b5085a0b2a624e258019a29e8fc3d0a4459a89d39536c9cabfca2e6d8",
+    "filesTarSha256": "025a913eae3b27041758ec44e3081e6f1339905266cc68759fe1c4c2c33f0bd8"
+  },
+  "gracefulStop": {
+    "exitCode": 143,
+    "shutdownComplete": true,
+    "totalBackupRestoreDrillSeconds": 24.480916167012765
+  },
+  "status": "PASSED"
+}

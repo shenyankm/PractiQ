@@ -1,0 +1,19 @@
+{
+  "matchingPage": {
+    "jsonBytes": 9536,
+    "maxMs": 17.193666,
+    "medianMs": 16.91625
+  },
+  "matchingStats": {
+    "jsonBytes": 3956,
+    "maxMs": 26.543582999999998,
+    "medianMs": 26.379666999999998
+  },
+  "missingPage": {
+    "jsonBytes": 33,
+    "maxMs": 32.795792,
+    "medianMs": 32.794709
+  },
+  "questions": 10000,
+  "repetitions": 3
+}

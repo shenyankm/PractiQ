@@ -1,0 +1,89 @@
+{
+  "baseline": {
+    "samples": [
+      {
+        "repeat": 1,
+        "conclusion": "success",
+        "headSha": "f0ea1492da3c33aa74548eb9ab515a69e2b26321",
+        "jobUrl": "https://github.com/shenyankm/PractiQ/actions/runs/37915383197/job/113770253946",
+        "jobSeconds": 624.0,
+        "steps": {
+          "Verify service": 458.0,
+          "Build service image": 62.0
+        }
+      },
+      {
+        "repeat": 2,
+        "conclusion": "success",
+        "headSha": "f0ea1492da3c33aa74548eb9ab515a69e2b26321",
+        "jobUrl": "https://github.com/shenyankm/PractiQ/actions/runs/37915383197/job/113778078048",
+        "jobSeconds": 607.0,
+        "steps": {
+          "Verify service": 470.0,
+          "Build service image": 30.0
+        }
+      },
+      {
+        "repeat": 3,
+        "conclusion": "success",
+        "headSha": "f0ea1492da3c33aa74548eb9ab515a69e2b26321",
+        "jobUrl": "https://github.com/shenyankm/PractiQ/actions/runs/37915383197/job/113782248901",
+        "jobSeconds": 584.0,
+        "steps": {
+          "Verify service": 384.0,
+          "Build service image": 66.0
+        }
+      }
+    ],
+    "jobSeconds": {
+      "median": 607.0,
+      "min": 584.0,
+      "max": 624.0
+    }
+  },
+  "candidate": {
+    "samples": [
+      {
+        "repeat": 1,
+        "conclusion": "success",
+        "headSha": "f077cce8ddac2bd8cfdc616bac333e2e11d870cd",
+        "jobUrl": "https://github.com/shenyankm/PractiQ/actions/runs/37919144425/job/113782612050",
+        "jobSeconds": 599.0,
+        "steps": {
+          "Verify independent service web frontend": 44.0,
+          "Verify service": 423.0,
+          "Build service image": 68.0
+        }
+      },
+      {
+        "repeat": 2,
+        "conclusion": "success",
+        "headSha": "f077cce8ddac2bd8cfdc616bac333e2e11d870cd",
+        "jobUrl": "https://github.com/shenyankm/PractiQ/actions/runs/37919144425/job/113787542118",
+        "jobSeconds": 594.0,
+        "steps": {
+          "Verify independent service web frontend": 43.0,
+          "Verify service": 460.0,
+          "Build service image": 32.0
+        }
+      },
+      {
+        "repeat": 3,
+        "conclusion": "success",
+        "headSha": "f077cce8ddac2bd8cfdc616bac333e2e11d870cd",
+        "jobUrl": "https://github.com/shenyankm/PractiQ/actions/runs/37919144425/job/113794146579",
+        "jobSeconds": 437.0,
+        "steps": {
+          "Verify independent service web frontend": 34.0,
+          "Verify service": 314.0,
+          "Build service image": 30.0
+        }
+      }
+    ],
+    "jobSeconds": {
+      "median": 594.0,
+      "min": 437.0,
+      "max": 599.0
+    }
+  }
+}

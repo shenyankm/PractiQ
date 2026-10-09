@@ -1,0 +1,47 @@
+{
+  "compositeLists": [
+    {
+      "children": 500,
+      "materialBytes": 50000,
+      "measurement": {
+        "jsonBytes": 328,
+        "maxMs": 0.931084,
+        "medianMs": 0.8394159999999999
+      },
+      "returnedRoots": 1,
+      "rootPageLimit": 30
+    },
+    {
+      "children": 999,
+      "materialBytes": 100000,
+      "measurement": {
+        "jsonBytes": 328,
+        "maxMs": 1.564084,
+        "medianMs": 1.530542
+      },
+      "returnedRoots": 1,
+      "rootPageLimit": 30
+    }
+  ],
+  "method": "Release Rust; disposable database; synthetic valid reading groups; 3 sequential samples; excludes IPC/WebView",
+  "subsetCounts": [
+    {
+      "measurement": {
+        "jsonBytes": 3894,
+        "maxMs": 0.014375,
+        "medianMs": 0.010292
+      },
+      "roots": 10000,
+      "weight": 1
+    },
+    {
+      "measurement": {
+        "jsonBytes": 3894,
+        "maxMs": 0.030042000000000003,
+        "medianMs": 0.029416
+      },
+      "roots": 100000,
+      "weight": 1
+    }
+  ]
+}

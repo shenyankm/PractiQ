@@ -129,6 +129,7 @@ FastAPI/LangGraph 服务监听 `127.0.0.1:8090`，使用 PostgreSQL 和本地文
 - [文档任务 API](server/docs/document-tasks.md)：进度、暂停、恢复、重试与复核
 - [部署与运维](server/docs/operations.md)：部署、存储与恢复
 - [单机部署验证](docs/operations-single-machine-20261009.md)：隔离资源配额、替身模型过载、故障恢复与备份还原
+- [10 月 9 日工程证据](docs/engineering-optimization-20261009.md)：采纳与撤销的候选、独立产物测量及真实模型失败边界
 - [效果评测](server/docs/evaluation.md)：数据集、检查与证据边界
 - [Web 资源测量](docs/performance-web-fonts-20261009.md)：完整静态资源体积、构建样本与字体验证
 - [评分格式实验](docs/performance-grading-arrays-20261009.md)：固定真实模型样本、调用用量与撤销的候选

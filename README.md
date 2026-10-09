@@ -126,6 +126,7 @@ Start with the [documentation index](docs/README.md) for user guides, technical 
 - [Operations](server/docs/operations.md): deployment, storage, and recovery
 - [Single-machine deployment checks](docs/operations-single-machine-20261009.md): isolated quotas, synthetic overload, failure recovery and backup restore
 - [Evaluation](server/docs/evaluation.md): datasets, checks, and evidence limits
+- [October 9 engineering journal](docs/engineering-optimization-20261009.md): accepted/rejected candidates, separate artifact inventories and real-model failure boundaries
 - [Web asset measurements](docs/performance-web-fonts-20261009.md): full static size, build samples and font validation
 - [Grading format experiment](docs/performance-grading-arrays-20261009.md): fixed real-model anchors, usage and rejected candidate
 - [Payload validation measurements](docs/performance-payload-check-20261009.md): shared storage/Office checks and event-loop scheduling

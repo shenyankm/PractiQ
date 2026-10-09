@@ -1,0 +1,38 @@
+# Engineering journal evidence
+
+Read the [journal](../../engineering-optimization-20261009.md) for decisions, source boundaries and limits. These are actual captured samples, not new acceptance results. [Provenance](provenance.json) retains original and published hashes; host home-path strings are redacted where indicated. Original local evidence remains retained. No credentials, user databases, backup binaries or installer binaries are published.
+
+| Evidence | Interpretation |
+| --- | --- |
+| `postgres-*.json`, `rejected-*-writer.patch` | Three isolated real-PostgreSQL/ASGI comparisons, untouched repeat baseline and a separately excluded contended run. Candidates reverted; summed overlapping connection duration is not saved wall time |
+| `app-assets.json` | Three clean frontend and three incremental builds, initial static import graph, complete assets and hashes; unchanged app source |
+| `macos-native-builds.json`, `native-packages/` | Six real local macOS DMGs, separate clean Cargo targets and immediate reuse, with actual final-installer reports; registries/OS caches warm |
+| `native-main-artifacts.json` | Actual main CI macOS/Windows installers and arm64 debug APK, source, sizes, hashes and package diagnostics |
+| `app-stress-inventory.json`, `app-stress/` | Existing release-mode native Rust/SQLite stress probes, each executed three times with fresh synthetic temporary databases |
+| `image-build-original.json`, `image-build-verified.json` | Six successful commands; the driver's final equal-size assertion failed. Separate retained-image content checks pass; no byte-reproducible image claim |
+| `ci-three-repeats.json`, `ci/` | Three attempts at each fixed Service CI source head. Runner/cache/network variation prevents an overall speed claim |
+| `final-parser-baseline.json.gz`, `final-gold-grading.json` | Final approved `null` source-language gold and unchanged fixture, 33 parser cases ×3 plus five grading anchors ×3. Parsing is FAILED; old reports are separate datasets |
+| `historical-*-gold-parser.json` | Previous approved annotation versions and their failed full baselines, retained with original hashes/time boundaries |
+| `rejected-parser-tree*.patch`, `rejected-parser-tree.json` | Single-factor parser experiments; poor quality means neither candidate is delivered |
+| `live-budget.json` | Cumulative guarded 576-call ledger, known estimated CNY 0.9387102, no unknown calls; not a provider invoice |
+| `app-npm-audit.json` | Locked App npm audit with zero reported vulnerabilities at capture; advisory state changes over time |
+
+Environment is macOS 27.0.1 arm64 / 16 GiB / 10 CPU, Python 3.14.7, Node 22.23.2, npm 10.9.8 and pinned Rust 1.98.1, plus Docker's Linux arm64 VM (10 CPU, about 8.3 GB). Every report identifies its own source and tool/runtime inputs. Native/App inventories precede final documentation: `git diff` of the App tree from the initial round baseline to delivered code must remain empty before reusing this evidence.
+
+Reproduce native data probes with the existing ignored tests at the selected source, one report path per whole invocation. For example, set `PRACTIQ_BENCH_OUTPUT=/absolute/fresh/desktop.json` and run `cargo test --release --manifest-path app/src-tauri/Cargo.toml desktop_stress -- --ignored --nocapture`; `list_and_selection_stress` uses the same variable and a different output path. `search_stress` uses `PRACTIQ_SEARCH_PERF_OUTPUT`. Repeat each three times. These are actual native data operations; browser mocks and GUI interaction are separate evidence. The first broad `stress` filter overwrote shared output; fresh individual invocations above supply the accepted reports.
+
+Real-model reproduction requires the user's approved model, fixed cases, call limit and cost budget **before** running the existing evaluators. The temporary bounded transport's unknown-before-send reservation is described in the grading report. Do not run a default evaluator without an approved spend monitor. Parser quality reports use reference fields and deterministic scorer criteria, not model self-assessment.
+
+## Final deployment records
+
+`operations-main-source.json` verifies all 32 installed source modules and lock against merged main `100781e`; `operations-image-source.json` fixes the actual image and execution/runtime identity. `operations-environment.json` and `operations-filesystems.json` bound the host/resource/storage conditions. The accepted storage is an absolute Linux-local bind in the Docker VM; the macOS shared bind is a retained failed profile.
+
+`operations-steady-load.json` and its original text log retain all 75 batches and three whole-repetition timings. `operations-resources-after-load.json` is the cgroup snapshot before extra formats. `operations-format-samples.json.gz` retains 27 default-format tasks on the earlier equivalent execution runtime; `operations-format-extra.json` and `operations-office-text-integrity.json` retain 15 additional final-image Linux tasks and actual normalized fixture cells/checksums. Each format/task export was CRC/hash checked. No content-quality inference is made from the synthetic provider.
+
+`operations-final-drills.json` retains actual crash/unknown-use, database failure, missing/corrupt files, owner exclusion, maintenance, graceful stop and matching twelve-table/sequence/file restore and rollback. Its resource snapshot is after both load and extra formats. Private databases, dump/file archives, TLS keys, provider/service credentials and full raw logs are excluded. `operations-https-metrics.json` records the verified local TLS/auth boundary. Alert input/result/tool records are offline tests of the six existing rules, not an installed monitoring platform or delivered notification.
+
+The shared-bind overload and three failure profiles remain in the corresponding `operations-shared-bind-*.json` files. One representative classified exception is retained in `operations-storage-classification.json`; it omits payload and raw error text. `operations-shared-bind-recovery.json` confirms explicit checkpoint recovery of all three errors. Recovery does not convert the failed sustained-load profile into a pass. Root cause remains unconfirmed; the selected Linux-local profile's 600 tasks pass without changing storage validation/retry behavior.
+
+The new raw files join the original provenance manifest. Two compact derived records (exception classification and alert-tool metadata) state their scope directly; original private observations remain retained. Reproduce the load with existing `server/scripts/load_test.py`: fixed synthetic text, `--total 8 --submit-concurrency 4 --max-running 4 --graph-concurrency 2`, 25 drained batches per repetition, three repetitions, and a fresh report per batch. Use an isolated stub endpoint/database/storage and record the actual image/source/configuration; do not send this drill to a paid provider without a separately approved budget.
+
+Large JSON reports, verbatim experiment patches and the raw promtool stdout use lossless `.gz` archival. Decompress with `gzip -dc <file>` before reading/applying. The provenance manifest records both compressed bytes and uncompressed published SHA-256; every uncompressed byte is retained. Compression is for evidence review and is not an application/package-size optimization.

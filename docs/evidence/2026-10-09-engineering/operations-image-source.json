@@ -1,0 +1,27 @@
+{
+  "sourceSha": "2878ecad830b213010c4ca9d08853e01258a5a38",
+  "image": "practiq-goal-20261009-build-lock:final",
+  "imageId": "sha256:edf0a70198028c9df59290d9f94cec0d8b6ef0beebd069cd3a52e22b92360364",
+  "sizeBytes": 1233571946,
+  "previousImageSourceSha": "f49641fffc18215cbb66cf2b5f2ed91ca0cc488c",
+  "previousAndCurrentExecutionFingerprintAndRuntimeMatch": true,
+  "codeHash": "1e0680f2f60cf770beb4906a4e4db813cba031fd814530c9011ef649dc9b4694",
+  "runtime": {
+    "python": [
+      3,
+      14,
+      7
+    ],
+    "packages": {
+      "langgraph": "1.2.11",
+      "langgraph-checkpoint-postgres": "3.1.2",
+      "psycopg": "3.3.6",
+      "psycopg-binary": "3.3.6",
+      "langchain-core": "1.5.6",
+      "langchain-openai": "1.5.1",
+      "pydantic": "2.13.4",
+      "pypdfium2": "5.12.1",
+      "pillow": "12.3.0"
+    }
+  }
+}

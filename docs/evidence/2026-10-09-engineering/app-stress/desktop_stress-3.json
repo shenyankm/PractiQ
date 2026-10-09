@@ -1,0 +1,93 @@
+{
+  "allQuestions": {
+    "jsonBytes": 7835601,
+    "maxMs": 201.62812499999998,
+    "medianMs": 194.050416
+  },
+  "attempts": 100000,
+  "backup": {
+    "jsonBytes": 80,
+    "maxMs": 470.822,
+    "medianMs": 318.404917
+  },
+  "backupBytes": 5635313,
+  "draftBurst": {
+    "lastAnswerSurvivesReopen": true,
+    "p50Ms": 0.499209,
+    "p95Ms": 0.70125,
+    "writes": 100
+  },
+  "filteredSearch": {
+    "jsonBytes": 625,
+    "maxMs": 8.75,
+    "medianMs": 8.588958
+  },
+  "firstPage": {
+    "jsonBytes": 8986,
+    "maxMs": 3.492208,
+    "medianMs": 3.3615
+  },
+  "historyPage": {
+    "jsonBytes": 10462,
+    "maxMs": 20.882082999999998,
+    "medianMs": 20.824291000000002
+  },
+  "insert1000": {
+    "jsonBytes": 4,
+    "maxMs": 5.57575,
+    "medianMs": 5.156499999999999
+  },
+  "positionDelta": {
+    "jsonBytes": 463,
+    "maxMs": 4.619708,
+    "medianMs": 3.114708
+  },
+  "positionUpdate": {
+    "jsonBytes": 224248,
+    "maxMs": 4.010667,
+    "medianMs": 3.8293749999999998
+  },
+  "questions": 10000,
+  "repetitions": 3,
+  "restore": {
+    "jsonBytes": 159,
+    "maxMs": 2252.855208,
+    "medianMs": 2220.747875
+  },
+  "saveAttempt": {
+    "jsonBytes": 933846,
+    "maxMs": 21.469333,
+    "medianMs": 9.846208
+  },
+  "saveAttemptDelta": {
+    "jsonBytes": 685,
+    "maxMs": 7.458208,
+    "medianMs": 3.298167
+  },
+  "saveAttemptUpdate": {
+    "jsonBytes": 224248,
+    "maxMs": 4.078666,
+    "medianMs": 3.787959
+  },
+  "saveDraft": {
+    "jsonBytes": 4,
+    "maxMs": 4.190834,
+    "medianMs": 0.47325
+  },
+  "scope": "Synthetic SQLite + serialization; excludes IPC/WebView, media playback and native accessibility",
+  "session": {
+    "jsonBytes": 933846,
+    "maxMs": 11.037625,
+    "medianMs": 8.743374999999999
+  },
+  "smallBank": {
+    "jsonBytes": 15521,
+    "maxMs": 2.151666,
+    "medianMs": 1.499083
+  },
+  "submit": {
+    "jsonBytes": 947855,
+    "maxMs": 29.797833,
+    "medianMs": 28.723791
+  }
+}

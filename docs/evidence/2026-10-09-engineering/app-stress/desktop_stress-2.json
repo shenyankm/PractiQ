@@ -1,0 +1,93 @@
+{
+  "allQuestions": {
+    "jsonBytes": 7835601,
+    "maxMs": 202.25004199999998,
+    "medianMs": 197.287916
+  },
+  "attempts": 100000,
+  "backup": {
+    "jsonBytes": 80,
+    "maxMs": 325.35004200000003,
+    "medianMs": 312.981041
+  },
+  "backupBytes": 5634923,
+  "draftBurst": {
+    "lastAnswerSurvivesReopen": true,
+    "p50Ms": 0.5079159999999999,
+    "p95Ms": 0.615959,
+    "writes": 100
+  },
+  "filteredSearch": {
+    "jsonBytes": 625,
+    "maxMs": 8.559667,
+    "medianMs": 8.504916
+  },
+  "firstPage": {
+    "jsonBytes": 8986,
+    "maxMs": 3.408125,
+    "medianMs": 3.3754589999999998
+  },
+  "historyPage": {
+    "jsonBytes": 10462,
+    "maxMs": 20.824583,
+    "medianMs": 20.51925
+  },
+  "insert1000": {
+    "jsonBytes": 4,
+    "maxMs": 5.581583999999999,
+    "medianMs": 5.286334
+  },
+  "positionDelta": {
+    "jsonBytes": 463,
+    "maxMs": 3.858625,
+    "medianMs": 3.110208
+  },
+  "positionUpdate": {
+    "jsonBytes": 224248,
+    "maxMs": 4.35725,
+    "medianMs": 3.857542
+  },
+  "questions": 10000,
+  "repetitions": 3,
+  "restore": {
+    "jsonBytes": 159,
+    "maxMs": 2139.0576659999997,
+    "medianMs": 2112.895042
+  },
+  "saveAttempt": {
+    "jsonBytes": 933846,
+    "maxMs": 22.968625,
+    "medianMs": 10.747417
+  },
+  "saveAttemptDelta": {
+    "jsonBytes": 685,
+    "maxMs": 3.736958,
+    "medianMs": 3.650625
+  },
+  "saveAttemptUpdate": {
+    "jsonBytes": 224248,
+    "maxMs": 4.3825829999999995,
+    "medianMs": 4.235708000000001
+  },
+  "saveDraft": {
+    "jsonBytes": 4,
+    "maxMs": 0.6786249999999999,
+    "medianMs": 0.495625
+  },
+  "scope": "Synthetic SQLite + serialization; excludes IPC/WebView, media playback and native accessibility",
+  "session": {
+    "jsonBytes": 933846,
+    "maxMs": 11.483583000000001,
+    "medianMs": 9.520125
+  },
+  "smallBank": {
+    "jsonBytes": 15521,
+    "maxMs": 1.89725,
+    "medianMs": 1.55725
+  },
+  "submit": {
+    "jsonBytes": 947855,
+    "maxMs": 31.729874999999996,
+    "medianMs": 31.116417000000002
+  }
+}

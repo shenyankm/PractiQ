@@ -1,0 +1,69 @@
+{
+  "sourceSha": "e76dbcf1af4664bb46d56d3e83e7246d45680868",
+  "profile": "release, macOS native Rust/SQLite, synthetic temporary databases, dependency and OS caches warm",
+  "samples": [
+    {
+      "case": "desktop_stress",
+      "repeat": 1,
+      "file": "desktop_stress-1.json",
+      "sha256": "7de1e2ad240992d9e620845dfcb10833156549749c8459d706d8cd7c479b7468",
+      "result": "PASSED"
+    },
+    {
+      "case": "search_stress",
+      "repeat": 1,
+      "file": "search_stress-1.json",
+      "sha256": "029c63629f85ba125a7a240481b69798cd85cb67963c9635a305aedef379b20b",
+      "result": "PASSED"
+    },
+    {
+      "case": "list_and_selection_stress",
+      "repeat": 1,
+      "file": "list_and_selection_stress-1.json",
+      "sha256": "0fe738a97e0771d2ebfaacfcd9310a7792cf96725ed5bf96154e8309aecf838d",
+      "result": "PASSED"
+    },
+    {
+      "case": "desktop_stress",
+      "repeat": 2,
+      "file": "desktop_stress-2.json",
+      "sha256": "e244399fed237479c3be0cf0588d71a9c37500da8629f3f703ba86ad6c266b16",
+      "result": "PASSED"
+    },
+    {
+      "case": "search_stress",
+      "repeat": 2,
+      "file": "search_stress-2.json",
+      "sha256": "0d7b044a46d84bef2a1e3b77b7cc6fce8c76e1c9118bd32722fe52992c66fd03",
+      "result": "PASSED"
+    },
+    {
+      "case": "list_and_selection_stress",
+      "repeat": 2,
+      "file": "list_and_selection_stress-2.json",
+      "sha256": "a162377b6d74913830fe0518b0c23d6f956ac2f3e34a4623e5c91e5bda26be63",
+      "result": "PASSED"
+    },
+    {
+      "case": "desktop_stress",
+      "repeat": 3,
+      "file": "desktop_stress-3.json",
+      "sha256": "3b5764aa2adb65dd6bc1adc4b7d2a8c22492eefa2c53ce11478a5609a3c8ca3c",
+      "result": "PASSED"
+    },
+    {
+      "case": "search_stress",
+      "repeat": 3,
+      "file": "search_stress-3.json",
+      "sha256": "5f5c066cb9bb9b803a85233ae64dd1a6d39ff3e51bf7a6680c604df463b12b88",
+      "result": "PASSED"
+    },
+    {
+      "case": "list_and_selection_stress",
+      "repeat": 3,
+      "file": "list_and_selection_stress-3.json",
+      "sha256": "d2389109516f48d8cc6edd1c55886d8047f2c8d329badba0ba0bc6e5c88c55a2",
+      "result": "PASSED"
+    }
+  ]
+}
