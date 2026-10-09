@@ -26,6 +26,7 @@ from .contracts import (
 )
 from .errors import DocumentProcessingError
 from .extractors.isolated import _read_file, _thread_io
+from .storage import verify_payload
 
 FILE_LIMIT = OFFICE_FILE_MAX_BYTES
 TOTAL_LIMIT = 100 * 1024 * 1024
@@ -191,10 +192,7 @@ async def convert_office(reference: DocumentReference, payload: bytes, *, mode: 
     limit = min(FILE_LIMIT, document_source_limit(reference.sourceType, config.source_max_bytes))
     if len(payload) > limit:
         raise DocumentProcessingError(413, "Office source exceeds the configured limit", "SOURCE_TOO_LARGE")
-    if len(payload) != reference.sizeBytes:
-        raise DocumentProcessingError(409, "Stored document size does not match", "DOCUMENT_SIZE_MISMATCH")
-    if hashlib.sha256(payload).hexdigest() != reference.sha256:
-        raise DocumentProcessingError(409, "Stored document checksum does not match", "DOCUMENT_CHECKSUM_MISMATCH")
+    await verify_payload(reference, payload)
     with TemporaryDirectory(prefix="practiq-office-") as directory:
         root = Path(directory)
         source, output = root / f"source.{reference.sourceType}", root / "output"
