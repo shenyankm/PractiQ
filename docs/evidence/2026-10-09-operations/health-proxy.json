@@ -1,0 +1,16 @@
+{
+  "baselineCommit": "4d2a018952dfe0f6ac849c24cd2bb07117e614ca",
+  "imageId": "sha256:99fdeb72d9c85ce7170e29971c53a2cfc15117dc7740872eb43120839108ed3e",
+  "probeSha256": "1bc0e4a4a584c622d041d7bbc06513796963a42de05b6ecf80051e58403bb563",
+  "proxy": "unreachable loopback proxy, upper/lower HTTP_PROXY, empty NO_PROXY",
+  "originalReadyExitCode": 1,
+  "candidateReadyExitCode": 0,
+  "candidateUnavailableExitCode": 1,
+  "unitRegressionStatuses": [
+    200,
+    503
+  ],
+  "unitRegressionUnreachable": true,
+  "unavailableImageId": "sha256:7d0ed211a2504069aff285e6c30b65b19d8088f7c3b02329e0d956a31f0a7f5f",
+  "firstUnavailableProbe": "Image no longer addressable after rebuild; Docker exit 125 excluded. Retried with separately recorded current image."
+}

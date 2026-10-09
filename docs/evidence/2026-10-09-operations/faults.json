@@ -1,0 +1,44 @@
+{
+  "processKill": {
+    "beforeRestartCount": 5,
+    "afterRestartCount": 6,
+    "providerCallsBefore": 28,
+    "providerCallsAfter": 30,
+    "sameRunId": true,
+    "unknownUsageCalls": 1,
+    "state": "COMPLETED"
+  },
+  "databaseUnavailable": {
+    "stoppedSeconds": 3,
+    "secondsUntilReady": 6.302083749993471,
+    "beforeRestartCount": 6,
+    "afterRestartCount": 8,
+    "sameResult": true,
+    "newProviderCalls": 0
+  },
+  "missingArtifact": {
+    "status": 404,
+    "body": {
+      "detail": {
+        "code": "OBJECT_NOT_FOUND",
+        "message": "Stored object was not found"
+      }
+    },
+    "newProviderCalls": 0
+  },
+  "checksumArtifact": {
+    "status": 409,
+    "body": {
+      "detail": {
+        "code": "DOCUMENT_CHECKSUM_MISMATCH",
+        "message": "Stored document checksum does not match"
+      }
+    },
+    "newProviderCalls": 0
+  },
+  "firstProbeLimitations": [
+    "Eight-second PostgreSQL process pause did not establish immediate process exit; recovery occurred after unpause. Direct stop/restart is the verified socket-loss drill.",
+    "Completed preview can retain its checkpointed result when a unit artifact is missing; verified binary-read rejection is tested separately.",
+    "Docker graceful SIGTERM may exit 143; shutdown completion is required, not exit zero."
+  ]
+}

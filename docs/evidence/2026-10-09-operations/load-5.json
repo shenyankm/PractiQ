@@ -1,0 +1,259 @@
+{
+  "schemaVersion": 1,
+  "status": "PASSED",
+  "generatedAt": "2026-10-09T09:37:08.698231+00:00",
+  "gitCommit": "5b9210ee5b53b048987d5fe4b87aee50450f0480",
+  "environment": "container",
+  "codeHash": "85483683b1d58d1f0963661fdc5769baf2d1438e5279629d8ae8c05e71fa1f11",
+  "runtime": {
+    "python": [
+      3,
+      14,
+      7
+    ],
+    "packages": {
+      "langgraph": "1.2.11",
+      "langgraph-checkpoint-postgres": "3.1.2",
+      "psycopg": "3.3.6",
+      "psycopg-binary": "3.3.6",
+      "langchain-core": "1.5.6",
+      "langchain-openai": "1.5.1",
+      "pydantic": "2.13.4",
+      "pypdfium2": "5.12.1",
+      "pillow": "12.3.0"
+    }
+  },
+  "imageDigest": "sha256:99fdeb72d9c85ce7170e29971c53a2cfc15117dc7740872eb43120839108ed3e",
+  "parameters": {
+    "total": 40,
+    "submitConcurrency": 40,
+    "maxRunning": 4,
+    "graphConcurrency": 2,
+    "api": "document-tasks",
+    "allowRejections": true
+  },
+  "results": {
+    "runs": {
+      "success": 8,
+      "rejected_429": 21,
+      "rejected_503": 11
+    },
+    "batchSeconds": 6.412,
+    "successfulDocumentsPerMinute": 74.863,
+    "runCreateP95Ms": 347.7,
+    "healthP95Ms": 6.5,
+    "completionP50Seconds": 4.462,
+    "completionP95Seconds": 6.41,
+    "observedQueueWaitP95Seconds": 3.851,
+    "peakPendingRuns": 4,
+    "peakRunningRuns": 4,
+    "observedWorkerMaximum": 4,
+    "minimumAvailableWorkers": 0,
+    "peakRssBytes": 0,
+    "sampledProviderConcurrencyPeak": 4.0,
+    "configuredModelConcurrencyCeiling": 8
+  },
+  "runs": [
+    {
+      "threadId": "cb06514e-5b56-5615-a7aa-4a4dc8db8d74",
+      "runId": "a1feba1e-5cc2-4557-8d2b-61f297420977",
+      "status": "success"
+    },
+    {
+      "threadId": "e61e863b-3b7e-5827-8dc1-50957e2d9af6",
+      "runId": "d80f0d85-ef42-4419-ada3-d2ae0ba5421e",
+      "status": "success"
+    },
+    {
+      "threadId": "f7914255-1841-5571-a927-af4c0c103dbd",
+      "runId": "5471f92b-83e5-4a5e-9701-f710ab54331d",
+      "status": "success"
+    },
+    {
+      "threadId": "6f3fa407-df21-5bdc-b793-7efecfe3c972",
+      "runId": "3759802e-7989-4424-aeed-c5be9ee41f7c",
+      "status": "success"
+    },
+    {
+      "threadId": "d5999db2-7a71-5052-9622-b5fc69c3c454",
+      "runId": "d71497e2-6856-4432-bd64-7f3a4ed32dc4",
+      "status": "success"
+    },
+    {
+      "threadId": "a210bac4-f981-54c1-8fd1-c41a8a226ed2",
+      "runId": "016d474e-abca-4d4d-a84d-1a6604d97e6b",
+      "status": "success"
+    },
+    {
+      "threadId": "",
+      "runId": "rejected_429",
+      "status": "rejected_429"
+    },
+    {
+      "threadId": "76730751-50c7-58d5-b2fc-96ee8ab308d3",
+      "runId": "b4abbdcf-0b58-4f58-8779-44e31b35d9fb",
+      "status": "success"
+    },
+    {
+      "threadId": "9e70b4db-1e6c-5349-bc9f-2192aea378b0",
+      "runId": "e70bc8fe-bbc1-4a1e-b4b0-e0c6b87189d7",
+      "status": "success"
+    },
+    {
+      "threadId": "",
+      "runId": "rejected_503",
+      "status": "rejected_503"
+    },
+    {
+      "threadId": "",
+      "runId": "rejected_429",
+      "status": "rejected_429"
+    },
+    {
+      "threadId": "",
+      "runId": "rejected_429",
+      "status": "rejected_429"
+    },
+    {
+      "threadId": "",
+      "runId": "rejected_503",
+      "status": "rejected_503"
+    },
+    {
+      "threadId": "",
+      "runId": "rejected_503",
+      "status": "rejected_503"
+    },
+    {
+      "threadId": "",
+      "runId": "rejected_429",
+      "status": "rejected_429"
+    },
+    {
+      "threadId": "",
+      "runId": "rejected_429",
+      "status": "rejected_429"
+    },
+    {
+      "threadId": "",
+      "runId": "rejected_429",
+      "status": "rejected_429"
+    },
+    {
+      "threadId": "",
+      "runId": "rejected_503",
+      "status": "rejected_503"
+    },
+    {
+      "threadId": "",
+      "runId": "rejected_429",
+      "status": "rejected_429"
+    },
+    {
+      "threadId": "",
+      "runId": "rejected_429",
+      "status": "rejected_429"
+    },
+    {
+      "threadId": "",
+      "runId": "rejected_429",
+      "status": "rejected_429"
+    },
+    {
+      "threadId": "",
+      "runId": "rejected_429",
+      "status": "rejected_429"
+    },
+    {
+      "threadId": "",
+      "runId": "rejected_503",
+      "status": "rejected_503"
+    },
+    {
+      "threadId": "",
+      "runId": "rejected_429",
+      "status": "rejected_429"
+    },
+    {
+      "threadId": "",
+      "runId": "rejected_429",
+      "status": "rejected_429"
+    },
+    {
+      "threadId": "",
+      "runId": "rejected_503",
+      "status": "rejected_503"
+    },
+    {
+      "threadId": "",
+      "runId": "rejected_503",
+      "status": "rejected_503"
+    },
+    {
+      "threadId": "",
+      "runId": "rejected_429",
+      "status": "rejected_429"
+    },
+    {
+      "threadId": "",
+      "runId": "rejected_429",
+      "status": "rejected_429"
+    },
+    {
+      "threadId": "",
+      "runId": "rejected_429",
+      "status": "rejected_429"
+    },
+    {
+      "threadId": "",
+      "runId": "rejected_429",
+      "status": "rejected_429"
+    },
+    {
+      "threadId": "",
+      "runId": "rejected_429",
+      "status": "rejected_429"
+    },
+    {
+      "threadId": "",
+      "runId": "rejected_503",
+      "status": "rejected_503"
+    },
+    {
+      "threadId": "",
+      "runId": "rejected_503",
+      "status": "rejected_503"
+    },
+    {
+      "threadId": "",
+      "runId": "rejected_429",
+      "status": "rejected_429"
+    },
+    {
+      "threadId": "",
+      "runId": "rejected_429",
+      "status": "rejected_429"
+    },
+    {
+      "threadId": "",
+      "runId": "rejected_429",
+      "status": "rejected_429"
+    },
+    {
+      "threadId": "",
+      "runId": "rejected_503",
+      "status": "rejected_503"
+    },
+    {
+      "threadId": "",
+      "runId": "rejected_503",
+      "status": "rejected_503"
+    },
+    {
+      "threadId": "",
+      "runId": "rejected_429",
+      "status": "rejected_429"
+    }
+  ],
+  "failures": []
+}

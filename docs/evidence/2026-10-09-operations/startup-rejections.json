@@ -1,0 +1,17 @@
+{
+  "invalidWorkers": {
+    "nonzeroExit": true,
+    "expectedErrorObserved": "AI_DEPLOYMENT_WORKERS must be 1",
+    "apiNeverStarted": true
+  },
+  "missingToken": {
+    "nonzeroExit": true,
+    "expectedErrorObserved": "AI_SERVICE_TOKEN",
+    "apiNeverStarted": true
+  },
+  "duplicateOwner": {
+    "nonzeroExit": true,
+    "expectedErrorObserved": "Another service already owns this database",
+    "apiNeverStarted": true
+  }
+}

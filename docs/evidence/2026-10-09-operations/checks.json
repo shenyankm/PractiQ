@@ -1,0 +1,62 @@
+{
+  "host": {
+    "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+    "macOS": "27.0.1",
+    "cpus": 10,
+    "memoryBytes": 17179869184
+  },
+  "docker": {
+    "ServerVersion": "29.8.2",
+    "NCPU": 10,
+    "MemTotal": 8319504384,
+    "KernelVersion": "7.0.14-linuxkit",
+    "Architecture": "aarch64",
+    "OperatingSystem": "Docker Desktop"
+  },
+  "tests": {
+    "tests": "1751",
+    "errors": "0",
+    "failures": "0",
+    "skipped": "0",
+    "time": "209.144"
+  },
+  "coverage": {
+    "version": "7.16.0",
+    "timestamp": "1791537518110",
+    "lines-valid": "4784",
+    "lines-covered": "4528",
+    "line-rate": "0.9465",
+    "branches-valid": "1692",
+    "branches-covered": "1507",
+    "branch-rate": "0.8907",
+    "complexity": "0"
+  },
+  "makeVerify": "PASSED",
+  "lockedPythonAudit": "No known vulnerabilities found",
+  "evidenceLogSha256": {
+    "make-verify.log": "4c462b1bffa450905530c7ddf6532c39460db1db4a82ec17c5c98254bd28284c",
+    "audit.log": "982cc9f6ba4ce0f76f5850171bb96dfc1a9e4fc4d5cf480415cf05c18d27ca0b"
+  },
+  "afterProxyReviewFix": {
+    "tests": {
+      "tests": "1753",
+      "errors": "0",
+      "failures": "0",
+      "skipped": "0",
+      "time": "197.120"
+    },
+    "coverage": {
+      "version": "7.16.0",
+      "timestamp": "1791540237401",
+      "lines-valid": "4784",
+      "lines-covered": "4528",
+      "line-rate": "0.9465",
+      "branches-valid": "1692",
+      "branches-covered": "1507",
+      "branch-rate": "0.8907",
+      "complexity": "0"
+    },
+    "makeVerify": "PASSED",
+    "logSha256": "219aa8ec7a9c56d46fc3cee44fabc8d490b92adba2056647e92bf2623bb1570a"
+  }
+}
