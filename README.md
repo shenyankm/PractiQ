@@ -127,6 +127,7 @@ Start with the [documentation index](docs/README.md) for user guides, technical 
 - [Single-machine deployment checks](docs/operations-single-machine-20261009.md): isolated quotas, synthetic overload, failure recovery and backup restore
 - [Evaluation](server/docs/evaluation.md): datasets, checks, and evidence limits
 - [Web asset measurements](docs/performance-web-fonts-20261009.md): full static size, build samples and font validation
+- [Payload validation measurements](docs/performance-payload-check-20261009.md): shared storage/Office checks and event-loop scheduling
 - [Service Web build measurements](docs/performance-build-once-20261009.md): one build per image, paired local timings and unchanged artifacts
 - [Question model](docs/question-model.md): question types and composite question rules
 - [Release verification](CONTRIBUTING.md#release-verification): publication checks and acceptance evidence

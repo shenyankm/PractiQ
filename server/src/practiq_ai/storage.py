@@ -37,6 +37,22 @@ def validate_source_size(size: int, source_type: DocumentSourceType, config: Con
         raise DocumentProcessingError(413, "Uploaded file is too large", "DOCUMENT_TOO_LARGE")
 
 
+async def verify_payload(reference: DocumentReference | ArtifactReference, payload: bytes) -> None:
+    if len(payload) != reference.sizeBytes:
+        raise DocumentProcessingError(
+            409,
+            "Stored document size does not match",
+            "DOCUMENT_SIZE_MISMATCH",
+        )
+    digest = (await asyncio.to_thread(hashlib.sha256, payload)).hexdigest()
+    if digest != reference.sha256:
+        raise DocumentProcessingError(
+            409,
+            "Stored document checksum does not match",
+            "DOCUMENT_CHECKSUM_MISMATCH",
+        )
+
+
 class ObjectStore:
     def __init__(self, config: Config):
         self._config = config
@@ -157,19 +173,7 @@ class ObjectStore:
                 "DOCUMENT_SIZE_MISMATCH",
             )
         payload = await self._call(self._read, reference.objectKey, reference.sizeBytes)
-        if len(payload) != reference.sizeBytes:
-            raise DocumentProcessingError(
-                409,
-                "Stored document size does not match",
-                "DOCUMENT_SIZE_MISMATCH",
-            )
-        digest = (await asyncio.to_thread(hashlib.sha256, payload)).hexdigest()
-        if digest != reference.sha256:
-            raise DocumentProcessingError(
-                409,
-                "Stored document checksum does not match",
-                "DOCUMENT_CHECKSUM_MISMATCH",
-            )
+        await verify_payload(reference, payload)
         return payload
 
     def _path(self, key: str) -> Path:
