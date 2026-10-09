@@ -1,0 +1,125 @@
+{
+  "samples": [
+    {
+      "cache": "clean-frontend",
+      "repeat": 1,
+      "phase": "before",
+      "seconds": 1.4206948329956504,
+      "webBuildInvocations": 2,
+      "staticBytes": 1240096,
+      "imageId": "sha256:72e1856dea9b9045b42bfb13497111186ceccca44364d642bb2c8c445ac36e9f",
+      "imageBytes": 1233552210
+    },
+    {
+      "cache": "clean-frontend",
+      "repeat": 1,
+      "phase": "after",
+      "seconds": 0.856432999993558,
+      "webBuildInvocations": 1,
+      "staticBytes": 1240096,
+      "imageId": "sha256:79bbb0a11e5b658cd943e4058b8c3e468b6120877b3955addf78083ade9dde07",
+      "imageBytes": 1233552210
+    },
+    {
+      "cache": "clean-frontend",
+      "repeat": 2,
+      "phase": "after",
+      "seconds": 0.8331512919976376,
+      "webBuildInvocations": 1,
+      "staticBytes": 1240096,
+      "imageId": "sha256:4254e7f89d535dfaa76abb78db106b2516ecfea1cc04df23659f39276060addb",
+      "imageBytes": 1233552210
+    },
+    {
+      "cache": "clean-frontend",
+      "repeat": 2,
+      "phase": "before",
+      "seconds": 1.3108529160090256,
+      "webBuildInvocations": 2,
+      "staticBytes": 1240096,
+      "imageId": "sha256:e4adb03097b3623b6d02768ba4bee90cfa60291a68bed0fcad221002250a095f",
+      "imageBytes": 1233552210
+    },
+    {
+      "cache": "clean-frontend",
+      "repeat": 3,
+      "phase": "before",
+      "seconds": 1.3839132909924956,
+      "webBuildInvocations": 2,
+      "staticBytes": 1240096,
+      "imageId": "sha256:bee8f32731af9a9504e9c80dac2fd4c0f5a3f468c1d5f55745a75891ec8b23ce",
+      "imageBytes": 1233552210
+    },
+    {
+      "cache": "clean-frontend",
+      "repeat": 3,
+      "phase": "after",
+      "seconds": 0.8752206659992225,
+      "webBuildInvocations": 1,
+      "staticBytes": 1240096,
+      "imageId": "sha256:9c6d837ebe23e1dab43ad366b7c0e0f999d5b3b70e1df11e941eb2244540b793",
+      "imageBytes": 1233552210
+    },
+    {
+      "cache": "incremental",
+      "repeat": 1,
+      "phase": "before",
+      "seconds": 1.8091681249934481,
+      "webBuildInvocations": 2,
+      "staticBytes": 1240096,
+      "imageId": "sha256:38fbbb4225369974ecadc99aa74126a4d5fed4a78390006cbda63e80b21b22f0",
+      "imageBytes": 1233552210
+    },
+    {
+      "cache": "incremental",
+      "repeat": 1,
+      "phase": "after",
+      "seconds": 0.88631445899955,
+      "webBuildInvocations": 1,
+      "staticBytes": 1240096,
+      "imageId": "sha256:7207bc095069f7b3a1fad70e0e1b4ab7c86142a5bf6e00ca1db6d995f504fbac",
+      "imageBytes": 1233552210
+    },
+    {
+      "cache": "incremental",
+      "repeat": 2,
+      "phase": "after",
+      "seconds": 0.872086000003037,
+      "webBuildInvocations": 1,
+      "staticBytes": 1240096,
+      "imageId": "sha256:dd15a2a3bc179499b53f89141cda5007b5588fb3b2d56f32227e1a6efc48d7a8",
+      "imageBytes": 1233552210
+    },
+    {
+      "cache": "incremental",
+      "repeat": 2,
+      "phase": "before",
+      "seconds": 1.6600864590000128,
+      "webBuildInvocations": 2,
+      "staticBytes": 1240096,
+      "imageId": "sha256:d5e1c0e1d52bec19ef23677f214c86dde4377d89aa4bd6ac692fcdecc40fdedb",
+      "imageBytes": 1233552210
+    },
+    {
+      "cache": "incremental",
+      "repeat": 3,
+      "phase": "before",
+      "seconds": 1.3465900419978425,
+      "webBuildInvocations": 2,
+      "staticBytes": 1240096,
+      "imageId": "sha256:5afac13f66263d7c993a0d62e19e7172c13208dd69c6f19a63d7b345fdf898d8",
+      "imageBytes": 1233552210
+    },
+    {
+      "cache": "incremental",
+      "repeat": 3,
+      "phase": "after",
+      "seconds": 0.8024836660042638,
+      "webBuildInvocations": 1,
+      "staticBytes": 1240096,
+      "imageId": "sha256:ac75b41a3c288cbd4a1d9699e4ece4a94c4ced106208ffd2c5f043a68340a3e2",
+      "imageBytes": 1233552210
+    }
+  ],
+  "excludedReason": "The original end assertion compared timestamped attestation-bearing OCI indexes instead of stable platform manifests. The unchanged commands were repeated with corrected content checks; these first timings are excluded from the result table."
+}

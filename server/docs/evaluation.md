@@ -48,6 +48,16 @@ These rule-based synthetic samples are not independent teacher annotations or cr
 
 Check gold labels against source files manually; never copy model outputs back as correct answers. PDF and image figures are evaluated using visual-model categories such as `diagram`. Humans review the meaning of visual descriptions.
 
+Source review on October 9, 2026 corrected only `text-translation-writing`'s
+`sourceLanguage` from `zh-CN` to `null`. The instruction states only "into English",
+not the source language. The existing extraction contract requires an explicit
+language direction; do not infer a source-language tag from the passage's script.
+An intermediate `zh` annotation was rejected during review because it still
+required an unstated language. Earlier reports retain their original hashes and
+failures. Answers, other labels, critical gates and the holdout remain unchanged. The manifest/dataset
+hash changes, so retain earlier reports and establish a new three-repetition
+baseline before comparing candidates. Scoring semantics and version are unchanged.
+
 ### Answerless PNG provenance and source review
 
 `image-no-answer` retains the original 600×400 PNG contributed by Cid-oe in [fork PR #1](https://github.com/Cid-oe/PractiQ/pull/1), linked from [issue #114](https://github.com/shenyankm/PractiQ/issues/114#issuecomment-5976045114). The authoritative [source file at commit `7f297461`](https://github.com/Cid-oe/PractiQ/blob/7f2974618279e3fd0b27301f126a1a19206c4aac/server/evals/fixtures/image/answerless.png) is kept unchanged with SHA-256 `859c132e2b50555d146b73cb737be15087237222c7f430b4fe6c8aceba1bb92f`. Generation note: this supplied raster places two questions and their ordered choices as black text on a white background. The contributor supplied no generator, font provenance or generation command, so regenerating identical PNG bytes is not established; retain this exact public version when reproducing the evaluation.

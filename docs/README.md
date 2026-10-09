@@ -58,6 +58,7 @@ Preserve failures, source hashes, artifact hashes and original denominators. His
 | [October 3 performance](performance-implementation-20261003.md), [October 5 performance](performance-implementation-20261005.md) | Separate measured workloads and source baselines, not duplicate benchmarks |
 | [October 9 Web fonts](performance-web-fonts-20261009.md) | Complete static assets and repeated build samples after the PostgreSQL merge; no initial-load or image-size claim |
 | [October 9 payload validation](performance-payload-check-20261009.md) | Reused storage/Office size/checksum boundary and three repeated event-loop probes; no conversion-throughput claim |
+| [October 9 service Web build](performance-build-once-20261009.md) | Remove one duplicate Web build; paired local command timings and identical assets/image content, without an overall CI speed claim |
 | [October 9 single-machine checks](operations-single-machine-20261009.md) | Isolated PostgreSQL/Compose quotas, synthetic overload, process/database failures and matching backup restore; no live-model capacity claim |
 | [Service code review](../server/docs/code-review-2026-09-19.md), [SQLite/macOS delivery](../server/docs/sqlite-desktop-delivery.md), [desktop Office evaluation](../server/docs/desktop-office-evaluation.md) | Earlier service/package architectures and their validation limits |
 | [Service reports](../server/reports/) | Dated runtime, capacity and performance records with their original JSON evidence |
