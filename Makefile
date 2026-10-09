@@ -8,7 +8,7 @@ APP_PACKAGE_REPORT ?= server/reports/checks/desktop-bundle.json
 .PHONY: install server-install install-locked test test-server server-dev init-db verify audit audit-rust image-check
 install: server-install
 server-install:
-	uv pip install --break-system-packages --python "$(AI_PYTHON)" -e './server[dev]'
+	cd server && uv pip install --break-system-packages --python "$(AI_PYTHON)" -e '.[dev]'
 install-locked:
 	@set -eu; requirements=$$(mktemp); trap 'rm -f "$$requirements"' EXIT; \
 	cd server; uv export --locked --extra dev --no-emit-project --python "$(AI_PYTHON)" -o "$$requirements" >/dev/null; \
@@ -40,6 +40,8 @@ verify:
 audit:
 	@set -eu; requirements=$$(mktemp); trap 'rm -f "$$requirements"' EXIT; \
 	cd server; uv export --locked --extra dev --no-emit-project --python "$(AI_PYTHON)" -o "$$requirements" >/dev/null; \
+	"$(AI_PYTHON)" -m pip_audit --strict --disable-pip --no-deps -r "$$requirements"; \
+	"$(AI_PYTHON)" -c 'import pathlib, sys, tomllib; project = tomllib.loads(pathlib.Path("pyproject.toml").read_text()); print(*project["build-system"]["requires"], *project["tool"]["uv"]["build-constraint-dependencies"], sep="\n", file=open(sys.argv[1], "w"))' "$$requirements"; \
 	"$(AI_PYTHON)" -m pip_audit --strict --disable-pip --no-deps -r "$$requirements"
 audit-rust:
 	cargo audit --file app/src-tauri/Cargo.lock

@@ -1,0 +1,12 @@
+Using CPython 3.14.7 interpreter at: <host>/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14
+Resolved 1 package in 8ms
+   Building practiq-ai-service @ file:///private/tmp/practiq-engineering-20261009/build-lock-resolver/refusal
+  × Failed to build `practiq-ai-service @
+  │ file:///private/tmp/practiq-engineering-20261009/build-lock-resolver/refusal`
+  ├─▶ Failed to resolve requirements from `build-system.requires`
+  ├─▶ No solution found when resolving: `hatchling==1.32.4`
+  ╰─▶ Because there is no version of pathspec==999999 and hatchling>=1.32.4
+      depends on pathspec==999999, we can conclude that hatchling>=1.32.4
+      cannot be used.
+      And because you require hatchling==1.32.4, we can conclude that your
+      requirements are unsatisfiable.

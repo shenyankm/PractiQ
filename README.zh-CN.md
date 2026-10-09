@@ -134,6 +134,7 @@ FastAPI/LangGraph 服务监听 `127.0.0.1:8090`，使用 PostgreSQL 和本地文
 - [评分格式实验](docs/performance-grading-arrays-20261009.md)：固定真实模型样本、调用用量与撤销的候选
 - [产物校验测量](docs/performance-payload-check-20261009.md)：复用存储与 Office 校验，测量事件循环调度
 - [服务 Web 构建测量](docs/performance-build-once-20261009.md)：每次镜像构建只构建一次 Web，本地配对耗时与产物一致性
+- [服务构建工具锁定](docs/service-build-tools-20261009.md)：精确后端约束、审计及源码和许可证归档验证；未完成任务保留原部署恢复
 - [题型模型](docs/question-model.md)：题型与复合题规则
 - [发布验证](CONTRIBUTING.md#release-verification)：发布检查与验收证据
 - [发布规范](docs/releases.md)：版本标签、下载产物、校验值与手动草稿流程

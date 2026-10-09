@@ -130,6 +130,7 @@ Start with the [documentation index](docs/README.md) for user guides, technical 
 - [Grading format experiment](docs/performance-grading-arrays-20261009.md): fixed real-model anchors, usage and rejected candidate
 - [Payload validation measurements](docs/performance-payload-check-20261009.md): shared storage/Office checks and event-loop scheduling
 - [Service Web build measurements](docs/performance-build-once-20261009.md): one build per image, paired local timings and unchanged artifacts
+- [Service build-tool selection](docs/service-build-tools-20261009.md): exact backend constraints, audits and archive/license verification; retain the original deployment for unfinished tasks
 - [Question model](docs/question-model.md): question types and composite question rules
 - [Release verification](CONTRIBUTING.md#release-verification): publication checks and acceptance evidence
 - [Release policy](docs/releases.md): version tags, downloads, checksums and the manual draft workflow

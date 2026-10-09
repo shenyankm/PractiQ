@@ -1,0 +1,6 @@
+Building wheel...
+error: Failed to build `/private/tmp/practiq-engineering-20261009/build-lock-resolver/refusal`
+  Caused by: Failed to resolve requirements from `build-system.requires`
+  Caused by: No solution found when resolving: `hatchling==1.32.4`
+  Caused by: Because there is no version of pathspec==999999 and hatchling>=1.32.4 depends on pathspec==999999, we can conclude that hatchling>=1.32.4 cannot be used.
+    And because you require hatchling==1.32.4, we can conclude that your requirements are unsatisfiable.
