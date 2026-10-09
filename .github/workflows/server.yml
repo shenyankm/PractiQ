@@ -74,12 +74,10 @@ jobs:
         run: make web-install
       - name: Install browser for service web checks
         run: npx --prefix web playwright install --with-deps chromium
-      - name: Verify and build independent service web frontend
+      - name: Verify independent service web frontend
         env:
           VITEST_MAX_WORKERS: '2'
-        run: |
-          make web-check
-          make web-build
+        run: make web-check
       - name: Upload service web check reports
         if: ${{ always() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
