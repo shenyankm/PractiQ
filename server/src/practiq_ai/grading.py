@@ -116,7 +116,9 @@ irrelevant answer earns 0 (NOT null). Only abstain when the PROVIDED ASSESSMENT
 EVIDENCE is insufficient, never because the student is wrong or incomplete.
 Do not invent a missing reference answer. If evidence is insufficient,
 return scoreCents null and explain why in reviewReasons. maxCents must exactly match
-assessmentMaxCents. Scores are integer hundredths of one point."""
+assessmentMaxCents. Scores are integer hundredths of one point.
+evidence and reviewReasons must be JSON arrays; use [] when there are no entries,
+never null or a quoted string."""
 
 
 @contextmanager
