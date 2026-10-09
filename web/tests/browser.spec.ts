@@ -77,6 +77,25 @@ async function openTask(page: Page) {
 const mutations = (calls: Call[]) => calls.filter(call => call.method !== "GET");
 const starts = (calls: Call[]) => calls.filter(call => call.path === "/api/document-tasks" && call.method === "POST");
 
+test("all KaTeX font faces load from WOFF2 with no fallback font requests", async ({ page }) => {
+  const http = await fakeHTTP(page);
+  const fontRequests: string[] = [];
+  page.on("request", request => { if (/\.(?:woff2?|ttf)(?:\?|$)/.test(request.url())) fontRequests.push(request.url()); });
+  await connect(page);
+  await openTask(page);
+  const fonts = await page.evaluate(async () => {
+    const faces = [...document.fonts].filter(face => face.family.startsWith("KaTeX_"));
+    await Promise.all(faces.map(face => face.load()));
+    return faces.map(face => ({ family: face.family, style: face.style, weight: face.weight, status: face.status }));
+  });
+  const css = await readFile(new URL("../node_modules/katex/dist/katex.min.css", import.meta.url), "utf8");
+  expect(fonts).toHaveLength((css.match(/@font-face/g) || []).length);
+  expect(fonts.every(face => face.status === "loaded")).toBe(true);
+  expect(fontRequests.length).toBeGreaterThan(0);
+  expect(fontRequests.every(url => /\.woff2(?:\?|$)/.test(url))).toBe(true);
+  expect(mutations(http.calls)).toHaveLength(0);
+});
+
 test("workspace fits narrow and desktop windows with keyboard shortcuts to content", async ({ page }, testInfo) => {
   const http = await fakeHTTP(page, { ...task, fileName: "很长的来源文档名称-".repeat(12) + ".docx" });
   await page.goto("/");

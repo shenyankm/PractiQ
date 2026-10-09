@@ -1,0 +1,138 @@
+{
+  "baselineSha": "6574bb2d68bf94f0e199c8e8dbb09fb8fcd9b170",
+  "phase": "after",
+  "environment": {
+    "os": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+    "node": "v22.23.2",
+    "npm": "10.9.8"
+  },
+  "inputs": {
+    "web/package-lock.json": "fa5f65691c154cec62016cf4683341210f88a8c1afb78fbfcaa91eafebe32e4d",
+    "web/vite.config.ts": "3ad3c2c77a5164c678b3a144fbe10d4cfc3beae2bef7330b45c5fc09f0edb148"
+  },
+  "samples": [
+    {
+      "cache": "clean",
+      "repeat": 1,
+      "seconds": 0.7300709169940092,
+      "staticBytes": 1240096,
+      "initialJsCssBytes": 332043,
+      "initialJsCssGzipBytes": 102754,
+      "fontBytes": 256168,
+      "fontCounts": {
+        ".woff2": 19,
+        ".woff": 0,
+        ".ttf": 0
+      }
+    },
+    {
+      "cache": "clean",
+      "repeat": 2,
+      "seconds": 0.5370858749956824,
+      "staticBytes": 1240096,
+      "initialJsCssBytes": 332043,
+      "initialJsCssGzipBytes": 102754,
+      "fontBytes": 256168,
+      "fontCounts": {
+        ".woff2": 19,
+        ".woff": 0,
+        ".ttf": 0
+      }
+    },
+    {
+      "cache": "clean",
+      "repeat": 3,
+      "seconds": 0.4770664169918746,
+      "staticBytes": 1240096,
+      "initialJsCssBytes": 332043,
+      "initialJsCssGzipBytes": 102754,
+      "fontBytes": 256168,
+      "fontCounts": {
+        ".woff2": 19,
+        ".woff": 0,
+        ".ttf": 0
+      }
+    },
+    {
+      "cache": "incremental",
+      "repeat": 1,
+      "seconds": 0.47335658301017247,
+      "staticBytes": 1240096,
+      "initialJsCssBytes": 332043,
+      "initialJsCssGzipBytes": 102754,
+      "fontBytes": 256168,
+      "fontCounts": {
+        ".woff2": 19,
+        ".woff": 0,
+        ".ttf": 0
+      }
+    },
+    {
+      "cache": "incremental",
+      "repeat": 2,
+      "seconds": 0.47381666699948255,
+      "staticBytes": 1240096,
+      "initialJsCssBytes": 332043,
+      "initialJsCssGzipBytes": 102754,
+      "fontBytes": 256168,
+      "fontCounts": {
+        ".woff2": 19,
+        ".woff": 0,
+        ".ttf": 0
+      }
+    },
+    {
+      "cache": "incremental",
+      "repeat": 3,
+      "seconds": 0.47224229099811055,
+      "staticBytes": 1240096,
+      "initialJsCssBytes": 332043,
+      "initialJsCssGzipBytes": 102754,
+      "fontBytes": 256168,
+      "fontCounts": {
+        ".woff2": 19,
+        ".woff": 0,
+        ".ttf": 0
+      }
+    }
+  ],
+  "buildSeconds": {
+    "clean": {
+      "median": 0.5370858749956824,
+      "min": 0.4770664169918746,
+      "max": 0.7300709169940092
+    },
+    "incremental": {
+      "median": 0.47335658301017247,
+      "min": 0.47224229099811055,
+      "max": 0.47381666699948255
+    }
+  },
+  "assetHashes": {
+    "assets/KaTeX_AMS-Regular-BQhdFMY1.woff2": "0cdd387c9590a1a9f9794560022dbb59654a7d86f187aa0c81495ad42d3a7308",
+    "assets/KaTeX_Caligraphic-Bold-Dq_IR9rO.woff2": "de7701e42cf1f4cf0b766c03fb27977207eee2f4fd5d76fa82188406da43ea4c",
+    "assets/KaTeX_Caligraphic-Regular-Di6jR-x-.woff2": "5d53e70ad607c2352162dec9e0923fb54ecdafaccbf604cd8dcf7d00facb989b",
+    "assets/KaTeX_Fraktur-Bold-CL6g_b3V.woff2": "74444efd593c005e3f4573b44524704c0af0a937fe911cca9e94068d0d140d3f",
+    "assets/KaTeX_Fraktur-Regular-CTYiF6lA.woff2": "51814d270d06ff0255dba0799994fa4d8c84d11f09951d47595f4abb1f3602dc",
+    "assets/KaTeX_Main-Bold-Cx986IdX.woff2": "0f60d1b897938ec918c8ce073092411baf9438f6739465693ff18b0f9d20b021",
+    "assets/KaTeX_Main-BoldItalic-DxDJ3AOS.woff2": "99cd42a3c072d918f2f44984a807cf7aa16e13545fd0875fc07c6c65f99e715b",
+    "assets/KaTeX_Main-Italic-NWA7e6Wa.woff2": "97479ca6cce906abc961ecac96faa5f9ca2e61b8e7670d475826bcdee9a7c267",
+    "assets/KaTeX_Main-Regular-B22Nviop.woff2": "c2342cd8b869e01752a9321dc17213fc40d4d04c79688c1d43f2cf316abd7866",
+    "assets/KaTeX_Math-BoldItalic-CZnvNsCZ.woff2": "dc47344dbb6cb5b655c8460d561f4df5f501b90c804ad3c6cec65fe322351ab1",
+    "assets/KaTeX_Math-Italic-t53AETM-.woff2": "7af58c5ec8f132a2ddde9027c6d7814decce4d3b822a11192a42a20e2e973264",
+    "assets/KaTeX_SansSerif-Bold-D1sUS0GD.woff2": "e99ae51144bf1232efcc1bfe5add36262c6866b0faab24fa75740e1b98577a62",
+    "assets/KaTeX_SansSerif-Italic-C3H0VqGB.woff2": "00b26ac825e2095056396e0553b8ac26d3f8ad158c3826e28b4c45b385c4714a",
+    "assets/KaTeX_SansSerif-Regular-DDBCnlJ7.woff2": "68e8c73ef42afd3ccec58bf0fba302cce448938e7fc020a5e31f8a952eee1342",
+    "assets/KaTeX_Script-Regular-D3wIWfF6.woff2": "036d4e95149b69ff9bcc0cd55771efeb25ffa3947293e69acd78d5ac328c684b",
+    "assets/KaTeX_Size1-Regular-mCD8mA8B.woff2": "6b47c40166b6dbe21a5dfca7718413f2147fd2399be1ba605d8ad39cedf25dfe",
+    "assets/KaTeX_Size2-Regular-Dy4dx90m.woff2": "d04c54219f9eaec6d4d4fd42dfb28785975a4794d6b2fc71e566b9cd6db842dd",
+    "assets/KaTeX_Size4-Regular-Dl5lxZxV.woff2": "a4af7d414440a1c1790825cfb700cf9cf43b0f2c4b04f0ebc523011ad9853ec0",
+    "assets/KaTeX_Typewriter-Regular-CO6r4hn1.woff2": "71d517d67827787cfabdf186914cc3358eda539e37931941f2b2fd4a21f68c0b",
+    "assets/ResultReview-BrHcVPOH.js": "247de467a640bd2a5aa7573e94650d37feb6a5fb369798f558aff14ada18eb0c",
+    "assets/ResultReview-CEde1aqi.css": "11bb6e0957d538fa2c559184d79e2b940b5a2da99ca6a8d25f9b078724c84c40",
+    "assets/index-BANBok7O.css": "e11186cdfcb79a330b72319f0549a628e9846bac6fd612f3acebf786529a3613",
+    "assets/index-qbUXcOjq.js": "3203c286e7fdf070dbccac3788ee4f09c56667c722923f91f26637844d5a5bef",
+    "assets/octopus-pB8TTRfc.png": "10b1085a34504e1188903f83604651a056f2551d3c674310685551b3576b75db",
+    "index.html": "459bae2865c4b1c1fe4b65facdffedcab2f61b6da465413f022518fbda228e05"
+  }
+}

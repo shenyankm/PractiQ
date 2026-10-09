@@ -18,5 +18,5 @@ export default defineConfig({
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },
-  webServer: { command: "npm run dev -- --port 1671", url: "http://127.0.0.1:1671", reuseExistingServer: false },
+  webServer: { command: process.env.PRACTIQ_WEB_BUILT === "1" ? "npm exec vite preview -- --port 1671" : "npm run dev -- --port 1671", url: "http://127.0.0.1:1671", reuseExistingServer: false },
 });

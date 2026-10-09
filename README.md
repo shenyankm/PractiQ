@@ -125,6 +125,7 @@ Start with the [documentation index](docs/README.md) for user guides, technical 
 - [Document task API](server/docs/document-tasks.md): progress, pause, resume, retry, and review
 - [Operations](server/docs/operations.md): deployment, storage, and recovery
 - [Evaluation](server/docs/evaluation.md): datasets, checks, and evidence limits
+- [Web asset measurements](docs/performance-web-fonts-20261009.md): full static size, build samples and font validation
 - [Question model](docs/question-model.md): question types and composite question rules
 - [Release verification](CONTRIBUTING.md#release-verification): publication checks and acceptance evidence
 - [Release policy](docs/releases.md): version tags, downloads, checksums and the manual draft workflow

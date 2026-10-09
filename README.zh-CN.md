@@ -129,6 +129,7 @@ FastAPI/LangGraph 服务监听 `127.0.0.1:8090`，使用 PostgreSQL 和本地文
 - [文档任务 API](server/docs/document-tasks.md)：进度、暂停、恢复、重试与复核
 - [部署与运维](server/docs/operations.md)：部署、存储与恢复
 - [效果评测](server/docs/evaluation.md)：数据集、检查与证据边界
+- [Web 资源测量](docs/performance-web-fonts-20261009.md)：完整静态资源体积、构建样本与字体验证
 - [题型模型](docs/question-model.md)：题型与复合题规则
 - [发布验证](CONTRIBUTING.md#release-verification)：发布检查与验收证据
 - [发布规范](docs/releases.md)：版本标签、下载产物、校验值与手动草稿流程
