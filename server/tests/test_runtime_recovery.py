@@ -1,4 +1,4 @@
-"""Real HTTP process + SQLite recovery acceptance, with no external models."""
+"""Real HTTP process + PostgreSQL recovery acceptance, with no external models."""
 import asyncio
 import hashlib
 import os
@@ -26,7 +26,7 @@ class Server:
         with socket.socket() as sock:
             sock.bind(('127.0.0.1', 0))
             port = sock.getsockname()[1]
-        self.env = {**os.environ, 'AI_DATABASE_DIR': str(uri), 'AI_STORAGE_DIR': str(tmp_path / 'files'),
+        self.env = {**os.environ, 'DATABASE_URI': str(uri), 'AI_STORAGE_DIR': str(tmp_path / 'files'),
                     'TEST_EVENTS': str(tmp_path), 'TEST_PHASE': phase, 'N_JOBS_PER_WORKER': '1',
                     'AI_GRAPH_MAX_CONCURRENCY': '1', 'AI_DEPLOYMENT_WORKERS': '1',
                     'PYTHONPATH': str(ROOT / 'src') + os.pathsep + str(ROOT)}
@@ -111,7 +111,7 @@ class Server:
 async def prepare(tmp_path, phase=''):
     db = await new_database()
     await db.close()
-    return Server(tmp_path, db.directory, phase)
+    return Server(tmp_path, db.uri, phase)
 
 
 async def test_server_auth_routes_and_graphs(tmp_path):
@@ -157,7 +157,7 @@ async def test_process_kill_automatically_recovers_same_run(tmp_path, phase):
             from practiq_ai.database import Database
             from practiq_ai.execution import namespace
 
-            db = Database(server.env['AI_DATABASE_DIR'])
+            db = Database(server.env['DATABASE_URI'])
             await db.open()
             try:
                 budgets = await db.store.asearch(namespace(receipt['threadId'], 'budget'), refresh_ttl=False)
@@ -220,7 +220,9 @@ async def test_database_lock_loss_exits_process_and_recovery_is_exclusive(tmp_pa
         await asyncio.to_thread(server.start)
         receipt = server.submit()
         await asyncio.to_thread(server.marker, 'model')
-        Path(server.env['AI_DATABASE_DIR'], 'owner.lock').unlink()
+        from practiq_ai.database import LOCK_NAMESPACE, Database
+        db = Database(server.env['DATABASE_URI'])
+        await db.rows("SELECT pg_terminate_backend(pid) FROM pg_locks WHERE locktype='advisory' AND classid=%s AND objid=1 AND objsubid=2 AND database=(SELECT oid FROM pg_database WHERE datname=current_database())", (LOCK_NAMESPACE,))
         assert server.process is not None
         await asyncio.to_thread(server.process.wait, 10)
         assert server.process.returncode == 70

@@ -23,21 +23,24 @@ async def test_sparse_filter_and_completed_pages_do_not_decode_unrelated_history
     await service.loop
     source = str(uuid4())
     async with service.db.connection() as conn:
-        await conn.execute('INSERT INTO document_tasks(thread_id,request_hash,graph_id,document,failure_policy,expires_at) VALUES (?,?,?,?,?,?)',
+        await conn.execute('INSERT INTO document_tasks(thread_id,request_hash,graph_id,document,failure_policy,expires_at) VALUES (%s,%s,%s,%s,%s,%s)',
                            (source, source, 'document_parser', json.dumps(reference), 'return_partial', utcnow() + timedelta(days=1)))
     await service.graph.aupdate_state({'configurable': {'thread_id': source}},
                                     {'status': 'SUCCEEDED', 'result': parsed()}, as_node='finish')
     async with service.db.connection() as conn:
         for index in range(600):
             tid = str(uuid4())
-            await conn.execute('INSERT INTO document_tasks SELECT ?,request_hash,graph_id,document,failure_policy,parent_thread_id,created_at,expires_at FROM document_tasks WHERE thread_id=?', (tid, source))
-            await conn.execute("INSERT INTO document_runs(run_id,thread_id,request_id,context,status) VALUES (?,?,?,'{}','success')", (tid, tid, tid))
+            await conn.execute('INSERT INTO document_tasks SELECT %s,request_hash,graph_id,document,failure_policy,parent_thread_id,created_at,expires_at FROM document_tasks WHERE thread_id=%s', (tid, source))
+            await conn.execute("INSERT INTO document_runs(run_id,thread_id,request_id,context,status) VALUES (%s,%s,%s,'{}','success')", (tid, tid, tid))
             await service.db.connections[0].execute(
-                "INSERT INTO checkpoints SELECT ?,checkpoint_ns,checkpoint_id,parent_checkpoint_id,type,checkpoint,metadata FROM checkpoints WHERE thread_id=? AND checkpoint_ns='' ORDER BY checkpoint_id DESC LIMIT 1",
+                "INSERT INTO checkpoints SELECT %s,checkpoint_ns,checkpoint_id,parent_checkpoint_id,type,checkpoint,metadata FROM checkpoints WHERE thread_id=%s AND checkpoint_ns='' ORDER BY checkpoint_id DESC LIMIT 1",
+                (tid, source))
+            await service.db.connections[0].execute(
+                "INSERT INTO checkpoint_blobs SELECT %s,checkpoint_ns,channel,version,type,blob FROM checkpoint_blobs WHERE thread_id=%s",
                 (tid, source))
         active = str(uuid4())
-        await conn.execute('INSERT INTO document_tasks SELECT ?,request_hash,graph_id,document,failure_policy,parent_thread_id,created_at,expires_at FROM document_tasks WHERE thread_id=?', (active, source))
-        await conn.execute("INSERT INTO document_runs(run_id,thread_id,request_id,context,status) VALUES (?,?,?,'{}','pending')", (active, active, active))
+        await conn.execute('INSERT INTO document_tasks SELECT %s,request_hash,graph_id,document,failure_policy,parent_thread_id,created_at,expires_at FROM document_tasks WHERE thread_id=%s', (active, source))
+        await conn.execute("INSERT INTO document_runs(run_id,thread_id,request_id,context,status) VALUES (%s,%s,%s,'{}','pending')", (active, active, active))
     snapshots = AsyncMock(wraps=service.snapshot)
     monkeypatch.setattr(service, 'snapshot', snapshots)
     for _ in range(3):
@@ -59,7 +62,7 @@ async def test_sparse_filter_and_completed_pages_do_not_decode_unrelated_history
     assert snapshots.await_count == 41
     expired_id = first['items'][0]['threadId']
     async with service.db.connection() as conn:
-        await conn.execute('UPDATE document_tasks SET expires_at=? WHERE thread_id=?', (utcnow() - timedelta(seconds=1), expired_id))
+        await conn.execute('UPDATE document_tasks SET expires_at=%s WHERE thread_id=%s', (utcnow() - timedelta(seconds=1), expired_id))
     expired = await task_api.list_tasks(state_filter='expired')
     assert expired['items'][0]['threadId'] == expired_id
     assert expired['items'][0]['questionCount'] == 1
@@ -114,14 +117,14 @@ async def test_filtered_candidates_use_latest_run_and_keep_ambiguous_interrupts_
     await service.loop
     tid = str(uuid4())
     async with service.db.connection() as conn:
-        await conn.execute('INSERT INTO document_tasks(thread_id,request_hash,graph_id,document,failure_policy,expires_at) VALUES (?,?,?,?,?,?)',
+        await conn.execute('INSERT INTO document_tasks(thread_id,request_hash,graph_id,document,failure_policy,expires_at) VALUES (%s,%s,%s,%s,%s,%s)',
                            (tid, tid, 'document_parser', json.dumps(reference), 'return_partial', utcnow() + timedelta(days=1)))
-        await conn.execute("INSERT INTO document_runs(run_id,thread_id,request_id,context,status,created_at) VALUES (?,?,?,'{}','pending',?)", (str(uuid4()), tid, str(uuid4()), utcnow() - timedelta(days=1)))
+        await conn.execute("INSERT INTO document_runs(run_id,thread_id,request_id,context,status,created_at) VALUES (%s,%s,%s,'{}','pending',%s)", (str(uuid4()), tid, str(uuid4()), utcnow() - timedelta(days=1)))
         newest = str(uuid4())
-        await conn.execute("INSERT INTO document_runs(run_id,thread_id,request_id,context,status) VALUES (?,?,?,'{}','interrupted')", (newest, tid, newest))
+        await conn.execute("INSERT INTO document_runs(run_id,thread_id,request_id,context,status) VALUES (%s,%s,%s,'{}','interrupted')", (newest, tid, newest))
     assert not (await task_api.list_tasks(state_filter='active'))['items']
     assert (await task_api.list_tasks(state_filter='interrupted'))['items'][0]['threadId'] == tid
-    snapshot = await service.snapshot((await service.db.rows('SELECT * FROM document_tasks WHERE thread_id=?', (tid,)))[0])
+    snapshot = await service.snapshot((await service.db.rows('SELECT * FROM document_tasks WHERE thread_id=%s', (tid,)))[0])
     from langgraph.types import Interrupt
     current = snapshot._replace(interrupts=(Interrupt({'kind': 'pause'}),))
     calls = AsyncMock(side_effect=lambda _task: current)
@@ -133,11 +136,11 @@ async def test_filtered_candidates_use_latest_run_and_keep_ambiguous_interrupts_
     assert not (await task_api.list_tasks(state_filter='paused'))['items']
     assert calls.await_count == 4  # Non-quiescent checkpoints never reuse a completion summary.
     async with service.db.connection() as conn:
-        await conn.execute('UPDATE document_runs SET cancel_requested=1 WHERE run_id=?', (newest,))
+        await conn.execute('UPDATE document_runs SET cancel_requested=true WHERE run_id=%s', (newest,))
     assert (await task_api.list_tasks(state_filter='cancelled'))['items'][0]['threadId'] == tid
     assert not (await task_api.list_tasks(state_filter='review'))['items']
     async with service.db.connection() as conn:
-        await conn.execute('DELETE FROM document_runs WHERE thread_id=?', (tid,))
+        await conn.execute('DELETE FROM document_runs WHERE thread_id=%s', (tid,))
     assert (await task_api.list_tasks(state_filter='review'))['items'][0]['threadId'] == tid
     current = snapshot._replace(interrupts=(Interrupt({'kind': 'pause'}),))
     assert (await task_api.list_tasks(state_filter='paused'))['items'][0]['threadId'] == tid
@@ -149,11 +152,11 @@ async def test_startup_reads_one_snapshot_per_thread_for_historical_interrupted_
     await service.db.open()
     tid = str(uuid4())
     async with service.db.connection() as conn:
-        await conn.execute('INSERT INTO document_tasks(thread_id,request_hash,graph_id,document,failure_policy,expires_at) VALUES (?,?,?,?,?,?)',
+        await conn.execute('INSERT INTO document_tasks(thread_id,request_hash,graph_id,document,failure_policy,expires_at) VALUES (%s,%s,%s,%s,%s,%s)',
                            (tid, tid, 'document_parser', json.dumps(reference), 'return_partial', utcnow() + timedelta(days=1)))
         for _ in range(30):
             rid = str(uuid4())
-            await conn.execute("INSERT INTO document_runs(run_id,thread_id,request_id,context,status) VALUES (?,?,?,'{}','interrupted')", (rid, tid, rid))
+            await conn.execute("INSERT INTO document_runs(run_id,thread_id,request_id,context,status) VALUES (%s,%s,%s,'{}','interrupted')", (rid, tid, rid))
     restarted = runtime.Service(service.db)
     SERVICES.append(restarted)
     snapshots = AsyncMock(wraps=restarted.snapshot)

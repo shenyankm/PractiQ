@@ -1,4 +1,4 @@
-"""Document APIs over our SQLite queue and open-source LangGraph."""
+"""Document APIs over our PostgreSQL queue and open-source LangGraph."""
 
 import asyncio
 from base64 import b64decode, urlsafe_b64encode
@@ -77,13 +77,13 @@ async def _enqueue(conn, task, request_id, request_hash, *, graph_input=None, co
     run_id = str(uuid4())
     context = {'documentControl': {'requestId': request_id, 'fingerprint': request_hash,
                                   'generation': generation, 'expiresAt': task['expires_at'].isoformat()}}
-    await conn.execute('INSERT INTO document_runs(run_id,thread_id,request_id,input,command,context,base_checkpoint) VALUES (?,?,?,?,?,?,?)',
+    await conn.execute('INSERT INTO document_runs(run_id,thread_id,request_id,input,command,context,base_checkpoint) VALUES (%s,%s,%s,%s,%s,%s,%s)',
                        (run_id, task['thread_id'], request_id, json_encode(graph_input), json_encode(command), json_encode(context), base))
     return receipt(task['thread_id'], request_id, run_id)
 
 
 async def _replay(conn, thread_id, request_id, request_hash):
-    row = await (await conn.execute('SELECT r.*, t.expires_at, t.graph_id, t.document FROM document_receipts r JOIN document_tasks t USING(thread_id) WHERE r.thread_id=? AND request_id=?', (thread_id, request_id))).fetchone()
+    row = await (await conn.execute('SELECT r.*, t.expires_at, t.graph_id, t.document FROM document_receipts r JOIN document_tasks t USING(thread_id) WHERE r.thread_id=%s AND request_id=%s', (thread_id, request_id))).fetchone()
     if row:
         require_supported_task(row)
         remaining_ttl({'expiresAt': row['expires_at'].isoformat()})
@@ -94,7 +94,7 @@ async def _replay(conn, thread_id, request_id, request_hash):
 
 
 async def _save_receipt(conn, thread_id, request_id, request_hash, response):
-    await conn.execute('INSERT INTO document_receipts VALUES (?,?,?,?)', (thread_id, request_id, request_hash, json_encode(response)))
+    await conn.execute('INSERT INTO document_receipts VALUES (%s,%s,%s,%s)', (thread_id, request_id, request_hash, json_encode(response)))
 
 
 async def create_task(request: DocumentTaskCreate) -> dict[str, Any]:
@@ -111,11 +111,11 @@ async def create_task(request: DocumentTaskCreate) -> dict[str, Any]:
             raise DocumentProcessingError(503, 'Office conversion is not configured in this deployment', 'OFFICE_NOT_CONFIGURED')
         validate_source_size(request.document.sizeBytes, request.document.sourceType, settings)
         if request.parentThreadId:
-            parent = await (await conn.execute('SELECT * FROM document_tasks WHERE thread_id=?', (str(request.parentThreadId),))).fetchone()
+            parent = await (await conn.execute('SELECT * FROM document_tasks WHERE thread_id=%s', (str(request.parentThreadId),))).fetchone()
             if not parent:
                 raise DocumentProcessingError(404, 'Parent task not found', 'TASK_NOT_FOUND')
             require_supported_task(parent)
-        task = await (await conn.execute('INSERT INTO document_tasks(thread_id,request_hash,graph_id,document,failure_policy,parent_thread_id,expires_at) VALUES (?,?,?,?,?,?,?) RETURNING *',
+        task = await (await conn.execute('INSERT INTO document_tasks(thread_id,request_hash,graph_id,document,failure_policy,parent_thread_id,expires_at) VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING *',
             (thread_id, request_hash, request.graphId, json_encode(request.document.model_dump(mode='json')), request.failurePolicy,
              str(request.parentThreadId) if request.parentThreadId else None, utcnow() + timedelta(minutes=TTL_MINUTES)))).fetchone()
         response = await _enqueue(conn, task, request_id, request_hash,
@@ -133,13 +133,13 @@ def _create_payload(request: DocumentTaskCreate) -> dict[str, Any]:
 async def _office_mode(service, thread_id: str) -> OfficeMode | None:
     # The initial run input is already committed atomically with the task.
     # Reuse it instead of changing schema-1 databases or checkpoint identities.
-    rows = await service.db.rows('SELECT input FROM document_runs WHERE thread_id=? AND input IS NOT NULL '
+    rows = await service.db.rows('SELECT input FROM document_runs WHERE thread_id=%s AND input IS NOT NULL '
                                  'ORDER BY created_at,run_id LIMIT 1', (thread_id,))
     return rows[0]['input'].get('officeMode') if rows else None
 
 
 async def _read_task_record(service, thread_id):
-    tasks = await service.db.rows('SELECT * FROM document_tasks WHERE thread_id=?', (thread_id,))
+    tasks = await service.db.rows('SELECT * FROM document_tasks WHERE thread_id=%s', (thread_id,))
     if not tasks:
         raise DocumentProcessingError(404, 'Document task not found', 'TASK_NOT_FOUND')
     task = tasks[0]
@@ -151,13 +151,13 @@ async def _read_task_record(service, thread_id):
 async def _read_task(service, thread_id):
     task = await _read_task_record(service, thread_id)
     snapshot = await service.snapshot(task)
-    runs = await service.db.rows('SELECT * FROM document_runs WHERE thread_id=? ORDER BY created_at DESC LIMIT 1', (thread_id,))
+    runs = await service.db.rows('SELECT * FROM document_runs WHERE thread_id=%s ORDER BY created_at DESC LIMIT 1', (thread_id,))
     return task, snapshot, runs[0] if runs else None
 
 
 async def reparse_task(thread_id: str, request: DocumentTaskReparse) -> dict[str, Any]:
     service = client()
-    tasks = await service.db.rows('SELECT * FROM document_tasks WHERE thread_id=?', (thread_id,))
+    tasks = await service.db.rows('SELECT * FROM document_tasks WHERE thread_id=%s', (thread_id,))
     if not tasks:
         raise DocumentProcessingError(404, 'Document task not found', 'TASK_NOT_FOUND')
     task = tasks[0]
@@ -268,7 +268,7 @@ async def get_task_head(thread_id: str) -> dict[str, Any]:
     service = client()
     task = await _read_task_record(service, thread_id)
     heads = await service.db.checkpoint_heads([thread_id])
-    runs = await service.db.rows('SELECT * FROM document_runs WHERE thread_id=? ORDER BY created_at DESC LIMIT 1', (thread_id,))
+    runs = await service.db.rows('SELECT * FROM document_runs WHERE thread_id=%s ORDER BY created_at DESC LIMIT 1', (thread_id,))
     run = runs[0] if runs else None
     summary = await _task_summary(service, task, run, heads.get(thread_id))
     execution = summary['head']['execution']
@@ -337,9 +337,9 @@ async def control_task(thread_id: str, request: DocumentTaskControl) -> dict[str
                 raise conflict('The target run is no longer current', 'STALE_RUN')
             if run['status'] in {'pending', 'running'}:
                 if request.action == 'pause':
-                    await conn.execute('UPDATE document_runs SET pause_requested=true WHERE run_id=?', (run['run_id'],))
+                    await conn.execute('UPDATE document_runs SET pause_requested=true WHERE run_id=%s', (run['run_id'],))
                 else:
-                    await conn.execute('UPDATE document_runs SET cancel_requested=true WHERE run_id=?', (run['run_id'],))
+                    await conn.execute('UPDATE document_runs SET cancel_requested=true WHERE run_id=%s', (run['run_id'],))
             response = receipt(thread_id, request_id, run['run_id'])
         else:
             if run and run['status'] in {'pending', 'running'}:
@@ -383,13 +383,13 @@ def _counts(total: int, succeeded: int, failed: int) -> dict[str, int]:
 async def delete_task(thread_id: str) -> dict[str, bool]:
     service = client()
     async with service.db.transaction() as conn:
-        active = await (await conn.execute("SELECT 1 FROM document_runs WHERE thread_id=? AND status IN ('pending','running')", (thread_id,))).fetchone()
+        active = await (await conn.execute("SELECT 1 FROM document_runs WHERE thread_id=%s AND status IN ('pending','running')", (thread_id,))).fetchone()
         if active:
             raise conflict('Stop the task before deleting it', 'TASK_BUSY')
         # Keep shared source artifacts and imported desktop banks intact.
-        await conn.execute('DELETE FROM document_receipts WHERE thread_id=?', (thread_id,))
-        await conn.execute('DELETE FROM document_runs WHERE thread_id=?', (thread_id,))
-        await conn.execute('DELETE FROM document_tasks WHERE thread_id=?', (thread_id,))
+        await conn.execute('DELETE FROM document_receipts WHERE thread_id=%s', (thread_id,))
+        await conn.execute('DELETE FROM document_runs WHERE thread_id=%s', (thread_id,))
+        await conn.execute('DELETE FROM document_tasks WHERE thread_id=%s', (thread_id,))
     service.task_summaries.pop(thread_id, None)
     await service.db.checkpointer.adelete_thread(thread_id)
     while items := await service.db.store.asearch(namespace(thread_id, '')[:2], limit=100, refresh_ttl=False):
@@ -436,18 +436,18 @@ async def list_tasks(limit: int = 20, offset: int = 0, sha256: str | None = None
             after = (timestamp, str(UUID(thread)))
         except (ValueError, TypeError, UnicodeError) as exc:
             raise DocumentProcessingError(400, 'Invalid task page cursor', 'INVALID_CURSOR') from exc
-    source_filter = " AND json_extract(t.document, '$.sha256')=?" if sha256 else ''
+    source_filter = " AND (t.document->>'sha256')=%s" if sha256 else ''
     params: tuple[Any, ...] = (sha256,) if sha256 else ()
     join: LiteralString = ''
     where = supported_task_sql('t') + source_filter
     if office_mode is not None:
-        where += (" AND json_extract(t.document,'$.sourceType') IN ('doc','docx','xls','xlsx')"
-                  " AND (SELECT json_extract(initial.input,'$.officeMode') FROM document_runs initial"
+        where += (" AND (t.document->>'sourceType') IN ('doc','docx','xls','xlsx')"
+                  " AND (SELECT (initial.input->>'officeMode') FROM document_runs initial"
                   " WHERE initial.thread_id=t.thread_id AND initial.input IS NOT NULL"
-                  " ORDER BY initial.created_at,initial.run_id LIMIT 1)=?")
+                  " ORDER BY initial.created_at,initial.run_id LIMIT 1)=%s")
         params += (office_mode,)
     if state_filter is not None:
-        where += ' AND t.expires_at<=?' if state_filter == 'expired' else ' AND t.expires_at>?'
+        where += ' AND t.expires_at<=%s' if state_filter == 'expired' else ' AND t.expires_at>%s'
         params += (utcnow(),)
         if state_filter != 'expired':
             join = (' LEFT JOIN document_runs r ON r.run_id='
@@ -456,9 +456,9 @@ async def list_tasks(limit: int = 20, offset: int = 0, sha256: str | None = None
             where += ' AND (' + FILTER_RUN_SQL[state_filter] + ')'
     def page_query(position):
         if position:
-            return (f'SELECT t.* FROM document_tasks t{join} WHERE {where} AND (t.created_at,t.thread_id)<(?,?) '
-                    'ORDER BY t.created_at DESC,t.thread_id DESC LIMIT ? OFFSET ?'), (*params, *position)
-        return (f'SELECT t.* FROM document_tasks t{join} WHERE {where} ORDER BY t.created_at DESC,t.thread_id DESC LIMIT ? OFFSET ?'), params
+            return (f'SELECT t.* FROM document_tasks t{join} WHERE {where} AND (t.created_at,t.thread_id)<(%s,%s) '
+                    'ORDER BY t.created_at DESC,t.thread_id DESC LIMIT %s OFFSET %s'), (*params, *position)
+        return (f'SELECT t.* FROM document_tasks t{join} WHERE {where} ORDER BY t.created_at DESC,t.thread_id DESC LIMIT %s OFFSET %s'), params
 
     def result(items, more):
         next_cursor = urlsafe_b64encode(json_encode([items[-1]['createdAt'], items[-1]['threadId'], scope]).encode()).decode() if more else None
@@ -492,8 +492,8 @@ async def _task_summaries(service, rows) -> AsyncIterator[dict[str, Any]]:
     latest_runs = await service.db.rows(
         'SELECT * FROM document_runs WHERE run_id IN '
         '(SELECT (SELECT run_id FROM document_runs r WHERE r.thread_id=t.thread_id ORDER BY created_at DESC LIMIT 1) '
-        'FROM document_tasks t WHERE t.thread_id IN (SELECT value FROM json_each(?)))',
-        (json_encode([row['thread_id'] for row in rows]),),
+        'FROM document_tasks t WHERE t.thread_id = ANY(%s))',
+        ([row['thread_id'] for row in rows],),
     )
     runs_by_thread = {run['thread_id']: run for run in latest_runs}
     heads = await service.db.checkpoint_heads([row['thread_id'] for row in rows])

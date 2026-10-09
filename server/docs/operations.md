@@ -1,14 +1,14 @@
 # Operate the open-source LangGraph service
 
-The runtime uses a single FastAPI/Uvicorn process, open-source LangGraph, and local SQLite. It requires neither Agent Server, Redis, nor a LangSmith runtime license. Parsing, subjective grading, and infrastructure costs are separate. This guide covers startup, backup, recovery, and maintenance for the independent service; see the [project overview](../../README.md) for desktop data management.
+The runtime uses a single FastAPI/Uvicorn process, open-source LangGraph, and PostgreSQL. It requires neither Agent Server, Redis, nor a LangSmith runtime license. Parsing, subjective grading, and infrastructure costs are separate. This guide covers startup, backup, recovery, and maintenance for the independent service; see the [project overview](../../README.md) for desktop data management.
 
 ## Initialize and start
 
-Use an existing Python 3.14+ interpreter without a project `.venv`. Startup commands load the root `.env`; process environment variables take precedence. `AI_DATABASE_DIR` identifies a dedicated local-disk directory, defaulting to `server/.local/database` in source checkouts. Deployments must use an absolute persistent path. Old `DATABASE_URI` settings prevent startup. Existing PostgreSQL data and volumes remain unchanged, and historical tasks are not automatically migrated. Unknown nonempty SQLite databases cannot be initialized.
+Use an existing Python 3.14+ interpreter without a project `.venv`. Startup commands load the root `.env`; process environment variables take precedence. `DATABASE_URI` must identify a dedicated PostgreSQL database, for example `postgresql://practiq:password@127.0.0.1:5432/practiq`. Create the database and its owner through your PostgreSQL administration process; `make init-db` creates the service tables only. Use a direct connection or session pooling, not transaction pooling: ownership uses a session advisory lock. Restrict database access and require TLS for remote deployments. There is no SQLite fallback. Existing SQLite files and historical PostgreSQL/Agent Server state are left untouched; tasks are not automatically migrated. Initialization refuses unknown nonempty databases. Complete old work on its original version before switching, and keep the original database, artifacts and configuration for rollback.
 
 Complete the [service configuration and startup steps](service-guide.md#run-locally), including building Web assets when that frontend is needed. Run commands from the repository root.
 
-`make server-dev` starts one Uvicorn process on `127.0.0.1:8090` with persistent local SQLite files. Missing or incompatible databases prevent startup; there is no in-memory fallback. Python registers graphs directly, without `langgraph.json` or the LangGraph CLI server.
+`make server-dev` starts one Uvicorn process on `127.0.0.1:8090` with persistent PostgreSQL state. Missing or incompatible databases prevent startup; there is no in-memory fallback. Python registers graphs directly, without `langgraph.json` or the LangGraph CLI server.
 
 `Dockerfile.server` builds the production image with Python 3.14, PDFium, Chinese fonts and the built import Web frontend. Office normalization belongs to this deployment; configure and verify its LibreOffice executable/version separately. Linux ECS deployments use host networking. The container listens on `127.0.0.1:8000` by default, behind a host HTTPS reverse proxy. Do not expose database or application backend ports. `deploy/nginx.conf` is a host-loopback HTTP proxy example; a trusted upstream entry point provides TLS.
 
@@ -18,23 +18,23 @@ Size resources using representative documents, model latency, and concurrency te
 
 Keep matching database, file, and configuration backups:
 
-- `tasks.sqlite` stores tasks, runs, and idempotency receipts. Official SQLite persistence components manage `checkpoints.sqlite` and `store.sqlite`. Connections enable WAL, FULL synchronization, foreign keys, and a five-second busy timeout. Network filesystems and multiple service processes are unsupported.
-- `subjective-grades.sqlite` stores grading request IDs, digests, responses, and per-attempt call records. It is created on the first grading request. The additive `grade_calls` table is created when opening an existing grading cache; existing requests and responses remain intact. Independent-service backups must preserve it to retain replay records. It is outside the document queue and is not cleaned by document-task cleanup.
+- A single dedicated PostgreSQL database stores `document_tasks`, `document_runs`, `document_receipts`, official LangGraph checkpoint/Store tables, and `grades`/`grade_calls`. JSON uses JSONB and timestamps use `timestamptz`. Connections use synchronous commits and a five-second lock timeout. Only one service process may own this database.
+- Grading records preserve request IDs, input digests, responses and ordered per-attempt calls. They are initialized by `make init-db`, remain outside the document queue, and are not removed by document-task cleanup.
 - New service instances use a local file root. The default is `.local/ai-oss`; production must use an absolute persistent mount. Old tasks, checkpoints, and files stay in their original environment. Old state stores are neither automatically migrated, deleted, nor reused.
 - Local uploads and asset reads retain authentication, size, and SHA-256 checks.
 - Successful parsed units are atomically written and fsynced as checksum-addressed `unit-result/*.json` artifacts before checkpoints record their references and counts. Preserve these objects with the matching checkpoints; preview, merge and resume verify and load them as needed. Legacy inline units remain readable, subject to the existing execution-signature rules. Missing or corrupt artifacts block recovery rather than silently discarding saved work or starting a new model call.
 - Finish old tasks on their original version before changing storage, code, models, or semantic configuration. Do not bypass execution fingerprints. Database credentials do not belong in graph state or logs.
-- Stop both service and maintenance processes before backing up the entire SQLite directory and matching file storage, including any WAL files. Restore matching data on the same version. Copying only a running database's main file is unsafe. A single instance does not promise host-level high availability.
+- Drain and stop the service and maintenance processes, then use `pg_dump --format=custom` for the entire service database and back up matching file storage and configuration. Restore into an empty dedicated database with `pg_restore`, then verify `/ready` and retained task/artifact reads on the same version. A database dump alone does not preserve referenced artifact files. A single instance does not promise host-level high availability.
 
 ### Storage configuration
 
-Storage uses local files only. `AI_STORAGE_BACKEND` accepts an unset value or `local`; other values prevent startup. Remove unused `AI_OSS_*` settings. Verify that `AI_STORAGE_DIR` contains the files referenced by the matching SQLite databases before starting. Changes to storage roots require an explicit offline copy and checksum verification; retain the source and configuration for rollback.
+Storage uses local files only. `AI_STORAGE_BACKEND` accepts an unset value or `local`; other values prevent startup. Remove unused `AI_OSS_*` settings. Verify that `AI_STORAGE_DIR` contains the files referenced by the matching PostgreSQL database before starting. Changes to storage roots require an explicit offline copy and checksum verification; retain the source and configuration for rollback.
 
 ## Queue, pause, and recovery
 
 `N_JOBS_PER_WORKER=8` limits active tasks within the process. `AI_GRAPH_MAX_CONCURRENCY=2` limits parallel units per task. `AI_DEPLOYMENT_WORKERS` must be 1. Requests return 202 after task/queue transaction commit. A database uniqueness constraint permits only one pending/running run per thread. Duplicate requests return the original receipt. New requests exceeding `AI_MAX_BUSY_THREADS=300` return 503.
 
-The process holds a standard-library `flock` lock; a second instance cannot start. Do not delete or replace the lock file. The kernel releases the lock on a crash; replacement of the lock file stops the process. A supervisor handles restart. Database failures do not permit continued admission or a hidden in-memory queue fallback.
+The process holds a PostgreSQL session advisory lock; another instance or offline maintenance command cannot take ownership, including from another host. PostgreSQL releases the lock when the connection dies. An ownership monitor checks the connection and lock every 0.5 seconds; loss stops admission and exits the process. A supervisor handles restart. Database failures do not permit continued admission or an in-memory queue fallback.
 
 Unexpected restarts resume unfinished runs with their original IDs, deadlines, budgets, and unknown usage. A completed checkpoint only needs terminal-state repair. Manually paused, explicitly interrupted, and `WAITING_REVIEW` tasks do not resume automatically. Shutdown stops admission and waits at most 60 seconds, leaving unfinished tasks recoverable. Service managers must allow at least 65 seconds for termination.
 
@@ -82,7 +82,7 @@ python -m practiq_ai.manage cleanup-state
 
 The command obtains the same exclusive lock and deletes expired tasks without active runs. It also removes orphaned checkpoint threads and document-task Store namespaces whose task records are already absent, completing interrupted API deletions. Retained task state (including unsupported task records and queued runs) and unrelated Store namespaces remain untouched. It clears checkpoints and Store through their official APIs, then deletes business records. The reported count includes orphaned task states; repeating the command is safe after interruption. During maintenance, no other program may write the same database/storage.
 
-The file script connects directly to SQLite and defaults to read-only inventory:
+The file script connects directly to PostgreSQL and defaults to read-only inventory:
 
 ```sh
 python scripts/storage_gc.py --output /absolute/new-inventory.json
@@ -92,7 +92,7 @@ Load configuration into the shell first. Inventory covers retained tasks, comple
 
 ## Verify recovery and capacity
 
-`make verify` uses temporary SQLite files and model fakes, without external model calls, PostgreSQL, or Docker databases. Independent-process tests cover forced termination, unknown calls, and human-review recovery.
+`make verify` uses isolated PostgreSQL databases and model fakes, without external model calls. `TEST_DATABASE_URI` may point to a dedicated disposable instance whose role can create/drop databases; otherwise the helper starts one temporary Docker PostgreSQL container bound to loopback and removes it on exit. Every test gets its own randomly named database; pure tests do not start Docker. Independent-process tests cover forced termination, unknown calls, and human-review recovery.
 
 Start the service, then run this load test from the repository root:
 
@@ -127,6 +127,6 @@ Record the original absolute directory before changing paths. Set `AI_STORAGE_DI
 
 The image uses UID/GID `10001:10001`. `server/deploy/service.compose.yml` supplies Linux host constraints: 2 CPUs, 2 GiB memory, 128 processes, a read-only root, all capabilities dropped, privilege escalation disabled, and init-based child reaping. Only `/var/lib/practiq`, bounded `/tmp` tmpfs, and `/home/practiq` are writable. Extraction temporary files use these locations.
 
-Set `PRACTIQ_STORAGE_DIR` to a verified absolute host directory and ensure UID 10001 can read/write it. Do not recursively change existing mount permissions automatically. Use an existing dedicated group/ACL or manually copy to a new dedicated directory while preserving rollback data. SQLite lives at `/var/lib/practiq/database` within the persistent mount. Remove old `DATABASE_URI` from `.env`. Host networking exposes the service only on `127.0.0.1:8000`. Validate with `docker compose -f server/deploy/service.compose.yml config --quiet`, then start in an authorized deployment environment. These resource quotas are starting values; validate against representative documents and concurrency.
+Set `PRACTIQ_STORAGE_DIR` to a verified absolute host directory and ensure UID 10001 can read/write it. Do not recursively change existing mount permissions automatically. Use an existing dedicated group/ACL or manually copy to a new dedicated directory while preserving rollback data. Configure `DATABASE_URI` in the deployment environment for the dedicated PostgreSQL database. The mount holds artifacts only; old SQLite directories remain untouched. Host networking exposes the service only on `127.0.0.1:8000`. Validate with `docker compose -f server/deploy/service.compose.yml config --quiet`, then start in an authorized deployment environment. These resource quotas are starting values; validate against representative documents and concurrency.
 
 Only supported task records participate in startup recovery, scheduling and queue capacity. Unsupported records remain unchanged and return `TASK_FORMAT_UNSUPPORTED` on direct access. Read-only service mode leaves unfinished tasks waiting and makes no model calls. Ordinary independent deployments retain automatic recovery of originally authorized unfinished runs. Browser GET polling starts no new model work. Desktop ZIP backups exclude legacy AI task directories.

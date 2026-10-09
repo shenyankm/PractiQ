@@ -167,19 +167,18 @@ def test_local_storage_keeps_existing_default_directory(monkeypatch):
     assert config.load().storage_dir == config.SERVER_ROOT / ".local/ai-oss"
 
 
-def test_sqlite_directory_and_custom_model_origin(tmp_path, monkeypatch):
+def test_postgres_uri_and_custom_model_origin(monkeypatch):
     _env(monkeypatch, LLM_PROVIDER='openai', LLM_BASE_URL='http://127.0.0.1:1234/v1')
-    monkeypatch.delenv('DATABASE_URI', raising=False)
-    monkeypatch.setenv('AI_DATABASE_DIR', str(tmp_path / 'db'))
-    assert config.database_dir() == tmp_path / 'db'
+    monkeypatch.setenv('DATABASE_URI', 'postgresql://user:secret@localhost/practiq')
+    assert config.database_uri() == 'postgresql://user:secret@localhost/practiq'
     assert config.load().base_url == 'http://127.0.0.1:1234/v1'
     for value in ('http://example.com', 'https://user:secret@example.com', 'https://example.com?key=secret', 'file:///tmp/model'):
         monkeypatch.setenv('LLM_BASE_URL', value)
         with pytest.raises(ValueError, match='LLM_BASE_URL'):
             config.load()
-    monkeypatch.setenv('AI_DATABASE_DIR', ' ')
-    with pytest.raises(ValueError, match='AI_DATABASE_DIR'):
-        config.database_dir()
-    monkeypatch.setenv('DATABASE_URI', 'postgresql://unused')
-    with pytest.raises(ValueError, match='no longer supported'):
-        config.database_dir()
+    for value in ('', ' ', 'sqlite:///tmp/tasks.db', 'postgresql://host', 'postgresql:///db', 'postgresql://host/db#secret'):
+        monkeypatch.setenv('DATABASE_URI', value)
+        with pytest.raises(ValueError, match='DATABASE_URI'):
+            config.database_uri()
+    monkeypatch.setenv('DATABASE_URI', 'postgresql://host/db?sslmode=require')
+    assert config.database_uri().endswith('sslmode=require')

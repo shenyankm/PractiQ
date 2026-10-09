@@ -1,13 +1,13 @@
-"""Single-process durable queue runner. SQLite is the source of truth."""
+"""Single-process durable queue runner. PostgreSQL is the source of truth."""
 
 import asyncio
 import os
 from collections import OrderedDict
 from datetime import timedelta
-from sqlite3 import Error as DatabaseError
 from typing import Any
 
 from langgraph.types import Command
+from psycopg import Error as DatabaseError
 
 from .config import load, require_model_config
 from .database import Database, utcnow, watch_ownership
@@ -45,7 +45,7 @@ class Service:
         try:
             await self.db.check_schema()
             load()  # Validate deployment settings before taking ownership.
-            self.lock = self.db.acquire()
+            self.lock = await self.db.acquire()
             await self.db.ensure_indexes()
             self.graphs = {name: build_document_graph(self.db.checkpointer, store=self.db.store, name=name, source_types=types)
                            for name, types in GRAPH_FORMATS.items()}
@@ -55,7 +55,7 @@ class Service:
             snapshot = None
             for run in await self.db.rows(f"SELECT r.* FROM document_runs r JOIN document_tasks t ON t.thread_id=r.thread_id WHERE r.status IN ('pending','running','interrupted') AND {supported_task_sql('t')} ORDER BY r.thread_id"):
                 if run['thread_id'] != previous_thread:
-                    task = (await self.db.rows('SELECT * FROM document_tasks WHERE thread_id=?', (run['thread_id'],)))[0]
+                    task = (await self.db.rows('SELECT * FROM document_tasks WHERE thread_id=%s', (run['thread_id'],)))[0]
                     snapshot = await self.snapshot(task)
                     previous_thread = run['thread_id']
                 assert snapshot is not None
@@ -64,8 +64,8 @@ class Service:
             async with self.db.connection() as conn:
                 read_only = load().read_only
                 await conn.execute(
-                    "UPDATE document_runs AS r SET status=? WHERE r.status IN ('pending','running') "
-                    "AND (? OR r.status='running') AND EXISTS "
+                    "UPDATE document_runs AS r SET status=%s WHERE r.status IN ('pending','running') "
+                    "AND (%s OR r.status='running') AND EXISTS "
                     f"(SELECT 1 FROM document_tasks t WHERE t.thread_id=r.thread_id AND {supported_task_sql('t')})",
                     ('interrupted' if read_only else 'pending', read_only),
                 )
@@ -171,12 +171,12 @@ class Service:
 
     async def finish(self, run_id, status, error=None):
         async with self.db.connection() as conn:
-            await conn.execute('UPDATE document_runs SET status=?,error_code=?,finished_at=now() WHERE run_id=?', (status, error, run_id))
+            await conn.execute('UPDATE document_runs SET status=%s,error_code=%s,finished_at=now() WHERE run_id=%s', (status, error, run_id))
 
     async def execute(self, run):
         run_id = run['run_id']
         try:
-            task = (await self.db.rows('SELECT * FROM document_tasks WHERE thread_id=?', (run['thread_id'],)))[0]
+            task = (await self.db.rows('SELECT * FROM document_tasks WHERE thread_id=%s', (run['thread_id'],)))[0]
             require_supported_task(task)
             require_model_config()
             remaining_ttl({'expiresAt': task['expires_at'].isoformat()})
@@ -188,7 +188,7 @@ class Service:
                 return
             deadline = run['deadline'] or utcnow() + timedelta(seconds=load().run_timeout_seconds)
             async with self.db.connection() as conn:
-                await conn.execute("UPDATE document_runs SET status='running',started_at=coalesce(started_at,now()),deadline=? WHERE run_id=?", (deadline, run_id))
+                await conn.execute("UPDATE document_runs SET status='running',started_at=coalesce(started_at,now()),deadline=%s WHERE run_id=%s", (deadline, run_id))
             await self.db.store.aput(namespace(run['thread_id'], 'deadlines'), run_id, {'at': deadline.isoformat()}, index=False)
             remaining = (deadline - utcnow()).total_seconds()
             if remaining <= 0:
@@ -202,7 +202,7 @@ class Service:
             snapshot = await self.snapshot(task)
             await self.finish(run_id, 'waiting' if snapshot.interrupts else 'success')
         except asyncio.CancelledError:
-            rows = await self.db.rows('SELECT cancel_requested FROM document_runs WHERE run_id=?', (run_id,))
+            rows = await self.db.rows('SELECT cancel_requested FROM document_runs WHERE run_id=%s', (run_id,))
             await self.finish(run_id, 'interrupted' if rows[0]['cancel_requested'] else 'pending')
         except DatabaseError:
             self.accepting = False

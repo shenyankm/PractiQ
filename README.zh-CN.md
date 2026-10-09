@@ -110,7 +110,7 @@ npm run tauri -- build
 cp -n .env.example .env
 ```
 
-在 `.env` 中设置服务令牌、模型凭据、`LLM_MODEL`、数据库目录和文件存储，再初始化新数据库并启动：
+在 `.env` 中设置服务令牌、模型凭据、`LLM_MODEL`、PostgreSQL 连接地址 `DATABASE_URI` 和文件存储。先创建空的专用 PostgreSQL 数据库，再初始化服务表并启动：
 
 ```sh
 make install-locked AI_PYTHON=/path/to/python3.14
@@ -120,7 +120,7 @@ make web-build
 make server-dev AI_PYTHON=/path/to/python3.14
 ```
 
-FastAPI/LangGraph 服务监听 `127.0.0.1:8090`，使用 SQLite 和本地文件存储，每个数据库只运行一个进程。上传、任务、素材和评分接口均需鉴权。打开 `http://127.0.0.1:8090/` 使用已构建的 Web 前端；开发时可另外运行 `make web-dev`，其本机 Vite 服务将 API 请求代理到独立服务。需要 Office 支持时，仅在服务部署端配置 `AI_OFFICE_EXECUTABLE` 与 `AI_OFFICE_VERSION`。详见[服务指南](server/docs/service-guide.md)。
+FastAPI/LangGraph 服务监听 `127.0.0.1:8090`，使用 PostgreSQL 和本地文件存储，每个数据库只运行一个进程。上传、任务、素材和评分接口均需鉴权。打开 `http://127.0.0.1:8090/` 使用已构建的 Web 前端；开发时可另外运行 `make web-dev`，其本机 Vite 服务将 API 请求代理到独立服务。需要 Office 支持时，仅在服务部署端配置 `AI_OFFICE_EXECUTABLE` 与 `AI_OFFICE_VERSION`。详见[服务指南](server/docs/service-guide.md)。
 
 ## 文档与开发
 

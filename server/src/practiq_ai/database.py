@@ -1,43 +1,49 @@
-"""Local SQLite task records, with separate LangGraph checkpoint and Store files."""
+"""PostgreSQL task records, LangGraph checkpoints, Store and grading receipts."""
 
 import asyncio
-import errno
-import json
-import os
-import sqlite3
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
-from pathlib import Path
-from typing import Any, LiteralString, cast
+from typing import Any, LiteralString
 
-import aiosqlite
-from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
-from langgraph.store.sqlite.aio import AsyncSqliteStore
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from langgraph.store.postgres.aio import AsyncPostgresStore
+from psycopg import AsyncConnection
+from psycopg.rows import dict_row
 
-from .config import database_dir
+from .config import database_uri
 
 SCHEMA_VERSION = 1
+# Separate session ownership from short API transactions, scoped to this database.
+LOCK_NAMESPACE = 817241
 DDL = """
+CREATE TABLE practiq_schema(version integer NOT NULL);
+INSERT INTO practiq_schema VALUES (1);
 CREATE TABLE document_tasks (
  thread_id text PRIMARY KEY, request_hash text NOT NULL, graph_id text NOT NULL,
- document text NOT NULL CHECK(json_valid(document)), failure_policy text NOT NULL, parent_thread_id text,
- created_at text NOT NULL DEFAULT (now()), expires_at text NOT NULL
+ document jsonb NOT NULL, failure_policy text NOT NULL, parent_thread_id text,
+ created_at timestamptz NOT NULL DEFAULT clock_timestamp(), expires_at timestamptz NOT NULL
 );
 CREATE TABLE document_runs (
  run_id text PRIMARY KEY, thread_id text NOT NULL REFERENCES document_tasks(thread_id),
- request_id text NOT NULL, input text, command text, context text NOT NULL,
+ request_id text NOT NULL, input jsonb, command jsonb, context jsonb NOT NULL,
  base_checkpoint text, status text NOT NULL DEFAULT 'pending', error_code text,
- cancel_requested integer NOT NULL DEFAULT 0, pause_requested integer NOT NULL DEFAULT 0,
- created_at text NOT NULL DEFAULT (now()), started_at text,
- deadline text, finished_at text,
+ cancel_requested boolean NOT NULL DEFAULT false, pause_requested boolean NOT NULL DEFAULT false,
+ created_at timestamptz NOT NULL DEFAULT clock_timestamp(), started_at timestamptz,
+ deadline timestamptz, finished_at timestamptz,
  UNIQUE(thread_id, request_id)
 );
 CREATE UNIQUE INDEX document_active_run ON document_runs(thread_id) WHERE status IN ('pending','running');
 CREATE INDEX document_queue ON document_runs(created_at) WHERE status = 'pending';
 CREATE TABLE document_receipts (
  thread_id text NOT NULL REFERENCES document_tasks(thread_id), request_id text NOT NULL,
- fingerprint text NOT NULL, response text NOT NULL CHECK(json_valid(response)),
+ fingerprint text NOT NULL, response jsonb NOT NULL,
  PRIMARY KEY(thread_id, request_id)
+);
+CREATE TABLE grades(id text PRIMARY KEY, digest text NOT NULL, response jsonb);
+CREATE TABLE grade_calls (
+ grade_id text NOT NULL REFERENCES grades(id), call_key text NOT NULL, record jsonb NOT NULL,
+ sequence bigint GENERATED ALWAYS AS IDENTITY,
+ PRIMARY KEY(grade_id,call_key)
 );
 """
 INDEX_DDL = """
@@ -45,95 +51,63 @@ CREATE INDEX IF NOT EXISTS document_task_order ON document_tasks(created_at DESC
 CREATE INDEX IF NOT EXISTS document_run_latest ON document_runs(thread_id,created_at DESC);
 CREATE INDEX IF NOT EXISTS document_active_order ON document_runs(created_at) WHERE status IN ('pending','running');
 """
-JSON_COLUMNS = {'document', 'input', 'command', 'context', 'response'}
-DATE_COLUMNS = {'created_at', 'expires_at', 'started_at', 'deadline', 'finished_at'}
-sqlite3.register_adapter(datetime, lambda value: value.astimezone(UTC).isoformat())
-
-
-def task_row(cursor, values):
-    row = dict(zip((column[0] for column in cursor.description), values, strict=True))
-    for key, value in row.items():
-        if value is not None:
-            if key in JSON_COLUMNS:
-                row[key] = json.loads(value)
-            elif key in DATE_COLUMNS:
-                row[key] = datetime.fromisoformat(value)
-    return row
+STATE_TABLES = {'checkpoints', 'checkpoint_blobs', 'checkpoint_writes', 'checkpoint_migrations', 'store', 'store_migrations'}
+TASK_TABLES = {'practiq_schema', 'document_tasks', 'document_runs', 'document_receipts', 'grades', 'grade_calls', 'grade_calls_sequence_seq'}
 
 
 class Ownership:
-    """Kernel releases the lock after a crash. Never unlink the lock file."""
-    def __init__(self, path: Path):
-        self.path = path
-        self.file = path.open('a+b')
-        try:
-            if os.name == 'nt':
-                import msvcrt
-                self.file.seek(0)
-                try:
-                    msvcrt.locking(self.file.fileno(), msvcrt.LK_NBLCK, 1)
-                except OSError as exc:
-                    if exc.errno in {errno.EACCES, errno.EDEADLK}:
-                        raise BlockingIOError('Database is locked') from exc
-                    raise
-            else:
-                import fcntl
-                fcntl.flock(self.file, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BaseException:
-            self.file.close()
-            raise
+    """PostgreSQL releases session ownership when the connection dies."""
 
-    def check(self):
-        stat = os.fstat(self.file.fileno())
-        current = self.path.stat()
-        if (stat.st_dev, stat.st_ino) != (current.st_dev, current.st_ino):
-            raise RuntimeError('Database ownership file was replaced')
+    def __init__(self, connection: AsyncConnection[dict[str, Any]]):
+        self.connection = connection
+
+    async def check(self):
+        row = await (await self.connection.execute(
+            "SELECT EXISTS(SELECT 1 FROM pg_locks WHERE locktype='advisory' AND pid=pg_backend_pid() "
+            "AND classid=%s AND objid=1 AND objsubid=2 AND granted) AS owned", (LOCK_NAMESPACE,),
+        )).fetchone()
+        if not row or not row['owned']:
+            raise RuntimeError('Database ownership was lost')
 
     async def close(self):
-        self.file.close()
+        await self.connection.close()
 
 
 class Database:
-    def __init__(self, directory: str | Path | None = None):
-        self.directory = Path(directory) if directory is not None else database_dir()
-        self.directory = self.directory.resolve()
+    def __init__(self, uri: str | None = None):
+        self.uri = uri if uri is not None else database_uri()
         self.control_lock = asyncio.Lock()
         self.read_lock = asyncio.Lock()
-        self.connections: list[aiosqlite.Connection] = []
-        self.reader: aiosqlite.Connection | None = None
-        self.checkpointer: AsyncSqliteSaver
-        self.store: AsyncSqliteStore
+        self.connections: list[AsyncConnection[dict[str, Any]]] = []
+        self.reader: AsyncConnection[dict[str, Any]] | None = None
+        self.checkpointer: AsyncPostgresSaver
+        self.store: AsyncPostgresStore
 
-    async def connect(self, filename: str, *, business: bool = False):
-        conn = await aiosqlite.connect(self.directory / filename, isolation_level=None, timeout=5)
-        try:
-            await conn.execute('PRAGMA busy_timeout=5000')
-            await conn.execute('PRAGMA journal_mode=WAL')
-            await conn.execute('PRAGMA synchronous=FULL')
-            await conn.execute('PRAGMA foreign_keys=ON')
-            if business:
-                conn.row_factory = cast(Any, task_row)
-                await conn.create_function('now', 0, lambda: utcnow().isoformat())
-            return conn
-        except BaseException:
-            await conn.close()
-            raise
+    async def connect(self):
+        return await AsyncConnection[dict[str, Any]].connect(
+            self.uri, autocommit=True, prepare_threshold=0, row_factory=dict_row,
+            connect_timeout=5, options='-c search_path=public -c timezone=UTC -c lock_timeout=5000 -c synchronous_commit=on',
+        )
 
     async def open(self):
         if self.connections:
             return
-        self.directory.mkdir(parents=True, exist_ok=True, mode=0o700)
         try:
-            for name in ('checkpoints.sqlite', 'store.sqlite'):
-                self.connections.append(await self.connect(name))
-            self.checkpointer = AsyncSqliteSaver(self.connections[0])
-            self.store = AsyncSqliteStore(self.connections[1])
-            self.reader = await self.connect('tasks.sqlite', business=True)
+            for _ in range(2):
+                self.connections.append(await self.connect())
+            self.checkpointer = AsyncPostgresSaver(self.connections[0])
+            self.store = AsyncPostgresStore(self.connections[1])
+            self.reader = await self.connect()
         except BaseException:
             await self.close()
             raise
 
     async def close(self):
+        # Upstream Store has no close API; reap its batch worker before closing the connection.
+        store = getattr(self, 'store', None)
+        if store is not None and store._task is not None:
+            store._task.cancel()
+            await asyncio.gather(store._task, return_exceptions=True)
         if self.reader is not None:
             await self.reader.close()
             self.reader = None
@@ -142,84 +116,82 @@ class Database:
 
     @asynccontextmanager
     async def connection(self):
-        conn = await self.connect('tasks.sqlite', business=True)
-        try:
+        async with await self.connect() as conn:
             yield conn
-        finally:
-            await conn.close()
 
     async def rows(self, query: LiteralString, params: Any = ()) -> list[dict[str, Any]]:
         if self.reader is not None:
-            # Finish each cursor before the next read, so concurrent reads cannot share a stale snapshot.
-            async with self.read_lock, self.reader.execute(query, params) as cursor:
-                return cast(list[dict[str, Any]], await cursor.fetchall())
-        async with self.connection() as conn, conn.execute(query, params) as cursor:
-            return cast(list[dict[str, Any]], await cursor.fetchall())
+            # Finish each cursor before the next read so reads have independent snapshots.
+            async with self.read_lock, self.reader.cursor() as cursor:
+                await cursor.execute(query, params)
+                return await cursor.fetchall()
+        async with self.connection() as conn, conn.cursor() as cursor:
+            await cursor.execute(query, params)
+            return await cursor.fetchall()
 
     async def ensure_indexes(self):
-        # Additive indexes keep schema-1 databases and durable checkpoints compatible.
         async with self.connection() as conn:
-            await conn.executescript(INDEX_DDL)
+            await conn.execute(INDEX_DDL, prepare=False)
 
     async def checkpoint_heads(self, thread_ids: list[str]) -> dict[str, str]:
         # Read only primary-key metadata, never the serialized checkpoint payload.
-        async with self.checkpointer.lock, self.connections[0].execute(
-            "SELECT value,(SELECT checkpoint_id FROM checkpoints WHERE thread_id=ids.value AND checkpoint_ns='' "
-            "ORDER BY checkpoint_id DESC LIMIT 1) FROM json_each(?) ids",
-            (json.dumps(thread_ids),),
-        ) as cursor:
-            return {str(row[0]): str(row[1]) for row in await cursor.fetchall() if row[1] is not None}
+        async with self.checkpointer.lock, self.connections[0].cursor() as cursor:
+            await cursor.execute(
+                "SELECT DISTINCT ON (thread_id) thread_id,checkpoint_id FROM checkpoints "
+                "WHERE thread_id=ANY(%s) AND checkpoint_ns='' ORDER BY thread_id,checkpoint_id DESC",
+                (thread_ids,),
+            )
+            return {row['thread_id']: row['checkpoint_id'] for row in await cursor.fetchall()}
+
+    async def tables(self) -> set[str]:
+        return {row['name'] for row in await self.rows(
+            "SELECT CASE WHEN n.nspname='public' THEN c.relname ELSE n.nspname||'.'||c.relname END AS name "
+            "FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace "
+            "WHERE n.nspname !~ '^pg_' AND n.nspname!='information_schema' AND c.relkind IN ('r','p','v','m','f','S')"
+        )}
 
     async def check_schema(self):
-        rows = await self.rows('PRAGMA user_version')
-        if rows[0]['user_version'] != SCHEMA_VERSION:
+        tables = await self.tables()
+        if 'practiq_schema' not in tables or await self.rows('SELECT version FROM practiq_schema') != [{'version': SCHEMA_VERSION}]:
             raise RuntimeError('Initialize a new dedicated database with python -m practiq_ai.manage init-db')
-        for conn, required in zip(self.connections, ({'checkpoints', 'writes'}, {'store', 'store_migrations'}), strict=True):
-            tables = await (await conn.execute("SELECT name FROM sqlite_master WHERE type='table'")).fetchall()
-            if not required <= {row[0] for row in tables}:
-                raise RuntimeError('Incomplete SQLite state; restore the entire database directory before starting')
-
+        if not STATE_TABLES | TASK_TABLES <= tables:
+            raise RuntimeError('Incomplete PostgreSQL state; restore the entire service database before starting')
 
     @asynccontextmanager
     async def transaction(self):
-        async with self.control_lock, self.connection() as conn:
-            await conn.execute('BEGIN IMMEDIATE')
-            try:
-                yield conn
-                await conn.commit()
-            except BaseException:
-                await conn.rollback()
-                raise
+        async with self.control_lock, self.connection() as conn, conn.transaction():
+            await conn.execute('SELECT pg_advisory_xact_lock(%s,2)', (LOCK_NAMESPACE,))
+            yield conn
 
     async def initialize(self):
-        async with self.connection() as conn:
-            names = {row['name'] for row in await (await conn.execute("SELECT name FROM sqlite_master WHERE type='table'")).fetchall()}
-            if names and names != {'practiq_initialization'}:
+        names = await self.tables()
+        if names:
+            if not names <= STATE_TABLES | {'practiq_initialization'} or 'practiq_initialization' not in names:
                 raise RuntimeError('Initialization requires an empty dedicated database; existing data is untouched')
-            if names:
-                marker = await (await conn.execute('SELECT version FROM practiq_initialization')).fetchall()
-                if marker != [{'version': SCHEMA_VERSION}]:
-                    raise RuntimeError('Initialization requires an empty dedicated database')
-            else:
-                # A foreign checkpoint/Store file must never be adopted by a fresh task database.
-                for other in self.connections:
-                    tables = await (await other.execute("SELECT name FROM sqlite_master WHERE type='table'")).fetchall()
-                    if tables:
-                        raise RuntimeError('Initialization requires an empty dedicated database')
-                await conn.executescript(f'BEGIN IMMEDIATE; CREATE TABLE practiq_initialization(version INTEGER); INSERT INTO practiq_initialization VALUES({SCHEMA_VERSION}); COMMIT;')
-            await self.checkpointer.setup()
-            await self.store.setup()
-            try:
-                await conn.executescript(f'BEGIN IMMEDIATE; {DDL} {INDEX_DDL} PRAGMA user_version={SCHEMA_VERSION}; DROP TABLE practiq_initialization; COMMIT;')
-            except BaseException:
-                await conn.rollback()
-                raise
+            if await self.rows('SELECT version FROM practiq_initialization') != [{'version': SCHEMA_VERSION}]:
+                raise RuntimeError('Initialization requires an empty dedicated database')
+        else:
+            async with self.transaction() as conn:
+                await conn.execute('CREATE TABLE practiq_initialization(version integer NOT NULL)')
+                await conn.execute('INSERT INTO practiq_initialization VALUES (%s)', (SCHEMA_VERSION,))
+        # Upstream setup creates concurrent indexes outside a transaction. Keep the marker for retry.
+        await self.checkpointer.setup()
+        await self.store.setup()
+        async with self.transaction() as conn:
+            await conn.execute(DDL, prepare=False)
+            await conn.execute(INDEX_DDL, prepare=False)
+            await conn.execute('DROP TABLE practiq_initialization')
 
-    def acquire(self, message: str = 'Another service already owns this database') -> Ownership:
+    async def acquire(self, message: str = 'Another service already owns this database') -> Ownership:
+        conn = await self.connect()
         try:
-            return Ownership(self.directory / 'owner.lock')
-        except BlockingIOError as exc:
-            raise RuntimeError(message) from exc
+            row = await (await conn.execute('SELECT pg_try_advisory_lock(%s,1) AS owned', (LOCK_NAMESPACE,))).fetchone()
+            if not row or not row['owned']:
+                raise RuntimeError(message)
+            return Ownership(conn)
+        except BaseException:
+            await conn.close()
+            raise
 
 
 def utcnow() -> datetime:
@@ -230,7 +202,8 @@ async def watch_ownership(owner: Ownership, lost):
     try:
         while True:
             await asyncio.sleep(0.5)
-            owner.check()
+            async with asyncio.timeout(2):
+                await owner.check()
     except asyncio.CancelledError:
         raise
     except Exception:  # noqa: BLE001 - ownership loss must stop every writer

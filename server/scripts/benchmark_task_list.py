@@ -1,4 +1,4 @@
-"""Read-path probe using disposable SQLite and synthetic checkpoints; no model calls."""
+"""Read-path probe using disposable PostgreSQL and synthetic checkpoints; no model calls."""
 import argparse
 import asyncio
 import copy
@@ -38,7 +38,7 @@ async def probe(question_count):
             for _ in range(20):
                 tid = str(uuid4())
                 async with service.db.connection() as conn:
-                    await conn.execute('INSERT INTO document_tasks(thread_id,request_hash,graph_id,document,failure_policy,expires_at) VALUES(?,?,?,?,?,?)',
+                    await conn.execute('INSERT INTO document_tasks(thread_id,request_hash,graph_id,document,failure_policy,expires_at) VALUES(%s,%s,%s,%s,%s,%s)',
                                        (tid, tid, 'document_parser', json.dumps(reference), 'return_partial', utcnow() + timedelta(days=1)))
                 await service.graph.aupdate_state({'configurable': {'thread_id': tid}},
                     {'document': reference, 'status': 'SUCCEEDED', 'result': {'questions': questions, 'groups': [], 'visualElements': []},
@@ -51,11 +51,11 @@ async def probe(question_count):
                 times.append((time.perf_counter() - start) * 1000)
                 assert len(value['items']) == 20
                 assert all(row['questionCount'] == question_count for row in value['items'])
-            size = await (await service.db.connections[0].execute('SELECT sum(length(checkpoint)),count(*) FROM checkpoints')).fetchone()
+            size = await (await service.db.connections[0].execute('SELECT coalesce(sum(pg_column_size(checkpoint)),0)+(SELECT coalesce(sum(octet_length(blob)),0) FROM checkpoint_blobs) AS bytes,count(*) FROM checkpoints')).fetchone()
             assert not model.calls
             return {'tasks': 20, 'questionsPerTask': question_count, 'samplesMs': times,
                     'medianMs': statistics.median(times), 'responseBytes': len(json.dumps(value).encode()),
-                    'checkpointBytes': size[0], 'checkpointRows': size[1], 'realModelCalls': 0}
+                    'checkpointBytes': size['bytes'], 'checkpointRows': size['count'], 'realModelCalls': 0}
         finally:
             await cleanup()
 
@@ -80,21 +80,24 @@ async def filter_probe(history_count):
             await service.loop
             source = str(uuid4())
             async with service.db.connection() as conn:
-                await conn.execute('INSERT INTO document_tasks(thread_id,request_hash,graph_id,document,failure_policy,expires_at) VALUES (?,?,?,?,?,?)',
+                await conn.execute('INSERT INTO document_tasks(thread_id,request_hash,graph_id,document,failure_policy,expires_at) VALUES (%s,%s,%s,%s,%s,%s)',
                                    (source, source, 'document_parser', json.dumps(reference), 'return_partial', utcnow() + timedelta(days=1)))
-                await conn.execute("INSERT INTO document_runs(run_id,thread_id,request_id,context,status) VALUES (?,?,?,'{}','success')", (source, source, source))
+                await conn.execute("INSERT INTO document_runs(run_id,thread_id,request_id,context,status) VALUES (%s,%s,%s,'{}','success')", (source, source, source))
             await service.graph.aupdate_state({'configurable': {'thread_id': source}},
                                             {'status': 'SUCCEEDED', 'result': parsed()}, as_node='finish')
             async with service.db.connection() as conn:
                 for _ in range(history_count - 1):
                     tid = str(uuid4())
-                    await conn.execute('INSERT INTO document_tasks SELECT ?,request_hash,graph_id,document,failure_policy,parent_thread_id,created_at,expires_at FROM document_tasks WHERE thread_id=?', (tid, source))
-                    await conn.execute("INSERT INTO document_runs(run_id,thread_id,request_id,context,status) VALUES (?,?,?,'{}','success')", (tid, tid, tid))
+                    await conn.execute('INSERT INTO document_tasks SELECT %s,request_hash,graph_id,document,failure_policy,parent_thread_id,created_at,expires_at FROM document_tasks WHERE thread_id=%s', (tid, source))
+                    await conn.execute("INSERT INTO document_runs(run_id,thread_id,request_id,context,status) VALUES (%s,%s,%s,'{}','success')", (tid, tid, tid))
                     await service.db.connections[0].execute(
-                        "INSERT INTO checkpoints SELECT ?,checkpoint_ns,checkpoint_id,parent_checkpoint_id,type,checkpoint,metadata FROM checkpoints WHERE thread_id=? AND checkpoint_ns='' ORDER BY checkpoint_id DESC LIMIT 1", (tid, source))
+                        "INSERT INTO checkpoints SELECT %s,checkpoint_ns,checkpoint_id,parent_checkpoint_id,type,checkpoint,metadata FROM checkpoints WHERE thread_id=%s AND checkpoint_ns='' ORDER BY checkpoint_id DESC LIMIT 1", (tid, source))
+                    await service.db.connections[0].execute(
+                        "INSERT INTO checkpoint_blobs SELECT %s,checkpoint_ns,channel,version,type,blob FROM checkpoint_blobs WHERE thread_id=%s",
+                        (tid, source))
                 active = str(uuid4())
-                await conn.execute('INSERT INTO document_tasks SELECT ?,request_hash,graph_id,document,failure_policy,parent_thread_id,created_at,expires_at FROM document_tasks WHERE thread_id=?', (active, source))
-                await conn.execute("INSERT INTO document_runs(run_id,thread_id,request_id,context,status) VALUES (?,?,?,'{}','pending')", (active, active, active))
+                await conn.execute('INSERT INTO document_tasks SELECT %s,request_hash,graph_id,document,failure_policy,parent_thread_id,created_at,expires_at FROM document_tasks WHERE thread_id=%s', (active, source))
+                await conn.execute("INSERT INTO document_runs(run_id,thread_id,request_id,context,status) VALUES (%s,%s,%s,'{}','pending')", (active, active, active))
             snapshot_reads = []
             original = service.snapshot
             async def observed(task):
@@ -130,9 +133,10 @@ async def filter_probe(history_count):
                                       else task_api.list_tasks(state_filter=state_filter))
                         samples.append({'durationMs': round((time.perf_counter() - before) * 1000, 3),
                                         'snapshotReads': len(snapshot_reads)})
-                        expected = 1 if state_filter == 'active' else (0 if state_filter == 'paused' else 20)
+                        expected = 1 if state_filter == 'active' else (0 if state_filter == 'paused' else min(20, history_count))
                         assert len(page['items']) == expected
-                        assert page['hasMore'] == (state_filter == 'completed')
+                        assert page['hasMore'] == (state_filter == 'completed' and history_count > 20)
+                        page = {key: page[key] for key in ('items', 'hasMore')}
                         if baseline is None:
                             baseline = page
                         assert page == baseline
@@ -152,7 +156,7 @@ async def filter_probe(history_count):
                     await service.db.rows(sql)
                     times.append((time.perf_counter() - before) * 1000)
                 query_results[name] = {'sql': sql, 'medianMs': statistics.median(times),
-                                       'plan': await service.db.rows('EXPLAIN QUERY PLAN ' + sql)}
+                                       'plan': await service.db.rows('EXPLAIN (FORMAT JSON) ' + sql)}
             return {'completedHistory': history_count, 'activeTasks': 1, 'lruLimit': 256,
                     'results': results, 'queries': query_results, 'realModelCalls': 0}
         finally:
@@ -167,7 +171,7 @@ def main():
     if args.history_tasks < 1:
         parser.error('--history-tasks must be positive')
     results = [asyncio.run(probe(n)) for n in (1, 1000)]
-    report = {'method': 'Real disposable SQLite; 20 synthetic completed tasks, one chunk and result; five reads including cold first read; former filter baseline uses the current unfiltered backend to isolate filter behavior; no model calls, IPC or WebView',
+    report = {'method': 'Real disposable PostgreSQL; 20 synthetic completed tasks, one chunk and result; five reads including cold first read; former filter baseline uses the current unfiltered backend to isolate filter behavior; no model calls, IPC or WebView',
               'results': results, 'filteredHistory': asyncio.run(filter_probe(args.history_tasks))}
     args.output.write_text(json.dumps(report, indent=2))
     print(json.dumps(report, indent=2))

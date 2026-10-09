@@ -8,7 +8,7 @@ Evaluation uses real local file writes and `document_parser`, calling the graph 
 
 ## Check subjective grading and source-score extraction
 
-`scripts/evaluate_grading.py` uses fixed synthetic questions to check grading and source-score extraction separately. It calls the service's model logic directly with a temporary grading database. It does not verify HTTP authentication, desktop interactions, or exactly-once provider calls.
+`scripts/evaluate_grading.py` uses fixed synthetic questions to check grading and source-score extraction separately. It calls the service's model logic directly with the initialized PostgreSQL database configured by `DATABASE_URI`. Evaluation requests use new IDs and remain in its grading ledger. It does not verify HTTP authentication, desktop interactions, or exactly-once provider calls.
 
 Configure the shared multimodal `LLM_MODEL` in the repository-root `.env`, then run from `server/`. These commands call the model and incur charges. Choose a new report path for every run:
 
@@ -172,7 +172,7 @@ python -m pytest --junitxml=reports/checks/probes.xml
 python scripts/evaluate.py --probes reports/checks/probes.xml
 ```
 
-Probes reuse tests for recovery, budgets, reference validation, converters, similar sources, and structured output. They distinguish recovery success, correct stopping, route validity, and preservation of unknown usage. Each parameterized scenario is one observation; missing, skipped, or setup-failed scenarios do not pass. JUnit records code and test fingerprints and the collected probe cases; stale or incomplete evidence returns BLOCKED. Reports from explicit `::` nodeid selection are also blocked because selection can omit parameter cases before collection. Test exception bodies are not exported. These results establish only deterministic fault-test behavior. Actual process restart remains NOT_ASSESSED in this probe summary. Isolated SQLite tests in `tests/test_runtime_recovery.py` separately verify forced termination and recovery; they do not replace recovery acceptance against production persistent directories.
+Probes reuse tests for recovery, budgets, reference validation, converters, similar sources, and structured output. They distinguish recovery success, correct stopping, route validity, and preservation of unknown usage. Each parameterized scenario is one observation; missing, skipped, or setup-failed scenarios do not pass. JUnit records code and test fingerprints and the collected probe cases; stale or incomplete evidence returns BLOCKED. Reports from explicit `::` nodeid selection are also blocked because selection can omit parameter cases before collection. Test exception bodies are not exported. These results establish only deterministic fault-test behavior. Actual process restart remains NOT_ASSESSED in this probe summary. Isolated PostgreSQL tests in `tests/test_runtime_recovery.py` separately verify forced termination and recovery; they do not replace recovery acceptance against production persistent directories.
 
 The `review_candidate` log event contains only task identifiers, format, status, and error codes. Save `practiq.events` message bodies as JSONL in a local persistent log directory, then generate a review queue:
 

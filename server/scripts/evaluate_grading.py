@@ -7,7 +7,6 @@ import io
 import json
 import os
 import statistics
-import tempfile
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
@@ -139,13 +138,11 @@ def main():
     with args.output.open("x", encoding="utf-8") as output:
         load_dotenv(Path(__file__).resolve().parents[2]/".env", override=False)
         os.environ["LANGSMITH_TRACING"] = os.environ["LANGCHAIN_TRACING_V2"] = "false"
-        with tempfile.TemporaryDirectory(prefix="practiq-grade-eval-") as directory:
-            os.environ["AI_DATABASE_DIR"] = directory
-            try:
-                report = asyncio.run(evaluate_source(args.repeats) if args.source_scores_only else evaluate(args.repeats, anchors))
-                report.setdefault("status", "PASSED" if report["exactMatches"] == report["total"] else "FAILED")
-            except Exception as exc:  # noqa: BLE001 - record a blocked run without credentials
-                report = {"status":"BLOCKED", "errorType":type(exc).__name__}
+        try:
+            report = asyncio.run(evaluate_source(args.repeats) if args.source_scores_only else evaluate(args.repeats, anchors))
+            report.setdefault("status", "PASSED" if report["exactMatches"] == report["total"] else "FAILED")
+        except Exception as exc:  # noqa: BLE001 - record a blocked run without credentials
+            report = {"status":"BLOCKED", "errorType":type(exc).__name__}
         output.write(json.dumps(report, ensure_ascii=False, indent=2)+"\n")
     print(f'{report["status"]}: {args.output}')
     return {"PASSED":0,"FAILED":1,"BLOCKED":2}[report["status"]]

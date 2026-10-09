@@ -1,4 +1,4 @@
-"""Independent Uvicorn, HTTP, SQLite and extraction; only the provider is synthetic."""
+"""Independent Uvicorn, HTTP, PostgreSQL and extraction; only the provider is synthetic."""
 import hashlib
 import json
 import os
@@ -21,7 +21,9 @@ from tests.support import make_blank_pdf, make_image
 
 
 @pytest.fixture
-def service(tmp_path):
+async def service(tmp_path, disposable_databases):
+    from tests.db_support import new_database
+    db = await new_database()
     calls = tmp_path / "calls.jsonl"
     sock = socket.socket()
     sock.bind(("127.0.0.1", 0))
@@ -33,7 +35,7 @@ def service(tmp_path):
         "AI_SERVICE_TOKEN": "e2e-token", "LLM_API_KEY": "synthetic-key",
         "LLM_BASE_URL": f"http://127.0.0.1:{sock.getsockname()[1]}/v1",
         "LLM_MODEL": "synthetic-model",
-        "AI_DATABASE_DIR": str(tmp_path / "db"), "AI_STORAGE_DIR": str(tmp_path / "files"),
+        "DATABASE_URI": db.uri, "AI_STORAGE_DIR": str(tmp_path / "files"),
     }
 
     @contextmanager
@@ -49,9 +51,6 @@ def service(tmp_path):
             env["AI_READ_ONLY"] = "1"
             for key in ("LLM_API_KEY", "LLM_BASE_URL", "LLM_MODEL", "LLM_PROVIDER"):
                 env.pop(key, None)
-        if not (tmp_path / "db" / "tasks.sqlite").exists():
-            subprocess.run([sys.executable, "-m", "practiq_ai.manage", "init-db"],
-                           check=True, capture_output=True, text=True, cwd=tmp_path, env=env, timeout=15)
         with socket.socket() as port_socket:
             port_socket.bind(("127.0.0.1", 0))
             port = port_socket.getsockname()[1]

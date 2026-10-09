@@ -195,11 +195,10 @@ def storage_path(value: str) -> Path:
     return Path(os.path.abspath(SERVER_ROOT / path))
 
 
-def database_dir() -> Path:
-    """Dedicated local SQLite directory; never silently reuse a PostgreSQL deployment."""
-    if os.environ.get("DATABASE_URI", "").strip():
-        raise ValueError("DATABASE_URI is no longer supported; set AI_DATABASE_DIR for a new SQLite database. Existing PostgreSQL data is untouched")
-    value = os.environ.get("AI_DATABASE_DIR", ".local/database").strip()
-    if not value:
-        raise ValueError("AI_DATABASE_DIR must not be empty")
-    return storage_path(value)
+def database_uri() -> str:
+    """Require an explicit PostgreSQL database; never adopt old SQLite state."""
+    value = _required(dict(os.environ), "DATABASE_URI")
+    url = urlsplit(value)
+    if url.scheme not in {"postgresql", "postgres"} or not url.hostname or not url.path.strip("/") or url.fragment:
+        raise ValueError("DATABASE_URI must be a PostgreSQL URL with a host and database name")
+    return value
