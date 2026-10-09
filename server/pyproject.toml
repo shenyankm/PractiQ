@@ -2,6 +2,8 @@
 name = "practiq-ai-service"
 version = "0.3.0"
 description = "PractiQ internal AI document-processing service"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.14"
 dependencies = [
   "fastapi==0.139.0",
