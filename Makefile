@@ -39,6 +39,8 @@ verify:
 audit:
 	@set -eu; requirements=$$(mktemp); trap 'rm -f "$$requirements"' EXIT; \
 	cd server; uv export --locked --extra dev --no-emit-project --python "$(AI_PYTHON)" -o "$$requirements" >/dev/null; \
+	"$(AI_PYTHON)" -m pip_audit --strict --disable-pip --no-deps -r "$$requirements"; \
+	"$(AI_PYTHON)" -c 'import pathlib, sys, tomllib; project = tomllib.loads(pathlib.Path("pyproject.toml").read_text()); print(*project["build-system"]["requires"], *project["tool"]["uv"]["build-constraint-dependencies"], sep="\n", file=open(sys.argv[1], "w"))' "$$requirements"; \
 	"$(AI_PYTHON)" -m pip_audit --strict --disable-pip --no-deps -r "$$requirements"
 audit-rust:
 	cargo audit --file app/src-tauri/Cargo.lock

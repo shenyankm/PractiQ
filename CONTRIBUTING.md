@@ -48,7 +48,7 @@ Choose checks for every affected area; append `AI_PYTHON=/path/to/python3.14` to
 | Service Office conversion | Focused Office/normalization tests and `make verify`; verify fidelity with the actual deployed engine separately |
 | macOS/Windows resources or packaging | Focused package/release regressions and `make app-check`; on macOS run `make app-package-check`; on Windows run `python app/scripts/check-installer.py --installer C:/path/to/final-installer.exe --output C:/path/to/fresh-package-report.json` with Python 3.14+ and 7-Zip. Final installers must contain no Python/LibreOffice runtime |
 | Android host, storage or packaging | Shared contracts/frontend and touch-browser checks on any host, actual APK package checks, Kotlin unit/instrumentation tests and affected native flows in the [Android guide](app/docs/android.md); `make app-check` additionally runs host Rust checks on macOS/Windows |
-| Locked dependencies | Run the affected ecosystem's audit: `make audit` for Python runtime and dev dependencies; `make audit-rust` for Cargo.lock; `npm --prefix app audit --audit-level=high` and/or `npm --prefix web audit --audit-level=high` for the affected npm lockfiles (network required) |
+| Locked dependencies | Run the affected ecosystem's audit: `make audit` for Python runtime, dev and pinned build dependencies; `make audit-rust` for Cargo.lock; `npm --prefix app audit --audit-level=high` and/or `npm --prefix web audit --audit-level=high` for the affected npm lockfiles (network required) |
 | Service image | `make image-check` (Docker required; does not publish) |
 | Documentation | Verify claims against source, local links, and command syntax |
 
