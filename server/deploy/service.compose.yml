@@ -28,7 +28,7 @@ services:
     pids_limit: 128
     stop_grace_period: 70s
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready', timeout=3).close()"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.build_opener(urllib.request.ProxyHandler({})).open('http://127.0.0.1:8000/ready', timeout=3).close()"]
       interval: 10s
       timeout: 5s
       retries: 3

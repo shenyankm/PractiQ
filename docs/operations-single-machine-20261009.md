@@ -24,6 +24,7 @@ Docker Desktop host networking here exposes Linux-VM loopback, not macOS loopbac
 | Invalid worker count / missing token / second instance | Startup fails before accepting requests; the second process cannot take ownership |
 | Maintenance | Reads and readiness remain available; upload and new-task creation reject with 503; no new provider calls |
 | HTTPS entry | Laboratory Nginx edge verifies a locally issued certificate, forwards authenticated requests, and retains unauthenticated API rejection; backend remains on loopback |
+| Health probe with outbound HTTP proxies | Explicitly bypasses environment proxies; a ready service passes while 503 or unavailable loopback fails |
 | Consistent backup and restore | Service stopped; full custom-format PostgreSQL dump and matching files restored into a new database/directory; every table-row digest and file hash matches |
 | Restored task / rollback | Same run, result, known usage and unknown calls; ZIP export and all four file reads verified; rollback to original database/files starts without model calls |
 
@@ -42,7 +43,7 @@ Two additional overload batches retain their own reports and are excluded from t
 
 ## Validation and rollback
 
-`make verify` passed lockfile consistency, Ruff, Pyright, fixture validation, **1,751 tests**, the 90% coverage gate, recovery probes and package build. Combined coverage is approximately **93%**. `make audit` found no known vulnerabilities in the locked Python runtime/development dependencies. These checks use model substitutes. See the [operations guide](../server/docs/operations.md) for startup, alerts, permissions, backup and rollback commands.
+`make verify` passed lockfile consistency, Ruff, Pyright, fixture validation, **1,753 tests** after the health-proxy review fix, the 90% coverage gate, recovery probes and package build. The initial run contained 1,751 tests; both results are retained. Combined coverage is approximately **93%**. `make audit` found no known vulnerabilities in the locked Python runtime/development dependencies. These checks use model substitutes. See the [operations guide](../server/docs/operations.md) for startup, alerts, permissions, backup and rollback commands.
 
 `make image-check` also rebuilt the current Web assets/image. The existing `check_container.py` passed inside that final local image under the documented quotas: real PDFium rendering, isolated extractor cleanup, nonprivileged filesystem access and verified persistent artifact storage. Its image identity is recorded separately from the fixed supervision comparison; no build-speed or image-size improvement is inferred from this one build.
 

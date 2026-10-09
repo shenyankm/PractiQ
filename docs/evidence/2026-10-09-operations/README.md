@@ -6,6 +6,7 @@ See [the dated report](../../operations-single-machine-20261009.md) for source/i
 - `load-1.json`–`load-3.json`: consecutive warm overload samples from the existing `server/scripts/load_test.py`; additional `load-4.json`/`load-5.json` are separate checks.
 - `faults.json`, `startup-rejections.json` and `maintenance.json`: synthetic process/database recovery, verified artifact errors and refusal boundaries.
 - `https.json`: certificate-verified loopback laboratory edge.
+- `health-proxy.json` and `probes-health-proxy.json`: proxy-disabled readiness regression, actual container probe and final recovery checks after review.
 - `backup-restore.json`: database-row/file digests, nonempty grading records, sequence restoration and rollback.
 - `resources.json`: cgroup observations after the fifth overload batch; not host RSS.
 - `checks.json`, `probes.json` and `image-check.json`: local verification, dependency audit, toolchain and final local image smoke.

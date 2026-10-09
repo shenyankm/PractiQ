@@ -5,13 +5,47 @@ import os
 import subprocess
 import sys
 import time
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
+from threading import Thread
 
 import httpx
 import pytest
+import yaml
 
 from scripts import load_test, storage_gc
 from tests.support import object_store, upload
+
+
+@pytest.mark.parametrize("status", [200, 503])
+def test_compose_health_probe_bypasses_proxy_and_rejects_not_ready(status):
+    config = yaml.safe_load((Path(__file__).parents[1] / "deploy/service.compose.yml").read_text())
+    command = config["services"]["ai"]["healthcheck"]["test"]
+    assert command[:3] == ["CMD", "python", "-c"]
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            assert self.path == "/ready"
+            self.send_response(status)
+            self.end_headers()
+
+        def log_message(self, format: str, *args: object) -> None:
+            pass
+
+    with HTTPServer(("127.0.0.1", 0), Handler) as server:
+        thread = Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        probe = command[3].replace("127.0.0.1:8000", f"127.0.0.1:{server.server_port}")
+        env = {key: value for key, value in os.environ.items() if not key.lower().endswith("_proxy")}
+        env.update(HTTP_PROXY="http://127.0.0.1:1", http_proxy="http://127.0.0.1:1", NO_PROXY="")
+        try:
+            result = subprocess.run([sys.executable, "-c", probe], env=env, capture_output=True, timeout=5, check=False)
+            assert (result.returncode == 0) == (status == 200)
+        finally:
+            server.shutdown()
+            thread.join(timeout=5)
+    unavailable = subprocess.run([sys.executable, "-c", probe], env=env, capture_output=True, timeout=5, check=False)
+    assert unavailable.returncode != 0
 
 
 def test_proxy_grading_limit_matches_service_without_raising_document_upload_limit():
