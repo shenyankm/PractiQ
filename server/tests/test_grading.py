@@ -319,17 +319,17 @@ async def test_grade_partial_cache_and_rescale(setup,monkeypatch,feedback_locale
     assert seen[0][0]=="unified"
 
 
-@pytest.mark.parametrize("field,invalid", [("evidence", "quoted evidence"), ("evidence", None),
-                                           ("reviewReasons", "quoted reason"), ("reviewReasons", None)])
-async def test_invalid_grading_arrays_retain_usage_and_cached_score(shared_grading_model, monkeypatch, field, invalid):
+@pytest.mark.parametrize("case", json.loads((Path(__file__).parents[1] / "evals/badcases/grading-arrays-v1.json").read_text())["cases"], ids=lambda case: case["id"])
+async def test_invalid_grading_arrays_retain_usage_and_cached_score(shared_grading_model, monkeypatch, case):
     model, valid = shared_grading_model
-    model.responses[0] = {**valid, field: invalid}
+    field = case["field"]
+    model.responses[0] = {**valid, field: case["value"]}
     monkeypatch.setattr(llm, "_retry_delay", lambda _: 0)
     request = grading.GradeRequest.model_validate(payload())
     result = await grading.grade(request)
     assert result["result"]["scoreCents"] == 300
     assert len(result["calls"]) == len(result["usage"]) == len(model.calls) == 2
-    assert result["calls"][0]["validationIssues"] == [{"path": [field], "type": "list_type"}]
+    assert result["calls"][0]["validationIssues"] == [{"path": [field], "type": case["expectedError"]}]
     assert all(call["usageStatus"] == "known" for call in result["calls"])
     assert await grading.grade(request) == result and len(model.calls) == 2
 

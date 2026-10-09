@@ -469,3 +469,7 @@ make verify AI_PYTHON="$AI_PYTHON"
 ```
 
 The first two commands validate the dataset and scorer with substitutes. Complete `make verify` before delivering the fixture change; it remains separate from paid/live model evaluation.
+
+## Grading format Badcases
+
+The [version-1 array-field corpus](../evals/badcases/grading-arrays-v1.json) adds four offline response-validation cases with explicit schema criteria and provenance to the real failure report. `test_invalid_grading_arrays_retain_usage_and_cached_score` evaluates bounded correction, retained usage and exact cached reference scores. These reconstructed invalid values are model substitutes, not additional live-model inputs or grading-quality labels; the frozen parser manifest and five live grading anchors remain separate.
