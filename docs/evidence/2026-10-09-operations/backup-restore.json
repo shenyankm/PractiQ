@@ -1,0 +1,84 @@
+{
+  "stopSeconds": 0.2854462920076912,
+  "stopExitCode": 143,
+  "shutdownComplete": true,
+  "databaseTables": {
+    "checkpoint_migrations": {
+      "count": 10,
+      "sha256": "6bd31f9bfde196c60b82960c4cf588eb94584d1f55b53d774af73e9c0a851870"
+    },
+    "checkpoints": {
+      "count": 595,
+      "sha256": "b1bec0b50f94bc5804d15f05aa4cdd343889e215cba800a06e90f415db4d1bba"
+    },
+    "checkpoint_blobs": {
+      "count": 1225,
+      "sha256": "33b005fe0e7ffa9b6f280e162a56588f8583cb207c51e149d872b1140f998e92"
+    },
+    "checkpoint_writes": {
+      "count": 2905,
+      "sha256": "65289e1e085bcd2c66595c8cf15d6d7c02083e6fd96b7ebd31b568ea3dea2e49"
+    },
+    "store_migrations": {
+      "count": 4,
+      "sha256": "000b97ff80c9059bad1bb2cc7092844ec5703c0ebf6b7059f03072e9d23729bd"
+    },
+    "store": {
+      "count": 178,
+      "sha256": "886cfca43db3cacc4ce02ca3d9825fff0ae7fe7c17b92fb8dbb757c530d7bb8f"
+    },
+    "practiq_schema": {
+      "count": 1,
+      "sha256": "8b4c6134e31b7bf9794db7da319e903caf8aaf30d68ca0d8b36fc774a6eafb7b"
+    },
+    "document_tasks": {
+      "count": 35,
+      "sha256": "93a7d3ab9a8a30f06b1886a824fc7affdb30855a12179dfe95190a8bf011b95b"
+    },
+    "document_runs": {
+      "count": 35,
+      "sha256": "9ed168ffe72def4b37f4a61bf5fb04f1dafbbcdd34f193164cd10a8a3f2a3dcf"
+    },
+    "document_receipts": {
+      "count": 35,
+      "sha256": "8c0464bbf06da1c664cf5e7b02e2eb49e417b7dcd475ecb84f06d26d16512ba1"
+    },
+    "grades": {
+      "count": 1,
+      "sha256": "f49a67a107ceac29c28ea19f53e67e1a7bff9ad42fa1607dac433a799ee40f86"
+    },
+    "grade_calls": {
+      "count": 1,
+      "sha256": "613aaa46cf8ec461a7357a5e1d4c45bc2b9ef9fd568ca449f405e6e8edb160c9"
+    }
+  },
+  "databaseDumpSha256": "7be55ce8f251ba9eff8ef479703224c3485dbc4ad1b7eaf4bec8001dd8411d81",
+  "artifactHashes": {
+    "practiq-agent/sources/5ac9f024958166f41bb1d7dd9cae1a83a683062da96c4091a9857f106ab868c6/source.txt": "5ac9f024958166f41bb1d7dd9cae1a83a683062da96c4091a9857f106ab868c6",
+    "practiq-agent/artifacts/5ac9f024958166f41bb1d7dd9cae1a83a683062da96c4091a9857f106ab868c6/chunk/0-5ac9f024958166f41bb1d7dd9cae1a83a683062da96c4091a9857f106ab868c6.txt": "5ac9f024958166f41bb1d7dd9cae1a83a683062da96c4091a9857f106ab868c6",
+    "practiq-agent/artifacts/5ac9f024958166f41bb1d7dd9cae1a83a683062da96c4091a9857f106ab868c6/unit-result/0-22b493ed6e466a7943b04f1ca227230f6cb915885210857b385ae6fb9d993d61.json": "22b493ed6e466a7943b04f1ca227230f6cb915885210857b385ae6fb9d993d61",
+    "practiq-agent/artifacts/5ac9f024958166f41bb1d7dd9cae1a83a683062da96c4091a9857f106ab868c6/text/0-5ac9f024958166f41bb1d7dd9cae1a83a683062da96c4091a9857f106ab868c6.txt": "5ac9f024958166f41bb1d7dd9cae1a83a683062da96c4091a9857f106ab868c6"
+  },
+  "restoredAllTableDigests": true,
+  "restoredAllArtifactHashes": true,
+  "sameRunId": true,
+  "sameResult": true,
+  "sameUsageAndUnknownCalls": true,
+  "newProviderCalls": 0,
+  "export": {
+    "bankSha256": "b7277becaeb1637807d0d695b71e8decffcb26425db9c4ac3fc88883f600d966",
+    "bankBytes": 898
+  },
+  "originalDatabaseAndFilesPreserved": true,
+  "verifiedRestoredArtifactReads": 4,
+  "sameGradingReceiptAndCalls": true,
+  "gradingSequence": [
+    2,
+    true
+  ],
+  "nonAdminRole": true,
+  "storageReadableWritableAsUid10001": true,
+  "rollbackToOriginalDatabaseAndFilesVerified": true,
+  "rollbackSameGradingReceipt": true,
+  "rollbackNewProviderCalls": 0
+}

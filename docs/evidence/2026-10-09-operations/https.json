@@ -1,0 +1,7 @@
+{
+  "certificateVerified": true,
+  "readyStatus": 200,
+  "unauthenticatedApiStatus": 401,
+  "authenticatedApiStatus": 200,
+  "scope": "Linux VM loopback TLS; no online deployment"
+}
