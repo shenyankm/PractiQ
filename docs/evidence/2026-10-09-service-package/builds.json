@@ -1,0 +1,42 @@
+{
+  "baselineSha": "f3b1ecd81ebf0d972858dafa8359f33b3bf10a9b",
+  "candidateSha": "9e7e6c27cbcf4309322323f40d7c0fc257f53704",
+  "buildBackend": "hatchling 1.32.4",
+  "python": "3.14.7",
+  "method": "same primary checkout with existing ignored historical source symlink preserved; post builds use fresh output directories; dependency and OS caches warm; no speed or archive-size comparison",
+  "before": {
+    "guard": "REJECTED",
+    "reason": "Wheel source/lock mismatch: practiq_ai/auth.py",
+    "wheelEntries": [
+      "practiq_ai/uv.lock",
+      "practiq_ai_service-0.3.0.dist-info/METADATA",
+      "practiq_ai_service-0.3.0.dist-info/WHEEL",
+      "practiq_ai_service-0.3.0.dist-info/RECORD"
+    ],
+    "sdistSourceFiles": 0
+  },
+  "samples": [
+    {
+      "repeat": 1,
+      "seconds": 2.0092973329883534,
+      "sourceFiles": 32,
+      "wheelSha256": "84af642ede755931edeeb0954b6818cfba4a389d3788dc520c1ea7c5e0bbb3a1",
+      "sdistSha256": "60a537827816da6db42112e478d2a1ff9cd39ad34711e9e32e5d93f2b2228d9f"
+    },
+    {
+      "repeat": 2,
+      "seconds": 0.6341777500056196,
+      "sourceFiles": 32,
+      "wheelSha256": "84af642ede755931edeeb0954b6818cfba4a389d3788dc520c1ea7c5e0bbb3a1",
+      "sdistSha256": "60a537827816da6db42112e478d2a1ff9cd39ad34711e9e32e5d93f2b2228d9f"
+    },
+    {
+      "repeat": 3,
+      "seconds": 0.7885780840006191,
+      "sourceFiles": 32,
+      "wheelSha256": "84af642ede755931edeeb0954b6818cfba4a389d3788dc520c1ea7c5e0bbb3a1",
+      "sdistSha256": "60a537827816da6db42112e478d2a1ff9cd39ad34711e9e32e5d93f2b2228d9f"
+    }
+  ],
+  "byteIdenticalRepetitions": true
+}

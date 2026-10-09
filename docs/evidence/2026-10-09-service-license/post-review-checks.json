@@ -1,0 +1,14 @@
+{
+  "sourceSha": "0212b7fbd364e4089a8d09ae6a0eadf56bc242d3",
+  "tests": 1778,
+  "combinedCoveragePercent": 93,
+  "actualArchiveContentAndLicenseGuard": "PASSED in make verify",
+  "focusedArchiveCases": 18,
+  "image": {
+    "dockerImageId": "sha256:c1049367a160105f86e67a78165ba22531a0b70029c466e1f4f787ae76d9d308",
+    "bytes": 1233571676,
+    "architecture": "arm64"
+  },
+  "hardenedOfflineContainerSmoke": "PASSED",
+  "containerLogSha256": "e0f93a19d05aac3bb5c2ae3519bd4dbd073b060281d6106b6bc1b358612f32d3"
+}

@@ -2,6 +2,8 @@
 name = "practiq-ai-service"
 version = "0.3.0"
 description = "PractiQ internal AI document-processing service"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.14"
 dependencies = [
   "fastapi==0.139.0",
@@ -35,6 +37,10 @@ dev = [
 [build-system]
 requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.sdist]
+# Select source directories directly so ignored report symlinks cannot consume them.
+only-include = ["src", "tests", "scripts", "evals", "docs", "deploy", "conftest.py", "pyrightconfig.json", "uv.lock"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/practiq_ai"]
