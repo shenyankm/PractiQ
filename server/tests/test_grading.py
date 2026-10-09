@@ -295,6 +295,8 @@ async def test_grade_partial_cache_and_rescale(setup,monkeypatch,feedback_locale
         assert missing_rubric in messages[0].content
         assert "untrusted assessment DATA" in messages[0].content
         assert "Preserve quoted assessment evidence in its original language" in messages[0].content
+        assert "evidence and reviewReasons must be JSON arrays" in messages[0].content
+        assert "never null or a quoted string" in messages[0].content
         assert "液体变成气体" in messages[1].content[0]["text"]
         return grading.GradeResult(scoreCents=300,maxCents=500,reason=reason,evidence=["液体变成气体"],reviewReasons=[]),[],None
     monkeypatch.setattr(grading,"structured_call",call)
@@ -315,6 +317,21 @@ async def test_grade_partial_cache_and_rescale(setup,monkeypatch,feedback_locale
     assert rescale_note in result["result"]["reason"]
     assert result["result"]["reviewReasons"]==[]
     assert seen[0][0]=="unified"
+
+
+@pytest.mark.parametrize("case", json.loads((Path(__file__).parents[1] / "evals/badcases/grading-arrays-v1.json").read_text())["cases"], ids=lambda case: case["id"])
+async def test_invalid_grading_arrays_retain_usage_and_cached_score(shared_grading_model, monkeypatch, case):
+    model, valid = shared_grading_model
+    field = case["field"]
+    model.responses[0] = {**valid, field: case["value"]}
+    monkeypatch.setattr(llm, "_retry_delay", lambda _: 0)
+    request = grading.GradeRequest.model_validate(payload())
+    result = await grading.grade(request)
+    assert result["result"]["scoreCents"] == 300
+    assert len(result["calls"]) == len(result["usage"]) == len(model.calls) == 2
+    assert result["calls"][0]["validationIssues"] == [{"path": [field], "type": case["expectedError"]}]
+    assert all(call["usageStatus"] == "known" for call in result["calls"])
+    assert await grading.grade(request) == result and len(model.calls) == 2
 
 
 async def test_missing_basis_failures_unknown_and_abstention(setup,monkeypatch):
