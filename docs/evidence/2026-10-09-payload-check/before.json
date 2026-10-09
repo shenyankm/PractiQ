@@ -1,0 +1,80 @@
+{
+  "sourceSha": "7920df81f7dbf0096eff45c5ab5d61fd5952e8b4",
+  "environment": {
+    "os": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+    "python": "3.14.7"
+  },
+  "inputBytes": 26214400,
+  "inputSha256": "46dcc780385019675f4634933190c1e6defd60eebb7543eb4a28875aac4fcb06",
+  "inputs": {
+    "server/src/practiq_ai/office_service.py": "93bfd0fadfb7a75b3d129c01edae9499818945461bfef81ec9802c59c2cd7087",
+    "server/src/practiq_ai/storage.py": "318874e9db99dd56607079d1830aaa8bbfea0952077346fbd505ec5362285f5b",
+    "server/uv.lock": "4de7c60d5b8a22f9e72d58b0eb2033abae8cc96260dc03c84f9ab094781f1c7c"
+  },
+  "method": "Warm immutable 25MiB buffer, one warmup, three repetitions; 1ms event-loop heartbeat. Stop at the existing engine boundary after source checks. No Office engine, worker, disk throughput, task queue or model is benchmarked.",
+  "samples": [
+    {
+      "repeat": 1,
+      "elapsedMs": 9.38075000885874,
+      "maxHeartbeatGapMs": 9.986959004891105,
+      "heartbeatSamplesMs": [
+        1.0433330025989562,
+        1.1488750024000183,
+        1.1588339984882623,
+        1.1510409967740998,
+        9.986959004891105,
+        1.1816250043921173,
+        1.1752080026781186,
+        1.1630419903667644,
+        1.1483749985927716,
+        1.1087080056313425
+      ]
+    },
+    {
+      "repeat": 2,
+      "elapsedMs": 9.534666009130888,
+      "maxHeartbeatGapMs": 10.055790990008973,
+      "heartbeatSamplesMs": [
+        1.1444169940659776,
+        1.1479999957373366,
+        1.1566660105017945,
+        1.147709001088515,
+        10.055790990008973,
+        1.149458999861963,
+        1.2040830042678863,
+        1.1728749959729612,
+        1.1548330076038837,
+        1.1035839997930452
+      ]
+    },
+    {
+      "repeat": 3,
+      "elapsedMs": 9.39758401364088,
+      "maxHeartbeatGapMs": 9.84433300618548,
+      "heartbeatSamplesMs": [
+        1.1465830029919744,
+        1.1464999988675117,
+        1.191709001432173,
+        1.167707989225164,
+        9.84433300618548,
+        1.1449589947005734,
+        1.1515829974086955,
+        1.0568330035312101,
+        1.1582500010263175,
+        1.0821250034496188
+      ]
+    }
+  ],
+  "summary": {
+    "elapsedMs": {
+      "median": 9.39758401364088,
+      "min": 9.38075000885874,
+      "max": 9.534666009130888
+    },
+    "maxHeartbeatGapMs": {
+      "median": 9.986959004891105,
+      "min": 9.84433300618548,
+      "max": 10.055790990008973
+    }
+  }
+}
