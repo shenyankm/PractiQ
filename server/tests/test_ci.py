@@ -83,6 +83,7 @@ def test_install_targets_use_the_selected_interpreter(tmp_path, explicit_path):
 import json, os, sys
 from pathlib import Path
 args = sys.argv[1:]
+assert Path.cwd().samefile(Path(os.environ['INSTALL_PROJECT'])), 'Build constraints must load from the service project'
 interpreter = args[args.index('--python') + 1]
 assert Path(interpreter).is_absolute(), 'Named interpreters trigger uv virtual-environment discovery'
 assert Path(interpreter).samefile(sys.executable)
@@ -93,7 +94,7 @@ with Path(os.environ['INSTALL_CALLS']).open('a') as log:
     calls = tmp_path / 'calls'
     selected = str(tmp_path / 'python') if explicit_path else 'python'
     result = subprocess.run(['make', 'server-install', 'install-locked', f'AI_PYTHON={selected}'],
-        cwd=root, env={**os.environ, 'PATH': f'{tmp_path}{os.pathsep}{os.environ["PATH"]}', 'INSTALL_CALLS': str(calls)},
+        cwd=root, env={**os.environ, 'PATH': f'{tmp_path}{os.pathsep}{os.environ["PATH"]}', 'INSTALL_CALLS': str(calls), 'INSTALL_PROJECT': str(root / 'server')},
         capture_output=True, text=True, check=False)
     assert result.returncode == 0, result.stdout + result.stderr
     assert [json.loads(line) for line in calls.read_text().splitlines()].count(['pip', 'install']) == 3
@@ -121,16 +122,21 @@ assert json.loads(os.environ['TAURI_CONFIG']) == {'bundle': {'resources': []}}
     assert result.returncode == 0, result.stdout + result.stderr
 
 
-@pytest.mark.parametrize("target", ["audit", "audit-rust"])
-@pytest.mark.parametrize("failure", [False, True])
+@pytest.mark.parametrize("target,failure", [
+    ("audit", ""), ("audit", "runtime"), ("audit", "build"),
+    ("audit-rust", ""), ("audit-rust", "runtime"),
+])
 def test_dependency_audits_cover_locked_inputs_and_propagate_failures(tmp_path, target, failure):
     root = Path(__file__).resolve().parents[2]
     shutil.copyfile(root / "Makefile", tmp_path / "Makefile")
     (tmp_path / "server").mkdir()
+    shutil.copyfile(root / "server/pyproject.toml", tmp_path / "server/pyproject.toml")
     checker = tmp_path / "python"
     checker.write_text(f"#!{sys.executable}\n" + '''
 import os
+import subprocess
 import sys
+import tomllib
 from pathlib import Path
 
 args = sys.argv[1:]
@@ -141,13 +147,23 @@ if args[0] == "export":
     Path(args[args.index("-o") + 1]).write_text("langgraph==1.2.1\\n")
 elif args[:2] == ["-m", "pip_audit"]:
     assert {"--strict", "--disable-pip", "--no-deps"} <= set(args)
-    assert "langgraph==" in Path(args[args.index("-r") + 1]).read_text()
-    sys.exit(int(os.environ["AUDIT_EXIT"]))
+    requirements = Path(args[args.index("-r") + 1]).read_text()
+    stage = "runtime" if "langgraph==" in requirements else "build"
+    if stage == "build":
+        project = tomllib.loads(Path("pyproject.toml").read_text())
+        assert set(requirements.splitlines()) == set(
+            project["build-system"]["requires"] + project["tool"]["uv"]["build-constraint-dependencies"]
+        )
+    with Path("audits").open("a") as stream:
+        stream.write(stage + "\\n")
+    sys.exit(7 if os.environ["AUDIT_FAILURE"] == stage else 0)
+elif args[0] == "-c":
+    subprocess.run([sys.executable, *args], check=True)
 elif args == ["app/scripts/check-rust-targets.py"]:
-    assert os.environ["AUDIT_EXIT"] == "0", "Target graphs must run only after audit succeeds"
+    assert not os.environ["AUDIT_FAILURE"], "Target graphs must run only after audit succeeds"
 else:
     assert args == ["audit", "--file", "app/src-tauri/Cargo.lock"]
-    sys.exit(int(os.environ["AUDIT_EXIT"]))
+    sys.exit(7 if os.environ["AUDIT_FAILURE"] else 0)
 ''')
     checker.chmod(0o755)
     for name in ("uv", "cargo"):
@@ -155,10 +171,14 @@ else:
     result = subprocess.run(
         ["make", target, f"AI_PYTHON={checker}"], cwd=tmp_path,
         env={**os.environ, "PATH": f"{tmp_path}{os.pathsep}{os.environ['PATH']}",
-             "AUDIT_EXIT": "7" if failure else "0"},
+             "AUDIT_FAILURE": failure},
         capture_output=True, text=True, check=False,
     )
-    assert (result.returncode != 0) == failure, result.stdout + result.stderr
+    assert (result.returncode != 0) == bool(failure), result.stdout + result.stderr
+    if target == "audit":
+        assert (tmp_path / "server/audits").read_text().splitlines() == (
+            ["runtime"] if failure == "runtime" else ["runtime", "build"]
+        )
     if failure:
         assert "Error 7" in result.stderr
 
