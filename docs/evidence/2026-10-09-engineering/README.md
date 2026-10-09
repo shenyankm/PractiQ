@@ -4,16 +4,16 @@ Read the [journal](../../engineering-optimization-20261009.md) for decisions, so
 
 | Evidence | Interpretation |
 | --- | --- |
-| `postgres-*.json`, `rejected-*-writer.patch` | Three isolated real-PostgreSQL/ASGI comparisons, untouched repeat baseline and a separately excluded contended run. Candidates reverted; summed overlapping connection duration is not saved wall time |
+| `postgres-*.json`, `rejected-*-writer.patch.gz` | Three isolated real-PostgreSQL/ASGI comparisons, untouched repeat baseline and a separately excluded contended run. Candidates reverted; summed overlapping connection duration is not saved wall time |
 | `app-assets.json` | Three clean frontend and three incremental builds, initial static import graph, complete assets and hashes; unchanged app source |
 | `macos-native-builds.json`, `native-packages/` | Six real local macOS DMGs, separate clean Cargo targets and immediate reuse, with actual final-installer reports; registries/OS caches warm |
-| `native-main-artifacts.json` | Actual main CI macOS/Windows installers and arm64 debug APK, source, sizes, hashes and package diagnostics |
+| `native-main-artifacts.json`, `native-main-package-checks.json`, `native-main-packages/` | Actual main CI macOS/Windows installers and arm64 debug APK, source, sizes/hashes and the retained original package diagnostics matched by installer SHA-256; all pass with no embedded AI engines |
 | `app-stress-inventory.json`, `app-stress/` | Existing release-mode native Rust/SQLite stress probes, each executed three times with fresh synthetic temporary databases |
 | `image-build-original.json`, `image-build-verified.json` | Six successful commands; the driver's final equal-size assertion failed. Separate retained-image content checks pass; no byte-reproducible image claim |
 | `ci-three-repeats.json`, `ci/` | Three attempts at each fixed Service CI source head. Runner/cache/network variation prevents an overall speed claim |
 | `final-parser-baseline.json.gz`, `final-gold-grading.json` | Final approved `null` source-language gold and unchanged fixture, 33 parser cases ×3 plus five grading anchors ×3. Parsing is FAILED; old reports are separate datasets |
-| `historical-*-gold-parser.json` | Previous approved annotation versions and their failed full baselines, retained with original hashes/time boundaries |
-| `rejected-parser-tree*.patch`, `rejected-parser-tree.json` | Single-factor parser experiments; poor quality means neither candidate is delivered |
+| `historical-*-gold-parser.json.gz` | Previous approved annotation versions and their failed full baselines, retained with original hashes/time boundaries |
+| `rejected-parser-tree*.patch.gz`, `rejected-parser-tree.json` | Single-factor parser experiments; poor quality means neither candidate is delivered |
 | `live-budget.json` | Cumulative guarded 576-call ledger, known estimated CNY 0.9387102, no unknown calls; not a provider invoice |
 | `app-npm-audit.json` | Locked App npm audit with zero reported vulnerabilities at capture; advisory state changes over time |
 
@@ -36,3 +36,5 @@ The shared-bind overload and three failure profiles remain in the corresponding 
 The new raw files join the original provenance manifest. Two compact derived records (exception classification and alert-tool metadata) state their scope directly; original private observations remain retained. Reproduce the load with existing `server/scripts/load_test.py`: fixed synthetic text, `--total 8 --submit-concurrency 4 --max-running 4 --graph-concurrency 2`, 25 drained batches per repetition, three repetitions, and a fresh report per batch. Use an isolated stub endpoint/database/storage and record the actual image/source/configuration; do not send this drill to a paid provider without a separately approved budget.
 
 Large JSON reports, verbatim experiment patches and the raw promtool stdout use lossless `.gz` archival. Decompress with `gzip -dc <file>` before reading/applying. The provenance manifest records both compressed bytes and uncompressed published SHA-256; every uncompressed byte is retained. Compression is for evidence review and is not an application/package-size optimization.
+
+The [native package index](native-main-package-checks.json) links the captured CI runs and retained [macOS](native-main-packages/macos.json), [Windows](native-main-packages/windows.json.gz) and [Android](native-main-packages/android.json) diagnostic bytes. Every report passes and records an empty `embeddedAiEngines` list; its `installerSha256` equals the corresponding downloaded installer inventory. Android also verifies retained APK and notice hashes. Desktop `sizeBytes` measures the extracted application, while the installer inventory measures DMG/EXE bytes. The Windows report uses lossless gzip to retain its original CRLF bytes; decompress before reading. These records survive hosted artifact expiry and do not imply native GUI or physical-device acceptance.

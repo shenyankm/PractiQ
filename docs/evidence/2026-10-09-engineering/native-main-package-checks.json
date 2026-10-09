@@ -1,0 +1,44 @@
+{
+  "sourceSha": "7920df81f7dbf0096eff45c5ab5d61fd5952e8b4",
+  "scope": "Captured final-installer diagnostics from the stated main CI runs. Installer binaries remain private. These checks do not establish native GUI or physical-device acceptance. sizeBytes in desktop reports describes the extracted application, not the installer.",
+  "packages": [
+    {
+      "platform": "macos",
+      "runId": 37917441833,
+      "runUrl": "https://github.com/shenyankm/PractiQ/actions/runs/37917441833",
+      "job": "Desktop package (macOS)",
+      "diagnostics": "native-main-packages/macos.json",
+      "diagnosticsSha256": "0ff5add9a410604352f9bdbb83d8720d01298fb2ac7976dd073671ee4da0fd28",
+      "installerSha256": "b060ca49c319c5ef36d7b5c9c7d2ec2192ed369c3ae9f02836a818e2e0496956",
+      "installerBytes": 12015018,
+      "passed": true,
+      "embeddedAiEngines": []
+    },
+    {
+      "platform": "windows",
+      "runId": 37917441833,
+      "runUrl": "https://github.com/shenyankm/PractiQ/actions/runs/37917441833",
+      "job": "Desktop package (Windows)",
+      "diagnostics": "native-main-packages/windows.json.gz",
+      "diagnosticsSha256": "cb2965498c41eeae3526694328f5fedb266e555ce6ee1290d2ca959817ae9431",
+      "installerSha256": "b1ea41faca572c062d49b3774b157fd8a9614777c6e8e06ca49cb7be0d81a89b",
+      "installerBytes": 7819610,
+      "passed": true,
+      "embeddedAiEngines": [],
+      "uncompressedDiagnosticsSha256": "091b6dbc811d9523e7e0d8747f08b5bfb7da65ca547f07a4ce58c3d2a5755b3b",
+      "encoding": "gzip"
+    },
+    {
+      "platform": "android",
+      "runId": 37917441715,
+      "runUrl": "https://github.com/shenyankm/PractiQ/actions/runs/37917441715",
+      "job": "Android arm64 APK",
+      "diagnostics": "native-main-packages/android.json",
+      "diagnosticsSha256": "35161726a6c7f285ffc657437b96045db80b6e542479e798a1df27e28c09629d",
+      "installerSha256": "53cf517c7d019eb2ce6ca94723e1e7689176bb18c1bc0ae8e9baa263db2b3434",
+      "installerBytes": 270392192,
+      "passed": true,
+      "embeddedAiEngines": []
+    }
+  ]
+}

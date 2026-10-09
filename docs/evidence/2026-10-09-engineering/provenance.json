@@ -459,6 +459,29 @@
       "hostPathRedacted": false,
       "uncompressedPublishedSha256": "8289a4919870ab5b28f5e90a86b4af3cdbd8c244516c02fca90d6e3f289a6711",
       "encoding": "gzip"
+    },
+    {
+      "originalFile": "native-main-7920df8-retry/desktop-checks-macOS/server/reports/checks/desktop-bundle.json",
+      "publishedFile": "native-main-packages/macos.json",
+      "originalSha256": "0ff5add9a410604352f9bdbb83d8720d01298fb2ac7976dd073671ee4da0fd28",
+      "publishedSha256": "0ff5add9a410604352f9bdbb83d8720d01298fb2ac7976dd073671ee4da0fd28",
+      "hostPathRedacted": false
+    },
+    {
+      "originalFile": "native-main-7920df8-retry/desktop-checks-Windows/server/reports/checks/desktop-bundle.json",
+      "publishedFile": "native-main-packages/windows.json.gz",
+      "originalSha256": "091b6dbc811d9523e7e0d8747f08b5bfb7da65ca547f07a4ce58c3d2a5755b3b",
+      "publishedSha256": "cb2965498c41eeae3526694328f5fedb266e555ce6ee1290d2ca959817ae9431",
+      "hostPathRedacted": false,
+      "uncompressedPublishedSha256": "091b6dbc811d9523e7e0d8747f08b5bfb7da65ca547f07a4ce58c3d2a5755b3b",
+      "encoding": "gzip"
+    },
+    {
+      "originalFile": "android-main-7920df8/android-package-evidence/server/reports/checks/android-package.json",
+      "publishedFile": "native-main-packages/android.json",
+      "originalSha256": "35161726a6c7f285ffc657437b96045db80b6e542479e798a1df27e28c09629d",
+      "publishedSha256": "35161726a6c7f285ffc657437b96045db80b6e542479e798a1df27e28c09629d",
+      "hostPathRedacted": false
     }
   ]
 }
