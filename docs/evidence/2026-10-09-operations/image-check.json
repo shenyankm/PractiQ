@@ -1,0 +1,13 @@
+{
+  "imageId": "sha256:7d0ed211a2504069aff285e6c30b65b19d8088f7c3b02329e0d956a31f0a7f5f",
+  "imageBytes": 1233552210,
+  "user": "10001:10001",
+  "makeImageCheck": "PASSED",
+  "hardenedPdfStorageSmoke": "UID 10001: PDF rendering, isolated extraction, temporary cleanup and mounted storage passed",
+  "commands": [
+    "make image-check",
+    "server/scripts/check_container.py under documented quotas"
+  ],
+  "sourceVersion": "5b9210ee5b53b048987d5fe4b87aee50450f0480",
+  "imageBuildLogSha256": "842e787a6e2082d73a1ac461500340c2587537bdf6a402364417c586ab7ee134"
+}

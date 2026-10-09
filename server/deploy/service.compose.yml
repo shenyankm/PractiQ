@@ -5,6 +5,7 @@ services:
       context: ../..
       dockerfile: Dockerfile.server
     image: practiq-ai:local
+    restart: unless-stopped
     network_mode: host
     init: true
     user: "10001:10001"
@@ -26,3 +27,9 @@ services:
     mem_limit: 2g
     pids_limit: 128
     stop_grace_period: 70s
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready', timeout=3).close()"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s

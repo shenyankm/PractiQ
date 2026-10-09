@@ -1,0 +1,18 @@
+{
+  "readStatus": 200,
+  "readyStatus": 200,
+  "uploadStatus": 503,
+  "uploadError": {
+    "detail": {
+      "code": "MAINTENANCE"
+    }
+  },
+  "createStatus": 503,
+  "createError": {
+    "detail": {
+      "code": "MAINTENANCE",
+      "message": "Service is draining for maintenance"
+    }
+  },
+  "newProviderCalls": 0
+}

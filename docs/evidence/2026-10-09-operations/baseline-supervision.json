@@ -1,0 +1,12 @@
+{
+  "baselineSha": "5b9210ee5b53b048987d5fe4b87aee50450f0480",
+  "composeSha256": "b0d1fe83f6cda490e3ad7ef20efe8f50d342a8990f961357b5085488866142c7",
+  "statusAfterKill": "exited",
+  "restartPolicy": {
+    "Name": "no",
+    "MaximumRetryCount": 0
+  },
+  "restartCount": 0,
+  "healthcheckPresent": false,
+  "observationSeconds": 3
+}
