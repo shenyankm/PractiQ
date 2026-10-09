@@ -49,10 +49,12 @@ These rule-based synthetic samples are not independent teacher annotations or cr
 Check gold labels against source files manually; never copy model outputs back as correct answers. PDF and image figures are evaluated using visual-model categories such as `diagram`. Humans review the meaning of visual descriptions.
 
 Source review on October 9, 2026 corrected only `text-translation-writing`'s
-`sourceLanguage` from `zh-CN` to `zh`. Its supplied Chinese passage specifies no
-region. [BCP 47 region subtags](https://www.rfc-editor.org/rfc/rfc5646.html#section-2.2.4)
-identify regional usage; do not infer a region from the script. Answers, other
-labels, critical gates and the holdout remain unchanged. The manifest/dataset
+`sourceLanguage` from `zh-CN` to `null`. The instruction states only "into English",
+not the source language. The existing extraction contract requires an explicit
+language direction; do not infer a source-language tag from the passage's script.
+An intermediate `zh` annotation was rejected during review because it still
+required an unstated language. Earlier reports retain their original hashes and
+failures. Answers, other labels, critical gates and the holdout remain unchanged. The manifest/dataset
 hash changes, so retain earlier reports and establish a new three-repetition
 baseline before comparing candidates. Scoring semantics and version are unchanged.
 
