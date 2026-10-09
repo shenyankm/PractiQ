@@ -1,0 +1,94 @@
+{
+  "baselineSourceSha": "7920df81f7dbf0096eff45c5ab5d61fd5952e8b4",
+  "model": "qwen3.7-flash-2026-07-15",
+  "region": "Beijing",
+  "thinking": false,
+  "maxOutputTokens": 16384,
+  "approvedCumulativeLimitYuan": 10,
+  "approvedCumulativeCalls": 1200,
+  "priceSource": "https://help.aliyun.com/zh/model-studio/qwen3-7-flash",
+  "fixtureSourceSha256": "4e8c43b27bf9d07fe95b366f385b3ee6ddb85519fbf0d26680c29dd1458bfc03",
+  "phases": {
+    "baseline": {
+      "exactMatches": 15,
+      "total": 15,
+      "calls": 18,
+      "inputTokens": 19892,
+      "outputTokens": 3419,
+      "estimatedCostYuan": 0.0067136,
+      "unknownCalls": 0,
+      "repetitions": [
+        {
+          "repeat": 1,
+          "elapsedMs": 12568.382709025173,
+          "calls": 6
+        },
+        {
+          "repeat": 2,
+          "elapsedMs": 13264.636083986261,
+          "calls": 6
+        },
+        {
+          "repeat": 3,
+          "elapsedMs": 13258.66758399934,
+          "calls": 6
+        }
+      ]
+    },
+    "arrays": {
+      "exactMatches": 15,
+      "total": 15,
+      "calls": 15,
+      "inputTokens": 16149,
+      "outputTokens": 2989,
+      "estimatedCostYuan": 0.005621,
+      "unknownCalls": 0,
+      "repetitions": [
+        {
+          "repeat": 1,
+          "elapsedMs": 11932.740876014577,
+          "calls": 5
+        },
+        {
+          "repeat": 2,
+          "elapsedMs": 11935.450875011156,
+          "calls": 5
+        },
+        {
+          "repeat": 3,
+          "elapsedMs": 12559.01250099123,
+          "calls": 5
+        }
+      ]
+    },
+    "rejected-null-context": {
+      "exactMatches": 15,
+      "total": 15,
+      "calls": 18,
+      "inputTokens": 18231,
+      "outputTokens": 3777,
+      "estimatedCostYuan": 0.006667800000000001,
+      "unknownCalls": 0,
+      "repetitions": [
+        {
+          "repeat": 1,
+          "elapsedMs": 14157.466291013407,
+          "calls": 6
+        },
+        {
+          "repeat": 2,
+          "elapsedMs": 14385.00183202268,
+          "calls": 6
+        },
+        {
+          "repeat": 3,
+          "elapsedMs": 15128.819625024335,
+          "calls": 6
+        }
+      ]
+    }
+  },
+  "cumulativeCallsAtCapture": 437,
+  "cumulativeKnownCostYuanAtCapture": 0.6775372000000001,
+  "cumulativeUnknownCallsAtCapture": 0
+}

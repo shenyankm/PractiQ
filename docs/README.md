@@ -57,6 +57,7 @@ Preserve failures, source hashes, artifact hashes and original denominators. His
 | [September 28 repairs](review-fixes-20260928.md), [September 29 implementation](review-implementation-20260929.md), [PR 83 follow-up](pr83-review-fixes.md) | Successive repair records; later corrections do not rewrite original measurements |
 | [October 3 performance](performance-implementation-20261003.md), [October 5 performance](performance-implementation-20261005.md) | Separate measured workloads and source baselines, not duplicate benchmarks |
 | [October 9 Web fonts](performance-web-fonts-20261009.md) | Complete static assets and repeated build samples after the PostgreSQL merge; no initial-load or image-size claim |
+| [October 9 grading arrays](performance-grading-arrays-20261009.md) | Fixed real-model grading anchors, avoided format-correction calls and rejected null-context experiment; no full parser-quality claim |
 | [October 9 single-machine checks](operations-single-machine-20261009.md) | Isolated PostgreSQL/Compose quotas, synthetic overload, process/database failures and matching backup restore; no live-model capacity claim |
 | [Service code review](../server/docs/code-review-2026-09-19.md), [SQLite/macOS delivery](../server/docs/sqlite-desktop-delivery.md), [desktop Office evaluation](../server/docs/desktop-office-evaluation.md) | Earlier service/package architectures and their validation limits |
 | [Service reports](../server/reports/) | Dated runtime, capacity and performance records with their original JSON evidence |

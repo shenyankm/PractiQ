@@ -306,6 +306,11 @@ Only use consented material; these calls send the payload to the configured
 provider. Imported provenance is a declaration, not proof of independent review.
 The bundled synthetic anchors cannot establish teacher calibration.
 
+The [October 9 grading format experiment](../../docs/performance-grading-arrays-20261009.md)
+records three repetitions of these five fixed anchors before/after an array-only
+instruction. Its passing score checks are independent of the failed full parsing
+baseline; they do not establish general grading or extraction acceptance.
+
 For the complete question-type input and expected-content checklist, see [the 16-type sample](../../app/fixtures/ai-import/README.md). The combined TXT is a manual service/Web extraction and offline app acceptance document; individual cases are scored by the existing manifest.
 
 ### Incomplete exports (2026-09-29)

@@ -1,0 +1,515 @@
+{
+  "scope": "Only these three grading experiments; immutable complete usage, official list-price estimates, no secrets or source payloads",
+  "calls": [
+    {
+      "number": 387,
+      "phase": "grading-context-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1036,
+      "outputTokens": 181,
+      "costYuan": 0.000352,
+      "elapsedMs": 1970.1280409935862
+    },
+    {
+      "number": 388,
+      "phase": "grading-context-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1033,
+      "outputTokens": 219,
+      "costYuan": 0.00038180000000000006,
+      "elapsedMs": 2778.5339999973075
+    },
+    {
+      "number": 389,
+      "phase": "grading-context-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1033,
+      "outputTokens": 183,
+      "costYuan": 0.000353,
+      "elapsedMs": 2084.1507500008447
+    },
+    {
+      "number": 390,
+      "phase": "grading-context-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1048,
+      "outputTokens": 180,
+      "costYuan": 0.00035360000000000003,
+      "elapsedMs": 2180.1961659948574
+    },
+    {
+      "number": 391,
+      "phase": "grading-context-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1093,
+      "outputTokens": 161,
+      "costYuan": 0.00034740000000000004,
+      "elapsedMs": 1487.8862089972245
+    },
+    {
+      "number": 392,
+      "phase": "grading-context-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1385,
+      "outputTokens": 157,
+      "costYuan": 0.00040260000000000003,
+      "elapsedMs": 1553.9244579995284
+    },
+    {
+      "number": 393,
+      "phase": "grading-context-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1036,
+      "outputTokens": 211,
+      "costYuan": 0.000376,
+      "elapsedMs": 2351.5688339975895
+    },
+    {
+      "number": 394,
+      "phase": "grading-context-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1033,
+      "outputTokens": 235,
+      "costYuan": 0.0003946,
+      "elapsedMs": 2752.106875006575
+    },
+    {
+      "number": 395,
+      "phase": "grading-context-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1033,
+      "outputTokens": 177,
+      "costYuan": 0.00034820000000000006,
+      "elapsedMs": 2121.464541996829
+    },
+    {
+      "number": 396,
+      "phase": "grading-context-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1048,
+      "outputTokens": 209,
+      "costYuan": 0.00037680000000000005,
+      "elapsedMs": 2579.7409160004463
+    },
+    {
+      "number": 397,
+      "phase": "grading-context-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1093,
+      "outputTokens": 167,
+      "costYuan": 0.00035220000000000005,
+      "elapsedMs": 1831.0950409941142
+    },
+    {
+      "number": 398,
+      "phase": "grading-context-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1391,
+      "outputTokens": 167,
+      "costYuan": 0.0004118,
+      "elapsedMs": 1268.3831670001382
+    },
+    {
+      "number": 399,
+      "phase": "grading-context-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1036,
+      "outputTokens": 207,
+      "costYuan": 0.00037280000000000006,
+      "elapsedMs": 2280.7814580010017
+    },
+    {
+      "number": 400,
+      "phase": "grading-context-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1033,
+      "outputTokens": 236,
+      "costYuan": 0.0003954,
+      "elapsedMs": 2711.0670840047533
+    },
+    {
+      "number": 401,
+      "phase": "grading-context-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1033,
+      "outputTokens": 245,
+      "costYuan": 0.00040260000000000003,
+      "elapsedMs": 3014.549082989106
+    },
+    {
+      "number": 402,
+      "phase": "grading-context-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1048,
+      "outputTokens": 165,
+      "costYuan": 0.0003416,
+      "elapsedMs": 2015.7957920018816
+    },
+    {
+      "number": 403,
+      "phase": "grading-context-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1093,
+      "outputTokens": 153,
+      "costYuan": 0.000341,
+      "elapsedMs": 1517.2993750020396
+    },
+    {
+      "number": 404,
+      "phase": "grading-context-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1387,
+      "outputTokens": 166,
+      "costYuan": 0.00041020000000000005,
+      "elapsedMs": 1343.5738749976736
+    },
+    {
+      "number": 405,
+      "phase": "grading-context-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 942,
+      "outputTokens": 202,
+      "costYuan": 0.00035,
+      "elapsedMs": 2370.011749997502
+    },
+    {
+      "number": 406,
+      "phase": "grading-context-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 939,
+      "outputTokens": 176,
+      "costYuan": 0.0003286,
+      "elapsedMs": 2225.488875003066
+    },
+    {
+      "number": 407,
+      "phase": "grading-context-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 939,
+      "outputTokens": 229,
+      "costYuan": 0.000371,
+      "elapsedMs": 2970.1868330012076
+    },
+    {
+      "number": 408,
+      "phase": "grading-context-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 954,
+      "outputTokens": 263,
+      "costYuan": 0.00040120000000000005,
+      "elapsedMs": 2819.367666990729
+    },
+    {
+      "number": 409,
+      "phase": "grading-context-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 993,
+      "outputTokens": 186,
+      "costYuan": 0.00034740000000000004,
+      "elapsedMs": 1880.331833002856
+    },
+    {
+      "number": 410,
+      "phase": "grading-context-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1310,
+      "outputTokens": 188,
+      "costYuan": 0.0004124,
+      "elapsedMs": 1378.480083993054
+    },
+    {
+      "number": 411,
+      "phase": "grading-context-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 942,
+      "outputTokens": 217,
+      "costYuan": 0.000362,
+      "elapsedMs": 2352.399916999275
+    },
+    {
+      "number": 412,
+      "phase": "grading-context-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 939,
+      "outputTokens": 209,
+      "costYuan": 0.000355,
+      "elapsedMs": 2530.2074999926845
+    },
+    {
+      "number": 413,
+      "phase": "grading-context-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 939,
+      "outputTokens": 209,
+      "costYuan": 0.000355,
+      "elapsedMs": 2617.5674999976764
+    },
+    {
+      "number": 414,
+      "phase": "grading-context-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 954,
+      "outputTokens": 256,
+      "costYuan": 0.0003956,
+      "elapsedMs": 2991.2000420008553
+    },
+    {
+      "number": 415,
+      "phase": "grading-context-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 993,
+      "outputTokens": 187,
+      "costYuan": 0.00034820000000000006,
+      "elapsedMs": 1921.7593749926891
+    },
+    {
+      "number": 416,
+      "phase": "grading-context-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1311,
+      "outputTokens": 189,
+      "costYuan": 0.00041339999999999997,
+      "elapsedMs": 1596.53520899883
+    },
+    {
+      "number": 417,
+      "phase": "grading-context-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 942,
+      "outputTokens": 193,
+      "costYuan": 0.00034280000000000004,
+      "elapsedMs": 2804.2477919952944
+    },
+    {
+      "number": 418,
+      "phase": "grading-context-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 939,
+      "outputTokens": 247,
+      "costYuan": 0.00038540000000000004,
+      "elapsedMs": 3019.195500004571
+    },
+    {
+      "number": 419,
+      "phase": "grading-context-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 939,
+      "outputTokens": 254,
+      "costYuan": 0.000391,
+      "elapsedMs": 2921.224457997596
+    },
+    {
+      "number": 420,
+      "phase": "grading-context-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 954,
+      "outputTokens": 200,
+      "costYuan": 0.0003508,
+      "elapsedMs": 2365.9730419894913
+    },
+    {
+      "number": 421,
+      "phase": "grading-context-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 993,
+      "outputTokens": 185,
+      "costYuan": 0.0003466,
+      "elapsedMs": 1836.3141660083784
+    },
+    {
+      "number": 422,
+      "phase": "grading-context-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1309,
+      "outputTokens": 187,
+      "costYuan": 0.00041139999999999997,
+      "elapsedMs": 1791.3622080086498
+    },
+    {
+      "number": 423,
+      "phase": "grading-array-repeat-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1064,
+      "outputTokens": 189,
+      "costYuan": 0.000364,
+      "elapsedMs": 2291.6411250043893
+    },
+    {
+      "number": 424,
+      "phase": "grading-array-repeat-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1061,
+      "outputTokens": 159,
+      "costYuan": 0.0003394,
+      "elapsedMs": 1927.8058339987183
+    },
+    {
+      "number": 425,
+      "phase": "grading-array-repeat-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1061,
+      "outputTokens": 210,
+      "costYuan": 0.0003802,
+      "elapsedMs": 2380.8970829995815
+    },
+    {
+      "number": 426,
+      "phase": "grading-array-repeat-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1076,
+      "outputTokens": 243,
+      "costYuan": 0.00040960000000000004,
+      "elapsedMs": 3265.0995000003604
+    },
+    {
+      "number": 427,
+      "phase": "grading-array-repeat-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1121,
+      "outputTokens": 167,
+      "costYuan": 0.0003578,
+      "elapsedMs": 1576.41125000373
+    },
+    {
+      "number": 428,
+      "phase": "grading-array-repeat-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1064,
+      "outputTokens": 179,
+      "costYuan": 0.000356,
+      "elapsedMs": 1938.5743339953478
+    },
+    {
+      "number": 429,
+      "phase": "grading-array-repeat-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1061,
+      "outputTokens": 239,
+      "costYuan": 0.00040340000000000005,
+      "elapsedMs": 2833.714082997176
+    },
+    {
+      "number": 430,
+      "phase": "grading-array-repeat-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1061,
+      "outputTokens": 188,
+      "costYuan": 0.00036260000000000003,
+      "elapsedMs": 2254.3959169997834
+    },
+    {
+      "number": 431,
+      "phase": "grading-array-repeat-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1076,
+      "outputTokens": 179,
+      "costYuan": 0.00035840000000000004,
+      "elapsedMs": 2428.604999993695
+    },
+    {
+      "number": 432,
+      "phase": "grading-array-repeat-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1121,
+      "outputTokens": 174,
+      "costYuan": 0.00036340000000000005,
+      "elapsedMs": 2142.9913330066483
+    },
+    {
+      "number": 433,
+      "phase": "grading-array-repeat-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1064,
+      "outputTokens": 196,
+      "costYuan": 0.00036960000000000004,
+      "elapsedMs": 2154.1938750015106
+    },
+    {
+      "number": 434,
+      "phase": "grading-array-repeat-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1061,
+      "outputTokens": 224,
+      "costYuan": 0.0003914,
+      "elapsedMs": 2772.1347920014523
+    },
+    {
+      "number": 435,
+      "phase": "grading-array-repeat-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1061,
+      "outputTokens": 247,
+      "costYuan": 0.0004098000000000001,
+      "elapsedMs": 2986.61308400915
+    },
+    {
+      "number": 436,
+      "phase": "grading-array-repeat-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1076,
+      "outputTokens": 239,
+      "costYuan": 0.0004064,
+      "elapsedMs": 2910.3062499925727
+    },
+    {
+      "number": 437,
+      "phase": "grading-array-repeat-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1121,
+      "outputTokens": 156,
+      "costYuan": 0.000349,
+      "elapsedMs": 1416.0886669997126
+    }
+  ]
+}
