@@ -214,6 +214,57 @@ async def test_input_is_validated_before_spawning(tmp_path, monkeypatch, case, c
     assert error.value.code == code
 
 
+async def test_source_checksum_runs_off_event_loop(tmp_path, monkeypatch):
+    import threading
+
+    reference, config = source(), settings(tmp_path)
+    event_thread = threading.get_ident()
+    original = hashlib.sha256
+    checked = []
+
+    def digest(payload):
+        assert threading.get_ident() != event_thread
+        checked.append(payload)
+        return original(payload)
+
+    async def boundary(*args, **kwargs):
+        raise DocumentProcessingError(422, "Stop after checksum", "CHECKSUM_PROBE_DONE")
+
+    monkeypatch.setattr(hashlib, "sha256", digest)
+    monkeypatch.setattr(office_service, "_thread_io", boundary)
+    with pytest.raises(DocumentProcessingError) as error:
+        await office_service.convert_office(reference, b"raw Office", mode="pdf", config=config, timeout=2)
+    assert error.value.code == "CHECKSUM_PROBE_DONE" and checked == [b"raw Office"]
+
+
+async def test_cancelled_source_checksum_does_not_reach_engine(tmp_path, monkeypatch):
+    import threading
+
+    reference, config = source(), settings(tmp_path)
+    entered, release = threading.Event(), threading.Event()
+    original = hashlib.sha256
+
+    def digest(payload):
+        entered.set()
+        assert release.wait(2)
+        return original(payload)
+
+    async def forbidden(*args, **kwargs):
+        pytest.fail("Cancelled source validation must not access the engine or write files")
+
+    monkeypatch.setattr(hashlib, "sha256", digest)
+    monkeypatch.setattr(office_service, "_thread_io", forbidden)
+    task = asyncio.create_task(office_service.convert_office(reference, b"raw Office", mode="pdf", config=config, timeout=2))
+    try:
+        assert await asyncio.to_thread(entered.wait, 2)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+    finally:
+        release.set()
+        await asyncio.gather(task, return_exceptions=True)
+
+
 @pytest.mark.parametrize("case", ["traversal", "backslash", "absolute", "control", "suffix", "duplicate", "size", "sha",
                                   "boolean_size", "content", "extra_field", "empty", "count", "file_limit", "total_limit", "undeclared"])
 async def test_worker_artifacts_are_strict_and_bounded(tmp_path, monkeypatch, case):
