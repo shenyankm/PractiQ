@@ -1,0 +1,11 @@
+{
+  "diagnostic": "An isolated PEP 517 diagnostic backend records importlib.metadata for the exact service build-system.requires and tool.uv constraints. It changes only backend entrypoint to observe the resolved environment; no production package/input/source change. Actual service builds are recorded separately.",
+  "resolvedVersions": {
+    "hatchling": "1.32.4",
+    "packaging": "26.3",
+    "pathspec": "1.1.1",
+    "pluggy": "1.6.0",
+    "tomlkit": "0.15.1",
+    "trove-classifiers": "2026.9.21.13"
+  }
+}

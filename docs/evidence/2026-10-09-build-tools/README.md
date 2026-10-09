@@ -1,0 +1,3 @@
+# Build-tool evidence
+
+Read [scope and limits](../../service-build-tools-20261009.md). `builds.json` preserves source/tool/input hashes, all three raw timings and matching archive hashes. `resolved.json` identifies a separate isolated diagnostic of the configured build environment, not a substitute production build. `checks.json` captures the full local verification and both dependency audits. `container-smoke.txt` is the corrected actual offline image smoke, after a first incomplete-configuration failure retained locally. All inputs, source and model calls remain bounded; no real model is used in these checks.

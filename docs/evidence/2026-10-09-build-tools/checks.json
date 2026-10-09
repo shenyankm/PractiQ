@@ -1,0 +1,26 @@
+{
+  "sourceSha": "2878ecad830b213010c4ca9d08853e01258a5a38",
+  "verification": {
+    "status": "PASSED",
+    "tests": 1779,
+    "combinedCoveragePercent": 93,
+    "requiredCoveragePercent": 90,
+    "lockRuffPyrightFixturesRecoveryPackageSourceLockAndLicense": "PASSED"
+  },
+  "audit": {
+    "runtimeDev": "PASSED; 91 resolved packages, no known vulnerabilities at capture",
+    "buildPins": "PASSED; six exact pins, no known vulnerabilities at capture",
+    "newRuntimeDependencies": 0
+  },
+  "focusedCommandRegression": {
+    "cases": 7,
+    "auditSuccessEitherScanFailureCargoFailureAndBothInstallWorkingDirectories": "PASSED"
+  },
+  "imageBuild": "PASSED",
+  "imageId": "sha256:edf0a70198028c9df59290d9f94cec0d8b6ef0beebd069cd3a52e22b92360364",
+  "correctedHardenedOfflineImageSmoke": "PASSED",
+  "excludedSetupFailures": [
+    "Earlier smoke omitted model/read-only configuration and failed closed.",
+    "Final-image first smoke omitted mounting the external check script; corrected by a read-only script mount. No product code changed."
+  ]
+}
