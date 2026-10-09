@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "criterion": "GradeResult.evidence and reviewReasons must be JSON arrays; string and null values are rejected with list_type. A bounded corrected response retains both calls and replays its cached reference score.",
+  "provenance": {
+    "baselineReport": "docs/evidence/2026-10-09-grading-arrays/baseline.json",
+    "sha256": "2069ed39a1dd112a15102c635b55aa614e87df01308e2395e0049d095727c8f7",
+    "observedFailure": "Three image_partial repetitions recorded list_type on reviewReasons; the third also recorded it on evidence.",
+    "fixtureConstruction": "The report retains validation issues, not invalid response values. These string/null boundary fixtures reconstruct the failure class; they are not verbatim provider responses or extra live-model inputs."
+  },
+  "cases": [
+    {"id": "evidence-string", "field": "evidence", "value": "quoted evidence", "expectedError": "list_type"},
+    {"id": "evidence-null", "field": "evidence", "value": null, "expectedError": "list_type"},
+    {"id": "review-reasons-string", "field": "reviewReasons", "value": "quoted reason", "expectedError": "list_type"},
+    {"id": "review-reasons-null", "field": "reviewReasons", "value": null, "expectedError": "list_type"}
+  ]
+}
