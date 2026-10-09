@@ -1,0 +1,65 @@
+{
+  "sourceSha": "f077cce8ddac2bd8cfdc616bac333e2e11d870cd",
+  "environment": {
+    "os": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+    "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+    "node": "v22.23.2"
+  },
+  "method": "Three pairs: remove only this driver owned Cargo target and frontend output/build caches for cold compiler-output samples; retain them for immediate incremental samples. Dependencies and OS caches remain warm. Build real macOS DMGs through make app-build; validate each final DMG using the existing package checker. Never publish or sign a release.",
+  "inputs": {
+    "app/package-lock.json": "c9762d8c6907cd4a82d51efba73215d723676747ce68bca8e933d63fb1620852",
+    "app/src-tauri/Cargo.lock": "6d74093e97fb8b77ff16de2724055393d521ad4a9a0d6d307f837823cf1d906e",
+    "app/src-tauri/tauri.conf.json": "18f876318438679402a8163185ce9283d28dfecc3c225aa1f7768d1d09e36913",
+    "rust-toolchain.toml": "7553618f800829444096beea3dce84c3d07585efda504c19adb6787369bbd9e8"
+  },
+  "samples": [
+    {
+      "repeat": 1,
+      "cache": "cold-target",
+      "seconds": 121.7653154580039,
+      "installerBytes": 12022063,
+      "installerSha256": "ed21b5989caabf96f84c24e6588a9fd6d739db124d7cb1b20b213fe7fad13355",
+      "packageReport": "1-cold-target-package.json"
+    },
+    {
+      "repeat": 1,
+      "cache": "incremental",
+      "seconds": 61.77704304199142,
+      "installerBytes": 12022051,
+      "installerSha256": "c8d3db5b45d6c7268c9acef28999c6df92d4670facf53d2ce50e2d74638e7212",
+      "packageReport": "1-incremental-package.json"
+    },
+    {
+      "repeat": 2,
+      "cache": "cold-target",
+      "seconds": 121.39163475000532,
+      "installerBytes": 12022058,
+      "installerSha256": "78abf0f6d253d9bb655ced478c37ab3a6b88cecbb5062772dc4c01b56d10b91e",
+      "packageReport": "2-cold-target-package.json"
+    },
+    {
+      "repeat": 2,
+      "cache": "incremental",
+      "seconds": 61.78589087499131,
+      "installerBytes": 12022039,
+      "installerSha256": "0ca7e51aba7dfb426efe294ef928dcc024a1a17b21294110968e18ce262d666c",
+      "packageReport": "2-incremental-package.json"
+    },
+    {
+      "repeat": 3,
+      "cache": "cold-target",
+      "seconds": 117.49313491598878,
+      "installerBytes": 12022051,
+      "installerSha256": "edae4b0a9bc6963c7c76d2a4152197c02577d8a0ced239b0a0f6fa59de21e676",
+      "packageReport": "3-cold-target-package.json"
+    },
+    {
+      "repeat": 3,
+      "cache": "incremental",
+      "seconds": 61.79756104099215,
+      "installerBytes": 12022044,
+      "installerSha256": "1fd90128ea4d9d4644f4eed19f0deba046bea82ad835419301ac56a904d5c528",
+      "packageReport": "3-incremental-package.json"
+    }
+  ]
+}

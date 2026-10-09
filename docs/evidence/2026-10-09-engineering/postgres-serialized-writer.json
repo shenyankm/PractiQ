@@ -1,0 +1,58 @@
+{
+  "baselineSha": "5b9210ee5b53b048987d5fe4b87aee50450f0480",
+  "samples": [
+    {
+      "documents": 40,
+      "concurrency": 8,
+      "graphConcurrency": 2,
+      "modelDelaySeconds": 0.1,
+      "seconds": 3.518804082996212,
+      "successfulDocumentsPerMinute": 682.0499076937622,
+      "queueWaitMedianMs": 1427.2129999999997,
+      "okP95Ms": 3.037957998458296,
+      "modelCalls": 40,
+      "allCompleted": true,
+      "repeat": 1,
+      "connectCount": 0,
+      "connectSamplesMs": [],
+      "connectDurationSumMs": 0,
+      "connectMedianMs": null
+    },
+    {
+      "documents": 40,
+      "concurrency": 8,
+      "graphConcurrency": 2,
+      "modelDelaySeconds": 0.1,
+      "seconds": 3.467515457989066,
+      "successfulDocumentsPerMinute": 692.138226657494,
+      "queueWaitMedianMs": 1295.5675,
+      "okP95Ms": 3.329541999846697,
+      "modelCalls": 40,
+      "allCompleted": true,
+      "repeat": 2,
+      "connectCount": 0,
+      "connectSamplesMs": [],
+      "connectDurationSumMs": 0,
+      "connectMedianMs": null
+    },
+    {
+      "documents": 40,
+      "concurrency": 8,
+      "graphConcurrency": 2,
+      "modelDelaySeconds": 0.1,
+      "seconds": 3.3796631669974886,
+      "successfulDocumentsPerMinute": 710.1299394081847,
+      "queueWaitMedianMs": 1303.057,
+      "okP95Ms": 2.710749991820194,
+      "modelCalls": 40,
+      "allCompleted": true,
+      "repeat": 3,
+      "connectCount": 0,
+      "connectSamplesMs": [],
+      "connectDurationSumMs": 0,
+      "connectMedianMs": null
+    }
+  ],
+  "medianSeconds": 3.467515457989066,
+  "scope": "Existing in-process ASGI/database benchmark; isolated PostgreSQL, synthetic 100ms model substitutes, 40 documents, 8 jobs, graph concurrency2. Connection sum includes overlapping calls and cannot be interpreted as wall-time savings. Setup/cleanup excluded."
+}

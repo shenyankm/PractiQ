@@ -1,0 +1,223 @@
+{
+  "baselineSha": "f077cce8ddac2bd8cfdc616bac333e2e11d870cd",
+  "phase": "inventory",
+  "environment": {
+    "os": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+    "node": "v22.23.2",
+    "npm": "10.9.8"
+  },
+  "inputs": {
+    "app/package-lock.json": "c9762d8c6907cd4a82d51efba73215d723676747ce68bca8e933d63fb1620852",
+    "app/vite.config.ts": "3a9c0a75b8c9e3960d65cadb277d554ec93bfa08d223a021ae993ef5a2e402d5"
+  },
+  "samples": [
+    {
+      "cache": "clean",
+      "repeat": 1,
+      "seconds": 2.676922291997471,
+      "staticBytes": 1638348,
+      "initialJsCssBytes": 620696,
+      "initialJsCssGzipBytes": 191647,
+      "initialFiles": [
+        "assets/alert-dialog-B-Ip85df.js",
+        "assets/button-krRNX3sG.js",
+        "assets/check-DvrS3kB-.js",
+        "assets/dialog-Bls_WLOB.js",
+        "assets/dist-B1hUc2Yw.js",
+        "assets/es2015-B8OY8X8P.js",
+        "assets/index-D-SFFrTC.js",
+        "assets/index-GxwBLEWZ.css",
+        "assets/rolldown-runtime-hePW80VL.js"
+      ],
+      "fontBytes": 256168,
+      "fontCounts": {
+        ".woff2": 19,
+        ".woff": 0,
+        ".ttf": 0
+      }
+    },
+    {
+      "cache": "clean",
+      "repeat": 2,
+      "seconds": 0.7359395840030629,
+      "staticBytes": 1638348,
+      "initialJsCssBytes": 620696,
+      "initialJsCssGzipBytes": 191647,
+      "initialFiles": [
+        "assets/alert-dialog-B-Ip85df.js",
+        "assets/button-krRNX3sG.js",
+        "assets/check-DvrS3kB-.js",
+        "assets/dialog-Bls_WLOB.js",
+        "assets/dist-B1hUc2Yw.js",
+        "assets/es2015-B8OY8X8P.js",
+        "assets/index-D-SFFrTC.js",
+        "assets/index-GxwBLEWZ.css",
+        "assets/rolldown-runtime-hePW80VL.js"
+      ],
+      "fontBytes": 256168,
+      "fontCounts": {
+        ".woff2": 19,
+        ".woff": 0,
+        ".ttf": 0
+      }
+    },
+    {
+      "cache": "clean",
+      "repeat": 3,
+      "seconds": 0.7318171250080923,
+      "staticBytes": 1638348,
+      "initialJsCssBytes": 620696,
+      "initialJsCssGzipBytes": 191647,
+      "initialFiles": [
+        "assets/alert-dialog-B-Ip85df.js",
+        "assets/button-krRNX3sG.js",
+        "assets/check-DvrS3kB-.js",
+        "assets/dialog-Bls_WLOB.js",
+        "assets/dist-B1hUc2Yw.js",
+        "assets/es2015-B8OY8X8P.js",
+        "assets/index-D-SFFrTC.js",
+        "assets/index-GxwBLEWZ.css",
+        "assets/rolldown-runtime-hePW80VL.js"
+      ],
+      "fontBytes": 256168,
+      "fontCounts": {
+        ".woff2": 19,
+        ".woff": 0,
+        ".ttf": 0
+      }
+    },
+    {
+      "cache": "incremental",
+      "repeat": 1,
+      "seconds": 0.7145296670059906,
+      "staticBytes": 1638348,
+      "initialJsCssBytes": 620696,
+      "initialJsCssGzipBytes": 191647,
+      "initialFiles": [
+        "assets/alert-dialog-B-Ip85df.js",
+        "assets/button-krRNX3sG.js",
+        "assets/check-DvrS3kB-.js",
+        "assets/dialog-Bls_WLOB.js",
+        "assets/dist-B1hUc2Yw.js",
+        "assets/es2015-B8OY8X8P.js",
+        "assets/index-D-SFFrTC.js",
+        "assets/index-GxwBLEWZ.css",
+        "assets/rolldown-runtime-hePW80VL.js"
+      ],
+      "fontBytes": 256168,
+      "fontCounts": {
+        ".woff2": 19,
+        ".woff": 0,
+        ".ttf": 0
+      }
+    },
+    {
+      "cache": "incremental",
+      "repeat": 2,
+      "seconds": 0.8845968340028776,
+      "staticBytes": 1638348,
+      "initialJsCssBytes": 620696,
+      "initialJsCssGzipBytes": 191647,
+      "initialFiles": [
+        "assets/alert-dialog-B-Ip85df.js",
+        "assets/button-krRNX3sG.js",
+        "assets/check-DvrS3kB-.js",
+        "assets/dialog-Bls_WLOB.js",
+        "assets/dist-B1hUc2Yw.js",
+        "assets/es2015-B8OY8X8P.js",
+        "assets/index-D-SFFrTC.js",
+        "assets/index-GxwBLEWZ.css",
+        "assets/rolldown-runtime-hePW80VL.js"
+      ],
+      "fontBytes": 256168,
+      "fontCounts": {
+        ".woff2": 19,
+        ".woff": 0,
+        ".ttf": 0
+      }
+    },
+    {
+      "cache": "incremental",
+      "repeat": 3,
+      "seconds": 0.702641665993724,
+      "staticBytes": 1638348,
+      "initialJsCssBytes": 620696,
+      "initialJsCssGzipBytes": 191647,
+      "initialFiles": [
+        "assets/alert-dialog-B-Ip85df.js",
+        "assets/button-krRNX3sG.js",
+        "assets/check-DvrS3kB-.js",
+        "assets/dialog-Bls_WLOB.js",
+        "assets/dist-B1hUc2Yw.js",
+        "assets/es2015-B8OY8X8P.js",
+        "assets/index-D-SFFrTC.js",
+        "assets/index-GxwBLEWZ.css",
+        "assets/rolldown-runtime-hePW80VL.js"
+      ],
+      "fontBytes": 256168,
+      "fontCounts": {
+        ".woff2": 19,
+        ".woff": 0,
+        ".ttf": 0
+      }
+    }
+  ],
+  "buildSeconds": {
+    "clean": {
+      "median": 0.7359395840030629,
+      "min": 0.7318171250080923,
+      "max": 2.676922291997471
+    },
+    "incremental": {
+      "median": 0.7145296670059906,
+      "min": 0.702641665993724,
+      "max": 0.8845968340028776
+    }
+  },
+  "assetHashes": {
+    "assets/AnswerInput-DLPwCR5A.js": "b861fb66f7c98262ed94131d56b5aa4b4ad3386c799138cdaeca57b13b109c33",
+    "assets/BankList-RIly_lE6.js": "73497a64def362a8115f1333b47196370aa8247dd448f06a911079017135205d",
+    "assets/ConnectionSettings-FPi6KKCi.js": "6f98f41a1c963174a3c3617154f79552c001f16c41801096220df4657e74b24a",
+    "assets/Content-CERS5mGL.js": "d3810fc88ea2d02c052a911bb28c675aa71146ff4c78ce7eb5fd7557dd04f904",
+    "assets/Content-CEde1aqi.css": "11bb6e0957d538fa2c559184d79e2b940b5a2da99ca6a8d25f9b078724c84c40",
+    "assets/ImportBankDialog-CYFr7rEZ.js": "94e52366baa73f49a944d272520a5b40b0d836078774a691450e5396a554ec11",
+    "assets/KaTeX_AMS-Regular-BQhdFMY1.woff2": "0cdd387c9590a1a9f9794560022dbb59654a7d86f187aa0c81495ad42d3a7308",
+    "assets/KaTeX_Caligraphic-Bold-Dq_IR9rO.woff2": "de7701e42cf1f4cf0b766c03fb27977207eee2f4fd5d76fa82188406da43ea4c",
+    "assets/KaTeX_Caligraphic-Regular-Di6jR-x-.woff2": "5d53e70ad607c2352162dec9e0923fb54ecdafaccbf604cd8dcf7d00facb989b",
+    "assets/KaTeX_Fraktur-Bold-CL6g_b3V.woff2": "74444efd593c005e3f4573b44524704c0af0a937fe911cca9e94068d0d140d3f",
+    "assets/KaTeX_Fraktur-Regular-CTYiF6lA.woff2": "51814d270d06ff0255dba0799994fa4d8c84d11f09951d47595f4abb1f3602dc",
+    "assets/KaTeX_Main-Bold-Cx986IdX.woff2": "0f60d1b897938ec918c8ce073092411baf9438f6739465693ff18b0f9d20b021",
+    "assets/KaTeX_Main-BoldItalic-DxDJ3AOS.woff2": "99cd42a3c072d918f2f44984a807cf7aa16e13545fd0875fc07c6c65f99e715b",
+    "assets/KaTeX_Main-Italic-NWA7e6Wa.woff2": "97479ca6cce906abc961ecac96faa5f9ca2e61b8e7670d475826bcdee9a7c267",
+    "assets/KaTeX_Main-Regular-B22Nviop.woff2": "c2342cd8b869e01752a9321dc17213fc40d4d04c79688c1d43f2cf316abd7866",
+    "assets/KaTeX_Math-BoldItalic-CZnvNsCZ.woff2": "dc47344dbb6cb5b655c8460d561f4df5f501b90c804ad3c6cec65fe322351ab1",
+    "assets/KaTeX_Math-Italic-t53AETM-.woff2": "7af58c5ec8f132a2ddde9027c6d7814decce4d3b822a11192a42a20e2e973264",
+    "assets/KaTeX_SansSerif-Bold-D1sUS0GD.woff2": "e99ae51144bf1232efcc1bfe5add36262c6866b0faab24fa75740e1b98577a62",
+    "assets/KaTeX_SansSerif-Italic-C3H0VqGB.woff2": "00b26ac825e2095056396e0553b8ac26d3f8ad158c3826e28b4c45b385c4714a",
+    "assets/KaTeX_SansSerif-Regular-DDBCnlJ7.woff2": "68e8c73ef42afd3ccec58bf0fba302cce448938e7fc020a5e31f8a952eee1342",
+    "assets/KaTeX_Script-Regular-D3wIWfF6.woff2": "036d4e95149b69ff9bcc0cd55771efeb25ffa3947293e69acd78d5ac328c684b",
+    "assets/KaTeX_Size1-Regular-mCD8mA8B.woff2": "6b47c40166b6dbe21a5dfca7718413f2147fd2399be1ba605d8ad39cedf25dfe",
+    "assets/KaTeX_Size2-Regular-Dy4dx90m.woff2": "d04c54219f9eaec6d4d4fd42dfb28785975a4794d6b2fc71e566b9cd6db842dd",
+    "assets/KaTeX_Size4-Regular-Dl5lxZxV.woff2": "a4af7d414440a1c1790825cfb700cf9cf43b0f2c4b04f0ebc523011ad9853ec0",
+    "assets/KaTeX_Typewriter-Regular-CO6r4hn1.woff2": "71d517d67827787cfabdf186914cc3358eda539e37931941f2b2fd4a21f68c0b",
+    "assets/ListeningPlayer-BX5nNsbJ.js": "3434a18c4429bd1bd8184985d9d1b2437beb8a7dc29c12ff4fc7ca59b32196e8",
+    "assets/Practice-B2-7RLTe.js": "5148193ddc067e32a5446dc8fe46b25d97c99d1ce81d4218909f1eaea56f52e8",
+    "assets/QuestionEditor-Jb5EZH1x.js": "0358a41f318a293ade40fa84fbe2c83b80820fadf4209ff55093dd4259b99605",
+    "assets/QuestionPreview-nXQVkCIe.js": "79a2cbe6b6b1d09c42f2f8def890cfd13c3e5cec37204b483b678bdc75d8a267",
+    "assets/SettingsPage-DQfh7VAl.js": "e703dc275a9932fff261de1c743b1af7f051b6c9aec6174b70e955d2c6313bb2",
+    "assets/StudySetup-tQ_P5Yiz.js": "dbeddddb6a4df2f5de313cf2be5a6b0b545e535da87fea25521511c0603a3efe",
+    "assets/alert-dialog-B-Ip85df.js": "5117b5d3d27efe92040076af9de98b4eee15842954c52aeca5c7f520d81cd29a",
+    "assets/button-krRNX3sG.js": "0382c3aedeba0080b53f689ce25db43da717d40d872917057b1d0b02090d150c",
+    "assets/check-DvrS3kB-.js": "1fda8c3064f6dbf48069d86c92b0277b9d21b8f1d000091c547402da97ad4e42",
+    "assets/dialog-Bls_WLOB.js": "a9c0b7cf33315adf0efdd047787a77c53669ce0854e34a97dd6c85c115e34e7e",
+    "assets/dist-B1hUc2Yw.js": "da4f35641ca265f10e52dc9aec5cf9280afb7f882f860811e1eecfb53fa5593c",
+    "assets/download-FOUSCLDY.js": "9950745059da2d48f71fd18d4810808a21d4c5b46b1c9fd6b037a3ae2dba97dd",
+    "assets/es2015-B8OY8X8P.js": "07bba3de0f757db6d2cef935914e494abcd3ad3932f938d19f53fcb71e9185d5",
+    "assets/icon-pB8TTRfc.png": "10b1085a34504e1188903f83604651a056f2551d3c674310685551b3576b75db",
+    "assets/index-D-SFFrTC.js": "31b9048d114c5dfeb6796acd29de101f6660cf8ea75fe3949a4dd961dfe9fe55",
+    "assets/index-GxwBLEWZ.css": "80ad9feb4823b1c7b0f5e1817baa471a20ba34ea40c99ec33eee7e02606d3cd5",
+    "assets/paper-DagCxNa1.js": "30aa926dc20d1b977aa1e1ef9bb02f752cd6f236f09c13657c644d16803523df",
+    "assets/rolldown-runtime-hePW80VL.js": "580ad8c58061a4dde99bde0a56905e382f0568516ee2f5b84dbfb52085709021",
+    "index.html": "f96a6a8fa578669453e251360585e5833400973f2a4b6a4ca007e0ed0b0b9164"
+  }
+}

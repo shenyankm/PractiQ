@@ -1,0 +1,184 @@
+{
+  "sourceSha": "20b1f12c5e3eaaf34a15fcd73f0a7eeba684b60f",
+  "profile": "Docker Linux arm64, base images and OS cache warm; cold --no-cache rebuilds all Dockerfile layers; warm immediately reuses them; Web was built separately",
+  "inputs": {
+    "Dockerfile.server": "1f255e8b479ae9df529db3ce167917c0394cfa291fc5d508b667590e8b8734d4",
+    ".dockerignore": "501c3e5c8c003e1a31c2296dd798e50f3b04d86b8b7d9db9d15106c5f7be8c4e",
+    "server/pyproject.toml": "1ab289088da5463eb898b2e589a71fff16abcffa11c99cdcc1dd9386c20c2f32",
+    "server/uv.lock": "4de7c60d5b8a22f9e72d58b0eb2033abae8cc96260dc03c84f9ab094781f1c7c",
+    "server/LICENSE": "045e49d0a632ea4bf644d1db045d300b313c03097212268a6c3dc15235795079"
+  },
+  "samples": [
+    {
+      "cache": "cold-layers",
+      "repeat": 1,
+      "seconds": 183.68365824999637,
+      "imageId": "sha256:917b226e0fd48c812f182df5115aabd962771a7aeb1b7ff7b794898de4386e77",
+      "imageBytes": 1233563698,
+      "architecture": "arm64",
+      "os": "linux",
+      "aptVersions": [
+        "fonts-noto-cjk=1:20220127+repack1-1",
+        "libreoffice-calc=4:7.4.7-1+deb12u14",
+        "libreoffice-writer=4:7.4.7-1+deb12u14"
+      ],
+      "logSha256": "1e65b0b0adefa9df94a8664d935524864784985d57e775de96e59a76a4f34cca"
+    },
+    {
+      "cache": "incremental",
+      "repeat": 1,
+      "seconds": 0.5836289169965312,
+      "imageId": "sha256:7c8bb024d981be0c49d63194c01a9cb19e7535f480cc0671a04031eeade1a4d0",
+      "imageBytes": 1233563698,
+      "architecture": "arm64",
+      "os": "linux",
+      "aptVersions": [
+        "fonts-noto-cjk=1:20220127+repack1-1",
+        "libreoffice-calc=4:7.4.7-1+deb12u14",
+        "libreoffice-writer=4:7.4.7-1+deb12u14"
+      ],
+      "logSha256": "4b88c0b4ac0b800429ae89eacde3fce24258ba1152e9caf1bbc05ba090f09cd6"
+    },
+    {
+      "cache": "cold-layers",
+      "repeat": 2,
+      "seconds": 165.2748166250094,
+      "imageId": "sha256:1bd51c5b426030c846d2fe7cb29cf442b240a2fe7785ea78dee9d80db27c0927",
+      "imageBytes": 1233563181,
+      "architecture": "arm64",
+      "os": "linux",
+      "aptVersions": [
+        "fonts-noto-cjk=1:20220127+repack1-1",
+        "libreoffice-calc=4:7.4.7-1+deb12u14",
+        "libreoffice-writer=4:7.4.7-1+deb12u14"
+      ],
+      "logSha256": "50a22bb580ed2bac37ce1a713322c0f06f85a9848c69de59ea07b8d8e38b0c5f"
+    },
+    {
+      "cache": "incremental",
+      "repeat": 2,
+      "seconds": 0.6113830419926671,
+      "imageId": "sha256:2b9c74e3b444a42aef2e2383cb06efe5561b02aeda4b5065d075aa825e05dd56",
+      "imageBytes": 1233563181,
+      "architecture": "arm64",
+      "os": "linux",
+      "aptVersions": [
+        "fonts-noto-cjk=1:20220127+repack1-1",
+        "libreoffice-calc=4:7.4.7-1+deb12u14",
+        "libreoffice-writer=4:7.4.7-1+deb12u14"
+      ],
+      "logSha256": "d49d9c492e9c0d16b2ccf688c3f39f6fb7157643061882e688599306c953d574"
+    },
+    {
+      "cache": "cold-layers",
+      "repeat": 3,
+      "seconds": 101.63824345800094,
+      "imageId": "sha256:f4d2253c206ee33c045f4867fc73e9fd29ce58f527152302d6207a281996cf38",
+      "imageBytes": 1233563089,
+      "architecture": "arm64",
+      "os": "linux",
+      "aptVersions": [
+        "fonts-noto-cjk=1:20220127+repack1-1",
+        "libreoffice-calc=4:7.4.7-1+deb12u14",
+        "libreoffice-writer=4:7.4.7-1+deb12u14"
+      ],
+      "logSha256": "9160db1f1454316df34358b3f4c3f092932d1ae256499519fc0687fdacb0f5da"
+    },
+    {
+      "cache": "incremental",
+      "repeat": 3,
+      "seconds": 1.2375480409973534,
+      "imageId": "sha256:4adde8ba7593305db25e31407b2e2c62ac195ec58153e4583851a99fd70682b9",
+      "imageBytes": 1233563089,
+      "architecture": "arm64",
+      "os": "linux",
+      "aptVersions": [
+        "fonts-noto-cjk=1:20220127+repack1-1",
+        "libreoffice-calc=4:7.4.7-1+deb12u14",
+        "libreoffice-writer=4:7.4.7-1+deb12u14"
+      ],
+      "logSha256": "7f2ed1689162e013f366bda34126c92201b0a20355dd7312764c5feef45e7829"
+    }
+  ],
+  "builds": "All six Docker build commands succeeded",
+  "finalAssertion": "Rejected assumption: image byte sizes are identical across independent cold builds; observed spread is 609 bytes, so images are not bit-for-bit reproducible.",
+  "contentVerification": "All three retained images have identical 32 Python module/lock hashes, Web asset hashes and exact MIT notice; Debian package versions match. Immediate warm logs used cached layers.",
+  "commonContent": {
+    "moduleAndLockHashes": {
+      "__init__.py": "44e190bbd1241c6c656c477194d08b0640c03e7fb157d46e08e91f1c3bc4c4b2",
+      "errors.py": "b3e03406fdaad69a5753d7d604c7f044dbd0e633b9511d261f987212262a77d4",
+      "grading.py": "6bb9127b222e136ac8bb715bb01d60383f4a9fc5d2c82fb686bd0ac51f8c0dfd",
+      "telemetry.py": "e0edc24540200c01685a6c9d957a9c11afd2cf80be6ff640f8d8c777516d9e78",
+      "office_service.py": "93bfd0fadfb7a75b3d129c01edae9499818945461bfef81ec9802c59c2cd7087",
+      "runtime.py": "657137f1a0bffb61e0a169425b369ee05bac8372e9bd453a1476fb65408d67f6",
+      "database.py": "e704f2f9588972b529056cae6dae34f7f3d138610d01c430aa7c43495161fcf0",
+      "middleware.py": "6621c557e72e25f44991942b8865841941d86c32b263f0caa3dc90ba1a22f7cc",
+      "json_repair.py": "9c93b7e50934754a70bde6d0ee1baaf730df5702dd75614a1a9d4371cce77cc1",
+      "storage.py": "318874e9db99dd56607079d1830aaa8bbfea0952077346fbd505ec5362285f5b",
+      "office.py": "6487c23842bdcc884f7e94833b34a05733697f9888abd8918a0e23dc42cfcdf5",
+      "auth.py": "8782f98abe619f2f322640c2b6b6752b90b8eabb6a3645812258fe2d27fa0400",
+      "config.py": "c3f1f801324267adcf020a6bac1e5731cd8940f5ce3f20c302ca0c6a115fb7cf",
+      "bank_export.py": "0c633552dcca52e79bfe8dd5fe78ae234999d5d03f28d51194bc56eff5dea1d8",
+      "execution.py": "0c06f7c85018c2e019d47eeca1692d4f6be43c5de3e3a5b7857bd165fa437466",
+      "capacity.py": "f6f6a80e4c70faa9ad37b062b3d083091d1fb507541e25f30846fb1adb1d9265",
+      "normalization.py": "e157f8ce89368110cf8364fe9f01425b4d07919010f4ef3446eefd0515ffc2c8",
+      "contracts.py": "ef251260037b315a5e01012cf4fdd16886890a0b36376c525f259ccaba62d17c",
+      "llm.py": "6764197691d9f9518c5faac1795d3fa7f3b09f226a51ab28e30d077d8f1dec3b",
+      "manage.py": "d1b19fecc2d186413fbdd0d87c6475972aebadcd7d74dc06494d922ac7dccbfd",
+      "webapp.py": "f0d11d6116bd967b9adc9781540f2654453b9df7ed918f417b94235a38101791",
+      "task_api.py": "de5b0b5d76e98412f95af0abaf307686057a8237159c55035650b225ad543e47",
+      "graphs/__init__.py": "2915e84546b19a370586ac17c6b3ae9b45baa81aa416bded2900d962c4f10d90",
+      "graphs/chunking.py": "606e4b44e6282ebae1de5b0951b8b7c31622b9a2ac13aa4d7ea9f4264e650efb",
+      "graphs/document.py": "eda50929e80dcddc6c93a31f703aa6bc43832f7db373e2164ef07b011c392c9d",
+      "graphs/vision.py": "d2a532b7daf09fdd3f7a48b1764ee8497dbfa45568f81a746d02e792fdba02db",
+      "extractors/__init__.py": "3474075f036e453ef66176551107170689aae32c3b84ba57ff726a2a073ae17e",
+      "extractors/csv.py": "f103070c21cc9df4a1629e5b12ecadf3a6b5c1b9d6087a443dbc8087b5cebde8",
+      "extractors/image.py": "7c7efc383fe31454cf347bb455402dcaaf85ab0cee1b22608399f89d8b22fa1c",
+      "extractors/pdf.py": "8e8b4f986e095c60a3dda466ad0038a1f39ed6a395720f66f1b123796013c7a1",
+      "extractors/isolated.py": "b66840f9a192a0468a7910e3cfd450986084326f4981e48bf4686a04757dde1a",
+      "extractors/windows_job.py": "68f504479b3bce3eb2b24850259ff816559009034dfa85374c88f30430ae42bd",
+      "uv.lock": "4de7c60d5b8a22f9e72d58b0eb2033abae8cc96260dc03c84f9ab094781f1c7c"
+    },
+    "webAssetHashes": {
+      "index.html": "459bae2865c4b1c1fe4b65facdffedcab2f61b6da465413f022518fbda228e05",
+      "assets/octopus-pB8TTRfc.png": "10b1085a34504e1188903f83604651a056f2551d3c674310685551b3576b75db",
+      "assets/KaTeX_SansSerif-Regular-DDBCnlJ7.woff2": "68e8c73ef42afd3ccec58bf0fba302cce448938e7fc020a5e31f8a952eee1342",
+      "assets/KaTeX_Math-Italic-t53AETM-.woff2": "7af58c5ec8f132a2ddde9027c6d7814decce4d3b822a11192a42a20e2e973264",
+      "assets/index-qbUXcOjq.js": "3203c286e7fdf070dbccac3788ee4f09c56667c722923f91f26637844d5a5bef",
+      "assets/KaTeX_Size1-Regular-mCD8mA8B.woff2": "6b47c40166b6dbe21a5dfca7718413f2147fd2399be1ba605d8ad39cedf25dfe",
+      "assets/KaTeX_SansSerif-Bold-D1sUS0GD.woff2": "e99ae51144bf1232efcc1bfe5add36262c6866b0faab24fa75740e1b98577a62",
+      "assets/KaTeX_AMS-Regular-BQhdFMY1.woff2": "0cdd387c9590a1a9f9794560022dbb59654a7d86f187aa0c81495ad42d3a7308",
+      "assets/KaTeX_Script-Regular-D3wIWfF6.woff2": "036d4e95149b69ff9bcc0cd55771efeb25ffa3947293e69acd78d5ac328c684b",
+      "assets/KaTeX_Caligraphic-Bold-Dq_IR9rO.woff2": "de7701e42cf1f4cf0b766c03fb27977207eee2f4fd5d76fa82188406da43ea4c",
+      "assets/KaTeX_Size4-Regular-Dl5lxZxV.woff2": "a4af7d414440a1c1790825cfb700cf9cf43b0f2c4b04f0ebc523011ad9853ec0",
+      "assets/KaTeX_Fraktur-Regular-CTYiF6lA.woff2": "51814d270d06ff0255dba0799994fa4d8c84d11f09951d47595f4abb1f3602dc",
+      "assets/ResultReview-CEde1aqi.css": "11bb6e0957d538fa2c559184d79e2b940b5a2da99ca6a8d25f9b078724c84c40",
+      "assets/KaTeX_SansSerif-Italic-C3H0VqGB.woff2": "00b26ac825e2095056396e0553b8ac26d3f8ad158c3826e28b4c45b385c4714a",
+      "assets/KaTeX_Main-Regular-B22Nviop.woff2": "c2342cd8b869e01752a9321dc17213fc40d4d04c79688c1d43f2cf316abd7866",
+      "assets/KaTeX_Caligraphic-Regular-Di6jR-x-.woff2": "5d53e70ad607c2352162dec9e0923fb54ecdafaccbf604cd8dcf7d00facb989b",
+      "assets/KaTeX_Main-Bold-Cx986IdX.woff2": "0f60d1b897938ec918c8ce073092411baf9438f6739465693ff18b0f9d20b021",
+      "assets/KaTeX_Fraktur-Bold-CL6g_b3V.woff2": "74444efd593c005e3f4573b44524704c0af0a937fe911cca9e94068d0d140d3f",
+      "assets/KaTeX_Main-Italic-NWA7e6Wa.woff2": "97479ca6cce906abc961ecac96faa5f9ca2e61b8e7670d475826bcdee9a7c267",
+      "assets/KaTeX_Math-BoldItalic-CZnvNsCZ.woff2": "dc47344dbb6cb5b655c8460d561f4df5f501b90c804ad3c6cec65fe322351ab1",
+      "assets/KaTeX_Size2-Regular-Dy4dx90m.woff2": "d04c54219f9eaec6d4d4fd42dfb28785975a4794d6b2fc71e566b9cd6db842dd",
+      "assets/KaTeX_Main-BoldItalic-DxDJ3AOS.woff2": "99cd42a3c072d918f2f44984a807cf7aa16e13545fd0875fc07c6c65f99e715b",
+      "assets/KaTeX_Typewriter-Regular-CO6r4hn1.woff2": "71d517d67827787cfabdf186914cc3358eda539e37931941f2b2fd4a21f68c0b",
+      "assets/index-BANBok7O.css": "e11186cdfcb79a330b72319f0549a628e9846bac6fd612f3acebf786529a3613",
+      "assets/ResultReview-BrHcVPOH.js": "247de467a640bd2a5aa7573e94650d37feb6a5fb369798f558aff14ada18eb0c"
+    },
+    "licenseSha256": "045e49d0a632ea4bf644d1db045d300b313c03097212268a6c3dc15235795079",
+    "licenseExpression": "MIT"
+  },
+  "summary": {
+    "cold-layers": {
+      "medianSeconds": 165.2748166250094,
+      "minSeconds": 101.63824345800094,
+      "maxSeconds": 183.68365824999637
+    },
+    "incremental": {
+      "medianSeconds": 0.6113830419926671,
+      "minSeconds": 0.5836289169965312,
+      "maxSeconds": 1.2375480409973534
+    }
+  }
+}

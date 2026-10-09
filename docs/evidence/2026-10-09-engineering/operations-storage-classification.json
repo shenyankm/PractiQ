@@ -1,0 +1,14 @@
+{
+  "scope": "One retained representative pass-through diagnostic; no raw payloads or error text. Root cause not conclusively isolated.",
+  "events": [
+    {
+      "event": "isolated_storage_diagnostic",
+      "operation": "_read",
+      "errorType": "DocumentProcessingError",
+      "causeType": "FileNotFoundError",
+      "errno": 2,
+      "key": "practiq-agent/artifacts/6530accace3f39627e3aaa2131f1bbc033f553c5f4166ef120694feb40dad209/chunk/0-6530accace3f39627e3aaa2131f1bbc033f553c5f4166ef120694feb40dad209.txt",
+      "existsImmediatelyAfterError": true
+    }
+  ]
+}

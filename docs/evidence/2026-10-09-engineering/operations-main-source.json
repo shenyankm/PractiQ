@@ -1,0 +1,59 @@
+{
+  "modules": {
+    "__init__.py": "44e190bbd1241c6c656c477194d08b0640c03e7fb157d46e08e91f1c3bc4c4b2",
+    "errors.py": "b3e03406fdaad69a5753d7d604c7f044dbd0e633b9511d261f987212262a77d4",
+    "grading.py": "8bb668d2ccc6394257a1c979ede33f3660f72ff7d3e850eb419eb23a665c97a8",
+    "telemetry.py": "e0edc24540200c01685a6c9d957a9c11afd2cf80be6ff640f8d8c777516d9e78",
+    "office_service.py": "246594f03bcd0185df39ab1954b70a8da94b1fbaf9afdc04cf5f21294c9deda7",
+    "runtime.py": "657137f1a0bffb61e0a169425b369ee05bac8372e9bd453a1476fb65408d67f6",
+    "database.py": "e704f2f9588972b529056cae6dae34f7f3d138610d01c430aa7c43495161fcf0",
+    "middleware.py": "6621c557e72e25f44991942b8865841941d86c32b263f0caa3dc90ba1a22f7cc",
+    "json_repair.py": "9c93b7e50934754a70bde6d0ee1baaf730df5702dd75614a1a9d4371cce77cc1",
+    "storage.py": "59bd2549f7815513434baa5621e9cf1b16bfbc84d881267674f7826bd6f19a85",
+    "office.py": "6487c23842bdcc884f7e94833b34a05733697f9888abd8918a0e23dc42cfcdf5",
+    "auth.py": "8782f98abe619f2f322640c2b6b6752b90b8eabb6a3645812258fe2d27fa0400",
+    "config.py": "c3f1f801324267adcf020a6bac1e5731cd8940f5ce3f20c302ca0c6a115fb7cf",
+    "bank_export.py": "0c633552dcca52e79bfe8dd5fe78ae234999d5d03f28d51194bc56eff5dea1d8",
+    "execution.py": "0c06f7c85018c2e019d47eeca1692d4f6be43c5de3e3a5b7857bd165fa437466",
+    "capacity.py": "f6f6a80e4c70faa9ad37b062b3d083091d1fb507541e25f30846fb1adb1d9265",
+    "normalization.py": "e157f8ce89368110cf8364fe9f01425b4d07919010f4ef3446eefd0515ffc2c8",
+    "contracts.py": "ef251260037b315a5e01012cf4fdd16886890a0b36376c525f259ccaba62d17c",
+    "llm.py": "6764197691d9f9518c5faac1795d3fa7f3b09f226a51ab28e30d077d8f1dec3b",
+    "manage.py": "d1b19fecc2d186413fbdd0d87c6475972aebadcd7d74dc06494d922ac7dccbfd",
+    "webapp.py": "f0d11d6116bd967b9adc9781540f2654453b9df7ed918f417b94235a38101791",
+    "task_api.py": "de5b0b5d76e98412f95af0abaf307686057a8237159c55035650b225ad543e47",
+    "graphs/__init__.py": "2915e84546b19a370586ac17c6b3ae9b45baa81aa416bded2900d962c4f10d90",
+    "graphs/chunking.py": "606e4b44e6282ebae1de5b0951b8b7c31622b9a2ac13aa4d7ea9f4264e650efb",
+    "graphs/document.py": "eda50929e80dcddc6c93a31f703aa6bc43832f7db373e2164ef07b011c392c9d",
+    "graphs/vision.py": "d2a532b7daf09fdd3f7a48b1764ee8497dbfa45568f81a746d02e792fdba02db",
+    "extractors/__init__.py": "3474075f036e453ef66176551107170689aae32c3b84ba57ff726a2a073ae17e",
+    "extractors/csv.py": "f103070c21cc9df4a1629e5b12ecadf3a6b5c1b9d6087a443dbc8087b5cebde8",
+    "extractors/image.py": "7c7efc383fe31454cf347bb455402dcaaf85ab0cee1b22608399f89d8b22fa1c",
+    "extractors/pdf.py": "8e8b4f986e095c60a3dda466ad0038a1f39ed6a395720f66f1b123796013c7a1",
+    "extractors/isolated.py": "b66840f9a192a0468a7910e3cfd450986084326f4981e48bf4686a04757dde1a",
+    "extractors/windows_job.py": "68f504479b3bce3eb2b24850259ff816559009034dfa85374c88f30430ae42bd"
+  },
+  "lockSha256": "871292df5447ce7790d53a0f2b295c73375761938cccfff7f156d817c84e1660",
+  "codeHash": "1e0680f2f60cf770beb4906a4e4db813cba031fd814530c9011ef649dc9b4694",
+  "runtime": {
+    "python": [
+      3,
+      14,
+      7
+    ],
+    "packages": {
+      "langgraph": "1.2.11",
+      "langgraph-checkpoint-postgres": "3.1.2",
+      "psycopg": "3.3.6",
+      "psycopg-binary": "3.3.6",
+      "langchain-core": "1.5.6",
+      "langchain-openai": "1.5.1",
+      "pydantic": "2.13.4",
+      "pypdfium2": "5.12.1",
+      "pillow": "12.3.0"
+    }
+  },
+  "verifiedMainSha": "100781ec56f607c8160ec5b78df5e461ee5ffb66",
+  "imageSourceSha": "2878ecad830b213010c4ca9d08853e01258a5a38",
+  "all32ModulesAndLockMatchMain": true
+}

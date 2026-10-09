@@ -1,0 +1,5768 @@
+{
+  "approval": "Human approved cumulative CNY 10, all frozen 33 parsing cases and 5 grading cases, baseline/candidate three repeats, at most 1200 calls on 2026-10-09",
+  "limitYuan": 10,
+  "maxCalls": 1200,
+  "calls": [
+    {
+      "number": 1,
+      "phase": "baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6761,
+      "outputTokens": 379,
+      "costYuan": 0.0016554,
+      "elapsedMs": 4132.007375010289
+    },
+    {
+      "number": 2,
+      "phase": "baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6740,
+      "outputTokens": 236,
+      "costYuan": 0.0015368,
+      "elapsedMs": 2930.11000000115
+    },
+    {
+      "number": 3,
+      "phase": "baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6811,
+      "outputTokens": 637,
+      "costYuan": 0.0018718000000000003,
+      "elapsedMs": 5298.262666998198
+    },
+    {
+      "number": 4,
+      "phase": "baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6736,
+      "outputTokens": 171,
+      "costYuan": 0.001484,
+      "elapsedMs": 2419.6340419875924
+    },
+    {
+      "number": 5,
+      "phase": "baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6760,
+      "outputTokens": 520,
+      "costYuan": 0.001768,
+      "elapsedMs": 4747.975666992716
+    },
+    {
+      "number": 6,
+      "phase": "baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6754,
+      "outputTokens": 603,
+      "costYuan": 0.0018332000000000003,
+      "elapsedMs": 5412.500125006773
+    },
+    {
+      "number": 7,
+      "phase": "baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 10496,
+      "outputTokens": 576,
+      "costYuan": 0.0025600000000000006,
+      "elapsedMs": 4449.1151250113035
+    },
+    {
+      "number": 8,
+      "phase": "baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 8204,
+      "outputTokens": 618,
+      "costYuan": 0.0021352000000000003,
+      "elapsedMs": 4516.849749998073
+    },
+    {
+      "number": 9,
+      "phase": "baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6761,
+      "outputTokens": 383,
+      "costYuan": 0.0016586,
+      "elapsedMs": 3709.4064999982947
+    },
+    {
+      "number": 10,
+      "phase": "baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6740,
+      "outputTokens": 526,
+      "costYuan": 0.0017688,
+      "elapsedMs": 5184.323291992769
+    },
+    {
+      "number": 11,
+      "phase": "baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6811,
+      "outputTokens": 677,
+      "costYuan": 0.0019038000000000002,
+      "elapsedMs": 5429.78220799705
+    },
+    {
+      "number": 12,
+      "phase": "baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6736,
+      "outputTokens": 171,
+      "costYuan": 0.001484,
+      "elapsedMs": 2202.08950000233
+    },
+    {
+      "number": 13,
+      "phase": "baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6760,
+      "outputTokens": 520,
+      "costYuan": 0.001768,
+      "elapsedMs": 4732.298582996009
+    },
+    {
+      "number": 14,
+      "phase": "baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6754,
+      "outputTokens": 603,
+      "costYuan": 0.0018332000000000003,
+      "elapsedMs": 5446.523958002217
+    },
+    {
+      "number": 15,
+      "phase": "baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 10496,
+      "outputTokens": 590,
+      "costYuan": 0.0025712000000000005,
+      "elapsedMs": 6176.754917003564
+    },
+    {
+      "number": 16,
+      "phase": "baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 8204,
+      "outputTokens": 614,
+      "costYuan": 0.002132,
+      "elapsedMs": 5168.060875002993
+    },
+    {
+      "number": 17,
+      "phase": "baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6761,
+      "outputTokens": 588,
+      "costYuan": 0.0018226000000000002,
+      "elapsedMs": 5035.984041998745
+    },
+    {
+      "number": 18,
+      "phase": "baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6740,
+      "outputTokens": 202,
+      "costYuan": 0.0015095999999999998,
+      "elapsedMs": 2433.546833010041
+    },
+    {
+      "number": 19,
+      "phase": "baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6811,
+      "outputTokens": 347,
+      "costYuan": 0.0016398000000000003,
+      "elapsedMs": 3583.298708006623
+    },
+    {
+      "number": 20,
+      "phase": "baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6736,
+      "outputTokens": 183,
+      "costYuan": 0.0014936,
+      "elapsedMs": 2273.1105829880107
+    },
+    {
+      "number": 21,
+      "phase": "baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6760,
+      "outputTokens": 520,
+      "costYuan": 0.001768,
+      "elapsedMs": 4661.160542003927
+    },
+    {
+      "number": 22,
+      "phase": "baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6754,
+      "outputTokens": 601,
+      "costYuan": 0.0018316,
+      "elapsedMs": 5689.6679579949705
+    },
+    {
+      "number": 23,
+      "phase": "baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 10496,
+      "outputTokens": 588,
+      "costYuan": 0.0025696000000000004,
+      "elapsedMs": 4453.274041006807
+    },
+    {
+      "number": 24,
+      "phase": "baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 8204,
+      "outputTokens": 618,
+      "costYuan": 0.0021352000000000003,
+      "elapsedMs": 4749.092500002007
+    },
+    {
+      "number": 25,
+      "phase": "baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1036,
+      "outputTokens": 180,
+      "costYuan": 0.0003512,
+      "elapsedMs": 2292.6943749916973
+    },
+    {
+      "number": 26,
+      "phase": "baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1033,
+      "outputTokens": 209,
+      "costYuan": 0.0003738000000000001,
+      "elapsedMs": 2537.0535839902004
+    },
+    {
+      "number": 27,
+      "phase": "baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1033,
+      "outputTokens": 191,
+      "costYuan": 0.0003594,
+      "elapsedMs": 2427.06241599808
+    },
+    {
+      "number": 28,
+      "phase": "baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1048,
+      "outputTokens": 196,
+      "costYuan": 0.0003664,
+      "elapsedMs": 2739.351208001608
+    },
+    {
+      "number": 29,
+      "phase": "baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1093,
+      "outputTokens": 272,
+      "costYuan": 0.00043620000000000003,
+      "elapsedMs": 2807.558667002013
+    },
+    {
+      "number": 30,
+      "phase": "baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1036,
+      "outputTokens": 177,
+      "costYuan": 0.0003488,
+      "elapsedMs": 2055.6184589950135
+    },
+    {
+      "number": 31,
+      "phase": "baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1033,
+      "outputTokens": 216,
+      "costYuan": 0.00037940000000000006,
+      "elapsedMs": 2646.54920900648
+    },
+    {
+      "number": 32,
+      "phase": "baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1033,
+      "outputTokens": 196,
+      "costYuan": 0.00036340000000000005,
+      "elapsedMs": 2321.8784580094507
+    },
+    {
+      "number": 33,
+      "phase": "baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1048,
+      "outputTokens": 242,
+      "costYuan": 0.00040320000000000004,
+      "elapsedMs": 3065.8753750030883
+    },
+    {
+      "number": 34,
+      "phase": "baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1093,
+      "outputTokens": 171,
+      "costYuan": 0.0003554,
+      "elapsedMs": 1949.8722919961438
+    },
+    {
+      "number": 35,
+      "phase": "baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1036,
+      "outputTokens": 189,
+      "costYuan": 0.00035840000000000004,
+      "elapsedMs": 2383.611082987045
+    },
+    {
+      "number": 36,
+      "phase": "baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1033,
+      "outputTokens": 207,
+      "costYuan": 0.00037220000000000005,
+      "elapsedMs": 2728.969750009128
+    },
+    {
+      "number": 37,
+      "phase": "baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1033,
+      "outputTokens": 214,
+      "costYuan": 0.0003778000000000001,
+      "elapsedMs": 3106.0012499947334
+    },
+    {
+      "number": 38,
+      "phase": "baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1048,
+      "outputTokens": 186,
+      "costYuan": 0.00035840000000000004,
+      "elapsedMs": 2365.608665990294
+    },
+    {
+      "number": 39,
+      "phase": "baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1093,
+      "outputTokens": 174,
+      "costYuan": 0.0003578000000000001,
+      "elapsedMs": 1635.6149159983033
+    },
+    {
+      "number": 40,
+      "phase": "baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1398,
+      "outputTokens": 176,
+      "costYuan": 0.00042040000000000003,
+      "elapsedMs": 1435.3957089915639
+    },
+    {
+      "number": 41,
+      "phase": "candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6761,
+      "outputTokens": 393,
+      "costYuan": 0.0016666,
+      "elapsedMs": 4053.9735839993227
+    },
+    {
+      "number": 42,
+      "phase": "candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6740,
+      "outputTokens": 526,
+      "costYuan": 0.0017688,
+      "elapsedMs": 4866.552416991908
+    },
+    {
+      "number": 43,
+      "phase": "candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6811,
+      "outputTokens": 677,
+      "costYuan": 0.0019038000000000002,
+      "elapsedMs": 6353.420667001046
+    },
+    {
+      "number": 44,
+      "phase": "candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6736,
+      "outputTokens": 171,
+      "costYuan": 0.001484,
+      "elapsedMs": 1981.6007499903208
+    },
+    {
+      "number": 45,
+      "phase": "candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6760,
+      "outputTokens": 520,
+      "costYuan": 0.001768,
+      "elapsedMs": 4684.750915999757
+    },
+    {
+      "number": 46,
+      "phase": "candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6754,
+      "outputTokens": 187,
+      "costYuan": 0.0015004,
+      "elapsedMs": 2305.93245800992
+    },
+    {
+      "number": 47,
+      "phase": "candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 10496,
+      "outputTokens": 608,
+      "costYuan": 0.0025856000000000004,
+      "elapsedMs": 6657.414041997981
+    },
+    {
+      "number": 48,
+      "phase": "candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 11234,
+      "outputTokens": 624,
+      "costYuan": 0.002746,
+      "elapsedMs": 7895.63695799734
+    },
+    {
+      "number": 49,
+      "phase": "candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 8204,
+      "outputTokens": 618,
+      "costYuan": 0.0021352000000000003,
+      "elapsedMs": 6453.280542002176
+    },
+    {
+      "number": 50,
+      "phase": "candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6761,
+      "outputTokens": 276,
+      "costYuan": 0.001573,
+      "elapsedMs": 2737.272917001974
+    },
+    {
+      "number": 51,
+      "phase": "candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6740,
+      "outputTokens": 209,
+      "costYuan": 0.0015152,
+      "elapsedMs": 2126.193832998979
+    },
+    {
+      "number": 52,
+      "phase": "candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6811,
+      "outputTokens": 677,
+      "costYuan": 0.0019038000000000002,
+      "elapsedMs": 5671.2182909977855
+    },
+    {
+      "number": 53,
+      "phase": "candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6736,
+      "outputTokens": 171,
+      "costYuan": 0.001484,
+      "elapsedMs": 1983.7735839973902
+    },
+    {
+      "number": 54,
+      "phase": "candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6760,
+      "outputTokens": 520,
+      "costYuan": 0.001768,
+      "elapsedMs": 4225.65541700169
+    },
+    {
+      "number": 55,
+      "phase": "candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6754,
+      "outputTokens": 605,
+      "costYuan": 0.0018348000000000001,
+      "elapsedMs": 5572.159000003012
+    },
+    {
+      "number": 56,
+      "phase": "candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 10496,
+      "outputTokens": 576,
+      "costYuan": 0.0025600000000000006,
+      "elapsedMs": 4837.725416000467
+    },
+    {
+      "number": 57,
+      "phase": "candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 8204,
+      "outputTokens": 618,
+      "costYuan": 0.0021352000000000003,
+      "elapsedMs": 4779.96504199109
+    },
+    {
+      "number": 58,
+      "phase": "candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6761,
+      "outputTokens": 276,
+      "costYuan": 0.001573,
+      "elapsedMs": 2746.911333000753
+    },
+    {
+      "number": 59,
+      "phase": "candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6740,
+      "outputTokens": 180,
+      "costYuan": 0.001492,
+      "elapsedMs": 1992.7745000022696
+    },
+    {
+      "number": 60,
+      "phase": "candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6811,
+      "outputTokens": 677,
+      "costYuan": 0.0019038000000000002,
+      "elapsedMs": 5891.965999995591
+    },
+    {
+      "number": 61,
+      "phase": "candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6736,
+      "outputTokens": 171,
+      "costYuan": 0.001484,
+      "elapsedMs": 1999.5599590038182
+    },
+    {
+      "number": 62,
+      "phase": "candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6760,
+      "outputTokens": 520,
+      "costYuan": 0.001768,
+      "elapsedMs": 4430.800583999371
+    },
+    {
+      "number": 63,
+      "phase": "candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6754,
+      "outputTokens": 607,
+      "costYuan": 0.0018364000000000002,
+      "elapsedMs": 5525.601708999602
+    },
+    {
+      "number": 64,
+      "phase": "candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 10496,
+      "outputTokens": 602,
+      "costYuan": 0.0025808000000000003,
+      "elapsedMs": 5279.949458010378
+    },
+    {
+      "number": 65,
+      "phase": "candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 11228,
+      "outputTokens": 598,
+      "costYuan": 0.002724,
+      "elapsedMs": 4675.864375007222
+    },
+    {
+      "number": 66,
+      "phase": "candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 10586,
+      "outputTokens": 602,
+      "costYuan": 0.0025988,
+      "elapsedMs": 5597.530125000048
+    },
+    {
+      "number": 67,
+      "phase": "candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 11228,
+      "outputTokens": 618,
+      "costYuan": 0.00274,
+      "elapsedMs": 4265.7822919863975
+    },
+    {
+      "number": 68,
+      "phase": "candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 8204,
+      "outputTokens": 618,
+      "costYuan": 0.0021352000000000003,
+      "elapsedMs": 4548.91187499743
+    },
+    {
+      "number": 69,
+      "phase": "candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1064,
+      "outputTokens": 216,
+      "costYuan": 0.00038560000000000005,
+      "elapsedMs": 2634.4050409970805
+    },
+    {
+      "number": 70,
+      "phase": "candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1061,
+      "outputTokens": 218,
+      "costYuan": 0.0003866,
+      "elapsedMs": 2511.803207991761
+    },
+    {
+      "number": 71,
+      "phase": "candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1061,
+      "outputTokens": 217,
+      "costYuan": 0.00038580000000000005,
+      "elapsedMs": 2898.685166001087
+    },
+    {
+      "number": 72,
+      "phase": "candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1076,
+      "outputTokens": 215,
+      "costYuan": 0.00038720000000000003,
+      "elapsedMs": 2814.813958990271
+    },
+    {
+      "number": 73,
+      "phase": "candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1121,
+      "outputTokens": 201,
+      "costYuan": 0.000385,
+      "elapsedMs": 2004.9060420133173
+    },
+    {
+      "number": 74,
+      "phase": "candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1064,
+      "outputTokens": 177,
+      "costYuan": 0.0003544,
+      "elapsedMs": 2060.7615420012735
+    },
+    {
+      "number": 75,
+      "phase": "candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1061,
+      "outputTokens": 181,
+      "costYuan": 0.000357,
+      "elapsedMs": 2076.5539160056505
+    },
+    {
+      "number": 76,
+      "phase": "candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1061,
+      "outputTokens": 193,
+      "costYuan": 0.0003666,
+      "elapsedMs": 2422.4739580095047
+    },
+    {
+      "number": 77,
+      "phase": "candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1076,
+      "outputTokens": 205,
+      "costYuan": 0.00037920000000000006,
+      "elapsedMs": 2528.392583990353
+    },
+    {
+      "number": 78,
+      "phase": "candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1121,
+      "outputTokens": 184,
+      "costYuan": 0.00037140000000000003,
+      "elapsedMs": 1640.7769170036772
+    },
+    {
+      "number": 79,
+      "phase": "candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1064,
+      "outputTokens": 182,
+      "costYuan": 0.0003584,
+      "elapsedMs": 2207.042750000255
+    },
+    {
+      "number": 80,
+      "phase": "candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1061,
+      "outputTokens": 166,
+      "costYuan": 0.000345,
+      "elapsedMs": 2241.374999997788
+    },
+    {
+      "number": 81,
+      "phase": "candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1061,
+      "outputTokens": 232,
+      "costYuan": 0.0003978000000000001,
+      "elapsedMs": 2756.862959009595
+    },
+    {
+      "number": 82,
+      "phase": "candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1076,
+      "outputTokens": 184,
+      "costYuan": 0.0003624,
+      "elapsedMs": 2254.8094999947352
+    },
+    {
+      "number": 83,
+      "phase": "candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1121,
+      "outputTokens": 198,
+      "costYuan": 0.00038260000000000003,
+      "elapsedMs": 2144.0769999899203
+    },
+    {
+      "number": 84,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6761,
+      "outputTokens": 389,
+      "costYuan": 0.0016634,
+      "elapsedMs": 4010.073208002723
+    },
+    {
+      "number": 85,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6753,
+      "outputTokens": 558,
+      "costYuan": 0.0017970000000000002,
+      "elapsedMs": 4976.738208002644
+    },
+    {
+      "number": 86,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6747,
+      "outputTokens": 568,
+      "costYuan": 0.0018038000000000002,
+      "elapsedMs": 4862.172583001666
+    },
+    {
+      "number": 87,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6741,
+      "outputTokens": 539,
+      "costYuan": 0.0017794,
+      "elapsedMs": 5074.278708998463
+    },
+    {
+      "number": 88,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 10484,
+      "outputTokens": 580,
+      "costYuan": 0.0025608000000000002,
+      "elapsedMs": 5924.482832997455
+    },
+    {
+      "number": 89,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 10496,
+      "outputTokens": 542,
+      "costYuan": 0.0025328,
+      "elapsedMs": 5365.9087080013705
+    },
+    {
+      "number": 90,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 9526,
+      "outputTokens": 571,
+      "costYuan": 0.002362,
+      "elapsedMs": 5391.990832998999
+    },
+    {
+      "number": 91,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 10227,
+      "outputTokens": 586,
+      "costYuan": 0.0025142000000000003,
+      "elapsedMs": 7818.07008299802
+    },
+    {
+      "number": 92,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 9526,
+      "outputTokens": 646,
+      "costYuan": 0.002422,
+      "elapsedMs": 5806.321750002098
+    },
+    {
+      "number": 93,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 2535,
+      "outputTokens": 99,
+      "costYuan": 0.0005862,
+      "elapsedMs": 2013.3305409981403
+    },
+    {
+      "number": 94,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6743,
+      "outputTokens": 548,
+      "costYuan": 0.0017870000000000002,
+      "elapsedMs": 4950.561457997537
+    },
+    {
+      "number": 95,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6740,
+      "outputTokens": 526,
+      "costYuan": 0.0017688,
+      "elapsedMs": 4339.285582987941
+    },
+    {
+      "number": 96,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6811,
+      "outputTokens": 681,
+      "costYuan": 0.001907,
+      "elapsedMs": 5477.103500001249
+    },
+    {
+      "number": 97,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6736,
+      "outputTokens": 171,
+      "costYuan": 0.001484,
+      "elapsedMs": 1843.4753330075182
+    },
+    {
+      "number": 98,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 13768,
+      "outputTokens": 517,
+      "costYuan": 0.0031672000000000002,
+      "elapsedMs": 5970.94924999692
+    },
+    {
+      "number": 99,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 10250,
+      "outputTokens": 517,
+      "costYuan": 0.0024636,
+      "elapsedMs": 5887.133416996221
+    },
+    {
+      "number": 100,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6722,
+      "outputTokens": 39,
+      "costYuan": 0.0013756,
+      "elapsedMs": 1131.158250005683
+    },
+    {
+      "number": 101,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6776,
+      "outputTokens": 443,
+      "costYuan": 0.0017096000000000001,
+      "elapsedMs": 5110.523833005573
+    },
+    {
+      "number": 102,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6760,
+      "outputTokens": 520,
+      "costYuan": 0.001768,
+      "elapsedMs": 4466.777333000209
+    },
+    {
+      "number": 103,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6747,
+      "outputTokens": 323,
+      "costYuan": 0.0016078000000000002,
+      "elapsedMs": 3174.0741660032654
+    },
+    {
+      "number": 104,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 12945,
+      "outputTokens": 44,
+      "costYuan": 0.0026241999999999997,
+      "elapsedMs": 4220.171166001819
+    },
+    {
+      "number": 105,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 15436,
+      "outputTokens": 1179,
+      "costYuan": 0.004030400000000001,
+      "elapsedMs": 16151.401666007587
+    },
+    {
+      "number": 106,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 12945,
+      "outputTokens": 567,
+      "costYuan": 0.0030426,
+      "elapsedMs": 7727.60854200169
+    },
+    {
+      "number": 107,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 15436,
+      "outputTokens": 571,
+      "costYuan": 0.0035440000000000003,
+      "elapsedMs": 9761.230207994231
+    },
+    {
+      "number": 108,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6751,
+      "outputTokens": 338,
+      "costYuan": 0.0016206,
+      "elapsedMs": 4030.8684589981567
+    },
+    {
+      "number": 109,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 8656,
+      "outputTokens": 525,
+      "costYuan": 0.0021512,
+      "elapsedMs": 4239.561416005017
+    },
+    {
+      "number": 110,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6887,
+      "outputTokens": 1777,
+      "costYuan": 0.002799,
+      "elapsedMs": 15850.677750000614
+    },
+    {
+      "number": 111,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6749,
+      "outputTokens": 523,
+      "costYuan": 0.0017682000000000004,
+      "elapsedMs": 5642.753333013388
+    },
+    {
+      "number": 112,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6731,
+      "outputTokens": 236,
+      "costYuan": 0.001535,
+      "elapsedMs": 2552.017584006535
+    },
+    {
+      "number": 113,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6769,
+      "outputTokens": 348,
+      "costYuan": 0.0016322000000000003,
+      "elapsedMs": 3396.189499995671
+    },
+    {
+      "number": 114,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6765,
+      "outputTokens": 236,
+      "costYuan": 0.0015417999999999999,
+      "elapsedMs": 3286.3714580016676
+    },
+    {
+      "number": 115,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6780,
+      "outputTokens": 429,
+      "costYuan": 0.0016992,
+      "elapsedMs": 4943.841500004055
+    },
+    {
+      "number": 116,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 7285,
+      "outputTokens": 364,
+      "costYuan": 0.0017482,
+      "elapsedMs": 3232.6128749991767
+    },
+    {
+      "number": 117,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6837,
+      "outputTokens": 565,
+      "costYuan": 0.0018194,
+      "elapsedMs": 5277.30283299752
+    },
+    {
+      "number": 118,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6740,
+      "outputTokens": 208,
+      "costYuan": 0.0015144000000000002,
+      "elapsedMs": 3037.3436249938095
+    },
+    {
+      "number": 119,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6725,
+      "outputTokens": 108,
+      "costYuan": 0.0014314,
+      "elapsedMs": 1964.1843330027768
+    },
+    {
+      "number": 120,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6754,
+      "outputTokens": 601,
+      "costYuan": 0.0018316,
+      "elapsedMs": 4990.996207998251
+    },
+    {
+      "number": 121,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 10496,
+      "outputTokens": 574,
+      "costYuan": 0.0025584000000000006,
+      "elapsedMs": 5891.084749993752
+    },
+    {
+      "number": 122,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 8204,
+      "outputTokens": 618,
+      "costYuan": 0.0021352000000000003,
+      "elapsedMs": 4501.0587080032565
+    },
+    {
+      "number": 123,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6761,
+      "outputTokens": 588,
+      "costYuan": 0.0018226000000000002,
+      "elapsedMs": 6015.883917003521
+    },
+    {
+      "number": 124,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6753,
+      "outputTokens": 558,
+      "costYuan": 0.0017970000000000002,
+      "elapsedMs": 5814.686292011174
+    },
+    {
+      "number": 125,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6747,
+      "outputTokens": 268,
+      "costYuan": 0.0015638000000000002,
+      "elapsedMs": 2895.9802919998765
+    },
+    {
+      "number": 126,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6741,
+      "outputTokens": 216,
+      "costYuan": 0.001521,
+      "elapsedMs": 2603.1447919958737
+    },
+    {
+      "number": 127,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 10484,
+      "outputTokens": 580,
+      "costYuan": 0.0025608000000000002,
+      "elapsedMs": 5047.03979199985
+    },
+    {
+      "number": 128,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 10496,
+      "outputTokens": 546,
+      "costYuan": 0.0025360000000000005,
+      "elapsedMs": 5220.103416999336
+    },
+    {
+      "number": 129,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 9526,
+      "outputTokens": 575,
+      "costYuan": 0.0023652,
+      "elapsedMs": 4994.7070839989465
+    },
+    {
+      "number": 130,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 10231,
+      "outputTokens": 590,
+      "costYuan": 0.0025182,
+      "elapsedMs": 5009.3057499907445
+    },
+    {
+      "number": 131,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 9526,
+      "outputTokens": 663,
+      "costYuan": 0.0024356,
+      "elapsedMs": 5633.443124999758
+    },
+    {
+      "number": 132,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 2525,
+      "outputTokens": 75,
+      "costYuan": 0.000565,
+      "elapsedMs": 1592.4570829956792
+    },
+    {
+      "number": 133,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6743,
+      "outputTokens": 239,
+      "costYuan": 0.0015398000000000002,
+      "elapsedMs": 3356.315375000122
+    },
+    {
+      "number": 134,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6740,
+      "outputTokens": 526,
+      "costYuan": 0.0017688,
+      "elapsedMs": 4569.488583991188
+    },
+    {
+      "number": 135,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6811,
+      "outputTokens": 677,
+      "costYuan": 0.0019038000000000002,
+      "elapsedMs": 5335.106500002439
+    },
+    {
+      "number": 136,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6736,
+      "outputTokens": 171,
+      "costYuan": 0.001484,
+      "elapsedMs": 2851.8485840031644
+    },
+    {
+      "number": 137,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 10250,
+      "outputTokens": 331,
+      "costYuan": 0.0023148,
+      "elapsedMs": 3620.18470899784
+    },
+    {
+      "number": 138,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 13768,
+      "outputTokens": 663,
+      "costYuan": 0.0032840000000000005,
+      "elapsedMs": 6616.537583002355
+    },
+    {
+      "number": 139,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6722,
+      "outputTokens": 15,
+      "costYuan": 0.0013564,
+      "elapsedMs": 802.8170830075396
+    },
+    {
+      "number": 140,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6776,
+      "outputTokens": 1047,
+      "costYuan": 0.0021928000000000004,
+      "elapsedMs": 10027.780874996097
+    },
+    {
+      "number": 141,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6760,
+      "outputTokens": 520,
+      "costYuan": 0.001768,
+      "elapsedMs": 6145.356166001875
+    },
+    {
+      "number": 142,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6747,
+      "outputTokens": 1194,
+      "costYuan": 0.0023046000000000004,
+      "elapsedMs": 10341.512166996836
+    },
+    {
+      "number": 143,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 7997,
+      "outputTokens": 994,
+      "costYuan": 0.0023946,
+      "elapsedMs": 7453.833540988853
+    },
+    {
+      "number": 144,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 12945,
+      "outputTokens": 44,
+      "costYuan": 0.0026241999999999997,
+      "elapsedMs": 9441.60337500216
+    },
+    {
+      "number": 145,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 15436,
+      "outputTokens": 1179,
+      "costYuan": 0.004030400000000001,
+      "elapsedMs": 15042.71195801266
+    },
+    {
+      "number": 146,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 12945,
+      "outputTokens": 581,
+      "costYuan": 0.0030538,
+      "elapsedMs": 7274.002332997043
+    },
+    {
+      "number": 147,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 15436,
+      "outputTokens": 652,
+      "costYuan": 0.0036088,
+      "elapsedMs": 11853.506792002008
+    },
+    {
+      "number": 148,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 3971,
+      "outputTokens": 103,
+      "costYuan": 0.0008766000000000001,
+      "elapsedMs": 3068.3354579959996
+    },
+    {
+      "number": 149,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6751,
+      "outputTokens": 338,
+      "costYuan": 0.0016206,
+      "elapsedMs": 3529.39399999741
+    },
+    {
+      "number": 150,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 8656,
+      "outputTokens": 525,
+      "costYuan": 0.0021512,
+      "elapsedMs": 5346.102541996515
+    },
+    {
+      "number": 151,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6887,
+      "outputTokens": 1580,
+      "costYuan": 0.0026414,
+      "elapsedMs": 13752.48762499541
+    },
+    {
+      "number": 152,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 8561,
+      "outputTokens": 1613,
+      "costYuan": 0.0030026000000000002,
+      "elapsedMs": 14062.700208000024
+    },
+    {
+      "number": 153,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 8611,
+      "outputTokens": 1613,
+      "costYuan": 0.0030126000000000003,
+      "elapsedMs": 11529.14308400068
+    },
+    {
+      "number": 154,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6749,
+      "outputTokens": 499,
+      "costYuan": 0.0017490000000000001,
+      "elapsedMs": 4550.545749996672
+    },
+    {
+      "number": 155,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6731,
+      "outputTokens": 249,
+      "costYuan": 0.0015454000000000002,
+      "elapsedMs": 2813.4236670011887
+    },
+    {
+      "number": 156,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6769,
+      "outputTokens": 603,
+      "costYuan": 0.0018362000000000003,
+      "elapsedMs": 5973.378334005247
+    },
+    {
+      "number": 157,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6765,
+      "outputTokens": 244,
+      "costYuan": 0.0015482,
+      "elapsedMs": 3438.731165995705
+    },
+    {
+      "number": 158,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6780,
+      "outputTokens": 454,
+      "costYuan": 0.0017192,
+      "elapsedMs": 4187.121583003318
+    },
+    {
+      "number": 159,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 7310,
+      "outputTokens": 384,
+      "costYuan": 0.0017692,
+      "elapsedMs": 3546.480832999805
+    },
+    {
+      "number": 160,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6837,
+      "outputTokens": 731,
+      "costYuan": 0.0019522000000000003,
+      "elapsedMs": 6009.019040997373
+    },
+    {
+      "number": 161,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 7688,
+      "outputTokens": 1116,
+      "costYuan": 0.0024304,
+      "elapsedMs": 11466.759374990943
+    },
+    {
+      "number": 162,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6740,
+      "outputTokens": 350,
+      "costYuan": 0.001628,
+      "elapsedMs": 4070.257416999084
+    },
+    {
+      "number": 163,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6725,
+      "outputTokens": 109,
+      "costYuan": 0.0014322,
+      "elapsedMs": 2029.2176669900073
+    },
+    {
+      "number": 164,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6754,
+      "outputTokens": 601,
+      "costYuan": 0.0018316,
+      "elapsedMs": 6013.044499995885
+    },
+    {
+      "number": 165,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 10496,
+      "outputTokens": 594,
+      "costYuan": 0.0025744000000000006,
+      "elapsedMs": 6123.633750001318
+    },
+    {
+      "number": 166,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 8204,
+      "outputTokens": 618,
+      "costYuan": 0.0021352000000000003,
+      "elapsedMs": 7327.543624996906
+    },
+    {
+      "number": 167,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6761,
+      "outputTokens": 588,
+      "costYuan": 0.0018226000000000002,
+      "elapsedMs": 6057.042208005441
+    },
+    {
+      "number": 168,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6753,
+      "outputTokens": 223,
+      "costYuan": 0.0015290000000000002,
+      "elapsedMs": 2496.3403330039
+    },
+    {
+      "number": 169,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6747,
+      "outputTokens": 290,
+      "costYuan": 0.0015814000000000002,
+      "elapsedMs": 3466.988207990653
+    },
+    {
+      "number": 170,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6741,
+      "outputTokens": 212,
+      "costYuan": 0.0015178000000000001,
+      "elapsedMs": 2673.6873329937225
+    },
+    {
+      "number": 171,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 10484,
+      "outputTokens": 573,
+      "costYuan": 0.0025552,
+      "elapsedMs": 5260.033792001195
+    },
+    {
+      "number": 172,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 10496,
+      "outputTokens": 546,
+      "costYuan": 0.0025360000000000005,
+      "elapsedMs": 4693.291458010208
+    },
+    {
+      "number": 173,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 9526,
+      "outputTokens": 593,
+      "costYuan": 0.0023796,
+      "elapsedMs": 5114.711041998817
+    },
+    {
+      "number": 174,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 9526,
+      "outputTokens": 666,
+      "costYuan": 0.002438,
+      "elapsedMs": 5705.749500004458
+    },
+    {
+      "number": 175,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 2517,
+      "outputTokens": 71,
+      "costYuan": 0.0005602000000000001,
+      "elapsedMs": 1181.5740000020014
+    },
+    {
+      "number": 176,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6743,
+      "outputTokens": 551,
+      "costYuan": 0.0017894,
+      "elapsedMs": 4787.129290998564
+    },
+    {
+      "number": 177,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6740,
+      "outputTokens": 173,
+      "costYuan": 0.0014864000000000001,
+      "elapsedMs": 2458.646500002942
+    },
+    {
+      "number": 178,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6811,
+      "outputTokens": 647,
+      "costYuan": 0.0018798000000000003,
+      "elapsedMs": 6952.9220840049675
+    },
+    {
+      "number": 179,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6736,
+      "outputTokens": 171,
+      "costYuan": 0.001484,
+      "elapsedMs": 1974.3794169917237
+    },
+    {
+      "number": 180,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 10250,
+      "outputTokens": 517,
+      "costYuan": 0.0024636,
+      "elapsedMs": 5147.762207998312
+    },
+    {
+      "number": 181,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 13768,
+      "outputTokens": 183,
+      "costYuan": 0.0029000000000000007,
+      "elapsedMs": 2698.851334003848
+    },
+    {
+      "number": 182,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6722,
+      "outputTokens": 15,
+      "costYuan": 0.0013564,
+      "elapsedMs": 899.9996670027031
+    },
+    {
+      "number": 183,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6776,
+      "outputTokens": 1047,
+      "costYuan": 0.0021928000000000004,
+      "elapsedMs": 9443.388125000638
+    },
+    {
+      "number": 184,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6760,
+      "outputTokens": 520,
+      "costYuan": 0.001768,
+      "elapsedMs": 5598.572666000109
+    },
+    {
+      "number": 185,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6747,
+      "outputTokens": 398,
+      "costYuan": 0.0016678,
+      "elapsedMs": 3934.5639999955893
+    },
+    {
+      "number": 186,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 12945,
+      "outputTokens": 44,
+      "costYuan": 0.0026241999999999997,
+      "elapsedMs": 5346.336124988738
+    },
+    {
+      "number": 187,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 15436,
+      "outputTokens": 1179,
+      "costYuan": 0.004030400000000001,
+      "elapsedMs": 16970.11445800308
+    },
+    {
+      "number": 188,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 12945,
+      "outputTokens": 581,
+      "costYuan": 0.0030538,
+      "elapsedMs": 7434.8902920028195
+    },
+    {
+      "number": 189,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 15436,
+      "outputTokens": 571,
+      "costYuan": 0.0035440000000000003,
+      "elapsedMs": 11592.572916997597
+    },
+    {
+      "number": 190,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6751,
+      "outputTokens": 282,
+      "costYuan": 0.0015758000000000002,
+      "elapsedMs": 3128.888624996762
+    },
+    {
+      "number": 191,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 8656,
+      "outputTokens": 525,
+      "costYuan": 0.0021512,
+      "elapsedMs": 6001.556999995955
+    },
+    {
+      "number": 192,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6887,
+      "outputTokens": 1314,
+      "costYuan": 0.0024286000000000004,
+      "elapsedMs": 12087.81679198728
+    },
+    {
+      "number": 193,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6749,
+      "outputTokens": 608,
+      "costYuan": 0.0018362000000000003,
+      "elapsedMs": 5334.5263749943115
+    },
+    {
+      "number": 194,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 7433,
+      "outputTokens": 1295,
+      "costYuan": 0.0025226000000000003,
+      "elapsedMs": 15261.060499993619
+    },
+    {
+      "number": 195,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6731,
+      "outputTokens": 294,
+      "costYuan": 0.0015814000000000002,
+      "elapsedMs": 3504.918083999655
+    },
+    {
+      "number": 196,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6769,
+      "outputTokens": 590,
+      "costYuan": 0.0018258000000000003,
+      "elapsedMs": 5940.5376670038095
+    },
+    {
+      "number": 197,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6765,
+      "outputTokens": 369,
+      "costYuan": 0.0016482,
+      "elapsedMs": 4610.298250001506
+    },
+    {
+      "number": 198,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6780,
+      "outputTokens": 423,
+      "costYuan": 0.0016944,
+      "elapsedMs": 4168.781416999991
+    },
+    {
+      "number": 199,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 7294,
+      "outputTokens": 358,
+      "costYuan": 0.0017452000000000004,
+      "elapsedMs": 3444.2160420003347
+    },
+    {
+      "number": 200,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6837,
+      "outputTokens": 486,
+      "costYuan": 0.0017562,
+      "elapsedMs": 4873.149082995951
+    },
+    {
+      "number": 201,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6740,
+      "outputTokens": 351,
+      "costYuan": 0.0016288,
+      "elapsedMs": 3787.565042002825
+    },
+    {
+      "number": 202,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6725,
+      "outputTokens": 108,
+      "costYuan": 0.0014314,
+      "elapsedMs": 1943.149375001667
+    },
+    {
+      "number": 203,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6754,
+      "outputTokens": 607,
+      "costYuan": 0.0018364000000000002,
+      "elapsedMs": 6991.477624993422
+    },
+    {
+      "number": 204,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 10496,
+      "outputTokens": 582,
+      "costYuan": 0.0025648000000000003,
+      "elapsedMs": 6653.7446250003995
+    },
+    {
+      "number": 205,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 8204,
+      "outputTokens": 618,
+      "costYuan": 0.0021352000000000003,
+      "elapsedMs": 4665.101042002789
+    },
+    {
+      "number": 206,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1036,
+      "outputTokens": 200,
+      "costYuan": 0.00036720000000000004,
+      "elapsedMs": 2249.5804999925895
+    },
+    {
+      "number": 207,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1033,
+      "outputTokens": 251,
+      "costYuan": 0.00040740000000000004,
+      "elapsedMs": 3056.8165839940775
+    },
+    {
+      "number": 208,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1033,
+      "outputTokens": 178,
+      "costYuan": 0.000349,
+      "elapsedMs": 2307.704916995135
+    },
+    {
+      "number": 209,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1048,
+      "outputTokens": 249,
+      "costYuan": 0.00040880000000000007,
+      "elapsedMs": 2955.57954099786
+    },
+    {
+      "number": 210,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1093,
+      "outputTokens": 184,
+      "costYuan": 0.00036580000000000006,
+      "elapsedMs": 2251.707292001811
+    },
+    {
+      "number": 211,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1036,
+      "outputTokens": 190,
+      "costYuan": 0.00035920000000000006,
+      "elapsedMs": 2455.7244169991463
+    },
+    {
+      "number": 212,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1033,
+      "outputTokens": 212,
+      "costYuan": 0.00037620000000000004,
+      "elapsedMs": 2530.1371660025325
+    },
+    {
+      "number": 213,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1033,
+      "outputTokens": 202,
+      "costYuan": 0.00036820000000000006,
+      "elapsedMs": 2435.9654169966234
+    },
+    {
+      "number": 214,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1048,
+      "outputTokens": 202,
+      "costYuan": 0.0003712,
+      "elapsedMs": 2775.826250013779
+    },
+    {
+      "number": 215,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1093,
+      "outputTokens": 162,
+      "costYuan": 0.00034820000000000006,
+      "elapsedMs": 1951.2188749940833
+    },
+    {
+      "number": 216,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1036,
+      "outputTokens": 187,
+      "costYuan": 0.0003568,
+      "elapsedMs": 2085.6970839959104
+    },
+    {
+      "number": 217,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1033,
+      "outputTokens": 225,
+      "costYuan": 0.0003866,
+      "elapsedMs": 2566.7361249943497
+    },
+    {
+      "number": 218,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1033,
+      "outputTokens": 159,
+      "costYuan": 0.00033380000000000004,
+      "elapsedMs": 2049.965665995842
+    },
+    {
+      "number": 219,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1048,
+      "outputTokens": 252,
+      "costYuan": 0.0004112,
+      "elapsedMs": 2780.605417006882
+    },
+    {
+      "number": 220,
+      "phase": "full-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1093,
+      "outputTokens": 218,
+      "costYuan": 0.000393,
+      "elapsedMs": 2083.903749997262
+    },
+    {
+      "number": 221,
+      "phase": "tree-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6887,
+      "outputTokens": 3670,
+      "costYuan": 0.004313399999999999,
+      "elapsedMs": 31691.141250004875
+    },
+    {
+      "number": 222,
+      "phase": "tree-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6731,
+      "outputTokens": 596,
+      "costYuan": 0.001823,
+      "elapsedMs": 6044.293917002506
+    },
+    {
+      "number": 223,
+      "phase": "tree-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6765,
+      "outputTokens": 241,
+      "costYuan": 0.0015458,
+      "elapsedMs": 3284.070082998369
+    },
+    {
+      "number": 224,
+      "phase": "tree-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6887,
+      "outputTokens": 1626,
+      "costYuan": 0.0026782000000000004,
+      "elapsedMs": 14484.555792005267
+    },
+    {
+      "number": 225,
+      "phase": "tree-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 8599,
+      "outputTokens": 1626,
+      "costYuan": 0.0030206000000000005,
+      "elapsedMs": 13967.153125006007
+    },
+    {
+      "number": 226,
+      "phase": "tree-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 8599,
+      "outputTokens": 1626,
+      "costYuan": 0.0030206000000000005,
+      "elapsedMs": 14320.773667001049
+    },
+    {
+      "number": 227,
+      "phase": "tree-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6731,
+      "outputTokens": 601,
+      "costYuan": 0.001827,
+      "elapsedMs": 6710.966291997465
+    },
+    {
+      "number": 228,
+      "phase": "tree-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6765,
+      "outputTokens": 244,
+      "costYuan": 0.0015482,
+      "elapsedMs": 3225.292791001266
+    },
+    {
+      "number": 229,
+      "phase": "tree-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6887,
+      "outputTokens": 2531,
+      "costYuan": 0.0034022,
+      "elapsedMs": 22911.024332992383
+    },
+    {
+      "number": 230,
+      "phase": "tree-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 9534,
+      "outputTokens": 2596,
+      "costYuan": 0.0039836,
+      "elapsedMs": 22241.63158299052
+    },
+    {
+      "number": 231,
+      "phase": "tree-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6731,
+      "outputTokens": 254,
+      "costYuan": 0.0015494,
+      "elapsedMs": 3509.6892079891404
+    },
+    {
+      "number": 232,
+      "phase": "tree-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 7099,
+      "outputTokens": 254,
+      "costYuan": 0.0016230000000000003,
+      "elapsedMs": 2952.4458329979097
+    },
+    {
+      "number": 233,
+      "phase": "tree-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6765,
+      "outputTokens": 242,
+      "costYuan": 0.0015466,
+      "elapsedMs": 3646.7835839866893
+    },
+    {
+      "number": 234,
+      "phase": "tree-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1036,
+      "outputTokens": 195,
+      "costYuan": 0.00036320000000000005,
+      "elapsedMs": 2156.720667000627
+    },
+    {
+      "number": 235,
+      "phase": "tree-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1033,
+      "outputTokens": 185,
+      "costYuan": 0.0003546,
+      "elapsedMs": 2733.196125001996
+    },
+    {
+      "number": 236,
+      "phase": "tree-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1033,
+      "outputTokens": 237,
+      "costYuan": 0.00039620000000000004,
+      "elapsedMs": 2713.095457991585
+    },
+    {
+      "number": 237,
+      "phase": "tree-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1048,
+      "outputTokens": 186,
+      "costYuan": 0.00035840000000000004,
+      "elapsedMs": 2142.1575419954024
+    },
+    {
+      "number": 238,
+      "phase": "tree-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1093,
+      "outputTokens": 225,
+      "costYuan": 0.00039860000000000004,
+      "elapsedMs": 3243.510874992353
+    },
+    {
+      "number": 239,
+      "phase": "tree-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1036,
+      "outputTokens": 153,
+      "costYuan": 0.00032960000000000004,
+      "elapsedMs": 1881.7395419901004
+    },
+    {
+      "number": 240,
+      "phase": "tree-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1033,
+      "outputTokens": 206,
+      "costYuan": 0.00037140000000000003,
+      "elapsedMs": 2305.5085829983
+    },
+    {
+      "number": 241,
+      "phase": "tree-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1033,
+      "outputTokens": 225,
+      "costYuan": 0.0003866,
+      "elapsedMs": 2754.795291009941
+    },
+    {
+      "number": 242,
+      "phase": "tree-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1048,
+      "outputTokens": 276,
+      "costYuan": 0.00043040000000000005,
+      "elapsedMs": 3072.39116699202
+    },
+    {
+      "number": 243,
+      "phase": "tree-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1093,
+      "outputTokens": 172,
+      "costYuan": 0.00035620000000000004,
+      "elapsedMs": 1669.650374999037
+    },
+    {
+      "number": 244,
+      "phase": "tree-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1036,
+      "outputTokens": 147,
+      "costYuan": 0.00032480000000000003,
+      "elapsedMs": 1863.9027500030352
+    },
+    {
+      "number": 245,
+      "phase": "tree-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1033,
+      "outputTokens": 207,
+      "costYuan": 0.00037220000000000005,
+      "elapsedMs": 2393.6798329959856
+    },
+    {
+      "number": 246,
+      "phase": "tree-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1033,
+      "outputTokens": 196,
+      "costYuan": 0.00036340000000000005,
+      "elapsedMs": 2078.882582994993
+    },
+    {
+      "number": 247,
+      "phase": "tree-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1048,
+      "outputTokens": 272,
+      "costYuan": 0.00042720000000000003,
+      "elapsedMs": 2765.9969170053955
+    },
+    {
+      "number": 248,
+      "phase": "tree-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1093,
+      "outputTokens": 221,
+      "costYuan": 0.0003954,
+      "elapsedMs": 2297.56391698902
+    },
+    {
+      "number": 249,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6761,
+      "outputTokens": 588,
+      "costYuan": 0.0018226000000000002,
+      "elapsedMs": 6827.381541006616
+    },
+    {
+      "number": 250,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6753,
+      "outputTokens": 558,
+      "costYuan": 0.0017970000000000002,
+      "elapsedMs": 6166.929375001928
+    },
+    {
+      "number": 251,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6747,
+      "outputTokens": 568,
+      "costYuan": 0.0018038000000000002,
+      "elapsedMs": 6646.679875004338
+    },
+    {
+      "number": 252,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6741,
+      "outputTokens": 539,
+      "costYuan": 0.0017794,
+      "elapsedMs": 5942.688875002204
+    },
+    {
+      "number": 253,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 10484,
+      "outputTokens": 578,
+      "costYuan": 0.0025592,
+      "elapsedMs": 5187.119875001372
+    },
+    {
+      "number": 254,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 10496,
+      "outputTokens": 538,
+      "costYuan": 0.0025296000000000003,
+      "elapsedMs": 7996.902958009741
+    },
+    {
+      "number": 255,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 9526,
+      "outputTokens": 578,
+      "costYuan": 0.0023676,
+      "elapsedMs": 5435.6674589944305
+    },
+    {
+      "number": 256,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 9526,
+      "outputTokens": 666,
+      "costYuan": 0.002438,
+      "elapsedMs": 6191.924625003594
+    },
+    {
+      "number": 257,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 2528,
+      "outputTokens": 71,
+      "costYuan": 0.0005624,
+      "elapsedMs": 1068.5859579971293
+    },
+    {
+      "number": 258,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6743,
+      "outputTokens": 548,
+      "costYuan": 0.0017870000000000002,
+      "elapsedMs": 5792.4663339945255
+    },
+    {
+      "number": 259,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6740,
+      "outputTokens": 526,
+      "costYuan": 0.0017688,
+      "elapsedMs": 5599.371832999168
+    },
+    {
+      "number": 260,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6811,
+      "outputTokens": 677,
+      "costYuan": 0.0019038000000000002,
+      "elapsedMs": 6965.509708999889
+    },
+    {
+      "number": 261,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6736,
+      "outputTokens": 171,
+      "costYuan": 0.001484,
+      "elapsedMs": 2694.2947499919683
+    },
+    {
+      "number": 262,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 13768,
+      "outputTokens": 663,
+      "costYuan": 0.0032840000000000005,
+      "elapsedMs": 6787.301667005522
+    },
+    {
+      "number": 263,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 10250,
+      "outputTokens": 517,
+      "costYuan": 0.0024636,
+      "elapsedMs": 5564.209083007881
+    },
+    {
+      "number": 264,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6722,
+      "outputTokens": 15,
+      "costYuan": 0.0013564,
+      "elapsedMs": 1171.0686669975985
+    },
+    {
+      "number": 265,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6776,
+      "outputTokens": 695,
+      "costYuan": 0.0019112,
+      "elapsedMs": 6805.474875000073
+    },
+    {
+      "number": 266,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6760,
+      "outputTokens": 524,
+      "costYuan": 0.0017712000000000001,
+      "elapsedMs": 5945.278875005897
+    },
+    {
+      "number": 267,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6747,
+      "outputTokens": 236,
+      "costYuan": 0.0015382,
+      "elapsedMs": 3013.473458995577
+    },
+    {
+      "number": 268,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 12945,
+      "outputTokens": 44,
+      "costYuan": 0.0026241999999999997,
+      "elapsedMs": 12013.300499995239
+    },
+    {
+      "number": 269,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 15436,
+      "outputTokens": 44,
+      "costYuan": 0.0031224,
+      "elapsedMs": 9885.892500009504
+    },
+    {
+      "number": 270,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 12945,
+      "outputTokens": 582,
+      "costYuan": 0.0030545999999999998,
+      "elapsedMs": 9486.277249990962
+    },
+    {
+      "number": 271,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 15436,
+      "outputTokens": 571,
+      "costYuan": 0.0035440000000000003,
+      "elapsedMs": 8930.4921659932
+    },
+    {
+      "number": 272,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6751,
+      "outputTokens": 127,
+      "costYuan": 0.0014518,
+      "elapsedMs": 2522.0879999978933
+    },
+    {
+      "number": 273,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 8656,
+      "outputTokens": 525,
+      "costYuan": 0.0021512,
+      "elapsedMs": 4810.786999994889
+    },
+    {
+      "number": 274,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6887,
+      "outputTokens": 2582,
+      "costYuan": 0.003443,
+      "elapsedMs": 22778.51583401207
+    },
+    {
+      "number": 275,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6749,
+      "outputTokens": 603,
+      "costYuan": 0.0018322000000000002,
+      "elapsedMs": 6625.077165997936
+    },
+    {
+      "number": 276,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6731,
+      "outputTokens": 601,
+      "costYuan": 0.001827,
+      "elapsedMs": 6156.530291002127
+    },
+    {
+      "number": 277,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6769,
+      "outputTokens": 398,
+      "costYuan": 0.0016722000000000002,
+      "elapsedMs": 4659.050333008054
+    },
+    {
+      "number": 278,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6765,
+      "outputTokens": 242,
+      "costYuan": 0.0015466,
+      "elapsedMs": 3224.5659999898635
+    },
+    {
+      "number": 279,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6780,
+      "outputTokens": 429,
+      "costYuan": 0.0016992,
+      "elapsedMs": 4745.22316599905
+    },
+    {
+      "number": 280,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 7300,
+      "outputTokens": 366,
+      "costYuan": 0.0017527999999999999,
+      "elapsedMs": 3968.1520000012824
+    },
+    {
+      "number": 281,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6837,
+      "outputTokens": 514,
+      "costYuan": 0.0017786000000000002,
+      "elapsedMs": 5624.2027080006665
+    },
+    {
+      "number": 282,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6740,
+      "outputTokens": 189,
+      "costYuan": 0.0014992,
+      "elapsedMs": 2782.141000003321
+    },
+    {
+      "number": 283,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6725,
+      "outputTokens": 108,
+      "costYuan": 0.0014314,
+      "elapsedMs": 1965.7358330005081
+    },
+    {
+      "number": 284,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6754,
+      "outputTokens": 605,
+      "costYuan": 0.0018348000000000001,
+      "elapsedMs": 6151.912582994555
+    },
+    {
+      "number": 285,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 10496,
+      "outputTokens": 590,
+      "costYuan": 0.0025712000000000005,
+      "elapsedMs": 9245.093791992986
+    },
+    {
+      "number": 286,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 8204,
+      "outputTokens": 603,
+      "costYuan": 0.0021232000000000004,
+      "elapsedMs": 4496.180499991169
+    },
+    {
+      "number": 287,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 8937,
+      "outputTokens": 618,
+      "costYuan": 0.0022818,
+      "elapsedMs": 6915.0195000111125
+    },
+    {
+      "number": 288,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6761,
+      "outputTokens": 387,
+      "costYuan": 0.0016618000000000002,
+      "elapsedMs": 4905.337208008859
+    },
+    {
+      "number": 289,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6753,
+      "outputTokens": 223,
+      "costYuan": 0.0015290000000000002,
+      "elapsedMs": 2940.6491669942625
+    },
+    {
+      "number": 290,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6747,
+      "outputTokens": 568,
+      "costYuan": 0.0018038000000000002,
+      "elapsedMs": 6335.206417003064
+    },
+    {
+      "number": 291,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6741,
+      "outputTokens": 204,
+      "costYuan": 0.0015114,
+      "elapsedMs": 3156.798666997929
+    },
+    {
+      "number": 292,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 10484,
+      "outputTokens": 264,
+      "costYuan": 0.002308,
+      "elapsedMs": 6128.634374996182
+    },
+    {
+      "number": 293,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 10496,
+      "outputTokens": 542,
+      "costYuan": 0.0025328,
+      "elapsedMs": 5917.087166992133
+    },
+    {
+      "number": 294,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 9526,
+      "outputTokens": 590,
+      "costYuan": 0.0023772,
+      "elapsedMs": 4879.663209008868
+    },
+    {
+      "number": 295,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 9526,
+      "outputTokens": 646,
+      "costYuan": 0.002422,
+      "elapsedMs": 8125.777708002715
+    },
+    {
+      "number": 296,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 2559,
+      "outputTokens": 97,
+      "costYuan": 0.0005894,
+      "elapsedMs": 1216.042500003823
+    },
+    {
+      "number": 297,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6743,
+      "outputTokens": 551,
+      "costYuan": 0.0017894,
+      "elapsedMs": 5972.386082998128
+    },
+    {
+      "number": 298,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6740,
+      "outputTokens": 155,
+      "costYuan": 0.001472,
+      "elapsedMs": 2492.687667006976
+    },
+    {
+      "number": 299,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6811,
+      "outputTokens": 681,
+      "costYuan": 0.001907,
+      "elapsedMs": 7791.277540993178
+    },
+    {
+      "number": 300,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6736,
+      "outputTokens": 171,
+      "costYuan": 0.001484,
+      "elapsedMs": 2515.6263329990907
+    },
+    {
+      "number": 301,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 10250,
+      "outputTokens": 517,
+      "costYuan": 0.0024636,
+      "elapsedMs": 5521.352958996431
+    },
+    {
+      "number": 302,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 13768,
+      "outputTokens": 183,
+      "costYuan": 0.0029000000000000007,
+      "elapsedMs": 4010.0580410071416
+    },
+    {
+      "number": 303,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6722,
+      "outputTokens": 20,
+      "costYuan": 0.0013604,
+      "elapsedMs": 1239.1845410020323
+    },
+    {
+      "number": 304,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6776,
+      "outputTokens": 397,
+      "costYuan": 0.0016728000000000001,
+      "elapsedMs": 4484.476625002571
+    },
+    {
+      "number": 305,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6760,
+      "outputTokens": 524,
+      "costYuan": 0.0017712000000000001,
+      "elapsedMs": 5712.4772499955725
+    },
+    {
+      "number": 306,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6747,
+      "outputTokens": 242,
+      "costYuan": 0.001543,
+      "elapsedMs": 3173.3480420080014
+    },
+    {
+      "number": 307,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 12945,
+      "outputTokens": 44,
+      "costYuan": 0.0026241999999999997,
+      "elapsedMs": 21928.396457995404
+    },
+    {
+      "number": 308,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 15436,
+      "outputTokens": 44,
+      "costYuan": 0.0031224,
+      "elapsedMs": 23792.736707997392
+    },
+    {
+      "number": 309,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 12945,
+      "outputTokens": 581,
+      "costYuan": 0.0030538,
+      "elapsedMs": 11073.181290994398
+    },
+    {
+      "number": 310,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 15436,
+      "outputTokens": 571,
+      "costYuan": 0.0035440000000000003,
+      "elapsedMs": 12527.531957995961
+    },
+    {
+      "number": 311,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6751,
+      "outputTokens": 113,
+      "costYuan": 0.0014406000000000002,
+      "elapsedMs": 2042.849457997363
+    },
+    {
+      "number": 312,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 8656,
+      "outputTokens": 525,
+      "costYuan": 0.0021512,
+      "elapsedMs": 5118.264582997654
+    },
+    {
+      "number": 313,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6887,
+      "outputTokens": 2516,
+      "costYuan": 0.0033902000000000003,
+      "elapsedMs": 22552.66733300232
+    },
+    {
+      "number": 314,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6749,
+      "outputTokens": 605,
+      "costYuan": 0.0018338000000000002,
+      "elapsedMs": 6447.424166995916
+    },
+    {
+      "number": 315,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6731,
+      "outputTokens": 234,
+      "costYuan": 0.0015334,
+      "elapsedMs": 3216.6856250114506
+    },
+    {
+      "number": 316,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6769,
+      "outputTokens": 403,
+      "costYuan": 0.0016762000000000003,
+      "elapsedMs": 4930.756957997801
+    },
+    {
+      "number": 317,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6765,
+      "outputTokens": 242,
+      "costYuan": 0.0015466,
+      "elapsedMs": 3591.960833000485
+    },
+    {
+      "number": 318,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6780,
+      "outputTokens": 397,
+      "costYuan": 0.0016736,
+      "elapsedMs": 4600.429666999844
+    },
+    {
+      "number": 319,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 7269,
+      "outputTokens": 355,
+      "costYuan": 0.0017378000000000003,
+      "elapsedMs": 4530.668082996272
+    },
+    {
+      "number": 320,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6837,
+      "outputTokens": 794,
+      "costYuan": 0.0020026,
+      "elapsedMs": 9234.173999997438
+    },
+    {
+      "number": 321,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 7721,
+      "outputTokens": 348,
+      "costYuan": 0.0018226000000000002,
+      "elapsedMs": 4081.3226249883883
+    },
+    {
+      "number": 322,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 7275,
+      "outputTokens": 731,
+      "costYuan": 0.0020398,
+      "elapsedMs": 7010.422749997815
+    },
+    {
+      "number": 323,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 7658,
+      "outputTokens": 731,
+      "costYuan": 0.0021164,
+      "elapsedMs": 7050.30249999254
+    },
+    {
+      "number": 324,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6740,
+      "outputTokens": 202,
+      "costYuan": 0.0015095999999999998,
+      "elapsedMs": 2791.3857500097947
+    },
+    {
+      "number": 325,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6725,
+      "outputTokens": 110,
+      "costYuan": 0.001433,
+      "elapsedMs": 2213.985333000892
+    },
+    {
+      "number": 326,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6754,
+      "outputTokens": 307,
+      "costYuan": 0.0015964,
+      "elapsedMs": 4097.6754580042325
+    },
+    {
+      "number": 327,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 10496,
+      "outputTokens": 582,
+      "costYuan": 0.0025648000000000003,
+      "elapsedMs": 4855.4708330048015
+    },
+    {
+      "number": 328,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 8204,
+      "outputTokens": 618,
+      "costYuan": 0.0021352000000000003,
+      "elapsedMs": 4895.240041994839
+    },
+    {
+      "number": 329,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6761,
+      "outputTokens": 410,
+      "costYuan": 0.0016802,
+      "elapsedMs": 5137.609708006494
+    },
+    {
+      "number": 330,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6753,
+      "outputTokens": 558,
+      "costYuan": 0.0017970000000000002,
+      "elapsedMs": 5744.201374996919
+    },
+    {
+      "number": 331,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6747,
+      "outputTokens": 268,
+      "costYuan": 0.0015638000000000002,
+      "elapsedMs": 3513.922250000178
+    },
+    {
+      "number": 332,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6741,
+      "outputTokens": 194,
+      "costYuan": 0.0015034,
+      "elapsedMs": 2993.1062090035994
+    },
+    {
+      "number": 333,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 10484,
+      "outputTokens": 577,
+      "costYuan": 0.0025584,
+      "elapsedMs": 4555.199875001563
+    },
+    {
+      "number": 334,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 10496,
+      "outputTokens": 546,
+      "costYuan": 0.0025360000000000005,
+      "elapsedMs": 4741.450040994096
+    },
+    {
+      "number": 335,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 9526,
+      "outputTokens": 593,
+      "costYuan": 0.0023796,
+      "elapsedMs": 4840.5026250111405
+    },
+    {
+      "number": 336,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 9526,
+      "outputTokens": 644,
+      "costYuan": 0.0024204,
+      "elapsedMs": 5106.666417006636
+    },
+    {
+      "number": 337,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 2585,
+      "outputTokens": 96,
+      "costYuan": 0.0005937999999999999,
+      "elapsedMs": 1438.9095420046942
+    },
+    {
+      "number": 338,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6743,
+      "outputTokens": 551,
+      "costYuan": 0.0017894,
+      "elapsedMs": 5742.031582994969
+    },
+    {
+      "number": 339,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6740,
+      "outputTokens": 201,
+      "costYuan": 0.0015088,
+      "elapsedMs": 2758.3126249955967
+    },
+    {
+      "number": 340,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6811,
+      "outputTokens": 681,
+      "costYuan": 0.001907,
+      "elapsedMs": 6789.060165989213
+    },
+    {
+      "number": 341,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6736,
+      "outputTokens": 171,
+      "costYuan": 0.001484,
+      "elapsedMs": 2382.3812079936033
+    },
+    {
+      "number": 342,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 10250,
+      "outputTokens": 517,
+      "costYuan": 0.0024636,
+      "elapsedMs": 5551.521165994927
+    },
+    {
+      "number": 343,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 13768,
+      "outputTokens": 263,
+      "costYuan": 0.0029640000000000005,
+      "elapsedMs": 3954.2092909978237
+    },
+    {
+      "number": 344,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6722,
+      "outputTokens": 15,
+      "costYuan": 0.0013564,
+      "elapsedMs": 1584.6279590041377
+    },
+    {
+      "number": 345,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6776,
+      "outputTokens": 1047,
+      "costYuan": 0.0021928000000000004,
+      "elapsedMs": 10351.935166996554
+    },
+    {
+      "number": 346,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6760,
+      "outputTokens": 524,
+      "costYuan": 0.0017712000000000001,
+      "elapsedMs": 5336.815500006196
+    },
+    {
+      "number": 347,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6747,
+      "outputTokens": 494,
+      "costYuan": 0.0017446000000000002,
+      "elapsedMs": 6023.892540993984
+    },
+    {
+      "number": 348,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 12945,
+      "outputTokens": 44,
+      "costYuan": 0.0026241999999999997,
+      "elapsedMs": 6364.257917011855
+    },
+    {
+      "number": 349,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 15436,
+      "outputTokens": 1179,
+      "costYuan": 0.004030400000000001,
+      "elapsedMs": 20352.468749988475
+    },
+    {
+      "number": 350,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 12945,
+      "outputTokens": 577,
+      "costYuan": 0.0030506,
+      "elapsedMs": 7244.143040996278
+    },
+    {
+      "number": 351,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 15436,
+      "outputTokens": 571,
+      "costYuan": 0.0035440000000000003,
+      "elapsedMs": 10968.878834013594
+    },
+    {
+      "number": 352,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6751,
+      "outputTokens": 282,
+      "costYuan": 0.0015758000000000002,
+      "elapsedMs": 3573.8059579889523
+    },
+    {
+      "number": 353,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 8656,
+      "outputTokens": 525,
+      "costYuan": 0.0021512,
+      "elapsedMs": 3811.6849580110284
+    },
+    {
+      "number": 354,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6887,
+      "outputTokens": 2504,
+      "costYuan": 0.0033806000000000005,
+      "elapsedMs": 21602.806707989657
+    },
+    {
+      "number": 355,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6749,
+      "outputTokens": 602,
+      "costYuan": 0.0018314000000000002,
+      "elapsedMs": 6374.979415995767
+    },
+    {
+      "number": 356,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 7427,
+      "outputTokens": 578,
+      "costYuan": 0.0019478000000000002,
+      "elapsedMs": 5742.973250002251
+    },
+    {
+      "number": 357,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6731,
+      "outputTokens": 592,
+      "costYuan": 0.0018198,
+      "elapsedMs": 6436.721250007395
+    },
+    {
+      "number": 358,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6769,
+      "outputTokens": 413,
+      "costYuan": 0.0016842000000000003,
+      "elapsedMs": 4614.435541006969
+    },
+    {
+      "number": 359,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6765,
+      "outputTokens": 244,
+      "costYuan": 0.0015482,
+      "elapsedMs": 2956.6244580055354
+    },
+    {
+      "number": 360,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6780,
+      "outputTokens": 666,
+      "costYuan": 0.0018888000000000002,
+      "elapsedMs": 6776.7972919973545
+    },
+    {
+      "number": 361,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 7538,
+      "outputTokens": 360,
+      "costYuan": 0.0017956,
+      "elapsedMs": 4492.033500006073
+    },
+    {
+      "number": 362,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6837,
+      "outputTokens": 839,
+      "costYuan": 0.0020386000000000002,
+      "elapsedMs": 8438.211666987627
+    },
+    {
+      "number": 363,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 7766,
+      "outputTokens": 839,
+      "costYuan": 0.0022244,
+      "elapsedMs": 7563.339333006297
+    },
+    {
+      "number": 364,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6740,
+      "outputTokens": 351,
+      "costYuan": 0.0016288,
+      "elapsedMs": 4544.344333990011
+    },
+    {
+      "number": 365,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6725,
+      "outputTokens": 108,
+      "costYuan": 0.0014314,
+      "elapsedMs": 2149.55945800466
+    },
+    {
+      "number": 366,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6754,
+      "outputTokens": 603,
+      "costYuan": 0.0018332000000000003,
+      "elapsedMs": 6066.326000000117
+    },
+    {
+      "number": 367,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 10496,
+      "outputTokens": 576,
+      "costYuan": 0.0025600000000000006,
+      "elapsedMs": 5388.34695800324
+    },
+    {
+      "number": 368,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 8204,
+      "outputTokens": 618,
+      "costYuan": 0.0021352000000000003,
+      "elapsedMs": 6353.485500003444
+    },
+    {
+      "number": 369,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1036,
+      "outputTokens": 196,
+      "costYuan": 0.000364,
+      "elapsedMs": 2211.331708007492
+    },
+    {
+      "number": 370,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1033,
+      "outputTokens": 198,
+      "costYuan": 0.000365,
+      "elapsedMs": 3485.3180829959456
+    },
+    {
+      "number": 371,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1033,
+      "outputTokens": 195,
+      "costYuan": 0.00036260000000000003,
+      "elapsedMs": 2395.527165994281
+    },
+    {
+      "number": 372,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1048,
+      "outputTokens": 269,
+      "costYuan": 0.0004248000000000001,
+      "elapsedMs": 2778.321916994173
+    },
+    {
+      "number": 373,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1093,
+      "outputTokens": 168,
+      "costYuan": 0.000353,
+      "elapsedMs": 1584.7588749893475
+    },
+    {
+      "number": 374,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1392,
+      "outputTokens": 164,
+      "costYuan": 0.00040960000000000004,
+      "elapsedMs": 1349.2477920081
+    },
+    {
+      "number": 375,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1036,
+      "outputTokens": 188,
+      "costYuan": 0.0003576,
+      "elapsedMs": 2125.0622920051683
+    },
+    {
+      "number": 376,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1033,
+      "outputTokens": 230,
+      "costYuan": 0.0003906,
+      "elapsedMs": 2769.6957500011194
+    },
+    {
+      "number": 377,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1033,
+      "outputTokens": 267,
+      "costYuan": 0.0004202,
+      "elapsedMs": 2979.4812080072006
+    },
+    {
+      "number": 378,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1048,
+      "outputTokens": 194,
+      "costYuan": 0.0003648000000000001,
+      "elapsedMs": 2301.6505840059835
+    },
+    {
+      "number": 379,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1093,
+      "outputTokens": 171,
+      "costYuan": 0.0003554,
+      "elapsedMs": 4428.8375829928555
+    },
+    {
+      "number": 380,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1395,
+      "outputTokens": 167,
+      "costYuan": 0.0004126,
+      "elapsedMs": 1558.5078330041142
+    },
+    {
+      "number": 381,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1036,
+      "outputTokens": 195,
+      "costYuan": 0.00036320000000000005,
+      "elapsedMs": 2149.679416004801
+    },
+    {
+      "number": 382,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1033,
+      "outputTokens": 225,
+      "costYuan": 0.0003866,
+      "elapsedMs": 2437.0721250015777
+    },
+    {
+      "number": 383,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1033,
+      "outputTokens": 192,
+      "costYuan": 0.00036020000000000003,
+      "elapsedMs": 2132.0210000121733
+    },
+    {
+      "number": 384,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1048,
+      "outputTokens": 177,
+      "costYuan": 0.0003512,
+      "elapsedMs": 2301.2646659917664
+    },
+    {
+      "number": 385,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1093,
+      "outputTokens": 160,
+      "costYuan": 0.0003466,
+      "elapsedMs": 1609.379166009603
+    },
+    {
+      "number": 386,
+      "phase": "revised-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1394,
+      "outputTokens": 164,
+      "costYuan": 0.00041,
+      "elapsedMs": 1217.7737499878276
+    },
+    {
+      "number": 387,
+      "phase": "grading-context-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1036,
+      "outputTokens": 181,
+      "costYuan": 0.000352,
+      "elapsedMs": 1970.1280409935862
+    },
+    {
+      "number": 388,
+      "phase": "grading-context-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1033,
+      "outputTokens": 219,
+      "costYuan": 0.00038180000000000006,
+      "elapsedMs": 2778.5339999973075
+    },
+    {
+      "number": 389,
+      "phase": "grading-context-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1033,
+      "outputTokens": 183,
+      "costYuan": 0.000353,
+      "elapsedMs": 2084.1507500008447
+    },
+    {
+      "number": 390,
+      "phase": "grading-context-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1048,
+      "outputTokens": 180,
+      "costYuan": 0.00035360000000000003,
+      "elapsedMs": 2180.1961659948574
+    },
+    {
+      "number": 391,
+      "phase": "grading-context-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1093,
+      "outputTokens": 161,
+      "costYuan": 0.00034740000000000004,
+      "elapsedMs": 1487.8862089972245
+    },
+    {
+      "number": 392,
+      "phase": "grading-context-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1385,
+      "outputTokens": 157,
+      "costYuan": 0.00040260000000000003,
+      "elapsedMs": 1553.9244579995284
+    },
+    {
+      "number": 393,
+      "phase": "grading-context-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1036,
+      "outputTokens": 211,
+      "costYuan": 0.000376,
+      "elapsedMs": 2351.5688339975895
+    },
+    {
+      "number": 394,
+      "phase": "grading-context-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1033,
+      "outputTokens": 235,
+      "costYuan": 0.0003946,
+      "elapsedMs": 2752.106875006575
+    },
+    {
+      "number": 395,
+      "phase": "grading-context-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1033,
+      "outputTokens": 177,
+      "costYuan": 0.00034820000000000006,
+      "elapsedMs": 2121.464541996829
+    },
+    {
+      "number": 396,
+      "phase": "grading-context-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1048,
+      "outputTokens": 209,
+      "costYuan": 0.00037680000000000005,
+      "elapsedMs": 2579.7409160004463
+    },
+    {
+      "number": 397,
+      "phase": "grading-context-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1093,
+      "outputTokens": 167,
+      "costYuan": 0.00035220000000000005,
+      "elapsedMs": 1831.0950409941142
+    },
+    {
+      "number": 398,
+      "phase": "grading-context-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1391,
+      "outputTokens": 167,
+      "costYuan": 0.0004118,
+      "elapsedMs": 1268.3831670001382
+    },
+    {
+      "number": 399,
+      "phase": "grading-context-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1036,
+      "outputTokens": 207,
+      "costYuan": 0.00037280000000000006,
+      "elapsedMs": 2280.7814580010017
+    },
+    {
+      "number": 400,
+      "phase": "grading-context-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1033,
+      "outputTokens": 236,
+      "costYuan": 0.0003954,
+      "elapsedMs": 2711.0670840047533
+    },
+    {
+      "number": 401,
+      "phase": "grading-context-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1033,
+      "outputTokens": 245,
+      "costYuan": 0.00040260000000000003,
+      "elapsedMs": 3014.549082989106
+    },
+    {
+      "number": 402,
+      "phase": "grading-context-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1048,
+      "outputTokens": 165,
+      "costYuan": 0.0003416,
+      "elapsedMs": 2015.7957920018816
+    },
+    {
+      "number": 403,
+      "phase": "grading-context-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1093,
+      "outputTokens": 153,
+      "costYuan": 0.000341,
+      "elapsedMs": 1517.2993750020396
+    },
+    {
+      "number": 404,
+      "phase": "grading-context-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1387,
+      "outputTokens": 166,
+      "costYuan": 0.00041020000000000005,
+      "elapsedMs": 1343.5738749976736
+    },
+    {
+      "number": 405,
+      "phase": "grading-context-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 942,
+      "outputTokens": 202,
+      "costYuan": 0.00035,
+      "elapsedMs": 2370.011749997502
+    },
+    {
+      "number": 406,
+      "phase": "grading-context-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 939,
+      "outputTokens": 176,
+      "costYuan": 0.0003286,
+      "elapsedMs": 2225.488875003066
+    },
+    {
+      "number": 407,
+      "phase": "grading-context-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 939,
+      "outputTokens": 229,
+      "costYuan": 0.000371,
+      "elapsedMs": 2970.1868330012076
+    },
+    {
+      "number": 408,
+      "phase": "grading-context-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 954,
+      "outputTokens": 263,
+      "costYuan": 0.00040120000000000005,
+      "elapsedMs": 2819.367666990729
+    },
+    {
+      "number": 409,
+      "phase": "grading-context-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 993,
+      "outputTokens": 186,
+      "costYuan": 0.00034740000000000004,
+      "elapsedMs": 1880.331833002856
+    },
+    {
+      "number": 410,
+      "phase": "grading-context-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1310,
+      "outputTokens": 188,
+      "costYuan": 0.0004124,
+      "elapsedMs": 1378.480083993054
+    },
+    {
+      "number": 411,
+      "phase": "grading-context-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 942,
+      "outputTokens": 217,
+      "costYuan": 0.000362,
+      "elapsedMs": 2352.399916999275
+    },
+    {
+      "number": 412,
+      "phase": "grading-context-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 939,
+      "outputTokens": 209,
+      "costYuan": 0.000355,
+      "elapsedMs": 2530.2074999926845
+    },
+    {
+      "number": 413,
+      "phase": "grading-context-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 939,
+      "outputTokens": 209,
+      "costYuan": 0.000355,
+      "elapsedMs": 2617.5674999976764
+    },
+    {
+      "number": 414,
+      "phase": "grading-context-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 954,
+      "outputTokens": 256,
+      "costYuan": 0.0003956,
+      "elapsedMs": 2991.2000420008553
+    },
+    {
+      "number": 415,
+      "phase": "grading-context-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 993,
+      "outputTokens": 187,
+      "costYuan": 0.00034820000000000006,
+      "elapsedMs": 1921.7593749926891
+    },
+    {
+      "number": 416,
+      "phase": "grading-context-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1311,
+      "outputTokens": 189,
+      "costYuan": 0.00041339999999999997,
+      "elapsedMs": 1596.53520899883
+    },
+    {
+      "number": 417,
+      "phase": "grading-context-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 942,
+      "outputTokens": 193,
+      "costYuan": 0.00034280000000000004,
+      "elapsedMs": 2804.2477919952944
+    },
+    {
+      "number": 418,
+      "phase": "grading-context-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 939,
+      "outputTokens": 247,
+      "costYuan": 0.00038540000000000004,
+      "elapsedMs": 3019.195500004571
+    },
+    {
+      "number": 419,
+      "phase": "grading-context-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 939,
+      "outputTokens": 254,
+      "costYuan": 0.000391,
+      "elapsedMs": 2921.224457997596
+    },
+    {
+      "number": 420,
+      "phase": "grading-context-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 954,
+      "outputTokens": 200,
+      "costYuan": 0.0003508,
+      "elapsedMs": 2365.9730419894913
+    },
+    {
+      "number": 421,
+      "phase": "grading-context-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 993,
+      "outputTokens": 185,
+      "costYuan": 0.0003466,
+      "elapsedMs": 1836.3141660083784
+    },
+    {
+      "number": 422,
+      "phase": "grading-context-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1309,
+      "outputTokens": 187,
+      "costYuan": 0.00041139999999999997,
+      "elapsedMs": 1791.3622080086498
+    },
+    {
+      "number": 423,
+      "phase": "grading-array-repeat-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1064,
+      "outputTokens": 189,
+      "costYuan": 0.000364,
+      "elapsedMs": 2291.6411250043893
+    },
+    {
+      "number": 424,
+      "phase": "grading-array-repeat-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1061,
+      "outputTokens": 159,
+      "costYuan": 0.0003394,
+      "elapsedMs": 1927.8058339987183
+    },
+    {
+      "number": 425,
+      "phase": "grading-array-repeat-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1061,
+      "outputTokens": 210,
+      "costYuan": 0.0003802,
+      "elapsedMs": 2380.8970829995815
+    },
+    {
+      "number": 426,
+      "phase": "grading-array-repeat-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1076,
+      "outputTokens": 243,
+      "costYuan": 0.00040960000000000004,
+      "elapsedMs": 3265.0995000003604
+    },
+    {
+      "number": 427,
+      "phase": "grading-array-repeat-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1121,
+      "outputTokens": 167,
+      "costYuan": 0.0003578,
+      "elapsedMs": 1576.41125000373
+    },
+    {
+      "number": 428,
+      "phase": "grading-array-repeat-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1064,
+      "outputTokens": 179,
+      "costYuan": 0.000356,
+      "elapsedMs": 1938.5743339953478
+    },
+    {
+      "number": 429,
+      "phase": "grading-array-repeat-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1061,
+      "outputTokens": 239,
+      "costYuan": 0.00040340000000000005,
+      "elapsedMs": 2833.714082997176
+    },
+    {
+      "number": 430,
+      "phase": "grading-array-repeat-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1061,
+      "outputTokens": 188,
+      "costYuan": 0.00036260000000000003,
+      "elapsedMs": 2254.3959169997834
+    },
+    {
+      "number": 431,
+      "phase": "grading-array-repeat-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1076,
+      "outputTokens": 179,
+      "costYuan": 0.00035840000000000004,
+      "elapsedMs": 2428.604999993695
+    },
+    {
+      "number": 432,
+      "phase": "grading-array-repeat-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1121,
+      "outputTokens": 174,
+      "costYuan": 0.00036340000000000005,
+      "elapsedMs": 2142.9913330066483
+    },
+    {
+      "number": 433,
+      "phase": "grading-array-repeat-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1064,
+      "outputTokens": 196,
+      "costYuan": 0.00036960000000000004,
+      "elapsedMs": 2154.1938750015106
+    },
+    {
+      "number": 434,
+      "phase": "grading-array-repeat-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1061,
+      "outputTokens": 224,
+      "costYuan": 0.0003914,
+      "elapsedMs": 2772.1347920014523
+    },
+    {
+      "number": 435,
+      "phase": "grading-array-repeat-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1061,
+      "outputTokens": 247,
+      "costYuan": 0.0004098000000000001,
+      "elapsedMs": 2986.61308400915
+    },
+    {
+      "number": 436,
+      "phase": "grading-array-repeat-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1076,
+      "outputTokens": 239,
+      "costYuan": 0.0004064,
+      "elapsedMs": 2910.3062499925727
+    },
+    {
+      "number": 437,
+      "phase": "grading-array-repeat-candidate",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1121,
+      "outputTokens": 156,
+      "costYuan": 0.000349,
+      "elapsedMs": 1416.0886669997126
+    },
+    {
+      "number": 438,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6761,
+      "outputTokens": 588,
+      "costYuan": 0.0018226000000000002,
+      "elapsedMs": 6425.857875001384
+    },
+    {
+      "number": 439,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6753,
+      "outputTokens": 558,
+      "costYuan": 0.0017970000000000002,
+      "elapsedMs": 6117.747500000405
+    },
+    {
+      "number": 440,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6747,
+      "outputTokens": 268,
+      "costYuan": 0.0015638000000000002,
+      "elapsedMs": 3317.6668340020115
+    },
+    {
+      "number": 441,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6741,
+      "outputTokens": 362,
+      "costYuan": 0.0016378000000000002,
+      "elapsedMs": 4199.891124997521
+    },
+    {
+      "number": 442,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 10484,
+      "outputTokens": 577,
+      "costYuan": 0.0025584,
+      "elapsedMs": 5758.558207991882
+    },
+    {
+      "number": 443,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 10496,
+      "outputTokens": 546,
+      "costYuan": 0.0025360000000000005,
+      "elapsedMs": 5281.572708001477
+    },
+    {
+      "number": 444,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 9526,
+      "outputTokens": 593,
+      "costYuan": 0.0023796,
+      "elapsedMs": 4927.568708997569
+    },
+    {
+      "number": 445,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 9526,
+      "outputTokens": 286,
+      "costYuan": 0.002134,
+      "elapsedMs": 3311.346707996563
+    },
+    {
+      "number": 446,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 2533,
+      "outputTokens": 95,
+      "costYuan": 0.0005826000000000001,
+      "elapsedMs": 1278.1296670000302
+    },
+    {
+      "number": 447,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6743,
+      "outputTokens": 360,
+      "costYuan": 0.0016366000000000002,
+      "elapsedMs": 4202.3784579942
+    },
+    {
+      "number": 448,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6740,
+      "outputTokens": 526,
+      "costYuan": 0.0017688,
+      "elapsedMs": 5499.515000003157
+    },
+    {
+      "number": 449,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6811,
+      "outputTokens": 495,
+      "costYuan": 0.0017582000000000001,
+      "elapsedMs": 5199.9966250004945
+    },
+    {
+      "number": 450,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6736,
+      "outputTokens": 505,
+      "costYuan": 0.0017512,
+      "elapsedMs": 5250.938500001212
+    },
+    {
+      "number": 451,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 10250,
+      "outputTokens": 521,
+      "costYuan": 0.0024668000000000003,
+      "elapsedMs": 6100.654207999469
+    },
+    {
+      "number": 452,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 13768,
+      "outputTokens": 663,
+      "costYuan": 0.0032840000000000005,
+      "elapsedMs": 7071.674207996693
+    },
+    {
+      "number": 453,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6722,
+      "outputTokens": 15,
+      "costYuan": 0.0013564,
+      "elapsedMs": 1408.3367499988526
+    },
+    {
+      "number": 454,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6776,
+      "outputTokens": 695,
+      "costYuan": 0.0019112,
+      "elapsedMs": 6877.426999999443
+    },
+    {
+      "number": 455,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6760,
+      "outputTokens": 524,
+      "costYuan": 0.0017712000000000001,
+      "elapsedMs": 5183.799165999517
+    },
+    {
+      "number": 456,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6747,
+      "outputTokens": 236,
+      "costYuan": 0.0015382,
+      "elapsedMs": 3018.8313339895103
+    },
+    {
+      "number": 457,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 12945,
+      "outputTokens": 44,
+      "costYuan": 0.0026241999999999997,
+      "elapsedMs": 5455.047833005665
+    },
+    {
+      "number": 458,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 15436,
+      "outputTokens": 1179,
+      "costYuan": 0.004030400000000001,
+      "elapsedMs": 17984.134667000035
+    },
+    {
+      "number": 459,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 12945,
+      "outputTokens": 577,
+      "costYuan": 0.0030506,
+      "elapsedMs": 7112.732916997629
+    },
+    {
+      "number": 460,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 15436,
+      "outputTokens": 571,
+      "costYuan": 0.0035440000000000003,
+      "elapsedMs": 10781.028041004902
+    },
+    {
+      "number": 461,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6751,
+      "outputTokens": 284,
+      "costYuan": 0.0015774,
+      "elapsedMs": 3677.3688749963185
+    },
+    {
+      "number": 462,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 8656,
+      "outputTokens": 525,
+      "costYuan": 0.0021512,
+      "elapsedMs": 4939.744416013127
+    },
+    {
+      "number": 463,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6887,
+      "outputTokens": 1827,
+      "costYuan": 0.002839,
+      "elapsedMs": 14728.002500007278
+    },
+    {
+      "number": 464,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6749,
+      "outputTokens": 577,
+      "costYuan": 0.0018114000000000001,
+      "elapsedMs": 5944.5182499912335
+    },
+    {
+      "number": 465,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 7402,
+      "outputTokens": 991,
+      "costYuan": 0.0022732000000000004,
+      "elapsedMs": 9904.665291993297
+    },
+    {
+      "number": 466,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 7796,
+      "outputTokens": 752,
+      "costYuan": 0.0021608,
+      "elapsedMs": 5234.192459000042
+    },
+    {
+      "number": 467,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6731,
+      "outputTokens": 386,
+      "costYuan": 0.001655,
+      "elapsedMs": 3286.6090839961544
+    },
+    {
+      "number": 468,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6769,
+      "outputTokens": 412,
+      "costYuan": 0.0016834,
+      "elapsedMs": 4433.189333998598
+    },
+    {
+      "number": 469,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6765,
+      "outputTokens": 415,
+      "costYuan": 0.001685,
+      "elapsedMs": 4196.088666009018
+    },
+    {
+      "number": 470,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6780,
+      "outputTokens": 439,
+      "costYuan": 0.0017072,
+      "elapsedMs": 3937.226791997091
+    },
+    {
+      "number": 471,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 7295,
+      "outputTokens": 372,
+      "costYuan": 0.0017565999999999999,
+      "elapsedMs": 3155.7676669908687
+    },
+    {
+      "number": 472,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6837,
+      "outputTokens": 777,
+      "costYuan": 0.001989,
+      "elapsedMs": 7353.880584007129
+    },
+    {
+      "number": 473,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6740,
+      "outputTokens": 350,
+      "costYuan": 0.001628,
+      "elapsedMs": 4263.326750005945
+    },
+    {
+      "number": 474,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6725,
+      "outputTokens": 118,
+      "costYuan": 0.0014394000000000002,
+      "elapsedMs": 1698.124334012391
+    },
+    {
+      "number": 475,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6754,
+      "outputTokens": 601,
+      "costYuan": 0.0018316,
+      "elapsedMs": 6222.421709011542
+    },
+    {
+      "number": 476,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 10496,
+      "outputTokens": 588,
+      "costYuan": 0.0025696000000000004,
+      "elapsedMs": 5364.411832997575
+    },
+    {
+      "number": 477,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 8204,
+      "outputTokens": 618,
+      "costYuan": 0.0021352000000000003,
+      "elapsedMs": 5448.008040999412
+    },
+    {
+      "number": 478,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6761,
+      "outputTokens": 588,
+      "costYuan": 0.0018226000000000002,
+      "elapsedMs": 4981.525082999724
+    },
+    {
+      "number": 479,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6753,
+      "outputTokens": 558,
+      "costYuan": 0.0017970000000000002,
+      "elapsedMs": 4772.586916005821
+    },
+    {
+      "number": 480,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6747,
+      "outputTokens": 572,
+      "costYuan": 0.001807,
+      "elapsedMs": 5308.017250004923
+    },
+    {
+      "number": 481,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6741,
+      "outputTokens": 539,
+      "costYuan": 0.0017794,
+      "elapsedMs": 5055.273957987083
+    },
+    {
+      "number": 482,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 10484,
+      "outputTokens": 577,
+      "costYuan": 0.0025584,
+      "elapsedMs": 6188.481665987638
+    },
+    {
+      "number": 483,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 10496,
+      "outputTokens": 546,
+      "costYuan": 0.0025360000000000005,
+      "elapsedMs": 4494.759042005171
+    },
+    {
+      "number": 484,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 9526,
+      "outputTokens": 589,
+      "costYuan": 0.0023764000000000003,
+      "elapsedMs": 7790.169999992941
+    },
+    {
+      "number": 485,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 9526,
+      "outputTokens": 666,
+      "costYuan": 0.002438,
+      "elapsedMs": 5130.05858300312
+    },
+    {
+      "number": 486,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 2528,
+      "outputTokens": 71,
+      "costYuan": 0.0005624,
+      "elapsedMs": 1196.803375001764
+    },
+    {
+      "number": 487,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6743,
+      "outputTokens": 239,
+      "costYuan": 0.0015398000000000002,
+      "elapsedMs": 2771.002124994993
+    },
+    {
+      "number": 488,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6740,
+      "outputTokens": 526,
+      "costYuan": 0.0017688,
+      "elapsedMs": 4604.794500002754
+    },
+    {
+      "number": 489,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6811,
+      "outputTokens": 677,
+      "costYuan": 0.0019038000000000002,
+      "elapsedMs": 5283.257375005633
+    },
+    {
+      "number": 490,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6736,
+      "outputTokens": 171,
+      "costYuan": 0.001484,
+      "elapsedMs": 2427.689415999339
+    },
+    {
+      "number": 491,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 10250,
+      "outputTokens": 521,
+      "costYuan": 0.0024668000000000003,
+      "elapsedMs": 5384.10329099861
+    },
+    {
+      "number": 492,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 13768,
+      "outputTokens": 183,
+      "costYuan": 0.0029000000000000007,
+      "elapsedMs": 2785.8367080043536
+    },
+    {
+      "number": 493,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6722,
+      "outputTokens": 15,
+      "costYuan": 0.0013564,
+      "elapsedMs": 851.2632500060135
+    },
+    {
+      "number": 494,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6776,
+      "outputTokens": 405,
+      "costYuan": 0.0016792,
+      "elapsedMs": 3561.1834169976646
+    },
+    {
+      "number": 495,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6760,
+      "outputTokens": 524,
+      "costYuan": 0.0017712000000000001,
+      "elapsedMs": 4514.387457995326
+    },
+    {
+      "number": 496,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6747,
+      "outputTokens": 863,
+      "costYuan": 0.0020398,
+      "elapsedMs": 8289.806707995012
+    },
+    {
+      "number": 497,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 12945,
+      "outputTokens": 44,
+      "costYuan": 0.0026241999999999997,
+      "elapsedMs": 4931.062666990329
+    },
+    {
+      "number": 498,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 15436,
+      "outputTokens": 276,
+      "costYuan": 0.0033080000000000006,
+      "elapsedMs": 10201.501041010488
+    },
+    {
+      "number": 499,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 12945,
+      "outputTokens": 581,
+      "costYuan": 0.0030538,
+      "elapsedMs": 6745.54524999985
+    },
+    {
+      "number": 500,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 15436,
+      "outputTokens": 120,
+      "costYuan": 0.0031832,
+      "elapsedMs": 6654.080624997732
+    },
+    {
+      "number": 501,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6751,
+      "outputTokens": 282,
+      "costYuan": 0.0015758000000000002,
+      "elapsedMs": 3322.9750000027707
+    },
+    {
+      "number": 502,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 8656,
+      "outputTokens": 525,
+      "costYuan": 0.0021512,
+      "elapsedMs": 4704.213958000764
+    },
+    {
+      "number": 503,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6887,
+      "outputTokens": 2489,
+      "costYuan": 0.0033686000000000002,
+      "elapsedMs": 20852.931874993374
+    },
+    {
+      "number": 504,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 9462,
+      "outputTokens": 2404,
+      "costYuan": 0.0038156,
+      "elapsedMs": 18024.779916988336
+    },
+    {
+      "number": 505,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6749,
+      "outputTokens": 605,
+      "costYuan": 0.0018338000000000002,
+      "elapsedMs": 6271.391083006165
+    },
+    {
+      "number": 506,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6731,
+      "outputTokens": 402,
+      "costYuan": 0.0016678,
+      "elapsedMs": 4464.999000003445
+    },
+    {
+      "number": 507,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 7206,
+      "outputTokens": 523,
+      "costYuan": 0.0018596,
+      "elapsedMs": 4399.382333009271
+    },
+    {
+      "number": 508,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 7307,
+      "outputTokens": 523,
+      "costYuan": 0.0018798000000000003,
+      "elapsedMs": 4992.634624999482
+    },
+    {
+      "number": 509,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6769,
+      "outputTokens": 585,
+      "costYuan": 0.0018218000000000002,
+      "elapsedMs": 5718.741374992533
+    },
+    {
+      "number": 510,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 7428,
+      "outputTokens": 584,
+      "costYuan": 0.0019528000000000002,
+      "elapsedMs": 4451.253792009084
+    },
+    {
+      "number": 511,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6765,
+      "outputTokens": 244,
+      "costYuan": 0.0015482,
+      "elapsedMs": 2629.037334001623
+    },
+    {
+      "number": 512,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6780,
+      "outputTokens": 453,
+      "costYuan": 0.0017184000000000001,
+      "elapsedMs": 4090.8804579958087
+    },
+    {
+      "number": 513,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 7325,
+      "outputTokens": 392,
+      "costYuan": 0.0017786,
+      "elapsedMs": 3384.420582995517
+    },
+    {
+      "number": 514,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6837,
+      "outputTokens": 767,
+      "costYuan": 0.001981,
+      "elapsedMs": 5807.41704099637
+    },
+    {
+      "number": 515,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 7724,
+      "outputTokens": 797,
+      "costYuan": 0.0021824,
+      "elapsedMs": 6104.150874991319
+    },
+    {
+      "number": 516,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 7724,
+      "outputTokens": 760,
+      "costYuan": 0.0021528000000000003,
+      "elapsedMs": 7404.523374993005
+    },
+    {
+      "number": 517,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6740,
+      "outputTokens": 350,
+      "costYuan": 0.001628,
+      "elapsedMs": 4101.146832996164
+    },
+    {
+      "number": 518,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6725,
+      "outputTokens": 123,
+      "costYuan": 0.0014434,
+      "elapsedMs": 2652.8665000078036
+    },
+    {
+      "number": 519,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6754,
+      "outputTokens": 567,
+      "costYuan": 0.0018044,
+      "elapsedMs": 4815.7065420091385
+    },
+    {
+      "number": 520,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 10496,
+      "outputTokens": 594,
+      "costYuan": 0.0025744000000000006,
+      "elapsedMs": 5286.768707999727
+    },
+    {
+      "number": 521,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 8204,
+      "outputTokens": 301,
+      "costYuan": 0.0018816000000000002,
+      "elapsedMs": 3611.6760419972707
+    },
+    {
+      "number": 522,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6761,
+      "outputTokens": 592,
+      "costYuan": 0.0018258000000000003,
+      "elapsedMs": 5019.249374992796
+    },
+    {
+      "number": 523,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6753,
+      "outputTokens": 200,
+      "costYuan": 0.0015106000000000002,
+      "elapsedMs": 2301.875834004022
+    },
+    {
+      "number": 524,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6747,
+      "outputTokens": 568,
+      "costYuan": 0.0018038000000000002,
+      "elapsedMs": 4892.049500005669
+    },
+    {
+      "number": 525,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6741,
+      "outputTokens": 206,
+      "costYuan": 0.001513,
+      "elapsedMs": 2444.622374998289
+    },
+    {
+      "number": 526,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 10484,
+      "outputTokens": 578,
+      "costYuan": 0.0025592,
+      "elapsedMs": 5577.027624996845
+    },
+    {
+      "number": 527,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 10496,
+      "outputTokens": 542,
+      "costYuan": 0.0025328,
+      "elapsedMs": 4826.933707998251
+    },
+    {
+      "number": 528,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 9526,
+      "outputTokens": 593,
+      "costYuan": 0.0023796,
+      "elapsedMs": 5956.102374999318
+    },
+    {
+      "number": 529,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 9526,
+      "outputTokens": 680,
+      "costYuan": 0.0024492,
+      "elapsedMs": 5393.761665996863
+    },
+    {
+      "number": 530,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 2554,
+      "outputTokens": 72,
+      "costYuan": 0.0005683999999999999,
+      "elapsedMs": 1256.0934999928577
+    },
+    {
+      "number": 531,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6743,
+      "outputTokens": 330,
+      "costYuan": 0.0016126,
+      "elapsedMs": 4077.183834000607
+    },
+    {
+      "number": 532,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6740,
+      "outputTokens": 526,
+      "costYuan": 0.0017688,
+      "elapsedMs": 4734.160958003486
+    },
+    {
+      "number": 533,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6811,
+      "outputTokens": 681,
+      "costYuan": 0.001907,
+      "elapsedMs": 5609.041874995455
+    },
+    {
+      "number": 534,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6736,
+      "outputTokens": 651,
+      "costYuan": 0.001868,
+      "elapsedMs": 5422.940042000846
+    },
+    {
+      "number": 535,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 10250,
+      "outputTokens": 331,
+      "costYuan": 0.0023148,
+      "elapsedMs": 3842.7382920053788
+    },
+    {
+      "number": 536,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 13768,
+      "outputTokens": 521,
+      "costYuan": 0.0031704000000000007,
+      "elapsedMs": 6210.26841600542
+    },
+    {
+      "number": 537,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6722,
+      "outputTokens": 39,
+      "costYuan": 0.0013756,
+      "elapsedMs": 1556.867292005336
+    },
+    {
+      "number": 538,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6776,
+      "outputTokens": 399,
+      "costYuan": 0.0016744000000000002,
+      "elapsedMs": 3924.262707994785
+    },
+    {
+      "number": 539,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6760,
+      "outputTokens": 524,
+      "costYuan": 0.0017712000000000001,
+      "elapsedMs": 4487.849834011286
+    },
+    {
+      "number": 540,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6747,
+      "outputTokens": 356,
+      "costYuan": 0.0016342000000000001,
+      "elapsedMs": 4604.371915993397
+    },
+    {
+      "number": 541,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 12945,
+      "outputTokens": 44,
+      "costYuan": 0.0026241999999999997,
+      "elapsedMs": 4608.094457988045
+    },
+    {
+      "number": 542,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 15436,
+      "outputTokens": 566,
+      "costYuan": 0.0035400000000000006,
+      "elapsedMs": 12799.937042000238
+    },
+    {
+      "number": 543,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 12945,
+      "outputTokens": 577,
+      "costYuan": 0.0030506,
+      "elapsedMs": 6484.095874999184
+    },
+    {
+      "number": 544,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 15436,
+      "outputTokens": 571,
+      "costYuan": 0.0035440000000000003,
+      "elapsedMs": 10165.872708996176
+    },
+    {
+      "number": 545,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6751,
+      "outputTokens": 282,
+      "costYuan": 0.0015758000000000002,
+      "elapsedMs": 2855.445375011186
+    },
+    {
+      "number": 546,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 8656,
+      "outputTokens": 203,
+      "costYuan": 0.0018936,
+      "elapsedMs": 3170.732999991742
+    },
+    {
+      "number": 547,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6887,
+      "outputTokens": 3291,
+      "costYuan": 0.0040102,
+      "elapsedMs": 22798.106333008036
+    },
+    {
+      "number": 548,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6749,
+      "outputTokens": 600,
+      "costYuan": 0.0018298000000000001,
+      "elapsedMs": 5661.107124993578
+    },
+    {
+      "number": 549,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6731,
+      "outputTokens": 593,
+      "costYuan": 0.0018206000000000001,
+      "elapsedMs": 4846.629000006942
+    },
+    {
+      "number": 550,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6769,
+      "outputTokens": 589,
+      "costYuan": 0.0018250000000000002,
+      "elapsedMs": 4732.307083002524
+    },
+    {
+      "number": 551,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6765,
+      "outputTokens": 244,
+      "costYuan": 0.0015482,
+      "elapsedMs": 3097.849708996364
+    },
+    {
+      "number": 552,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6780,
+      "outputTokens": 437,
+      "costYuan": 0.0017055999999999998,
+      "elapsedMs": 4661.580999993021
+    },
+    {
+      "number": 553,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 7309,
+      "outputTokens": 363,
+      "costYuan": 0.0017522000000000002,
+      "elapsedMs": 4070.260041000438
+    },
+    {
+      "number": 554,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6837,
+      "outputTokens": 765,
+      "costYuan": 0.0019794,
+      "elapsedMs": 6482.135500002187
+    },
+    {
+      "number": 555,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6740,
+      "outputTokens": 351,
+      "costYuan": 0.0016288,
+      "elapsedMs": 3259.2653750034515
+    },
+    {
+      "number": 556,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6725,
+      "outputTokens": 108,
+      "costYuan": 0.0014314,
+      "elapsedMs": 1698.1870000017807
+    },
+    {
+      "number": 557,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 6754,
+      "outputTokens": 607,
+      "costYuan": 0.0018364000000000002,
+      "elapsedMs": 5453.47112500167
+    },
+    {
+      "number": 558,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 10496,
+      "outputTokens": 608,
+      "costYuan": 0.0025856000000000004,
+      "elapsedMs": 5590.774208001676
+    },
+    {
+      "number": 559,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 11234,
+      "outputTokens": 624,
+      "costYuan": 0.002746,
+      "elapsedMs": 5497.94537499838
+    },
+    {
+      "number": 560,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 8204,
+      "outputTokens": 618,
+      "costYuan": 0.0021352000000000003,
+      "elapsedMs": 5771.243709008559
+    },
+    {
+      "number": 561,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1036,
+      "outputTokens": 166,
+      "costYuan": 0.00034,
+      "elapsedMs": 2139.1109579999465
+    },
+    {
+      "number": 562,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1033,
+      "outputTokens": 211,
+      "costYuan": 0.0003754,
+      "elapsedMs": 2509.317457996076
+    },
+    {
+      "number": 563,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1033,
+      "outputTokens": 152,
+      "costYuan": 0.00032820000000000006,
+      "elapsedMs": 1890.9456249966752
+    },
+    {
+      "number": 564,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1048,
+      "outputTokens": 202,
+      "costYuan": 0.0003712,
+      "elapsedMs": 2583.052832997055
+    },
+    {
+      "number": 565,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1093,
+      "outputTokens": 166,
+      "costYuan": 0.00035140000000000003,
+      "elapsedMs": 2990.016249998007
+    },
+    {
+      "number": 566,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1390,
+      "outputTokens": 168,
+      "costYuan": 0.0004124,
+      "elapsedMs": 2078.8793329993496
+    },
+    {
+      "number": 567,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1036,
+      "outputTokens": 147,
+      "costYuan": 0.00032480000000000003,
+      "elapsedMs": 1895.510208007181
+    },
+    {
+      "number": 568,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1033,
+      "outputTokens": 209,
+      "costYuan": 0.0003738000000000001,
+      "elapsedMs": 2576.8399170046905
+    },
+    {
+      "number": 569,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1033,
+      "outputTokens": 300,
+      "costYuan": 0.0004466,
+      "elapsedMs": 3814.975457993569
+    },
+    {
+      "number": 570,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1048,
+      "outputTokens": 240,
+      "costYuan": 0.0004016,
+      "elapsedMs": 2324.531083009788
+    },
+    {
+      "number": 571,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1093,
+      "outputTokens": 209,
+      "costYuan": 0.00038580000000000005,
+      "elapsedMs": 2603.995291996398
+    },
+    {
+      "number": 572,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1036,
+      "outputTokens": 208,
+      "costYuan": 0.00037360000000000003,
+      "elapsedMs": 2373.1779999943683
+    },
+    {
+      "number": 573,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1033,
+      "outputTokens": 228,
+      "costYuan": 0.000389,
+      "elapsedMs": 3045.6747919961344
+    },
+    {
+      "number": 574,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1033,
+      "outputTokens": 233,
+      "costYuan": 0.000393,
+      "elapsedMs": 2667.8965839964803
+    },
+    {
+      "number": 575,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1048,
+      "outputTokens": 277,
+      "costYuan": 0.0004312,
+      "elapsedMs": 3406.7756669974187
+    },
+    {
+      "number": 576,
+      "phase": "final-gold-baseline",
+      "status": "known",
+      "reservedYuan": 1.3,
+      "inputTokens": 1093,
+      "outputTokens": 227,
+      "costYuan": 0.0004002,
+      "elapsedMs": 2811.011833997327
+    }
+  ],
+  "blocked": false
+}

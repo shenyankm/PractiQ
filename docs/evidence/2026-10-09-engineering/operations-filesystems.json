@@ -1,0 +1,11 @@
+{
+  "macSharedBind": {
+    "filesystemType": "fuseblk",
+    "originalDataRetained": true
+  },
+  "linuxLocalBind": {
+    "filesystemType": "ext2/ext3",
+    "originalDataRetained": true
+  },
+  "scope": "Measured backing filesystems. Shared-bind read failures remain unresolved and are not counted as production acceptance."
+}

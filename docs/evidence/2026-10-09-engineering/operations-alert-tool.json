@@ -1,0 +1,10 @@
+{
+  "scope": "Ephemeral offline verification of existing rules; no added service dependency or receiver delivery claim.",
+  "version": "Prometheus/promtool 3.5.0",
+  "imageDigest": "prom/prometheus@sha256:63805ebb8d2b3920190daf1cb14a60871b16fd38bed42b857a3182bc621f4996",
+  "source": "https://github.com/prometheus/prometheus/releases/tag/v3.5.0",
+  "existingRuleCount": 6,
+  "syntax": "PASSED",
+  "healthyFiringAndRecoveredCases": "PASSED",
+  "excludedSetupFailure": "First test omitted writable /tmp under read-only root; corrected with bounded ephemeral tmpfs; original log retained locally."
+}

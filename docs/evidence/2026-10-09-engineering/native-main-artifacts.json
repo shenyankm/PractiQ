@@ -1,0 +1,24 @@
+{
+  "sourceSha": "7920df81f7dbf0096eff45c5ab5d61fd5952e8b4",
+  "runs": [
+    37917441833,
+    37917441715
+  ],
+  "artifacts": [
+    {
+      "path": "native-main-7920df8-retry/PractiQ-Windows/src-tauri/target/release/bundle/nsis/PractiQ_0.2.0_x64-setup.exe",
+      "bytes": 7819610,
+      "sha256": "b1ea41faca572c062d49b3774b157fd8a9614777c6e8e06ca49cb7be0d81a89b"
+    },
+    {
+      "path": "native-main-7920df8-retry/PractiQ-macOS/src-tauri/target/release/bundle/dmg/PractiQ_0.2.0_aarch64.dmg",
+      "bytes": 12015018,
+      "sha256": "b060ca49c319c5ef36d7b5c9c7d2ec2192ed369c3ae9f02836a818e2e0496956"
+    },
+    {
+      "path": "android-main-7920df8/PractiQ-Android-debug-arm64/PractiQ.apk",
+      "bytes": 270392192,
+      "sha256": "53cf517c7d019eb2ce6ca94723e1e7689176bb18c1bc0ae8e9baa263db2b3434"
+    }
+  ]
+}

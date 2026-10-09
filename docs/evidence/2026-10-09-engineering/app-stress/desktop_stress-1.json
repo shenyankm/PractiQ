@@ -1,0 +1,93 @@
+{
+  "allQuestions": {
+    "jsonBytes": 7835601,
+    "maxMs": 234.62854099999998,
+    "medianMs": 194.896708
+  },
+  "attempts": 100000,
+  "backup": {
+    "jsonBytes": 80,
+    "maxMs": 340.565833,
+    "medianMs": 314.230375
+  },
+  "backupBytes": 5634959,
+  "draftBurst": {
+    "lastAnswerSurvivesReopen": true,
+    "p50Ms": 0.49974999999999997,
+    "p95Ms": 0.6204999999999999,
+    "writes": 100
+  },
+  "filteredSearch": {
+    "jsonBytes": 625,
+    "maxMs": 8.710917,
+    "medianMs": 8.616125
+  },
+  "firstPage": {
+    "jsonBytes": 8986,
+    "maxMs": 3.4224170000000003,
+    "medianMs": 3.397833
+  },
+  "historyPage": {
+    "jsonBytes": 10462,
+    "maxMs": 29.832417,
+    "medianMs": 21.456167
+  },
+  "insert1000": {
+    "jsonBytes": 4,
+    "maxMs": 5.534125,
+    "medianMs": 5.3277079999999994
+  },
+  "positionDelta": {
+    "jsonBytes": 463,
+    "maxMs": 3.957375,
+    "medianMs": 3.2217919999999998
+  },
+  "positionUpdate": {
+    "jsonBytes": 224248,
+    "maxMs": 4.146084,
+    "medianMs": 3.679625
+  },
+  "questions": 10000,
+  "repetitions": 3,
+  "restore": {
+    "jsonBytes": 159,
+    "maxMs": 2169.3007500000003,
+    "medianMs": 2134.5328750000003
+  },
+  "saveAttempt": {
+    "jsonBytes": 933846,
+    "maxMs": 25.344167000000002,
+    "medianMs": 11.229958
+  },
+  "saveAttemptDelta": {
+    "jsonBytes": 685,
+    "maxMs": 3.670958,
+    "medianMs": 3.440042
+  },
+  "saveAttemptUpdate": {
+    "jsonBytes": 224248,
+    "maxMs": 4.042,
+    "medianMs": 3.91325
+  },
+  "saveDraft": {
+    "jsonBytes": 4,
+    "maxMs": 0.61425,
+    "medianMs": 0.6099159999999999
+  },
+  "scope": "Synthetic SQLite + serialization; excludes IPC/WebView, media playback and native accessibility",
+  "session": {
+    "jsonBytes": 933846,
+    "maxMs": 11.624041,
+    "medianMs": 9.741667000000001
+  },
+  "smallBank": {
+    "jsonBytes": 15521,
+    "maxMs": 1.859375,
+    "medianMs": 1.580292
+  },
+  "submit": {
+    "jsonBytes": 947855,
+    "maxMs": 34.685,
+    "medianMs": 32.086166
+  }
+}

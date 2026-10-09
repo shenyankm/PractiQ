@@ -1,0 +1,1100 @@
+{
+  "scope": "Three paced repetitions of 200 TXT tasks in 25 drained batches of eight, at most four concurrent submissions at the configured four-slot upload gate. Existing load_test.py checks retained; 2-second synthetic provider, no live-provider capacity or stable tail-latency claim.",
+  "diagnostic": "Pass-through storage exception classification active; not final unmodified acceptance.",
+  "sourceSha": "2878ecad830b213010c4ca9d08853e01258a5a38",
+  "imageId": "sha256:edf0a70198028c9df59290d9f94cec0d8b6ef0beebd069cd3a52e22b92360364",
+  "batches": [
+    {
+      "schemaVersion": 1,
+      "status": "PASSED",
+      "generatedAt": "2026-10-09T13:42:45.642013+00:00",
+      "gitCommit": "2878ecad830b213010c4ca9d08853e01258a5a38",
+      "environment": "container",
+      "codeHash": "1e0680f2f60cf770beb4906a4e4db813cba031fd814530c9011ef649dc9b4694",
+      "runtime": {
+        "python": [
+          3,
+          14,
+          7
+        ],
+        "packages": {
+          "langgraph": "1.2.11",
+          "langgraph-checkpoint-postgres": "3.1.2",
+          "psycopg": "3.3.6",
+          "psycopg-binary": "3.3.6",
+          "langchain-core": "1.5.6",
+          "langchain-openai": "1.5.1",
+          "pydantic": "2.13.4",
+          "pypdfium2": "5.12.1",
+          "pillow": "12.3.0"
+        }
+      },
+      "imageDigest": "sha256:edf0a70198028c9df59290d9f94cec0d8b6ef0beebd069cd3a52e22b92360364",
+      "parameters": {
+        "total": 8,
+        "submitConcurrency": 4,
+        "maxRunning": 4,
+        "graphConcurrency": 2,
+        "api": "document-tasks",
+        "allowRejections": false
+      },
+      "results": {
+        "runs": {
+          "success": 8
+        },
+        "batchSeconds": 6.98,
+        "successfulDocumentsPerMinute": 68.764,
+        "runCreateP95Ms": 54.2,
+        "healthP95Ms": 9.1,
+        "completionP50Seconds": 5.456,
+        "completionP95Seconds": 6.934,
+        "observedQueueWaitP95Seconds": 4.069,
+        "peakPendingRuns": 4,
+        "peakRunningRuns": 4,
+        "observedWorkerMaximum": 4,
+        "minimumAvailableWorkers": 0,
+        "peakRssBytes": 0,
+        "sampledProviderConcurrencyPeak": 4.0,
+        "configuredModelConcurrencyCeiling": 8
+      },
+      "runs": [
+        {
+          "threadId": "24b45f6e-0373-5749-8199-39ca5fdfc02a",
+          "runId": "aca6debf-3188-4f8d-9d40-eff629c1cada",
+          "status": "success"
+        },
+        {
+          "threadId": "137a963a-2bf5-5012-9ee7-b2ed2708d2d8",
+          "runId": "e45761de-187b-432d-8218-29c5a930c7a8",
+          "status": "success"
+        },
+        {
+          "threadId": "11a8e365-704a-50ff-8d2c-b58e24c743f1",
+          "runId": "5448054a-1839-4d16-8a71-169930033814",
+          "status": "success"
+        },
+        {
+          "threadId": "9741e865-2b8a-5983-b88e-c919363c96b1",
+          "runId": "9d1428f1-1510-4c69-8c7d-57fe6c6bcd06",
+          "status": "success"
+        },
+        {
+          "threadId": "c1ff0fbd-55d7-5279-98c3-2f99e4d534ff",
+          "runId": "ad4b73ea-3519-43b9-9cf0-04dd30cd1df1",
+          "status": "success"
+        },
+        {
+          "threadId": "8e0715ff-e62b-5712-a52f-334837b81ced",
+          "runId": "f6953638-a4fc-4177-809c-0db2e7ab1c5b",
+          "status": "success"
+        },
+        {
+          "threadId": "d7a7f5ef-a474-5451-a037-d6f928f3258e",
+          "runId": "e12dcac6-6e92-48f0-8297-0a2bcb1bcc2d",
+          "status": "success"
+        },
+        {
+          "threadId": "7aa1ac10-570e-5d04-b746-42776f8af114",
+          "runId": "a6d1c6b7-73cd-4c3e-8534-010e0afee697",
+          "status": "success"
+        }
+      ],
+      "failures": [],
+      "repeat": 1,
+      "batch": 1
+    },
+    {
+      "schemaVersion": 1,
+      "status": "PASSED",
+      "generatedAt": "2026-10-09T13:42:52.022992+00:00",
+      "gitCommit": "2878ecad830b213010c4ca9d08853e01258a5a38",
+      "environment": "container",
+      "codeHash": "1e0680f2f60cf770beb4906a4e4db813cba031fd814530c9011ef649dc9b4694",
+      "runtime": {
+        "python": [
+          3,
+          14,
+          7
+        ],
+        "packages": {
+          "langgraph": "1.2.11",
+          "langgraph-checkpoint-postgres": "3.1.2",
+          "psycopg": "3.3.6",
+          "psycopg-binary": "3.3.6",
+          "langchain-core": "1.5.6",
+          "langchain-openai": "1.5.1",
+          "pydantic": "2.13.4",
+          "pypdfium2": "5.12.1",
+          "pillow": "12.3.0"
+        }
+      },
+      "imageDigest": "sha256:edf0a70198028c9df59290d9f94cec0d8b6ef0beebd069cd3a52e22b92360364",
+      "parameters": {
+        "total": 8,
+        "submitConcurrency": 4,
+        "maxRunning": 4,
+        "graphConcurrency": 2,
+        "api": "document-tasks",
+        "allowRejections": false
+      },
+      "results": {
+        "runs": {
+          "success": 8
+        },
+        "batchSeconds": 6.348,
+        "successfulDocumentsPerMinute": 75.611,
+        "runCreateP95Ms": 34.8,
+        "healthP95Ms": 5.4,
+        "completionP50Seconds": 4.726,
+        "completionP95Seconds": 6.315,
+        "observedQueueWaitP95Seconds": 3.245,
+        "peakPendingRuns": 4,
+        "peakRunningRuns": 4,
+        "observedWorkerMaximum": 4,
+        "minimumAvailableWorkers": 0,
+        "peakRssBytes": 0,
+        "sampledProviderConcurrencyPeak": 4.0,
+        "configuredModelConcurrencyCeiling": 8
+      },
+      "runs": [
+        {
+          "threadId": "e52bb2ac-dd11-52f5-8b4d-96d3c2eec9e1",
+          "runId": "7baabd52-afa6-4ea4-9d2e-e11b5ab8f39f",
+          "status": "success"
+        },
+        {
+          "threadId": "74b4b64e-00b0-5bd6-98dd-4ef97ca313c7",
+          "runId": "349e0841-fc6e-4db3-9b90-6058eff34f4a",
+          "status": "success"
+        },
+        {
+          "threadId": "e65f035f-90ed-5dc5-a616-b798c1526d6b",
+          "runId": "1d3ea212-b37b-4071-9f6b-6a1f799ff9df",
+          "status": "success"
+        },
+        {
+          "threadId": "eb9866de-e124-53c8-bf7e-4d5c24be7a09",
+          "runId": "02f1f04e-ce9f-4724-ae76-df096d974b4a",
+          "status": "success"
+        },
+        {
+          "threadId": "7c804287-6548-5f62-a861-e6b228d43f55",
+          "runId": "f55b95af-c06c-4c05-a32b-2be51c7b2e9c",
+          "status": "success"
+        },
+        {
+          "threadId": "3276d4b6-07fa-5f50-9fb9-8303100f625b",
+          "runId": "5e3c9071-1ca1-4c10-a9c2-23e9c10fd439",
+          "status": "success"
+        },
+        {
+          "threadId": "465fcf9e-2612-5bca-ba51-c5d61dc4b417",
+          "runId": "55067ed0-c0ec-4d55-8cea-bb36715d26aa",
+          "status": "success"
+        },
+        {
+          "threadId": "a92b6c1a-4257-5269-a66f-a156c0cb5f94",
+          "runId": "5e59b608-2d82-4427-819e-4477bcc5bf76",
+          "status": "success"
+        }
+      ],
+      "failures": [],
+      "repeat": 1,
+      "batch": 2
+    },
+    {
+      "schemaVersion": 1,
+      "status": "PASSED",
+      "generatedAt": "2026-10-09T13:42:58.955642+00:00",
+      "gitCommit": "2878ecad830b213010c4ca9d08853e01258a5a38",
+      "environment": "container",
+      "codeHash": "1e0680f2f60cf770beb4906a4e4db813cba031fd814530c9011ef649dc9b4694",
+      "runtime": {
+        "python": [
+          3,
+          14,
+          7
+        ],
+        "packages": {
+          "langgraph": "1.2.11",
+          "langgraph-checkpoint-postgres": "3.1.2",
+          "psycopg": "3.3.6",
+          "psycopg-binary": "3.3.6",
+          "langchain-core": "1.5.6",
+          "langchain-openai": "1.5.1",
+          "pydantic": "2.13.4",
+          "pypdfium2": "5.12.1",
+          "pillow": "12.3.0"
+        }
+      },
+      "imageDigest": "sha256:edf0a70198028c9df59290d9f94cec0d8b6ef0beebd069cd3a52e22b92360364",
+      "parameters": {
+        "total": 8,
+        "submitConcurrency": 4,
+        "maxRunning": 4,
+        "graphConcurrency": 2,
+        "api": "document-tasks",
+        "allowRejections": false
+      },
+      "results": {
+        "runs": {
+          "success": 8
+        },
+        "batchSeconds": 6.908,
+        "successfulDocumentsPerMinute": 69.484,
+        "runCreateP95Ms": 41.5,
+        "healthP95Ms": 8.5,
+        "completionP50Seconds": 5.296,
+        "completionP95Seconds": 6.886,
+        "observedQueueWaitP95Seconds": 3.795,
+        "peakPendingRuns": 4,
+        "peakRunningRuns": 4,
+        "observedWorkerMaximum": 4,
+        "minimumAvailableWorkers": 0,
+        "peakRssBytes": 0,
+        "sampledProviderConcurrencyPeak": 4.0,
+        "configuredModelConcurrencyCeiling": 8
+      },
+      "runs": [
+        {
+          "threadId": "0a9980e9-e734-5435-9dd9-8c9018f46ba0",
+          "runId": "d627b277-eb47-4cf2-9d1b-62325374951c",
+          "status": "success"
+        },
+        {
+          "threadId": "b01293d7-5e90-5019-9fe3-be6d594e1ec8",
+          "runId": "a1672929-d30a-423d-9b1f-5e16ad16a247",
+          "status": "success"
+        },
+        {
+          "threadId": "b414538f-8b0b-5081-81a3-1515f07f0390",
+          "runId": "0e4ef025-ba8a-4364-8fa8-2598f954b6ee",
+          "status": "success"
+        },
+        {
+          "threadId": "19b5d1dd-f22c-5ca9-948b-151791bee6f4",
+          "runId": "a8088ef3-c8b2-44f4-aec8-ee67cdd929c2",
+          "status": "success"
+        },
+        {
+          "threadId": "906ccd52-70df-5e73-9ed0-9e679febc1f6",
+          "runId": "a0120ef1-c919-4d7a-8efb-f14ceec7c731",
+          "status": "success"
+        },
+        {
+          "threadId": "1ac49b70-3140-58a2-bc36-4319b9eb04d9",
+          "runId": "011e386e-6f60-4814-9cd1-a06f8aca4744",
+          "status": "success"
+        },
+        {
+          "threadId": "4dd1896b-2e52-592c-8dfd-8a43415d5b8d",
+          "runId": "a0a09b04-2a8b-4069-bfa1-4449276806e8",
+          "status": "success"
+        },
+        {
+          "threadId": "c5a46084-97cf-5941-bbbd-14ac25db7ba1",
+          "runId": "f503c929-d2fd-4506-8d9e-34b4fbc2144d",
+          "status": "success"
+        }
+      ],
+      "failures": [],
+      "repeat": 1,
+      "batch": 3
+    },
+    {
+      "schemaVersion": 1,
+      "status": "PASSED",
+      "generatedAt": "2026-10-09T13:43:06.856190+00:00",
+      "gitCommit": "2878ecad830b213010c4ca9d08853e01258a5a38",
+      "environment": "container",
+      "codeHash": "1e0680f2f60cf770beb4906a4e4db813cba031fd814530c9011ef649dc9b4694",
+      "runtime": {
+        "python": [
+          3,
+          14,
+          7
+        ],
+        "packages": {
+          "langgraph": "1.2.11",
+          "langgraph-checkpoint-postgres": "3.1.2",
+          "psycopg": "3.3.6",
+          "psycopg-binary": "3.3.6",
+          "langchain-core": "1.5.6",
+          "langchain-openai": "1.5.1",
+          "pydantic": "2.13.4",
+          "pypdfium2": "5.12.1",
+          "pillow": "12.3.0"
+        }
+      },
+      "imageDigest": "sha256:edf0a70198028c9df59290d9f94cec0d8b6ef0beebd069cd3a52e22b92360364",
+      "parameters": {
+        "total": 8,
+        "submitConcurrency": 4,
+        "maxRunning": 4,
+        "graphConcurrency": 2,
+        "api": "document-tasks",
+        "allowRejections": false
+      },
+      "results": {
+        "runs": {
+          "success": 8
+        },
+        "batchSeconds": 7.877,
+        "successfulDocumentsPerMinute": 60.938,
+        "runCreateP95Ms": 36.9,
+        "healthP95Ms": 21.4,
+        "completionP50Seconds": 5.806,
+        "completionP95Seconds": 7.863,
+        "observedQueueWaitP95Seconds": 4.236,
+        "peakPendingRuns": 4,
+        "peakRunningRuns": 4,
+        "observedWorkerMaximum": 4,
+        "minimumAvailableWorkers": 0,
+        "peakRssBytes": 0,
+        "sampledProviderConcurrencyPeak": 4.0,
+        "configuredModelConcurrencyCeiling": 8
+      },
+      "runs": [
+        {
+          "threadId": "268fa002-716a-58e0-8e66-a46c6534557e",
+          "runId": "3774e3c2-c6f5-4097-aeef-676254d964a3",
+          "status": "success"
+        },
+        {
+          "threadId": "7002d38f-45b3-53c7-aee3-4f46f3b17b55",
+          "runId": "cc33d7b6-e1b6-4ddf-a52c-ee7b6a98ec14",
+          "status": "success"
+        },
+        {
+          "threadId": "1a73d05c-8f8b-56d7-99f2-115e9b23ad31",
+          "runId": "82f58b5e-63d7-4e37-a592-6a05741efccf",
+          "status": "success"
+        },
+        {
+          "threadId": "07d622c7-0d2c-5391-a483-81e0760f84b3",
+          "runId": "a76127da-3ca2-454e-82da-2304136697a3",
+          "status": "success"
+        },
+        {
+          "threadId": "13aa51be-edcd-5e43-98f5-8704a5803a39",
+          "runId": "5c8b0185-f477-4bd1-acb9-729eaabf5042",
+          "status": "success"
+        },
+        {
+          "threadId": "eaa9209d-c9ec-5285-bca2-13502b862dd5",
+          "runId": "9c245dec-7c1a-4b46-a3e9-b0fc3325edc2",
+          "status": "success"
+        },
+        {
+          "threadId": "d2d98cc9-fd45-5602-bece-6f59dee03265",
+          "runId": "1f6a698d-0406-4e49-96a4-d8773ad8a0b8",
+          "status": "success"
+        },
+        {
+          "threadId": "d8e49589-445e-5d36-ac47-99e130d91aa6",
+          "runId": "0120f077-8509-47b4-a6c5-5ab9f9c2806c",
+          "status": "success"
+        }
+      ],
+      "failures": [],
+      "repeat": 1,
+      "batch": 4
+    },
+    {
+      "schemaVersion": 1,
+      "status": "PASSED",
+      "generatedAt": "2026-10-09T13:43:14.036247+00:00",
+      "gitCommit": "2878ecad830b213010c4ca9d08853e01258a5a38",
+      "environment": "container",
+      "codeHash": "1e0680f2f60cf770beb4906a4e4db813cba031fd814530c9011ef649dc9b4694",
+      "runtime": {
+        "python": [
+          3,
+          14,
+          7
+        ],
+        "packages": {
+          "langgraph": "1.2.11",
+          "langgraph-checkpoint-postgres": "3.1.2",
+          "psycopg": "3.3.6",
+          "psycopg-binary": "3.3.6",
+          "langchain-core": "1.5.6",
+          "langchain-openai": "1.5.1",
+          "pydantic": "2.13.4",
+          "pypdfium2": "5.12.1",
+          "pillow": "12.3.0"
+        }
+      },
+      "imageDigest": "sha256:edf0a70198028c9df59290d9f94cec0d8b6ef0beebd069cd3a52e22b92360364",
+      "parameters": {
+        "total": 8,
+        "submitConcurrency": 4,
+        "maxRunning": 4,
+        "graphConcurrency": 2,
+        "api": "document-tasks",
+        "allowRejections": false
+      },
+      "results": {
+        "runs": {
+          "success": 8
+        },
+        "batchSeconds": 7.157,
+        "successfulDocumentsPerMinute": 67.071,
+        "runCreateP95Ms": 39.0,
+        "healthP95Ms": 28.8,
+        "completionP50Seconds": 5.59,
+        "completionP95Seconds": 7.139,
+        "observedQueueWaitP95Seconds": 4.063,
+        "peakPendingRuns": 4,
+        "peakRunningRuns": 4,
+        "observedWorkerMaximum": 4,
+        "minimumAvailableWorkers": 0,
+        "peakRssBytes": 0,
+        "sampledProviderConcurrencyPeak": 4.0,
+        "configuredModelConcurrencyCeiling": 8
+      },
+      "runs": [
+        {
+          "threadId": "984eb055-507e-5dca-b3f4-088705b27a91",
+          "runId": "0e064d78-93c6-4abe-908c-1108d7e6c4e4",
+          "status": "success"
+        },
+        {
+          "threadId": "defaff90-e772-5212-876c-049e79f77c37",
+          "runId": "83b763f0-db62-4f2c-8af9-5d666327ebda",
+          "status": "success"
+        },
+        {
+          "threadId": "fd06c545-7570-58c4-8406-3b67126616e2",
+          "runId": "0ff1b0a2-7d4d-43e5-a108-39bf54657cec",
+          "status": "success"
+        },
+        {
+          "threadId": "e598a45b-568b-574e-b27b-947a7ca048f8",
+          "runId": "94bf66ff-2b06-4350-95a6-c9c1879fb058",
+          "status": "success"
+        },
+        {
+          "threadId": "527720ad-206b-5240-b368-d6231c228eb1",
+          "runId": "f1bfba7b-f7fe-4bbe-831e-85194de78fc9",
+          "status": "success"
+        },
+        {
+          "threadId": "db4f119c-1805-58fb-b697-7f6d43579917",
+          "runId": "227e6b8c-32a2-4c5b-a0e0-73c620bd9bac",
+          "status": "success"
+        },
+        {
+          "threadId": "6eb8f5a1-e3bc-5d3f-adc7-017fc08323b4",
+          "runId": "eae99314-5166-447c-bbc5-dc22c155b496",
+          "status": "success"
+        },
+        {
+          "threadId": "63fb7314-347d-5beb-9e5b-87bd4b0a4a49",
+          "runId": "288dfed5-8da1-48c9-af7c-de2a50fdd517",
+          "status": "success"
+        }
+      ],
+      "failures": [],
+      "repeat": 1,
+      "batch": 5
+    },
+    {
+      "schemaVersion": 1,
+      "status": "PASSED",
+      "generatedAt": "2026-10-09T13:43:20.896808+00:00",
+      "gitCommit": "2878ecad830b213010c4ca9d08853e01258a5a38",
+      "environment": "container",
+      "codeHash": "1e0680f2f60cf770beb4906a4e4db813cba031fd814530c9011ef649dc9b4694",
+      "runtime": {
+        "python": [
+          3,
+          14,
+          7
+        ],
+        "packages": {
+          "langgraph": "1.2.11",
+          "langgraph-checkpoint-postgres": "3.1.2",
+          "psycopg": "3.3.6",
+          "psycopg-binary": "3.3.6",
+          "langchain-core": "1.5.6",
+          "langchain-openai": "1.5.1",
+          "pydantic": "2.13.4",
+          "pypdfium2": "5.12.1",
+          "pillow": "12.3.0"
+        }
+      },
+      "imageDigest": "sha256:edf0a70198028c9df59290d9f94cec0d8b6ef0beebd069cd3a52e22b92360364",
+      "parameters": {
+        "total": 8,
+        "submitConcurrency": 4,
+        "maxRunning": 4,
+        "graphConcurrency": 2,
+        "api": "document-tasks",
+        "allowRejections": false
+      },
+      "results": {
+        "runs": {
+          "success": 8
+        },
+        "batchSeconds": 6.839,
+        "successfulDocumentsPerMinute": 70.182,
+        "runCreateP95Ms": 42.5,
+        "healthP95Ms": 11.8,
+        "completionP50Seconds": 5.022,
+        "completionP95Seconds": 6.799,
+        "observedQueueWaitP95Seconds": 3.698,
+        "peakPendingRuns": 4,
+        "peakRunningRuns": 4,
+        "observedWorkerMaximum": 4,
+        "minimumAvailableWorkers": 0,
+        "peakRssBytes": 0,
+        "sampledProviderConcurrencyPeak": 4.0,
+        "configuredModelConcurrencyCeiling": 8
+      },
+      "runs": [
+        {
+          "threadId": "68591606-9b74-513c-8b5f-110ddc38e839",
+          "runId": "3d7c80a5-f48d-49af-84aa-a0fa0e6f40b6",
+          "status": "success"
+        },
+        {
+          "threadId": "ecc6067e-ab83-5ec1-a581-0f453a1a793a",
+          "runId": "20f2b972-53c8-47be-8bef-27bfbf3af00c",
+          "status": "success"
+        },
+        {
+          "threadId": "3d3244d1-5ec1-579d-bbb1-bec5d7ce6db0",
+          "runId": "1f7152ff-3078-4ede-8c58-b2d2a1726af6",
+          "status": "success"
+        },
+        {
+          "threadId": "4b8cf134-acad-5c9a-9c2d-164d3de8731a",
+          "runId": "9d4062ef-b369-40dc-ae76-cf6d05cea8eb",
+          "status": "success"
+        },
+        {
+          "threadId": "4e67c989-8803-50be-ade7-907bbb8ceb21",
+          "runId": "78b46ef1-3b7b-4836-8892-80552a063bf3",
+          "status": "success"
+        },
+        {
+          "threadId": "ff6d463b-eb2a-5eef-89ee-2726d6362284",
+          "runId": "36ab02b1-fa7e-4ddc-b163-f58be9aad5cb",
+          "status": "success"
+        },
+        {
+          "threadId": "581fcbff-c680-5a94-841b-5d45ce1736d0",
+          "runId": "ed6ef336-abb7-467f-bbb6-bcde9772855d",
+          "status": "success"
+        },
+        {
+          "threadId": "aeacaf68-949c-5713-b37a-4b7662ddaeee",
+          "runId": "522ba7a3-c4a2-4ff2-aba8-cd6bb1096039",
+          "status": "success"
+        }
+      ],
+      "failures": [],
+      "repeat": 1,
+      "batch": 6
+    },
+    {
+      "schemaVersion": 1,
+      "status": "PASSED",
+      "generatedAt": "2026-10-09T13:43:27.230291+00:00",
+      "gitCommit": "2878ecad830b213010c4ca9d08853e01258a5a38",
+      "environment": "container",
+      "codeHash": "1e0680f2f60cf770beb4906a4e4db813cba031fd814530c9011ef649dc9b4694",
+      "runtime": {
+        "python": [
+          3,
+          14,
+          7
+        ],
+        "packages": {
+          "langgraph": "1.2.11",
+          "langgraph-checkpoint-postgres": "3.1.2",
+          "psycopg": "3.3.6",
+          "psycopg-binary": "3.3.6",
+          "langchain-core": "1.5.6",
+          "langchain-openai": "1.5.1",
+          "pydantic": "2.13.4",
+          "pypdfium2": "5.12.1",
+          "pillow": "12.3.0"
+        }
+      },
+      "imageDigest": "sha256:edf0a70198028c9df59290d9f94cec0d8b6ef0beebd069cd3a52e22b92360364",
+      "parameters": {
+        "total": 8,
+        "submitConcurrency": 4,
+        "maxRunning": 4,
+        "graphConcurrency": 2,
+        "api": "document-tasks",
+        "allowRejections": false
+      },
+      "results": {
+        "runs": {
+          "success": 8
+        },
+        "batchSeconds": 6.304,
+        "successfulDocumentsPerMinute": 76.138,
+        "runCreateP95Ms": 44.2,
+        "healthP95Ms": 3.7,
+        "completionP50Seconds": 4.976,
+        "completionP95Seconds": 6.281,
+        "observedQueueWaitP95Seconds": 3.718,
+        "peakPendingRuns": 4,
+        "peakRunningRuns": 4,
+        "observedWorkerMaximum": 4,
+        "minimumAvailableWorkers": 0,
+        "peakRssBytes": 0,
+        "sampledProviderConcurrencyPeak": 4.0,
+        "configuredModelConcurrencyCeiling": 8
+      },
+      "runs": [
+        {
+          "threadId": "cbb54985-b10e-5ed7-b30a-d76b558558e8",
+          "runId": "8619d8db-6b03-4994-b8fd-3c43e3b722ef",
+          "status": "success"
+        },
+        {
+          "threadId": "3949d78f-2ad4-5cf6-a325-cafb1dbacba7",
+          "runId": "0297a9da-a78e-4455-bd0b-e857a92e7882",
+          "status": "success"
+        },
+        {
+          "threadId": "4f120a49-99c5-5449-9eac-3c8065321209",
+          "runId": "8100b765-5909-4369-ab80-8e22887b447a",
+          "status": "success"
+        },
+        {
+          "threadId": "b59640f2-6210-563c-86bc-f22ea44bf0d4",
+          "runId": "c345233a-b6bc-41b3-b1ad-716fa23c30a5",
+          "status": "success"
+        },
+        {
+          "threadId": "fae5ae46-490d-50cc-9759-484caf01eb92",
+          "runId": "4a75480f-d5ab-42eb-97b4-9b868782fc5d",
+          "status": "success"
+        },
+        {
+          "threadId": "52884658-5744-50bb-b2d8-3acdd7570fd5",
+          "runId": "b3259ff0-8da7-4c01-a3df-783f3a0916ad",
+          "status": "success"
+        },
+        {
+          "threadId": "8c253c1c-e2ff-5dab-83fd-9d7bc3d2f0a0",
+          "runId": "c62525c4-4061-4cd4-8141-53bb03074259",
+          "status": "success"
+        },
+        {
+          "threadId": "73375a81-884a-5dc0-9df3-0d06ce69d712",
+          "runId": "c48c8159-879d-433b-acc7-d57a7f949f9e",
+          "status": "success"
+        }
+      ],
+      "failures": [],
+      "repeat": 1,
+      "batch": 7
+    },
+    {
+      "schemaVersion": 1,
+      "status": "PASSED",
+      "generatedAt": "2026-10-09T13:43:33.620926+00:00",
+      "gitCommit": "2878ecad830b213010c4ca9d08853e01258a5a38",
+      "environment": "container",
+      "codeHash": "1e0680f2f60cf770beb4906a4e4db813cba031fd814530c9011ef649dc9b4694",
+      "runtime": {
+        "python": [
+          3,
+          14,
+          7
+        ],
+        "packages": {
+          "langgraph": "1.2.11",
+          "langgraph-checkpoint-postgres": "3.1.2",
+          "psycopg": "3.3.6",
+          "psycopg-binary": "3.3.6",
+          "langchain-core": "1.5.6",
+          "langchain-openai": "1.5.1",
+          "pydantic": "2.13.4",
+          "pypdfium2": "5.12.1",
+          "pillow": "12.3.0"
+        }
+      },
+      "imageDigest": "sha256:edf0a70198028c9df59290d9f94cec0d8b6ef0beebd069cd3a52e22b92360364",
+      "parameters": {
+        "total": 8,
+        "submitConcurrency": 4,
+        "maxRunning": 4,
+        "graphConcurrency": 2,
+        "api": "document-tasks",
+        "allowRejections": false
+      },
+      "results": {
+        "runs": {
+          "success": 8
+        },
+        "batchSeconds": 6.368,
+        "successfulDocumentsPerMinute": 75.372,
+        "runCreateP95Ms": 58.4,
+        "healthP95Ms": 30.7,
+        "completionP50Seconds": 4.535,
+        "completionP95Seconds": 6.337,
+        "observedQueueWaitP95Seconds": 3.286,
+        "peakPendingRuns": 4,
+        "peakRunningRuns": 4,
+        "observedWorkerMaximum": 4,
+        "minimumAvailableWorkers": 0,
+        "peakRssBytes": 0,
+        "sampledProviderConcurrencyPeak": 4.0,
+        "configuredModelConcurrencyCeiling": 8
+      },
+      "runs": [
+        {
+          "threadId": "10d842e4-1e5f-505d-ae86-91bec264e351",
+          "runId": "ca64baa5-0c73-42be-b914-b9f6a439e05d",
+          "status": "success"
+        },
+        {
+          "threadId": "e461c265-be0c-5fa7-88ec-8f716b358999",
+          "runId": "21bf9fc8-f050-4e48-8e8d-cd9bb5d7aef1",
+          "status": "success"
+        },
+        {
+          "threadId": "89c18235-ebbf-5b4d-b382-3497e8e08a46",
+          "runId": "79f02a2f-efb7-4081-9e30-09b31bca03d1",
+          "status": "success"
+        },
+        {
+          "threadId": "309269c7-cbc5-5bf3-ae05-cff7c8c24b94",
+          "runId": "74219f96-2599-43a5-9bee-3e3ae5b1dc7f",
+          "status": "success"
+        },
+        {
+          "threadId": "53e3ee91-59e0-5257-a394-a4675748e211",
+          "runId": "caf71c1f-4c78-41aa-85aa-9a4e3f2d70db",
+          "status": "success"
+        },
+        {
+          "threadId": "0091c9ec-f97d-5963-87ae-0552d0b18bd9",
+          "runId": "6f94873f-d19e-4a0d-a08e-b4bdcd7e91ff",
+          "status": "success"
+        },
+        {
+          "threadId": "a5c5e265-4124-501d-84d3-576356e23890",
+          "runId": "233caeaa-07ca-4ef6-a428-e2c8551151a9",
+          "status": "success"
+        },
+        {
+          "threadId": "dd3090d7-51a4-5b96-b773-f1e8aaafa554",
+          "runId": "1a1dc603-9438-4b58-8bec-94a6ee452b86",
+          "status": "success"
+        }
+      ],
+      "failures": [],
+      "repeat": 1,
+      "batch": 8
+    },
+    {
+      "schemaVersion": 1,
+      "status": "PASSED",
+      "generatedAt": "2026-10-09T13:43:39.419213+00:00",
+      "gitCommit": "2878ecad830b213010c4ca9d08853e01258a5a38",
+      "environment": "container",
+      "codeHash": "1e0680f2f60cf770beb4906a4e4db813cba031fd814530c9011ef649dc9b4694",
+      "runtime": {
+        "python": [
+          3,
+          14,
+          7
+        ],
+        "packages": {
+          "langgraph": "1.2.11",
+          "langgraph-checkpoint-postgres": "3.1.2",
+          "psycopg": "3.3.6",
+          "psycopg-binary": "3.3.6",
+          "langchain-core": "1.5.6",
+          "langchain-openai": "1.5.1",
+          "pydantic": "2.13.4",
+          "pypdfium2": "5.12.1",
+          "pillow": "12.3.0"
+        }
+      },
+      "imageDigest": "sha256:edf0a70198028c9df59290d9f94cec0d8b6ef0beebd069cd3a52e22b92360364",
+      "parameters": {
+        "total": 8,
+        "submitConcurrency": 4,
+        "maxRunning": 4,
+        "graphConcurrency": 2,
+        "api": "document-tasks",
+        "allowRejections": false
+      },
+      "results": {
+        "runs": {
+          "success": 8
+        },
+        "batchSeconds": 5.775,
+        "successfulDocumentsPerMinute": 83.111,
+        "runCreateP95Ms": 47.2,
+        "healthP95Ms": 3.9,
+        "completionP50Seconds": 4.473,
+        "completionP95Seconds": 5.757,
+        "observedQueueWaitP95Seconds": 3.207,
+        "peakPendingRuns": 4,
+        "peakRunningRuns": 4,
+        "observedWorkerMaximum": 4,
+        "minimumAvailableWorkers": 0,
+        "peakRssBytes": 0,
+        "sampledProviderConcurrencyPeak": 4.0,
+        "configuredModelConcurrencyCeiling": 8
+      },
+      "runs": [
+        {
+          "threadId": "a077b0b5-4c9d-586b-ad42-7aa197b9ac86",
+          "runId": "f83aadb4-12a6-4288-a8b5-2af496677727",
+          "status": "success"
+        },
+        {
+          "threadId": "5044b630-c6f4-58b7-a103-4e1d006c9c4d",
+          "runId": "0c2c7aa3-2c33-4d9f-b324-51013090b4e6",
+          "status": "success"
+        },
+        {
+          "threadId": "ba0685f1-33c1-5170-b966-8d5fcc5b9fa8",
+          "runId": "2b43dbe8-007a-4a2d-a9fe-4ca6245b6e34",
+          "status": "success"
+        },
+        {
+          "threadId": "373bd423-b5ca-5f2b-ad5f-6e931b1078c9",
+          "runId": "36c49e71-06d1-45e1-b8d5-9637ef274ecf",
+          "status": "success"
+        },
+        {
+          "threadId": "9ad7963f-60ad-5618-8552-786e85ae08c7",
+          "runId": "1a2009c8-171a-4e5c-a73c-1a72d5037e6a",
+          "status": "success"
+        },
+        {
+          "threadId": "c8879564-db55-56a1-83e9-9761d844eca3",
+          "runId": "37f16bfa-c23f-48a7-a2d0-cc3be1b703cc",
+          "status": "success"
+        },
+        {
+          "threadId": "b0a89e12-a4e5-538f-a62e-07404d4de0a7",
+          "runId": "ccd7e5d3-cc6b-400a-b5ec-d12a96b3b7c5",
+          "status": "success"
+        },
+        {
+          "threadId": "ab34fcc7-cd84-59e0-b308-fe0daeab02d2",
+          "runId": "f1372eab-e72b-4962-a5f2-4b5f56330a28",
+          "status": "success"
+        }
+      ],
+      "failures": [],
+      "repeat": 1,
+      "batch": 9
+    },
+    {
+      "schemaVersion": 1,
+      "status": "PASSED",
+      "generatedAt": "2026-10-09T13:43:45.735595+00:00",
+      "gitCommit": "2878ecad830b213010c4ca9d08853e01258a5a38",
+      "environment": "container",
+      "codeHash": "1e0680f2f60cf770beb4906a4e4db813cba031fd814530c9011ef649dc9b4694",
+      "runtime": {
+        "python": [
+          3,
+          14,
+          7
+        ],
+        "packages": {
+          "langgraph": "1.2.11",
+          "langgraph-checkpoint-postgres": "3.1.2",
+          "psycopg": "3.3.6",
+          "psycopg-binary": "3.3.6",
+          "langchain-core": "1.5.6",
+          "langchain-openai": "1.5.1",
+          "pydantic": "2.13.4",
+          "pypdfium2": "5.12.1",
+          "pillow": "12.3.0"
+        }
+      },
+      "imageDigest": "sha256:edf0a70198028c9df59290d9f94cec0d8b6ef0beebd069cd3a52e22b92360364",
+      "parameters": {
+        "total": 8,
+        "submitConcurrency": 4,
+        "maxRunning": 4,
+        "graphConcurrency": 2,
+        "api": "document-tasks",
+        "allowRejections": false
+      },
+      "results": {
+        "runs": {
+          "success": 8
+        },
+        "batchSeconds": 6.299,
+        "successfulDocumentsPerMinute": 76.208,
+        "runCreateP95Ms": 32.9,
+        "healthP95Ms": 3.8,
+        "completionP50Seconds": 4.501,
+        "completionP95Seconds": 6.28,
+        "observedQueueWaitP95Seconds": 3.228,
+        "peakPendingRuns": 4,
+        "peakRunningRuns": 4,
+        "observedWorkerMaximum": 4,
+        "minimumAvailableWorkers": 0,
+        "peakRssBytes": 0,
+        "sampledProviderConcurrencyPeak": 4.0,
+        "configuredModelConcurrencyCeiling": 8
+      },
+      "runs": [
+        {
+          "threadId": "6b43c81b-9e11-5a31-8a1f-d4b028c6a90d",
+          "runId": "5e6ecbc7-1a97-4eb8-b4ea-acb12a8e4396",
+          "status": "success"
+        },
+        {
+          "threadId": "f1197bd0-45d5-507d-bfab-6424204893ad",
+          "runId": "5a54b26a-40b1-4e59-9624-8755f5850097",
+          "status": "success"
+        },
+        {
+          "threadId": "0020cc2a-0a20-598c-b22c-d2f022a2993c",
+          "runId": "1d87f93f-52b8-4a75-88a8-37219cbed43d",
+          "status": "success"
+        },
+        {
+          "threadId": "8b314aff-88ae-5f1c-9beb-d1a30f6dcc2b",
+          "runId": "61daa8fe-2d86-4fa9-95b5-b54b725698cc",
+          "status": "success"
+        },
+        {
+          "threadId": "f843680a-d79d-5e3a-9577-04b0bee03ad0",
+          "runId": "d5eafe6e-152c-4b40-9088-7f5c0c48baa7",
+          "status": "success"
+        },
+        {
+          "threadId": "932b550a-aae0-5b4c-9230-4081be4085fa",
+          "runId": "0686c498-5da0-4795-9459-079da65126fd",
+          "status": "success"
+        },
+        {
+          "threadId": "17851cf0-e231-5ca7-9fbf-05d644e066f7",
+          "runId": "20af0b56-cd6a-4ef3-be74-b8bf27fb931d",
+          "status": "success"
+        },
+        {
+          "threadId": "1154fdc3-8b39-5f89-b56d-aa8478cab197",
+          "runId": "62383c3f-71b2-46d6-9208-221f04f5b441",
+          "status": "success"
+        }
+      ],
+      "failures": [],
+      "repeat": 1,
+      "batch": 10
+    },
+    {
+      "schemaVersion": 1,
+      "status": "FAILED",
+      "generatedAt": "2026-10-09T13:43:51.514625+00:00",
+      "gitCommit": "2878ecad830b213010c4ca9d08853e01258a5a38",
+      "environment": "container",
+      "codeHash": "1e0680f2f60cf770beb4906a4e4db813cba031fd814530c9011ef649dc9b4694",
+      "runtime": {
+        "python": [
+          3,
+          14,
+          7
+        ],
+        "packages": {
+          "langgraph": "1.2.11",
+          "langgraph-checkpoint-postgres": "3.1.2",
+          "psycopg": "3.3.6",
+          "psycopg-binary": "3.3.6",
+          "langchain-core": "1.5.6",
+          "langchain-openai": "1.5.1",
+          "pydantic": "2.13.4",
+          "pypdfium2": "5.12.1",
+          "pillow": "12.3.0"
+        }
+      },
+      "imageDigest": "sha256:edf0a70198028c9df59290d9f94cec0d8b6ef0beebd069cd3a52e22b92360364",
+      "parameters": {
+        "total": 8,
+        "submitConcurrency": 4,
+        "maxRunning": 4,
+        "graphConcurrency": 2,
+        "api": "document-tasks",
+        "allowRejections": false
+      },
+      "results": {
+        "runs": {
+          "success": 7,
+          "error": 1
+        },
+        "batchSeconds": 5.757,
+        "successfulDocumentsPerMinute": 72.95,
+        "runCreateP95Ms": 37.8,
+        "healthP95Ms": 3.6,
+        "completionP50Seconds": 3.427,
+        "completionP95Seconds": 5.729,
+        "observedQueueWaitP95Seconds": 3.184,
+        "peakPendingRuns": 4,
+        "peakRunningRuns": 4,
+        "observedWorkerMaximum": 4,
+        "minimumAvailableWorkers": 0,
+        "peakRssBytes": 0,
+        "sampledProviderConcurrencyPeak": 4.0,
+        "configuredModelConcurrencyCeiling": 8
+      },
+      "runs": [
+        {
+          "threadId": "3d4c30c0-853a-5899-9e4a-34699995636d",
+          "runId": "739fc92c-fc10-4651-86ee-62f29e38e35f",
+          "status": "success"
+        },
+        {
+          "threadId": "faae47e0-c961-5def-8d3c-d00ebac47b81",
+          "runId": "bf841419-5e30-4776-acc1-da92679dc29b",
+          "status": "success"
+        },
+        {
+          "threadId": "76fc0f4c-b296-55de-8458-bfafbebeaed4",
+          "runId": "4830ab4d-d217-4fa7-8a97-192f094426fb",
+          "status": "success"
+        },
+        {
+          "threadId": "8e167024-20f5-5799-81dc-9eeed34b03c3",
+          "runId": "25ddc3ea-5148-46ac-97b5-634bf21e7b2c",
+          "status": "error"
+        },
+        {
+          "threadId": "e6b549c2-ca11-5f44-82a5-ee6a5830985f",
+          "runId": "fa21b2e6-a73a-4d7e-a146-5a085a260f63",
+          "status": "success"
+        },
+        {
+          "threadId": "ce5e1366-9cb0-5323-b103-088c441f1690",
+          "runId": "db951402-488b-4c28-adbb-56b4a1db48ac",
+          "status": "success"
+        },
+        {
+          "threadId": "250f21cb-3498-5f0c-9419-0a9de84246d8",
+          "runId": "13c35fcb-608f-4bde-8226-912328a8f3cd",
+          "status": "success"
+        },
+        {
+          "threadId": "eee2c914-b68d-5924-8aee-c3db0628068c",
+          "runId": "2e33b156-a90b-482e-b9b6-95a2441841fc",
+          "status": "success"
+        }
+      ],
+      "failures": [
+        "not all runs succeeded: {'success': 7, 'error': 1}"
+      ],
+      "repeat": 1,
+      "batch": 11
+    }
+  ]
+}

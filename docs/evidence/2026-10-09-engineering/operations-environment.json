@@ -1,0 +1,22 @@
+{
+  "sourceSha": "2878ecad830b213010c4ca9d08853e01258a5a38",
+  "currentLogsExcludeTokenProviderKeyAndDocumentMarker": true,
+  "historicalLinkedTaskRunEvents": 2799,
+  "currentLinkedTaskRunEvents": 0,
+  "postgres": {
+    "cpuLimit": 1,
+    "memoryGiB": 1,
+    "pidLimit": 128,
+    "role": "practiq; not superuser, no create database/role privileges"
+  },
+  "dockerHost": {
+    "ServerVersion": "29.8.2",
+    "OperatingSystem": "Docker Desktop",
+    "OSType": "linux",
+    "Architecture": "aarch64",
+    "KernelVersion": "7.0.14-linuxkit",
+    "NCPU": 10,
+    "MemTotal": 8319504384
+  },
+  "publicLogs": "Only classified exception fields and aggregate assertions; private raw logs/credentials omitted"
+}

@@ -1,0 +1,10 @@
+{
+  "certificateVerified": true,
+  "ready": 200,
+  "unauthenticatedMetrics": 401,
+  "authenticatedMetrics": 200,
+  "removedNativeMetricsRoute": 404,
+  "observedQueueCapacity": 8,
+  "tlsMinimumConfigured": "TLSv1.2",
+  "scope": "Linux VM loopback test edge with verified synthetic CA; no online deployment"
+}
