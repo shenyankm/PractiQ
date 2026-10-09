@@ -1,0 +1,79 @@
+{
+  "baselineSha": "87d1c4055f13988ac22d81f12b7c12d4b8ff4105",
+  "candidateSha": "e893570e2f210526322fb6a4ca7c08ffea499546",
+  "projectLicenseSha256": "045e49d0a632ea4bf644d1db045d300b313c03097212268a6c3dc15235795079",
+  "archives": [
+    {
+      "phase": "before",
+      "file": "practiq_ai_service-0.3.0-py3-none-any.whl",
+      "bytes": 196887,
+      "sha256": "76de4ebe91dc1ada14eb2ac5cf453295a8d3e47358b2110ca14a3d4b5b88ed19",
+      "licenseFiles": [],
+      "licenseExpressionMIT": false,
+      "noticeMatchesProject": false
+    },
+    {
+      "phase": "before",
+      "file": "practiq_ai_service-0.3.0.tar.gz",
+      "bytes": 1223841,
+      "sha256": "cd1cff2dfce59dbbc90782bb34b6c6c0c721599afb3dc67d391f7cc7973c4dd7",
+      "licenseFiles": [],
+      "licenseExpressionMIT": false,
+      "noticeMatchesProject": false
+    },
+    {
+      "phase": "after",
+      "file": "practiq_ai_service-0.3.0-py3-none-any.whl",
+      "bytes": 197777,
+      "sha256": "dc866fe73d31d2b646956c08df5adb04f3c20f258a1ffe00f53854e3a3160e15",
+      "licenseFiles": [
+        "practiq_ai_service-0.3.0.dist-info/licenses/LICENSE"
+      ],
+      "licenseExpressionMIT": true,
+      "noticeMatchesProject": true
+    },
+    {
+      "phase": "after",
+      "file": "practiq_ai_service-0.3.0.tar.gz",
+      "bytes": 1013748,
+      "sha256": "515a358b9ffae5e70f44c0c48f7a99c26e1ddb81daeea561c627cc59946571f4",
+      "licenseFiles": [
+        "practiq_ai_service-0.3.0/LICENSE"
+      ],
+      "licenseExpressionMIT": true,
+      "noticeMatchesProject": true
+    }
+  ],
+  "runtimeWheelFilesUnchanged": true,
+  "buildBackend": "hatchling 1.32.4",
+  "archiveBaselineMethod": "git archive 87d1c405 server, uv build from exported server; archive sizes are not compared because Git ignore context differs",
+  "image": {
+    "Id": "sha256:b62debcbc3341d07ee1bf3c8737eca6aceadf2fecda4ab4722e5db619fbdcb28",
+    "Size": 1233566019,
+    "Architecture": "arm64",
+    "Os": "linux"
+  },
+  "imageBefore": {
+    "licenseExpression": null,
+    "licenseFiles": []
+  },
+  "containerSmoke": "PASSED",
+  "containerSmokeLogSha256": "e0f93a19d05aac3bb5c2ae3519bd4dbd073b060281d6106b6bc1b358612f32d3",
+  "tests": {
+    "name": "pytest",
+    "errors": "0",
+    "failures": "0",
+    "skipped": "0",
+    "tests": "1754",
+    "time": "191.885",
+    "timestamp": "2026-10-09T19:35:10.306843+08:00"
+  },
+  "coverage": {
+    "lines-valid": "4784",
+    "lines-covered": "4528",
+    "line-rate": "0.9465",
+    "branches-valid": "1692",
+    "branches-covered": "1507",
+    "branch-rate": "0.8907"
+  }
+}

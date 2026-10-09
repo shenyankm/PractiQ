@@ -12,7 +12,7 @@ Complete the [service configuration and startup steps](service-guide.md#run-loca
 
 `Dockerfile.server` builds the production image with Python 3.14, PDFium, Chinese fonts and the built import Web frontend. Office normalization belongs to this deployment; configure and verify its LibreOffice executable/version separately. Linux ECS deployments use host networking. The container listens on `127.0.0.1:8000` by default, behind a host HTTPS reverse proxy. Do not expose database or application backend ports. `deploy/nginx.conf` is a host-loopback HTTP proxy example; a trusted upstream entry point provides TLS.
 
-Python wheels and source distributions carry the project MIT notice from `server/LICENSE`; keep this distribution copy identical to the root `LICENSE`. The image retains the source notice at `/app/server/LICENSE` and the installed distribution notice. The container smoke check verifies both copies. Third-party packages and the deployed Office engine retain their own licenses.
+Python wheels and source distributions carry the project MIT notice from `server/LICENSE`; keep this distribution copy identical to the root `LICENSE`. The image retains the source notice at `/app/server/LICENSE` and the installed distribution notice. The container smoke check verifies both copies. Third-party packages and the deployed Office engine retain their own licenses. See the [distribution verification](../../docs/service-distribution-license-20261009.md).
 
 Size resources using representative documents, model latency, and concurrency tests. Historical capacity reports do not guarantee current deployment capacity. Do not use multiple Uvicorn workers, scale-to-zero function instances, or overlapping rolling replicas.
 
