@@ -75,5 +75,6 @@
     "branches-valid": "1692",
     "branches-covered": "1507",
     "branch-rate": "0.8907"
-  }
+  },
+  "scope": "Historical isolated license-only comparison at the listed baseline/candidate SHAs. Archive hashes/sizes identify those snapshots and are not checksums for the latest delivered PR tree. Post-review tree evidence is separate."
 }
