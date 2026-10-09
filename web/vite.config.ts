@@ -3,7 +3,19 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [
+    {
+      name: "katex-woff2",
+      enforce: "pre",
+      transform(code, id) {
+        // Vite's supported browsers read WOFF2; retain every KaTeX font family.
+        if (id.endsWith("/katex/dist/katex.min.css")) {
+          return code.replace(/,url\([^)]*\.(?:woff|ttf)\) format\("(?:woff|truetype)"\)/g, "");
+        }
+      },
+    },
+    react(), tailwindcss(),
+  ],
   resolve: { alias: { "@": new URL("./src", import.meta.url).pathname } },
   server: {
     host: "127.0.0.1",

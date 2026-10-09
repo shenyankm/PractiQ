@@ -56,6 +56,7 @@ Preserve failures, source hashes, artifact hashes and original denominators. His
 | [Functional audit](functional-audit-20260922.md), [closed-PR follow-up](review-follow-up.md) | Earlier findings and scoped repairs |
 | [September 28 repairs](review-fixes-20260928.md), [September 29 implementation](review-implementation-20260929.md), [PR 83 follow-up](pr83-review-fixes.md) | Successive repair records; later corrections do not rewrite original measurements |
 | [October 3 performance](performance-implementation-20261003.md), [October 5 performance](performance-implementation-20261005.md) | Separate measured workloads and source baselines, not duplicate benchmarks |
+| [October 9 Web fonts](performance-web-fonts-20261009.md) | Complete static assets and repeated build samples after the PostgreSQL merge; no initial-load or image-size claim |
 | [Service code review](../server/docs/code-review-2026-09-19.md), [SQLite/macOS delivery](../server/docs/sqlite-desktop-delivery.md), [desktop Office evaluation](../server/docs/desktop-office-evaluation.md) | Earlier service/package architectures and their validation limits |
 | [Service reports](../server/reports/) | Dated runtime, capacity and performance records with their original JSON evidence |
 | [Saved evaluation reports](../server/reports/evaluations/) | Historical scorer/model runs; generated report bodies stay unchanged |
