@@ -16,6 +16,8 @@ Finished-session navigation uses the full attempt count even when cached respons
 
 In practice, submit an answer before choosing **I got it right** or **I got it wrong**. Self-assessment remains available after finishing for submitted, unskipped answers that need it, including fill-in-the-blank overrides. It uses a separate action and preserves the submitted answer, automatic result and practice snapshot. Self-tests and mock exams use their score-review workflow.
 
+Submitting or skipping a practice question locks its answer and clear action until persistence finishes. Success displays the answer returned by local storage; failure restores editing with the current answer and save error. Background draft saving waits for an outstanding submission and cannot overwrite a submitted answer.
+
 Missing reference answers, required resources or grading evidence remain ungraded. Imported review warnings permit practice; confirming review records a local acknowledgement for the whole question tree without clearing source warnings or proving answer correctness. Editing the tree clears that acknowledgement.
 
 ## Use optional AI grading

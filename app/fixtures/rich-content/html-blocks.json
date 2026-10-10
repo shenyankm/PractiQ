@@ -1,0 +1,14 @@
+[
+  {
+    "partType": "html", "label": null, "role": null, "questionId": null,
+    "textValue": "<table><tr><th>Year</th><th>Rainfall</th></tr><tr><td>2026</td><td>47 mm</td></tr></table>",
+    "markdownValue": "<table><tr><th>Year</th><th>Rainfall</th></tr><tr><td>2026</td><td>47 mm</td></tr></table>",
+    "latexValue": null, "jsonValue": null
+  },
+  {
+    "partType": "html", "label": null, "role": null, "questionId": null,
+    "textValue": "<script>window.htmlFixtureExecuted=true</script>",
+    "markdownValue": "<img src=\"https://untrusted.invalid/image.png\" onerror=\"window.htmlFixtureExecuted=true\">",
+    "latexValue": null, "jsonValue": null
+  }
+]
