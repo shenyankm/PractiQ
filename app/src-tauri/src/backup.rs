@@ -180,7 +180,9 @@ impl Store {
         self.connect()?
             .backup(rusqlite::MAIN_DB, &database, None)
             .map_err(err)?;
-        fs::File::open(&database)
+        fs::OpenOptions::new()
+            .write(true)
+            .open(&database)
             .map_err(err)?
             .sync_all()
             .map_err(err)?;
