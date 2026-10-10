@@ -2316,6 +2316,46 @@ fn restore_invalidates_the_immutable_document_cache() {
 }
 
 #[test]
+fn finished_session_navigation_uses_membership_not_delta_length() {
+    let (_dir, mut s) = store();
+    let bank = import(&mut s);
+    let session = practice(&s, s.questions(Some(&bank), "", "", "").unwrap(), 3);
+    let sid = text(&session, "id");
+    s.finish(sid).unwrap();
+    let baseline = s.session_data(sid, None).unwrap();
+    let key = format!(
+        "{}:{}",
+        text(&baseline, "snapshotKey"),
+        text(&baseline, "attemptKey")
+    );
+    let empty = s.position(sid, 1, Some(&key)).unwrap();
+    assert!(list(&empty, "attempts").is_empty());
+    assert_eq!(empty["attemptCount"], 3);
+    assert_eq!(empty["position"], 1);
+    s.connect()
+        .unwrap()
+        .execute(
+            "UPDATE attempts SET flagged=1 WHERE session_id=?1 AND ordinal=2",
+            [sid],
+        )
+        .unwrap();
+    let partial = s.position(sid, 2, Some(&key)).unwrap();
+    assert_eq!(list(&partial, "attempts").len(), 1);
+    assert_eq!(partial["attempts"][0]["ordinal"], 2);
+    assert_eq!(partial["position"], 2);
+    let full = s.position(sid, 1, Some("unknown")).unwrap();
+    assert_eq!(list(&full, "attempts").len(), 3);
+    assert_eq!(full["position"], 1);
+    let invalid = s.position(sid, 3, None).unwrap();
+    assert_eq!(invalid["position"], 0);
+    assert_eq!(s.session(sid).unwrap()["position"], 0);
+    println!(
+        "SESSION_NAVIGATION_FIXTURE={}",
+        json!({"baseline":baseline,"empty":empty,"partial":partial,"full":full})
+    );
+}
+
+#[test]
 fn filtered_search_does_not_hydrate_unselected_details_or_match_a_different_favorite() {
     let (_dir, mut s) = store();
     let bank = import(&mut s);
