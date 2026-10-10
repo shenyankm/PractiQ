@@ -12,6 +12,7 @@ from practiq_ai.contracts import (
     DocumentReference,
     DocumentTaskControl,
     DocumentTaskCreate,
+    FailedUnit,
     ParsedQuestion,
 )
 from practiq_ai.extractors import ExtractedDocument
@@ -40,6 +41,58 @@ async def test_duplicate_ids_are_corrected_within_the_model_boundary(monkeypatch
     assert output["status"] == "SUCCEEDED"
     assert [q["stem"] for q in output["result"]["questions"]] == ["First", "Second"]
     assert len(model.calls) == len(output["usage"]) == 2
+
+
+@pytest.mark.usefixtures("disposable_databases")
+@pytest.mark.parametrize("pages", [False, True])
+async def test_shared_option_answer_conflict_retries_only_its_source_unit(monkeypatch, pages):
+    parent = {**complete_question("Word bank", "bank"), "answerMode": "word_bank", "questionTypeId": "word_bank",
+              "answerPayload": None, "options": [{"label": "A", "content": "First"}, {"label": "B", "content": "Second"}],
+              "passage": [{"partType": "text", "textValue": "Choose "}, {"partType": "blank", "questionId": "child"}]}
+    child = {**complete_question("Choose", "child"), "answerMode": "choice", "questionTypeId": "choice",
+             "choiceVariant": "single", "parentId": "bank", "optionSourceId": "bank", "answerPayload": {"correct": ["C"]}}
+    document.ChunkParseResult.model_validate({"questions": [child]})
+    calls = 0
+
+    def respond(messages, _schema):
+        nonlocal calls
+        if "PRIMARY page 1" in messages[-1].content or messages[-1].content.endswith("Word bank"):
+            return {"questions": [parent]}
+        calls += 1
+        return {"questions": [{**child, "answerPayload": {"correct": ["C" if calls == 1 else "B"]}}]}
+
+    api, reference, model = await setup_api(monkeypatch, [respond] * 3, parts=["Word bank", "Choose"])
+    if pages:
+        monkeypatch.setattr(document, "extract", AsyncMock(return_value=ExtractedDocument(text="", page_images=[make_image(), make_image()])))
+    created = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference), failurePolicy="review"))
+    thread = created["threadId"]
+    await api.wait_idle()
+    state = await task_api.get_task(thread)
+    assert state["state"] == "WAITING_REVIEW"
+    assert "retry_failed" in state["allowedActions"] and "resume" not in state["allowedActions"]
+    assert [(item["stage"], item["index"], item["code"]) for item in state["failures"]] == [("vision_parse" if pages else "document_parse", 1, "OUTPUT_INVALID")]
+    assert len(model.calls) == len(state["usage"]) == 2
+    await task_api.control_task(thread, DocumentTaskControl(requestId=uuid4(), action="retry_failed", checkpointId=state["checkpointId"], units=[FailedUnit(stage="vision_parse" if pages else "document_parse", index=1)]))
+    await api.wait_idle()
+    state = await task_api.get_task(thread)
+    assert state["status"] == "SUCCEEDED" and state["failures"] == []
+    assert state["result"]["questions"][1]["answerPayload"] == {"correct": ["B"]}
+    assert len(model.calls) == len(state["usage"]) == 3
+
+
+def test_question_tree_does_not_translate_unrelated_value_errors(monkeypatch):
+    from practiq_ai import contracts
+
+    parent = ParsedQuestion(id="bank", stem="Word bank", answerMode="word_bank")
+    child = ParsedQuestion(id="child", parentId="bank", optionSourceId="bank", stem="Choose", answerMode="choice", choiceVariant="single")
+
+    def broken(*args):
+        raise ValueError("programming defect")
+
+    monkeypatch.setattr(contracts, "answer_references_missing", broken)
+    with pytest.raises(ValueError, match="programming defect") as caught:
+        contracts.validate_question_tree([parent, child])
+    assert not isinstance(caught.value, contracts.QuestionTreeError)
 
 
 @pytest.mark.usefixtures("disposable_databases")
