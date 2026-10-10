@@ -2416,3 +2416,89 @@ fn backup_rejects_unsupported_and_corrupt_media_without_publishing() {
     let mut restored = Store::new(restored_dir.path().to_path_buf()).unwrap();
     restored.restore(&destination).unwrap();
 }
+
+#[test]
+fn malformed_backup_snapshots_leave_the_store_lock_and_database_usable() {
+    let (source_dir, mut source) = store();
+    let bank = import(&mut source);
+    let session = practice(
+        &source,
+        source.questions(Some(&bank), "", "", "").unwrap(),
+        1,
+    );
+    let sid = text(&session, "id");
+    let db = source.connect().unwrap();
+    let original: String = db
+        .query_row(
+            "SELECT content FROM session_documents WHERE session_id=?1",
+            [sid],
+            |r| r.get(0),
+        )
+        .unwrap();
+    let document: Value = serde_json::from_str(&original).unwrap();
+    let (_target_dir, mut target) = store();
+    let preserved = import(&mut target);
+    let settings = target.service_settings().unwrap();
+    let target = std::sync::Mutex::new(target);
+    let mut cases = Vec::new();
+    for field in ["questions", "groups", "visuals"] {
+        for value in [
+            json!([null]),
+            Value::Null,
+            json!(1),
+            json!([1]),
+            json!([[]]),
+        ] {
+            let mut damaged = document.clone();
+            damaged[field] = value;
+            cases.push(damaged);
+        }
+    }
+    for value in [Value::Null, json!(1), json!([]), json!({})] {
+        let mut damaged = document.clone();
+        damaged["questions"][0] = value;
+        cases.push(damaged);
+    }
+    for value in [Value::Null, json!([]), json!(1)] {
+        let mut damaged = document.clone();
+        damaged["questions"][0]["question"] = value;
+        cases.push(damaged);
+    }
+    let mut mismatched = document.clone();
+    mismatched["questions"][0]["id"] = json!("other");
+    cases.push(mismatched);
+    let mut context = document.clone();
+    context["groups"] = json!([{"title":"Invalid context","questionIds":["absent"]}]);
+    cases.push(context);
+    for (index, damaged) in cases.into_iter().enumerate() {
+        db.execute(
+            "UPDATE session_documents SET content=?2 WHERE session_id=?1",
+            rusqlite::params![sid, damaged.to_string()],
+        )
+        .unwrap();
+        let backup = source_dir.path().join(format!("invalid-{index}.zip"));
+        source.backup(&backup).unwrap();
+        let restored = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            target.lock().unwrap().restore(&backup)
+        }));
+        assert!(restored.is_ok(), "restore panicked for case {index}");
+        let error = restored
+            .unwrap()
+            .expect_err("restore accepted damaged snapshot");
+        if index < 22 {
+            assert_eq!(error.code, "LOCAL_BACKUP_SNAPSHOT_FIELD", "case {index}");
+        }
+        let target = target.lock().unwrap();
+        assert!(target
+            .banks()
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|bank| bank["id"] == preserved));
+        assert_eq!(target.service_settings().unwrap(), settings);
+        target
+            .save_bank(None, &format!("After rejection {index}"), "")
+            .unwrap();
+    }
+}
