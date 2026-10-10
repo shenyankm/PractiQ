@@ -8,6 +8,22 @@ import type { Question } from "./api";
 HTMLElement.prototype.scrollIntoView = () => {};
 afterEach(cleanup);
 
+it("invalidates cached child answer defaults when shared options change and become empty again", async () => {
+  const close = vi.fn(), save = vi.fn();
+  const child: Question = { ...blankQuestion(), id:"child", parentId:"root", optionSourceId:"root", options:[], choiceVariant:"multiple", answerPayload:{correct:[]} };
+  const parent: Question = { ...blankQuestion(), id:"root", answerMode:"word_bank", choiceVariant:null, options:[] };
+  const view = render(<QuestionEditor initial={child} parent={parent} busy={false} onClose={close} onSave={save} />);
+  view.rerender(<QuestionEditor initial={child} parent={{...parent,options:[{label:"A",content:"One"},{label:"B",content:"Two"}]}} busy={false} onClose={close} onSave={save} />);
+  await userEvent.keyboard("{Escape}");
+  expect(screen.getByRole("alertdialog")).toBeTruthy();
+  expect(close).not.toHaveBeenCalled();
+  await userEvent.click(screen.getByRole("button",{name:"继续编辑"}));
+  view.rerender(<QuestionEditor initial={child} parent={parent} busy={false} onClose={close} onSave={save} />);
+  await userEvent.keyboard("{Escape}");
+  expect(close).toHaveBeenCalledOnce();
+  expect(save).not.toHaveBeenCalled();
+});
+
 it("adds an unused choice label after deleting a middle option without renumbering existing labels", async () => {
   const save = vi.fn();
   render(<QuestionEditor initial={{ ...blankQuestion(), options: [{label:" a ",content:"One"}, {label:"B",content:"Two"}, {label:"C",content:"Three"}] }} busy={false} onClose={vi.fn()} onSave={save} />);
