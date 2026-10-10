@@ -9,3 +9,29 @@ updates:
         patterns:
           - "*"
     open-pull-requests-limit: 2
+  - package-ecosystem: npm
+    directory: /app
+    schedule:
+      interval: weekly
+    groups:
+      math-renderer:
+        patterns: [katex, rehype-katex, micromark-extension-math, mdast-util-math, remark-math]
+    open-pull-requests-limit: 1
+  - package-ecosystem: npm
+    directory: /web
+    schedule:
+      interval: weekly
+    groups:
+      math-renderer:
+        patterns: [katex, rehype-katex, micromark-extension-math, mdast-util-math, remark-math]
+    open-pull-requests-limit: 1
+  - package-ecosystem: cargo
+    directory: /app/src-tauri
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 1
+  - package-ecosystem: gradle
+    directory: /app/src-tauri/gen/android
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 1
