@@ -237,6 +237,50 @@ it("cancels a pending play when the page is hidden before loading completes",asy
   expect(HTMLMediaElement.prototype.play).not.toHaveBeenCalled();
 });
 
+it.each(["visibility", "pagehide", "unmount", "resource", "question", "finish"] as const)("cancels pending playback state queries on %s", async lifecycle => {
+  const { state } = strictPlayback();
+  const original = mockApi.getMockImplementation()!;
+  let resolve!: () => void;
+  const pending = new Promise<void>(done => { resolve = done; });
+  let queries = 0;
+  mockApi.mockImplementation(async request => {
+    if (request.type === "listening_playback" && request.action === "state" && ++queries === 2) await pending;
+    return original(request) as never;
+  });
+  const session = { id: "session", kind: "practice", finishedAt: null, submittedAt: null } as Session;
+  const view = render(<ListeningPlayer question={question} session={session} />);
+  reveal();
+  await waitFor(() => expect(view.container.querySelector("audio")?.getAttribute("src")).toBe("blob:audio"));
+  await userEvent.click(screen.getByRole("button", { name: "播放听力" }));
+  await waitFor(() => expect(queries).toBe(2));
+  if (lifecycle === "visibility") fireEvent(document, new Event("visibilitychange"));
+  else if (lifecycle === "pagehide") fireEvent(window, new Event("pagehide"));
+  else if (lifecycle === "unmount") view.unmount();
+  else if (lifecycle === "resource") view.rerender(<ListeningPlayer question={{ ...question, audioRef: { ...question.audioRef!, sha256: "b".repeat(64) } }} session={session} />);
+  else if (lifecycle === "question") view.rerender(<ListeningPlayer question={{ ...question, id: "other" }} session={session} />);
+  else view.rerender(<ListeningPlayer question={question} session={{ ...session, finishedAt: 1 }} />);
+  await act(async () => { resolve(); await pending; });
+  expect(HTMLMediaElement.prototype.play).not.toHaveBeenCalled();
+  expect(mockApi.mock.calls.filter(([request]) => request.type === "listening_playback" && request.action === "start")).toHaveLength(0);
+  expect(state.used).toBe(0);
+});
+
+it("does not charge a play that finishes starting after pagehide", async () => {
+  const { state } = strictPlayback();
+  let resolve!: () => void;
+  const pending = new Promise<void>(done => { resolve = done; });
+  vi.mocked(HTMLMediaElement.prototype.play).mockReturnValue(pending);
+  const view = render(<ListeningPlayer question={question} session={{ id: "session", kind: "practice", finishedAt: null, submittedAt: null } as Session} />);
+  reveal();
+  await waitFor(() => expect(view.container.querySelector("audio")?.getAttribute("src")).toBe("blob:audio"));
+  await userEvent.click(screen.getByRole("button", { name: "播放听力" }));
+  await waitFor(() => expect(HTMLMediaElement.prototype.play).toHaveBeenCalledOnce());
+  fireEvent(window, new Event("pagehide"));
+  await act(async () => { resolve(); await pending; });
+  expect(state.used).toBe(0);
+  expect(mockApi.mock.calls.filter(([request]) => request.type === "listening_playback" && request.action === "start")).toHaveLength(0);
+});
+
 it("allows retrying a failed asset read without consuming an exam play",async()=>{
   const state={used:0,position:0,active:false,limit:2,restricted:true};
   let reads=0;
