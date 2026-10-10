@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { api, blankQuestion, type Answer, type Session } from "./api";
@@ -22,6 +22,46 @@ function Study({ initial }: { initial: Session }) {
   const [session, setSession] = useState(initial);
   return <Practice session={session} onSession={setSession} run={job => { void job(); }} flushRef={{ current: async () => {} }} />;
 }
+
+it.each([false, true])("locks a pending submission (skip=%s) and shows the persisted answer", async skip => {
+  const initial = practice();
+  initial.finishedAt = initial.submittedAt = initial.attempts[0].submittedAt = null;
+  let resolve!: (session: Session) => void;
+  vi.mocked(api).mockImplementation(request => request.type === "save_attempt"
+    ? new Promise<Session>(done => { resolve = done; }) as never
+    : Promise.resolve(null) as never);
+  render(<Study initial={initial} />);
+  await userEvent.click(screen.getByRole("button", { name: skip ? "跳过此题" : "提交答案" }));
+  await waitFor(() => expect(resolve).toBeDefined());
+  const input = screen.getByRole("textbox", { name: "作答内容" }) as HTMLTextAreaElement;
+  expect(input.disabled).toBe(true);
+  expect((screen.getByRole("button", { name: "清空作答" }) as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.change(input, { target: { value: "Late answer" } });
+  fireEvent(document, new Event("visibilitychange"));
+  expect(api).toHaveBeenCalledTimes(1);
+  const submitted = { ...initial, attempts: [{ ...initial.attempts[0], submittedAt: 2, skipped: skip, answer: { text: "Authoritative answer" } }] };
+  await act(async () => resolve(submitted));
+  await waitFor(() => expect(input.value).toBe("Authoritative answer"));
+  expect(input.disabled).toBe(true);
+  expect(api).toHaveBeenCalledTimes(1);
+});
+
+it.each([false, true])("restores editing and retains the answer after failed submission (skip=%s)", async skip => {
+  const initial = practice();
+  initial.finishedAt = initial.submittedAt = initial.attempts[0].submittedAt = null;
+  let reject!: (error: Error) => void;
+  vi.mocked(api).mockImplementation(() => new Promise((_resolve, fail) => { reject = fail; }) as never);
+  const failure = vi.fn();
+  render(<Practice session={initial} onSession={vi.fn()} run={job => { void job().catch(failure); }} flushRef={{ current: async () => {} }} />);
+  await userEvent.click(screen.getByRole("button", { name: skip ? "跳过此题" : "提交答案" }));
+  await waitFor(() => expect(reject).toBeDefined());
+  await act(async () => reject(new Error("Storage failed")));
+  const input = screen.getByRole("textbox", { name: "作答内容" }) as HTMLTextAreaElement;
+  await waitFor(() => expect(input.disabled).toBe(false));
+  expect(input.value).toBe("My answer");
+  expect(screen.getByRole("alert").textContent).toContain("答案保存失败");
+  expect(failure).toHaveBeenCalledOnce();
+});
 
 it("self-assesses a finished practice while keeping the answer locked and announces only the result", async () => {
   const user = userEvent.setup();

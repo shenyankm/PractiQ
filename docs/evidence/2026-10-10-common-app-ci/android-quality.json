@@ -1,0 +1,173 @@
+{
+  "runId": 38043284151,
+  "apiHeadSha": "628f776a382a7f157b283121ad7147059a557cf9",
+  "job": {
+    "id": 114187676612,
+    "name": "Android quality",
+    "html_url": "https://github.com/shenyankm/PractiQ/actions/runs/38043284151/job/114187676612",
+    "status": "completed",
+    "conclusion": "success",
+    "started_at": "2026-10-10T09:58:50Z",
+    "completed_at": "2026-10-10T10:03:41Z",
+    "runner_name": "GitHub Actions 1000008822",
+    "runner_group_name": "GitHub Actions",
+    "labels": [
+      "ubuntu-24.04"
+    ],
+    "steps": [
+      {
+        "name": "Set up job",
+        "number": 1,
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-10-10T09:58:51Z",
+        "completed_at": "2026-10-10T09:58:52Z"
+      },
+      {
+        "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+        "number": 2,
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-10-10T09:58:52Z",
+        "completed_at": "2026-10-10T09:58:54Z"
+      },
+      {
+        "name": "Run actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
+        "number": 3,
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-10-10T09:58:54Z",
+        "completed_at": "2026-10-10T09:59:00Z"
+      },
+      {
+        "name": "Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+        "number": 4,
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-10-10T09:59:00Z",
+        "completed_at": "2026-10-10T09:59:01Z"
+      },
+      {
+        "name": "Run astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7",
+        "number": 5,
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-10-10T09:59:01Z",
+        "completed_at": "2026-10-10T09:59:04Z"
+      },
+      {
+        "name": "Run make install-locked AI_PYTHON=python",
+        "number": 6,
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-10-10T09:59:04Z",
+        "completed_at": "2026-10-10T09:59:05Z"
+      },
+      {
+        "name": "Run python app/scripts/export-contracts.py --check",
+        "number": 7,
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-10-10T09:59:05Z",
+        "completed_at": "2026-10-10T09:59:06Z"
+      },
+      {
+        "name": "Run python app/scripts/check-fixtures.py",
+        "number": 8,
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-10-10T09:59:06Z",
+        "completed_at": "2026-10-10T09:59:06Z"
+      },
+      {
+        "name": "Run python -m pytest server/tests/test_android_package.py server/tests/test_android_licenses.py server/tests/test_release_checks.py server/tests/test_release_workflow.py server/tests/test_ci.py server/tests/test_ci_scope.py",
+        "number": 9,
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-10-10T09:59:06Z",
+        "completed_at": "2026-10-10T09:59:53Z"
+      },
+      {
+        "name": "Run npm ci",
+        "number": 10,
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-10-10T09:59:53Z",
+        "completed_at": "2026-10-10T10:00:01Z"
+      },
+      {
+        "name": "Run npm run check:ui",
+        "number": 11,
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-10-10T10:00:01Z",
+        "completed_at": "2026-10-10T10:01:51Z"
+      },
+      {
+        "name": "Run npx playwright install --with-deps chromium --only-shell",
+        "number": 12,
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-10-10T10:01:51Z",
+        "completed_at": "2026-10-10T10:02:08Z"
+      },
+      {
+        "name": "Run npm run test:android-browser",
+        "number": 13,
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-10-10T10:02:08Z",
+        "completed_at": "2026-10-10T10:03:36Z"
+      },
+      {
+        "name": "Run actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+        "number": 14,
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-10-10T10:03:36Z",
+        "completed_at": "2026-10-10T10:03:37Z"
+      },
+      {
+        "name": "Post Run astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7",
+        "number": 25,
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-10-10T10:03:37Z",
+        "completed_at": "2026-10-10T10:03:38Z"
+      },
+      {
+        "name": "Post Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+        "number": 26,
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-10-10T10:03:38Z",
+        "completed_at": "2026-10-10T10:03:38Z"
+      },
+      {
+        "name": "Post Run actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
+        "number": 27,
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-10-10T10:03:38Z",
+        "completed_at": "2026-10-10T10:03:38Z"
+      },
+      {
+        "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+        "number": 28,
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-10-10T10:03:38Z",
+        "completed_at": "2026-10-10T10:03:38Z"
+      },
+      {
+        "name": "Complete job",
+        "number": 29,
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-10-10T10:03:38Z",
+        "completed_at": "2026-10-10T10:03:38Z"
+      }
+    ],
+    "runnerSeconds": 291.0
+  }
+}
