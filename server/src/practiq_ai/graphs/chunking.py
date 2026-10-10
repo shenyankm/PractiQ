@@ -254,8 +254,16 @@ def finalize_question_ids(questions, groups, visuals, sources, quality):
             target = retained[prior]
             if target.answerMode != question.answerMode or target.parentId != question.parentId:
                 raise SourceQuestionConflict("Conflicting composite source anchor", index)
-            target.passage.extend(b for b in question.passage if b not in target.passage)
-            target.transcript.extend(b for b in question.transcript if b not in target.transcript)
+            for field in ("passage", "transcript", "contentBlocks"):
+                blocks = getattr(target, field)
+                blocks.extend(block for block in getattr(question, field) if block not in blocks)
+            for option in question.options:
+                prior_option = next((old for old in target.options if old.label and option.label and old.label.casefold() == option.label.casefold()), None)
+                if prior_option is not None:
+                    if prior_option.content != option.content:
+                        raise SourceQuestionConflict("Conflicting composite shared option", index)
+                elif option not in target.options:
+                    target.options.append(option)
             for field in ("questionKind", "instructions", "audioRef", "audioEndSeconds"):
                 value = getattr(question, field)
                 old = getattr(target, field)

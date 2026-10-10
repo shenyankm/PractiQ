@@ -7,6 +7,7 @@ from practiq_ai.contracts import (
     ContentBlock,
     DocumentParseResult,
     DocumentQuality,
+    ParsedOption,
     ParsedQuestion,
     QuestionSource,
     scorable_count,
@@ -82,3 +83,48 @@ def test_noncomposite_parent_is_rejected_before_final_export():
         ChunkParseResult.model_validate({"questions": rows})
     with pytest.raises(SourceQuestionConflict, match="composite"):
         finalize_question_ids([ParsedQuestion.model_validate(row) for row in rows], [], [], [], DocumentQuality())
+
+
+@pytest.mark.parametrize("pages", [2, 3])
+def test_continuation_retains_tables_options_children_and_quality(pages):
+    table = ContentBlock(partType="table", markdownValue="| First |\n| --- |\n| row |")
+    parents = [ParsedQuestion(
+        id="page:0:bank", stem="Word bank", answerMode="word_bank", questionTypeId="word_bank",
+        analysis="Supplied explanation", sourceText=f"Source page {i}",
+        contentBlocks=[table, ContentBlock(partType="table", markdownValue=f"| Page {i} |\n| --- |\n| row |")],
+        options=[ParsedOption(label="a", content="First"), ParsedOption(label=chr(66 + i), content=f"Choice {i}")],
+    ) for i in range(pages)]
+    parents[-1].needsReview = True
+    parents[-1].missingFields = ["material"]
+    parents[0].passage = [ContentBlock(partType="text", textValue="Choose a word:"), ContentBlock(partType="blank", questionId="child")]
+    child = ParsedQuestion(id="child", parentId="page:0:bank", optionSourceId="page:0:bank",
+                           stem="Choose", answerMode="choice", choiceVariant="single", questionTypeId="SINGLE_CHOICE",
+                           answerPayload={"correct": [chr(65 + pages)]}, analysis="Supplied explanation", sourceText="Choose")
+    expected_blocks = [table, *[parent.contentBlocks[-1] for parent in parents]]
+    sources = [QuestionSource(questionIndex=i, stage="vision_parse", unitIndex=min(i, pages - 1)) for i in range(pages + 1)]
+    quality = DocumentQuality()
+    merged = finalize_question_ids([*parents, child], [], [], sources, quality)
+    assert merged[0].contentBlocks == expected_blocks
+    assert [option.label for option in merged[0].options] == ["a", *[chr(66 + i) for i in range(pages)]]
+    assert merged[0].needsReview and merged[0].missingFields == ["material"]
+    assert merged[1].parentId == merged[1].optionSourceId == "q0"
+    assert merged[1].answerPayload.correct == [chr(65 + pages)]
+    assert [source.questionIndex for source in sources] == [*[0] * pages, 1]
+    assert quality.issues[0].questionIndex == 0
+
+
+@pytest.mark.parametrize("content", ["First", "Conflicting"])
+def test_continuation_normalizes_shared_option_labels(content):
+    from practiq_ai.graphs.chunking import SourceQuestionConflict
+
+    parents = [ParsedQuestion(id="page:0:bank", stem="Word bank", answerMode="word_bank",
+                              options=[ParsedOption(label=label, content=value)])
+               for label, value in [("A", "First"), (" a ", content)]]
+    sources = [QuestionSource(questionIndex=i, stage="vision_parse", unitIndex=i) for i in range(2)]
+    if content == "Conflicting":
+        with pytest.raises(SourceQuestionConflict, match="shared option") as caught:
+            finalize_question_ids(parents, [], [], sources, DocumentQuality())
+        assert caught.value.question_index == 1
+    else:
+        merged = finalize_question_ids(parents, [], [], sources, DocumentQuality())
+        assert merged[0].options == [ParsedOption(label="A", content="First")]
