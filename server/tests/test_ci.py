@@ -13,6 +13,46 @@ import pytest
 import yaml
 
 
+def test_dependency_maintenance_covers_locked_manifests_and_bounded_queues():
+    root = Path(__file__).resolve().parents[2]
+    updates = yaml.safe_load((root / ".github/dependabot.yml").read_text())["updates"]
+    expected = {
+        ("github-actions", "/"): ".github/workflows/server.yml",
+        ("npm", "/app"): "app/package-lock.json",
+        ("npm", "/web"): "web/package-lock.json",
+        ("cargo", "/app/src-tauri"): "app/src-tauri/Cargo.lock",
+        ("gradle", "/app/src-tauri/gen/android"): "app/src-tauri/gen/android/build.gradle.kts",
+    }
+    assert {(item["package-ecosystem"], item["directory"]) for item in updates} == expected.keys()
+    assert len(updates) == len(expected)
+    for item in updates:
+        assert (root / expected[item["package-ecosystem"], item["directory"]]).is_file()
+        assert item["schedule"]["interval"] == "weekly"
+        assert item["open-pull-requests-limit"] == (2 if item["package-ecosystem"] == "github-actions" else 1)
+        assert "ignore" not in item
+    policy = (root / "SECURITY.md").read_text()
+    assert "uv 0.12.13" in policy and "build-constraint-dependencies" in policy
+    assert "at least monthly" in policy
+
+
+@pytest.mark.parametrize("exit_code", [0, 9])
+def test_web_audit_step_preserves_failing_exit_status(tmp_path, exit_code):
+    root = Path(__file__).resolve().parents[2]
+    workflow = yaml.load((root / ".github/workflows/server.yml").read_text(), Loader=yaml.BaseLoader)
+    steps = workflow["jobs"]["quality"]["steps"]
+    audits = [step for step in steps if "npm" in step.get("run", "") and "audit" in step["run"]]
+    assert len(audits) == 1
+    audit, = audits
+    assert "continue-on-error" not in audit and "if" not in audit
+    npm = tmp_path / "npm"
+    npm.write_text(f"#!{sys.executable}\nimport sys\nassert sys.argv[1:] == ['--prefix', 'web', 'audit', '--audit-level=high']\nsys.exit({exit_code})\n")
+    npm.chmod(0o755)
+    result = subprocess.run(audit["run"], shell=True, cwd=root,
+                            env={**os.environ, "PATH": f"{tmp_path}{os.pathsep}{os.environ['PATH']}"},
+                            capture_output=True, text=True, check=False)
+    assert result.returncode == exit_code, result.stdout + result.stderr
+
+
 @pytest.mark.parametrize("failure", ["", "lock", "tests", "combine", "coverage", "probes"])
 def test_verify_keeps_reports_without_hiding_failures(tmp_path, failure):
     shutil.copyfile(Path(__file__).resolve().parents[2] / "Makefile", tmp_path / "Makefile")

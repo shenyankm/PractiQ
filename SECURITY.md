@@ -67,10 +67,36 @@ updating only the direct renderer can leave an affected nested dependency.
 
 GitHub Dependabot security updates, secret scanning and push protection are
 enabled for this repository. [Dependabot configuration](.github/dependabot.yml)
-also groups weekly GitHub Actions version updates; it does not automatically
-merge them or update Python, npm or Cargo versions. Workflow Actions use full
-commit SHAs. Review upstream changes and run the affected checks before merging
-dependency updates.
+also schedules weekly version updates for GitHub Actions, App/Web npm, Cargo
+and the Android Gradle host. Actions retain a two-PR queue; each other manifest
+has a one-PR queue. These limits apply to version updates, not security updates.
+There is no automatic merge. Workflow Actions use full commit SHAs. Review
+upstream changes and run the affected checks before merging dependency updates.
+
+The maintainer reviews updater failures and uncovered dependencies at least
+monthly during active maintenance and before each release. GitHub's
+[supported ecosystem reference](https://docs.github.com/en/code-security/reference/supply-chain-security/supported-ecosystems-and-repositories)
+currently documents uv 0.11; this repository pins uv 0.12.13. Until an updater
+has been verified against this locked project, Python uses the manual route:
+review runtime/dev pins, `[build-system].requires` and
+`[tool.uv].build-constraint-dependencies` in `server/pyproject.toml`, update the
+intended constraints together, regenerate `server/uv.lock` with the pinned uv
+and Python 3.14+, then run `make install-locked`, `make verify` and `make audit`.
+Do not substitute a pip updater that leaves `uv.lock` inconsistent. Record
+retained pins or upstream blockers in the focused update PR.
+
+App and Web npm updates must keep KaTeX and its nested renderers synchronized
+across both manifests and lockfiles; extend a bot PR to both projects when
+necessary. Both owning CI quality jobs run `npm audit --audit-level=high` with
+failing exit status. Cargo updates retain the complete lockfile audit and all
+supported-target graph checks described above. Gradle proposals still require
+dependency-lock regeneration, wrapper checksum/provenance verification, exact
+Android runtime notices and actual Android build/unit/instrumentation checks.
+Review Gradle transitive dependencies manually: automatic security remediation
+is limited without submitted dependency-graph data. Also review the pinned Rust,
+Node, Java, uv, Android SDK/NDK and deployed Office toolchain versions manually;
+these are not covered by the five version-update entries. A successful audit
+today does not establish future cleanliness or replace notice/source review.
 
 Android access tokens use Keystore-backed encryption and private no-backup storage; automatic Android backups are disabled. User-selected exports exclude credentials. The private credential/file-descriptor bridge rejects frontend invocation. See the [Android guide](app/docs/android.md) for native checks and supported targets.
 Changing the independently deployed LibreOffice engine requires version, checksum, license and Office fidelity verification in that deployment. Desktop package checks must reject embedded Python and LibreOffice engines. Dependency auditing does not establish license
