@@ -1,6 +1,8 @@
 import re
 from typing import Any, TypedDict
 
+from pydantic import ValidationError
+
 from ..contracts import (
     DocumentQuality,
     ParsedGroup,
@@ -281,7 +283,10 @@ def finalize_question_ids(questions, groups, visuals, sources, quality):
                     setattr(target, field, value)
             target.needsReview |= question.needsReview
             target.missingFields = list(dict.fromkeys([*target.missingFields, *question.missingFields]))
-            ParsedQuestion.model_validate(target.model_dump())
+            try:
+                ParsedQuestion.model_validate(target.model_dump())
+            except ValidationError as exc:
+                raise SourceQuestionConflict("Composite continuation violates question constraints", index) from exc
             index_map[index] = prior
         else:
             index_map[index] = len(retained)

@@ -128,3 +128,19 @@ def test_continuation_normalizes_shared_option_labels(content):
     else:
         merged = finalize_question_ids(parents, [], [], sources, DocumentQuality())
         assert merged[0].options == [ParsedOption(label="A", content="First")]
+
+
+def test_options_added_by_continuation_report_invalid_earlier_child():
+    from practiq_ai.graphs.chunking import SourceQuestionConflict
+
+    questions = [
+        ParsedQuestion(id="page:0:bank", stem="Bank", answerMode="word_bank"),
+        ParsedQuestion(id="child", parentId="page:0:bank", optionSourceId="page:0:bank",
+                       stem="Choose", answerMode="choice", choiceVariant="single", answerPayload={"correct": ["C"]}),
+        ParsedQuestion(id="page:0:bank", stem="Bank", answerMode="word_bank", options=[ParsedOption(label="A", content="First")]),
+    ]
+    sources = [QuestionSource(questionIndex=i, stage="vision_parse", unitIndex=int(i == 2)) for i in range(3)]
+    with pytest.raises(SourceQuestionConflict, match="supplied option labels") as caught:
+        finalize_question_ids(questions, [], [], sources, DocumentQuality())
+    assert caught.value.question_index == 1
+    assert [source.unitIndex for source in sources if source.questionIndex == caught.value.question_index] == [0]
