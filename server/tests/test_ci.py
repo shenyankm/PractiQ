@@ -380,47 +380,69 @@ def test_workflows_deduplicate_common_checks_without_dropping_native_gates():
     root = Path(__file__).resolve().parents[2]
     workflows = {
         name: yaml.load((root / f".github/workflows/{name}.yml").read_text(), Loader=yaml.BaseLoader)
-        for name in ("desktop", "server", "android")
+        for name in ("app", "server")
     }
+    assert not (root / ".github/workflows/desktop.yml").exists()
+    assert not (root / ".github/workflows/android.yml").exists()
     native_regressions, = (
-        step for step in workflows["desktop"]["jobs"]["quality"]["steps"]
+        step for step in workflows["app"]["jobs"]["quality"]["steps"]
         if "python -m pytest server/tests/test_ci.py" in step.get("run", "")
     )
     assert native_regressions["env"]["PRACTIQ_REQUIRE_NATIVE_BUILD_GUARD"] == "1"
+    gates = set()
     for name, workflow in workflows.items():
         for job in workflow["jobs"].values():
             for step in job["steps"]:
                 if "uses" in step:
                     assert re.fullmatch(r"[^@]+@[0-9a-f]{40}", step["uses"]), step["uses"]
         assert workflow["on"]["push"]["branches"] == ["main"]
-        assert not workflow["on"]["pull_request"]  # Every PR receives a final check, including documentation.
+        assert not workflow["on"]["pull_request"]
         assert "paths" not in workflow["on"]["push"]
         assert workflow["permissions"] == {"contents": "read"}
-        scope = "service" if name == "server" else name
+        scope = "service" if name == "server" else "desktop"
         jobs = workflow["jobs"]
-        quality, changes, gate = (jobs[key] for key in ("quality", "changes", "gate"))
-        assert quality["name"] == f"{scope.title()} quality"
+        quality, changes = (jobs[key] for key in ("quality", "changes"))
+        assert quality["name"] == ("Service quality" if name == "server" else "App quality")
         assert quality["needs"] == "changes"
         assert quality["if"] == "needs.changes.outputs.required == 'true'"
         assert changes["permissions"] == {"contents": "read", "pull-requests": "read"}
         assert changes["outputs"]["required"] == "${{ steps.scope.outputs.required }}"
         selector = next(step for step in changes["steps"] if step.get("id") == "scope")
         assert selector["run"] == f"python server/scripts/ci_scope.py scope {scope}"
-        assert gate["name"] == f"{scope.title()} CI" and gate["if"] == "${{ always() }}"
-        assert gate["needs"] == ["changes", "quality"] + (["package", "emulator"] if name == "android" else ["package"] if name == "desktop" else [])
-        gate_step = next(step for step in gate["steps"] if "run" in step)
-        assert gate_step["run"] == f"python server/scripts/ci_scope.py gate {scope}"
-        assert gate_step["env"]["NEEDS"] == "${{ toJSON(needs) }}"
-
+        for gate_scope, gate_key, dependencies in (
+            [("service", "gate", [])] if name == "server" else
+            [("desktop", "desktop-gate", ["package"]), ("android", "android-gate", ["android-package", "emulator"])]
+        ):
+            gate = jobs[gate_key]
+            assert gate["name"] == f"{gate_scope.title()} CI" and gate["if"] == "${{ always() }}"
+            gates.add(gate["name"])
+            assert gate["needs"] == ["changes", "quality", *dependencies]
+            gate_step = next(step for step in gate["steps"] if "run" in step)
+            assert gate_step["run"] == f"python server/scripts/ci_scope.py gate {gate_scope}"
+            assert gate_step["env"]["NEEDS"] == "${{ toJSON(needs) }}"
+    app = workflows["app"]["jobs"]
+    assert app["changes"]["outputs"]["sha"] == "${{ steps.source.outputs.sha }}"
+    source = next(step for step in app["changes"]["steps"] if step.get("id") == "source")
+    assert 'git rev-parse HEAD' in source["run"] and 'GITHUB_OUTPUT' in source["run"]
+    for key, job in app.items():
+        checkout, = (step for step in job["steps"] if step.get("uses", "").startswith("actions/checkout@"))
+        assert checkout["with"]["ref"] == ("${{ inputs.ref || github.sha }}" if key == "changes" else "${{ needs.changes.outputs.sha }}")
+        if key != "changes":
+            assert "changes" in job["needs"]
+    # One scheduler per event/revision; no separate caller starts common checks again.
+    for file in (root / ".github/workflows").glob("*.yml"):
+        workflow = yaml.load(file.read_text(), Loader=yaml.BaseLoader)
+        for job in workflow["jobs"].values():
+            for step in job.get("steps", []):
+                if "npm run check:ui" in step.get("run", ""):
+                    assert file.name == "app.yml" and job["name"] == "App quality"
     ruleset = json.loads((root / ".github/main-ruleset.json").read_text())
     required_checks = next(rule["parameters"]["required_status_checks"]
                            for rule in ruleset["rules"] if rule["type"] == "required_status_checks")
-    assert {check["context"] for check in required_checks} == {
-        workflow["jobs"]["gate"]["name"] for workflow in workflows.values()
-    }
+    assert {check["context"] for check in required_checks} == gates
     assert all(check["integration_id"] == 15368 for check in required_checks)
 
-    jobs = workflows["desktop"]["jobs"]
+    jobs = workflows["app"]["jobs"]
     quality, package = jobs["quality"], jobs["package"]
     assert quality["runs-on"].startswith("ubuntu-")
     assert package["needs"] == ["changes", "quality"]
@@ -438,7 +460,7 @@ def test_workflows_deduplicate_common_checks_without_dropping_native_gates():
         step["with"]["name"]: step
         for step in quality["steps"] if step.get("uses", "").startswith("actions/upload-artifact@")
     }
-    for name, path in (("desktop-browser", "app/test-results/browser/"), ("desktop-coverage", "coverage/app/")):
+    for name, path in (("app-browser", "app/test-results/browser/"), ("app-coverage", "coverage/app/")):
         upload = quality_uploads[name]
         assert upload["if"] == "${{ always() }}"
         assert upload["with"]["path"] == path
@@ -485,9 +507,9 @@ def test_service_web_upload_covers_configured_nonhidden_report_outputs():
 
 def test_android_ci_uses_the_actual_apk_runtime_and_emulator_not_linux_application():
     root = Path(__file__).resolve().parents[2]
-    workflow = yaml.load((root / ".github/workflows/android.yml").read_text(), Loader=yaml.BaseLoader)
+    workflow = yaml.load((root / ".github/workflows/app.yml").read_text(), Loader=yaml.BaseLoader)
     jobs = workflow["jobs"]
-    for name in ("package", "emulator"):
+    for name in ("android-package", "emulator"):
         job = jobs[name]
         assert job["needs"] == ["changes", "quality"]
         commands = "\n".join(step.get("run", "") for step in job["steps"])

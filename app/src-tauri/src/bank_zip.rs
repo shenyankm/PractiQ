@@ -15,6 +15,7 @@ use zip::{write::SimpleFileOptions, ZipArchive, ZipWriter};
 pub(crate) const ZIP_LIMIT: u64 = 300 * 1024 * 1024;
 const IMAGE_LIMIT: usize = 256 * 1024 * 1024;
 const MANIFEST_LIMIT: usize = 64 * 1024;
+const ENTRY_LIMIT: usize = 2002;
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct Manifest {
@@ -132,7 +133,7 @@ impl Store {
             return Err(error("ZIP exceeds 300 MiB"));
         }
         let mut archive = ZipArchive::new(file).map_err(error)?;
-        if archive.len() > 2002 {
+        if archive.len() > ENTRY_LIMIT {
             return Err(error("Too many ZIP entries"));
         }
         let mut names = HashSet::new();
@@ -283,6 +284,9 @@ impl Store {
         let bytes = serde_json::to_vec(&root).map_err(error)?;
         contract::parse(&bytes)?;
         let refs = references(&root)?;
+        if refs.len() + 2 > ENTRY_LIMIT {
+            return Err(error("Too many ZIP entries"));
+        }
         let manifest = serde_json::to_vec(&Manifest {
             format: "practiq-question-bank".into(),
             version: 2,
@@ -346,6 +350,99 @@ impl Store {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn appended_packages_enforce_the_export_entry_limit_and_round_trip() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut store = Store::new(dir.path().join("source")).unwrap();
+        let image = include_bytes!("../../fixtures/rich-content/resources/chart.png");
+        let audio = include_bytes!("../../fixtures/resources/audio/chimes.wav");
+        let sample: Value =
+            serde_json::from_slice(include_bytes!("../../fixtures/sample.json")).unwrap();
+        let english: Value =
+            serde_json::from_slice(include_bytes!("../../fixtures/english.json")).unwrap();
+        let mut bank = None;
+        for part in 0..3 {
+            let mut question = if part < 2 {
+                sample["questions"][0].clone()
+            } else {
+                list(&english, "questions")
+                    .iter()
+                    .find(|q| q["id"] == "listen")
+                    .unwrap()
+                    .clone()
+            };
+            question["id"] = json!(format!("q{part}"));
+            let mut resources = Vec::new();
+            let mut reference = |key: String, bytes: &[u8], media: &str| {
+                resources.push((format!("resources/{key}"), bytes.to_vec()));
+                json!({"objectKey":key,"sha256":store::hash(bytes),"mediaType":media,"sizeBytes":bytes.len()})
+            };
+            let visuals = if part < 2 {
+                (0..500).map(|index| json!({
+                "kind":"image","description":"Synthetic source image","questionIds":[format!("q{part}")],
+                "imageRef":reference(format!("images/{part}-{index}.png"),image,"image/png"),
+                "sourceRef":reference(format!("pages/{part}-{index}.png"),image,"image/png")
+            })).collect::<Vec<_>>()
+            } else {
+                question["audioRef"] = reference("audio/chimes.wav".into(), audio, "audio/wav");
+                vec![]
+            };
+            let root = json!({"schemaVersion":3,"questions":[question],"groups":[],"visualElements":visuals,"warnings":[],"confidenceScore":100});
+            contract::parse(&serde_json::to_vec(&root).unwrap()).unwrap();
+            let package = dir.path().join(format!("part-{part}.zip"));
+            let mut zip = ZipWriter::new(fs::File::create(&package).unwrap());
+            let options =
+                SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+            for (name, bytes) in [
+                ("manifest.json", serde_json::to_vec(&json!({"format":"practiq-question-bank","version":2,"bank":{"title":"Entry limit","description":"Synthetic fixture"}})).unwrap()),
+                ("questions.json", serde_json::to_vec(&root).unwrap()),
+            ] {
+                zip.start_file(name, options).unwrap();
+                zip.write_all(&bytes).unwrap();
+            }
+            for (name, bytes) in resources {
+                zip.start_file(name, options).unwrap();
+                zip.write_all(&bytes).unwrap();
+            }
+            zip.finish().unwrap();
+            let preview = store.preview_bank_zip(&package).unwrap();
+            let imported = store
+                .import(text(&preview, "ticket"), bank.clone(), "Entry limit")
+                .unwrap();
+            bank = Some(text(&imported, "bankId").to_owned());
+            if part == 1 {
+                let exported = dir.path().join("allowed.zip");
+                store
+                    .export_bank(bank.as_deref().unwrap(), &exported)
+                    .unwrap();
+                assert_eq!(
+                    ZipArchive::new(fs::File::open(&exported).unwrap())
+                        .unwrap()
+                        .len(),
+                    2002
+                );
+                let mut fresh = Store::new(dir.path().join("fresh")).unwrap();
+                let preview = fresh.preview_bank_zip(&exported).unwrap();
+                fresh
+                    .import(text(&preview, "ticket"), None, "Round trip")
+                    .unwrap();
+                assert_eq!(fresh.question_rows().unwrap().len(), 2);
+            }
+        }
+        let rejected = dir.path().join("rejected.zip");
+        let failure = store
+            .export_bank(bank.as_deref().unwrap(), &rejected)
+            .unwrap_err();
+        assert_eq!(failure.code, "LOCAL_BANK_ZIP_INVALID");
+        assert!(failure.to_string().contains("Too many ZIP entries"));
+        assert!(!rejected.exists());
+        let existing = dir.path().join("allowed.zip");
+        let previous = fs::read(&existing).unwrap();
+        assert!(store
+            .export_bank(bank.as_deref().unwrap(), &existing)
+            .is_err());
+        assert_eq!(fs::read(existing).unwrap(), previous);
+    }
     fn sample_store() -> (tempfile::TempDir, Store, String) {
         let dir = tempfile::tempdir().unwrap();
         let mut s = Store::new(dir.path().into()).unwrap();
