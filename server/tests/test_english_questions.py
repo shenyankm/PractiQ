@@ -10,7 +10,7 @@ from practiq_ai.contracts import (
     ParsedQuestion,
     QuestionSource,
 )
-from practiq_ai.graphs.chunking import finalize_question_ids
+from practiq_ai.graphs.chunking import SourceQuestionConflict, finalize_question_ids
 from tests.support import run_config, setup_graph
 
 FIXTURE = Path(__file__).resolve().parents[2] / 'app/fixtures/english.json'
@@ -94,5 +94,6 @@ def test_listening_continuation_preserves_transcript_and_rejects_metadata_confli
     qs = fragments()
     qs[0].audioEndSeconds = 1
     qs[1].audioStartSeconds = 2
-    with pytest.raises(ValueError, match='audio end must be after start'):
+    with pytest.raises(SourceQuestionConflict, match='question constraints') as caught:
         finalize_question_ids(qs, [], [], sources, DocumentQuality())
+    assert caught.value.question_index == 1
