@@ -329,6 +329,11 @@ impl Store {
                 if total > IMAGE_LIMIT {
                     return Err(error("Resources exceed 256 MiB"));
                 }
+                let options = if reference["mediaType"] == "audio/wav" {
+                    options
+                } else {
+                    options.compression_method(zip::CompressionMethod::Stored)
+                };
                 zip.start_file(name, options).map_err(error)?;
                 zip.write_all(&data).map_err(error)?;
             }
@@ -678,6 +683,49 @@ mod tests {
         store
             .export_bank(text(&result, "bankId"), &exported)
             .unwrap();
+        let backup = dir.path().join("example-backup.zip");
+        store.backup(&backup).unwrap();
+        for (path, full_backup) in [(&exported, false), (&backup, true)] {
+            let mut archive = ZipArchive::new(fs::File::open(path).unwrap()).unwrap();
+            let manifest: Value = serde_json::from_reader(
+                archive
+                    .by_name(if full_backup {
+                        "manifest.json"
+                    } else {
+                        "questions.json"
+                    })
+                    .unwrap(),
+            )
+            .unwrap();
+            let references: Vec<_> = if full_backup {
+                list(&manifest, "assets").iter().collect()
+            } else {
+                contract::resource_refs(contract::result(&manifest)).collect()
+            };
+            for reference in references {
+                let name = if full_backup {
+                    text(reference, "file").to_owned()
+                } else {
+                    format!("resources/{}", text(reference, "objectKey"))
+                };
+                let mut entry = archive.by_name(&name).unwrap();
+                assert_eq!(
+                    entry.compression(),
+                    if reference["mediaType"] == "audio/wav" {
+                        zip::CompressionMethod::Deflated
+                    } else {
+                        zip::CompressionMethod::Stored
+                    }
+                );
+                let mut bytes = Vec::new();
+                entry.read_to_end(&mut bytes).unwrap();
+                assert_eq!(store::hash(&bytes), text(reference, "sha256"));
+                assert!(crate::audio::valid_media(
+                    &bytes,
+                    text(reference, "mediaType")
+                ));
+            }
+        }
         let preview = store.preview_bank_zip(&exported).unwrap();
         assert!(list(&preview, "missingAssets").is_empty());
         assert_eq!(list(&preview, "questions").len(), 26);
