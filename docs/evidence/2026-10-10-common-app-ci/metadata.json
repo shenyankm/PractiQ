@@ -25,5 +25,11 @@
     "Full sources differ by CI changes and previously merged #197; recorded App/frontend inputs are identical.",
     "Native package/emulator completion is tracked by separate PR gates; these files record successful common quality jobs only.",
     "Prior documentation-only push runs skipped heavy work and are excluded."
-  ]
+  ],
+  "candidateCheckoutSha": "c72e9f0ca46a741d86976d196f490c7c7f8e6a91",
+  "candidateExecutedTests": {
+    "frontend": 372,
+    "browser": 61
+  },
+  "checkoutEvidence": "Successful App quality checkout log at 2026-10-10T10:04:19Z; PR merge SHA differs from API head SHA."
 }
