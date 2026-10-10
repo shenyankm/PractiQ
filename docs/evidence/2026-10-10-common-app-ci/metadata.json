@@ -1,0 +1,29 @@
+{
+  "sourceBaseline": "628f776a382a7f157b283121ad7147059a557cf9",
+  "sourceCandidate": "2bd710a5b0c8beff8a0e370400f17ed9811fbb71",
+  "applicationInputPaths": [
+    "app/src",
+    "app/fixtures",
+    "app/package.json",
+    "app/package-lock.json",
+    "app/playwright.config.mjs",
+    "app/vite.config.ts",
+    "app/scripts/export-contracts.py",
+    "app/scripts/check-fixtures.py",
+    "app/src-tauri/contracts.json"
+  ],
+  "applicationInputManifestSha256": "bfb4b06597acb817fdcb6d4cfb07cef566ce12b68c9b590e93328a5f23cbe17a",
+  "observations": {
+    "baselineQualityJobs": 2,
+    "candidateQualityJobs": 1,
+    "baselineRunnerSeconds": 863,
+    "candidateRunnerSeconds": 511
+  },
+  "limitations": [
+    "One paired hosted observation; wall time, not CPU/billed time.",
+    "Baseline runners ubuntu-22.04 (Desktop) and ubuntu-24.04 (Android); candidate ubuntu-22.04, two UI workers.",
+    "Full sources differ by CI changes and previously merged #197; recorded App/frontend inputs are identical.",
+    "Native package/emulator completion is tracked by separate PR gates; these files record successful common quality jobs only.",
+    "Prior documentation-only push runs skipped heavy work and are excluded."
+  ]
+}
