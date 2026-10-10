@@ -2,12 +2,21 @@
 import { createRequire } from "node:module";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { act, cleanup, render, screen } from "@testing-library/react";
-import { Content } from "./Content";
-import { api, type Snapshot } from "./api";
+import { Blocks, Content } from "./Content";
+import { api, type Block, type Snapshot } from "./api";
 import fixture from "../fixtures/rich-content/expected.json";
+import htmlBlocks from "../fixtures/rich-content/html-blocks.json";
 vi.mock("./api", () => ({api: vi.fn()}));
 beforeEach(() => { vi.mocked(api).mockReset().mockRejectedValue(new Error("missing asset")); });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+it("retains all distinct HTML source fields as escaped text without activating markup", () => {
+  const { container } = render(<Blocks blocks={htmlBlocks as Block[]} />);
+  for (const value of new Set(htmlBlocks.flatMap(block => [block.textValue, block.markdownValue]))) {
+    expect(screen.getByText(value).tagName).toBe("PRE");
+  }
+  expect(container.querySelectorAll("pre")).toHaveLength(3);
+  expect(container.querySelector("script,img,table,a")).toBeNull();
+});
 it("renders matrices, aligned integrals, cases and every table cell without losing mixed content", async () => {
   const snapshot = {question: fixture.questions[0], groups: [], sources: [], warnings: [], missingAssets: false,
     visuals: [{...fixture.visualElements[0], extractedText: fixture.questions[0].contentBlocks.at(-1)?.markdownValue, id: "v", questionIds: ["q"]}]} as unknown as Snapshot;

@@ -466,7 +466,7 @@ Sources: `selected_rows` in [paper.rs](../app/src-tauri/src/paper.rs), `Index.hy
 
 `Content.tsx` uses `react-markdown`, GFM, math plugins, and KaTeX. Markdown tables/lists and inline/display formulas render. `Blocks` wraps `latexValue` as display math and renders `markdownValue` plus a distinct `textValue`. `jsonValue` is shown as formatted JSON in a `<pre>`.
 
-A `partType` is not necessarily a specialized renderer. Tables need renderable content such as Markdown; charts, diagrams, and QR codes do not automatically generate charts or scan codes. Raw HTML is skipped, Markdown image URLs become descriptive placeholders, and links display as underlined text rather than opening remote URLs. KaTeX uses `trust:false`.
+A `partType` is not necessarily a specialized renderer. Tables need renderable content such as Markdown; charts, diagrams, and QR codes do not automatically generate charts or scan codes. HTML blocks display their distinct supplied text/Markdown fields as escaped source text in both App and Web; embedded markup, scripts and external resources remain inactive. Raw HTML inside ordinary Markdown is skipped, Markdown image URLs become descriptive placeholders, and links display as underlined text rather than opening remote URLs. KaTeX uses `trust:false`.
 
 Actual images are rendered by `ImageAsset`, which reads local bytes with the native `asset` command using `Visual.imageRef.sha256`, creates a Blob URL, and displays a thumbnail and scrollable zoom dialog. URLs are released on cleanup. Complete source pages use a separate “查看原页” control and load on demand only when viewing is permitted. Missing assets display a notice; they are not fetched from the internet.
 

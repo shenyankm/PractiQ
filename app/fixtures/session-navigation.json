@@ -1,0 +1,606 @@
+{
+  "baseline": {
+    "attemptKey": "8caf1fe4e6b084ba105974490a26c2098fc123a80999f6d6b693517fb803edef",
+    "attempts": [
+      {
+        "answer": null,
+        "autoResult": null,
+        "earnedCents": null,
+        "elapsedMs": 0,
+        "favorite": false,
+        "flagged": false,
+        "gradeKind": "ungraded",
+        "grading": {},
+        "maxCents": null,
+        "ordinal": 0,
+        "result": null,
+        "skipped": true,
+        "snapshot": {
+          "bankId": "b848fa7a-6249-41d1-852e-a93741114e96",
+          "bankTitle": "示例题库",
+          "favorite": false,
+          "id": "1c2bea6d-094d-475e-a39c-872079e7dc5c",
+          "latestResult": null,
+          "materials": [],
+          "missingAssets": false,
+          "question": {
+            "allowReuse": false,
+            "analysis": "2 只有 1 和自身两个正因数。",
+            "answerMode": "choice",
+            "answerPayload": {
+              "correct": [
+                "A"
+              ]
+            },
+            "blankCount": null,
+            "choiceVariant": "single",
+            "confidence": 1.0,
+            "contentBlocks": [
+              {
+                "jsonValue": null,
+                "latexValue": "2 + 2 = 4",
+                "markdownValue": null,
+                "partType": "formula",
+                "role": null,
+                "textValue": null
+              },
+              {
+                "jsonValue": null,
+                "latexValue": null,
+                "markdownValue": "| 数字 | 是否质数 |\n| --- | --- |\n| 2 | 是 |\n| 4 | 否 |",
+                "partType": "table",
+                "role": null,
+                "textValue": null
+              }
+            ],
+            "id": "1c2bea6d-094d-475e-a39c-872079e7dc5c",
+            "instructions": null,
+            "items": [],
+            "matchingVariant": null,
+            "missingFields": [],
+            "needsReview": false,
+            "optionSourceId": null,
+            "options": [
+              {
+                "content": "2",
+                "label": "A"
+              },
+              {
+                "content": "4",
+                "label": "B"
+              }
+            ],
+            "parentId": null,
+            "passage": [],
+            "questionKind": null,
+            "questionTypeId": "单选题",
+            "scoreSourceText": null,
+            "scoringRubric": null,
+            "sourceScore": null,
+            "sourceText": "下面哪一个是质数？ A.2 B.4 答案 A",
+            "stem": "下面哪一个是质数？"
+          },
+          "rootId": "1c2bea6d-094d-475e-a39c-872079e7dc5c",
+          "rootType": "single",
+          "snapshotRefs": {
+            "groups": [
+              0
+            ],
+            "warnings": 1
+          },
+          "sources": [],
+          "visuals": [],
+          "warnings": null
+        },
+        "submittedAt": 1791621655389
+      },
+      {
+        "answer": null,
+        "autoResult": null,
+        "earnedCents": null,
+        "elapsedMs": 0,
+        "favorite": false,
+        "flagged": false,
+        "gradeKind": "ungraded",
+        "grading": {},
+        "maxCents": null,
+        "ordinal": 1,
+        "result": null,
+        "skipped": true,
+        "snapshot": {
+          "bankId": "b848fa7a-6249-41d1-852e-a93741114e96",
+          "bankTitle": "示例题库",
+          "favorite": false,
+          "id": "e0f95b14-00fc-4dd7-9822-3f49def135ce",
+          "latestResult": null,
+          "materials": [],
+          "missingAssets": false,
+          "question": {
+            "allowReuse": false,
+            "analysis": "这是用于验证应用的人工编写示例。",
+            "answerMode": "choice",
+            "answerPayload": {
+              "correct": [
+                "A",
+                "C"
+              ]
+            },
+            "blankCount": null,
+            "choiceVariant": "multiple",
+            "confidence": 1.0,
+            "contentBlocks": [],
+            "id": "e0f95b14-00fc-4dd7-9822-3f49def135ce",
+            "instructions": null,
+            "items": [],
+            "matchingVariant": null,
+            "missingFields": [],
+            "needsReview": false,
+            "optionSourceId": null,
+            "options": [
+              {
+                "content": "2",
+                "label": "A"
+              },
+              {
+                "content": "3",
+                "label": "B"
+              },
+              {
+                "content": "4",
+                "label": "C"
+              }
+            ],
+            "parentId": null,
+            "passage": [],
+            "questionKind": null,
+            "questionTypeId": "choice",
+            "scoreSourceText": null,
+            "scoringRubric": null,
+            "sourceScore": null,
+            "sourceText": "请选择偶数。",
+            "stem": "请选择偶数。"
+          },
+          "rootId": "e0f95b14-00fc-4dd7-9822-3f49def135ce",
+          "rootType": "multiple",
+          "snapshotRefs": {
+            "groups": [
+              0
+            ],
+            "warnings": 2
+          },
+          "sources": [],
+          "visuals": [],
+          "warnings": null
+        },
+        "submittedAt": 1791621655389
+      },
+      {
+        "answer": null,
+        "autoResult": null,
+        "earnedCents": null,
+        "elapsedMs": 0,
+        "favorite": false,
+        "flagged": false,
+        "gradeKind": "ungraded",
+        "grading": {},
+        "maxCents": null,
+        "ordinal": 2,
+        "result": null,
+        "skipped": true,
+        "snapshot": {
+          "bankId": "b848fa7a-6249-41d1-852e-a93741114e96",
+          "bankTitle": "示例题库",
+          "favorite": false,
+          "id": "d9675129-844f-4fdb-88f5-7ce6b509228d",
+          "latestResult": null,
+          "materials": [],
+          "missingAssets": false,
+          "question": {
+            "allowReuse": false,
+            "analysis": "这是用于验证应用的人工编写示例。",
+            "answerMode": "true_false",
+            "answerPayload": {
+              "value": true
+            },
+            "blankCount": null,
+            "choiceVariant": null,
+            "confidence": 1.0,
+            "contentBlocks": [],
+            "id": "d9675129-844f-4fdb-88f5-7ce6b509228d",
+            "instructions": null,
+            "items": [],
+            "matchingVariant": null,
+            "missingFields": [],
+            "needsReview": false,
+            "optionSourceId": null,
+            "options": [],
+            "parentId": null,
+            "passage": [],
+            "questionKind": null,
+            "questionTypeId": "true_false",
+            "scoreSourceText": null,
+            "scoringRubric": null,
+            "sourceScore": null,
+            "sourceText": "地球围绕太阳公转。",
+            "stem": "地球围绕太阳公转。"
+          },
+          "rootId": "d9675129-844f-4fdb-88f5-7ce6b509228d",
+          "rootType": "true_false",
+          "snapshotRefs": {
+            "groups": [
+              0
+            ],
+            "warnings": 3
+          },
+          "sources": [],
+          "visuals": [],
+          "warnings": null
+        },
+        "submittedAt": 1791621655389
+      }
+    ],
+    "bankIds": [
+      "b848fa7a-6249-41d1-852e-a93741114e96"
+    ],
+    "createdAt": 1791621655384,
+    "deadlineAt": null,
+    "finishedAt": 1791621655390,
+    "id": "648aa28f-e775-4348-b088-e0d9ce43677e",
+    "kind": "practice",
+    "mode": "ordered",
+    "position": 0,
+    "snapshotDocument": [
+      {
+        "id": "766a076c-8be5-4065-a446-f22101f65529",
+        "instructions": "阅读各题并按要求作答。",
+        "questionIds": [
+          "1c2bea6d-094d-475e-a39c-872079e7dc5c",
+          "d9675129-844f-4fdb-88f5-7ce6b509228d",
+          "e0f95b14-00fc-4dd7-9822-3f49def135ce"
+        ],
+        "title": "基础知识练习"
+      },
+      [
+        "本文件是人工编写的应用验收样例，不代表模型准确率。"
+      ],
+      [
+        "本文件是人工编写的应用验收样例，不代表模型准确率。"
+      ],
+      [
+        "本文件是人工编写的应用验收样例，不代表模型准确率。"
+      ]
+    ],
+    "snapshotKey": "19d5acbe1016d716ea190188f303342f098a423a7c0ece10a7ad56dbc10b0ebd",
+    "submittedAt": null,
+    "title": "示例题库 · 练习 · 3 题"
+  },
+  "empty": {
+    "attemptCount": 3,
+    "attemptKey": "8caf1fe4e6b084ba105974490a26c2098fc123a80999f6d6b693517fb803edef",
+    "attempts": [],
+    "attemptsBase": "8caf1fe4e6b084ba105974490a26c2098fc123a80999f6d6b693517fb803edef",
+    "bankIds": [
+      "b848fa7a-6249-41d1-852e-a93741114e96"
+    ],
+    "createdAt": 1791621655384,
+    "deadlineAt": null,
+    "finishedAt": 1791621655390,
+    "id": "648aa28f-e775-4348-b088-e0d9ce43677e",
+    "kind": "practice",
+    "mode": "ordered",
+    "position": 1,
+    "snapshotKey": "19d5acbe1016d716ea190188f303342f098a423a7c0ece10a7ad56dbc10b0ebd",
+    "submittedAt": null,
+    "title": "示例题库 · 练习 · 3 题"
+  },
+  "full": {
+    "attemptKey": "dfaef5827d5c04a46f0d82f5b794f27c15f3cd8916cf0c65c19bf6475be603b7",
+    "attempts": [
+      {
+        "answer": null,
+        "autoResult": null,
+        "earnedCents": null,
+        "elapsedMs": 0,
+        "favorite": false,
+        "flagged": false,
+        "gradeKind": "ungraded",
+        "grading": {},
+        "maxCents": null,
+        "ordinal": 0,
+        "result": null,
+        "skipped": true,
+        "snapshot": {
+          "bankId": "b848fa7a-6249-41d1-852e-a93741114e96",
+          "bankTitle": "示例题库",
+          "favorite": false,
+          "id": "1c2bea6d-094d-475e-a39c-872079e7dc5c",
+          "latestResult": null,
+          "materials": [],
+          "missingAssets": false,
+          "question": {
+            "allowReuse": false,
+            "analysis": "2 只有 1 和自身两个正因数。",
+            "answerMode": "choice",
+            "answerPayload": {
+              "correct": [
+                "A"
+              ]
+            },
+            "blankCount": null,
+            "choiceVariant": "single",
+            "confidence": 1.0,
+            "contentBlocks": [
+              {
+                "jsonValue": null,
+                "latexValue": "2 + 2 = 4",
+                "markdownValue": null,
+                "partType": "formula",
+                "role": null,
+                "textValue": null
+              },
+              {
+                "jsonValue": null,
+                "latexValue": null,
+                "markdownValue": "| 数字 | 是否质数 |\n| --- | --- |\n| 2 | 是 |\n| 4 | 否 |",
+                "partType": "table",
+                "role": null,
+                "textValue": null
+              }
+            ],
+            "id": "1c2bea6d-094d-475e-a39c-872079e7dc5c",
+            "instructions": null,
+            "items": [],
+            "matchingVariant": null,
+            "missingFields": [],
+            "needsReview": false,
+            "optionSourceId": null,
+            "options": [
+              {
+                "content": "2",
+                "label": "A"
+              },
+              {
+                "content": "4",
+                "label": "B"
+              }
+            ],
+            "parentId": null,
+            "passage": [],
+            "questionKind": null,
+            "questionTypeId": "单选题",
+            "scoreSourceText": null,
+            "scoringRubric": null,
+            "sourceScore": null,
+            "sourceText": "下面哪一个是质数？ A.2 B.4 答案 A",
+            "stem": "下面哪一个是质数？"
+          },
+          "rootId": "1c2bea6d-094d-475e-a39c-872079e7dc5c",
+          "rootType": "single",
+          "snapshotRefs": {
+            "groups": [
+              0
+            ],
+            "warnings": 1
+          },
+          "sources": [],
+          "visuals": [],
+          "warnings": null
+        },
+        "submittedAt": 1791621655389
+      },
+      {
+        "answer": null,
+        "autoResult": null,
+        "earnedCents": null,
+        "elapsedMs": 0,
+        "favorite": false,
+        "flagged": false,
+        "gradeKind": "ungraded",
+        "grading": {},
+        "maxCents": null,
+        "ordinal": 1,
+        "result": null,
+        "skipped": true,
+        "snapshot": {
+          "bankId": "b848fa7a-6249-41d1-852e-a93741114e96",
+          "bankTitle": "示例题库",
+          "favorite": false,
+          "id": "e0f95b14-00fc-4dd7-9822-3f49def135ce",
+          "latestResult": null,
+          "materials": [],
+          "missingAssets": false,
+          "question": {
+            "allowReuse": false,
+            "analysis": "这是用于验证应用的人工编写示例。",
+            "answerMode": "choice",
+            "answerPayload": {
+              "correct": [
+                "A",
+                "C"
+              ]
+            },
+            "blankCount": null,
+            "choiceVariant": "multiple",
+            "confidence": 1.0,
+            "contentBlocks": [],
+            "id": "e0f95b14-00fc-4dd7-9822-3f49def135ce",
+            "instructions": null,
+            "items": [],
+            "matchingVariant": null,
+            "missingFields": [],
+            "needsReview": false,
+            "optionSourceId": null,
+            "options": [
+              {
+                "content": "2",
+                "label": "A"
+              },
+              {
+                "content": "3",
+                "label": "B"
+              },
+              {
+                "content": "4",
+                "label": "C"
+              }
+            ],
+            "parentId": null,
+            "passage": [],
+            "questionKind": null,
+            "questionTypeId": "choice",
+            "scoreSourceText": null,
+            "scoringRubric": null,
+            "sourceScore": null,
+            "sourceText": "请选择偶数。",
+            "stem": "请选择偶数。"
+          },
+          "rootId": "e0f95b14-00fc-4dd7-9822-3f49def135ce",
+          "rootType": "multiple",
+          "snapshotRefs": {
+            "groups": [
+              0
+            ],
+            "warnings": 2
+          },
+          "sources": [],
+          "visuals": [],
+          "warnings": null
+        },
+        "submittedAt": 1791621655389
+      },
+      {
+        "answer": null,
+        "autoResult": null,
+        "earnedCents": null,
+        "elapsedMs": 0,
+        "favorite": false,
+        "flagged": true,
+        "gradeKind": "ungraded",
+        "grading": {},
+        "maxCents": null,
+        "ordinal": 2,
+        "result": null,
+        "skipped": true,
+        "snapshot": {
+          "bankId": "b848fa7a-6249-41d1-852e-a93741114e96",
+          "bankTitle": "示例题库",
+          "favorite": false,
+          "id": "d9675129-844f-4fdb-88f5-7ce6b509228d",
+          "latestResult": null,
+          "materials": [],
+          "missingAssets": false,
+          "question": {
+            "allowReuse": false,
+            "analysis": "这是用于验证应用的人工编写示例。",
+            "answerMode": "true_false",
+            "answerPayload": {
+              "value": true
+            },
+            "blankCount": null,
+            "choiceVariant": null,
+            "confidence": 1.0,
+            "contentBlocks": [],
+            "id": "d9675129-844f-4fdb-88f5-7ce6b509228d",
+            "instructions": null,
+            "items": [],
+            "matchingVariant": null,
+            "missingFields": [],
+            "needsReview": false,
+            "optionSourceId": null,
+            "options": [],
+            "parentId": null,
+            "passage": [],
+            "questionKind": null,
+            "questionTypeId": "true_false",
+            "scoreSourceText": null,
+            "scoringRubric": null,
+            "sourceScore": null,
+            "sourceText": "地球围绕太阳公转。",
+            "stem": "地球围绕太阳公转。"
+          },
+          "rootId": "d9675129-844f-4fdb-88f5-7ce6b509228d",
+          "rootType": "true_false",
+          "snapshotRefs": {
+            "groups": [
+              0
+            ],
+            "warnings": 3
+          },
+          "sources": [],
+          "visuals": [],
+          "warnings": null
+        },
+        "submittedAt": 1791621655389
+      }
+    ],
+    "bankIds": [
+      "b848fa7a-6249-41d1-852e-a93741114e96"
+    ],
+    "createdAt": 1791621655384,
+    "deadlineAt": null,
+    "finishedAt": 1791621655390,
+    "id": "648aa28f-e775-4348-b088-e0d9ce43677e",
+    "kind": "practice",
+    "mode": "ordered",
+    "position": 1,
+    "snapshotDocument": [
+      {
+        "id": "766a076c-8be5-4065-a446-f22101f65529",
+        "instructions": "阅读各题并按要求作答。",
+        "questionIds": [
+          "1c2bea6d-094d-475e-a39c-872079e7dc5c",
+          "d9675129-844f-4fdb-88f5-7ce6b509228d",
+          "e0f95b14-00fc-4dd7-9822-3f49def135ce"
+        ],
+        "title": "基础知识练习"
+      },
+      [
+        "本文件是人工编写的应用验收样例，不代表模型准确率。"
+      ],
+      [
+        "本文件是人工编写的应用验收样例，不代表模型准确率。"
+      ],
+      [
+        "本文件是人工编写的应用验收样例，不代表模型准确率。"
+      ]
+    ],
+    "snapshotKey": "19d5acbe1016d716ea190188f303342f098a423a7c0ece10a7ad56dbc10b0ebd",
+    "submittedAt": null,
+    "title": "示例题库 · 练习 · 3 题"
+  },
+  "partial": {
+    "attemptCount": 3,
+    "attemptKey": "dfaef5827d5c04a46f0d82f5b794f27c15f3cd8916cf0c65c19bf6475be603b7",
+    "attempts": [
+      {
+        "answer": null,
+        "autoResult": null,
+        "earnedCents": null,
+        "elapsedMs": 0,
+        "favorite": false,
+        "flagged": true,
+        "gradeKind": "ungraded",
+        "grading": {},
+        "maxCents": null,
+        "ordinal": 2,
+        "result": null,
+        "skipped": true,
+        "submittedAt": 1791621655389
+      }
+    ],
+    "attemptsBase": "8caf1fe4e6b084ba105974490a26c2098fc123a80999f6d6b693517fb803edef",
+    "bankIds": [
+      "b848fa7a-6249-41d1-852e-a93741114e96"
+    ],
+    "createdAt": 1791621655384,
+    "deadlineAt": null,
+    "finishedAt": 1791621655390,
+    "id": "648aa28f-e775-4348-b088-e0d9ce43677e",
+    "kind": "practice",
+    "mode": "ordered",
+    "position": 2,
+    "snapshotKey": "19d5acbe1016d716ea190188f303342f098a423a7c0ece10a7ad56dbc10b0ebd",
+    "submittedAt": null,
+    "title": "示例题库 · 练习 · 3 题"
+  }
+}

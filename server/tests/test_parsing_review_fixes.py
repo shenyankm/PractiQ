@@ -336,3 +336,49 @@ async def test_tree_error_after_continuation_retries_the_offending_unit(monkeypa
     assert state["status"] == "SUCCEEDED" and state["failures"] == []
     assert [(q["id"], q["parentId"]) for q in state["result"]["questions"]] == [("q0", None), ("q1", "q0")]
     assert len(model.calls) == len(state["usage"]) == 4
+
+
+@pytest.mark.usefixtures("disposable_databases")
+@pytest.mark.parametrize("pages", [False, True])
+@pytest.mark.parametrize("field,count", [("passage", 600), ("transcript", 600), ("contentBlocks", 600), ("options", 60)])
+async def test_oversized_continuation_retries_only_its_source_unit(monkeypatch, pages, field, count):
+    parent_id = "page:1:bank" if pages else "fragment:1:bank"
+    parent = {**complete_question("Material", parent_id), "answerMode": "listening" if field == "transcript" else "word_bank", "answerPayload": None}
+
+    def values(prefix):
+        if field == "options":
+            return [{"label": f"{prefix}{index}", "content": f"{prefix}{index}"} for index in range(count)]
+        return [{"partType": "text", "textValue": f"{prefix}{index}"} for index in range(count)]
+
+    calls = 0
+
+    def respond(messages, _schema):
+        nonlocal calls
+        prompt = messages[-1].content
+        if "PRIMARY page 1" in prompt or prompt.endswith("First"):
+            return {"questions": [{**parent, "sourceText": "First", field: values("First")}]}
+        calls += 1
+        return {"questions": [{**parent, "sourceText": "Second", field: values("Second") if calls == 1 else []}]}
+
+    api, reference, model = await setup_api(monkeypatch, [respond] * 3, parts=["First", "Second"])
+    if pages:
+        monkeypatch.setattr(document, "extract", AsyncMock(return_value=ExtractedDocument(
+            text="", page_images=[make_image(), make_image()],
+        )))
+    created = await task_api.create_task(DocumentTaskCreate(
+        requestId=uuid4(), document=DocumentReference.model_validate(reference), failurePolicy="review",
+    ))
+    thread = created["threadId"]
+    await api.wait_idle()
+    state = await task_api.get_task(thread)
+    assert state["state"] == "WAITING_REVIEW"
+    assert [(f["index"], f["code"]) for f in state["failures"]] == [(1, "OUTPUT_INVALID")]
+    assert len(model.calls) == len(state["usage"]) == 2
+    await task_api.control_task(thread, DocumentTaskControl(
+        requestId=uuid4(), action="retry_failed", checkpointId=state["checkpointId"],
+    ))
+    await api.wait_idle()
+    state = await task_api.get_task(thread)
+    assert state["status"] == "SUCCEEDED" and state["failures"] == []
+    assert len(state["result"]["questions"][0][field]) == count
+    assert len(model.calls) == len(state["usage"]) == 3
