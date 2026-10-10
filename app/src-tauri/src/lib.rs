@@ -191,7 +191,10 @@ enum Request {
         id: String,
     },
     Backup,
-    Restore,
+    Restore {
+        #[serde(default)]
+        recover_assets: bool,
+    },
     Info,
     Language,
     SaveLanguage {
@@ -276,7 +279,7 @@ async fn request(
                 app.dialog().file().set_file_name(bank_zip::filename(&title)).add_filter(locale.text("PractiQ 题库 ZIP","PractiQ bank ZIP"), &["zip"]).blocking_save_file()
             },
             Request::Backup=>app.dialog().file().set_file_name("PractiQ-backup.zip").add_filter(locale.text("PractiQ 备份", "PractiQ backup"),&["zip"]).blocking_save_file(),
-            Request::Restore=>app.dialog().file().add_filter(locale.text("PractiQ 备份", "PractiQ backup"),&["zip"]).blocking_pick_file(),
+            Request::Restore{..}=>app.dialog().file().add_filter(locale.text("PractiQ 备份", "PractiQ backup"),&["zip"]).blocking_pick_file(),
             _=>None,
         };
         let selected=selected.map(|file| {
@@ -284,14 +287,14 @@ async fn request(
                 selected_file::SelectedFile::output(&app, file)
             } else {
                 let limit = match &request {
-                    Request::Restore => backup::ARCHIVE_LIMIT,
+                    Request::Restore {..} => backup::ARCHIVE_LIMIT,
                     Request::PickImport => bank_zip::ZIP_LIMIT,
                     _ => assets::LIMIT as u64,
                 };
                 selected_file::SelectedFile::input(&app, file, limit)
             }
         }).transpose()?;
-        if matches!(&request,Request::PickImport|Request::PickAudio|Request::PickAudioQr|Request::ExportBank{..}|Request::Backup|Request::Restore)&&selected.is_none(){return Ok(Value::Null);}
+        if matches!(&request,Request::PickImport|Request::PickAudio|Request::PickAudioQr|Request::ExportBank{..}|Request::Backup|Request::Restore{..})&&selected.is_none(){return Ok(Value::Null);}
         if let Request::ImportAudioUrl { ref url } = request {
             return match audio_import::download(url)? {
                 audio_import::Download::Links(links) => Ok(json!({"links":links,"audio":null})),
@@ -323,7 +326,7 @@ async fn request(
             return ai::save_settings(&app, &shared, config, service_token);
         }
         let work = app.state::<ai::GradingState>();
-        let _restore = if matches!(&request, Request::Restore) { Some(work.restore()?) } else { None };
+        let _restore = if matches!(&request, Request::Restore {..}) { Some(work.restore()?) } else { None };
         let mut store=shared.lock().map_err(|_|language::error("LOCAL_DATABASE_RESTART", json!({})))?;
         store.locale = locale;
         let result = match request {
@@ -366,7 +369,10 @@ async fn request(
             Request::Position{id,position,snapshot_key}=>store.position(&id,position,snapshot_key.as_deref()),
             Request::Finish{id}=>store.finish_data(&id),
             Request::Backup=>store.backup(selected.as_ref().ok_or(language::error("LOCAL_SAVE_LOCATION_MISSING", json!({})))?.path()),
-            Request::Restore=>store.restore(selected.as_ref().ok_or(language::error("LOCAL_BACKUP_NOT_SELECTED", json!({})))?.path()),
+            Request::Restore{recover_assets}=>{
+                let path=selected.as_ref().ok_or(language::error("LOCAL_BACKUP_NOT_SELECTED", json!({})))?.path();
+                if recover_assets {store.restore_recovering(path)} else {store.restore(path)}
+            },
             Request::Language=>Ok(json!(store.language()?)),
             Request::SaveLanguage{locale}=>store.save_language(locale),
             Request::TestSettings{..}|Request::Settings|Request::SaveSettings{..}=>unreachable!(),

@@ -311,6 +311,10 @@
     "zh-CN": "恢复未完成：{error}；已恢复原数据库",
     "en": "Restore incomplete: {error}; the original database was restored"
   },
+  "LOCAL_RESTORE_RECOVERY_FAILED": {
+    "zh-CN": "恢复未完成：{error}；原始数据及损坏清单：{path}",
+    "en": "Restore incomplete: {error}; original data and damage inventory: {path}"
+  },
   "LOCAL_BACKUP_DATABASE_VERSION": {
     "zh-CN": "备份数据库版本不兼容",
     "en": "Incompatible backup database version"

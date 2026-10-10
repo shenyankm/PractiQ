@@ -217,9 +217,9 @@ export type Request =
         | "banks"
         | "unfinished_session"
         | "backup"
-        | "restore"
         | "info";
     }
+  | { type: "restore"; recover_assets?: boolean }
   | { type: "import"; ticket: string; bank_id: string | null; title: string }
   | { type: "save_bank"; id: string | null; title: string; description: string }
   | {

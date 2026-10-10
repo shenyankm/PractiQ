@@ -869,11 +869,11 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
               restoreOpen={restoreOpen} onRestoreOpenChange={setRestoreOpen}
               onConfigure={() => navigate("service-settings")}
               onPickImport={pickImport}
-              onRestore={() => setConfirm({
+              onRestore={recoverAssets => setConfirm({
                 title: message("用备份替换当前数据？"),
-                description: message("恢复会替换全部本地题库和练习记录。应用将先校验备份，并自动保存当前数据的恢复副本。"),
+                description: recoverAssets ? message("恢复会替换全部本地题库和练习记录，并修复缺失或损坏的资源。应用会先校验备份，保留原数据库、现存原始文件和损坏清单；该副本不能作为普通备份直接恢复。") : message("恢复会替换全部本地题库和练习记录。应用将先校验备份，并自动保存当前数据的恢复副本。"),
                 action: async () => {
-                  const result = await api({ type: "restore" });
+                  const result = await api(recoverAssets ? { type: "restore", recover_assets: true } : { type: "restore" });
                   if (result) {
                     await language.reload();
                     setSettingsRevision(v => v + 1);
