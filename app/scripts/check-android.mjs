@@ -175,6 +175,7 @@ test('ZIP and service settings stay local until an explicit connection test', as
   const zip = page.getByRole('menuitem', { name: '导入题库 ZIP', exact: true });
   await touchTarget(zip);
   await expect(page.getByRole('menuitem', { name: '恢复学习数据备份', exact: true })).toBeVisible();
+  await touchTarget(page.getByRole('menuitem', { name: '修复资源并恢复备份', exact: true }));
   await zip.tap();
   await expect.poll(() => calls.filter(call => call.request.type === 'pick_import').length).toBe(1);
   await expect(page.getByRole('heading', { name: '设置', exact: true })).toBeVisible();
