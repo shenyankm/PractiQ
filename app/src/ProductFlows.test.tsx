@@ -14,6 +14,19 @@ HTMLElement.prototype.hasPointerCapture = () => false;
 HTMLElement.prototype.scrollIntoView = () => {};
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
+it.each([false,true])("requires replacement confirmation and explicit recovery selection (%s)",async recover => {
+  setup(); render(<App />);
+  await screen.findByText("English");
+  await userEvent.click(screen.getByRole("button",{name:"设置"}));
+  await userEvent.click(await screen.findByRole("button",{name:"恢复备份"}));
+  await userEvent.click(screen.getByRole("menuitem",{name:recover ? "修复资源并恢复备份" : "恢复学习数据备份"}));
+  expect(vi.mocked(api).mock.calls.some(([request])=>request.type==="restore")).toBe(false);
+  const dialog = screen.getByRole("alertdialog");
+  if(recover) expect(within(dialog).getByText(/该副本不能作为普通备份直接恢复/)).toBeTruthy();
+  await userEvent.click(within(dialog).getByRole("button",{name:"确认"}));
+  await waitFor(()=>expect(api).toHaveBeenCalledWith(recover ? {type:"restore",recover_assets:true} : {type:"restore"}));
+});
+
 it("keeps desktop navigation focused on offline practice without AI import requests", async () => {
   setup(); render(<App />);
   await screen.findByText("English");

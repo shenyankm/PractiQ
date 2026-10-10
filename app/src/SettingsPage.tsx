@@ -16,7 +16,7 @@ export function SettingsPage({ busy, run, flushRef, revision, version, onConfigu
   version: string | undefined;
   onConfigure: () => void;
   onPickImport: () => Promise<void>;
-  onRestore: () => void;
+  onRestore: (recoverAssets: boolean) => void;
   restoreOpen: boolean;
   onRestoreOpenChange: (open: boolean) => void;
 }) {
@@ -36,7 +36,8 @@ export function SettingsPage({ busy, run, flushRef, revision, version, onConfigu
           <DropdownMenuTrigger asChild><Button variant="outline" disabled={busy}><ArchiveRestore />{t("恢复备份")}</Button></DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="min-w-48">
             <DropdownMenuItem aria-label={t("导入题库 ZIP")} className="flex-col items-start" disabled={busy} onSelect={() => run(onPickImport)}>{t("导入题库 ZIP")}<span className="text-xs text-muted-foreground">{t("追加题库，不替换已有学习记录")}</span></DropdownMenuItem>
-            <DropdownMenuItem aria-label={t("恢复学习数据备份")} className="flex-col items-start" disabled={busy} onSelect={onRestore}>{t("恢复学习数据备份")}<span className="text-xs text-muted-foreground">{t("替换全部本地数据，操作前需确认")}</span></DropdownMenuItem>
+            <DropdownMenuItem aria-label={t("恢复学习数据备份")} className="flex-col items-start" disabled={busy} onSelect={()=>onRestore(false)}>{t("恢复学习数据备份")}<span className="text-xs text-muted-foreground">{t("替换全部本地数据，操作前需确认")}</span></DropdownMenuItem>
+            <DropdownMenuItem disabled={busy} onSelect={()=>onRestore(true)}>{t("修复资源并恢复备份")}</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </CardContent>

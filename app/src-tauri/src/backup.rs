@@ -125,12 +125,19 @@ impl Store {
         Ok(json!({"path":destination.display().to_string()}))
     }
     pub fn restore(&mut self, source: &Path) -> Result<Value> {
+        self.restore_mode(source, false)
+    }
+    pub fn restore_recovering(&mut self, source: &Path) -> Result<Value> {
+        self.restore_mode(source, true)
+    }
+    fn restore_mode(&mut self, source: &Path, recover_assets: bool) -> Result<Value> {
         *self.session_document_cache.get_mut() = None;
         self.session_epoch = self.session_epoch.wrapping_add(1);
-        let result = self.restore_inner(source);
+        let result = self.restore_inner(source, recover_assets);
         // Preserve the journal's database generation if publication/rollback
         // could not finish. Startup resolves it before any cleanup writes.
-        if result.is_err() && self.service_settings_override().is_ok() {
+        // A failed repair must retain even unindexed original resource bytes.
+        if result.is_err() && !recover_assets && self.service_settings_override().is_ok() {
             let _ = self.collect_unused_assets();
         }
         result
@@ -155,7 +162,106 @@ impl Store {
         self.finish_service_settings_restore(false)
             .map_err(|e| failed(e.to_string()))
     }
-    fn restore_inner(&mut self, source: &Path) -> Result<Value> {
+    fn preserve_damaged_state(
+        &self,
+        destination: &Path,
+        replacements: &[(String, String, u64, String)],
+    ) -> Result<()> {
+        let parent = destination.parent().ok_or("Invalid recovery path")?;
+        if fs::symlink_metadata(parent)
+            .map_err(err)?
+            .file_type()
+            .is_symlink()
+        {
+            return Err("Recovery directory must not be a link".into());
+        }
+        let temporary = tempfile::tempdir_in(parent).map_err(err)?;
+        let database = temporary.path().join("practiq.sqlite");
+        self.connect()?
+            .backup(rusqlite::MAIN_DB, &database, None)
+            .map_err(err)?;
+        fs::File::open(&database)
+            .map_err(err)?
+            .sync_all()
+            .map_err(err)?;
+        let db = Connection::open(&database).map_err(err)?;
+        let mut assets = db.prepare("SELECT hash,media,size,path FROM assets ORDER BY hash").map_err(err)?
+            .query_map([], |row| Ok(json!({"sha256":row.get::<_,String>(0)?,"mediaType":row.get::<_,String>(1)?,"sizeBytes":row.get::<_,u64>(2)?,"originalFile":row.get::<_,String>(3)?,"indexed":true}))).map_err(err)?
+            .collect::<std::result::Result<Vec<_>,_>>().map_err(err)?;
+        drop(db);
+        for (digest, media, size, _) in replacements {
+            if !assets.iter().any(|asset| asset["sha256"] == *digest) {
+                assets.push(
+                    json!({"sha256":digest,"mediaType":media,"sizeBytes":size,"indexed":false}),
+                );
+            }
+        }
+        let (database_size, database_hash) = file_digest(&database)?;
+        let resource_dir = temporary.path().join("assets");
+        fs::create_dir(&resource_dir).map_err(err)?;
+        let mut total = database_size;
+        for asset in &mut assets {
+            let digest = asset["sha256"]
+                .as_str()
+                .ok_or("Invalid recovery asset hash")?;
+            let path = self.asset_path(digest)?;
+            match fs::symlink_metadata(&path) {
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                    asset["status"] = json!("missing");
+                    continue;
+                }
+                Err(error) => return Err(err(error)),
+                Ok(info) if !info.file_type().is_file() => {
+                    return Err("Recovery resource must be a regular file".into())
+                }
+                Ok(_) => {}
+            }
+            let bytes = crate::store::read_bounded(&path, crate::assets::LIMIT)?;
+            total += bytes.len() as u64;
+            if total > LIMIT as u64 {
+                return Err(crate::language::error("LOCAL_BACKUP_TOO_LARGE", json!({})));
+            }
+            let actual_hash = crate::store::hash(&bytes);
+            let status = if actual_hash != digest || asset["sizeBytes"] != bytes.len() {
+                "damaged"
+            } else if !crate::audio::valid_media(&bytes, asset["mediaType"].as_str().unwrap_or(""))
+            {
+                "invalidFormat"
+            } else {
+                "valid"
+            };
+            let mut file = fs::File::create(resource_dir.join(digest)).map_err(err)?;
+            file.write_all(&bytes).map_err(err)?;
+            file.sync_all().map_err(err)?;
+            asset["file"] = json!(format!("assets/{digest}"));
+            asset["status"] = json!(status);
+            asset["actualSha256"] = json!(actual_hash);
+            asset["actualSizeBytes"] = json!(bytes.len());
+        }
+        let mut inventory = json!({"format":"practiq-recovery","version":1,"schemaVersion":11,"database":{"file":"practiq.sqlite","sha256":database_hash,"sizeBytes":database_size},"assets":assets});
+        if let Some(config) = self.service_settings_override()? {
+            inventory["serviceSettings"] =
+                serde_json::to_value(crate::settings::ServiceSettingsBackup { version: 1, config })
+                    .map_err(err)?;
+        }
+        let inventory = serde_json::to_vec(&inventory).map_err(err)?;
+        if inventory.len() > 1024 * 1024 {
+            return Err(crate::language::error(
+                "LOCAL_MANIFEST_TOO_LARGE",
+                json!({}),
+            ));
+        }
+        let mut file = fs::File::create(temporary.path().join("inventory.json")).map_err(err)?;
+        file.write_all(&inventory).map_err(err)?;
+        file.sync_all().map_err(err)?;
+        crate::filesystem::sync_directory(&resource_dir).map_err(err)?;
+        crate::filesystem::sync_directory(temporary.path()).map_err(err)?;
+        crate::filesystem::replace(temporary.path(), destination).map_err(err)?;
+        crate::filesystem::sync_directory(parent).map_err(err)?;
+        crate::filesystem::sync_directory(&self.dir).map_err(err)?;
+        Ok(())
+    }
+    fn restore_inner(&mut self, source: &Path, recover_assets: bool) -> Result<Value> {
         let file = fs::File::open(source).map_err(err)?;
         if file.metadata().map_err(err)?.len() > ARCHIVE_LIMIT {
             return Err(crate::language::error(
@@ -325,38 +431,36 @@ impl Store {
             ));
         }
         let mut audio_durations = std::collections::HashMap::new();
-        for (digest, media, size, path) in rows {
-            if path != format!("assets/{digest}") {
+        for (digest, media, size, path) in &rows {
+            if *path != format!("assets/{digest}") {
                 return Err(crate::language::error(
                     "LOCAL_BACKUP_IMAGE_PATH",
                     serde_json::json!({}),
                 ));
             }
-            if !assets
-                .iter()
-                .any(|a| a["sha256"] == digest && a["sizeBytes"] == size && a["mediaType"] == media)
-            {
+            if !assets.iter().any(|a| {
+                a["sha256"] == *digest && a["sizeBytes"] == *size && a["mediaType"] == *media
+            }) {
                 return Err(crate::language::error(
                     "LOCAL_BACKUP_IMAGE_MANIFEST",
                     serde_json::json!({}),
                 ));
             }
-            let data = staged.read_asset(&digest, size)?;
+            let data = staged.read_asset(digest, *size)?;
             let invalid_format =
                 || crate::language::error("LOCAL_BACKUP_IMAGE_FORMAT", serde_json::json!({}));
             if media.starts_with("image/") {
-                if !crate::audio::valid_media(&data, &media) {
+                if !crate::audio::valid_media(&data, media) {
                     return Err(invalid_format());
                 }
             } else {
                 let (actual, duration) =
                     crate::audio::audio_info(&data).map_err(|_| invalid_format())?;
-                if actual != media {
+                if actual != *media {
                     return Err(invalid_format());
                 }
                 audio_durations.insert(digest.clone(), duration);
             }
-            self.write_asset(&digest, &data)?;
         }
         validate_audio_segments(&db, &audio_durations)?;
         drop(db);
@@ -368,41 +472,82 @@ impl Store {
             .map_err(err)?;
         let recovery = self.dir.join("recoveries");
         fs::create_dir_all(&recovery).map_err(err)?;
-        let recovery = recovery.join(format!("before-restore-{}-{}.zip", now(), id()));
-        self.backup(&recovery)?;
-        let previous = staging.path().join("previous.sqlite");
-        self.connect()?
-            .backup(rusqlite::MAIN_DB, &previous, None)
-            .map_err(err)?;
-        // Replace only after all resources validate. Keep a rollback generation until fsync succeeds.
-        self.prepare_service_settings_restore(service_settings, file_digest(&candidate)?.1)?;
-        #[cfg(test)]
-        fault_tests::checkpoint("before-publish");
-        if let Err(error) = crate::filesystem::replace(&candidate, &self.db_path()) {
-            self.finish_service_settings_restore(false)?;
-            return Err(err(error));
+        let recovery = recovery.join(format!(
+            "before-restore-{}-{}{}",
+            now(),
+            id(),
+            if recover_assets { "" } else { ".zip" }
+        ));
+        if recover_assets {
+            self.preserve_damaged_state(&recovery, &rows)?;
         }
         #[cfg(test)]
-        fault_tests::checkpoint("after-publish");
-        if let Err(error) = crate::filesystem::sync_directory(&self.dir) {
-            self.rollback_restore_database(&previous, &recovery, &error)?;
-            return Err(crate::language::error(
-                "LOCAL_RESTORE_FAILED",
-                serde_json::json!({"error": error.to_string()}),
-            ));
+        fault_tests::checkpoint("before-resource-repair");
+        let publication = (|| -> Result<Value> {
+            for (digest, _, size, _) in &rows {
+                let bytes = staged.read_asset(digest, *size)?;
+                if recover_assets {
+                    if self.read_asset(digest, *size).is_ok() {
+                        continue;
+                    }
+                    let path = self.asset_path(digest)?;
+                    let mut replacement = tempfile::NamedTempFile::new_in(
+                        path.parent().ok_or("Invalid resource directory")?,
+                    )
+                    .map_err(err)?;
+                    replacement.write_all(&bytes).map_err(err)?;
+                    crate::filesystem::persist(replacement, &path, true).map_err(err)?;
+                } else {
+                    self.write_asset(digest, &bytes)?;
+                }
+            }
+            if !recover_assets {
+                self.backup(&recovery)?;
+            }
+            let previous = staging.path().join("previous.sqlite");
+            self.connect()?
+                .backup(rusqlite::MAIN_DB, &previous, None)
+                .map_err(err)?;
+            // Replace only after all resources validate. Keep a rollback generation until fsync succeeds.
+            self.prepare_service_settings_restore(service_settings, file_digest(&candidate)?.1)?;
+            #[cfg(test)]
+            fault_tests::checkpoint("before-publish");
+            if let Err(error) = crate::filesystem::replace(&candidate, &self.db_path()) {
+                self.finish_service_settings_restore(false)?;
+                return Err(err(error));
+            }
+            #[cfg(test)]
+            fault_tests::checkpoint("after-publish");
+            if let Err(error) = crate::filesystem::sync_directory(&self.dir) {
+                self.rollback_restore_database(&previous, &recovery, &error)?;
+                return Err(crate::language::error(
+                    "LOCAL_RESTORE_FAILED",
+                    serde_json::json!({"error": error.to_string()}),
+                ));
+            }
+            if let Err(error) = self.finish_service_settings_restore(true) {
+                self.rollback_restore_database(&previous, &recovery, &error)?;
+                return Err(error);
+            }
+            self.session_clock = Default::default();
+            self.pending = None;
+            self.staged_audio.clear();
+            self.audio_leases.clear();
+            if let Err(error) = self.collect_unused_assets() {
+                eprintln!("Asset cleanup deferred after restore: {error}");
+            }
+            Ok(json!({"recoveryPath":recovery.display().to_string()}))
+        })();
+        if recover_assets {
+            publication.map_err(|error| {
+                crate::language::error(
+                    "LOCAL_RESTORE_RECOVERY_FAILED",
+                    json!({"error":error.to_string(),"path":recovery.display().to_string()}),
+                )
+            })
+        } else {
+            publication
         }
-        if let Err(error) = self.finish_service_settings_restore(true) {
-            self.rollback_restore_database(&previous, &recovery, &error)?;
-            return Err(error);
-        }
-        self.session_clock = Default::default();
-        self.pending = None;
-        self.staged_audio.clear();
-        self.audio_leases.clear();
-        if let Err(error) = self.collect_unused_assets() {
-            eprintln!("Asset cleanup deferred after restore: {error}");
-        }
-        Ok(json!({"recoveryPath":recovery.display().to_string()}))
     }
 }
 fn validate_audio_segments(
