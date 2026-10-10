@@ -466,7 +466,7 @@ Sources: `selected_rows` in [paper.rs](../app/src-tauri/src/paper.rs), `Index.hy
 
 `Content.tsx` uses `react-markdown`, GFM, math plugins, and KaTeX. Markdown tables/lists and inline/display formulas render. `Blocks` wraps `latexValue` as display math and renders `markdownValue` plus a distinct `textValue`. `jsonValue` is shown as formatted JSON in a `<pre>`.
 
-A `partType` is not necessarily a specialized renderer. Tables need renderable content such as Markdown; charts, diagrams, and QR codes do not automatically generate charts or scan codes. Raw HTML is skipped, Markdown image URLs become descriptive placeholders, and links display as underlined text rather than opening remote URLs. KaTeX uses `trust:false`.
+A `partType` is not necessarily a specialized renderer. Tables need renderable content such as Markdown; charts, diagrams, and QR codes do not automatically generate charts or scan codes. HTML blocks display their distinct supplied text/Markdown fields as escaped source text in both App and Web; embedded markup, scripts and external resources remain inactive. Raw HTML inside ordinary Markdown is skipped, Markdown image URLs become descriptive placeholders, and links display as underlined text rather than opening remote URLs. KaTeX uses `trust:false`.
 
 Actual images are rendered by `ImageAsset`, which reads local bytes with the native `asset` command using `Visual.imageRef.sha256`, creates a Blob URL, and displays a thumbnail and scrollable zoom dialog. URLs are released on cleanup. Complete source pages use a separate “查看原页” control and load on demand only when viewing is permitted. Missing assets display a notice; they are not fetched from the internet.
 
@@ -480,7 +480,7 @@ Sources: `Markdown`, `Blocks`, and `ImageAsset` in [Content.tsx](../app/src/Cont
 
 Playback is independent of child answers. `listening_playback` uses `(session_id,question_id)`, where the question ID belongs to the frozen listening parent. `used` counts started plays, `position` stores seconds, `active` means a play remains unfinished, and `updated_at` / `active_elapsed_ms` track actual playback time. Pausing does not clear `active` or charge another play on resume; starting again after completion consumes the next play.
 
-Visibility changes, leaving the page, and unmounting pause/save playback. Exams restrict speed and seeking; the native side checks remaining plays and plausible progress. Historical review uses unrestricted playback without mutating locked session counts. Missing audio, browser start failures, or resource mismatches display errors rather than implying completed listening work.
+Visibility changes, leaving the page, unmounting, resource/group changes and session completion cancel pending playback as well as pausing current audio. Each asynchronous boundary checks the current Play intent before starting media or charging a listening opportunity. If native start was already issued, its completion is followed by pause/end accounting without replaying the start. Exams restrict speed and seeking; the native side checks remaining plays and plausible progress. Historical review uses unrestricted playback without mutating locked session counts. Missing audio, browser start failures, or resource mismatches display errors rather than implying completed listening work.
 
 Sources: [ListeningPlayer.tsx](../app/src/ListeningPlayer.tsx), `listening_playback` in [audio.rs](../app/src-tauri/src/audio.rs), and [schema.sql](../app/src-tauri/src/schema.sql).
 
