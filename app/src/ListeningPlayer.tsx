@@ -21,6 +21,7 @@ export function ListeningPlayer({question:q,session}:{question:Question;session?
   const [busy,setBusy]=useState(false);
   const [state,setState]=useState<PlaybackState|null>(null);
   const chain=useRef(Promise.resolve());
+  const intent=useRef(0);
   const started=useRef(false);
   const deferredEnd=useRef<number|null>(null);
   const deferredPause=useRef<number|null>(null);
@@ -43,7 +44,7 @@ export function ListeningPlayer({question:q,session}:{question:Question;session?
     observer.observe(section.current);
     return ()=>observer.disconnect();
   },[nearby]);
-  useEffect(()=>{setPlayRequested(false);},[hash,media]);
+  useEffect(()=>{intent.current++;setPlayRequested(false);},[sid,q.id,hash,media,live]);
   useEffect(()=>{
     let active=true;
     setSrc(null); setError(false); setLoading(!!hash && nearby);
@@ -61,7 +62,10 @@ export function ListeningPlayer({question:q,session}:{question:Question;session?
     if(src && Number.isFinite(audio.current?.duration))playWhenLoaded();
   },[src,playRequested]);
   useEffect(()=>{
-    if(sid && q.id && live) void api({type:"listening_playback",id:sid,question_id:q.id,action:"state"}).then(setState).catch(()=>setError(true));
+    let active=true;
+    setState(null);
+    if(sid && q.id && live) void api({type:"listening_playback",id:sid,question_id:q.id,action:"state"}).then(next=>{if(active)setState(next);}).catch(()=>{if(active)setError(true);});
+    return ()=>{active=false;};
   },[sid,q.id,live]);
   function persist(action:"progress"|"pause"|"end",position:number) {
     if(!sid || !q.id || !live || !started.current) return;
@@ -75,10 +79,11 @@ export function ListeningPlayer({question:q,session}:{question:Question;session?
   useEffect(()=>{
     const player=audio.current;
     const stop=()=>{if(player){player.pause();saveOnExit(player.currentTime);}};
-    const hide=()=>{setPlayRequested(false);stop();};
+    const cancelIntent=()=>{intent.current++;};
+    const hide=()=>{cancelIntent();setPlayRequested(false);stop();};
     document.addEventListener("visibilitychange",hide);
     window.addEventListener("pagehide",hide);
-    return ()=>{stop();document.removeEventListener("visibilitychange",hide);window.removeEventListener("pagehide",hide);};
+    return ()=>{cancelIntent();stop();document.removeEventListener("visibilitychange",hide);window.removeEventListener("pagehide",hide);};
   },[src]);
   useEffect(()=>{if(!live){audio.current?.pause();setPlayRequested(false);}},[live]);
   async function toggle() {
@@ -87,11 +92,15 @@ export function ListeningPlayer({question:q,session}:{question:Question;session?
     if(!src){setPlayRequested(true);setNearby(true);setLoadAttempt(value=>value+1);return;}
     if(!Number.isFinite(player.duration)){setPlayRequested(true);return;}
     if(!player.paused){player.pause();return;}
+    const generation=++intent.current;
+    const currentIntent=()=>generation===intent.current && !document.hidden;
     setBusy(true);setError(false);
     try {
       await chain.current;
+      if(!currentIntent())return;
       let current=state;
       if(sid && q.id && live) current=await api({type:"listening_playback",id:sid,question_id:q.id,action:"state"});
+      if(!currentIntent())return;
       if(restricted && current && !current.active && current.used>=current.limit) {setState(current);return;}
       const limit=end ?? player.duration;
       if(!Number.isFinite(player.duration) || start>=player.duration || limit>player.duration+0.05) throw new Error("Invalid audio segment");
@@ -100,12 +109,20 @@ export function ListeningPlayer({question:q,session}:{question:Question;session?
       allowedPosition.current=player.currentTime;ended.current=false;deferredEnd.current=null;
       started.current=false;deferredPause.current=null;
       await player.play();
-      if(sid && q.id && live) setState(await api({type:"listening_playback",id:sid,question_id:q.id,action:"start"}));
+      if(!currentIntent()){player.pause();return;}
+      if(sid && q.id && live){
+        const next=await api({type:"listening_playback",id:sid,question_id:q.id,action:"start"});
+        if(currentIntent())setState(next);
+      }
+      if(!currentIntent()){
+        player.pause();
+        if(deferredEnd.current==null)deferredPause.current=player.currentTime;
+      }
       started.current=true;
       if(deferredEnd.current != null){persist("end",deferredEnd.current);deferredEnd.current=null;started.current=false;}
       else if(deferredPause.current != null){persist("pause",deferredPause.current);started.current=false;}
       deferredPause.current=null;
-    } catch {player.pause();setError(true);} finally {setBusy(false);}
+    } catch {player.pause();if(currentIntent())setError(true);} finally {setBusy(false);}
   }
   function finish() {
     if(ended.current)return;
