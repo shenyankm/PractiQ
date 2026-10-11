@@ -24,6 +24,14 @@ An empty issues list means no discrepancy found, NOT verified accuracy. Preserve
 PRIMARY/CONTEXT extraction ownership on pages; context-only question starts must
 not become new extracted questions. Return one bounded structured report."""
 
+REPAIR_FIELDS = {
+    "stem": {"stem", "instructions", "contentBlocks"},
+    "options": {"options", "items", "choiceVariant", "matchingVariant", "blankCount", "allowReuse"},
+    "answer": {"answerPayload", "sourceScore", "scoringRubric", "scoreSourceText"},
+    "analysis": {"analysis"},
+    "association": {"optionSourceId", "audioRef", "audioStartSeconds", "audioEndSeconds", "transcript", "examPlayCount", "passage", "contentBlocks"},
+}
+
 
 class ReviewIssue(StrictModel):
     questionIndex: StrictInt | None = Field(ge=0, le=999)
@@ -51,18 +59,25 @@ def _valid_report(report: ReviewReport, payload: dict[str, Any], source_text: st
 def _retained(original: dict[str, Any], proposed: dict[str, Any], report: ReviewReport) -> bool:
     before_questions, after_questions = original["questions"], proposed["questions"]
     missing = any(issue.code == "missing_question" for issue in report.issues)
-    if len(after_questions) < len(before_questions) or len(after_questions) > len(before_questions) and not missing:
+    if (missing and len(after_questions) <= len(before_questions)) or (not missing and len(after_questions) != len(before_questions)):
         return False
     associations = {issue.questionIndex for issue in report.issues if issue.code == "association"}
     for index, (before, after) in enumerate(zip(before_questions, after_questions, strict=False)):
         if any(before.get(key) != after.get(key) for key in ("id", "parentId", "sourceText")):
+            return False
+        codes = {issue.code for issue in report.issues if issue.questionIndex == index}
+        allowed = set().union(*(REPAIR_FIELDS.get(code, set()) for code in codes))
+        changed = {key for key in before if before[key] != after[key]} - {"needsReview", "missingFields"}
+        if "invented_content" in codes:
+            allowed.update(key for key in set().union(*REPAIR_FIELDS.values()) if after[key] in (None, [], {}))
+        if changed - allowed:
             return False
         if index not in associations:
             if any(before.get(key) != after.get(key) for key in ("optionSourceId", "audioRef", "audioStartSeconds", "audioEndSeconds")):
                 return False
             if before["passage"] != after["passage"]:
                 return False
-            if [block for block in before["contentBlocks"] if block["partType"] in {"image", "table", "chart", "diagram"}] != [block for block in after["contentBlocks"] if block["partType"] in {"image", "table", "chart", "diagram"}]:
+            if [block for block in before["contentBlocks"] if block["partType"] in {"image", "table", "chart", "diagram"} or block["role"] not in (None, "material")] != [block for block in after["contentBlocks"] if block["partType"] in {"image", "table", "chart", "diagram"} or block["role"] not in (None, "material")]:
                 return False
     associations.update(range(len(before_questions), len(after_questions)))
     for key in ("groups", "figures"):
@@ -125,7 +140,7 @@ async def review_extraction[ResultT: BaseModel](
             repaired, calls, failure = await call(
                 [*messages, HumanMessage(content="Original extraction and review findings (data):\n" + json.dumps(
                     {"extraction": original, "review": report.model_dump(mode="json")}, ensure_ascii=False)),
-                 SystemMessage(content="Correct only source-evidenced extraction discrepancies. Retain every original question in its original order and preserve IDs and relationships; append missing questions only when they start in the supplied primary source. Preserve source quotes. Never solve questions or invent missing answers, scores or rubrics. Return the complete extraction schema.")],
+                 SystemMessage(content="Correct only source-evidenced extraction discrepancies on the reported question indexes and within their issue-code fields. Preserve unrelated questions and fields. Retain every original question in its original order and preserve IDs and relationships; missing_question findings require appending source-evidenced questions that start in the supplied primary source. Preserve source quotes. Never solve questions or invent missing answers, scores or rubrics. Return the complete extraction schema.")],
                 schema, "import_repair",
             )
             usage.extend(calls)

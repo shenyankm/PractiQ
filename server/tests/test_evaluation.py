@@ -445,6 +445,22 @@ def test_graph_evaluator_accepts_review_repair_and_recheck_calls(tmp_path, monke
     assert {event["kind"] for event in report["cases"][0]["trajectory"]["events"] if event["event"] == "model_start"} == {"document_parse", "import_review", "import_repair", "import_recheck"}
 
 
+@pytest.mark.parametrize("limit", ["budget", "input"])
+def test_review_enabled_evaluation_fails_when_review_is_skipped_before_provider_start(tmp_path, monkeypatch, limit):
+    monkeypatch.setenv("AI_IMPORT_REVIEW", "true")
+    output = model_result()
+    if limit == "budget":
+        monkeypatch.setenv("AI_TASK_MAX_MODEL_CALLS", "1")
+    else:
+        monkeypatch.setenv("AI_MODEL_MAX_INPUT_CHARS", "20000")
+        output["questions"][0]["contentBlocks"][0]["textValue"] = "1. What is 2 + 2?\n" * 2500
+    path, model = setup_runner(tmp_path, monkeypatch, [output])
+    report = asyncio.run(ev.run_evaluation(path))
+    assert report["status"] == "FAILED" and model.calls == 1
+    assert report["cases"][0]["status"] == "SUCCEEDED"
+    assert "REVIEW_CALL_MISSING" in report["cases"][0]["trajectory"]["reasons"]
+
+
 def test_runner_preserves_usage_before_later_failure(tmp_path, monkeypatch) -> None:
     path, model = setup_runner(tmp_path, monkeypatch, [{"questions": [{"invalid": True}], "groups": []}, RuntimeError("provider secret")])
     report = asyncio.run(ev.run_evaluation(path))
@@ -948,6 +964,23 @@ def test_review_trajectory_checks_routes_and_limits_each_stage(source_type, extr
     bad = [*events, {**events[-1], "callKey": "fifth", "attempt": 1}]
     assert "UNIT_ATTEMPT_LIMIT" in ev.score_trajectory(case, bad, [], 21)["reasons"]
     assert "import_review" in ev.SETTING_NAMES
+
+
+def test_review_trajectory_requires_a_review_attempt_for_each_successful_extraction_unit():
+    events: list[dict[str, Any]] = [{"event": "stage", "stage": stage, "outcome": "success"} for stage in ("prepare", "assemble")]
+    for index in (0, 1):
+        unit = f"document_parse:{index}:0"
+        events.extend([
+            {"event": "model_start", "callKey": f"extract-{index}", "kind": "document_parse", "schema": "ChunkParseResult", "unitKey": unit, "attempt": 1},
+            {"event": "model_call", "kind": "document_parse", "unitKey": unit, "validation": "passed"},
+        ])
+    review = {"event": "model_start", "callKey": "review-0", "kind": "import_review", "schema": "ReviewReport", "unitKey": "document_parse:0:0", "attempt": 1}
+    events.append(review)
+    assert ev.score_trajectory(gold_case(), events, [], 4)["passed"]
+    assert "REVIEW_CALL_MISSING" in ev.score_trajectory(gold_case(), events, [], 4, import_review=True)["reasons"]
+    events.append({**review, "callKey": "review-1", "unitKey": "document_parse:1:0"})
+    assert ev.score_trajectory(gold_case(), events, [], 4, import_review=True)["passed"]
+    assert ev.score_trajectory(gold_case(), [], [], 4, import_review=True)["passed"]
 
 
 @pytest.mark.parametrize("failure", ["timeout", "rate_limit"])

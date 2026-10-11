@@ -146,6 +146,78 @@ async def test_repair_cannot_append_questions_without_a_missing_question_finding
     assert len(model.calls) == 2
 
 
+@pytest.mark.parametrize("index", [0, 1])
+@pytest.mark.parametrize("field,value", [
+    ("answerPayload", {"text": "Unsupported answer"}), ("analysis", "Unsupported analysis"),
+    ("sourceScore", 2.0), ("scoringRubric", "Unsupported rubric"), ("scoreSourceText", "2 points"),
+    ("options", [{"label": "A", "content": "Changed A"}, {"label": "B", "content": "Changed B"}]),
+])
+async def test_stem_finding_cannot_modify_other_fields_or_questions(index, field, value):
+    original = parsed()
+    original["questions"].append(question("Second"))
+    if field == "options":
+        original["questions"][index]["answerMode"] = "choice"
+        original["questions"][index]["options"] = [{"label": "A", "content": "A"}, {"label": "B", "content": "B"}]
+    corrected = deepcopy(original)
+    corrected["questions"][index][field] = value
+    result, _, audit, model = await collaborate([{"issues": [issue()]}, corrected, {"issues": []}], original=original)
+    assert audit["status"] == "repair_rejected" and audit["failureCode"] == "OUTPUT_INVALID"
+    assert result.model_dump(mode="json")["questions"][index][field] == audit["original"]["questions"][index][field]
+    assert len(model.calls) == 2
+
+
+async def test_stem_finding_cannot_rewrite_another_question_stem():
+    original = parsed()
+    original["questions"].append(question("Second"))
+    corrected = deepcopy(original)
+    corrected["questions"][1]["stem"] = "Unreported change"
+    result, _, audit, _ = await collaborate([{"issues": [issue()]}, corrected], original=original)
+    assert audit["status"] == "repair_rejected" and result.questions[1].stem == "Second"
+
+
+@pytest.mark.parametrize("code,field,value", [
+    ("stem", "stem", "Corrected"), ("options", "options", [{"label": "A", "content": "Corrected A"}, {"label": "B", "content": "Corrected B"}]),
+    ("answer", "answerPayload", {"text": "Supplied answer"}), ("analysis", "analysis", "Supplied explanation"),
+    ("association", "optionSourceId", "supplied-parent"),
+])
+async def test_source_evidenced_findings_can_correct_their_authorized_fields(code, field, value):
+    original = parsed()
+    if code in {"options", "association"}:
+        original["questions"][0]["answerMode"] = "choice"
+    corrected = deepcopy(original)
+    corrected["questions"][0][field] = value
+    result, _, audit, model = await collaborate([
+        {"issues": [issue(code=code)]}, corrected, {"issues": []},
+    ], original=original)
+    assert audit["status"] == "repaired" and len(model.calls) == 3
+    assert result.model_dump(mode="json")["questions"][0][field] == value
+
+
+@pytest.mark.parametrize("value,accepted", [(None, True), ({"text": "Different unsupported answer"}, False)])
+async def test_invented_content_finding_can_remove_but_not_replace_content(value, accepted):
+    original = parsed()
+    original["questions"][0]["answerPayload"] = {"text": "Invented answer"}
+    corrected = deepcopy(original)
+    corrected["questions"][0]["answerPayload"] = value
+    result, _, audit, _ = await collaborate([
+        {"issues": [issue(code="invented_content")]}, corrected, {"issues": []},
+    ], original=original)
+    assert audit["status"] == ("repaired" if accepted else "repair_rejected")
+    assert result.model_dump(mode="json")["questions"][0]["answerPayload"] == (None if accepted else original["questions"][0]["answerPayload"])
+
+
+async def test_missing_question_repair_without_added_content_remains_partial(monkeypatch):
+    monkeypatch.setenv("AI_IMPORT_REVIEW", "true")
+    graph, _, _, reference, model = setup_graph(monkeypatch, [
+        parsed(), {"issues": [issue(questionIndex=None, code="missing_question", evidence="Second")]},
+        parsed(), {"issues": []},
+    ])
+    result = await graph.ainvoke({"document": reference}, run_config())
+    assert result["status"] == "PARTIAL" and "questions" in result["result"]["missingFields"]
+    assert len(result["result"]["questions"]) == 1 and len(model.calls) == 3
+    assert any("repair_rejected (OUTPUT_INVALID)" in warning for warning in result["result"]["warnings"])
+
+
 @pytest.mark.parametrize("field,value", [("optionSourceId", "new-parent"), ("audioStartSeconds", 10)])
 async def test_repair_cannot_rewire_question_relationships_without_association_finding(field, value):
     original = parsed()
@@ -160,14 +232,17 @@ async def test_repair_cannot_rewire_question_relationships_without_association_f
     assert result.model_dump(mode="json")["questions"][0][field] == audit["original"]["questions"][0][field]
 
 
-@pytest.mark.parametrize("field", ["passage", "contentBlocks"])
+@pytest.mark.parametrize("field", ["passage", "contentBlocks", "answerBlock"])
 async def test_repair_preserves_existing_question_material(field):
     original = parsed()
     if field == "passage":
         original["questions"][0]["answerMode"] = "reading"
         original["questions"][0][field] = [{"partType": "text", "textValue": "Shared material"}, {"partType": "blank", "questionId": "child"}]
-    else:
+    elif field == "contentBlocks":
         original["questions"][0][field].append({"partType": "table", "markdownValue": "| A | B |"})
+    else:
+        field = "contentBlocks"
+        original["questions"][0][field].append({"partType": "text", "role": "answer", "textValue": "Supplied answer"})
     corrected = deepcopy(original)
     corrected["questions"][0][field] = []
     result, _, audit, _ = await collaborate([{"issues": [issue()]}, corrected], original=original)

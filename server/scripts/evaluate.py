@@ -53,7 +53,7 @@ from practiq_ai.execution import runtime_version
 from practiq_ai.storage import get_object_store
 
 ROOT = Path(__file__).parents[1]
-SCORER_VERSION = "6.1.0"
+SCORER_VERSION = "6.2.0"
 SOURCE_TYPES = {"text", "csv", "pdf", "image"}
 ANSWER_MODES = {"choice", "true_false", "fill_blank", "short_answer", "ordering", "matching", *COMPOSITE_MODES}
 METRICS = (
@@ -405,7 +405,7 @@ def quality_passed(case: dict[str, Any]) -> bool:
                 and case.get("trajectory", {}).get("passed", True))
 
 
-def score_trajectory(case: dict[str, Any], events: list[dict[str, Any]], calls: list[dict[str, Any]], max_calls: int) -> dict[str, Any]:
+def score_trajectory(case: dict[str, Any], events: list[dict[str, Any]], calls: list[dict[str, Any]], max_calls: int, *, import_review: bool = False) -> dict[str, Any]:
     """Check per-unit constraints, never the total ordering of concurrent units."""
     expected = case.get("expectedProcess") or {}
     extraction = "vision_parse" if case["sourceType"] in {"pdf", "image"} else "document_parse"
@@ -422,6 +422,11 @@ def score_trajectory(case: dict[str, Any], events: list[dict[str, Any]], calls: 
         reasons.append("MODEL_CALL_LIMIT")
     if set(expected.get("requiredCallKinds", [])) - {e["kind"] for e in starts}:
         reasons.append("REQUIRED_CALL_MISSING")
+    if import_review:
+        extracted = {e.get("unitKey") for e in events if e["event"] == "model_call" and e.get("kind") == extraction and e.get("validation") == "passed"}
+        reviewed = {e.get("unitKey") for e in starts if e["kind"] == "import_review"}
+        if extracted - reviewed:
+            reasons.append("REVIEW_CALL_MISSING")
     completed_stages: set[str] = set()
     units: Counter[tuple[str, str]] = Counter()
     for event in events:
@@ -749,7 +754,7 @@ async def run_evaluation(manifest_path: Path, repetitions: int = 1, case_ids: li
                 "expectedError": expected_error, "outcomeMatched": outcome_matched,
                 "blocked": blocked, "error": error, "processing": processing,
                 "score": score, "modelCalls": model_calls,
-                "trajectory": score_trajectory(case, events, model_calls, config.task_max_model_calls),
+                "trajectory": score_trajectory(case, events, model_calls, config.task_max_model_calls, import_review=config.import_review),
                 "visualArtifactChecks": artifact_checks, "visualSemanticReview": "NOT_REVIEWED",
             })
             print(f"{case['id']} [{repetition}/{repetitions}]: {status}" + (f" {error['code']}" if error else ""), flush=True)
