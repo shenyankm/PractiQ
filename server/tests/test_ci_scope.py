@@ -28,6 +28,7 @@ def ci_scope():
     (["server/src/practiq_ai/webapp.py"], True, True),
     (["web/src/App.tsx"], True, False),
     (["web/package-lock.json"], True, False),
+    (["shared/theme.css"], True, True),
     (["app/fixtures/english.json"], True, True),
     (["app/scripts/check-rich-recognition.py"], True, True),
     (["app/scripts/check_licenses.py"], False, True),

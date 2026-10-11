@@ -17,8 +17,6 @@
 
 首次启动按系统语言偏好选择支持的语言，也可从侧边栏切换。语言选择保存在本机并包含在完整备份中，保存失败后可重试；日期和数字使用与界面语言匹配的系统区域偏好。切换语言会保留题目原文和作答，有可靠语言信息的材料会声明自身语言，供辅助工具使用。AI 评分在开始时记录反馈语言，继续同一次请求会保留该语言。
 
-作答、自评、草稿保护、失败重试、语言设置和主动 AI 评分的详细规则见[练习指南（英文）](docs/practice-guide.md)。
-
 PractiQ 仍处于开发阶段，目前没有已发布的 GitHub Release；请按下方步骤从源码运行。平台构建检查不代表已完成签名发布或干净系统验收。
 
 ![PractiQ 桌面开发预览中的题库首页](docs/assets/desktop-preview.png)
@@ -29,13 +27,13 @@ PractiQ 仍处于开发阶段，目前没有已发布的 GitHub Release；请按
 
 [运行桌面应用](#运行桌面应用)后：
 
-1. “我的题库”为空时，点击**添加示例题库**；也可通过**设置 → 恢复备份 → 导入题库 ZIP** 导入 [sample.zip](app/fixtures/sample.zip)。
+1. “我的题库”为空时，点击**添加示例题库**；也可通过**设置 → 恢复备份 → 导入题库 ZIP** 导入 [sample.zip](app/fixtures/sample.zip)。更多样例：[复合题](app/fixtures/composite.zip)、[全题型](app/fixtures/all-types.zip)。
 2. 打开题库，选择**开始练习**，体验即时反馈练习、不限时自测或限时模考。
 3. 提交作答，查看评分和解析。
 
-全程无需 API Key。人工编写的样例用于展示题型和待复核标记，不代表模型效果。更多样例：[复合题](app/fixtures/composite.zip)、[全题型](app/fixtures/all-types.zip)。
+全程无需 API Key。人工编写的样例用于展示题型和待复核标记，不代表模型效果。
 
-从题库卡片菜单导出 ZIP，可分享题目而不包含个人作答和评分。导入题库会追加内容；恢复完整学习数据备份会在确认后替换个人数据。详见[题库包指南](docs/question-bank-package.md)。
+从题库卡片菜单导出 ZIP，可分享题目而不包含个人作答和评分。导入题库会追加内容；恢复完整学习数据备份会在确认后替换个人数据。作答、自评、草稿保护、失败重试、语言设置和主动 AI 评分的详细规则见[练习指南（英文）](docs/practice-guide.md)，导入与备份边界见[题库包指南](docs/question-bank-package.md)。
 
 ## 用 AI 导入文档
 
@@ -46,7 +44,7 @@ PractiQ 仍处于开发阶段，目前没有已发布的 GitHub Release；请按
 3. 查看任务进度、保存的题目、图片、原文答案与待复核提示，下载题库 ZIP。
 4. 在桌面 app 中通过**设置 → 恢复备份 → 导入题库 ZIP**新建题库或追加到已有题库。
 
-服务支持 **PDF、TXT、CSV 和 PNG/JPEG**；部署端配置 LibreOffice 后，还可导入 **DOC、DOCX、XLS、XLSX**。Office 规范化由服务执行，默认转为 PDF，也可导出文本，包含 Excel 隐藏工作表。桌面安装包不再内置 Python 服务或 LibreOffice。部署方式与保真边界见[Office 指南](server/docs/desktop-office.md)。
+服务支持 **PDF、TXT、CSV 和 PNG/JPEG**；部署端配置 LibreOffice 后，还可导入 **DOC、DOCX、XLS、XLSX**，由服务完成规范化。桌面安装包不内置 Python 服务或 LibreOffice。部署方式与保真边界见 [Office 指南](server/docs/desktop-office.md)。
 
 任务历史、暂停、中断、恢复、失败单元重试、部分结果复核与重新解析均在 Web 前端处理。读取结果、复核和下载 ZIP 不调用模型；恢复、重试及重新解析须主动触发，可能产生费用。详见[导入任务指南](docs/import-tasks.md)。
 
@@ -56,9 +54,9 @@ PractiQ 仍处于开发阶段，目前没有已发布的 GitHub Release；请按
 
 解析只提取原文已有答案与评分细则，不替缺答案的题目解题；缺失内容保留待复核标记。请在 **180 天**内下载需要保留的结果，任务到期不影响已导入 app 的题库。
 
-练习和本地判分可离线使用。需要主观题 AI 评分时，在桌面**设置 → AI 服务**中配置独立服务地址及访问令牌，再主动开始评分或重试。评分须有参考答案或评分细则；缺少依据、失败或结果未知时保持未判定。此功能用于个人练习，不作为正式考试阅卷依据。打开 app 或修改设置不会调用模型。
+练习和本地判分可离线使用。需要主观题 AI 评分时，在桌面**设置 → AI 服务**中配置独立服务地址及访问令牌，再主动开始评分或重试。评分须有参考答案或评分细则；缺少依据、失败或结果未知时保持未判定。此功能用于个人练习，不作为正式考试阅卷依据；打开 app 或修改设置不会调用模型。
 
-app 访问令牌保存在 macOS Keychain、Windows Credential Manager 或 Android Keystore 保护的私有存储中，Web 令牌只保存在浏览器内存中。服务地址保存在独立的 `v4/service-settings-v1.sqlite` 中，完整备份可包含版本化的地址设置，但不含凭据及 AI 任务状态；练习数据库仍为 schema 11。恢复和兼容边界见[数据模型](docs/question-model.md#versions-and-directories)。旧模型配置与密钥原样保留，不会自动作为独立服务凭据使用。限时模考在关闭应用或电脑休眠后仍继续计时，重新进入超时考试时按最后保存的答案交卷。
+app 访问令牌保存在 macOS Keychain、Windows Credential Manager 或 Android Keystore 保护的私有存储中，Web 令牌只保存在浏览器内存中。服务地址保存在独立的 `v4/service-settings-v1.sqlite` 中，完整备份可包含版本化的地址设置，但不含凭据及 AI 任务状态；练习数据库仍为 schema 11。旧模型配置与密钥原样保留，不会自动作为独立服务凭据使用。限时模考在关闭应用或电脑休眠后仍继续计时，重新进入超时考试时按最后保存的答案交卷。恢复和兼容边界见[数据模型](docs/question-model.md#versions-and-directories)。
 
 开发模式默认使用内存示例数据；预览面板可切换场景或选择真实本地数据，详见[开发预览](app/docs/development-preview.md)。
 
@@ -124,24 +122,9 @@ FastAPI/LangGraph 服务监听 `127.0.0.1:8090`，使用 PostgreSQL 和本地文
 
 ## 文档与开发
 
-[文档索引（英文）](docs/README.md)区分使用指南、技术参考、验收工作表和历史证据。
+[文档索引（英文）](docs/README.md)区分使用指南、技术参考、验收工作表和历史证据。[题型模型](docs/question-model.md)说明题型与复合题规则，[文档任务 API](server/docs/document-tasks.md)说明任务请求与操作，[部署与运维](server/docs/operations.md)说明部署、存储与恢复。
 
-- [文档任务 API](server/docs/document-tasks.md)：进度、暂停、恢复、重试与复核
-- [部署与运维](server/docs/operations.md)：部署、存储与恢复
-- [单机部署验证](docs/operations-single-machine-20261009.md)：隔离资源配额、替身模型过载、故障恢复与备份还原
-- [10 月 9 日工程证据](docs/engineering-optimization-20261009.md)：采纳与撤销的候选、独立产物测量及真实模型失败边界
-- [效果评测](server/docs/evaluation.md)：数据集、检查与证据边界
-- [Web 资源测量](docs/performance-web-fonts-20261009.md)：完整静态资源体积、构建样本与字体验证
-- [评分格式实验](docs/performance-grading-arrays-20261009.md)：固定真实模型样本、调用用量与撤销的候选
-- [产物校验测量](docs/performance-payload-check-20261009.md)：复用存储与 Office 校验，测量事件循环调度
-- [服务 Web 构建测量](docs/performance-build-once-20261009.md)：每次镜像构建只构建一次 Web，本地配对耗时与产物一致性
-- [服务构建工具锁定](docs/service-build-tools-20261009.md)：精确后端约束、审计及源码和许可证归档验证；未完成任务保留原部署恢复
-- [题型模型](docs/question-model.md)：题型与复合题规则
-- [发布验证](CONTRIBUTING.md#release-verification)：发布检查与验收证据
-- [发布规范](docs/releases.md)：版本标签、下载产物、校验值与手动草稿流程
-- [参与贡献](CONTRIBUTING.md)：开发检查与提交规范
-
-桌面检查运行 `make app-check`，导入 Web 前端检查运行 `make web-check`，AI 服务检查运行 `make verify`。Playwright Test 覆盖双语交互、浏览器预览和富内容渲染，模拟原生命令，不调用模型：
+桌面检查运行 `make app-check`；Android 各开发主机上的共享检查、APK 构建与原生模拟器检查见 [Android 指南](app/docs/android.md)。导入 Web 前端检查运行 `make web-check`，AI 服务检查运行 `make verify`。Playwright Test 覆盖双语交互、浏览器预览和富内容渲染，模拟原生命令，不调用模型：
 
 ```sh
 cd app
@@ -149,10 +132,10 @@ npx playwright install chromium --only-shell
 npm run test:browser
 ```
 
-测试运行器自动启动本机回环地址上的 Vite 服务。可运行 `npm run test:preview` 或 `npm run test:rich-content` 单独检查。失败时，执行轨迹和截图保存在 `app/test-results/browser/`；用 `npx playwright show-trace /path/to/trace.zip` 查看轨迹。
+测试运行器自动启动本机回环地址上的 Vite 服务。失败时，执行轨迹和截图保存在 `app/test-results/browser/`；用 `npx playwright show-trace /path/to/trace.zip` 查看轨迹。
 
 ## 获取帮助与参与贡献
 
-通过 [GitHub Issues](https://github.com/shenyankm/PractiQ/issues/new/choose) 报告可复现问题或提出改进建议。代码和文档贡献见[贡献指南](CONTRIBUTING.md)；漏洞请按[安全策略](SECURITY.md)私密报告。
+通过 [GitHub Issues](https://github.com/shenyankm/PractiQ/issues/new/choose) 报告可复现问题或提出改进建议。代码和文档贡献见[贡献指南](CONTRIBUTING.md)；漏洞请按[安全策略](SECURITY.md)私密报告。质量、发布、用户试用和贡献者工作流的未完成验收要求见[路线图证据记录](docs/roadmap-evidence.md)；GitHub 原生路线图与子议题为准。
 
 项目源码使用 [MIT 许可证](LICENSE)，内置依赖保留各自的[上游许可声明](app/licenses/README.md)。

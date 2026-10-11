@@ -11,11 +11,11 @@ from pathlib import Path
 
 PATTERNS = {
     "service": (
-        "server/**", "web/**", "app/fixtures/**", "app/scripts/check-rich-recognition.py",
+        "server/**", "web/**", "shared/**", "app/fixtures/**", "app/scripts/check-rich-recognition.py",
         "Dockerfile.server", ".dockerignore", ".gitignore", ".env.example", "Makefile",
     ),
-    "android": ("app/**", "server/**", "Makefile", "rust-toolchain.toml", ".gitattributes", ".gitignore", "LICENSE"),
-    "desktop": ("app/**", "server/**", "Makefile", "rust-toolchain.toml", ".gitattributes", ".gitignore", "LICENSE"),
+    "android": ("app/**", "server/**", "shared/**", "Makefile", "rust-toolchain.toml", ".gitattributes", ".gitignore", "LICENSE"),
+    "desktop": ("app/**", "server/**", "shared/**", "Makefile", "rust-toolchain.toml", ".gitattributes", ".gitignore", "LICENSE"),
 }
 DOCUMENTATION = (
     "README*", "CONTRIBUTING.md", "SECURITY.md", "AGENTS.md", "docs/**",

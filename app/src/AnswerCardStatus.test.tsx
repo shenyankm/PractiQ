@@ -69,7 +69,7 @@ it("updates the current draft marker and preserves flagged keyboard navigation",
   await user.clear(screen.getByRole("textbox", { name: "作答内容" }));
   expect(screen.getByRole("button", { name: "转到第 1 题，未作答" }).querySelector("svg.lucide-circle")).not.toBeNull();
   const flagged = screen.getByRole("button", { name: "转到第 2 题，已作答，未提交，待检查" });
-  expect(flagged.classList.contains("ring-2")).toBe(true);
+  expect(flagged.classList.contains("answer-card-flagged")).toBe(true);
   flagged.focus();
   await user.keyboard("{Enter}");
   await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("heading", { name: "第 2 / 2 题" })));

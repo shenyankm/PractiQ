@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "../../shared/theme.css";
 @import "tw-animate-css";
 /*!
 shadcn 4.21.0 CSS variants.
@@ -83,53 +84,10 @@ SOFTWARE.
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-xl: var(--radius-panel);
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
-}
-
-:root {
-  --background: #faf9fc;
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: #633579;
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: #625b6b;
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: #8d8299;
-  --ring: #805091;
-  --radius: 0.75rem;
-}
-
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: #d5b6ea;
-  --primary-foreground: #281733;
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: #bdb2c7;
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: #82768d;
-  --ring: #b890d0;
 }
 
 @layer base {
@@ -203,7 +161,7 @@ html.theme-transition::view-transition-new(root) {
 /* English actions need room to wrap within the desktop's existing columns. */
 html[lang="en"] [data-slot="button"]:not([data-size^="icon"]) {
   height: auto;
-  min-height: 2rem;
+  min-height: var(--control-height);
   white-space: normal;
 }
 
@@ -249,12 +207,12 @@ html[data-native-insets="true"] {
   min-width: 0;
   padding: var(--app-safe-top) var(--app-safe-right) var(--app-safe-bottom) var(--app-safe-left);
 }
-.app-header { min-height: 6rem; padding: 1rem 2rem; }
+.app-header { min-height: 6rem; padding: 1.5rem 2rem; }
 .app-content { padding: 2rem; overscroll-behavior: contain; }
 .audio-seek { min-height: 3rem; }
 
 @media (max-width: 767px) {
-  .app-header { min-height: 4.5rem; padding: 0.75rem 1rem; }
+  .app-header { min-height: 4.5rem; padding: 1rem; }
   .app-content { padding: 1rem; }
   /* This panel exists only in development; reserve its closed footprint below the app. */
   #root:has(.preview-controls) .app-shell { height: calc(100dvh - 6rem); }
@@ -334,3 +292,21 @@ html[data-native-insets="true"] {
 #answer-card, #current-question { scroll-margin-block: 1rem 7rem; }
 .practice-actions { box-shadow: 0 -8px 12px -12px var(--foreground); }
 .practice-workspace :is(input, textarea, button, a):focus { scroll-margin-block: 1rem 7rem; }
+
+.app-header h1 { font-size: 1.75rem; line-height: 1.35; letter-spacing: -0.025em; }
+#app-sidebar nav [aria-current="page"] { color: var(--secondary-foreground); background: var(--secondary); }
+#app-sidebar nav [data-slot="button"] { min-height: 2.75rem; }
+.bank-card { min-height: 13rem; }
+.bank-card [data-slot="card-content"] { padding-top: 0.75rem; }
+.bank-card:hover { border-color: var(--input); }
+.review-warning { color: var(--warning-foreground); }
+.answer-card-answered { border-color: var(--input); background: var(--secondary); color: var(--secondary-foreground); }
+.answer-card-answered:hover { background: var(--accent); }
+.answer-card-flagged { outline: 2px solid var(--warning-border); outline-offset: 2px; }
+@media (max-width: 767px) {
+  .app-header h1 { font-size: 1.375rem; }
+  .bank-card { min-height: 0; }
+}
+@media (max-width: 767px), (any-pointer: coarse) {
+  #app-sidebar nav [data-slot="button"] { min-height: 3rem; }
+}

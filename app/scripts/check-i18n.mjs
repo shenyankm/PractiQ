@@ -156,6 +156,11 @@ test('bilingual sidebar preserves alignment, keyboard navigation and language pr
   const expandedPositions=await sidebarPositions();
   const expandedMain=await page.locator('main').boundingBox();
   const toggle=page.getByRole('button',{name:names.collapse,exact:true});
+  await expect(toggle).toHaveCSS('background-color','rgba(0, 0, 0, 0)');
+  await expect(toggle.locator('img')).toHaveCSS('border-radius','0px');
+  const logoBox=await toggle.locator('img').boundingBox();
+  assert.equal(logoBox.width,40);
+  assert.equal(logoBox.height,40);
   await toggle.hover();
   await expect(toggle.locator('img')).toHaveCSS('opacity','0');
   await toggle.focus();
@@ -168,7 +173,7 @@ test('bilingual sidebar preserves alignment, keyboard navigation and language pr
    const width=el.getBoundingClientRect().width;
    animation.play(); return width;
   });
-  assert(intermediateWidth>64 && intermediateWidth<176,'Sidebar passes through an intermediate width');
+  assert(intermediateWidth>64 && intermediateWidth<208,'Sidebar passes through an intermediate width');
   await settleSidebar(page);
   await page.mouse.move(900,10); await page.locator('main').click({position:{x:10,y:10}});
   const collapsedToggle=page.getByRole('button',{name:names.expand,exact:true});
@@ -179,7 +184,7 @@ test('bilingual sidebar preserves alignment, keyboard navigation and language pr
   const collapsedMain=await page.locator('main').boundingBox();
   assert.deepEqual(await sidebarPositions(),expandedPositions,'Sidebar rows and icons stay aligned when collapsed');
   assert.equal(sidebar.width,64);
-  assert.equal(collapsedMain.width-expandedMain.width,112);
+  assert.equal(collapsedMain.width-expandedMain.width,144);
   assert.equal(collapsedMain.x,sidebar.x+sidebar.width);
   await expect(page.locator('#app-sidebar').getByText('PractiQ',{exact:true})).toBeHidden();
   for (const name of names.nav) {
@@ -208,7 +213,7 @@ test('bilingual sidebar preserves alignment, keyboard navigation and language pr
   await expectNoOverflow(page,names.locale+' collapsed');
   await page.getByRole('button',{name:names.expand,exact:true}).click();
   await settleSidebar(page);
-  await expect(page.locator('#app-sidebar')).toHaveCSS('width','176px');
+  await expect(page.locator('#app-sidebar')).toHaveCSS('width','208px');
   assert.deepEqual(await sidebarPositions(),expandedPositions,'Sidebar rows and icons stay aligned after expanding');
   await expectNoOverflow(page,names.locale+' expanded');
   const serviceEntry=page.getByRole('button',{name:names.locale==='en'?'Configure':'配置',exact:true});
@@ -344,7 +349,7 @@ test('practice preserves answers across sidebar and viewport changes',async ({pa
  await expect.poll(()=>page.locator('#app-sidebar').evaluate(el=>el.getAnimations().length)).toBe(0);
  await expect(page.locator('#app-sidebar .sidebar-label').first()).toHaveCSS('transition-duration','0s');
  await page.getByRole('button',{name:'Expand sidebar',exact:true}).click();
- await expect(page.locator('#app-sidebar')).toHaveCSS('width','176px');
+ await expect(page.locator('#app-sidebar')).toHaveCSS('width','208px');
  for (const [width,height] of [[960,640],[1920,1080],[2560,1440]]) {
   await page.setViewportSize({width,height});
   await expectNoOverflow(page,`practice ${width}x${height}`);

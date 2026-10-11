@@ -25,15 +25,13 @@ Development preview using in-memory sample data.
 
 [Run the desktop app](#run-the-desktop-app), then:
 
-1. Choose **Add example bank** when **My banks** is empty, or import [sample.zip](app/fixtures/sample.zip) through **Settings → Restore backup → Import bank ZIP**. Import shortcuts in the bank header, empty states and question lists open this same restore menu, where bank import and full-data replacement remain distinct. Only choosing **Import bank ZIP** opens the native ZIP picker; select the destination bank in the preview and confirm to append content.
+1. Choose **Add example bank** when **My banks** is empty, or import [sample.zip](app/fixtures/sample.zip) through **Settings → Restore backup → Import bank ZIP**. More examples: [composite questions](app/fixtures/composite.zip) and [all question types](app/fixtures/all-types.zip).
 2. Open the bank and choose **Start practice**. Try practice, an untimed self-test, or a timed mock exam.
 3. Submit your answers and review scores and explanations.
 
-No API key is needed. The hand-written samples demonstrate question types and review flags; they are not model evaluations. More examples: [composite questions](app/fixtures/composite.zip) and [all question types](app/fixtures/all-types.zip).
+No API key is needed. The hand-written samples demonstrate question types and review flags; they are not model evaluations.
 
-See the [practice guide](docs/practice-guide.md) for answer submission, self-assessment, draft protection, language settings and optional AI grading.
-
-Export a bank from its card menu to share content without personal answers or scores. Bank import appends content; restoring a full learning-data backup replaces personal data after confirmation. See the [package guide](docs/question-bank-package.md).
+Export a bank from its card menu to share content without personal answers or scores. Bank import appends content; restoring a full learning-data backup replaces personal data after confirmation. See the [practice guide](docs/practice-guide.md) for answer submission, draft protection, language settings and optional AI grading, and the [package guide](docs/question-bank-package.md) for import and backup boundaries.
 
 ## Import documents with AI
 
@@ -44,17 +42,17 @@ Use the independent service's Web frontend for document import:
 3. Inspect task progress, saved questions, images, supplied answers and review warnings. Download the result as a question-bank ZIP.
 4. In the desktop app, use **Settings → Restore backup → Import bank ZIP** to create a bank or append content to an existing bank.
 
-The service accepts **PDF, TXT, CSV and PNG/JPEG**. Deployments configured with LibreOffice also accept **DOC, DOCX, XLS and XLSX**. Office normalization runs in the service, using PDF by default or text exports, including hidden Excel sheets. Desktop packages contain no Python service or LibreOffice. See the [Office guide](server/docs/desktop-office.md) for deployment and fidelity boundaries.
+The service accepts **PDF, TXT, CSV and PNG/JPEG**. Deployments configured with LibreOffice also accept **DOC, DOCX, XLS and XLSX**, normalized in the service. Desktop packages contain no Python service or LibreOffice. See the [Office guide](server/docs/desktop-office.md) for deployment and fidelity boundaries.
 
-Task history, pause, interrupt, resume, failed-unit retry, partial-result review and parse-again controls belong to the Web frontend. Read-only review and ZIP download make no model calls. Resume, retry and parse again are explicit actions; their model work may incur charges. See the [import task guide](docs/import-tasks.md).
+Task history, pause, interrupt, resume, failed-unit retry, partial-result review and parse-again controls belong to the Web frontend. Read-only review and ZIP download make no model calls; resume, retry and parse again are explicit actions whose model work may incur charges. See the [import task guide](docs/import-tasks.md).
 
 ![Independent document import Web frontend](docs/assets/new-web-import.png)
 
 Browser capture of the built Web frontend served by a local read-only AI service, with an empty task database and no configured model. Selecting the sample file made no upload or model call.
 
-Parsing extracts supplied answers and rubrics without solving unanswered questions. Missing content stays flagged for review. Download results within **180 days** to keep them; task expiry does not affect banks already imported into the app.
+Parsing extracts supplied answers and rubrics without solving unanswered questions; missing content stays flagged for review. Download results within **180 days** to keep them; task expiry does not affect banks already imported into the app.
 
-Offline practice needs no service. For optional subjective AI grading, configure **Settings → AI service**, then explicitly start grading or retry. A reference answer or rubric is required; failed, unknown or unsupported results remain ungraded. See the [practice guide](docs/practice-guide.md#use-optional-ai-grading).
+Offline practice needs no service. For optional subjective AI grading, configure **Settings → AI service**, then explicitly start grading or retry. A reference answer or rubric is required; failed, unknown or unsupported results remain ungraded.
 
 Development starts with in-memory sample data. The preview panel lets you switch scenarios or choose real local data. See [development preview](app/docs/development-preview.md) for its controls and boundaries.
 
@@ -120,24 +118,9 @@ The FastAPI/LangGraph service listens on `127.0.0.1:8090`, uses PostgreSQL and l
 
 ## Documentation and development
 
-Start with the [documentation index](docs/README.md) for user guides, technical references, acceptance worksheets and historical evidence.
+Start with the [documentation index](docs/README.md) for user guides, technical references, acceptance worksheets and historical evidence. The [question model](docs/question-model.md) covers question types and composite rules, the [document task API](server/docs/document-tasks.md) covers task payloads and controls, and [operations](server/docs/operations.md) covers deployment, storage and recovery.
 
-- [Document task API](server/docs/document-tasks.md): progress, pause, resume, retry, and review
-- [Operations](server/docs/operations.md): deployment, storage, and recovery
-- [Single-machine deployment checks](docs/operations-single-machine-20261009.md): isolated quotas, synthetic overload, failure recovery and backup restore
-- [Evaluation](server/docs/evaluation.md): datasets, checks, and evidence limits
-- [October 9 engineering journal](docs/engineering-optimization-20261009.md): accepted/rejected candidates, separate artifact inventories and real-model failure boundaries
-- [Web asset measurements](docs/performance-web-fonts-20261009.md): full static size, build samples and font validation
-- [Grading format experiment](docs/performance-grading-arrays-20261009.md): fixed real-model anchors, usage and rejected candidate
-- [Payload validation measurements](docs/performance-payload-check-20261009.md): shared storage/Office checks and event-loop scheduling
-- [Service Web build measurements](docs/performance-build-once-20261009.md): one build per image, paired local timings and unchanged artifacts
-- [Service build-tool selection](docs/service-build-tools-20261009.md): exact backend constraints, audits and archive/license verification; retain the original deployment for unfinished tasks
-- [Question model](docs/question-model.md): question types and composite question rules
-- [Release verification](CONTRIBUTING.md#release-verification): publication checks and acceptance evidence
-- [Release policy](docs/releases.md): version tags, downloads, checksums and the manual draft workflow
-- [Contributing](CONTRIBUTING.md): development checks and pull requests
-
-Run `make app-check` on macOS/Windows for app checks and follow the [Android guide](app/docs/android.md) for shared checks on any Android development host, APK builds and native emulator checks, `make web-check` for the import Web frontend and `make verify` for the AI service. Playwright Test checks bilingual interactions, browser preview, and rich-content rendering with mocked native commands and no model calls:
+Run `make app-check` on macOS/Windows for app checks and follow the [Android guide](app/docs/android.md) for shared checks on any Android development host, APK builds and native emulator checks. Use `make web-check` for the import Web frontend and `make verify` for the AI service. Playwright Test checks bilingual interactions, browser preview, and rich-content rendering with mocked native commands and no model calls:
 
 ```sh
 cd app
@@ -145,12 +128,10 @@ npx playwright install chromium --only-shell
 npm run test:browser
 ```
 
-The runner starts its own loopback Vite servers. Use `npm run test:preview` or `npm run test:rich-content` for an individual check. Failed tests retain traces and screenshots under `app/test-results/browser/`; inspect a trace with `npx playwright show-trace /path/to/trace.zip`.
+The runner starts its own loopback Vite servers. Failed tests retain traces and screenshots under `app/test-results/browser/`; inspect a trace with `npx playwright show-trace /path/to/trace.zip`.
 
 ## Get help and contribute
 
-Report reproducible bugs or propose improvements through [GitHub Issues](https://github.com/shenyankm/PractiQ/issues/new/choose). Follow [the contribution guide](CONTRIBUTING.md) for changes and [the security policy](SECURITY.md) for private vulnerability reports.
+Report reproducible bugs or propose improvements through [GitHub Issues](https://github.com/shenyankm/PractiQ/issues/new/choose). Follow [the contribution guide](CONTRIBUTING.md) for changes and [the security policy](SECURITY.md) for private vulnerability reports. Outstanding quality, release, user-trial and contributor workstreams are tracked in the [roadmap evidence record](docs/roadmap-evidence.md); the native GitHub roadmap and sub-issues remain authoritative.
 
 Project source uses the [MIT license](LICENSE). Bundled dependencies retain their [upstream notices](app/licenses/README.md).
-
-The [roadmap evidence record](docs/roadmap-evidence.md) links the current quality, release, user-trial and contributor workstreams with their remaining acceptance requirements. The native GitHub roadmap and sub-issues remain authoritative.

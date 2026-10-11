@@ -636,7 +636,8 @@ for (const colorScheme of ['light','dark']) {
   await expect(current).toHaveAttribute('aria-current','step');
   await expect(current).toHaveCSS('text-decoration-line','underline');
   const flagged=grid.getByRole('button',{name:'转到第 2 题，已作答，未提交，待检查',exact:true});
-  await expect(flagged).toHaveClass(/ring-2/);
+  await expect(flagged).toHaveCSS('outline-width','2px');
+  await expect(flagged).toHaveCSS('outline-style','solid');
   await current.focus();
   await page.keyboard.press('Tab');
   await expect(flagged).toBeFocused();
