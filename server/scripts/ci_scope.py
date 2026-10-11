@@ -69,12 +69,14 @@ def changed_paths(event_name: str, payload: dict, repository: str) -> list[str] 
 
 
 def check_gate(scope: str, needs: dict) -> None:
-    jobs = {"changes", "quality"} | ({"package", "emulator"} if scope == "android" else {"package"} if scope == "desktop" else set())
+    jobs = {"changes", "quality"} | ({"android-package", "emulator"} if scope == "android" else {"package"} if scope == "desktop" else set())
     if set(needs) != jobs:
         raise ValueError("Missing or unexpected CI dependencies")
     changes = needs["changes"]
     if changes.get("result") != "success":
         raise ValueError(f"Change detection did not succeed: {changes.get('result')}")
+    if scope != "service" and not re.fullmatch(r"[0-9a-f]{40}", changes.get("outputs", {}).get("sha", "")):
+        raise ValueError("App source revision is missing or invalid")
     required = changes.get("outputs", {}).get("required")
     if required not in {"true", "false"}:
         raise ValueError("Change detection did not report required=true or false")

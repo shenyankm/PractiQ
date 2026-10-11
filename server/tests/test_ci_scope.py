@@ -47,6 +47,7 @@ def ci_scope():
     (["tools/local.py"], False, False),
 ])
 def test_selectors_preserve_real_inputs_and_skip_documentation(ci_scope, paths, service, desktop):
+    assert ci_scope.PATTERNS["desktop"] == ci_scope.PATTERNS["android"]
     assert ci_scope.checks_required("service", paths) is service
     assert ci_scope.checks_required("desktop", paths) is desktop
     assert ci_scope.checks_required("android", paths) is desktop
@@ -121,10 +122,10 @@ def test_missing_or_unavailable_push_base_requires_all_checks(ci_scope, monkeypa
 
 def needs_for(scope, required=True):
     result = "success" if required else "skipped"
-    needs = {"changes": {"result": "success", "outputs": {"required": str(required).lower()}},
+    needs = {"changes": {"result": "success", "outputs": {"required": str(required).lower(), "sha": "a" * 40}},
              "quality": {"result": result}}
     if scope in {"desktop", "android"}:
-        needs["package"] = {"result": result}
+        needs["android-package" if scope == "android" else "package"] = {"result": result}
     if scope == "android":
         needs["emulator"] = {"result": result}
     return needs
@@ -136,7 +137,20 @@ def test_gate_accepts_completed_checks_or_deliberate_documentation_skip(ci_scope
     ci_scope.check_gate(scope, needs_for(scope, required))
 
 
-@pytest.mark.parametrize("scope,job", [("service", "quality"), ("desktop", "quality"), ("desktop", "package"), ("android", "package"), ("android", "emulator")])
+@pytest.mark.parametrize("scope", ["desktop", "android"])
+@pytest.mark.parametrize("required", [True, False])
+@pytest.mark.parametrize("sha", [None, "", "main", "a" * 39])
+def test_app_gate_rejects_absent_or_unresolved_source_revision(ci_scope, scope, required, sha):
+    needs = needs_for(scope, required)
+    if sha is None:
+        needs["changes"]["outputs"].pop("sha")
+    else:
+        needs["changes"]["outputs"]["sha"] = sha
+    with pytest.raises(ValueError, match="source revision"):
+        ci_scope.check_gate(scope, needs)
+
+
+@pytest.mark.parametrize("scope,job", [("service", "quality"), ("desktop", "quality"), ("desktop", "package"), ("android", "android-package"), ("android", "emulator")])
 @pytest.mark.parametrize("required,result", [
     (True, "failure"), (True, "cancelled"), (True, "skipped"),
     (False, "failure"), (False, "cancelled"),

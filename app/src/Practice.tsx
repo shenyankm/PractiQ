@@ -105,6 +105,8 @@ function PracticeQuestion({
   const [answer, setAnswer] = useState<Answer | null>(attempt.answer);
   const [saved, setSaved] = useState<"已保存" | "保存中…" | "保存失败" | "待保存">("已保存");
   const [saveError, setSaveError] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const submissionJob = useRef<Promise<Session> | null>(null);
   const elapsed = useRef(attempt.elapsedMs);
   const answerRef = useRef(answer);
   const chain = useRef(Promise.resolve());
@@ -117,24 +119,30 @@ function PracticeQuestion({
   const favorite = attempt.favorite;
   useEffect(() => { questionHeading.current?.focus(); }, [questionHeading]);
   useEffect(() => {
-    if (handedIn) {
+    if (submitted || finished) {
       setAnswer(attempt.answer);
       answerRef.current = attempt.answer;
+      onDraft(attempt.answer);
     }
-  }, [handedIn, attempt.answer]);
+  }, [submitted, finished, attempt.answer, onDraft]);
   const persist = useCallback((
     submit = false,
     skip = false,
   ): Promise<Session | void> => {
+    if (submissionJob.current) return submit ? submissionJob.current : chain.current;
+    if (!submit && (submitted || finished)) return chain.current;
     const captured = { answer: answerRef.current, elapsed: elapsed.current };
     setSaved("保存中…");
     let job: Promise<Session | void>;
     if (submit) {
-      job = chain.current.catch(() => {}).then(() => api({
+      const submission = chain.current.catch(() => {}).then(() => api({
         type: "save_attempt", id: session.id, ordinal: session.position,
         answer: captured.answer, elapsed_ms: captured.elapsed,
         submit, skip,
       }));
+      submissionJob.current = submission;
+      setSubmitting(true);
+      job = submission;
     } else {
       pendingDraft.current = captured;
       if (draftJob.current) return draftJob.current;
@@ -154,18 +162,20 @@ function PracticeQuestion({
     }
     chain.current = job.then(
       () => {
+        if (submissionJob.current === job) { submissionJob.current = null; setSubmitting(false); }
         if (draftJob.current === job) draftJob.current = null;
         setSaved("已保存");
         setSaveError(false);
       },
       () => {
+        if (submissionJob.current === job) { submissionJob.current = null; setSubmitting(false); }
         if (draftJob.current === job) draftJob.current = null;
         setSaved("保存失败");
         setSaveError(true);
       },
     );
     return job;
-  }, [session.id, session.position]) as {
+  }, [session.id, session.position, submitted, finished]) as {
     (submit: true, skip?: boolean): Promise<Session>;
     (submit?: false, skip?: boolean): Promise<void>;
   };
@@ -188,6 +198,7 @@ function PracticeQuestion({
     };
   }, [session.id, session.position, submitted, finished, persist, flushRef]);
   function change(a: Answer | null) {
+    if (submissionJob.current || submitted || finished) return;
     setAnswer(a);
     onDraft(a);
     answerRef.current = a;
@@ -259,9 +270,9 @@ function PracticeQuestion({
             value={answer}
             usedOptions={q.optionSourceId && attempt.snapshot.materials?.some(p=>p.id===q.optionSourceId && !p.allowReuse) ? session.attempts.filter(a=>a.ordinal!==session.position && a.snapshot.question.optionSourceId===q.optionSourceId).flatMap(a=>a.answer?.correct || []) : []}
             onChange={change}
-            disabled={submitted || finished}
+            disabled={submitted || finished || submitting}
           />
-          {!submitted && !finished && answer != null && <Button variant="outline" onClick={()=>change(null)}>{t("清空作答")}</Button>}
+          {!submitted && !finished && answer != null && <Button variant="outline" disabled={submitting} onClick={()=>change(null)}>{t("清空作答")}</Button>}
           {submitted && (
             <section className="space-y-4 rounded-lg border bg-muted/30 p-5">
               <div className="flex flex-wrap items-center gap-3">
@@ -320,7 +331,7 @@ function PracticeQuestion({
             <div className="flex gap-3">
               <Button
                 disabled={
-                  !answerReady(
+                  submitting || !answerReady(
                     canInteract(q) ? q : { ...q, answerMode: "short_answer" },
                     answer,
                   )
@@ -333,6 +344,7 @@ function PracticeQuestion({
               >{t("提交答案")}</Button>
               <Button
                 variant="outline"
+                disabled={submitting}
                 onClick={() =>
                   run(async () => {
                     onSession(await persist(true, true));

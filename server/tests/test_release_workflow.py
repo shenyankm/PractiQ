@@ -1139,18 +1139,18 @@ def test_release_workflow_uses_full_checks_and_only_creates_drafts():
     workflow = yaml.load((ROOT / ".github/workflows/release.yml").read_text(), Loader=yaml.BaseLoader)
     assert set(workflow["on"]) == {"workflow_dispatch"}
     assert workflow["permissions"] == {"contents": "read"}
-    for name in ("server", "desktop"):
+    for name in ("server", "app"):
         reused = yaml.load((ROOT / f".github/workflows/{name}.yml").read_text(), Loader=yaml.BaseLoader)
         assert "workflow_call" in reused["on"]
-        for job in reused["jobs"].values():
+        for key, job in reused["jobs"].items():
             for step in job["steps"]:
                 if step.get("uses", "").startswith("actions/checkout@"):
-                    assert step["with"]["ref"] == "${{ inputs.ref || github.sha }}"
+                    assert step["with"]["ref"] == ("${{ needs.changes.outputs.sha }}" if name == "app" and key != "changes" else "${{ inputs.ref || github.sha }}")
         selector = next(s for s in reused["jobs"]["changes"]["steps"] if s.get("id") == "scope")
         assert selector["env"]["CI_FULL_CHECKS"] == "${{ inputs.ref != '' }}"
-    assert workflow["jobs"]["draft"]["needs"] == ["candidate", "service", "desktop", "android"]
-    assert workflow["jobs"]["android"]["uses"] == "./.github/workflows/android.yml"
-    assert workflow["jobs"]["android"]["with"] == {"ref": "${{ needs.candidate.outputs.sha }}", "tag": "${{ inputs.tag }}", "release": "true"}
+    assert workflow["jobs"]["draft"]["needs"] == ["candidate", "service", "apps"]
+    assert workflow["jobs"]["apps"]["uses"] == "./.github/workflows/app.yml"
+    assert workflow["jobs"]["apps"]["with"] == {"ref": "${{ needs.candidate.outputs.sha }}", "tag": "${{ inputs.tag }}", "release": "true"}
     commands = "\n".join(s.get("run", "") for s in workflow["jobs"]["draft"]["steps"])
     assert "--draft --verify-tag --latest=false" in commands and "--clobber" not in commands
     assert "remote_sha" in commands and "release publish" not in commands

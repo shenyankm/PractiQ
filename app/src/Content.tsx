@@ -62,8 +62,10 @@ export function Blocks({blocks, onBlank, blankAnswers = {}, language}: {blocks: 
           {b.label && <span className="font-semibold">{b.label}</span>}
           {b.partType === "blank" ? <Button type="button" variant="outline" size="sm" disabled={!onBlank} onClick={()=>b.questionId && onBlank?.(b.questionId)}>{t("空位")} {blankNumbers.get(b.questionId)}{b.questionId && blankAnswers[b.questionId] && <> · <span lang={language?.(b)}>{blankAnswers[b.questionId]}</span></>}</Button> : <>
             {b.latexValue && <Markdown lang={language?.(b)}>{`$$\n${b.latexValue}\n$$`}</Markdown>}
-            <Markdown lang={language?.(b)}>{b.markdownValue}</Markdown>
-            {b.textValue !== b.markdownValue && <Markdown lang={language?.(b)}>{b.textValue}</Markdown>}
+            {b.partType === "html" ? [b.markdownValue, b.textValue].filter((value, index, values) => value && values.indexOf(value) === index).map((value, index) => <pre key={index} lang={language?.(b)} className="overflow-auto whitespace-pre-wrap rounded bg-muted p-3 text-sm">{value}</pre>) : <>
+              <Markdown lang={language?.(b)}>{b.markdownValue}</Markdown>
+              {b.textValue !== b.markdownValue && <Markdown lang={language?.(b)}>{b.textValue}</Markdown>}
+            </>}
           </>}
           {b.jsonValue && (
             <pre className="overflow-auto whitespace-pre-wrap rounded bg-muted p-3 text-sm">
