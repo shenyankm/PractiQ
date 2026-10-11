@@ -1,0 +1,116 @@
+{
+  "componentProbes": {
+    "databaseSnapshot": {
+      "jsonBytes": 16,
+      "maxMs": 1.531166,
+      "medianMs": 1.465833
+    },
+    "questionRead": {
+      "jsonBytes": 351634,
+      "maxMs": 7.833958,
+      "medianMs": 7.773875
+    },
+    "resourceReadHashDecode": {
+      "jsonBytes": 4,
+      "maxMs": 27.131209,
+      "medianMs": 26.507834000000003
+    }
+  },
+  "exportBytes": 12604131,
+  "exportCrcValidationMs": 25.566167,
+  "exportSemanticSha256": "81d4915227fb6fd87038d70c57bbcc371b52aff98d71823405b0fabc15c3584b",
+  "images": 16,
+  "inputSha256": "39592107e07d6c003af55fbc42e4f6de2b63a8487195cdb2ceb8ab02b6164a23",
+  "probeSha256": "4fc1b3608ec8d5599ec09f2e991fc3aac9f48f4b6d188a977abfbf5ce4105093",
+  "questions": 500,
+  "repetitions": 3,
+  "resourceBytes": 12593152,
+  "samples": {
+    "backup": [
+      {
+        "draftLockWaitMs": 142.576375,
+        "draftTotalMs": 143.549958,
+        "lockHoldMs": 142.570041
+      },
+      {
+        "draftLockWaitMs": 150.181542,
+        "draftTotalMs": 151.216875,
+        "lockHoldMs": 150.17945799999998
+      },
+      {
+        "draftLockWaitMs": 148.97625,
+        "draftTotalMs": 150.244166,
+        "lockHoldMs": 148.96779099999998
+      }
+    ],
+    "damagedBackup": [
+      {
+        "draftLockWaitMs": 31.803459,
+        "draftTotalMs": 32.731042,
+        "lockHoldMs": 31.800583
+      },
+      {
+        "draftLockWaitMs": 29.229084,
+        "draftTotalMs": 30.158,
+        "lockHoldMs": 29.226625
+      },
+      {
+        "draftLockWaitMs": 27.012833999999998,
+        "draftTotalMs": 27.950375,
+        "lockHoldMs": 27.007125
+      }
+    ],
+    "damagedExport": [
+      {
+        "draftLockWaitMs": 16.037125,
+        "draftTotalMs": 16.852583,
+        "lockHoldMs": 16.029541000000002
+      },
+      {
+        "draftLockWaitMs": 14.689375,
+        "draftTotalMs": 15.440083,
+        "lockHoldMs": 14.685708
+      },
+      {
+        "draftLockWaitMs": 15.150833,
+        "draftTotalMs": 16.004792000000002,
+        "lockHoldMs": 15.145541
+      }
+    ],
+    "export": [
+      {
+        "draftLockWaitMs": 246.204,
+        "draftTotalMs": 247.53687499999998,
+        "lockHoldMs": 246.205833
+      },
+      {
+        "draftLockWaitMs": 252.68783299999998,
+        "draftTotalMs": 254.101833,
+        "lockHoldMs": 252.685
+      },
+      {
+        "draftLockWaitMs": 247.442208,
+        "draftTotalMs": 248.36325,
+        "lockHoldMs": 247.44016599999998
+      }
+    ],
+    "idle": [
+      {
+        "draftLockWaitMs": 0.000292,
+        "draftTotalMs": 13.836041999999999,
+        "lockHoldMs": 0.002125
+      },
+      {
+        "draftLockWaitMs": 0.000084,
+        "draftTotalMs": 0.650625,
+        "lockHoldMs": 0.0015409999999999998
+      },
+      {
+        "draftLockWaitMs": 0.000041,
+        "draftTotalMs": 0.8275,
+        "lockHoldMs": 0.000791
+      }
+    ]
+  },
+  "scope": "Release/native synthetic mutex contention; component probes are separate, not additive. Excludes picker/IPC/WebView, physical devices and concurrent asset deletion."
+}

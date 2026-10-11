@@ -1,0 +1,52 @@
+{
+  "date": "2026-10-10",
+  "sourceBaseline": "628f776a382a7f157b283121ad7147059a557cf9",
+  "environment": {
+    "os": "macOS 27.0.1 (26A434)",
+    "cpu": "Apple M4",
+    "architecture": "arm64",
+    "node": "v22.23.2",
+    "rustc": "1.98.1 (48a229cea 2026-09-01)"
+  },
+  "order": [
+    "0-baseline",
+    "0-candidate",
+    "1-baseline",
+    "1-candidate",
+    "2-baseline",
+    "2-candidate"
+  ],
+  "inputSha256": "5acf84415371c226f967dbe3562e685775347918d8df240630f183e73e08a505",
+  "sourceFiles": {
+    "app/src/QuestionEditor.tsx": {
+      "candidateSha256": "425be2e03e6978f8cb97d103bfac0e4c4c762b5d794e2d9e7b5f0f27eb8d4808",
+      "baselineSha256": "f51f269c61958ffa4039118d0dcb2731e20097daabfdeae3a4601427272057de"
+    },
+    "app/src/QuestionEditor.performance.test.tsx": {
+      "candidateSha256": "e974a44724f52d9cfeeff68b8af2ee4b0db4c78bbb8ccff9a5ec7d6b1329876d"
+    }
+  },
+  "summaryMs": {
+    "baseline": {
+      "renderMs": {
+        "p50": 6.108346000006804,
+        "p95": 19.21461199999908
+      },
+      "inputToCommitMs": {
+        "p50": 8.135541999999987,
+        "p95": 21.906916000000138
+      }
+    },
+    "candidate": {
+      "renderMs": {
+        "p50": 3.9177450000020144,
+        "p95": 16.89503900000227
+      },
+      "inputToCommitMs": {
+        "p50": 6.1967500000000655,
+        "p95": 19.93012500000009
+      }
+    }
+  },
+  "percentiles": "p50 median; p95 nearest rank"
+}
