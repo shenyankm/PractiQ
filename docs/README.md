@@ -24,6 +24,7 @@ PractiQ has an independent AI import service and Web frontend, and an offline pr
 | Understand versions, storage relationships and immutable sessions | [Question model](question-model.md) |
 | Look up question fields, type examples and rendering/scoring rules | [JSON and rendering reference](question-types-data-rendering.md) |
 | Validate fixtures and measure extraction/grading quality | [Evaluation](../server/docs/evaluation.md) |
+| Check what a recorded checkpoint may resume on after a change | [Resume compatibility](../server/docs/resume-compatibility.md) |
 
 The question model owns data-version and relationship explanations; the JSON/rendering reference owns detailed field/type mappings. User guides link to these references instead of maintaining a second schema. The API guide owns task payloads and controls; the import guide explains the corresponding user actions.
 
@@ -62,6 +63,8 @@ Preserve failures, source hashes, artifact hashes and original denominators. His
 | [October 9 payload validation](performance-payload-check-20261009.md) | Reused storage/Office size/checksum boundary and three repeated event-loop probes; no conversion-throughput claim |
 | [October 9 service Web build](performance-build-once-20261009.md) | Remove one duplicate Web build; paired local command timings and identical assets/image content, without an overall CI speed claim |
 | [October 9 service build tools](service-build-tools-20261009.md) | Freeze and audit the existing backend dependency graph; three identical source/license-checked archives and explicit recovery fingerprint boundary |
+| [October 9 service licensing](service-distribution-license-20261009.md), [archive source verification](service-package-source-20261009.md) | MIT notice in wheel/sdist/image, and the linked-directory source-archive omission with its post-build guard |
+| [October 10 Common App CI](common-app-ci-20261010.md) | One shared App quality job replacing duplicate Desktop/Android quality work; a single occupancy observation, not a universal speedup |
 | [October 9 single-machine checks](operations-single-machine-20261009.md) | Isolated PostgreSQL/Compose quotas, synthetic overload, process/database failures and matching backup restore; no live-model capacity claim |
 | [Service code review](../server/docs/code-review-2026-09-19.md), [SQLite/macOS delivery](../server/docs/sqlite-desktop-delivery.md), [desktop Office evaluation](../server/docs/desktop-office-evaluation.md) | Earlier service/package architectures and their validation limits |
 | [Service reports](../server/reports/) | Dated runtime, capacity and performance records with their original JSON evidence |
