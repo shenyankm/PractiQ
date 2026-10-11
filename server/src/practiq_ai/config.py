@@ -31,6 +31,7 @@ class Config:
     read_only: bool = False
     jobs_per_worker: int = 8
     task_max_model_calls: int = 400
+    import_review: bool = False
     run_timeout_seconds: float = 1800
     model_max_input_chars: int = 64_000
     deployment_workers: int = 1
@@ -124,6 +125,9 @@ def load() -> Config:
         raise ValueError("AI_DEPLOYMENT_WORKERS must be 1; use one Uvicorn process")
     provider_concurrency = _positive_int(values, "AI_PROVIDER_CONCURRENCY", 16)
     provider_rpm = _positive_int(values, "AI_PROVIDER_RPM", 120)
+    import_review = values.get("AI_IMPORT_REVIEW", "false").lower().strip()
+    if import_review not in {"true", "false"}:
+        raise ValueError("AI_IMPORT_REVIEW must be true or false")
     maintenance = values.get("AI_MAINTENANCE_MODE", "false").lower().strip()
     if maintenance not in {"true", "false"}:
         raise ValueError("AI_MAINTENANCE_MODE must be true or false")
@@ -142,6 +146,7 @@ def load() -> Config:
         read_only=read_only,
         jobs_per_worker=jobs_per_worker,
         maintenance=maintenance == "true",
+        import_review=import_review == "true",
         task_max_model_calls=_positive_int(values, "AI_TASK_MAX_MODEL_CALLS", 400),
         run_timeout_seconds=_positive_float(values, "AI_RUN_TIMEOUT_SECONDS", 1800),
         model_max_input_chars=_positive_int(values, "AI_MODEL_MAX_INPUT_CHARS", 64_000),

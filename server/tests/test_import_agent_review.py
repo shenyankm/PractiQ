@@ -1,0 +1,234 @@
+"""Source-bound collaboration, bounded repairs, receipts and saved provenance."""
+
+import asyncio
+import json
+from uuid import uuid4
+
+import pytest
+from langchain_core.messages import HumanMessage, SystemMessage
+from langgraph.runtime import Runtime
+
+from practiq_ai import execution
+from practiq_ai.config import load
+from practiq_ai.contracts import ArtifactReference, ModelCallUsage
+from practiq_ai.errors import DocumentProcessingError
+from practiq_ai.graphs import document, review
+from tests.support import (
+    FakeModel,
+    make_image,
+    parsed,
+    question,
+    run_config,
+    setup_graph,
+)
+
+
+def issue(**changes):
+    return {"questionIndex": 0, "code": "stem", "evidence": "First", "instruction": "Keep the literal stem", "repairable": True, **changes}
+
+
+async def collaborate(responses, *, original=None, source_text="First", schema=document.ChunkParseResult):
+    model = FakeModel(responses=responses)
+    original = schema.model_validate(original or parsed())
+    result, usage, audit = await review.review_extraction(
+        model, [SystemMessage(content="Extract faithfully"), HumanMessage(content=source_text or "PRIMARY image")],
+        original, schema, source_text=source_text, runtime=Runtime(),
+    )
+    return result, usage, audit, model
+
+
+async def test_review_is_independent_and_does_not_clear_existing_flags():
+    original = parsed()
+    original["questions"][0]["missingFields"] = ["media"]
+    result, usage, audit, model = await collaborate([{"issues": []}], original=original)
+    assert result.questions[0].needsReview and "media" in result.questions[0].missingFields
+    assert audit["status"] == "no_discrepancy" and audit["original"]["questions"][0]["stem"] == "First"
+    assert [call.callKind for call in usage] == ["import_review"]
+    assert model.calls[0][0].content == review.REVIEW_PROMPT
+    assert "Extract faithfully" not in str(model.calls[0])
+    assert "PRIMARY" in review.REVIEW_PROMPT and "Never solve" in review.REVIEW_PROMPT
+
+
+async def test_one_repair_requires_clean_recheck_and_keeps_original_and_flags():
+    corrected = parsed("Corrected")
+    corrected["questions"][0]["sourceText"] = "First"
+    original = parsed()
+    original["questions"][0]["missingFields"] = ["media"]
+    result, usage, audit, model = await collaborate([{"issues": [issue()]}, corrected, {"issues": []}], original=original)
+    assert result.questions[0].stem == "Corrected" and result.questions[0].needsReview
+    assert "media" in result.questions[0].missingFields
+    assert audit["status"] == "repaired" and audit["original"]["questions"][0]["stem"] == "First"
+    assert audit["proposed"]["questions"][0]["stem"] == "Corrected"
+    assert [call.callKind for call in usage] == ["import_review", "import_repair", "import_recheck"]
+    assert len(model.calls) == 3
+
+
+@pytest.mark.parametrize("change", [
+    {"questionIndex": 5}, {"evidence": "invented quote"}, {"evidence": " "},
+    {"instruction": " "}, {"code": "uncertain", "repairable": True},
+])
+async def test_invalid_review_is_unreviewed_and_never_triggers_repair(change):
+    result, usage, audit, model = await collaborate([{"issues": [issue(**change)]}])
+    assert audit["status"] == "unreviewed" and audit["failureCode"] == "OUTPUT_INVALID"
+    assert audit["rejectedReport"] and result.questions[0].needsReview
+    assert len(model.calls) == len(usage) == 1
+
+
+async def test_uncertain_source_is_not_solved_or_repaired():
+    result, _, audit, model = await collaborate([{"issues": [issue(code="uncertain", repairable=False)]}])
+    assert audit["status"] == "issues" and result.questions[0].answerPayload is None
+    assert len(model.calls) == 1
+
+
+@pytest.mark.parametrize("damage", ["drop", "id", "parent", "source"])
+async def test_repair_cannot_drop_or_reidentify_existing_questions(damage):
+    corrected = parsed()
+    if damage == "drop":
+        corrected["questions"] = []
+    elif damage == "id":
+        corrected["questions"][0]["id"] = "new-id"
+    elif damage == "parent":
+        corrected["questions"][0]["parentId"] = "another-parent"
+    else:
+        corrected["questions"][0]["sourceText"] = "another question"
+    result, _, audit, model = await collaborate([{"issues": [issue()]}, corrected])
+    assert audit["status"] == "repair_rejected" and audit["failureCode"] == "OUTPUT_INVALID"
+    assert result.questions[0].stem == "First" and result.questions[0].id is None
+    assert len(model.calls) == 2
+
+
+async def test_disputed_repair_retains_original_without_a_second_repair():
+    corrected = parsed("Wrong")
+    corrected["questions"][0]["sourceText"] = "First"
+    result, usage, audit, model = await collaborate([{"issues": [issue()]}, corrected, {"issues": [issue()]}])
+    assert result.questions[0].stem == "First" and audit["status"] == "repair_rejected"
+    assert len(model.calls) == len(usage) == 3 and len(audit["reports"]) == 2
+
+
+@pytest.mark.parametrize("stage", ["import_review", "import_repair", "import_recheck"])
+async def test_call_failures_preserve_original_usage_and_review_flags(monkeypatch, stage):
+    calls = []
+    async def call(model, messages, schema, kind, **kwargs):
+        calls.append(kind)
+        usage = [ModelCallUsage(callKey=uuid4(), modelId="fake", inputTokens=10, outputTokens=5, callKind=kind)]
+        if kind == stage:
+            return None, usage, "MODEL_BUDGET_EXCEEDED"
+        value = {"issues": [issue()]} if schema is review.ReviewReport else parsed()
+        return schema.model_validate(value), usage, None
+    monkeypatch.setattr(review, "structured_call", call)
+    result, usage, audit, _ = await collaborate([])
+    assert audit["failureCode"] == "MODEL_BUDGET_EXCEEDED" and result.questions[0].needsReview
+    assert result.questions[0].stem == "First"
+    assert [item.callKind for item in usage] == calls
+    assert audit["status"] == ("unreviewed" if stage == "import_review" else "issues" if stage == "import_repair" else "repair_rejected")
+
+
+async def test_review_does_not_swallow_store_failures_or_cancellation(monkeypatch):
+    async def fail(*args, **kwargs):
+        raise DocumentProcessingError(503, "Store unavailable", "EXECUTION_STORE_UNAVAILABLE")
+    monkeypatch.setattr(review, "structured_call", fail)
+    with pytest.raises(DocumentProcessingError, match="Store unavailable"):
+        await collaborate([])
+    async def cancel(*args, **kwargs):
+        raise asyncio.CancelledError
+    monkeypatch.setattr(review, "structured_call", cancel)
+    with pytest.raises(asyncio.CancelledError):
+        await collaborate([])
+
+
+async def test_review_can_append_a_source_evidenced_missing_question():
+    corrected = parsed()
+    corrected["questions"].append(question("Second"))
+    result, _, audit, _ = await collaborate([
+        {"issues": [issue(questionIndex=None, code="missing_question", evidence="Second")]},
+        corrected, {"issues": []},
+    ], source_text="First\nSecond")
+    assert len(result.questions) == 2 and audit["status"] == "repaired" and not audit["missingQuestions"]
+
+
+async def test_graph_persists_audit_outside_checkpoint_and_reuses_successes(monkeypatch):
+    monkeypatch.setenv("AI_IMPORT_REVIEW", "true")
+    graph, store, files, reference, model = setup_graph(monkeypatch, [parsed(), {"issues": []}])
+    config = run_config()
+    result = await graph.ainvoke({"document": reference}, config)
+    assert result["status"] == "SUCCEEDED" and len(model.calls) == 2
+    assert [item["callKind"] for item in result["usage"]] == ["document_parse", "import_review"]
+    state = (await graph.aget_state(config)).values
+    unit = state["chunkResults"][0]
+    assert unit["parsed"] == {"questionCount": 1} and "original" not in unit["agentReview"]
+    audit = json.loads(await files.get_verified(ArtifactReference.model_validate(unit["resultRef"])))
+    assert audit["agentReview"]["original"]["questions"][0]["stem"] == "First"
+    assert state["reservedCalls"] == 16
+    assert any("no_discrepancy" in warning for warning in result["result"]["warnings"])
+    await graph.ainvoke(None, {**config, "run_id": uuid4()})
+    assert len(model.calls) == 2
+    receipts = await store.asearch(execution.namespace("thread-1", "calls"))
+    assert len(receipts) == 2
+
+
+async def test_exhausted_review_budget_keeps_extract_but_never_claims_review_success(monkeypatch):
+    monkeypatch.setenv("AI_IMPORT_REVIEW", "true")
+    monkeypatch.setenv("AI_TASK_MAX_MODEL_CALLS", "1")
+    graph, _, _, reference, model = setup_graph(monkeypatch, [parsed()])
+    result = await graph.ainvoke({"document": reference}, run_config())
+    assert len(model.calls) == 1 and result["result"]["questions"][0]["needsReview"]
+    assert any("unreviewed (MODEL_BUDGET_EXCEEDED)" in warning for warning in result["result"]["warnings"])
+
+
+async def test_unresolved_missing_question_is_partial_with_source_warning(monkeypatch):
+    monkeypatch.setenv("AI_IMPORT_REVIEW", "true")
+    graph, _, _, reference, model = setup_graph(monkeypatch, [parsed(), {"issues": [issue(
+        questionIndex=None, code="missing_question", evidence="Second", repairable=False,
+    )]}])
+    result = await graph.ainvoke({"document": reference}, run_config())
+    assert result["status"] == "PARTIAL" and "questions" in result["result"]["missingFields"]
+    assert any("missing_question" in warning and "Second" in warning for warning in result["result"]["warnings"])
+    assert len(model.calls) == 2
+
+
+async def test_visual_extraction_gets_independent_source_review(monkeypatch):
+    monkeypatch.setenv("AI_IMPORT_REVIEW", "true")
+    model = FakeModel(responses=[{**parsed(), "figures": []}, {"issues": []}])
+    monkeypatch.setattr(document, "get_model", lambda: model)
+    async def image(*args, **kwargs):
+        return make_image(), "data:image/png;base64,synthetic"
+    monkeypatch.setattr(document, "_page_image", image)
+    monkeypatch.setattr(document, "get_object_store", lambda: object())
+    artifact = ArtifactReference(objectKey="page.png", sha256="a" * 64, mediaType="image/png", sizeBytes=1)
+    result = await document._vision({"kind": "page", "index": 0, "artifact": artifact.model_dump(mode="json")}, Runtime())
+    assert result["visionResults"][0]["agentReview"]["status"] == "no_discrepancy"
+    assert [item["callKind"] for item in result["usage"]] == ["vision_parse", "import_review"]
+    assert any(isinstance(message.content, list) for message in model.calls[1])
+
+
+async def test_unit_storage_failure_replays_durable_extraction_and_review_receipts(monkeypatch):
+    monkeypatch.setenv("AI_IMPORT_REVIEW", "true")
+    graph, _, files, reference, model = setup_graph(monkeypatch, [parsed(), {"issues": []}])
+    put = files.put_artifact
+    fail = True
+    async def write(payload, **kwargs):
+        if fail and kwargs["kind"] == "unit-result":
+            raise OSError("Synthetic audit write failure")
+        return await put(payload, **kwargs)
+    monkeypatch.setattr(files, "put_artifact", write)
+    config = run_config()
+    with pytest.raises(OSError, match="Synthetic audit write failure"):
+        await graph.ainvoke({"document": reference}, config)
+    assert len(model.calls) == 2
+    fail = False
+    result = await graph.ainvoke(None, {**config, "run_id": uuid4()})
+    assert result["status"] == "SUCCEEDED" and len(model.calls) == 2
+    assert len(result["usage"]) == 2
+    unit = (await graph.aget_state(config)).values["chunkResults"][0]
+    loaded = await document.load_unit_result(unit, reference["sha256"])
+    assert loaded["agentReview"]["status"] == "no_discrepancy"
+
+
+@pytest.mark.parametrize("value,enabled", [("true", True), ("false", False), (" TRUE ", True)])
+def test_review_setting_is_trusted_and_validated(monkeypatch, value, enabled):
+    monkeypatch.setenv("AI_IMPORT_REVIEW", value)
+    monkeypatch.setenv("AI_READ_ONLY", "1")
+    assert load().import_review is enabled
+    monkeypatch.setenv("AI_IMPORT_REVIEW", "1")
+    with pytest.raises(ValueError, match="AI_IMPORT_REVIEW"):
+        load()

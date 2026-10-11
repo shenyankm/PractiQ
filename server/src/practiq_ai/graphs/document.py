@@ -68,7 +68,8 @@ from practiq_ai.graphs.chunking import (
     merge_chunk_results,
     split_chunk_spans,
 )
-from practiq_ai.llm import get_model, structured_call
+from practiq_ai.graphs.review import review_extraction
+from practiq_ai.llm import MAX_MODEL_CALLS, get_model, structured_call
 from practiq_ai.normalization import OfficeNormalization, normalize_source
 from practiq_ai.storage import get_object_store
 
@@ -747,6 +748,10 @@ async def _vision(
     parsed, usage, failure = await structured_call(model, messages, PageParseResult, "vision_parse", runtime=runtime)
     if parsed is None:
         return _unit_failure("vision_parse", state["index"], failure or "OUTPUT_INVALID", usage)
+    agent_review = None
+    if load().import_review:
+        parsed, review_usage, agent_review = await review_extraction(model, messages, parsed, PageParseResult, source_text=None, runtime=runtime)
+        usage.extend(review_usage)
     verified = set()
     if parsed.figures:
         checks, check_usage, failure = await _verify_figures(model, image, parsed.figures, runtime, data_url=image_url)
@@ -837,6 +842,7 @@ async def _vision(
         "kind": "page",
         "index": state["index"],
         "artifact": state["artifact"],
+        "agentReview": agent_review,
         "parsed": parsed.model_dump(mode="json", exclude={"figures"}),
         "visuals": [VisualElement(**{**item.model_dump(exclude={"tableRows"}), "bbox": item.bbox if i in verified else None}, page=state["index"]).model_dump(mode="json") for i, item in enumerate(parsed.figures)],
     }
@@ -956,9 +962,8 @@ async def _chunk(
             ArtifactReference.model_validate(state["artifact"])
         )
     ).decode("utf-8")
-    parsed, usage, failure = await structured_call(
-        (await asyncio.to_thread(get_model)),
-        [
+    model = await asyncio.to_thread(get_model)
+    messages = [
             SystemMessage(content=SYSTEM_PROMPT),
             HumanMessage(
                 content=(
@@ -967,16 +972,18 @@ async def _chunk(
                     f"Fragment {state['index'] + 1} of {state['total']}\n\n{chunk}"
                 )
             ),
-        ],
-        ChunkParseResult,
-        "document_parse",
-        runtime=runtime,
-    )
+        ]
+    parsed, usage, failure = await structured_call(model, messages, ChunkParseResult, "document_parse", runtime=runtime)
+    agent_review = None
+    if parsed is not None and load().import_review:
+        parsed, review_usage, agent_review = await review_extraction(model, messages, parsed, ChunkParseResult, source_text=chunk, runtime=runtime)
+        usage.extend(review_usage)
     return {
         "chunkResults": [
             {
                 "index": state["index"],
                 "parsed": parsed.model_dump(mode="json") if parsed else None,
+                "agentReview": agent_review,
                 "failureCode": failure,
             }
         ],
@@ -1085,7 +1092,7 @@ async def load_unit_result(item: dict[str, Any], source_sha256: str) -> dict[str
         visuals = [VisualElement.model_validate(value).model_dump(mode="json") for value in payload.get("visuals", [])]
     except (ValueError, KeyError, TypeError) as exc:
         raise DocumentProcessingError(409, "Stored unit result is invalid", "UNIT_RESULT_INVALID") from exc
-    return {**item, "parsed": parsed, "visuals": visuals}
+    return {**item, "parsed": parsed, "visuals": visuals, "agentReview": payload.get("agentReview", item.get("agentReview"))}
 
 
 async def _merge(state: DocumentState) -> dict[str, Any]:
@@ -1126,6 +1133,15 @@ async def _merge(state: DocumentState) -> dict[str, Any]:
         source_text=source_text, chunk_spans=state.get("chunkSpans") if not pages else None,
     )
     warnings.extend(merge_warnings)
+    agent_reviews = [item["agentReview"] for item in ordered if item.get("agentReview")]
+    for item in ordered:
+        if audit := item.get("agentReview"):
+            findings = audit["reports"][-1]["issues"] if audit.get("reports") else []
+            detail = "; ".join(f"{issue['code']}: {issue['instruction'][:200]} (source: {issue['evidence'][:200]})"
+                               for issue in findings[:5])
+            warnings.append(f"AI source review, unit {item['index'] + 1}: {audit['status']}"
+                            f" ({audit.get('failureCode') or 'no call failure'}). {detail} "
+                            "Not a guarantee of extraction accuracy; retain human review.")
     visual_elements = []
     unverified_visuals = []
     offset = 0
@@ -1203,13 +1219,16 @@ async def _merge(state: DocumentState) -> dict[str, Any]:
         failures=failures,
         questionSources=[DocumentQuestionSource(questionId=questions[item.questionIndex].id or "", stage=item.stage, unitIndex=item.unitIndex) for item in question_sources],
         quality=ExportQuality.model_validate({
-            "reviewRequired": bool(failures or truncated or not questions) or any(q.needsReview for q in questions),
+            "reviewRequired": bool(failures or truncated or not questions) or any(q.needsReview for q in questions)
+                              or any(item["status"] != "no_discrepancy" for item in agent_reviews),
             "reviewQuestionCount": sum(q.needsReview and q.answerMode not in COMPOSITE_MODES for q in questions),
             "issues": [{"questionId": questions[item.questionIndex].id, "code": item.code} for item in quality.issues],
         }),
     )
     missing_fields = []
-    if not questions or state.get("truncated") or merge_truncated or any(f.stage in {"vision_parse", "document_parse"} for f in failures):
+    if (not questions or state.get("truncated") or merge_truncated
+            or any(f.stage in {"vision_parse", "document_parse"} for f in failures)
+            or any(item.get("missingQuestions") for item in agent_reviews)):
         missing_fields.append("questions")
     if crop_failures or crop_truncated:
         missing_fields.append("media")
@@ -1299,12 +1318,12 @@ async def _gate(state: DocumentState, *, phase: str) -> dict[str, Any]:
         return update
     allowances = dict(state.get("callAllowances", {}))
     reserved = state.get("reservedCalls", 0)
-    # ponytail: reserve up to four calls per unit and never reclaim unused slots.
-    # This conservative ceiling avoids a distributed budget counter across parallel units.
+    # Reserve all bounded extraction/review/repair/recheck (and figure) attempts.
+    unit_limit = MAX_MODEL_CALLS * ((5 if phase == "vision" else 4) if load().import_review else 1)
     for item in work:
         key = item.arg["unitKey"]
         if key not in allowances:
-            allowance = min(4, max(0, load().task_max_model_calls - reserved))
+            allowance = min(unit_limit, max(0, load().task_max_model_calls - reserved))
             allowances[key] = allowance
             reserved += allowance
     return {**update, "callAllowances": allowances, "reservedCalls": reserved}
@@ -1371,12 +1390,18 @@ def _guarded(function: Callable[..., Awaitable[dict[str, Any]]], *, with_runtime
                             if item.get("parsed") is None or item.get("resultRef"):
                                 continue
                             store = await asyncio.to_thread(get_object_store)
-                            payload = json.dumps({"parsed":item["parsed"], "visuals":item.get("visuals", [])}, ensure_ascii=False, separators=(",", ":")).encode()
+                            audit = item.get("agentReview")
+                            payload = json.dumps({"parsed":item["parsed"], "visuals":item.get("visuals", []), "agentReview":audit}, ensure_ascii=False, separators=(",", ":")).encode()
                             source_sha256 = state.get("sourceSha256") or state["execution"]["document"]["sha256"]
                             reference = await store.put_artifact(payload, source_sha256=source_sha256, kind="unit-result", index=item["index"], media_type="application/json")
                             item["resultRef"] = reference.model_dump(mode="json")
                             item["parsed"] = {"questionCount":len(item["parsed"].get("questions", []))}
                             item["visuals"] = []
+                            if audit:
+                                item["agentReview"] = {
+                                    "status": audit["status"], "failureCode": audit["failureCode"],
+                                    "missingQuestions": audit["missingQuestions"],
+                                }
             if result.get("status") in {"SUCCEEDED", "PARTIAL"}:
                 telemetry.event("review_candidate", status=result["status"], sourceType=source_type,
                                 reviewRequired=result.get("processing", {}).get("quality", {}).get("reviewRequired", False),
