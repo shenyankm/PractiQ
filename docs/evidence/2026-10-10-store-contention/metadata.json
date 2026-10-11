@@ -1,0 +1,92 @@
+{
+  "date": "2026-10-10",
+  "sourceBaseline": "628f776a382a7f157b283121ad7147059a557cf9",
+  "environment": {
+    "os": "macOS 27.0.1 (26A434)",
+    "cpu": "Apple M4",
+    "architecture": "arm64",
+    "node": "v22.23.2",
+    "rustc": "1.98.1 (48a229cea 2026-09-01)"
+  },
+  "order": [
+    "0-baseline",
+    "0-candidate",
+    "1-baseline",
+    "1-candidate",
+    "2-baseline",
+    "2-candidate"
+  ],
+  "inputSha256": "39592107e07d6c003af55fbc42e4f6de2b63a8487195cdb2ceb8ab02b6164a23",
+  "sourceFiles": {
+    "app/src-tauri/src/backup.rs": {
+      "candidateSha256": "59d9cc0d1d7a8deca7f703d236ac96ed8fc170b07c34a364aab7e7c58ccc212c",
+      "baselineSha256": "951670450f01e222ff318e8eb0d198971f18941c89235a1eb5a2321aa1fa0f58"
+    },
+    "app/src-tauri/src/bank_zip.rs": {
+      "candidateSha256": "07f03fb40cb1b12231e53f4702fd67d2710e37f38b3447edf1005bbd48b44eb4",
+      "baselineSha256": "c2a0c057faab6a7a560cc7c3e2c32b4bbff8ccbe2213829cae5dfea7d36126b8"
+    },
+    "app/src-tauri/src/performance.rs": {
+      "candidateSha256": "003bd5b7e0737426b8902964b5c1b5b2ebf9c79cae17ba8ec7abdd0b20a0ea4e",
+      "baselineSha256": "4e7658fabfd2566e1ce3287612320fd9091d935eef553a8b94215aaa80d77d65"
+    }
+  },
+  "measuredProbeSha256": "4fc1b3608ec8d5599ec09f2e991fc3aac9f48f4b6d188a977abfbf5ce4105093",
+  "probeDifference": "Two needless references to an already-borrowed archive path were removed after measurement for Clippy; all measured variants used the same original probe.",
+  "mediansMs": {
+    "baseline": {
+      "backup": {
+        "lockHoldMs": 150.17945799999998,
+        "draftLockWaitMs": 150.181542,
+        "draftTotalMs": 151.216875
+      },
+      "damagedBackup": {
+        "lockHoldMs": 27.608667,
+        "draftLockWaitMs": 27.608375000000002,
+        "draftTotalMs": 28.363834
+      },
+      "damagedExport": {
+        "lockHoldMs": 16.029541000000002,
+        "draftLockWaitMs": 16.037125,
+        "draftTotalMs": 16.852583
+      },
+      "export": {
+        "lockHoldMs": 251.060666,
+        "draftLockWaitMs": 251.065541,
+        "draftTotalMs": 251.997458
+      },
+      "idle": {
+        "lockHoldMs": 0.0015,
+        "draftLockWaitMs": 4.2e-05,
+        "draftTotalMs": 0.835083
+      }
+    },
+    "candidate": {
+      "backup": {
+        "lockHoldMs": 59.619417,
+        "draftLockWaitMs": 59.619625,
+        "draftTotalMs": 60.589291
+      },
+      "damagedBackup": {
+        "lockHoldMs": 10.632834,
+        "draftLockWaitMs": 10.641291,
+        "draftTotalMs": 11.802458
+      },
+      "damagedExport": {
+        "lockHoldMs": 24.594541,
+        "draftLockWaitMs": 24.505792,
+        "draftTotalMs": 25.976542
+      },
+      "export": {
+        "lockHoldMs": 108.008375,
+        "draftLockWaitMs": 108.015792,
+        "draftTotalMs": 109.697375
+      },
+      "idle": {
+        "lockHoldMs": 0.001625,
+        "draftLockWaitMs": 8.3e-05,
+        "draftTotalMs": 1.775125
+      }
+    }
+  }
+}

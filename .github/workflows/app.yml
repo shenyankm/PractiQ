@@ -54,7 +54,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.changes.outputs.sha }}
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
           cache: npm
@@ -93,7 +93,7 @@ jobs:
         working-directory: app
       - name: Upload browser diagnostics
         if: ${{ always() }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: app-browser
           path: app/test-results/browser/
@@ -106,7 +106,7 @@ jobs:
       - run: make audit-rust
       - name: Upload frontend coverage
         if: ${{ always() }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: app-coverage
           path: coverage/app/
@@ -142,7 +142,7 @@ jobs:
           New-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts' -Name 'Noto Sans CJK SC (OpenType)' -Value 'NotoSansCJKsc-Regular.otf' -PropertyType String -Force
           Add-Type 'using System.Runtime.InteropServices; public static class CiFonts { [DllImport("gdi32.dll", CharSet=CharSet.Unicode, ExactSpelling=true)] public static extern int AddFontResourceW(string path); }'
           if ([CiFonts]::AddFontResourceW($font) -eq 0) { throw 'CJK font registration failed' }
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
           cache: npm
@@ -191,7 +191,7 @@ jobs:
         run: python app/scripts/release.py stage --tag "$RELEASE_TAG"
       - name: Upload gated release assets
         if: inputs.release
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-${{ matrix.platform }}
           path: app/.build/release/
@@ -200,7 +200,7 @@ jobs:
           retention-days: 14
       - name: Upload package verification reports
         if: ${{ always() }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: desktop-checks-${{ matrix.platform }}
           path: |
@@ -211,7 +211,7 @@ jobs:
           retention-days: 7
       - name: Upload installers
         if: github.event_name != 'pull_request'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: PractiQ-${{ matrix.platform }}
           path: |
@@ -233,7 +233,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.changes.outputs.sha }}
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
           cache: npm
@@ -275,7 +275,7 @@ jobs:
         env:
           RELEASE_TAG: ${{ inputs.tag }}
         run: python app/scripts/release.py stage --platform android --aapt2 "$ANDROID_HOME/build-tools/36.0.0/aapt2" --android-runtime-inventory app/.build/android-runtime.json --tag "$RELEASE_TAG"
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: inputs.release
         with:
           name: release-Android
@@ -283,7 +283,7 @@ jobs:
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 14
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ always() }}
         with:
           name: android-package-evidence
@@ -293,7 +293,7 @@ jobs:
             app/src-tauri/bundled/build-manifest.json
             app/src-tauri/bundled/THIRD-PARTY.txt
           retention-days: 7
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: github.event_name != 'pull_request'
         with:
           name: PractiQ-Android-debug-arm64
@@ -313,7 +313,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.changes.outputs.sha }}
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
           cache: npm
@@ -362,7 +362,7 @@ jobs:
           target: google_apis
           disable-animations: true
           script: app/src-tauri/gen/android/gradlew -p app/src-tauri/gen/android :app:testX86_64DebugUnitTest :app:connectedX86_64DebugAndroidTest -x rustBuildX86_64Debug -PabiList=x86_64 -ParchList=x86_64 -PtargetList=x86_64 --no-daemon
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ always() }}
         with:
           name: android-emulator-tests
