@@ -53,7 +53,7 @@ from practiq_ai.execution import runtime_version
 from practiq_ai.storage import get_object_store
 
 ROOT = Path(__file__).parents[1]
-SCORER_VERSION = "6.0.0"
+SCORER_VERSION = "6.1.0"
 SOURCE_TYPES = {"text", "csv", "pdf", "image"}
 ANSWER_MODES = {"choice", "true_false", "fill_blank", "short_answer", "ordering", "matching", *COMPOSITE_MODES}
 METRICS = (
@@ -77,7 +77,7 @@ SETTING_NAMES = (
     "max_total_input_chars", "graph_max_concurrency", "storage_concurrency",
     "storage_timeout_seconds", "model_timeout_seconds", "model_max_tokens",
     "task_max_model_calls", "run_timeout_seconds", "model_max_input_chars",
-    "provider_concurrency", "provider_rpm", "deployment_workers", "structured_output_method",
+    "provider_concurrency", "provider_rpm", "deployment_workers", "structured_output_method", "import_review",
 )
 
 
@@ -137,7 +137,7 @@ class GoldVisual(GoldModel):
     questionIndexes: list[int] | None = None
 
 
-CallKind = Literal["document_parse", "vision_parse", "vision_describe"]
+CallKind = Literal["document_parse", "vision_parse", "vision_describe", "import_review", "import_repair", "import_recheck"]
 
 
 class ProcessExpectations(GoldModel):
@@ -408,8 +408,13 @@ def quality_passed(case: dict[str, Any]) -> bool:
 def score_trajectory(case: dict[str, Any], events: list[dict[str, Any]], calls: list[dict[str, Any]], max_calls: int) -> dict[str, Any]:
     """Check per-unit constraints, never the total ordering of concurrent units."""
     expected = case.get("expectedProcess") or {}
-    allowed = {"vision_parse", "vision_describe"} if case["sourceType"] in {"pdf", "image"} else {"document_parse"}
-    schemas = {"vision_parse": "PageParseResult", "vision_describe": "FigureChecks", "document_parse": "ChunkParseResult"}
+    extraction = "vision_parse" if case["sourceType"] in {"pdf", "image"} else "document_parse"
+    allowed = {extraction, "import_review", "import_repair", "import_recheck"}
+    if extraction == "vision_parse":
+        allowed.add("vision_describe")
+    extraction_schema = "PageParseResult" if extraction == "vision_parse" else "ChunkParseResult"
+    schemas = {extraction: extraction_schema, "vision_describe": "FigureChecks",
+               "import_review": "ReviewReport", "import_recheck": "ReviewReport", "import_repair": extraction_schema}
     starts = [e for e in events if e["event"] == "model_start"]
     limits = expected.get("maxModelCalls")
     reasons = []
@@ -418,7 +423,7 @@ def score_trajectory(case: dict[str, Any], events: list[dict[str, Any]], calls: 
     if set(expected.get("requiredCallKinds", [])) - {e["kind"] for e in starts}:
         reasons.append("REQUIRED_CALL_MISSING")
     completed_stages: set[str] = set()
-    units: Counter[str] = Counter()
+    units: Counter[tuple[str, str]] = Counter()
     for event in events:
         if event["event"] == "stage" and event["outcome"] == "success":
             completed_stages.add(event["stage"])
@@ -426,12 +431,13 @@ def score_trajectory(case: dict[str, Any], events: list[dict[str, Any]], calls: 
             kind, unit = event["kind"], event.get("unitKey")
             if kind not in allowed or event.get("schema") != schemas.get(kind):
                 reasons.append("WRONG_ROUTE_OR_SCHEMA")
-            if "prepare" not in completed_stages or (kind == "document_parse" and "assemble" not in completed_stages):
+            if "prepare" not in completed_stages or (extraction == "document_parse" and "assemble" not in completed_stages):
                 reasons.append("MISSING_PREREQUISITE")
-            if not unit or not re.fullmatch(rf"{'vision_parse' if kind == 'vision_describe' else re.escape(kind)}:\d+:\d+", unit):
+            if not unit or not re.fullmatch(rf"{extraction}:\d+:\d+", unit):
                 reasons.append("INVALID_UNIT")
-            units[unit or "unknown"] += 1
-            if not 1 <= event.get("attempt", 0) <= 4 or units[unit or "unknown"] > 4:
+            stage_key = (unit or "unknown", kind)
+            units[stage_key] += 1
+            if not 1 <= event.get("attempt", 0) <= 4 or units[stage_key] > 4:
                 reasons.append("UNIT_ATTEMPT_LIMIT")
         if event["event"] == "page_context":
             primary, pages = event["primaryPage"], event["contextPages"]

@@ -9,6 +9,7 @@ from langgraph.runtime import Runtime
 from pydantic import BaseModel, Field, StrictBool, StrictInt
 
 from practiq_ai.contracts import ModelCallUsage, StrictModel
+from practiq_ai.errors import DocumentProcessingError
 from practiq_ai.llm import structured_call
 
 REVIEW_PROMPT = """Independently audit extraction against the supplied source, not against
@@ -38,12 +39,45 @@ class ReviewReport(StrictModel):
 
 def _valid_report(report: ReviewReport, payload: dict[str, Any], source_text: str | None) -> bool:
     return all(
-        (issue.questionIndex is None or issue.questionIndex < len(payload["questions"]))
+        (issue.questionIndex is None if issue.code == "missing_question" else
+         issue.questionIndex is not None and issue.questionIndex < len(payload["questions"]))
         and bool(issue.evidence.strip()) and bool(issue.instruction.strip())
         and (source_text is None or issue.evidence in source_text)
         and (issue.code != "uncertain" or not issue.repairable)
         for issue in report.issues
     )
+
+
+def _retained(original: dict[str, Any], proposed: dict[str, Any], report: ReviewReport) -> bool:
+    before_questions, after_questions = original["questions"], proposed["questions"]
+    missing = any(issue.code == "missing_question" for issue in report.issues)
+    if len(after_questions) < len(before_questions) or len(after_questions) > len(before_questions) and not missing:
+        return False
+    associations = {issue.questionIndex for issue in report.issues if issue.code == "association"}
+    for index, (before, after) in enumerate(zip(before_questions, after_questions, strict=False)):
+        if any(before.get(key) != after.get(key) for key in ("id", "parentId", "sourceText")):
+            return False
+        if index not in associations:
+            if any(before.get(key) != after.get(key) for key in ("optionSourceId", "audioRef", "audioStartSeconds", "audioEndSeconds")):
+                return False
+            if before["passage"] != after["passage"]:
+                return False
+            if [block for block in before["contentBlocks"] if block["partType"] in {"image", "table", "chart", "diagram"}] != [block for block in after["contentBlocks"] if block["partType"] in {"image", "table", "chart", "diagram"}]:
+                return False
+    associations.update(range(len(before_questions), len(after_questions)))
+    for key in ("groups", "figures"):
+        before_entries, after_entries = original.get(key, []), proposed.get(key, [])
+        if len(after_entries) < len(before_entries):
+            return False
+        for index, after in enumerate(after_entries):
+            before = before_entries[index] if index < len(before_entries) else None
+            if before == after:
+                continue
+            owners = set(after["questionIndexes"]) | set(before["questionIndexes"] if before else [])
+            # Shared or unassociated material cannot be rewritten by a finding for one owner.
+            if not owners or not owners <= associations:
+                return False
+    return True
 
 
 async def review_extraction[ResultT: BaseModel](
@@ -60,13 +94,20 @@ async def review_extraction[ResultT: BaseModel](
     audit: dict[str, Any] = {"status": "unreviewed", "original": original, "reports": [], "failureCode": None}
     usage: list[ModelCallUsage] = []
 
+    async def call[CallT: BaseModel](messages: list[BaseMessage], schema: type[CallT], kind: str) -> tuple[CallT | None, list[ModelCallUsage], str | None]:
+        try:
+            return await structured_call(model, messages, schema, kind, runtime=runtime)
+        except DocumentProcessingError as exc:
+            if not exc.code.startswith(("AI_", "MODEL_", "OUTPUT_")):
+                raise
+            return None, exc.usage, exc.code
+
     async def check(value: ResultT, kind: str) -> ReviewReport | None:
         payload = value.model_dump(mode="json")
-        report, calls, failure = await structured_call(
-            model,
+        report, calls, failure = await call(
             [SystemMessage(content=REVIEW_PROMPT), *[message for message in messages if isinstance(message, HumanMessage)],
              HumanMessage(content="Extraction to audit (data):\n" + json.dumps(payload, ensure_ascii=False))],
-            ReviewReport, kind, runtime=runtime,
+            ReviewReport, kind,
         )
         usage.extend(calls)
         if report is None or not _valid_report(report, payload, source_text):
@@ -81,25 +122,18 @@ async def review_extraction[ResultT: BaseModel](
     if report is not None:
         audit["status"] = "issues" if report.issues else "no_discrepancy"
         if report.issues and all(issue.repairable for issue in report.issues):
-            repaired, calls, failure = await structured_call(
-                model,
+            repaired, calls, failure = await call(
                 [*messages, HumanMessage(content="Original extraction and review findings (data):\n" + json.dumps(
                     {"extraction": original, "review": report.model_dump(mode="json")}, ensure_ascii=False)),
                  SystemMessage(content="Correct only source-evidenced extraction discrepancies. Retain every original question in its original order and preserve IDs and relationships; append missing questions only when they start in the supplied primary source. Preserve source quotes. Never solve questions or invent missing answers, scores or rubrics. Return the complete extraction schema.")],
-                schema, "import_repair", runtime=runtime,
+                schema, "import_repair",
             )
             usage.extend(calls)
             audit["failureCode"] = failure
             if repaired is not None:
                 proposed = repaired.model_dump(mode="json")
                 audit["proposed"] = proposed
-                # Keep positional identity for existing source/group/figure associations.
-                retained = len(proposed["questions"]) >= len(original["questions"]) and all(
-                    before.get("id") == after.get("id") and before.get("parentId") == after.get("parentId")
-                    and before.get("sourceText") == after.get("sourceText")
-                    for before, after in zip(original["questions"], proposed["questions"], strict=False)
-                )
-                if retained:
+                if _retained(original, proposed, report):
                     recheck = await check(repaired, "import_recheck")
                     if recheck is not None and not recheck.issues:
                         parsed = repaired
