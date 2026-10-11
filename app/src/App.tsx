@@ -394,8 +394,8 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
   }}>{t("重试")}</Button></div>;
   const navigationContent = <>
         <div className="mb-4 flex items-center gap-2 overflow-hidden px-1 pt-3">
-          {compact ? <img src={logo} alt="" className="size-10 rounded-xl object-contain" /> : <Button variant="ghost" size="icon" className="group relative size-10 shrink-0 rounded-xl" aria-label={sidebarCollapsed ? t("展开侧边栏") : t("收起侧边栏")} aria-expanded={!sidebarCollapsed} aria-controls="app-sidebar" onClick={() => setSidebarCollapsed(value => !value)}>
-            <img src={logo} alt="" className="size-10 rounded-xl object-contain group-hover:opacity-0 group-focus-visible:opacity-0" />
+          {compact ? <img src={logo} alt="" className="size-10 shrink-0 object-contain" /> : <Button variant="ghost" size="icon" className="group relative size-10 shrink-0 rounded-xl border-0 aria-expanded:bg-transparent" aria-label={sidebarCollapsed ? t("展开侧边栏") : t("收起侧边栏")} aria-expanded={!sidebarCollapsed} aria-controls="app-sidebar" onClick={() => setSidebarCollapsed(value => !value)}>
+            <img src={logo} alt="" className="size-10 shrink-0 object-contain group-hover:opacity-0 group-focus-visible:opacity-0" />
             <span className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100" aria-hidden="true">{sidebarCollapsed ? <PanelLeftOpen /> : <PanelLeftClose />}</span>
           </Button>}
           <div aria-hidden={sidebarCollapsed} className="sidebar-label shrink-0">
@@ -479,7 +479,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
           <DialogHeader className="sr-only"><DialogTitle>{t("主导航")}</DialogTitle></DialogHeader>
           <div className="flex min-h-0 flex-1 flex-col">{navigationContent}</div>
         </DialogContent>
-      </Dialog> : <aside id="app-sidebar" className={`flex shrink-0 flex-col border-r bg-muted/25 px-2 py-4 transition-[width] duration-200 ease-in-out motion-reduce:transition-none ${sidebarCollapsed ? "w-16" : "w-44"}`}>{navigationContent}</aside>}
+      </Dialog> : <aside id="app-sidebar" className={`flex shrink-0 flex-col border-r bg-card px-2 py-4 transition-[width] duration-200 ease-in-out motion-reduce:transition-none ${sidebarCollapsed ? "w-16" : "w-52"}`}>{navigationContent}</aside>}
       </Tooltip.Provider>
       <main className="flex min-w-0 flex-1 flex-col">
         <header className="app-header flex shrink-0 flex-wrap items-center justify-between gap-4 border-b">
@@ -647,7 +647,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                 </div>
               ) : questions.length ? (
                 <>
-                  <div className="divide-y rounded-xl border">
+                  <div className="divide-y rounded-xl border bg-card">
                     {questions.map((row, i) => (
                       <div key={row.id} className="flex min-h-20 flex-wrap items-center gap-3 p-3 sm:flex-nowrap sm:gap-4 sm:p-4">
                         <span className="w-8 shrink-0 text-sm text-muted-foreground">
@@ -665,7 +665,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                                   t("未知题型")}
                               </Badge>
                               {row.reviewRequired && (
-                                <CircleAlert className="size-4 text-amber-600 dark:text-amber-400" role="img" aria-label={t("待复核")} />
+                                <CircleAlert className="size-4 review-warning" role="img" aria-label={t("待复核")} />
                               )}
                               {row.hasWrong && (
                                 <Badge variant="destructive">{row.hasPartialScore ? t("部分得分") : t("错题")}</Badge>

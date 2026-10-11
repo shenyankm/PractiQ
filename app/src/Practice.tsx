@@ -466,7 +466,7 @@ const AnswerCardItem = memo(function AnswerCardItem({ordinal, current, state, Ma
                 <Button
                   size="sm"
                   variant={variant}
-                  className={`relative h-auto min-h-10 flex-col gap-0 px-1 py-1 ${current ? "underline decoration-2 underline-offset-4" : answered ? "border-sky-200 bg-sky-100 text-sky-900 hover:bg-sky-200 dark:border-sky-800 dark:bg-sky-950/60 dark:text-sky-100 dark:hover:bg-sky-900/60" : ""} ${flagged ? "ring-2 ring-amber-400 ring-offset-1" : ""}`}
+                  className={`relative h-auto min-h-10 flex-col gap-0 px-1 py-1 ${current ? "underline decoration-2 underline-offset-4" : answered ? "answer-card-answered" : ""} ${flagged ? "answer-card-flagged" : ""}`}
                   aria-current={current ? "step" : undefined}
                   aria-label={t("转到第 {0} 题，{1}{2}", { 0: ordinal + 1, 1: state, 2: flagged ? t("，待检查") : "" })}
                   title={`${state}${flagged ? t("，待检查") : ""}`}

@@ -1,9 +1,11 @@
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+import { designPreview } from "./scripts/design-preview.ts";
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [
+    ...(mode === "design-preview" ? [designPreview()] : []),
     {
       name: "katex-woff2",
       enforce: "pre",
@@ -40,4 +42,4 @@ export default defineConfig({
       thresholds: { statements: 80, branches: 73, functions: 73, lines: 85 },
     },
   },
-});
+}));

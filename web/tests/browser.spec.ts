@@ -342,7 +342,21 @@ test('import workspace tokens preserve readable text in light and dark surfaces'
     const expectedPrimary=await exportButton.evaluate((element,color)=>{const probe=document.createElement('span');probe.style.backgroundColor=color;document.body.append(probe);const value=getComputedStyle(probe).backgroundColor;probe.remove();return value;},colors.primary);
     await expect(exportButton).toHaveCSS('background-color',expectedPrimary);
     const badge=page.locator('[data-slot=badge][data-variant=outline]').first();
-    await expect(badge).toHaveCSS('color',colors.foreground);
+    const expectedForeground=await badge.evaluate((element,color)=>{const probe=document.createElement('span');probe.style.color=color;document.body.append(probe);const value=getComputedStyle(probe).color;probe.remove();return value;},colors.foreground);
+    await expect(badge).toHaveCSS('color',expectedForeground);
+    await exportButton.hover();
+    const hoverContrast=await exportButton.evaluate(element=>{
+      const style=getComputedStyle(element), root=getComputedStyle(document.documentElement), canvas=document.createElement('canvas'), context=canvas.getContext('2d')!;
+      const luminance=(rgba:number[])=>rgba.slice(0,3).map(v=>v/255).map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4).reduce((sum,v,i)=>sum+v*[.2126,.7152,.0722][i],0);
+      context.fillStyle=root.getPropertyValue('--card'); context.fillRect(0,0,1,1);
+      context.fillStyle=style.backgroundColor; context.fillRect(0,0,1,1);
+      const background=luminance([...context.getImageData(0,0,1,1).data]);
+      context.fillStyle=style.color; context.fillRect(0,0,1,1);
+      const foreground=luminance([...context.getImageData(0,0,1,1).data]);
+      return (Math.max(foreground,background)+.05)/(Math.min(foreground,background)+.05);
+    });
+    expect(hoverContrast,`${theme}: primary button hover`).toBeGreaterThanOrEqual(4.5);
+    await page.mouse.move(0,0);
     await page.screenshot({path:testInfo.outputPath(`workspace-${theme}.png`),fullPage:true});
   }
 });

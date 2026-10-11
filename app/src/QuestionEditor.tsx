@@ -124,7 +124,9 @@ export function QuestionEditor({
   }
   return (
       <EditorDialog title={t("编辑题目")} dirty={dirty || audioPending || audioDraft} busy={busy} onClose={onClose} className="flex max-h-[90vh] flex-col overflow-hidden sm:max-w-3xl">
-        <fieldset disabled={busy} className="min-h-0 min-w-0 flex-1 space-y-5 overflow-y-auto p-1">
+        {/* Separate scrolling from the fieldset so positioned controls cannot cover the footer. */}
+        <div className="relative min-h-0 min-w-0 flex-1 overflow-y-auto p-1">
+        <fieldset disabled={busy} className="min-w-0 space-y-5">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor={`${formId}-answer-mode`}>{t("答题方式")}</Label>
@@ -151,11 +153,11 @@ export function QuestionEditor({
             </div>
           </div>
           {(!parent || parent.answerMode === "reading") && <label className="grid gap-2">{t("英语题型")}
-            <select className="rounded border bg-background p-2" value={q.questionKind || ""} onChange={e=>{
+            <NativeSelect className="w-full" value={q.questionKind || ""} onChange={e=>{
               const kind=e.target.value as NonNullable<Question["questionKind"]>;
               if(kind && kindModes[kind]!==q.answerMode)mode(kindModes[kind]);
               patch({questionKind:kind || null,sourceLanguage:null,targetLanguage:null,writingGenre:null,minWords:null,maxWords:null});
-            }}><option value="">{t("通用题型")}</option>{Object.entries(questionKinds()).filter(([kind])=>!parent || !["reading","listening"].includes(kind)).map(([kind,label])=><option key={kind} value={kind}>{label}</option>)}</select>
+            }}><NativeSelectOption value="">{t("通用题型")}</NativeSelectOption>{Object.entries(questionKinds()).filter(([kind])=>!parent || !["reading","listening"].includes(kind)).map(([kind,label])=><NativeSelectOption key={kind} value={kind}>{label}</NativeSelectOption>)}</NativeSelect>
           </label>}
           <EnglishFields question={q} patch={patch} images={images} onPendingChange={setAudioPending} onDraftChange={setAudioDraft}/>
           {q.answerMode === "choice" && (
@@ -378,6 +380,7 @@ export function QuestionEditor({
             />
           </div>
         </fieldset>
+        </div>
         <DialogFooter className="shrink-0 border-t pt-3">
           <Button variant="outline" disabled={busy} onClick={onClose}>{t("放弃更改")}</Button>
           <Button disabled={busy || audioPending || audioDraft} onClick={() => {if(!audioPending && !audioDraft)onSave(q,children);}}>{t("保存题目")}</Button>
