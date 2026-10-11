@@ -309,6 +309,8 @@ export const en = {
   "恢复备份": "Restore backup",
   "用备份替换当前数据？": "Replace current data with a backup?",
   "恢复会替换全部本地题库和练习记录。应用将先校验备份，并自动保存当前数据的恢复副本。": "Restoring replaces all local banks and practice records. The app first validates the backup and saves a recovery copy of your current data.",
+  "修复资源并恢复备份": "Repair resources and restore backup",
+  "恢复会替换全部本地题库和练习记录，并修复缺失或损坏的资源。应用会先校验备份，保留原数据库、现存原始文件和损坏清单；该副本不能作为普通备份直接恢复。": "Restoring replaces all local banks and practice records and repairs missing or damaged resources. The app first validates the backup and preserves the original database, available original files and a damage inventory. This copy cannot be restored as an ordinary backup.",
   "恢复完成。原数据副本：{0}": "Restore complete. Previous data copy: {0}",
   "本地数据": "Local data",
   "版本：{0}": "Version: {0}",
