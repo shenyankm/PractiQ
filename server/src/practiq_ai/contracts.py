@@ -233,6 +233,10 @@ def normalize_answer(mode, payload):
     return payload if partial else schema.model_validate(payload)
 
 
+class OptionReferenceError(ValueError):
+    pass
+
+
 def answer_references_missing(mode, answer, data):
     if answer is None:
         return True
@@ -245,7 +249,7 @@ def answer_references_missing(mode, answer, data):
         if len({v.casefold() for v in selected}) != len(selected):
             raise ValueError("correct options must be unique")
         if labels and any(v.casefold() not in labels for v in selected):
-            raise ValueError("correct must reference supplied option labels")
+            raise OptionReferenceError("correct must reference supplied option labels")
         if data.get("choiceVariant") == "single" and len(payload.get("correct") or []) > 1:
             raise ValueError("single choice requires exactly one correct option")
         if isinstance(answer, ChoiceAnswerPayload) and labels:
@@ -600,7 +604,10 @@ def validate_question_tree(questions: list[ParsedQuestion]) -> None:
             owner = by_id.get(q.optionSourceId)
             if owner is None or owner.answerMode != "word_bank" or q.parentId != owner.id:
                 raise QuestionTreeError("optionSourceId must reference the parent word bank", q.id)
-            answer_references_missing("choice", q.answerPayload, {**q.model_dump(), "options": [o.model_dump() for o in owner.options]})
+            try:
+                answer_references_missing("choice", q.answerPayload, {**q.model_dump(), "options": [o.model_dump() for o in owner.options]})
+            except OptionReferenceError as exc:
+                raise QuestionTreeError(str(exc), q.id) from exc
     for q in questions:
         if q.answerMode not in COMPOSITE_MODES:
             continue

@@ -495,7 +495,10 @@ impl Store {
         self.session_now_with(&db)?;
         db.execute("UPDATE sessions SET position=?2,last_active_at=?3 WHERE id=?1 AND finished_at IS NULL AND EXISTS(SELECT 1 FROM attempts WHERE session_id=?1 AND ordinal=?2)",params![sid,position,self.session_clock.now()?]).map_err(err)?;
         let mut session = self.session_with(&db, sid, snapshot_key, true)?;
-        if position < list(&session, "attempts").len() {
+        let count = session["attemptCount"]
+            .as_u64()
+            .map_or_else(|| list(&session, "attempts").len(), |count| count as usize);
+        if position < count {
             session["position"] = json!(position);
         }
         Ok(session)

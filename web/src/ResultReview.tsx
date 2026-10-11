@@ -26,7 +26,7 @@ function Blocks({ blocks }: { blocks: ContentBlock[] }) {
   return <div className="space-y-3">{blocks.map((block, index) => <div key={index}>
     {block.label && <p className="font-medium">{block.label}</p>}
     {block.role && <Badge variant="outline">{block.role}</Badge>}
-    {block.partType === "html" ? <pre className="raw-data">{block.textValue || block.markdownValue || "未提供（null）"}</pre> : <>
+    {block.partType === "html" ? [block.markdownValue, block.textValue].filter((value, index, values) => value && values.indexOf(value) === index).map((value, index) => <pre key={index} className="raw-data">{value}</pre>) : <>
       {block.latexValue && <Markdown text={`$$
 ${block.latexValue}
 $$`} />}

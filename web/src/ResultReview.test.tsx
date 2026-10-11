@@ -5,6 +5,7 @@ import { expect, it, vi } from "vitest";
 import ResultReview, { ImageArtifact, Markdown } from "./ResultReview";
 import { Client } from "./api";
 import { material, preview, question, task } from "./test-fixtures";
+import htmlBlocks from "../../app/fixtures/rich-content/html-blocks.json";
 
 for (const source of ["checkpoint", "result"]) {
   it(`does not transfer expanded idless cards after ${source} filtering`, async () => {
@@ -71,6 +72,14 @@ it("shows HTML blocks as inert source text and retains missing stems/types", asy
   expect(screen.getByText("<script>window.documentInjected=true</script>")).toBeTruthy();
   expect(container.querySelector("script")).toBeNull();
   expect(screen.getByText("题型未知（null）")).toBeTruthy();
+});
+it("retains the same HTML source fields as the App without activating markup", async () => {
+  const q = question({ id: "q-html", stem: "Escaped HTML fixture", parentId: null, optionSourceId: null,
+    contentBlocks: htmlBlocks as ReturnType<typeof question>["contentBlocks"] });
+  const { container } = render(<ResultReview task={{ ...task, result: { ...task.result!, questions: [q], groups: [], visualElements: [] } }} preview={null} client={new Client("fake")} />);
+  await userEvent.click(screen.getByText("Escaped HTML fixture"));
+  for (const value of new Set(htmlBlocks.flatMap(block => [block.textValue, block.markdownValue]))) expect(screen.getByText(value).tagName).toBe("PRE");
+  expect(container.querySelector("script,img,table,a")).toBeNull();
 });
 it("paginates every question record without modifying the DTO, and supports result-only/empty previews", async () => {
   const user = userEvent.setup();
