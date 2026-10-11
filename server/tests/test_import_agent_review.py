@@ -303,6 +303,32 @@ async def test_graph_persists_audit_outside_checkpoint_and_reuses_successes(monk
     assert len(receipts) == 2
 
 
+@pytest.mark.parametrize("accepted", [True, False])
+async def test_saved_result_reports_addressed_findings_or_disputed_recheck(monkeypatch, accepted):
+    monkeypatch.setenv("AI_IMPORT_REVIEW", "true")
+    initial = issue(instruction="Restore the supplied stem")
+    disputed = issue(code="analysis", evidence="Second", instruction="Keep the supplied explanation")
+    corrected = parsed("Corrected")
+    corrected["questions"][0]["sourceText"] = "First"
+    graph, _, _, reference, model = setup_graph(monkeypatch, [
+        parsed(), {"issues": [initial]}, corrected, {"issues": [] if accepted else [disputed]},
+    ])
+    config = run_config()
+    result = await graph.ainvoke({"document": reference}, config)
+    expected, excluded = (initial, disputed) if accepted else (disputed, initial)
+    warning = next(value for value in result["result"]["warnings"] if value.startswith("AI source review"))
+    assert ("repaired" if accepted else "repair_rejected") in warning
+    assert f"{expected['code']}: {expected['instruction']} (source: {expected['evidence']})" in warning
+    assert excluded["instruction"] not in warning
+    assert result["result"]["questions"][0]["stem"] == ("Corrected" if accepted else "First")
+    state = (await graph.aget_state(config)).values
+    loaded = await document.load_unit_result(state["chunkResults"][0], reference["sha256"])
+    assert loaded["agentReview"]["reports"][0]["issues"] == [initial]
+    assert loaded["agentReview"]["reports"][1]["issues"] == ([] if accepted else [disputed])
+    saved = await graph.ainvoke(None, {**config, "run_id": uuid4()})
+    assert warning in saved["result"]["warnings"] and len(model.calls) == 4
+
+
 async def test_exhausted_review_budget_keeps_extract_but_never_claims_review_success(monkeypatch):
     monkeypatch.setenv("AI_IMPORT_REVIEW", "true")
     monkeypatch.setenv("AI_TASK_MAX_MODEL_CALLS", "1")

@@ -1136,7 +1136,7 @@ async def _merge(state: DocumentState) -> dict[str, Any]:
     agent_reviews = [item["agentReview"] for item in ordered if item.get("agentReview")]
     for item in ordered:
         if audit := item.get("agentReview"):
-            findings = audit["reports"][-1]["issues"] if audit.get("reports") else []
+            findings = audit["reports"][0 if audit["status"] == "repaired" else -1]["issues"] if audit.get("reports") else []
             detail = "; ".join(f"{issue['code']}: {issue['instruction'][:200]} (source: {issue['evidence'][:200]})"
                                for issue in findings[:5])
             warnings.append(f"AI source review, unit {item['index'] + 1}: {audit['status']}"
