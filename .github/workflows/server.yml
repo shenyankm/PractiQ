@@ -72,6 +72,8 @@ jobs:
           cache-dependency-path: web/package-lock.json
       - name: Install independent web dependencies
         run: make web-install
+      - name: Audit independent web dependencies
+        run: npm --prefix web audit --audit-level=high
       - name: Install browser for service web checks
         run: npx --prefix web playwright install --with-deps chromium
       - name: Verify independent service web frontend
