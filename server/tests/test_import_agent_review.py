@@ -51,15 +51,15 @@ async def test_review_is_independent_and_does_not_clear_existing_flags():
 
 
 async def test_one_repair_requires_clean_recheck_and_keeps_original_and_flags():
-    corrected = parsed("Corrected")
+    corrected = parsed("Second")
     corrected["questions"][0]["sourceText"] = "First"
     original = parsed()
     original["questions"][0]["missingFields"] = ["media"]
-    result, usage, audit, model = await collaborate([{"issues": [issue()]}, corrected, {"issues": []}], original=original)
-    assert result.questions[0].stem == "Corrected" and result.questions[0].needsReview
+    result, usage, audit, model = await collaborate([{"issues": [issue(evidence="Second")]}, corrected, {"issues": []}], original=original, source_text="First\nSecond")
+    assert result.questions[0].stem == "Second" and result.questions[0].needsReview
     assert "media" in result.questions[0].missingFields
     assert audit["status"] == "repaired" and audit["original"]["questions"][0]["stem"] == "First"
-    assert audit["proposed"]["questions"][0]["stem"] == "Corrected"
+    assert audit["proposed"]["questions"][0]["stem"] == "Second"
     assert [call.callKind for call in usage] == ["import_review", "import_repair", "import_recheck"]
     assert len(model.calls) == 3
 
@@ -230,8 +230,8 @@ async def test_stem_finding_cannot_rewrite_another_question_stem():
 
 
 @pytest.mark.parametrize("code,field,value", [
-    ("stem", "stem", "Corrected"), ("options", "options", [{"label": "A", "content": "Corrected A"}, {"label": "B", "content": "Corrected B"}]),
-    ("answer", "answerPayload", {"text": "Supplied answer"}), ("analysis", "analysis", "Supplied explanation"),
+    ("stem", "stem", "Second"), ("options", "options", [{"label": "A", "content": "Second A"}, {"label": "B", "content": "B"}]),
+    ("analysis", "analysis", "Supplied explanation"),
     ("association", "optionSourceId", "supplied-parent"),
 ])
 async def test_source_evidenced_findings_can_correct_their_authorized_fields(code, field, value):
@@ -241,10 +241,76 @@ async def test_source_evidenced_findings_can_correct_their_authorized_fields(cod
     corrected = deepcopy(original)
     corrected["questions"][0][field] = value
     result, _, audit, model = await collaborate([
-        {"issues": [issue(code=code)]}, corrected, {"issues": []},
-    ], original=original)
+        {"issues": [issue(code=code, evidence="First Second A B Supplied explanation supplied-parent")]}, corrected, {"issues": []},
+    ], original=original, source_text="First Second A B Supplied explanation supplied-parent")
     assert audit["status"] == "repaired" and len(model.calls) == 3
     assert result.model_dump(mode="json")["questions"][0][field] == value
+
+
+@pytest.mark.parametrize("code,field,value", [
+    ("stem", "stem", "Invented stem"), ("stem", "instructions", "Invented instruction"),
+    ("stem", "contentBlocks", [{"partType": "text", "textValue": "Invented text"}]),
+    ("stem", "contentBlocks", [{"partType": "text", "markdownValue": "First"}]),
+    ("options", "options", [{"label": "A", "content": "Invented option"}]),
+    ("options", "choiceVariant", "multiple"),
+    ("answer", "answerPayload", {"text": "First"}),
+    ("answer", "sourceScore", 2.0), ("answer", "scoringRubric", "First"),
+    ("answer", "scoreSourceText", "First"), ("analysis", "analysis", "Invented analysis"),
+])
+async def test_authorized_fields_cannot_accept_unverifiable_values_even_with_clean_recheck(code, field, value):
+    original = parsed()
+    if code == "options":
+        original["questions"][0]["answerMode"] = "choice"
+    corrected = deepcopy(original)
+    corrected["questions"][0][field] = value
+    result, _, audit, model = await collaborate([
+        {"issues": [issue(code=code)]}, corrected, {"issues": []},
+    ], original=original)
+    assert audit["status"] == "repair_rejected" and audit["failureCode"] == "OUTPUT_INVALID"
+    assert result.model_dump(mode="json")["questions"][0][field] == audit["original"]["questions"][0][field]
+    assert len(model.calls) == 2
+
+
+async def test_replacement_must_match_its_own_finding_quote_not_other_source_text():
+    corrected = parsed("Second")
+    corrected["questions"][0]["sourceText"] = "First"
+    result, _, audit, model = await collaborate([
+        {"issues": [issue()]}, corrected, {"issues": []},
+    ], source_text="First\nSecond")
+    assert audit["status"] == "repair_rejected" and result.questions[0].stem == "First" and len(model.calls) == 2
+
+
+async def test_image_only_observations_do_not_authorize_content_replacements():
+    corrected = parsed("Second")
+    corrected["questions"][0]["sourceText"] = "First"
+    result, _, audit, _ = await collaborate([
+        {"issues": [issue(evidence="Second")]}, corrected, {"issues": []},
+    ], source_text=None)
+    assert audit["status"] == "repair_rejected" and result.questions[0].stem == "First"
+
+
+@pytest.mark.parametrize("outcome", ["issues", "repaired", "repair_rejected", "unreviewed", "missing"])
+async def test_targeted_review_preserves_unrelated_complete_questions(outcome):
+    original = parsed()
+    original["questions"].append(question("Second"))
+    for value in original["questions"]:
+        value.update(answerPayload={"text": "Supplied answer"}, analysis="Supplied analysis")
+    validated = document.ChunkParseResult.model_validate(original)
+    assert not any(value.needsReview for value in validated.questions)
+    finding = issue(repairable=False)
+    responses = [{"issues": [finding]}]
+    if outcome in {"repaired", "repair_rejected"}:
+        corrected = deepcopy(original)
+        corrected["questions"][0]["instructions"] = "First" if outcome == "repaired" else "Invented"
+        corrected["questions"][1]["needsReview"] = True
+        responses = [{"issues": [issue()]}, corrected, {"issues": []}]
+    elif outcome == "unreviewed":
+        responses = [{"issues": [issue(questionIndex=5)]}]
+    elif outcome == "missing":
+        responses = [{"issues": [issue(questionIndex=None, code="missing_question", repairable=False)]}]
+    result, _, audit, _ = await collaborate(responses, original=original)
+    assert [value.needsReview for value in result.questions] == ([True, True] if outcome == "unreviewed" else [False, False] if outcome == "missing" else [True, False])
+    assert audit["status"] == ("issues" if outcome == "missing" else outcome)
 
 
 @pytest.mark.parametrize("value,accepted", [(None, True), ({"text": "Different unsupported answer"}, False)])
@@ -305,9 +371,9 @@ async def test_repair_preserves_existing_question_material(field):
 
 
 async def test_disputed_repair_retains_original_without_a_second_repair():
-    corrected = parsed("Wrong")
+    corrected = parsed("Second")
     corrected["questions"][0]["sourceText"] = "First"
-    result, usage, audit, model = await collaborate([{"issues": [issue()]}, corrected, {"issues": [issue()]}])
+    result, usage, audit, model = await collaborate([{"issues": [issue(evidence="Second")]}, corrected, {"issues": [issue()]}], source_text="First\nSecond")
     assert result.questions[0].stem == "First" and audit["status"] == "repair_rejected"
     assert len(model.calls) == len(usage) == 3 and len(audit["reports"]) == 2
 
@@ -357,10 +423,10 @@ async def test_review_propagates_execution_and_control_errors(monkeypatch, code)
 @pytest.mark.parametrize("code", ["AI_USAGE_MISSING", "AI_USAGE_INVALID"])
 async def test_accounting_errors_preserve_extraction_unknown_receipt_and_replay(monkeypatch, stage, code):
     monkeypatch.setenv("AI_IMPORT_REVIEW", "true")
-    corrected = parsed("Corrected")
+    corrected = parsed("Second")
     corrected["questions"][0]["sourceText"] = "First"
     graph, store, files, reference, model = setup_graph(monkeypatch, [
-        parsed(), {"issues": [issue()]}, corrected, {"issues": []},
+        parsed(), {"issues": [issue(evidence="Second")]}, corrected, {"issues": []},
     ])
     account = llm.usage_from_response
     def usage(model, raw, kind, runtime, attempt):
@@ -466,9 +532,9 @@ async def test_graph_persists_audit_outside_checkpoint_and_reuses_successes(monk
 @pytest.mark.parametrize("accepted", [True, False])
 async def test_saved_result_reports_addressed_findings_or_disputed_recheck(monkeypatch, accepted):
     monkeypatch.setenv("AI_IMPORT_REVIEW", "true")
-    initial = issue(instruction="Restore the supplied stem")
+    initial = issue(evidence="Second", instruction="Restore the supplied stem")
     disputed = issue(code="analysis", evidence="Second", instruction="Keep the supplied explanation")
-    corrected = parsed("Corrected")
+    corrected = parsed("Second")
     corrected["questions"][0]["sourceText"] = "First"
     graph, _, _, reference, model = setup_graph(monkeypatch, [
         parsed(), {"issues": [initial]}, corrected, {"issues": [] if accepted else [disputed]},
@@ -480,7 +546,7 @@ async def test_saved_result_reports_addressed_findings_or_disputed_recheck(monke
     assert ("repaired" if accepted else "repair_rejected") in warning
     assert f"{expected['code']}: {expected['instruction']} (source: {expected['evidence']})" in warning
     assert excluded["instruction"] not in warning
-    assert result["result"]["questions"][0]["stem"] == ("Corrected" if accepted else "First")
+    assert result["result"]["questions"][0]["stem"] == ("Second" if accepted else "First")
     state = (await graph.aget_state(config)).values
     loaded = await document.load_unit_result(state["chunkResults"][0], reference["sha256"])
     assert loaded["agentReview"]["reports"][0]["issues"] == [initial]

@@ -94,6 +94,28 @@ def _retained(original: dict[str, Any], proposed: dict[str, Any], report: Review
             allowed.update(key for key in set().union(*REPAIR_FIELDS.values()) if after[key] in (None, [], {}))
         if changed - allowed:
             return False
+        for key in changed - REPAIR_FIELDS["association"]:
+            if "invented_content" in codes and after[key] in (None, [], {}):
+                continue
+            quotes = [issue.evidence for issue in report.issues if issue.questionIndex == index and key in REPAIR_FIELDS.get(issue.code, set())]
+            if source_text is None:
+                return False
+            if key in {"stem", "instructions", "analysis"}:
+                if not isinstance(after[key], str) or not any(after[key] in quote for quote in quotes):
+                    return False
+            elif key == "options":
+                if not after[key] or not all(option["content"] and any(
+                    option["content"] in quote and (option["label"] is None or option["label"] in quote)
+                    for quote in quotes
+                ) for option in after[key]):
+                    return False
+            elif key == "contentBlocks":
+                if not after[key] or not all(block["textValue"] and block == ContentBlock(partType="text", textValue=block["textValue"]).model_dump(mode="json")
+                    and any(block["textValue"] in quote for quote in quotes) for block in after[key]):
+                    return False
+            else:
+                # shortcut: freeze semantic/structural replacements until independent source-role validation exists.
+                return False
         if "passage" in changed and [{key: value for key, value in block.items() if key != "questionId"} for block in before["passage"]] != [{key: value for key, value in block.items() if key != "questionId"} for block in after["passage"]]:
             return False
         if index not in associations:
@@ -185,9 +207,11 @@ async def review_extraction[ResultT: BaseModel](
     # Corrected content and any incomplete/disputed review still need human review.
     if audit["status"] != "no_discrepancy":
         value = parsed.model_dump(mode="json")
+        affected = {issue["questionIndex"] for report in audit["reports"] for issue in report["issues"] if issue["questionIndex"] is not None}
         for index, question in enumerate(value["questions"]):
-            question["needsReview"] = True
+            question["needsReview"] = not audit["reports"] or index in affected or index >= len(original["questions"])
             if index < len(original["questions"]):
+                question["needsReview"] |= original["questions"][index]["needsReview"]
                 question["missingFields"] = list(dict.fromkeys([
                     *question["missingFields"], *original["questions"][index]["missingFields"],
                 ]))
