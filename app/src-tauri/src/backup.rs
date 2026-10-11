@@ -115,6 +115,13 @@ impl Store {
                         serde_json::json!({}),
                     ));
                 }
+                let options = if asset["mediaType"] == "audio/wav" {
+                    options
+                } else {
+                    options
+                        .compression_method(zip::CompressionMethod::Stored)
+                        .compression_level(None)
+                };
                 zip.start_file(format!("assets/{digest}"), options)
                     .map_err(err)?;
                 zip.write_all(&data).map_err(err)?;

@@ -17,6 +17,27 @@ from ..errors import DocumentProcessingError
 from . import ExtractedDocument
 
 
+def _environment(directory: str) -> dict[str, str]:
+    config = load()
+    allowed = {
+        "PATH", "HOME", "SYSTEMROOT", "WINDIR", "COMSPEC", "PATHEXT",
+        "LD_LIBRARY_PATH", "DYLD_LIBRARY_PATH", "LANG", "LC_ALL", "LC_CTYPE",
+        "FONTCONFIG_FILE", "FONTCONFIG_PATH", "XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_DATA_DIRS",
+    }
+    env = {key: value for key, value in os.environ.items() if key.upper() in allowed}
+    # The shared settings loader needs a token, but extraction has no authenticated API or model access.
+    env.update(
+        TMPDIR=directory, TEMP=directory, TMP=directory, PYTHONDONTWRITEBYTECODE="1",
+        PYTHONPATH=str(Path(__file__).resolve().parents[2]),
+        AI_READ_ONLY="1", AI_SERVICE_TOKEN="extraction-worker", AI_STORAGE_DIR=directory,
+        AI_SOURCE_MAX_BYTES=str(config.source_max_bytes),
+        AI_MAX_VISION_BYTES=str(config.vision_max_bytes),
+        AI_MAX_DOCUMENT_PAGES=str(config.max_document_pages),
+        AI_MAX_VISION_PAGE_PIXELS=str(config.max_vision_page_pixels),
+    )
+    return env
+
+
 async def extract(source_type: DocumentSourceType, payload: bytes, *, timeout: float = 180) -> ExtractedDocument:
     with TemporaryDirectory(prefix="practiq-extract-") as directory:
         root = Path(directory)
@@ -25,7 +46,7 @@ async def extract(source_type: DocumentSourceType, payload: bytes, *, timeout: f
         process = await asyncio.create_subprocess_exec(
             sys.executable, "-m", __name__, source_type, str(source), str(output),
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-            start_new_session=os.name != "nt", env={**os.environ, "TMPDIR": directory},
+            start_new_session=os.name != "nt", env=_environment(directory),
             stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL,
         )
         try:
