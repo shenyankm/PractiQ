@@ -821,6 +821,26 @@ pub fn thaw(doc: &Value) -> Result<Vec<Value>> {
     if doc["schemaVersion"] != 3 {
         return Err("Unsupported session snapshot".into());
     }
+    for key in ["questions", "groups", "visuals"] {
+        if !doc[key]
+            .as_array()
+            .is_some_and(|items| items.iter().all(Value::is_object))
+        {
+            return Err(crate::language::error(
+                "LOCAL_BACKUP_SNAPSHOT_FIELD",
+                json!({"key":key}),
+            ));
+        }
+    }
+    if list(doc, "questions")
+        .iter()
+        .any(|row| !row["question"].is_object())
+    {
+        return Err(crate::language::error(
+            "LOCAL_BACKUP_SNAPSHOT_FIELD",
+            json!({"key":"question"}),
+        ));
+    }
     let mut rows = list(doc, "questions").to_vec();
     for key in ["groups", "visuals"] {
         let mut refs: HashMap<&str, Vec<&Value>> = HashMap::new();
