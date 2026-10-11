@@ -57,6 +57,7 @@ it("keeps Token in memory, clears it on disconnect, and performs no HTTP before 
 });
 it("selection is passive; explicit Start performs bounded SHA upload and task creation", async () => {
   const user = userEvent.setup(); const http = fakeHTTP(); render(<App />); await connect(user);
+  expect(screen.getByText(/服务启用 AI 复核时/)).toBeTruthy();
   await user.selectOptions(screen.getByLabelText("Word / Excel 转换模式"), "text");
   await user.upload(screen.getByLabelText("选择文档"), new File(["office"], "document.docx"));
   expect(screen.getByText(/尚未提交/)).toBeTruthy(); expect(http.calls.filter(call => call.method !== "GET")).toHaveLength(0);

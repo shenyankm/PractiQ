@@ -434,6 +434,51 @@ def test_real_graph_runner_with_fake_model_and_store(tmp_path, monkeypatch) -> N
     assert later["datasetHash"] != report["datasetHash"]
 
 
+def test_graph_evaluator_accepts_review_repair_and_recheck_calls(tmp_path, monkeypatch):
+    monkeypatch.setenv("AI_IMPORT_REVIEW", "true")
+    finding = {"questionIndex": 0, "code": "stem", "evidence": "What is 2 + 2?", "instruction": "Retain source stem", "repairable": True}
+    path, model = setup_runner(tmp_path, monkeypatch, [model_result(), {"issues": [finding]}, model_result(), {"issues": []}])
+    report = asyncio.run(ev.run_evaluation(path))
+    assert report["status"] == "PASSED" and model.calls == 4
+    assert report["settings"]["import_review"] is True
+    assert report["cases"][0]["trajectory"]["passed"]
+    assert {event["kind"] for event in report["cases"][0]["trajectory"]["events"] if event["event"] == "model_start"} == {"document_parse", "import_review", "import_repair", "import_recheck"}
+
+
+def test_evaluation_prompt_fingerprint_includes_review_module(tmp_path, monkeypatch):
+    root = tmp_path / "source"
+    for name in ("graphs/document.py", "graphs/vision.py", "graphs/review.py", "llm.py", "contracts.py"):
+        destination = root / "src/practiq_ai" / name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes((ev.ROOT / "src/practiq_ai" / name).read_bytes())
+    monkeypatch.setattr(ev, "ROOT", root)
+    monkeypatch.setattr(ev, "_code_metadata", lambda: {"gitCommit": "fake", "dirty": False, "codeHash": "a" * 64})
+    monkeypatch.setenv("AI_IMPORT_REVIEW", "true")
+    path, _ = setup_runner(tmp_path, monkeypatch, [model_result(), {"issues": []}, model_result(), {"issues": []}])
+    baseline = asyncio.run(ev.run_evaluation(path))
+    module = root / "src/practiq_ai/graphs/review.py"
+    module.write_text(module.read_text() + "\n# Synthetic review prompt/schema variant\n")
+    candidate = asyncio.run(ev.run_evaluation(path))
+    assert baseline["status"] == candidate["status"] == "PASSED"
+    assert baseline["promptHash"] != candidate["promptHash"]
+
+
+@pytest.mark.parametrize("limit", ["budget", "input"])
+def test_review_enabled_evaluation_fails_when_review_is_skipped_before_provider_start(tmp_path, monkeypatch, limit):
+    monkeypatch.setenv("AI_IMPORT_REVIEW", "true")
+    output = model_result()
+    if limit == "budget":
+        monkeypatch.setenv("AI_TASK_MAX_MODEL_CALLS", "1")
+    else:
+        monkeypatch.setenv("AI_MODEL_MAX_INPUT_CHARS", "20000")
+        output["questions"][0]["contentBlocks"][0]["textValue"] = "1. What is 2 + 2?\n" * 2500
+    path, model = setup_runner(tmp_path, monkeypatch, [output])
+    report = asyncio.run(ev.run_evaluation(path))
+    assert report["status"] == "FAILED" and model.calls == 1
+    assert report["cases"][0]["status"] == "SUCCEEDED"
+    assert "REVIEW_CALL_MISSING" in report["cases"][0]["trajectory"]["reasons"]
+
+
 def test_runner_preserves_usage_before_later_failure(tmp_path, monkeypatch) -> None:
     path, model = setup_runner(tmp_path, monkeypatch, [{"questions": [{"invalid": True}], "groups": []}, RuntimeError("provider secret")])
     report = asyncio.run(ev.run_evaluation(path))
@@ -913,6 +958,47 @@ def test_trajectory_ignores_parallel_completion_order_and_rejects_wrong_route():
     assert "MISSING_PREREQUISITE" in ev.score_trajectory(gold_case(), events[2:], [], 4)["reasons"]
     page = {"event": "page_context", "primaryPage": 1, "contextPages": [0, 3]}
     assert "INVALID_PAGE_CONTEXT" in ev.score_trajectory(gold_case(), [page], [{"callKey": "missing"}], 4)["reasons"]
+
+
+@pytest.mark.parametrize("source_type,extraction,schema", [("text", "document_parse", "ChunkParseResult"), ("image", "vision_parse", "PageParseResult")])
+def test_review_trajectory_checks_routes_and_limits_each_stage(source_type, extraction, schema):
+    kinds = [extraction, "import_review", "import_repair", "import_recheck"]
+    if source_type == "image":
+        kinds.append("vision_describe")
+    case = {**gold_case(), "sourceType": source_type, "expectedProcess": {"requiredCallKinds": kinds}}
+    ev.ProcessExpectations.model_validate(case["expectedProcess"])
+    events: list[dict[str, Any]] = [{"event": "stage", "stage": stage, "outcome": "success"} for stage in ("prepare", "assemble")]
+    for kind in kinds:
+        call_schema = "ReviewReport" if kind in {"import_review", "import_recheck"} else "FigureChecks" if kind == "vision_describe" else schema
+        events.extend({"event": "model_start", "callKey": f"{kind}-{attempt}", "kind": kind, "schema": call_schema,
+                       "unitKey": f"{extraction}:0:0", "attempt": attempt} for attempt in range(1, 5))
+    assert ev.score_trajectory(case, events, [], 20)["passed"]
+    bad = deepcopy(events)
+    bad[-1]["schema"] = "WrongSchema"
+    assert "WRONG_ROUTE_OR_SCHEMA" in ev.score_trajectory(case, bad, [], 20)["reasons"]
+    bad = deepcopy(events)
+    bad[-1]["unitKey"] = "import_review:0:0"
+    assert "INVALID_UNIT" in ev.score_trajectory(case, bad, [], 20)["reasons"]
+    bad = [*events, {**events[-1], "callKey": "fifth", "attempt": 1}]
+    assert "UNIT_ATTEMPT_LIMIT" in ev.score_trajectory(case, bad, [], 21)["reasons"]
+    assert "import_review" in ev.SETTING_NAMES
+
+
+def test_review_trajectory_requires_a_review_attempt_for_each_successful_extraction_unit():
+    events: list[dict[str, Any]] = [{"event": "stage", "stage": stage, "outcome": "success"} for stage in ("prepare", "assemble")]
+    for index in (0, 1):
+        unit = f"document_parse:{index}:0"
+        events.extend([
+            {"event": "model_start", "callKey": f"extract-{index}", "kind": "document_parse", "schema": "ChunkParseResult", "unitKey": unit, "attempt": 1},
+            {"event": "model_call", "kind": "document_parse", "unitKey": unit, "validation": "passed"},
+        ])
+    review = {"event": "model_start", "callKey": "review-0", "kind": "import_review", "schema": "ReviewReport", "unitKey": "document_parse:0:0", "attempt": 1}
+    events.append(review)
+    assert ev.score_trajectory(gold_case(), events, [], 4)["passed"]
+    assert "REVIEW_CALL_MISSING" in ev.score_trajectory(gold_case(), events, [], 4, import_review=True)["reasons"]
+    events.append({**review, "callKey": "review-1", "unitKey": "document_parse:1:0"})
+    assert ev.score_trajectory(gold_case(), events, [], 4, import_review=True)["passed"]
+    assert ev.score_trajectory(gold_case(), [], [], 4, import_review=True)["passed"]
 
 
 @pytest.mark.parametrize("failure", ["timeout", "rate_limit"])
