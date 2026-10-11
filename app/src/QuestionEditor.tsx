@@ -24,7 +24,8 @@ const optionTextFields = new Set(["label", "content"]);
 function editorAnswerQuestion(question: Question, parent?: Question) {
   return { ...question, options: question.optionSourceId ? parent?.options || [] : question.options, answerPayload: null };
 }
-function draftSnapshot(question: Question, children: Question[], parent?: Question) {
+type SnapshotCache = WeakMap<Question, { options: Question["options"] | undefined; json: string }>;
+function draftSnapshot(question: Question, children: Question[], parent?: Question, cache?: SnapshotCache) {
   const parents = new Map([question, ...children].map(value => [value.id, value]));
   // Normalize only known control defaults; preserve metadata, JSON content and array order.
   const normalize = (value: object, emptyFields: ReadonlySet<string>) => Object.fromEntries(Object.entries(value)
@@ -50,7 +51,15 @@ function draftSnapshot(question: Question, children: Question[], parent?: Questi
     contentBlocks: blocks(value.contentBlocks), passage: blocks(value.passage), transcript: blocks(value.transcript),
     allowReuse: value.allowReuse ?? false, audioStartSeconds: value.audioStartSeconds ?? 0, examPlayCount: value.examPlayCount ?? 2,
   }, nullableQuestionFields);
-  return JSON.stringify([normalizeQuestion(question, parent), children.map(value => normalizeQuestion(value, parents.get(value.parentId)))]);
+  const snapshot = (value: Question, owner?: Question) => {
+    const options = value.optionSourceId ? owner?.options : undefined;
+    const cached = cache?.get(value);
+    if (cached && cached.options === options) return cached.json;
+    const json = JSON.stringify(normalizeQuestion(value, owner));
+    cache?.set(value, { options, json });
+    return json;
+  };
+  return `[${snapshot(question, parent)},[${children.map(value => snapshot(value, parents.get(value.parentId))).join(",")}]]`;
 }
 export function QuestionEditor({
   initial,
@@ -73,11 +82,12 @@ export function QuestionEditor({
   const formId = useId();
   const [q, setQ] = useState<Question>(() => structuredClone({...initial, id: initial.id || crypto.randomUUID()}));
   const [children, setChildren] = useState<Question[]>(() => structuredClone(initialChildren));
-  const [original] = useState(() => draftSnapshot(q, children, parent));
+  const [snapshots] = useState<SnapshotCache>(() => new WeakMap());
+  const [original] = useState(() => draftSnapshot(q, children, parent, snapshots));
   const [audioPending, setAudioPending] = useState(false);
   const [audioDraft, setAudioDraft] = useState(false);
   const [childEditor, setChildEditor] = useState<Question | null>(null);
-  const dirty = draftSnapshot(q, children, parent) !== original;
+  const dirty = draftSnapshot(q, children, parent, snapshots) !== original;
   const patch = (p: Partial<Question>) => setQ((v) => ({ ...v, ...p }));
   function mode(value: Mode) {
     setChildren([]);

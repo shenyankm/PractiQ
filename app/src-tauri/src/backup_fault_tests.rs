@@ -8,7 +8,200 @@ use std::{
     time::Duration,
 };
 
+#[test]
+fn explicit_recovery_preserves_damaged_bytes_and_repairs_bank_and_history_resources() {
+    for history_only in [false, true] {
+        let dir = tempfile::tempdir().unwrap();
+        let source = populated(&dir.path().join("source"), "Incoming");
+        let archive = dir.path().join("incoming.zip");
+        source.backup(&archive).unwrap();
+        let mut target = populated(&dir.path().join("target"), "Previous");
+        if history_only {
+            let bank = text(&target.banks().unwrap()[0], "id").to_owned();
+            target.delete_bank(&bank).unwrap();
+        }
+        let assets = target
+            .connect()
+            .unwrap()
+            .prepare("SELECT hash,media,size FROM assets ORDER BY hash")
+            .unwrap()
+            .query_map([], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, u64>(2)?,
+                ))
+            })
+            .unwrap()
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .unwrap();
+        let image = assets
+            .iter()
+            .find(|(_, media, _)| media == "image/png")
+            .unwrap();
+        let audio = assets
+            .iter()
+            .find(|(_, media, _)| media == "audio/wav")
+            .unwrap();
+        fs::write(
+            target.asset_path(&image.0).unwrap(),
+            b"damaged-original-image",
+        )
+        .unwrap();
+        fs::remove_file(target.asset_path(&audio.0).unwrap()).unwrap();
+        assert!(target
+            .backup(&dir.path().join("invalid-current.zip"))
+            .is_err());
+        let result = target.restore_recovering(&archive).unwrap();
+        let recovery = std::path::PathBuf::from(text(&result, "recoveryPath"));
+        let inventory: Value =
+            serde_json::from_slice(&fs::read(recovery.join("inventory.json")).unwrap()).unwrap();
+        assert_eq!(inventory["format"], "practiq-recovery");
+        assert_eq!(
+            file_digest(&recovery.join("practiq.sqlite")).unwrap().1,
+            inventory["database"]["sha256"]
+        );
+        let saved = Connection::open(recovery.join("practiq.sqlite")).unwrap();
+        assert!(
+            saved
+                .query_row("SELECT count(*) FROM sessions", [], |row| row
+                    .get::<_, i64>(0))
+                .unwrap()
+                > 0
+        );
+        assert_eq!(
+            saved
+                .query_row("SELECT count(*) FROM banks", [], |row| row.get::<_, i64>(0))
+                .unwrap(),
+            if history_only { 0 } else { 1 }
+        );
+        assert_eq!(
+            fs::read(recovery.join(format!("assets/{}", image.0))).unwrap(),
+            b"damaged-original-image"
+        );
+        assert!(inventory["assets"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|asset| asset["sha256"] == image.0 && asset["status"] == "damaged"));
+        assert!(inventory["assets"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|asset| asset["sha256"] == audio.0 && asset["status"] == "missing"));
+        for (digest, _, size) in &assets {
+            assert_eq!(
+                crate::store::hash(&target.read_asset(digest, *size).unwrap()),
+                *digest
+            );
+        }
+        assert_eq!(target.banks().unwrap()[0]["title"], "Incoming");
+        target.backup(&dir.path().join("repaired.zip")).unwrap();
+    }
+}
+
+#[test]
+fn explicit_recovery_failures_preserve_original_data_and_durable_inventory() {
+    for failure in ["repair-persist", "restore-sync"] {
+        let dir = tempfile::tempdir().unwrap();
+        let source = populated(&dir.path().join("source"), "Incoming");
+        let archive = dir.path().join("incoming.zip");
+        source.backup(&archive).unwrap();
+        let mut target = populated(&dir.path().join("target"), "Previous");
+        let (digest, size): (String, u64) = target
+            .connect()
+            .unwrap()
+            .query_row(
+                "SELECT hash,size FROM assets WHERE media='image/png' LIMIT 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        fs::write(target.asset_path(&digest).unwrap(), b"previous-damage").unwrap();
+        crate::filesystem::FAILURE.with(|fault| fault.set(Some((failure, ErrorKind::StorageFull))));
+        let error = target.restore_recovering(&archive).unwrap_err();
+        assert_eq!(error.code, "LOCAL_RESTORE_RECOVERY_FAILED");
+        let recovery = Path::new(error.params["path"].as_str().unwrap());
+        assert_eq!(
+            fs::read(recovery.join(format!("assets/{digest}"))).unwrap(),
+            b"previous-damage"
+        );
+        assert!(recovery.join("inventory.json").is_file());
+        assert_eq!(target.banks().unwrap()[0]["title"], "Previous");
+        assert!(target.service_settings_override().is_ok());
+        target.save_bank(None, "After failure", "").unwrap();
+        if failure == "restore-sync" {
+            assert!(target.read_asset(&digest, size).is_ok());
+        } else {
+            assert!(target.read_asset(&digest, size).is_err());
+        }
+        target.restore_recovering(&archive).unwrap();
+    }
+}
+
+#[test]
+fn explicit_recovery_rejects_bad_replacement_before_preserving_or_changing_live_files() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = populated(&dir.path().join("source"), "Incoming");
+    let archive = dir.path().join("incoming.zip");
+    source.backup(&archive).unwrap();
+    let mut target = populated(&dir.path().join("target"), "Previous");
+    let orphan = crate::store::hash(b"original unindexed bytes");
+    target
+        .write_asset(&orphan, b"original unindexed bytes")
+        .unwrap();
+    let digest: String = target
+        .connect()
+        .unwrap()
+        .query_row(
+            "SELECT hash FROM assets WHERE media='image/png' LIMIT 1",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    fs::write(target.asset_path(&digest).unwrap(), b"original-damage").unwrap();
+    let mut input = ZipArchive::new(fs::File::open(&archive).unwrap()).unwrap();
+    let bad = dir.path().join("bad.zip");
+    let mut output = ZipWriter::new(fs::File::create(&bad).unwrap());
+    for index in 0..input.len() {
+        let mut entry = input.by_index(index).unwrap();
+        let mut bytes = Vec::new();
+        entry.read_to_end(&mut bytes).unwrap();
+        if entry.name() == format!("assets/{digest}") {
+            bytes[0] ^= 1;
+        }
+        output
+            .start_file(entry.name(), SimpleFileOptions::default())
+            .unwrap();
+        output.write_all(&bytes).unwrap();
+    }
+    output.finish().unwrap();
+    let error = target.restore_recovering(&bad).unwrap_err();
+    assert_eq!(error.code, "LOCAL_ASSET_CHECKSUM_MISMATCH");
+    assert_eq!(
+        fs::read(target.asset_path(&digest).unwrap()).unwrap(),
+        b"original-damage"
+    );
+    assert_eq!(target.banks().unwrap()[0]["title"], "Previous");
+    assert!(!target.dir.join("recoveries").exists());
+    assert_eq!(
+        fs::read(target.asset_path(&orphan).unwrap()).unwrap(),
+        b"original unindexed bytes"
+    );
+    target.save_bank(None, "After rejection", "").unwrap();
+}
+
 pub(super) fn checkpoint(phase: &str) {
+    if phase == "before-resource-repair" {
+        crate::filesystem::FAILURE.with(|fault| {
+            if fault
+                .get()
+                .is_some_and(|(name, _)| name == "repair-persist")
+            {
+                fault.set(Some(("persist", ErrorKind::StorageFull)));
+            }
+        });
+    }
     if std::env::var("PRACTIQ_RESTORE_KILL_PHASE").as_deref() == Ok(phase) {
         let mut stdout = std::io::stdout().lock();
         writeln!(stdout, "restore checkpoint: {phase}").unwrap();
@@ -159,17 +352,43 @@ fn restore_child() {
         return;
     };
     let root = Path::new(&root);
-    Store::new(root.join("current"))
-        .unwrap()
-        .restore(&root.join("incoming.zip"))
-        .unwrap();
+    let mut store = Store::new(root.join("current")).unwrap();
+    if std::env::var("PRACTIQ_RESTORE_RECOVER_ASSETS").as_deref() == Ok("1") {
+        store
+            .restore_recovering(&root.join("incoming.zip"))
+            .unwrap();
+    } else {
+        store.restore(&root.join("incoming.zip")).unwrap();
+    }
 }
 
 #[test]
 fn killed_restore_reopens_a_complete_generation() {
-    for phase in ["before-publish", "after-publish"] {
+    for (recover, phase) in [
+        (false, "before-publish"),
+        (false, "after-publish"),
+        (true, "before-resource-repair"),
+        (true, "before-publish"),
+        (true, "after-publish"),
+    ] {
         let dir = tempfile::tempdir().unwrap();
-        populated(&dir.path().join("current"), "Old");
+        let current = populated(&dir.path().join("current"), "Old");
+        let damaged: String = current
+            .connect()
+            .unwrap()
+            .query_row(
+                "SELECT hash FROM assets WHERE media='image/png' LIMIT 1",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        if recover {
+            fs::write(
+                current.asset_path(&damaged).unwrap(),
+                b"interrupted-original-damage",
+            )
+            .unwrap();
+        }
         populated(&dir.path().join("incoming"), "New")
             .backup(&dir.path().join("incoming.zip"))
             .unwrap();
@@ -182,6 +401,10 @@ fn killed_restore_reopens_a_complete_generation() {
             ])
             .env("PRACTIQ_RESTORE_TEST_ROOT", dir.path())
             .env("PRACTIQ_RESTORE_KILL_PHASE", phase)
+            .env(
+                "PRACTIQ_RESTORE_RECOVER_ASSETS",
+                if recover { "1" } else { "0" },
+            )
             .stdout(Stdio::piped())
             .spawn()
             .unwrap();
@@ -202,21 +425,42 @@ fn killed_restore_reopens_a_complete_generation() {
         reader.join().unwrap();
         assert!(reached, "restore did not reach {phase}");
         let mut store = Store::new(dir.path().join("current")).unwrap();
-        assert_intact(
-            &store,
-            if phase == "before-publish" {
-                "Old"
-            } else {
-                "New"
-            },
-        );
+        if phase == "before-resource-repair" {
+            assert_eq!(store.banks().unwrap()[0]["title"], "Old");
+            assert_eq!(
+                fs::read(store.asset_path(&damaged).unwrap()).unwrap(),
+                b"interrupted-original-damage"
+            );
+            store.save_bank(None, "After restart", "").unwrap();
+        } else {
+            assert_intact(
+                &store,
+                if phase == "after-publish" {
+                    "New"
+                } else {
+                    "Old"
+                },
+            );
+        }
         let recovery = fs::read_dir(store.dir.join("recoveries"))
             .unwrap()
             .next()
             .unwrap()
             .unwrap()
             .path();
-        store.restore(&recovery).unwrap();
-        assert_intact(&store, "Old");
+        if recover {
+            assert!(recovery.join("inventory.json").is_file());
+            assert_eq!(
+                fs::read(recovery.join(format!("assets/{damaged}"))).unwrap(),
+                b"interrupted-original-damage"
+            );
+            store
+                .restore_recovering(&dir.path().join("incoming.zip"))
+                .unwrap();
+            assert_intact(&store, "New");
+        } else {
+            store.restore(&recovery).unwrap();
+            assert_intact(&store, "Old");
+        }
     }
 }

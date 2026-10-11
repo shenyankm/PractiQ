@@ -20,6 +20,10 @@ Missing or corrupt referenced images or audio prevent export. If a bank was init
 
 Bank-sharing packages and study-data backups are different formats. Both operations are under **Restore backup** in Settings: **Import bank ZIP** appends content, while **Restore study-data backup** replaces personal data after confirmation. Selecting the wrong format returns an error.
 
+If currently referenced images or audio are missing or damaged, choose **Repair resources and restore backup** under **Restore backup**. It requires the same full-data replacement confirmation. The app validates the complete incoming version-4/schema-11 backup before changing live resources, then durably preserves the previous database, service URL settings, available original resource bytes and `inventory.json` in a private `recoveries/before-restore-.../` directory. The inventory records expected and actual hashes/sizes, missing or damaged resources, and whether each file was indexed in the old database. This directory is an inspection/recovery record, not a valid ordinary backup; keep it for manual diagnosis rather than selecting it for standard restore.
+
+Only this explicit action atomically replaces damaged or missing same-hash files with verified backup bytes. Ordinary reads, bank imports and backup creation retain checksum/format rejection. A valid existing resource is reused. Database publication, the pending service-settings record and rollback keep their existing ordering. If later database publication fails or rolls back, repaired same-hash bytes may remain, while the original bytes stay in the recovery record; the error reports its location. Symlinks, unreadable files, resources beyond the existing byte limits and failed preservation/synchronization block repair. Back up the repaired state to a new ordinary backup after successful recovery. Platform file-picker and directory-publication behavior requires separate native Windows/Android verification.
+
 ## File format
 
 The ZIP root contains `manifest.json`, `questions.json`, and image/audio files at `resources/<objectKey>`.
