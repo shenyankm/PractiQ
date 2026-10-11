@@ -28,7 +28,7 @@ def issue(**changes):
     return {"questionIndex": 0, "code": "stem", "evidence": "First", "instruction": "Keep the literal stem", "repairable": True, **changes}
 
 
-async def collaborate(responses, *, original=None, source_text="First", schema=document.ChunkParseResult):
+async def collaborate(responses, *, original=None, source_text: str | None = "First", schema=document.ChunkParseResult):
     model = FakeModel(responses=responses)
     original = schema.model_validate(original or parsed())
     result, usage, audit = await review.review_extraction(
@@ -129,13 +129,67 @@ async def test_association_repair_requires_findings_for_all_material_owners(owne
     original["questions"].append(question("Second"))
     original["groups"] = [{"title": "Material", "questionIndexes": owners}]
     corrected = deepcopy(original)
-    corrected["groups"][0]["title"] = "Corrected material"
+    corrected["groups"][0]["questionIndexes"] = [index for index in owners if index != 0] if owners else [1]
     result, _, audit, model = await collaborate([
         {"issues": [issue(code="association")]}, corrected, {"issues": []},
     ], original=original)
     assert audit["status"] == ("repaired" if accepted else "repair_rejected")
-    assert result.groups[0].title == ("Corrected material" if accepted else "Material")
+    assert result.groups[0].questionIndexes == ([] if accepted else owners)
+    assert result.groups[0].title == "Material"
     assert len(model.calls) == (3 if accepted else 2)
+
+
+@pytest.mark.parametrize("field,value", [
+    ("title", "Invented title"), ("instructions", "Invented instruction"),
+    ("description", "Invented description"), ("label", "Invented label"), ("role", "answer"),
+    ("bbox", [0.2, 0.2, 0.8, 0.8]), ("kind", "chart"),
+    ("tableRows", [["A"], ["Invented cell"]]), ("extractedText", "Invented source text"),
+])
+async def test_association_findings_cannot_rewrite_group_or_figure_content(field, value):
+    original = {**parsed(), "figures": []}
+    key = "groups" if field in {"title", "instructions"} else "figures"
+    original[key] = [{"title": "Material", "questionIndexes": [0]}] if key == "groups" else [
+        {"description": "Material", "kind": "table", "bbox": [0.1, 0.1, 0.8, 0.8], "questionIndexes": [0]},
+    ]
+    corrected = deepcopy(original)
+    corrected[key][0][field] = value
+    result, _, audit, model = await collaborate([
+        {"issues": [issue(code="association")]}, corrected, {"issues": []},
+    ], original=original, schema=document.PageParseResult)
+    assert audit["status"] == "repair_rejected" and audit["failureCode"] == "OUTPUT_INVALID"
+    assert result.model_dump(mode="json")[key] == audit["original"][key] and len(model.calls) == 2
+
+
+@pytest.mark.parametrize("key", ["groups", "figures"])
+async def test_association_findings_for_both_owners_can_retarget_without_changing_material(key):
+    original = {**parsed(), "figures": []}
+    original["questions"].append(question("Second"))
+    original[key] = [{"title": "Material", "questionIndexes": [0]}] if key == "groups" else [
+        {"description": "Material", "bbox": [0.1, 0.1, 0.8, 0.8], "questionIndexes": [0]},
+    ]
+    corrected = deepcopy(original)
+    corrected[key][0]["questionIndexes"] = [1]
+    result, _, audit, _ = await collaborate([
+        {"issues": [issue(code="association"), issue(code="association", questionIndex=1, evidence="Second")]},
+        corrected, {"issues": []},
+    ], original=original, schema=document.PageParseResult, source_text="First\nSecond")
+    assert audit["status"] == "repaired" and result.model_dump(mode="json")[key][0]["questionIndexes"] == [1]
+
+
+@pytest.mark.parametrize("damage", ["passage", "transcript", "contentBlocks"])
+async def test_question_association_findings_cannot_rewrite_content(damage):
+    original = parsed()
+    if damage == "passage":
+        original["questions"][0]["answerMode"] = "reading"
+        original["questions"][0]["passage"] = [{"partType": "text", "textValue": "Material"}]
+    elif damage == "transcript":
+        original["questions"][0]["answerMode"] = "listening"
+        original["questions"][0]["transcript"] = [{"partType": "text", "textValue": "Material"}]
+    corrected = deepcopy(original)
+    corrected["questions"][0][damage][0]["textValue"] = "Invented content"
+    result, _, audit, _ = await collaborate([{"issues": [issue(code="association")]}, corrected], original=original)
+    assert audit["status"] == "repair_rejected"
+    assert result.model_dump(mode="json")["questions"][0][damage] == audit["original"]["questions"][0][damage]
 
 
 async def test_repair_cannot_append_questions_without_a_missing_question_finding():
@@ -349,13 +403,44 @@ async def test_raised_review_error_preserves_preceding_known_usage(monkeypatch):
 async def test_review_can_append_a_source_evidenced_missing_question():
     corrected = parsed()
     corrected["questions"].append(question("Second"))
-    corrected["groups"].append({"title": "New question material", "questionIndexes": [1]})
     result, _, audit, _ = await collaborate([
         {"issues": [issue(questionIndex=None, code="missing_question", evidence="Second")]},
         corrected, {"issues": []},
     ], source_text="First\nSecond")
     assert len(result.questions) == 2 and audit["status"] == "repaired" and not audit["missingQuestions"]
-    assert result.groups[0].questionIndexes == [1]
+
+
+@pytest.mark.parametrize("damage", ["source", "stem", "answerPayload", "analysis", "sourceScore", "scoringRubric", "contentBlocks", "multiple", "duplicate", "existing", "image", "group", "figure"])
+async def test_appended_questions_require_distinct_literal_evidence_and_no_unsupported_content(damage):
+    corrected = parsed()
+    appended = question("Second")
+    findings = [issue(questionIndex=None, code="missing_question", evidence="Second")]
+    source_text = "First\nSecond\nThird"
+    if damage in {"source", "stem"}:
+        appended["sourceText" if damage == "source" else "stem"] = "Unrelated question"
+    elif damage in {"answerPayload", "analysis", "sourceScore", "scoringRubric"}:
+        appended[damage] = {"text": "Invented answer"} if damage == "answerPayload" else 2.0 if damage == "sourceScore" else "Invented content"
+    elif damage == "contentBlocks":
+        appended["contentBlocks"][0]["textValue"] = "Third"
+    elif damage == "existing":
+        appended = question("First")
+        findings[0]["evidence"] = "First"
+    elif damage == "image":
+        source_text = None
+    corrected["questions"].append(appended)
+    if damage in {"multiple", "duplicate"}:
+        corrected["questions"].append(question("Third" if damage == "multiple" else "Second"))
+        if damage == "duplicate":
+            findings.append(dict(findings[0]))
+    elif damage == "group":
+        corrected["groups"] = [{"title": "Invented material", "questionIndexes": [1]}]
+    elif damage == "figure":
+        corrected["figures"] = [{"description": "Invented figure", "bbox": [0.1, 0.1, 0.8, 0.8], "questionIndexes": [1]}]
+    result, _, audit, model = await collaborate([
+        {"issues": findings}, corrected, {"issues": []},
+    ], source_text=source_text, schema=document.PageParseResult if damage == "figure" else document.ChunkParseResult)
+    assert audit["status"] == "repair_rejected" and audit["failureCode"] == "OUTPUT_INVALID"
+    assert audit["missingQuestions"] and len(result.questions) == 1 and len(model.calls) == 2
 
 
 async def test_graph_persists_audit_outside_checkpoint_and_reuses_successes(monkeypatch):

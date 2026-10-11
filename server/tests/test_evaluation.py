@@ -445,6 +445,24 @@ def test_graph_evaluator_accepts_review_repair_and_recheck_calls(tmp_path, monke
     assert {event["kind"] for event in report["cases"][0]["trajectory"]["events"] if event["event"] == "model_start"} == {"document_parse", "import_review", "import_repair", "import_recheck"}
 
 
+def test_evaluation_prompt_fingerprint_includes_review_module(tmp_path, monkeypatch):
+    root = tmp_path / "source"
+    for name in ("graphs/document.py", "graphs/vision.py", "graphs/review.py", "llm.py", "contracts.py"):
+        destination = root / "src/practiq_ai" / name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes((ev.ROOT / "src/practiq_ai" / name).read_bytes())
+    monkeypatch.setattr(ev, "ROOT", root)
+    monkeypatch.setattr(ev, "_code_metadata", lambda: {"gitCommit": "fake", "dirty": False, "codeHash": "a" * 64})
+    monkeypatch.setenv("AI_IMPORT_REVIEW", "true")
+    path, _ = setup_runner(tmp_path, monkeypatch, [model_result(), {"issues": []}, model_result(), {"issues": []}])
+    baseline = asyncio.run(ev.run_evaluation(path))
+    module = root / "src/practiq_ai/graphs/review.py"
+    module.write_text(module.read_text() + "\n# Synthetic review prompt/schema variant\n")
+    candidate = asyncio.run(ev.run_evaluation(path))
+    assert baseline["status"] == candidate["status"] == "PASSED"
+    assert baseline["promptHash"] != candidate["promptHash"]
+
+
 @pytest.mark.parametrize("limit", ["budget", "input"])
 def test_review_enabled_evaluation_fails_when_review_is_skipped_before_provider_start(tmp_path, monkeypatch, limit):
     monkeypatch.setenv("AI_IMPORT_REVIEW", "true")

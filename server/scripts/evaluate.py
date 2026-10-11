@@ -693,7 +693,7 @@ async def run_evaluation(manifest_path: Path, repetitions: int = 1, case_ids: li
     # Include inline page instructions and response schemas, not only system constants.
     report["promptHash"] = _digest([SYSTEM_PROMPT,
         *(hashlib.sha256((ROOT / "src/practiq_ai" / name).read_bytes()).hexdigest()
-          for name in ("graphs/document.py", "graphs/vision.py", "llm.py", "contracts.py"))])
+          for name in ("graphs/document.py", "graphs/vision.py", "graphs/review.py", "llm.py", "contracts.py"))])
     graph = build_document_graph(InMemorySaver(), store=InMemoryStore())
     for repetition in range(1, repetitions + 1):
         for case in cases:

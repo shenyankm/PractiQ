@@ -8,7 +8,12 @@ from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 from langgraph.runtime import Runtime
 from pydantic import BaseModel, Field, StrictBool, StrictInt
 
-from practiq_ai.contracts import ModelCallUsage, StrictModel
+from practiq_ai.contracts import (
+    ContentBlock,
+    ModelCallUsage,
+    ParsedQuestion,
+    StrictModel,
+)
 from practiq_ai.errors import DocumentProcessingError
 from practiq_ai.llm import structured_call
 
@@ -29,7 +34,7 @@ REPAIR_FIELDS = {
     "options": {"options", "items", "choiceVariant", "matchingVariant", "blankCount", "allowReuse"},
     "answer": {"answerPayload", "sourceScore", "scoringRubric", "scoreSourceText"},
     "analysis": {"analysis"},
-    "association": {"optionSourceId", "audioRef", "audioStartSeconds", "audioEndSeconds", "transcript", "examPlayCount", "passage", "contentBlocks"},
+    "association": {"optionSourceId", "audioRef", "audioStartSeconds", "audioEndSeconds", "passage"},
 }
 
 
@@ -56,11 +61,28 @@ def _valid_report(report: ReviewReport, payload: dict[str, Any], source_text: st
     )
 
 
-def _retained(original: dict[str, Any], proposed: dict[str, Any], report: ReviewReport) -> bool:
+def _retained(original: dict[str, Any], proposed: dict[str, Any], report: ReviewReport, source_text: str | None) -> bool:
     before_questions, after_questions = original["questions"], proposed["questions"]
     missing = any(issue.code == "missing_question" for issue in report.issues)
     if (missing and len(after_questions) <= len(before_questions)) or (not missing and len(after_questions) != len(before_questions)):
         return False
+    if missing:
+        quotes = [issue.evidence.strip() for issue in report.issues if issue.code == "missing_question"]
+        appended = after_questions[len(before_questions):]
+        if source_text is None or len(appended) != len(quotes) or len(set(quotes)) != len(quotes):
+            return False
+        for after in appended:
+            quote = after["sourceText"]
+            if quote not in quotes or any(quote in (before["sourceText"], before["stem"]) for before in before_questions):
+                return False
+            quotes.remove(quote)
+            block = ContentBlock(partType="text", textValue=quote).model_dump(mode="json")
+            if after["contentBlocks"] not in ([], [block]):
+                return False
+            expected = ParsedQuestion(stem=quote, sourceText=quote, answerMode="short_answer",
+                                      questionTypeId=after["questionTypeId"], contentBlocks=after["contentBlocks"]).model_dump(mode="json")
+            if any(after[key] != value for key, value in expected.items() if key not in {"confidence", "needsReview", "missingFields"}):
+                return False
     associations = {issue.questionIndex for issue in report.issues if issue.code == "association"}
     for index, (before, after) in enumerate(zip(before_questions, after_questions, strict=False)):
         if any(before.get(key) != after.get(key) for key in ("id", "parentId", "sourceText")):
@@ -72,23 +94,25 @@ def _retained(original: dict[str, Any], proposed: dict[str, Any], report: Review
             allowed.update(key for key in set().union(*REPAIR_FIELDS.values()) if after[key] in (None, [], {}))
         if changed - allowed:
             return False
+        if "passage" in changed and [{key: value for key, value in block.items() if key != "questionId"} for block in before["passage"]] != [{key: value for key, value in block.items() if key != "questionId"} for block in after["passage"]]:
+            return False
         if index not in associations:
             if any(before.get(key) != after.get(key) for key in ("optionSourceId", "audioRef", "audioStartSeconds", "audioEndSeconds")):
                 return False
             if before["passage"] != after["passage"]:
                 return False
-            if [block for block in before["contentBlocks"] if block["partType"] in {"image", "table", "chart", "diagram"} or block["role"] not in (None, "material")] != [block for block in after["contentBlocks"] if block["partType"] in {"image", "table", "chart", "diagram"} or block["role"] not in (None, "material")]:
-                return False
-    associations.update(range(len(before_questions), len(after_questions)))
+        if [block for block in before["contentBlocks"] if block["partType"] in {"image", "table", "chart", "diagram"} or block["role"] not in (None, "material")] != [block for block in after["contentBlocks"] if block["partType"] in {"image", "table", "chart", "diagram"} or block["role"] not in (None, "material")]:
+            return False
     for key in ("groups", "figures"):
         before_entries, after_entries = original.get(key, []), proposed.get(key, [])
-        if len(after_entries) < len(before_entries):
+        if len(after_entries) != len(before_entries):
             return False
-        for index, after in enumerate(after_entries):
-            before = before_entries[index] if index < len(before_entries) else None
+        for before, after in zip(before_entries, after_entries, strict=True):
             if before == after:
                 continue
-            owners = set(after["questionIndexes"]) | set(before["questionIndexes"] if before else [])
+            if any(before[key] != after[key] for key in before if key != "questionIndexes"):
+                return False
+            owners = set(after["questionIndexes"]) | set(before["questionIndexes"])
             # Shared or unassociated material cannot be rewritten by a finding for one owner.
             if not owners or not owners <= associations:
                 return False
@@ -148,7 +172,7 @@ async def review_extraction[ResultT: BaseModel](
             if repaired is not None:
                 proposed = repaired.model_dump(mode="json")
                 audit["proposed"] = proposed
-                if _retained(original, proposed, report):
+                if _retained(original, proposed, report, source_text):
                     recheck = await check(repaired, "import_recheck")
                     if recheck is not None and not recheck.issues:
                         parsed = repaired
