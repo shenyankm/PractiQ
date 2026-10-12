@@ -34,11 +34,11 @@ Storage uses local files only. `AI_STORAGE_BACKEND` accepts an unset value or `l
 
 ## Queue, pause, and recovery
 
-`N_JOBS_PER_WORKER=8` limits active tasks within the process. `AI_GRAPH_MAX_CONCURRENCY=2` limits parallel units per task. `AI_DEPLOYMENT_WORKERS` must be 1. Requests return 202 after task/queue transaction commit. A database uniqueness constraint permits only one pending/running run per thread. Duplicate requests return the original receipt. New requests exceeding `AI_MAX_BUSY_THREADS=300` return 503.
+`N_JOBS_PER_WORKER=8` limits active tasks within the process. `AI_GRAPH_MAX_CONCURRENCY=2` limits parallel units per task. `AI_DEPLOYMENT_WORKERS` must be 1. Requests return 202 after task/run/outbox/receipt transaction commit. RabbitMQ is the sole normal executionentry point. A database uniqueness constraint permits only one pending/running run per thread. Duplicate requests return the original receipt. New requests exceeding `AI_MAX_BUSY_THREADS=300` return 503.
 
 The process holds a PostgreSQL session advisory lock; another instance or offline maintenance command cannot take ownership, including from another host. PostgreSQL releases the lock when the connection dies. An ownership monitor checks the connection and lock every 0.5 seconds; loss stops admission and exits the process. A supervisor handles restart. Database failures do not permit continued admission or an in-memory queue fallback.
 
-Unexpected restarts resume unfinished runs with their original IDs, deadlines, budgets, and unknown usage. A completed checkpoint only needs terminal-state repair. Manually paused, explicitly interrupted, and `WAITING_REVIEW` tasks do not resume automatically. Shutdown stops admission and waits at most 60 seconds, leaving unfinished tasks recoverable. Service managers must allow at least 65 seconds for termination.
+Unexpected restarts reconcile unfinished runs with their original IDs, deadlines, budgets and usage; RabbitMQ redelivers eligible work. Unknown model outcomes require explicit recovery. A completed checkpoint only needs terminal-state repair. Manually paused, explicitly interrupted, and `WAITING_REVIEW` tasks do not resume automatically. Shutdown stops admission and waits at most 60 seconds, leaving unfinished tasks recoverable. Service managers must allow at least 65 seconds for termination.
 
 Each run defaults to 1,800 seconds. Explicit resume creates a new run; crash recovery does not reset its deadline. A task may reserve at most 400 model calls by default. Unused reservations, failed calls, and unknown calls are not refunded. By default each unit reserves at most four model attempts and permits two manual retry rounds, using the existing error classifications. Opt-in `AI_IMPORT_REVIEW=true` uses independent extraction/review roles with at most one repair/recheck, conservatively reserving 16 attempts per text unit or 20 per page including figure verification. The task ceiling is unchanged and unused slots are not refunded; large documents may require a deployment-specific budget assessment. See [import agent review](import-agent-review.md) for source evidence, audit artifacts, input limits and rollout boundaries.
 
@@ -50,14 +50,16 @@ If skipped units contained passage children, the partial result retains their bl
 
 New model output with `confidence < 0.5` always requires review. This threshold is an extraction-review heuristic, not a calibrated probability of correctness. Original confidence, source text, answers and explanations remain unchanged. This rule does not rewrite review flags on historical or independently imported question banks.
 
-Successful checkpointed units are reused. A provider request that completed before its result was persisted may be repeated; unknown usage remains recorded. Exactly-once provider calls are not guaranteed. Pause does not forcibly cancel accepted remote requests, and canceling a local wait does not terminate an underlying synchronous thread.
+Successful checkpointed units are reused. A provider request whose result was not persisted blocks automatic same-run recovery with MODEL_RESULT_UNKNOWN; unknown usage remains recorded. Exactly-once provider calls are not guaranteed. Pause does not forcibly cancel accepted remote requests, and canceling a local wait does not terminate an underlying synchronous thread.
+
+See [RabbitMQ delivery, upgrade, rollback and dead-letter recovery](rabbitmq.md) for schema 2, broker setup, outage/read-only/maintenance semantics and failure windows.
 
 ## Configuration and observability
 
 See the [configuration template](../../.env.example) for all variables. Limits include 25 MiB source files, 100 pages, vision/text budgets, strict inputs, extraction timeouts, PDFium mutual exclusion, provider concurrency, and requests per minute (RPM). Monitoring boundaries:
 
 - `GET /ok`: public liveness check returning only `{"ok":true}`.
-- `GET /ready`: returns 200 when the database, exclusive-lock monitor, and scheduler are available, otherwise 503, without sensitive details.
+- `GET /ready`: returns 200 when the database, exclusive-lock monitor, control coordinator and broker subscription are available (read-only mode needs no broker), otherwise 503, without sensitive details.
 - `GET /api/metrics`: Bearer-authenticated stage, call, and result metrics, including `practiq_pending_runs`, `practiq_running_runs`, `practiq_workers_max`, and `practiq_workers_available`. The native `/metrics` endpoint is unavailable.
 - `GET /api/maintenance`: reads maintenance configuration. `AI_MAINTENANCE_MODE=true` rejects uploads and new runs while retaining reads and pause/cancel controls; queued work continues draining.
 - `provider_concurrency_wait`, `provider_rate_wait`, and `provider_request` distinguish local waits from SDK request duration. SDK duration is not pure model inference time.
@@ -96,7 +98,7 @@ Load configuration into the shell first. Inventory covers retained tasks, comple
 
 ## Verify recovery and capacity
 
-`make verify` uses isolated PostgreSQL databases and model fakes, without external model calls. `TEST_DATABASE_URI` may point to a dedicated disposable instance whose role can create/drop databases; otherwise the helper starts one temporary Docker PostgreSQL container bound to loopback and removes it on exit. Every test gets its own randomly named database; pure tests do not start Docker. Independent-process tests cover forced termination, unknown calls, and human-review recovery.
+`make verify` uses isolated PostgreSQL databases, RabbitMQ vhosts and model fakes, without external model calls. `TEST_DATABASE_URI` may point to a dedicated disposable instance whose role can create/drop databases; otherwise the helper starts one temporary Docker PostgreSQL container bound to loopback and removes it on exit. Every test gets its own randomly named database; pure tests do not start Docker. Independent-process tests cover forced termination, unknown calls, and human-review recovery.
 
 Start the service, then run this load test from the repository root:
 
@@ -137,4 +139,4 @@ Compose uses `restart: unless-stopped` to restart a process that exits after los
 
 The [October 9 isolated deployment checks](../../docs/operations-single-machine-20261009.md) record the tested resource profile, synthetic overload batches, process/database failure recovery, HTTPS entry, matching backup/restore and rollback. They do not establish live-model quality or capacity for representative production documents. Database driver cancellation can delay ownership-loss handling when the database cannot respond; the monitor's polling interval is not an end-to-end failure-detection guarantee.
 
-Only supported task records participate in startup recovery, scheduling and queue capacity. Unsupported records remain unchanged and return `TASK_FORMAT_UNSUPPORTED` on direct access. Read-only service mode leaves unfinished tasks waiting and makes no model calls. Ordinary independent deployments retain automatic recovery of originally authorized unfinished runs. Browser GET polling starts no new model work. Desktop ZIP backups exclude legacy AI task directories.
+Only supported task records participate in startup recovery, scheduling and queue capacity. Unsupported records remain unchanged and return `TASK_FORMAT_UNSUPPORTED` on direct access. Read-only service mode leaves unfinished tasks waiting and makes no model calls. Ordinary independent deployments retain checkpoint recovery of originally authorized unfinished runs; unknown paid-call outcomes require explicit recovery. Browser GET polling starts no new model work. Desktop ZIP backups exclude legacy AI task directories.

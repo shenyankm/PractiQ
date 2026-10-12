@@ -12,7 +12,7 @@ Use uv and an existing Python 3.14+ interpreter; do not create a project `.venv`
 cp -n .env.example .env
 ```
 
-Provision an empty dedicated PostgreSQL database and its owner. Configure the service token, model, PostgreSQL URL (`DATABASE_URI`), and file storage in `.env`, then install locked dependencies, initialize the service tables and start:
+Provision an empty dedicated PostgreSQL database and its owner. Configure the service token, model, PostgreSQL URL (`DATABASE_URI`), dedicated RabbitMQ vhost URL (`RABBITMQ_URI`), and file storage in `.env`, then install locked dependencies, initialize the service tables and start:
 
 ```sh
 make install-locked AI_PYTHON=/path/to/python3.14
@@ -22,7 +22,7 @@ make web-build
 make server-dev AI_PYTHON=/path/to/python3.14
 ```
 
-The default address is `127.0.0.1:8090`. `GET /ok` checks liveness; `GET /ready` checks readiness. Both local and production deployments require PostgreSQL. Initialization accepts only an empty database and does not read or migrate old Agent Server data. A single service process holds an exclusive lock. Restarting resumes unfinished tasks automatically; manually paused tasks and tasks awaiting review remain waiting.
+The default address is `127.0.0.1:8090`. `GET /ok` checks liveness; `GET /ready` checks readiness. Writable local and production deployments require PostgreSQL and RabbitMQ. Read-only mode can serve existing state without the broker. Initialization accepts only an empty database and does not read or migrate old Agent Server data. A single service process holds an exclusive lock. Restarting reconciles eligible unfinished runs for broker redelivery; unknown paid-call results require explicit recovery. Manually paused tasks and tasks awaiting review remain waiting. Existing service schema 1 requires an offline `make upgrade-db`; see the [upgrade/recovery guide](rabbitmq.md).
 
 `LLM_MODEL` is required for model-enabled deployments and selects one model supporting text and image inputs. The old `LLM_TEXT_MODEL` / `LLM_VISION_MODEL` settings are no longer read. Set `LLM_MODEL` to the previous vision model ID, or the previous text model if no vision model was configured; the selected model must support both input types. TXT/CSV extraction uses text input; PDF/image extraction uses image input directly. PDFium renders PDFs. The deployment image includes Chinese fonts. Office uploads require the independently deployed LibreOffice configuration described in the [Office guide](desktop-office.md); they are normalized before entering these same extractors. Set `AI_READ_ONLY=1` to run without model configuration for reading saved results; unfinished tasks remain stopped and new model work is rejected.
 
@@ -142,7 +142,7 @@ make audit AI_PYTHON=/path/to/python3.14
 make image-check
 ```
 
-Database tests explicitly request `disposable_databases` and use unique disposable PostgreSQL databases. Set `TEST_DATABASE_URI` to a dedicated test instance with permission to create/drop databases, or let the test helper launch a temporary loopback Docker PostgreSQL instance. Pure unit tests, such as `cd server && python -m pytest tests/test_schemas.py tests/test_auth.py`, require neither a database nor Docker. Shared fakes and data builders live in `tests/support.py`; database helpers live in `tests/db_support.py`. CI installs PDF fallback fonts and uses real PDFium rendering for digital, scanned, and mixed PDFs. Office adapter tests use bounded temporary conversions and retain separate deployed-engine acceptance boundaries.
+Database tests explicitly request `disposable_databases` and use unique disposable PostgreSQL databases and RabbitMQ vhosts. Set `TEST_DATABASE_URI` to a dedicated test instance with permission to create/drop databases, or let the test helper launch a temporary loopback Docker PostgreSQL instance. Pure unit tests, such as `cd server && python -m pytest tests/test_schemas.py tests/test_auth.py`, require neither a database nor Docker. Shared fakes and data builders live in `tests/support.py`; database helpers live in `tests/db_support.py`. CI installs PDF fallback fonts and uses real PDFium rendering for digital, scanned, and mixed PDFs. Office adapter tests use bounded temporary conversions and retain separate deployed-engine acceptance boundaries.
 
 `make verify` checks lockfile consistency, Ruff, Pyright, evaluation fixtures, one test run with at least 90% coverage, recovery probes, and package builds. `make audit` audits locked runtime/development dependencies, requires network access, and fails on vulnerabilities or audit errors. `make image-check` requires Docker and builds the service image without publishing it.
 
@@ -170,13 +170,15 @@ Graph results retain `{ "status": "SUCCEEDED", "result": {...}, "processing": {.
 
 ## Architecture
 
-Document tasks run through a PostgreSQL queue. Subjective grading handles a single request directly, outside that queue:
+Document runs enter through RabbitMQ after a transactional PostgreSQL outbox/receipt commit. Subjective grading handles a single request directly, outside that queue:
 
 ```mermaid
 graph TD
     Client[Client] --> API[FastAPI authenticated upload and task APIs]
-    API --> DB[(PostgreSQL task queue)]
-    DB --> Runner[Single-process bounded scheduler]
+    API --> DB[(PostgreSQL runs / outbox / receipts)]
+    DB --> Publisher[Confirmed mandatory publisher]
+    Publisher --> MQ[(RabbitMQ quorum queue)]
+    MQ --> Runner[Single-process bounded consumer]
     Runner --> Graph[Open-source LangGraph document parser]
     Graph --> State[(PostgreSQL checkpoint / Store)]
     Graph --> Model[Shared multimodal model]

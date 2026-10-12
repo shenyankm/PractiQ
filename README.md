@@ -104,7 +104,7 @@ The independent service provides document import through its Web frontend and AP
 cp -n .env.example .env
 ```
 
-Set the service token, model credentials, `LLM_MODEL`, the PostgreSQL URL `DATABASE_URI`, and file storage in `.env`. Provision an empty dedicated PostgreSQL database, then initialize its service tables and start:
+Set the service token, model credentials, `LLM_MODEL`, the PostgreSQL URL `DATABASE_URI`, dedicated RabbitMQ vhost URL `RABBITMQ_URI`, and file storage in `.env`. Provision an empty dedicated PostgreSQL database, then initialize its service tables and start:
 
 ```sh
 make install-locked AI_PYTHON=/path/to/python3.14
@@ -114,7 +114,7 @@ make web-build
 make server-dev AI_PYTHON=/path/to/python3.14
 ```
 
-The FastAPI/LangGraph service listens on `127.0.0.1:8090`, uses PostgreSQL and local file storage, and runs one process per database. Uploads, tasks, artifacts, and grading require authentication. Open `http://127.0.0.1:8090/` for the built Web frontend. For development, run `make web-dev` separately; its loopback Vite server proxies API requests to the service. Configure `AI_OFFICE_EXECUTABLE` and `AI_OFFICE_VERSION` only on the service when Office support is needed. See the [service guide](server/docs/service-guide.md).
+The FastAPI/LangGraph service listens on `127.0.0.1:8090`, uses RabbitMQ delivery, PostgreSQL state and local file storage, and runs one process per database. Uploads, tasks, artifacts, and grading require authentication. Open `http://127.0.0.1:8090/` for the built Web frontend. For development, run `make web-dev` separately; its loopback Vite server proxies API requests to the service. Configure `AI_OFFICE_EXECUTABLE` and `AI_OFFICE_VERSION` only on the service when Office support is needed. See the [service guide](server/docs/service-guide.md).
 
 ## Documentation and development
 
@@ -135,3 +135,5 @@ The runner starts its own loopback Vite servers. Failed tests retain traces and 
 Report reproducible bugs or propose improvements through [GitHub Issues](https://github.com/shenyankm/PractiQ/issues/new/choose). Follow [the contribution guide](CONTRIBUTING.md) for changes and [the security policy](SECURITY.md) for private vulnerability reports. Outstanding quality, release, user-trial and contributor workstreams are tracked in the [roadmap evidence record](docs/roadmap-evidence.md); the native GitHub roadmap and sub-issues remain authoritative.
 
 Project source uses the [MIT license](LICENSE). Bundled dependencies retain their [upstream notices](app/licenses/README.md).
+
+AI service upgrades and RabbitMQ setup: [delivery and recovery guide](server/docs/rabbitmq.md). Existing service schema 1 requires explicit `make upgrade-db`; stop and back up the old service first.

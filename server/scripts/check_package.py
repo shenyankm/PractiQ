@@ -31,15 +31,16 @@ def check_package(root: Path, output: Path) -> dict[str, str | int]:
                for path in (root / 'src').rglob('*.py')}
     if not modules:
         raise ValueError('Service source modules are missing')
+    supplemental = {path.relative_to(root).as_posix(): path.read_bytes() for path in (root / 'licenses').rglob('*') if path.is_file()}
     lock = (root / 'uv.lock').read_bytes()
     with zipfile.ZipFile(wheel) as archive:
-        for name, content in {**modules, 'practiq_ai/uv.lock': lock,
+        for name, content in {**modules, **{f'practiq_ai/{name}': data for name, data in supplemental.items()}, 'practiq_ai/uv.lock': lock,
                               f'{prefix}.dist-info/licenses/LICENSE': notice}.items():
             if name not in archive.namelist() or archive.read(name) != content:
                 raise ValueError(f'Wheel source/lock mismatch: {name}')
         check_metadata(archive.read(f'{prefix}.dist-info/METADATA'))
     with tarfile.open(sdist) as archive:
-        for name, content in {**{f'src/{name}': data for name, data in modules.items()},
+        for name, content in {**{f'src/{name}': data for name, data in modules.items()}, **supplemental,
                               'uv.lock': lock, 'pyproject.toml': (root / 'pyproject.toml').read_bytes(),
                               'LICENSE': notice}.items():
             target = f'{prefix}/{name}'

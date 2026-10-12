@@ -142,8 +142,12 @@ async def application_metrics() -> Response:
     if current:
         rows = await current.db.rows(f"SELECT r.status,count(*) AS n FROM document_runs r JOIN document_tasks t ON t.thread_id=r.thread_id WHERE r.status IN ('pending','running') AND {supported_task_sql('t')} GROUP BY r.status")
         counts = {row['status']: row['n'] for row in rows}
+        outbox = (await current.db.rows('SELECT count(*) AS n,coalesce(extract(epoch FROM now()-min(created_at)),0) AS age FROM document_outbox WHERE published_at IS NULL'))[0]
         jobs = load().jobs_per_worker
-        body += (f"practiq_pending_runs {counts.get('pending', 0)}\n"
+        body += (f"practiq_broker_connected {int(current.delivery.connected)}\n"
+                 f"practiq_outbox_pending {outbox['n']}\n"
+                 f"practiq_outbox_oldest_seconds {outbox['age']}\n"
+                 f"practiq_pending_runs {counts.get('pending', 0)}\n"
                  f"practiq_running_runs {counts.get('running', 0)}\n"
                  f"practiq_queue_capacity {load().max_busy_threads}\n"
                  f"practiq_workers_max {jobs}\n"

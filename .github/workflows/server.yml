@@ -43,6 +43,8 @@ jobs:
     timeout-minutes: 20
     env:
       TEST_DATABASE_URI: postgresql://postgres:practiq-test@127.0.0.1:5432/postgres
+      TEST_RABBITMQ_URI: amqp://practiq-test:practiq-test@127.0.0.1:5672/
+      TEST_RABBITMQ_MANAGEMENT_URL: http://127.0.0.1:15672
     services:
       postgres:
         image: postgres:16
@@ -53,6 +55,17 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U postgres"
           --health-interval 5s --health-timeout 5s --health-retries 10
+      rabbitmq:
+        image: rabbitmq:4.3.6-management@sha256:8dd6e3570ddaa2ef82a6c3a8950e79c1f73893adfbdddbc374fc1f1ac8a0f5dd
+        env:
+          RABBITMQ_DEFAULT_USER: practiq-test
+          RABBITMQ_DEFAULT_PASS: practiq-test
+        ports:
+          - 5672:5672
+          - 15672:15672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q check_running"
+          --health-interval 5s --health-timeout 5s --health-retries 12
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -95,6 +108,8 @@ jobs:
       - name: Install locked dependencies
         run: make install-locked AI_PYTHON="$(command -v python)"
       - name: Verify service
+        env:
+          TEST_RABBITMQ_CONTAINER: ${{ job.services.rabbitmq.id }}
         run: make verify AI_PYTHON="$(command -v python)"
       - name: Upload check reports
         if: ${{ always() }}

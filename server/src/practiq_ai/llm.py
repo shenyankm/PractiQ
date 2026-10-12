@@ -27,7 +27,7 @@ from langchain_core.runnables import RunnableLambda
 from langchain_core.utils.function_calling import convert_to_openai_tool
 from langchain_openai import ChatOpenAI
 from langgraph.func import task
-from langgraph.runtime import Runtime
+from langgraph.runtime import Runtime, get_runtime
 from openai import APIConnectionError, APIStatusError, APITimeoutError, RateLimitError
 from pydantic import BaseModel, ValidationError
 
@@ -41,6 +41,7 @@ from .execution import (
     CURRENT_UNIT,
     fingerprint,
     guard,
+    namespace,
     reserve_model_call,
     store_put,
 )
@@ -434,6 +435,14 @@ async def structured_call[ResultT: BaseModel](
     async def attempt_call(attempt: int, artifact: dict[str, Any] | None) -> dict[str, Any]:
         # The task receives references only. Image messages live in this closure,
         # never in task arguments or correction messages written to checkpoints.
+        result_key = None
+        if runtime and runtime.execution_info and runtime.store:
+            info = get_runtime().execution_info
+            assert info is not None
+            result_key = str(uuid5(NAMESPACE_URL, f"{runtime.execution_info.run_id}/{info.task_id}"))
+            previous = await runtime.store.aget(namespace(str(runtime.execution_info.thread_id), "model_results"), result_key, refresh_ttl=False)
+            if previous:
+                return previous.value
         call_key = uuid4()
         record: dict[str, Any] = {
             "callKey": str(call_key), "callKind": call_kind,
@@ -442,6 +451,7 @@ async def structured_call[ResultT: BaseModel](
             "attempt": attempt,
             "unitKey": CURRENT_UNIT.get(), "schema": schema.__name__, "validation": "not_run",
             "runId": runtime.execution_info.run_id if runtime and runtime.execution_info else None,
+            "resultKey": result_key,
             "artifact": artifact,
             "startedAt": datetime.now(UTC).isoformat(),
         }
@@ -517,11 +527,10 @@ async def structured_call[ResultT: BaseModel](
                 await call_record_writer(record)
         record.update(call_usage.model_dump(mode="json"), status="completed", usageStatus="known",
                       finishedAt=datetime.now(UTC).isoformat(), durationMs=round((time.monotonic() - started) * 1000, 3))
-        if runtime:
-            await store_put(runtime, "calls", str(call_key), record)
         if call_record_writer:
             await call_record_writer(record)
-        return {
+        result = {
+            "callRecord": record,
             "parsed": parsed.model_dump(mode="json") if parsed is not None else None,
             "correction": messages_to_dict(corrected[len(messages):]),
             # Ignore provider IDs and usage; detect identical content AND error.
@@ -529,6 +538,9 @@ async def structured_call[ResultT: BaseModel](
             "validationCode": record.get("validationCode"),
             "usage": call_usage.model_dump(mode="json"),
         }
+        if runtime and result_key:
+            await store_put(runtime, "model_results", result_key, result)
+        return result
 
     durable_attempt = task(name=f"{call_kind}_attempt")(attempt_call)
     def decision(action: str, attempt: int, code: str | None = None) -> None:
@@ -541,6 +553,9 @@ async def structured_call[ResultT: BaseModel](
         await guard(runtime)
         saved = await (durable_attempt(attempt, CURRENT_ARTIFACT.get())
                        if runtime and runtime.execution_info else attempt_call(attempt, None))
+        if runtime and (record := saved.get("callRecord")):
+            # The Store result receipt also covers a crash before task writes flush.
+            await store_put(runtime, "calls", record["callKey"], {**record, "durableResult": True})
         if error := saved.get("error"):
             previous_failure = None
             if error["code"] == "MODEL_BUDGET_EXCEEDED" and failure_code == "AI_PROVIDER_UNAVAILABLE":

@@ -1,4 +1,4 @@
-"""Document APIs over our PostgreSQL queue and open-source LangGraph."""
+"""Document APIs over transactional outbox admission and open-source LangGraph."""
 
 import asyncio
 from base64 import b64decode, urlsafe_b64encode
@@ -79,6 +79,7 @@ async def _enqueue(conn, task, request_id, request_hash, *, graph_input=None, co
                                   'generation': generation, 'expiresAt': task['expires_at'].isoformat()}}
     await conn.execute('INSERT INTO document_runs(run_id,thread_id,request_id,input,command,context,base_checkpoint) VALUES (%s,%s,%s,%s,%s,%s,%s)',
                        (run_id, task['thread_id'], request_id, json_encode(graph_input), json_encode(command), json_encode(context), base))
+    await conn.execute('INSERT INTO document_outbox(run_id) VALUES (%s)', (run_id,))
     return receipt(task['thread_id'], request_id, run_id)
 
 
@@ -132,7 +133,7 @@ def _create_payload(request: DocumentTaskCreate) -> dict[str, Any]:
 
 async def _office_mode(service, thread_id: str) -> OfficeMode | None:
     # The initial run input is already committed atomically with the task.
-    # Reuse it instead of changing schema-1 databases or checkpoint identities.
+    # Reuse it instead of changing historical run inputs or checkpoint identities.
     rows = await service.db.rows('SELECT input FROM document_runs WHERE thread_id=%s AND input IS NOT NULL '
                                  'ORDER BY created_at,run_id LIMIT 1', (thread_id,))
     return rows[0]['input'].get('officeMode') if rows else None
@@ -205,6 +206,9 @@ def _task_state(snapshot, run) -> tuple[TaskState, list[TaskAction], list[dict[s
         actions = ['resume'] if snapshot.next or not values else []
         if any(f['retryable'] for f in failures):
             actions.append('retry_failed')
+    elif run and run['status'] == 'interrupted' and run['pause_requested'] and run['started_at'] is None:
+        state = 'PAUSED'
+        actions = ['resume']
     elif run and run['status'] == 'error':
         state = 'FAILED'
         actions = ['resume'] if snapshot.next and run['error_code'] not in {
@@ -220,7 +224,7 @@ def _task_state(snapshot, run) -> tuple[TaskState, list[TaskAction], list[dict[s
         if reviews and all(value.get('canAccept') for value in reviews):
             actions.append('accept_partial')
     elif run and run['status'] == 'interrupted':
-        state = 'INTERRUPTED'
+        state = 'PAUSED' if run['pause_requested'] else 'INTERRUPTED'
         actions = ['resume'] if snapshot.next or not values else []
         if any(f['retryable'] for f in failures):
             actions.append('retry_failed')
@@ -349,14 +353,19 @@ async def control_task(thread_id: str, request: DocumentTaskControl) -> dict[str
             values = snapshot.values or {}
             interruptions = _interrupts(snapshot)
             reviews = [v for v in interruptions.values() if v.get('kind') == 'review']
+            queued_pause = bool(run and run['status'] == 'interrupted' and run['pause_requested'] and run['started_at'] is None)
             if request.action == 'resume' and 'resume' not in _task_state(snapshot, run)[1]:
                 raise conflict('Task requires a review decision, a failed-unit retry, or a new document')
-            if request.action == 'resume' and (reviews or values and not snapshot.next):
+            if request.action == 'resume' and not queued_pause and (reviews or values and not snapshot.next):
                 raise conflict('Task requires a review decision or is already complete')
             if request.action == 'accept_partial' and (not reviews or not all(v.get('canAccept') for v in reviews)):
                 raise conflict('There is no acceptable partial result')
             graph_input = None
-            if not values:
+            command = {'resume': {key: request.model_dump(mode='json') for key in interruptions}} if interruptions else None
+            if request.action == 'resume' and queued_pause:
+                assert run is not None
+                graph_input, command = run['input'], run['command']
+            elif not values:
                 graph_input = {'document': task['document'], 'failurePolicy': task['failure_policy'],
                                'officeMode': await _office_mode(service, thread_id)}
             if request.action == 'retry_failed':
@@ -367,7 +376,6 @@ async def control_task(thread_id: str, request: DocumentTaskControl) -> dict[str
                         raise conflict('Resume the paused task before retrying failed units')
                     graph_input = {'document': values['document'], 'failurePolicy': values.get('failurePolicy', 'return_partial'),
                                    'officeMode': values.get('officeMode'), 'retry': retry.model_dump(mode='json')}
-            command = {'resume': {key: request.model_dump(mode='json') for key in interruptions}} if interruptions else None
             admission = await service.db.store.aget(namespace(thread_id, 'control'), 'admission', refresh_ttl=False)
             response = await _enqueue(conn, task, request_id, request_hash, graph_input=graph_input, command=command,
                                       base=service.checkpoint_id(snapshot, run), generation=admission.value['generation'] if admission else 0)

@@ -1,4 +1,4 @@
-"""Single-process durable queue runner. PostgreSQL is the source of truth."""
+"""Single-process RabbitMQ run consumer. PostgreSQL is the source of truth."""
 
 import asyncio
 import os
@@ -9,7 +9,7 @@ from typing import Any
 from langgraph.types import Command
 from psycopg import Error as DatabaseError
 
-from .config import load, require_model_config
+from .config import load, rabbitmq_uri, require_model_config
 from .database import Database, utcnow, watch_ownership
 from .errors import DocumentProcessingError
 from .execution import (
@@ -20,6 +20,7 @@ from .execution import (
     supported_task_sql,
 )
 from .graphs.document import build_document_graph
+from .messaging import Delivery
 
 current: Service | None = None
 GRAPH_FORMATS = {'document_parser': None, 'text_csv_parser': ('text', 'csv'),
@@ -33,10 +34,15 @@ class Service:
         self.active: dict[str, asyncio.Task] = {}
         self.task_summaries: OrderedDict[str, tuple[tuple, dict[str, Any]]] = OrderedDict()
         self.wake = asyncio.Event()
+        self.stop_event = asyncio.Event()
         self.accepting = False
         self.stopping = False
         self.loop: asyncio.Task | None = None
         self.guard_task: asyncio.Task | None = None
+        self.delivery = Delivery(self)
+        self.broker_task: asyncio.Task | None = None
+        self.delivery_lock = asyncio.Lock()
+        self.execution_slots: asyncio.Semaphore | None = None
         self.lock = None
         self.fatal = os._exit
 
@@ -44,39 +50,57 @@ class Service:
         await self.db.open()
         try:
             await self.db.check_schema()
-            load()  # Validate deployment settings before taking ownership.
+            self.execution_slots = asyncio.Semaphore(load().jobs_per_worker)
             self.lock = await self.db.acquire()
             await self.db.ensure_indexes()
             self.graphs = {name: build_document_graph(self.db.checkpointer, store=self.db.store, name=name, source_types=types)
                            for name, types in GRAPH_FORMATS.items()}
-            # A crash can separate the final checkpoint from the queue receipt.
-            # Reconcile only this run's checkpoint, without executing graph nodes.
-            previous_thread = None
-            snapshot = None
-            for run in await self.db.rows(f"SELECT r.* FROM document_runs r JOIN document_tasks t ON t.thread_id=r.thread_id WHERE r.status IN ('pending','running','interrupted') AND {supported_task_sql('t')} ORDER BY r.thread_id"):
-                if run['thread_id'] != previous_thread:
-                    task = (await self.db.rows('SELECT * FROM document_tasks WHERE thread_id=%s', (run['thread_id'],)))[0]
-                    snapshot = await self.snapshot(task)
-                    previous_thread = run['thread_id']
-                assert snapshot is not None
-                if (saved_status := self.saved_run_status(snapshot, run)) is not None:
-                    await self.finish(run['run_id'], saved_status)
-            async with self.db.connection() as conn:
-                read_only = load().read_only
-                await conn.execute(
-                    "UPDATE document_runs AS r SET status=%s WHERE r.status IN ('pending','running') "
-                    "AND (%s OR r.status='running') AND EXISTS "
-                    f"(SELECT 1 FROM document_tasks t WHERE t.thread_id=r.thread_id AND {supported_task_sql('t')})",
-                    ('interrupted' if read_only else 'pending', read_only),
-                )
+            if not load().read_only:
+                rabbitmq_uri()
+            await self.reconcile()
             self.accepting = True
-            self.loop = asyncio.create_task(self.dispatch(), name='document-dispatch')
+            self.loop = asyncio.create_task(self.controls(), name='document-controls')
+            self.broker_task = asyncio.create_task(self.delivery.run(), name='document-delivery')
             self.guard_task = asyncio.create_task(self.watch_lock(), name='database-ownership')
         except BaseException:
             if self.lock:
                 await self.lock.close()
             await self.db.close()
             raise
+
+    async def reconcile(self, *, stop_unknown: bool = False):
+        # A crash can separate the final checkpoint from the queue receipt.
+        # Reconcile only this run's checkpoint, without executing graph nodes.
+        previous_thread = None
+        snapshot = None
+        for run in await self.db.rows(f"SELECT r.*,o.run_id IS NULL AS unstaged FROM document_runs r JOIN document_tasks t ON t.thread_id=r.thread_id LEFT JOIN document_outbox o ON o.run_id=r.run_id WHERE r.status IN ('pending','running','interrupted') AND {supported_task_sql('t')} ORDER BY r.thread_id"):
+            if run['thread_id'] != previous_thread:
+                task = (await self.db.rows('SELECT * FROM document_tasks WHERE thread_id=%s', (run['thread_id'],)))[0]
+                snapshot = await self.snapshot(task)
+                previous_thread = run['thread_id']
+            assert snapshot is not None
+            if (saved_status := self.saved_run_status(snapshot, run)) is not None:
+                await self.finish(run['run_id'], saved_status)
+            elif run['status'] in {'pending', 'running'}:
+                if run['cancel_requested']:
+                    await self.finish(run['run_id'], 'interrupted')
+                elif (stop_unknown or run['unstaged']) and await self.unknown_calls(run):
+                    await self.finish(run['run_id'], 'interrupted', 'MODEL_RESULT_UNKNOWN')
+                elif run['pause_requested']:
+                    await self.finish(run['run_id'], 'interrupted')
+        async with self.db.transaction() as conn:
+            read_only = load().read_only
+            await conn.execute(
+                "UPDATE document_runs AS r SET status=%s WHERE r.status IN ('pending','running') "
+                "AND (%s OR r.status='running') AND EXISTS "
+                f"(SELECT 1 FROM document_tasks t WHERE t.thread_id=r.thread_id AND {supported_task_sql('t')})",
+                ('interrupted' if read_only else 'pending', read_only),
+            )
+            # Schema commit can survive a crash before offline upgrade stages runs.
+            await conn.execute(
+                'INSERT INTO document_outbox(run_id) SELECT r.run_id FROM document_runs r '
+                'JOIN document_tasks t ON t.thread_id=r.thread_id '
+                f"WHERE r.status='pending' AND {supported_task_sql('t')} ON CONFLICT DO NOTHING")
 
     async def watch_lock(self):
         def lost():
@@ -91,13 +115,14 @@ class Service:
         try:
             async with asyncio.timeout(2):
                 await self.db.rows('SELECT 1')
-            return True
+            return bool(self.broker_task and not self.broker_task.done() and (load().read_only or self.delivery.connected))
         except Exception:  # noqa: BLE001 - fail closed without logging credentials or payloads
             return False
 
     async def stop(self, timeout: float = 60):
         self.accepting = False
         self.stopping = True
+        self.stop_event.set()
         self.wake.set()
         if self.loop:
             await self.loop
@@ -106,6 +131,8 @@ class Service:
             for task in pending:
                 task.cancel()
             await asyncio.gather(*pending, return_exceptions=True)
+        if self.broker_task:
+            await self.broker_task
         if self.guard_task:
             self.guard_task.cancel()
             await asyncio.gather(self.guard_task, return_exceptions=True)
@@ -133,26 +160,32 @@ class Service:
             return 'success'
         return None
 
-    async def dispatch(self):
+    async def controls(self):
         try:
             while not self.stopping:
                 self.wake.clear()
-                rows = await self.db.rows(f"SELECT r.* FROM document_runs r JOIN document_tasks t ON t.thread_id=r.thread_id WHERE r.status IN ('pending','running') AND {supported_task_sql('t')} ORDER BY r.created_at")
+                rows = await self.db.rows(f"SELECT r.* FROM document_runs r JOIN document_tasks t ON t.thread_id=r.thread_id WHERE r.status IN ('pending','running') AND (r.cancel_requested OR r.pause_requested) AND {supported_task_sql('t')} ORDER BY r.created_at")
                 for run in rows:
                     run_id = run['run_id']
                     if run['cancel_requested']:
-                        if run_id in self.active:
-                            self.active[run_id].cancel()
-                        else:
-                            await self.finish(run_id, 'interrupted')
+                        async with self.delivery_lock:
+                            if run_id in self.active:
+                                self.active[run_id].cancel()
+                            else:
+                                async with self.db.connection() as conn:
+                                    await conn.execute(
+                                        "UPDATE document_runs SET status='interrupted',finished_at=now() "
+                                        "WHERE run_id=%s AND status IN ('pending','running') AND cancel_requested", (run_id,))
                         continue
                     if run['pause_requested']:
-                        await self.db.store.aput(namespace(run['thread_id'], 'pause'), run_id, {'requested': True}, index=False)
-                    if run_id in self.active or run['status'] != 'pending' or len(self.active) >= load().jobs_per_worker:
-                        continue
-                    # Maintenance drains existing work but creates no new work through the API.
-                    self.active[run_id] = asyncio.create_task(self.execute(run), name=f'document-{run_id}')
-                    self.active[run_id].add_done_callback(self.execution_done)
+                        async with self.delivery_lock:
+                            if run_id in self.active:
+                                await self.db.store.aput(namespace(run['thread_id'], 'pause'), run_id, {'requested': True}, index=False)
+                            else:
+                                async with self.db.connection() as conn:
+                                    await conn.execute(
+                                        "UPDATE document_runs SET status='interrupted',finished_at=now() "
+                                        "WHERE run_id=%s AND status IN ('pending','running') AND pause_requested", (run_id,))
                 # Events are a fast path; cancellation can lose notification after commit.
                 try:
                     await asyncio.wait_for(self.wake.wait(), timeout=1)
@@ -164,7 +197,51 @@ class Service:
             self.accepting = False
             self.fatal(70)
 
-    def execution_done(self, task):
+    async def deliver(self, run_id: str) -> bool:
+        """Only an AMQP delivery may start execution; duplicates share its task."""
+        async with self.delivery_lock:
+            if self.stopping:
+                return False
+            execution = self.active.get(run_id)
+            if execution is None:
+                async with self.db.transaction() as conn:
+                    run = await (await conn.execute('SELECT * FROM document_runs WHERE run_id=%s FOR UPDATE', (run_id,))).fetchone()
+                    if not run or run['status'] not in {'pending', 'running'}:
+                        return True
+                    if run['cancel_requested']:
+                        await conn.execute("UPDATE document_runs SET status='interrupted',finished_at=now() WHERE run_id=%s", (run_id,))
+                        return True
+                    tasks = await self.db.rows('SELECT * FROM document_tasks WHERE thread_id=%s', (run['thread_id'],))
+                    require_supported_task(tasks[0])
+                if self.stopping:
+                    return False
+                execution = asyncio.create_task(self.execute(run), name=f'document-{run_id}')
+                self.active[run_id] = execution
+                execution.add_done_callback(lambda task: self.execution_done(run_id, task))
+        await asyncio.shield(execution)
+        rows = await self.db.rows('SELECT status FROM document_runs WHERE run_id=%s', (run_id,))
+        return not rows or rows[0]['status'] not in {'pending', 'running'}
+
+    async def unknown_calls(self, run):
+        offset = 0
+        while True:
+            items = await self.db.store.asearch(namespace(run['thread_id'], 'calls'), limit=100, offset=offset, refresh_ttl=False)
+            for item in items:
+                record = item.value
+                if record.get('runId') != run['run_id'] or record.get('status') == 'rejected':
+                    continue
+                if record.get('status') == 'completed' and record.get('durableResult'):
+                    continue
+                if record.get('resultKey') and await self.db.store.aget(namespace(run['thread_id'], 'model_results'), record['resultKey'], refresh_ttl=False):
+                    continue
+                return True
+            if len(items) < 100:
+                return False
+            offset += len(items)
+
+    def execution_done(self, run_id, task):
+        self.active.pop(run_id, None)
+        self.wake.set()
         if not task.cancelled() and task.exception() is not None:
             self.accepting = False
             self.fatal(70)
@@ -175,7 +252,12 @@ class Service:
 
     async def execute(self, run):
         run_id = run['run_id']
+        slots = self.execution_slots
+        assert slots is not None
+        acquired = False
         try:
+            await slots.acquire()
+            acquired = True
             task = (await self.db.rows('SELECT * FROM document_tasks WHERE thread_id=%s', (run['thread_id'],)))[0]
             require_supported_task(task)
             require_model_config()
@@ -183,13 +265,15 @@ class Service:
             graph = self.graphs[task['graph_id']]
             snapshot = await self.snapshot(task)
             advanced = self.checkpoint_id(snapshot) != run['base_checkpoint'] and (snapshot.metadata or {}).get('practiqRunId') == run_id
-            if advanced and (snapshot.interrupts or not snapshot.next):
-                await self.finish(run_id, 'waiting' if snapshot.interrupts else 'success')
+            if (saved_status := self.saved_run_status(snapshot, run)) is not None:
+                await self.finish(run_id, saved_status)
                 return
             deadline = run['deadline'] or utcnow() + timedelta(seconds=load().run_timeout_seconds)
             async with self.db.connection() as conn:
                 await conn.execute("UPDATE document_runs SET status='running',started_at=coalesce(started_at,now()),deadline=%s WHERE run_id=%s", (deadline, run_id))
             await self.db.store.aput(namespace(run['thread_id'], 'deadlines'), run_id, {'at': deadline.isoformat()}, index=False)
+            if run['pause_requested']:
+                await self.db.store.aput(namespace(run['thread_id'], 'pause'), run_id, {'requested': True}, index=False)
             remaining = (deadline - utcnow()).total_seconds()
             if remaining <= 0:
                 raise DocumentProcessingError(504, 'Run execution deadline exceeded', 'RUN_DEADLINE_EXCEEDED')
@@ -197,10 +281,15 @@ class Service:
             async with asyncio.timeout(remaining):
                 if snapshot.values and snapshot.values.get('execution'):
                     await preflight(snapshot.values)
+                if await self.unknown_calls(run):
+                    raise DocumentProcessingError(409, 'Model result unknown; explicit recovery required', 'MODEL_RESULT_UNKNOWN')
                 await graph.ainvoke(graph_input, {'configurable': {'thread_id': run['thread_id']},
                     'run_id': run_id, 'metadata': {'practiqRunId': run_id}}, context=dict(run['context']), durability='sync')
             snapshot = await self.snapshot(task)
-            await self.finish(run_id, 'waiting' if snapshot.interrupts else 'success')
+            saved_status = self.saved_run_status(snapshot, run)
+            if saved_status is None:
+                raise DocumentProcessingError(500, 'Run result is not checkpointed', 'RUN_RESULT_INCOMPLETE')
+            await self.finish(run_id, saved_status)
         except asyncio.CancelledError:
             rows = await self.db.rows('SELECT cancel_requested FROM document_runs WHERE run_id=%s', (run_id,))
             await self.finish(run_id, 'interrupted' if rows[0]['cancel_requested'] else 'pending')
@@ -210,7 +299,7 @@ class Service:
         except Exception as exc:  # noqa: BLE001 - task boundary stores only a sanitized error code
             code = exc.code if isinstance(exc, DocumentProcessingError) else 'RUN_DEADLINE_EXCEEDED' if isinstance(exc, TimeoutError) else 'TASK_EXECUTION_FAILED'
             if code != 'TASK_FORMAT_UNSUPPORTED':
-                await self.finish(run_id, 'error', code)
+                await self.finish(run_id, 'interrupted' if code == 'MODEL_RESULT_UNKNOWN' else 'error', code)
         finally:
-            self.active.pop(run_id, None)
-            self.wake.set()
+            if acquired:
+                slots.release()

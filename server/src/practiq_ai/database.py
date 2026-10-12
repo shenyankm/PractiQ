@@ -12,12 +12,12 @@ from psycopg.rows import dict_row
 
 from .config import database_uri
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 # Separate session ownership from short API transactions, scoped to this database.
 LOCK_NAMESPACE = 817241
 DDL = """
 CREATE TABLE practiq_schema(version integer NOT NULL);
-INSERT INTO practiq_schema VALUES (1);
+INSERT INTO practiq_schema VALUES (2);
 CREATE TABLE document_tasks (
  thread_id text PRIMARY KEY, request_hash text NOT NULL, graph_id text NOT NULL,
  document jsonb NOT NULL, failure_policy text NOT NULL, parent_thread_id text,
@@ -33,7 +33,6 @@ CREATE TABLE document_runs (
  UNIQUE(thread_id, request_id)
 );
 CREATE UNIQUE INDEX document_active_run ON document_runs(thread_id) WHERE status IN ('pending','running');
-CREATE INDEX document_queue ON document_runs(created_at) WHERE status = 'pending';
 CREATE TABLE document_receipts (
  thread_id text NOT NULL REFERENCES document_tasks(thread_id), request_id text NOT NULL,
  fingerprint text NOT NULL, response jsonb NOT NULL,
@@ -46,13 +45,21 @@ CREATE TABLE grade_calls (
  PRIMARY KEY(grade_id,call_key)
 );
 """
+OUTBOX_DDL = """
+CREATE TABLE document_outbox (
+ run_id text PRIMARY KEY REFERENCES document_runs(run_id) ON DELETE CASCADE,
+ created_at timestamptz NOT NULL DEFAULT clock_timestamp(), published_at timestamptz
+);
+CREATE INDEX document_outbox_pending ON document_outbox(created_at) WHERE published_at IS NULL;
+"""
+DDL += OUTBOX_DDL
 INDEX_DDL = """
 CREATE INDEX IF NOT EXISTS document_task_order ON document_tasks(created_at DESC,thread_id DESC);
 CREATE INDEX IF NOT EXISTS document_run_latest ON document_runs(thread_id,created_at DESC);
 CREATE INDEX IF NOT EXISTS document_active_order ON document_runs(created_at) WHERE status IN ('pending','running');
 """
 STATE_TABLES = {'checkpoints', 'checkpoint_blobs', 'checkpoint_writes', 'checkpoint_migrations', 'store', 'store_migrations'}
-TASK_TABLES = {'practiq_schema', 'document_tasks', 'document_runs', 'document_receipts', 'grades', 'grade_calls', 'grade_calls_sequence_seq'}
+TASK_TABLES = {'practiq_schema', 'document_tasks', 'document_runs', 'document_receipts', 'grades', 'grade_calls', 'grade_calls_sequence_seq', 'document_outbox'}
 
 
 class Ownership:
@@ -153,7 +160,7 @@ class Database:
     async def check_schema(self):
         tables = await self.tables()
         if 'practiq_schema' not in tables or await self.rows('SELECT version FROM practiq_schema') != [{'version': SCHEMA_VERSION}]:
-            raise RuntimeError('Initialize a new dedicated database with python -m practiq_ai.manage init-db')
+            raise RuntimeError('Unsupported service schema; use init-db only for an empty database, or upgrade-db for schema 1')
         if not STATE_TABLES | TASK_TABLES <= tables:
             raise RuntimeError('Incomplete PostgreSQL state; restore the entire service database before starting')
 
@@ -181,6 +188,22 @@ class Database:
             await conn.execute(DDL, prepare=False)
             await conn.execute(INDEX_DDL, prepare=False)
             await conn.execute('DROP TABLE practiq_initialization')
+
+    async def upgrade(self):
+        """Called only with offline runtime ownership; schema changes are atomic."""
+        tables = await self.tables()
+        if 'practiq_schema' not in tables:
+            raise RuntimeError('Upgrade requires an initialized service database')
+        versions = await self.rows('SELECT version FROM practiq_schema')
+        if versions == [{'version': SCHEMA_VERSION}]:
+            await self.check_schema()
+            return
+        if versions != [{'version': 1}] or not STATE_TABLES | (TASK_TABLES - {'document_outbox'}) <= tables:
+            raise RuntimeError('Upgrade supports only complete service schema 1')
+        async with self.transaction() as conn:
+            await conn.execute(OUTBOX_DDL, prepare=False)
+            await conn.execute('DROP INDEX IF EXISTS document_queue')
+            await conn.execute('UPDATE practiq_schema SET version=%s', (SCHEMA_VERSION,))
 
     async def acquire(self, message: str = 'Another service already owns this database') -> Ownership:
         conn = await self.connect()

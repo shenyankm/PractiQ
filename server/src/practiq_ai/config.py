@@ -207,3 +207,18 @@ def database_uri() -> str:
     if url.scheme not in {"postgresql", "postgres"} or not url.hostname or not url.path.strip("/") or url.fragment:
         raise ValueError("DATABASE_URI must be a PostgreSQL URL with a host and database name")
     return value
+
+
+def rabbitmq_uri() -> str:
+    """Broker credentials come only from trusted deployment configuration."""
+    value = _required(dict(os.environ), "RABBITMQ_URI")
+    try:
+        url = urlsplit(value)
+        valid = ((url.scheme == 'amqps' or (url.scheme == 'amqp' and is_loopback_host(url.hostname)))
+                 and url.hostname and url.port != 0
+                 and url.path and not url.query and not url.fragment)
+    except ValueError:
+        valid = False
+    if not valid:
+        raise ValueError('RABBITMQ_URI requires AMQPS or loopback AMQP with a host and explicit virtual host')
+    return value

@@ -132,7 +132,7 @@ async def test_server_auth_routes_and_graphs(tmp_path):
         server.client.close()
 
 
-@pytest.mark.parametrize('phase', ['queued', 'model', 'provider_completed', 'model_saved', 'completed'])
+@pytest.mark.parametrize('phase', ['outbox_committed', 'published', 'queued', 'model', 'provider_completed', 'model_receipt', 'model_saved', 'completed', 'result_saved'])
 async def test_process_kill_automatically_recovers_same_run(tmp_path, phase):
     server = await prepare(tmp_path, phase)
     try:
@@ -145,8 +145,13 @@ async def test_process_kill_automatically_recovers_same_run(tmp_path, phase):
             assert not before['usage'] and len(before['unknownUsageCalls']) == 1
         server.stop(kill=True)
         await asyncio.to_thread(server.start)
+        if phase in {'model', 'provider_completed'}:
+            blocked = await asyncio.to_thread(server.wait, receipt, {'INTERRUPTED'})
+            assert blocked['blocking'] == ['MODEL_RESULT_UNKNOWN']
+            assert server.calls() == (1 if phase == 'provider_completed' else 0)
+            server.control(receipt, 'resume', checkpointId=blocked['checkpointId'])
         after = await asyncio.to_thread(server.wait, receipt, {'COMPLETED'})
-        assert after['runId'] == receipt['runId']
+        assert (after['runId'] == receipt['runId']) == (phase not in {'model', 'provider_completed'})
         assert after['status'] == 'SUCCEEDED'
         assert server.calls() == (2 if phase == 'provider_completed' else 1)
         assert len(after['usage']) == 1
@@ -164,7 +169,7 @@ async def test_process_kill_automatically_recovers_same_run(tmp_path, phase):
                 assert sum(item.value['spent'] for item in budgets) == 2
             finally:
                 await db.close()
-        if phase != 'queued':
+        if phase not in {'queued', 'outbox_committed', 'published', 'model', 'provider_completed', 'model_receipt'}:
             assert after['modelBudget']['reserved'] == before['modelBudget']['reserved']
     finally:
         server.stop(kill=True)
@@ -228,8 +233,12 @@ async def test_database_lock_loss_exits_process_and_recovery_is_exclusive(tmp_pa
         assert server.process.returncode == 70
         server.stop()
         await asyncio.to_thread(server.start)
+        blocked = await asyncio.to_thread(server.wait, receipt, {'INTERRUPTED'})
+        assert blocked['runId'] == receipt['runId'] and blocked['blocking'] == ['MODEL_RESULT_UNKNOWN']
+        assert server.calls() == 0
+        server.control(receipt, 'resume', checkpointId=blocked['checkpointId'])
         done = await asyncio.to_thread(server.wait, receipt, {'COMPLETED'})
-        assert done['runId'] == receipt['runId'] and len(done['unknownUsageCalls']) == 1
+        assert len(done['unknownUsageCalls']) == 1
     finally:
         server.stop(kill=True)
         server.client.close()
