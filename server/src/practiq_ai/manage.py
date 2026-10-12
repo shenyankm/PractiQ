@@ -4,6 +4,7 @@ import argparse
 import asyncio
 import os
 from contextlib import asynccontextmanager
+from uuid import UUID
 
 from .config import load
 from .database import Database, watch_ownership
@@ -53,7 +54,25 @@ async def cleanup(db: Database) -> int:
         return len(threads)
 
 
-async def run(action: str):
+async def replay_run(db: Database, run_id: str):
+    """Explicitly republish an unfinished dead-lettered run without new model consent."""
+    from .execution import require_supported_task
+    from .runtime import Service
+
+    if str(UUID(run_id)) != run_id:
+        raise ValueError('A canonical run UUID is required')
+    async with exclusive(db):
+        rows = await db.rows('SELECT r.*,t.graph_id,t.document FROM document_runs r JOIN document_tasks t USING(thread_id) WHERE run_id=%s', (run_id,))
+        if not rows or rows[0]['status'] != 'pending' or rows[0]['cancel_requested']:
+            raise RuntimeError('Only an unfinished pending run can be replayed; use explicit API recovery for stopped runs')
+        require_supported_task(rows[0])
+        if await Service(db).unknown_calls(rows[0]):
+            raise RuntimeError('Model result unknown; use explicit API recovery instead of dead-letter replay')
+        async with db.transaction() as conn:
+            await conn.execute('INSERT INTO document_outbox(run_id) VALUES (%s) ON CONFLICT(run_id) DO UPDATE SET published_at=NULL', (run_id,))
+
+
+async def run(action: str, run_id: str | None = None):
     db = Database()
     await db.open()
     try:
@@ -61,6 +80,23 @@ async def run(action: str):
             async with exclusive(db):
                 await db.initialize()
             print('Initialized dedicated PostgreSQL service database')
+        elif action == 'upgrade-db':
+            from .graphs.document import build_document_graph
+            from .runtime import GRAPH_FORMATS, Service
+
+            async with exclusive(db):
+                await db.upgrade()
+                service = Service(db)
+                service.graphs = {name: build_document_graph(db.checkpointer, store=db.store, name=name, source_types=types)
+                                  for name, types in GRAPH_FORMATS.items()}
+                await service.reconcile(stop_unknown=True)
+            print('Upgraded PostgreSQL service schema and staged recoverable runs; no models executed')
+        elif action == 'replay-run':
+            await db.check_schema()
+            if run_id is None:
+                raise ValueError('replay-run requires --run-id')
+            await replay_run(db, run_id)
+            print('Staged the existing run for confirmed publication; original dead letter is retained')
         else:
             await db.check_schema()
             print(f'Task states removed: {await cleanup(db)}')
@@ -74,8 +110,10 @@ def main():
     from .config import SERVER_ROOT
     load_dotenv(SERVER_ROOT.parent / '.env', override=False)
     parser = argparse.ArgumentParser()
-    parser.add_argument('action', choices=['init-db', 'cleanup-state'])
-    asyncio.run(run(parser.parse_args().action))
+    parser.add_argument('action', choices=['init-db', 'upgrade-db', 'replay-run', 'cleanup-state'])
+    parser.add_argument('--run-id')
+    args = parser.parse_args()
+    asyncio.run(run(args.action, args.run_id))
 
 
 if __name__ == '__main__':

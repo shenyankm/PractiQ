@@ -1,6 +1,6 @@
 # Create, control, and review document tasks
 
-This guide covers task creation, polling, pause, resume, and human review. Three graphs share LangGraph checkpoints, Store, and a persistent PostgreSQL queue. Subjective grading uses a [separate endpoint](service-guide.md#request-subjective-grading).
+This guide covers task creation, status polling, pause, resume, and human review. Three graphs share PostgreSQL-backed LangGraph checkpoints/Store and [RabbitMQ run delivery through a transactional outbox](rabbitmq.md). Subjective grading uses a [separate endpoint](service-guide.md#request-subjective-grading).
 
 ## Create and query
 
@@ -62,7 +62,7 @@ Each mutation uses a UUID `requestId`. Replaying a request, including concurrent
 
 CPU-bound question merging runs in a worker thread so it does not monopolize the API event loop; this does not increase model concurrency or change merge rules and checkpoint durability.
 
-`pause` is cooperative: dispatched extraction/model calls may finish, but subsequent batches stop. `interrupt` persists cancellation intent before canceling execution. It does not guarantee cancellation of remote model calls or underlying synchronous threads. Unknown calls from immediate interruption are retained.
+`pause` is cooperative for active runs: dispatched extraction/model calls may finish, but subsequent batches stop. A queued run becomes `PAUSED` without graph execution, including while RabbitMQ is unavailable; only explicit resume starts it. `interrupt` persists cancellation intent before canceling execution. It does not guarantee cancellation of remote model calls or underlying synchronous threads. Unknown calls from immediate interruption are retained.
 
 `retry_failed` may omit `units` or send `[]` to retry all eligible units. It may also select units, for example `[{"stage":"vision_parse","index":1}]`. Indexes are zero-based; stage is `vision_parse`, `vision_describe`, or `document_parse`. Each unit allows at most two additional retry rounds, with the remainder in `retriesRemaining`. Successful units are reused. Follow `allowedActions` for exhausted retries, input limits, preparation failures, repeated truncation, and other non-retryable errors. Ordinary resume does not retry already completed PARTIAL units.
 
@@ -80,9 +80,9 @@ Review payloads contain `kind=review`, `stage`, `failures`, `qualityIssues`, and
 
 ## Recovery and retention
 
-After an unexpected restart, the independent service resumes unfinished runs with the original run ID, deadline, and remaining budget. Paused, explicitly interrupted, and awaiting-review tasks remain waiting. Explicit resume can create a new run deadline but does not reset the task budget. A read-only deployment keeps unfinished tasks waiting and starts no model work.
+After an unexpected restart, RabbitMQ redelivers recoverable unfinished runs with the original run ID, deadline, and remaining budget. Checkpointed results and model-result receipts are reused. An unknown model outcome stops with `MODEL_RESULT_UNKNOWN` and requires explicit recovery; redelivery does not automatically pay for another call. Paused, explicitly interrupted, and awaiting-review tasks remain waiting. Explicit resume can create a new run deadline but does not reset the task budget. A read-only deployment keeps unfinished tasks waiting and starts no model work.
 
-Control receipts and queue entries are persisted in one transaction. Execution uses checkpoints to determine whether a control has already been applied. External model calls and the database cannot provide cross-system exactly-once behavior: a response not yet persisted may be requested again. Unknown usage and consumed budget remain recorded.
+Control receipts, runs and outbox entries are persisted in one transaction. Execution uses checkpoints to determine whether a control has already been applied. External model calls and the database cannot provide cross-system exactly-once behavior: a response not yet persisted may already have incurred a charge. Inspect unknown usage and provider billing before an explicit resume/retry, which may pay for another call. Unknown usage and consumed budget remain recorded.
 
 Tasks expire 180 days after creation, returning `TASK_EXPIRED`. Changes to code, locked dependencies, Python patch version, model, or storage semantics return `EXECUTION_VERSION_MISMATCH`; use the original version or create a new task. Upgrades do not migrate old Agent Server checkpoints.
 

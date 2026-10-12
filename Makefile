@@ -5,7 +5,7 @@ override AI_PYTHON := $(or $(shell command -v "$(AI_PYTHON)"),$(AI_PYTHON))
 AI_PORT ?= 8090
 APP_PACKAGE_REPORT ?= server/reports/checks/desktop-bundle.json
 
-.PHONY: install server-install install-locked test test-server server-dev init-db verify audit audit-rust image-check
+.PHONY: install server-install install-locked test test-server server-dev init-db upgrade-db verify audit audit-rust image-check
 install: server-install
 server-install:
 	cd server && uv pip install --break-system-packages --python "$(AI_PYTHON)" -e '.[dev]'
@@ -21,6 +21,8 @@ server-dev:
 	cd server && PATH="$(dir $(AI_PYTHON)):$$PATH" PYTHONPATH="$(CURDIR)/server/src" "$(AI_PYTHON)" -m uvicorn practiq_ai.webapp:app --host 127.0.0.1 --port $(AI_PORT) --workers 1 --env-file ../.env --timeout-graceful-shutdown 65
 init-db:
 	cd server && "$(AI_PYTHON)" -m practiq_ai.manage init-db
+upgrade-db:
+	cd server && "$(AI_PYTHON)" -m practiq_ai.manage upgrade-db
 verify:
 	rm -f server/reports/checks/probes.xml server/reports/checks/probes.json server/reports/checks/probes.md server/reports/checks/coverage.xml
 	cd server && uv lock --check --python "$(AI_PYTHON)"

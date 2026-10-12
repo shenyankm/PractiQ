@@ -2,7 +2,7 @@
 
 ## Architecture
 
-`server/src/practiq_ai/` is the sole Python 3.14+ LangGraph AI document import service. Keep its format extractors, shared parser graphs, structured contracts, local file storage and model usage accounting together. `webapp.py` exposes authenticated upload and artifact routes; The single-process open-source LangGraph runtime owns a PostgreSQL task queue, checkpoints, Store and grading receipts; `/ok` and `/ready` are health checks. Do not restore official Agent Server APIs or Redis.
+`server/src/practiq_ai/` is the sole Python 3.14+ LangGraph AI document import service. Keep its format extractors, shared parser graphs, structured contracts, local file storage and model usage accounting together. `webapp.py` exposes authenticated upload and artifact routes; The single-process open-source LangGraph runtime consumes RabbitMQ document-run deliveries through a PostgreSQL transactional outbox; PostgreSQL owns task/run records, checkpoints, Store and grading receipts; `/ok` and `/ready` are health checks. Do not restore official Agent Server APIs or Redis.
 
 `web/` is the independent React/Vite import frontend served by the AI service. It handles explicit source upload, task progress, saved-result review and question-bank ZIP download through the existing authenticated task APIs. Keep service tokens in browser memory only; model provider configuration and credentials belong to the service environment. Do not add Tauri imports, online practice, product accounts or a second document parser.
 
@@ -14,9 +14,10 @@ There is no product HTTP backend, login, billing, answer generation or learning 
 
 - Use an existing Python 3.14+ interpreter; no project `.venv`. Set `AI_PYTHON` when needed.
 - `make install`: install AI and development dependencies into that interpreter.
-- `make server-dev`: run Uvicorn on loopback with PostgreSQL, loading `.env`.
+- `make server-dev`: run Uvicorn on loopback with PostgreSQL and RabbitMQ, loading `.env`.
 - `make test` / `make test-server`: AI tests without external model calls.
 - `make install-locked`: install locked runtime/development dependencies into the selected interpreter without a project `.venv`.
+- `make upgrade-db`: explicitly upgrade service schema 1 to 2 offline under runtime ownership; retain database/storage backups.
 - `make verify`: lockfile consistency, Ruff, Pyright, evaluation fixtures, one test run with 90% coverage, recovery probes and package build. Reports go to `server/reports/checks/`, including on test failure.
 - `make audit` / `make image-check`: audit locked dependencies (network required) / build the Docker image without publishing.
 

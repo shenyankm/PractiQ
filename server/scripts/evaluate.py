@@ -846,6 +846,14 @@ def ensure_public_report(value: Any) -> None:
 # These are the existing behavioral checks, executed once by the normal pytest run.
 PROBE_TESTS = {
     "recoverySuccessRate": {
+        "test_messaging": ["test_ambiguous_broker_windows_do_not_repeat_models",
+                           "test_broker_failure_keeps_old_execution_exclusive_and_outbox_durable",
+                           "test_consumer_timeout_does_not_overlap_or_repeat_old_execution",
+                           "test_cancelled_delivery_handler_cannot_release_execution_capacity",
+                           "test_execution_cancelled_before_first_step_is_redelivered_without_stale_active_entry"],
+        "test_runtime_recovery": ["test_process_kill_automatically_recovers_same_run"],
+        "test_queue_upgrade": ["test_upgrade_retains_history_receipts_files_deadlines_and_only_stages_recoverable_runs",
+                               "test_startup_does_not_reset_published_outbox_or_replay_dead_letters"],
         "test_task_execution": ["test_retry_failed_units_preserves_successes_and_replaces_failures",
                                 "test_pause_between_attempts_reuses_corrections_and_budget",
                                 "test_model_result_survives_artifact_write_failure",
@@ -853,6 +861,9 @@ PROBE_TESTS = {
         "test_evaluation": ["test_transient_probe_recovers_with_trace"],
     },
     "correctStopRate": {
+        "test_messaging": ["test_shutdown_during_delivery_admission_does_not_start_execution",
+                           "test_queued_pause_stops_without_broker_and_requires_explicit_resume",
+                           "test_resume_queued_pause_preserves_selected_retry_input_or_review_command"],
         "test_page_rendering": ["test_missing_model_fails_before_read_or_render"],
         "test_runtime": ["test_unsupported_tasks_are_unchanged_and_do_not_block_current_work"],
         "test_workflows": ["test_document_integrity_fails_before_model_call", "test_structured_call_does_not_retry_permanent_errors"],
@@ -866,6 +877,7 @@ PROBE_TESTS = {
         "test_evaluation": ["test_trajectory_ignores_parallel_completion_order_and_rejects_wrong_route"],
     },
     "unknownUsagePassRate": {
+        "test_queue_upgrade": ["test_startup_recovers_upgrade_interrupted_after_schema_commit"],
         "test_production_limits": ["test_unknown_call_consumes_budget_after_interruption"],
         "test_task_execution": ["test_unknown_provider_usage_is_not_recorded_as_zero"],
     },

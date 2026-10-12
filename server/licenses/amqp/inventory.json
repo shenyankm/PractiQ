@@ -1,0 +1,121 @@
+[
+  {
+    "name": "aio-pika",
+    "version": "10.1.1",
+    "projectUrls": [
+      "Homepage, https://github.com/mosquito/aio-pika",
+      "Source, https://github.com/mosquito/aio-pika",
+      "Tracker, https://github.com/mosquito/aio-pika/issues",
+      "Documentation, https://docs.aio-pika.com/"
+    ],
+    "notices": [
+      {
+        "file": "aio-pika-COPYING",
+        "sha256": "f597f46bb7c16287b809e80c197e74ecb273c2a5fafc137b496095a168f5aa54"
+      }
+    ]
+  },
+  {
+    "name": "aiormq",
+    "version": "7.2.2",
+    "projectUrls": [
+      "Homepage, https://github.com/mosquito/aiormq",
+      "Source, https://github.com/mosquito/aiormq",
+      "Tracker, https://github.com/mosquito/aiormq/issues",
+      "Documentation, https://github.com/mosquito/aiormq/blob/master/README.md"
+    ],
+    "notices": [
+      {
+        "file": "aiormq-COPYING",
+        "sha256": "f597f46bb7c16287b809e80c197e74ecb273c2a5fafc137b496095a168f5aa54"
+      }
+    ]
+  },
+  {
+    "name": "pamqp",
+    "version": "4.0.1",
+    "projectUrls": [
+      "Homepage, https://github.com/gmr/pamqp",
+      "Documentation, https://gmr.github.io/pamqp/",
+      "Bug Tracker, https://github.com/gmr/pamqp/issues"
+    ],
+    "notices": [
+      {
+        "file": "pamqp-LICENSE",
+        "sha256": "987fa2d6c1e58c2ec08a4f32bf7f6eaa243756a6506728a05efded2cf26f5f8c"
+      }
+    ]
+  },
+  {
+    "name": "yarl",
+    "version": "1.25.1",
+    "projectUrls": [
+      "Chat: Matrix, https://matrix.to/#/#aio-libs:matrix.org",
+      "Chat: Matrix Space, https://matrix.to/#/#aio-libs-space:matrix.org",
+      "CI: GitHub Workflows, https://github.com/aio-libs/yarl/actions?query=branch:master",
+      "Code of Conduct, https://github.com/aio-libs/.github/blob/master/CODE_OF_CONDUCT.md",
+      "Coverage: codecov, https://codecov.io/github/aio-libs/yarl",
+      "Docs: Changelog, https://yarl.aio-libs.org/en/latest/changes/",
+      "Docs: RTD, https://yarl.aio-libs.org",
+      "GitHub: issues, https://github.com/aio-libs/yarl/issues",
+      "GitHub: repo, https://github.com/aio-libs/yarl"
+    ],
+    "notices": [
+      {
+        "file": "yarl-LICENSE",
+        "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+      },
+      {
+        "file": "yarl-NOTICE",
+        "sha256": "56d6ac6c8105c0a51304c21db060e361af9a8ea0af9a75c239c28b5d13693838"
+      }
+    ]
+  },
+  {
+    "name": "multidict",
+    "version": "7.1.0",
+    "projectUrls": [
+      "Homepage, https://github.com/aio-libs/multidict",
+      "Chat: Matrix, https://matrix.to/#/#aio-libs:matrix.org",
+      "Chat: Matrix Space, https://matrix.to/#/#aio-libs-space:matrix.org",
+      "CI: GitHub, https://github.com/aio-libs/multidict/actions",
+      "Code of Conduct, https://github.com/aio-libs/.github/blob/master/CODE_OF_CONDUCT.md",
+      "Coverage: codecov, https://codecov.io/github/aio-libs/multidict",
+      "Docs: Changelog, https://multidict.aio-libs.org/en/latest/changes/",
+      "Docs: RTD, https://multidict.aio-libs.org",
+      "GitHub: issues, https://github.com/aio-libs/multidict/issues",
+      "GitHub: repo, https://github.com/aio-libs/multidict"
+    ],
+    "notices": [
+      {
+        "file": "multidict-LICENSE",
+        "sha256": "2e4be5fc6c4c72a466fcb665d726e049a6891981fe536c4f04b6366749461d23"
+      }
+    ]
+  },
+  {
+    "name": "propcache",
+    "version": "0.5.4",
+    "projectUrls": [
+      "Chat: Matrix, https://matrix.to/#/#aio-libs:matrix.org",
+      "Chat: Matrix Space, https://matrix.to/#/#aio-libs-space:matrix.org",
+      "CI: GitHub Workflows, https://github.com/aio-libs/propcache/actions?query=branch:master",
+      "Code of Conduct, https://github.com/aio-libs/.github/blob/master/CODE_OF_CONDUCT.md",
+      "Coverage: codecov, https://codecov.io/github/aio-libs/propcache",
+      "Docs: Changelog, https://propcache.readthedocs.io/en/latest/changes/",
+      "Docs: RTD, https://propcache.readthedocs.io",
+      "GitHub: issues, https://github.com/aio-libs/propcache/issues",
+      "GitHub: repo, https://github.com/aio-libs/propcache"
+    ],
+    "notices": [
+      {
+        "file": "propcache-LICENSE",
+        "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+      },
+      {
+        "file": "propcache-NOTICE",
+        "sha256": "56d6ac6c8105c0a51304c21db060e361af9a8ea0af9a75c239c28b5d13693838"
+      }
+    ]
+  }
+]

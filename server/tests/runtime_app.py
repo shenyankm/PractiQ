@@ -3,7 +3,7 @@ import asyncio
 import os
 from pathlib import Path
 
-from practiq_ai import runtime
+from practiq_ai import llm, messaging, runtime
 from practiq_ai.graphs import document
 from practiq_ai.webapp import app
 from tests.support import FakeModel, question
@@ -53,6 +53,13 @@ original_gate = document._gate
 
 
 async def execute(self, run):
+    if phase == 'published':
+        try:
+            (root / 'published_execution').touch(exist_ok=False)
+        except FileExistsError:
+            pass
+        else:
+            await asyncio.Event().wait()
     if run['command']:
         await block_once('review_before')
     else:
@@ -63,7 +70,10 @@ async def execute(self, run):
 async def finish(self, run_id, status, error=None):
     if status == 'success':
         await block_once('completed')
-    return await original_finish(self, run_id, status, error)
+    result = await original_finish(self, run_id, status, error)
+    if status == 'success':
+        await block_once('result_saved')
+    return result
 
 
 async def gate(state, *, phase):
@@ -77,3 +87,21 @@ runtime.Service.execute = execute
 runtime.Service.finish = finish
 document._gate = gate
 __all__ = ['app']
+
+original_publish = messaging.publish
+
+async def publish(channel, run_id):
+    await block_once('outbox_committed')
+    await original_publish(channel, run_id)
+    await block_once('published')
+
+messaging.publish = publish
+
+original_store_put = llm.store_put
+
+async def store_put(runtime, kind, key, value):
+    await original_store_put(runtime, kind, key, value)
+    if kind == 'model_results':
+        await block_once('model_receipt')
+
+llm.store_put = store_put

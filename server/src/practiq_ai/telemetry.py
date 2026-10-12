@@ -18,6 +18,7 @@ duration = Histogram("practiq_stage_seconds", "Execution duration", ["stage", "o
                      buckets=(0.1, 1, 5, 15, 30, 60, 180, 600, 1800), registry=registry)
 results = Counter("practiq_document_results", "Merged results", ["status", "review"], registry=registry)
 failures = Counter("practiq_failures", "Processing failures", ["code"], registry=registry)
+deliveries = Counter("practiq_delivery_events", "AMQP delivery outcomes", ["outcome"], registry=registry)
 logger = logging.getLogger("practiq.events")
 _EVENTS: ContextVar[list[dict[str, Any]] | None] = ContextVar("evaluation_events", default=None)
 EVENT_FIELDS = {

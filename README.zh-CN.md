@@ -108,7 +108,7 @@ npm run tauri -- build
 cp -n .env.example .env
 ```
 
-在 `.env` 中设置服务令牌、模型凭据、`LLM_MODEL`、PostgreSQL 连接地址 `DATABASE_URI` 和文件存储。先创建空的专用 PostgreSQL 数据库，再初始化服务表并启动：
+在 `.env` 中设置服务令牌、模型凭据、`LLM_MODEL`、PostgreSQL 连接地址 `DATABASE_URI`、RabbitMQ 专用 vhost 地址 `RABBITMQ_URI` 和文件存储。先创建空的专用 PostgreSQL 数据库，再初始化服务表并启动：
 
 ```sh
 make install-locked AI_PYTHON=/path/to/python3.14
@@ -118,7 +118,7 @@ make web-build
 make server-dev AI_PYTHON=/path/to/python3.14
 ```
 
-FastAPI/LangGraph 服务监听 `127.0.0.1:8090`，使用 PostgreSQL 和本地文件存储，每个数据库只运行一个进程。上传、任务、素材和评分接口均需鉴权。打开 `http://127.0.0.1:8090/` 使用已构建的 Web 前端；开发时可另外运行 `make web-dev`，其本机 Vite 服务将 API 请求代理到独立服务。需要 Office 支持时，仅在服务部署端配置 `AI_OFFICE_EXECUTABLE` 与 `AI_OFFICE_VERSION`。详见[服务指南](server/docs/service-guide.md)。
+FastAPI/LangGraph 服务监听 `127.0.0.1:8090`，使用 RabbitMQ 投递、PostgreSQL 状态和本地文件存储，每个数据库只运行一个进程。上传、任务、素材和评分接口均需鉴权。打开 `http://127.0.0.1:8090/` 使用已构建的 Web 前端；开发时可另外运行 `make web-dev`，其本机 Vite 服务将 API 请求代理到独立服务。需要 Office 支持时，仅在服务部署端配置 `AI_OFFICE_EXECUTABLE` 与 `AI_OFFICE_VERSION`。详见[服务指南](server/docs/service-guide.md)。
 
 ## 文档与开发
 
@@ -139,3 +139,5 @@ npm run test:browser
 通过 [GitHub Issues](https://github.com/shenyankm/PractiQ/issues/new/choose) 报告可复现问题或提出改进建议。代码和文档贡献见[贡献指南](CONTRIBUTING.md)；漏洞请按[安全策略](SECURITY.md)私密报告。质量、发布、用户试用和贡献者工作流的未完成验收要求见[路线图证据记录](docs/roadmap-evidence.md)；GitHub 原生路线图与子议题为准。
 
 项目源码使用 [MIT 许可证](LICENSE)，内置依赖保留各自的[上游许可声明](app/licenses/README.md)。
+
+AI 服务 RabbitMQ 部署及升级见[投递与恢复指南](server/docs/rabbitmq.md)。现有服务 schema 1 必须停服备份后显式运行 `make upgrade-db`。

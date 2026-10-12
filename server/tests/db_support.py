@@ -63,6 +63,8 @@ async def new_database(initialize=True):
     db = Database(await asyncio.to_thread(create_database))
     DATABASES.append(db)
     await db.open()
+    from tests.mq_support import new_vhost
+    os.environ['RABBITMQ_URI'] = await asyncio.to_thread(new_vhost)
     if initialize:
         await db.initialize()
     return db
@@ -79,6 +81,9 @@ async def cleanup():
             name = urlsplit(db.uri).path.lstrip('/')
             await conn.execute(sql.SQL('DROP DATABASE {} WITH (FORCE)').format(sql.Identifier(name)))
 
+    from tests.mq_support import cleanup as cleanup_mq
+    await asyncio.to_thread(cleanup_mq)
+
 
 async def setup_api(monkeypatch, responses=None, parts=None):
     from practiq_ai import runtime
@@ -86,6 +91,9 @@ async def setup_api(monkeypatch, responses=None, parts=None):
     db = await new_database()
     service = cast(Any, runtime.Service(db))
     await service.start()
+    async with asyncio.timeout(10):
+        while not service.delivery.connected:
+            await asyncio.sleep(.02)
     SERVICES.append(service)
     monkeypatch.setattr(runtime, 'current', service)
     monkeypatch.setattr(task_api, 'get_object_store', lambda: files)

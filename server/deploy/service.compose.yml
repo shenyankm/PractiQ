@@ -1,4 +1,4 @@
-# Linux host deployment behind a loopback HTTPS proxy; PostgreSQL is configured through DATABASE_URI; artifacts use the persistent local mount.
+# Linux host deployment behind a loopback HTTPS proxy; PostgreSQL stores durable state; RabbitMQ delivers runs; artifacts use the persistent local mount.
 services:
   ai:
     build:
@@ -13,6 +13,7 @@ services:
     environment:
       AI_STORAGE_DIR: /var/lib/practiq
       DATABASE_URI: ${DATABASE_URI:?Set the dedicated PostgreSQL connection URL}
+      RABBITMQ_URI: ${RABBITMQ_URI:?Set the restricted RabbitMQ service connection URL}
     volumes:
       - type: bind
         source: ${PRACTIQ_STORAGE_DIR:?Set the absolute existing storage directory}
@@ -33,3 +34,26 @@ services:
       timeout: 5s
       retries: 3
       start_period: 30s
+
+  rabbitmq:
+    image: rabbitmq:4.3.6-management@sha256:8dd6e3570ddaa2ef82a6c3a8950e79c1f73893adfbdddbc374fc1f1ac8a0f5dd
+    hostname: practiq-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_ADMIN_USER:?Set a separate RabbitMQ administrator}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_ADMIN_PASSWORD:?Set the RabbitMQ administrator password}
+      RABBITMQ_DEFAULT_VHOST: practiq
+    ports:
+      - "127.0.0.1:5672:5672"
+      - "127.0.0.1:15672:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+    stop_grace_period: 70s
+volumes:
+  rabbitmq-data:

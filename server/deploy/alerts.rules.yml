@@ -28,3 +28,17 @@ groups:
         for: 5m
         labels: {severity: warning}
         annotations: {summary: "Model-stage P95 exceeds 180 seconds"}
+      - alert: PractiQBrokerUnavailable
+        expr: practiq_broker_connected == 0
+        for: 2m
+        labels: {severity: critical}
+        annotations: {summary: "Broker unavailable; committed outbox is retained"}
+      - alert: PractiQOutboxStalled
+        expr: practiq_outbox_oldest_seconds > 120
+        for: 2m
+        labels: {severity: critical}
+        annotations: {summary: "Committed runs await broker confirmation"}
+      - alert: PractiQPoisonDelivery
+        expr: sum(increase(practiq_delivery_events_total{outcome=~"poison|unsupported"}[5m])) > 0
+        labels: {severity: warning}
+        annotations: {summary: "Inspect the durable RabbitMQ dead-letter queue; replay requires an operator"}

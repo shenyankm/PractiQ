@@ -146,7 +146,7 @@ async def test_reused_reader_does_not_inherit_another_requests_snapshot(monkeypa
     assert await second == [{'value': 'committed'}]
 
 
-async def test_existing_schema_one_gets_additive_sort_indexes():
+async def test_existing_schema_two_gets_additive_sort_indexes():
     db = await new_database()
     async with db.connection() as conn:
         for name in ('document_task_order', 'document_run_latest', 'document_active_order'):
@@ -154,7 +154,7 @@ async def test_existing_schema_one_gets_additive_sort_indexes():
     await db.check_schema()
     await db.ensure_indexes()
     await db.ensure_indexes()
-    assert await db.rows('SELECT version FROM practiq_schema') == [{'version': 1}]
+    assert await db.rows('SELECT version FROM practiq_schema') == [{'version': 2}]
     indexes = await db.rows("SELECT indexname FROM pg_indexes WHERE schemaname='public'")
     assert {'document_task_order', 'document_run_latest', 'document_active_order'} <= {row['indexname'] for row in indexes}
 
@@ -165,7 +165,7 @@ async def test_schema_initialization_is_explicit_and_refuses_existing_data(monke
         await db.initialize()
     async with db.connection() as conn:
         await conn.execute("UPDATE practiq_schema SET version=99")
-    with pytest.raises(RuntimeError, match='Initialize'):
+    with pytest.raises(RuntimeError, match='Unsupported service schema'):
         await db.check_schema()
     await db.close()
 
@@ -179,7 +179,9 @@ async def test_singleton_lock_readiness_and_failed_start_cleanup(monkeypatch):
     service = runtime.Service(db)
     await service.start()
     SERVICES.append(service)
-    assert await service.ready()
+    async with asyncio.timeout(10):
+        while not await service.ready():
+            await asyncio.sleep(.02)
     assert {call.kwargs["name"]: call.kwargs["source_types"] for call in build.call_args_list} == {
         "document_parser": None, "text_csv_parser": ("text", "csv"),
         "pdf_parser": ("pdf",),
@@ -579,7 +581,7 @@ async def test_missing_checkpoint_tables_fail_closed():
     await db.connections[0].execute('DROP TABLE checkpoint_writes')
     with pytest.raises(RuntimeError, match='Incomplete PostgreSQL state'):
         await db.check_schema()
-    assert await db.rows('SELECT version FROM practiq_schema') == [{'version': 1}]
+    assert await db.rows('SELECT version FROM practiq_schema') == [{'version': 2}]
 
 @pytest.mark.parametrize('pending', [False, True])
 @pytest.mark.parametrize(('graph_id', 'kind'), [('docx_parser', 'text'), ('document_parser', 'docm'), ('document_parser', 'xlsm')])
@@ -610,7 +612,9 @@ async def test_unsupported_tasks_are_unchanged_and_do_not_block_current_work(mon
     monkeypatch.setattr(runtime, 'current', restarted)
     monkeypatch.setenv('AI_MAX_BUSY_THREADS', '1')
     await restarted.start()
-    assert await restarted.ready()
+    async with asyncio.timeout(10):
+        while not await restarted.ready():
+            await asyncio.sleep(.02)
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='http://test',
                                 headers={'Authorization': 'Bearer test-token'}) as http:
         url = f'/api/document-tasks/{thread_id}'
