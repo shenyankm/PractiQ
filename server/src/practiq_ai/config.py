@@ -214,10 +214,11 @@ def rabbitmq_uri() -> str:
     value = _required(dict(os.environ), "RABBITMQ_URI")
     try:
         url = urlsplit(value)
-        valid = (url.scheme in {'amqp', 'amqps'} and url.hostname and url.port != 0
+        valid = ((url.scheme == 'amqps' or (url.scheme == 'amqp' and is_loopback_host(url.hostname)))
+                 and url.hostname and url.port != 0
                  and url.path and not url.query and not url.fragment)
     except ValueError:
         valid = False
     if not valid:
-        raise ValueError('RABBITMQ_URI must be an AMQP URL with a host and explicit virtual host')
+        raise ValueError('RABBITMQ_URI requires AMQPS or loopback AMQP with a host and explicit virtual host')
     return value

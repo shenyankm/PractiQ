@@ -45,6 +45,25 @@ def test_broker_configuration_errors_do_not_include_password(monkeypatch, value)
     assert 'secret' not in str(exc.value)
 
 
+@pytest.mark.parametrize('host', ['broker.example', '10.0.0.1', '192.0.2.1', '[2001:db8::1]',
+                                 'localhost.example', '127.0.0.1.example'])
+def test_remote_broker_requires_tls_without_leaking_credentials(monkeypatch, host):
+    monkeypatch.setenv('RABBITMQ_URI', f'amqp://user:secret@{host}/practiq')
+    with pytest.raises(ValueError, match='AMQPS') as exc:
+        rabbitmq_uri()
+    assert 'secret' not in str(exc.value)
+
+
+@pytest.mark.parametrize('value', [
+    'amqp://user:secret@localhost/practiq', 'amqp://user:secret@127.0.0.1/practiq',
+    'amqp://user:secret@127.0.0.2/practiq', 'amqp://user:secret@[::1]/practiq',
+    'amqps://user:secret@broker.example:5671/practiq', 'amqps://user:secret@[2001:db8::1]/practiq',
+])
+def test_broker_accepts_loopback_or_tls(monkeypatch, value):
+    monkeypatch.setenv('RABBITMQ_URI', value)
+    assert rabbitmq_uri() == value
+
+
 @pytest.mark.parametrize('confirm', [None, Basic.Nack(), TimeoutError(), RuntimeError('unroutable')])
 async def test_only_positive_publisher_confirm_is_accepted(confirm):
     publish = AsyncMock()
