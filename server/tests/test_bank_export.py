@@ -12,18 +12,50 @@ import sys
 import threading
 import tracemalloc
 import wave
+from copy import deepcopy
 from pathlib import Path
 from tempfile import TemporaryFile
+from typing import Any, cast
+from unittest.mock import AsyncMock, Mock
 from zipfile import ZipFile
 
 import httpx
 import pytest
 from PIL import Image
 
-from practiq_ai import bank_export
+from practiq_ai import bank_export, telemetry
 from practiq_ai.contracts import DocumentParseResult, DocumentTaskDetail
 from practiq_ai.errors import DocumentProcessingError
-from tests.support import make_image, object_store, upload
+from practiq_ai.graphs import document
+from tests.support import make_image, object_store, question, upload
+
+
+async def test_completed_projection_exports_read_only_pages_without_crops_or_parse_metrics(tmp_path, monkeypatch):
+    store, source = await source_store(tmp_path)
+    page = await store.put_artifact(make_image(), source_sha256=source.sha256, kind='page', index=0, media_type='image/png')
+    state = {'document': source.model_dump(mode='json'), 'pageRefs': [page.model_dump()], 'visualTotal': 1,
+             'visionResults': [{'kind': 'page', 'index': 0, 'artifact': page.model_dump(),
+                                'parsed': {'questions': [question('Completed page')], 'groups': []},
+                                'visuals': [{'kind': 'image', 'page': 0, 'bbox': [0.1, 0.1, 0.8, 0.8], 'description': 'Figure', 'questionIndexes': [0]}]}]}
+    before = deepcopy(state)
+    monkeypatch.setattr(document, 'get_object_store', lambda: store)
+    monkeypatch.setattr(store, 'put_artifact', AsyncMock(side_effect=AssertionError('Export wrote an artifact')))
+    monkeypatch.setattr(document, 'get_model', lambda: pytest.fail('Export called a model'))
+    metrics = [Mock(), Mock()]
+    monkeypatch.setattr(telemetry, 'results', metrics[0])
+    monkeypatch.setattr(telemetry, 'failures', metrics[1])
+    snapshots = []
+    for _ in range(2):
+        projected = await document.completed_result(cast(Any, state))
+        assert projected['status'] == 'PARTIAL'
+        assert projected['result']['questions'][0]['needsReview']
+        assert projected['result']['visualElements'][0]['sourceRef'] == page.model_dump()
+        assert projected['result']['visualElements'][0]['imageRef'] is None
+        payload = await bank_export.export_task_bank(detail(**projected), store, source=source)
+        with payload:
+            snapshots.append(payload.read())
+    assert snapshots[0] == snapshots[1] and state == before
+    assert all(not metric.mock_calls for metric in metrics)
 
 
 @pytest.mark.parametrize("png_compression", [None, 0])

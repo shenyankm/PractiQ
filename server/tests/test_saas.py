@@ -215,6 +215,39 @@ async def test_bearer_is_scoped_to_legacy_tasks_and_cannot_spend_customer_points
 
 
 @pytest.mark.usefixtures('disposable_databases')
+async def test_task_charge_poll_uses_account_index_with_retained_cross_account_history(monkeypatch):
+    monkeypatch.setenv('AI_INPUT_POINTS_PER_1K', '1')
+    monkeypatch.setenv('AI_OUTPUT_POINTS_PER_1K', '3')
+    service, reference, _ = await setup_api(monkeypatch)
+    cards = await issue(service.db, 2)
+    accounts = []
+    for number, card in zip(('13800138000', '13900139000'), cards, strict=True):
+        await saas.redeem(CardRedeem(phone=number, card=card))
+        accounts.append(await saas.identity(number, card))
+    token = saas.ACCOUNT.set(accounts[0])
+    try:
+        await saas.register_upload(DocumentReference.model_validate(reference))
+        receipt = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
+        await service.wait_idle()
+        async with service.db.transaction() as conn:
+            await conn.execute("INSERT INTO import_ledger(account_id,amount,kind,reference) SELECT %s,-1,'model','retained-'||g FROM generate_series(1,20000) g", (accounts[1],))
+            await conn.execute('ANALYZE import_ledger')
+            await conn.execute('ANALYZE import_calls')
+        original = service.db.rows
+        plans = []
+        async def rows(query, params=()):
+            if query.startswith('SELECT coalesce(sum(-l.amount)'):
+                plans.extend(await original('EXPLAIN (FORMAT JSON) ' + query, params))
+            return await original(query, params)
+        monkeypatch.setattr(service.db, 'rows', rows)
+        detail = await task_api.get_task(receipt['threadId'])
+        assert detail['billing']['chargedMicropoints'] == 25_000
+        assert 'import_ledger_account_id_kind_reference_key' in json.dumps(plans)
+    finally:
+        saas.ACCOUNT.reset(token)
+
+
+@pytest.mark.usefixtures('disposable_databases')
 async def test_points_pause_partial_download_top_up_and_explicit_resume_reuse_paid_units(monkeypatch):
     monkeypatch.setenv('AI_INPUT_POINTS_PER_1K', '1')
     monkeypatch.setenv('AI_OUTPUT_POINTS_PER_1K', '3')
@@ -260,6 +293,9 @@ async def test_points_pause_partial_download_top_up_and_explicit_resume_reuse_pa
         assert complete['billing']['rates'] == {'inputMicropointsPer1k': 1_000_000, 'outputMicropointsPer1k': 3_000_000}
         await task_api.delete_task(receipt['threadId'])
         assert len((await saas.ledger(account, 100, None))['items']) == 4
+        with pytest.raises(DocumentProcessingError, match='new requestId') as retired:
+            await task_api.create_task(DocumentTaskCreate(requestId=receipt['requestId'], document=DocumentReference.model_validate(reference)))
+        assert retired.value.code == 'TASK_ID_RETIRED'
     finally:
         saas.ACCOUNT.reset(token)
 

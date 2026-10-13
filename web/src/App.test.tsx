@@ -47,6 +47,22 @@ async function openTask(user: ReturnType<typeof userEvent.setup>) {
   await screen.findByText("根据材料选择答案");
 }
 
+it.each<[boolean, number, string, string]>([
+  [true, 1000000, "USAGE_UNKNOWN", "用量待核对，请联系客服。"],
+  [false, 1000000, "USAGE_UNKNOWN", "用量已核对，请明确点击继续解析。"],
+  [false, 0, "USAGE_UNKNOWN", "积分不足，兑换卡密后请明确点击继续解析。"],
+  [false, 1000000, "INSUFFICIENT_POINTS", "积分已补充，请明确点击继续解析。"],
+])("shows the current billing recovery state without automatically continuing (%s, %s, %s)", async (usageUnknown, balanceMicropoints, code, message) => {
+  const user = userEvent.setup();
+  const http = fakeHTTP({ ...task, state: "PAUSED", allowedActions: ["resume"], blocking: [{ kind: "billing", code }],
+    billing: { phone: "+8613800138000", usageUnknown, balanceMicropoints, chargedMicropoints: 25000,
+      rates: { inputMicropointsPer1k: 1000000, outputMicropointsPer1k: 3000000 } } });
+  render(<App />); await connect(user); await openTask(user);
+  expect(await screen.findByText(new RegExp(message))).toBeTruthy();
+  if (balanceMicropoints > 0 && !usageUnknown) expect(screen.queryByText(/积分不足，兑换卡密后/)).toBeNull();
+  expect(http.calls.every(call => call.method === "GET")).toBe(true);
+});
+
 it("keeps Token in memory, clears it on disconnect, and performs no HTTP before connect", async () => {
   const user = userEvent.setup(); const http = fakeHTTP(); const persist = vi.spyOn(Storage.prototype, "setItem"); render(<App />);
   expect(http.calls.every(call => call.url === "/api/products" && call.method === "GET")).toBe(true);

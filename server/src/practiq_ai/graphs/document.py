@@ -997,6 +997,7 @@ async def _chunk(
 async def _crop_visuals(
     state: DocumentState,
     visuals: list[VisualElement],
+    *, persist: bool = True,
 ) -> tuple[list[VisualElement], list[UnitFailure], bool]:
     truncated = len(visuals) > 1_000
     visuals = visuals[:1_000]
@@ -1010,6 +1011,10 @@ async def _crop_visuals(
         if item.page in page_artifacts:
             # Do not expand model-classified bounds: adjacent text may contain answers.
             visuals[index] = item.model_copy(update={"sourceRef": page_artifacts[item.page]})
+    if not persist:
+        failures = [UnitFailure(stage="visual_crop", index=index, code="CROP_UNVERIFIED", retryable=False)
+                    for index, item in enumerate(visuals) if item.bbox is not None and item.imageRef is None]
+        return visuals, failures, truncated
     candidates = [
         (index, item.page, item.bbox)
         for index, item in enumerate(visuals)
@@ -1098,7 +1103,7 @@ async def load_unit_result(item: dict[str, Any], source_sha256: str) -> dict[str
     return {**item, "parsed": parsed, "visuals": visuals, "agentReview": payload.get("agentReview", item.get("agentReview"))}
 
 
-async def _merge(state: DocumentState) -> dict[str, Any]:
+async def _merge(state: DocumentState, *, passive: bool = False) -> dict[str, Any]:
     checkpoint_state = state
     source_sha256 = state["document"]["sha256"]
     state = cast(DocumentState, {**state, **{key: await _bounded_map(state.get(key, []), lambda item: load_unit_result(item, source_sha256))
@@ -1170,7 +1175,7 @@ async def _merge(state: DocumentState) -> dict[str, Any]:
                 description="此页识别未完成，关联未确定，请查看完整原页并人工复核。",
                 sourceRef=ArtifactReference.model_validate(page_refs[page])))
     visual_elements, crop_failures, crop_truncated = await _crop_visuals(
-        state, visual_elements
+        state, visual_elements, persist=not passive
     )
     crop_failures.extend(UnitFailure(stage="visual_crop", index=index, code="CROP_UNVERIFIED", retryable=False) for index in unverified_visuals)
     if crop_truncated:
@@ -1253,9 +1258,10 @@ async def _merge(state: DocumentState) -> dict[str, Any]:
             sum(item.confidence for item in questions) / max(1, len(questions)) * 100, 1
         ),
     )
-    telemetry.results.labels(status, str(quality.reviewRequired).lower()).inc()
-    for failure in failures:
-        telemetry.failures.labels(failure.code).inc()
+    if not passive:
+        telemetry.results.labels(status, str(quality.reviewRequired).lower()).inc()
+        for failure in failures:
+            telemetry.failures.labels(failure.code).inc()
     return {
         "nextStage": "result_review_pause",
         "status": status,
@@ -1268,7 +1274,7 @@ async def completed_result(state: DocumentState) -> dict[str, Any]:
     """Project saved completed units; never execute graph nodes or alter checkpoints."""
     from copy import deepcopy
     snapshot = deepcopy(state)
-    update = await _merge(snapshot)
+    update = await _merge(snapshot, passive=True)
     if not update.get('result', {}).get('questions'):
         raise DocumentProcessingError(409, 'No usable completed questions', 'BANK_EXPORT_NOT_READY')
     result = update['result']

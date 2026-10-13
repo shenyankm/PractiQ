@@ -112,6 +112,8 @@ async def create_task(request: DocumentTaskCreate) -> dict[str, Any]:
         previous = await _replay(conn, thread_id, request_id, request_hash)
         if previous:
             return previous
+        if await (await conn.execute('SELECT 1 FROM import_calls WHERE thread_id=%s LIMIT 1', (thread_id,))).fetchone():
+            raise conflict('Task identity retains accounting; use a new requestId', 'TASK_ID_RETIRED')
         settings = load()
         rates = None
         if account:

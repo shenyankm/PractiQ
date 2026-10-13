@@ -191,7 +191,7 @@ async def task_billing(task: dict[str, Any]) -> dict[str, Any] | None:
     if not task['account_id']:
         return None
     account = await account_summary(task['account_id'])
-    rows = await db().rows("SELECT coalesce(sum(-l.amount),0) AS charged FROM import_ledger l JOIN import_calls c ON c.call_key=l.reference WHERE c.thread_id=%s AND l.kind='model'", (task['thread_id'],))
+    rows = await db().rows("SELECT coalesce(sum(-l.amount),0) AS charged FROM import_ledger l JOIN import_calls c ON c.call_key=l.reference WHERE c.thread_id=%s AND l.account_id=%s AND l.kind='model'", (task['thread_id'], task['account_id']))
     return {**account, 'chargedMicropoints': rows[0]['charged'], 'rates': task['billing_rates']}
 
 
