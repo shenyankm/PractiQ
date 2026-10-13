@@ -197,6 +197,54 @@ it("uses lightweight completed heads, skips unchanged previews and refreshes on 
   await act(async()=>{ window.dispatchEvent(new Event("focus")); });
   expect(reads()).toEqual({detail:3,preview:3,head:1}); vi.useRealTimers();
 });
+it("reuses task diagnostics across unrelated filters and updates them after an explicit refresh", async () => {
+  const user = userEvent.setup(); const http = fakeHTTP();
+  const originalStringify = JSON.stringify;
+  const diagnostic = vi.fn();
+  const stringify = vi.spyOn(JSON, "stringify").mockImplementation((...args) => {
+    const value: unknown = args[0];
+    if (value && typeof value === "object" && Object.keys(value).length === 4 && ["usage", "unknownUsageCalls", "processing", "blocking"].every(key => Object.hasOwn(value, key))) diagnostic(value);
+    return originalStringify(...args);
+  });
+  const details = () => screen.getByText("模型用量与任务诊断", { exact: true }).closest("details")!;
+  const expected = (current: DocumentTaskDetail) => originalStringify({ usage: current.usage, unknownUsageCalls: current.unknownUsageCalls, processing: current.processing, blocking: current.blocking }, null, 2);
+  const listReads = () => http.calls.filter(call => call.url.startsWith("/api/document-tasks?")).length;
+  try {
+    render(<App />); await connect(user); await openTask(user);
+    const initialCalls = diagnostic.mock.calls.length;
+    expect(initialCalls).toBeGreaterThan(0);
+    expect(details().open).toBe(false);
+    expect(details().querySelector("pre")?.textContent).toBe(expected(task));
+    for (const open of [false, true]) {
+      if (open) await user.click(screen.getByText("模型用量与任务诊断", { exact: true }));
+      expect(details().open).toBe(open);
+      for (const filter of ["completed", ""]) {
+        const reads = listReads();
+        await user.selectOptions(screen.getByLabelText("筛选任务状态"), filter);
+        await waitFor(() => expect(listReads()).toBe(reads + 1));
+        await screen.findByRole("button", { name: /sample.docx/ });
+        expect(diagnostic).toHaveBeenCalledTimes(initialCalls);
+        expect(details().querySelector("pre")?.textContent).toBe(expected(task));
+      }
+    }
+    const current = http.records.get(taskId)!;
+    const updated: DocumentTaskDetail = { ...current,
+      usage: current.usage.map(call => ({ ...call, inputTokens: 22 })),
+      processing: { ...current.processing!, questionSources: [...current.processing!.questionSources!, { questionId: "q-child", stage: "document_parse", unitIndex: 2 }] },
+      result: { ...current.result!, warnings: [...current.result!.warnings, "Refreshed diagnostic task"] },
+    };
+    http.records.set(taskId, updated);
+    await user.click(screen.getByRole("button", { name: "刷新任务详情" }));
+    await screen.findByText("Refreshed diagnostic task", { exact: true });
+    if (!details().open) await user.click(screen.getByText("模型用量与任务诊断", { exact: true }));
+    expect(await screen.findByText("已知用量：1 次调用，输入 22 tokens，输出 8 tokens。", { exact: true })).toBeTruthy();
+    expect(details().querySelector("pre")?.textContent).toBe(expected(updated));
+    expect(diagnostic.mock.calls.length).toBeGreaterThan(initialCalls);
+    expect(diagnostic).toHaveBeenLastCalledWith({ usage: updated.usage, unknownUsageCalls: updated.unknownUsageCalls, processing: updated.processing, blocking: updated.blocking });
+    expect(http.calls.every(call => call.method === "GET")).toBe(true);
+    expect(http.calls.filter(call => call.url !== "/api/products").every(call => call.auth === "Card fake-service-token")).toBe(true);
+  } finally { stringify.mockRestore(); }
+});
 it("pauses background polling and reloads when the document becomes visible", async () => {
   const user = userEvent.setup(); const http = fakeHTTP({...task,state:"RUNNING",allowedActions:["pause"]}); render(<App/>); await connect(user); await openTask(user);
   vi.useFakeTimers(); await act(async()=>{window.dispatchEvent(new Event("focus"));});

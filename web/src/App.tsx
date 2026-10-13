@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { lazy, memo, Suspense, useEffect, useRef, useState } from "react";
 import { Upload, Play, RefreshCw, Download, Trash2, LockKeyhole, Unplug, ChevronLeft, ChevronRight, FileText, LoaderCircle } from "lucide-react";
 import logo from "./assets/octopus.png";
 import { ApiError, Client, downloadBlob, fileFormat, MAX_FILES, sourceLimit, validateFiles, pointLabel, type Action, type Capabilities, type OfficeMode, type TaskList, type UploadStage } from "./api";
@@ -26,11 +26,11 @@ function Progress({ task }: { task: DocumentTaskDetail }) {
     return <section key={kind}><div className="flex justify-between"><strong>{kind === "chunks" ? "文本单元" : "视觉单元"}</strong><span>{progress.succeeded + progress.failed}/{progress.total}</span></div><progress aria-label={kind === "chunks" ? "文本单元进度" : "视觉单元进度"} value={progress.succeeded + progress.failed} max={Math.max(1, progress.total)} /><p className="text-sm text-muted-foreground">{progress.total ? `成功 ${progress.succeeded} · 失败 ${progress.failed} · 剩余 ${progress.remaining}` : "尚无处理单元"}</p></section>;
   })}</div>;
 }
-function Usage({ task }: { task: DocumentTaskDetail }) {
+const Usage = memo(function Usage({ task }: { task: DocumentTaskDetail }) {
   const input = task.usage.reduce((sum, call) => sum + call.inputTokens, 0);
   const output = task.usage.reduce((sum, call) => sum + call.outputTokens, 0);
   return <details className="resource-card"><summary>模型用量与任务诊断</summary><div className="space-y-3 pt-3"><p>已知用量：{task.usage.length} 次调用，输入 {input} tokens，输出 {output} tokens。</p><p>{task.unknownUsageCalls.length ? `有 ${task.unknownUsageCalls.length} 次调用未返回用量，实际总用量未知。` : "没有已记录的未知用量调用。"}</p><p>调用预算：已预留 {task.modelBudget.reserved}/{task.modelBudget.limit} 次。</p><dl className="metadata-grid"><dt>检查点</dt><dd>{task.checkpointId ?? "尚无（null）"}</dd><dt>运行 ID</dt><dd>{task.runId ?? "无（null）"}</dd><dt>父任务</dt><dd>{task.parentThreadId ?? "无（null）"}</dd><dt>到期时间</dt><dd>{task.expiresAt}</dd></dl><pre className="raw-data">{JSON.stringify({ usage: task.usage, unknownUsageCalls: task.unknownUsageCalls, processing: task.processing, blocking: task.blocking }, null, 2)}</pre></div></details>;
-}
+});
 
 export default function App() {
   const [draftToken, setDraftToken] = useState("");
