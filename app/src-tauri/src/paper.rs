@@ -144,7 +144,7 @@ impl Store {
     fn paper_candidates(&self, p: &Preview) -> Result<Vec<Candidate>> {
         questions::validate_filter(&p.bank_ids, &p.mode, &p.filter)?;
         let db = self.connect()?;
-        let mut ids = questions::matching_roots(&db, &p.bank_ids, &p.mode, &p.filter)?;
+        let (mut ids, _) = questions::matching_roots(&db, &p.bank_ids, &p.mode, &p.filter, None)?;
         if !p.search.is_empty() {
             ids = crate::store::search_roots(&db, &p.bank_ids, ids, &p.search, &p.mode, &p.filter)?;
         }
