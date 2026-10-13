@@ -34,8 +34,9 @@ jobs:
           persist-credentials: false
       - run: node --test .github/scripts/maintainer.test.mjs
   auto-merge:
-    if: github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-22.04
+    environment: practiq-agent
     timeout-minutes: 30
     permissions:
       contents: read

@@ -28,12 +28,11 @@ export function reviewEvidence(pr, reviews, comments, resolvedShas = {}) {
       if (!securitySha || (resolvedShas[securitySha] ?? securitySha) !== pr.head.sha || !security.includes('Completed')) return [];
     }
     const sha = line?.match(/`([0-9a-f]{7,40})`/)?.[1];
-    if (sha && (resolvedShas[sha] ?? sha) === pr.head.sha && line.includes('Completed')) {
-      const completed = [line, ...(security ? [security] : [])]
-        .map(row => Date.parse(row.match(/datetime="([^"]+)"/)?.[1]));
-      reports.push({ id: comment.id, type: 'summary', body: comment.body,
-        completed_at: completed.every(Number.isFinite) ? new Date(Math.max(...completed)).toISOString() : null });
-    }
+    if (!sha || (resolvedShas[sha] ?? sha) !== pr.head.sha || !line.includes('Completed')) return [];
+    const completed = [line, ...(security ? [security] : [])]
+      .map(row => Date.parse(row.match(/datetime="([^"]+)"/)?.[1]));
+    reports.push({ id: comment.id, type: 'summary', body: comment.body,
+      completed_at: completed.every(Number.isFinite) ? new Date(Math.max(...completed)).toISOString() : null });
   }
   return reports;
 }

@@ -35,6 +35,7 @@ a GPT thumbs-up created after all current-head reviews complete. Completion alon
 is insufficient. Old/reused global reactions cannot approve a new head; if the
 connector retains an old reaction and emits no clean report, the PR stays open. All current-head reviews and findings are retained. Any active current-head
 CHANGES_REQUESTED or PENDING review blocks inference; dismissed reviews are ignored.
+A same-head Code or Security re-review still running also blocks earlier approvals.
 
 AI must return completed/passed, the exact head SHA and an existing supporting
 report ID. It is instructed to reject unresolved blockers, pending security
@@ -58,13 +59,17 @@ needed. Read-only CI/review/reaction queries use the workflow token (including I
 App token performs the merge. The model request never includes GitHub tokens or
 App keys and does not give the model tool access.
 
-Repository variables:
+Environment variables in `practiq-agent`:
 
 - `PRACTIQ_APP_CLIENT_ID`
 - `PRACTIQ_AGENT_BASE_URL`: `https://amr-link.open-design.ai/v1`
 - `PRACTIQ_AGENT_MODEL`: `deepseek-v4.1-flash`
 
-Repository secrets: `PRACTIQ_APP_PRIVATE_KEY` and `PRACTIQ_AGENT_API_KEY`.
+Environment secrets in `practiq-agent`: `PRACTIQ_APP_PRIVATE_KEY` and
+`PRACTIQ_AGENT_API_KEY`. This environment permits deployments only from the
+`main` branch, with no tag policy or per-run approval. The credentials and provider variables no longer remain at
+repository scope, so a branch-controlled workflow cannot read them. Privileged
+runs also require `refs/heads/main`, and always check out `main`.
 Only bounded GPT report/reaction evidence (at most 30,000 characters) is sent to
 the provider, with a 750-token answer cap and two-minute timeout. Calls may incur
 provider charges. Unsuccessful verdicts can be re-evaluated every 15 minutes;

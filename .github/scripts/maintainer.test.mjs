@@ -38,6 +38,7 @@ test('GPT evidence excludes old heads, other authors and security-only summaries
   const summary = body => ({ id: 2, user: review.user, body: '<!-- codex-pull-request-review-summary -->\n' + body });
   assert.equal(reviewEvidence(pr, [], [summary('| **Code Review** | **Completed** | `aaaaaaa` |')], { aaaaaaa: sha }).length, 1);
   assert.deepEqual(reviewEvidence(pr, [], [summary('| **Code Review** | **Completed** | `bbbbbbb` |\n| Security Review | Completed | `aaaaaaa` |')]), []);
+  assert.deepEqual(reviewEvidence(pr, [review], [summary('| Code Review | Running | `aaaaaaa` |')], { aaaaaaa: sha }), []);
   assert.deepEqual(reviewEvidence(pr, [review], [summary('| Code Review | Completed | `aaaaaaa` |\n| Security Review | Running | `aaaaaaa` |')]), []);
 });
 
