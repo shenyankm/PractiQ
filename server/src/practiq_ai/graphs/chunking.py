@@ -122,7 +122,7 @@ def merge_chunk_results(
             question = original.model_copy(deep=True)
             locations = _source_locations(source, question.sourceText) if source else []
             location = locations[0] if len(locations) == 1 else None
-            content = _content(question)
+            content = _content(question) if overlapping else {}
             codes: set[str] = set()
             if overlapping and not locations:
                 codes.add("SOURCE_TEXT_NOT_FOUND")

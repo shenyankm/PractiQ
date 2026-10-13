@@ -2,7 +2,7 @@ from itertools import pairwise
 
 import pytest
 
-from practiq_ai.contracts import ParsedGroup, ParsedOption, ParsedQuestion
+from practiq_ai.contracts import ContentBlock, ParsedGroup, ParsedOption, ParsedQuestion
 from practiq_ai.graphs.chunking import (
     ChunkSpan,
     merge_chunk_results,
@@ -198,6 +198,42 @@ def test_page_provenance_is_not_text_verification():
     q.needsReview = True
     result = merge_chunk_results([(0, [q], [])], overlapping=False)
     assert result[5].issues[0].code == 'NEEDS_REVIEW'
+
+
+def test_page_merge_skips_overlap_content_and_preserves_independent_nested_records(monkeypatch):
+    from practiq_ai.graphs import chunking
+
+    complete = ParsedQuestion(stem='Question', answerMode='short_answer', questionTypeId='short_answer',
+        answerPayload={'text': 'supplied answer'}, analysis='printed analysis', sourceText='Question', needsReview=False,
+        contentBlocks=[ContentBlock(partType='text', textValue='Printed material', jsonValue={'rows': [1, 2]})])
+    missing = ParsedQuestion.model_validate({**complete.model_dump(), 'answerPayload': None, 'needsReview': True})
+    originals = [complete, missing]
+    before = [question.model_dump() for question in originals]
+    group = ParsedGroup(title='Material', questionIndexes=[0])
+    group_before = group.model_dump()
+
+    def unexpected_content(_question):
+        pytest.fail('Page merge must not serialize content for text overlap comparison')
+
+    monkeypatch.setattr(chunking, '_content', unexpected_content)
+    merged, groups, warnings, truncated, sources, quality = merge_chunk_results(
+        [(0, [complete], [group]), (1, [missing], [group])], overlapping=False)
+    assert [question.model_dump() for question in merged] == before
+    assert merged[1].answerPayload is None and merged[1].missingFields == ['answerPayload']
+    assert not warnings and not truncated
+    assert [group.questionIndexes for group in groups] == [[0], [1]]
+    assert [(source.questionIndex, source.stage, source.unitIndex) for source in sources] == [
+        (0, 'vision_parse', 0), (1, 'vision_parse', 1)]
+    assert quality.reviewRequired and quality.reviewQuestionCount == 1
+    assert [(issue.questionIndex, issue.code) for issue in quality.issues] == [(1, 'MISSING_FIELDS')]
+    assert merged[0].answerPayload is not complete.answerPayload
+    merged[0].contentBlocks[0].textValue = 'Edited material'
+    assert merged[0].contentBlocks[0].jsonValue is not None
+    merged[0].contentBlocks[0].jsonValue['rows'].append(3)
+    merged[1].missingFields.append('analysis')
+    groups[0].questionIndexes.append(1)
+    assert [question.model_dump() for question in originals] == before
+    assert group.model_dump() == group_before
 
 
 @pytest.mark.parametrize('same_material', [False, True])
