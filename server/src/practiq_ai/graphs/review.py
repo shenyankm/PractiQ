@@ -34,7 +34,7 @@ REPAIR_FIELDS = {
     "options": {"options", "items", "choiceVariant", "matchingVariant", "blankCount", "allowReuse"},
     "answer": {"answerPayload", "sourceScore", "scoringRubric", "scoreSourceText"},
     "analysis": {"analysis"},
-    "association": {"optionSourceId", "audioRef", "audioStartSeconds", "audioEndSeconds", "passage"},
+    "association": {"optionSourceId", "audioStartSeconds", "audioEndSeconds", "passage"},
 }
 
 
@@ -213,7 +213,7 @@ async def review_extraction[ResultT: BaseModel](
             if index < len(original["questions"]):
                 question["needsReview"] |= original["questions"][index]["needsReview"]
                 question["missingFields"] = list(dict.fromkeys([
-                    *question["missingFields"], *original["questions"][index]["missingFields"],
+                    *(question["missingFields"] if index in affected else []), *original["questions"][index]["missingFields"],
                 ]))
         parsed = schema.model_validate(value)
     audit["missingQuestions"] = audit["status"] != "repaired" and any(
