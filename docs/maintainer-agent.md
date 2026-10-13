@@ -14,7 +14,8 @@ never qualifies. GitHub must report an open, non-draft PR with a clean merge,
 current base, no conflicts and no branch-protection blocker.
 
 PRs that add, modify, delete or rename workflow files, `.github/scripts/`
-(including the privileged agent and its tests), or `server/scripts/ci_scope.py`
+(including the privileged agent and its tests), or `server/scripts/`
+(including CI scope code and modules that could shadow its imports)
 are excluded from the bot,
 even on manual dispatch; maintainers must inspect their CI definitions and merge
 them manually. This prevents PR-defined jobs from spoofing the required CI names.

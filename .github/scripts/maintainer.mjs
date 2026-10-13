@@ -133,7 +133,7 @@ export async function main() {
       const pr = await api(`pulls/${target.number}`);
       if (pr.state !== 'open' || pr.draft || pr.base.ref !== 'main') continue;
       const files = await pages(`pulls/${target.number}/files`);
-      if (files.some(file => [file.filename, file.previous_filename].some(path => path?.startsWith('.github/workflows/') || path?.startsWith('.github/scripts/') || path === 'server/scripts/ci_scope.py'))) {
+      if (files.some(file => [file.filename, file.previous_filename].some(path => path?.startsWith('.github/workflows/') || path?.startsWith('.github/scripts/') || path?.startsWith('server/scripts/')))) {
         console.log(`#${target.number}: CI definition or scope changes require maintainer inspection and manual merge`);
         continue;
       }

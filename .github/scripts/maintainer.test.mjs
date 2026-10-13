@@ -166,3 +166,10 @@ for (const filename of ['.github/scripts/maintainer.mjs', '.github/scripts/maint
   assert.equal(fixture.modelCalls.length, 0);
   assert.equal(fixture.writes.length, 0);
 });
+
+test('a shadowing module beside the CI gate cannot auto-merge', async t => {
+  const fixture = scenario(t, { files: [{ filename: 'server/scripts/json.py' }] });
+  await main();
+  assert.equal(fixture.modelCalls.length, 0);
+  assert.equal(fixture.writes.length, 0);
+});
