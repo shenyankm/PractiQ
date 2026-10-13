@@ -298,7 +298,7 @@ async def reparse_document_task(thread_id: UUID, request: DocumentTaskReparse) -
 async def upload_document(request: DocumentUploadRequest) -> DocumentUploadResponse:
     try:
         if saas.ACCOUNT.get():
-            return await saas.prepare_upload(request)
+            return await _task_response(saas.prepare_upload(request))
         return await (await asyncio.to_thread(get_object_store)).prepare_document(request)
     except DocumentProcessingError as exc:
         raise HTTPException(
@@ -333,6 +333,8 @@ async def read_artifact(reference: ArtifactReference, thread_id: Annotated[UUID 
                 and reference.objectKey == document_source_key("image", reference.sha256)):
             checked = DocumentReference(sourceType="image", fileName=None, **reference.model_dump())
         payload = await (await asyncio.to_thread(get_object_store)).get_verified(checked)
+    except DatabaseError as exc:
+        raise HTTPException(503, {"code": "TASK_SERVICE_UNAVAILABLE", "message": "Task database is unavailable"}) from exc
     except DocumentProcessingError as exc:
         raise HTTPException(exc.status_code, {"code": exc.code, "message": exc.detail}) from exc
     return Response(payload, media_type=reference.mediaType,
