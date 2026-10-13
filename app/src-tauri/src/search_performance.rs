@@ -20,6 +20,89 @@ fn seed(count: usize) -> (tempfile::TempDir, Store) {
 }
 
 #[test]
+fn plain_pages_preserve_filters_order_totals_and_clamped_offsets() {
+    let (_dir, store) = seed(73);
+    let db = store.connect().unwrap();
+    db.execute("INSERT INTO banks VALUES('other','Other','',2)", [])
+        .unwrap();
+    db.execute("INSERT INTO banks VALUES('tie','Tie','',2)", [])
+        .unwrap();
+    db.execute(
+        "UPDATE questions SET bank_id='other',position=0 WHERE id>'q00060'",
+        [],
+    )
+    .unwrap();
+    db.execute("UPDATE questions SET bank_id='tie' WHERE id>'q00069'", [])
+        .unwrap();
+    db.execute(
+        "UPDATE questions SET favorite=1 WHERE id IN ('q00002','q00062')",
+        [],
+    )
+    .unwrap();
+    db.execute(
+        "UPDATE questions SET needs_review=1 WHERE id IN ('q00003','q00063')",
+        [],
+    )
+    .unwrap();
+    db.execute("INSERT INTO question_reviews VALUES('q00063',1)", [])
+        .unwrap();
+    db.execute("INSERT INTO sessions(id,bank_title,created_at,position,mode) VALUES('session','Session',1,0,'ordered')", []).unwrap();
+    for (ordinal, id, result) in [(0, "q00004", 0), (1, "q00005", 0), (2, "q00005", 1)] {
+        db.execute("INSERT INTO attempts(session_id,ordinal,question_id,snapshot_question_id,submitted_at,result) VALUES('session',?1,?2,?2,?1+1,?3)", params![ordinal,id,result]).unwrap();
+    }
+    for banks in [
+        vec![],
+        vec!["bank".into()],
+        vec!["other".into()],
+        vec!["bank".into(), "other".into()],
+        vec!["tie".into(), "other".into()],
+    ] {
+        for mode in ["", "true_false", "reading"] {
+            for filter in ["", "favorite", "review", "wrong", "unattempted"] {
+                for offset in [0, 3, 30, 60, 73, 1000] {
+                    let page = store
+                        .query_questions(&banks, ("", mode, filter), Some((30, offset)))
+                        .unwrap();
+                    let mut with_stats = store
+                        .questions_with_stats(&banks, ("", mode, filter), (30, offset))
+                        .unwrap();
+                    with_stats.as_object_mut().unwrap().remove("stats");
+                    assert_eq!(page, with_stats, "{banks:?} {mode} {filter} {offset}");
+                }
+            }
+        }
+    }
+    let page = store
+        .query_questions(&[], ("", "", ""), Some((30, 1000)))
+        .unwrap();
+    assert_eq!(page["total"], 73);
+    assert_eq!(page["offset"], 60);
+    assert_eq!(list(&page, "items").len(), 13);
+    let first = store
+        .query_questions(&[], ("", "", ""), Some((30, 0)))
+        .unwrap();
+    let (ids, total) = crate::questions::matching_roots(&db, &[], "", "", Some((30, 0))).unwrap();
+    assert_eq!(total, 73);
+    assert_eq!(ids.len(), 30);
+    assert_eq!(ids[0], "q00061");
+    assert_eq!(first["items"][0]["id"], "q00061");
+    assert_eq!(first["items"][11]["id"], "q00072");
+    assert_eq!(first["items"][12]["id"], "q00000");
+    for page in [(0, 0), (101, 0), (30, usize::MAX)] {
+        assert!(store
+            .query_questions(&[], ("", "", ""), Some(page))
+            .is_err());
+    }
+    let (_dir, empty) = seed(0);
+    assert_eq!(
+        empty
+            .query_questions(&[], ("", "", ""), Some((30, 1000)))
+            .unwrap(),
+        json!({"items":[],"total":0,"offset":0})
+    );
+}
+
+#[test]
 fn search_pages_and_stats_do_not_construct_unselected_details() {
     let (_dir, store) = seed(60);
     store
@@ -259,6 +342,17 @@ fn search_filters_require_content_and_selection_on_the_same_node() {
             store
                 .query_questions(
                     std::slice::from_ref(&bank),
+                    ("", "reading", filter),
+                    Some((1, 0))
+                )
+                .unwrap()["total"],
+            1,
+            "{filter}"
+        );
+        assert_eq!(
+            store
+                .query_questions(
+                    std::slice::from_ref(&bank),
                     ("childneedle", "reading", filter),
                     Some((1, 0))
                 )
@@ -360,7 +454,8 @@ fn measure(mut run: impl FnMut() -> Value) -> Value {
         times.push(start.elapsed().as_secs_f64() * 1000.0);
     }
     times.sort_by(f64::total_cmp);
-    json!({"medianMs":times[1],"maxMs":times[2],"jsonBytes":serde_json::to_vec(&value).unwrap().len()})
+    let bytes = serde_json::to_vec(&value).unwrap();
+    json!({"medianMs":times[1],"maxMs":times[2],"jsonBytes":bytes.len(),"outputSha256":hash(&bytes)})
 }
 
 #[test]
@@ -368,6 +463,19 @@ fn measure(mut run: impl FnMut() -> Value) -> Value {
 fn search_stress() {
     let (_dir, store) = seed(10000);
     let mut report = json!({"questions":10000,"repetitions":3});
+    for (name, offset) in [("plainPage", 0), ("latePage", 9000), ("clampedPage", 20000)] {
+        report[name] = measure(|| {
+            let page = store
+                .query_questions(&[], ("", "", ""), Some((30, offset)))
+                .unwrap();
+            assert_eq!(page["total"], 10000);
+            let offset = offset.min(9990);
+            assert_eq!(page["offset"], offset);
+            assert_eq!(list(&page, "items").len(), 30.min(10000 - offset));
+            assert_eq!(page["items"][0]["id"], format!("q{offset:05}"));
+            page
+        });
+    }
     report["matchingPage"] = measure(|| {
         let page = store
             .query_questions(&[], ("文 mix", "true_false", ""), Some((30, 0)))

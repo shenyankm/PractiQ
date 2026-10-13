@@ -1,0 +1,78 @@
+{
+  "questions": 10000,
+  "repetitions": 3,
+  "alternatingPairs": 5,
+  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "clampedPage": {
+    "medianMs": 2.6871669999999996,
+    "pairMediansMs": [
+      2.718541,
+      2.668833,
+      2.640875,
+      2.6871669999999996,
+      4.348375
+    ],
+    "jsonBytes": 3229,
+    "outputSha256": "cde95a0893f2127154a77a70ef24ee3df02391022fc845dba3455bea43935c7d"
+  },
+  "latePage": {
+    "medianMs": 2.707958,
+    "pairMediansMs": [
+      2.707958,
+      2.699792,
+      2.7477080000000003,
+      2.696084,
+      5.970084
+    ],
+    "jsonBytes": 9609,
+    "outputSha256": "0bca4a50292b205946ed040193727b7861b390968c543f18b61824339308393e"
+  },
+  "matchingPage": {
+    "medianMs": 16.376749999999998,
+    "pairMediansMs": [
+      16.126,
+      16.292416,
+      16.376749999999998,
+      17.2825,
+      22.193875
+    ],
+    "jsonBytes": 9536,
+    "outputSha256": "8c9626b4f0b11f0c91202a22d477191f01af79a13f2f5f09331b80a532b8d328"
+  },
+  "matchingStats": {
+    "medianMs": 25.830417,
+    "pairMediansMs": [
+      26.19425,
+      25.932042,
+      25.584125,
+      25.830417,
+      25.718458
+    ],
+    "jsonBytes": 3956,
+    "outputSha256": "bcb98d80848b4d7da7375c40fe6511299344796926a99bd3e5ac06d05859d75f"
+  },
+  "missingPage": {
+    "medianMs": 31.755208,
+    "pairMediansMs": [
+      32.057167,
+      34.14325,
+      31.547959,
+      31.53275,
+      31.755208
+    ],
+    "jsonBytes": 33,
+    "outputSha256": "e0bce5ed989fca16e56d399947456594a2f7b74cd4beef8cde6b6f6616a0588e"
+  },
+  "plainPage": {
+    "medianMs": 2.38225,
+    "pairMediansMs": [
+      2.364959,
+      2.38225,
+      2.387792,
+      2.368334,
+      7.410333
+    ],
+    "jsonBytes": 9536,
+    "outputSha256": "8c9626b4f0b11f0c91202a22d477191f01af79a13f2f5f09331b80a532b8d328"
+  }
+}

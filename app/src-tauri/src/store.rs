@@ -600,14 +600,20 @@ impl Store {
             validate_page(limit, offset)?;
         }
         let db = self.connect()?;
-        // ponytail: root IDs use linear memory for exact totals; move COUNT/paging into SQL if ID lists become large.
-        let candidates = crate::questions::matching_roots(&db, banks, mode, filter)?;
+        // shortcut: search, state filters and statistics retain root IDs, upgrade after measured gains.
+        let sql_page = if search.is_empty() && filter.is_empty() && !stats_only && !include_stats {
+            page
+        } else {
+            None
+        };
+        let (candidates, count) =
+            crate::questions::matching_roots(&db, banks, mode, filter, sql_page)?;
         let mut ids = if search.is_empty() {
             candidates
         } else {
             search_roots(&db, banks, candidates, search, mode, filter)?
         };
-        let total = ids.len();
+        let total = if search.is_empty() { count } else { ids.len() };
         let stats = if stats_only || include_stats {
             let mut statement = crate::questions::prepare_root_metadata(&db)?;
             let mut types = serde_json::Map::new();
@@ -636,7 +642,9 @@ impl Store {
         }
         let offset = if let Some((limit, offset)) = page {
             let offset = offset.min(total.saturating_sub(1) / limit * limit);
-            ids = ids.into_iter().skip(offset).take(limit).collect();
+            if sql_page.is_none() {
+                ids = ids.into_iter().skip(offset).take(limit).collect();
+            }
             offset
         } else {
             0

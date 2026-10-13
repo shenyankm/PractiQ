@@ -361,13 +361,25 @@ pub fn matching_roots(
     banks: &[String],
     mode: &str,
     filter: &str,
-) -> Result<Vec<String>> {
+    page: Option<(usize, usize)>,
+) -> Result<(Vec<String>, usize)> {
     let scope = if banks.is_empty() {
         "?1='[]'"
     } else {
         "q.bank_id IN (SELECT value FROM json_each(?1))"
     };
-    let mut statement = db.prepare(&format!("
+    // Keep bank scans outermost so pagination can use the existing bank/order indexes.
+    let roots = if page.is_some() {
+        "banks b CROSS JOIN questions q ON q.bank_id=b.id"
+    } else {
+        "questions q JOIN banks b ON b.id=q.bank_id"
+    };
+    let (choice, kind) = if page.is_some() && mode.is_empty() {
+        ("", "")
+    } else {
+        ("LEFT JOIN choice_questions c ON c.question_id=q.id", "AND (?2='' OR COALESCE(q.question_kind,q.mode)=?2 OR (?2='grammar_fill' AND q.mode='gap_fill') OR (q.mode='choice' AND c.variant=?2))")
+    };
+    let sql = format!("
         WITH RECURSIVE tree(root,id) AS (
             SELECT q.id,q.id FROM questions q WHERE q.parent_id IS NULL AND {scope}
             UNION ALL SELECT t.root,q.id FROM questions q JOIN tree t ON q.parent_id=t.id
@@ -377,18 +389,51 @@ pub fn matching_roots(
                 (?3='review' AND n.needs_review=1 AND NOT EXISTS(SELECT 1 FROM question_reviews r WHERE r.question_id=n.id)) OR
                 (?3='wrong' AND (SELECT result FROM attempts WHERE question_id=n.id AND result IS NOT NULL ORDER BY submitted_at DESC,rowid DESC LIMIT 1)=0) OR
                 (?3='unattempted' AND (n.mode IS NULL OR n.mode NOT IN ({COMPOSITE_SQL})) AND NOT EXISTS(SELECT 1 FROM attempts WHERE question_id=n.id AND submitted_at IS NOT NULL AND skipped=0))
-        ) SELECT q.id FROM questions q JOIN banks b ON b.id=q.bank_id LEFT JOIN choice_questions c ON c.question_id=q.id
-        WHERE q.parent_id IS NULL AND {scope} AND (?2='' OR COALESCE(q.question_kind,q.mode)=?2 OR (?2='grammar_fill' AND q.mode='gap_fill') OR (q.mode='choice' AND c.variant=?2))
-            AND (?3='' OR q.id IN (SELECT root FROM matches))
-        ORDER BY b.created_at DESC,q.position,q.id" )).map_err(err)?;
-    let result = statement
-        .query_map(params![json!(banks).to_string(), mode, filter], |r| {
-            r.get(0)
-        })
+        ) SELECT q.id FROM {roots} {choice}
+        WHERE q.parent_id IS NULL AND {scope} {kind}
+            AND (?3='' OR q.id IN (SELECT root FROM matches))");
+    let bank_ids = json!(banks).to_string();
+    let total = if page.is_some() {
+        db.query_row(
+            &format!("SELECT COUNT(*) FROM ({sql})"),
+            params![bank_ids, mode, filter],
+            |r| r.get::<_, usize>(0),
+        )
+        .map_err(err)?
+    } else {
+        0
+    };
+    let (limit, offset) = page.map_or((-1, 0), |(limit, offset)| {
+        (
+            limit as i64,
+            offset.min(total.saturating_sub(1) / limit * limit) as i64,
+        )
+    });
+    let pagination = if page.is_some() {
+        " LIMIT ?4 OFFSET ?5"
+    } else {
+        ""
+    };
+    let mut statement = db
+        .prepare(&format!(
+            "{sql} ORDER BY b.created_at DESC,q.position,q.id{pagination}"
+        ))
+        .map_err(err)?;
+    let bindings = params![bank_ids, mode, filter, limit, offset];
+    let ids: Vec<String> = statement
+        .query_map(
+            if page.is_some() {
+                bindings
+            } else {
+                &bindings[..3]
+            },
+            |r| r.get(0),
+        )
         .map_err(err)?
         .collect::<std::result::Result<Vec<_>, _>>()
-        .map_err(err);
-    result
+        .map_err(err)?;
+    let total = if page.is_some() { total } else { ids.len() };
+    Ok((ids, total))
 }
 
 pub fn read(db: &Connection) -> Result<Vec<Value>> {
