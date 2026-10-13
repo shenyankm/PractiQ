@@ -240,7 +240,7 @@ async def test_customer_http_owns_tasks_uploads_and_artifact_reads(monkeypatch, 
         control = {'requestId': str(uuid4()), 'action': 'resume', 'checkpointId': 'checkpoint-one'}
         assert (await http.post('/api/document-tasks/' + tid + '/control', json=control, headers=b)).status_code == 404
         assert (await http.post('/api/document-tasks/' + tid + '/reparse', json=DocumentTaskReparse(requestId=uuid4()).model_dump(mode='json'), headers=b)).status_code == 404
-        assert (await http.post('/api/document-tasks/' + tid + '/reparse', json={'requestId': str(uuid4())}, headers={'Authorization': 'Bearer test-token'})).status_code == 401
+        assert (await http.post('/api/document-tasks/' + tid + '/reparse', json={'requestId': str(uuid4())}, headers={'Authorization': 'Bearer test-token'})).status_code == 404
         assert (await http.post('/api/artifacts/read?thread_id=' + tid, json={k: reference[k] for k in ('objectKey', 'sha256', 'sizeBytes', 'mediaType')}, headers=b)).status_code == 404
         assert not (await http.get('/api/document-tasks', headers=b)).json()['items']
         assert (await http.post('/api/document-tasks', json=request, headers=b)).status_code == 404
@@ -297,6 +297,7 @@ async def test_bearer_is_scoped_to_legacy_tasks_and_cannot_spend_customer_points
         for suffix in ('', '/head', '/preview', '/export', '/export?scope=completed'):
             assert (await http.get('/api/document-tasks/' + tid + suffix, headers=headers)).status_code == 404
         assert (await http.delete('/api/document-tasks/' + tid, headers=headers)).status_code == 404
+        assert (await http.post('/api/document-tasks/' + tid + '/reparse', json={'requestId': str(uuid4())}, headers=headers)).status_code == 404
         for action in ('resume', 'retry_failed', 'pause', 'interrupt'):
             control = {'requestId': str(uuid4()), 'action': action, **({'runId': owned['runId']} if action in {'pause', 'interrupt'} else {'checkpointId': 'current'})}
             assert (await http.post('/api/document-tasks/' + tid + '/control', json=control, headers=headers)).status_code == 404
@@ -317,8 +318,21 @@ async def test_bearer_is_scoped_to_legacy_tasks_and_cannot_spend_customer_points
             assert (await http.get('/api/document-tasks/' + item['threadId'], headers=customer)).status_code == 404
         assert (await http.get('/api/document-tasks/' + tid, headers=customer)).status_code == 200
         assert (await http.delete('/api/document-tasks/' + legacy[0]['threadId'], headers=headers)).status_code == 200
+        assert await saas.account_summary(account) == before and len(model.calls) == calls_before
+        model.responses.append(parsed('Legacy reparse'))
+        request = {'requestId': str(uuid4())}
+        endpoint = '/api/document-tasks/' + legacy[1]['threadId'] + '/reparse'
+        reparsed = await http.post(endpoint, json=request, headers=headers)
+        assert reparsed.status_code == 202, reparsed.text
+        assert (await http.post(endpoint, json=request, headers=headers)).json() == reparsed.json()
+        await service.wait_idle()
+        child_url = '/api/document-tasks/' + reparsed.json()['threadId']
+        child = (await http.get(child_url, headers=headers)).json()
+        assert child['state'] == 'COMPLETED' and child['billing'] is None
+        assert child['parentThreadId'] == legacy[1]['threadId']
+        assert (await http.get(child_url, headers=customer)).status_code == 404
     assert await saas.account_summary(account) == before
-    assert len(model.calls) == calls_before
+    assert len(model.calls) == calls_before + 1
 
 
 @pytest.mark.usefixtures('disposable_databases')

@@ -281,7 +281,7 @@ async def control_document_task(thread_id: UUID, request: DocumentTaskControl) -
     return await _task_response(task_api.control_task(str(thread_id), request))
 
 
-@app.post("/api/document-tasks/{thread_id}/reparse", status_code=202, response_model=DocumentTaskReceipt, dependencies=[Depends(customer)])
+@app.post("/api/document-tasks/{thread_id}/reparse", status_code=202, response_model=DocumentTaskReceipt, dependencies=[Depends(authorize_document)])
 async def reparse_document_task(thread_id: UUID, request: DocumentTaskReparse) -> dict[str, Any]:
     return await _task_response(task_api.reparse_task(str(thread_id), request))
 

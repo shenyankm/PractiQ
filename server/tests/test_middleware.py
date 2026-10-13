@@ -6,11 +6,29 @@ from uuid import uuid4
 
 import pytest
 from httpx import ASGITransport, AsyncClient
+from psycopg import OperationalError
 
 from practiq_ai import task_api
 from practiq_ai.config import load
 from practiq_ai.middleware import DEFAULT_JSON_BODY_BYTES, JsonBodyLimitMiddleware
 from practiq_ai.webapp import app
+
+
+@pytest.mark.parametrize('method,path', [('POST', '/api/uploads'), ('POST', '/api/document-tasks'),
+                                       ('POST', '/api/artifacts/read'), ('PUT', '/api/document-tasks/current/control')])
+async def test_card_preauth_database_failure_is_bounded_503_without_reading_body(monkeypatch, method, path):
+    from practiq_ai import saas
+    monkeypatch.setattr(saas, 'identity', AsyncMock(side_effect=OperationalError('private database details')))
+    reads = []
+    async def body():
+        reads.append(True)
+        yield b'{}'
+    headers = {'Authorization': 'Card private-card', 'X-Practiq-Phone': '13800138000', 'Content-Type': 'application/json'}
+    async with AsyncClient(transport=ASGITransport(app=app), base_url='http://test') as client:
+        response = await client.request(method, path, content=body(), headers=headers)
+    assert response.status_code == 503
+    assert response.json() == {'detail': {'code': 'TASK_SERVICE_UNAVAILABLE', 'message': 'Task database is unavailable'}}
+    assert len(response.content) < 256 and not reads
 
 
 @pytest.mark.parametrize('suffix', ['', '/control', '/reparse'])

@@ -629,8 +629,8 @@ async def test_unsupported_tasks_are_unchanged_and_do_not_block_current_work(mon
             assert response.status_code == 409
             assert response.json()['detail']['code'] == 'TASK_FORMAT_UNSUPPORTED'
         response = await http.post(url + '/reparse', json={'requestId': str(uuid4())})
-        assert response.status_code == 401
-        assert response.json()['detail']['code'] == 'CARD_REQUIRED'
+        assert response.status_code == 409
+        assert response.json()['detail']['code'] == 'TASK_FORMAT_UNSUPPORTED'
         metrics = await http.get('/api/metrics')
         assert 'practiq_running_runs 0\n' in metrics.text
     assert (await task_api.get_task(good['threadId']))['state'] == 'COMPLETED'

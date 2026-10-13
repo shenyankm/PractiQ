@@ -4,6 +4,7 @@ import asyncio
 from weakref import WeakKeyDictionary
 
 from fastapi import HTTPException, Request
+from psycopg import Error as DatabaseError
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse, Response
 
@@ -95,6 +96,9 @@ class JsonBodyLimitMiddleware:
             return
         except HTTPException as exc:
             await JSONResponse({'detail': exc.detail}, exc.status_code, headers=exc.headers)(scope, receive, send)
+            return
+        except DatabaseError:
+            await JSONResponse({'detail': {'code': 'TASK_SERVICE_UNAVAILABLE', 'message': 'Task database is unavailable'}}, 503)(scope, receive, send)
             return
 
         sent = False

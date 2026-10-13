@@ -15,7 +15,7 @@ First obtain a `document` reference through the [authenticated upload API](servi
 }
 ```
 
-`POST /api/document-tasks` returns HTTP 202 with `threadId`, `runId`, `requestId`, and `accepted`. A 202 response means the task is durably queued, not that parsing has finished. Customer document APIs require `Authorization: Card <bound-card>` and `X-Practiq-Phone: <phone>`. The service Bearer token can administer only legacy tasks with no phone account, and cannot create or access customer imports. Artifact reads require an authorized `thread_id` for both credential types. See [SaaS identity and billing](saas.md).
+`POST /api/document-tasks` returns HTTP 202 with `threadId`, `runId`, `requestId`, and `accepted`. A 202 response means the task is durably queued, not that parsing has finished. Customer document APIs require `Authorization: Card <bound-card>` and `X-Practiq-Phone: <phone>`. The service Bearer token can administer only legacy tasks with no phone account, including explicit reparse of their retained source; it cannot create or access customer imports. Customer reparse still requires its matching card. Artifact reads require an authorized `thread_id` for both credential types. Card pre-authentication database outages return bounded `TASK_SERVICE_UNAVAILABLE` responses with HTTP 503 before reading a mutation body. See [SaaS identity and billing](saas.md).
 
 `graphId` accepts `document_parser` (the default, for all formats), `text_csv_parser`, or `pdf_parser`. Optional `parentThreadId` links only to an existing task in the new runtime and does not overwrite it. Unknown fields, raw state, URLs, Base64, server file paths, and client-supplied model results are rejected.
 
