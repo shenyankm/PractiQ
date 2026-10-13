@@ -159,3 +159,10 @@ test('CI scope implementation changes require manual inspection', async t => {
   assert.equal(fixture.modelCalls.length, 0);
   assert.equal(fixture.writes.length, 0);
 });
+
+for (const filename of ['.github/scripts/maintainer.mjs', '.github/scripts/maintainer.test.mjs']) test(`${filename} cannot auto-merge`, async t => {
+  const fixture = scenario(t, { files: [{ filename }] });
+  await main();
+  assert.equal(fixture.modelCalls.length, 0);
+  assert.equal(fixture.writes.length, 0);
+});
