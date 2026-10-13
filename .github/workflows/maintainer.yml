@@ -1,0 +1,69 @@
+name: PractiQ agent-bot
+on:
+  pull_request:
+    paths:
+      - .github/scripts/maintainer*.mjs
+      - .github/workflows/maintainer.yml
+  workflow_run:
+    workflows: [AI service, Practice App]
+    types: [completed]
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+    inputs:
+      number:
+        description: PR number; leave empty to check all open PRs targeting main
+        type: string
+      dry_run:
+        description: Check eligibility without merging
+        type: boolean
+        default: true
+permissions:
+  contents: read
+concurrency:
+  group: practiq-agent-${{ github.event_name == 'pull_request' && github.event.pull_request.number || 'merge' }}
+  cancel-in-progress: false
+jobs:
+  test:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: node --test .github/scripts/maintainer.test.mjs
+  auto-merge:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-22.04
+    environment: practiq-agent
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+      checks: read
+      statuses: read
+    steps:
+      # Always run trusted default-branch code, never a PR or workflow_run head.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - run: node --test .github/scripts/maintainer.test.mjs
+      - id: app
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+        with:
+          client-id: ${{ vars.PRACTIQ_APP_CLIENT_ID }}
+          private-key: ${{ secrets.PRACTIQ_APP_PRIVATE_KEY }}
+          permission-contents: write
+      - name: Interpret GPT review results and merge only after passing CI
+        env:
+          GH_READ_TOKEN: ${{ github.token }}
+          GH_MERGE_TOKEN: ${{ steps.app.outputs.token }}
+          PRACTIQ_AGENT_API_KEY: ${{ secrets.PRACTIQ_AGENT_API_KEY }}
+          PRACTIQ_AGENT_BASE_URL: ${{ vars.PRACTIQ_AGENT_BASE_URL }}
+          PRACTIQ_AGENT_MODEL: ${{ vars.PRACTIQ_AGENT_MODEL }}
+          PR_NUMBER: ${{ inputs.number }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || 'false' }}
+        run: node .github/scripts/maintainer.mjs
