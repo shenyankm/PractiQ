@@ -1,0 +1,4463 @@
+{
+  "mode": "five-pairs",
+  "environment": {
+    "node": "v22.23.2",
+    "python": "3.14.7",
+    "machine": "darwin 27.0.0 arm64",
+    "chromium": "153.0.8010.12"
+  },
+  "roots": {
+    "baseline": "/var/folders/1b/b19xbzjx7xqc4kl0k9x_y4y80000gp/T/practiq-perf-loop-qrdu2192/baseline",
+    "candidate": "/Users/sheny/Developer/code/PractiQ"
+  },
+  "sourceHashes": {
+    "/var/folders/1b/b19xbzjx7xqc4kl0k9x_y4y80000gp/T/practiq-perf-loop-qrdu2192/baseline": "39e1f1379a7062433055cab4963cbcca2825ca60c0831e94b9a246962d92df4b",
+    "/Users/sheny/Developer/code/PractiQ": "dd61a7da3ad8a7d14eaa9a9843f322a019fe52a348a8ef08d9c30784c4d55e93"
+  },
+  "assets": {
+    "baseline": {},
+    "candidate": {}
+  },
+  "workload": {
+    "questions": 1000,
+    "sourceAssociationsPerQuestion": 10,
+    "questionSources": 10000,
+    "qualityIssues": 2000,
+    "usageCalls": 1,
+    "inputBytes": 2727232,
+    "inputSha256": "ec1c1de4eddb66314b1a4ee7cb06e847c978780ae0ddcb32ce204e41b5cd19cd"
+  },
+  "scope": "Production Chromium against local Vite preview and authenticated synthetic GET responses. Each fresh browser context has cold HTTP cache; subsequent filters/diagnostic opening are warm. Browser event-to-two-requestAnimationFrame latency includes browser layout/paint scheduling and Playwright readiness round trips. Separate instrumentation localizes JSON.stringify work and is excluded from browser latency samples. One natural 30-second task-list poll per uninstrumented context is observed; no clock/timer acceleration. Not HTTP-service, real model, WebView, Android, or typical-provenance throughput evidence.",
+  "samples": [
+    {
+      "pair": 1,
+      "phase": "baseline",
+      "browser": {
+        "coldTaskOpenMs": 843.3999999985099,
+        "closedFilterMs": [
+          39.79999999701977,
+          37.29999999701977,
+          39.29999999701977,
+          41.600000001490116,
+          41.099999994039536
+        ],
+        "naturalPollMs": 17.899999998509884,
+        "diagnosticOpenMs": 163.20000000298023,
+        "openFilterMs": [
+          59.70000000298023,
+          26.900000005960464,
+          28,
+          28.5,
+          27.19999999552965
+        ],
+        "stringifyCounts": {
+          "afterTaskOpen": 0,
+          "afterClosedFilters": 0,
+          "afterDiagnosticOpen": 0,
+          "afterOpenFilters": 0
+        },
+        "diagnosticStringify": [],
+        "requests": [
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/import-capabilities",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/preview",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/head",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/preview",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          }
+        ],
+        "assertions": "Pydantic-valid fixed DTOs; 20-record pagination; exact diagnostic JSON before/after parent filters and task refresh; 1,000-record search; supplied-null answers; authenticated GET-only/no model mutations"
+      },
+      "localization": {
+        "coldTaskOpenMs": 831.3999999985099,
+        "closedFilterMs": [
+          37.900000005960464,
+          28.200000002980232,
+          28.700000002980232,
+          29.30000000447035,
+          28.700000002980232
+        ],
+        "naturalPollMs": null,
+        "diagnosticOpenMs": 148.39999999850988,
+        "openFilterMs": [
+          27.80000000447035,
+          28.200000002980232,
+          28.69999999552965,
+          28.100000001490116,
+          45.29999999701977
+        ],
+        "stringifyCounts": {
+          "afterTaskOpen": 1,
+          "afterClosedFilters": 16,
+          "afterDiagnosticOpen": 16,
+          "afterOpenFilters": 31
+        },
+        "diagnosticStringify": [
+          {
+            "milliseconds": 1.2000000029802322,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.3000000044703484,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2000000029802322,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1999999955296516,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1999999955296516,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2999999970197678,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1999999955296516,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2000000029802322,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2000000029802322,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.3000000044703484,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.3999999985098839,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1999999955296516,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1000000014901161,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2000000029802322,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.3000000044703484,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2000000029802322,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.0999999940395355,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2000000029802322,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2000000029802322,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1000000014901161,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2999999970197678,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1999999955296516,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2000000029802322,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1999999955296516,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1000000014901161,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1000000014901161,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1999999955296516,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1000000014901161,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1000000014901161,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 7,
+            "characters": 1476634
+          }
+        ],
+        "requests": [
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/import-capabilities",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/preview",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/preview",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          }
+        ],
+        "assertions": "Pydantic-valid fixed DTOs; 20-record pagination; exact diagnostic JSON before/after parent filters and task refresh; 1,000-record search; supplied-null answers; authenticated GET-only/no model mutations"
+      }
+    },
+    {
+      "pair": 1,
+      "phase": "candidate",
+      "browser": {
+        "coldTaskOpenMs": 831.7000000029802,
+        "closedFilterMs": [
+          28.69999999552965,
+          28.100000001490116,
+          28.799999997019768,
+          29.799999997019768,
+          28.19999999552965
+        ],
+        "naturalPollMs": 7,
+        "diagnosticOpenMs": 148.70000000298023,
+        "openFilterMs": [
+          31.799999997019768,
+          27.799999997019768,
+          29.899999998509884,
+          28.5,
+          29.700000002980232
+        ],
+        "stringifyCounts": {
+          "afterTaskOpen": 0,
+          "afterClosedFilters": 0,
+          "afterDiagnosticOpen": 0,
+          "afterOpenFilters": 0
+        },
+        "diagnosticStringify": [],
+        "requests": [
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/import-capabilities",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/preview",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/head",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/preview",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          }
+        ],
+        "assertions": "Pydantic-valid fixed DTOs; 20-record pagination; exact diagnostic JSON before/after parent filters and task refresh; 1,000-record search; supplied-null answers; authenticated GET-only/no model mutations"
+      },
+      "localization": {
+        "coldTaskOpenMs": 814.9000000059605,
+        "closedFilterMs": [
+          36.600000001490116,
+          27.799999997019768,
+          29.099999994039536,
+          28.700000002980232,
+          27.099999994039536
+        ],
+        "naturalPollMs": null,
+        "diagnosticOpenMs": 148.89999999850988,
+        "openFilterMs": [
+          32.79999999701977,
+          29.100000001490116,
+          28.700000002980232,
+          29,
+          28.799999997019768
+        ],
+        "stringifyCounts": {
+          "afterTaskOpen": 1,
+          "afterClosedFilters": 1,
+          "afterDiagnosticOpen": 1,
+          "afterOpenFilters": 1
+        },
+        "diagnosticStringify": [
+          {
+            "milliseconds": 1.2000000029802322,
+            "characters": 1476634
+          }
+        ],
+        "requests": [
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/import-capabilities",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/preview",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/preview",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          }
+        ],
+        "assertions": "Pydantic-valid fixed DTOs; 20-record pagination; exact diagnostic JSON before/after parent filters and task refresh; 1,000-record search; supplied-null answers; authenticated GET-only/no model mutations"
+      }
+    },
+    {
+      "pair": 2,
+      "phase": "candidate",
+      "browser": {
+        "coldTaskOpenMs": 831.6000000014901,
+        "closedFilterMs": [
+          39,
+          27.600000001490116,
+          29.100000001490116,
+          28,
+          28.5
+        ],
+        "naturalPollMs": 6.899999998509884,
+        "diagnosticOpenMs": 147.89999999850988,
+        "openFilterMs": [
+          30.700000002980232,
+          27.700000002980232,
+          29.400000005960464,
+          28.700000002980232,
+          28.899999998509884
+        ],
+        "stringifyCounts": {
+          "afterTaskOpen": 0,
+          "afterClosedFilters": 0,
+          "afterDiagnosticOpen": 0,
+          "afterOpenFilters": 0
+        },
+        "diagnosticStringify": [],
+        "requests": [
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/import-capabilities",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/preview",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/head",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/preview",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          }
+        ],
+        "assertions": "Pydantic-valid fixed DTOs; 20-record pagination; exact diagnostic JSON before/after parent filters and task refresh; 1,000-record search; supplied-null answers; authenticated GET-only/no model mutations"
+      },
+      "localization": {
+        "coldTaskOpenMs": 831.3999999985099,
+        "closedFilterMs": [
+          29.899999998509884,
+          28.80000000447035,
+          29.099999994039536,
+          29.200000002980232,
+          28.100000001490116
+        ],
+        "naturalPollMs": null,
+        "diagnosticOpenMs": 147.89999999850988,
+        "openFilterMs": [
+          33.399999998509884,
+          29.399999998509884,
+          28.600000001490116,
+          28.599999994039536,
+          28.399999998509884
+        ],
+        "stringifyCounts": {
+          "afterTaskOpen": 1,
+          "afterClosedFilters": 1,
+          "afterDiagnosticOpen": 1,
+          "afterOpenFilters": 1
+        },
+        "diagnosticStringify": [
+          {
+            "milliseconds": 1.1000000014901161,
+            "characters": 1476634
+          }
+        ],
+        "requests": [
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/import-capabilities",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/preview",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/preview",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          }
+        ],
+        "assertions": "Pydantic-valid fixed DTOs; 20-record pagination; exact diagnostic JSON before/after parent filters and task refresh; 1,000-record search; supplied-null answers; authenticated GET-only/no model mutations"
+      }
+    },
+    {
+      "pair": 2,
+      "phase": "baseline",
+      "browser": {
+        "coldTaskOpenMs": 831.5999999940395,
+        "closedFilterMs": [
+          34.5,
+          28.799999997019768,
+          28.899999998509884,
+          29.299999997019768,
+          28.899999998509884
+        ],
+        "naturalPollMs": 22.100000001490116,
+        "diagnosticOpenMs": 148,
+        "openFilterMs": [
+          32.80000000447035,
+          29.700000002980232,
+          37.899999998509884,
+          28.5,
+          28.899999998509884
+        ],
+        "stringifyCounts": {
+          "afterTaskOpen": 0,
+          "afterClosedFilters": 0,
+          "afterDiagnosticOpen": 0,
+          "afterOpenFilters": 0
+        },
+        "diagnosticStringify": [],
+        "requests": [
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/import-capabilities",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/preview",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/head",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/preview",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          }
+        ],
+        "assertions": "Pydantic-valid fixed DTOs; 20-record pagination; exact diagnostic JSON before/after parent filters and task refresh; 1,000-record search; supplied-null answers; authenticated GET-only/no model mutations"
+      },
+      "localization": {
+        "coldTaskOpenMs": 814.2999999970198,
+        "closedFilterMs": [
+          34.30000000447035,
+          27.399999998509884,
+          28.899999998509884,
+          27.899999998509884,
+          26.899999998509884
+        ],
+        "naturalPollMs": null,
+        "diagnosticOpenMs": 148.10000000149012,
+        "openFilterMs": [
+          30.19999999552965,
+          30.299999997019768,
+          29.600000001490116,
+          29.100000001490116,
+          46.19999999552965
+        ],
+        "stringifyCounts": {
+          "afterTaskOpen": 1,
+          "afterClosedFilters": 16,
+          "afterDiagnosticOpen": 16,
+          "afterOpenFilters": 31
+        },
+        "diagnosticStringify": [
+          {
+            "milliseconds": 1.3999999985098839,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2000000029802322,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1999999955296516,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1000000014901161,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2000000029802322,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.3000000044703484,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2000000029802322,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2999999970197678,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2000000029802322,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1000000014901161,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2000000029802322,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2000000029802322,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2999999970197678,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.3000000044703484,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1999999955296516,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2999999970197678,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2000000029802322,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1000000014901161,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2000000029802322,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2000000029802322,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2000000029802322,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1000000014901161,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1999999955296516,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1000000014901161,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1999999955296516,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2000000029802322,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1000000014901161,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.0999999940395355,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1000000014901161,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1000000014901161,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 8.800000004470348,
+            "characters": 1476634
+          }
+        ],
+        "requests": [
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/import-capabilities",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/preview",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/preview",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          }
+        ],
+        "assertions": "Pydantic-valid fixed DTOs; 20-record pagination; exact diagnostic JSON before/after parent filters and task refresh; 1,000-record search; supplied-null answers; authenticated GET-only/no model mutations"
+      }
+    },
+    {
+      "pair": 3,
+      "phase": "baseline",
+      "browser": {
+        "coldTaskOpenMs": 831.2999999970198,
+        "closedFilterMs": [
+          32.79999999701977,
+          29.600000001490116,
+          30,
+          29,
+          30.299999997019768
+        ],
+        "naturalPollMs": 22.69999999552965,
+        "diagnosticOpenMs": 164.39999999850988,
+        "openFilterMs": [
+          37,
+          28.80000000447035,
+          29.200000002980232,
+          29.700000002980232,
+          29
+        ],
+        "stringifyCounts": {
+          "afterTaskOpen": 0,
+          "afterClosedFilters": 0,
+          "afterDiagnosticOpen": 0,
+          "afterOpenFilters": 0
+        },
+        "diagnosticStringify": [],
+        "requests": [
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/import-capabilities",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/preview",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/head",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/preview",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          }
+        ],
+        "assertions": "Pydantic-valid fixed DTOs; 20-record pagination; exact diagnostic JSON before/after parent filters and task refresh; 1,000-record search; supplied-null answers; authenticated GET-only/no model mutations"
+      },
+      "localization": {
+        "coldTaskOpenMs": 846.8999999985099,
+        "closedFilterMs": [
+          42.5,
+          29.899999998509884,
+          28.900000005960464,
+          29.19999999552965,
+          29.100000001490116
+        ],
+        "naturalPollMs": null,
+        "diagnosticOpenMs": 148.29999999701977,
+        "openFilterMs": [
+          29.200000002980232,
+          29.600000001490116,
+          29.299999997019768,
+          26.69999999552965,
+          46.099999994039536
+        ],
+        "stringifyCounts": {
+          "afterTaskOpen": 1,
+          "afterClosedFilters": 16,
+          "afterDiagnosticOpen": 16,
+          "afterOpenFilters": 31
+        },
+        "diagnosticStringify": [
+          {
+            "milliseconds": 1.3999999985098839,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2999999970197678,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2000000029802322,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2000000029802322,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.3999999985098839,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2000000029802322,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2999999970197678,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1999999955296516,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1999999955296516,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.5,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2000000029802322,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.3000000044703484,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1000000014901161,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2999999970197678,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2000000029802322,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1000000014901161,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2999999970197678,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1000000014901161,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1000000014901161,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1000000014901161,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2000000029802322,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2000000029802322,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2999999970197678,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1999999955296516,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2000000029802322,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.3000000044703484,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2000000029802322,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2000000029802322,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1000000014901161,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 7.5,
+            "characters": 1476634
+          }
+        ],
+        "requests": [
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/import-capabilities",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/preview",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/preview",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          }
+        ],
+        "assertions": "Pydantic-valid fixed DTOs; 20-record pagination; exact diagnostic JSON before/after parent filters and task refresh; 1,000-record search; supplied-null answers; authenticated GET-only/no model mutations"
+      }
+    },
+    {
+      "pair": 3,
+      "phase": "candidate",
+      "browser": {
+        "coldTaskOpenMs": 814.8000000044703,
+        "closedFilterMs": [
+          27.399999998509884,
+          29.5,
+          24.5,
+          28.700000002980232,
+          28.600000001490116
+        ],
+        "naturalPollMs": 23.100000001490116,
+        "diagnosticOpenMs": 165.39999999850988,
+        "openFilterMs": [
+          28.600000001490116,
+          29.799999997019768,
+          28.600000001490116,
+          28.80000000447035,
+          29.600000001490116
+        ],
+        "stringifyCounts": {
+          "afterTaskOpen": 0,
+          "afterClosedFilters": 0,
+          "afterDiagnosticOpen": 0,
+          "afterOpenFilters": 0
+        },
+        "diagnosticStringify": [],
+        "requests": [
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/import-capabilities",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/preview",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/head",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/preview",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          }
+        ],
+        "assertions": "Pydantic-valid fixed DTOs; 20-record pagination; exact diagnostic JSON before/after parent filters and task refresh; 1,000-record search; supplied-null answers; authenticated GET-only/no model mutations"
+      },
+      "localization": {
+        "coldTaskOpenMs": 832.1000000014901,
+        "closedFilterMs": [
+          40.5,
+          36.79999999701977,
+          41.79999999701977,
+          28.299999997019768,
+          28.5
+        ],
+        "naturalPollMs": null,
+        "diagnosticOpenMs": 147.89999999850988,
+        "openFilterMs": [
+          34,
+          29.700000002980232,
+          28.799999997019768,
+          29,
+          29.5
+        ],
+        "stringifyCounts": {
+          "afterTaskOpen": 1,
+          "afterClosedFilters": 1,
+          "afterDiagnosticOpen": 1,
+          "afterOpenFilters": 1
+        },
+        "diagnosticStringify": [
+          {
+            "milliseconds": 1.2000000029802322,
+            "characters": 1476634
+          }
+        ],
+        "requests": [
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/import-capabilities",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/preview",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/preview",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          }
+        ],
+        "assertions": "Pydantic-valid fixed DTOs; 20-record pagination; exact diagnostic JSON before/after parent filters and task refresh; 1,000-record search; supplied-null answers; authenticated GET-only/no model mutations"
+      }
+    },
+    {
+      "pair": 4,
+      "phase": "candidate",
+      "browser": {
+        "coldTaskOpenMs": 831.0999999940395,
+        "closedFilterMs": [
+          24.600000001490116,
+          27.899999998509884,
+          29.700000002980232,
+          28.700000002980232,
+          28.80000000447035
+        ],
+        "naturalPollMs": 7.100000001490116,
+        "diagnosticOpenMs": 146.39999999850988,
+        "openFilterMs": [
+          35,
+          29,
+          28.69999999552965,
+          44.80000000447035,
+          28.5
+        ],
+        "stringifyCounts": {
+          "afterTaskOpen": 0,
+          "afterClosedFilters": 0,
+          "afterDiagnosticOpen": 0,
+          "afterOpenFilters": 0
+        },
+        "diagnosticStringify": [],
+        "requests": [
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/import-capabilities",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/preview",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/head",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/preview",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          }
+        ],
+        "assertions": "Pydantic-valid fixed DTOs; 20-record pagination; exact diagnostic JSON before/after parent filters and task refresh; 1,000-record search; supplied-null answers; authenticated GET-only/no model mutations"
+      },
+      "localization": {
+        "coldTaskOpenMs": 831.1999999955297,
+        "closedFilterMs": [
+          28.19999999552965,
+          27.200000002980232,
+          26.100000001490116,
+          28.5,
+          28.399999998509884
+        ],
+        "naturalPollMs": null,
+        "diagnosticOpenMs": 148.5,
+        "openFilterMs": [
+          34.69999999552965,
+          29.599999994039536,
+          29,
+          29.200000002980232,
+          29.30000000447035
+        ],
+        "stringifyCounts": {
+          "afterTaskOpen": 1,
+          "afterClosedFilters": 1,
+          "afterDiagnosticOpen": 1,
+          "afterOpenFilters": 1
+        },
+        "diagnosticStringify": [
+          {
+            "milliseconds": 1.1000000014901161,
+            "characters": 1476634
+          }
+        ],
+        "requests": [
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/import-capabilities",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/preview",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/preview",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          }
+        ],
+        "assertions": "Pydantic-valid fixed DTOs; 20-record pagination; exact diagnostic JSON before/after parent filters and task refresh; 1,000-record search; supplied-null answers; authenticated GET-only/no model mutations"
+      }
+    },
+    {
+      "pair": 4,
+      "phase": "baseline",
+      "browser": {
+        "coldTaskOpenMs": 832.3000000044703,
+        "closedFilterMs": [
+          35.70000000298023,
+          28.80000000447035,
+          30.399999998509884,
+          29.399999998509884,
+          29.19999999552965
+        ],
+        "naturalPollMs": 21.80000000447035,
+        "diagnosticOpenMs": 164.60000000149012,
+        "openFilterMs": [
+          32.399999998509884,
+          28.69999999552965,
+          29.399999998509884,
+          29.600000001490116,
+          29.100000001490116
+        ],
+        "stringifyCounts": {
+          "afterTaskOpen": 0,
+          "afterClosedFilters": 0,
+          "afterDiagnosticOpen": 0,
+          "afterOpenFilters": 0
+        },
+        "diagnosticStringify": [],
+        "requests": [
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/import-capabilities",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/preview",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/head",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/preview",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          }
+        ],
+        "assertions": "Pydantic-valid fixed DTOs; 20-record pagination; exact diagnostic JSON before/after parent filters and task refresh; 1,000-record search; supplied-null answers; authenticated GET-only/no model mutations"
+      },
+      "localization": {
+        "coldTaskOpenMs": 832.2000000029802,
+        "closedFilterMs": [
+          30.399999998509884,
+          29.200000002980232,
+          30.19999999552965,
+          28.100000001490116,
+          29.69999999552965
+        ],
+        "naturalPollMs": null,
+        "diagnosticOpenMs": 148.10000000149012,
+        "openFilterMs": [
+          32.20000000298023,
+          29,
+          29.899999998509884,
+          29.600000001490116,
+          46.19999999552965
+        ],
+        "stringifyCounts": {
+          "afterTaskOpen": 1,
+          "afterClosedFilters": 16,
+          "afterDiagnosticOpen": 16,
+          "afterOpenFilters": 31
+        },
+        "diagnosticStringify": [
+          {
+            "milliseconds": 1.1000000014901161,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2999999970197678,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2000000029802322,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2999999970197678,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2999999970197678,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1000000014901161,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.0999999940395355,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2000000029802322,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2000000029802322,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1000000014901161,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2000000029802322,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1999999955296516,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.3000000044703484,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2000000029802322,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1999999955296516,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2000000029802322,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.0999999940395355,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2999999970197678,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1000000014901161,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1000000014901161,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1000000014901161,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1999999955296516,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1000000014901161,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1000000014901161,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1000000014901161,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1000000014901161,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1000000014901161,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1000000014901161,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 6.5,
+            "characters": 1476634
+          }
+        ],
+        "requests": [
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/import-capabilities",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/preview",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/preview",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          }
+        ],
+        "assertions": "Pydantic-valid fixed DTOs; 20-record pagination; exact diagnostic JSON before/after parent filters and task refresh; 1,000-record search; supplied-null answers; authenticated GET-only/no model mutations"
+      }
+    },
+    {
+      "pair": 5,
+      "phase": "baseline",
+      "browser": {
+        "coldTaskOpenMs": 814.8999999985099,
+        "closedFilterMs": [
+          30,
+          28.899999998509884,
+          26.69999999552965,
+          27.200000002980232,
+          26.900000005960464
+        ],
+        "naturalPollMs": 19.399999998509884,
+        "diagnosticOpenMs": 148.5,
+        "openFilterMs": [
+          59.5,
+          28.399999998509884,
+          27.899999998509884,
+          39.69999999552965,
+          27
+        ],
+        "stringifyCounts": {
+          "afterTaskOpen": 0,
+          "afterClosedFilters": 0,
+          "afterDiagnosticOpen": 0,
+          "afterOpenFilters": 0
+        },
+        "diagnosticStringify": [],
+        "requests": [
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/import-capabilities",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/preview",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/head",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/preview",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          }
+        ],
+        "assertions": "Pydantic-valid fixed DTOs; 20-record pagination; exact diagnostic JSON before/after parent filters and task refresh; 1,000-record search; supplied-null answers; authenticated GET-only/no model mutations"
+      },
+      "localization": {
+        "coldTaskOpenMs": 832,
+        "closedFilterMs": [
+          30.700000002980232,
+          28.5,
+          27.80000000447035,
+          28.599999994039536,
+          29.399999998509884
+        ],
+        "naturalPollMs": null,
+        "diagnosticOpenMs": 148,
+        "openFilterMs": [
+          32.80000000447035,
+          29.299999997019768,
+          28.399999998509884,
+          29.200000002980232,
+          45.899999998509884
+        ],
+        "stringifyCounts": {
+          "afterTaskOpen": 1,
+          "afterClosedFilters": 16,
+          "afterDiagnosticOpen": 16,
+          "afterOpenFilters": 31
+        },
+        "diagnosticStringify": [
+          {
+            "milliseconds": 1.2999999970197678,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.3000000044703484,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2999999970197678,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2000000029802322,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.3000000044703484,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2999999970197678,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2999999970197678,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1999999955296516,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1999999955296516,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2000000029802322,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2000000029802322,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2999999970197678,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2999999970197678,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1999999955296516,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1999999955296516,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1000000014901161,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1999999955296516,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.0999999940395355,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1000000014901161,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1000000014901161,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2000000029802322,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1000000014901161,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.0999999940395355,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1000000014901161,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2999999970197678,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1000000014901161,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1000000014901161,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1000000014901161,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2000000029802322,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 6.799999997019768,
+            "characters": 1476634
+          }
+        ],
+        "requests": [
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/import-capabilities",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/preview",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/preview",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          }
+        ],
+        "assertions": "Pydantic-valid fixed DTOs; 20-record pagination; exact diagnostic JSON before/after parent filters and task refresh; 1,000-record search; supplied-null answers; authenticated GET-only/no model mutations"
+      }
+    },
+    {
+      "pair": 5,
+      "phase": "candidate",
+      "browser": {
+        "coldTaskOpenMs": 832,
+        "closedFilterMs": [
+          24.299999997019768,
+          28.100000001490116,
+          28.399999998509884,
+          30.200000002980232,
+          29.200000002980232
+        ],
+        "naturalPollMs": 7.799999997019768,
+        "diagnosticOpenMs": 163.89999999850988,
+        "openFilterMs": [
+          29.600000001490116,
+          29.19999999552965,
+          29.399999998509884,
+          27.299999997019768,
+          28.5
+        ],
+        "stringifyCounts": {
+          "afterTaskOpen": 0,
+          "afterClosedFilters": 0,
+          "afterDiagnosticOpen": 0,
+          "afterOpenFilters": 0
+        },
+        "diagnosticStringify": [],
+        "requests": [
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/import-capabilities",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/preview",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/head",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/preview",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          }
+        ],
+        "assertions": "Pydantic-valid fixed DTOs; 20-record pagination; exact diagnostic JSON before/after parent filters and task refresh; 1,000-record search; supplied-null answers; authenticated GET-only/no model mutations"
+      },
+      "localization": {
+        "coldTaskOpenMs": 830.5,
+        "closedFilterMs": [
+          28.399999998509884,
+          29.200000002980232,
+          28.600000001490116,
+          29.100000001490116,
+          28.5
+        ],
+        "naturalPollMs": null,
+        "diagnosticOpenMs": 148.60000000149012,
+        "openFilterMs": [
+          33.400000005960464,
+          28.799999997019768,
+          28.80000000447035,
+          28.399999998509884,
+          28
+        ],
+        "stringifyCounts": {
+          "afterTaskOpen": 1,
+          "afterClosedFilters": 1,
+          "afterDiagnosticOpen": 1,
+          "afterOpenFilters": 1
+        },
+        "diagnosticStringify": [
+          {
+            "milliseconds": 1.3000000044703484,
+            "characters": 1476634
+          }
+        ],
+        "requests": [
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/import-capabilities",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/preview",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/preview",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          }
+        ],
+        "assertions": "Pydantic-valid fixed DTOs; 20-record pagination; exact diagnostic JSON before/after parent filters and task refresh; 1,000-record search; supplied-null answers; authenticated GET-only/no model mutations"
+      }
+    }
+  ]
+}

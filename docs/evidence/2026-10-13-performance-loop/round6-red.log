@@ -1,0 +1,64 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+__ test_export_waits_for_cancelled_preparation_before_archive_or_storage_work __
+
+tmp_path = PosixPath('/private/var/folders/1b/b19xbzjx7xqc4kl0k9x_y4y80000gp/T/pytest-of-sheny/pytest-298/test_export_waits_for_cancelle0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x110a708a0>
+
+    async def test_export_waits_for_cancelled_preparation_before_archive_or_storage_work(tmp_path, monkeypatch):
+        store, source = await source_store(tmp_path)
+        task = detail()
+        files, errors = [], []
+        entered, released, finished = threading.Event(), threading.Event(), threading.Event()
+        event_loop_thread = threading.get_ident()
+        original_validate = bank_export.DocumentParseResult.model_validate
+        reads = AsyncMock(wraps=store.get_verified)
+    
+        def validate(*args, **kwargs):
+            assert threading.get_ident() != event_loop_thread, 'Export preparation must leave the event loop'
+            entered.set()
+            try:
+                assert released.wait(5), 'Cancelled preparation was never released'
+                return original_validate(*args, **kwargs)
+            except BaseException as exc:
+                errors.append(exc)
+                raise
+            finally:
+                finished.set()
+    
+        def temporary(*args, **kwargs):
+            file = TemporaryFile(*args, **kwargs)  # noqa: SIM115 - assert no archive precedes joined preparation
+            files.append(file)
+            return file
+    
+        monkeypatch.setattr(bank_export.DocumentParseResult, 'model_validate', validate)
+        monkeypatch.setattr(bank_export, 'TemporaryFile', temporary)
+        monkeypatch.setattr(store, 'get_verified', reads)
+        operation = asyncio.create_task(bank_export.export_task_bank(task, store, source=source))
+        waiting = asyncio.create_task(asyncio.to_thread(entered.wait, 5))
+        try:
+            done, _ = await asyncio.wait((operation, waiting), timeout=6, return_when=asyncio.FIRST_COMPLETED)
+            if operation in done:
+>               await operation
+
+tests/test_bank_export.py:504: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+src/practiq_ai/bank_export.py:131: in export_task_bank
+    result = DocumentParseResult.model_validate(detail.result.model_dump(mode="json"))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+args = ({'schemaVersion': 3, 'questions': [{'id': 'q', 'parentId': None, 'questionKind': None, 'instructions': None, ...}], 'groups': [{'title': 'Section', 'instructions': None, 'questionIds': ['q']}], 'visualElements': [], ...},)
+kwargs = {}
+
+    def validate(*args, **kwargs):
+>       assert threading.get_ident() != event_loop_thread, 'Export preparation must leave the event loop'
+E       AssertionError: Export preparation must leave the event loop
+E       assert 8470052736 != 8470052736
+E        +  where 8470052736 = <built-in function get_ident>()
+E        +    where <built-in function get_ident> = threading.get_ident
+
+tests/test_bank_export.py:480: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_bank_export.py::test_export_waits_for_cancelled_preparation_before_archive_or_storage_work
+1 failed, 65 deselected in 0.71s

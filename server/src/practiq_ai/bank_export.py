@@ -102,6 +102,28 @@ def _write_entry(archive: ZipFile, output: BinaryIO, name: str, payload: bytes) 
     _limit(output.tell(), ZIP_LIMIT, "ZIP")
 
 
+def _prepare_bank(
+    detail: DocumentTaskDetail, source: DocumentReference, title: str, description: str,
+) -> tuple[bytes, bytes, dict[str, ArtifactReference]]:
+    assert detail.result is not None
+    try:
+        result = DocumentParseResult.model_validate(detail.result.model_dump(mode="json"))
+        processing = DocumentProcessing.model_validate(detail.processing.model_dump(mode="json")) if detail.processing else None
+    except ValidationError as exc:
+        raise _invalid("Task result does not satisfy the shared result contract") from exc
+    if processing:
+        ids = {question.id for question in result.questions}
+        if any(item.questionId not in ids for item in [*processing.questionSources, *processing.quality.issues]):
+            raise _invalid("Processing does not reference the current result")
+    manifest = _json({"format": "practiq-question-bank", "version": 2, "bank": {"title": title, "description": description}})
+    questions = _json({"status": detail.status, "result": result.model_dump(mode="json"),
+                       "processing": processing.model_dump(mode="json") if processing else None})
+    _limit(len(manifest), MANIFEST_LIMIT, "Manifest JSON")
+    _limit(len(questions), JSON_LIMIT, "Questions JSON")
+    references = _references(result, source)
+    return manifest, questions, references
+
+
 async def export_task_bank(
     detail: DocumentTaskDetail,
     store: ObjectStore,
@@ -127,21 +149,7 @@ async def export_task_bank(
         title = stem if stem.strip() else file_name
     if not title.strip() or len(title) > 255 or len(description) > 20_000:
         raise _invalid("Invalid bank metadata")
-    try:
-        result = DocumentParseResult.model_validate(detail.result.model_dump(mode="json"))
-        processing = DocumentProcessing.model_validate(detail.processing.model_dump(mode="json")) if detail.processing else None
-    except ValidationError as exc:
-        raise _invalid("Task result does not satisfy the shared result contract") from exc
-    if processing:
-        ids = {question.id for question in result.questions}
-        if any(item.questionId not in ids for item in [*processing.questionSources, *processing.quality.issues]):
-            raise _invalid("Processing does not reference the current result")
-    manifest = _json({"format": "practiq-question-bank", "version": 2, "bank": {"title": title, "description": description}})
-    questions = _json({"status": detail.status, "result": result.model_dump(mode="json"),
-                       "processing": processing.model_dump(mode="json") if processing else None})
-    _limit(len(manifest), MANIFEST_LIMIT, "Manifest JSON")
-    _limit(len(questions), JSON_LIMIT, "Questions JSON")
-    references = _references(result, source)
+    manifest, questions, references = await _thread_io(_prepare_bank, detail, source, title, description)
     output = TemporaryFile("w+b")  # noqa: SIM115 - ownership transfers to the response on success
     try:
         with ZipFile(output, "w", compression=ZIP_DEFLATED) as archive:

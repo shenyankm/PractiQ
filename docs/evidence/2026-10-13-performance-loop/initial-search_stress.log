@@ -1,0 +1,46 @@
+
+running 1 test
+test store::search_tests::search_stress ... {
+  "clampedPage": {
+    "jsonBytes": 3229,
+    "maxMs": 2.908167,
+    "medianMs": 2.8675829999999998,
+    "outputSha256": "cde95a0893f2127154a77a70ef24ee3df02391022fc845dba3455bea43935c7d"
+  },
+  "latePage": {
+    "jsonBytes": 9609,
+    "maxMs": 3.092292,
+    "medianMs": 3.080375,
+    "outputSha256": "0bca4a50292b205946ed040193727b7861b390968c543f18b61824339308393e"
+  },
+  "matchingPage": {
+    "jsonBytes": 9536,
+    "maxMs": 17.583291000000003,
+    "medianMs": 17.565084000000002,
+    "outputSha256": "8c9626b4f0b11f0c91202a22d477191f01af79a13f2f5f09331b80a532b8d328"
+  },
+  "matchingStats": {
+    "jsonBytes": 3956,
+    "maxMs": 27.365707999999998,
+    "medianMs": 27.270667,
+    "outputSha256": "bcb98d80848b4d7da7375c40fe6511299344796926a99bd3e5ac06d05859d75f"
+  },
+  "missingPage": {
+    "jsonBytes": 33,
+    "maxMs": 34.178667000000004,
+    "medianMs": 34.098834000000004,
+    "outputSha256": "e0bce5ed989fca16e56d399947456594a2f7b74cd4beef8cde6b6f6616a0588e"
+  },
+  "plainPage": {
+    "jsonBytes": 9536,
+    "maxMs": 2.901958,
+    "medianMs": 2.767458,
+    "outputSha256": "8c9626b4f0b11f0c91202a22d477191f01af79a13f2f5f09331b80a532b8d328"
+  },
+  "questions": 10000,
+  "repetitions": 3
+}
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 189 filtered out; finished in 0.34s
+

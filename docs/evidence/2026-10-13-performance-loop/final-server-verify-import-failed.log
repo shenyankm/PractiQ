@@ -1,0 +1,28 @@
+rm -f server/reports/checks/probes.xml server/reports/checks/probes.json server/reports/checks/probes.md server/reports/checks/coverage.xml
+cd server && uv lock --check --python "/Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14"
+Using CPython 3.14.7 interpreter at: /Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14
+Resolved 97 packages in 20ms
+cd server && "/Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14" -m ruff check src tests scripts
+I001 [*] Import block is un-sorted or un-formatted
+ --> tests/test_chunking.py:1:1
+  |
+1 | / from itertools import pairwise
+2 | |
+3 | | import pytest
+4 | | from practiq_ai.contracts import ParsedGroup, ParsedOption, ParsedQuestion
+5 | | from practiq_ai.graphs.chunking import (
+6 | |     ChunkSpan,
+7 | |     merge_chunk_results,
+8 | |     split_chunk_spans,
+9 | | )
+  | |_^
+help: Organize imports
+  |
+3 | import pytest
+4 +
+5 | from practiq_ai.contracts import ParsedGroup, ParsedOption, ParsedQuestion
+  |
+
+Found 1 error.
+[*] 1 fixable with the `--fix` option.
+make: *** [verify] Error 1

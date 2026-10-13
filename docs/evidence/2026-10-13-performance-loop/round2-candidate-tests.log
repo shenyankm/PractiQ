@@ -1,0 +1,14 @@
+   Compiling practiq-desktop v0.2.0 (/Users/sheny/Developer/code/PractiQ/app/src-tauri)
+    Finished `release` profile [optimized] target(s) in 26.17s
+     Running unittests src/lib.rs (app/src-tauri/target/release/deps/practiq_desktop-7cf58143b7255238)
+
+running 6 tests
+test paper::tests::changing_previous_scores_keeps_previews_valid_and_snapshots_free_of_live_metadata ... ok
+test paper::tests::feasible_counts_match_all_small_subsets_and_count_limits ... ok
+test paper::tests::indivisible_groups ... ok
+test paper::tests::reallocates_all_supported_types_without_changing_selection_or_content ... ok
+test paper::tests::selection_paths_keep_future_smaller_groups_and_first_selection_order ... ok
+test paper::tests::statistics_and_random_papers_preserve_complete_groups ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 186 filtered out; finished in 0.10s
+

@@ -1,0 +1,18 @@
+{
+  "productName": "PractiQ Performance QA",
+  "identifier": "com.practiq.perf-loop-20261013-01a13529",
+  "app": {
+    "windows": [
+      {
+        "title": "PractiQ Performance QA \u2014 isolated synthetic data",
+        "width": 1280,
+        "height": 850,
+        "minWidth": 960,
+        "minHeight": 640
+      }
+    ]
+  },
+  "bundle": {
+    "resources": []
+  }
+}

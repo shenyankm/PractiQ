@@ -1,0 +1,463 @@
+{
+  "samples": [
+    {
+      "wallMs": 93.95450000010896,
+      "maxHeartbeatGapMs": 85.98566699947696,
+      "maxEventLoopStallMs": 84.98566699947696,
+      "heartbeatGapsMs": [
+        85.98566699947696,
+        1.1353750014677644,
+        1.1443750045145862,
+        1.141582994023338,
+        1.0377500002505258,
+        1.1139170019305311,
+        2.5835409978753887,
+        1.1448750010458753,
+        1.0278750050929375
+      ],
+      "output": {
+        "archiveBytes": 107600,
+        "archiveSha256": "2923ae2890609b6e291935726d851fbfd1b209fa11f50c9d6c65ebf805aef786",
+        "entries": [
+          {
+            "name": "manifest.json",
+            "bytes": 87,
+            "compressedBytes": 76,
+            "crc32": 1444518379,
+            "sha256": "a875e4301df4b5da04f262c806fb4722eb9829f290b960396970a975fba6b6aa",
+            "permissions": "0o100600",
+            "createSystem": 3,
+            "compression": 8,
+            "dateTime": [
+              1980,
+              1,
+              1,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "name": "questions.json",
+            "bytes": 4752767,
+            "compressedBytes": 107296,
+            "crc32": 1272364688,
+            "sha256": "a58f8936072000f9d9f562d4bea260cf331d7b2a8e159733f89d949f74ee9fbc",
+            "permissions": "0o100600",
+            "createSystem": 3,
+            "compression": 8,
+            "dateTime": [
+              1980,
+              1,
+              1,
+              0,
+              0,
+              0
+            ]
+          }
+        ],
+        "entriesSha256": "68bc9e4afdf5c64bd3c68e708a89b9f3da5b62c9094ae1c440c61b5bbb5dc300",
+        "crcVerified": true,
+        "resourceChecksumsVerified": true,
+        "identicalExpectedEntries": true
+      }
+    },
+    {
+      "wallMs": 140.82241599680856,
+      "maxHeartbeatGapMs": 133.30575000145473,
+      "maxEventLoopStallMs": 132.30575000145473,
+      "heartbeatGapsMs": [
+        133.30575000145473,
+        1.1511249977047555,
+        1.1471249963506125,
+        1.145375004853122,
+        1.054333995853085,
+        1.095541003451217,
+        2.324583998415619,
+        1.1509160030982457,
+        1.028291997499764
+      ],
+      "output": {
+        "archiveBytes": 107600,
+        "archiveSha256": "2923ae2890609b6e291935726d851fbfd1b209fa11f50c9d6c65ebf805aef786",
+        "entries": [
+          {
+            "name": "manifest.json",
+            "bytes": 87,
+            "compressedBytes": 76,
+            "crc32": 1444518379,
+            "sha256": "a875e4301df4b5da04f262c806fb4722eb9829f290b960396970a975fba6b6aa",
+            "permissions": "0o100600",
+            "createSystem": 3,
+            "compression": 8,
+            "dateTime": [
+              1980,
+              1,
+              1,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "name": "questions.json",
+            "bytes": 4752767,
+            "compressedBytes": 107296,
+            "crc32": 1272364688,
+            "sha256": "a58f8936072000f9d9f562d4bea260cf331d7b2a8e159733f89d949f74ee9fbc",
+            "permissions": "0o100600",
+            "createSystem": 3,
+            "compression": 8,
+            "dateTime": [
+              1980,
+              1,
+              1,
+              0,
+              0,
+              0
+            ]
+          }
+        ],
+        "entriesSha256": "68bc9e4afdf5c64bd3c68e708a89b9f3da5b62c9094ae1c440c61b5bbb5dc300",
+        "crcVerified": true,
+        "resourceChecksumsVerified": true,
+        "identicalExpectedEntries": true
+      }
+    },
+    {
+      "wallMs": 89.61679200001527,
+      "maxHeartbeatGapMs": 82.31283300119685,
+      "maxEventLoopStallMs": 81.31283300119685,
+      "heartbeatGapsMs": [
+        82.31283300119685,
+        1.133874997321982,
+        1.0692500000004657,
+        1.1470840036054142,
+        1.0746659972937778,
+        1.104208997276146,
+        2.1863330039195716,
+        1.149042000179179,
+        1.0314579994883388
+      ],
+      "output": {
+        "archiveBytes": 107600,
+        "archiveSha256": "2923ae2890609b6e291935726d851fbfd1b209fa11f50c9d6c65ebf805aef786",
+        "entries": [
+          {
+            "name": "manifest.json",
+            "bytes": 87,
+            "compressedBytes": 76,
+            "crc32": 1444518379,
+            "sha256": "a875e4301df4b5da04f262c806fb4722eb9829f290b960396970a975fba6b6aa",
+            "permissions": "0o100600",
+            "createSystem": 3,
+            "compression": 8,
+            "dateTime": [
+              1980,
+              1,
+              1,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "name": "questions.json",
+            "bytes": 4752767,
+            "compressedBytes": 107296,
+            "crc32": 1272364688,
+            "sha256": "a58f8936072000f9d9f562d4bea260cf331d7b2a8e159733f89d949f74ee9fbc",
+            "permissions": "0o100600",
+            "createSystem": 3,
+            "compression": 8,
+            "dateTime": [
+              1980,
+              1,
+              1,
+              0,
+              0,
+              0
+            ]
+          }
+        ],
+        "entriesSha256": "68bc9e4afdf5c64bd3c68e708a89b9f3da5b62c9094ae1c440c61b5bbb5dc300",
+        "crcVerified": true,
+        "resourceChecksumsVerified": true,
+        "identicalExpectedEntries": true
+      }
+    }
+  ],
+  "firstMeasuredCall": {
+    "wallMs": 93.95450000010896,
+    "maxHeartbeatGapMs": 85.98566699947696,
+    "maxEventLoopStallMs": 84.98566699947696,
+    "heartbeatGapsMs": [
+      85.98566699947696,
+      1.1353750014677644,
+      1.1443750045145862,
+      1.141582994023338,
+      1.0377500002505258,
+      1.1139170019305311,
+      2.5835409978753887,
+      1.1448750010458753,
+      1.0278750050929375
+    ],
+    "output": {
+      "archiveBytes": 107600,
+      "archiveSha256": "2923ae2890609b6e291935726d851fbfd1b209fa11f50c9d6c65ebf805aef786",
+      "entries": [
+        {
+          "name": "manifest.json",
+          "bytes": 87,
+          "compressedBytes": 76,
+          "crc32": 1444518379,
+          "sha256": "a875e4301df4b5da04f262c806fb4722eb9829f290b960396970a975fba6b6aa",
+          "permissions": "0o100600",
+          "createSystem": 3,
+          "compression": 8,
+          "dateTime": [
+            1980,
+            1,
+            1,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "name": "questions.json",
+          "bytes": 4752767,
+          "compressedBytes": 107296,
+          "crc32": 1272364688,
+          "sha256": "a58f8936072000f9d9f562d4bea260cf331d7b2a8e159733f89d949f74ee9fbc",
+          "permissions": "0o100600",
+          "createSystem": 3,
+          "compression": 8,
+          "dateTime": [
+            1980,
+            1,
+            1,
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "entriesSha256": "68bc9e4afdf5c64bd3c68e708a89b9f3da5b62c9094ae1c440c61b5bbb5dc300",
+      "crcVerified": true,
+      "resourceChecksumsVerified": true,
+      "identicalExpectedEntries": true
+    }
+  },
+  "warmSamples": [
+    {
+      "wallMs": 140.82241599680856,
+      "maxHeartbeatGapMs": 133.30575000145473,
+      "maxEventLoopStallMs": 132.30575000145473,
+      "heartbeatGapsMs": [
+        133.30575000145473,
+        1.1511249977047555,
+        1.1471249963506125,
+        1.145375004853122,
+        1.054333995853085,
+        1.095541003451217,
+        2.324583998415619,
+        1.1509160030982457,
+        1.028291997499764
+      ],
+      "output": {
+        "archiveBytes": 107600,
+        "archiveSha256": "2923ae2890609b6e291935726d851fbfd1b209fa11f50c9d6c65ebf805aef786",
+        "entries": [
+          {
+            "name": "manifest.json",
+            "bytes": 87,
+            "compressedBytes": 76,
+            "crc32": 1444518379,
+            "sha256": "a875e4301df4b5da04f262c806fb4722eb9829f290b960396970a975fba6b6aa",
+            "permissions": "0o100600",
+            "createSystem": 3,
+            "compression": 8,
+            "dateTime": [
+              1980,
+              1,
+              1,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "name": "questions.json",
+            "bytes": 4752767,
+            "compressedBytes": 107296,
+            "crc32": 1272364688,
+            "sha256": "a58f8936072000f9d9f562d4bea260cf331d7b2a8e159733f89d949f74ee9fbc",
+            "permissions": "0o100600",
+            "createSystem": 3,
+            "compression": 8,
+            "dateTime": [
+              1980,
+              1,
+              1,
+              0,
+              0,
+              0
+            ]
+          }
+        ],
+        "entriesSha256": "68bc9e4afdf5c64bd3c68e708a89b9f3da5b62c9094ae1c440c61b5bbb5dc300",
+        "crcVerified": true,
+        "resourceChecksumsVerified": true,
+        "identicalExpectedEntries": true
+      }
+    },
+    {
+      "wallMs": 89.61679200001527,
+      "maxHeartbeatGapMs": 82.31283300119685,
+      "maxEventLoopStallMs": 81.31283300119685,
+      "heartbeatGapsMs": [
+        82.31283300119685,
+        1.133874997321982,
+        1.0692500000004657,
+        1.1470840036054142,
+        1.0746659972937778,
+        1.104208997276146,
+        2.1863330039195716,
+        1.149042000179179,
+        1.0314579994883388
+      ],
+      "output": {
+        "archiveBytes": 107600,
+        "archiveSha256": "2923ae2890609b6e291935726d851fbfd1b209fa11f50c9d6c65ebf805aef786",
+        "entries": [
+          {
+            "name": "manifest.json",
+            "bytes": 87,
+            "compressedBytes": 76,
+            "crc32": 1444518379,
+            "sha256": "a875e4301df4b5da04f262c806fb4722eb9829f290b960396970a975fba6b6aa",
+            "permissions": "0o100600",
+            "createSystem": 3,
+            "compression": 8,
+            "dateTime": [
+              1980,
+              1,
+              1,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "name": "questions.json",
+            "bytes": 4752767,
+            "compressedBytes": 107296,
+            "crc32": 1272364688,
+            "sha256": "a58f8936072000f9d9f562d4bea260cf331d7b2a8e159733f89d949f74ee9fbc",
+            "permissions": "0o100600",
+            "createSystem": 3,
+            "compression": 8,
+            "dateTime": [
+              1980,
+              1,
+              1,
+              0,
+              0,
+              0
+            ]
+          }
+        ],
+        "entriesSha256": "68bc9e4afdf5c64bd3c68e708a89b9f3da5b62c9094ae1c440c61b5bbb5dc300",
+        "crcVerified": true,
+        "resourceChecksumsVerified": true,
+        "identicalExpectedEntries": true
+      }
+    }
+  ],
+  "warmMedianWallMs": 115.21960399841191,
+  "warmMedianMaxStallMs": 106.80929150132579,
+  "output": {
+    "archiveBytes": 107600,
+    "archiveSha256": "2923ae2890609b6e291935726d851fbfd1b209fa11f50c9d6c65ebf805aef786",
+    "entries": [
+      {
+        "name": "manifest.json",
+        "bytes": 87,
+        "compressedBytes": 76,
+        "crc32": 1444518379,
+        "sha256": "a875e4301df4b5da04f262c806fb4722eb9829f290b960396970a975fba6b6aa",
+        "permissions": "0o100600",
+        "createSystem": 3,
+        "compression": 8,
+        "dateTime": [
+          1980,
+          1,
+          1,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "name": "questions.json",
+        "bytes": 4752767,
+        "compressedBytes": 107296,
+        "crc32": 1272364688,
+        "sha256": "a58f8936072000f9d9f562d4bea260cf331d7b2a8e159733f89d949f74ee9fbc",
+        "permissions": "0o100600",
+        "createSystem": 3,
+        "compression": 8,
+        "dateTime": [
+          1980,
+          1,
+          1,
+          0,
+          0,
+          0
+        ]
+      }
+    ],
+    "entriesSha256": "68bc9e4afdf5c64bd3c68e708a89b9f3da5b62c9094ae1c440c61b5bbb5dc300",
+    "crcVerified": true,
+    "resourceChecksumsVerified": true,
+    "identicalExpectedEntries": true
+  },
+  "case": "no-resources",
+  "sourceRoot": "/private/var/folders/1b/b19xbzjx7xqc4kl0k9x_y4y80000gp/T/practiq-perf-loop-qrdu2192/baseline",
+  "questions": 1000,
+  "resourceCount": 0,
+  "resourceBytes": 0,
+  "sourceReference": {
+    "objectKey": "practiq-agent/sources/3148636fec3257f61ac776ea2b934ff4b5d05717a23e630cdfc1dbf970f0c01f/source.txt",
+    "sha256": "3148636fec3257f61ac776ea2b934ff4b5d05717a23e630cdfc1dbf970f0c01f",
+    "mediaType": "text/plain",
+    "sizeBytes": 4666638,
+    "sourceType": "text",
+    "fileName": "quiz.txt"
+  },
+  "inputSha256": "2925bd51ee55b2b76642c1459b009c05359a79db5b582cefd59d336c243497fb",
+  "inputAfterSha256": "2925bd51ee55b2b76642c1459b009c05359a79db5b582cefd59d336c243497fb",
+  "unchangedInputs": true,
+  "realModelCalls": 0,
+  "python": "3.14.7",
+  "executable": "/Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14",
+  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "pythonOptimization": 0,
+  "pythonHashSeed": null,
+  "dependencies": {
+    "pydantic": "2.13.4",
+    "Pillow": "12.3.0"
+  },
+  "sourceHashes": {
+    "server/src/practiq_ai/bank_export.py": "4e4f031c82156dc5e9f3bc598c3f0ef54c2ee4174be8e215b4c4475ebc18176c",
+    "server/src/practiq_ai/contracts.py": "f511129eeb20ec829d1e4b22875b36f8a7421cd32aa9420b2707f5eac273e4f8",
+    "server/src/practiq_ai/storage.py": "59bd2549f7815513434baa5621e9cf1b16bfbc84d881267674f7826bd6f19a85",
+    "server/src/practiq_ai/extractors/isolated.py": "1b5e30274fb6888f985298e4a66900f5a6e52edaa1942dd01772120e2af1095c",
+    "server/tests/support.py": "01765c5d6d422a377c39b02c69ba6abe3e6d089d0258647c6320e4eca2c8edbd"
+  },
+  "evidenceHarnessHashes": {
+    "export_compare.py": "f3c21d61ff529d8ba5acdfea5cad5037cc2cc223f83fd6d78697188f9ef28c1e",
+    "merge_compare.py": "06341141586bef4473339cc40c2d30dc176c800ce13b66bd5cb7a3d00d993682"
+  }
+}

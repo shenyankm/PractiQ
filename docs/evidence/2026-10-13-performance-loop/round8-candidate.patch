@@ -1,0 +1,25 @@
+--- a/app/src-tauri/src/paper.rs
++++ b/app/src-tauri/src/paper.rs
+@@ -163,7 +163,8 @@
+             return Ok(Vec::new());
+         }
+         let mut statement = questions::prepare_root_metadata(&db)?;
+-        let mut details = statement
++        let mut details = HashMap::with_capacity(ids.len());
++        for row in statement
+             .query_map([json!(ids).to_string()], |r| {
+                 Ok((
+                     r.get::<_, String>(0)?,
+@@ -171,8 +172,10 @@
+                 ))
+             })
+             .map_err(|e| e.to_string())?
+-            .collect::<std::result::Result<HashMap<_, _>, _>>()
+-            .map_err(|e| e.to_string())?;
++        {
++            let (id, metadata) = row.map_err(|e| e.to_string())?;
++            details.insert(id, metadata);
++        }
+         ids.into_iter()
+             .map(|id| {
+                 let (category, weight) =

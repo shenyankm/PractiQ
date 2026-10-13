@@ -1,0 +1,3 @@
+   Compiling practiq-desktop v0.2.0 (/var/folders/1b/b19xbzjx7xqc4kl0k9x_y4y80000gp/T/practiq-perf-loop-qrdu2192/baseline/app/src-tauri)
+    Finished `release` profile [optimized] target(s) in 26.53s
+  Executable unittests src/lib.rs (app/src-tauri/target/release/deps/practiq_desktop-7cf58143b7255238)

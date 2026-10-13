@@ -1,0 +1,5 @@
+Error: Project(s) "preview" not found. Available projects: ""
+    at Object.filterProjects (/Users/sheny/Developer/code/PractiQ/app/node_modules/playwright/lib/runner/index.js:2170:11)
+    at runTests (/Users/sheny/Developer/code/PractiQ/app/node_modules/playwright/lib/cli/testActions.js:61:30)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async _Command.<anonymous> (/Users/sheny/Developer/code/PractiQ/app/node_modules/playwright/lib/program.js:55:7)

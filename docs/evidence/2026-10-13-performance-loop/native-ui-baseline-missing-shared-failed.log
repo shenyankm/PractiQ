@@ -1,0 +1,37 @@
+        Warn --no-sign flag detected: Signing will be skipped.
+        Info Looking up installed tauri packages to check mismatched versions...
+     Running beforeBuildCommand `npm run build`
+
+> practiq-desktop@0.2.0 build
+> tsc -b && vite build
+
+vite v8.3.0 building client environment for production...
+transforming...
+✓ 2314 modules transformed.
+✗ Build failed in 163ms
+error during build:
+Build failed with 1 error:
+
+[plugin @tailwindcss/vite:generate:build] /private/var/folders/1b/b19xbzjx7xqc4kl0k9x_y4y80000gp/T/practiq-perf-loop-qrdu2192/ui-baseline/app/src/index.css
+Error: Can't resolve '../../shared/theme.css' in '/private/var/folders/1b/b19xbzjx7xqc4kl0k9x_y4y80000gp/T/practiq-perf-loop-qrdu2192/ui-baseline/app/src'
+    at finishWithoutResolve (/Users/sheny/Developer/code/PractiQ/app/node_modules/enhanced-resolve/lib/Resolver.js:957:18)
+    at /Users/sheny/Developer/code/PractiQ/app/node_modules/enhanced-resolve/lib/Resolver.js:1053:13
+    at /Users/sheny/Developer/code/PractiQ/app/node_modules/enhanced-resolve/lib/Resolver.js:1137:5
+    at eval (eval at create (/Users/sheny/Developer/code/PractiQ/app/node_modules/tapable/lib/HookCodeFactory.js:31:10), <anonymous>:15:1)
+    at /Users/sheny/Developer/code/PractiQ/app/node_modules/enhanced-resolve/lib/Resolver.js:1137:5
+    at eval (eval at create (/Users/sheny/Developer/code/PractiQ/app/node_modules/tapable/lib/HookCodeFactory.js:31:10), <anonymous>:27:1)
+    at /Users/sheny/Developer/code/PractiQ/app/node_modules/enhanced-resolve/lib/DescriptionFilePlugin.js:94:43
+    at /Users/sheny/Developer/code/PractiQ/app/node_modules/enhanced-resolve/lib/Resolver.js:1137:5
+    at eval (eval at create (/Users/sheny/Developer/code/PractiQ/app/node_modules/tapable/lib/HookCodeFactory.js:31:10), <anonymous>:15:1)
+    at /Users/sheny/Developer/code/PractiQ/app/node_modules/enhanced-resolve/lib/Resolver.js:1137:5
+    at aggregateBindingErrorsIntoJsError (file:///Users/sheny/Developer/code/PractiQ/app/node_modules/rolldown/dist/shared/error-CGhV1ebk.mjs:48:18)
+    at unwrapBindingResult (file:///Users/sheny/Developer/code/PractiQ/app/node_modules/rolldown/dist/shared/error-CGhV1ebk.mjs:18:128)
+    at #build (file:///Users/sheny/Developer/code/PractiQ/app/node_modules/rolldown/dist/shared/rolldown-Ld3ZGGCt.mjs:133:34)
+    at async buildEnvironment (file:///Users/sheny/Developer/code/PractiQ/app/node_modules/vite/dist/node/chunks/node.js:34082:66)
+    at async Object.build (file:///Users/sheny/Developer/code/PractiQ/app/node_modules/vite/dist/node/chunks/node.js:34503:19)
+    at async Object.buildApp (file:///Users/sheny/Developer/code/PractiQ/app/node_modules/vite/dist/node/chunks/node.js:34500:153)
+    at async CAC.<anonymous> (file:///Users/sheny/Developer/code/PractiQ/app/node_modules/vite/dist/node/cli.js:780:3) {
+  errors: [Getter/Setter]
+}
+beforeBuildCommand `npm run build` failed with exit code 1
+       Error beforeBuildCommand `npm run build` failed with exit code 1

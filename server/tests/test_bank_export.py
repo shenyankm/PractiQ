@@ -467,6 +467,61 @@ async def test_task_export_closes_archive_when_the_final_snapshot_cannot_be_used
         payload.close()
 
 
+async def test_export_waits_for_cancelled_preparation_before_archive_or_storage_work(tmp_path, monkeypatch):
+    store, source = await source_store(tmp_path)
+    task = detail()
+    files, errors = [], []
+    entered, released, finished = threading.Event(), threading.Event(), threading.Event()
+    event_loop_thread = threading.get_ident()
+    original_validate = bank_export.DocumentParseResult.model_validate
+    reads = AsyncMock(wraps=store.get_verified)
+
+    def validate(*args, **kwargs):
+        assert threading.get_ident() != event_loop_thread, 'Export preparation must leave the event loop'
+        entered.set()
+        try:
+            assert released.wait(5), 'Cancelled preparation was never released'
+            return original_validate(*args, **kwargs)
+        except BaseException as exc:
+            errors.append(exc)
+            raise
+        finally:
+            finished.set()
+
+    def temporary(*args, **kwargs):
+        file = TemporaryFile(*args, **kwargs)  # noqa: SIM115 - assert no archive precedes joined preparation
+        files.append(file)
+        return file
+
+    monkeypatch.setattr(bank_export.DocumentParseResult, 'model_validate', validate)
+    monkeypatch.setattr(bank_export, 'TemporaryFile', temporary)
+    monkeypatch.setattr(store, 'get_verified', reads)
+    operation = asyncio.create_task(bank_export.export_task_bank(task, store, source=source))
+    waiting = asyncio.create_task(asyncio.to_thread(entered.wait, 5))
+    try:
+        done, _ = await asyncio.wait((operation, waiting), timeout=6, return_when=asyncio.FIRST_COMPLETED)
+        if operation in done:
+            await operation
+        assert waiting in done and waiting.result()
+        operation.cancel()
+        await asyncio.sleep(0.01)
+        operation.cancel()
+        await asyncio.sleep(0.01)
+        assert not operation.done() and not files and reads.await_count == 0
+        released.set()
+        with pytest.raises(asyncio.CancelledError):
+            await operation
+        assert finished.is_set() and not errors and not files and reads.await_count == 0
+    finally:
+        entered.set()
+        released.set()
+        if not operation.done():
+            operation.cancel()
+        await asyncio.gather(operation, waiting, return_exceptions=True)
+        for file in files:
+            file.close()
+
+
 async def test_export_waits_for_a_cancelled_writer_before_closing_its_archive(tmp_path, monkeypatch):
     store, source = await source_store(tmp_path)
     image = await store.put_artifact(make_image(), source_sha256=source.sha256, kind="visual", index=0, media_type="image/png")

@@ -1,0 +1,12 @@
+   Compiling practiq-desktop v0.2.0 (/Users/sheny/Developer/code/PractiQ/app/src-tauri)
+    Finished `release` profile [optimized] target(s) in 24.61s
+     Running unittests src/lib.rs (app/src-tauri/target/release/deps/practiq_desktop-7cf58143b7255238)
+
+running 4 tests
+test contract::validation_tests::import_and_tree_validation_locate_the_invalid_question ... ok
+test contract::validation_tests::import_validation_performance ... ignored, synthetic validation benchmark; run with --release --ignored --nocapture
+test contract::validation_tests::question_schema_rejection_preserves_normalized_content_and_error_path ... ok
+test contract::validation_tests::question_validation_preserves_nested_nulls_false_answers_and_review_flags ... ok
+
+test result: ok. 3 passed; 0 failed; 1 ignored; 0 measured; 193 filtered out; finished in 0.02s
+

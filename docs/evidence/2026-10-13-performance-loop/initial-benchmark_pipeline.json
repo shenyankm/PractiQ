@@ -1,0 +1,329 @@
+{
+  "method": "Three sequential samples, warm OS file cache; real repository PDF pixels; synthetic parsing responses for checkpoint stress. No provider calls, OCR-quality claims, IPC or WebView measurement.",
+  "imports": [
+    {
+      "kind": "csv",
+      "fixture": "app/fixtures/ai-import/formats/all-types.csv",
+      "before": {
+        "samples": [
+          {
+            "ms": 296.62083300354425,
+            "rss": 92487680,
+            "pdfiumLoaded": true
+          },
+          {
+            "ms": 269.46079199842643,
+            "rss": 92323840,
+            "pdfiumLoaded": true
+          },
+          {
+            "ms": 306.0009999971953,
+            "rss": 92405760,
+            "pdfiumLoaded": true
+          }
+        ],
+        "medianMs": 296.62083300354425,
+        "peakRssMedianBytes": 92405760
+      },
+      "after": {
+        "samples": [
+          {
+            "ms": 256.3152500006254,
+            "rss": 82771968,
+            "pdfiumLoaded": false
+          },
+          {
+            "ms": 275.56162499968195,
+            "rss": 82952192,
+            "pdfiumLoaded": false
+          },
+          {
+            "ms": 271.98041699739406,
+            "rss": 82935808,
+            "pdfiumLoaded": false
+          }
+        ],
+        "medianMs": 271.98041699739406,
+        "peakRssMedianBytes": 82935808
+      }
+    },
+    {
+      "kind": "image",
+      "fixture": "app/fixtures/ai-import/formats/all-types.png",
+      "before": {
+        "samples": [
+          {
+            "ms": 273.9553749997867,
+            "rss": 93093888,
+            "pdfiumLoaded": true
+          },
+          {
+            "ms": 292.78645900194533,
+            "rss": 93011968,
+            "pdfiumLoaded": true
+          },
+          {
+            "ms": 275.4753749977681,
+            "rss": 93011968,
+            "pdfiumLoaded": true
+          }
+        ],
+        "medianMs": 275.4753749977681,
+        "peakRssMedianBytes": 93011968
+      },
+      "after": {
+        "samples": [
+          {
+            "ms": 269.5022499974584,
+            "rss": 86376448,
+            "pdfiumLoaded": false
+          },
+          {
+            "ms": 289.19466699881013,
+            "rss": 86261760,
+            "pdfiumLoaded": false
+          },
+          {
+            "ms": 277.7945420020842,
+            "rss": 86179840,
+            "pdfiumLoaded": false
+          }
+        ],
+        "medianMs": 277.7945420020842,
+        "peakRssMedianBytes": 86261760
+      }
+    }
+  ],
+  "schemaPerCallMs": {
+    "before": [
+      3.5134537500562146,
+      3.5106366699619684,
+      3.498157079957309
+    ],
+    "after": [
+      0.16381583001930267,
+      0.12840666000556666,
+      0.12867959005234297
+    ]
+  },
+  "pages": [
+    {
+      "fixture": "server/evals/fixtures/pdf/text-layer.pdf",
+      "pages": 1,
+      "pageBytes": 115905,
+      "renderMs": 59.94291599927237,
+      "inputPageOccurrences": 1,
+      "before": {
+        "samplesMs": [
+          0.6090409951866604,
+          0.530958001036197,
+          0.45891699846833944
+        ],
+        "medianMs": 0.530958001036197,
+        "verifiedReads": [
+          1,
+          1,
+          1
+        ],
+        "base64Encodings": [
+          1,
+          1,
+          1
+        ]
+      },
+      "after": {
+        "samplesMs": [
+          0.5683749986928888,
+          0.722791999578476,
+          0.5221249957685359
+        ],
+        "medianMs": 0.5683749986928888,
+        "verifiedReads": [
+          1,
+          1,
+          1
+        ],
+        "base64Encodings": [
+          1,
+          1,
+          1
+        ]
+      },
+      "identicalProviderImageInputs": true
+    },
+    {
+      "fixture": "server/evals/fixtures/pdf/scanned.pdf",
+      "pages": 1,
+      "pageBytes": 131254,
+      "renderMs": 27.58745900064241,
+      "inputPageOccurrences": 1,
+      "before": {
+        "samplesMs": [
+          0.5566250038100407,
+          0.48100000276463106,
+          0.4617079976014793
+        ],
+        "medianMs": 0.48100000276463106,
+        "verifiedReads": [
+          1,
+          1,
+          1
+        ],
+        "base64Encodings": [
+          1,
+          1,
+          1
+        ]
+      },
+      "after": {
+        "samplesMs": [
+          0.5792500014649704,
+          0.6367910027620383,
+          0.5802910018246621
+        ],
+        "medianMs": 0.5802910018246621,
+        "verifiedReads": [
+          1,
+          1,
+          1
+        ],
+        "base64Encodings": [
+          1,
+          1,
+          1
+        ]
+      },
+      "identicalProviderImageInputs": true
+    },
+    {
+      "fixture": "server/evals/fixtures/pdf/long-material-answer-key.pdf",
+      "pages": 4,
+      "pageBytes": 6254239,
+      "renderMs": 466.7513750027865,
+      "inputPageOccurrences": 10,
+      "before": {
+        "samplesMs": [
+          25.44520799710881,
+          24.215375000494532,
+          23.167667000961956
+        ],
+        "medianMs": 24.215375000494532,
+        "verifiedReads": [
+          10,
+          10,
+          10
+        ],
+        "base64Encodings": [
+          10,
+          10,
+          10
+        ]
+      },
+      "after": {
+        "samplesMs": [
+          17.921874998137355,
+          17.827666997618508,
+          17.716874994221143
+        ],
+        "medianMs": 17.827666997618508,
+        "verifiedReads": [
+          7,
+          7,
+          7
+        ],
+        "base64Encodings": [
+          7,
+          7,
+          7
+        ]
+      },
+      "identicalProviderImageInputs": true
+    },
+    {
+      "fixture": "app/fixtures/rich-content/merged-cross-page.pdf",
+      "pages": 2,
+      "pageBytes": 191035,
+      "renderMs": 215.77787499700207,
+      "inputPageOccurrences": 4,
+      "before": {
+        "samplesMs": [
+          2.525875002902467,
+          2.246374999231193,
+          1.7362920043524355
+        ],
+        "medianMs": 2.246374999231193,
+        "verifiedReads": [
+          4,
+          4,
+          4
+        ],
+        "base64Encodings": [
+          4,
+          4,
+          4
+        ]
+      },
+      "after": {
+        "samplesMs": [
+          1.2977920050616376,
+          1.2327090007602237,
+          1.2399999977787957
+        ],
+        "medianMs": 1.2399999977787957,
+        "verifiedReads": [
+          2,
+          2,
+          2
+        ],
+        "base64Encodings": [
+          2,
+          2,
+          2
+        ]
+      },
+      "identicalProviderImageInputs": true
+    }
+  ],
+  "checkpoints": [
+    {
+      "pages": 20,
+      "syntheticQuestions": 200,
+      "elapsedMs": 240.66387499624398,
+      "checkpointRows": 31,
+      "checkpointBytes": 1101758,
+      "pendingWriteBytes": 1925359,
+      "checkpointWriteWaitTotalMs": 49.947374005569145,
+      "checkpointWriteWaitMaxMs": 7.97887500084471,
+      "reopenedCompletedReplayMs": 11.121958996227477,
+      "identicalReplayedOutput": true,
+      "replayAddedModelCalls": 0
+    },
+    {
+      "pages": 100,
+      "syntheticQuestions": 1000,
+      "elapsedMs": 835.3503329999512,
+      "checkpointRows": 111,
+      "checkpointBytes": 7019386,
+      "pendingWriteBytes": 9662214,
+      "checkpointWriteWaitTotalMs": 225.59775398258353,
+      "checkpointWriteWaitMaxMs": 37.74666699609952,
+      "reopenedCompletedReplayMs": 37.41766599705443,
+      "identicalReplayedOutput": true,
+      "replayAddedModelCalls": 0
+    }
+  ],
+  "artifactFsync": [
+    {
+      "index": 0,
+      "fileFsync": 1,
+      "directoryFsync": 6
+    },
+    {
+      "index": 1,
+      "fileFsync": 1,
+      "directoryFsync": 6
+    }
+  ],
+  "realModelCalls": 0,
+  "fsyncOptimization": "Deferred: retain file and ancestor fsync until crash durability is independently proven."
+}

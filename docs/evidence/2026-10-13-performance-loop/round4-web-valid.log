@@ -1,0 +1,12 @@
+(node:47952) ExperimentalWarning: stripTypeScriptTypes is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+1 baseline: cold open 843.4 ms, stringify calls 31
+1 candidate: cold open 831.7 ms, stringify calls 1
+2 candidate: cold open 831.6 ms, stringify calls 1
+2 baseline: cold open 831.6 ms, stringify calls 31
+3 baseline: cold open 831.3 ms, stringify calls 31
+3 candidate: cold open 814.8 ms, stringify calls 1
+4 candidate: cold open 831.1 ms, stringify calls 1
+4 baseline: cold open 832.3 ms, stringify calls 31
+5 baseline: cold open 814.9 ms, stringify calls 31
+5 candidate: cold open 832.0 ms, stringify calls 1

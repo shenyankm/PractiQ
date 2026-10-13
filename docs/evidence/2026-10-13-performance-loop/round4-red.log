@@ -1,0 +1,34 @@
+
+> practiq-ai-web@0.1.0 test
+> vitest run src/App.test.tsx -t reuses task diagnostics
+
+(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - import "./contracts.generated" without a file extension (src/test-fixtures.ts:1:77). Add the file extension
+  - import "./api" without a file extension (src/test-fixtures.ts:2:35). Add the file extension
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+
+ RUN  v5.0.1 /Users/sheny/Developer/code/PractiQ/web
+
+ ❯ src/App.test.tsx (22 tests | 1 failed | 21 skipped) 629ms
+   × reuses task diagnostics across unrelated filters and updates them after an explicit refresh 628ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/App.test.tsx > reuses task diagnostics across unrelated filters and updates them after an explicit refresh
+AssertionError: expected "vi.fn()" to be called 1 times, but got 4 times
+ ❯ src/App.test.tsx:226:28
+    224|         await waitFor(() => expect(listReads()).toBe(reads + 1));
+    225|         await screen.findByRole("button", { name: /sample.docx/ });
+    226|         expect(diagnostic).toHaveBeenCalledTimes(initialCalls);
+       |                            ^
+    227|         expect(details().querySelector("pre")?.textContent).toBe(expec…
+    228|       }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 21 skipped (22)
+   Start at  20:32:18
+   Duration  1.54s (tests 43%, environment 38%, setup 7%, transform 6%, import 6%)
+

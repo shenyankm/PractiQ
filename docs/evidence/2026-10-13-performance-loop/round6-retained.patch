@@ -1,0 +1,122 @@
+diff --git a/server/src/practiq_ai/bank_export.py b/server/src/practiq_ai/bank_export.py
+index 4ecf7ae..e0f0323 100644
+--- a/server/src/practiq_ai/bank_export.py
++++ b/server/src/practiq_ai/bank_export.py
+@@ -102,6 +102,28 @@ def _write_entry(archive: ZipFile, output: BinaryIO, name: str, payload: bytes)
+     _limit(output.tell(), ZIP_LIMIT, "ZIP")
+ 
+ 
++def _prepare_bank(
++    detail: DocumentTaskDetail, source: DocumentReference, title: str, description: str,
++) -> tuple[bytes, bytes, dict[str, ArtifactReference]]:
++    assert detail.result is not None
++    try:
++        result = DocumentParseResult.model_validate(detail.result.model_dump(mode="json"))
++        processing = DocumentProcessing.model_validate(detail.processing.model_dump(mode="json")) if detail.processing else None
++    except ValidationError as exc:
++        raise _invalid("Task result does not satisfy the shared result contract") from exc
++    if processing:
++        ids = {question.id for question in result.questions}
++        if any(item.questionId not in ids for item in [*processing.questionSources, *processing.quality.issues]):
++            raise _invalid("Processing does not reference the current result")
++    manifest = _json({"format": "practiq-question-bank", "version": 2, "bank": {"title": title, "description": description}})
++    questions = _json({"status": detail.status, "result": result.model_dump(mode="json"),
++                       "processing": processing.model_dump(mode="json") if processing else None})
++    _limit(len(manifest), MANIFEST_LIMIT, "Manifest JSON")
++    _limit(len(questions), JSON_LIMIT, "Questions JSON")
++    references = _references(result, source)
++    return manifest, questions, references
++
++
+ async def export_task_bank(
+     detail: DocumentTaskDetail,
+     store: ObjectStore,
+@@ -127,21 +149,7 @@ async def export_task_bank(
+         title = stem if stem.strip() else file_name
+     if not title.strip() or len(title) > 255 or len(description) > 20_000:
+         raise _invalid("Invalid bank metadata")
+-    try:
+-        result = DocumentParseResult.model_validate(detail.result.model_dump(mode="json"))
+-        processing = DocumentProcessing.model_validate(detail.processing.model_dump(mode="json")) if detail.processing else None
+-    except ValidationError as exc:
+-        raise _invalid("Task result does not satisfy the shared result contract") from exc
+-    if processing:
+-        ids = {question.id for question in result.questions}
+-        if any(item.questionId not in ids for item in [*processing.questionSources, *processing.quality.issues]):
+-            raise _invalid("Processing does not reference the current result")
+-    manifest = _json({"format": "practiq-question-bank", "version": 2, "bank": {"title": title, "description": description}})
+-    questions = _json({"status": detail.status, "result": result.model_dump(mode="json"),
+-                       "processing": processing.model_dump(mode="json") if processing else None})
+-    _limit(len(manifest), MANIFEST_LIMIT, "Manifest JSON")
+-    _limit(len(questions), JSON_LIMIT, "Questions JSON")
+-    references = _references(result, source)
++    manifest, questions, references = await _thread_io(_prepare_bank, detail, source, title, description)
+     output = TemporaryFile("w+b")  # noqa: SIM115 - ownership transfers to the response on success
+     try:
+         with ZipFile(output, "w", compression=ZIP_DEFLATED) as archive:
+diff --git a/server/tests/test_bank_export.py b/server/tests/test_bank_export.py
+index 14b79f6..40c6075 100644
+--- a/server/tests/test_bank_export.py
++++ b/server/tests/test_bank_export.py
+@@ -467,6 +467,61 @@ async def test_task_export_closes_archive_when_the_final_snapshot_cannot_be_used
+         payload.close()
+ 
+ 
++async def test_export_waits_for_cancelled_preparation_before_archive_or_storage_work(tmp_path, monkeypatch):
++    store, source = await source_store(tmp_path)
++    task = detail()
++    files, errors = [], []
++    entered, released, finished = threading.Event(), threading.Event(), threading.Event()
++    event_loop_thread = threading.get_ident()
++    original_validate = bank_export.DocumentParseResult.model_validate
++    reads = AsyncMock(wraps=store.get_verified)
++
++    def validate(*args, **kwargs):
++        assert threading.get_ident() != event_loop_thread, 'Export preparation must leave the event loop'
++        entered.set()
++        try:
++            assert released.wait(5), 'Cancelled preparation was never released'
++            return original_validate(*args, **kwargs)
++        except BaseException as exc:
++            errors.append(exc)
++            raise
++        finally:
++            finished.set()
++
++    def temporary(*args, **kwargs):
++        file = TemporaryFile(*args, **kwargs)  # noqa: SIM115 - assert no archive precedes joined preparation
++        files.append(file)
++        return file
++
++    monkeypatch.setattr(bank_export.DocumentParseResult, 'model_validate', validate)
++    monkeypatch.setattr(bank_export, 'TemporaryFile', temporary)
++    monkeypatch.setattr(store, 'get_verified', reads)
++    operation = asyncio.create_task(bank_export.export_task_bank(task, store, source=source))
++    waiting = asyncio.create_task(asyncio.to_thread(entered.wait, 5))
++    try:
++        done, _ = await asyncio.wait((operation, waiting), timeout=6, return_when=asyncio.FIRST_COMPLETED)
++        if operation in done:
++            await operation
++        assert waiting in done and waiting.result()
++        operation.cancel()
++        await asyncio.sleep(0.01)
++        operation.cancel()
++        await asyncio.sleep(0.01)
++        assert not operation.done() and not files and reads.await_count == 0
++        released.set()
++        with pytest.raises(asyncio.CancelledError):
++            await operation
++        assert finished.is_set() and not errors and not files and reads.await_count == 0
++    finally:
++        entered.set()
++        released.set()
++        if not operation.done():
++            operation.cancel()
++        await asyncio.gather(operation, waiting, return_exceptions=True)
++        for file in files:
++            file.close()
++
++
+ async def test_export_waits_for_a_cancelled_writer_before_closing_its_archive(tmp_path, monkeypatch):
+     store, source = await source_store(tmp_path)
+     image = await store.put_artifact(make_image(), source_sha256=source.sha256, kind="visual", index=0, media_type="image/png")

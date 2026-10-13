@@ -1,0 +1,85 @@
+npm --prefix web run check
+
+> practiq-ai-web@0.1.0 check
+> tsc -b && npm run lint && npm run test:coverage
+
+
+> practiq-ai-web@0.1.0 lint
+> eslint "src/**/*.{ts,tsx}" --max-warnings 0
+
+
+> practiq-ai-web@0.1.0 test:coverage
+> vitest run --coverage
+
+(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - import "./contracts.generated" without a file extension (src/test-fixtures.ts:1:77). Add the file extension
+  - import "./api" without a file extension (src/test-fixtures.ts:2:35). Add the file extension
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+
+ RUN  v5.0.1 /Users/sheny/Developer/code/PractiQ/web
+      Coverage enabled with v8
+
+
+ Test Files  5 passed (5)
+      Tests  70 passed (70)
+   Start at  21:36:26
+   Duration  9.71s (tests 73%, environment 17%, import 4%, setup 3%, transform 2%, worker 1%)
+
+    Isolate  5 workers spawned · ~605ms startup each (spawn + environment, per file)
+             at least ~908ms faster with isolate: false — reuses workers across files instead of one per file
+
+ % Coverage report from v8
+------------------|---------|----------|---------|---------|--------------------
+File              | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s  
+------------------|---------|----------|---------|---------|--------------------
+All files         |   94.85 |    88.38 |   96.78 |   97.61 |                    
+ AccountPanel.tsx |   96.92 |    76.36 |     100 |     100 | 20-36,42           
+ App.tsx          |   92.67 |    83.57 |   94.64 |   96.25 | ...156,175,225,257 
+ ResultReview.tsx |    99.1 |    93.78 |   97.87 |     100 | ...,81,109,129,138 
+ api.ts           |   96.21 |    95.48 |     100 |   97.69 | 52-54              
+------------------|---------|----------|---------|---------|--------------------
+
+=============================== Coverage summary ===============================
+Statements   : 94.85% ( 719/758 )
+Branches     : 88.38% ( 677/766 )
+Functions    : 96.78% ( 211/218 )
+Lines        : 97.61% ( 410/420 )
+================================================================================
+npm --prefix web run test:browser
+
+> practiq-ai-web@0.1.0 test:browser
+> playwright test
+
+[WebServer] (node:60861) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+[WebServer]   - import "./contracts.generated" without a file extension (src/test-fixtures.ts:1:77). Add the file extension
+[WebServer]   - import "./api" without a file extension (src/test-fixtures.ts:2:35). Add the file extension
+[WebServer] Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+
+Running 20 tests using 1 worker
+
+(node:60866) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 tests/browser.spec.ts:83:1 › all KaTeX font faces load from WOFF2 with no fallback font requests (1.2s)
+  ✓   2 tests/browser.spec.ts:102:1 › workspace fits narrow and desktop windows with keyboard shortcuts to content (2.0s)
+  ✓   3 tests/browser.spec.ts:137:1 › passive file selection becomes one authenticated SHA upload only after explicit Start (1.1s)
+  ✓   4 tests/browser.spec.ts:153:1 › invalid auth makes no model request; disconnect and reload clear memory-only Token (880ms)
+  ✓   5 tests/browser.spec.ts:166:1 › uncertain accepted POST never auto replays; explicit retry preserves requestId and Office mode (886ms)
+  ✓   6 tests/browser.spec.ts:187:1 › paused partial checkpoints only poll GET until explicit resume and pause actions (1.1s)
+  ✓   7 tests/browser.spec.ts:200:1 › partial review preserves nulls, sources, shared material and warnings; checked image and ZIP are explicit (1.1s)
+  ✓   8 tests/browser.spec.ts:223:1 › failed reads retry explicitly and stale pages cannot overwrite a new filter (547ms)
+  ✓   9 tests/browser.spec.ts:241:1 › expired task deletion stays explicit and recoverable when detail and preview return 410 (726ms)
+  ✓  10 tests/browser.spec.ts:277:1 › reparse and delete require explicit actions and delete confirmation (1.3s)
+  ✓  11 tests/browser.spec.ts:288:1 › server format, byte limit, and model availability gate submission before any upload (506ms)
+  ✓  12 tests/browser.spec.ts:299:1 › empty task guidance preserves keyboard focus and only reads when clearing a filter (567ms)
+  ✓  13 tests/browser.spec.ts:314:3 › import and review workspace supports passive filtering and file removal at 375px (1.1s)
+  ✓  14 tests/browser.spec.ts:314:3 › import and review workspace supports passive filtering and file removal at 768px (1.2s)
+  ✓  15 tests/browser.spec.ts:314:3 › import and review workspace supports passive filtering and file removal at 1440px (1.3s)
+  ✓  16 tests/browser.spec.ts:334:1 › import workspace tokens preserve readable text in light and dark surfaces (1.3s)
+  ✓  17 tests/browser.spec.ts:368:1 › delete confirmation moves into view and Escape restores its trigger without a mutation (926ms)
+  ✓  18 tests/browser.spec.ts:381:3 › successful detail deletion leaves focus on the surviving task list heading (973ms)
+  ✓  19 tests/browser.spec.ts:381:3 › successful expired deletion leaves focus on the surviving task list heading (549ms)
+  ✓  20 tests/browser.spec.ts:398:1 › points pause exports completed content; recharge stays paused until explicit Continue (1.2s)
+
+  20 passed (22.3s)

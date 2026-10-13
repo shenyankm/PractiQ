@@ -1,0 +1,194 @@
+{
+  "environment": {
+    "node": "v22.23.2",
+    "platform": "darwin",
+    "architecture": "arm64"
+  },
+  "inputSha256": "5acf84415371c226f967dbe3562e685775347918d8df240630f183e73e08a505",
+  "children": 250,
+  "inputBytes": 930164,
+  "repetitions": 3,
+  "edits": 15,
+  "samples": [
+    {
+      "renderMs": 13.933934999997518,
+      "inputToCommitMs": 24.20333299999993
+    },
+    {
+      "renderMs": 12.420455999994374,
+      "inputToCommitMs": 15.855082999999922
+    },
+    {
+      "renderMs": 12.760683999991898,
+      "inputToCommitMs": 15.330124999999953
+    },
+    {
+      "renderMs": 10.287581000007094,
+      "inputToCommitMs": 13.019375000000082
+    },
+    {
+      "renderMs": 13.141099999991638,
+      "inputToCommitMs": 15.838500000000067
+    },
+    {
+      "renderMs": 5.249794999997448,
+      "inputToCommitMs": 7.435042000000067
+    },
+    {
+      "renderMs": 4.590559000000894,
+      "inputToCommitMs": 6.510874999999942
+    },
+    {
+      "renderMs": 5.503930000001446,
+      "inputToCommitMs": 7.423792000000049
+    },
+    {
+      "renderMs": 3.6122790000001714,
+      "inputToCommitMs": 5.451583000000028
+    },
+    {
+      "renderMs": 3.754278000000795,
+      "inputToCommitMs": 5.464165999999977
+    },
+    {
+      "renderMs": 3.4941720000012992,
+      "inputToCommitMs": 5.475000000000136
+    },
+    {
+      "renderMs": 3.7694420000007085,
+      "inputToCommitMs": 6.77737500000012
+    },
+    {
+      "renderMs": 3.541946999994252,
+      "inputToCommitMs": 5.225791999999956
+    },
+    {
+      "renderMs": 3.420724000003247,
+      "inputToCommitMs": 4.919416999999839
+    },
+    {
+      "renderMs": 3.2856350000035945,
+      "inputToCommitMs": 4.85087499999986
+    },
+    {
+      "renderMs": 4.250381000010748,
+      "inputToCommitMs": 7.549416000000065
+    },
+    {
+      "renderMs": 3.5407649999972364,
+      "inputToCommitMs": 5.359207999999853
+    },
+    {
+      "renderMs": 4.803472000004149,
+      "inputToCommitMs": 6.676375000000007
+    },
+    {
+      "renderMs": 3.32775800000627,
+      "inputToCommitMs": 4.866000000000213
+    },
+    {
+      "renderMs": 3.6275979999995798,
+      "inputToCommitMs": 5.230000000000018
+    },
+    {
+      "renderMs": 3.238229999998566,
+      "inputToCommitMs": 4.758291999999983
+    },
+    {
+      "renderMs": 3.2706089999983305,
+      "inputToCommitMs": 5.986291000000165
+    },
+    {
+      "renderMs": 3.367080000001806,
+      "inputToCommitMs": 4.942416999999978
+    },
+    {
+      "renderMs": 3.377584999996998,
+      "inputToCommitMs": 4.826917000000094
+    },
+    {
+      "renderMs": 3.202112999995734,
+      "inputToCommitMs": 4.680540999999948
+    },
+    {
+      "renderMs": 3.0563109999989138,
+      "inputToCommitMs": 4.638292000000092
+    },
+    {
+      "renderMs": 4.485785999994732,
+      "inputToCommitMs": 6.046582999999828
+    },
+    {
+      "renderMs": 3.0989649999937683,
+      "inputToCommitMs": 4.74091599999997
+    },
+    {
+      "renderMs": 3.0779170000002978,
+      "inputToCommitMs": 4.552791999999954
+    },
+    {
+      "renderMs": 3.228771000000279,
+      "inputToCommitMs": 4.660791999999901
+    },
+    {
+      "renderMs": 3.8952979999992294,
+      "inputToCommitMs": 6.950874999999996
+    },
+    {
+      "renderMs": 3.3809580000079222,
+      "inputToCommitMs": 5.15866700000015
+    },
+    {
+      "renderMs": 3.540306000001465,
+      "inputToCommitMs": 6.881333000000041
+    },
+    {
+      "renderMs": 3.588607999996384,
+      "inputToCommitMs": 5.155582999999979
+    },
+    {
+      "renderMs": 3.183328999994501,
+      "inputToCommitMs": 4.65383299999985
+    },
+    {
+      "renderMs": 3.2272579999992104,
+      "inputToCommitMs": 4.90625
+    },
+    {
+      "renderMs": 3.131906000000299,
+      "inputToCommitMs": 4.490708000000041
+    },
+    {
+      "renderMs": 4.695365999995829,
+      "inputToCommitMs": 6.36587499999996
+    },
+    {
+      "renderMs": 3.1537359999974797,
+      "inputToCommitMs": 4.67837499999996
+    },
+    {
+      "renderMs": 3.285452999997233,
+      "inputToCommitMs": 4.762834000000112
+    },
+    {
+      "renderMs": 3.236254999999801,
+      "inputToCommitMs": 4.569166999999879
+    },
+    {
+      "renderMs": 3.0475809999993544,
+      "inputToCommitMs": 4.398791999999958
+    },
+    {
+      "renderMs": 4.551970000001802,
+      "inputToCommitMs": 6.208083999999872
+    },
+    {
+      "renderMs": 3.041341000000102,
+      "inputToCommitMs": 4.4629580000000715
+    },
+    {
+      "renderMs": 3.3290689999939787,
+      "inputToCommitMs": 4.776541999999836
+    }
+  ]
+}

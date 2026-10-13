@@ -1,0 +1,58 @@
+{
+  "alternatingPairs": 5,
+  "test": "performance::backup_restore_stress",
+  "binarySha256": {
+    "baseline": "3e3ba0eb2de6c5ff66835b7633044338b1fbda727957a8481142d89f1f143320",
+    "candidate": "45e5599de3000120c175e79daf2868b261ccdb8ce2a2e2a10b4a8faa3238418b"
+  },
+  "workloads": {
+    "backup": {
+      "pairMediansMs": {
+        "baseline": [
+          335.7793125,
+          296.53556249999997,
+          295.06260399999996,
+          297.1506665,
+          315.664646
+        ],
+        "candidate": [
+          301.4872295,
+          297.196729,
+          295.3995625,
+          329.1526665,
+          300.187229
+        ]
+      },
+      "mediansMs": {
+        "baseline": 297.1506665,
+        "candidate": 300.187229
+      },
+      "candidateReductionPercent": -1.0218932152386673,
+      "outputSha256": "929960b24cb05d64ed6777f7f081f5edcafe9b8e93c8ae7295e5ff598442332f"
+    },
+    "restore": {
+      "pairMediansMs": {
+        "baseline": [
+          2097.7794999999996,
+          2014.1158540000001,
+          2063.2969789999997,
+          2073.5561454999997,
+          2154.379854
+        ],
+        "candidate": [
+          1791.5966039999998,
+          1797.627521,
+          1806.3371665,
+          1793.866292,
+          1844.450875
+        ]
+      },
+      "mediansMs": {
+        "baseline": 2073.5561454999997,
+        "candidate": 1797.627521
+      },
+      "candidateReductionPercent": 13.30702450950344,
+      "outputSha256": "929960b24cb05d64ed6777f7f081f5edcafe9b8e93c8ae7295e5ff598442332f"
+    }
+  }
+}

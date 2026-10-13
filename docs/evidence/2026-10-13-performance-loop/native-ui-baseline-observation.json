@@ -1,0 +1,10 @@
+{
+  "baselineCommit": "16e47c9c69bdad410a299ef6d385bfe0beb85dee",
+  "sourceRoot": "/var/folders/1b/b19xbzjx7xqc4kl0k9x_y4y80000gp/T/practiq-perf-loop-qrdu2192/ui-baseline",
+  "identifier": "com.practiq.perf-baseline-20261013-01a13529",
+  "bundle": "/Users/sheny/Developer/code/PractiQ/app/src-tauri/target/release/bundle/macos/PractiQ Baseline QA.app",
+  "binarySha256": "21bcad7dadc114306d376e1ba0ef22f4f270ba30980efa970a28688969194794",
+  "load": "Existing example bank, single choice1/true false1/reading group1 quota, submitted choice A, reading material",
+  "cuaObservation": "View passage remained visible after Close button and Escape, in AX state and screenshot, as in retained version",
+  "conclusion": "Pre-existing application or CUA dismissal limitation reproduced on initial commit; cause not localized; no fix or UI performance claim"
+}

@@ -1,0 +1,7 @@
+
+running 1 test
+test performance::list_and_selection_stress ... {"compositeLists":[{"children":500,"materialBytes":50000,"measurement":{"jsonBytes":328,"maxMs":1.097833,"medianMs":0.972583},"returnedRoots":1,"rootPageLimit":30},{"children":999,"materialBytes":100000,"measurement":{"jsonBytes":328,"maxMs":1.8047499999999999,"medianMs":1.6730829999999999},"returnedRoots":1,"rootPageLimit":30}],"method":"Release Rust; disposable database; synthetic valid reading groups; 3 sequential samples; excludes IPC/WebView","subsetCounts":[{"measurement":{"jsonBytes":3894,"maxMs":0.016708999999999998,"medianMs":0.011667},"roots":10000,"weight":1},{"measurement":{"jsonBytes":3894,"maxMs":0.031958,"medianMs":0.031792},"roots":100000,"weight":1}]}
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 189 filtered out; finished in 0.03s
+

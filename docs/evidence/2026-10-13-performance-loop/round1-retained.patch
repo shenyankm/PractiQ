@@ -1,0 +1,141 @@
+diff --git a/app/src-tauri/src/paper.rs b/app/src-tauri/src/paper.rs
+index cb9cc9a..9f022db 100644
+--- a/app/src-tauri/src/paper.rs
++++ b/app/src-tauri/src/paper.rs
+@@ -109,8 +109,12 @@ fn selection_paths(weights: &[usize], target: usize) -> Vec<Option<(usize, usize
+     paths
+ }
+ pub(crate) fn feasible_counts(weights: &[usize]) -> Vec<usize> {
+-    if weights.iter().all(|&weight| weight == 1) {
+-        return (1..=weights.len().min(1000)).collect();
++    if let Some(&weight) = weights.first() {
++        if weight > 0 && weights.iter().all(|&value| value == weight) {
++            return (1..=weights.len().min(1000 / weight))
++                .map(|n| n * weight)
++                .collect();
++        }
+     }
+     selection_paths(weights, weights.iter().sum::<usize>().min(1000))
+         .iter()
+@@ -335,6 +339,62 @@ mod tests {
+         assert!(exact(&[1001], 1001).is_err());
+     }
+     #[test]
++    fn feasible_counts_match_all_small_subsets_and_count_limits() {
++        fn brute_counts(weights: &[usize]) -> Vec<usize> {
++            (0..(1usize << weights.len()))
++                .map(|mask| {
++                    weights
++                        .iter()
++                        .enumerate()
++                        .filter(|(i, _)| mask & (1 << i) != 0)
++                        .map(|(_, weight)| weight)
++                        .sum::<usize>()
++                })
++                .filter(|count| (1..=1000).contains(count))
++                .collect::<std::collections::BTreeSet<_>>()
++                .into_iter()
++                .collect()
++        }
++        for length in 0..=6 {
++            for mut encoded in 0..4usize.pow(length) {
++                let weights: Vec<_> = (0..length)
++                    .map(|_| {
++                        let weight = encoded % 4;
++                        encoded /= 4;
++                        weight
++                    })
++                    .collect();
++                assert_eq!(
++                    feasible_counts(&weights),
++                    brute_counts(&weights),
++                    "{weights:?}"
++                );
++            }
++        }
++        for weights in [
++            vec![0, 0, 0],
++            vec![999, 999],
++            vec![1000, 1000],
++            vec![1001, 1001],
++            vec![1, 999, 1000, 1001],
++            vec![0, 2, 998, 1001],
++        ] {
++            assert_eq!(
++                feasible_counts(&weights),
++                brute_counts(&weights),
++                "{weights:?}"
++            );
++        }
++        assert_eq!(
++            feasible_counts(&[3; 334]),
++            (1..=333).map(|i| i * 3).collect::<Vec<_>>()
++        );
++        assert_eq!(
++            feasible_counts(&[10; 101]),
++            (1..=100).map(|i| i * 10).collect::<Vec<_>>()
++        );
++    }
++    #[test]
+     fn statistics_and_random_papers_preserve_complete_groups() {
+         let directory = tempfile::tempdir().unwrap();
+         let mut store = Store::new(directory.path().into()).unwrap();
+diff --git a/app/src-tauri/src/performance.rs b/app/src-tauri/src/performance.rs
+index d903a57..1a5329e 100644
+--- a/app/src-tauri/src/performance.rs
++++ b/app/src-tauri/src/performance.rs
+@@ -384,7 +384,7 @@ fn desktop_stress() {
+ #[test]
+ #[ignore = "large composite list and subset-sum profile"]
+ fn list_and_selection_stress() {
+-    let mut report = json!({"method":"Release Rust; disposable database; synthetic valid reading groups; 3 sequential samples; excludes IPC/WebView","compositeLists":[],"subsetCounts":[]});
++    let mut report = json!({"method":"Release Rust; disposable database; synthetic valid reading groups; 3 sequential samples; excludes IPC/WebView. Subset timings cover feasible-count calculation only, excluding assertions and JSON serialization.","compositeLists":[],"subsetCounts":[]});
+     for (children, material_bytes) in [(500usize, 50_000usize), (999, 100_000)] {
+         let dir = tempfile::tempdir().unwrap();
+         let store = Store::new(dir.path().into()).unwrap();
+@@ -417,16 +417,35 @@ fn list_and_selection_stress() {
+         report["compositeLists"].as_array_mut().unwrap().push(json!({"rootPageLimit":30,"returnedRoots":1,"children":children,"materialBytes":material_bytes,"measurement":measured}));
+     }
+     for count in [10_000usize, 100_000] {
+-        let weights = vec![1usize; count];
+-        let measured = measure(|| {
+-            let counts = crate::paper::feasible_counts(&weights);
+-            assert_eq!(counts, (1..=1000).collect::<Vec<_>>());
+-            json!(counts)
+-        });
+-        report["subsetCounts"]
+-            .as_array_mut()
+-            .unwrap()
+-            .push(json!({"roots":count,"weight":1,"measurement":measured}));
++        for weight in [1usize, 3, 10, 1001, 0] {
++            let weights = if weight == 0 {
++                (0..count).map(|i| 2 + i % 2).collect::<Vec<_>>()
++            } else {
++                vec![weight; count]
++            };
++            let expected: Vec<_> = if weight == 0 {
++                (2..=1000).collect()
++            } else {
++                (1..=count.min(1000 / weight)).map(|i| i * weight).collect()
++            };
++            let mut samples = Vec::new();
++            let mut output = Vec::new();
++            for _ in 0..3 {
++                let start = Instant::now();
++                let counts = crate::paper::feasible_counts(std::hint::black_box(&weights));
++                samples.push(start.elapsed().as_secs_f64() * 1000.0);
++                assert_eq!(counts, expected);
++                output = counts;
++            }
++            let bytes = serde_json::to_vec(&output).unwrap();
++            let mut sorted = samples.clone();
++            sorted.sort_by(f64::total_cmp);
++            let measured = json!({"samplesMs":samples,"medianMs":sorted[1],"maxMs":sorted[2],"jsonBytes":bytes.len(),"outputSha256":crate::store::hash(&bytes)});
++            report["subsetCounts"]
++                .as_array_mut()
++                .unwrap()
++                .push(json!({"roots":count,"weight":if weight == 0 { json!([2,3]) } else { json!(weight) },"inputSha256":crate::store::hash(&serde_json::to_vec(&weights).unwrap()),"measurement":measured}));
++        }
+     }
+     std::fs::write(
+         std::env::var("PRACTIQ_BENCH_OUTPUT").expect("set PRACTIQ_BENCH_OUTPUT"),

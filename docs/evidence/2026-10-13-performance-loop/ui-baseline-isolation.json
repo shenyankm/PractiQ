@@ -1,0 +1,18 @@
+{
+  "productName": "PractiQ Baseline QA",
+  "identifier": "com.practiq.perf-baseline-20261013-01a13529",
+  "app": {
+    "windows": [
+      {
+        "title": "PractiQ Baseline QA \u2014 initial source synthetic data",
+        "width": 1280,
+        "height": 850,
+        "minWidth": 960,
+        "minHeight": 640
+      }
+    ]
+  },
+  "bundle": {
+    "resources": []
+  }
+}

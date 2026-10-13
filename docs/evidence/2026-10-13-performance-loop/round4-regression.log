@@ -1,0 +1,17 @@
+
+> practiq-ai-web@0.1.0 test
+> vitest run src/App.test.tsx src/ResultReviewPerformance.test.tsx
+
+(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - import "./contracts.generated" without a file extension (src/test-fixtures.ts:1:77). Add the file extension
+  - import "./api" without a file extension (src/test-fixtures.ts:2:35). Add the file extension
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+
+ RUN  v5.0.1 /Users/sheny/Developer/code/PractiQ/web
+
+
+ Test Files  2 passed (2)
+      Tests  24 passed (24)
+   Start at  20:33:03
+   Duration  4.93s (tests 68%, environment 20%, import 5%, transform 4%, setup 4%)
+

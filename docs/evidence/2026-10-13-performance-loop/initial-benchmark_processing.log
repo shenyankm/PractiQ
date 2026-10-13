@@ -1,0 +1,13 @@
+{
+  "repetitions": 3,
+  "pagePixels": [
+    2480,
+    3508
+  ],
+  "crops": 50,
+  "perCropDecodeMedianMs": 904.0954999945825,
+  "batchDecodeMedianMs": 33.426333000534214,
+  "identicalCropBytes": true,
+  "mergeInputQuestions": 2000,
+  "mergeMedianMs": 39.07370800152421
+}

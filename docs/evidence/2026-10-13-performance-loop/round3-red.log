@@ -1,0 +1,42 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_ test_page_merge_skips_overlap_content_and_preserves_independent_nested_records _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10b5ba3f0>
+
+    def test_page_merge_skips_overlap_content_and_preserves_independent_nested_records(monkeypatch):
+        from practiq_ai.graphs import chunking
+    
+        complete = ParsedQuestion(stem='Question', answerMode='short_answer', questionTypeId='short_answer',
+            answerPayload={'text': 'supplied answer'}, analysis='printed analysis', sourceText='Question', needsReview=False,
+            contentBlocks=[{'partType': 'text', 'textValue': 'Printed material', 'jsonValue': {'rows': [1, 2]}}])
+        missing = ParsedQuestion.model_validate({**complete.model_dump(), 'answerPayload': None, 'needsReview': True})
+        originals = [complete, missing]
+        before = [question.model_dump() for question in originals]
+        group = ParsedGroup(title='Material', questionIndexes=[0])
+        group_before = group.model_dump()
+    
+        def unexpected_content(_question):
+            pytest.fail('Page merge must not serialize content for text overlap comparison')
+    
+        monkeypatch.setattr(chunking, '_content', unexpected_content)
+>       merged, groups, warnings, truncated, sources, quality = merge_chunk_results(
+            [(0, [complete], [group]), (1, [missing], [group])], overlapping=False)
+
+tests/test_chunking.py:219: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+src/practiq_ai/graphs/chunking.py:125: in merge_chunk_results
+    content = _content(question)
+              ^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+_question = ParsedQuestion(id=None, parentId=None, questionKind=None, instructions=None, audioRef=None, audioStartSeconds=0, audio...atexValue=None, jsonValue={'rows': [1, 2]})], sourceText='Question', confidence=0, needsReview=False, missingFields=[])
+
+    def unexpected_content(_question):
+>       pytest.fail('Page merge must not serialize content for text overlap comparison')
+E       Failed: Page merge must not serialize content for text overlap comparison
+
+tests/test_chunking.py:216: Failed
+=========================== short test summary info ============================
+FAILED tests/test_chunking.py::test_page_merge_skips_overlap_content_and_preserves_independent_nested_records
+1 failed, 18 deselected in 0.54s
