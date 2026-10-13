@@ -1,0 +1,137 @@
+name: PractiQ agent-bot
+on:
+  pull_request:
+    paths:
+      - .github/scripts/maintainer*.mjs
+      - .github/workflows/maintainer.yml
+  issues:
+    types: [opened, edited, reopened]
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      task:
+        description: Task to run
+        type: choice
+        options: [triage, review, release-draft]
+        default: triage
+      number:
+        description: Existing issue or PR number (triage/review only)
+        type: string
+      tag:
+        description: Existing candidate tag (release-draft only)
+        type: string
+      dry_run:
+        description: Analyze without adding labels or posting a review
+        type: boolean
+        default: true
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+concurrency:
+  group: maintainer-${{ github.event.issue.number || github.event.pull_request.number || inputs.number || inputs.tag }}
+  cancel-in-progress: false
+jobs:
+  test:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: node --test .github/scripts/maintainer.test.mjs
+  analyze:
+    if: >-
+      (github.event_name == 'workflow_dispatch' && inputs.task != 'release-draft') ||
+      (github.event_name == 'issues' && github.event.issue.user.type != 'Bot') ||
+      (github.event_name == 'pull_request_target' && !github.event.pull_request.draft && github.event.pull_request.user.type != 'Bot')
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    outputs:
+      mode: ${{ steps.target.outputs.mode }}
+      number: ${{ steps.target.outputs.number }}
+    steps:
+      # Never check out or execute a contributor's PR head in this privileged workflow.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: node --test .github/scripts/maintainer.test.mjs
+      - name: Select target from event metadata
+        id: target
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          TASK: ${{ inputs.task }}
+          NUMBER: ${{ inputs.number }}
+        run: |
+          node --input-type=module <<'JS'
+          import { readFileSync, appendFileSync } from 'node:fs';
+          const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
+          const mode = process.env.EVENT_NAME === 'workflow_dispatch' ? process.env.TASK : event.pull_request ? 'review' : 'triage';
+          const number = process.env.EVENT_NAME === 'workflow_dispatch' ? process.env.NUMBER : String(event.pull_request?.number ?? event.issue.number);
+          if (!['triage', 'review'].includes(mode) || !/^[1-9]\d*$/.test(number)) throw new Error('Invalid target');
+          appendFileSync(process.env.GITHUB_OUTPUT, `mode=${mode}\nnumber=${number}\n`);
+          JS
+      - name: Analyze with read-only GitHub access
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PRACTIQ_AGENT_API_KEY: ${{ secrets.PRACTIQ_AGENT_API_KEY }}
+          PRACTIQ_AGENT_BASE_URL: ${{ vars.PRACTIQ_AGENT_BASE_URL }}
+          PRACTIQ_AGENT_MODEL: ${{ vars.PRACTIQ_AGENT_MODEL }}
+          MODE: ${{ steps.target.outputs.mode }}
+          NUMBER: ${{ steps.target.outputs.number }}
+        run: node .github/scripts/maintainer.mjs analyze "$MODE" "$NUMBER"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: maintainer-result
+          path: maintainer-result.json
+          retention-days: 1
+          if-no-files-found: error
+  publish:
+    needs: analyze
+    if: github.event_name != 'workflow_dispatch' || !inputs.dry_run
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: maintainer-result
+      - id: app
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+        with:
+          client-id: ${{ vars.PRACTIQ_APP_CLIENT_ID }}
+          private-key: ${{ secrets.PRACTIQ_APP_PRIVATE_KEY }}
+          permission-issues: write
+          permission-pull-requests: write
+      - name: Publish validated output as PractiQ Maintainer
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          APP_SLUG: ${{ steps.app.outputs.app-slug }}
+          MODE: ${{ needs.analyze.outputs.mode }}
+          NUMBER: ${{ needs.analyze.outputs.number }}
+        run: node .github/scripts/maintainer.mjs publish "$MODE" "$NUMBER"
+  release-draft:
+    if: github.event_name == 'workflow_dispatch' && inputs.task == 'release-draft'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    steps:
+      - id: app
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+        with:
+          client-id: ${{ vars.PRACTIQ_APP_CLIENT_ID }}
+          private-key: ${{ secrets.PRACTIQ_APP_PRIVATE_KEY }}
+          permission-actions: write
+      - name: Start the existing gated draft workflow
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          [[ "$RELEASE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-(alpha|beta|rc)\.(0|[1-9][0-9]*))?$ ]]
+          gh workflow run release.yml --repo "$GITHUB_REPOSITORY" --ref main -f tag="$RELEASE_TAG"
+          echo 'Release draft dispatched; follow its separate run for build and package results.' >> "$GITHUB_STEP_SUMMARY"
