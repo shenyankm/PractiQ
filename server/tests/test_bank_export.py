@@ -515,7 +515,7 @@ async def test_export_waits_for_a_cancelled_writer_before_closing_its_archive(tm
 
 @pytest.mark.parametrize("failure", [None, "cancelled", "disconnect"])
 @pytest.mark.parametrize("customer", [False, True])
-async def test_export_http_slot_holds_through_download_and_releases_after_response(monkeypatch, failure, customer):
+async def test_export_http_global_slot_holds_through_download_and_releases_after_response(monkeypatch, failure, customer):
     from practiq_ai import saas, task_api, webapp
     async def identity(phone, _card):
         return phone
@@ -554,8 +554,8 @@ async def test_export_http_slot_holds_through_download_and_releases_after_respon
             assert busy.headers["retry-after"] == "1" and len(files) == 1
             if customer:
                 other = await client.get(endpoint, headers={'X-Practiq-Phone': 'account-b'})
-                assert other.status_code == 200 and len(other.content) == 128 * 1024 + 17
-                assert len(files) == 2 and files[1].closed and not files[0].closed
+                assert other.status_code == 429 and other.json()['detail']['code'] == 'BANK_EXPORT_BUSY'
+                assert other.headers['retry-after'] == '1' and len(files) == 1 and not files[0].closed
             if failure == "cancelled":
                 first.cancel()
             released.set()
@@ -565,9 +565,11 @@ async def test_export_http_slot_holds_through_download_and_releases_after_respon
             else:
                 await first
             assert files[0].closed
+            if customer:
+                client.headers['X-Practiq-Phone'] = 'account-b'
             exported = await client.get(endpoint)
             assert exported.status_code == 200 and len(exported.content) == 128 * 1024 + 17
-            assert len(files) == 2 + int(customer) and all(file.closed for file in files)
+            assert len(files) == 2 and all(file.closed for file in files)
     finally:
         released.set()
         if not first.done():
