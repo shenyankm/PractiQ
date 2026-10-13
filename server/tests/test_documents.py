@@ -8,6 +8,49 @@ from practiq_ai.extractors import extract
 from tests.support import make_blank_pdf
 
 
+@pytest.mark.parametrize('size', [(16_385, 1), (1, 16_385), (8_000, 4_001)])
+def test_image_rejects_desktop_dimensions_even_with_a_higher_pixel_limit(monkeypatch, size):
+    from PIL import Image
+
+    monkeypatch.setenv('AI_MAX_VISION_PAGE_PIXELS', '100000000')
+    payload = BytesIO()
+    Image.new('1', size).save(payload, format='PNG')
+    with pytest.raises(DocumentProcessingError) as error:
+        extract('image', payload.getvalue())
+    assert error.value.status_code == 413
+    assert error.value.code == 'IMAGE_TOO_LARGE'
+
+
+@pytest.mark.parametrize('size', [(16_384, 1), (1, 16_384), (8_000, 4_000)])
+def test_image_accepts_desktop_dimension_boundaries(monkeypatch, size):
+    from PIL import Image
+
+    monkeypatch.setenv('AI_MAX_VISION_PAGE_PIXELS', '100000000')
+    payload = BytesIO()
+    Image.new('1', size).save(payload, format='PNG')
+    assert extract('image', payload.getvalue()).page_images == [payload.getvalue()]
+
+
+@pytest.mark.parametrize('size', [(16_385, 1), (1, 16_385), (8_000, 4_001)])
+def test_pdf_rejects_desktop_dimensions_before_render(monkeypatch, size):
+    from unittest.mock import Mock
+
+    from practiq_ai.extractors import pdf
+
+    monkeypatch.setenv('AI_MAX_VISION_PAGE_PIXELS', '100000000')
+    page = Mock()
+    page.get_size.return_value = tuple(value / pdf.RENDER_SCALE for value in size)
+    document = Mock()
+    document.__getitem__ = Mock(return_value=page)
+    monkeypatch.setattr(pdf.pdfium, 'PdfDocument', Mock(return_value=document))
+    with pytest.raises(DocumentProcessingError) as error:
+        pdf.render_pages(b'pdf', [0])
+    assert error.value.status_code == 413
+    page.render.assert_not_called()
+    page.close.assert_called_once()
+    document.close.assert_called_once()
+
+
 def test_extract_csv_text_and_image() -> None:
     from PIL import Image
 

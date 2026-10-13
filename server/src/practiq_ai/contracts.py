@@ -22,6 +22,8 @@ DocumentSourceType = Literal["csv", "image", "text", "pdf", "doc", "docx", "xls"
 OfficeMode = Literal["pdf", "text"]
 OFFICE_SOURCE_TYPES = {"doc", "docx", "xls", "xlsx"}
 OFFICE_FILE_MAX_BYTES = 25 * 1024 * 1024
+BANK_IMAGE_MAX_DIMENSION = 16_384
+BANK_IMAGE_MAX_PIXELS = 32_000_000
 ContentPartType = Literal[
     "text",
     "formula",

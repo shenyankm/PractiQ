@@ -8,6 +8,7 @@ from typing import Any, cast
 import pypdfium2 as pdfium
 
 from ..config import load
+from ..contracts import BANK_IMAGE_MAX_DIMENSION, BANK_IMAGE_MAX_PIXELS
 from . import (
     VISION_BYTES_LIMIT_DETAIL,
     DocumentProcessingError,
@@ -67,12 +68,11 @@ def _render_pages(file_bytes: bytes, indexes: list[int], *, compress_level: int 
             page = document[index]
             try:
                 width, height = page.get_size()
-                rendered_pixels = ceil(width * RENDER_SCALE) * ceil(
-                    height * RENDER_SCALE
-                )
-                if rendered_pixels > load().max_vision_page_pixels:
+                rendered_width, rendered_height = ceil(width * RENDER_SCALE), ceil(height * RENDER_SCALE)
+                if (rendered_width > BANK_IMAGE_MAX_DIMENSION or rendered_height > BANK_IMAGE_MAX_DIMENSION
+                        or rendered_width * rendered_height > min(load().max_vision_page_pixels, BANK_IMAGE_MAX_PIXELS)):
                     raise DocumentProcessingError(
-                        413, "PDF page exceeds the configured visual pixel limit"
+                        413, "PDF page exceeds the visual dimension or pixel limit"
                     )
                 bitmap = page.render(scale=cast(Any, RENDER_SCALE))
                 try:

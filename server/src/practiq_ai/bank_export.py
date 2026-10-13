@@ -10,6 +10,8 @@ from PIL import Image
 from pydantic import ValidationError
 
 from .contracts import (
+    BANK_IMAGE_MAX_DIMENSION,
+    BANK_IMAGE_MAX_PIXELS,
     ArtifactReference,
     DocumentParseResult,
     DocumentProcessing,
@@ -77,7 +79,7 @@ def _image(reference: ArtifactReference, payload: bytes) -> None:
             with Image.open(io.BytesIO(payload)) as image:
                 if Image.MIME.get(image.format or "") != reference.mediaType:
                     raise ValueError("Image format does not match its media type")
-                if not (0 < image.width <= 16_384 and 0 < image.height <= 16_384) or image.width * image.height > 32_000_000:
+                if not (0 < image.width <= BANK_IMAGE_MAX_DIMENSION and 0 < image.height <= BANK_IMAGE_MAX_DIMENSION) or image.width * image.height > BANK_IMAGE_MAX_PIXELS:
                     raise ValueError("Image dimensions exceed desktop limits")
                 image.verify()
             with Image.open(io.BytesIO(payload)) as image:
