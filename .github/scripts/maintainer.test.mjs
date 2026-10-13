@@ -3,7 +3,31 @@ import test from 'node:test';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { identity, main, validate } from './maintainer.mjs';
+import { completion, identity, main, validate } from './maintainer.mjs';
+
+const packet = choice => `data: ${JSON.stringify({ choices: [choice] })}\n\n`;
+
+test('model stream handles fragmented UTF-8, reasoning, keepalives and completion', async () => {
+  const bytes = new TextEncoder().encode(': keepalive\n\n' +
+    packet({ delta: { reasoning_content: 'Discard private reasoning' } }) +
+    packet({ delta: { content: '{"body":"章鱼"}' } }) +
+    packet({ delta: {}, finish_reason: 'stop' }) + 'data: [DONE]\n\n');
+  const body = new ReadableStream({ start(controller) {
+    for (const byte of bytes) controller.enqueue(new Uint8Array([byte]));
+    controller.close();
+  } });
+  assert.deepEqual(await completion(new Response(body)), { body: '章鱼' });
+});
+
+test('incomplete, truncated, erroneous and malformed model streams fail closed', async () => {
+  for (const text of [packet({ delta: { content: '{}' } }),
+    packet({ delta: { content: '{}' }, finish_reason: 'length' }) + 'data: [DONE]\n\n',
+    'data: {"error":{"message":"failed"}}\n\n',
+    'data: invalid\n\n',
+    packet({ delta: { content: 'not JSON' }, finish_reason: 'stop' }) + 'data: [DONE]\n\n']) {
+    await assert.rejects(() => completion(new Response(text)));
+  }
+});
 
 test('triage can only add bounded existing classification labels', () => {
   validate({ labels: ['bug'] }, 'triage', ['bug']);

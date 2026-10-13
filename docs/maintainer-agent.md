@@ -55,7 +55,9 @@ files only through GitHub's API. Reviews cover at most 40 changed files and
 each. Large/binary files and unchanged callers may be missing; this is a first
 pass, not a substitute for human review or CI. Exceeding total limits, model/API
 errors, truncated output or invalid JSON blocks publication. No automatic model
-retries are made. Changed issue text or PR head also blocks stale publication.
+retries are made. Responses stream with a five-minute deadline to avoid gateway
+idle timeouts; reasoning is discarded and only a normally completed JSON answer
+can be published. Changed issue text or PR head also blocks stale publication.
 
 ## Validation
 
