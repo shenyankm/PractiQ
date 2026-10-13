@@ -22,7 +22,7 @@ make web-build
 make server-dev AI_PYTHON=/path/to/python3.14
 ```
 
-The default address is `127.0.0.1:8090`. `GET /ok` checks liveness; `GET /ready` checks readiness. Writable local and production deployments require PostgreSQL and RabbitMQ. Read-only mode can serve existing state without the broker. Initialization accepts only an empty database and does not read or migrate old Agent Server data. A single service process holds an exclusive lock. Restarting reconciles eligible unfinished runs for broker redelivery; unknown paid-call results require explicit recovery. Manually paused tasks and tasks awaiting review remain waiting. Existing service schema 1 requires an offline `make upgrade-db`; see the [upgrade/recovery guide](rabbitmq.md).
+The default address is `127.0.0.1:8090`. `GET /ok` checks liveness; `GET /ready` checks readiness. Writable local and production deployments require PostgreSQL and RabbitMQ. Read-only mode can serve existing state without the broker. Initialization accepts only an empty database and does not read or migrate old Agent Server data. A single service process holds an exclusive lock. Restarting reconciles eligible unfinished runs for broker redelivery; unknown paid-call results require explicit recovery. Manually paused tasks and tasks awaiting review remain waiting. Existing service schema 1 or 2 requires an offline `make upgrade-db`; see the [upgrade/recovery guide](rabbitmq.md).
 
 `LLM_MODEL` is required for model-enabled deployments and selects one model supporting text and image inputs. The old `LLM_TEXT_MODEL` / `LLM_VISION_MODEL` settings are no longer read. Set `LLM_MODEL` to the previous vision model ID, or the previous text model if no vision model was configured; the selected model must support both input types. TXT/CSV extraction uses text input; PDF/image extraction uses image input directly. PDFium renders PDFs. The deployment image includes Chinese fonts. Office uploads require the independently deployed LibreOffice configuration described in the [Office guide](desktop-office.md); they are normalized before entering these same extractors. Set `AI_READ_ONLY=1` to run without model configuration for reading saved results; unfinished tasks remain stopped and new model work is rejected.
 
@@ -30,17 +30,17 @@ Source images support PNG/JPEG only (`image/png`, `image/jpeg`). Declaring WebP/
 
 ## Import workflow
 
-Open the built Web frontend at the service root, or run `make web-dev` for its loopback development proxy. The Web token stays in memory; provider credentials and Office executable paths stay in the service environment. File selection is passive; Start import authorizes upload, normalization and parsing. The desktop uses the resulting ZIP offline and calls the service only for explicit grading.
+Open the built Web frontend at the service root, or run `make web-dev` for its loopback development proxy. The Web phone/card credentials stay in memory; provider credentials and Office executable paths stay in the service environment. File selection is passive; Start import authorizes upload, normalization and parsing. The desktop uses the resulting ZIP offline and calls the service only for explicit grading.
 
 `GET /api/import-capabilities` is authenticated and reports supported source types, the configured `sourceMaxBytes`, Office availability/modes and model configuration. When Office is available, `officeSourceMaxBytes` is the smaller of `sourceMaxBytes` and the converter's 25 MiB ceiling; otherwise it is null. Upload metadata, binary upload and task admission reject oversized sources before reading their content or queuing work. Non-Office formats retain the configured `sourceMaxBytes`. Read-only deployments can serve existing results without a configured model; new model work returns `MODEL_NOT_CONFIGURED`.
 
 Upload the source, create a task, then read and download the result:
 
-1. Send `Authorization: Bearer your_service_token_here`, replacing the placeholder with `AI_SERVICE_TOKEN`, to `POST /api/uploads` to request a file reference.
-2. Send the raw bytes with an authenticated PUT to the returned address using its Content-Type. An existing file may return a reference without requiring upload.
+1. Send `Authorization: Card <bound-card>` and `X-Practiq-Phone: <phone>` to `POST /api/uploads` to request a file reference.
+2. Send the raw bytes with an authenticated PUT to the returned address using its Content-Type. A file already verified for the current account may return a reference without requiring upload.
 3. Submit `document` and a UUID `requestId` to `POST /api/document-tasks`; poll `GET /api/document-tasks/{threadId}`. Official native Graph/SDK APIs are not exposed.
-4. Submit an `ArtifactReference` to `POST /api/artifacts/read` to read asset bytes after authentication, size, and SHA-256 checks.
-5. For a completed result, `GET /api/document-tasks/{threadId}/export?checkpoint_id=<currentCheckpoint>` downloads the existing desktop-compatible bank ZIP. A stale checkpoint returns `STALE_CHECKPOINT`; an unfinished or missing result returns `BANK_EXPORT_NOT_READY`. Export makes no model call.
+4. Submit an `ArtifactReference` to `POST /api/artifacts/read?thread_id=<ownedTaskId>` to read asset bytes after authentication, size, and SHA-256 checks.
+5. For a completed result, `GET /api/document-tasks/{threadId}/export?checkpoint_id=<currentCheckpoint>` downloads the existing desktop-compatible bank ZIP. A stale checkpoint returns `STALE_CHECKPOINT`; a missing usable result returns `BANK_EXPORT_NOT_READY`; a paused task with completed units can request `scope=completed`. Export makes no model call.
 
 Export verifies and writes one resource at a time into a private disk ZIP, then streams it in 64 KiB chunks. The single-process service allows one export build/download per event loop until that response finishes. A competing authenticated export receives HTTP 429 with `BANK_EXPORT_BUSY` and `Retry-After: 1`; retry explicitly after the current download finishes. Completion, failed builds, disconnects and cancellation close the temporary archive and release the slot. Existing JSON, individual resource, expanded-resource and ZIP limits still apply.
 
@@ -52,7 +52,7 @@ Pause, interrupt, resume, retry, and partial-result acceptance use `POST /api/do
 
 ## Request subjective grading
 
-Clients should call `POST /api/subjective-grades` only after an explicit grading or regrading action. The endpoint uses the same Bearer authentication and returns one question's result directly. It does not create a document task or offer document-task pause/resume controls.
+Clients should call `POST /api/subjective-grades` only after an explicit grading or regrading action. The endpoint uses service Bearer authentication independently from SaaS imports and returns one question's result directly. It does not create a document task or offer document-task pause/resume controls.
 
 Grading requires a complete short-answer question, a nonempty answer, and a reference answer or rubric. Parsed fields `sourceScore`, `scoringRubric`, and `scoreSourceText` preserve the source score, rubric, and score text; missing values remain `null`. New JSON may omit these optional fields. Parsing does not generate answers or grading evidence.
 
@@ -193,7 +193,7 @@ graph TD
 
 Document parsing follows these constraints:
 
-- Sources enter storage through a service-token-authenticated PUT. Size and SHA-256 are checked before parsing.
+- Sources enter storage through a phone/card-authenticated PUT. Size and SHA-256 are checked before parsing.
 - Every PDF page, including digital PDFs, is rendered at approximately 200 DPI. The model must support images. Page images directly produce structured questions, groups, and figures, without OCR transcription or a second text-chunk parsing pass. Each page includes adjacent pages as context and emits only questions starting on that page. Content beyond that window remains incomplete and flagged for review. Failed pages can be retried and merged again without rerunning successful pages. The model supplies figure bounding boxes; Pillow crops them. Descriptions use the `[page crop]` prefix. Page recognition may run concurrently; individual vision/text failures retain details and return `PARTIAL`.
 - Graph state stores references and structured results, not file Base64.
 - Pydantic validates model output. Failed calls remain subject to shared retry and concurrency limits.
@@ -233,3 +233,5 @@ See [operations](operations.md) for storage paths, upload deadlines, process iso
 Python extracts, associates, and exports `schemaVersion: 3` JSON. Rust validates it and writes schema 11 SQLite. Reading, word-bank, and cloze use composite questions; single/multiple-choice answers share the `answerPayload.correct` array. Each word-bank/cloze blank is a choice child. IDs reference shared materials and option banks; sections remain independent of composite groups. Sources and review issues also use question IDs at export. Execution state version 7 rejects old-structure checkpoints. See the [question model and ER diagram](../../docs/question-model.md).
 
 English question kinds include listening, reading, word-bank, cloze, grammar fill, sentence selection, paragraph matching, translation, and writing. Parsing extracts only supplied content; the desktop attaches listening audio locally. See the [English question model](../../docs/question-model.md#english-question-types) for fields, passage dialogs, and playback rules.
+
+Configure explicit input/output point rates and product/card issuance before customer imports; see [SaaS deployment and migration](saas.md).

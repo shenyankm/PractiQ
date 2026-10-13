@@ -10,7 +10,7 @@ from practiq_ai import manage, runtime, task_api
 from practiq_ai.contracts import DocumentReference, DocumentTaskCreate
 from practiq_ai.database import utcnow
 from practiq_ai.execution import namespace
-from tests.db_support import new_database, setup_api
+from tests.db_support import new_database, remove_saas_schema, setup_api
 
 pytestmark = pytest.mark.usefixtures('disposable_databases')
 
@@ -31,11 +31,12 @@ async def test_upgrade_retains_history_receipts_files_deadlines_and_only_stages_
         for state in ('pending', 'running', 'waiting', 'interrupted', 'error', 'success', 'cancelled', 'unknown', 'paused'):
             tid, rid = str(uuid4()), str(uuid4())
             ids[state] = (tid, rid)
-            await conn.execute('INSERT INTO document_tasks SELECT %s,request_hash,graph_id,document,failure_policy,NULL,created_at,expires_at FROM document_tasks WHERE thread_id=%s', (tid, completed['threadId']))
+            await conn.execute('INSERT INTO document_tasks(thread_id,request_hash,graph_id,document,failure_policy,parent_thread_id,created_at,expires_at) SELECT %s,request_hash,graph_id,document,failure_policy,NULL,created_at,expires_at FROM document_tasks WHERE thread_id=%s', (tid, completed['threadId']))
             await conn.execute('INSERT INTO document_runs(run_id,thread_id,request_id,input,context,status,deadline,cancel_requested,pause_requested) VALUES(%s,%s,%s,%s,\'{}\',%s,%s,%s,%s)',
                                (rid, tid, rid, dumps({'document': reference, 'failurePolicy': 'return_partial'}), 'running' if state in {'cancelled', 'unknown', 'paused'} else state, deadline, state == 'cancelled', state == 'paused'))
         # A final checkpoint was saved before its run receipt reached success.
         await conn.execute("UPDATE document_runs SET status='running' WHERE run_id=%s", (completed['runId'],))
+        await remove_saas_schema(conn)
         await conn.execute('DROP TABLE document_outbox')
         await conn.execute('UPDATE practiq_schema SET version=1')
     unknown_tid, unknown_rid = ids['unknown']
@@ -82,6 +83,7 @@ async def test_startup_recovers_upgrade_interrupted_after_schema_commit(monkeypa
     deadline = utcnow() + timedelta(seconds=100)
     async with db.transaction() as conn:
         await conn.execute("UPDATE document_runs SET status='running',deadline=%s WHERE run_id=%s", (deadline, receipt['runId']))
+        await remove_saas_schema(conn)
         await conn.execute('DROP TABLE document_outbox')
         await conn.execute('UPDATE practiq_schema SET version=1')
     async with manage.exclusive(db):

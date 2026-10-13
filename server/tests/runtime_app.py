@@ -2,15 +2,27 @@
 import asyncio
 import os
 from pathlib import Path
+from typing import Annotated
 
-from practiq_ai import llm, messaging, runtime
+from fastapi import Depends
+
+from practiq_ai import llm, messaging, runtime, saas
 from practiq_ai.graphs import document
-from practiq_ai.webapp import app
+from practiq_ai.webapp import app, authorize, customer
 from tests.support import FakeModel, question
 
 root = Path(os.environ['TEST_EVENTS'])
 root.mkdir(exist_ok=True)
 phase = os.environ.get('TEST_PHASE', '')
+
+
+def legacy_import_admin(_authorization: Annotated[None, Depends(authorize)]):
+    """Retain legacy task fault probes; production rejects Bearer import creation."""
+    return
+
+
+if not os.environ.get('TEST_SAAS'):
+    app.dependency_overrides[customer] = legacy_import_admin
 
 
 async def block_once(name):
@@ -23,6 +35,18 @@ async def block_once(name):
     except FileExistsError:
         return
     await asyncio.Event().wait()
+
+
+original_settle = saas.settle
+
+
+async def settle(call_key, usage, **kwargs):
+    if usage is not None:
+        await block_once('points_before_settlement')
+    return await original_settle(call_key, usage, **kwargs)
+
+
+saas.settle = settle
 
 
 def response(messages, schema):

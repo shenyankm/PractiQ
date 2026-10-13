@@ -19,6 +19,12 @@ DATABASES = []
 SERVICES = []
 
 
+async def remove_saas_schema(conn):
+    """Make an empty schema-3 test database match the historical task schema."""
+    await conn.execute('ALTER TABLE document_tasks DROP COLUMN account_id, DROP COLUMN billing_rates')
+    await conn.execute('DROP TABLE import_calls,import_uploads,import_ledger,import_cards,import_products,import_accounts')
+
+
 TEST_URI = None
 
 
@@ -105,6 +111,9 @@ async def setup_api(monkeypatch, responses=None, parts=None):
     async def finish():
         async with asyncio.timeout(15):
             while await db.rows(f"SELECT run_id FROM document_runs WHERE thread_id IN ({execution.SUPPORTED_TASKS_SQL}) AND status IN ('pending','running')"):
+                await asyncio.sleep(0.01)
+            # Database completion precedes execution's done callback.
+            while service.active:
                 await asyncio.sleep(0.01)
     service.wait_idle = finish
     return service, reference, model

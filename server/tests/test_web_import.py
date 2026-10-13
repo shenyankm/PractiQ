@@ -10,8 +10,9 @@ import httpx
 import pytest
 from fastapi import FastAPI
 
-from practiq_ai import execution, task_api, webapp
+from practiq_ai import execution, saas, task_api, webapp
 from practiq_ai.contracts import (
+    CardRedeem,
     DocumentReference,
     DocumentTaskCreate,
     DocumentUploadRequest,
@@ -147,13 +148,20 @@ async def test_non_office_queue_still_runs_after_configured_engine_disappears(mo
 
 
 async def test_upload_remains_available_in_service_read_only_mode_but_start_is_blocked(monkeypatch, tmp_path):
-    await setup_api(monkeypatch)
+    service, _, _ = await setup_api(monkeypatch)
+    card = saas.new_card()
+    async with service.db.transaction() as conn:
+        await conn.execute("INSERT INTO import_products VALUES('readonly','Readonly',1000000,'https://shop.example',true)")
+        await conn.execute("INSERT INTO import_cards(digest,product_id,points) VALUES(%s,'readonly',1000000)", (saas.digest(card),))
+    await saas.redeem(CardRedeem(phone='13800138000', card=card))
+    monkeypatch.setenv('AI_INPUT_POINTS_PER_1K', '1')
+    monkeypatch.setenv('AI_OUTPUT_POINTS_PER_1K', '3')
     store = object_store(tmp_path)
     monkeypatch.setattr(webapp, "get_object_store", lambda: store)
     monkeypatch.setenv("AI_READ_ONLY", "1")
     metadata = upload().model_dump(mode="json")
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=webapp.app), base_url="http://test",
-                                headers={"Authorization": "Bearer test-service-token"}) as client:
+                                headers={"Authorization": "Card " + card, "X-Practiq-Phone": "13800138000"}) as client:
         prepared = await client.post("/api/uploads", json=metadata)
         assert prepared.status_code == 201
         sent = await client.put(prepared.json()["upload"]["url"], content=b"quiz")
@@ -164,20 +172,26 @@ async def test_upload_remains_available_in_service_read_only_mode_but_start_is_b
 
 
 async def test_original_image_source_is_checked_downloadable_but_other_source_keys_are_rejected(monkeypatch, tmp_path):
+    service, _, _ = await setup_api(monkeypatch)
     store = object_store(tmp_path)
     payload = make_image()
     source = await store.put_document(payload, DocumentUploadRequest(sourceType="image", mediaType="image/png",
         fileName="original.png", sizeBytes=len(payload), sha256=hashlib.sha256(payload).hexdigest()))
     monkeypatch.setattr(webapp, "get_object_store", lambda: store)
+    for module in (task_api, execution, document):
+        monkeypatch.setattr(module, 'get_object_store', lambda: store)
+    receipt = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=source))
+    await service.wait_idle()
+    endpoint = '/api/artifacts/read?thread_id=' + receipt['threadId']
     reference = source.model_dump(include={"objectKey", "sha256", "mediaType", "sizeBytes"})
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=webapp.app), base_url="http://test",
                                 headers={"Authorization": "Bearer test-service-token"}) as client:
-        image = await client.post("/api/artifacts/read", json=reference)
+        image = await client.post(endpoint, json=reference)
         assert image.status_code == 200 and image.content == payload
         assert image.headers["content-security-policy"] == "default-src 'none'; frame-ancestors 'none'"
-        assert (await client.post("/api/artifacts/read", json={**reference, "sha256": "0" * 64})).status_code == 422
-        assert (await client.post("/api/artifacts/read", json={**reference, "sizeBytes": source.sizeBytes + 1})).status_code == 409
-        assert (await client.post("/api/artifacts/read", json={**reference, "objectKey": source.objectKey.replace("source.png", "source.txt"), "mediaType": "text/plain"})).status_code == 422
+        assert (await client.post(endpoint, json={**reference, "sha256": "0" * 64})).status_code == 404
+        assert (await client.post(endpoint, json={**reference, "sizeBytes": source.sizeBytes + 1})).status_code == 404
+        assert (await client.post(endpoint, json={**reference, "objectKey": source.objectKey.replace("source.png", "source.txt"), "mediaType": "text/plain"})).status_code == 404
 
 
 async def test_optional_web_assets_preserve_api_precedence_and_missing_assets(tmp_path):

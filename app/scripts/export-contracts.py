@@ -9,7 +9,7 @@ from practiq_ai.contracts import (  # noqa: E402
     AnswerMode, COMPOSITE_MODES, QUESTION_KIND_MODES, DocumentParseResult, DocumentProcessing,
     DocumentSourceType, DocumentTaskControl, DocumentTaskCreate, DocumentTaskDetail, DocumentTaskHead, DocumentTaskList,
     DocumentTaskReceipt, DocumentTaskReparse, DocumentTaskReview, DocumentTaskSummary, DocumentUploadRequest,
-    DocumentUploadResponse, ImportCapabilities, OfficeMode,
+    DocumentUploadResponse, ImportCapabilities, OfficeMode, CardRedeem, ImportAccount, ImportProducts, PointLedger,
 )
 
 path = Path(__file__).resolve().parents[1] / 'src-tauri/contracts.json'
@@ -22,7 +22,7 @@ def write_changed(target: Path, value: str) -> None:
         target.write_text(value, encoding='utf-8')
 
 
-content = json.dumps({name: model.model_json_schema() for name, model in {
+content = json.dumps({name: model.model_json_schema(mode='serialization') for name, model in {
     'result': DocumentParseResult, 'processing': DocumentProcessing,
     'taskSummary': DocumentTaskSummary, 'taskReview': DocumentTaskReview, 'taskDetail': DocumentTaskDetail,
 }.items()}, ensure_ascii=False, indent=2) + '\n'
@@ -60,13 +60,13 @@ def ts_type(node):
         return 'unknown'
     raise ValueError(f'Unsupported schema type: {node}')
 
-schema = DocumentParseResult.model_json_schema()
+schema = DocumentParseResult.model_json_schema(mode='serialization')
 wire_models = (DocumentTaskSummary, DocumentTaskReview, DocumentTaskDetail, DocumentTaskHead, DocumentTaskList,
                DocumentTaskCreate, DocumentTaskControl, DocumentTaskReparse, DocumentTaskReceipt,
-               DocumentUploadRequest, DocumentUploadResponse, ImportCapabilities)
+               DocumentUploadRequest, DocumentUploadResponse, ImportCapabilities, CardRedeem, ImportAccount, ImportProducts, PointLedger)
 definitions = {}
 for model in wire_models:
-    definitions.update(model.model_json_schema().get('$defs', {}))
+    definitions.update(model.model_json_schema(mode='serialization').get('$defs', {}))
 definitions.update(schema['$defs'])
 # These fields are always present on normalized UI questions, as before v2.
 normalized = {'stem', 'answerMode', 'questionTypeId', 'options', 'items', 'answerPayload', 'contentBlocks', 'confidence', 'needsReview', 'missingFields'}
@@ -84,7 +84,7 @@ lines.append('export type Answer = ' + ts_type({'type': 'object', 'properties': 
 lines.append('export type Question = Omit<ParsedQuestion, "answerPayload"> & { answerPayload: Answer | null };')
 lines.append('export type DocumentResult = ' + ts_type(schema) + ';')
 for model in wire_models:
-    lines.append('export type ' + model.__name__ + ' = ' + ts_type(model.model_json_schema()) + ';')
+    lines.append('export type ' + model.__name__ + ' = ' + ts_type(model.model_json_schema(mode='serialization')) + ';')
 lines.append('export const QUESTION_KIND_MODES = ' + json.dumps(QUESTION_KIND_MODES) + ' as const;')
 lines.append('export type DocumentSourceType = ' + ' | '.join(json.dumps(v) for v in get_args(DocumentSourceType)) + ';')
 lines.append('export type OfficeMode = ' + ' | '.join(json.dumps(v) for v in get_args(OfficeMode)) + ';')

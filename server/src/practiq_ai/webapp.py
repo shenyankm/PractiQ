@@ -2,7 +2,7 @@
 
 import asyncio
 import os
-from collections.abc import AsyncGenerator, AsyncIterator
+from collections.abc import AsyncGenerator, AsyncIterator, Awaitable
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Annotated, Any, BinaryIO, get_args
@@ -17,12 +17,13 @@ from psycopg import Error as DatabaseError
 from starlette.responses import StreamingResponse
 from starlette.types import Receive, Scope, Send
 
-from practiq_ai import task_api
+from practiq_ai import saas, task_api
 from practiq_ai.bank_export import ZIP_CHUNK_BYTES
 from practiq_ai.config import load, require_model_config
 from practiq_ai.contracts import (
     OFFICE_SOURCE_TYPES,
     ArtifactReference,
+    CardRedeem,
     DocumentReference,
     DocumentSourceType,
     DocumentTaskControl,
@@ -35,8 +36,11 @@ from practiq_ai.contracts import (
     DocumentTaskReview,
     DocumentUploadRequest,
     DocumentUploadResponse,
+    ImportAccount,
     ImportCapabilities,
+    ImportProducts,
     OfficeMode,
+    PointLedger,
     document_source_key,
     document_source_limit,
 )
@@ -45,7 +49,7 @@ from practiq_ai.execution import supported_task_sql
 from practiq_ai.extractors.isolated import _thread_io
 from practiq_ai.grading import GradeWireRequest, grade
 from practiq_ai.middleware import JsonBodyLimitMiddleware, SecurityHeadersMiddleware
-from practiq_ai.storage import get_object_store
+from practiq_ai.storage import get_object_store, validate_source_size
 from practiq_ai.telemetry import configure_logging, registry
 
 
@@ -69,19 +73,21 @@ app = FastAPI(lifespan=lifespan)
 app.add_middleware(JsonBodyLimitMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 _uploads: WeakKeyDictionary[asyncio.AbstractEventLoop, int] = WeakKeyDictionary()
-_exports: WeakKeyDictionary[asyncio.AbstractEventLoop, int] = WeakKeyDictionary()
+_exports: WeakKeyDictionary[asyncio.AbstractEventLoop, set[str | None]] = WeakKeyDictionary()
 
 
 async def export_slot() -> AsyncGenerator[None]:
-    # Hold one bounded archive build/download per loop until its response closes.
+    # Slow downloads occupy only their own account's archive slot.
     loop = asyncio.get_running_loop()
-    if _exports.get(loop, 0):
+    accounts = _exports.setdefault(loop, set())
+    account = saas.ACCOUNT.get()
+    if account in accounts:
         raise HTTPException(429, {"code": "BANK_EXPORT_BUSY"}, headers={"Retry-After": "1"})
-    _exports[loop] = 1
+    accounts.add(account)
     try:
         yield
     finally:
-        _exports[loop] = 0
+        accounts.discard(account)
 
 
 class BankZipResponse(StreamingResponse):
@@ -109,6 +115,48 @@ class BankZipResponse(StreamingResponse):
 def authorize(authorization: str | None = Header(default=None)) -> None:
     from .auth import authenticate
     authenticate(authorization)
+
+
+async def authorize_document(authorization: str | None = Header(default=None),
+                             x_practiq_phone: str | None = Header(default=None)) -> AsyncGenerator[str | None]:
+    scheme, _, card = (authorization or '').partition(' ')
+    account = None
+    if scheme.lower() == 'card':
+        account = await _task_response(saas.identity(x_practiq_phone or '', card))
+    else:
+        authorize(authorization)
+    token = saas.ACCOUNT.set(account)
+    try:
+        yield account
+    finally:
+        saas.ACCOUNT.reset(token)
+
+
+def customer(account: Annotated[str | None, Depends(authorize_document)]) -> str:
+    if account is None:
+        raise HTTPException(401, {'code': 'CARD_REQUIRED'})
+    return account
+
+
+@app.get('/api/products', response_model=ImportProducts)
+async def import_products():
+    return await _task_response(saas.products())
+
+
+@app.post('/api/cards/redeem', response_model=ImportAccount)
+async def redeem_card(request: CardRedeem):
+    return await _task_response(saas.redeem(request))
+
+
+@app.get('/api/account', response_model=ImportAccount)
+async def import_account(account: Annotated[str, Depends(customer)]):
+    return await _task_response(saas.account_summary(account))
+
+
+@app.get('/api/account/ledger', response_model=PointLedger)
+async def point_ledger(account: Annotated[str, Depends(customer)], limit: int = Query(default=20, ge=1, le=100),
+                       before: int | None = Query(default=None, gt=0)):
+    return await _task_response(saas.ledger(account, limit, before))
 
 
 async def upload_slot() -> AsyncGenerator[None]:
@@ -160,7 +208,7 @@ async def maintenance_status() -> dict[str, bool]:
     return {"enabled": load().maintenance}
 
 
-@app.get("/api/import-capabilities", response_model=ImportCapabilities, dependencies=[Depends(authorize)])
+@app.get("/api/import-capabilities", response_model=ImportCapabilities, dependencies=[Depends(authorize_document)])
 async def import_capabilities() -> ImportCapabilities:
     settings = load()
     office = settings.office_executable is not None and settings.office_executable.is_file()
@@ -170,7 +218,7 @@ async def import_capabilities() -> ImportCapabilities:
                               officeModes=["pdf", "text"] if office else [], modelConfigured=not settings.read_only)
 
 
-async def _task_response(operation: Any) -> dict[str, Any]:
+async def _task_response[ResultT](operation: Awaitable[ResultT]) -> ResultT:
     try:
         return await operation
     except DocumentProcessingError as exc:
@@ -181,12 +229,12 @@ async def _task_response(operation: Any) -> dict[str, Any]:
         raise HTTPException(503, {"code": "TASK_SERVICE_UNAVAILABLE", "message": "Task database is unavailable"}) from exc
 
 
-@app.post("/api/document-tasks", status_code=202, response_model=DocumentTaskReceipt, dependencies=[Depends(authorize)])
+@app.post("/api/document-tasks", status_code=202, response_model=DocumentTaskReceipt, dependencies=[Depends(customer)])
 async def create_document_task(request: DocumentTaskCreate) -> dict[str, Any]:
     return await _task_response(task_api.create_task(request))
 
 
-@app.get("/api/document-tasks", response_model=DocumentTaskList, dependencies=[Depends(authorize)])
+@app.get("/api/document-tasks", response_model=DocumentTaskList, dependencies=[Depends(authorize_document)])
 async def list_document_tasks(limit: int = Query(default=20, ge=1, le=100), offset: int = Query(default=0, ge=0),
                               sha256: str | None = Query(default=None, pattern=r'^[a-f0-9]{64}$'),
                               state_filter: task_api.TaskFilter | None = None, officeMode: OfficeMode | None = None,
@@ -194,30 +242,31 @@ async def list_document_tasks(limit: int = Query(default=20, ge=1, le=100), offs
     return await _task_response(task_api.list_tasks(limit, offset, sha256, state_filter, officeMode, cursor))
 
 
-@app.get("/api/document-tasks/{thread_id}", response_model=DocumentTaskDetail, dependencies=[Depends(authorize)])
+@app.get("/api/document-tasks/{thread_id}", response_model=DocumentTaskDetail, dependencies=[Depends(authorize_document)])
 async def get_document_task(thread_id: UUID) -> dict[str, Any]:
     return await _task_response(task_api.get_task(str(thread_id)))
 
 
-@app.get("/api/document-tasks/{thread_id}/head", response_model=DocumentTaskHead, dependencies=[Depends(authorize)])
+@app.get("/api/document-tasks/{thread_id}/head", response_model=DocumentTaskHead, dependencies=[Depends(authorize_document)])
 async def get_document_task_head(thread_id: UUID) -> dict[str, Any]:
     return await _task_response(task_api.get_task_head(str(thread_id)))
 
 
-@app.delete("/api/document-tasks/{thread_id}", dependencies=[Depends(authorize)])
+@app.delete("/api/document-tasks/{thread_id}", dependencies=[Depends(authorize_document)])
 async def delete_document_task(thread_id: UUID) -> dict[str, bool]:
     return await _task_response(task_api.delete_task(str(thread_id)))
 
 
-@app.get("/api/document-tasks/{thread_id}/preview", response_model=DocumentTaskReview, dependencies=[Depends(authorize)])
+@app.get("/api/document-tasks/{thread_id}/preview", response_model=DocumentTaskReview, dependencies=[Depends(authorize_document)])
 async def preview_document_task(thread_id: UUID) -> dict[str, Any]:
     return await _task_response(task_api.review_task(str(thread_id)))
 
 
-@app.get("/api/document-tasks/{thread_id}/export", dependencies=[Depends(authorize), Depends(export_slot)])
-async def export_document_task(thread_id: UUID, checkpoint_id: str | None = Query(default=None, max_length=255)) -> Response:
+@app.get("/api/document-tasks/{thread_id}/export", dependencies=[Depends(authorize_document), Depends(export_slot)])
+async def export_document_task(thread_id: UUID, checkpoint_id: str | None = Query(default=None, max_length=255),
+                               scope: str = Query(default='full', pattern='^(full|completed)$')) -> Response:
     try:
-        payload = await task_api.export_task(str(thread_id), checkpoint_id)
+        payload = await task_api.export_task(str(thread_id), checkpoint_id, completed=scope == 'completed')
     except DocumentProcessingError as exc:
         raise HTTPException(exc.status_code, {"code": exc.code, "message": exc.detail}) from exc
     except DatabaseError as exc:
@@ -229,12 +278,12 @@ async def export_document_task(thread_id: UUID, checkpoint_id: str | None = Quer
         raise
 
 
-@app.post("/api/document-tasks/{thread_id}/control", status_code=202, response_model=DocumentTaskReceipt, dependencies=[Depends(authorize)])
+@app.post("/api/document-tasks/{thread_id}/control", status_code=202, response_model=DocumentTaskReceipt, dependencies=[Depends(authorize_document)])
 async def control_document_task(thread_id: UUID, request: DocumentTaskControl) -> dict[str, Any]:
     return await _task_response(task_api.control_task(str(thread_id), request))
 
 
-@app.post("/api/document-tasks/{thread_id}/reparse", status_code=202, response_model=DocumentTaskReceipt, dependencies=[Depends(authorize)])
+@app.post("/api/document-tasks/{thread_id}/reparse", status_code=202, response_model=DocumentTaskReceipt, dependencies=[Depends(authorize_document)])
 async def reparse_document_task(thread_id: UUID, request: DocumentTaskReparse) -> dict[str, Any]:
     return await _task_response(task_api.reparse_task(str(thread_id), request))
 
@@ -244,10 +293,12 @@ async def reparse_document_task(thread_id: UUID, request: DocumentTaskReparse) -
     "/api/uploads",
     status_code=201,
     response_model=DocumentUploadResponse,
-    dependencies=[Depends(authorize), Depends(upload_slot)],
+    dependencies=[Depends(authorize_document), Depends(upload_slot)],
 )
 async def upload_document(request: DocumentUploadRequest) -> DocumentUploadResponse:
     try:
+        if saas.ACCOUNT.get():
+            return await _task_response(saas.prepare_upload(request))
         return await (await asyncio.to_thread(get_object_store)).prepare_document(request)
     except DocumentProcessingError as exc:
         raise HTTPException(
@@ -256,27 +307,50 @@ async def upload_document(request: DocumentUploadRequest) -> DocumentUploadRespo
         ) from exc
 
 
-@app.post("/api/artifacts/read", dependencies=[Depends(authorize)])
-async def read_artifact(reference: ArtifactReference) -> Response:
+@app.post("/api/artifacts/read", dependencies=[Depends(authorize_document)])
+async def read_artifact(reference: ArtifactReference, thread_id: Annotated[UUID | None, Query()] = None) -> Response:
     """Private verified download; never expose service credentials to clients."""
     try:
+        if thread_id is None:
+            raise saas.failure('TASK_NOT_FOUND', 404)
+        task = await task_api._read_task_record(task_api.client(), str(thread_id))
+        source = task['document']
+        if (reference.objectKey != source['objectKey']
+                and not reference.objectKey.startswith(f"practiq-agent/artifacts/{source['sha256']}/")):
+            raise saas.failure('ARTIFACT_NOT_FOUND', 404)
+        review = await task_api.review_task(str(thread_id))
+        detail = await task_api.get_task(str(thread_id))
+        def contains(value):
+            if isinstance(value, dict):
+                if all(value.get(key) == item for key, item in reference.model_dump().items()):
+                    return True
+                return any(contains(item) for item in value.values())
+            return isinstance(value, list) and any(contains(item) for item in value)
+        if not contains([source, review, detail]):
+            raise saas.failure('ARTIFACT_NOT_FOUND', 404)
         checked: ArtifactReference | DocumentReference = reference
         if (reference.mediaType in {"image/png", "image/jpeg"}
                 and reference.objectKey == document_source_key("image", reference.sha256)):
             checked = DocumentReference(sourceType="image", fileName=None, **reference.model_dump())
         payload = await (await asyncio.to_thread(get_object_store)).get_verified(checked)
+    except DatabaseError as exc:
+        raise HTTPException(503, {"code": "TASK_SERVICE_UNAVAILABLE", "message": "Task database is unavailable"}) from exc
     except DocumentProcessingError as exc:
         raise HTTPException(exc.status_code, {"code": exc.code, "message": exc.detail}) from exc
     return Response(payload, media_type=reference.mediaType,
                     headers={"Cache-Control": "no-store"})
 
 
-@app.put("/api/uploads/content", dependencies=[Depends(authorize), Depends(upload_slot)])
+@app.put("/api/uploads/content", dependencies=[Depends(authorize_document), Depends(upload_slot)])
 async def upload_content(request: Request, metadata: Annotated[DocumentUploadRequest, Query()]) -> DocumentReference:
     """Private, bounded binary upload; references never expose filesystem paths."""
     try:
         store = await asyncio.to_thread(get_object_store)
-        await store.prepare_document(metadata)
+        if saas.ACCOUNT.get():
+            assert metadata.sizeBytes is not None
+            validate_source_size(metadata.sizeBytes, metadata.sourceType, load())
+        else:
+            await store.prepare_document(metadata)
         assert metadata.sizeBytes is not None
         payload = bytearray()
         try:
@@ -287,8 +361,11 @@ async def upload_content(request: Request, metadata: Annotated[DocumentUploadReq
                     payload.extend(chunk)
         except TimeoutError as exc:
             raise DocumentProcessingError(408, "Upload reception timed out", "UPLOAD_TIMEOUT") from exc
-        document = await store.put_document(bytes(payload), metadata)
-        return document
+        if saas.ACCOUNT.get():
+            return await saas.store_upload(store, bytes(payload), metadata)
+        return await store.put_document(bytes(payload), metadata)
+    except DatabaseError as exc:
+        raise HTTPException(503, {"code": "TASK_SERVICE_UNAVAILABLE", "message": "Task database is unavailable"}) from exc
     except DocumentProcessingError as exc:
         raise HTTPException(exc.status_code, {"code": exc.code, "message": exc.detail}) from exc
 

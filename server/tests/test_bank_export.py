@@ -12,18 +12,50 @@ import sys
 import threading
 import tracemalloc
 import wave
+from copy import deepcopy
 from pathlib import Path
 from tempfile import TemporaryFile
+from typing import Any, cast
+from unittest.mock import AsyncMock, Mock
 from zipfile import ZipFile
 
 import httpx
 import pytest
 from PIL import Image
 
-from practiq_ai import bank_export
+from practiq_ai import bank_export, telemetry
 from practiq_ai.contracts import DocumentParseResult, DocumentTaskDetail
 from practiq_ai.errors import DocumentProcessingError
-from tests.support import make_image, object_store, upload
+from practiq_ai.graphs import document
+from tests.support import make_image, object_store, question, upload
+
+
+async def test_completed_projection_exports_read_only_pages_without_crops_or_parse_metrics(tmp_path, monkeypatch):
+    store, source = await source_store(tmp_path)
+    page = await store.put_artifact(make_image(), source_sha256=source.sha256, kind='page', index=0, media_type='image/png')
+    state = {'document': source.model_dump(mode='json'), 'pageRefs': [page.model_dump()], 'visualTotal': 1,
+             'visionResults': [{'kind': 'page', 'index': 0, 'artifact': page.model_dump(),
+                                'parsed': {'questions': [question('Completed page')], 'groups': []},
+                                'visuals': [{'kind': 'image', 'page': 0, 'bbox': [0.1, 0.1, 0.8, 0.8], 'description': 'Figure', 'questionIndexes': [0]}]}]}
+    before = deepcopy(state)
+    monkeypatch.setattr(document, 'get_object_store', lambda: store)
+    monkeypatch.setattr(store, 'put_artifact', AsyncMock(side_effect=AssertionError('Export wrote an artifact')))
+    monkeypatch.setattr(document, 'get_model', lambda: pytest.fail('Export called a model'))
+    metrics = [Mock(), Mock()]
+    monkeypatch.setattr(telemetry, 'results', metrics[0])
+    monkeypatch.setattr(telemetry, 'failures', metrics[1])
+    snapshots = []
+    for _ in range(2):
+        projected = await document.completed_result(cast(Any, state))
+        assert projected['status'] == 'PARTIAL'
+        assert projected['result']['questions'][0]['needsReview']
+        assert projected['result']['visualElements'][0]['sourceRef'] == page.model_dump()
+        assert projected['result']['visualElements'][0]['imageRef'] is None
+        payload = await bank_export.export_task_bank(detail(**projected), store, source=source)
+        with payload:
+            snapshots.append(payload.read())
+    assert snapshots[0] == snapshots[1] and state == before
+    assert all(not metric.mock_calls for metric in metrics)
 
 
 @pytest.mark.parametrize("png_compression", [None, 0])
@@ -482,13 +514,17 @@ async def test_export_waits_for_a_cancelled_writer_before_closing_its_archive(tm
 
 
 @pytest.mark.parametrize("failure", [None, "cancelled", "disconnect"])
-async def test_export_http_slot_holds_through_download_and_releases_after_response(monkeypatch, failure):
-    from practiq_ai import task_api, webapp
+@pytest.mark.parametrize("customer", [False, True])
+async def test_export_http_slot_holds_through_download_and_releases_after_response(monkeypatch, failure, customer):
+    from practiq_ai import saas, task_api, webapp
+    async def identity(phone, _card):
+        return phone
+    monkeypatch.setattr(saas, 'identity', identity)
     monkeypatch.setenv("AI_SERVICE_TOKEN", "export-test-token")
     endpoint = f"/api/document-tasks/{detail().threadId}/export"
     entered, released = asyncio.Event(), asyncio.Event()
     files = []
-    async def export(*_args):
+    async def export(*_args, **_kwargs):
         payload = TemporaryFile("w+b")  # noqa: SIM115 - response receives ownership
         payload.write(b"x" * (128 * 1024 + 17)); payload.seek(0)
         files.append(payload)
@@ -503,18 +539,23 @@ async def test_export_http_slot_holds_through_download_and_releases_after_respon
             await released.wait()
             if failure == "disconnect":
                 raise OSError("Synthetic disconnected HTTP client")
+    credentials = {'Authorization': 'Card test-card', 'X-Practiq-Phone': 'account-a'} if customer else {'Authorization': 'Bearer export-test-token'}
     scope = {"type": "http", "method": "GET", "path": endpoint,
-             "query_string": b"checkpoint_id=current-result", "headers": [(b"authorization", b"Bearer export-test-token")],
+             "query_string": b"checkpoint_id=current-result", "headers": [(key.lower().encode(), value.encode()) for key, value in credentials.items()],
              "asgi": {"version": "3.0", "spec_version": "2.4"}, "scheme": "http", "http_version": "1.1"}
     first = asyncio.create_task(webapp.app(scope, receive, slow_send))
     try:
         await asyncio.wait_for(entered.wait(), timeout=5)
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=webapp.app), base_url="http://test") as client:
             assert (await client.get(endpoint)).status_code == 401
-            client.headers["Authorization"] = "Bearer export-test-token"
+            client.headers.update(credentials)
             busy = await client.get(endpoint)
             assert busy.status_code == 429 and busy.json()["detail"]["code"] == "BANK_EXPORT_BUSY"
             assert busy.headers["retry-after"] == "1" and len(files) == 1
+            if customer:
+                other = await client.get(endpoint, headers={'X-Practiq-Phone': 'account-b'})
+                assert other.status_code == 200 and len(other.content) == 128 * 1024 + 17
+                assert len(files) == 2 and files[1].closed and not files[0].closed
             if failure == "cancelled":
                 first.cancel()
             released.set()
@@ -526,7 +567,7 @@ async def test_export_http_slot_holds_through_download_and_releases_after_respon
             assert files[0].closed
             exported = await client.get(endpoint)
             assert exported.status_code == 200 and len(exported.content) == 128 * 1024 + 17
-            assert len(files) == 2 and all(file.closed for file in files)
+            assert len(files) == 2 + int(customer) and all(file.closed for file in files)
     finally:
         released.set()
         if not first.done():
@@ -541,7 +582,7 @@ async def test_export_http_slot_releases_after_archive_build_failure(monkeypatch
     monkeypatch.setenv("AI_SERVICE_TOKEN", "export-test-token")
     files = []
     calls = 0
-    async def export(*_args):
+    async def export(*_args, **_kwargs):
         nonlocal calls
         calls += 1
         if calls == 1:
@@ -564,7 +605,7 @@ async def test_export_response_reads_bounded_chunks_and_closes_on_completion_or_
     from practiq_ai import task_api, webapp
     payload = TemporaryFile("w+b")  # noqa: SIM115 - assert production closes the transferred file
     payload.write(b"x" * (128 * 1024 + 17)); payload.seek(0)
-    async def export(*_args):
+    async def export(*_args, **_kwargs):
         return payload
     monkeypatch.setattr(task_api, "export_task", export)
     messages = []
@@ -615,7 +656,7 @@ async def test_export_response_waits_for_a_cancelled_read_before_closing_its_arc
             raise
         finally:
             finished.set()
-    async def export(*_args):
+    async def export(*_args, **_kwargs):
         return payload
     async def receive():
         await asyncio.Event().wait()

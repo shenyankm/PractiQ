@@ -22,10 +22,13 @@ async function fakeHTTP(page: Page, initial: DocumentTaskDetail = task) {
     const request = route.request(), url = new URL(request.url());
     const raw = request.postDataBuffer();
     const jsonBody = request.headers()["content-type"]?.includes("application/json");
-    const call: Call = { method: request.method(), path: url.pathname, query: url.search, body: jsonBody && raw ? JSON.parse(raw.toString()) : null, bytes: jsonBody ? null : raw, authenticated: request.headers().authorization === `Bearer ${fakeToken}` };
+    const call: Call = { method: request.method(), path: url.pathname, query: url.search, body: jsonBody && raw ? JSON.parse(raw.toString()) : null, bytes: jsonBody ? null : raw, authenticated: request.headers().authorization === `Card ${fakeToken}` };
     calls.push(call);
+    if (call.path === "/api/products") { await respond(route, { items: [] }); return; }
     if (!call.authenticated) { await respond(route, { detail: { code: "INVALID_TOKEN" } }, 401); return; }
     if (await server.intercept?.(route, call)) return;
+    if (call.path === "/api/account") { await respond(route, { phone: "+8613800138000", balanceMicropoints: "1000000", usageUnknown: false }); return; }
+    if (call.path === "/api/account/ledger") { await respond(route, { items: [], nextBefore: null }); return; }
     if (call.path === "/api/import-capabilities") { await respond(route, capabilities); return; }
     if (call.path === "/api/document-tasks" && call.method === "GET") {
       await respond(route, { items: Array.from(records.values()).map(current => ({ ...summary, threadId: current.threadId, fileName: current.fileName, state: current.state, checkpointId: current.checkpointId, status: current.status })), hasMore: server.hasMore }); return;
@@ -66,7 +69,7 @@ async function fakeHTTP(page: Page, initial: DocumentTaskDetail = task) {
   return { calls, records, creates, server };
 }
 async function connect(page: Page) {
-  await page.goto("/"); await page.getByLabel("服务 Token").fill(fakeToken); await page.getByRole("button", { name: "连接服务", exact: true }).click();
+  await page.goto("/"); await page.getByLabel("手机号").fill("13800138000"); await page.getByLabel("卡密").fill(fakeToken); await page.getByRole("button", { name: "查询记录", exact: true }).click();
   await expect(page.getByText("服务已连接", { exact: true })).toBeVisible();
 }
 async function openTask(page: Page) {
@@ -133,7 +136,7 @@ test("workspace fits narrow and desktop windows with keyboard shortcuts to conte
 
 test("passive file selection becomes one authenticated SHA upload only after explicit Start", async ({ page }) => {
   const http = await fakeHTTP(page);
-  await page.goto("/"); expect(http.calls).toHaveLength(0); await connect(page);
+  await page.goto("/"); expect(http.calls.every(call => call.path === "/api/products")).toBe(true); await connect(page);
   await page.getByLabel("Word / Excel 转换模式").selectOption("text");
   const bytes = Buffer.from("synthetic office file");
   await page.getByLabel("选择文档").setInputFiles({ name: "selected.docx", mimeType: "application/octet-stream", buffer: bytes });
@@ -143,20 +146,20 @@ test("passive file selection becomes one authenticated SHA upload only after exp
   expect(mutations(http.calls).map(call => call.method)).toEqual(["POST", "PUT", "POST"]);
   expect(mutations(http.calls)[0].body).toMatchObject({ sourceType: "docx", mediaType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", sizeBytes: bytes.length, sha256: digest(bytes) });
   expect(starts(http.calls)[0].body).toMatchObject({ officeMode: "text", graphId: "document_parser", failurePolicy: "return_partial" });
-  expect(http.calls.every(call => call.authenticated && !call.query.includes(fakeToken))).toBe(true);
+  expect(http.calls.every(call => (call.path === "/api/products" || call.authenticated) && !call.query.includes(fakeToken))).toBe(true);
   expect(http.server.modelStarts).toBe(1);
 });
 
 test("invalid auth makes no model request; disconnect and reload clear memory-only Token", async ({ page }) => {
   const http = await fakeHTTP(page); await page.goto("/");
-  await page.getByLabel("服务 Token").fill("invalid-synthetic-token"); await page.getByRole("button", { name: "连接服务", exact: true }).click();
-  await expect(page.getByText(/服务 Token 无效/).first()).toBeVisible();
+  await page.getByLabel("手机号").fill("13800138000"); await page.getByLabel("卡密").fill("invalid-synthetic-token"); await page.getByRole("button", { name: "查询记录", exact: true }).click();
+  await expect(page.getByText(/手机号与卡密不匹配/).first()).toBeVisible();
   expect(mutations(http.calls)).toHaveLength(0);
-  await page.getByRole("button", { name: "断开连接", exact: true }).click(); await expect(page.getByLabel("服务 Token")).toHaveValue("");
-  await page.getByLabel("服务 Token").fill(fakeToken); await page.getByRole("button", { name: "连接服务", exact: true }).click();
+  await page.getByLabel("卡密").fill("");
+  await page.getByLabel("手机号").fill("13800138000"); await page.getByLabel("卡密").fill(fakeToken); await page.getByRole("button", { name: "查询记录", exact: true }).click();
   await expect(page.getByText("服务已连接", { exact: true })).toBeVisible();
   expect(await page.evaluate(() => ({ local: localStorage.length, session: sessionStorage.length, query: location.search }))).toEqual({ local: 0, session: 0, query: "" });
-  await page.reload(); await expect(page.getByLabel("服务 Token")).toHaveValue("");
+  await page.reload(); await expect(page.getByLabel("卡密")).toHaveValue("");
   expect(await page.locator("body").innerText()).not.toContain(fakeToken);
 });
 
@@ -213,7 +216,7 @@ test("partial review preserves nulls, sources, shared material and warnings; che
   expect(http.calls.find(call => call.path === "/api/artifacts/read")).toMatchObject({ authenticated: true, body: imageRef });
   const downloading = page.waitForEvent("download"); await page.getByRole("button", { name: "下载题库 ZIP", exact: true }).click(); const downloaded = await downloading;
   expect(downloaded.suggestedFilename()).toBe(`practiq-bank-${taskId}.zip`); expect(await readFile((await downloaded.path())!)).toEqual(zip);
-  expect(http.calls.find(call => call.path.endsWith("/export"))).toMatchObject({ method: "GET", authenticated: true, query: "?checkpoint_id=checkpoint-one" });
+  expect(http.calls.find(call => call.path.endsWith("/export"))).toMatchObject({ method: "GET", authenticated: true, query: "?checkpoint_id=checkpoint-one&scope=full" });
   expect(starts(http.calls)).toHaveLength(0); expect(http.calls.some(call => /\/(control|reparse)$/.test(call.path))).toBe(false); expect(external).toEqual([]);
 });
 
@@ -284,7 +287,8 @@ test("reparse and delete require explicit actions and delete confirmation", asyn
 
 test("server format, byte limit, and model availability gate submission before any upload", async ({ page }) => {
   const http = await fakeHTTP(page);
-  http.server.intercept = async (route, call) => { if (call.path === "/api/import-capabilities") { await respond(route, { ...capabilities, sourceTypes: ["text"], sourceMaxBytes: 1, modelConfigured: false, officeAvailable: false, officeModes: [] }); return true; } return false; };
+  http.server.intercept = async (route, call) => {
+    if (call.path === "/api/import-capabilities") { await respond(route, { ...capabilities, sourceTypes: ["text"], sourceMaxBytes: 1, modelConfigured: false, officeAvailable: false, officeModes: [] }); return true; } return false; };
   await connect(page); await expect(page.getByLabel("Word / Excel 转换模式")).toHaveCount(0);
   await expect(page.getByText("服务支持：TXT。Office 转换当前不可用。", { exact: true })).toBeVisible();
   await page.getByLabel("选择文档").setInputFiles({ name: "too-large.txt", mimeType: "text/plain", buffer: Buffer.from("xx") }); await expect(page.getByText(/为空或超过/)).toBeVisible();
@@ -390,3 +394,41 @@ for (const entry of ["detail", "expired"] as const) {
     expect(mutations(http.calls).map(call => call.method)).toEqual(["DELETE"]);
   });
 }
+
+test("points pause exports completed content; recharge stays paused until explicit Continue", async ({ page }) => {
+  const billing = { phone: "+8613800138000", balanceMicropoints: "-5000", usageUnknown: false, chargedMicropoints: "25000", rates: { inputMicropointsPer1k: "1000000", outputMicropointsPer1k: "3000000" } };
+  const http = await fakeHTTP(page, { ...task, state: "PAUSED", status: null, allowedActions: ["resume"], canExportCompleted: true, billing, blocking: [{ kind: "billing", code: "INSUFFICIENT_POINTS" }] });
+  let balance = "-5000";
+  http.server.intercept = async (route, call) => {
+    if (call.path === "/api/account") { await respond(route, { ...billing, balanceMicropoints: balance }); return true; }
+    if (call.path === "/api/cards/redeem") {
+      expect(call.body).toEqual({ phone: "13800138000", card: "additional-card", boundCard: fakeToken });
+      balance = "995000"; const current = http.records.get(taskId)!;
+      http.records.set(taskId, { ...current, billing: { ...billing, balanceMicropoints: balance } });
+      await respond(route, { ...billing, balanceMicropoints: balance }); return true;
+    }
+    if (call.path.endsWith("/control")) {
+      expect(call.body!.action).toBe("resume"); http.server.modelStarts++;
+      http.records.set(taskId, { ...task, billing: { ...billing, chargedMicropoints: "50000", balanceMicropoints: "970000" }, canExportCompleted: true });
+      await respond(route, { threadId: taskId, runId, requestId: call.body!.requestId, accepted: true }, 202); return true;
+    }
+    return false;
+  };
+  await connect(page); await openTask(page);
+  await expect(page.getByText(/下载与充值不会自动继续/)).toBeVisible();
+  const partialDownload = page.waitForEvent("download");
+  await page.getByRole("button", { name: "下载题库 ZIP", exact: true }).click(); await partialDownload;
+  expect(http.calls.find(call => call.path.endsWith("/export"))!.query).toContain("scope=completed");
+  await page.getByLabel("追加卡密").fill("additional-card");
+  await page.getByRole("button", { name: "兑换积分", exact: true }).click();
+  await expect(page.getByLabel("追加卡密")).toHaveValue("");
+  expect(http.server.modelStarts).toBe(0);
+  await expect(page.getByRole("button", { name: "继续解析", exact: true })).toBeEnabled();
+  await page.getByRole("button", { name: "继续解析", exact: true }).click();
+  await expect(page.locator("#task-detail").getByText("已完成", { exact: true })).toBeVisible();
+  const fullDownload = page.waitForEvent("download");
+  await page.getByRole("button", { name: "下载题库 ZIP", exact: true }).click(); await fullDownload;
+  expect(http.calls.filter(call => call.path.endsWith("/export"))[1].query).toContain("scope=full");
+  expect(http.server.modelStarts).toBe(1);
+  expect(await page.evaluate(() => [localStorage.length, sessionStorage.length, location.search])).toEqual([0, 0, ""]);
+});

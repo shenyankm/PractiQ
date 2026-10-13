@@ -27,7 +27,7 @@ it("reuses unchanged Markdown across parent updates and renders changed or null 
 it("serializes complete records only after opening and reuses them on reopen", async () => {
   const user = userEvent.setup();
   const record = question({ id: "lazy-record", stem: "Lazy question", parentId: null, optionSourceId: null });
-  const client = new Client("fake");
+  const client = new Client("fake", "13800138000");
   const current = { ...preview, units: [{ ...preview.units[0], questions: [record] }] };
   const stringify = vi.spyOn(JSON, "stringify");
   const view = render(<ResultReview task={task} preview={current} client={client} />);

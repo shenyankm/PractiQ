@@ -95,6 +95,8 @@ def test_auth_token_does_not_require_model_or_storage_settings(monkeypatch: pyte
     ("name", "value"),
     (
         ("AI_SOURCE_MAX_BYTES", "nonsense"),
+        ("AI_ACCOUNT_MAX_PENDING_RUNS", "0"),
+        ("AI_ACCOUNT_MAX_TASKS", "0"),
         ("AI_MAX_DOCUMENT_PAGES", "0"),
         ("AI_STORAGE_TIMEOUT_SECONDS", "-1"),
     ),

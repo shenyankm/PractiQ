@@ -460,6 +460,7 @@ async def _load_context(state: DocumentState, runtime: Runtime[None]) -> dict[st
     context = runtime.context if isinstance(runtime.context, dict) else {}
     if expires_at := context.get("documentControl", {}).get("expiresAt"):
         execution["expiresAt"] = expires_at
+    execution['accountId'] = context.get('accountId')
     token = CURRENT_EXECUTION.set(execution)
     try:
         await guard(runtime, execution, check_pause=False)
@@ -626,7 +627,8 @@ def _dispatch_vision(state: DocumentState) -> list[Send] | str:
     completed.update(("page", item["index"])
                      for item in state.get("failures", []) if item["stage"] == "vision_parse")
     pending = [item for item in work if (item.arg["kind"], item.arg["index"]) not in completed]
-    return _with_allowances(pending[:load().graph_max_concurrency], state) or "vision_review_pause"
+    count = 1 if state.get('execution', {}).get('accountId') else load().graph_max_concurrency
+    return _with_allowances(pending[:count], state) or "vision_review_pause"
 
 
 def _with_allowances(work: list[Send], state: DocumentState) -> list[Send]:
@@ -951,7 +953,8 @@ def _dispatch_chunks(state: DocumentState) -> list[Send] | str:
         for index, item in enumerate(chunks)
         if index not in completed
     ]
-    return _with_allowances(work[:load().graph_max_concurrency], state) or "chunk_review_pause"
+    count = 1 if state.get('execution', {}).get('accountId') else load().graph_max_concurrency
+    return _with_allowances(work[:count], state) or "chunk_review_pause"
 
 
 async def _chunk(
@@ -994,6 +997,7 @@ async def _chunk(
 async def _crop_visuals(
     state: DocumentState,
     visuals: list[VisualElement],
+    *, persist: bool = True,
 ) -> tuple[list[VisualElement], list[UnitFailure], bool]:
     truncated = len(visuals) > 1_000
     visuals = visuals[:1_000]
@@ -1007,6 +1011,10 @@ async def _crop_visuals(
         if item.page in page_artifacts:
             # Do not expand model-classified bounds: adjacent text may contain answers.
             visuals[index] = item.model_copy(update={"sourceRef": page_artifacts[item.page]})
+    if not persist:
+        failures = [UnitFailure(stage="visual_crop", index=index, code="CROP_UNVERIFIED", retryable=False)
+                    for index, item in enumerate(visuals) if item.bbox is not None and item.imageRef is None]
+        return visuals, failures, truncated
     candidates = [
         (index, item.page, item.bbox)
         for index, item in enumerate(visuals)
@@ -1095,7 +1103,7 @@ async def load_unit_result(item: dict[str, Any], source_sha256: str) -> dict[str
     return {**item, "parsed": parsed, "visuals": visuals, "agentReview": payload.get("agentReview", item.get("agentReview"))}
 
 
-async def _merge(state: DocumentState) -> dict[str, Any]:
+async def _merge(state: DocumentState, *, passive: bool = False) -> dict[str, Any]:
     checkpoint_state = state
     source_sha256 = state["document"]["sha256"]
     state = cast(DocumentState, {**state, **{key: await _bounded_map(state.get(key, []), lambda item: load_unit_result(item, source_sha256))
@@ -1167,7 +1175,7 @@ async def _merge(state: DocumentState) -> dict[str, Any]:
                 description="此页识别未完成，关联未确定，请查看完整原页并人工复核。",
                 sourceRef=ArtifactReference.model_validate(page_refs[page])))
     visual_elements, crop_failures, crop_truncated = await _crop_visuals(
-        state, visual_elements
+        state, visual_elements, persist=not passive
     )
     crop_failures.extend(UnitFailure(stage="visual_crop", index=index, code="CROP_UNVERIFIED", retryable=False) for index in unverified_visuals)
     if crop_truncated:
@@ -1250,15 +1258,32 @@ async def _merge(state: DocumentState) -> dict[str, Any]:
             sum(item.confidence for item in questions) / max(1, len(questions)) * 100, 1
         ),
     )
-    telemetry.results.labels(status, str(quality.reviewRequired).lower()).inc()
-    for failure in failures:
-        telemetry.failures.labels(failure.code).inc()
+    if not passive:
+        telemetry.results.labels(status, str(quality.reviewRequired).lower()).inc()
+        for failure in failures:
+            telemetry.failures.labels(failure.code).inc()
     return {
         "nextStage": "result_review_pause",
         "status": status,
         "result": result.model_dump(mode="json"),
         "processing": processing.model_dump(mode="json"),
     }
+
+
+async def completed_result(state: DocumentState) -> dict[str, Any]:
+    """Project saved completed units; never execute graph nodes or alter checkpoints."""
+    from copy import deepcopy
+    snapshot = deepcopy(state)
+    update = await _merge(snapshot, passive=True)
+    if not update.get('result', {}).get('questions'):
+        raise DocumentProcessingError(409, 'No usable completed questions', 'BANK_EXPORT_NOT_READY')
+    result = update['result']
+    result['warnings'] = ['This is a partial snapshot; unfinished units are not included.', *result['warnings']][:1_000]
+    result['missingFields'] = list(dict.fromkeys([*result['missingFields'], 'questions']))
+    update['processing']['quality']['reviewRequired'] = True
+    if snapshot.get('chunkRefs'):
+        update['processing']['chunks']['total'] = len(snapshot.get('chunkRefs', []))
+    return {'result': result, 'processing': update['processing'], 'status': 'PARTIAL'}
 
 
 MAX_UNIT_RETRIES = 2

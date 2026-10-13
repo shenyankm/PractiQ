@@ -10,7 +10,7 @@ Complete the [service configuration and startup steps](service-guide.md#run-loca
 
 `make server-dev` starts one Uvicorn process on `127.0.0.1:8090` with persistent PostgreSQL state. Missing or incompatible databases prevent startup; there is no in-memory fallback. Python registers graphs directly, without `langgraph.json` or the LangGraph CLI server.
 
-`Dockerfile.server` builds the production image with Python 3.14, PDFium, Chinese fonts and the built import Web frontend. Office normalization belongs to this deployment; configure and verify its LibreOffice executable/version separately. Linux ECS deployments use host networking. The container listens on `127.0.0.1:8000` by default, behind a host HTTPS reverse proxy. Do not expose database or application backend ports. `deploy/nginx.conf` is a host-loopback HTTP proxy example; a trusted upstream entry point provides TLS.
+`Dockerfile.server` builds the production image with Python 3.14, PDFium, Chinese fonts and the built import Web frontend. Office normalization belongs to this deployment; configure and verify its LibreOffice executable/version separately. Linux ECS deployments use host networking. The container listens on `127.0.0.1:8000` by default, behind a host HTTPS reverse proxy. Do not expose database or application backend ports. `deploy/nginx.conf` is a host-loopback HTTP proxy example; a trusted upstream entry point provides TLS. Its real-IP configuration trusts only a local `127.0.0.1` TLS edge which must overwrite `X-Forwarded-For`; enable Nginx's HTTP real-IP module and verify separate client limits before serving traffic. Never broaden proxy trust to arbitrary networks.
 
 Python wheels and source distributions carry the project MIT notice from `server/LICENSE`; keep this distribution copy identical to the root `LICENSE`. The image retains the source notice at `/app/server/LICENSE` and the installed distribution notice. The container smoke check verifies both copies. Third-party packages and the deployed Office engine retain their own licenses. See the [distribution verification](../../docs/service-distribution-license-20261009.md).
 
@@ -52,7 +52,7 @@ New model output with `confidence < 0.5` always requires review. This threshold 
 
 Successful checkpointed units are reused. A provider request whose result was not persisted blocks automatic same-run recovery with MODEL_RESULT_UNKNOWN; unknown usage remains recorded. Exactly-once provider calls are not guaranteed. Pause does not forcibly cancel accepted remote requests, and canceling a local wait does not terminate an underlying synchronous thread.
 
-See [RabbitMQ delivery, upgrade, rollback and dead-letter recovery](rabbitmq.md) for schema 2, broker setup, outage/read-only/maintenance semantics and failure windows.
+See [RabbitMQ delivery, upgrade, rollback and dead-letter recovery](rabbitmq.md) for transactional delivery; see [SaaS deployment](saas.md) for schema 3, account credentials and points, broker setup, outage/read-only/maintenance semantics and failure windows.
 
 ## Configuration and observability
 

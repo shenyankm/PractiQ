@@ -1,0 +1,60 @@
+# Phone, cards and import points
+
+The Web client has no registration or login page. A phone number plus any nonrevoked card bound to that number authorizes its imports. Mainland mobile numbers without a country prefix normalize to `+86`; other numbers require an international `+` prefix. There is no SMS verification. A card is the access credential; keep it private. Each number may have multiple cards and one pooled balance. Cards have no expiry and no self-service transfer. Lost credentials require operator identity checks; do not bind a new card to an existing number without its existing credential.
+
+## Deployment and migration
+
+Back up PostgreSQL and local storage, stop the service, and run `make upgrade-db AI_PYTHON=/path/to/python3.14`. Schema 1 and 2 upgrade explicitly to schema 3; initialization only accepts an empty dedicated database. An earlier unreleased schema-3 candidate without the upload verification marker also requires this explicit offline upgrade; its existing validated upload mappings are retained as verified. Startup rejects a missing marker instead of silently changing the database. Legacy tasks remain administrator-owned. Checkpoint and execution-version validation still apply: a database upgrade does not make incompatible graph checkpoints resumable. Retain backups for the historical executable and do not modify checkpoints to bypass version checks.
+
+Set both `AI_INPUT_POINTS_PER_1K` and `AI_OUTPUT_POINTS_PER_1K` explicitly. Values are positive points per 1,000 tokens with at most six decimal places. Products and pricing have no commercial defaults. Each task freezes both rates; changing environment settings affects newly created tasks. One point is 1,000,000 integer micropoints. A call costs `ceil((inputTokens * inputRate + outputTokens * outputRate) / 1000)` micropoints. Invalid output, correction, retries and enabled source reviews consume actual provider usage too. Reading, checkpoint replay and downloads are free.
+
+All monetary micropoint fields, including balances, face values, ledger amounts, charges and rates, are decimal strings in HTTP JSON and generated frontend contracts. Backend arithmetic remains integer-based; Web formats and compares these values with `BigInt`, without floating-point conversion. Token counts and bounded file sizes remain JSON numbers.
+
+Customer uploads have per-phone limits `AI_ACCOUNT_UPLOAD_MAX_BYTES` (default 256 MiB) and `AI_ACCOUNT_UPLOAD_MAX_FILES` (default 1000). Unique sources and uncertain-write reservations count toward both limits, independently of point balance; known verified files can be reused without consuming another slot. Admission reserves capacity before writing and serializes same-account uploads without holding database locks during storage I/O. Reservations never authorize deduplication or task creation until an actual upload verifies successfully. Failed or uncertain writes retain their reservation to avoid unaccounted files; retry the same content to finish verification. Operators may raise capacity or remove unused reservations only after verifying storage/reference safety. Task deletion does not reset storage usage; paid points still authorize model work only. These are operational storage bounds, not commercial prices.
+
+The backend stays on loopback behind an HTTPS proxy. Use the edge request limits in `server/deploy/nginx.conf`, including the tighter card redemption limit. The example trusts only the local TLS edge at `127.0.0.1` for client IP forwarding; that edge must overwrite `X-Forwarded-For` with its verified client address. Enable Nginx's [HTTP real-IP module](https://nginx.org/en/docs/http/ngx_http_realip_module.html), and replace the trusted address only with an explicitly controlled proxy address if your topology differs; never trust arbitrary networks or client-provided headers. This keeps per-IP limits separate for different customers behind the edge. Never log Authorization, `X-Practiq-Phone`, card redemption bodies or model inputs. Keep PostgreSQL, RabbitMQ and plaintext card exports private; never commit them. The old service Bearer token provides administration of legacy tasks without a phone account and App grading. It cannot list, read, control, delete or download customer tasks, or create or reparse SaaS imports. Artifact reads always require an authorized task ID, including Bearer reads of legacy artifacts.
+
+## Products and card delivery
+
+Run these commands from `server/` using the selected Python 3.14+ interpreter. The CLI loads the repository `.env`. Replace example identifiers, point amounts and URLs with the operator's actual product configuration:
+
+```sh
+python3.14 -m practiq_ai.saas_manage product --id PRODUCT_ID --name 'Product name' --points POINTS --purchase-url https://SHOP/PRODUCT
+python3.14 -m practiq_ai.saas_manage generate --product PRODUCT_ID --count 100 --output /private/path/cards.txt
+python3.14 -m practiq_ai.saas_manage revoke --digest SHA256_DIGEST
+```
+
+Generated cards contain 192 random bits. Only SHA-256 digests enter PostgreSQL. The exclusive TXT export uses mode 0600 and contains one code per line; existing exports are never overwritten. Each card snapshots the product's points at issuance. Product changes and disabling a product do not change issued cards. Revocation disables access without removing purchased points or ledger history. Import the protected TXT into the matching Chain Shop product and verify its actual importer format before selling; this integration does not call a Chain Shop API. An uncertain export/commit outcome requires checking digests in the database before distribution, never blindly reissuing or distributing a failed export.
+
+First binding creates the phone account. Additional redemption requires an already bound, nonrevoked card. Concurrent/repeated redemption credits each card once; a card cannot be transferred to another number. A depleted card still authorizes record access. Recharge first offsets any negative balance.
+
+## Pause, download and recovery
+
+Each phone permits one in-flight model call; different accounts can run concurrently. Runs for a phone are admitted sequentially before global worker capacity, with backlog retained in the transactional outbox rather than occupying worker or broker-prefetch slots. A positive balance permits a call without predicting its token count. That call can leave a negative balance; the next call pauses recoverably. Completed processing units and model results stay durable. Local merge can complete without another model call. Recharge never resumes work: the user explicitly clicks Continue on the task.
+
+Paused tasks with usable completed questions can download a full snapshot of all completed content. The snapshot retains `PARTIAL`, missing fields and review flags, verifies images and checkpoint consistency, and does not modify the graph checkpoint, write crop artifacts or increment parse-result/failure metrics. Existing original page images remain packaged; ungenerated crops are marked for media review. No usable questions means no export. Every download includes all currently completed questions; importing overlapping snapshots into the App creates independent question banks.
+
+Model results and usage are persisted before settlement. Unique call keys make settlement idempotent. A settlement failure pauses the task; explicit continuation reuses the saved result and retries settlement without another model call. Unsettled result and call receipts do not expire with the task, and task deletion or offline cleanup retains them until accounting is resolved. Startup reconciles pending calls from durable results; dispatched calls without determinable usage block new calls for that phone. Operators can inspect and record verified usage:
+
+```sh
+python3.14 -m practiq_ai.saas_manage unknown
+python3.14 -m practiq_ai.saas_manage resolve --call-key CALL_KEY --input-tokens ACTUAL_INPUT --output-tokens ACTUAL_OUTPUT --note 'Provider receipt and verification reference'
+```
+
+Record zero tokens only when verified that no usage occurred. Resolution creates no model result and does not automatically resume a task. If the provider result itself is unavailable, the existing explicit recovery mechanism may need a new billed call; do not invent output or replay uncertain calls automatically. Task deletion/expiration preserves the ledger and all call accounting records. A deleted task ID with retained accounting cannot be recreated with its old `requestId` (`TASK_ID_RETIRED`); explicit new imports must use a fresh ID so historical charges never mix with new rates. After usage is resolved, a positive balance allows explicit Continue without purchasing another card.
+
+## HTTP contract
+
+Public `GET /api/products` lists configured enabled products. `POST /api/cards/redeem` accepts `{phone, card, boundCard?}` and returns the account balance. Protected requests send `Authorization: Card <code>` and `X-Practiq-Phone: <number>`. `GET /api/account` and `/api/account/ledger?limit=20&before=ID` expose only that account. Credentials live in page memory and clear on disconnection/refresh; never place them in URLs or browser storage.
+
+Existing document endpoints enforce account ownership on lists, details, parents, idempotency receipts, cursors, controls, deletion and downloads. Task details add `billing` and `canExportCompleted`. ZIP downloads accept `scope=full|completed` with `checkpoint_id`; artifact reads require the authorized `thread_id` and a reference reachable from that task. Shared hashes never authorize another account's upload: it must actually upload and pass checksum validation. Python contracts generate the Web/App types.
+
+Each phone can hold at most `AI_ACCOUNT_MAX_PENDING_RUNS` (default 8) pending/running runs, including deferred deliveries. New imports, reparse, resume and retry share this admission limit; receipt replays and pause/cancel remain available. Excess admission returns 429 `ACCOUNT_QUEUE_FULL` without creating a task/run. Completed or paused runs release queue capacity. The effective limit is also capped at one below the global queue limit when that global limit exceeds one, preserving capacity for other accounts.
+
+Balances and individual ledger amounts stay within signed PostgreSQL bigint bounds. A credit/debit that would exceed them returns `POINT_BALANCE_LIMIT` before changing the balance or ledger; failed redemption leaves the card unbound. Oversized provider settlements retain their saved result and unresolved receipt, block new calls, and require operator reconciliation/capacity correction rather than truncating usage or money.
+
+Task deletion retains its ownership row until checkpoint/Store cleanup succeeds; interrupted cleanup can be retried only by the same account (or the legacy administrator). Billing entries and unresolved usage evidence remain retained. Recovery checks durable billing rejection when cancellation before provider dispatch leaves a stale started Store record, so restart can safely resume without treating it as an unknown result. Upload database outages return bounded 503 responses; uncertain verification keeps its quota reservation and requires a verified retry.
+
+Each phone retains at most `AI_ACCOUNT_MAX_TASKS` tasks (default 100), counting paused, completed and expired rows until deletion/offline cleanup finishes. Excess creation/reparse returns 429 `ACCOUNT_TASK_QUOTA`; existing receipt replays remain available. Deletion first expires the task in a short transaction to prevent concurrent controls, then cleans checkpoints/Store outside the global transaction lock, and removes the ownership row only after successful cleanup. Failed cleanup remains deletable but cannot be resumed. ZIP build/download capacity is per account; an unread response cannot occupy another account’s export slot.
+
+Upload preparation and artifact authorization also translate database outages to bounded `TASK_SERVICE_UNAVAILABLE` 503 responses; authorization/reachability must finish before any artifact bytes are read.

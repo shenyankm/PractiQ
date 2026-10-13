@@ -4,6 +4,7 @@ import asyncio
 from weakref import WeakKeyDictionary
 
 from fastapi import HTTPException, Request
+from psycopg import Error as DatabaseError
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse, Response
 
@@ -41,7 +42,7 @@ class JsonBodyLimitMiddleware:
     async def __call__(self, scope, receive, send):
         # Bound every task mutation; binary uploads own their streaming/body limits.
         if (scope['type'] != 'http' or scope['method'] not in {'POST', 'PUT', 'PATCH'}
-                or not (scope['path'].rstrip('/') in {'/api/uploads', '/api/artifacts/read', '/api/document-tasks', '/api/subjective-grades'}
+                or not (scope['path'].rstrip('/') in {'/api/cards/redeem', '/api/uploads', '/api/artifacts/read', '/api/document-tasks', '/api/subjective-grades'}
                         or scope['path'].startswith('/api/document-tasks/'))):
             await self.app(scope, receive, send)
             return
@@ -50,7 +51,17 @@ class JsonBodyLimitMiddleware:
             headers = dict(scope['headers'])
             if int(headers.get(b'content-length', b'0')) > maximum:
                 raise _BodyTooLarge
-            authenticate(headers.get(b'authorization', b'').decode('latin-1'))
+            if scope['path'].rstrip('/') != '/api/cards/redeem':
+                authorization = headers.get(b'authorization', b'').decode('latin-1')
+                if authorization.lower().startswith('card ') and scope['path'].rstrip('/') != '/api/subjective-grades':
+                    from . import saas
+                    from .errors import DocumentProcessingError
+                    try:
+                        await saas.identity(headers.get(b'x-practiq-phone', b'').decode('latin-1'), authorization[5:])
+                    except DocumentProcessingError as exc:
+                        raise HTTPException(exc.status_code, {'code': exc.code}) from exc
+                else:
+                    authenticate(authorization)
             settings = load()
             loop = asyncio.get_running_loop()
             if self.receiving.get(loop, 0) >= settings.upload_concurrency:
@@ -85,6 +96,9 @@ class JsonBodyLimitMiddleware:
             return
         except HTTPException as exc:
             await JSONResponse({'detail': exc.detail}, exc.status_code, headers=exc.headers)(scope, receive, send)
+            return
+        except DatabaseError:
+            await JSONResponse({'detail': {'code': 'TASK_SERVICE_UNAVAILABLE', 'message': 'Task database is unavailable'}}, 503)(scope, receive, send)
             return
 
         sent = False

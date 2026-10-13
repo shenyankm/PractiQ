@@ -1,12 +1,13 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Upload, Play, RefreshCw, Download, Trash2, LockKeyhole, Unplug, ChevronLeft, ChevronRight, FileText, LoaderCircle } from "lucide-react";
 import logo from "./assets/octopus.png";
-import { ApiError, Client, downloadBlob, fileFormat, MAX_FILES, sourceLimit, validateFiles, type Action, type Capabilities, type OfficeMode, type TaskList, type UploadStage } from "./api";
+import { ApiError, Client, downloadBlob, fileFormat, MAX_FILES, sourceLimit, validateFiles, pointLabel, type Action, type Capabilities, type OfficeMode, type TaskList, type UploadStage } from "./api";
 import type { DocumentTaskDetail, DocumentTaskReview, DocumentTaskSummary } from "./contracts.generated";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
 import { Badge } from "./components/ui/badge";
+import AccountPanel from "./AccountPanel";
 const ResultReview = lazy(() => import("./ResultReview"));
 
 const sourceExtensions: Record<Capabilities["sourceTypes"][number], string> = { pdf: ".pdf", text: ".txt", csv: ".csv", image: ".png,.jpg,.jpeg", doc: ".doc", docx: ".docx", xls: ".xls", xlsx: ".xlsx" };
@@ -33,6 +34,8 @@ function Usage({ task }: { task: DocumentTaskDetail }) {
 
 export default function App() {
   const [draftToken, setDraftToken] = useState("");
+  const [draftPhone, setDraftPhone] = useState("");
+  const [connecting, setConnecting] = useState(false);
   const [client, setClient] = useState<Client | null>(null);
   const [capabilities, setCapabilities] = useState<Capabilities | null>(null);
   const [capError, setCapError] = useState<string | null>(null);
@@ -161,12 +164,19 @@ export default function App() {
     void poll(true);
     return () => { controller.abort(); clearTimeout(timer); document.removeEventListener("visibilitychange", wake); window.removeEventListener("focus", wake); };
   }, [client, selected, detailRevision]);
-  function connect() {
-    try { setClient(new Client(draftToken.trim())); setDraftToken(""); setOperationError(null); setNotice(null); }
-    catch (error) { setCapError(errorText(error)); }
+  async function connect(bind = false) {
+    if (connecting) return;
+    setConnecting(true); setCapError(null);
+    let current: Client | null = null;
+    try {
+      current = new Client(draftToken.trim(), draftPhone.trim());
+      if (bind) await current.redeem(); else await current.account();
+      if (current.active) { setClient(current); setDraftToken(""); setDraftPhone(""); setOperationError(null); setNotice(null); }
+    } catch (error) { current?.disconnect(); setCapError(errorText(error)); }
+    finally { setConnecting(false); }
   }
   function disconnect() {
-    client?.disconnect(); job.current = null; setClient(null); setDraftToken(""); setSelected(null); setDeleteTarget(null); setFiles([]); setBusy(false); setOperationError(null); setNotice(null); setFileError(null); setOffset(0); setCursors([undefined]); setFilter("");
+    client?.disconnect(); job.current = null; setClient(null); setDraftToken(""); setDraftPhone(""); setSelected(null); setDeleteTarget(null); setFiles([]); setBusy(false); setOperationError(null); setNotice(null); setFileError(null); setOffset(0); setCursors([undefined]); setFilter("");
   }
   async function run(perform: (current: Client) => Promise<void>) {
     if (!client || job.current) return;
@@ -202,7 +212,7 @@ export default function App() {
     });
   }
   const matchingCheckpoint = detailFresh && !previewError && preview?.checkpointId === detail?.checkpointId;
-  const canExport = !!detail && detail.state === "COMPLETED" && !!detail.result && !!detail.checkpointId && matchingCheckpoint;
+  const canExport = !!detail && (detail.canExportCompleted || detail.state === "COMPLETED" && !!detail.result) && !!detail.checkpointId && matchingCheckpoint;
   function act(action: Action) {
     if (!detail) return;
     void run(async current => { await current.control(detail, action); if (current.active) { setListRevision(value => value + 1); setDetailRevision(value => value + 1); setNotice("操作已提交，正在读取服务端最新状态。"); } });
@@ -212,7 +222,8 @@ export default function App() {
     <header className="web-header"><a href="/" className="brand"><img src={logo} alt="PractiQ 小章鱼" /><div><strong>PractiQ</strong><span>AI 文档导入</span></div></a><div className="flex items-center gap-3"><span role="status"><Badge variant="outline">{client ? capError ? "连接验证失败" : capabilities ? "服务已连接" : "正在验证服务" : "尚未连接"}</Badge></span>{client && <Button variant="outline" onClick={disconnect}><Unplug />断开连接</Button>}</div></header>
     <main id="main-content" tabIndex={-1} className="web-main"><div className="page-intro"><div><p className="eyebrow">文档 → 检查结果 → 导出题库</p><h1>把文档整理成可复核的题库</h1><p>上传、解析与结果检查在这里完成。下载题库 ZIP 后，在 PractiQ 应用的「设置 → 恢复备份」中追加题库并离线练习。</p></div></div>
       <ol className="import-steps" aria-label="文档导入流程"><li><span>1</span><div><strong>选择并导入</strong><p>选择文件，点击开始后解析</p></div></li><li><span>2</span><div><strong>检查解析结果</strong><p>核对题目、答案与质量提示</p></div></li><li><span>3</span><div><strong>导出并离线练习</strong><p>下载 ZIP，在 App 中追加题库</p></div></li></ol>
-      {!client ? <Card className="connection-card"><CardHeader><CardTitle role="heading" aria-level={2} className="flex items-center gap-2"><LockKeyhole />连接 AI 服务</CardTitle></CardHeader><CardContent className="space-y-4"><p id="token-help">输入当前服务的访问 Token。它仅保存在本页内存中，刷新或断开后会清除。模型配置由服务端管理。</p><form onSubmit={event => { event.preventDefault(); connect(); }} className="connection-form"><label className="flex-1 space-y-1"><span>服务 Token</span><Input type="password" aria-describedby="token-help" autoComplete="off" spellCheck={false} value={draftToken} onChange={event => setDraftToken(event.target.value)} /></label><Button type="submit" disabled={!draftToken.trim()}>连接服务</Button></form>{capError && <p role="alert" className="text-destructive">{capError}</p>}</CardContent></Card> : <>
+      <AccountPanel client={client} balance={detail?.billing?.balanceMicropoints} revision={detailRevision + listRevision} onRecharge={() => { setDetailRevision(value => value + 1); setListRevision(value => value + 1); }} />
+      {!client ? <Card className="connection-card"><CardHeader><CardTitle role="heading" aria-level={2} className="flex items-center gap-2"><LockKeyhole />查询导入记录</CardTitle></CardHeader><CardContent className="space-y-4"><p id="card-help">输入手机号和已绑定卡密查询记录。首次使用请选择绑定并查询；卡密仅保存在本页内存，刷新后需重新输入。</p><form onSubmit={event => { event.preventDefault(); void connect(); }} className="connection-form"><label className="flex-1 space-y-1"><span>手机号</span><Input disabled={connecting} type="tel" autoComplete="off" maxLength={16} value={draftPhone} onChange={event => setDraftPhone(event.target.value)} /></label><label className="flex-1 space-y-1"><span>卡密</span><Input disabled={connecting} type="password" aria-describedby="card-help" autoComplete="off" spellCheck={false} maxLength={64} value={draftToken} onChange={event => setDraftToken(event.target.value)} /></label><Button type="submit" disabled={connecting || !draftPhone.trim() || !draftToken.trim()}>查询记录</Button><Button type="button" variant="outline" disabled={connecting || !draftPhone.trim() || !draftToken.trim()} onClick={() => void connect(true)}>绑定并查询</Button></form>{capError && <p role="alert" className="text-destructive">{capError}</p>}</CardContent></Card> : <>
         {capError && <div className="error-banner" role="alert">{capError}<Button variant="outline" onClick={() => setCapRevision(value => value + 1)}>重试读取服务能力</Button></div>}
         {operationError && <div className="error-banner" role="alert">{operationError}</div>}{notice && <p className="notice" role="status">{notice}</p>}
         {busy && <p role="status" className="operation-status"><LoaderCircle className="loading-icon" aria-hidden="true" />正在处理当前操作，请勿重复提交。</p>}
@@ -248,9 +259,10 @@ export default function App() {
             {detail && <div className="space-y-6"><div className="task-title"><div><h2>{detail.fileName}</h2><p><Badge variant="outline">{stateLabels[detail.state]}</Badge><span>阶段：{detail.phase}</span>{detail.status && <Badge variant={detail.status === "PARTIAL" ? "secondary" : "outline"}>{detail.status === "PARTIAL" ? "部分结果" : "解析完成"}</Badge>}</p></div><Button variant="outline" aria-label="刷新任务详情" onClick={() => setDetailRevision(value => value + 1)}><RefreshCw /></Button></div>
               {!detailFresh && <p className="notice">当前显示上次成功读取的信息，任务操作已停用，请先刷新。</p>}
               {preview && preview.checkpointId !== detail.checkpointId && <p className="notice">任务检查点正在更新，读取一致后才能继续或导出。</p>}
-              <Progress task={detail} />
-              <div className="task-actions" aria-label="当前任务操作">{detail.allowedActions.map(action => <Button key={action} variant="outline" disabled={busy || !detailFresh || (!["pause", "interrupt"].includes(action) && !matchingCheckpoint) || (["resume", "retry_failed"].includes(action) && (!detail.modelConfigured || !detail.resumeCompatible))} onClick={() => act(action)}>{actionLabels[action]}</Button>)}<Button disabled={busy || !canExport} onClick={() => void run(async current => { const exported = await current.exportBank(detail); if (current.active) { downloadBlob(exported.blob, exported.name); setNotice("题库 ZIP 已下载。请在应用设置中追加导入。"); } })}><Download />下载题库 ZIP</Button></div>
-              {detail.state !== "COMPLETED" && <p className="text-sm text-muted-foreground">题库 ZIP 将在任务完成、检查点一致后可下载；现有部分结果可以先检查。</p>}
+              <Progress task={detail} />{detail.billing && <p>本任务已用 {pointLabel(detail.billing.chargedMicropoints)} 积分；账户余额 {pointLabel(detail.billing.balanceMicropoints)} 积分。每千输入／输出 tokens 分别消耗 {pointLabel(detail.billing.rates.inputMicropointsPer1k)}／{pointLabel(detail.billing.rates.outputMicropointsPer1k)} 积分。</p>}
+              {detail.billing && detail.blocking.some(item => typeof item === "object" && item !== null && "kind" in item && item.kind === "billing") && <p role="status" className="notice">{detail.billing.usageUnknown ? "用量待核对，请联系客服。" : BigInt(detail.billing.balanceMicropoints) <= 0n ? "积分不足，兑换卡密后请明确点击继续解析。" : detail.blocking.some(item => typeof item === "object" && item !== null && "code" in item && item.code === "USAGE_UNKNOWN") ? "用量已核对，请明确点击继续解析。" : "积分已补充，请明确点击继续解析。"}已完成内容可下载；下载与充值不会自动继续。</p>}
+              <div className="task-actions" aria-label="当前任务操作">{detail.allowedActions.map(action => <Button key={action} variant="outline" disabled={busy || !detailFresh || (!["pause", "interrupt"].includes(action) && !matchingCheckpoint) || (["resume", "retry_failed"].includes(action) && (!detail.modelConfigured || !detail.resumeCompatible))} onClick={() => act(action)}>{actionLabels[action]}</Button>)}<Button disabled={busy || !canExport} onClick={() => void run(async current => { const exported = await current.exportBank(detail); if (current.active) { downloadBlob(exported.blob, exported.name); setNotice("题库 ZIP 已下载。每次导出包含当前全部已完成内容，重复导入会创建独立题库。请在应用设置中追加导入。"); } })}><Download />下载题库 ZIP</Button></div>
+              {detail.state !== "COMPLETED" && <p className="text-sm text-muted-foreground">暂停任务可下载全部已完成内容；检查点一致且有可用题目时才能导出。</p>}
               <details className="task-secondary-actions"><summary>其他任务操作</summary><p className="text-sm text-muted-foreground">重新解析会创建新的模型请求；删除会移除此任务和检查点。已下载的题库不受影响。</p><div className="task-actions"><Button variant="outline" disabled={busy || !detailFresh || !detail.modelConfigured || detail.state === "EXPIRED"} onClick={() => void run(async current => { const receipt = await current.reparse(detail.threadId); if (current.active) { setSelected(value => value === detail.threadId ? receipt.threadId : value); setListRevision(value => value + 1); setDetailRevision(value => value + 1); setNotice("新解析任务已创建。"); } })}><RefreshCw />重新解析为新任务</Button><Button variant="destructive" disabled={busy || !detailFresh || ["RUNNING", "PENDING", "PAUSING"].includes(detail.state)} onClick={() => setDeleteTarget({ threadId: detail.threadId, fileName: detail.fileName })}><Trash2 />删除任务</Button></div></details>
               {!!detail.failures.length && <section className="notice"><h3>失败单元</h3><ul>{detail.failures.map(failure => <li key={`${failure.stage}:${failure.index}`}>{failure.stage} · {failure.index} · {failure.code} · {failure.retryable ? `可重试，剩余 ${failure.retriesRemaining ?? 0} 次` : "不可重试"}</li>)}</ul></section>}
               {(!detail.modelConfigured || !detail.resumeCompatible) && <p className="notice">{!detail.modelConfigured ? "服务端模型未配置。" : "当前模型配置与检查点不兼容。"}继续和重试暂不可用，现有结果仍可检查。</p>}

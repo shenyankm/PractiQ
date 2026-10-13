@@ -11,13 +11,15 @@ from psycopg import AsyncConnection
 from psycopg.rows import dict_row
 
 from .config import database_uri
+from .saas import DDL as SAAS_DDL
+from .saas import TABLES as SAAS_TABLES
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 # Separate session ownership from short API transactions, scoped to this database.
 LOCK_NAMESPACE = 817241
 DDL = """
 CREATE TABLE practiq_schema(version integer NOT NULL);
-INSERT INTO practiq_schema VALUES (2);
+INSERT INTO practiq_schema VALUES (3);
 CREATE TABLE document_tasks (
  thread_id text PRIMARY KEY, request_hash text NOT NULL, graph_id text NOT NULL,
  document jsonb NOT NULL, failure_policy text NOT NULL, parent_thread_id text,
@@ -53,6 +55,7 @@ CREATE TABLE document_outbox (
 CREATE INDEX document_outbox_pending ON document_outbox(created_at) WHERE published_at IS NULL;
 """
 DDL += OUTBOX_DDL
+DDL += SAAS_DDL
 INDEX_DDL = """
 CREATE INDEX IF NOT EXISTS document_task_order ON document_tasks(created_at DESC,thread_id DESC);
 CREATE INDEX IF NOT EXISTS document_run_latest ON document_runs(thread_id,created_at DESC);
@@ -60,6 +63,7 @@ CREATE INDEX IF NOT EXISTS document_active_order ON document_runs(created_at) WH
 """
 STATE_TABLES = {'checkpoints', 'checkpoint_blobs', 'checkpoint_writes', 'checkpoint_migrations', 'store', 'store_migrations'}
 TASK_TABLES = {'practiq_schema', 'document_tasks', 'document_runs', 'document_receipts', 'grades', 'grade_calls', 'grade_calls_sequence_seq', 'document_outbox'}
+TASK_TABLES |= SAAS_TABLES
 
 
 class Ownership:
@@ -160,9 +164,14 @@ class Database:
     async def check_schema(self):
         tables = await self.tables()
         if 'practiq_schema' not in tables or await self.rows('SELECT version FROM practiq_schema') != [{'version': SCHEMA_VERSION}]:
-            raise RuntimeError('Unsupported service schema; use init-db only for an empty database, or upgrade-db for schema 1')
+            raise RuntimeError('Unsupported service schema; use init-db only for an empty database, or upgrade-db for schema 1 or 2')
         if not STATE_TABLES | TASK_TABLES <= tables:
             raise RuntimeError('Incomplete PostgreSQL state; restore the entire service database before starting')
+        if not await self.upload_verification_column():
+            raise RuntimeError('Upload ownership requires an explicit offline upgrade-db')
+
+    async def upload_verification_column(self):
+        return bool(await self.rows("SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='import_uploads' AND column_name='verified' AND data_type='boolean'"))
 
     @asynccontextmanager
     async def transaction(self):
@@ -196,13 +205,23 @@ class Database:
             raise RuntimeError('Upgrade requires an initialized service database')
         versions = await self.rows('SELECT version FROM practiq_schema')
         if versions == [{'version': SCHEMA_VERSION}]:
+            if not STATE_TABLES | TASK_TABLES <= tables:
+                raise RuntimeError('Upgrade requires complete PostgreSQL state')
+            if not await self.upload_verification_column():
+                async with self.transaction() as conn:
+                    await conn.execute('ALTER TABLE import_uploads ADD COLUMN verified boolean NOT NULL DEFAULT true')
+                    await conn.execute('ALTER TABLE import_uploads ALTER COLUMN verified SET DEFAULT false')
             await self.check_schema()
             return
-        if versions != [{'version': 1}] or not STATE_TABLES | (TASK_TABLES - {'document_outbox'}) <= tables:
-            raise RuntimeError('Upgrade supports only complete service schema 1')
+        version = versions[0]['version'] if len(versions) == 1 else None
+        required = TASK_TABLES - SAAS_TABLES - ({'document_outbox'} if version == 1 else set())
+        if version not in {1, 2} or tables & SAAS_TABLES or not STATE_TABLES | required <= tables:
+            raise RuntimeError('Upgrade supports only complete service schema 1 or 2')
         async with self.transaction() as conn:
-            await conn.execute(OUTBOX_DDL, prepare=False)
-            await conn.execute('DROP INDEX IF EXISTS document_queue')
+            if version == 1:
+                await conn.execute(OUTBOX_DDL, prepare=False)
+                await conn.execute('DROP INDEX IF EXISTS document_queue')
+            await conn.execute(SAAS_DDL, prepare=False)
             await conn.execute('UPDATE practiq_schema SET version=%s', (SCHEMA_VERSION,))
 
     async def acquire(self, message: str = 'Another service already owns this database') -> Ownership:

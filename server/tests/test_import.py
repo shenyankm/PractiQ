@@ -6,11 +6,13 @@ Models are fake; extraction and graph execution are real.
 import asyncio
 import hashlib
 from pathlib import Path
+from unittest.mock import AsyncMock
+from uuid import uuid4
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from practiq_ai import webapp
+from practiq_ai import task_api, webapp
 from practiq_ai.contracts import DOCUMENT_MEDIA_TYPES
 from practiq_ai.graphs import document
 from tests.support import FakeModel, local_graph, object_store, question, run_config
@@ -51,7 +53,7 @@ async def ingest(client, payload, kind, name):
     ("pdf", "pdf/text-layer.pdf"), ("csv", "csv/basic.csv"),
     ("image", "image/clean.png"),
 ])
-async def test_native_binary_import_and_verified_artifacts(setup, kind, fixture):
+async def test_native_binary_import_and_verified_artifacts(setup, kind, fixture, monkeypatch):
     store, _ = setup
     payload = (Path(__file__).parents[1] / "evals/fixtures" / fixture).read_bytes()
     async with AsyncClient(transport=ASGITransport(app=webapp.app), base_url="http://test", headers=HEADERS) as client:
@@ -61,18 +63,24 @@ async def test_native_binary_import_and_verified_artifacts(setup, kind, fixture)
         assert result["result"]["questions"][0]["stem"] == "Imported"
         assert result["usage"]
         if kind == "pdf":
+            thread = str(uuid4())
+            monkeypatch.setattr(task_api, 'client', lambda: None)
+            monkeypatch.setattr(task_api, '_read_task_record', AsyncMock(return_value={'document': reference, 'account_id': None}))
+            monkeypatch.setattr(task_api, 'review_task', AsyncMock(return_value=result))
+            monkeypatch.setattr(task_api, 'get_task', AsyncMock(return_value=result))
             visual = result["result"]["visualElements"][0]
             assert "/" in visual["imageRef"]["objectKey"]
             assert "imageBase64" not in visual
             artifact = visual["imageRef"]
-            response = await client.post("/api/artifacts/read", json=artifact)
+            endpoint = '/api/artifacts/read?thread_id=' + thread
+            response = await client.post(endpoint, json=artifact)
             assert response.status_code == 200
             assert response.content == (store.root / artifact["objectKey"]).read_bytes()
             assert hashlib.sha256(response.content).hexdigest() == artifact["sha256"]
             forged = {**artifact, "objectKey": "private/secret"}
-            assert (await client.post("/api/artifacts/read", json=forged)).status_code == 422
+            assert (await client.post(endpoint, json=forged)).status_code == 404
             (store.root / artifact["objectKey"]).write_bytes(b"x" * artifact["sizeBytes"])
-            assert (await client.post("/api/artifacts/read", json=artifact)).status_code == 409
+            assert (await client.post(endpoint, json=artifact)).status_code == 409
 
 
 async def test_concurrent_native_runs_keep_distinct_usage(setup):

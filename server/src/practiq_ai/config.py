@@ -44,6 +44,12 @@ class Config:
     structured_output_method: str = "function_calling"
     office_executable: Path | None = None
     office_version: str | None = None
+    input_micropoints_per_1k: int | None = None
+    output_micropoints_per_1k: int | None = None
+    account_upload_max_bytes: int = 256 * MIB
+    account_upload_max_files: int = 1000
+    account_max_pending_runs: int = 8
+    account_max_tasks: int = 100
 
 
 def _required(values: dict[str, str], key: str) -> str:
@@ -90,6 +96,11 @@ def is_loopback_host(hostname: str | None) -> bool:
 
 def load() -> Config:
     values = dict(os.environ)
+    from .saas import points
+    input_points = values.get('AI_INPUT_POINTS_PER_1K')
+    output_points = values.get('AI_OUTPUT_POINTS_PER_1K')
+    if bool(input_points) != bool(output_points):
+        raise ValueError('Configure both input and output point rates')
     office_path = values.get("AI_OFFICE_EXECUTABLE", "").strip()
     office_version = values.get("AI_OFFICE_VERSION", "").strip()
     if bool(office_path) != bool(office_version):
@@ -142,6 +153,8 @@ def load() -> Config:
         if (url.scheme != "https" and not (url.scheme == "http" and loopback)) or not url.hostname or url.username or url.password or url.query or url.fragment:
             raise ValueError("LLM_BASE_URL requires HTTPS or loopback HTTP without credentials, query or fragment")
     return Config(
+        input_micropoints_per_1k=points(input_points) if input_points else None,
+        output_micropoints_per_1k=points(output_points) if output_points else None,
         base_url=base_url,
         read_only=read_only,
         jobs_per_worker=jobs_per_worker,
@@ -155,6 +168,10 @@ def load() -> Config:
         provider_rpm=provider_rpm,
         upload_concurrency=_positive_int(values, "AI_UPLOAD_CONCURRENCY", 4),
         upload_timeout_seconds=_positive_float(values, "AI_UPLOAD_TIMEOUT_SECONDS", 120),
+        account_upload_max_bytes=_positive_int(values, 'AI_ACCOUNT_UPLOAD_MAX_BYTES', 256 * MIB),
+        account_upload_max_files=_positive_int(values, 'AI_ACCOUNT_UPLOAD_MAX_FILES', 1000),
+        account_max_pending_runs=_positive_int(values, 'AI_ACCOUNT_MAX_PENDING_RUNS', 8),
+        account_max_tasks=_positive_int(values, 'AI_ACCOUNT_MAX_TASKS', 100),
         max_busy_threads=_positive_int(values, "AI_MAX_BUSY_THREADS", 300),
         structured_output_method=method,
         office_executable=office_executable,

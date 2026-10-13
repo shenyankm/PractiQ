@@ -37,7 +37,7 @@ Export a bank from its card menu to share content without personal answers or sc
 
 Use the independent service's Web frontend for document import:
 
-1. Start the [independent AI service](#run-the-ai-service-independently), open its Web frontend and enter the service access token. Model configuration and provider credentials stay in the service environment.
+1. Start the [independent AI service](#run-the-ai-service-independently), open its Web frontend and enter a phone number and a bound card (or explicitly bind the first card). Model configuration and provider credentials stay in the service environment.
 2. Select up to 10 source files and explicitly choose **Start import**. Selecting files does not upload or parse them.
 3. Inspect task progress, saved questions, images, supplied answers and review warnings. Download the result as a question-bank ZIP.
 4. In the desktop app, use **Settings → Restore backup → Import bank ZIP** to create a bank or append content to an existing bank.
@@ -136,4 +136,6 @@ Report reproducible bugs or propose improvements through [GitHub Issues](https:/
 
 Project source uses the [MIT license](LICENSE). Bundled dependencies retain their [upstream notices](app/licenses/README.md).
 
-AI service upgrades and RabbitMQ setup: [delivery and recovery guide](server/docs/rabbitmq.md). Existing service schema 1 requires explicit `make upgrade-db`; stop and back up the old service first.
+AI service upgrades and RabbitMQ setup: [delivery and recovery guide](server/docs/rabbitmq.md). Existing service schema 1 or 2 requires explicit `make upgrade-db` to schema 3; stop and back up the old service first.
+
+SaaS card issuance, account isolation, point billing, partial downloads and operator reconciliation: [SaaS guide](server/docs/saas.md). Configure both token billing rates before admitting customer imports; service tokens remain available for administration and App grading.

@@ -1,4 +1,4 @@
-import type { ArtifactReference, DocumentReference, DocumentSourceType, DocumentTaskControl, DocumentTaskCreate, DocumentTaskDetail, DocumentTaskHead, DocumentTaskList, DocumentTaskReceipt, DocumentTaskReparse, DocumentTaskReview, DocumentUploadResponse, ImportCapabilities, OfficeMode } from "./contracts.generated";
+import type { ArtifactReference, DocumentReference, DocumentSourceType, DocumentTaskControl, DocumentTaskCreate, DocumentTaskDetail, DocumentTaskHead, DocumentTaskList, DocumentTaskReceipt, DocumentTaskReparse, DocumentTaskReview, DocumentUploadResponse, ImportCapabilities, ImportAccount, ImportProducts, PointLedger, OfficeMode } from "./contracts.generated";
 
 export type SourceType = DocumentSourceType;
 export type { OfficeMode } from "./contracts.generated";
@@ -68,12 +68,12 @@ async function readBytes(response: Response, maximum: number) {
   return bytes;
 }
 
-/** Same-origin Bearer client. Its lifetime ends on disconnect; mutations are never retried here. */
+/** Same-origin card client. Its lifetime ends on disconnect; mutations are never retried here. */
 export class Client {
   private readonly session = new AbortController();
   private readonly intents = new Map<string, string>();
-  constructor(private readonly token: string) {
-    if (!token.trim() || /[\r\n]/.test(token)) throw new ApiError("请输入有效的服务 Token。", "INVALID_TOKEN");
+  constructor(private readonly token: string, private readonly phone: string) {
+    if (!token.trim() || /[\r\n]/.test(token) || !/^(1[3-9][0-9]{9}|\+[1-9][0-9]{6,14})$/.test(phone)) throw new ApiError("请输入有效的手机号和卡密。", "INVALID_CARD");
   }
   get active() { return !this.session.signal.aborted; }
   disconnect() { this.session.abort(); this.intents.clear(); }
@@ -81,7 +81,8 @@ export class Client {
     if (!this.active || signal?.aborted) throw new DOMException("请求已取消", "AbortError");
     if (!path.startsWith("/api/") || path.startsWith("//")) throw new ApiError("服务返回了无效地址。", "INVALID_URL");
     const headers = new Headers(init.headers);
-    headers.set("Authorization", `Bearer ${this.token}`);
+    headers.set("Authorization", `Card ${this.token}`);
+    headers.set("X-Practiq-Phone", this.phone);
     let response: Response;
     try {
       response = await fetch(path, { ...init, headers, cache: "no-store", credentials: "omit", redirect: "error", signal: signal ? AbortSignal.any([signal, this.session.signal]) : this.session.signal });
@@ -95,7 +96,7 @@ export class Client {
         const body = JSON.parse(new TextDecoder().decode(await readBytes(response, 64 * 1024))) as { detail?: { code?: string } };
         if (body.detail?.code && /^[A-Z0-9_]{1,64}$/.test(body.detail.code)) code = body.detail.code;
       } catch { /* Error bodies may be empty, text, or validation arrays. */ }
-      const message = response.status === 401 || response.status === 403 ? "服务 Token 无效或没有访问权限。" : "服务未完成此操作，请检查任务状态后重试。";
+      const message = response.status === 401 || response.status === 403 ? "手机号与卡密不匹配或卡密已被撤销。" : "服务未完成此操作，请检查任务状态后重试。";
       throw new ApiError(`${message}（${code}）`, code, response.status);
     }
     return response;
@@ -115,6 +116,10 @@ export class Client {
     this.intents.delete(key);
     return receipt;
   }
+  account(signal?: AbortSignal) { return this.json<ImportAccount>("/api/account", undefined, signal); }
+  ledger(before?: number) { return this.json<PointLedger>(`/api/account/ledger${before ? `?before=${before}` : ""}`); }
+  redeem(card = this.token, boundCard?: string) { return this.post<ImportAccount>("/api/cards/redeem", { phone: this.phone, card, ...(boundCard ? { boundCard } : {}) }); }
+  recharge(card: string) { return this.redeem(card, this.token); }
   async capabilities(signal?: AbortSignal) {
     const value = await this.json<Capabilities>("/api/import-capabilities", undefined, signal);
     if (!Number.isSafeInteger(value.sourceMaxBytes) || value.sourceMaxBytes <= 0 || !Array.isArray(value.sourceTypes) || !value.sourceTypes.every(type => ["pdf", "text", "csv", "image", "doc", "docx", "xls", "xlsx"].includes(type)) || !Array.isArray(value.officeModes) || !value.officeModes.every(mode => ["pdf", "text"].includes(mode)) || typeof value.officeAvailable !== "boolean" || typeof value.modelConfigured !== "boolean") throw new ApiError("服务能力响应无效。", "INVALID_RESPONSE");
@@ -164,16 +169,16 @@ export class Client {
   }
   reparse(id: string) { return this.intent(`reparse:${id}`, requestId => { const request: DocumentTaskReparse = { requestId }; return this.post<Receipt>(`/api/document-tasks/${encodeURIComponent(id)}/reparse`, request); }); }
   delete(id: string) { return this.json<{ deleted: boolean }>(`/api/document-tasks/${encodeURIComponent(id)}`, { method: "DELETE" }); }
-  async image(reference: ArtifactReference) {
+  async image(reference: ArtifactReference, threadId: string) {
     if (!["image/png", "image/jpeg"].includes(reference.mediaType) || !/^[a-f0-9]{64}$/.test(reference.sha256) || reference.sizeBytes <= 0 || reference.sizeBytes > 50 * MIB) throw new ApiError("图片引用无效。", "INVALID_REFERENCE");
-    const response = await this.request("/api/artifacts/read", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(reference) });
+    const response = await this.request(`/api/artifacts/read?thread_id=${encodeURIComponent(threadId)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(reference) });
     const bytes = await readBytes(response, reference.sizeBytes);
     if (bytes.length !== reference.sizeBytes || response.headers.get("content-type")?.split(";")[0] !== reference.mediaType || await sha256(bytes.buffer) !== reference.sha256) throw new ApiError("图片校验失败。", "ARTIFACT_CHECKSUM_MISMATCH");
     return new Blob([bytes], { type: reference.mediaType });
   }
   async exportBank(task: DocumentTaskDetail) {
-    if (task.state !== "COMPLETED" || !task.result || !task.checkpointId) throw new ApiError("任务结果尚不可导出。", "BANK_EXPORT_NOT_READY");
-    const query = new URLSearchParams({ checkpoint_id: task.checkpointId });
+    if ((!task.canExportCompleted && (task.state !== "COMPLETED" || !task.result)) || !task.checkpointId) throw new ApiError("任务结果尚不可导出。", "BANK_EXPORT_NOT_READY");
+    const query = new URLSearchParams({ checkpoint_id: task.checkpointId, scope: task.state === "COMPLETED" ? "full" : "completed" });
     const response = await this.request(`/api/document-tasks/${encodeURIComponent(task.threadId)}/export?${query}`);
     if (response.headers.get("content-type")?.split(";")[0] !== "application/zip") throw new ApiError("服务未返回题库 ZIP。", "INVALID_RESPONSE");
     return { blob: new Blob([await readBytes(response, MAX_BANK_ZIP_BYTES)], { type: "application/zip" }), name: `practiq-bank-${task.threadId.replace(/[^a-zA-Z0-9-]/g, "")}.zip` };
@@ -186,4 +191,15 @@ export function downloadBlob(blob: Blob, name: string) {
   link.href = url; link.download = name; link.click();
   // Retain the URL through the browser's download handoff, then release it.
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+export async function products(signal?: AbortSignal): Promise<ImportProducts> {
+  const response = await fetch("/api/products", { signal, cache: "no-store", credentials: "omit", redirect: "error" });
+  if (!response.ok) throw new ApiError("无法读取商品，请手动重试。");
+  return JSON.parse(new TextDecoder().decode(await readBytes(response, 64 * 1024))) as ImportProducts;
+}
+export function pointLabel(micropoints: string) {
+  const value = BigInt(micropoints), absolute = value < 0n ? -value : value;
+  const fraction = (absolute % 1_000_000n).toString().padStart(6, "0").replace(/0+$/, "");
+  return `${value < 0n ? "-" : ""}${(absolute / 1_000_000n).toLocaleString("zh-CN")}${fraction ? "." + fraction : ""}`;
 }

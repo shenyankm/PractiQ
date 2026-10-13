@@ -251,7 +251,7 @@ async def test_control_input_auth_and_http_errors(monkeypatch):
     headers = {"Authorization": "Bearer test-token"}
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as http:
         assert (await http.post("/api/document-tasks", json={})).status_code == 401
-        assert (await http.post("/api/document-tasks", json={}, headers=headers)).status_code == 422
+        assert (await http.post("/api/document-tasks", json={}, headers=headers)).status_code == 401
         assert (await http.get("/api/document-tasks/not-a-uuid", headers=headers)).status_code == 422
         path = f"/api/document-tasks/{uuid4()}"
         assert (await http.post(path + "/control", json={"requestId": str(uuid4()), "action": "resume", "runId": str(uuid4())}, headers=headers)).status_code == 422

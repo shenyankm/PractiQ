@@ -199,3 +199,32 @@ fn service_export_imports_partial_media_and_preserves_offline_history() {
         1
     );
 }
+
+#[test]
+fn saas_paused_snapshot_imports_as_independent_banks_with_review_flags() {
+    let fixture =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../fixtures/saas-export/partial-bank.zip");
+    let dir = tempfile::tempdir().unwrap();
+    let mut store = Store::new(dir.path().to_owned()).unwrap();
+    let mut banks = Vec::new();
+    for _ in 0..2 {
+        let preview = store.preview_bank_zip(&fixture).unwrap();
+        assert_eq!(preview["status"], "PARTIAL");
+        assert_eq!(preview["processing"]["chunks"]["total"], 2);
+        assert_eq!(preview["processing"]["chunks"]["succeeded"], 1);
+        assert_eq!(preview["processing"]["quality"]["reviewRequired"], true);
+        assert_eq!(preview["questions"][0]["answerPayload"], Value::Null);
+        let imported = store
+            .import(text(&preview, "ticket"), None, "Paused import")
+            .unwrap();
+        assert_eq!(imported["count"], 1);
+        banks.push(imported["bankId"].clone());
+    }
+    assert_ne!(banks[0], banks[1]);
+    assert_eq!(store.banks().unwrap().as_array().unwrap().len(), 2);
+    assert!(store
+        .question_rows()
+        .unwrap()
+        .iter()
+        .all(|row| row["question"]["needsReview"] == true));
+}

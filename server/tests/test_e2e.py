@@ -24,6 +24,11 @@ from tests.support import make_blank_pdf, make_image
 async def service(tmp_path, disposable_databases):
     from tests.db_support import new_database
     db = await new_database()
+    from practiq_ai import saas
+    card = saas.new_card()
+    async with db.transaction() as conn:
+        await conn.execute("INSERT INTO import_products VALUES('e2e','E2E',1000000000,'https://shop.example',true)")
+        await conn.execute("INSERT INTO import_cards(digest,product_id,points) VALUES(%s,'e2e',1000000000)", (saas.digest(card),))
     calls = tmp_path / "calls.jsonl"
     sock = socket.socket()
     sock.bind(("127.0.0.1", 0))
@@ -35,11 +40,12 @@ async def service(tmp_path, disposable_databases):
         "AI_SERVICE_TOKEN": "e2e-token", "LLM_API_KEY": "synthetic-key",
         "LLM_BASE_URL": f"http://127.0.0.1:{sock.getsockname()[1]}/v1",
         "LLM_MODEL": "synthetic-model",
+        "AI_INPUT_POINTS_PER_1K": "1", "AI_OUTPUT_POINTS_PER_1K": "3",
         "DATABASE_URI": db.uri, "AI_STORAGE_DIR": str(tmp_path / "files"),
     }
 
     @contextmanager
-    def start(*, read_only=False):
+    def start(*, read_only=False, customer=False):
         # Retain coverage configuration, but isolate credentials and proxies.
         env = {key: value for key, value in os.environ.items()
                if not key.startswith(("AI_", "LLM_")) and not key.lower().endswith("_proxy")}
@@ -72,6 +78,10 @@ async def service(tmp_path, disposable_databases):
                     else:
                         log.seek(0)
                         pytest.fail(f"Independent service did not become ready: {log.read()}")
+                    if customer:
+                        bound = client.post('/api/cards/redeem', json={'phone': '13800138000', 'card': card})
+                        assert bound.status_code == 200, bound.text
+                        client.headers.update({'Authorization': 'Card ' + card, 'X-Practiq-Phone': '13800138000'})
                     yield client
                 process.terminate()
                 process.wait(timeout=20)
@@ -128,7 +138,7 @@ def test_e2e_upload_parse_artifacts_and_restart(service, kind):
         "image": (make_image(), "image/png", "quiz.png"),
         "pdf": (make_blank_pdf(1), "application/pdf", "quiz.pdf"),
     }[kind]
-    with start() as client:
+    with start(customer=True) as client:
         assert client.get("/api/document-tasks", headers={"Authorization": ""}).status_code == 401
         document = upload(client, data, kind, media, name)
         assert not calls.exists(), "Uploading must not invoke a model"
@@ -149,14 +159,14 @@ def test_e2e_upload_parse_artifacts_and_restart(service, kind):
         if kind in {"image", "pdf"}:
             assert references, "Vision output must expose a downloadable verified crop"
         for reference in references:
-            response = client.post("/api/artifacts/read", json=reference)
+            response = client.post("/api/artifacts/read?thread_id=" + receipt["threadId"], json=reference)
             assert response.status_code == 200, response.text
             assert response.headers["cache-control"] == "no-store"
             assert hashlib.sha256(response.content).hexdigest() == reference["sha256"]
             assert len(response.content) == reference["sizeBytes"]
-            assert client.post("/api/artifacts/read", json={**reference, "sizeBytes": reference["sizeBytes"] + 1}).status_code == 409
-        assert "practiq_workers_available" in client.get("/api/metrics").text
-    with start(read_only=True) as client:
+            assert client.post("/api/artifacts/read?thread_id=" + receipt["threadId"], json={**reference, "sizeBytes": reference["sizeBytes"] + 1}).status_code == 404
+        assert "practiq_workers_available" in client.get("/api/metrics", headers={"Authorization": "Bearer e2e-token"}).text
+    with start(read_only=True, customer=True) as client:
         restored = client.get(path).json()
         assert restored["result"] == state["result"] and restored["usage"] == state["usage"]
         assert restored["state"] == "COMPLETED"
@@ -165,14 +175,14 @@ def test_e2e_upload_parse_artifacts_and_restart(service, kind):
         assert client.get(path, headers={'Authorization': ''}).status_code == 401
         assert client.get(path + '/preview').status_code == 200
         for reference in references:
-            assert client.post('/api/artifacts/read', json=reference).status_code == 200
+            assert client.post('/api/artifacts/read?thread_id=' + receipt['threadId'], json=reference).status_code == 200
         for url, body in (
             ('/api/document-tasks', {**request, 'requestId': str(uuid4())}),
             (path + '/reparse', {'requestId': str(uuid4())}),
             (path + '/control', {'requestId': str(uuid4()), 'action': 'resume', 'checkpointId': restored['checkpointId']}),
             ('/api/subjective-grades', {}),
         ):
-            rejected = client.post(url, json=body)
+            rejected = client.post(url, json=body, headers={"Authorization": "Bearer e2e-token"} if url == "/api/subjective-grades" else None)
             assert rejected.status_code == 409, rejected.text
             assert rejected.json()['detail']['code'] == 'MODEL_NOT_CONFIGURED'
         listing = client.get("/api/document-tasks").json()["items"]
@@ -185,7 +195,7 @@ def test_e2e_upload_parse_artifacts_and_restart(service, kind):
 
 def test_e2e_review_acceptance_is_explicit_and_survives_restart(service):
     start, calls = service
-    with start() as client:
+    with start(customer=True) as client:
         document = upload(client, b"A different source without the synthetic model's question")
         response = client.post("/api/document-tasks", json={"requestId": str(uuid4()), "document": document, "failurePolicy": "review"})
         assert response.status_code == 202, response.text
@@ -193,7 +203,7 @@ def test_e2e_review_acceptance_is_explicit_and_survives_restart(service):
         state = wait_task(client, path, "WAITING_REVIEW")
         assert state["allowedActions"] == ["accept_partial"]
         assert state["processing"]["quality"]["reviewRequired"]
-    with start() as client:
+    with start(customer=True) as client:
         assert client.get(path).json()["state"] == "WAITING_REVIEW"
         control = {"requestId": str(uuid4()), "action": "accept_partial", "checkpointId": state["checkpointId"]}
         assert client.post(path + "/control", json={**control, "checkpointId": "stale"}).status_code == 409
@@ -236,7 +246,7 @@ def test_e2e_rejected_uploads_never_queue_work(service):
                     "sizeBytes": len(data), "sha256": hashlib.sha256(data).hexdigest()}
         prepared = client.post("/api/uploads", json=metadata).json()
         artifact = {key: prepared["document"][key] for key in ("objectKey", "sha256", "mediaType", "sizeBytes")}
-        assert client.post("/api/artifacts/read", json=artifact).status_code == 422
+        assert client.post("/api/artifacts/read", json=artifact).status_code == 404
         response = client.put(prepared["upload"]["url"], content=b"x" * len(data))
         assert response.status_code == 409
         assert response.json()["detail"]["code"] == "DOCUMENT_CHECKSUM_MISMATCH"
@@ -248,5 +258,5 @@ def test_e2e_rejected_uploads_never_queue_work(service):
         artifact = {key: document[key] for key in ("objectKey", "sha256", "mediaType", "sizeBytes")}
         assert document == prepared["document"]
         assert client.post("/api/uploads", json=metadata).json()["upload"] is None
-        assert client.post("/api/artifacts/read", json={**artifact, "objectKey": "../outside"}).status_code == 422
+        assert client.post("/api/artifacts/read", json={**artifact, "objectKey": "../outside"}).status_code == 404
         assert not calls.exists()
