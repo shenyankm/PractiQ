@@ -52,6 +52,7 @@ async def test_unexportable_source_dimensions_fail_before_model_calls(monkeypatc
     with pytest.raises(DocumentProcessingError) as error:
         await local_graph().ainvoke({'document': reference.model_dump(mode='json')})
     assert error.value.status_code == 413
+    assert error.value.code == 'IMAGE_TOO_LARGE'
     assert model.calls == []
 
 

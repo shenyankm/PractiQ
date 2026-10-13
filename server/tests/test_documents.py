@@ -46,6 +46,7 @@ def test_pdf_rejects_desktop_dimensions_before_render(monkeypatch, size):
     with pytest.raises(DocumentProcessingError) as error:
         pdf.render_pages(b'pdf', [0])
     assert error.value.status_code == 413
+    assert error.value.code == 'IMAGE_TOO_LARGE'
     page.render.assert_not_called()
     page.close.assert_called_once()
     document.close.assert_called_once()

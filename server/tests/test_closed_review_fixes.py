@@ -110,7 +110,7 @@ def test_pdf_fast_png_falls_back_at_aggregate_and_per_page_byte_limits(monkeypat
     def limited_render(source, indexes, *, compress_level=3):
         levels.append(compress_level)
         if compress_level == 3:
-            raise DocumentProcessingError(413, 'Per-page byte limit' if per_page else VISION_BYTES_LIMIT_DETAIL,
+            raise DocumentProcessingError(413, pdf.PAGE_BYTES_LIMIT_DETAIL if per_page else VISION_BYTES_LIMIT_DETAIL,
                                           code='IMAGE_TOO_LARGE' if per_page else 'DOCUMENT_PROCESSING_FAILED')
         return [b'original-level-6']
     monkeypatch.setattr(pdf, '_render_pages', limited_render)
