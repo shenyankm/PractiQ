@@ -1,0 +1,45 @@
+{
+  "python": "3.14.7",
+  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "repetitions": 5,
+  "evaluationQuestions": 1000,
+  "reviewEvents": 10000,
+  "reviewLogBytes": 46637780,
+  "evaluation": {
+    "medianMs": 7.419458997901529,
+    "samplesMs": [
+      7.986584001628216,
+      7.419458997901529,
+      7.815874996595085,
+      7.254999996803235,
+      7.309166998311412
+    ],
+    "peakPythonBytes": 1916918,
+    "outputSha256": "75b5417e1bb5fd8f0d78896a14f0e22e6810cba46e383278dcf84bafcb79bd68"
+  },
+  "reviewQueue": {
+    "medianMs": 100.07091700390447,
+    "samplesMs": [
+      91.64045799843734,
+      100.07091700390447,
+      102.74941699753981,
+      112.06099999981234,
+      96.55645799648482
+    ],
+    "peakPythonBytes": 5252600,
+    "outputSha256": "365132eb05410d4cd3248af3dc8ac1c3a0ad485dfd84987ffa682258446e5b1a"
+  },
+  "metadataLogBytes": 1477780,
+  "reviewMetadata": {
+    "medianMs": 39.61741700186394,
+    "samplesMs": [
+      100.13862500636606,
+      39.041709002049174,
+      39.61741700186394,
+      38.83683300227858,
+      41.084333999606315
+    ],
+    "peakPythonBytes": 5244728,
+    "outputSha256": "365132eb05410d4cd3248af3dc8ac1c3a0ad485dfd84987ffa682258446e5b1a"
+  }
+}

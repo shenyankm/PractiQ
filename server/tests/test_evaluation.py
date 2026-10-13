@@ -172,6 +172,33 @@ def test_full_stems_aliases_and_repeated_occurrences() -> None:
     assert reordered["answerCorrect"] == 0
 
 
+def test_stem_aliases_choose_earliest_unused_prediction_and_keep_extra_order() -> None:
+    expected = [{**question("a"), "stemAliases": ["b", "1. b"]}, question("a"), question("b"), question("missing")]
+    predicted = [question(stem) for stem in ["b", "a", "extra first", "2. b", "extra last"]]
+    predicted[0]["answerPayload"] = {"correct": ["A"]}
+    score = ev.score_document_case(expected, predicted)
+    assert [row["predictedIndex"] for row in score["questions"]] == [0, 1, 3, None, 2, 4]
+    assert (score["matched"], score["answerCorrect"], score["extraQuestions"]) == (3, 2, 2)
+    assert ev.score_document_case([], predicted)["extraQuestions"] == 5
+    assert ev.score_document_case(expected, [])["matched"] == 0
+
+
+def test_stem_matching_normalizes_each_prediction_once(monkeypatch) -> None:
+    questions = [question(f"Question {index}") for index in range(1000)]
+    normalize = ev.normalize_stem
+    calls = 0
+
+    def counted(stem):
+        nonlocal calls
+        calls += 1
+        return normalize(stem)
+
+    monkeypatch.setattr(ev, "normalize_stem", counted)
+    score = ev.score_document_case(questions, list(reversed(questions)))
+    assert score["answerCorrect"] == 1000
+    assert calls == 2000
+
+
 def test_missing_questions_and_fields_use_gold_denominators() -> None:
     predicted = question()
     predicted.update(answerMode="short_answer", options=[], answerPayload={"text": "5"})
