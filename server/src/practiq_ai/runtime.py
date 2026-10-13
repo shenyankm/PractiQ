@@ -52,6 +52,8 @@ class Service:
             await self.db.check_schema()
             self.execution_slots = asyncio.Semaphore(load().jobs_per_worker)
             self.lock = await self.db.acquire()
+            from .saas import reconcile
+            await reconcile(self.db)
             await self.db.ensure_indexes()
             self.graphs = {name: build_document_graph(self.db.checkpointer, store=self.db.store, name=name, source_types=types)
                            for name, types in GRAPH_FORMATS.items()}
@@ -286,7 +288,8 @@ class Service:
                 await graph.ainvoke(graph_input, {'configurable': {'thread_id': run['thread_id']},
                     'run_id': run_id, 'metadata': {'practiqRunId': run_id}}, context=dict(run['context']), durability='sync')
             snapshot = await self.snapshot(task)
-            saved_status = self.saved_run_status(snapshot, run)
+            # A resumed node can pause again without advancing its checkpoint.
+            saved_status = 'waiting' if snapshot.interrupts else self.saved_run_status(snapshot, run)
             if saved_status is None:
                 raise DocumentProcessingError(500, 'Run result is not checkpointed', 'RUN_RESULT_INCOMPLETE')
             await self.finish(run_id, saved_status)

@@ -488,7 +488,7 @@ async def test_export_http_slot_holds_through_download_and_releases_after_respon
     endpoint = f"/api/document-tasks/{detail().threadId}/export"
     entered, released = asyncio.Event(), asyncio.Event()
     files = []
-    async def export(*_args):
+    async def export(*_args, **_kwargs):
         payload = TemporaryFile("w+b")  # noqa: SIM115 - response receives ownership
         payload.write(b"x" * (128 * 1024 + 17)); payload.seek(0)
         files.append(payload)
@@ -541,7 +541,7 @@ async def test_export_http_slot_releases_after_archive_build_failure(monkeypatch
     monkeypatch.setenv("AI_SERVICE_TOKEN", "export-test-token")
     files = []
     calls = 0
-    async def export(*_args):
+    async def export(*_args, **_kwargs):
         nonlocal calls
         calls += 1
         if calls == 1:
@@ -564,7 +564,7 @@ async def test_export_response_reads_bounded_chunks_and_closes_on_completion_or_
     from practiq_ai import task_api, webapp
     payload = TemporaryFile("w+b")  # noqa: SIM115 - assert production closes the transferred file
     payload.write(b"x" * (128 * 1024 + 17)); payload.seek(0)
-    async def export(*_args):
+    async def export(*_args, **_kwargs):
         return payload
     monkeypatch.setattr(task_api, "export_task", export)
     messages = []
@@ -615,7 +615,7 @@ async def test_export_response_waits_for_a_cancelled_read_before_closing_its_arc
             raise
         finally:
             finished.set()
-    async def export(*_args):
+    async def export(*_args, **_kwargs):
         return payload
     async def receive():
         await asyncio.Event().wait()

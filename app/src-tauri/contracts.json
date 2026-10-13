@@ -4167,6 +4167,27 @@
         "title": "ParsedQuestion",
         "type": "object"
       },
+      "PointRates": {
+        "additionalProperties": false,
+        "properties": {
+          "inputMicropointsPer1k": {
+            "exclusiveMinimum": 0,
+            "title": "Inputmicropointsper1K",
+            "type": "integer"
+          },
+          "outputMicropointsPer1k": {
+            "exclusiveMinimum": 0,
+            "title": "Outputmicropointsper1K",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "inputMicropointsPer1k",
+          "outputMicropointsPer1k"
+        ],
+        "title": "PointRates",
+        "type": "object"
+      },
       "ShortAnswerPayload": {
         "additionalProperties": false,
         "properties": {
@@ -4181,6 +4202,40 @@
           "text"
         ],
         "title": "ShortAnswerPayload",
+        "type": "object"
+      },
+      "TaskBilling": {
+        "additionalProperties": false,
+        "properties": {
+          "phone": {
+            "title": "Phone",
+            "type": "string"
+          },
+          "balanceMicropoints": {
+            "title": "Balancemicropoints",
+            "type": "integer"
+          },
+          "usageUnknown": {
+            "title": "Usageunknown",
+            "type": "boolean"
+          },
+          "chargedMicropoints": {
+            "minimum": 0,
+            "title": "Chargedmicropoints",
+            "type": "integer"
+          },
+          "rates": {
+            "$ref": "#/$defs/PointRates"
+          }
+        },
+        "required": [
+          "phone",
+          "balanceMicropoints",
+          "usageUnknown",
+          "chargedMicropoints",
+          "rates"
+        ],
+        "title": "TaskBilling",
         "type": "object"
       },
       "TaskModelBudget": {
@@ -4516,6 +4571,22 @@
         },
         "title": "Unknownusagecalls",
         "type": "array"
+      },
+      "billing": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/TaskBilling"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null
+      },
+      "canExportCompleted": {
+        "default": false,
+        "title": "Canexportcompleted",
+        "type": "boolean"
       }
     },
     "required": [

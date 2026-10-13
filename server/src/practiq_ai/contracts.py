@@ -51,6 +51,51 @@ class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class CardRedeem(StrictModel):
+    phone: str = Field(min_length=7, max_length=16)
+    card: str = Field(min_length=1, max_length=64)
+    boundCard: str | None = Field(default=None, max_length=64)
+
+
+class ImportAccount(StrictModel):
+    phone: str
+    balanceMicropoints: int
+    usageUnknown: bool
+
+
+class ImportProduct(StrictModel):
+    productId: str
+    name: str
+    pointsMicropoints: int
+    purchaseUrl: str
+
+
+class ImportProducts(StrictModel):
+    items: list[ImportProduct]
+
+
+class PointEntry(StrictModel):
+    id: int
+    amountMicropoints: int
+    kind: str
+    createdAt: str
+
+
+class PointLedger(StrictModel):
+    items: list[PointEntry]
+    nextBefore: int | None
+
+
+class PointRates(StrictModel):
+    inputMicropointsPer1k: int = Field(gt=0)
+    outputMicropointsPer1k: int = Field(gt=0)
+
+
+class TaskBilling(ImportAccount):
+    chargedMicropoints: int = Field(ge=0)
+    rates: PointRates
+
+
 def _non_blank(value: str) -> str:
     stripped = value.strip()
     if not stripped:
@@ -829,6 +874,8 @@ class DocumentTaskDetail(StrictModel):
     processing: DocumentProcessing | None
     usage: list[ModelCallUsage]
     unknownUsageCalls: list[UUID]
+    billing: TaskBilling | None = None
+    canExportCompleted: bool = False
 
 
 class DocumentTaskSummary(StrictModel):

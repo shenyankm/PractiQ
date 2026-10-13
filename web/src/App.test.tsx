@@ -18,6 +18,9 @@ function fakeHTTP(initial: DocumentTaskDetail = task) {
     calls.push({ url, method, body, auth: new Headers(init.headers).get("Authorization") });
     const intercepted = await server.intercept?.(url, init); if (intercepted) return intercepted;
     const path = new URL(url, location.origin).pathname;
+    if (path === "/api/products") return json({ items: [] });
+    if (path === "/api/account" || path === "/api/cards/redeem") return json({ phone: "+8613800138000", balanceMicropoints: 1000000, usageUnknown: false });
+    if (path === "/api/account/ledger") return json({ items: [], nextBefore: null });
     if (path === "/api/import-capabilities") return json(capabilities);
     if (path === "/api/document-tasks" && method === "GET") return json({ items: Array.from(records.values()).map(current => ({ ...summary, threadId: current.threadId, fileName: current.fileName, state: current.state, checkpointId: current.checkpointId, status: current.status })), hasMore: new URL(url, location.origin).searchParams.get("offset") === "0" });
     if (path === "/api/uploads") { document = { ...body, objectKey: `practiq-agent/sources/${body.sha256}/source.${body.sourceType === "text" ? "txt" : body.sourceType}` }; return json({ document, upload: { method: "PUT", url: "/api/uploads/content?" + new URLSearchParams(body), headers: { "Content-Type": body.mediaType } } }); }
@@ -35,7 +38,7 @@ function fakeHTTP(initial: DocumentTaskDetail = task) {
   return { calls, records, server, fetcher };
 }
 async function connect(user: ReturnType<typeof userEvent.setup>) {
-  await user.type(screen.getByLabelText("服务 Token"), "fake-service-token"); await user.click(screen.getByRole("button", { name: "连接服务" }));
+  await user.type(screen.getByLabelText("手机号"), "13800138000"); await user.type(screen.getByLabelText("卡密"), "fake-service-token"); await user.click(screen.getByRole("button", { name: "查询记录" }));
   await screen.findByText("服务已连接");
 }
 async function openTask(user: ReturnType<typeof userEvent.setup>) {
@@ -46,12 +49,12 @@ async function openTask(user: ReturnType<typeof userEvent.setup>) {
 
 it("keeps Token in memory, clears it on disconnect, and performs no HTTP before connect", async () => {
   const user = userEvent.setup(); const http = fakeHTTP(); const persist = vi.spyOn(Storage.prototype, "setItem"); render(<App />);
-  expect(http.calls).toHaveLength(0);
+  expect(http.calls.every(call => call.url === "/api/products" && call.method === "GET")).toBe(true);
   await connect(user);
   expect(screen.getByText("服务支持：PDF、TXT、CSV、PNG/JPEG、Word (.doc)、Word (.docx)、Excel (.xls)、Excel (.xlsx)")).toBeTruthy();
-  expect(screen.queryByLabelText("服务 Token")).toBeNull(); expect(persist).not.toHaveBeenCalled();
-  expect(http.calls.every(call => call.auth === "Bearer fake-service-token" && !call.url.includes("fake-service-token") && call.method === "GET")).toBe(true);
-  await user.click(screen.getByRole("button", { name: "断开连接" })); expect((screen.getByLabelText("服务 Token") as HTMLInputElement).value).toBe("");
+  expect(screen.queryByLabelText("卡密")).toBeNull(); expect(persist).not.toHaveBeenCalled();
+  expect(http.calls.every(call => (call.url === "/api/products" || call.auth === "Card fake-service-token") && !call.url.includes("fake-service-token") && call.method === "GET")).toBe(true);
+  await user.click(screen.getByRole("button", { name: "断开连接" })); expect((screen.getByLabelText("卡密") as HTMLInputElement).value).toBe("");
   const count = http.calls.length; vi.useFakeTimers(); await act(async () => vi.advanceTimersByTimeAsync(10_000)); expect(http.calls).toHaveLength(count);
   expect(localStorage.length).toBe(0); expect(sessionStorage.length).toBe(0);
 });
@@ -104,7 +107,7 @@ it("polling paused/partial checkpoints only reads; resume/retry/pause require ex
 it("recovers failed task/capability reads and ignores obsolete pages after a filter change", async () => {
   const user = userEvent.setup(); const http = fakeHTTP(); let failList = true, failCap = true;
   http.server.intercept = url => { if (url.includes("capabilities") && failCap) { failCap = false; return json({ detail: { code: "SERVICE_UNAVAILABLE" } }, 503); } if (url.startsWith("/api/document-tasks?") && failList) { failList = false; return json({ detail: { code: "TASK_SERVICE_UNAVAILABLE" } }, 503); } };
-  render(<App />); await user.type(screen.getByLabelText("服务 Token"), "fake-service-token"); await user.click(screen.getByRole("button", { name: "连接服务" }));
+  render(<App />); await user.type(screen.getByLabelText("手机号"), "13800138000"); await user.type(screen.getByLabelText("卡密"), "fake-service-token"); await user.click(screen.getByRole("button", { name: "查询记录" }));
   await screen.findByText("连接验证失败");
   expect(screen.queryByText("正在验证服务")).toBeNull();
   await user.click(await screen.findByRole("button", { name: "重试读取服务能力" })); await screen.findByText("服务已连接");
@@ -131,7 +134,7 @@ it("exports the current partial checkpoint via authenticated ZIP GET and never s
   const user = userEvent.setup(); const http = fakeHTTP(); const create = vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:bank"); const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
   render(<App />); await connect(user); await openTask(user);
   await user.click(screen.getByRole("button", { name: "下载题库 ZIP" })); await screen.findByText(/题库 ZIP 已下载/);
-  expect(http.calls.find(call => call.url.includes("/export?"))).toMatchObject({ method: "GET", auth: "Bearer fake-service-token", url: `/api/document-tasks/${taskId}/export?checkpoint_id=checkpoint-one` });
+  expect(http.calls.find(call => call.url.includes("/export?"))).toMatchObject({ method: "GET", auth: "Card fake-service-token", url: `/api/document-tasks/${taskId}/export?checkpoint_id=checkpoint-one&scope=full` });
   expect(create).toHaveBeenCalledTimes(1); expect(click).toHaveBeenCalledTimes(1); expect(http.calls.filter(call => call.method !== "GET")).toHaveLength(0);
 });
 it("creates a reparse task only on explicit action and confirms deletion before HTTP", async () => {
@@ -230,4 +233,14 @@ it("removes only unsubmitted files locally and derives picker formats from servi
   await screen.findByText(/任务已创建。页面/);
   expect(http.calls.filter(call => call.url === "/api/document-tasks" && call.method === "POST")).toHaveLength(1);
   expect(screen.queryByRole("button",{name:"移除文件 second.txt"})).toBeNull();
+});
+
+it("binds the first card only on explicit binding and never starts an import while connecting", async () => {
+  const user = userEvent.setup(), http = fakeHTTP(); render(<App />);
+  await user.type(screen.getByLabelText("手机号"), "13800138000");
+  await user.type(screen.getByLabelText("卡密"), "first-card");
+  expect(http.calls.filter(call => call.method === "POST")).toHaveLength(0);
+  await user.click(screen.getByRole("button", { name: "绑定并查询" }));
+  await screen.findByText("服务已连接");
+  expect(http.calls.filter(call => call.method === "POST")).toMatchObject([{ url: "/api/cards/redeem", body: { phone: "13800138000", card: "first-card" } }]);
 });

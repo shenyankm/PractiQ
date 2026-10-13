@@ -88,7 +88,7 @@ async def filter_probe(history_count):
             async with service.db.connection() as conn:
                 for _ in range(history_count - 1):
                     tid = str(uuid4())
-                    await conn.execute('INSERT INTO document_tasks SELECT %s,request_hash,graph_id,document,failure_policy,parent_thread_id,created_at,expires_at FROM document_tasks WHERE thread_id=%s', (tid, source))
+                    await conn.execute('INSERT INTO document_tasks(thread_id,request_hash,graph_id,document,failure_policy,parent_thread_id,created_at,expires_at) SELECT %s,request_hash,graph_id,document,failure_policy,parent_thread_id,created_at,expires_at FROM document_tasks WHERE thread_id=%s', (tid, source))
                     await conn.execute("INSERT INTO document_runs(run_id,thread_id,request_id,context,status) VALUES (%s,%s,%s,'{}','success')", (tid, tid, tid))
                     await service.db.connections[0].execute(
                         "INSERT INTO checkpoints SELECT %s,checkpoint_ns,checkpoint_id,parent_checkpoint_id,type,checkpoint,metadata FROM checkpoints WHERE thread_id=%s AND checkpoint_ns='' ORDER BY checkpoint_id DESC LIMIT 1", (tid, source))
@@ -96,7 +96,7 @@ async def filter_probe(history_count):
                         "INSERT INTO checkpoint_blobs SELECT %s,checkpoint_ns,channel,version,type,blob FROM checkpoint_blobs WHERE thread_id=%s",
                         (tid, source))
                 active = str(uuid4())
-                await conn.execute('INSERT INTO document_tasks SELECT %s,request_hash,graph_id,document,failure_policy,parent_thread_id,created_at,expires_at FROM document_tasks WHERE thread_id=%s', (active, source))
+                await conn.execute('INSERT INTO document_tasks(thread_id,request_hash,graph_id,document,failure_policy,parent_thread_id,created_at,expires_at) SELECT %s,request_hash,graph_id,document,failure_policy,parent_thread_id,created_at,expires_at FROM document_tasks WHERE thread_id=%s', (active, source))
                 await conn.execute("INSERT INTO document_runs(run_id,thread_id,request_id,context,status) VALUES (%s,%s,%s,'{}','pending')", (active, active, active))
             snapshot_reads = []
             original = service.snapshot

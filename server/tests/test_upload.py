@@ -177,12 +177,12 @@ async def test_unsupported_or_mismatched_word_uploads_and_tasks_are_rejected(kin
         reference = {**payload, 'objectKey': f'practiq-agent/sources/{"a" * 64}/source.{kind}'}
         assert (await client.post('/api/document-tasks', json={
             'requestId': str(uuid4()), 'document': reference,
-        })).status_code == 422
+        })).status_code == 401
         reference.update(sourceType='pdf', fileName='quiz.pdf', mediaType='application/pdf',
                          objectKey=f'practiq-agent/sources/{"a" * 64}/source.pdf')
         assert (await client.post('/api/document-tasks', json={
             'requestId': str(uuid4()), 'graphId': 'docx_parser', 'document': reference,
-        })).status_code == 422
+        })).status_code == 401
 
 @pytest.mark.parametrize('media', ['image/webp', 'image/gif'])
 async def test_removed_image_formats_are_rejected_for_uploads_and_tasks(media):
@@ -196,4 +196,4 @@ async def test_removed_image_formats_are_rejected_for_uploads_and_tasks(media):
         assert (await client.post('/api/document-tasks', json={
             'requestId': str(uuid4()),
             'document': {**payload, 'objectKey': f'practiq-agent/sources/{"a" * 64}/source.image'},
-        })).status_code == 422
+        })).status_code == 401

@@ -8,7 +8,7 @@ from uuid import UUID
 
 from .config import load
 from .database import Database, watch_ownership
-from .execution import namespace
+from .saas import cleanup_task_store
 
 
 @asynccontextmanager
@@ -44,9 +44,7 @@ async def cleanup(db: Database) -> int:
         threads = {task['thread_id'] for task in tasks} | orphaned
         for thread_id in sorted(threads):
             await db.checkpointer.adelete_thread(thread_id)
-            while items := await db.store.asearch(namespace(thread_id, '')[:2], limit=100, refresh_ttl=False):
-                for item in items:
-                    await db.store.adelete(item.namespace, item.key)
+            await cleanup_task_store(db, thread_id)
             async with db.transaction() as conn:
                 await conn.execute('DELETE FROM document_receipts WHERE thread_id=%s', (thread_id,))
                 await conn.execute('DELETE FROM document_runs WHERE thread_id=%s', (thread_id,))

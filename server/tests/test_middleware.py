@@ -55,6 +55,8 @@ async def test_reparse_accepts_limit_sized_json_only_with_auth(monkeypatch, stre
     receipt = {'threadId': thread_id, 'requestId': request_id, 'runId': str(uuid4()), 'accepted': True}
     reparse = AsyncMock(return_value=receipt)
     monkeypatch.setattr(task_api, 'reparse_task', reparse)
+    from practiq_ai import saas
+    monkeypatch.setattr(saas, 'identity', AsyncMock(return_value='customer'))
     body = f'{{"requestId":"{request_id}"}}'.encode().ljust(DEFAULT_JSON_BODY_BYTES)
 
     async def chunks():
@@ -63,7 +65,7 @@ async def test_reparse_accepts_limit_sized_json_only_with_auth(monkeypatch, stre
 
     headers = {'Content-Type': 'application/json'}
     if authenticated:
-        headers['Authorization'] = 'Bearer test-token'
+        headers.update(Authorization='Card test-card', **{'X-Practiq-Phone': '13800138000'})
     async with AsyncClient(transport=ASGITransport(app=app), base_url='http://test') as client:
         response = await client.post(f'/api/document-tasks/{thread_id}/reparse',
                                      content=chunks() if streamed else body, headers=headers)

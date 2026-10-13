@@ -460,6 +460,7 @@ async def _load_context(state: DocumentState, runtime: Runtime[None]) -> dict[st
     context = runtime.context if isinstance(runtime.context, dict) else {}
     if expires_at := context.get("documentControl", {}).get("expiresAt"):
         execution["expiresAt"] = expires_at
+    execution['accountId'] = context.get('accountId')
     token = CURRENT_EXECUTION.set(execution)
     try:
         await guard(runtime, execution, check_pause=False)
@@ -626,7 +627,8 @@ def _dispatch_vision(state: DocumentState) -> list[Send] | str:
     completed.update(("page", item["index"])
                      for item in state.get("failures", []) if item["stage"] == "vision_parse")
     pending = [item for item in work if (item.arg["kind"], item.arg["index"]) not in completed]
-    return _with_allowances(pending[:load().graph_max_concurrency], state) or "vision_review_pause"
+    count = 1 if state.get('execution', {}).get('accountId') else load().graph_max_concurrency
+    return _with_allowances(pending[:count], state) or "vision_review_pause"
 
 
 def _with_allowances(work: list[Send], state: DocumentState) -> list[Send]:
@@ -951,7 +953,8 @@ def _dispatch_chunks(state: DocumentState) -> list[Send] | str:
         for index, item in enumerate(chunks)
         if index not in completed
     ]
-    return _with_allowances(work[:load().graph_max_concurrency], state) or "chunk_review_pause"
+    count = 1 if state.get('execution', {}).get('accountId') else load().graph_max_concurrency
+    return _with_allowances(work[:count], state) or "chunk_review_pause"
 
 
 async def _chunk(
@@ -1259,6 +1262,22 @@ async def _merge(state: DocumentState) -> dict[str, Any]:
         "result": result.model_dump(mode="json"),
         "processing": processing.model_dump(mode="json"),
     }
+
+
+async def completed_result(state: DocumentState) -> dict[str, Any]:
+    """Project saved completed units; never execute graph nodes or alter checkpoints."""
+    from copy import deepcopy
+    snapshot = deepcopy(state)
+    update = await _merge(snapshot)
+    if not update.get('result', {}).get('questions'):
+        raise DocumentProcessingError(409, 'No usable completed questions', 'BANK_EXPORT_NOT_READY')
+    result = update['result']
+    result['warnings'] = ['This is a partial snapshot; unfinished units are not included.', *result['warnings']][:1_000]
+    result['missingFields'] = list(dict.fromkeys([*result['missingFields'], 'questions']))
+    update['processing']['quality']['reviewRequired'] = True
+    if snapshot.get('chunkRefs'):
+        update['processing']['chunks']['total'] = len(snapshot.get('chunkRefs', []))
+    return {'result': result, 'processing': update['processing'], 'status': 'PARTIAL'}
 
 
 MAX_UNIT_RETRIES = 2

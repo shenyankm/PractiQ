@@ -77,6 +77,7 @@ async def _enqueue(conn, task, request_id, request_hash, *, graph_input=None, co
     run_id = str(uuid4())
     context = {'documentControl': {'requestId': request_id, 'fingerprint': request_hash,
                                   'generation': generation, 'expiresAt': task['expires_at'].isoformat()}}
+    context['accountId'] = task['account_id']
     await conn.execute('INSERT INTO document_runs(run_id,thread_id,request_id,input,command,context,base_checkpoint) VALUES (%s,%s,%s,%s,%s,%s,%s)',
                        (run_id, task['thread_id'], request_id, json_encode(graph_input), json_encode(command), json_encode(context), base))
     await conn.execute('INSERT INTO document_outbox(run_id) VALUES (%s)', (run_id,))
@@ -84,8 +85,10 @@ async def _enqueue(conn, task, request_id, request_hash, *, graph_input=None, co
 
 
 async def _replay(conn, thread_id, request_id, request_hash):
-    row = await (await conn.execute('SELECT r.*, t.expires_at, t.graph_id, t.document FROM document_receipts r JOIN document_tasks t USING(thread_id) WHERE r.thread_id=%s AND request_id=%s', (thread_id, request_id))).fetchone()
+    row = await (await conn.execute('SELECT r.*, t.expires_at, t.graph_id, t.document,t.account_id FROM document_receipts r JOIN document_tasks t USING(thread_id) WHERE r.thread_id=%s AND request_id=%s', (thread_id, request_id))).fetchone()
     if row:
+        from .saas import require_owner
+        require_owner(row)
         require_supported_task(row)
         remaining_ttl({'expiresAt': row['expires_at'].isoformat()})
         if row['fingerprint'] != request_hash:
@@ -99,15 +102,24 @@ async def _save_receipt(conn, thread_id, request_id, request_hash, response):
 
 
 async def create_task(request: DocumentTaskCreate) -> dict[str, Any]:
+    from . import saas
     service = client()
+    account = saas.ACCOUNT.get()
     request_id = str(request.requestId)
-    thread_id = str(uuid5(NAMESPACE_URL, f'practiq/document/{request_id}'))
+    thread_id = str(uuid5(NAMESPACE_URL, f'practiq/document/{account}/{request_id}' if account else f'practiq/document/{request_id}'))
     request_hash = fingerprint(_create_payload(request))
     async with service.db.transaction() as conn:
         previous = await _replay(conn, thread_id, request_id, request_hash)
         if previous:
             return previous
         settings = load()
+        rates = None
+        if account:
+            if not await saas.owns_upload(request.document):
+                raise saas.failure('UPLOAD_NOT_FOUND', 404)
+            if settings.input_micropoints_per_1k is None or settings.output_micropoints_per_1k is None:
+                raise saas.failure('POINT_RATES_NOT_CONFIGURED', 503)
+            rates = {'inputMicropointsPer1k': settings.input_micropoints_per_1k, 'outputMicropointsPer1k': settings.output_micropoints_per_1k}
         if request.document.sourceType in OFFICE_SOURCE_TYPES and settings.office_executable is None:
             raise DocumentProcessingError(503, 'Office conversion is not configured in this deployment', 'OFFICE_NOT_CONFIGURED')
         validate_source_size(request.document.sizeBytes, request.document.sourceType, settings)
@@ -115,10 +127,11 @@ async def create_task(request: DocumentTaskCreate) -> dict[str, Any]:
             parent = await (await conn.execute('SELECT * FROM document_tasks WHERE thread_id=%s', (str(request.parentThreadId),))).fetchone()
             if not parent:
                 raise DocumentProcessingError(404, 'Parent task not found', 'TASK_NOT_FOUND')
+            saas.require_owner(parent)
             require_supported_task(parent)
-        task = await (await conn.execute('INSERT INTO document_tasks(thread_id,request_hash,graph_id,document,failure_policy,parent_thread_id,expires_at) VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING *',
+        task = await (await conn.execute('INSERT INTO document_tasks(thread_id,request_hash,graph_id,document,failure_policy,parent_thread_id,expires_at,account_id,billing_rates) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *',
             (thread_id, request_hash, request.graphId, json_encode(request.document.model_dump(mode='json')), request.failurePolicy,
-             str(request.parentThreadId) if request.parentThreadId else None, utcnow() + timedelta(minutes=TTL_MINUTES)))).fetchone()
+             str(request.parentThreadId) if request.parentThreadId else None, utcnow() + timedelta(minutes=TTL_MINUTES), account, json_encode(rates)))).fetchone()
         response = await _enqueue(conn, task, request_id, request_hash,
                                   graph_input=request.model_dump(mode='json', include={'document', 'failurePolicy', 'officeMode'}))
         await _save_receipt(conn, thread_id, request_id, request_hash, response)
@@ -140,10 +153,12 @@ async def _office_mode(service, thread_id: str) -> OfficeMode | None:
 
 
 async def _read_task_record(service, thread_id):
+    from . import saas
     tasks = await service.db.rows('SELECT * FROM document_tasks WHERE thread_id=%s', (thread_id,))
     if not tasks:
         raise DocumentProcessingError(404, 'Document task not found', 'TASK_NOT_FOUND')
     task = tasks[0]
+    saas.require_owner(task)
     require_supported_task(task)
     remaining_ttl({'expiresAt': task['expires_at'].isoformat()})
     return task
@@ -157,17 +172,20 @@ async def _read_task(service, thread_id):
 
 
 async def reparse_task(thread_id: str, request: DocumentTaskReparse) -> dict[str, Any]:
+    from . import saas
     service = client()
     tasks = await service.db.rows('SELECT * FROM document_tasks WHERE thread_id=%s', (thread_id,))
     if not tasks:
         raise DocumentProcessingError(404, 'Document task not found', 'TASK_NOT_FOUND')
     task = tasks[0]
+    saas.require_owner(task)
     require_supported_task(task)
     create = DocumentTaskCreate(requestId=request.requestId, document=DocumentReference.model_validate(task['document']),
                                 graphId=task['graph_id'], failurePolicy=task['failure_policy'], parentThreadId=UUID(thread_id),
                                 officeMode=await _office_mode(service, thread_id))
     async with service.db.connection() as conn:
-        previous = await _replay(conn, str(uuid5(NAMESPACE_URL, f'practiq/document/{request.requestId}')),
+        account = saas.ACCOUNT.get()
+        previous = await _replay(conn, str(uuid5(NAMESPACE_URL, f'practiq/document/{account}/{request.requestId}' if account else f'practiq/document/{request.requestId}')),
                                  str(request.requestId), fingerprint(_create_payload(create)))
     if previous:
         return previous
@@ -237,6 +255,7 @@ def _task_state(snapshot, run) -> tuple[TaskState, list[TaskAction], list[dict[s
 
 
 async def get_task(thread_id: str) -> dict[str, Any]:
+    from . import saas
     service = client()
     task, snapshot, run = await _read_task(service, thread_id)
     values = snapshot.values or {}
@@ -265,6 +284,9 @@ async def get_task(thread_id: str) -> dict[str, Any]:
         'modelBudget': {'limit': values.get('execution', {}).get('signature', {}).get('settings', {}).get('task_max_model_calls', load().task_max_model_calls), 'reserved': values.get('reservedCalls', 0)},
         'processing': values.get('processing') or None, 'usage': list(usage.values()),
         'unknownUsageCalls': [item['callKey'] for item in calls if item['status'] != 'completed'],
+        'billing': await saas.task_billing(task),
+        'canExportCompleted': state in {'PAUSED', 'INTERRUPTED', 'COMPLETED'} and bool(values.get('result', {}).get('questions') or
+            any(item.get('parsed') and (item['parsed'].get('questionCount') or item['parsed'].get('questions')) for key in ('visionResults', 'chunkResults') for item in values.get(key, []))),
     }).model_dump(mode='json')
 
 
@@ -285,7 +307,7 @@ async def get_task_head(thread_id: str) -> dict[str, Any]:
     }).model_dump(mode='json')
 
 
-async def export_task(thread_id: str, checkpoint_id: str | None = None) -> BinaryIO:
+async def export_task(thread_id: str, checkpoint_id: str | None = None, *, completed: bool = False) -> BinaryIO:
     from .bank_export import export_task_bank
     service = client()
     task, snapshot, run = await _read_task(service, thread_id)
@@ -295,10 +317,17 @@ async def export_task(thread_id: str, checkpoint_id: str | None = None) -> Binar
     detail = DocumentTaskDetail.model_validate(await get_task(thread_id))
     if detail.checkpointId != current_checkpoint:
         raise conflict('The task changed during export', 'STALE_CHECKPOINT')
+    original_state = detail.state
+    if completed and detail.state != 'COMPLETED':
+        if not detail.canExportCompleted:
+            raise conflict('No completed questions are available', 'BANK_EXPORT_NOT_READY')
+        from .graphs.document import completed_result
+        update = await completed_result(snapshot.values)
+        detail = DocumentTaskDetail.model_validate({**detail.model_dump(), **update, 'state': 'COMPLETED'})
     payload = await export_task_bank(detail, get_object_store(), source=DocumentReference.model_validate(task['document']))
     try:
         _, latest, latest_run = await _read_task(service, thread_id)
-        if service.checkpoint_id(latest, latest_run) != current_checkpoint or _task_state(latest, latest_run)[0] != 'COMPLETED':
+        if service.checkpoint_id(latest, latest_run) != current_checkpoint or _task_state(latest, latest_run)[0] != original_state:
             raise conflict('The task changed during export', 'STALE_CHECKPOINT')
     except BaseException:
         payload.close()
@@ -390,6 +419,14 @@ def _counts(total: int, succeeded: int, failed: int) -> dict[str, int]:
 
 async def delete_task(thread_id: str) -> dict[str, bool]:
     service = client()
+    # Check ownership without rejecting expired rows, which remain deletable.
+    from . import saas
+    rows = await service.db.rows('SELECT * FROM document_tasks WHERE thread_id=%s', (thread_id,))
+    if not rows:
+        if saas.ACCOUNT.get() is not None:
+            raise saas.failure('TASK_NOT_FOUND', 404)
+    else:
+        saas.require_owner(rows[0])
     async with service.db.transaction() as conn:
         active = await (await conn.execute("SELECT 1 FROM document_runs WHERE thread_id=%s AND status IN ('pending','running')", (thread_id,))).fetchone()
         if active:
@@ -400,9 +437,7 @@ async def delete_task(thread_id: str) -> dict[str, bool]:
         await conn.execute('DELETE FROM document_tasks WHERE thread_id=%s', (thread_id,))
     service.task_summaries.pop(thread_id, None)
     await service.db.checkpointer.adelete_thread(thread_id)
-    while items := await service.db.store.asearch(namespace(thread_id, '')[:2], limit=100, refresh_ttl=False):
-        for item in items:
-            await service.db.store.adelete(item.namespace, item.key)
+    await saas.cleanup_task_store(service.db, thread_id)
     return {'deleted': True}
 
 
@@ -430,7 +465,9 @@ async def list_tasks(limit: int = 20, offset: int = 0, sha256: str | None = None
                      office_mode: OfficeMode | None = None, cursor: str | None = None) -> dict[str, Any]:
     service = client()
     after = None
-    scope = [sha256, state_filter, office_mode]
+    from .saas import ACCOUNT
+    account = ACCOUNT.get()
+    scope = [sha256, state_filter, office_mode, account] if account else [sha256, state_filter, office_mode]
     if cursor:
         try:
             if offset or len(cursor) > 2048:
@@ -448,6 +485,9 @@ async def list_tasks(limit: int = 20, offset: int = 0, sha256: str | None = None
     params: tuple[Any, ...] = (sha256,) if sha256 else ()
     join: LiteralString = ''
     where = supported_task_sql('t') + source_filter
+    if account:
+        where += ' AND t.account_id=%s'
+        params += (account,)
     if office_mode is not None:
         where += (" AND (t.document->>'sourceType') IN ('doc','docx','xls','xlsx')"
                   " AND (SELECT (initial.input->>'officeMode') FROM document_runs initial"
