@@ -303,6 +303,7 @@ async def test_targeted_review_preserves_unrelated_complete_questions(outcome):
         corrected = deepcopy(original)
         corrected["questions"][0]["instructions"] = "First" if outcome == "repaired" else "Invented"
         corrected["questions"][1]["needsReview"] = True
+        corrected["questions"][1]["missingFields"] = ["media"]
         responses = [{"issues": [issue()]}, corrected, {"issues": []}]
     elif outcome == "unreviewed":
         responses = [{"issues": [issue(questionIndex=5)]}]
@@ -310,7 +311,26 @@ async def test_targeted_review_preserves_unrelated_complete_questions(outcome):
         responses = [{"issues": [issue(questionIndex=None, code="missing_question", repairable=False)]}]
     result, _, audit, _ = await collaborate(responses, original=original)
     assert [value.needsReview for value in result.questions] == ([True, True] if outcome == "unreviewed" else [False, False] if outcome == "missing" else [True, False])
+    assert not result.questions[1].missingFields
     assert audit["status"] == ("issues" if outcome == "missing" else outcome)
+
+
+@pytest.mark.parametrize("change", ["add", "replace", "remove"])
+@pytest.mark.parametrize("code", ["association", "invented_content"])
+async def test_model_repair_cannot_change_audio_artifact_references(change, code):
+    original = parsed()
+    original["questions"][0]["answerMode"] = "listening"
+    artifact = {"objectKey": "tasks/source/audio.wav", "sha256": "a" * 64, "mediaType": "audio/wav", "sizeBytes": 1}
+    if change != "add":
+        original["questions"][0]["audioRef"] = artifact
+    corrected = deepcopy(original)
+    corrected["questions"][0]["audioRef"] = None if change == "remove" else {**artifact, "objectKey": "audio.wav"}
+    result, _, audit, model = await collaborate([
+        {"issues": [issue(code=code)]}, corrected, {"issues": []},
+    ], original=original)
+    assert audit["status"] == "repair_rejected" and audit["failureCode"] == "OUTPUT_INVALID"
+    assert result.model_dump(mode="json")["questions"][0]["audioRef"] == audit["original"]["questions"][0]["audioRef"]
+    assert len(model.calls) == 2
 
 
 @pytest.mark.parametrize("value,accepted", [(None, True), ({"text": "Different unsupported answer"}, False)])
