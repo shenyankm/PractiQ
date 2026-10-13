@@ -71,7 +71,7 @@ def signature() -> dict[str, Any]:
     settings.pop('input_micropoints_per_1k')
     settings.pop('output_micropoints_per_1k')
     # Concurrency and timeouts can change without changing document semantics.
-    for key in ("jobs_per_worker", "graph_max_concurrency", "storage_concurrency", "storage_timeout_seconds", "model_timeout_seconds", "deployment_workers", "provider_concurrency", "provider_rpm", "upload_concurrency", "upload_timeout_seconds", "max_busy_threads", "maintenance", "read_only"):
+    for key in ("jobs_per_worker", "graph_max_concurrency", "storage_concurrency", "storage_timeout_seconds", "model_timeout_seconds", "deployment_workers", "provider_concurrency", "provider_rpm", "upload_concurrency", "upload_timeout_seconds", "account_upload_max_bytes", "account_upload_max_files", "max_busy_threads", "maintenance", "read_only"):
         settings.pop(key)
     # Office manifests independently bind the engine version and executable checksum.
     for key in ("office_executable", "office_version"):

@@ -1,6 +1,7 @@
 """Phone/card isolation, durable points and paid checkpoint recovery."""
 
 import asyncio
+import hashlib
 import json
 import os
 from argparse import Namespace
@@ -21,6 +22,10 @@ from practiq_ai.contracts import (
     DocumentTaskControl,
     DocumentTaskCreate,
     DocumentTaskReparse,
+    DocumentUploadRequest,
+    ImportAccount,
+    PointLedger,
+    TaskBilling,
 )
 from practiq_ai.database import Database
 from practiq_ai.errors import DocumentProcessingError
@@ -60,6 +65,108 @@ def test_integer_point_weighting_rounds_only_to_micropoints():
     assert saas.points('0.000001') == 1
     assert saas.charge({'inputTokens': 10, 'outputTokens': 5}, {'inputMicropointsPer1k': 1_000_000, 'outputMicropointsPer1k': 3_000_000}) == 25_000
     assert saas.charge({'inputTokens': 1, 'outputTokens': 0}, {'inputMicropointsPer1k': 1, 'outputMicropointsPer1k': 1}) == 1
+
+
+def test_wire_micropoints_are_exact_decimal_strings_for_all_accounting_fields():
+    amount = 2**53 + 1
+    value = TaskBilling.model_validate({'phone': '+8613800138000', 'balanceMicropoints': -amount, 'usageUnknown': False,
+                                       'chargedMicropoints': amount, 'rates': {'inputMicropointsPer1k': amount, 'outputMicropointsPer1k': 1}})
+    assert value.balanceMicropoints == -amount
+    data = json.loads(value.model_dump_json())
+    assert data['balanceMicropoints'] == str(-amount) and data['chargedMicropoints'] == str(amount)
+    assert data['rates']['inputMicropointsPer1k'] == str(amount)
+    assert ImportAccount.model_json_schema(mode='serialization')['properties']['balanceMicropoints']['type'] == 'string'
+    ledger = PointLedger.model_validate({'items': [{'id': 1, 'amountMicropoints': -amount, 'kind': 'model', 'createdAt': '2026-10-13'}], 'nextBefore': None})
+    assert json.loads(ledger.model_dump_json())['items'][0]['amountMicropoints'] == str(-amount)
+
+
+@pytest.mark.usefixtures('disposable_databases')
+async def test_card_redemption_http_preserves_balances_beyond_javascript_safe_integer(monkeypatch):
+    service, _, _ = await setup_api(monkeypatch)
+    cards = await issue(service.db, 10, amount=10**15)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=webapp.app), base_url='http://test') as http:
+        for card in cards:
+            request = {'phone': '13800138000', 'card': card}
+            if card != cards[0]:
+                request['boundCard'] = cards[0]
+            result = await http.post('/api/cards/redeem', json=request)
+            assert result.status_code == 200
+        headers = {'Authorization': 'Card ' + cards[0], 'X-Practiq-Phone': '13800138000'}
+        assert (await http.get('/api/account', headers=headers)).json()['balanceMicropoints'] == '10000000000000000'
+        account = await saas.identity('13800138000', cards[0])
+        async with service.db.transaction() as conn:
+            await saas.credit(conn, account, -1, 'model', 'precision-check')
+        assert (await http.get('/api/account', headers=headers)).json()['balanceMicropoints'] == '9999999999999999'
+        ledger = (await http.get('/api/account/ledger', headers=headers)).json()
+        assert ledger['items'][0]['amountMicropoints'] == '-1'
+        assert (await http.get('/api/products')).json()['items'][0]['pointsMicropoints'] == '1000000000000000'
+
+
+@pytest.mark.usefixtures('disposable_databases')
+async def test_upload_quota_is_atomic_counts_uncertain_writes_and_never_grants_hash_ownership(monkeypatch, tmp_path):
+    monkeypatch.setenv('AI_ACCOUNT_UPLOAD_MAX_BYTES', '8')
+    monkeypatch.setenv('AI_ACCOUNT_UPLOAD_MAX_FILES', '2')
+    service, _, _ = await setup_api(monkeypatch)
+    card = (await issue(service.db))[0]
+    await saas.redeem(CardRedeem(phone='13800138000', card=card))
+    account = await saas.identity('13800138000', card)
+    store = object_store(tmp_path)
+    async with service.db.transaction() as conn:
+        await saas.credit(conn, account, -1_000_000, 'model', 'spent-before-upload')
+    def metadata(payload):
+        return DocumentUploadRequest(sourceType='text', fileName='q.txt', mediaType='text/plain', sizeBytes=len(payload), sha256=hashlib.sha256(payload).hexdigest())
+    first, second = b'first', b'other'
+    token = saas.ACCOUNT.set(account)
+    try:
+        outcomes = await asyncio.gather(saas.store_upload(store, first, metadata(first)), saas.store_upload(store, second, metadata(second)), return_exceptions=True)
+        assert sum(isinstance(item, DocumentReference) for item in outcomes) == 1
+        assert any(isinstance(item, DocumentProcessingError) and item.code == 'ACCOUNT_UPLOAD_QUOTA' for item in outcomes)
+        rows = await service.db.rows('SELECT * FROM import_uploads WHERE account_id=%s', (account,))
+        assert len(rows) == 1 and rows[0]['verified']
+        actual = first if rows[0]['sha256'] == metadata(first).sha256 else second
+        assert await saas.store_upload(store, actual, metadata(actual))
+        # A shared physical file plus an uncertain reservation is not upload proof.
+        shared = b'new'
+        reference = await store.put_document(shared, metadata(shared))
+        original = store.put_document
+        async def uncertain(*args):
+            raise OSError('Unknown storage outcome')
+        monkeypatch.setattr(store, 'put_document', uncertain)
+        with pytest.raises(OSError):
+            await saas.store_upload(store, shared, metadata(shared))
+        assert not await saas.owns_upload(reference)
+        assert (await saas.prepare_upload(metadata(shared))).upload is not None
+        with pytest.raises(DocumentProcessingError, match='Account upload quota'):
+            await saas.store_upload(store, b'x', metadata(b'x'))
+        monkeypatch.setattr(store, 'put_document', original)
+        assert await saas.store_upload(store, shared, metadata(shared)) == reference
+        assert await saas.owns_upload(reference)
+        monkeypatch.setattr(storage, 'get_object_store', lambda: store)
+        (store.root / reference.objectKey).unlink()
+        assert (await saas.prepare_upload(metadata(shared))).upload is not None
+        assert await saas.store_upload(store, shared, metadata(shared)) == reference
+    finally:
+        saas.ACCOUNT.reset(token)
+
+
+@pytest.mark.usefixtures('disposable_databases')
+async def test_old_schema_three_upload_proofs_upgrade_explicitly_without_data_loss(monkeypatch):
+    service, reference, _ = await setup_api(monkeypatch)
+    card = (await issue(service.db))[0]
+    await saas.redeem(CardRedeem(phone='13800138000', card=card))
+    account = await saas.identity('13800138000', card)
+    token = saas.ACCOUNT.set(account)
+    try:
+        await saas.register_upload(DocumentReference.model_validate(reference))
+        async with service.db.transaction() as conn:
+            await conn.execute('ALTER TABLE import_uploads DROP COLUMN verified')
+        with pytest.raises(RuntimeError, match='offline upgrade-db'):
+            await service.db.check_schema()
+        await service.db.upgrade()
+        await service.db.upgrade()
+        assert await saas.owns_upload(DocumentReference.model_validate(reference))
+    finally:
+        saas.ACCOUNT.reset(token)
 
 
 async def test_unsettled_accounting_evidence_has_no_task_expiry():
@@ -149,7 +256,7 @@ async def test_customer_http_owns_tasks_uploads_and_artifact_reads(monkeypatch, 
         assert (await http.get('/api/document-tasks', params={'limit': 1, 'cursor': page['nextCursor']}, headers=b)).status_code == 400
         assert (await http.post('/api/artifacts/read', json={k: reference[k] for k in ('objectKey', 'sha256', 'sizeBytes', 'mediaType')}, headers=a)).status_code == 404
         detail = (await http.get('/api/document-tasks/' + tid, headers=a)).json()
-        assert detail['billing']['chargedMicropoints'] == 25_000
+        assert detail['billing']['chargedMicropoints'] == '25000'
         before = (await http.get('/api/account', headers=a)).json()
         assert (await http.get('/api/document-tasks/' + tid + '/export', headers=a)).status_code == 200
         assert (await http.get('/api/account', headers=a)).json() == before
@@ -241,7 +348,7 @@ async def test_task_charge_poll_uses_account_index_with_retained_cross_account_h
             return await original(query, params)
         monkeypatch.setattr(service.db, 'rows', rows)
         detail = await task_api.get_task(receipt['threadId'])
-        assert detail['billing']['chargedMicropoints'] == 25_000
+        assert detail['billing']['chargedMicropoints'] == '25000'
         assert 'import_ledger_account_id_kind_reference_key' in json.dumps(plans)
     finally:
         saas.ACCOUNT.reset(token)
@@ -263,7 +370,7 @@ async def test_points_pause_partial_download_top_up_and_explicit_resume_reuse_pa
         detail = await task_api.get_task(receipt['threadId'])
         assert detail['state'] == 'PAUSED', json.dumps(detail)
         assert detail['canExportCompleted'] and len(model.calls) == 1
-        assert detail['billing']['balanceMicropoints'] == -5000
+        assert detail['billing']['balanceMicropoints'] == '-5000'
         await task_api.control_task(receipt['threadId'], DocumentTaskControl(requestId=uuid4(), action='resume', checkpointId=detail['checkpointId']))
         await service.wait_idle()
         detail = await task_api.get_task(receipt['threadId'])
@@ -289,8 +396,8 @@ async def test_points_pause_partial_download_top_up_and_explicit_resume_reuse_pa
         complete = await task_api.get_task(receipt['threadId'])
         assert complete['state'] == 'COMPLETED', complete
         assert len(model.calls) == 2 and len(complete['result']['questions']) == 2
-        assert complete['billing']['chargedMicropoints'] == 50_000
-        assert complete['billing']['rates'] == {'inputMicropointsPer1k': 1_000_000, 'outputMicropointsPer1k': 3_000_000}
+        assert complete['billing']['chargedMicropoints'] == '50000'
+        assert complete['billing']['rates'] == {'inputMicropointsPer1k': '1000000', 'outputMicropointsPer1k': '3000000'}
         await task_api.delete_task(receipt['threadId'])
         assert len((await saas.ledger(account, 100, None))['items']) == 4
         with pytest.raises(DocumentProcessingError, match='new requestId') as retired:
@@ -314,14 +421,14 @@ async def test_invalid_model_output_is_charged_and_correction_pauses_without_los
         receipt = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
         await service.wait_idle()
         detail = await task_api.get_task(receipt['threadId'])
-        assert detail['state'] == 'PAUSED' and detail['billing']['chargedMicropoints'] == 25_000
+        assert detail['state'] == 'PAUSED' and detail['billing']['chargedMicropoints'] == '25000'
         assert not detail['failures'] and not detail['canExportCompleted'] and len(model.calls) == 1
         await saas.redeem(CardRedeem(phone='13800138000', card=recharge, boundCard=first))
         await task_api.control_task(receipt['threadId'], DocumentTaskControl(requestId=uuid4(), action='resume', checkpointId=detail['checkpointId']))
         await service.wait_idle()
         complete = await task_api.get_task(receipt['threadId'])
         assert complete['state'] == 'COMPLETED' and len(model.calls) == 2
-        assert complete['billing']['chargedMicropoints'] == 50_000
+        assert complete['billing']['chargedMicropoints'] == '50000'
     finally:
         saas.ACCOUNT.reset(token)
 
@@ -480,7 +587,7 @@ async def test_saved_model_result_survives_settlement_failure_and_explicit_resum
         await service.wait_idle()
         complete = await task_api.get_task(receipt['threadId'])
         assert complete['state'] == 'COMPLETED' and len(model.calls) == 1, complete
-        assert complete['billing']['chargedMicropoints'] == 25_000
+        assert complete['billing']['chargedMicropoints'] == '25000'
     finally:
         saas.ACCOUNT.reset(token)
 

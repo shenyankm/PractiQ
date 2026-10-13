@@ -9,6 +9,7 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    PlainSerializer,
     StrictBool,
     StrictInt,
     TypeAdapter,
@@ -51,6 +52,9 @@ class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+Micropoints = Annotated[int, PlainSerializer(str, return_type=str, when_used='json')]
+
+
 class CardRedeem(StrictModel):
     phone: str = Field(min_length=7, max_length=16)
     card: str = Field(min_length=1, max_length=64)
@@ -59,14 +63,14 @@ class CardRedeem(StrictModel):
 
 class ImportAccount(StrictModel):
     phone: str
-    balanceMicropoints: int
+    balanceMicropoints: Micropoints
     usageUnknown: bool
 
 
 class ImportProduct(StrictModel):
     productId: str
     name: str
-    pointsMicropoints: int
+    pointsMicropoints: Micropoints
     purchaseUrl: str
 
 
@@ -76,7 +80,7 @@ class ImportProducts(StrictModel):
 
 class PointEntry(StrictModel):
     id: int
-    amountMicropoints: int
+    amountMicropoints: Micropoints
     kind: str
     createdAt: str
 
@@ -87,12 +91,12 @@ class PointLedger(StrictModel):
 
 
 class PointRates(StrictModel):
-    inputMicropointsPer1k: int = Field(gt=0)
-    outputMicropointsPer1k: int = Field(gt=0)
+    inputMicropointsPer1k: Micropoints = Field(gt=0)
+    outputMicropointsPer1k: Micropoints = Field(gt=0)
 
 
 class TaskBilling(ImportAccount):
-    chargedMicropoints: int = Field(ge=0)
+    chargedMicropoints: Micropoints = Field(ge=0)
     rates: PointRates
 
 

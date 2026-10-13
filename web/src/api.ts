@@ -198,4 +198,8 @@ export async function products(signal?: AbortSignal): Promise<ImportProducts> {
   if (!response.ok) throw new ApiError("无法读取商品，请手动重试。");
   return JSON.parse(new TextDecoder().decode(await readBytes(response, 64 * 1024))) as ImportProducts;
 }
-export const pointLabel = (micropoints: number) => (micropoints / 1_000_000).toLocaleString("zh-CN", { maximumFractionDigits: 6 });
+export function pointLabel(micropoints: string) {
+  const value = BigInt(micropoints), absolute = value < 0n ? -value : value;
+  const fraction = (absolute % 1_000_000n).toString().padStart(6, "0").replace(/0+$/, "");
+  return `${value < 0n ? "-" : ""}${(absolute / 1_000_000n).toLocaleString("zh-CN")}${fraction ? "." + fraction : ""}`;
+}

@@ -4171,14 +4171,12 @@
         "additionalProperties": false,
         "properties": {
           "inputMicropointsPer1k": {
-            "exclusiveMinimum": 0,
             "title": "Inputmicropointsper1K",
-            "type": "integer"
+            "type": "string"
           },
           "outputMicropointsPer1k": {
-            "exclusiveMinimum": 0,
             "title": "Outputmicropointsper1K",
-            "type": "integer"
+            "type": "string"
           }
         },
         "required": [
@@ -4213,16 +4211,15 @@
           },
           "balanceMicropoints": {
             "title": "Balancemicropoints",
-            "type": "integer"
+            "type": "string"
           },
           "usageUnknown": {
             "title": "Usageunknown",
             "type": "boolean"
           },
           "chargedMicropoints": {
-            "minimum": 0,
             "title": "Chargedmicropoints",
-            "type": "integer"
+            "type": "string"
           },
           "rates": {
             "$ref": "#/$defs/PointRates"

@@ -167,6 +167,11 @@ class Database:
             raise RuntimeError('Unsupported service schema; use init-db only for an empty database, or upgrade-db for schema 1 or 2')
         if not STATE_TABLES | TASK_TABLES <= tables:
             raise RuntimeError('Incomplete PostgreSQL state; restore the entire service database before starting')
+        if not await self.upload_verification_column():
+            raise RuntimeError('Upload ownership requires an explicit offline upgrade-db')
+
+    async def upload_verification_column(self):
+        return bool(await self.rows("SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='import_uploads' AND column_name='verified' AND data_type='boolean'"))
 
     @asynccontextmanager
     async def transaction(self):
@@ -200,6 +205,12 @@ class Database:
             raise RuntimeError('Upgrade requires an initialized service database')
         versions = await self.rows('SELECT version FROM practiq_schema')
         if versions == [{'version': SCHEMA_VERSION}]:
+            if not STATE_TABLES | TASK_TABLES <= tables:
+                raise RuntimeError('Upgrade requires complete PostgreSQL state')
+            if not await self.upload_verification_column():
+                async with self.transaction() as conn:
+                    await conn.execute('ALTER TABLE import_uploads ADD COLUMN verified boolean NOT NULL DEFAULT true')
+                    await conn.execute('ALTER TABLE import_uploads ALTER COLUMN verified SET DEFAULT false')
             await self.check_schema()
             return
         version = versions[0]['version'] if len(versions) == 1 else None

@@ -357,10 +357,9 @@ async def upload_content(request: Request, metadata: Annotated[DocumentUploadReq
                     payload.extend(chunk)
         except TimeoutError as exc:
             raise DocumentProcessingError(408, "Upload reception timed out", "UPLOAD_TIMEOUT") from exc
-        document = await store.put_document(bytes(payload), metadata)
         if saas.ACCOUNT.get():
-            await saas.register_upload(document)
-        return document
+            return await saas.store_upload(store, bytes(payload), metadata)
+        return await store.put_document(bytes(payload), metadata)
     except DocumentProcessingError as exc:
         raise HTTPException(exc.status_code, {"code": exc.code, "message": exc.detail}) from exc
 

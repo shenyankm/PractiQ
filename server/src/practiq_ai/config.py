@@ -46,6 +46,8 @@ class Config:
     office_version: str | None = None
     input_micropoints_per_1k: int | None = None
     output_micropoints_per_1k: int | None = None
+    account_upload_max_bytes: int = 256 * MIB
+    account_upload_max_files: int = 1000
 
 
 def _required(values: dict[str, str], key: str) -> str:
@@ -164,6 +166,8 @@ def load() -> Config:
         provider_rpm=provider_rpm,
         upload_concurrency=_positive_int(values, "AI_UPLOAD_CONCURRENCY", 4),
         upload_timeout_seconds=_positive_float(values, "AI_UPLOAD_TIMEOUT_SECONDS", 120),
+        account_upload_max_bytes=_positive_int(values, 'AI_ACCOUNT_UPLOAD_MAX_BYTES', 256 * MIB),
+        account_upload_max_files=_positive_int(values, 'AI_ACCOUNT_UPLOAD_MAX_FILES', 1000),
         max_busy_threads=_positive_int(values, "AI_MAX_BUSY_THREADS", 300),
         structured_output_method=method,
         office_executable=office_executable,

@@ -1,9 +1,19 @@
 import { describe, expect, it, vi } from "vitest";
-import { Client, ApiError, MAX_BANK_ZIP_BYTES, downloadBlob, fileFormat, sha256, sourceLimit, validateFiles } from "./api";
+import { Client, ApiError, MAX_BANK_ZIP_BYTES, downloadBlob, fileFormat, pointLabel, sha256, sourceLimit, validateFiles } from "./api";
 import { capabilities, task, taskId, runId } from "./test-fixtures";
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 const receipt = { threadId: taskId, requestId: taskId, runId, accepted: true };
+
+it.each([
+  ["9007199254740993", "9,007,199,254.740993"],
+  ["-9007199254740993", "-9,007,199,254.740993"],
+  ["10000000000000000", "10,000,000,000"],
+  ["1", "0.000001"],
+  ["0", "0"],
+])("formats %s micropoints without converting through a floating-point number", (value, label) => {
+  expect(pointLabel(value)).toBe(label);
+});
 function mockUpload(options: { existing?: boolean; badReference?: boolean; badUploadedReference?: boolean; badUrl?: boolean; networkAtCreate?: boolean } = {}) {
   let document: Record<string, unknown>;
   const fetcher = vi.fn(async (path: string, init: RequestInit) => {

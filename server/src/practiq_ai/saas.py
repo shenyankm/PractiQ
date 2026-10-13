@@ -9,6 +9,7 @@ from decimal import Decimal, InvalidOperation
 from json import dumps as json_encode
 from typing import Any
 from uuid import uuid4
+from weakref import WeakValueDictionary
 
 from langgraph.types import interrupt
 
@@ -16,6 +17,7 @@ from .contracts import CardRedeem, DocumentReference, DocumentUploadRequest
 from .errors import DocumentProcessingError
 
 ACCOUNT: ContextVar[str | None] = ContextVar('import_account', default=None)
+UPLOAD_LOCKS: WeakValueDictionary[str, asyncio.Lock] = WeakValueDictionary()
 SCALE = 1_000_000
 DDL = """
 CREATE TABLE import_accounts (
@@ -39,6 +41,7 @@ CREATE TABLE import_ledger (
 CREATE TABLE import_uploads (
  account_id text NOT NULL REFERENCES import_accounts(account_id), object_key text NOT NULL,
  sha256 text NOT NULL, media_type text NOT NULL, size_bytes bigint NOT NULL,
+ verified boolean NOT NULL DEFAULT false,
  PRIMARY KEY(account_id,object_key)
 );
 CREATE TABLE import_calls (
@@ -162,14 +165,44 @@ def require_owner(task: dict[str, Any]) -> None:
 
 async def owns_upload(reference: DocumentReference) -> bool:
     return bool(await db().rows('SELECT 1 FROM import_uploads WHERE account_id=%s AND object_key=%s '
-                                'AND sha256=%s AND size_bytes=%s AND media_type=%s',
+                                'AND sha256=%s AND size_bytes=%s AND media_type=%s AND verified',
                                 (ACCOUNT.get(), reference.objectKey, reference.sha256, reference.sizeBytes, reference.mediaType)))
 
 
 async def register_upload(reference: DocumentReference) -> None:
     async with db().transaction() as conn:
-        await conn.execute('INSERT INTO import_uploads VALUES(%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING',
+        await conn.execute('INSERT INTO import_uploads(account_id,object_key,sha256,media_type,size_bytes,verified) VALUES(%s,%s,%s,%s,%s,true) '
+                           'ON CONFLICT(account_id,object_key) DO UPDATE SET verified=true,sha256=excluded.sha256,media_type=excluded.media_type,size_bytes=excluded.size_bytes',
                            (ACCOUNT.get(), reference.objectKey, reference.sha256, reference.mediaType, reference.sizeBytes))
+
+
+async def store_upload(store, payload: bytes, request: DocumentUploadRequest) -> DocumentReference:
+    from .config import load
+    from .contracts import document_source_key
+    from .storage import verify_payload
+    account = ACCOUNT.get()
+    assert account is not None
+    reference = DocumentReference(**request.model_dump(), objectKey=document_source_key(request.sourceType, request.sha256 or ''))
+    await verify_payload(reference, payload)
+    lock = UPLOAD_LOCKS.get(account) or asyncio.Lock()
+    UPLOAD_LOCKS[account] = lock
+    async with lock:
+        async with db().transaction() as conn:
+            row = await (await conn.execute('SELECT size_bytes,verified FROM import_uploads WHERE account_id=%s AND object_key=%s', (account, reference.objectKey))).fetchone()
+            if not row or not row['verified']:
+                usage = await (await conn.execute('SELECT coalesce(sum(size_bytes),0) AS bytes,count(*) AS files FROM import_uploads WHERE account_id=%s', (account,))).fetchone()
+                assert usage is not None
+                settings = load()
+                extra = max(0, reference.sizeBytes - (row['size_bytes'] if row else 0))
+                if usage['bytes'] + extra > settings.account_upload_max_bytes or usage['files'] + (0 if row else 1) > settings.account_upload_max_files:
+                    raise failure('ACCOUNT_UPLOAD_QUOTA', 413)
+                await conn.execute('INSERT INTO import_uploads(account_id,object_key,sha256,media_type,size_bytes,verified) VALUES(%s,%s,%s,%s,%s,false) '
+                                   'ON CONFLICT(account_id,object_key) DO UPDATE SET size_bytes=greatest(import_uploads.size_bytes,excluded.size_bytes)',
+                                   (account, reference.objectKey, reference.sha256, reference.mediaType, reference.sizeBytes))
+        # Keep failed/uncertain reservations charged to storage; they never prove ownership.
+        document = await store.put_document(payload, request)
+        await register_upload(document)
+        return document
 
 
 async def prepare_upload(request: DocumentUploadRequest):
@@ -182,8 +215,13 @@ async def prepare_upload(request: DocumentUploadRequest):
     validate_source_size(request.sizeBytes, request.sourceType, load())
     reference = DocumentReference(**request.model_dump(), objectKey=document_source_key(request.sourceType, request.sha256))
     if await owns_upload(reference):
-        await get_object_store().get_verified(reference)
-        return DocumentUploadResponse(document=reference, upload=None)
+        try:
+            await get_object_store().get_verified(reference)
+        except DocumentProcessingError as exc:
+            if exc.code != 'OBJECT_NOT_FOUND':
+                raise
+        else:
+            return DocumentUploadResponse(document=reference, upload=None)
     return DocumentUploadResponse(document=reference, upload=LocalUpload(url='/api/uploads/content?' + urlencode(request.model_dump(exclude_none=True)), headers={'Content-Type': request.mediaType}))
 
 

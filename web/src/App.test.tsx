@@ -19,7 +19,7 @@ function fakeHTTP(initial: DocumentTaskDetail = task) {
     const intercepted = await server.intercept?.(url, init); if (intercepted) return intercepted;
     const path = new URL(url, location.origin).pathname;
     if (path === "/api/products") return json({ items: [] });
-    if (path === "/api/account" || path === "/api/cards/redeem") return json({ phone: "+8613800138000", balanceMicropoints: 1000000, usageUnknown: false });
+    if (path === "/api/account" || path === "/api/cards/redeem") return json({ phone: "+8613800138000", balanceMicropoints: "1000000", usageUnknown: false });
     if (path === "/api/account/ledger") return json({ items: [], nextBefore: null });
     if (path === "/api/import-capabilities") return json(capabilities);
     if (path === "/api/document-tasks" && method === "GET") return json({ items: Array.from(records.values()).map(current => ({ ...summary, threadId: current.threadId, fileName: current.fileName, state: current.state, checkpointId: current.checkpointId, status: current.status })), hasMore: new URL(url, location.origin).searchParams.get("offset") === "0" });
@@ -47,19 +47,19 @@ async function openTask(user: ReturnType<typeof userEvent.setup>) {
   await screen.findByText("根据材料选择答案");
 }
 
-it.each<[boolean, number, string, string]>([
-  [true, 1000000, "USAGE_UNKNOWN", "用量待核对，请联系客服。"],
-  [false, 1000000, "USAGE_UNKNOWN", "用量已核对，请明确点击继续解析。"],
-  [false, 0, "USAGE_UNKNOWN", "积分不足，兑换卡密后请明确点击继续解析。"],
-  [false, 1000000, "INSUFFICIENT_POINTS", "积分已补充，请明确点击继续解析。"],
+it.each<[boolean, string, string, string]>([
+  [true, "1000000", "USAGE_UNKNOWN", "用量待核对，请联系客服。"],
+  [false, "1000000", "USAGE_UNKNOWN", "用量已核对，请明确点击继续解析。"],
+  [false, "0", "USAGE_UNKNOWN", "积分不足，兑换卡密后请明确点击继续解析。"],
+  [false, "1000000", "INSUFFICIENT_POINTS", "积分已补充，请明确点击继续解析。"],
 ])("shows the current billing recovery state without automatically continuing (%s, %s, %s)", async (usageUnknown, balanceMicropoints, code, message) => {
   const user = userEvent.setup();
   const http = fakeHTTP({ ...task, state: "PAUSED", allowedActions: ["resume"], blocking: [{ kind: "billing", code }],
-    billing: { phone: "+8613800138000", usageUnknown, balanceMicropoints, chargedMicropoints: 25000,
-      rates: { inputMicropointsPer1k: 1000000, outputMicropointsPer1k: 3000000 } } });
+    billing: { phone: "+8613800138000", usageUnknown, balanceMicropoints, chargedMicropoints: "25000",
+      rates: { inputMicropointsPer1k: "1000000", outputMicropointsPer1k: "3000000" } } });
   render(<App />); await connect(user); await openTask(user);
   expect(await screen.findByText(new RegExp(message))).toBeTruthy();
-  if (balanceMicropoints > 0 && !usageUnknown) expect(screen.queryByText(/积分不足，兑换卡密后/)).toBeNull();
+  if (BigInt(balanceMicropoints) > 0n && !usageUnknown) expect(screen.queryByText(/积分不足，兑换卡密后/)).toBeNull();
   expect(http.calls.every(call => call.method === "GET")).toBe(true);
 });
 

@@ -5,7 +5,7 @@ import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
 
-export default function AccountPanel({ client, revision, balance, onRecharge }: { client: Client | null; revision: number; balance?: number; onRecharge: () => void }) {
+export default function AccountPanel({ client, revision, balance, onRecharge }: { client: Client | null; revision: number; balance?: string; onRecharge: () => void }) {
   const [account, setAccount] = useState<ImportAccount | null>(null);
   const [catalog, setCatalog] = useState<ImportProducts | null>(null);
   const [history, setHistory] = useState<PointLedger | null>(null);
@@ -36,7 +36,7 @@ export default function AccountPanel({ client, revision, balance, onRecharge }: 
     finally { if (client.active) setBusy(false); }
   }
   return <Card className="mb-6"><CardHeader><CardTitle>导入积分</CardTitle></CardHeader><CardContent className="space-y-3">
-    {account && <><p>{account.phone} · 可用积分：{pointLabel(account.balanceMicropoints)}</p>{account.usageUnknown ? <p role="status">有调用用量待核对，请联系客服。已完成内容仍可下载。</p> : account.balanceMicropoints <= 0 && <p role="status">积分不足，请兑换卡密后在任务中点击继续解析。充值先抵扣欠额。</p>}
+    {account && <><p>{account.phone} · 可用积分：{pointLabel(account.balanceMicropoints)}</p>{account.usageUnknown ? <p role="status">有调用用量待核对，请联系客服。已完成内容仍可下载。</p> : BigInt(account.balanceMicropoints) <= 0n && <p role="status">积分不足，请兑换卡密后在任务中点击继续解析。充值先抵扣欠额。</p>}
       <form className="connection-form" onSubmit={event => { event.preventDefault(); void recharge(); }}><label className="flex-1"><span>追加卡密</span><Input type="password" autoComplete="off" maxLength={64} value={card} onChange={event => setCard(event.target.value)} /></label><Button disabled={busy || !card.trim()}>兑换积分</Button></form>
       <Button variant="outline" disabled={busy} onClick={() => void ledger()}>查看积分明细</Button>
       {history && <><ul>{history.items.map(item => <li key={item.id}>{new Date(item.createdAt).toLocaleString()} · {item.kind === "redeem" ? "卡密兑换" : "模型用量"} · {pointLabel(item.amountMicropoints)}</li>)}</ul>{history.nextBefore && <Button disabled={busy} variant="outline" onClick={() => void ledger(history.nextBefore!)}>更早明细</Button>}</>}

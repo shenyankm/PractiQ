@@ -288,11 +288,12 @@ async def test_saas_kill_between_result_and_settlement_recovers_one_charge(tmp_p
         assert server.calls() == 1
         await asyncio.to_thread(server.start)
         state = await asyncio.to_thread(server.wait, receipt, {'COMPLETED'})
-        assert state['billing']['chargedMicropoints'] == 25_000
-        assert state['billing']['balanceMicropoints'] == 975_000
+        assert state['billing']['chargedMicropoints'] == '25000'
+        assert state['billing']['balanceMicropoints'] == '975000'
         assert server.calls() == 1
         entries = server.client.get('/api/account/ledger').json()['items']
-        assert len(entries) == 2 and sum(item['amountMicropoints'] for item in entries) == 975_000
+        assert len(entries) == 2 and all(isinstance(item['amountMicropoints'], str) for item in entries)
+        assert sum(int(item['amountMicropoints']) for item in entries) == 975_000
     finally:
         server.stop(kill=True)
         server.client.close()

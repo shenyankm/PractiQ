@@ -27,7 +27,7 @@ async function fakeHTTP(page: Page, initial: DocumentTaskDetail = task) {
     if (call.path === "/api/products") { await respond(route, { items: [] }); return; }
     if (!call.authenticated) { await respond(route, { detail: { code: "INVALID_TOKEN" } }, 401); return; }
     if (await server.intercept?.(route, call)) return;
-    if (call.path === "/api/account") { await respond(route, { phone: "+8613800138000", balanceMicropoints: 1000000, usageUnknown: false }); return; }
+    if (call.path === "/api/account") { await respond(route, { phone: "+8613800138000", balanceMicropoints: "1000000", usageUnknown: false }); return; }
     if (call.path === "/api/account/ledger") { await respond(route, { items: [], nextBefore: null }); return; }
     if (call.path === "/api/import-capabilities") { await respond(route, capabilities); return; }
     if (call.path === "/api/document-tasks" && call.method === "GET") {
@@ -396,20 +396,20 @@ for (const entry of ["detail", "expired"] as const) {
 }
 
 test("points pause exports completed content; recharge stays paused until explicit Continue", async ({ page }) => {
-  const billing = { phone: "+8613800138000", balanceMicropoints: -5000, usageUnknown: false, chargedMicropoints: 25000, rates: { inputMicropointsPer1k: 1000000, outputMicropointsPer1k: 3000000 } };
+  const billing = { phone: "+8613800138000", balanceMicropoints: "-5000", usageUnknown: false, chargedMicropoints: "25000", rates: { inputMicropointsPer1k: "1000000", outputMicropointsPer1k: "3000000" } };
   const http = await fakeHTTP(page, { ...task, state: "PAUSED", status: null, allowedActions: ["resume"], canExportCompleted: true, billing, blocking: [{ kind: "billing", code: "INSUFFICIENT_POINTS" }] });
-  let balance = -5000;
+  let balance = "-5000";
   http.server.intercept = async (route, call) => {
     if (call.path === "/api/account") { await respond(route, { ...billing, balanceMicropoints: balance }); return true; }
     if (call.path === "/api/cards/redeem") {
       expect(call.body).toEqual({ phone: "13800138000", card: "additional-card", boundCard: fakeToken });
-      balance = 995000; const current = http.records.get(taskId)!;
+      balance = "995000"; const current = http.records.get(taskId)!;
       http.records.set(taskId, { ...current, billing: { ...billing, balanceMicropoints: balance } });
       await respond(route, { ...billing, balanceMicropoints: balance }); return true;
     }
     if (call.path.endsWith("/control")) {
       expect(call.body!.action).toBe("resume"); http.server.modelStarts++;
-      http.records.set(taskId, { ...task, billing: { ...billing, chargedMicropoints: 50000, balanceMicropoints: 970000 }, canExportCompleted: true });
+      http.records.set(taskId, { ...task, billing: { ...billing, chargedMicropoints: "50000", balanceMicropoints: "970000" }, canExportCompleted: true });
       await respond(route, { threadId: taskId, runId, requestId: call.body!.requestId, accepted: true }, 202); return true;
     }
     return false;
