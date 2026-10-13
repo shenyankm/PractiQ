@@ -17,9 +17,43 @@ from tests.support import (
     FakeModel,
     local_graph,
     make_image,
+    object_store,
     question,
     source,
 )
+
+
+@pytest.mark.parametrize('kind', ['image', 'pdf'])
+async def test_unexportable_source_dimensions_fail_before_model_calls(monkeypatch, tmp_path, kind):
+    import hashlib
+
+    from PIL import Image
+
+    from practiq_ai.contracts import DocumentUploadRequest
+
+    payload = BytesIO()
+    if kind == 'image':
+        Image.new('1', (16_385, 1)).save(payload, format='PNG')
+    else:
+        import pypdfium2 as pdfium
+        with pdfium.PdfDocument.new() as pdf:
+            pdf.new_page(6_000, 10)
+            pdf.save(payload)
+    data = payload.getvalue()
+    files = object_store(tmp_path)
+    reference = await files.put_document(data, DocumentUploadRequest(
+        sourceType=kind, fileName='wide.' + ('png' if kind == 'image' else 'pdf'),
+        mediaType='image/png' if kind == 'image' else 'application/pdf',
+        sizeBytes=len(data), sha256=hashlib.sha256(data).hexdigest(),
+    ))
+    model = FakeModel(responses=[])
+    monkeypatch.setattr(document, 'get_model', lambda: model)
+    monkeypatch.setattr(document, 'get_object_store', lambda: files)
+    with pytest.raises(DocumentProcessingError) as error:
+        await local_graph().ainvoke({'document': reference.model_dump(mode='json')})
+    assert error.value.status_code == 413
+    assert error.value.code == 'IMAGE_TOO_LARGE'
+    assert model.calls == []
 
 
 @pytest.fixture(autouse=True)

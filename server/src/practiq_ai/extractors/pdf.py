@@ -8,6 +8,7 @@ from typing import Any, cast
 import pypdfium2 as pdfium
 
 from ..config import load
+from ..contracts import BANK_IMAGE_MAX_DIMENSION, BANK_IMAGE_MAX_PIXELS
 from . import (
     VISION_BYTES_LIMIT_DETAIL,
     DocumentProcessingError,
@@ -16,6 +17,7 @@ from . import (
 )
 
 RENDER_SCALE = 200 / 72  # ~200dpi
+PAGE_BYTES_LIMIT_DETAIL = "Rendered PDF page exceeds the 25 MiB asset limit"
 # PDFium is process-global and not thread-safe, even for different documents.
 # ponytail: serialize rendering; use bounded processes if measured throughput requires it.
 PDFIUM_LOCK = RLock()
@@ -52,9 +54,9 @@ def render_pages(file_bytes: bytes, indexes: list[int]) -> list[bytes]:
         try:
             return _render_pages(file_bytes, indexes)
         except DocumentProcessingError as exc:
-            if exc.code != "IMAGE_TOO_LARGE" and exc.detail != VISION_BYTES_LIMIT_DETAIL:
+            if exc.detail not in {PAGE_BYTES_LIMIT_DETAIL, VISION_BYTES_LIMIT_DETAIL}:
                 raise
-            # Keep the former byte-limit acceptance at the boundary.
+            # Compression can fix byte limits, but never dimension or pixel limits.
             return _render_pages(file_bytes, indexes, compress_level=6)
 
 
@@ -67,12 +69,11 @@ def _render_pages(file_bytes: bytes, indexes: list[int], *, compress_level: int 
             page = document[index]
             try:
                 width, height = page.get_size()
-                rendered_pixels = ceil(width * RENDER_SCALE) * ceil(
-                    height * RENDER_SCALE
-                )
-                if rendered_pixels > load().max_vision_page_pixels:
+                rendered_width, rendered_height = ceil(width * RENDER_SCALE), ceil(height * RENDER_SCALE)
+                if (rendered_width > BANK_IMAGE_MAX_DIMENSION or rendered_height > BANK_IMAGE_MAX_DIMENSION
+                        or rendered_width * rendered_height > min(load().max_vision_page_pixels, BANK_IMAGE_MAX_PIXELS)):
                     raise DocumentProcessingError(
-                        413, "PDF page exceeds the configured visual pixel limit"
+                        413, "PDF page exceeds the visual dimension or pixel limit", code="IMAGE_TOO_LARGE"
                     )
                 bitmap = page.render(scale=cast(Any, RENDER_SCALE))
                 try:
@@ -88,7 +89,7 @@ def _render_pages(file_bytes: bytes, indexes: list[int], *, compress_level: int 
             finally:
                 page.close()
             if len(data) > 25 * 1024 * 1024:
-                raise DocumentProcessingError(413, "Rendered PDF page exceeds the 25 MiB asset limit", code="IMAGE_TOO_LARGE")
+                raise DocumentProcessingError(413, PAGE_BYTES_LIMIT_DETAIL, code="IMAGE_TOO_LARGE")
             total_bytes += len(data)
             enforce_vision_bytes(total_bytes)
             images.append(data)
