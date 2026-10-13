@@ -13,11 +13,11 @@
 - **查看评分**：客观题本地判分，简答题可主动请求 AI 评分，也可人工改分。
 - **保存与分享**：断点续练、备份个人记录，将题库连同图片和音频导出为 ZIP 分享。
 
-应用支持简体中文和英文、明暗主题、七种基础题型，以及英语听力、阅读、完形填空、翻译和写作等题型。练习数据保存在本机，无需账号，不提供云同步。
+应用支持简体中文和英文、明暗主题、七种基础题型，以及英语听力、阅读、完形填空、翻译和写作等题型。离线练习数据保存在本机，无需账号，不提供云同步。独立 Web 导入服务使用手机号与卡密鉴权，并按模型用量扣除导入积分。
 
 首次启动按系统语言偏好选择支持的语言，也可从侧边栏切换。语言选择保存在本机并包含在完整备份中，保存失败后可重试；日期和数字使用与界面语言匹配的系统区域偏好。切换语言会保留题目原文和作答，有可靠语言信息的材料会声明自身语言，供辅助工具使用。AI 评分在开始时记录反馈语言，继续同一次请求会保留该语言。
 
-PractiQ 仍处于开发阶段，目前没有已发布的 GitHub Release；请按下方步骤从源码运行。平台构建检查不代表已完成签名发布或干净系统验收。
+PractiQ 仍处于开发阶段，请按下方步骤从源码运行；已发布安装包及其限制以 [GitHub Releases](https://github.com/shenyankm/PractiQ/releases) 为准。平台构建检查不代表已完成签名发布或干净系统验收。
 
 ![PractiQ 桌面开发预览中的题库首页](docs/assets/desktop-preview.png)
 
@@ -39,24 +39,24 @@ PractiQ 仍处于开发阶段，目前没有已发布的 GitHub Release；请按
 
 文档导入在独立 AI 服务的 Web 前端完成：
 
-1. [启动独立 AI 服务](#独立运行-ai-服务)，打开 Web 前端，填写服务访问令牌。模型配置及供应商密钥留在服务端。
+1. [启动独立 AI 服务](#独立运行-ai-服务)，打开 Web 前端，填写手机号与已绑定卡密；首次使用须主动选择**绑定并查询**。模型配置及供应商密钥留在服务端。
 2. 一次选择最多 10 份源文件，主动点击**开始导入**。只选择文件不会上传或调用模型。
 3. 查看任务进度、保存的题目、图片、原文答案与待复核提示，下载题库 ZIP。
 4. 在桌面 app 中通过**设置 → 恢复备份 → 导入题库 ZIP**新建题库或追加到已有题库。
 
 服务支持 **PDF、TXT、CSV 和 PNG/JPEG**；部署端配置 LibreOffice 后，还可导入 **DOC、DOCX、XLS、XLSX**，由服务完成规范化。桌面安装包不内置 Python 服务或 LibreOffice。部署方式与保真边界见 [Office 指南](server/docs/desktop-office.md)。
 
-任务历史、暂停、中断、恢复、失败单元重试、部分结果复核与重新解析均在 Web 前端处理。读取结果、复核和下载 ZIP 不调用模型；恢复、重试及重新解析须主动触发，可能产生费用。详见[导入任务指南](docs/import-tasks.md)。
+任务历史、暂停、中断、恢复、失败单元重试、部分结果复核与重新解析均在 Web 前端处理。读取结果、复核和下载 ZIP 不调用模型；恢复、重试及重新解析须主动触发，可能产生费用。模型用量消耗导入积分；积分不足或用量未知时可恢复地暂停。充值和下载已完成内容不会自动继续解析。详见[导入任务指南](docs/import-tasks.md)及[手机号、卡密与计费指南](server/docs/saas.md)。
 
 ![独立文档导入 Web 前端](docs/assets/new-web-import.png)
 
-截图来自本机只读 AI 服务实际提供的 Web 构建产物；任务数据库为空，未配置模型。选择示例文件没有上传或调用模型。
+截图展示当前 Web 连接界面，来自本机开发前端，商品目录使用空的模拟响应；未输入凭据、上传文件或调用模型。
 
 解析只提取原文已有答案与评分细则，不替缺答案的题目解题；缺失内容保留待复核标记。请在 **180 天**内下载需要保留的结果，任务到期不影响已导入 app 的题库。
 
 练习和本地判分可离线使用。需要主观题 AI 评分时，在桌面**设置 → AI 服务**中配置独立服务地址及访问令牌，再主动开始评分或重试。评分须有参考答案或评分细则；缺少依据、失败或结果未知时保持未判定。此功能用于个人练习，不作为正式考试阅卷依据；打开 app 或修改设置不会调用模型。
 
-app 访问令牌保存在 macOS Keychain、Windows Credential Manager 或 Android Keystore 保护的私有存储中，Web 令牌只保存在浏览器内存中。服务地址保存在独立的 `v4/service-settings-v1.sqlite` 中，完整备份可包含版本化的地址设置，但不含凭据及 AI 任务状态；练习数据库仍为 schema 11。旧模型配置与密钥原样保留，不会自动作为独立服务凭据使用。限时模考在关闭应用或电脑休眠后仍继续计时，重新进入超时考试时按最后保存的答案交卷。恢复和兼容边界见[数据模型](docs/question-model.md#versions-and-directories)。
+app 访问令牌保存在 macOS Keychain、Windows Credential Manager 或 Android Keystore 保护的私有存储中，Web 手机号与卡密只保存在浏览器内存中，断开或刷新后清除。服务访问令牌仅用于旧任务管理与 app 评分，不能访问客户导入任务。服务地址保存在独立的 `v4/service-settings-v1.sqlite` 中，完整备份可包含版本化的地址设置，但不含凭据及 AI 任务状态；练习数据库仍为 schema 11。旧模型配置与密钥原样保留，不会自动作为独立服务凭据使用。限时模考在关闭应用或电脑休眠后仍继续计时，重新进入超时考试时按最后保存的答案交卷。恢复和兼容边界见[数据模型](docs/question-model.md#versions-and-directories)。
 
 开发模式默认使用内存示例数据；预览面板可切换场景或选择真实本地数据，详见[开发预览](app/docs/development-preview.md)。
 
@@ -120,6 +120,10 @@ make server-dev AI_PYTHON=/path/to/python3.14
 
 FastAPI/LangGraph 服务监听 `127.0.0.1:8090`，使用 RabbitMQ 投递、PostgreSQL 状态和本地文件存储，每个数据库只运行一个进程。上传、任务、素材和评分接口均需鉴权。打开 `http://127.0.0.1:8090/` 使用已构建的 Web 前端；开发时可另外运行 `make web-dev`，其本机 Vite 服务将 API 请求代理到独立服务。需要 Office 支持时，仅在服务部署端配置 `AI_OFFICE_EXECUTABLE` 与 `AI_OFFICE_VERSION`。详见[服务指南](server/docs/service-guide.md)。
 
+AI 服务 RabbitMQ 部署及升级见[投递与恢复指南](server/docs/rabbitmq.md)。现有服务 schema 1 或 2 必须停服备份后显式运行 `make upgrade-db` 升级到 schema 3。
+
+卡密发行、账号隔离、积分计费、部分下载与用量核对见[SaaS 运维指南](server/docs/saas.md)。开放客户导入前须显式配置输入和输出 token 计费费率；模型供应商密钥留在服务端。
+
 ## 文档与开发
 
 [文档索引（英文）](docs/README.md)区分使用指南、技术参考、验收工作表和历史证据。[题型模型](docs/question-model.md)说明题型与复合题规则，[文档任务 API](server/docs/document-tasks.md)说明任务请求与操作，[部署与运维](server/docs/operations.md)说明部署、存储与恢复。
@@ -139,5 +143,3 @@ npm run test:browser
 通过 [GitHub Issues](https://github.com/shenyankm/PractiQ/issues/new/choose) 报告可复现问题或提出改进建议。代码和文档贡献见[贡献指南](CONTRIBUTING.md)；漏洞请按[安全策略](SECURITY.md)私密报告。质量、发布、用户试用和贡献者工作流的未完成验收要求见[路线图证据记录](docs/roadmap-evidence.md)；GitHub 原生路线图与子议题为准。
 
 项目源码使用 [MIT 许可证](LICENSE)，内置依赖保留各自的[上游许可声明](app/licenses/README.md)。
-
-AI 服务 RabbitMQ 部署及升级见[投递与恢复指南](server/docs/rabbitmq.md)。现有服务 schema 1 必须停服备份后显式运行 `make upgrade-db`。

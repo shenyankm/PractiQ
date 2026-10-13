@@ -1,6 +1,6 @@
 # PractiQ AI import Web
 
-This independent React/Vite frontend uploads source documents to the authenticated AI service, reads task progress and checkpoints, reviews extracted content, and downloads question-bank ZIP packages. Practice remains in the offline desktop app. There is no browser learning backend, account system, or billing flow.
+This independent React/Vite frontend uploads source documents to the authenticated AI service, reads task progress and checkpoints, reviews extracted content, and downloads question-bank ZIP packages. Practice remains in the offline desktop app. The Web client uses phone/card access, an import-point balance and explicit card redemption; it has no password login or online practice. See [identity and billing](../server/docs/saas.md).
 
 ```sh
 npm ci --prefix web
