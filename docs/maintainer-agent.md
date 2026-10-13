@@ -23,9 +23,10 @@ on the exact current head, their inline findings, the bot's Code Review Summary
 and its thumbs-up timestamps. A summary must explicitly identify a completed
 Code Review on the current head; a completed Security Review alone is insufficient.
 Abbreviated SHAs are resolved uniquely through GitHub to the full current head.
-A completed current-head review without findings needs no new written report or
-thumbs-up, because the connector only writes suggestions when it finds issues.
-Global reactions cannot independently allow a merge. A current-head CHANGES_REQUESTED, DISMISSED or PENDING review blocks inference.
+Explicit passing feedback is required: a current-head approval/clean report, or
+a GPT thumbs-up created after all current-head reviews complete. Completion alone
+is insufficient. Old/reused global reactions cannot approve a new head; if the
+connector retains an old reaction and emits no clean report, the PR stays open. A current-head CHANGES_REQUESTED, DISMISSED or PENDING review blocks inference.
 
 AI must return completed/passed, the exact head SHA and an existing supporting
 report ID. It is instructed to reject unresolved blockers, pending security

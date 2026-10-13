@@ -47,13 +47,16 @@ test('AI verdict must be complete, structured, current-head and source-bound', (
     { ...passed, arbitrary: true }]) assert.throws(() => validateVerdict(changed, sha, reports));
 });
 
-test('completed head-bound summaries need no new report; prefix collisions and findings block', () => {
-  const summary = { id: 1, user: review.user, body: '<!-- codex-pull-request-review-summary -->\n| Code Review | Completed | `aaaaaaa` |' };
+test('summary approval requires new feedback; prefix collisions and findings block', () => {
+  const summary = { id: 1, user: review.user, body: '<!-- codex-pull-request-review-summary -->\n| Code Review | Completed <relative-time datetime="2026-10-13T14:00:00Z"> | `aaaaaaa` |' };
   assert.deepEqual(reviewEvidence(pr, [], [summary]), []);
   assert.deepEqual(reviewEvidence(pr, [], [summary], { aaaaaaa: 'a'.repeat(39) + 'b' }), []);
   const reports = reviewEvidence(pr, [], [summary], { aaaaaaa: sha });
-  assert.equal(validateVerdict(passed, sha, reports).passed, true);
-  assert.throws(() => validateVerdict(passed, sha, [...reports, { id: 2, type: 'review', findings: [{ body: 'P1' }] }]));
+  assert.throws(() => validateVerdict(passed, sha, reports));
+  assert.throws(() => validateVerdict(passed, sha, reports, [{ content: '+1', created_at: '2026-10-13T13:00:00Z' }]));
+  const fresh = [{ content: '+1', created_at: '2026-10-13T14:01:00Z' }];
+  assert.equal(validateVerdict(passed, sha, reports, fresh).passed, true);
+  assert.throws(() => validateVerdict(passed, sha, [...reports, { id: 2, type: 'review', findings: [{ body: 'P1' }] }], fresh));
 });
 
 function scenario(t, options = {}) {
