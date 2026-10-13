@@ -49,6 +49,7 @@ class Config:
     account_upload_max_bytes: int = 256 * MIB
     account_upload_max_files: int = 1000
     account_max_pending_runs: int = 8
+    account_max_tasks: int = 100
 
 
 def _required(values: dict[str, str], key: str) -> str:
@@ -170,6 +171,7 @@ def load() -> Config:
         account_upload_max_bytes=_positive_int(values, 'AI_ACCOUNT_UPLOAD_MAX_BYTES', 256 * MIB),
         account_upload_max_files=_positive_int(values, 'AI_ACCOUNT_UPLOAD_MAX_FILES', 1000),
         account_max_pending_runs=_positive_int(values, 'AI_ACCOUNT_MAX_PENDING_RUNS', 8),
+        account_max_tasks=_positive_int(values, 'AI_ACCOUNT_MAX_TASKS', 100),
         max_busy_threads=_positive_int(values, "AI_MAX_BUSY_THREADS", 300),
         structured_output_method=method,
         office_executable=office_executable,

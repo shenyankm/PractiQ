@@ -514,8 +514,12 @@ async def test_export_waits_for_a_cancelled_writer_before_closing_its_archive(tm
 
 
 @pytest.mark.parametrize("failure", [None, "cancelled", "disconnect"])
-async def test_export_http_slot_holds_through_download_and_releases_after_response(monkeypatch, failure):
-    from practiq_ai import task_api, webapp
+@pytest.mark.parametrize("customer", [False, True])
+async def test_export_http_slot_holds_through_download_and_releases_after_response(monkeypatch, failure, customer):
+    from practiq_ai import saas, task_api, webapp
+    async def identity(phone, _card):
+        return phone
+    monkeypatch.setattr(saas, 'identity', identity)
     monkeypatch.setenv("AI_SERVICE_TOKEN", "export-test-token")
     endpoint = f"/api/document-tasks/{detail().threadId}/export"
     entered, released = asyncio.Event(), asyncio.Event()
@@ -535,18 +539,23 @@ async def test_export_http_slot_holds_through_download_and_releases_after_respon
             await released.wait()
             if failure == "disconnect":
                 raise OSError("Synthetic disconnected HTTP client")
+    credentials = {'Authorization': 'Card test-card', 'X-Practiq-Phone': 'account-a'} if customer else {'Authorization': 'Bearer export-test-token'}
     scope = {"type": "http", "method": "GET", "path": endpoint,
-             "query_string": b"checkpoint_id=current-result", "headers": [(b"authorization", b"Bearer export-test-token")],
+             "query_string": b"checkpoint_id=current-result", "headers": [(key.lower().encode(), value.encode()) for key, value in credentials.items()],
              "asgi": {"version": "3.0", "spec_version": "2.4"}, "scheme": "http", "http_version": "1.1"}
     first = asyncio.create_task(webapp.app(scope, receive, slow_send))
     try:
         await asyncio.wait_for(entered.wait(), timeout=5)
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=webapp.app), base_url="http://test") as client:
             assert (await client.get(endpoint)).status_code == 401
-            client.headers["Authorization"] = "Bearer export-test-token"
+            client.headers.update(credentials)
             busy = await client.get(endpoint)
             assert busy.status_code == 429 and busy.json()["detail"]["code"] == "BANK_EXPORT_BUSY"
             assert busy.headers["retry-after"] == "1" and len(files) == 1
+            if customer:
+                other = await client.get(endpoint, headers={'X-Practiq-Phone': 'account-b'})
+                assert other.status_code == 200 and len(other.content) == 128 * 1024 + 17
+                assert len(files) == 2 and files[1].closed and not files[0].closed
             if failure == "cancelled":
                 first.cancel()
             released.set()
@@ -558,7 +567,7 @@ async def test_export_http_slot_holds_through_download_and_releases_after_respon
             assert files[0].closed
             exported = await client.get(endpoint)
             assert exported.status_code == 200 and len(exported.content) == 128 * 1024 + 17
-            assert len(files) == 2 and all(file.closed for file in files)
+            assert len(files) == 2 + int(customer) and all(file.closed for file in files)
     finally:
         released.set()
         if not first.done():

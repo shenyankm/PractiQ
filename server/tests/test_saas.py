@@ -973,3 +973,85 @@ async def test_customer_upload_database_outage_is_bounded_503_and_retry_verifies
         retry = await http.put('/api/uploads/content', params=metadata.model_dump(exclude_none=True), content=payload, headers=headers)
         assert retry.status_code == 200
         assert await service.db.rows('SELECT verified FROM import_uploads WHERE account_id=%s', (account,)) == [{'verified': True}]
+
+
+@pytest.mark.usefixtures('disposable_databases')
+async def test_retained_task_quota_counts_paused_and_expired_tasks_and_deletion_releases_it(monkeypatch):
+    monkeypatch.setenv('AI_ACCOUNT_MAX_TASKS', '2')
+    monkeypatch.setenv('AI_INPUT_POINTS_PER_1K', '1')
+    monkeypatch.setenv('AI_OUTPUT_POINTS_PER_1K', '3')
+    service, reference, model = await setup_api(monkeypatch)
+    card = (await issue(service.db))[0]
+    await saas.redeem(CardRedeem(phone='13800138000', card=card))
+    account = await saas.identity('13800138000', card)
+    async with service.db.transaction() as conn:
+        await saas.credit(conn, account, -1_000_000, 'model', 'depleted')
+    token = saas.ACCOUNT.set(account)
+    try:
+        await saas.register_upload(DocumentReference.model_validate(reference))
+        requests = [DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)) for _ in range(3)]
+        first = await task_api.create_task(requests[0])
+        await service.wait_idle()
+        assert (await task_api.get_task(first['threadId']))['state'] == 'PAUSED'
+        second = await task_api.create_task(requests[1])
+        await service.wait_idle()
+        assert await task_api.create_task(requests[1]) == second
+        async with service.db.transaction() as conn:
+            await conn.execute("UPDATE document_tasks SET expires_at=now()-interval '1 day' WHERE thread_id=%s", (first['threadId'],))
+        with pytest.raises(DocumentProcessingError, match='Account task storage is full') as error:
+            await task_api.create_task(requests[2])
+        assert error.value.code == 'ACCOUNT_TASK_QUOTA'
+        assert len(await service.db.rows('SELECT 1 FROM document_tasks')) == 2
+        assert not model.calls
+        await task_api.delete_task(first['threadId'])
+        assert (await task_api.create_task(requests[2]))['accepted']
+        await service.wait_idle()
+        assert len(await service.db.rows('SELECT 1 FROM document_tasks')) == 2
+    finally:
+        saas.ACCOUNT.reset(token)
+
+
+@pytest.mark.usefixtures('disposable_databases')
+async def test_slow_deletion_cleanup_releases_global_lock_and_disables_task_controls(monkeypatch):
+    monkeypatch.setenv('AI_INPUT_POINTS_PER_1K', '1')
+    monkeypatch.setenv('AI_OUTPUT_POINTS_PER_1K', '3')
+    service, reference, _ = await setup_api(monkeypatch, [parsed(), parsed()])
+    cards = await issue(service.db, 2)
+    accounts = []
+    for number, card in zip(('13800138000', '13900139000'), cards, strict=True):
+        await saas.redeem(CardRedeem(phone=number, card=card))
+        accounts.append(await saas.identity(number, card))
+    token = saas.ACCOUNT.set(accounts[0])
+    release, entered = asyncio.Event(), asyncio.Event()
+    operation = None
+    original_delete = service.db.checkpointer.adelete_thread
+
+    async def slow_delete(thread):
+        entered.set()
+        await release.wait()
+        await original_delete(thread)
+
+    try:
+        await saas.register_upload(DocumentReference.model_validate(reference))
+        receipt = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
+        await service.wait_idle()
+        monkeypatch.setattr(service.db.checkpointer, 'adelete_thread', slow_delete)
+        operation = asyncio.create_task(task_api.delete_task(receipt['threadId']))
+        await asyncio.wait_for(entered.wait(), 5)
+        with pytest.raises(DocumentProcessingError, match='expired'):
+            await task_api.control_task(receipt['threadId'], DocumentTaskControl(requestId=uuid4(), action='resume', checkpointId='stale'))
+        async with asyncio.timeout(1):
+            async with service.db.transaction() as conn:
+                await saas.credit(conn, accounts[1], 1, 'adjust', 'during-other-account-cleanup')
+            saas.ACCOUNT.set(accounts[1])
+            await saas.register_upload(DocumentReference.model_validate(reference))
+            assert (await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference))))['accepted']
+        assert not operation.done()
+        release.set()
+        assert await operation == {'deleted': True}
+        await service.wait_idle()
+    finally:
+        release.set()
+        if operation:
+            await asyncio.gather(operation, return_exceptions=True)
+        saas.ACCOUNT.reset(token)

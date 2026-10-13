@@ -122,6 +122,10 @@ async def create_task(request: DocumentTaskCreate) -> dict[str, Any]:
         settings = load()
         rates = None
         if account:
+            count = await (await conn.execute('SELECT count(*) AS n FROM document_tasks WHERE account_id=%s', (account,))).fetchone()
+            assert count is not None
+            if count['n'] >= settings.account_max_tasks:
+                raise DocumentProcessingError(429, 'Account task storage is full; delete existing tasks', 'ACCOUNT_TASK_QUOTA')
             if not await saas.owns_upload(request.document):
                 raise saas.failure('UPLOAD_NOT_FOUND', 404)
             if settings.input_micropoints_per_1k is None or settings.output_micropoints_per_1k is None:
@@ -438,9 +442,11 @@ async def delete_task(thread_id: str) -> dict[str, bool]:
         active = await (await conn.execute("SELECT 1 FROM document_runs WHERE thread_id=%s AND status IN ('pending','running')", (thread_id,))).fetchone()
         if active:
             raise conflict('Stop the task before deleting it', 'TASK_BUSY')
-        # Retain the ownership row until cleanup succeeds so failures remain retryable.
-        await service.db.checkpointer.adelete_thread(thread_id)
-        await saas.cleanup_task_store(service.db, thread_id)
+        # Expiry prevents concurrent controls while ownership remains retryable.
+        await conn.execute('UPDATE document_tasks SET expires_at=least(expires_at,now()) WHERE thread_id=%s', (thread_id,))
+    await service.db.checkpointer.adelete_thread(thread_id)
+    await saas.cleanup_task_store(service.db, thread_id)
+    async with service.db.transaction() as conn:
         # Keep shared source artifacts and imported desktop banks intact.
         await conn.execute('DELETE FROM document_receipts WHERE thread_id=%s', (thread_id,))
         await conn.execute('DELETE FROM document_runs WHERE thread_id=%s', (thread_id,))

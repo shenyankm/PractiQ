@@ -73,19 +73,21 @@ app = FastAPI(lifespan=lifespan)
 app.add_middleware(JsonBodyLimitMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 _uploads: WeakKeyDictionary[asyncio.AbstractEventLoop, int] = WeakKeyDictionary()
-_exports: WeakKeyDictionary[asyncio.AbstractEventLoop, int] = WeakKeyDictionary()
+_exports: WeakKeyDictionary[asyncio.AbstractEventLoop, set[str | None]] = WeakKeyDictionary()
 
 
 async def export_slot() -> AsyncGenerator[None]:
-    # Hold one bounded archive build/download per loop until its response closes.
+    # Slow downloads occupy only their own account's archive slot.
     loop = asyncio.get_running_loop()
-    if _exports.get(loop, 0):
+    accounts = _exports.setdefault(loop, set())
+    account = saas.ACCOUNT.get()
+    if account in accounts:
         raise HTTPException(429, {"code": "BANK_EXPORT_BUSY"}, headers={"Retry-After": "1"})
-    _exports[loop] = 1
+    accounts.add(account)
     try:
         yield
     finally:
-        _exports[loop] = 0
+        accounts.discard(account)
 
 
 class BankZipResponse(StreamingResponse):
