@@ -22,9 +22,10 @@ Evidence is fetched only from `chatgpt-codex-connector[bot]`: submitted reviews
 on the exact current head, their inline findings, the bot's Code Review Summary
 and its thumbs-up timestamps. A summary must explicitly identify a completed
 Code Review on the current head; a completed Security Review alone is insufficient.
-For summary-only evidence, the bot's thumbs-up must have been created after that
-Code Review's completion. An old/global thumbs-up cannot independently allow a
-merge. A current-head CHANGES_REQUESTED, DISMISSED or PENDING review blocks inference.
+Abbreviated SHAs are resolved uniquely through GitHub to the full current head.
+A completed current-head review without findings needs no new written report or
+thumbs-up, because the connector only writes suggestions when it finds issues.
+Global reactions cannot independently allow a merge. A current-head CHANGES_REQUESTED, DISMISSED or PENDING review blocks inference.
 
 AI must return completed/passed, the exact head SHA and an existing supporting
 report ID. It is instructed to reject unresolved blockers, pending security
@@ -57,6 +58,7 @@ Repository secrets: `PRACTIQ_APP_PRIVATE_KEY` and `PRACTIQ_AGENT_API_KEY`.
 Only bounded GPT report/reaction evidence (at most 30,000 characters) is sent to
 the provider, with a 750-token answer cap and two-minute timeout. Calls may incur
 provider charges. Unsuccessful verdicts can be re-evaluated every 15 minutes;
+A per-PR model error skips that PR and allows later PRs to proceed.
 AI interpretation can be wrong, so CI and GitHub protections remain mandatory.
 
 The [workflow](../.github/workflows/maintainer.yml) checks open PRs when **AI
