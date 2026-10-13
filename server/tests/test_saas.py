@@ -777,3 +777,82 @@ async def test_provider_failure_pauses_unknown_usage_and_manual_resolution_does_
         assert len(model.calls) == 2 and (await saas.account_summary(account))['balanceMicropoints'] == 950_000
     finally:
         saas.ACCOUNT.reset(token)
+
+
+@pytest.mark.usefixtures('disposable_databases')
+async def test_account_queue_quota_is_atomic_replays_receipts_and_preserves_other_accounts(monkeypatch):
+    from practiq_ai import messaging
+    monkeypatch.setenv('AI_ACCOUNT_MAX_PENDING_RUNS', '2')
+    monkeypatch.setenv('AI_MAX_BUSY_THREADS', '3')
+    monkeypatch.setenv('AI_INPUT_POINTS_PER_1K', '1')
+    monkeypatch.setenv('AI_OUTPUT_POINTS_PER_1K', '3')
+    service, reference, _ = await setup_api(monkeypatch)
+    release = asyncio.Event()
+    original_publish = messaging.publish
+
+    async def blocked_publish(channel, run_id):
+        await release.wait()
+        await original_publish(channel, run_id)
+
+    monkeypatch.setattr(messaging, 'publish', blocked_publish)
+    cards = await issue(service.db, 2)
+    accounts = []
+    for number, card in zip(('13800138000', '13900139000'), cards, strict=True):
+        await saas.redeem(CardRedeem(phone=number, card=card))
+        accounts.append(await saas.identity(number, card))
+    async with service.db.transaction() as conn:
+        await saas.credit(conn, accounts[0], -1_000_000, 'model', 'depleted')
+    token = saas.ACCOUNT.set(accounts[0])
+    try:
+        await saas.register_upload(DocumentReference.model_validate(reference))
+        requests = [DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)) for _ in range(4)]
+        results = await asyncio.gather(*(task_api.create_task(r) for r in requests), return_exceptions=True)
+        accepted = [(r, result) for r, result in zip(requests, results, strict=True) if isinstance(result, dict)]
+        denied = [result for result in results if isinstance(result, DocumentProcessingError)]
+        assert len(accepted) == len(denied) == 2
+        assert all(error.code == 'ACCOUNT_QUEUE_FULL' and error.status_code == 429 for error in denied)
+        assert await task_api.create_task(accepted[0][0]) == accepted[0][1]
+        rows = await service.db.rows('SELECT count(*) AS n FROM document_tasks WHERE account_id=%s', (accounts[0],))
+        assert rows[0]['n'] == 2
+        saas.ACCOUNT.set(accounts[1])
+        await saas.register_upload(DocumentReference.model_validate(reference))
+        other = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
+        assert other['accepted']
+    finally:
+        saas.ACCOUNT.reset(token)
+        release.set()
+    await service.wait_idle()
+
+
+@pytest.mark.usefixtures('disposable_databases')
+async def test_balance_bounds_reject_redemption_and_settlement_without_partial_accounting(monkeypatch):
+    service, _, _ = await setup_api(monkeypatch)
+    first, extra = await issue(service.db, 2, amount=1)
+    await saas.redeem(CardRedeem(phone='13800138000', card=first))
+    account = await saas.identity('13800138000', first)
+    async with service.db.transaction() as conn:
+        await saas.credit(conn, account, saas.BIGINT_MAX - 1, 'adjust', 'upper-bound')
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=webapp.app), base_url='http://test') as http:
+        result = await http.post('/api/cards/redeem', json={'phone': '13800138000', 'card': extra, 'boundCard': first})
+        assert result.status_code == 409 and result.json()['detail']['code'] == 'POINT_BALANCE_LIMIT'
+    assert (await service.db.rows('SELECT account_id FROM import_cards WHERE digest=%s', (saas.digest(extra),)))[0]['account_id'] is None
+    async with service.db.transaction() as conn:
+        # Idempotent replay remains valid even at the balance ceiling.
+        await saas.credit(conn, account, saas.BIGINT_MAX - 1, 'adjust', 'upper-bound')
+        await saas.credit(conn, account, -saas.BIGINT_MAX, 'adjust', 'zero')
+        await saas.credit(conn, account, saas.BIGINT_MIN, 'adjust', 'lower-bound')
+        await conn.execute("INSERT INTO import_calls(call_key,account_id,thread_id,rates,status,dispatched) VALUES(%s,%s,%s,%s,'unknown',true)",
+                           ('overflow-call', account, str(uuid4()), json.dumps({'inputMicropointsPer1k': 1000, 'outputMicropointsPer1k': 1000})))
+    with pytest.raises(DocumentProcessingError, match='Point balance limit'):
+        await saas.settle('overflow-call', {'inputTokens': 1, 'outputTokens': 0})
+    assert (await saas.account_summary(account))['balanceMicropoints'] == saas.BIGINT_MIN
+    assert (await saas.account_summary(account))['usageUnknown']
+    assert not await service.db.rows("SELECT 1 FROM import_ledger WHERE reference='overflow-call'")
+    with pytest.raises(DocumentProcessingError, match='Point balance limit'):
+        async with service.db.transaction() as conn:
+            await saas.credit(conn, account, saas.BIGINT_MAX + 1, 'adjust', 'oversized-amount')
+    await saas.redeem(CardRedeem(phone='13800138000', card=extra, boundCard=first))
+    await saas.settle('overflow-call', {'inputTokens': 1, 'outputTokens': 0})
+    assert (await saas.account_summary(account))['balanceMicropoints'] == saas.BIGINT_MIN
+    assert not (await saas.account_summary(account))['usageUnknown']
+    assert len(await service.db.rows("SELECT 1 FROM import_ledger WHERE reference='overflow-call'")) == 1

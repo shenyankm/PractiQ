@@ -63,17 +63,22 @@ def receipt(thread_id: str, request_id: str, run_id: str) -> dict[str, Any]:
     return {'threadId': thread_id, 'requestId': request_id, 'runId': run_id, 'accepted': True}
 
 
-async def _admit(conn):
+async def _admit(conn, account=None):
     require_model_config()
     if load().maintenance:
         raise DocumentProcessingError(503, 'Service is draining for maintenance', 'MAINTENANCE')
+    if account:
+        count = await (await conn.execute("SELECT count(*) AS n FROM document_runs r JOIN document_tasks t USING(thread_id) WHERE t.account_id=%s AND r.status IN ('pending','running')", (account,))).fetchone()
+        limit = min(load().account_max_pending_runs, max(1, load().max_busy_threads - 1))
+        if count['n'] >= limit:
+            raise DocumentProcessingError(429, 'Account document queue is full; wait for existing runs', 'ACCOUNT_QUEUE_FULL')
     count = await (await conn.execute(f"SELECT count(*) AS n FROM document_runs r JOIN document_tasks t ON t.thread_id=r.thread_id WHERE r.status IN ('pending','running') AND {supported_task_sql('t')}")).fetchone()
     if count['n'] >= load().max_busy_threads:
         raise DocumentProcessingError(503, 'Document queue is full; retry later', 'QUEUE_FULL')
 
 
 async def _enqueue(conn, task, request_id, request_hash, *, graph_input=None, command=None, base=None, generation=0):
-    await _admit(conn)
+    await _admit(conn, task['account_id'])
     run_id = str(uuid4())
     context = {'documentControl': {'requestId': request_id, 'fingerprint': request_hash,
                                   'generation': generation, 'expiresAt': task['expires_at'].isoformat()}}

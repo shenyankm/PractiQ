@@ -19,6 +19,8 @@ from .errors import DocumentProcessingError
 ACCOUNT: ContextVar[str | None] = ContextVar('import_account', default=None)
 UPLOAD_LOCKS: WeakValueDictionary[str, asyncio.Lock] = WeakValueDictionary()
 SCALE = 1_000_000
+BIGINT_MIN = -(2**63)
+BIGINT_MAX = 2**63 - 1
 DDL = """
 CREATE TABLE import_accounts (
  account_id text PRIMARY KEY, phone text UNIQUE NOT NULL, balance bigint NOT NULL DEFAULT 0
@@ -129,6 +131,12 @@ async def redeem(request: CardRedeem) -> dict[str, Any]:
 
 
 async def credit(conn, account: str, amount: int, kind: str, reference: str, note: str = '') -> None:
+    balance = await (await conn.execute('SELECT balance FROM import_accounts WHERE account_id=%s FOR UPDATE', (account,))).fetchone()
+    assert balance is not None
+    if await (await conn.execute('SELECT 1 FROM import_ledger WHERE account_id=%s AND kind=%s AND reference=%s', (account, kind, reference))).fetchone():
+        return
+    if not BIGINT_MIN <= amount <= BIGINT_MAX or not BIGINT_MIN <= balance['balance'] + amount <= BIGINT_MAX:
+        raise failure('POINT_BALANCE_LIMIT')
     row = await (await conn.execute('INSERT INTO import_ledger(account_id,amount,kind,reference,note) '
                                     'VALUES(%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING RETURNING id',
                                     (account, amount, kind, reference, note))).fetchone()
