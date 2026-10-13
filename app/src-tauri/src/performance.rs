@@ -583,3 +583,113 @@ fn paper_preview_stress() {
     .unwrap();
     println!("{}", report);
 }
+
+#[test]
+#[ignore = "deterministic full backup and restore profile"]
+fn backup_restore_stress() {
+    fn logical_database(db: &rusqlite::Connection) -> Value {
+        use rusqlite::types::ValueRef;
+        use sha2::{Digest, Sha256};
+        let tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT GLOB 'sqlite_*' ORDER BY name").unwrap().query_map([], |r| r.get::<_,String>(0)).unwrap().collect::<std::result::Result<Vec<_>,_>>().unwrap();
+        let mut digest = Sha256::new();
+        let mut counts = serde_json::Map::new();
+        for table in tables {
+            digest.update(table.as_bytes());
+            let mut statement = db
+                .prepare(&format!("SELECT * FROM {table} ORDER BY rowid"))
+                .unwrap();
+            let columns = statement.column_count();
+            let mut rows = statement.query([]).unwrap();
+            let mut count = 0;
+            while let Some(row) = rows.next().unwrap() {
+                for column in 0..columns {
+                    match row.get_ref(column).unwrap() {
+                        ValueRef::Null => digest.update([0]),
+                        ValueRef::Integer(value) => {
+                            digest.update([1]);
+                            digest.update(value.to_le_bytes());
+                        }
+                        ValueRef::Real(value) => {
+                            digest.update([2]);
+                            digest.update(value.to_bits().to_le_bytes());
+                        }
+                        ValueRef::Text(bytes) => {
+                            digest.update([3]);
+                            digest.update((bytes.len() as u64).to_le_bytes());
+                            digest.update(bytes);
+                        }
+                        ValueRef::Blob(bytes) => {
+                            digest.update([4]);
+                            digest.update((bytes.len() as u64).to_le_bytes());
+                            digest.update(bytes);
+                        }
+                    }
+                }
+                digest.update([5]);
+                count += 1;
+            }
+            counts.insert(table, json!(count));
+        }
+        json!({"sha256":format!("{:x}",digest.finalize()),"tableCounts":counts,"schemaVersion":db.query_row("PRAGMA user_version",[],|r|r.get::<_,i64>(0)).unwrap()})
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let mut store = Store::new(dir.path().join("store")).unwrap();
+    let mut db = store.connect().unwrap();
+    let tx = db.transaction().unwrap();
+    tx.execute("INSERT INTO banks VALUES('bank','Synthetic','',1)", [])
+        .unwrap();
+    for i in 0..10_000 {
+        let id = format!("q{i:05}");
+        tx.execute("INSERT INTO questions(id,bank_id,position,stem,mode,content_blocks,confidence,needs_review,missing_fields) VALUES(?1,'bank',?2,?3,'true_false','[]',1,0,'[]')",params![id,i,format!("Question {i}")]).unwrap();
+        tx.execute("INSERT INTO true_false_questions VALUES(?1,'true')", [id])
+            .unwrap();
+    }
+    tx.commit().unwrap();
+    let frozen = crate::questions::freeze(&store.question_rows().unwrap()[..1000]).to_string();
+    let tx = db.transaction().unwrap();
+    for i in 0..100 {
+        let sid = format!("exam{i:03}");
+        tx.execute("INSERT INTO sessions(id,bank_id,bank_title,created_at,position,mode,kind) VALUES(?1,'bank','Synthetic',1,0,'ordered','self_test')",[&sid]).unwrap();
+        tx.execute(
+            "INSERT INTO session_documents VALUES(?1,?2)",
+            params![sid, frozen],
+        )
+        .unwrap();
+        for ordinal in 0..1000 {
+            tx.execute("INSERT INTO attempts(session_id,ordinal,question_id,snapshot_question_id,answer,max_cents) VALUES(?1,?2,?3,?3,'{\"value\":true}',100)",params![sid,ordinal,format!("q{ordinal:05}")]).unwrap();
+        }
+    }
+    tx.commit().unwrap();
+    let before = logical_database(&db);
+    let database_bytes = std::fs::metadata(store.db_path()).unwrap().len();
+    drop(db);
+    let mut report = json!({"questions":10000,"sessions":100,"snapshotQuestions":1000,"attempts":100000,"assets":0,"inputSha256":before["sha256"],"snapshotSha256":crate::store::hash(frozen.as_bytes()),"databaseBytes":database_bytes,"logicalBefore":before,"scope":"Release complete Store::backup/restore methods with temporary fixed-input SQLite and fsync. Three raw samples; first invocation distinguished from later warm invocations. OS caches are not flushed and setup/logical hashing warms files. Setup, assertions, logical digests and reopen checks excluded. No picker/IPC/WebView/platform-device evidence.","backup":[],"restore":[]});
+    let archive = dir.path().join("fixed.zip");
+    for repetition in 0..3 {
+        let start = Instant::now();
+        let result = store.backup(&archive).unwrap();
+        let elapsed = start.elapsed().as_secs_f64() * 1000.0;
+        assert_eq!(result["path"], archive.display().to_string());
+        assert_eq!(logical_database(&store.connect().unwrap()), before);
+        report["backup"].as_array_mut().unwrap().push(json!({"phase":if repetition == 0 {"firstInvocation"} else {"warm"},"elapsedMs":elapsed,"archiveBytes":std::fs::metadata(&archive).unwrap().len()}));
+    }
+    for repetition in 0..3 {
+        let start = Instant::now();
+        let result = store.restore(&archive).unwrap();
+        let elapsed = start.elapsed().as_secs_f64() * 1000.0;
+        let recovery = std::path::Path::new(text(&result, "recoveryPath"));
+        assert!(recovery.is_file());
+        let after = logical_database(&store.connect().unwrap());
+        assert_eq!(after, before);
+        let reopened = Store::new(store.dir.clone()).unwrap();
+        assert_eq!(logical_database(&reopened.connect().unwrap()), before);
+        assert!(reopened.service_settings_override().unwrap().is_none());
+        report["restore"].as_array_mut().unwrap().push(json!({"phase":if repetition == 0 {"firstInvocation"} else {"warm"},"elapsedMs":elapsed,"recoveryBytes":std::fs::metadata(recovery).unwrap().len(),"logicalAfter":after,"reopenPreservesAllTables":true}));
+    }
+    std::fs::write(
+        std::env::var("PRACTIQ_BENCH_OUTPUT").expect("set PRACTIQ_BENCH_OUTPUT"),
+        serde_json::to_vec_pretty(&report).unwrap(),
+    )
+    .unwrap();
+    println!("{}", report);
+}
