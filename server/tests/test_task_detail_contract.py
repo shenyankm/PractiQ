@@ -114,12 +114,15 @@ async def test_completed_task_http_preserves_result_processing_usage_and_expiry(
 
 @pytest.mark.parametrize('change', ['field', 'state'])
 def test_task_detail_changes_invalidate_generated_contract_check(monkeypatch, change):
-    schema = DocumentTaskDetail.model_json_schema()
+    schema = DocumentTaskDetail.model_json_schema(mode='serialization')
     if change == 'field':
         schema['properties']['newDetailField'] = {'type': 'string'}
     else:
         schema['properties']['state']['enum'].append('NEW_STATE')
-    monkeypatch.setattr(DocumentTaskDetail, 'model_json_schema', classmethod(lambda *_: schema))
+    def changed_schema(_cls, **kwargs):
+        assert kwargs == {'mode': 'serialization'}
+        return schema
+    monkeypatch.setattr(DocumentTaskDetail, 'model_json_schema', classmethod(changed_schema))
     monkeypatch.setattr('sys.argv', ['export-contracts.py', '--check'])
     with pytest.raises(SystemExit, match='AI contract changed'):
         runpy.run_path(str(APP_ROOT / 'scripts/export-contracts.py'), run_name='__main__')
