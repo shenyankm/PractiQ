@@ -438,13 +438,14 @@ async def delete_task(thread_id: str) -> dict[str, bool]:
         active = await (await conn.execute("SELECT 1 FROM document_runs WHERE thread_id=%s AND status IN ('pending','running')", (thread_id,))).fetchone()
         if active:
             raise conflict('Stop the task before deleting it', 'TASK_BUSY')
+        # Retain the ownership row until cleanup succeeds so failures remain retryable.
+        await service.db.checkpointer.adelete_thread(thread_id)
+        await saas.cleanup_task_store(service.db, thread_id)
         # Keep shared source artifacts and imported desktop banks intact.
         await conn.execute('DELETE FROM document_receipts WHERE thread_id=%s', (thread_id,))
         await conn.execute('DELETE FROM document_runs WHERE thread_id=%s', (thread_id,))
         await conn.execute('DELETE FROM document_tasks WHERE thread_id=%s', (thread_id,))
     service.task_summaries.pop(thread_id, None)
-    await service.db.checkpointer.adelete_thread(thread_id)
-    await saas.cleanup_task_store(service.db, thread_id)
     return {'deleted': True}
 
 

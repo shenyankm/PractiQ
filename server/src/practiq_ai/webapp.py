@@ -360,6 +360,8 @@ async def upload_content(request: Request, metadata: Annotated[DocumentUploadReq
         if saas.ACCOUNT.get():
             return await saas.store_upload(store, bytes(payload), metadata)
         return await store.put_document(bytes(payload), metadata)
+    except DatabaseError as exc:
+        raise HTTPException(503, {"code": "TASK_SERVICE_UNAVAILABLE", "message": "Task database is unavailable"}) from exc
     except DocumentProcessingError as exc:
         raise HTTPException(exc.status_code, {"code": exc.code, "message": exc.detail}) from exc
 

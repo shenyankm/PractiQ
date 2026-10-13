@@ -856,3 +856,120 @@ async def test_balance_bounds_reject_redemption_and_settlement_without_partial_a
     assert (await saas.account_summary(account))['balanceMicropoints'] == saas.BIGINT_MIN
     assert not (await saas.account_summary(account))['usageUnknown']
     assert len(await service.db.rows("SELECT 1 FROM import_ledger WHERE reference='overflow-call'")) == 1
+
+
+@pytest.mark.usefixtures('disposable_databases')
+@pytest.mark.parametrize('stage', ['checkpoint', 'store'])
+async def test_customer_can_retry_failed_delete_without_losing_ownership(monkeypatch, stage):
+    monkeypatch.setenv('AI_INPUT_POINTS_PER_1K', '1')
+    monkeypatch.setenv('AI_OUTPUT_POINTS_PER_1K', '3')
+    service, reference, _ = await setup_api(monkeypatch)
+    card = (await issue(service.db))[0]
+    await saas.redeem(CardRedeem(phone='13800138000', card=card))
+    account = await saas.identity('13800138000', card)
+    token = saas.ACCOUNT.set(account)
+    try:
+        await saas.register_upload(DocumentReference.model_validate(reference))
+        receipt = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
+        await service.wait_idle()
+        with monkeypatch.context() as patch:
+            target = service.db.checkpointer if stage == 'checkpoint' else service.db.store
+            method = 'adelete_thread' if stage == 'checkpoint' else 'adelete'
+            patch.setattr(target, method, AsyncMock(side_effect=OSError('cleanup interrupted')))
+            with pytest.raises(OSError, match='cleanup interrupted'):
+                await task_api.delete_task(receipt['threadId'])
+        assert (await service.db.rows('SELECT account_id FROM document_tasks WHERE thread_id=%s', (receipt['threadId'],)))[0]['account_id'] == account
+        saas.ACCOUNT.set(str(uuid4()))
+        with pytest.raises(DocumentProcessingError, match='Task not found'):
+            await task_api.delete_task(receipt['threadId'])
+        saas.ACCOUNT.set(account)
+        assert await task_api.delete_task(receipt['threadId']) == {'deleted': True}
+        assert not await service.db.store.asearch(execution.namespace(receipt['threadId'], '')[:2], refresh_ttl=False)
+        assert await service.db.checkpointer.aget_tuple({'configurable': {'thread_id': receipt['threadId']}}) is None
+        assert len(await service.db.rows("SELECT 1 FROM import_ledger WHERE account_id=%s AND kind='model'", (account,))) == 1
+    finally:
+        saas.ACCOUNT.reset(token)
+
+
+@pytest.mark.usefixtures('disposable_databases')
+async def test_cancellation_before_dispatch_persists_rejection_and_restarts_without_unknown_call(monkeypatch):
+    from practiq_ai import runtime
+    from tests.db_support import SERVICES
+    monkeypatch.setenv('AI_INPUT_POINTS_PER_1K', '1')
+    monkeypatch.setenv('AI_OUTPUT_POINTS_PER_1K', '3')
+    service, reference, model = await setup_api(monkeypatch)
+    card = (await issue(service.db))[0]
+    await saas.redeem(CardRedeem(phone='13800138000', card=card))
+    account = await saas.identity('13800138000', card)
+    entered = asyncio.Event()
+    original_dispatch = saas.dispatched
+
+    async def blocked_dispatch(_key):
+        entered.set()
+        await asyncio.Event().wait()
+
+    monkeypatch.setattr(saas, 'dispatched', blocked_dispatch)
+    token = saas.ACCOUNT.set(account)
+    try:
+        await saas.register_upload(DocumentReference.model_validate(reference))
+        receipt = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
+        await asyncio.wait_for(entered.wait(), 10)
+        await service.stop(timeout=0)
+        await service.db.open()
+        await saas.reconcile(service.db)
+        calls = await service.db.store.asearch(execution.namespace(receipt['threadId'], 'calls'), refresh_ttl=False)
+        assert calls
+        run = (await service.db.rows('SELECT * FROM document_runs WHERE run_id=%s', (receipt['runId'],)))[0]
+        assert not await service.unknown_calls(run) and not model.calls, (calls, await service.db.rows('SELECT * FROM import_calls'))
+        assert (await service.db.rows('SELECT status FROM import_calls')) == [{'status': 'rejected'}]
+        monkeypatch.setattr(saas, 'dispatched', original_dispatch)
+        restarted = runtime.Service(service.db)
+        SERVICES.append(restarted)
+        monkeypatch.setattr(runtime, 'current', restarted)
+        await restarted.start()
+        async with asyncio.timeout(15):
+            while (await service.db.rows('SELECT status FROM document_runs WHERE run_id=%s', (receipt['runId'],)))[0]['status'] in {'pending', 'running'}:
+                await asyncio.sleep(.02)
+        assert (await task_api.get_task(receipt['threadId']))['state'] == 'COMPLETED'
+        assert len(model.calls) == 1
+        assert len(await service.db.rows("SELECT 1 FROM import_ledger WHERE kind='model'")) == 1
+    finally:
+        saas.ACCOUNT.reset(token)
+
+
+@pytest.mark.usefixtures('disposable_databases')
+@pytest.mark.parametrize('stage', ['reservation', 'verification'])
+async def test_customer_upload_database_outage_is_bounded_503_and_retry_verifies(monkeypatch, tmp_path, stage):
+    from contextlib import asynccontextmanager
+
+    from psycopg import OperationalError
+    service, _, _ = await setup_api(monkeypatch)
+    card = (await issue(service.db))[0]
+    await saas.redeem(CardRedeem(phone='13800138000', card=card))
+    account = await saas.identity('13800138000', card)
+    store = object_store(tmp_path)
+    monkeypatch.setattr(webapp, 'get_object_store', lambda: store)
+    payload = b'quiz'
+    metadata = DocumentUploadRequest(sourceType='text', fileName='quiz.txt', mediaType='text/plain', sizeBytes=len(payload), sha256=hashlib.sha256(payload).hexdigest())
+    headers = {'Authorization': 'Card ' + card, 'X-Practiq-Phone': '13800138000', 'Content-Type': 'text/plain'}
+
+    @asynccontextmanager
+    async def unavailable():
+        raise OperationalError('private connection details')
+        yield
+
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=webapp.app), base_url='http://test') as http:
+        with monkeypatch.context() as patch:
+            if stage == 'reservation':
+                patch.setattr(service.db, 'transaction', unavailable)
+            else:
+                patch.setattr(saas, 'register_upload', AsyncMock(side_effect=OperationalError('private connection details')))
+            response = await http.put('/api/uploads/content', params=metadata.model_dump(exclude_none=True), content=payload, headers=headers)
+        assert response.status_code == 503
+        assert response.json() == {'detail': {'code': 'TASK_SERVICE_UNAVAILABLE', 'message': 'Task database is unavailable'}}
+        assert 'private' not in response.text
+        rows = await service.db.rows('SELECT verified FROM import_uploads WHERE account_id=%s', (account,))
+        assert rows == ([{'verified': False}] if stage == 'verification' else [])
+        retry = await http.put('/api/uploads/content', params=metadata.model_dump(exclude_none=True), content=payload, headers=headers)
+        assert retry.status_code == 200
+        assert await service.db.rows('SELECT verified FROM import_uploads WHERE account_id=%s', (account,)) == [{'verified': True}]

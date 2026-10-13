@@ -243,6 +243,8 @@ class Service:
                     continue
                 if record.get('status') == 'completed' and record.get('durableResult'):
                     continue
+                if await self.db.rows("SELECT 1 FROM import_calls WHERE call_key=%s AND thread_id=%s AND status='rejected'", (item.key, run['thread_id'])):
+                    continue
                 if record.get('resultKey') and await self.db.store.aget(namespace(run['thread_id'], 'model_results'), record['resultKey'], refresh_ttl=False):
                     continue
                 return True

@@ -337,8 +337,11 @@ async def test_offline_cleanup_recovers_interrupted_task_deletion_without_touchi
         patch.setattr(target, method, AsyncMock(side_effect=OSError('injected deletion failure')))
         with pytest.raises(OSError, match='deletion failure'):
             await task_api.delete_task(tid)
-    assert not await service.db.rows('SELECT thread_id FROM document_tasks WHERE thread_id=%s', (tid,))
+    assert await service.db.rows('SELECT thread_id FROM document_tasks WHERE thread_id=%s', (tid,))
     assert await service.db.store.asearch(namespace(tid, '')[:2], refresh_ttl=False)
+    assert await task_api.delete_task(tid) == {'deleted': True}
+    assert not await service.db.rows('SELECT thread_id FROM document_tasks WHERE thread_id=%s', (tid,))
+    await service.db.store.aput(namespace(tid, 'calls'), 'orphan', {'value': 1}, index=False)
     uri = service.db.uri
     await service.stop(timeout=0)
     db = Database(uri)
