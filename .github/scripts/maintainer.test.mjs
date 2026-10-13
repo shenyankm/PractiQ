@@ -80,7 +80,7 @@ function scenario(t, options = {}) {
       return options.conflict ? Response.json({}, { status: 409 }) : Response.json({ merged: true });
     }
     assert.equal(request.headers.Authorization, 'Bearer read-only');
-    const responses = { 'pulls/228': pr, 'pulls/228/reviews': [review], 'pulls/228/reviews/1/comments': [],
+    const responses = { 'pulls/228': pr, 'pulls/228/reviews': options.changedReport && modelCalls.length ? [{ ...review, body: 'New unresolved P1' }] : [review], 'pulls/228/reviews/1/comments': [],
       [`commits/${sha}/check-runs`]: { check_runs: options.checks ?? checks }, [`commits/${sha}/status`]: { statuses: [] },
       'collaborators/shenyankm/permission': { permission: options.permission ?? 'admin' },
       'issues/228/comments': [], 'issues/228/reactions': [] };
@@ -113,6 +113,12 @@ test('model rejection, network failure and invalid evidence never merge', async 
 test('model failure aborts before mutation', async t => {
   const fixture = scenario(t, { modelError: true });
   await assert.rejects(main, /503/);
+  assert.equal(fixture.writes.length, 0);
+});
+
+test('a GPT report change during interpretation invalidates the verdict', async t => {
+  const fixture = scenario(t, { changedReport: true });
+  await assert.rejects(main, /GPT review changed/);
   assert.equal(fixture.writes.length, 0);
 });
 

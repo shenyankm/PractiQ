@@ -100,6 +100,20 @@ async function pages(path, key) {
   throw new Error('Pagination exceeds supported limit; no merge attempted');
 }
 
+async function evidenceFor(pr) {
+  const reviews = await pages(`pulls/${pr.number}/reviews`);
+  const comments = await pages(`issues/${pr.number}/comments`);
+  const reports = reviewEvidence(pr, reviews, comments);
+  for (const report of reports.filter(report => report.type === 'review')) {
+    report.findings = (await pages(`pulls/${pr.number}/reviews/${report.id}/comments`))
+      .map(comment => ({ path: comment.path, line: comment.line, body: comment.body }));
+  }
+  const reactions = reports.length ? (await pages(`issues/${pr.number}/reactions`))
+    .filter(reaction => reaction.user?.login === reviewer && reaction.content === '+1')
+    .map(reaction => ({ id: reaction.id, created_at: reaction.created_at, content: reaction.content })) : [];
+  return { reports, reactions };
+}
+
 export async function main() {
   const number = process.env.PR_NUMBER;
   assert(!number || /^[1-9]\d*$/.test(number), 'Invalid PR number');
@@ -119,21 +133,19 @@ export async function main() {
       console.log(`#${target.number}: a maintainer must manually dispatch this external PR`);
       continue;
     }
-    const reviews = await pages(`pulls/${target.number}/reviews`);
-    const comments = await pages(`issues/${target.number}/comments`);
-    const reports = reviewEvidence(pr, reviews, comments);
+    const evidence = await evidenceFor(pr);
+    const { reports, reactions } = evidence;
     if (!reports.length) { console.log(`#${target.number}: no completed current-head GPT Code Review`); continue; }
-    for (const report of reports.filter(report => report.type === 'review')) {
-      report.findings = (await pages(`pulls/${target.number}/reviews/${report.id}/comments`))
-        .map(comment => ({ path: comment.path, line: comment.line, body: comment.body }));
-    }
-    const reactions = (await pages(`issues/${target.number}/reactions`))
-      .filter(reaction => reaction.user?.login === reviewer && reaction.content === '+1')
-      .map(reaction => ({ id: reaction.id, created_at: reaction.created_at, content: reaction.content }));
     const verdict = await judgeReview(pr, reports, reactions);
     if (!verdict.passed) { console.log(`#${target.number}: GPT result not confirmed: ${verdict.reason}`); continue; }
     // shortcut: denied verdicts may be rechecked every 15 minutes; cache per head if usage grows.
     if (process.env.DRY_RUN !== 'false') { console.log(`#${target.number}: eligible (dry run)`); continue; }
+    const fresh = await api(`pulls/${target.number}`);
+    assert.equal(fresh.head.sha, pr.head.sha, 'PR head changed after interpretation; no merge');
+    assert.deepEqual(await evidenceFor(fresh), evidence, 'GPT review changed after interpretation; no merge');
+    const finalChecks = await pages(`commits/${pr.head.sha}/check-runs?filter=latest`, 'check_runs');
+    const finalStatuses = await pages(`commits/${pr.head.sha}/status`, 'statuses');
+    assert.equal(mergeBlocker(fresh, finalChecks, finalStatuses), null, 'Merge conditions changed after interpretation');
     const result = await api(`pulls/${target.number}/merge`, 'PUT', { sha: pr.head.sha, merge_method: 'squash' });
     assert(result.merged === true, `PR #${target.number} was not merged`);
     console.log(`#${target.number}: squash merged ${pr.head.sha}`);
