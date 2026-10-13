@@ -56,7 +56,6 @@ jobs:
           client-id: ${{ vars.PRACTIQ_APP_CLIENT_ID }}
           private-key: ${{ secrets.PRACTIQ_APP_PRIVATE_KEY }}
           permission-contents: write
-          permission-pull-requests: write
       - name: Interpret GPT review results and merge only after passing CI
         env:
           GH_READ_TOKEN: ${{ github.token }}

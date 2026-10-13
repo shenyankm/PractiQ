@@ -13,7 +13,8 @@ commit status. Skipped intermediate jobs are inapplicable; a skipped final gate
 never qualifies. GitHub must report an open, non-draft PR with a clean merge,
 current base, no conflicts and no branch-protection blocker.
 
-PRs that add, modify, delete or rename workflow files are excluded from the bot,
+PRs that add, modify, delete or rename workflow files or `server/scripts/ci_scope.py`
+are excluded from the bot,
 even on manual dispatch; maintainers must inspect their CI definitions and merge
 them manually. This prevents PR-defined jobs from spoofing the required CI names.
 
@@ -48,7 +49,8 @@ repository's existing settings.
 
 ## Configuration and operation
 
-App permissions: Contents and Pull requests read/write, mandatory Metadata read.
+App permissions: Contents read/write and mandatory Metadata read. Pull requests
+write is not needed: the merge endpoint only requires Contents write.
 Contents write is needed by the merge API; Issues and Actions permissions are not
 needed. Read-only CI/review/reaction queries use the workflow token (including Issues read); a narrowly scoped
 App token performs the merge. The model request never includes GitHub tokens or

@@ -152,3 +152,10 @@ test('workflow changes and renames cannot spend model budget or auto-merge', asy
   assert.equal(fixture.modelCalls.length, 0);
   assert.equal(fixture.writes.length, 0);
 });
+
+test('CI scope implementation changes require manual inspection', async t => {
+  const fixture = scenario(t, { files: [{ filename: 'server/scripts/ci_scope.py' }] });
+  await main();
+  assert.equal(fixture.modelCalls.length, 0);
+  assert.equal(fixture.writes.length, 0);
+});
