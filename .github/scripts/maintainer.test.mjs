@@ -75,14 +75,15 @@ function scenario(t, options = {}) {
       if (options.modelError && (!options.multiple || modelCalls.length === 1)) return Response.json({}, { status: 503 });
       return Response.json({ choices: [{ finish_reason: 'stop', message: { content: JSON.stringify(options.verdict ?? passed) } }] });
     }
-    const path = new URL(url).pathname.split('/').slice(4).join('/').replace(/229/g, '228');
+    const actualPath = new URL(url).pathname.split('/').slice(4).join('/');
+    const path = actualPath.replace(/229/g, '228');
     if (request.method === 'PUT') {
       assert.equal(request.headers.Authorization, 'Bearer write-only');
       writes.push(JSON.parse(request.body));
       return options.conflict ? Response.json({}, { status: 409 }) : Response.json({ merged: true });
     }
     assert.equal(request.headers.Authorization, 'Bearer read-only');
-    const responses = { pulls: [{ number: 228 }, { number: 229 }], 'pulls/228': pr, 'pulls/228/reviews': options.changedReport && modelCalls.length ? [{ ...review, body: 'New unresolved P1' }] : options.summary ? [] : [review], 'pulls/228/reviews/1/comments': [],
+    const responses = { pulls: [{ number: 228 }, { number: 229 }], 'pulls/228': { ...pr, number: actualPath.endsWith('/229') ? 229 : 228 }, 'pulls/228/reviews': options.changedReport && modelCalls.length && actualPath.includes('/228/') ? [{ ...review, body: 'New unresolved P1' }] : options.summary ? [] : [review], 'pulls/228/reviews/1/comments': [],
       [`commits/${sha}/check-runs`]: { check_runs: options.checks ?? checks }, [`commits/${sha}/status`]: { statuses: [] },
       'collaborators/shenyankm/permission': { permission: options.permission ?? 'admin' },
       'issues/228/comments': options.summary ? [{ id: 1, user: review.user, body: '<!-- codex-pull-request-review-summary -->\n| Code Review | Completed | `aaaaaaa` |' }] : [], 'issues/228/reactions': [], 'commits/aaaaaaa': { sha: options.resolvedSha ?? sha } };
@@ -120,9 +121,10 @@ test('one PR model failure does not starve later PRs', async t => {
 });
 
 test('a GPT report change during interpretation invalidates the verdict', async t => {
-  const fixture = scenario(t, { changedReport: true });
-  await assert.rejects(main, /GPT review changed/);
-  assert.equal(fixture.writes.length, 0);
+  const fixture = scenario(t, { changedReport: true, multiple: true });
+  await main();
+  assert.equal(fixture.modelCalls.length, 2);
+  assert.equal(fixture.writes.length, 1);
 });
 
 test('dry run does not merge; rejected merges bind the exact head and are not retried', async t => {
@@ -131,7 +133,7 @@ test('dry run does not merge; rejected merges bind the exact head and are not re
   await main();
   assert.equal(fixture.writes.length, 0);
   process.env.DRY_RUN = 'false';
-  await assert.rejects(main, /409/);
+  await main();
   assert.deepEqual(fixture.writes, [{ sha, merge_method: 'squash' }]);
 });
 

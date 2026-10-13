@@ -45,7 +45,7 @@ repository's existing settings.
 
 App permissions: Contents and Pull requests read/write, mandatory Metadata read.
 Contents write is needed by the merge API; Issues and Actions permissions are not
-needed. Read-only CI/review queries use the workflow token; a narrowly scoped
+needed. Read-only CI/review/reaction queries use the workflow token (including Issues read); a narrowly scoped
 App token performs the merge. The model request never includes GitHub tokens or
 App keys and does not give the model tool access.
 
@@ -59,7 +59,8 @@ Repository secrets: `PRACTIQ_APP_PRIVATE_KEY` and `PRACTIQ_AGENT_API_KEY`.
 Only bounded GPT report/reaction evidence (at most 30,000 characters) is sent to
 the provider, with a 750-token answer cap and two-minute timeout. Calls may incur
 provider charges. Unsuccessful verdicts can be re-evaluated every 15 minutes;
-A per-PR model error skips that PR and allows later PRs to proceed.
+A per-PR API, model, revalidation or merge error skips that PR and allows later
+PRs to proceed. Automatic scans have a 30-minute job budget.
 AI interpretation can be wrong, so CI and GitHub protections remain mandatory.
 
 The [workflow](../.github/workflows/maintainer.yml) checks open PRs when **AI

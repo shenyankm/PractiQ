@@ -129,37 +129,37 @@ export async function main() {
   assert(!number || Number.isSafeInteger(Number(number)), 'Invalid PR number');
   const targets = number ? [{ number: Number(number) }] : await pages('pulls?state=open&base=main');
   for (const target of targets) {
-    const pr = await api(`pulls/${target.number}`);
-    if (pr.state !== 'open' || pr.draft || pr.base.ref !== 'main') continue;
-    const checks = await pages(`commits/${pr.head.sha}/check-runs?filter=latest`, 'check_runs');
-    const statuses = await pages(`commits/${pr.head.sha}/status`, 'statuses');
-    const reason = mergeBlocker(pr, checks, statuses);
-    if (reason) { console.log(`#${target.number}: ${reason}`); continue; }
-    // Public contributors cannot spend the model budget through automatic events.
-    const actor = process.env.GITHUB_EVENT_NAME === 'workflow_dispatch' ? process.env.GITHUB_ACTOR : pr.user.login;
-    const permission = await api(`collaborators/${encodeURIComponent(actor)}/permission`);
-    if (!['admin', 'maintain', 'write'].includes(permission.permission)) {
-      console.log(`#${target.number}: a maintainer must manually dispatch this external PR`);
-      continue;
-    }
-    const evidence = await evidenceFor(pr);
-    const { reports, reactions } = evidence;
-    if (!reports.length) { console.log(`#${target.number}: no completed current-head GPT Code Review`); continue; }
-    let verdict;
-    try { verdict = await judgeReview(pr, reports, reactions); }
-    catch (error) { console.error(`#${target.number}: ${error.message}; skipped`); continue; }
-    if (!verdict.passed) { console.log(`#${target.number}: GPT result not confirmed: ${verdict.reason}`); continue; }
-    // shortcut: denied verdicts may be rechecked every 15 minutes; cache per head if usage grows.
-    if (process.env.DRY_RUN !== 'false') { console.log(`#${target.number}: eligible (dry run)`); continue; }
-    const fresh = await api(`pulls/${target.number}`);
-    assert.equal(fresh.head.sha, pr.head.sha, 'PR head changed after interpretation; no merge');
-    assert.deepEqual(await evidenceFor(fresh), evidence, 'GPT review changed after interpretation; no merge');
-    const finalChecks = await pages(`commits/${pr.head.sha}/check-runs?filter=latest`, 'check_runs');
-    const finalStatuses = await pages(`commits/${pr.head.sha}/status`, 'statuses');
-    assert.equal(mergeBlocker(fresh, finalChecks, finalStatuses), null, 'Merge conditions changed after interpretation');
-    const result = await api(`pulls/${target.number}/merge`, 'PUT', { sha: pr.head.sha, merge_method: 'squash' });
-    assert(result.merged === true, `PR #${target.number} was not merged`);
-    console.log(`#${target.number}: squash merged ${pr.head.sha}`);
+    try {
+      const pr = await api(`pulls/${target.number}`);
+      if (pr.state !== 'open' || pr.draft || pr.base.ref !== 'main') continue;
+      const checks = await pages(`commits/${pr.head.sha}/check-runs?filter=latest`, 'check_runs');
+      const statuses = await pages(`commits/${pr.head.sha}/status`, 'statuses');
+      const reason = mergeBlocker(pr, checks, statuses);
+      if (reason) { console.log(`#${target.number}: ${reason}`); continue; }
+      // Public contributors cannot spend the model budget through automatic events.
+      const actor = process.env.GITHUB_EVENT_NAME === 'workflow_dispatch' ? process.env.GITHUB_ACTOR : pr.user.login;
+      const permission = await api(`collaborators/${encodeURIComponent(actor)}/permission`);
+      if (!['admin', 'maintain', 'write'].includes(permission.permission)) {
+        console.log(`#${target.number}: a maintainer must manually dispatch this external PR`);
+        continue;
+      }
+      const evidence = await evidenceFor(pr);
+      const { reports, reactions } = evidence;
+      if (!reports.length) { console.log(`#${target.number}: no completed current-head GPT Code Review`); continue; }
+      const verdict = await judgeReview(pr, reports, reactions);
+      if (!verdict.passed) { console.log(`#${target.number}: GPT result not confirmed: ${verdict.reason}`); continue; }
+      // shortcut: denied verdicts may be rechecked every 15 minutes; cache per head if usage grows.
+      if (process.env.DRY_RUN !== 'false') { console.log(`#${target.number}: eligible (dry run)`); continue; }
+      const fresh = await api(`pulls/${target.number}`);
+      assert.equal(fresh.head.sha, pr.head.sha, 'PR head changed after interpretation; no merge');
+      assert.deepEqual(await evidenceFor(fresh), evidence, 'GPT review changed after interpretation; no merge');
+      const finalChecks = await pages(`commits/${pr.head.sha}/check-runs?filter=latest`, 'check_runs');
+      const finalStatuses = await pages(`commits/${pr.head.sha}/status`, 'statuses');
+      assert.equal(mergeBlocker(fresh, finalChecks, finalStatuses), null, 'Merge conditions changed after interpretation');
+      const result = await api(`pulls/${target.number}/merge`, 'PUT', { sha: pr.head.sha, merge_method: 'squash' });
+      assert(result.merged === true, `PR #${target.number} was not merged`);
+      console.log(`#${target.number}: squash merged ${pr.head.sha}`);
+    } catch (error) { console.error(`#${target.number}: ${error.message}; skipped`); }
   }
 }
 
