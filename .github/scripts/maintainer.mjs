@@ -16,9 +16,9 @@ export function mergeBlocker(pr, checks, statuses) {
 
 export function reviewEvidence(pr, reviews, comments, resolvedShas = {}) {
   const current = reviews.filter(review => review.user?.login === reviewer && review.commit_id === pr.head.sha);
-  const latest = current.at(-1);
-  if (latest && ['CHANGES_REQUESTED', 'DISMISSED', 'PENDING'].includes(latest.state)) return [];
-  const reports = latest ? [{ id: latest.id, type: 'review', state: latest.state, body: latest.body, submitted_at: latest.submitted_at }] : [];
+  if (current.some(review => ['CHANGES_REQUESTED', 'PENDING'].includes(review.state))) return [];
+  const reports = current.filter(review => review.state !== 'DISMISSED').map(review =>
+    ({ id: review.id, type: 'review', state: review.state, body: review.body, submitted_at: review.submitted_at }));
   for (const comment of comments.filter(comment => comment.user?.login === reviewer && comment.body.includes('codex-pull-request-review-summary')).slice(-1)) {
     const lines = comment.body.split('\n');
     const line = lines.find(line => line.includes('Code Review'));
@@ -132,6 +132,11 @@ export async function main() {
     try {
       const pr = await api(`pulls/${target.number}`);
       if (pr.state !== 'open' || pr.draft || pr.base.ref !== 'main') continue;
+      const files = await pages(`pulls/${target.number}/files`);
+      if (files.some(file => [file.filename, file.previous_filename].some(path => path?.startsWith('.github/workflows/')))) {
+        console.log(`#${target.number}: workflow changes require maintainer inspection and manual merge`);
+        continue;
+      }
       const checks = await pages(`commits/${pr.head.sha}/check-runs?filter=latest`, 'check_runs');
       const statuses = await pages(`commits/${pr.head.sha}/status`, 'statuses');
       const reason = mergeBlocker(pr, checks, statuses);

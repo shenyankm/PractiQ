@@ -13,6 +13,10 @@ commit status. Skipped intermediate jobs are inapplicable; a skipped final gate
 never qualifies. GitHub must report an open, non-draft PR with a clean merge,
 current base, no conflicts and no branch-protection blocker.
 
+PRs that add, modify, delete or rename workflow files are excluded from the bot,
+even on manual dispatch; maintainers must inspect their CI definitions and merge
+them manually. This prevents PR-defined jobs from spoofing the required CI names.
+
 Automatic paid interpretation is limited to PR authors with current repository
 `admin`, `maintain` or `write` access. An external contribution requires a
 maintainer to manually dispatch the workflow; that actor's permission is checked
@@ -26,7 +30,8 @@ Abbreviated SHAs are resolved uniquely through GitHub to the full current head.
 Explicit passing feedback is required: a current-head approval/clean report, or
 a GPT thumbs-up created after all current-head reviews complete. Completion alone
 is insufficient. Old/reused global reactions cannot approve a new head; if the
-connector retains an old reaction and emits no clean report, the PR stays open. A current-head CHANGES_REQUESTED, DISMISSED or PENDING review blocks inference.
+connector retains an old reaction and emits no clean report, the PR stays open. All current-head reviews and findings are retained. Any active current-head
+CHANGES_REQUESTED or PENDING review blocks inference; dismissed reviews are ignored.
 
 AI must return completed/passed, the exact head SHA and an existing supporting
 report ID. It is instructed to reject unresolved blockers, pending security

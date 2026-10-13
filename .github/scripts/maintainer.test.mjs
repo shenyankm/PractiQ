@@ -33,6 +33,8 @@ test('GPT evidence excludes old heads, other authors and security-only summaries
   assert.deepEqual(reviewEvidence(pr, [{ ...review, commit_id: 'b'.repeat(40) }], []), []);
   assert.deepEqual(reviewEvidence(pr, [{ ...review, user: { login: 'spoof' } }], []), []);
   assert.deepEqual(reviewEvidence(pr, [{ ...review, state: 'CHANGES_REQUESTED' }], []), []);
+  assert.deepEqual(reviewEvidence(pr, [{ ...review, state: 'CHANGES_REQUESTED' }, { ...review, id: 2 }], []), []);
+  assert.equal(reviewEvidence(pr, [review, { ...review, id: 2 }], []).length, 2);
   const summary = body => ({ id: 2, user: review.user, body: '<!-- codex-pull-request-review-summary -->\n' + body });
   assert.equal(reviewEvidence(pr, [], [summary('| **Code Review** | **Completed** | `aaaaaaa` |')], { aaaaaaa: sha }).length, 1);
   assert.deepEqual(reviewEvidence(pr, [], [summary('| **Code Review** | **Completed** | `bbbbbbb` |\n| Security Review | Completed | `aaaaaaa` |')]), []);
@@ -83,7 +85,7 @@ function scenario(t, options = {}) {
       return options.conflict ? Response.json({}, { status: 409 }) : Response.json({ merged: true });
     }
     assert.equal(request.headers.Authorization, 'Bearer read-only');
-    const responses = { pulls: [{ number: 228 }, { number: 229 }], 'pulls/228': { ...pr, number: actualPath.endsWith('/229') ? 229 : 228 }, 'pulls/228/reviews': options.changedReport && modelCalls.length && actualPath.includes('/228/') ? [{ ...review, body: 'New unresolved P1' }] : options.summary ? [] : [review], 'pulls/228/reviews/1/comments': [],
+    const responses = { pulls: [{ number: 228 }, { number: 229 }], 'pulls/228': { ...pr, number: actualPath.endsWith('/229') ? 229 : 228 }, 'pulls/228/reviews': options.changedReport && modelCalls.length && actualPath.includes('/228/') ? [{ ...review, body: 'New unresolved P1' }] : options.summary ? [] : [review], 'pulls/228/reviews/1/comments': [], 'pulls/228/files': options.files ?? [],
       [`commits/${sha}/check-runs`]: { check_runs: options.checks ?? checks }, [`commits/${sha}/status`]: { statuses: [] },
       'collaborators/shenyankm/permission': { permission: options.permission ?? 'admin' },
       'issues/228/comments': options.summary ? [{ id: 1, user: review.user, body: '<!-- codex-pull-request-review-summary -->\n| Code Review | Completed | `aaaaaaa` |' }] : [], 'issues/228/reactions': [], 'commits/aaaaaaa': { sha: options.resolvedSha ?? sha } };
@@ -139,6 +141,13 @@ test('dry run does not merge; rejected merges bind the exact head and are not re
 
 test('GitHub resolves abbreviated summary commits before inference', async t => {
   const fixture = scenario(t, { summary: true, resolvedSha: 'a'.repeat(39) + 'b' });
+  await main();
+  assert.equal(fixture.modelCalls.length, 0);
+  assert.equal(fixture.writes.length, 0);
+});
+
+test('workflow changes and renames cannot spend model budget or auto-merge', async t => {
+  const fixture = scenario(t, { files: [{ filename: 'safe.yml', previous_filename: '.github/workflows/server.yml' }] });
   await main();
   assert.equal(fixture.modelCalls.length, 0);
   assert.equal(fixture.writes.length, 0);
