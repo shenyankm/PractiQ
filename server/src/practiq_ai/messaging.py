@@ -13,6 +13,7 @@ from psycopg import Error as DatabaseError
 from . import telemetry
 from .config import load, rabbitmq_uri
 from .errors import DocumentProcessingError
+from .execution import supported_task_sql
 
 QUEUE = 'practiq.document.v1'
 DEAD_QUEUE = QUEUE + '.dead'
@@ -79,7 +80,7 @@ class Delivery:
                 await message.reject(requeue=False)
                 return
             if await self.service.deliver(run_id):
-                # Completion is committed first. An ambiguous ACK is safe to redeliver.
+                # Completion or deferred outbox admission is committed first; ambiguous ACKs are safe.
                 await message.ack()
                 telemetry.deliveries.labels('acknowledged').inc()
         except DatabaseError:
@@ -124,13 +125,19 @@ class Delivery:
                     if connection.is_closed or consumer.is_closed or self.failed.is_set():
                         raise RuntimeError('Delivery connection lost')
                     rows = await self.service.db.rows(
-                        'SELECT run_id FROM document_outbox WHERE published_at IS NULL ORDER BY created_at LIMIT 100')
+                        "SELECT o.run_id,o.created_at FROM document_outbox o JOIN document_runs r USING(run_id) JOIN document_tasks t USING(thread_id) "
+                        "WHERE o.published_at IS NULL AND (t.account_id IS NULL OR r.status NOT IN ('pending','running') OR NOT EXISTS ("
+                        "SELECT 1 FROM document_runs other JOIN document_tasks other_task ON other_task.thread_id=other.thread_id "
+                        "WHERE other_task.account_id=t.account_id AND other.run_id!=r.run_id AND other.status IN ('pending','running') AND "
+                        f"{supported_task_sql('other_task')} AND (other.status='running' OR (other.created_at,other.run_id)<(r.created_at,r.run_id) OR "
+                        "EXISTS(SELECT 1 FROM document_outbox published WHERE published.run_id=other.run_id AND published.published_at IS NOT NULL)))) "
+                        "ORDER BY o.created_at LIMIT 100")
                     for row in rows:
                         if self.service.stopping:
                             break
                         await publish(publisher, row['run_id'])
                         async with self.service.db.connection() as conn:
-                            await conn.execute('UPDATE document_outbox SET published_at=now() WHERE run_id=%s', (row['run_id'],))
+                            await conn.execute('UPDATE document_outbox SET published_at=now() WHERE run_id=%s AND created_at=%s', (row['run_id'], row['created_at']))
                     delay = 1
                     await self.wait(1)
                 await queue.cancel(tag, timeout=5)

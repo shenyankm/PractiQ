@@ -26,7 +26,7 @@ First binding creates the phone account. Additional redemption requires an alrea
 
 ## Pause, download and recovery
 
-Each phone permits one in-flight model call; different accounts can run concurrently. A positive balance permits a call without predicting its token count. That call can leave a negative balance; the next call pauses recoverably. Completed processing units and model results stay durable. Local merge can complete without another model call. Recharge never resumes work: the user explicitly clicks Continue on the task.
+Each phone permits one in-flight model call; different accounts can run concurrently. Runs for a phone are admitted sequentially before global worker capacity, with backlog retained in the transactional outbox rather than occupying worker or broker-prefetch slots. A positive balance permits a call without predicting its token count. That call can leave a negative balance; the next call pauses recoverably. Completed processing units and model results stay durable. Local merge can complete without another model call. Recharge never resumes work: the user explicitly clicks Continue on the task.
 
 Paused tasks with usable completed questions can download a full snapshot of all completed content. The snapshot retains `PARTIAL`, missing fields and review flags, verifies images and checkpoint consistency, and does not modify the graph checkpoint, write crop artifacts or increment parse-result/failure metrics. Existing original page images remain packaged; ungenerated crops are marked for media review. No usable questions means no export. Every download includes all currently completed questions; importing overlapping snapshots into the App creates independent question banks.
 

@@ -32,6 +32,7 @@ class Service:
         self.db = db
         self.graphs: dict[str, Any] = {}
         self.active: dict[str, asyncio.Task] = {}
+        self.account_runs: dict[str, str] = {}
         self.task_summaries: OrderedDict[str, tuple[tuple, dict[str, Any]]] = OrderedDict()
         self.wake = asyncio.Event()
         self.stop_event = asyncio.Event()
@@ -217,9 +218,17 @@ class Service:
                     require_supported_task(tasks[0])
                 if self.stopping:
                     return False
+                account = tasks[0]['account_id']
+                if account and account in self.account_runs:
+                    # Return the delivery to durable admission without occupying a worker or broker slot.
+                    async with self.db.transaction() as conn:
+                        await conn.execute('UPDATE document_outbox SET published_at=NULL,created_at=clock_timestamp() WHERE run_id=%s', (run_id,))
+                    return True
                 execution = asyncio.create_task(self.execute(run), name=f'document-{run_id}')
                 self.active[run_id] = execution
-                execution.add_done_callback(lambda task: self.execution_done(run_id, task))
+                if account:
+                    self.account_runs[account] = run_id
+                execution.add_done_callback(lambda task: self.execution_done(run_id, task, account))
         await asyncio.shield(execution)
         rows = await self.db.rows('SELECT status FROM document_runs WHERE run_id=%s', (run_id,))
         return not rows or rows[0]['status'] not in {'pending', 'running'}
@@ -241,8 +250,10 @@ class Service:
                 return False
             offset += len(items)
 
-    def execution_done(self, run_id, task):
+    def execution_done(self, run_id, task, account=None):
         self.active.pop(run_id, None)
+        if account and self.account_runs.get(account) == run_id:
+            self.account_runs.pop(account)
         self.wake.set()
         if not task.cancelled() and task.exception() is not None:
             self.accepting = False

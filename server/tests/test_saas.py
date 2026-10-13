@@ -521,6 +521,110 @@ async def test_account_serializes_calls_but_other_accounts_can_dispatch(monkeypa
 
 
 @pytest.mark.usefixtures('disposable_databases')
+async def test_one_account_backlog_does_not_occupy_other_accounts_worker_or_broker_slots(monkeypatch):
+    from langchain_core.runnables import RunnableLambda
+    monkeypatch.setenv('N_JOBS_PER_WORKER', '2')
+    monkeypatch.setenv('AI_INPUT_POINTS_PER_1K', '1')
+    monkeypatch.setenv('AI_OUTPUT_POINTS_PER_1K', '3')
+    service, reference, model = await setup_api(monkeypatch, [parsed()] * 5)
+    cards = await issue(service.db, 2)
+    accounts = []
+    for number, card in zip(('13800138000', '13900139000'), cards, strict=True):
+        await saas.redeem(CardRedeem(phone=number, card=card))
+        accounts.append(await saas.identity(number, card))
+    entered, release = asyncio.Event(), asyncio.Event()
+    original = type(model).with_structured_output
+    def output(self, schema, **kwargs):
+        target = original(self, schema, **kwargs)
+        async def invoke(messages, config):
+            if (execution.CURRENT_EXECUTION.get() or {}).get('accountId') == accounts[0] and not entered.is_set():
+                entered.set()
+                await release.wait()
+            return await target.ainvoke(messages, config=config)
+        return RunnableLambda(invoke)
+    monkeypatch.setattr(type(model), 'with_structured_output', output)
+    token = saas.ACCOUNT.set(accounts[0])
+    try:
+        await saas.register_upload(DocumentReference.model_validate(reference))
+        first = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
+        await asyncio.wait_for(entered.wait(), 10)
+        backlog = [await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference))) for _ in range(3)]
+        # An already published backlog message is safely returned to the outbox too.
+        assert await service.deliver(backlog[0]['runId'])
+        assert backlog[0]['runId'] not in service.active
+        saas.ACCOUNT.set(accounts[1])
+        await saas.register_upload(DocumentReference.model_validate(reference))
+        other = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
+        async with asyncio.timeout(5):
+            while (await task_api.get_task(other['threadId']))['state'] != 'COMPLETED':
+                await asyncio.sleep(.02)
+        assert first['runId'] in service.active and not release.is_set()
+        assert not any(item['runId'] in service.active for item in backlog)
+        release.set()
+        await service.wait_idle()
+        assert len(model.calls) == 5 and not service.account_runs
+        for account in accounts:
+            saas.ACCOUNT.set(account)
+            assert all(item['state'] == 'COMPLETED' for item in (await task_api.list_tasks())['items'])
+    finally:
+        release.set()
+        saas.ACCOUNT.reset(token)
+
+
+@pytest.mark.usefixtures('disposable_databases')
+async def test_account_deferral_survives_publication_confirm_after_its_delivery(monkeypatch):
+    from practiq_ai import messaging, runtime
+    monkeypatch.setenv('AI_INPUT_POINTS_PER_1K', '1')
+    monkeypatch.setenv('AI_OUTPUT_POINTS_PER_1K', '3')
+    completed, cleanup = asyncio.Event(), asyncio.Event()
+    deferred, confirmed = asyncio.Event(), asyncio.Event()
+    original_execute = runtime.Service.execute
+    async def execute(self, run):
+        await original_execute(self, run)
+        if not completed.is_set():
+            completed.set()
+            await cleanup.wait()
+    monkeypatch.setattr(runtime.Service, 'execute', execute)
+    service, reference, model = await setup_api(monkeypatch, [parsed(), parsed()])
+    card = (await issue(service.db))[0]
+    await saas.redeem(CardRedeem(phone='13800138000', card=card))
+    account = await saas.identity('13800138000', card)
+    token = saas.ACCOUNT.set(account)
+    second = None
+    original_deliver, original_publish, original_wait = service.deliver, messaging.publish, service.delivery.wait
+    async def deliver(run_id):
+        result = await original_deliver(run_id)
+        if second and run_id == second['runId'] and result and not cleanup.is_set():
+            deferred.set()
+        return result
+    async def publish(channel, run_id):
+        await original_publish(channel, run_id)
+        if second and run_id == second['runId'] and not cleanup.is_set():
+            await asyncio.wait_for(deferred.wait(), 5)
+    async def wait(seconds):
+        if deferred.is_set():
+            confirmed.set()
+        await original_wait(seconds)
+    monkeypatch.setattr(service, 'deliver', deliver)
+    monkeypatch.setattr(messaging, 'publish', publish)
+    monkeypatch.setattr(service.delivery, 'wait', wait)
+    try:
+        await saas.register_upload(DocumentReference.model_validate(reference))
+        await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
+        await asyncio.wait_for(completed.wait(), 10)
+        second = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
+        await asyncio.wait_for(confirmed.wait(), 10)
+        assert (await service.db.rows('SELECT published_at FROM document_outbox WHERE run_id=%s', (second['runId'],)))[0]['published_at'] is None
+        cleanup.set()
+        await service.wait_idle()
+        assert (await task_api.get_task(second['threadId']))['state'] == 'COMPLETED'
+        assert len(model.calls) == 2 and not service.account_runs
+    finally:
+        cleanup.set()
+        saas.ACCOUNT.reset(token)
+
+
+@pytest.mark.usefixtures('disposable_databases')
 async def test_provider_failure_pauses_unknown_usage_and_manual_resolution_does_not_invent_output(monkeypatch):
     monkeypatch.setenv('AI_INPUT_POINTS_PER_1K', '1')
     monkeypatch.setenv('AI_OUTPUT_POINTS_PER_1K', '3')
