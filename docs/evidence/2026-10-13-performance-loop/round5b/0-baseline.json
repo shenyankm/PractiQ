@@ -1,0 +1,221 @@
+{
+  "method": "Release Rust Store::preview_paper; temporary SQLite; 3 sequential warm samples per workload; setup, expected-output reads, assertions and JSON serialization excluded; excludes picker, IPC, WebView and physical devices",
+  "workloads": [
+    {
+      "inputSha256": "a1645600f259ef902ccb518ace9b0c3fe1f52a720291434315adbecd31db5544",
+      "maxMs": 14.843167000000001,
+      "medianMs": 14.76525,
+      "random": false,
+      "randomSeed": 7,
+      "roots": 10000,
+      "samples": [
+        {
+          "elapsedMs": 14.843167000000001,
+          "jsonBytes": 15479,
+          "outputSha256": "d89080681bb5a41cb17a18b285e5a0724b6e5399f72bb43be14171db2837caa0"
+        },
+        {
+          "elapsedMs": 14.76525,
+          "jsonBytes": 15479,
+          "outputSha256": "d89080681bb5a41cb17a18b285e5a0724b6e5399f72bb43be14171db2837caa0"
+        },
+        {
+          "elapsedMs": 14.276583,
+          "jsonBytes": 15479,
+          "outputSha256": "d89080681bb5a41cb17a18b285e5a0724b6e5399f72bb43be14171db2837caa0"
+        }
+      ],
+      "selectedCount": 20,
+      "selection": "count"
+    },
+    {
+      "inputSha256": "a1645600f259ef902ccb518ace9b0c3fe1f52a720291434315adbecd31db5544",
+      "maxMs": 15.368042,
+      "medianMs": 14.620583,
+      "random": true,
+      "randomSeed": 7,
+      "roots": 10000,
+      "samples": [
+        {
+          "elapsedMs": 15.368042,
+          "jsonBytes": 16694,
+          "outputSha256": "920ace8366fc67b1553b3ed9b3e8063963eea3465133f6b9c83eb37790cf576d"
+        },
+        {
+          "elapsedMs": 14.620583,
+          "jsonBytes": 16694,
+          "outputSha256": "920ace8366fc67b1553b3ed9b3e8063963eea3465133f6b9c83eb37790cf576d"
+        },
+        {
+          "elapsedMs": 14.410084,
+          "jsonBytes": 16694,
+          "outputSha256": "920ace8366fc67b1553b3ed9b3e8063963eea3465133f6b9c83eb37790cf576d"
+        }
+      ],
+      "selectedCount": 20,
+      "selection": "count"
+    },
+    {
+      "inputSha256": "a1645600f259ef902ccb518ace9b0c3fe1f52a720291434315adbecd31db5544",
+      "maxMs": 51.609083,
+      "medianMs": 49.474458,
+      "random": false,
+      "randomSeed": 7,
+      "roots": 10000,
+      "samples": [
+        {
+          "elapsedMs": 49.474458,
+          "jsonBytes": 822521,
+          "outputSha256": "4869afa5ef6f04bb6928e301e63b7eea8138d50a77d0804fc60b143ce76aec18"
+        },
+        {
+          "elapsedMs": 51.609083,
+          "jsonBytes": 822521,
+          "outputSha256": "4869afa5ef6f04bb6928e301e63b7eea8138d50a77d0804fc60b143ce76aec18"
+        },
+        {
+          "elapsedMs": 47.7695,
+          "jsonBytes": 822521,
+          "outputSha256": "4869afa5ef6f04bb6928e301e63b7eea8138d50a77d0804fc60b143ce76aec18"
+        }
+      ],
+      "selectedCount": 1000,
+      "selection": "quota"
+    },
+    {
+      "inputSha256": "a1645600f259ef902ccb518ace9b0c3fe1f52a720291434315adbecd31db5544",
+      "maxMs": 41.587875000000004,
+      "medianMs": 41.311208,
+      "random": true,
+      "randomSeed": 7,
+      "roots": 10000,
+      "samples": [
+        {
+          "elapsedMs": 41.311208,
+          "jsonBytes": 823023,
+          "outputSha256": "2277a76abde2ae001632781a5e9077abf804c190479ab625d30eb99eabd4569f"
+        },
+        {
+          "elapsedMs": 41.0395,
+          "jsonBytes": 823023,
+          "outputSha256": "2277a76abde2ae001632781a5e9077abf804c190479ab625d30eb99eabd4569f"
+        },
+        {
+          "elapsedMs": 41.587875000000004,
+          "jsonBytes": 823023,
+          "outputSha256": "2277a76abde2ae001632781a5e9077abf804c190479ab625d30eb99eabd4569f"
+        }
+      ],
+      "selectedCount": 1000,
+      "selection": "quota"
+    },
+    {
+      "inputSha256": "9a1f70b2770944cea634f046833256e8752f9ba64b6aa8e06298ed884cd9e1bf",
+      "maxMs": 167.553125,
+      "medianMs": 165.042542,
+      "random": false,
+      "randomSeed": 7,
+      "roots": 100000,
+      "samples": [
+        {
+          "elapsedMs": 167.553125,
+          "jsonBytes": 15479,
+          "outputSha256": "d89080681bb5a41cb17a18b285e5a0724b6e5399f72bb43be14171db2837caa0"
+        },
+        {
+          "elapsedMs": 165.042542,
+          "jsonBytes": 15479,
+          "outputSha256": "d89080681bb5a41cb17a18b285e5a0724b6e5399f72bb43be14171db2837caa0"
+        },
+        {
+          "elapsedMs": 162.133,
+          "jsonBytes": 15479,
+          "outputSha256": "d89080681bb5a41cb17a18b285e5a0724b6e5399f72bb43be14171db2837caa0"
+        }
+      ],
+      "selectedCount": 20,
+      "selection": "count"
+    },
+    {
+      "inputSha256": "9a1f70b2770944cea634f046833256e8752f9ba64b6aa8e06298ed884cd9e1bf",
+      "maxMs": 164.06975,
+      "medianMs": 163.905584,
+      "random": true,
+      "randomSeed": 7,
+      "roots": 100000,
+      "samples": [
+        {
+          "elapsedMs": 164.06975,
+          "jsonBytes": 16714,
+          "outputSha256": "4a419487a3860ef6fdbc6c386fe76f22b3591fbf702e11920af3ea0d4a4f74c1"
+        },
+        {
+          "elapsedMs": 163.63508399999998,
+          "jsonBytes": 16714,
+          "outputSha256": "4a419487a3860ef6fdbc6c386fe76f22b3591fbf702e11920af3ea0d4a4f74c1"
+        },
+        {
+          "elapsedMs": 163.905584,
+          "jsonBytes": 16714,
+          "outputSha256": "4a419487a3860ef6fdbc6c386fe76f22b3591fbf702e11920af3ea0d4a4f74c1"
+        }
+      ],
+      "selectedCount": 20,
+      "selection": "count"
+    },
+    {
+      "inputSha256": "9a1f70b2770944cea634f046833256e8752f9ba64b6aa8e06298ed884cd9e1bf",
+      "maxMs": 328.318917,
+      "medianMs": 309.788291,
+      "random": false,
+      "randomSeed": 7,
+      "roots": 100000,
+      "samples": [
+        {
+          "elapsedMs": 306.297209,
+          "jsonBytes": 823021,
+          "outputSha256": "79462902aa2c885bdb7ca659d8554c18fd1ea9ca012d73132e7a2f0cc548c819"
+        },
+        {
+          "elapsedMs": 328.318917,
+          "jsonBytes": 823021,
+          "outputSha256": "79462902aa2c885bdb7ca659d8554c18fd1ea9ca012d73132e7a2f0cc548c819"
+        },
+        {
+          "elapsedMs": 309.788291,
+          "jsonBytes": 823021,
+          "outputSha256": "79462902aa2c885bdb7ca659d8554c18fd1ea9ca012d73132e7a2f0cc548c819"
+        }
+      ],
+      "selectedCount": 1000,
+      "selection": "quota"
+    },
+    {
+      "inputSha256": "9a1f70b2770944cea634f046833256e8752f9ba64b6aa8e06298ed884cd9e1bf",
+      "maxMs": 199.581791,
+      "medianMs": 199.253625,
+      "random": true,
+      "randomSeed": 7,
+      "roots": 100000,
+      "samples": [
+        {
+          "elapsedMs": 196.745584,
+          "jsonBytes": 824027,
+          "outputSha256": "b3918e7334536dff24b8ba7bffbddbd5fd7fdd2ba0f94d58c728cb33355935c7"
+        },
+        {
+          "elapsedMs": 199.581791,
+          "jsonBytes": 824027,
+          "outputSha256": "b3918e7334536dff24b8ba7bffbddbd5fd7fdd2ba0f94d58c728cb33355935c7"
+        },
+        {
+          "elapsedMs": 199.253625,
+          "jsonBytes": 824027,
+          "outputSha256": "b3918e7334536dff24b8ba7bffbddbd5fd7fdd2ba0f94d58c728cb33355935c7"
+        }
+      ],
+      "selectedCount": 1000,
+      "selection": "quota"
+    }
+  ]
+}

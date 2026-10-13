@@ -1,0 +1,54 @@
+diff --git a/app/src-tauri/src/contract.rs b/app/src-tauri/src/contract.rs
+index fe41d04..8033543 100644
+--- a/app/src-tauri/src/contract.rs
++++ b/app/src-tauri/src/contract.rs
+@@ -188,8 +188,11 @@ pub fn validate_question(q: &mut Value) -> Result<()> {
+             q["blankCount"] = json!(count);
+         }
+     }
+-    let wrapper = json!({"schemaVersion":3,"questions":[q.clone()],"groups":[],"visualElements":[],"warnings":[],"confidenceScore":0});
+-    schema_check(&schemas().0, &wrapper, "result")?;
++    let mut wrapper = json!({"schemaVersion":3,"questions":[],"groups":[],"visualElements":[],"warnings":[],"confidenceScore":0});
++    wrapper["questions"] = Value::Array(vec![q.take()]);
++    let validated = schema_check(&schemas().0, &wrapper, "result");
++    *q = wrapper["questions"][0].take();
++    validated?;
+     let mode = text(q, "answerMode");
+     let kind = text(q, "questionKind");
+     let expected = crate::question_metadata::QUESTION_KIND_MODES
+@@ -943,6 +946,35 @@ mod validation_tests {
+         assert_eq!(parse(&serde_json::to_vec(&valid).unwrap()).unwrap(), valid);
+     }
+ 
++    #[test]
++    fn question_schema_rejection_preserves_normalized_content_and_error_path() {
++        let blocks = json!([{"partType":"table","jsonValue":{"rows":[[null,false,"evidence"]],"metadata":{"source":null,"flags":[false,true]}}}]);
++        let mut question = json!({"id":"kept","stem":"  Evidence  ","sourceText":"  source  ","answerMode":"true_false","confidence":2,"answerPayload":{"value":false},"contentBlocks":blocks});
++        let error = validate_question(&mut question).unwrap_err();
++        assert_eq!(error.code, "LOCAL_SCHEMA_INVALID");
++        assert_eq!(error.params["path"], "result/questions/0/confidence");
++        assert_eq!(question["id"], "kept");
++        assert_eq!(question["stem"], "Evidence");
++        assert_eq!(question["sourceText"], "source");
++        assert_eq!(question["answerPayload"], json!({"value":false}));
++        assert_eq!(question["contentBlocks"], blocks);
++        assert_eq!(question["options"], json!([]));
++        assert_eq!(question["audioStartSeconds"], 0);
++        question["confidence"] = json!(1);
++        validate_question(&mut question).unwrap();
++        assert_eq!(question["contentBlocks"], blocks);
++    }
++
++    #[test]
++    fn question_validation_preserves_nested_nulls_false_answers_and_review_flags() {
++        let mut question = json!({"id":"kept","stem":"Evidence","questionTypeId":"true_false","answerMode":"true_false","confidence":1,"answerPayload":{"value":false},"contentBlocks":[{"partType":"table","jsonValue":{"rows":[[null,false,"evidence"]],"metadata":{"source":null,"empty":[]}}}],"analysis":null,"sourceText":null,"options":[],"items":[],"passage":[],"transcript":[],"allowReuse":false,"audioStartSeconds":0,"examPlayCount":2,"needsReview":true,"missingFields":["analysis","sourceText"]});
++        let expected = question.clone();
++        for _ in 0..2 {
++            validate_question(&mut question).unwrap();
++            assert_eq!(question, expected);
++        }
++    }
++
+     #[test]
+     #[ignore = "synthetic validation benchmark; run with --release --ignored --nocapture"]
+     fn import_validation_performance() {

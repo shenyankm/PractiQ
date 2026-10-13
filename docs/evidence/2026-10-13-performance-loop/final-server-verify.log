@@ -1,0 +1,173 @@
+rm -f server/reports/checks/probes.xml server/reports/checks/probes.json server/reports/checks/probes.md server/reports/checks/coverage.xml
+cd server && uv lock --check --python "/Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14"
+Using CPython 3.14.7 interpreter at: /Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14
+Resolved 97 packages in 18ms
+cd server && "/Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14" -m ruff check src tests scripts
+All checks passed!
+cd server && "/Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14" -m pyright --pythonpath "/Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14"
+0 errors, 0 warnings, 0 informations
+cd server && "/Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14" scripts/evaluate.py --validate-only
+Validated 33 cases
+============================= test session starts ==============================
+platform darwin -- Python 3.14.7, pytest-9.1.1, pluggy-1.6.0
+rootdir: /Users/sheny/Developer/code/PractiQ/server
+configfile: pyproject.toml
+testpaths: tests
+plugins: langsmith-0.11.0, anyio-4.14.2, asyncio-1.3.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=function, asyncio_default_test_loop_scope=function
+collected 2118 items
+
+tests/test_android_licenses.py ......................................... [  1%]
+..................                                                       [  2%]
+tests/test_android_package.py .......................................... [  4%]
+........................................................................ [  8%]
+............                                                             [  8%]
+tests/test_auth.py .....                                                 [  8%]
+tests/test_bank_export.py .............................................. [ 11%]
+....................                                                     [ 12%]
+tests/test_benchmark_processing.py .                                     [ 12%]
+tests/test_chunking.py ...................                               [ 13%]
+tests/test_ci.py ..............................................          [ 15%]
+tests/test_ci_scope.py ................................................. [ 17%]
+............................................................             [ 20%]
+tests/test_closed_review_fixes.py .......................                [ 21%]
+tests/test_composite_questions.py ..........                             [ 21%]
+tests/test_config.py .......................                             [ 22%]
+tests/test_desktop_package.py ......................................     [ 24%]
+tests/test_documents.py ......................                           [ 25%]
+tests/test_e2e.py .......                                                [ 26%]
+tests/test_english_questions.py ..................                       [ 27%]
+tests/test_evaluation.py ............................................... [ 29%]
+........................................................................ [ 32%]
+..                                                                       [ 32%]
+tests/test_extractor_environment.py .........                            [ 33%]
+tests/test_format_graphs.py ................................             [ 34%]
+tests/test_grading.py ..........................................         [ 36%]
+tests/test_grading_evaluation.py ........                                [ 37%]
+tests/test_import.py ....                                                [ 37%]
+tests/test_import_agent_review.py ...................................... [ 38%]
+........................................................................ [ 42%]
+.......................                                                  [ 43%]
+tests/test_import_corpus.py .                                            [ 43%]
+tests/test_import_fidelity.py ...........................                [ 44%]
+tests/test_messaging.py ................................................ [ 47%]
+...                                                                      [ 47%]
+tests/test_middleware.py ....................................            [ 48%]
+tests/test_model_routing.py .....                                        [ 49%]
+tests/test_office.py ................................................... [ 51%]
+...............................                                          [ 53%]
+tests/test_office_normalization.py ..............                        [ 53%]
+tests/test_office_service.py ........................................... [ 55%]
+......................                                                   [ 56%]
+tests/test_office_upload_limits.py .........                             [ 57%]
+tests/test_operations.py ..........                                      [ 57%]
+tests/test_page_rendering.py ........................................... [ 59%]
+......................                                                   [ 60%]
+tests/test_parsing_review_fixes.py ...............................       [ 62%]
+tests/test_pipeline_performance.py ........                              [ 62%]
+tests/test_production_limits.py ................                         [ 63%]
+tests/test_question_completeness.py ...............                      [ 64%]
+tests/test_queue_upgrade.py .........                                    [ 64%]
+tests/test_read_performance.py ......                                    [ 64%]
+tests/test_release_checks.py ....                                        [ 64%]
+tests/test_release_workflow.py ......................................... [ 66%]
+........................................................................ [ 70%]
+........................................................................ [ 73%]
+........................................................................ [ 77%]
+....................................................................     [ 80%]
+tests/test_resume_compatibility.py .............                         [ 80%]
+tests/test_review_queue.py ....                                          [ 81%]
+tests/test_review_regressions.py ..................................      [ 82%]
+tests/test_rich_report.py ...........                                    [ 83%]
+tests/test_runtime.py ........................................           [ 85%]
+tests/test_runtime_recovery.py ................                          [ 85%]
+tests/test_saas.py .............................................         [ 87%]
+tests/test_schemas.py ......                                             [ 88%]
+tests/test_service_import_contracts.py ......                            [ 88%]
+tests/test_service_license.py .                                          [ 88%]
+tests/test_service_package.py ..................                         [ 89%]
+tests/test_storage.py ..............                                     [ 90%]
+tests/test_structured_output.py ........................................ [ 91%]
+...                                                                      [ 92%]
+tests/test_task_api.py .......................                           [ 93%]
+tests/test_task_detail_contract.py ............                          [ 93%]
+tests/test_task_execution.py ........................................... [ 95%]
+............                                                             [ 96%]
+tests/test_task_list_performance.py ...                                  [ 96%]
+tests/test_unit_result_storage.py ....                                   [ 96%]
+tests/test_upload.py ....................                                [ 97%]
+tests/test_web_import.py ............                                    [ 98%]
+tests/test_workflows.py ......................................           [100%]
+
+=============================== warnings summary ===============================
+tests/test_android_licenses.py::test_android_runtime_rejects_ambiguous_or_conflicting_class_entries[runtime_duplicate]
+tests/test_android_licenses.py::test_android_runtime_rejects_ambiguous_or_conflicting_class_entries[source_duplicate]
+  /Users/sheny/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/zipfile/__init__.py:1730: UserWarning: Duplicate name: 'example/Runtime.class'
+    return self._open_to_write(zinfo, force_zip64=force_zip64)
+
+tests/test_bank_export.py::test_export_peak_memory_tracks_one_resource_instead_of_the_expanded_bank
+  tests/test_bank_export.py:369: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+    async def test_export_peak_memory_tracks_one_resource_instead_of_the_expanded_bank(tmp_path, record_property):
+
+tests/test_e2e.py::test_e2e_upload_parse_artifacts_and_restart[text]
+tests/test_e2e.py::test_e2e_upload_parse_artifacts_and_restart[csv]
+tests/test_e2e.py::test_e2e_upload_parse_artifacts_and_restart[image]
+tests/test_e2e.py::test_e2e_upload_parse_artifacts_and_restart[image]
+tests/test_e2e.py::test_e2e_upload_parse_artifacts_and_restart[pdf]
+tests/test_e2e.py::test_e2e_upload_parse_artifacts_and_restart[pdf]
+tests/test_e2e.py::test_e2e_review_acceptance_is_explicit_and_survives_restart
+tests/test_e2e.py::test_e2e_grading_digest_replay_and_restart
+  /Users/sheny/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/asyncio/threads.py:26: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
+    return await loop.run_in_executor(None, func_call)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+- generated xml file: /Users/sheny/Developer/code/PractiQ/server/reports/checks/probes.xml -
+================ 2118 passed, 11 warnings in 500.01s (0:08:20) =================
+Combined 9 files, skipped 156
+Name                                       Stmts   Miss Branch BrPart  Cover   Missing
+--------------------------------------------------------------------------------------
+src/practiq_ai/bank_export.py                125      3     40      3    96%   62, 145, 151
+src/practiq_ai/config.py                     154      4     54      2    97%   103, 113, 237-238
+src/practiq_ai/contracts.py                  589     32    218     32    92%   253, 274, 305, 322, 324, 381, 384, 409, 477, 481, 483, 485, 490, 492, 494, 496, 498, 500, 607, 612, 629, 635, 637, 639, 641, 645, 651, 657, 672, 676, 825, 829
+src/practiq_ai/database.py                   161      9     40      5    93%   81, 112-114, 119->122, 188, 205, 209, 251-252
+src/practiq_ai/execution.py                  195     18     72     10    89%   46->48, 63-64, 119-120, 132->131, 158, 173, 182-183, 190, 202-203, 216, 218, 224, 226, 231, 243-244
+src/practiq_ai/extractors/__init__.py         31      1     12      1    95%   42
+src/practiq_ai/extractors/isolated.py        112     27     30      4    71%   55, 62-63, 94, 133-144, 148-159, 163
+src/practiq_ai/extractors/windows_job.py      29     29      6      0     0%   3-43
+src/practiq_ai/grading.py                    155      1     44      2    98%   104, 207->209
+src/practiq_ai/graphs/chunking.py            262      2    140      6    98%   142->135, 164->162, 258, 267->262, 307->309, 344
+src/practiq_ai/graphs/document.py            765     20    322     25    96%   256, 262, 318, 336->335, 446, 448, 456, 534, 554, 564->544, 763->783, 766, 828->836, 831, 892, 905, 1097, 1102, 1163, 1167->1158, 1192, 1279, 1350->1348, 1377, 1387, 1389
+src/practiq_ai/graphs/review.py              140      4     84      4    96%   123, 125, 127, 134
+src/practiq_ai/graphs/vision.py              126      2     34      2    98%   85, 87
+src/practiq_ai/json_repair.py                 37      2     28      2    94%   11, 33
+src/practiq_ai/llm.py                        331      2    150      5    99%   118->120, 136->135, 235, 566
+src/practiq_ai/manage.py                      92     17     24      6    80%   22->25, 61, 78-80, 95, 97-100, 106-114, 118
+src/practiq_ai/messaging.py                  131     10     28      1    93%   87-88, 90-92, 137, 145, 147-149
+src/practiq_ai/middleware.py                  86      2     20      1    97%   62, 109
+src/practiq_ai/normalization.py               79      7     28      5    89%   50, 52, 82, 86, 91, 94-95
+src/practiq_ai/office.py                     391     27    164     18    91%   45-46, 57, 66, 70, 106->109, 123, 125, 174, 176, 249, 259-266, 268, 279, 298, 384, 425, 455-456, 461, 483
+src/practiq_ai/office_service.py             169      7     60      6    93%   89->91, 98-99, 102-103, 136->138, 206, 216, 223
+src/practiq_ai/runtime.py                    269     25     96     16    89%   70, 110-111, 122-123, 130->132, 137->139, 139->142, 142->144, 178-179, 183->171, 197-201, 207, 215-216, 249, 253, 261-262, 284-285, 300, 307, 313-314, 320->exit
+src/practiq_ai/saas.py                       211      9     70      9    94%   112, 123, 143->exit, 230-232, 249, 252, 260-261, 290, 304->301
+src/practiq_ai/saas_manage.py                 84     29     32      8    66%   35, 42, 53, 56-57, 58->70, 60, 64, 74-94, 98
+src/practiq_ai/storage.py                    160     15     42      5    89%   75, 182, 199-206, 210->219, 219->exit, 241-243, 249-250, 267
+src/practiq_ai/task_api.py                   430     17    166     20    94%   132, 135, 190, 218->215, 237, 248, 259, 330, 334, 366, 382->387, 390, 392, 400, 402, 409, 416, 438, 491, 538->552
+src/practiq_ai/webapp.py                     274     10     42      0    97%   163-164, 180-181, 225, 270-271, 274-276
+--------------------------------------------------------------------------------------
+TOTAL                                       5788    331   2074    198    93%
+
+9 files skipped due to complete coverage.
+Wrote XML report to reports/checks/coverage.xml
+PASSED: reports/checks/probes.json
+cd server && uv build --python "/Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14"
+Building source distribution...
+Building wheel from source distribution...
+Successfully built dist/practiq_ai_service-0.3.0.tar.gz
+Successfully built dist/practiq_ai_service-0.3.0-py3-none-any.whl
+cd server && "/Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14" scripts/check_package.py
+{
+  "sourceFiles": 36,
+  "wheelSha256": "ed493e593df6bdb46856a012f20b82bf1cd786917cfe59fd63c0fd64de8f55dd",
+  "sdistSha256": "356deddbb37924478ab2bb5e1717a20688ec0e0159672436bb92d24957c3df46",
+  "licenseSha256": "045e49d0a632ea4bf644d1db045d300b313c03097212268a6c3dc15235795079"
+}

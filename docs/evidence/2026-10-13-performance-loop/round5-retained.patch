@@ -1,0 +1,291 @@
+diff --git a/app/src-tauri/src/paper.rs b/app/src-tauri/src/paper.rs
+index cb9cc9a..2166d17 100644
+--- a/app/src-tauri/src/paper.rs
++++ b/app/src-tauri/src/paper.rs
+@@ -92,6 +92,13 @@ fn selection_paths(weights: &[usize], target: usize) -> Vec<Option<(usize, usize
+     let mut paths = vec![None; target + 1];
+     paths[0] = Some((0, usize::MAX));
+     let mut reachable = 1;
++    // Positive sums below the smallest eligible group can never become reachable.
++    let reachable_limit = weights
++        .iter()
++        .copied()
++        .filter(|&weight| weight > 0 && weight <= target)
++        .min()
++        .map_or(1, |weight| target - weight + 2);
+     for (i, &weight) in weights.iter().enumerate() {
+         if weight == 0 || weight > target {
+             continue;
+@@ -102,15 +109,19 @@ fn selection_paths(weights: &[usize], target: usize) -> Vec<Option<(usize, usize
+                 reachable += 1;
+             }
+         }
+-        if reachable == paths.len() {
++        if reachable == reachable_limit {
+             break;
+         }
+     }
+     paths
+ }
+ pub(crate) fn feasible_counts(weights: &[usize]) -> Vec<usize> {
+-    if weights.iter().all(|&weight| weight == 1) {
+-        return (1..=weights.len().min(1000)).collect();
++    if let Some(&weight) = weights.first() {
++        if weight > 0 && weights.iter().all(|&value| value == weight) {
++            return (1..=weights.len().min(1000 / weight))
++                .map(|n| n * weight)
++                .collect();
++        }
+     }
+     selection_paths(weights, weights.iter().sum::<usize>().min(1000))
+         .iter()
+@@ -213,8 +224,12 @@ impl Store {
+                     }
+                     chosen.extend(available.into_iter().take(count).map(|r| r.id.clone()));
+                 }
+-                chosen.sort_by_key(|id| roots.iter().position(|r| &r.id == id));
+-                chosen
++                let chosen = chosen.into_iter().collect::<HashSet<_>>();
++                roots
++                    .iter()
++                    .filter(|root| chosen.contains(&root.id))
++                    .map(|root| root.id.clone())
++                    .collect()
+             }
+             _ => return Err("Unsupported selection mode".into()),
+         };
+@@ -335,6 +350,85 @@ mod tests {
+         assert!(exact(&[1001], 1001).is_err());
+     }
+     #[test]
++    fn feasible_counts_match_all_small_subsets_and_count_limits() {
++        fn brute_counts(weights: &[usize]) -> Vec<usize> {
++            (0..(1usize << weights.len()))
++                .map(|mask| {
++                    weights
++                        .iter()
++                        .enumerate()
++                        .filter(|(i, _)| mask & (1 << i) != 0)
++                        .map(|(_, weight)| weight)
++                        .sum::<usize>()
++                })
++                .filter(|count| (1..=1000).contains(count))
++                .collect::<std::collections::BTreeSet<_>>()
++                .into_iter()
++                .collect()
++        }
++        for length in 0..=6 {
++            for mut encoded in 0..4usize.pow(length) {
++                let weights: Vec<_> = (0..length)
++                    .map(|_| {
++                        let weight = encoded % 4;
++                        encoded /= 4;
++                        weight
++                    })
++                    .collect();
++                let counts = feasible_counts(&weights);
++                assert_eq!(counts, brute_counts(&weights), "{weights:?}");
++                for target in counts {
++                    let selected = exact(&weights, target).unwrap();
++                    assert!(selected.windows(2).all(|pair| pair[0] < pair[1]));
++                    assert!(selected
++                        .iter()
++                        .all(|&i| i < weights.len() && weights[i] > 0));
++                    assert_eq!(selected.iter().map(|&i| weights[i]).sum::<usize>(), target);
++                    assert!((1..=1000).contains(&target));
++                }
++            }
++        }
++        for weights in [
++            vec![0, 0, 0],
++            vec![999, 999],
++            vec![1000, 1000],
++            vec![1001, 1001],
++            vec![1, 999, 1000, 1001],
++            vec![0, 2, 998, 1001],
++        ] {
++            assert_eq!(
++                feasible_counts(&weights),
++                brute_counts(&weights),
++                "{weights:?}"
++            );
++        }
++        assert_eq!(
++            feasible_counts(&[3; 334]),
++            (1..=333).map(|i| i * 3).collect::<Vec<_>>()
++        );
++        assert_eq!(
++            feasible_counts(&[10; 101]),
++            (1..=100).map(|i| i * 10).collect::<Vec<_>>()
++        );
++        assert!(exact(&[1], 0).is_err());
++        assert!(exact(&[1001], 1001).is_err());
++    }
++    #[test]
++    fn selection_paths_keep_future_smaller_groups_and_first_selection_order() {
++        let weights = [2, 3, 2, 3, 2, 1];
++        let paths = selection_paths(&weights, 10);
++        assert_eq!(paths[1], Some((0, 5)));
++        assert_eq!(exact(&weights, 1).unwrap(), vec![5]);
++        assert_eq!(exact(&weights, 10).unwrap(), vec![0, 1, 2, 3]);
++        let with_ignored = [0, 1001, 2, 3, 2, 3, 2, 1];
++        assert_eq!(exact(&with_ignored, 2).unwrap(), vec![2]);
++        assert_eq!(exact(&with_ignored, 3).unwrap(), vec![3]);
++        assert_eq!(exact(&with_ignored, 4).unwrap(), vec![2, 4]);
++        assert_eq!(exact(&with_ignored, 6).unwrap(), vec![3, 5]);
++        assert_eq!(exact(&with_ignored, 10).unwrap(), vec![2, 3, 4, 5]);
++        assert!(exact(&[0, 1001, 2, 2], 3).is_err());
++    }
++    #[test]
+     fn statistics_and_random_papers_preserve_complete_groups() {
+         let directory = tempfile::tempdir().unwrap();
+         let mut store = Store::new(directory.path().into()).unwrap();
+@@ -420,6 +514,148 @@ mod tests {
+         }
+     }
+     #[test]
++    fn quotas_preserve_interleaved_order_complete_groups_scores_and_digest() {
++        let directory = tempfile::tempdir().unwrap();
++        let mut store = Store::new(directory.path().into()).unwrap();
++        let mut document: Value =
++            serde_json::from_slice(include_bytes!("../../fixtures/composite.json")).unwrap();
++        let kinds = [
++            "single",
++            "short_answer",
++            "single",
++            "short_answer",
++            "reading",
++            "short_answer",
++            "single",
++            "reading",
++        ];
++        let mut questions = Vec::new();
++        for (i, kind) in kinds.iter().enumerate() {
++            let template = match *kind {
++                "reading" => 0,
++                "single" => 1,
++                _ => 2,
++            };
++            let mut root = document["questions"][template].clone();
++            root["id"] = json!(format!("root-{i}"));
++            root["stem"] = root["id"].clone();
++            root["parentId"] = Value::Null;
++            questions.push(root);
++            if *kind == "reading" {
++                for j in 0..if i == 4 { 3 } else { 2 } {
++                    let mut child = document["questions"][1].clone();
++                    child["id"] = json!(format!("leaf-{i}-{j}"));
++                    child["stem"] = child["id"].clone();
++                    child["parentId"] = json!(format!("root-{i}"));
++                    questions.push(child);
++                }
++            }
++        }
++        document["questions"] = json!(questions);
++        document["groups"] = json!([]);
++        let preview = store
++            .preview(serde_json::to_vec(&document).unwrap(), "Quotas".into())
++            .unwrap();
++        let imported = store
++            .import(text(&preview, "ticket"), None, "Quotas")
++            .unwrap();
++        let bank = text(&imported, "bankId");
++        let page = store
++            .query_questions(&[bank.to_owned()], ("", "", ""), Some((30, 0)))
++            .unwrap();
++        let roots: Vec<_> = list(&page, "items")
++            .iter()
++            .map(|row| text(row, "id").to_owned())
++            .collect();
++        let rows = store.question_rows().unwrap();
++        let request = |random, quotas: Value| {
++            serde_json::from_value::<Preview>(json!({"bank_ids":[bank],"search":"","mode":"","filter":"","selection":"quota","count":0,"quotas":quotas,"question_ids":[],"random":random,"total_cents":1000})).unwrap()
++        };
++        for random in [false, true] {
++            let mut order: Vec<_> = (0..kinds.len()).collect();
++            if random {
++                fastrand::seed(7);
++                fastrand::shuffle(&mut order);
++            }
++            let mut remaining = HashMap::from([("single", 2), ("short_answer", 2), ("reading", 1)]);
++            let expected: Vec<_> = order
++                .into_iter()
++                .filter(|&i| {
++                    let amount = remaining.get_mut(kinds[i]).unwrap();
++                    if *amount == 0 {
++                        false
++                    } else {
++                        *amount -= 1;
++                        true
++                    }
++                })
++                .map(|i| roots[i].clone())
++                .collect();
++            if !random {
++                assert_eq!(expected, roots[..5]);
++            }
++            fastrand::seed(7);
++            let preview = store
++                .preview_paper(request(
++                    random,
++                    json!({"single":2,"short_answer":2,"reading":1,"word_bank":0}),
++                ))
++                .unwrap();
++            assert_eq!(preview["questionIds"], json!(expected));
++            let selected = selected_rows(&rows, &expected).unwrap();
++            let leaves: Vec<_> = selected
++                .iter()
++                .filter(|row| !questions::composite(&row["question"]))
++                .collect();
++            assert_eq!(preview["count"], leaves.len());
++            assert_eq!(preview["digest"], digest(&selected).unwrap());
++            assert_eq!(
++                preview["scores"],
++                if leaves.len() == 7 {
++                    json!([143, 143, 143, 143, 143, 143, 142])
++                } else {
++                    json!([167, 167, 167, 167, 166, 166])
++                }
++            );
++            assert_eq!(
++                list(&preview, "questions")
++                    .iter()
++                    .map(|row| text(row, "id"))
++                    .collect::<Vec<_>>(),
++                leaves.iter().map(|row| text(row, "id")).collect::<Vec<_>>()
++            );
++            for group in expected
++                .iter()
++                .filter(|id| *id == &roots[4] || *id == &roots[7])
++            {
++                let children: Vec<_> = list(&preview, "questions")
++                    .iter()
++                    .filter(|row| row["question"]["parentId"] == *group)
++                    .collect();
++                assert_eq!(children.len(), if group == &roots[4] { 3 } else { 2 });
++                assert!(children
++                    .iter()
++                    .all(|row| row["materials"][0]["id"] == *group));
++            }
++            fastrand::seed(7);
++            assert_eq!(
++                preview,
++                store
++                    .preview_paper(request(
++                        random,
++                        json!({"single":2,"short_answer":2,"reading":1,"word_bank":0})
++                    ))
++                    .unwrap()
++            );
++        }
++        assert!(store
++            .preview_paper(request(false, json!({"reading":3})))
++            .is_err());
++        assert!(store
++            .preview_paper(request(false, json!({"single":0,"reading":0})))
++            .is_err());
++    }
++    #[test]
+     fn changing_previous_scores_keeps_previews_valid_and_snapshots_free_of_live_metadata() {
+         let directory = tempfile::tempdir().unwrap();
+         let mut store = Store::new(directory.path().into()).unwrap();

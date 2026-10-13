@@ -1,0 +1,11 @@
+{
+  "app/src-tauri/src/contract.rs": "2ef24a9b4cced853ac34da277261122e3763cb5357ea3b5e015c580083add485",
+  "app/src-tauri/src/paper.rs": "8eda6a3a1bd4943b17bceb2329acbe866191d06c8491af56754ccb10b1b7ff0b",
+  "app/src-tauri/src/performance.rs": "a097f6ccff11696b4a4fc7287fcf0da13f07d022054e0288fb1b0d9734050e47",
+  "server/src/practiq_ai/bank_export.py": "b85558fdd02df5336c890530627e17e4d44e92e1bf20694c64fd35082924bf0d",
+  "server/src/practiq_ai/graphs/chunking.py": "0bf06296c6c910a181470c2cce9eb788132b7be6a2075c74e4aa62bb5c68e969",
+  "server/tests/test_bank_export.py": "285aade0af2dbe30b13f1d91a2f70502029b5219208f9dc79a4d201a4ef06fd4",
+  "server/tests/test_chunking.py": "ce71efe48e9368474f6c380badb3b770c6c61698871bf0e1fc59e9f5ae48c116",
+  "web/src/App.test.tsx": "0e3dfe012b421b78a54c90ccd81d00fe71ba863ab8881d6853a4f407c05cecb6",
+  "web/src/App.tsx": "dd61a7da3ad8a7d14eaa9a9843f322a019fe52a348a8ef08d9c30784c4d55e93"
+}

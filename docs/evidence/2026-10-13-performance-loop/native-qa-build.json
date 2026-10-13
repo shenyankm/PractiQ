@@ -1,0 +1,6 @@
+{
+  "bundle": "/Users/sheny/Developer/code/PractiQ/app/src-tauri/target/release/bundle/macos/PractiQ Performance QA.app",
+  "binarySha256": "479ce23dec163cf24d55e3691473d4f52dba6113b8db6319b9b5736a69d20d81",
+  "config": "ui-isolation.json",
+  "scope": "Unsigned QA macOS release .app with separate identifier and synthetic data; no installer/distribution acceptance"
+}

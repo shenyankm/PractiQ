@@ -1,0 +1,286 @@
+{
+  "case": "pages",
+  "sourceRoot": "/private/var/folders/1b/b19xbzjx7xqc4kl0k9x_y4y80000gp/T/practiq-perf-loop-qrdu2192/baseline",
+  "python": "3.14.7",
+  "executable": "/Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14",
+  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "machine": "arm64",
+  "pythonOptimization": 0,
+  "pythonHashSeed": null,
+  "dependencies": {
+    "pydantic": "2.13.4",
+    "Pillow": "12.3.0"
+  },
+  "sourceHashes": {
+    "server/src/practiq_ai/graphs/chunking.py": "5ae826ae6ff9d5025df944dc42aeb5ed88997240661cebbf4094f5259166807d",
+    "server/src/practiq_ai/contracts.py": "f511129eeb20ec829d1e4b22875b36f8a7421cd32aa9420b2707f5eac273e4f8",
+    "server/scripts/benchmark_processing.py": "145a196f5c63be7cbb7dd37d216566cbdbb93b64d45801a34def19026ea2bae1"
+  },
+  "harnessSha256": "06341141586bef4473339cc40c2d30dc176c800ce13b66bd5cb7a3d00d993682",
+  "uniqueInputQuestions": 1000,
+  "inputOccurrences": 1000,
+  "chunkNodeCounts": [
+    500,
+    500
+  ],
+  "inputSha256": "4d0df837169812bfa900e1c93d2ddb19a6d9304b25bce503c9c2dcb5d8891867",
+  "inputAfterSha256": "4d0df837169812bfa900e1c93d2ddb19a6d9304b25bce503c9c2dcb5d8891867",
+  "unchangedInputs": true,
+  "outputSha256": "7a9ce37472d7185945280b6aa5d87866af430ec0614771241b5071ad80ff0b6a",
+  "outputHashes": [
+    "7a9ce37472d7185945280b6aa5d87866af430ec0614771241b5071ad80ff0b6a"
+  ],
+  "retainedQuestions": 1000,
+  "retainedGroups": 10,
+  "samplesMs": [
+    113.25483299879124
+  ],
+  "firstMeasuredCallMs": 113.25483299879124,
+  "warmSamplesMs": [],
+  "warmMedianMs": null,
+  "benchmarkProcessingMeasureMedianMs": null,
+  "profile": {
+    "file": "docs/evidence/2026-10-13-performance-loop/merge-probe.prof",
+    "sha256": "ab8d819f3f0b7b048caa315a776a293c9b6533d2d96f4d43f01e6cac1dc43384",
+    "totalSeconds": 0.113272459,
+    "contentFunctions": [
+      {
+        "file": "/var/folders/1b/b19xbzjx7xqc4kl0k9x_y4y80000gp/T/practiq-perf-loop-qrdu2192/baseline/server/src/practiq_ai/graphs/chunking.py",
+        "line": 89,
+        "function": "_content",
+        "primitiveCalls": 1000,
+        "calls": 1000,
+        "selfSeconds": 0.000383074,
+        "cumulativeSeconds": 0.007260012000000001
+      }
+    ],
+    "topCumulative": [
+      {
+        "file": "/Users/sheny/Developer/code/PractiQ/docs/evidence/2026-10-13-performance-loop/merge_compare.py",
+        "line": 89,
+        "function": "run",
+        "primitiveCalls": 1,
+        "calls": 1,
+        "selfSeconds": 0.001034001,
+        "cumulativeSeconds": 0.113258334
+      },
+      {
+        "file": "/var/folders/1b/b19xbzjx7xqc4kl0k9x_y4y80000gp/T/practiq-perf-loop-qrdu2192/baseline/server/src/practiq_ai/graphs/chunking.py",
+        "line": 94,
+        "function": "merge_chunk_results",
+        "primitiveCalls": 1,
+        "calls": 1,
+        "selfSeconds": 0.0030828070000000003,
+        "cumulativeSeconds": 0.1122235
+      },
+      {
+        "file": "/Users/sheny/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/site-packages/pydantic/main.py",
+        "line": 393,
+        "function": "model_copy",
+        "primitiveCalls": 1010,
+        "calls": 1010,
+        "selfSeconds": 0.00024515400000000003,
+        "cumulativeSeconds": 0.09986705100000001
+      },
+      {
+        "file": "/Users/sheny/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/site-packages/pydantic/main.py",
+        "line": 990,
+        "function": "__deepcopy__",
+        "primitiveCalls": 1000,
+        "calls": 13941,
+        "selfSeconds": 0.012689985,
+        "cumulativeSeconds": 0.09959094
+      },
+      {
+        "file": "/Users/sheny/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/copy.py",
+        "line": 110,
+        "function": "deepcopy",
+        "primitiveCalls": 2000,
+        "calls": 256764,
+        "selfSeconds": 0.033034145,
+        "cumulativeSeconds": 0.097733254
+      },
+      {
+        "file": "/Users/sheny/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/copy.py",
+        "line": 198,
+        "function": "_deepcopy_dict",
+        "primitiveCalls": 1000,
+        "calls": 13941,
+        "selfSeconds": 0.024767893000000003,
+        "cumulativeSeconds": 0.096800063
+      },
+      {
+        "file": "/Users/sheny/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/copy.py",
+        "line": 172,
+        "function": "_deepcopy_list",
+        "primitiveCalls": 6941,
+        "calls": 6941,
+        "selfSeconds": 0.0034369960000000003,
+        "cumulativeSeconds": 0.075614659
+      },
+      {
+        "file": "/Users/sheny/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/copy.py",
+        "line": 212,
+        "function": "_keep_alive",
+        "primitiveCalls": 33823,
+        "calls": 33823,
+        "selfSeconds": 0.00629424,
+        "cumulativeSeconds": 0.009593664
+      },
+      {
+        "file": "/var/folders/1b/b19xbzjx7xqc4kl0k9x_y4y80000gp/T/practiq-perf-loop-qrdu2192/baseline/server/src/practiq_ai/graphs/chunking.py",
+        "line": 89,
+        "function": "_content",
+        "primitiveCalls": 1000,
+        "calls": 1000,
+        "selfSeconds": 0.000383074,
+        "cumulativeSeconds": 0.007260012000000001
+      },
+      {
+        "file": "/Users/sheny/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/site-packages/pydantic/main.py",
+        "line": 427,
+        "function": "model_dump",
+        "primitiveCalls": 1000,
+        "calls": 1000,
+        "selfSeconds": 0.000206512,
+        "cumulativeSeconds": 0.006876938000000001
+      },
+      {
+        "file": "~",
+        "line": 0,
+        "function": "<method 'to_python' of 'pydantic_core._pydantic_core.SchemaSerializer' objects>",
+        "primitiveCalls": 1000,
+        "calls": 1000,
+        "selfSeconds": 0.006670426,
+        "cumulativeSeconds": 0.006670426
+      },
+      {
+        "file": "/Users/sheny/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/copy.py",
+        "line": 62,
+        "function": "copy",
+        "primitiveCalls": 13971,
+        "calls": 13971,
+        "selfSeconds": 0.002342996,
+        "cumulativeSeconds": 0.004024148
+      },
+      {
+        "file": "~",
+        "line": 0,
+        "function": "<built-in method builtins.id>",
+        "primitiveCalls": 89528,
+        "calls": 89528,
+        "selfSeconds": 0.0038918930000000004,
+        "cumulativeSeconds": 0.0038918930000000004
+      },
+      {
+        "file": "~",
+        "line": 0,
+        "function": "<method 'get' of 'dict' objects>",
+        "primitiveCalls": 66656,
+        "calls": 66656,
+        "selfSeconds": 0.0038620280000000004,
+        "cumulativeSeconds": 0.0038620280000000004
+      },
+      {
+        "file": "~",
+        "line": 0,
+        "function": "<method 'append' of 'list' objects>",
+        "primitiveCalls": 49345,
+        "calls": 49345,
+        "selfSeconds": 0.0027641840000000003,
+        "cumulativeSeconds": 0.0027641840000000003
+      },
+      {
+        "file": "~",
+        "line": 0,
+        "function": "<method 'copy' of 'set' objects>",
+        "primitiveCalls": 13951,
+        "calls": 13951,
+        "selfSeconds": 0.0016796930000000001,
+        "cumulativeSeconds": 0.0016796930000000001
+      },
+      {
+        "file": "~",
+        "line": 0,
+        "function": "<built-in method __new__ of type object at 0x105590b50>",
+        "primitiveCalls": 13951,
+        "calls": 13951,
+        "selfSeconds": 0.001340864,
+        "cumulativeSeconds": 0.001340864
+      },
+      {
+        "file": "~",
+        "line": 0,
+        "function": "<built-in method builtins.getattr>",
+        "primitiveCalls": 12941,
+        "calls": 12941,
+        "selfSeconds": 0.0011602960000000001,
+        "cumulativeSeconds": 0.0011602960000000001
+      },
+      {
+        "file": "~",
+        "line": 0,
+        "function": "<built-in method builtins.hasattr>",
+        "primitiveCalls": 13951,
+        "calls": 13951,
+        "selfSeconds": 0.001073633,
+        "cumulativeSeconds": 0.001073633
+      },
+      {
+        "file": "~",
+        "line": 0,
+        "function": "<method 'items' of 'dict' objects>",
+        "primitiveCalls": 13941,
+        "calls": 13941,
+        "selfSeconds": 0.0008646000000000001,
+        "cumulativeSeconds": 0.0008646000000000001
+      },
+      {
+        "file": "/Users/sheny/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/site-packages/pydantic/main.py",
+        "line": 253,
+        "function": "__init__",
+        "primitiveCalls": 1001,
+        "calls": 1001,
+        "selfSeconds": 0.000183277,
+        "cumulativeSeconds": 0.0007601110000000001
+      },
+      {
+        "file": "~",
+        "line": 0,
+        "function": "<built-in method builtins.issubclass>",
+        "primitiveCalls": 12941,
+        "calls": 12941,
+        "selfSeconds": 0.000700538,
+        "cumulativeSeconds": 0.000700538
+      },
+      {
+        "file": "~",
+        "line": 0,
+        "function": "<method 'validate_python' of 'pydantic_core._pydantic_core.SchemaValidator' objects>",
+        "primitiveCalls": 1101,
+        "calls": 1101,
+        "selfSeconds": 0.000626418,
+        "cumulativeSeconds": 0.000626418
+      },
+      {
+        "file": "~",
+        "line": 0,
+        "function": "<method 'update' of 'set' objects>",
+        "primitiveCalls": 1010,
+        "calls": 1010,
+        "selfSeconds": 0.00039924100000000005,
+        "cumulativeSeconds": 0.000480758
+      },
+      {
+        "file": "~",
+        "line": 0,
+        "function": "<built-in method builtins.len>",
+        "primitiveCalls": 4122,
+        "calls": 4122,
+        "selfSeconds": 0.000270929,
+        "cumulativeSeconds": 0.000270929
+      }
+    ]
+  },
+  "realModelCalls": 0
+}

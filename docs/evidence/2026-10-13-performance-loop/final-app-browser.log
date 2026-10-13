@@ -1,0 +1,132 @@
+
+> practiq-desktop@0.2.0 test:browser
+> playwright test
+
+[WebServer] (node:61231) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61252) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61256) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61277) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61278) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61299) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 61 tests using 1 worker
+
+(node:61302) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 [mocked] › scripts/check-i18n.mjs:65:1 › question-list failures persist, hide stale actions and retry the current filters (1.5s)
+  ✓   2 [mocked] › scripts/check-i18n.mjs:104:1 › retry saves the failed language selection without resetting it to the saved preference (1.6s)
+  ✓   3 [mocked] › scripts/check-i18n.mjs:122:1 › theme follows system preferences and persists an explicit choice (2.6s)
+  ✓   4 [mocked] › scripts/check-i18n.mjs:144:1 › bilingual sidebar preserves alignment, keyboard navigation and language preferences (7.4s)
+  ✓   5 [mocked] › scripts/check-i18n.mjs:261:1 › offline ZIP entry and service settings never submit documents or start model work (2.4s)
+  ✓   6 [mocked] › scripts/check-i18n.mjs:318:1 › practice preserves answers across sidebar and viewport changes (2.2s)
+  ✓   7 [mocked] › scripts/check-i18n.mjs:362:45 › favorite reload completion preserves the current question filters and pagination (2.1s)
+  ✓   8 [mocked] › scripts/check-i18n.mjs:362:45 › favorite mutation completion preserves the current question filters and pagination (1.7s)
+(node:61592) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   9 [preview] › scripts/check-preview.mjs:13:1 › development preview pages stay offline (3.5s)
+  ✓  10 [preview] › scripts/check-preview.mjs:43:1 › preview question filters preserve imported warnings through review confirmation (2.5s)
+  ✓  11 [preview] › scripts/check-preview.mjs:78:2 › bank editor protects drafts from implicit dismissal (4.0s)
+  ✓  12 [preview] › scripts/check-preview.mjs:78:2 › question editor protects drafts from implicit dismissal (7.9s)
+  ✓  13 [preview] › scripts/check-preview.mjs:143:1 › new question reverted nullable fields close without discarding other edits (2.0s)
+  ✓  14 [preview] › scripts/check-preview.mjs:174:1 › reverted empty reference answers close without losing real editor changes (28.2s)
+  ✘  15 [preview] › scripts/check-preview.mjs:223:1 › incomplete question reference fallbacks close after reverting text and keep real edits (19.4s)
+(node:62185) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  16 [preview] › scripts/check-preview.mjs:269:1 › listening URL drafts survive every implicit dismissal without triggering downloads (4.1s)
+  ✓  17 [preview] › scripts/check-preview.mjs:313:1 › applied listening URLs become guarded when their audio is removed or replaced (6.8s)
+  ✓  18 [preview] › scripts/check-preview.mjs:355:1 › child editors retain changed drafts and stage changes until the parent saves (5.1s)
+  ✓  19 [preview] › scripts/check-preview.mjs:400:1 › preview nested word-bank answers use inherited choices offline (2.4s)
+  ✓  20 [preview] › scripts/check-preview.mjs:419:1 › preview material dialog hides ancestor answer passage before submission (2.3s)
+  ✓  21 [preview] › scripts/check-preview.mjs:452:2 › preview scenario empty stays offline (2.0s)
+  ✓  22 [preview] › scripts/check-preview.mjs:452:2 › preview scenario many stays offline (1.6s)
+  ✓  23 [preview] › scripts/check-preview.mjs:452:2 › preview scenario unconfigured stays offline (1.2s)
+  ✓  24 [preview] › scripts/check-preview.mjs:452:2 › preview scenario missing stays offline (2.1s)
+  ✓  25 [preview] › scripts/check-preview.mjs:452:2 › preview scenario slow stays offline (6.9s)
+  ✓  26 [preview] › scripts/check-preview.mjs:452:2 › preview scenario error stays offline (670ms)
+  ✓  27 [preview] › scripts/check-preview.mjs:493:1 › study setup retries failed statistics and manual pages without resetting settings (3.5s)
+  ✓  28 [preview] › scripts/check-preview.mjs:585:2 › answer-card status markers match the legend and preserve keyboard navigation in light theme (2.2s)
+  ✓  29 [preview] › scripts/check-preview.mjs:585:2 › answer-card status markers match the legend and preserve keyboard navigation in dark theme (2.2s)
+  ✓  30 [preview] › scripts/check-preview.mjs:658:2 › performance: 1000-question answer card stays reachable at 960px (2.8s)
+  ✓  31 [preview] › scripts/check-preview.mjs:658:2 › performance: 1000-question answer card stays reachable at 1280px (2.6s)
+  ✓  32 [preview] › scripts/check-preview.mjs:729:2 › shared overlays honor reduce and restore keyboard focus (2.2s)
+  ✓  33 [preview] › scripts/check-preview.mjs:729:2 › shared overlays honor no-preference and restore keyboard focus (3.0s)
+  ✓  34 [preview] › scripts/check-ux-recovery.mjs:20:3 › overview and committed import recover without replay at 1280px (2.3s)
+  ✓  35 [preview] › scripts/check-ux-recovery.mjs:58:3 › manual grading drafts and configuration return preserve context at 1280px (2.3s)
+  ✓  36 [preview] › scripts/check-ux-recovery.mjs:20:3 › overview and committed import recover without replay at 360px (2.2s)
+  ✓  37 [preview] › scripts/check-ux-recovery.mjs:58:3 › manual grading drafts and configuration return preserve context at 360px (2.8s)
+  ✓  38 [preview] › scripts/check-ux-recovery.mjs:106:3 › question filter reset restores results and keyboard focus at 1280px (1.4s)
+  ✓  39 [preview] › scripts/check-ux-recovery.mjs:106:3 › question filter reset restores results and keyboard focus at 360px (1.9s)
+  ✓  40 [preview] › scripts/check-ux-recovery.mjs:125:3 › complete study workspace keeps controls and context reachable at 375px (2.6s)
+  ✓  41 [preview] › scripts/check-ux-recovery.mjs:125:3 › complete study workspace keeps controls and context reachable at 768px (2.3s)
+  ✓  42 [preview] › scripts/check-ux-recovery.mjs:125:3 › complete study workspace keeps controls and context reachable at 1440px (2.3s)
+  ✓  43 [preview] › scripts/check-ux-recovery.mjs:161:3 › workspace text and input boundaries meet contrast targets in light theme (752ms)
+  ✓  44 [preview] › scripts/check-ux-recovery.mjs:161:3 › workspace text and input boundaries meet contrast targets in dark theme (814ms)
+(node:63565) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  45 [rich-content] › scripts/check-rich-content.mjs:3:1 › rich content renders math, tables and images with keyboard zoom (1.0s)
+(node:63570) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  46 [built-android-390] › scripts/check-built-navigation.mjs:32:3 › built touch drawer keeps navigation visible and usable (zh-CN) (3.9s)
+  ✓  47 [built-android-390] › scripts/check-built-navigation.mjs:32:3 › built touch drawer keeps navigation visible and usable (en) (3.6s)
+(node:63604) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  48 [built-android-360] › scripts/check-built-navigation.mjs:32:3 › built touch drawer keeps navigation visible and usable (zh-CN) (4.0s)
+  ✓  49 [built-android-360] › scripts/check-built-navigation.mjs:32:3 › built touch drawer keeps navigation visible and usable (en) (3.7s)
+(node:63616) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  50 [android-390] › scripts/check-android.mjs:135:1 › touch navigation works in both languages and consumes back only when needed (5.0s)
+  ✓  51 [android-390] › scripts/check-android.mjs:168:1 › ZIP and service settings stay local until an explicit connection test (2.4s)
+  ✓  52 [android-390] › scripts/check-android.mjs:208:1 › remote grading requires the explicit action and manual review remains usable (1.6s)
+  ✓  53 [android-390] › scripts/check-android.mjs:230:1 › all answer controls and answer-card navigation preserve drafts on touch screens (4.6s)
+  ✓  54 [android-390] › scripts/check-android.mjs:279:1 › listening uses local audio with touch-sized playback, speed and seek controls (8.4s)
+  ✓  55 [android-390] › scripts/check-android.mjs:325:1 › dirty dialogs retain and save edits after a shortened viewport (3.1s)
+(node:63709) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  56 [android-360] › scripts/check-android.mjs:135:1 › touch navigation works in both languages and consumes back only when needed (4.6s)
+  ✓  57 [android-360] › scripts/check-android.mjs:168:1 › ZIP and service settings stay local until an explicit connection test (2.6s)
+  ✓  58 [android-360] › scripts/check-android.mjs:208:1 › remote grading requires the explicit action and manual review remains usable (1.5s)
+  ✓  59 [android-360] › scripts/check-android.mjs:230:1 › all answer controls and answer-card navigation preserve drafts on touch screens (4.5s)
+  ✓  60 [android-360] › scripts/check-android.mjs:279:1 › listening uses local audio with touch-sized playback, speed and seek controls (8.6s)
+  ✓  61 [android-360] › scripts/check-android.mjs:325:1 › dirty dialogs retain and save edits after a shortened viewport (3.1s)
+
+
+  1) [preview] › scripts/check-preview.mjs:223:1 › incomplete question reference fallbacks close after reverting text and keep real edits 
+
+    TimeoutError: locator.click: Timeout 10000ms exceeded.
+    Call log:
+      - waiting for getByRole('button', { name: /Incomplete choice reference$/ }).locator('..').getByRole('button', { name: '编辑题目', exact: true })
+
+
+      236 |    await page.mouse.move(0,0);
+      237 |    await expect(page.getByText('题目已保存，历史练习不受影响',{exact:true})).toBeHidden();
+    > 238 |    await button.click();
+          |                 ^
+      239 |   };
+      240 |   for(const dismiss of ['Escape','close','outside']){
+      241 |    await open();
+        at open (/Users/sheny/Developer/code/PractiQ/app/scripts/check-preview.mjs:238:17)
+        at /Users/sheny/Developer/code/PractiQ/app/scripts/check-preview.mjs:259:3
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/browser/check-preview.mjs-incomple-48a2d-ng-text-and-keep-real-edits-preview/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/browser/check-preview.mjs-incomple-48a2d-ng-text-and-keep-real-edits-preview/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/browser/check-preview.mjs-incomple-48a2d-ng-text-and-keep-real-edits-preview/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/browser/check-preview.mjs-incomple-48a2d-ng-text-and-keep-real-edits-preview/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    [preview] › scripts/check-preview.mjs:223:1 › incomplete question reference fallbacks close after reverting text and keep real edits 
+  60 passed (4.0m)

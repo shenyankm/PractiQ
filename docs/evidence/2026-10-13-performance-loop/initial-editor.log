@@ -1,0 +1,33 @@
+
+ RUN  v5.0.1 /Users/sheny/Developer/code/PractiQ
+
+ ❯ app/src/QuestionEditor.performance.test.tsx (0 test)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  app/src/QuestionEditor.performance.test.tsx [ app/src/QuestionEditor.performance.test.tsx ]
+Error: Failed to resolve import "@/components/ui/dialog" from "app/src/QuestionEditor.tsx". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /Users/sheny/Developer/code/PractiQ/app/src/QuestionEditor.tsx:4:29
+  2  |  import { useId, useState } from "react";
+  3  |  import { blankQuestion, modeNames, isComposite, canInteract } from "./api";
+  4  |  import { DialogFooter } from "@/components/ui/dialog";
+     |                                ^
+  5  |  import { EditorDialog } from "./EditorDialog";
+  6  |  import { Input } from "@/components/ui/input";
+ ❯ TransformPluginContext._formatLog app/node_modules/vite/dist/node/chunks/node.js:8393:39
+ ❯ TransformPluginContext.error app/node_modules/vite/dist/node/chunks/node.js:8390:14
+ ❯ normalizeUrl app/node_modules/vite/dist/node/chunks/node.js:26058:18
+ ❯ app/node_modules/vite/dist/node/chunks/node.js:26128:30
+ ❯ TransformPluginContext.transform app/node_modules/vite/dist/node/chunks/node.js:26094:4
+ ❯ EnvironmentPluginContainer.transform app/node_modules/vite/dist/node/chunks/node.js:8172:14
+ ❯ loadAndTransform app/node_modules/vite/dist/node/chunks/node.js:19634:26
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  20:18:46
+   Duration  768ms (environment 100%)
+

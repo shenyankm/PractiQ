@@ -1,0 +1,48 @@
+Traceback (most recent call last):
+  File "/Users/sheny/Developer/code/PractiQ/docs/evidence/2026-10-13-performance-loop/export_compare.py", line 316, in <module>
+    main()
+    ~~~~^^
+  File "/Users/sheny/Developer/code/PractiQ/docs/evidence/2026-10-13-performance-loop/export_compare.py", line 277, in main
+    print(json.dumps(asyncio.run(worker(args.source.resolve(), args.case, args.localize)), indent=2))
+                     ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/sheny/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/asyncio/runners.py", line 205, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "/Users/sheny/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/asyncio/runners.py", line 128, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/Users/sheny/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/asyncio/base_events.py", line 720, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "/Users/sheny/Developer/code/PractiQ/docs/evidence/2026-10-13-performance-loop/export_compare.py", line 217, in worker
+    store, source, detail, resources = await fixture(Path(directory), case)
+                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/sheny/Developer/code/PractiQ/docs/evidence/2026-10-13-performance-loop/export_compare.py", line 65, in fixture
+    detail = DocumentTaskDetail.model_validate({
+        "threadId": "11111111-1111-4111-8111-111111111111", "runId": None, "parentThreadId": None,
+    ...<4 lines>...
+        "usage": [], "unknownUsageCalls": [],
+    })
+  File "/Users/sheny/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/site-packages/pydantic/main.py", line 732, in model_validate
+    return cls.__pydantic_validator__.validate_python(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        obj,
+        ^^^^
+    ...<5 lines>...
+        by_name=by_name,
+        ^^^^^^^^^^^^^^^^
+    )
+    ^
+pydantic_core._pydantic_core.ValidationError: 4 validation errors for DocumentTaskDetail
+processing.chunks.failed
+  Extra inputs are not permitted [type=extra_forbidden, input_value=0, input_type=int]
+    For further information visit https://errors.pydantic.dev/2.13/v/extra_forbidden
+processing.chunks.remaining
+  Extra inputs are not permitted [type=extra_forbidden, input_value=0, input_type=int]
+    For further information visit https://errors.pydantic.dev/2.13/v/extra_forbidden
+processing.visuals.failed
+  Extra inputs are not permitted [type=extra_forbidden, input_value=0, input_type=int]
+    For further information visit https://errors.pydantic.dev/2.13/v/extra_forbidden
+processing.visuals.remaining
+  Extra inputs are not permitted [type=extra_forbidden, input_value=0, input_type=int]
+    For further information visit https://errors.pydantic.dev/2.13/v/extra_forbidden

@@ -1,0 +1,195 @@
+{
+  "compositeLists": [
+    {
+      "children": 500,
+      "materialBytes": 50000,
+      "measurement": {
+        "jsonBytes": 328,
+        "maxMs": 1.0477500000000002,
+        "medianMs": 0.926958
+      },
+      "returnedRoots": 1,
+      "rootPageLimit": 30
+    },
+    {
+      "children": 999,
+      "materialBytes": 100000,
+      "measurement": {
+        "jsonBytes": 328,
+        "maxMs": 1.7752919999999999,
+        "medianMs": 1.538792
+      },
+      "returnedRoots": 1,
+      "rootPageLimit": 30
+    }
+  ],
+  "method": "Release Rust; disposable database; synthetic valid reading groups; 3 sequential samples; excludes IPC/WebView. Subset timings cover feasible-count calculation only, excluding assertions and JSON serialization.",
+  "subsetCounts": [
+    {
+      "inputSha256": "12d8ed70a040902b24b59ae42eefb205aaabef21414470f2678bf27e8ec1dd85",
+      "measurement": {
+        "jsonBytes": 3894,
+        "maxMs": 0.005666,
+        "medianMs": 0.004,
+        "outputSha256": "0de41d33d8e41ee4a69e898bcbcc42f7c9e65f7cdce1239a00def95ef7dd206b",
+        "samplesMs": [
+          0.005666,
+          0.004,
+          0.002833
+        ]
+      },
+      "roots": 10000,
+      "weight": 1
+    },
+    {
+      "inputSha256": "d7364210635aea0c6aa84f03ee69c68f4e94faa6fbbb077652b7b634f47803ce",
+      "measurement": {
+        "jsonBytes": 1297,
+        "maxMs": 0.003417,
+        "medianMs": 0.0027080000000000003,
+        "outputSha256": "93337096eb45e4832a12d136707f49aa8fb49a46bd5870080f21e871e681aaf9",
+        "samplesMs": [
+          0.003417,
+          0.002666,
+          0.0027080000000000003
+        ]
+      },
+      "roots": 10000,
+      "weight": 3
+    },
+    {
+      "inputSha256": "0a53f309fa192bac07dbb9d3fd552fe5792b521c118fc459fc04b9fca9865c99",
+      "measurement": {
+        "jsonBytes": 393,
+        "maxMs": 0.003375,
+        "medianMs": 0.0025830000000000002,
+        "outputSha256": "f7d5f83e728c257e9c8e51a0a66acbf49b1a7d91f18e5d5d18663641c84fea5d",
+        "samplesMs": [
+          0.003375,
+          0.0025830000000000002,
+          0.002541
+        ]
+      },
+      "roots": 10000,
+      "weight": 10
+    },
+    {
+      "inputSha256": "f0aa9dcffffafdcfe9f3312e80cc30bf687fdb7ddca27f88d7c903c0782e0156",
+      "measurement": {
+        "jsonBytes": 2,
+        "maxMs": 0.0022500000000000003,
+        "medianMs": 0.0022500000000000003,
+        "outputSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "samplesMs": [
+          0.0022500000000000003,
+          0.0022500000000000003,
+          0.0022500000000000003
+        ]
+      },
+      "roots": 10000,
+      "weight": 1001
+    },
+    {
+      "inputSha256": "0f11bd9b49efc7c8c64c3990a02e1fd3123e7dec33e06daf797daa6cbba66faa",
+      "measurement": {
+        "jsonBytes": 3892,
+        "maxMs": 9.341166999999999,
+        "medianMs": 9.051207999999999,
+        "outputSha256": "07249b383d5356446e8823cd516a59a532b4ce6c71069754b139650eadcf214b",
+        "samplesMs": [
+          9.051207999999999,
+          9.021167,
+          9.341166999999999
+        ]
+      },
+      "roots": 10000,
+      "weight": [
+        2,
+        3
+      ]
+    },
+    {
+      "inputSha256": "afe612a63206785abef318ae6d6881661257a48b5fbe007eecae85eddb7f9a86",
+      "measurement": {
+        "jsonBytes": 3894,
+        "maxMs": 0.025375,
+        "medianMs": 0.025375,
+        "outputSha256": "0de41d33d8e41ee4a69e898bcbcc42f7c9e65f7cdce1239a00def95ef7dd206b",
+        "samplesMs": [
+          0.025375,
+          0.025375,
+          0.025167000000000002
+        ]
+      },
+      "roots": 100000,
+      "weight": 1
+    },
+    {
+      "inputSha256": "8412fa3bb2ca5a1a28910938a087f56b48ccb590c7bf55ebd648766ad454563a",
+      "measurement": {
+        "jsonBytes": 1297,
+        "maxMs": 0.030833000000000003,
+        "medianMs": 0.030750000000000003,
+        "outputSha256": "93337096eb45e4832a12d136707f49aa8fb49a46bd5870080f21e871e681aaf9",
+        "samplesMs": [
+          0.030833000000000003,
+          0.030750000000000003,
+          0.027625
+        ]
+      },
+      "roots": 100000,
+      "weight": 3
+    },
+    {
+      "inputSha256": "b4a867a53cdbc3f52a944ec46b2732fcfa52e45c2b16ea54118e81e8e9834ddd",
+      "measurement": {
+        "jsonBytes": 393,
+        "maxMs": 0.024916999999999998,
+        "medianMs": 0.023541,
+        "outputSha256": "f7d5f83e728c257e9c8e51a0a66acbf49b1a7d91f18e5d5d18663641c84fea5d",
+        "samplesMs": [
+          0.022583,
+          0.023541,
+          0.024916999999999998
+        ]
+      },
+      "roots": 100000,
+      "weight": 10
+    },
+    {
+      "inputSha256": "ad3392e1a2c1e8efbd9e6e284264e8f42595bb1fa66941a4de94a226bab1b863",
+      "measurement": {
+        "jsonBytes": 2,
+        "maxMs": 0.024875,
+        "medianMs": 0.024791999999999998,
+        "outputSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "samplesMs": [
+          0.024791999999999998,
+          0.024875,
+          0.024083999999999998
+        ]
+      },
+      "roots": 100000,
+      "weight": 1001
+    },
+    {
+      "inputSha256": "c5b88dd7b7312193818c21bf5724ba4057129f51af807236f86716a52aebe5fa",
+      "measurement": {
+        "jsonBytes": 3892,
+        "maxMs": 97.421208,
+        "medianMs": 96.127625,
+        "outputSha256": "07249b383d5356446e8823cd516a59a532b4ce6c71069754b139650eadcf214b",
+        "samplesMs": [
+          96.127625,
+          97.421208,
+          94.245083
+        ]
+      },
+      "roots": 100000,
+      "weight": [
+        2,
+        3
+      ]
+    }
+  ]
+}

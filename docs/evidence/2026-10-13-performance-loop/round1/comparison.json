@@ -1,0 +1,250 @@
+{
+  "alternatingPairs": 5,
+  "test": "performance::list_and_selection_stress",
+  "binarySha256": {
+    "baseline": "46920e50ccfad36429234497ef610f29ce57ea7912b2016a90cb0f23838656cc",
+    "candidate": "fc0a6333d69ace2294e6acf3fafdbcbdbc7cd1aca6e2cd753499a9da1d86727d"
+  },
+  "workloads": {
+    "10000:1": {
+      "pairMediansMs": {
+        "baseline": [
+          0.00275,
+          0.0029170000000000003,
+          0.0024590000000000002,
+          0.0025,
+          0.002792
+        ],
+        "candidate": [
+          0.004208,
+          0.00475,
+          0.004666,
+          0.004083,
+          0.004292
+        ]
+      },
+      "mediansMs": {
+        "baseline": 0.00275,
+        "candidate": 0.004292
+      },
+      "candidateReductionPercent": -56.07272727272728,
+      "outputSha256": "0de41d33d8e41ee4a69e898bcbcc42f7c9e65f7cdce1239a00def95ef7dd206b"
+    },
+    "10000:3": {
+      "pairMediansMs": {
+        "baseline": [
+          8.8125,
+          8.888208,
+          10.185334000000001,
+          8.631708,
+          9.121125000000001
+        ],
+        "candidate": [
+          0.00275,
+          0.002792,
+          0.00275,
+          0.002667,
+          0.002417
+        ]
+      },
+      "mediansMs": {
+        "baseline": 8.888208,
+        "candidate": 0.00275
+      },
+      "candidateReductionPercent": 99.96906013000596,
+      "outputSha256": "93337096eb45e4832a12d136707f49aa8fb49a46bd5870080f21e871e681aaf9"
+    },
+    "10000:10": {
+      "pairMediansMs": {
+        "baseline": [
+          8.804208000000001,
+          8.94875,
+          9.673124999999999,
+          8.486209,
+          8.850999999999999
+        ],
+        "candidate": [
+          0.002667,
+          0.0026249999999999997,
+          0.002667,
+          0.0025830000000000002,
+          0.0026249999999999997
+        ]
+      },
+      "mediansMs": {
+        "baseline": 8.850999999999999,
+        "candidate": 0.0026249999999999997
+      },
+      "candidateReductionPercent": 99.97034233419953,
+      "outputSha256": "f7d5f83e728c257e9c8e51a0a66acbf49b1a7d91f18e5d5d18663641c84fea5d"
+    },
+    "10000:1001": {
+      "pairMediansMs": {
+        "baseline": [
+          0.003625,
+          0.003875,
+          0.003875,
+          0.003834,
+          0.003458
+        ],
+        "candidate": [
+          0.0026249999999999997,
+          0.0025830000000000002,
+          0.0025830000000000002,
+          0.0025,
+          0.0025830000000000002
+        ]
+      },
+      "mediansMs": {
+        "baseline": 0.003834,
+        "candidate": 0.0025830000000000002
+      },
+      "candidateReductionPercent": 32.62910798122065,
+      "outputSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    "10000:[2, 3]": {
+      "pairMediansMs": {
+        "baseline": [
+          9.289416,
+          9.317667,
+          9.96,
+          9.062624999999999,
+          9.186542000000001
+        ],
+        "candidate": [
+          9.707791,
+          9.266458,
+          9.339208,
+          9.103708000000001,
+          9.142416
+        ]
+      },
+      "mediansMs": {
+        "baseline": 9.289416,
+        "candidate": 9.266458
+      },
+      "candidateReductionPercent": 0.24714147800033448,
+      "outputSha256": "07249b383d5356446e8823cd516a59a532b4ce6c71069754b139650eadcf214b"
+    },
+    "100000:1": {
+      "pairMediansMs": {
+        "baseline": [
+          0.025541,
+          0.025375,
+          0.022958,
+          0.022709,
+          0.0245
+        ],
+        "candidate": [
+          0.023042,
+          0.022875,
+          0.025208,
+          0.022875,
+          0.023333
+        ]
+      },
+      "mediansMs": {
+        "baseline": 0.0245,
+        "candidate": 0.023042
+      },
+      "candidateReductionPercent": 5.951020408163266,
+      "outputSha256": "0de41d33d8e41ee4a69e898bcbcc42f7c9e65f7cdce1239a00def95ef7dd206b"
+    },
+    "100000:3": {
+      "pairMediansMs": {
+        "baseline": [
+          91.777917,
+          88.06625,
+          88.706459,
+          88.780666,
+          89.51287500000001
+        ],
+        "candidate": [
+          0.023,
+          0.023541,
+          0.025,
+          0.038167,
+          0.026542
+        ]
+      },
+      "mediansMs": {
+        "baseline": 88.780666,
+        "candidate": 0.025
+      },
+      "candidateReductionPercent": 99.97184071586037,
+      "outputSha256": "93337096eb45e4832a12d136707f49aa8fb49a46bd5870080f21e871e681aaf9"
+    },
+    "100000:10": {
+      "pairMediansMs": {
+        "baseline": [
+          86.006292,
+          92.236375,
+          88.00375000000001,
+          87.149417,
+          87.503166
+        ],
+        "candidate": [
+          0.022959,
+          0.022584,
+          0.023542,
+          0.022583,
+          0.024833
+        ]
+      },
+      "mediansMs": {
+        "baseline": 87.503166,
+        "candidate": 0.022959
+      },
+      "candidateReductionPercent": 99.97376209221962,
+      "outputSha256": "f7d5f83e728c257e9c8e51a0a66acbf49b1a7d91f18e5d5d18663641c84fea5d"
+    },
+    "100000:1001": {
+      "pairMediansMs": {
+        "baseline": [
+          0.035375,
+          0.031042,
+          0.033374999999999995,
+          0.032916,
+          0.033791
+        ],
+        "candidate": [
+          0.022667000000000003,
+          0.022584,
+          0.022417,
+          0.022542,
+          0.024791999999999998
+        ]
+      },
+      "mediansMs": {
+        "baseline": 0.033374999999999995,
+        "candidate": 0.022584
+      },
+      "candidateReductionPercent": 32.33258426966291,
+      "outputSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    "100000:[2, 3]": {
+      "pairMediansMs": {
+        "baseline": [
+          94.209166,
+          101.784084,
+          98.0995,
+          91.657792,
+          91.182125
+        ],
+        "candidate": [
+          92.677958,
+          94.48016700000001,
+          92.990125,
+          90.768416,
+          93.932666
+        ]
+      },
+      "mediansMs": {
+        "baseline": 94.209166,
+        "candidate": 92.990125
+      },
+      "candidateReductionPercent": 1.2939728178890664,
+      "outputSha256": "07249b383d5356446e8823cd516a59a532b4ce6c71069754b139650eadcf214b"
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "baselineCommit": "16e47c9c69bdad410a299ef6d385bfe0beb85dee",
+  "initialStatus": "",
+  "temporaryRoot": "/var/folders/1b/b19xbzjx7xqc4kl0k9x_y4y80000gp/T/practiq-perf-loop-qrdu2192",
+  "machine": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "python": "3.14.7",
+  "node": "v22.23.2",
+  "rust": "rustc 1.98.1 (48a229cea 2026-09-01)",
+  "models": "substitutes only",
+  "data": "synthetic temporary databases only"
+}

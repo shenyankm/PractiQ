@@ -1,0 +1,117 @@
+{
+  "localization": {
+    "phases": {
+      "validationIncludingInputDumpsMs": 65.31112499942537,
+      "processingReferenceChecksMs": 0.08920800610212609,
+      "serializationIncludingOutputDumpsMs": 17.85491700138664,
+      "limitsAndResourceReferenceChecksMs": 0.12445800530258566,
+      "actualBeforeFirstThreadOperationMs": 143.92737500020303,
+      "actualExportWallMs": 152.2786669956986
+    },
+    "threadOperations": [
+      {
+        "function": "_write_entry",
+        "entry": "manifest.json",
+        "wallMs": 0.2786249970085919
+      },
+      {
+        "function": "_write_entry",
+        "entry": "questions.json",
+        "wallMs": 4.060709004988894
+      }
+    ],
+    "verifiedStorageReads": [
+      {
+        "objectKey": "practiq-agent/sources/3148636fec3257f61ac776ea2b934ff4b5d05717a23e630cdfc1dbf970f0c01f/source.txt",
+        "bytes": 4666638,
+        "wallMs": 2.162415999919176
+      }
+    ],
+    "serializedManifestBytes": 87,
+    "serializedQuestionsBytes": 4752767,
+    "output": {
+      "archiveBytes": 107600,
+      "archiveSha256": "2923ae2890609b6e291935726d851fbfd1b209fa11f50c9d6c65ebf805aef786",
+      "entries": [
+        {
+          "name": "manifest.json",
+          "bytes": 87,
+          "compressedBytes": 76,
+          "crc32": 1444518379,
+          "sha256": "a875e4301df4b5da04f262c806fb4722eb9829f290b960396970a975fba6b6aa",
+          "permissions": "0o100600",
+          "createSystem": 3,
+          "compression": 8,
+          "dateTime": [
+            1980,
+            1,
+            1,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "name": "questions.json",
+          "bytes": 4752767,
+          "compressedBytes": 107296,
+          "crc32": 1272364688,
+          "sha256": "a58f8936072000f9d9f562d4bea260cf331d7b2a8e159733f89d949f74ee9fbc",
+          "permissions": "0o100600",
+          "createSystem": 3,
+          "compression": 8,
+          "dateTime": [
+            1980,
+            1,
+            1,
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "entriesSha256": "68bc9e4afdf5c64bd3c68e708a89b9f3da5b62c9094ae1c440c61b5bbb5dc300",
+      "crcVerified": true,
+      "resourceChecksumsVerified": true,
+      "identicalExpectedEntries": true
+    },
+    "method": "CPU phases reproduce the current baseline preparation sequence; actual export separately records joined thread wait and verified storage wall time. Instrumentation and prior phase work warm caches. These are localization clues, not paired performance samples."
+  },
+  "case": "no-resources",
+  "sourceRoot": "/private/var/folders/1b/b19xbzjx7xqc4kl0k9x_y4y80000gp/T/practiq-perf-loop-qrdu2192/baseline",
+  "questions": 1000,
+  "resourceCount": 0,
+  "resourceBytes": 0,
+  "sourceReference": {
+    "objectKey": "practiq-agent/sources/3148636fec3257f61ac776ea2b934ff4b5d05717a23e630cdfc1dbf970f0c01f/source.txt",
+    "sha256": "3148636fec3257f61ac776ea2b934ff4b5d05717a23e630cdfc1dbf970f0c01f",
+    "mediaType": "text/plain",
+    "sizeBytes": 4666638,
+    "sourceType": "text",
+    "fileName": "quiz.txt"
+  },
+  "inputSha256": "2925bd51ee55b2b76642c1459b009c05359a79db5b582cefd59d336c243497fb",
+  "inputAfterSha256": "2925bd51ee55b2b76642c1459b009c05359a79db5b582cefd59d336c243497fb",
+  "unchangedInputs": true,
+  "realModelCalls": 0,
+  "python": "3.14.7",
+  "executable": "/Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14",
+  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "pythonOptimization": 0,
+  "pythonHashSeed": null,
+  "dependencies": {
+    "pydantic": "2.13.4",
+    "Pillow": "12.3.0"
+  },
+  "sourceHashes": {
+    "server/src/practiq_ai/bank_export.py": "4e4f031c82156dc5e9f3bc598c3f0ef54c2ee4174be8e215b4c4475ebc18176c",
+    "server/src/practiq_ai/contracts.py": "f511129eeb20ec829d1e4b22875b36f8a7421cd32aa9420b2707f5eac273e4f8",
+    "server/src/practiq_ai/storage.py": "59bd2549f7815513434baa5621e9cf1b16bfbc84d881267674f7826bd6f19a85",
+    "server/src/practiq_ai/extractors/isolated.py": "1b5e30274fb6888f985298e4a66900f5a6e52edaa1942dd01772120e2af1095c",
+    "server/tests/support.py": "01765c5d6d422a377c39b02c69ba6abe3e6d089d0258647c6320e4eca2c8edbd"
+  },
+  "evidenceHarnessHashes": {
+    "export_compare.py": "f3c21d61ff529d8ba5acdfea5cad5037cc2cc223f83fd6d78697188f9ef28c1e",
+    "merge_compare.py": "06341141586bef4473339cc40c2d30dc176c800ce13b66bd5cb7a3d00d993682"
+  }
+}

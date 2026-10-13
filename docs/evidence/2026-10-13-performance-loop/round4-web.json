@@ -1,0 +1,537 @@
+{
+  "mode": "five-pairs",
+  "environment": {
+    "node": "v22.23.2",
+    "python": "3.14.7",
+    "machine": "darwin 27.0.0 arm64",
+    "chromium": "153.0.8010.12"
+  },
+  "roots": {
+    "baseline": "/var/folders/1b/b19xbzjx7xqc4kl0k9x_y4y80000gp/T/practiq-perf-loop-qrdu2192/baseline",
+    "candidate": "/Users/sheny/Developer/code/PractiQ"
+  },
+  "sourceHashes": {
+    "/var/folders/1b/b19xbzjx7xqc4kl0k9x_y4y80000gp/T/practiq-perf-loop-qrdu2192/baseline": "39e1f1379a7062433055cab4963cbcca2825ca60c0831e94b9a246962d92df4b",
+    "/Users/sheny/Developer/code/PractiQ": "dd61a7da3ad8a7d14eaa9a9843f322a019fe52a348a8ef08d9c30784c4d55e93"
+  },
+  "assets": {
+    "baseline": {},
+    "candidate": {}
+  },
+  "workload": {
+    "questions": 1000,
+    "sourceAssociationsPerQuestion": 10,
+    "questionSources": 10000,
+    "qualityIssues": 2000,
+    "usageCalls": 1,
+    "inputBytes": 2727232,
+    "inputSha256": "ec1c1de4eddb66314b1a4ee7cb06e847c978780ae0ddcb32ce204e41b5cd19cd"
+  },
+  "scope": "Production Chromium against local Vite preview and authenticated synthetic GET responses. Each fresh browser context has cold HTTP cache; subsequent filters/diagnostic opening are warm. Browser event-to-two-requestAnimationFrame latency includes browser layout/paint scheduling and Playwright readiness round trips. Separate instrumentation localizes JSON.stringify work and is excluded from browser latency samples. One natural 30-second task-list poll per uninstrumented context is observed; no clock/timer acceleration. Not HTTP-service, real model, WebView, Android, or typical-provenance throughput evidence.",
+  "samples": [
+    {
+      "pair": 1,
+      "phase": "baseline",
+      "browser": {
+        "coldTaskOpenMs": 829.9000000059605,
+        "closedFilterMs": [
+          27.399999998509884,
+          27.799999997019768,
+          29.400000005960464,
+          28.899999998509884,
+          28.5
+        ],
+        "naturalPollMs": 21.600000001490116,
+        "diagnosticOpenMs": 146.10000000149012,
+        "openFilterMs": [
+          34.80000000447035,
+          27.19999999552965,
+          28.100000001490116,
+          28.700000002980232,
+          28.19999999552965
+        ],
+        "stringifyCounts": {
+          "afterTaskOpen": 0,
+          "afterClosedFilters": 0,
+          "afterDiagnosticOpen": 0,
+          "afterOpenFilters": 0
+        },
+        "diagnosticStringify": [],
+        "requests": [
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/import-capabilities",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/preview",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/head",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/preview",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          }
+        ],
+        "assertions": "Pydantic-valid fixed DTOs; 20-record pagination; exact diagnostic JSON before/after parent filters and task refresh; 1,000-record search; supplied-null answers; authenticated GET-only/no model mutations"
+      },
+      "localization": {
+        "coldTaskOpenMs": 830.7999999970198,
+        "closedFilterMs": [
+          31.69999999552965,
+          29,
+          28.899999998509884,
+          28.100000001490116,
+          28.899999998509884
+        ],
+        "naturalPollMs": null,
+        "diagnosticOpenMs": 148,
+        "openFilterMs": [
+          28.600000001490116,
+          29.799999997019768,
+          28.899999998509884,
+          28.600000001490116,
+          45.399999998509884
+        ],
+        "stringifyCounts": {
+          "afterTaskOpen": 1,
+          "afterClosedFilters": 16,
+          "afterDiagnosticOpen": 16,
+          "afterOpenFilters": 31
+        },
+        "diagnosticStringify": [
+          {
+            "milliseconds": 1.3000000044703484,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2999999970197678,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2999999970197678,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.3000000044703484,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2000000029802322,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2999999970197678,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2000000029802322,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2000000029802322,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2999999970197678,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1999999955296516,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2000000029802322,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.3000000044703484,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2000000029802322,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.3000000044703484,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1000000014901161,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2000000029802322,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.3000000044703484,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1999999955296516,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2999999970197678,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1999999955296516,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1999999955296516,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2000000029802322,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2000000029802322,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1999999955296516,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2000000029802322,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.2000000029802322,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.0999999940395355,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.1999999955296516,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.3000000044703484,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 1.3000000044703484,
+            "characters": 1476634
+          },
+          {
+            "milliseconds": 7.399999998509884,
+            "characters": 1476634
+          }
+        ],
+        "requests": [
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/import-capabilities",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/preview",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0&state_filter=completed",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks",
+            "query": "?limit=20&offset=0",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "query": "",
+            "authenticated": false
+          },
+          {
+            "method": "GET",
+            "path": "/api/account",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          },
+          {
+            "method": "GET",
+            "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/preview",
+            "query": "",
+            "authenticated": true,
+            "phone": "13800138000"
+          }
+        ],
+        "assertions": "Pydantic-valid fixed DTOs; 20-record pagination; exact diagnostic JSON before/after parent filters and task refresh; 1,000-record search; supplied-null answers; authenticated GET-only/no model mutations"
+      }
+    }
+  ],
+  "error": "browserContext.close: Target page, context or browser has been closed\nBrowser logs:\n\n<launching> /Users/sheny/Library/Caches/ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-mac-arm64/chrome-headless-shell --disable-field-trial-config --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-back-forward-cache --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-component-update --no-default-browser-check --disable-default-apps --disable-dev-shm-usage --disable-edgeupdater --disable-extensions --disable-features=AvoidUnnecessaryBeforeUnloadCheckSync,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,BlockOriginHeaderModificationOnRedirect,Translate,AutoDeElevate,OptimizationHints,msForceBrowserSignIn,msEdgeUpdateLaunchServicesPreferredVersion --enable-features=CDPScreenshotNewSurface --allow-pre-commit-input --disable-hang-monitor --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --disable-updater-scheduler --force-color-profile=srgb --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --no-service-autorun --export-tagged-pdf --disable-search-engine-choice-screen --unsafely-disable-devtools-self-xss-warnings --edge-skip-compat-layer-relaunch --disable-infobars --disable-search-engine-choice-screen --disable-sync --enable-unsafe-swiftshader --headless --hide-scrollbars --mute-audio --blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4 --no-sandbox --user-data-dir=/var/folders/1b/b19xbzjx7xqc4kl0k9x_y4y80000gp/T/playwright_chromiumdev_profile-Fv7zc1 --remote-debugging-pipe --no-startup-window\n<launched> pid=47799\n[pid=47799][err] [1013/203354.934724:ERROR:ui/display/mac/cv_display_link_mac.mm:195] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\n[pid=47799][err] [1013/203355.041016:ERROR:ui/display/mac/cv_display_link_mac.mm:195] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\n[pid=47799][err] [1013/203427.513945:ERROR:ui/display/mac/cv_display_link_mac.mm:195] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\n[pid=47799][err] [1013/203427.578702:ERROR:ui/display/mac/cv_display_link_mac.mm:195] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\n[pid=47799][err] [1013/203430.142448:ERROR:ui/display/mac/cv_display_link_mac.mm:195] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\n[pid=47799][err] [1013/203430.178784:ERROR:ui/display/mac/cv_display_link_mac.mm:195] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\n[pid=47799] <gracefully close start>\n    at async measureContext (/Users/sheny/Developer/code/PractiQ/docs/evidence/2026-10-13-performance-loop/measure_web_usage.mjs:197:15)\n    at async file:///Users/sheny/Developer/code/PractiQ/docs/evidence/2026-10-13-performance-loop/measure_web_usage.mjs:215:54"
+}

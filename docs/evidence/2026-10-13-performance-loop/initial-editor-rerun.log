@@ -1,0 +1,9 @@
+
+ RUN  v5.0.1 /Users/sheny/Developer/code/PractiQ/app
+
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  20:21:11
+   Duration  1.53s (tests 38%, environment 31%, import 21%, transform 9%)
+

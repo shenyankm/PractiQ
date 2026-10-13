@@ -1,0 +1,5 @@
+(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - import "./contracts.generated" without a file extension (../../../../../../../../../Users/sheny/Developer/code/PractiQ/web/src/test-fixtures.ts:1:77). Add the file extension
+  - import "./api" without a file extension (../../../../../../../../../Users/sheny/Developer/code/PractiQ/web/src/test-fixtures.ts:2:35). Add the file extension
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+  ➜  Local:   http://127.0.0.1:18671/

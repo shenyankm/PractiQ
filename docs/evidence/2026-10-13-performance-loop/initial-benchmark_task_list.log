@@ -1,0 +1,480 @@
+{
+  "method": "Real disposable PostgreSQL; 20 synthetic completed tasks, one chunk and result; five reads including cold first read; former filter baseline uses the current unfiltered backend to isolate filter behavior; no model calls, IPC or WebView",
+  "results": [
+    {
+      "tasks": 20,
+      "questionsPerTask": 1,
+      "samplesMs": [
+        11.356541996065062,
+        1.2912079982925206,
+        1.1846670022350736,
+        1.1872499962919392,
+        1.1594160023378208
+      ],
+      "medianMs": 1.1872499962919392,
+      "responseBytes": 6349,
+      "checkpointBytes": 53708,
+      "checkpointRows": 20,
+      "realModelCalls": 0
+    },
+    {
+      "tasks": 20,
+      "questionsPerTask": 1000,
+      "samplesMs": [
+        265.86720899649663,
+        1.446834001399111,
+        1.1328330001560971,
+        1.0660000043571927,
+        1.0549159997026436
+      ],
+      "medianMs": 1.1328330001560971,
+      "responseBytes": 6409,
+      "checkpointBytes": 36684148,
+      "checkpointRows": 20,
+      "realModelCalls": 0
+    }
+  ],
+  "filteredHistory": {
+    "completedHistory": 600,
+    "activeTasks": 1,
+    "lruLimit": 256,
+    "results": [
+      {
+        "filter": "active",
+        "mode": "formerRecursiveFilter",
+        "samples": [
+          {
+            "durationMs": 313.772,
+            "snapshotReads": 601
+          },
+          {
+            "durationMs": 260.207,
+            "snapshotReads": 601
+          },
+          {
+            "durationMs": 253.221,
+            "snapshotReads": 601
+          }
+        ]
+      },
+      {
+        "filter": "active",
+        "mode": "productionCandidateFilter",
+        "samples": [
+          {
+            "durationMs": 2.634,
+            "snapshotReads": 1
+          },
+          {
+            "durationMs": 2.131,
+            "snapshotReads": 1
+          },
+          {
+            "durationMs": 2.583,
+            "snapshotReads": 1
+          }
+        ]
+      },
+      {
+        "filter": "paused",
+        "mode": "formerRecursiveFilter",
+        "samples": [
+          {
+            "durationMs": 259.167,
+            "snapshotReads": 601
+          },
+          {
+            "durationMs": 273.237,
+            "snapshotReads": 601
+          },
+          {
+            "durationMs": 267.826,
+            "snapshotReads": 601
+          }
+        ]
+      },
+      {
+        "filter": "paused",
+        "mode": "productionCandidateFilter",
+        "samples": [
+          {
+            "durationMs": 2.4,
+            "snapshotReads": 0
+          },
+          {
+            "durationMs": 2.248,
+            "snapshotReads": 0
+          },
+          {
+            "durationMs": 2.136,
+            "snapshotReads": 0
+          }
+        ]
+      },
+      {
+        "filter": "completed",
+        "mode": "formerRecursiveFilter",
+        "samples": [
+          {
+            "durationMs": 44.07,
+            "snapshotReads": 100
+          },
+          {
+            "durationMs": 3.458,
+            "snapshotReads": 0
+          },
+          {
+            "durationMs": 2.947,
+            "snapshotReads": 0
+          }
+        ]
+      },
+      {
+        "filter": "completed",
+        "mode": "productionCandidateFilter",
+        "samples": [
+          {
+            "durationMs": 12.895,
+            "snapshotReads": 21
+          },
+          {
+            "durationMs": 4.1,
+            "snapshotReads": 0
+          },
+          {
+            "durationMs": 3.687,
+            "snapshotReads": 0
+          }
+        ]
+      }
+    ],
+    "queries": {
+      "activeBefore": {
+        "sql": "SELECT * FROM document_runs WHERE thread_id IN (SELECT thread_id FROM document_tasks WHERE graph_id IN ('document_parser','text_csv_parser','pdf_parser') AND (document->>'sourceType') IN ('image','csv','pdf','text','doc','docx','xls','xlsx')) AND status IN ('pending','running') ORDER BY created_at",
+        "medianMs": 0.24816700170049444,
+        "plan": [
+          {
+            "QUERY PLAN": [
+              {
+                "Plan": {
+                  "Node Type": "Sort",
+                  "Parallel Aware": false,
+                  "Async Capable": false,
+                  "Startup Cost": 36.88,
+                  "Total Cost": 36.89,
+                  "Plan Rows": 1,
+                  "Plan Width": 322,
+                  "Sort Key": [
+                    "document_runs.created_at"
+                  ],
+                  "Plans": [
+                    {
+                      "Node Type": "Nested Loop",
+                      "Parent Relationship": "Outer",
+                      "Parallel Aware": false,
+                      "Async Capable": false,
+                      "Join Type": "Inner",
+                      "Startup Cost": 4.45,
+                      "Total Cost": 36.87,
+                      "Plan Rows": 1,
+                      "Plan Width": 322,
+                      "Inner Unique": true,
+                      "Plans": [
+                        {
+                          "Node Type": "Bitmap Heap Scan",
+                          "Parent Relationship": "Outer",
+                          "Parallel Aware": false,
+                          "Async Capable": false,
+                          "Relation Name": "document_runs",
+                          "Alias": "document_runs",
+                          "Startup Cost": 4.16,
+                          "Total Cost": 11.87,
+                          "Plan Rows": 3,
+                          "Plan Width": 322,
+                          "Recheck Cond": "(status = ANY ('{pending,running}'::text[]))",
+                          "Plans": [
+                            {
+                              "Node Type": "Bitmap Index Scan",
+                              "Parent Relationship": "Outer",
+                              "Parallel Aware": false,
+                              "Async Capable": false,
+                              "Index Name": "document_active_order",
+                              "Startup Cost": 0.0,
+                              "Total Cost": 4.16,
+                              "Plan Rows": 3,
+                              "Plan Width": 0
+                            }
+                          ]
+                        },
+                        {
+                          "Node Type": "Memoize",
+                          "Parent Relationship": "Inner",
+                          "Parallel Aware": false,
+                          "Async Capable": false,
+                          "Startup Cost": 0.29,
+                          "Total Cost": 8.32,
+                          "Plan Rows": 1,
+                          "Plan Width": 32,
+                          "Cache Key": "document_runs.thread_id",
+                          "Cache Mode": "logical",
+                          "Plans": [
+                            {
+                              "Node Type": "Index Scan",
+                              "Parent Relationship": "Outer",
+                              "Parallel Aware": false,
+                              "Async Capable": false,
+                              "Scan Direction": "Forward",
+                              "Index Name": "document_tasks_pkey",
+                              "Relation Name": "document_tasks",
+                              "Alias": "document_tasks",
+                              "Startup Cost": 0.28,
+                              "Total Cost": 8.31,
+                              "Plan Rows": 1,
+                              "Plan Width": 32,
+                              "Index Cond": "(thread_id = document_runs.thread_id)",
+                              "Filter": "((graph_id = ANY ('{document_parser,text_csv_parser,pdf_parser}'::text[])) AND ((document ->> 'sourceType'::text) = ANY ('{image,csv,pdf,text,doc,docx,xls,xlsx}'::text[])))"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "activeAfter": {
+        "sql": "SELECT r.* FROM document_runs r JOIN document_tasks t ON t.thread_id=r.thread_id WHERE r.status IN ('pending','running') AND t.graph_id IN ('document_parser','text_csv_parser','pdf_parser') AND (t.document->>'sourceType') IN ('image','csv','pdf','text','doc','docx','xls','xlsx') ORDER BY r.created_at",
+        "medianMs": 0.23283300106413662,
+        "plan": [
+          {
+            "QUERY PLAN": [
+              {
+                "Plan": {
+                  "Node Type": "Sort",
+                  "Parallel Aware": false,
+                  "Async Capable": false,
+                  "Startup Cost": 36.88,
+                  "Total Cost": 36.89,
+                  "Plan Rows": 1,
+                  "Plan Width": 322,
+                  "Sort Key": [
+                    "r.created_at"
+                  ],
+                  "Plans": [
+                    {
+                      "Node Type": "Nested Loop",
+                      "Parent Relationship": "Outer",
+                      "Parallel Aware": false,
+                      "Async Capable": false,
+                      "Join Type": "Inner",
+                      "Startup Cost": 4.45,
+                      "Total Cost": 36.87,
+                      "Plan Rows": 1,
+                      "Plan Width": 322,
+                      "Inner Unique": true,
+                      "Plans": [
+                        {
+                          "Node Type": "Bitmap Heap Scan",
+                          "Parent Relationship": "Outer",
+                          "Parallel Aware": false,
+                          "Async Capable": false,
+                          "Relation Name": "document_runs",
+                          "Alias": "r",
+                          "Startup Cost": 4.16,
+                          "Total Cost": 11.87,
+                          "Plan Rows": 3,
+                          "Plan Width": 322,
+                          "Recheck Cond": "(status = ANY ('{pending,running}'::text[]))",
+                          "Plans": [
+                            {
+                              "Node Type": "Bitmap Index Scan",
+                              "Parent Relationship": "Outer",
+                              "Parallel Aware": false,
+                              "Async Capable": false,
+                              "Index Name": "document_active_order",
+                              "Startup Cost": 0.0,
+                              "Total Cost": 4.16,
+                              "Plan Rows": 3,
+                              "Plan Width": 0
+                            }
+                          ]
+                        },
+                        {
+                          "Node Type": "Memoize",
+                          "Parent Relationship": "Inner",
+                          "Parallel Aware": false,
+                          "Async Capable": false,
+                          "Startup Cost": 0.29,
+                          "Total Cost": 8.32,
+                          "Plan Rows": 1,
+                          "Plan Width": 32,
+                          "Cache Key": "r.thread_id",
+                          "Cache Mode": "logical",
+                          "Plans": [
+                            {
+                              "Node Type": "Index Scan",
+                              "Parent Relationship": "Outer",
+                              "Parallel Aware": false,
+                              "Async Capable": false,
+                              "Scan Direction": "Forward",
+                              "Index Name": "document_tasks_pkey",
+                              "Relation Name": "document_tasks",
+                              "Alias": "t",
+                              "Startup Cost": 0.28,
+                              "Total Cost": 8.31,
+                              "Plan Rows": 1,
+                              "Plan Width": 32,
+                              "Index Cond": "(thread_id = r.thread_id)",
+                              "Filter": "((graph_id = ANY ('{document_parser,text_csv_parser,pdf_parser}'::text[])) AND ((document ->> 'sourceType'::text) = ANY ('{image,csv,pdf,text,doc,docx,xls,xlsx}'::text[])))"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "firstPageBefore": {
+        "sql": "SELECT * FROM document_tasks WHERE thread_id IN (SELECT thread_id FROM document_tasks WHERE graph_id IN ('document_parser','text_csv_parser','pdf_parser') AND (document->>'sourceType') IN ('image','csv','pdf','text','doc','docx','xls','xlsx')) ORDER BY created_at DESC,thread_id DESC LIMIT 21 OFFSET 0",
+        "medianMs": 0.8722500060684979,
+        "plan": [
+          {
+            "QUERY PLAN": [
+              {
+                "Plan": {
+                  "Node Type": "Limit",
+                  "Parallel Aware": false,
+                  "Async Capable": false,
+                  "Startup Cost": 69.83,
+                  "Total Cost": 69.84,
+                  "Plan Rows": 1,
+                  "Plan Width": 272,
+                  "Plans": [
+                    {
+                      "Node Type": "Sort",
+                      "Parent Relationship": "Outer",
+                      "Parallel Aware": false,
+                      "Async Capable": false,
+                      "Startup Cost": 69.83,
+                      "Total Cost": 69.84,
+                      "Plan Rows": 1,
+                      "Plan Width": 272,
+                      "Sort Key": [
+                        "document_tasks.created_at DESC",
+                        "document_tasks.thread_id DESC"
+                      ],
+                      "Plans": [
+                        {
+                          "Node Type": "Nested Loop",
+                          "Parent Relationship": "Outer",
+                          "Parallel Aware": false,
+                          "Async Capable": false,
+                          "Join Type": "Inner",
+                          "Startup Cost": 0.28,
+                          "Total Cost": 69.82,
+                          "Plan Rows": 1,
+                          "Plan Width": 272,
+                          "Inner Unique": true,
+                          "Plans": [
+                            {
+                              "Node Type": "Seq Scan",
+                              "Parent Relationship": "Outer",
+                              "Parallel Aware": false,
+                              "Async Capable": false,
+                              "Relation Name": "document_tasks",
+                              "Alias": "document_tasks_1",
+                              "Startup Cost": 0.0,
+                              "Total Cost": 61.52,
+                              "Plan Rows": 1,
+                              "Plan Width": 32,
+                              "Filter": "((graph_id = ANY ('{document_parser,text_csv_parser,pdf_parser}'::text[])) AND ((document ->> 'sourceType'::text) = ANY ('{image,csv,pdf,text,doc,docx,xls,xlsx}'::text[])))"
+                            },
+                            {
+                              "Node Type": "Index Scan",
+                              "Parent Relationship": "Inner",
+                              "Parallel Aware": false,
+                              "Async Capable": false,
+                              "Scan Direction": "Forward",
+                              "Index Name": "document_tasks_pkey",
+                              "Relation Name": "document_tasks",
+                              "Alias": "document_tasks",
+                              "Startup Cost": 0.28,
+                              "Total Cost": 8.29,
+                              "Plan Rows": 1,
+                              "Plan Width": 272,
+                              "Index Cond": "(thread_id = document_tasks_1.thread_id)"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "firstPageAfter": {
+        "sql": "SELECT t.* FROM document_tasks t WHERE t.graph_id IN ('document_parser','text_csv_parser','pdf_parser') AND (t.document->>'sourceType') IN ('image','csv','pdf','text','doc','docx','xls','xlsx') ORDER BY t.created_at DESC,t.thread_id DESC LIMIT 21 OFFSET 0",
+        "medianMs": 0.42212499829474837,
+        "plan": [
+          {
+            "QUERY PLAN": [
+              {
+                "Plan": {
+                  "Node Type": "Limit",
+                  "Parallel Aware": false,
+                  "Async Capable": false,
+                  "Startup Cost": 61.52,
+                  "Total Cost": 61.53,
+                  "Plan Rows": 1,
+                  "Plan Width": 272,
+                  "Plans": [
+                    {
+                      "Node Type": "Sort",
+                      "Parent Relationship": "Outer",
+                      "Parallel Aware": false,
+                      "Async Capable": false,
+                      "Startup Cost": 61.52,
+                      "Total Cost": 61.53,
+                      "Plan Rows": 1,
+                      "Plan Width": 272,
+                      "Sort Key": [
+                        "created_at DESC",
+                        "thread_id DESC"
+                      ],
+                      "Plans": [
+                        {
+                          "Node Type": "Seq Scan",
+                          "Parent Relationship": "Outer",
+                          "Parallel Aware": false,
+                          "Async Capable": false,
+                          "Relation Name": "document_tasks",
+                          "Alias": "t",
+                          "Startup Cost": 0.0,
+                          "Total Cost": 61.52,
+                          "Plan Rows": 1,
+                          "Plan Width": 272,
+                          "Filter": "((graph_id = ANY ('{document_parser,text_csv_parser,pdf_parser}'::text[])) AND ((document ->> 'sourceType'::text) = ANY ('{image,csv,pdf,text,doc,docx,xls,xlsx}'::text[])))"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "realModelCalls": 0
+  }
+}

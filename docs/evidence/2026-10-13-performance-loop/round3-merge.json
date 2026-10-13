@@ -1,0 +1,1765 @@
+{
+  "method": "Sequential fresh CPython workers, alternating AB/BA source order, three calls through the existing benchmark_processing.measure per worker. Fixture construction/import and assertions/hashing excluded from raw merge timings. First measured call is separate from two warm calls; it is not OS-cache-cold startup. cProfile runs are outside paired timing.",
+  "limitations": "CPU merge microbenchmark only; excludes extraction, model work, durable storage/checkpoints, HTTP and WebView. Rich synthetic questions are not a quality evaluation; no user files or database access.",
+  "pairsPerCase": 5,
+  "profiles": {
+    "pages": {
+      "case": "pages",
+      "sourceRoot": "/private/var/folders/1b/b19xbzjx7xqc4kl0k9x_y4y80000gp/T/practiq-perf-loop-qrdu2192/baseline",
+      "python": "3.14.7",
+      "executable": "/Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14",
+      "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+      "machine": "arm64",
+      "pythonOptimization": 0,
+      "pythonHashSeed": "0",
+      "dependencies": {
+        "pydantic": "2.13.4",
+        "Pillow": "12.3.0"
+      },
+      "sourceHashes": {
+        "server/src/practiq_ai/graphs/chunking.py": "5ae826ae6ff9d5025df944dc42aeb5ed88997240661cebbf4094f5259166807d",
+        "server/src/practiq_ai/contracts.py": "f511129eeb20ec829d1e4b22875b36f8a7421cd32aa9420b2707f5eac273e4f8",
+        "server/scripts/benchmark_processing.py": "145a196f5c63be7cbb7dd37d216566cbdbb93b64d45801a34def19026ea2bae1"
+      },
+      "harnessSha256": "06341141586bef4473339cc40c2d30dc176c800ce13b66bd5cb7a3d00d993682",
+      "uniqueInputQuestions": 1000,
+      "inputOccurrences": 1000,
+      "chunkNodeCounts": [
+        500,
+        500
+      ],
+      "inputSha256": "4d0df837169812bfa900e1c93d2ddb19a6d9304b25bce503c9c2dcb5d8891867",
+      "inputAfterSha256": "4d0df837169812bfa900e1c93d2ddb19a6d9304b25bce503c9c2dcb5d8891867",
+      "unchangedInputs": true,
+      "outputSha256": "7a9ce37472d7185945280b6aa5d87866af430ec0614771241b5071ad80ff0b6a",
+      "outputHashes": [
+        "7a9ce37472d7185945280b6aa5d87866af430ec0614771241b5071ad80ff0b6a"
+      ],
+      "retainedQuestions": 1000,
+      "retainedGroups": 10,
+      "samplesMs": [
+        114.62262499844655
+      ],
+      "firstMeasuredCallMs": 114.62262499844655,
+      "warmSamplesMs": [],
+      "warmMedianMs": null,
+      "benchmarkProcessingMeasureMedianMs": null,
+      "profile": {
+        "file": "/Users/sheny/Developer/code/PractiQ/docs/evidence/2026-10-13-performance-loop/merge-baseline-pages.prof",
+        "sha256": "c7befe94e489c3002d301d358deadc9601662cd47d3d71f8774bbf14e1ef49ac",
+        "totalSeconds": 0.1146425,
+        "contentFunctions": [
+          {
+            "file": "/private/var/folders/1b/b19xbzjx7xqc4kl0k9x_y4y80000gp/T/practiq-perf-loop-qrdu2192/baseline/server/src/practiq_ai/graphs/chunking.py",
+            "line": 89,
+            "function": "_content",
+            "primitiveCalls": 1000,
+            "calls": 1000,
+            "selfSeconds": 0.000370548,
+            "cumulativeSeconds": 0.007108477
+          }
+        ],
+        "topCumulative": [
+          {
+            "file": "/Users/sheny/Developer/code/PractiQ/docs/evidence/2026-10-13-performance-loop/merge_compare.py",
+            "line": 89,
+            "function": "run",
+            "primitiveCalls": 1,
+            "calls": 1,
+            "selfSeconds": 0.0010416680000000002,
+            "cumulativeSeconds": 0.114626875
+          },
+          {
+            "file": "/private/var/folders/1b/b19xbzjx7xqc4kl0k9x_y4y80000gp/T/practiq-perf-loop-qrdu2192/baseline/server/src/practiq_ai/graphs/chunking.py",
+            "line": 94,
+            "function": "merge_chunk_results",
+            "primitiveCalls": 1,
+            "calls": 1,
+            "selfSeconds": 0.002929604,
+            "cumulativeSeconds": 0.11358391600000001
+          },
+          {
+            "file": "/Users/sheny/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/site-packages/pydantic/main.py",
+            "line": 393,
+            "function": "model_copy",
+            "primitiveCalls": 1010,
+            "calls": 1010,
+            "selfSeconds": 0.00026869700000000003,
+            "cumulativeSeconds": 0.101563701
+          },
+          {
+            "file": "/Users/sheny/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/site-packages/pydantic/main.py",
+            "line": 990,
+            "function": "__deepcopy__",
+            "primitiveCalls": 1000,
+            "calls": 13941,
+            "selfSeconds": 0.012921733000000001,
+            "cumulativeSeconds": 0.101260335
+          },
+          {
+            "file": "/Users/sheny/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/copy.py",
+            "line": 110,
+            "function": "deepcopy",
+            "primitiveCalls": 2000,
+            "calls": 256764,
+            "selfSeconds": 0.033710807,
+            "cumulativeSeconds": 0.099487238
+          },
+          {
+            "file": "/Users/sheny/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/copy.py",
+            "line": 198,
+            "function": "_deepcopy_dict",
+            "primitiveCalls": 1000,
+            "calls": 13941,
+            "selfSeconds": 0.024928745000000002,
+            "cumulativeSeconds": 0.098543638
+          },
+          {
+            "file": "/Users/sheny/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/copy.py",
+            "line": 172,
+            "function": "_deepcopy_list",
+            "primitiveCalls": 6941,
+            "calls": 6941,
+            "selfSeconds": 0.0034502620000000004,
+            "cumulativeSeconds": 0.077015831
+          },
+          {
+            "file": "/Users/sheny/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/copy.py",
+            "line": 212,
+            "function": "_keep_alive",
+            "primitiveCalls": 33823,
+            "calls": 33823,
+            "selfSeconds": 0.006409681,
+            "cumulativeSeconds": 0.009799133
+          },
+          {
+            "file": "/private/var/folders/1b/b19xbzjx7xqc4kl0k9x_y4y80000gp/T/practiq-perf-loop-qrdu2192/baseline/server/src/practiq_ai/graphs/chunking.py",
+            "line": 89,
+            "function": "_content",
+            "primitiveCalls": 1000,
+            "calls": 1000,
+            "selfSeconds": 0.000370548,
+            "cumulativeSeconds": 0.007108477
+          },
+          {
+            "file": "/Users/sheny/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/site-packages/pydantic/main.py",
+            "line": 427,
+            "function": "model_dump",
+            "primitiveCalls": 1000,
+            "calls": 1000,
+            "selfSeconds": 0.0001822,
+            "cumulativeSeconds": 0.006737929
+          },
+          {
+            "file": "~",
+            "line": 0,
+            "function": "<method 'to_python' of 'pydantic_core._pydantic_core.SchemaSerializer' objects>",
+            "primitiveCalls": 1000,
+            "calls": 1000,
+            "selfSeconds": 0.006555729000000001,
+            "cumulativeSeconds": 0.006555729000000001
+          },
+          {
+            "file": "~",
+            "line": 0,
+            "function": "<method 'get' of 'dict' objects>",
+            "primitiveCalls": 66656,
+            "calls": 66656,
+            "selfSeconds": 0.004046608,
+            "cumulativeSeconds": 0.004046608
+          },
+          {
+            "file": "~",
+            "line": 0,
+            "function": "<built-in method builtins.id>",
+            "primitiveCalls": 89528,
+            "calls": 89528,
+            "selfSeconds": 0.004005109000000001,
+            "cumulativeSeconds": 0.004005109000000001
+          },
+          {
+            "file": "/Users/sheny/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/copy.py",
+            "line": 62,
+            "function": "copy",
+            "primitiveCalls": 13971,
+            "calls": 13971,
+            "selfSeconds": 0.002304885,
+            "cumulativeSeconds": 0.0038996760000000004
+          },
+          {
+            "file": "~",
+            "line": 0,
+            "function": "<method 'append' of 'list' objects>",
+            "primitiveCalls": 49345,
+            "calls": 49345,
+            "selfSeconds": 0.0027614000000000002,
+            "cumulativeSeconds": 0.0027614000000000002
+          },
+          {
+            "file": "~",
+            "line": 0,
+            "function": "<method 'copy' of 'set' objects>",
+            "primitiveCalls": 13951,
+            "calls": 13951,
+            "selfSeconds": 0.0015931650000000001,
+            "cumulativeSeconds": 0.0015931650000000001
+          },
+          {
+            "file": "~",
+            "line": 0,
+            "function": "<built-in method __new__ of type object at 0x1011c8b50>",
+            "primitiveCalls": 13951,
+            "calls": 13951,
+            "selfSeconds": 0.001342992,
+            "cumulativeSeconds": 0.001342992
+          },
+          {
+            "file": "~",
+            "line": 0,
+            "function": "<built-in method builtins.getattr>",
+            "primitiveCalls": 12941,
+            "calls": 12941,
+            "selfSeconds": 0.001291443,
+            "cumulativeSeconds": 0.001291443
+          },
+          {
+            "file": "~",
+            "line": 0,
+            "function": "<built-in method builtins.hasattr>",
+            "primitiveCalls": 13951,
+            "calls": 13951,
+            "selfSeconds": 0.00110233,
+            "cumulativeSeconds": 0.00110233
+          },
+          {
+            "file": "~",
+            "line": 0,
+            "function": "<method 'items' of 'dict' objects>",
+            "primitiveCalls": 13941,
+            "calls": 13941,
+            "selfSeconds": 0.0009221720000000001,
+            "cumulativeSeconds": 0.0009221720000000001
+          },
+          {
+            "file": "/Users/sheny/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/site-packages/pydantic/main.py",
+            "line": 253,
+            "function": "__init__",
+            "primitiveCalls": 1001,
+            "calls": 1001,
+            "selfSeconds": 0.00016375000000000002,
+            "cumulativeSeconds": 0.0007443860000000001
+          },
+          {
+            "file": "~",
+            "line": 0,
+            "function": "<built-in method builtins.issubclass>",
+            "primitiveCalls": 12941,
+            "calls": 12941,
+            "selfSeconds": 0.000736423,
+            "cumulativeSeconds": 0.000736423
+          },
+          {
+            "file": "~",
+            "line": 0,
+            "function": "<method 'validate_python' of 'pydantic_core._pydantic_core.SchemaValidator' objects>",
+            "primitiveCalls": 1101,
+            "calls": 1101,
+            "selfSeconds": 0.000632968,
+            "cumulativeSeconds": 0.000632968
+          },
+          {
+            "file": "~",
+            "line": 0,
+            "function": "<method 'update' of 'set' objects>",
+            "primitiveCalls": 1010,
+            "calls": 1010,
+            "selfSeconds": 0.000411703,
+            "cumulativeSeconds": 0.00048281400000000003
+          },
+          {
+            "file": "~",
+            "line": 0,
+            "function": "<built-in method builtins.len>",
+            "primitiveCalls": 4122,
+            "calls": 4122,
+            "selfSeconds": 0.000280246,
+            "cumulativeSeconds": 0.000280246
+          }
+        ]
+      },
+      "realModelCalls": 0
+    },
+    "text-overlap": {
+      "case": "text-overlap",
+      "sourceRoot": "/private/var/folders/1b/b19xbzjx7xqc4kl0k9x_y4y80000gp/T/practiq-perf-loop-qrdu2192/baseline",
+      "python": "3.14.7",
+      "executable": "/Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14",
+      "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+      "machine": "arm64",
+      "pythonOptimization": 0,
+      "pythonHashSeed": "0",
+      "dependencies": {
+        "pydantic": "2.13.4",
+        "Pillow": "12.3.0"
+      },
+      "sourceHashes": {
+        "server/src/practiq_ai/graphs/chunking.py": "5ae826ae6ff9d5025df944dc42aeb5ed88997240661cebbf4094f5259166807d",
+        "server/src/practiq_ai/contracts.py": "f511129eeb20ec829d1e4b22875b36f8a7421cd32aa9420b2707f5eac273e4f8",
+        "server/scripts/benchmark_processing.py": "145a196f5c63be7cbb7dd37d216566cbdbb93b64d45801a34def19026ea2bae1"
+      },
+      "harnessSha256": "06341141586bef4473339cc40c2d30dc176c800ce13b66bd5cb7a3d00d993682",
+      "uniqueInputQuestions": 1000,
+      "inputOccurrences": 2000,
+      "chunkNodeCounts": [
+        1000,
+        1000
+      ],
+      "inputSha256": "cfd090faf452097e9ef55b7f5dad1cc48b7b36d75e02c4acee2b8b9cd1bf64f6",
+      "inputAfterSha256": "cfd090faf452097e9ef55b7f5dad1cc48b7b36d75e02c4acee2b8b9cd1bf64f6",
+      "unchangedInputs": true,
+      "outputSha256": "fc032bef58f32838e51a036a187ac0b54a02472e71f49dc540bcb27c2d979949",
+      "outputHashes": [
+        "fc032bef58f32838e51a036a187ac0b54a02472e71f49dc540bcb27c2d979949"
+      ],
+      "retainedQuestions": 1000,
+      "retainedGroups": 10,
+      "samplesMs": [
+        255.95333299861522
+      ],
+      "firstMeasuredCallMs": 255.95333299861522,
+      "warmSamplesMs": [],
+      "warmMedianMs": null,
+      "benchmarkProcessingMeasureMedianMs": null,
+      "profile": {
+        "file": "/Users/sheny/Developer/code/PractiQ/docs/evidence/2026-10-13-performance-loop/merge-baseline-text-overlap.prof",
+        "sha256": "88faa1406e40f23a3142ca81f4ff67fca2bc2ec8047d98b88f24d9254ad0052d",
+        "totalSeconds": 0.25597829199999994,
+        "contentFunctions": [
+          {
+            "file": "/private/var/folders/1b/b19xbzjx7xqc4kl0k9x_y4y80000gp/T/practiq-perf-loop-qrdu2192/baseline/server/src/practiq_ai/graphs/chunking.py",
+            "line": 89,
+            "function": "_content",
+            "primitiveCalls": 2000,
+            "calls": 2000,
+            "selfSeconds": 0.0008137890000000001,
+            "cumulativeSeconds": 0.014318646
+          }
+        ],
+        "topCumulative": [
+          {
+            "file": "/Users/sheny/Developer/code/PractiQ/docs/evidence/2026-10-13-performance-loop/merge_compare.py",
+            "line": 89,
+            "function": "run",
+            "primitiveCalls": 1,
+            "calls": 1,
+            "selfSeconds": 0.001945169,
+            "cumulativeSeconds": 0.255960375
+          },
+          {
+            "file": "/private/var/folders/1b/b19xbzjx7xqc4kl0k9x_y4y80000gp/T/practiq-perf-loop-qrdu2192/baseline/server/src/practiq_ai/graphs/chunking.py",
+            "line": 94,
+            "function": "merge_chunk_results",
+            "primitiveCalls": 1,
+            "calls": 1,
+            "selfSeconds": 0.010677948000000001,
+            "cumulativeSeconds": 0.254013041
+          },
+          {
+            "file": "/Users/sheny/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/site-packages/pydantic/main.py",
+            "line": 393,
+            "function": "model_copy",
+            "primitiveCalls": 2020,
+            "calls": 2020,
+            "selfSeconds": 0.000560452,
+            "cumulativeSeconds": 0.201497381
+          },
+          {
+            "file": "/Users/sheny/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/site-packages/pydantic/main.py",
+            "line": 990,
+            "function": "__deepcopy__",
+            "primitiveCalls": 2000,
+            "calls": 27882,
+            "selfSeconds": 0.02624825,
+            "cumulativeSeconds": 0.200880091
+          },
+          {
+            "file": "/Users/sheny/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/copy.py",
+            "line": 110,
+            "function": "deepcopy",
+            "primitiveCalls": 4000,
+            "calls": 513528,
+            "selfSeconds": 0.068256855,
+            "cumulativeSeconds": 0.197033169
+          },
+          {
+            "file": "/Users/sheny/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/copy.py",
+            "line": 198,
+            "function": "_deepcopy_dict",
+            "primitiveCalls": 2000,
+            "calls": 27882,
+            "selfSeconds": 0.047155662,
+            "cumulativeSeconds": 0.195067924
+          },
+          {
+            "file": "/Users/sheny/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/copy.py",
+            "line": 172,
+            "function": "_deepcopy_list",
+            "primitiveCalls": 13882,
+            "calls": 13882,
+            "selfSeconds": 0.007024316,
+            "cumulativeSeconds": 0.15177252700000002
+          },
+          {
+            "file": "/Users/sheny/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/copy.py",
+            "line": 212,
+            "function": "_keep_alive",
+            "primitiveCalls": 67646,
+            "calls": 67646,
+            "selfSeconds": 0.012644341000000002,
+            "cumulativeSeconds": 0.019582143
+          },
+          {
+            "file": "/private/var/folders/1b/b19xbzjx7xqc4kl0k9x_y4y80000gp/T/practiq-perf-loop-qrdu2192/baseline/server/src/practiq_ai/graphs/chunking.py",
+            "line": 75,
+            "function": "_source_locations",
+            "primitiveCalls": 2000,
+            "calls": 2000,
+            "selfSeconds": 0.001809124,
+            "cumulativeSeconds": 0.016371581
+          },
+          {
+            "file": "/private/var/folders/1b/b19xbzjx7xqc4kl0k9x_y4y80000gp/T/practiq-perf-loop-qrdu2192/baseline/server/src/practiq_ai/graphs/chunking.py",
+            "line": 89,
+            "function": "_content",
+            "primitiveCalls": 2000,
+            "calls": 2000,
+            "selfSeconds": 0.0008137890000000001,
+            "cumulativeSeconds": 0.014318646
+          },
+          {
+            "file": "/Users/sheny/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/site-packages/pydantic/main.py",
+            "line": 427,
+            "function": "model_dump",
+            "primitiveCalls": 2000,
+            "calls": 2000,
+            "selfSeconds": 0.00038800600000000004,
+            "cumulativeSeconds": 0.013504857
+          },
+          {
+            "file": "~",
+            "line": 0,
+            "function": "<method 'to_python' of 'pydantic_core._pydantic_core.SchemaSerializer' objects>",
+            "primitiveCalls": 2000,
+            "calls": 2000,
+            "selfSeconds": 0.013116851,
+            "cumulativeSeconds": 0.013116851
+          },
+          {
+            "file": "~",
+            "line": 0,
+            "function": "<method 'find' of 'str' objects>",
+            "primitiveCalls": 4000,
+            "calls": 4000,
+            "selfSeconds": 0.011790227,
+            "cumulativeSeconds": 0.011790227
+          },
+          {
+            "file": "~",
+            "line": 0,
+            "function": "<method 'get' of 'dict' objects>",
+            "primitiveCalls": 138316,
+            "calls": 138316,
+            "selfSeconds": 0.008688151,
+            "cumulativeSeconds": 0.008688151
+          },
+          {
+            "file": "~",
+            "line": 0,
+            "function": "<built-in method builtins.id>",
+            "primitiveCalls": 179056,
+            "calls": 179056,
+            "selfSeconds": 0.008070049000000001,
+            "cumulativeSeconds": 0.008070049000000001
+          },
+          {
+            "file": "/Users/sheny/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/copy.py",
+            "line": 62,
+            "function": "copy",
+            "primitiveCalls": 27942,
+            "calls": 27942,
+            "selfSeconds": 0.004517166,
+            "cumulativeSeconds": 0.0075544570000000005
+          },
+          {
+            "file": "~",
+            "line": 0,
+            "function": "<method 'append' of 'list' objects>",
+            "primitiveCalls": 100697,
+            "calls": 100697,
+            "selfSeconds": 0.005888071000000001,
+            "cumulativeSeconds": 0.005888071000000001
+          },
+          {
+            "file": "/private/var/folders/1b/b19xbzjx7xqc4kl0k9x_y4y80000gp/T/practiq-perf-loop-qrdu2192/baseline/server/src/practiq_ai/graphs/chunking.py",
+            "line": 70,
+            "function": "_normalized_source",
+            "primitiveCalls": 2,
+            "calls": 2,
+            "selfSeconds": 0.0027374400000000003,
+            "cumulativeSeconds": 0.004982208
+          },
+          {
+            "file": "~",
+            "line": 0,
+            "function": "<method 'copy' of 'set' objects>",
+            "primitiveCalls": 27902,
+            "calls": 27902,
+            "selfSeconds": 0.0030345790000000004,
+            "cumulativeSeconds": 0.0030345790000000004
+          },
+          {
+            "file": "/Users/sheny/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/re/__init__.py",
+            "line": 183,
+            "function": "sub",
+            "primitiveCalls": 2002,
+            "calls": 2002,
+            "selfSeconds": 0.000605121,
+            "cumulativeSeconds": 0.0029762770000000003
+          },
+          {
+            "file": "~",
+            "line": 0,
+            "function": "<built-in method __new__ of type object at 0x105480b50>",
+            "primitiveCalls": 27902,
+            "calls": 27902,
+            "selfSeconds": 0.002685255,
+            "cumulativeSeconds": 0.002685255
+          },
+          {
+            "file": "~",
+            "line": 0,
+            "function": "<built-in method builtins.getattr>",
+            "primitiveCalls": 25884,
+            "calls": 25884,
+            "selfSeconds": 0.002605324,
+            "cumulativeSeconds": 0.002607991
+          },
+          {
+            "file": "~",
+            "line": 0,
+            "function": "<built-in method builtins.hasattr>",
+            "primitiveCalls": 27902,
+            "calls": 27902,
+            "selfSeconds": 0.0020410520000000002,
+            "cumulativeSeconds": 0.0020410520000000002
+          },
+          {
+            "file": "/Users/sheny/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/site-packages/pydantic/main.py",
+            "line": 1044,
+            "function": "__setattr__",
+            "primitiveCalls": 3000,
+            "calls": 3000,
+            "selfSeconds": 0.0008007200000000001,
+            "cumulativeSeconds": 0.001961142
+          },
+          {
+            "file": "~",
+            "line": 0,
+            "function": "<method 'items' of 'dict' objects>",
+            "primitiveCalls": 27883,
+            "calls": 27883,
+            "selfSeconds": 0.001778192,
+            "cumulativeSeconds": 0.001778192
+          }
+        ]
+      },
+      "realModelCalls": 0
+    }
+  },
+  "pairs": [
+    {
+      "pair": 1,
+      "case": "pages",
+      "order": [
+        "baseline",
+        "candidate"
+      ],
+      "runs": {
+        "baseline": {
+          "case": "pages",
+          "sourceRoot": "/private/var/folders/1b/b19xbzjx7xqc4kl0k9x_y4y80000gp/T/practiq-perf-loop-qrdu2192/baseline",
+          "python": "3.14.7",
+          "executable": "/Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14",
+          "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+          "machine": "arm64",
+          "pythonOptimization": 0,
+          "pythonHashSeed": "0",
+          "dependencies": {
+            "pydantic": "2.13.4",
+            "Pillow": "12.3.0"
+          },
+          "sourceHashes": {
+            "server/src/practiq_ai/graphs/chunking.py": "5ae826ae6ff9d5025df944dc42aeb5ed88997240661cebbf4094f5259166807d",
+            "server/src/practiq_ai/contracts.py": "f511129eeb20ec829d1e4b22875b36f8a7421cd32aa9420b2707f5eac273e4f8",
+            "server/scripts/benchmark_processing.py": "145a196f5c63be7cbb7dd37d216566cbdbb93b64d45801a34def19026ea2bae1"
+          },
+          "harnessSha256": "06341141586bef4473339cc40c2d30dc176c800ce13b66bd5cb7a3d00d993682",
+          "uniqueInputQuestions": 1000,
+          "inputOccurrences": 1000,
+          "chunkNodeCounts": [
+            500,
+            500
+          ],
+          "inputSha256": "4d0df837169812bfa900e1c93d2ddb19a6d9304b25bce503c9c2dcb5d8891867",
+          "inputAfterSha256": "4d0df837169812bfa900e1c93d2ddb19a6d9304b25bce503c9c2dcb5d8891867",
+          "unchangedInputs": true,
+          "outputSha256": "7a9ce37472d7185945280b6aa5d87866af430ec0614771241b5071ad80ff0b6a",
+          "outputHashes": [
+            "7a9ce37472d7185945280b6aa5d87866af430ec0614771241b5071ad80ff0b6a",
+            "7a9ce37472d7185945280b6aa5d87866af430ec0614771241b5071ad80ff0b6a",
+            "7a9ce37472d7185945280b6aa5d87866af430ec0614771241b5071ad80ff0b6a"
+          ],
+          "retainedQuestions": 1000,
+          "retainedGroups": 10,
+          "samplesMs": [
+            39.59687499445863,
+            63.47283400100423,
+            37.72779199789511
+          ],
+          "firstMeasuredCallMs": 39.59687499445863,
+          "warmSamplesMs": [
+            63.47283400100423,
+            37.72779199789511
+          ],
+          "warmMedianMs": 50.60031299944967,
+          "benchmarkProcessingMeasureMedianMs": 39.60000000370201,
+          "profile": null,
+          "realModelCalls": 0
+        },
+        "candidate": {
+          "case": "pages",
+          "sourceRoot": "/Users/sheny/Developer/code/PractiQ",
+          "python": "3.14.7",
+          "executable": "/Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14",
+          "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+          "machine": "arm64",
+          "pythonOptimization": 0,
+          "pythonHashSeed": "0",
+          "dependencies": {
+            "pydantic": "2.13.4",
+            "Pillow": "12.3.0"
+          },
+          "sourceHashes": {
+            "server/src/practiq_ai/graphs/chunking.py": "0bf06296c6c910a181470c2cce9eb788132b7be6a2075c74e4aa62bb5c68e969",
+            "server/src/practiq_ai/contracts.py": "f511129eeb20ec829d1e4b22875b36f8a7421cd32aa9420b2707f5eac273e4f8",
+            "server/scripts/benchmark_processing.py": "145a196f5c63be7cbb7dd37d216566cbdbb93b64d45801a34def19026ea2bae1"
+          },
+          "harnessSha256": "06341141586bef4473339cc40c2d30dc176c800ce13b66bd5cb7a3d00d993682",
+          "uniqueInputQuestions": 1000,
+          "inputOccurrences": 1000,
+          "chunkNodeCounts": [
+            500,
+            500
+          ],
+          "inputSha256": "4d0df837169812bfa900e1c93d2ddb19a6d9304b25bce503c9c2dcb5d8891867",
+          "inputAfterSha256": "4d0df837169812bfa900e1c93d2ddb19a6d9304b25bce503c9c2dcb5d8891867",
+          "unchangedInputs": true,
+          "outputSha256": "7a9ce37472d7185945280b6aa5d87866af430ec0614771241b5071ad80ff0b6a",
+          "outputHashes": [
+            "7a9ce37472d7185945280b6aa5d87866af430ec0614771241b5071ad80ff0b6a",
+            "7a9ce37472d7185945280b6aa5d87866af430ec0614771241b5071ad80ff0b6a",
+            "7a9ce37472d7185945280b6aa5d87866af430ec0614771241b5071ad80ff0b6a"
+          ],
+          "retainedQuestions": 1000,
+          "retainedGroups": 10,
+          "samplesMs": [
+            28.59570899454411,
+            27.92679199774284,
+            50.153415999375284
+          ],
+          "firstMeasuredCallMs": 28.59570899454411,
+          "warmSamplesMs": [
+            27.92679199774284,
+            50.153415999375284
+          ],
+          "warmMedianMs": 39.04010399855906,
+          "benchmarkProcessingMeasureMedianMs": 28.597833996172994,
+          "profile": null,
+          "realModelCalls": 0
+        }
+      }
+    },
+    {
+      "pair": 1,
+      "case": "text-overlap",
+      "order": [
+        "baseline",
+        "candidate"
+      ],
+      "runs": {
+        "baseline": {
+          "case": "text-overlap",
+          "sourceRoot": "/private/var/folders/1b/b19xbzjx7xqc4kl0k9x_y4y80000gp/T/practiq-perf-loop-qrdu2192/baseline",
+          "python": "3.14.7",
+          "executable": "/Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14",
+          "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+          "machine": "arm64",
+          "pythonOptimization": 0,
+          "pythonHashSeed": "0",
+          "dependencies": {
+            "pydantic": "2.13.4",
+            "Pillow": "12.3.0"
+          },
+          "sourceHashes": {
+            "server/src/practiq_ai/graphs/chunking.py": "5ae826ae6ff9d5025df944dc42aeb5ed88997240661cebbf4094f5259166807d",
+            "server/src/practiq_ai/contracts.py": "f511129eeb20ec829d1e4b22875b36f8a7421cd32aa9420b2707f5eac273e4f8",
+            "server/scripts/benchmark_processing.py": "145a196f5c63be7cbb7dd37d216566cbdbb93b64d45801a34def19026ea2bae1"
+          },
+          "harnessSha256": "06341141586bef4473339cc40c2d30dc176c800ce13b66bd5cb7a3d00d993682",
+          "uniqueInputQuestions": 1000,
+          "inputOccurrences": 2000,
+          "chunkNodeCounts": [
+            1000,
+            1000
+          ],
+          "inputSha256": "cfd090faf452097e9ef55b7f5dad1cc48b7b36d75e02c4acee2b8b9cd1bf64f6",
+          "inputAfterSha256": "cfd090faf452097e9ef55b7f5dad1cc48b7b36d75e02c4acee2b8b9cd1bf64f6",
+          "unchangedInputs": true,
+          "outputSha256": "fc032bef58f32838e51a036a187ac0b54a02472e71f49dc540bcb27c2d979949",
+          "outputHashes": [
+            "fc032bef58f32838e51a036a187ac0b54a02472e71f49dc540bcb27c2d979949",
+            "fc032bef58f32838e51a036a187ac0b54a02472e71f49dc540bcb27c2d979949",
+            "fc032bef58f32838e51a036a187ac0b54a02472e71f49dc540bcb27c2d979949"
+          ],
+          "retainedQuestions": 1000,
+          "retainedGroups": 10,
+          "samplesMs": [
+            88.70354200189468,
+            107.82499999913853,
+            97.75195799738867
+          ],
+          "firstMeasuredCallMs": 88.70354200189468,
+          "warmSamplesMs": [
+            107.82499999913853,
+            97.75195799738867
+          ],
+          "warmMedianMs": 102.7884789982636,
+          "benchmarkProcessingMeasureMedianMs": 97.75612499652198,
+          "profile": null,
+          "realModelCalls": 0
+        },
+        "candidate": {
+          "case": "text-overlap",
+          "sourceRoot": "/Users/sheny/Developer/code/PractiQ",
+          "python": "3.14.7",
+          "executable": "/Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14",
+          "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+          "machine": "arm64",
+          "pythonOptimization": 0,
+          "pythonHashSeed": "0",
+          "dependencies": {
+            "pydantic": "2.13.4",
+            "Pillow": "12.3.0"
+          },
+          "sourceHashes": {
+            "server/src/practiq_ai/graphs/chunking.py": "0bf06296c6c910a181470c2cce9eb788132b7be6a2075c74e4aa62bb5c68e969",
+            "server/src/practiq_ai/contracts.py": "f511129eeb20ec829d1e4b22875b36f8a7421cd32aa9420b2707f5eac273e4f8",
+            "server/scripts/benchmark_processing.py": "145a196f5c63be7cbb7dd37d216566cbdbb93b64d45801a34def19026ea2bae1"
+          },
+          "harnessSha256": "06341141586bef4473339cc40c2d30dc176c800ce13b66bd5cb7a3d00d993682",
+          "uniqueInputQuestions": 1000,
+          "inputOccurrences": 2000,
+          "chunkNodeCounts": [
+            1000,
+            1000
+          ],
+          "inputSha256": "cfd090faf452097e9ef55b7f5dad1cc48b7b36d75e02c4acee2b8b9cd1bf64f6",
+          "inputAfterSha256": "cfd090faf452097e9ef55b7f5dad1cc48b7b36d75e02c4acee2b8b9cd1bf64f6",
+          "unchangedInputs": true,
+          "outputSha256": "fc032bef58f32838e51a036a187ac0b54a02472e71f49dc540bcb27c2d979949",
+          "outputHashes": [
+            "fc032bef58f32838e51a036a187ac0b54a02472e71f49dc540bcb27c2d979949",
+            "fc032bef58f32838e51a036a187ac0b54a02472e71f49dc540bcb27c2d979949",
+            "fc032bef58f32838e51a036a187ac0b54a02472e71f49dc540bcb27c2d979949"
+          ],
+          "retainedQuestions": 1000,
+          "retainedGroups": 10,
+          "samplesMs": [
+            89.36054199875798,
+            107.05741700076032,
+            89.82024999568239
+          ],
+          "firstMeasuredCallMs": 89.36054199875798,
+          "warmSamplesMs": [
+            107.05741700076032,
+            89.82024999568239
+          ],
+          "warmMedianMs": 98.43883349822136,
+          "benchmarkProcessingMeasureMedianMs": 89.82341599767096,
+          "profile": null,
+          "realModelCalls": 0
+        }
+      }
+    },
+    {
+      "pair": 2,
+      "case": "pages",
+      "order": [
+        "candidate",
+        "baseline"
+      ],
+      "runs": {
+        "candidate": {
+          "case": "pages",
+          "sourceRoot": "/Users/sheny/Developer/code/PractiQ",
+          "python": "3.14.7",
+          "executable": "/Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14",
+          "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+          "machine": "arm64",
+          "pythonOptimization": 0,
+          "pythonHashSeed": "0",
+          "dependencies": {
+            "pydantic": "2.13.4",
+            "Pillow": "12.3.0"
+          },
+          "sourceHashes": {
+            "server/src/practiq_ai/graphs/chunking.py": "0bf06296c6c910a181470c2cce9eb788132b7be6a2075c74e4aa62bb5c68e969",
+            "server/src/practiq_ai/contracts.py": "f511129eeb20ec829d1e4b22875b36f8a7421cd32aa9420b2707f5eac273e4f8",
+            "server/scripts/benchmark_processing.py": "145a196f5c63be7cbb7dd37d216566cbdbb93b64d45801a34def19026ea2bae1"
+          },
+          "harnessSha256": "06341141586bef4473339cc40c2d30dc176c800ce13b66bd5cb7a3d00d993682",
+          "uniqueInputQuestions": 1000,
+          "inputOccurrences": 1000,
+          "chunkNodeCounts": [
+            500,
+            500
+          ],
+          "inputSha256": "4d0df837169812bfa900e1c93d2ddb19a6d9304b25bce503c9c2dcb5d8891867",
+          "inputAfterSha256": "4d0df837169812bfa900e1c93d2ddb19a6d9304b25bce503c9c2dcb5d8891867",
+          "unchangedInputs": true,
+          "outputSha256": "7a9ce37472d7185945280b6aa5d87866af430ec0614771241b5071ad80ff0b6a",
+          "outputHashes": [
+            "7a9ce37472d7185945280b6aa5d87866af430ec0614771241b5071ad80ff0b6a",
+            "7a9ce37472d7185945280b6aa5d87866af430ec0614771241b5071ad80ff0b6a",
+            "7a9ce37472d7185945280b6aa5d87866af430ec0614771241b5071ad80ff0b6a"
+          ],
+          "retainedQuestions": 1000,
+          "retainedGroups": 10,
+          "samplesMs": [
+            29.056249994027894,
+            28.242165994015522,
+            49.366125000233296
+          ],
+          "firstMeasuredCallMs": 29.056249994027894,
+          "warmSamplesMs": [
+            28.242165994015522,
+            49.366125000233296
+          ],
+          "warmMedianMs": 38.80414549712441,
+          "benchmarkProcessingMeasureMedianMs": 29.05908299726434,
+          "profile": null,
+          "realModelCalls": 0
+        },
+        "baseline": {
+          "case": "pages",
+          "sourceRoot": "/private/var/folders/1b/b19xbzjx7xqc4kl0k9x_y4y80000gp/T/practiq-perf-loop-qrdu2192/baseline",
+          "python": "3.14.7",
+          "executable": "/Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14",
+          "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+          "machine": "arm64",
+          "pythonOptimization": 0,
+          "pythonHashSeed": "0",
+          "dependencies": {
+            "pydantic": "2.13.4",
+            "Pillow": "12.3.0"
+          },
+          "sourceHashes": {
+            "server/src/practiq_ai/graphs/chunking.py": "5ae826ae6ff9d5025df944dc42aeb5ed88997240661cebbf4094f5259166807d",
+            "server/src/practiq_ai/contracts.py": "f511129eeb20ec829d1e4b22875b36f8a7421cd32aa9420b2707f5eac273e4f8",
+            "server/scripts/benchmark_processing.py": "145a196f5c63be7cbb7dd37d216566cbdbb93b64d45801a34def19026ea2bae1"
+          },
+          "harnessSha256": "06341141586bef4473339cc40c2d30dc176c800ce13b66bd5cb7a3d00d993682",
+          "uniqueInputQuestions": 1000,
+          "inputOccurrences": 1000,
+          "chunkNodeCounts": [
+            500,
+            500
+          ],
+          "inputSha256": "4d0df837169812bfa900e1c93d2ddb19a6d9304b25bce503c9c2dcb5d8891867",
+          "inputAfterSha256": "4d0df837169812bfa900e1c93d2ddb19a6d9304b25bce503c9c2dcb5d8891867",
+          "unchangedInputs": true,
+          "outputSha256": "7a9ce37472d7185945280b6aa5d87866af430ec0614771241b5071ad80ff0b6a",
+          "outputHashes": [
+            "7a9ce37472d7185945280b6aa5d87866af430ec0614771241b5071ad80ff0b6a",
+            "7a9ce37472d7185945280b6aa5d87866af430ec0614771241b5071ad80ff0b6a",
+            "7a9ce37472d7185945280b6aa5d87866af430ec0614771241b5071ad80ff0b6a"
+          ],
+          "retainedQuestions": 1000,
+          "retainedGroups": 10,
+          "samplesMs": [
+            37.12587500194786,
+            58.21750000177417,
+            37.85341700131539
+          ],
+          "firstMeasuredCallMs": 37.12587500194786,
+          "warmSamplesMs": [
+            58.21750000177417,
+            37.85341700131539
+          ],
+          "warmMedianMs": 48.03545850154478,
+          "benchmarkProcessingMeasureMedianMs": 37.85512500326149,
+          "profile": null,
+          "realModelCalls": 0
+        }
+      }
+    },
+    {
+      "pair": 2,
+      "case": "text-overlap",
+      "order": [
+        "candidate",
+        "baseline"
+      ],
+      "runs": {
+        "candidate": {
+          "case": "text-overlap",
+          "sourceRoot": "/Users/sheny/Developer/code/PractiQ",
+          "python": "3.14.7",
+          "executable": "/Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14",
+          "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+          "machine": "arm64",
+          "pythonOptimization": 0,
+          "pythonHashSeed": "0",
+          "dependencies": {
+            "pydantic": "2.13.4",
+            "Pillow": "12.3.0"
+          },
+          "sourceHashes": {
+            "server/src/practiq_ai/graphs/chunking.py": "0bf06296c6c910a181470c2cce9eb788132b7be6a2075c74e4aa62bb5c68e969",
+            "server/src/practiq_ai/contracts.py": "f511129eeb20ec829d1e4b22875b36f8a7421cd32aa9420b2707f5eac273e4f8",
+            "server/scripts/benchmark_processing.py": "145a196f5c63be7cbb7dd37d216566cbdbb93b64d45801a34def19026ea2bae1"
+          },
+          "harnessSha256": "06341141586bef4473339cc40c2d30dc176c800ce13b66bd5cb7a3d00d993682",
+          "uniqueInputQuestions": 1000,
+          "inputOccurrences": 2000,
+          "chunkNodeCounts": [
+            1000,
+            1000
+          ],
+          "inputSha256": "cfd090faf452097e9ef55b7f5dad1cc48b7b36d75e02c4acee2b8b9cd1bf64f6",
+          "inputAfterSha256": "cfd090faf452097e9ef55b7f5dad1cc48b7b36d75e02c4acee2b8b9cd1bf64f6",
+          "unchangedInputs": true,
+          "outputSha256": "fc032bef58f32838e51a036a187ac0b54a02472e71f49dc540bcb27c2d979949",
+          "outputHashes": [
+            "fc032bef58f32838e51a036a187ac0b54a02472e71f49dc540bcb27c2d979949",
+            "fc032bef58f32838e51a036a187ac0b54a02472e71f49dc540bcb27c2d979949",
+            "fc032bef58f32838e51a036a187ac0b54a02472e71f49dc540bcb27c2d979949"
+          ],
+          "retainedQuestions": 1000,
+          "retainedGroups": 10,
+          "samplesMs": [
+            89.56079199560918,
+            107.52612500073155,
+            89.57187499618158
+          ],
+          "firstMeasuredCallMs": 89.56079199560918,
+          "warmSamplesMs": [
+            107.52612500073155,
+            89.57187499618158
+          ],
+          "warmMedianMs": 98.54899999845657,
+          "benchmarkProcessingMeasureMedianMs": 89.57470799941802,
+          "profile": null,
+          "realModelCalls": 0
+        },
+        "baseline": {
+          "case": "text-overlap",
+          "sourceRoot": "/private/var/folders/1b/b19xbzjx7xqc4kl0k9x_y4y80000gp/T/practiq-perf-loop-qrdu2192/baseline",
+          "python": "3.14.7",
+          "executable": "/Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14",
+          "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+          "machine": "arm64",
+          "pythonOptimization": 0,
+          "pythonHashSeed": "0",
+          "dependencies": {
+            "pydantic": "2.13.4",
+            "Pillow": "12.3.0"
+          },
+          "sourceHashes": {
+            "server/src/practiq_ai/graphs/chunking.py": "5ae826ae6ff9d5025df944dc42aeb5ed88997240661cebbf4094f5259166807d",
+            "server/src/practiq_ai/contracts.py": "f511129eeb20ec829d1e4b22875b36f8a7421cd32aa9420b2707f5eac273e4f8",
+            "server/scripts/benchmark_processing.py": "145a196f5c63be7cbb7dd37d216566cbdbb93b64d45801a34def19026ea2bae1"
+          },
+          "harnessSha256": "06341141586bef4473339cc40c2d30dc176c800ce13b66bd5cb7a3d00d993682",
+          "uniqueInputQuestions": 1000,
+          "inputOccurrences": 2000,
+          "chunkNodeCounts": [
+            1000,
+            1000
+          ],
+          "inputSha256": "cfd090faf452097e9ef55b7f5dad1cc48b7b36d75e02c4acee2b8b9cd1bf64f6",
+          "inputAfterSha256": "cfd090faf452097e9ef55b7f5dad1cc48b7b36d75e02c4acee2b8b9cd1bf64f6",
+          "unchangedInputs": true,
+          "outputSha256": "fc032bef58f32838e51a036a187ac0b54a02472e71f49dc540bcb27c2d979949",
+          "outputHashes": [
+            "fc032bef58f32838e51a036a187ac0b54a02472e71f49dc540bcb27c2d979949",
+            "fc032bef58f32838e51a036a187ac0b54a02472e71f49dc540bcb27c2d979949",
+            "fc032bef58f32838e51a036a187ac0b54a02472e71f49dc540bcb27c2d979949"
+          ],
+          "retainedQuestions": 1000,
+          "retainedGroups": 10,
+          "samplesMs": [
+            89.50916700268863,
+            107.17274999478832,
+            90.15495800122153
+          ],
+          "firstMeasuredCallMs": 89.50916700268863,
+          "warmSamplesMs": [
+            107.17274999478832,
+            90.15495800122153
+          ],
+          "warmMedianMs": 98.66385399800492,
+          "benchmarkProcessingMeasureMedianMs": 90.15766599623021,
+          "profile": null,
+          "realModelCalls": 0
+        }
+      }
+    },
+    {
+      "pair": 3,
+      "case": "pages",
+      "order": [
+        "baseline",
+        "candidate"
+      ],
+      "runs": {
+        "baseline": {
+          "case": "pages",
+          "sourceRoot": "/private/var/folders/1b/b19xbzjx7xqc4kl0k9x_y4y80000gp/T/practiq-perf-loop-qrdu2192/baseline",
+          "python": "3.14.7",
+          "executable": "/Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14",
+          "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+          "machine": "arm64",
+          "pythonOptimization": 0,
+          "pythonHashSeed": "0",
+          "dependencies": {
+            "pydantic": "2.13.4",
+            "Pillow": "12.3.0"
+          },
+          "sourceHashes": {
+            "server/src/practiq_ai/graphs/chunking.py": "5ae826ae6ff9d5025df944dc42aeb5ed88997240661cebbf4094f5259166807d",
+            "server/src/practiq_ai/contracts.py": "f511129eeb20ec829d1e4b22875b36f8a7421cd32aa9420b2707f5eac273e4f8",
+            "server/scripts/benchmark_processing.py": "145a196f5c63be7cbb7dd37d216566cbdbb93b64d45801a34def19026ea2bae1"
+          },
+          "harnessSha256": "06341141586bef4473339cc40c2d30dc176c800ce13b66bd5cb7a3d00d993682",
+          "uniqueInputQuestions": 1000,
+          "inputOccurrences": 1000,
+          "chunkNodeCounts": [
+            500,
+            500
+          ],
+          "inputSha256": "4d0df837169812bfa900e1c93d2ddb19a6d9304b25bce503c9c2dcb5d8891867",
+          "inputAfterSha256": "4d0df837169812bfa900e1c93d2ddb19a6d9304b25bce503c9c2dcb5d8891867",
+          "unchangedInputs": true,
+          "outputSha256": "7a9ce37472d7185945280b6aa5d87866af430ec0614771241b5071ad80ff0b6a",
+          "outputHashes": [
+            "7a9ce37472d7185945280b6aa5d87866af430ec0614771241b5071ad80ff0b6a",
+            "7a9ce37472d7185945280b6aa5d87866af430ec0614771241b5071ad80ff0b6a",
+            "7a9ce37472d7185945280b6aa5d87866af430ec0614771241b5071ad80ff0b6a"
+          ],
+          "retainedQuestions": 1000,
+          "retainedGroups": 10,
+          "samplesMs": [
+            37.71487499761861,
+            56.744583998806775,
+            37.4781670034281
+          ],
+          "firstMeasuredCallMs": 37.71487499761861,
+          "warmSamplesMs": [
+            56.744583998806775,
+            37.4781670034281
+          ],
+          "warmMedianMs": 47.111375501117436,
+          "benchmarkProcessingMeasureMedianMs": 37.71812500053784,
+          "profile": null,
+          "realModelCalls": 0
+        },
+        "candidate": {
+          "case": "pages",
+          "sourceRoot": "/Users/sheny/Developer/code/PractiQ",
+          "python": "3.14.7",
+          "executable": "/Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14",
+          "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+          "machine": "arm64",
+          "pythonOptimization": 0,
+          "pythonHashSeed": "0",
+          "dependencies": {
+            "pydantic": "2.13.4",
+            "Pillow": "12.3.0"
+          },
+          "sourceHashes": {
+            "server/src/practiq_ai/graphs/chunking.py": "0bf06296c6c910a181470c2cce9eb788132b7be6a2075c74e4aa62bb5c68e969",
+            "server/src/practiq_ai/contracts.py": "f511129eeb20ec829d1e4b22875b36f8a7421cd32aa9420b2707f5eac273e4f8",
+            "server/scripts/benchmark_processing.py": "145a196f5c63be7cbb7dd37d216566cbdbb93b64d45801a34def19026ea2bae1"
+          },
+          "harnessSha256": "06341141586bef4473339cc40c2d30dc176c800ce13b66bd5cb7a3d00d993682",
+          "uniqueInputQuestions": 1000,
+          "inputOccurrences": 1000,
+          "chunkNodeCounts": [
+            500,
+            500
+          ],
+          "inputSha256": "4d0df837169812bfa900e1c93d2ddb19a6d9304b25bce503c9c2dcb5d8891867",
+          "inputAfterSha256": "4d0df837169812bfa900e1c93d2ddb19a6d9304b25bce503c9c2dcb5d8891867",
+          "unchangedInputs": true,
+          "outputSha256": "7a9ce37472d7185945280b6aa5d87866af430ec0614771241b5071ad80ff0b6a",
+          "outputHashes": [
+            "7a9ce37472d7185945280b6aa5d87866af430ec0614771241b5071ad80ff0b6a",
+            "7a9ce37472d7185945280b6aa5d87866af430ec0614771241b5071ad80ff0b6a",
+            "7a9ce37472d7185945280b6aa5d87866af430ec0614771241b5071ad80ff0b6a"
+          ],
+          "retainedQuestions": 1000,
+          "retainedGroups": 10,
+          "samplesMs": [
+            29.22266599489376,
+            27.945916997850873,
+            50.815041999157984
+          ],
+          "firstMeasuredCallMs": 29.22266599489376,
+          "warmSamplesMs": [
+            27.945916997850873,
+            50.815041999157984
+          ],
+          "warmMedianMs": 39.38047949850443,
+          "benchmarkProcessingMeasureMedianMs": 29.226582999399398,
+          "profile": null,
+          "realModelCalls": 0
+        }
+      }
+    },
+    {
+      "pair": 3,
+      "case": "text-overlap",
+      "order": [
+        "baseline",
+        "candidate"
+      ],
+      "runs": {
+        "baseline": {
+          "case": "text-overlap",
+          "sourceRoot": "/private/var/folders/1b/b19xbzjx7xqc4kl0k9x_y4y80000gp/T/practiq-perf-loop-qrdu2192/baseline",
+          "python": "3.14.7",
+          "executable": "/Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14",
+          "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+          "machine": "arm64",
+          "pythonOptimization": 0,
+          "pythonHashSeed": "0",
+          "dependencies": {
+            "pydantic": "2.13.4",
+            "Pillow": "12.3.0"
+          },
+          "sourceHashes": {
+            "server/src/practiq_ai/graphs/chunking.py": "5ae826ae6ff9d5025df944dc42aeb5ed88997240661cebbf4094f5259166807d",
+            "server/src/practiq_ai/contracts.py": "f511129eeb20ec829d1e4b22875b36f8a7421cd32aa9420b2707f5eac273e4f8",
+            "server/scripts/benchmark_processing.py": "145a196f5c63be7cbb7dd37d216566cbdbb93b64d45801a34def19026ea2bae1"
+          },
+          "harnessSha256": "06341141586bef4473339cc40c2d30dc176c800ce13b66bd5cb7a3d00d993682",
+          "uniqueInputQuestions": 1000,
+          "inputOccurrences": 2000,
+          "chunkNodeCounts": [
+            1000,
+            1000
+          ],
+          "inputSha256": "cfd090faf452097e9ef55b7f5dad1cc48b7b36d75e02c4acee2b8b9cd1bf64f6",
+          "inputAfterSha256": "cfd090faf452097e9ef55b7f5dad1cc48b7b36d75e02c4acee2b8b9cd1bf64f6",
+          "unchangedInputs": true,
+          "outputSha256": "fc032bef58f32838e51a036a187ac0b54a02472e71f49dc540bcb27c2d979949",
+          "outputHashes": [
+            "fc032bef58f32838e51a036a187ac0b54a02472e71f49dc540bcb27c2d979949",
+            "fc032bef58f32838e51a036a187ac0b54a02472e71f49dc540bcb27c2d979949",
+            "fc032bef58f32838e51a036a187ac0b54a02472e71f49dc540bcb27c2d979949"
+          ],
+          "retainedQuestions": 1000,
+          "retainedGroups": 10,
+          "samplesMs": [
+            89.08504199644085,
+            106.75204199651489,
+            90.48849999817321
+          ],
+          "firstMeasuredCallMs": 89.08504199644085,
+          "warmSamplesMs": [
+            106.75204199651489,
+            90.48849999817321
+          ],
+          "warmMedianMs": 98.62027099734405,
+          "benchmarkProcessingMeasureMedianMs": 90.49104199948488,
+          "profile": null,
+          "realModelCalls": 0
+        },
+        "candidate": {
+          "case": "text-overlap",
+          "sourceRoot": "/Users/sheny/Developer/code/PractiQ",
+          "python": "3.14.7",
+          "executable": "/Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14",
+          "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+          "machine": "arm64",
+          "pythonOptimization": 0,
+          "pythonHashSeed": "0",
+          "dependencies": {
+            "pydantic": "2.13.4",
+            "Pillow": "12.3.0"
+          },
+          "sourceHashes": {
+            "server/src/practiq_ai/graphs/chunking.py": "0bf06296c6c910a181470c2cce9eb788132b7be6a2075c74e4aa62bb5c68e969",
+            "server/src/practiq_ai/contracts.py": "f511129eeb20ec829d1e4b22875b36f8a7421cd32aa9420b2707f5eac273e4f8",
+            "server/scripts/benchmark_processing.py": "145a196f5c63be7cbb7dd37d216566cbdbb93b64d45801a34def19026ea2bae1"
+          },
+          "harnessSha256": "06341141586bef4473339cc40c2d30dc176c800ce13b66bd5cb7a3d00d993682",
+          "uniqueInputQuestions": 1000,
+          "inputOccurrences": 2000,
+          "chunkNodeCounts": [
+            1000,
+            1000
+          ],
+          "inputSha256": "cfd090faf452097e9ef55b7f5dad1cc48b7b36d75e02c4acee2b8b9cd1bf64f6",
+          "inputAfterSha256": "cfd090faf452097e9ef55b7f5dad1cc48b7b36d75e02c4acee2b8b9cd1bf64f6",
+          "unchangedInputs": true,
+          "outputSha256": "fc032bef58f32838e51a036a187ac0b54a02472e71f49dc540bcb27c2d979949",
+          "outputHashes": [
+            "fc032bef58f32838e51a036a187ac0b54a02472e71f49dc540bcb27c2d979949",
+            "fc032bef58f32838e51a036a187ac0b54a02472e71f49dc540bcb27c2d979949",
+            "fc032bef58f32838e51a036a187ac0b54a02472e71f49dc540bcb27c2d979949"
+          ],
+          "retainedQuestions": 1000,
+          "retainedGroups": 10,
+          "samplesMs": [
+            92.31824999733362,
+            108.71866699744714,
+            91.85766599694034
+          ],
+          "firstMeasuredCallMs": 92.31824999733362,
+          "warmSamplesMs": [
+            108.71866699744714,
+            91.85766599694034
+          ],
+          "warmMedianMs": 100.28816649719374,
+          "benchmarkProcessingMeasureMedianMs": 92.32366700598504,
+          "profile": null,
+          "realModelCalls": 0
+        }
+      }
+    },
+    {
+      "pair": 4,
+      "case": "pages",
+      "order": [
+        "candidate",
+        "baseline"
+      ],
+      "runs": {
+        "candidate": {
+          "case": "pages",
+          "sourceRoot": "/Users/sheny/Developer/code/PractiQ",
+          "python": "3.14.7",
+          "executable": "/Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14",
+          "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+          "machine": "arm64",
+          "pythonOptimization": 0,
+          "pythonHashSeed": "0",
+          "dependencies": {
+            "pydantic": "2.13.4",
+            "Pillow": "12.3.0"
+          },
+          "sourceHashes": {
+            "server/src/practiq_ai/graphs/chunking.py": "0bf06296c6c910a181470c2cce9eb788132b7be6a2075c74e4aa62bb5c68e969",
+            "server/src/practiq_ai/contracts.py": "f511129eeb20ec829d1e4b22875b36f8a7421cd32aa9420b2707f5eac273e4f8",
+            "server/scripts/benchmark_processing.py": "145a196f5c63be7cbb7dd37d216566cbdbb93b64d45801a34def19026ea2bae1"
+          },
+          "harnessSha256": "06341141586bef4473339cc40c2d30dc176c800ce13b66bd5cb7a3d00d993682",
+          "uniqueInputQuestions": 1000,
+          "inputOccurrences": 1000,
+          "chunkNodeCounts": [
+            500,
+            500
+          ],
+          "inputSha256": "4d0df837169812bfa900e1c93d2ddb19a6d9304b25bce503c9c2dcb5d8891867",
+          "inputAfterSha256": "4d0df837169812bfa900e1c93d2ddb19a6d9304b25bce503c9c2dcb5d8891867",
+          "unchangedInputs": true,
+          "outputSha256": "7a9ce37472d7185945280b6aa5d87866af430ec0614771241b5071ad80ff0b6a",
+          "outputHashes": [
+            "7a9ce37472d7185945280b6aa5d87866af430ec0614771241b5071ad80ff0b6a",
+            "7a9ce37472d7185945280b6aa5d87866af430ec0614771241b5071ad80ff0b6a",
+            "7a9ce37472d7185945280b6aa5d87866af430ec0614771241b5071ad80ff0b6a"
+          ],
+          "retainedQuestions": 1000,
+          "retainedGroups": 10,
+          "samplesMs": [
+            29.410959003143944,
+            28.286542001296766,
+            48.93599999923026
+          ],
+          "firstMeasuredCallMs": 29.410959003143944,
+          "warmSamplesMs": [
+            28.286542001296766,
+            48.93599999923026
+          ],
+          "warmMedianMs": 38.611271000263514,
+          "benchmarkProcessingMeasureMedianMs": 29.41445900069084,
+          "profile": null,
+          "realModelCalls": 0
+        },
+        "baseline": {
+          "case": "pages",
+          "sourceRoot": "/private/var/folders/1b/b19xbzjx7xqc4kl0k9x_y4y80000gp/T/practiq-perf-loop-qrdu2192/baseline",
+          "python": "3.14.7",
+          "executable": "/Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14",
+          "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+          "machine": "arm64",
+          "pythonOptimization": 0,
+          "pythonHashSeed": "0",
+          "dependencies": {
+            "pydantic": "2.13.4",
+            "Pillow": "12.3.0"
+          },
+          "sourceHashes": {
+            "server/src/practiq_ai/graphs/chunking.py": "5ae826ae6ff9d5025df944dc42aeb5ed88997240661cebbf4094f5259166807d",
+            "server/src/practiq_ai/contracts.py": "f511129eeb20ec829d1e4b22875b36f8a7421cd32aa9420b2707f5eac273e4f8",
+            "server/scripts/benchmark_processing.py": "145a196f5c63be7cbb7dd37d216566cbdbb93b64d45801a34def19026ea2bae1"
+          },
+          "harnessSha256": "06341141586bef4473339cc40c2d30dc176c800ce13b66bd5cb7a3d00d993682",
+          "uniqueInputQuestions": 1000,
+          "inputOccurrences": 1000,
+          "chunkNodeCounts": [
+            500,
+            500
+          ],
+          "inputSha256": "4d0df837169812bfa900e1c93d2ddb19a6d9304b25bce503c9c2dcb5d8891867",
+          "inputAfterSha256": "4d0df837169812bfa900e1c93d2ddb19a6d9304b25bce503c9c2dcb5d8891867",
+          "unchangedInputs": true,
+          "outputSha256": "7a9ce37472d7185945280b6aa5d87866af430ec0614771241b5071ad80ff0b6a",
+          "outputHashes": [
+            "7a9ce37472d7185945280b6aa5d87866af430ec0614771241b5071ad80ff0b6a",
+            "7a9ce37472d7185945280b6aa5d87866af430ec0614771241b5071ad80ff0b6a",
+            "7a9ce37472d7185945280b6aa5d87866af430ec0614771241b5071ad80ff0b6a"
+          ],
+          "retainedQuestions": 1000,
+          "retainedGroups": 10,
+          "samplesMs": [
+            37.538291995588224,
+            58.38766699889675,
+            37.35337500256719
+          ],
+          "firstMeasuredCallMs": 37.538291995588224,
+          "warmSamplesMs": [
+            58.38766699889675,
+            37.35337500256719
+          ],
+          "warmMedianMs": 47.87052100073197,
+          "benchmarkProcessingMeasureMedianMs": 37.54116700292798,
+          "profile": null,
+          "realModelCalls": 0
+        }
+      }
+    },
+    {
+      "pair": 4,
+      "case": "text-overlap",
+      "order": [
+        "candidate",
+        "baseline"
+      ],
+      "runs": {
+        "candidate": {
+          "case": "text-overlap",
+          "sourceRoot": "/Users/sheny/Developer/code/PractiQ",
+          "python": "3.14.7",
+          "executable": "/Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14",
+          "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+          "machine": "arm64",
+          "pythonOptimization": 0,
+          "pythonHashSeed": "0",
+          "dependencies": {
+            "pydantic": "2.13.4",
+            "Pillow": "12.3.0"
+          },
+          "sourceHashes": {
+            "server/src/practiq_ai/graphs/chunking.py": "0bf06296c6c910a181470c2cce9eb788132b7be6a2075c74e4aa62bb5c68e969",
+            "server/src/practiq_ai/contracts.py": "f511129eeb20ec829d1e4b22875b36f8a7421cd32aa9420b2707f5eac273e4f8",
+            "server/scripts/benchmark_processing.py": "145a196f5c63be7cbb7dd37d216566cbdbb93b64d45801a34def19026ea2bae1"
+          },
+          "harnessSha256": "06341141586bef4473339cc40c2d30dc176c800ce13b66bd5cb7a3d00d993682",
+          "uniqueInputQuestions": 1000,
+          "inputOccurrences": 2000,
+          "chunkNodeCounts": [
+            1000,
+            1000
+          ],
+          "inputSha256": "cfd090faf452097e9ef55b7f5dad1cc48b7b36d75e02c4acee2b8b9cd1bf64f6",
+          "inputAfterSha256": "cfd090faf452097e9ef55b7f5dad1cc48b7b36d75e02c4acee2b8b9cd1bf64f6",
+          "unchangedInputs": true,
+          "outputSha256": "fc032bef58f32838e51a036a187ac0b54a02472e71f49dc540bcb27c2d979949",
+          "outputHashes": [
+            "fc032bef58f32838e51a036a187ac0b54a02472e71f49dc540bcb27c2d979949",
+            "fc032bef58f32838e51a036a187ac0b54a02472e71f49dc540bcb27c2d979949",
+            "fc032bef58f32838e51a036a187ac0b54a02472e71f49dc540bcb27c2d979949"
+          ],
+          "retainedQuestions": 1000,
+          "retainedGroups": 10,
+          "samplesMs": [
+            89.69345800142037,
+            106.71966599329608,
+            90.35108399984892
+          ],
+          "firstMeasuredCallMs": 89.69345800142037,
+          "warmSamplesMs": [
+            106.71966599329608,
+            90.35108399984892
+          ],
+          "warmMedianMs": 98.5353749965725,
+          "benchmarkProcessingMeasureMedianMs": 90.35391700308537,
+          "profile": null,
+          "realModelCalls": 0
+        },
+        "baseline": {
+          "case": "text-overlap",
+          "sourceRoot": "/private/var/folders/1b/b19xbzjx7xqc4kl0k9x_y4y80000gp/T/practiq-perf-loop-qrdu2192/baseline",
+          "python": "3.14.7",
+          "executable": "/Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14",
+          "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+          "machine": "arm64",
+          "pythonOptimization": 0,
+          "pythonHashSeed": "0",
+          "dependencies": {
+            "pydantic": "2.13.4",
+            "Pillow": "12.3.0"
+          },
+          "sourceHashes": {
+            "server/src/practiq_ai/graphs/chunking.py": "5ae826ae6ff9d5025df944dc42aeb5ed88997240661cebbf4094f5259166807d",
+            "server/src/practiq_ai/contracts.py": "f511129eeb20ec829d1e4b22875b36f8a7421cd32aa9420b2707f5eac273e4f8",
+            "server/scripts/benchmark_processing.py": "145a196f5c63be7cbb7dd37d216566cbdbb93b64d45801a34def19026ea2bae1"
+          },
+          "harnessSha256": "06341141586bef4473339cc40c2d30dc176c800ce13b66bd5cb7a3d00d993682",
+          "uniqueInputQuestions": 1000,
+          "inputOccurrences": 2000,
+          "chunkNodeCounts": [
+            1000,
+            1000
+          ],
+          "inputSha256": "cfd090faf452097e9ef55b7f5dad1cc48b7b36d75e02c4acee2b8b9cd1bf64f6",
+          "inputAfterSha256": "cfd090faf452097e9ef55b7f5dad1cc48b7b36d75e02c4acee2b8b9cd1bf64f6",
+          "unchangedInputs": true,
+          "outputSha256": "fc032bef58f32838e51a036a187ac0b54a02472e71f49dc540bcb27c2d979949",
+          "outputHashes": [
+            "fc032bef58f32838e51a036a187ac0b54a02472e71f49dc540bcb27c2d979949",
+            "fc032bef58f32838e51a036a187ac0b54a02472e71f49dc540bcb27c2d979949",
+            "fc032bef58f32838e51a036a187ac0b54a02472e71f49dc540bcb27c2d979949"
+          ],
+          "retainedQuestions": 1000,
+          "retainedGroups": 10,
+          "samplesMs": [
+            90.03508399473503,
+            106.64758300117683,
+            89.9545419961214
+          ],
+          "firstMeasuredCallMs": 90.03508399473503,
+          "warmSamplesMs": [
+            106.64758300117683,
+            89.9545419961214
+          ],
+          "warmMedianMs": 98.30106249864912,
+          "benchmarkProcessingMeasureMedianMs": 90.03854099864839,
+          "profile": null,
+          "realModelCalls": 0
+        }
+      }
+    },
+    {
+      "pair": 5,
+      "case": "pages",
+      "order": [
+        "baseline",
+        "candidate"
+      ],
+      "runs": {
+        "baseline": {
+          "case": "pages",
+          "sourceRoot": "/private/var/folders/1b/b19xbzjx7xqc4kl0k9x_y4y80000gp/T/practiq-perf-loop-qrdu2192/baseline",
+          "python": "3.14.7",
+          "executable": "/Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14",
+          "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+          "machine": "arm64",
+          "pythonOptimization": 0,
+          "pythonHashSeed": "0",
+          "dependencies": {
+            "pydantic": "2.13.4",
+            "Pillow": "12.3.0"
+          },
+          "sourceHashes": {
+            "server/src/practiq_ai/graphs/chunking.py": "5ae826ae6ff9d5025df944dc42aeb5ed88997240661cebbf4094f5259166807d",
+            "server/src/practiq_ai/contracts.py": "f511129eeb20ec829d1e4b22875b36f8a7421cd32aa9420b2707f5eac273e4f8",
+            "server/scripts/benchmark_processing.py": "145a196f5c63be7cbb7dd37d216566cbdbb93b64d45801a34def19026ea2bae1"
+          },
+          "harnessSha256": "06341141586bef4473339cc40c2d30dc176c800ce13b66bd5cb7a3d00d993682",
+          "uniqueInputQuestions": 1000,
+          "inputOccurrences": 1000,
+          "chunkNodeCounts": [
+            500,
+            500
+          ],
+          "inputSha256": "4d0df837169812bfa900e1c93d2ddb19a6d9304b25bce503c9c2dcb5d8891867",
+          "inputAfterSha256": "4d0df837169812bfa900e1c93d2ddb19a6d9304b25bce503c9c2dcb5d8891867",
+          "unchangedInputs": true,
+          "outputSha256": "7a9ce37472d7185945280b6aa5d87866af430ec0614771241b5071ad80ff0b6a",
+          "outputHashes": [
+            "7a9ce37472d7185945280b6aa5d87866af430ec0614771241b5071ad80ff0b6a",
+            "7a9ce37472d7185945280b6aa5d87866af430ec0614771241b5071ad80ff0b6a",
+            "7a9ce37472d7185945280b6aa5d87866af430ec0614771241b5071ad80ff0b6a"
+          ],
+          "retainedQuestions": 1000,
+          "retainedGroups": 10,
+          "samplesMs": [
+            37.42612499627285,
+            56.96154200268211,
+            37.14945800311398
+          ],
+          "firstMeasuredCallMs": 37.42612499627285,
+          "warmSamplesMs": [
+            56.96154200268211,
+            37.14945800311398
+          ],
+          "warmMedianMs": 47.05550000289804,
+          "benchmarkProcessingMeasureMedianMs": 37.4285419966327,
+          "profile": null,
+          "realModelCalls": 0
+        },
+        "candidate": {
+          "case": "pages",
+          "sourceRoot": "/Users/sheny/Developer/code/PractiQ",
+          "python": "3.14.7",
+          "executable": "/Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14",
+          "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+          "machine": "arm64",
+          "pythonOptimization": 0,
+          "pythonHashSeed": "0",
+          "dependencies": {
+            "pydantic": "2.13.4",
+            "Pillow": "12.3.0"
+          },
+          "sourceHashes": {
+            "server/src/practiq_ai/graphs/chunking.py": "0bf06296c6c910a181470c2cce9eb788132b7be6a2075c74e4aa62bb5c68e969",
+            "server/src/practiq_ai/contracts.py": "f511129eeb20ec829d1e4b22875b36f8a7421cd32aa9420b2707f5eac273e4f8",
+            "server/scripts/benchmark_processing.py": "145a196f5c63be7cbb7dd37d216566cbdbb93b64d45801a34def19026ea2bae1"
+          },
+          "harnessSha256": "06341141586bef4473339cc40c2d30dc176c800ce13b66bd5cb7a3d00d993682",
+          "uniqueInputQuestions": 1000,
+          "inputOccurrences": 1000,
+          "chunkNodeCounts": [
+            500,
+            500
+          ],
+          "inputSha256": "4d0df837169812bfa900e1c93d2ddb19a6d9304b25bce503c9c2dcb5d8891867",
+          "inputAfterSha256": "4d0df837169812bfa900e1c93d2ddb19a6d9304b25bce503c9c2dcb5d8891867",
+          "unchangedInputs": true,
+          "outputSha256": "7a9ce37472d7185945280b6aa5d87866af430ec0614771241b5071ad80ff0b6a",
+          "outputHashes": [
+            "7a9ce37472d7185945280b6aa5d87866af430ec0614771241b5071ad80ff0b6a",
+            "7a9ce37472d7185945280b6aa5d87866af430ec0614771241b5071ad80ff0b6a",
+            "7a9ce37472d7185945280b6aa5d87866af430ec0614771241b5071ad80ff0b6a"
+          ],
+          "retainedQuestions": 1000,
+          "retainedGroups": 10,
+          "samplesMs": [
+            29.342041998461355,
+            28.488916999776848,
+            50.12495800474426
+          ],
+          "firstMeasuredCallMs": 29.342041998461355,
+          "warmSamplesMs": [
+            28.488916999776848,
+            50.12495800474426
+          ],
+          "warmMedianMs": 39.30693750226055,
+          "benchmarkProcessingMeasureMedianMs": 29.344333001063205,
+          "profile": null,
+          "realModelCalls": 0
+        }
+      }
+    },
+    {
+      "pair": 5,
+      "case": "text-overlap",
+      "order": [
+        "baseline",
+        "candidate"
+      ],
+      "runs": {
+        "baseline": {
+          "case": "text-overlap",
+          "sourceRoot": "/private/var/folders/1b/b19xbzjx7xqc4kl0k9x_y4y80000gp/T/practiq-perf-loop-qrdu2192/baseline",
+          "python": "3.14.7",
+          "executable": "/Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14",
+          "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+          "machine": "arm64",
+          "pythonOptimization": 0,
+          "pythonHashSeed": "0",
+          "dependencies": {
+            "pydantic": "2.13.4",
+            "Pillow": "12.3.0"
+          },
+          "sourceHashes": {
+            "server/src/practiq_ai/graphs/chunking.py": "5ae826ae6ff9d5025df944dc42aeb5ed88997240661cebbf4094f5259166807d",
+            "server/src/practiq_ai/contracts.py": "f511129eeb20ec829d1e4b22875b36f8a7421cd32aa9420b2707f5eac273e4f8",
+            "server/scripts/benchmark_processing.py": "145a196f5c63be7cbb7dd37d216566cbdbb93b64d45801a34def19026ea2bae1"
+          },
+          "harnessSha256": "06341141586bef4473339cc40c2d30dc176c800ce13b66bd5cb7a3d00d993682",
+          "uniqueInputQuestions": 1000,
+          "inputOccurrences": 2000,
+          "chunkNodeCounts": [
+            1000,
+            1000
+          ],
+          "inputSha256": "cfd090faf452097e9ef55b7f5dad1cc48b7b36d75e02c4acee2b8b9cd1bf64f6",
+          "inputAfterSha256": "cfd090faf452097e9ef55b7f5dad1cc48b7b36d75e02c4acee2b8b9cd1bf64f6",
+          "unchangedInputs": true,
+          "outputSha256": "fc032bef58f32838e51a036a187ac0b54a02472e71f49dc540bcb27c2d979949",
+          "outputHashes": [
+            "fc032bef58f32838e51a036a187ac0b54a02472e71f49dc540bcb27c2d979949",
+            "fc032bef58f32838e51a036a187ac0b54a02472e71f49dc540bcb27c2d979949",
+            "fc032bef58f32838e51a036a187ac0b54a02472e71f49dc540bcb27c2d979949"
+          ],
+          "retainedQuestions": 1000,
+          "retainedGroups": 10,
+          "samplesMs": [
+            89.9221250001574,
+            109.08833300345577,
+            90.31249999679858
+          ],
+          "firstMeasuredCallMs": 89.9221250001574,
+          "warmSamplesMs": [
+            109.08833300345577,
+            90.31249999679858
+          ],
+          "warmMedianMs": 99.70041650012718,
+          "benchmarkProcessingMeasureMedianMs": 90.31541600415949,
+          "profile": null,
+          "realModelCalls": 0
+        },
+        "candidate": {
+          "case": "text-overlap",
+          "sourceRoot": "/Users/sheny/Developer/code/PractiQ",
+          "python": "3.14.7",
+          "executable": "/Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14",
+          "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+          "machine": "arm64",
+          "pythonOptimization": 0,
+          "pythonHashSeed": "0",
+          "dependencies": {
+            "pydantic": "2.13.4",
+            "Pillow": "12.3.0"
+          },
+          "sourceHashes": {
+            "server/src/practiq_ai/graphs/chunking.py": "0bf06296c6c910a181470c2cce9eb788132b7be6a2075c74e4aa62bb5c68e969",
+            "server/src/practiq_ai/contracts.py": "f511129eeb20ec829d1e4b22875b36f8a7421cd32aa9420b2707f5eac273e4f8",
+            "server/scripts/benchmark_processing.py": "145a196f5c63be7cbb7dd37d216566cbdbb93b64d45801a34def19026ea2bae1"
+          },
+          "harnessSha256": "06341141586bef4473339cc40c2d30dc176c800ce13b66bd5cb7a3d00d993682",
+          "uniqueInputQuestions": 1000,
+          "inputOccurrences": 2000,
+          "chunkNodeCounts": [
+            1000,
+            1000
+          ],
+          "inputSha256": "cfd090faf452097e9ef55b7f5dad1cc48b7b36d75e02c4acee2b8b9cd1bf64f6",
+          "inputAfterSha256": "cfd090faf452097e9ef55b7f5dad1cc48b7b36d75e02c4acee2b8b9cd1bf64f6",
+          "unchangedInputs": true,
+          "outputSha256": "fc032bef58f32838e51a036a187ac0b54a02472e71f49dc540bcb27c2d979949",
+          "outputHashes": [
+            "fc032bef58f32838e51a036a187ac0b54a02472e71f49dc540bcb27c2d979949",
+            "fc032bef58f32838e51a036a187ac0b54a02472e71f49dc540bcb27c2d979949",
+            "fc032bef58f32838e51a036a187ac0b54a02472e71f49dc540bcb27c2d979949"
+          ],
+          "retainedQuestions": 1000,
+          "retainedGroups": 10,
+          "samplesMs": [
+            90.68412499618717,
+            110.50708299444523,
+            91.43112499441486
+          ],
+          "firstMeasuredCallMs": 90.68412499618717,
+          "warmSamplesMs": [
+            110.50708299444523,
+            91.43112499441486
+          ],
+          "warmMedianMs": 100.96910399443004,
+          "benchmarkProcessingMeasureMedianMs": 91.43420899636112,
+          "profile": null,
+          "realModelCalls": 0
+        }
+      }
+    }
+  ],
+  "summary": {
+    "pages": {
+      "baseline": {
+        "firstCallMedianMs": 37.538291995588224,
+        "warmMedianMs": 47.87052100073197,
+        "warmPairMediansMs": [
+          50.60031299944967,
+          48.03545850154478,
+          47.111375501117436,
+          47.87052100073197,
+          47.05550000289804
+        ]
+      },
+      "candidate": {
+        "firstCallMedianMs": 29.22266599489376,
+        "warmMedianMs": 39.04010399855906,
+        "warmPairMediansMs": [
+          39.04010399855906,
+          38.80414549712441,
+          39.38047949850443,
+          38.611271000263514,
+          39.30693750226055
+        ]
+      },
+      "pairedWarmChangePercent": [
+        -22.84612152698806,
+        -19.217705612456058,
+        -16.409828667451322,
+        -19.34227956350606,
+        -16.46685828470694
+      ]
+    },
+    "text-overlap": {
+      "baseline": {
+        "firstCallMedianMs": 89.50916700268863,
+        "warmMedianMs": 98.66385399800492,
+        "warmPairMediansMs": [
+          102.7884789982636,
+          98.66385399800492,
+          98.62027099734405,
+          98.30106249864912,
+          99.70041650012718
+        ]
+      },
+      "candidate": {
+        "firstCallMedianMs": 89.69345800142037,
+        "warmMedianMs": 98.54899999845657,
+        "warmPairMediansMs": [
+          98.43883349822136,
+          98.54899999845657,
+          100.28816649719374,
+          98.5353749965725,
+          100.96910399443004
+        ]
+      },
+      "pairedWarmChangePercent": [
+        -4.231646914549369,
+        -0.1164093990801196,
+        1.691229889131618,
+        0.23836212139274338,
+        1.2724996934202926
+      ]
+    }
+  }
+}

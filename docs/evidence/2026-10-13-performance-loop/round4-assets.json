@@ -1,0 +1,219 @@
+{
+  "baseline": {
+    "assets": {
+      "assets/KaTeX_AMS-Regular-BQhdFMY1.woff2": {
+        "bytes": 28076,
+        "sha256": "0cdd387c9590a1a9f9794560022dbb59654a7d86f187aa0c81495ad42d3a7308"
+      },
+      "assets/KaTeX_Caligraphic-Bold-Dq_IR9rO.woff2": {
+        "bytes": 6912,
+        "sha256": "de7701e42cf1f4cf0b766c03fb27977207eee2f4fd5d76fa82188406da43ea4c"
+      },
+      "assets/KaTeX_Caligraphic-Regular-Di6jR-x-.woff2": {
+        "bytes": 6908,
+        "sha256": "5d53e70ad607c2352162dec9e0923fb54ecdafaccbf604cd8dcf7d00facb989b"
+      },
+      "assets/KaTeX_Fraktur-Bold-CL6g_b3V.woff2": {
+        "bytes": 11348,
+        "sha256": "74444efd593c005e3f4573b44524704c0af0a937fe911cca9e94068d0d140d3f"
+      },
+      "assets/KaTeX_Fraktur-Regular-CTYiF6lA.woff2": {
+        "bytes": 11316,
+        "sha256": "51814d270d06ff0255dba0799994fa4d8c84d11f09951d47595f4abb1f3602dc"
+      },
+      "assets/KaTeX_Main-Bold-Cx986IdX.woff2": {
+        "bytes": 25324,
+        "sha256": "0f60d1b897938ec918c8ce073092411baf9438f6739465693ff18b0f9d20b021"
+      },
+      "assets/KaTeX_Main-BoldItalic-DxDJ3AOS.woff2": {
+        "bytes": 16780,
+        "sha256": "99cd42a3c072d918f2f44984a807cf7aa16e13545fd0875fc07c6c65f99e715b"
+      },
+      "assets/KaTeX_Main-Italic-NWA7e6Wa.woff2": {
+        "bytes": 16988,
+        "sha256": "97479ca6cce906abc961ecac96faa5f9ca2e61b8e7670d475826bcdee9a7c267"
+      },
+      "assets/KaTeX_Main-Regular-B22Nviop.woff2": {
+        "bytes": 26272,
+        "sha256": "c2342cd8b869e01752a9321dc17213fc40d4d04c79688c1d43f2cf316abd7866"
+      },
+      "assets/KaTeX_Math-BoldItalic-CZnvNsCZ.woff2": {
+        "bytes": 16400,
+        "sha256": "dc47344dbb6cb5b655c8460d561f4df5f501b90c804ad3c6cec65fe322351ab1"
+      },
+      "assets/KaTeX_Math-Italic-t53AETM-.woff2": {
+        "bytes": 16440,
+        "sha256": "7af58c5ec8f132a2ddde9027c6d7814decce4d3b822a11192a42a20e2e973264"
+      },
+      "assets/KaTeX_SansSerif-Bold-D1sUS0GD.woff2": {
+        "bytes": 12216,
+        "sha256": "e99ae51144bf1232efcc1bfe5add36262c6866b0faab24fa75740e1b98577a62"
+      },
+      "assets/KaTeX_SansSerif-Italic-C3H0VqGB.woff2": {
+        "bytes": 12028,
+        "sha256": "00b26ac825e2095056396e0553b8ac26d3f8ad158c3826e28b4c45b385c4714a"
+      },
+      "assets/KaTeX_SansSerif-Regular-DDBCnlJ7.woff2": {
+        "bytes": 10344,
+        "sha256": "68e8c73ef42afd3ccec58bf0fba302cce448938e7fc020a5e31f8a952eee1342"
+      },
+      "assets/KaTeX_Script-Regular-D3wIWfF6.woff2": {
+        "bytes": 9644,
+        "sha256": "036d4e95149b69ff9bcc0cd55771efeb25ffa3947293e69acd78d5ac328c684b"
+      },
+      "assets/KaTeX_Size1-Regular-mCD8mA8B.woff2": {
+        "bytes": 5468,
+        "sha256": "6b47c40166b6dbe21a5dfca7718413f2147fd2399be1ba605d8ad39cedf25dfe"
+      },
+      "assets/KaTeX_Size2-Regular-Dy4dx90m.woff2": {
+        "bytes": 5208,
+        "sha256": "d04c54219f9eaec6d4d4fd42dfb28785975a4794d6b2fc71e566b9cd6db842dd"
+      },
+      "assets/KaTeX_Size4-Regular-Dl5lxZxV.woff2": {
+        "bytes": 4928,
+        "sha256": "a4af7d414440a1c1790825cfb700cf9cf43b0f2c4b04f0ebc523011ad9853ec0"
+      },
+      "assets/KaTeX_Typewriter-Regular-CO6r4hn1.woff2": {
+        "bytes": 13568,
+        "sha256": "71d517d67827787cfabdf186914cc3358eda539e37931941f2b2fd4a21f68c0b"
+      },
+      "assets/ResultReview-CB1mtFMS.js": {
+        "bytes": 441369,
+        "sha256": "f7dd89589fae587db41ad25babc47e4a35b72fc78e8aa4b51d5ef67d44a154f3"
+      },
+      "assets/ResultReview-CCTRbIMZ.css": {
+        "bytes": 27268,
+        "sha256": "f9e3ea82d15749f5e8066fc3883c3e3524d09dc0bc9535316606d6d497a8a74d"
+      },
+      "assets/index-DDZ2-gcG.css": {
+        "bytes": 44340,
+        "sha256": "8a7f700280dce83e2348d78967b5fb623e3af7a51eed7e95e25bb40a691a5115"
+      },
+      "assets/index-DK1E4DC8.js": {
+        "bytes": 298280,
+        "sha256": "0e0abfe8ea9b885be00afbf4f14670aff9cc6a97985b57f158f5aeb13ce0a642"
+      },
+      "assets/octopus-pB8TTRfc.png": {
+        "bytes": 183860,
+        "sha256": "10b1085a34504e1188903f83604651a056f2551d3c674310685551b3576b75db"
+      },
+      "index.html": {
+        "bytes": 411,
+        "sha256": "b92177d1fbeb4cdf24d11e1135e04a647387fa85fa5c04e04f14e7b43b2871e8"
+      }
+    },
+    "staticBytes": 1251696,
+    "initialJsCssBytes": 342620,
+    "initialJsCssGzipBytes": 105583,
+    "indexSha256": "b92177d1fbeb4cdf24d11e1135e04a647387fa85fa5c04e04f14e7b43b2871e8"
+  },
+  "candidate": {
+    "assets": {
+      "assets/KaTeX_AMS-Regular-BQhdFMY1.woff2": {
+        "bytes": 28076,
+        "sha256": "0cdd387c9590a1a9f9794560022dbb59654a7d86f187aa0c81495ad42d3a7308"
+      },
+      "assets/KaTeX_Caligraphic-Bold-Dq_IR9rO.woff2": {
+        "bytes": 6912,
+        "sha256": "de7701e42cf1f4cf0b766c03fb27977207eee2f4fd5d76fa82188406da43ea4c"
+      },
+      "assets/KaTeX_Caligraphic-Regular-Di6jR-x-.woff2": {
+        "bytes": 6908,
+        "sha256": "5d53e70ad607c2352162dec9e0923fb54ecdafaccbf604cd8dcf7d00facb989b"
+      },
+      "assets/KaTeX_Fraktur-Bold-CL6g_b3V.woff2": {
+        "bytes": 11348,
+        "sha256": "74444efd593c005e3f4573b44524704c0af0a937fe911cca9e94068d0d140d3f"
+      },
+      "assets/KaTeX_Fraktur-Regular-CTYiF6lA.woff2": {
+        "bytes": 11316,
+        "sha256": "51814d270d06ff0255dba0799994fa4d8c84d11f09951d47595f4abb1f3602dc"
+      },
+      "assets/KaTeX_Main-Bold-Cx986IdX.woff2": {
+        "bytes": 25324,
+        "sha256": "0f60d1b897938ec918c8ce073092411baf9438f6739465693ff18b0f9d20b021"
+      },
+      "assets/KaTeX_Main-BoldItalic-DxDJ3AOS.woff2": {
+        "bytes": 16780,
+        "sha256": "99cd42a3c072d918f2f44984a807cf7aa16e13545fd0875fc07c6c65f99e715b"
+      },
+      "assets/KaTeX_Main-Italic-NWA7e6Wa.woff2": {
+        "bytes": 16988,
+        "sha256": "97479ca6cce906abc961ecac96faa5f9ca2e61b8e7670d475826bcdee9a7c267"
+      },
+      "assets/KaTeX_Main-Regular-B22Nviop.woff2": {
+        "bytes": 26272,
+        "sha256": "c2342cd8b869e01752a9321dc17213fc40d4d04c79688c1d43f2cf316abd7866"
+      },
+      "assets/KaTeX_Math-BoldItalic-CZnvNsCZ.woff2": {
+        "bytes": 16400,
+        "sha256": "dc47344dbb6cb5b655c8460d561f4df5f501b90c804ad3c6cec65fe322351ab1"
+      },
+      "assets/KaTeX_Math-Italic-t53AETM-.woff2": {
+        "bytes": 16440,
+        "sha256": "7af58c5ec8f132a2ddde9027c6d7814decce4d3b822a11192a42a20e2e973264"
+      },
+      "assets/KaTeX_SansSerif-Bold-D1sUS0GD.woff2": {
+        "bytes": 12216,
+        "sha256": "e99ae51144bf1232efcc1bfe5add36262c6866b0faab24fa75740e1b98577a62"
+      },
+      "assets/KaTeX_SansSerif-Italic-C3H0VqGB.woff2": {
+        "bytes": 12028,
+        "sha256": "00b26ac825e2095056396e0553b8ac26d3f8ad158c3826e28b4c45b385c4714a"
+      },
+      "assets/KaTeX_SansSerif-Regular-DDBCnlJ7.woff2": {
+        "bytes": 10344,
+        "sha256": "68e8c73ef42afd3ccec58bf0fba302cce448938e7fc020a5e31f8a952eee1342"
+      },
+      "assets/KaTeX_Script-Regular-D3wIWfF6.woff2": {
+        "bytes": 9644,
+        "sha256": "036d4e95149b69ff9bcc0cd55771efeb25ffa3947293e69acd78d5ac328c684b"
+      },
+      "assets/KaTeX_Size1-Regular-mCD8mA8B.woff2": {
+        "bytes": 5468,
+        "sha256": "6b47c40166b6dbe21a5dfca7718413f2147fd2399be1ba605d8ad39cedf25dfe"
+      },
+      "assets/KaTeX_Size2-Regular-Dy4dx90m.woff2": {
+        "bytes": 5208,
+        "sha256": "d04c54219f9eaec6d4d4fd42dfb28785975a4794d6b2fc71e566b9cd6db842dd"
+      },
+      "assets/KaTeX_Size4-Regular-Dl5lxZxV.woff2": {
+        "bytes": 4928,
+        "sha256": "a4af7d414440a1c1790825cfb700cf9cf43b0f2c4b04f0ebc523011ad9853ec0"
+      },
+      "assets/KaTeX_Typewriter-Regular-CO6r4hn1.woff2": {
+        "bytes": 13568,
+        "sha256": "71d517d67827787cfabdf186914cc3358eda539e37931941f2b2fd4a21f68c0b"
+      },
+      "assets/ResultReview-C91pYP6v.js": {
+        "bytes": 441369,
+        "sha256": "26ce5fb1a3c551955b10223fc82a70ea23978dd2beb8243df0d5d330fe6bef5b"
+      },
+      "assets/ResultReview-CCTRbIMZ.css": {
+        "bytes": 27268,
+        "sha256": "f9e3ea82d15749f5e8066fc3883c3e3524d09dc0bc9535316606d6d497a8a74d"
+      },
+      "assets/index-Bdf7nLE4.js": {
+        "bytes": 298297,
+        "sha256": "5c45bc7f360eedc72b2b6689425fe9e6a6670fffa4d0f863a17bbb08cbc7ed80"
+      },
+      "assets/index-DDZ2-gcG.css": {
+        "bytes": 44340,
+        "sha256": "8a7f700280dce83e2348d78967b5fb623e3af7a51eed7e95e25bb40a691a5115"
+      },
+      "assets/octopus-pB8TTRfc.png": {
+        "bytes": 183860,
+        "sha256": "10b1085a34504e1188903f83604651a056f2551d3c674310685551b3576b75db"
+      },
+      "index.html": {
+        "bytes": 411,
+        "sha256": "59af4e7f6c3f357e4c60168007b8af07e409cb4c3ddb53fce07d952f153f6f78"
+      }
+    },
+    "staticBytes": 1251713,
+    "initialJsCssBytes": 342637,
+    "initialJsCssGzipBytes": 105595,
+    "indexSha256": "59af4e7f6c3f357e4c60168007b8af07e409cb4c3ddb53fce07d952f153f6f78"
+  },
+  "method": "Computed after paired Chromium run without rebuilding or source changes. Raw runner asset inventory was empty due an incorrect file test; this separate inventory repairs metadata only. Per-variant served index equality and source SHA assertions passed throughout the run. Browser timing/correctness results remain unchanged."
+}

@@ -1,0 +1,921 @@
+diff --git a/app/src-tauri/src/contract.rs b/app/src-tauri/src/contract.rs
+index fe41d04..8033543 100644
+--- a/app/src-tauri/src/contract.rs
++++ b/app/src-tauri/src/contract.rs
+@@ -188,8 +188,11 @@ pub fn validate_question(q: &mut Value) -> Result<()> {
+             q["blankCount"] = json!(count);
+         }
+     }
+-    let wrapper = json!({"schemaVersion":3,"questions":[q.clone()],"groups":[],"visualElements":[],"warnings":[],"confidenceScore":0});
+-    schema_check(&schemas().0, &wrapper, "result")?;
++    let mut wrapper = json!({"schemaVersion":3,"questions":[],"groups":[],"visualElements":[],"warnings":[],"confidenceScore":0});
++    wrapper["questions"] = Value::Array(vec![q.take()]);
++    let validated = schema_check(&schemas().0, &wrapper, "result");
++    *q = wrapper["questions"][0].take();
++    validated?;
+     let mode = text(q, "answerMode");
+     let kind = text(q, "questionKind");
+     let expected = crate::question_metadata::QUESTION_KIND_MODES
+@@ -943,6 +946,35 @@ mod validation_tests {
+         assert_eq!(parse(&serde_json::to_vec(&valid).unwrap()).unwrap(), valid);
+     }
+ 
++    #[test]
++    fn question_schema_rejection_preserves_normalized_content_and_error_path() {
++        let blocks = json!([{"partType":"table","jsonValue":{"rows":[[null,false,"evidence"]],"metadata":{"source":null,"flags":[false,true]}}}]);
++        let mut question = json!({"id":"kept","stem":"  Evidence  ","sourceText":"  source  ","answerMode":"true_false","confidence":2,"answerPayload":{"value":false},"contentBlocks":blocks});
++        let error = validate_question(&mut question).unwrap_err();
++        assert_eq!(error.code, "LOCAL_SCHEMA_INVALID");
++        assert_eq!(error.params["path"], "result/questions/0/confidence");
++        assert_eq!(question["id"], "kept");
++        assert_eq!(question["stem"], "Evidence");
++        assert_eq!(question["sourceText"], "source");
++        assert_eq!(question["answerPayload"], json!({"value":false}));
++        assert_eq!(question["contentBlocks"], blocks);
++        assert_eq!(question["options"], json!([]));
++        assert_eq!(question["audioStartSeconds"], 0);
++        question["confidence"] = json!(1);
++        validate_question(&mut question).unwrap();
++        assert_eq!(question["contentBlocks"], blocks);
++    }
++
++    #[test]
++    fn question_validation_preserves_nested_nulls_false_answers_and_review_flags() {
++        let mut question = json!({"id":"kept","stem":"Evidence","questionTypeId":"true_false","answerMode":"true_false","confidence":1,"answerPayload":{"value":false},"contentBlocks":[{"partType":"table","jsonValue":{"rows":[[null,false,"evidence"]],"metadata":{"source":null,"empty":[]}}}],"analysis":null,"sourceText":null,"options":[],"items":[],"passage":[],"transcript":[],"allowReuse":false,"audioStartSeconds":0,"examPlayCount":2,"needsReview":true,"missingFields":["analysis","sourceText"]});
++        let expected = question.clone();
++        for _ in 0..2 {
++            validate_question(&mut question).unwrap();
++            assert_eq!(question, expected);
++        }
++    }
++
+     #[test]
+     #[ignore = "synthetic validation benchmark; run with --release --ignored --nocapture"]
+     fn import_validation_performance() {
+diff --git a/app/src-tauri/src/paper.rs b/app/src-tauri/src/paper.rs
+index cb9cc9a..2166d17 100644
+--- a/app/src-tauri/src/paper.rs
++++ b/app/src-tauri/src/paper.rs
+@@ -92,6 +92,13 @@ fn selection_paths(weights: &[usize], target: usize) -> Vec<Option<(usize, usize
+     let mut paths = vec![None; target + 1];
+     paths[0] = Some((0, usize::MAX));
+     let mut reachable = 1;
++    // Positive sums below the smallest eligible group can never become reachable.
++    let reachable_limit = weights
++        .iter()
++        .copied()
++        .filter(|&weight| weight > 0 && weight <= target)
++        .min()
++        .map_or(1, |weight| target - weight + 2);
+     for (i, &weight) in weights.iter().enumerate() {
+         if weight == 0 || weight > target {
+             continue;
+@@ -102,15 +109,19 @@ fn selection_paths(weights: &[usize], target: usize) -> Vec<Option<(usize, usize
+                 reachable += 1;
+             }
+         }
+-        if reachable == paths.len() {
++        if reachable == reachable_limit {
+             break;
+         }
+     }
+     paths
+ }
+ pub(crate) fn feasible_counts(weights: &[usize]) -> Vec<usize> {
+-    if weights.iter().all(|&weight| weight == 1) {
+-        return (1..=weights.len().min(1000)).collect();
++    if let Some(&weight) = weights.first() {
++        if weight > 0 && weights.iter().all(|&value| value == weight) {
++            return (1..=weights.len().min(1000 / weight))
++                .map(|n| n * weight)
++                .collect();
++        }
+     }
+     selection_paths(weights, weights.iter().sum::<usize>().min(1000))
+         .iter()
+@@ -213,8 +224,12 @@ impl Store {
+                     }
+                     chosen.extend(available.into_iter().take(count).map(|r| r.id.clone()));
+                 }
+-                chosen.sort_by_key(|id| roots.iter().position(|r| &r.id == id));
+-                chosen
++                let chosen = chosen.into_iter().collect::<HashSet<_>>();
++                roots
++                    .iter()
++                    .filter(|root| chosen.contains(&root.id))
++                    .map(|root| root.id.clone())
++                    .collect()
+             }
+             _ => return Err("Unsupported selection mode".into()),
+         };
+@@ -335,6 +350,85 @@ mod tests {
+         assert!(exact(&[1001], 1001).is_err());
+     }
+     #[test]
++    fn feasible_counts_match_all_small_subsets_and_count_limits() {
++        fn brute_counts(weights: &[usize]) -> Vec<usize> {
++            (0..(1usize << weights.len()))
++                .map(|mask| {
++                    weights
++                        .iter()
++                        .enumerate()
++                        .filter(|(i, _)| mask & (1 << i) != 0)
++                        .map(|(_, weight)| weight)
++                        .sum::<usize>()
++                })
++                .filter(|count| (1..=1000).contains(count))
++                .collect::<std::collections::BTreeSet<_>>()
++                .into_iter()
++                .collect()
++        }
++        for length in 0..=6 {
++            for mut encoded in 0..4usize.pow(length) {
++                let weights: Vec<_> = (0..length)
++                    .map(|_| {
++                        let weight = encoded % 4;
++                        encoded /= 4;
++                        weight
++                    })
++                    .collect();
++                let counts = feasible_counts(&weights);
++                assert_eq!(counts, brute_counts(&weights), "{weights:?}");
++                for target in counts {
++                    let selected = exact(&weights, target).unwrap();
++                    assert!(selected.windows(2).all(|pair| pair[0] < pair[1]));
++                    assert!(selected
++                        .iter()
++                        .all(|&i| i < weights.len() && weights[i] > 0));
++                    assert_eq!(selected.iter().map(|&i| weights[i]).sum::<usize>(), target);
++                    assert!((1..=1000).contains(&target));
++                }
++            }
++        }
++        for weights in [
++            vec![0, 0, 0],
++            vec![999, 999],
++            vec![1000, 1000],
++            vec![1001, 1001],
++            vec![1, 999, 1000, 1001],
++            vec![0, 2, 998, 1001],
++        ] {
++            assert_eq!(
++                feasible_counts(&weights),
++                brute_counts(&weights),
++                "{weights:?}"
++            );
++        }
++        assert_eq!(
++            feasible_counts(&[3; 334]),
++            (1..=333).map(|i| i * 3).collect::<Vec<_>>()
++        );
++        assert_eq!(
++            feasible_counts(&[10; 101]),
++            (1..=100).map(|i| i * 10).collect::<Vec<_>>()
++        );
++        assert!(exact(&[1], 0).is_err());
++        assert!(exact(&[1001], 1001).is_err());
++    }
++    #[test]
++    fn selection_paths_keep_future_smaller_groups_and_first_selection_order() {
++        let weights = [2, 3, 2, 3, 2, 1];
++        let paths = selection_paths(&weights, 10);
++        assert_eq!(paths[1], Some((0, 5)));
++        assert_eq!(exact(&weights, 1).unwrap(), vec![5]);
++        assert_eq!(exact(&weights, 10).unwrap(), vec![0, 1, 2, 3]);
++        let with_ignored = [0, 1001, 2, 3, 2, 3, 2, 1];
++        assert_eq!(exact(&with_ignored, 2).unwrap(), vec![2]);
++        assert_eq!(exact(&with_ignored, 3).unwrap(), vec![3]);
++        assert_eq!(exact(&with_ignored, 4).unwrap(), vec![2, 4]);
++        assert_eq!(exact(&with_ignored, 6).unwrap(), vec![3, 5]);
++        assert_eq!(exact(&with_ignored, 10).unwrap(), vec![2, 3, 4, 5]);
++        assert!(exact(&[0, 1001, 2, 2], 3).is_err());
++    }
++    #[test]
+     fn statistics_and_random_papers_preserve_complete_groups() {
+         let directory = tempfile::tempdir().unwrap();
+         let mut store = Store::new(directory.path().into()).unwrap();
+@@ -420,6 +514,148 @@ mod tests {
+         }
+     }
+     #[test]
++    fn quotas_preserve_interleaved_order_complete_groups_scores_and_digest() {
++        let directory = tempfile::tempdir().unwrap();
++        let mut store = Store::new(directory.path().into()).unwrap();
++        let mut document: Value =
++            serde_json::from_slice(include_bytes!("../../fixtures/composite.json")).unwrap();
++        let kinds = [
++            "single",
++            "short_answer",
++            "single",
++            "short_answer",
++            "reading",
++            "short_answer",
++            "single",
++            "reading",
++        ];
++        let mut questions = Vec::new();
++        for (i, kind) in kinds.iter().enumerate() {
++            let template = match *kind {
++                "reading" => 0,
++                "single" => 1,
++                _ => 2,
++            };
++            let mut root = document["questions"][template].clone();
++            root["id"] = json!(format!("root-{i}"));
++            root["stem"] = root["id"].clone();
++            root["parentId"] = Value::Null;
++            questions.push(root);
++            if *kind == "reading" {
++                for j in 0..if i == 4 { 3 } else { 2 } {
++                    let mut child = document["questions"][1].clone();
++                    child["id"] = json!(format!("leaf-{i}-{j}"));
++                    child["stem"] = child["id"].clone();
++                    child["parentId"] = json!(format!("root-{i}"));
++                    questions.push(child);
++                }
++            }
++        }
++        document["questions"] = json!(questions);
++        document["groups"] = json!([]);
++        let preview = store
++            .preview(serde_json::to_vec(&document).unwrap(), "Quotas".into())
++            .unwrap();
++        let imported = store
++            .import(text(&preview, "ticket"), None, "Quotas")
++            .unwrap();
++        let bank = text(&imported, "bankId");
++        let page = store
++            .query_questions(&[bank.to_owned()], ("", "", ""), Some((30, 0)))
++            .unwrap();
++        let roots: Vec<_> = list(&page, "items")
++            .iter()
++            .map(|row| text(row, "id").to_owned())
++            .collect();
++        let rows = store.question_rows().unwrap();
++        let request = |random, quotas: Value| {
++            serde_json::from_value::<Preview>(json!({"bank_ids":[bank],"search":"","mode":"","filter":"","selection":"quota","count":0,"quotas":quotas,"question_ids":[],"random":random,"total_cents":1000})).unwrap()
++        };
++        for random in [false, true] {
++            let mut order: Vec<_> = (0..kinds.len()).collect();
++            if random {
++                fastrand::seed(7);
++                fastrand::shuffle(&mut order);
++            }
++            let mut remaining = HashMap::from([("single", 2), ("short_answer", 2), ("reading", 1)]);
++            let expected: Vec<_> = order
++                .into_iter()
++                .filter(|&i| {
++                    let amount = remaining.get_mut(kinds[i]).unwrap();
++                    if *amount == 0 {
++                        false
++                    } else {
++                        *amount -= 1;
++                        true
++                    }
++                })
++                .map(|i| roots[i].clone())
++                .collect();
++            if !random {
++                assert_eq!(expected, roots[..5]);
++            }
++            fastrand::seed(7);
++            let preview = store
++                .preview_paper(request(
++                    random,
++                    json!({"single":2,"short_answer":2,"reading":1,"word_bank":0}),
++                ))
++                .unwrap();
++            assert_eq!(preview["questionIds"], json!(expected));
++            let selected = selected_rows(&rows, &expected).unwrap();
++            let leaves: Vec<_> = selected
++                .iter()
++                .filter(|row| !questions::composite(&row["question"]))
++                .collect();
++            assert_eq!(preview["count"], leaves.len());
++            assert_eq!(preview["digest"], digest(&selected).unwrap());
++            assert_eq!(
++                preview["scores"],
++                if leaves.len() == 7 {
++                    json!([143, 143, 143, 143, 143, 143, 142])
++                } else {
++                    json!([167, 167, 167, 167, 166, 166])
++                }
++            );
++            assert_eq!(
++                list(&preview, "questions")
++                    .iter()
++                    .map(|row| text(row, "id"))
++                    .collect::<Vec<_>>(),
++                leaves.iter().map(|row| text(row, "id")).collect::<Vec<_>>()
++            );
++            for group in expected
++                .iter()
++                .filter(|id| *id == &roots[4] || *id == &roots[7])
++            {
++                let children: Vec<_> = list(&preview, "questions")
++                    .iter()
++                    .filter(|row| row["question"]["parentId"] == *group)
++                    .collect();
++                assert_eq!(children.len(), if group == &roots[4] { 3 } else { 2 });
++                assert!(children
++                    .iter()
++                    .all(|row| row["materials"][0]["id"] == *group));
++            }
++            fastrand::seed(7);
++            assert_eq!(
++                preview,
++                store
++                    .preview_paper(request(
++                        random,
++                        json!({"single":2,"short_answer":2,"reading":1,"word_bank":0})
++                    ))
++                    .unwrap()
++            );
++        }
++        assert!(store
++            .preview_paper(request(false, json!({"reading":3})))
++            .is_err());
++        assert!(store
++            .preview_paper(request(false, json!({"single":0,"reading":0})))
++            .is_err());
++    }
++    #[test]
+     fn changing_previous_scores_keeps_previews_valid_and_snapshots_free_of_live_metadata() {
+         let directory = tempfile::tempdir().unwrap();
+         let mut store = Store::new(directory.path().into()).unwrap();
+diff --git a/app/src-tauri/src/performance.rs b/app/src-tauri/src/performance.rs
+index d903a57..902b098 100644
+--- a/app/src-tauri/src/performance.rs
++++ b/app/src-tauri/src/performance.rs
+@@ -384,7 +384,7 @@ fn desktop_stress() {
+ #[test]
+ #[ignore = "large composite list and subset-sum profile"]
+ fn list_and_selection_stress() {
+-    let mut report = json!({"method":"Release Rust; disposable database; synthetic valid reading groups; 3 sequential samples; excludes IPC/WebView","compositeLists":[],"subsetCounts":[]});
++    let mut report = json!({"method":"Release Rust; disposable database; synthetic valid reading groups; 3 sequential samples; excludes IPC/WebView. Subset timings cover feasible-count calculation only, excluding assertions and JSON serialization.","compositeLists":[],"subsetCounts":[]});
+     for (children, material_bytes) in [(500usize, 50_000usize), (999, 100_000)] {
+         let dir = tempfile::tempdir().unwrap();
+         let store = Store::new(dir.path().into()).unwrap();
+@@ -417,16 +417,35 @@ fn list_and_selection_stress() {
+         report["compositeLists"].as_array_mut().unwrap().push(json!({"rootPageLimit":30,"returnedRoots":1,"children":children,"materialBytes":material_bytes,"measurement":measured}));
+     }
+     for count in [10_000usize, 100_000] {
+-        let weights = vec![1usize; count];
+-        let measured = measure(|| {
+-            let counts = crate::paper::feasible_counts(&weights);
+-            assert_eq!(counts, (1..=1000).collect::<Vec<_>>());
+-            json!(counts)
+-        });
+-        report["subsetCounts"]
+-            .as_array_mut()
+-            .unwrap()
+-            .push(json!({"roots":count,"weight":1,"measurement":measured}));
++        for weight in [1usize, 3, 10, 1001, 0] {
++            let weights = if weight == 0 {
++                (0..count).map(|i| 2 + i % 2).collect::<Vec<_>>()
++            } else {
++                vec![weight; count]
++            };
++            let expected: Vec<_> = if let Some(limit) = 1000_usize.checked_div(weight) {
++                (1..=count.min(limit)).map(|i| i * weight).collect()
++            } else {
++                (2..=1000).collect()
++            };
++            let mut samples = Vec::new();
++            let mut output = Vec::new();
++            for _ in 0..3 {
++                let start = Instant::now();
++                let counts = crate::paper::feasible_counts(std::hint::black_box(&weights));
++                samples.push(start.elapsed().as_secs_f64() * 1000.0);
++                assert_eq!(counts, expected);
++                output = counts;
++            }
++            let bytes = serde_json::to_vec(&output).unwrap();
++            let mut sorted = samples.clone();
++            sorted.sort_by(f64::total_cmp);
++            let measured = json!({"samplesMs":samples,"medianMs":sorted[1],"maxMs":sorted[2],"jsonBytes":bytes.len(),"outputSha256":crate::store::hash(&bytes)});
++            report["subsetCounts"]
++                .as_array_mut()
++                .unwrap()
++                .push(json!({"roots":count,"weight":if weight == 0 { json!([2,3]) } else { json!(weight) },"inputSha256":crate::store::hash(&serde_json::to_vec(&weights).unwrap()),"measurement":measured}));
++        }
+     }
+     std::fs::write(
+         std::env::var("PRACTIQ_BENCH_OUTPUT").expect("set PRACTIQ_BENCH_OUTPUT"),
+@@ -435,3 +454,242 @@ fn list_and_selection_stress() {
+     .unwrap();
+     println!("{}", report);
+ }
++
++#[test]
++#[ignore = "large flat-bank count and quota preview profile"]
++fn paper_preview_stress() {
++    let mut report = json!({"method":"Release Rust Store::preview_paper; temporary SQLite; 3 sequential warm samples per workload; setup, expected-output reads, assertions and JSON serialization excluded; excludes picker, IPC, WebView and physical devices","workloads":[]});
++    for count in [10_000usize, 100_000] {
++        let dir = tempfile::tempdir().unwrap();
++        let store = Store::new(dir.path().into()).unwrap();
++        let mut db = store.connect().unwrap();
++        let tx = db.transaction().unwrap();
++        tx.execute("INSERT INTO banks VALUES('bank','Bank','',1)", [])
++            .unwrap();
++        let input: Vec<_> = (0..count)
++            .map(|i| {
++                (
++                    format!("q{i:06}"),
++                    format!("Question {i}"),
++                    if i < count / 2 {
++                        "true_false"
++                    } else {
++                        "short_answer"
++                    },
++                    if i < count / 2 {
++                        "true"
++                    } else {
++                        "\"Reference\""
++                    },
++                )
++            })
++            .collect();
++        let input_hash = crate::store::hash(&serde_json::to_vec(&input).unwrap());
++        for (i, (id, stem, mode, answer)) in input.iter().enumerate() {
++            tx.execute("INSERT INTO questions(id,bank_id,position,stem,mode,content_blocks,confidence,needs_review,missing_fields) VALUES(?1,'bank',?2,?3,?4,'[]',1,0,'[]')",params![id,i,stem,mode]).unwrap();
++            if *mode == "true_false" {
++                tx.execute(
++                    "INSERT INTO true_false_questions VALUES(?1,?2)",
++                    params![id, answer],
++                )
++                .unwrap();
++            } else {
++                tx.execute(
++                    "INSERT INTO short_answer_questions(question_id,answer) VALUES(?1,?2)",
++                    params![id, answer],
++                )
++                .unwrap();
++            }
++        }
++        tx.commit().unwrap();
++        drop(input);
++        for selection in ["count", "quota"] {
++            for random in [false, true] {
++                let selected_count = if selection == "count" { 20 } else { 1000 };
++                let mut order: Vec<_> = (0..count).collect();
++                if random {
++                    fastrand::seed(7);
++                    fastrand::shuffle(&mut order);
++                }
++                let expected: Vec<_> = if selection == "count" {
++                    order.into_iter().take(selected_count).collect()
++                } else {
++                    let mut taken = [0; 2];
++                    order
++                        .into_iter()
++                        .filter(|&i| {
++                            let category = usize::from(i >= count / 2);
++                            taken[category] += 1;
++                            taken[category] <= 500
++                        })
++                        .collect()
++                };
++                let ids: Vec<_> = expected.iter().map(|i| format!("q{i:06}")).collect();
++                let rows =
++                    crate::questions::read_scoped(&db, &["bank".into()], Some(&ids)).unwrap();
++                let expected_digest =
++                    crate::paper::digest(&crate::paper::selected_rows(&rows, &ids).unwrap())
++                        .unwrap();
++                let request = json!({"bank_ids":["bank"],"search":"","mode":"","filter":"","selection":selection,"count":20,"quotas":if selection == "quota" {json!({"true_false":500,"short_answer":500})} else {json!({})},"question_ids":[],"random":random,"total_cents":selected_count*100,"budgets":{}});
++                let mut samples = Vec::new();
++                let mut output_hash = None;
++                for _ in 0..3 {
++                    let request =
++                        serde_json::from_value::<crate::paper::Preview>(request.clone()).unwrap();
++                    fastrand::seed(7);
++                    let start = Instant::now();
++                    let preview = store.preview_paper(request).unwrap();
++                    let elapsed = start.elapsed().as_secs_f64() * 1000.0;
++                    assert_eq!(preview["count"], selected_count);
++                    assert_eq!(preview["questionIds"], json!(ids));
++                    assert_eq!(preview["digest"], expected_digest);
++                    assert_eq!(preview["scores"], json!(vec![100; selected_count]));
++                    assert_eq!(list(&preview, "questions").len(), selected_count);
++                    for (row, &i) in list(&preview, "questions").iter().zip(&expected) {
++                        assert_eq!(row["id"], format!("q{i:06}"));
++                        assert_eq!(row["question"]["stem"], format!("Question {i}"));
++                        assert_eq!(
++                            row["question"]["answerPayload"],
++                            if i < count / 2 {
++                                json!({"value":true})
++                            } else {
++                                json!({"text":"Reference"})
++                            }
++                        );
++                    }
++                    let bytes = serde_json::to_vec(&preview).unwrap();
++                    let digest = crate::store::hash(&bytes);
++                    if let Some(previous) = &output_hash {
++                        assert_eq!(&digest, previous);
++                    }
++                    output_hash = Some(digest.clone());
++                    samples.push(
++                        json!({"elapsedMs":elapsed,"jsonBytes":bytes.len(),"outputSha256":digest}),
++                    );
++                }
++                let mut times: Vec<_> = samples
++                    .iter()
++                    .map(|s| s["elapsedMs"].as_f64().unwrap())
++                    .collect();
++                times.sort_by(f64::total_cmp);
++                report["workloads"].as_array_mut().unwrap().push(json!({"roots":count,"selection":selection,"selectedCount":selected_count,"random":random,"randomSeed":7,"inputSha256":input_hash,"medianMs":times[1],"maxMs":times[2],"samples":samples}));
++            }
++        }
++    }
++    std::fs::write(
++        std::env::var("PRACTIQ_BENCH_OUTPUT").expect("set PRACTIQ_BENCH_OUTPUT"),
++        serde_json::to_vec_pretty(&report).unwrap(),
++    )
++    .unwrap();
++    println!("{}", report);
++}
++
++#[test]
++#[ignore = "deterministic full backup and restore profile"]
++fn backup_restore_stress() {
++    fn logical_database(db: &rusqlite::Connection) -> Value {
++        use rusqlite::types::ValueRef;
++        use sha2::{Digest, Sha256};
++        let tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT GLOB 'sqlite_*' ORDER BY name").unwrap().query_map([], |r| r.get::<_,String>(0)).unwrap().collect::<std::result::Result<Vec<_>,_>>().unwrap();
++        let mut digest = Sha256::new();
++        let mut counts = serde_json::Map::new();
++        for table in tables {
++            digest.update(table.as_bytes());
++            let mut statement = db
++                .prepare(&format!("SELECT * FROM {table} ORDER BY rowid"))
++                .unwrap();
++            let columns = statement.column_count();
++            let mut rows = statement.query([]).unwrap();
++            let mut count = 0;
++            while let Some(row) = rows.next().unwrap() {
++                for column in 0..columns {
++                    match row.get_ref(column).unwrap() {
++                        ValueRef::Null => digest.update([0]),
++                        ValueRef::Integer(value) => {
++                            digest.update([1]);
++                            digest.update(value.to_le_bytes());
++                        }
++                        ValueRef::Real(value) => {
++                            digest.update([2]);
++                            digest.update(value.to_bits().to_le_bytes());
++                        }
++                        ValueRef::Text(bytes) => {
++                            digest.update([3]);
++                            digest.update((bytes.len() as u64).to_le_bytes());
++                            digest.update(bytes);
++                        }
++                        ValueRef::Blob(bytes) => {
++                            digest.update([4]);
++                            digest.update((bytes.len() as u64).to_le_bytes());
++                            digest.update(bytes);
++                        }
++                    }
++                }
++                digest.update([5]);
++                count += 1;
++            }
++            counts.insert(table, json!(count));
++        }
++        json!({"sha256":format!("{:x}",digest.finalize()),"tableCounts":counts,"schemaVersion":db.query_row("PRAGMA user_version",[],|r|r.get::<_,i64>(0)).unwrap()})
++    }
++    let dir = tempfile::tempdir().unwrap();
++    let mut store = Store::new(dir.path().join("store")).unwrap();
++    let mut db = store.connect().unwrap();
++    let tx = db.transaction().unwrap();
++    tx.execute("INSERT INTO banks VALUES('bank','Synthetic','',1)", [])
++        .unwrap();
++    for i in 0..10_000 {
++        let id = format!("q{i:05}");
++        tx.execute("INSERT INTO questions(id,bank_id,position,stem,mode,content_blocks,confidence,needs_review,missing_fields) VALUES(?1,'bank',?2,?3,'true_false','[]',1,0,'[]')",params![id,i,format!("Question {i}")]).unwrap();
++        tx.execute("INSERT INTO true_false_questions VALUES(?1,'true')", [id])
++            .unwrap();
++    }
++    tx.commit().unwrap();
++    let frozen = crate::questions::freeze(&store.question_rows().unwrap()[..1000]).to_string();
++    let tx = db.transaction().unwrap();
++    for i in 0..100 {
++        let sid = format!("exam{i:03}");
++        tx.execute("INSERT INTO sessions(id,bank_id,bank_title,created_at,position,mode,kind) VALUES(?1,'bank','Synthetic',1,0,'ordered','self_test')",[&sid]).unwrap();
++        tx.execute(
++            "INSERT INTO session_documents VALUES(?1,?2)",
++            params![sid, frozen],
++        )
++        .unwrap();
++        for ordinal in 0..1000 {
++            tx.execute("INSERT INTO attempts(session_id,ordinal,question_id,snapshot_question_id,answer,max_cents) VALUES(?1,?2,?3,?3,'{\"value\":true}',100)",params![sid,ordinal,format!("q{ordinal:05}")]).unwrap();
++        }
++    }
++    tx.commit().unwrap();
++    let before = logical_database(&db);
++    let database_bytes = std::fs::metadata(store.db_path()).unwrap().len();
++    drop(db);
++    let mut report = json!({"questions":10000,"sessions":100,"snapshotQuestions":1000,"attempts":100000,"assets":0,"inputSha256":before["sha256"],"snapshotSha256":crate::store::hash(frozen.as_bytes()),"databaseBytes":database_bytes,"logicalBefore":before,"scope":"Release complete Store::backup/restore methods with temporary fixed-input SQLite and fsync. Three raw samples; first invocation distinguished from later warm invocations. OS caches are not flushed and setup/logical hashing warms files. Setup, assertions, logical digests and reopen checks excluded. No picker/IPC/WebView/platform-device evidence.","backup":[],"restore":[]});
++    let archive = dir.path().join("fixed.zip");
++    for repetition in 0..3 {
++        let start = Instant::now();
++        let result = store.backup(&archive).unwrap();
++        let elapsed = start.elapsed().as_secs_f64() * 1000.0;
++        assert_eq!(result["path"], archive.display().to_string());
++        assert_eq!(logical_database(&store.connect().unwrap()), before);
++        report["backup"].as_array_mut().unwrap().push(json!({"phase":if repetition == 0 {"firstInvocation"} else {"warm"},"elapsedMs":elapsed,"archiveBytes":std::fs::metadata(&archive).unwrap().len()}));
++    }
++    for repetition in 0..3 {
++        let start = Instant::now();
++        let result = store.restore(&archive).unwrap();
++        let elapsed = start.elapsed().as_secs_f64() * 1000.0;
++        let recovery = std::path::Path::new(text(&result, "recoveryPath"));
++        assert!(recovery.is_file());
++        let after = logical_database(&store.connect().unwrap());
++        assert_eq!(after, before);
++        let reopened = Store::new(store.dir.clone()).unwrap();
++        assert_eq!(logical_database(&reopened.connect().unwrap()), before);
++        assert!(reopened.service_settings_override().unwrap().is_none());
++        report["restore"].as_array_mut().unwrap().push(json!({"phase":if repetition == 0 {"firstInvocation"} else {"warm"},"elapsedMs":elapsed,"recoveryBytes":std::fs::metadata(recovery).unwrap().len(),"logicalAfter":after,"reopenPreservesAllTables":true}));
++    }
++    std::fs::write(
++        std::env::var("PRACTIQ_BENCH_OUTPUT").expect("set PRACTIQ_BENCH_OUTPUT"),
++        serde_json::to_vec_pretty(&report).unwrap(),
++    )
++    .unwrap();
++    println!("{}", report);
++}
+diff --git a/server/src/practiq_ai/bank_export.py b/server/src/practiq_ai/bank_export.py
+index 4ecf7ae..e0f0323 100644
+--- a/server/src/practiq_ai/bank_export.py
++++ b/server/src/practiq_ai/bank_export.py
+@@ -102,6 +102,28 @@ def _write_entry(archive: ZipFile, output: BinaryIO, name: str, payload: bytes)
+     _limit(output.tell(), ZIP_LIMIT, "ZIP")
+ 
+ 
++def _prepare_bank(
++    detail: DocumentTaskDetail, source: DocumentReference, title: str, description: str,
++) -> tuple[bytes, bytes, dict[str, ArtifactReference]]:
++    assert detail.result is not None
++    try:
++        result = DocumentParseResult.model_validate(detail.result.model_dump(mode="json"))
++        processing = DocumentProcessing.model_validate(detail.processing.model_dump(mode="json")) if detail.processing else None
++    except ValidationError as exc:
++        raise _invalid("Task result does not satisfy the shared result contract") from exc
++    if processing:
++        ids = {question.id for question in result.questions}
++        if any(item.questionId not in ids for item in [*processing.questionSources, *processing.quality.issues]):
++            raise _invalid("Processing does not reference the current result")
++    manifest = _json({"format": "practiq-question-bank", "version": 2, "bank": {"title": title, "description": description}})
++    questions = _json({"status": detail.status, "result": result.model_dump(mode="json"),
++                       "processing": processing.model_dump(mode="json") if processing else None})
++    _limit(len(manifest), MANIFEST_LIMIT, "Manifest JSON")
++    _limit(len(questions), JSON_LIMIT, "Questions JSON")
++    references = _references(result, source)
++    return manifest, questions, references
++
++
+ async def export_task_bank(
+     detail: DocumentTaskDetail,
+     store: ObjectStore,
+@@ -127,21 +149,7 @@ async def export_task_bank(
+         title = stem if stem.strip() else file_name
+     if not title.strip() or len(title) > 255 or len(description) > 20_000:
+         raise _invalid("Invalid bank metadata")
+-    try:
+-        result = DocumentParseResult.model_validate(detail.result.model_dump(mode="json"))
+-        processing = DocumentProcessing.model_validate(detail.processing.model_dump(mode="json")) if detail.processing else None
+-    except ValidationError as exc:
+-        raise _invalid("Task result does not satisfy the shared result contract") from exc
+-    if processing:
+-        ids = {question.id for question in result.questions}
+-        if any(item.questionId not in ids for item in [*processing.questionSources, *processing.quality.issues]):
+-            raise _invalid("Processing does not reference the current result")
+-    manifest = _json({"format": "practiq-question-bank", "version": 2, "bank": {"title": title, "description": description}})
+-    questions = _json({"status": detail.status, "result": result.model_dump(mode="json"),
+-                       "processing": processing.model_dump(mode="json") if processing else None})
+-    _limit(len(manifest), MANIFEST_LIMIT, "Manifest JSON")
+-    _limit(len(questions), JSON_LIMIT, "Questions JSON")
+-    references = _references(result, source)
++    manifest, questions, references = await _thread_io(_prepare_bank, detail, source, title, description)
+     output = TemporaryFile("w+b")  # noqa: SIM115 - ownership transfers to the response on success
+     try:
+         with ZipFile(output, "w", compression=ZIP_DEFLATED) as archive:
+diff --git a/server/src/practiq_ai/graphs/chunking.py b/server/src/practiq_ai/graphs/chunking.py
+index a3c7f39..6fbbc1a 100644
+--- a/server/src/practiq_ai/graphs/chunking.py
++++ b/server/src/practiq_ai/graphs/chunking.py
+@@ -122,7 +122,7 @@ def merge_chunk_results(
+             question = original.model_copy(deep=True)
+             locations = _source_locations(source, question.sourceText) if source else []
+             location = locations[0] if len(locations) == 1 else None
+-            content = _content(question)
++            content = _content(question) if overlapping else {}
+             codes: set[str] = set()
+             if overlapping and not locations:
+                 codes.add("SOURCE_TEXT_NOT_FOUND")
+diff --git a/server/tests/test_bank_export.py b/server/tests/test_bank_export.py
+index 14b79f6..40c6075 100644
+--- a/server/tests/test_bank_export.py
++++ b/server/tests/test_bank_export.py
+@@ -467,6 +467,61 @@ async def test_task_export_closes_archive_when_the_final_snapshot_cannot_be_used
+         payload.close()
+ 
+ 
++async def test_export_waits_for_cancelled_preparation_before_archive_or_storage_work(tmp_path, monkeypatch):
++    store, source = await source_store(tmp_path)
++    task = detail()
++    files, errors = [], []
++    entered, released, finished = threading.Event(), threading.Event(), threading.Event()
++    event_loop_thread = threading.get_ident()
++    original_validate = bank_export.DocumentParseResult.model_validate
++    reads = AsyncMock(wraps=store.get_verified)
++
++    def validate(*args, **kwargs):
++        assert threading.get_ident() != event_loop_thread, 'Export preparation must leave the event loop'
++        entered.set()
++        try:
++            assert released.wait(5), 'Cancelled preparation was never released'
++            return original_validate(*args, **kwargs)
++        except BaseException as exc:
++            errors.append(exc)
++            raise
++        finally:
++            finished.set()
++
++    def temporary(*args, **kwargs):
++        file = TemporaryFile(*args, **kwargs)  # noqa: SIM115 - assert no archive precedes joined preparation
++        files.append(file)
++        return file
++
++    monkeypatch.setattr(bank_export.DocumentParseResult, 'model_validate', validate)
++    monkeypatch.setattr(bank_export, 'TemporaryFile', temporary)
++    monkeypatch.setattr(store, 'get_verified', reads)
++    operation = asyncio.create_task(bank_export.export_task_bank(task, store, source=source))
++    waiting = asyncio.create_task(asyncio.to_thread(entered.wait, 5))
++    try:
++        done, _ = await asyncio.wait((operation, waiting), timeout=6, return_when=asyncio.FIRST_COMPLETED)
++        if operation in done:
++            await operation
++        assert waiting in done and waiting.result()
++        operation.cancel()
++        await asyncio.sleep(0.01)
++        operation.cancel()
++        await asyncio.sleep(0.01)
++        assert not operation.done() and not files and reads.await_count == 0
++        released.set()
++        with pytest.raises(asyncio.CancelledError):
++            await operation
++        assert finished.is_set() and not errors and not files and reads.await_count == 0
++    finally:
++        entered.set()
++        released.set()
++        if not operation.done():
++            operation.cancel()
++        await asyncio.gather(operation, waiting, return_exceptions=True)
++        for file in files:
++            file.close()
++
++
+ async def test_export_waits_for_a_cancelled_writer_before_closing_its_archive(tmp_path, monkeypatch):
+     store, source = await source_store(tmp_path)
+     image = await store.put_artifact(make_image(), source_sha256=source.sha256, kind="visual", index=0, media_type="image/png")
+diff --git a/server/tests/test_chunking.py b/server/tests/test_chunking.py
+index 30938da..d7b283a 100644
+--- a/server/tests/test_chunking.py
++++ b/server/tests/test_chunking.py
+@@ -2,7 +2,7 @@ from itertools import pairwise
+ 
+ import pytest
+ 
+-from practiq_ai.contracts import ParsedGroup, ParsedOption, ParsedQuestion
++from practiq_ai.contracts import ContentBlock, ParsedGroup, ParsedOption, ParsedQuestion
+ from practiq_ai.graphs.chunking import (
+     ChunkSpan,
+     merge_chunk_results,
+@@ -200,6 +200,42 @@ def test_page_provenance_is_not_text_verification():
+     assert result[5].issues[0].code == 'NEEDS_REVIEW'
+ 
+ 
++def test_page_merge_skips_overlap_content_and_preserves_independent_nested_records(monkeypatch):
++    from practiq_ai.graphs import chunking
++
++    complete = ParsedQuestion(stem='Question', answerMode='short_answer', questionTypeId='short_answer',
++        answerPayload={'text': 'supplied answer'}, analysis='printed analysis', sourceText='Question', needsReview=False,
++        contentBlocks=[ContentBlock(partType='text', textValue='Printed material', jsonValue={'rows': [1, 2]})])
++    missing = ParsedQuestion.model_validate({**complete.model_dump(), 'answerPayload': None, 'needsReview': True})
++    originals = [complete, missing]
++    before = [question.model_dump() for question in originals]
++    group = ParsedGroup(title='Material', questionIndexes=[0])
++    group_before = group.model_dump()
++
++    def unexpected_content(_question):
++        pytest.fail('Page merge must not serialize content for text overlap comparison')
++
++    monkeypatch.setattr(chunking, '_content', unexpected_content)
++    merged, groups, warnings, truncated, sources, quality = merge_chunk_results(
++        [(0, [complete], [group]), (1, [missing], [group])], overlapping=False)
++    assert [question.model_dump() for question in merged] == before
++    assert merged[1].answerPayload is None and merged[1].missingFields == ['answerPayload']
++    assert not warnings and not truncated
++    assert [group.questionIndexes for group in groups] == [[0], [1]]
++    assert [(source.questionIndex, source.stage, source.unitIndex) for source in sources] == [
++        (0, 'vision_parse', 0), (1, 'vision_parse', 1)]
++    assert quality.reviewRequired and quality.reviewQuestionCount == 1
++    assert [(issue.questionIndex, issue.code) for issue in quality.issues] == [(1, 'MISSING_FIELDS')]
++    assert merged[0].answerPayload is not complete.answerPayload
++    merged[0].contentBlocks[0].textValue = 'Edited material'
++    assert merged[0].contentBlocks[0].jsonValue is not None
++    merged[0].contentBlocks[0].jsonValue['rows'].append(3)
++    merged[1].missingFields.append('analysis')
++    groups[0].questionIndexes.append(1)
++    assert [question.model_dump() for question in originals] == before
++    assert group.model_dump() == group_before
++
++
+ @pytest.mark.parametrize('same_material', [False, True])
+ def test_material_groups_merge_only_with_confirmed_overlap(same_material):
+     q1, q2, q3 = question('1. First'), question('2. Second'), question('3. Third')
+diff --git a/web/src/App.test.tsx b/web/src/App.test.tsx
+index 19e15c0..2816240 100644
+--- a/web/src/App.test.tsx
++++ b/web/src/App.test.tsx
+@@ -197,6 +197,54 @@ it("uses lightweight completed heads, skips unchanged previews and refreshes on
+   await act(async()=>{ window.dispatchEvent(new Event("focus")); });
+   expect(reads()).toEqual({detail:3,preview:3,head:1}); vi.useRealTimers();
+ });
++it("reuses task diagnostics across unrelated filters and updates them after an explicit refresh", async () => {
++  const user = userEvent.setup(); const http = fakeHTTP();
++  const originalStringify = JSON.stringify;
++  const diagnostic = vi.fn();
++  const stringify = vi.spyOn(JSON, "stringify").mockImplementation((...args) => {
++    const value: unknown = args[0];
++    if (value && typeof value === "object" && Object.keys(value).length === 4 && ["usage", "unknownUsageCalls", "processing", "blocking"].every(key => Object.hasOwn(value, key))) diagnostic(value);
++    return originalStringify(...args);
++  });
++  const details = () => screen.getByText("模型用量与任务诊断", { exact: true }).closest("details")!;
++  const expected = (current: DocumentTaskDetail) => originalStringify({ usage: current.usage, unknownUsageCalls: current.unknownUsageCalls, processing: current.processing, blocking: current.blocking }, null, 2);
++  const listReads = () => http.calls.filter(call => call.url.startsWith("/api/document-tasks?")).length;
++  try {
++    render(<App />); await connect(user); await openTask(user);
++    const initialCalls = diagnostic.mock.calls.length;
++    expect(initialCalls).toBeGreaterThan(0);
++    expect(details().open).toBe(false);
++    expect(details().querySelector("pre")?.textContent).toBe(expected(task));
++    for (const open of [false, true]) {
++      if (open) await user.click(screen.getByText("模型用量与任务诊断", { exact: true }));
++      expect(details().open).toBe(open);
++      for (const filter of ["completed", ""]) {
++        const reads = listReads();
++        await user.selectOptions(screen.getByLabelText("筛选任务状态"), filter);
++        await waitFor(() => expect(listReads()).toBe(reads + 1));
++        await screen.findByRole("button", { name: /sample.docx/ });
++        expect(diagnostic).toHaveBeenCalledTimes(initialCalls);
++        expect(details().querySelector("pre")?.textContent).toBe(expected(task));
++      }
++    }
++    const current = http.records.get(taskId)!;
++    const updated: DocumentTaskDetail = { ...current,
++      usage: current.usage.map(call => ({ ...call, inputTokens: 22 })),
++      processing: { ...current.processing!, questionSources: [...current.processing!.questionSources!, { questionId: "q-child", stage: "document_parse", unitIndex: 2 }] },
++      result: { ...current.result!, warnings: [...current.result!.warnings, "Refreshed diagnostic task"] },
++    };
++    http.records.set(taskId, updated);
++    await user.click(screen.getByRole("button", { name: "刷新任务详情" }));
++    await screen.findByText("Refreshed diagnostic task", { exact: true });
++    if (!details().open) await user.click(screen.getByText("模型用量与任务诊断", { exact: true }));
++    expect(await screen.findByText("已知用量：1 次调用，输入 22 tokens，输出 8 tokens。", { exact: true })).toBeTruthy();
++    expect(details().querySelector("pre")?.textContent).toBe(expected(updated));
++    expect(diagnostic.mock.calls.length).toBeGreaterThan(initialCalls);
++    expect(diagnostic).toHaveBeenLastCalledWith({ usage: updated.usage, unknownUsageCalls: updated.unknownUsageCalls, processing: updated.processing, blocking: updated.blocking });
++    expect(http.calls.every(call => call.method === "GET")).toBe(true);
++    expect(http.calls.filter(call => call.url !== "/api/products").every(call => call.auth === "Card fake-service-token")).toBe(true);
++  } finally { stringify.mockRestore(); }
++});
+ it("pauses background polling and reloads when the document becomes visible", async () => {
+   const user = userEvent.setup(); const http = fakeHTTP({...task,state:"RUNNING",allowedActions:["pause"]}); render(<App/>); await connect(user); await openTask(user);
+   vi.useFakeTimers(); await act(async()=>{window.dispatchEvent(new Event("focus"));});
+diff --git a/web/src/App.tsx b/web/src/App.tsx
+index 03593b7..d53a66d 100644
+--- a/web/src/App.tsx
++++ b/web/src/App.tsx
+@@ -1,4 +1,4 @@
+-import { lazy, Suspense, useEffect, useRef, useState } from "react";
++import { lazy, memo, Suspense, useEffect, useRef, useState } from "react";
+ import { Upload, Play, RefreshCw, Download, Trash2, LockKeyhole, Unplug, ChevronLeft, ChevronRight, FileText, LoaderCircle } from "lucide-react";
+ import logo from "./assets/octopus.png";
+ import { ApiError, Client, downloadBlob, fileFormat, MAX_FILES, sourceLimit, validateFiles, pointLabel, type Action, type Capabilities, type OfficeMode, type TaskList, type UploadStage } from "./api";
+@@ -26,11 +26,11 @@ function Progress({ task }: { task: DocumentTaskDetail }) {
+     return <section key={kind}><div className="flex justify-between"><strong>{kind === "chunks" ? "文本单元" : "视觉单元"}</strong><span>{progress.succeeded + progress.failed}/{progress.total}</span></div><progress aria-label={kind === "chunks" ? "文本单元进度" : "视觉单元进度"} value={progress.succeeded + progress.failed} max={Math.max(1, progress.total)} /><p className="text-sm text-muted-foreground">{progress.total ? `成功 ${progress.succeeded} · 失败 ${progress.failed} · 剩余 ${progress.remaining}` : "尚无处理单元"}</p></section>;
+   })}</div>;
+ }
+-function Usage({ task }: { task: DocumentTaskDetail }) {
++const Usage = memo(function Usage({ task }: { task: DocumentTaskDetail }) {
+   const input = task.usage.reduce((sum, call) => sum + call.inputTokens, 0);
+   const output = task.usage.reduce((sum, call) => sum + call.outputTokens, 0);
+   return <details className="resource-card"><summary>模型用量与任务诊断</summary><div className="space-y-3 pt-3"><p>已知用量：{task.usage.length} 次调用，输入 {input} tokens，输出 {output} tokens。</p><p>{task.unknownUsageCalls.length ? `有 ${task.unknownUsageCalls.length} 次调用未返回用量，实际总用量未知。` : "没有已记录的未知用量调用。"}</p><p>调用预算：已预留 {task.modelBudget.reserved}/{task.modelBudget.limit} 次。</p><dl className="metadata-grid"><dt>检查点</dt><dd>{task.checkpointId ?? "尚无（null）"}</dd><dt>运行 ID</dt><dd>{task.runId ?? "无（null）"}</dd><dt>父任务</dt><dd>{task.parentThreadId ?? "无（null）"}</dd><dt>到期时间</dt><dd>{task.expiresAt}</dd></dl><pre className="raw-data">{JSON.stringify({ usage: task.usage, unknownUsageCalls: task.unknownUsageCalls, processing: task.processing, blocking: task.blocking }, null, 2)}</pre></div></details>;
+-}
++});
+ 
+ export default function App() {
+   const [draftToken, setDraftToken] = useState("");
