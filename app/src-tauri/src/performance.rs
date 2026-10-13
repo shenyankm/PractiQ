@@ -384,7 +384,7 @@ fn desktop_stress() {
 #[test]
 #[ignore = "large composite list and subset-sum profile"]
 fn list_and_selection_stress() {
-    let mut report = json!({"method":"Release Rust; disposable database; synthetic valid reading groups; 3 sequential samples; excludes IPC/WebView","compositeLists":[],"subsetCounts":[]});
+    let mut report = json!({"method":"Release Rust; disposable database; synthetic valid reading groups; 3 sequential samples; excludes IPC/WebView. Subset timings cover feasible-count calculation only, excluding assertions and JSON serialization.","compositeLists":[],"subsetCounts":[]});
     for (children, material_bytes) in [(500usize, 50_000usize), (999, 100_000)] {
         let dir = tempfile::tempdir().unwrap();
         let store = Store::new(dir.path().into()).unwrap();
@@ -417,20 +417,168 @@ fn list_and_selection_stress() {
         report["compositeLists"].as_array_mut().unwrap().push(json!({"rootPageLimit":30,"returnedRoots":1,"children":children,"materialBytes":material_bytes,"measurement":measured}));
     }
     for count in [10_000usize, 100_000] {
-        let weights = vec![1usize; count];
-        let measured = measure(|| {
-            let counts = crate::paper::feasible_counts(&weights);
-            assert_eq!(counts, (1..=1000).collect::<Vec<_>>());
-            json!(counts)
-        });
-        report["subsetCounts"]
-            .as_array_mut()
-            .unwrap()
-            .push(json!({"roots":count,"weight":1,"measurement":measured}));
+        for weight in [1usize, 3, 10, 1001, 0] {
+            let weights = if weight == 0 {
+                (0..count).map(|i| 2 + i % 2).collect::<Vec<_>>()
+            } else {
+                vec![weight; count]
+            };
+            let expected: Vec<_> = if let Some(limit) = 1000_usize.checked_div(weight) {
+                (1..=count.min(limit)).map(|i| i * weight).collect()
+            } else {
+                (2..=1000).collect()
+            };
+            let mut samples = Vec::new();
+            let mut output = Vec::new();
+            for _ in 0..3 {
+                let start = Instant::now();
+                let counts = crate::paper::feasible_counts(std::hint::black_box(&weights));
+                samples.push(start.elapsed().as_secs_f64() * 1000.0);
+                assert_eq!(counts, expected);
+                output = counts;
+            }
+            let bytes = serde_json::to_vec(&output).unwrap();
+            let mut sorted = samples.clone();
+            sorted.sort_by(f64::total_cmp);
+            let measured = json!({"samplesMs":samples,"medianMs":sorted[1],"maxMs":sorted[2],"jsonBytes":bytes.len(),"outputSha256":crate::store::hash(&bytes)});
+            report["subsetCounts"]
+                .as_array_mut()
+                .unwrap()
+                .push(json!({"roots":count,"weight":if weight == 0 { json!([2,3]) } else { json!(weight) },"inputSha256":crate::store::hash(&serde_json::to_vec(&weights).unwrap()),"measurement":measured}));
+        }
     }
     std::fs::write(
         std::env::var("PRACTIQ_BENCH_OUTPUT").expect("set PRACTIQ_BENCH_OUTPUT"),
         serde_json::to_string_pretty(&report).unwrap(),
+    )
+    .unwrap();
+    println!("{}", report);
+}
+
+#[test]
+#[ignore = "large flat-bank count and quota preview profile"]
+fn paper_preview_stress() {
+    let mut report = json!({"method":"Release Rust Store::preview_paper; temporary SQLite; 3 sequential warm samples per workload; setup, expected-output reads, assertions and JSON serialization excluded; excludes picker, IPC, WebView and physical devices","workloads":[]});
+    for count in [10_000usize, 100_000] {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::new(dir.path().into()).unwrap();
+        let mut db = store.connect().unwrap();
+        let tx = db.transaction().unwrap();
+        tx.execute("INSERT INTO banks VALUES('bank','Bank','',1)", [])
+            .unwrap();
+        let input: Vec<_> = (0..count)
+            .map(|i| {
+                (
+                    format!("q{i:06}"),
+                    format!("Question {i}"),
+                    if i < count / 2 {
+                        "true_false"
+                    } else {
+                        "short_answer"
+                    },
+                    if i < count / 2 {
+                        "true"
+                    } else {
+                        "\"Reference\""
+                    },
+                )
+            })
+            .collect();
+        let input_hash = crate::store::hash(&serde_json::to_vec(&input).unwrap());
+        for (i, (id, stem, mode, answer)) in input.iter().enumerate() {
+            tx.execute("INSERT INTO questions(id,bank_id,position,stem,mode,content_blocks,confidence,needs_review,missing_fields) VALUES(?1,'bank',?2,?3,?4,'[]',1,0,'[]')",params![id,i,stem,mode]).unwrap();
+            if *mode == "true_false" {
+                tx.execute(
+                    "INSERT INTO true_false_questions VALUES(?1,?2)",
+                    params![id, answer],
+                )
+                .unwrap();
+            } else {
+                tx.execute(
+                    "INSERT INTO short_answer_questions(question_id,answer) VALUES(?1,?2)",
+                    params![id, answer],
+                )
+                .unwrap();
+            }
+        }
+        tx.commit().unwrap();
+        drop(input);
+        for selection in ["count", "quota"] {
+            for random in [false, true] {
+                let selected_count = if selection == "count" { 20 } else { 1000 };
+                let mut order: Vec<_> = (0..count).collect();
+                if random {
+                    fastrand::seed(7);
+                    fastrand::shuffle(&mut order);
+                }
+                let expected: Vec<_> = if selection == "count" {
+                    order.into_iter().take(selected_count).collect()
+                } else {
+                    let mut taken = [0; 2];
+                    order
+                        .into_iter()
+                        .filter(|&i| {
+                            let category = usize::from(i >= count / 2);
+                            taken[category] += 1;
+                            taken[category] <= 500
+                        })
+                        .collect()
+                };
+                let ids: Vec<_> = expected.iter().map(|i| format!("q{i:06}")).collect();
+                let rows =
+                    crate::questions::read_scoped(&db, &["bank".into()], Some(&ids)).unwrap();
+                let expected_digest =
+                    crate::paper::digest(&crate::paper::selected_rows(&rows, &ids).unwrap())
+                        .unwrap();
+                let request = json!({"bank_ids":["bank"],"search":"","mode":"","filter":"","selection":selection,"count":20,"quotas":if selection == "quota" {json!({"true_false":500,"short_answer":500})} else {json!({})},"question_ids":[],"random":random,"total_cents":selected_count*100,"budgets":{}});
+                let mut samples = Vec::new();
+                let mut output_hash = None;
+                for _ in 0..3 {
+                    let request =
+                        serde_json::from_value::<crate::paper::Preview>(request.clone()).unwrap();
+                    fastrand::seed(7);
+                    let start = Instant::now();
+                    let preview = store.preview_paper(request).unwrap();
+                    let elapsed = start.elapsed().as_secs_f64() * 1000.0;
+                    assert_eq!(preview["count"], selected_count);
+                    assert_eq!(preview["questionIds"], json!(ids));
+                    assert_eq!(preview["digest"], expected_digest);
+                    assert_eq!(preview["scores"], json!(vec![100; selected_count]));
+                    assert_eq!(list(&preview, "questions").len(), selected_count);
+                    for (row, &i) in list(&preview, "questions").iter().zip(&expected) {
+                        assert_eq!(row["id"], format!("q{i:06}"));
+                        assert_eq!(row["question"]["stem"], format!("Question {i}"));
+                        assert_eq!(
+                            row["question"]["answerPayload"],
+                            if i < count / 2 {
+                                json!({"value":true})
+                            } else {
+                                json!({"text":"Reference"})
+                            }
+                        );
+                    }
+                    let bytes = serde_json::to_vec(&preview).unwrap();
+                    let digest = crate::store::hash(&bytes);
+                    if let Some(previous) = &output_hash {
+                        assert_eq!(&digest, previous);
+                    }
+                    output_hash = Some(digest.clone());
+                    samples.push(
+                        json!({"elapsedMs":elapsed,"jsonBytes":bytes.len(),"outputSha256":digest}),
+                    );
+                }
+                let mut times: Vec<_> = samples
+                    .iter()
+                    .map(|s| s["elapsedMs"].as_f64().unwrap())
+                    .collect();
+                times.sort_by(f64::total_cmp);
+                report["workloads"].as_array_mut().unwrap().push(json!({"roots":count,"selection":selection,"selectedCount":selected_count,"random":random,"randomSeed":7,"inputSha256":input_hash,"medianMs":times[1],"maxMs":times[2],"samples":samples}));
+            }
+        }
+    }
+    std::fs::write(
+        std::env::var("PRACTIQ_BENCH_OUTPUT").expect("set PRACTIQ_BENCH_OUTPUT"),
+        serde_json::to_vec_pretty(&report).unwrap(),
     )
     .unwrap();
     println!("{}", report);
