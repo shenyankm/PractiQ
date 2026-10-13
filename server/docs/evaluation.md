@@ -193,6 +193,8 @@ python scripts/review_queue.py /absolute/logs/practiq.events.jsonl \
 
 All execution errors, `PARTIAL` results, and quality-review flags are selected. Other tasks are sampled at approximately 5% using format and a stable thread-identifier hash, not exactly 5% of every small batch. Runs are deduplicated, and replay does not change selection. The queue contains only metadata. Reviewers read source material through existing authenticated task APIs and record decisions. Confirmed problems are de-identified and given gold labels before entering the regression set. This process does not automatically classify problems, change prompts, or publish releases. JSON/Markdown outputs cannot overwrite existing files, and generated reports need not be committed to Git.
 
+The CLI reads JSONL events incrementally and retains only one metadata record per unique run for deduplication. The scorer indexes normalized stems while preserving the earliest unused prediction across aliases and duplicates. See the [synthetic tooling benchmark](../../docs/evidence/2026-10-13-shortcut-upgrades/README.md) for measured speed, memory costs and reproduction steps; these measurements do not establish model quality.
+
 Merge human decisions with `--decisions /absolute/review-decisions.json`, using a JSON array:
 
 ```json

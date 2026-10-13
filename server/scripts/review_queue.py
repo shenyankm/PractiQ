@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 from collections import Counter
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any, Literal, Self
 
@@ -52,8 +53,8 @@ def apply_decisions(report: dict[str, Any], decisions: list[ReviewDecision]) -> 
         items[decision.threadId, decision.runId].update(decision.model_dump())
 
 
-def select_reviews(events: list[dict[str, Any]]) -> dict[str, Any]:
-    # ponytail: a batch holds only identifiers per run; use daily log batches as volume grows.
+def select_reviews(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
+    # shortcut: deduplication retains one identifier record per run, use daily batches when unique runs grow too large.
     candidates: dict[tuple[str, str], dict[str, Any]] = {}
     for event in events:
         if event.get("event") != "review_candidate":
@@ -97,7 +98,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.output.suffix != ".json" or args.output.exists() or args.output.with_suffix(".md").exists():
             raise ValueError("choose a new JSON output path")
         with args.log.open() as handle:
-            report = select_reviews([json.loads(line) for line in handle if line.strip()])
+            report = select_reviews(json.loads(line) for line in handle if line.strip())
         decisions = TypeAdapter(list[ReviewDecision]).validate_json(args.decisions.read_text()) if args.decisions else []
         apply_decisions(report, decisions)
         args.output.parent.mkdir(parents=True, exist_ok=True)

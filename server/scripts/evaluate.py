@@ -9,7 +9,7 @@ import re
 import statistics
 import subprocess
 import time
-from collections import Counter, defaultdict
+from collections import Counter, defaultdict, deque
 from datetime import UTC, datetime
 from io import BytesIO
 from math import isfinite
@@ -246,12 +246,16 @@ def _question_view(question: dict[str, Any]) -> dict[str, Any]:
 
 
 def score_document_case(expected: list[dict[str, Any]], predicted: list[dict[str, Any]], *, source_has_no_answers: bool = False) -> dict[str, Any]:
-    # ponytail: scan up to 1000 predictions per gold question; index stem queues if profiling warrants it.
-    remaining = list(range(len(predicted)))
+    by_stem: dict[str, deque[int]] = defaultdict(deque)
+    for index, actual in enumerate(predicted):
+        by_stem[normalize_stem(actual["stem"])].append(index)
+    remaining = set(range(len(predicted)))
     rows = []
     for index, gold in enumerate(expected):
         stems = {normalize_stem(stem) for stem in [gold["stem"], *gold.get("stemAliases", [])]}
-        actual_index = next((i for i in remaining if normalize_stem(predicted[i]["stem"]) in stems), None)
+        # Aliases compete by original position; answers never decide a match.
+        stem = min((stem for stem in stems if by_stem[stem]), key=lambda stem: by_stem[stem][0], default=None)
+        actual_index = by_stem[stem].popleft() if stem is not None else None
         actual = predicted[actual_index] if actual_index is not None else None
         expected_view = _question_view(gold)
         actual_view = _question_view(actual) if actual is not None else None
@@ -289,7 +293,7 @@ def score_document_case(expected: list[dict[str, Any]], predicted: list[dict[str
         "expectedIndex": None, "predictedIndex": i, "answerMode": predicted[i]["answerMode"],
         "expected": None, "predicted": _question_view(predicted[i]), "matched": False,
         "correct": {}, "inventedAnswer": source_has_no_answers and predicted[i].get("answerPayload") is not None, "differences": ["extra"],
-    } for i in remaining)
+    } for i in range(len(predicted)) if i in remaining)
     # Compare links by matched identity rather than parser-assigned ID spelling.
     gold_ids = {q.get("id"): i for i, q in enumerate(expected) if q.get("id")}
     actual_ids = {predicted[row["predictedIndex"]].get("id"): row["expectedIndex"] for row in rows if row["matched"]}

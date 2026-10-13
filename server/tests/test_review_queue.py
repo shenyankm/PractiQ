@@ -31,6 +31,31 @@ def test_local_review_sampling_deduplicates_and_preserves_all_failures(tmp_path)
     assert review_queue.main([str(log), "--output", str(output)]) == 2
 
 
+def test_cli_streams_events_and_rejects_late_invalid_json_without_output(tmp_path, monkeypatch):
+    log = tmp_path / "events.jsonl"
+    events = [candidate("bad", status="ERROR"), candidate("bad"), candidate("review", review=True)]
+    expected = review_queue.select_reviews(events)
+    select = review_queue.select_reviews
+
+    def streamed(rows):
+        assert iter(rows) is rows
+        return select(rows)
+
+    monkeypatch.setattr(review_queue, "select_reviews", streamed)
+    log.write_text("\n\n" + "\n".join(json.dumps({**event, "messages": "PRIVATE"}) for event in events))
+    output = tmp_path / "queue.json"
+    assert review_queue.main([str(log), "--output", str(output)]) == 0
+    report = json.loads(output.read_text())
+    for item in expected["items"]:
+        item.update(verdict=None, errorCategory=None)
+    assert report == expected
+    log.write_text(log.read_text() + "\ninvalid JSON")
+    rejected = tmp_path / "invalid.json"
+    assert review_queue.main([str(log), "--output", str(rejected)]) == 2
+    assert not rejected.exists() and not rejected.with_suffix(".md").exists()
+    assert json.loads(output.read_text()) == report
+
+
 def test_event_capture_is_scoped_and_excludes_content_fields(caplog):
     with caplog.at_level("INFO", logger="practiq.events"), telemetry.capture_events() as events:
         telemetry.event("stage", stage="prepare", outcome="success", messages="PRIVATE", image="PRIVATE", exception="PRIVATE", signedUrl="PRIVATE", apiKey="PRIVATE")
