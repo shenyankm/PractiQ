@@ -20,4 +20,8 @@ In development mode, `transport.ts` sends business calls to `preview-data.ts`. U
 
 The preview validates UI behavior and interaction. It does not validate native storage, extraction quality, file authorization or model services. Scoring and question selection remain simplified demonstrations; native tests verify their full rules.
 
+For clean App screenshots without the floating preview panel, run `npm --prefix app run dev -- --mode design-preview --port 1426` from the repository root. It uses the same in-memory data and production [shared theme](../../docs/design.md); language follows the browser preference or the sidebar language menu.
+
+For the current Web connection screen, run `npm --prefix web run dev -- --port 5178`. It queries the public product catalog; use mocked HTTP responses for isolated captures and leave credentials empty. The Web `design-preview` middleware and `app/scripts/check-design-preview.mjs` still expect the former Bearer-token connection flow and cannot verify the current phone/card flow. Use the Web browser suite documented in [web/README.md](../../web/README.md) for that flow.
+
 Run `npx vitest run`, `npm run test:browser` or `npm run test:preview` from `app/`. `npm run build` checks the production build, which excludes preview code and demo resources.

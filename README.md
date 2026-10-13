@@ -13,9 +13,9 @@ Turn documents into question banks, then practise and take mock exams offline on
 - **Review scores**: score objective questions locally, request AI short-answer grading, or record manual corrections.
 - **Keep and share**: resume sessions, back up personal records, and share banks with images and audio as ZIP files.
 
-The app supports Simplified Chinese and English, light and dark themes, seven basic question types, and English listening, reading, cloze, translation, and writing tasks. Practice data stays on your device; there are no accounts or cloud sync.
+The app supports Simplified Chinese and English, light and dark themes, seven basic question types, and English listening, reading, cloze, translation, and writing tasks. Offline practice data stays on your device and needs no account or cloud sync. The separate Web importer uses phone/card access and import points.
 
-PractiQ is in development. There is no published GitHub Release yet; run it from source using the instructions below. Platform build checks do not establish signed-release or clean-machine acceptance.
+PractiQ is in development. Run it from source using the instructions below; check [GitHub Releases](https://github.com/shenyankm/PractiQ/releases) for published packages and their stated limitations. Platform build checks do not establish signed-release or clean-machine acceptance.
 
 ![PractiQ question-bank home in the English desktop development preview](docs/assets/desktop-preview-en.png)
 
@@ -44,11 +44,11 @@ Use the independent service's Web frontend for document import:
 
 The service accepts **PDF, TXT, CSV and PNG/JPEG**. Deployments configured with LibreOffice also accept **DOC, DOCX, XLS and XLSX**, normalized in the service. Desktop packages contain no Python service or LibreOffice. See the [Office guide](server/docs/desktop-office.md) for deployment and fidelity boundaries.
 
-Task history, pause, interrupt, resume, failed-unit retry, partial-result review and parse-again controls belong to the Web frontend. Read-only review and ZIP download make no model calls; resume, retry and parse again are explicit actions whose model work may incur charges. See the [import task guide](docs/import-tasks.md).
+Task history, pause, interrupt, resume, failed-unit retry, partial-result review and parse-again controls belong to the Web frontend. Read-only review and ZIP download make no model calls; resume, retry and parse again are explicit actions whose model work may incur charges. Import points cover model usage; insufficient points or unknown usage pause work. Recharge and downloading completed content never resume parsing automatically. See the [import task guide](docs/import-tasks.md) and [phone/card and billing guide](server/docs/saas.md).
 
 ![Independent document import Web frontend](docs/assets/new-web-import.png)
 
-Browser capture of the built Web frontend served by a local read-only AI service, with an empty task database and no configured model. Selecting the sample file made no upload or model call.
+Current Web connection screen captured from the local development frontend, with an empty mocked product catalog. No credentials, uploads or model calls were used.
 
 Parsing extracts supplied answers and rubrics without solving unanswered questions; missing content stays flagged for review. Download results within **180 days** to keep them; task expiry does not affect banks already imported into the app.
 
@@ -116,6 +116,10 @@ make server-dev AI_PYTHON=/path/to/python3.14
 
 The FastAPI/LangGraph service listens on `127.0.0.1:8090`, uses RabbitMQ delivery, PostgreSQL state and local file storage, and runs one process per database. Uploads, tasks, artifacts, and grading require authentication. Open `http://127.0.0.1:8090/` for the built Web frontend. For development, run `make web-dev` separately; its loopback Vite server proxies API requests to the service. Configure `AI_OFFICE_EXECUTABLE` and `AI_OFFICE_VERSION` only on the service when Office support is needed. See the [service guide](server/docs/service-guide.md).
 
+AI service upgrades and RabbitMQ setup: [delivery and recovery guide](server/docs/rabbitmq.md). Existing service schema 1 or 2 requires explicit `make upgrade-db` to schema 3; stop and back up the old service first.
+
+SaaS card issuance, account isolation, point billing, partial downloads and operator reconciliation: [SaaS guide](server/docs/saas.md). Configure both token billing rates before admitting customer imports; service tokens remain available for administration and App grading.
+
 ## Documentation and development
 
 Start with the [documentation index](docs/README.md) for user guides, technical references, acceptance worksheets and historical evidence. The [question model](docs/question-model.md) covers question types and composite rules, the [document task API](server/docs/document-tasks.md) covers task payloads and controls, and [operations](server/docs/operations.md) covers deployment, storage and recovery.
@@ -135,7 +139,3 @@ The runner starts its own loopback Vite servers. Failed tests retain traces and 
 Report reproducible bugs or propose improvements through [GitHub Issues](https://github.com/shenyankm/PractiQ/issues/new/choose). Follow [the contribution guide](CONTRIBUTING.md) for changes and [the security policy](SECURITY.md) for private vulnerability reports. Outstanding quality, release, user-trial and contributor workstreams are tracked in the [roadmap evidence record](docs/roadmap-evidence.md); the native GitHub roadmap and sub-issues remain authoritative.
 
 Project source uses the [MIT license](LICENSE). Bundled dependencies retain their [upstream notices](app/licenses/README.md).
-
-AI service upgrades and RabbitMQ setup: [delivery and recovery guide](server/docs/rabbitmq.md). Existing service schema 1 or 2 requires explicit `make upgrade-db` to schema 3; stop and back up the old service first.
-
-SaaS card issuance, account isolation, point billing, partial downloads and operator reconciliation: [SaaS guide](server/docs/saas.md). Configure both token billing rates before admitting customer imports; service tokens remain available for administration and App grading.
