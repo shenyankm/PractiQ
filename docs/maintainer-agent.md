@@ -1,67 +1,74 @@
 # PractiQ agent-bot
 
-The private `practiq-agent-bot` GitHub App is installed only on this repository.
-The [workflow](../.github/workflows/maintainer.yml) classifies new/edited/reopened
-human-authored issues and posts first-pass COMMENT reviews on non-draft,
-human-authored pull requests. Bot-authored issues/PRs require manual dispatch.
-It never approves, merges, closes issues, removes labels or publishes a release.
+The private `practiq-agent-bot` App is installed only on PractiQ, with the default
+GitHub App avatar. It only squash-merges eligible PRs targeting `main`. It does
+not classify issues, review source code or publish releases. The configured AI
+interprets existing GPT review results; it does not create a GitHub approval.
 
-## Configuration
+## Merge conditions
 
-Repository Actions variables:
+Before any model call, all three final GitHub Actions gates (`Service CI`,
+`Desktop CI`, `Android CI`) must succeed, along with every applicable check and
+commit status. Skipped intermediate jobs are inapplicable; a skipped final gate
+never qualifies. GitHub must report an open, non-draft PR with a clean merge,
+current base, no conflicts and no branch-protection blocker.
 
-- `PRACTIQ_APP_CLIENT_ID`: the App client ID.
-- `PRACTIQ_AGENT_BASE_URL`: `https://amr-link.open-design.ai/v1`.
-- `PRACTIQ_AGENT_MODEL`: `deepseek-v4.1-flash`.
+Automatic paid interpretation is limited to PR authors with current repository
+`admin`, `maintain` or `write` access. An external contribution requires a
+maintainer to manually dispatch the workflow; that actor's permission is checked
+before inference. Public issue/PR edits cannot trigger arbitrary paid analysis.
 
-Repository Actions secrets:
+Evidence is fetched only from `chatgpt-codex-connector[bot]`: submitted reviews
+on the exact current head, their inline findings, the bot's Code Review Summary
+and its thumbs-up timestamps. A summary must explicitly identify a completed
+Code Review on the current head; a completed Security Review alone is insufficient.
+For summary-only evidence, the bot's thumbs-up must have been created after that
+Code Review's completion. An old/global thumbs-up cannot independently allow a
+merge. A current-head CHANGES_REQUESTED, DISMISSED or PENDING review blocks inference.
 
-- `PRACTIQ_APP_PRIVATE_KEY`: the entire App private-key PEM.
-- `PRACTIQ_AGENT_API_KEY`: the model gateway API key.
+AI must return completed/passed, the exact head SHA and an existing supporting
+report ID. It is instructed to reject unresolved blockers, pending security
+review, ambiguous results and generic help text. COMMENTED can contain a clean
+report or findings; its state alone is not treated as a pass. Missing/stale
+reports, malformed output, truncated answers, model/network errors or an
+uncertain verdict cause no merge. No model tools or source-code review run.
 
-The App requires Issues, Pull requests, Contents and Actions read/write access,
-plus mandatory Metadata read access. Each workflow job requests a narrower
-installation token. No OAuth user authorization, webhook endpoint or server
-is required. Keep App keys out of source and rotate through GitHub settings.
+The merge request includes the analyzed head SHA. GitHub rejects a changed head
+and enforces the repository's existing rules, including resolved conversations
+and checks against the current base. Protection failures are not bypassed or
+retried within a run. Squash attribution and source-branch cleanup follow the
+repository's existing settings.
 
-Issue titles/bodies and PR titles/bodies, patches and bounded changed-file
-contents are sent to the configured provider with `AGENTS.md`. Calls may incur
-provider charges. The script does not send App credentials to the model, use
-model tools, execute PR code, or print model request/response bodies to logs.
-Analysis has read-only GitHub access; validated results pass to a separate
-publication job without model credentials. Result artifacts expire after one day.
+## Configuration and operation
 
-## Operation
+App permissions: Contents and Pull requests read/write, mandatory Metadata read.
+Contents write is needed by the merge API; Issues and Actions permissions are not
+needed. Read-only CI/review queries use the workflow token; a narrowly scoped
+App token performs the merge. The model request never includes GitHub tokens or
+App keys and does not give the model tool access.
 
-In Actions, choose **PractiQ agent-bot → Run workflow**:
+Repository variables:
 
-- `triage`: supply an open issue number. Labels are limited to existing `bug`,
-  `enhancement`, `documentation`, `question` and `accessibility`; at most three
-  are added and existing labels remain untouched.
-- `review`: supply an open, non-draft PR number. The review is bound to its head
-  commit; an already-reviewed commit is not reviewed twice by the App.
-- For either task, `dry_run` defaults to true. Inspect the `maintainer-result`
-  artifact before dispatching with `dry_run` false. Automatic events publish
-  validated results without a manual confirmation.
-- `release-draft`: supply an existing candidate tag. This explicitly dispatches
-  the existing [Release draft](../.github/workflows/release.yml) workflow on
-  `main`. `dry_run` applies only to triage/review. Dispatch success is not build
-  success: follow the separate Release draft run. Follow [release policy](releases.md)
-  for final signing, evidence review and separately authorized publication.
+- `PRACTIQ_APP_CLIENT_ID`
+- `PRACTIQ_AGENT_BASE_URL`: `https://amr-link.open-design.ai/v1`
+- `PRACTIQ_AGENT_MODEL`: `deepseek-v4.1-flash`
 
-PR-target events always check out trusted base code. The script reads contributor
-files only through GitHub's API. Reviews cover at most 40 changed files and
-200,000 characters of context, with whole-file contents limited to 30,000 bytes
-each. Large/binary files and unchanged callers may be missing; this is a first
-pass, not a substitute for human review or CI. Exceeding total limits, model/API
-errors, truncated output or invalid JSON blocks publication. No automatic model
-retries are made. Responses stream with a five-minute deadline to avoid gateway
-idle timeouts; reasoning is discarded and only a normally completed JSON answer
-can be published. Changed issue text or PR head also blocks stale publication.
+Repository secrets: `PRACTIQ_APP_PRIVATE_KEY` and `PRACTIQ_AGENT_API_KEY`.
+Only bounded GPT report/reaction evidence (at most 30,000 characters) is sent to
+the provider, with a 750-token answer cap and two-minute timeout. Calls may incur
+provider charges. Unsuccessful verdicts can be re-evaluated every 15 minutes;
+AI interpretation can be wrong, so CI and GitHub protections remain mandatory.
 
-## Validation
+The [workflow](../.github/workflows/maintainer.yml) checks open PRs when **AI
+service** or **Practice App** completes and every 15 minutes to catch a later GPT
+review. Scheduled runs can be delayed by GitHub. Only trusted `main` code is
+checked out, including when processing an external fork's CI completion.
 
-Run `node --test .github/scripts/maintainer.test.mjs`. Validate workflow syntax
-with actionlint. After merging, perform a dry run and a manually authorized
-publication on a selected existing issue/PR; do not equate local tests with
-verified Actions execution. No release is built as part of agent setup.
+For a manual check, choose **PractiQ agent-bot → Run workflow** on `main`, with an
+optional PR number. `dry_run` defaults to true; it may interpret an eligible GPT
+report but never merges. Automatic runs merge eligible PRs. Disable the workflow
+in Actions to stop the bot. Existing release policy and workflow are unchanged.
+
+Run `node --test .github/scripts/maintainer.test.mjs` and actionlint for gate changes.
+Local mock tests and synthetic model smoke tests do not establish a live merge or
+real review accuracy. No PR/release is merged/published merely to test setup.
