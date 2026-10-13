@@ -309,24 +309,23 @@ async def upload_document(request: DocumentUploadRequest) -> DocumentUploadRespo
 async def read_artifact(reference: ArtifactReference, thread_id: Annotated[UUID | None, Query()] = None) -> Response:
     """Private verified download; never expose service credentials to clients."""
     try:
-        if saas.ACCOUNT.get():
-            if thread_id is None:
-                raise saas.failure('TASK_NOT_FOUND', 404)
-            task = await task_api._read_task_record(task_api.client(), str(thread_id))
-            source = task['document']
-            if (reference.objectKey != source['objectKey']
-                    and not reference.objectKey.startswith(f"practiq-agent/artifacts/{source['sha256']}/")):
-                raise saas.failure('ARTIFACT_NOT_FOUND', 404)
-            review = await task_api.review_task(str(thread_id))
-            detail = await task_api.get_task(str(thread_id))
-            def contains(value):
-                if isinstance(value, dict):
-                    if all(value.get(key) == item for key, item in reference.model_dump().items()):
-                        return True
-                    return any(contains(item) for item in value.values())
-                return isinstance(value, list) and any(contains(item) for item in value)
-            if not contains([review, detail]):
-                raise saas.failure('ARTIFACT_NOT_FOUND', 404)
+        if thread_id is None:
+            raise saas.failure('TASK_NOT_FOUND', 404)
+        task = await task_api._read_task_record(task_api.client(), str(thread_id))
+        source = task['document']
+        if (reference.objectKey != source['objectKey']
+                and not reference.objectKey.startswith(f"practiq-agent/artifacts/{source['sha256']}/")):
+            raise saas.failure('ARTIFACT_NOT_FOUND', 404)
+        review = await task_api.review_task(str(thread_id))
+        detail = await task_api.get_task(str(thread_id))
+        def contains(value):
+            if isinstance(value, dict):
+                if all(value.get(key) == item for key, item in reference.model_dump().items()):
+                    return True
+                return any(contains(item) for item in value.values())
+            return isinstance(value, list) and any(contains(item) for item in value)
+        if not contains([source, review, detail]):
+            raise saas.failure('ARTIFACT_NOT_FOUND', 404)
         checked: ArtifactReference | DocumentReference = reference
         if (reference.mediaType in {"image/png", "image/jpeg"}
                 and reference.objectKey == document_source_key("image", reference.sha256)):

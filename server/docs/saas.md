@@ -8,7 +8,7 @@ Back up PostgreSQL and local storage, stop the service, and run `make upgrade-db
 
 Set both `AI_INPUT_POINTS_PER_1K` and `AI_OUTPUT_POINTS_PER_1K` explicitly. Values are positive points per 1,000 tokens with at most six decimal places. Products and pricing have no commercial defaults. Each task freezes both rates; changing environment settings affects newly created tasks. One point is 1,000,000 integer micropoints. A call costs `ceil((inputTokens * inputRate + outputTokens * outputRate) / 1000)` micropoints. Invalid output, correction, retries and enabled source reviews consume actual provider usage too. Reading, checkpoint replay and downloads are free.
 
-The backend stays on loopback behind an HTTPS proxy. Use the edge request limits in `server/deploy/nginx.conf`, including the tighter card redemption limit. Never log Authorization, `X-Practiq-Phone`, card redemption bodies or model inputs. Keep PostgreSQL, RabbitMQ and plaintext card exports private; never commit them. The old service Bearer token provides administration and App grading, but cannot create or reparse SaaS imports.
+The backend stays on loopback behind an HTTPS proxy. Use the edge request limits in `server/deploy/nginx.conf`, including the tighter card redemption limit. Never log Authorization, `X-Practiq-Phone`, card redemption bodies or model inputs. Keep PostgreSQL, RabbitMQ and plaintext card exports private; never commit them. The old service Bearer token provides administration of legacy tasks without a phone account and App grading. It cannot list, read, control, delete or download customer tasks, or create or reparse SaaS imports. Artifact reads always require an authorized task ID, including Bearer reads of legacy artifacts.
 
 ## Products and card delivery
 

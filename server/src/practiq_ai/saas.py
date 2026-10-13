@@ -156,7 +156,7 @@ async def ledger(account: str, limit: int, before: int | None) -> dict[str, Any]
 
 
 def require_owner(task: dict[str, Any]) -> None:
-    if ACCOUNT.get() is not None and task['account_id'] != ACCOUNT.get():
+    if task['account_id'] != ACCOUNT.get():
         raise failure('TASK_NOT_FOUND', 404)
 
 

@@ -172,20 +172,26 @@ async def test_upload_remains_available_in_service_read_only_mode_but_start_is_b
 
 
 async def test_original_image_source_is_checked_downloadable_but_other_source_keys_are_rejected(monkeypatch, tmp_path):
+    service, _, _ = await setup_api(monkeypatch)
     store = object_store(tmp_path)
     payload = make_image()
     source = await store.put_document(payload, DocumentUploadRequest(sourceType="image", mediaType="image/png",
         fileName="original.png", sizeBytes=len(payload), sha256=hashlib.sha256(payload).hexdigest()))
     monkeypatch.setattr(webapp, "get_object_store", lambda: store)
+    for module in (task_api, execution, document):
+        monkeypatch.setattr(module, 'get_object_store', lambda: store)
+    receipt = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=source))
+    await service.wait_idle()
+    endpoint = '/api/artifacts/read?thread_id=' + receipt['threadId']
     reference = source.model_dump(include={"objectKey", "sha256", "mediaType", "sizeBytes"})
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=webapp.app), base_url="http://test",
                                 headers={"Authorization": "Bearer test-service-token"}) as client:
-        image = await client.post("/api/artifacts/read", json=reference)
+        image = await client.post(endpoint, json=reference)
         assert image.status_code == 200 and image.content == payload
         assert image.headers["content-security-policy"] == "default-src 'none'; frame-ancestors 'none'"
-        assert (await client.post("/api/artifacts/read", json={**reference, "sha256": "0" * 64})).status_code == 422
-        assert (await client.post("/api/artifacts/read", json={**reference, "sizeBytes": source.sizeBytes + 1})).status_code == 409
-        assert (await client.post("/api/artifacts/read", json={**reference, "objectKey": source.objectKey.replace("source.png", "source.txt"), "mediaType": "text/plain"})).status_code == 422
+        assert (await client.post(endpoint, json={**reference, "sha256": "0" * 64})).status_code == 404
+        assert (await client.post(endpoint, json={**reference, "sizeBytes": source.sizeBytes + 1})).status_code == 404
+        assert (await client.post(endpoint, json={**reference, "objectKey": source.objectKey.replace("source.png", "source.txt"), "mediaType": "text/plain"})).status_code == 404
 
 
 async def test_optional_web_assets_preserve_api_precedence_and_missing_assets(tmp_path):

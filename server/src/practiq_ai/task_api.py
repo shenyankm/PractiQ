@@ -488,6 +488,8 @@ async def list_tasks(limit: int = 20, offset: int = 0, sha256: str | None = None
     if account:
         where += ' AND t.account_id=%s'
         params += (account,)
+    else:
+        where += ' AND t.account_id IS NULL'
     if office_mode is not None:
         where += (" AND (t.document->>'sourceType') IN ('doc','docx','xls','xlsx')"
                   " AND (SELECT (initial.input->>'officeMode') FROM document_runs initial"

@@ -166,6 +166,55 @@ async def test_customer_http_owns_tasks_uploads_and_artifact_reads(monkeypatch, 
 
 
 @pytest.mark.usefixtures('disposable_databases')
+async def test_bearer_is_scoped_to_legacy_tasks_and_cannot_spend_customer_points(monkeypatch):
+    monkeypatch.setenv('AI_INPUT_POINTS_PER_1K', '1')
+    monkeypatch.setenv('AI_OUTPUT_POINTS_PER_1K', '3')
+    service, reference, model = await setup_api(monkeypatch, [parsed(), parsed(), parsed()])
+    card = (await issue(service.db))[0]
+    await saas.redeem(CardRedeem(phone='13800138000', card=card))
+    account = await saas.identity('13800138000', card)
+    token = saas.ACCOUNT.set(account)
+    try:
+        await saas.register_upload(DocumentReference.model_validate(reference))
+        owned = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
+    finally:
+        saas.ACCOUNT.reset(token)
+    legacy = [await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference))) for _ in range(2)]
+    await service.wait_idle()
+    before = await saas.account_summary(account)
+    calls_before = len(model.calls)
+    headers = {'Authorization': 'Bearer test-token'}
+    customer = {'Authorization': 'Card ' + card, 'X-Practiq-Phone': '13800138000'}
+    tid = owned['threadId']
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=webapp.app), base_url='http://test') as http:
+        for suffix in ('', '/head', '/preview', '/export', '/export?scope=completed'):
+            assert (await http.get('/api/document-tasks/' + tid + suffix, headers=headers)).status_code == 404
+        assert (await http.delete('/api/document-tasks/' + tid, headers=headers)).status_code == 404
+        for action in ('resume', 'retry_failed', 'pause', 'interrupt'):
+            control = {'requestId': str(uuid4()), 'action': action, **({'runId': owned['runId']} if action in {'pause', 'interrupt'} else {'checkpointId': 'current'})}
+            assert (await http.post('/api/document-tasks/' + tid + '/control', json=control, headers=headers)).status_code == 404
+        artifact = {key: reference[key] for key in ('objectKey', 'sha256', 'sizeBytes', 'mediaType')}
+        for endpoint in ('/api/artifacts/read', '/api/artifacts/read?thread_id=' + tid):
+            assert (await http.post(endpoint, json=artifact, headers=headers)).status_code == 404
+        page = (await http.get('/api/document-tasks?limit=1', headers=headers)).json()
+        assert page['nextCursor'] and page['items'][0]['threadId'] in {item['threadId'] for item in legacy}
+        assert (await http.get('/api/document-tasks', params={'cursor': page['nextCursor']}, headers=customer)).status_code == 400
+        customer_page = (await http.get('/api/document-tasks', headers=customer)).json()
+        assert [item['threadId'] for item in customer_page['items']] == [tid]
+        for query in ('', '?state_filter=completed', '?sha256=' + reference['sha256']):
+            page = (await http.get('/api/document-tasks' + query, headers=headers)).json()
+            assert {item['threadId'] for item in page['items']} == {item['threadId'] for item in legacy}
+        for item in legacy:
+            for suffix in ('', '/head', '/preview', '/export'):
+                assert (await http.get('/api/document-tasks/' + item['threadId'] + suffix, headers=headers)).status_code == 200
+            assert (await http.get('/api/document-tasks/' + item['threadId'], headers=customer)).status_code == 404
+        assert (await http.get('/api/document-tasks/' + tid, headers=customer)).status_code == 200
+        assert (await http.delete('/api/document-tasks/' + legacy[0]['threadId'], headers=headers)).status_code == 200
+    assert await saas.account_summary(account) == before
+    assert len(model.calls) == calls_before
+
+
+@pytest.mark.usefixtures('disposable_databases')
 async def test_points_pause_partial_download_top_up_and_explicit_resume_reuse_paid_units(monkeypatch):
     monkeypatch.setenv('AI_INPUT_POINTS_PER_1K', '1')
     monkeypatch.setenv('AI_OUTPUT_POINTS_PER_1K', '3')

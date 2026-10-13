@@ -246,7 +246,7 @@ def test_e2e_rejected_uploads_never_queue_work(service):
                     "sizeBytes": len(data), "sha256": hashlib.sha256(data).hexdigest()}
         prepared = client.post("/api/uploads", json=metadata).json()
         artifact = {key: prepared["document"][key] for key in ("objectKey", "sha256", "mediaType", "sizeBytes")}
-        assert client.post("/api/artifacts/read", json=artifact).status_code == 422
+        assert client.post("/api/artifacts/read", json=artifact).status_code == 404
         response = client.put(prepared["upload"]["url"], content=b"x" * len(data))
         assert response.status_code == 409
         assert response.json()["detail"]["code"] == "DOCUMENT_CHECKSUM_MISMATCH"
@@ -258,5 +258,5 @@ def test_e2e_rejected_uploads_never_queue_work(service):
         artifact = {key: document[key] for key in ("objectKey", "sha256", "mediaType", "sizeBytes")}
         assert document == prepared["document"]
         assert client.post("/api/uploads", json=metadata).json()["upload"] is None
-        assert client.post("/api/artifacts/read", json={**artifact, "objectKey": "../outside"}).status_code == 422
+        assert client.post("/api/artifacts/read", json={**artifact, "objectKey": "../outside"}).status_code == 404
         assert not calls.exists()
