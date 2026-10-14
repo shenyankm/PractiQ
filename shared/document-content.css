@@ -1,0 +1,45 @@
+.document-content {
+  min-width: 0;
+  overflow-x: auto;
+  overflow-wrap: anywhere;
+  line-height: 1.75;
+}
+.document-content p + p {
+  margin-top: 0.75rem;
+}
+.document-content ul {
+  list-style: disc;
+  padding-left: 1.5rem;
+}
+.document-content ol {
+  list-style: decimal;
+  padding-left: 1.5rem;
+}
+.document-content table {
+  border-collapse: collapse;
+  display: block;
+  overflow-x: auto;
+}
+.document-content td,
+.document-content th {
+  border: 1px solid var(--border);
+  padding: 0.5rem;
+  overflow-wrap: normal;
+}
+.document-content pre {
+  overflow-x: auto;
+  padding: 0.75rem;
+  background: var(--muted);
+}
+.document-content .katex {
+  overflow-wrap: normal;
+}
+.document-content .katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+/* Keep oversized centered equations reachable from the start of their scroll area. */
+.document-content .katex-display > .katex {
+  width: max-content;
+  min-width: 100%;
+}

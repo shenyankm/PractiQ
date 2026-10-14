@@ -63,12 +63,12 @@ export function Practice(props: PracticeProps) {
       } finally { setFinishing(false); }
     });
   }
-  return <div className="space-y-4">
+  return <div className="@container space-y-4">
     <div className="practice-overview"><p className="text-sm text-muted-foreground">{t(exam ? "答案自动保存，交卷后统一核对评分。" : "草稿自动保存，提交后查看答案与解析。")}</p><Button asChild variant="outline"><a href="#answer-card">{t("查看答题卡")}</a></Button></div>
     {listening && <ListeningPlayer key={`${session.id}-${listening.id}-${listening.audioRef?.sha256}`} question={listening} session={session}/>}
-    <div className="grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_240px]">
+    <div className="grid grid-cols-1 gap-6 @2xl:grid-cols-[minmax(0,1fr)_240px]">
       <PracticeQuestion key={`${session.id}-${session.position}`} {...props} go={go} onDraft={onDraft} questionHeading={questionHeading}/>
-      <aside className="min-w-0 self-start space-y-4 md:sticky md:top-0">
+      <aside className="min-w-0 self-start space-y-4 @2xl:sticky @2xl:top-0">
         <AnswerCard key={session.id} session={session} answer={answer} exam={exam} go={go} />
         {!finished && <Button ref={finishButton} className="w-full" variant="outline" onClick={() => run(async () => { await flushRef.current(); onSession(await api({type:"session", id:session.id})); setConfirmFinish(true); })}>{exam ? t("交卷") : t("结束练习")}</Button>}
         <AlertDialog open={confirmFinish && !finished} onOpenChange={open => { if (!finishing) setConfirmFinish(open); }}>
