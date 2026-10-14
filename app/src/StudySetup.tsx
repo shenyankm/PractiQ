@@ -109,7 +109,7 @@ export function StudySetup({banks, initialBank, initialBankIds, initialFilter, i
   const chosen = banks.filter(b => bankIds.includes(b.id));
   const feasibleCounts = stats.feasibleCounts ?? Array.from({length:Math.min(1000, available)}, (_, i) => i + 1);
   const invalidCount = selection === "count" && !feasibleCounts.includes(count);
-  const nearbyCounts = [feasibleCounts.filter(n => n < count).at(-1), feasibleCounts.find(n => n > count)].filter((n): n is number => n != null);
+  const nearbyCounts = [feasibleCounts.filter(n => n < count).at(-1), feasibleCounts.find(n => n > count)].filter(n => n != null);
   const manualCount = Object.values(selected).reduce((sum, item) => sum + item.count, 0);
   const selectedGroups = selection === "manual" ? Object.values(selected).filter(item => item.group).length : Object.entries(quotas).reduce((sum, [type, amount]) => sum + (COMPOSITE_FILTERS.includes(type) ? amount : 0), 0);
   const selectedSingles = selection === "manual" ? Object.values(selected).filter(item => !item.group).length : Object.entries(quotas).reduce((sum, [type, amount]) => sum + (COMPOSITE_FILTERS.includes(type) ? 0 : amount), 0);
