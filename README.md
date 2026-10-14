@@ -118,7 +118,7 @@ The FastAPI/LangGraph service listens on `127.0.0.1:8090`, uses RabbitMQ deliver
 
 AI service upgrades and RabbitMQ setup: [delivery and recovery guide](server/docs/rabbitmq.md). Existing service schema 1, 2 or 3 requires explicit `make upgrade-db` to schema 4; stop and back up the old service first.
 
-SaaS account access, account isolation, point billing, partial downloads and operator reconciliation: [SaaS guide](server/docs/saas.md). The optional [Vibe Pay checkout](server/docs/payments.md) runs separately and credits existing accounts directly after verified payment. Configure both token billing rates before admitting customer imports; service tokens remain available for administration and App grading.
+SaaS account access, account isolation, point billing, partial downloads and operator reconciliation: [SaaS guide](server/docs/saas.md). The optional [Vibe Pay checkout](server/docs/payments.md) uses a checkout-only SDK extra and private `.env.payments`, runs separately and credits existing accounts directly after verified payment. Configure both token billing rates before admitting customer imports; service tokens remain available for administration and App grading.
 
 ## Documentation and development
 

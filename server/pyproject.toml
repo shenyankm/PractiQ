@@ -22,10 +22,10 @@ dependencies = [
   "langchain-openai==1.5.1",
   "openai==3.2.0",
   "prometheus-client==0.26.0",
-  "alipay-sdk-python==3.7.1411",
 ]
 
 [project.optional-dependencies]
+payments = ["alipay-sdk-python==3.7.1411"]
 dev = [
   "coverage==7.16.0",
   "pip-audit==2.10.1",

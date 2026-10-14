@@ -31,5 +31,16 @@
         "sha256": "2aad5fc00f705c4a1addb83eed10a6a75d286a3779f0cf8519d87e62bc4735fd"
       }
     ]
+  },
+  {
+    "name": "pycryptodome",
+    "version": "3.24.1",
+    "source": "https://www.pycryptodome.org",
+    "notices": [
+      {
+        "file": "pycryptodome-LICENSE.rst",
+        "sha256": "4e04660d77c1c64e89d79537919fb8240fa21484a7e3db29f358b2c7f84ea073"
+      }
+    ]
   }
 ]

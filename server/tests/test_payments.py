@@ -73,13 +73,18 @@ def test_settings_are_explicit_fixed_https_and_do_not_expose_keys(settings, monk
               'PAYMENT_RETURN_URL': settings.return_url, 'PAYMENT_ENVIRONMENT': 'sandbox'}
     for key, value in values.items():
         monkeypatch.setenv(key, value)
+    monkeypatch.delenv('PAYMENT_SELLER_EMAIL', raising=False)
     assert payments.Settings.load() == settings
+    with monkeypatch.context() as context:
+        context.setenv('PAYMENT_SELLER_EMAIL', 'merchant@example.com')
+        assert payments.Settings.load().seller_email == 'merchant@example.com'
     assert settings.private_key not in repr(settings)
     for key, value in [('PAYMENT_APP_ID', 'bad'), ('PAYMENT_SELLER_ID', 'bad'), ('PAYMENT_PRIVATE_KEY', ''),
                        ('PAYMENT_ENVIRONMENT', 'unknown'), ('PAYMENT_NOTIFY_URL', 'http://checkout.example'), ('PAYMENT_RETURN_URL', 'https://u:p@checkout.example'),
                        ('PAYMENT_RETURN_URL', 'https://checkout.example?credential=private'),
                        ('PAYMENT_RETURN_URL', 'https://checkout.example/other'),
-                       ('PAYMENT_NOTIFY_URL', 'https://checkout.example/api/payments/notify/')]:
+                       ('PAYMENT_NOTIFY_URL', 'https://checkout.example/api/payments/notify/'),
+                       ('PAYMENT_SELLER_EMAIL', ''), ('PAYMENT_SELLER_EMAIL', 'bad\naccount'), ('PAYMENT_SELLER_EMAIL', 'x'*101)]:
         with monkeypatch.context() as context:
             context.setenv(key, value)
             with pytest.raises(ValueError):
@@ -468,3 +473,201 @@ async def test_credit_overflow_retains_paid_evidence_and_recovers_without_repaym
     await service.fulfill(order['orderId'])
     assert (await service.owned(order['orderId'],service.account))['status']=='credited'
     assert (await saas.account_summary(service.account,database=service.db))['balanceMicropoints']==1_000_000
+
+@pytest.mark.usefixtures('disposable_databases')
+@pytest.mark.parametrize('slot', [1, 3])
+async def test_offline_maintenance_detects_loss_of_either_ownership_session(monkeypatch, slot):
+    from practiq_ai import manage
+    from practiq_ai.database import LOCK_NAMESPACE
+    db = await new_database()
+    stopped = asyncio.Event()
+    monkeypatch.setattr(manage.os, '_exit', lambda status: stopped.set())
+    async with exclusive(db):
+        rows = await db.rows("SELECT pg_terminate_backend(pid) AS terminated FROM pg_locks WHERE locktype='advisory' AND classid=%s AND objid=%s AND objsubid=2 AND granted", (LOCK_NAMESPACE, slot))
+        assert rows == [{'terminated': True}]
+        async with asyncio.timeout(3):
+            await stopped.wait()
+    for released in (1, 3):
+        owner = await db.acquire(slot=released)
+        await owner.close()
+
+@pytest.mark.parametrize('seconds,allowed', [(-1, False), (0, False), (59, False), (60, False), (61, True), (90, True)])
+def test_payment_link_requires_one_minute_after_wire_timestamp_rounding(settings, monkeypatch, seconds, allowed):
+    from datetime import UTC, datetime, timedelta
+    from zoneinfo import ZoneInfo
+    now = datetime.now(UTC).replace(microsecond=500_000)
+    class Clock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return now
+    monkeypatch.setattr(payments, 'datetime', Clock)
+    row = {'order_id': 'test_order', 'status': 'pending', 'price_cents': 900, 'expires_at': now+timedelta(seconds=seconds), 'refund_evidence': {}}
+    service = payments.Checkout(cast(Any, None), settings)
+    if not allowed:
+        with pytest.raises(DocumentProcessingError, match='Order not payable'):
+            service.pay_url(row)
+    else:
+        link = service.pay_url(row)
+        biz = json.loads(dict(parse_qsl(urlsplit(link).query))['biz_content'])
+        deadline = datetime.strptime(biz['time_expire'], '%Y-%m-%d %H:%M:%S').replace(tzinfo=ZoneInfo('Asia/Shanghai'))
+        assert deadline - now >= timedelta(minutes=1)
+
+@pytest.mark.usefixtures('disposable_databases')
+@pytest.mark.parametrize('stage', ['pending', 'paid', 'credited'])
+@pytest.mark.parametrize('field,value', [('refund_fee','2.00'),('gmt_refund','2026-10-14 12:00:00.00'),('out_biz_no','refund_1')])
+async def test_signed_refund_evidence_blocks_later_credit_and_preserves_existing_ledger(settings, stage, field, value):
+    service = await setup(settings)
+    order = await service.create(PaymentOrderCreate(requestId=uuid4(),productId='pack'), service.account)
+    if stage == 'credited':
+        await service.confirm(result(order))
+    elif stage == 'paid':
+        async with service.db.transaction() as conn:
+            await conn.execute("UPDATE payment_orders SET status='paid',paid_at=now(),trade_no='20261014000000001'")
+    expected = 1_000_000 if stage == 'credited' else 0
+    payment_webapp.app.state.checkout = service
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=payment_webapp.app),base_url='http://test') as http:
+        refund = notification(settings,order,**{field:value})
+        assert (await http.post('/api/payments/notify',data=refund)).text == 'success'
+        assert (await http.post('/api/payments/notify',data=notification(settings,order))).text == 'success'
+    # A replay of the original success must not clear the durable refund hold.
+    await service.confirm(result(order))
+    held = await service.read(order['orderId'],service.account)
+    assert held['refundReviewRequired']
+    if stage == 'paid':
+        with pytest.raises(DocumentProcessingError,match='Payment refund review required'):
+            await service.fulfill(order['orderId'])
+    assert (await saas.account_summary(service.account,database=service.db))['balanceMicropoints'] == expected
+    assert len(await service.db.rows("SELECT * FROM import_ledger WHERE kind='purchase'")) == (1 if expected else 0)
+    restarted = payments.Checkout(service.db,settings)
+    assert (await restarted.read(order['orderId'],service.account))['refundReviewRequired']
+
+@pytest.mark.usefixtures('disposable_databases')
+@pytest.mark.parametrize('stage', ['paid', 'credited'])
+async def test_closed_after_verified_payment_holds_credit_without_refund_fields(settings, stage):
+    service = await setup(settings)
+    order = await service.create(PaymentOrderCreate(requestId=uuid4(), productId='pack'), service.account)
+    if stage == 'credited':
+        await service.confirm(result(order))
+    else:
+        async with service.db.transaction() as conn:
+            await conn.execute("UPDATE payment_orders SET status='paid',paid_at=now(),trade_no='20261014000000001'")
+    payment_webapp.app.state.checkout = service
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=payment_webapp.app), base_url='http://test') as http:
+        assert (await http.post('/api/payments/notify', data=notification(settings, order, trade_status='TRADE_CLOSED'))).text == 'success'
+    await service.confirm(result(order))
+    assert (await service.read(order['orderId'], service.account))['refundReviewRequired']
+    expected = 1_000_000 if stage == 'credited' else 0
+    assert (await saas.account_summary(service.account, database=service.db))['balanceMicropoints'] == expected
+    assert len(await service.db.rows("SELECT * FROM import_ledger WHERE kind='purchase'")) == (1 if expected else 0)
+
+@pytest.mark.usefixtures('disposable_databases')
+async def test_query_refund_evidence_never_credits_and_zero_refund_amount_is_payable(settings, monkeypatch):
+    from unittest.mock import AsyncMock
+    service=await setup(settings)
+    order=await service.create(PaymentOrderCreate(requestId=uuid4(),productId='pack'),service.account)
+    monkeypatch.setattr(service,'query',AsyncMock(return_value={'code':'10000',**result(order),'refund_amount':'1.00'}))
+    assert (await service.read(order['orderId'],service.account))['refundReviewRequired']
+    assert (await saas.account_summary(service.account,database=service.db))['balanceMicropoints']==0
+    other=await service.create(PaymentOrderCreate(requestId=uuid4(),productId='pack'),service.account)
+    await service.confirm(result(other,trade_no='20261014000000002',refund_fee='0.00'))
+    assert (await service.read(other['orderId'],service.account))['status']=='credited'
+
+@pytest.mark.parametrize('seller,email,configured,accepted', [(None,'merchant@example.com',True,True), ('','merchant@example.com',True,True), (None,'merchant@example.com',False,False), (None,'other@example.com',True,False), ('2088000000000002','merchant@example.com',True,False)])
+def test_notify_email_fallback_is_trusted_and_cannot_override_conflicting_seller_id(settings,seller,email,configured,accepted):
+    settings=replace(settings,seller_email='merchant@example.com' if configured else None)
+    service=payments.Checkout(cast(Any,None),settings)
+    params=notification(settings,{'orderId':'test'},seller_email=email)
+    if seller is None:
+        del params['seller_id']
+    else:
+        params['seller_id']=seller
+    params['sign']=SignatureUtils.sign_with_rsa2(settings.private_key,SignatureUtils.get_sign_content({k:v for k,v in params.items() if k not in {'sign','sign_type'}}),'utf-8')
+    if accepted:
+        service.verify_notify(params)
+    else:
+        with pytest.raises(DocumentProcessingError,match='Payment notification invalid'):
+            service.verify_notify(params)
+
+@pytest.mark.usefixtures('disposable_databases')
+async def test_schema_two_upgrade_retains_paid_orders_and_adds_refund_hold(settings):
+    service=await setup(settings)
+    order=await service.create(PaymentOrderCreate(requestId=uuid4(),productId='pack'),service.account)
+    async with service.db.transaction() as conn:
+        await conn.execute("UPDATE payment_orders SET status='paid',paid_at=now(),trade_no='20261014000000001'")
+        await conn.execute('ALTER TABLE payment_orders DROP COLUMN refund_evidence')
+        await conn.execute('ALTER TABLE payment_schema DROP CONSTRAINT payment_schema_version_check')
+        await conn.execute('UPDATE payment_schema SET version=2')
+        await conn.execute('ALTER TABLE payment_schema ADD CHECK(version=2)')
+    with pytest.raises(RuntimeError,match='schema or identity mismatch'):
+        await payments.check_schema(service.db,settings)
+    await payments.initialize(service.db,settings)
+    await payments.initialize(service.db,settings)
+    assert (await service.read(order['orderId'],service.account))['status']=='credited'
+    assert (await service.db.rows('SELECT version FROM payment_schema'))==[{'version':3}]
+
+@pytest.fixture
+def checkout_environment(monkeypatch,tmp_path):
+    root=tmp_path/'server'
+    root.mkdir()
+    (tmp_path/'.env').write_text('AI_SERVICE_TOKEN=unrelated-ai-secret\nPAYMENT_PRIVATE_KEY=wrong-shared-secret\n')
+    (tmp_path/'.env.payments').write_text('DATABASE_URI=checkout-database\nPAYMENT_PRIVATE_KEY=private-checkout-secret\n')
+    monkeypatch.setattr(payment_webapp,'SERVER_ROOT',root)
+    monkeypatch.setattr(payments_manage,'SERVER_ROOT',root)
+    for key in ('AI_SERVICE_TOKEN','DATABASE_URI','PAYMENT_PRIVATE_KEY'):
+        monkeypatch.delenv(key,raising=False)
+    return root
+
+def test_checkout_operator_loads_only_its_private_environment(monkeypatch,checkout_environment):
+    import os
+    import sys
+    called=[]
+    async def command(args):
+        called.append(args.action)
+        assert os.environ['DATABASE_URI']=='checkout-database'
+        assert os.environ['PAYMENT_PRIVATE_KEY']=='private-checkout-secret'
+        assert 'AI_SERVICE_TOKEN' not in os.environ
+    monkeypatch.setattr(payments_manage,'run',command)
+    monkeypatch.setattr(sys,'argv',['payments_manage','init-db'])
+    payments_manage.main()
+    assert called==['init-db']
+
+@pytest.mark.usefixtures('disposable_databases')
+async def test_checkout_startup_loads_only_its_private_environment(settings,monkeypatch,checkout_environment):
+    import os
+    service=await setup(settings)
+    monkeypatch.setattr(payment_webapp,'Database',lambda:service.db)
+    def load():
+        assert os.environ['DATABASE_URI']=='checkout-database'
+        assert os.environ['PAYMENT_PRIVATE_KEY']=='private-checkout-secret'
+        assert 'AI_SERVICE_TOKEN' not in os.environ
+        return settings
+    monkeypatch.setattr(payments.Settings,'load',load)
+    async with payment_webapp.lifespan(payment_webapp.app):
+        assert payment_webapp.app.state.checkout.db is service.db
+
+@pytest.mark.parametrize('enabled',[False,True])
+def test_locked_payment_sdk_is_optional_in_production_exports(enabled):
+    import subprocess
+    from pathlib import Path
+    args=['uv','export','--frozen','--no-dev','--no-emit-project','--no-hashes']
+    if enabled:
+        args.extend(['--extra','payments'])
+    exported=subprocess.check_output(args,cwd=Path(__file__).parents[1],text=True)
+    packages={line.split('==')[0] for line in exported.splitlines() if line and not line.startswith('#')}
+    payment_packages={'alipay-sdk-python','rsa','pyasn1','pycryptodome'}
+    assert (payment_packages <= packages) if enabled else not payment_packages & packages
+
+def test_payment_notices_match_locked_versions_and_complete_files():
+    import hashlib
+    import tomllib
+    from pathlib import Path
+    root=Path(__file__).parents[1]
+    items=json.loads((root/'licenses/payments/inventory.json').read_text())
+    locked={item['name']:item['version'] for item in tomllib.loads((root/'uv.lock').read_text())['package']}
+    assert {item['name'] for item in items}=={'alipay-sdk-python','rsa','pyasn1','pycryptodome'}
+    for item in items:
+        assert item['version']==locked[item['name']]
+        assert item['source'].startswith('https:')
+        for notice in item['notices']:
+            data=(root/'licenses/payments'/notice['file']).read_bytes()
+            assert hashlib.sha256(data).hexdigest()==notice['sha256']

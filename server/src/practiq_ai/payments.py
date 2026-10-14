@@ -32,7 +32,7 @@ GATEWAYS = {'production': 'https://openapi.alipay.com/gateway.do',
             'sandbox': 'https://openapi-sandbox.dl.alipaydev.com/gateway.do'}
 DDL = """
 CREATE TABLE payment_schema (
- version integer PRIMARY KEY CHECK(version=2), identity text NOT NULL
+ version integer PRIMARY KEY CHECK(version=3), identity text NOT NULL
 );
 CREATE TABLE payment_products (
  product_id text PRIMARY KEY REFERENCES import_products(product_id),
@@ -40,7 +40,7 @@ CREATE TABLE payment_products (
  enabled boolean NOT NULL DEFAULT true
 );
 CREATE TABLE payment_orders (
- order_id text PRIMARY KEY, account_id text REFERENCES import_accounts(account_id), request_id text, allocation_note text NOT NULL DEFAULT '',
+ order_id text PRIMARY KEY, account_id text REFERENCES import_accounts(account_id), request_id text, allocation_note text NOT NULL DEFAULT '', refund_evidence jsonb NOT NULL DEFAULT '{}'::jsonb,
  product_id text NOT NULL REFERENCES import_products(product_id), name text NOT NULL,
  price_cents bigint NOT NULL CHECK(price_cents BETWEEN 1 AND 10000000000),
  points bigint NOT NULL CHECK(points>0),
@@ -76,6 +76,7 @@ class Settings:
     notify_url: str
     return_url: str
     gateway: str
+    seller_email: str | None = field(default=None, repr=False)
 
     @classmethod
     def load(cls):
@@ -83,6 +84,9 @@ class Settings:
             app_id, seller_id = os.environ['PAYMENT_APP_ID'], os.environ['PAYMENT_SELLER_ID']
             if not re.fullmatch(r'[0-9]{16,32}', app_id) or not re.fullmatch(r'[0-9]{16}', seller_id):
                 raise ValueError('Invalid payment identity')
+            email = os.environ.get('PAYMENT_SELLER_EMAIL')
+            if email is not None and not re.fullmatch(r'\S{1,100}', email):
+                raise ValueError('Invalid configured seller account')
             private = os.environ['PAYMENT_PRIVATE_KEY'].replace('\\n', '\n').strip()
             public = os.environ['PAYMENT_ALIPAY_PUBLIC_KEY'].replace('\\n', '\n').strip()
             if not private or not public:
@@ -97,7 +101,7 @@ class Settings:
             if urlsplit(notify_url).path != '/api/payments/notify' or urlsplit(return_url).path != '/purchase':
                 raise ValueError('Payment URLs must match the checkout routes')
             return cls(app_id, seller_id, private, public, notify_url, return_url,
-                       GATEWAYS[os.environ['PAYMENT_ENVIRONMENT']])
+                       GATEWAYS[os.environ['PAYMENT_ENVIRONMENT']], email)
         except (KeyError, ValueError, TypeError) as exc:
             raise ValueError('Complete, valid server-side PAYMENT configuration is required') from exc
 
@@ -126,7 +130,7 @@ def amount_cents(value: object):
 
 
 async def check_schema(db: Database, settings: Settings):
-    if not TABLES <= await db.tables() or await db.rows('SELECT version,identity FROM payment_schema') != [{'version': 2, 'identity': settings.identity}]:
+    if not TABLES <= await db.tables() or await db.rows('SELECT version,identity FROM payment_schema') != [{'version': 3, 'identity': settings.identity}]:
         raise RuntimeError('Payment schema or identity mismatch; use explicit offline payments_manage init-db')
 
 
@@ -151,11 +155,18 @@ async def initialize(db: Database, settings: Settings):
                 await conn.execute('ALTER TABLE payment_schema DROP CONSTRAINT payment_schema_version_check')
                 await conn.execute('UPDATE payment_schema SET version=2,identity=%s', (settings.identity,))
                 await conn.execute('ALTER TABLE payment_schema ADD CHECK(version=2)')
+        metadata = await db.rows('SELECT version,identity FROM payment_schema')
+        if metadata == [{'version': 2, 'identity': settings.identity}]:
+            async with db.transaction() as conn:
+                await conn.execute("ALTER TABLE payment_orders ADD COLUMN refund_evidence jsonb NOT NULL DEFAULT '{}'::jsonb")
+                await conn.execute('ALTER TABLE payment_schema DROP CONSTRAINT payment_schema_version_check')
+                await conn.execute('UPDATE payment_schema SET version=3')
+                await conn.execute('ALTER TABLE payment_schema ADD CHECK(version=3)')
         await check_schema(db, settings)
         return
     async with db.transaction() as conn:
         await conn.execute(DDL, prepare=False)
-        await conn.execute('INSERT INTO payment_schema VALUES(2,%s)', (settings.identity,))
+        await conn.execute('INSERT INTO payment_schema VALUES(3,%s)', (settings.identity,))
 
 
 class Checkout:
@@ -205,10 +216,10 @@ class Checkout:
     def view(self, row):
         return {'orderId': row['order_id'], 'productId': row['product_id'], 'name': row['name'], 'priceCents': row['price_cents'],
                 'pointsMicropoints': row['points'], 'status': row['status'], 'createdAt': row['created_at'].isoformat(),
-                'expiresAt': row['expires_at'].isoformat(), 'creditedMicropoints': row['points'] if row['status']=='credited' else 0}
+                'expiresAt': row['expires_at'].isoformat(), 'refundReviewRequired': bool(row['refund_evidence']), 'creditedMicropoints': row['points'] if row['status']=='credited' else 0}
 
     def pay_url(self, row):
-        if row['status'] != 'pending' or datetime.now(UTC) >= row['expires_at']:
+        if row['status'] != 'pending' or row['refund_evidence'] or datetime.now(UTC) + timedelta(minutes=1) > row['expires_at'].replace(microsecond=0):
             raise failure('ORDER_NOT_PAYABLE')
         request = AlipayTradePagePayRequest()
         request.notify_url, request.return_url = self.settings.notify_url, self.settings.return_url
@@ -219,7 +230,9 @@ class Checkout:
         return self.settings.client().page_execute(request, http_method='GET')
 
     def verify_notify(self, params: dict[str, str]):
-        if params.get('sign_type') != 'RSA2' or params.get('app_id') != self.settings.app_id or params.get('seller_id') != self.settings.seller_id:
+        seller = params.get('seller_id')
+        merchant_matches = seller == self.settings.seller_id if seller else bool(self.settings.seller_email and params.get('seller_email') == self.settings.seller_email)
+        if params.get('sign_type') != 'RSA2' or params.get('app_id') != self.settings.app_id or not merchant_matches:
             raise failure('PAYMENT_NOTIFICATION_INVALID', 400)
         signed = {k: v for k, v in params.items() if k not in {'sign', 'sign_type'}}
         try:
@@ -263,6 +276,16 @@ class Checkout:
                 raise failure('PAYMENT_ORDER_MISMATCH', 400)
             if row['trade_no'] and row['trade_no'] != result['trade_no']:
                 raise failure('PAYMENT_TRADE_MISMATCH', 400)
+            refund = {key: value for key, value in result.items()
+                      if (key in {'out_biz_no', 'gmt_refund', 'refund_detail_item_list'} and value not in (None, '', []))
+                      or (key in {'refund_fee', 'send_back_fee', 'refund_amount'} and value not in (None, '', '0', '0.00', 0))}
+            if state == 'TRADE_CLOSED' and row['status'] in {'paid', 'credited'}:
+                refund['trade_status'] = state
+            if refund:
+                await conn.execute('UPDATE payment_orders SET trade_no=COALESCE(trade_no,%s),refund_evidence=refund_evidence || %s::jsonb WHERE order_id=%s', (result['trade_no'], json.dumps(refund), order_id))
+                return
+            if row['refund_evidence']:
+                return
             if state in {'TRADE_SUCCESS', 'TRADE_FINISHED'} and row['status'] in {'pending', 'closed'}:
                 await conn.execute("UPDATE payment_orders SET status='paid',trade_no=%s,paid_at=now() WHERE order_id=%s", (result['trade_no'], order_id))
             elif state == 'TRADE_CLOSED' and row['status'] == 'pending':
@@ -275,6 +298,8 @@ class Checkout:
             row = await (await conn.execute('SELECT * FROM payment_orders WHERE order_id=%s FOR UPDATE', (order_id,))).fetchone()
             if not row or row['status'] != 'paid':
                 return
+            if row['refund_evidence']:
+                raise failure('PAYMENT_REFUND_REVIEW_REQUIRED', 409)
             if not row['account_id']:
                 raise failure('PAYMENT_ACCOUNT_REQUIRED', 409)
             await credit(conn, row['account_id'], row['points'], 'purchase', order_id)
@@ -283,6 +308,8 @@ class Checkout:
 
     async def read(self, order_id: str, account: str):
         row = await self.owned(order_id, account)
+        if row['refund_evidence']:
+            return self.view(row)
         if row['status'] == 'paid':
             await self.fulfill(order_id)
         elif row['status'] in {'pending', 'closed'}:

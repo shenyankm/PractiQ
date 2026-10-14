@@ -31,7 +31,7 @@ from .payments import Checkout, Settings, check_schema
 
 @asynccontextmanager
 async def lifespan(application: FastAPI):
-    load_dotenv(SERVER_ROOT.parent / '.env', override=False)
+    load_dotenv(SERVER_ROOT.parent / '.env.payments', override=False)
     settings, db = Settings.load(), Database()
     owner = monitor = None
     try:

@@ -96,6 +96,7 @@ class PaymentOrder(PaymentProduct):
     createdAt: str
     expiresAt: str
     creditedMicropoints: Micropoints
+    refundReviewRequired: bool = False
 
 
 class PaymentOrders(StrictModel):

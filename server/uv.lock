@@ -1070,7 +1070,6 @@ version = "0.3.0"
 source = { editable = "." }
 dependencies = [
     { name = "aio-pika" },
-    { name = "alipay-sdk-python" },
     { name = "fastapi" },
     { name = "httpx" },
     { name = "httpx2" },
@@ -1097,11 +1096,14 @@ dev = [
     { name = "pytest-asyncio" },
     { name = "ruff" },
 ]
+payments = [
+    { name = "alipay-sdk-python" },
+]
 
 [package.metadata]
 requires-dist = [
     { name = "aio-pika", specifier = "==10.1.1" },
-    { name = "alipay-sdk-python", specifier = "==3.7.1411" },
+    { name = "alipay-sdk-python", marker = "extra == 'payments'", specifier = "==3.7.1411" },
     { name = "coverage", marker = "extra == 'dev'", specifier = "==7.16.0" },
     { name = "fastapi", specifier = "==0.139.0" },
     { name = "httpx", specifier = "==0.28.1" },
@@ -1124,7 +1126,7 @@ requires-dist = [
     { name = "ruff", marker = "extra == 'dev'", specifier = "==0.16.3" },
     { name = "uvicorn", specifier = "==0.53.0" },
 ]
-provides-extras = ["dev"]
+provides-extras = ["payments", "dev"]
 
 [[package]]
 name = "prometheus-client"

@@ -94,3 +94,25 @@ it("bounds catalog response before decoding JSON", async () => {
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("{}", { headers: { "Content-Length": String(2*1024*1024+1) } })));
   await expect(paymentProducts()).rejects.toThrow(/响应超过浏览器大小限制/);
 });
+
+it("blocks final-minute payment preparation and a previously prepared stale link", async () => {
+  const user=userEvent.setup(); transport(); render(<Purchase />); await connect(user);
+  await user.selectOptions(screen.getByLabelText("额度包"),"pack");
+  await user.click(screen.getByRole("button",{name:"创建充值订单"}));
+  await user.click(await screen.findByRole("button",{name:"准备支付宝支付"}));
+  const link=await screen.findByRole("link",{name:/打开支付宝付款/});
+  vi.spyOn(Date,"now").mockReturnValue(Date.parse(order.expiresAt)-30_000);
+  await user.click(link);
+  await screen.findByText(/支付入口已停止生成/);
+  expect(screen.queryByRole("link",{name:/打开支付宝付款/})).toBeNull();
+  expect((screen.getByRole("button",{name:"准备支付宝支付"}) as HTMLButtonElement).disabled).toBe(true);
+  expect((screen.getByRole("button",{name:"查询支付与到账"}) as HTMLButtonElement).disabled).toBe(false);
+});
+it("shows durable refund review and offers query without a payment action", async () => {
+  const user=userEvent.setup(); transport(path=>path.endsWith("/123456")?json({...order,refundReviewRequired:true}):undefined);
+  render(<Purchase />); await connect(user);
+  await user.click(screen.getByRole("button",{name:"查询订单"}));
+  await screen.findByText(/检测到退款信息/);
+  expect(screen.queryByRole("button",{name:"准备支付宝支付"})).toBeNull();
+  expect((screen.getByRole("button",{name:"查询支付与到账"}) as HTMLButtonElement).disabled).toBe(false);
+});

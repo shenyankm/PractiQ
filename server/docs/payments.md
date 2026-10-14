@@ -4,18 +4,29 @@ The optional checkout is a separate FastAPI process. An authenticated existing a
 
 ## Deployment and migration
 
-Use Python 3.14+ and `make install-locked`. Configure the `PAYMENT_*` variables in `.env.example` only in the checkout environment. Choose `sandbox` or `production` explicitly; gateways are fixed. Set `TZ=Asia/Shanghai` for SDK timestamps (the Make target does this). Both RSA keys must have at least 2048 bits: PKCS1 application private key and SubjectPublicKeyInfo Alipay public key, as PEM or base64 bodies. Disable SDK request/response logging.
+Use a separate Python 3.14+ checkout interpreter and `make payments-install-locked AI_PYTHON=/absolute/path/to/checkout-python3.14`. The SDK is a `payments` extra; the default production AI image does not install it. Full development installs include both `dev` and `payments` so the complete test suite runs.
 
-Use the same dedicated PostgreSQL database as the AI service. Stop both services and back up the entire database, storage and secrets. Upgrade service schemas 1/2/3 explicitly to 4 before initializing optional payment schema 2:
+Create the private checkout configuration separately:
+
+```sh
+umask 077
+cp -n .env.payments.example .env.payments
+```
+
+Configure the same dedicated `DATABASE_URI`, optional `AI_WEB_DIR` and `PAYMENT_*` values there. Keep AI/LLM/RabbitMQ credentials in the AI service `.env`; do not export merchant secrets into its parent shell or add them to that file. If upgrading an existing shared configuration, move its payment values into `.env.payments` before restarting either service. Checkout startup and payment CLI commands load only `.env.payments`; the AI Compose service continues to load only `.env`. Run checkout under a separate service identity or container and never mount its private environment file into the AI container. Choose `sandbox` or `production` explicitly; gateways are fixed. Set `TZ=Asia/Shanghai` for SDK timestamps (the Make target does this). Optionally configure `PAYMENT_SELLER_EMAIL` with the verified seller login account when notifications identify the seller without `seller_id`. A present seller ID must match the configured ID; an email cannot override a conflicting ID. Both RSA keys must have at least 2048 bits: PKCS1 application private key and SubjectPublicKeyInfo Alipay public key, as PEM or base64 bodies. Disable SDK request/response logging.
+
+Use the same dedicated PostgreSQL database as the AI service. Stop both services and back up the entire database, storage and secrets. Upgrade service schemas 1/2/3 explicitly to 4 before initializing optional payment schema 3:
 
 ```sh
 make upgrade-db AI_PYTHON=/absolute/path/to/python3.14
 make payments-init-db AI_PYTHON=/absolute/path/to/python3.14
 ```
 
+Existing optional schema 2 upgrades explicitly to 3, adding durable refund evidence while retaining orders and ledger. Normal startup rejects older payment schemas; rerun explicit initialization after an interrupted upgrade.
+
 For a fresh installation, initialize the empty dedicated service database with `make init-db` first. Service startup never migrates tables. Offline maintenance requires both AI ownership slot 1 and checkout slot 3; it refuses while either process runs. Schema 4 keeps existing account balances, ledger, task ownership and historical card rows; operators issue new account tokens only after verifying existing owners. See [account access](saas.md).
 
-If optional payment schema 1 was previously deployed, retain its original `PAYMENT_CARD_KEY` while running `payments-init-db`. It verifies the original merchant/environment fingerprint before the atomic upgrade to 2. Afterwards the old key is unnecessary for active checkout. Historical order access digests, card digests and delivery timestamps remain archival; old receipt credentials have no current API. Anonymous legacy orders receive no automatic account allocation or credit. Already delivered card orders remain archived as `fulfilled` and cannot be allocated or credited again. Preserve the old database/key backup for historical incident review.
+If optional payment schema 1 was previously deployed, retain its original `PAYMENT_CARD_KEY` while running `payments-init-db`. It verifies the original merchant/environment fingerprint before the atomic upgrade to 2 followed by the atomic refund-evidence upgrade to 3. Afterwards the old key is unnecessary for active checkout. Historical order access digests, card digests and delivery timestamps remain archival; old receipt credentials have no current API. Anonymous legacy orders receive no automatic account allocation or credit. Already delivered card orders remain archived as `fulfilled` and cannot be allocated or credited again. Preserve the old database/key backup for historical incident review.
 
 A verified operator can allocate only a legacy order that has no account and has not delivered a card, while both services are stopped:
 
@@ -42,13 +53,15 @@ Open the product link, connect with the existing phone and account token, choose
 
 Creation uses a UUID request ID, scoped to the account. Concurrent/repeated requests return one order; changing the product for that same request is rejected. An uncertain mutation is never automatically replayed. A manual creation retry in the same connected page keeps its request ID. After refresh, closure or a mobile payment return, reconnect and query **我的订单** before creating another order. Order history and individual queries expose only the authenticated account's records.
 
-Checkout supplies a signed `alipay.trade.page.pay` URL via the official SDK's `page_execute(GET)` for desktop and mobile Web; the user explicitly opens it in a new tab. Provider HTML is never injected. The payment window expires after 30 minutes, but uncertain/closed orders remain queryable. Click **查询支付与到账** after paying. The return URL, frontend status and payment screenshots never authorize credit. A confirmed order shows its credited points and refreshed account balance. Recharge offsets negative balances and never automatically resumes parsing; return to the task and explicitly Continue.
+Checkout supplies a signed `alipay.trade.page.pay` URL via the official SDK's `page_execute(GET)` for desktop and mobile Web; the user explicitly opens it in a new tab. Provider HTML is never injected. The payment window expires after 30 minutes. Link generation stops once the wire timestamp would leave less than one minute, and previously prepared browser links are blocked at that cutoff. Uncertain/closed orders remain queryable. Click **查询支付与到账** after paying. The return URL, frontend status and payment screenshots never authorize credit. A confirmed order shows its credited points and refreshed account balance. Recharge offsets negative balances and never automatically resumes parsing; return to the task and explicitly Continue.
 
 ## Confirmation and exactly-once credit
 
-Notifications have bounded UTF-8 form bodies; duplicate names are rejected. The official SDK verifies RSA2 signatures. The server checks app ID, seller ID, merchant order, frozen amount and trade number. Only `TRADE_SUCCESS` or `TRADE_FINISHED` authorizes payment. Signed queries use a fixed TLS gateway, timeouts, no redirects, at most 64 KiB and signature verification over the original JSON bytes. Signed not-found results preserve pending orders; uncertain transport, signature or business results grant no points.
+Notifications have bounded UTF-8 form bodies; duplicate names are rejected. The official SDK verifies RSA2 signatures. The server checks app ID, a matching seller ID or explicitly configured seller login alias, merchant order, frozen amount and trade number. Only `TRADE_SUCCESS` or `TRADE_FINISHED` authorizes payment. Signed queries use a fixed TLS gateway, timeouts, no redirects, at most 64 KiB and signature verification over the original JSON bytes. Signed not-found results preserve pending orders; uncertain transport, signature or business results grant no points.
 
-Payment evidence commits as `paid` first. A second transaction locks the order and uses the existing integer ledger to credit its immutable account with kind `purchase` and reference equal to the order ID, then marks it `credited` atomically. A unique ledger reference and row locking prevent duplicate credit from concurrent notifications, queries or retries. An overflow or database failure rolls back both the balance/ledger and the credited state, leaving paid evidence available for recovery after restart. Stale waiting/closed events never downgrade a paid or credited order. Token revocation blocks access but does not prevent an already paid, account-bound order from being credited.
+Payment evidence commits as `paid` first. A second transaction locks the order and uses the existing integer ledger to credit its immutable account with kind `purchase` and reference equal to the order ID, then marks it `credited` atomically. A unique ledger reference and row locking prevent duplicate credit from concurrent notifications, queries or retries. An overflow or database failure rolls back both the balance/ledger and the credited state, leaving paid evidence available for recovery after restart. Stale waiting events never downgrade a paid or credited order. A closed event after verified payment requires refund review without deleting the prior paid or credited evidence. Token revocation blocks access but does not prevent an already paid, account-bound order from being credited.
+
+Refund indicators in signed notifications or query results are retained in the order before any credit. Positive refund amounts, refund business IDs/timestamps, refund details or closure after verified payment put the order on durable operator review. Later successful-payment replays cannot clear that hold; automatic credit and new payment links remain blocked. Already credited points and ledger are not automatically reversed. The customer can query the held order, and operators must reconcile the provider record and actual point usage manually. Automated reconciliation skips held orders. Explicit zero refund amounts alone do not block an otherwise verified payment.
 
 ## Operations and limits
 

@@ -46,7 +46,7 @@ async def run(args: argparse.Namespace):
             elif args.action == 'reconcile':
                 service = Checkout(db, settings)
                 count, after = 0, ''
-                while rows := await db.rows("SELECT order_id,status FROM payment_orders WHERE status IN ('pending','paid','closed') AND order_id>%s ORDER BY order_id LIMIT 1000", (after,)):
+                while rows := await db.rows("SELECT order_id,status FROM payment_orders WHERE refund_evidence='{}'::jsonb AND status IN ('pending','paid','closed') AND order_id>%s ORDER BY order_id LIMIT 1000", (after,)):
                     for row in rows:
                         if row['status'] == 'paid':
                             await service.fulfill(row['order_id'])
@@ -66,7 +66,7 @@ async def run(args: argparse.Namespace):
 
 
 def main():
-    load_dotenv(SERVER_ROOT.parent / '.env', override=False)
+    load_dotenv(SERVER_ROOT.parent / '.env.payments', override=False)
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest='action', required=True)
     commands.add_parser('init-db')

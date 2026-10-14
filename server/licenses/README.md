@@ -11,4 +11,4 @@ These supplemental notices ship in the service wheel/source archive and image. E
 
 ## Optional checkout dependencies
 
-`payments/inventory.json` records the pinned official Alipay Python SDK 3.7.1411 and its RSA 4.9.1 / pyasn1 0.6.4 dependency license texts, extracted byte-for-byte from installed locked distributions with SHA-256 hashes and upstream source links. The SDK and RSA retain Apache-2.0; pyasn1 retains BSD-2-Clause. These notices ship in service archives/images and never in the offline App. The SDK is used only by the separately deployed checkout.
+`payments/inventory.json` records the pinned official Alipay Python SDK 3.7.1411 and its RSA 4.9.1 / pyasn1 0.6.4 / PyCryptodome 3.24.1 dependency license texts, extracted byte-for-byte from installed locked distributions with SHA-256 hashes and upstream source links. The SDK and RSA retain Apache-2.0; pyasn1 retains BSD-2-Clause; PyCryptodome retains its complete public-domain/BSD notice. These notices ship in service archives/images and never in the offline App. The SDK is used only by the separately deployed checkout.
