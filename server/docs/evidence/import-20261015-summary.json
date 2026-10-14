@@ -1,0 +1,162 @@
+{
+  "schemaVersion": 1,
+  "campaign": "2026-10-14 to 2026-10-15 (UTC+8)",
+  "status": "USER_STOPPED; archival complete",
+  "notAReleaseAcceptance": true,
+  "dataset": "Synthetic maintenance fixtures; not independent exam/teacher validation",
+  "highestCompletedDefaultModeAnswerMatches": [
+    {
+      "format": "TXT",
+      "stage": "s5-large-text-preserve",
+      "repetitions": 1,
+      "matchedAnswers": 432,
+      "expectedAnswerLeaves": 432,
+      "answerMatchPercent": 100.0,
+      "includesExpectedNullAnswers": true,
+      "savedNodes": 576,
+      "sourceNodes": 576,
+      "taskStatus": "SUCCEEDED",
+      "strictQualityGate": "FAILED",
+      "evidence": "server/reports/checks/import-optimization-20261014/quality/s5-large-text-preserve-independent.json",
+      "evidenceSha256": "cffd149fc1b6f20aa66e2e2949a5840f21e2cea06be87c96ab713507accbebcc"
+    },
+    {
+      "format": "XLSX",
+      "stage": "s6-large-xlsx-preserve",
+      "repetitions": 1,
+      "matchedAnswers": 750,
+      "expectedAnswerLeaves": 751,
+      "answerMatchPercent": 99.87,
+      "includesExpectedNullAnswers": true,
+      "savedNodes": 1000,
+      "sourceNodes": 1000,
+      "taskStatus": "SUCCEEDED",
+      "strictQualityGate": "FAILED",
+      "evidence": "server/reports/checks/import-optimization-20261014/quality/s6-large-xlsx-preserve-independent.json",
+      "evidenceSha256": "a2e803d05596a7f9f200aa4c6bbf6c3c10522d939252b70c5ea0ec539bddfdfc"
+    },
+    {
+      "format": "DOCX",
+      "stage": "s9-large-docx-pdf-preserve",
+      "repetitions": 1,
+      "matchedAnswers": 202,
+      "expectedAnswerLeaves": 212,
+      "answerMatchPercent": 95.28,
+      "includesExpectedNullAnswers": true,
+      "savedNodes": 280,
+      "sourceNodes": 283,
+      "taskStatus": "PARTIAL",
+      "strictQualityGate": "FAILED",
+      "evidence": "server/reports/checks/import-optimization-20261014/quality/s9-large-docx-pdf-preserve-independent.json",
+      "evidenceSha256": "73c9b6d23bb70dae33317af6f443837f60f4a0f87c513effab39f822a231350e"
+    },
+    {
+      "format": "PDF",
+      "stage": "s7-large-pdf-preserve",
+      "repetitions": 1,
+      "matchedAnswers": 193,
+      "expectedAnswerLeaves": 212,
+      "answerMatchPercent": 91.04,
+      "includesExpectedNullAnswers": true,
+      "savedNodes": 280,
+      "sourceNodes": 283,
+      "taskStatus": "PARTIAL",
+      "strictQualityGate": "FAILED",
+      "evidence": "server/reports/checks/import-optimization-20261014/quality/s7-large-pdf-preserve-independent.json",
+      "evidenceSha256": "3b3e82303a4b8b1bff0b147f980b3c2c6f0631788c90e0817f776a5460b7cab3"
+    }
+  ],
+  "comparisonLimits": [
+    "Different optimization-stage source versions; maxima are not a single final frozen-source four-format run",
+    "n=1 per large file; no production P95 or concurrency claim",
+    "Strict matched answer accuracy includes correctly absent/null answers and is not whole-document quality pass rate",
+    "Final MAIN99 was stopped after 12 complete trials and one incomplete trial; no final whole-suite improvement claim"
+  ],
+  "sourceS9": {
+    "productionSource": {
+      "gitCommit": "a02ecbffd4e6ad25ee9d91fd4a7cfc61e9369f0b",
+      "dirty": true,
+      "codeHash": "15653492e76ca0efef174309584b26363cd2dabed5dd4ef3c0c298512019c734"
+    },
+    "promptModuleSha256": "15d24061d799450973b2364e111b7f0f0a14e533e357e6d12539a8aa9942bd48"
+  },
+  "engineering": {
+    "serverPassedTests": 2468,
+    "serverLineCovered": 6519,
+    "serverLineValid": 6889,
+    "serverLineCoveragePercent": 94.6291,
+    "appFrontendPassedTests": 392,
+    "appRustPassedTests": 185,
+    "webPassedTests": 85,
+    "totalDistinctSuitePassedTests": 3130,
+    "alreadyExecutedChecksOnly": true
+  },
+  "duplicateOption": {
+    "default": false,
+    "decision": "user chooses before import",
+    "actualOptInBeforeNodes": {
+      "TXT": 574,
+      "XLSX": 1000
+    },
+    "actualOptInAfterNodes": {
+      "TXT": 566,
+      "XLSX": 993
+    },
+    "correctDeletedNodes": 15,
+    "expectedRemovableNodes": 16,
+    "falseDeletedNodes": 0,
+    "protectedVariantPairsRetained": 2,
+    "protectedVariantPairsTested": 2,
+    "unionDetectedPairs": 12,
+    "expectedDuplicatePairs": 12,
+    "strictLargeFileGate": "FAILED 0/2",
+    "existingHelperGate": "NOT_ASSESSED due to confidence comparison; preserved, not overridden",
+    "evidence": "server/reports/checks/import-optimization-20261014/quality/s9-optin2-stage-review.json"
+  },
+  "calls": {
+    "optimization": {
+      "physical": 1000,
+      "known": 996,
+      "unknown": 4,
+      "knownInputTokens": 11042841,
+      "knownOutputTokens": 2823708
+    },
+    "includingOriginalS0": {
+      "physical": 1123,
+      "known": 1119,
+      "unknown": 4,
+      "knownInputTokens": 12000787,
+      "knownOutputTokens": 2883643
+    },
+    "interruptedMain": {
+      "physical": 15,
+      "known": 14,
+      "unknown": 1,
+      "knownInputTokens": 117586,
+      "knownOutputTokens": 7479,
+      "completedTrials": 12,
+      "incompleteTrials": 1,
+      "plannedTrials": 99,
+      "newUnknownCallKey": "f2ca3a72-3f76-454a-995c-3487b7e33986",
+      "ledgerStatus": "pending, dispatched, usage null; no debit"
+    },
+    "moneyCost": null,
+    "returnedProviderModelAlias": "deepseek-flash",
+    "requestedModel": "deepseek-v4.1-flash",
+    "exactProviderWeightsUnverified": true,
+    "noUnknownReplay": true
+  },
+  "cleanup": {
+    "removedFileCount": 546,
+    "removedBytes": 6306435,
+    "removedLocalStubDirectories": 9,
+    "cacheFileCount": 70
+  },
+  "retainedEvidenceRoot": "server/reports/checks/import-optimization-20261014 (local ignored reports)",
+  "privateAccountingSnapshot": "server/reports/checks/import-optimization-20261014/quality/stopped-run-archive/main99-accounting-snapshot.json",
+  "privatePostgresArchiveSha256": "a9bad46ddea02e3bdf859c61a660b52242e0e1f745507e7ce5829c0843e506d1",
+  "cancelledStages": [
+    "remaining s9-main99",
+    "s9b-large-pdf-preserve"
+  ]
+}
