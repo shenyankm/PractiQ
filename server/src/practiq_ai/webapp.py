@@ -23,7 +23,6 @@ from practiq_ai.config import load, require_model_config
 from practiq_ai.contracts import (
     OFFICE_SOURCE_TYPES,
     ArtifactReference,
-    CardRedeem,
     DocumentReference,
     DocumentSourceType,
     DocumentTaskControl,
@@ -117,10 +116,10 @@ def authorize(authorization: str | None = Header(default=None)) -> None:
 
 async def authorize_document(authorization: str | None = Header(default=None),
                              x_practiq_phone: str | None = Header(default=None)) -> AsyncGenerator[str | None]:
-    scheme, _, card = (authorization or '').partition(' ')
+    scheme, _, credential = (authorization or '').partition(' ')
     account = None
-    if scheme.lower() == 'card':
-        account = await _task_response(saas.identity(x_practiq_phone or '', card))
+    if scheme.lower() == 'account':
+        account = await _task_response(saas.identity(x_practiq_phone or '', credential))
     else:
         authorize(authorization)
     token = saas.ACCOUNT.set(account)
@@ -132,18 +131,13 @@ async def authorize_document(authorization: str | None = Header(default=None),
 
 def customer(account: Annotated[str | None, Depends(authorize_document)]) -> str:
     if account is None:
-        raise HTTPException(401, {'code': 'CARD_REQUIRED'})
+        raise HTTPException(401, {'code': 'ACCOUNT_REQUIRED'})
     return account
 
 
 @app.get('/api/products', response_model=ImportProducts)
 async def import_products():
     return await _task_response(saas.products())
-
-
-@app.post('/api/cards/redeem', response_model=ImportAccount)
-async def redeem_card(request: CardRedeem):
-    return await _task_response(saas.redeem(request))
 
 
 @app.get('/api/account', response_model=ImportAccount)

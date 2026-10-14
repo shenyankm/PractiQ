@@ -15,13 +15,17 @@ from .saas import cleanup_task_store
 async def exclusive(db: Database):
     conn = await db.acquire('Stop the service before offline maintenance')
     monitor = None
+    payment_owner = None
     try:
+        payment_owner = await db.acquire('Stop the payment service before offline maintenance', slot=3)
         monitor = asyncio.create_task(watch_ownership(conn, lambda: os._exit(70)))
         yield
     finally:
         if monitor:
             monitor.cancel()
             await asyncio.gather(monitor, return_exceptions=True)
+        if payment_owner:
+            await payment_owner.close()
         await conn.close()
 
 

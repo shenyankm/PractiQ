@@ -109,3 +109,11 @@ android-build: android-prepare-package
 	cd app && npm run tauri -- android build --debug --apk --split-per-abi --target aarch64 --ci
 android-package-check: android-build
 	"$(AI_PYTHON)" app/scripts/check-apk.py --installer "$(ANDROID_APK)" --abi arm64-v8a --aapt2 "$(ANDROID_AAPT2)" --expected-notices app/src-tauri/bundled/THIRD-PARTY.txt --output "$(ANDROID_PACKAGE_REPORT)"
+
+.PHONY: payments-dev payments-init-db payments-reconcile
+payments-dev:
+	cd server && TZ=Asia/Shanghai "$(AI_PYTHON)" -m uvicorn practiq_ai.payment_webapp:app --host 127.0.0.1 --port 8091 --workers 1 --env-file ../.env --no-access-log --limit-concurrency 32
+payments-init-db:
+	cd server && TZ=Asia/Shanghai "$(AI_PYTHON)" -m practiq_ai.payments_manage init-db
+payments-reconcile:
+	cd server && TZ=Asia/Shanghai "$(AI_PYTHON)" -m practiq_ai.payments_manage reconcile

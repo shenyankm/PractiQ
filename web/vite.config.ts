@@ -23,7 +23,7 @@ export default defineConfig(({ mode }) => ({
     host: "127.0.0.1",
     port: 5173,
     strictPort: true,
-    proxy: { "/api": { target: "http://127.0.0.1:8090", changeOrigin: false } },
+    proxy: { "/api/payments": { target: "http://127.0.0.1:8091", changeOrigin: false }, "/api": { target: "http://127.0.0.1:8090", changeOrigin: false } },
   },
   preview: { host: "127.0.0.1", port: 5174, strictPort: true },
   build: { outDir: "dist", sourcemap: false },

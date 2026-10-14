@@ -57,12 +57,6 @@ class StrictModel(BaseModel):
 Micropoints = Annotated[int, PlainSerializer(str, return_type=str, when_used='json')]
 
 
-class CardRedeem(StrictModel):
-    phone: str = Field(min_length=7, max_length=16)
-    card: str = Field(min_length=1, max_length=64)
-    boundCard: str | None = Field(default=None, max_length=64)
-
-
 class ImportAccount(StrictModel):
     phone: str
     balanceMicropoints: Micropoints
@@ -78,6 +72,39 @@ class ImportProduct(StrictModel):
 
 class ImportProducts(StrictModel):
     items: list[ImportProduct]
+
+
+class PaymentOrderCreate(StrictModel):
+    requestId: UUID
+    productId: str = Field(pattern=r'^[a-zA-Z0-9_-]{1,64}$')
+
+
+class PaymentProduct(StrictModel):
+    productId: str
+    name: str
+    priceCents: int = Field(ge=1, le=10_000_000_000)
+    pointsMicropoints: Micropoints
+
+
+class PaymentProducts(StrictModel):
+    items: list[PaymentProduct]
+
+
+class PaymentOrder(PaymentProduct):
+    orderId: str
+    status: Literal['pending', 'paid', 'credited', 'closed']
+    createdAt: str
+    expiresAt: str
+    creditedMicropoints: Micropoints
+
+
+class PaymentOrders(StrictModel):
+    items: list[PaymentOrder]
+    hasMore: bool
+
+
+class PaymentLink(StrictModel):
+    url: str
 
 
 class PointEntry(StrictModel):

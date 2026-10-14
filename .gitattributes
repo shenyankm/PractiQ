@@ -4,3 +4,5 @@ app/licenses/*.provenance.json -text
 app/fixtures/ai-import/formats/** -text
 server/evals/fixtures/pdf/pdf-no-answer.pdf binary
 docs/evidence/2026-10-04-package-reference/** -text
+# Locked payment dependency license texts remain byte-for-byte upstream copies.
+server/licenses/payments/** -text whitespace=-blank-at-eol

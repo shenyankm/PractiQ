@@ -1,4 +1,4 @@
-import type { ArtifactReference, DocumentReference, DocumentSourceType, DocumentTaskControl, DocumentTaskCreate, DocumentTaskDetail, DocumentTaskHead, DocumentTaskList, DocumentTaskReceipt, DocumentTaskReparse, DocumentTaskReview, DocumentUploadResponse, ImportCapabilities, ImportAccount, ImportProducts, PointLedger, OfficeMode } from "./contracts.generated";
+import type { ArtifactReference, DocumentReference, DocumentSourceType, DocumentTaskControl, DocumentTaskCreate, DocumentTaskDetail, DocumentTaskHead, DocumentTaskList, DocumentTaskReceipt, DocumentTaskReparse, DocumentTaskReview, DocumentUploadResponse, ImportCapabilities, ImportAccount, ImportProducts, PointLedger, OfficeMode, PaymentOrder, PaymentOrders, PaymentOrderCreate, PaymentLink } from "./contracts.generated";
 
 export type SourceType = DocumentSourceType;
 export type { OfficeMode } from "./contracts.generated";
@@ -45,7 +45,7 @@ export function validateFiles(files: File[], capabilities: Capabilities) {
 export async function sha256(bytes: ArrayBuffer) {
   return Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)), value => value.toString(16).padStart(2, "0")).join("");
 }
-async function readBytes(response: Response, maximum: number) {
+export async function readBytes(response: Response, maximum: number) {
   if (Number(response.headers.get("content-length")) > maximum) throw new ApiError("响应超过浏览器大小限制。", "RESPONSE_TOO_LARGE");
   const reader = response.body?.getReader();
   if (!reader) {
@@ -68,12 +68,12 @@ async function readBytes(response: Response, maximum: number) {
   return bytes;
 }
 
-/** Same-origin card client. Its lifetime ends on disconnect; mutations are never retried here. */
+/** Same-origin account client. Its lifetime ends on disconnect; mutations are never retried here. */
 export class Client {
   private readonly session = new AbortController();
   private readonly intents = new Map<string, string>();
   constructor(private readonly token: string, private readonly phone: string) {
-    if (!token.trim() || /[\r\n]/.test(token) || !/^(1[3-9][0-9]{9}|\+[1-9][0-9]{6,14})$/.test(phone)) throw new ApiError("请输入有效的手机号和卡密。", "INVALID_CARD");
+    if (!token.trim() || /[\r\n]/.test(token) || !/^(1[3-9][0-9]{9}|\+[1-9][0-9]{6,14})$/.test(phone)) throw new ApiError("请输入有效的手机号和账户令牌。", "INVALID_ACCOUNT_ACCESS");
   }
   get active() { return !this.session.signal.aborted; }
   disconnect() { this.session.abort(); this.intents.clear(); }
@@ -81,11 +81,14 @@ export class Client {
     if (!this.active || signal?.aborted) throw new DOMException("请求已取消", "AbortError");
     if (!path.startsWith("/api/") || path.startsWith("//")) throw new ApiError("服务返回了无效地址。", "INVALID_URL");
     const headers = new Headers(init.headers);
-    headers.set("Authorization", `Card ${this.token}`);
+    headers.set("Authorization", `Account ${this.token}`);
     headers.set("X-Practiq-Phone", this.phone);
+    const signals = [this.session.signal];
+    if (signal) signals.push(signal);
+    if (path.startsWith("/api/payments/")) signals.push(AbortSignal.timeout(20_000));
     let response: Response;
     try {
-      response = await fetch(path, { ...init, headers, cache: "no-store", credentials: "omit", redirect: "error", signal: signal ? AbortSignal.any([signal, this.session.signal]) : this.session.signal });
+      response = await fetch(path, { ...init, headers, cache: "no-store", credentials: "omit", redirect: "error", signal: AbortSignal.any(signals) });
     } catch {
       if (!this.active || signal?.aborted) throw new DOMException("请求已取消", "AbortError");
       throw new ApiError("无法连接服务。请检查服务状态，再手动重试。", "NETWORK_ERROR");
@@ -96,14 +99,14 @@ export class Client {
         const body = JSON.parse(new TextDecoder().decode(await readBytes(response, 64 * 1024))) as { detail?: { code?: string } };
         if (body.detail?.code && /^[A-Z0-9_]{1,64}$/.test(body.detail.code)) code = body.detail.code;
       } catch { /* Error bodies may be empty, text, or validation arrays. */ }
-      const message = response.status === 401 || response.status === 403 ? "手机号与卡密不匹配或卡密已被撤销。" : "服务未完成此操作，请检查任务状态后重试。";
+      const message = response.status === 401 || response.status === 403 ? "手机号与账户令牌不匹配或账户令牌已被撤销。" : path.startsWith("/api/payments/") ? "订单尚未确认，请查询已有订单后重试。" : "服务未完成此操作，请检查任务状态后重试。";
       throw new ApiError(`${message}（${code}）`, code, response.status);
     }
     return response;
   }
   private async json<T>(path: string, init?: RequestInit, signal?: AbortSignal): Promise<T> {
     const response = await this.request(path, init, signal);
-    try { return JSON.parse(new TextDecoder().decode(await readBytes(response, 64 * MIB))) as T; }
+    try { return JSON.parse(new TextDecoder().decode(await readBytes(response, path.startsWith("/api/payments/") ? 2 * MIB : 64 * MIB))) as T; }
     catch (error) { if (error instanceof ApiError) throw error; throw new ApiError("服务响应格式无效。", "INVALID_RESPONSE"); }
   }
   private post<T>(path: string, body: unknown) {
@@ -118,8 +121,16 @@ export class Client {
   }
   account(signal?: AbortSignal) { return this.json<ImportAccount>("/api/account", undefined, signal); }
   ledger(before?: number) { return this.json<PointLedger>(`/api/account/ledger${before ? `?before=${before}` : ""}`); }
-  redeem(card = this.token, boundCard?: string) { return this.post<ImportAccount>("/api/cards/redeem", { phone: this.phone, card, ...(boundCard ? { boundCard } : {}) }); }
-  recharge(card: string) { return this.redeem(card, this.token); }
+  paymentAccount() { return this.json<ImportAccount>("/api/payments/account"); }
+  paymentOrders(offset = 0) { return this.json<PaymentOrders>(`/api/payments/orders?offset=${offset}`); }
+  paymentOrder(id: string) { return this.json<PaymentOrder>(`/api/payments/orders/${encodeURIComponent(id)}`); }
+  createPayment(productId: string) {
+    return this.intent(`payment:${productId}`, requestId => {
+      const request: PaymentOrderCreate = { requestId, productId };
+      return this.post<PaymentOrder>("/api/payments/orders", request);
+    });
+  }
+  paymentLink(id: string) { return this.post<PaymentLink>(`/api/payments/orders/${encodeURIComponent(id)}/pay`, {}); }
   async capabilities(signal?: AbortSignal) {
     const value = await this.json<Capabilities>("/api/import-capabilities", undefined, signal);
     if (!Number.isSafeInteger(value.sourceMaxBytes) || value.sourceMaxBytes <= 0 || !Array.isArray(value.sourceTypes) || !value.sourceTypes.every(type => ["pdf", "text", "csv", "image", "doc", "docx", "xls", "xlsx"].includes(type)) || !Array.isArray(value.officeModes) || !value.officeModes.every(mode => ["pdf", "text"].includes(mode)) || typeof value.officeAvailable !== "boolean" || typeof value.modelConfigured !== "boolean") throw new ApiError("服务能力响应无效。", "INVALID_RESPONSE");

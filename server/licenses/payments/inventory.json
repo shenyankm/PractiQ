@@ -1,0 +1,35 @@
+[
+  {
+    "name": "alipay-sdk-python",
+    "version": "3.7.1411",
+    "source": "https://github.com/alipay/alipay-sdk-python-all",
+    "notices": [
+      {
+        "file": "alipay-sdk-python-LICENSE",
+        "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+      }
+    ]
+  },
+  {
+    "name": "rsa",
+    "version": "4.9.1",
+    "source": "https://github.com/sybrenstuvel/python-rsa",
+    "notices": [
+      {
+        "file": "rsa-LICENSE",
+        "sha256": "073f28b7d389c8fe74f607e17c27f81eaa5ace69edc43a884f23f41b41c5c726"
+      }
+    ]
+  },
+  {
+    "name": "pyasn1",
+    "version": "0.6.4",
+    "source": "https://github.com/pyasn1/pyasn1",
+    "notices": [
+      {
+        "file": "pyasn1-LICENSE.rst",
+        "sha256": "2aad5fc00f705c4a1addb83eed10a6a75d286a3779f0cf8519d87e62bc4735fd"
+      }
+    ]
+  }
+]

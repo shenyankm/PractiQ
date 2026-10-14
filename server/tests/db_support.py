@@ -2,6 +2,7 @@
 import asyncio
 import atexit
 import os
+import secrets
 import subprocess
 import time
 from typing import Any, cast
@@ -20,9 +21,22 @@ SERVICES = []
 
 
 async def remove_saas_schema(conn):
-    """Make an empty schema-3 test database match the historical task schema."""
+    """Make an empty schema-4 test database match the historical task schema."""
     await conn.execute('ALTER TABLE document_tasks DROP COLUMN account_id, DROP COLUMN billing_rates')
-    await conn.execute('DROP TABLE import_calls,import_uploads,import_ledger,import_cards,import_products,import_accounts')
+    await conn.execute('DROP TABLE import_calls,import_uploads,import_ledger,import_account_tokens,import_products,import_accounts')
+
+
+async def seed_account(database, number='13800138000', balance=1_000_000):
+    """Test-only existing account fixture; credentials carry no entitlement."""
+    from practiq_ai import saas
+    credential = secrets.token_urlsafe(32)
+    account = str(uuid4())
+    async with database.transaction() as conn:
+        await conn.execute('INSERT INTO import_accounts(account_id,phone) VALUES(%s,%s)', (account, saas.phone(number)))
+        await conn.execute('INSERT INTO import_account_tokens(digest,account_id) VALUES(%s,%s)', (saas.token_digest(credential), account))
+        if balance:
+            await saas.credit(conn, account, balance, 'seed', saas.token_digest(credential))
+    return credential
 
 
 TEST_URI = None

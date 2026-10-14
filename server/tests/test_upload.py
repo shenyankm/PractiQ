@@ -224,7 +224,7 @@ async def test_upload_prepare_and_artifact_authorization_database_outages_fail_c
     if stage == 'prepare':
         monkeypatch.setattr(saas, 'owns_upload', unavailable)
         endpoint, body, params = '/api/uploads', metadata, {}
-        headers = {'Authorization': 'Card synthetic-card', 'X-Practiq-Phone': 'account-a'}
+        headers = {'Authorization': 'Account synthetic-token', 'X-Practiq-Phone': 'account-a'}
     else:
         method = {'task': '_read_task_record', 'review': 'review_task', 'detail': 'get_task'}[stage]
         monkeypatch.setattr(task_api, method, unavailable)

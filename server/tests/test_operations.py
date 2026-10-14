@@ -71,12 +71,13 @@ def test_proxy_grading_limit_matches_service_without_raising_document_upload_lim
     assert 'proxy_pass http://127.0.0.1:8000;' in grading[2]
 
 
-def test_card_limit_uses_client_addresses_from_only_the_trusted_local_edge():
+def test_request_limit_uses_client_addresses_from_only_the_trusted_local_edge():
     import re
     config = (Path(__file__).parents[1] / 'deploy/nginx.conf').read_text()
     assert re.findall(r'set_real_ip_from\s+([^;]+);', config) == ['127.0.0.1']
     assert 'real_ip_header X-Forwarded-For;' in config and 'real_ip_recursive on;' in config
-    assert 'limit_req_zone $binary_remote_addr zone=cards:10m rate=5r/m;' in config
+    assert '/api/cards/redeem' not in config
+    assert 'zone=cards' not in config
 
 
 def test_dev_launcher_uses_single_process(tmp_path):

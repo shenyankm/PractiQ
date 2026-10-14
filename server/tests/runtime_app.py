@@ -14,6 +14,8 @@ from tests.support import FakeModel, question
 root = Path(os.environ['TEST_EVENTS'])
 root.mkdir(exist_ok=True)
 phase = os.environ.get('TEST_PHASE', '')
+# A publish-window kill can happen before execution reaches its own pause.
+published_restart = (root / 'published').exists()
 
 
 def legacy_import_admin(_authorization: Annotated[None, Depends(authorize)]):
@@ -77,13 +79,8 @@ original_gate = document._gate
 
 
 async def execute(self, run):
-    if phase == 'published':
-        try:
-            (root / 'published_execution').touch(exist_ok=False)
-        except FileExistsError:
-            pass
-        else:
-            await asyncio.Event().wait()
+    if phase == 'published' and not published_restart:
+        await asyncio.Event().wait()
     if run['command']:
         await block_once('review_before')
     else:

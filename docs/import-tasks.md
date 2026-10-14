@@ -6,13 +6,13 @@ The independent AI service's Web frontend handles source selection, upload, task
 
 ## Start and review
 
-Enter a phone number and a bound card, or explicitly bind the first card. Both credentials remain in browser memory and clear on disconnect or reload. Service Bearer tokens are reserved for legacy-task administration and App grading; they do not authorize customer imports. Choose up to ten supported files, select the Office mode when available and explicitly start import. File selection makes no upload or model request. The server validates the source bytes and stores the original SHA-256; Office normalization remains part of that same source task.
+Enter a phone number and an operator-issued token for an existing account. Both credentials remain in browser memory and clear on disconnect or reload. Service Bearer tokens are reserved for legacy-task administration and App grading; they do not authorize customer imports. Choose up to ten supported files, select the Office mode when available and explicitly start import. File selection makes no upload or model request. The server validates the source bytes and stores the original SHA-256; Office normalization remains part of that same source task.
 
 Inspect saved questions, supplied answers, images, source associations, quality warnings, errors and usage. `COMPLETED` can contain `PARTIAL`; a completed task is not a claim that extraction is accurate. Missing answers remain null and require review. Parsing does not solve unanswered questions.
 
 Deployments can opt in to [independent AI source review](../server/docs/import-agent-review.md) with `AI_IMPORT_REVIEW=true`. Start import then includes review and, for source-evidenced discrepancies, at most one repair and recheck; these consume the existing model budget and can increase cost. Result warnings distinguish no discrepancy, repaired, rejected, unresolved and unreviewed outcomes. Missing source answers are never solved, and AI review does not clear existing human-review flags or establish accuracy. Reviewing saved results remains read-only.
 
-Model calls consume import points at the task’s frozen rates. Insufficient points or unknown usage pause work recoverably; recharge and read-only downloads never resume it automatically. When offered, **下载已完成内容** exports the currently completed questions with their missing-field and review warnings. See [phone/card access and billing](../server/docs/saas.md).
+Model calls consume import points at the task’s frozen rates. Insufficient points or unknown usage pause work recoverably; recharge and read-only downloads never resume it automatically. When offered, **下载已完成内容** exports the currently completed questions with their missing-field and review warnings. See [phone/account-token access and billing](../server/docs/saas.md).
 
 Download a completed result as a bank ZIP, then open it with the desktop importer. Review flags do not block ZIP import or offline practice. Native import lets you create a bank or append to an existing one. Personal answers and historical score snapshots stay local.
 
