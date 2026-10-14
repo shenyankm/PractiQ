@@ -66,6 +66,31 @@ it("preserves null answers, material/shared options, source associations and par
   expect(screen.getAllByText(/"questionId": "q-child"/).length).toBeGreaterThan(0);
   expect(screen.getByText(/"unitIndex": 0/)).toBeTruthy();
 });
+it("shows duplicate warnings in full and filters retained copies by ID without modifying results", async () => {
+  const user = userEvent.setup(); const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);
+  const warning = "Possible duplicate question trees: q0; q2. All copies were retained; review them before deciding whether to remove any.";
+  const copies = ["q0", "q2"].map(id => question({ id, parentId: null, optionSourceId: null, stem: "重复题目" }));
+  const sources = copies.map((q, unitIndex) => ({ questionId: q.id!, stage: "document_parse" as const, unitIndex }));
+  const detail = { ...task, result: { ...task.result!, questions: copies, groups: [], visualElements: [], warnings: [warning] } };
+  const checkpoint = { ...preview, units: copies.map((q, index) => ({ ...preview.units[0], stage: "document_parse" as const, index, questions: [q], groups: [], visualElements: [] })), questionSources: sources };
+  const before = JSON.stringify({ detail, checkpoint });
+  render(<ResultReview task={detail} preview={checkpoint} client={new Client("fake", "13800138000")} />);
+  expect(screen.getByText(warning)).toBeTruthy();
+  expect(screen.getAllByText("重复题目", { selector: "summary span" })).toHaveLength(2);
+  const search = screen.getByRole("searchbox", { name: "搜索解析题目" });
+  expect(search.getAttribute("placeholder")).toBe("搜索题目 ID、题干、选项或来源原文");
+  await user.type(search, "Q2");
+  expect(screen.getByText(/显示 1 \/ 2 条记录/)).toBeTruthy();
+  await user.click(screen.getByText("重复题目", { selector: "summary span" }));
+  expect(screen.getByText("q2")).toBeTruthy(); expect(screen.getAllByText("document_parse · 1").length).toBeGreaterThan(0);
+  await user.click(screen.getByRole("button", { name: "清除结果筛选" }));
+  expect(screen.getAllByText("重复题目", { selector: "summary span" })).toHaveLength(2);
+  await user.click(screen.getAllByText("重复题目", { selector: "summary span" })[0]);
+  expect(screen.getByText("q0")).toBeTruthy(); expect(screen.getAllByText("document_parse · 0").length).toBeGreaterThan(0);
+  expect(screen.getByText(warning)).toBeTruthy();
+  expect(screen.queryByRole("button", { name: /删除|移除|合并/ })).toBeNull();
+  expect(fetcher).not.toHaveBeenCalled(); expect(JSON.stringify({ detail, checkpoint })).toBe(before);
+});
 it("shows HTML blocks as inert source text and retains missing stems/types", async () => {
   const user = userEvent.setup(); const { container } = render(<ResultReview task={task} preview={preview} client={new Client("fake", "13800138000")} />);
   await user.click(screen.getByText("题干未提供（null）"));

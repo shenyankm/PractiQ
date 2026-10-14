@@ -114,7 +114,7 @@ export default function ResultReview({ task, preview, client }: { task: Document
     return entries.filter(entry => {
       const q = entry.question;
       const options = relatedQuestion(entry, questions, q.optionSourceId)?.options || q.options;
-      return (!reviewOnly || q.needsReview) && (!keyword || [q.stem, q.sourceText, ...options.map(option => option.content)].some(text => text?.toLocaleLowerCase().includes(keyword)));
+      return (!reviewOnly || q.needsReview) && (!keyword || [q.id, q.stem, q.sourceText, ...options.map(option => option.content)].some(text => text?.toLocaleLowerCase().includes(keyword)));
     });
   }, [entries, questions, search, reviewOnly]);
   const currentPage = Math.min(page, Math.max(0, Math.ceil(filteredEntries.length / 20) - 1));
@@ -128,7 +128,7 @@ export default function ResultReview({ task, preview, client }: { task: Document
     {!!task.result?.missingFields?.length && <p className="notice">文档缺失字段：{task.result.missingFields.join("、")}</p>}
     {preview?.quality.reviewRequired && <p className="notice">需要人工复核 · {preview.quality.reviewQuestionCount || 0} 条题目。复核标记不会在导出时自动清除。</p>}
     {tab === "questions" ? <>
-      {!!entries.length && <div className="review-filters"><label><span>搜索解析题目</span><Input type="search" value={search} placeholder="搜索题干、选项或来源原文" onChange={event => { setSearch(event.target.value); setPage(0); }}/></label><label className="review-checkbox"><input type="checkbox" checked={reviewOnly} onChange={event => { setReviewOnly(event.target.checked); setPage(0); }}/>仅看需要复核</label>{(search || reviewOnly) && <Button variant="outline" onClick={() => { setSearch(""); setReviewOnly(false); setPage(0); }}>清除结果筛选</Button>}<p role="status">显示 {filteredEntries.length} / {entries.length} 条记录。筛选不会修改复核标记或导出内容。</p></div>}
+      {!!entries.length && <div className="review-filters"><label><span>搜索解析题目</span><Input type="search" value={search} placeholder="搜索题目 ID、题干、选项或来源原文" onChange={event => { setSearch(event.target.value); setPage(0); }}/></label><label className="review-checkbox"><input type="checkbox" checked={reviewOnly} onChange={event => { setReviewOnly(event.target.checked); setPage(0); }}/>仅看需要复核</label>{(search || reviewOnly) && <Button variant="outline" onClick={() => { setSearch(""); setReviewOnly(false); setPage(0); }}>清除结果筛选</Button>}<p role="status">显示 {filteredEntries.length} / {entries.length} 条记录。筛选不会修改复核标记或导出内容。</p></div>}
       {filteredEntries.length ? filteredEntries.slice(currentPage * 20, currentPage * 20 + 20).map(entry => <QuestionCard key={JSON.stringify([entry.stage, entry.index, entry.question.id || entry.ordinal])} entry={entry} questions={questions} sourcesById={sourcesById} />) : <p className="text-muted-foreground">{entries.length ? "没有符合筛选的题目，请调整搜索或清除结果筛选。" : "当前检查点尚无可查看的题目，空结果不会补写内容。"}</p>}
       {filteredEntries.length > 20 && <nav className="flex items-center justify-between" aria-label="结果分页"><Button variant="outline" disabled={!currentPage} onClick={() => setPage(currentPage - 1)}><ChevronLeft />上一页题目</Button><span>第 {currentPage * 20 + 1}–{Math.min(filteredEntries.length, currentPage * 20 + 20)} 条，共 {filteredEntries.length} 条</span><Button variant="outline" disabled={(currentPage + 1) * 20 >= filteredEntries.length} onClick={() => setPage(currentPage + 1)}>下一页题目<ChevronRight /></Button></nav>}
     </> : <div className="space-y-4">

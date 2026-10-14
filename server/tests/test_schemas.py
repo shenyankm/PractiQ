@@ -137,6 +137,37 @@ def test_document_result_validates_nested_references_and_labels() -> None:
         )
 
 
+def test_cloze_children_keep_local_options_without_a_shared_bank() -> None:
+    from practiq_ai.graphs.document import CURRENT_UNIT, PageParseResult
+
+    parent = {
+        **question(), "id": "page:22:60", "stem": "Snow is", "answerMode": "cloze",
+        "questionKind": "cloze", "options": [], "answerPayload": None,
+        "passage": [{"partType": "text", "textValue": "Snow is "},
+                    {"partType": "blank", "questionId": "page:22:61"}],
+    }
+    child = {
+        **question(), "id": "page:22:61", "stem": "Choose the missing word",
+        "parentId": "page:22:60", "optionSourceId": None, "choiceVariant": "single",
+        "options": [{"label": "A", "content": "white"}, {"label": "B", "content": "green"}],
+        "answerPayload": {"correct": ["A"]},
+    }
+    token = CURRENT_UNIT.set("vision_parse:21:0")
+    try:
+        result = PageParseResult.model_validate({"questions": [parent, child], "groups": []})
+        assert result.questions[1].optionSourceId is None
+        assert [option.content for option in result.questions[1].options] == ["white", "green"]
+        for invalid in (
+            [parent, {**child, "optionSourceId": parent["id"]}],
+            [{**parent, "options": child["options"]}, {**child, "options": [], "optionSourceId": parent["id"]}],
+            [parent, {**child, "options": [], "optionSourceId": parent["id"]}],
+        ):
+            with pytest.raises(ValidationError):
+                PageParseResult.model_validate({"questions": invalid, "groups": []})
+    finally:
+        CURRENT_UNIT.reset(token)
+
+
 def test_content_blocks_and_bboxes_cannot_be_empty_or_invalid() -> None:
     valid = {
         "schemaVersion": 3,

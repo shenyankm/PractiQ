@@ -99,7 +99,8 @@ def _write_result(root: Path, document: ExtractedDocument) -> None:
     for index, payload in enumerate(document.page_images):
         (root / f'page-{index}').write_bytes(payload)
     result = {'document': {'text': document.text, 'warnings': document.warnings,
-              'truncated': document.truncated, 'page_images': list(map(len, document.page_images))}}
+              'truncated': document.truncated, 'tabular_rows_safe': document.tabular_rows_safe,
+              'page_images': list(map(len, document.page_images))}}
     (root / 'result').write_text(json.dumps(result), encoding='utf-8')
 
 
@@ -117,7 +118,8 @@ def _read_result(root: Path) -> ExtractedDocument:
                 or not isinstance(document['text'], str)
                 or not isinstance(document['warnings'], list)
                 or any(not isinstance(w, str) for w in document['warnings'])
-                or type(document['truncated']) is not bool):
+                or type(document['truncated']) is not bool
+                or type(document.get('tabular_rows_safe', False)) is not bool):
             raise ValueError('Invalid extraction manifest')
         images = [_read_file(root / f'page-{i}', size) for i, size in enumerate(sizes)]
         if any(len(payload) != size for payload, size in zip(images, sizes, strict=True)):

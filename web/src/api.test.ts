@@ -71,6 +71,7 @@ describe("source selection and bounded upload", () => {
     expect(create.requestId).toBe(taskId);
     expect(create.document).toMatchObject(metadata);
     expect(create).not.toHaveProperty("officeMode");
+    expect(create).not.toHaveProperty("deduplicateQuestions");
     for (const [url, init] of fetcher.mock.calls) {
       expect(url).not.toContain("fake-service-token");
       expect(new Headers(init.headers).get("Authorization")).toBe("Account fake-service-token");
@@ -83,6 +84,13 @@ describe("source selection and bounded upload", () => {
     await new Client("fake", "13800138000").start(new File(["office"], "a.docx"), capabilities, taskId, "text", () => {});
     expect(fetcher.mock.calls).toHaveLength(2);
     expect(JSON.parse(fetcher.mock.calls[1][1].body as string)).toMatchObject({ requestId: taskId, officeMode: "text", document: { sourceType: "docx", mediaType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" } });
+  });
+  it.each([false, true])("sends deduplication only when explicitly enabled (%s)", async deduplicateQuestions => {
+    const fetcher = mockUpload({ existing: true });
+    await new Client("fake", "13800138000").start(new File(["x"], "a.txt"), capabilities, taskId, "pdf", () => {}, deduplicateQuestions);
+    const create = JSON.parse(fetcher.mock.calls[1][1].body as string);
+    if (deduplicateQuestions) expect(create).toHaveProperty("deduplicateQuestions", true);
+    else expect(create).not.toHaveProperty("deduplicateQuestions");
   });
   it.each([{ badReference: true }, { badUrl: true }])("rejects altered reference or external upload URL before PUT/model submission: %j", async options => {
     const fetcher = mockUpload(options);

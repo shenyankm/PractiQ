@@ -69,10 +69,10 @@ def test_document_graph_merges_parallel_chunks_and_keeps_checkpoint_small(monkey
     monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
     monkeypatch.setattr(document, "get_model", lambda *args: model)
     monkeypatch.setattr(
-        document, "split_chunk_spans", lambda text: [
+        document, "split_chunk_plan", lambda text, **kwargs: ([
             {"start": 0, "end": text.index("2. Second") + len("2. Second"), "overlapStart": 0, "overlapEnd": 0},
             {"start": text.index("2. Second"), "end": len(text), "overlapStart": text.index("2. Second"), "overlapEnd": text.index("2. Second") + len("2. Second")}
-        ]
+        ], None, [None, None])
     )
     saver = InMemorySaver()
     graph = local_graph(saver)
@@ -130,10 +130,10 @@ def test_document_graph_returns_partial_for_one_failed_chunk(monkeypatch):
         document, "get_model", lambda *args: FakeModel(responses=[])
     )
     monkeypatch.setattr(
-        document, "split_chunk_spans", lambda text: [
+        document, "split_chunk_plan", lambda text, **kwargs: ([
             {"start": 0, "end": text.index("2. Second") + len("2. Second"), "overlapStart": 0, "overlapEnd": 0},
             {"start": text.index("2. Second"), "end": len(text), "overlapStart": text.index("2. Second"), "overlapEnd": text.index("2. Second") + len("2. Second")}
-        ]
+        ], None, [None, None])
     )
 
     async def partial_chunk(task, runtime):
@@ -227,10 +227,10 @@ def test_document_graph_resumes_without_repeating_completed_chunk(monkeypatch):
     monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
     monkeypatch.setattr(document, "get_model", lambda *args: model)
     monkeypatch.setattr(
-        document, "split_chunk_spans", lambda text: [
+        document, "split_chunk_plan", lambda text, **kwargs: ([
             {"start": 0, "end": text.index("2. Second") + len("2. Second"), "overlapStart": 0, "overlapEnd": 0},
             {"start": text.index("2. Second"), "end": len(text), "overlapStart": text.index("2. Second"), "overlapEnd": text.index("2. Second") + len("2. Second")}
-        ]
+        ], None, [None, None])
     )
     monkeypatch.setattr(document, "_chunk", unstable_chunk)
     graph = local_graph(InMemorySaver())

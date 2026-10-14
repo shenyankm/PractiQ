@@ -314,6 +314,11 @@ class Service:
             self.fatal(70)
         except Exception as exc:  # noqa: BLE001 - task boundary stores only a sanitized error code
             code = exc.code if isinstance(exc, DocumentProcessingError) else 'RUN_DEADLINE_EXCEEDED' if isinstance(exc, TimeoutError) else 'TASK_EXECUTION_FAILED'
+            if code == 'RUN_DEADLINE_EXCEEDED':
+                from .saas import reconcile
+                await reconcile(self.db, thread_id=run['thread_id'])
+                if await self.unknown_calls(run):
+                    code = 'MODEL_RESULT_UNKNOWN'
             if code != 'TASK_FORMAT_UNSUPPORTED':
                 await self.finish(run_id, 'interrupted' if code == 'MODEL_RESULT_UNKNOWN' else 'error', code)
         finally:

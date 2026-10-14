@@ -65,7 +65,31 @@ def get_model() -> ChatOpenAI:
     return build_model(
         config.provider, config.api_key, config.model_id,
         max_tokens=config.model_max_tokens, timeout=config.model_timeout_seconds, base_url=config.base_url,
+        model_api=config.model_api,
     )
+
+
+def _verify_responses_usage(response: httpx2.Response) -> None:
+    if not response.is_success:
+        return
+    try:
+        payload = response.json()
+    except ValueError:
+        raise DocumentProcessingError(502, "AI provider returned invalid token usage", "AI_USAGE_INVALID") from None
+    usage = payload.get("usage") if isinstance(payload, dict) else None
+    if not isinstance(usage, dict) or "input_tokens" not in usage or "output_tokens" not in usage:
+        raise DocumentProcessingError(502, "AI provider response omitted token usage", "AI_USAGE_MISSING")
+    _token_counts(usage)
+
+
+def _responses_response(response: httpx2.Response) -> None:
+    response.read()
+    _verify_responses_usage(response)
+
+
+async def _responses_async_response(response: httpx2.Response) -> None:
+    await response.aread()
+    _verify_responses_usage(response)
 
 
 def build_model(
@@ -75,16 +99,22 @@ def build_model(
     max_tokens: int = 16_384,
     timeout: float = 180,
     base_url: str | None = None,
+    model_api: str | None = None,
 ) -> ChatOpenAI:
     if provider not in BASE_URLS and not (provider == "openai" and base_url):
         raise ValueError(f"Unsupported LLM provider: {provider}")
+    if model_api not in {None, "chat_completions", "responses"}:
+        raise ValueError(f"Unsupported model API: {model_api}")
     endpoint = (base_url or BASE_URLS[provider]).rstrip("/")
-    local_clients: dict[str, Any] = {}
-    if is_loopback_host(urlsplit(endpoint).hostname):
-        # macOS system proxies can capture loopback requests even without proxy env vars.
-        local_clients = {
-            "http_client": httpx2.Client(timeout=timeout, trust_env=False),
-            "http_async_client": httpx2.AsyncClient(timeout=timeout, trust_env=False),
+    clients: dict[str, Any] = {}
+    loopback = is_loopback_host(urlsplit(endpoint).hostname)
+    if loopback or model_api == "responses":
+        # Bypass loopback proxies and verify usage before the SDK can fill missing counts with zero.
+        clients = {
+            "http_client": httpx2.Client(timeout=timeout, trust_env=not loopback,
+                event_hooks={"response": [_responses_response]} if model_api == "responses" else None),
+            "http_async_client": httpx2.AsyncClient(timeout=timeout, trust_env=not loopback,
+                event_hooks={"response": [_responses_async_response]} if model_api == "responses" else None),
         }
     return ChatOpenAI(
         model=model_name,
@@ -93,10 +123,12 @@ def build_model(
         **cast(dict[str, Any], {"max_tokens": max_tokens}),
         timeout=timeout,
         max_retries=0,
+        use_responses_api=None if model_api is None else model_api == "responses",
+        store=False if model_api == "responses" else None,
         extra_body={"enable_thinking": False}
         if endpoint == BASE_URLS["dashscope"] and model_name.startswith("qwen3.7-")
         else None,
-        **local_clients,
+        **clients,
     )
 
 
@@ -163,6 +195,7 @@ def structured_output(model: BaseChatModel, schema: type[BaseModel]):
     method = load().structured_output_method
     supported = (
         isinstance(model, ChatOpenAI)
+        and not model.use_responses_api
         and model.openai_api_base == BASE_URLS["dashscope"]
         and any(
             model.model_name == name or model.model_name.startswith(name + "-")
@@ -195,8 +228,8 @@ def structured_output(model: BaseChatModel, schema: type[BaseModel]):
             }
         )
     return model.with_structured_output(
-        convert_to_openai_tool(deepcopy(_model_schema(schema))) if isinstance(model, ChatOpenAI) else schema,
-        method="function_calling", include_raw=True
+        convert_to_openai_tool(deepcopy(_model_schema(schema)), strict=False if model.use_responses_api else None) if isinstance(model, ChatOpenAI) else schema,
+        method="function_calling", include_raw=True,
     )
 
 
@@ -205,7 +238,15 @@ def validate_response[ResultT: BaseModel](
     schema: type[ResultT],
     *,
     context: dict[str, Any] | None = None,
+    responses_api: bool = False,
 ) -> ResultT:
+    if responses_api:
+        metadata = response["raw"].response_metadata
+        incomplete = metadata.get("incomplete_details")
+        if metadata.get("status") == "incomplete" and isinstance(incomplete, dict) and incomplete.get("reason") == "max_output_tokens":
+            metadata["finish_reason"] = "length"
+        elif metadata.get("status") != "completed":
+            raise ValueError("Responses API output was not completed")
     if response["raw"].response_metadata.get("finish_reason") == "length":
         raise ValueError("Output was truncated; return a complete result without repetition. Do not omit questions or invent source content")
     raw = response["raw"]
@@ -287,6 +328,16 @@ def _failure_fingerprint(raw: BaseMessage, error: BaseMessage) -> str:
     })
 
 
+def _token_counts(usage: Any) -> tuple[int, int]:
+    input_tokens = usage.get("input_tokens", usage.get("prompt_tokens")) if isinstance(usage, dict) else None
+    output_tokens = usage.get("output_tokens", usage.get("completion_tokens")) if isinstance(usage, dict) else None
+    if input_tokens is None or output_tokens is None:
+        raise DocumentProcessingError(502, "AI provider response omitted token usage", "AI_USAGE_MISSING")
+    if type(input_tokens) is not int or type(output_tokens) is not int or input_tokens < 0 or output_tokens < 0:
+        raise DocumentProcessingError(502, "AI provider returned invalid token usage", "AI_USAGE_INVALID")
+    return input_tokens, output_tokens
+
+
 def usage_from_response(
     model: BaseChatModel,
     raw: BaseMessage,
@@ -297,23 +348,7 @@ def usage_from_response(
     usage = getattr(raw, "usage_metadata", None) or getattr(
         raw, "response_metadata", {}
     ).get("token_usage")
-    input_tokens = usage and usage.get("input_tokens", usage.get("prompt_tokens"))
-    output_tokens = usage and usage.get("output_tokens", usage.get("completion_tokens"))
-    if input_tokens is None or output_tokens is None:
-        raise DocumentProcessingError(
-            502, "AI provider response omitted token usage", "AI_USAGE_MISSING"
-        )
-    if (
-        not isinstance(input_tokens, int)
-        or isinstance(input_tokens, bool)
-        or not isinstance(output_tokens, int)
-        or isinstance(output_tokens, bool)
-        or input_tokens < 0
-        or output_tokens < 0
-    ):
-        raise DocumentProcessingError(
-            502, "AI provider returned invalid token usage", "AI_USAGE_INVALID"
-        )
+    input_tokens, output_tokens = _token_counts(usage)
     info = runtime.execution_info if runtime else None
     call_key = (
         uuid5(
@@ -349,14 +384,19 @@ async def structured_attempt[ResultT: BaseModel](
     call_record: dict[str, Any] | None = None,
 ) -> tuple[ResultT | None, list[BaseMessage], ModelCallUsage]:
     with telemetry.measure("provider_request", call_record if call_record is not None else {}, "providerRequestMs"):
-        response = cast(
-            dict[str, Any],
-            await structured_output(model, schema).ainvoke(messages, config={"metadata": {
-                "practiqCallKey": str(call_key) if call_key else None,
-                "practiqUnitKey": CURRENT_UNIT.get(), "practiqAttempt": logical_attempt,
-                "practiqSchema": schema.__name__, "practiqCallKind": call_kind,
-            }}),
-        )
+        try:
+            response = cast(
+                dict[str, Any],
+                await structured_output(model, schema).ainvoke(messages, config={"metadata": {
+                    "practiqCallKey": str(call_key) if call_key else None,
+                    "practiqUnitKey": CURRENT_UNIT.get(), "practiqAttempt": logical_attempt,
+                    "practiqSchema": schema.__name__, "practiqCallKind": call_kind,
+                }}),
+            )
+        except APIConnectionError as exc:
+            if isinstance(exc.__cause__, DocumentProcessingError):
+                raise exc.__cause__ from None
+            raise
     if call_record is not None:
         metadata = response["raw"].response_metadata
         call_record["providerRequestId"] = metadata.get("request_id") or metadata.get("id")
@@ -366,7 +406,7 @@ async def structured_attempt[ResultT: BaseModel](
     if call_key is not None:
         usage = usage.model_copy(update={"callKey": call_key})
     try:
-        parsed = validate_response(response, schema)
+        parsed = validate_response(response, schema, responses_api=isinstance(model, ChatOpenAI) and model.use_responses_api is True)
         if call_record is not None:
             call_record["validation"] = "passed"
         return parsed, messages, usage
@@ -383,7 +423,7 @@ async def structured_attempt[ResultT: BaseModel](
                 "Array fields must be actual JSON arrays, not quoted JSON strings. "
                 "Return each field separately in the top-level object; do not pack "
                 "the rest of the object into one field. Rebuild the complete object "
-                "from the original source, preserving all questions, groups and figures.\n"
+                "from the original source, preserving all fields declared by the selected schema.\n"
             )
         error = "; ".join(
             f"{'.'.join(map(str, item['loc'])) or 'result'}: {item['msg']}"
@@ -609,8 +649,11 @@ async def structured_call[ResultT: BaseModel](
         usage.append(ModelCallUsage.model_validate(saved["usage"]))
         if saved["parsed"] is None:
             failure_code = saved.get("validationCode") or "OUTPUT_INVALID"
+            if failure_code == "OUTPUT_TRUNCATED":
+                decision("stop", attempt, failure_code)
+                return None, usage, failure_code
             if saved["failureFingerprint"] == previous_failure:
-                failure_code = "OUTPUT_TRUNCATED" if failure_code == "OUTPUT_TRUNCATED" else "OUTPUT_STALLED"
+                failure_code = "OUTPUT_STALLED"
                 decision("stop", attempt, failure_code)
                 return None, usage, failure_code
             previous_failure = saved["failureFingerprint"]

@@ -77,6 +77,8 @@ it("keeps Token in memory, clears it on disconnect, and performs no HTTP before 
 it("selection is passive; explicit Start performs bounded SHA upload and task creation", async () => {
   const user = userEvent.setup(); const http = fakeHTTP(); render(<App />); await connect(user);
   expect(screen.getByText(/服务启用 AI 复核时/)).toBeTruthy();
+  expect((screen.getByRole("checkbox", { name: "自动去重" }) as HTMLInputElement).checked).toBe(false);
+  expect(screen.getByText(/仅对完全相同的题目或整组复合题自动去重；未勾选只提示候选并保留全部/)).toBeTruthy();
   await user.selectOptions(screen.getByLabelText("Word / Excel 转换模式"), "text");
   await user.upload(screen.getByLabelText("选择文档"), new File(["office"], "document.docx"));
   expect(screen.getByText(/尚未提交/)).toBeTruthy(); expect(http.calls.filter(call => call.method !== "GET")).toHaveLength(0);
@@ -84,17 +86,28 @@ it("selection is passive; explicit Start performs bounded SHA upload and task cr
   const mutations = http.calls.filter(call => call.method !== "GET"); expect(mutations.map(call => call.method)).toEqual(["POST", "PUT", "POST"]);
   expect(mutations[0].body).toMatchObject({ sourceType: "docx", sizeBytes: 6 });
   expect(mutations[2].body).toMatchObject({ officeMode: "text", graphId: "document_parser" });
+  expect(mutations[2].body).not.toHaveProperty("deduplicateQuestions");
   expect(mutations[2].body?.requestId).toMatch(/^[a-f0-9-]{36}$/);
 });
-it("never automatically replays uncertain POST, and an explicit retry retains the request and Office mode", async () => {
+it.each([false, true])("never automatically replays uncertain POST, and an explicit retry retains the request and import options (%s)", async deduplicateQuestions => {
   const user = userEvent.setup(); const http = fakeHTTP(); let fail = true;
-  http.server.intercept = (url, init) => { if (url === "/api/document-tasks" && init.method === "POST" && fail) { fail = false; throw new TypeError("lost reply"); } };
+  let rejectCreate!: () => void;
+  http.server.intercept = (url, init) => { if (url === "/api/document-tasks" && init.method === "POST" && fail) { fail = false; return new Promise((_, reject) => { rejectCreate = () => reject(new TypeError("lost reply")); }); } };
   render(<App />); await connect(user); await user.selectOptions(screen.getByLabelText("Word / Excel 转换模式"), "text"); await user.upload(screen.getByLabelText("选择文档"), new File(["office"], "document.docx"));
-  await user.click(screen.getByRole("button", { name: "开始导入" })); const retry = await screen.findByRole("button", { name: "重试开始" });
+  const dedup = screen.getByRole("checkbox", { name: "自动去重" }) as HTMLInputElement;
+  if (deduplicateQuestions) await user.click(dedup);
+  expect(http.calls.every(call => call.method === "GET")).toBe(true);
+  await user.click(screen.getByRole("button", { name: "开始导入" }));
+  await waitFor(() => expect(rejectCreate).toBeDefined()); expect(dedup.disabled).toBe(true);
+  await act(async () => rejectCreate()); const retry = await screen.findByRole("button", { name: "重试开始" });
   expect(http.calls.filter(call => call.url === "/api/document-tasks" && call.method === "POST")).toHaveLength(1);
   expect((screen.getByLabelText("Word / Excel 转换模式") as HTMLSelectElement).disabled).toBe(true);
+  expect(dedup.disabled).toBe(true); expect(dedup.checked).toBe(deduplicateQuestions);
+  await user.click(dedup); expect(dedup.checked).toBe(deduplicateQuestions);
   await user.click(retry); await screen.findByText(/任务已创建。页面/);
   const creates = http.calls.filter(call => call.url === "/api/document-tasks" && call.method === "POST"); expect(creates).toHaveLength(2); expect(creates[0].body).toEqual(creates[1].body);
+  if (deduplicateQuestions) expect(creates[0].body).toHaveProperty("deduplicateQuestions", true);
+  else expect(creates[0].body).not.toHaveProperty("deduplicateQuestions");
 });
 it("uses service limits and configuration before starting, and keeps provider settings out of the browser", async () => {
   const user = userEvent.setup(); const http = fakeHTTP(); http.server.intercept = url => url.includes("capabilities") ? json({ ...capabilities, sourceMaxBytes: 1, modelConfigured: false, officeAvailable: false, officeModes: [], sourceTypes: ["text"] }) : undefined;

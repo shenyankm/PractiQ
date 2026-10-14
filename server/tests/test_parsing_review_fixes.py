@@ -43,6 +43,34 @@ async def test_duplicate_ids_are_corrected_within_the_model_boundary(monkeypatch
     assert len(model.calls) == len(output["usage"]) == 2
 
 
+@pytest.mark.parametrize("page", [False, True])
+async def test_closed_gap_tree_is_corrected_before_merge(monkeypatch, page):
+    source = "Word bank: Choose a word. A. white B. green\nSnow is [1]. Answer: 1 A"
+    parent = {"id": "fragment:1:bank", "stem": "Choose a word.", "sourceText": source,
+              "answerMode": "word_bank", "questionKind": "word_bank", "answerPayload": None,
+              "options": [{"label": "A", "content": "white"}, {"label": "B", "content": "green"}]}
+    child = {"id": "fragment:1:bank:1", "parentId": parent["id"], "optionSourceId": parent["id"],
+             "stem": "Snow is", "sourceText": "Snow is [1]. Answer: 1 A", "answerMode": "choice",
+             "choiceVariant": "single", "answerPayload": {"correct": ["A"]}}
+    corrected = {**parent, "passage": [{"partType": "text", "textValue": "Snow is "},
+                                      {"partType": "blank", "questionId": child["id"]}]}
+    graph, _, _, reference, model = setup_graph(monkeypatch, [
+        {"questions": [parent, child]}, {"questions": [corrected, child]},
+    ], parts=[source])
+    if page:
+        monkeypatch.setattr(document, "extract", AsyncMock(return_value=ExtractedDocument(
+            text="", page_images=[make_image()],
+        )))
+    output = await graph.ainvoke({"document": reference}, run_config())
+    assert output["status"] == "SUCCEEDED"
+    assert len(model.calls) == len(output["usage"]) == 2
+    assert output["processing"]["failures"] == []
+    questions = output["result"]["questions"]
+    assert questions[0]["passage"][1]["questionId"] == questions[1]["id"]
+    assert questions[1]["parentId"] == questions[1]["optionSourceId"] == questions[0]["id"]
+    assert questions[1]["answerPayload"] == {"correct": ["A"]}
+
+
 @pytest.mark.usefixtures("disposable_databases")
 @pytest.mark.parametrize("pages", [False, True])
 async def test_shared_option_answer_conflict_retries_only_its_source_unit(monkeypatch, pages):

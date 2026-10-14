@@ -146,7 +146,7 @@ export class Client {
   detail(id: string, signal?: AbortSignal) { return this.json<DocumentTaskDetail>(`/api/document-tasks/${encodeURIComponent(id)}`, undefined, signal); }
   head(id: string, signal?: AbortSignal) { return this.json<DocumentTaskHead>(`/api/document-tasks/${encodeURIComponent(id)}/head`, undefined, signal); }
   preview(id: string, signal?: AbortSignal) { return this.json<DocumentTaskReview>(`/api/document-tasks/${encodeURIComponent(id)}/preview`, undefined, signal); }
-  async start(file: File, capabilities: Capabilities, requestId: string, officeMode: OfficeMode, onStage: (stage: UploadStage) => void) {
+  async start(file: File, capabilities: Capabilities, requestId: string, officeMode: OfficeMode, onStage: (stage: UploadStage) => void, deduplicateQuestions = false) {
     validateFiles([file], capabilities);
     const format = fileFormat(file);
     if (isOffice(format.sourceType) && (!capabilities.officeAvailable || !capabilities.officeModes.includes(officeMode))) throw new ApiError("服务端 Office 转换暂不可用。", "OFFICE_UNAVAILABLE");
@@ -168,7 +168,7 @@ export class Client {
       if (Object.keys(document).some(key => uploaded[key as keyof UploadDocument] !== document[key as keyof UploadDocument])) throw new ApiError("上传后的文件引用不匹配。", "INVALID_REFERENCE");
     }
     onStage("starting");
-    const request: DocumentTaskCreate = { requestId, document, graphId: "document_parser", failurePolicy: "return_partial", ...(isOffice(format.sourceType) ? { officeMode } : {}) };
+    const request: DocumentTaskCreate = { requestId, document, graphId: "document_parser", failurePolicy: "return_partial", ...(isOffice(format.sourceType) ? { officeMode } : {}), ...(deduplicateQuestions ? { deduplicateQuestions: true } : {}) };
     return this.post<Receipt>("/api/document-tasks", request);
   }
   async control(task: DocumentTaskDetail, action: Action) {

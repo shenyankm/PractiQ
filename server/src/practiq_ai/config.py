@@ -42,6 +42,7 @@ class Config:
     max_busy_threads: int = 300
     maintenance: bool = False
     structured_output_method: str = "function_calling"
+    model_api: str | None = None
     office_executable: Path | None = None
     office_version: str | None = None
     input_micropoints_per_1k: int | None = None
@@ -124,6 +125,11 @@ def load() -> Config:
     method = values.get("AI_STRUCTURED_OUTPUT_METHOD", "function_calling")
     if method not in {"auto", "json_schema", "function_calling"}:
         raise ValueError("AI_STRUCTURED_OUTPUT_METHOD must be auto, json_schema or function_calling")
+    model_api = values.get("AI_MODEL_API")
+    if model_api not in {None, "chat_completions", "responses"}:
+        raise ValueError("AI_MODEL_API must be chat_completions or responses")
+    if model_api == "responses" and method == "json_schema":
+        raise ValueError("AI_STRUCTURED_OUTPUT_METHOD=json_schema requires AI_MODEL_API=chat_completions")
     model_id = "" if read_only else _required(values, "LLM_MODEL")
     jobs_per_worker = _positive_int(values, "N_JOBS_PER_WORKER", 8)
     graph_max_concurrency = _positive_int(values, "AI_GRAPH_MAX_CONCURRENCY", 2)
@@ -174,6 +180,7 @@ def load() -> Config:
         account_max_tasks=_positive_int(values, 'AI_ACCOUNT_MAX_TASKS', 100),
         max_busy_threads=_positive_int(values, "AI_MAX_BUSY_THREADS", 300),
         structured_output_method=method,
+        model_api=model_api,
         office_executable=office_executable,
         office_version=office_version or None,
         provider=provider,

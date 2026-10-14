@@ -788,6 +788,7 @@ class DocumentParseInput(StrictModel):
     document: DocumentReference
     failurePolicy: Literal["return_partial", "review"] = "return_partial"
     officeMode: OfficeMode | None = None
+    deduplicateQuestions: StrictBool = False
     retry: RetryUnits | None = None
 
     @model_validator(mode="after")
@@ -815,6 +816,7 @@ class DocumentTaskCreate(StrictModel):
     failurePolicy: Literal["return_partial", "review"] = "return_partial"
     parentThreadId: UUID | None = None
     officeMode: OfficeMode | None = None
+    deduplicateQuestions: StrictBool = False
 
     @model_validator(mode="after")
     def validate_document(self) -> Self:

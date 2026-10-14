@@ -1,5 +1,7 @@
 # Verify document extraction and subjective grading
 
+The October 14–15, 2026 campaign is archived in the [import acceptance report](import-acceptance-20261015.md), [resume metric notes](import-resume-metrics-20261015.md), and [machine-readable summary](evidence/import-20261015-summary.json). The user stopped further optimization and paid testing. Per-format maximum answer matches come from different completed stages and do not establish final whole-document quality or a final 99-trial improvement. Interrupted calls and unknown usage remain recorded.
+
 This guide separates document extraction quality, subjective grading samples, and engineering checks. The extraction dataset covers text, CSV, PDF and images. Word/Excel uploads are normalized by the independent service before entering these same extractors; Office availability and source limits follow the [service Office guide](desktop-office.md). Verify the deployed engine separately, without model calls, using the [unchanged Office fixtures and conversion procedure](../../app/fixtures/office/README.md). The practice app contains no Office engine. Historical DOCX model results below and in `server/reports/` describe earlier parsers, not the quality of the current service conversion path.
 
 Use an existing Python 3.14+ environment and run the commands from `server/`.
@@ -110,7 +112,7 @@ CI checks coverage of all four formats, the eleven answer modes in `ANSWER_MODES
 
 `fidelity` separately counts fabricated answers, extra questions, field inconsistencies, and questions needing source confirmation. Unmatched questions and source warnings are not automatically hallucinations; these counts cannot establish an overall hallucination rate.
 
-Stem matching removes only leading question numbers and layout whitespace, preserving case, punctuation, and full content. It does not truncate stems or use case-insensitive keys. Production deduplication also requires matching source locations and actual chunk overlap. Identical stems match one-to-one in occurrence order. Extra questions reduce precision; missing questions reduce recall and field accuracy. Options are compared in label/content order, and answers use structured values consistent with the source gold labels.
+Stem matching removes only leading question numbers and layout whitespace, preserving case, punctuation, and full content. It does not truncate stems or use case-insensitive keys. Production chunk-overlap merging requires matching source locations and actual overlap. Separately, repeated whole-question trees are detected across the document and retained by default; removal requires the explicit import option and equivalent source and business content. Identical stems match one-to-one in occurrence order. Extra questions reduce precision; missing questions reduce recall and field accuracy. Options are compared in label/content order, and answers use structured values consistent with the source gold labels.
 
 | Metric | Numerator / denominator |
 |---|---|
@@ -253,13 +255,13 @@ Regression tests cover question completeness, model correction, and usage for ev
 
 All agents share model and protocol selection in `llm.py`. `AI_STRUCTURED_OUTPUT_METHOD=function_calling` is the default. `json_schema` explicitly enables Bailian `response_format.type=json_schema` with `strict=true`. `auto` selects native schema only for the officially supported Qwen3.7 Plus/Flash/Max and Qwen3.8 Flash/Max families, otherwise using tool calling. Explicit native mode fails for unsupported models instead of silently falling back. The support list follows [Bailian's official documentation](https://help.aliyun.com/zh/model-studio/qwen-structured-output).
 
-Qwen3.7 calls disable thinking; model, token limits, and timeouts still come from existing configuration. Native mode receives the complete response before Pydantic validation, avoiding early SDK truncation errors that lose usage. Truncated output, unclosed JSON, and semantic validation failures are rejected and enter the existing bounded correction and usage-recording path. Explicit token truncation cannot be accepted through local JSON repair.
+Qwen3.7 calls disable thinking; model, token limits, and timeouts still come from existing configuration. Native mode receives the complete response before Pydantic validation, avoiding early SDK truncation errors that lose usage. Unclosed JSON and semantic validation failures enter the existing bounded correction and usage-recording path. Explicit token truncation cannot be accepted through local JSON repair: the unit stops after that paid attempt with `OUTPUT_TRUNCATED`, retaining its result receipt and usage instead of automatically requesting the same source at the same output limit again.
 
 See the [optimization record](../reports/evaluations/prompt-optimization-summary.md) for protocol-selection evidence and live-run limitations.
 
-Tool-call count, names, and argument structure are checked before using SDK-parsed objects; raw tool arguments take priority. Native JSON Schema and structured objects without tool calls remain subject to the same business validation. Group indices reject booleans, floats, and numeric strings. `isCorrect` and `needsReview` reject string/number coercion to booleans. Semantic descriptions of key fields and figure coordinates are sent with the schema; valid drafts, false, zero, and null retain their meanings. Truncation remains `OUTPUT_TRUNCATED`, including early stopping after repeated truncation, and does not allow manual retries with unchanged parameters.
+Tool-call count, names, and argument structure are checked before using SDK-parsed objects; raw tool arguments take priority. Native JSON Schema and structured objects without tool calls remain subject to the same business validation. Group indices reject booleans, floats, and numeric strings. `isCorrect` and `needsReview` reject string/number coercion to booleans. Semantic descriptions of key fields and figure coordinates are sent with the schema; valid drafts, false, zero, and null retain their meanings. Truncation remains `OUTPUT_TRUNCATED` after one paid attempt and does not allow manual retries with unchanged parameters.
 
-Local JSON Repair is integrated into shared response validation: it closes brackets, removes trailing commas before closing brackets, and strips complete code fences before rerunning the original schema/content checks. Repair adds no model calls, and missing fields remain incomplete. Explicit token truncation, unfinished strings, missing values, and type/content contradictions still enter bounded correction. Repair does not relax quality gates.
+Local JSON Repair is integrated into shared response validation: it closes brackets, removes trailing commas before closing brackets, and strips complete code fences before rerunning the original schema/content checks. Repair adds no model calls, and missing fields remain incomplete. Unfinished strings, missing values, and type/content contradictions still enter bounded correction; explicit token truncation stops the unit. Repair does not relax quality gates.
 
 ### Failure limits and quality visibility
 
@@ -471,6 +473,10 @@ make verify AI_PYTHON="$AI_PYTHON"
 ```
 
 The first two commands validate the dataset and scorer with substitutes. Complete `make verify` before delivering the fixture change; it remains separate from paid/live model evaluation.
+
+## Composite option ownership
+
+Verify material membership (`parentId`) separately from shared options (`optionSourceId`). A word-bank parent owns shared choices; a cloze child retains its printed local choices and leaves `optionSourceId=null`. Do not move those choices onto a cloze parent to satisfy a failed shared-options validation. Complete trees whose parents, children and blank references are anchored to the current unit are validated within the existing correction loop; IDs are never guessed or rewritten to pass. Incomplete trees and external continuations remain subject to final merge validation. Keep the failed attempts and their known usage in the report; a stopped page remains a partial result. Freeze fresh prompt and source fingerprints before a follow-up live run.
 
 ## Grading format Badcases
 

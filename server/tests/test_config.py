@@ -83,6 +83,24 @@ def test_load_defaults_worker_limit(monkeypatch: pytest.MonkeyPatch):
     assert config.load().jobs_per_worker == 8
 
 
+@pytest.mark.parametrize('model_api', [None, 'chat_completions', 'responses'])
+def test_model_api_selection_is_explicit_and_validated(monkeypatch, model_api):
+    _env(monkeypatch)
+    monkeypatch.delenv('AI_MODEL_API', raising=False)
+    if model_api is not None:
+        monkeypatch.setenv('AI_MODEL_API', model_api)
+    assert config.load().model_api == model_api
+    monkeypatch.setenv('AI_MODEL_API', 'invalid')
+    with pytest.raises(ValueError, match='AI_MODEL_API'):
+        config.load()
+
+
+def test_responses_rejects_chat_native_schema_before_model_work(monkeypatch):
+    _env(monkeypatch, AI_MODEL_API='responses', AI_STRUCTURED_OUTPUT_METHOD='json_schema')
+    with pytest.raises(ValueError, match='requires AI_MODEL_API=chat_completions'):
+        config.load()
+
+
 def test_auth_token_does_not_require_model_or_storage_settings(monkeypatch: pytest.MonkeyPatch):
     for key in ("LLM_API_KEY", "AI_STORAGE_DIR"):
         monkeypatch.delenv(key, raising=False)

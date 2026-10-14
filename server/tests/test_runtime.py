@@ -286,8 +286,8 @@ async def test_runtime_task_budget_and_deadline_are_durable(monkeypatch):
     receipt = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
     await service.wait_idle()
     state = await task_api.get_task(receipt['threadId'])
-    assert state['state'] == 'FAILED'
-    assert state['blocking'] == ['RUN_DEADLINE_EXCEEDED']
+    assert state['state'] == 'INTERRUPTED'
+    assert state['blocking'] == ['MODEL_RESULT_UNKNOWN']
     assert deadline.expired()
     assert len(state['unknownUsageCalls']) == len(model.calls) == 1
 
@@ -314,7 +314,8 @@ async def test_restart_preserves_deadline_and_does_not_refund_unknown_call(monke
             await asyncio.sleep(0.01)
     state = await task_api.get_task(receipt['threadId'])
     assert state['runId'] == receipt['runId']
-    assert state['blocking'] == ['RUN_DEADLINE_EXCEEDED']
+    assert state['state'] == 'INTERRUPTED'
+    assert state['blocking'] == ['MODEL_RESULT_UNKNOWN']
     assert state['modelBudget'] == before['modelBudget']
     assert len(state['unknownUsageCalls']) == len(model.calls) == 1
 
@@ -488,9 +489,9 @@ async def test_recovery_preflight_is_inside_run_deadline(monkeypatch, expired):
     SERVICES.append(restarted)
     await restarted.start()
     async with asyncio.timeout(3):
-        while (rows := await db.rows('SELECT status,error_code FROM document_runs WHERE run_id=%s', (created['runId'],)))[0]['status'] != 'error':
+        while (rows := await db.rows('SELECT status,error_code FROM document_runs WHERE run_id=%s', (created['runId'],)))[0]['status'] in {'pending', 'running'}:
             await asyncio.sleep(0.01)
-    assert rows[0]['error_code'] == 'RUN_DEADLINE_EXCEEDED' and not fatal
+    assert rows[0] == {'status': 'interrupted', 'error_code': 'MODEL_RESULT_UNKNOWN'} and not fatal
     assert entered.is_set() == stopped.is_set() == (not expired)
 
 

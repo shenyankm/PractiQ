@@ -15,7 +15,7 @@ from tests.support import parsed, run_config, setup_graph
 
 @pytest.mark.parametrize("change,compatible", [
     ("unchanged", True), ("credential", True), ("timeout", True), ("capacity", True),
-    ("model", False), ("parser-limit", False), ("budget", False), ("run-timeout", False),
+    ("model", False), ("model-api", False), ("parser-limit", False), ("budget", False), ("run-timeout", False),
     ("state", False), ("runtime", False), ("source", False),
     ("lock-comment", False), ("missing-signature", False),
 ])
@@ -45,6 +45,8 @@ async def test_checkpoint_resume_compatibility_preserves_units_usage_and_receipt
         monkeypatch.setenv("AI_PROVIDER_RPM", "60")
     elif change == "model":
         monkeypatch.setenv("LLM_MODEL", "synthetic-other-model")
+    elif change == "model-api":
+        monkeypatch.setenv("AI_MODEL_API", "responses")
     elif change == "parser-limit":
         monkeypatch.setenv("AI_MAX_DOCUMENT_PAGES", "2")
     elif change == "budget":

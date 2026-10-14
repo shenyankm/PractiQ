@@ -144,23 +144,29 @@ async def create_task(request: DocumentTaskCreate) -> dict[str, Any]:
             (thread_id, request_hash, request.graphId, json_encode(request.document.model_dump(mode='json')), request.failurePolicy,
              str(request.parentThreadId) if request.parentThreadId else None, utcnow() + timedelta(minutes=TTL_MINUTES), account, json_encode(rates)))).fetchone()
         response = await _enqueue(conn, task, request_id, request_hash,
-                                  graph_input=request.model_dump(mode='json', include={'document', 'failurePolicy', 'officeMode'}))
+                                  graph_input=request.model_dump(mode='json', include={'document', 'failurePolicy', 'officeMode', 'deduplicateQuestions'}))
         await _save_receipt(conn, thread_id, request_id, request_hash, response)
     service.wake.set()
     return response
 
 
 def _create_payload(request: DocumentTaskCreate) -> dict[str, Any]:
-    # Preserve historical non-Office request receipts when adding this option.
-    return request.model_dump(mode='json', exclude={'officeMode'} if request.officeMode is None else set())
+    # Preserve historical receipts for omitted/default parsing options.
+    exclude: set[str] = set()
+    if request.officeMode is None:
+        exclude.add('officeMode')
+    if not request.deduplicateQuestions:
+        exclude.add('deduplicateQuestions')
+    return request.model_dump(mode='json', exclude=exclude)
 
 
-async def _office_mode(service, thread_id: str) -> OfficeMode | None:
+async def _parse_options(service, thread_id: str) -> dict[str, Any]:
     # The initial run input is already committed atomically with the task.
     # Reuse it instead of changing historical run inputs or checkpoint identities.
     rows = await service.db.rows('SELECT input FROM document_runs WHERE thread_id=%s AND input IS NOT NULL '
                                  'ORDER BY created_at,run_id LIMIT 1', (thread_id,))
-    return rows[0]['input'].get('officeMode') if rows else None
+    initial = rows[0]['input'] if rows else {}
+    return {'officeMode': initial.get('officeMode'), 'deduplicateQuestions': initial.get('deduplicateQuestions', False)}
 
 
 async def _read_task_record(service, thread_id):
@@ -193,7 +199,7 @@ async def reparse_task(thread_id: str, request: DocumentTaskReparse) -> dict[str
     require_supported_task(task)
     create = DocumentTaskCreate(requestId=request.requestId, document=DocumentReference.model_validate(task['document']),
                                 graphId=task['graph_id'], failurePolicy=task['failure_policy'], parentThreadId=UUID(thread_id),
-                                officeMode=await _office_mode(service, thread_id))
+                                **await _parse_options(service, thread_id))
     async with service.db.connection() as conn:
         account = saas.ACCOUNT.get()
         previous = await _replay(conn, str(uuid5(NAMESPACE_URL, f'practiq/document/{account}/{request.requestId}' if account else f'practiq/document/{request.requestId}')),
@@ -407,7 +413,7 @@ async def control_task(thread_id: str, request: DocumentTaskControl) -> dict[str
                 graph_input, command = run['input'], run['command']
             elif not values:
                 graph_input = {'document': task['document'], 'failurePolicy': task['failure_policy'],
-                               'officeMode': await _office_mode(service, thread_id)}
+                               **await _parse_options(service, thread_id)}
             if request.action == 'retry_failed':
                 retry = RetryUnits(requestId=request.requestId, units=request.units)
                 _retry_update(cast(Any, values), retry)
@@ -415,7 +421,8 @@ async def control_task(thread_id: str, request: DocumentTaskControl) -> dict[str
                     if interruptions:
                         raise conflict('Resume the paused task before retrying failed units')
                     graph_input = {'document': values['document'], 'failurePolicy': values.get('failurePolicy', 'return_partial'),
-                                   'officeMode': values.get('officeMode'), 'retry': retry.model_dump(mode='json')}
+                                   'officeMode': values.get('officeMode'), 'deduplicateQuestions': values.get('deduplicateQuestions', False),
+                                   'retry': retry.model_dump(mode='json')}
             admission = await service.db.store.aget(namespace(thread_id, 'control'), 'admission', refresh_ttl=False)
             response = await _enqueue(conn, task, request_id, request_hash, graph_input=graph_input, command=command,
                                       base=service.checkpoint_id(snapshot, run), generation=admission.value['generation'] if admission else 0)

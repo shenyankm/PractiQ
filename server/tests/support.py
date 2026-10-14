@@ -180,11 +180,11 @@ def setup_graph(monkeypatch, responses, *, parts=None):
     monkeypatch.setattr(document, "get_model", lambda *args: model)
     monkeypatch.setattr(document, "get_object_store", lambda: files)
     if parts:
-        monkeypatch.setattr(document, "split_chunk_spans", lambda _: [
+        monkeypatch.setattr(document, "split_chunk_plan", lambda _, **kwargs: ([
             {"start": sum(map(len, parts[:i])), "end": sum(map(len, parts[:i + 1])),
              "overlapStart": sum(map(len, parts[:i])), "overlapEnd": sum(map(len, parts[:i]))}
             for i in range(len(parts))
-        ])
+        ], None, [None] * len(parts)))
     graph = local_graph(InMemorySaver(), store=store)
     return graph, store, files, reference, model
 

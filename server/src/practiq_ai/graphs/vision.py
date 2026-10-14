@@ -5,7 +5,7 @@ import json
 import re
 from html import unescape
 from io import BytesIO
-from typing import Literal
+from typing import Literal, cast
 
 from langchain_core.messages import HumanMessage
 from PIL import Image
@@ -156,19 +156,78 @@ def _media_type(image: bytes) -> str:
     raise ValueError("Only PNG and JPEG images are supported")
 
 
-def crop_figures(page_image: bytes, boxes: list[list[float]]) -> list[bytes | None]:
-    """Decode one page per batch; retain per-figure failure positions."""
+def diagram_crop_has_cut_ink(image: Image.Image, bbox: list[float]) -> bool:
+    """Detect foreground pixels adjoining across a crop edge on sampled white paper.
+
+    False means no rejection, including when the white-paper gate skips checking.
+    This does not verify semantic completeness, faint strokes or content wholly
+    outside the box. The batch caller supplies the decoded RGB source image.
+    """
+    x0, y0, x1, y1 = bbox
+    left, top, right, bottom = (int(x0 * image.width), int(y0 * image.height),
+                                int(x1 * image.width), int(y1 * image.height))
+    if not (0 <= left < right <= image.width and 0 <= top < bottom <= image.height):
+        raise ValueError("crop must have positive area inside the source image")
+    if image.mode != "RGB":
+        raise ValueError("diagram guard requires the batch decoded RGB image")
+    pixels = image.load()
+    if pixels is None:
+        raise ValueError("source image has no decoded pixels")
+    # At most 64x64 samples; require 80% with all RGB channels >=245.
+    # Sampling avoids another decode or a full-page foreground mask.
+    region = (max(0, left - 2), max(0, top - 2),
+              min(image.width, right + 2), min(image.height, bottom + 2))
+    sx, sy, ex, ey = region
+    white = total = 0
+    for y in range(sy, ey, max(1, (ey - sy + 63) // 64)):
+        for x in range(sx, ex, max(1, (ex - sx + 63) // 64)):
+            total += 1
+            white += min(cast(tuple[int, ...], pixels[x, y])) >= 245
+    if white * 5 < total * 4:
+        return False
+
+    # A low channel includes saturated colored strokes as well as black ink.
+    def ink(x: int, y: int) -> bool:
+        return min(cast(tuple[int, ...], pixels[x, y])) < 150
+
+    for inner, outer in ((left, left - 1), (right - 1, right)):
+        if not 0 <= outer < image.width:
+            continue
+        for y in range(top, bottom):
+            if ink(inner, y) and any(ink(outer, yy) for yy in range(max(0, y - 1), min(image.height, y + 2))):
+                return True
+    for inner, outer in ((top, top - 1), (bottom - 1, bottom)):
+        if not 0 <= outer < image.height:
+            continue
+        for x in range(left, right):
+            if ink(x, inner) and any(ink(xx, outer) for xx in range(max(0, x - 1), min(image.width, x + 2))):
+                return True
+    return False
+
+
+def checked_crop_figures(
+    page_image: bytes, boxes: list[list[float]], kinds: list[str | None],
+) -> list[tuple[bytes | None, bool]]:
+    """Decode once; return crop bytes and per-figure boundary rejection."""
+    if len(kinds) != len(boxes):
+        raise ValueError("each crop requires one kind")
     try:
         with Image.open(BytesIO(page_image)) as original, original.convert("RGB") as image:
             result = []
-            for bbox in boxes:
+            for bbox, kind in zip(boxes, kinds, strict=True):
                 try:
-                    result.append(crop_figure(image, bbox))
-                except (OSError, ValueError):
-                    result.append(None)
+                    rejected = kind == "diagram" and diagram_crop_has_cut_ink(image, bbox)
+                    result.append((None, True) if rejected else (crop_figure(image, bbox), False))
+                except (OSError, ValueError, OverflowError):
+                    result.append((None, False))
             return result
     except (OSError, ValueError):
-        return [None] * len(boxes)
+        return [(None, False)] * len(boxes)
+
+
+def crop_figures(page_image: bytes, boxes: list[list[float]]) -> list[bytes | None]:
+    """Keep the original unguarded preview API and decode once per batch."""
+    return [payload for payload, _ in checked_crop_figures(page_image, boxes, [None] * len(boxes))]
 
 
 def crop_figure(page_image: bytes | Image.Image, bbox: list[float]) -> bytes | None:

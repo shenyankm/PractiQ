@@ -270,8 +270,7 @@ def test_wire_arguments_are_authoritative_and_normalized_calls_are_checked():
     assert llm.validate_response({'raw': raw, 'parsed': Result(value=1)}, Result).value == 2
 
 
-@pytest.mark.parametrize('repeated', [False, True])
-async def test_truncation_code_survives_budget_and_stall(monkeypatch, repeated):
+async def test_truncation_stops_same_limit_correction_with_usage(monkeypatch):
     from langchain_core.messages import AIMessage
 
     from tests.support import FakeModel
@@ -280,16 +279,15 @@ async def test_truncation_code_survives_budget_and_stall(monkeypatch, repeated):
     class Runner:
         async def ainvoke(self, messages, config=None):
             attempts.append(messages)
-            return {'raw': AIMessage(content=json.dumps({'value': 1 if repeated else len(attempts)}),
+            return {'raw': AIMessage(content=json.dumps({'value': 1}),
                                     response_metadata={'finish_reason': 'length'},
                                     usage_metadata={'input_tokens': 10, 'output_tokens': 5, 'total_tokens': 15}),
                     'parsed': Result(value=1), 'parsing_error': None}
     monkeypatch.setattr(llm, 'structured_output', lambda *_: Runner())
     parsed, usage, failure = await llm.structured_call(FakeModel(responses=[]), [HumanMessage(content='source')], Result, 'test')
     assert parsed is None and failure == 'OUTPUT_TRUNCATED'
-    assert len(usage) == len(attempts) == (2 if repeated else 4)
-    assert sum(call.outputTokens for call in usage) == 5 * len(attempts)
-    assert 'Do not omit questions' in attempts[1][-1].content
+    assert len(usage) == len(attempts) == 1
+    assert usage[0].outputTokens == 5
 
 
 def test_semantic_descriptions_reach_wire_schema():
@@ -374,7 +372,23 @@ async def test_captured_malformed_array_is_rejected_and_corrected_without_lost_u
     assert parsed == PageParseResult.model_validate(corrected) and failure is None
     assert len(usage) == 2 and sum(call.outputTokens for call in usage) == 10
     assert 'actual JSON arrays, not quoted JSON strings' in model.calls[1][-1].content
-    assert 'questions, groups and figures' in model.calls[1][-1].content
+    assert 'all fields declared by the selected schema' in model.calls[1][-1].content
+
+
+async def test_text_array_correction_does_not_request_undeclared_figures():
+    from pydantic import ValidationError
+
+    from practiq_ai.graphs.document import ChunkParseResult
+    from tests.support import FakeModel
+
+    with pytest.raises(ValidationError, match='extra_forbidden'):
+        ChunkParseResult.model_validate({'questions': [], 'groups': [], 'figures': []})
+    model = FakeModel(responses=[{'questions': '[]', 'groups': []}, {'questions': [], 'groups': []}])
+    parsed, usage, failure = await llm.structured_call(model, [HumanMessage(content='source')], ChunkParseResult, 'test')
+    assert parsed == ChunkParseResult(questions=[], groups=[]) and failure is None
+    assert len(model.calls) == len(usage) == 2 and all(call.inputTokens is not None for call in usage)
+    assert 'all fields declared by the selected schema' in model.calls[1][-1].content
+    assert 'figures' not in model.calls[1][-1].content
 
 
 async def test_validation_diagnostics_exclude_values_and_unknown_field_names():

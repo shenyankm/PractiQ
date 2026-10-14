@@ -11,7 +11,7 @@ import AccountPanel from "./AccountPanel";
 const ResultReview = lazy(() => import("./ResultReview"));
 
 const sourceExtensions: Record<Capabilities["sourceTypes"][number], string> = { pdf: ".pdf", text: ".txt", csv: ".csv", image: ".png,.jpg,.jpeg", doc: ".doc", docx: ".docx", xls: ".xls", xlsx: ".xlsx" };
-type FileItem = { id: string; file: File; mode?: OfficeMode; state: "ready" | UploadStage | "created" | "failed"; error?: string };
+type FileItem = { id: string; file: File; mode?: OfficeMode; deduplicateQuestions?: boolean; state: "ready" | UploadStage | "created" | "failed"; error?: string };
 const stateLabels: Record<DocumentTaskSummary["state"], string> = { PENDING: "等待开始", RUNNING: "正在解析", PAUSING: "正在暂停", PAUSED: "已暂停", INTERRUPTED: "已中断", CANCELLED: "已取消", FAILED: "失败", WAITING_REVIEW: "等待复核", COMPLETED: "已完成", EXPIRED: "已过期" };
 const actionLabels: Record<Action, string> = { pause: "暂停", interrupt: "中断", resume: "继续解析", retry_failed: "重试失败单元", accept_partial: "接受部分结果" };
 const formatLabels: Record<Capabilities["sourceTypes"][number], string> = { pdf: "PDF", text: "TXT", csv: "CSV", image: "PNG/JPEG", doc: "Word (.doc)", docx: "Word (.docx)", xls: "Excel (.xls)", xlsx: "Excel (.xlsx)" };
@@ -43,6 +43,7 @@ export default function App() {
   const [files, setFiles] = useState<FileItem[]>([]);
   const [fileError, setFileError] = useState<string | null>(null);
   const [officeMode, setOfficeMode] = useState<OfficeMode>("pdf");
+  const [deduplicateQuestions, setDeduplicateQuestions] = useState(false);
   const [tasks, setTasks] = useState<TaskList>({ items: [], hasMore: false });
   const [listError, setListError] = useState<string | null>(null);
   const [listLoading, setListLoading] = useState(false);
@@ -200,10 +201,11 @@ export default function App() {
       let created: string | null = null;
       for (const item of items) {
         const mode = item.mode || officeMode;
+        const deduplicate = item.deduplicateQuestions ?? deduplicateQuestions;
         const update = (value: Partial<FileItem>) => { if (current.active) setFiles(previous => previous.map(file => file.id === item.id ? { ...file, ...value } : file)); };
-        update({ mode, error: undefined });
+        update({ mode, deduplicateQuestions: deduplicate, error: undefined });
         try {
-          const receipt = await current.start(item.file, capabilities, item.id, mode, stage => update({ state: stage }));
+          const receipt = await current.start(item.file, capabilities, item.id, mode, stage => update({ state: stage }), deduplicate);
           update({ state: "created" }); created = receipt.threadId;
         } catch (error) { update({ state: "failed", error: errorText(error) }); }
         if (!current.active) return;
@@ -241,12 +243,13 @@ export default function App() {
               <label className="file-picker"><FileText /><span>选择文档</span><Input ref={fileInput} type="file" multiple aria-describedby="file-help" aria-invalid={!!fileError} accept={capabilities.sourceTypes.map(type => sourceExtensions[type]).join(",")} disabled={busy} onChange={event => chooseFiles(Array.from(event.target.files || []))} /></label>
               <p className="text-xs text-muted-foreground">服务支持：{capabilities.sourceTypes.map(type => formatLabels[type]).join("、")}{!capabilities.officeAvailable && "。Office 转换当前不可用。"}</p>
               {capabilities.officeAvailable && <label className="space-y-1 block"><span>Word / Excel 转换模式</span><select aria-label="Word / Excel 转换模式" value={officeMode} disabled={busy || files.some(file => file.state !== "ready")} onChange={event => setOfficeMode(event.target.value as OfficeMode)}>{capabilities.officeModes.map(mode => <option key={mode} value={mode}>{mode === "pdf" ? "PDF（保留版面）" : "文本 / 每工作表 CSV"}</option>)}</select><p className="text-xs text-muted-foreground">转换在服务端完成；模式在开始导入后固定，重新解析沿用该模式。</p></label>}
+              <div className="space-y-1"><label className="review-checkbox"><input type="checkbox" aria-describedby="dedup-help" checked={deduplicateQuestions} disabled={busy || files.some(file => file.state !== "ready")} onChange={event => setDeduplicateQuestions(event.target.checked)} />自动去重</label><p id="dedup-help" className="text-xs text-muted-foreground">勾选后仅对完全相同的题目或整组复合题自动去重；未勾选只提示候选并保留全部。开始导入后选项固定，重新解析沿用该选项。</p></div>
               {!capabilities.modelConfigured && <p className="notice">服务端尚未配置模型，暂不能开始解析。</p>}
               {fileError && <p role="alert" className="text-destructive">{fileError}</p>}
               {!!files.length && <ul className="file-list">{files.map(item => <li key={item.id}><div><strong>{item.file.name}</strong><span>{sizeLabel(item.file.size)} · {fileLabels[item.state]} · {formatLabels[fileFormat(item.file).sourceType]}</span>{item.error && <p role="alert" className="text-destructive">{item.error}</p>}</div>{item.state === "ready" && <Button size="icon" variant="ghost" disabled={busy} aria-label={`移除文件 ${item.file.name}`} onClick={() => setFiles(previous => previous.filter(file => file.id !== item.id))}><Trash2 /></Button>}{item.state === "failed" && <Button size="sm" variant="outline" disabled={busy || !capabilities.modelConfigured} onClick={() => void start([item])}>重试开始</Button>}</li>)}</ul>}
               <p className="text-xs text-muted-foreground">服务启用 AI 复核时还会对照原文复核，并最多修正一轮，增加模型调用与费用；复核不保证内容准确。</p>
               <Button className="w-full" disabled={busy || !capabilities.modelConfigured || !files.some(file => file.state === "ready")} onClick={() => void start(files.filter(file => file.state === "ready"))}>{busy ? <LoaderCircle className="loading-icon" /> : <Play />}开始导入</Button>
-              {files.some(file => file.state === "failed") && <p className="text-xs text-muted-foreground">失败不会自动再次提交。「重试开始」会复用原请求 ID 和转换模式，避免不确定响应产生重复任务。</p>}
+              {files.some(file => file.state === "failed") && <p className="text-xs text-muted-foreground">失败不会自动再次提交。「重试开始」会复用原请求 ID 和导入选项，避免不确定响应产生重复任务。</p>}
             </>}
           </CardContent></Card>
           <Card><CardHeader><div className="flex items-center justify-between"><CardTitle role="heading" aria-level={2} id="task-list-heading" tabIndex={-1}>文档任务</CardTitle><Button variant="ghost" size="icon" aria-label="刷新任务列表" onClick={() => setListRevision(value => value + 1)}><RefreshCw /></Button></div></CardHeader><CardContent className="space-y-3">

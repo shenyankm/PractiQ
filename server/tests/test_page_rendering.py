@@ -109,7 +109,7 @@ async def test_page_order_gaps_and_crops(monkeypatch, failed):
         index = next(i for i in range(3) if f"PRIMARY page {i + 1}" in prompt)
         assert schema is document.PageParseResult and call_kind == "vision_parse"
         images = [message for message in messages if isinstance(message.content, list)]
-        assert len(images) == (3 if index == 1 else 2)
+        assert len(images) == (2, 3, 3)[index]
         if index == 0:
             await asyncio.wait_for(second_finished.wait(), 5)
         completed.append(index)
