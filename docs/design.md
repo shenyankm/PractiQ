@@ -14,6 +14,8 @@ Use warm-white pages (`#f7f4f1`), soft warm-white cards (`#fffcfa`), body text (
 
 Keep the system Chinese font stack. App page headings are 28px, Web headings 32px and bank headings 18px. Preserve existing body sizes; use line height and spacing to establish hierarchy. Counts and status numbers use tabular figures, and long question text wraps.
 
+App and Web import `shared/document-content.css` for document rendering. Keep long formulas and tables horizontally scrollable inside their content area. Table words and numeric values retain their natural minimum width; oversized display equations keep their beginning reachable instead of centering into negative overflow. Practice and matching layouts use their container width, so the sidebar or large text cannot squeeze the question and selectors into unreadable columns.
+
 ## Page structure
 
 App retains sidebar navigation, header actions, bank grids, question lists, mistakes, favorites, history, settings, service configuration, practice and existing editor/confirmation dialogs. The expanded sidebar is 208px; the collapsed width is unchanged. Web retains its three-step flow, upload/task sidebar and result review panel. Show the steps as one continuous region rather than separate cards.

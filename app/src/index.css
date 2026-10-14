@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "../../shared/theme.css";
+@import "../../shared/document-content.css";
 @import "tw-animate-css";
 /*!
 shadcn 4.21.0 CSS variants.
@@ -121,41 +122,6 @@ html.theme-transition::view-transition-new(root) {
   html.theme-transition::view-transition-new(root) {
     animation: none;
   }
-}
-
-.document-content {
-  overflow-wrap: anywhere;
-  line-height: 1.75;
-}
-.document-content p + p {
-  margin-top: 0.75rem;
-}
-.document-content ul {
-  list-style: disc;
-  padding-left: 1.5rem;
-}
-.document-content ol {
-  list-style: decimal;
-  padding-left: 1.5rem;
-}
-.document-content table {
-  border-collapse: collapse;
-  display: block;
-  overflow-x: auto;
-}
-.document-content td,
-.document-content th {
-  border: 1px solid var(--border);
-  padding: 0.5rem;
-}
-.document-content pre {
-  overflow-x: auto;
-  padding: 0.75rem;
-  background: var(--muted);
-}
-.document-content .katex-display {
-  overflow-x: auto;
-  overflow-y: hidden;
 }
 
 /* English actions need room to wrap within the desktop's existing columns. */

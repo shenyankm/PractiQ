@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { expect, test, type Page, type Route } from "playwright/test";
 import type { DocumentTaskDetail, DocumentTaskReview } from "../src/contracts.generated";
 import { capabilities, newTaskId, preview, runId, summary, task, taskId } from "../src/test-fixtures";
+import { layoutImage, layoutSnapshots, layoutViewports } from "../../app/scripts/responsive-fixtures.mjs";
 
 // All HTTP here is synthetic. No model, Office worker, or live service is used.
 const fakeToken = "fake-service-token";
@@ -432,3 +433,57 @@ test("points pause exports completed content; recharge stays paused until explic
   expect(http.server.modelStarts).toBe(1);
   expect(await page.evaluate(() => [localStorage.length, sessionStorage.length, location.search])).toEqual([0, 0, ""]);
 });
+
+async function captureReview(page: Page, card: ReturnType<Page['locator']>, prefix: string, testInfo: { outputPath: (name: string) => string }) {
+  const range = await card.evaluate(e => ({ top: e.getBoundingClientRect().top + scrollY, height: (e as HTMLElement).offsetHeight, header: document.querySelector('.web-header')!.getBoundingClientRect().height }));
+  const step = Math.max(80, (await page.evaluate(() => innerHeight)) - range.header - 32);
+  for (let part = 0; part < Math.ceil(range.height / step); part++) {
+    await page.evaluate(top => scrollTo(0, top), range.top - range.header - 16 + part * step);
+    await page.screenshot({ path: testInfo.outputPath(`${prefix}-${part}.png`) });
+  }
+}
+for (const [width, height] of layoutViewports) {
+  test(`all reviewed question layouts at ${width}x${height}`, async ({ page }, testInfo) => {
+    const errors: string[] = [];
+    page.on('pageerror', error => errors.push(error.message));
+    await page.setViewportSize({ width, height });
+    const questions = layoutSnapshots.map((snapshot, index) => ({ ...snapshot.question, id: `layout-${index}`, parentId: null, optionSourceId: null, passage: snapshot.materials.flatMap(material => material.passage || material.contentBlocks || []) }));
+    const http = await fakeHTTP(page, { ...task, result: { ...task.result!, questions } });
+    http.server.review = { ...preview, units: [{ ...preview.units[0], questions, visualElements: [layoutSnapshots.at(-1)!.visuals[0]] }] };
+    http.server.intercept = async (route, call) => {
+      if (call.path !== '/api/artifacts/read') return false;
+      await route.fulfill({ contentType: 'image/png', body: layoutImage });
+      return true;
+    };
+    await connect(page);
+    await page.getByRole('button', { name: /sample.docx/ }).click();
+    await expect(page.locator('.question-card')).toHaveCount(layoutSnapshots.length);
+    for (let index = 0; index < layoutSnapshots.length; index++) {
+      const card = page.locator('.question-card').nth(index);
+      await card.locator(':scope > summary').click();
+      await page.evaluate(() => document.fonts.ready);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      expect(await card.locator('.document-content,.option-row').evaluateAll(elements => elements.filter(e => e.clientWidth && e.scrollWidth > e.clientWidth + 2 && getComputedStyle(e).overflowX === 'visible').length)).toBe(0);
+      await expect(page.locator('.katex-error')).toHaveCount(0);
+      expect(await card.locator('.katex-display').evaluateAll(elements => elements.filter(e => e.querySelector('.katex-html')!.getBoundingClientRect().left < e.getBoundingClientRect().left - 1).length)).toBe(0);
+      expect(await card.locator('.katex-display,.document-content table').evaluateAll(elements => elements.filter(e => {
+        if (e.scrollWidth <= e.clientWidth + 2) return false;
+        e.scrollLeft = e.scrollWidth;
+        const last = e.matches('table') ? e.querySelector('tbody tr:last-child td:last-child') : [...e.querySelectorAll('.katex-html')].at(-1);
+        const clipped = last!.getBoundingClientRect().right > e.getBoundingClientRect().right + 2;
+        e.scrollLeft = 0;
+        return clipped;
+      }).length)).toBe(0);
+      await captureReview(page, card, layoutSnapshots[index].key, testInfo);
+      await card.locator(':scope > summary').click();
+    }
+    await page.getByRole('button', { name: '来源与资源', exact: true }).click();
+    await page.getByRole('button', { name: '查看图片', exact: true }).first().click();
+    const image = page.locator('figure.resource-card img');
+    await expect.poll(() => image.evaluate(img => (img as HTMLImageElement).complete && (img as HTMLImageElement).naturalWidth > 0)).toBe(true);
+    await page.locator('figure.resource-card').first().screenshot({ path: testInfo.outputPath('image.png') });
+    expect(errors).toEqual([]);
+    expect(starts(http.calls)).toHaveLength(0);
+    expect(mutations(http.calls).filter(call => call.path !== '/api/artifacts/read')).toHaveLength(0);
+  });
+}

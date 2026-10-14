@@ -206,11 +206,11 @@ export function AnswerInput({
     }
     case "matching":
       return (
-        <div className="space-y-3">
+        <div className="@container/matching space-y-3">
           {itemIds(q, "left").map((item) => (
             <div
               key={item.id}
-              className="grid grid-cols-1 items-center gap-4 sm:grid-cols-2 rounded-lg border p-3"
+              className="grid grid-cols-1 items-center gap-4 @md/matching:grid-cols-2 rounded-lg border p-3"
             >
               <Markdown lang={materialLanguage(q)}>{item.content}</Markdown>
               <NativeSelect
