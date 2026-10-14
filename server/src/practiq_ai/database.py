@@ -13,13 +13,14 @@ from psycopg.rows import dict_row
 from .config import database_uri
 from .saas import DDL as SAAS_DDL
 from .saas import TABLES as SAAS_TABLES
+from .saas import TOKEN_DDL
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 # Separate session ownership from short API transactions, scoped to this database.
 LOCK_NAMESPACE = 817241
 DDL = """
 CREATE TABLE practiq_schema(version integer NOT NULL);
-INSERT INTO practiq_schema VALUES (3);
+INSERT INTO practiq_schema VALUES (4);
 CREATE TABLE document_tasks (
  thread_id text PRIMARY KEY, request_hash text NOT NULL, graph_id text NOT NULL,
  document jsonb NOT NULL, failure_policy text NOT NULL, parent_thread_id text,
@@ -69,13 +70,13 @@ TASK_TABLES |= SAAS_TABLES
 class Ownership:
     """PostgreSQL releases session ownership when the connection dies."""
 
-    def __init__(self, connection: AsyncConnection[dict[str, Any]]):
-        self.connection = connection
+    def __init__(self, connection: AsyncConnection[dict[str, Any]], slot: int = 1):
+        self.connection, self.slot = connection, slot
 
     async def check(self):
         row = await (await self.connection.execute(
             "SELECT EXISTS(SELECT 1 FROM pg_locks WHERE locktype='advisory' AND pid=pg_backend_pid() "
-            "AND classid=%s AND objid=1 AND objsubid=2 AND granted) AS owned", (LOCK_NAMESPACE,),
+            "AND classid=%s AND objid=%s AND objsubid=2 AND granted) AS owned", (LOCK_NAMESPACE, self.slot),
         )).fetchone()
         if not row or not row['owned']:
             raise RuntimeError('Database ownership was lost')
@@ -164,7 +165,7 @@ class Database:
     async def check_schema(self):
         tables = await self.tables()
         if 'practiq_schema' not in tables or await self.rows('SELECT version FROM practiq_schema') != [{'version': SCHEMA_VERSION}]:
-            raise RuntimeError('Unsupported service schema; use init-db only for an empty database, or upgrade-db for schema 1 or 2')
+            raise RuntimeError('Unsupported service schema; use init-db only for an empty database, or upgrade-db for schema 1, 2 or 3')
         if not STATE_TABLES | TASK_TABLES <= tables:
             raise RuntimeError('Incomplete PostgreSQL state; restore the entire service database before starting')
         if not await self.upload_verification_column():
@@ -215,22 +216,32 @@ class Database:
             return
         version = versions[0]['version'] if len(versions) == 1 else None
         required = TASK_TABLES - SAAS_TABLES - ({'document_outbox'} if version == 1 else set())
-        if version not in {1, 2} or tables & SAAS_TABLES or not STATE_TABLES | required <= tables:
-            raise RuntimeError('Upgrade supports only complete service schema 1 or 2')
+        if version == 3:
+            legacy_saas = SAAS_TABLES - {'import_account_tokens'} | {'import_cards'}
+            if 'import_account_tokens' in tables or not STATE_TABLES | required | legacy_saas <= tables:
+                raise RuntimeError('Upgrade requires complete service schema 3')
+        elif version not in {1, 2} or tables & SAAS_TABLES or not STATE_TABLES | required <= tables:
+            raise RuntimeError('Upgrade supports only complete service schema 1, 2 or 3')
         async with self.transaction() as conn:
             if version == 1:
                 await conn.execute(OUTBOX_DDL, prepare=False)
                 await conn.execute('DROP INDEX IF EXISTS document_queue')
-            await conn.execute(SAAS_DDL, prepare=False)
+            if version == 3:
+                await conn.execute(TOKEN_DDL, prepare=False)
+                if not await self.upload_verification_column():
+                    await conn.execute('ALTER TABLE import_uploads ADD COLUMN verified boolean NOT NULL DEFAULT true')
+                    await conn.execute('ALTER TABLE import_uploads ALTER COLUMN verified SET DEFAULT false')
+            else:
+                await conn.execute(SAAS_DDL, prepare=False)
             await conn.execute('UPDATE practiq_schema SET version=%s', (SCHEMA_VERSION,))
 
-    async def acquire(self, message: str = 'Another service already owns this database') -> Ownership:
+    async def acquire(self, message: str = 'Another service already owns this database', *, slot: int = 1) -> Ownership:
         conn = await self.connect()
         try:
-            row = await (await conn.execute('SELECT pg_try_advisory_lock(%s,1) AS owned', (LOCK_NAMESPACE,))).fetchone()
+            row = await (await conn.execute('SELECT pg_try_advisory_lock(%s,%s) AS owned', (LOCK_NAMESPACE, slot))).fetchone()
             if not row or not row['owned']:
                 raise RuntimeError(message)
-            return Ownership(conn)
+            return Ownership(conn, slot)
         except BaseException:
             await conn.close()
             raise

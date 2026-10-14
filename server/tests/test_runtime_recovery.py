@@ -20,7 +20,7 @@ ROOT = Path(__file__).parents[1]
 
 
 class Server:
-    def __init__(self, tmp_path, uri, phase='', card=None):
+    def __init__(self, tmp_path, uri, phase='', credential=None):
         self.root = tmp_path
         self.root.mkdir(exist_ok=True)
         with socket.socket() as sock:
@@ -31,8 +31,8 @@ class Server:
                     'AI_GRAPH_MAX_CONCURRENCY': '1', 'AI_DEPLOYMENT_WORKERS': '1',
                     'PYTHONPATH': str(ROOT / 'src') + os.pathsep + str(ROOT)}
         self.client = httpx.Client(base_url=f'http://127.0.0.1:{port}', headers={'Authorization': 'Bearer test-token'}, timeout=5, trust_env=False)
-        self.card = card
-        if card:
+        self.credential = credential
+        if credential:
             self.env.update(TEST_SAAS='1', AI_INPUT_POINTS_PER_1K='1', AI_OUTPUT_POINTS_PER_1K='3')
         self.port = port
         self.process = None
@@ -49,9 +49,8 @@ class Server:
                 raise AssertionError((self.root / 'server.log').read_text())
             try:
                 if self.client.get('/ready').status_code == 200:
-                    if self.card:
-                        self.client.post('/api/cards/redeem', json={'phone': '13800138000', 'card': self.card}).raise_for_status()
-                        self.client.headers.update({'Authorization': 'Card ' + self.card, 'X-Practiq-Phone': '13800138000'})
+                    if self.credential:
+                        self.client.headers.update({'Authorization': 'Account ' + self.credential, 'X-Practiq-Phone': '13800138000'})
                     return
             except httpx.HTTPError:
                 pass
@@ -146,6 +145,8 @@ async def test_process_kill_automatically_recovers_same_run(tmp_path, phase):
         receipt = server.submit()
         await asyncio.to_thread(server.marker, phase)
         before = server.state(receipt)
+        if phase == 'published':
+            assert server.calls() == 0
         if phase == 'provider_completed':
             assert server.calls() == 1
             assert not before['usage'] and len(before['unknownUsageCalls']) == 1
@@ -272,14 +273,11 @@ async def test_manual_pause_remains_paused_after_restart(tmp_path):
 
 
 async def test_saas_kill_between_result_and_settlement_recovers_one_charge(tmp_path):
-    from practiq_ai import saas
+    from tests.db_support import seed_account
     db = await new_database()
-    card = saas.new_card()
-    async with db.transaction() as conn:
-        await conn.execute("INSERT INTO import_products VALUES('recovery','Recovery',1000000,'https://shop.example',true)")
-        await conn.execute("INSERT INTO import_cards(digest,product_id,points) VALUES(%s,'recovery',1000000)", (saas.digest(card),))
+    credential = await seed_account(db)
     await db.close()
-    server = Server(tmp_path, db.uri, 'points_before_settlement', card=card)
+    server = Server(tmp_path, db.uri, 'points_before_settlement', credential=credential)
     try:
         await asyncio.to_thread(server.start)
         receipt = server.submit()

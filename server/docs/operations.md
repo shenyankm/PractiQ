@@ -52,7 +52,7 @@ New model output with `confidence < 0.5` always requires review. This threshold 
 
 Successful checkpointed units are reused. A provider request whose result was not persisted blocks automatic same-run recovery with MODEL_RESULT_UNKNOWN; unknown usage remains recorded. Exactly-once provider calls are not guaranteed. Pause does not forcibly cancel accepted remote requests, and canceling a local wait does not terminate an underlying synchronous thread.
 
-See [RabbitMQ delivery, upgrade, rollback and dead-letter recovery](rabbitmq.md) for transactional delivery; see [SaaS deployment](saas.md) for schema 3, account credentials and points, broker setup, outage/read-only/maintenance semantics and failure windows.
+See [RabbitMQ delivery, upgrade, rollback and dead-letter recovery](rabbitmq.md) for transactional delivery; see [SaaS deployment](saas.md) for schema 4, account credentials and points, broker setup, outage/read-only/maintenance semantics and failure windows.
 
 ## Configuration and observability
 

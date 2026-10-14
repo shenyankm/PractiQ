@@ -23,7 +23,7 @@ async function fakeHTTP(page: Page, initial: DocumentTaskDetail = task) {
     const request = route.request(), url = new URL(request.url());
     const raw = request.postDataBuffer();
     const jsonBody = request.headers()["content-type"]?.includes("application/json");
-    const call: Call = { method: request.method(), path: url.pathname, query: url.search, body: jsonBody && raw ? JSON.parse(raw.toString()) : null, bytes: jsonBody ? null : raw, authenticated: request.headers().authorization === `Card ${fakeToken}` };
+    const call: Call = { method: request.method(), path: url.pathname, query: url.search, body: jsonBody && raw ? JSON.parse(raw.toString()) : null, bytes: jsonBody ? null : raw, authenticated: request.headers().authorization === `Account ${fakeToken}` };
     calls.push(call);
     if (call.path === "/api/products") { await respond(route, { items: [] }); return; }
     if (!call.authenticated) { await respond(route, { detail: { code: "INVALID_TOKEN" } }, 401); return; }
@@ -70,7 +70,7 @@ async function fakeHTTP(page: Page, initial: DocumentTaskDetail = task) {
   return { calls, records, creates, server };
 }
 async function connect(page: Page) {
-  await page.goto("/"); await page.getByLabel("手机号").fill("13800138000"); await page.getByLabel("卡密").fill(fakeToken); await page.getByRole("button", { name: "查询记录", exact: true }).click();
+  await page.goto("/"); await page.getByLabel("手机号").fill("13800138000"); await page.getByLabel("账户令牌").fill(fakeToken); await page.getByRole("button", { name: "查询记录", exact: true }).click();
   await expect(page.getByText("服务已连接", { exact: true })).toBeVisible();
 }
 async function openTask(page: Page) {
@@ -153,14 +153,14 @@ test("passive file selection becomes one authenticated SHA upload only after exp
 
 test("invalid auth makes no model request; disconnect and reload clear memory-only Token", async ({ page }) => {
   const http = await fakeHTTP(page); await page.goto("/");
-  await page.getByLabel("手机号").fill("13800138000"); await page.getByLabel("卡密").fill("invalid-synthetic-token"); await page.getByRole("button", { name: "查询记录", exact: true }).click();
-  await expect(page.getByText(/手机号与卡密不匹配/).first()).toBeVisible();
+  await page.getByLabel("手机号").fill("13800138000"); await page.getByLabel("账户令牌").fill("invalid-synthetic-token"); await page.getByRole("button", { name: "查询记录", exact: true }).click();
+  await expect(page.getByText(/手机号与账户令牌不匹配/).first()).toBeVisible();
   expect(mutations(http.calls)).toHaveLength(0);
-  await page.getByLabel("卡密").fill("");
-  await page.getByLabel("手机号").fill("13800138000"); await page.getByLabel("卡密").fill(fakeToken); await page.getByRole("button", { name: "查询记录", exact: true }).click();
+  await page.getByLabel("账户令牌").fill("");
+  await page.getByLabel("手机号").fill("13800138000"); await page.getByLabel("账户令牌").fill(fakeToken); await page.getByRole("button", { name: "查询记录", exact: true }).click();
   await expect(page.getByText("服务已连接", { exact: true })).toBeVisible();
   expect(await page.evaluate(() => ({ local: localStorage.length, session: sessionStorage.length, query: location.search }))).toEqual({ local: 0, session: 0, query: "" });
-  await page.reload(); await expect(page.getByLabel("卡密")).toHaveValue("");
+  await page.reload(); await expect(page.getByLabel("账户令牌")).toHaveValue("");
   expect(await page.locator("body").innerText()).not.toContain(fakeToken);
 });
 
@@ -402,12 +402,6 @@ test("points pause exports completed content; recharge stays paused until explic
   let balance = "-5000";
   http.server.intercept = async (route, call) => {
     if (call.path === "/api/account") { await respond(route, { ...billing, balanceMicropoints: balance }); return true; }
-    if (call.path === "/api/cards/redeem") {
-      expect(call.body).toEqual({ phone: "13800138000", card: "additional-card", boundCard: fakeToken });
-      balance = "995000"; const current = http.records.get(taskId)!;
-      http.records.set(taskId, { ...current, billing: { ...billing, balanceMicropoints: balance } });
-      await respond(route, { ...billing, balanceMicropoints: balance }); return true;
-    }
     if (call.path.endsWith("/control")) {
       expect(call.body!.action).toBe("resume"); http.server.modelStarts++;
       http.records.set(taskId, { ...task, billing: { ...billing, chargedMicropoints: "50000", balanceMicropoints: "970000" }, canExportCompleted: true });
@@ -420,9 +414,11 @@ test("points pause exports completed content; recharge stays paused until explic
   const partialDownload = page.waitForEvent("download");
   await page.getByRole("button", { name: "下载题库 ZIP", exact: true }).click(); await partialDownload;
   expect(http.calls.find(call => call.path.endsWith("/export"))!.query).toContain("scope=completed");
-  await page.getByLabel("追加卡密").fill("additional-card");
-  await page.getByRole("button", { name: "兑换积分", exact: true }).click();
-  await expect(page.getByLabel("追加卡密")).toHaveValue("");
+  balance = "995000";
+  const current = http.records.get(taskId)!;
+  http.records.set(taskId, { ...current, billing: { ...billing, balanceMicropoints: balance } });
+  await page.getByRole("button", { name: "刷新余额与商品", exact: true }).click();
+  await page.getByRole("button", { name: "刷新任务详情", exact: true }).click();
   expect(http.server.modelStarts).toBe(0);
   await expect(page.getByRole("button", { name: "继续解析", exact: true })).toBeEnabled();
   await page.getByRole("button", { name: "继续解析", exact: true }).click();
@@ -485,5 +481,52 @@ for (const [width, height] of layoutViewports) {
     expect(errors).toEqual([]);
     expect(starts(http.calls)).toHaveLength(0);
     expect(mutations(http.calls).filter(call => call.path !== '/api/artifacts/read')).toHaveLength(0);
+  });
+}
+
+for (const viewport of [{ width: 1280, height: 720 }, { width: 390, height: 844 }]) {
+  test(`Vibe Pay credits existing accounts and restores orders at ${viewport.width}x${viewport.height}`, async ({ page }, testInfo) => {
+    await page.setViewportSize(viewport);
+    const product = { productId: "pack", name: "导入额度包", priceCents: 900, pointsMicropoints: "1000000" };
+    const order = { ...product, orderId: "12345678901234567890123456789012", status: "pending", createdAt: "2026-10-14T00:00:00Z", expiresAt: "2099-10-14T00:30:00Z", creditedMicropoints: "0" };
+    let created = false, credited = false;
+    const changes: string[] = [];
+    await page.route("**/api/payments/**", async route => {
+      const request = route.request(), path = new URL(request.url()).pathname;
+      if (request.method() === "POST") changes.push(path);
+      if (path.endsWith("products")) return route.fulfill({ json: { items: [product] } });
+      expect(request.headers().authorization).toBe(`Account ${fakeToken}`);
+      expect(request.headers()["x-practiq-phone"]).toBe("13800138000");
+      const value = credited ? { ...order, status: "credited", creditedMicropoints: "1000000" } : order;
+      if (path.endsWith("/account")) return route.fulfill({ json: { phone: "+8613800138000", balanceMicropoints: credited ? "1000000" : "0", usageUnknown: false } });
+      if (path.endsWith("/orders")) {
+        if (request.method() === "GET") return route.fulfill({ json: { items: created ? [value] : [], hasMore: false } });
+        expect(request.postDataJSON().requestId).toMatch(/^[0-9a-f-]{36}$/);
+        created = true; return route.fulfill({ json: order });
+      }
+      if (path.endsWith("/pay")) return route.fulfill({ json: { url: "https://openapi-sandbox.dl.alipaydev.com/gateway.do?method=alipay.trade.page.pay" } });
+      return route.fulfill({ json: value });
+    });
+    async function login() {
+      await page.getByLabel("手机号").fill("13800138000");
+      await page.getByLabel("账户令牌").fill(fakeToken);
+      await page.getByRole("button", { name: "连接账户", exact: true }).click();
+    }
+    await page.goto("/purchase?product=pack"); await login();
+    await page.getByRole("button", { name: "创建充值订单" }).click();
+    await page.getByRole("button", { name: "准备支付宝支付" }).click();
+    await expect(page.getByRole("link", { name: /打开支付宝付款/ })).toHaveAttribute("href", /openapi-sandbox/);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath(`checkout-${viewport.width}.png`), fullPage: true });
+    await page.reload();
+    await expect(page.getByLabel("账户令牌")).toHaveValue("");
+    credited = true; await login();
+    await page.getByRole("button", { name: "查询订单", exact: true }).click();
+    await expect(page.getByText("额度已到账", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText(/本单已增加 1 额度/)).toBeVisible();
+    expect(await page.evaluate(() => localStorage.length + sessionStorage.length)).toBe(0);
+    expect(changes).toEqual(["/api/payments/orders", `/api/payments/orders/${order.orderId}/pay`]);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath(`checkout-credited-${viewport.width}.png`), fullPage: true });
   });
 }

@@ -9,7 +9,7 @@ from practiq_ai.contracts import (  # noqa: E402
     AnswerMode, COMPOSITE_MODES, QUESTION_KIND_MODES, DocumentParseResult, DocumentProcessing,
     DocumentSourceType, DocumentTaskControl, DocumentTaskCreate, DocumentTaskDetail, DocumentTaskHead, DocumentTaskList,
     DocumentTaskReceipt, DocumentTaskReparse, DocumentTaskReview, DocumentTaskSummary, DocumentUploadRequest,
-    DocumentUploadResponse, ImportCapabilities, OfficeMode, CardRedeem, ImportAccount, ImportProducts, PointLedger,
+    DocumentUploadResponse, ImportCapabilities, OfficeMode, ImportAccount, ImportProducts, PointLedger, PaymentOrderCreate, PaymentOrder, PaymentProducts, PaymentOrders, PaymentLink,
 )
 
 path = Path(__file__).resolve().parents[1] / 'src-tauri/contracts.json'
@@ -63,7 +63,7 @@ def ts_type(node):
 schema = DocumentParseResult.model_json_schema(mode='serialization')
 wire_models = (DocumentTaskSummary, DocumentTaskReview, DocumentTaskDetail, DocumentTaskHead, DocumentTaskList,
                DocumentTaskCreate, DocumentTaskControl, DocumentTaskReparse, DocumentTaskReceipt,
-               DocumentUploadRequest, DocumentUploadResponse, ImportCapabilities, CardRedeem, ImportAccount, ImportProducts, PointLedger)
+               DocumentUploadRequest, DocumentUploadResponse, ImportCapabilities, ImportAccount, ImportProducts, PointLedger, PaymentOrderCreate, PaymentOrder, PaymentProducts, PaymentOrders, PaymentLink)
 definitions = {}
 for model in wire_models:
     definitions.update(model.model_json_schema(mode='serialization').get('$defs', {}))

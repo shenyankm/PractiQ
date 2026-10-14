@@ -1,17 +1,18 @@
-"""Explicit product/card operations and manual reconciliation; no model calls."""
+"""Explicit product/account-access operations and manual reconciliation; no model calls."""
 
 import argparse
 import asyncio
 import json
 import os
 import re
+import secrets
 from pathlib import Path
 from urllib.parse import urlsplit
 
 from dotenv import load_dotenv
 
 from .database import Database
-from .saas import digest, new_card, points, settle
+from .saas import phone, points, settle, token_digest
 
 
 async def run(args: argparse.Namespace) -> None:
@@ -29,29 +30,25 @@ async def run(args: argparse.Namespace) -> None:
                 await conn.execute('INSERT INTO import_products VALUES(%s,%s,%s,%s,%s) '
                                    'ON CONFLICT(product_id) DO UPDATE SET name=excluded.name,points=excluded.points,purchase_url=excluded.purchase_url,enabled=excluded.enabled',
                                    (args.id, args.name.strip(), points(args.points), args.purchase_url, not args.disabled))
-            print('Product saved; existing card entitlements are unchanged')
-        elif args.action == 'generate':
-            if not 1 <= args.count <= 10_000:
-                raise ValueError('Count must be between 1 and 10000')
-            cards = [new_card() for _ in range(args.count)]
-            # Never overwrite an export, and never print a credential to the terminal.
+            print('Product saved; existing order entitlements are unchanged')
+        elif args.action == 'token':
+            credential = secrets.token_urlsafe(32)
             with os.fdopen(os.open(args.output, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), 'w') as output:
                 async with database.transaction() as conn:
-                    product = await (await conn.execute('SELECT * FROM import_products WHERE product_id=%s AND enabled FOR UPDATE', (args.product,))).fetchone()
-                    if not product:
-                        raise ValueError('Enabled product not found')
-                    for card in cards:
-                        await conn.execute('INSERT INTO import_cards(digest,product_id,points) VALUES(%s,%s,%s)', (digest(card), args.product, product['points']))
-                    output.write('\n'.join(cards) + '\n')
+                    account = await (await conn.execute('SELECT account_id FROM import_accounts WHERE phone=%s FOR UPDATE', (phone(args.phone),))).fetchone()
+                    if not account:
+                        raise ValueError('Existing account not found; account tokens never register users')
+                    await conn.execute('INSERT INTO import_account_tokens(digest,account_id) VALUES(%s,%s)', (token_digest(credential), account['account_id']))
+                    output.write(credential+'\n')
                     output.flush()
                     os.fsync(output.fileno())
-            print(f'Generated {len(cards)} cards; protect the export and import it into the shop')
+            print('Account access token exported; no balance or ledger change')
         elif args.action == 'revoke':
             async with database.transaction() as conn:
-                row = await (await conn.execute('UPDATE import_cards SET revoked=true WHERE digest=%s RETURNING digest', (args.digest,))).fetchone()
+                row = await (await conn.execute('UPDATE import_account_tokens SET revoked=true WHERE digest=%s RETURNING digest', (args.digest,))).fetchone()
                 if not row:
-                    raise ValueError('Card digest not found')
-            print('Card access revoked; existing points and ledger retained')
+                    raise ValueError('Account token digest not found')
+            print('Account access revoked; existing points and ledger retained')
         elif args.action == 'unknown':
             rows = await database.rows("SELECT call_key,phone,thread_id,created_at,rates FROM import_calls JOIN import_accounts USING(account_id) WHERE status='unknown' ORDER BY created_at")
             print(json.dumps(rows, default=str, ensure_ascii=False))
@@ -79,10 +76,9 @@ def main() -> None:
     for option in ('id', 'name', 'points', 'purchase-url'):
         product.add_argument('--' + option, required=True)
     product.add_argument('--disabled', action='store_true')
-    generate = commands.add_parser('generate')
-    generate.add_argument('--product', required=True)
-    generate.add_argument('--count', type=int, required=True)
-    generate.add_argument('--output', type=Path, required=True)
+    token = commands.add_parser('token')
+    token.add_argument('--phone', required=True)
+    token.add_argument('--output', type=Path, required=True)
     revoke = commands.add_parser('revoke')
     revoke.add_argument('--digest', required=True)
     commands.add_parser('unknown')

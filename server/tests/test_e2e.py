@@ -24,11 +24,8 @@ from tests.support import make_blank_pdf, make_image
 async def service(tmp_path, disposable_databases):
     from tests.db_support import new_database
     db = await new_database()
-    from practiq_ai import saas
-    card = saas.new_card()
-    async with db.transaction() as conn:
-        await conn.execute("INSERT INTO import_products VALUES('e2e','E2E',1000000000,'https://shop.example',true)")
-        await conn.execute("INSERT INTO import_cards(digest,product_id,points) VALUES(%s,'e2e',1000000000)", (saas.digest(card),))
+    from tests.db_support import seed_account
+    credential = await seed_account(db, balance=1_000_000_000)
     calls = tmp_path / "calls.jsonl"
     sock = socket.socket()
     sock.bind(("127.0.0.1", 0))
@@ -79,9 +76,7 @@ async def service(tmp_path, disposable_databases):
                         log.seek(0)
                         pytest.fail(f"Independent service did not become ready: {log.read()}")
                     if customer:
-                        bound = client.post('/api/cards/redeem', json={'phone': '13800138000', 'card': card})
-                        assert bound.status_code == 200, bound.text
-                        client.headers.update({'Authorization': 'Card ' + card, 'X-Practiq-Phone': '13800138000'})
+                        client.headers.update({'Authorization': 'Account ' + credential, 'X-Practiq-Phone': '13800138000'})
                     yield client
                 process.terminate()
                 process.wait(timeout=20)

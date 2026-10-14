@@ -594,7 +594,7 @@ async def test_export_http_global_slot_holds_through_download_and_releases_after
             await released.wait()
             if failure == "disconnect":
                 raise OSError("Synthetic disconnected HTTP client")
-    credentials = {'Authorization': 'Card test-card', 'X-Practiq-Phone': 'account-a'} if customer else {'Authorization': 'Bearer export-test-token'}
+    credentials = {'Authorization': 'Account test-token', 'X-Practiq-Phone': 'account-a'} if customer else {'Authorization': 'Bearer export-test-token'}
     scope = {"type": "http", "method": "GET", "path": endpoint,
              "query_string": b"checkpoint_id=current-result", "headers": [(key.lower().encode(), value.encode()) for key, value in credentials.items()],
              "asgi": {"version": "3.0", "spec_version": "2.4"}, "scheme": "http", "http_version": "1.1"}

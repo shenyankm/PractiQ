@@ -1,19 +1,17 @@
-"""Phone/card identities and durable, integer-point import accounting."""
+"""Account-token identities and durable, integer-point import accounting."""
 
 import asyncio
 import hashlib
 import re
-import secrets
 from contextvars import ContextVar
 from decimal import Decimal, InvalidOperation
 from json import dumps as json_encode
 from typing import Any
-from uuid import uuid4
 from weakref import WeakValueDictionary
 
 from langgraph.types import interrupt
 
-from .contracts import CardRedeem, DocumentReference, DocumentUploadRequest
+from .contracts import DocumentReference, DocumentUploadRequest
 from .errors import DocumentProcessingError
 
 ACCOUNT: ContextVar[str | None] = ContextVar('import_account', default=None)
@@ -28,11 +26,6 @@ CREATE TABLE import_accounts (
 CREATE TABLE import_products (
  product_id text PRIMARY KEY, name text NOT NULL, points bigint NOT NULL CHECK(points>0),
  purchase_url text NOT NULL, enabled boolean NOT NULL DEFAULT true
-);
-CREATE TABLE import_cards (
- digest text PRIMARY KEY, product_id text NOT NULL REFERENCES import_products(product_id),
- points bigint NOT NULL CHECK(points>0), account_id text REFERENCES import_accounts(account_id),
- revoked boolean NOT NULL DEFAULT false, created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE TABLE import_ledger (
  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -58,7 +51,13 @@ ALTER TABLE document_tasks ADD COLUMN account_id text REFERENCES import_accounts
 ALTER TABLE document_tasks ADD COLUMN billing_rates jsonb;
 CREATE INDEX document_account_order ON document_tasks(account_id,created_at DESC,thread_id DESC);
 """
-TABLES = {'import_accounts', 'import_products', 'import_cards', 'import_ledger', 'import_ledger_id_seq', 'import_uploads', 'import_calls'}
+TOKEN_DDL = """CREATE TABLE import_account_tokens (
+ digest text PRIMARY KEY, account_id text NOT NULL REFERENCES import_accounts(account_id),
+ revoked boolean NOT NULL DEFAULT false, created_at timestamptz NOT NULL DEFAULT now()
+);
+"""
+DDL += TOKEN_DDL
+TABLES = {'import_accounts', 'import_products', 'import_account_tokens', 'import_ledger', 'import_ledger_id_seq', 'import_uploads', 'import_calls'}
 
 
 def failure(code: str, status: int = 409) -> DocumentProcessingError:
@@ -74,10 +73,10 @@ def phone(value: str) -> str:
     return value
 
 
-def digest(card: str) -> str:
-    if not re.fullmatch(r'PQ-[0-9A-Fa-f]{48}', card):
-        raise failure('INVALID_CARD', 401)
-    return hashlib.sha256(card.upper().encode('ascii')).hexdigest()
+def token_digest(value: str) -> str:
+    if not re.fullmatch(r'[A-Za-z0-9_-]{43}', value):
+        raise failure('INVALID_ACCOUNT_ACCESS', 401)
+    return hashlib.sha256(value.encode('ascii')).hexdigest()
 
 
 def points(value: str) -> int:
@@ -96,38 +95,12 @@ def db():
     return client().db
 
 
-async def identity(number: str, card: str) -> str:
-    rows = await db().rows('SELECT a.account_id FROM import_accounts a JOIN import_cards c USING(account_id) '
-                           'WHERE a.phone=%s AND c.digest=%s AND NOT c.revoked', (phone(number), digest(card)))
+async def identity(number: str, credential: str, *, database=None) -> str:
+    rows = await (database or db()).rows('SELECT a.account_id FROM import_accounts a JOIN import_account_tokens c USING(account_id) '
+                                        'WHERE a.phone=%s AND c.digest=%s AND NOT c.revoked', (phone(number), token_digest(credential)))
     if not rows:
-        raise failure('INVALID_CARD', 401)
+        raise failure('INVALID_ACCOUNT_ACCESS', 401)
     return rows[0]['account_id']
-
-
-async def redeem(request: CardRedeem) -> dict[str, Any]:
-    number, key = phone(request.phone), digest(request.card)
-    async with db().transaction() as conn:
-        card = await (await conn.execute('SELECT * FROM import_cards WHERE digest=%s FOR UPDATE', (key,))).fetchone()
-        if not card or card['revoked']:
-            raise failure('INVALID_CARD', 401)
-        account = await (await conn.execute('SELECT * FROM import_accounts WHERE phone=%s FOR UPDATE', (number,))).fetchone()
-        if card['account_id']:
-            if not account or account['account_id'] != card['account_id']:
-                raise failure('CARD_ALREADY_BOUND')
-            return await account_summary(account['account_id'], conn=conn)
-        if account:
-            old_key = digest(request.boundCard or '')
-            old = await (await conn.execute('SELECT 1 FROM import_cards WHERE digest=%s AND account_id=%s AND NOT revoked',
-                                            (old_key, account['account_id']))).fetchone()
-            if not old:
-                raise failure('BOUND_CARD_REQUIRED', 401)
-        else:
-            account = await (await conn.execute('INSERT INTO import_accounts(account_id,phone) VALUES(%s,%s) RETURNING *',
-                                                (str(uuid4()), number))).fetchone()
-        assert account is not None
-        await conn.execute('UPDATE import_cards SET account_id=%s WHERE digest=%s', (account['account_id'], key))
-        await credit(conn, account['account_id'], card['points'], 'redeem', key)
-        return await account_summary(account['account_id'], conn=conn)
 
 
 async def credit(conn, account: str, amount: int, kind: str, reference: str, note: str = '') -> None:
@@ -144,12 +117,12 @@ async def credit(conn, account: str, amount: int, kind: str, reference: str, not
         await conn.execute('UPDATE import_accounts SET balance=balance+%s WHERE account_id=%s', (amount, account))
 
 
-async def account_summary(account: str, *, conn=None) -> dict[str, Any]:
+async def account_summary(account: str, *, conn=None, database=None) -> dict[str, Any]:
     query = "SELECT phone,balance,EXISTS(SELECT 1 FROM import_calls c WHERE c.account_id=a.account_id AND status='unknown') AS blocked FROM import_accounts a WHERE account_id=%s"
     if conn:
         row = await (await conn.execute(query, (account,))).fetchone()
     else:
-        row = (await db().rows(query, (account,)))[0]
+        row = (await (database or db()).rows(query, (account,)))[0]
     assert row is not None
     return {'phone': row['phone'], 'balanceMicropoints': row['balance'], 'usageUnknown': row['blocked']}
 
@@ -317,7 +290,3 @@ async def cleanup_task_store(database, thread_id: str) -> None:
                 offset += 1
             else:
                 await database.store.adelete(item.namespace, item.key)
-
-
-def new_card() -> str:
-    return 'PQ-' + secrets.token_hex(24).upper()

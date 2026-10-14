@@ -73,7 +73,7 @@ describe("source selection and bounded upload", () => {
     expect(create).not.toHaveProperty("officeMode");
     for (const [url, init] of fetcher.mock.calls) {
       expect(url).not.toContain("fake-service-token");
-      expect(new Headers(init.headers).get("Authorization")).toBe("Card fake-service-token");
+      expect(new Headers(init.headers).get("Authorization")).toBe("Account fake-service-token");
       expect(init).toMatchObject({ credentials: "omit", redirect: "error", cache: "no-store" });
     }
     client.disconnect();

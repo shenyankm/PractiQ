@@ -8,3 +8,7 @@
 - yarl 1.25.1 and propcache 0.5.4: upstream Apache-2.0 LICENSE and NOTICE, retained byte-for-byte.
 
 These supplemental notices ship in the service wheel/source archive and image. Existing dependencies retain their installed distribution notices. The separately pinned RabbitMQ image retains its MPL-2.0 terms and [upstream source](https://github.com/rabbitmq/rabbitmq-server/tree/v4.3.6); keep the image and its notices when deploying. Neither broker nor Python AMQP packages belong in the practice-app distribution.
+
+## Optional checkout dependencies
+
+`payments/inventory.json` records the pinned official Alipay Python SDK 3.7.1411 and its RSA 4.9.1 / pyasn1 0.6.4 / PyCryptodome 3.24.1 dependency license texts, extracted byte-for-byte from installed locked distributions with SHA-256 hashes and upstream source links. The SDK and RSA retain Apache-2.0; pyasn1 retains BSD-2-Clause; PyCryptodome retains its complete public-domain/BSD notice. These notices ship in service archives/images and never in the offline App. The SDK is used only by the separately deployed checkout.

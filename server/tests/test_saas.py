@@ -1,4 +1,4 @@
-"""Phone/card isolation, durable points and paid checkpoint recovery."""
+"""Account isolation, durable points and paid checkpoint recovery."""
 
 import asyncio
 import hashlib
@@ -17,7 +17,6 @@ import pytest
 
 from practiq_ai import execution, saas, saas_manage, storage, task_api, webapp
 from practiq_ai.contracts import (
-    CardRedeem,
     DocumentReference,
     DocumentTaskControl,
     DocumentTaskCreate,
@@ -30,18 +29,15 @@ from practiq_ai.contracts import (
 from practiq_ai.database import Database
 from practiq_ai.errors import DocumentProcessingError
 from practiq_ai.graphs import document
-from tests.db_support import remove_saas_schema, setup_api
+from tests.db_support import remove_saas_schema, seed_account, setup_api
 from tests.support import make_image, object_store, parsed, upload
 
 
 async def issue(database, count=1, amount=1_000_000):
     product = uuid4().hex
-    cards = [saas.new_card() for _ in range(count)]
     async with database.transaction() as conn:
         await conn.execute('INSERT INTO import_products VALUES(%s,%s,%s,%s,true)', (product, 'Import points', amount, 'https://shop.example/product'))
-        for card in cards:
-            await conn.execute('INSERT INTO import_cards(digest,product_id,points) VALUES(%s,%s,%s)', (saas.digest(card), product, amount))
-    return cards
+    return [await seed_account(database, str(13800138000+i*100001000), amount) for i in range(count)]
 
 
 @pytest.mark.parametrize('number,normalized', [('13800138000', '+8613800138000'), ('+6512345678', '+6512345678')])
@@ -81,24 +77,20 @@ def test_wire_micropoints_are_exact_decimal_strings_for_all_accounting_fields():
 
 
 @pytest.mark.usefixtures('disposable_databases')
-async def test_card_redemption_http_preserves_balances_beyond_javascript_safe_integer(monkeypatch):
+async def test_account_http_preserves_balances_beyond_javascript_safe_integer(monkeypatch):
     service, _, _ = await setup_api(monkeypatch)
-    cards = await issue(service.db, 10, amount=10**15)
+    credential = (await issue(service.db, amount=10**15))[0]
+    account = await saas.identity('13800138000', credential)
+    async with service.db.transaction() as conn:
+        for index in range(9):
+            await saas.credit(conn, account, 10**15, 'purchase', str(index))
+    headers = {'Authorization': 'Account ' + credential, 'X-Practiq-Phone': '13800138000'}
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=webapp.app), base_url='http://test') as http:
-        for card in cards:
-            request = {'phone': '13800138000', 'card': card}
-            if card != cards[0]:
-                request['boundCard'] = cards[0]
-            result = await http.post('/api/cards/redeem', json=request)
-            assert result.status_code == 200
-        headers = {'Authorization': 'Card ' + cards[0], 'X-Practiq-Phone': '13800138000'}
         assert (await http.get('/api/account', headers=headers)).json()['balanceMicropoints'] == '10000000000000000'
-        account = await saas.identity('13800138000', cards[0])
         async with service.db.transaction() as conn:
             await saas.credit(conn, account, -1, 'model', 'precision-check')
         assert (await http.get('/api/account', headers=headers)).json()['balanceMicropoints'] == '9999999999999999'
-        ledger = (await http.get('/api/account/ledger', headers=headers)).json()
-        assert ledger['items'][0]['amountMicropoints'] == '-1'
+        assert (await http.get('/api/account/ledger', headers=headers)).json()['items'][0]['amountMicropoints'] == '-1'
         assert (await http.get('/api/products')).json()['items'][0]['pointsMicropoints'] == '1000000000000000'
 
 
@@ -107,9 +99,8 @@ async def test_upload_quota_is_atomic_counts_uncertain_writes_and_never_grants_h
     monkeypatch.setenv('AI_ACCOUNT_UPLOAD_MAX_BYTES', '8')
     monkeypatch.setenv('AI_ACCOUNT_UPLOAD_MAX_FILES', '2')
     service, _, _ = await setup_api(monkeypatch)
-    card = (await issue(service.db))[0]
-    await saas.redeem(CardRedeem(phone='13800138000', card=card))
-    account = await saas.identity('13800138000', card)
+    credential = (await issue(service.db))[0]
+    account = await saas.identity('13800138000', credential)
     store = object_store(tmp_path)
     async with service.db.transaction() as conn:
         await saas.credit(conn, account, -1_000_000, 'model', 'spent-before-upload')
@@ -152,9 +143,8 @@ async def test_upload_quota_is_atomic_counts_uncertain_writes_and_never_grants_h
 @pytest.mark.usefixtures('disposable_databases')
 async def test_old_schema_three_upload_proofs_upgrade_explicitly_without_data_loss(monkeypatch):
     service, reference, _ = await setup_api(monkeypatch)
-    card = (await issue(service.db))[0]
-    await saas.redeem(CardRedeem(phone='13800138000', card=card))
-    account = await saas.identity('13800138000', card)
+    credential = (await issue(service.db))[0]
+    account = await saas.identity('13800138000', credential)
     token = saas.ACCOUNT.set(account)
     try:
         await saas.register_upload(DocumentReference.model_validate(reference))
@@ -182,28 +172,24 @@ async def test_unsettled_accounting_evidence_has_no_task_expiry():
 
 
 @pytest.mark.usefixtures('disposable_databases')
-async def test_card_binding_is_atomic_replay_safe_and_prevents_phone_takeover(monkeypatch):
+async def test_account_tokens_are_phone_scoped_revocable_and_never_add_points(monkeypatch):
     service, _, _ = await setup_api(monkeypatch)
-    first, second, third = await issue(service.db, 3)
-    request = CardRedeem(phone='13800138000', card=first)
-    a, b = await asyncio.gather(saas.redeem(request), saas.redeem(request))
-    assert a == b and a['balanceMicropoints'] == 1_000_000
+    first, second = await issue(service.db, 2)
+    account = await saas.identity('13800138000', first)
     with pytest.raises(DocumentProcessingError):
-        await saas.redeem(CardRedeem(phone='13900139000', card=first))
+        await saas.identity('13900139000', first)
     with pytest.raises(DocumentProcessingError):
-        await saas.redeem(CardRedeem(phone=request.phone, card=second))
-    charged = await saas.redeem(CardRedeem(phone=request.phone, card=second, boundCard=first))
-    assert charged['balanceMicropoints'] == 2_000_000
-    assert await saas.redeem(CardRedeem(phone=request.phone, card=second)) == charged
-    account = await saas.identity(request.phone, second)
+        await saas.identity('13800138000', second)
     async with service.db.transaction() as conn:
-        await conn.execute('UPDATE import_cards SET revoked=true WHERE digest=%s', (saas.digest(first),))
+        await conn.execute('UPDATE import_account_tokens SET revoked=true WHERE digest=%s', (saas.token_digest(first),))
     with pytest.raises(DocumentProcessingError):
-        await saas.identity(request.phone, first)
-    assert await saas.identity(request.phone, second) == account
-    assert len((await saas.ledger(account, 1, None))['items']) == 1
-    assert (await saas.products())['items'][0]['purchaseUrl'].startswith('https:')
-    assert saas.digest(third) != third
+        await saas.identity('13800138000', first)
+    assert (await saas.account_summary(account))['balanceMicropoints'] == 1_000_000
+    assert len((await saas.ledger(account, 20, None))['items']) == 1
+    assert saas.token_digest(first) != first
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=webapp.app), base_url='http://test') as http:
+        assert (await http.post('/api/cards/redeem', json={'phone':'13800138000','card':first})).status_code == 404
+        assert (await http.get('/api/account', headers={'Authorization':'Card '+second,'X-Practiq-Phone':'13900139000'})).status_code == 401
 
 
 @pytest.mark.usefixtures('disposable_databases')
@@ -215,10 +201,8 @@ async def test_customer_http_owns_tasks_uploads_and_artifact_reads(monkeypatch, 
     for module in (task_api, execution, document, storage, webapp):
         monkeypatch.setattr(module, 'get_object_store', lambda: store)
     first, second = await issue(service.db, 2)
-    await saas.redeem(CardRedeem(phone='13800138000', card=first))
-    await saas.redeem(CardRedeem(phone='13900139000', card=second))
-    a = {'Authorization': 'Card ' + first, 'X-Practiq-Phone': '13800138000'}
-    b = {'Authorization': 'Card ' + second, 'X-Practiq-Phone': '13900139000'}
+    a = {'Authorization': 'Account ' + first, 'X-Practiq-Phone': '13800138000'}
+    b = {'Authorization': 'Account ' + second, 'X-Practiq-Phone': '13900139000'}
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=webapp.app), base_url='http://test') as http:
         assert (await http.get('/api/products')).status_code == 200
         assert (await http.post('/api/document-tasks', json={}, headers={'Authorization': 'Bearer test-token'})).status_code == 401
@@ -277,9 +261,8 @@ async def test_bearer_is_scoped_to_legacy_tasks_and_cannot_spend_customer_points
     monkeypatch.setenv('AI_INPUT_POINTS_PER_1K', '1')
     monkeypatch.setenv('AI_OUTPUT_POINTS_PER_1K', '3')
     service, reference, model = await setup_api(monkeypatch, [parsed(), parsed(), parsed()])
-    card = (await issue(service.db))[0]
-    await saas.redeem(CardRedeem(phone='13800138000', card=card))
-    account = await saas.identity('13800138000', card)
+    credential = (await issue(service.db))[0]
+    account = await saas.identity('13800138000', credential)
     token = saas.ACCOUNT.set(account)
     try:
         await saas.register_upload(DocumentReference.model_validate(reference))
@@ -291,7 +274,7 @@ async def test_bearer_is_scoped_to_legacy_tasks_and_cannot_spend_customer_points
     before = await saas.account_summary(account)
     calls_before = len(model.calls)
     headers = {'Authorization': 'Bearer test-token'}
-    customer = {'Authorization': 'Card ' + card, 'X-Practiq-Phone': '13800138000'}
+    customer = {'Authorization': 'Account ' + credential, 'X-Practiq-Phone': '13800138000'}
     tid = owned['threadId']
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=webapp.app), base_url='http://test') as http:
         for suffix in ('', '/head', '/preview', '/export', '/export?scope=completed'):
@@ -340,11 +323,10 @@ async def test_task_charge_poll_uses_account_index_with_retained_cross_account_h
     monkeypatch.setenv('AI_INPUT_POINTS_PER_1K', '1')
     monkeypatch.setenv('AI_OUTPUT_POINTS_PER_1K', '3')
     service, reference, _ = await setup_api(monkeypatch)
-    cards = await issue(service.db, 2)
+    credentials = await issue(service.db, 2)
     accounts = []
-    for number, card in zip(('13800138000', '13900139000'), cards, strict=True):
-        await saas.redeem(CardRedeem(phone=number, card=card))
-        accounts.append(await saas.identity(number, card))
+    for number, credential in zip(('13800138000', '13900139000'), credentials, strict=True):
+        accounts.append(await saas.identity(number, credential))
     token = saas.ACCOUNT.set(accounts[0])
     try:
         await saas.register_upload(DocumentReference.model_validate(reference))
@@ -373,8 +355,7 @@ async def test_points_pause_partial_download_top_up_and_explicit_resume_reuse_pa
     monkeypatch.setenv('AI_INPUT_POINTS_PER_1K', '1')
     monkeypatch.setenv('AI_OUTPUT_POINTS_PER_1K', '3')
     service, reference, model = await setup_api(monkeypatch, [parsed('First'), parsed('Second')], parts=['1. First\n', '2. Second'])
-    first, topup = await issue(service.db, 2, amount=20_000)
-    await saas.redeem(CardRedeem(phone='13800138000', card=first))
+    first, _ = await issue(service.db, 2, amount=20_000)
     account = await saas.identity('13800138000', first)
     token = saas.ACCOUNT.set(account)
     try:
@@ -402,7 +383,8 @@ async def test_points_pause_partial_download_top_up_and_explicit_resume_reuse_pa
         assert payload['status'] == 'PARTIAL' and len(payload['result']['questions']) == 1
         monkeypatch.setenv('AI_INPUT_POINTS_PER_1K', '9')
         monkeypatch.setenv('AI_OUTPUT_POINTS_PER_1K', '9')
-        await saas.redeem(CardRedeem(phone='13800138000', card=topup, boundCard=first))
+        async with service.db.transaction() as conn:
+            await saas.credit(conn, account, 20000, 'purchase', 'test-recharge')
         await asyncio.sleep(.05)
         assert len(model.calls) == 1
         await task_api.control_task(receipt['threadId'], DocumentTaskControl(requestId=uuid4(), action='resume', checkpointId=detail['checkpointId']))
@@ -426,8 +408,7 @@ async def test_invalid_model_output_is_charged_and_correction_pauses_without_los
     monkeypatch.setenv('AI_INPUT_POINTS_PER_1K', '1')
     monkeypatch.setenv('AI_OUTPUT_POINTS_PER_1K', '3')
     service, reference, model = await setup_api(monkeypatch, [{'questions': 'invalid array'}, parsed()])
-    first, recharge = await issue(service.db, 2, amount=20_000)
-    await saas.redeem(CardRedeem(phone='13800138000', card=first))
+    first, _ = await issue(service.db, 2, amount=20_000)
     account = await saas.identity('13800138000', first)
     token = saas.ACCOUNT.set(account)
     try:
@@ -437,7 +418,8 @@ async def test_invalid_model_output_is_charged_and_correction_pauses_without_los
         detail = await task_api.get_task(receipt['threadId'])
         assert detail['state'] == 'PAUSED' and detail['billing']['chargedMicropoints'] == '25000'
         assert not detail['failures'] and not detail['canExportCompleted'] and len(model.calls) == 1
-        await saas.redeem(CardRedeem(phone='13800138000', card=recharge, boundCard=first))
+        async with service.db.transaction() as conn:
+            await saas.credit(conn, account, 20000, 'purchase', 'test-recharge')
         await task_api.control_task(receipt['threadId'], DocumentTaskControl(requestId=uuid4(), action='resume', checkpointId=detail['checkpointId']))
         await service.wait_idle()
         complete = await task_api.get_task(receipt['threadId'])
@@ -450,9 +432,8 @@ async def test_invalid_model_output_is_charged_and_correction_pauses_without_los
 @pytest.mark.usefixtures('disposable_databases')
 async def test_unknown_usage_blocks_account_and_manual_settlement_is_idempotent(monkeypatch):
     service, _reference, _ = await setup_api(monkeypatch)
-    card = (await issue(service.db))[0]
-    await saas.redeem(CardRedeem(phone='13800138000', card=card))
-    account = await saas.identity('13800138000', card)
+    credential = (await issue(service.db))[0]
+    account = await saas.identity('13800138000', credential)
     key = str(uuid4())
     async with service.db.transaction() as conn:
         await conn.execute("INSERT INTO import_calls(call_key,account_id,thread_id,rates,status,dispatched) VALUES(%s,%s,%s,%s,'pending',true)",
@@ -482,27 +463,31 @@ async def test_schema_two_upgrade_keeps_legacy_records_and_rejects_unknown_schem
 
 
 @pytest.mark.usefixtures('disposable_databases')
-async def test_operator_card_export_is_private_and_snapshots_product_points(monkeypatch, tmp_path, capsys):
+async def test_operator_account_token_export_is_private_existing_only_and_has_no_entitlement(monkeypatch, tmp_path, capsys):
     service, _, _ = await setup_api(monkeypatch)
+    first = (await issue(service.db))[0]
+    account = await saas.identity('13800138000', first)
     monkeypatch.setattr(saas_manage, 'Database', lambda: Database(service.db.uri))
     product = Namespace(action='product', id='test', name='Example', points='2.125', purchase_url='https://shop.example/item', disabled=False)
     await saas_manage.run(product)
-    destination = tmp_path / 'cards.txt'
-    generate = Namespace(action='generate', product='test', count=2, output=destination)
+    destination = tmp_path / 'token.txt'
+    generate = Namespace(action='token', phone='13800138000', output=destination)
     await saas_manage.run(generate)
     assert destination.stat().st_mode & 0o777 == 0o600
-    codes = destination.read_text().splitlines()
-    assert len(set(codes)) == 2 and all(saas.digest(code) for code in codes)
-    output = capsys.readouterr().out
-    assert all(code not in output for code in codes)
+    credential = destination.read_text().strip()
+    assert await saas.identity('13800138000', credential) == account
+    assert credential not in capsys.readouterr().out
+    assert (await saas.account_summary(account))['balanceMicropoints'] == 1_000_000
+    assert len((await saas.ledger(account, 20, None))['items']) == 1
     with pytest.raises(FileExistsError):
         await saas_manage.run(generate)
-    product.points = '3'
-    await saas_manage.run(product)
-    assert (await saas.redeem(CardRedeem(phone='13800138000', card=codes[0])))['balanceMicropoints'] == 2_125_000
-    await saas_manage.run(Namespace(action='revoke', digest=saas.digest(codes[0])))
+    with pytest.raises(ValueError, match='Existing account not found'):
+        await saas_manage.run(Namespace(action='token', phone='13900139000', output=tmp_path/'missing.txt'))
+    assert len(await service.db.rows('SELECT * FROM import_accounts')) == 1
+    await saas_manage.run(Namespace(action='revoke', digest=saas.token_digest(credential)))
     with pytest.raises(DocumentProcessingError):
-        await saas.identity('13800138000', codes[0])
+        await saas.identity('13800138000', credential)
+    assert await saas.identity('13800138000', first) == account
     for changes in ({'id': '../escape'}, {'points': '-1'}, {'purchase_url': 'http://shop.example'}, {'name': ''}):
         with pytest.raises(ValueError):
             await saas_manage.run(Namespace(**{**vars(product), **changes}))
@@ -511,9 +496,8 @@ async def test_operator_card_export_is_private_and_snapshots_product_points(monk
 @pytest.mark.usefixtures('disposable_databases')
 async def test_reconcile_settles_saved_model_usage_once_without_changing_results(monkeypatch):
     service, _, _ = await setup_api(monkeypatch)
-    card = (await issue(service.db))[0]
-    await saas.redeem(CardRedeem(phone='13800138000', card=card))
-    account = await saas.identity('13800138000', card)
+    credential = (await issue(service.db))[0]
+    account = await saas.identity('13800138000', credential)
     thread, key = str(uuid4()), str(uuid4())
     saved = {'usage': {'inputTokens': 10, 'outputTokens': 5, 'callKey': key, 'modelId': 'test', 'callKind': 'parse'}, 'parsed': parsed()}
     await service.db.store.aput(execution.namespace(thread, 'model_results'), 'saved', saved, index=False)
@@ -533,9 +517,8 @@ async def test_reconcile_settles_saved_model_usage_once_without_changing_results
 async def test_task_cleanup_preserves_unsettled_usage_and_result_for_reconciliation(monkeypatch, offline):
     from practiq_ai.manage import cleanup
     service, reference, _ = await setup_api(monkeypatch)
-    card = (await issue(service.db))[0]
-    await saas.redeem(CardRedeem(phone='13800138000', card=card))
-    account = await saas.identity('13800138000', card)
+    credential = (await issue(service.db))[0]
+    account = await saas.identity('13800138000', credential)
     receipt = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
     await service.wait_idle()
     thread, key = receipt['threadId'], str(uuid4())
@@ -574,9 +557,8 @@ async def test_saved_model_result_survives_settlement_failure_and_explicit_resum
     monkeypatch.setenv('AI_INPUT_POINTS_PER_1K', '1')
     monkeypatch.setenv('AI_OUTPUT_POINTS_PER_1K', '3')
     service, reference, model = await setup_api(monkeypatch)
-    card = (await issue(service.db))[0]
-    await saas.redeem(CardRedeem(phone='13800138000', card=card))
-    account = await saas.identity('13800138000', card)
+    credential = (await issue(service.db))[0]
+    account = await saas.identity('13800138000', credential)
     settle = saas.settle
     failures = 0
     async def fail_twice(call_key, usage, **kwargs):
@@ -609,11 +591,10 @@ async def test_saved_model_result_survives_settlement_failure_and_explicit_resum
 @pytest.mark.usefixtures('disposable_databases')
 async def test_account_serializes_calls_but_other_accounts_can_dispatch(monkeypatch):
     service, _, _ = await setup_api(monkeypatch)
-    cards = await issue(service.db, 2)
+    credentials = await issue(service.db, 2)
     accounts = []
-    for number, card in zip(('13800138000', '13900139000'), cards, strict=True):
-        await saas.redeem(CardRedeem(phone=number, card=card))
-        accounts.append(await saas.identity(number, card))
+    for number, credential in zip(('13800138000', '13900139000'), credentials, strict=True):
+        accounts.append(await saas.identity(number, credential))
     threads = [str(uuid4()) for _ in range(3)]
     async with service.db.transaction() as conn:
         for thread, account in zip(threads, [accounts[0], accounts[0], accounts[1]], strict=True):
@@ -648,11 +629,10 @@ async def test_one_account_backlog_does_not_occupy_other_accounts_worker_or_brok
     monkeypatch.setenv('AI_INPUT_POINTS_PER_1K', '1')
     monkeypatch.setenv('AI_OUTPUT_POINTS_PER_1K', '3')
     service, reference, model = await setup_api(monkeypatch, [parsed()] * 5)
-    cards = await issue(service.db, 2)
+    credentials = await issue(service.db, 2)
     accounts = []
-    for number, card in zip(('13800138000', '13900139000'), cards, strict=True):
-        await saas.redeem(CardRedeem(phone=number, card=card))
-        accounts.append(await saas.identity(number, card))
+    for number, credential in zip(('13800138000', '13900139000'), credentials, strict=True):
+        accounts.append(await saas.identity(number, credential))
     entered, release = asyncio.Event(), asyncio.Event()
     original = type(model).with_structured_output
     def output(self, schema, **kwargs):
@@ -707,9 +687,8 @@ async def test_account_deferral_survives_publication_confirm_after_its_delivery(
             await cleanup.wait()
     monkeypatch.setattr(runtime.Service, 'execute', execute)
     service, reference, model = await setup_api(monkeypatch, [parsed(), parsed()])
-    card = (await issue(service.db))[0]
-    await saas.redeem(CardRedeem(phone='13800138000', card=card))
-    account = await saas.identity('13800138000', card)
+    credential = (await issue(service.db))[0]
+    account = await saas.identity('13800138000', credential)
     token = saas.ACCOUNT.set(account)
     second = None
     original_deliver, original_publish, original_wait = service.deliver, messaging.publish, service.delivery.wait
@@ -750,9 +729,8 @@ async def test_provider_failure_pauses_unknown_usage_and_manual_resolution_does_
     monkeypatch.setenv('AI_INPUT_POINTS_PER_1K', '1')
     monkeypatch.setenv('AI_OUTPUT_POINTS_PER_1K', '3')
     service, reference, model = await setup_api(monkeypatch, [RuntimeError('uncertain provider response'), parsed()])
-    card = (await issue(service.db))[0]
-    await saas.redeem(CardRedeem(phone='13800138000', card=card))
-    account = await saas.identity('13800138000', card)
+    credential = (await issue(service.db))[0]
+    account = await saas.identity('13800138000', credential)
     token = saas.ACCOUNT.set(account)
     try:
         await saas.register_upload(DocumentReference.model_validate(reference))
@@ -795,11 +773,10 @@ async def test_account_queue_quota_is_atomic_replays_receipts_and_preserves_othe
         await original_publish(channel, run_id)
 
     monkeypatch.setattr(messaging, 'publish', blocked_publish)
-    cards = await issue(service.db, 2)
+    credentials = await issue(service.db, 2)
     accounts = []
-    for number, card in zip(('13800138000', '13900139000'), cards, strict=True):
-        await saas.redeem(CardRedeem(phone=number, card=card))
-        accounts.append(await saas.identity(number, card))
+    for number, credential in zip(('13800138000', '13900139000'), credentials, strict=True):
+        accounts.append(await saas.identity(number, credential))
     async with service.db.transaction() as conn:
         await saas.credit(conn, accounts[0], -1_000_000, 'model', 'depleted')
     token = saas.ACCOUNT.set(accounts[0])
@@ -825,17 +802,16 @@ async def test_account_queue_quota_is_atomic_replays_receipts_and_preserves_othe
 
 
 @pytest.mark.usefixtures('disposable_databases')
-async def test_balance_bounds_reject_redemption_and_settlement_without_partial_accounting(monkeypatch):
+async def test_balance_bounds_reject_purchase_and_settlement_without_partial_accounting(monkeypatch):
     service, _, _ = await setup_api(monkeypatch)
-    first, extra = await issue(service.db, 2, amount=1)
-    await saas.redeem(CardRedeem(phone='13800138000', card=first))
+    first, _ = await issue(service.db, 2, amount=1)
     account = await saas.identity('13800138000', first)
     async with service.db.transaction() as conn:
         await saas.credit(conn, account, saas.BIGINT_MAX - 1, 'adjust', 'upper-bound')
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=webapp.app), base_url='http://test') as http:
-        result = await http.post('/api/cards/redeem', json={'phone': '13800138000', 'card': extra, 'boundCard': first})
-        assert result.status_code == 409 and result.json()['detail']['code'] == 'POINT_BALANCE_LIMIT'
-    assert (await service.db.rows('SELECT account_id FROM import_cards WHERE digest=%s', (saas.digest(extra),)))[0]['account_id'] is None
+    with pytest.raises(DocumentProcessingError, match='Point balance limit'):
+        async with service.db.transaction() as conn:
+            await saas.credit(conn, account, 1, 'purchase', 'test-recharge')
+    assert not await service.db.rows("SELECT 1 FROM import_ledger WHERE reference='test-recharge'")
     async with service.db.transaction() as conn:
         # Idempotent replay remains valid even at the balance ceiling.
         await saas.credit(conn, account, saas.BIGINT_MAX - 1, 'adjust', 'upper-bound')
@@ -851,7 +827,8 @@ async def test_balance_bounds_reject_redemption_and_settlement_without_partial_a
     with pytest.raises(DocumentProcessingError, match='Point balance limit'):
         async with service.db.transaction() as conn:
             await saas.credit(conn, account, saas.BIGINT_MAX + 1, 'adjust', 'oversized-amount')
-    await saas.redeem(CardRedeem(phone='13800138000', card=extra, boundCard=first))
+    async with service.db.transaction() as conn:
+        await saas.credit(conn, account, 1, 'purchase', 'test-recharge')
     await saas.settle('overflow-call', {'inputTokens': 1, 'outputTokens': 0})
     assert (await saas.account_summary(account))['balanceMicropoints'] == saas.BIGINT_MIN
     assert not (await saas.account_summary(account))['usageUnknown']
@@ -864,9 +841,8 @@ async def test_customer_can_retry_failed_delete_without_losing_ownership(monkeyp
     monkeypatch.setenv('AI_INPUT_POINTS_PER_1K', '1')
     monkeypatch.setenv('AI_OUTPUT_POINTS_PER_1K', '3')
     service, reference, _ = await setup_api(monkeypatch)
-    card = (await issue(service.db))[0]
-    await saas.redeem(CardRedeem(phone='13800138000', card=card))
-    account = await saas.identity('13800138000', card)
+    credential = (await issue(service.db))[0]
+    account = await saas.identity('13800138000', credential)
     token = saas.ACCOUNT.set(account)
     try:
         await saas.register_upload(DocumentReference.model_validate(reference))
@@ -898,9 +874,8 @@ async def test_cancellation_before_dispatch_persists_rejection_and_restarts_with
     monkeypatch.setenv('AI_INPUT_POINTS_PER_1K', '1')
     monkeypatch.setenv('AI_OUTPUT_POINTS_PER_1K', '3')
     service, reference, model = await setup_api(monkeypatch)
-    card = (await issue(service.db))[0]
-    await saas.redeem(CardRedeem(phone='13800138000', card=card))
-    account = await saas.identity('13800138000', card)
+    credential = (await issue(service.db))[0]
+    account = await saas.identity('13800138000', credential)
     entered = asyncio.Event()
     original_dispatch = saas.dispatched
 
@@ -944,14 +919,13 @@ async def test_customer_upload_database_outage_is_bounded_503_and_retry_verifies
 
     from psycopg import OperationalError
     service, _, _ = await setup_api(monkeypatch)
-    card = (await issue(service.db))[0]
-    await saas.redeem(CardRedeem(phone='13800138000', card=card))
-    account = await saas.identity('13800138000', card)
+    credential = (await issue(service.db))[0]
+    account = await saas.identity('13800138000', credential)
     store = object_store(tmp_path)
     monkeypatch.setattr(webapp, 'get_object_store', lambda: store)
     payload = b'quiz'
     metadata = DocumentUploadRequest(sourceType='text', fileName='quiz.txt', mediaType='text/plain', sizeBytes=len(payload), sha256=hashlib.sha256(payload).hexdigest())
-    headers = {'Authorization': 'Card ' + card, 'X-Practiq-Phone': '13800138000', 'Content-Type': 'text/plain'}
+    headers = {'Authorization': 'Account ' + credential, 'X-Practiq-Phone': '13800138000', 'Content-Type': 'text/plain'}
 
     @asynccontextmanager
     async def unavailable():
@@ -981,9 +955,8 @@ async def test_retained_task_quota_counts_paused_and_expired_tasks_and_deletion_
     monkeypatch.setenv('AI_INPUT_POINTS_PER_1K', '1')
     monkeypatch.setenv('AI_OUTPUT_POINTS_PER_1K', '3')
     service, reference, model = await setup_api(monkeypatch)
-    card = (await issue(service.db))[0]
-    await saas.redeem(CardRedeem(phone='13800138000', card=card))
-    account = await saas.identity('13800138000', card)
+    credential = (await issue(service.db))[0]
+    account = await saas.identity('13800138000', credential)
     async with service.db.transaction() as conn:
         await saas.credit(conn, account, -1_000_000, 'model', 'depleted')
     token = saas.ACCOUNT.set(account)
@@ -1016,11 +989,10 @@ async def test_slow_deletion_cleanup_releases_global_lock_and_disables_task_cont
     monkeypatch.setenv('AI_INPUT_POINTS_PER_1K', '1')
     monkeypatch.setenv('AI_OUTPUT_POINTS_PER_1K', '3')
     service, reference, _ = await setup_api(monkeypatch, [parsed(), parsed()])
-    cards = await issue(service.db, 2)
+    credentials = await issue(service.db, 2)
     accounts = []
-    for number, card in zip(('13800138000', '13900139000'), cards, strict=True):
-        await saas.redeem(CardRedeem(phone=number, card=card))
-        accounts.append(await saas.identity(number, card))
+    for number, credential in zip(('13800138000', '13900139000'), credentials, strict=True):
+        accounts.append(await saas.identity(number, credential))
     token = saas.ACCOUNT.set(accounts[0])
     release, entered = asyncio.Event(), asyncio.Event()
     operation = None
@@ -1055,3 +1027,24 @@ async def test_slow_deletion_cleanup_releases_global_lock_and_disables_task_cont
         if operation:
             await asyncio.gather(operation, return_exceptions=True)
         saas.ACCOUNT.reset(token)
+
+@pytest.mark.usefixtures('disposable_databases')
+async def test_schema_three_upgrade_keeps_old_balances_ledger_and_cards_inert(monkeypatch):
+    service, _, _ = await setup_api(monkeypatch)
+    credential=(await issue(service.db))[0]
+    account=await saas.identity('13800138000',credential)
+    async with service.db.transaction() as conn:
+        await conn.execute('DROP TABLE import_account_tokens')
+        await conn.execute('CREATE TABLE import_cards(digest text PRIMARY KEY,account_id text REFERENCES import_accounts(account_id))')
+        await conn.execute('INSERT INTO import_cards VALUES(%s,%s)',(saas.token_digest(credential),account))
+        await conn.execute('UPDATE practiq_schema SET version=3')
+    with pytest.raises(RuntimeError,match='upgrade-db'):
+        await service.db.check_schema()
+    await service.db.upgrade()
+    await service.db.upgrade()
+    assert (await saas.account_summary(account))['balanceMicropoints']==1_000_000
+    assert len((await saas.ledger(account,20,None))['items'])==1
+    assert len(await service.db.rows('SELECT * FROM import_cards'))==1
+    assert not await service.db.rows('SELECT * FROM import_account_tokens')
+    with pytest.raises(DocumentProcessingError):
+        await saas.identity('13800138000',credential)

@@ -146,7 +146,7 @@ async def test_reused_reader_does_not_inherit_another_requests_snapshot(monkeypa
     assert await second == [{'value': 'committed'}]
 
 
-async def test_existing_schema_three_gets_additive_sort_indexes():
+async def test_existing_schema_four_gets_additive_sort_indexes():
     db = await new_database()
     async with db.connection() as conn:
         for name in ('document_task_order', 'document_run_latest', 'document_active_order'):
@@ -154,7 +154,7 @@ async def test_existing_schema_three_gets_additive_sort_indexes():
     await db.check_schema()
     await db.ensure_indexes()
     await db.ensure_indexes()
-    assert await db.rows('SELECT version FROM practiq_schema') == [{'version': 3}]
+    assert await db.rows('SELECT version FROM practiq_schema') == [{'version': 4}]
     indexes = await db.rows("SELECT indexname FROM pg_indexes WHERE schemaname='public'")
     assert {'document_task_order', 'document_run_latest', 'document_active_order'} <= {row['indexname'] for row in indexes}
 
@@ -584,7 +584,7 @@ async def test_missing_checkpoint_tables_fail_closed():
     await db.connections[0].execute('DROP TABLE checkpoint_writes')
     with pytest.raises(RuntimeError, match='Incomplete PostgreSQL state'):
         await db.check_schema()
-    assert await db.rows('SELECT version FROM practiq_schema') == [{'version': 3}]
+    assert await db.rows('SELECT version FROM practiq_schema') == [{'version': 4}]
 
 @pytest.mark.parametrize('pending', [False, True])
 @pytest.mark.parametrize(('graph_id', 'kind'), [('docx_parser', 'text'), ('document_parser', 'docm'), ('document_parser', 'xlsm')])
