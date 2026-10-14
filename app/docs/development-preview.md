@@ -24,6 +24,8 @@ The preview validates UI behavior and interaction. It does not validate native s
 
 For clean App screenshots without the floating preview panel, run `npm --prefix app run dev -- --mode design-preview --port 1426` from the repository root. It uses the same in-memory data and production [shared theme](../../docs/design.md); language follows the browser preference or the sidebar language menu.
 
-For the current Web connection screen, run `npm --prefix web run dev -- --port 5178`. It queries the public product catalog; use mocked HTTP responses for isolated captures and leave credentials empty. The Web `design-preview` middleware and `app/scripts/check-design-preview.mjs` still expect the former Bearer-token connection flow and cannot verify the current phone/account-token flow. Use the Web browser suite documented in [web/README.md](../../web/README.md) for that flow.
+Run `node app/scripts/check-design-preview.mjs` against the App design-preview server to capture App pages and check responsive layout, control sizes, theme/language switching and offline behavior. The script covers App only; its screenshots and report are written to `app/.build/design-preview/`.
+
+For Web screenshot acceptance, run `npm --prefix web run test:browser -- --grep 'import flow screenshot acceptance'`. The tests use the current phone/account-token flow with authenticated synthetic HTTP fixtures, including verified ZIP download and checkpoint changes. Screenshots are written under `web/test-results/browser/`. The older Web `design-preview` middleware still uses the former Bearer-token flow; use the browser suite for current Web acceptance. See the [UI/UX acceptance record](../../docs/evidence/2026-10-14-uiux/README.md).
 
 Run `npx vitest run`, `npm run test:browser` or `npm run test:preview` from `app/`. `npm run build` checks the production build, which excludes preview code and demo resources.

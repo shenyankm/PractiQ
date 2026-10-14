@@ -1,0 +1,46 @@
+{
+  "baselineHead": "cb0d0dc85e0d9ab74ac3483aedcf84bf8b745c9d",
+  "after": "working tree on sheny/improve-uiux",
+  "date": "2026-10-14",
+  "fixture": "Authenticated synthetic Account-token HTTP; browser.spec.ts fakeHTTP/task/preview; empty public product catalog",
+  "servicePaymentsModels": "No live services, payments, model calls or Office workers",
+  "viewports": [
+    [
+      1440,
+      1000
+    ],
+    [
+      390,
+      844
+    ]
+  ],
+  "runtime": "Built Vite assets, Chromium, zh-CN, reduced motion",
+  "checks": {
+    "unitTests": 81,
+    "builtBrowserTests": 26,
+    "statementsPercent": 94.05,
+    "branchesPercent": 87.07,
+    "functionsPercent": 96.07,
+    "linesPercent": 97.69
+  },
+  "captures": [
+    "main-after-checkout-1280.png",
+    "main-after-checkout-390.png",
+    "main-after-checkout-credited-1280.png",
+    "main-after-checkout-credited-390.png",
+    "main-after-connection-1440.png",
+    "main-after-connection-390.png",
+    "main-after-export-1440.png",
+    "main-after-export-390.png",
+    "main-after-recharge-1440.png",
+    "main-after-recharge-390.png",
+    "main-after-review-1440.png",
+    "main-after-review-390.png",
+    "main-after-review-dark-1440.png",
+    "main-after-review-dark-390.png",
+    "main-after-workspace-1440.png",
+    "main-after-workspace-390.png"
+  ],
+  "balanceReadFailure": "Existing read error now displays 余额暂不可用 instead of a stale loading label; covered by failed-read regression assertions",
+  "rechargeSupplement": "Two matched-fixture captures show the preserved public purchase URL after explicitly expanding the account disclosure; see main-after-recharge-metadata.json"
+}

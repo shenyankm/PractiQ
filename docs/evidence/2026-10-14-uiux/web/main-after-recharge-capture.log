@@ -1,0 +1,5 @@
+Captured main-after-recharge-1440.png: {"viewport":{"width":1440,"height":1000},"document":{"width":1440,"height":2901},"scroll":{"x":0,"y":0}}
+Verified 1440: 10 synthetic reads, zero mutations, zero page errors, zero unexpected network requests, empty browser storage.
+Captured main-after-recharge-390.png: {"viewport":{"width":390,"height":844},"document":{"width":390,"height":4427},"scroll":{"x":0,"y":0}}
+Verified 390: 10 synthetic reads, zero mutations, zero page errors, zero unexpected network requests, empty browser storage.
+After recharge verified against baseline cb0d0dc85e0d9ab74ac3483aedcf84bf8b745c9d.

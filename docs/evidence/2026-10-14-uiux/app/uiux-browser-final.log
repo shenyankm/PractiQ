@@ -1,0 +1,59 @@
+
+> practiq-desktop@0.2.0 test:preview
+> playwright test --project preview
+
+[WebServer] (node:61518) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61539) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61554) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61576) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61598) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61619) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 36 tests using 1 worker
+
+(node:61624) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 [preview] › scripts/check-preview.mjs:13:1 › development preview pages stay offline (3.9s)
+  ✓   2 [preview] › scripts/check-preview.mjs:43:1 › preview question filters preserve imported warnings through review confirmation (2.7s)
+  ✓   3 [preview] › scripts/check-preview.mjs:78:2 › bank editor protects drafts from implicit dismissal (4.3s)
+  ✓   4 [preview] › scripts/check-preview.mjs:78:2 › question editor protects drafts from implicit dismissal (4.0s)
+  ✓   5 [preview] › scripts/check-preview.mjs:143:1 › new question reverted nullable fields close without discarding other edits (2.4s)
+  ✓   6 [preview] › scripts/check-preview.mjs:174:1 › reverted empty reference answers close without losing real editor changes (28.8s)
+  ✓   7 [preview] › scripts/check-preview.mjs:223:1 › incomplete question reference fallbacks close after reverting text and keep real edits (35.5s)
+  ✓   8 [preview] › scripts/check-preview.mjs:269:1 › listening URL drafts survive every implicit dismissal without triggering downloads (3.5s)
+  ✓   9 [preview] › scripts/check-preview.mjs:313:1 › applied listening URLs become guarded when their audio is removed or replaced (6.8s)
+  ✓  10 [preview] › scripts/check-preview.mjs:355:1 › child editors retain changed drafts and stage changes until the parent saves (4.8s)
+  ✓  11 [preview] › scripts/check-preview.mjs:400:1 › preview nested word-bank answers use inherited choices offline (2.8s)
+  ✓  12 [preview] › scripts/check-preview.mjs:419:1 › preview material dialog hides ancestor answer passage before submission (2.2s)
+  ✓  13 [preview] › scripts/check-preview.mjs:452:2 › preview scenario empty stays offline (1.8s)
+  ✓  14 [preview] › scripts/check-preview.mjs:452:2 › preview scenario many stays offline (1.2s)
+  ✓  15 [preview] › scripts/check-preview.mjs:452:2 › preview scenario unconfigured stays offline (1.1s)
+  ✓  16 [preview] › scripts/check-preview.mjs:452:2 › preview scenario missing stays offline (1.9s)
+  ✓  17 [preview] › scripts/check-preview.mjs:452:2 › preview scenario slow stays offline (6.9s)
+  ✓  18 [preview] › scripts/check-preview.mjs:452:2 › preview scenario error stays offline (512ms)
+  ✓  19 [preview] › scripts/check-preview.mjs:493:1 › study setup retries failed statistics and manual pages without resetting settings (3.4s)
+  ✓  20 [preview] › scripts/check-preview.mjs:585:2 › answer-card status markers match the legend and preserve keyboard navigation in light theme (2.0s)
+  ✓  21 [preview] › scripts/check-preview.mjs:585:2 › answer-card status markers match the legend and preserve keyboard navigation in dark theme (1.9s)
+  ✓  22 [preview] › scripts/check-preview.mjs:658:2 › performance: 1000-question answer card stays reachable at 960px (2.7s)
+  ✓  23 [preview] › scripts/check-preview.mjs:658:2 › performance: 1000-question answer card stays reachable at 1280px (2.7s)
+  ✓  24 [preview] › scripts/check-preview.mjs:729:2 › shared overlays honor reduce and restore keyboard focus (2.8s)
+  ✓  25 [preview] › scripts/check-preview.mjs:729:2 › shared overlays honor no-preference and restore keyboard focus (2.8s)
+  ✓  26 [preview] › scripts/check-ux-recovery.mjs:20:3 › overview and committed import recover without replay at 1280px (2.2s)
+  ✓  27 [preview] › scripts/check-ux-recovery.mjs:58:3 › manual grading drafts and configuration return preserve context at 1280px (2.4s)
+  ✓  28 [preview] › scripts/check-ux-recovery.mjs:20:3 › overview and committed import recover without replay at 360px (1.8s)
+  ✓  29 [preview] › scripts/check-ux-recovery.mjs:58:3 › manual grading drafts and configuration return preserve context at 360px (2.8s)
+  ✓  30 [preview] › scripts/check-ux-recovery.mjs:106:3 › question filter reset restores results and keyboard focus at 1280px (1.4s)
+  ✓  31 [preview] › scripts/check-ux-recovery.mjs:106:3 › question filter reset restores results and keyboard focus at 360px (1.8s)
+  ✓  32 [preview] › scripts/check-ux-recovery.mjs:125:3 › complete study workspace keeps controls and context reachable at 375px (2.8s)
+  ✓  33 [preview] › scripts/check-ux-recovery.mjs:125:3 › complete study workspace keeps controls and context reachable at 768px (2.8s)
+  ✓  34 [preview] › scripts/check-ux-recovery.mjs:125:3 › complete study workspace keeps controls and context reachable at 1440px (2.4s)
+  ✓  35 [preview] › scripts/check-ux-recovery.mjs:161:3 › workspace text and input boundaries meet contrast targets in light theme (721ms)
+  ✓  36 [preview] › scripts/check-ux-recovery.mjs:161:3 › workspace text and input boundaries meet contrast targets in dark theme (721ms)
+
+  36 passed (2.7m)

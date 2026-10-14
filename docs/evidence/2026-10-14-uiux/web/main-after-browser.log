@@ -1,0 +1,45 @@
+
+> practiq-ai-web@0.1.0 test:browser
+> playwright test
+
+[WebServer] (node:68652) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:68676) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+[WebServer]   - import "./contracts.generated" without a file extension (src/test-fixtures.ts:1:77). Add the file extension
+[WebServer]   - import "./api" without a file extension (src/test-fixtures.ts:2:35). Add the file extension
+[WebServer] Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+
+Running 26 tests using 1 worker
+
+(node:68683) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 tests/browser.spec.ts:85:3 › import flow screenshot acceptance at 1440px (1.6s)
+  ✓   2 tests/browser.spec.ts:85:3 › import flow screenshot acceptance at 390px (1.2s)
+  ✓   3 tests/browser.spec.ts:139:1 › all KaTeX font faces load from WOFF2 with no fallback font requests (640ms)
+  ✓   4 tests/browser.spec.ts:158:1 › workspace fits narrow and desktop windows with keyboard shortcuts to content (1.3s)
+  ✓   5 tests/browser.spec.ts:193:1 › passive file selection becomes one authenticated SHA upload only after explicit Start (334ms)
+  ✓   6 tests/browser.spec.ts:209:1 › invalid auth makes no model request; disconnect and reload clear memory-only Token (329ms)
+  ✓   7 tests/browser.spec.ts:222:1 › uncertain accepted POST never auto replays; explicit retry preserves requestId and Office mode (432ms)
+  ✓   8 tests/browser.spec.ts:243:1 › paused partial checkpoints only poll GET until explicit resume and pause actions (779ms)
+  ✓   9 tests/browser.spec.ts:256:1 › partial review preserves nulls, sources, shared material and warnings; checked image and ZIP are explicit (864ms)
+  ✓  10 tests/browser.spec.ts:279:1 › failed reads retry explicitly and stale pages cannot overwrite a new filter (355ms)
+  ✓  11 tests/browser.spec.ts:297:1 › expired task deletion stays explicit and recoverable when detail and preview return 410 (521ms)
+  ✓  12 tests/browser.spec.ts:333:1 › reparse and delete require explicit actions and delete confirmation (922ms)
+  ✓  13 tests/browser.spec.ts:344:1 › server format, byte limit, and model availability gate submission before any upload (240ms)
+  ✓  14 tests/browser.spec.ts:355:1 › empty task guidance preserves keyboard focus and only reads when clearing a filter (325ms)
+  ✓  15 tests/browser.spec.ts:370:3 › import and review workspace supports passive filtering and file removal at 375px (891ms)
+  ✓  16 tests/browser.spec.ts:370:3 › import and review workspace supports passive filtering and file removal at 768px (900ms)
+  ✓  17 tests/browser.spec.ts:370:3 › import and review workspace supports passive filtering and file removal at 1440px (866ms)
+  ✓  18 tests/browser.spec.ts:390:1 › import workspace tokens preserve readable text in light and dark surfaces (1.1s)
+  ✓  19 tests/browser.spec.ts:424:1 › delete confirmation moves into view and Escape restores its trigger without a mutation (667ms)
+  ✓  20 tests/browser.spec.ts:437:3 › successful detail deletion leaves focus on the surviving task list heading (713ms)
+  ✓  21 tests/browser.spec.ts:437:3 › successful expired deletion leaves focus on the surviving task list heading (351ms)
+  ✓  22 tests/browser.spec.ts:454:1 › points pause exports completed content; recharge stays paused until explicit Continue (997ms)
+  ✓  23 tests/browser.spec.ts:498:3 › all reviewed question layouts at 390x844 (3.5s)
+  ✓  24 tests/browser.spec.ts:498:3 › all reviewed question layouts at 1280x720 (3.2s)
+  ✓  25 tests/browser.spec.ts:544:3 › Vibe Pay credits existing accounts and restores orders at 1280x720 (555ms)
+  ✓  26 tests/browser.spec.ts:544:3 › Vibe Pay credits existing accounts and restores orders at 390x844 (526ms)
+
+  26 passed (25.5s)

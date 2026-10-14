@@ -1,0 +1,9 @@
+
+Running 2 tests using 1 worker
+
+(node:61327) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 tests/browser.spec.ts:85:3 › import flow screenshot acceptance at 1440px (1.4s)
+  ✓  2 tests/browser.spec.ts:85:3 › import flow screenshot acceptance at 390px (1.2s)
+
+  2 passed (3.9s)

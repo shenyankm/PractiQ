@@ -1,0 +1,125 @@
+
+> practiq-ai-web@0.1.0 build
+> tsc -b && vite build
+
+(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - import "./contracts.generated" without a file extension (src/test-fixtures.ts:1:77). Add the file extension
+  - import "./api" without a file extension (src/test-fixtures.ts:2:35). Add the file extension
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+vite v8.3.0 building client environment for production...
+transforming...
+✓ 2169 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                         0.41 kB │ gzip:   0.29 kB
+dist/assets/KaTeX_Size4-Regular-Dl5lxZxV.woff2          4.92 kB
+dist/assets/KaTeX_Size2-Regular-Dy4dx90m.woff2          5.20 kB
+dist/assets/KaTeX_Size1-Regular-mCD8mA8B.woff2          5.46 kB
+dist/assets/KaTeX_Caligraphic-Regular-Di6jR-x-.woff2    6.90 kB
+dist/assets/KaTeX_Caligraphic-Bold-Dq_IR9rO.woff2       6.91 kB
+dist/assets/KaTeX_Script-Regular-D3wIWfF6.woff2         9.64 kB
+dist/assets/KaTeX_SansSerif-Regular-DDBCnlJ7.woff2     10.34 kB
+dist/assets/KaTeX_Fraktur-Regular-CTYiF6lA.woff2       11.31 kB
+dist/assets/KaTeX_Fraktur-Bold-CL6g_b3V.woff2          11.34 kB
+dist/assets/KaTeX_SansSerif-Italic-C3H0VqGB.woff2      12.02 kB
+dist/assets/KaTeX_SansSerif-Bold-D1sUS0GD.woff2        12.21 kB
+dist/assets/KaTeX_Typewriter-Regular-CO6r4hn1.woff2    13.56 kB
+dist/assets/KaTeX_Math-BoldItalic-CZnvNsCZ.woff2       16.40 kB
+dist/assets/KaTeX_Math-Italic-t53AETM-.woff2           16.44 kB
+dist/assets/KaTeX_Main-BoldItalic-DxDJ3AOS.woff2       16.78 kB
+dist/assets/KaTeX_Main-Italic-NWA7e6Wa.woff2           16.98 kB
+dist/assets/KaTeX_Main-Bold-Cx986IdX.woff2             25.32 kB
+dist/assets/KaTeX_Main-Regular-B22Nviop.woff2          26.27 kB
+dist/assets/KaTeX_AMS-Regular-BQhdFMY1.woff2           28.07 kB
+dist/assets/octopus-pB8TTRfc.png                      183.86 kB
+dist/assets/ResultReview-CCTRbIMZ.css                  27.26 kB │ gzip:   7.52 kB
+dist/assets/index-Dphjj74G.css                         46.70 kB │ gzip:  10.03 kB
+dist/assets/index-5AEtiIiC.js                         299.18 kB │ gzip:  97.78 kB
+dist/assets/ResultReview-C0rCBeBk.js                  441.36 kB │ gzip: 132.40 kB
+
+✓ built in 364ms
+
+> practiq-ai-web@0.1.0 lint
+> eslint "src/**/*.{ts,tsx}" --max-warnings 0
+
+
+> practiq-ai-web@0.1.0 test:coverage
+> vitest run --coverage
+
+(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - import "./contracts.generated" without a file extension (src/test-fixtures.ts:1:77). Add the file extension
+  - import "./api" without a file extension (src/test-fixtures.ts:2:35). Add the file extension
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+
+ RUN  v5.0.1 /Users/sheny/Developer/code/PractiQ/web
+      Coverage enabled with v8
+
+
+ Test Files  5 passed (5)
+      Tests  70 passed (70)
+   Start at  13:16:32
+   Duration  8.59s (tests 70%, environment 19%, import 5%, setup 4%, transform 2%, worker 1%)
+
+    Isolate  5 workers spawned · ~559ms startup each (spawn + environment, per file)
+             at least ~838ms faster with isolate: false — reuses workers across files instead of one per file
+
+ % Coverage report from v8
+------------------|---------|----------|---------|---------|--------------------
+File              | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s
+------------------|---------|----------|---------|---------|--------------------
+All files         |   94.88 |    88.79 |   96.36 |   97.63 |
+ AccountPanel.tsx |   96.92 |       80 |     100 |     100 | 20-36,46
+ App.tsx          |   92.76 |     84.4 |   93.85 |   96.31 | ...157,176,235,264
+ ResultReview.tsx |    99.1 |    93.78 |   97.87 |     100 | ...,81,109,129,138
+ api.ts           |   96.21 |    95.48 |     100 |   97.69 | 52-54
+------------------|---------|----------|---------|---------|--------------------
+
+=============================== Coverage summary ===============================
+Statements   : 94.88% ( 724/763 )
+Branches     : 88.79% ( 705/794 )
+Functions    : 96.36% ( 212/220 )
+Lines        : 97.63% ( 413/423 )
+================================================================================
+
+> practiq-ai-web@0.1.0 test:browser
+> playwright test
+
+[WebServer] (node:60285) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60314) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+[WebServer]   - import "./contracts.generated" without a file extension (src/test-fixtures.ts:1:77). Add the file extension
+[WebServer]   - import "./api" without a file extension (src/test-fixtures.ts:2:35). Add the file extension
+[WebServer] Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+
+Running 24 tests using 1 worker
+
+(node:60317) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 tests/browser.spec.ts:85:3 › import flow screenshot acceptance at 1440px (1.7s)
+  ✓   2 tests/browser.spec.ts:85:3 › import flow screenshot acceptance at 390px (1.7s)
+  ✓   3 tests/browser.spec.ts:138:1 › all KaTeX font faces load from WOFF2 with no fallback font requests (848ms)
+  ✓   4 tests/browser.spec.ts:157:1 › workspace fits narrow and desktop windows with keyboard shortcuts to content (1.3s)
+  ✓   5 tests/browser.spec.ts:192:1 › passive file selection becomes one authenticated SHA upload only after explicit Start (425ms)
+  ✓   6 tests/browser.spec.ts:208:1 › invalid auth makes no model request; disconnect and reload clear memory-only Token (395ms)
+  ✓   7 tests/browser.spec.ts:221:1 › uncertain accepted POST never auto replays; explicit retry preserves requestId and Office mode (525ms)
+  ✓   8 tests/browser.spec.ts:242:1 › paused partial checkpoints only poll GET until explicit resume and pause actions (838ms)
+  ✓   9 tests/browser.spec.ts:255:1 › partial review preserves nulls, sources, shared material and warnings; checked image and ZIP are explicit (909ms)
+  ✓  10 tests/browser.spec.ts:278:1 › failed reads retry explicitly and stale pages cannot overwrite a new filter (366ms)
+  ✓  11 tests/browser.spec.ts:296:1 › expired task deletion stays explicit and recoverable when detail and preview return 410 (617ms)
+  ✓  12 tests/browser.spec.ts:332:1 › reparse and delete require explicit actions and delete confirmation (975ms)
+  ✓  13 tests/browser.spec.ts:343:1 › server format, byte limit, and model availability gate submission before any upload (288ms)
+  ✓  14 tests/browser.spec.ts:354:1 › empty task guidance preserves keyboard focus and only reads when clearing a filter (362ms)
+  ✓  15 tests/browser.spec.ts:369:3 › import and review workspace supports passive filtering and file removal at 375px (876ms)
+  ✓  16 tests/browser.spec.ts:369:3 › import and review workspace supports passive filtering and file removal at 768px (882ms)
+  ✓  17 tests/browser.spec.ts:369:3 › import and review workspace supports passive filtering and file removal at 1440px (903ms)
+  ✓  18 tests/browser.spec.ts:389:1 › import workspace tokens preserve readable text in light and dark surfaces (1.2s)
+  ✓  19 tests/browser.spec.ts:423:1 › delete confirmation moves into view and Escape restores its trigger without a mutation (742ms)
+  ✓  20 tests/browser.spec.ts:436:3 › successful detail deletion leaves focus on the surviving task list heading (845ms)
+  ✓  21 tests/browser.spec.ts:436:3 › successful expired deletion leaves focus on the surviving task list heading (431ms)
+  ✓  22 tests/browser.spec.ts:453:1 › points pause exports completed content; recharge stays paused until explicit Continue (1.1s)
+  ✓  23 tests/browser.spec.ts:501:3 › all reviewed question layouts at 390x844 (4.0s)
+  ✓  24 tests/browser.spec.ts:501:3 › all reviewed question layouts at 1280x720 (4.2s)
+
+  24 passed (28.0s)
