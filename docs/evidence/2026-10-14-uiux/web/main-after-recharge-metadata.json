@@ -1,0 +1,231 @@
+{
+  "baselineCommit": "cb0d0dc85e0d9ab74ac3483aedcf84bf8b745c9d",
+  "source": "Current working-tree web/dist production build; parent reported npm run build passed",
+  "build": "Existing current production dist; no source edits by capture agent",
+  "serving": "npm exec vite preview -- --port 1673",
+  "fixtureSource": "web/src/test-fixtures.ts and web/tests/browser.spec.ts at baseline commit",
+  "fixtureSHA256": "143689d12a8427ffedcb0c6716740722a584de4a0a27a9aaeeb11676932e895b",
+  "authentication": "Synthetic Account token and phone header; no real credentials",
+  "primaryCatalog": [],
+  "supplementalCatalog": [
+    {
+      "productId": "pack",
+      "name": "导入额度包",
+      "pointsMicropoints": "1000000",
+      "purchaseUrl": "https://checkout.example.invalid/purchase?product=pack"
+    }
+  ],
+  "noLiveService": true,
+  "browserVersion": "153.0.8010.12",
+  "captures": [
+    {
+      "file": "main-after-recharge-1440.png",
+      "state": "recharge",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "fullPage": true,
+      "geometry": {
+        "viewport": {
+          "width": 1440,
+          "height": 1000
+        },
+        "document": {
+          "width": 1440,
+          "height": 2901
+        },
+        "scroll": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "catalog": "supplemental public purchase URL",
+      "sha256": "525917f0058099dc87e1bb2a5d047ce46a8d575004987437551fb33555cc1e22",
+      "pngPixels": {
+        "width": 1440,
+        "height": 2901
+      }
+    },
+    {
+      "file": "main-after-recharge-390.png",
+      "state": "recharge",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "fullPage": true,
+      "geometry": {
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "document": {
+          "width": 390,
+          "height": 4427
+        },
+        "scroll": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "catalog": "supplemental public purchase URL",
+      "sha256": "33e8f28fbe95764fe49d5d683bb47e662fccf7cf388a1e788079d26cb7ac5a97",
+      "pngPixels": {
+        "width": 390,
+        "height": 4427
+      }
+    }
+  ],
+  "verification1440": {
+    "calls": [
+      {
+        "method": "GET",
+        "path": "/api/products",
+        "authenticated": false
+      },
+      {
+        "method": "GET",
+        "path": "/api/account",
+        "authenticated": true,
+        "phone": "13800138000"
+      },
+      {
+        "method": "GET",
+        "path": "/api/products",
+        "authenticated": false
+      },
+      {
+        "method": "GET",
+        "path": "/api/account",
+        "authenticated": true,
+        "phone": "13800138000"
+      },
+      {
+        "method": "GET",
+        "path": "/api/import-capabilities",
+        "authenticated": true,
+        "phone": "13800138000"
+      },
+      {
+        "method": "GET",
+        "path": "/api/document-tasks",
+        "authenticated": true,
+        "phone": "13800138000"
+      },
+      {
+        "method": "GET",
+        "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111",
+        "authenticated": true,
+        "phone": "13800138000"
+      },
+      {
+        "method": "GET",
+        "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/preview",
+        "authenticated": true,
+        "phone": "13800138000"
+      },
+      {
+        "method": "GET",
+        "path": "/api/products",
+        "authenticated": false
+      },
+      {
+        "method": "GET",
+        "path": "/api/account",
+        "authenticated": true,
+        "phone": "13800138000"
+      }
+    ],
+    "errors": [],
+    "unexpected": [],
+    "mutations": 0,
+    "browserStorage": 0,
+    "horizontalOverflow": false,
+    "suppliedMissingAnswerPreserved": true,
+    "publicPurchaseURLPreserved": true
+  },
+  "verification390": {
+    "calls": [
+      {
+        "method": "GET",
+        "path": "/api/products",
+        "authenticated": false
+      },
+      {
+        "method": "GET",
+        "path": "/api/account",
+        "authenticated": true,
+        "phone": "13800138000"
+      },
+      {
+        "method": "GET",
+        "path": "/api/products",
+        "authenticated": false
+      },
+      {
+        "method": "GET",
+        "path": "/api/account",
+        "authenticated": true,
+        "phone": "13800138000"
+      },
+      {
+        "method": "GET",
+        "path": "/api/import-capabilities",
+        "authenticated": true,
+        "phone": "13800138000"
+      },
+      {
+        "method": "GET",
+        "path": "/api/document-tasks",
+        "authenticated": true,
+        "phone": "13800138000"
+      },
+      {
+        "method": "GET",
+        "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111",
+        "authenticated": true,
+        "phone": "13800138000"
+      },
+      {
+        "method": "GET",
+        "path": "/api/document-tasks/11111111-1111-4111-8111-111111111111/preview",
+        "authenticated": true,
+        "phone": "13800138000"
+      },
+      {
+        "method": "GET",
+        "path": "/api/products",
+        "authenticated": false
+      },
+      {
+        "method": "GET",
+        "path": "/api/account",
+        "authenticated": true,
+        "phone": "13800138000"
+      }
+    ],
+    "errors": [],
+    "unexpected": [],
+    "mutations": 0,
+    "browserStorage": 0,
+    "horizontalOverflow": false,
+    "suppliedMissingAnswerPreserved": true,
+    "publicPurchaseURLPreserved": true
+  },
+  "currentSourceSHA256": {
+    "web/src/App.tsx": "af52be89e27d4b8240ab4ca5661045a8023cf91bb64dbb035e916f79d6a2b4df",
+    "web/src/AccountPanel.tsx": "191b3329667203a111d37b72fcd188e1aa71ccbf838f019ebc39a8c0d3cbd8d1",
+    "web/src/index.css": "ca0b9b4ff0c43017f3b178cfbf3b3cecdb72c9794a4f792e0fb596a2960fdc23",
+    "web/dist/index.html": "078edcd164665e57af211b73636fb48ba72ce033a5b93b7ffc66097d78671b35"
+  },
+  "verifiedAt": "2026-10-14",
+  "captureStates": {
+    "connection": "Disconnected at top; full page; default empty public catalog",
+    "workspace": "Authenticated at top; no task selected; full page; default empty public catalog",
+    "review": "Authenticated at top; sample.docx selected; all question cards collapsed; full page; default empty public catalog",
+    "review-card": "Supplemental selected sample.docx child question expanded; viewport crop at child card",
+    "recharge": "Supplemental public product purchaseUrl; selected sample.docx child question expanded; top full page; after disclosure explicitly expanded"
+  },
+  "pngDimensionsAndSHA256Verified": true
+}

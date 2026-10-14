@@ -8,7 +8,6 @@ await mkdir(output, { recursive: true });
 const browser = await chromium.launch();
 const report = { screenshots: [], errors: [], checks: [] };
 const appURL = process.env.PRACTIQ_APP_PREVIEW_URL ?? "http://127.0.0.1:1426";
-const webURL = process.env.PRACTIQ_WEB_PREVIEW_URL ?? "http://127.0.0.1:5178";
 
 async function capture(page, name) {
   await page.evaluate(() => document.fonts.ready);
@@ -16,6 +15,7 @@ async function capture(page, name) {
   await page.evaluate(() => {
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     window.scrollTo(0, 0);
+    document.querySelector(".app-content")?.scrollTo(0, 0);
   });
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
   const dark = name.includes("-dark-");
@@ -45,9 +45,19 @@ try {
   await expect(app.getByText("基础知识 · 全题型", { exact: true })).toBeVisible();
   await expect(app.locator(".preview-controls")).toHaveCount(0);
   await capture(app, "app-banks-light-desktop");
+  for (const width of [375, 768, 1024]) {
+    await app.setViewportSize({ width, height: 900 });
+    await capture(app, `app-banks-light-${width}`);
+  }
+  await app.setViewportSize({ width: 1440, height: 1000 });
   await app.getByRole("button", { name: "查看题目", exact: true }).first().click();
   await expect(app.getByText("下面哪一个是质数？", { exact: true }).first()).toBeVisible();
   await capture(app, "app-questions-light-desktop");
+  await app.setViewportSize({ width: 375, height: 844 });
+  await capture(app, "app-questions-light-mobile");
+  const summary = app.locator(".question-row > button").first();
+  assert.ok(await summary.evaluate(node => node.getBoundingClientRect().width >= 200), "Mobile question stem must have readable width");
+  await app.setViewportSize({ width: 1440, height: 1000 });
   await app.getByRole("button", { name: "编辑题目", exact: true }).first().click();
   await expect(app.getByRole("dialog", { name: "编辑题目", exact: true })).toBeVisible();
   await capture(app, "app-editor-light-desktop");
@@ -82,6 +92,11 @@ try {
   await app.getByRole("button", { name: "主题", exact: true }).click();
   await app.getByRole("menuitemradio", { name: "黑夜", exact: true }).click();
   await capture(app, "app-settings-dark-desktop");
+  await app.getByRole("button", { name: "我的题库", exact: true }).click();
+  await capture(app, "app-banks-dark-desktop");
+  await app.setViewportSize({ width: 375, height: 844 });
+  await capture(app, "app-banks-dark-mobile");
+  await app.setViewportSize({ width: 1440, height: 1000 });
   await app.evaluate(async () => {
     const { toast } = await import('/src/notifications.tsx');
     toast.error('样式检查：示例错误');
@@ -90,8 +105,6 @@ try {
   await expect(notice).toHaveCSS('background-color', 'rgb(65, 42, 51)');
   await expect(notice).toHaveCSS('border-radius', '12px');
   await expect(notice).toHaveCSS('box-shadow', 'none');
-  await app.getByRole("button", { name: "我的题库", exact: true }).click();
-  await capture(app, "app-banks-dark-desktop");
   await app.getByRole("button", { name: "主题", exact: true }).click();
   await app.getByRole("menuitemradio", { name: "白天", exact: true }).click();
   await expect(notice).toHaveCSS('background-color', 'rgb(251, 235, 237)');
@@ -102,49 +115,31 @@ try {
   assert.equal(sonner.success, '#79947a');
   assert.equal(sonner.warning, '#ab873e');
   await expect(notice).toBeHidden();
+  await app.getByRole("button", { name: "语言", exact: true }).click();
+  await app.getByRole("menuitemradio", { name: "English", exact: true }).click();
+  await app.setViewportSize({ width: 375, height: 844 });
+  await capture(app, "app-banks-light-english-mobile");
+  await app.setViewportSize({ width: 1440, height: 1000 });
+  await app.getByRole("button", { name: "Language", exact: true }).click();
+  await app.getByRole("menuitemradio", { name: "简体中文", exact: true }).click();
   await app.getByRole("button", { name: "开始练习", exact: true }).first().click();
   await app.getByRole("button", { name: "立即开始", exact: true }).click();
   await expect(app.getByText("下面哪一个是质数？", { exact: true }).first()).toBeVisible();
   await capture(app, "app-practice-light-desktop");
   await app.setViewportSize({ width: 390, height: 844 });
   await capture(app, "app-practice-light-mobile");
+  const previous = await app.getByRole("button", { name: "上一题", exact: true }).boundingBox();
+  const next = await app.getByRole("button", { name: "下一题", exact: true }).boundingBox();
+  assert.ok(previous && next && Math.abs(previous.y - next.y) <= 1, "Previous and Next must stay together on mobile");
   assert.ok(await app.getByRole("button", { name: "下一题", exact: true }).evaluate(node => node.getBoundingClientRect().height >= 48));
   await app.setViewportSize({ width: 360, height: 640 });
   await capture(app, "app-practice-light-360");
+  await app.setViewportSize({ width: 667, height: 375 });
+  await capture(app, "app-practice-light-landscape");
+  assert.ok(await app.locator(".practice-actions").evaluate(node => node.getBoundingClientRect().height < 80), "Landscape practice controls must stay compact");
   assert.equal(await app.evaluate(() => window.__designNativeCalls), 0);
-  report.checks.push("App preview fits 1440/390/360px, uses 40px/48px ordinary controls, supports keyboard filtering and light/dark toast colors, preserves theme switching and practice, and makes no native requests.");
+  report.checks.push("App preview fits 1440/1024/768/390/375/360px, gives mobile stems readable width, keeps Previous/Next together, supports English wrapping, uses 40px/48px ordinary controls, supports keyboard filtering and light/dark toast colors, preserves theme switching and practice, and makes no native requests.");
 
-  const web = await browser.newPage({ viewport: { width: 1440, height: 1000 }, locale: "zh-CN", reducedMotion: "reduce" });
-  web.on("pageerror", error => report.errors.push(error.message));
-  await web.goto(webURL);
-  await capture(web, "web-connect-light-desktop");
-  const connect = async () => {
-    await web.getByLabel("服务 Token").fill("preview-only");
-    await web.getByRole("button", { name: "连接服务", exact: true }).click();
-    await expect(web.getByText("服务已连接", { exact: true })).toBeVisible();
-    await web.getByRole("button", { name: /sample.docx/ }).click();
-    await expect(web.getByText("根据材料选择答案", { exact: true })).toBeVisible();
-  };
-  await connect();
-  await capture(web, "web-result-light-desktop");
-  await web.getByLabel("选择文档").setInputFiles({ name: "preview.txt", mimeType: "text/plain", buffer: Buffer.from("synthetic preview") });
-  await expect(web.getByText(/尚未提交/)).toBeVisible();
-  await web.setViewportSize({ width: 390, height: 844 });
-  await capture(web, "web-result-light-mobile");
-  assert.ok(await web.getByRole("button", { name: "开始导入", exact: true }).evaluate(node => node.getBoundingClientRect().height >= 48));
-  await web.setViewportSize({ width: 1440, height: 1000 });
-  await web.goto(`${webURL}/?theme=dark`);
-  await connect();
-  await capture(web, "web-result-dark-desktop");
-  for (const path of ["/api", "/api/unknown", "/api/document-tasks/11111111-1111-4111-8111-111111111111/export"]) {
-    assert.equal((await web.request.get(`${webURL}${path}`, { headers: { Authorization: "Bearer preview-only" } })).status(), 404);
-  }
-  for (const method of ["POST", "PUT", "DELETE"]) {
-    assert.equal((await web.request.fetch(`${webURL}/api/document-tasks`, { method, headers: { Authorization: "Bearer preview-only" } })).status(), 409);
-  }
-  assert.equal((await web.request.get(`${webURL}/api/import-capabilities`, { headers: { Authorization: "Bearer wrong-token" } })).status(), 401);
-  assert.equal(await web.evaluate(() => localStorage.length + sessionStorage.length), 0);
-  report.checks.push("Web preview uses existing partial-result/missing-answer fixtures; unknown routes and exports return 404; POST/PUT/DELETE return 409; wrong token returns 401; browser storage remains empty.");
   assert.deepEqual(report.errors, []);
 } finally {
   await browser.close();

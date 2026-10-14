@@ -604,7 +604,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
           />}
           {listPage && (
             <div className="space-y-5">
-              <div className="flex flex-wrap items-end gap-3">
+              <div className="question-filters flex flex-wrap items-end gap-3">
                 <div className="min-w-0 basis-full space-y-2 sm:basis-0 sm:flex-1">
                   <Label htmlFor="question-search">{t("搜索题目")}</Label>
                   <InputGroup>
@@ -649,7 +649,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                 <>
                   <div className="divide-y rounded-xl border bg-card">
                     {questions.map((row, i) => (
-                      <div key={row.id} className="flex min-h-20 flex-wrap items-center gap-3 p-3 sm:flex-nowrap sm:gap-4 sm:p-4">
+                      <div key={row.id} className="question-row flex min-h-20 flex-wrap items-center gap-3 p-3 sm:flex-nowrap sm:gap-4 sm:p-4">
                         <span className="w-8 shrink-0 text-sm text-muted-foreground">
                           {offset + i + 1}
                         </span>
@@ -684,10 +684,12 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                               t("题干缺失")}
                           </p>
                         </button>
+                        <div className="question-actions flex shrink-0 gap-3 sm:gap-4">
                         <Button
                           size="icon"
                           variant="ghost"
                           aria-label={row.favorite ? t("取消收藏") : t("收藏题目")}
+                          aria-pressed={row.favorite}
                           disabled={busy}
                           onClick={() =>
                             run(async () => {
@@ -744,6 +746,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                         >
                           <Trash2 />
                         </Button>
+                        </div>
                       </div>
                     ))}
                   </div>

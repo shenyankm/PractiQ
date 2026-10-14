@@ -24,7 +24,7 @@ Date: 2026-10-11. Scope: App's 15 `components/ui` modules, Web's four `component
 
 ## Validation scope
 
-Source review covers the modules and call sites above. Browser assertions and screenshots cover representative light/dark desktop and 390/360px views, ordinary control sizes, keyboard filtering, notification colors and mock API isolation. Reproduce with `node app/scripts/check-design-preview.mjs`; outputs are stored in `app/.build/design-preview/`.
+Source review covers the modules and call sites above. Browser assertions and screenshots cover representative light/dark desktop and 390/360px views, ordinary control sizes, keyboard filtering, notification colors and mock API isolation. The current `node app/scripts/check-design-preview.mjs` covers App only, with outputs in `app/.build/design-preview/`; current phone/account-token Web captures use the Web browser suite. See the [2026-10-14 UI/UX acceptance record](evidence/2026-10-14-uiux/README.md) for fresh results and screenshots.
 
 The original implementation record reports passing production builds and lint for both frontends, 19 Web browser tests, 61 App browser scenarios run in batches, and 19 representative screenshots/style assertions. Shortened-viewport editor saving, draft protection and touch navigation were retested after fixing the scroll container.
 

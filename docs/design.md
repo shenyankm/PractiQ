@@ -18,7 +18,9 @@ App and Web import `shared/document-content.css` for document rendering. Keep lo
 
 ## Page structure
 
-App retains sidebar navigation, header actions, bank grids, question lists, mistakes, favorites, history, settings, service configuration, practice and existing editor/confirmation dialogs. The expanded sidebar is 208px; the collapsed width is unchanged. Web retains its three-step flow, upload/task sidebar and result review panel. Show the steps as one continuous region rather than separate cards.
+App retains sidebar navigation, header actions, bank grids, question lists, mistakes, favorites, history, settings, service configuration, practice and existing editor/confirmation dialogs. The expanded sidebar is 208px; the collapsed width is unchanged. The resume region shows the saved session title and progress: submitted answers for practice, saved drafts for exams. Bank counts sit below their descriptions, leaving titles room to wrap. Question filters share one surface. Narrow question lists place actions below the summary; Previous/Next remain together in practice.
+
+Web retains its three-step flow, upload/task sidebar and result review panel. Show the steps as one continuous region rather than separate cards, with a semantic current-step indicator. Connection precedes purchasing information; a compact balance strip keeps recharge and ledger controls expandable. The final step reflects a verified ZIP download for the same task/checkpoint, resets when the checkpoint changes and never starts model work. Cost information remains visible before import. See the [2026-10-14 acceptance record](evidence/2026-10-14-uiux/README.md).
 
 ## Components
 

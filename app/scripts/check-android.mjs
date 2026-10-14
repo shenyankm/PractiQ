@@ -227,6 +227,34 @@ test('remote grading requires the explicit action and manual review remains usab
   expect(calls.filter(call => call.command === 'ai_request')).toHaveLength(1);
 });
 
+test('question summaries stay readable and sequential practice controls stay together on touch screens', async ({ page }) => {
+  await page.goto('/');
+  const bank = page.locator('[data-slot=card]').filter({ has: page.getByText('基础知识 · 全题型', { exact: true }) });
+  await bank.getByRole('button', { name: '查看题目', exact: true }).tap();
+  const summary = page.getByRole('button').filter({ has: page.getByText('下面哪一个是质数？', { exact: true }) });
+  await expect(summary).toBeVisible();
+  await expect.poll(async () => (await summary.boundingBox())?.width ?? 0, { message: 'Question summary needs readable space beside its number' }).toBeGreaterThan(page.viewportSize().width * 0.6);
+  await summary.tap();
+  await expect(page.getByRole('dialog', { name: '题目详情', exact: true })).toBeVisible();
+  expect(await nativeBack(page)).toBe(true);
+  await expect(page.getByRole('dialog')).toBeHidden();
+  await page.getByRole('button', { name: '返回题库', exact: true }).tap();
+  await page.getByRole('button', { name: '继续练习', exact: true }).tap();
+  const previous = page.getByRole('button', { name: '上一题', exact: true });
+  const next = page.getByRole('button', { name: '下一题', exact: true });
+  await touchTarget(previous);
+  await touchTarget(next);
+  await expect.poll(async () => {
+    const before = await previous.boundingBox(), after = await next.boundingBox();
+    return before && after ? Math.abs(before.y - after.y) : Infinity;
+  }, { message: 'Previous and Next should share a row' }).toBeLessThanOrEqual(1);
+  await next.tap();
+  await expect(page.getByRole('heading', { name: '第 2 / 9 题', exact: true })).toBeVisible();
+  await previous.tap();
+  await expect(page.getByRole('heading', { name: '第 1 / 9 题', exact: true })).toBeVisible();
+  await noHorizontalOverflow(page, 'readable summaries and sequential practice');
+});
+
 test('all answer controls and answer-card navigation preserve drafts on touch screens', async ({ page }, testInfo) => {
   await page.goto('/');
   await startPractice(page);

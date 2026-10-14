@@ -1,0 +1,47 @@
+
+> practiq-ai-web@0.1.0 check
+> tsc -b && npm run lint && npm run test:coverage
+
+
+> practiq-ai-web@0.1.0 lint
+> eslint "src/**/*.{ts,tsx}" --max-warnings 0
+
+
+> practiq-ai-web@0.1.0 test:coverage
+> vitest run --coverage
+
+(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - import "./contracts.generated" without a file extension (src/test-fixtures.ts:1:77). Add the file extension
+  - import "./api" without a file extension (src/test-fixtures.ts:2:35). Add the file extension
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+
+ RUN  v5.0.1 /Users/sheny/Developer/code/PractiQ/web
+      Coverage enabled with v8
+
+
+ Test Files  6 passed (6)
+      Tests  81 passed (81)
+   Start at  13:39:10
+   Duration  6.80s (tests 66%, environment 22%, import 5%, setup 4%, transform 2%, worker 1%)
+
+    Isolate  6 workers spawned · ~527ms startup each (spawn + environment, per file)
+             at least ~1.05s faster with isolate: false — reuses workers across files instead of one per file
+
+ % Coverage report from v8
+------------------|---------|----------|---------|---------|--------------------
+File              | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s
+------------------|---------|----------|---------|---------|--------------------
+All files         |   94.05 |    87.07 |   96.07 |   97.69 |
+ AccountPanel.tsx |   97.82 |    84.21 |     100 |     100 | 18-27,36
+ App.tsx          |   93.65 |    84.13 |   97.24 |   96.82 | 151-157,176,264
+ Purchase.tsx     |   85.82 |    71.42 |   84.61 |   96.29 | 65-66
+ ResultReview.tsx |    99.1 |    93.78 |   97.87 |     100 | ...,81,109,129,138
+ api.ts           |   96.41 |    95.02 |     100 |   97.82 | 52-54
+------------------|---------|----------|---------|---------|--------------------
+
+=============================== Coverage summary ===============================
+Statements   : 94.05% ( 822/874 )
+Branches     : 87.07% ( 768/882 )
+Functions    : 96.07% ( 245/255 )
+Lines        : 97.69% ( 466/477 )
+================================================================================

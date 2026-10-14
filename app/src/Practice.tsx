@@ -259,7 +259,7 @@ function PracticeQuestion({
           <Content snapshot={attempt.snapshot} exam={exam&&!handedIn} revealOriginal={exam ? handedIn : submitted} materialDialog
             onBlank={blankTargets.length ? onBlank : undefined} blankAnswers={blankAnswers}/>
           {!!materialSiblings.length && <nav className="flex flex-wrap gap-2" aria-label={t("题组子题")}>
-            {materialSiblings.slice(siblingPage * 30, siblingPage * 30 + 30).map(a=><Button key={a.ordinal} variant={a.ordinal===session.position?"secondary":"outline"} size="sm" onClick={()=>go(a.ordinal)}>{a.ordinal+1}</Button>)}
+            {materialSiblings.slice(siblingPage * 30, siblingPage * 30 + 30).map(a=><Button key={a.ordinal} aria-current={a.ordinal===session.position?"step":undefined} variant={a.ordinal===session.position?"secondary":"outline"} size="sm" onClick={()=>go(a.ordinal)}>{a.ordinal+1}</Button>)}
             {materialSiblings.length > 30 && <div className="flex w-full items-center justify-between gap-3 text-sm">
               <span>{t("第 {0}–{1} 项", { 0: siblingPage * 30 + 1, 1: Math.min(siblingPage * 30 + 30, materialSiblings.length) })}</span>
               <div className="flex flex-wrap gap-2"><Button variant="outline" size="sm" disabled={!siblingPage} onClick={() => go(materialSiblings[(siblingPage - 1) * 30].ordinal)}>{t("上一页")}</Button><Button variant="outline" size="sm" disabled={(siblingPage + 1) * 30 >= materialSiblings.length} onClick={() => go(materialSiblings[(siblingPage + 1) * 30].ordinal)}>{t("下一页")}</Button></div>
@@ -354,6 +354,7 @@ function PracticeQuestion({
             </div>
           )}
 
+            <div className="practice-navigation flex gap-3">
             <Button
               variant="outline"
               disabled={session.position === 0}
@@ -364,6 +365,7 @@ function PracticeQuestion({
               disabled={session.position === session.attempts.length - 1}
               onClick={() => go(session.position + 1)}
             >{t("下一题")}</Button>
+            </div>
           </div>
         </CardContent>
       </Card>

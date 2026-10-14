@@ -1,0 +1,13 @@
+Captured main-before-connection-1440.png: {"viewport":{"width":1440,"height":1000},"document":{"width":1440,"height":1000},"scroll":{"x":0,"y":0}}
+Captured main-before-workspace-1440.png: {"viewport":{"width":1440,"height":1000},"document":{"width":1440,"height":1803},"scroll":{"x":0,"y":0}}
+Captured main-before-review-1440.png: {"viewport":{"width":1440,"height":1000},"document":{"width":1440,"height":2115},"scroll":{"x":0,"y":0}}
+Captured main-before-review-card-1440.png: {"viewport":{"width":1440,"height":1000},"document":{"width":1440,"height":2924},"scroll":{"x":0,"y":1757}}
+Captured main-before-recharge-1440.png: {"viewport":{"width":1440,"height":1000},"document":{"width":1440,"height":2924},"scroll":{"x":0,"y":0}}
+Verified 1440: 10 synthetic reads, zero mutations, zero page errors, zero unexpected network requests, empty browser storage.
+Captured main-before-connection-390.png: {"viewport":{"width":390,"height":844},"document":{"width":390,"height":1157},"scroll":{"x":0,"y":0}}
+Captured main-before-workspace-390.png: {"viewport":{"width":390,"height":844},"document":{"width":390,"height":2274},"scroll":{"x":0,"y":0}}
+Captured main-before-review-390.png: {"viewport":{"width":390,"height":844},"document":{"width":390,"height":3720},"scroll":{"x":0,"y":0}}
+Captured main-before-review-card-390.png: {"viewport":{"width":390,"height":844},"document":{"width":390,"height":4554},"scroll":{"x":0,"y":3320}}
+Captured main-before-recharge-390.png: {"viewport":{"width":390,"height":844},"document":{"width":390,"height":4554},"scroll":{"x":0,"y":0}}
+Verified 390: 10 synthetic reads, zero mutations, zero page errors, zero unexpected network requests, empty browser storage.
+Baseline verified at cb0d0dc85e0d9ab74ac3483aedcf84bf8b745c9d.

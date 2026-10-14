@@ -52,6 +52,19 @@ const row = {
   favorite: false, latestResult: false,
   latestScore: { earnedCents: 900, maxCents: 1000, gradeKind: "manual" },
 } as QuestionRow;
+it.each(["practice", "mock_exam"] as const)("shows saved %s progress before resuming without starting work", async kind => {
+  setup();
+  const original = vi.mocked(api).getMockImplementation()!;
+  vi.mocked(api).mockImplementation(async request => request.type === "unfinished_session"
+    ? { ...exam, kind, answered: 3, draftAnswered: 15 } as never
+    : original(request));
+  render(<App />);
+  const progress = await screen.findByRole("progressbar", { name: "继续未完成的练习" });
+  expect(progress.getAttribute("value")).toBe(kind === "practice" ? "3" : "15");
+  expect(progress.getAttribute("max")).toBe("20");
+  expect(screen.getByText(kind === "practice" ? "已提交 3/20 题" : "已答 15/20 题 · 草稿已保存")).toBeTruthy();
+  expect(api).not.toHaveBeenCalledWith(expect.objectContaining({ type: "start_paper" }));
+});
 function setup(question = row, failReview = false) {
   vi.mocked(api).mockImplementation(async request => {
     switch (request.type) {

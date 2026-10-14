@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 import { expect, test, type Page, type Route } from "playwright/test";
 import type { DocumentTaskDetail, DocumentTaskReview } from "../src/contracts.generated";
 import { capabilities, newTaskId, preview, runId, summary, task, taskId } from "../src/test-fixtures";
@@ -80,6 +80,61 @@ async function openTask(page: Page) {
 }
 const mutations = (calls: Call[]) => calls.filter(call => call.method !== "GET");
 const starts = (calls: Call[]) => calls.filter(call => call.path === "/api/document-tasks" && call.method === "POST");
+
+for (const [width, height] of [[1440, 1000], [390, 844]]) {
+  test(`import flow screenshot acceptance at ${width}px`, async ({ page }, testInfo) => {
+    const evidence = testInfo.outputPath("import-flow");
+    await mkdir(evidence, { recursive: true });
+    await page.setViewportSize({ width, height });
+    const http = await fakeHTTP(page);
+    await page.goto("/");
+    await page.mouse.move(0, 0);
+    await expect(page.locator('.import-steps [aria-current="step"]')).toHaveText(/选择并导入/);
+    await expect(page.getByRole("button", { name: "刷新余额与商品" })).toBeHidden();
+    await page.screenshot({ path: `${evidence}/after-connection-${width}.png`, fullPage: true });
+    await connect(page);
+    await page.evaluate(() => scrollTo(0, 0));
+    await page.mouse.move(0, 0);
+    await expect(page.getByRole("button", { name: "查看积分明细", exact: true })).toBeHidden();
+    await expect(page.getByLabel("追加卡密")).toHaveCount(0);
+    await expect(page.getByText(/服务启用 AI 复核时/)).toBeVisible();
+    await page.screenshot({ path: `${evidence}/after-workspace-${width}.png`, fullPage: true });
+    const points = page.getByText("充值与积分明细", { exact: true });
+    await points.focus();
+    await page.keyboard.press("Enter");
+    await expect(page.getByRole("button", { name: "查看积分明细", exact: true })).toBeVisible();
+    await page.keyboard.press("Enter");
+    await openTask(page);
+    await page.evaluate(() => scrollTo(0, 0));
+    await page.mouse.move(0, 0);
+    await expect(page.locator('.import-steps [aria-current="step"]')).toHaveText(/检查解析结果/);
+    await page.screenshot({ path: `${evidence}/after-review-${width}.png`, fullPage: true });
+    await page.evaluate(() => document.documentElement.classList.add("dark"));
+    await page.screenshot({ path: `${evidence}/after-review-dark-${width}.png`, fullPage: true, animations: "disabled" });
+    await page.evaluate(() => document.documentElement.classList.remove("dark"));
+    for (const checkWidth of [375, 768, 1024]) {
+      await page.setViewportSize({ width: checkWidth, height });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    }
+    await page.setViewportSize({ width, height });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    expect(mutations(http.calls)).toHaveLength(0);
+    const download = page.waitForEvent("download");
+    await page.getByRole("button", { name: "下载题库 ZIP", exact: true }).click();
+    await download;
+    await expect(page.locator('.import-steps [aria-current="step"]')).toHaveText(/导出并离线练习/);
+    await expect(page.getByText("ZIP 已下载，在 App 中追加题库", { exact: true })).toBeAttached();
+    expect(http.server.modelStarts).toBe(0);
+    await page.evaluate(() => scrollTo(0, 0));
+    await page.mouse.move(0, 0);
+    await page.screenshot({ path: `${evidence}/after-export-${width}.png`, fullPage: true, animations: "disabled" });
+    http.records.set(taskId, { ...task, checkpointId: "new-checkpoint" });
+    await page.getByRole("button", { name: "刷新任务详情", exact: true }).click();
+    await expect(page.locator('.import-steps [aria-current="step"]')).toHaveText(/检查解析结果/);
+    await page.getByRole("button", { name: "断开连接", exact: true }).click();
+    await expect(page.locator('.import-steps [aria-current="step"]')).toHaveText(/选择并导入/);
+  });
+}
 
 test("all KaTeX font faces load from WOFF2 with no fallback font requests", async ({ page }) => {
   const http = await fakeHTTP(page);
@@ -414,6 +469,7 @@ test("points pause exports completed content; recharge stays paused until explic
   const partialDownload = page.waitForEvent("download");
   await page.getByRole("button", { name: "下载题库 ZIP", exact: true }).click(); await partialDownload;
   expect(http.calls.find(call => call.path.endsWith("/export"))!.query).toContain("scope=completed");
+  await page.getByText("充值与积分明细", { exact: true }).click();
   balance = "995000";
   const current = http.records.get(taskId)!;
   http.records.set(taskId, { ...current, billing: { ...billing, balanceMicropoints: balance } });

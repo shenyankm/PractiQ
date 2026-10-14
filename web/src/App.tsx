@@ -1,5 +1,5 @@
 import { lazy, memo, Suspense, useEffect, useRef, useState } from "react";
-import { Upload, Play, RefreshCw, Download, Trash2, LockKeyhole, Unplug, ChevronLeft, ChevronRight, FileText, LoaderCircle } from "lucide-react";
+import { Upload, Play, RefreshCw, Download, Trash2, LockKeyhole, Unplug, ChevronLeft, ChevronRight, FileText, LoaderCircle, Check } from "lucide-react";
 import logo from "./assets/octopus.png";
 import { ApiError, Client, downloadBlob, fileFormat, MAX_FILES, sourceLimit, validateFiles, pointLabel, type Action, type Capabilities, type OfficeMode, type TaskList, type UploadStage } from "./api";
 import type { DocumentTaskDetail, DocumentTaskReview, DocumentTaskSummary } from "./contracts.generated";
@@ -61,6 +61,7 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [operationError, setOperationError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [downloadedCheckpoint, setDownloadedCheckpoint] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ threadId: string; fileName: string } | null>(null);
   const job = useRef<symbol | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -176,7 +177,7 @@ export default function App() {
     finally { setConnecting(false); }
   }
   function disconnect() {
-    client?.disconnect(); job.current = null; setClient(null); setDraftToken(""); setDraftPhone(""); setSelected(null); setDeleteTarget(null); setFiles([]); setBusy(false); setOperationError(null); setNotice(null); setFileError(null); setOffset(0); setCursors([undefined]); setFilter("");
+    client?.disconnect(); job.current = null; setClient(null); setDraftToken(""); setDraftPhone(""); setSelected(null); setDeleteTarget(null); setFiles([]); setBusy(false); setOperationError(null); setNotice(null); setDownloadedCheckpoint(null); setFileError(null); setOffset(0); setCursors([undefined]); setFilter("");
   }
   async function run(perform: (current: Client) => Promise<void>) {
     if (!client || job.current) return;
@@ -213,6 +214,7 @@ export default function App() {
   }
   const matchingCheckpoint = detailFresh && !previewError && preview?.checkpointId === detail?.checkpointId;
   const canExport = !!detail && (detail.canExportCompleted || detail.state === "COMPLETED" && !!detail.result) && !!detail.checkpointId && matchingCheckpoint;
+  const importStep = !selected ? 1 : detail && downloadedCheckpoint === `${detail.threadId}:${detail.checkpointId}` ? 3 : 2;
   function act(action: Action) {
     if (!detail) return;
     void run(async current => { await current.control(detail, action); if (current.active) { setListRevision(value => value + 1); setDetailRevision(value => value + 1); setNotice("操作已提交，正在读取服务端最新状态。"); } });
@@ -220,24 +222,29 @@ export default function App() {
   return <div className="web-shell">
     <a className="skip-link" href="#main-content">跳到主要内容</a>
     <header className="web-header"><a href="/" className="brand"><img src={logo} alt="PractiQ 小章鱼" /><div><strong>PractiQ</strong><span>AI 文档导入</span></div></a><div className="flex items-center gap-3"><span role="status"><Badge variant="outline">{client ? capError ? "连接验证失败" : capabilities ? "服务已连接" : "正在验证服务" : "尚未连接"}</Badge></span>{client && <Button variant="outline" onClick={disconnect}><Unplug />断开连接</Button>}</div></header>
-    <main id="main-content" tabIndex={-1} className="web-main"><div className="page-intro"><div><p className="eyebrow">文档 → 检查结果 → 导出题库</p><h1>把文档整理成可复核的题库</h1><p>上传、解析与结果检查在这里完成。下载题库 ZIP 后，在 PractiQ 应用的「设置 → 恢复备份」中追加题库并离线练习。</p></div></div>
-      <ol className="import-steps" aria-label="文档导入流程"><li><span>1</span><div><strong>选择并导入</strong><p>选择文件，点击开始后解析</p></div></li><li><span>2</span><div><strong>检查解析结果</strong><p>核对题目、答案与质量提示</p></div></li><li><span>3</span><div><strong>导出并离线练习</strong><p>下载 ZIP，在 App 中追加题库</p></div></li></ol>
-      <AccountPanel client={client} balance={detail?.billing?.balanceMicropoints} revision={detailRevision + listRevision} />
+    <main id="main-content" tabIndex={-1} className="web-main"><div className="page-intro"><div><h1>把文档整理成可复核的题库</h1><p>导入文档、检查结果，再下载题库 ZIP。<span>在 PractiQ 应用的「设置 → 恢复备份」中追加题库，即可离线练习。</span></p></div></div>
+      <ol className="import-steps" aria-label="文档导入流程">{[
+        ["选择并导入", !client ? "连接账户后选择文档" : importStep > 1 ? "文档任务已创建" : "选择文件，点击开始后解析"],
+        ["检查解析结果", "核对题目、答案与质量提示"],
+        ["导出并离线练习", importStep === 3 ? "ZIP 已下载，在 App 中追加题库" : "下载 ZIP，在 App 中追加题库"],
+      ].map(([title, description], index) => <li key={title} aria-current={importStep === index + 1 ? "step" : undefined} data-complete={importStep > index + 1}><span>{importStep > index + 1 ? <Check aria-hidden="true" /> : index + 1}</span><div><strong>{title}</strong><p>{description}</p></div></li>)}</ol>
       {!client ? <Card className="connection-card"><CardHeader><CardTitle role="heading" aria-level={2} className="flex items-center gap-2"><LockKeyhole />查询导入记录</CardTitle></CardHeader><CardContent className="space-y-4"><p id="account-help">输入已有账户的手机号和运营签发的账户令牌查询记录。令牌只保存在本页内存，刷新后需重新输入。</p><form onSubmit={event => { event.preventDefault(); void connect(); }} className="connection-form"><label className="flex-1 space-y-1"><span>手机号</span><Input disabled={connecting} type="tel" autoComplete="off" maxLength={16} value={draftPhone} onChange={event => setDraftPhone(event.target.value)} /></label><label className="flex-1 space-y-1"><span>账户令牌</span><Input disabled={connecting} type="password" aria-describedby="account-help" autoComplete="off" spellCheck={false} maxLength={64} value={draftToken} onChange={event => setDraftToken(event.target.value)} /></label><Button type="submit" disabled={connecting || !draftPhone.trim() || !draftToken.trim()}>查询记录</Button></form>{capError && <p role="alert" className="text-destructive">{capError}</p>}</CardContent></Card> : <>
         {capError && <div className="error-banner" role="alert">{capError}<Button variant="outline" onClick={() => setCapRevision(value => value + 1)}>重试读取服务能力</Button></div>}
         {operationError && <div className="error-banner" role="alert">{operationError}</div>}{notice && <p className="notice" role="status">{notice}</p>}
         {busy && <p role="status" className="operation-status"><LoaderCircle className="loading-icon" aria-hidden="true" />正在处理当前操作，请勿重复提交。</p>}
+        <AccountPanel client={client} balance={detail?.billing?.balanceMicropoints} revision={detailRevision + listRevision} />
         <nav className="workspace-shortcuts" aria-label="工作区导航"><a className="workspace-link" href="#import-heading">导入文档</a><a className="workspace-link" href="#task-list-heading">文档任务</a><a className="workspace-link" href="#task-detail">任务详情与结果</a></nav>
         <div className="workspace-grid"><aside className="space-y-5">
           <Card><CardHeader><CardTitle role="heading" aria-level={2} id="import-heading" tabIndex={-1} className="flex items-center gap-2"><Upload />导入文档</CardTitle></CardHeader><CardContent className="space-y-4">
             {!capabilities ? <p>正在读取服务支持的格式与限制…</p> : <>
-              <p id="file-help" className="text-sm text-muted-foreground">一次最多 {MAX_FILES} 个文件，每个不超过 {sizeLabel(sourceLimit(capabilities))}{capabilities.officeAvailable && sourceLimit(capabilities, "docx") < sourceLimit(capabilities) && `，Word / Excel 不超过 ${sizeLabel(sourceLimit(capabilities, "docx"))}`}。选择文件后不会上传，点击「开始导入」才会提交并调用模型。服务启用 AI 复核时还会对照原文复核，并最多修正一轮，增加模型调用与费用；复核不保证内容准确。</p>
+              <p id="file-help" className="text-sm text-muted-foreground">一次最多 {MAX_FILES} 个文件，每个不超过 {sizeLabel(sourceLimit(capabilities))}{capabilities.officeAvailable && sourceLimit(capabilities, "docx") < sourceLimit(capabilities) && `，Word / Excel 不超过 ${sizeLabel(sourceLimit(capabilities, "docx"))}`}。选择文件后不会上传，点击「开始导入」才会提交并调用模型。</p>
               <label className="file-picker"><FileText /><span>选择文档</span><Input ref={fileInput} type="file" multiple aria-describedby="file-help" aria-invalid={!!fileError} accept={capabilities.sourceTypes.map(type => sourceExtensions[type]).join(",")} disabled={busy} onChange={event => chooseFiles(Array.from(event.target.files || []))} /></label>
               <p className="text-xs text-muted-foreground">服务支持：{capabilities.sourceTypes.map(type => formatLabels[type]).join("、")}{!capabilities.officeAvailable && "。Office 转换当前不可用。"}</p>
               {capabilities.officeAvailable && <label className="space-y-1 block"><span>Word / Excel 转换模式</span><select aria-label="Word / Excel 转换模式" value={officeMode} disabled={busy || files.some(file => file.state !== "ready")} onChange={event => setOfficeMode(event.target.value as OfficeMode)}>{capabilities.officeModes.map(mode => <option key={mode} value={mode}>{mode === "pdf" ? "PDF（保留版面）" : "文本 / 每工作表 CSV"}</option>)}</select><p className="text-xs text-muted-foreground">转换在服务端完成；模式在开始导入后固定，重新解析沿用该模式。</p></label>}
               {!capabilities.modelConfigured && <p className="notice">服务端尚未配置模型，暂不能开始解析。</p>}
               {fileError && <p role="alert" className="text-destructive">{fileError}</p>}
               {!!files.length && <ul className="file-list">{files.map(item => <li key={item.id}><div><strong>{item.file.name}</strong><span>{sizeLabel(item.file.size)} · {fileLabels[item.state]} · {formatLabels[fileFormat(item.file).sourceType]}</span>{item.error && <p role="alert" className="text-destructive">{item.error}</p>}</div>{item.state === "ready" && <Button size="icon" variant="ghost" disabled={busy} aria-label={`移除文件 ${item.file.name}`} onClick={() => setFiles(previous => previous.filter(file => file.id !== item.id))}><Trash2 /></Button>}{item.state === "failed" && <Button size="sm" variant="outline" disabled={busy || !capabilities.modelConfigured} onClick={() => void start([item])}>重试开始</Button>}</li>)}</ul>}
+              <p className="text-xs text-muted-foreground">服务启用 AI 复核时还会对照原文复核，并最多修正一轮，增加模型调用与费用；复核不保证内容准确。</p>
               <Button className="w-full" disabled={busy || !capabilities.modelConfigured || !files.some(file => file.state === "ready")} onClick={() => void start(files.filter(file => file.state === "ready"))}>{busy ? <LoaderCircle className="loading-icon" /> : <Play />}开始导入</Button>
               {files.some(file => file.state === "failed") && <p className="text-xs text-muted-foreground">失败不会自动再次提交。「重试开始」会复用原请求 ID 和转换模式，避免不确定响应产生重复任务。</p>}
             </>}
@@ -261,17 +268,18 @@ export default function App() {
               {preview && preview.checkpointId !== detail.checkpointId && <p className="notice">任务检查点正在更新，读取一致后才能继续或导出。</p>}
               <Progress task={detail} />{detail.billing && <p>本任务已用 {pointLabel(detail.billing.chargedMicropoints)} 积分；账户余额 {pointLabel(detail.billing.balanceMicropoints)} 积分。每千输入／输出 tokens 分别消耗 {pointLabel(detail.billing.rates.inputMicropointsPer1k)}／{pointLabel(detail.billing.rates.outputMicropointsPer1k)} 积分。</p>}
               {detail.billing && detail.blocking.some(item => typeof item === "object" && item !== null && "kind" in item && item.kind === "billing") && <p role="status" className="notice">{detail.billing.usageUnknown ? "用量待核对，请联系客服。" : BigInt(detail.billing.balanceMicropoints) <= 0n ? "积分不足，支付到账后请明确点击继续解析。" : detail.blocking.some(item => typeof item === "object" && item !== null && "code" in item && item.code === "USAGE_UNKNOWN") ? "用量已核对，请明确点击继续解析。" : "积分已补充，请明确点击继续解析。"}已完成内容可下载；下载与充值不会自动继续。</p>}
-              <div className="task-actions" aria-label="当前任务操作">{detail.allowedActions.map(action => <Button key={action} variant="outline" disabled={busy || !detailFresh || (!["pause", "interrupt"].includes(action) && !matchingCheckpoint) || (["resume", "retry_failed"].includes(action) && (!detail.modelConfigured || !detail.resumeCompatible))} onClick={() => act(action)}>{actionLabels[action]}</Button>)}<Button disabled={busy || !canExport} onClick={() => void run(async current => { const exported = await current.exportBank(detail); if (current.active) { downloadBlob(exported.blob, exported.name); setNotice("题库 ZIP 已下载。每次导出包含当前全部已完成内容，重复导入会创建独立题库。请在应用设置中追加导入。"); } })}><Download />下载题库 ZIP</Button></div>
+              <div className="task-actions" aria-label="当前任务操作">{detail.allowedActions.map(action => <Button key={action} variant="outline" disabled={busy || !detailFresh || (!["pause", "interrupt"].includes(action) && !matchingCheckpoint) || (["resume", "retry_failed"].includes(action) && (!detail.modelConfigured || !detail.resumeCompatible))} onClick={() => act(action)}>{actionLabels[action]}</Button>)}<Button disabled={busy || !canExport} onClick={() => void run(async current => { const exported = await current.exportBank(detail); if (current.active) { downloadBlob(exported.blob, exported.name); setDownloadedCheckpoint(`${detail.threadId}:${detail.checkpointId}`); setNotice("题库 ZIP 已下载。每次导出包含当前全部已完成内容，重复导入会创建独立题库。请在应用设置中追加导入。"); } })}><Download />下载题库 ZIP</Button></div>
               {detail.state !== "COMPLETED" && <p className="text-sm text-muted-foreground">暂停任务可下载全部已完成内容；检查点一致且有可用题目时才能导出。</p>}
               <details className="task-secondary-actions"><summary>其他任务操作</summary><p className="text-sm text-muted-foreground">重新解析会创建新的模型请求；删除会移除此任务和检查点。已下载的题库不受影响。</p><div className="task-actions"><Button variant="outline" disabled={busy || !detailFresh || !detail.modelConfigured || detail.state === "EXPIRED"} onClick={() => void run(async current => { const receipt = await current.reparse(detail.threadId); if (current.active) { setSelected(value => value === detail.threadId ? receipt.threadId : value); setListRevision(value => value + 1); setDetailRevision(value => value + 1); setNotice("新解析任务已创建。"); } })}><RefreshCw />重新解析为新任务</Button><Button variant="destructive" disabled={busy || !detailFresh || ["RUNNING", "PENDING", "PAUSING"].includes(detail.state)} onClick={() => setDeleteTarget({ threadId: detail.threadId, fileName: detail.fileName })}><Trash2 />删除任务</Button></div></details>
               {!!detail.failures.length && <section className="notice"><h3>失败单元</h3><ul>{detail.failures.map(failure => <li key={`${failure.stage}:${failure.index}`}>{failure.stage} · {failure.index} · {failure.code} · {failure.retryable ? `可重试，剩余 ${failure.retriesRemaining ?? 0} 次` : "不可重试"}</li>)}</ul></section>}
               {(!detail.modelConfigured || !detail.resumeCompatible) && <p className="notice">{!detail.modelConfigured ? "服务端模型未配置。" : "当前模型配置与检查点不兼容。"}继续和重试暂不可用，现有结果仍可检查。</p>}
-              <Usage task={detail} />
               <Suspense fallback={<p>正在加载结果检查视图…</p>}><ResultReview key={`${selected}:${detail.checkpointId}`} task={detail} preview={preview} client={client} /></Suspense>
+              <Usage task={detail} />
             </div>}
           </>}
         </section></div>
       </>}
+      {!client && <AccountPanel client={null} revision={0} />}
     </main><footer>PractiQ · 保留来源与不确定性，由你检查并决定下一步。</footer>
   </div>;
 }
