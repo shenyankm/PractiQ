@@ -73,7 +73,7 @@ dependencies {
     androidTestImplementation("androidx.test:runner:1.6.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.7.0")
-    androidTestImplementation("com.fasterxml.jackson.core:jackson-databind:2.15.3")
+    androidTestImplementation("com.fasterxml.jackson.core:jackson-databind:2.22.3")
 }
 
 apply(from = "tauri.build.gradle.kts")
