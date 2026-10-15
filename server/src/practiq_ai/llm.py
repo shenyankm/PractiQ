@@ -248,8 +248,9 @@ def validate_response[ResultT: BaseModel](
     context: dict[str, Any] | None = None,
     responses_api: bool = False,
 ) -> ResultT:
-    if responses_api:
-        metadata = response["raw"].response_metadata
+    metadata = response["raw"].response_metadata
+    # The SDK can select Responses while the explicit model setting remains unset.
+    if responses_api or metadata.get("object") == "response":
         incomplete = metadata.get("incomplete_details")
         if metadata.get("status") == "incomplete" and isinstance(incomplete, dict) and incomplete.get("reason") == "max_output_tokens":
             metadata["finish_reason"] = "length"

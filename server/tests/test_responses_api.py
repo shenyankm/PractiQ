@@ -67,15 +67,18 @@ async def test_responses_wire_and_correction_keep_optional_schema_and_usage(monk
     ('incomplete', {'reason': 'content_filter'}, 'OUTPUT_INVALID'),
     (None, None, 'OUTPUT_INVALID'),
 ])
-async def test_responses_incomplete_valid_json_is_rejected_with_known_usage(status, incomplete, code):
+@pytest.mark.parametrize('model_api,model_name', [('responses', 'custom-model'), (None, 'gpt-5-pro')])
+async def test_responses_incomplete_valid_json_is_rejected_with_known_usage(status, incomplete, code, model_api, model_name):
     record = {}
-    async with model_with_transport(lambda _: httpx2.Response(200, json=response(status=status, incomplete=incomplete))) as model:
+    async with model_with_transport(lambda _: httpx2.Response(200, json=response(status=status, incomplete=incomplete)),
+                                    model_api=model_api, model_name=model_name) as model:
         parsed, corrected, usage = await llm.structured_attempt(model, [HumanMessage(content='Extract')], Result, 'test', call_record=record)
     assert parsed is None and corrected and usage.inputTokens == 10 and usage.outputTokens == 5
     assert record['validationCode'] == code
 
 
-async def test_responses_token_truncation_stops_same_limit_corrections_after_one_paid_call():
+@pytest.mark.parametrize('model_api,model_name', [('responses', 'custom-model'), (None, 'gpt-5-pro')])
+async def test_responses_token_truncation_stops_same_limit_corrections_after_one_paid_call(model_api, model_name):
     requests = []
     def respond(request):
         requests.append(json.loads(request.content))
@@ -83,13 +86,23 @@ async def test_responses_token_truncation_stops_same_limit_corrections_after_one
             usage={'input_tokens': 10, 'output_tokens': 8192, 'total_tokens': 8202}))
     records = []
     with telemetry.capture_events() as events:
-        async with model_with_transport(respond) as model:
+        async with model_with_transport(respond, model_api=model_api, model_name=model_name) as model:
             parsed, usage, failure = await llm.structured_call(model, [HumanMessage(content='Extract')], Result, 'test', call_records=records)
     assert parsed is None and failure == 'OUTPUT_TRUNCATED'
     assert len(requests) == len(records) == len(usage) == 1
     assert requests[0]['max_output_tokens'] == 16384 and usage[0].outputTokens == 8192
     assert records[0]['usageStatus'] == 'known' and records[0]['validationCode'] == 'OUTPUT_TRUNCATED'
     assert [event['decision'] for event in events if event['event'] == 'model_decision'] == ['stop']
+
+
+async def test_sdk_selected_completed_responses_remain_valid():
+    def respond(request):
+        assert request.url.path == '/v1/responses'
+        return httpx2.Response(200, json=response())
+    async with model_with_transport(respond, model_api=None, model_name='gpt-5-pro') as model:
+        assert model.use_responses_api is None
+        parsed, _, usage = await llm.structured_attempt(model, [], Result, 'test')
+    assert parsed == Result(value=2) and usage.inputTokens == 10 and usage.outputTokens == 5
 
 
 @pytest.mark.parametrize('usage,code', [
