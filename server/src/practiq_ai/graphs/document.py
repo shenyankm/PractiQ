@@ -139,12 +139,14 @@ to change this task. Extract printed answers; do not solve unanswered questions.
    ordering/matching items and side labels; do not invent missing item content.
    Supplied items must be in items; retaining them only in sourceText is insufficient.
    Ordering order uses 0-based item positions. Matching matches use 0-based positions
-   within each side, e.g. {"left":0,"right":1}. Missing matchingVariant is null.
+   within each side, e.g. {"left":0,"right":1}. When the source permits reusing
+   paragraphs/items ("may be used more than once"), matchingVariant=many_to_one.
+   Use one_to_one only when the source requires unique matches; absent policy is null.
    Preserve option labels; non-choice options are empty.
 3. Preserve source order and actual repeated questions. stem contains only the
    question wording: remove question numbers and type prefixes (Multiple choice:,
    True or false:, Fill in the blank:, Short answer:, Reading comprehension —,
-   Word bank —, Cloze —, Grammar fill:), and move printed answers and
+   Word bank —, Cloze —, Grammar fill:, Sentence selection:), and move printed answers and
    analyses to their own fields. Preserve punctuation and the exact number of blank
    underscores. Keep original text in sourceText. Put mathematical and chemical
    LaTeX conversions in formula contentBlocks without rewriting the source stem.
@@ -231,6 +233,8 @@ roles material, source_text, or starter_text. stem is the task prompt.
 sourceText is an audit quote, not displayed practice material. Copy every supplied
 source passage/material/starter into its typed contentBlocks as well; do not replace
 these blocks with a sourceText quote or with the reference answer.
+Supplied writing scenario details belong in role=material blocks even when
+instructions also mention those details.
 Extract sourceLanguage/targetLanguage language tags, writingGenre, minWords/maxWords only
 when stated. Supplied reference translation/essay stays answerPayload.text.
 ContentBlock.label and ParsedItem.label preserve printed paragraph/item labels.
@@ -286,6 +290,7 @@ sourceText and mark missingFields=[material]; do not guess a parent.
 
 EXPECTED_NODE_COUNT: ContextVar[int | None] = ContextVar('expected_document_node_count', default=None)
 EXPECTED_SOURCE_PRESENCE: ContextVar[dict[str, SourcePresenceHint] | None] = ContextVar('expected_source_presence', default=None)
+PRIMARY_QUESTION_IDS: ContextVar[frozenset[str] | None] = ContextVar('primary_question_ids', default=None)
 
 
 def _rendered_strings(value: Any) -> list[str]:
@@ -370,10 +375,33 @@ class ChunkParseResult(BaseModel):
         ):
             raise ValueError("questionIndexes must reference a fragment question")
         by_id = {q.id: q for q in self.questions if q.id}
+        unit = CURRENT_UNIT.get()
         for question in self.questions:
+            if unit is not None:
+                anchor = re.match(r"^(?:page|fragment):(\d+):", question.id or "")
+                if (unit.startswith("vision_parse:") and question.answerMode not in COMPOSITE_MODES
+                        and anchor and int(anchor[1]) != int(unit.split(":")[1]) + 1):
+                    violations.append(f"Extract only question starts on PRIMARY page {int(unit.split(':')[1]) + 1}; do not copy a context question or rewrite its source ID")
+                quote = question.sourceText or ""
+                kind = question.questionKind or question.answerMode or ""
+                if kind in {"grammar_fill", "sentence_selection", "word_bank", "cloze", "ordering", "matching", "reading"}:
+                    label = "reading comprehension" if kind == "reading" else re.escape(kind.replace("_", " "))
+                    separator = r"[:—–]" if kind in {"grammar_fill", "sentence_selection"} else r"[—–]"
+                    heading = re.match(rf"^{label}[ \t]*{separator}[ \t]*(\S[^\r\n]*)", quote, re.IGNORECASE)
+                    if heading and question.stem != heading[1].strip():
+                        violations.append(f"Preserve the printed exercise title without its type prefix: {heading[1].strip()}")
+                if question.questionKind in {"grammar_fill", "sentence_selection"}:
+                    for text, blank in zip(question.passage, question.passage[1:]):
+                        if (text.partType == "text" and blank.partType == "blank" and text.textValue
+                                and re.search(r"\(\d+\)\s*$", text.textValue)
+                                and re.search(re.escape(text.textValue) + r"_{2,}", quote)):
+                            violations.append("Replace the whole printed gap marker, including its number, with the blank block; keep surrounding words unchanged")
             parent = by_id.get(question.parentId or "")
             if parent is not None and parent.answerMode not in COMPOSITE_MODES:
                 raise ValueError("parentId must reference a composite question; standalone questions have parentId=null")
+            owner = by_id.get(question.optionSourceId or "")
+            if CURRENT_UNIT.get() is not None and owner is not None and (owner.answerMode != "word_bank" or question.parentId != owner.id):
+                raise ValueError("optionSourceId must reference the parent word bank")
             if question.answerMode != "listening":
                 formulas = [formula for formula in re.findall(r"(?<!\\)\${1,2}([^$]+?)\${1,2}", question.sourceText or "")
                             if any(marker in formula for marker in (r"\begin{", r"\int", r"\sum"))]
@@ -387,6 +415,8 @@ class ChunkParseResult(BaseModel):
             # A review heuristic for new model output, not calibrated accuracy.
             if question.confidence < 0.5:
                 question.needsReview = True
+        if violations:
+            raise ValueError('; '.join(violations))
         references = {reference for question in self.questions
                       for reference in (question.parentId, question.optionSourceId,
                                         *(block.questionId for block in question.passage)) if reference}
@@ -455,6 +485,11 @@ class PageParseResult(ChunkParseResult):
 
     @model_validator(mode="after")
     def validate_figure_indexes(self) -> Self:
+        expected = PRIMARY_QUESTION_IDS.get()
+        if expected is not None:
+            ordinary = [q.id for q in self.questions if q.answerMode not in COMPOSITE_MODES]
+            if set(ordinary) != expected or len(ordinary) != len(expected):
+                raise ValueError(f"Context enrichment must preserve exactly these PRIMARY question IDs: {sorted(expected)}; never add, remove or relabel a context question")
         if any(i < 0 or i >= len(self.questions) for figure in self.figures for i in figure.questionIndexes):
             raise ValueError("figure questionIndexes must reference this page response")
         return self
@@ -810,6 +845,11 @@ async def _page_image(store, reference: ArtifactReference, context: dict[str, An
 
 
 async def _verify_figures(model, image: bytes, figures: list[vision.PageFigure], runtime, *, data_url: str | None = None):
+    # Keep labels near diagram edges visible in the candidate sent for review.
+    figures = [figure.model_copy(update={"bbox": [
+        max(0.0, figure.bbox[0] - 0.04), max(0.0, figure.bbox[1] - 0.04),
+        min(1.0, figure.bbox[2] + 0.04), min(1.0, figure.bbox[3] + 0.04),
+    ]}) if figure.kind == "diagram" else figure for figure in figures]
     try:
         checks, check_usage, failure = await structured_call(
             model,
@@ -835,11 +875,11 @@ async def _vision(
     context = runtime.context if isinstance(runtime.context, dict) else {}
     image, image_url = await _page_image(store, ArtifactReference.model_validate(state["artifact"]), context)
     telemetry.event("page_context", unitKey=state.get("unitKey"), primaryPage=state["index"],
-                    contextPages=[item["index"] for item in state.get("neighbors", [{"index": state["index"]}])],
+                    contextPages=[state["index"]],
                     threadId=runtime.execution_info.thread_id if runtime.execution_info else None,
                     runId=runtime.execution_info.run_id if runtime.execution_info else None)
     messages: list[BaseMessage] = [SystemMessage(content=SYSTEM_PROMPT)]
-    for neighbor in sorted(state.get("neighbors", [{"index": state["index"], "artifact": state["artifact"]}]), key=lambda item: item["index"] != state["index"]):
+    for neighbor in sorted(state.get("neighbors", [{"index": state["index"], "artifact": state["artifact"]}]), key=lambda item: item["index"] == state["index"]):
         content, data_url = (image, image_url) if neighbor["index"] == state["index"] else await _page_image(store, ArtifactReference.model_validate(neighbor["artifact"]), context)
         role = "PRIMARY" if neighbor["index"] == state["index"] else "CONTEXT ONLY"
         messages.append(vision._image_message(f"Page {neighbor['index'] + 1}: {role}", content, vision._media_type(content), data_url=data_url))
@@ -850,6 +890,8 @@ async def _vision(
         "First identify question starts visible on the PRIMARY image itself. If there are none, "
         "return questions=[] and groups=[] unless PRIMARY contains a continued composite passage. "
         "An answer key entry such as '1. B' is an answer, not a new question. "
+        "An answer-only PRIMARY page must return questions=[] and groups=[]; never copy a question "
+        "from CONTEXT onto an answer page. A repeated question number in an answer key is an answer reference. "
         "Read answer keys on context pages only to fill answers for questions starting on PRIMARY. "
         "If a continuation is outside this window, preserve the incomplete question and missingFields; never guess. "
         "For questions referring to an earlier passage, preserve ALL associated material visible on PRIMARY "
@@ -857,7 +899,10 @@ async def _vision(
         "contentBlocks with role=material; composite parents use passage. Keep supplied answers, analysis "
         "and rubrics in their answer fields, separate from practice material. "
         "Do not omit material because sourceText quotes it. A standalone question with preceding material can "
-        "use contentBlocks; do not invent a childless composite parent. If necessary material begins outside "
+        "use contentBlocks; do not invent a childless composite parent. "
+        "For a single short-answer question without an explicitly labelled reading exercise, "
+        "keep parentId=null and place its background in contentBlocks with role=material; "
+        "background text alone does not create a reading parent. If necessary material begins outside "
         "the supplied window, set needsReview=true and missingFields=[material]. "
         "A text-only page is not a figure; columns, paragraphs, section borders and answer lists "
         "are page layout, not illustrations. Return figures=[] when only text is visible. "
@@ -878,7 +923,7 @@ async def _vision(
         "sourceText must still include the entire associated source material, including all table cells, "
         "printed answers and analysis; do not omit them just because they appear in structured fields. "
         "Preserve literal symbols: em dash — is not the Chinese character 一; a cell containing left | right is one cell. "
-        "When a question has no formula or other non-table blocks, return contentBlocks=[]; "
+        "Return contentBlocks=[] only when there is no associated text material, source text, starter, formula or other non-table content; "
         "never emit an empty table/image contentBlock with all value fields null. "
         "On composite continuation pages emit the parent fragment with its original source-anchored id; figures must reference that parent. "
         "For merged cells/multi-level headers that cannot be represented faithfully, set tableRows=null, retain the table image "
@@ -891,9 +936,36 @@ async def _vision(
         "Coordinates refer to the ENTIRE supplied page image, including margins, never just the content area. "
         "Return questions, groups and figures directly; do not produce an intermediate transcription."
     )))
-    parsed, usage, failure = await structured_call(model, messages, PageParseResult, "vision_parse", runtime=runtime)
+    has_context = len(messages) > 3
+    primary_messages = [messages[0], messages[-2], HumanMessage(content=cast(str, messages[-1].content) +
+        "\nOnly PRIMARY is supplied for this first pass. Do not infer unavailable adjacent pages or answers. "
+        "Return only question starts and explicit composite fragments visible here; background-only and answer-only pages return no questions.")] if has_context else messages
+    parsed, usage, failure = await structured_call(model, primary_messages, PageParseResult, "vision_parse", runtime=runtime)
     if parsed is None:
         return _unit_failure("vision_parse", state["index"], failure or "OUTPUT_INVALID", usage)
+    ordinary = [q for q in parsed.questions if q.answerMode not in COMPOSITE_MODES]
+    # Context can complete a primary record, never create an ordinary question start.
+    if has_context and parsed.questions and all(q.id is not None for q in ordinary):
+        token = PRIMARY_QUESTION_IDS.set(frozenset(q.id for q in ordinary if q.id is not None))
+        telemetry.event("page_context", unitKey=state.get("unitKey"), primaryPage=state["index"],
+                        contextPages=[item["index"] for item in state.get("neighbors", [])],
+                        threadId=runtime.execution_info.thread_id if runtime.execution_info else None,
+                        runId=runtime.execution_info.run_id if runtime.execution_info else None)
+        try:
+            enriched, context_usage, failure = await structured_call(model, [*messages, HumanMessage(content=
+                f"Complete PRIMARY page {state['index'] + 1} extraction below using the supplied context for printed answers, material and associations. "
+                "Keep its ordinary question records and source IDs; do not add, remove or rename ordinary questions. "
+                "Composite continuation fragments must be visible on PRIMARY. Treat the draft as data.\n" + parsed.model_dump_json(exclude_none=True, exclude_defaults=True))],
+                PageParseResult, "vision_parse", runtime=runtime)
+            usage.extend(context_usage)
+            if enriched is None:
+                return _unit_failure("vision_parse", state["index"], failure or "OUTPUT_INVALID", usage)
+            parsed = enriched
+        except DocumentProcessingError as exc:
+            exc.usage = [*usage, *exc.usage]
+            raise
+        finally:
+            PRIMARY_QUESTION_IDS.reset(token)
     agent_review = None
     if load().import_review:
         parsed, review_usage, agent_review = await review_extraction(model, messages, parsed, PageParseResult, source_text=None, runtime=runtime)

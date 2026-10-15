@@ -1,7 +1,11 @@
 """Regressions from the mixed-format import acceptance, without provider calls."""
+import json
+from base64 import b64decode
+from io import BytesIO
 from unittest.mock import AsyncMock
 
 import pytest
+from PIL import Image
 
 from practiq_ai.errors import DocumentProcessingError
 from practiq_ai.extractors import ExtractedDocument
@@ -50,6 +54,32 @@ async def test_figure_reviewer_corrects_crop_without_downgrading_answers(monkeyp
         assert visual["role"] == "answer" and visual["imageRef"] is None and visual["bbox"] is None
         assert state["result"]["questions"][0]["needsReview"]
         assert "media" in state["result"]["questions"][0]["missingFields"]
+
+
+@pytest.mark.parametrize('kind,bbox,expected,size', [
+    ('diagram', [0.68, 0.25, 0.95, 0.7], [0.64, 0.21, 0.99, 0.74], (560, 530)),
+    ('diagram', [0.68, 0.22, 0.95, 0.68], [0.64, 0.18, 0.99, 0.72], (560, 540)),
+    ('diagram', [0, 0.01, 0.99, 1], [0, 0, 1, 1], (1600, 1000)),
+    ('chart', [0.2, 0.3, 0.7, 0.8], [0.2, 0.3, 0.7, 0.8], (800, 500)),
+])
+async def test_diagram_review_margin_matches_candidate_pixels_and_keeps_uncertainty(monkeypatch, kind, bbox, expected, size):
+    async def review(_model, messages, schema, call_kind, *, runtime=None):
+        candidates = json.loads(messages[2].content)
+        assert candidates[0]['bbox'] == pytest.approx(expected)
+        part = next(item for item in messages[3].content if item['type'] == 'image_url')
+        payload = b64decode(part['image_url']['url'].split(',', 1)[1])
+        with Image.open(BytesIO(payload)) as image:
+            assert image.size == size
+        return schema.model_validate({'figures': [{'index': 0, 'bbox': expected,
+            'role': 'material', 'complete': False}]}), [], None
+
+    monkeypatch.setattr(document, 'structured_call', review)
+    figure = vision.PageFigure(kind=kind, description='Source figure', bbox=bbox)
+    source_image = BytesIO()
+    Image.new('RGB', (1600, 1000), 'white').save(source_image, format='PNG')
+    checks, _, failure = await document._verify_figures(None, source_image.getvalue(), [figure], None)
+    assert figure.bbox == bbox
+    assert checks and checks.figures[0].complete is False and failure is None
 
 
 @pytest.mark.parametrize("code", ["AI_PROVIDER_ERROR", "EXECUTION_STORE_UNAVAILABLE"])

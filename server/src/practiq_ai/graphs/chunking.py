@@ -49,6 +49,10 @@ _QUESTION_LABELS = {'Single choice', 'True or false', 'Multiple choice', 'Fill i
                     'Grammar fill', 'Sentence selection', 'Paragraph matching', 'Translation'}
 _COMPOSITE_LABELS = {'Reading comprehension', 'Word bank', 'Cloze', 'Listening', 'Grammar fill', 'Sentence selection'}
 _BANK_LABELS = {'Word bank', 'Sentence selection'}
+_UNNUMBERED_EXERCISE = re.compile(
+    r'^[ \t]*(?:' + '|'.join(sorted(_QUESTION_LABELS)) + r')[ \t]*[:—–-]',
+    re.MULTILINE | re.IGNORECASE,
+)
 
 
 class _SourceFrame(TypedDict):
@@ -156,7 +160,7 @@ def _table_blocks(text: str) -> tuple[list[tuple[int, int, int]], str] | None:
 
 def _typed_frames(text: str) -> list[_SourceFrame] | None:
     matches = list(_TYPED_QUESTION.finditer(text))
-    if not matches or any(
+    if not matches or _UNNUMBERED_EXERCISE.search(text) or any(
         QUESTION_BOUNDARY_PATTERN.match(line) and not _TYPED_QUESTION.match(line)
         for line in text.splitlines()
     ):
@@ -387,8 +391,11 @@ def _source_locations(source: tuple[str, list[int]], quote: str | None) -> list[
 
 
 def _content(question: ParsedQuestion) -> dict[str, Any]:
-    # Confidence/review flags are metadata, not extracted content.
-    return question.model_dump(exclude={"confidence", "needsReview", "missingFields", "sourceText", "id"})
+    # Compare built-in type labels as metadata; retain original values in results.
+    content = question.model_dump(exclude={"confidence", "needsReview", "missingFields", "sourceText", "id"})
+    if question.questionTypeId in {question.answerMode, question.questionKind}:
+        content["questionTypeId"] = None
+    return content
 
 
 def merge_chunk_results(

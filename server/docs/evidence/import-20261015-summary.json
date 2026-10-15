@@ -1,7 +1,7 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "campaign": "2026-10-14 to 2026-10-15 (UTC+8)",
-  "status": "USER_STOPPED; archival complete",
+  "status": "USER_STOPPED_AFTER_RESUMED_DASHSCOPE_ARREARAGE; quality FAILED/INCOMPLETE",
   "notAReleaseAcceptance": true,
   "dataset": "Synthetic maintenance fixtures; not independent exam/teacher validation",
   "highestCompletedDefaultModeAnswerMatches": [
@@ -70,7 +70,8 @@
     "Different optimization-stage source versions; maxima are not a single final frozen-source four-format run",
     "n=1 per large file; no production P95 or concurrency claim",
     "Strict matched answer accuracy includes correctly absent/null answers and is not whole-document quality pass rate",
-    "Final MAIN99 was stopped after 12 complete trials and one incomplete trial; no final whole-suite improvement claim"
+    "Final MAIN99 was stopped after 12 complete trials and one incomplete trial; no final whole-suite improvement claim",
+    "Current resumed candidate stopped at S44: 20 completed, one paused, six not run; independent PDF material loss; MAIN99 and large/opt-in matrices not run"
   ],
   "sourceS9": {
     "productionSource": {
@@ -89,7 +90,8 @@
     "appRustPassedTests": 185,
     "webPassedTests": 85,
     "totalDistinctSuitePassedTests": 3130,
-    "alreadyExecutedChecksOnly": true
+    "alreadyExecutedChecksOnly": true,
+    "scope": "Historical S9 only; latest current-candidate verification in resumedIteration.engineering"
   },
   "duplicateOption": {
     "default": false,
@@ -144,7 +146,8 @@
     "returnedProviderModelAlias": "deepseek-flash",
     "requestedModel": "deepseek-v4.1-flash",
     "exactProviderWeightsUnverified": true,
-    "noUnknownReplay": true
+    "noUnknownReplay": true,
+    "scope": "Historical S0 through S9 only; excludes resumedIteration"
   },
   "cleanup": {
     "removedFileCount": 546,
@@ -157,6 +160,197 @@
   "privatePostgresArchiveSha256": "a9bad46ddea02e3bdf859c61a660b52242e0e1f745507e7ce5829c0843e506d1",
   "cancelledStages": [
     "remaining s9-main99",
-    "s9b-large-pdf-preserve"
-  ]
+    "s9b-large-pdf-preserve",
+    "current-candidate MAIN99",
+    "current-candidate large4",
+    "current-candidate explicit-dedup2",
+    "remaining S44 focused trials"
+  ],
+  "resumedIteration": {
+    "scope": "S10 through S44; synthetic known-failure focused cases, not full-corpus or production accuracy",
+    "status": "USER_STOPPED",
+    "stopReason": "DashScope Arrearage; user confirmed no funds and requested reports only",
+    "model": "qwen3.7-max-2026-06-08",
+    "transport": "Chat Completions API",
+    "structuredOutput": "function_calling",
+    "enableThinking": false,
+    "scorerVersion": "6.3.0",
+    "goldSha256": "65c9d1b5b302453774c1538acbcf590b36b388788fcbbd8e3d9647787328aefc",
+    "oldGoldAndScorerPreserved": true,
+    "focusedStages": [
+      {
+        "stage": "s28",
+        "plannedTrials": 27,
+        "recordedTrials": 27,
+        "qualityPassedTrials": 20,
+        "measurementStatus": "COMPLETE",
+        "strictGate": "FAILED",
+        "evidence": {
+          "path": "server/reports/checks/import-optimization-20261014/quality/s28-focused-max27-independent.json",
+          "sha256": "9970330454bb6118b32a046f7bdc3b3d08c211503505df6445a2fb95f077ac8b"
+        }
+      },
+      {
+        "stage": "s34",
+        "plannedTrials": 27,
+        "recordedTrials": 27,
+        "qualityPassedTrials": 22,
+        "measurementStatus": "COMPLETE",
+        "strictGate": "FAILED",
+        "evidence": {
+          "path": "server/reports/checks/import-optimization-20261014/quality/s34-focused-max27-independent.json",
+          "sha256": "68a0b470e5e471925046d4be00545de3395423126a178a3ba28a4e7c782c8c29"
+        }
+      },
+      {
+        "stage": "s41",
+        "plannedTrials": 27,
+        "recordedTrials": 27,
+        "qualityPassedTrials": 26,
+        "measurementStatus": "COMPLETE",
+        "strictGate": "FAILED",
+        "evidence": {
+          "path": "server/reports/checks/import-optimization-20261014/quality/s41-focused-max27-independent.json",
+          "sha256": "d4cfb97fb204d522600274189a1364ee3220a184bc3f60fced10d08f6a386b28"
+        }
+      },
+      {
+        "stage": "s44",
+        "plannedTrials": 27,
+        "recordedTrials": 21,
+        "qualityPassedTrials": 20,
+        "measurementStatus": "INCOMPLETE",
+        "strictGate": "FAILED",
+        "evidence": {
+          "path": "server/reports/checks/import-optimization-20261014/quality/s44-focused-max27-independent.json",
+          "sha256": "7b2f58f401b8bf6be32a0b67d3c987d138a5ed188f5b3844db4203ab43e2f0e7"
+        }
+      }
+    ],
+    "latestStage": {
+      "stage": "s44",
+      "completedTrials": 20,
+      "pausedTrials": 1,
+      "notRunTrials": 6,
+      "plannedTrials": 27,
+      "completedTrialStrictPasses": 20,
+      "strictAcceptance": "FAILED/INCOMPLETE",
+      "sourceFidelity": {
+        "plannedCaseTrials": 12,
+        "evaluatedCaseTrials": 9,
+        "passedCaseTrials": 8,
+        "failedCaseTrials": 1,
+        "notEvaluatedCaseTrials": 3,
+        "sameCountsForEach": [
+          "detail",
+          "ZIP"
+        ],
+        "pdfFirstTrial": {
+          "retainedObservations": 22,
+          "expectedObservations": 72,
+          "missingObservations": 50,
+          "introRetained": false
+        },
+        "pdfSecondTrialRetainedObservations": 72,
+        "imageNativeCropPassedTrials": 3,
+        "imageNativeCropEvaluatedTrials": 3,
+        "semanticQuestionImageAssociation": "Not independently annotated",
+        "evidence": {
+          "path": "server/reports/checks/import-optimization-20261014/quality/source-fidelity/s44-focused-max27.json",
+          "sha256": "d30732cd967404d7d7b4a26a216c82635d6994a434c61cb6081870c3d824055e"
+        }
+      },
+      "native": {
+        "exportedZipsChecked": 20,
+        "freshTemporaryStoreChecks": 60,
+        "passed": true,
+        "includes": [
+          "field and null preservation",
+          "source associations",
+          "warnings",
+          "resource hash/size",
+          "close/reopen",
+          "same ZIP reimport zero additions"
+        ],
+        "excludes": [
+          "GUI",
+          "IPC",
+          "picker",
+          "production latency",
+          "source completeness acceptance"
+        ],
+        "evidence": {
+          "path": "server/reports/checks/import-optimization-20261014/app-s34/s44-focused-max27.json",
+          "sha256": "ef84363977c3b693e5c2ff99cca5757773a798438e29b3e468f26c2bebf5807d"
+        }
+      },
+      "accountingReceipts": {
+        "saved": 42,
+        "settled": 41,
+        "unknown": 1
+      }
+    },
+    "accounting": {
+      "outbound": 409,
+      "known": 403,
+      "unknown": 6,
+      "knownInputTokens": 4392942,
+      "knownOutputTokens": 332510,
+      "moneyCost": null,
+      "evidence": {
+        "path": "server/reports/checks/import-optimization-20261014/quality/user-stopped-resumed-accounting-20261015.json",
+        "sha256": "fc3e86c3b5de96288bc22d83d4953c12d7bc2138b7035760a0b5fc17a50a0d0c"
+      }
+    },
+    "unrunCurrentCandidateGates": {
+      "mainPlannedTrials": 99,
+      "mainRunTrials": 0,
+      "largePlannedTrials": 4,
+      "largeRunTrials": 0,
+      "explicitDedupPlannedTrials": 2,
+      "explicitDedupRunTrials": 0
+    },
+    "engineering": {
+      "status": "PASSED",
+      "stage": "S43 final stopped candidate, same production source as S44",
+      "passedTests": 2522,
+      "warnings": 11,
+      "seconds": 578.21,
+      "lineCovered": 6567,
+      "lineValid": 6938,
+      "lineCoveragePercent": 94.6526376477371,
+      "branchCovered": 2320,
+      "branchValid": 2582,
+      "branchCoveragePercent": 89.85282726568552,
+      "combinedCoverageConsolePercent": 93,
+      "probes": "PASSED",
+      "packageSourceFileCount": 39,
+      "wheelSha256": "cc6c2ecf825c82ffc35e8d0acafe75615fb389224887da2d620008e3f27fab47",
+      "sdistSha256": "37dc6553af0066ce94372b20efb4ad40a1b5375d077e7352fc0aad35bb7205b2",
+      "scope": "Local engineering checks with model substitutes; no real extraction-quality, remote CI, release or production acceptance",
+      "evidence": {
+        "path": "server/reports/checks/import-optimization-20261014/quality/verify-s43-final-artifacts/summary.json",
+        "sha256": "da8f466fe6510a38f81f27d99005f66ea4c515feb2929d18a2a07b58112bc813"
+      }
+    },
+    "source": {
+      "productionSource": {
+        "gitCommit": "ed6921267b7a0ee587aa01f5438ae52b87644d0f",
+        "dirty": true,
+        "codeHash": "f1b47696e4c03409322a138d48bfbebb2372f4364ad3a8e0dc31274be086128a"
+      },
+      "promptModuleSha256": "6bd3006aecbd66d328706b6d44baf749f0be606e41cf4f2dcda543d9c3a544b3",
+      "pythonFileCount": 39
+    }
+  },
+  "allIterationsAccounting": {
+    "scope": "S0 plus S1-S9 plus S10-S44; not a quality denominator",
+    "physical": 1532,
+    "known": 1522,
+    "unknown": 10,
+    "knownInputTokens": 16393729,
+    "knownOutputTokens": 3216153,
+    "moneyCost": null,
+    "noUnknownReplay": true
+  }
 }

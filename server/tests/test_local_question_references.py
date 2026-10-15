@@ -83,6 +83,60 @@ async def test_local_blank_error_is_corrected_with_both_known_attempts(monkeypat
         execution.CURRENT_UNIT.reset(token)
 
 
+async def test_missing_local_option_parent_is_corrected_before_saving_the_page(monkeypatch):
+    correct = gap_tree("page:16", 44, 45, "word_bank")
+    correct.append({"id": "page:16:46", "stem": "Retain this unrelated question", "answerMode": "short_answer"})
+    incorrect = deepcopy(correct)
+    incorrect[1]["parentId"] = None
+    incorrect[0]["contentBlocks"] = [{"partType": "text", "role": "material", "textValue": "They [blank:45] early."}]
+    incorrect[0]["passage"] = []
+    model = FakeModel(responses=[{"questions": incorrect}, {"questions": correct}])
+    monkeypatch.setattr(llm, "reserve_model_call", AsyncMock())
+    token = execution.CURRENT_UNIT.set("vision_parse:15:0")
+    try:
+        parsed, usage, failure = await llm.structured_call(
+            model, [HumanMessage(content="Extract the supplied material, options and answer")],
+            document.PageParseResult, "vision_parse",
+        )
+        assert failure is None and parsed is not None
+        assert len(model.calls) == len(usage) == 2
+        assert [(call.inputTokens, call.outputTokens) for call in usage] == [(10, 5), (10, 5)]
+        assert "optionSourceId must reference the parent word bank" in model.calls[1][-1].content
+        assert [q.id for q in parsed.questions] == ["page:16:44", "page:16:45", "page:16:46"]
+        document.validate_question_tree(parsed.questions)
+        assert parsed.questions[1].parentId == parsed.questions[1].optionSourceId == parsed.questions[0].id
+        assert parsed.questions[0].passage[1].questionId == parsed.questions[1].id
+        assert incorrect[1]["parentId"] is None
+    finally:
+        execution.CURRENT_UNIT.reset(token)
+
+
+def test_historical_option_relation_still_loads_for_final_merge_validation():
+    questions = gap_tree("page:16", 44, 45, "word_bank")
+    questions[1]["parentId"] = None
+    token = execution.CURRENT_UNIT.set(None)
+    try:
+        parsed = document.ChunkParseResult.model_validate({"questions": questions})
+        assert parsed.questions[1].parentId is None
+        assert parsed.questions[1].optionSourceId == parsed.questions[0].id
+        with pytest.raises(ValueError, match="optionSourceId must reference the parent word bank"):
+            document.validate_question_tree(parsed.questions)
+    finally:
+        execution.CURRENT_UNIT.reset(token)
+
+
+def test_external_option_owner_still_defers_to_merge():
+    questions = gap_tree("page:16", 44, 45, "word_bank")
+    child = questions[1]
+    child["parentId"] = child["optionSourceId"] = "page:15:44"
+    token = execution.CURRENT_UNIT.set("vision_parse:15:0")
+    try:
+        parsed = document.PageParseResult.model_validate({"questions": [child]})
+        assert parsed.questions[0].parentId == parsed.questions[0].optionSourceId == "page:15:44"
+    finally:
+        execution.CURRENT_UNIT.reset(token)
+
+
 @pytest.mark.parametrize("mode", ["word_bank", "cloze", "gap_fill"])
 def test_valid_closed_local_tree_keeps_options_answers_and_references(mode):
     questions = gap_tree("page:58", 162, 163, mode)
@@ -185,5 +239,40 @@ async def test_guard_restores_context_when_local_reference_validation_raises(mon
         assert execution.CURRENT_UNIT.get() == "outer-unit"
         assert before == (execution.CURRENT_EXECUTION.get(), execution.CURRENT_ARTIFACT.get(), execution.CURRENT_ALLOWANCE.get(),
                           document.EXPECTED_NODE_COUNT.get(), document.EXPECTED_SOURCE_PRESENCE.get())
+    finally:
+        execution.CURRENT_UNIT.reset(token)
+
+
+async def test_context_question_page_anchor_is_corrected_without_rewriting(monkeypatch):
+    wrong = {'questions': [{'id': 'page:3:1', 'stem': 'A question on the next page',
+                            'answerMode': 'short_answer', 'sourceText': '1. A question on the next page'}]}
+    original = deepcopy(wrong)
+    model = FakeModel(responses=[wrong, {'questions': []}])
+    monkeypatch.setattr(llm, 'reserve_model_call', AsyncMock())
+    token = execution.CURRENT_UNIT.set('vision_parse:1:0')
+    try:
+        parsed, usage, failure = await llm.structured_call(
+            model, [HumanMessage(content='Extract starts on PRIMARY page 2 only')],
+            document.PageParseResult, 'vision_parse')
+    finally:
+        execution.CURRENT_UNIT.reset(token)
+    assert parsed is not None and parsed.questions == [] and failure is None
+    assert len(model.calls) == len(usage) == 2
+    assert 'PRIMARY page 2' in model.calls[1][-1].content
+    assert wrong == original
+    assert document.PageParseResult.model_validate(wrong).questions[0].id == 'page:3:1'
+
+
+def test_primary_anchor_rule_preserves_parent_continuations_and_external_refs():
+    parent = {'id': 'page:1:reading', 'stem': 'A continued passage', 'answerMode': 'reading',
+              'passage': [{'partType': 'text', 'textValue': 'More printed material'}]}
+    child = {'id': 'page:2:1', 'parentId': parent['id'], 'stem': 'Question starting here',
+             'answerMode': 'short_answer'}
+    token = execution.CURRENT_UNIT.set('vision_parse:1:0')
+    try:
+        for questions in ([parent, child], [child]):
+            parsed = document.PageParseResult.model_validate({'questions': questions})
+            assert parsed.questions[-1].parentId == parent['id']
+            assert parsed.questions[-1].id == child['id']
     finally:
         execution.CURRENT_UNIT.reset(token)

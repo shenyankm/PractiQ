@@ -144,19 +144,20 @@ def _model_schema(schema: type[BaseModel]) -> dict[str, Any]:
             properties = node.get("properties", {})
             if {"answerMode", "sourceText"} <= properties.keys():
                 # Require extraction evidence, not every unrelated type-specific field.
-                node["required"] = ["stem", "answerMode", "answerPayload", "sourceText"]
+                node["required"] = ["stem", "answerMode", "answerPayload", "sourceText", "passage", "contentBlocks"]
                 # Review labels are derived locally; do not ask the model to invent
                 # names for absent optional metadata such as sourceScore or language.
                 if "missingFields" in properties:
                     properties["missingFields"]["items"]["enum"] = ["media", "material"]
                 descriptions = {
+                    "stem": "Remove only the leading question number and exercise-type prefix, then preserve the printed exercise title or question wording literally; do not substitute a generic exercise name. This applies to composite parent titles too; keep the separate passage out of stem. When a gap child has no printed prompt, use its local source wording or hint, not just the gap number. For example, a gap in 'Ice is [1]' has stem 'Ice is', not '1'.",
                     "questionKind": "Null for ordinary choice, true_false, fill_blank, short_answer, ordering, matching. Specialized kind only when explicitly supported; must match answerMode. Never propagate a parent kind to a child.",
                     "parentId": "ID of an actual composite material parent in this document; null for ALL standalone questions. Never use a section heading or previous standalone question as parent.",
                     "choiceVariant": "single/multiple ONLY for answerMode=choice. Null for every other answerMode, including true_false and short_answer.",
                     "options": "Choice options, or shared word_bank options; [] for every other answerMode. Shared-option children have [] and optionSourceId=parent ID.",
                     "matchingVariant": "one_to_one/many_to_one ONLY for matching; null otherwise.",
                     "blankCount": "Positive number ONLY for fill_blank children or standalone fill blanks; null for all other modes, including composite parents.",
-                    "passage": "Shared material ONLY for reading, word_bank, cloze, listening, gap_fill parents. Empty for standalone questions and children. Listening transcript belongs in transcript instead.",
+                    "passage": "Shared material ONLY for reading, word_bank, cloze, listening, gap_fill parents. Empty for standalone questions and children. Listening transcript belongs in transcript instead. Replace the entire printed gap marker, including its local number, with one blank block; never leave the marker number in adjacent text.",
                     "items": "Ordering or matching items ONLY; [] otherwise. Matching IDs are independent zero-based integers within each side; labels preserve printed letters/numbers.",
                     "sourceLanguage": "Only for translation and only when source direction is explicit; null for ordinary questions and writing.",
                     "targetLanguage": "Only for translation/writing; explicit in English means en, in Chinese means zh. Null for other kinds or absent direction.",

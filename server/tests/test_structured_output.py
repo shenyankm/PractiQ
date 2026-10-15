@@ -294,6 +294,12 @@ def test_semantic_descriptions_reach_wire_schema():
     from practiq_ai.graphs.document import PageParseResult
 
     schema = llm._model_schema(PageParseResult)['$defs']
+    question = schema['ParsedQuestion']['properties']
+    assert 'printed exercise title' in question['stem']['description']
+    assert 'Remove only the leading question number and exercise-type prefix' in question['stem']['description']
+    assert 'not just the gap number' in question['stem']['description']
+    assert 'composite parent titles' in question['stem']['description']
+    assert 'including its local number' in question['passage']['description']
     for model, fields in {'ParsedQuestion': ['answerPayload', 'sourceText', 'confidence', 'needsReview'],
                           'ParsedGroup': ['questionIndexes'], 'PageFigure': ['kind', 'bbox']}.items():
         assert all(schema[model]['properties'][field]['description'] for field in fields)
@@ -417,3 +423,14 @@ def test_provider_preset_and_desktop_url_use_identical_qwen_parameters():
     assert preset.extra_body == desktop.extra_body == {'enable_thinking': False}
     custom = llm.build_model('dashscope', 'test', 'qwen3.7-flash', base_url='https://example.invalid/v1')
     assert custom.extra_body is None
+
+
+def test_wire_requires_material_containers_without_changing_public_contract():
+    from practiq_ai.graphs.document import ChunkParseResult
+
+    public = ChunkParseResult.model_json_schema()['$defs']['ParsedQuestion']
+    assert not {'passage', 'contentBlocks'} & set(public.get('required', []))
+    wire = llm._model_schema(ChunkParseResult)['$defs']['ParsedQuestion']
+    assert {'stem', 'answerMode', 'answerPayload', 'sourceText', 'passage', 'contentBlocks'} <= set(wire['required'])
+    assert 'sourceScore' not in wire['required']
+    assert wire['properties']['passage']['type'] == wire['properties']['contentBlocks']['type'] == 'array'

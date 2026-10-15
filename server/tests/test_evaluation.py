@@ -288,6 +288,29 @@ def test_structure_errors_fail_noncritical_cases_even_when_averaged_out(change) 
     assert summary["slices"]["answerMode"]["reading"]["structureAccuracy"] is not None
 
 
+@pytest.mark.parametrize('identifier,field', [('w', 'passage'), ('c', 'passage'), ('o', 'items'), ('m', 'items'), ('m', 'stem')])
+def test_composite_source_gold_preserves_punctuation_labels_and_literal_title(identifier, field):
+    manifest = Path('evals/cases.json')
+    case = next(case for case in ev.load_manifest(manifest)['cases'] if case['id'] == 'text-composites')
+    questions = [{key: deepcopy(value) for key, value in q.items() if key not in {'stemAliases', 'answerAliases', 'expectedMissingFields', 'expectedNeedsReview', 'expectedEvidence'}} for q in case['expectedQuestions']]
+    source = (manifest.parent / case['path']).read_text()
+    title = next(line.removeprefix('Matching — ') for line in source.splitlines() if line.startswith('Matching — '))
+    next(q for q in questions if q['id'] == 'm')['stem'] = title
+    result = DocumentParseResult.model_validate({'schemaVersion': 3, 'questions': questions, 'groups': [],
+                                                'visualElements': [], 'warnings': [], 'confidenceScore': 100}).model_dump(mode='json')
+    assert ev.quality_passed(case_record(case, result))
+    target = next(q for q in result['questions'] if q['id'] == identifier)
+    if field == 'passage':
+        assert target['passage'].pop()['textValue'] == '.'
+    elif field == 'items':
+        assert target['items'][0].pop('label') == '0'
+    else:
+        target['stem'] += ' (invented)'
+    rejected = case_record(case, result)
+    assert not ev.quality_passed(rejected)
+    assert rejected['score']['structureCorrect'] < rejected['score']['structureExpected']
+
+
 def test_structure_scoring_uses_matched_ids_and_includes_idless_material() -> None:
     case = next(case for case in ev.load_manifest(Path("evals/cases.json"))["cases"] if case["id"] == "text-composites")
     questions = [{key: deepcopy(value) for key, value in q.items() if key not in {"stemAliases", "answerAliases", "expectedMissingFields", "expectedNeedsReview", "expectedEvidence"}} for q in case["expectedQuestions"]]
@@ -985,6 +1008,19 @@ def test_trajectory_ignores_parallel_completion_order_and_rejects_wrong_route():
     assert "MISSING_PREREQUISITE" in ev.score_trajectory(gold_case(), events[2:], [], 4)["reasons"]
     page = {"event": "page_context", "primaryPage": 1, "contextPages": [0, 3]}
     assert "INVALID_PAGE_CONTEXT" in ev.score_trajectory(gold_case(), [page], [{"callKey": "missing"}], 4)["reasons"]
+
+
+@pytest.mark.parametrize('primary,pages,passed', [
+    (0, [0, 1], True), (1, [0, 1, 2], True), (2, [0, 1, 2, 3], True),
+    (3, [1, 2, 3, 4], True), (4, [2, 3, 4], True),
+    (3, [0, 3], False), (2, [2, 4], False),
+    (2, [0, 1, 3], False), (2, [0, 1, 2, 2, 3], False),
+])
+def test_trajectory_accepts_only_approved_two_prior_one_next_context(primary, pages, passed):
+    event = {'event': 'page_context', 'primaryPage': primary, 'contextPages': pages}
+    score = ev.score_trajectory(gold_case(), [event], [], 4)
+    assert score['passed'] is passed
+    assert ('INVALID_PAGE_CONTEXT' in score['reasons']) is not passed
 
 
 @pytest.mark.parametrize("source_type,extraction,schema", [("text", "document_parse", "ChunkParseResult"), ("image", "vision_parse", "PageParseResult")])

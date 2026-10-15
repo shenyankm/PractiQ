@@ -1,6 +1,15 @@
 # Verify document extraction and subjective grading
 
-The October 14–15, 2026 campaign is archived in the [import acceptance report](import-acceptance-20261015.md), [resume metric notes](import-resume-metrics-20261015.md), and [machine-readable summary](evidence/import-20261015-summary.json). The user stopped further optimization and paid testing. Per-format maximum answer matches come from different completed stages and do not establish final whole-document quality or a final 99-trial improvement. Interrupted calls and unknown usage remain recorded.
+The October 14–15, 2026 campaign, including the resumed DashScope iteration,
+is archived in the [import acceptance report](import-acceptance-20261015.md),
+[resume metric notes](import-resume-metrics-20261015.md), and
+[machine-readable summary](evidence/import-20261015-summary.json). The user stopped
+model work after DashScope returned `Arrearage`. The last complete focused stage
+scored 26/27; the final stage recorded 20 completed trials, one paused trial and
+six not run, and independently lost 50/72 PDF material observations. Acceptance
+remains failed/incomplete. Historical per-format maxima come from different
+source snapshots; no final MAIN99 or current-candidate large-file improvement is
+established. Unknown usage remains unknown.
 
 This guide separates document extraction quality, subjective grading samples, and engineering checks. The extraction dataset covers text, CSV, PDF and images. Word/Excel uploads are normalized by the independent service before entering these same extractors; Office availability and source limits follow the [service Office guide](desktop-office.md). Verify the deployed engine separately, without model calls, using the [unchanged Office fixtures and conversion procedure](../../app/fixtures/office/README.md). The practice app contains no Office engine. Historical DOCX model results below and in `server/reports/` describe earlier parsers, not the quality of the current service conversion path.
 
@@ -50,6 +59,24 @@ These rule-based synthetic samples are not independent teacher annotations or cr
 
 Check gold labels against source files manually; never copy model outputs back as correct answers. PDF and image figures are evaluated using visual-model categories such as `diagram`. Humans review the meaning of visual descriptions.
 
+### Source-grounded composite annotation correction (2026-10-15)
+
+The user confirmed a source review of `text-composites` before the resumed
+evaluation. Its word-bank and cloze passages retain their printed final periods;
+ordering and matching items retain printed `0`/`1` labels. The matching stem also
+accepts the literal source title `Match words and numbers (one-to-one)`, while
+the annotated `one_to_one` policy remains required. See the
+[unchanged source](../evals/fixtures/text/composites.txt), lines 7, 10, 13, 15–16.
+Regression controls reject lost periods, lost labels and invented title suffixes.
+
+This annotation correction leaves all 33 cases, source bytes, answers,
+critical/holdout flags, scorer `6.2.0` and thresholds unchanged. The manifest hash changes from
+`84dd2203df0da65dc02ab85dbdd2d6b50f363449f2a1b6cc1920f523fcdc0b7e` to
+`65c9d1b5b302453774c1538acbcf590b36b388788fcbbd8e3d9647787328aefc`.
+Keep the original frozen dataset and failed reports; freeze the corrected dataset
+separately and run fresh evaluations. Scores using these two dataset hashes are
+not a directly comparable before/after measure of extraction improvement.
+
 Source review on October 9, 2026 corrected only `text-translation-writing`'s
 `sourceLanguage` from `zh-CN` to `null`. The instruction states only "into English",
 not the source language. The existing extraction contract requires an explicit
@@ -59,6 +86,21 @@ required an unstated language. Earlier reports retain their original hashes and
 failures. Answers, other labels, critical gates and the holdout remain unchanged. The manifest/dataset
 hash changes, so retain earlier reports and establish a new three-repetition
 baseline before comparing candidates. Scoring semantics and version are unchanged.
+
+### Approved visual-context process correction (2026-10-15)
+
+Scorer `6.3.0` changes only the visual-context process window, following explicit
+user approval. A page may use the previous two pages and the next page as context,
+with at most four distinct pages including the primary page. Missing primary
+pages, duplicates, earlier pages and later pages still fail the process check.
+This matches the existing bounded production window used to retain long material.
+Content scoring, source gold, answers and quality thresholds are unchanged.
+
+Preserve scorer `6.2.0`, its locks and its failed reports. Freeze `6.3.0` separately
+and establish a fresh three-repetition baseline. Scoring saved outputs under both
+versions explains the process-rule difference; it does not demonstrate a new
+extraction improvement or replace the required fresh live matrix. Do not compare
+quality scores across these scorer versions as a before/after model result.
 
 ### Answerless PNG provenance and source review
 
@@ -477,6 +519,69 @@ The first two commands validate the dataset and scorer with substitutes. Complet
 ## Composite option ownership
 
 Verify material membership (`parentId`) separately from shared options (`optionSourceId`). A word-bank parent owns shared choices; a cloze child retains its printed local choices and leaves `optionSourceId=null`. Do not move those choices onto a cloze parent to satisfy a failed shared-options validation. Complete trees whose parents, children and blank references are anchored to the current unit are validated within the existing correction loop; IDs are never guessed or rewritten to pass. Incomplete trees and external continuations remain subject to final merge validation. Keep the failed attempts and their known usage in the report; a stopped page remains a partial result. Freeze fresh prompt and source fingerprints before a follow-up live run.
+
+When an emitted `optionSourceId` resolves to a question in the current unit, its
+owner must be a word bank and must equal the child's `parentId`. Reject inconsistent
+local relations inside the existing correction loop rather than saving them and
+discarding the page at final merge. Missing external owners still defer to merge;
+the service never fills parent IDs or reconstructs passage blanks from answers.
+
+Diagram candidates receive a four-percent page margin, clamped to the page, before
+review so nearby labels remain visible. The review coordinates and candidate JPEG
+use the same bounds. This margin does not establish completeness: uncertain checks
+still prevent crop delivery, and saved crop bytes require independent verification.
+
+The model schema asks for literal printed titles and question wording, including
+local wording or hints for gaps without their own prompt. Standalone material
+must remain in typed content parts, even when `sourceText` also quotes it.
+An answer-only primary page supplies answer evidence through the existing page
+context; it must not emit a copied question from a neighboring page. Verify these
+rules with saved results and ZIPs; prompt instructions alone do not prove fidelity.
+
+The model-facing schema requires `passage` and `contentBlocks` arrays, including
+empty arrays when no material exists; the public import contract is unchanged.
+Fresh grammar-fill and sentence-selection responses must retain their quoted
+exercise title without the type prefix. When the quoted source explicitly shows
+a numbered underscore gap, its number belongs to the blank marker, not adjacent
+passage text. Violations enter the existing bounded correction loop; historical
+checkpoint reads and text without that evidence remain unchanged.
+
+The same title check covers explicit dash-separated exercise headings, including
+word-bank, cloze, ordering, matching and explicit `Reading comprehension — title`
+headings. Brief reading/listening audit references and inline `Reading: passage
+text` are not treated as separately printed titles. A heading without title text
+does not consume the next material line. All title discrepancies in a unit
+are returned together through the existing correction loop.
+
+Multi-page vision first extracts from PRIMARY alone. A second call may complete
+those records using context pages followed by the primary image; ordinary question
+IDs must remain exactly the same through the existing correction loop. An empty
+PRIMARY response skips context completion. Drafts without stable ordinary IDs
+retain their primary-only result rather than inventing IDs. Composite continuation
+fragments and external parent references remain allowed. Both calls retain usage,
+and page-context events record each model input window. The context draft omits
+empty/default metadata while retaining extracted content, and remains subject to
+the existing model-input limit. Context errors also carry prior known PRIMARY
+usage to local callers; persisted call records remain available independently.
+
+A fresh ordinary question whose declared page anchor points outside PRIMARY is
+also rejected within correction; its ID is never rewritten. These checks constrain
+model output, not independent source truth: first-pass omissions or inventions
+still fail the frozen live quality checks. Historical checkpoint loading does not
+activate the scoped context-identity constraint.
+
+For proven overlap at the same unique source position, an omitted type ID and a
+built-in label matching the resolved kind/mode compare as metadata. The output
+keeps its original type ID, nulls, review flags and source associations. Custom type
+IDs and other content differences still conflict; ambiguous locations and actual
+repeated source questions are retained. Saved-output replay verifies this merge
+rule but does not replace fresh live evaluation.
+
+Mixed numbered and unnumbered exercise headings do not establish an exact record
+count or a complete source-ID set. Preserve the existing source spans and let the
+model extract every exercise; a numbered child under a reading heading must not
+make the entire document a one-record source. Explicit permission to reuse matching
+paragraphs/items maps to `many_to_one`; missing policy stays null.
 
 ## Grading format Badcases
 

@@ -1,5 +1,7 @@
 """Model-output review and cross-unit recovery regressions."""
 
+import re
+from copy import deepcopy
 from unittest.mock import AsyncMock
 from uuid import uuid4
 
@@ -28,6 +30,24 @@ def complete_question(stem, source_id, confidence=0.8):
         "answerPayload": {"text": "Printed answer"}, "analysis": "Printed explanation",
         "confidence": confidence, "needsReview": False,
     }
+
+
+def source_responses(respond, count, pages):
+    if not pages:
+        return [respond] * count
+    pending = [respond] * count
+    primary = {}
+
+    def response(messages, schema):
+        page = next(int(match[1]) for message in reversed(messages)
+                    if isinstance(message.content, str) and (match := re.search(r'PRIMARY page (\d+)', message.content)))
+        # These recovery tests isolate final merging; context has no new source data.
+        if messages[-1].content.startswith('Complete PRIMARY page '):
+            return deepcopy(primary[page])
+        primary[page] = pending.pop(0)(messages, schema)
+        return deepcopy(primary[page])
+
+    return [response] * (count * 2)
 
 
 async def test_duplicate_ids_are_corrected_within_the_model_boundary(monkeypatch):
@@ -89,7 +109,7 @@ async def test_shared_option_answer_conflict_retries_only_its_source_unit(monkey
         calls += 1
         return {"questions": [{**child, "answerPayload": {"correct": ["C" if calls == 1 else "B"]}}]}
 
-    api, reference, model = await setup_api(monkeypatch, [respond] * 3, parts=["Word bank", "Choose"])
+    api, reference, model = await setup_api(monkeypatch, source_responses(respond, 3, pages), parts=["Word bank", "Choose"])
     if pages:
         monkeypatch.setattr(document, "extract", AsyncMock(return_value=ExtractedDocument(text="", page_images=[make_image(), make_image()])))
     created = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference), failurePolicy="review"))
@@ -99,13 +119,13 @@ async def test_shared_option_answer_conflict_retries_only_its_source_unit(monkey
     assert state["state"] == "WAITING_REVIEW"
     assert "retry_failed" in state["allowedActions"] and "resume" not in state["allowedActions"]
     assert [(item["stage"], item["index"], item["code"]) for item in state["failures"]] == [("vision_parse" if pages else "document_parse", 1, "OUTPUT_INVALID")]
-    assert len(model.calls) == len(state["usage"]) == 2
+    assert len(model.calls) == len(state["usage"]) == 2 * (2 if pages else 1)
     await task_api.control_task(thread, DocumentTaskControl(requestId=uuid4(), action="retry_failed", checkpointId=state["checkpointId"], units=[FailedUnit(stage="vision_parse" if pages else "document_parse", index=1)]))
     await api.wait_idle()
     state = await task_api.get_task(thread)
     assert state["status"] == "SUCCEEDED" and state["failures"] == []
     assert state["result"]["questions"][1]["answerPayload"] == {"correct": ["B"]}
-    assert len(model.calls) == len(state["usage"]) == 3
+    assert len(model.calls) == len(state["usage"]) == 3 * (2 if pages else 1)
 
 
 def test_question_tree_does_not_translate_unrelated_value_errors(monkeypatch):
@@ -138,7 +158,7 @@ async def test_cross_unit_duplicate_ids_preserve_successes_and_allow_explicit_re
         second_calls += 1
         return {"questions": [{**second, "id": "same" if second_calls == 1 else "second"}]}
 
-    api, reference, model = await setup_api(monkeypatch, [respond] * 3, parts=["First", "Second"])
+    api, reference, model = await setup_api(monkeypatch, source_responses(respond, 3, pages), parts=["First", "Second"])
     if pages:
         monkeypatch.setattr(document, "extract", AsyncMock(return_value=ExtractedDocument(
             text="", page_images=[make_image(), make_image()],
@@ -153,7 +173,7 @@ async def test_cross_unit_duplicate_ids_preserve_successes_and_allow_explicit_re
     assert [(f["stage"], f["index"], f["code"]) for f in state["failures"]] == [
         ("vision_parse" if pages else "document_parse", 1, "OUTPUT_INVALID"),
     ]
-    assert len(model.calls) == 2  # A merge conflict never silently starts another paid call.
+    assert len(model.calls) == 2 * (2 if pages else 1)  # A merge conflict never silently starts another paid call.
     if policy == "review":
         assert state["state"] == "WAITING_REVIEW" and "accept_partial" in state["allowedActions"]
         await task_api.control_task(thread, DocumentTaskControl(
@@ -163,7 +183,7 @@ async def test_cross_unit_duplicate_ids_preserve_successes_and_allow_explicit_re
         state = await task_api.get_task(thread)
     assert state["status"] == "PARTIAL"
     assert [q["stem"] for q in state["result"]["questions"]] == ["First"]
-    assert len(model.calls) == 2
+    assert len(model.calls) == 2 * (2 if pages else 1)
     await task_api.control_task(thread, DocumentTaskControl(
         requestId=uuid4(), action="retry_failed", checkpointId=state["checkpointId"],
     ))
@@ -171,7 +191,7 @@ async def test_cross_unit_duplicate_ids_preserve_successes_and_allow_explicit_re
     state = await task_api.get_task(thread)
     assert state["status"] == "SUCCEEDED" and state["failures"] == []
     assert [q["stem"] for q in state["result"]["questions"]] == ["First", "Second"]
-    assert len(model.calls) == len(state["usage"]) == 3
+    assert len(model.calls) == len(state["usage"]) == 3 * (2 if pages else 1)
 
 
 @pytest.mark.usefixtures("disposable_databases")
@@ -223,7 +243,7 @@ async def test_conflicting_child_unit_preserves_partial_passage_and_retry_restor
         return {"questions": [*second[:-1], {**second[-1], "id": "duplicate" if second_calls == 1 else "second"}]}
 
     parts = ["\n".join(q["sourceText"] for q in unit) for unit in [first, second]]
-    api, reference, model = await setup_api(monkeypatch, [respond] * 3, parts=parts)
+    api, reference, model = await setup_api(monkeypatch, source_responses(respond, 3, pages), parts=parts)
     if pages:
         monkeypatch.setattr(document, "extract", AsyncMock(return_value=ExtractedDocument(
             text="", page_images=[make_image(), make_image()],
@@ -256,7 +276,7 @@ async def test_conflicting_child_unit_preserves_partial_passage_and_retry_restor
     assert retained_parent.passage[5].label == "3" and retained_parent.passage[5].questionId is None
     assert state["processing"]["quality"]["reviewRequired"]
     assert {"questionId": retained_parent.id, "code": "MISSING_FIELDS"} in state["processing"]["quality"]["issues"]
-    assert len(model.calls) == len(state["usage"]) == 2
+    assert len(model.calls) == len(state["usage"]) == 2 * (2 if pages else 1)
     assert [(f["index"], f["code"]) for f in state["failures"]] == [(1, "OUTPUT_INVALID")]
     await task_api.control_task(thread, DocumentTaskControl(
         requestId=uuid4(), action="retry_failed", checkpointId=state["checkpointId"],
@@ -275,7 +295,7 @@ async def test_conflicting_child_unit_preserves_partial_passage_and_retry_restor
     if conflict_kind == "continuation":
         assert len(restored_parent.passage) == len(parent["passage"]) + 1
         assert restored_parent.passage[-1].textValue == "Continuation evidence"
-    assert len(model.calls) == len(state["usage"]) == 3
+    assert len(model.calls) == len(state["usage"]) == 3 * (2 if pages else 1)
 
 
 async def test_failed_word_bank_parent_can_be_accepted_without_inventing_options(monkeypatch):
@@ -340,7 +360,7 @@ async def test_tree_error_after_continuation_retries_the_offending_unit(monkeypa
         return {"questions": [{**child, "answerMode": "reading" if child_calls == 1 else "short_answer",
                                "answerPayload": None if child_calls == 1 else child["answerPayload"]}]}
 
-    api, reference, model = await setup_api(monkeypatch, [respond] * 4, parts=["First", "Second", "Child"])
+    api, reference, model = await setup_api(monkeypatch, source_responses(respond, 4, pages), parts=["First", "Second", "Child"])
     if pages:
         monkeypatch.setattr(document, "extract", AsyncMock(return_value=ExtractedDocument(
             text="", page_images=[make_image(), make_image(), make_image()],
@@ -355,7 +375,7 @@ async def test_tree_error_after_continuation_retries_the_offending_unit(monkeypa
     assert [(f["stage"], f["index"], f["code"]) for f in state["failures"]] == [
         ("vision_parse" if pages else "document_parse", 2, "OUTPUT_INVALID"),
     ]
-    assert "retry_failed" in state["allowedActions"] and len(model.calls) == 3
+    assert "retry_failed" in state["allowedActions"] and len(model.calls) == 3 * (2 if pages else 1)
     await task_api.control_task(thread, DocumentTaskControl(
         requestId=uuid4(), action="retry_failed", checkpointId=state["checkpointId"],
     ))
@@ -363,7 +383,7 @@ async def test_tree_error_after_continuation_retries_the_offending_unit(monkeypa
     state = await task_api.get_task(thread)
     assert state["status"] == "SUCCEEDED" and state["failures"] == []
     assert [(q["id"], q["parentId"]) for q in state["result"]["questions"]] == [("q0", None), ("q1", "q0")]
-    assert len(model.calls) == len(state["usage"]) == 4
+    assert len(model.calls) == len(state["usage"]) == 4 * (2 if pages else 1)
 
 
 @pytest.mark.usefixtures("disposable_databases")
@@ -388,7 +408,7 @@ async def test_oversized_continuation_retries_only_its_source_unit(monkeypatch, 
         calls += 1
         return {"questions": [{**parent, "sourceText": "Second", field: values("Second") if calls == 1 else []}]}
 
-    api, reference, model = await setup_api(monkeypatch, [respond] * 3, parts=["First", "Second"])
+    api, reference, model = await setup_api(monkeypatch, source_responses(respond, 3, pages), parts=["First", "Second"])
     if pages:
         monkeypatch.setattr(document, "extract", AsyncMock(return_value=ExtractedDocument(
             text="", page_images=[make_image(), make_image()],
@@ -401,7 +421,7 @@ async def test_oversized_continuation_retries_only_its_source_unit(monkeypatch, 
     state = await task_api.get_task(thread)
     assert state["state"] == "WAITING_REVIEW"
     assert [(f["index"], f["code"]) for f in state["failures"]] == [(1, "OUTPUT_INVALID")]
-    assert len(model.calls) == len(state["usage"]) == 2
+    assert len(model.calls) == len(state["usage"]) == 2 * (2 if pages else 1)
     await task_api.control_task(thread, DocumentTaskControl(
         requestId=uuid4(), action="retry_failed", checkpointId=state["checkpointId"],
     ))
@@ -409,4 +429,4 @@ async def test_oversized_continuation_retries_only_its_source_unit(monkeypatch, 
     state = await task_api.get_task(thread)
     assert state["status"] == "SUCCEEDED" and state["failures"] == []
     assert len(state["result"]["questions"][0][field]) == count
-    assert len(model.calls) == len(state["usage"]) == 3
+    assert len(model.calls) == len(state["usage"]) == 3 * (2 if pages else 1)

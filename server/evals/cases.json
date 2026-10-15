@@ -893,6 +893,10 @@
             {
               "partType": "blank",
               "questionId": "w2"
+            },
+            {
+              "partType": "text",
+              "textValue": "."
             }
           ],
           "options": [
@@ -945,6 +949,10 @@
             {
               "partType": "blank",
               "questionId": "c1"
+            },
+            {
+              "partType": "text",
+              "textValue": "."
             }
           ]
         },
@@ -983,11 +991,13 @@
           "items": [
             {
               "id": 0,
-              "content": "Two"
+              "content": "Two",
+              "label": "0"
             },
             {
               "id": 1,
-              "content": "One"
+              "content": "One",
+              "label": "1"
             }
           ]
         },
@@ -1012,23 +1022,30 @@
             {
               "id": 0,
               "side": "left",
-              "content": "One"
+              "content": "One",
+              "label": "0"
             },
             {
               "id": 1,
               "side": "left",
-              "content": "Two"
+              "content": "Two",
+              "label": "1"
             },
             {
               "id": 0,
               "side": "right",
-              "content": "1"
+              "content": "1",
+              "label": "0"
             },
             {
               "id": 1,
               "side": "right",
-              "content": "2"
+              "content": "2",
+              "label": "1"
             }
+          ],
+          "stemAliases": [
+            "Match words and numbers (one-to-one)"
           ]
         }
       ],
