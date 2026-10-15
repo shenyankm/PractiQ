@@ -73,7 +73,8 @@ dependencies {
     androidTestImplementation("androidx.test:runner:1.6.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.7.0")
-    androidTestImplementation("com.fasterxml.jackson.core:jackson-databind:2.15.3")
+    // Instrumentation must use the same Jackson version as the locked app runtime.
+    androidTestImplementation("com.fasterxml.jackson.core:jackson-databind")
 }
 
 apply(from = "tauri.build.gradle.kts")
