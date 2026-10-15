@@ -1,0 +1,245 @@
+{
+  "baseline": "ef14a31c92c9a31751e089b2893d52c2bd562ff0",
+  "python": "3.14.7",
+  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "scope": "Synthetic local CPU paths, fake task reads/storage; no DB, HTTP, model or production latency claim",
+  "duplicateDetection": [
+    {
+      "questions": 100,
+      "groups": 0,
+      "visuals": 0,
+      "associationShape": "unassociated",
+      "before": {
+        "samplesMs": [
+          1.7560000014782418,
+          1.7332090028503444,
+          1.7970829976547975,
+          1.7453330001444556,
+          1.72625000050175
+        ],
+        "medianMs": 1.7453330001444556,
+        "outputSha256": "e218a0f240efd79417dda1cbf8854f5e51453181120e83cbc86e61f7c0ac3345"
+      },
+      "after": {
+        "samplesMs": [
+          1.8426250026095659,
+          1.7350839989376254,
+          1.7389999993611127,
+          1.7057080003723968,
+          1.7805419993237592
+        ],
+        "medianMs": 1.7389999993611127,
+        "outputSha256": "e218a0f240efd79417dda1cbf8854f5e51453181120e83cbc86e61f7c0ac3345"
+      },
+      "speedup": 1.0036417485829037
+    },
+    {
+      "questions": 100,
+      "groups": 100,
+      "visuals": 100,
+      "associationShape": "per-question",
+      "before": {
+        "samplesMs": [
+          3.1199170007312205,
+          3.031167001608992,
+          3.162000000884291,
+          3.0475419989670627,
+          3.0508339987136424
+        ],
+        "medianMs": 3.0508339987136424,
+        "outputSha256": "e218a0f240efd79417dda1cbf8854f5e51453181120e83cbc86e61f7c0ac3345"
+      },
+      "after": {
+        "samplesMs": [
+          2.243333001388237,
+          2.124249996995786,
+          2.123833997757174,
+          2.113499998813495,
+          2.1195840017753653
+        ],
+        "medianMs": 2.123833997757174,
+        "outputSha256": "e218a0f240efd79417dda1cbf8854f5e51453181120e83cbc86e61f7c0ac3345"
+      },
+      "speedup": 1.4364747913139186
+    },
+    {
+      "questions": 100,
+      "groups": 100,
+      "visuals": 0,
+      "associationShape": "cross-tree-sections",
+      "before": {
+        "samplesMs": [
+          0.7680000016989652,
+          0.7765829977870453,
+          0.7652499989490025,
+          0.7638339993718546,
+          0.7513330019719433
+        ],
+        "medianMs": 0.7652499989490025,
+        "outputSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "after": {
+        "samplesMs": [
+          0.7134160005080048,
+          0.7782499997119885,
+          0.677874999382766,
+          0.6677919991489034,
+          0.6804589975217823
+        ],
+        "medianMs": 0.6804589975217823,
+        "outputSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "speedup": 1.1246085388480824
+    },
+    {
+      "questions": 1000,
+      "groups": 0,
+      "visuals": 0,
+      "associationShape": "unassociated",
+      "before": {
+        "samplesMs": [
+          20.617666999896755,
+          22.351791001710808,
+          25.41712499805726,
+          28.410667000571266,
+          30.444874999375315
+        ],
+        "medianMs": 25.41712499805726,
+        "outputSha256": "d703aa74b299013420dbae1a8de6fe92a42651759ed5051be004423a8b8738ae"
+      },
+      "after": {
+        "samplesMs": [
+          166.28724999827682,
+          59.23329100187402,
+          91.31749999869498,
+          54.43262499829871,
+          43.47008400145569
+        ],
+        "medianMs": 59.23329100187402,
+        "outputSha256": "d703aa74b299013420dbae1a8de6fe92a42651759ed5051be004423a8b8738ae"
+      },
+      "speedup": 0.429102023003468
+    },
+    {
+      "questions": 1000,
+      "groups": 1000,
+      "visuals": 1000,
+      "associationShape": "per-question",
+      "before": {
+        "samplesMs": [
+          118.93966700154124,
+          115.38416600160417,
+          112.9469169973163,
+          116.29591700329911,
+          118.78341600095155
+        ],
+        "medianMs": 116.29591700329911,
+        "outputSha256": "d703aa74b299013420dbae1a8de6fe92a42651759ed5051be004423a8b8738ae"
+      },
+      "after": {
+        "samplesMs": [
+          21.961250000458676,
+          21.743000001151813,
+          22.683416998916073,
+          22.56524999756948,
+          21.954916999675333
+        ],
+        "medianMs": 21.961250000458676,
+        "outputSha256": "d703aa74b299013420dbae1a8de6fe92a42651759ed5051be004423a8b8738ae"
+      },
+      "speedup": 5.2955053560644405
+    },
+    {
+      "questions": 1000,
+      "groups": 1000,
+      "visuals": 0,
+      "associationShape": "cross-tree-sections",
+      "before": {
+        "samplesMs": [
+          14.382332999957725,
+          14.351166002597893,
+          14.145749999443069,
+          15.004917000624118,
+          14.076749997911975
+        ],
+        "medianMs": 14.351166002597893,
+        "outputSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "after": {
+        "samplesMs": [
+          7.7376670014928095,
+          7.477082999685081,
+          8.839042002364295,
+          8.96695800111047,
+          8.089499999186955
+        ],
+        "medianMs": 8.089499999186955,
+        "outputSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "speedup": 1.7740485819939766
+    }
+  ],
+  "artifactMembership": [
+    {
+      "questions": 100,
+      "optionsPerQuestion": 20,
+      "referenceAtEnd": true,
+      "before": {
+        "samplesMs": [
+          2.5404580010217614,
+          2.5872080004774034,
+          2.567708997958107,
+          2.7938330022152513,
+          2.425750000838889
+        ],
+        "medianMs": 2.567708997958107,
+        "referenceSerializations": 2103,
+        "outputSha256": "8f8cbb7dcf46e0bc7d53265749a6c17d116093a6ba95e442764060c76fd4a86c"
+      },
+      "after": {
+        "samplesMs": [
+          1.1367080005584285,
+          1.1447920005593915,
+          1.2109170020266902,
+          1.0964579996652901,
+          1.0899580011027865
+        ],
+        "medianMs": 1.1367080005584285,
+        "referenceSerializations": 1,
+        "outputSha256": "8f8cbb7dcf46e0bc7d53265749a6c17d116093a6ba95e442764060c76fd4a86c"
+      },
+      "speedup": 2.258899380224889
+    },
+    {
+      "questions": 1000,
+      "optionsPerQuestion": 20,
+      "referenceAtEnd": true,
+      "before": {
+        "samplesMs": [
+          22.05162500104052,
+          21.824957999342587,
+          22.59258399863029,
+          22.02979100184166,
+          22.071874998800922
+        ],
+        "medianMs": 22.05162500104052,
+        "referenceSerializations": 21003,
+        "outputSha256": "8f8cbb7dcf46e0bc7d53265749a6c17d116093a6ba95e442764060c76fd4a86c"
+      },
+      "after": {
+        "samplesMs": [
+          11.16695900054765,
+          10.318334003386553,
+          10.45216700003948,
+          10.221290998742916,
+          10.405665998405311
+        ],
+        "medianMs": 10.405665998405311,
+        "referenceSerializations": 1,
+        "outputSha256": "8f8cbb7dcf46e0bc7d53265749a6c17d116093a6ba95e442764060c76fd4a86c"
+      },
+      "speedup": 2.1191940049219316
+    }
+  ],
+  "cyclicGcEnabledDuringTiming": true
+}

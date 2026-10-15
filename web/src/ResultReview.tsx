@@ -111,10 +111,14 @@ export default function ResultReview({ task, preview, client }: { task: Document
   }, [preview, task.result, task.processing]);
   const filteredEntries = useMemo(() => {
     const keyword = search.trim().toLocaleLowerCase();
+    const optionMatches = new Map<ParsedQuestion["options"], boolean>();
     return entries.filter(entry => {
       const q = entry.question;
+      if (reviewOnly && !q.needsReview) return false;
+      if (!keyword || [q.id, q.stem, q.sourceText].some(text => text?.toLocaleLowerCase().includes(keyword))) return true;
       const options = relatedQuestion(entry, questions, q.optionSourceId)?.options || q.options;
-      return (!reviewOnly || q.needsReview) && (!keyword || [q.id, q.stem, q.sourceText, ...options.map(option => option.content)].some(text => text?.toLocaleLowerCase().includes(keyword)));
+      if (!optionMatches.has(options)) optionMatches.set(options, options.some(option => option.content?.toLocaleLowerCase().includes(keyword)));
+      return optionMatches.get(options)!;
     });
   }, [entries, questions, search, reviewOnly]);
   const currentPage = Math.min(page, Math.max(0, Math.ceil(filteredEntries.length / 20) - 1));

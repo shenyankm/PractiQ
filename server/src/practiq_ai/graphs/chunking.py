@@ -793,11 +793,29 @@ def find_duplicate_question_trees(
     *, source_evidence: dict[str, SourceEvidence | None] | None = None,
 ) -> list[list[list[str]]]:
     """Identify evidence-identical trees without changing any question or reference."""
-    seen: dict[str, list[list[int]]] = {}
-    for indexes in _whole_question_trees(questions):
-        if any(index in group.questionIndexes and not set(group.questionIndexes) <= set(indexes)
-               for index in indexes for group in groups):
+    trees = _whole_question_trees(questions)
+    tree_by_question = {index: tree for tree, indexes in enumerate(trees) for index in indexes}
+    excluded: set[int] = set()
+    groups_by_question: dict[int, list[ParsedGroup]] = {}
+    for group in groups:
+        members = set(group.questionIndexes)
+        owners = {tree_by_question.get(index) for index in members}
+        if len(owners) > 1 or None in owners:
+            excluded.update(tree for tree in owners if tree is not None)
+            if len(excluded) == len(trees):
+                return []
             continue
+        for index in members:
+            groups_by_question.setdefault(index, []).append(group)
+    visuals_by_question: dict[int, list[VisualElement]] = {}
+    for visual in visuals:
+        for index in set(visual.questionIndexes):
+            visuals_by_question.setdefault(index, []).append(visual)
+    seen: dict[str, list[list[int]]] = {}
+    for tree, indexes in enumerate(trees):
+        if tree in excluded:
+            continue
+        local_indexes = {index: position for position, index in enumerate(indexes)}
         evidence = [source_evidence.get(cast(str, questions[index].id)) for index in indexes] if source_evidence else []
         if source_evidence and any(questions[index].id in source_evidence for index in indexes):
             if not all(evidence):
@@ -823,8 +841,8 @@ def find_duplicate_question_trees(
                 if block["questionId"]:
                     block["questionId"] = local_ids[block["questionId"]]
             node["groupEvidence"] = sorted(
-                [(group.title, group.instructions, [indexes.index(member) for member in group.questionIndexes])
-                 for group in groups if index in group.questionIndexes],
+                [(group.title, group.instructions, [local_indexes[member] for member in group.questionIndexes])
+                 for group in groups_by_question.get(index, [])],
                 key=lambda value: json.dumps(value, ensure_ascii=False),
             )
             node["visuals"] = [
@@ -833,7 +851,7 @@ def find_duplicate_question_trees(
                  "imageSha256": visual.imageRef.sha256 if visual.imageRef else None,
                  "sourceSha256": visual.sourceRef.sha256 if visual.sourceRef else None,
                  "sourceBbox": visual.bbox if visual.imageRef is None else None}
-                for visual in visuals if index in visual.questionIndexes
+                for visual in visuals_by_question.get(index, [])
             ]
             nodes.append(node)
         digest = hashlib.sha256(json.dumps(nodes, sort_keys=True, ensure_ascii=False, allow_nan=False).encode()).hexdigest()

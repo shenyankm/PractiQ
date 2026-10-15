@@ -1,0 +1,50 @@
+{
+  "baseline": "ef14a31c92c9a31751e089b2893d52c2bd562ff0",
+  "sourceSha256": {
+    "server/src/practiq_ai/graphs/chunking.py": "c7a0c65e3ee94bce7eb81261bdf8ba5b3941e52d4722099adf25f41bf30c4883",
+    "server/src/practiq_ai/webapp.py": "770a9bd0f27795e898cc005da6e09e06c3ea07f8ec5914a8829419b02dd3a323",
+    "web/src/ResultReview.tsx": "2d6352f6446b78c0a7d600fe56aa0a69c7cbabff7de18af6c309b53c05e0a7f9",
+    "server/scripts/benchmark_web_server.py": "4cb8c52da3d9f601118871b558e92e55255c75ab14e9b45c6960d01b9c95e353"
+  },
+  "serviceTests": {
+    "name": "pytest",
+    "errors": "0",
+    "failures": "0",
+    "skipped": "0",
+    "tests": "2635",
+    "time": "542.757",
+    "timestamp": "2026-10-15T17:48:33.512637+08:00"
+  },
+  "coverage": {
+    "version": "7.16.0",
+    "timestamp": "1792058258500",
+    "lines-valid": "6993",
+    "lines-covered": "6622",
+    "line-rate": "0.9469",
+    "branches-valid": "2620",
+    "branches-covered": "2355",
+    "branch-rate": "0.8989",
+    "complexity": "0"
+  },
+  "finalProbeStatus": "PASSED",
+  "probeFingerprint": "0678ff46deb93c96ba5db4f57b6619a562f3f8a02a8a8f10c9e6633a1704d986",
+  "probeCount": 61,
+  "probeMetrics": {
+    "recoverySuccessRate": 100.0,
+    "correctStopRate": 100.0,
+    "routingPassRate": 100.0,
+    "unknownUsagePassRate": 100.0
+  },
+  "durableCrashRecoveryMetric": "NOT_ASSESSED",
+  "serviceGates": "Lock, Ruff, Pyright, 33 fixture cases, full tests, coverage, 61 scored probes, wheel/sdist build and 39-source-file package check passed individually",
+  "verificationHistory": "The full make verify invocation exited 2 after all 2635 tests passed because a benchmark-script metadata edit changed the fingerprint. That edit was reverted, the exact recorded fingerprint was verified, and probe scoring/static/package gates passed separately. The blocked original report was retained; the fresh report is probes-performance-final.json.",
+  "webTests": 86,
+  "webLineCoveragePercent": 97.72,
+  "productionBuildBrowserTests": 27,
+  "limits": [
+    "Synthetic CPU benchmarks; cyclic GC disabled for controlled timings",
+    "No paid models, production load, remote CI, image build or deployment",
+    "Unassociated 1000-question control has about 1 ms setup overhead",
+    "Old unfinished tasks retain the existing execution-signature boundary"
+  ]
+}
