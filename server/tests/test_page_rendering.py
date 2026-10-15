@@ -631,6 +631,46 @@ async def test_context_correction_retains_primary_composite_material(monkeypatch
     assert document.PRIMARY_PAGE.get() is None
 
 
+@pytest.mark.parametrize('field', ['passage', 'options', 'contentBlocks', 'transcript'])
+@pytest.mark.parametrize('loss', ['removed', 'changed', 'reordered'])
+async def test_context_correction_preserves_composite_payload_and_allows_additions(monkeypatch, field, loss):
+    store, reference = paged_source('pdf')
+    options = [{'label': 'A', 'content': 'early'}, {'label': 'B', 'content': 'late'}]
+    blocks = [{'partType': 'text', 'textValue': text} for text in ['Printed first part', 'Printed second part']]
+    mode = {'options': 'word_bank', 'transcript': 'listening'}.get(field, 'reading')
+    parent = {'id': 'page:1:1', 'answerMode': mode, 'stem': 'Printed exercise',
+              field: options if field == 'options' else blocks}
+    if mode == 'word_bank':
+        parent['passage'] = [blocks[0], {'partType': 'blank', 'questionId': 'page:1:2'}]
+    extra = {'label': 'C', 'content': 'later'} if field == 'options' else {'partType': 'text', 'textValue': 'Continuing part'}
+    complete = {**parent, field: [*parent[field], extra]}
+    broken_items = {'removed': parent[field][1:], 'changed': [extra, parent[field][1]],
+                    'reordered': parent[field][::-1]}[loss]
+    child = {'id': 'page:1:2', 'parentId': parent['id'], 'answerMode': 'choice',
+             'choiceVariant': 'single', 'stem': 'Choose the supplied word',
+             'options': [] if mode == 'word_bank' else options,
+             'optionSourceId': parent['id'] if mode == 'word_bank' else None,
+             'answerPayload': {'correct': ['B']}}
+    model = FakeModel(responses=[{'questions': [parent, child]},
+                                {'questions': [{**parent, field: broken_items}, child]},
+                                {'questions': [complete, child]}, {'questions': []}])
+    monkeypatch.setenv('AI_IMPORT_REVIEW', 'false')
+    monkeypatch.setenv('AI_GRAPH_MAX_CONCURRENCY', '1')
+    monkeypatch.setattr(document, 'get_object_store', lambda: store)
+    monkeypatch.setattr(document, 'get_model', lambda: model)
+    monkeypatch.setattr(document, 'extract', AsyncMock(return_value=ExtractedDocument(
+        text='', page_images=[make_image()] * 2)))
+    state = await local_graph().ainvoke({'document': reference})
+    assert state['status'] == 'SUCCEEDED', state['processing']
+    assert len(model.calls) == len(state['usage']) == 4
+    assert f'PRIMARY composite {field}' in model.calls[2][-1].content
+    kept = next(q for q in state['result']['questions'] if q['answerMode'] == mode)
+    values = [item['content'] if field == 'options' else item['textValue'] for item in kept[field]]
+    assert values == (['early', 'late', 'later'] if field == 'options' else
+                      ['Printed first part', 'Printed second part', 'Continuing part'])
+    assert document.PRIMARY_PAGE.get() is None
+
+
 @pytest.mark.parametrize('loss', ['all', 'one', 'association'])
 async def test_context_correction_preserves_primary_figures_and_reordered_owners(monkeypatch, loss):
     store, reference = paged_source('pdf')
