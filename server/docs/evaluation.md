@@ -561,7 +561,9 @@ its kind, bounding box and owning question IDs, with indexes remapped if questio
 are reordered. Table text and rows may still be completed from context; the later
 figure-verification pass owns bounding-box corrections. Missing figures or changed
 associations enter the same bounded correction loop. An empty
-PRIMARY response skips context completion. Drafts without stable ordinary IDs
+PRIMARY response skips context completion. Every PRIMARY composite parent must
+retain its source ID and answer mode; omitting a parent enters correction even if
+its children still refer to it as an external continuation. Drafts without stable IDs
 retain their primary-only result rather than inventing IDs. Composite continuation
 fragments and external parent references remain allowed. Both calls retain usage,
 and page-context events record each model input window. The context draft omits

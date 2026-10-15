@@ -599,6 +599,38 @@ async def test_primary_and_context_passes_each_have_all_correction_attempts(monk
     assert state['result']['questions'][0]['answerPayload'] == {'text': 'Printed reference'}
 
 
+@pytest.mark.parametrize('mode', ['reading', 'cloze', 'word_bank'])
+async def test_context_correction_retains_primary_composite_material(monkeypatch, mode):
+    store, reference = paged_source('pdf')
+    options = [{'label': 'A', 'content': 'early'}, {'label': 'B', 'content': 'late'}]
+    material = [{'partType': 'text', 'textValue': 'They arrive '},
+                {'partType': 'blank', 'questionId': 'page:1:2'},
+                {'partType': 'text', 'textValue': ' every day.'}]
+    parent = {'id': 'page:1:1', 'answerMode': mode, 'stem': 'Printed exercise',
+              'passage': material if mode != 'reading' else material[:1],
+              'options': options if mode == 'word_bank' else []}
+    child = {'id': 'page:1:2', 'parentId': parent['id'], 'answerMode': 'choice',
+             'choiceVariant': 'single', 'stem': 'Choose the supplied word',
+             'options': [] if mode == 'word_bank' else options,
+             'optionSourceId': parent['id'] if mode == 'word_bank' else None,
+             'answerPayload': {'correct': ['A']}}
+    model = FakeModel(responses=[{'questions': [parent, child]}, {'questions': [child]},
+                                {'questions': [parent, child]}, {'questions': []}])
+    monkeypatch.setenv('AI_IMPORT_REVIEW', 'false')
+    monkeypatch.setenv('AI_GRAPH_MAX_CONCURRENCY', '1')
+    monkeypatch.setattr(document, 'get_object_store', lambda: store)
+    monkeypatch.setattr(document, 'get_model', lambda: model)
+    monkeypatch.setattr(document, 'extract', AsyncMock(return_value=ExtractedDocument(
+        text='', page_images=[make_image()] * 2)))
+    state = await local_graph().ainvoke({'document': reference})
+    assert len(model.calls) == len(state['usage']) == 4
+    assert 'PRIMARY composite' in model.calls[2][-1].content
+    kept = next(q for q in state['result']['questions'] if q['answerMode'] == mode)
+    assert kept['passage'][0]['textValue'] == 'They arrive '
+    assert kept['options'] == parent['options']
+    assert document.PRIMARY_PAGE.get() is None
+
+
 @pytest.mark.parametrize('loss', ['all', 'one', 'association'])
 async def test_context_correction_preserves_primary_figures_and_reordered_owners(monkeypatch, loss):
     store, reference = paged_source('pdf')

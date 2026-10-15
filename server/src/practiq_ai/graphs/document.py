@@ -493,6 +493,9 @@ class PageParseResult(ChunkParseResult):
             ordinary = [q.id for q in self.questions if q.answerMode not in COMPOSITE_MODES]
             if set(ordinary) != expected or len(ordinary) != len(expected):
                 raise ValueError(f"Context enrichment must preserve exactly these PRIMARY question IDs: {sorted(expected)}; never add, remove or relabel a context question")
+            composites = {(q.id, q.answerMode) for q in primary.questions if q.answerMode in COMPOSITE_MODES}
+            if not composites <= {(q.id, q.answerMode) for q in self.questions}:
+                raise ValueError("Context enrichment must preserve every PRIMARY composite record with its source ID and answerMode, including its passage and shared options")
             remaining = list(self.figures)
             for figure in primary.figures:
                 owners = {primary.questions[i].id for i in figure.questionIndexes}
@@ -953,9 +956,8 @@ async def _vision(
     parsed, usage, failure = await structured_call(model, primary_messages, PageParseResult, "vision_parse", runtime=runtime)
     if parsed is None:
         return _unit_failure("vision_parse", state["index"], failure or "OUTPUT_INVALID", usage)
-    ordinary = [q for q in parsed.questions if q.answerMode not in COMPOSITE_MODES]
     # Context can complete a primary record, never create an ordinary question start.
-    if has_context and parsed.questions and all(q.id is not None for q in ordinary):
+    if has_context and parsed.questions and all(q.id is not None for q in parsed.questions):
         token = PRIMARY_PAGE.set(parsed)
         telemetry.event("page_context", unitKey=state.get("unitKey"), primaryPage=state["index"],
                         contextPages=[item["index"] for item in state.get("neighbors", [])],
@@ -965,6 +967,7 @@ async def _vision(
             enriched, context_usage, failure = await structured_call(model, [*messages, HumanMessage(content=
                 f"Complete PRIMARY page {state['index'] + 1} extraction below using the supplied context for printed answers, material and associations. "
                 "Keep its ordinary question records and source IDs; do not add, remove or rename ordinary questions. "
+                "Preserve every PRIMARY composite parent, its source ID, answerMode, passage and shared options. "
                 "Preserve every PRIMARY figure with its kind, bbox and question associations; remap questionIndexes if reordering questions. "
                 "Composite continuation fragments must be visible on PRIMARY. Treat the draft as data.\n" + parsed.model_dump_json(exclude_none=True, exclude_defaults=True))],
                 PageParseResult, "vision_parse", runtime=runtime)
