@@ -671,6 +671,52 @@ async def test_context_correction_preserves_composite_payload_and_allows_additio
     assert document.PRIMARY_PAGE.get() is None
 
 
+@pytest.mark.parametrize('loss', ['all', 'one', 'title', 'instructions', 'association', 'one-owner'])
+async def test_context_correction_preserves_primary_groups_and_reordered_members(monkeypatch, loss):
+    from copy import deepcopy
+
+    store, reference = paged_source('pdf')
+    questions = [{**question('First question'), 'id': 'page:1:1'},
+                 {**question('Second question'), 'id': 'page:1:2'}]
+    groups = [{'title': 'Printed section', 'instructions': 'Use the printed material.', 'questionIndexes': [0, 1]},
+              {'title': 'First-question section', 'questionIndexes': [0]}]
+    corrected = [{**groups[1], 'instructions': 'Additional context.', 'questionIndexes': [1]},
+                 {**groups[0], 'questionIndexes': [1, 0]},
+                 {'title': 'Context section', 'questionIndexes': [0]}]
+    broken = deepcopy(corrected)
+    if loss == 'all':
+        broken = []
+    elif loss == 'one':
+        broken.pop(1)
+    elif loss in {'title', 'instructions'}:
+        broken[1][loss] = 'Different source content'
+    elif loss == 'association':
+        broken[0]['questionIndexes'] = [0]
+    else:
+        broken[1]['questionIndexes'] = [1]
+    model = FakeModel(responses=[{'questions': questions, 'groups': groups},
+                                {'questions': questions[::-1], 'groups': broken},
+                                {'questions': questions[::-1], 'groups': corrected}, {'questions': []}])
+    monkeypatch.setenv('AI_IMPORT_REVIEW', 'false')
+    monkeypatch.setenv('AI_GRAPH_MAX_CONCURRENCY', '1')
+    monkeypatch.setattr(document, 'get_object_store', lambda: store)
+    monkeypatch.setattr(document, 'get_model', lambda: model)
+    monkeypatch.setattr(document, 'extract', AsyncMock(return_value=ExtractedDocument(
+        text='', page_images=[make_image()] * 2)))
+    state = await local_graph().ainvoke({'document': reference})
+    assert state['status'] == 'SUCCEEDED', state['processing']
+    assert len(model.calls) == len(state['usage']) == 4
+    assert 'PRIMARY group' in model.calls[2][-1].content
+    kept = {group['title']: group for group in state['result']['groups']}
+    by_id = {q['id']: q['stem'] for q in state['result']['questions']}
+    assert kept['Printed section']['instructions'] == groups[0]['instructions']
+    assert {by_id[qid] for qid in kept['Printed section']['questionIds']} == {'First question', 'Second question'}
+    assert [by_id[qid] for qid in kept['First-question section']['questionIds']] == ['First question']
+    assert kept['First-question section']['instructions'] == 'Additional context.'
+    assert 'Context section' in kept
+    assert document.PRIMARY_PAGE.get() is None
+
+
 @pytest.mark.parametrize('loss', ['all', 'one', 'association'])
 async def test_context_correction_preserves_primary_figures_and_reordered_owners(monkeypatch, loss):
     store, reference = paged_source('pdf')
