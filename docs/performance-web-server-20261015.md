@@ -113,6 +113,23 @@ was retained. The original Make invocation itself is not reported as exit-zero.
 The [acceptance JSON](../server/reports/web-server-performance-20261015-acceptance.json)
 keeps this distinction and the exact source hashes.
 
+### PR #241 CI follow-up
+
+The first remote [Service quality run](https://github.com/shenyankm/PractiQ/actions/runs/38717793880/job/116364698156)
+failed only the new browser comparison-count assertion: all five searches produced
+200 comparisons instead of the expected 100. Its 86 component/API tests and the
+other 26 browser scenarios passed. CI's `make web-check` uses Vite's development
+server, where the existing React StrictMode repeats the memo calculation; the
+earlier local browser acceptance used a production build.
+
+The browser test now uses the same `PRACTIQ_WEB_BUILT` mode selection as Playwright's
+server configuration: exactly 200 comparisons in development and 100 in production,
+for each of five searches. This retains the bounded-work assertion and zero-model-start
+check in both modes. No production code or server code changed in this follow-up.
+The original benchmark and acceptance files above remain historical records of
+the original run; [follow-up evidence](../server/reports/web-server-performance-20261015-ci-followup.json)
+records the updated test source and both browser modes.
+
 ## Follow-up candidates requiring separate measurement
 
 | Candidate | Concrete trigger and smallest next experiment |
@@ -144,8 +161,8 @@ configuration. Run benchmarks without concurrent verification for comparison.
 
 ## Limits and deployment
 
-No paid model calls, live extraction-quality evaluation, production load test,
-remote CI, Docker image build or deployment was performed. These CPU improvements
+The original local acceptance included no paid model calls, live extraction-quality
+evaluation, production load test, remote CI, Docker image build or deployment. These CPU improvements
 do not establish overall import latency, provider throughput, model accuracy or
 maximum concurrent capacity. Chromium checks use fake HTTP data; they do not
 establish physical-device or other-browser acceptance.

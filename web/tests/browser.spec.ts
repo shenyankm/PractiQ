@@ -100,6 +100,8 @@ test("1000 question searches scan a shared option bank once and stay passive", a
   await page.getByRole("button", { name: /sample.docx/ }).click();
   const search = page.getByRole("searchbox");
   await expect(search).toBeVisible();
+  // Development StrictMode repeats the memo calculation; production runs it once.
+  const expectedComparisons = process.env.PRACTIQ_WEB_BUILT === "1" ? 100 : 200;
   const comparisons = [];
   for (let index = 0; index < 5; index++) {
     await page.evaluate(() => { (window as typeof window & { optionComparisons: number }).optionComparisons = 0; });
@@ -107,9 +109,9 @@ test("1000 question searches scan a shared option bank once and stay passive", a
     await expect(page.getByText("显示 0 / 1000 条记录。筛选不会修改复核标记或导出内容。")).toBeVisible();
     comparisons.push(await page.evaluate(() => (window as typeof window & { optionComparisons: number }).optionComparisons));
   }
-  expect(comparisons).toEqual([100, 100, 100, 100, 100]);
+  expect(comparisons).toEqual(Array(5).fill(expectedComparisons));
   expect(starts(http.calls)).toHaveLength(0);
-  await testInfo.attach("shared-options-performance", { body: JSON.stringify({ questions: 1000, sharedOptions: 100, comparisons }), contentType: "application/json" });
+  await testInfo.attach("shared-options-performance", { body: JSON.stringify({ questions: 1000, sharedOptions: 100, expectedComparisons, comparisons }), contentType: "application/json" });
 });
 
 for (const [width, height] of [[1440, 1000], [390, 844]]) {

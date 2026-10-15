@@ -1,0 +1,57 @@
+{
+  "parentCommit": "3f4d16e0e3167cf2a3aaeb8b31d86896c750fb51",
+  "failedRun": "https://github.com/shenyankm/PractiQ/actions/runs/38717793880/job/116364698156",
+  "cause": "CI uses development StrictMode, which repeats memo calculations; the assertion assumed production counts.",
+  "localBaselineReproduction": "Before the fix, the development test failed with [200,200,200,200,200] against [100,100,100,100,100].",
+  "development": {
+    "stats": {
+      "startTime": "2026-10-15T10:09:53.785Z",
+      "duration": 33928.969000000005,
+      "expected": 27,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "metrics": {
+      "questions": 1000,
+      "sharedOptions": 100,
+      "expectedComparisons": 200,
+      "comparisons": [
+        200,
+        200,
+        200,
+        200,
+        200
+      ]
+    }
+  },
+  "production": {
+    "stats": {
+      "startTime": "2026-10-15T10:10:41.406Z",
+      "duration": 28059.396,
+      "expected": 27,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "metrics": {
+      "questions": 1000,
+      "sharedOptions": 100,
+      "expectedComparisons": 100,
+      "comparisons": [
+        100,
+        100,
+        100,
+        100,
+        100
+      ]
+    }
+  },
+  "componentApiTests": 86,
+  "webCheckAndBuild": "PASSED",
+  "serverSourceAndProbeFingerprintUnchanged": "0678ff46deb93c96ba5db4f57b6619a562f3f8a02a8a8f10c9e6633a1704d986",
+  "sourceSha256": {
+    "web/tests/browser.spec.ts": "027a61fddbb6f3a35b81280c9b7b7d0962dbb7e0deffb3e6ded69b796f5157fa"
+  },
+  "scope": "Test-only follow-up; production and server source unchanged. Fake authenticated HTTP, no live model calls."
+}
