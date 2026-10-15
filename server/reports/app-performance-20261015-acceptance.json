@@ -1,0 +1,142 @@
+{
+  "baselineCommit": "3700ce753e53424698ce3697c6e6612783b9955e",
+  "branch": "sheny/app-performance",
+  "deliveryState": "Local validation snapshot recorded before submission; publication and current remote CI/review state are tracked on the pull request.",
+  "runtimeSourcesSha256": {
+    "questions.rs": "180bcb41dcef025479c81521ebde4ef3b16abe1d39e8b5876942e24a20ffce42",
+    "sessions.rs": "57440f8a988ce7a9a294cf77ce839711f37de541ae2101ceca76fd45b12cf846"
+  },
+  "probeSha256": "7f3564aa2bc11475549d911d9293d96adca613535ecdb8bb3c55c7bbfcfadfaa",
+  "frontendRuntimeUnchanged": true,
+  "checks": [
+    {
+      "command": "make app-check AI_PYTHON=/Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14",
+      "passed": true,
+      "scope": "contracts, fixtures, frontend types/lint, 392 frontend tests, native tests, fmt and Clippy; final native edit independently rechecked below"
+    },
+    {
+      "passed": true,
+      "testsPassed": 187,
+      "ignored": 13,
+      "scope": "complete native suite after final runtime edit; opt-in benchmark, large boundary, subprocess entry and native Keychain cases are ignored by default",
+      "commands": [
+        "TAURI_CONFIG='{\"bundle\":{\"resources\":[]}}' cargo test --offline --locked --manifest-path app/src-tauri/Cargo.toml",
+        "TAURI_CONFIG='{\"bundle\":{\"resources\":[]}}' cargo fmt --manifest-path app/src-tauri/Cargo.toml --check",
+        "TAURI_CONFIG='{\"bundle\":{\"resources\":[]}}' cargo clippy --offline --locked --manifest-path app/src-tauri/Cargo.toml --all-targets -- -D warnings"
+      ]
+    },
+    {
+      "command": "npm --prefix app run test:coverage",
+      "passed": true,
+      "testsPassed": 392,
+      "skipped": 1,
+      "coveragePercent": {
+        "statements": 89.86,
+        "branches": 85.11,
+        "functions": 87.93,
+        "lines": 93.37
+      }
+    },
+    {
+      "command": "PRACTIQ_EDITOR_BENCH=... npx vitest run src/QuestionEditor.performance.test.tsx (cwd=app)",
+      "passed": true,
+      "testsPassed": 1,
+      "scope": "normally skipped editor probe, 45 edits, diagnostic jsdom evidence"
+    },
+    {
+      "command": "npm --prefix app run test:browser",
+      "passed": true,
+      "testsPassed": 67,
+      "failed": 0,
+      "scope": "final serial run; desktop/touch browser mocks, production touch-navigation build, rich content and recovery"
+    },
+    {
+      "command": "make app-package-check AI_PYTHON=... APP_PACKAGE_REPORT=...",
+      "passed": true,
+      "scope": "production frontend, macOS App/DMG and actual installer inspection; not installed or notarized",
+      "installerSha256": "7658542e7eaec85140cd0dbd267e74e025cef974a817bd562b26c965667a6296"
+    },
+    {
+      "command": "snapshot_copy_stress --ignored --test-threads=1 in three separately compiled versions, three alternating processes per version",
+      "passed": true,
+      "samplesPerVersionAndWorkloadAndOperation": 21,
+      "allPairedInputProbeOutputHashesMatch": true,
+      "singleDocumentQuestionNodesAtMost": 1000,
+      "scope": "warm document cache; synthetic temporary native database; excludes IPC, WebView, media decode and models"
+    },
+    {
+      "passed": true,
+      "focusedTestsPassed": 2,
+      "scope": "runtime source remains identical to the full native checks and package build; latest opt-in probe is compiled and executed",
+      "commands": [
+        "TAURI_CONFIG='{\"bundle\":{\"resources\":[]}}' cargo test --offline --locked --manifest-path app/src-tauri/Cargo.toml --lib snapshot_copy_tests",
+        "TAURI_CONFIG='{\"bundle\":{\"resources\":[]}}' cargo fmt --manifest-path app/src-tauri/Cargo.toml --check",
+        "TAURI_CONFIG='{\"bundle\":{\"resources\":[]}}' cargo clippy --offline --locked --manifest-path app/src-tauri/Cargo.toml --all-targets -- -D warnings"
+      ]
+    }
+  ],
+  "screenshotsInspected": [
+    "app/test-results/browser/check-responsive-content.m-516a8-outs-at-1280x720-answering--rich-content/reading-0.png",
+    "app/test-results/browser/check-responsive-content.m-c4e12-youts-at-390x844-reference--rich-content/reading-0.png"
+  ],
+  "firstAttemptsNotAcceptance": [
+    {
+      "scope": "first browser suite",
+      "result": "1 failed, 66 passed",
+      "cause": "trace shows multiple reloads while native source was being edited; final frozen-source serial full suite passed without changing assertions",
+      "trace": "/tmp/practiq-app-browser-first-20261015/check-i18n.mjs-favorite-re-ad93c-tion-filters-and-pagination-mocked/trace.zip"
+    },
+    {
+      "scope": "first editor probe",
+      "result": "alias resolution failure from repository-root working directory; rerun from app passed"
+    },
+    {
+      "scope": "preliminary native probes",
+      "result": "mismatched initial probe/input hashes and later 1000-child stress samples are excluded; final evidence uses identical probes and 999 children plus a parent"
+    }
+  ],
+  "limits": [
+    "Small position-delta medians rise 0.014 ms and long-material deltas rise 0.057 ms; no consistent improvement on the unchanged delta path is claimed.",
+    "No Windows native build/tests, Android native emulator/physical-device measurement, native WebView latency, peak-memory, cold-start or concurrent-archive throughput claim.",
+    "No clean-machine installation, signing, notarization, production deployment, live-model or remote-CI acceptance is established by this local validation record.",
+    "Native Keychain roundtrip and real 512 MiB boundary probe were not run; untouched credential/media trust boundaries retain existing checks."
+  ],
+  "logs": {
+    "appCheck": {
+      "path": "/tmp/practiq-app-check-20261015.log",
+      "sha256": "72907db4d6922f5fd3d92ebea14f66e044d928e3fb23518457a0d55770d96e3c"
+    },
+    "finalNativeCheck": {
+      "path": "/tmp/practiq-app-native-final-20261015.log",
+      "sha256": "05d23b16a29fb5a2261ad30948fc0e9c84dc13917822b1e8b80c3dfb595597be"
+    },
+    "coverage": {
+      "path": "/tmp/practiq-app-coverage-20261015.log",
+      "sha256": "05b0ff0cca4e0c8125f31e056acb37dfd76dce7a70938822a5cc41eeaad1c9b8"
+    },
+    "browserFinal": {
+      "path": "/tmp/practiq-app-browser-final-20261015.log",
+      "sha256": "12eddad184d2cd0c8077daa8b40a3e5ff90fc4d5a7f28433a5bfdc3873ee5c04"
+    },
+    "browserInitialFailed": {
+      "path": "/tmp/practiq-app-browser-20261015.log",
+      "sha256": "1fa009b7a0e73ee2a0d39bc07de6bda48dd33826afe726e6f0458dbb048b2596"
+    },
+    "editor": {
+      "path": "/tmp/practiq-app-editor.log",
+      "sha256": "0715a47d8cb691864582d53332fa0460b6f934cf80449952d64eb3d49df1b111"
+    },
+    "package": {
+      "path": "/tmp/practiq-app-package-20261015.log",
+      "sha256": "0eadcb54486afcf356a4ae1d260255714bb36f373f0bb260a154a2f438795c94"
+    },
+    "boundedBench": {
+      "path": "/tmp/practiq-app-bounded-bench.log",
+      "sha256": "9853e5488d99c3b6ec532975c478b1303c255dc48999ef936b600d49f5649c51"
+    },
+    "boundedProbeFinalCheck": {
+      "path": "/tmp/practiq-app-bounded-final-check.log",
+      "sha256": "6d8b82e82eb9fab304980695190dc36f6868ccf9770a294f895144e46bf06134"
+    }
+  }
+}

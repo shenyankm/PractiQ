@@ -206,9 +206,15 @@ impl Store {
                 list(&session, "attempts")
                     .iter()
                     .map(|attempt| {
-                        let mut value = attempt.clone();
-                        value.as_object_mut().unwrap().remove("snapshot");
-                        value
+                        Value::Object(
+                            attempt
+                                .as_object()
+                                .unwrap()
+                                .iter()
+                                .filter(|(key, _)| key.as_str() != "snapshot")
+                                .map(|(key, value)| (key.clone(), value.clone()))
+                                .collect(),
+                        )
                     })
                     .collect()
             };
