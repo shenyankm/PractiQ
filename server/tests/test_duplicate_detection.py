@@ -84,6 +84,8 @@ async def test_import_retains_duplicates_unless_user_explicitly_opts_in(monkeypa
     assert output["status"] == "SUCCEEDED" and len(model.calls) == 1
     assert len(output["result"]["questions"]) == (1 if enabled else 2)
     assert any(("after explicit opt-in" if enabled else "All copies were retained") in warning for warning in output["result"]["warnings"])
+    issues = [(item['questionId'], item['code']) for item in output['processing']['quality']['issues'] if item['code'] == 'NEEDS_REVIEW']
+    assert issues == ([] if enabled else [('q0', 'NEEDS_REVIEW'), ('q1', 'NEEDS_REVIEW')])
 
 
 @pytest.mark.parametrize("field,value", [

@@ -662,6 +662,47 @@ async def test_context_correction_preserves_primary_figures_and_reordered_owners
         ['First question'], ['Second question']]
 
 
+@pytest.mark.parametrize('loss', ['rows-missing', 'cell-changed', 'row-removed', 'text-missing', 'text-changed', 'role', 'label'])
+async def test_context_correction_preserves_primary_figure_payload_and_allows_more_rows(monkeypatch, loss):
+    from copy import deepcopy
+
+    store, reference = paged_source('pdf')
+    primary = {**question('Read the printed table'), 'id': 'page:1:1'}
+    figure = {'kind': 'table', 'description': 'Printed values', 'role': 'answer', 'label': 'Table 1',
+              'questionIndexes': [0], 'bbox': [0.1, 0.1, 0.9, 0.9], 'extractedText': 'Printed table note',
+              'tableRows': [['Metric', 'Value'], ['A', '10'], ['B', '20']]}
+    complete = {**figure, 'tableRows': [*figure['tableRows'], ['C', '30']],
+                'extractedText': figure['extractedText'] + '; continuing note'}
+    broken = deepcopy(complete)
+    if loss == 'rows-missing':
+        broken['tableRows'] = None
+    elif loss == 'cell-changed':
+        broken['tableRows'][1][1] = '99'
+    elif loss == 'row-removed':
+        broken['tableRows'].pop(1)
+    elif loss.startswith('text'):
+        broken['extractedText'] = None if loss == 'text-missing' else 'Different text'
+    elif loss == 'role':
+        broken['role'] = 'material'
+    else:
+        broken['label'] = None
+    model = FakeModel(responses=[{'questions': [primary], 'figures': [figure]},
+                                {'questions': [primary], 'figures': [broken]},
+                                {'questions': [primary], 'figures': [complete]}, {'questions': []}])
+    monkeypatch.setenv('AI_IMPORT_REVIEW', 'false')
+    monkeypatch.setenv('AI_GRAPH_MAX_CONCURRENCY', '1')
+    monkeypatch.setattr(document, 'get_object_store', lambda: store)
+    monkeypatch.setattr(document, 'get_model', lambda: model)
+    monkeypatch.setattr(document, 'extract', AsyncMock(return_value=ExtractedDocument(
+        text='', page_images=[make_image()] * 2)))
+    state = await local_graph().ainvoke({'document': reference})
+    assert len(model.calls) == len(state['usage']) == 4
+    assert 'PRIMARY figure payload' in model.calls[2][-1].content
+    visual = state['result']['visualElements'][0]
+    assert visual['role'] == 'answer' and visual['label'] == 'Table 1'
+    assert all(value in visual['extractedText'] for value in ['10', '20', '30'])
+
+
 async def test_empty_primary_page_does_not_submit_neighbors_for_question_extraction(monkeypatch):
     store, reference = paged_source('pdf')
     owned = {**question('Starts on page two'), 'id': 'page:2:1'}
