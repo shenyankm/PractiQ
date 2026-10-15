@@ -44,6 +44,96 @@ fn shared_session(
     (dir, store)
 }
 
+#[test]
+#[ignore = "release snapshot-copy workload; temporary databases only"]
+fn snapshot_copy_stress() {
+    use std::time::Instant;
+    fn sample(mut run: impl FnMut() -> Value) -> Value {
+        drop(run());
+        let mut times = Vec::new();
+        let mut expected = None;
+        for _ in 0..7 {
+            let start = Instant::now();
+            let value = run();
+            times.push(start.elapsed().as_secs_f64() * 1000.0);
+            let bytes = serde_json::to_vec(&value).unwrap();
+            let digest = (bytes.len(), crate::store::hash(&bytes));
+            if let Some(expected) = &expected {
+                assert_eq!(&digest, expected);
+            }
+            expected = Some(digest);
+        }
+        let mut sorted = times.clone();
+        sorted.sort_by(f64::total_cmp);
+        let (bytes, digest) = expected.unwrap();
+        json!({"samplesMs":times,"medianMs":sorted[3],"maxMs":sorted[6],"outputBytes":bytes,"outputSha256":digest})
+    }
+    let mut report = json!({"probeSha256":crate::store::hash(include_bytes!("shared_snapshots_tests.rs")),
+        "method":"Release Rust, temporary SQLite, one untimed warmup then seven sequential samples. Setup, output hashing and assertions excluded; operation includes result construction. No picker, IPC, WebView, physical devices or model calls.","workloads":[]});
+    for (nodes, passage_bytes, metadata) in [(20, 1000, 0), (999, 100_000, 0), (999, 10_000, 999)] {
+        let (_dir, store) = shared_session(nodes, "reading", "practice", passage_bytes);
+        let db = store.connect().unwrap();
+        let mut doc = (*store.session_document(&db, "shared").unwrap()).clone();
+        for row in doc["questions"].as_array_mut().unwrap().iter_mut().skip(1) {
+            row["question"]["options"] =
+                json!([{"label":"A","content":"Choice A"},{"label":"B","content":"Choice B"}]);
+        }
+        for i in 0..metadata {
+            doc["groups"].as_array_mut().unwrap().push(json!({"id":format!("g{i}"),"title":"Scoped group","instructions":"evidence ".repeat(100),"questionIds":[format!("q{i}")]}));
+            doc["visuals"].as_array_mut().unwrap().push(json!({"id":format!("v{i}"),"description":"visual evidence ".repeat(100),"questionIds":[format!("q{i}")]}));
+        }
+        for field in ["questions", "groups", "visuals"] {
+            assert!(list(&doc, field).len() <= 1000);
+        }
+        db.execute("UPDATE sessions SET created_at=1 WHERE id='shared'", [])
+            .unwrap();
+        db.execute(
+            "UPDATE session_documents SET content=?1 WHERE session_id='shared'",
+            [doc.to_string()],
+        )
+        .unwrap();
+        *store.session_document_cache.borrow_mut() = None;
+        let input = serde_json::to_vec(&doc).unwrap();
+        let mut workload = json!({"nodes":nodes,"passageBytes":passage_bytes,"scopedMetadataPairs":metadata,"inputBytes":input.len(),"inputSha256":crate::store::hash(&input)});
+        workload["context"] =
+            sample(|| json!(crate::questions::context_from_document(&doc, "q0").unwrap()));
+        let rows = crate::questions::thaw(&doc).unwrap();
+        let index = crate::questions::Index::new(&rows);
+        workload["hydrateAll"] = sample(|| {
+            json!((0..nodes)
+                .map(|i| index.snapshot(&format!("q{i}")).unwrap())
+                .collect::<Vec<_>>())
+        });
+        // Keep mutable state identical before both the full-response and delta probes.
+        store
+            .save_draft(("shared", 0), json!({"correct":["A"]}), 0)
+            .unwrap();
+        workload["sessionOpen"] = sample(|| store.session_data("shared", None).unwrap());
+        workload["saveDraft"] = sample(|| {
+            store
+                .save_draft(("shared", 0), json!({"correct":["A"]}), 0)
+                .unwrap()
+        });
+        let full = store.session_data("shared", None).unwrap();
+        let key = format!(
+            "{}:{}",
+            text(&full, "snapshotKey"),
+            text(&full, "attemptKey")
+        );
+        workload["positionDelta"] = sample(|| {
+            let delta = store.position("shared", 1, Some(&key)).unwrap();
+            assert!(list(&delta, "attempts").is_empty());
+            delta
+        });
+        report["workloads"].as_array_mut().unwrap().push(workload);
+    }
+    std::fs::write(
+        std::env::var("PRACTIQ_BENCH_OUTPUT").expect("set PRACTIQ_BENCH_OUTPUT"),
+        serde_json::to_vec_pretty(&report).unwrap(),
+    )
+    .unwrap();
+}
+
 fn expand(mut session: Value) -> Value {
     session.as_object_mut().unwrap().remove("attemptKey");
     let content = session["snapshotDocument"].take();

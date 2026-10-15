@@ -781,15 +781,14 @@ impl<'a> Index<'a> {
                 result["missingAssets"] = json!(true);
                 break;
             };
-            materials.push(p["question"].clone());
+            materials.push(&p["question"]);
             if p["missingAssets"] == true {
                 result["missingAssets"] = json!(true);
             }
             for key in ["groups", "visuals"] {
-                let additions = list(p, key).to_vec();
-                for value in additions {
+                for value in list(p, key) {
                     if !list(&result, key).iter().any(|v| v["id"] == value["id"]) {
-                        result[key].as_array_mut().unwrap().push(value);
+                        result[key].as_array_mut().unwrap().push(value.clone());
                     }
                 }
             }
@@ -802,17 +801,20 @@ impl<'a> Index<'a> {
             parent = text(&p["question"], "parentId");
         }
         materials.reverse();
-        result["materials"] = json!(materials
-            .iter()
-            .map(|p| {
-                let mut p = (*p).clone();
-                p["passage"] = json!(list(&p, "passage")
-                    .iter()
-                    .filter(|b| !answer_content(b))
-                    .collect::<Vec<_>>());
-                p
-            })
-            .collect::<Vec<_>>());
+        result["materials"] = Value::Array(
+            materials
+                .into_iter()
+                .map(|p| {
+                    let mut p = p.clone();
+                    if let Some(blocks) = p["passage"].as_array_mut() {
+                        blocks.retain(|block| !answer_content(block));
+                    } else {
+                        p["passage"] = json!([]);
+                    }
+                    p
+                })
+                .collect::<Vec<_>>(),
+        );
         if let Some(owner) = self.by_id.get(text(&row["question"], "optionSourceId")) {
             result["question"]["options"] = owner["question"]["options"].clone();
         }
@@ -863,11 +865,19 @@ pub fn freeze(rows: &[Value]) -> Value {
 }
 
 pub fn thaw(doc: &Value) -> Result<Vec<Value>> {
+    thaw_questions(doc, &doc["questions"])
+}
+
+fn thaw_questions(doc: &Value, questions: &Value) -> Result<Vec<Value>> {
     if doc["schemaVersion"] != 3 {
         return Err("Unsupported session snapshot".into());
     }
-    for key in ["questions", "groups", "visuals"] {
-        if !doc[key]
+    for (key, values) in [
+        ("questions", questions),
+        ("groups", &doc["groups"]),
+        ("visuals", &doc["visuals"]),
+    ] {
+        if !values
             .as_array()
             .is_some_and(|items| items.iter().all(Value::is_object))
         {
@@ -877,7 +887,9 @@ pub fn thaw(doc: &Value) -> Result<Vec<Value>> {
             ));
         }
     }
-    if list(doc, "questions")
+    if questions
+        .as_array()
+        .unwrap()
         .iter()
         .any(|row| !row["question"].is_object())
     {
@@ -886,7 +898,7 @@ pub fn thaw(doc: &Value) -> Result<Vec<Value>> {
             json!({"key":"question"}),
         ));
     }
-    let mut rows = list(doc, "questions").to_vec();
+    let mut rows = questions.as_array().unwrap().clone();
     for key in ["groups", "visuals"] {
         let mut refs: HashMap<&str, Vec<&Value>> = HashMap::new();
         for item in list(doc, key) {
@@ -964,14 +976,14 @@ pub(crate) fn context_from_document(doc: &Value, qid: &str) -> Result<Vec<Value>
                 .map(|r| text(r, "id")),
         );
     }
-    let subset = rows
-        .iter()
-        .filter(|r| selected.contains(text(r, "id")))
-        .cloned()
-        .collect::<Vec<_>>();
-    thaw(
-        &json!({"schemaVersion":doc["schemaVersion"],"questions":subset,"groups":doc["groups"],"visuals":doc["visuals"]}),
-    )
+    let subset = Value::Array(
+        rows.iter()
+            .filter(|r| selected.contains(text(r, "id")))
+            .cloned()
+            .collect(),
+    );
+    // Borrow document-wide metadata; only the selected context needs owned rows.
+    thaw_questions(doc, &subset)
 }
 
 pub(crate) fn question_from_document<'a>(doc: &'a Value, qid: &str) -> Result<&'a Value> {
@@ -1279,6 +1291,90 @@ impl Store {
         }
         tx.commit().map_err(err)?;
         Ok((json!(qid), cleanup))
+    }
+}
+
+#[cfg(test)]
+mod snapshot_copy_tests {
+    use super::*;
+
+    #[test]
+    fn selected_context_keeps_ancestors_exclusive_siblings_and_scoped_metadata() {
+        let raw = contract::parse(include_bytes!("../../fixtures/composite.json")).unwrap();
+        let rows: Vec<_> = list(&raw, "questions")
+            .iter()
+            .map(|q| json!({"id":q["id"],"question":q,"groups":[],"visuals":[]}))
+            .collect();
+        let mut doc = freeze(&rows);
+        doc["groups"] = json!([{"id":"selected","questionIds":["words1","words2"]},{"id":"other","questionIds":["cloze-root1"]}]);
+        doc["visuals"] = json!([{"id":"global","questionIds":[]},{"id":"selected","questionIds":["words1"]},{"id":"other","questionIds":["cloze-root1"]}]);
+        for (qid, expected_ids) in [
+            ("words1", vec!["reading", "words", "words1", "words2"]),
+            ("r-short", vec!["reading", "r-short"]),
+        ] {
+            let before = doc.clone();
+            let expected: Vec<_> = thaw(&doc)
+                .unwrap()
+                .into_iter()
+                .filter(|r| expected_ids.contains(&text(r, "id")))
+                .collect();
+            assert_eq!(context_from_document(&doc, qid).unwrap(), expected);
+            assert_eq!(doc, before);
+        }
+        doc["questions"][3]["question"]["allowReuse"] = json!(true);
+        assert_eq!(
+            context_from_document(&doc, "words1")
+                .unwrap()
+                .iter()
+                .map(|r| text(r, "id"))
+                .collect::<Vec<_>>(),
+            vec!["reading", "words", "words1"]
+        );
+        assert!(context_from_document(&doc, "missing").is_err());
+        for key in ["groups", "visuals"] {
+            let mut invalid = doc.clone();
+            invalid[key] = json!([null]);
+            assert!(thaw(&invalid).is_err());
+            assert!(context_from_document(&invalid, "words1").is_err());
+        }
+        doc["schemaVersion"] = json!(2);
+        assert!(thaw(&doc).is_err());
+        assert!(context_from_document(&doc, "words1").is_err());
+    }
+
+    #[test]
+    fn inherited_material_keeps_order_redaction_and_child_context_precedence() {
+        let rows = vec![
+            json!({"id":"root","question":{"id":"root","answerMode":"reading","passage":[{"partType":"table","jsonValue":{"cells":[[null,false,"kept"]]}},{"partType":"text","role":"answer","textValue":"hidden"}]},"groups":[{"id":"same","title":"root"},{"id":"root-group"}],"visuals":[{"id":"root-visual"}],"missingAssets":true}),
+            json!({"id":"parent","question":{"id":"parent","parentId":"root","answerMode":"word_bank","passage":null,"options":[{"label":"A","content":"shared"}]},"groups":[{"id":"same","title":"parent"},{"id":"parent-group"}],"visuals":[]}),
+            json!({"id":"child","question":{"id":"child","parentId":"parent","optionSourceId":"parent","options":[]},"groups":[{"id":"same","title":"child"}],"visuals":[{"id":"root-visual","description":"child"}]}),
+        ];
+        let before = rows.clone();
+        let mut snapshot = Index::new(&rows).snapshot("child").unwrap();
+        assert_eq!(snapshot["materials"][0]["id"], "root");
+        assert_eq!(snapshot["materials"][1]["id"], "parent");
+        assert_eq!(list(&snapshot["materials"][0], "passage").len(), 1);
+        assert_eq!(
+            snapshot["materials"][0]["passage"][0]["jsonValue"],
+            json!({"cells":[[null,false,"kept"]]})
+        );
+        assert_eq!(snapshot["materials"][1]["passage"], json!([]));
+        assert_eq!(
+            snapshot["groups"],
+            json!([{"id":"same","title":"child"},{"id":"parent-group"},{"id":"root-group"}])
+        );
+        assert_eq!(
+            snapshot["visuals"],
+            json!([{"id":"root-visual","description":"child"}])
+        );
+        assert_eq!(
+            snapshot["question"]["options"],
+            rows[1]["question"]["options"]
+        );
+        assert_eq!(snapshot["missingAssets"], true);
+        assert_eq!(snapshot["rootId"], "root");
+        snapshot["materials"][0]["passage"][0]["jsonValue"] = Value::Null;
+        assert_eq!(rows, before);
     }
 }
 
