@@ -193,14 +193,14 @@ async def test_real_shared_figure_budget_preserves_provider_failure(monkeypatch)
     store, reference = source("page")
     parsed = {"questions": [question("Read chart")], "figures": [{"description": "Chart", "bbox": [0, 0, 1, 1], "questionIndexes": [0]}]}
     error = APITimeoutError(request=httpx2.Request("POST", "https://example.invalid"))
-    model = FakeModel(responses=[parsed, error, error, error])
+    model = FakeModel(responses=[parsed, error, error, error, error])
     monkeypatch.setattr(llm, "_retry_delay", lambda attempt: 0)
     monkeypatch.setattr(document, "get_model", lambda: model)
     monkeypatch.setattr(document, "get_object_store", lambda: store)
     monkeypatch.setattr(document, "extract", AsyncMock(return_value=ExtractedDocument(text="", page_images=[make_image()])))
     state = await local_graph().ainvoke({"document": reference})
     failure = state["processing"]["failures"][0]
-    assert len(model.calls) == 4
+    assert len(model.calls) == 5
     assert failure["code"] == "AI_PROVIDER_UNAVAILABLE" and failure["retryable"]
     assert len(state["usage"]) == 1
 

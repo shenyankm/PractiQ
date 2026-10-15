@@ -576,8 +576,58 @@ async def test_context_enrichment_cannot_add_a_question_with_a_false_primary_anc
     assert 'PRIMARY question IDs' in model.calls[2][-1].content
     assert [q['stem'] for q in state['result']['questions']] == ['PRIMARY question']
     assert state['result']['questions'][0]['answerPayload'] == {'text': 'Printed reference'}
-    assert document.PRIMARY_QUESTION_IDS.get() is None
+    assert document.PRIMARY_PAGE.get() is None
     assert copied['id'] == 'page:1:context-copy'
+
+
+async def test_primary_and_context_passes_each_have_all_correction_attempts(monkeypatch):
+    store, reference = paged_source('pdf')
+    primary = {**question('PRIMARY question'), 'id': 'page:1:1'}
+    enriched = {**primary, 'answerPayload': {'text': 'Printed reference'}}
+    invalid = [{'questions': [question(f'Invalid context question {i}')]} for i in range(3)]
+    model = FakeModel(responses=[*[{'questions': str(i)} for i in range(3)], {'questions': [primary]},
+                                *invalid, {'questions': [enriched]}, {'questions': []}])
+    monkeypatch.setenv('AI_IMPORT_REVIEW', 'false')
+    monkeypatch.setenv('AI_GRAPH_MAX_CONCURRENCY', '1')
+    monkeypatch.setattr(document, 'get_object_store', lambda: store)
+    monkeypatch.setattr(document, 'get_model', lambda: model)
+    monkeypatch.setattr(document, 'extract', AsyncMock(return_value=ExtractedDocument(
+        text='', page_images=[make_image()] * 2)))
+    state = await local_graph().ainvoke({'document': reference})
+    assert state['status'] == 'SUCCEEDED', state['processing']
+    assert len(model.calls) == len(state['usage']) == 9
+    assert state['result']['questions'][0]['answerPayload'] == {'text': 'Printed reference'}
+
+
+@pytest.mark.parametrize('loss', ['all', 'one', 'association'])
+async def test_context_correction_preserves_primary_figures_and_reordered_owners(monkeypatch, loss):
+    store, reference = paged_source('pdf')
+    questions = [{**question('First question'), 'id': 'page:1:1'},
+                 {**question('Second question'), 'id': 'page:1:2'}]
+    figures = [{'kind': 'diagram', 'description': 'First diagram', 'questionIndexes': [0],
+                'bbox': [0.1, 0.1, 0.4, 0.4]},
+               {'kind': 'diagram', 'description': 'Second diagram', 'questionIndexes': [1],
+                'bbox': [0.5, 0.5, 0.9, 0.9]}]
+    corrected = [{**figures[0], 'questionIndexes': [1]}, {**figures[1], 'questionIndexes': [0]}]
+    broken = {'all': [], 'one': corrected[:1],
+              'association': [{**corrected[0], 'questionIndexes': []}, corrected[1]]}[loss]
+    model = FakeModel(responses=[{'questions': questions, 'figures': figures},
+                                {'questions': questions[::-1], 'figures': broken},
+                                {'questions': questions[::-1], 'figures': corrected}, {'questions': []}])
+    monkeypatch.setenv('AI_IMPORT_REVIEW', 'false')
+    monkeypatch.setenv('AI_GRAPH_MAX_CONCURRENCY', '1')
+    monkeypatch.setattr(document, 'get_object_store', lambda: store)
+    monkeypatch.setattr(document, 'get_model', lambda: model)
+    monkeypatch.setattr(document, 'extract', AsyncMock(return_value=ExtractedDocument(
+        text='', page_images=[make_image()] * 2)))
+    state = await local_graph().ainvoke({'document': reference})
+    assert len(model.calls) == len(state['usage']) == 4
+    assert 'PRIMARY figure' in model.calls[2][-1].content
+    visuals = state['result']['visualElements']
+    assert len(visuals) == 2 and all(visual['imageRef'] for visual in visuals)
+    by_id = {q['id']: q['stem'] for q in state['result']['questions']}
+    assert [[by_id[qid] for qid in visual['questionIds']] for visual in visuals] == [
+        ['First question'], ['Second question']]
 
 
 async def test_empty_primary_page_does_not_submit_neighbors_for_question_extraction(monkeypatch):
@@ -601,13 +651,13 @@ def test_context_identity_guard_allows_composite_fragments_and_resets_for_histor
 
     parent = {'id': 'page:1:reading', 'answerMode': 'reading', 'stem': 'Continued reading',
               'passage': [{'partType': 'text', 'textValue': 'Printed continuation'}]}
-    token = document.PRIMARY_QUESTION_IDS.set(frozenset())
+    token = document.PRIMARY_PAGE.set(document.PageParseResult())
     try:
         assert document.PageParseResult.model_validate({'questions': [parent]}).questions[0].id == parent['id']
         with pytest.raises(ValidationError, match='PRIMARY question IDs'):
             document.PageParseResult.model_validate({'questions': [question('Context question')]})
     finally:
-        document.PRIMARY_QUESTION_IDS.reset(token)
+        document.PRIMARY_PAGE.reset(token)
     assert document.PageParseResult.model_validate({'questions': [question('Historical record')]}).questions
 
 
@@ -634,4 +684,4 @@ async def test_context_failure_retains_known_primary_usage_and_clears_identity_g
     assert caught.value.code == 'EXECUTION_STORE_UNAVAILABLE'
     assert len(model.calls) == len(caught.value.usage) == 1
     assert (caught.value.usage[0].inputTokens, caught.value.usage[0].outputTokens) == (10, 5)
-    assert document.PRIMARY_QUESTION_IDS.get() is None
+    assert document.PRIMARY_PAGE.get() is None

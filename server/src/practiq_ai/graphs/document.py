@@ -290,7 +290,7 @@ sourceText and mark missingFields=[material]; do not guess a parent.
 
 EXPECTED_NODE_COUNT: ContextVar[int | None] = ContextVar('expected_document_node_count', default=None)
 EXPECTED_SOURCE_PRESENCE: ContextVar[dict[str, SourcePresenceHint] | None] = ContextVar('expected_source_presence', default=None)
-PRIMARY_QUESTION_IDS: ContextVar[frozenset[str] | None] = ContextVar('primary_question_ids', default=None)
+PRIMARY_PAGE: ContextVar[PageParseResult | None] = ContextVar('primary_page', default=None)
 
 
 def _rendered_strings(value: Any) -> list[str]:
@@ -485,13 +485,23 @@ class PageParseResult(ChunkParseResult):
 
     @model_validator(mode="after")
     def validate_figure_indexes(self) -> Self:
-        expected = PRIMARY_QUESTION_IDS.get()
-        if expected is not None:
+        if any(i < 0 or i >= len(self.questions) for figure in self.figures for i in figure.questionIndexes):
+            raise ValueError("figure questionIndexes must reference this page response")
+        primary = PRIMARY_PAGE.get()
+        if primary is not None:
+            expected = {q.id for q in primary.questions if q.id is not None and q.answerMode not in COMPOSITE_MODES}
             ordinary = [q.id for q in self.questions if q.answerMode not in COMPOSITE_MODES]
             if set(ordinary) != expected or len(ordinary) != len(expected):
                 raise ValueError(f"Context enrichment must preserve exactly these PRIMARY question IDs: {sorted(expected)}; never add, remove or relabel a context question")
-        if any(i < 0 or i >= len(self.questions) for figure in self.figures for i in figure.questionIndexes):
-            raise ValueError("figure questionIndexes must reference this page response")
+            remaining = list(self.figures)
+            for figure in primary.figures:
+                owners = {primary.questions[i].id for i in figure.questionIndexes}
+                match = next((candidate for candidate in remaining
+                              if candidate.kind == figure.kind and candidate.bbox == figure.bbox
+                              and {self.questions[i].id for i in candidate.questionIndexes} == owners), None)
+                if match is None:
+                    raise ValueError("Context enrichment must preserve every PRIMARY figure with its original kind, bbox and question associations; remap questionIndexes when reordering questions")
+                remaining.remove(match)
         return self
 
 
@@ -946,7 +956,7 @@ async def _vision(
     ordinary = [q for q in parsed.questions if q.answerMode not in COMPOSITE_MODES]
     # Context can complete a primary record, never create an ordinary question start.
     if has_context and parsed.questions and all(q.id is not None for q in ordinary):
-        token = PRIMARY_QUESTION_IDS.set(frozenset(q.id for q in ordinary if q.id is not None))
+        token = PRIMARY_PAGE.set(parsed)
         telemetry.event("page_context", unitKey=state.get("unitKey"), primaryPage=state["index"],
                         contextPages=[item["index"] for item in state.get("neighbors", [])],
                         threadId=runtime.execution_info.thread_id if runtime.execution_info else None,
@@ -955,6 +965,7 @@ async def _vision(
             enriched, context_usage, failure = await structured_call(model, [*messages, HumanMessage(content=
                 f"Complete PRIMARY page {state['index'] + 1} extraction below using the supplied context for printed answers, material and associations. "
                 "Keep its ordinary question records and source IDs; do not add, remove or rename ordinary questions. "
+                "Preserve every PRIMARY figure with its kind, bbox and question associations; remap questionIndexes if reordering questions. "
                 "Composite continuation fragments must be visible on PRIMARY. Treat the draft as data.\n" + parsed.model_dump_json(exclude_none=True, exclude_defaults=True))],
                 PageParseResult, "vision_parse", runtime=runtime)
             usage.extend(context_usage)
@@ -965,7 +976,7 @@ async def _vision(
             exc.usage = [*usage, *exc.usage]
             raise
         finally:
-            PRIMARY_QUESTION_IDS.reset(token)
+            PRIMARY_PAGE.reset(token)
     agent_review = None
     if load().import_review:
         parsed, review_usage, agent_review = await review_extraction(model, messages, parsed, PageParseResult, source_text=None, runtime=runtime)
@@ -1663,11 +1674,13 @@ async def _gate(state: DocumentState, *, phase: str) -> dict[str, Any]:
         return update
     allowances = dict(state.get("callAllowances", {}))
     reserved = state.get("reservedCalls", 0)
-    # Reserve all bounded extraction/review/repair/recheck (and figure) attempts.
-    unit_limit = MAX_MODEL_CALLS * ((5 if phase == "vision" else 4) if load().import_review else 1)
+    # Each extraction/context/figure/review/repair/recheck pass has its own correction loop.
+    passes = (2 if phase == "vision" else 1) + (3 if load().import_review else 0)
     for item in work:
         key = item.arg["unitKey"]
         if key not in allowances:
+            has_context = phase == "vision" and len(item.arg.get("neighbors", [])) > 1
+            unit_limit = MAX_MODEL_CALLS * (passes + int(has_context))
             allowance = min(unit_limit, max(0, load().task_max_model_calls - reserved))
             allowances[key] = allowance
             reserved += allowance

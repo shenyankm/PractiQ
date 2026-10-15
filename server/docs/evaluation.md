@@ -555,7 +555,12 @@ are returned together through the existing correction loop.
 
 Multi-page vision first extracts from PRIMARY alone. A second call may complete
 those records using context pages followed by the primary image; ordinary question
-IDs must remain exactly the same through the existing correction loop. An empty
+IDs must remain exactly the same through the existing correction loop. Every
+PRIMARY figure must also be retained during completion, keeping
+its kind, bounding box and owning question IDs, with indexes remapped if questions
+are reordered. Table text and rows may still be completed from context; the later
+figure-verification pass owns bounding-box corrections. Missing figures or changed
+associations enter the same bounded correction loop. An empty
 PRIMARY response skips context completion. Drafts without stable ordinary IDs
 retain their primary-only result rather than inventing IDs. Composite continuation
 fragments and external parent references remain allowed. Both calls retain usage,
@@ -563,6 +568,10 @@ and page-context events record each model input window. The context draft omits
 empty/default metadata while retaining extracted content, and remains subject to
 the existing model-input limit. Context errors also carry prior known PRIMARY
 usage to local callers; persisted call records remain available independently.
+Each vision unit reserves a full correction loop for primary extraction and figure
+verification, plus context completion when neighboring pages are supplied and the
+three review passes when enabled. Reservations remain capped by the task-wide
+model-call limit and are never refunded on resume.
 
 A fresh ordinary question whose declared page anchor points outside PRIMARY is
 also rejected within correction; its ID is never rewritten. These checks constrain
