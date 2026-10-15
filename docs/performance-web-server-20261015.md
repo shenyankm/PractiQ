@@ -130,6 +130,19 @@ The original benchmark and acceptance files above remain historical records of
 the original run; [follow-up evidence](../server/reports/web-server-performance-20261015-ci-followup.json)
 records the updated test source and both browser modes.
 
+The [next Service quality run](https://github.com/shenyankm/PractiQ/actions/runs/38718534220/job/116367136563)
+passed Web checks, `make verify` (2,628 passed, 7 native-build-guard skips because
+the service job lacks pinned Rust 1.98.1; 967.4 seconds
+for pytest), probe scoring, packaging and dependency audit. Its combined job
+exhausted the 20-minute budget while building the image: service verification
+finished at 10:31:20 UTC, image construction began at 10:31:25 UTC, and cancellation
+occurred at 10:32:20 UTC. The job budget is now 30 minutes to leave room for the
+required image build after the measured test work. No check or service/model
+timeout was removed or relaxed. Desktop and Android final gates passed on that
+head; the new head must receive its own CI results. The existing workflow/scope
+regressions also passed locally: 155 tests. GitHub's job annotation explicitly
+reported `The job has exceeded the maximum execution time of 20m0s`.
+
 ## Follow-up candidates requiring separate measurement
 
 | Candidate | Concrete trigger and smallest next experiment |

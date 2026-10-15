@@ -51,7 +51,30 @@
   "webCheckAndBuild": "PASSED",
   "serverSourceAndProbeFingerprintUnchanged": "0678ff46deb93c96ba5db4f57b6619a562f3f8a02a8a8f10c9e6633a1704d986",
   "sourceSha256": {
-    "web/tests/browser.spec.ts": "027a61fddbb6f3a35b81280c9b7b7d0962dbb7e0deffb3e6ded69b796f5157fa"
+    "web/tests/browser.spec.ts": "027a61fddbb6f3a35b81280c9b7b7d0962dbb7e0deffb3e6ded69b796f5157fa",
+    ".github/workflows/server.yml": "945bec0e9c8676c676043d8692e44f97b8125c7563b537d0d0b64f613495ca34"
   },
-  "scope": "Test-only follow-up; production and server source unchanged. Fake authenticated HTTP, no live model calls."
+  "scope": "Test-only follow-up; production and server source unchanged. Fake authenticated HTTP, no live model calls.",
+  "serviceJobBudget": {
+    "head": "c0b76a02a1e912bd03302f18c4ee342c172ab0a7",
+    "jobUrl": "https://github.com/shenyankm/PractiQ/actions/runs/38718534220/job/116367136563",
+    "githubAnnotation": "The job has exceeded the maximum execution time of 20m0s",
+    "pytest": {
+      "passed": 2628,
+      "skipped": 7,
+      "seconds": 967.4,
+      "skipReason": "Pinned Rust 1.98.1 is unavailable in the service job; seven native-build-guard cases skipped."
+    },
+    "makeVerify": "PASSED",
+    "probeFingerprint": "0678ff46deb93c96ba5db4f57b6619a562f3f8a02a8a8f10c9e6633a1704d986",
+    "verifyCompletedAt": "2026-10-15T10:31:20Z",
+    "imageBuildStartedAt": "2026-10-15T10:31:25Z",
+    "imageBuildCancelledAt": "2026-10-15T10:32:20Z",
+    "previousJobMinutes": 20,
+    "updatedJobMinutes": 30,
+    "localWorkflowRegressionTestsPassed": 155,
+    "previousHeadDesktopCI": "PASSED",
+    "previousHeadAndroidCI": "PASSED",
+    "limit": "These remote outcomes belong to c0b76a0; the budget-fix head requires fresh CI."
+  }
 }
