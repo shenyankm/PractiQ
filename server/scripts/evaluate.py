@@ -77,7 +77,7 @@ SETTING_NAMES = (
     "max_total_input_chars", "graph_max_concurrency", "storage_concurrency",
     "storage_timeout_seconds", "model_timeout_seconds", "model_max_tokens",
     "task_max_model_calls", "run_timeout_seconds", "model_max_input_chars",
-    "provider_concurrency", "provider_rpm", "deployment_workers", "structured_output_method", "import_review",
+    "provider_concurrency", "provider_rpm", "deployment_workers", "structured_output_method", "import_review", "model_api",
 )
 
 

@@ -1003,7 +1003,7 @@
         },
         {
           "id": "m",
-          "stem": "Match words and numbers",
+          "stem": "Match words and numbers (one-to-one)",
           "answerMode": "matching",
           "answerPayload": {
             "matches": [
@@ -1044,9 +1044,7 @@
               "label": "1"
             }
           ],
-          "stemAliases": [
-            "Match words and numbers (one-to-one)"
-          ]
+          "stemAliases": []
         }
       ],
       "tags": [

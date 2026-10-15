@@ -311,6 +311,19 @@ def test_composite_source_gold_preserves_punctuation_labels_and_literal_title(id
     assert rejected['score']['structureCorrect'] < rejected['score']['structureExpected']
 
 
+def test_matching_gold_rejects_the_shortened_printed_title():
+    manifest = Path('evals/cases.json')
+    case = next(case for case in ev.load_manifest(manifest)['cases'] if case['id'] == 'text-composites')
+    source = (manifest.parent / case['path']).read_text()
+    title = next(line.removeprefix('Matching — ') for line in source.splitlines() if line.startswith('Matching — '))
+    expected = next(q for q in case['expectedQuestions'] if q['id'] == 'm')
+    assert expected['stem'] == title
+    assert 'Match words and numbers' not in expected['stemAliases']
+    questions = deepcopy(case['expectedQuestions'])
+    next(q for q in questions if q['id'] == 'm')['stem'] = 'Match words and numbers'
+    assert not ev.quality_passed(case_record(case, {'questions': questions}))
+
+
 def test_structure_scoring_uses_matched_ids_and_includes_idless_material() -> None:
     case = next(case for case in ev.load_manifest(Path("evals/cases.json"))["cases"] if case["id"] == "text-composites")
     questions = [{key: deepcopy(value) for key, value in q.items() if key not in {"stemAliases", "answerAliases", "expectedMissingFields", "expectedNeedsReview", "expectedEvidence"}} for q in case["expectedQuestions"]]
@@ -493,6 +506,24 @@ def test_graph_evaluator_accepts_review_repair_and_recheck_calls(tmp_path, monke
     assert report["settings"]["import_review"] is True
     assert report["cases"][0]["trajectory"]["passed"]
     assert {event["kind"] for event in report["cases"][0]["trajectory"]["events"] if event["event"] == "model_start"} == {"document_parse", "import_review", "import_repair", "import_recheck"}
+
+
+def test_evaluation_records_transport_changes_with_the_same_provider_and_model(tmp_path, monkeypatch):
+    reports = []
+    for api in [None, 'chat_completions', 'responses']:
+        if api is None:
+            monkeypatch.delenv('AI_MODEL_API', raising=False)
+        else:
+            monkeypatch.setenv('AI_MODEL_API', api)
+        path, _ = setup_runner(tmp_path, monkeypatch, [model_result()] * 3)
+        report = asyncio.run(ev.run_evaluation(path, repetitions=3))
+        assert report['settings']['model_api'] == api
+        assert report['status'] == 'PASSED'
+        reports.append(report)
+    assert reports[0]['models'] == reports[1]['models'] == reports[2]['models']
+    change = ev.compare_reports(reports[1], reports[2])['changes']['settings']
+    assert change['baseline']['model_api'] == 'chat_completions'
+    assert change['candidate']['model_api'] == 'responses'
 
 
 def test_evaluation_prompt_fingerprint_includes_review_module(tmp_path, monkeypatch):
