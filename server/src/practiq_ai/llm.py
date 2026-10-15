@@ -131,7 +131,7 @@ def build_model(
         timeout=timeout,
         max_retries=0,
         use_responses_api=None if model_api is None else model_api == "responses",
-        store=False if model_api == "responses" else None,
+        store=False,
         extra_body={"enable_thinking": False}
         if endpoint == BASE_URLS["dashscope"] and model_name.startswith("qwen3.7-")
         else None,

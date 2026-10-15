@@ -95,14 +95,32 @@ async def test_responses_token_truncation_stops_same_limit_corrections_after_one
     assert [event['decision'] for event in events if event['event'] == 'model_decision'] == ['stop']
 
 
-async def test_sdk_selected_completed_responses_remain_valid():
+@pytest.mark.parametrize('base_url', ['http://127.0.0.1:1/v1', 'https://provider.invalid/custom/v1'])
+async def test_sdk_selected_completed_responses_remain_valid(base_url):
     def respond(request):
-        assert request.url.path == '/v1/responses'
+        assert request.url.path.endswith('/responses')
+        assert json.loads(request.content)['store'] is False
         return httpx2.Response(200, json=response())
-    async with model_with_transport(respond, model_api=None, model_name='gpt-5-pro') as model:
+    async with model_with_transport(respond, model_api=None, model_name='gpt-5-pro', base_url=base_url) as model:
         assert model.use_responses_api is None
         parsed, _, usage = await llm.structured_attempt(model, [], Result, 'test')
     assert parsed == Result(value=2) and usage.inputTokens == 10 and usage.outputTokens == 5
+
+
+@pytest.mark.parametrize('model_api', [None, 'responses'])
+@pytest.mark.parametrize('base_url', ['http://127.0.0.1:1/v1', 'https://provider.invalid/custom/v1'])
+async def test_sync_responses_explicitly_disable_storage(model_api, base_url):
+    def respond(request):
+        assert request.url.path.endswith('/responses')
+        assert json.loads(request.content)['store'] is False
+        return httpx2.Response(200, json=response())
+    async with model_with_transport(respond, model_api=model_api, model_name='gpt-5-pro', base_url=base_url) as model:
+        client = model.root_client._client
+        client._transport.close()
+        client._transport = httpx2.MockTransport(respond)
+        result = llm.structured_output(model, Result).invoke([HumanMessage(content='Extract')])
+        assert isinstance(result, dict)
+        assert llm.validate_response(result, Result) == Result(value=2)
 
 
 @pytest.mark.parametrize('usage,code', [
@@ -189,11 +207,11 @@ async def test_responses_error_envelope_remains_unknown_and_never_retries_or_exp
 
 
 @pytest.mark.parametrize('model_api', [None, 'chat_completions'])
-async def test_default_and_explicit_chat_completions_preserve_original_wire(model_api):
+async def test_default_and_explicit_chat_completions_keep_route_and_disable_storage(model_api):
     def respond(request):
         assert request.url.path == '/v1/chat/completions'
         payload = json.loads(request.content)
-        assert 'messages' in payload and 'store' not in payload
+        assert 'messages' in payload and payload['store'] is False
         assert 'strict' not in payload['tools'][0]['function']
         return httpx2.Response(200, json={'id': 'chat-test', 'object': 'chat.completion', 'created': 0,
             'model': 'custom-model', 'choices': [{'index': 0, 'finish_reason': 'tool_calls', 'message': {
