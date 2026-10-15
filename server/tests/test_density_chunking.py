@@ -50,6 +50,17 @@ def test_short_dense_source_uses_node_budget_without_source_overlap():
     assert all(item['overlapStart'] == item['overlapEnd'] == item['start'] for item in spans)
 
 
+@pytest.mark.parametrize('context', ['Section: Writing', 'Directions: Write complete sentences.',
+                                   'Write an essay about your hometown.', '## Writing'])
+@pytest.mark.parametrize('record', [1, 17])
+def test_leading_section_context_disables_density_split(context, record):
+    text = re.sub(rf'^{record}\. Short answer:', f'{context}\n{record}. Short answer:',
+                  numbered_questions(33), count=1, flags=re.MULTILINE)
+    spans, header, counts = split_chunk_plan(text)
+    assert spans == [{'start': 0, 'end': len(text), 'overlapStart': 0, 'overlapEnd': 0}]
+    assert header is None and counts == [None]
+
+
 def test_parent_tree_is_not_cut_at_node_budget():
     text = numbered_questions(15) + '\n16. Word bank: Complete the passage\nMaterial: [blank:17] [blank:18]\n' + (
         '17. Single choice: First\nParent ID: 16. Shared option owner: 16.\n'

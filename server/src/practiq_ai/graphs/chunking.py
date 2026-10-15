@@ -187,6 +187,9 @@ def _typed_frames(text: str) -> list[_SourceFrame] | None:
 
 def _typed_blocks(text: str) -> list[tuple[int, int, int]] | None:
     frames = _typed_frames(text)
+    # Unscoped text may introduce the following section, not belong to the previous record.
+    if frames and (text[:frames[0]['contentStart']].strip() or not _record_body_scope_known(text, frames)):
+        return None
     return _closed_root_blocks(frames) if frames is not None else None
 
 
