@@ -144,6 +144,39 @@ def test_unknown_body_or_inline_local_field_cannot_enable_exact_or_answer_gate(t
     assert hints is None or (not hints['1'].get('stem_sha256') and not hints['1'].get('need_answer'))
 
 
+@pytest.mark.parametrize('label', ['答案', '参考答案', '正确答案', '标准答案', '答案解析', '解析', '解答',
+                                   '分析', '评分标准', '评分细则', 'answer', 'Analysis', 'Reference answer'])
+@pytest.mark.parametrize('colon', [':', '：'])
+def test_inline_answer_and_analysis_labels_disable_exact_stem_hash(label, colon):
+    hints = source_presence_hints(f'1. Short answer: What is 2+2? {label}{colon} 4')
+    assert hints is not None and hints['1']['need_stem']
+    assert not hints['1'].get('stem_sha256') and not hints['1'].get('need_answer')
+    candidate = {**question('What is 2+2?'), 'id': '1', 'answerPayload': {'text': '4'}}
+    assert validate([candidate], hints).questions[0].stem == 'What is 2+2?'
+
+
+@pytest.mark.parametrize('label', ['答案', '解析'])
+async def test_inline_chinese_evidence_is_separated_without_correction_calls(monkeypatch, label):
+    text = f'1. Short answer: What is 2+2? {label}：4'
+    complete = {**question('What is 2+2?'), 'id': 'fragment:1:1', 'sourceText': text,
+                'answerPayload': {'text': '4'} if label == '答案' else None,
+                'analysis': '4' if label == '解析' else None}
+    files, reference = source(text)
+    model = FakeModel(responses=[{'questions': [complete]}])
+    monkeypatch.setattr(document, 'get_object_store', lambda: files)
+    monkeypatch.setattr(document, 'get_model', lambda: model)
+    state = cast(document.ChunkTask, {
+        'index': 0, 'total': 1, 'fileName': 'quiz.txt', 'sourceType': 'text',
+        'artifact': {key: value for key, value in reference.items() if key not in {'sourceType', 'fileName'}},
+        'sourcePresence': source_presence_hints(text),
+    })
+    result = await document._chunk(state, Runtime(store=MemoryStore()))
+    kept = result['chunkResults'][0]['parsed']['questions'][0]
+    assert kept['stem'] == 'What is 2+2?'
+    assert kept['answerPayload'] == complete['answerPayload'] and kept['analysis'] == complete['analysis']
+    assert len(model.calls) == len(result['usage']) == 1
+
+
 @pytest.mark.parametrize('kind', ['Reading comprehension', 'Listening'])
 def test_composite_parent_has_no_answer_requirement_but_supplied_child_does(kind):
     text = (

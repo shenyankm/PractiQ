@@ -278,7 +278,7 @@ def source_presence_plan(
             match = _TYPED_QUESTION.match(raw)
             assert match is not None
             stem, kind = raw.partition('\n')[0][match.end():], match[2]
-            literal_stem = (body_scope_known and not any(prefix in stem for prefix in _LOCAL_FIELD_PREFIXES)
+            literal_stem = (body_scope_known and not _INLINE_LOCAL_FIELD.search(stem)
                             and not any(declaration in stem for declaration in _LOCAL_DECLARATIONS))
             reference_lines = [line.strip().removeprefix('Reference answer:') for line in raw.splitlines()[1:]
                                if line.strip().startswith('Reference answer:')]
@@ -555,6 +555,10 @@ _LOCAL_FIELD_PREFIXES = tuple(f'{field}:' for field in (
     'Allow reuse', 'Answer status', 'Audio status',
     'Genre', 'Minimum words', 'Maximum words', 'Source passage',
 ))
+_INLINE_LOCAL_FIELD = re.compile(
+    r'(?:' + '|'.join(re.escape(prefix[:-1]) for prefix in _LOCAL_FIELD_PREFIXES)
+    + r'|(?:参考|正确|标准)?答案(?:解析)?|解析|解答|分析|评分(?:标准|细则)?)\s*[:：]', re.IGNORECASE,
+)
 _LOCAL_DECLARATIONS = {
     'Do not reuse options.', 'No reference answer is supplied for this question.', 'No audio file is supplied.',
 }
