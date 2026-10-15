@@ -160,3 +160,29 @@ def test_equal_group_and_visual_content_remains_a_passive_candidate(with_crop):
     before = [q.model_dump() for q in questions]
     assert find_duplicate_question_trees(questions, groups, figures) == [[['q0'], ['q1']]]
     assert [q.model_dump() for q in questions] == before and len(questions) == 2
+
+
+def test_duplicate_detection_indexes_associations_once_without_changing_candidates():
+    class ObservedList(list):
+        visits = 0
+
+        def __iter__(self):
+            for item in super().__iter__():
+                self.visits += 1
+                yield item
+
+    questions = [single(f'q{i}', answer=str(i // 2), number=i + 1) for i in range(60)]
+    groups = ObservedList(ParsedGroup(title='Printed group', questionIndexes=[i]) for i in range(60))
+    visuals = ObservedList(VisualElement(kind='chart', description='Printed chart', questionIndexes=[i]) for i in range(60))
+    expected = [[[f'q{i}'], [f'q{i + 1}']] for i in range(0, 60, 2)]
+    assert find_duplicate_question_trees(questions, groups, visuals) == expected
+    assert groups.visits <= len(groups)
+    assert visuals.visits <= len(visuals)
+
+
+@pytest.mark.parametrize('indexes', [[0, 1], [0, 999], [0, 0, 1]])
+def test_cross_tree_or_invalid_group_members_preserve_unrelated_candidates(indexes):
+    questions = [single(f'q{i}') for i in range(4)]
+    groups = [ParsedGroup(title='Shared section', questionIndexes=indexes)]
+    expected = [[['q1'], ['q2'], ['q3']]] if 999 in indexes else [[['q2'], ['q3']]]
+    assert find_duplicate_question_trees(questions, groups, []) == expected

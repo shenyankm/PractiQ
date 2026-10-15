@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { mkdir, readFile } from "node:fs/promises";
 import { expect, test, type Page, type Route } from "playwright/test";
 import type { DocumentTaskDetail, DocumentTaskReview } from "../src/contracts.generated";
-import { capabilities, newTaskId, preview, runId, summary, task, taskId } from "../src/test-fixtures";
+import { capabilities, material, newTaskId, preview, question, runId, summary, task, taskId } from "../src/test-fixtures";
 import { layoutImage, layoutSnapshots, layoutViewports } from "../../app/scripts/responsive-fixtures.mjs";
 
 // All HTTP here is synthetic. No model, Office worker, or live service is used.
@@ -80,6 +80,37 @@ async function openTask(page: Page) {
 }
 const mutations = (calls: Call[]) => calls.filter(call => call.method !== "GET");
 const starts = (calls: Call[]) => calls.filter(call => call.path === "/api/document-tasks" && call.method === "POST");
+
+test("1000 question searches scan a shared option bank once and stay passive", async ({ page }, testInfo) => {
+  const children = Array.from({ length: 999 }, (_, index) => question({ id: `child-${index}` }));
+  const owner = question({ ...material, answerMode: "word_bank", questionTypeId: "word_bank", options: Array.from({ length: 100 }, (_, index) => ({ label: String(index), content: `Benchmark option ${index}` })), passage: children.map(child => ({ partType: "blank", questionId: child.id })) });
+  const questions = [owner, ...children];
+  const http = await fakeHTTP(page);
+  http.server.review = { ...preview, units: [{ ...preview.units[0], questions }] };
+  await page.addInitScript(() => {
+    const metrics = window as typeof window & { optionComparisons: number };
+    metrics.optionComparisons = 0;
+    const original = String.prototype.toLocaleLowerCase;
+    String.prototype.toLocaleLowerCase = function (this: string, locales?: string | string[]) {
+      if (String(this).startsWith("Benchmark option ")) metrics.optionComparisons++;
+      return original.call(this, locales);
+    };
+  });
+  await connect(page);
+  await page.getByRole("button", { name: /sample.docx/ }).click();
+  const search = page.getByRole("searchbox");
+  await expect(search).toBeVisible();
+  const comparisons = [];
+  for (let index = 0; index < 5; index++) {
+    await page.evaluate(() => { (window as typeof window & { optionComparisons: number }).optionComparisons = 0; });
+    await search.fill(`absent-${index}`);
+    await expect(page.getByText("显示 0 / 1000 条记录。筛选不会修改复核标记或导出内容。")).toBeVisible();
+    comparisons.push(await page.evaluate(() => (window as typeof window & { optionComparisons: number }).optionComparisons));
+  }
+  expect(comparisons).toEqual([100, 100, 100, 100, 100]);
+  expect(starts(http.calls)).toHaveLength(0);
+  await testInfo.attach("shared-options-performance", { body: JSON.stringify({ questions: 1000, sharedOptions: 100, comparisons }), contentType: "application/json" });
+});
 
 for (const [width, height] of [[1440, 1000], [390, 844]]) {
   test(`import flow screenshot acceptance at ${width}px`, async ({ page }, testInfo) => {

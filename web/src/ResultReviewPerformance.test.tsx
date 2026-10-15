@@ -49,3 +49,25 @@ it("serializes complete records only after opening and reuses them on reopen", a
   expect(await screen.findByText(/"sourceText": "Updated source"/)).toBeTruthy();
   stringify.mockRestore();
 });
+
+it("searches shared options once per query and preserves review filtering", async () => {
+  const user = userEvent.setup();
+  const content = vi.fn((index: number) => `Shared option ${index}`);
+  const options = Array.from({ length: 100 }, (_, index) => ({ label: String(index), get content() { return content(index); } }));
+  const children = Array.from({ length: 999 }, (_, index) => question({ id: `child-${index}`, parentId: "bank", optionSourceId: "bank", needsReview: index % 2 === 0 }));
+  const owner = question({ id: "bank", parentId: null, optionSourceId: null, answerMode: "word_bank", questionTypeId: "word_bank", choiceVariant: null, options, needsReview: false, missingFields: [], passage: children.map(child => ({ partType: "blank", questionId: child.id })) });
+  const current = { ...preview, units: [{ ...preview.units[0], questions: [owner, ...children] }] };
+  render(<ResultReview task={task} preview={current} client={new Client("fake", "13800138000")} />);
+  await user.click(screen.getByRole("searchbox"));
+  content.mockClear();
+  await user.paste("absent");
+  expect(screen.getByText("显示 0 / 1000 条记录。筛选不会修改复核标记或导出内容。")).toBeTruthy();
+  expect(content.mock.calls.length).toBeLessThanOrEqual(100);
+  await user.clear(screen.getByRole("searchbox"));
+  content.mockClear();
+  await user.paste("OPTION 99");
+  expect(screen.getByText("显示 1000 / 1000 条记录。筛选不会修改复核标记或导出内容。")).toBeTruthy();
+  expect(content.mock.calls.length).toBeLessThanOrEqual(100);
+  await user.click(screen.getByRole("checkbox", { name: "仅看需要复核" }));
+  expect(screen.getByText("显示 500 / 1000 条记录。筛选不会修改复核标记或导出内容。")).toBeTruthy();
+});

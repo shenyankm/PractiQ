@@ -312,9 +312,10 @@ async def read_artifact(reference: ArtifactReference, thread_id: Annotated[UUID 
             raise saas.failure('ARTIFACT_NOT_FOUND', 404)
         review = await task_api.review_task(str(thread_id))
         detail = await task_api.get_task(str(thread_id))
+        metadata = reference.model_dump()
         def contains(value):
             if isinstance(value, dict):
-                if all(value.get(key) == item for key, item in reference.model_dump().items()):
+                if all(value.get(key) == item for key, item in metadata.items()):
                     return True
                 return any(contains(item) for item in value.values())
             return isinstance(value, list) and any(contains(item) for item in value)

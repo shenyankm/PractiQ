@@ -59,6 +59,7 @@ Preserve failures, source hashes, artifact hashes and original denominators. His
 | [Ten-format acceptance](ai-import-all-formats-acceptance-20260929.zh-CN.md), [repair/retest](ai-import-repairs-20260929.zh-CN.md) | Original 2026-09-29 live results; complete acceptance remained 0/10 |
 | [October 3 performance](performance-implementation-20261003.md), [October 5 performance](performance-implementation-20261005.md) | Separate measured workloads and source baselines, not duplicate benchmarks |
 | [October 9 Web fonts](performance-web-fonts-20261009.md) | Complete static assets and repeated build samples after the PostgreSQL merge; no initial-load or image-size claim |
+| [October 15 Web and service performance](performance-web-server-20261015.md) | Shared-option search, duplicate-association indexing and artifact membership; synthetic local measurements and explicit acceptance limits |
 | [October 9 engineering journal](engineering-optimization-20261009.md) | Bounded accepted/rejected candidates, build/package/native inventories, cumulative real-model ledger and retained quality failures |
 | [October 9 grading arrays](performance-grading-arrays-20261009.md) | Fixed real-model grading anchors, avoided format-correction calls and rejected null-context experiment; no full parser-quality claim |
 | [October 9 payload validation](performance-payload-check-20261009.md) | Reused storage/Office size/checksum boundary and three repeated event-loop probes; no conversion-throughput claim |

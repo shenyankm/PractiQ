@@ -1,0 +1,29 @@
+{
+  "scope": "Production-build Chromium with fake HTTP; no real models",
+  "suite": {
+    "startTime": "2026-10-15T09:50:26.739Z",
+    "duration": 28872.682,
+    "expected": 27,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "sharedOptionsSearch": {
+    "questions": 1000,
+    "sharedOptions": 100,
+    "comparisons": [
+      100,
+      100,
+      100,
+      100,
+      100
+    ]
+  },
+  "baselineOptionContentAccesses": 100000,
+  "baselineEvidence": "Pre-change ResultReviewPerformance.test.tsx failed: expected 100000 to be less than or equal to 100",
+  "sourceSha256": {
+    "web/src/ResultReview.tsx": "2d6352f6446b78c0a7d600fe56aa0a69c7cbabff7de18af6c309b53c05e0a7f9",
+    "web/tests/browser.spec.ts": "44ea37b48f1c310de016e289628acd470487213bfa1e569c6f37784559618a1e"
+  },
+  "playwrightResultsSha256": "8f97d77f1d40e735530f21c2e16abea06d6f2621eca998c0c9d1adb9837f70b1"
+}
