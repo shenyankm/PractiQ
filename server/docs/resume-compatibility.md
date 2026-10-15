@@ -6,7 +6,7 @@ Issue #193 starts with evidence for the existing conservative execution gate. Th
 
 `execution.signature()` requires exact equality of state version (currently 7), `code_version()`, Python patch version, the nine recorded runtime package versions and trusted semantic settings. The code digest includes selected parser/contract/runtime sources and every byte of the bundled `uv.lock` (or source-tree fallback). It is an audit input, not a semantic equivalence proof. The recorded package list is not a complete installed transitive dependency inventory. The import-review code and trusted `AI_IMPORT_REVIEW` setting are semantic fingerprint inputs: enable the feature for new tasks only after draining old work, or keep the original deployment available to finish it.
 
-Semantic settings include model/provider identity, parser limits, storage root, per-task model budgets and the run deadline (`AI_RUN_TIMEOUT_SECONDS`); changing that deadline rejects resume. API keys, concurrency and admission flags are excluded, along with model request (`AI_AGENT_TIMEOUT_SECONDS`), storage (`AI_STORAGE_TIMEOUT_SECONDS`) and upload (`AI_UPLOAD_TIMEOUT_SECONDS`) timeouts. Office executable/version identity is checked separately through the normalized-source manifest. Source/artifact hashes, task expiry, model receipts, budgets, maintenance admission and explicit retry authorization retain their own checks; signature compatibility does not bypass them.
+Semantic settings include model/provider identity and transport (`AI_MODEL_API`), parser limits, storage root, per-task model budgets and the run deadline (`AI_RUN_TIMEOUT_SECONDS`); changing that deadline rejects resume. API keys, concurrency and admission flags are excluded, along with model request (`AI_AGENT_TIMEOUT_SECONDS`), storage (`AI_STORAGE_TIMEOUT_SECONDS`) and upload (`AI_UPLOAD_TIMEOUT_SECONDS`) timeouts. Office executable/version identity is checked separately through the normalized-source manifest. Source/artifact hashes, task expiry, model receipts, budgets, maintenance admission and explicit retry authorization retain their own checks; signature compatibility does not bypass them.
 
 ## Synthetic checkpoint matrix
 
@@ -19,6 +19,7 @@ Semantic settings include model/provider identity, parser limits, storage root, 
 | Model request timeout | Resume | Same semantic signature and explicit retry |
 | Provider RPM capacity | Resume | Same semantic signature and explicit retry |
 | Model identity | Reject | No new call, artifact write or usage change |
+| Model API transport | Reject | Prior results and usage remain on their original protocol |
 | Parser page limit | Reject | Original units/source remain |
 | Task model-call budget | Reject | Original usage/receipts remain |
 | Run deadline | Reject | Existing task/run allowance is not redefined |

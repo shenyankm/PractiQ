@@ -1,5 +1,16 @@
 # Verify document extraction and subjective grading
 
+The October 14–15, 2026 campaign, including the resumed DashScope iteration,
+is archived in the [import acceptance report](import-acceptance-20261015.md),
+[resume metric notes](import-resume-metrics-20261015.md), and
+[machine-readable summary](evidence/import-20261015-summary.json). The user stopped
+model work after DashScope returned `Arrearage`. The last complete focused stage
+scored 26/27; the final stage recorded 20 completed trials, one paused trial and
+six not run, and independently lost 50/72 PDF material observations. Acceptance
+remains failed/incomplete. Historical per-format maxima come from different
+source snapshots; no final MAIN99 or current-candidate large-file improvement is
+established. Unknown usage remains unknown.
+
 This guide separates document extraction quality, subjective grading samples, and engineering checks. The extraction dataset covers text, CSV, PDF and images. Word/Excel uploads are normalized by the independent service before entering these same extractors; Office availability and source limits follow the [service Office guide](desktop-office.md). Verify the deployed engine separately, without model calls, using the [unchanged Office fixtures and conversion procedure](../../app/fixtures/office/README.md). The practice app contains no Office engine. Historical DOCX model results below and in `server/reports/` describe earlier parsers, not the quality of the current service conversion path.
 
 Use an existing Python 3.14+ environment and run the commands from `server/`.
@@ -32,21 +43,39 @@ These rule-based synthetic samples are not independent teacher annotations or cr
 
 ## Extraction dataset and human gold labels
 
-`evals/cases.json` uses `schemaVersion: 2` with synthetic cases. The scorer version in `scripts/evaluate.py` is `6.2.0`. The manifest covers Text, CSV, PDF, and Image; seven basic question types; reading, word-bank, and cloze composites; and cases involving Chinese, missing source answers, long stems with identical prefixes, legitimate duplicates, long text spanning chunks, text without questions, and corrupt PDFs. Two focused text cases cover multiple-choice and ordinary fill-blank extraction. Six additional regression cases cover listening without audio, grammar fill, sentence selection, paragraph matching, translation/writing, and supplied or absent grading evidence. Their source and labels are synthetic maintenance fixtures, not independent teacher annotations. Real-model results remain separate from fixture validation. Manifest fields mean:
+`evals/cases.json` uses `schemaVersion: 2` with synthetic cases. The active scorer version in `scripts/evaluate.py` is `6.3.0`; freeze a separate three-repetition baseline for this version rather than reusing historical 6.2.0 reports. The manifest covers Text, CSV, PDF, and Image; seven basic question types; reading, word-bank, and cloze composites; and cases involving Chinese, missing source answers, long stems with identical prefixes, legitimate duplicates, long text spanning chunks, text without questions, and corrupt PDFs. Two focused text cases cover multiple-choice and ordinary fill-blank extraction. Six additional regression cases cover listening without audio, grammar fill, sentence selection, paragraph matching, translation/writing, and supplied or absent grading evidence. Their source and labels are synthetic maintenance fixtures, not independent teacher annotations. Real-model results remain separate from fixture validation. Manifest fields mean:
 
 - `id` is a stable, unique case identifier. `path` must point inside the manifest directory; path and symlink escapes are forbidden.
 - `tags` group cases by scenario. With `critical: true`, any discrepancy in an annotated field or structure fails the case.
 - Non-rejection cases specify `expectedQuestions`; `expectedStatus` defaults to `SUCCEEDED`. The no-question fixture explicitly expects `PARTIAL` and missing `questions`, rather than an error.
 - Rejection cases specify only an error such as `expectedError: {"code": "DOCUMENT_PROCESSING_FAILED", "statusCode": 400}`. Both values must match. External-service unavailability cannot be labeled an expected success.
 - `expectedGroups` annotates titles and zero-based question indices. `expectedVisualKinds` annotates visual kinds and counts. Omission or `null` means unannotated; `[]` explicitly requires no such structure.
-- `stemAliases` and `answerAliases` allow only source-verified equivalents, such as LaTeX multiplication/division symbols or chemical subscripts. Aliases must obey the question-type contract. Do not add answer aliases when the source has no answer.
+- `stemAliases` and `answerAliases` allow only source-verified equivalents, such as LaTeX multiplication/division symbols or chemical subscripts. Aliases must obey the question-type contract. The matching fixture canonically requires `Match words and numbers (one-to-one)`; dropping its printed qualifier is not an equivalent alias and changes the dataset identity. Do not add answer aliases when the source has no answer.
 - `sourceHasNoAnswers: true` explicitly marks an entire document as answerless. Every output answer must be null, including rewritten, unmatched, and extra questions. Do not use it for documents mixing answered and unanswered questions.
 - `expectedMissingFields` and `expectedNeedsReview` annotate missing fields and review status for valid drafts, per question.
 - `expectedVisuals: [{"kind": "diagram", "page": 0}]` checks both kind and zero-based page. Embedded original images may have a null page. Use this field or the older `expectedVisualKinds`, not both; `[]` still explicitly means no visuals. The runner also reads every visual reference and verifies size, SHA-256, and image decoding, without exporting references into reports.
-- `expectedProcess` can specify `requiredCallKinds` and `maxModelCalls`, checked by fixed-workflow process assertions. Allowed kinds include `import_review`, `import_repair` and `import_recheck`; review/recheck use `ReviewReport`, while repair uses the source route's extraction schema. Each stage allows at most four attempts within its extraction unit, and the total model-call limit still applies. Reports include the trusted `import_review` setting. `promptHash` includes `graphs/review.py`, so changing review prompts, repair policy or schemas changes prompt provenance even if the extraction prompts stay the same. When `AI_IMPORT_REVIEW=true`, each successfully extracted unit must start its own review call; input or budget rejection before review provider start produces `REVIEW_CALL_MISSING` and fails the trajectory. Source rejections before successful extraction do not require review. Scorer `6.2.0` adds this per-unit review requirement; establish a fresh baseline rather than comparing with older scorer reports.
+- `expectedProcess` can specify `requiredCallKinds` and `maxModelCalls`, checked by fixed-workflow process assertions. Allowed kinds include `import_review`, `import_repair` and `import_recheck`; review/recheck use `ReviewReport`, while repair uses the source route's extraction schema. Each stage allows at most four attempts within its extraction unit, and the total model-call limit still applies. Reports include the trusted `import_review` and configured `model_api` settings (`null` means SDK selection); comparisons expose protocol-setting changes even when provider/model IDs match. `promptHash` includes `graphs/review.py`, so changing review prompts, repair policy or schemas changes prompt provenance even if the extraction prompts stay the same. When `AI_IMPORT_REVIEW=true`, each successfully extracted unit must start its own review call; input or budget rejection before review provider start produces `REVIEW_CALL_MISSING` and fails the trajectory. Source rejections before successful extraction do not require review. The active scorer `6.3.0` retains this per-unit review requirement introduced in `6.2.0`; establish a fresh 6.3.0 baseline rather than comparing with older scorer reports.
 - `split` defaults to `regression`. `image-holdout-instruction` is a separate `holdout` case; existing cases remain in the regression set. Debug against regression cases and run both sets before release. Do not repeatedly inspect the holdout to tune prompts. One holdout case verifies the process, not generalization. Real material requires de-identification, authorization, and independent human annotation before inclusion.
 
 Check gold labels against source files manually; never copy model outputs back as correct answers. PDF and image figures are evaluated using visual-model categories such as `diagram`. Humans review the meaning of visual descriptions.
+
+### Source-grounded composite annotation correction (2026-10-15)
+
+The user confirmed a source review of `text-composites` before the resumed
+evaluation. Its word-bank and cloze passages retain their printed final periods;
+ordering and matching items retain printed `0`/`1` labels. The matching stem also
+accepts the literal source title `Match words and numbers (one-to-one)`, while
+the annotated `one_to_one` policy remains required. See the
+[unchanged source](../evals/fixtures/text/composites.txt), lines 7, 10, 13, 15–16.
+Regression controls reject lost periods, lost labels and invented title suffixes.
+
+At that archived annotation stage, this correction left all 33 cases, source bytes, answers,
+critical/holdout flags, scorer `6.2.0` and thresholds unchanged. The manifest hash changes from
+`84dd2203df0da65dc02ab85dbdd2d6b50f363449f2a1b6cc1920f523fcdc0b7e` to
+`65c9d1b5b302453774c1538acbcf590b36b388788fcbbd8e3d9647787328aefc`.
+Keep the original frozen dataset and failed reports; freeze the corrected dataset
+separately and run fresh evaluations. Scores using these two dataset hashes are
+not a directly comparable before/after measure of extraction improvement.
 
 Source review on October 9, 2026 corrected only `text-translation-writing`'s
 `sourceLanguage` from `zh-CN` to `null`. The instruction states only "into English",
@@ -57,6 +86,21 @@ required an unstated language. Earlier reports retain their original hashes and
 failures. Answers, other labels, critical gates and the holdout remain unchanged. The manifest/dataset
 hash changes, so retain earlier reports and establish a new three-repetition
 baseline before comparing candidates. Scoring semantics and version are unchanged.
+
+### Approved visual-context process correction (2026-10-15)
+
+Scorer `6.3.0` changes only the visual-context process window, following explicit
+user approval. A page may use the previous two pages and the next page as context,
+with at most four distinct pages including the primary page. Missing primary
+pages, duplicates, earlier pages and later pages still fail the process check.
+This matches the existing bounded production window used to retain long material.
+Content scoring, source gold, answers and quality thresholds are unchanged.
+
+Preserve scorer `6.2.0`, its locks and its failed reports. Freeze `6.3.0` separately
+and establish a fresh three-repetition baseline. Scoring saved outputs under both
+versions explains the process-rule difference; it does not demonstrate a new
+extraction improvement or replace the required fresh live matrix. Do not compare
+quality scores across these scorer versions as a before/after model result.
 
 ### Answerless PNG provenance and source review
 
@@ -110,7 +154,7 @@ CI checks coverage of all four formats, the eleven answer modes in `ANSWER_MODES
 
 `fidelity` separately counts fabricated answers, extra questions, field inconsistencies, and questions needing source confirmation. Unmatched questions and source warnings are not automatically hallucinations; these counts cannot establish an overall hallucination rate.
 
-Stem matching removes only leading question numbers and layout whitespace, preserving case, punctuation, and full content. It does not truncate stems or use case-insensitive keys. Production deduplication also requires matching source locations and actual chunk overlap. Identical stems match one-to-one in occurrence order. Extra questions reduce precision; missing questions reduce recall and field accuracy. Options are compared in label/content order, and answers use structured values consistent with the source gold labels.
+Stem matching removes only leading question numbers and layout whitespace, preserving case, punctuation, and full content. It does not truncate stems or use case-insensitive keys. Production chunk-overlap merging requires matching source locations and actual overlap. Separately, repeated whole-question trees are detected across the document and retained by default; removal requires the explicit import option and equivalent source and business content. Identical stems match one-to-one in occurrence order. Extra questions reduce precision; missing questions reduce recall and field accuracy. Options are compared in label/content order, and answers use structured values consistent with the source gold labels.
 
 | Metric | Numerator / denominator |
 |---|---|
@@ -253,13 +297,13 @@ Regression tests cover question completeness, model correction, and usage for ev
 
 All agents share model and protocol selection in `llm.py`. `AI_STRUCTURED_OUTPUT_METHOD=function_calling` is the default. `json_schema` explicitly enables Bailian `response_format.type=json_schema` with `strict=true`. `auto` selects native schema only for the officially supported Qwen3.7 Plus/Flash/Max and Qwen3.8 Flash/Max families, otherwise using tool calling. Explicit native mode fails for unsupported models instead of silently falling back. The support list follows [Bailian's official documentation](https://help.aliyun.com/zh/model-studio/qwen-structured-output).
 
-Qwen3.7 calls disable thinking; model, token limits, and timeouts still come from existing configuration. Native mode receives the complete response before Pydantic validation, avoiding early SDK truncation errors that lose usage. Truncated output, unclosed JSON, and semantic validation failures are rejected and enter the existing bounded correction and usage-recording path. Explicit token truncation cannot be accepted through local JSON repair.
+Qwen3.7 calls disable thinking; model, token limits, and timeouts still come from existing configuration. Native mode receives the complete response before Pydantic validation, avoiding early SDK truncation errors that lose usage. Unclosed JSON and semantic validation failures enter the existing bounded correction and usage-recording path. Explicit token truncation cannot be accepted through local JSON repair: the unit stops after that paid attempt with `OUTPUT_TRUNCATED`, retaining its result receipt and usage instead of automatically requesting the same source at the same output limit again.
 
 See the [optimization record](../reports/evaluations/prompt-optimization-summary.md) for protocol-selection evidence and live-run limitations.
 
-Tool-call count, names, and argument structure are checked before using SDK-parsed objects; raw tool arguments take priority. Native JSON Schema and structured objects without tool calls remain subject to the same business validation. Group indices reject booleans, floats, and numeric strings. `isCorrect` and `needsReview` reject string/number coercion to booleans. Semantic descriptions of key fields and figure coordinates are sent with the schema; valid drafts, false, zero, and null retain their meanings. Truncation remains `OUTPUT_TRUNCATED`, including early stopping after repeated truncation, and does not allow manual retries with unchanged parameters.
+Tool-call count, names, and argument structure are checked before using SDK-parsed objects; raw tool arguments take priority. Native JSON Schema and structured objects without tool calls remain subject to the same business validation. Group indices reject booleans, floats, and numeric strings. `isCorrect` and `needsReview` reject string/number coercion to booleans. Semantic descriptions of key fields and figure coordinates are sent with the schema; valid drafts, false, zero, and null retain their meanings. Truncation remains `OUTPUT_TRUNCATED` after one paid attempt and does not allow manual retries with unchanged parameters.
 
-Local JSON Repair is integrated into shared response validation: it closes brackets, removes trailing commas before closing brackets, and strips complete code fences before rerunning the original schema/content checks. Repair adds no model calls, and missing fields remain incomplete. Explicit token truncation, unfinished strings, missing values, and type/content contradictions still enter bounded correction. Repair does not relax quality gates.
+Local JSON Repair is integrated into shared response validation: it closes brackets, removes trailing commas before closing brackets, and strips complete code fences before rerunning the original schema/content checks. Repair adds no model calls, and missing fields remain incomplete. Unfinished strings, missing values, and type/content contradictions still enter bounded correction; explicit token truncation stops the unit. Repair does not relax quality gates.
 
 ### Failure limits and quality visibility
 
@@ -471,6 +515,87 @@ make verify AI_PYTHON="$AI_PYTHON"
 ```
 
 The first two commands validate the dataset and scorer with substitutes. Complete `make verify` before delivering the fixture change; it remains separate from paid/live model evaluation.
+
+## Composite option ownership
+
+Verify material membership (`parentId`) separately from shared options (`optionSourceId`). A word-bank parent owns shared choices; a cloze child retains its printed local choices and leaves `optionSourceId=null`. Do not move those choices onto a cloze parent to satisfy a failed shared-options validation. Complete trees whose parents, children and blank references are anchored to the current unit are validated within the existing correction loop; IDs are never guessed or rewritten to pass. Incomplete trees and external continuations remain subject to final merge validation. Keep the failed attempts and their known usage in the report; a stopped page remains a partial result. Freeze fresh prompt and source fingerprints before a follow-up live run.
+
+When an emitted `optionSourceId` resolves to a question in the current unit, its
+owner must be a word bank and must equal the child's `parentId`. Reject inconsistent
+local relations inside the existing correction loop rather than saving them and
+discarding the page at final merge. Missing external owners still defer to merge;
+the service never fills parent IDs or reconstructs passage blanks from answers.
+
+Diagram candidates receive a four-percent page margin, clamped to the page, before
+review so nearby labels remain visible. The review coordinates and candidate JPEG
+use the same bounds. This margin does not establish completeness: uncertain checks
+still prevent crop delivery, and saved crop bytes require independent verification.
+
+The model schema asks for literal printed titles and question wording, including
+local wording or hints for gaps without their own prompt. Standalone material
+must remain in typed content parts, even when `sourceText` also quotes it.
+An answer-only primary page supplies answer evidence through the existing page
+context; it must not emit a copied question from a neighboring page. Verify these
+rules with saved results and ZIPs; prompt instructions alone do not prove fidelity.
+
+The model-facing schema requires `passage` and `contentBlocks` arrays, including
+empty arrays when no material exists; the public import contract is unchanged.
+Fresh grammar-fill and sentence-selection responses must retain their quoted
+exercise title without the type prefix. When the quoted source explicitly shows
+a numbered underscore gap, its number belongs to the blank marker, not adjacent
+passage text. Violations enter the existing bounded correction loop; historical
+checkpoint reads and text without that evidence remain unchanged.
+
+The same title check covers explicit dash-separated exercise headings, including
+word-bank, cloze, ordering, matching and explicit `Reading comprehension — title`
+headings. Brief reading/listening audit references and inline `Reading: passage
+text` are not treated as separately printed titles. A heading without title text
+does not consume the next material line. All title discrepancies in a unit
+are returned together through the existing correction loop.
+
+Multi-page vision first extracts from PRIMARY alone. A second call may complete
+those records using context pages followed by the primary image; ordinary question
+IDs must remain exactly the same through the existing correction loop. Every
+PRIMARY figure must also be retained during completion, keeping
+its kind, bounding box and owning question IDs, with indexes remapped if questions
+are reordered. Table text and rows may still be completed from context; the later
+figure-verification pass owns bounding-box corrections. Original table rows/cells
+must survive in order; extracted text and printed labels cannot disappear or be
+rewritten, and an answer-bearing figure cannot become practice material. Context
+may add rows and text without replacing PRIMARY content. Missing figures or changed
+associations enter the same bounded correction loop. An empty
+PRIMARY response skips context completion. Every PRIMARY composite parent must
+retain its source ID and answer mode; omitting a parent enters correction even if
+its children still refer to it as an external continuation. Drafts without stable IDs
+retain their primary-only result rather than inventing IDs. Composite continuation
+fragments and external parent references remain allowed. Both calls retain usage,
+and page-context events record each model input window. The context draft omits
+empty/default metadata while retaining extracted content, and remains subject to
+the existing model-input limit. Context errors also carry prior known PRIMARY
+usage to local callers; persisted call records remain available independently.
+Each vision unit reserves a full correction loop for primary extraction and figure
+verification, plus context completion when neighboring pages are supplied and the
+three review passes when enabled. Reservations remain capped by the task-wide
+model-call limit and are never refunded on resume.
+
+A fresh ordinary question whose declared page anchor points outside PRIMARY is
+also rejected within correction; its ID is never rewritten. These checks constrain
+model output, not independent source truth: first-pass omissions or inventions
+still fail the frozen live quality checks. Historical checkpoint loading does not
+activate the scoped context-identity constraint.
+
+For proven overlap at the same unique source position, an omitted type ID and a
+built-in label matching the resolved kind/mode compare as metadata. The output
+keeps its original type ID, nulls, review flags and source associations. Custom type
+IDs and other content differences still conflict; ambiguous locations and actual
+repeated source questions are retained. Saved-output replay verifies this merge
+rule but does not replace fresh live evaluation.
+
+Mixed numbered and unnumbered exercise headings do not establish an exact record
+count or a complete source-ID set. Preserve the existing source spans and let the
+model extract every exercise; a numbered child under a reading heading must not
+make the entire document a one-record source. Explicit permission to reuse matching
+paragraphs/items maps to `many_to_one`; missing policy stays null.
 
 ## Grading format Badcases
 

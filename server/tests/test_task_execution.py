@@ -379,7 +379,7 @@ async def test_maximum_pages_use_bounded_visual_batches(monkeypatch):
         active += 1
         peak = max(peak, active)
         calls += 1
-        assert sum(isinstance(message.content, list) for message in messages) <= 3
+        assert sum(isinstance(message.content, list) for message in messages) <= 4
         await asyncio.sleep(0)
         active -= 1
         return schema.model_validate(parsed()), [], None
@@ -590,9 +590,10 @@ async def test_truncated_attempt_replay_preserves_reason_usage_and_budget(monkey
     assert output["status"] == "PARTIAL"
     assert output["result"]["missingFields"] == ["questions"]
     state = (await graph.aget_state(config)).values
-    assert len(calls) == len(state['usage']) == 2
+    assert len(calls) == len(state['usage']) == 1
     failure = document.unit_failures(state)[0]
     assert failure['code'] == 'OUTPUT_TRUNCATED' and not failure['retryable']
     assert failure['retriesRemaining'] == 0
     records = await store.asearch(execution.namespace('thread-1', 'calls'))
-    assert len(records) == 2 and all(item.value['validationCode'] == 'OUTPUT_TRUNCATED' for item in records)
+    assert len(records) == 1 and records[0].value['validationCode'] == 'OUTPUT_TRUNCATED'
+    assert records[0].value['durableResult'] and records[0].value['usageStatus'] == 'known'

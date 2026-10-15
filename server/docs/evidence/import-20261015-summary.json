@@ -1,0 +1,356 @@
+{
+  "schemaVersion": 2,
+  "campaign": "2026-10-14 to 2026-10-15 (UTC+8)",
+  "status": "USER_STOPPED_AFTER_RESUMED_DASHSCOPE_ARREARAGE; quality FAILED/INCOMPLETE",
+  "notAReleaseAcceptance": true,
+  "dataset": "Synthetic maintenance fixtures; not independent exam/teacher validation",
+  "highestCompletedDefaultModeAnswerMatches": [
+    {
+      "format": "TXT",
+      "stage": "s5-large-text-preserve",
+      "repetitions": 1,
+      "matchedAnswers": 432,
+      "expectedAnswerLeaves": 432,
+      "answerMatchPercent": 100.0,
+      "includesExpectedNullAnswers": true,
+      "savedNodes": 576,
+      "sourceNodes": 576,
+      "taskStatus": "SUCCEEDED",
+      "strictQualityGate": "FAILED",
+      "evidence": "server/reports/checks/import-optimization-20261014/quality/s5-large-text-preserve-independent.json",
+      "evidenceSha256": "cffd149fc1b6f20aa66e2e2949a5840f21e2cea06be87c96ab713507accbebcc"
+    },
+    {
+      "format": "XLSX",
+      "stage": "s6-large-xlsx-preserve",
+      "repetitions": 1,
+      "matchedAnswers": 750,
+      "expectedAnswerLeaves": 751,
+      "answerMatchPercent": 99.87,
+      "includesExpectedNullAnswers": true,
+      "savedNodes": 1000,
+      "sourceNodes": 1000,
+      "taskStatus": "SUCCEEDED",
+      "strictQualityGate": "FAILED",
+      "evidence": "server/reports/checks/import-optimization-20261014/quality/s6-large-xlsx-preserve-independent.json",
+      "evidenceSha256": "a2e803d05596a7f9f200aa4c6bbf6c3c10522d939252b70c5ea0ec539bddfdfc"
+    },
+    {
+      "format": "DOCX",
+      "stage": "s9-large-docx-pdf-preserve",
+      "repetitions": 1,
+      "matchedAnswers": 202,
+      "expectedAnswerLeaves": 212,
+      "answerMatchPercent": 95.28,
+      "includesExpectedNullAnswers": true,
+      "savedNodes": 280,
+      "sourceNodes": 283,
+      "taskStatus": "PARTIAL",
+      "strictQualityGate": "FAILED",
+      "evidence": "server/reports/checks/import-optimization-20261014/quality/s9-large-docx-pdf-preserve-independent.json",
+      "evidenceSha256": "73c9b6d23bb70dae33317af6f443837f60f4a0f87c513effab39f822a231350e"
+    },
+    {
+      "format": "PDF",
+      "stage": "s7-large-pdf-preserve",
+      "repetitions": 1,
+      "matchedAnswers": 193,
+      "expectedAnswerLeaves": 212,
+      "answerMatchPercent": 91.04,
+      "includesExpectedNullAnswers": true,
+      "savedNodes": 280,
+      "sourceNodes": 283,
+      "taskStatus": "PARTIAL",
+      "strictQualityGate": "FAILED",
+      "evidence": "server/reports/checks/import-optimization-20261014/quality/s7-large-pdf-preserve-independent.json",
+      "evidenceSha256": "3b3e82303a4b8b1bff0b147f980b3c2c6f0631788c90e0817f776a5460b7cab3"
+    }
+  ],
+  "comparisonLimits": [
+    "Different optimization-stage source versions; maxima are not a single final frozen-source four-format run",
+    "n=1 per large file; no production P95 or concurrency claim",
+    "Strict matched answer accuracy includes correctly absent/null answers and is not whole-document quality pass rate",
+    "Final MAIN99 was stopped after 12 complete trials and one incomplete trial; no final whole-suite improvement claim",
+    "Current resumed candidate stopped at S44: 20 completed, one paused, six not run; independent PDF material loss; MAIN99 and large/opt-in matrices not run"
+  ],
+  "sourceS9": {
+    "productionSource": {
+      "gitCommit": "a02ecbffd4e6ad25ee9d91fd4a7cfc61e9369f0b",
+      "dirty": true,
+      "codeHash": "15653492e76ca0efef174309584b26363cd2dabed5dd4ef3c0c298512019c734"
+    },
+    "promptModuleSha256": "15d24061d799450973b2364e111b7f0f0a14e533e357e6d12539a8aa9942bd48"
+  },
+  "engineering": {
+    "serverPassedTests": 2468,
+    "serverLineCovered": 6519,
+    "serverLineValid": 6889,
+    "serverLineCoveragePercent": 94.6291,
+    "appFrontendPassedTests": 392,
+    "appRustPassedTests": 185,
+    "webPassedTests": 85,
+    "totalDistinctSuitePassedTests": 3130,
+    "alreadyExecutedChecksOnly": true,
+    "scope": "Historical S9 only; latest current-candidate verification in resumedIteration.engineering"
+  },
+  "duplicateOption": {
+    "default": false,
+    "decision": "user chooses before import",
+    "actualOptInBeforeNodes": {
+      "TXT": 574,
+      "XLSX": 1000
+    },
+    "actualOptInAfterNodes": {
+      "TXT": 566,
+      "XLSX": 993
+    },
+    "correctDeletedNodes": 15,
+    "expectedRemovableNodes": 16,
+    "falseDeletedNodes": 0,
+    "protectedVariantPairsRetained": 2,
+    "protectedVariantPairsTested": 2,
+    "unionDetectedPairs": 12,
+    "expectedDuplicatePairs": 12,
+    "strictLargeFileGate": "FAILED 0/2",
+    "existingHelperGate": "NOT_ASSESSED due to confidence comparison; preserved, not overridden",
+    "evidence": "server/reports/checks/import-optimization-20261014/quality/s9-optin2-stage-review.json"
+  },
+  "calls": {
+    "optimization": {
+      "physical": 1000,
+      "known": 996,
+      "unknown": 4,
+      "knownInputTokens": 11042841,
+      "knownOutputTokens": 2823708
+    },
+    "includingOriginalS0": {
+      "physical": 1123,
+      "known": 1119,
+      "unknown": 4,
+      "knownInputTokens": 12000787,
+      "knownOutputTokens": 2883643
+    },
+    "interruptedMain": {
+      "physical": 15,
+      "known": 14,
+      "unknown": 1,
+      "knownInputTokens": 117586,
+      "knownOutputTokens": 7479,
+      "completedTrials": 12,
+      "incompleteTrials": 1,
+      "plannedTrials": 99,
+      "newUnknownCallKey": "f2ca3a72-3f76-454a-995c-3487b7e33986",
+      "ledgerStatus": "pending, dispatched, usage null; no debit"
+    },
+    "moneyCost": null,
+    "returnedProviderModelAlias": "deepseek-flash",
+    "requestedModel": "deepseek-v4.1-flash",
+    "exactProviderWeightsUnverified": true,
+    "noUnknownReplay": true,
+    "scope": "Historical S0 through S9 only; excludes resumedIteration"
+  },
+  "cleanup": {
+    "removedFileCount": 546,
+    "removedBytes": 6306435,
+    "removedLocalStubDirectories": 9,
+    "cacheFileCount": 70
+  },
+  "retainedEvidenceRoot": "server/reports/checks/import-optimization-20261014 (local ignored reports)",
+  "privateAccountingSnapshot": "server/reports/checks/import-optimization-20261014/quality/stopped-run-archive/main99-accounting-snapshot.json",
+  "privatePostgresArchiveSha256": "a9bad46ddea02e3bdf859c61a660b52242e0e1f745507e7ce5829c0843e506d1",
+  "cancelledStages": [
+    "remaining s9-main99",
+    "s9b-large-pdf-preserve",
+    "current-candidate MAIN99",
+    "current-candidate large4",
+    "current-candidate explicit-dedup2",
+    "remaining S44 focused trials"
+  ],
+  "resumedIteration": {
+    "scope": "S10 through S44; synthetic known-failure focused cases, not full-corpus or production accuracy",
+    "status": "USER_STOPPED",
+    "stopReason": "DashScope Arrearage; user confirmed no funds and requested reports only",
+    "model": "qwen3.7-max-2026-06-08",
+    "transport": "Chat Completions API",
+    "structuredOutput": "function_calling",
+    "enableThinking": false,
+    "scorerVersion": "6.3.0",
+    "goldSha256": "65c9d1b5b302453774c1538acbcf590b36b388788fcbbd8e3d9647787328aefc",
+    "oldGoldAndScorerPreserved": true,
+    "focusedStages": [
+      {
+        "stage": "s28",
+        "plannedTrials": 27,
+        "recordedTrials": 27,
+        "qualityPassedTrials": 20,
+        "measurementStatus": "COMPLETE",
+        "strictGate": "FAILED",
+        "evidence": {
+          "path": "server/reports/checks/import-optimization-20261014/quality/s28-focused-max27-independent.json",
+          "sha256": "9970330454bb6118b32a046f7bdc3b3d08c211503505df6445a2fb95f077ac8b"
+        }
+      },
+      {
+        "stage": "s34",
+        "plannedTrials": 27,
+        "recordedTrials": 27,
+        "qualityPassedTrials": 22,
+        "measurementStatus": "COMPLETE",
+        "strictGate": "FAILED",
+        "evidence": {
+          "path": "server/reports/checks/import-optimization-20261014/quality/s34-focused-max27-independent.json",
+          "sha256": "68a0b470e5e471925046d4be00545de3395423126a178a3ba28a4e7c782c8c29"
+        }
+      },
+      {
+        "stage": "s41",
+        "plannedTrials": 27,
+        "recordedTrials": 27,
+        "qualityPassedTrials": 26,
+        "measurementStatus": "COMPLETE",
+        "strictGate": "FAILED",
+        "evidence": {
+          "path": "server/reports/checks/import-optimization-20261014/quality/s41-focused-max27-independent.json",
+          "sha256": "d4cfb97fb204d522600274189a1364ee3220a184bc3f60fced10d08f6a386b28"
+        }
+      },
+      {
+        "stage": "s44",
+        "plannedTrials": 27,
+        "recordedTrials": 21,
+        "qualityPassedTrials": 20,
+        "measurementStatus": "INCOMPLETE",
+        "strictGate": "FAILED",
+        "evidence": {
+          "path": "server/reports/checks/import-optimization-20261014/quality/s44-focused-max27-independent.json",
+          "sha256": "7b2f58f401b8bf6be32a0b67d3c987d138a5ed188f5b3844db4203ab43e2f0e7"
+        }
+      }
+    ],
+    "latestStage": {
+      "stage": "s44",
+      "completedTrials": 20,
+      "pausedTrials": 1,
+      "notRunTrials": 6,
+      "plannedTrials": 27,
+      "completedTrialStrictPasses": 20,
+      "strictAcceptance": "FAILED/INCOMPLETE",
+      "sourceFidelity": {
+        "plannedCaseTrials": 12,
+        "evaluatedCaseTrials": 9,
+        "passedCaseTrials": 8,
+        "failedCaseTrials": 1,
+        "notEvaluatedCaseTrials": 3,
+        "sameCountsForEach": [
+          "detail",
+          "ZIP"
+        ],
+        "pdfFirstTrial": {
+          "retainedObservations": 22,
+          "expectedObservations": 72,
+          "missingObservations": 50,
+          "introRetained": false
+        },
+        "pdfSecondTrialRetainedObservations": 72,
+        "imageNativeCropPassedTrials": 3,
+        "imageNativeCropEvaluatedTrials": 3,
+        "semanticQuestionImageAssociation": "Not independently annotated",
+        "evidence": {
+          "path": "server/reports/checks/import-optimization-20261014/quality/source-fidelity/s44-focused-max27.json",
+          "sha256": "d30732cd967404d7d7b4a26a216c82635d6994a434c61cb6081870c3d824055e"
+        }
+      },
+      "native": {
+        "exportedZipsChecked": 20,
+        "freshTemporaryStoreChecks": 60,
+        "passed": true,
+        "includes": [
+          "field and null preservation",
+          "source associations",
+          "warnings",
+          "resource hash/size",
+          "close/reopen",
+          "same ZIP reimport zero additions"
+        ],
+        "excludes": [
+          "GUI",
+          "IPC",
+          "picker",
+          "production latency",
+          "source completeness acceptance"
+        ],
+        "evidence": {
+          "path": "server/reports/checks/import-optimization-20261014/app-s34/s44-focused-max27.json",
+          "sha256": "ef84363977c3b693e5c2ff99cca5757773a798438e29b3e468f26c2bebf5807d"
+        }
+      },
+      "accountingReceipts": {
+        "saved": 42,
+        "settled": 41,
+        "unknown": 1
+      }
+    },
+    "accounting": {
+      "outbound": 409,
+      "known": 403,
+      "unknown": 6,
+      "knownInputTokens": 4392942,
+      "knownOutputTokens": 332510,
+      "moneyCost": null,
+      "evidence": {
+        "path": "server/reports/checks/import-optimization-20261014/quality/user-stopped-resumed-accounting-20261015.json",
+        "sha256": "fc3e86c3b5de96288bc22d83d4953c12d7bc2138b7035760a0b5fc17a50a0d0c"
+      }
+    },
+    "unrunCurrentCandidateGates": {
+      "mainPlannedTrials": 99,
+      "mainRunTrials": 0,
+      "largePlannedTrials": 4,
+      "largeRunTrials": 0,
+      "explicitDedupPlannedTrials": 2,
+      "explicitDedupRunTrials": 0
+    },
+    "engineering": {
+      "status": "PASSED",
+      "stage": "S43 final stopped candidate, same production source as S44",
+      "passedTests": 2522,
+      "warnings": 11,
+      "seconds": 578.21,
+      "lineCovered": 6567,
+      "lineValid": 6938,
+      "lineCoveragePercent": 94.6526376477371,
+      "branchCovered": 2320,
+      "branchValid": 2582,
+      "branchCoveragePercent": 89.85282726568552,
+      "combinedCoverageConsolePercent": 93,
+      "probes": "PASSED",
+      "packageSourceFileCount": 39,
+      "wheelSha256": "cc6c2ecf825c82ffc35e8d0acafe75615fb389224887da2d620008e3f27fab47",
+      "sdistSha256": "37dc6553af0066ce94372b20efb4ad40a1b5375d077e7352fc0aad35bb7205b2",
+      "scope": "Local engineering checks with model substitutes; no real extraction-quality, remote CI, release or production acceptance",
+      "evidence": {
+        "path": "server/reports/checks/import-optimization-20261014/quality/verify-s43-final-artifacts/summary.json",
+        "sha256": "da8f466fe6510a38f81f27d99005f66ea4c515feb2929d18a2a07b58112bc813"
+      }
+    },
+    "source": {
+      "productionSource": {
+        "gitCommit": "ed6921267b7a0ee587aa01f5438ae52b87644d0f",
+        "dirty": true,
+        "codeHash": "f1b47696e4c03409322a138d48bfbebb2372f4364ad3a8e0dc31274be086128a"
+      },
+      "promptModuleSha256": "6bd3006aecbd66d328706b6d44baf749f0be606e41cf4f2dcda543d9c3a544b3",
+      "pythonFileCount": 39
+    }
+  },
+  "allIterationsAccounting": {
+    "scope": "S0 plus S1-S9 plus S10-S44; not a quality denominator",
+    "physical": 1532,
+    "known": 1522,
+    "unknown": 10,
+    "knownInputTokens": 16393729,
+    "knownOutputTokens": 3216153,
+    "moneyCost": null,
+    "noUnknownReplay": true
+  }
+}

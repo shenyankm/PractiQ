@@ -437,7 +437,7 @@ async def test_truncation_is_visible_and_not_manually_retryable(monkeypatch, pag
     assert state['result']['missingFields'] == ['questions']
     assert state['failures'] == [{'stage': 'vision_parse' if pages else 'document_parse', 'index': 0,
                                   'code': 'OUTPUT_TRUNCATED', 'retryable': False, 'retriesRemaining': 0}]
-    assert len(state['usage']) == 2 and state['unknownUsageCalls'] == []
+    assert len(state['usage']) == 1 and state['unknownUsageCalls'] == []
     assert 'retry_failed' not in state['allowedActions']
     with pytest.raises(DocumentProcessingError, match='retryable'):
         await task_api.control_task(created['threadId'], DocumentTaskControl(requestId=uuid4(), action='retry_failed', checkpointId=state['checkpointId']))

@@ -30,7 +30,7 @@ from practiq_ai.database import Database
 from practiq_ai.errors import DocumentProcessingError
 from practiq_ai.graphs import document
 from tests.db_support import remove_saas_schema, seed_account, setup_api
-from tests.support import make_image, object_store, parsed, upload
+from tests.support import make_image, object_store, parsed, question, source, upload
 
 
 async def issue(database, count=1, amount=1_000_000):
@@ -404,10 +404,19 @@ async def test_points_pause_partial_download_top_up_and_explicit_resume_reuse_pa
 
 
 @pytest.mark.usefixtures('disposable_databases')
-async def test_invalid_model_output_is_charged_and_correction_pauses_without_losing_paid_attempt(monkeypatch):
+@pytest.mark.parametrize('source_count', [None, 16])
+async def test_invalid_model_output_is_charged_and_correction_pauses_without_losing_paid_attempt(monkeypatch, source_count):
     monkeypatch.setenv('AI_INPUT_POINTS_PER_1K', '1')
     monkeypatch.setenv('AI_OUTPUT_POINTS_PER_1K', '3')
     service, reference, model = await setup_api(monkeypatch, [{'questions': 'invalid array'}, parsed()])
+    if source_count is not None:
+        files, reference = source('\n'.join(f'{index}. Short answer: Q{index}\nReference answer: A{index}' for index in range(1, source_count + 1)))
+        model.responses = [{'questions': [{**question(f'Q{index}'), 'id': f'fragment:1:{index}',
+                                          'answerPayload': {'text': f'A{index}'}} for index in range(1, source_count)]},
+                           {'questions': [{**question(f'Q{index}'), 'id': f'fragment:1:{index}',
+                                           'answerPayload': {'text': f'A{index}'}} for index in range(1, source_count + 1)]}]
+        for module in (document, task_api, execution):
+            monkeypatch.setattr(module, 'get_object_store', lambda: files)
     first, _ = await issue(service.db, 2, amount=20_000)
     account = await saas.identity('13800138000', first)
     token = saas.ACCOUNT.set(account)
@@ -418,6 +427,10 @@ async def test_invalid_model_output_is_charged_and_correction_pauses_without_los
         detail = await task_api.get_task(receipt['threadId'])
         assert detail['state'] == 'PAUSED' and detail['billing']['chargedMicropoints'] == '25000'
         assert not detail['failures'] and not detail['canExportCompleted'] and len(model.calls) == 1
+        records = await service.db.store.asearch(execution.namespace(receipt['threadId'], 'calls'))
+        assert len(records) == 1 and records[0].value['durableResult'] and records[0].value['validation'] == 'failed'
+        monkeypatch.setenv('AI_INPUT_POINTS_PER_1K', '9')
+        monkeypatch.setenv('AI_OUTPUT_POINTS_PER_1K', '9')
         async with service.db.transaction() as conn:
             await saas.credit(conn, account, 20000, 'purchase', 'test-recharge')
         await task_api.control_task(receipt['threadId'], DocumentTaskControl(requestId=uuid4(), action='resume', checkpointId=detail['checkpointId']))
@@ -425,6 +438,9 @@ async def test_invalid_model_output_is_charged_and_correction_pauses_without_los
         complete = await task_api.get_task(receipt['threadId'])
         assert complete['state'] == 'COMPLETED' and len(model.calls) == 2
         assert complete['billing']['chargedMicropoints'] == '50000'
+        assert complete['billing']['rates'] == {'inputMicropointsPer1k': '1000000', 'outputMicropointsPer1k': '3000000'}
+        if source_count is not None:
+            assert len(complete['result']['questions']) == source_count
     finally:
         saas.ACCOUNT.reset(token)
 

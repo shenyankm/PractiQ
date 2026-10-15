@@ -269,9 +269,11 @@ async def settle(call_key: str, usage: dict[str, Any] | None, *, rejected: bool 
         await conn.execute('UPDATE import_calls SET status=%s,usage=%s WHERE call_key=%s', (status, json_encode(usage), call_key))
 
 
-async def reconcile(database) -> None:
+async def reconcile(database, *, thread_id: str | None = None) -> None:
     from .execution import namespace
-    for row in await database.rows("SELECT * FROM import_calls WHERE status IN ('pending','unknown')"):
+    query = "SELECT * FROM import_calls WHERE status IN ('pending','unknown')"
+    rows = await database.rows(query + ' AND thread_id=%s', (thread_id,)) if thread_id is not None else await database.rows(query)
+    for row in rows:
         saved = await database.store.aget(namespace(row['thread_id'], 'model_results'), row['result_key'], refresh_ttl=False) if row['result_key'] else None
         usage = saved.value.get('usage') if saved else None
         if usage is not None or row['status'] == 'pending':

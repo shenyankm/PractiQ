@@ -28,6 +28,22 @@ def test_single_model_and_execution_signature(monkeypatch):
     llm.get_model.cache_clear()
 
 
+def test_model_api_switch_changes_model_and_resume_signature(monkeypatch):
+    llm.get_model.cache_clear()
+    monkeypatch.delenv('AI_MODEL_API', raising=False)
+    before = execution.new_execution()
+    assert llm.get_model().use_responses_api is None
+    monkeypatch.setenv('AI_MODEL_API', 'responses')
+    llm.get_model.cache_clear()
+    try:
+        model = llm.get_model()
+        assert model.use_responses_api is True and model.store is False
+        with pytest.raises(DocumentProcessingError, match='original deployment'):
+            execution.validate_execution(before)
+    finally:
+        llm.get_model.cache_clear()
+
+
 def test_visual_result_rejects_invalid_final_question_index():
     from practiq_ai.contracts import DocumentParseResult
     with pytest.raises(ValidationError, match='questionIds'):

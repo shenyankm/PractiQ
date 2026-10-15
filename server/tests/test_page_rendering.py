@@ -109,7 +109,9 @@ async def test_page_order_gaps_and_crops(monkeypatch, failed):
         index = next(i for i in range(3) if f"PRIMARY page {i + 1}" in prompt)
         assert schema is document.PageParseResult and call_kind == "vision_parse"
         images = [message for message in messages if isinstance(message.content, list)]
-        assert len(images) == (3 if index == 1 else 2)
+        assert len(images) == 1  # Initial extraction sees PRIMARY only; these drafts have no IDs.
+        assert images[-1].content[0]['text'] == f'Page {index + 1}: PRIMARY'
+        assert all('CONTEXT ONLY' in item.content[0]['text'] for item in images[:-1])
         if index == 0:
             await asyncio.wait_for(second_finished.wait(), 5)
         completed.append(index)
@@ -136,6 +138,34 @@ async def test_page_order_gaps_and_crops(monkeypatch, failed):
         assert figure["description"].startswith("[page crop]")
         assert figure["imageRef"]["objectKey"] in store.blobs
     assert {v["page"] for v in result["result"]["visualElements"] if v["imageRef"] is None and v["sourceRef"]} == failed
+
+
+async def test_answer_page_ignores_neighbors_after_empty_primary(monkeypatch):
+    store, reference = paged_source('pdf')
+    model = FakeModel(responses=[])
+    monkeypatch.setattr(document, 'get_object_store', lambda: store)
+    monkeypatch.setattr(document, 'get_model', lambda: model)
+    monkeypatch.setattr(document, 'extract', AsyncMock(return_value=ExtractedDocument(
+        text='', page_images=[make_image()] * 2)))
+    seen = []
+
+    async def page_call(_model, messages, schema, call_kind, *, runtime=None):
+        prompt = messages[-1].content
+        assert 'An answer-only PRIMARY page must return questions=[] and groups=[]' in prompt
+        assert 'never copy a question from CONTEXT onto an answer page' in prompt
+        assert 'only when there is no associated text material' in prompt
+        assert 'background text alone does not create a reading parent' in prompt
+        assert len([message for message in messages if isinstance(message.content, list)]) == 1
+        primary = 0 if 'PRIMARY page 1' in prompt else 1
+        seen.append(primary)
+        return schema.model_validate({'questions': [question('Original question')] if primary == 0 else [],
+                                      'groups': [], 'figures': []}), [], None
+
+    monkeypatch.setattr(document, 'structured_call', page_call)
+    result = await local_graph().ainvoke({'document': reference})
+    assert sorted(seen) == [0, 1]
+    assert len(result['result']['questions']) == 1
+    assert result['result']['questions'][0]['stem'] == 'Original question'
 
 
 @pytest.mark.parametrize("fixture", ["text-layer.pdf", "scanned.pdf"])
@@ -524,3 +554,293 @@ def test_crop_only_truncation_marks_media_not_questions(monkeypatch):
     assert result["status"] == "PARTIAL" and result["processing"]["truncated"]
     assert len(result["result"]["questions"]) == 1
     assert result["result"]["missingFields"] == ["media"]
+
+
+async def test_context_enrichment_cannot_add_a_question_with_a_false_primary_anchor(monkeypatch):
+    store, reference = paged_source('pdf')
+    primary = {**question('PRIMARY question'), 'id': 'page:1:1'}
+    enriched = {**primary, 'answerPayload': {'text': 'Printed reference'}}
+    copied = {**question('Context-only question'), 'id': 'page:1:context-copy'}
+    model = FakeModel(responses=[{'questions': [primary]}, {'questions': [primary, copied]},
+                                {'questions': [enriched]}, {'questions': []}])
+    monkeypatch.setenv('AI_IMPORT_REVIEW', 'false')
+    monkeypatch.setenv('AI_GRAPH_MAX_CONCURRENCY', '1')
+    monkeypatch.setattr(document, 'get_object_store', lambda: store)
+    monkeypatch.setattr(document, 'get_model', lambda: model)
+    monkeypatch.setattr(document, 'extract', AsyncMock(return_value=ExtractedDocument(
+        text='', page_images=[make_image()] * 2)))
+    state = await local_graph().ainvoke({'document': reference})
+    assert len(model.calls) == len(state['usage']) == 4
+    assert len([m for m in model.calls[0] if isinstance(m.content, list)]) == 1
+    assert len([m for m in model.calls[1] if isinstance(m.content, list)]) == 2
+    assert 'PRIMARY question IDs' in model.calls[2][-1].content
+    assert [q['stem'] for q in state['result']['questions']] == ['PRIMARY question']
+    assert state['result']['questions'][0]['answerPayload'] == {'text': 'Printed reference'}
+    assert document.PRIMARY_PAGE.get() is None
+    assert copied['id'] == 'page:1:context-copy'
+
+
+async def test_primary_and_context_passes_each_have_all_correction_attempts(monkeypatch):
+    store, reference = paged_source('pdf')
+    primary = {**question('PRIMARY question'), 'id': 'page:1:1'}
+    enriched = {**primary, 'answerPayload': {'text': 'Printed reference'}}
+    invalid = [{'questions': [question(f'Invalid context question {i}')]} for i in range(3)]
+    model = FakeModel(responses=[*[{'questions': str(i)} for i in range(3)], {'questions': [primary]},
+                                *invalid, {'questions': [enriched]}, {'questions': []}])
+    monkeypatch.setenv('AI_IMPORT_REVIEW', 'false')
+    monkeypatch.setenv('AI_GRAPH_MAX_CONCURRENCY', '1')
+    monkeypatch.setattr(document, 'get_object_store', lambda: store)
+    monkeypatch.setattr(document, 'get_model', lambda: model)
+    monkeypatch.setattr(document, 'extract', AsyncMock(return_value=ExtractedDocument(
+        text='', page_images=[make_image()] * 2)))
+    state = await local_graph().ainvoke({'document': reference})
+    assert state['status'] == 'SUCCEEDED', state['processing']
+    assert len(model.calls) == len(state['usage']) == 9
+    assert state['result']['questions'][0]['answerPayload'] == {'text': 'Printed reference'}
+
+
+@pytest.mark.parametrize('mode', ['reading', 'cloze', 'word_bank'])
+async def test_context_correction_retains_primary_composite_material(monkeypatch, mode):
+    store, reference = paged_source('pdf')
+    options = [{'label': 'A', 'content': 'early'}, {'label': 'B', 'content': 'late'}]
+    material = [{'partType': 'text', 'textValue': 'They arrive '},
+                {'partType': 'blank', 'questionId': 'page:1:2'},
+                {'partType': 'text', 'textValue': ' every day.'}]
+    parent = {'id': 'page:1:1', 'answerMode': mode, 'stem': 'Printed exercise',
+              'passage': material if mode != 'reading' else material[:1],
+              'options': options if mode == 'word_bank' else []}
+    child = {'id': 'page:1:2', 'parentId': parent['id'], 'answerMode': 'choice',
+             'choiceVariant': 'single', 'stem': 'Choose the supplied word',
+             'options': [] if mode == 'word_bank' else options,
+             'optionSourceId': parent['id'] if mode == 'word_bank' else None,
+             'answerPayload': {'correct': ['A']}}
+    model = FakeModel(responses=[{'questions': [parent, child]}, {'questions': [child]},
+                                {'questions': [parent, child]}, {'questions': []}])
+    monkeypatch.setenv('AI_IMPORT_REVIEW', 'false')
+    monkeypatch.setenv('AI_GRAPH_MAX_CONCURRENCY', '1')
+    monkeypatch.setattr(document, 'get_object_store', lambda: store)
+    monkeypatch.setattr(document, 'get_model', lambda: model)
+    monkeypatch.setattr(document, 'extract', AsyncMock(return_value=ExtractedDocument(
+        text='', page_images=[make_image()] * 2)))
+    state = await local_graph().ainvoke({'document': reference})
+    assert len(model.calls) == len(state['usage']) == 4
+    assert 'PRIMARY composite' in model.calls[2][-1].content
+    kept = next(q for q in state['result']['questions'] if q['answerMode'] == mode)
+    assert kept['passage'][0]['textValue'] == 'They arrive '
+    assert kept['options'] == parent['options']
+    assert document.PRIMARY_PAGE.get() is None
+
+
+@pytest.mark.parametrize('field', ['passage', 'options', 'contentBlocks', 'transcript'])
+@pytest.mark.parametrize('loss', ['removed', 'changed', 'reordered'])
+async def test_context_correction_preserves_composite_payload_and_allows_additions(monkeypatch, field, loss):
+    store, reference = paged_source('pdf')
+    options = [{'label': 'A', 'content': 'early'}, {'label': 'B', 'content': 'late'}]
+    blocks = [{'partType': 'text', 'textValue': text} for text in ['Printed first part', 'Printed second part']]
+    mode = {'options': 'word_bank', 'transcript': 'listening'}.get(field, 'reading')
+    parent = {'id': 'page:1:1', 'answerMode': mode, 'stem': 'Printed exercise',
+              field: options if field == 'options' else blocks}
+    if mode == 'word_bank':
+        parent['passage'] = [blocks[0], {'partType': 'blank', 'questionId': 'page:1:2'}]
+    extra = {'label': 'C', 'content': 'later'} if field == 'options' else {'partType': 'text', 'textValue': 'Continuing part'}
+    complete = {**parent, field: [*parent[field], extra]}
+    broken_items = {'removed': parent[field][1:], 'changed': [extra, parent[field][1]],
+                    'reordered': parent[field][::-1]}[loss]
+    child = {'id': 'page:1:2', 'parentId': parent['id'], 'answerMode': 'choice',
+             'choiceVariant': 'single', 'stem': 'Choose the supplied word',
+             'options': [] if mode == 'word_bank' else options,
+             'optionSourceId': parent['id'] if mode == 'word_bank' else None,
+             'answerPayload': {'correct': ['B']}}
+    model = FakeModel(responses=[{'questions': [parent, child]},
+                                {'questions': [{**parent, field: broken_items}, child]},
+                                {'questions': [complete, child]}, {'questions': []}])
+    monkeypatch.setenv('AI_IMPORT_REVIEW', 'false')
+    monkeypatch.setenv('AI_GRAPH_MAX_CONCURRENCY', '1')
+    monkeypatch.setattr(document, 'get_object_store', lambda: store)
+    monkeypatch.setattr(document, 'get_model', lambda: model)
+    monkeypatch.setattr(document, 'extract', AsyncMock(return_value=ExtractedDocument(
+        text='', page_images=[make_image()] * 2)))
+    state = await local_graph().ainvoke({'document': reference})
+    assert state['status'] == 'SUCCEEDED', state['processing']
+    assert len(model.calls) == len(state['usage']) == 4
+    assert f'PRIMARY composite {field}' in model.calls[2][-1].content
+    kept = next(q for q in state['result']['questions'] if q['answerMode'] == mode)
+    values = [item['content'] if field == 'options' else item['textValue'] for item in kept[field]]
+    assert values == (['early', 'late', 'later'] if field == 'options' else
+                      ['Printed first part', 'Printed second part', 'Continuing part'])
+    assert document.PRIMARY_PAGE.get() is None
+
+
+@pytest.mark.parametrize('loss', ['all', 'one', 'title', 'instructions', 'association', 'one-owner'])
+async def test_context_correction_preserves_primary_groups_and_reordered_members(monkeypatch, loss):
+    from copy import deepcopy
+
+    store, reference = paged_source('pdf')
+    questions = [{**question('First question'), 'id': 'page:1:1'},
+                 {**question('Second question'), 'id': 'page:1:2'}]
+    groups = [{'title': 'Printed section', 'instructions': 'Use the printed material.', 'questionIndexes': [0, 1]},
+              {'title': 'First-question section', 'questionIndexes': [0]}]
+    corrected = [{**groups[1], 'instructions': 'Additional context.', 'questionIndexes': [1]},
+                 {**groups[0], 'questionIndexes': [1, 0]},
+                 {'title': 'Context section', 'questionIndexes': [0]}]
+    broken = deepcopy(corrected)
+    if loss == 'all':
+        broken = []
+    elif loss == 'one':
+        broken.pop(1)
+    elif loss in {'title', 'instructions'}:
+        broken[1][loss] = 'Different source content'
+    elif loss == 'association':
+        broken[0]['questionIndexes'] = [0]
+    else:
+        broken[1]['questionIndexes'] = [1]
+    model = FakeModel(responses=[{'questions': questions, 'groups': groups},
+                                {'questions': questions[::-1], 'groups': broken},
+                                {'questions': questions[::-1], 'groups': corrected}, {'questions': []}])
+    monkeypatch.setenv('AI_IMPORT_REVIEW', 'false')
+    monkeypatch.setenv('AI_GRAPH_MAX_CONCURRENCY', '1')
+    monkeypatch.setattr(document, 'get_object_store', lambda: store)
+    monkeypatch.setattr(document, 'get_model', lambda: model)
+    monkeypatch.setattr(document, 'extract', AsyncMock(return_value=ExtractedDocument(
+        text='', page_images=[make_image()] * 2)))
+    state = await local_graph().ainvoke({'document': reference})
+    assert state['status'] == 'SUCCEEDED', state['processing']
+    assert len(model.calls) == len(state['usage']) == 4
+    assert 'PRIMARY group' in model.calls[2][-1].content
+    kept = {group['title']: group for group in state['result']['groups']}
+    by_id = {q['id']: q['stem'] for q in state['result']['questions']}
+    assert kept['Printed section']['instructions'] == groups[0]['instructions']
+    assert {by_id[qid] for qid in kept['Printed section']['questionIds']} == {'First question', 'Second question'}
+    assert [by_id[qid] for qid in kept['First-question section']['questionIds']] == ['First question']
+    assert kept['First-question section']['instructions'] == 'Additional context.'
+    assert 'Context section' in kept
+    assert document.PRIMARY_PAGE.get() is None
+
+
+@pytest.mark.parametrize('loss', ['all', 'one', 'association'])
+async def test_context_correction_preserves_primary_figures_and_reordered_owners(monkeypatch, loss):
+    store, reference = paged_source('pdf')
+    questions = [{**question('First question'), 'id': 'page:1:1'},
+                 {**question('Second question'), 'id': 'page:1:2'}]
+    figures = [{'kind': 'diagram', 'description': 'First diagram', 'questionIndexes': [0],
+                'bbox': [0.1, 0.1, 0.4, 0.4]},
+               {'kind': 'diagram', 'description': 'Second diagram', 'questionIndexes': [1],
+                'bbox': [0.5, 0.5, 0.9, 0.9]}]
+    corrected = [{**figures[0], 'questionIndexes': [1]}, {**figures[1], 'questionIndexes': [0]}]
+    broken = {'all': [], 'one': corrected[:1],
+              'association': [{**corrected[0], 'questionIndexes': []}, corrected[1]]}[loss]
+    model = FakeModel(responses=[{'questions': questions, 'figures': figures},
+                                {'questions': questions[::-1], 'figures': broken},
+                                {'questions': questions[::-1], 'figures': corrected}, {'questions': []}])
+    monkeypatch.setenv('AI_IMPORT_REVIEW', 'false')
+    monkeypatch.setenv('AI_GRAPH_MAX_CONCURRENCY', '1')
+    monkeypatch.setattr(document, 'get_object_store', lambda: store)
+    monkeypatch.setattr(document, 'get_model', lambda: model)
+    monkeypatch.setattr(document, 'extract', AsyncMock(return_value=ExtractedDocument(
+        text='', page_images=[make_image()] * 2)))
+    state = await local_graph().ainvoke({'document': reference})
+    assert len(model.calls) == len(state['usage']) == 4
+    assert 'PRIMARY figure' in model.calls[2][-1].content
+    visuals = state['result']['visualElements']
+    assert len(visuals) == 2 and all(visual['imageRef'] for visual in visuals)
+    by_id = {q['id']: q['stem'] for q in state['result']['questions']}
+    assert [[by_id[qid] for qid in visual['questionIds']] for visual in visuals] == [
+        ['First question'], ['Second question']]
+
+
+@pytest.mark.parametrize('loss', ['rows-missing', 'cell-changed', 'row-removed', 'text-missing', 'text-changed', 'role', 'label'])
+async def test_context_correction_preserves_primary_figure_payload_and_allows_more_rows(monkeypatch, loss):
+    from copy import deepcopy
+
+    store, reference = paged_source('pdf')
+    primary = {**question('Read the printed table'), 'id': 'page:1:1'}
+    figure = {'kind': 'table', 'description': 'Printed values', 'role': 'answer', 'label': 'Table 1',
+              'questionIndexes': [0], 'bbox': [0.1, 0.1, 0.9, 0.9], 'extractedText': 'Printed table note',
+              'tableRows': [['Metric', 'Value'], ['A', '10'], ['B', '20']]}
+    complete = {**figure, 'tableRows': [*figure['tableRows'], ['C', '30']],
+                'extractedText': figure['extractedText'] + '; continuing note'}
+    broken = deepcopy(complete)
+    if loss == 'rows-missing':
+        broken['tableRows'] = None
+    elif loss == 'cell-changed':
+        broken['tableRows'][1][1] = '99'
+    elif loss == 'row-removed':
+        broken['tableRows'].pop(1)
+    elif loss.startswith('text'):
+        broken['extractedText'] = None if loss == 'text-missing' else 'Different text'
+    elif loss == 'role':
+        broken['role'] = 'material'
+    else:
+        broken['label'] = None
+    model = FakeModel(responses=[{'questions': [primary], 'figures': [figure]},
+                                {'questions': [primary], 'figures': [broken]},
+                                {'questions': [primary], 'figures': [complete]}, {'questions': []}])
+    monkeypatch.setenv('AI_IMPORT_REVIEW', 'false')
+    monkeypatch.setenv('AI_GRAPH_MAX_CONCURRENCY', '1')
+    monkeypatch.setattr(document, 'get_object_store', lambda: store)
+    monkeypatch.setattr(document, 'get_model', lambda: model)
+    monkeypatch.setattr(document, 'extract', AsyncMock(return_value=ExtractedDocument(
+        text='', page_images=[make_image()] * 2)))
+    state = await local_graph().ainvoke({'document': reference})
+    assert len(model.calls) == len(state['usage']) == 4
+    assert 'PRIMARY figure payload' in model.calls[2][-1].content
+    visual = state['result']['visualElements'][0]
+    assert visual['role'] == 'answer' and visual['label'] == 'Table 1'
+    assert all(value in visual['extractedText'] for value in ['10', '20', '30'])
+
+
+async def test_empty_primary_page_does_not_submit_neighbors_for_question_extraction(monkeypatch):
+    store, reference = paged_source('pdf')
+    owned = {**question('Starts on page two'), 'id': 'page:2:1'}
+    model = FakeModel(responses=[{'questions': []}, {'questions': [owned]}, {'questions': [owned]}])
+    monkeypatch.setenv('AI_IMPORT_REVIEW', 'false')
+    monkeypatch.setenv('AI_GRAPH_MAX_CONCURRENCY', '1')
+    monkeypatch.setattr(document, 'get_object_store', lambda: store)
+    monkeypatch.setattr(document, 'get_model', lambda: model)
+    monkeypatch.setattr(document, 'extract', AsyncMock(return_value=ExtractedDocument(
+        text='', page_images=[make_image()] * 2)))
+    state = await local_graph().ainvoke({'document': reference})
+    assert len(model.calls) == len(state['usage']) == 3
+    assert [len([m for m in call if isinstance(m.content, list)]) for call in model.calls] == [1, 1, 2]
+    assert [q['stem'] for q in state['result']['questions']] == ['Starts on page two']
+
+
+def test_context_identity_guard_allows_composite_fragments_and_resets_for_history():
+    from pydantic import ValidationError
+
+    parent = {'id': 'page:1:reading', 'answerMode': 'reading', 'stem': 'Continued reading',
+              'passage': [{'partType': 'text', 'textValue': 'Printed continuation'}]}
+    token = document.PRIMARY_PAGE.set(document.PageParseResult())
+    try:
+        assert document.PageParseResult.model_validate({'questions': [parent]}).questions[0].id == parent['id']
+        with pytest.raises(ValidationError, match='PRIMARY question IDs'):
+            document.PageParseResult.model_validate({'questions': [question('Context question')]})
+    finally:
+        document.PRIMARY_PAGE.reset(token)
+    assert document.PageParseResult.model_validate({'questions': [question('Historical record')]}).questions
+
+
+async def test_context_failure_retains_known_primary_usage_and_clears_identity_guard(monkeypatch):
+    store, reference = paged_source('pdf')
+    primary = {**question('Visible PRIMARY question'), 'id': 'page:1:1'}
+    model = FakeModel(responses=[{'questions': [primary]}])
+    original = document.structured_call
+
+    async def fail_context(model, messages, schema, call_kind, *, runtime=None):
+        if len([message for message in messages if isinstance(message.content, list)]) > 1:
+            raise DocumentProcessingError(503, 'Context storage unavailable', 'EXECUTION_STORE_UNAVAILABLE')
+        return await original(model, messages, schema, call_kind, runtime=runtime)
+
+    monkeypatch.setenv('AI_IMPORT_REVIEW', 'false')
+    monkeypatch.setenv('AI_GRAPH_MAX_CONCURRENCY', '1')
+    monkeypatch.setattr(document, 'structured_call', fail_context)
+    monkeypatch.setattr(document, 'get_object_store', lambda: store)
+    monkeypatch.setattr(document, 'get_model', lambda: model)
+    monkeypatch.setattr(document, 'extract', AsyncMock(return_value=ExtractedDocument(
+        text='', page_images=[make_image()] * 2)))
+    with pytest.raises(DocumentProcessingError) as caught:
+        await local_graph().ainvoke({'document': reference})
+    assert caught.value.code == 'EXECUTION_STORE_UNAVAILABLE'
+    assert len(model.calls) == len(caught.value.usage) == 1
+    assert (caught.value.usage[0].inputTokens, caught.value.usage[0].outputTokens) == (10, 5)
+    assert document.PRIMARY_PAGE.get() is None

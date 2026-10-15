@@ -250,3 +250,31 @@ def test_material_groups_merge_only_with_confirmed_overlap(same_material):
     _, groups, *_ = merge_chunk_results([(0, [q1], [first.model_copy(update={'questionIndexes': [0]})]),
                                         (1, [q3], [first.model_copy(update={'questionIndexes': [0]})])], overlapping=False)
     assert len(groups) == 2
+
+
+@pytest.mark.parametrize('first_type,second_type,count', [
+    (None, 'short_answer', 1), ('short_answer', None, 1),
+    (None, 'custom-type', 2), ('short_answer', 'custom-type', 2),
+])
+def test_proven_overlap_compares_builtin_type_labels_as_metadata(first_type, second_type, count):
+    text = 'Which bird migrates? Answer: swallow'
+    first = ParsedQuestion(stem='Which bird migrates?', answerMode='short_answer',
+                           answerPayload={'text': 'swallow'}, sourceText=text, questionTypeId=first_type, confidence=0.9)
+    second = first.model_copy(update={'questionTypeId': second_type, 'confidence': 0.7})
+    before = [q.model_dump() for q in (first, second)]
+    spans: list[ChunkSpan] = [
+        {'start': 0, 'end': len(text), 'overlapStart': 0, 'overlapEnd': 0},
+        {'start': 0, 'end': len(text), 'overlapStart': 0, 'overlapEnd': len(text)},
+    ]
+    merged, _, _, _, sources, quality = merge_chunk_results(
+        [(0, [first], []), (1, [second], [])], source_text=text, chunk_spans=spans)
+    assert len(merged) == count
+    assert [q.model_dump() for q in (first, second)] == before
+    assert merged[0].questionTypeId == first_type
+    assert len(sources) == 2
+    if count == 1:
+        assert not any(i.code == 'OVERLAP_CONFLICT' for i in quality.issues)
+        assert merged[0].confidence == 0.7
+        assert set(merged[0].missingFields) >= set(first.missingFields) | set(second.missingFields)
+    else:
+        assert {i.questionIndex for i in quality.issues if i.code == 'OVERLAP_CONFLICT'} == {0, 1}

@@ -13,6 +13,7 @@ class ExtractedDocument:
     warnings: list[str] = field(default_factory=list)
     page_images: list[bytes] = field(default_factory=list)
     truncated: bool = False
+    tabular_rows_safe: bool = False
 
 
 def enforce_vision_bytes(total: int) -> None:
@@ -41,5 +42,5 @@ def extract(
     else:
         raise KeyError(source_type)
     document = extractor(payload)
-    document.text = document.text.strip()
+    document.text = document.text.strip('\r\n') if source_type == 'csv' else document.text.strip()
     return document

@@ -53,7 +53,7 @@ from practiq_ai.execution import runtime_version
 from practiq_ai.storage import get_object_store
 
 ROOT = Path(__file__).parents[1]
-SCORER_VERSION = "6.2.0"
+SCORER_VERSION = "6.3.0"
 SOURCE_TYPES = {"text", "csv", "pdf", "image"}
 ANSWER_MODES = {"choice", "true_false", "fill_blank", "short_answer", "ordering", "matching", *COMPOSITE_MODES}
 METRICS = (
@@ -77,7 +77,7 @@ SETTING_NAMES = (
     "max_total_input_chars", "graph_max_concurrency", "storage_concurrency",
     "storage_timeout_seconds", "model_timeout_seconds", "model_max_tokens",
     "task_max_model_calls", "run_timeout_seconds", "model_max_input_chars",
-    "provider_concurrency", "provider_rpm", "deployment_workers", "structured_output_method", "import_review",
+    "provider_concurrency", "provider_rpm", "deployment_workers", "structured_output_method", "import_review", "model_api",
 )
 
 
@@ -450,7 +450,7 @@ def score_trajectory(case: dict[str, Any], events: list[dict[str, Any]], calls: 
                 reasons.append("UNIT_ATTEMPT_LIMIT")
         if event["event"] == "page_context":
             primary, pages = event["primaryPage"], event["contextPages"]
-            if primary not in pages or len(set(pages)) != len(pages) or any(abs(page - primary) > 1 for page in pages):
+            if primary not in pages or len(set(pages)) != len(pages) or any(page < primary - 2 or page > primary + 1 for page in pages):
                 reasons.append("INVALID_PAGE_CONTEXT")
     # A missing event must not turn an observed provider call into a passing trace.
     if {c.get("callKey") for c in calls} - {e["callKey"] for e in starts}:

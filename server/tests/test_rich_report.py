@@ -49,6 +49,8 @@ def test_rich_report_rechecks_only_matching_source_and_implementation(tmp_path, 
 
 @pytest.mark.parametrize("changed", [
     "server/src/practiq_ai/graphs/chunking.py",
+    "server/src/practiq_ai/graphs/document.py",
+    "server/src/practiq_ai/extractors/csv.py",
     "server/src/practiq_ai/extractors/pdf.py",
     "server/src/practiq_ai/contracts.py",
     "server/uv.lock",
