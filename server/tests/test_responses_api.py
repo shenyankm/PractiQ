@@ -26,9 +26,9 @@ def response(arguments='{"value":2}', *, status='completed', incomplete=None, us
 
 
 @asynccontextmanager
-async def model_with_transport(respond, model_api='responses', model_name='custom-model'):
+async def model_with_transport(respond, model_api: str | None = 'responses', model_name='custom-model', base_url='http://127.0.0.1:1/v1'):
     model = llm.build_model('openai', 'synthetic', model_name,
-                           base_url='http://127.0.0.1:1/v1', model_api=model_api)
+                           base_url=base_url, model_api=model_api)
     client = model.root_async_client._client
     await client._transport.aclose()
     client._transport = httpx2.MockTransport(respond)
@@ -100,13 +100,52 @@ async def test_responses_token_truncation_stops_same_limit_corrections_after_one
     ({'input_tokens': 10, 'output_tokens': -1}, 'AI_USAGE_INVALID'),
     ({'input_tokens': 10.5, 'output_tokens': 5}, 'AI_USAGE_INVALID'),
 ])
-async def test_raw_responses_usage_is_validated_before_sdk_coercion(usage, code):
+@pytest.mark.parametrize('model_api,model_name', [('responses', 'custom-model'), (None, 'gpt-5-pro')])
+@pytest.mark.parametrize('base_url', ['http://127.0.0.1:1/v1', 'https://provider.invalid/custom/v1'])
+async def test_raw_responses_usage_is_validated_before_sdk_coercion(usage, code, model_api, model_name, base_url):
     body = response()
     body['usage'] = usage
-    async with model_with_transport(lambda _: httpx2.Response(200, json=body)) as model:
+    def respond(request):
+        assert request.url.path.endswith('/responses')
+        return httpx2.Response(200, json=body)
+    async with model_with_transport(respond, model_api=model_api, model_name=model_name, base_url=base_url) as model:
         with pytest.raises(DocumentProcessingError) as exc:
             await llm.structured_attempt(model, [HumanMessage(content='Extract')], Result, 'test')
     assert exc.value.code == code
+
+
+async def test_sdk_selected_responses_missing_usage_stays_unknown_without_replay():
+    requests = []
+    def respond(request):
+        requests.append(request)
+        body = response()
+        body['usage'].pop('input_tokens')
+        return httpx2.Response(200, json=body)
+    records = []
+    async with model_with_transport(respond, model_api=None, model_name='gpt-5-pro') as model:
+        with pytest.raises(DocumentProcessingError) as exc:
+            await llm.structured_call(model, [], Result, 'test', call_records=records)
+    assert exc.value.code == 'AI_USAGE_MISSING' and len(requests) == 1
+    assert records[0]['usageStatus'] == 'unknown'
+
+
+@pytest.mark.parametrize('model_api', [None, 'responses'])
+async def test_sync_responses_reject_missing_raw_usage(model_api):
+    from openai import APIConnectionError
+
+    def respond(request):
+        assert request.url.path.endswith('/responses')
+        body = response()
+        body['usage'].pop('input_tokens')
+        return httpx2.Response(200, json=body)
+    async with model_with_transport(respond, model_api=model_api, model_name='gpt-5-pro') as model:
+        client = model.root_client._client
+        client._transport.close()
+        client._transport = httpx2.MockTransport(respond)
+        with pytest.raises(APIConnectionError) as exc:
+            model.root_client.responses.create(model='gpt-5-pro', input='Extract')
+    assert isinstance(exc.value.__cause__, DocumentProcessingError)
+    assert exc.value.__cause__.code == 'AI_USAGE_MISSING'
 
 
 async def test_malformed_responses_usage_stops_without_repeating_a_paid_attempt():

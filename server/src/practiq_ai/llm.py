@@ -30,7 +30,14 @@ from langgraph.errors import GraphInterrupt
 from langgraph.func import task
 from langgraph.runtime import Runtime, get_runtime
 from langgraph.types import interrupt
-from openai import APIConnectionError, APIStatusError, APITimeoutError, RateLimitError
+from openai import (
+    APIConnectionError,
+    APIStatusError,
+    APITimeoutError,
+    DefaultAsyncHttpxClient,
+    DefaultHttpxClient,
+    RateLimitError,
+)
 from pydantic import BaseModel, ValidationError
 
 from . import saas, telemetry
@@ -83,13 +90,15 @@ def _verify_responses_usage(response: httpx2.Response) -> None:
 
 
 def _responses_response(response: httpx2.Response) -> None:
-    response.read()
-    _verify_responses_usage(response)
+    if response.request.url.path.endswith("/responses"):
+        response.read()
+        _verify_responses_usage(response)
 
 
 async def _responses_async_response(response: httpx2.Response) -> None:
-    await response.aread()
-    _verify_responses_usage(response)
+    if response.request.url.path.endswith("/responses"):
+        await response.aread()
+        _verify_responses_usage(response)
 
 
 def build_model(
@@ -106,16 +115,14 @@ def build_model(
     if model_api not in {None, "chat_completions", "responses"}:
         raise ValueError(f"Unsupported model API: {model_api}")
     endpoint = (base_url or BASE_URLS[provider]).rstrip("/")
-    clients: dict[str, Any] = {}
     loopback = is_loopback_host(urlsplit(endpoint).hostname)
-    if loopback or model_api == "responses":
-        # Bypass loopback proxies and verify usage before the SDK can fill missing counts with zero.
-        clients = {
-            "http_client": httpx2.Client(timeout=timeout, trust_env=not loopback,
-                event_hooks={"response": [_responses_response]} if model_api == "responses" else None),
-            "http_async_client": httpx2.AsyncClient(timeout=timeout, trust_env=not loopback,
-                event_hooks={"response": [_responses_async_response]} if model_api == "responses" else None),
-        }
+    # Validate the actual Responses route, including SDK-selected transport, before usage normalization.
+    clients = {
+        "http_client": DefaultHttpxClient(timeout=timeout, trust_env=not loopback,
+            event_hooks={"response": [_responses_response]}),
+        "http_async_client": DefaultAsyncHttpxClient(timeout=timeout, trust_env=not loopback,
+            event_hooks={"response": [_responses_async_response]}),
+    }
     return ChatOpenAI(
         model=model_name,
         api_key=cast(Any, api_key),
