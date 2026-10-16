@@ -10,6 +10,8 @@ Use Node.js 22.12+, the repository-pinned Rust toolchain, JDK 21, Android SDK pl
 
 The locked runtime uses Tauri 2.12.1, tauri-runtime-wry 2.12.1, Wry 0.57.0 and Tao 0.37.1. Tao includes the released Android event-loop fix that drains queued user events after every poll, preventing a concurrent file-descriptor event from hiding a wake and stranding an IPC response ([upstream fix](https://github.com/tauri-apps/tao/pull/1304)). Tauri now supplies the upstream Activity lifecycle and system-result launcher management. Gradle compiles unmodified Cargo sources; the former Tauri 2.11.5 replacement under `app/src-tauri/gen/android/patches/` and its source/license provenance remain inactive historical evidence, outside the build and current override lock.
 
+The checked-in [Gradle 8.14.3 Wrapper JAR](https://github.com/gradle/gradle/blob/v8.14.3/gradle/wrapper/gradle-wrapper.jar) matches its [official SHA-256](https://services.gradle.org/distributions/gradle-8.14.3-wrapper.jar.sha256): `7d3a4ac4de1c32b59bc6a4eb8ecb8e612ccd0cf1ae1e99f66902da64df296172`. It reads `networkTimeout=60000` from `gradle-wrapper.properties`, allowing 60 seconds for distribution download connections and reads on fresh CI runners. Older Wrapper JARs ignore this setting even when the distribution URL points to a newer Gradle release.
+
 From the repository root, after installing the selected SDK components:
 
 ```sh
