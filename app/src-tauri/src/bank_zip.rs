@@ -530,6 +530,102 @@ mod tests {
     }
 
     #[test]
+    fn regression_merge_preserves_unlinked_content_and_resources() {
+        for scenario in ["empty-import", "append", "deleted-last-question"] {
+            let append_questions = scenario == "append";
+            let dir = tempfile::tempdir().unwrap();
+            let mut store = Store::new(dir.path().join("source")).unwrap();
+            let sample: Value =
+                serde_json::from_slice(include_bytes!("../../fixtures/sample.json")).unwrap();
+            let mut visual = sample["visualElements"][0].clone();
+            visual["questionIds"] = json!([]);
+            let mut partial = json!({"schemaVersion":3,"questions":[],"groups":[{"title":"Unparsed section","instructions":"Keep this passage","questionIds":[]}],"visualElements":[visual],"warnings":["Check unparsed source"],"missingFields":["questions","media"],"confidenceScore":0});
+            if scenario == "deleted-last-question" {
+                partial["questions"] = json!([{"id":"q0","stem":"Deleted question","answerMode":"short_answer","answerPayload":null}]);
+            }
+            let preview = store
+                .preview(serde_json::to_vec(&partial).unwrap(), "Partial".into())
+                .unwrap();
+            store
+                .resources(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../fixtures/resources"))
+                .unwrap();
+            let partial_bank = store
+                .import(text(&preview, "ticket"), None, "Partial")
+                .unwrap();
+            let partial_bank = text(&partial_bank, "bankId").to_owned();
+            if scenario == "deleted-last-question" {
+                let rows = store.questions(Some(&partial_bank), "", "", "").unwrap();
+                store.delete_question(text(&rows[0], "id")).unwrap();
+            }
+            let regular = json!({"schemaVersion":3,"questions":[{"id":"q0","stem":"Regular question","answerMode":"short_answer","answerPayload":null}],"groups":[{"title":"Linked section","instructions":null,"questionIds":["q0"]}],"visualElements":[],"warnings":["Linked warning"],"confidenceScore":0});
+            if append_questions {
+                let preview = store
+                    .preview(serde_json::to_vec(&regular).unwrap(), "Regular".into())
+                    .unwrap();
+                store
+                    .import(
+                        text(&preview, "ticket"),
+                        Some(partial_bank.clone()),
+                        "Regular",
+                    )
+                    .unwrap();
+            }
+            let preview = store
+                .preview(serde_json::to_vec(&regular).unwrap(), "Other".into())
+                .unwrap();
+            let other = store
+                .import(text(&preview, "ticket"), None, "Other")
+                .unwrap();
+            let other = text(&other, "bankId").to_owned();
+            let merged = store
+                .merge_banks(&[partial_bank.clone(), other.clone()], "Merged")
+                .unwrap();
+            let merged = text(&merged, "bankId");
+            store.delete_bank(&partial_bank).unwrap();
+            store.delete_bank(&other).unwrap();
+            let rows = store.questions(Some(merged), "", "", "").unwrap();
+            assert_eq!(
+                rows.as_array().unwrap().len(),
+                1 + usize::from(append_questions)
+            );
+            for row in rows.as_array().unwrap() {
+                assert!(list(row, "visuals").is_empty());
+                assert_eq!(row["warnings"], json!(["Linked warning"]));
+            }
+            let archive = dir.path().join("merged.zip");
+            store.export_bank(merged, &archive).unwrap();
+            let mut restored = Store::new(dir.path().join("restored")).unwrap();
+            let preview = restored.preview_bank_zip(&archive).unwrap();
+            let imported = restored
+                .import(text(&preview, "ticket"), None, "Round trip")
+                .unwrap();
+            let roundtrip = dir.path().join("roundtrip.zip");
+            restored
+                .export_bank(text(&imported, "bankId"), &roundtrip)
+                .unwrap();
+            for path in [&archive, &roundtrip] {
+                let mut zip = ZipArchive::new(fs::File::open(path).unwrap()).unwrap();
+                let root: Value =
+                    serde_json::from_reader(zip.by_name("questions.json").unwrap()).unwrap();
+                assert_eq!(
+                    list(&root, "groups").len(),
+                    2 + usize::from(append_questions)
+                );
+                assert!(list(&root, "groups")
+                    .iter()
+                    .any(|g| g["title"] == "Unparsed section"
+                        && g["instructions"] == "Keep this passage"
+                        && list(g, "questionIds").is_empty()));
+                assert_eq!(list(&root, "visualElements").len(), 1);
+                assert_eq!(root["visualElements"][0]["documentOnly"], true);
+                assert!(list(&root["visualElements"][0], "questionIds").is_empty());
+                assert!(list(&root, "warnings").contains(&json!("Check unparsed source")));
+                assert_eq!(root["missingFields"], json!(["questions", "media"]));
+            }
+        }
+    }
+
+    #[test]
     fn missing_content_survives_export_and_reimport() {
         for empty in [false, true] {
             let dir = tempfile::tempdir().unwrap();

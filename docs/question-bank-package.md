@@ -12,6 +12,8 @@ On the empty question-bank page, choose **Add example bank** to add the [all-typ
 
 Sharing packages retain questions, answers, explanations, source content, shared materials, composite relationships, source scores, rubrics, images, listening audio, and review flags. They exclude bookmarks, mistake status, personal answers, practice history, grading records, connection settings, and credentials.
 
+Copy-merging also retains unlinked sections, unparsed source pages, and warnings from imports with no questions. Unparsed pages stay separate from practice questions, including after the original banks are deleted and the merged package is shared.
+
 Missing or corrupt referenced images or audio prevent export. If a bank was initially imported without images, append a complete ZIP with the same content: questions are not duplicated, verified images are added, and historical snapshots remain unchanged. On macOS/Windows, bank export writes a temporary file and publishes it only after all steps succeed; existing filenames cannot be overwritten. On Android, export completes and validates a private ZIP before copying it to the system-picker destination. The app reports write/sync failures, but a provider destination may contain partial bytes after failure; native file-provider writes do not guarantee atomic publication or rollback. Inspect or remove that destination before sharing.
 
 ## Difference from study-data backups

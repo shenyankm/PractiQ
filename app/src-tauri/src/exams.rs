@@ -432,7 +432,7 @@ impl Store {
                 false,
             )?;
         }
-        crate::questions::copy_context(&tx, &bank, &rows, &ids)?;
+        crate::questions::copy_context(&tx, &bank, banks, &rows, &ids)?;
         tx.commit().map_err(err)?;
         Ok(
             json!({"bankId":bank,"count":rows.iter().filter(|r|!crate::questions::composite(&r["question"])).count()}),

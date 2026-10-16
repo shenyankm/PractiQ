@@ -1039,6 +1039,7 @@ impl Store {
 pub fn copy_context(
     db: &Connection,
     bank: &str,
+    source_banks: &[String],
     rows: &[Value],
     ids: &HashMap<String, String>,
 ) -> Result<()> {
@@ -1140,6 +1141,50 @@ pub fn copy_context(
             )
             .map_err(err)?;
         }
+    }
+    // Question projections omit unlinked content, which must still survive bank sharing.
+    let scope = json!(source_banks).to_string();
+    let mut statement = db.prepare("SELECT title,instructions FROM sections s WHERE bank_id IN (SELECT value FROM json_each(?1)) AND NOT EXISTS(SELECT 1 FROM section_questions WHERE section_id=s.id) ORDER BY rowid").map_err(err)?;
+    let sections = statement
+        .query_map([&scope], |r| {
+            Ok((r.get::<_, String>(0)?, r.get::<_, Option<String>>(1)?))
+        })
+        .map_err(err)?;
+    for section in sections {
+        let (title, instructions) = section.map_err(err)?;
+        db.execute(
+            "INSERT INTO sections VALUES(?1,?2,?3,?4)",
+            params![id(), bank, title, instructions],
+        )
+        .map_err(err)?;
+    }
+    let mut statement = db.prepare("SELECT content FROM visuals v WHERE bank_id IN (SELECT value FROM json_each(?1)) AND document_level=1 AND (json_extract(content,'$.documentOnly')=1 OR NOT EXISTS(SELECT 1 FROM questions WHERE bank_id=v.bank_id)) ORDER BY rowid").map_err(err)?;
+    let visuals = statement
+        .query_map([&scope], |r| r.get::<_, String>(0))
+        .map_err(err)?;
+    for visual in visuals {
+        let mut content = json_read(visual.map_err(err)?)?;
+        content["documentOnly"] = json!(true);
+        db.execute(
+            "INSERT INTO visuals VALUES(?1,?2,?3,1)",
+            params![id(), bank, content.to_string()],
+        )
+        .map_err(err)?;
+    }
+    let mut statement = db.prepare("SELECT id FROM imports i WHERE bank_id IN (SELECT value FROM json_each(?1)) AND id NOT IN (SELECT import_id FROM questions WHERE import_id IS NOT NULL) AND EXISTS(SELECT 1 FROM import_warnings WHERE import_id=i.id) ORDER BY created_at,rowid").map_err(err)?;
+    let imports = statement
+        .query_map([&scope], |r| r.get::<_, String>(0))
+        .map_err(err)?;
+    for original in imports {
+        let original = original.map_err(err)?;
+        let source = id();
+        let digest = crate::store::hash(format!("merge:{original}").as_bytes());
+        db.execute(
+            "INSERT INTO imports VALUES(?1,?2,?3,?4)",
+            params![source, bank, digest, crate::store::now()],
+        )
+        .map_err(err)?;
+        db.execute("INSERT INTO import_warnings SELECT ?1,position,message FROM import_warnings WHERE import_id=?2", params![source,original]).map_err(err)?;
     }
     Ok(())
 }
