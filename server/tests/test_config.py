@@ -202,3 +202,18 @@ def test_postgres_uri_and_custom_model_origin(monkeypatch):
             config.database_uri()
     monkeypatch.setenv('DATABASE_URI', 'postgresql://host/db?sslmode=require')
     assert config.database_uri().endswith('sslmode=require')
+
+
+@pytest.mark.parametrize('source,vision', [(50 * config.MIB, 50 * config.MIB), (25 * config.MIB, 200 * config.MIB)])
+def test_load_rejects_extraction_limits_that_cannot_fit_scratch(monkeypatch, source, vision):
+    _env(monkeypatch, AI_SOURCE_MAX_BYTES=str(source), AI_MAX_VISION_BYTES=str(vision))
+    with pytest.raises(ValueError, match='scratch budget'):
+        config.load()
+
+
+def test_load_accepts_exact_scratch_capacity_and_rejects_one_byte_more(monkeypatch):
+    _env(monkeypatch, AI_SOURCE_MAX_BYTES=str(37 * config.MIB), AI_MAX_VISION_BYTES='53411840')
+    assert config.load().source_max_bytes == 37 * config.MIB
+    monkeypatch.setenv('AI_MAX_VISION_BYTES', '53411841')
+    with pytest.raises(ValueError, match='scratch budget'):
+        config.load()

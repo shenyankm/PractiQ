@@ -4,10 +4,9 @@ import asyncio
 from contextlib import asynccontextmanager
 from weakref import WeakKeyDictionary
 
-from .config import MIB
+from .config import TEMPORARY_LIMIT as LIMIT
 from .errors import DocumentProcessingError
 
-LIMIT = 384 * MIB  # Leave 128 MiB of the Compose tmpfs for profiles and runtime overhead.
 WAIT_SECONDS = 30
 
 
