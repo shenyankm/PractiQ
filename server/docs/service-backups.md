@@ -35,6 +35,8 @@ PRACTIQ_BACKUP_METRICS=/var/lib/node_exporter/textfile/practiq-backup.prom
 # PRACTIQ_BACKUP_PAYMENT_CONFIG=/opt/practiq/.env.payments
 ```
 
+The scheduler passes the repository-root `.env` explicitly to Compose for interpolation. Before stopping writers it compares the running AI container's image, PostgreSQL URL, inherited libpq settings and effective bind-mounted storage root to the backup inputs. Both checkout unit and private configuration must be set together. The check requires the documented Linux host-network profile and an explicit PostgreSQL URL; indirect `PGSERVICE` profiles and bridge-network deployments are rejected because their target cannot be established from these inputs. Correct stale deployment settings or mount paths before retrying.
+
 The service `.env` remains separate from `.env.payments`. `--extra-config` can include additional private configuration snapshots and certificate files; preserve their ordered mapping in the infrastructure inventory. The scheduler must have access to both the correct Compose configuration and the actual persistent host file root. Do not point the host backup at the container-only `/var/lib/practiq` path.
 
 The ten-minute timer attempts complete stopped-writer snapshots; it does not implement continuous archiving or promise a 15-minute RPO. Measure successful snapshot gaps, snapshot age and copy duration at the actual data size. The service stays stopped during the complete dump/copy/hash check, so frequent full copies can consume substantial availability and network/storage capacity. Retain earlier snapshots and incomplete failure directories; investigate and manage retention separately. If this cannot meet the desired availability/RPO, use an explicitly designed database WAL and matching immutable-file replication plan rather than treating `pg_dump` as point-in-time recovery.
@@ -60,6 +62,14 @@ export AI_MAINTENANCE_MODE=true AI_READ_ONLY=1
 ```
 
 6. The new file root is `/srv/practiq-restored/files`. The saved `config.env` and numbered extra configurations remain private snapshots, not active configuration. Review all paths, TLS material, hostnames and credentials for the clean host; never blindly start the old `.env` against the source database. `pg_restore` runs in one transaction with `--exit-on-error --no-owner --no-acl`; the target role owns restored objects. Reapply only the intended restricted database grants.
+For the Docker profile, hand off ownership of **only the newly restored files subtree** before starting the service. The default Compose service runs as UID/GID `10001:10001`; confirm the intended deployment identity before using these values. When restore ran as root, run:
+
+```sh
+chown -R --no-dereference 10001:10001 /srv/practiq-restored/files
+```
+
+Keep `/srv/practiq-restored`, `config.env` and extra configuration snapshots private to the recovery operator. Retain mode 0700 on data directories and 0600 on data files. Set the new `PRACTIQ_STORAGE_DIR` to `/srv/practiq-restored/files` and bind **that subtree directly** to `/var/lib/practiq`; do not mount the parent containing private configuration. Verify an artifact read under the actual service UID before startup. Never apply this handoff to the source storage or backup bundle.
+
 7. First start the original image in read-only mode. Verify `/ready`, all task/run/receipt identities, checkpoints/Store, file hashes, grading records/sequences, account balances/ledger/calls, optional payment evidence, account isolation and saved ZIP CRC/content. Pending/running work becomes explicitly interrupted in read-only startup. Paused/review/unknown work stays stopped. Preserve unknown call/payment evidence and never replay model or payment mutations as a restore check.
 8. Record time to verified ready/read/export, failed gates and actual snapshot data loss. Only after fencing and these checks may the operator enable writes or explicitly recover work. Reconcile checkout evidence separately. A restored fresh broker does not contain the old dead-letter history; retain that infrastructure archive when required, and use PostgreSQL run identities plus explicit recovery rather than inventing new task IDs.
 

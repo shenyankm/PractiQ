@@ -105,6 +105,38 @@ def test_backup_destination_must_be_new_and_outside_storage(tmp_path):
         service_backup.destination(outside, store)
 
 
+@pytest.mark.parametrize('mismatch', [None, 'database', 'storage', 'image', 'mount', 'network', 'hostaddr', 'service'])
+def test_deployment_preflight_matches_database_image_and_storage_without_leaking_secrets(tmp_path, monkeypatch, mismatch):
+    storage = tmp_path / 'files'
+    monkeypatch.setenv('AI_STORAGE_DIR', str(storage))
+    monkeypatch.setenv('DATABASE_URI', 'postgresql://backup:fixture-secret@localhost/service')
+    if mismatch == 'hostaddr':
+        monkeypatch.setenv('PGHOSTADDR', '192.0.2.10')
+    if mismatch == 'service':
+        monkeypatch.setenv('PGSERVICE', 'unverified-profile')
+    image = 'sha256:' + 'a' * 64
+    deployed = {
+        'Image': 'sha256:' + 'b' * 64 if mismatch == 'image' else image,
+        'HostConfig': {'NetworkMode': 'bridge' if mismatch == 'network' else 'host'},
+        'Config': {'Env': ['DATABASE_URI=postgresql://backup:fixture-secret@localhost/' + ('wrong' if mismatch == 'database' else 'service'),
+                           'AI_STORAGE_DIR=/var/lib/practiq/files']},
+        'Mounts': [{'Type': 'volume' if mismatch == 'mount' else 'bind', 'Destination': '/var/lib/practiq',
+                    'Source': str(tmp_path / 'wrong') if mismatch == 'storage' else str(tmp_path)}],
+    }
+    recorded = []
+    def inspect(argv, **options):
+        recorded.append(argv)
+        return subprocess.CompletedProcess(argv, 0, stdout=json.dumps([deployed]))
+    monkeypatch.setattr(service_backup.subprocess, 'run', inspect)
+    if mismatch is None:
+        service_backup.check_deployment('container', image)
+    else:
+        with pytest.raises(RuntimeError, match='deployed') as error:
+            service_backup.check_deployment('container', image)
+        assert 'fixture-secret' not in str(error.value) and 'postgresql://' not in str(error.value)
+    assert recorded == [['docker', 'inspect', 'container']]
+
+
 def test_pg_tools_keep_passwords_out_of_argv_and_preserve_tls(monkeypatch):
     monkeypatch.setenv('PGHOSTADDR', '192.0.2.10')
     monkeypatch.setenv('PGSSLROOTCERT', '/private/ca.pem')

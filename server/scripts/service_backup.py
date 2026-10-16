@@ -5,6 +5,7 @@ import asyncio
 import hashlib
 import json
 import os
+import posixpath
 import re
 import shutil
 import stat
@@ -14,14 +15,14 @@ import time
 from collections.abc import Sequence
 from functools import partial
 from math import isfinite
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from tempfile import NamedTemporaryFile
 
 from psycopg import Error as DatabaseError
 from psycopg import pq
 from psycopg.conninfo import conninfo_to_dict, make_conninfo
 
-from practiq_ai.config import load
+from practiq_ai.config import database_uri, load
 from practiq_ai.database import Database
 from practiq_ai.execution import code_version, runtime_version
 from practiq_ai.extractors.isolated import _thread_io
@@ -211,6 +212,33 @@ def copy_private(source: Path, target: Path) -> None:
         shutil.copyfileobj(reader, writer, length=1024 * 1024)
         writer.flush()
         os.fsync(writer.fileno())
+
+
+def check_deployment(container: str, image: str) -> None:
+    """Fail closed before stopping writers; Docker metadata can contain secrets."""
+    try:
+        inspected = subprocess.run(['docker', 'inspect', container], capture_output=True, text=True,
+                                   check=True, timeout=30)
+        deployed = json.loads(inspected.stdout)[0]
+        environment = dict(entry.split('=', 1) for entry in deployed['Config']['Env'])
+        options = conninfo_to_dict(database_uri())
+        if (deployed['Image'] != image or conninfo_to_dict(environment['DATABASE_URI']) != options
+                or deployed['HostConfig']['NetworkMode'] != 'host'
+                or options.get('service') or os.environ.get('PGSERVICE') or environment.get('PGSERVICE')):
+            raise ValueError('Deployment mismatch')
+        for option in pq.Conninfo.get_defaults():
+            if option.envvar and option.keyword.decode() not in options:
+                name = option.envvar.decode()
+                if os.environ.get(name) != environment.get(name):
+                    raise ValueError('Connection environment mismatch')
+        storage = PurePosixPath(posixpath.normpath(environment['AI_STORAGE_DIR']))
+        roots = [Path(mount['Source']).joinpath(*storage.relative_to(mount['Destination']).parts)
+                 for mount in deployed['Mounts'] if mount['Type'] == 'bind'
+                 and storage.is_relative_to(mount['Destination'])]
+        if not storage.is_absolute() or len(roots) != 1 or roots[0].resolve() != load().storage_dir.resolve():
+            raise ValueError('Storage mismatch')
+    except (OSError, ValueError, KeyError, IndexError, TypeError, DatabaseError, subprocess.SubprocessError):
+        raise RuntimeError('Backup settings must match the deployed AI database, storage and image') from None
 
 
 async def backup(db: Database, output: Path, config: Path, image: str, *, pg_bin: Path | None = None,
