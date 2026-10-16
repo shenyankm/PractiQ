@@ -62,12 +62,14 @@ def test_explicit_opt_in_removes_whole_copies_and_retains_all_source_units():
     questions = [*bank(0), single("q3"), *bank(4)]
     candidates = find_duplicate_question_trees(questions, [], [])
     sources = [QuestionSource(questionIndex=i, stage="vision_parse", unitIndex=0 if i < 4 else 10) for i in range(7)]
-    groups = [ParsedGroup(title="First", questionIndexes=[0, 1, 2, 3]), ParsedGroup(title="Copy", questionIndexes=[4, 5, 6])]
+    section = ParsedGroup(title="Instructions", instructions="Use the supplied words.", questionIndexes=[])
+    groups = [section, ParsedGroup(title="First", questionIndexes=[0, 1, 2, 3]), ParsedGroup(title="Copy", questionIndexes=[4, 5, 6])]
     quality = DocumentQuality(issues=[QualityIssue(questionIndex=5, code="NEEDS_REVIEW")])
     retained, warnings = remove_duplicate_question_trees(questions, groups, [], sources, quality, candidates)
     assert [q.id for q in retained] == ["q0", "q1", "q2", "q3"]
     assert len(questions) == 7 and warnings[0].startswith("Removed 3 ")
-    assert [(g.title, g.questionIndexes) for g in groups] == [("First", [0, 1, 2, 3])]
+    assert [(g.title, g.questionIndexes) for g in groups] == [("Instructions", []), ("First", [0, 1, 2, 3])]
+    assert groups[0] == section
     assert {s.questionIndex for s in sources if s.unitIndex == 10} == {0, 1, 2}
     assert quality.issues[0].questionIndex == 1
     validate_question_tree(retained)
@@ -79,10 +81,13 @@ async def test_import_retains_duplicates_unless_user_explicitly_opts_in(monkeypa
     for question in questions:
         question.sourceText = (question.sourceText or "").replace(". What", ". Short answer: What")
     source = "\n".join(q.sourceText or "" for q in questions)
-    graph, _, _, reference, model = setup_graph(monkeypatch, [{"questions": [q.model_dump(mode="json") for q in questions]}], parts=[source])
+    section = {"title": "Instructions", "instructions": "Keep the printed answer.", "questionIndexes": []}
+    graph, _, _, reference, model = setup_graph(monkeypatch, [{"questions": [q.model_dump(mode="json") for q in questions],
+                                                            "groups": [section]}], parts=[source])
     output = await graph.ainvoke({"document": reference, "deduplicateQuestions": enabled}, run_config())
     assert output["status"] == "SUCCEEDED" and len(model.calls) == 1
     assert len(output["result"]["questions"]) == (1 if enabled else 2)
+    assert output["result"]["groups"] == [{"title": section["title"], "instructions": section["instructions"], "questionIds": []}]
     assert any(("after explicit opt-in" if enabled else "All copies were retained") in warning for warning in output["result"]["warnings"])
     issues = [(item['questionId'], item['code']) for item in output['processing']['quality']['issues'] if item['code'] == 'NEEDS_REVIEW']
     assert issues == ([] if enabled else [('q0', 'NEEDS_REVIEW'), ('q1', 'NEEDS_REVIEW')])

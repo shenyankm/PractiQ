@@ -55,6 +55,16 @@ def test_explicit_continuation_merges_material_and_references_once():
         finalize_question_ids([ParsedQuestion(id="same", stem="One"), ParsedQuestion(id="same", stem="Two")], [], [], [], DocumentQuality())
 
 
+@pytest.mark.parametrize("confidences", [(0.95, 0.2, 0.8), (0.2, 0.95, 0.8)])
+def test_continuation_retains_the_lowest_extraction_confidence(confidences):
+    parents = [ParsedQuestion(id="page:1:article", stem="Article", answerMode="reading", confidence=value)
+               for value in confidences]
+    sources = [QuestionSource(questionIndex=index, stage="vision_parse", unitIndex=index) for index in range(3)]
+    merged = finalize_question_ids(parents, [], [], sources, DocumentQuality())
+    assert len(merged) == 1
+    assert merged[0].confidence == min(confidences)
+
+
 def test_composite_limit_does_not_split_group():
     from practiq_ai.graphs.chunking import merge_chunk_results
 

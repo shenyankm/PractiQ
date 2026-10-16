@@ -219,6 +219,8 @@ Scorer 5 adds structure scoring and a strict structure gate. Version 5.0.1 also 
 
 ## Offline fault probes and local review
 
+Parser merge regressions cover section-only units with unassociated titles/instructions, including question truncation and explicit deduplication. These sections retain empty associations; groups whose owners were all removed are still discarded. Adjacent source-anchored composite continuations retain the lowest extraction confidence across their fragments, alongside existing material, review flags and source associations. Text and primary-page graph tests use model substitutes and verify persisted unit results, final output and call accounting; they do not establish live-model extraction accuracy.
+
 `make verify` and CI run the full pytest suite once and convert its JUnit results into a fault-probe report:
 
 ```bash

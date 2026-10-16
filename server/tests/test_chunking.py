@@ -92,6 +92,24 @@ def test_merge_caps_questions_at_schema_limit() -> None:
     assert truncated
 
 
+@pytest.mark.parametrize("overlapping", [False, True])
+def test_merge_retains_unassociated_section_even_without_questions(overlapping):
+    section = ParsedGroup(title="Section instructions", instructions="Read both pages before answering.", questionIndexes=[])
+    _, groups, _, truncated, _, _ = merge_chunk_results([(0, [], [section])], overlapping=overlapping)
+    assert groups == [section]
+    assert not truncated
+
+
+def test_question_limit_keeps_unassociated_sections_but_drops_removed_owners():
+    questions = [question(str(index)) for index in range(1_001)]
+    sections = [ParsedGroup(title="Instructions", instructions="Keep this context.", questionIndexes=[]),
+                ParsedGroup(title="Retained", questionIndexes=[0, 1_000]),
+                ParsedGroup(title="Removed", questionIndexes=[1_000])]
+    merged, groups, _, truncated, _, _ = merge_chunk_results([(0, questions, sections)])
+    assert truncated and len(merged) == 1_000
+    assert groups == [sections[0], sections[1].model_copy(update={"questionIndexes": [0]})]
+
+
 def test_split_falls_back_to_bounded_chunks_without_question_numbers() -> None:
     text = "x" * 2_501
 
@@ -101,10 +119,11 @@ def test_split_falls_back_to_bounded_chunks_without_question_numbers() -> None:
     assert "".join(chunks) == text
 
 
-def test_merge_caps_groups_at_schema_limit() -> None:
+@pytest.mark.parametrize("associated", [False, True])
+def test_merge_caps_groups_at_schema_limit(associated) -> None:
     item = question("1. Question")
     groups = [
-        ParsedGroup(title=f"Group {index}", questionIndexes=[0])
+        ParsedGroup(title=f"Group {index}", questionIndexes=[0] if associated else [])
         for index in range(1_001)
     ]
 

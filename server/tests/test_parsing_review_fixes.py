@@ -50,6 +50,41 @@ def source_responses(respond, count, pages):
     return [response] * (count * 2)
 
 
+@pytest.mark.parametrize("pages", [False, True])
+async def test_merge_preserves_section_only_units_and_continuation_confidence(monkeypatch, pages):
+    parent_id = "page:2:article" if pages else "fragment:2:article"
+    section = {"title": "Instructions", "instructions": "Read all pages before answering.", "questionIndexes": []}
+    parts = [f"{section['title']}\n{section['instructions']}", "First", "Second"]
+
+    def respond(messages, _schema):
+        prompt = messages[-1].content
+        if "PRIMARY page 1" in prompt or prompt.endswith(parts[0]):
+            return {"questions": [], "groups": [section]}
+        first = "PRIMARY page 2" in prompt or prompt.endswith("First")
+        return {"questions": [{"id": parent_id, "stem": "Article", "answerMode": "reading",
+                               "sourceText": "First" if first else "Second", "confidence": 0.95 if first else 0.2,
+                               "passage": [{"partType": "text", "textValue": "First" if first else "Second"}]}]}
+
+    graph, _, _, reference, model = setup_graph(monkeypatch, source_responses(respond, 3, pages),
+                                               parts=parts)
+    if pages:
+        monkeypatch.setattr(document, "extract", AsyncMock(return_value=ExtractedDocument(
+            text="", page_images=[make_image()] * 3,
+        )))
+    output = await graph.ainvoke({"document": reference}, run_config())
+    result = DocumentParseResult.model_validate(output["result"])
+    assert output["status"] == "SUCCEEDED"
+    assert [(group.title, group.instructions, group.questionIds) for group in result.groups] == [
+        (section["title"], section["instructions"], []),
+    ]
+    assert len(result.questions) == 1
+    assert [block.textValue for block in result.questions[0].passage] == ["First", "Second"]
+    assert result.questions[0].confidence == 0.2 and result.confidenceScore == 20
+    assert result.questions[0].needsReview and output["processing"]["quality"]["reviewRequired"]
+    assert {source["unitIndex"] for source in output["processing"]["questionSources"]} == {1, 2}
+    assert len(model.calls) == len(output["usage"]) == (5 if pages else 3)
+
+
 async def test_duplicate_ids_are_corrected_within_the_model_boundary(monkeypatch):
     first = complete_question("First", "same")
     second = complete_question("Second", "same")
