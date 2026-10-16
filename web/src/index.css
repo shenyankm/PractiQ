@@ -31,49 +31,6 @@ SOFTWARE.
 
 @custom-variant dark (&:is(.dark *));
 
-@theme inline {
-  --font-heading: var(--font-sans);
-  --font-sans:
-    system-ui, -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
-  --color-card: var(--card);
-  --color-foreground: var(--foreground);
-  --color-background: var(--background);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: var(--radius-panel);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
-}
-
-@layer base {
-  * {
-    @apply border-border outline-ring/50;
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
-  html {
-    @apply font-sans;
-  }
-}
-
 /* Independent import workspace; shares the desktop brand and base tokens. */
 body { margin: 0; background: var(--background); line-height: 1.6; }
 .web-shell { min-width: 0; min-height: 100dvh; display: flex; flex-direction: column; }
@@ -125,7 +82,7 @@ h4 { font-size: 14px; font-weight: 600; margin: 8px 0; }
 .account-content { padding-top: 16px; max-width: 760px; }
 .account-panel-disconnected { margin-top: 20px; max-width: 760px; padding: 0; border: 0; background: transparent; }
 .account-panel-disconnected .account-controls { margin-left: 0; }
-.workspace-shortcuts { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 24px; margin-bottom: 16px; }
+.workspace-shortcuts { display: flex; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem; }
 .workspace-shortcuts .workspace-link { text-decoration: none; }
 .workspace-shortcuts .workspace-link:hover { text-decoration: underline; }
 .workspace-grid > aside, .task-title > div, .file-list > li > div { min-width: 0; }
@@ -165,7 +122,7 @@ progress::-webkit-progress-bar { background: var(--muted); border-radius: var(--
 progress::-webkit-progress-value { background: var(--primary); border-radius: var(--radius); }
 progress::-moz-progress-bar { background: var(--primary); border-radius: var(--radius); }
 .task-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.task-secondary-actions { padding-block: 12px; border-block: 1px solid var(--border); }
+.task-secondary-actions { padding: 12px 16px; border: 1px solid var(--border); border-radius: var(--radius); }
 .task-secondary-actions > p { padding-block: 10px; }
 .notice { padding: 12px 14px; border: 1px solid var(--warning-border); border-radius: 12px; background: var(--warning-background); color: var(--warning-foreground); font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; }
 .notice ul { list-style: disc; padding-left: 18px; }
@@ -232,10 +189,8 @@ footer { padding: 18px 36px; border-top: 1px solid var(--border); color: var(--m
 @keyframes import-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .loading-icon { animation: none; } }
 
-.workspace-shortcuts { display: flex; flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem; }
 .operation-status { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; margin-block: 1rem; border-radius: var(--radius); background: var(--muted); font-size: 14px; }
 .operation-status svg { width: 18px; height: 18px; }
-.task-secondary-actions { padding: 12px 16px; border: 1px solid var(--border); border-radius: var(--radius); }
 .task-secondary-actions[open] > :not(summary) { margin-top: 12px; }
 .review-filters { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; padding: 16px; border-radius: var(--radius); background: var(--background); }
 .review-filters > label:first-child { flex: 1 1 240px; min-width: 0; }

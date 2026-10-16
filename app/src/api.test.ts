@@ -1,6 +1,6 @@
 import { expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
-import { api, runSessionRequest, sessionSnapshotKey, type Session } from "./api";
+import { api, runSessionRequest, type Session } from "./api";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 
@@ -108,7 +108,9 @@ it("shares the immutable cache with grading transport and ignores grading that f
   await api({type:"restore"});
   resolve(session);
   await pending;
-  expect(sessionSnapshotKey(session.id)).toBeUndefined();
+  const next = vi.fn(async () => null);
+  await runSessionRequest(session.id, next);
+  expect(next).toHaveBeenCalledWith(undefined);
 });
 
 

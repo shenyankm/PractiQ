@@ -509,32 +509,6 @@ impl Store {
         }
         Ok(session)
     }
-    #[cfg(test)]
-    pub fn finish(&self, sid: &str) -> Result<Value> {
-        self.finish_data(sid)?;
-        self.session(sid)
-    }
-    pub fn finish_data(&self, sid: &str) -> Result<Value> {
-        let kind: String = self
-            .connect()?
-            .query_row("SELECT kind FROM sessions WHERE id=?1", [sid], |row| {
-                row.get(0)
-            })
-            .map_err(err)?;
-        if kind != "practice" {
-            return self.submit_paper_data(sid, true);
-        }
-        let mut db = self.connect()?;
-        let tx = db.transaction().map_err(err)?;
-        tx.execute("UPDATE attempts SET skipped=1,submitted_at=?2 WHERE session_id=?1 AND submitted_at IS NULL",params![sid,self.session_clock.now()?]).map_err(err)?;
-        tx.execute(
-            "UPDATE sessions SET finished_at=COALESCE(finished_at,?2) WHERE id=?1",
-            params![sid, self.session_clock.now()?],
-        )
-        .map_err(err)?;
-        tx.commit().map_err(err)?;
-        self.session_data(sid, None)
-    }
 }
 
 #[cfg(test)]

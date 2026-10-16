@@ -187,9 +187,6 @@ enum Request {
         id: String,
         position: usize,
     },
-    Finish {
-        id: String,
-    },
     Backup,
     Restore {
         #[serde(default)]
@@ -367,7 +364,6 @@ async fn request(
             Request::SaveDraft{id,ordinal,answer,elapsed_ms}=>store.save_draft((&id,ordinal),answer,elapsed_ms),
             Request::SelfAssess{id,ordinal,result,snapshot_key}=>store.self_assess_with_key(&id,ordinal,result,snapshot_key.as_deref()),
             Request::Position{id,position,snapshot_key}=>store.position(&id,position,snapshot_key.as_deref()),
-            Request::Finish{id}=>store.finish_data(&id),
             Request::Backup=>store.backup(selected.as_ref().ok_or(language::error("LOCAL_SAVE_LOCATION_MISSING", json!({})))?.path()),
             Request::Restore{recover_assets}=>{
                 let path=selected.as_ref().ok_or(language::error("LOCAL_BACKUP_NOT_SELECTED", json!({})))?.path();

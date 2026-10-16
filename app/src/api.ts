@@ -223,7 +223,7 @@ export type Request =
   | { type: "import"; ticket: string; bank_id: string | null; title: string }
   | { type: "save_bank"; id: string | null; title: string; description: string }
   | {
-      type: "delete_bank" | "delete_question" | "question_detail" | "session" | "finish";
+      type: "delete_bank" | "delete_question" | "question_detail" | "session";
       id: string;
     }
   | ({ type: "question_stats" } & Query)
@@ -259,7 +259,6 @@ type ResponseMap = {
   export_bank: { path: string } | null;
   favorite: boolean;
   review_question: number | null;
-  finish: Session;
   flag: Session;
   import: { duplicate: boolean; bankId: string; count: number };
   info: { dataDirectory: string; version: string };
@@ -292,9 +291,6 @@ type ResponseMap = {
 };
 let lastSession: Session | undefined;
 let sessionEpoch = 0;
-export function sessionSnapshotKey(id: string): string | undefined {
-  return lastSession?.id === id ? lastSession.attemptKey ? `${lastSession.snapshotKey}:${lastSession.attemptKey}` : lastSession.snapshotKey : undefined;
-}
 function expandSession(session: Session, base?: Session): Session {
   const wire = session as Session & {snapshotDocument?: unknown[]; attemptsBase?: string; attemptCount?: number};
   if (wire.attemptsBase != null) {
