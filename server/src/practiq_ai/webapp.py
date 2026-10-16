@@ -76,7 +76,7 @@ _exports: WeakKeyDictionary[asyncio.AbstractEventLoop, bool] = WeakKeyDictionary
 
 
 async def export_slot() -> AsyncGenerator[None]:
-    # A ZIP may occupy 300 MiB of the deployment's shared 512 MiB temporary filesystem.
+    # Keep one downloader; its archive also retains the shared scratch reservation.
     loop = asyncio.get_running_loop()
     if _exports.get(loop, False):
         raise HTTPException(429, {"code": "BANK_EXPORT_BUSY"}, headers={"Retry-After": "1"})

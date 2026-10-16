@@ -123,7 +123,9 @@ def _run(arguments: list[str], deadline: float, output: Path | None = None) -> b
                         _check_outputs(output, writing=True)
                     elif log.stat().st_size > 65536:
                         raise OfficeError("OFFICE_ENGINE_INVALID")
+                    _check_workspace()
                     time.sleep(0.05)
+                _check_workspace()
                 if process.returncode:
                     raise OfficeError("OFFICE_CONVERSION_FAILED")
             finally:
@@ -131,6 +133,21 @@ def _run(arguments: list[str], deadline: float, output: Path | None = None) -> b
                     _stop(process)
                     _children.discard(process)
         return _read_file(log, 65536) if output is None else b""
+
+
+def _check_workspace() -> None:
+    directory = os.environ.get('PRACTIQ_OFFICE_WORKSPACE')
+    if directory:
+        # Include converter profiles, normalization snapshots and intermediate outputs.
+        total = 0
+        for root, _, names in os.walk(directory):
+            for name in names:
+                try:
+                    total += (Path(root) / name).lstat().st_size
+                except FileNotFoundError:
+                    continue  # Converter renamed a temporary file.
+                if total > 300 * 1024 * 1024:
+                    raise OfficeError('OFFICE_OUTPUT_LIMIT')
 
 
 def _profile(directory: Path) -> Path:

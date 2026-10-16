@@ -3,7 +3,7 @@
 import io
 import json
 from tempfile import TemporaryFile
-from typing import Any, BinaryIO
+from typing import Any, BinaryIO, cast
 from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
 from PIL import Image
@@ -22,6 +22,7 @@ from .contracts import (
 from .errors import DocumentProcessingError
 from .extractors.isolated import _thread_io
 from .storage import ARTIFACT_KEY_PATTERN, ObjectStore
+from .temporary import Lease, current
 
 MANIFEST_LIMIT = 64 * 1024
 JSON_LIMIT = 32 * 1024 * 1024
@@ -32,6 +33,29 @@ ENTRY_LIMIT = 2002
 ZIP_CHUNK_BYTES = 64 * 1024
 IMAGE_MEDIA = {"image/png", "image/jpeg"}
 AUDIO_MEDIA = {"audio/mpeg", "audio/mp4", "audio/aac", "audio/wav"}
+
+
+class _Archive(io.BufferedIOBase):
+    """The download owns its reservation, including a stalled/disconnected reader."""
+
+    def __init__(self, file: BinaryIO, lease: Lease):
+        self.file, self.lease = file, lease
+
+    def read(self, size: int | None = -1) -> bytes:
+        return self.file.read(-1 if size is None else size)
+
+    def seek(self, offset: int, whence: int = 0) -> int:
+        return self.file.seek(offset, whence)
+
+    def tell(self) -> int:
+        return self.file.tell()
+
+    def close(self) -> None:
+        try:
+            self.file.close()
+        finally:
+            self.lease.release()
+            super().close()
 
 
 def _invalid(message: str) -> DocumentProcessingError:
@@ -150,8 +174,10 @@ async def export_task_bank(
     if not title.strip() or len(title) > 255 or len(description) > 20_000:
         raise _invalid("Invalid bank metadata")
     manifest, questions, references = await _thread_io(_prepare_bank, detail, source, title, description)
-    output = TemporaryFile("w+b")  # noqa: SIM115 - ownership transfers to the response on success
+    lease = await current().acquire(ZIP_LIMIT + 2 * 1024 * 1024, timeout=0)
+    output = None
     try:
+        output = TemporaryFile("w+b")  # noqa: SIM115 - ownership transfers to the response on success
         with ZipFile(output, "w", compression=ZIP_DEFLATED) as archive:
             await _thread_io(_write_entry, archive, output, "manifest.json", manifest)
             await _thread_io(_write_entry, archive, output, "questions.json", questions)
@@ -167,7 +193,11 @@ async def export_task_bank(
                 del payload
         _limit(output.tell(), ZIP_LIMIT, "ZIP")
         output.seek(0)
-        return output
+        return cast(BinaryIO, _Archive(output, lease))
     except BaseException:
-        output.close()
+        try:
+            if output is not None:
+                output.close()
+        finally:
+            lease.release()
         raise

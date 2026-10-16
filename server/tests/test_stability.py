@@ -117,6 +117,23 @@ async def test_queued_storage_failure_before_first_checkpoint_remains_explicitly
     assert len(model.calls) == 1
 
 
+async def test_temporary_budget_stop_requires_explicit_resume_without_model_replay(monkeypatch):
+    service, reference, model = await setup_api(monkeypatch)
+    extract = document.extract
+    monkeypatch.setattr(document, 'extract', AsyncMock(side_effect=DocumentProcessingError(503, 'Temporary resources busy', 'TEMPORARY_BUSY')))
+    receipt = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
+    await service.wait_idle()
+    stopped = await task_api.get_task(receipt['threadId'])
+    assert stopped['state'] == 'INTERRUPTED' and stopped['allowedActions'] == ['resume']
+    assert not model.calls
+    monkeypatch.setattr(document, 'extract', extract)
+    assert not model.calls
+    await task_api.control_task(receipt['threadId'], DocumentTaskControl(requestId=uuid4(), action='resume', checkpointId=stopped['checkpointId']))
+    await service.wait_idle()
+    assert (await task_api.get_task(receipt['threadId']))['state'] == 'COMPLETED'
+    assert len(model.calls) == 1
+
+
 async def test_durable_unknown_usage_metrics_survive_restart_and_clear_after_settlement(monkeypatch):
     service, _, model = await setup_api(monkeypatch)
     keys = [str(uuid4()), str(uuid4())]

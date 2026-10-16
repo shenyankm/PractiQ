@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, cast
 
 from ..config import load
 from ..errors import DocumentProcessingError
+from ..temporary import preparation
 from . import ExtractedDocument
 
 if TYPE_CHECKING:
@@ -43,6 +44,13 @@ def _environment(directory: str) -> dict[str, str]:
 
 
 async def extract(source_type: DocumentSourceType, payload: bytes, *, timeout: float = 180) -> ExtractedDocument:
+    config = load()
+    # Source, maximum serialized manifest and all rendered pages coexist on disk.
+    async with preparation(len(payload) + config.source_max_bytes * 8 + 65_536 + config.vision_max_bytes):
+        return await _extract(source_type, payload, timeout=timeout)
+
+
+async def _extract(source_type: DocumentSourceType, payload: bytes, *, timeout: float) -> ExtractedDocument:
     with TemporaryDirectory(prefix="practiq-extract-") as directory:
         root = Path(directory)
         source, output = root / "source", root / "result"

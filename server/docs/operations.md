@@ -144,6 +144,16 @@ These operational changes do not migrate schemas or relax execution signatures. 
 
 ## Recovery and resource boundaries
 
+### Shared temporary resource admission
+
+Preprocessing has one global slot shared by isolated extraction and Office conversion. Both share a 384 MiB reservation budget with exported ZIPs, leaving 128 MiB of the default 512 MiB `/tmp` for runtime/profile overhead. Extraction reserves source bytes, the maximum serialized manifest (`8 × AI_SOURCE_MAX_BYTES + 64 KiB`) and `AI_MAX_VISION_BYTES`; Office conservatively reserves all 384 MiB. Its worker checks total workspace size, including profiles/intermediates, every 50 ms and at exit, stopping above 300 MiB. This sampling is not a filesystem quota or a worst-case native-memory guarantee; the container's tmpfs/cgroup remain the hard outer limits.
+
+Each ZIP reserves its maximum 300 MiB plus 2 MiB of write/central-directory overhead until its file closes, including slow/disconnected downloads. ZIP admission fails immediately with 503 `TEMPORARY_BUSY` when that budget is unavailable. Existing concurrent-export rejection remains 429 `BANK_EXPORT_BUSY`. Preprocessing waits at most 30 seconds for its slot and at most 30 seconds for bytes, within the existing run deadline; a rejected run becomes explicitly interrupted/resumable and does not silently restart when resources recover. Worker cleanup completes before releasing the slot/reservation.
+
+The Compose profile now limits active tasks to two; it retains one Uvicorn process, 2 GiB RAM, two CPUs and 128 processes. This reduces preparation/model payload overlap; it is not a throughput claim. Larger source/vision settings may exceed the fixed scratch budget and fail closed. Change capacity only with a matching quota/budget review and representative cgroup measurements. `scripts/check_temporary.py` exercises near-limit generated PDF/OOXML sources, a 250 MiB resource ZIP held by a slow reader, bounded rejection and explicit retries in the hardened image without models/network. It records whole-cgroup peak memory and OOM counters, including child processes/tmpfs, and asserts an 80% quota margin for that workload.
+
+### Preserved recovery boundaries
+
 - Control transactions queue before acquiring a connection. Recovery file prechecks run outside the global lock, with run/checkpoint state checked again before enqueueing. Execution prechecks share the graph's persistent run deadline.
 - Pause and human review use separate checkpoint nodes. Failure review and result-quality review both resume a pause before applying a review decision. Mismatched execution signatures prevent resume; use the original deployment or create new tasks.
 - Extraction runs in an isolated process group. Timeout/cancellation terminates and reaps it, including converter children. The parent cleans temporary directories. Storage uses a separate bounded thread pool. Wait timeout does not release an active I/O slot; a full pool waits within bounds, then returns `OBJECT_STORE_UNAVAILABLE`. Capacity returns when underlying work ends.
