@@ -45,7 +45,7 @@ export function validateFiles(files: File[], capabilities: Capabilities) {
 export async function sha256(bytes: ArrayBuffer) {
   return Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)), value => value.toString(16).padStart(2, "0")).join("");
 }
-export async function readBytes(response: Response, maximum: number) {
+export async function readBytes(response: Response, maximum: number, signal?: AbortSignal) {
   if (Number(response.headers.get("content-length")) > maximum) throw new ApiError("响应超过浏览器大小限制。", "RESPONSE_TOO_LARGE");
   const reader = response.body?.getReader();
   if (!reader) {
@@ -55,17 +55,42 @@ export async function readBytes(response: Response, maximum: number) {
   }
   const chunks: Uint8Array[] = [];
   let length = 0;
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    length += value.length;
-    if (length > maximum) { await reader.cancel(); throw new ApiError("响应超过浏览器大小限制。", "RESPONSE_TOO_LARGE"); }
-    chunks.push(value);
+  const abort = () => { void reader.cancel().catch(() => {}); };
+  signal?.addEventListener("abort", abort, { once: true });
+  if (signal?.aborted) abort();
+  try {
+    while (true) {
+      signal?.throwIfAborted();
+      const { done, value } = await reader.read();
+      signal?.throwIfAborted();
+      if (done) break;
+      length += value.length;
+      if (length > maximum) { await reader.cancel(); throw new ApiError("响应超过浏览器大小限制。", "RESPONSE_TOO_LARGE"); }
+      chunks.push(value);
+    }
+  } finally {
+    signal?.removeEventListener("abort", abort);
+    reader.releaseLock();
   }
   const bytes = new Uint8Array(length);
   let offset = 0;
   for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }
   return bytes;
+}
+
+async function withDeadline<T>(milliseconds: number, signals: AbortSignal[], perform: (signal: AbortSignal) => Promise<T>) {
+  const deadline = new AbortController();
+  const timer = setTimeout(() => deadline.abort(), milliseconds);
+  const signal = AbortSignal.any([...signals, deadline.signal]);
+  try {
+    const value = await perform(signal);
+    signal.throwIfAborted();
+    return value;
+  } catch (error) {
+    if (signals.some(item => item.aborted)) throw new DOMException("请求已取消", "AbortError");
+    if (deadline.signal.aborted) throw new ApiError("请求超时。请检查任务或订单状态；操作结果可能尚未确认，请勿重复提交。", "REQUEST_TIMEOUT");
+    throw error;
+  } finally { clearTimeout(timer); }
 }
 
 /** Same-origin account client. Its lifetime ends on disconnect; mutations are never retried here. */
@@ -77,7 +102,7 @@ export class Client {
   }
   get active() { return !this.session.signal.aborted; }
   disconnect() { this.session.abort(); this.intents.clear(); }
-  private async request(path: string, init: RequestInit = {}, signal?: AbortSignal) {
+  private async request<T>(path: string, init: RequestInit, read: (response: Response, signal: AbortSignal) => Promise<T>, signal?: AbortSignal) {
     if (!this.active || signal?.aborted) throw new DOMException("请求已取消", "AbortError");
     if (!path.startsWith("/api/") || path.startsWith("//")) throw new ApiError("服务返回了无效地址。", "INVALID_URL");
     const headers = new Headers(init.headers);
@@ -85,29 +110,32 @@ export class Client {
     headers.set("X-Practiq-Phone", this.phone);
     const signals = [this.session.signal];
     if (signal) signals.push(signal);
-    if (path.startsWith("/api/payments/")) signals.push(AbortSignal.timeout(20_000));
-    let response: Response;
-    try {
-      response = await fetch(path, { ...init, headers, cache: "no-store", credentials: "omit", redirect: "error", signal: AbortSignal.any(signals) });
-    } catch {
-      if (!this.active || signal?.aborted) throw new DOMException("请求已取消", "AbortError");
-      throw new ApiError("无法连接服务。请检查服务状态，再手动重试。", "NETWORK_ERROR");
-    }
-    if (!response.ok) {
-      let code = `HTTP_${response.status}`;
+    const timeout = path.startsWith("/api/payments/") ? 20_000 : path.includes("/export?") ? 600_000 : init.method && !["GET", "HEAD"].includes(init.method) ? 125_000 : 30_000;
+    return withDeadline(timeout, signals, async requestSignal => {
+      let response: Response;
       try {
-        const body = JSON.parse(new TextDecoder().decode(await readBytes(response, 64 * 1024))) as { detail?: { code?: string } };
-        if (body.detail?.code && /^[A-Z0-9_]{1,64}$/.test(body.detail.code)) code = body.detail.code;
-      } catch { /* Error bodies may be empty, text, or validation arrays. */ }
-      const message = response.status === 401 || response.status === 403 ? "手机号与账户令牌不匹配或账户令牌已被撤销。" : path.startsWith("/api/payments/") ? "订单尚未确认，请查询已有订单后重试。" : "服务未完成此操作，请检查任务状态后重试。";
-      throw new ApiError(`${message}（${code}）`, code, response.status);
-    }
-    return response;
+        response = await fetch(path, { ...init, headers, cache: "no-store", credentials: "omit", redirect: "error", signal: requestSignal });
+      } catch {
+        if (!this.active || signal?.aborted) throw new DOMException("请求已取消", "AbortError");
+        throw new ApiError("无法连接服务。请检查服务状态，再手动重试。", "NETWORK_ERROR");
+      }
+      if (!response.ok) {
+        let code = `HTTP_${response.status}`;
+        try {
+          const body = JSON.parse(new TextDecoder().decode(await readBytes(response, 64 * 1024, requestSignal))) as { detail?: { code?: string } };
+          if (body.detail?.code && /^[A-Z0-9_]{1,64}$/.test(body.detail.code)) code = body.detail.code;
+        } catch { /* Error bodies may be empty, text, or validation arrays. */ }
+        const message = response.status === 401 || response.status === 403 ? "手机号与账户令牌不匹配或账户令牌已被撤销。" : path.startsWith("/api/payments/") ? "订单尚未确认，请查询已有订单后重试。" : "服务未完成此操作，请检查任务状态后重试。";
+        throw new ApiError(`${message}（${code}）`, code, response.status);
+      }
+      return read(response, requestSignal);
+    });
   }
   private async json<T>(path: string, init?: RequestInit, signal?: AbortSignal): Promise<T> {
-    const response = await this.request(path, init, signal);
-    try { return JSON.parse(new TextDecoder().decode(await readBytes(response, path.startsWith("/api/payments/") ? 2 * MIB : 64 * MIB))) as T; }
-    catch (error) { if (error instanceof ApiError) throw error; throw new ApiError("服务响应格式无效。", "INVALID_RESPONSE"); }
+    return this.request(path, init ?? {}, async (response, requestSignal) => {
+      try { return JSON.parse(new TextDecoder().decode(await readBytes(response, path.startsWith("/api/payments/") ? 2 * MIB : 64 * MIB, requestSignal))) as T; }
+      catch (error) { if (error instanceof ApiError) throw error; throw new ApiError("服务响应格式无效。", "INVALID_RESPONSE"); }
+    }, signal);
   }
   private post<T>(path: string, body: unknown) {
     return this.json<T>(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -182,17 +210,19 @@ export class Client {
   delete(id: string) { return this.json<{ deleted: boolean }>(`/api/document-tasks/${encodeURIComponent(id)}`, { method: "DELETE" }); }
   async image(reference: ArtifactReference, threadId: string) {
     if (!["image/png", "image/jpeg"].includes(reference.mediaType) || !/^[a-f0-9]{64}$/.test(reference.sha256) || reference.sizeBytes <= 0 || reference.sizeBytes > 50 * MIB) throw new ApiError("图片引用无效。", "INVALID_REFERENCE");
-    const response = await this.request(`/api/artifacts/read?thread_id=${encodeURIComponent(threadId)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(reference) });
-    const bytes = await readBytes(response, reference.sizeBytes);
-    if (bytes.length !== reference.sizeBytes || response.headers.get("content-type")?.split(";")[0] !== reference.mediaType || await sha256(bytes.buffer) !== reference.sha256) throw new ApiError("图片校验失败。", "ARTIFACT_CHECKSUM_MISMATCH");
-    return new Blob([bytes], { type: reference.mediaType });
+    return this.request(`/api/artifacts/read?thread_id=${encodeURIComponent(threadId)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(reference) }, async (response, signal) => {
+      const bytes = await readBytes(response, reference.sizeBytes, signal);
+      if (bytes.length !== reference.sizeBytes || response.headers.get("content-type")?.split(";")[0] !== reference.mediaType || await sha256(bytes.buffer) !== reference.sha256) throw new ApiError("图片校验失败。", "ARTIFACT_CHECKSUM_MISMATCH");
+      return new Blob([bytes], { type: reference.mediaType });
+    });
   }
   async exportBank(task: DocumentTaskDetail) {
     if ((!task.canExportCompleted && (task.state !== "COMPLETED" || !task.result)) || !task.checkpointId) throw new ApiError("任务结果尚不可导出。", "BANK_EXPORT_NOT_READY");
     const query = new URLSearchParams({ checkpoint_id: task.checkpointId, scope: task.state === "COMPLETED" ? "full" : "completed" });
-    const response = await this.request(`/api/document-tasks/${encodeURIComponent(task.threadId)}/export?${query}`);
-    if (response.headers.get("content-type")?.split(";")[0] !== "application/zip") throw new ApiError("服务未返回题库 ZIP。", "INVALID_RESPONSE");
-    return { blob: new Blob([await readBytes(response, MAX_BANK_ZIP_BYTES)], { type: "application/zip" }), name: `practiq-bank-${task.threadId.replace(/[^a-zA-Z0-9-]/g, "")}.zip` };
+    return this.request(`/api/document-tasks/${encodeURIComponent(task.threadId)}/export?${query}`, {}, async (response, signal) => {
+      if (response.headers.get("content-type")?.split(";")[0] !== "application/zip") throw new ApiError("服务未返回题库 ZIP。", "INVALID_RESPONSE");
+      return { blob: new Blob([await readBytes(response, MAX_BANK_ZIP_BYTES, signal)], { type: "application/zip" }), name: `practiq-bank-${task.threadId.replace(/[^a-zA-Z0-9-]/g, "")}.zip` };
+    });
   }
 }
 
@@ -205,9 +235,11 @@ export function downloadBlob(blob: Blob, name: string) {
 }
 
 export async function products(signal?: AbortSignal): Promise<ImportProducts> {
-  const response = await fetch("/api/products", { signal, cache: "no-store", credentials: "omit", redirect: "error" });
-  if (!response.ok) throw new ApiError("无法读取商品，请手动重试。");
-  return JSON.parse(new TextDecoder().decode(await readBytes(response, 64 * 1024))) as ImportProducts;
+  return withDeadline(30_000, signal ? [signal] : [], async requestSignal => {
+    const response = await fetch("/api/products", { signal: requestSignal, cache: "no-store", credentials: "omit", redirect: "error" });
+    if (!response.ok) throw new ApiError("无法读取商品，请手动重试。");
+    return JSON.parse(new TextDecoder().decode(await readBytes(response, 64 * 1024, requestSignal))) as ImportProducts;
+  });
 }
 export function pointLabel(micropoints: string) {
   const value = BigInt(micropoints), absolute = value < 0n ? -value : value;

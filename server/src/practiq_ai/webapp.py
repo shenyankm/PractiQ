@@ -180,6 +180,23 @@ async def application_metrics() -> Response:
     from .runtime import current
     body = generate_latest(registry)
     if current:
+        health = await (await asyncio.to_thread(get_object_store)).health()
+        body += f'practiq_storage_healthy {int(health.healthy)}\n'.encode()
+        for name in ('free_bytes', 'total_bytes', 'free_inodes', 'total_inodes'):
+            if (value := getattr(health, name)) is not None:
+                body += f'practiq_storage_{name} {value}\n'.encode()
+        calls = await current.db.rows("SELECT status,count(*) AS n,extract(epoch FROM now()-min(created_at)) AS age FROM import_calls WHERE status IN ('pending','unknown') GROUP BY status")
+        by_status = {row['status']: row for row in calls}
+        for status in ('pending', 'unknown'):
+            row = by_status.get(status, {'n': 0, 'age': 0})
+            body += (f'practiq_import_calls{{status="{status}"}} {row["n"]}\n'
+                     f'practiq_import_call_oldest_seconds{{status="{status}"}} {max(0, row["age"])}\n').encode()
+        payment_table = await current.db.rows("SELECT to_regclass('public.payment_schema') IS NOT NULL AS present")
+        if payment_table[0]['present'] and await current.db.rows('SELECT version FROM payment_schema') == [{'version': 3}]:
+            payments = (await current.db.rows("SELECT count(*) FILTER (WHERE status='paid') AS uncredited,count(*) FILTER (WHERE refund_evidence!='{}'::jsonb) AS refunds,coalesce(extract(epoch FROM now()-min(paid_at) FILTER (WHERE status='paid')),0) AS age FROM payment_orders"))[0]
+            body += (f'practiq_payment_uncredited_orders {payments["uncredited"]}\n'
+                     f'practiq_payment_uncredited_oldest_seconds {max(0, payments["age"])}\n'
+                     f'practiq_payment_refund_evidence_orders {payments["refunds"]}\n').encode()
         rows = await current.db.rows(f"SELECT r.status,count(*) AS n FROM document_runs r JOIN document_tasks t ON t.thread_id=r.thread_id WHERE r.status IN ('pending','running') AND {supported_task_sql('t')} GROUP BY r.status")
         counts = {row['status']: row['n'] for row in rows}
         outbox = (await current.db.rows('SELECT count(*) AS n,coalesce(extract(epoch FROM now()-min(created_at)),0) AS age FROM document_outbox WHERE published_at IS NULL'))[0]
@@ -289,9 +306,11 @@ async def reparse_document_task(thread_id: UUID, request: DocumentTaskReparse) -
 )
 async def upload_document(request: DocumentUploadRequest) -> DocumentUploadResponse:
     try:
+        store = await asyncio.to_thread(get_object_store)
+        await store.require_available()
         if saas.ACCOUNT.get():
             return await _task_response(saas.prepare_upload(request))
-        return await (await asyncio.to_thread(get_object_store)).prepare_document(request)
+        return await store.prepare_document(request)
     except DocumentProcessingError as exc:
         raise HTTPException(
             status_code=exc.status_code,
@@ -339,6 +358,7 @@ async def upload_content(request: Request, metadata: Annotated[DocumentUploadReq
     """Private, bounded binary upload; references never expose filesystem paths."""
     try:
         store = await asyncio.to_thread(get_object_store)
+        await store.require_available()
         if saas.ACCOUNT.get():
             assert metadata.sizeBytes is not None
             validate_source_size(metadata.sizeBytes, metadata.sourceType, load())

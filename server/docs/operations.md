@@ -59,13 +59,31 @@ See [RabbitMQ delivery, upgrade, rollback and dead-letter recovery](rabbitmq.md)
 See the [configuration template](../../.env.example) for all variables. Limits include 25 MiB source files, 100 pages, vision/text budgets, strict inputs, extraction timeouts, PDFium mutual exclusion, provider concurrency, and requests per minute (RPM). Monitoring boundaries:
 
 - `GET /ok`: public liveness check returning only `{"ok":true}`.
-- `GET /ready`: returns 200 when the database, exclusive-lock monitor, control coordinator and broker subscription are available (read-only mode needs no broker), otherwise 503, without sensitive details.
+- `GET /ready`: returns 200 when the database, exclusive-lock monitor, control coordinator, file storage and broker subscription are available (read-only mode needs no broker), otherwise 503, without sensitive details.
 - `GET /api/metrics`: Bearer-authenticated stage, call, and result metrics, including `practiq_pending_runs`, `practiq_running_runs`, `practiq_workers_max`, and `practiq_workers_available`. The native `/metrics` endpoint is unavailable.
 - `GET /api/maintenance`: reads maintenance configuration. `AI_MAINTENANCE_MODE=true` rejects uploads and new runs while retaining reads and pause/cancel controls; queued work continues draining.
 - `provider_concurrency_wait`, `provider_rate_wait`, and `provider_request` distinguish local waits from SDK request duration. SDK duration is not pure model inference time.
 - Logs and metrics exclude document text, images, credentials, and raw error details. Unknown usage does not mean zero cost. Reconcile provider billing with persistent call records separately.
 
 `deploy/alerts.rules.yml` covers partial results, unknown usage, budgets, checksums, queues, and latency. `SUCCEEDED` does not establish semantic quality; clients must still inspect `processing.quality`.
+
+### Storage readiness and admission
+
+Startup verifies the configured local root before accepting work. The first probe may initialize an empty root, as normal file writes do; it never adopts an existing non-directory. Subsequent probes reject a missing or replaced root rather than recreating it after a mount disappears. Restore the original mount or explicitly restart with the verified database/file/configuration set.
+
+The probe writes a private temporary file, flushes/fsyncs it, verifies its bytes, checks directory syncing on POSIX, and reads available bytes/inodes. It shares the existing bounded storage pool, waits at most two seconds, and coalesces concurrent checks with a five-second result cache. A failed storage I/O invalidates that cache. A timed-out underlying thread retains its pool slot until it finishes. Readiness checks share a two-second database/storage deadline. This is a bounded health sample, not an atomic reservation of space for subsequent business writes.
+
+Unhealthy storage returns 503 `OBJECT_STORE_UNAVAILABLE` for new upload preparation/content and new task/run admission. A previously committed receipt can still be replayed; reads, pause and interrupt remain available when their own dependencies are readable. Queued work checks storage before execution; an already requested pause keeps its original pause semantics. Probe recovery does not replay stopped, paused or unknown model calls automatically. No probe accesses a model or settles money.
+
+### Monitoring installation and verification
+
+`deploy/prometheus.example.yml` fixes the job names used by the rules. Adapt the public HTTPS readiness target and local ports, then merge it into the deployment's existing Prometheus configuration. It expects a loopback blackbox exporter with an `http_2xx` module at `127.0.0.1:9115`, cAdvisor at `127.0.0.1:8082` exposing the Compose service label `ai`, and the existing Alertmanager at `127.0.0.1:9093`. These exporters and the receiver are deployment prerequisites; the service Compose file does not install or expose them. Keep metrics/exporter ports private. Store the service Bearer token in a private mode-0600 credentials file readable only by the monitoring identity, not in YAML or command history. Customer account tokens must not scrape metrics.
+
+Alerts include missing/down service scrapes, missing/failed external readiness probes, unhealthy/full file storage, persistent unknown or stale-pending import calls, and container OOM/restart signals. `practiq_import_calls{status="pending|unknown"}` and `practiq_import_call_oldest_seconds` are recomputed from PostgreSQL on each scrape, so a restart or task deletion cannot erase unresolved accounting from monitoring. They never expose account, task or call identifiers as labels. Storage metrics are `practiq_storage_healthy` and `practiq_storage_{free,total}_{bytes,inodes}`; unavailable measurements are omitted, not reported as zero.
+
+When optional payment schema 3 is installed, metrics additionally expose uncredited paid-order count/oldest age and `practiq_payment_refund_evidence_orders`. The latter counts all retained refund evidence, not a proven unresolved-review queue: the current schema has no review-acknowledgement state. Operators must retain that evidence and manage acknowledgement/silence through the alert receiver after reconciliation. Scraping never credits points, queries the gateway or resumes models. Absent/older optional payment schemas do not prevent AI metrics collection.
+
+Run `make alerts-check` (Docker required) to execute rule firing/recovery tests and example-config syntax checks with a digest-pinned Prometheus tool. Service CI runs this separately from `make verify`. Then verify actual private scrapes, the public probe and a synthetic alert/recovery at the configured notification receiver. Local rule success does not establish that a production notification was delivered. Alert on exporter absence too; an application cannot report its own disappearance through its application metrics alone.
 
 ## Grading recovery boundaries
 
@@ -100,17 +118,27 @@ Load configuration into the shell first. Inventory covers retained tasks, comple
 
 `make verify` uses isolated PostgreSQL databases, RabbitMQ vhosts and model fakes, without external model calls. `TEST_DATABASE_URI` may point to a dedicated disposable instance whose role can create/drop databases; otherwise the helper starts one temporary Docker PostgreSQL container bound to loopback and removes it on exit. Every test gets its own randomly named database; pure tests do not start Docker. Independent-process tests cover forced termination, unknown calls, and human-review recovery.
 
-Start the service, then run this load test from the repository root:
+Provision a dedicated existing test account with an operator-issued token and enough points. Export `PRACTIQ_LOAD_PHONE` and `PRACTIQ_LOAD_ACCOUNT_TOKEN` privately into the shell; `AI_SERVICE_TOKEN` is used separately for metrics only. Do not put credentials on the command line or use a customer production account. Start the service, then run this load test from the repository root:
 
 ```sh
 cd server
 python -m dotenv -f ../.env run -- python scripts/load_test.py \
   --base-url http://127.0.0.1:8090 \
   --text '1. What is 2 + 2? A. 3 B. 4 Answer: B' \
-  --total 20 --submit-concurrency 5 --output reports/new-load.json
+  --total 8 --submit-concurrency 4 --output reports/new-load.json
 ```
 
 The load driver supports only the document business API. It uses the Prometheus text parser for the five capacity gauges and retains only finite, unlabelled samples; labelled series are not combined into deployment totals. Load tests/evaluations connected to real models incur costs and require separate planning. Historical Agent Server, Redis, licensing, and capacity reports remain historical evidence, not acceptance of the current runtime.
+
+Business uploads, task creation and polling use `Account` authentication with the phone header; the metrics client uses the service Bearer token and carries no phone header. Reports contain neither credential. A service token cannot create customer tasks. The driver also retains the account's serial-call and queue quotas; use separate provisioned accounts/processes for a multi-account capacity test. Its existing synthetic thresholds do not establish the capacity of the default 2 GiB container for large documents.
+
+The example starts within an otherwise idle account's default eight-run allowance. For an intentional overload test, pass `--allow-rejections`: explicit 429/503 outcomes are then permitted, but at least one task must still succeed. Otherwise rejection is a failed strict-capacity gate. The CLI's larger default batch is not a promise that one account can submit that many tasks successfully.
+
+### Web network deadlines
+
+The Web client bounds ordinary GET/JSON requests at 30 seconds, payment requests at 20 seconds, uploads and other mutations/artifact reads at 125 seconds, and ZIP downloads at 600 seconds. Each deadline includes response-body reception. Session disconnect and page cancellation release readers and timers. List/detail polling backs off failed reads with jitter up to 30 seconds, resets after a successful read, and retains background-tab/authentication stops. Mutations are never automatically retried. A timed-out mutation is uncertain; inspect task/order state, and only explicitly retry with its retained request ID. Refreshing/disconnecting still ends the in-memory session and its pending intents.
+
+These operational changes do not migrate schemas or relax execution signatures. Drain existing work and retain the original image/database/files/configuration before upgrading; unfinished tasks with an older code fingerprint still require their original deployment.
 
 ## Recovery and resource boundaries
 

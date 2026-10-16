@@ -1,0 +1,33 @@
+# Host-local Prometheus; keep this file and the credentials file private.
+global:
+  scrape_interval: 15s
+rule_files: [alerts.rules.yml]
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: [127.0.0.1:9093]
+scrape_configs:
+  - job_name: practiq-ai
+    metrics_path: /api/metrics
+    authorization:
+      type: Bearer
+      credentials_file: /etc/prometheus/practiq-service-token
+    static_configs:
+      - targets: [127.0.0.1:8000]
+  - job_name: practiq-ready
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets: [https://imports.example.com/ready]
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: 127.0.0.1:9115
+  - job_name: practiq-containers
+    static_configs:
+      - targets: [127.0.0.1:8082]
+# Add the deployment's Alertmanager receiver before admitting production traffic.

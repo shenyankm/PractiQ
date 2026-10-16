@@ -17,6 +17,20 @@ from scripts import load_test, storage_gc
 from tests.support import object_store, upload
 
 
+def test_load_cli_requires_account_credentials_and_never_reuses_service_token(monkeypatch):
+    monkeypatch.setenv('AI_SERVICE_TOKEN', 'metrics-only')
+    monkeypatch.delenv('PRACTIQ_LOAD_PHONE', raising=False)
+    monkeypatch.delenv('PRACTIQ_LOAD_ACCOUNT_TOKEN', raising=False)
+    monkeypatch.setattr(sys, 'argv', ['load_test.py', '--base-url', 'http://127.0.0.1:8090', '--text', 'synthetic'])
+    with pytest.raises(SystemExit) as error:
+        load_test.parse_args()
+    assert error.value.code == 2
+    monkeypatch.setenv('PRACTIQ_LOAD_PHONE', '13800138000')
+    monkeypatch.setenv('PRACTIQ_LOAD_ACCOUNT_TOKEN', 'business-only')
+    args = load_test.parse_args()
+    assert args.token == 'metrics-only' and args.account_token == 'business-only'
+
+
 @pytest.mark.parametrize("status", [200, 503])
 def test_compose_health_probe_bypasses_proxy_and_rejects_not_ready(status):
     config = yaml.safe_load((Path(__file__).parents[1] / "deploy/service.compose.yml").read_text())
@@ -170,7 +184,12 @@ async def test_load_driver_upload_auth_partial_and_overload(monkeypatch):
 
     def handle(request):
         requests.append(request)
-        assert request.headers["Authorization"] == "Bearer test-token"
+        if request.url.path in {'/ok', '/api/metrics'}:
+            assert request.headers['Authorization'] == 'Bearer test-token'
+            assert 'X-Practiq-Phone' not in request.headers
+        else:
+            assert request.headers['Authorization'] == 'Account test-account-token'
+            assert request.headers['X-Practiq-Phone'] == '13800138000'
         if request.method == "POST" and request.url.path == "/api/uploads":
             return httpx.Response(200, json={"upload": {"url": "/api/uploads/content", "headers": {"Content-Type": "text/plain"}}, "document": {}})
         if request.method == "PUT" and request.url.path == "/api/uploads/content":
@@ -192,7 +211,7 @@ async def test_load_driver_upload_auth_partial_and_overload(monkeypatch):
 
     real_client = httpx.AsyncClient
     monkeypatch.setattr(load_test.httpx, "AsyncClient", lambda **kwargs: real_client(transport=httpx.MockTransport(handle), **kwargs))
-    args = argparse.Namespace(token="test-token", base_url="http://test", input=None, text="synthetic", total=1,
+    args = argparse.Namespace(token="test-token", phone='13800138000', account_token='test-account-token', base_url="http://test", input=None, text="synthetic", total=1,
                              submit_concurrency=1, request_timeout=3, completion_timeout=3, pid=None, api="document-tasks",
                              max_running=2, graph_concurrency=2, allow_rejections=False, environment="local-langgraph-dev", image_digest=None)
     result = await load_test.run(args)
@@ -270,7 +289,7 @@ async def test_load_driver_polls_before_all_submissions_finish(tmp_path, monkeyp
     monkeypatch.setattr(load_test, "submit", submit)
     monkeypatch.setattr(load_test, "wait_for_run", wait)
     monkeypatch.setattr(load_test, "monitor", monitor)
-    args = argparse.Namespace(token="test-token", base_url="http://test", input=source, total=2,
+    args = argparse.Namespace(token="test-token", phone='13800138000', account_token='test-account-token', base_url="http://test", input=source, total=2,
                              submit_concurrency=2, request_timeout=3, completion_timeout=3, pid=None, api="document-tasks",
                              max_running=2, graph_concurrency=2, allow_rejections=False, environment="local-langgraph-dev", image_digest=None)
     report = await load_test.run(args)

@@ -18,6 +18,7 @@ const formatLabels: Record<Capabilities["sourceTypes"][number], string> = { pdf:
 const fileLabels: Record<FileItem["state"], string> = { ready: "尚未提交", hashing: "校验文件", uploading: "上传文件", starting: "创建任务", created: "任务已创建", failed: "提交失败" };
 const errorText = (error: unknown) => error instanceof ApiError ? error.message : "读取或操作失败，请手动重试。";
 const authFailure = (error: unknown) => error instanceof ApiError && [401, 403].includes(error.status);
+const pollRetryDelay = (failures: number) => Math.min(30_000, 3000 * 2 ** Math.min(failures - 1, 4)) * (0.8 + Math.random() * 0.2);
 const sizeLabel = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 
 function Progress({ task }: { task: DocumentTaskDetail }) {
@@ -91,16 +92,18 @@ export default function App() {
     if (!client) return;
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout>;
-    let reading = false, stopped = false;
+    let reading = false, stopped = false, failures = 0;
     async function poll() {
       if (reading || stopped || document.hidden || controller.signal.aborted) return;
       reading = true; setListLoading(true);
       let delay = 3000;
       try {
         const result = await client!.list(offset, filter, controller.signal, cursor);
+        failures = 0;
         if (!controller.signal.aborted) { setTasks(previous => JSON.stringify(previous) === JSON.stringify(result) ? previous : result); setListError(null); }
         if (filter && filter !== "active" || result.items.length > 0 && result.items.every(item => !["PENDING", "RUNNING", "PAUSING"].includes(item.state))) delay = 30000;
       } catch (error) {
+        delay = pollRetryDelay(++failures);
         if (!controller.signal.aborted) { setTasks({ items: [], hasMore: false }); setListError(errorText(error)); }
         stopped = authFailure(error);
       } finally {
@@ -118,19 +121,20 @@ export default function App() {
     if (!client || !selected) return;
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout>;
-    let reading = false, stopped = false;
+    let reading = false, stopped = false, failures = 0;
     let currentDetail: DocumentTaskDetail | null = null, currentPreview: DocumentTaskReview | null = null;
     async function poll(force = false) {
       if (reading || stopped || document.hidden || controller.signal.aborted) return;
       reading = true;
+      let failed = false;
       try {
         if (!currentDetail) {
           const [current, review] = await Promise.allSettled([client!.detail(selected!, controller.signal), client!.preview(selected!, controller.signal)]);
           if (controller.signal.aborted) return;
           if (current.status === "fulfilled") { currentDetail = current.value; setDetail(current.value); setDetailError(null); setDetailFresh(true); }
-          else { setDetailError(errorText(current.reason)); setDetailFresh(false); stopped = authFailure(current.reason); }
+          else { failed = true; setDetailError(errorText(current.reason)); setDetailFresh(false); stopped = authFailure(current.reason); }
           if (review.status === "fulfilled") { currentPreview = review.value; setPreview(review.value); setPreviewError(null); }
-          else { currentPreview = null; setPreview(null); setPreviewError(errorText(review.reason)); stopped ||= authFailure(review.reason); }
+          else { failed = true; currentPreview = null; setPreview(null); setPreviewError(errorText(review.reason)); stopped ||= authFailure(review.reason); }
           return;
         }
         if (!force) {
@@ -149,16 +153,19 @@ export default function App() {
             if (controller.signal.aborted) return;
             currentPreview = review; setPreview(review); setPreviewError(null);
           } catch (error) {
+            failed = true;
             if (!controller.signal.aborted) { currentPreview = null; setPreview(null); setPreviewError(errorText(error)); }
             stopped = authFailure(error);
           }
         }
       } catch (error) {
+        failed = true;
         if (!controller.signal.aborted) { setDetailError(errorText(error)); setDetailFresh(false); }
         stopped = authFailure(error);
       } finally {
         reading = false;
-        if (!controller.signal.aborted && !stopped) timer = setTimeout(() => void poll(), currentDetail && !["PENDING", "RUNNING", "PAUSING"].includes(currentDetail.state) ? 30000 : 3000);
+        failures = failed ? failures + 1 : 0;
+        if (!controller.signal.aborted && !stopped) timer = setTimeout(() => void poll(), failures ? pollRetryDelay(failures) : currentDetail && !["PENDING", "RUNNING", "PAUSING"].includes(currentDetail.state) ? 30000 : 3000);
       }
     }
     function wake() { clearTimeout(timer); void poll(true); }

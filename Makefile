@@ -7,7 +7,7 @@ AI_PORT ?= 8090
 INSTALL_EXTRAS ?= --extra dev --extra payments
 APP_PACKAGE_REPORT ?= server/reports/checks/desktop-bundle.json
 
-.PHONY: install server-install install-locked test test-server server-dev init-db upgrade-db verify audit audit-rust image-check
+.PHONY: install server-install install-locked test test-server server-dev init-db upgrade-db verify audit audit-rust image-check alerts-check
 install: server-install
 server-install:
 	cd server && uv pip install --break-system-packages --python "$(AI_PYTHON)" -e '.[dev,payments]'
@@ -52,6 +52,9 @@ audit-rust:
 	"$(AI_PYTHON)" app/scripts/check-rust-targets.py
 image-check: web-build
 	docker build -f Dockerfile.server -t practiq-ai:ci .
+alerts-check:
+	docker run --rm --network none --read-only --tmpfs /tmp:rw,nosuid,nodev,size=134217728,mode=1777 --cap-drop ALL --security-opt no-new-privileges --mount type=bind,source="$(CURDIR)/server/deploy",target=/rules,readonly --workdir /rules --entrypoint /bin/promtool prom/prometheus:v3.15.0@sha256:efd719c99d83b060d9daefdcf00360461adf279f45ef5391f8d111892118753e test rules alerts.test.yml
+	docker run --rm --network none --read-only --mount type=bind,source="$(CURDIR)/server/deploy",target=/rules,readonly --workdir /rules --entrypoint /bin/promtool prom/prometheus:v3.15.0@sha256:efd719c99d83b060d9daefdcf00360461adf279f45ef5391f8d111892118753e check config --syntax-only prometheus.example.yml
 
 .PHONY: app-install app-dev app-check app-build app-package-check
 app-install:

@@ -33,8 +33,11 @@ async def test_upload_returns_typed_content_addressed_reference(monkeypatch):
     )
 
 async def test_upload_maps_storage_errors(monkeypatch):
-    class FailingStore:
-        async def prepare_document(self, _request):
+    class FailingStore(FakeObjectStore):
+        def __init__(self):
+            super().__init__({})
+
+        async def prepare_document(self, request):
             raise DocumentProcessingError(
                 502, "Object storage is unavailable", "OBJECT_STORE_UNAVAILABLE"
             )
@@ -214,7 +217,7 @@ async def test_upload_prepare_and_artifact_authorization_database_outages_fail_c
     reference = {key: metadata[key] for key in ('mediaType', 'sizeBytes', 'sha256')}
     reference['objectKey'] = document_source_key('image', metadata['sha256'])
     reader = AsyncMock()
-    monkeypatch.setattr(webapp, 'get_object_store', lambda: SimpleNamespace(get_verified=reader))
+    monkeypatch.setattr(webapp, 'get_object_store', lambda: SimpleNamespace(get_verified=reader, require_available=AsyncMock()))
     monkeypatch.setattr(saas, 'identity', AsyncMock(return_value='account-a'))
     monkeypatch.setattr(task_api, 'client', lambda: object())
     monkeypatch.setattr(task_api, '_read_task_record', AsyncMock(return_value={'document': {**metadata, **reference}}))

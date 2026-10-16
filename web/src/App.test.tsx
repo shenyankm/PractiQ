@@ -47,6 +47,33 @@ async function openTask(user: ReturnType<typeof userEvent.setup>) {
   await screen.findByText("根据材料选择答案");
 }
 
+it("recovers polling after a hung read and backs off repeated failures without mutations", async () => {
+  const user = userEvent.setup(); const http = fakeHTTP();
+  render(<App />); await connect(user); await screen.findByRole("button", { name: /sample.docx/ });
+  vi.useFakeTimers(); vi.spyOn(Math, "random").mockReturnValue(0.5);
+  let attempts = 0;
+  http.server.intercept = (url, init) => {
+    if (!url.startsWith("/api/document-tasks?")) return;
+    attempts++;
+    if (attempts === 1) return new Promise<Response>((_resolve, reject) => init.signal!.addEventListener("abort", () => reject(init.signal!.reason)));
+    if (attempts <= 3) return json({ detail: { code: "TASK_SERVICE_UNAVAILABLE" } }, 503);
+  };
+  await act(async () => window.dispatchEvent(new Event("focus")));
+  await act(async () => vi.advanceTimersByTimeAsync(30_000));
+  expect(screen.getByText(/请求超时/)).toBeTruthy();
+  expect(attempts).toBe(1);
+  await act(async () => vi.advanceTimersByTimeAsync(2700));
+  expect(attempts).toBe(2);
+  await act(async () => vi.advanceTimersByTimeAsync(5399));
+  expect(attempts).toBe(2);
+  await act(async () => vi.advanceTimersByTimeAsync(1));
+  expect(attempts).toBe(3);
+  await act(async () => vi.advanceTimersByTimeAsync(10_800));
+  expect(attempts).toBe(4);
+  expect(screen.getByRole("button", { name: /sample.docx/ })).toBeTruthy();
+  expect(http.calls.every(call => call.method === 'GET')).toBe(true);
+});
+
 it.each<[boolean, string, string, string]>([
   [true, "1000000", "USAGE_UNKNOWN", "用量待核对，请联系客服。"],
   [false, "1000000", "USAGE_UNKNOWN", "用量已核对，请明确点击继续解析。"],

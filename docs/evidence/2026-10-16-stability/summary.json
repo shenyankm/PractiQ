@@ -1,0 +1,132 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-16",
+  "timezone": "Asia/Singapore",
+  "baselineCommit": "fad0bd78416f025915768248e5f899b17b9271db",
+  "branch": "sheny/fix-production-stability",
+  "scope": [
+    1,
+    3,
+    5,
+    6
+  ],
+  "codeHash": "8aa1e42d76669255462ecc65fe5320e2aeb0da591adc09b87fb2e03e49850b68",
+  "sourceSha256": {
+    "server/src/practiq_ai/storage.py": "69f1cd01dcef8a66fa717c8cdc18b90e85921fde9a76bc31389b415d69d52147",
+    "server/src/practiq_ai/runtime.py": "29e7ce5fa0ed9e9c84c373912f5d23ce906bfd1c56649557c9193bd9f87dcb85",
+    "server/src/practiq_ai/task_api.py": "b7c2aaef11ec6f07b1ed1e64c99af9c524c25ff0bcedd1f75f963825db002078",
+    "server/src/practiq_ai/webapp.py": "66d0b4ff0df8bd70598e1fb31a0bffcd7fa068985916056321688f46b21ffa38",
+    "server/scripts/load_test.py": "dac5c16d9d2ab21bc88a37c2bb9ca8c11e534470391c54f8fb77b44c90ca4f8a",
+    "web/src/api.ts": "f2202f186ee49a7fe4c8bfcf85c0b33f418643e244ccd83732c998ed22ded4dc",
+    "web/src/App.tsx": "d9173b7fe6cd0cec0b0c8ce57ee46bc68ff69aead83c866ec638fcf9c4e99767",
+    "server/deploy/alerts.rules.yml": "2585187f7ab49dc52f8c6c56f316463168020f64d511e08fa610aef00f584aff",
+    "server/deploy/alerts.test.yml": "29beece419c1b9afaeb4af5204d73fc60fc0202c099633f920228c48c47c54e7",
+    "server/deploy/prometheus.example.yml": "268141de0023e3cbf8bba665ad01416453d5bcfc0f748d1d170e85596a98f85d"
+  },
+  "localEnvironment": {
+    "platform": "Darwin",
+    "architecture": "arm64",
+    "python": "3.14.7",
+    "node": "v22.23.2"
+  },
+  "validation": {
+    "service": {
+      "status": "PASSED",
+      "command": "PYTHONPATH=/Users/sheny/Developer/code/PractiQ/server/src make verify AI_PYTHON=/Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14",
+      "testsPassed": 2677,
+      "warnings": 11,
+      "testDurationSeconds": 503.49,
+      "lineCoveragePercent": 94.83,
+      "lineCoverage": {
+        "covered": 6713,
+        "total": 7079
+      },
+      "branchCoveragePercent": 90.07,
+      "branchCoverage": {
+        "covered": 2385,
+        "total": 2648
+      },
+      "probeMetrics": {
+        "recoverySuccessRate": 100.0,
+        "correctStopRate": 100.0,
+        "routingPassRate": 100.0,
+        "unknownUsagePassRate": 100.0
+      },
+      "packageIntegrity": {
+        "sourceFiles": 39,
+        "wheelSha256": "0a2619024cc4003845e065fd610edeb0ed78ed5d1463fe9f97acffa4967e15a8",
+        "sdistSha256": "706c4c43b0c5d8a4bced0689127691f37c42330dd7658d7da3ae776be9c1d8c8",
+        "licenseSha256": "045e49d0a632ea4bf644d1db045d300b313c03097212268a6c3dc15235795079"
+      },
+      "included": [
+        "lock consistency",
+        "Ruff",
+        "Pyright",
+        "evaluation fixtures",
+        "full tests and coverage gate",
+        "recovery probes",
+        "wheel and sdist",
+        "package source integrity"
+      ]
+    },
+    "web": {
+      "status": "PASSED",
+      "commands": [
+        "make web-check",
+        "make web-build"
+      ],
+      "unitTestsPassed": 93,
+      "browserChecksPassed": 27,
+      "lineCoveragePercent": 97.46,
+      "branchCoveragePercent": 87.41
+    },
+    "alerts": {
+      "status": "PASSED",
+      "command": "make alerts-check",
+      "scenarioGroups": 7,
+      "baselineRulesFailNewFixtures": true,
+      "toolImage": "prom/prometheus:v3.15.0@sha256:efd719c99d83b060d9daefdcf00360461adf279f45ef5391f8d111892118753e"
+    },
+    "image": {
+      "status": "PASSED",
+      "buildCommand": "docker build -f Dockerfile.server -t practiq-ai:stability-20261016 .",
+      "imageId": "sha256:358f1dc34d2e47fd6a4f27e265bd5c118b793a694d90c17f7dafbd18e080e5ef",
+      "runtimeSmoke": "Linux arm64 UID 10001, readonly root, 2 CPUs, 2 GiB, 128 pids, no network; PDF/storage/permission outage/read preservation/recovery"
+    },
+    "queueFocused": {
+      "status": "PASSED",
+      "testsPassed": 6
+    }
+  },
+  "rawEvidenceDirectory": "server/reports/checks/stability-20261016/ (local ignored files)",
+  "notRun": [
+    "hosted CI",
+    "production deployment",
+    "external notification delivery",
+    "real-model quality",
+    "live payment gateway",
+    "24-hour representative load",
+    "host failover",
+    "final signed app packages"
+  ],
+  "rawEvidenceSha256": {
+    "alerts-baseline-failure.log": "b45812dd1572e0d842713bf58e8c426f0dd3b93d1ff8eae88c8cb24ba3220eeb",
+    "alerts-final.log": "2cb4d1b4759af3c6953769ff33659d483dde342fd12ab2b4ad8082eedb01e42f",
+    "container-final.log": "2af7a2a45631a4e52fe611019de166097b9b7d7d74c2be370c9be82789914dbc",
+    "coverage.xml": "1af5d2a5a6e161c2bbc9dbc2b0809697272024600a402f53f3fadf35863013fa",
+    "final-queue-focused.log": "105a00f0e36dd6f7a35b84d546e35ae17d0b4bcfda6f9745cd87cb9d96250728",
+    "image-final.log": "98505d0393a597438c8d3c4caa729465d3b00d748dfab884e118b54bf28964c0",
+    "initial-focused.log": "a5a5db78de32dce0f935700f99ae1b5f33f3a73d6ee67fc593a82becdc36116b",
+    "payment-focused.log": "a4d3ff16e3d42cc5b6ca4bec0a55a4f8fb9a6c4d3a23daedbc76b2050f473be1",
+    "probes.json": "087b7796a0fad9c2126bcafcc67261d31c520116fc157e3b0a0dcd0658b52a6c",
+    "probes.md": "c7833705241f0fccd7d72cfcc8035613e5d025448629c63ef93054bdfeabd747",
+    "probes.xml": "19852b97f911b6f774614cd94e652ab87c5339aff8456fbe8f7d5f3b0190dc3a",
+    "storage-baseline-failure.log": "4dc6b72d31fdbd9573389ff51f7514ccfd20590ba073d2117a3c794fda43016e",
+    "storage-pause-focused.log": "1cf6a542115c34b8d8ddcb5aa4955225e945e9fc67467a67f7862a19287c10d8",
+    "superseded-interrupted-verify.log": "ad9191ab6484c631690cc9ac0acb81a7b2e6390e89cbe865ab532f06cba4b6f1",
+    "verify-final.log": "4b0f81ba13a1d90f3e99d5ee1e755681210bf62780d20799f447cb6ecdc7c72d",
+    "web-baseline-failure.log": "dc4448ef487d3ded080da4a33456b6b36f3dfc90b4f0f47acc55a38aed27e7b3",
+    "web-final.log": "ad9684bb889d46ee9f0727514d6eafa8d74ab0a9937e2da529cbc7302986b72a"
+  },
+  "finalDiffCheck": "PASSED"
+}

@@ -46,3 +46,183 @@ tests:
             exp_annotations: {summary: "Document queue remains at admission capacity"}
           - exp_labels: {severity: warning, instance: custom}
             exp_annotations: {summary: "Document queue remains at admission capacity"}
+  - interval: 1m
+    input_series: []
+    alert_rule_test:
+    - eval_time: 2m
+      alertname: PractiQServiceUnavailable
+      exp_alerts:
+      - exp_labels:
+          severity: critical
+          job: practiq-ai
+        exp_annotations:
+          summary: AI service metrics are unavailable
+    - eval_time: 2m
+      alertname: PractiQNotReady
+      exp_alerts:
+      - exp_labels:
+          severity: critical
+          job: practiq-ready
+        exp_annotations:
+          summary: External readiness probe is failing or missing
+    - eval_time: 2m
+      alertname: PractiQContainerMonitoringUnavailable
+      exp_alerts:
+      - exp_labels:
+          severity: warning
+          job: practiq-containers
+        exp_annotations:
+          summary: Container resource monitoring is unavailable
+  - interval: 1m
+    input_series:
+    - series: up{job="practiq-ai",instance="ai"}
+      values: 0x3 1x4
+    - series: probe_success{job="practiq-ready",instance="ready"}
+      values: 0x3 1x4
+    alert_rule_test:
+    - eval_time: 2m
+      alertname: PractiQServiceUnavailable
+      exp_alerts:
+      - exp_labels:
+          severity: critical
+          job: practiq-ai
+          instance: ai
+        exp_annotations:
+          summary: AI service metrics are unavailable
+    - eval_time: 2m
+      alertname: PractiQNotReady
+      exp_alerts:
+      - exp_labels:
+          severity: critical
+          job: practiq-ready
+          instance: ready
+        exp_annotations:
+          summary: External readiness probe is failing or missing
+    - eval_time: 5m
+      alertname: PractiQServiceUnavailable
+      exp_alerts: []
+    - eval_time: 5m
+      alertname: PractiQNotReady
+      exp_alerts: []
+  - interval: 1m
+    input_series:
+    - series: practiq_storage_healthy{instance="ai"}
+      values: 0x7 1x3
+    - series: practiq_storage_free_bytes{instance="ai"}
+      values: 5x7 50x3
+    - series: practiq_storage_total_bytes{instance="ai"}
+      values: 100x11
+    - series: practiq_storage_free_inodes{instance="inode-only"}
+      values: 4x7 50x3
+    - series: practiq_storage_total_inodes{instance="inode-only"}
+      values: 100x11
+    - series: practiq_storage_free_bytes{instance="healthy"}
+      values: 50x11
+    - series: practiq_storage_total_bytes{instance="healthy"}
+      values: 100x11
+    alert_rule_test:
+    - eval_time: 2m
+      alertname: PractiQStorageUnavailable
+      exp_alerts:
+      - exp_labels:
+          severity: critical
+          instance: ai
+        exp_annotations:
+          summary: File storage probe failed; new imports are blocked
+    - eval_time: 6m
+      alertname: PractiQStorageCapacity
+      exp_alerts:
+      - exp_labels:
+          severity: warning
+          instance: ai
+        exp_annotations:
+          summary: Artifact storage has less than 10% free bytes or inodes
+      - exp_labels:
+          severity: warning
+          instance: inode-only
+        exp_annotations:
+          summary: Artifact storage has less than 10% free bytes or inodes
+    - eval_time: 9m
+      alertname: PractiQStorageUnavailable
+      exp_alerts: []
+    - eval_time: 9m
+      alertname: PractiQStorageCapacity
+      exp_alerts: []
+  - interval: 1m
+    input_series:
+    - series: practiq_import_calls{status="unknown",instance="ai"}
+      values: 2x3 0x4
+    - series: practiq_import_call_oldest_seconds{status="pending",instance="ai"}
+      values: 400x3 0x4
+    - series: practiq_model_calls_total{outcome="unknown"}
+      values: '0x8'
+    - series: practiq_payment_uncredited_oldest_seconds{instance="ai"}
+      values: 400x3 0x4
+    - series: practiq_payment_refund_evidence_orders{instance="ai"}
+      values: 1x3 0x4
+    alert_rule_test:
+    - eval_time: 2m
+      alertname: PractiQUnsettledUsage
+      exp_alerts:
+      - exp_labels:
+          severity: warning
+          status: unknown
+          instance: ai
+        exp_annotations:
+          summary: Durable model accounting needs reconciliation
+      - exp_labels:
+          severity: warning
+          status: pending
+          instance: ai
+        exp_annotations:
+          summary: Durable model accounting needs reconciliation
+    - eval_time: 5m
+      alertname: PractiQUnsettledUsage
+      exp_alerts: []
+    - eval_time: 2m
+      alertname: PractiQPaymentCreditPending
+      exp_alerts:
+      - exp_labels:
+          severity: warning
+          instance: ai
+        exp_annotations:
+          summary: Verified payment remains uncredited; inspect retained evidence
+    - eval_time: 5m
+      alertname: PractiQPaymentCreditPending
+      exp_alerts: []
+    - eval_time: 2m
+      alertname: PractiQRefundReview
+      exp_alerts:
+      - exp_labels:
+          severity: warning
+          instance: ai
+        exp_annotations:
+          summary: Payment refund evidence requires operator review
+    - eval_time: 5m
+      alertname: PractiQRefundReview
+      exp_alerts: []
+  - interval: 1m
+    input_series:
+    - series: container_oom_events_total{container_label_com_docker_compose_service="ai",instance="host"}
+      values: 0 1x5
+    - series: container_start_time_seconds{container_label_com_docker_compose_service="ai",instance="host"}
+      values: 100 200 300 400x3
+    alert_rule_test:
+    - eval_time: 2m
+      alertname: PractiQContainerOOM
+      exp_alerts:
+      - exp_labels:
+          severity: critical
+          container_label_com_docker_compose_service: ai
+          instance: host
+        exp_annotations:
+          summary: AI container experienced an OOM event
+    - eval_time: 3m
+      alertname: PractiQContainerRestarts
+      exp_alerts:
+      - exp_labels:
+          severity: warning
+          container_label_com_docker_compose_service: ai
+          instance: host
+        exp_annotations:
+          summary: AI container restarted repeatedly

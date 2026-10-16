@@ -4,8 +4,11 @@ import asyncio
 import hashlib
 import os
 import re
+import shutil
 import tempfile
+import time
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -30,6 +33,15 @@ ARTIFACT_KEY_PATTERN = re.compile(
     r"^practiq-agent/artifacts/[0-9a-f]{64}/[a-z][a-z0-9_-]{0,63}/"
     r"(?:0|[1-9][0-9]*)-([0-9a-f]{64})\.([a-z0-9]+)$"
 )
+
+
+@dataclass(frozen=True)
+class StorageHealth:
+    healthy: bool
+    free_bytes: int | None = None
+    total_bytes: int | None = None
+    free_inodes: int | None = None
+    total_inodes: int | None = None
 
 
 def validate_source_size(size: int, source_type: DocumentSourceType, config: Config) -> None:
@@ -59,6 +71,55 @@ class ObjectStore:
         self.root = config.storage_dir.resolve()
         self._executor = ThreadPoolExecutor(max_workers=config.storage_concurrency, thread_name_prefix="practiq-storage")
         self._slots = asyncio.Semaphore(config.storage_concurrency)
+        self._health = StorageHealth(False)
+        self._health_checked_at = 0.0
+        self._health_lock = asyncio.Lock()
+        self._root_identity: tuple[int, int] | None = None
+
+    async def health(self) -> StorageHealth:
+        async with self._health_lock:
+            if time.monotonic() - self._health_checked_at < 5:
+                return self._health
+            try:
+                async with asyncio.timeout(2):
+                    self._health = await self._call(self._probe)
+            except (DocumentProcessingError, TimeoutError):
+                self._health = StorageHealth(False)
+            self._health_checked_at = time.monotonic()
+            return self._health
+
+    async def require_available(self) -> None:
+        if not (await self.health()).healthy:
+            raise DocumentProcessingError(503, 'File storage is unavailable', 'OBJECT_STORE_UNAVAILABLE')
+
+    def _probe(self) -> StorageHealth:
+        if self._root_identity is None:
+            self.root.mkdir(parents=True, exist_ok=True)
+        info = self.root.stat()
+        identity = (info.st_dev, info.st_ino)
+        if not self.root.is_dir() or self._root_identity not in {None, identity}:
+            raise OSError('Storage root changed')
+        self._root_identity = identity
+        disk = shutil.disk_usage(self.root)
+        inodes = os.statvfs(self.root) if hasattr(os, 'statvfs') else None
+        free_inodes = inodes.f_favail if inodes and inodes.f_files else None
+        if disk.free <= 0 or free_inodes == 0:
+            raise OSError('Storage capacity exhausted')
+        with tempfile.TemporaryFile(dir=self.root) as probe:
+            payload = b'practiq-storage-probe\n'
+            probe.write(payload)
+            probe.flush()
+            os.fsync(probe.fileno())
+            probe.seek(0)
+            if probe.read() != payload:
+                raise OSError('Storage probe checksum mismatch')
+        if os.name != 'nt':
+            descriptor = os.open(self.root, os.O_RDONLY | os.O_DIRECTORY)
+            try:
+                os.fsync(descriptor)
+            finally:
+                os.close(descriptor)
+        return StorageHealth(True, disk.free, disk.total, free_inodes, inodes.f_files if inodes else None)
 
     async def prepare_document(
         self, request: DocumentUploadRequest
@@ -253,6 +314,7 @@ class ObjectStore:
         except DocumentProcessingError:
             raise
         except Exception as exc:
+            self._health_checked_at = 0
             raise self._unavailable() from exc
 
     @staticmethod

@@ -67,6 +67,7 @@ async def _admit(conn, account=None):
     require_model_config()
     if load().maintenance:
         raise DocumentProcessingError(503, 'Service is draining for maintenance', 'MAINTENANCE')
+    await (await asyncio.to_thread(get_object_store)).require_available()
     if account:
         count = await (await conn.execute("SELECT count(*) AS n FROM document_runs r JOIN document_tasks t USING(thread_id) WHERE t.account_id=%s AND r.status IN ('pending','running')", (account,))).fetchone()
         limit = min(load().account_max_pending_runs, max(1, load().max_busy_threads - 1))

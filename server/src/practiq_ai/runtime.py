@@ -21,6 +21,7 @@ from .execution import (
 )
 from .graphs.document import build_document_graph
 from .messaging import Delivery
+from .storage import get_object_store
 
 current: Service | None = None
 GRAPH_FORMATS = {'document_parser': None, 'text_csv_parser': ('text', 'csv'),
@@ -53,6 +54,7 @@ class Service:
             await self.db.check_schema()
             self.execution_slots = asyncio.Semaphore(load().jobs_per_worker)
             self.lock = await self.db.acquire()
+            await (await asyncio.to_thread(get_object_store)).require_available()
             from .saas import reconcile
             await reconcile(self.db)
             await self.db.ensure_indexes()
@@ -118,6 +120,7 @@ class Service:
         try:
             async with asyncio.timeout(2):
                 await self.db.rows('SELECT 1')
+                await (await asyncio.to_thread(get_object_store)).require_available()
             return bool(self.broker_task and not self.broker_task.done() and (load().read_only or self.delivery.connected))
         except Exception:  # noqa: BLE001 - fail closed without logging credentials or payloads
             return False
@@ -283,6 +286,8 @@ class Service:
             if (saved_status := self.saved_run_status(snapshot, run)) is not None:
                 await self.finish(run_id, saved_status)
                 return
+            if not run['pause_requested']:
+                await (await asyncio.to_thread(get_object_store)).require_available()
             deadline = run['deadline'] or utcnow() + timedelta(seconds=load().run_timeout_seconds)
             async with self.db.connection() as conn:
                 await conn.execute("UPDATE document_runs SET status='running',started_at=coalesce(started_at,now()),deadline=%s WHERE run_id=%s", (deadline, run_id))
@@ -320,7 +325,7 @@ class Service:
                 if await self.unknown_calls(run):
                     code = 'MODEL_RESULT_UNKNOWN'
             if code != 'TASK_FORMAT_UNSUPPORTED':
-                await self.finish(run_id, 'interrupted' if code == 'MODEL_RESULT_UNKNOWN' else 'error', code)
+                await self.finish(run_id, 'interrupted' if code in {'MODEL_RESULT_UNKNOWN', 'OBJECT_STORE_UNAVAILABLE'} else 'error', code)
         finally:
             if acquired:
                 slots.release()
