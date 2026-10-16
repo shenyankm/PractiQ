@@ -1,6 +1,21 @@
 groups:
   - name: practiq
     rules:
+      - alert: PractiQBackupFailed
+        expr: practiq_backup_last_attempt_success{job="practiq-backups"} == 0
+        for: 2m
+        labels: {severity: critical}
+        annotations: {summary: "Matching off-host backup failed or is incomplete"}
+      - alert: PractiQBackupStale
+        expr: time() - practiq_backup_last_success_timestamp_seconds{job="practiq-backups"} > 900 or absent(practiq_backup_last_success_timestamp_seconds{job="practiq-backups"})
+        for: 2m
+        labels: {severity: critical}
+        annotations: {summary: "No verified matching backup snapshot within 15 minutes"}
+      - alert: PractiQBackupMonitoringUnavailable
+        expr: up{job="practiq-backups"} == 0 or absent(up{job="practiq-backups"})
+        for: 2m
+        labels: {severity: warning}
+        annotations: {summary: "Independent backup monitoring is unavailable"}
       - alert: PractiQServiceUnavailable
         expr: up{job="practiq-ai"} == 0 or absent(up{job="practiq-ai"})
         for: 2m

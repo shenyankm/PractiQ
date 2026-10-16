@@ -1,0 +1,11 @@
+[Unit]
+Description=Offline matching PractiQ backup to an off-host mount
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/practiq/backup.env
+ExecStart=/bin/sh /opt/practiq/server/deploy/backup-offline.sh
+UMask=0077
+TimeoutStartSec=35min

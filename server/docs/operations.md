@@ -30,6 +30,8 @@ Keep matching database, file, and configuration backups:
 
 ### Storage configuration
 
+For current-version complete backup sets, independent failure/staleness monitoring, scheduler examples and clean-target fencing/restore steps, follow [matching offline backups](service-backups.md). Historical drills are not current production RPO/RTO evidence.
+
 Storage uses local files only. `AI_STORAGE_BACKEND` accepts an unset value or `local`; other values prevent startup. Remove unused `AI_OSS_*` settings. Verify that `AI_STORAGE_DIR` contains the files referenced by the matching PostgreSQL database before starting. Changes to storage roots require an explicit offline copy and checksum verification; retain the source and configuration for rollback.
 
 ## Queue, pause, and recovery
