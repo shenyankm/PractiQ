@@ -674,6 +674,21 @@ fn validate_database_contents(db: &Connection) -> Result<()> {
             serde_json::json!({}),
         ));
     }
+    let invalid_navigation: bool = db
+        .query_row(
+            "SELECT EXISTS(
+            SELECT 1 FROM sessions s LEFT JOIN attempts a ON a.session_id=s.id GROUP BY s.id
+            HAVING COUNT(a.ordinal)=0 OR MIN(a.ordinal)!=0 OR MAX(a.ordinal)!=COUNT(a.ordinal)-1
+                OR SUM(typeof(a.ordinal)!='integer')>0 OR typeof(s.position)!='integer'
+                OR s.position<0 OR s.position>=COUNT(a.ordinal)
+        )",
+            [],
+            |r| r.get(0),
+        )
+        .map_err(err)?;
+    if invalid_navigation {
+        return Err(crate::language::error("LOCAL_BACKUP_RELATIONS", json!({})));
+    }
     let rows = crate::questions::read(db)?;
     let mut questions: Vec<_> = rows.iter().map(|r| r["question"].clone()).collect();
     crate::contract::validate_tree(&mut questions)?;
