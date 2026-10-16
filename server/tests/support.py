@@ -27,7 +27,7 @@ from practiq_ai.contracts import (
 )
 from practiq_ai.errors import DocumentProcessingError
 from practiq_ai.graphs import document
-from practiq_ai.storage import ObjectStore
+from practiq_ai.storage import ObjectStore, StorageHealth
 
 
 class FakeModel(BaseChatModel):
@@ -76,6 +76,13 @@ class FakeObjectStore:
     def __init__(self, blobs: dict[str, bytes]):
         self.blobs = blobs
         self.put_kinds: list[str] = []
+
+    async def health(self):
+        return StorageHealth(True)
+
+    async def require_available(self):
+        if not (await self.health()).healthy:
+            raise DocumentProcessingError(503, 'File storage is unavailable', 'OBJECT_STORE_UNAVAILABLE')
 
     async def prepare_document(self, request):
         return DocumentUploadResponse(document=DocumentReference(

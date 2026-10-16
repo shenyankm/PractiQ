@@ -5,6 +5,74 @@ import { capabilities, task, taskId, runId } from "./test-fixtures";
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 const receipt = { threadId: taskId, requestId: taskId, runId, accepted: true };
 
+it.each(["headers", "body"])("bounds stalled %s and permits the next read", async stage => {
+  vi.useFakeTimers();
+  let signal: AbortSignal;
+  const fetcher = vi.fn(async (_path: string, init: RequestInit) => {
+    signal = init.signal!;
+    if (stage === "headers") return new Promise<Response>((_resolve, reject) => signal.addEventListener("abort", () => reject(signal.reason)));
+    return new Response(new ReadableStream({ start(controller) { signal.addEventListener("abort", () => controller.error(signal.reason)); } }));
+  });
+  vi.stubGlobal("fetch", fetcher);
+  const client = new Client("fake", "13800138000");
+  const pending = expect(client.account()).rejects.toMatchObject({ code: "REQUEST_TIMEOUT" });
+  await vi.advanceTimersByTimeAsync(30_000);
+  await pending;
+  fetcher.mockImplementation(async () => json({ balanceMicropoints: "100" }));
+  await expect(client.account()).resolves.toMatchObject({ balanceMicropoints: "100" });
+  expect(fetcher).toHaveBeenCalledTimes(2);
+});
+
+it("does not replay a timed out mutation and preserves its request ID for explicit retry", async () => {
+  vi.useFakeTimers();
+  const fetcher = vi.fn((_path: string, init: RequestInit) => new Promise<Response>((_resolve, reject) => init.signal!.addEventListener("abort", () => reject(init.signal!.reason))));
+  vi.stubGlobal("fetch", fetcher);
+  const client = new Client("fake", "13800138000");
+  const pending = expect(client.reparse(taskId)).rejects.toMatchObject({ code: "REQUEST_TIMEOUT" });
+  await vi.advanceTimersByTimeAsync(125_000);
+  await pending;
+  expect(fetcher).toHaveBeenCalledTimes(1);
+  const first = JSON.parse(fetcher.mock.calls[0][1].body as string);
+  fetcher.mockImplementation(async () => json(receipt));
+  await client.reparse(taskId);
+  expect(JSON.parse(fetcher.mock.calls[1][1].body as string)).toEqual(first);
+});
+
+it("bounds export body reception and cancels its reader", async () => {
+  vi.useFakeTimers();
+  const cancel = vi.fn();
+  vi.stubGlobal("fetch", vi.fn(async () => new Response(new ReadableStream({ cancel }), { headers: { "Content-Type": "application/zip" } })));
+  const client = new Client("fake", "13800138000");
+  const pending = expect(client.exportBank(task)).rejects.toMatchObject({ code: "REQUEST_TIMEOUT" });
+  await vi.advanceTimersByTimeAsync(600_000);
+  await pending;
+  expect(cancel).toHaveBeenCalledTimes(1);
+  expect(vi.getTimerCount()).toBe(0);
+});
+
+it("disconnect cancels a stalled response body and clears its deadline", async () => {
+  vi.useFakeTimers();
+  const cancel = vi.fn();
+  vi.stubGlobal("fetch", vi.fn(async () => new Response(new ReadableStream({ cancel }))));
+  const client = new Client("fake", "13800138000");
+  const pending = expect(client.account()).rejects.toMatchObject({ name: "AbortError" });
+  await vi.advanceTimersByTimeAsync(0);
+  client.disconnect();
+  await pending;
+  expect(cancel).toHaveBeenCalledTimes(1);
+  expect(vi.getTimerCount()).toBe(0);
+});
+
+it("keeps the existing shorter payment deadline", async () => {
+  vi.useFakeTimers();
+  const fetcher = vi.fn((_path: string, init: RequestInit) => new Promise<Response>((_resolve, reject) => init.signal!.addEventListener("abort", () => reject(init.signal!.reason))));
+  vi.stubGlobal("fetch", fetcher);
+  const pending = expect(new Client("fake", "13800138000").paymentOrders()).rejects.toMatchObject({ code: "REQUEST_TIMEOUT" });
+  await vi.advanceTimersByTimeAsync(20_000);
+  await pending;
+  expect(fetcher).toHaveBeenCalledTimes(1);
+});
+
 it.each([
   ["9007199254740993", "9,007,199,254.740993"],
   ["-9007199254740993", "-9,007,199,254.740993"],
@@ -58,7 +126,7 @@ describe("source selection and bounded upload", () => {
     expect(() => validateFiles([new File(["x"], "a.docx")], { ...capabilities, sourceTypes: ["pdf"] })).toThrow("暂不支持");
     expect(sourceLimit({ ...capabilities, sourceMaxBytes: 101 * 1024 * 1024 })).toBe(101 * 1024 * 1024);
   });
-  it("hashes exact bytes, uploads with Bearer, accepts reordered fields, then creates one explicit task", async () => {
+  it("hashes exact bytes, uploads with Account authentication, accepts reordered fields, then creates one explicit task", async () => {
     const fetcher = mockUpload();
     const stages: string[] = [];
     const client = new Client("fake-service-token", "13800138000");

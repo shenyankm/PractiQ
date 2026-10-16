@@ -55,6 +55,7 @@ Preserve failures, source hashes, artifact hashes and original denominators. His
 
 | Historical record | Scope |
 | --- | --- |
+| [October 16 stability controls](stability-controls-20261016.md) | Storage admission, durable monitoring, load authentication and Web deadlines; local engineering acceptance boundaries |
 | [Native import, 2026-09-29](ai-import-acceptance-20260929.md) | Former desktop import workflow; small real-model sample and failures |
 | [Ten-format acceptance](ai-import-all-formats-acceptance-20260929.zh-CN.md), [repair/retest](ai-import-repairs-20260929.zh-CN.md) | Original 2026-09-29 live results; complete acceptance remained 0/10 |
 | [October 3 performance](performance-implementation-20261003.md), [October 5 performance](performance-implementation-20261005.md) | Separate measured workloads and source baselines, not duplicate benchmarks |

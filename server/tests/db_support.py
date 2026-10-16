@@ -109,6 +109,7 @@ async def setup_api(monkeypatch, responses=None, parts=None):
     from practiq_ai import runtime
     _graph, _store, files, reference, model = setup_graph(monkeypatch, responses if responses is not None else [parsed()], parts=parts)
     db = await new_database()
+    monkeypatch.setattr(runtime, 'get_object_store', lambda: files)
     service = cast(Any, runtime.Service(db))
     await service.start()
     async with asyncio.timeout(10):

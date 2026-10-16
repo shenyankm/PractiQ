@@ -1,6 +1,54 @@
 groups:
   - name: practiq
     rules:
+      - alert: PractiQServiceUnavailable
+        expr: up{job="practiq-ai"} == 0 or absent(up{job="practiq-ai"})
+        for: 2m
+        labels: {severity: critical}
+        annotations: {summary: "AI service metrics are unavailable"}
+      - alert: PractiQNotReady
+        expr: probe_success{job="practiq-ready"} == 0 or absent(probe_success{job="practiq-ready"})
+        for: 2m
+        labels: {severity: critical}
+        annotations: {summary: "External readiness probe is failing or missing"}
+      - alert: PractiQStorageUnavailable
+        expr: practiq_storage_healthy == 0
+        for: 1m
+        labels: {severity: critical}
+        annotations: {summary: "File storage probe failed; new imports are blocked"}
+      - alert: PractiQStorageCapacity
+        expr: practiq_storage_free_bytes / practiq_storage_total_bytes < 0.1 or practiq_storage_free_inodes / practiq_storage_total_inodes < 0.1
+        for: 5m
+        labels: {severity: warning}
+        annotations: {summary: "Artifact storage has less than 10% free bytes or inodes"}
+      - alert: PractiQUnsettledUsage
+        expr: practiq_import_calls{status="unknown"} > 0 or practiq_import_call_oldest_seconds{status="pending"} > 300
+        for: 2m
+        labels: {severity: warning}
+        annotations: {summary: "Durable model accounting needs reconciliation"}
+      - alert: PractiQPaymentCreditPending
+        expr: practiq_payment_uncredited_oldest_seconds > 300
+        for: 2m
+        labels: {severity: warning}
+        annotations: {summary: "Verified payment remains uncredited; inspect retained evidence"}
+      - alert: PractiQRefundReview
+        expr: practiq_payment_refund_evidence_orders > 0
+        for: 2m
+        labels: {severity: warning}
+        annotations: {summary: "Payment refund evidence requires operator review"}
+      - alert: PractiQContainerOOM
+        expr: increase(container_oom_events_total{container_label_com_docker_compose_service="ai"}[5m]) > 0
+        labels: {severity: critical}
+        annotations: {summary: "AI container experienced an OOM event"}
+      - alert: PractiQContainerRestarts
+        expr: changes(container_start_time_seconds{container_label_com_docker_compose_service="ai"}[15m]) > 2
+        labels: {severity: warning}
+        annotations: {summary: "AI container restarted repeatedly"}
+      - alert: PractiQContainerMonitoringUnavailable
+        expr: up{job="practiq-containers"} == 0 or absent(up{job="practiq-containers"})
+        for: 2m
+        labels: {severity: warning}
+        annotations: {summary: "Container resource monitoring is unavailable"}
       - alert: PractiQPartialResults
         expr: sum(rate(practiq_document_results_total{status="PARTIAL"}[5m])) / clamp_min(sum(rate(practiq_document_results_total[5m])), 0.001) > 0.02
         for: 5m

@@ -57,6 +57,36 @@ async def setup(settings):
     return checkout
 
 
+@pytest.mark.usefixtures('disposable_databases')
+async def test_payment_monitoring_reads_durable_evidence_without_crediting_or_exposing_accounts(settings, monkeypatch):
+    from practiq_ai import runtime, webapp
+    from tests.db_support import SERVICES
+
+    checkout = await setup(settings)
+    paid = await checkout.create(PaymentOrderCreate(requestId=uuid4(), productId='pack'), checkout.account)
+    refund = await checkout.create(PaymentOrderCreate(requestId=uuid4(), productId='pack'), checkout.account)
+    async with checkout.db.transaction() as conn:
+        await conn.execute("UPDATE payment_orders SET status='paid',paid_at=now()-interval '15 minutes' WHERE order_id=%s", (paid['orderId'],))
+        await conn.execute('UPDATE payment_orders SET refund_evidence=%s::jsonb WHERE order_id=%s', (json.dumps({'refund_fee': '1.00'}), refund['orderId']))
+    monitor = runtime.Service(checkout.db)
+    await monitor.start()
+    SERVICES.append(monitor)
+    monkeypatch.setattr(runtime, 'current', monitor)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=webapp.app), base_url='http://test') as client:
+        assert (await client.get('/api/metrics')).status_code == 401
+        response = await client.get('/api/metrics', headers={'Authorization': 'Bearer test-token'})
+        assert response.status_code == 200
+        assert 'practiq_payment_uncredited_orders 1\n' in response.text
+        assert 'practiq_payment_refund_evidence_orders 1\n' in response.text
+        assert all(value not in response.text for value in (checkout.credential, checkout.account, paid['orderId'], refund['orderId']))
+        assert await checkout.db.rows("SELECT * FROM import_ledger WHERE kind='purchase'") == []
+        await checkout.fulfill(paid['orderId'])
+        response = await client.get('/api/metrics', headers={'Authorization': 'Bearer test-token'})
+        assert 'practiq_payment_uncredited_orders 0\n' in response.text
+        assert 'practiq_payment_uncredited_oldest_seconds 0\n' in response.text
+        assert 'practiq_payment_refund_evidence_orders 1\n' in response.text
+
+
 def result(order, **changes):
     return {'out_trade_no': order['orderId'], 'total_amount': '9.00', 'trade_no': '20261014000000001', 'trade_status': 'TRADE_SUCCESS', **changes}
 

@@ -10,6 +10,77 @@ from practiq_ai.errors import DocumentProcessingError
 from tests.support import object_store, upload
 
 
+async def test_storage_health_checks_io_and_space_and_rejects_replaced_root(tmp_path):
+    store = object_store(tmp_path / 'files')
+    health = await store.health()
+    assert health.healthy and health.free_bytes is not None and health.total_bytes is not None
+    assert health.total_bytes >= health.free_bytes > 0
+    assert list(store.root.iterdir()) == []
+    store.root.rmdir()
+    store.root.write_text('lost mount')
+    store._health_checked_at = 0
+    assert not (await store.health()).healthy
+    with pytest.raises(DocumentProcessingError) as error:
+        await store.require_available()
+    assert error.value.status_code == 503
+    assert error.value.code == 'OBJECT_STORE_UNAVAILABLE'
+    assert store.root.read_text() == 'lost mount'
+
+
+@pytest.mark.parametrize('failure', ['full', 'readonly', 'fsync', 'checksum', 'inodes'])
+async def test_storage_health_fails_closed_and_recovers(tmp_path, monkeypatch, failure):
+    import shutil
+    from types import SimpleNamespace
+
+    store = object_store(tmp_path)
+    with monkeypatch.context() as patch:
+        if failure == 'full':
+            patch.setattr(storage.shutil, 'disk_usage', lambda _: shutil._ntuple_diskusage(100, 100, 0))
+        elif failure == 'readonly':
+            patch.setattr(storage.tempfile, 'TemporaryFile', lambda **_: (_ for _ in ()).throw(PermissionError('readonly')))
+        elif failure == 'fsync':
+            patch.setattr(storage.os, 'fsync', lambda _: (_ for _ in ()).throw(OSError('sync failed')))
+        elif failure == 'checksum':
+            from io import BytesIO
+            class CorruptProbe(BytesIO):
+                def fileno(self):
+                    return 0
+                def read(self, *args):
+                    return b'corrupt'
+            patch.setattr(storage.tempfile, 'TemporaryFile', lambda **_: CorruptProbe())
+            patch.setattr(storage.os, 'fsync', lambda _: None)
+        else:
+            patch.setattr(storage.os, 'statvfs', lambda _: SimpleNamespace(f_files=100, f_favail=0, f_frsize=4096, f_blocks=100, f_bfree=10, f_bavail=10), raising=False)
+        assert not (await store.health()).healthy
+        with pytest.raises(DocumentProcessingError):
+            await store.require_available()
+    store._health_checked_at = 0
+    assert (await store.health()).healthy
+
+
+async def test_storage_health_coalesces_probes_and_bounds_stuck_io(tmp_path, monkeypatch):
+    store = object_store(tmp_path, storage_timeout_seconds=0.02, storage_concurrency=1)
+    original = store._probe
+    probes = []
+    def counted():
+        probes.append(1)
+        return original()
+    monkeypatch.setattr(store, '_probe', counted)
+    assert all(item.healthy for item in await asyncio.gather(*(store.health() for _ in range(20))))
+    assert len(probes) == 1
+    release = threading.Event()
+    store._health_checked_at = 0
+    monkeypatch.setattr(store, '_probe', lambda: release.wait(5))
+    try:
+        assert not (await store.health()).healthy
+        assert store._slots.locked()
+        with pytest.raises(DocumentProcessingError):
+            await store.require_available()
+    finally:
+        release.set()
+        await asyncio.to_thread(store._executor.shutdown)
+
+
 async def test_local_source_upload_dedup_restart_and_artifacts(tmp_path):
     store = object_store(tmp_path)
     pending = await store.prepare_document(upload())
