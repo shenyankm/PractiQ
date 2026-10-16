@@ -1,0 +1,21 @@
+{
+  "baseRevision": "846829ed38fa78bc211ec721a1af2d588df2af5b",
+  "scope": "Submitted startup-only source tree; separate from historical timeout diagnostics",
+  "makeVerifyExitCode": 0,
+  "tests": 2679,
+  "warnings": 11,
+  "skipped": 0,
+  "pytestSeconds": 429.38,
+  "lineCoveragePercent": 94.83,
+  "branchCoveragePercent": 90.08,
+  "gates": "Lockfile, Ruff, Pyright, 33 fixtures, recovery probes, build and package integrity passed",
+  "newRegressionAgainstParent": "2 expected import-boundary assertion failures; workers were real subprocesses",
+  "original15SecondTimeoutResolved": false,
+  "historical140SecondTimeoutResolved": false,
+  "sourceModulesChanged": [
+    "practiq_ai/config.py",
+    "practiq_ai/errors.py",
+    "practiq_ai/extractors/__init__.py",
+    "practiq_ai/extractors/isolated.py"
+  ]
+}

@@ -97,7 +97,6 @@ def is_loopback_host(hostname: str | None) -> bool:
 
 def load() -> Config:
     values = dict(os.environ)
-    from .saas import points
     input_points = values.get('AI_INPUT_POINTS_PER_1K')
     output_points = values.get('AI_OUTPUT_POINTS_PER_1K')
     if bool(input_points) != bool(output_points):
@@ -158,9 +157,13 @@ def load() -> Config:
         loopback = is_loopback_host(url.hostname)
         if (url.scheme != "https" and not (url.scheme == "http" and loopback)) or not url.hostname or url.username or url.password or url.query or url.fragment:
             raise ValueError("LLM_BASE_URL requires HTTPS or loopback HTTP without credentials, query or fragment")
+    input_rate, output_rate = None, None
+    if input_points and output_points:
+        from .saas import points
+        input_rate, output_rate = points(input_points), points(output_points)
     return Config(
-        input_micropoints_per_1k=points(input_points) if input_points else None,
-        output_micropoints_per_1k=points(output_points) if output_points else None,
+        input_micropoints_per_1k=input_rate,
+        output_micropoints_per_1k=output_rate,
         base_url=base_url,
         read_only=read_only,
         jobs_per_worker=jobs_per_worker,

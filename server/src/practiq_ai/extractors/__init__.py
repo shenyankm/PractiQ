@@ -1,8 +1,13 @@
+from __future__ import annotations
+
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 from ..config import load
-from ..contracts import DocumentSourceType
 from ..errors import DocumentProcessingError
+
+if TYPE_CHECKING:
+    from ..contracts import DocumentSourceType
 
 VISION_BYTES_LIMIT_DETAIL = "Document visual content exceeds the configured limit"
 

@@ -1,0 +1,362 @@
+{
+  "method": "40 interleaved sequential fresh interpreters, identical output, same environment and source snapshots, no concurrent verification suites",
+  "baseRevision": "846829ed38fa78bc211ec721a1af2d588df2af5b",
+  "sourceSha256": {
+    "before": {
+      "practiq_ai/__init__.py": "44e190bbd1241c6c656c477194d08b0640c03e7fb157d46e08e91f1c3bc4c4b2",
+      "practiq_ai/auth.py": "8782f98abe619f2f322640c2b6b6752b90b8eabb6a3645812258fe2d27fa0400",
+      "practiq_ai/bank_export.py": "b85558fdd02df5336c890530627e17e4d44e92e1bf20694c64fd35082924bf0d",
+      "practiq_ai/capacity.py": "f6f6a80e4c70faa9ad37b062b3d083091d1fb507541e25f30846fb1adb1d9265",
+      "practiq_ai/config.py": "b16309cde8684663f6c9ea8a4adfc67d0527431a69eb59166edc7305f671c02e",
+      "practiq_ai/contracts.py": "c2d285ef82b9f5e218a2cc1b686156dc213b555cc26ad35cc42b78d82cb0a68a",
+      "practiq_ai/database.py": "c8ced01aa13c1f46211cfcef9bbb2d905ce2e210300a6b60e5d60fd3e94b4a4b",
+      "practiq_ai/errors.py": "b3e03406fdaad69a5753d7d604c7f044dbd0e633b9511d261f987212262a77d4",
+      "practiq_ai/execution.py": "836a808ac71298bdf24b8432a8f4733502f6e3060f2b9db44e5117d78e0985e5",
+      "practiq_ai/extractors/__init__.py": "fc1bbbc32e236e7d551cbf357b8dec16fdd964ff86705cf305d8aaf40fd7526b",
+      "practiq_ai/extractors/csv.py": "30477ecffdc9043552b1bb9c40ee21e853ab78eda3431549deea884e37354d28",
+      "practiq_ai/extractors/image.py": "c7db8f21d738bd08463a5b6022380dec75b95cefce6f251c7e884f9204bbde0c",
+      "practiq_ai/extractors/isolated.py": "f8b1e3bda421b1796505dee30585174c3e1cfe4c7702d9205c0168855d7a1cde",
+      "practiq_ai/extractors/pdf.py": "07b47cd849afe6affcfa48f60fb059d85e915858d734b4c7ee4b7956e2302736",
+      "practiq_ai/extractors/windows_job.py": "68f504479b3bce3eb2b24850259ff816559009034dfa85374c88f30430ae42bd",
+      "practiq_ai/grading.py": "8bb668d2ccc6394257a1c979ede33f3660f72ff7d3e850eb419eb23a665c97a8",
+      "practiq_ai/graphs/__init__.py": "2915e84546b19a370586ac17c6b3ae9b45baa81aa416bded2900d962c4f10d90",
+      "practiq_ai/graphs/chunking.py": "b3afc7e337bbf56c46959d18741fcc96f64b7740804a7dd4bd2e1981c0a16883",
+      "practiq_ai/graphs/document.py": "b555b7b4634694a7bc905daf0d1ded8bba15ea001d1c724a3b9b7a6ffc33819f",
+      "practiq_ai/graphs/review.py": "9e9b6a8b58ec955f4372deb9a67902e0361ff0e4ffc8281c2ff57d2bca180d8c",
+      "practiq_ai/graphs/vision.py": "442acaae07eb636039fe74935a46a86891d59e79852f87ade234e64ade0c31fc",
+      "practiq_ai/json_repair.py": "9c93b7e50934754a70bde6d0ee1baaf730df5702dd75614a1a9d4371cce77cc1",
+      "practiq_ai/llm.py": "66027772a3d8c14dbe6dbdbcfc6dcaf4034e732c2723a92eadb82b178f4486b9",
+      "practiq_ai/manage.py": "c00ebafe58a33b6b4dc6aa3b128fe9a3f44970f1b9502045c2b9f35dc55a2181",
+      "practiq_ai/messaging.py": "ba0cd0b1495bb670da23a2e5ed61eb6b8b09db2a4db6eca81e42371b3d28f89c",
+      "practiq_ai/middleware.py": "cd3fc3f2f5e5ed1bd3d8a8e605b9a84badfdd304bcb5d5876eb51cd4abff3576",
+      "practiq_ai/normalization.py": "e157f8ce89368110cf8364fe9f01425b4d07919010f4ef3446eefd0515ffc2c8",
+      "practiq_ai/office.py": "6487c23842bdcc884f7e94833b34a05733697f9888abd8918a0e23dc42cfcdf5",
+      "practiq_ai/office_service.py": "246594f03bcd0185df39ab1954b70a8da94b1fbaf9afdc04cf5f21294c9deda7",
+      "practiq_ai/payment_webapp.py": "b8698ee23b939e71969bfd85302b29b450b63cb28dbeb9c845da957feb134b6e",
+      "practiq_ai/payments.py": "068eda77a523abe2df7c3387f54b06a96f97294698abf74e818014f54211d14b",
+      "practiq_ai/payments_manage.py": "c10a12f12190bb935edc8655267a0abbcaaa032a34fefff2face91d793d2ff98",
+      "practiq_ai/runtime.py": "29e7ce5fa0ed9e9c84c373912f5d23ce906bfd1c56649557c9193bd9f87dcb85",
+      "practiq_ai/saas.py": "1b5b2e637f8c15ba22f5b3fddfcc28e38f3e45949bfb5b6331c704393fdd9bf1",
+      "practiq_ai/saas_manage.py": "3fe7a4436a8a4c4214622753817b8e4ba3c28ed1ea9d3389d2ccb5c8f5da4b99",
+      "practiq_ai/storage.py": "69f1cd01dcef8a66fa717c8cdc18b90e85921fde9a76bc31389b415d69d52147",
+      "practiq_ai/task_api.py": "b7c2aaef11ec6f07b1ed1e64c99af9c524c25ff0bcedd1f75f963825db002078",
+      "practiq_ai/telemetry.py": "6c17bee3edbbb90f6e315c1ab654d31e1b4f8dbef998bd620047d3aaa7a1c19f",
+      "practiq_ai/webapp.py": "66d0b4ff0df8bd70598e1fb31a0bffcd7fa068985916056321688f46b21ffa38"
+    },
+    "after": {
+      "practiq_ai/__init__.py": "44e190bbd1241c6c656c477194d08b0640c03e7fb157d46e08e91f1c3bc4c4b2",
+      "practiq_ai/auth.py": "8782f98abe619f2f322640c2b6b6752b90b8eabb6a3645812258fe2d27fa0400",
+      "practiq_ai/bank_export.py": "b85558fdd02df5336c890530627e17e4d44e92e1bf20694c64fd35082924bf0d",
+      "practiq_ai/capacity.py": "f6f6a80e4c70faa9ad37b062b3d083091d1fb507541e25f30846fb1adb1d9265",
+      "practiq_ai/config.py": "4ffd439d43cba3c8cf8e1fb870f082f4bdec584f648f5e89107acf2104dedff8",
+      "practiq_ai/contracts.py": "c2d285ef82b9f5e218a2cc1b686156dc213b555cc26ad35cc42b78d82cb0a68a",
+      "practiq_ai/database.py": "c8ced01aa13c1f46211cfcef9bbb2d905ce2e210300a6b60e5d60fd3e94b4a4b",
+      "practiq_ai/errors.py": "62fcd3b101ece57495018386c39935a2f40d8e7b14cf2a7c6f0e9147e7882e60",
+      "practiq_ai/execution.py": "836a808ac71298bdf24b8432a8f4733502f6e3060f2b9db44e5117d78e0985e5",
+      "practiq_ai/extractors/__init__.py": "ca6e5397bcdd8e5f89b9289defe09c63d7e2401e38f4ca0f00fdf9d292873c96",
+      "practiq_ai/extractors/csv.py": "30477ecffdc9043552b1bb9c40ee21e853ab78eda3431549deea884e37354d28",
+      "practiq_ai/extractors/image.py": "c7db8f21d738bd08463a5b6022380dec75b95cefce6f251c7e884f9204bbde0c",
+      "practiq_ai/extractors/isolated.py": "5529d60692bdec38008a4dfa8f642b7d38559c0f0c3b4e8e15d7d5e270e4f00f",
+      "practiq_ai/extractors/pdf.py": "07b47cd849afe6affcfa48f60fb059d85e915858d734b4c7ee4b7956e2302736",
+      "practiq_ai/extractors/windows_job.py": "68f504479b3bce3eb2b24850259ff816559009034dfa85374c88f30430ae42bd",
+      "practiq_ai/grading.py": "8bb668d2ccc6394257a1c979ede33f3660f72ff7d3e850eb419eb23a665c97a8",
+      "practiq_ai/graphs/__init__.py": "2915e84546b19a370586ac17c6b3ae9b45baa81aa416bded2900d962c4f10d90",
+      "practiq_ai/graphs/chunking.py": "b3afc7e337bbf56c46959d18741fcc96f64b7740804a7dd4bd2e1981c0a16883",
+      "practiq_ai/graphs/document.py": "b555b7b4634694a7bc905daf0d1ded8bba15ea001d1c724a3b9b7a6ffc33819f",
+      "practiq_ai/graphs/review.py": "9e9b6a8b58ec955f4372deb9a67902e0361ff0e4ffc8281c2ff57d2bca180d8c",
+      "practiq_ai/graphs/vision.py": "442acaae07eb636039fe74935a46a86891d59e79852f87ade234e64ade0c31fc",
+      "practiq_ai/json_repair.py": "9c93b7e50934754a70bde6d0ee1baaf730df5702dd75614a1a9d4371cce77cc1",
+      "practiq_ai/llm.py": "66027772a3d8c14dbe6dbdbcfc6dcaf4034e732c2723a92eadb82b178f4486b9",
+      "practiq_ai/manage.py": "c00ebafe58a33b6b4dc6aa3b128fe9a3f44970f1b9502045c2b9f35dc55a2181",
+      "practiq_ai/messaging.py": "ba0cd0b1495bb670da23a2e5ed61eb6b8b09db2a4db6eca81e42371b3d28f89c",
+      "practiq_ai/middleware.py": "cd3fc3f2f5e5ed1bd3d8a8e605b9a84badfdd304bcb5d5876eb51cd4abff3576",
+      "practiq_ai/normalization.py": "e157f8ce89368110cf8364fe9f01425b4d07919010f4ef3446eefd0515ffc2c8",
+      "practiq_ai/office.py": "6487c23842bdcc884f7e94833b34a05733697f9888abd8918a0e23dc42cfcdf5",
+      "practiq_ai/office_service.py": "246594f03bcd0185df39ab1954b70a8da94b1fbaf9afdc04cf5f21294c9deda7",
+      "practiq_ai/payment_webapp.py": "b8698ee23b939e71969bfd85302b29b450b63cb28dbeb9c845da957feb134b6e",
+      "practiq_ai/payments.py": "068eda77a523abe2df7c3387f54b06a96f97294698abf74e818014f54211d14b",
+      "practiq_ai/payments_manage.py": "c10a12f12190bb935edc8655267a0abbcaaa032a34fefff2face91d793d2ff98",
+      "practiq_ai/runtime.py": "29e7ce5fa0ed9e9c84c373912f5d23ce906bfd1c56649557c9193bd9f87dcb85",
+      "practiq_ai/saas.py": "1b5b2e637f8c15ba22f5b3fddfcc28e38f3e45949bfb5b6331c704393fdd9bf1",
+      "practiq_ai/saas_manage.py": "3fe7a4436a8a4c4214622753817b8e4ba3c28ed1ea9d3389d2ccb5c8f5da4b99",
+      "practiq_ai/storage.py": "69f1cd01dcef8a66fa717c8cdc18b90e85921fde9a76bc31389b415d69d52147",
+      "practiq_ai/task_api.py": "b7c2aaef11ec6f07b1ed1e64c99af9c524c25ff0bcedd1f75f963825db002078",
+      "practiq_ai/telemetry.py": "6c17bee3edbbb90f6e315c1ab654d31e1b4f8dbef998bd620047d3aaa7a1c19f",
+      "practiq_ai/webapp.py": "66d0b4ff0df8bd70598e1fb31a0bffcd7fa068985916056321688f46b21ffa38"
+    }
+  },
+  "summary": {
+    "text": {
+      "before": {
+        "workers": 10,
+        "medianMs": 346.99920850107446,
+        "minMs": 341.2475000077393,
+        "maxMs": 372.0352499949513
+      },
+      "after": {
+        "workers": 10,
+        "medianMs": 50.499041499278974,
+        "minMs": 49.59966598835308,
+        "maxMs": 59.01970800186973
+      }
+    },
+    "csv": {
+      "before": {
+        "workers": 10,
+        "medianMs": 343.34260399919003,
+        "minMs": 339.8766250029439,
+        "maxMs": 356.41691599448677
+      },
+      "after": {
+        "workers": 10,
+        "medianMs": 51.387791500019375,
+        "minMs": 50.17825000686571,
+        "maxMs": 57.489250000799075
+      }
+    }
+  },
+  "samples": [
+    {
+      "trial": 0,
+      "format": "text",
+      "version": "before",
+      "seconds": 0.35791774999233894
+    },
+    {
+      "trial": 0,
+      "format": "text",
+      "version": "after",
+      "seconds": 0.051694666006369516
+    },
+    {
+      "trial": 0,
+      "format": "csv",
+      "version": "before",
+      "seconds": 0.34834708299604245
+    },
+    {
+      "trial": 0,
+      "format": "csv",
+      "version": "after",
+      "seconds": 0.05175695801153779
+    },
+    {
+      "trial": 1,
+      "format": "text",
+      "version": "after",
+      "seconds": 0.050620124995475635
+    },
+    {
+      "trial": 1,
+      "format": "text",
+      "version": "before",
+      "seconds": 0.35908333299448714
+    },
+    {
+      "trial": 1,
+      "format": "csv",
+      "version": "after",
+      "seconds": 0.05130054199253209
+    },
+    {
+      "trial": 1,
+      "format": "csv",
+      "version": "before",
+      "seconds": 0.34296824999910314
+    },
+    {
+      "trial": 2,
+      "format": "text",
+      "version": "before",
+      "seconds": 0.3412475000077393
+    },
+    {
+      "trial": 2,
+      "format": "text",
+      "version": "after",
+      "seconds": 0.050645958006498404
+    },
+    {
+      "trial": 2,
+      "format": "csv",
+      "version": "before",
+      "seconds": 0.3398766250029439
+    },
+    {
+      "trial": 2,
+      "format": "csv",
+      "version": "after",
+      "seconds": 0.05017825000686571
+    },
+    {
+      "trial": 3,
+      "format": "text",
+      "version": "after",
+      "seconds": 0.049895999996806495
+    },
+    {
+      "trial": 3,
+      "format": "text",
+      "version": "before",
+      "seconds": 0.3414188749884488
+    },
+    {
+      "trial": 3,
+      "format": "csv",
+      "version": "after",
+      "seconds": 0.05088675000297371
+    },
+    {
+      "trial": 3,
+      "format": "csv",
+      "version": "before",
+      "seconds": 0.34147087500605267
+    },
+    {
+      "trial": 4,
+      "format": "text",
+      "version": "before",
+      "seconds": 0.34696462500141934
+    },
+    {
+      "trial": 4,
+      "format": "text",
+      "version": "after",
+      "seconds": 0.05037795800308231
+    },
+    {
+      "trial": 4,
+      "format": "csv",
+      "version": "before",
+      "seconds": 0.34009462500398513
+    },
+    {
+      "trial": 4,
+      "format": "csv",
+      "version": "after",
+      "seconds": 0.057489250000799075
+    },
+    {
+      "trial": 5,
+      "format": "text",
+      "version": "after",
+      "seconds": 0.05901970800186973
+    },
+    {
+      "trial": 5,
+      "format": "text",
+      "version": "before",
+      "seconds": 0.3720352499949513
+    },
+    {
+      "trial": 5,
+      "format": "csv",
+      "version": "after",
+      "seconds": 0.052544666003086604
+    },
+    {
+      "trial": 5,
+      "format": "csv",
+      "version": "before",
+      "seconds": 0.3472074169985717
+    },
+    {
+      "trial": 6,
+      "format": "text",
+      "version": "before",
+      "seconds": 0.3470337920007296
+    },
+    {
+      "trial": 6,
+      "format": "text",
+      "version": "after",
+      "seconds": 0.05025779199786484
+    },
+    {
+      "trial": 6,
+      "format": "csv",
+      "version": "before",
+      "seconds": 0.34371695799927693
+    },
+    {
+      "trial": 6,
+      "format": "csv",
+      "version": "after",
+      "seconds": 0.051352333000977524
+    },
+    {
+      "trial": 7,
+      "format": "text",
+      "version": "after",
+      "seconds": 0.05031295800290536
+    },
+    {
+      "trial": 7,
+      "format": "text",
+      "version": "before",
+      "seconds": 0.34260929199808743
+    },
+    {
+      "trial": 7,
+      "format": "csv",
+      "version": "after",
+      "seconds": 0.05072041699895635
+    },
+    {
+      "trial": 7,
+      "format": "csv",
+      "version": "before",
+      "seconds": 0.35641691599448677
+    },
+    {
+      "trial": 8,
+      "format": "text",
+      "version": "before",
+      "seconds": 0.3440957499988144
+    },
+    {
+      "trial": 8,
+      "format": "text",
+      "version": "after",
+      "seconds": 0.04959966598835308
+    },
+    {
+      "trial": 8,
+      "format": "csv",
+      "version": "before",
+      "seconds": 0.3412509170011617
+    },
+    {
+      "trial": 8,
+      "format": "csv",
+      "version": "after",
+      "seconds": 0.052706874994328246
+    },
+    {
+      "trial": 9,
+      "format": "text",
+      "version": "after",
+      "seconds": 0.052360540998051874
+    },
+    {
+      "trial": 9,
+      "format": "text",
+      "version": "before",
+      "seconds": 0.3580303329945309
+    },
+    {
+      "trial": 9,
+      "format": "csv",
+      "version": "after",
+      "seconds": 0.05142324999906123
+    },
+    {
+      "trial": 9,
+      "format": "csv",
+      "version": "before",
+      "seconds": 0.3549499999935506
+    }
+  ],
+  "bytecodeCache": "Removed from both source snapshots; fresh interpreters with warm OS caches",
+  "outputEquivalence": "Every worker produced the same manifest as the first worker of its format"
+}

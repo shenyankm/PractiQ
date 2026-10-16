@@ -1,6 +1,8 @@
 """Actual parser workers keep limits without inheriting service credentials."""
 
 import asyncio
+import json
+import sys
 from io import BytesIO
 
 import pytest
@@ -9,6 +11,32 @@ from PIL import Image
 from practiq_ai.errors import DocumentProcessingError
 from practiq_ai.extractors import isolated
 from tests.support import make_blank_pdf
+
+
+@pytest.mark.parametrize('kind,payload,expected', [
+    ('text', b'Question', 'Question'),
+    ('csv', b'Question,Answer', 'Question\tAnswer'),
+])
+async def test_text_worker_startup_does_not_load_service_dependencies(tmp_path, kind, payload, expected):
+    source, output, imports = (tmp_path / name for name in ('source', 'result', 'imports'))
+    source.write_bytes(payload)
+    with imports.open('wb') as trace:
+        process = await asyncio.create_subprocess_exec(
+            sys.executable, '-X', 'importtime', '-m', isolated.__name__, kind, str(source), str(output),
+            env=isolated._environment(str(tmp_path)), stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.DEVNULL, stderr=trace,
+        )
+        try:
+            await asyncio.wait_for(process.wait(), 15)
+        finally:
+            if process.returncode is None:
+                process.kill()
+                await process.wait()
+    assert process.returncode == 0
+    assert json.loads(output.read_text())['document']['text'] == expected
+    modules = imports.read_text()
+    assert 'practiq_ai.contracts' not in modules
+    assert 'practiq_ai.saas' not in modules
 
 
 @pytest.mark.parametrize("kind", ["pdf", "PNG", "JPEG", "text", "csv"])

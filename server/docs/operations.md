@@ -118,6 +118,8 @@ Load configuration into the shell first. Inventory covers retained tasks, comple
 
 `make verify` uses isolated PostgreSQL databases, RabbitMQ vhosts and model fakes, without external model calls. `TEST_DATABASE_URI` may point to a dedicated disposable instance whose role can create/drop databases; otherwise the helper starts one temporary Docker PostgreSQL container bound to loopback and removes it on exit. Every test gets its own randomly named database; pure tests do not start Docker. Independent-process tests cover forced termination, unknown calls, and human-review recovery.
 
+TXT/CSV extraction workers read parser limits without loading SaaS billing, LangGraph or public contract models. Configured billing rates still use the existing point conversion. Real-worker import tests guard this startup boundary without replacing extraction or changing deadlines. See the [startup investigation](../../docs/extractor-startup-20261016.md) for measurements and the unresolved original timeout.
+
 Provision a dedicated existing test account with an operator-issued token and enough points. Export `PRACTIQ_LOAD_PHONE` and `PRACTIQ_LOAD_ACCOUNT_TOKEN` privately into the shell; `AI_SERVICE_TOKEN` is used separately for metrics only. Do not put credentials on the command line or use a customer production account. Start the service, then run this load test from the repository root:
 
 ```sh
