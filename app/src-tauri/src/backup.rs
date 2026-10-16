@@ -794,6 +794,96 @@ mod fault_tests;
 mod tests {
     use super::*;
     #[test]
+    fn historical_grading_errors_survive_reopen_and_backup_restore_without_rewriting() {
+        use crate::contract::text;
+        let dir = tempfile::tempdir().unwrap();
+        let mut store = Store::new(dir.path().to_owned()).unwrap();
+        let preview = store
+            .preview(
+                include_bytes!("../../fixtures/sample.json").to_vec(),
+                "History".into(),
+            )
+            .unwrap();
+        let imported = store
+            .import(text(&preview, "ticket"), None, "History")
+            .unwrap();
+        let rows = store
+            .questions(Some(text(&imported, "bankId")), "", "short_answer", "")
+            .unwrap();
+        let question_ids = vec![text(&rows[0], "id").to_owned()];
+        let selected =
+            crate::paper::selected_rows(&store.question_rows().unwrap(), &question_ids).unwrap();
+        let cases: Vec<Value> =
+            serde_json::from_slice(include_bytes!("../../fixtures/legacy-grading-errors.json"))
+                .unwrap();
+        let mut expected = Vec::new();
+        for record in cases {
+            let session = store
+                .start_paper(crate::exams::Paper {
+                    question_ids: question_ids.clone(),
+                    digest: crate::paper::digest(&selected).unwrap(),
+                    kind: "self_test".into(),
+                    minutes: None,
+                    scores: vec![100],
+                    total_cents: 100,
+                })
+                .unwrap();
+            let sid = text(&session, "id").to_owned();
+            store
+                .save_draft((&sid, 0), json!({"text":"Archived answer"}), 0)
+                .unwrap();
+            store.submit_paper(&sid, true).unwrap();
+            let request = store
+                .prepare_grade(&sid, 0, false, crate::language::Locale::English)
+                .unwrap();
+            let rid = text(&request, "requestId").to_owned();
+            let response = record["response"].clone();
+            store.record_grade(&sid, 0, &rid, &response).unwrap();
+            let grading: String = store
+                .connect()
+                .unwrap()
+                .query_row(
+                    "SELECT grading FROM attempts WHERE session_id=?1",
+                    [&sid],
+                    |r| r.get(0),
+                )
+                .unwrap();
+            expected.push((sid, rid, response, grading));
+        }
+        drop(store);
+        let reopened = Store::new(dir.path().to_owned()).unwrap();
+        let backup = dir.path().join("history.zip");
+        reopened.backup(&backup).unwrap();
+        let restored_dir = tempfile::tempdir().unwrap();
+        let mut restored = Store::new(restored_dir.path().to_owned()).unwrap();
+        restored.restore(&backup).unwrap();
+        for source in [&reopened, &restored] {
+            for (sid, rid, response, grading) in &expected {
+                let db = source.connect().unwrap();
+                let saved: String = db
+                    .query_row(
+                        "SELECT response FROM grade_requests WHERE id=?1",
+                        [rid],
+                        |r| r.get(0),
+                    )
+                    .unwrap();
+                assert_eq!(saved, response.to_string());
+                let saved: String = db
+                    .query_row(
+                        "SELECT grading FROM attempts WHERE session_id=?1",
+                        [sid],
+                        |r| r.get(0),
+                    )
+                    .unwrap();
+                assert_eq!(&saved, grading);
+                let session = source.session(sid).unwrap();
+                assert_eq!(&session["attempts"][0]["grading"]["lastRequest"], response);
+                assert!(session["attempts"][0]["earnedCents"].is_null());
+                assert!(session["attempts"][0]["result"].is_null());
+            }
+        }
+    }
+    #[test]
     fn rejects_legacy_database_without_upgrading() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("old.sqlite");

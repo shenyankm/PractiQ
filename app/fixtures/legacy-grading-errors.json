@@ -1,0 +1,40 @@
+[
+  {
+    "name": "legacy HTTP diagnostic stored only in message",
+    "response": {
+      "status": "unknown",
+      "usageStatus": "unknown",
+      "error": "Archived HTTP timeout detail",
+      "appError": { "code": "AI_PROVIDER_TIMEOUT", "message": "Archived HTTP timeout detail", "httpStatus": 504, "requestId": "legacy-timeout-request", "params": {} }
+    },
+    "summary": { "zh-CN": "模型请求超时，请明确重试", "en": "Model request timed out. Explicitly retry when ready." },
+    "diagnostic": "Archived HTTP timeout detail"
+  },
+  {
+    "name": "local transport failure with explicit diagnostic",
+    "response": {
+      "status": "unknown",
+      "usageStatus": "unknown",
+      "error": "Archived transport failure",
+      "appError": { "code": "LOCAL_SERVICE_UNAVAILABLE", "message": "Archived transport failure", "diagnostic": "Archived connection reset detail", "context": "subjective grading", "params": { "legacy": null }, "providerMetadata": { "reviewed": false } }
+    },
+    "summary": { "zh-CN": "AI 服务连接中断。请检查服务地址和网络，再从原评分操作重试。", "en": "The AI service connection failed. Check the service URL and network, then retry the original grading action." },
+    "diagnostic": "Archived connection reset detail"
+  },
+  {
+    "name": "unknown code remains opaque and readable",
+    "response": {
+      "status": "unknown",
+      "error": "Archived external error detail",
+      "appError": { "code": "CUSTOM_SAVED_ERROR", "message": "Archived external error detail", "requestId": "custom-request", "params": { "original": [null, false] } }
+    },
+    "summary": { "zh-CN": "操作失败，请查看诊断详情。", "en": "Operation failed. See diagnostic details." },
+    "diagnostic": "Archived external error detail"
+  },
+  {
+    "name": "legacy string error code",
+    "response": { "status": "ungraded", "error": "AI_PROVIDER_TIMEOUT" },
+    "summary": { "zh-CN": "模型请求超时，请明确重试", "en": "Model request timed out. Explicitly retry when ready." },
+    "diagnostic": null
+  }
+]

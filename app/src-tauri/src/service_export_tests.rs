@@ -156,7 +156,7 @@ fn service_export_imports_partial_media_and_preserves_offline_history() {
             .save_attempt((&sid, ordinal), json!({"correct":["A"]}), 20, true, false)
             .unwrap();
     }
-    let finished = store.finish(&sid).unwrap();
+    let finished = store.submit_paper(&sid, false).unwrap();
     let known = list(&finished, "attempts")
         .iter()
         .find(|a| a["snapshot"]["question"]["answerPayload"].is_object())

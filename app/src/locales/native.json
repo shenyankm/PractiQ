@@ -1,139 +1,19 @@
 {
-  "LOCAL_SOURCE_COUNT_INVALID": {
-    "zh-CN": "请选择 1–10 份源文件",
-    "en": "Select 1–10 source files"
-  },
   "LOCAL_REVIEW_ROOT_INVALID": {
     "zh-CN": "请选择完整题目确认或撤销复核",
     "en": "Select a complete question to confirm or undo its review"
-  },
-  "LOCAL_MODEL_URL_REQUIRED": {
-    "zh-CN": "请先配置模型地址",
-    "en": "Configure the model URL first"
-  },
-  "LOCAL_MODEL_ID_REQUIRED": {
-    "zh-CN": "请先配置模型 ID",
-    "en": "Configure the model ID first"
-  },
-  "LOCAL_BUNDLE_MISSING": {
-    "zh-CN": "内置解析组件缺失，请重新构建或安装完整应用",
-    "en": "The bundled parser is missing. Rebuild or install the complete app."
-  },
-  "LOCAL_BUNDLE_START_FAILED": {
-    "zh-CN": "无法启动内置解析组件",
-    "en": "Could not start the bundled parser"
-  },
-  "LOCAL_INPUT_PIPE_FAILED": {
-    "zh-CN": "无法打开解析管道",
-    "en": "Could not open the parser input pipe"
-  },
-  "LOCAL_BUNDLE_INIT_FAILED": {
-    "zh-CN": "解析组件初始化失败",
-    "en": "Parser initialization failed"
-  },
-  "LOCAL_STATUS_PIPE_FAILED": {
-    "zh-CN": "无法打开状态管道",
-    "en": "Could not open the status pipe"
-  },
-  "LOCAL_BUNDLE_TIMEOUT": {
-    "zh-CN": "解析组件启动超时",
-    "en": "Parser startup timed out"
-  },
-  "LOCAL_BUNDLE_PORT_INVALID": {
-    "zh-CN": "解析组件端口无效",
-    "en": "Invalid parser port"
-  },
-  "LOCAL_BUNDLE_NOT_READY": {
-    "zh-CN": "解析组件未就绪",
-    "en": "Parser is not ready"
   },
   "LOCAL_WORK_UNAVAILABLE": {
     "zh-CN": "工作状态不可用",
     "en": "Work state is unavailable"
   },
-  "LOCAL_OPERATION_BUSY": {
-    "zh-CN": "操作正在执行，请查看进度",
-    "en": "An operation is running. Check its progress."
-  },
   "LOCAL_RESTORE_BUSY": {
     "zh-CN": "请等待当前 AI 评分请求结束后，再恢复备份",
     "en": "Wait for the current AI grading request to finish before restoring a backup."
   },
-  "LOCAL_OPERATION_ID_INVALID": {
-    "zh-CN": "操作 ID 不合法",
-    "en": "Invalid operation ID"
-  },
-  "LOCAL_WORK_DIRECTORY_INVALID": {
-    "zh-CN": "工作目录无效",
-    "en": "Invalid work directory"
-  },
-  "LOCAL_WORK_FILENAME_INVALID": {
-    "zh-CN": "工作文件名无效",
-    "en": "Invalid work file name"
-  },
-  "LOCAL_RECEIPT_MISMATCH": {
-    "zh-CN": "操作回执不匹配",
-    "en": "Operation receipt does not match"
-  },
-  "LOCAL_OPERATION_PATH_INVALID": {
-    "zh-CN": "操作路径不合法",
-    "en": "Invalid operation path"
-  },
-  "LOCAL_REQUEST_INVALID": {
-    "zh-CN": "请求格式无效",
-    "en": "Invalid request format"
-  },
-  "LOCAL_OPERATION_ID_MISMATCH": {
-    "zh-CN": "操作 ID 不匹配",
-    "en": "Operation ID does not match"
-  },
-  "LOCAL_RECEIPT_MISSING": {
-    "zh-CN": "操作回执缺失",
-    "en": "Operation receipt is missing"
-  },
-  "LOCAL_OPERATION_REJECTED": {
-    "zh-CN": "操作已被拒绝，请刷新任务",
-    "en": "Operation was rejected. Refresh the task."
-  },
-  "LOCAL_RECEIPT_INCOMPLETE": {
-    "zh-CN": "服务回执不完整，请重试待确认操作",
-    "en": "Service receipt is incomplete. Retry the unconfirmed operation."
-  },
-  "LOCAL_BATCH_ID_INVALID": {
-    "zh-CN": "批次 ID 不合法",
-    "en": "Invalid batch ID"
-  },
-  "LOCAL_BATCH_SIZE_INVALID": {
-    "zh-CN": "每批请选择 1–100 个任务",
-    "en": "Select 1–100 tasks per batch"
-  },
-  "LOCAL_BATCH_ITEM_INVALID": {
-    "zh-CN": "批次条目不合法",
-    "en": "Invalid batch item"
-  },
-  "LOCAL_BATCH_SELECTION_INVALID": {
-    "zh-CN": "请选择 1–100 个不重复的已完成任务",
-    "en": "Select 1–100 distinct completed tasks"
-  },
-  "LOCAL_TASK_SOURCE_MISSING": {
-    "zh-CN": "缺少任务来源",
-    "en": "Task source is missing"
-  },
-  "LOCAL_BATCH_ID_MISMATCH": {
-    "zh-CN": "批次 ID 不匹配",
-    "en": "Batch ID does not match"
-  },
-  "LOCAL_BATCH_STARTED": {
-    "zh-CN": "批次已经开始，无法修改名称",
-    "en": "The batch has started; names can no longer be changed"
-  },
   "LOCAL_DATABASE_UNAVAILABLE": {
     "zh-CN": "数据库不可用",
     "en": "Database is unavailable"
-  },
-  "LOCAL_RESULT_VERSION_CHANGED": {
-    "zh-CN": "结果版本已变化，请重新选择该任务创建批次",
-    "en": "The result version changed. Select the task again to create a batch."
   },
   "LOCAL_REGULAR_FILE_REQUIRED": {
     "zh-CN": "请选择普通文件",
@@ -142,10 +22,6 @@
   "LOCAL_FILE_TOO_LARGE": {
     "zh-CN": "文件超过大小限制",
     "en": "File exceeds the size limit"
-  },
-  "LOCAL_DATABASE_NEWER": {
-    "zh-CN": "数据库来自更新版本的 PractiQ，请升级应用",
-    "en": "This database is from a newer PractiQ version. Upgrade the app."
   },
   "LOCAL_IMPORT_MISSING": {
     "zh-CN": "没有待导入文件",
@@ -190,10 +66,6 @@
   "LOCAL_DESCRIPTION_TOO_LONG": {
     "zh-CN": "说明过长",
     "en": "Description is too long"
-  },
-  "LOCAL_QUESTION_MISSING": {
-    "zh-CN": "题目已不存在或不属于所选题库",
-    "en": "The question no longer exists or is not in the selected bank"
   },
   "LOCAL_FAVORITE_DELETED": {
     "zh-CN": "原题已删除，不能修改收藏",
@@ -331,21 +203,9 @@
     "zh-CN": "备份数据库关联损坏",
     "en": "Backup database relationships are corrupted"
   },
-  "LOCAL_BACKUP_IMAGE_CHECKSUM": {
-    "zh-CN": "备份图片校验失败",
-    "en": "Backup image verification failed"
-  },
-  "LOCAL_BACKUP_QUESTION_SIZE": {
-    "zh-CN": "备份题目过大",
-    "en": "Backup question is too large"
-  },
   "LOCAL_BACKUP_SNAPSHOT_FIELD": {
     "zh-CN": "备份快照字段不合法: {key}",
     "en": "Invalid backup snapshot field: {key}"
-  },
-  "LOCAL_BACKUP_CONTENT_INVALID": {
-    "zh-CN": "备份材料或图片结构不合法",
-    "en": "Invalid backup material or image structure"
   },
   "LOCAL_ITEM_ID_INVALID": {
     "zh-CN": "items.id 必须是整数",
@@ -451,10 +311,6 @@
     "zh-CN": "图片文件缺失或损坏",
     "en": "Image file is missing or corrupted"
   },
-  "LOCAL_LEGACY_IMAGE_INVALID": {
-    "zh-CN": "旧图片格式不合法，原数据库已保留",
-    "en": "Invalid legacy image format. The original database is preserved."
-  },
   "LOCAL_URL_TOO_LONG": {
     "zh-CN": "{name} 过长",
     "en": "{name} is too long"
@@ -491,18 +347,6 @@
     "zh-CN": "无法初始化系统凭据存储",
     "en": "Cannot initialize the system credential store"
   },
-  "LOCAL_API_KEY_REQUIRED": {
-    "zh-CN": "请先在设置中保存 API Key",
-    "en": "Save an API key in Settings first"
-  },
-  "LOCAL_API_KEY_INVALID": {
-    "zh-CN": "API Key 不合法",
-    "en": "Invalid API key"
-  },
-  "LOCAL_API_KEY_URL_REQUIRED": {
-    "zh-CN": "保存 API Key 前请填写 Base URL",
-    "en": "Enter a Base URL before saving an API key"
-  },
   "LOCAL_KEYCHAIN_ROLLBACK": {
     "zh-CN": "设置保存失败，系统凭据存储回滚失败；请重新设置访问令牌",
     "en": "Settings could not be saved and credential store rollback failed. Set the access token again."
@@ -523,10 +367,6 @@
     "zh-CN": "每题至少 0.01 分，分值之和必须等于总分（不超过 100 万分）",
     "en": "Each question needs at least 0.01 points. Scores must add up to the total (at most 1,000,000)."
   },
-  "LOCAL_SELECTED_QUESTION_DELETED": {
-    "zh-CN": "所选题目已删除，请重新选题",
-    "en": "A selected question was deleted. Select questions again."
-  },
   "LOCAL_OVERRIDE_REASON_REQUIRED": {
     "zh-CN": "请填写改分原因（最多 20000 字节）",
     "en": "Enter an override reason (at most 20,000 bytes)"
@@ -538,14 +378,6 @@
   "LOCAL_SESSION_CORRUPTED": {
     "zh-CN": "练习记录损坏",
     "en": "Practice record is corrupted"
-  },
-  "LOCAL_IMAGE_FORMAT_INVALID": {
-    "zh-CN": "图片格式无效",
-    "en": "Invalid image format"
-  },
-  "LOCAL_NO_MISTAKES": {
-    "zh-CN": "本次没有已判定错题",
-    "en": "This session has no graded mistakes"
   },
   "LOCAL_MERGE_SELECTION_INVALID": {
     "zh-CN": "请选择至少两个不同题库，并填写 1–200 字名称",
@@ -595,86 +427,6 @@
     "zh-CN": "AI 服务返回无效数据",
     "en": "The AI service returned invalid data"
   },
-  "LOCAL_TASK_ID_INVALID": {
-    "zh-CN": "任务 ID 不合法",
-    "en": "Invalid task ID"
-  },
-  "LOCAL_PARSER_STATE_UNAVAILABLE": {
-    "zh-CN": "解析状态不可用",
-    "en": "Parser state is unavailable"
-  },
-  "LOCAL_WORD_UNSUPPORTED": {
-    "zh-CN": "暂不支持 Word、Excel 文件，请转为 PDF 后上传",
-    "en": "Word and Excel files are unsupported. Export to PDF before uploading."
-  },
-  "LOCAL_DOCUMENT_UNSUPPORTED": {
-    "zh-CN": "不支持的文档类型",
-    "en": "Unsupported document type"
-  },
-  "LOCAL_FILENAME_INVALID": {
-    "zh-CN": "文件名不合法",
-    "en": "Invalid file name"
-  },
-  "LOCAL_PARSER_UNAVAILABLE": {
-    "zh-CN": "解析服务不可用",
-    "en": "Parser service is unavailable"
-  },
-  "LOCAL_PAGE_INVALID": {
-    "zh-CN": "分页参数无效",
-    "en": "Invalid pagination parameters"
-  },
-  "LOCAL_TASK_LIST_INVALID": {
-    "zh-CN": "任务列表格式错误",
-    "en": "Invalid task list format"
-  },
-  "LOCAL_ACTION_INVALID": {
-    "zh-CN": "操作不合法",
-    "en": "Invalid action"
-  },
-  "LOCAL_DOCUMENT_NOT_SELECTED": {
-    "zh-CN": "未选择文档",
-    "en": "No document selected"
-  },
-  "LOCAL_UPLOAD_URL_INVALID": {
-    "zh-CN": "上传地址无效",
-    "en": "Invalid upload URL"
-  },
-  "LOCAL_UPLOAD_URL_OUTSIDE": {
-    "zh-CN": "上传地址越界",
-    "en": "Upload URL is outside the allowed origin"
-  },
-  "LOCAL_UPLOAD_FAILED": {
-    "zh-CN": "上传失败",
-    "en": "Upload failed"
-  },
-  "LOCAL_UPLOAD_RETRY": {
-    "zh-CN": "上传失败，请重试",
-    "en": "Upload failed. Please retry."
-  },
-  "LOCAL_PREVIEW_UNIT_MISSING": {
-    "zh-CN": "预览单元不存在",
-    "en": "Preview unit does not exist"
-  },
-  "LOCAL_IMAGE_MISSING": {
-    "zh-CN": "图片不存在",
-    "en": "Image does not exist"
-  },
-  "LOCAL_SOURCE_ENCODING_INVALID": {
-    "zh-CN": "来源文本编码无效",
-    "en": "Invalid source text encoding"
-  },
-  "LOCAL_RESULT_VERSION_MISSING": {
-    "zh-CN": "任务缺少结果版本",
-    "en": "Task has no result version"
-  },
-  "LOCAL_RESULT_EMPTY": {
-    "zh-CN": "结果没有可导入题目",
-    "en": "Result has no questions to import"
-  },
-  "LOCAL_IMAGE_SIZE_OUTSIDE": {
-    "zh-CN": "图片大小不合法",
-    "en": "Invalid image size"
-  },
   "LOCAL_DATABASE_RESTART": {
     "zh-CN": "数据库暂不可用，请重启应用",
     "en": "Database is unavailable. Restart the app."
@@ -682,10 +434,6 @@
   "LOCAL_FILE_NOT_SELECTED": {
     "zh-CN": "未选择文件",
     "en": "No file selected"
-  },
-  "LOCAL_DIRECTORY_NOT_SELECTED": {
-    "zh-CN": "未选择目录",
-    "en": "No folder selected"
   },
   "LOCAL_SAVE_LOCATION_MISSING": {
     "zh-CN": "未选择保存位置",
@@ -955,14 +703,6 @@
     "zh-CN": "AI 服务响应无效，无法验证连接。",
     "en": "Invalid AI service response; the connection could not be verified."
   },
-  "LOCAL_CONNECTION_MODEL": {
-    "zh-CN": "模型列表中未找到该模型 ID，请检查模型名称和访问权限。",
-    "en": "Model ID not found in the model list. Check the model name and access permissions."
-  },
-  "LOCAL_CONNECTION_FIELDS": {
-    "zh-CN": "请先填写 AI 服务地址。",
-    "en": "Enter an AI service URL first."
-  },
   "LOCAL_SELF_ASSESSMENT_INELIGIBLE": {
     "zh-CN": "此题不能自评：仅支持已提交、未跳过且允许自评的普通练习题。",
     "en": "This question cannot be self-assessed. Self-assessment is available only for eligible, submitted, unskipped questions in ordinary practice."
@@ -970,10 +710,6 @@
   "AI_RESULT_IMPORTED_ELSEWHERE": {
     "zh-CN": "该结果已导入其他题库，请打开原题库查看",
     "en": "This result was already imported into another bank. Open that bank to view it."
-  },
-  "LOCAL_SETTINGS_ACTIVE_TASKS": {
-    "zh-CN": "请等待正在进行的 AI 评分完成，再应用配置。",
-    "en": "Wait for active AI grading to finish before applying settings."
   },
   "MODEL_NOT_CONFIGURED": {
     "zh-CN": "开始或继续 AI 任务前，请先配置模型。",
@@ -1035,14 +771,6 @@
     "zh-CN": "此文件有待确认的解析请求，请先重试待确认操作，避免重复提交",
     "en": "This file has pending parsing requests. Retry pending operations before importing it again"
   },
-  "LOCAL_SOURCE_MISSING": {
-    "zh-CN": "请重新选择源文件",
-    "en": "Select the source file again"
-  },
-  "LOCAL_IMPORT_DETAILS_INVALID": {
-    "zh-CN": "请填写题库名（最多 200 字）和描述（最多 20000 字）",
-    "en": "Enter a bank name (up to 200 characters) and description (up to 20000 characters)"
-  },
   "LOCAL_AUDIO_URL_INVALID": {
     "zh-CN": "请使用公开的 HTTP/HTTPS 网址（80/443 端口），不能包含账号密码或指向本地、内网地址。",
     "en": "Use a public HTTP/HTTPS URL on port 80 or 443, without credentials or local/private addresses."
@@ -1078,22 +806,6 @@
   "LOCAL_CONFIGURE_BUSY": {
     "zh-CN": "请等待当前 AI 评分请求结束，再更改服务连接设置",
     "en": "Wait for the current AI grading request to finish before changing service connection settings."
-  },
-  "LOCAL_BATCH_RUNNING": {
-    "zh-CN": "请先停止导入批次",
-    "en": "Stop the import batch first."
-  },
-  "LOCAL_IMPORT_VERSION_CHANGED": {
-    "zh-CN": "结果版本已变化，请重新选择该任务创建批次",
-    "en": "The result version changed. Select the task again to create an import batch."
-  },
-  "LOCAL_SOURCE_ARTIFACT_INVALID": {
-    "zh-CN": "来源文本校验失败: {key}",
-    "en": "Source text failed verification: {key}"
-  },
-  "LOCAL_IMAGE_ARTIFACT_INVALID": {
-    "zh-CN": "解析图片缺失或校验失败: {key}",
-    "en": "Parsed image is missing or failed verification: {key}"
   },
   "GRADING_INPUT_INVALID": {
     "zh-CN": "评分输入或摘要不合法",

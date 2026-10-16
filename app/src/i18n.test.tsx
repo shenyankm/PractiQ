@@ -57,14 +57,12 @@ it("has complete dictionaries, matching parameters and count plurals", () => {
   expect(translate("en", "{0} 题", { 0: 2 })).toBe("2 questions");
   expect(translate("en", "{0} 个题库 · {1} 道题目", { 0: 1, 1: 1234 })).toBe("1 bank · 1,234 questions");
   expect(translate("en", "{0}–{1} / {2} 条", { 0: 1, 1: 1, 2: 1 })).toBe("Showing 1–1 of 1");
-  expect(translate("en", "已记录 {0} 次调用；输入 {1} / 输出 {2} tokens；用量未知 {3} 次", { 0: 1, 1: 1, 2: 1, 3: 1 })).toBe("Calls recorded: 1; input tokens: 1; output tokens: 1; calls with unknown usage: 1");
   expect(translate("zh-CN", "已导入 {0} 道题目", { 0: 2 })).toBe("已导入 2 道题目");
   expect(translate("zh-CN", "选择答题方式")).toBe("选择答题方式");
   expect(translate("zh-CN", "{0} 个题库 · {1} 道题目", { 0: 1, 1: 1234 })).toBe("1 个题库 · 1,234 道题目");
 });
-it.each([0, 1, 2])("keeps file, word and review counts grammatical (%s)", count => {
-  expect(translate("en", "已选择 {0} 份文件（重新选择）", { 0: count })).toBe(`Files selected: ${count} (choose again)`);
-  expect(translate("en", "已导出 {0} 个文件", { 0: count })).toBe(`Files exported: ${count}`);
+it.each([0, 1, 2])("keeps bank, word and review counts grammatical (%s)", count => {
+  expect(translate("en", "已选 {0} 个题库，共 {1} 题；原库保留。", { 0: count, 1: count })).toBe(`${count} ${count === 1 ? "bank" : "banks"} selected, ${count} ${count === 1 ? "question" : "questions"} in total. Original banks are kept.`);
   expect(translate("en", "当前 {0} 词", { 0: count })).toBe(`Word count: ${count}`);
   expect(translate("en", "已加载 {0} 张图片，缺失 {1} 个资源。", { 0: count, 1: count })).toBe(`Loaded images: ${count}; missing resources: ${count}.`);
   expect(translate("en", "已识别 {0} 道题目，其中 {1} 道待复核，仍可直接练习。", { 0: count, 1: count })).toBe(`Found ${count} ${count === 1 ? "question" : "questions"}; needing review: ${count}. You can still practice now.`);

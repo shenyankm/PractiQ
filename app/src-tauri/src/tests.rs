@@ -26,6 +26,20 @@ fn question_query_requests_use_bank_id_lists() {
     }
 }
 #[test]
+fn completion_requests_require_explicit_submission_or_review() {
+    for request in [
+        json!({"type":"submit_paper","id":"practice","submit_drafts":false}),
+        json!({"type":"submit_paper","id":"practice","submit_drafts":true}),
+        json!({"type":"complete_review","id":"exam"}),
+    ] {
+        assert!(serde_json::from_value::<crate::Request>(request).is_ok());
+    }
+    let error = serde_json::from_value::<crate::Request>(json!({"type":"finish","id":"practice"}))
+        .err()
+        .unwrap();
+    assert!(error.to_string().contains("unknown variant `finish`"));
+}
+#[test]
 fn desktop_ai_requests_only_accept_explicit_grading() {
     for request in [
         json!({"type":"select_document"}),
@@ -487,7 +501,7 @@ fn assets_backup_restore_and_failed_restore_preserve_data() {
         .starts_with("data:image/png;base64,"));
     let session = practice(&s, qs.clone(), 9);
     let sid = text(&session, "id");
-    s.finish(sid).unwrap();
+    s.submit_paper(sid, false).unwrap();
     assert_eq!(s.position(sid, 5, None).unwrap()["position"], 5);
     let backup = dir.path().join("saved.zip");
     s.backup(&backup).unwrap();
@@ -559,7 +573,7 @@ fn self_grade_preserves_auto_result_and_ungraded_denominator() {
         false,
     )
     .unwrap();
-    s.finish(text(&subjective, "id")).unwrap();
+    s.submit_paper(text(&subjective, "id"), false).unwrap();
     let summaries = s.sessions(100, 0).unwrap()["items"].clone();
     let summary = summaries
         .as_array()
@@ -2321,7 +2335,7 @@ fn finished_session_navigation_uses_membership_not_delta_length() {
     let bank = import(&mut s);
     let session = practice(&s, s.questions(Some(&bank), "", "", "").unwrap(), 3);
     let sid = text(&session, "id");
-    s.finish(sid).unwrap();
+    s.submit_paper(sid, false).unwrap();
     let baseline = s.session_data(sid, None).unwrap();
     let key = format!(
         "{}:{}",
