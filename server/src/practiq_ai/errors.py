@@ -1,6 +1,11 @@
 """Errors shared by graph nodes and the upload boundary."""
 
-from .contracts import ModelCallUsage
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .contracts import ModelCallUsage
 
 
 class DocumentProcessingError(RuntimeError):

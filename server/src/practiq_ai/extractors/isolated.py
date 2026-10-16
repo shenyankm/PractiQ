@@ -1,5 +1,7 @@
 """Run untrusted document extraction in a disposable, killable process group."""
 
+from __future__ import annotations
+
 import asyncio
 import json
 import os
@@ -9,12 +11,14 @@ import subprocess
 import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 from ..config import load
-from ..contracts import DocumentSourceType
 from ..errors import DocumentProcessingError
 from . import ExtractedDocument
+
+if TYPE_CHECKING:
+    from ..contracts import DocumentSourceType
 
 
 def _environment(directory: str) -> dict[str, str]:
@@ -155,7 +159,7 @@ def main() -> None:
 
     source_type, source, output = sys.argv[1:]
     try:
-        document = extract_document(cast(DocumentSourceType, source_type), Path(source).read_bytes())
+        document = extract_document(cast("DocumentSourceType", source_type), Path(source).read_bytes())
         _write_result(Path(output).parent, document)
     except DocumentProcessingError as exc:
         Path(output).write_text(json.dumps({"error": [exc.status_code, exc.detail, exc.code]}), encoding="utf-8")
