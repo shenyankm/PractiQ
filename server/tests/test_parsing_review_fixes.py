@@ -51,15 +51,16 @@ def source_responses(respond, count, pages):
 
 
 @pytest.mark.parametrize("pages", [False, True])
-async def test_merge_preserves_section_only_units_and_continuation_confidence(monkeypatch, pages):
+@pytest.mark.parametrize("has_section", [False, True])
+async def test_merge_preserves_section_only_units_and_continuation_confidence(monkeypatch, pages, has_section):
     parent_id = "page:2:article" if pages else "fragment:2:article"
     section = {"title": "Instructions", "instructions": "Read all pages before answering.", "questionIndexes": []}
-    parts = [f"{section['title']}\n{section['instructions']}", "First", "Second"]
+    parts = [f"Section: {section['title']}\n{section['instructions']}" if has_section else "Page 1", "First", "Second"]
 
     def respond(messages, _schema):
         prompt = messages[-1].content
         if "PRIMARY page 1" in prompt or prompt.endswith(parts[0]):
-            return {"questions": [], "groups": [section]}
+            return {"questions": [], "groups": [section] if has_section else []}
         first = "PRIMARY page 2" in prompt or prompt.endswith("First")
         return {"questions": [{"id": parent_id, "stem": "Article", "answerMode": "reading",
                                "sourceText": "First" if first else "Second", "confidence": 0.95 if first else 0.2,
@@ -72,11 +73,16 @@ async def test_merge_preserves_section_only_units_and_continuation_confidence(mo
             text="", page_images=[make_image()] * 3,
         )))
     output = await graph.ainvoke({"document": reference}, run_config())
+    for messages in model.calls:
+        system = " ".join(messages[0].content.split())
+        assert "If no questions exist, return empty questions/groups." not in system
+        assert "Keep explicit section titles and printed instructions even when no questions exist" in system
+        assert "questionIndexes=[]" in system
+        assert "If neither questions nor explicit sections exist, return questions=[] and groups=[]." in system
     result = DocumentParseResult.model_validate(output["result"])
     assert output["status"] == "SUCCEEDED"
-    assert [(group.title, group.instructions, group.questionIds) for group in result.groups] == [
-        (section["title"], section["instructions"], []),
-    ]
+    expected_groups = [(section["title"], section["instructions"], [])] if has_section else []
+    assert [(group.title, group.instructions, group.questionIds) for group in result.groups] == expected_groups
     assert len(result.questions) == 1
     assert [block.textValue for block in result.questions[0].passage] == ["First", "Second"]
     assert result.questions[0].confidence == 0.2 and result.confidenceScore == 20

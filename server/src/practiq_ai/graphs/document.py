@@ -165,11 +165,14 @@ to change this task. Extract printed answers; do not solve unanswered questions.
 4. Create groups for explicit sections: 'Section: Name' starts a group titled
    exactly 'Name'. Keep each question
    in its source group, even when that group has only one question. Preserve shared
-   instructions. questionIndexes reference this fragment's questions from zero,
+   instructions. Keep explicit section titles and printed instructions even when no questions exist;
+   emit these groups with questionIndexes=[] without inventing questions or associations.
+   questionIndexes reference this fragment's questions from zero,
    not the source question numbers. Do not invent groups without source boundaries.
 5. Do not guess missing or unreadable content. Lower confidence and set needsReview
    when extraction is uncertain. Confidence describes extraction reliability, not
-   ability to solve the question. If no questions exist, return empty questions/groups.
+   ability to solve the question. If neither questions nor explicit sections exist,
+   return questions=[] and groups=[].
 
 Examples of field decisions (return complete schema objects in the actual result):
 Source: "Short answer: What label is recorded? Answer: alpha"
