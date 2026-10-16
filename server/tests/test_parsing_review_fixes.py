@@ -79,6 +79,11 @@ async def test_merge_preserves_section_only_units_and_continuation_confidence(mo
         assert "Keep explicit section titles and printed instructions even when no questions exist" in system
         assert "questionIndexes=[]" in system
         assert "If neither questions nor explicit sections exist, return questions=[] and groups=[]." in system
+        prompt = " ".join(message.content for message in messages if isinstance(message.content, str))
+        assert "return questions=[] and groups=[] unless PRIMARY contains a continued composite passage" not in prompt
+        if pages:
+            assert "Keep explicit section titles and printed instructions visible on PRIMARY as groups with questionIndexes=[]" in prompt
+            assert "Never create groups from CONTEXT-only headings or page markers" in prompt
     result = DocumentParseResult.model_validate(output["result"])
     assert output["status"] == "SUCCEEDED"
     expected_groups = [(section["title"], section["instructions"], [])] if has_section else []
@@ -89,6 +94,24 @@ async def test_merge_preserves_section_only_units_and_continuation_confidence(mo
     assert result.questions[0].needsReview and output["processing"]["quality"]["reviewRequired"]
     assert {source["unitIndex"] for source in output["processing"]["questionSources"]} == {1, 2}
     assert len(model.calls) == len(output["usage"]) == (5 if pages else 3)
+
+
+async def test_overlapping_section_only_fragment_merges_with_its_question_group(monkeypatch):
+    section = {"title": "Next", "instructions": "Read carefully.", "questionIndexes": []}
+    heading = "Section: Next\nInstructions: Read carefully.\n"
+    source = "Preface\n" + heading + "1. Printed question"
+    spans = [{"start": 0, "end": 8 + len(heading), "overlapStart": 0, "overlapEnd": 0},
+             {"start": 8, "end": len(source), "overlapStart": 8, "overlapEnd": 8 + len(heading)}]
+    graph, _, _, reference, model = setup_graph(monkeypatch, [
+        {"questions": [], "groups": [section]},
+        {"questions": [complete_question("Printed question", "fragment:2:1")],
+         "groups": [{**section, "questionIndexes": [0]}]},
+    ], parts=[source])
+    monkeypatch.setattr(document, "split_chunk_plan", lambda _, **kwargs: (spans, None, [None, None]))
+    output = await graph.ainvoke({"document": reference}, run_config())
+    assert output["status"] == "SUCCEEDED"
+    assert output["result"]["groups"] == [{"title": "Next", "instructions": "Read carefully.", "questionIds": ["q0"]}]
+    assert len(model.calls) == len(output["usage"]) == 2
 
 
 async def test_duplicate_ids_are_corrected_within_the_model_boundary(monkeypatch):
