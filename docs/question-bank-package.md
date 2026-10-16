@@ -12,6 +12,8 @@ On the empty question-bank page, choose **Add example bank** to add the [all-typ
 
 Sharing packages retain questions, answers, explanations, source content, shared materials, composite relationships, source scores, rubrics, images, listening audio, and review flags. They exclude bookmarks, mistake status, personal answers, practice history, grading records, connection settings, and credentials.
 
+Copy-merging also retains unlinked sections, unparsed source pages, and warnings from imports with no questions. Unparsed pages stay separate from practice questions, including after the original banks are deleted and the merged package is shared.
+
 Missing or corrupt referenced images or audio prevent export. If a bank was initially imported without images, append a complete ZIP with the same content: questions are not duplicated, verified images are added, and historical snapshots remain unchanged. On macOS/Windows, bank export writes a temporary file and publishes it only after all steps succeed; existing filenames cannot be overwritten. On Android, export completes and validates a private ZIP before copying it to the system-picker destination. The app reports write/sync failures, but a provider destination may contain partial bytes after failure; native file-provider writes do not guarantee atomic publication or rollback. Inspect or remove that destination before sharing.
 
 ## Difference from study-data backups
@@ -19,6 +21,8 @@ Missing or corrupt referenced images or audio prevent export. If a bank was init
 **Export backup** in Settings still creates a ZIP containing personal banks, images, audio, answers, exams, and grading records for restoring your own data. It excludes credentials and AI task state. Backup creation validates image/audio formats before writing the ZIP. Unsupported legacy resources (including WebP/GIF) or damaged media cancel the backup before publication or selected-provider writing. A desktop destination is replaced only after the private ZIP is complete; Android provider destinations have the write/sync failure boundary above. Restore validates the backup and retains a pre-restore copy.
 
 Bank-sharing packages and study-data backups are different formats. Both operations are under **Restore backup** in Settings: **Import bank ZIP** appends content, while **Restore study-data backup** replaces personal data after confirmation. Selecting the wrong format returns an error.
+
+Restore rejects sessions with no attempts, missing or invalid attempt ordinals, or a current position outside the attempt list before replacing local data. Valid schema-11 backups keep their saved position.
 
 If currently referenced images or audio are missing or damaged, choose **Repair resources and restore backup** under **Restore backup**. It requires the same full-data replacement confirmation. The app validates the complete incoming version-4/schema-11 backup before changing live resources, then durably preserves the previous database, service URL settings, available original resource bytes and `inventory.json` in a private `recoveries/before-restore-.../` directory. The inventory records expected and actual hashes/sizes, missing or damaged resources, and whether each file was indexed in the old database. This directory is an inspection/recovery record, not a valid ordinary backup; keep it for manual diagnosis rather than selecting it for standard restore.
 

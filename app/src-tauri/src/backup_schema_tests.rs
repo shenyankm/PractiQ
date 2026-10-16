@@ -18,6 +18,87 @@ fn archive_database(database: &Path, archive: &Path) {
 }
 
 #[test]
+fn regression_restore_rejects_invalid_session_navigation_without_replacement() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut source = Store::new(dir.path().join("source")).unwrap();
+    let raw = json!({"schemaVersion":3,"questions":[{"id":"q0","stem":"First","answerMode":"short_answer","answerPayload":null},{"id":"q1","stem":"Last","answerMode":"short_answer","answerPayload":null}],"groups":[],"visualElements":[],"warnings":[],"confidenceScore":0});
+    let preview = source
+        .preview(serde_json::to_vec(&raw).unwrap(), "Source".into())
+        .unwrap();
+    source
+        .import(crate::contract::text(&preview, "ticket"), None, "Source")
+        .unwrap();
+    let rows = source.question_rows().unwrap();
+    let ids = rows
+        .iter()
+        .map(|r| crate::contract::text(r, "id").to_owned())
+        .collect::<Vec<_>>();
+    let session = source
+        .start_paper(crate::exams::Paper {
+            question_ids: ids,
+            kind: "practice".into(),
+            minutes: None,
+            scores: vec![],
+            total_cents: 0,
+            digest: crate::paper::digest(&rows).unwrap(),
+        })
+        .unwrap();
+    let sid = crate::contract::text(&session, "id");
+    source.position(sid, 1, None).unwrap();
+    for (case, mutation) in [
+        ("valid", ""),
+        ("negative-position", "UPDATE sessions SET position=-1"),
+        ("fractional-position", "UPDATE sessions SET position=0.5"),
+        ("past-end-position", "UPDATE sessions SET position=2"),
+        (
+            "negative-ordinal",
+            "UPDATE attempts SET ordinal=-1 WHERE ordinal=0",
+        ),
+        (
+            "gapped-ordinal",
+            "UPDATE attempts SET ordinal=2 WHERE ordinal=1",
+        ),
+        ("empty-attempts", "DELETE FROM attempts"),
+    ] {
+        let candidate = dir.path().join(format!("{case}.sqlite"));
+        source
+            .connect()
+            .unwrap()
+            .backup(rusqlite::MAIN_DB, &candidate, None)
+            .unwrap();
+        Connection::open(&candidate)
+            .unwrap()
+            .execute_batch(mutation)
+            .unwrap();
+        let archive = dir.path().join(format!("{case}.zip"));
+        archive_database(&candidate, &archive);
+        for recover_assets in [false, true] {
+            let target_dir = tempfile::tempdir().unwrap();
+            let mut target = Store::new(target_dir.path().into()).unwrap();
+            target.save_bank(Some("keep".into()), "Keep", "").unwrap();
+            let before = fs::read(target.db_path()).unwrap();
+            let outcome = if recover_assets {
+                target.restore_recovering(&archive)
+            } else {
+                target.restore(&archive)
+            };
+            if case == "valid" {
+                outcome.unwrap();
+                assert_eq!(target.session(sid).unwrap()["position"], 1);
+            } else {
+                assert_eq!(
+                    outcome.unwrap_err().code,
+                    "LOCAL_BACKUP_RELATIONS",
+                    "{case}, recovery={recover_assets}"
+                );
+                assert_eq!(fs::read(target.db_path()).unwrap(), before);
+                assert_eq!(target.banks().unwrap()[0]["id"], "keep");
+            }
+        }
+    }
+}
+
+#[test]
 fn backups_restore_across_lf_and_crlf_schema_sources() {
     for line_ending in ["\n", "\r\n"] {
         let source_dir = tempfile::tempdir().unwrap();
