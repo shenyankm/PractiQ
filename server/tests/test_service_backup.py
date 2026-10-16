@@ -145,7 +145,7 @@ def test_deployment_preflight_matches_database_image_and_storage_without_leaking
 
 
 
-@pytest.mark.parametrize('mismatch', [None, 'path', 'override', 'stale', 'extra', 'stopped', 'database'])
+@pytest.mark.parametrize('mismatch', [None, 'path', 'override', 'stale', 'extra', 'stopped', 'database', 'hostaddr', 'port', 'service', 'matching_libpq'])
 def test_checkout_preflight_verifies_unit_file_and_running_environment(tmp_path, monkeypatch, mismatch):
     monkeypatch.setenv('DATABASE_URI', 'postgresql://backup:fixture-secret@localhost/' + ('wrong' if mismatch == 'database' else 'service'))
     config = tmp_path / 'payments.env'
@@ -159,6 +159,13 @@ def test_checkout_preflight_verifies_unit_file_and_running_environment(tmp_path,
     environment = b'DATABASE_URI=postgresql://backup:fixture-secret@localhost/service\0PAYMENT_APP_ID=' + (b'stale' if mismatch == 'stale' else b'original') + b'\0'
     if mismatch == 'extra':
         environment += b'PAYMENT_SELLER_ID=unrecorded\0'
+    extra = {'hostaddr': ('PGHOSTADDR', '192.0.2.10'), 'port': ('PGPORT', '5433'), 'service': ('PGSERVICE', 'unverified'), 'matching_libpq': ('PGHOSTADDR', '192.0.2.10')}.get(mismatch)
+    if extra:
+        key, value = extra
+        config.write_text(config.read_text() + key + '=' + value + '\n')
+        environment += (key + '=' + value + '\0').encode()
+        if mismatch == 'matching_libpq':
+            monkeypatch.setenv(key, value)
     original = type(config).read_bytes
     monkeypatch.setattr(type(config), 'read_bytes', lambda path: environment if str(path) == '/proc/4242/environ' else original(path))
     calls = []
@@ -166,7 +173,7 @@ def test_checkout_preflight_verifies_unit_file_and_running_environment(tmp_path,
         calls.append(argv)
         return subprocess.CompletedProcess(argv, 0, stdout='\n'.join(key + '=' + value for key, value in properties.items()))
     monkeypatch.setattr(service_backup.subprocess, 'run', show)
-    if mismatch in {None, 'stopped'}:
+    if mismatch in {None, 'stopped', 'matching_libpq'}:
         service_backup.check_checkout('checkout.service', config)
     else:
         with pytest.raises(RuntimeError, match='checkout') as error:

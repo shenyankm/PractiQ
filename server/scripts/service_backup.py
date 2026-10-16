@@ -12,7 +12,7 @@ import stat
 import subprocess
 import tarfile
 import time
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from functools import partial
 from math import isfinite
 from pathlib import Path, PurePosixPath
@@ -215,6 +215,19 @@ def copy_private(source: Path, target: Path) -> None:
         os.fsync(writer.fileno())
 
 
+
+def check_connection(environment: Mapping[str, str | None]) -> None:
+    options = conninfo_to_dict(database_uri())
+    if (conninfo_to_dict(environment.get('DATABASE_URI') or '') != options or options.get('service')
+            or os.environ.get('PGSERVICE') or environment.get('PGSERVICE')):
+        raise ValueError('Database configuration mismatch')
+    for option in pq.Conninfo.get_defaults():
+        if option.envvar and option.keyword.decode() not in options:
+            name = option.envvar.decode()
+            if os.environ.get(name) != environment.get(name):
+                raise ValueError('Connection environment mismatch')
+
+
 def check_deployment(container: str, image: str, project: Path) -> None:
     """Fail closed before stopping writers; Docker metadata can contain secrets."""
     try:
@@ -231,16 +244,9 @@ def check_deployment(container: str, image: str, project: Path) -> None:
         expected = defaults | json.loads(composed.stdout)['services']['ai']['environment']
         if expected != environment:
             raise ValueError('Service configuration mismatch')
-        options = conninfo_to_dict(database_uri())
-        if (deployed['Image'] != image or conninfo_to_dict(environment['DATABASE_URI']) != options
-                or deployed['HostConfig']['NetworkMode'] != 'host'
-                or options.get('service') or os.environ.get('PGSERVICE') or environment.get('PGSERVICE')):
+        check_connection(environment)
+        if deployed['Image'] != image or deployed['HostConfig']['NetworkMode'] != 'host':
             raise ValueError('Deployment mismatch')
-        for option in pq.Conninfo.get_defaults():
-            if option.envvar and option.keyword.decode() not in options:
-                name = option.envvar.decode()
-                if os.environ.get(name) != environment.get(name):
-                    raise ValueError('Connection environment mismatch')
         storage = PurePosixPath(posixpath.normpath(environment['AI_STORAGE_DIR']))
         roots = [Path(mount['Source']).joinpath(*storage.relative_to(mount['Destination']).parts)
                  for mount in deployed['Mounts'] if mount['Type'] == 'bind'
@@ -262,12 +268,12 @@ def check_checkout(unit: str, config: Path) -> None:
                 or any(properties.get(key) for key in ('Environment', 'PassEnvironment', 'UnsetEnvironment'))):
             raise ValueError('Unit configuration mismatch')
         values = dotenv_values(config, interpolate=False)
-        if conninfo_to_dict(values.get('DATABASE_URI') or '') != conninfo_to_dict(database_uri()):
-            raise ValueError('Checkout database mismatch')
+        check_connection(values)
         pid = int(properties['MainPID'])
         if pid:
             raw = Path(f'/proc/{pid}/environ').read_bytes().decode()
             environment = dict(entry.split('=', 1) for entry in raw.split('\0') if entry)
+            check_connection(environment)
             selected = {key: value for key, value in environment.items()
                         if key in values or key.startswith('PAYMENT_') or key in {'DATABASE_URI', 'AI_WEB_DIR'}}
             if selected != values:
