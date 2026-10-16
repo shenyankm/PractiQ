@@ -105,7 +105,7 @@ def test_backup_destination_must_be_new_and_outside_storage(tmp_path):
         service_backup.destination(outside, store)
 
 
-@pytest.mark.parametrize('mismatch', [None, 'database', 'storage', 'image', 'mount', 'network', 'hostaddr', 'service'])
+@pytest.mark.parametrize('mismatch', [None, 'database', 'storage', 'image', 'mount', 'network', 'hostaddr', 'service', 'configuration', 'extra_setting'])
 def test_deployment_preflight_matches_database_image_and_storage_without_leaking_secrets(tmp_path, monkeypatch, mismatch):
     storage = tmp_path / 'files'
     monkeypatch.setenv('AI_STORAGE_DIR', str(storage))
@@ -119,22 +119,60 @@ def test_deployment_preflight_matches_database_image_and_storage_without_leaking
         'Image': 'sha256:' + 'b' * 64 if mismatch == 'image' else image,
         'HostConfig': {'NetworkMode': 'bridge' if mismatch == 'network' else 'host'},
         'Config': {'Env': ['DATABASE_URI=postgresql://backup:fixture-secret@localhost/' + ('wrong' if mismatch == 'database' else 'service'),
-                           'AI_STORAGE_DIR=/var/lib/practiq/files']},
+                           'AI_STORAGE_DIR=/var/lib/practiq/files', 'LLM_MODEL=original']},
         'Mounts': [{'Type': 'volume' if mismatch == 'mount' else 'bind', 'Destination': '/var/lib/practiq',
                     'Source': str(tmp_path / 'wrong') if mismatch == 'storage' else str(tmp_path)}],
     }
+    expected = dict(entry.split('=', 1) for entry in deployed['Config']['Env'])
+    if mismatch == 'configuration':
+        expected['LLM_MODEL'] = 'edited-after-startup'
+    if mismatch == 'extra_setting':
+        deployed['Config']['Env'].append('AI_SOURCE_MAX_BYTES=1048576')
     recorded = []
     def inspect(argv, **options):
         recorded.append(argv)
-        return subprocess.CompletedProcess(argv, 0, stdout=json.dumps([deployed]))
+        value = {'services': {'ai': {'environment': expected}}} if 'compose' in argv else [{'Config': {'Env': []}}] if 'image' in argv else [deployed]
+        return subprocess.CompletedProcess(argv, 0, stdout=json.dumps(value))
     monkeypatch.setattr(service_backup.subprocess, 'run', inspect)
     if mismatch is None:
-        service_backup.check_deployment('container', image)
+        service_backup.check_deployment('container', image, tmp_path)
     else:
         with pytest.raises(RuntimeError, match='deployed') as error:
-            service_backup.check_deployment('container', image)
+            service_backup.check_deployment('container', image, tmp_path)
         assert 'fixture-secret' not in str(error.value) and 'postgresql://' not in str(error.value)
-    assert recorded == [['docker', 'inspect', 'container']]
+    assert recorded[0] == ['docker', 'inspect', 'container']
+    assert all('fixture-secret' not in part for call in recorded for part in call)
+
+
+
+@pytest.mark.parametrize('mismatch', [None, 'path', 'override', 'stale', 'extra', 'stopped', 'database'])
+def test_checkout_preflight_verifies_unit_file_and_running_environment(tmp_path, monkeypatch, mismatch):
+    monkeypatch.setenv('DATABASE_URI', 'postgresql://backup:fixture-secret@localhost/' + ('wrong' if mismatch == 'database' else 'service'))
+    config = tmp_path / 'payments.env'
+    config.write_text('DATABASE_URI=postgresql://backup:fixture-secret@localhost/service\nPAYMENT_APP_ID=original\n')
+    properties = {'EnvironmentFiles': str(config) + ' (ignore_errors=no)', 'Environment': '',
+                  'PassEnvironment': '', 'UnsetEnvironment': '', 'MainPID': '0' if mismatch == 'stopped' else '4242'}
+    if mismatch == 'path':
+        properties['EnvironmentFiles'] = '/different/payments.env (ignore_errors=no)'
+    if mismatch == 'override':
+        properties['Environment'] = 'PAYMENT_APP_ID=overridden'
+    environment = b'DATABASE_URI=postgresql://backup:fixture-secret@localhost/service\0PAYMENT_APP_ID=' + (b'stale' if mismatch == 'stale' else b'original') + b'\0'
+    if mismatch == 'extra':
+        environment += b'PAYMENT_SELLER_ID=unrecorded\0'
+    original = type(config).read_bytes
+    monkeypatch.setattr(type(config), 'read_bytes', lambda path: environment if str(path) == '/proc/4242/environ' else original(path))
+    calls = []
+    def show(argv, **options):
+        calls.append(argv)
+        return subprocess.CompletedProcess(argv, 0, stdout='\n'.join(key + '=' + value for key, value in properties.items()))
+    monkeypatch.setattr(service_backup.subprocess, 'run', show)
+    if mismatch in {None, 'stopped'}:
+        service_backup.check_checkout('checkout.service', config)
+    else:
+        with pytest.raises(RuntimeError, match='checkout') as error:
+            service_backup.check_checkout('checkout.service', config)
+        assert 'fixture-secret' not in str(error.value)
+    assert len(calls) == 1 and calls[0][:3] == ['systemctl', 'show', 'checkout.service']
 
 
 def test_pg_tools_keep_passwords_out_of_argv_and_preserve_tls(monkeypatch):

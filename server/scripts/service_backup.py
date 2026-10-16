@@ -18,6 +18,7 @@ from math import isfinite
 from pathlib import Path, PurePosixPath
 from tempfile import NamedTemporaryFile
 
+from dotenv import dotenv_values
 from psycopg import Error as DatabaseError
 from psycopg import pq
 from psycopg.conninfo import conninfo_to_dict, make_conninfo
@@ -214,13 +215,22 @@ def copy_private(source: Path, target: Path) -> None:
         os.fsync(writer.fileno())
 
 
-def check_deployment(container: str, image: str) -> None:
+def check_deployment(container: str, image: str, project: Path) -> None:
     """Fail closed before stopping writers; Docker metadata can contain secrets."""
     try:
         inspected = subprocess.run(['docker', 'inspect', container], capture_output=True, text=True,
                                    check=True, timeout=30)
         deployed = json.loads(inspected.stdout)[0]
         environment = dict(entry.split('=', 1) for entry in deployed['Config']['Env'])
+        composed = subprocess.run(['docker', 'compose', '--env-file', str(project / '.env'), '-f',
+                                   str(project / 'server/deploy/service.compose.yml'), 'config', '--format', 'json'],
+                                  capture_output=True, text=True, check=True, timeout=30)
+        archived = subprocess.run(['docker', 'image', 'inspect', image], capture_output=True, text=True,
+                                  check=True, timeout=30)
+        defaults = dict(entry.split('=', 1) for entry in json.loads(archived.stdout)[0]['Config']['Env'])
+        expected = defaults | json.loads(composed.stdout)['services']['ai']['environment']
+        if expected != environment:
+            raise ValueError('Service configuration mismatch')
         options = conninfo_to_dict(database_uri())
         if (deployed['Image'] != image or conninfo_to_dict(environment['DATABASE_URI']) != options
                 or deployed['HostConfig']['NetworkMode'] != 'host'
@@ -239,6 +249,31 @@ def check_deployment(container: str, image: str) -> None:
             raise ValueError('Storage mismatch')
     except (OSError, ValueError, KeyError, IndexError, TypeError, DatabaseError, subprocess.SubprocessError):
         raise RuntimeError('Backup settings must match the deployed AI database, storage and image') from None
+
+
+def check_checkout(unit: str, config: Path) -> None:
+    """Accept only a private unit EnvironmentFile with verifiable running settings."""
+    try:
+        shown = subprocess.run(['systemctl', 'show', unit,
+                                '--property=EnvironmentFiles,Environment,PassEnvironment,UnsetEnvironment,MainPID'],
+                               capture_output=True, text=True, check=True, timeout=30)
+        properties = dict(line.split('=', 1) for line in shown.stdout.splitlines())
+        if (properties['EnvironmentFiles'] != str(config.resolve()) + ' (ignore_errors=no)'
+                or any(properties.get(key) for key in ('Environment', 'PassEnvironment', 'UnsetEnvironment'))):
+            raise ValueError('Unit configuration mismatch')
+        values = dotenv_values(config, interpolate=False)
+        if conninfo_to_dict(values.get('DATABASE_URI') or '') != conninfo_to_dict(database_uri()):
+            raise ValueError('Checkout database mismatch')
+        pid = int(properties['MainPID'])
+        if pid:
+            raw = Path(f'/proc/{pid}/environ').read_bytes().decode()
+            environment = dict(entry.split('=', 1) for entry in raw.split('\0') if entry)
+            selected = {key: value for key, value in environment.items()
+                        if key in values or key.startswith('PAYMENT_') or key in {'DATABASE_URI', 'AI_WEB_DIR'}}
+            if selected != values:
+                raise ValueError('Running checkout configuration mismatch')
+    except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError):
+        raise RuntimeError('Backup configuration must match the managed checkout unit and process') from None
 
 
 async def backup(db: Database, output: Path, config: Path, image: str, *, pg_bin: Path | None = None,

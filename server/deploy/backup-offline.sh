@@ -23,7 +23,14 @@ test -n "$container"
 test "$(docker inspect --format '{{.Image}}' "$container")" = "$PRACTIQ_BACKUP_IMAGE_ID"
 export AI_MAINTENANCE_MODE=true AI_STORAGE_DIR="$PRACTIQ_STORAGE_DIR"
 "$PRACTIQ_BACKUP_PYTHON" -m dotenv -f "$PRACTIQ_PROJECT_DIR/.env" run --no-override -- \
-    "$PRACTIQ_BACKUP_PYTHON" -c 'import sys; from scripts.service_backup import check_deployment; check_deployment(sys.argv[1], sys.argv[2])' "$container" "$PRACTIQ_BACKUP_IMAGE_ID"
+    "$PRACTIQ_BACKUP_PYTHON" -c '
+import os, sys
+from pathlib import Path
+from scripts.service_backup import check_deployment, check_checkout
+check_deployment(sys.argv[1], sys.argv[2], Path(sys.argv[3]))
+if unit := os.environ.get("PRACTIQ_PAYMENT_UNIT"):
+    check_checkout(unit, Path(os.environ["PRACTIQ_BACKUP_PAYMENT_CONFIG"]))
+' "$container" "$PRACTIQ_BACKUP_IMAGE_ID" "$PRACTIQ_PROJECT_DIR"
 ai_running=$(docker inspect --format '{{.State.Running}}' "$container")
 payment_running=false
 if test -n "${PRACTIQ_PAYMENT_UNIT:-}" && systemctl is-active --quiet "$PRACTIQ_PAYMENT_UNIT"; then
@@ -34,6 +41,9 @@ finish() {
     trap - EXIT HUP INT TERM
     if test "$ai_running" = true; then compose start ai || status=1; fi
     if test "$payment_running" = true; then systemctl start "$PRACTIQ_PAYMENT_UNIT" || status=1; fi
+    if test "$status" -ne 0; then
+        "$PRACTIQ_BACKUP_PYTHON" -c 'import sys; from pathlib import Path; from scripts.service_backup import metrics; metrics(Path(sys.argv[1]), success=False)' "$PRACTIQ_BACKUP_METRICS" || status=1
+    fi
     exit "$status"
 }
 trap finish EXIT
