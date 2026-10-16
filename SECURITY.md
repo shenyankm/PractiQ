@@ -3,7 +3,7 @@
 PractiQ is pre-release software. Security fixes target the current `main` branch;
 older development snapshots are not maintained. There is no supported Stable
 release or commitment to backport fixes to old data formats. Current schema and
-backup boundaries are documented in [the data model](docs/question-model.md).
+backup boundaries are documented in [the data model](docs/reference/question-model.md).
 
 Report a suspected vulnerability privately through
 [GitHub private vulnerability reporting](https://github.com/shenyankm/PractiQ/security/advisories/new).

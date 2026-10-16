@@ -1,0 +1,223 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-16",
+  "branch": "sheny/fix-resource-and-backup-recovery",
+  "baselineCommit": "846829ed38fa78bc211ec721a1af2d588df2af5b",
+  "scope": [
+    2,
+    4
+  ],
+  "runtimeCodeHash": "7ace98c0d614f64f829abf07651b50dffd56108e173bd51248fdc8a777fe2361",
+  "imageId": "sha256:34bee3cf468a73f27933416ee196d54e42a7c5bb14f3b671d0b29d0a0eea2087",
+  "localEngineeringAcceptance": "PASSED",
+  "productionDisasterRecovery": "NOT_VALIDATED",
+  "validation": {
+    "service": {
+      "command": "PYTHONPATH=\"$PWD/server/src\" make verify AI_PYTHON=/absolute/path/to/python3.14",
+      "testsPassed": 2702,
+      "warnings": 11,
+      "seconds": 478.63,
+      "lineCoverage": {
+        "covered": 6804,
+        "total": 7174
+      },
+      "branchCoverage": {
+        "covered": 2400,
+        "total": 2666
+      },
+      "probeMetrics": {
+        "recoverySuccessRate": 100.0,
+        "correctStopRate": 100.0,
+        "routingPassRate": 100.0,
+        "unknownUsagePassRate": 100.0
+      },
+      "status": "PASSED",
+      "packageIntegrity": {
+        "sourceFiles": 40,
+        "wheelSha256": "19d157a2d61e444c11c5ee15b2d48c7d1f1af2c82068b38996f9ed0d72d34757",
+        "sdistSha256": "36bb6a8c45e0729556bfe77aebff158b220bd77df3fb2c121204868b06eef972",
+        "licenseSha256": "045e49d0a632ea4bf644d1db045d300b313c03097212268a6c3dc15235795079"
+      }
+    },
+    "pressure": {
+      "environment": "Linux arm64 Docker Desktop on macOS; whole cgroup, UID 10001, 2 CPUs/2 GiB/128 pids, 512 MiB tmpfs, readonly root, no network",
+      "batches": [
+        {
+          "status": "PASSED",
+          "codeHash": "7ace98c0d614f64f829abf07651b50dffd56108e173bd51248fdc8a777fe2361",
+          "pdfSourceBytes": 19045863,
+          "pdfPageBytes": 48546605,
+          "officeSourceBytes": 25247576,
+          "zipBytes": 262229636,
+          "tmpPeakBytes": 262230016,
+          "memoryPeakBytes": 738955264,
+          "memoryEvents": {
+            "low": "0",
+            "high": "0",
+            "max": "0",
+            "oom": "0",
+            "oom_kill": "0",
+            "oom_group_kill": "0",
+            "sock_throttled": "0"
+          },
+          "seconds": 70.01405273999262,
+          "overloadRejected": 3,
+          "explicitPreparationRetries": 2,
+          "officeVersion": "LibreOffice 7.4.7.2 40(Build:2)"
+        },
+        {
+          "status": "PASSED",
+          "codeHash": "7ace98c0d614f64f829abf07651b50dffd56108e173bd51248fdc8a777fe2361",
+          "pdfSourceBytes": 19045863,
+          "pdfPageBytes": 48546605,
+          "officeSourceBytes": 25247576,
+          "zipBytes": 262229636,
+          "tmpPeakBytes": 262230016,
+          "memoryPeakBytes": 972509184,
+          "memoryEvents": {
+            "low": "0",
+            "high": "0",
+            "max": "0",
+            "oom": "0",
+            "oom_kill": "0",
+            "oom_group_kill": "0",
+            "sock_throttled": "0"
+          },
+          "seconds": 69.48358740699769,
+          "overloadRejected": 3,
+          "explicitPreparationRetries": 2,
+          "officeVersion": "LibreOffice 7.4.7.2 40(Build:2)"
+        },
+        {
+          "status": "PASSED",
+          "codeHash": "7ace98c0d614f64f829abf07651b50dffd56108e173bd51248fdc8a777fe2361",
+          "pdfSourceBytes": 19045863,
+          "pdfPageBytes": 48546605,
+          "officeSourceBytes": 25247576,
+          "zipBytes": 262229636,
+          "tmpPeakBytes": 262230016,
+          "memoryPeakBytes": 1019019264,
+          "memoryEvents": {
+            "low": "0",
+            "high": "0",
+            "max": "0",
+            "oom": "0",
+            "oom_kill": "0",
+            "oom_group_kill": "0",
+            "sock_throttled": "0"
+          },
+          "seconds": 70.08015082198835,
+          "overloadRejected": 3,
+          "explicitPreparationRetries": 2,
+          "officeVersion": "LibreOffice 7.4.7.2 40(Build:2)"
+        }
+      ],
+      "overloadRejections": 9,
+      "explicitRetries": 6,
+      "status": "PASSED"
+    },
+    "fencedRecovery": {
+      "status": "PASSED",
+      "samePhysicalHost": true,
+      "freshPostgresCluster": true,
+      "sourcePostgresStoppedBeforeRestore": true,
+      "actualImageArchiveUsed": true,
+      "rowAndSequenceEquality": true,
+      "readonlyReadyAccountAndZip": true,
+      "additionalModelCalls": 0,
+      "phaseTimingIsProductionRTO": false,
+      "result": {
+        "tables": 22,
+        "rows": 265,
+        "restoreSeconds": 0.3812293340015458,
+        "readyExportSeconds": 1.3165980839985423,
+        "snapshotAgeSeconds": 2.8739981651306152,
+        "fileInventorySha256": "5206f9da94f57b3d2bb04214e53efa26d8224e0742cdaba2d77f3df986aac48f"
+      }
+    },
+    "alerts": {
+      "status": "PASSED",
+      "scenarioGroups": 9,
+      "exampleConfigSyntax": "PASSED"
+    },
+    "scheduler": {
+      "status": "PASSED",
+      "cases": 4,
+      "dotenvRedThenGreen": true,
+      "installedOnProduction": false
+    },
+    "composeSyntax": "PASSED",
+    "imageBuild": "PASSED",
+    "imageRuntimeHashMatchesSource": true,
+    "finalDiffCheck": "PASSED"
+  },
+  "sourceSha256": {
+    ".github/workflows/server.yml": "5fe61ca08dd17eec7e710596329d6fffb9b5cc0e682e7ba38d705b7509ae0314",
+    "server/deploy/alerts.rules.yml": "1f1dfaa19a02858b44bc30b92c6270105a1ac980a471cf017ad8ba6aee80f206",
+    "server/deploy/alerts.test.yml": "dae84f4e6e15a64aafe33cd5653ba38d9cb6732546c237c03ba7b1f160b60b6c",
+    "server/deploy/backup-offline.sh": "6c4b1af89651663ca34f8b8eac180fe036ba5c7e8d2f4625746c30284b3a11c7",
+    "server/deploy/practiq-backup.service": "9d986dec74f964c94de005d98b2fc3e12b2b421506ea899d22e3b502f33f63b6",
+    "server/deploy/practiq-backup.timer": "92ccb20c35af292c18dcf88b199551039d758ce9e50196fda00495bcf2cd41c4",
+    "server/deploy/prometheus.example.yml": "bc671a3775773087295aa488c790cdfbab17287393471ac5bc6d425312fe2651",
+    "server/deploy/service.compose.yml": "dfe270149f8dfe5821b8f3932e63b117e1a18f86188a444ad922bf78f4121fea",
+    "server/scripts/check_temporary.py": "be13674f87d9d9a3d52267d4fe37e1132884943b4d4eb3921c8a1613b20ac14c",
+    "server/scripts/service_backup.py": "45cd330836629df80e391dc946604b196f31f117055518c33341c7638b1a3f2b",
+    "server/src/practiq_ai/bank_export.py": "785b348115ae4767e52536002bdf73d37a911450b5c29422586065e295e17807",
+    "server/src/practiq_ai/execution.py": "f75ed66790dea68367bce38aa8db95f00b9a1bf4ab409a376647f36fd043cc38",
+    "server/src/practiq_ai/extractors/isolated.py": "4883fe9c7df4e6ec042132a79a94e3d0b0c1c78092e78968ba1d6ecf599178a1",
+    "server/src/practiq_ai/office.py": "fef25c29115919cbb798259bb26a316dda60df1b79127217d7956c0ab1fdbc7a",
+    "server/src/practiq_ai/office_service.py": "fe2fdea0d35778ce5fcbf6792b2b8f78a5237cf4df0e6e24c34ff4a982852671",
+    "server/src/practiq_ai/runtime.py": "04e241a250b058554f4a37159f22825ea2d4a3d71ea7c3fa8d46decd8174385c",
+    "server/src/practiq_ai/temporary.py": "badc35445e766aab76bafc384a2aeb97c08ae13b99f4a5743a42c899c011fa31",
+    "server/src/practiq_ai/webapp.py": "7b9332b4337c20acb6b27ba19f769ffcb8286654157d69e7624ef64fa45026e4",
+    "server/tests/db_support.py": "93928a142798de380424584a80b548d2f3e58a7304afddd9afff7cebfa267bbd",
+    "server/tests/test_backup_scheduler.py": "788a5689365f4cf15b5ca24facff84631a6878dccf8b4432e58e54d417c8f016",
+    "server/tests/test_bank_export.py": "f089f501883195043b7535c9d14ac2c7fce47bfffad17984051363b6ec2333d2",
+    "server/tests/test_service_backup.py": "8c5da9b424a14df7b67e6762431b9dbb7630e87b60fc509fec465653dfa726c3",
+    "server/tests/test_stability.py": "843c4d2de01832a5a9bd60493d008f524ca13eafacc932a7144a9e8b07023fd9",
+    "server/tests/test_temporary.py": "c0eef846e50bd94b9c33e2146f6eff4ea3164e2ae6baa86a5860bdc0014bd4be"
+  },
+  "rawEvidenceDirectory": "server/reports/checks/resource-recovery-20261016/ (local ignored files)",
+  "rawEvidenceSha256": {
+    "alerts.log": "2cb4d1b4759af3c6953769ff33659d483dde342fd12ab2b4ad8082eedb01e42f",
+    "backup-environment-green.log": "25abac817b59c67396f57c8a57dc11ade68b891958ca5b9a9f9073bc9f478d93",
+    "backup-environment-red.log": "37b443782e8e24aa17208ad9111c88b5215df1ee5e2e4f4a527ffe182e9b922e",
+    "backup-fenced-drill.py": "fa29bf7c8b59c3f7e577d985928e6c8c460e129797dfd9bb52b9a3481051e685",
+    "backup-fenced-recovery.log": "0fbb730bde61635c2162b09b42f89cc3c6d9dc6b00517670c3990a28058f5869",
+    "backup-final-focused.log": "ac9ed171c3a7aabf8a39ba81c8a838e7f4e16c5be8536497173c8b4c8835bae8",
+    "backup-unit-focused.log": "c2040e32f52d052f7a76b5cfd22c7eb9e9aaf04438da9777587038f3beed2d32",
+    "compose.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "container-image-build.log": "cc1807a95a3e63075f64f1ceb7bc79b43645d70bffcfaa52cc2098d91b5f58ca",
+    "coverage.xml": "33f31f94607edaba90abdd7ea1b721d109551a2a82d6af09ab159cc3cf30349c",
+    "final-frozen-source.json": "422aa75c2541d5e1cdf1396185369076ecb803da9433878dd251c993cbe72ae4",
+    "full-source-types.log": "f552d237ad0bd249c05f97eb62dbc65d2d0e4a5fe2346608e10fb7838dba9ed1",
+    "initial-backup-red.log": "674654d5e1fc7cb188808c720ad6d0d4e2a0807ff95ec3692859549ad9cff86e",
+    "initial-resource-red.log": "9bf28f6dad50480c969ecec0a6a236f96695ab6e8ee115165475e3bffcaa1251",
+    "interrupted-environment-review-verify.log": "8b6176352d89dd01157bf6b970242b863d99b6995800056cb09fd857aed2488f",
+    "interrupted-timestamp-review-verify.log": "0aa62da90dc2615e864cd4c0daab9a0f4134c8a0f042e81ceeb417a6ebd0d384",
+    "libpq-environment-green.log": "0cddb2f9522c5fc98e9503738cea759bed811b3ad3b391083a46a5d5f403e174",
+    "libpq-environment-red.log": "3ffbb47a5d6cf9780e689ef7dcd77aadac12161212089f64862cf09c7d506a35",
+    "pressure-series.log": "d2235f0e4f513b49023f40997bb36b1aff39aa065eb84e2cd31d998524b6ff73",
+    "pressure-single.log": "e6490a5d8b287fff0f9671c2fbb25f19c1490dcbf9659d16b7504f1d4401bd76",
+    "probes.json": "78d941b14eb09272b36cdbc75bf698c2af97fe88178cd776f4eca8081ab2c3b6",
+    "probes.md": "c7833705241f0fccd7d72cfcc8035613e5d025448629c63ef93054bdfeabd747",
+    "superseded-before-libpq-environment.log": "553cec614c2fda0efca6c608537e0e418e36317bec33f73961ae2b6d10e1b862",
+    "superseded-coverage.xml": "a2630aee212aa86d582bcd35fce4c096af6bbefbe45f37886875ee963d5efa42",
+    "superseded-probes.json": "ecb01d610a3232184b49de76330aa4a7972afbe7994ad1965a243f98bb2656f6",
+    "superseded-verify.log": "f80d8419ae45ebaa522dbd641570cdda0bb1525036c8f4929561ebb555b08a06",
+    "timestamp-red.log": "1e37b187624313ec523a010fdf919aed6bb2feb96ff9ea08c8edfbdc560b13bd",
+    "verify-final.log": "701d06da5e2a3fa4794cc66288abd5f9b2beef2eef63d8fdc031e01db0821a08"
+  },
+  "notRun": [
+    "hosted CI",
+    "production deployment",
+    "physical host loss or separate machine/site",
+    "production off-host mount/encryption/retention",
+    "installed systemd schedule",
+    "real alert receiver delivery",
+    "production RPO/RTO and availability SLO",
+    "24-hour representative mixed traffic",
+    "live models and payment gateway",
+    "final signed App packages"
+  ]
+}

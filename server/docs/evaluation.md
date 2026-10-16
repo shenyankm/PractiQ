@@ -368,7 +368,7 @@ Only use consented material; these calls send the payload to the configured
 provider. Imported provenance is a declaration, not proof of independent review.
 The bundled synthetic anchors cannot establish teacher calibration.
 
-The [October 9 grading format experiment](../../docs/performance-grading-arrays-20261009.md)
+The [October 9 grading format experiment](../../docs/history/performance/performance-grading-arrays-20261009.md)
 records three repetitions of these five fixed anchors before/after an array-only
 instruction. Its passing score checks are independent of the failed full parsing
 baseline; they do not establish general grading or extraction acceptance.
@@ -444,7 +444,7 @@ provider failure preserves that failure's retryability. An existing answer role
 cannot be downgraded by the verifier. Structured arrays must be arrays on the
 wire; quoted JSON arrays follow the usual validation/correction path.
 
-For the frozen-source ten-format preparation and unresolved acceptance work in #90, use the [import quality worksheet](../../docs/import-quality-acceptance.md).
+For the frozen-source ten-format preparation and unresolved acceptance work in #90, use the [import quality worksheet](../../docs/acceptance/import-quality-acceptance.md).
 
 
 ## Fully answerless PDF regression fixture (#113)

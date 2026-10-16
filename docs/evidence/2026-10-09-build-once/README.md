@@ -1,6 +1,6 @@
 # Service build evidence
 
-See the [dated report](../../performance-build-once-20261009.md) for scope, acceptance, environment and limitations.
+See the [dated report](../../history/performance/performance-build-once-20261009.md) for scope, acceptance, environment and limitations.
 
 - `build-work.json`: all twelve accepted timing samples, source/configuration hashes, complete Web asset hashes, image sizes and platform/configuration digests.
 - `measure_build_work.py`: assertion-based reproduction driver; run from the repository root with a new absolute output path. Docker and locked Web dependencies must already be installed.

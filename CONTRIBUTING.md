@@ -70,7 +70,7 @@ Automated checks use model substitutes; they do not establish extraction or grad
 
 ## Release verification
 
-Follow [the release policy](docs/releases.md) for tags, version synchronization,
+Follow [the release policy](docs/maintainers/releases.md) for tags, version synchronization,
 public assets and final-package evidence. The manually dispatched
 [Release draft workflow](.github/workflows/release.yml) reuses full CI at one
 candidate commit and creates only an unsigned draft after strict package gates.
@@ -88,7 +88,7 @@ Record evidence for the final release candidate before publication:
 
 Report validation separately for macOS, Windows and Android. Distinguish mocked touch-browser checks, emulator tests, physical devices and minimum Android/WebView versions. CI, model substitutes, hand-written samples, and historical reports do not establish clean-machine acceptance or live-model accuracy. Keep unchecked items explicit; AI grading remains a personal-practice aid and requires a reference answer or rubric.
 
-Service archive content is checked after building: modules and the lockfile must match the source bytes. See the [package-selection regression](docs/service-package-source-20261009.md); retain local reports and task data rather than deleting them to obtain a clean build.
+Service archive content is checked after building: modules and the lockfile must match the source bytes. See the [package-selection regression](docs/history/engineering/service-packaging-20261009.md#source-archive-verification); retain local reports and task data rather than deleting them to obtain a clean build.
 
 ## Submit a pull request
 
@@ -114,6 +114,6 @@ Record the candidate commit, artifact hashes, OS/architecture and exact commands
 
 Follow [SECURITY.md](SECURITY.md) for supported development versions, private reporting and the dependency-update process. Do not include credentials, personal data or exploit details in public issues.
 
-New contributors can start with the [bounded fixture tasks and handover checklist](docs/contributor-handover.md). Roles remain opt-in; no repository or secret access is granted by a task listing.
+New contributors can start with the [bounded fixture tasks and handover checklist](docs/maintainers/contributor-handover.md). Roles remain opt-in; no repository or secret access is granted by a task listing.
 
-For opt-in feedback collection and sanitized result reporting, follow the [desktop trial protocol](docs/desktop-user-trial.md). Recruitment and participation remain separately authorized.
+For opt-in feedback collection and sanitized result reporting, follow the [desktop trial protocol](docs/acceptance/desktop-user-trial.md). Recruitment and participation remain separately authorized.

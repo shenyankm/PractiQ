@@ -31,7 +31,7 @@ Development preview using in-memory sample data.
 
 No API key is needed. The hand-written samples demonstrate question types and review flags; they are not model evaluations.
 
-Export a bank from its card menu to share content without personal answers or scores. Bank import appends content; restoring a full learning-data backup replaces personal data after confirmation. See the [practice guide](docs/practice-guide.md) for answer submission, draft protection, language settings and optional AI grading, and the [package guide](docs/question-bank-package.md) for import and backup boundaries.
+Export a bank from its card menu to share content without personal answers or scores. Bank import appends content; restoring a full learning-data backup replaces personal data after confirmation. See the [practice guide](docs/guides/practice-guide.md) for answer submission, draft protection, language settings and optional AI grading, and the [package guide](docs/guides/question-bank-package.md) for import and backup boundaries.
 
 ## Import documents with AI
 
@@ -44,7 +44,7 @@ Use the independent service's Web frontend for document import:
 
 The service accepts **PDF, TXT, CSV and PNG/JPEG**. Deployments configured with LibreOffice also accept **DOC, DOCX, XLS and XLSX**, normalized in the service. Desktop packages contain no Python service or LibreOffice. See the [Office guide](server/docs/desktop-office.md) for deployment and fidelity boundaries.
 
-Task history, pause, interrupt, resume, failed-unit retry, partial-result review and parse-again controls belong to the Web frontend. Read-only review and ZIP download make no model calls; resume, retry and parse again are explicit actions whose model work may incur charges. Import points cover model usage; insufficient points or unknown usage pause work. Recharge and downloading completed content never resume parsing automatically. See the [import task guide](docs/import-tasks.md) and [phone/account-token and billing guide](server/docs/saas.md).
+Task history, pause, interrupt, resume, failed-unit retry, partial-result review and parse-again controls belong to the Web frontend. Read-only review and ZIP download make no model calls; resume, retry and parse again are explicit actions whose model work may incur charges. Import points cover model usage; insufficient points or unknown usage pause work. Recharge and downloading completed content never resume parsing automatically. See the [import task guide](docs/guides/import-tasks.md) and [phone/account-token and billing guide](server/docs/saas.md).
 
 ![Independent document import Web frontend](docs/assets/new-web-import.png)
 
@@ -58,7 +58,7 @@ Development starts with in-memory sample data. The preview panel lets you switch
 
 ## Run the desktop app
 
-Desktop data uses a fresh `v4/` directory and SQLite schema 11. Earlier directories, including `v3/`, remain untouched; old full backups are rejected. Current question-bank ZIP files can still be imported. See the [data format boundaries](docs/question-model.md#versions-and-directories).
+Desktop data uses a fresh `v4/` directory and SQLite schema 11. Earlier directories, including `v3/`, remain untouched; old full backups are rejected. Current question-bank ZIP files can still be imported. See the [data format boundaries](docs/reference/question-model.md#versions-and-directories).
 
 App targets are macOS 14+ (Apple Silicon), Windows 10/11 (x64), and Android 8+ (API 26+, arm64 APK). Linux app packages are removed. Linux remains an AI-service and CI host. CI checks native macOS/Windows packages and an Android APK plus API 35 emulator tests; physical-device, minimum-version and signed-release acceptance remain separate.
 
@@ -122,7 +122,7 @@ SaaS account access, account isolation, point billing, partial downloads and ope
 
 ## Documentation and development
 
-Start with the [documentation index](docs/README.md) for user guides, technical references, acceptance worksheets and historical evidence. The [question model](docs/question-model.md) covers question types and composite rules, the [document task API](server/docs/document-tasks.md) covers task payloads and controls, and [operations](server/docs/operations.md) covers deployment, storage and recovery.
+Start with the [documentation index](docs/README.md) for user guides, technical references, acceptance worksheets and historical evidence. The [question model](docs/reference/question-model.md) covers question types and composite rules, the [document task API](server/docs/document-tasks.md) covers task payloads and controls, and [operations](server/docs/operations.md) covers deployment, storage and recovery.
 
 Run `make app-check` on macOS/Windows for app checks and follow the [Android guide](app/docs/android.md) for shared checks on any Android development host, APK builds and native emulator checks. Use `make web-check` for the import Web frontend and `make verify` for the AI service. Playwright Test checks bilingual interactions, browser preview, and rich-content rendering with mocked native commands and no model calls:
 
@@ -136,6 +136,6 @@ The runner starts its own loopback Vite servers. Failed tests retain traces and 
 
 ## Get help and contribute
 
-Report reproducible bugs or propose improvements through [GitHub Issues](https://github.com/shenyankm/PractiQ/issues/new/choose). Follow [the contribution guide](CONTRIBUTING.md) for changes and [the security policy](SECURITY.md) for private vulnerability reports. Outstanding quality, release, user-trial and contributor workstreams are tracked in the [roadmap evidence record](docs/roadmap-evidence.md); the native GitHub roadmap and sub-issues remain authoritative.
+Report reproducible bugs or propose improvements through [GitHub Issues](https://github.com/shenyankm/PractiQ/issues/new/choose). Follow [the contribution guide](CONTRIBUTING.md) for changes and [the security policy](SECURITY.md) for private vulnerability reports. Outstanding quality, release, user-trial and contributor workstreams are tracked in the [roadmap evidence record](docs/maintainers/roadmap-evidence.md); the native GitHub roadmap and sub-issues remain authoritative.
 
 Project source uses the [MIT license](LICENSE). Bundled dependencies retain their [upstream notices](app/licenses/README.md).

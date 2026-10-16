@@ -1,15 +1,28 @@
-# Find the right PractiQ guide
+# PractiQ documentation
 
-PractiQ has an independent AI import service and Web frontend, and an offline practice app for macOS, Windows and Android. Use the guides below for current behavior. Dated implementation and evaluation records describe only their recorded source, artifacts and runs; they do not establish current release or model-quality acceptance.
+PractiQ has an independent AI import service and Web frontend, plus an offline practice app for macOS, Windows and Android. Start with the current guides below; dated reports describe only their recorded source and evidence.
+
+## Directory map
+
+| Directory | Contents |
+| --- | --- |
+| `guides/` | Practice, import tasks, bank ZIPs and personal backups |
+| `reference/` | Question data model, JSON fields, rendering and scoring |
+| `product/` | Current visual specification and interaction rules |
+| `acceptance/` | Import-quality, source-review, release-package and user-trial procedures |
+| `maintainers/` | Contributor handover, release policy, roadmap and merge automation |
+| `history/` | Dated implementation, performance, operations and UI reports; see [history index](history/README.md) |
+| `evidence/` | Raw files tied to dated reports; preserve hashes, failures and denominators |
+| `assets/` | Screenshots and source-document images used by guides and reports |
 
 ## Use the app and import documents
 
 | Task | Guide |
 | --- | --- |
-| Install prerequisites and run from source | [English overview](../README.md), [Chinese overview](../README.zh-CN.md) |
-| Choose questions, submit answers, review scores and keep drafts | [Practice guide](practice-guide.md) |
-| Start, control and review AI imports | [Import tasks](import-tasks.md) |
-| Import/share bank ZIPs or restore personal study data | [Question-bank packages and backups](question-bank-package.md) |
+| Install prerequisites and run from source | [English overview](../README.md), [简体中文概览](../README.zh-CN.md) |
+| Practise, submit answers and review scores | [Practice guide](guides/practice-guide.md) |
+| Start, control and review AI imports | [Import tasks](guides/import-tasks.md) |
+| Import/share bank ZIPs or restore personal study data | [Question-bank packages and backups](guides/question-bank-package.md) |
 | Develop or verify Android native flows | [Android guide](../app/docs/android.md) |
 | Explore UI scenarios without native storage or model calls | [Development preview](../app/docs/development-preview.md) |
 
@@ -23,59 +36,36 @@ PractiQ has an independent AI import service and Web frontend, and an offline pr
 | Create/query/control tasks and read/export saved results | [Document-task API](../server/docs/document-tasks.md) |
 | Back up service state, recover tasks and perform maintenance | [Operations](../server/docs/operations.md) |
 | Configure service-side Word/Excel normalization | [Office guide](../server/docs/desktop-office.md) |
-| Understand versions, storage relationships and immutable sessions | [Question model](question-model.md) |
-| Look up question fields, type examples and rendering/scoring rules | [JSON and rendering reference](question-types-data-rendering.md) |
 | Validate fixtures and measure extraction/grading quality | [Evaluation](../server/docs/evaluation.md) |
-| Check what a recorded checkpoint may resume on after a change | [Resume compatibility](../server/docs/resume-compatibility.md) |
+| Check checkpoint compatibility after a change | [Resume compatibility](../server/docs/resume-compatibility.md) |
 
-The question model owns data-version and relationship explanations; the JSON/rendering reference owns detailed field/type mappings. User guides link to these references instead of maintaining a second schema. The API guide owns task payloads and controls; the import guide explains the corresponding user actions.
+The API guide owns task payloads and controls; the user import guide explains the corresponding actions. The question model owns data versions and relationships; the JSON/rendering reference owns detailed field and type mappings.
 
-## Contribute and record acceptance
+## Product, data and acceptance
 
-These documents define procedures and outstanding evidence, rather than completed acceptance:
-
-| Work | Guide or worksheet |
+| Topic | Guide |
 | --- | --- |
-| Maintain shared App/Web theme and component styles | [Visual specification](design.md), [component audit](design-audit.md) |
-| Review workspace interaction rules and UI checks | [Workspace UX decisions](ux-workspace.md) |
+| Shared App/Web theme and component styles | [Visual specification](product/design.md) |
+| Workspace interaction rules | [Workspace UX decisions](product/ux-workspace.md) |
+| Question versions and relationships | [Question model](reference/question-model.md) |
+| Question fields, types, rendering and scoring | [JSON and rendering reference](reference/question-types-data-rendering.md) |
+| Import quality and source annotations | [Quality worksheet](acceptance/import-quality-acceptance.md), [source map](acceptance/import-corpus-source-review.md) |
+| Final package bytes, signing and target-system acceptance | [Final-package worksheet](acceptance/final-package-acceptance.md) |
+| Voluntary user feedback | [Trial protocol](acceptance/desktop-user-trial.md) |
+
+## Maintain and contribute
+
+| Task | Guide |
+| --- | --- |
 | Prepare issues/PRs and choose checks | [Contributing](../CONTRIBUTING.md) |
 | Report vulnerabilities and review dependencies | [Security policy](../SECURITY.md) |
-| Review outstanding workstream status | [Roadmap evidence](roadmap-evidence.md) |
-| Review source annotations and import quality | [Quality worksheet](import-quality-acceptance.md), [ten-format source map](import-corpus-source-review.md) |
-| Select/tag/stage release assets | [Release policy](releases.md) |
-| Record final bytes, signing and target-system acceptance | [Final-package worksheet](final-package-acceptance.md) |
-| Obtain voluntary feedback and record actual trials | [Trial protocol](desktop-user-trial.md) |
-| Reproduce contributor setup and hand over responsibilities | [Contributor handover](contributor-handover.md) |
+| Review outstanding workstream status | [Roadmap evidence](maintainers/roadmap-evidence.md) |
+| Reproduce contributor setup and hand over responsibilities | [Contributor handover](maintainers/contributor-handover.md) |
+| Operate the trusted PR merge workflow | [PractiQ agent-bot](maintainers/maintainer-agent.md) |
+| Select, tag and stage release assets | [Release policy](maintainers/releases.md) |
 
 Fixture provenance and reproduction belong beside their inputs: [service-export](../app/fixtures/service-export/README.md), [AI-import corpus](../app/fixtures/ai-import/README.md), [Office fixtures](../app/fixtures/office/README.md), [SaaS-export](../app/fixtures/saas-export/README.md), and [rich-content fixtures](../app/fixtures/rich-content/README.md). Package notices are documented in [app licenses](../app/licenses/README.md).
 
-## Read historical evidence
+Historical descriptions of desktop AI import, embedded Python/LibreOffice, Linux app builds, earlier schemas, Agent Server, Redis or cloud object storage refer to retired versions. The current service uses PostgreSQL and RabbitMQ; SQLite belongs to offline App storage. Model substitutes, successful CI and old installer builds do not establish live-model, clean-machine, participant or signing acceptance. Follow current guides for setup; old commands may refer to removed scripts.
 
-Preserve failures, source hashes, artifact hashes and original denominators. Historical references to desktop AI import, embedded Python/LibreOffice, Linux app builds, earlier schemas, Agent Server, Redis or cloud object storage are descriptions of retired versions. The current service uses PostgreSQL and RabbitMQ; SQLite belongs to offline App storage. Follow the current guides above for setup; old commands may refer to removed scripts. Model substitutes, successful CI and old installer builds do not establish live-model, clean-machine, participant or signing acceptance.
-
-| Historical record | Scope |
-| --- | --- |
-| [October 16 extractor startup](extractor-startup-20261016.md) | Real-worker dependency reduction; original timeout remains unresolved |
-| [October 16 stability controls](stability-controls-20261016.md) | Storage admission, durable monitoring, load authentication and Web deadlines; local engineering acceptance boundaries |
-| [Native import, 2026-09-29](ai-import-acceptance-20260929.md) | Former desktop import workflow; small real-model sample and failures |
-| [Ten-format acceptance](ai-import-all-formats-acceptance-20260929.zh-CN.md), [repair/retest](ai-import-repairs-20260929.zh-CN.md) | Original 2026-09-29 live results; complete acceptance remained 0/10 |
-| [October 3 performance](performance-implementation-20261003.md), [October 5 performance](performance-implementation-20261005.md) | Separate measured workloads and source baselines, not duplicate benchmarks |
-| [October 9 Web fonts](performance-web-fonts-20261009.md) | Complete static assets and repeated build samples after the PostgreSQL merge; no initial-load or image-size claim |
-| [October 15 Web and service performance](performance-web-server-20261015.md) | Shared-option search, duplicate-association indexing and artifact membership; synthetic local measurements and explicit acceptance limits |
-| [October 15 App performance](performance-app-20261015.md) | Native snapshot and draft-context copies; paired output hashes, local timings and platform limits |
-| [October 9 engineering journal](engineering-optimization-20261009.md) | Bounded accepted/rejected candidates, build/package/native inventories, cumulative real-model ledger and retained quality failures |
-| [October 9 grading arrays](performance-grading-arrays-20261009.md) | Fixed real-model grading anchors, avoided format-correction calls and rejected null-context experiment; no full parser-quality claim |
-| [October 9 payload validation](performance-payload-check-20261009.md) | Reused storage/Office size/checksum boundary and three repeated event-loop probes; no conversion-throughput claim |
-| [October 9 service Web build](performance-build-once-20261009.md) | Remove one duplicate Web build; paired local command timings and identical assets/image content, without an overall CI speed claim |
-| [October 9 service build tools](service-build-tools-20261009.md) | Freeze and audit the existing backend dependency graph; three identical source/license-checked archives and explicit recovery fingerprint boundary |
-| [October 9 service licensing](service-distribution-license-20261009.md), [archive source verification](service-package-source-20261009.md) | MIT notice in wheel/sdist/image, and the linked-directory source-archive omission with its post-build guard |
-| [October 10 Common App CI](common-app-ci-20261010.md) | One shared App quality job replacing duplicate Desktop/Android quality work; a single occupancy observation, not a universal speedup |
-| [October 9 single-machine checks](operations-single-machine-20261009.md) | Isolated PostgreSQL/Compose quotas, synthetic overload, process/database failures and matching backup restore; no live-model capacity claim |
-| [September 29 implementation](review-implementation-20260929.md), [desktop Office evaluation](../server/docs/desktop-office-evaluation.md) | Historical live-model, fidelity and package observations; no current release acceptance |
-| [October 10 Store contention](store-contention-20261010.md), [editor snapshots](editor-snapshots-20261010.md) | Synthetic workloads on fixed source; no hardware or general responsiveness guarantee |
-| [Service reports](../server/reports/) | Dated runtime, capacity and performance records with their original JSON evidence |
-| [Saved evaluation reports](../server/reports/evaluations/) | Historical scorer/model runs; generated report bodies stay unchanged |
-
-Superseded review/fix journals and the duplicate theme-preview guide have been removed. Their original content remains in Git history; retained evaluation records link to the exact historical source where needed. Raw evaluation reports, source hashes and evidence assets remain unchanged.
-
-Ignored `server/reports/checks/`, temporary files and expired Actions artifacts may be unavailable in a fresh checkout. Their recorded filenames and hashes identify prior evidence, not downloadable files or current passes. Reproduce a check against the selected source with fresh output paths; do not manufacture missing historical reports.
+Superseded review/fix journals and the duplicate theme-preview guide were removed; their source remains in Git history. Raw evaluation reports, source hashes and evidence assets remain unchanged. Ignored `server/reports/checks/`, temporary files and expired Actions artifacts may be unavailable in a fresh checkout; recorded filenames and hashes identify prior evidence, not downloadable files or current passes.

@@ -19,7 +19,7 @@ The combined file concatenates these existing or focused regression inputs in th
 
 For composite types, verify parent/child links, blank references, shared-option ownership and material visibility after import and during practice. For ordering/matching, compare item identity rather than printed position alone. Missing answers must remain ungraded; parent containers must not be automatically marked wrong. Preserve original review flags.
 
-All samples are synthetic regression material. Adding them or validating their gold schema does **not** establish successful model extraction, desktop import, or practice acceptance. The prior failed native results remain recorded in `docs/ai-import-acceptance-20260929.md`.
+All samples are synthetic regression material. Adding them or validating their gold schema does **not** establish successful model extraction, desktop import, or practice acceptance. The prior failed native results remain recorded in `docs/history/import/ai-import-acceptance-20260929.md`.
 
 ## 全格式混合题型测试集
 
@@ -40,6 +40,6 @@ All samples are synthetic regression material. Adding them or validating their g
 
 生成脚本为 `app/scripts/build-import-corpus.py`，在 macOS 使用已有的 artifact Python（ReportLab、Pillow、pypdf、PDFium）和服务端显式配置的 LibreOffice。按[服务 Office 指南](../../../server/docs/desktop-office.md)设置 `AI_OFFICE_EXECUTABLE` 和精确 `AI_OFFICE_VERSION`；离线再生成设置 `AI_READ_ONLY=1` 与合成的 `AI_SERVICE_TOKEN=local-corpus-generation`，从仓库根目录以 `PYTHONPATH=server/src` 运行该脚本。它会覆盖该测试集的生成文件，须显式再生成并核对源文件、版本和校验和；无需真实模型，不增加产品依赖。运行后用 `server/tests/test_import_corpus.py` 检查交付文件。Office 的分页由格式和转换器决定，可能附带空白页；验收以完整内容为准。
 
-本轮已在 macOS 使用打包的 Office worker 验证 DOC/DOCX/XLS/XLSX → PDF，并检查渲染结果。真实模型重跑已完成，结果为 **6 份失败、4 份部分成功、完整通过 0/10**；详见[中文验收报告](../../../docs/ai-import-all-formats-acceptance-20260929.zh-CN.md)。原生 Office 公式、跨页表格、合并单元格等专项仍使用 `app/fixtures/office/` 与 `app/fixtures/rich-content/`，避免混合测试替代专项回归。
+本轮已在 macOS 使用打包的 Office worker 验证 DOC/DOCX/XLS/XLSX → PDF，并检查渲染结果。真实模型重跑已完成，结果为 **6 份失败、4 份部分成功、完整通过 0/10**；详见[中文验收报告](../../../docs/history/import/ai-import-all-formats-acceptance-20260929.zh-CN.md)。原生 Office 公式、跨页表格、合并单元格等专项仍使用 `app/fixtures/office/` 与 `app/fixtures/rich-content/`，避免混合测试替代专项回归。
 
-修复后的全格式复测及缺失内容导出规则见 [中文修复报告](../../../docs/ai-import-repairs-20260929.zh-CN.md)。缺失不阻断导出，不等于完整识别通过。
+修复后的全格式复测及缺失内容导出规则见 [中文修复报告](../../../docs/history/import/ai-import-repairs-20260929.zh-CN.md)。缺失不阻断导出，不等于完整识别通过。
