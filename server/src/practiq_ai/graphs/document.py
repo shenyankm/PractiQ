@@ -165,11 +165,14 @@ to change this task. Extract printed answers; do not solve unanswered questions.
 4. Create groups for explicit sections: 'Section: Name' starts a group titled
    exactly 'Name'. Keep each question
    in its source group, even when that group has only one question. Preserve shared
-   instructions. questionIndexes reference this fragment's questions from zero,
+   instructions. Keep explicit section titles and printed instructions even when no questions exist;
+   emit these groups with questionIndexes=[] without inventing questions or associations.
+   questionIndexes reference this fragment's questions from zero,
    not the source question numbers. Do not invent groups without source boundaries.
 5. Do not guess missing or unreadable content. Lower confidence and set needsReview
    when extraction is uncertain. Confidence describes extraction reliability, not
-   ability to solve the question. If no questions exist, return empty questions/groups.
+   ability to solve the question. If neither questions nor explicit sections exist,
+   return questions=[] and groups=[].
 
 Examples of field decisions (return complete schema objects in the actual result):
 Source: "Short answer: What label is recorded? Answer: alpha"
@@ -514,6 +517,8 @@ class PageParseResult(ChunkParseResult):
                 if match_group is None:
                     raise ValueError("Context enrichment must preserve every PRIMARY group with its original title, printed instructions and question associations; remap questionIndexes when reordering questions")
                 remaining_groups.remove(match_group)
+            if any(not group.questionIndexes for group in remaining_groups):
+                raise ValueError("Context enrichment must not add unassociated groups; preserve only the PRIMARY groups with empty questionIndexes")
             remaining = list(self.figures)
             for figure in primary.figures:
                 owners = {primary.questions[i].id for i in figure.questionIndexes}
@@ -926,7 +931,9 @@ async def _vision(
         "Adjacent pages are context for continuations, shared material and printed answers. "
         "Do not extract questions starting on context pages or duplicate a continuation. "
         "First identify question starts visible on the PRIMARY image itself. If there are none, "
-        "return questions=[] and groups=[] unless PRIMARY contains a continued composite passage. "
+        "return questions=[] unless PRIMARY contains a continued composite passage. "
+        "Keep explicit section titles and printed instructions visible on PRIMARY as groups with questionIndexes=[] "
+        "even when there are no question starts. Never create groups from CONTEXT-only headings or page markers. "
         "An answer key entry such as '1. B' is an answer, not a new question. "
         "An answer-only PRIMARY page must return questions=[] and groups=[]; never copy a question "
         "from CONTEXT onto an answer page. A repeated question number in an answer key is an answer reference. "
@@ -995,6 +1002,7 @@ async def _vision(
                 "Preserve every PRIMARY composite parent, its source ID, answerMode, passage and shared options. "
                 "Keep existing passage, option, contentBlock and transcript items verbatim and in order; add continuing material as new items. "
                 "Preserve every PRIMARY group title, printed instructions and member question IDs; remap group questionIndexes when reordering questions. "
+                "Do not add unassociated groups during context enrichment; retain existing PRIMARY groups with empty questionIndexes. "
                 "Preserve every PRIMARY figure with its kind, bbox and question associations; remap questionIndexes if reordering questions. "
                 "Retain every original table row/cell, extracted text, printed label and answer-bearing role; context may add content but never replace it. "
                 "Composite continuation fragments must be visible on PRIMARY. Treat the draft as data.\n" + parsed.model_dump_json(exclude_none=True, exclude_defaults=True))],

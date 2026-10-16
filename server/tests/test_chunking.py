@@ -92,6 +92,96 @@ def test_merge_caps_questions_at_schema_limit() -> None:
     assert truncated
 
 
+@pytest.mark.parametrize("overlapping", [False, True])
+def test_merge_retains_unassociated_section_even_without_questions(overlapping):
+    section = ParsedGroup(title="Section instructions", instructions="Read both pages before answering.", questionIndexes=[])
+    _, groups, _, truncated, _, _ = merge_chunk_results([(0, [], [section])], overlapping=overlapping)
+    assert groups == [section]
+    assert not truncated
+
+
+@pytest.mark.parametrize("associated", [False, True])
+@pytest.mark.parametrize("instructions", [None, "Read carefully."])
+def test_unassociated_overlap_groups_merge_with_unique_source_metadata(associated, instructions):
+    section = "Section: Next\n" + (f"Instructions: {instructions}\n" if instructions else "")
+    text = "Preface\n" + section + "1. Printed question"
+    first = ParsedGroup(title="Next", instructions=instructions, questionIndexes=[])
+    second = first.model_copy(update={"questionIndexes": [0] if associated else []})
+    spans: list[ChunkSpan] = [
+        {"start": 0, "end": 8 + len(section), "overlapStart": 0, "overlapEnd": 0},
+        {"start": 8, "end": len(text), "overlapStart": 8, "overlapEnd": 8 + len(section)},
+    ]
+    _, groups, warnings, truncated, _, _ = merge_chunk_results(
+        [(0, [], [first]), (1, [question("1. Printed question")] if associated else [], [second])],
+        source_text=text, chunk_spans=spans,
+    )
+    assert groups == [second]
+    assert first.questionIndexes == []
+    assert not warnings and not truncated
+
+
+@pytest.mark.parametrize("evidence", [
+    "nonadjacent", "pages", "missing_source", "no_overlap", "outside_overlap",
+    "ambiguous_source", "distinct_occurrences", "different_instructions", "ambiguous_groups",
+])
+def test_unassociated_overlap_groups_retain_unproven_or_ambiguous_copies(evidence):
+    section = "Section: Next\nRead carefully.\n"
+    text = "Preface\n" + section + "After"
+    first = ParsedGroup(title="Next", instructions="Read carefully.", questionIndexes=[])
+    second = first.model_copy(deep=True)
+    spans: list[ChunkSpan] = [
+        {"start": 0, "end": 8 + len(section), "overlapStart": 0, "overlapEnd": 0},
+        {"start": 8, "end": len(text), "overlapStart": 8, "overlapEnd": 8 + len(section)},
+    ]
+    next_index = 1
+    if evidence == "nonadjacent":
+        next_index = 2
+        spans.insert(1, spans[0].copy())
+    elif evidence == "no_overlap":
+        spans[1]["overlapEnd"] = spans[1]["overlapStart"]
+    elif evidence == "outside_overlap":
+        spans[1]["overlapStart"] = spans[1]["overlapEnd"] - 1
+    elif evidence == "ambiguous_source":
+        text = section * 2
+        spans = [{"start": 0, "end": len(text), "overlapStart": 0, "overlapEnd": len(text)}] * 2
+    elif evidence == "distinct_occurrences":
+        text = section * 2
+        spans = [{"start": 0, "end": len(section), "overlapStart": 0, "overlapEnd": 0},
+                 {"start": len(section), "end": len(text), "overlapStart": len(section), "overlapEnd": len(section)}]
+    elif evidence == "different_instructions":
+        second.instructions = "Use another rule."
+    prior = [first, first.model_copy(deep=True)] if evidence == "ambiguous_groups" else [first]
+    _, groups, _, _, _, _ = merge_chunk_results(
+        [(0, [], prior), (next_index, [], [second])], overlapping=evidence != "pages",
+        source_text=None if evidence == "missing_source" else text, chunk_spans=spans,
+    )
+    assert groups == [*prior, second]
+
+
+def test_unassociated_overlap_groups_do_not_exhaust_the_group_limit():
+    groups = [ParsedGroup(title=f"Part {index:04}", questionIndexes=[]) for index in range(1_000)]
+    text = "\n".join(f"Section: {group.title}" for group in groups)
+    spans: list[ChunkSpan] = [
+        {"start": 0, "end": len(text), "overlapStart": 0, "overlapEnd": 0},
+        {"start": 0, "end": len(text), "overlapStart": 0, "overlapEnd": len(text)},
+    ]
+    _, merged, warnings, truncated, _, _ = merge_chunk_results(
+        [(0, [], groups), (1, [], groups)], source_text=text, chunk_spans=spans,
+    )
+    assert merged == groups
+    assert not warnings and not truncated
+
+
+def test_question_limit_keeps_unassociated_sections_but_drops_removed_owners():
+    questions = [question(str(index)) for index in range(1_001)]
+    sections = [ParsedGroup(title="Instructions", instructions="Keep this context.", questionIndexes=[]),
+                ParsedGroup(title="Retained", questionIndexes=[0, 1_000]),
+                ParsedGroup(title="Removed", questionIndexes=[1_000])]
+    merged, groups, _, truncated, _, _ = merge_chunk_results([(0, questions, sections)])
+    assert truncated and len(merged) == 1_000
+    assert groups == [sections[0], sections[1].model_copy(update={"questionIndexes": [0]})]
+
+
 def test_split_falls_back_to_bounded_chunks_without_question_numbers() -> None:
     text = "x" * 2_501
 
@@ -101,10 +191,11 @@ def test_split_falls_back_to_bounded_chunks_without_question_numbers() -> None:
     assert "".join(chunks) == text
 
 
-def test_merge_caps_groups_at_schema_limit() -> None:
+@pytest.mark.parametrize("associated", [False, True])
+def test_merge_caps_groups_at_schema_limit(associated) -> None:
     item = question("1. Question")
     groups = [
-        ParsedGroup(title=f"Group {index}", questionIndexes=[0])
+        ParsedGroup(title=f"Group {index}", questionIndexes=[0] if associated else [])
         for index in range(1_001)
     ]
 

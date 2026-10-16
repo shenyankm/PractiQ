@@ -401,6 +401,13 @@ def _content(question: ParsedQuestion) -> dict[str, Any]:
     return content
 
 
+def _group_source_location(source: tuple[str, list[int]], group: ParsedGroup) -> tuple[int, int] | None:
+    locations = [_source_locations(source, quote) for quote in (group.title, group.instructions) if quote]
+    if any(len(matches) != 1 for matches in locations):
+        return None
+    return min(matches[0][0] for matches in locations), max(matches[0][1] for matches in locations)
+
+
 def merge_chunk_results(
     chunk_results: list[tuple[int, list[ParsedQuestion], list[ParsedGroup]]],
     *,
@@ -416,7 +423,7 @@ def merge_chunk_results(
     issues: set[tuple[int, str]] = set()
     previous: list[tuple[int, tuple[int, int] | None, dict[str, Any]]] = []
     previous_chunk_index: int | None = None
-    previous_groups: list[int] = []
+    previous_groups: list[tuple[int, tuple[int, int] | None]] = []
 
     for chunk_index, chunk_questions, chunk_groups in chunk_results:
         span = chunk_spans[chunk_index] if chunk_spans is not None else None
@@ -471,17 +478,21 @@ def merge_chunk_results(
         current_groups = []
         for group in chunk_groups:
             remapped = sorted({index_map[index] for index in group.questionIndexes if index in index_map})
-            if remapped:
-                matches = [index for index in previous_groups if adjacent
+            group_location = _group_source_location(source, group) if overlapping and source else None
+            if remapped or not group.questionIndexes:
+                matches = [index for index, prior_location in previous_groups if adjacent
                            and groups[index].title == group.title and groups[index].instructions == group.instructions
-                           and used_previous.intersection(remapped, groups[index].questionIndexes)]
+                           and (used_previous.intersection(remapped, groups[index].questionIndexes)
+                                or (overlapping and span and group_location and group_location == prior_location
+                                    and (not remapped or not groups[index].questionIndexes)
+                                    and span["overlapStart"] <= group_location[0] < group_location[1] <= span["overlapEnd"]))]
                 if len(matches) == 1:
                     index = matches[0]
                     groups[index] = groups[index].model_copy(update={"questionIndexes": sorted(set(groups[index].questionIndexes) | set(remapped))})
                 else:
                     index = len(groups)
                     groups.append(group.model_copy(update={"questionIndexes": remapped}))
-                current_groups.append(index)
+                current_groups.append((index, group_location))
         previous_groups = current_groups
         previous_chunk_index, previous = chunk_index, current
 
@@ -511,8 +522,8 @@ def merge_chunk_results(
                 }
             )
             for group in groups
+            if not group.questionIndexes or kept.intersection(group.questionIndexes)
         ]
-        groups = [group for group in groups if group.questionIndexes]
     if len(groups) > 1_000:
         warnings.append(
             f"Merged {len(groups)} groups; only the first 1000 were kept."
@@ -876,9 +887,10 @@ def remove_duplicate_question_trees(questions, groups, visuals, sources, quality
     retained = [q for q in questions if q.id not in aliases]
     final_indexes = {q.id: index for index, q in enumerate(retained)}
     index_map = {index: final_indexes[aliases.get(q.id, q.id)] for index, q in enumerate(questions)}
+    groups[:] = [group for group in groups if not group.questionIndexes
+                 or any(questions[index].id not in aliases for index in group.questionIndexes)]
     for group in groups:
         group.questionIndexes = [index_map[index] for index in group.questionIndexes if questions[index].id not in aliases]
-    groups[:] = [group for group in groups if group.questionIndexes]
     for visual in visuals:
         visual.questionIndexes = list(dict.fromkeys(index_map[index] for index in visual.questionIndexes))
     for source in sources:
@@ -941,6 +953,7 @@ def finalize_question_ids(questions, groups, visuals, sources, quality):
                         raise SourceQuestionConflict("Conflicting composite audio metadata", index)
                     setattr(target, field, value)
             target.needsReview |= question.needsReview
+            target.confidence = min(target.confidence, question.confidence)
             target.missingFields = list(dict.fromkeys([*target.missingFields, *question.missingFields]))
             try:
                 ParsedQuestion.model_validate(target.model_dump())

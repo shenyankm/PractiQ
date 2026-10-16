@@ -671,7 +671,8 @@ async def test_context_correction_preserves_composite_payload_and_allows_additio
     assert document.PRIMARY_PAGE.get() is None
 
 
-@pytest.mark.parametrize('loss', ['all', 'one', 'title', 'instructions', 'association', 'one-owner'])
+@pytest.mark.parametrize('loss', ['all', 'one', 'title', 'instructions', 'association', 'one-owner',
+                                 'unassociated', 'duplicate-unassociated'])
 async def test_context_correction_preserves_primary_groups_and_reordered_members(monkeypatch, loss):
     from copy import deepcopy
 
@@ -679,9 +680,11 @@ async def test_context_correction_preserves_primary_groups_and_reordered_members
     questions = [{**question('First question'), 'id': 'page:1:1'},
                  {**question('Second question'), 'id': 'page:1:2'}]
     groups = [{'title': 'Printed section', 'instructions': 'Use the printed material.', 'questionIndexes': [0, 1]},
-              {'title': 'First-question section', 'questionIndexes': [0]}]
+              {'title': 'First-question section', 'questionIndexes': [0]},
+              {'title': 'Primary instructions', 'instructions': 'Read carefully.', 'questionIndexes': []}]
     corrected = [{**groups[1], 'instructions': 'Additional context.', 'questionIndexes': [1]},
                  {**groups[0], 'questionIndexes': [1, 0]},
+                 groups[2],
                  {'title': 'Context section', 'questionIndexes': [0]}]
     broken = deepcopy(corrected)
     if loss == 'all':
@@ -692,6 +695,10 @@ async def test_context_correction_preserves_primary_groups_and_reordered_members
         broken[1][loss] = 'Different source content'
     elif loss == 'association':
         broken[0]['questionIndexes'] = [0]
+    elif loss == 'unassociated':
+        broken.append({'title': 'Neighbor-only section', 'questionIndexes': []})
+    elif loss == 'duplicate-unassociated':
+        broken.append(deepcopy(groups[2]))
     else:
         broken[1]['questionIndexes'] = [1]
     model = FakeModel(responses=[{'questions': questions, 'groups': groups},
@@ -713,6 +720,8 @@ async def test_context_correction_preserves_primary_groups_and_reordered_members
     assert {by_id[qid] for qid in kept['Printed section']['questionIds']} == {'First question', 'Second question'}
     assert [by_id[qid] for qid in kept['First-question section']['questionIds']] == ['First question']
     assert kept['First-question section']['instructions'] == 'Additional context.'
+    assert kept['Primary instructions']['questionIds'] == []
+    assert len(state['result']['groups']) == len(corrected)
     assert 'Context section' in kept
     assert document.PRIMARY_PAGE.get() is None
 
