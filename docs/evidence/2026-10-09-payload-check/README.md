@@ -1,6 +1,6 @@
 # Payload-check evidence
 
-See the [dated report](../../performance-payload-check-20261009.md) for scope, acceptance, rollback and limits.
+See the [dated report](../../history/performance/performance-payload-check-20261009.md) for scope, acceptance, rollback and limits.
 
 - `before.json` / `after.json`: three accepted warm-buffer repetitions per phase, every heartbeat interval, source/lock hashes and timing summaries.
 - `measure_verified_payload.py`: real entry-point probe with an explicit stop before engine/worker access; uses no model, database or deployed Office engine.

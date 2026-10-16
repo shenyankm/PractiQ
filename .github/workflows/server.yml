@@ -109,6 +109,7 @@ jobs:
         run: make install-locked AI_PYTHON="$(command -v python)"
       - name: Verify service
         env:
+          TEST_POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
           TEST_RABBITMQ_CONTAINER: ${{ job.services.rabbitmq.id }}
         run: make verify AI_PYTHON="$(command -v python)"
       - name: Verify operational alert rules

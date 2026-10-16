@@ -1,6 +1,6 @@
 # Isolated deployment evidence
 
-See [the dated report](../../operations-single-machine-20261009.md) for source/image identities, scope and limitations.
+See [the dated report](../../history/operations/operations-single-machine-20261009.md) for source/image identities, scope and limitations.
 
 - `baseline-supervision.json` and `startup.json`: fixed baseline/candidate configuration, source hashes, quotas and readiness.
 - `load-1.json`–`load-3.json`: consecutive warm overload samples from the existing `server/scripts/load_test.py`; additional `load-4.json`/`load-5.json` are separate checks.

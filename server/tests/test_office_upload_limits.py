@@ -27,7 +27,7 @@ def metadata(source_type, size):
 
 @pytest.mark.parametrize("source_type", ["doc", "docx", "xls", "xlsx"])
 async def test_office_metadata_is_rejected_before_storage_io(tmp_path, monkeypatch, source_type):
-    store = object_store(tmp_path, source_max_bytes=100 * 1024 * 1024)
+    store = object_store(tmp_path, source_max_bytes=30 * 1024 * 1024)
     async def unexpected_io(_key):
         pytest.fail("Oversized Office metadata must not access storage")
     monkeypatch.setattr(store, "_head_size", unexpected_io)
@@ -43,7 +43,7 @@ async def test_office_metadata_is_rejected_before_storage_io(tmp_path, monkeypat
 
 
 async def test_source_specific_boundary_preserves_larger_non_office_limit(tmp_path):
-    store = object_store(tmp_path, source_max_bytes=100 * 1024 * 1024)
+    store = object_store(tmp_path, source_max_bytes=30 * 1024 * 1024)
     assert (await store.prepare_document(metadata("docx", OFFICE_LIMIT))).document.sizeBytes == OFFICE_LIMIT
     assert (await store.prepare_document(metadata("pdf", OFFICE_LIMIT + 1))).document.sizeBytes == OFFICE_LIMIT + 1
     with pytest.raises(DocumentProcessingError):
@@ -51,7 +51,7 @@ async def test_source_specific_boundary_preserves_larger_non_office_limit(tmp_pa
     assert office.FILE_LIMIT == office_service.FILE_LIMIT == OFFICE_LIMIT
 
 
-@pytest.mark.parametrize("configured", [1234, 100 * 1024 * 1024])
+@pytest.mark.parametrize("configured", [1234, 30 * 1024 * 1024])
 async def test_capabilities_report_effective_office_limit(monkeypatch, tmp_path, configured):
     engine = tmp_path / "soffice"
     engine.write_bytes(b"fake deployed engine")
@@ -67,7 +67,7 @@ async def test_capabilities_report_effective_office_limit(monkeypatch, tmp_path,
 
 
 async def test_binary_upload_rejects_office_metadata_before_consuming_body(tmp_path, monkeypatch):
-    store = object_store(tmp_path, source_max_bytes=100 * 1024 * 1024)
+    store = object_store(tmp_path, source_max_bytes=30 * 1024 * 1024)
     monkeypatch.setattr(webapp, "get_object_store", lambda: store)
     monkeypatch.setenv("AI_SERVICE_TOKEN", "test-service-token")
     async def body():
@@ -88,7 +88,7 @@ async def test_direct_office_task_is_rejected_before_queue_admission(monkeypatch
     engine.write_bytes(b"fake deployed engine")
     monkeypatch.setenv("AI_OFFICE_EXECUTABLE", str(engine))
     monkeypatch.setenv("AI_OFFICE_VERSION", "LibreOffice 26.8.0.3")
-    monkeypatch.setenv("AI_SOURCE_MAX_BYTES", str(100 * 1024 * 1024))
+    monkeypatch.setenv("AI_SOURCE_MAX_BYTES", str(30 * 1024 * 1024))
     request = metadata("docx", OFFICE_LIMIT + 1)
     reference = DocumentReference(objectKey=f"practiq-agent/sources/{request.sha256}/source.docx", **request.model_dump())
     with pytest.raises(DocumentProcessingError) as error:

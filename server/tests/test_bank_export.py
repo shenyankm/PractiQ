@@ -758,3 +758,40 @@ def test_export_entries_use_fast_compression_and_preserve_content_and_permission
         assert archive.read('questions.json') == payload
         assert archive.getinfo('questions.json').external_attr >> 16 == 0o100600
         assert archive.testzip() is None
+
+
+async def test_archive_holds_shared_budget_until_close_and_releases_on_failure(tmp_path, monkeypatch):
+    from practiq_ai import temporary
+    store, source = await source_store(tmp_path)
+    budget = temporary.current()
+    output = await bank_export.export_task_bank(detail(), store, source=source)
+    assert budget.used == bank_export.ZIP_LIMIT + 2 * 1024 * 1024
+    with pytest.raises(DocumentProcessingError):
+        await bank_export.export_task_bank(detail(), store, source=source)
+    output.close()
+    output.close()
+    assert budget.used == 0
+    def full(*args):
+        raise OSError('full')
+    monkeypatch.setattr(bank_export, 'TemporaryFile', full)
+    with pytest.raises(OSError):
+        await bank_export.export_task_bank(detail(), store, source=source)
+    assert budget.used == 0
+
+
+async def test_failed_export_releases_budget_when_closed_file_reports_an_error(tmp_path, monkeypatch):
+    from practiq_ai import temporary
+
+    class FailedClose(io.BytesIO):
+        def close(self):
+            super().close()
+            raise OSError('Archive close failed')
+
+    store, source = await source_store(tmp_path)
+    output = FailedClose()
+    monkeypatch.setattr(bank_export, 'TemporaryFile', lambda *_: output)
+    monkeypatch.setattr(store, 'get_verified', AsyncMock(side_effect=OSError('Resource read failed')))
+    with pytest.raises(OSError, match='Archive close failed'):
+        await bank_export.export_task_bank(detail(), store, source=source)
+    assert output.closed
+    assert temporary.current().used == 0

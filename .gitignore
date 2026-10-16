@@ -1,6 +1,7 @@
 # Local configuration and credentials
 .env
 .env.*
+*.env
 !.env.example
 !.env.*.example
 *.pem
@@ -16,6 +17,7 @@
 __pycache__/
 *.py[cod]
 *.egg-info/
+*.whl
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
@@ -65,6 +67,10 @@ playwright-report/
 /server/reports/evaluations/*/
 /server/reports/reviews/
 
+# Local-only investigation captures; curated reports remain versionable
+/docs/evidence/2026-10-16-service-timeout/
+/docs/evidence/2026-10-16-user-flows/
+
 # Local runtime data, including SQLite journals and WAL files
 .local/
 # Retained local state from earlier LangGraph development runs
@@ -83,6 +89,12 @@ playwright-report/
 *.sqlite3-shm
 *.backup
 uploads/
+
+# Private offline service backups and recovery snapshots
+/backups/
+/server/backups/
+*.dump
+image.tar
 
 # Logs and temporary files
 *.log

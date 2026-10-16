@@ -47,6 +47,7 @@ def code_version() -> str:
         paths.append(root / "office_service.py")
     paths.append(root / "normalization.py")
     paths.append(root / "saas.py")
+    paths.append(root / "temporary.py")
     paths.extend(sorted((root / "graphs").glob("*.py")))
     paths.extend(sorted((root / "extractors").glob("*.py")))
     bundled_lock = root / "uv.lock"

@@ -226,3 +226,41 @@ tests:
           instance: host
         exp_annotations:
           summary: AI container restarted repeatedly
+  - interval: 1m
+    input_series: []
+    alert_rule_test:
+    - eval_time: 2m
+      alertname: PractiQBackupStale
+      exp_alerts:
+      - exp_labels: {severity: critical, job: practiq-backups}
+        exp_annotations: {summary: "No verified matching backup snapshot within 15 minutes"}
+    - eval_time: 2m
+      alertname: PractiQBackupMonitoringUnavailable
+      exp_alerts:
+      - exp_labels: {severity: warning, job: practiq-backups}
+        exp_annotations: {summary: "Independent backup monitoring is unavailable"}
+  - interval: 1m
+    input_series:
+    - series: 'practiq_backup_last_attempt_success{job="practiq-backups",instance="backup"}'
+      values: '0x20 1x5'
+    - series: 'practiq_backup_last_success_timestamp_seconds{job="practiq-backups",instance="backup"}'
+      values: '0x20 1260x5'
+    - series: 'up{job="practiq-backups",instance="backup"}'
+      values: '1x26'
+    alert_rule_test:
+    - eval_time: 18m
+      alertname: PractiQBackupStale
+      exp_alerts:
+      - exp_labels: {severity: critical, job: practiq-backups, instance: backup}
+        exp_annotations: {summary: "No verified matching backup snapshot within 15 minutes"}
+    - eval_time: 2m
+      alertname: PractiQBackupFailed
+      exp_alerts:
+      - exp_labels: {severity: critical, job: practiq-backups, instance: backup}
+        exp_annotations: {summary: "Matching off-host backup failed or is incomplete"}
+    - eval_time: 23m
+      alertname: PractiQBackupStale
+      exp_alerts: []
+    - eval_time: 23m
+      alertname: PractiQBackupFailed
+      exp_alerts: []

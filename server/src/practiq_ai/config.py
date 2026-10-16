@@ -8,6 +8,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 MIB = 1024 * 1024
+TEMPORARY_LIMIT = 384 * MIB  # Leave 128 MiB of the Compose tmpfs for profiles/runtime.
 SERVER_ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -161,6 +162,10 @@ def load() -> Config:
     if input_points and output_points:
         from .saas import points
         input_rate, output_rate = points(input_points), points(output_points)
+    source_max_bytes = _positive_int(values, "AI_SOURCE_MAX_BYTES", 25 * MIB)
+    vision_max_bytes = _positive_int(values, "AI_MAX_VISION_BYTES", 50 * MIB)
+    if source_max_bytes * 9 + 65_536 + vision_max_bytes > TEMPORARY_LIMIT:
+        raise ValueError("AI_SOURCE_MAX_BYTES and AI_MAX_VISION_BYTES exceed the fixed scratch budget")
     return Config(
         input_micropoints_per_1k=input_rate,
         output_micropoints_per_1k=output_rate,
@@ -190,8 +195,8 @@ def load() -> Config:
         api_key="" if read_only else _required(values, "LLM_API_KEY"),
         model_id=model_id,
         storage_dir=storage_path(storage_dir),
-        source_max_bytes=_positive_int(values, "AI_SOURCE_MAX_BYTES", 25 * MIB),
-        vision_max_bytes=_positive_int(values, "AI_MAX_VISION_BYTES", 50 * MIB),
+        source_max_bytes=source_max_bytes,
+        vision_max_bytes=vision_max_bytes,
         max_document_pages=_positive_int(values, "AI_MAX_DOCUMENT_PAGES", 100),
         max_vision_page_pixels=_positive_int(
             values, "AI_MAX_VISION_PAGE_PIXELS", 25_000_000

@@ -1,0 +1,11 @@
+[Unit]
+Description=Attempt a matching PractiQ backup every ten minutes
+
+[Timer]
+OnCalendar=*-*-* *:0/10:00
+Persistent=true
+AccuracySec=1s
+Unit=practiq-backup.service
+
+[Install]
+WantedBy=timers.target

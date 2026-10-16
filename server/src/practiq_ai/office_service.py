@@ -27,6 +27,7 @@ from .contracts import (
 from .errors import DocumentProcessingError
 from .extractors.isolated import _read_file, _thread_io
 from .storage import verify_payload
+from .temporary import LIMIT, preparation
 
 FILE_LIMIT = OFFICE_FILE_MAX_BYTES
 TOTAL_LIMIT = 100 * 1024 * 1024
@@ -193,40 +194,41 @@ async def convert_office(reference: DocumentReference, payload: bytes, *, mode: 
     if len(payload) > limit:
         raise DocumentProcessingError(413, "Office source exceeds the configured limit", "SOURCE_TOO_LARGE")
     await verify_payload(reference, payload)
-    with TemporaryDirectory(prefix="practiq-office-") as directory:
-        root = Path(directory)
-        source, output = root / f"source.{reference.sourceType}", root / "output"
-        process = None
-        try:
-            async with asyncio.timeout(min(timeout, 180)):
-                await _thread_io(engine_identity, config)
-                await _thread_io(source.write_bytes, payload)
-                process = await _launch_worker(directory)
-                if process.stdin is None or process.stdout is None:
-                    raise _error("OFFICE_CONVERSION_FAILED")
-                request = {"type": "convert", "engine": str(config.office_executable), "version": config.office_version,
-                           "source": str(source), "output": str(output), "mode": mode}
-                process.stdin.write(json.dumps(request).encode("utf-8") + b"\n")
-                await process.stdin.drain()
-                raw = await process.stdout.readline()
-                if len(raw) > JSON_LINE_LIMIT or not raw.endswith(b"\n"):
-                    raise _error("OFFICE_CONVERSION_FAILED")
-                response = json.loads(raw)
-                if not isinstance(response, dict):
-                    raise _error("OFFICE_CONVERSION_FAILED")
-                if set(response) == {"error"}:
-                    raise _error(response["error"] if isinstance(response["error"], str) else "OFFICE_CONVERSION_FAILED")
-                if (set(response) != {"result"} or not isinstance(response["result"], dict)
-                        or set(response["result"]) != {"artifacts"}):
-                    raise _error("OFFICE_CONVERSION_FAILED")
-                if await process.wait() != 0:
-                    raise _error("OFFICE_CONVERSION_FAILED")
-                return await _thread_io(partial(_read_artifacts, output, response["result"]["artifacts"],
-                                               kind=reference.sourceType, mode=mode, limit=limit))
-        except TimeoutError as exc:
-            raise _error("OFFICE_TIMEOUT") from exc
-        except (OSError, ValueError, TypeError) as exc:
-            raise _error("OFFICE_CONVERSION_FAILED") from exc
-        finally:
-            if process is not None:
-                await _shield_cleanup(process)
+    async with preparation(LIMIT):
+        with TemporaryDirectory(prefix="practiq-office-") as directory:
+            root = Path(directory)
+            source, output = root / f"source.{reference.sourceType}", root / "output"
+            process = None
+            try:
+                async with asyncio.timeout(min(timeout, 180)):
+                    await _thread_io(engine_identity, config)
+                    await _thread_io(source.write_bytes, payload)
+                    process = await _launch_worker(directory)
+                    if process.stdin is None or process.stdout is None:
+                        raise _error("OFFICE_CONVERSION_FAILED")
+                    request = {"type": "convert", "engine": str(config.office_executable), "version": config.office_version,
+                               "source": str(source), "output": str(output), "mode": mode}
+                    process.stdin.write(json.dumps(request).encode("utf-8") + b"\n")
+                    await process.stdin.drain()
+                    raw = await process.stdout.readline()
+                    if len(raw) > JSON_LINE_LIMIT or not raw.endswith(b"\n"):
+                        raise _error("OFFICE_CONVERSION_FAILED")
+                    response = json.loads(raw)
+                    if not isinstance(response, dict):
+                        raise _error("OFFICE_CONVERSION_FAILED")
+                    if set(response) == {"error"}:
+                        raise _error(response["error"] if isinstance(response["error"], str) else "OFFICE_CONVERSION_FAILED")
+                    if (set(response) != {"result"} or not isinstance(response["result"], dict)
+                            or set(response["result"]) != {"artifacts"}):
+                        raise _error("OFFICE_CONVERSION_FAILED")
+                    if await process.wait() != 0:
+                        raise _error("OFFICE_CONVERSION_FAILED")
+                    return await _thread_io(partial(_read_artifacts, output, response["result"]["artifacts"],
+                                                   kind=reference.sourceType, mode=mode, limit=limit))
+            except TimeoutError as exc:
+                raise _error("OFFICE_TIMEOUT") from exc
+            except (OSError, ValueError, TypeError) as exc:
+                raise _error("OFFICE_CONVERSION_FAILED") from exc
+            finally:
+                if process is not None:
+                    await _shield_cleanup(process)

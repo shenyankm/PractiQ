@@ -1,6 +1,6 @@
 # Grading experiment evidence
 
-The [dated report](../../performance-grading-arrays-20261009.md) records the fixed model, anchors, budget approval, observed results and limits.
+The [dated report](../../history/performance/performance-grading-arrays-20261009.md) records the fixed model, anchors, budget approval, observed results and limits.
 
 - `baseline.json` / `arrays.json`: original evaluator reports, three repetitions per anchor, model substitutes not used.
 - `rejected-null-context.json`: rejected single-factor serialization experiment; its source change was reverted.

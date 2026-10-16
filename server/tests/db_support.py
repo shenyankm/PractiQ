@@ -40,10 +40,11 @@ async def seed_account(database, number='13800138000', balance=1_000_000):
 
 
 TEST_URI = None
+CONTAINER = None
 
 
 def test_uri():
-    global TEST_URI
+    global TEST_URI, CONTAINER
     if TEST_URI is not None:
         return TEST_URI
     configured = os.environ.get('TEST_DATABASE_URI')
@@ -53,6 +54,7 @@ def test_uri():
         TEST_URI = configured
         return TEST_URI
     name = 'practiq-tests-' + uuid4().hex
+    CONTAINER = name
     subprocess.run(['docker', 'run', '--detach', '--name', name, '--publish', '127.0.0.1::5432',
                     '--env', 'POSTGRES_PASSWORD=practiq-test', '--tmpfs', '/var/lib/postgresql/data',
                     'postgres:16'], check=True, capture_output=True, timeout=120)

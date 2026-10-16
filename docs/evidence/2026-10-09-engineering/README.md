@@ -1,6 +1,6 @@
 # Engineering journal evidence
 
-Read the [journal](../../engineering-optimization-20261009.md) for decisions, source boundaries and limits. These are actual captured samples, not new acceptance results. [Provenance](provenance.json) retains original and published hashes; host home-path strings are redacted where indicated. Original local evidence remains retained. No credentials, user databases, backup binaries or installer binaries are published.
+Read the [journal](../../history/engineering/engineering-optimization-20261009.md) for decisions, source boundaries and limits. These are actual captured samples, not new acceptance results. [Provenance](provenance.json) retains original and published hashes; host home-path strings are redacted where indicated. Original local evidence remains retained. No credentials, user databases, backup binaries or installer binaries are published.
 
 | Evidence | Interpretation |
 | --- | --- |

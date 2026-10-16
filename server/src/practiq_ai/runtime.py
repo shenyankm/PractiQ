@@ -325,7 +325,7 @@ class Service:
                 if await self.unknown_calls(run):
                     code = 'MODEL_RESULT_UNKNOWN'
             if code != 'TASK_FORMAT_UNSUPPORTED':
-                await self.finish(run_id, 'interrupted' if code in {'MODEL_RESULT_UNKNOWN', 'OBJECT_STORE_UNAVAILABLE'} else 'error', code)
+                await self.finish(run_id, 'interrupted' if code in {'MODEL_RESULT_UNKNOWN', 'OBJECT_STORE_UNAVAILABLE', 'TEMPORARY_BUSY'} else 'error', code)
         finally:
             if acquired:
                 slots.release()
