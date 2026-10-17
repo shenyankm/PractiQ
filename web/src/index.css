@@ -203,7 +203,7 @@ footer { padding: 18px 36px; border-top: 1px solid var(--border); color: var(--m
 #import-heading:focus-visible { outline: 3px solid var(--ring); outline-offset: 4px; }
 @media (max-width: 767px), (any-pointer: coarse) { .review-checkbox { min-height: 48px; } }
 
-.delete-confirmation { scroll-margin-top: 160px; }
+.delete-confirmation, .error-banner { scroll-margin-top: 160px; }
 .delete-confirmation:focus-visible { outline: 3px solid var(--ring); outline-offset: 4px; }
 
 .task-title h2 { font-size: 1.625rem; }

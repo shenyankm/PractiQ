@@ -663,3 +663,63 @@ for (const viewport of [{ width: 1280, height: 720 }, { width: 390, height: 844 
     await page.screenshot({ path: testInfo.outputPath(`checkout-credited-${viewport.width}.png`), fullPage: true });
   });
 }
+
+for (const width of [1440, 390]) {
+  test(`error recovery and result isolation at ${width}px`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 950 });
+    const http = await fakeHTTP(page);
+    http.server.intercept = async (route, call) => {
+      if (call.path.endsWith('/reparse')) { await respond(route, { detail: { code: 'SERVER_UNAVAILABLE' } }, 503); return true; }
+      return false;
+    };
+    await connect(page); await openTask(page);
+    await page.getByText('其他任务操作', { exact: true }).click();
+    await page.getByRole('button', { name: '重新解析为新任务', exact: true }).click();
+    const error = page.getByRole('alert').filter({ hasText: '操作结果尚未确认' });
+    await expect(error).toBeInViewport({ ratio: 1 });
+    await expect.poll(async () => {
+      const banner = await error.boundingBox(), header = await page.locator('.web-header').boundingBox();
+      return !!banner && !!header && banner.y >= header.y + header.height && banner.y + banner.height <= 950;
+    }).toBe(true);
+    expect(mutations(http.calls)).toHaveLength(1);
+    await page.screenshot({ path: testInfo.outputPath(`web-action-error-${width}.png`) });
+    await page.route('**/src/ResultReview.tsx', route => route.abort('failed'));
+    await page.reload();
+    await expect(page.getByLabel('账户令牌')).toHaveValue('');
+    await page.getByLabel('手机号').fill('13800138000'); await page.getByLabel('账户令牌').fill(fakeToken);
+    await page.getByRole('button', { name: '查询记录', exact: true }).click();
+    await page.getByRole('button', { name: /sample.docx/ }).click();
+    await expect(page.getByRole('heading', { name: '此界面暂时无法显示', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: '下载题库 ZIP', exact: true })).toBeEnabled();
+    expect(mutations(http.calls)).toHaveLength(1);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.getByRole('heading', { name: '此界面暂时无法显示', exact: true }).scrollIntoViewIfNeeded();
+    await page.screenshot({ path: testInfo.outputPath(`web-result-failure-${width}.png`) });
+  });
+  test(`catalog failure stops loading and keeps recovery specific at ${width}px`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 950 });
+    let fail = true, writes = 0;
+    await page.route('**/api/payments/**', async route => {
+      if (route.request().method() !== 'GET') writes++;
+      const path = new URL(route.request().url()).pathname;
+      if (path.endsWith('/products')) return respond(route, fail ? {} : { items: [{ productId: 'pack', name: '导入额度包', priceCents: 900, pointsMicropoints: '1000000' }] }, fail ? 503 : 200);
+      if (path.endsWith('/account')) return respond(route, { phone: '13800138000', balanceMicropoints: '0', usageUnknown: false });
+      return respond(route, { items: [], hasMore: false });
+    });
+    await page.goto('/purchase');
+    await page.getByLabel('手机号').fill('bad'); await page.getByLabel('账户令牌').fill('fake');
+    await page.getByRole('button', { name: '连接账户', exact: true }).click();
+    await expect(page.getByLabel('手机号')).toBeFocused();
+    await expect(page.getByLabel('手机号')).toHaveAttribute('aria-invalid', 'true');
+    await page.getByLabel('手机号').fill('13800138000');
+    await page.getByRole('button', { name: '连接账户', exact: true }).click();
+    await expect(page.getByRole('button', { name: '断开连接', exact: true })).toBeVisible();
+    await expect(page.getByText('商品暂不可用，请刷新重试。', { exact: true })).toBeVisible();
+    await expect(page.getByText('正在读取商品…', { exact: true })).toBeHidden();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath(`catalog-error-${width}.png`), fullPage: true });
+    fail = false; await page.getByRole('button', { name: '刷新商品', exact: true }).click();
+    await expect(page.getByRole('button', { name: '创建充值订单', exact: true })).toBeVisible();
+    expect(writes).toBe(0);
+  });
+}

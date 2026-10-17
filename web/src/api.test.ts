@@ -298,3 +298,17 @@ describe("checked private downloads", () => {
     expect(MAX_BANK_ZIP_BYTES).toBe(300 * 1024 * 1024);
   });
 });
+
+
+it.each([
+  ["read", "/api/account", 503, "DATABASE_UNAVAILABLE", /读取失败/],
+  ["write", "/api/document-tasks/example/reparse", 503, "SERVER_UNAVAILABLE", /操作结果尚未确认/],
+  ["read", "/api/payments/orders", 429, "TOO_MANY_REQUESTS", /过于频繁/],
+  ["write", "/api/document-tasks/example/reparse", 409, "STALE_RUN", /任务状态已更新/],
+])("gives actionable safe feedback for %s %s", async (kind, path, status, code, message) => {
+  vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ detail: { code, message: "secret remote diagnostics" } }), { status: status as number })));
+  const client = new Client("fake", "13800138000");
+  const result = kind === "write" ? client.reparse(taskId) : path === "/api/payments/orders" ? client.paymentOrders() : client.account();
+  await expect(result).rejects.toThrow(message as RegExp);
+  expect(fetch).toHaveBeenCalledOnce();
+});

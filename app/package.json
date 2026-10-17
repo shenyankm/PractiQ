@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "lint": "cd .. && node app/node_modules/eslint/bin/eslint.js --config app/eslint.config.mjs \"app/src/**/*.{ts,tsx}\" shared/select.tsx --max-warnings 0",
+    "lint": "cd .. && node app/node_modules/eslint/bin/eslint.js --config app/eslint.config.mjs \"app/src/**/*.{ts,tsx}\" shared/*.tsx --max-warnings 0",
     "test:coverage": "vitest run --coverage",
     "tauri": "tauri",
     "desktop": "tauri dev",

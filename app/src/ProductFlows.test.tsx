@@ -4,7 +4,6 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import App from "./App";
 import { api, blankQuestion, type QuestionRow, type SessionSummary } from "./api";
-import { toast } from "./notifications";
 import fixture from "../fixtures/sample.json";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(), isTauri: () => false }));
@@ -51,7 +50,7 @@ it.each([false,true])("requires replacement confirmation and explicit recovery s
   expect(vi.mocked(api).mock.calls.some(([request])=>request.type==="restore")).toBe(false);
   const dialog = screen.getByRole("alertdialog");
   if(recover) expect(within(dialog).getByText(/该副本不能作为普通备份直接恢复/)).toBeTruthy();
-  await userEvent.click(within(dialog).getByRole("button",{name:"确认"}));
+  await userEvent.click(within(dialog).getByRole("button",{name:"恢复备份"}));
   await waitFor(()=>expect(api).toHaveBeenCalledWith(recover ? {type:"restore",recover_assets:true} : {type:"restore"}));
 });
 
@@ -276,7 +275,8 @@ it.each([null, 123])("preserves review state when saving the confirmation fails 
   const dialog = await screen.findByRole("dialog", { name: "题目详情" });
   const action = reviewedAt == null ? "标记已复核" : "撤销复核确认";
   await userEvent.click(within(dialog).getByRole("button", { name: action }));
-  await waitFor(() => expect(toast.error).toHaveBeenCalledWith(new Error("Review failed")));
+  expect(await screen.findByRole("alert")).toBeTruthy();
+  expect(within(dialog).getByText(/Review failed/)).toBeTruthy();
   expect(within(dialog).getByRole("button", { name: action }).hasAttribute("disabled")).toBe(false);
   expect(within(dialog).getByText(reviewedAt == null ? "内容待复核，仍可练习。" : "已人工复核，原始质量提示已保留。")).toBeTruthy();
   expect(within(dialog).getByText(/缺失：/)).toBeTruthy();

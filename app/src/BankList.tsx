@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BookOpen, ChevronRight, Download, EllipsisVertical, Pencil, Play, Trash2, Upload } from "lucide-react";
 import { api, errorMessage, type Bank, type BankPage, type UnfinishedSession } from "./api";
 import { message, t, useI18n } from "./i18n";
@@ -24,9 +24,10 @@ export function BankList({ offset, onOffsetChange, revision, busy, ready, run, o
   onPractice: (bankId: string) => void;
   onPracticeUnattempted: (bankId: string) => void;
   onEdit: (bank: Bank) => void;
-  onDelete: (bank: Bank) => void;
+  onDelete: (bank: Bank, trigger: HTMLElement | null) => void;
 }) {
   useI18n();
+  const triggers = useRef(new Map<string, HTMLButtonElement>());
   const [page, setPage] = useState<BankPage>({ items: [], total: 0, offset: 0 });
   const [unfinished, setUnfinished] = useState<UnfinishedSession | null>(null);
   const [loading, setLoading] = useState(true);
@@ -78,7 +79,7 @@ export function BankList({ offset, onOffsetChange, revision, busy, ready, run, o
             <CardTitle className="min-w-0 break-words pt-1"><h2>{bank.title}</h2></CardTitle>
             <div className="flex shrink-0 items-center gap-1">
               <DropdownMenu>
-                <DropdownMenuTrigger asChild><Button size="icon" variant="ghost" aria-label={t("题库操作 {0}", { 0: bank.title })} disabled={busy}><EllipsisVertical /></Button></DropdownMenuTrigger>
+                <DropdownMenuTrigger asChild><Button ref={node => { if (node) triggers.current.set(bank.id, node); else triggers.current.delete(bank.id); }} size="icon" variant="ghost" aria-label={t("题库操作 {0}", { 0: bank.title })} disabled={busy}><EllipsisVertical /></Button></DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem disabled={busy || !bank.count} onSelect={() => run(async () => {
                     const result = await api({ type: "export_bank", bank_id: bank.id });
@@ -86,7 +87,7 @@ export function BankList({ offset, onOffsetChange, revision, busy, ready, run, o
                   })}><Download className="size-4" />{t("导出题库 ZIP")}</DropdownMenuItem>
                   <DropdownMenuItem onSelect={() => onEdit(bank)}><Pencil className="size-4" />{t("编辑题库")}</DropdownMenuItem>
                   <DropdownMenuItem disabled={busy || !bank.count} onSelect={() => onPracticeUnattempted(bank.id)}><Play className="size-4" />{t("练习未做题")}</DropdownMenuItem>
-                  <DropdownMenuItem variant="destructive" onSelect={() => onDelete(bank)}><Trash2 className="size-4" />{t("删除题库")}</DropdownMenuItem>
+                  <DropdownMenuItem variant="destructive" onSelect={() => onDelete(bank, triggers.current.get(bank.id) ?? null)}><Trash2 className="size-4" />{t("删除题库")}</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
