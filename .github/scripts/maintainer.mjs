@@ -10,7 +10,7 @@ export function mergeBlocker(pr, checks, statuses) {
   // Skipped jobs are inapplicable; the three final CI gates must still succeed.
   if (checks.some(check => check.status !== 'completed' || !['success', 'skipped'].includes(check.conclusion))) return 'A check is pending or not successful';
   if (statuses.some(status => status.state !== 'success')) return 'A commit status is pending or not successful';
-  if (pr.mergeable !== true || pr.mergeable_state !== 'clean') return 'GitHub reports conflicts, an outdated base or a protection blocker';
+  if (pr.mergeable !== true || !['clean', 'behind'].includes(pr.mergeable_state)) return 'GitHub reports conflicts or a protection blocker';
   return null;
 }
 

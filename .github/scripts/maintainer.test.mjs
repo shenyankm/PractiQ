@@ -25,9 +25,19 @@ test('all final CI gates and every applicable check/status must succeed', () => 
 test('drafts, closed PRs, other branches and protection blockers cannot merge', () => {
   for (const changed of [{ ...pr, draft: true }, { ...pr, state: 'closed' },
     { ...pr, base: { ref: 'release' } }, { ...pr, mergeable: null }, { ...pr, mergeable: false },
-    ...['blocked', 'behind', 'unstable', 'dirty', 'unknown'].map(mergeable_state => ({ ...pr, mergeable_state }))]) {
+    ...['blocked', 'unstable', 'dirty', 'unknown'].map(mergeable_state => ({ ...pr, mergeable_state }))]) {
     assert(mergeBlocker(changed, checks, []));
   }
+});
+
+test('a conflict-free PR behind main still requires successful current-head gates', () => {
+  const behind = { ...pr, mergeable_state: 'behind' };
+  assert.equal(mergeBlocker(behind, checks, []), null);
+  assert(mergeBlocker({ ...behind, mergeable: false }, checks, []));
+  assert(mergeBlocker(behind, checks.slice(1), []));
+  assert(mergeBlocker(behind, [{ ...checks[0], conclusion: 'failure' }, ...checks.slice(1)], []));
+  assert(mergeBlocker(behind, [...checks, { status: 'in_progress', conclusion: null }], []));
+  assert(mergeBlocker(behind, checks, [{ state: 'pending' }]));
 });
 
 test('GPT evidence excludes old heads, other authors and security-only summaries', () => {

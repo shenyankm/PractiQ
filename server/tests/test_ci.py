@@ -532,6 +532,8 @@ def test_workflows_deduplicate_common_checks_without_dropping_native_gates():
                            for rule in ruleset["rules"] if rule["type"] == "required_status_checks")
     assert {check["context"] for check in required_checks} == gates
     assert all(check["integration_id"] == 15368 for check in required_checks)
+    assert next(rule["parameters"]["strict_required_status_checks_policy"]
+                for rule in ruleset["rules"] if rule["type"] == "required_status_checks") is False
 
     jobs = workflows["app"]["jobs"]
     quality, package = jobs["quality"], jobs["package"]
