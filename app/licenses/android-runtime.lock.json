@@ -240,12 +240,12 @@
       "artifactVariant": "androidx.concurrent:concurrent-futures:1.1.0 variant runtimeElements"
     },
     {
-      "coordinate": "androidx.constraintlayout:constraintlayout-core:1.0.0",
+      "coordinate": "androidx.constraintlayout:constraintlayout-core:1.1.1",
       "extension": "jar",
-      "artifactSha256": "496c8c79664bd970c6a6be7a960a20dd157dfc5aa2f18e5b8333767ffbc59911",
-      "pomSha256": "93e01622e90b5879bb950fedb5c417c8024555fdc779481bcee21a3b5977cb8c",
-      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/constraintlayout/constraintlayout-core/1.0.0/constraintlayout-core-1.0.0.jar",
-      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/constraintlayout/constraintlayout-core/1.0.0/constraintlayout-core-1.0.0.pom",
+      "artifactSha256": "3c2054328328831eb6e69b4014f6ef9faa117fd4b811929f3a91d3db375f2c02",
+      "pomSha256": "d0e8276f39aa41ec1f24d357fd6ace2c76723ca0e0711ed6e884e686d6fc86e9",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/constraintlayout/constraintlayout-core/1.1.1/constraintlayout-core-1.1.1.jar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/constraintlayout/constraintlayout-core/1.1.1/constraintlayout-core-1.1.1.pom",
       "declaration": "The Apache Software License, Version 2.0",
       "texts": [
         {
@@ -253,19 +253,25 @@
           "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
           "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
           "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        },
+        {
+          "file": "texts/809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0.txt",
+          "sha256": "809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0",
+          "source": "https://dl.google.com/dl/android/maven2/androidx/constraintlayout/constraintlayout-core/1.1.1/constraintlayout-core-1.1.1.jar!META-INF/androidx/constraintlayout/constraintlayout-core/LICENSE.txt",
+          "artifactEntry": "META-INF/androidx/constraintlayout/constraintlayout-core/LICENSE.txt"
         }
       ],
-      "artifactFileName": "constraintlayout-core-1.0.0.jar",
-      "artifactIdentity": "constraintlayout-core-1.0.0.jar (androidx.constraintlayout:constraintlayout-core:1.0.0)",
-      "artifactVariant": "androidx.constraintlayout:constraintlayout-core:1.0.0 variant runtimeElements"
+      "artifactFileName": "constraintlayout-core-1.1.1.jar",
+      "artifactIdentity": "constraintlayout-core-1.1.1.jar (androidx.constraintlayout:constraintlayout-core:1.1.1)",
+      "artifactVariant": "androidx.constraintlayout:constraintlayout-core:1.1.1 variant runtimeElements"
     },
     {
-      "coordinate": "androidx.constraintlayout:constraintlayout:2.1.0",
+      "coordinate": "androidx.constraintlayout:constraintlayout:2.2.1",
       "extension": "aar",
-      "artifactSha256": "a458a7562363bd59c209a7dea847326a0e2b26b37a883dc3e29065a79a1c788b",
-      "pomSha256": "25104af5ae91efe5fe6c9178eee35f6b02e31349505738cceb4df2df8385b585",
-      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/constraintlayout/constraintlayout/2.1.0/constraintlayout-2.1.0.aar",
-      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/constraintlayout/constraintlayout/2.1.0/constraintlayout-2.1.0.pom",
+      "artifactSha256": "30f8d79b782d283a90f0b6f7369169d9cf560091537fdd6056d1daa9f3033763",
+      "pomSha256": "ccccaa27e5658da4734f7e9cd345c1fc4d495bad49c0821279ddba0503dffb91",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/constraintlayout/constraintlayout/2.2.1/constraintlayout-2.2.1.aar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/constraintlayout/constraintlayout/2.2.1/constraintlayout-2.2.1.pom",
       "declaration": "The Apache Software License, Version 2.0",
       "texts": [
         {
@@ -273,11 +279,17 @@
           "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
           "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
           "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        },
+        {
+          "file": "texts/809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0.txt",
+          "sha256": "809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0",
+          "source": "https://dl.google.com/dl/android/maven2/androidx/constraintlayout/constraintlayout/2.2.1/constraintlayout-2.2.1.aar!META-INF/androidx/constraintlayout/constraintlayout/LICENSE.txt",
+          "artifactEntry": "META-INF/androidx/constraintlayout/constraintlayout/LICENSE.txt"
         }
       ],
-      "artifactFileName": "constraintlayout-2.1.0.aar",
-      "artifactIdentity": "constraintlayout-2.1.0.aar (androidx.constraintlayout:constraintlayout:2.1.0)",
-      "artifactVariant": "androidx.constraintlayout:constraintlayout:2.1.0 variant releaseRuntimePublication"
+      "artifactFileName": "constraintlayout-2.2.1.aar",
+      "artifactIdentity": "constraintlayout-2.2.1.aar (androidx.constraintlayout:constraintlayout:2.2.1)",
+      "artifactVariant": "androidx.constraintlayout:constraintlayout:2.2.1 variant releaseVariantReleaseRuntimePublication"
     },
     {
       "coordinate": "androidx.coordinatorlayout:coordinatorlayout:1.1.0",
@@ -300,12 +312,12 @@
       "artifactVariant": "androidx.coordinatorlayout:coordinatorlayout:1.1.0 configuration runtime"
     },
     {
-      "coordinate": "androidx.core:core-ktx:1.13.1",
+      "coordinate": "androidx.core:core-ktx:1.16.0",
       "extension": "aar",
-      "artifactSha256": "19ba50d094c7368ede1b4ccf1195ceb83e35970736593f823e5af716f8d05d70",
-      "pomSha256": "31cc345b8c6cdd2046dcf67872df8a8cb4f44ea0cade4df80002caa7e3b71809",
-      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/core/core-ktx/1.13.1/core-ktx-1.13.1.aar",
-      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/core/core-ktx/1.13.1/core-ktx-1.13.1.pom",
+      "artifactSha256": "1766dbd82f64a12dcd359ecb6f15f3cf35db4d66d22961a7c51b2ffc6468314c",
+      "pomSha256": "4660cfb606ed89828ba3e10f79b29809ffb677ee5d2346fe9bcb03dfc4b9b645",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/core/core-ktx/1.16.0/core-ktx-1.16.0.aar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/core/core-ktx/1.16.0/core-ktx-1.16.0.pom",
       "declaration": "The Apache Software License, Version 2.0",
       "texts": [
         {
@@ -313,11 +325,17 @@
           "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
           "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
           "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        },
+        {
+          "file": "texts/809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0.txt",
+          "sha256": "809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0",
+          "source": "https://dl.google.com/dl/android/maven2/androidx/core/core-ktx/1.16.0/core-ktx-1.16.0.aar!META-INF/androidx/core/core-ktx/LICENSE.txt",
+          "artifactEntry": "META-INF/androidx/core/core-ktx/LICENSE.txt"
         }
       ],
-      "artifactFileName": "core-ktx-1.13.1.aar",
-      "artifactIdentity": "core-ktx-1.13.1.aar (androidx.core:core-ktx:1.13.1)",
-      "artifactVariant": "androidx.core:core-ktx:1.13.1 variant releaseVariantReleaseRuntimePublication"
+      "artifactFileName": "core-ktx-1.16.0.aar",
+      "artifactIdentity": "core-ktx-1.16.0.aar (androidx.core:core-ktx:1.16.0)",
+      "artifactVariant": "androidx.core:core-ktx:1.16.0 variant releaseVariantReleaseRuntimePublication"
     },
     {
       "coordinate": "androidx.core:core-viewtree:1.0.0",
@@ -346,12 +364,12 @@
       "artifactVariant": "androidx.core:core-viewtree:1.0.0 variant releaseVariantReleaseRuntimePublication"
     },
     {
-      "coordinate": "androidx.core:core:1.13.1",
+      "coordinate": "androidx.core:core:1.16.0",
       "extension": "aar",
-      "artifactSha256": "2c27de199535675005553066597a4b20fa1eea7c228ab4ef6b32b5fe39ca1f59",
-      "pomSha256": "527abfa5a8d6af748b37e1c0162d1633a2d5ea4387b0205a8b436b6214ba1cf6",
-      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/core/core/1.13.1/core-1.13.1.aar",
-      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/core/core/1.13.1/core-1.13.1.pom",
+      "artifactSha256": "6bf03d39dbe3744acce227d3b697374c3625aae1025fbec8ad9fd7bd58bce431",
+      "pomSha256": "074974a1550221af7aa85ded6903c3d84c9bdedf9e6b4ff3b0cb471329b5ac77",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/core/core/1.16.0/core-1.16.0.aar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/core/core/1.16.0/core-1.16.0.pom",
       "declaration": "The Apache Software License, Version 2.0",
       "texts": [
         {
@@ -359,11 +377,17 @@
           "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
           "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
           "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        },
+        {
+          "file": "texts/809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0.txt",
+          "sha256": "809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0",
+          "source": "https://dl.google.com/dl/android/maven2/androidx/core/core/1.16.0/core-1.16.0.aar!META-INF/androidx/core/core/LICENSE.txt",
+          "artifactEntry": "META-INF/androidx/core/core/LICENSE.txt"
         }
       ],
-      "artifactFileName": "core-1.13.1.aar",
-      "artifactIdentity": "core-1.13.1.aar (androidx.core:core:1.13.1)",
-      "artifactVariant": "adhoc variant for androidx.core:core:1.13.1"
+      "artifactFileName": "core-1.16.0.aar",
+      "artifactIdentity": "core-1.16.0.aar (androidx.core:core:1.16.0)",
+      "artifactVariant": "adhoc variant for androidx.core:core:1.16.0"
     },
     {
       "coordinate": "androidx.cursoradapter:cursoradapter:1.0.0",
@@ -386,12 +410,12 @@
       "artifactVariant": "androidx.cursoradapter:cursoradapter:1.0.0 configuration runtime"
     },
     {
-      "coordinate": "androidx.customview:customview:1.1.0",
+      "coordinate": "androidx.customview:customview:1.2.0",
       "extension": "aar",
-      "artifactSha256": "01f76ab043770a97b054046f9815717b82ce0355c02967d16c61981359dc189a",
-      "pomSha256": "c814d435f73e9e6d169886d0eb96b5c5361feb48449fbbb315c908c03c588c94",
-      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/customview/customview/1.1.0/customview-1.1.0.aar",
-      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/customview/customview/1.1.0/customview-1.1.0.pom",
+      "artifactSha256": "40e98bb388cdf5c53a52699b1f78a5abdcf22de1e7c1be43b2c12fd6eadc6f9d",
+      "pomSha256": "b12f9f315bfe9d9741eef558ec38efc472d8d88469d09897a02c6beb100c51f2",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/customview/customview/1.2.0/customview-1.2.0.aar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/customview/customview/1.2.0/customview-1.2.0.pom",
       "declaration": "The Apache Software License, Version 2.0",
       "texts": [
         {
@@ -399,11 +423,17 @@
           "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
           "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
           "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        },
+        {
+          "file": "texts/809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0.txt",
+          "sha256": "809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0",
+          "source": "https://dl.google.com/dl/android/maven2/androidx/customview/customview/1.2.0/customview-1.2.0.aar!META-INF/androidx/customview/customview/LICENSE.txt",
+          "artifactEntry": "META-INF/androidx/customview/customview/LICENSE.txt"
         }
       ],
-      "artifactFileName": "customview-1.1.0.aar",
-      "artifactIdentity": "customview-1.1.0.aar (androidx.customview:customview:1.1.0)",
-      "artifactVariant": "adhoc variant for androidx.customview:customview:1.1.0"
+      "artifactFileName": "customview-1.2.0.aar",
+      "artifactIdentity": "customview-1.2.0.aar (androidx.customview:customview:1.2.0)",
+      "artifactVariant": "adhoc variant for androidx.customview:customview:1.2.0"
     },
     {
       "coordinate": "androidx.drawerlayout:drawerlayout:1.1.1",
@@ -1002,12 +1032,12 @@
       "artifactVariant": "androidx.startup:startup-runtime:1.1.1 variant releaseVariantReleaseRuntimePublication"
     },
     {
-      "coordinate": "androidx.tracing:tracing:1.0.0",
+      "coordinate": "androidx.tracing:tracing:1.2.0",
       "extension": "aar",
-      "artifactSha256": "07b8b6139665b884a162eccf97891ca50f7f56831233bf25168ae04f7b568612",
-      "pomSha256": "cd0299a90d4720d78f1cfb5ff7505f4dbc1a70d05fe23fd9f4d4b77ea59ca05e",
-      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/tracing/tracing/1.0.0/tracing-1.0.0.aar",
-      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/tracing/tracing/1.0.0/tracing-1.0.0.pom",
+      "artifactSha256": "6faa90390d1fdbf0adb9a99bf99de67b94c6c6f35aea9510593a9d17973736a2",
+      "pomSha256": "f34bec4eb58871d31002901377108aaa1ebfe77fa6d882b8b86200b158e26ea1",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/tracing/tracing/1.2.0/tracing-1.2.0.aar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/tracing/tracing/1.2.0/tracing-1.2.0.pom",
       "declaration": "The Apache Software License, Version 2.0",
       "texts": [
         {
@@ -1017,9 +1047,9 @@
           "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
         }
       ],
-      "artifactFileName": "tracing-1.0.0.aar",
-      "artifactIdentity": "tracing-1.0.0.aar (androidx.tracing:tracing:1.0.0)",
-      "artifactVariant": "androidx.tracing:tracing:1.0.0 variant releaseRuntimePublication"
+      "artifactFileName": "tracing-1.2.0.aar",
+      "artifactIdentity": "tracing-1.2.0.aar (androidx.tracing:tracing:1.2.0)",
+      "artifactVariant": "androidx.tracing:tracing:1.2.0 variant releaseVariantReleaseRuntimePublication"
     },
     {
       "coordinate": "androidx.transition:transition:1.5.0",
@@ -1331,12 +1361,12 @@
       ]
     },
     {
-      "coordinate": "com.google.android.material:material:1.13.0",
+      "coordinate": "com.google.android.material:material:1.14.0",
       "extension": "aar",
-      "artifactSha256": "6d5e1cbb67c05bcdcbbf84005787dafd354a155f59a4d3800fd45fa7eb3689f5",
-      "pomSha256": "9c1f3c4600295cc5d7f6d6886aea16d497f13f9af4675442ad271e7c2febf772",
-      "artifactSource": "https://dl.google.com/dl/android/maven2/com/google/android/material/material/1.13.0/material-1.13.0.aar",
-      "pomSource": "https://dl.google.com/dl/android/maven2/com/google/android/material/material/1.13.0/material-1.13.0.pom",
+      "artifactSha256": "19e8fab43df6870f8e4322059624384be0279da56dc910529ff591dc674008cd",
+      "pomSha256": "b8d90c94f010f0205e49074321aa449e663ed2e818f8494e1264b2f2f85c08c8",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/com/google/android/material/material/1.14.0/material-1.14.0.aar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/com/google/android/material/material/1.14.0/material-1.14.0.pom",
       "declaration": "The Apache Software License, Version 2.0",
       "texts": [
         {
@@ -1346,9 +1376,9 @@
           "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
         }
       ],
-      "artifactFileName": "material-1.13.0.aar",
-      "artifactIdentity": "material-1.13.0.aar (com.google.android.material:material:1.13.0)",
-      "artifactVariant": "com.google.android.material:material:1.13.0 variant releaseVariantReleaseRuntimePublication"
+      "artifactFileName": "material-1.14.0.aar",
+      "artifactIdentity": "material-1.14.0.aar (com.google.android.material:material:1.14.0)",
+      "artifactVariant": "com.google.android.material:material:1.14.0 variant releaseVariantReleaseRuntimePublication"
     },
     {
       "coordinate": "com.google.errorprone:error_prone_annotations:2.15.0",
