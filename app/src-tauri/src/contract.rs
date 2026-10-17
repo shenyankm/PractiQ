@@ -20,7 +20,7 @@ fn schema_check(schema: &jsonschema::Validator, value: &Value, prefix: &str) -> 
     if let Some(error) = schema.iter_errors(value).next() {
         return Err(crate::language::error(
             "LOCAL_SCHEMA_INVALID",
-            serde_json::json!({"path": format!("{prefix}{}", error.instance_path), "detail": error.to_string()}),
+            serde_json::json!({"path": format!("{prefix}{}", error.instance_path()), "detail": error.to_string()}),
         ));
     }
     Ok(())
