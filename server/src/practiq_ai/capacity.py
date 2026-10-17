@@ -41,8 +41,10 @@ class ProviderGate:
         self.starts: deque[float] = deque()
         self.lock = asyncio.Lock()
 
-    async def wait_rate(self) -> None:
+    async def wait_rate(self, check: Callable[[], Awaitable[None]] | None = None) -> None:
         while True:
+            if check is not None:
+                await check()
             async with self.lock:
                 now = time.monotonic()
                 while self.starts and self.starts[0] <= now - 60:
@@ -58,7 +60,9 @@ _providers: WeakKeyDictionary[asyncio.AbstractEventLoop, ProviderGate] = WeakKey
 
 
 @asynccontextmanager
-async def provider_slot(record: dict[str, Any] | None = None):
+async def provider_slot(
+    record: dict[str, Any] | None = None, *, check: Callable[[], Awaitable[None]] | None = None,
+):
     loop = asyncio.get_running_loop()
     if loop not in _providers:
         config = load()
@@ -69,7 +73,7 @@ async def provider_slot(record: dict[str, Any] | None = None):
         await gate.semaphore.acquire()
     try:
         with telemetry.measure("provider_rate_wait", timings, "rateWaitMs"):
-            await gate.wait_rate()
+            await gate.wait_rate(check)
         with telemetry.inflight.track_inprogress():
             yield
     finally:

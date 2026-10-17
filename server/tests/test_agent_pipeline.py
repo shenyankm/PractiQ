@@ -11,7 +11,7 @@ import pytest
 from langgraph.runtime import Runtime
 from langgraph.types import Command
 
-from practiq_ai import execution, llm, messaging, runtime
+from practiq_ai import capacity, execution, llm, messaging, runtime
 from practiq_ai.capacity import bounded_map
 from practiq_ai.errors import DocumentProcessingError
 from practiq_ai.graphs import document
@@ -140,7 +140,7 @@ async def test_pause_while_waiting_for_provider_prevents_dispatch_and_resumes(mo
     pause = True
 
     @asynccontextmanager
-    async def slot(_record):
+    async def slot(_record, *, check=None):
         nonlocal pause
         if pause:
             pause = False
@@ -157,6 +157,41 @@ async def test_pause_while_waiting_for_provider_prevents_dispatch_and_resumes(mo
     assert len(resumed["usage"]) == 1
 
 
+@pytest.mark.parametrize("phase", ["concurrency", "rate"])
+async def test_paused_provider_wait_does_not_consume_rpm(monkeypatch, phase):
+    graph, store, _, reference, model = setup_graph(monkeypatch, [parsed()])
+    config = run_config()
+    gate = capacity.ProviderGate(1, 1)
+    capacity._providers[asyncio.get_running_loop()] = gate
+    entered, release = asyncio.Event(), asyncio.Event()
+    original = gate.semaphore.acquire if phase == "concurrency" else gate.wait_rate
+
+    async def wait(*args, **kwargs):
+        entered.set()
+        await release.wait()
+        return await original(*args, **kwargs)
+
+    monkeypatch.setattr(gate.semaphore if phase == "concurrency" else gate,
+                        "acquire" if phase == "concurrency" else "wait_rate", wait)
+    pending = asyncio.create_task(graph.ainvoke({"document": reference}, config))
+    try:
+        await asyncio.wait_for(entered.wait(), 3)
+        await store.aput(execution.namespace("thread-1", "pause"), str(config.get("run_id")), {"requested": True})
+        release.set()
+        result = await asyncio.wait_for(pending, 3)
+        assert result.get("__interrupt__") and not model.calls
+        assert not gate.starts
+        assert gate.semaphore._value == 1
+        resumed = await asyncio.wait_for(graph.ainvoke(
+            Command(resume={item.id: {"action": "resume"} for item in result["__interrupt__"]}),
+            {**config, "run_id": uuid4()},
+        ), 3)
+        assert resumed["status"] == "SUCCEEDED" and len(model.calls) == len(gate.starts) == 1
+    finally:
+        pending.cancel()
+        await asyncio.gather(pending, return_exceptions=True)
+
+
 @pytest.mark.parametrize("review", [False, True])
 async def test_exhausted_budget_does_not_enter_provider_queue(monkeypatch, review):
     monkeypatch.setenv("AI_TASK_MAX_MODEL_CALLS", "1")
@@ -165,7 +200,7 @@ async def test_exhausted_budget_does_not_enter_provider_queue(monkeypatch, revie
     admitted = []
 
     @asynccontextmanager
-    async def slot(record):
+    async def slot(record, *, check=None):
         admitted.append(record["callKind"])
         yield
 
@@ -178,7 +213,8 @@ async def test_exhausted_budget_does_not_enter_provider_queue(monkeypatch, revie
 
 
 @pytest.mark.usefixtures("disposable_databases")
-async def test_paid_pause_at_provider_admission_rejects_reservation_without_charge(monkeypatch):
+@pytest.mark.parametrize("pause_source", ["store", "api"])
+async def test_paid_pause_at_provider_admission_rejects_reservation_without_charge(monkeypatch, pause_source):
     from practiq_ai import saas, task_api
     from practiq_ai.contracts import (
         DocumentReference,
@@ -189,18 +225,28 @@ async def test_paid_pause_at_provider_admission_rejects_reservation_without_char
 
     monkeypatch.setenv("AI_INPUT_POINTS_PER_1K", "1")
     monkeypatch.setenv("AI_OUTPUT_POINTS_PER_1K", "1")
+    # Hold the coordinator so API pause must be observed from its committed run flag.
+    monkeypatch.setattr(runtime.Service, "controls", lambda self: self.stop_event.wait())
     service, reference, model = await setup_api(monkeypatch, [parsed()])
     credential = await seed_account(service.db)
     account = await saas.identity("13800138000", credential)
     once = True
 
     @asynccontextmanager
-    async def slot(_record):
+    async def slot(_record, *, check=None):
         nonlocal once
         if once:
             once = False
             run = (await service.db.rows("SELECT run_id,thread_id FROM document_runs WHERE status='running'"))[0]
-            await service.db.store.aput(execution.namespace(run["thread_id"], "pause"), run["run_id"], {"requested": True})
+            if pause_source == "store":
+                await service.db.store.aput(execution.namespace(run["thread_id"], "pause"), run["run_id"], {"requested": True})
+            else:
+                identity = saas.ACCOUNT.set(account)
+                try:
+                    await task_api.control_task(run["thread_id"], DocumentTaskControl(
+                        requestId=uuid4(), action="pause", runId=run["run_id"]))
+                finally:
+                    saas.ACCOUNT.reset(identity)
         yield
 
     monkeypatch.setattr(llm, "provider_slot", slot)
@@ -210,7 +256,7 @@ async def test_paid_pause_at_provider_admission_rejects_reservation_without_char
         receipt = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
         await service.wait_idle()
         state = await task_api.get_task(receipt["threadId"])
-        assert state["state"] == "PAUSED" and not model.calls
+        assert state["state"] == "PAUSED" and not model.calls, state
         calls = await service.db.rows("SELECT status,dispatched FROM import_calls")
         assert calls == [{"status": "rejected", "dispatched": False}]
         assert not await service.db.rows("SELECT 1 FROM import_ledger WHERE kind='model'")

@@ -523,7 +523,7 @@ async def structured_call[ResultT: BaseModel](
             metered = await saas.begin_call(runtime, str(call_key), result_key)
             # Reject exhausted units before queueing; spend only after pause recheck.
             await reserve_model_call(runtime, check_only=True)
-            async with provider_slot(record):
+            async with provider_slot(record, check=lambda: guard(runtime)):
                 await guard(runtime)
                 await reserve_model_call(runtime)
                 if runtime:

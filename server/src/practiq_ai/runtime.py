@@ -309,7 +309,8 @@ class Service:
                 if await self.unknown_calls(run):
                     raise DocumentProcessingError(409, 'Model result unknown; explicit recovery required', 'MODEL_RESULT_UNKNOWN')
                 await graph.ainvoke(graph_input, {'configurable': {'thread_id': run['thread_id']},
-                    'run_id': run_id, 'metadata': {'practiqRunId': run_id}}, context=dict(run['context']), durability='sync')
+                    'run_id': run_id, 'metadata': {'practiqRunId': run_id}},
+                    context={**run['context'], 'runDatabase': self.db}, durability='sync')
             snapshot = await self.snapshot(task)
             # A resumed node can pause again without advancing its checkpoint.
             saved_status = 'waiting' if snapshot.interrupts else self.saved_run_status(snapshot, run)

@@ -236,6 +236,12 @@ async def guard(runtime: Runtime[Any] | None, execution: dict[str, Any] | None =
                 await store_put(runtime, "control", "admission", {"generation": generation + 1, "runId": info.run_id})
                 await store_put(runtime, "requests", key, {"runId": info.run_id, "fingerprint": operation["fingerprint"]})
         paused = await runtime.store.aget(namespace(info.thread_id, "pause"), str(info.run_id), refresh_ttl=False)
+        if check_pause and (database := context.get("runDatabase")) is not None:
+            rows = await database.rows(
+                "SELECT pause_requested FROM document_runs WHERE run_id=%s AND thread_id=%s",
+                (str(info.run_id), info.thread_id),
+            )
+            paused = paused or bool(rows and rows[0]["pause_requested"])
     except DocumentProcessingError:
         raise
     except Exception as exc:

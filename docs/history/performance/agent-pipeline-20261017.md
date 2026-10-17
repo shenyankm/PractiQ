@@ -18,7 +18,7 @@ not a claim that every possible Agent failure or workload has been eliminated.
 | Outbox and controls | Separate wake events; clear each before its database scan; drain full 100-row pages without idle sleeps | Notification isolation and backlog regressions; broker recovery suite |
 | Preparation | Keep isolated extractor/Office workers, shared resource budgets and checksum manifests | Existing format, cancellation and preparation tests |
 | Unit and review I/O | Move the shared ordered map from a graph-private helper to `capacity.bounded_map`; allocate only the configured number of workers | Empty/single/10000-item order, task-count, cancellation and sibling-failure tests |
-| Model admission | Check budget before queueing; recheck execution/pause after provider waiting; then reserve budget and record dispatch | Budget exhaustion, real graph pause/resume and PostgreSQL paid-reservation regressions |
+| Model admission | Check budget before queueing; recheck pause before RPM consumption and dispatch using the committed run flag; reserve budget afresh | Budget exhaustion, real graph pause/resume and PostgreSQL paid-reservation regressions |
 | Structured extraction and review | Keep bounded corrections, stalled/truncated-output handling, source-evidenced repair and immutable result receipts | Existing structured-output, review and billing tests |
 | Unit persistence | Include unit-result serialization/write in the remaining stage deadline | Injected hung-write timeout and existing storage/recovery tests |
 | Completion and recovery | Keep synchronous checkpoints, unknown-result blocking, exclusive ownership and explicit retry | Existing restart, ambiguous publish/ACK and billing probes |
@@ -55,6 +55,26 @@ reservation, zero model ledger charges and unchanged balance. Explicit resume
 completes with one provider invocation and one settlement. A request already
 dispatched remains subject to the existing conservative unknown-usage handling.
 
+## PR review corrections
+
+[PR #257](https://github.com/shenyankm/PractiQ/pull/257) identified two additional
+pause boundaries. Provider admission previously consumed an RPM slot before
+checking a queued pause, and the Store projection could lag an acknowledged
+pause transaction. The rate gate now checks before taking a slot after
+concurrency admission and on each rate-wait retry. Runtime guards also read the
+current run's committed pause flag, scoped by run and thread IDs, using an ephemeral database
+handle; persisted context and checkpoints retain no database handle.
+
+Two regressions reproduce concurrency/rate waits and assert zero consumed RPM
+slots, released concurrency, no model calls, and one call on explicit resume.
+The paid regression also pauses through the normal authenticated task API while
+the control coordinator is parked. Removing the durable check makes that task
+complete despite the committed pause; the corrected code pauses with no model
+call or ledger debit, then settles exactly once on explicit resume. The focused
+admission/execution/review suite passes 242 tests. Initial fixture-authentication
+and command-directory failures are retained separately from valid red/green
+regressions.
+
 ## Measurements
 
 Python 3.14.7 on local macOS. Storage batches use concurrency four and identical
@@ -66,13 +86,13 @@ whole-service memory. The 10000-item case is a stress workload.
 
 | Storage items | Before median | After median | Reduction | Worker tasks | Traced peak, before → after |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| 20 | 0.306 ms | 0.185 ms | 39.5% | 20 → 4 | 25311 → 15473 B |
-| 1000 | 10.697 ms | 4.065 ms | 62.0% | 1000 → 4 | 1345571 → 23889 B |
-| 10000 | 108.312 ms | 39.195 ms | 63.8% | 10000 → 4 | 13680843 → 96169 B |
+| 20 | 0.289 ms | 0.172 ms | 40.6% | 20 → 4 | 25311 → 15545 B |
+| 1000 | 10.789 ms | 4.112 ms | 61.9% | 1000 → 4 | 1345571 → 23961 B |
+| 10000 | 108.727 ms | 39.252 ms | 63.9% | 10000 → 4 | 13680843 → 96241 B |
 
 The mocked outbox workload publishes 201 ordered messages in pages of 100, 100,
 and one, retaining real one-second polling sleeps. Across three alternating pairs,
-median drain time fell from 2035.152 ms to 28.670 ms by removing the two idle
+median drain time fell from 2035.225 ms to 19.753 ms by removing the two idle
 waits with backlog. Publisher/DB operations are substituted in this measurement;
 these numbers do not represent RabbitMQ throughput. Every paired output hash
 matches.
@@ -82,12 +102,17 @@ The separate runtime probe uses real disposable PostgreSQL/RabbitMQ, a fake
 concurrency two. Health requests use an in-process ASGI transport. It measures
 admission through completion, including checkpoints, but excludes setup and
 process startup. The final three-pair alternating comparison uses an archived
-baseline checkout and the final source with the read-only budget preflight.
-Median elapsed time was 4.279 s before and 4.290 s after (0.3% slower), with
-individual runs at 4.251–4.411 s before and 4.260–5.160 s after. Median per-run
-queue wait was 1852 ms before and 1847 ms after; median per-run `/ok` p95 was
-2.744 ms before and 2.901 ms after. All 240 documents completed with exactly
+baseline checkout and the review-fixed source, including durable pause checks and RPM admission.
+Median elapsed time was 4.328 s before and 4.290 s after (0.9% faster), with
+individual runs at 4.208–4.368 s before and 4.287–4.343 s after. Median per-run
+queue wait was 1911 ms before and 1817 ms after; median per-run `/ok` p95 was
+3.000 ms before and 2.694 ms after. All 240 documents completed with exactly
 240 model calls. No overall throughput improvement is claimed.
+
+The published pre-review source measured 4.279 s before / 4.290 s after
+(0.3% slower); its samples and source snapshot remain available in the original
+acceptance files and Git commit `c405ed4`. Review-fixed measurements use a fresh
+`pr257/review-fixed/` directory and retain the earlier raw files.
 
 Exploratory measurements of the first candidate varied in both directions:
 nonalternating medians 3.205 s before / 3.332 s after, then alternating medians
@@ -115,12 +140,16 @@ measurements and local raw evidence. Earlier performance reports and all origina
 screenshots are preserved; shared check outputs are archived during verification
 and restored after the new outputs are retained in this run's directory.
 
-Final `make verify` passed all 2755 tests (zero failures/errors/skips; 11 dependency
+Final `make verify` passed all 2758 tests (zero failures/errors/skips; 11 dependency
 deprecation warnings), Ruff, Pyright, lock validation and 33 evaluation fixtures.
-Line coverage was 6832/7202 (94.86%); branch coverage was 2410/2676 (90.06%). All
+Line coverage was 6837/7207 (94.87%); branch coverage was 2413/2680 (90.04%). All
 61 selected fault probes passed with the four reported rates at 100%; the separate
 `durableCrashRecovery` aggregate remains `NOT_ASSESSED`. Wheel/sdist building and
-the 40-file package source/lock integrity check passed. These are local results.
+the 40-file package source/lock integrity check passed. These are local results. One preceding full repeat passed 2757 tests but failed
+the broker consumer-timeout observation at its unchanged 140-second bound.
+An isolated fresh-broker repeat passed in 65.58 s, and this final complete repeat
+passed all tests without changing that assertion or timeout. Both complete runs,
+queue arguments and broker logs are retained under `pr257/`.
 
 ## Limits
 
