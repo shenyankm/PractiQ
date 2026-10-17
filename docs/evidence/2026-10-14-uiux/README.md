@@ -1,6 +1,6 @@
 # PractiQ UI/UX acceptance — 2026-10-14
 
-Screenshot files were removed on October 17, 2026 during repository cleanup. The results below describe the original acceptance. Logs, measurements and original hash manifests are retained as historical records; screenshot entries in those manifests no longer identify available files. Current product screenshots remain in the root README files.
+Screenshot files were removed on October 17, 2026 during repository cleanup. The results below describe the original acceptance. Logs, measurements and original hash manifests are retained as historical records; screenshot entries in those manifests no longer identify available files. Current product screenshots remain in the root README files. All 88 removed tracked screenshots are listed in the [historical checksum manifest](../screenshots-removed-20261017.sha256); recover their files from Git commit `6a0ea50`.
 
 The existing App and import Web interfaces were refined using [UI UX Pro Max](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill), while preserving the warm-purple theme, octopus artwork, system Chinese fonts and existing product boundaries. The skill entrypoint, search tools and professional UI checklist were used. Broad education search results favored marketing and child-oriented treatments; those recommendations were not adopted. Focused progress, typography, keyboard and React guidance informed the changes instead.
 
@@ -8,9 +8,9 @@ The existing App and import Web interfaces were refined using [UI UX Pro Max](ht
 
 The PR candidate is based on `cb0d0dc85e0d9ab74ac3483aedcf84bf8b745c9d`, including the already-merged Vibe Pay and account-token flow. Web UI changes were adapted to that baseline without restoring card binding or redemption. Current Web evidence uses authenticated synthetic phone/account-token fixtures and preserves the purchase route and explicit recharge/model boundaries.
 
-Web build, lint and coverage were rerun: 81 unit tests and all 26 built-browser scenarios passed. App build/type/lint/coverage were rerun: 392 passed with the same optional benchmark skipped. App UI and browser/script sources are byte-identical to the initially validated candidate, so the prior 67 browser passes and screenshots are retained with their original provenance rather than described as a fresh rerun.
+Web build, lint and coverage were rerun: 81 unit tests and all 26 built-browser scenarios passed. App build/type/lint/coverage were rerun: 392 passed with the same optional benchmark skipped. App UI and browser/script sources were byte-identical to the initially validated candidate, so the prior 67 browser passes were carried forward with their original provenance rather than described as a fresh rerun. The associated screenshots are now available only in Git history.
 
-The authoritative Web comparison files are `main-before-*` and `main-after-*`: identical page states, full-page framing, fixtures and 1440×1000 / 390×844 viewports. Original `web/before-*`, `web/after-*` and 70-unit/24-browser logs remain historical evidence from the pre-rebase candidate. See [baseline metadata](web/main-before-metadata.json), [candidate metadata](web/main-after-metadata.json), and [preserved purchase options](web/main-after-recharge-metadata.json).
+The original Web comparison used `main-before-*` and `main-after-*`: identical page states, full-page framing, fixtures and 1440×1000 / 390×844 viewports. Those screenshots and the original pre-rebase `web/before-*` and `web/after-*` captures are now available only in Git history. The 70-unit/24-browser logs and comparison metadata remain in this directory. See [baseline metadata](web/main-before-metadata.json), [candidate metadata](web/main-after-metadata.json), and [preserved purchase options](web/main-after-recharge-metadata.json).
 
 ## Changes and observable benefit
 
@@ -31,7 +31,7 @@ No new dependencies or model actions were introduced. Existing source associatio
 
 The original comparisons covered App banks, questions and practice on desktop and phone, plus Web connection, workspace and phone review.
 
-Additional acceptance captures: App dark desktop, App dark phone, English phone, landscape practice, phone editor, Web dark desktop, Web dark phone, and Web verified export.
+Additional original acceptance captures (now in Git history): App dark desktop, App dark phone, English phone, landscape practice, phone editor, Web dark desktop, Web dark phone, and Web verified export.
 
 The initial App capture script produced 22 screenshots with no page errors; this record originally included 13 representative browser screenshots alongside four before captures. Historical Web had six before and ten after captures; the main-based refresh had ten before and sixteen after captures, including supplemental purchase/recharge views. The three macOS screenshots came from a running Tauri development binary in a separate QA app bundle using the same synthetic frontend: banks, questions, practice. Native clicks verified opening the question list, resuming practice and moving to the next question. These screenshot files were subsequently removed in the cleanup described above.
 

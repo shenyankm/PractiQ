@@ -1,6 +1,6 @@
 # Button sizing and history toolbar acceptance, October 17, 2026
 
-Screenshot files were removed on October 17, 2026 during repository cleanup. The results below describe the original acceptance. Logs, measurements and original hash manifests are retained as historical records; screenshot entries in those manifests no longer identify available files. Current product screenshots remain in the root README files.
+Screenshot files were removed on October 17, 2026 during repository cleanup. The results below describe the original acceptance. Logs, measurements and original hash manifests are retained as historical records; screenshot entries in those manifests no longer identify available files. Current product screenshots remain in the root README files. All 88 removed tracked screenshots are listed in the [historical checksum manifest](../screenshots-removed-20261017.sha256); recover their files from Git commit `6a0ea50`.
 
 The complete original 14-entry checksum list is retained in [SHA256SUMS.original](SHA256SUMS.original) for verifying files recovered from Git history. [SHA256SUMS](SHA256SUMS) covers only the files still present in this directory.
 
@@ -20,10 +20,10 @@ documents variants and composition.
 
 ## Native macOS evidence
 
-The existing isolated `PractiQ Native QA` host
-(`com.practiq.native-errors-20261017`) loads this checkout's development frontend
-from loopback port 1420. Its title still identifies the original native host
-build, `main a430f7e`; the screenshots validate the current frontend through live
+At acceptance, the existing isolated `PractiQ Native QA` host
+(`com.practiq.native-errors-20261017`) loaded the development frontend
+from loopback port 1420. Its title identified the original native host
+build, `main a430f7e`; the original screenshots validated that frontend through live
 reload in macOS WebKit, not a rebuilt installer or a new Rust binary.
 
 - Before: mismatched backup action heights.
@@ -74,7 +74,7 @@ retain the same refresh control; loading disables it, and refreshing retains
 the selected status and page. No native command or read/retry behavior changes.
 
 - Native macOS empty history: the existing isolated
-  WebKit host shows the current frontend after a successful passive refresh.
+  WebKit host showed the acceptance frontend after a successful passive refresh.
 - Desktop empty history and
   populated history.
 - Narrow empty history and

@@ -1,6 +1,6 @@
 # Native feedback and compact error layout acceptance
 
-Screenshot files were removed on October 17, 2026 during repository cleanup. The results below describe the original acceptance. Logs, measurements and original hash manifests are retained as historical records; screenshot entries in those manifests no longer identify available files. Current product screenshots remain in the root README files.
+Screenshot files were removed on October 17, 2026 during repository cleanup. The results below describe the original acceptance. Logs, measurements and original hash manifests are retained as historical records; screenshot entries in those manifests no longer identify available files. Current product screenshots remain in the root README files. All 88 removed tracked screenshots are listed in the [historical checksum manifest](../screenshots-removed-20261017.sha256); recover their files from Git commit `6a0ea50`.
 
 Captured on 2026-10-17 from the worktree based on `a430f7e`, with the changes in this pull request applied. These are development acceptance records, not release-package or clean-machine certification. All bank content and Web account values shown are synthetic.
 

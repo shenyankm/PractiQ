@@ -1,8 +1,8 @@
 # Vibe Pay checkout browser evidence
 
-Screenshot files were removed on October 17, 2026 during repository cleanup. The results below describe the original acceptance. Logs, measurements and original hash manifests are retained as historical records; screenshot entries in those manifests no longer identify available files. Current product screenshots remain in the root README files.
+Screenshot files were removed on October 17, 2026 during repository cleanup. The results below describe the original acceptance. Logs, measurements and original hash manifests are retained as historical records; screenshot entries in those manifests no longer identify available files. Current product screenshots remain in the root README files. All 88 removed tracked screenshots are listed in the [historical checksum manifest](../screenshots-removed-20261017.sha256); recover their files from Git commit `6a0ea50`.
 
-Captured on macOS with Chromium and mocked same-origin payment responses. The screenshots use the production Web theme and simulated phone/order data; they contain no credentials, cards or receipt files.
+Captured on macOS with Chromium and mocked same-origin payment responses. The original screenshots used the production Web theme and simulated phone/order data; they contained no credentials, cards or receipt files.
 
 - Desktop checkout, 1280 × 720: frozen price/points, explicit Alipay link and account-owned order history.
 - Mobile credited order, 390 × 844: reconnection after reload, confirmed direct credit and guidance to continue parsing explicitly.
