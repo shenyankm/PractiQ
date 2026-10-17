@@ -2,6 +2,18 @@ import { chooseOption } from "../../shared/select-test.mjs";
 import { test as base, expect } from 'playwright/test';
 import { writeFile } from 'node:fs/promises';
 
+function textLines(node) {
+ const walker=document.createTreeWalker(node,NodeFilter.SHOW_TEXT);
+ const tops=new Set();
+ while(walker.nextNode()) {
+  if(!walker.currentNode.textContent.trim()) continue;
+  const range=document.createRange();
+  range.selectNodeContents(walker.currentNode);
+  for(const rect of range.getClientRects()) if(rect.width) tops.add(Math.round(rect.top));
+ }
+ return tops.size;
+}
+
 const test=base.extend({page:async ({page},use)=>{
  const errors=[];
  page.on('pageerror',e=>errors.push(e.message));
@@ -10,6 +22,48 @@ const test=base.extend({page:async ({page},use)=>{
  expect(errors).toEqual([]);
  expect(await page.evaluate(()=>window.__previewNativeCalls)).toBe(0);
 }});
+
+for(const locale of ['zh-CN','en']) for(const width of [360,390,960,1280]) for(const theme of ['light','dark']) {
+ test(`localized bank actions and question lists fit in ${locale} at ${width}px (${theme})`,async ({page},testInfo)=>{
+  const english=locale==='en';
+  await page.setViewportSize({width,height:850});
+  await page.emulateMedia({reducedMotion:'reduce',colorScheme:theme});
+  await page.addInitScript(language=>Object.defineProperty(navigator,'languages',{get:()=>[language]}),locale);
+  await page.goto('/');
+  const card=page.locator('.bank-card').first();
+  await expect(card).toBeVisible();
+  for(const button of await card.locator('[data-slot="card-content"] button').all()) {
+   expect.soft(await button.evaluate(textLines)).toBe(1);
+   const box=await button.boundingBox(),container=await card.boundingBox();
+   expect.soft(box.x).toBeGreaterThanOrEqual(container.x);
+   expect.soft(box.x+box.width).toBeLessThanOrEqual(container.x+container.width);
+   expect.soft(box.height).toBe(width<768?48:40);
+  }
+  await page.screenshot({path:testInfo.outputPath('banks.png'),fullPage:true});
+  const trigger=card.getByRole('button',{name:english?/^Actions for bank /:/^题库操作 /});
+  await trigger.click();
+  const menu=page.getByRole('menu');
+  await expect(menu).toBeVisible();
+  for(const item of await menu.getByRole('menuitem').all()) expect.soft(await item.evaluate(textLines)).toBe(1);
+  const box=await menu.boundingBox();
+  expect.soft(box.x).toBeGreaterThanOrEqual(0);
+  expect.soft(box.x+box.width).toBeLessThanOrEqual(width);
+  await page.screenshot({path:testInfo.outputPath('bank-menu.png'),fullPage:true});
+  await page.keyboard.press('Escape');
+  await expect(trigger).toBeFocused();
+  if(width<768) await page.getByRole('button',{name:english?'Open navigation':'打开主导航',exact:true}).click();
+  await page.getByRole('button',{name:english?'Mistakes':'错题本',exact:true}).click();
+  await expect(page.locator('.question-row').first()).toBeVisible();
+  const stems=await page.locator('.question-row > button > p').evaluateAll(nodes=>nodes.map(node=>node.getBoundingClientRect().x));
+  expect.soft(Math.max(...stems)-Math.min(...stems)).toBeLessThanOrEqual(1);
+  if(width>=768) {
+   const value=page.locator('#question-mode [data-slot="select-value"]').locator('..');
+   expect.soft(await value.evaluate(node=>node.scrollWidth<=node.clientWidth)).toBe(true);
+  }
+  expect.soft(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.screenshot({path:testInfo.outputPath('mistakes.png'),fullPage:true});
+ });
+}
 
 for (const [locale, width, theme] of [['zh-CN', 1280, 'light'], ['en', 960, 'dark'], ['zh-CN', 390, 'light'], ['en', 360, 'dark']]) {
  test(`settings backup actions share geometry in ${locale} at ${width}px (${theme})`, async ({page}, testInfo) => {
@@ -282,7 +336,7 @@ test('reverted empty reference answers close without losing real editor changes'
    // Save the mode first so the reopened reference starts null with no other draft.
    await editor.getByRole('textbox',{name:'题干（支持 Markdown 和公式）',exact:true}).fill(`Empty reference ${mode} ${action}`);
    await editor.getByRole('button',{name:'保存题目',exact:true}).click();
-   const row=page.getByRole('button',{name:new RegExp(`Empty reference ${mode} ${action}$`)}).locator('..');
+   const row=page.getByRole('button',{name:new RegExp(`^Empty reference ${mode} ${action}`)}).locator('..');
    // Development overlays can cover appended rows; reopen with the keyboard.
    await row.getByRole('button',{name:'编辑题目',exact:true}).press('Enter');
    if(mode==='choice'){
@@ -299,7 +353,7 @@ test('reverted empty reference answers close without losing real editor changes'
    await expect(page.getByRole('alertdialog')).toHaveCount(0);
   }
  }
- const changedRow=page.getByRole('button',{name:/Empty reference fill_blank outside$/}).locator('..');
+ const changedRow=page.getByRole('button',{name:/^Empty reference fill_blank outside/}).locator('..');
  await changedRow.getByRole('button',{name:'编辑题目',exact:true}).press('Enter');
  const answer=editor.getByRole('textbox',{name:'第 1 空',exact:true});
  await answer.fill('Real reference');
@@ -326,7 +380,7 @@ test('incomplete question reference fallbacks close after reverting text and kee
   await editor.getByRole('textbox',{name:'题干（支持 Markdown 和公式）',exact:true}).fill(title);
   await editor.getByRole('button',{name:'保存题目',exact:true}).click();
   const open=async()=>{
-   const button=page.getByRole('button',{name:new RegExp(`${title}$`)}).locator('..').getByRole('button',{name:'编辑题目',exact:true});
+   const button=page.getByRole('button',{name:new RegExp(`^${title}`)}).locator('..').getByRole('button',{name:'编辑题目',exact:true});
    await button.evaluate(node=>node.scrollIntoView({block:'center'}));
    await page.mouse.move(0,0);
    await expect(page.getByText('题目已保存，历史练习不受影响',{exact:true})).toBeHidden();
@@ -367,7 +421,7 @@ test('listening URL drafts survive every implicit dismissal without triggering d
  await page.goto('/');
  const bank=page.locator('[data-slot=card]').filter({has:page.getByText('英语专项 · 听力与写作',{exact:true})});
  await bank.getByRole('button',{name:'查看题目',exact:true}).click();
- const open=()=>page.getByRole('button',{name:/Listening — chimes$/}).locator('..').getByRole('button',{name:'编辑题目',exact:true}).click();
+ const open=()=>page.getByRole('button',{name:/^Listening — chimes/}).locator('..').getByRole('button',{name:'编辑题目',exact:true}).click();
  const editor=page.getByRole('dialog',{name:'编辑题目',exact:true});
  const input=editor.getByRole('textbox',{name:'听力资源网址',exact:true});
  await open();
@@ -416,7 +470,7 @@ test('applied listening URLs become guarded when their audio is removed or repla
  const save=editor.getByRole('button',{name:'保存题目',exact:true});
  const confirmation=page.getByRole('alertdialog',{name:'放弃未保存的更改？',exact:true});
  for(const action of ['remove','mode','file']){
-  await page.getByRole('button',{name:/Listening — chimes$/}).locator('..').getByRole('button',{name:'编辑题目',exact:true}).click();
+  await page.getByRole('button',{name:/^Listening — chimes/}).locator('..').getByRole('button',{name:'编辑题目',exact:true}).click();
   const url=`https://example.com/${action}.wav`;
   await input.fill(url);
   await editor.getByRole('button',{name:'从网址获取音频',exact:true}).click();
@@ -451,7 +505,7 @@ test('child editors retain changed drafts and stage changes until the parent sav
  await page.goto('/');
  const bank=page.locator('[data-slot=card]').filter({has:page.getByText('阅读与组合题',{exact:true})});
  await bank.getByRole('button',{name:'查看题目',exact:true}).click();
- const openRoot=()=>page.getByRole('button',{name:/words-root$/}).locator('..').getByRole('button',{name:'编辑题目',exact:true}).click();
+ const openRoot=()=>page.getByRole('button',{name:/^words-root/}).locator('..').getByRole('button',{name:'编辑题目',exact:true}).click();
  const editor=page.getByRole('dialog',{name:'编辑题目',exact:true});
  const field=editor.getByRole('textbox',{name:'题干（支持 Markdown 和公式）',exact:true});
  await openRoot();

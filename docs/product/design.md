@@ -38,6 +38,8 @@ The bank-home Refresh action belongs to the top action group beside New bank and
 
 Single-select controls center their selected text within the shared control height, with wrappers matching the control bounds so the arrow stays centered. Do not render empty quick-count rows in study setup; unavailable presets must not add blank vertical spacing.
 
+Bank cards use a content-aware grid and wrap whole footer actions when space is limited. Keep short action labels on one line; longer localized actions retain vertical padding. Menus size to their contents within the available viewport. Question lists lead with the stem, followed by wrapping type, score and bank metadata, so every stem shares the same starting edge. Give the question-type filter enough width for its English labels.
+
 Notifications reuse Sonner and existing theme switching. Success, information, warning and error foregrounds, backgrounds and borders come from shared semantic tokens, with 12px corners, one border and visible keyboard focus. See the [component audit](../history/product/design-audit.md).
 
 ## Dark mode and platforms

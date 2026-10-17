@@ -83,11 +83,12 @@ html.theme-transition::view-transition-new(root) {
   }
 }
 
-/* English actions need room to wrap within the desktop's existing columns. */
+/* Long localized actions retain vertical padding when they wrap. */
 html[lang="en"] [data-button]:not([data-size^="icon"]) {
   height: auto;
   min-height: var(--control-height);
   white-space: normal;
+  padding-block: 0.5rem;
 }
 
 .sidebar-label {
@@ -226,9 +227,12 @@ html[data-native-insets="true"] {
 .resume-content { display: flex; align-items: center; gap: 2rem; }
 .resume-content > div:first-child { max-width: 36rem; }
 .resume-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.5rem; margin-left: auto; }
+.bank-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr)); gap: 1.25rem; }
 .bank-card { min-height: 14rem; }
 .bank-card [data-slot="card-header"] { gap: 0.75rem; }
 .bank-card [data-slot="card-content"] { padding-top: 1rem; border-top: 1px solid var(--border); }
+.bank-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.bank-actions [data-button] { flex: 1 0 max-content; }
 .bank-count { display: flex; align-items: center; gap: 0.5rem; color: var(--muted-foreground); font-size: 0.875rem; font-variant-numeric: tabular-nums; }
 .bank-count svg { width: 1rem; height: 1rem; }
 .question-filters { padding: 1rem; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--card); }

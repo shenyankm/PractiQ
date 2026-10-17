@@ -75,7 +75,7 @@ export function BankList({ offset, onOffsetChange, revision, onLoadingChange, bu
     </div>}
     {!loading && !error && unfinished && <Card className="resume-card"><CardContent className="resume-content"><div className="min-w-0 flex-1"><h2 className="text-lg font-semibold">{t("继续未完成的练习")}</h2><p className="mt-1 break-words font-medium">{unfinished.title}</p><p className="mt-2 text-sm text-muted-foreground"><SessionProgress session={unfinished} onExpired={() => setRefresh(value => value + 1)}/></p><progress className="practice-progress mt-3" aria-label={t("继续未完成的练习")} max={unfinished.count || 1} value={unfinished.kind && unfinished.kind !== "practice" ? unfinished.draftAnswered ?? 0 : unfinished.answered}/></div><div className="resume-actions"><Button variant="ghost" disabled={busy} onClick={onHistory}>{t("查看全部")}<ChevronRight aria-hidden="true" /></Button><Button disabled={busy} onClick={() => onOpenSession(unfinished.id)}><Play aria-hidden="true" />{unfinished.kind && unfinished.kind !== "practice" ? t("继续考试") : t("继续练习")}</Button></div></CardContent></Card>}
     {!page.total && !loading && !error && ready && <Empty className="min-h-96 border border-dashed"><EmptyHeader><EmptyMedia><BookOpen /></EmptyMedia><EmptyTitle>{t("从第一份题库开始")}</EmptyTitle><EmptyDescription>{t("导入 ZIP 开始离线练习；文档解析请前往 AI 服务网页。")}</EmptyDescription></EmptyHeader><EmptyContent><Button disabled={busy} onClick={onImport}><Upload />{t("导入题库 ZIP")}</Button><Button variant="outline" disabled={busy} onClick={onAddExample}><BookOpen />{t("添加示例题库")}</Button></EmptyContent></Empty>}
-    <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+    <div className="bank-grid">
       {!loading && !error && page.items.map(bank => <Card key={bank.id} className="bank-card">
         <CardHeader>
           <div className="flex items-start justify-between gap-2">
@@ -98,8 +98,8 @@ export function BankList({ offset, onOffsetChange, revision, onLoadingChange, bu
           {bank.description && <CardDescription className="line-clamp-2">{bank.description}</CardDescription>}
           <p className="bank-count"><BookOpen aria-hidden="true" />{t("{0} 题", { 0: bank.count })}</p>
         </CardHeader>
-        <CardContent className="mt-auto grid grid-cols-2 gap-2">
-          <Button variant="outline" className={!bank.count ? "col-span-2" : ""} disabled={busy} onClick={() => onOpenQuestions(bank.id)}>{t("查看题目")}<ChevronRight /></Button>
+        <CardContent className="bank-actions mt-auto">
+          <Button variant="outline" disabled={busy} onClick={() => onOpenQuestions(bank.id)}>{t("查看题目")}<ChevronRight /></Button>
           {!!bank.count && <Button disabled={busy} onClick={() => onPractice(bank.id)}><Play />{t("开始练习")}</Button>}
         </CardContent>
       </Card>)}
