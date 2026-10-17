@@ -30,7 +30,12 @@ jobs:
       - id: candidate
         env:
           RELEASE_TAG: ${{ inputs.tag }}
-        run: python app/scripts/release.py check --tag "$RELEASE_TAG"
+          WORKFLOW_SHA: ${{ github.sha }}
+          WORKFLOW_REF: ${{ github.ref }}
+        run: |
+          test "$WORKFLOW_REF" = "refs/tags/$RELEASE_TAG"
+          test "$(git rev-parse HEAD)" = "$WORKFLOW_SHA"
+          python app/scripts/release.py check --tag "$RELEASE_TAG"
       - name: Reject an existing release before rebuilding
         env:
           GH_TOKEN: ${{ github.token }}
@@ -62,6 +67,8 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: write
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -78,10 +85,40 @@ jobs:
         with:
           name: service-checks
           path: app/.build/release-inputs/service-checks/
+      - name: Generate a change summary for maintainer review
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          CANDIDATE_SHA: ${{ needs.candidate.outputs.sha }}
+        run: |
+          gh api --method POST "repos/$GITHUB_REPOSITORY/releases/generate-notes" \
+            -f tag_name="$RELEASE_TAG" -f target_commitish="$CANDIDATE_SHA" \
+            -f configuration_file_path=.github/release.yml --jq .body > "$RUNNER_TEMP/release-changes.md"
       - name: Assemble versioned assets, checksums and draft notes
         env:
           RELEASE_TAG: ${{ inputs.tag }}
-        run: python app/scripts/release.py assemble --tag "$RELEASE_TAG" --inputs app/.build/release-inputs --output app/.build/release-assets
+        run: python app/scripts/release.py assemble --tag "$RELEASE_TAG" --inputs app/.build/release-inputs --output app/.build/release-assets --changes "$RUNNER_TEMP/release-changes.md"
+      - name: Attest the checked draft assets
+        id: provenance
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: |
+            app/.build/release-assets/PractiQ_*
+            app/.build/release-assets/SHA256SUMS.txt
+            app/.build/release-assets/release-manifest.json
+            app/.build/release-assets/release-evidence.zip
+      - name: Verify provenance before creating the draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          CANDIDATE_SHA: ${{ needs.candidate.outputs.sha }}
+          ATTESTATION_BUNDLE: ${{ steps.provenance.outputs.bundle-path }}
+        run: |
+          for asset in app/.build/release-assets/PractiQ_* app/.build/release-assets/SHA256SUMS.txt app/.build/release-assets/release-manifest.json app/.build/release-assets/release-evidence.zip; do
+            gh attestation verify "$asset" --repo "$GITHUB_REPOSITORY" \
+              --bundle "$ATTESTATION_BUNDLE" --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release.yml" \
+              --source-ref "refs/tags/$RELEASE_TAG" --source-digest "$CANDIDATE_SHA" --deny-self-hosted-runners
+          done
       - name: Create draft without publishing or replacing assets
         env:
           GH_TOKEN: ${{ github.token }}
