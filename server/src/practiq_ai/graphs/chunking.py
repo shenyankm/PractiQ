@@ -1,6 +1,7 @@
 import hashlib
 import json
 import re
+from bisect import bisect_right
 from typing import Any, NotRequired, TypedDict, cast
 
 from pydantic import ValidationError
@@ -664,7 +665,8 @@ def build_source_evidence(
         if frames is not None:
             if table is None and not _record_body_scope_known(text, frames):
                 uncertain_layouts.add(len(layouts))
-            layouts.append((unit, text, frames, table[1] if table else None))
+            layouts.append((unit, text, frames, table[1] if table else None,
+                            [unit['start'] + frame['contentStart'] for frame in frames]))
     if not layouts:
         return {}
     result: dict[str, SourceEvidence | None] = {}
@@ -689,7 +691,7 @@ def build_source_evidence(
         layout_index, span = possible[0]
         if layout_index in uncertain_layouts:
             continue
-        unit, text, frames, header = layouts[layout_index]
+        unit, text, frames, header, frame_starts = layouts[layout_index]
         source_index = next(iter(units))
         if source_index not in normalized_chunks:
             normalized_chunks[source_index] = _normalized_source(source_text[span['start']:span['end']], span['start'])
@@ -697,21 +699,24 @@ def build_source_evidence(
         if len(locations) != 1:
             continue
         left, right = locations[0]
-        for frame_index, frame in enumerate(frames):
-            own_start, frame_end = unit['start'] + frame['contentStart'], unit['start'] + frame['end']
-            raw = text[frame['contentStart']:frame['end']].rstrip('\r\n')
-            first_line = raw.partition('\n')[0]
-            anchor = _TYPED_QUESTION.match(first_line) if header is None else None
-            own_offset = len(first_line) - len(first_line.lstrip())
-            has_stem = bool(first_line[anchor.end():].strip()) if anchor else (
-                'stem' in header.split('\t') and bool(raw.split('\t')[header.split('\t').index('stem')])
-                if header else False
-            )
-            required_end = own_start + (len(first_line.rstrip()) if header is None else len(raw.rstrip()))
-            if (has_stem and left == own_start + own_offset and right >= required_end
-                    and span['start'] <= own_start and frame_end <= span['end'] and right <= own_start + len(raw)):
-                matches[index] = (layout_index, frame_index, left - own_start, right - own_start)
-                break
+        # Source frames are ordered and disjoint; only the frame containing the quote can match.
+        frame_index = bisect_right(frame_starts, left) - 1
+        if frame_index < 0:
+            continue
+        frame = frames[frame_index]
+        own_start, frame_end = frame_starts[frame_index], unit['start'] + frame['end']
+        raw = text[frame['contentStart']:frame['end']].rstrip('\r\n')
+        first_line = raw.partition('\n')[0]
+        anchor = _TYPED_QUESTION.match(first_line) if header is None else None
+        own_offset = len(first_line) - len(first_line.lstrip())
+        has_stem = bool(first_line[anchor.end():].strip()) if anchor else (
+            'stem' in header.split('\t') and bool(raw.split('\t')[header.split('\t').index('stem')])
+            if header else False
+        )
+        required_end = own_start + (len(first_line.rstrip()) if header is None else len(raw.rstrip()))
+        if (has_stem and left == own_start + own_offset and right >= required_end
+                and span['start'] <= own_start and frame_end <= span['end'] and right <= own_start + len(raw)):
+            matches[index] = (layout_index, frame_index, left - own_start, right - own_start)
     claims: dict[tuple[int, int], list[int]] = {}
     for index, (layout_index, frame_index, *_rest) in matches.items():
         claims.setdefault((layout_index, frame_index), []).append(index)
@@ -736,7 +741,7 @@ def build_source_evidence(
         if len(layout_indexes) != 1:
             continue
         layout_index = next(iter(layout_indexes))
-        unit, text, frames, header = layouts[layout_index]
+        unit, text, frames, header, _ = layouts[layout_index]
         selected = [frames[matches[index][1]] for index in indexes]
         physical = {frame['id']: local for local, frame in enumerate(selected)}
         if len(physical) != len(indexes):
