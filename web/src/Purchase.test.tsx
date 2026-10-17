@@ -116,3 +116,40 @@ it("shows durable refund review and offers query without a payment action", asyn
   expect(screen.queryByRole("button",{name:"准备支付宝支付"})).toBeNull();
   expect((screen.getByRole("button",{name:"查询支付与到账"}) as HTMLButtonElement).disabled).toBe(false);
 });
+
+
+it("ends catalog loading on failure, preserves the error across connect and retries only on request", async () => {
+  const user = userEvent.setup(); let fail = true;
+  const calls = transport(path => path.endsWith("products") && fail ? new Response("", { status: 503 }) : undefined);
+  render(<Purchase />); await screen.findByText(/商品暂不可用/); await connect(user);
+  expect(screen.queryByText("正在读取商品…")).toBeNull();
+  expect(screen.getByText(/商品暂不可用/)).toBeTruthy();
+  expect(screen.queryByText(/结果不明时，请查询已有订单，不要重复购买/)).toBeNull();
+  fail = false;
+  await user.click(screen.getByRole("button", { name: "刷新商品" }));
+  await screen.findByLabelText("额度包");
+  expect(calls.filter(call => call.path.endsWith("products"))).toHaveLength(2);
+  expect(calls.every(call => call.init.method !== "POST")).toBe(true);
+});
+it("links invalid account feedback to preserved inputs and focuses the form", async () => {
+  const user = userEvent.setup(); transport(); render(<Purchase />);
+  await user.type(screen.getByLabelText("手机号"), "bad"); await user.type(screen.getByLabelText("账户令牌"), "fake");
+  await user.click(screen.getByRole("button", { name: "连接账户" })); await screen.findByRole("alert");
+  expect(document.activeElement).toBe(screen.getByLabelText("手机号"));
+  expect(screen.getByLabelText("手机号").getAttribute("aria-describedby")).toBe("purchase-error");
+  expect((screen.getByLabelText("账户令牌") as HTMLInputElement).value).toBe("fake");
+});
+
+it.each(["headers", "body"])("bounds stalled catalog %s and cancels reception", async stage => {
+  vi.useFakeTimers();
+  const cancel = vi.fn();
+  vi.stubGlobal("fetch", vi.fn(async (_path: string, init: RequestInit) => {
+    if (stage === "headers") return new Promise<Response>((_resolve, reject) => init.signal!.addEventListener("abort", () => reject(init.signal!.reason)));
+    return new Response(new ReadableStream({ cancel }));
+  }));
+  const result = expect(paymentProducts()).rejects.toThrow("商品读取超时");
+  await vi.advanceTimersByTimeAsync(20_000); await result;
+  expect(fetch).toHaveBeenCalledOnce();
+  if (stage === "body") expect(cancel).toHaveBeenCalledOnce();
+  expect(vi.getTimerCount()).toBe(0);
+});

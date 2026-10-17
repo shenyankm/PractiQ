@@ -4,7 +4,6 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import App from "./App";
 import { api, blankQuestion, type Session } from "./api";
-import { toast } from "./notifications";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(), isTauri: () => false }));
 vi.mock("./api", async () => ({ ...await vi.importActual("./api"), api: vi.fn() }));
@@ -95,7 +94,7 @@ it("keeps the service editor and draft visible when Android Back cannot save", a
   const url = await screen.findByLabelText("AI 服务地址") as HTMLInputElement;
   await user.type(url, "/draft");
   expect(androidBack()).toBe(true);
-  await waitFor(() => expect(toast.error).toHaveBeenCalled());
+  expect(await screen.findByRole("alert")).toBeTruthy();
   expect(screen.getByRole("heading", { name: "AI 服务", level: 1 })).toBeTruthy();
   expect(url.value).toBe("https://service.example/draft");
 });

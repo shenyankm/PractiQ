@@ -195,3 +195,19 @@ it("clears the previous connection verdict when the saved token is removed", asy
   await userEvent.click(screen.getByRole("button",{name:"清除已保存的访问令牌"}));
   expect(screen.queryByRole("status")).toBeNull();
 });
+
+
+it("keeps autosave failures beside the draft without a duplicate toast", async () => {
+  vi.mocked(api).mockImplementation(async request => {
+    if (request.type === "save_settings") throw new Error("Settings save unavailable");
+    return settings as never;
+  });
+  const user = userEvent.setup(); mount();
+  const address = await screen.findByLabelText("AI 服务地址") as HTMLInputElement;
+  await waitFor(() => expect(address.value).toBe(settings.config.service_url));
+  await user.type(address, "/draft"); await user.tab();
+  expect((await screen.findByRole("alert")).textContent).toContain("Settings save unavailable");
+  expect(address.value).toBe("https://example.com/v1/draft");
+  expect(screen.getByRole("button", { name: "重试保存" })).toBeTruthy();
+  expect(toast.error).not.toHaveBeenCalled();
+});

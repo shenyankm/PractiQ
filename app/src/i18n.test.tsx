@@ -251,7 +251,7 @@ it.each(["en", null] as const)("reloads restored preference %s through the setti
   await userEvent.click(screen.getByRole("button", { name: "设置" }));
   await userEvent.click(await screen.findByRole("button", { name: "恢复备份" }));
   await userEvent.click(await screen.findByRole("menuitem",{name:"恢复学习数据备份"}));
-  await userEvent.click(screen.getByRole("button", { name: "确认" }));
+  await userEvent.click(screen.getByRole("button", { name: "恢复备份" }));
   await waitFor(() => expect(document.documentElement.lang).toBe("en"));
   expect(await screen.findByRole("heading", { name: "Settings" })).toBeTruthy();
   expect(vi.mocked(invoke).mock.calls.filter(([c]) => c === "ai_request")).toHaveLength(0);
@@ -360,7 +360,7 @@ it.each(["cancel", "failure"])("keeps preference when native restore returns %s"
   await userEvent.click(screen.getByRole("button", {name:"Settings"}));
   await userEvent.click(await screen.findByRole("button", {name:t("恢复备份")}));
   await userEvent.click(await screen.findByRole("menuitem",{name:t("恢复学习数据备份")}));
-  await userEvent.click(screen.getByRole("button", {name:t("确认")}));
+  await userEvent.click(screen.getByRole("button", {name:t("恢复备份")}));
   await waitFor(() => expect(invoke).toHaveBeenCalledWith("request",{locale:"en",request:{type:"restore"}}));
   await act(async () => {});
   expect(language.locale).toBe("en");

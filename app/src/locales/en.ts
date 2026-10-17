@@ -1,4 +1,14 @@
 export const en = {
+  "复制诊断": "Copy diagnostics",
+  "诊断已复制": "Diagnostics copied",
+  "复制失败，请手动选择诊断文字。": "Could not copy. Select the diagnostic text manually.",
+  "关闭提示": "Dismiss message",
+  "正在处理…": "Working…",
+  "放弃更改并退出": "Discard changes and quit",
+  "此界面暂时无法显示": "This view could not be displayed",
+  "已保存的数据不受影响。重新加载可能丢失未保存的输入。": "Saved data is unaffected. Reloading may lose unsaved input.",
+  "重新加载": "Reload",
+
   "备份题库与学习记录，不含访问令牌。": "Back up banks and study records. Access tokens are excluded.",
   "备份范围与注意事项": "Backup contents and precautions",
   "提交后查看参考答案，可对照自评。": "Submit to view the reference answer and assess your response.",

@@ -1,6 +1,7 @@
 import { message, t, useI18n } from "./i18n";
-import { useCallback, useEffect, useRef, useState, type MutableRefObject } from "react";
+import { useCallback, useContext, useEffect, useRef, useState, type MutableRefObject } from "react";
 import { toast } from "./notifications";
+import { OperationFailure } from "./OperationFeedback";
 import { PlugZap, LoaderCircle, ChevronRight } from "lucide-react";
 import {
   api,
@@ -44,6 +45,11 @@ export function ConnectionSettingsPanel({
   useEffect(() => () => { ++revision.current; }, []);
   function invalidate() { ++revision.current; setDirty(true); setSaveError(null); }
   const [saveError, setSaveError] = useState<unknown>(null);
+  const operationFailure = useContext(OperationFailure);
+  useEffect(() => {
+    // A modal can hide these fields; only deduplicate a visible inline failure.
+    if (saveError != null && operationFailure?.error === saveError && !operationFailure.dialogOpen) operationFailure.dismiss();
+  }, [saveError, operationFailure]);
   const [error, setError] = useState<unknown>(null);
   const [waiting, setWaiting] = useState(false);
   const [reading, setReading] = useState(true);
@@ -167,7 +173,7 @@ export function ConnectionSettingsPanel({
           {waiting && <p role="status" className="text-sm text-muted-foreground">{t("读取配置耗时较长；可继续离线练习，请勿重复请求。")}</p>}
           {reading && !waiting && <p role="status" className="text-sm text-muted-foreground">{t("加载中…")}</p>}
           <p className="text-sm text-muted-foreground">{t("仅 AI 评分需要配置；离开输入框自动保存。")}</p>
-          <fieldset disabled={busy || operation !== null || !saved} className="min-w-0 space-y-4" onBlur={() => { void persist().catch(e => toast.error(e)); }}>
+          <fieldset disabled={busy || operation !== null || !saved} className="min-w-0 space-y-4" onBlur={() => { void persist().catch(() => { /* persist retains the error beside these fields. */ }); }}>
             <div className="space-y-2">
               <Label htmlFor="serviceUrl">{t("AI 服务地址")}</Label>
               <Input id="serviceUrl" type="url" autoCapitalize="none" enterKeyHint="done" autoComplete="off" spellCheck={false} placeholder="http://127.0.0.1:8000" value={config.service_url || ""} onChange={e => field("service_url", e.target.value)}/>

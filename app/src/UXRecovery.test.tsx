@@ -75,7 +75,7 @@ it("protects changed editor drafts on native window close and quits only after e
   await user.click(within(confirmation).getByRole("button", { name: "取消" }));
   expect((screen.getByRole("textbox", { name: "题库名称" }) as HTMLInputElement).value).toBe("English draft");
   await act(async () => { await native.close!({ preventDefault }); });
-  await user.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "确认" }));
+  await user.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "放弃更改并退出" }));
   await waitFor(() => expect(native.destroy).toHaveBeenCalledOnce());
   expect(api).not.toHaveBeenCalledWith(expect.objectContaining({ type: "save_bank" }));
 });
@@ -136,7 +136,7 @@ it("keeps the import preview retryable when the write itself fails", async () =>
   await user.click(await screen.findByRole("button", { name: "导入" }));
   await user.click(await screen.findByRole("menuitem", { name: "导入题库 ZIP" }));
   await user.click(await screen.findByRole("button", { name: "确认导入" }));
-  await waitFor(() => expect(toast.error).toHaveBeenCalled());
+  expect(await screen.findByRole("alert")).toBeTruthy();
   expect(screen.getByRole("dialog", { name: "导入题库" })).toBeTruthy();
   expect(toast.success).not.toHaveBeenCalled();
 });
@@ -196,4 +196,65 @@ it("returns from AI configuration to the same grading question without automatic
   expect((screen.getByRole("textbox", { name: "人工得分" }) as HTMLInputElement).value).toBe("3");
   expect(ai).toHaveBeenCalledTimes(1);
   expect(api).not.toHaveBeenCalledWith(expect.objectContaining({ type: "test_settings" }));
+});
+
+
+it("restores deletion focus, keeps failed confirmation open and runs only explicit actions", async () => {
+  const original = setup(); let fail = true;
+  vi.mocked(api).mockImplementation(async request => {
+    if (request.type === "delete_bank") { if (fail) throw { code: "OPERATION_FAILED", diagnostic: "Disk is full" }; return null as never; }
+    return original(request);
+  });
+  const user = userEvent.setup(); render(<App />);
+  const trigger = await screen.findByRole("button", { name: "题库操作 English" });
+  await user.click(trigger); await user.click(screen.getByRole("menuitem", { name: "删除题库" }));
+  await user.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "取消" }));
+  await waitFor(() => expect(document.activeElement).toBe(trigger));
+  await user.click(trigger); await user.click(screen.getByRole("menuitem", { name: "删除题库" }));
+  await user.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "删除题库" }));
+  expect(await screen.findByRole("alert")).toBeTruthy();
+  expect(screen.getByRole("alertdialog")).toBeTruthy();
+  expect(vi.mocked(api).mock.calls.filter(([request]) => request.type === "delete_bank")).toHaveLength(1);
+  fail = false;
+  await user.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "删除题库" }));
+  await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+  expect(vi.mocked(api).mock.calls.filter(([request]) => request.type === "delete_bank")).toHaveLength(2);
+});
+
+it("preserves an editor draft and persistent inline diagnostics after save failure", async () => {
+  const original = setup();
+  vi.mocked(api).mockImplementation(async request => { if (request.type === "save_bank") throw { code: "OPERATION_FAILED", diagnostic: "Disk full", requestId: "request-123" }; return original(request); });
+  const user = userEvent.setup(); render(<App />);
+  await user.click(await screen.findByRole("button", { name: "新建题库" }));
+  await user.type(screen.getByRole("textbox", { name: "题库名称" }), "Preserved draft");
+  await user.click(screen.getByRole("button", { name: "保存题库" }));
+  const dialog = screen.getByRole("dialog");
+  expect(await within(dialog).findByRole("alert")).toBeTruthy();
+  expect((screen.getByRole("textbox", { name: "题库名称" }) as HTMLInputElement).value).toBe("Preserved draft");
+  expect(within(dialog).getByText(/Disk full/).closest("details")?.open).toBe(false);
+  await user.click(within(dialog).getByText("诊断详情", { exact: true }));
+  expect(within(dialog).getByText(/Disk full/).closest("details")?.open).toBe(true);
+});
+
+it("shows a failed return from service settings while preserving the grading draft", async () => {
+  const original = setup(); let failSession = false;
+  vi.mocked(api).mockImplementation(async request => {
+    if (request.type === "session" && failSession) throw new Error("Saved session unavailable");
+    return original(request);
+  });
+  vi.mocked(ai).mockRejectedValue({ code: "LOCAL_SERVICE_URL_REQUIRED" });
+  const user = userEvent.setup(); render(<App />);
+  await screen.findByText("English"); await openExam(user);
+  await user.type(screen.getByRole("textbox", { name: "人工得分" }), "3");
+  await user.click(screen.getByRole("button", { name: /AI 评分／继续/ }));
+  await user.click(await screen.findByRole("button", { name: "配置 AI 服务" }));
+  await screen.findByRole("textbox", { name: "AI 服务地址" });
+  failSession = true;
+  await user.click(screen.getByRole("button", { name: "返回评分" }));
+  expect(await screen.findByRole("alert")).toBeTruthy();
+  expect(screen.getByText(/Saved session unavailable/)).toBeTruthy();
+  failSession = false;
+  await user.click(screen.getByRole("button", { name: "返回评分" }));
+  expect((await screen.findByRole("textbox", { name: "人工得分" }) as HTMLInputElement).value).toBe("3");
+  expect(ai).toHaveBeenCalledTimes(1);
 });

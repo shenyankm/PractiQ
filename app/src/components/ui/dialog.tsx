@@ -1,5 +1,6 @@
 import { t, useI18n } from "../../i18n";
 import * as React from "react";
+import { OperationFeedback } from "../../OperationFeedback";
 import { cn } from "cn";
 import { Dialog as DialogPrimitive } from "radix-ui";
 
@@ -87,13 +88,18 @@ function DialogContent({
   );
 }
 
-function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
+function DialogHeader({ className, children, ...props }: React.ComponentProps<"div">) {
   return (
+    <>
     <div
       data-slot="dialog-header"
       className={cn("flex flex-col gap-2", className)}
       {...props}
-    />
+    >
+      {children}
+    </div>
+    <OperationFeedback />
+    </>
   );
 }
 

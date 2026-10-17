@@ -363,7 +363,7 @@ export async function api<R extends Request>(request: R): Promise<ResponseMap[R[
     request: snapshotKey ? {...request, snapshot_key:snapshotKey} : request, locale: locale(),
   }));
 }
-export function errorMessage(error: unknown): string {
+export function errorMessage(error: unknown, includeDiagnostics = true): string {
   if (error instanceof MessageError) return renderMessage(error.localized);
   const object = typeof error === "object" && error !== null ? error as Record<string, unknown> : {};
   const code = String(object.code ?? (typeof error === "string" && /^[A-Z_]+$/.test(error) ? error : ""));
@@ -376,7 +376,7 @@ export function errorMessage(error: unknown): string {
     const rawDiagnostic = object.diagnostic ?? (object.httpStatus != null ? object.message : undefined);
     const diagnostic = typeof rawDiagnostic === "string" && rawDiagnostic !== "" && !Object.values(entry).includes(rawDiagnostic as never)
       ? ` ${t("诊断详情")}: ${rawDiagnostic}` : "";
-    return `${summary}${diagnostic}${detail ? ` (${detail})` : ""}`;
+    return includeDiagnostics ? `${summary}${diagnostic}${detail ? ` (${detail})` : ""}` : summary;
   }
   const actions: Record<string, string> = {
     STALE_RUN: t("请刷新任务状态。"),
@@ -387,7 +387,8 @@ export function errorMessage(error: unknown): string {
   };
   const diagnostic = String(object.diagnostic ?? object.message ?? error);
   const metadata = [code, object.requestId, object.httpStatus].filter(v => v != null && v !== "").join(" · ");
-  return `${actions[code] || t("操作失败，请查看诊断详情。")} ${t("诊断详情")}: ${diagnostic}${metadata ? ` (${metadata})` : ""}`;
+  const summary = actions[code] || t("操作失败，请查看诊断详情。");
+  return includeDiagnostics ? `${summary} ${t("诊断详情")}: ${diagnostic}${metadata ? ` (${metadata})` : ""}` : summary;
 }
 export function itemIds(q: Question, side?: "left" | "right") {
   return q.items

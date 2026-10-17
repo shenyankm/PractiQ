@@ -50,6 +50,9 @@ import {
   type SessionFilter,
 } from "./api";
 import { Button } from "@/components/ui/button";
+import { OperationFailure, OperationFeedback } from "./OperationFeedback";
+import { ErrorBoundary } from "../../shared/error-boundary";
+import { RenderFailure, RenderFailureDialog } from "./RenderFailure";
 import { BankEditor, type BankDraft } from "./BankEditor";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -169,8 +172,16 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
   const [confirm, setConfirm] = useState<{
     title: Message;
     description: Message;
+    label: Message;
     action: () => Promise<void>;
   } | null>(null);
+  const confirmTrigger = useRef<HTMLElement | null>(null);
+  const openConfirm = useCallback((value: NonNullable<typeof confirm>, trigger: HTMLElement | null = document.activeElement as HTMLElement) => {
+    confirmTrigger.current = trigger;
+    setOperationError(null);
+    setConfirm(value);
+  }, []);
+  const [operationError, setOperationError] = useState<{ error: unknown } | null>(null);
   const [practiceSetup, setPracticeSetup] = useState<{ bank: string | null; bankIds?: string[]; filter?: string } | null>(null);
   const [mergeOpen, setMergeOpen] = useState(false);
   const mergeTrigger = useRef<HTMLButtonElement>(null);
@@ -196,9 +207,10 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
     if (lock.current) return;
     lock.current = true;
     setBusy(true);
+    setOperationError(null);
     void job()
       .catch((e) => {
-        toast.error(e);
+        setOperationError({ error: e });
       })
       .finally(() => {
         lock.current = false;
@@ -300,8 +312,9 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
         }
         try {
           if (!canCloseWindow()) {
-            setConfirm({
+            openConfirm({
               title: message("放弃未保存的更改并退出？"),
+              label: message("放弃更改并退出"),
               description: message("未保存的编辑和人工评分草稿将丢失。取消后可继续编辑；已保存的数据不受影响。"),
               action: async () => { await flushRef.current(); await getCurrentWindow().destroy(); },
             });
@@ -321,8 +334,9 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
       disposed = true;
       unlisten?.();
     };
-  }, []);
+  }, [openConfirm]);
   function navigate(next: Page, bankId: string | null = null, showRestore = false) {
+    setOperationError(null);
     run(async () => {
       await flushRef.current();
       flushRef.current = async () => {};
@@ -471,7 +485,9 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
             <Settings /></SidebarButton>
         </div>
   </>;
+  const dialogOpen = !!(confirm || bankEditor || editor || importPreview || practiceSetup || detail || mergeOpen || navigationOpen);
   return (
+    <OperationFailure.Provider value={operationError ? { error: operationError.error, dialogOpen, dismiss: () => setOperationError(null) } : null}>
     <div className="app-shell flex overflow-hidden bg-background text-foreground">
       <Tooltip.Provider delayDuration={200}>
       {compact ? <Dialog open={navigationOpen} onOpenChange={setNavigationOpen}>
@@ -482,6 +498,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
       </Dialog> : <aside id="app-sidebar" className={`flex shrink-0 flex-col border-r bg-card px-2 py-4 transition-[width] duration-200 ease-in-out motion-reduce:transition-none ${sidebarCollapsed ? "w-16" : "w-52"}`}>{navigationContent}</aside>}
       </Tooltip.Provider>
       <main className="flex min-w-0 flex-1 flex-col">
+        {operationError && !dialogOpen && <div className="p-4"><OperationFeedback /></div>}
         <header className="app-header flex shrink-0 flex-wrap items-center justify-between gap-4 border-b">
           <div className="flex min-w-0 items-center gap-3">
             {compact && <Button size="icon" variant="ghost" aria-label={t("打开主导航")} aria-expanded={navigationOpen} disabled={busy} onClick={() => setNavigationOpen(true)}><Menu /></Button>}
@@ -519,7 +536,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
             )}
 
             {page === "banks" && (
-              <><Button variant="outline" disabled={bankActionsUnavailable} onClick={() => setBankEditor({ id: null, title: "", description: "" })}><Plus />{t("新建题库")}</Button><Button disabled={bankActionsUnavailable} onClick={() => navigate("settings", null, true)}><Upload />{t("导入")}</Button></>
+              <><Button variant="outline" disabled={bankActionsUnavailable} onClick={() => { setOperationError(null); setBankEditor({ id: null, title: "", description: "" }); }}><Plus />{t("新建题库")}</Button><Button disabled={bankActionsUnavailable} onClick={() => navigate("settings", null, true)}><Upload />{t("导入")}</Button></>
             )}
             {page === "banks" && banks.length > 1 && (
               <Button ref={mergeTrigger} variant="outline" disabled={bankActionsUnavailable} onClick={() => setMergeOpen(true)}>{t("合并题库")}</Button>
@@ -560,7 +577,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
             <p className="text-sm">{errorMessage(bankError ?? infoError)}</p>
             <Button variant="outline" disabled={busy} onClick={() => run(reloadOverview)}>{t("重试读取概览")}</Button>
           </div>}
-          <Suspense fallback={loadingView}>
+          <ErrorBoundary key={page} fallback={<RenderFailure />}><Suspense fallback={loadingView}>
           {page === "history" && <div className="mb-5 flex flex-wrap items-center gap-3"><Label htmlFor="history-filter">{t("练习记录状态")}</Label><NativeSelect id="history-filter" value={sessionFilter} disabled={busy} onValueChange={value => { setSessionFilter(value as SessionFilter); setSessionOffset(0); }}>
             <NativeSelectOption value="all">{t("全部")}</NativeSelectOption><NativeSelectOption value="active">{t("进行中")}</NativeSelectOption><NativeSelectOption value="review">{t("待核对")}</NativeSelectOption><NativeSelectOption value="finished">{t("已结束")}</NativeSelectOption>
           </NativeSelect></div>}
@@ -584,15 +601,16 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
             onOpenQuestions={bankId => navigate("questions", bankId)}
             onPractice={bankId => setPracticeSetup({ bank: bankId })}
             onPracticeUnattempted={bankId => setPracticeSetup({ bank: bankId, filter: "unattempted" })}
-            onEdit={bankItem => setBankEditor({ id: bankItem.id, title: bankItem.title, description: bankItem.description })}
-            onDelete={bankItem => setConfirm({
+            onEdit={bankItem => { setOperationError(null); setBankEditor({ id: bankItem.id, title: bankItem.title, description: bankItem.description }); }}
+            onDelete={(bankItem, trigger) => openConfirm({
               title: message("删除“{0}”？", { 0: bankItem.title }),
+              label: message("删除题库"),
               description: message("题库及其中题目将被删除，已有练习记录和内容快照会保留。"),
               action: async () => {
                 await api({ type: "delete_bank", id: bankItem.id });
                 await reloadBanks();
               },
-            })}
+            }, trigger)}
           />}
           {listPage && (
             <div className="space-y-5">
@@ -722,8 +740,9 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                           aria-label={t("删除题目")}
                           disabled={busy}
                           onClick={() =>
-                            setConfirm({
+                            openConfirm({
                               title: message("删除这道题目？"),
+                              label: message("删除题目"),
                               description: message("历史练习与作答快照仍会保留。"),
                               action: async () => {
                                 await api({
@@ -864,8 +883,9 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
               restoreOpen={restoreOpen} onRestoreOpenChange={setRestoreOpen}
               onConfigure={() => navigate("service-settings")}
               onPickImport={pickImport}
-              onRestore={recoverAssets => setConfirm({
+              onRestore={(recoverAssets, trigger) => openConfirm({
                 title: message("用备份替换当前数据？"),
+                label: message("恢复备份"),
                 description: recoverAssets ? message("恢复会替换全部本地题库和练习记录，并修复缺失或损坏的资源。应用会先校验备份，保留原数据库、现存原始文件和损坏清单；该副本不能作为普通备份直接恢复。") : message("恢复会替换全部本地题库和练习记录。应用将先校验备份，并自动保存当前数据的恢复副本。"),
                 action: async () => {
                   const result = await api(recoverAssets ? { type: "restore", recover_assets: true } : { type: "restore" });
@@ -881,9 +901,9 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                     toast.success(message("恢复完成。原数据副本：{0}", { 0: result.recoveryPath }));
                   }
                 },
-              })} />
+              }, trigger)} />
           )}
-          </Suspense>
+          </Suspense></ErrorBoundary>
           </div>
         </div>
       </main>
@@ -922,7 +942,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      {importPreview && <Suspense fallback={loadingView}><ImportBankDialog
+      {importPreview && <ErrorBoundary fallback={<RenderFailureDialog onClose={() => setImportPreview(null)} />}><Suspense fallback={loadingView}><ImportBankDialog
         key={importPreview.preview.ticket}
         preview={importPreview.preview}
         banks={banks}
@@ -941,12 +961,12 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
           setQuestions([]);
           setQuestionTotal(0);
         }}
-      /></Suspense>}
+      /></Suspense></ErrorBoundary>}
       {bankEditor && (
         <BankEditor
           initial={bankEditor}
           busy={busy}
-          onClose={() => setBankEditor(null)}
+          onClose={() => { setBankEditor(null); setOperationError(null); }}
           onSave={draft => run(async () => {
             await api({ type: "save_bank", ...draft });
             setBankEditor(null);
@@ -956,7 +976,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
         />
       )}
       {editor && bank && (
-        <Suspense fallback={loadingView}><QuestionEditor
+        <ErrorBoundary fallback={<RenderFailureDialog onClose={() => setEditor(null)} />}> <Suspense fallback={loadingView}><QuestionEditor
           initial={editor.question}
           initialChildren={editor.children}
           images={editor.images}
@@ -976,7 +996,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
               toast.success(message("题目已保存，历史练习不受影响"));
             })
           }
-        /></Suspense>
+        /></Suspense></ErrorBoundary>
       )}
       {detail && (
         <Dialog
@@ -995,7 +1015,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
               setDetail(current => current?.id === detail.id ? { ...current, reviewedAt, children: current.children?.map(child => ({ ...child, reviewedAt })) } : current);
               refreshQuestions();
             })}>{detail.reviewedAt == null ? t("标记已复核") : t("撤销复核确认")}</Button>
-            <Suspense fallback={loadingView}>
+            <ErrorBoundary fallback={<RenderFailure />}><Suspense fallback={loadingView}>
             {!!detail.children?.length && <QuestionPreview questions={[detail.question,...detail.children.map(c=>c.question)]} reviewedQuestionIds={[detail,...detail.children].filter(row => row.reviewedAt != null).map(row => row.question.id || row.id)} groups={Array.from(new Map([detail,...detail.children].flatMap(r=>r.groups).map(g=>[g.id,g])).values())} visuals={Array.from(new Map([detail,...detail.children].flatMap(r=>r.visuals).map(v=>[v.id,v])).values())}/>}
             {!detail.children?.length && <Content snapshot={detail} source />}
             <AnswerInput
@@ -1016,18 +1036,22 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                 {detail.question.analysis || t("原文未提供解析。")}
               </p>
             </div>
-            </Suspense>
+            </Suspense></ErrorBoundary>
           </DialogContent>
         </Dialog>
       )}
-      {practiceSetup && <Suspense fallback={loadingView}><StudySetup banks={banks} initialBank={practiceSetup.bank} initialBankIds={practiceSetup.bankIds} initialFilter={practiceSetup.filter ?? filter} initialMode={mode} initialSearch={search} busy={busy} run={run} onClose={()=>setPracticeSetup(null)} onStart={async s=>{await flushRef.current();setSession(s);setSessionOffset(0);setPracticeSetup(null);setPage("practice");}}/></Suspense>}
+      {practiceSetup && <ErrorBoundary fallback={<RenderFailureDialog onClose={() => setPracticeSetup(null)} />}><Suspense fallback={loadingView}><StudySetup banks={banks} initialBank={practiceSetup.bank} initialBankIds={practiceSetup.bankIds} initialFilter={practiceSetup.filter ?? filter} initialMode={mode} initialSearch={search} busy={busy} run={run} onClose={()=>setPracticeSetup(null)} onStart={async s=>{await flushRef.current();setSession(s);setSessionOffset(0);setPracticeSetup(null);setPage("practice");}}/></Suspense></ErrorBoundary>}
       <AlertDialog
         open={!!confirm}
         onOpenChange={(v) => {
-          if (!v) setConfirm(null);
+          if (!v && !busy) { setConfirm(null); setOperationError(null); }
         }}
       >
-        <AlertDialogContent>
+        <AlertDialogContent onCloseAutoFocus={event => {
+          event.preventDefault();
+          const target = confirmTrigger.current?.isConnected ? confirmTrigger.current : document.querySelector<HTMLElement>("main h1");
+          if (target) { if (!target.hasAttribute("tabindex")) target.tabIndex = -1; target.focus(); }
+        }}>
           <AlertDialogHeader>
             <AlertDialogTitle>{confirm && renderMessage(confirm.title)}</AlertDialogTitle>
             <AlertDialogDescription>
@@ -1035,20 +1059,20 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t("取消")}</AlertDialogCancel>
+            <AlertDialogCancel disabled={busy}>{t("取消")}</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => {
-                if (confirm) {
-                  const action = confirm.action;
-                  setConfirm(null);
-                  run(action);
-                }
+              variant="destructive"
+              disabled={busy}
+              onClick={event => {
+                event.preventDefault();
+                if (confirm) run(async () => { await confirm.action(); setConfirm(null); });
               }}
-            >{t("确认")}</AlertDialogAction>
+            >{busy ? t("正在处理…") : confirm && renderMessage(confirm.label)}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
       <Toaster theme={theme.dark ? "dark" : "light"} position="bottom-right" richColors />
     </div>
+    </OperationFailure.Provider>
   );
 }

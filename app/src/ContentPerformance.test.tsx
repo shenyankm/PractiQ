@@ -162,7 +162,7 @@ it("keeps App answer-card callbacks stable through busy updates and retries navi
   const answerRenders=()=>buttons.mock.calls.filter(([name])=>typeof name === "string" && name.startsWith("转到第 ")).length;
   buttons.mockClear();
   await user.click(screen.getByRole("button",{name:"下一题"}));
-  await waitFor(()=>expect(toast.error).toHaveBeenCalledWith(positionError));
+  expect(await screen.findByRole("alert")).toBeTruthy();
   expect(screen.getByRole("heading",{name:"第 1 / 100 题"})).toBeTruthy();
   expect(answerRenders()).toBe(0);
   buttons.mockClear();
@@ -173,7 +173,7 @@ it("keeps App answer-card callbacks stable through busy updates and retries navi
   await user.click(screen.getByRole("button",{name:"结束练习"}));
   const dialog=await screen.findByRole("alertdialog",{name:"结束本次练习？"});
   await user.click(within(dialog).getByRole("button",{name:"提交草稿并结束"}));
-  await waitFor(()=>expect(toast.error).toHaveBeenCalledWith(finishError));
+  expect(await within(dialog).findByRole("alert")).toBeTruthy();
   expect(screen.getByRole("alertdialog",{name:"结束本次练习？"})).toBeTruthy();
   expect(toast.success).not.toHaveBeenCalled();
   await user.click(within(dialog).getByRole("button",{name:"提交草稿并结束"}));

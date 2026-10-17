@@ -66,7 +66,7 @@ async function mutate(user: ReturnType<typeof userEvent.setup>, mutation: Mutati
   if (mutation === "favorite") await user.click(screen.getByRole("button", { name: "取消收藏" }));
   if (mutation === "delete_question") {
     await user.click(screen.getByRole("button", { name: "删除题目" }));
-    await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "确认" }));
+    await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "删除题目" }));
   }
   if (mutation === "save_question_tree") {
     await user.click(screen.getByRole("button", { name: "编辑题目" }));

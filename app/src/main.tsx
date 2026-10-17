@@ -2,6 +2,8 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { I18nProvider } from "./i18n";
 import App from "./App";
+import { ErrorBoundary } from "../../shared/error-boundary";
+import { RenderFailure } from "./RenderFailure";
 import { initializeTheme } from "./theme";
 import "./index.css";
 if (import.meta.env.DEV && import.meta.env.MODE === "design-preview") {
@@ -11,6 +13,6 @@ const PreviewControls = import.meta.env.DEV && import.meta.env.MODE !== "test" &
 const initialTheme = initializeTheme();
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <I18nProvider><App initialTheme={initialTheme} />{PreviewControls && <React.Suspense fallback={null}><PreviewControls /></React.Suspense>}</I18nProvider>
+    <ErrorBoundary fallback={<RenderFailure />}><I18nProvider><App initialTheme={initialTheme} />{PreviewControls && <React.Suspense fallback={null}><PreviewControls /></React.Suspense>}</I18nProvider></ErrorBoundary>
   </React.StrictMode>,
 );

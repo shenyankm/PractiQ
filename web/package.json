@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "lint": "cd .. && node web/node_modules/eslint/bin/eslint.js --config web/eslint.config.mjs \"web/src/**/*.{ts,tsx}\" shared/select.tsx --max-warnings 0",
+    "lint": "cd .. && node web/node_modules/eslint/bin/eslint.js --config web/eslint.config.mjs \"web/src/**/*.{ts,tsx}\" shared/*.tsx --max-warnings 0",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "check": "tsc -b && npm run lint && npm run test:coverage",
