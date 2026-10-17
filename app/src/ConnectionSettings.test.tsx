@@ -61,7 +61,8 @@ it("keeps failed removals retryable and requires a replacement-key draft to save
   const key = await screen.findByLabelText("AI 服务访问令牌") as HTMLInputElement;
   await waitFor(()=>expect((screen.getByLabelText("AI 服务地址") as HTMLInputElement).value).toBe("https://example.com/v1"));
   await userEvent.click(screen.getByRole("button",{name:"清除已保存的访问令牌"}));
-  await waitFor(()=>expect(toast.error).toHaveBeenCalled());
+  expect((await screen.findByRole("alert")).textContent).toContain("Keychain is locked");
+  expect(toast.error).not.toHaveBeenCalled();
   expect(key.placeholder).toBe("********************************");
   expect(api).toHaveBeenLastCalledWith({type:"save_settings",config:settings.config,service_token:""});
   fireEvent.change(key,{target:{value:"replacement-key"}});
@@ -181,6 +182,7 @@ it("retains connection test results inline and clears them when the address chan
   });
   mount(); await waitFor(()=>expect(screen.getByLabelText("AI 服务地址")).toHaveProperty("value",settings.config.service_url));
   await user.click(screen.getByRole("button",{name:"测试"}));
+  expect(toast.error).not.toHaveBeenCalled();
   expect((await screen.findByRole("alert")).textContent).toContain("Service temporarily unavailable");
   await user.type(screen.getByLabelText("AI 服务地址"),"/changed");
   expect(screen.queryByRole("alert")).toBeNull();
@@ -210,4 +212,49 @@ it("keeps autosave failures beside the draft without a duplicate toast", async (
   expect(address.value).toBe("https://example.com/v1/draft");
   expect(screen.getByRole("button", { name: "重试保存" })).toBeTruthy();
   expect(toast.error).not.toHaveBeenCalled();
+});
+
+it("shows a failed pre-test save once and preserves the token draft for retry", async () => {
+  let fail = true;
+  vi.mocked(api).mockImplementation(async request => {
+    if (request.type === "save_settings" && fail) throw new Error("Settings save unavailable");
+    return settings as never;
+  });
+  const user = userEvent.setup(); mount();
+  const key = await screen.findByLabelText("AI 服务访问令牌") as HTMLInputElement;
+  await waitFor(() => expect(screen.getByLabelText("AI 服务地址")).toHaveProperty("value", settings.config.service_url));
+  fireEvent.change(key, {target:{value:"replacement-key"}});
+  await user.click(screen.getByRole("button", {name:"测试"}));
+  expect((await screen.findByRole("alert")).textContent).toContain("Settings save unavailable");
+  expect(screen.getAllByRole("alert")).toHaveLength(1);
+  expect(key.value).toBe("replacement-key");
+  expect(toast.error).not.toHaveBeenCalled();
+  expect(api).not.toHaveBeenCalledWith(expect.objectContaining({type:"test_settings"}));
+  fail = false;
+  await user.click(screen.getByRole("button", {name:"重试保存"}));
+  await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+  expect(key.value).toBe("");
+});
+
+it("retries a failed clear beside its action without testing or changing the address", async () => {
+  let fail = true;
+  vi.mocked(api).mockImplementation(async request => {
+    if (request.type === "save_settings") {
+      if (fail) throw new Error("Keychain is locked");
+      return {...settings,hasServiceToken:false} as never;
+    }
+    return settings as never;
+  });
+  const user = userEvent.setup(); mount();
+  const clear = await screen.findByRole("button", {name:"清除已保存的访问令牌"});
+  await waitFor(() => expect(clear.hasAttribute("disabled")).toBe(false));
+  await user.click(clear);
+  expect((await screen.findByRole("alert")).textContent).toContain("Keychain is locked");
+  expect(screen.getAllByRole("alert")).toHaveLength(1);
+  expect(toast.error).not.toHaveBeenCalled();
+  fail = false;
+  await user.click(clear);
+  await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+  expect(screen.getByLabelText("AI 服务地址")).toHaveProperty("value",settings.config.service_url);
+  expect(api).not.toHaveBeenCalledWith(expect.objectContaining({type:"test_settings"}));
 });

@@ -42,6 +42,8 @@ Bank cards use a content-aware grid and wrap whole footer actions when space is 
 
 Notifications reuse Sonner and existing theme switching. Success, information, warning and error foregrounds, backgrounds and borders come from shared semantic tokens, with 12px corners, one border and visible keyboard focus. See the [component audit](../history/product/design-audit.md).
 
+Service-configuration save, connection-test and token-clear failures stay beside their fields and actions. Do not duplicate them in persistent global toasts that can cover later workflows. A failed pre-test save keeps its draft and save-retry action without adding a second connection-test error; failed token clearing leaves the original clear action available to retry.
+
 ## Dark mode and platforms
 
 Dark mode uses warm-purple black pages (`#211c26`), cards (`#2b2431`) and pale-purple primary color (`#d9b5e5`). App retains system/light/dark preferences and reduced-motion support. Web retains its light default, with dark tokens shared with App; preview dark mode through `?theme=dark`. Preserve Android narrow navigation, dynamic viewports, safe areas and 48px touch targets.
