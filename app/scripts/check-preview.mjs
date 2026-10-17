@@ -1,3 +1,4 @@
+import { chooseOption } from "../../shared/select-test.mjs";
 import { test as base, expect } from 'playwright/test';
 import { writeFile } from 'node:fs/promises';
 
@@ -40,17 +41,72 @@ test('development preview pages stay offline',async ({page},testInfo)=>{
  await page.screenshot({path:testInfo.outputPath('preview.png'),fullPage:true});
 });
 
+test('study rules and backup details remain available on desktop and narrow screens',async ({page},testInfo)=>{
+ for(const width of [1280,390]) {
+  await page.setViewportSize({width,height:900});
+  await page.goto('/');
+  await page.getByRole('button',{name:'开始练习',exact:true}).first().click();
+  const dialog=page.getByRole('dialog');
+  await expect(dialog.getByRole('heading',{name:'开始练习或考试',exact:true})).toBeVisible();
+  if(width===1280) {
+   await dialog.getByRole('combobox',{name:/^模式/}).click();
+   await expect(page.getByRole('option',{name:'即时反馈练习',exact:true})).toHaveAttribute('data-state','checked');
+   await expect(page.getByRole('listbox')).toHaveCSS('background-color','rgb(255, 252, 250)');
+   await page.screenshot({path:testInfo.outputPath('app-select-menu.png'),animations:'disabled'});
+   await page.keyboard.press('Escape');
+   await expect(dialog.getByRole('combobox',{name:/^模式/})).toBeFocused();
+   await expect(dialog).toBeVisible();
+  }
+  await chooseOption(dialog.getByRole('combobox',{name:/^模式/}), 'self_test');
+  await expect(dialog.getByText(/作答时隐藏答案，交卷后核对评分；先预览配分/)).toBeVisible();
+  await expect(dialog.getByRole('button',{name:'预览题目与配分',exact:true})).toBeVisible();
+  await expect(dialog.getByRole('button',{name:'开始考试',exact:true})).toBeHidden();
+  await chooseOption(dialog.getByRole('combobox',{name:/^模式/}), 'mock_exam');
+  await expect(dialog.getByText('到时自动交卷，关闭应用仍会计时。',{exact:true})).toBeVisible();
+  await expect(dialog.getByRole('button',{name:'预览题目与配分',exact:true})).toBeEnabled();
+  await dialog.getByText('高级设置 · 题库、筛选与选题方式',{exact:true}).click();
+  await expect(dialog.getByRole('combobox',{name:'选题方式',exact:true})).toBeVisible();
+  const geometry=await dialog.locator('[data-slot="native-select"], [data-slot="select-trigger"]').evaluateAll(nodes=>nodes.map(node=>{
+   const select=node.getBoundingClientRect(), wrapper=node.parentElement.getBoundingClientRect();
+   const icon=node.parentElement.querySelector('[data-slot="select-icon"]').getBoundingClientRect();
+   const style=getComputedStyle(node);
+   return {alignment:style.alignItems,wrapperGap:wrapper.height-select.height,iconOffset:Math.abs(icon.y+icon.height/2-select.y-select.height/2),paddingTop:style.paddingTop,paddingBottom:style.paddingBottom,height:select.height};
+  }));
+  for(const control of geometry) {
+   expect(control.alignment).toBe('center');
+   expect(Math.abs(control.wrapperGap)).toBeLessThanOrEqual(1);
+   expect(control.iconOffset).toBeLessThanOrEqual(1);
+   expect(control.paddingTop).toBe(control.paddingBottom);
+   expect(control.height).toBe(width===390?48:40);
+  }
+  await dialog.getByText('高级设置 · 题库、筛选与选题方式',{exact:true}).click();
+  await dialog.locator('.overflow-y-auto').evaluate(node=>{node.scrollTop=0;});
+  await page.screenshot({path:testInfo.outputPath(`exam-rules-${width}.png`),fullPage:true,animations:'disabled'});
+  await dialog.getByRole('button',{name:'取消',exact:true}).click();
+  if(width===390) await page.getByRole('button',{name:'打开主导航',exact:true}).click();
+  await page.getByRole('button',{name:'设置',exact:true}).click();
+  const details=page.getByText('备份范围与注意事项',{exact:true});
+  await expect(page.getByText('备份题库与学习记录，不含访问令牌。',{exact:true})).toBeVisible();
+  await expect(page.getByText(/不包含原始文档、AI 任务及服务访问令牌/)).toBeHidden();
+  await details.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByText(/不包含原始文档、AI 任务及服务访问令牌/)).toBeVisible();
+  await page.keyboard.press('Enter');
+  await expect(page.getByText(/不包含原始文档、AI 任务及服务访问令牌/)).toBeHidden();
+ }
+});
+
 test('preview question filters preserve imported warnings through review confirmation',async ({page})=>{
  await page.goto('/');
  await page.getByRole('button',{name:'查看题目',exact:true}).first().click();
  const type=page.getByLabel('筛选题型');
- await type.selectOption('single');
+ await chooseOption(type, 'single');
  await expect(page.getByRole('button',{name:/下面哪一个是质数？/})).toBeVisible();
  await expect(page.getByRole('button',{name:/请选择偶数。/})).toBeHidden();
- await type.selectOption('multiple');
+ await chooseOption(type, 'multiple');
  await expect(page.getByRole('button',{name:/请选择偶数。/})).toBeVisible();
  await expect(page.getByRole('button',{name:/下面哪一个是质数？/})).toBeHidden();
- await type.selectOption('');
+ await chooseOption(type, '');
  await page.getByRole('checkbox',{name:'仅看待复核',exact:true}).check();
  const question=page.getByRole('button',{name:/观察 PractiQ 图标，描述你的印象。/});
  await question.click();
@@ -179,9 +235,9 @@ test('reverted empty reference answers close without losing real editor changes'
  for(const mode of ['short_answer','choice','fill_blank']){
   for(const action of ['Escape','close','outside']){
    await open();
-   if(mode!=='choice')await editor.getByLabel('答题方式',{exact:true}).selectOption(mode);
+   if(mode!=='choice')await chooseOption(editor.getByLabel('答题方式',{exact:true}), mode);
    else {
-    await editor.getByLabel('选择题类型',{exact:true}).selectOption('multiple');
+    await chooseOption(editor.getByLabel('选择题类型',{exact:true}), 'multiple');
     await editor.getByRole('textbox',{name:'选项 1 内容',exact:true}).fill('One');
     await editor.getByRole('textbox',{name:'选项 2 内容',exact:true}).fill('Two');
    }
@@ -226,7 +282,7 @@ test('incomplete question reference fallbacks close after reverting text and kee
  const editor=page.getByRole('dialog',{name:'编辑题目',exact:true});
  for(const mode of ['choice','ordering','matching']){
   await page.getByRole('button',{name:'新增题目',exact:true}).click();
-  if(mode!=='choice')await editor.getByRole('combobox',{name:'答题方式',exact:true}).selectOption(mode);
+  if(mode!=='choice')await chooseOption(editor.getByRole('combobox',{name:'答题方式',exact:true}), mode);
   const title=`Incomplete ${mode} reference`;
   await editor.getByRole('textbox',{name:'题干（支持 Markdown 和公式）',exact:true}).fill(title);
   await editor.getByRole('button',{name:'保存题目',exact:true}).click();
@@ -328,8 +384,8 @@ test('applied listening URLs become guarded when their audio is removed or repla
   await expect(save).toBeEnabled();
   if(action==='remove')await editor.getByRole('button',{name:'移除音频',exact:true}).click();
   else if(action==='mode'){
-   await editor.getByRole('combobox',{name:'答题方式',exact:true}).selectOption('short_answer');
-   await editor.getByRole('combobox',{name:'答题方式',exact:true}).selectOption('listening');
+   await chooseOption(editor.getByRole('combobox',{name:'答题方式',exact:true}), 'short_answer');
+   await chooseOption(editor.getByRole('combobox',{name:'答题方式',exact:true}), 'listening');
   }else await editor.getByRole('button',{name:'选择听力音频',exact:true}).click();
   await expect(save).toBeDisabled();
   await expect(input).toHaveValue(url);
@@ -400,9 +456,9 @@ test('child editors retain changed drafts and stage changes until the parent sav
 test('preview nested word-bank answers use inherited choices offline',async ({page})=>{
  await page.goto('/');
  await page.getByRole('button',{name:'开始练习',exact:true}).nth(2).click();
- await page.getByLabel('出题顺序',{exact:true}).selectOption('ordered');
+ await chooseOption(page.getByLabel('出题顺序',{exact:true}), 'ordered');
  await page.getByText('高级设置 · 题库、筛选与选题方式',{exact:true}).click();
- await page.getByRole('combobox',{name:'题型',exact:true}).selectOption('reading');
+ await chooseOption(page.getByRole('combobox',{name:'题型',exact:true}), 'reading');
  await expect(page.getByRole('status').filter({hasText:'可用 6 题'})).toBeVisible();
  await page.getByRole('spinbutton',{name:'题目数量',exact:true}).fill('6');
  await page.getByRole('button',{name:'立即开始',exact:true}).click();
@@ -428,9 +484,9 @@ test('preview material dialog hides ancestor answer passage before submission',a
   await invoke('request',{request:{type:'save_question_tree',root_id:'2-reading',bank_id:'preview-bank-2',questions}});
  });
  await page.getByRole('button',{name:'开始练习',exact:true}).nth(2).click();
- await page.getByLabel('出题顺序',{exact:true}).selectOption('ordered');
+ await chooseOption(page.getByLabel('出题顺序',{exact:true}), 'ordered');
  await page.getByText('高级设置 · 题库、筛选与选题方式',{exact:true}).click();
- await page.getByRole('combobox',{name:'题型',exact:true}).selectOption('reading');
+ await chooseOption(page.getByRole('combobox',{name:'题型',exact:true}), 'reading');
  await expect(page.getByRole('status').filter({hasText:'可用 6 题'})).toBeVisible();
  await page.getByRole('spinbutton',{name:'题目数量',exact:true}).fill('6');
  await page.getByRole('button',{name:'立即开始',exact:true}).click();
@@ -459,7 +515,7 @@ for(const scenario of ['empty','many','unconfigured','missing','slow','error']) 
    await expect(page.getByRole('menuitem',{name:'恢复学习数据备份',exact:true})).toBeVisible();
    await page.getByRole('menuitem',{name:'导入题库 ZIP',exact:true}).click();
    await expect(page.getByRole('dialog',{name:'导入题库',exact:true})).toBeVisible();
-   await expect(page.getByRole('combobox',{name:'导入到',exact:true})).toHaveValue('new');
+   await expect(page.getByRole('combobox',{name:'导入到',exact:true})).toHaveAttribute('data-value', 'new');
    await page.getByRole('button',{name:'取消',exact:true}).click();
    await expect(page.getByRole('heading',{name:'设置',exact:true})).toBeVisible();
   }
@@ -530,12 +586,12 @@ base('study setup retries failed statistics and manual pages without resetting s
  await page.getByRole('button',{name:'开始练习',exact:true}).click();
  const dialog=page.getByRole('dialog');
  await expect(dialog.getByRole('alert')).toContainText('Statistics unavailable');
- await dialog.getByRole('combobox',{name:/^模式/}).selectOption('mock_exam');
+ await chooseOption(dialog.getByRole('combobox',{name:/^模式/}), 'mock_exam');
  await dialog.getByLabel('考试分钟数',{exact:true}).fill('45');
  await dialog.getByLabel('题目数量',{exact:true}).fill('10');
  await dialog.getByLabel('考试总分',{exact:true}).fill('90');
  await dialog.getByText('高级设置 · 题库、筛选与选题方式',{exact:true}).click();
- await dialog.getByRole('combobox',{name:/^选题方式/}).selectOption('quota');
+ await chooseOption(dialog.getByRole('combobox',{name:/^选题方式/}), 'quota');
  await dialog.getByLabel('简答题数',{exact:true}).fill('3');
  await page.evaluate(()=>{window.__studyStatsFail=false;});
  const statsRetry=dialog.getByRole('button',{name:'重试题目统计',exact:true});
@@ -547,7 +603,7 @@ base('study setup retries failed statistics and manual pages without resetting s
  await expect(statsRetry).toHaveCount(0);
  await expect(dialog.getByRole('alert')).toHaveCount(0);
  await expect(dialog.getByLabel('简答题数',{exact:true})).toHaveValue('3');
- await dialog.getByRole('combobox',{name:/^选题方式/}).selectOption('manual');
+ await chooseOption(dialog.getByRole('combobox',{name:/^选题方式/}), 'manual');
  await dialog.getByRole('checkbox',{name:'Retry question 0',exact:true}).check();
  await dialog.getByRole('button',{name:'下一页',exact:true}).click();
  await expect(dialog.getByRole('alert')).toContainText('Question page unavailable');
@@ -568,9 +624,9 @@ base('study setup retries failed statistics and manual pages without resetting s
  await expect(dialog.getByLabel('考试分钟数',{exact:true})).toHaveValue('45');
  await expect(dialog.getByLabel('考试总分',{exact:true})).toHaveValue('90');
  await expect(dialog.getByRole('checkbox',{name:'Retry bank（31）',exact:true})).toBeChecked();
- await dialog.getByRole('combobox',{name:/^选题方式/}).selectOption('quota');
+ await chooseOption(dialog.getByRole('combobox',{name:/^选题方式/}), 'quota');
  await expect(dialog.getByLabel('简答题数',{exact:true})).toHaveValue('3');
- await dialog.getByRole('combobox',{name:/^选题方式/}).selectOption('count');
+ await chooseOption(dialog.getByRole('combobox',{name:/^选题方式/}), 'count');
  await expect(dialog.getByLabel('题目数量',{exact:true})).toHaveValue('10');
  const requests=await page.evaluate(()=>window.__studyRequests);
  const statsRequests=requests.filter(r=>r.type==='question_stats');

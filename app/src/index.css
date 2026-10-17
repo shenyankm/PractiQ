@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "../../shared/theme.css";
 @import "../../shared/document-content.css";
+@source "../../shared/select.tsx";
 @import "tw-animate-css";
 /*!
 shadcn 4.21.0 CSS variants.
@@ -192,7 +193,7 @@ html[data-native-insets="true"] {
     max-width: 100%;
     white-space: normal;
   }
-  [data-slot="input"], [data-slot="input-group-control"], [data-slot="native-select"], [data-slot="textarea"] { font-size: 1rem; }
+  [data-slot="input"], [data-slot="input-group-control"], [data-slot="native-select"], [data-slot="select-trigger"], [data-slot="textarea"] { font-size: 1rem; }
   label:has([data-slot="checkbox"]), label:has(input[type="checkbox"]), label:has([data-slot="radio-group-item"]) { min-height: 3rem; }
   .answer-card-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   summary { display: list-item; align-content: center; }

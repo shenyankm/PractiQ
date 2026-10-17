@@ -18,7 +18,7 @@ async function capture(page, card, prefix, testInfo) {
 
 async function checkContent(page) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  expect(await page.locator('.app-content,[data-slot="card"],fieldset,.document-content,[data-slot="native-select-wrapper"]').evaluateAll(elements => elements.filter(e => e.clientWidth && e.scrollWidth > e.clientWidth + 2 && getComputedStyle(e).overflowX === 'visible').map(e => ({ tag: e.tagName, width: e.clientWidth, scroll: e.scrollWidth })))).toEqual([]);
+  expect(await page.locator('.app-content,[data-slot="card"],fieldset,.document-content,[data-slot="select-wrapper"]').evaluateAll(elements => elements.filter(e => e.clientWidth && e.scrollWidth > e.clientWidth + 2 && getComputedStyle(e).overflowX === 'visible').map(e => ({ tag: e.tagName, width: e.clientWidth, scroll: e.scrollWidth })))).toEqual([]);
   await expect(page.locator('.katex-error')).toHaveCount(0);
   expect(await page.locator('.katex-display').evaluateAll(elements => elements.filter(e => e.querySelector('.katex-html').getBoundingClientRect().left < e.getBoundingClientRect().left - 1).length)).toBe(0);
   expect(await page.locator('.katex-display,.document-content table').evaluateAll(elements => elements.filter(e => {
@@ -66,7 +66,7 @@ for (const variant of variants) {
       }
       await capture(page, card, key, testInfo);
       if (['one_to_one','many_to_one','paragraph_matching'].includes(key) && !submitted) {
-        for (const select of await card.locator('select').all()) expect((await select.boundingBox()).width).toBeGreaterThanOrEqual(160);
+        for (const select of await card.getByRole('combobox').all()) expect((await select.boundingBox()).width).toBeGreaterThanOrEqual(160);
       }
       const material = page.getByRole('button', { name: '查看原文', exact: true });
       if (await material.count()) {

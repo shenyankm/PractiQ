@@ -2,6 +2,12 @@ import { cleanup } from "@testing-library/react";
 import { afterEach, vi } from "vitest";
 import { webcrypto, randomUUID } from "node:crypto";
 
+window.matchMedia ??= (query: string) => ({
+  matches: false, media: query, onchange: null,
+  addListener() {}, removeListener() {},
+  addEventListener() {}, removeEventListener() {}, dispatchEvent: () => true,
+});
+
 Object.defineProperty(crypto, "subtle", { value: webcrypto.subtle });
 Object.defineProperty(crypto, "randomUUID", { value: randomUUID });
 if (!File.prototype.arrayBuffer) File.prototype.arrayBuffer = function () { return new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result as ArrayBuffer); reader.onerror = () => reject(reader.error); reader.readAsArrayBuffer(this); }); };

@@ -133,9 +133,9 @@ export function QuestionEditor({
               <NativeSelect
                 id={`${formId}-answer-mode`}
                 className="w-full"
-                disabled={!!parent && ["word_bank","cloze","gap_fill"].includes(parent.answerMode || "")}
+                disabled={busy || !!parent && ["word_bank","cloze","gap_fill"].includes(parent.answerMode || "")}
                 value={q.answerMode || ""}
-                onChange={(event) => mode(event.target.value as Mode)}
+                onValueChange={value => mode(value as Mode)}
               >
                 <NativeSelectOption value="" disabled>{t("选择答题方式")}</NativeSelectOption>
                 {Object.entries(modeNames()).filter(([k]) => !parent || (parent.answerMode === "reading" ? !["reading","listening"].includes(k) : parent.answerMode === "listening" ? ["choice","fill_blank","short_answer"].includes(k) : parent.answerMode === "gap_fill" ? k === "fill_blank" : k === "choice")).map(([v, label]) => (
@@ -153,8 +153,8 @@ export function QuestionEditor({
             </div>
           </div>
           {(!parent || parent.answerMode === "reading") && <label className="grid gap-2">{t("英语题型")}
-            <NativeSelect className="w-full" value={q.questionKind || ""} onChange={e=>{
-              const kind=e.target.value as NonNullable<Question["questionKind"]>;
+            <NativeSelect disabled={busy} className="w-full" value={q.questionKind || ""} onValueChange={value =>{
+              const kind=value as NonNullable<Question["questionKind"]>;
               if(kind && kindModes[kind]!==q.answerMode)mode(kindModes[kind]);
               patch({questionKind:kind || null,sourceLanguage:null,targetLanguage:null,writingGenre:null,minWords:null,maxWords:null});
             }}><NativeSelectOption value="">{t("通用题型")}</NativeSelectOption>{Object.entries(questionKinds()).filter(([kind])=>!parent || !["reading","listening"].includes(kind)).map(([kind,label])=><NativeSelectOption key={kind} value={kind}>{label}</NativeSelectOption>)}</NativeSelect>
@@ -163,11 +163,11 @@ export function QuestionEditor({
           {q.answerMode === "choice" && (
             <NativeSelect
               aria-label={t("选择题类型")}
-              disabled={!!parent && ["word_bank","cloze","gap_fill"].includes(parent.answerMode || "")}
+              disabled={busy || !!parent && ["word_bank","cloze","gap_fill"].includes(parent.answerMode || "")}
               value={q.choiceVariant || "single"}
-              onChange={(event) =>
+              onValueChange={value =>
                 patch({
-                  choiceVariant: event.target.value as "single" | "multiple",
+                  choiceVariant: value as "single" | "multiple",
                   answerPayload: null,
                 })
               }
@@ -179,10 +179,11 @@ export function QuestionEditor({
           {q.answerMode === "matching" && (
             <NativeSelect
               aria-label={t("匹配类型")}
+              disabled={busy}
               value={q.matchingVariant || "one_to_one"}
-              onChange={(event) =>
+              onValueChange={value =>
                 patch({
-                  matchingVariant: event.target.value as "one_to_one" | "many_to_one",
+                  matchingVariant: value as "one_to_one" | "many_to_one",
                   answerPayload: null,
                 })
               }

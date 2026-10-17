@@ -222,11 +222,11 @@ export function AnswerInput({
                     ?.find((p) => p.left === item.id)
                     ?.right.toString() || ""
                 }
-                onChange={(event) =>
+                onValueChange={value =>
                   onChange({
                     matches: [
                       ...(a.matches || []).filter((p) => p.left !== item.id),
-                      { left: item.id, right: Number(event.target.value) },
+                      { left: item.id, right: Number(value) },
                     ],
                   })
                 }

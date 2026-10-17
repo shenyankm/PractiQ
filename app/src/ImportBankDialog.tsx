@@ -34,7 +34,7 @@ export function ImportBankDialog({ preview, banks, initialBank, busy, run, onClo
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-1">
           <p className="workflow-note">{t("追加到所选题库，保留已有题目与学习记录。")}</p>
           <Label htmlFor="import-bank">{t("导入到")}</Label>
-          <NativeSelect id="import-bank" disabled={busy} value={bank} onChange={event => setBank(event.target.value)}>
+          <NativeSelect id="import-bank" disabled={busy} value={bank} onValueChange={value => setBank(value)}>
             <NativeSelectOption value="new">{t("新建题库")}</NativeSelectOption>
             {banks.map(choice => <NativeSelectOption key={choice.id} value={choice.id}>{choice.title}</NativeSelectOption>)}
           </NativeSelect>

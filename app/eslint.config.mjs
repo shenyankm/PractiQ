@@ -2,7 +2,7 @@ import babelParser from "@babel/eslint-parser";
 import reactHooks from "eslint-plugin-react-hooks";
 
 export default [{
-  files: ["src/**/*.{ts,tsx}"],
+  files: ["**/*.{ts,tsx}"],
   languageOptions: {
     parser: babelParser,
     parserOptions: {

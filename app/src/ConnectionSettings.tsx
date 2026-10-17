@@ -166,7 +166,7 @@ export function ConnectionSettingsPanel({
           )}
           {waiting && <p role="status" className="text-sm text-muted-foreground">{t("读取配置耗时较长；可继续离线练习，请勿重复请求。")}</p>}
           {reading && !waiting && <p role="status" className="text-sm text-muted-foreground">{t("加载中…")}</p>}
-          <p className="text-sm text-muted-foreground">{t("离开输入框时自动保存。AI 服务连接仅用于显式评分；离线练习无需配置。")}</p>
+          <p className="text-sm text-muted-foreground">{t("仅 AI 评分需要配置；离开输入框自动保存。")}</p>
           <fieldset disabled={busy || operation !== null || !saved} className="min-w-0 space-y-4" onBlur={() => { void persist().catch(e => toast.error(e)); }}>
             <div className="space-y-2">
               <Label htmlFor="serviceUrl">{t("AI 服务地址")}</Label>
@@ -187,7 +187,7 @@ export function ConnectionSettingsPanel({
                 value={serviceToken}
                 onChange={(e) => { invalidate(); setTestResult(null); setServiceToken(e.target.value); }}
               />
-              {saved && <p className="text-sm text-muted-foreground">{t(configured ? "此服务已有保存的令牌；留空会保留原令牌。" : "填写令牌后自动保存到此设备的安全存储。")}</p>}
+              {saved && <p className="text-sm text-muted-foreground">{t(configured ? "令牌已保存；留空保留。" : "离开输入框后自动安全保存。")}</p>}
             </div>
           </fieldset>
           {saveError != null && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 text-sm text-destructive"><span>{errorMessage(saveError)}</span><Button type="button" variant="outline" disabled={busy || operation !== null} onClick={save}>{t("重试保存")}</Button></div>}

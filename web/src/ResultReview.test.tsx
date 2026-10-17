@@ -219,7 +219,7 @@ it("filters all checkpoints locally, resets pagination and retains shared materi
   expect(screen.getByText("共享选项一")).toBeTruthy();
   await user.clear(screen.getByRole("searchbox", {name:"搜索解析题目"}));
   await user.type(screen.getByRole("searchbox", {name:"搜索解析题目"}), "absent");
-  expect(screen.getByText(/没有符合筛选的题目/)).toBeTruthy();
+  expect(screen.getByText(/没有匹配题目，请调整或清除筛选/)).toBeTruthy();
   await user.click(screen.getByRole("button", {name:"清除结果筛选"}));
   expect(screen.getByText("Record 0")).toBeTruthy();
   expect(screen.queryByText("Record 21")).toBeNull();
