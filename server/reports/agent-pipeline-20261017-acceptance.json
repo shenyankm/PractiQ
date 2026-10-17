@@ -1,0 +1,623 @@
+{
+  "checkedAt": "2026-10-17T10:42:01.234376+00:00",
+  "baseline": "3d80763e03d8d595addc0bc52248c9c01bbf9c98",
+  "branch": "sheny/agent-pipeline-hardening",
+  "candidate": "Local source snapshot identified by hashes; server commit bf9e873. Hosted CI and review evidence belong to the PR; no release claim.",
+  "sourceSha256": {
+    "app/scripts/check-preview.mjs": "1d87b3cc143d7edd42e92868886f83ac4edbedf70ddc1c3f9640e59be226235e",
+    "app/src/components/ui/button.tsx": "dce615c6a0227d61afad8b89983df9ac7408d162fa54006c208f33fa1b16dfe6",
+    "app/src/index.css": "d2748d9fc8f653aea99e6a4c10f032db677f95f0451f0ca4fa3eecaed404b641",
+    "server/scripts/benchmark_agent_pipeline.py": "ae824760860c2aa5dbf2d52b3954bdb627bcdcd1f3fef532334f21d12bf14097",
+    "server/src/practiq_ai/capacity.py": "ebef994f0e2331f77d9e86ffa7bd94cc8bbc0836f88311f38bce81041cf17c25",
+    "server/src/practiq_ai/execution.py": "c9b9fb528a192860fe41dc8d55cc6121a0a71287fd85de9c0cfbd9e42c3b89f2",
+    "server/src/practiq_ai/graphs/document.py": "f1e46909a7193c2abaff55ff5ebdf1f199d1784fa09c3ddda4b0fca04834a594",
+    "server/src/practiq_ai/llm.py": "43f0d7d2d47203330d64de2d278ae10289df782e3d3bec03425d9b1b02ac4df1",
+    "server/src/practiq_ai/messaging.py": "44b6097a466648051d4f55d7d5546eeddab32bdff6636f159ae6a4edf70a9759",
+    "server/src/practiq_ai/runtime.py": "1f22501d14cd4bd5000727fd46b674da7614d6832aa7c2acce8d9379cd4b4fe2",
+    "server/src/practiq_ai/task_api.py": "2f29289c79ad6b3fc2ab4e04557613c28e4d250bd8233364f05eecbe76781b33",
+    "server/tests/test_agent_pipeline.py": "7160bac39a00c9bd490c0065e36edf593d9a7dc38636271c38f1052340cd52f0",
+    "server/tests/test_review_regressions.py": "35d2009acfbf8461d67be7db6b1fbd00b8313eea1237c69dad9d1801f36fe506",
+    "server/tests/test_workflows.py": "cdd5081fc2d574887b9cffb03c3ad97153bebaf21ffbf10872f3a6114d07676c",
+    "shared/theme.css": "e2ab21de24d518c40e35e029d98bb35b2352d6ea2647fca2fa3bf50e441609dd",
+    "web/src/components/ui/button.tsx": "a2d012aec436fafd3a4cbf16b9c9a31737d04eb52f0c0c4ab70766850bb619d1",
+    "web/src/index.css": "4a478236f35b7c79da30e2ef688e8409fe463f4c15b847e9a93777b892dc15d6",
+    "app/src/App.tsx": "0591dd33926077e68a7e0ca28b8861fcbd19881b5645ca703380a713549f591b",
+    "app/scripts/check-ux-recovery.mjs": "47253390f414aff08a10e9b00ddec96ce7a126b13cb9232abe122569ac55a17c"
+  },
+  "scope": [
+    "Document admission/outbox/control notifications",
+    "Bounded storage work shared by graph and passive review",
+    "Model pause and budget checks across provider waiting",
+    "Unit-result persistence within stage deadlines",
+    "App and Web stable Button identity across Radix composition"
+  ],
+  "fullVerification": {
+    "command": "PYTHONPATH=\"$PWD/server/src\" make verify AI_PYTHON=/Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14",
+    "startedAt": "2026-10-17T10:25:10.945026+00:00",
+    "finishedAt": "2026-10-17T10:33:14.431117+00:00",
+    "exitCode": 0,
+    "junit": {
+      "tests": 2755,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "dependencyDeprecationWarnings": 11,
+    "coverage": {
+      "line-rate": 0.9486,
+      "branch-rate": 0.9006,
+      "lines-covered": 6832,
+      "lines-valid": 7202,
+      "branches-covered": 2410,
+      "branches-valid": 2676
+    },
+    "ruff": "PASSED",
+    "pyright": "PASSED",
+    "lockedDependencies": "PASSED",
+    "evaluationFixtures": 33,
+    "probes": {
+      "selected": 61,
+      "status": "PASSED",
+      "metrics": {
+        "recoverySuccessRate": 100.0,
+        "correctStopRate": 100.0,
+        "routingPassRate": 100.0,
+        "unknownUsagePassRate": 100.0
+      },
+      "durableCrashRecovery": "NOT_ASSESSED"
+    },
+    "package": {
+      "sourceFiles": 40,
+      "wheelSha256": "3320f9f84481644e1f89f799bb7e2938e7720087f2f7cdd7d02e0851a6e52da3",
+      "sdistSha256": "f8907e86389c092bfa40e22e4defb28093042ddb104ffcaae57904a6bf6360df",
+      "licenseSha256": "045e49d0a632ea4bf644d1db045d300b313c03097212268a6c3dc15235795079"
+    }
+  },
+  "focusedRegression": {
+    "initialReproductions": {
+      "failed": 4,
+      "passed": 2,
+      "log": "server/reports/checks/agent-pipeline-20261017/regression-before.log"
+    },
+    "budgetQueueReproductions": {
+      "failed": 2,
+      "log": "server/reports/checks/agent-pipeline-20261017/budget-reproduced.log"
+    },
+    "finalFocusedPasses": 239,
+    "log": "server/reports/checks/agent-pipeline-20261017/budget-after.log",
+    "behaviors": [
+      "Control/publisher notifications are independent",
+      "Full 100-row outbox batches drain without idle waits",
+      "Storage workers are bounded and retain ordered None values",
+      "Cancellation and sibling failure drain workers",
+      "Hung unit-result writes receive RUN_DEADLINE_EXCEEDED",
+      "A pause at provider admission creates no model dispatch or spent budget",
+      "An undispatched paid reservation is rejected without debit; resume invokes and settles once",
+      "Zero and already-spent review budgets reject before provider waiting"
+    ]
+  },
+  "measurements": {
+    "microbenchmark": "server/reports/agent-pipeline-20261017.json",
+    "finalRuntimePaired": {
+      "baseline": "3d80763e03d8d595addc0bc52248c9c01bbf9c98",
+      "probeSha256": "c18b2272fa3003407f7d106e58e3cb6e75a6063ebbd13c54c13d45a56734d5d1",
+      "scope": "Alternating local source variants; real disposable PostgreSQL/RabbitMQ, same fake model and fake object store, 40 documents and 8 jobs per run. Setup and process startup excluded from elapsed time. /ok uses ASGI transport, not network HTTP.",
+      "runs": [
+        {
+          "pair": 0,
+          "variant": "before",
+          "documents": 40,
+          "concurrency": 8,
+          "graphConcurrency": 2,
+          "modelDelaySeconds": 0.1,
+          "seconds": 4.411437500006286,
+          "successfulDocumentsPerMinute": 544.0403496584911,
+          "queueWaitMedianMs": 1852.4385,
+          "okP95Ms": 2.624332992127165,
+          "modelCalls": 40,
+          "allCompleted": true
+        },
+        {
+          "pair": 0,
+          "variant": "after",
+          "documents": 40,
+          "concurrency": 8,
+          "graphConcurrency": 2,
+          "modelDelaySeconds": 0.1,
+          "seconds": 4.259617832984077,
+          "successfulDocumentsPerMinute": 563.4308273891978,
+          "queueWaitMedianMs": 1785.423,
+          "okP95Ms": 2.5549589772708714,
+          "modelCalls": 40,
+          "allCompleted": true
+        },
+        {
+          "pair": 1,
+          "variant": "after",
+          "documents": 40,
+          "concurrency": 8,
+          "graphConcurrency": 2,
+          "modelDelaySeconds": 0.1,
+          "seconds": 4.290465500002028,
+          "successfulDocumentsPerMinute": 559.3798621615452,
+          "queueWaitMedianMs": 1847.366,
+          "okP95Ms": 2.901208004914224,
+          "modelCalls": 40,
+          "allCompleted": true
+        },
+        {
+          "pair": 1,
+          "variant": "before",
+          "documents": 40,
+          "concurrency": 8,
+          "graphConcurrency": 2,
+          "modelDelaySeconds": 0.1,
+          "seconds": 4.278634041023906,
+          "successfulDocumentsPerMinute": 560.9266829059453,
+          "queueWaitMedianMs": 1853.766,
+          "okP95Ms": 2.991499990457669,
+          "modelCalls": 40,
+          "allCompleted": true
+        },
+        {
+          "pair": 2,
+          "variant": "before",
+          "documents": 40,
+          "concurrency": 8,
+          "graphConcurrency": 2,
+          "modelDelaySeconds": 0.1,
+          "seconds": 4.250771291001001,
+          "successfulDocumentsPerMinute": 564.6034179916632,
+          "queueWaitMedianMs": 1845.6795000000002,
+          "okP95Ms": 2.7437920216470957,
+          "modelCalls": 40,
+          "allCompleted": true
+        },
+        {
+          "pair": 2,
+          "variant": "after",
+          "documents": 40,
+          "concurrency": 8,
+          "graphConcurrency": 2,
+          "modelDelaySeconds": 0.1,
+          "seconds": 5.159533541998826,
+          "successfulDocumentsPerMinute": 465.15832884191883,
+          "queueWaitMedianMs": 2318.0385,
+          "okP95Ms": 3.1390000076498836,
+          "modelCalls": 40,
+          "allCompleted": true
+        }
+      ],
+      "before": {
+        "medianSeconds": 4.278634041023906,
+        "medianQueueWaitMs": 1852.4385,
+        "medianOkP95Ms": 2.7437920216470957
+      },
+      "after": {
+        "medianSeconds": 4.290465500002028,
+        "medianQueueWaitMs": 1847.366,
+        "medianOkP95Ms": 2.901208004914224
+      }
+    },
+    "firstCandidate": {
+      "sourceArchive": "server/reports/checks/agent-pipeline-20261017/first-candidate/source",
+      "nonalternatingBefore": {
+        "runs": [
+          {
+            "documents": 40,
+            "concurrency": 8,
+            "graphConcurrency": 2,
+            "modelDelaySeconds": 0.1,
+            "seconds": 3.337446541991085,
+            "successfulDocumentsPerMinute": 719.1126418966356,
+            "queueWaitMedianMs": 1493.0115,
+            "okP95Ms": 1.900999981444329,
+            "modelCalls": 40,
+            "allCompleted": true
+          },
+          {
+            "documents": 40,
+            "concurrency": 8,
+            "graphConcurrency": 2,
+            "modelDelaySeconds": 0.1,
+            "seconds": 3.1801005830056965,
+            "successfulDocumentsPerMinute": 754.6931102825753,
+            "queueWaitMedianMs": 1427.7600000000002,
+            "okP95Ms": 1.93329100147821,
+            "modelCalls": 40,
+            "allCompleted": true
+          },
+          {
+            "documents": 40,
+            "concurrency": 8,
+            "graphConcurrency": 2,
+            "modelDelaySeconds": 0.1,
+            "seconds": 3.2049607090011705,
+            "successfulDocumentsPerMinute": 748.8391334282418,
+            "queueWaitMedianMs": 1366.9834999999998,
+            "okP95Ms": 1.9228750024922192,
+            "modelCalls": 40,
+            "allCompleted": true
+          }
+        ],
+        "medianSeconds": 3.2049607090011705,
+        "medianDocumentsPerMinute": 748.8391334282418
+      },
+      "nonalternatingAfter": {
+        "runs": [
+          {
+            "documents": 40,
+            "concurrency": 8,
+            "graphConcurrency": 2,
+            "modelDelaySeconds": 0.1,
+            "seconds": 3.3322957499767654,
+            "successfulDocumentsPerMinute": 720.2241877890743,
+            "queueWaitMedianMs": 1432.2640000000001,
+            "okP95Ms": 1.656624983297661,
+            "modelCalls": 40,
+            "allCompleted": true
+          },
+          {
+            "documents": 40,
+            "concurrency": 8,
+            "graphConcurrency": 2,
+            "modelDelaySeconds": 0.1,
+            "seconds": 3.5393289159983397,
+            "successfulDocumentsPerMinute": 678.0946492855218,
+            "queueWaitMedianMs": 1538.8024999999998,
+            "okP95Ms": 1.9743330194614828,
+            "modelCalls": 40,
+            "allCompleted": true
+          },
+          {
+            "documents": 40,
+            "concurrency": 8,
+            "graphConcurrency": 2,
+            "modelDelaySeconds": 0.1,
+            "seconds": 3.235375207994366,
+            "successfulDocumentsPerMinute": 741.7995891387752,
+            "queueWaitMedianMs": 1400.091,
+            "okP95Ms": 1.8015829846262932,
+            "modelCalls": 40,
+            "allCompleted": true
+          }
+        ],
+        "medianSeconds": 3.3322957499767654,
+        "medianDocumentsPerMinute": 720.2241877890743
+      },
+      "paired": "server/reports/checks/agent-pipeline-20261017/first-candidate/runtime-paired.json",
+      "completeVerification": "2753 tests passed before the budget-queue preflight refinement; retained separately, not the final gate"
+    },
+    "interpretation": "Storage task/allocation and saturated outbox scheduling improvements only. Final real DB/broker elapsed median is 4.279 s before and 4.290 s after; no whole-service speedup claim."
+  },
+  "frontend": {
+    "app": {
+      "types": "PASSED",
+      "lint": "PASSED",
+      "testsPassed": 415,
+      "testsSkipped": 1,
+      "skipReason": "Optional QuestionEditor microbenchmark requires PRACTIQ_EDITOR_BENCH",
+      "browser": {
+        "startTime": "2026-10-17T10:37:46.563Z",
+        "duration": 189336.423,
+        "expected": 83,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "browserWorkers": 2,
+      "browserBeforeHistoryPlacement": {
+        "startTime": "2026-10-17T10:19:00.425Z",
+        "duration": 185293.473,
+        "expected": 81,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "checkUiRepeat": "PASSED: 415 tests, one optional editor benchmark skipped; complete check:ui repeated without browser-suite concurrency after a one-off initial-render timeout. First failure retained."
+    },
+    "web": {
+      "types": "PASSED",
+      "lint": "PASSED",
+      "testsPassed": 115,
+      "browser": {
+        "startTime": "2026-10-17T10:12:49.314Z",
+        "duration": 56707.289000000004,
+        "expected": 36,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "productionBuild": "PASSED"
+    },
+    "designScan": [],
+    "geometry": {
+      "desktopActionHeightCssPx": 40,
+      "narrowActionHeightCssPx": 48,
+      "scenarios": [
+        "zh-CN/light/1280",
+        "en/dark/960",
+        "zh-CN/light/390",
+        "en/dark/360"
+      ],
+      "wrap": "English 360px retains two left-aligned rows with a 12px gap"
+    },
+    "native": {
+      "platform": "macOS WebKit in existing isolated native QA host",
+      "bundleId": "com.practiq.native-errors-20261017",
+      "originalHostTitle": "PractiQ Native QA \u00b7 main a430f7e",
+      "frontend": "Current checkout served via live reload on loopback port 1420",
+      "restoreMenu": "All three actions visible; Escape restores Restore backup focus",
+      "fileMutation": "No native export or restore performed",
+      "screenshots": "docs/evidence/2026-10-17-button-sizing/"
+    },
+    "retainedFirstFailures": "Original desktop geometry failures, translated-label/fake-export fixture corrections and the corrected narrow wrapping assertion are retained in local logs and browser artifacts",
+    "historyToolbar": {
+      "viewports": [
+        1280,
+        360
+      ],
+      "states": [
+        "empty",
+        "populated",
+        "loading",
+        "error",
+        "recovered"
+      ],
+      "focusedBrowserPassed": 2,
+      "native": "Passive refresh completed in existing isolated macOS WebKit QA host; top filter/refresh placement captured",
+      "designScan": []
+    }
+  },
+  "preservation": {
+    "originalFiles": 888,
+    "unchanged": 887,
+    "appendOnly": [
+      {
+        "path": "app/.build/native-error-feedback-20261017/native-clean-runtime.log",
+        "original": {
+          "bytes": 13111,
+          "sha256": "e2d6e2ae29cb994f4198adf87bddc1400755cbf5702b6847cb6992b0ba99872a"
+        },
+        "observed": {
+          "bytes": 21462,
+          "sha256": "de41c1bc43a6c61d4e6bc8661bd36883332ff6b671ed292dafa03b50687340e0"
+        },
+        "archivedOriginal": "server/reports/checks/agent-pipeline-20261017/prior-native-clean-runtime.log"
+      }
+    ],
+    "originalPngCount": 658,
+    "originalPngChanged": 0,
+    "previousPythonAcceptanceFileReferencesVerified": 20,
+    "sharedVerificationOutputs": "Prior root probes/coverage files restored after final results were copied to verification-final/"
+  },
+  "notAssessed": [
+    "Live model extraction/review/grading accuracy or provider latency",
+    "Production load, production p95/p99 or distributed high availability",
+    "Deployed Office conversion fidelity",
+    "Rebuilt macOS installer, Windows-native or Android-device acceptance",
+    "Remote CI, publication or merge"
+  ],
+  "files": {
+    "docs/evidence/2026-10-17-button-sizing/README.md": {
+      "bytes": 4940,
+      "sha256": "3bf2f0c34f48f45fd740675d9a8c6d0f43a3b1da3115f9d2d7b68e4d73ce531b"
+    },
+    "docs/evidence/2026-10-17-button-sizing/SHA256SUMS": {
+      "bytes": 1309,
+      "sha256": "6c3be09302f6cae4276865c87e69287539392228f8f3e34a477051eba9892126"
+    },
+    "docs/evidence/2026-10-17-button-sizing/native-after.png": {
+      "bytes": 66259,
+      "sha256": "c24a51a4a7e4fb3d775b9a8ea7e38c88aaa9e1c3ed4664b632901e3559c07012"
+    },
+    "docs/evidence/2026-10-17-button-sizing/native-before.png": {
+      "bytes": 66618,
+      "sha256": "76e87c65b28a78edeac36ab2332c611ad7250e3d2583ea3e8cc9c01ee7c5e92e"
+    },
+    "docs/evidence/2026-10-17-button-sizing/native-focus-restored.txt": {
+      "bytes": 1157,
+      "sha256": "2dde5a3ba551028e4636a8aedfc453f1aede5f62f696b41d159a253ded659c8e"
+    },
+    "docs/evidence/2026-10-17-button-sizing/native-menu.png": {
+      "bytes": 75737,
+      "sha256": "c51f26e0ab339b38c3caea2f8798f18aa39db6e33c0ddaf5bbf4b00ec2daaac3"
+    },
+    "docs/evidence/2026-10-17-button-sizing/settings-buttons-en-360-dark.png": {
+      "bytes": 48972,
+      "sha256": "96d02c68386493e27f0fe1f0387361a8d3c2fd639e2cd5cfd3e8d82159e4c6d9"
+    },
+    "docs/evidence/2026-10-17-button-sizing/settings-buttons-en-960-dark.png": {
+      "bytes": 67552,
+      "sha256": "d286239e751165f75815c3eec10f2f4a78113cc0cdf63515f7bbe75f52d12ed1"
+    },
+    "docs/evidence/2026-10-17-button-sizing/settings-buttons-zh-CN-1280-light.png": {
+      "bytes": 63060,
+      "sha256": "4a59efbddda4ff33f3ca34b4f62f2d6810f5400971da2f2b1c34cf918ec77552"
+    },
+    "docs/evidence/2026-10-17-button-sizing/settings-buttons-zh-CN-390-light.png": {
+      "bytes": 43029,
+      "sha256": "779d8b9e1601dfaaab1b96e7736594da9190fa10db3f6a3458fd072b46c7f0bf"
+    },
+    "docs/history/performance/agent-pipeline-20261017.md": {
+      "bytes": 8823,
+      "sha256": "4063c0837f6386b63d94f23114fe1734374cddab82107359cdd53933c28f72f6"
+    },
+    "server/reports/agent-pipeline-20261017.json": {
+      "bytes": 8620,
+      "sha256": "c49754c831f8c733a3b49a392310509dab5ce9b71a8a0e6f84ed25a6a79ebf5f"
+    },
+    "server/reports/checks/agent-pipeline-20261017/admission-final-run.log": {
+      "bytes": 99,
+      "sha256": "704dd9f53f69fb10f1d30deaa360ef7548965fb7c77f7fb2930012a01ccf9b12"
+    },
+    "server/reports/checks/agent-pipeline-20261017/app-browser-final.log": {
+      "bytes": 14592,
+      "sha256": "b956be36bbed780ca6f0a9bfa051b1025847e744fe75dbc40c871ed99d1829d9"
+    },
+    "server/reports/checks/agent-pipeline-20261017/app-check-ui.log": {
+      "bytes": 4125,
+      "sha256": "f8efc89637cd4d5ec26aad6b832643239352bf6eec42c1490eeca92137f99b38"
+    },
+    "server/reports/checks/agent-pipeline-20261017/benchmark-budget-final.log": {
+      "bytes": 260,
+      "sha256": "4fd8800451243d7b9b7c4d3d6802444852fbdbafc7bb8bfaa99277188377d1b4"
+    },
+    "server/reports/checks/agent-pipeline-20261017/budget-after.log": {
+      "bytes": 341,
+      "sha256": "e8c904e16fe3081973a0867165f934a908737fe79ddb9bd8f3f7226796b27cbe"
+    },
+    "server/reports/checks/agent-pipeline-20261017/budget-reproduced.log": {
+      "bytes": 2918,
+      "sha256": "a5b05f20477f2b0870c19365b03a80a899b9e88bcdf4af02b9e42afbfaee3ae2"
+    },
+    "server/reports/checks/agent-pipeline-20261017/button-before.log": {
+      "bytes": 12858,
+      "sha256": "1a20fa8f2185243003e06ead564f062c255d01c16c7414547c0573d4cc150cda"
+    },
+    "server/reports/checks/agent-pipeline-20261017/button-design-detect.json": {
+      "bytes": 3,
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    "server/reports/checks/agent-pipeline-20261017/first-candidate/agent-pipeline.json": {
+      "bytes": 8497,
+      "sha256": "dfd89ccae405baa9d1f7301f73575170420a2dcf432b1d57a04e3863d48002af"
+    },
+    "server/reports/checks/agent-pipeline-20261017/first-candidate/runtime-paired.json": {
+      "bytes": 3011,
+      "sha256": "72f2b61a319409f683f0e63fb9a7968252c0e5539193c9ab0fb4170785249f81"
+    },
+    "server/reports/checks/agent-pipeline-20261017/frontend/app-browser-results.json": {
+      "bytes": 93584,
+      "sha256": "9fcbc4667cffe68ff806309f038945940c462d0ba6fafb515bd236381110d92f"
+    },
+    "server/reports/checks/agent-pipeline-20261017/frontend/app-coverage-final.json": {
+      "bytes": 1055770,
+      "sha256": "0fe85cf70a70d9d202bd802a6ae8bb08c64b2b273b04d0702da2dcbee868ba76"
+    },
+    "server/reports/checks/agent-pipeline-20261017/frontend/app-coverage.xml": {
+      "bytes": 129169,
+      "sha256": "dc111601de1e05ebfce645b9847340c7338a1894131e0eaee2deb08568f0077c"
+    },
+    "server/reports/checks/agent-pipeline-20261017/frontend/web-browser-results.json": {
+      "bytes": 40353,
+      "sha256": "3ee891f414830b92cb9eabb5625cc87180ced8bf20e7b482be82113d13d45cff"
+    },
+    "server/reports/checks/agent-pipeline-20261017/frontend/web-coverage-summary.json": {
+      "bytes": 2461,
+      "sha256": "98ed9f1f4633a08d8315c3932e89d02b2988a992c3a82ee6ad20523b771a1f30"
+    },
+    "server/reports/checks/agent-pipeline-20261017/preservation-before.json": {
+      "bytes": 201821,
+      "sha256": "5bc32f9f972bd13cf32a75a2715125768646ce369160388e9d5eac359b501739"
+    },
+    "server/reports/checks/agent-pipeline-20261017/prior-native-clean-runtime.log": {
+      "bytes": 13111,
+      "sha256": "e2d6e2ae29cb994f4198adf87bddc1400755cbf5702b6847cb6992b0ba99872a"
+    },
+    "server/reports/checks/agent-pipeline-20261017/regression-before.log": {
+      "bytes": 8605,
+      "sha256": "778fb426a191558c872fafab00908020697eacef40b0b0f4fa250cd4923a54dc"
+    },
+    "server/reports/checks/agent-pipeline-20261017/regression-corrected.log": {
+      "bytes": 261,
+      "sha256": "e80b90b05bb23e42de00574d57f393b10c9b167aac1b78456652d003e1c8e529"
+    },
+    "server/reports/checks/agent-pipeline-20261017/runtime-paired-final.log": {
+      "bytes": 391,
+      "sha256": "ab5fca6410b6f69b20d3e610afc741f183a0f8dcdf09f5d1a4f3ce2b87272128"
+    },
+    "server/reports/checks/agent-pipeline-20261017/runtime-paired-probe.py": {
+      "bytes": 2473,
+      "sha256": "88db7e15d27a848f2b5593abf8022010ba644f6ff557c5c822e5ef818a4c5b87"
+    },
+    "server/reports/checks/agent-pipeline-20261017/runtime-paired.json": {
+      "bytes": 2989,
+      "sha256": "d0ed633aed9140de0ed36a0965463dfb6f9ec5b61d32caad197683432d0bcf71"
+    },
+    "server/reports/checks/agent-pipeline-20261017/verification-final-run.json": {
+      "bytes": 427,
+      "sha256": "94fb6c5122d06158d39852934b9d5ab4dce903bba39c2dedfe34afcebcdc774d"
+    },
+    "server/reports/checks/agent-pipeline-20261017/verification-final/coverage.xml": {
+      "bytes": 332733,
+      "sha256": "f7fa124b38ef96229ea48cf95de2b9b6f7d713787ae507d12acc0e4f5a9033d0"
+    },
+    "server/reports/checks/agent-pipeline-20261017/verification-final/probes.json": {
+      "bytes": 11799,
+      "sha256": "768f31be95312c282ffd5493bc44f53f9ebdfb2a5a6dec125a092819a881d58d"
+    },
+    "server/reports/checks/agent-pipeline-20261017/verification-final/probes.md": {
+      "bytes": 7297,
+      "sha256": "c7833705241f0fccd7d72cfcc8035613e5d025448629c63ef93054bdfeabd747"
+    },
+    "server/reports/checks/agent-pipeline-20261017/verification-final/probes.xml": {
+      "bytes": 1466824,
+      "sha256": "f4a8004af68ffc24ca34c0db213bcff368d08981d56002b965ba919e4601870c"
+    },
+    "server/reports/checks/agent-pipeline-20261017/verify-final.log": {
+      "bytes": 17828,
+      "sha256": "0e1a94b3b8104621b342c22d3e4e3282417c55ddee99a3142358d075df6b35d7"
+    },
+    "server/reports/checks/agent-pipeline-20261017/web-check.log": {
+      "bytes": 11046,
+      "sha256": "fb4e51d764bba1f9577f10ef00dace6dfcca1618f6cc6b6d5f76421a0ff686f1"
+    },
+    "docs/evidence/2026-10-17-button-sizing/history-refresh-empty-1280.png": {
+      "bytes": 47592,
+      "sha256": "33cd0f9a823c9354b6ca3bf9ee14978f98b15d66d31302f28c418906c8560096"
+    },
+    "docs/evidence/2026-10-17-button-sizing/history-refresh-empty-360.png": {
+      "bytes": 31742,
+      "sha256": "ffa301106afee666f5e991b807e356372e600d120c992311165617e5645c8050"
+    },
+    "docs/evidence/2026-10-17-button-sizing/history-refresh-populated-360.png": {
+      "bytes": 44395,
+      "sha256": "1273ddf847d984e0cd81a84ba59250318f457aac70bbbefb3d5ae767b09df77a"
+    },
+    "docs/evidence/2026-10-17-button-sizing/native-history-refresh.png": {
+      "bytes": 55709,
+      "sha256": "9358ce81ae797f3390a0e44c15a825d2169759b40ea1f8b34390d32ac82067d6"
+    },
+    "docs/evidence/2026-10-17-button-sizing/history-refresh-populated-1280.png": {
+      "bytes": 65533,
+      "sha256": "2d57431c58a58f125d3b780e8454d927a3d1d6c247dc77b2fe6377a067bc7877"
+    },
+    "server/reports/checks/agent-pipeline-20261017/acceptance-before-history.json": {
+      "bytes": 22530,
+      "sha256": "aa35d860b8272833c42c6675a1bfc0d6241d04f5247fcec2edb23874bccdedeb"
+    },
+    "server/reports/checks/agent-pipeline-20261017/history-browser.log": {
+      "bytes": 1807,
+      "sha256": "1a1e9d8d6ce79683d1ec191b4d1db400ee6c898dd22f2597f3d122ea39ceeed4"
+    },
+    "server/reports/checks/agent-pipeline-20261017/history-check-ui.log": {
+      "bytes": 16013,
+      "sha256": "83b3b72fa9ba48b30711b3a4edabb8616da30afaa2ef8b29dbe5a2939e903c70"
+    },
+    "server/reports/checks/agent-pipeline-20261017/history-check-ui-repeat.log": {
+      "bytes": 4125,
+      "sha256": "13bda6223bbbcede04dc7f81cdc00491fbe04b8bd0f6ee2be36f627d2997e09b"
+    },
+    "server/reports/checks/agent-pipeline-20261017/history-design-detect.json": {
+      "bytes": 3,
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    "server/reports/checks/agent-pipeline-20261017/app-browser-publish.log": {
+      "bytes": 14883,
+      "sha256": "3c7197b7d785cb65c99cfba3d09a789adc1ad50381fb56a925464b07acaf6c9d"
+    },
+    "server/reports/checks/agent-pipeline-20261017/publish-review.md": {
+      "bytes": 1304,
+      "sha256": "9dd2007b93daabc4b9d7e71027bea9e054a77ad39cb2f61f22d025f4e4366dfc"
+    },
+    "server/reports/checks/agent-pipeline-20261017/frontend/app-browser-publish-results.json": {
+      "bytes": 95763,
+      "sha256": "4683f072ead454f5351950872a8dc8a99f2476c6d27aaea9f85a537311cc289f"
+    },
+    "server/reports/checks/agent-pipeline-20261017/frontend/app-coverage-publish-final.json": {
+      "bytes": 1055519,
+      "sha256": "e972de825b2f4571cf5c3836bdf565ec4e86f87a9abf28f50f7399d7f5682b21"
+    }
+  }
+}

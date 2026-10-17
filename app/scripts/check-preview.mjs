@@ -11,6 +11,44 @@ const test=base.extend({page:async ({page},use)=>{
  expect(await page.evaluate(()=>window.__previewNativeCalls)).toBe(0);
 }});
 
+for (const [locale, width, theme] of [['zh-CN', 1280, 'light'], ['en', 960, 'dark'], ['zh-CN', 390, 'light'], ['en', 360, 'dark']]) {
+ test(`settings backup actions share geometry in ${locale} at ${width}px (${theme})`, async ({page}, testInfo) => {
+  await page.setViewportSize({width, height:850});
+  await page.emulateMedia({reducedMotion:'reduce', colorScheme:theme});
+  await page.addInitScript(language => Object.defineProperty(navigator, 'languages', {get:()=>[language]}), locale);
+  await page.goto('/');
+  const english=locale==='en';
+  if(width<768) await page.getByRole('button',{name:english?'Open navigation':'打开主导航',exact:true}).click();
+  await page.getByRole('button',{name:english?'Settings':'设置',exact:true}).click();
+  const exportButton=page.getByRole('button',{name:english?'Export backup':'导出备份',exact:true});
+  const restore=page.getByRole('button',{name:english?'Restore backup':'恢复备份',exact:true});
+  await expect(restore).toHaveAttribute('data-slot','dropdown-menu-trigger');
+  const dimensions=await Promise.all([exportButton,restore].map(button=>button.evaluate(node=>{
+   const box=node.getBoundingClientRect(), icon=node.querySelector('svg').getBoundingClientRect();
+   const group=node.parentElement.getBoundingClientRect();
+   return {height:box.height,width:box.width,x:box.x,y:box.y,center:box.y+box.height/2,iconHeight:icon.height,
+    availableWidth:group.width,gap:parseFloat(getComputedStyle(node.parentElement).gap)};
+  })));
+  expect(dimensions[0].height).toBe(width<768?48:40);
+  expect(dimensions[1].height).toBe(dimensions[0].height);
+  if(dimensions[0].width+dimensions[1].width+dimensions[0].gap<=dimensions[0].availableWidth+1) {
+   expect(Math.abs(dimensions[0].center-dimensions[1].center)).toBeLessThanOrEqual(1);
+  } else {
+   expect(dimensions[1].x).toBe(dimensions[0].x);
+   expect(dimensions[1].y-dimensions[0].y-dimensions[0].height).toBe(dimensions[0].gap);
+  }
+  expect(dimensions[1].iconHeight).toBe(dimensions[0].iconHeight);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.screenshot({path:testInfo.outputPath(`settings-buttons-${locale}-${width}-${theme}.png`),fullPage:true});
+  await restore.click();
+  await expect(page.getByRole('menuitem',{name:english?'Import bank ZIP':'导入题库 ZIP',exact:true})).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(restore).toBeFocused();
+  await exportButton.click();
+  await expect(page.getByText(english?'Backup saved: [演示] 未创建文件':'备份已保存：[演示] 未创建文件',{exact:true})).toBeVisible();
+ });
+}
+
 test('development preview pages stay offline',async ({page},testInfo)=>{
  await page.goto('/');
  await expect(page.getByText('基础知识 · 全题型',{exact:true}).first()).toBeVisible();

@@ -84,7 +84,7 @@ html.theme-transition::view-transition-new(root) {
 }
 
 /* English actions need room to wrap within the desktop's existing columns. */
-html[lang="en"] [data-slot="button"]:not([data-size^="icon"]) {
+html[lang="en"] [data-button]:not([data-size^="icon"]) {
   height: auto;
   min-height: var(--control-height);
   white-space: normal;
@@ -221,7 +221,7 @@ html[data-native-insets="true"] {
 
 .app-header h1 { font-size: 1.75rem; line-height: 1.35; letter-spacing: -0.025em; }
 #app-sidebar nav [aria-current="page"] { color: var(--secondary-foreground); background: var(--secondary); }
-#app-sidebar nav [data-slot="button"] { min-height: 2.75rem; }
+#app-sidebar nav [data-button] { min-height: 2.75rem; }
 .resume-card { background: var(--secondary); border-color: color-mix(in oklch, var(--primary) 30%, var(--border)); }
 .resume-content { display: flex; align-items: center; gap: 2rem; }
 .resume-content > div:first-child { max-width: 36rem; }
@@ -251,5 +251,5 @@ html[data-native-insets="true"] {
   .practice-navigation { margin-left: 0; }
 }
 @media (max-width: 767px), (any-pointer: coarse) {
-  #app-sidebar nav [data-slot="button"] { min-height: 3rem; }
+  #app-sidebar nav [data-button] { min-height: 3rem; }
 }

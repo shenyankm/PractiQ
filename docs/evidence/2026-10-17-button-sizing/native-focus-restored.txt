@@ -1,0 +1,27 @@
+The following is a diff from the previous accessibility tree for Window: "PractiQ Native QA · main a430f7e" with ~ and + representing changed and added elements, respectively. Removed elements are summarized by ID range.
+~			39 container
+~				40 button (expanded) 收起侧边栏, Secondary Actions: Collapse
+~				41 text PractiQ
+~				42 container 主导航
++					43 button 我的题库
++					44 button 错题本
++					45 button 收藏夹
++					46 button 练习记录
++				47 pop up button 主题
++				48 pop up button 语言
++				49 button 设置
++			50 container
++				51 heading 设置, Value: 1
++					52 text 设置
++				53 text AI 服务 未配置
++				54 button 配置
++				55 heading 学习数据备份, Value: 2
++					56 text 学习数据备份
++				57 text 备份题库与学习记录，不含访问令牌。
++				58 button 导出备份
++				59 pop up button 恢复备份
++				60 summary 备份范围与注意事项, Value: off
++					61 text 备份范围与注意事项
++				62 text 版本信息 版本：0.2.0 源码地址：https://github.com/shenyankm/PractiQ
++			27 container 通知 alt+T
+The focused UI element is 59 pop up button 恢复备份
