@@ -12,8 +12,8 @@ PractiQ has an independent AI import service and Web frontend, plus an offline p
 | `acceptance/` | Import-quality, source-review, release-package and user-trial procedures |
 | `maintainers/` | Contributor handover, release policy, roadmap and merge automation |
 | `history/` | Dated implementation, performance, operations and UI reports; see [history index](history/README.md) |
-| `evidence/` | Raw files tied to dated reports; preserve hashes, failures and denominators |
-| `assets/` | Screenshots and source-document images used by guides and reports |
+| `evidence/` | Text records, measurements and original hash manifests tied to dated reports |
+| `assets/` | Root README screenshots and source-document images used by guides and reports |
 
 ## Use the app and import documents
 
@@ -68,4 +68,4 @@ Fixture provenance and reproduction belong beside their inputs: [service-export]
 
 Historical descriptions of desktop AI import, embedded Python/LibreOffice, Linux app builds, earlier schemas, Agent Server, Redis or cloud object storage refer to retired versions. The current service uses PostgreSQL and RabbitMQ; SQLite belongs to offline App storage. Model substitutes, successful CI and old installer builds do not establish live-model, clean-machine, participant or signing acceptance. Follow current guides for setup; old commands may refer to removed scripts.
 
-Superseded review/fix journals and the duplicate theme-preview guide were removed; their source remains in Git history. Raw evaluation reports, source hashes and evidence assets remain unchanged. Ignored `server/reports/checks/`, temporary files and expired Actions artifacts may be unavailable in a fresh checkout; recorded filenames and hashes identify prior evidence, not downloadable files or current passes.
+Superseded review/fix journals and the duplicate theme-preview guide were removed; their source remains in Git history. On October 17, 2026, UI acceptance and local test screenshots were removed except for the three images used by the root English and Chinese README files. Application icons, test fixtures, source-document images, parsing artifacts and performance reports are retained. Historical manifests still record the original screenshot filenames and hashes; those entries do not mean the images remain available. Ignored `server/reports/checks/`, temporary files and expired Actions artifacts may be unavailable in a fresh checkout; recorded filenames and hashes identify prior evidence, not downloadable files or current passes.

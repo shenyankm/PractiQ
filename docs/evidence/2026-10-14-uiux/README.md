@@ -1,5 +1,7 @@
 # PractiQ UI/UX acceptance — 2026-10-14
 
+Screenshot files were removed on October 17, 2026 during repository cleanup. The results below describe the original acceptance. Logs, measurements and original hash manifests are retained as historical records; screenshot entries in those manifests no longer identify available files. Current product screenshots remain in the root README files.
+
 The existing App and import Web interfaces were refined using [UI UX Pro Max](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill), while preserving the warm-purple theme, octopus artwork, system Chinese fonts and existing product boundaries. The skill entrypoint, search tools and professional UI checklist were used. Broad education search results favored marketing and child-oriented treatments; those recommendations were not adopted. Focused progress, typography, keyboard and React guidance informed the changes instead.
 
 ## PR candidate refresh
@@ -27,19 +29,11 @@ No new dependencies or model actions were introduced. Existing source associatio
 
 ## Screenshot comparison
 
-| Screen | Before | After |
-| --- | --- | --- |
-| App banks, desktop | [Before](app/before-banks-desktop.png) | [After](app/app-banks-light-desktop.png) |
-| App banks, phone | [Before](app/before-banks-mobile.png) | [After](app/app-banks-light-375.png) |
-| App questions, phone | [Before](app/before-questions-mobile.png) | [After](app/app-questions-light-mobile.png) |
-| App practice, phone | [Before](app/before-practice-mobile.png) | [After](app/app-practice-light-mobile.png) |
-| Web connection, desktop | [Before](web/main-before-connection-1440.png) | [After](web/main-after-connection-1440.png) |
-| Web workspace, desktop | [Before](web/main-before-workspace-1440.png) | [After](web/main-after-workspace-1440.png) |
-| Web review, phone | [Before](web/main-before-review-390.png) | [After](web/main-after-review-390.png) |
+The original comparisons covered App banks, questions and practice on desktop and phone, plus Web connection, workspace and phone review.
 
-Additional acceptance captures: [App dark desktop](app/app-banks-dark-desktop.png), [App dark phone](app/app-banks-dark-mobile.png), [English phone](app/app-banks-light-english-mobile.png), [landscape practice](app/app-practice-light-landscape.png), [phone editor](app/app-editor-light-mobile.png), [Web dark desktop](web/main-after-review-dark-1440.png), [Web dark phone](web/main-after-review-dark-390.png), and [Web verified export](web/main-after-export-1440.png).
+Additional acceptance captures: App dark desktop, App dark phone, English phone, landscape practice, phone editor, Web dark desktop, Web dark phone, and Web verified export.
 
-The initial App capture script produced 22 screenshots with no page errors; 13 representative browser screenshots are retained here alongside four before captures. Historical Web has six before and ten after captures; the main-based refresh has ten before and sixteen after captures, including supplemental purchase/recharge views. The three macOS screenshots came from a running Tauri development binary in a separate QA app bundle using the same synthetic frontend: [banks](app/macos-banks.png), [questions](app/macos-questions.png), [practice](app/macos-practice.png). Native clicks verified opening the question list, resuming practice and moving to the next question.
+The initial App capture script produced 22 screenshots with no page errors; this record originally included 13 representative browser screenshots alongside four before captures. Historical Web had six before and ten after captures; the main-based refresh had ten before and sixteen after captures, including supplemental purchase/recharge views. The three macOS screenshots came from a running Tauri development binary in a separate QA app bundle using the same synthetic frontend: banks, questions, practice. Native clicks verified opening the question list, resuming practice and moving to the next question. These screenshot files were subsequently removed in the cleanup described above.
 
 ## Checks
 
