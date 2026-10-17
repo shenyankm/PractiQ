@@ -36,19 +36,20 @@ Run the relevant commands from the repository root:
 
 | Area | Install and develop |
 | --- | --- |
-| Practice app | `make app-install`, then `make app-dev AI_PYTHON=/path/to/python3.14` on macOS/Windows |
+| Practice app — macOS | `make app-install`, then `make app-dev AI_PYTHON=/path/to/python3.14` |
+| Practice app — Windows | Follow the [README PowerShell setup](README.md#run-the-desktop-app), starting with `npm --prefix app ci`; GNU Make is not a Windows prerequisite |
 | Import Web | `make web-install`, then `make web-dev` |
-| AI service | `make install-locked AI_PYTHON=/path/to/python3.14`; follow the [README service setup](README.md#run-the-ai-service-independently) for configuration and `make server-dev` |
+| AI service | `make install-locked AI_PYTHON=/path/to/python3.14`; follow the [README service setup](README.md#run-the-ai-service-independently) for configuration and `make server-dev AI_PYTHON=/path/to/python3.14` |
 
 See the [README prerequisites](README.md#run-the-desktop-app) for native toolchains and the [Android guide](app/docs/android.md) for Android development on any supported host. Service integration and recovery tests need Docker for disposable PostgreSQL/RabbitMQ instances; pure tests must not start Docker. Model-substitute tests need no real model credentials or running AI service.
 
-App contract checks and package preparation also need the locked Python dependencies: run `make install-locked AI_PYTHON=/path/to/python3.14` even when the AI service itself is not being developed or started.
+App contract checks and package preparation also need the locked Python dependencies, even when the AI service itself is not being developed or started. On hosts with GNU Make, run `make install-locked AI_PYTHON=/path/to/python3.14`; use the linked PowerShell setup for Windows app development.
 
 ### Respect component boundaries
 
 | Area | Responsibility |
 | --- | --- |
-| `app/` | Offline Tauri/React practice app with Rust and SQLite, targeting macOS, Windows, and Android. Imports bank ZIPs; calls the independent service only for explicit AI grading or retry. |
+| `app/` | Offline Tauri/React practice app with Rust and SQLite, targeting macOS, Windows, and Android. Imports bank ZIPs and supports explicit service connection checks; only explicit AI grading or retry starts model work. |
 | `web/` | Import frontend for explicit source-document submission, task control, result review, and bank ZIP download. |
 | `server/` | Python/LangGraph document processing and grading, with PostgreSQL state, RabbitMQ delivery, and local file storage. |
 | `shared/` | Frontend code used by both App and Web; validate both consumers when affected. |
