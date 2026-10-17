@@ -9,13 +9,22 @@ import sys
 from fnmatch import fnmatchcase
 from pathlib import Path
 
+APP_INPUTS = (
+    "app/**", "shared/**", "Makefile", "rust-toolchain.toml", ".gitattributes", ".gitignore", "LICENSE",
+    "server/src/practiq_ai/__init__.py", "server/src/practiq_ai/contracts.py",
+    "server/pyproject.toml", "server/uv.lock", "server/conftest.py", "server/scripts/**",
+    "server/tests/__init__.py", "server/tests/conftest.py", "server/tests/test_ci.py", "server/tests/test_ci_scope.py",
+    "server/tests/test_release_checks.py", "server/tests/test_release_workflow.py",
+    "server/tests/test_desktop_package.py", "server/tests/test_android_package.py",
+    "server/tests/test_android_licenses.py",
+)
 PATTERNS = {
     "service": (
         "server/**", "web/**", "shared/**", "app/fixtures/**", "app/scripts/check-rich-recognition.py",
         "Dockerfile.server", ".dockerignore", ".gitignore", ".env.example", "Makefile",
     ),
-    "android": ("app/**", "server/**", "shared/**", "Makefile", "rust-toolchain.toml", ".gitattributes", ".gitignore", "LICENSE"),
-    "desktop": ("app/**", "server/**", "shared/**", "Makefile", "rust-toolchain.toml", ".gitattributes", ".gitignore", "LICENSE"),
+    "android": APP_INPUTS,
+    "desktop": APP_INPUTS,
 }
 DOCUMENTATION = (
     "README*", "CONTRIBUTING.md", "SECURITY.md", "AGENTS.md", "docs/**",
