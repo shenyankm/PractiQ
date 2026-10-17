@@ -43,7 +43,7 @@ Run the relevant commands from the repository root:
 
 See the [README prerequisites](README.md#run-the-desktop-app) for native toolchains and the [Android guide](app/docs/android.md) for Android development on any supported host. Service integration and recovery tests need Docker for disposable PostgreSQL/RabbitMQ instances; pure tests must not start Docker. Model-substitute tests need no real model credentials or running AI service.
 
-App contract checks and package preparation also need the locked Python dependencies, even when the AI service itself is not being developed or started. On hosts with GNU Make, run `make install-locked AI_PYTHON=/path/to/python3.14`; use the linked PowerShell setup for Windows app development.
+Shared-contract checks need the locked service dependencies, even when the AI service itself is not being developed or started. On hosts with GNU Make, install them with `make install-locked AI_PYTHON=/path/to/python3.14`. App package preparation uses standard-library/local Python modules and does not require the AI-service environment.
 
 ### Respect component boundaries
 
