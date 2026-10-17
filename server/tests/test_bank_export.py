@@ -569,12 +569,8 @@ async def test_export_waits_for_a_cancelled_writer_before_closing_its_archive(tm
 
 
 @pytest.mark.parametrize("failure", [None, "cancelled", "disconnect"])
-@pytest.mark.parametrize("customer", [False, True])
-async def test_export_http_global_slot_holds_through_download_and_releases_after_response(monkeypatch, failure, customer):
-    from practiq_ai import saas, task_api, webapp
-    async def identity(phone, _card):
-        return phone
-    monkeypatch.setattr(saas, 'identity', identity)
+async def test_export_http_global_slot_holds_through_download_and_releases_after_response(monkeypatch, failure):
+    from practiq_ai import task_api, webapp
     monkeypatch.setenv("AI_SERVICE_TOKEN", "export-test-token")
     endpoint = f"/api/document-tasks/{detail().threadId}/export"
     entered, released = asyncio.Event(), asyncio.Event()
@@ -594,7 +590,7 @@ async def test_export_http_global_slot_holds_through_download_and_releases_after
             await released.wait()
             if failure == "disconnect":
                 raise OSError("Synthetic disconnected HTTP client")
-    credentials = {'Authorization': 'Account test-token', 'X-Practiq-Phone': 'account-a'} if customer else {'Authorization': 'Bearer export-test-token'}
+    credentials = {'Authorization': 'Bearer export-test-token'}
     scope = {"type": "http", "method": "GET", "path": endpoint,
              "query_string": b"checkpoint_id=current-result", "headers": [(key.lower().encode(), value.encode()) for key, value in credentials.items()],
              "asgi": {"version": "3.0", "spec_version": "2.4"}, "scheme": "http", "http_version": "1.1"}
@@ -607,10 +603,6 @@ async def test_export_http_global_slot_holds_through_download_and_releases_after
             busy = await client.get(endpoint)
             assert busy.status_code == 429 and busy.json()["detail"]["code"] == "BANK_EXPORT_BUSY"
             assert busy.headers["retry-after"] == "1" and len(files) == 1
-            if customer:
-                other = await client.get(endpoint, headers={'X-Practiq-Phone': 'account-b'})
-                assert other.status_code == 429 and other.json()['detail']['code'] == 'BANK_EXPORT_BUSY'
-                assert other.headers['retry-after'] == '1' and len(files) == 1 and not files[0].closed
             if failure == "cancelled":
                 first.cancel()
             released.set()
@@ -620,8 +612,6 @@ async def test_export_http_global_slot_holds_through_download_and_releases_after
             else:
                 await first
             assert files[0].closed
-            if customer:
-                client.headers['X-Practiq-Phone'] = 'account-b'
             exported = await client.get(endpoint)
             assert exported.status_code == 200 and len(exported.content) == 128 * 1024 + 17
             assert len(files) == 2 and all(file.closed for file in files)

@@ -29,7 +29,6 @@ from langchain_openai import ChatOpenAI
 from langgraph.errors import GraphInterrupt
 from langgraph.func import task
 from langgraph.runtime import Runtime, get_runtime
-from langgraph.types import interrupt
 from openai import (
     APIConnectionError,
     APIStatusError,
@@ -40,14 +39,13 @@ from openai import (
 )
 from pydantic import BaseModel, ValidationError
 
-from . import saas, telemetry
+from . import telemetry
 from .capacity import provider_slot
 from .config import is_loopback_host, load, require_model_config
 from .contracts import ModelCallUsage
 from .errors import DocumentProcessingError
 from .execution import (
     CURRENT_ARTIFACT,
-    CURRENT_EXECUTION,
     CURRENT_UNIT,
     fingerprint,
     guard,
@@ -491,7 +489,7 @@ async def structured_call[ResultT: BaseModel](
         if runtime and runtime.execution_info and runtime.store:
             info = get_runtime().execution_info
             assert info is not None
-            scope = runtime.execution_info.thread_id if (CURRENT_EXECUTION.get() or {}).get('accountId') else runtime.execution_info.run_id
+            scope = runtime.execution_info.run_id
             result_key = str(uuid5(NAMESPACE_URL, f"{scope}/{info.task_id}"))
             previous = await runtime.store.aget(namespace(str(runtime.execution_info.thread_id), "model_results"), result_key, refresh_ttl=False)
             if previous:
@@ -512,7 +510,6 @@ async def structured_call[ResultT: BaseModel](
         outcome = "unknown"
         error_code = None
         provider_started = False
-        metered = False
         try:
             chars = sum(len(message.content) if isinstance(message.content, str) else sum(len(str(part.get("text", ""))) if isinstance(part, dict) else len(str(part)) for part in message.content) for message in messages)
             chars += sum(len(json.dumps(message.additional_kwargs, default=str)) for message in messages)
@@ -520,7 +517,6 @@ async def structured_call[ResultT: BaseModel](
                 outcome = "rejected"
                 error_code = "MODEL_INPUT_TOO_LARGE"
                 return {"error": {"status": 413, "code": "MODEL_INPUT_TOO_LARGE", "detail": "Model text input exceeds the configured limit"}}
-            metered = await saas.begin_call(runtime, str(call_key), result_key)
             # Reject exhausted units before queueing; spend only after pause recheck.
             await reserve_model_call(runtime, check_only=True)
             async with provider_slot(record, check=lambda: guard(runtime)):
@@ -530,8 +526,6 @@ async def structured_call[ResultT: BaseModel](
                     await store_put(runtime, "calls", str(call_key), record)
                 if call_record_writer:
                     await call_record_writer(record)
-                if metered:
-                    await saas.dispatched(str(call_key))
                 provider_started = True
                 telemetry.event("model_start", callKey=str(call_key), kind=call_kind,
                                 schema=schema.__name__, attempt=attempt, unitKey=CURRENT_UNIT.get(),
@@ -566,13 +560,8 @@ async def structured_call[ResultT: BaseModel](
             record.update(status="failed", error=error["code"], finishedAt=datetime.now(UTC).isoformat(), durationMs=round((time.monotonic() - started) * 1000, 3))
             if runtime and error["code"] != "EXECUTION_STORE_UNAVAILABLE":
                 await store_put(runtime, "calls", str(call_key), record)
-            if metered and provider_started:
-                await saas.settle(str(call_key), None)
-                interrupt({'kind': 'billing', 'code': 'USAGE_UNKNOWN'})
             return {"error": error}
         finally:
-            if metered and outcome != 'known':
-                await saas.settle(str(call_key), None, rejected=not provider_started)
             if not provider_started and record["status"] == "started":
                 record.update(status="rejected", error=error_code or "MODEL_CALL_REJECTED", finishedAt=datetime.now(UTC).isoformat(), durationMs=round((time.monotonic() - started) * 1000, 3))
             if call_records is not None:
@@ -605,17 +594,8 @@ async def structured_call[ResultT: BaseModel](
             "validationCode": record.get("validationCode"),
             "usage": call_usage.model_dump(mode="json"),
         }
-        try:
-            if runtime and result_key:
-                await store_put(runtime, "model_results", result_key, result)
-            if metered:
-                await saas.settle(str(call_key), result['usage'])
-        except BaseException as exc:
-            if metered:
-                await saas.settle(str(call_key), None)
-                if isinstance(exc, Exception):
-                    interrupt({'kind': 'billing', 'code': 'USAGE_UNKNOWN'})
-            raise
+        if runtime and result_key:
+            await store_put(runtime, "model_results", result_key, result)
         return result
 
     durable_attempt = task(name=f"{call_kind}_attempt")(attempt_call)
@@ -629,12 +609,6 @@ async def structured_call[ResultT: BaseModel](
         await guard(runtime)
         saved = await (durable_attempt(attempt, CURRENT_ARTIFACT.get())
                        if runtime and runtime.execution_info else attempt_call(attempt, None))
-        if (CURRENT_EXECUTION.get() or {}).get('accountId') and saved.get('usage'):
-            try:
-                await saas.settle(saved['usage']['callKey'], saved['usage'])
-            except Exception:  # noqa: BLE001 - saved results must pause until settlement recovers
-                await saas.settle(saved['usage']['callKey'], None)
-                interrupt({'kind': 'billing', 'code': 'USAGE_UNKNOWN'})
         if runtime and (record := saved.get("callRecord")):
             # The Store result receipt also covers a crash before task writes flush.
             await store_put(runtime, "calls", record["callKey"], {**record, "durableResult": True})

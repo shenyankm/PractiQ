@@ -3,14 +3,13 @@ AI_PYTHON ?= $(PYTHON)
 # Resolve executable names before uv searches for a virtual environment.
 override AI_PYTHON := $(or $(shell command -v "$(AI_PYTHON)"),$(AI_PYTHON))
 AI_PORT ?= 8090
-# Full development checks cover the optional checkout too.
-INSTALL_EXTRAS ?= --extra dev --extra payments
+INSTALL_EXTRAS ?= --extra dev
 APP_PACKAGE_REPORT ?= server/reports/checks/desktop-bundle.json
 
 .PHONY: install server-install install-locked test test-server server-dev init-db upgrade-db verify audit audit-rust image-check alerts-check
 install: server-install
 server-install:
-	cd server && uv pip install --break-system-packages --python "$(AI_PYTHON)" -e '.[dev,payments]'
+	cd server && uv pip install --break-system-packages --python "$(AI_PYTHON)" -e '.[dev]'
 install-locked:
 	@set -eu; requirements=$$(mktemp); trap 'rm -f "$$requirements"' EXIT; \
 	cd server; uv export --locked $(INSTALL_EXTRAS) --no-emit-project --python "$(AI_PYTHON)" -o "$$requirements" >/dev/null; \
@@ -43,7 +42,7 @@ verify:
 	cd server && "$(AI_PYTHON)" scripts/check_package.py
 audit:
 	@set -eu; requirements=$$(mktemp); trap 'rm -f "$$requirements"' EXIT; \
-	cd server; uv export --locked --extra dev --extra payments --no-emit-project --python "$(AI_PYTHON)" -o "$$requirements" >/dev/null; \
+	cd server; uv export --locked --extra dev --no-emit-project --python "$(AI_PYTHON)" -o "$$requirements" >/dev/null; \
 	"$(AI_PYTHON)" -m pip_audit --strict --disable-pip --no-deps -r "$$requirements"; \
 	"$(AI_PYTHON)" -c 'import pathlib, sys, tomllib; project = tomllib.loads(pathlib.Path("pyproject.toml").read_text()); print(*project["build-system"]["requires"], *project["tool"]["uv"]["build-constraint-dependencies"], sep="\n", file=open(sys.argv[1], "w"))' "$$requirements"; \
 	"$(AI_PYTHON)" -m pip_audit --strict --disable-pip --no-deps -r "$$requirements"
@@ -114,13 +113,3 @@ android-build: android-prepare-package
 	cd app && npm run tauri -- android build --debug --apk --split-per-abi --target aarch64 --ci
 android-package-check: android-build
 	"$(AI_PYTHON)" app/scripts/check-apk.py --installer "$(ANDROID_APK)" --abi arm64-v8a --aapt2 "$(ANDROID_AAPT2)" --expected-notices app/src-tauri/bundled/THIRD-PARTY.txt --output "$(ANDROID_PACKAGE_REPORT)"
-
-.PHONY: payments-install-locked payments-dev payments-init-db payments-reconcile
-payments-install-locked: INSTALL_EXTRAS = --extra payments --no-dev
-payments-install-locked: install-locked
-payments-dev:
-	cd server && TZ=Asia/Shanghai "$(AI_PYTHON)" -m uvicorn practiq_ai.payment_webapp:app --host 127.0.0.1 --port 8091 --workers 1 --env-file ../.env.payments --no-access-log --limit-concurrency 32
-payments-init-db:
-	cd server && TZ=Asia/Shanghai "$(AI_PYTHON)" -m practiq_ai.payments_manage init-db
-payments-reconcile:
-	cd server && TZ=Asia/Shanghai "$(AI_PYTHON)" -m practiq_ai.payments_manage reconcile

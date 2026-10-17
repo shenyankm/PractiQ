@@ -46,7 +46,6 @@ def code_version() -> str:
     if (root / "office_service.py").is_file():
         paths.append(root / "office_service.py")
     paths.append(root / "normalization.py")
-    paths.append(root / "saas.py")
     paths.append(root / "temporary.py")
     paths.extend(sorted((root / "graphs").glob("*.py")))
     paths.extend(sorted((root / "extractors").glob("*.py")))
@@ -69,10 +68,8 @@ def runtime_version() -> dict[str, Any]:
 def signature() -> dict[str, Any]:
     settings = asdict(load())
     settings.pop("api_key")
-    settings.pop('input_micropoints_per_1k')
-    settings.pop('output_micropoints_per_1k')
     # Concurrency and timeouts can change without changing document semantics.
-    for key in ("jobs_per_worker", "graph_max_concurrency", "storage_concurrency", "storage_timeout_seconds", "model_timeout_seconds", "deployment_workers", "provider_concurrency", "provider_rpm", "upload_concurrency", "upload_timeout_seconds", "account_upload_max_bytes", "account_upload_max_files", "account_max_pending_runs", "account_max_tasks", "max_busy_threads", "maintenance", "read_only"):
+    for key in ("jobs_per_worker", "graph_max_concurrency", "storage_concurrency", "storage_timeout_seconds", "model_timeout_seconds", "deployment_workers", "provider_concurrency", "provider_rpm", "upload_concurrency", "upload_timeout_seconds", "max_busy_threads", "maintenance", "read_only"):
         settings.pop(key)
     # Office manifests independently bind the engine version and executable checksum.
     for key in ("office_executable", "office_version"):
@@ -151,10 +148,9 @@ async def store_put(runtime: Runtime[Any], kind: str, key: str, value: dict[str,
     if runtime.store is None or info is None or info.thread_id is None:
         return
     execution = CURRENT_EXECUTION.get()
-    accounting = execution and execution.get('accountId') and kind in {'model_results', 'calls'}
     try:
         await runtime.store.aput(namespace(info.thread_id, kind), key, dict(value), index=False,
-                                 ttl=(remaining_ttl(execution) if execution else TTL_MINUTES) if runtime.store.supports_ttl and not accounting else None)
+                                 ttl=(remaining_ttl(execution) if execution else TTL_MINUTES) if runtime.store.supports_ttl else None)
     except DocumentProcessingError:
         raise
     except Exception as exc:
@@ -266,3 +262,9 @@ def _record_key(item: dict[str, Any]) -> tuple[Any, ...]:
     if "callKey" in item:
         return (str(item["callKey"]),)
     return (item.get("stage", item.get("kind", "chunk")), item["index"])
+
+
+async def cleanup_task_store(database, thread_id: str) -> None:
+    while items := await database.store.asearch(namespace(thread_id, '')[:2], limit=100, refresh_ttl=False):
+        for item in items:
+            await database.store.adelete(item.namespace, item.key)

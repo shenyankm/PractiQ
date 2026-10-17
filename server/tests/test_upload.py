@@ -180,12 +180,12 @@ async def test_unsupported_or_mismatched_word_uploads_and_tasks_are_rejected(kin
         reference = {**payload, 'objectKey': f'practiq-agent/sources/{"a" * 64}/source.{kind}'}
         assert (await client.post('/api/document-tasks', json={
             'requestId': str(uuid4()), 'document': reference,
-        })).status_code == 401
+        })).status_code == 422
         reference.update(sourceType='pdf', fileName='quiz.pdf', mediaType='application/pdf',
                          objectKey=f'practiq-agent/sources/{"a" * 64}/source.pdf')
         assert (await client.post('/api/document-tasks', json={
             'requestId': str(uuid4()), 'graphId': 'docx_parser', 'document': reference,
-        })).status_code == 401
+        })).status_code == 422
 
 @pytest.mark.parametrize('media', ['image/webp', 'image/gif'])
 async def test_removed_image_formats_are_rejected_for_uploads_and_tasks(media):
@@ -199,44 +199,23 @@ async def test_removed_image_formats_are_rejected_for_uploads_and_tasks(media):
         assert (await client.post('/api/document-tasks', json={
             'requestId': str(uuid4()),
             'document': {**payload, 'objectKey': f'practiq-agent/sources/{"a" * 64}/source.image'},
-        })).status_code == 401
+        })).status_code == 422
 
 
-@pytest.mark.parametrize('stage', ['prepare', 'task', 'review', 'detail'])
-async def test_upload_prepare_and_artifact_authorization_database_outages_fail_closed(monkeypatch, stage):
-    from types import SimpleNamespace
+
+
+async def test_artifact_task_database_outage_is_a_bounded_503(monkeypatch):
     from unittest.mock import AsyncMock
     from uuid import uuid4
 
     from psycopg import OperationalError
 
-    from practiq_ai import saas, task_api
-    from practiq_ai.contracts import document_source_key
+    from practiq_ai import task_api
 
-    metadata = {'sourceType': 'image', 'fileName': 'quiz.png', 'mediaType': 'image/png', 'sizeBytes': 4, 'sha256': 'a' * 64}
-    reference = {key: metadata[key] for key in ('mediaType', 'sizeBytes', 'sha256')}
-    reference['objectKey'] = document_source_key('image', metadata['sha256'])
-    reader = AsyncMock()
-    monkeypatch.setattr(webapp, 'get_object_store', lambda: SimpleNamespace(get_verified=reader, require_available=AsyncMock()))
-    monkeypatch.setattr(saas, 'identity', AsyncMock(return_value='account-a'))
     monkeypatch.setattr(task_api, 'client', lambda: object())
-    monkeypatch.setattr(task_api, '_read_task_record', AsyncMock(return_value={'document': {**metadata, **reference}}))
-    monkeypatch.setattr(task_api, 'review_task', AsyncMock(return_value={}))
-    monkeypatch.setattr(task_api, 'get_task', AsyncMock(return_value={}))
-    unavailable = AsyncMock(side_effect=OperationalError('private database details'))
-    if stage == 'prepare':
-        monkeypatch.setattr(saas, 'owns_upload', unavailable)
-        endpoint, body, params = '/api/uploads', metadata, {}
-        headers = {'Authorization': 'Account synthetic-token', 'X-Practiq-Phone': 'account-a'}
-    else:
-        method = {'task': '_read_task_record', 'review': 'review_task', 'detail': 'get_task'}[stage]
-        monkeypatch.setattr(task_api, method, unavailable)
-        endpoint, body, params = '/api/artifacts/read', reference, {'thread_id': str(uuid4())}
-        headers = {'Authorization': 'Bearer test-token'}
-    async with AsyncClient(transport=ASGITransport(app=app), base_url='http://test') as client:
-        response = await client.post(endpoint, json=body, params=params, headers=headers)
+    monkeypatch.setattr(task_api, '_read_task_record', AsyncMock(side_effect=OperationalError('private database details')))
+    async with AsyncClient(transport=ASGITransport(app=app), base_url='http://test', headers={'Authorization': 'Bearer test-token'}) as client:
+        response = await client.post('/api/artifacts/read', params={'thread_id': str(uuid4())},
+            json={'objectKey': 'practiq-agent/artifacts/' + 'a' * 64 + '/page-0.png', 'sha256': 'a' * 64, 'sizeBytes': 1, 'mediaType': 'image/png'})
     assert response.status_code == 503
-    assert response.json() == {'detail': {'code': 'TASK_SERVICE_UNAVAILABLE', 'message': 'Task database is unavailable'}}
-    assert len(response.content) < 256 and 'private' not in response.text
-    unavailable.assert_awaited_once()
-    reader.assert_not_awaited()
+    assert 'private database details' not in response.text and len(response.content) < 256

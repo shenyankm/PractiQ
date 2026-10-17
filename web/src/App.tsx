@@ -2,13 +2,12 @@ import { lazy, memo, Suspense, useEffect, useRef, useState } from "react";
 import { Select, SelectOption } from "./components/ui/select";
 import { Upload, Play, RefreshCw, Download, Trash2, LockKeyhole, ChevronLeft, ChevronRight, FileText, LoaderCircle, Check } from "lucide-react";
 import logo from "./assets/octopus.png";
-import { ApiError, Client, downloadBlob, fileFormat, MAX_FILES, sourceLimit, validateFiles, pointLabel, type Action, type Capabilities, type OfficeMode, type TaskList, type UploadStage } from "./api";
+import { ApiError, Client, downloadBlob, fileFormat, MAX_FILES, sourceLimit, validateFiles, type Action, type Capabilities, type OfficeMode, type TaskList, type UploadStage } from "./api";
 import type { DocumentTaskDetail, DocumentTaskReview, DocumentTaskSummary } from "./contracts.generated";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
 import { Badge } from "./components/ui/badge";
-import AccountPanel from "./AccountPanel";
 import { ErrorBoundary } from "../../shared/error-boundary";
 import { RenderFailure } from "./RenderFailure";
 const ResultReview = lazy(() => import("./ResultReview"));
@@ -38,7 +37,6 @@ const Usage = memo(function Usage({ task }: { task: DocumentTaskDetail }) {
 
 export default function App() {
   const [draftToken, setDraftToken] = useState("");
-  const [draftPhone, setDraftPhone] = useState("");
   const [connecting, setConnecting] = useState(false);
   const [client, setClient] = useState<Client | null>(null);
   const [capabilities, setCapabilities] = useState<Capabilities | null>(null);
@@ -65,7 +63,7 @@ export default function App() {
   const [detailRevision, setDetailRevision] = useState(0);
   const [busy, setBusy] = useState(false);
   const [accessInvalid, setAccessInvalid] = useState(false);
-  const phoneField = useRef<HTMLInputElement>(null);
+  const tokenField = useRef<HTMLInputElement>(null);
   const [operationError, setOperationError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [downloadedCheckpoint, setDownloadedCheckpoint] = useState<string | null>(null);
@@ -76,7 +74,7 @@ export default function App() {
   const fileInput = useRef<HTMLInputElement>(null);
   const deletePrompt = useRef<HTMLDivElement>(null);
   const deleteCompleted = useRef(false);
-  useEffect(() => { if (accessInvalid && !connecting) phoneField.current?.focus(); }, [accessInvalid, connecting]);
+  useEffect(() => { if (accessInvalid && !connecting) tokenField.current?.focus(); }, [accessInvalid, connecting]);
   useEffect(() => {
     if (!deleteTarget) return;
     deleteCompleted.current = false;
@@ -186,10 +184,10 @@ export default function App() {
     setConnecting(true); setCapError(null); setAccessInvalid(false);
     let current: Client | null = null;
     try {
-      current = new Client(draftToken.trim(), draftPhone.trim());
-      await current.account();
-      if (current.active) { setClient(current); setDraftToken(""); setDraftPhone(""); setOperationError(null); setNotice(null); }
-    } catch (error) { current?.disconnect(); setCapError(errorText(error)); if (error instanceof ApiError && (error.code === "INVALID_ACCOUNT_ACCESS" || authFailure(error))) { setAccessInvalid(true); } }
+      current = new Client(draftToken.trim());
+      await current.capabilities();
+      if (current.active) { setClient(current); setDraftToken(""); setOperationError(null); setNotice(null); }
+    } catch (error) { current?.disconnect(); setCapError(errorText(error)); if (error instanceof ApiError && (error.code === "INVALID_SERVICE_TOKEN" || authFailure(error))) { setAccessInvalid(true); } }
     finally { setConnecting(false); }
   }
 
@@ -239,15 +237,14 @@ export default function App() {
     <header className="web-header"><a href="/" className="brand"><img src={logo} alt="PractiQ 小章鱼" /><div><strong>PractiQ</strong><span>AI 文档导入</span></div></a></header>
     <main id="main-content" tabIndex={-1} className="web-main"><div className="page-intro"><div><h1>把文档整理成可复核的题库</h1></div></div>
       <ol className="import-steps" aria-label="文档导入流程">{[
-        ["选择并导入", !client ? "连接账户后选择文档" : importStep > 1 ? "文档任务已创建" : "选择文件，点击开始后解析"],
+        ["选择并导入", !client ? "连接服务后选择文档" : importStep > 1 ? "文档任务已创建" : "选择文件，点击开始后解析"],
         ["检查解析结果", "核对题目、答案与质量提示"],
         ["导出并离线练习", importStep === 3 ? "ZIP 已下载 · App：设置 → 恢复备份" : "App：设置 → 恢复备份 → 导入题库 ZIP"],
       ].map(([title, description], index) => <li key={title} aria-current={importStep === index + 1 ? "step" : undefined} data-complete={importStep > index + 1}><span>{importStep > index + 1 ? <Check aria-hidden="true" /> : index + 1}</span><div><strong>{title}</strong><p>{description}</p></div></li>)}</ol>
-      {!client ? <Card className="connection-card"><CardHeader><CardTitle role="heading" aria-level={2} className="flex items-center gap-2"><LockKeyhole />查询导入记录</CardTitle></CardHeader><CardContent className="space-y-4"><p id="account-help">使用已有账户和运营签发的令牌。令牌仅保存在本页内存，刷新后需重填。</p><form onSubmit={event => { event.preventDefault(); void connect(); }} className="connection-form"><label className="flex-1 space-y-1"><span>手机号</span><Input ref={phoneField} aria-invalid={accessInvalid || undefined} aria-describedby={accessInvalid ? "access-error" : undefined} disabled={connecting} type="tel" autoComplete="off" maxLength={16} value={draftPhone} onChange={event => setDraftPhone(event.target.value)} /></label><label className="flex-1 space-y-1"><span>账户令牌</span><Input disabled={connecting} type="password" aria-invalid={accessInvalid || undefined} aria-describedby={accessInvalid ? "account-help access-error" : "account-help"} autoComplete="off" spellCheck={false} maxLength={64} value={draftToken} onChange={event => setDraftToken(event.target.value)} /></label><Button type="submit" disabled={connecting || !draftPhone.trim() || !draftToken.trim()}>查询记录</Button></form>{capError && <p id="access-error" role="alert" className="text-destructive">{capError}</p>}</CardContent></Card> : <>
+      {!client ? <Card className="connection-card"><CardHeader><CardTitle role="heading" aria-level={2} className="flex items-center gap-2"><LockKeyhole />连接个人服务</CardTitle></CardHeader><CardContent className="space-y-4"><p id="service-help">使用自托管服务的 AI_SERVICE_TOKEN。令牌仅保存在本页内存，刷新后需重填。</p><form onSubmit={event => { event.preventDefault(); void connect(); }} className="connection-form"><label className="flex-1 space-y-1"><span>服务访问令牌</span><Input ref={tokenField} disabled={connecting} type="password" aria-invalid={accessInvalid || undefined} aria-describedby={accessInvalid ? "service-help access-error" : "service-help"} autoComplete="off" spellCheck={false} maxLength={4096} value={draftToken} onChange={event => setDraftToken(event.target.value)} /></label><Button type="submit" disabled={connecting || !draftToken.trim()}>连接服务</Button></form>{capError && <p id="access-error" role="alert" className="text-destructive">{capError}</p>}</CardContent></Card> : <>
         {capError && <div className="error-banner" role="alert"><span className="min-w-0 flex-1">{capError}</span><Button variant="outline" onClick={() => setCapRevision(value => value + 1)}>重试读取服务能力</Button></div>}
 {notice && <p className="notice" role="status">{notice}</p>}
         {busy && <p role="status" className="operation-status"><LoaderCircle className="loading-icon" aria-hidden="true" />正在处理当前操作，请勿重复提交。</p>}
-        <AccountPanel client={client} balance={detail?.billing?.balanceMicropoints} revision={detailRevision + listRevision} />
         <nav className="workspace-shortcuts" aria-label="工作区导航"><a className="workspace-link" href="#import-heading">导入文档</a><a className="workspace-link" href="#task-list-heading">文档任务</a><a className="workspace-link" href="#task-detail">任务详情与结果</a></nav>
         <div className="workspace-grid"><aside className="space-y-5">
           <Card><CardHeader><CardTitle role="heading" aria-level={2} id="import-heading" tabIndex={-1} className="flex items-center gap-2"><Upload />导入文档</CardTitle></CardHeader><CardContent className="space-y-4">
@@ -289,8 +286,7 @@ export default function App() {
             {detail && <div className="space-y-6"><div className="task-title"><div><h2>{detail.fileName}</h2><p><Badge variant="outline">{stateLabels[detail.state]}</Badge><span>阶段：{detail.phase}</span>{detail.status && <Badge variant={detail.status === "PARTIAL" ? "secondary" : "outline"}>{detail.status === "PARTIAL" ? "部分结果" : "解析完成"}</Badge>}</p></div><Button variant="outline" aria-label="刷新任务详情" onClick={() => setDetailRevision(value => value + 1)}><RefreshCw /></Button></div>
               {!detailFresh && <p className="notice">当前显示上次成功读取的信息，任务操作已停用，请先刷新。</p>}
               {preview && preview.checkpointId !== detail.checkpointId && <p className="notice">任务检查点正在更新，读取一致后才能继续或导出。</p>}
-              <Progress task={detail} />{detail.billing && <p>本任务已用 {pointLabel(detail.billing.chargedMicropoints)} 积分；账户余额 {pointLabel(detail.billing.balanceMicropoints)} 积分。每千输入／输出 tokens 分别消耗 {pointLabel(detail.billing.rates.inputMicropointsPer1k)}／{pointLabel(detail.billing.rates.outputMicropointsPer1k)} 积分。</p>}
-              {detail.billing && detail.blocking.some(item => typeof item === "object" && item !== null && "kind" in item && item.kind === "billing") && <p role="status" className="notice">{detail.billing.usageUnknown ? "用量待核对，请联系客服。" : BigInt(detail.billing.balanceMicropoints) <= 0n ? "积分不足，支付到账后请明确点击继续解析。" : detail.blocking.some(item => typeof item === "object" && item !== null && "code" in item && item.code === "USAGE_UNKNOWN") ? "用量已核对，请明确点击继续解析。" : "积分已补充，请明确点击继续解析。"}已完成内容可下载；下载与充值不会自动继续。</p>}
+              <Progress task={detail} />
               <div className="task-actions" aria-label="当前任务操作">{detail.allowedActions.map(action => <Button key={action} variant="outline" disabled={busy || !detailFresh || (!["pause", "interrupt"].includes(action) && !matchingCheckpoint) || (["resume", "retry_failed"].includes(action) && (!detail.modelConfigured || !detail.resumeCompatible))} onClick={() => act(action)}>{actionLabels[action]}</Button>)}<Button disabled={busy || !canExport} onClick={() => void run(async current => { const exported = await current.exportBank(detail); if (current.active) { downloadBlob(exported.blob, exported.name); setDownloadedCheckpoint(`${detail.threadId}:${detail.checkpointId}`); setNotice("题库 ZIP 已下载。每次导出包含当前全部已完成内容，重复导入会创建独立题库。请在应用设置中追加导入。"); } })}><Download />下载题库 ZIP</Button></div>
               {detail.state !== "COMPLETED" && <p className="text-sm text-muted-foreground">暂停后可下载已完成题目，需有可用题目且检查点一致。</p>}
               <details className="task-secondary-actions"><summary>其他任务操作</summary><p className="text-sm text-muted-foreground">重新解析会创建新的模型请求；删除会移除此任务和检查点。已下载的题库不受影响。</p><div className="task-actions"><Button variant="outline" disabled={busy || !detailFresh || !detail.modelConfigured || detail.state === "EXPIRED"} onClick={() => void run(async current => { const receipt = await current.reparse(detail.threadId); if (current.active) { setSelected(value => value === detail.threadId ? receipt.threadId : value); setListRevision(value => value + 1); setDetailRevision(value => value + 1); setNotice("新解析任务已创建。"); } })}><RefreshCw />重新解析为新任务</Button><Button variant="destructive" disabled={busy || !detailFresh || ["RUNNING", "PENDING", "PAUSING"].includes(detail.state)} onClick={() => setDeleteTarget({ threadId: detail.threadId, fileName: detail.fileName })}><Trash2 />删除任务</Button></div></details>
@@ -302,7 +298,6 @@ export default function App() {
           </>}
         </section></div>
       </>}
-      {!client && <AccountPanel client={null} revision={0} />}
     </main><footer>PractiQ · 保留来源与不确定性，由你检查并决定下一步。</footer>
   </div>;
 }

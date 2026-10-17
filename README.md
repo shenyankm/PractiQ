@@ -13,7 +13,7 @@ Turn documents into question banks, then practise and take mock exams offline on
 - **Review scores**: score objective questions locally, request AI short-answer grading, or record manual corrections.
 - **Keep and share**: resume sessions, back up personal records, and share banks with images and audio as ZIP files.
 
-The app supports Simplified Chinese and English, light and dark themes, seven basic question types, and English listening, reading, cloze, translation, and writing tasks. Offline practice data stays on your device and needs no account or cloud sync. The separate Web importer uses phone/account-token access and import points.
+The app supports Simplified Chinese and English, light and dark themes, seven basic question types, and English listening, reading, cloze, translation, and writing tasks. Offline practice data stays on your device and needs no account or cloud sync. The separate Web importer uses your self-hosted service access token; there are no user accounts or built-in billing.
 
 PractiQ is in development. Run it from source using the instructions below; check [GitHub Releases](https://github.com/shenyankm/PractiQ/releases) for published packages and their stated limitations. Platform build checks do not establish signed-release or clean-machine acceptance.
 
@@ -37,18 +37,18 @@ Export a bank from its card menu to share content without personal answers or sc
 
 Use the independent service's Web frontend for document import:
 
-1. Start the [independent AI service](#run-the-ai-service-independently), open its Web frontend and enter a phone number and a operator-issued token for an existing account. Model configuration and provider credentials stay in the service environment.
+1. Start the [independent AI service](#run-the-ai-service-independently), open its Web frontend and enter your service access token (`AI_SERVICE_TOKEN`). Model configuration and provider credentials stay in the service environment.
 2. Select up to 10 source files and explicitly choose **Start import**. Selecting files does not upload or parse them.
 3. Inspect task progress, saved questions, images, supplied answers and review warnings. Download the result as a question-bank ZIP.
 4. In the desktop app, use **Settings → Restore backup → Import bank ZIP** to create a bank or append content to an existing bank.
 
 The service accepts **PDF, TXT, CSV and PNG/JPEG**. Deployments configured with LibreOffice also accept **DOC, DOCX, XLS and XLSX**, normalized in the service. Desktop packages contain no Python service or LibreOffice. See the [Office guide](server/docs/desktop-office.md) for deployment and fidelity boundaries.
 
-Task history, pause, interrupt, resume, failed-unit retry, partial-result review and parse-again controls belong to the Web frontend. Read-only review and ZIP download make no model calls; resume, retry and parse again are explicit actions whose model work may incur charges. Import points cover model usage; insufficient points or unknown usage pause work. Recharge and downloading completed content never resume parsing automatically. See the [import task guide](docs/guides/import-tasks.md) and [phone/account-token and billing guide](server/docs/saas.md).
+Task history, pause, interrupt, resume, failed-unit retry, partial-result review and parse-again controls belong to the Web frontend. Read-only review and ZIP download make no model calls; resume, retry and parse again are explicit actions that may incur model-provider charges. Use the [import task guide](docs/guides/import-tasks.md) and [personal-use guide](server/docs/personal-use.md).
 
 ![Independent document import Web frontend](docs/assets/new-web-import.png)
 
-Current Web connection screen captured from the local development frontend, with an empty mocked product catalog. No credentials, uploads or model calls were used.
+Current Web connection screen captured from the local development frontend, with synthetic task APIs. No credentials, uploads or model calls were used.
 
 Parsing extracts supplied answers and rubrics without solving unanswered questions; missing content stays flagged for review. Download results within **180 days** to keep them; task expiry does not affect banks already imported into the app.
 
@@ -116,9 +116,9 @@ make server-dev AI_PYTHON=/path/to/python3.14
 
 The FastAPI/LangGraph service listens on `127.0.0.1:8090`, uses RabbitMQ delivery, PostgreSQL state and local file storage, and runs one process per database. Uploads, tasks, artifacts, and grading require authentication. Open `http://127.0.0.1:8090/` for the built Web frontend. For development, run `make web-dev` separately; its loopback Vite server proxies API requests to the service. Configure `AI_OFFICE_EXECUTABLE` and `AI_OFFICE_VERSION` only on the service when Office support is needed. See the [service guide](server/docs/service-guide.md).
 
-AI service upgrades and RabbitMQ setup: [delivery and recovery guide](server/docs/rabbitmq.md). Existing service schema 1, 2 or 3 requires explicit `make upgrade-db` to schema 4; stop and back up the old service first.
+AI service upgrades and RabbitMQ setup: [delivery and recovery guide](server/docs/rabbitmq.md). Existing service schemas 1–4 require explicit offline upgrade to schema 5. Back up first; databases containing customer tasks require a new personal database and storage. See the [personal-use guide](server/docs/personal-use.md).
 
-SaaS account access, account isolation, point billing, partial downloads and operator reconciliation: [SaaS guide](server/docs/saas.md). The optional [Vibe Pay checkout](server/docs/payments.md) uses a checkout-only SDK extra and private `.env.payments`, runs separately and credits existing accounts directly after verified payment. Configure both token billing rates before admitting customer imports; service tokens remain available for administration and App grading.
+Personal deployment, service-token access and safe upgrades: [personal-use guide](server/docs/personal-use.md). Configure your own model provider; provider charges are paid directly, with no PractiQ billing or user management.
 
 ## Documentation and development
 

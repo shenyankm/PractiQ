@@ -145,41 +145,6 @@ def test_deployment_preflight_matches_database_image_and_storage_without_leaking
 
 
 
-@pytest.mark.parametrize('mismatch', [None, 'path', 'override', 'stale', 'extra', 'stopped', 'database', 'hostaddr', 'port', 'service', 'matching_libpq'])
-def test_checkout_preflight_verifies_unit_file_and_running_environment(tmp_path, monkeypatch, mismatch):
-    monkeypatch.setenv('DATABASE_URI', 'postgresql://backup:fixture-secret@localhost/' + ('wrong' if mismatch == 'database' else 'service'))
-    config = tmp_path / 'payments.env'
-    config.write_text('DATABASE_URI=postgresql://backup:fixture-secret@localhost/service\nPAYMENT_APP_ID=original\n')
-    properties = {'EnvironmentFiles': str(config) + ' (ignore_errors=no)', 'Environment': '',
-                  'PassEnvironment': '', 'UnsetEnvironment': '', 'MainPID': '0' if mismatch == 'stopped' else '4242'}
-    if mismatch == 'path':
-        properties['EnvironmentFiles'] = '/different/payments.env (ignore_errors=no)'
-    if mismatch == 'override':
-        properties['Environment'] = 'PAYMENT_APP_ID=overridden'
-    environment = b'DATABASE_URI=postgresql://backup:fixture-secret@localhost/service\0PAYMENT_APP_ID=' + (b'stale' if mismatch == 'stale' else b'original') + b'\0'
-    if mismatch == 'extra':
-        environment += b'PAYMENT_SELLER_ID=unrecorded\0'
-    extra = {'hostaddr': ('PGHOSTADDR', '192.0.2.10'), 'port': ('PGPORT', '5433'), 'service': ('PGSERVICE', 'unverified'), 'matching_libpq': ('PGHOSTADDR', '192.0.2.10')}.get(mismatch)
-    if extra:
-        key, value = extra
-        config.write_text(config.read_text() + key + '=' + value + '\n')
-        environment += (key + '=' + value + '\0').encode()
-        if mismatch == 'matching_libpq':
-            monkeypatch.setenv(key, value)
-    original = type(config).read_bytes
-    monkeypatch.setattr(type(config), 'read_bytes', lambda path: environment if str(path) == '/proc/4242/environ' else original(path))
-    calls = []
-    def show(argv, **options):
-        calls.append(argv)
-        return subprocess.CompletedProcess(argv, 0, stdout='\n'.join(key + '=' + value for key, value in properties.items()))
-    monkeypatch.setattr(service_backup.subprocess, 'run', show)
-    if mismatch in {None, 'stopped', 'matching_libpq'}:
-        service_backup.check_checkout('checkout.service', config)
-    else:
-        with pytest.raises(RuntimeError, match='checkout') as error:
-            service_backup.check_checkout('checkout.service', config)
-        assert 'fixture-secret' not in str(error.value)
-    assert len(calls) == 1 and calls[0][:3] == ['systemctl', 'show', 'checkout.service']
 
 
 def test_pg_tools_keep_passwords_out_of_argv_and_preserve_tls(monkeypatch):
@@ -244,7 +209,7 @@ async def test_restore_refuses_targets_with_only_types_or_schemas(tmp_path, monk
 
 
 @pytest.mark.usefixtures('disposable_databases')
-async def test_backup_refuses_live_ai_or_payment_owner_before_writing(tmp_path, monkeypatch):
+async def test_backup_refuses_live_ai_or_legacy_checkout_owner_before_writing(tmp_path, monkeypatch):
     from tests.db_support import new_database
     db = await new_database()
     monkeypatch.setenv('AI_MAINTENANCE_MODE', 'true')
@@ -292,48 +257,32 @@ def pg_tool(tool, uri, *arguments):
 
 
 @pytest.mark.usefixtures('disposable_databases')
-async def test_full_backup_restore_preserves_accounts_checkpoints_files_and_readonly_export(tmp_path, monkeypatch):
+async def test_full_backup_restore_preserves_checkpoints_files_and_readonly_export(tmp_path, monkeypatch):
     import httpx
     from psycopg import sql
 
-    from practiq_ai import execution, payments, runtime, saas, storage, task_api, webapp
+    from practiq_ai import execution, runtime, storage, task_api, webapp
     from practiq_ai.contracts import DocumentTaskControl, DocumentTaskCreate
     from practiq_ai.graphs import document
-    from tests.db_support import SERVICES, new_database, seed_account, setup_api
+    from tests.db_support import SERVICES, new_database, setup_api
     from tests.support import object_store, upload
 
-    monkeypatch.setenv('AI_INPUT_POINTS_PER_1K', '1')
-    monkeypatch.setenv('AI_OUTPUT_POINTS_PER_1K', '1')
     service, _, model = await setup_api(monkeypatch)
     root = storage.load().storage_dir
     files = object_store(root)
     for module in (runtime, task_api, execution, webapp, storage, document):
         monkeypatch.setattr(module, 'get_object_store', lambda: files)
     source = await files.put_document(b'1. First', upload(b'1. First'))
-    credential = await seed_account(service.db)
-    account = await saas.identity('13800138000', credential)
-    token = saas.ACCOUNT.set(account)
-    try:
-        await saas.store_upload(files, b'1. First', upload(b'1. First'))
-        receipt = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=source))
-        await service.wait_idle()
-        async with service.delivery_lock:
-            paused = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=source))
-            await task_api.control_task(paused['threadId'], DocumentTaskControl(requestId=uuid4(), action='pause', runId=paused['runId']))
-        await service.wait_idle()
-        assert (await task_api.get_task(paused['threadId']))['state'] == 'PAUSED'
-    finally:
-        saas.ACCOUNT.reset(token)
+    receipt = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=source))
+    await service.wait_idle()
+    async with service.delivery_lock:
+        paused = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=source))
+        await task_api.control_task(paused['threadId'], DocumentTaskControl(requestId=uuid4(), action='pause', runId=paused['runId']))
+    await service.wait_idle()
+    assert (await task_api.get_task(paused['threadId']))['state'] == 'PAUSED'
     assert len(model.calls) == 1
     await service.stop(timeout=0)
-    # Include optional archived/active payment tables without contacting a gateway.
     async with service.db.connection() as conn:
-        await conn.execute(payments.DDL, prepare=False)
-        await conn.execute("INSERT INTO payment_schema VALUES (3,'test-merchant')")
-        await conn.execute("INSERT INTO import_products VALUES ('pack','Points',100,'https://checkout.example/purchase',true)")
-        await conn.execute("INSERT INTO payment_products VALUES ('pack',100,true)")
-        await conn.execute("INSERT INTO payment_orders(order_id,account_id,request_id,product_id,name,price_cents,points,status,paid_at,expires_at,refund_evidence) VALUES ('order-fixture',%s,'request-fixture','pack','Points',100,100,'paid',now(),now()+interval '1 day','{\"refund_fee\":\"1.00\"}')", (account,))
-        await conn.execute("INSERT INTO import_calls(call_key,account_id,thread_id,rates,status,dispatched) VALUES ('unknown-fixture',%s,'retained-task','{\"inputMicropointsPer1k\":1,\"outputMicropointsPer1k\":1}','unknown',true)", (account,))
         await conn.execute("INSERT INTO grades VALUES ('grade-fixture','digest','{\"status\":\"unknown\"}')")
         await conn.execute("INSERT INTO grade_calls(grade_id,call_key,record) VALUES ('grade-fixture','call-fixture','{\"usageStatus\":\"unknown\"}')")
     async def rows(db):
@@ -378,15 +327,13 @@ async def test_full_backup_restore_preserves_accounts_checkpoints_files_and_read
     SERVICES.append(recovered)
     monkeypatch.setattr(runtime, 'current', recovered)
     assert await recovered.ready()
-    assert await saas.identity('13800138000', credential, database=target) == account
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=webapp.app), base_url='http://test',
-                                 headers={'Authorization': 'Account ' + credential, 'X-Practiq-Phone': '13800138000'}) as client:
+                                 headers={'Authorization': 'Bearer test-token'}) as client:
         detail = (await client.get('/api/document-tasks/' + receipt['threadId'])).json()
         exported = await client.get('/api/document-tasks/' + receipt['threadId'] + '/export', params={'checkpoint_id': detail['checkpointId']})
         assert exported.status_code == 200
         with ZipFile(BytesIO(exported.content)) as archive:
             assert archive.testzip() is None
-        assert (await client.get('/api/account')).status_code == 200
         assert (await client.get('/api/document-tasks/' + paused['threadId'])).json()['state'] == 'PAUSED'
     assert await rows(target) == before and len(model.calls) == 1
     print(json.dumps({'tables': len(before), 'rows': sum(map(len, before.values())), 'restoreSeconds': elapsed,

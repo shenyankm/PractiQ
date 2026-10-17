@@ -33,7 +33,6 @@ class Service:
         self.db = db
         self.graphs: dict[str, Any] = {}
         self.active: dict[str, asyncio.Task] = {}
-        self.account_runs: dict[str, str] = {}
         self.task_summaries: OrderedDict[str, tuple[tuple, dict[str, Any]]] = OrderedDict()
         self.wake = asyncio.Event()
         self.stop_event = asyncio.Event()
@@ -60,8 +59,6 @@ class Service:
             self.execution_slots = asyncio.Semaphore(load().jobs_per_worker)
             self.lock = await self.db.acquire()
             await (await asyncio.to_thread(get_object_store)).require_available()
-            from .saas import reconcile
-            await reconcile(self.db)
             await self.db.ensure_indexes()
             self.graphs = {name: build_document_graph(self.db.checkpointer, store=self.db.store, name=name, source_types=types)
                            for name, types in GRAPH_FORMATS.items()}
@@ -226,17 +223,9 @@ class Service:
                     require_supported_task(tasks[0])
                 if self.stopping:
                     return False
-                account = tasks[0]['account_id']
-                if account and account in self.account_runs:
-                    # Return the delivery to durable admission without occupying a worker or broker slot.
-                    async with self.db.transaction() as conn:
-                        await conn.execute('UPDATE document_outbox SET published_at=NULL,created_at=clock_timestamp() WHERE run_id=%s', (run_id,))
-                    return True
                 execution = asyncio.create_task(self.execute(run), name=f'document-{run_id}')
                 self.active[run_id] = execution
-                if account:
-                    self.account_runs[account] = run_id
-                execution.add_done_callback(lambda task: self.execution_done(run_id, task, account))
+                execution.add_done_callback(lambda task: self.execution_done(run_id, task))
         await asyncio.shield(execution)
         rows = await self.db.rows('SELECT status FROM document_runs WHERE run_id=%s', (run_id,))
         return not rows or rows[0]['status'] not in {'pending', 'running'}
@@ -251,8 +240,6 @@ class Service:
                     continue
                 if record.get('status') == 'completed' and record.get('durableResult'):
                     continue
-                if await self.db.rows("SELECT 1 FROM import_calls WHERE call_key=%s AND thread_id=%s AND status='rejected'", (item.key, run['thread_id'])):
-                    continue
                 if record.get('resultKey') and await self.db.store.aget(namespace(run['thread_id'], 'model_results'), record['resultKey'], refresh_ttl=False):
                     continue
                 return True
@@ -260,10 +247,8 @@ class Service:
                 return False
             offset += len(items)
 
-    def execution_done(self, run_id, task, account=None):
+    def execution_done(self, run_id, task):
         self.active.pop(run_id, None)
-        if account and self.account_runs.get(account) == run_id:
-            self.account_runs.pop(account)
         self.notify()
         if not task.cancelled() and task.exception() is not None:
             self.accepting = False
@@ -325,11 +310,8 @@ class Service:
             self.fatal(70)
         except Exception as exc:  # noqa: BLE001 - task boundary stores only a sanitized error code
             code = exc.code if isinstance(exc, DocumentProcessingError) else 'RUN_DEADLINE_EXCEEDED' if isinstance(exc, TimeoutError) else 'TASK_EXECUTION_FAILED'
-            if code == 'RUN_DEADLINE_EXCEEDED':
-                from .saas import reconcile
-                await reconcile(self.db, thread_id=run['thread_id'])
-                if await self.unknown_calls(run):
-                    code = 'MODEL_RESULT_UNKNOWN'
+            if code == 'RUN_DEADLINE_EXCEEDED' and await self.unknown_calls(run):
+                code = 'MODEL_RESULT_UNKNOWN'
             if code != 'TASK_FORMAT_UNSUPPORTED':
                 await self.finish(run_id, 'interrupted' if code in {'MODEL_RESULT_UNKNOWN', 'OBJECT_STORE_UNAVAILABLE', 'TEMPORARY_BUSY'} else 'error', code)
         finally:

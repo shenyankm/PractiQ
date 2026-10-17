@@ -24,8 +24,6 @@ from tests.support import make_blank_pdf, make_image
 async def service(tmp_path, disposable_databases):
     from tests.db_support import new_database
     db = await new_database()
-    from tests.db_support import seed_account
-    credential = await seed_account(db, balance=1_000_000_000)
     calls = tmp_path / "calls.jsonl"
     sock = socket.socket()
     sock.bind(("127.0.0.1", 0))
@@ -37,12 +35,11 @@ async def service(tmp_path, disposable_databases):
         "AI_SERVICE_TOKEN": "e2e-token", "LLM_API_KEY": "synthetic-key",
         "LLM_BASE_URL": f"http://127.0.0.1:{sock.getsockname()[1]}/v1",
         "LLM_MODEL": "synthetic-model",
-        "AI_INPUT_POINTS_PER_1K": "1", "AI_OUTPUT_POINTS_PER_1K": "3",
         "DATABASE_URI": db.uri, "AI_STORAGE_DIR": str(tmp_path / "files"),
     }
 
     @contextmanager
-    def start(*, read_only=False, customer=False):
+    def start(*, read_only=False):
         # Retain coverage configuration, but isolate credentials and proxies.
         env = {key: value for key, value in os.environ.items()
                if not key.startswith(("AI_", "LLM_")) and not key.lower().endswith("_proxy")}
@@ -75,8 +72,6 @@ async def service(tmp_path, disposable_databases):
                     else:
                         log.seek(0)
                         pytest.fail(f"Independent service did not become ready: {log.read()}")
-                    if customer:
-                        client.headers.update({'Authorization': 'Account ' + credential, 'X-Practiq-Phone': '13800138000'})
                     yield client
                 process.terminate()
                 process.wait(timeout=20)
@@ -133,7 +128,7 @@ def test_e2e_upload_parse_artifacts_and_restart(service, kind):
         "image": (make_image(), "image/png", "quiz.png"),
         "pdf": (make_blank_pdf(1), "application/pdf", "quiz.pdf"),
     }[kind]
-    with start(customer=True) as client:
+    with start() as client:
         assert client.get("/api/document-tasks", headers={"Authorization": ""}).status_code == 401
         document = upload(client, data, kind, media, name)
         assert not calls.exists(), "Uploading must not invoke a model"
@@ -161,7 +156,7 @@ def test_e2e_upload_parse_artifacts_and_restart(service, kind):
             assert len(response.content) == reference["sizeBytes"]
             assert client.post("/api/artifacts/read?thread_id=" + receipt["threadId"], json={**reference, "sizeBytes": reference["sizeBytes"] + 1}).status_code == 404
         assert "practiq_workers_available" in client.get("/api/metrics", headers={"Authorization": "Bearer e2e-token"}).text
-    with start(read_only=True, customer=True) as client:
+    with start(read_only=True) as client:
         restored = client.get(path).json()
         assert restored["result"] == state["result"] and restored["usage"] == state["usage"]
         assert restored["state"] == "COMPLETED"
@@ -190,7 +185,7 @@ def test_e2e_upload_parse_artifacts_and_restart(service, kind):
 
 def test_e2e_review_acceptance_is_explicit_and_survives_restart(service):
     start, calls = service
-    with start(customer=True) as client:
+    with start() as client:
         document = upload(client, b"A different source without the synthetic model's question")
         response = client.post("/api/document-tasks", json={"requestId": str(uuid4()), "document": document, "failurePolicy": "review"})
         assert response.status_code == 202, response.text
@@ -198,7 +193,7 @@ def test_e2e_review_acceptance_is_explicit_and_survives_restart(service):
         state = wait_task(client, path, "WAITING_REVIEW")
         assert state["allowedActions"] == ["accept_partial"]
         assert state["processing"]["quality"]["reviewRequired"]
-    with start(customer=True) as client:
+    with start() as client:
         assert client.get(path).json()["state"] == "WAITING_REVIEW"
         control = {"requestId": str(uuid4()), "action": "accept_partial", "checkpointId": state["checkpointId"]}
         assert client.post(path + "/control", json={**control, "checkpointId": "stale"}).status_code == 409

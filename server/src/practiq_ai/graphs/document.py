@@ -644,7 +644,6 @@ async def _load_context(state: DocumentState, runtime: Runtime[None]) -> dict[st
     context = runtime.context if isinstance(runtime.context, dict) else {}
     if expires_at := context.get("documentControl", {}).get("expiresAt"):
         execution["expiresAt"] = expires_at
-    execution['accountId'] = context.get('accountId')
     token = CURRENT_EXECUTION.set(execution)
     try:
         await guard(runtime, execution, check_pause=False)
@@ -820,7 +819,7 @@ def _dispatch_vision(state: DocumentState) -> list[Send] | str:
     completed.update(("page", item["index"])
                      for item in state.get("failures", []) if item["stage"] == "vision_parse")
     pending = [item for item in work if (item.arg["kind"], item.arg["index"]) not in completed]
-    count = 1 if state.get('execution', {}).get('accountId') else load().graph_max_concurrency
+    count = load().graph_max_concurrency
     return _with_allowances(pending[:count], state) or "vision_review_pause"
 
 
@@ -1222,7 +1221,7 @@ def _dispatch_chunks(state: DocumentState) -> list[Send] | str:
         for index, item in enumerate(chunks)
         if index not in completed
     ]
-    count = 1 if state.get('execution', {}).get('accountId') else load().graph_max_concurrency
+    count = load().graph_max_concurrency
     return _with_allowances(work[:count], state) or "chunk_review_pause"
 
 

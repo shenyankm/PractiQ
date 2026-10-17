@@ -65,7 +65,7 @@ async def test_native_binary_import_and_verified_artifacts(setup, kind, fixture,
         if kind == "pdf":
             thread = str(uuid4())
             monkeypatch.setattr(task_api, 'client', lambda: None)
-            monkeypatch.setattr(task_api, '_read_task_record', AsyncMock(return_value={'document': reference, 'account_id': None}))
+            monkeypatch.setattr(task_api, '_read_task_record', AsyncMock(return_value={'document': reference}))
             monkeypatch.setattr(task_api, 'review_task', AsyncMock(return_value=result))
             monkeypatch.setattr(task_api, 'get_task', AsyncMock(return_value=result))
             visual = result["result"]["visualElements"][0]

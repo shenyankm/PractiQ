@@ -214,22 +214,18 @@ async def test_exhausted_budget_does_not_enter_provider_queue(monkeypatch, revie
 
 @pytest.mark.usefixtures("disposable_databases")
 @pytest.mark.parametrize("pause_source", ["store", "api"])
-async def test_paid_pause_at_provider_admission_rejects_reservation_without_charge(monkeypatch, pause_source):
-    from practiq_ai import saas, task_api
+async def test_pause_at_provider_admission_prevents_model_call(monkeypatch, pause_source):
+    from practiq_ai import task_api
     from practiq_ai.contracts import (
         DocumentReference,
         DocumentTaskControl,
         DocumentTaskCreate,
     )
-    from tests.db_support import seed_account, setup_api
+    from tests.db_support import setup_api
 
-    monkeypatch.setenv("AI_INPUT_POINTS_PER_1K", "1")
-    monkeypatch.setenv("AI_OUTPUT_POINTS_PER_1K", "1")
     # Hold the coordinator so API pause must be observed from its committed run flag.
     monkeypatch.setattr(runtime.Service, "controls", lambda self: self.stop_event.wait())
     service, reference, model = await setup_api(monkeypatch, [parsed()])
-    credential = await seed_account(service.db)
-    account = await saas.identity("13800138000", credential)
     once = True
 
     @asynccontextmanager
@@ -241,32 +237,17 @@ async def test_paid_pause_at_provider_admission_rejects_reservation_without_char
             if pause_source == "store":
                 await service.db.store.aput(execution.namespace(run["thread_id"], "pause"), run["run_id"], {"requested": True})
             else:
-                identity = saas.ACCOUNT.set(account)
-                try:
-                    await task_api.control_task(run["thread_id"], DocumentTaskControl(
-                        requestId=uuid4(), action="pause", runId=run["run_id"]))
-                finally:
-                    saas.ACCOUNT.reset(identity)
+                await task_api.control_task(run["thread_id"], DocumentTaskControl(
+                    requestId=uuid4(), action="pause", runId=run["run_id"]))
         yield
 
     monkeypatch.setattr(llm, "provider_slot", slot)
-    token = saas.ACCOUNT.set(account)
-    try:
-        await saas.register_upload(DocumentReference.model_validate(reference))
-        receipt = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
-        await service.wait_idle()
-        state = await task_api.get_task(receipt["threadId"])
-        assert state["state"] == "PAUSED" and not model.calls, state
-        calls = await service.db.rows("SELECT status,dispatched FROM import_calls")
-        assert calls == [{"status": "rejected", "dispatched": False}]
-        assert not await service.db.rows("SELECT 1 FROM import_ledger WHERE kind='model'")
-        assert (await service.db.rows("SELECT balance FROM import_accounts"))[0]["balance"] == 1_000_000
-        await task_api.control_task(receipt["threadId"], DocumentTaskControl(
-            requestId=uuid4(), action="resume", checkpointId=state["checkpointId"]))
-        await service.wait_idle()
-        assert (await task_api.get_task(receipt["threadId"]))["state"] == "COMPLETED"
-        assert len(model.calls) == 1
-        assert len(await service.db.rows("SELECT 1 FROM import_ledger WHERE kind='model'")) == 1
-        assert (await service.db.rows("SELECT count(*) AS n FROM import_calls WHERE status='settled'"))[0]["n"] == 1
-    finally:
-        saas.ACCOUNT.reset(token)
+    receipt = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
+    await service.wait_idle()
+    state = await task_api.get_task(receipt["threadId"])
+    assert state["state"] == "PAUSED" and not model.calls, state
+    await task_api.control_task(receipt["threadId"], DocumentTaskControl(
+        requestId=uuid4(), action="resume", checkpointId=state["checkpointId"]))
+    await service.wait_idle()
+    assert (await task_api.get_task(receipt["threadId"]))["state"] == "COMPLETED"
+    assert len(model.calls) == 1

@@ -1,4 +1,4 @@
-import type { ArtifactReference, DocumentReference, DocumentSourceType, DocumentTaskControl, DocumentTaskCreate, DocumentTaskDetail, DocumentTaskHead, DocumentTaskList, DocumentTaskReceipt, DocumentTaskReparse, DocumentTaskReview, DocumentUploadResponse, ImportCapabilities, ImportAccount, ImportProducts, PointLedger, OfficeMode, PaymentOrder, PaymentOrders, PaymentOrderCreate, PaymentLink } from "./contracts.generated";
+import type { ArtifactReference, DocumentReference, DocumentSourceType, DocumentTaskControl, DocumentTaskCreate, DocumentTaskDetail, DocumentTaskHead, DocumentTaskList, DocumentTaskReceipt, DocumentTaskReparse, DocumentTaskReview, DocumentUploadResponse, ImportCapabilities, OfficeMode } from "./contracts.generated";
 
 export type SourceType = DocumentSourceType;
 export type { OfficeMode } from "./contracts.generated";
@@ -78,7 +78,7 @@ export async function readBytes(response: Response, maximum: number, signal?: Ab
   return bytes;
 }
 
-export async function withDeadline<T>(milliseconds: number, signals: AbortSignal[], perform: (signal: AbortSignal) => Promise<T>, timeoutMessage = "请求超时。请检查任务或订单状态；操作结果可能尚未确认，请勿重复提交。") {
+export async function withDeadline<T>(milliseconds: number, signals: AbortSignal[], perform: (signal: AbortSignal) => Promise<T>, timeoutMessage = "请求超时。请检查任务状态；操作结果可能尚未确认，请勿重复提交。") {
   const deadline = new AbortController();
   const timer = setTimeout(() => deadline.abort(), milliseconds);
   const signal = AbortSignal.any([...signals, deadline.signal]);
@@ -93,12 +93,12 @@ export async function withDeadline<T>(milliseconds: number, signals: AbortSignal
   } finally { clearTimeout(timer); }
 }
 
-/** Same-origin account client. Its lifetime ends on disconnect; mutations are never retried here. */
+/** Same-origin personal-service client. Its lifetime ends on disconnect; mutations are never retried here. */
 export class Client {
   private readonly session = new AbortController();
   private readonly intents = new Map<string, string>();
-  constructor(private readonly token: string, private readonly phone: string) {
-    if (!token.trim() || /[\r\n]/.test(token) || !/^(1[3-9][0-9]{9}|\+[1-9][0-9]{6,14})$/.test(phone)) throw new ApiError("请输入有效的手机号和账户令牌。", "INVALID_ACCOUNT_ACCESS");
+  constructor(private readonly token: string) {
+    if (!token.trim() || /[\r\n]/.test(token)) throw new ApiError("请输入有效的服务访问令牌。", "INVALID_SERVICE_TOKEN");
   }
   get active() { return !this.session.signal.aborted; }
   disconnect() { this.session.abort(); this.intents.clear(); }
@@ -106,23 +106,22 @@ export class Client {
     if (!this.active || signal?.aborted) throw new DOMException("请求已取消", "AbortError");
     if (!path.startsWith("/api/") || path.startsWith("//")) throw new ApiError("服务返回了无效地址。", "INVALID_URL");
     const headers = new Headers(init.headers);
-    headers.set("Authorization", `Account ${this.token}`);
-    headers.set("X-Practiq-Phone", this.phone);
+    headers.set("Authorization", `Bearer ${this.token}`);
     const signals = [this.session.signal];
     if (signal) signals.push(signal);
     const pathname = path.split("?")[0];
     const upload = pathname === "/api/uploads" || pathname === "/api/uploads/content";
-    // Upload transport and POST artifact reads do not create tasks or orders.
+    // Upload transport and POST artifact reads do not create tasks.
     const mutation = !!init.method && !["GET", "HEAD"].includes(init.method) && !upload && pathname !== "/api/artifacts/read";
     const uploadRetry = "文件上传未确认，请检查连接后手动重试上传。";
-    const timeout = path.startsWith("/api/payments/") ? 20_000 : path.includes("/export?") ? 600_000 : init.method && !["GET", "HEAD"].includes(init.method) ? 125_000 : 30_000;
+    const timeout = path.includes("/export?") ? 600_000 : init.method && !["GET", "HEAD"].includes(init.method) ? 125_000 : 30_000;
     return withDeadline(timeout, signals, async requestSignal => {
       let response: Response;
       try {
         response = await fetch(path, { ...init, headers, cache: "no-store", credentials: "omit", redirect: "error", signal: requestSignal });
       } catch {
         if (!this.active || signal?.aborted) throw new DOMException("请求已取消", "AbortError");
-        throw new ApiError(upload ? uploadRetry : mutation ? "连接中断，操作结果尚未确认。请先查询原任务或订单，再决定是否重试。" : "无法连接服务。请检查服务状态，再手动重试读取。", "NETWORK_ERROR");
+        throw new ApiError(upload ? uploadRetry : mutation ? "连接中断，操作结果尚未确认。请先查询原任务，再决定是否重试。" : "无法连接服务。请检查服务状态，再手动重试读取。", "NETWORK_ERROR");
       }
       if (!response.ok) {
         let code = `HTTP_${response.status}`;
@@ -134,17 +133,14 @@ export class Client {
           DOCUMENT_TOO_LARGE: "文件超过服务限制，请选择较小的文件。",
           UNSUPPORTED_FILE: "服务不支持此文件格式，请更换文件。",
           OFFICE_NOT_FOUND: "服务尚未配置 Office 转换，请联系服务提供方或改用 PDF。",
-          INSUFFICIENT_POINTS: "账户额度不足，请补充额度后手动继续。",
-          USAGE_UNKNOWN: "用量尚未确认，请联系服务提供方核对；不要重复提交。",
           STALE_RUN: "任务状态已更新，请刷新任务详情后再操作。",
           TASK_BUSY: "任务正在处理，请等待并刷新状态。",
-          PAYMENT_REQUEST_INVALID: "订单参数无效，请刷新商品后重新选择。",
         };
-        const message = response.status === 401 || response.status === 403 ? "手机号与账户令牌不匹配或账户令牌已被撤销。"
+        const message = response.status === 401 || response.status === 403 ? "服务访问令牌无效，请检查 AI_SERVICE_TOKEN。"
           : known[code] ?? (response.status === 429 ? "请求过于频繁，请稍后再操作。"
           : upload ? uploadRetry
           : !mutation ? "读取失败，请稍后重试读取。"
-          : response.status >= 500 || response.status === 408 ? "操作结果尚未确认，请先查询原任务或订单；不要重复提交。"
+          : response.status >= 500 || response.status === 408 ? "操作结果尚未确认，请先查询原任务；不要重复提交。"
           : "服务未接受此操作，请检查输入并刷新相关状态后再操作。");
         throw new ApiError(`${message}（${code}）`, code, response.status);
       }
@@ -153,7 +149,7 @@ export class Client {
   }
   private async json<T>(path: string, init?: RequestInit, signal?: AbortSignal): Promise<T> {
     return this.request(path, init ?? {}, async (response, requestSignal) => {
-      try { return JSON.parse(new TextDecoder().decode(await readBytes(response, path.startsWith("/api/payments/") ? 2 * MIB : 64 * MIB, requestSignal))) as T; }
+      try { return JSON.parse(new TextDecoder().decode(await readBytes(response, 64 * MIB, requestSignal))) as T; }
       catch (error) { if (error instanceof ApiError) throw error; throw new ApiError("服务响应格式无效。", "INVALID_RESPONSE"); }
     }, signal);
   }
@@ -167,18 +163,6 @@ export class Client {
     this.intents.delete(key);
     return receipt;
   }
-  account(signal?: AbortSignal) { return this.json<ImportAccount>("/api/account", undefined, signal); }
-  ledger(before?: number) { return this.json<PointLedger>(`/api/account/ledger${before ? `?before=${before}` : ""}`); }
-  paymentAccount() { return this.json<ImportAccount>("/api/payments/account"); }
-  paymentOrders(offset = 0) { return this.json<PaymentOrders>(`/api/payments/orders?offset=${offset}`); }
-  paymentOrder(id: string) { return this.json<PaymentOrder>(`/api/payments/orders/${encodeURIComponent(id)}`); }
-  createPayment(productId: string) {
-    return this.intent(`payment:${productId}`, requestId => {
-      const request: PaymentOrderCreate = { requestId, productId };
-      return this.post<PaymentOrder>("/api/payments/orders", request);
-    });
-  }
-  paymentLink(id: string) { return this.post<PaymentLink>(`/api/payments/orders/${encodeURIComponent(id)}/pay`, {}); }
   async capabilities(signal?: AbortSignal) {
     const value = await this.json<Capabilities>("/api/import-capabilities", undefined, signal);
     if (!Number.isSafeInteger(value.sourceMaxBytes) || value.sourceMaxBytes <= 0 || !Array.isArray(value.sourceTypes) || !value.sourceTypes.every(type => ["pdf", "text", "csv", "image", "doc", "docx", "xls", "xlsx"].includes(type)) || !Array.isArray(value.officeModes) || !value.officeModes.every(mode => ["pdf", "text"].includes(mode)) || typeof value.officeAvailable !== "boolean" || typeof value.modelConfigured !== "boolean") throw new ApiError("服务能力响应无效。", "INVALID_RESPONSE");
@@ -252,17 +236,4 @@ export function downloadBlob(blob: Blob, name: string) {
   link.href = url; link.download = name; link.click();
   // Retain the URL through the browser's download handoff, then release it.
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
-export async function products(signal?: AbortSignal): Promise<ImportProducts> {
-  return withDeadline(30_000, signal ? [signal] : [], async requestSignal => {
-    const response = await fetch("/api/products", { signal: requestSignal, cache: "no-store", credentials: "omit", redirect: "error" });
-    if (!response.ok) throw new ApiError("无法读取商品，请手动重试。");
-    return JSON.parse(new TextDecoder().decode(await readBytes(response, 64 * 1024, requestSignal))) as ImportProducts;
-  }, "商品读取超时，请稍后手动重试读取。");
-}
-export function pointLabel(micropoints: string) {
-  const value = BigInt(micropoints), absolute = value < 0n ? -value : value;
-  const fraction = (absolute % 1_000_000n).toString().padStart(6, "0").replace(/0+$/, "");
-  return `${value < 0n ? "-" : ""}${(absolute / 1_000_000n).toLocaleString("zh-CN")}${fraction ? "." + fraction : ""}`;
 }

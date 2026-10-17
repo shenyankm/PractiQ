@@ -20,7 +20,7 @@ def test_context_retains_two_prior_material_pages_and_next_answer_page(monkeypat
     assert [item['index'] for item in task['neighbors']] == expected
     assert all(item['artifact'] is pages[item['index']] for item in task['neighbors'])
     assert len(task['neighbors']) <= 4
-    state['execution'] = {'accountId': 'synthetic'}
+    monkeypatch.setattr(document, 'load', lambda: SimpleNamespace(graph_max_concurrency=1))
     state['visionResults'] = [{'kind': 'page', 'index': i} for i in range(index)]
     serial = document._dispatch_vision(state)
     assert isinstance(serial, list) and len(serial) == 1

@@ -18,9 +18,6 @@ function fakeHTTP(initial: DocumentTaskDetail = task) {
     calls.push({ url, method, body, auth: new Headers(init.headers).get("Authorization") });
     const intercepted = await server.intercept?.(url, init); if (intercepted) return intercepted;
     const path = new URL(url, location.origin).pathname;
-    if (path === "/api/products") return json({ items: [] });
-    if (path === "/api/account") return json({ phone: "+8613800138000", balanceMicropoints: "1000000", usageUnknown: false });
-    if (path === "/api/account/ledger") return json({ items: [], nextBefore: null });
     if (path === "/api/import-capabilities") return json(capabilities);
     if (path === "/api/document-tasks" && method === "GET") return json({ items: Array.from(records.values()).map(current => ({ ...summary, threadId: current.threadId, fileName: current.fileName, state: current.state, checkpointId: current.checkpointId, status: current.status })), hasMore: new URL(url, location.origin).searchParams.get("offset") === "0" });
     if (path === "/api/uploads") { document = { ...body, objectKey: `practiq-agent/sources/${body.sha256}/source.${body.sourceType === "text" ? "txt" : body.sourceType}` }; return json({ document, upload: { method: "PUT", url: "/api/uploads/content?" + new URLSearchParams(body), headers: { "Content-Type": body.mediaType } } }); }
@@ -37,8 +34,7 @@ function fakeHTTP(initial: DocumentTaskDetail = task) {
   vi.stubGlobal("fetch", fetcher);
   return { calls, records, server, fetcher };
 }
-async function connect(user: ReturnType<typeof userEvent.setup>) {
-  await user.type(screen.getByLabelText("手机号"), "13800138000"); await user.type(screen.getByLabelText("账户令牌"), "fake-service-token"); await user.click(screen.getByRole("button", { name: "查询记录" }));
+async function connect(user: ReturnType<typeof userEvent.setup>) { await user.type(screen.getByLabelText("服务访问令牌"), "fake-service-token"); await user.click(screen.getByRole("button", { name: "连接服务" }));
   await screen.findByText(/^服务支持：/);
 }
 async function openTask(user: ReturnType<typeof userEvent.setup>) {
@@ -74,26 +70,10 @@ it("recovers polling after a hung read and backs off repeated failures without m
   expect(http.calls.every(call => call.method === 'GET')).toBe(true);
 });
 
-it.each<[boolean, string, string, string]>([
-  [true, "1000000", "USAGE_UNKNOWN", "用量待核对，请联系客服。"],
-  [false, "1000000", "USAGE_UNKNOWN", "用量已核对，请明确点击继续解析。"],
-  [false, "0", "USAGE_UNKNOWN", "积分不足，支付到账后请明确点击继续解析。"],
-  [false, "1000000", "INSUFFICIENT_POINTS", "积分已补充，请明确点击继续解析。"],
-])("shows the current billing recovery state without automatically continuing (%s, %s, %s)", async (usageUnknown, balanceMicropoints, code, message) => {
-  const user = userEvent.setup();
-  const http = fakeHTTP({ ...task, state: "PAUSED", allowedActions: ["resume"], blocking: [{ kind: "billing", code }],
-    billing: { phone: "+8613800138000", usageUnknown, balanceMicropoints, chargedMicropoints: "25000",
-      rates: { inputMicropointsPer1k: "1000000", outputMicropointsPer1k: "3000000" } } });
-  render(<App />); await connect(user); await openTask(user);
-  expect(await screen.findByText(new RegExp(message))).toBeTruthy();
-  if (BigInt(balanceMicropoints) > 0n && !usageUnknown) expect(screen.queryByText(/积分不足，支付到账后/)).toBeNull();
-  expect(http.calls.every(call => call.method === "GET")).toBe(true);
-});
-
 it("keeps Token in memory, clears it on remount, and performs no HTTP before connect", async () => {
   const user = userEvent.setup(); const http = fakeHTTP(); const persist = vi.spyOn(Storage.prototype, "setItem"); render(<App />);
   expect(screen.getByText(/令牌仅保存在本页内存，刷新后需重填/)).toBeTruthy();
-  expect(http.calls.every(call => call.url === "/api/products" && call.method === "GET")).toBe(true);
+  expect(http.calls.length === 0).toBe(true);
   await connect(user);
   const rules = screen.getByText("格式与导入规则", { selector: "summary" });
   expect(rules.closest("details")?.open).toBe(false);
@@ -101,11 +81,11 @@ it("keeps Token in memory, clears it on remount, and performs no HTTP before con
   await user.click(rules);
   expect(rules.closest("details")?.open).toBe(true);
   expect(screen.getByText("服务支持：PDF、TXT、CSV、PNG/JPEG、Word (.doc)、Word (.docx)、Excel (.xls)、Excel (.xlsx)")).toBeTruthy();
-  expect(screen.queryByLabelText("账户令牌")).toBeNull(); expect(persist).not.toHaveBeenCalled();
-  expect(http.calls.every(call => (call.url === "/api/products" || call.auth === "Account fake-service-token") && !call.url.includes("fake-service-token") && call.method === "GET")).toBe(true);
+  expect(screen.queryByLabelText("服务访问令牌")).toBeNull(); expect(persist).not.toHaveBeenCalled();
+  expect(http.calls.every(call => call.auth === "Bearer fake-service-token" && !call.url.includes("fake-service-token") && call.method === "GET")).toBe(true);
   expect(screen.queryByRole("button", { name: "断开连接" })).toBeNull();
   expect(screen.queryByText("服务已连接")).toBeNull();
-  cleanup(); render(<App />); expect((screen.getByLabelText("账户令牌") as HTMLInputElement).value).toBe("");
+  cleanup(); render(<App />); expect((screen.getByLabelText("服务访问令牌") as HTMLInputElement).value).toBe("");
   const count = http.calls.length; vi.useFakeTimers(); await act(async () => vi.advanceTimersByTimeAsync(10_000)); expect(http.calls).toHaveLength(count);
   expect(localStorage.length).toBe(0); expect(sessionStorage.length).toBe(0);
 });
@@ -169,9 +149,9 @@ it("polling paused/partial checkpoints only reads; resume/retry/pause require ex
   expect(http.calls.filter(call => call.url.endsWith("/control")).at(-1)?.body).toMatchObject({ action: "pause", runId, checkpointId: null });
 });
 it("recovers failed task/capability reads and ignores obsolete pages after a filter change", async () => {
-  const user = userEvent.setup(); const http = fakeHTTP(); let failList = true, failCap = true;
-  http.server.intercept = url => { if (url.includes("capabilities") && failCap) { failCap = false; return json({ detail: { code: "SERVICE_UNAVAILABLE" } }, 503); } if (url.startsWith("/api/document-tasks?") && failList) { failList = false; return json({ detail: { code: "TASK_SERVICE_UNAVAILABLE" } }, 503); } };
-  render(<App />); await user.type(screen.getByLabelText("手机号"), "13800138000"); await user.type(screen.getByLabelText("账户令牌"), "fake-service-token"); await user.click(screen.getByRole("button", { name: "查询记录" }));
+  const user = userEvent.setup(); const http = fakeHTTP(); let failList = true, failCap = true, capReads = 0;
+  http.server.intercept = url => { if (url.includes("capabilities") && ++capReads > 1 && failCap) { failCap = false; return json({ detail: { code: "SERVICE_UNAVAILABLE" } }, 503); } if (url.startsWith("/api/document-tasks?") && failList) { failList = false; return json({ detail: { code: "TASK_SERVICE_UNAVAILABLE" } }, 503); } };
+  render(<App />); await user.type(screen.getByLabelText("服务访问令牌"), "fake-service-token"); await user.click(screen.getByRole("button", { name: "连接服务" }));
   await screen.findByRole("button", { name: "重试读取服务能力" });
   expect(screen.queryByText("正在验证服务")).toBeNull();
   await user.click(await screen.findByRole("button", { name: "重试读取服务能力" })); await screen.findByText(/^服务支持：/);
@@ -215,7 +195,7 @@ it("exports the current partial checkpoint via authenticated ZIP GET and never s
   await user.click(screen.getByRole("checkbox", { name: "仅看需要复核" }));
   expect(screen.getByText("筛选仅影响显示，导出仍包含全部已完成题目。")).toBeTruthy();
   await user.click(screen.getByRole("button", { name: "下载题库 ZIP" })); await screen.findByText(/题库 ZIP 已下载/);
-  expect(http.calls.find(call => call.url.includes("/export?"))).toMatchObject({ method: "GET", auth: "Account fake-service-token", url: `/api/document-tasks/${taskId}/export?checkpoint_id=checkpoint-one&scope=full` });
+  expect(http.calls.find(call => call.url.includes("/export?"))).toMatchObject({ method: "GET", auth: "Bearer fake-service-token", url: `/api/document-tasks/${taskId}/export?checkpoint_id=checkpoint-one&scope=full` });
   expect(create).toHaveBeenCalledTimes(1); expect(click).toHaveBeenCalledTimes(1); expect(http.calls.filter(call => call.method !== "GET")).toHaveLength(0);
 });
 it("creates a reparse task only on explicit action and confirms deletion before HTTP", async () => {
@@ -307,7 +287,7 @@ it("reuses task diagnostics across unrelated filters and updates them after an e
     expect(diagnostic.mock.calls.length).toBeGreaterThan(initialCalls);
     expect(diagnostic).toHaveBeenLastCalledWith({ usage: updated.usage, unknownUsageCalls: updated.unknownUsageCalls, processing: updated.processing, blocking: updated.blocking });
     expect(http.calls.every(call => call.method === "GET")).toBe(true);
-    expect(http.calls.filter(call => call.url !== "/api/products").every(call => call.auth === "Account fake-service-token")).toBe(true);
+    expect(http.calls.every(call => call.auth === "Bearer fake-service-token")).toBe(true);
   } finally { stringify.mockRestore(); }
 });
 it("pauses background polling and reloads when the document becomes visible", async () => {
@@ -364,13 +344,13 @@ it("removes only unsubmitted files locally and derives picker formats from servi
   expect(screen.queryByRole("button",{name:"移除文件 second.txt"})).toBeNull();
 });
 
-it("connects an existing account with passive reads and has no card binding action", async () => {
+it("connects the personal service with passive reads and has no account fields", async () => {
   const user = userEvent.setup(), http = fakeHTTP(); render(<App />);
-  await user.type(screen.getByLabelText("手机号"), "13800138000");
-  await user.type(screen.getByLabelText("账户令牌"), "account-token");
+  await user.type(screen.getByLabelText("服务访问令牌"), "personal-token");
   expect(http.calls.filter(call => call.method === "POST")).toHaveLength(0);
-  await user.click(screen.getByRole("button", { name: "查询记录" }));
+  await user.click(screen.getByRole("button", { name: "连接服务" }));
   await screen.findByText(/^服务支持：/);
   expect(http.calls.filter(call => call.method === "POST")).toHaveLength(0);
-  expect(screen.queryByRole("button", { name: "绑定并查询" })).toBeNull();
+  expect(screen.queryByLabelText("手机号")).toBeNull();
+  expect(screen.queryByText("充值与积分明细")).toBeNull();
 });

@@ -20,7 +20,7 @@ ROOT = Path(__file__).parents[1]
 
 
 class Server:
-    def __init__(self, tmp_path, uri, phase='', credential=None):
+    def __init__(self, tmp_path, uri, phase=''):
         self.root = tmp_path
         self.root.mkdir(exist_ok=True)
         with socket.socket() as sock:
@@ -31,9 +31,6 @@ class Server:
                     'AI_GRAPH_MAX_CONCURRENCY': '1', 'AI_DEPLOYMENT_WORKERS': '1',
                     'PYTHONPATH': str(ROOT / 'src') + os.pathsep + str(ROOT)}
         self.client = httpx.Client(base_url=f'http://127.0.0.1:{port}', headers={'Authorization': 'Bearer test-token'}, timeout=5, trust_env=False)
-        self.credential = credential
-        if credential:
-            self.env.update(TEST_SAAS='1', AI_INPUT_POINTS_PER_1K='1', AI_OUTPUT_POINTS_PER_1K='3')
         self.port = port
         self.process = None
         self.log = None
@@ -49,8 +46,6 @@ class Server:
                 raise AssertionError((self.root / 'server.log').read_text())
             try:
                 if self.client.get('/ready').status_code == 200:
-                    if self.credential:
-                        self.client.headers.update({'Authorization': 'Account ' + self.credential, 'X-Practiq-Phone': '13800138000'})
                     return
             except httpx.HTTPError:
                 pass
@@ -267,31 +262,6 @@ async def test_manual_pause_remains_paused_after_restart(tmp_path):
         server.control(receipt, 'resume', checkpointId=state['checkpointId'])
         done = await asyncio.to_thread(server.wait, receipt, {'COMPLETED'})
         assert done['status'] == 'SUCCEEDED'
-    finally:
-        server.stop(kill=True)
-        server.client.close()
-
-
-async def test_saas_kill_between_result_and_settlement_recovers_one_charge(tmp_path):
-    from tests.db_support import seed_account
-    db = await new_database()
-    credential = await seed_account(db)
-    await db.close()
-    server = Server(tmp_path, db.uri, 'points_before_settlement', credential=credential)
-    try:
-        await asyncio.to_thread(server.start)
-        receipt = server.submit()
-        await asyncio.to_thread(server.marker, 'points_before_settlement')
-        server.stop(kill=True)
-        assert server.calls() == 1
-        await asyncio.to_thread(server.start)
-        state = await asyncio.to_thread(server.wait, receipt, {'COMPLETED'})
-        assert state['billing']['chargedMicropoints'] == '25000'
-        assert state['billing']['balanceMicropoints'] == '975000'
-        assert server.calls() == 1
-        entries = server.client.get('/api/account/ledger').json()['items']
-        assert len(entries) == 2 and all(isinstance(item['amountMicropoints'], str) for item in entries)
-        assert sum(int(item['amountMicropoints']) for item in entries) == 975_000
     finally:
         server.stop(kill=True)
         server.client.close()

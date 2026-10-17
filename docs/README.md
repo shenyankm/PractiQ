@@ -30,7 +30,7 @@ PractiQ has an independent AI import service and Web frontend, plus an offline p
 
 | Task | Guide |
 | --- | --- |
-| Configure phone/account-token access, import points and operator reconciliation | [SaaS guide](../server/docs/saas.md) |
+| Set up personal service access and safely retire customer deployments | [Personal use and upgrades](../server/docs/personal-use.md) |
 | Configure RabbitMQ delivery and explicitly upgrade service schemas | [Delivery and recovery](../server/docs/rabbitmq.md) |
 | Configure/start the service and call subjective grading | [Service guide](../server/docs/service-guide.md) |
 | Create/query/control tasks and read/export saved results | [Document-task API](../server/docs/document-tasks.md) |

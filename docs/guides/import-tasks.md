@@ -6,7 +6,7 @@ The independent AI service's Web frontend handles source selection, upload, task
 
 ## Start and review
 
-Enter a phone number and an operator-issued token for an existing account. Both credentials remain in browser memory and clear on page reload. Service Bearer tokens are reserved for legacy-task administration and App grading; they do not authorize customer imports. Choose up to ten supported files, select the Office mode when available and explicitly start import. File selection makes no upload or model request. The server validates the source bytes and stores the original SHA-256; Office normalization remains part of that same source task.
+Enter your self-hosted service access token (`AI_SERVICE_TOKEN`). It remains in page memory and clears on reload. Choose up to ten supported files, select the Office mode when available and explicitly start import. File selection makes no upload or model request. The server validates source bytes and stores the original SHA-256; Office normalization remains part of the same task.
 
 **自动去重** is off by default. When enabled before **开始导入**, it merges only questions or complete composite-question trees with identical business payloads and source evidence, retaining source associations and warnings. Missing or conflicting evidence is kept for review. When disabled, possible duplicate candidates appear in result warnings and all copies remain. The choice is fixed for each submitted file and retained by explicit retries and parse again; start a new import to change it. Selecting the checkbox makes no request.
 
@@ -14,7 +14,7 @@ Inspect saved questions, supplied answers, images, source associations, quality 
 
 Deployments can opt in to [independent AI source review](../../server/docs/import-agent-review.md) with `AI_IMPORT_REVIEW=true`. Start import then includes review and, for source-evidenced discrepancies, at most one repair and recheck; these consume the existing model budget and can increase cost. Result warnings distinguish no discrepancy, repaired, rejected, unresolved and unreviewed outcomes. Missing source answers are never solved, and AI review does not clear existing human-review flags or establish accuracy. Reviewing saved results remains read-only.
 
-Model calls consume import points at the task’s frozen rates. Insufficient points or unknown usage pause work recoverably; recharge and read-only downloads never resume it automatically. When offered, **下载已完成内容** exports the currently completed questions with their missing-field and review warnings. See [phone/account-token access and billing](../../server/docs/saas.md).
+Model calls use your configured provider directly, with recorded usage and a per-task call budget. Unknown results remain available for inspection and explicit recovery. **下载题库 ZIP** exports completed questions from paused tasks when available, retaining missing-field and review warnings; export never resumes parsing. See [personal use](../../server/docs/personal-use.md).
 
 Download a completed result as a bank ZIP, then open it with the desktop importer. Review flags do not block ZIP import or offline practice. Native import lets you create a bank or append to an existing one. Personal answers and historical score snapshots stay local.
 

@@ -7,19 +7,15 @@ from pathlib import Path
 import pytest
 
 
-@pytest.mark.parametrize('running,payment,filesystem,result,invalid', [
-    ('true', 'false', 'nfs', 1, None),
-    ('false', 'false', 'nfs', 0, None),
-    ('true', 'true', 'nfs', 1, None),
-    ('true', 'true', 'ext4', 0, None),
-    ('true', 'true', 'nfs', 0, 'unit_only'),
-    ('true', 'true', 'nfs', 0, 'config_only'),
-    ('true', 'false', 'nfs', 0, 'database'),
-    ('true', 'false', 'nfs', 0, 'storage'),
-    ('true', 'false', 'nfs', 0, 'restart_ai'),
-    ('true', 'true', 'nfs', 0, 'restart_payment'),
+@pytest.mark.parametrize('running,filesystem,result,invalid', [
+    ('true', 'nfs', 1, None),
+    ('false', 'nfs', 0, None),
+    ('true', 'ext4', 0, None),
+    ('true', 'nfs', 0, 'database'),
+    ('true', 'nfs', 0, 'storage'),
+    ('true', 'nfs', 0, 'restart_ai'),
 ])
-def test_backup_scheduler_preserves_stopped_services_and_recovers_after_failure(tmp_path, running, payment, filesystem, result, invalid):
+def test_backup_scheduler_preserves_stopped_services_and_recovers_after_failure(tmp_path, running, filesystem, result, invalid):
     (tmp_path / 'server').mkdir()
     (tmp_path / '.env').write_text('DATABASE_URI=postgresql://backup:fixture@localhost/service\nAI_STORAGE_DIR=/wrong/env-file-path\nAI_MAINTENANCE_MODE=false\n')
     commands = tmp_path / 'bin'
@@ -38,10 +34,8 @@ if name=='docker' and '{{{{.State.Running}}}}' in args: print(os.environ['AI_RUN
 if name=='docker' and args==['inspect','container']: print(os.environ['DEPLOYED_CONTAINER'])
 if name=='docker' and args[:2]==['image','inspect']: print(json.dumps([dict(Config=dict(Env=[]))]))
 if name=='docker' and 'config' in args: print(os.environ['COMPOSE_CONFIG'])
-if name=='systemctl' and 'show' in args: print('EnvironmentFiles='+os.environ['PRACTIQ_BACKUP_PAYMENT_CONFIG']+' (ignore_errors=no)\\nMainPID=0')
-if 'start' in args and os.environ['INVALID']==('restart_ai' if name=='docker' else 'restart_payment'): sys.exit(1)
+if 'start' in args and os.environ['INVALID']=='restart_ai': sys.exit(1)
 if name=='findmnt': print(os.environ['FILESYSTEM'])
-if name=='systemctl' and 'is-active' in args: sys.exit(0 if os.environ['PAYMENT_RUNNING']=='true' else 1)
 if name=='python' and args[:2]==['-m','dotenv']:
     os.execv(sys.executable,[sys.executable,*args])
 if name=='python' and args[:1]==['-c'] and ('check_deployment' in args[1] or 'metrics' in args[1]):
@@ -53,7 +47,7 @@ if name=='python' and args[:2]==['-m','scripts.service_backup']:
     metrics(Path(os.environ['PRACTIQ_BACKUP_METRICS']),success=os.environ['DUMP_RESULT']=='0',snapshot=123)
     sys.exit(int(os.environ['DUMP_RESULT']))
 '''
-    for name in ('python', 'docker', 'findmnt', 'mountpoint', 'systemctl'):
+    for name in ('python', 'docker', 'findmnt', 'mountpoint'):
         file = commands / name
         file.write_text(program)
         file.chmod(0o755)
@@ -62,20 +56,12 @@ if name=='python' and args[:2]==['-m','scripts.service_backup']:
         'PRACTIQ_PROJECT_DIR': str(tmp_path), 'PRACTIQ_STORAGE_DIR': '/private/storage',
         'PRACTIQ_BACKUP_ROOT': '/mounted/offhost', 'PRACTIQ_BACKUP_IMAGE_ARCHIVE': '/private/image.tar',
         'PRACTIQ_BACKUP_IMAGE_ID': 'sha256:' + 'a' * 64, 'PRACTIQ_BACKUP_PYTHON': str(commands / 'python'),
-        'PRACTIQ_BACKUP_METRICS': str(tmp_path / 'backup.prom'), 'PRACTIQ_PAYMENT_UNIT': 'checkout.service',
-        'PRACTIQ_BACKUP_PAYMENT_CONFIG': '/private/payments.env', 'AI_RUNNING': running,
-        'PAYMENT_RUNNING': payment, 'FILESYSTEM': filesystem, 'DUMP_RESULT': str(result),
+        'PRACTIQ_BACKUP_METRICS': str(tmp_path / 'backup.prom'), 'AI_RUNNING': running,
+        'FILESYSTEM': filesystem, 'DUMP_RESULT': str(result),
         'PYTHONPATH': os.pathsep.join((str(Path(__file__).parents[1]), str(Path(__file__).parents[1] / 'src'), os.environ.get('PYTHONPATH', ''))),
     }
     environment['INVALID'] = invalid or ''
-    payment_config = tmp_path / 'payments.env'
-    payment_config.write_text('DATABASE_URI=postgresql://backup:fixture@localhost/service\nPAYMENT_APP_ID=fixture\n')
-    environment['PRACTIQ_BACKUP_PAYMENT_CONFIG'] = str(payment_config)
     environment.pop('DATABASE_URI', None)
-    if invalid == 'unit_only':
-        environment.pop('PRACTIQ_BACKUP_PAYMENT_CONFIG')
-    if invalid == 'config_only':
-        environment.pop('PRACTIQ_PAYMENT_UNIT')
     environment['DEPLOYED_CONTAINER'] = json.dumps([{
         'Image': environment['PRACTIQ_BACKUP_IMAGE_ID'],
         'HostConfig': {'NetworkMode': 'host'},
@@ -89,13 +75,13 @@ if name=='python' and args[:2]==['-m','scripts.service_backup']:
     script = Path(__file__).parents[1] / 'deploy/backup-offline.sh'
     process = subprocess.run(['/bin/sh', str(script)], env=environment, capture_output=True, timeout=10, check=False)
     calls = [json.loads(line) for line in log.read_text().splitlines()]
-    permitted = filesystem == 'nfs' and invalid in {None, 'restart_ai', 'restart_payment'}
-    failed = not permitted or result or invalid in {'restart_ai', 'restart_payment'}
+    permitted = filesystem == 'nfs' and invalid in {None, 'restart_ai'}
+    failed = not permitted or result or invalid in {'restart_ai'}
     assert process.returncode == int(bool(failed))
     assert f'practiq_backup_last_attempt_success {int(not failed)}\n' in (tmp_path / 'backup.prom').read_text()
     starts = [call for call in calls if 'start' in call]
     stops = [call for call in calls if 'stop' in call]
-    assert len(starts) == len(stops) == (int(running == 'true') + int(payment == 'true') if permitted else 0)
+    assert len(starts) == len(stops) == (int(running == 'true') if permitted else 0)
     if running == 'false':
         assert not any(call[0] == 'docker' and 'start' in call for call in calls)
     if not permitted:
