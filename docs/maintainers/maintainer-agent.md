@@ -9,7 +9,9 @@ it does not interpret review prose, call a model, create approvals or publish re
 All three final GitHub Actions gates (`Service CI`, `Desktop CI`, `Android CI`)
 and every applicable check and commit status must succeed. Skipped intermediate
 jobs are inapplicable; a skipped final gate never qualifies. GitHub must report
-an open, non-draft PR with a clean merge, current base and no protection blocker.
+an open, non-draft PR without conflicts or protection blockers. A branch may
+be behind main; it does not need to include the latest main commit. All checks
+and review evidence must still match its exact current head.
 
 PRs touching `.github/workflows/`, `.github/scripts/` or `server/scripts/`,
 including either side of a rename, require manual inspection and manual merge.

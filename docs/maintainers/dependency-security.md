@@ -119,9 +119,11 @@ packages, while CodeQL checks source patterns. No duplicate scanning workflow
 is needed for default setup. This branch does not change hosted settings.
 
 The active main ruleset currently requires `Service CI`, `Desktop CI` and
-`Android CI`, a current base and resolved conversations, with no mandatory
+`Android CI` and resolved conversations, with no mandatory
 second maintainer approval. The checked-in [ruleset](../../.github/main-ruleset.json)
-restricts new merges to squash. After merging and verifying those three checks,
+does not require a PR branch to include the latest main commit; conflict-free
+branches still need successful current-head checks. It restricts new merges to
+squash. After merging and verifying those three checks,
 apply it from the repository root, then verify the live rule:
 
 ```bash
