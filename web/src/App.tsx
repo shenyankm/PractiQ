@@ -1,6 +1,6 @@
 import { lazy, memo, Suspense, useEffect, useRef, useState } from "react";
 import { Select, SelectOption } from "./components/ui/select";
-import { Upload, Play, RefreshCw, Download, Trash2, LockKeyhole, Unplug, ChevronLeft, ChevronRight, FileText, LoaderCircle, Check } from "lucide-react";
+import { Upload, Play, RefreshCw, Download, Trash2, LockKeyhole, ChevronLeft, ChevronRight, FileText, LoaderCircle, Check } from "lucide-react";
 import logo from "./assets/octopus.png";
 import { ApiError, Client, downloadBlob, fileFormat, MAX_FILES, sourceLimit, validateFiles, pointLabel, type Action, type Capabilities, type OfficeMode, type TaskList, type UploadStage } from "./api";
 import type { DocumentTaskDetail, DocumentTaskReview, DocumentTaskSummary } from "./contracts.generated";
@@ -192,9 +192,7 @@ export default function App() {
     } catch (error) { current?.disconnect(); setCapError(errorText(error)); if (error instanceof ApiError && (error.code === "INVALID_ACCOUNT_ACCESS" || authFailure(error))) { setAccessInvalid(true); } }
     finally { setConnecting(false); }
   }
-  function disconnect() {
-    client?.disconnect(); job.current = null; setClient(null); setDraftToken(""); setDraftPhone(""); setSelected(null); setDeleteTarget(null); setFiles([]); setBusy(false); setOperationError(null); setNotice(null); setDownloadedCheckpoint(null); setFileError(null); setOffset(0); setCursors([undefined]); setFilter("");
-  }
+
   async function run(perform: (current: Client) => Promise<void>) {
     if (!client || job.current) return;
     const id = Symbol(); job.current = id; setBusy(true); setOperationError(null); setNotice(null);
@@ -238,7 +236,7 @@ export default function App() {
   }
   return <div className="web-shell">
     <a className="skip-link" href="#main-content">跳到主要内容</a>
-    <header className="web-header"><a href="/" className="brand"><img src={logo} alt="PractiQ 小章鱼" /><div><strong>PractiQ</strong><span>AI 文档导入</span></div></a><div className="flex items-center gap-3"><span role="status"><Badge variant="outline">{client ? capError ? "连接验证失败" : capabilities ? "服务已连接" : "正在验证服务" : "尚未连接"}</Badge></span>{client && <Button variant="outline" onClick={disconnect}><Unplug />断开连接</Button>}</div></header>
+    <header className="web-header"><a href="/" className="brand"><img src={logo} alt="PractiQ 小章鱼" /><div><strong>PractiQ</strong><span>AI 文档导入</span></div></a></header>
     <main id="main-content" tabIndex={-1} className="web-main"><div className="page-intro"><div><h1>把文档整理成可复核的题库</h1></div></div>
       <ol className="import-steps" aria-label="文档导入流程">{[
         ["选择并导入", !client ? "连接账户后选择文档" : importStep > 1 ? "文档任务已创建" : "选择文件，点击开始后解析"],

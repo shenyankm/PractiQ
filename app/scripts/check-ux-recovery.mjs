@@ -374,3 +374,56 @@ for (const width of [1280, 360]) {
     await expect(page.getByRole('heading', { name: '学习数据备份', exact: true })).toBeVisible();
   });
 }
+
+for (const [width, locale] of [[1280, 'zh-CN'], [390, 'zh-CN'], [360, 'en']]) {
+  test(`bank refresh stays in the header and preserves loading, recovery and paging at ${width}px (${locale})`, async ({ page }, testInfo) => {
+    const english = locale === 'en';
+    const label = english ? 'Refresh' : '刷新';
+    await page.setViewportSize({ width, height: 850 });
+    await page.addInitScript(language => {
+      Object.defineProperty(navigator, 'languages', { get: () => [language] });
+      if (!sessionStorage.getItem('practiq-preview')) sessionStorage.setItem('practiq-preview', 'empty');
+    }, locale);
+    await inject(page, `
+      if (command === 'request' && args?.request?.type === 'banks_page') {
+        globalThis.bankPageReads = [...(globalThis.bankPageReads || []), args.request];
+        while (globalThis.bankPageHold) await new Promise(resolve => setTimeout(resolve, 20));
+        if (globalThis.bankPageFail) { globalThis.bankPageFail = false; throw new Error('Synthetic bank read failure'); }
+      }
+    `);
+    await page.goto('/');
+    await page.addStyleTag({ content: '.preview-controls { display: none; }' });
+    const refresh = page.locator('header').getByRole('button', { name: label, exact: true });
+    await expect(refresh).toBeEnabled();
+    await expect(page.getByRole('button', { name: label, exact: true })).toHaveCount(1);
+    const empty = page.getByText(english ? 'Start with your first bank' : '从第一份题库开始', { exact: true });
+    await expect(empty).toBeVisible();
+    const [action, content] = await Promise.all([refresh.boundingBox(), empty.boundingBox()]);
+    expect(action.y + action.height).toBeLessThan(content.y);
+    expect(action.height).toBeGreaterThanOrEqual(width < 768 ? 48 : 40);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath(`bank-refresh-empty-${width}.png`), fullPage: true });
+    await page.evaluate(() => { globalThis.bankPageHold = true; globalThis.bankPageFail = true; });
+    await refresh.click();
+    await expect(refresh).toBeDisabled();
+    await page.evaluate(() => { globalThis.bankPageHold = false; });
+    await expect(page.getByRole('alert').filter({ hasText: 'Synthetic bank read failure' })).toBeVisible();
+    await expect(refresh).toBeEnabled();
+    await refresh.click();
+    await expect(empty).toBeVisible();
+    await expect(page.getByRole('alert')).toHaveCount(0);
+    await page.evaluate(() => sessionStorage.setItem('practiq-preview', 'many'));
+    await page.reload();
+    await page.addStyleTag({ content: ".preview-controls { display: none; }" });
+    const next = page.getByRole('button', { name: english ? 'Next page' : '下一页', exact: true });
+    await expect(next).toBeEnabled(); await next.click();
+    await expect(refresh).toBeEnabled();
+    await page.evaluate(() => { globalThis.bankPageReads = []; });
+    await refresh.click();
+    await expect.poll(() => page.evaluate(() => globalThis.bankPageReads?.at(-1)?.offset)).toBe(30);
+    await expect(refresh).toBeEnabled();
+    await expect(next).toBeDisabled();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath(`bank-refresh-paged-${width}.png`), fullPage: true });
+  });
+}

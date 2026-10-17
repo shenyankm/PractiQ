@@ -28,7 +28,13 @@ Cards use 16px corners and a single thin border without shadows. Reuse existing 
 
 Ordinary buttons, inputs, input groups and selects have a desktop minimum height of 40px and a touch minimum of 48px. Desktop icon buttons retain their existing sizes; compact selects are 32px. Panels use 16px corners, controls use `--radius`, menus use 12px and menu items use 8px. Badges remain pill-shaped; checkboxes and radio buttons retain their semantic shapes. English buttons may wrap, with the same minimum height as Chinese buttons.
 
+App and import Web reuse Card, Badge, Input and button variants from `shared/ui.tsx`; their local modules retain the public imports. App buttons keep their WebKit focus handling. Both Tailwind entries scan `shared/` for component classes.
+
 App and import Web share the shadcn/Radix single-select component. Desktop browsers use themed popup panels, selected surfaces and checkmarks without relying on `appearance: base-select` support. Coarse primary pointers retain system pickers with the same values and callbacks. Narrow desktop windows keep the custom menu. Both forms preserve labels, disabled states and keyboard selection; resizing preserves the current value.
+
+Web file inputs keep the native file picker. Their filename and selector button share the 40px desktop / 48px touch control height, inner line height and font size, so both text labels remain vertically centered.
+
+The bank-home Refresh action belongs to the top action group beside New bank and Import. Keep bank pagination below the list, and disable refresh while its read is pending. The import Web header shows the brand; connection errors remain next to their recovery action.
 
 Single-select controls center their selected text within the shared control height, with wrappers matching the control bounds so the arrow stays centered. Do not render empty quick-count rows in study setup; unavailable presets must not add blank vertical spacing.
 

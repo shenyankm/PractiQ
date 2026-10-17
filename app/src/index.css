@@ -1,7 +1,7 @@
 @import "tailwindcss";
 @import "../../shared/theme.css";
 @import "../../shared/document-content.css";
-@source "../../shared/select.tsx";
+@source "../../shared";
 @import "tw-animate-css";
 /*!
 shadcn 4.21.0 CSS variants.
