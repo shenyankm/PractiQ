@@ -38,7 +38,6 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/in
 import {
   api,
   blankQuestion,
-  errorMessage,
   modeNames,
   type BankChoice,
   type SessionPage,
@@ -50,7 +49,7 @@ import {
   type SessionFilter,
 } from "./api";
 import { Button } from "@/components/ui/button";
-import { OperationFailure, OperationFeedback } from "./OperationFeedback";
+import { ErrorNotice, OperationFailure, OperationFeedback } from "./OperationFeedback";
 import { ErrorBoundary } from "../../shared/error-boundary";
 import { RenderFailure, RenderFailureDialog } from "./RenderFailure";
 import { BankEditor, type BankDraft } from "./BankEditor";
@@ -162,6 +161,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
   const [loading, setLoading] = useState(false);
   const [importPreview, setImportPreview] = useState<{ preview: Preview; initialBank: string } | null>(null);
   const [bankEditor, setBankEditor] = useState<BankDraft | null>(null);
+  const bankEditorTrigger = useRef<HTMLElement | null>(null);
   const [editor, setEditor] = useState<{
     id: string | null;
     question: Question;
@@ -182,6 +182,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
     setConfirm(value);
   }, []);
   const [operationError, setOperationError] = useState<{ error: unknown } | null>(null);
+  const operationNotice = useRef<HTMLDivElement>(null);
   const [practiceSetup, setPracticeSetup] = useState<{ bank: string | null; bankIds?: string[]; filter?: string } | null>(null);
   const [mergeOpen, setMergeOpen] = useState(false);
   const mergeTrigger = useRef<HTMLButtonElement>(null);
@@ -402,7 +403,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
   const loadingView = <p role="status" className="p-4 text-sm text-muted-foreground">{t("加载中…")}</p>;
   const hasQuestionFilters = !!(search || mode || onlyReview);
   const listPage = ["questions", "wrong", "favorite"].includes(page);
-  const languageError = language.error != null && <div role="alert" className="text-xs text-destructive"><p>{t(language.error.key)}</p><p>{errorMessage(language.error.cause)}</p><Button size="sm" variant="outline" disabled={language.saving || busy} onClick={() => {
+  const languageError = language.error != null && <div role="alert" className="text-xs text-destructive"><p>{t(language.error.key)}</p><ErrorNotice error={language.error.cause} /><Button size="sm" variant="outline" disabled={language.saving || busy} onClick={() => {
     if (language.error?.key === "保存语言设置失败") void language.change(language.error.locale).then(saved => { if (saved) setLanguageOpen(false); });
     else void language.reload();
   }}>{t("重试")}</Button></div>;
@@ -454,7 +455,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                 <DropdownMenuRadioGroup value={theme.theme}>
                   {([{ value: "system", label: "跟随系统" }, { value: "light", label: "白天" }, { value: "dark", label: "黑夜" }] as const).map(({ value, label }) => <DropdownMenuRadioItem key={value} value={value} onSelect={event => { event.preventDefault(); if (theme.change(value, true)) setThemeOpen(false); }}>{t(label)}</DropdownMenuRadioItem>)}
                 </DropdownMenuRadioGroup>
-                {theme.error != null && <div role="alert" className="p-2 text-xs text-destructive"><p>{t("主题设置失败，请重试")}</p><p>{errorMessage(theme.error)}</p></div>}
+                {theme.error != null && <div role="alert" className="p-2 text-xs text-destructive"><p>{t("主题设置失败，请重试")}</p><ErrorNotice error={theme.error} /></div>}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -486,6 +487,9 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
         </div>
   </>;
   const dialogOpen = !!(confirm || bankEditor || editor || importPreview || practiceSetup || detail || mergeOpen || navigationOpen);
+  useEffect(() => {
+    if (operationError && !dialogOpen) operationNotice.current?.scrollIntoView({ block: "nearest" });
+  }, [operationError, dialogOpen]);
   return (
     <OperationFailure.Provider value={operationError ? { error: operationError.error, dialogOpen, dismiss: () => setOperationError(null) } : null}>
     <div className="app-shell flex overflow-hidden bg-background text-foreground">
@@ -498,7 +502,6 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
       </Dialog> : <aside id="app-sidebar" className={`flex shrink-0 flex-col border-r bg-card px-2 py-4 transition-[width] duration-200 ease-in-out motion-reduce:transition-none ${sidebarCollapsed ? "w-16" : "w-52"}`}>{navigationContent}</aside>}
       </Tooltip.Provider>
       <main className="flex min-w-0 flex-1 flex-col">
-        {operationError && !dialogOpen && <div className="p-4"><OperationFeedback /></div>}
         <header className="app-header flex shrink-0 flex-wrap items-center justify-between gap-4 border-b">
           <div className="flex min-w-0 items-center gap-3">
             {compact && <Button size="icon" variant="ghost" aria-label={t("打开主导航")} aria-expanded={navigationOpen} disabled={busy} onClick={() => setNavigationOpen(true)}><Menu /></Button>}
@@ -536,7 +539,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
             )}
 
             {page === "banks" && (
-              <><Button variant="outline" disabled={bankActionsUnavailable} onClick={() => { setOperationError(null); setBankEditor({ id: null, title: "", description: "" }); }}><Plus />{t("新建题库")}</Button><Button disabled={bankActionsUnavailable} onClick={() => navigate("settings", null, true)}><Upload />{t("导入")}</Button></>
+              <><Button variant="outline" disabled={bankActionsUnavailable} onClick={event => { bankEditorTrigger.current = event.currentTarget; setOperationError(null); setBankEditor({ id: null, title: "", description: "" }); }}><Plus />{t("新建题库")}</Button><Button disabled={bankActionsUnavailable} onClick={() => navigate("settings", null, true)}><Upload />{t("导入")}</Button></>
             )}
             {page === "banks" && banks.length > 1 && (
               <Button ref={mergeTrigger} variant="outline" disabled={bankActionsUnavailable} onClick={() => setMergeOpen(true)}>{t("合并题库")}</Button>
@@ -572,9 +575,10 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
         </header>
         <div className="app-content min-h-0 flex-1 overflow-y-auto">
           <div className={`page-workspace ${page === "practice" ? "practice-workspace" : ""}`}>
+          {operationError && !dialogOpen && <div ref={operationNotice} className={`mb-5 ${page === "settings" || page === "service-settings" ? "max-w-3xl" : ""}`}><OperationFeedback /></div>}
           {(bankError != null || infoError != null) && <div role="alert" className="mb-5 space-y-2 rounded-lg border border-destructive/40 p-4">
             <p>{t("概览读取失败，已保存的数据和已完成的操作不受影响。请重试读取，不要重复导入或保存。")}</p>
-            <p className="text-sm">{errorMessage(bankError ?? infoError)}</p>
+            <ErrorNotice error={bankError ?? infoError} />
             <Button variant="outline" disabled={busy} onClick={() => run(reloadOverview)}>{t("重试读取概览")}</Button>
           </div>}
           <ErrorBoundary key={page} fallback={<RenderFailure />}><Suspense fallback={loadingView}>
@@ -584,7 +588,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
           {page === "history" && (summaryLoading || summaryError != null) && (
             <div className="mb-5 space-y-3" aria-busy={summaryLoading}>
               {summaryLoading && <p role="status">{t("加载中…")}</p>}
-              {summaryError != null && <div role="alert"><p>{errorMessage(summaryError)}</p><Button variant="outline" onClick={() => setListRevision(v => v + 1)}>{t("重试")}</Button></div>}
+              {summaryError != null && <div role="alert" className="space-y-2"><ErrorNotice error={summaryError} /><Button variant="outline" onClick={() => setListRevision(v => v + 1)}>{t("重试")}</Button></div>}
             </div>
           )}
           {page === "banks" && <BankList
@@ -601,7 +605,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
             onOpenQuestions={bankId => navigate("questions", bankId)}
             onPractice={bankId => setPracticeSetup({ bank: bankId })}
             onPracticeUnattempted={bankId => setPracticeSetup({ bank: bankId, filter: "unattempted" })}
-            onEdit={bankItem => { setOperationError(null); setBankEditor({ id: bankItem.id, title: bankItem.title, description: bankItem.description }); }}
+            onEdit={(bankItem, trigger) => { bankEditorTrigger.current = trigger; setOperationError(null); setBankEditor({ id: bankItem.id, title: bankItem.title, description: bankItem.description }); }}
             onDelete={(bankItem, trigger) => openConfirm({
               title: message("删除“{0}”？", { 0: bankItem.title }),
               label: message("删除题库"),
@@ -652,7 +656,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
               {loading ? loadingView : questionError != null ? (
                 <div role="alert" className="space-y-3 rounded-xl border p-4">
                   <p className="font-medium">{t("加载题目失败")}</p>
-                  <p className="text-sm text-muted-foreground">{errorMessage(questionError)}</p>
+                  <ErrorNotice error={questionError} />
                   <Button variant="outline" disabled={busy} onClick={() => setQuestionRevision(value => value + 1)}>{t("重试")}</Button>
                 </div>
               ) : questions.length ? (
@@ -964,6 +968,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
       /></Suspense></ErrorBoundary>}
       {bankEditor && (
         <BankEditor
+          trigger={bankEditorTrigger.current}
           initial={bankEditor}
           busy={busy}
           onClose={() => { setBankEditor(null); setOperationError(null); }}

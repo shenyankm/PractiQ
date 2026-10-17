@@ -353,6 +353,38 @@ test("partial review preserves nulls, sources, shared material and warnings; che
   expect(starts(http.calls)).toHaveLength(0); expect(http.calls.some(call => /\/(control|reparse)$/.test(call.path))).toBe(false); expect(external).toEqual([]);
 });
 
+for (const width of [1280, 360]) {
+  test(`error messages and retry controls remain readable at ${width}px`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 });
+    const http = await fakeHTTP(page);
+    let fail = true;
+    http.server.intercept = async (route, call) => {
+      if (fail && call.path === "/api/import-capabilities") {
+        await respond(route, { detail: { code: "TEMPORARILY_UNAVAILABLE_" + "X".repeat(40) } }, 503);
+        return true;
+      }
+      return false;
+    };
+    await page.goto("/");
+    await page.getByLabel("手机号").fill("13800138000");
+    await page.getByLabel("账户令牌").fill(fakeToken);
+    await page.getByRole("button", { name: "查询记录", exact: true }).click();
+    const retry = page.getByRole("button", { name: "重试读取服务能力", exact: true });
+    const banner = page.getByRole("alert").filter({ has: retry });
+    await expect(banner).toBeVisible();
+    const text = await banner.locator("span").boundingBox(), button = await retry.boundingBox();
+    expect(text!.width).toBeGreaterThan(width === 360 ? 240 : 280);
+    if (width === 360) expect(button!.y).toBeGreaterThanOrEqual(text!.y + text!.height);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await banner.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: testInfo.outputPath(`error-retry-${width}.png`), animations: "disabled" });
+    fail = false;
+    await retry.click();
+    await expect(banner).toHaveCount(0);
+    expect(mutations(http.calls)).toHaveLength(0);
+  });
+}
+
 test("failed reads retry explicitly and stale pages cannot overwrite a new filter", async ({ page }) => {
   const http = await fakeHTTP(page); let fail = true; let release: (() => Promise<void>) | undefined;
   http.server.hasMore = true;

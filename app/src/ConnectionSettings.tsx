@@ -1,11 +1,10 @@
 import { message, t, useI18n } from "./i18n";
 import { useCallback, useContext, useEffect, useRef, useState, type MutableRefObject } from "react";
 import { toast } from "./notifications";
-import { OperationFailure } from "./OperationFeedback";
+import { ErrorNotice, OperationFailure } from "./OperationFeedback";
 import { PlugZap, LoaderCircle, ChevronRight } from "lucide-react";
 import {
   api,
-  errorMessage,
   missingServiceSettings,
   type ServiceConfig,
   type SettingsResult,
@@ -148,7 +147,7 @@ export function ConnectionSettingsPanel({
               {!saved ? t("加载中…") : missingServiceSettings(saved).length ? t("未配置") : t("已配置")}
             </Badge>}
           </div>
-          {error != null && <p role="alert" className="break-words text-sm text-destructive">{errorMessage(error)}</p>}
+          {error != null && <div role="alert" className="text-destructive"><ErrorNotice error={error} /></div>}
         </div>
         <Button variant="outline" disabled={busy} onClick={onConfigure} className="shrink-0">{t("配置")}<ChevronRight /></Button>
       </CardHeader>
@@ -164,9 +163,9 @@ export function ConnectionSettingsPanel({
           {error != null && (
             <div
               role="alert"
-              className="flex flex-wrap items-center justify-between gap-3 text-sm text-destructive"
+              className="flex flex-wrap items-start justify-between gap-3 text-sm text-destructive"
             >
-              <span>{errorMessage(error)}</span>
+              <div className="min-w-0 flex-1"><ErrorNotice error={error} /></div>
               <Button type="button" variant="outline" disabled={reading} onClick={() => load()}>{t("重试")}</Button>
             </div>
           )}
@@ -196,8 +195,8 @@ export function ConnectionSettingsPanel({
               {saved && <p className="text-sm text-muted-foreground">{t(configured ? "令牌已保存；留空保留。" : "离开输入框后自动安全保存。")}</p>}
             </div>
           </fieldset>
-          {saveError != null && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 text-sm text-destructive"><span>{errorMessage(saveError)}</span><Button type="button" variant="outline" disabled={busy || operation !== null} onClick={save}>{t("重试保存")}</Button></div>}
-          {testResult && <p role={testResult.error ? "alert" : "status"} className={testResult.error ? "text-sm text-destructive" : "workflow-note"}>{testResult.error ? errorMessage(testResult.error) : t("连接测试通过")}</p>}
+          {saveError != null && <div role="alert" className="flex flex-wrap items-start justify-between gap-3 text-sm text-destructive"><div className="min-w-0 flex-1"><ErrorNotice error={saveError} /></div><Button type="button" variant="outline" disabled={busy || operation !== null} onClick={save}>{t("重试保存")}</Button></div>}
+          {testResult && (testResult.error ? <div role="alert" className="text-destructive"><ErrorNotice error={testResult.error} /></div> : <p role="status" className="workflow-note">{t("连接测试通过")}</p>)}
           <div className="flex flex-wrap items-center justify-end gap-3 border-t pt-4">
           <Button variant="outline" type="button" disabled={busy || operation !== null || dirty || !saved?.config.service_url || configured === false} onClick={clearToken}>{t("清除已保存的访问令牌")}</Button>
           <Button variant="outline" type="button" disabled={busy || operation !== null || !saved || missing.length > 0} onClick={() => {

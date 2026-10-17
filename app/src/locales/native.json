@@ -680,8 +680,8 @@
     "en": "The task changed. Refresh it or recreate the import batch."
   },
   "LOCAL_BANK_ZIP_INVALID": {
-    "zh-CN": "题库 ZIP 无法读写：{detail}。请确认包完整、图片齐全，并选择未存在的导出文件名。",
-    "en": "Cannot read or write bank ZIP: {detail}. Check the package and images, and choose a new export filename."
+    "zh-CN": "题库 ZIP 无法读写。导入请确认包和资源完整；导出请选择新文件名。",
+    "en": "Cannot read or write the bank ZIP. For import, check the package and resources; for export, choose a new filename."
   },
   "LOCAL_USE_BACKUP_RESTORE": {
     "zh-CN": "这是学习数据备份，请到设置中选择“恢复备份”。",

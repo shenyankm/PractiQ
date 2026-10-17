@@ -61,6 +61,19 @@ async function openExam(user: ReturnType<typeof userEvent.setup>) {
   await screen.findByRole("textbox", { name: "人工得分" });
 }
 
+it.each(["cancel", "save"])("restores context after a menu-opened editor %s", async action => {
+  setup();
+  const user = userEvent.setup(); render(<App />);
+  const trigger = await screen.findByRole("button", { name: "题库操作 English" });
+  await user.click(trigger);
+  await user.click(screen.getByRole("menuitem", { name: "编辑题库" }));
+  await screen.findByRole("dialog", { name: "编辑题库" });
+  if (action === "cancel") await user.keyboard("{Escape}");
+  else await user.click(screen.getByRole("button", { name: "保存题库" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  await waitFor(() => expect(document.activeElement).toBe(action === "cancel" ? trigger : screen.getByRole("heading", { name: "我的题库", level: 1 })));
+});
+
 it("protects changed editor drafts on native window close and quits only after explicit discard", async () => {
   setup(); native.enabled = true;
   const user = userEvent.setup(); render(<App />);

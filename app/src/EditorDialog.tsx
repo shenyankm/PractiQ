@@ -7,13 +7,14 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction,
 } from "@/components/ui/alert-dialog";
 
-export function EditorDialog({ title, dirty, busy, onClose, className, children }: {
+export function EditorDialog({ title, dirty, busy, onClose, className, children, trigger }: {
   title: string;
   dirty: boolean;
   busy: boolean;
   onClose: () => void;
   className?: string;
   children: ReactNode;
+  trigger?: HTMLElement | null;
 }) {
   useI18n();
   useUnsavedChanges(dirty);
@@ -27,7 +28,9 @@ export function EditorDialog({ title, dirty, busy, onClose, className, children 
     else onClose();
   }
   return <Dialog open onOpenChange={open => { if (!open) requestClose(); }}>
-    <DialogContent className={className} aria-describedby={undefined} onFocusCapture={event => {
+    <DialogContent className={className} aria-describedby={undefined} onCloseAutoFocus={event => {
+      if (trigger?.isConnected && !trigger.matches(":disabled")) { event.preventDefault(); trigger.focus(); }
+    }} onFocusCapture={event => {
       if (event.target instanceof HTMLElement) returnFocus.current = event.target;
     }} onPointerDownOutside={event => {
       if (!dirty) return;

@@ -439,7 +439,7 @@ mod tests {
             .export_bank(bank.as_deref().unwrap(), &rejected)
             .unwrap_err();
         assert_eq!(failure.code, "LOCAL_BANK_ZIP_INVALID");
-        assert!(failure.to_string().contains("Too many ZIP entries"));
+        assert_eq!(failure.params["detail"], "Too many ZIP entries");
         assert!(!rejected.exists());
         let existing = dir.path().join("allowed.zip");
         let previous = fs::read(&existing).unwrap();

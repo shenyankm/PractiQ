@@ -1,7 +1,8 @@
 import { COMPOSITE_FILTERS } from "./contracts.generated";
 import { message, MessageError, t, useI18n } from "./i18n";
 import { useEffect, useRef, useState } from "react";
-import { api, errorMessage, isComposite, type BankChoice, type Session, type SessionKind, type QuestionSummary, type QuestionStats, type PaperPreview } from "./api";
+import { api, isComposite, type BankChoice, type Session, type SessionKind, type QuestionSummary, type QuestionStats, type PaperPreview } from "./api";
+import { ErrorNotice } from "./OperationFeedback";
 import { cents, defaultPaperCount, questionType, types } from "./paper";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -170,9 +171,9 @@ export function StudySetup({banks, initialBank, initialBankIds, initialFilter, i
         {!!filter && ["reading", "word_bank", "cloze", "listening", "gap_fill", "grammar_fill", "sentence_selection"].some(type => stats.types[type]) && <p className="text-sm text-muted-foreground">{t("命中子题时纳入完整题组，包含组内其他子题。")}</p>}
         {selection === "manual" && manualCount > 1000 && <p role="alert" className="text-sm text-destructive">{t("每次最多选择 1000 小题。")}</p>}
         {!loading && !statsError && (!bankIds.length || !available) && <div className="workflow-note space-y-2"><p>{t(!bankIds.length ? "请选择至少一个题库" : "当前范围没有可用题目，请调整题库或筛选条件。")}</p><Button variant="outline" disabled={busy} onClick={() => { if (advanced.current) { advanced.current.open = true; advanced.current.querySelector("summary")?.focus(); advanced.current.scrollIntoView({block:"nearest"}); } }}>{t("调整选题范围")}</Button></div>}
-        {statsError != null && <div role="alert" className="space-y-2 text-sm text-destructive"><p>{errorMessage(statsError)}</p><Button variant="outline" disabled={busy || statsLoading} onClick={() => setStatsRetry(previous => ({query,attempt:previous.query === query ? previous.attempt + 1 : 1}))}>{t("重试题目统计")}</Button></div>}
-        {selection === "manual" && pageError != null && <div role="alert" className="space-y-2 text-sm text-destructive"><p>{errorMessage(pageError)}</p><Button variant="outline" disabled={busy || pageLoading} onClick={() => setPageRetry(previous => ({query:pageRequest,attempt:previous.query === pageRequest ? previous.attempt + 1 : 1}))}>{t("重试选题列表")}</Button></div>}
-        {error != null && <p role="alert" className="text-sm text-destructive">{errorMessage(error)}</p>}
+        {statsError != null && <div role="alert" className="space-y-2 text-sm text-destructive"><ErrorNotice error={statsError} /><Button variant="outline" disabled={busy || statsLoading} onClick={() => setStatsRetry(previous => ({query,attempt:previous.query === query ? previous.attempt + 1 : 1}))}>{t("重试题目统计")}</Button></div>}
+        {selection === "manual" && pageError != null && <div role="alert" className="space-y-2 text-sm text-destructive"><ErrorNotice error={pageError} /><Button variant="outline" disabled={busy || pageLoading} onClick={() => setPageRetry(previous => ({query:pageRequest,attempt:previous.query === pageRequest ? previous.attempt + 1 : 1}))}>{t("重试选题列表")}</Button></div>}
+        {error != null && <div role="alert" className="text-destructive"><ErrorNotice error={error} /></div>}
         <div className="flex flex-wrap justify-end gap-2"><Button variant="outline" disabled={busy} onClick={onClose}>{t("取消")}</Button>{kind !== "practice" && <Button variant={preview.length ? "outline" : "default"} disabled={busy || loading || !available || !bankIds.length || invalidSelection} onClick={() => perform(async () => { await generate(); })}>{preview.length ? t("重新生成预览") : t("预览题目与配分")}</Button>}{(kind === "practice" || !!preview.length) && <Button disabled={busy || loading || !available || !bankIds.length || invalidSelection} onClick={start}>{kind === "practice" ? t("立即开始") : t("开始考试")}</Button>}</div>
       </div>
     </DialogContent>

@@ -1,0 +1,19 @@
+{
+  "baseCommit": "a430f7e1ca5e4439b4ea46058e0f8b42f66f32f9",
+  "branch": "sheny/fix-native-dialog-focus",
+  "date": "2026-10-17",
+  "nativeEnvironment": "Isolated macOS Tauri development app, WKWebView, real native IPC and SQLite; synthetic bank data",
+  "browserEnvironment": "Chromium with synthetic native transport or HTTP; no live model or payment calls",
+  "screenshots": {
+    "native-error-collapsed.png": "6680ff397a4a88a66f466c8b827d151da0b042a67e108a36171edf620978c343",
+    "native-error-expanded.png": "dce3c7022bf4af90388706f0f1743b4767bb8f2fe3a9b2b9b71de6ab9471f248",
+    "app-error-desktop.png": "815845de9702062da6703c8e069ee92aa60bf4b8f44f1a12cafd2f020b2508fe",
+    "app-error-narrow.png": "3e84c96c269e810a67128a6d9d85b8ab1b43e1a6f7f53474200c4d84091f2343",
+    "web-error-desktop.png": "8cda2c00b70bac9f313410529b48c2987c7ace6f89bded12b2ffa993c954a155",
+    "web-error-narrow.png": "4fdaaffe85407f4bfd6c90c27cae6fe85f1b2226be5e5e6f40b6bcc40e46792b",
+    "native-editor-cancel-focus.png": "5ff664f4a3ba1056d110db0786e3f57f13a6b4e06811c1a9e82cc9fc859c138a",
+    "native-editor-save-focus.png": "f04b5966a170d451fb3f136ec4bf5e624a553fdc4e1585b899fd5b82f7427b7b",
+    "native-local-fallback.png": "18ab75472c2ce4a7b4efb8e002cf4b8c6b803456c14c46102287437ee7e4c5a3",
+    "native-root-fallback.png": "75bcb37ebc4e21f333967113732a7c3f09b4f38ebec1fe8f10ce79a41cfb179c"
+  }
+}

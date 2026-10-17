@@ -373,8 +373,8 @@ export function errorMessage(error: unknown, includeDiagnostics = true): string 
     const summary = entry[locale()].replace(/\{(\w+)\}/g, (_, key: string) => String(params[key] ?? ""));
     const detail = [object.context, object.requestId, object.httpStatus].filter(v => v != null).join(" · ");
     // Older saved HTTP errors kept remote diagnostics in message.
-    const rawDiagnostic = object.diagnostic ?? (object.httpStatus != null ? object.message : undefined);
-    const diagnostic = typeof rawDiagnostic === "string" && rawDiagnostic !== "" && !Object.values(entry).includes(rawDiagnostic as never)
+    const rawDiagnostic = object.diagnostic ?? params.detail ?? (object.httpStatus != null ? object.message : undefined);
+    const diagnostic = typeof rawDiagnostic === "string" && rawDiagnostic !== "" && !summary.includes(rawDiagnostic) && !Object.values(entry).includes(rawDiagnostic as never)
       ? ` ${t("诊断详情")}: ${rawDiagnostic}` : "";
     return includeDiagnostics ? `${summary}${diagnostic}${detail ? ` (${detail})` : ""}` : summary;
   }

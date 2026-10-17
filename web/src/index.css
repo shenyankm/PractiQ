@@ -127,7 +127,9 @@ progress::-moz-progress-bar { background: var(--primary); border-radius: var(--r
 .task-secondary-actions > p { padding-block: 10px; }
 .notice { padding: 12px 14px; border: 1px solid var(--warning-border); border-radius: 12px; background: var(--warning-background); color: var(--warning-foreground); font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; }
 .notice ul { list-style: disc; padding-left: 18px; }
-.error-banner { overflow-wrap: anywhere; display: flex; align-items: center; flex-wrap: wrap; justify-content: space-between; gap: 12px; padding: 12px 14px; margin-bottom: 18px; border: 1px solid var(--destructive); border-radius: 12px; background: var(--error-background); color: var(--error-foreground); font-size: 13px; }
+.error-banner { overflow-wrap: anywhere; display: flex; align-items: flex-start; flex-wrap: wrap; justify-content: space-between; gap: 12px; padding: 12px 14px; margin-bottom: 18px; border: 1px solid var(--destructive); border-radius: 12px; background: var(--error-background); color: var(--error-foreground); font-size: 13px; }
+.error-banner > span { flex: 1 1 18rem; min-width: 0; }
+.error-banner > button { flex-shrink: 0; }
 .resource-card { padding: 14px; border: 1px solid var(--border); border-radius: 12px; margin: 8px 0; font-size: 13px; overflow-wrap: anywhere; }
 figure.resource-card { display: grid; justify-items: start; gap: 12px; }
 summary { cursor: pointer; list-style-position: inside; font-size: 14px; }
