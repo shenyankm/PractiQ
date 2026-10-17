@@ -17,9 +17,13 @@ The app supports Simplified Chinese and English, light and dark themes, seven ba
 
 PractiQ is in development. Run it from source using the instructions below; check [GitHub Releases](https://github.com/shenyankm/PractiQ/releases) for published packages and their stated limitations. Platform build checks do not establish signed-release or clean-machine acceptance.
 
-![PractiQ question-bank home in the English desktop development preview](docs/assets/desktop-preview-en.png)
+## Screenshots
 
-Development preview using in-memory sample data.
+The desktop preview uses in-memory sample data; the Web connection screen uses synthetic task APIs. No credentials, uploads or model calls were used. Click an image to view it at full size.
+
+| Desktop question banks | Web document import |
+| --- | --- |
+| [![PractiQ question-bank home in the English desktop development preview](docs/assets/desktop-preview-en.png)](docs/assets/desktop-preview-en.png) | [![Independent document import Web frontend](docs/assets/new-web-import.png)](docs/assets/new-web-import.png) |
 
 ## Try it without a model
 
@@ -45,10 +49,6 @@ Use the independent service's Web frontend for document import:
 The service accepts **PDF, TXT, CSV and PNG/JPEG**. Deployments configured with LibreOffice also accept **DOC, DOCX, XLS and XLSX**, normalized in the service. Desktop packages contain no Python service or LibreOffice. See the [Office guide](server/docs/desktop-office.md) for deployment and fidelity boundaries.
 
 Task history, pause, interrupt, resume, failed-unit retry, partial-result review and parse-again controls belong to the Web frontend. Read-only review and ZIP download make no model calls; resume, retry and parse again are explicit actions that may incur model-provider charges. Use the [import task guide](docs/guides/import-tasks.md) and [personal-use guide](server/docs/personal-use.md).
-
-![Independent document import Web frontend](docs/assets/new-web-import.png)
-
-Current Web connection screen captured from the local development frontend, with synthetic task APIs. No credentials, uploads or model calls were used.
 
 Parsing extracts supplied answers and rubrics without solving unanswered questions; missing content stays flagged for review. Download results within **180 days** to keep them; task expiry does not affect banks already imported into the app.
 
