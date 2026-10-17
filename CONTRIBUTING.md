@@ -74,6 +74,11 @@ Follow [the release policy](docs/maintainers/releases.md) for tags, version sync
 public assets and final-package evidence. The manually dispatched
 [Release draft workflow](.github/workflows/release.yml) reuses full CI at one
 candidate commit and creates only an unsigned draft after strict package gates.
+Use `app/scripts/bump-version.py` for the six client version entries. Dispatch the
+draft workflow on the candidate tag itself so Actions provenance identifies the
+same source; generated change summaries and artifact attestations supplement the
+existing package evidence. Apply the documented tag rulesets and immutable-release
+setting separately; checking in a policy does not activate it.
 It explicitly reads [the release template](.github/RELEASE_TEMPLATE.md); complete
 the remaining manual/live/signing evidence before publication. Do not treat a
 draft, prerelease flag or ordinary CI success as release acceptance.

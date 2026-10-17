@@ -134,6 +134,8 @@ def versions(root: Path, tag: str) -> dict:
 def check_candidate(root: Path, tag: str) -> dict:
     components = versions(root, tag)
     sha = git(root, "rev-parse", "HEAD")
+    if git(root, "cat-file", "-t", f"refs/tags/{tag}") != "tag":
+        raise ValueError("Release candidate must use an annotated tag")
     if git(root, "rev-parse", f"refs/tags/{tag}^{{commit}}") != sha:
         raise ValueError("Checkout must be the existing candidate tag")
     subprocess.run(["git", "merge-base", "--is-ancestor", sha, "origin/main"], cwd=root, check=True)
@@ -716,7 +718,7 @@ def restage_installer(root: Path, tag: str, installer: Path, output: Path,
             staged.rename(output)
 
 
-def assemble(root: Path, tag: str, inputs: Path, output: Path) -> None:
+def assemble(root: Path, tag: str, inputs: Path, output: Path, *, changes: Path | None = None) -> None:
     components = versions(root, tag)
     sha = git(root, "rev-parse", "HEAD")
     candidates = []
@@ -863,6 +865,8 @@ def assemble(root: Path, tag: str, inputs: Path, output: Path) -> None:
         (staged / "SHA256SUMS.txt").write_text(
             "".join(f"{checksum(path)}  {path.name}\n" for path in sorted(staged.iterdir()) if path.is_file()), encoding="utf-8")
         notes = (root / ".github/RELEASE_TEMPLATE.md").read_text(encoding="utf-8")
+        notes = notes.replace("@CHANGES@", changes.read_text(encoding="utf-8") if changes else
+                              "<!-- Add reviewed user-visible additions and fixes. -->")
         for key, value in {"TAG": tag, "VERSION": components["desktop"], "COMMIT": sha,
                            "AI_VERSION": components["aiServiceSource"]}.items():
             notes = notes.replace(f"@{key}@", value)
@@ -880,6 +884,7 @@ def main() -> None:
     parser.add_argument("--tag", required=True)
     parser.add_argument("--inputs", type=Path)
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--changes", type=Path, help="Generated changes to review in draft release notes; assemble only")
     parser.add_argument("--installer", type=Path, help="Explicit final native installer; stage with fresh --reports and --output")
     parser.add_argument("--reports", type=Path, help="Fresh directory retaining final-package gate reports, including failures")
     parser.add_argument("--signing-report", type=Path, help="Independent signing report bound by artifactSha256; stage does not verify signing")
@@ -891,6 +896,8 @@ def main() -> None:
     parser.add_argument("--aapt2", type=Path, help="Explicit Android SDK aapt2 executable for actual APK manifest checks")
     parser.add_argument("--android-runtime-inventory", type=Path, help="Source-checked Gradle runtime dependency inventory for Android licenses")
     args = parser.parse_args()
+    if args.changes is not None and args.command != "assemble":
+        parser.error("--changes applies only to assemble")
     if (args.platform is not None or args.aapt2 is not None or args.android_runtime_inventory is not None) and args.command != "stage":
         parser.error("Android target and SDK options apply only to stage")
     if args.platform != "android" and (args.aapt2 is not None or args.android_runtime_inventory is not None):
@@ -917,7 +924,7 @@ def main() -> None:
     else:
         if args.inputs is None or args.output is None:
             parser.error("assemble requires --inputs and --output")
-        assemble(ROOT, args.tag, args.inputs, args.output)
+        assemble(ROOT, args.tag, args.inputs, args.output, changes=args.changes)
 
 
 if __name__ == "__main__":
