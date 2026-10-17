@@ -19,9 +19,13 @@
 
 PractiQ 仍处于开发阶段，请按下方步骤从源码运行；已发布安装包及其限制以 [GitHub Releases](https://github.com/shenyankm/PractiQ/releases) 为准。平台构建检查不代表已完成签名发布或干净系统验收。
 
-![PractiQ 桌面开发预览中的题库首页](docs/assets/desktop-preview.png)
+## 截图
 
-开发预览，使用内存示例数据。
+桌面开发预览使用内存示例数据，Web 连接界面使用模拟任务 API；未输入凭据、上传文件或调用模型。点击图片可查看原图。
+
+| 桌面题库 | Web 文档导入 |
+| --- | --- |
+| [![PractiQ 桌面开发预览中的题库首页](docs/assets/desktop-preview.png)](docs/assets/desktop-preview.png) | [![独立文档导入 Web 前端](docs/assets/new-web-import.png)](docs/assets/new-web-import.png) |
 
 ## 先体验：无需配置模型
 
@@ -47,10 +51,6 @@ PractiQ 仍处于开发阶段，请按下方步骤从源码运行；已发布安
 服务支持 **PDF、TXT、CSV 和 PNG/JPEG**；部署端配置 LibreOffice 后，还可导入 **DOC、DOCX、XLS、XLSX**，由服务完成规范化。桌面安装包不内置 Python 服务或 LibreOffice。部署方式与保真边界见 [Office 指南](server/docs/desktop-office.md)。
 
 任务历史、暂停、中断、恢复、失败单元重试、部分结果复核与重新解析均在 Web 前端处理。读取结果、复核和下载 ZIP 不调用模型；恢复、重试及重新解析须主动触发，可能产生模型供应商费用。项目不再提供账号、积分或充值，模型费用由你直接向供应商支付。详见[导入任务指南](docs/guides/import-tasks.md)及[个人自托管指南](server/docs/personal-use.md)。
-
-![独立文档导入 Web 前端](docs/assets/new-web-import.png)
-
-截图展示当前 Web 连接界面，来自本机开发前端，商品目录使用空的模拟响应；未输入凭据、上传文件或调用模型。
 
 解析只提取原文已有答案与评分细则，不替缺答案的题目解题；缺失内容保留待复核标记。请在 **180 天**内下载需要保留的结果，任务到期不影响已导入 app 的题库。
 
