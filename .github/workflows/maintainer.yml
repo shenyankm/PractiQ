@@ -7,8 +7,10 @@ on:
   workflow_run:
     workflows: [AI service, Practice App]
     types: [completed]
+  issue_comment:
+    types: [created, edited]
   schedule:
-    - cron: '*/15 * * * *'
+    - cron: '23 3 * * *'
   workflow_dispatch:
     inputs:
       number:
@@ -34,7 +36,11 @@ jobs:
           persist-credentials: false
       - run: node --test .github/scripts/maintainer.test.mjs
   auto-merge:
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    if: >-
+      github.event_name != 'pull_request' && github.ref == 'refs/heads/main' &&
+      (github.event_name != 'issue_comment' ||
+       (github.event.issue.pull_request && github.event.comment.user.login == 'chatgpt-codex-connector[bot]' &&
+        contains(github.event.comment.body, 'codex-pull-request-review-summary')))
     runs-on: ubuntu-22.04
     environment: practiq-agent
     timeout-minutes: 30
@@ -57,13 +63,10 @@ jobs:
           client-id: ${{ vars.PRACTIQ_APP_CLIENT_ID }}
           private-key: ${{ secrets.PRACTIQ_APP_PRIVATE_KEY }}
           permission-contents: write
-      - name: Interpret GPT review results and merge only after passing CI
+      - name: Verify review evidence and merge only after passing CI
         env:
           GH_READ_TOKEN: ${{ github.token }}
           GH_MERGE_TOKEN: ${{ steps.app.outputs.token }}
-          PRACTIQ_AGENT_API_KEY: ${{ secrets.PRACTIQ_AGENT_API_KEY }}
-          PRACTIQ_AGENT_BASE_URL: ${{ vars.PRACTIQ_AGENT_BASE_URL }}
-          PRACTIQ_AGENT_MODEL: ${{ vars.PRACTIQ_AGENT_MODEL }}
-          PR_NUMBER: ${{ inputs.number }}
+          PR_NUMBER: ${{ github.event_name == 'issue_comment' && github.event.issue.number || inputs.number }}
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || 'false' }}
         run: node .github/scripts/maintainer.mjs

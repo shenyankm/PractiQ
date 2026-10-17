@@ -22,17 +22,44 @@ def test_dependency_maintenance_covers_locked_manifests_and_bounded_queues():
         ("npm", "/web"): "web/package-lock.json",
         ("cargo", "/app/src-tauri"): "app/src-tauri/Cargo.lock",
         ("gradle", "/app/src-tauri/gen/android"): "app/src-tauri/gen/android/build.gradle.kts",
+        ("docker", "/"): "Dockerfile.server",
     }
-    assert {(item["package-ecosystem"], item["directory"]) for item in updates} == expected.keys()
-    assert len(updates) == len(expected)
+    assert {(item["package-ecosystem"], directory) for item in updates
+            for directory in item.get("directories", [item.get("directory")])} == expected.keys()
     for item in updates:
-        assert (root / expected[item["package-ecosystem"], item["directory"]]).is_file()
+        for directory in item.get("directories", [item.get("directory")]):
+            assert (root / expected[item["package-ecosystem"], directory]).is_file()
         assert item["schedule"]["interval"] == "weekly"
-        assert item["open-pull-requests-limit"] == (2 if item["package-ecosystem"] == "github-actions" else 1)
+        assert item["open-pull-requests-limit"] == (2 if item["package-ecosystem"] in {"github-actions", "npm"} else 1)
         assert "ignore" not in item
-    policy = (root / "SECURITY.md").read_text()
-    assert "uv 0.12.13" in policy and "build-constraint-dependencies" in policy
+    npm, = (item for item in updates if item["package-ecosystem"] == "npm")
+    assert npm["directories"] == ["/app", "/web"]
+    assert npm["groups"]["shared-dependencies"]["group-by"] == "dependency-name"
+    assert "katex" in npm["groups"]["math-renderer"]["patterns"]
+    policy = (root / "docs/maintainers/dependency-security.md").read_text()
+    assert "manual route" in policy and "build-constraint-dependencies" in policy
     assert "at least monthly" in policy
+
+
+def test_maintainer_events_keep_privileged_code_and_credentials_on_main():
+    root = Path(__file__).resolve().parents[2]
+    workflow = yaml.load((root / ".github/workflows/maintainer.yml").read_text(), Loader=yaml.BaseLoader)
+    assert workflow["on"]["schedule"] == [{"cron": "23 3 * * *"}]
+    assert workflow["on"]["issue_comment"]["types"] == ["created", "edited"]
+    job = workflow["jobs"]["auto-merge"]
+    assert "github.ref == 'refs/heads/main'" in job["if"]
+    assert "github.event.issue.pull_request" in job["if"]
+    assert "github.event.comment.user.login == 'chatgpt-codex-connector[bot]'" in job["if"]
+    assert "contains(github.event.comment.body, 'codex-pull-request-review-summary')" in job["if"]
+    assert job["environment"] == "practiq-agent"
+    checkout, = (step for step in job["steps"] if step.get("uses", "").startswith("actions/checkout@"))
+    assert checkout["with"] == {"ref": "main", "persist-credentials": "false"}
+    run = job["steps"][-1]
+    assert run["env"]["PR_NUMBER"] == "${{ github.event_name == 'issue_comment' && github.event.issue.number || inputs.number }}"
+    assert not any(key.startswith("PRACTIQ_AGENT_") for key in run["env"])
+    rules = json.loads((root / ".github/main-ruleset.json").read_text())["rules"]
+    assert next(rule["parameters"]["allowed_merge_methods"] for rule in rules
+                if rule["type"] == "pull_request") == ["squash"]
 
 
 @pytest.mark.parametrize("exit_code", [0, 9])

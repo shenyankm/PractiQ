@@ -59,6 +59,7 @@ The API guide owns task payloads and controls; the user import guide explains th
 | --- | --- |
 | Prepare issues/PRs and choose checks | [Contributing](../CONTRIBUTING.md) |
 | Report vulnerabilities and review dependencies | [Security policy](../SECURITY.md) |
+| Review dependency risks and repository safeguards | [Dependency security](maintainers/dependency-security.md) |
 | Review outstanding workstream status | [Roadmap evidence](maintainers/roadmap-evidence.md) |
 | Reproduce contributor setup and hand over responsibilities | [Contributor handover](maintainers/contributor-handover.md) |
 | Operate the trusted PR merge workflow | [PractiQ agent-bot](maintainers/maintainer-agent.md) |
