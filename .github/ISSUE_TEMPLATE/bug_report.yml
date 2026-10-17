@@ -1,36 +1,35 @@
 name: Bug report
-description: Report reproducible incorrect behavior in PractiQ
+description: Report incorrect behavior or a specific parsing or grading result
 title: "[Bug]: "
-labels:
-  - bug
+labels: ["bug"]
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for reporting a problem. Search [existing issues](https://github.com/shenyankm/PractiQ/issues) before submitting. Do not include credentials, tokens, personal data, or working exploit details.
-        For suspected vulnerabilities, follow [SECURITY.md](https://github.com/shenyankm/PractiQ/blob/main/SECURITY.md) and use its private reporting entry instead of this public form.
-
-  - type: checkboxes
-    id: preflight
-    attributes:
-      label: Before submitting
-      options:
-        - label: I searched existing issues and found no duplicate.
-          required: true
-        - label: I removed secrets and personal data from this report.
-          required: true
+        Write in English and search [existing issues](https://github.com/shenyankm/PractiQ/issues) first. Link a related report instead of opening a duplicate.
+        Remove tokens, API keys, personal learning data, and private document content from text and attachments. Report suspected vulnerabilities through [SECURITY.md](https://github.com/shenyankm/PractiQ/blob/main/SECURITY.md).
 
   - type: dropdown
     id: area
     attributes:
       label: Affected area
       options:
-        - Python AI service (`server/`)
-        - Import Web frontend (`web/`)
-        - Practice application (`app/`, macOS/Windows/Android)
+        - Practice app - macOS or Windows
+        - Practice app - Android
+        - Import Web frontend
+        - AI service or document processing
+        - Build, CI, or packaging
         - Documentation
-        - Build or development tooling
-        - Multiple areas
+        - Multiple areas or not sure
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version or revision
+      description: Give the affected app version and/or service commit or tag. For documentation, give the page URL. If the version is unknown, say how you obtained PractiQ; include an image digest if relevant.
+      placeholder: "App version; service commit/tag; or Unknown - installation source"
     validations:
       required: true
 
@@ -38,7 +37,7 @@ body:
     id: problem
     attributes:
       label: What happened?
-      description: Describe the observed behavior and its impact.
+      description: Describe the observed behavior and its impact. Mention frequency, a last working version, or a workaround if known.
     validations:
       required: true
 
@@ -46,11 +45,12 @@ body:
     id: reproduction
     attributes:
       label: How can we reproduce it?
-      description: List the smallest sequence that reproduces the problem. For import issues, distinguish source-document parsing, bank ZIP import, and full backup restoration. Include file format, size, page count where applicable, and a sanitized minimal sample if available.
+      description: Give the smallest reproduction. Distinguish Web source-document import, app bank ZIP import, and full learning-data restoration. For an intermittent problem, describe the conditions and what you tried.
       placeholder: |
-        1. Start…
-        2. Open…
-        3. Observe…
+        Entry point and input type:
+        1. Open...
+        2. Select or run...
+        3. Observe...
     validations:
       required: true
 
@@ -58,7 +58,7 @@ body:
     id: expected
     attributes:
       label: What did you expect?
-      description: Describe the expected outcome.
+      description: Describe the expected observable result. For content-quality problems, include one concrete expected-versus-actual example below.
     validations:
       required: true
 
@@ -66,23 +66,29 @@ body:
     id: environment
     attributes:
       label: Environment
-      description: Include the app version or commit, OS version and CPU architecture, and how you run PractiQ. Runtime versions are only needed for development or independent-service issues. Use N/A for unrelated fields or explain unknown values.
+      description: Include OS/version and architecture. For Android, add device or emulator and System WebView version; for Web, browser/version; for source or service issues, relevant runtime/container and LibreOffice versions. Explain unknown or non-applicable details.
       placeholder: |
-        App version or commit:
-        OS version and CPU architecture:
-        Installed desktop app, desktop from source, or independent AI service:
-        Python/Node/Rust versions (if relevant):
+        OS/version and architecture:
+        Run mode (installed app / source / Web / service container):
+        Relevant device, browser, WebView, or runtime details:
     validations:
       required: true
 
   - type: textarea
     id: evidence
     attributes:
-      label: Logs, screenshots, or other evidence
-      description: Add sanitized logs, screenshots, or recordings. For parsing or grading issues, include the task/request ID, error code, model ID, and failing stage when available. For result-quality issues, show a specific expected-versus-actual example. Remove tokens, API keys, personal data, and private document content; a full private document is not required.
+      label: Logs, screenshots, or minimal sample
+      description: Attach sanitized evidence if available. Put logs in fenced code blocks. Use a small synthetic sample that you may share; a private source document or learning database is not required.
 
   - type: textarea
-    id: context
+    id: ai_context
     attributes:
-      label: Additional context
-      description: Note regressions, workarounds, frequency, or related issues.
+      label: Parsing or grading context
+      description: For parsing or grading problems, include the known details below. You do not need to make another paid model call to complete this form.
+      placeholder: |
+        Operation and failing stage:
+        Task/request ID and error code, if available:
+        Provider and model ID (no credentials):
+        Input format, size, page/sheet count, and text or scanned content:
+        Small source excerpt, actual output, and expected output:
+        Supplied reference answer or rubric, for grading:
