@@ -62,6 +62,15 @@ constraints permit. This cross-directory grouping applies only to version
 updates; extend security PRs to both projects when needed. See the
 [GitHub options reference](https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference#groups).
 Actions remain pinned to full commit SHAs and Docker bases retain digests.
+Docker coverage is partial: GitHub documents that Dependabot may update only the
+first `FROM` and does not support multi-stage builds. See the
+[Docker limitations](https://docs.github.com/en/code-security/how-tos/secure-your-supply-chain/manage-your-dependency-security/configure-private-registries#limitations-and-workarounds).
+Before each release and at least monthly, manually review **both** image tags
+and digests in `Dockerfile.server`, including the deployed second-stage
+`python:3.14-slim-bookworm` base and the uv builder. Update each selected digest
+in a focused PR, run `make verify` and `make image-check`, and retain the build
+and deployment checks for the resulting image. A builder-only Dependabot PR
+does not establish that the deployed Python/OS image is current.
 Dependency PRs from external authors require an explicit maintainer dispatch
 or manual merge; see [the merge workflow](maintainer-agent.md).
 

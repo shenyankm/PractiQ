@@ -33,6 +33,7 @@ def ci_scope():
     (["server/pyproject.toml"], True, True),
     (["server/uv.lock"], True, True),
     (["server/scripts/ci_scope.py"], True, True),
+    (["server/conftest.py"], True, True),
     (["server/tests/conftest.py"], True, True),
     (["server/tests/test_ci.py"], True, True),
     (["server/tests/test_android_package.py"], True, True),

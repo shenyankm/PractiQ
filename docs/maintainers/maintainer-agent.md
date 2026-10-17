@@ -57,7 +57,14 @@ secret and `PRACTIQ_AGENT_BASE_URL` / `PRACTIQ_AGENT_MODEL` variables from that
 environment. This branch removes their use without altering hosted credentials.
 
 The [workflow](../../.github/workflows/maintainer.yml) runs after **AI service**
-or **Practice App** completes. A GPT review-summary comment creation/edit checks
+or **Practice App** completes. Direct current-head connector approvals trigger
+the unprivileged [PR review signal](../../.github/workflows/review-signal.yml).
+That workflow has no token permissions, secrets or checkout; its successful
+completion wakes the protected `main` workflow, which refetches all evidence
+and permissions. It targets the associated PR when GitHub supplies its number;
+otherwise it scans open PRs under the same access restrictions. The signal
+itself never authorizes merging or runs privileged PR code.
+A GPT review-summary comment creation/edit checks
 that PR only. Other public comments do not start the privileged job. A daily
 03:23 UTC scan catches later reactions and missed events; GitHub may delay it.
 Scheduled opportunities decrease from 96 to one per day. There are no paid
