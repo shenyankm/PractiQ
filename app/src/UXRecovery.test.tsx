@@ -235,3 +235,26 @@ it("preserves an editor draft and persistent inline diagnostics after save failu
   await user.click(within(dialog).getByText("诊断详情", { exact: true }));
   expect(within(dialog).getByText(/Disk full/).closest("details")?.open).toBe(true);
 });
+
+it("shows a failed return from service settings while preserving the grading draft", async () => {
+  const original = setup(); let failSession = false;
+  vi.mocked(api).mockImplementation(async request => {
+    if (request.type === "session" && failSession) throw new Error("Saved session unavailable");
+    return original(request);
+  });
+  vi.mocked(ai).mockRejectedValue({ code: "LOCAL_SERVICE_URL_REQUIRED" });
+  const user = userEvent.setup(); render(<App />);
+  await screen.findByText("English"); await openExam(user);
+  await user.type(screen.getByRole("textbox", { name: "人工得分" }), "3");
+  await user.click(screen.getByRole("button", { name: /AI 评分／继续/ }));
+  await user.click(await screen.findByRole("button", { name: "配置 AI 服务" }));
+  await screen.findByRole("textbox", { name: "AI 服务地址" });
+  failSession = true;
+  await user.click(screen.getByRole("button", { name: "返回评分" }));
+  expect(await screen.findByRole("alert")).toBeTruthy();
+  expect(screen.getByText(/Saved session unavailable/)).toBeTruthy();
+  failSession = false;
+  await user.click(screen.getByRole("button", { name: "返回评分" }));
+  expect((await screen.findByRole("textbox", { name: "人工得分" }) as HTMLInputElement).value).toBe("3");
+  expect(ai).toHaveBeenCalledTimes(1);
+});

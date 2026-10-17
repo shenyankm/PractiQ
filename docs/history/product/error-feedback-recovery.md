@@ -8,12 +8,17 @@ No failure automatically starts or replays importing, grading, purchasing or res
   until dismissed or another explicit action starts. The service configuration view
   retains its existing field-level errors. Other error notifications stay dismissible
   instead of expiring after four seconds; success notifications remain brief.
+- Service settings deduplicate only the save error already visible beside the fields.
+  Other navigation/read failures remain visible, including in the narrow navigation
+  drawer outside its visually hidden title.
 - Human-readable summaries precede collapsed, selectable and copyable diagnostics.
   Diagnostic copy failures have a manual-selection fallback.
 - Delete, restore and quit confirmations name their action, prevent duplicate pending
   submissions, stay open on failure and restore a surviving trigger or list heading.
-- Web request feedback distinguishes reads, rejected writes and uncertain write
-  outcomes. Error codes remain available; server free text is not rendered.
+  Both backup restore options restore focus to their persistent menu button.
+- Web request feedback distinguishes reads, upload transport, rejected writes and
+  uncertain business-operation outcomes. Upload metadata/content failures offer
+  explicit upload retry; POST artifact reads remain passive reads. Error codes remain available; server free text is not rendered.
 - Account validation feedback is associated with the preserved input fields.
   Task action failures appear in the task workspace and scroll into view without
   stealing keyboard focus.

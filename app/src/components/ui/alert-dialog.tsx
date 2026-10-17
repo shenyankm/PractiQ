@@ -72,6 +72,7 @@ function AlertDialogHeader({
   ...props
 }: React.ComponentProps<"div">) {
   return (
+    <>
     <div
       data-slot="alert-dialog-header"
       className={cn(
@@ -81,8 +82,9 @@ function AlertDialogHeader({
       {...props}
     >
       {children}
-      <OperationFeedback />
     </div>
+    <OperationFeedback />
+    </>
   );
 }
 

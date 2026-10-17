@@ -56,12 +56,13 @@ for (const width of [1280, 360]) {
     expect(await page.evaluate(() => globalThis.auditImports)).toBe(1);
   });
 
-  test(`manual grading drafts and configuration return preserve context at ${width}px`, async ({ page }) => {
+  test(`manual grading drafts and configuration return preserve context at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 800 });
     await inject(page, `
       // This scenario supplies a reference for the current question; the stock
       // preview's grading fixture deliberately has missing evidence.
       if (command === 'request' && args?.request?.type === 'session' && args.request.id === 'preview-grading') {
+        if (globalThis.auditFailReturn) { globalThis.auditFailReturn = false; throw { code: 'OPERATION_FAILED', diagnostic: 'Session read unavailable (synthetic)' }; }
         const { demoInvoke } = await import('/src/preview-data.ts');
         const session = await demoInvoke(command, args, 'normal');
         session.attempts[0].snapshot.question.answerPayload = { text: 'Checked reference' };
@@ -69,6 +70,7 @@ for (const width of [1280, 360]) {
       }
       if (command === 'ai_request') {
         globalThis.auditGradingCalls = (globalThis.auditGradingCalls || 0) + 1;
+        globalThis.auditFailReturn = true;
         throw { code: 'LOCAL_SERVICE_URL_REQUIRED' };
       }
     `);
@@ -91,6 +93,10 @@ for (const width of [1280, 360]) {
     await page.getByRole('button', { name: '核对上次评分结果', exact: true }).click();
     await page.getByRole('button', { name: '配置 AI 服务', exact: true }).click();
     await expect(page.getByLabel('AI 服务地址', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: '返回评分', exact: true }).click();
+    await expect(page.getByRole('alert').filter({ hasText: '操作失败' })).toBeVisible();
+    await expect(page.getByLabel('AI 服务地址', { exact: true })).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath(`settings-return-error-${width}.png`) });
     await page.getByRole('button', { name: '返回评分', exact: true }).click();
     await expect(page.getByRole('heading', { name: '第 1 / 5 题', exact: true })).toBeVisible();
     await expect(score).toHaveValue('2');
@@ -239,5 +245,45 @@ for (const width of [1280, 360]) {
     await expect(page.getByRole('heading', { name: '我的题库', exact: true })).toBeVisible();
     await navigate(page, '练习记录');
     await expect(page.getByRole('heading', { name: '练习记录', exact: true })).toBeVisible();
+  });
+}
+
+
+test('drawer keeps failed navigation feedback visible outside its hidden title', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 360, height: 800 });
+  await inject(page, `
+    if (command === 'request' && args?.request?.type === 'save_settings') throw { code: 'OPERATION_FAILED', diagnostic: 'Settings save unavailable (synthetic)' };
+  `);
+  await page.goto('/'); await navigate(page, '设置');
+  await page.getByRole('button', { name: '配置', exact: true }).click();
+  await page.getByLabel('AI 服务地址', { exact: true }).fill('http://127.0.0.1:8000');
+  await page.getByRole('heading', { name: 'AI 服务', exact: true }).click();
+  await expect(page.getByRole('alert')).toBeVisible();
+  await page.getByRole('button', { name: '打开主导航', exact: true }).click();
+  await page.getByRole('button', { name: '我的题库', exact: true }).click();
+  const drawer = page.getByRole('dialog', { name: '主导航', exact: true });
+  await expect(drawer.getByRole('alert')).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('drawer-navigation-error-360.png') });
+  await page.keyboard.press('Escape');
+  await expect(drawer).toBeHidden();
+  await expect(page.getByRole('alert')).toHaveCount(1);
+  await expect(page.getByLabel('AI 服务地址', { exact: true })).toHaveValue('http://127.0.0.1:8000');
+});
+
+for (const width of [1280, 360]) {
+  test(`restore confirmation returns focus to its surviving menu trigger at ${width}px`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 800 });
+    await inject(page, `if (command === 'request' && args?.request?.type === 'restore') { globalThis.auditRestores = (globalThis.auditRestores || 0) + 1; }`);
+    await page.goto('/'); await navigate(page, '设置');
+    const trigger = page.getByRole('button', { name: '恢复备份', exact: true });
+    for (const name of ['恢复学习数据备份', '修复资源并恢复备份']) {
+      await trigger.click(); await page.getByRole('menuitem', { name, exact: true }).click();
+      const confirmation = page.getByRole('alertdialog', { name: '用备份替换当前数据？', exact: true });
+      await expect(confirmation).toBeVisible();
+      await page.screenshot({ path: testInfo.outputPath(`restore-confirmation-${width}-${name === '修复资源并恢复备份' ? 'repair' : 'normal'}.png`) });
+      await confirmation.getByRole('button', { name: '取消', exact: true }).click();
+      await expect(trigger).toBeFocused();
+    }
+    expect(await page.evaluate(() => globalThis.auditRestores || 0)).toBe(0);
   });
 }

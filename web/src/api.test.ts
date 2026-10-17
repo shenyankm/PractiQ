@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { Client, ApiError, MAX_BANK_ZIP_BYTES, downloadBlob, fileFormat, pointLabel, sha256, sourceLimit, validateFiles } from "./api";
+import { Client, ApiError, MAX_BANK_ZIP_BYTES, downloadBlob, fileFormat, pointLabel, products, sha256, sourceLimit, validateFiles } from "./api";
 import { capabilities, task, taskId, runId } from "./test-fixtures";
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -310,5 +310,67 @@ it.each([
   const client = new Client("fake", "13800138000");
   const result = kind === "write" ? client.reparse(taskId) : path === "/api/payments/orders" ? client.paymentOrders() : client.account();
   await expect(result).rejects.toThrow(message as RegExp);
+  expect(fetch).toHaveBeenCalledOnce();
+});
+
+it.each(["metadata", "content"] as const)("offers upload retry when %s transport fails without starting a task", async stage => {
+  const fetcher = mockUpload(), original = fetcher.getMockImplementation()!;
+  fetcher.mockImplementation(async (path: string, init: RequestInit) => {
+    if (stage === "metadata" ? path === "/api/uploads" : path.startsWith("/api/uploads/content?")) throw new TypeError("Connection lost");
+    return original(path, init);
+  });
+  await expect(new Client("fake", "13800138000").start(new File(["x"], "a.txt"), capabilities, taskId, "pdf", () => {})).rejects.toThrow("重试上传");
+  expect(fetcher.mock.calls.some(([path]) => path === "/api/document-tasks")).toBe(false);
+});
+it.each(["metadata", "content"] as const)("offers upload retry when %s returns a server error without starting a task", async stage => {
+  const fetcher = mockUpload(), original = fetcher.getMockImplementation()!;
+  fetcher.mockImplementation(async (path: string, init: RequestInit) => {
+    if (stage === "metadata" ? path === "/api/uploads" : path.startsWith("/api/uploads/content?")) return json({ detail: { code: "UPLOAD_STORAGE_UNAVAILABLE" } }, 503);
+    return original(path, init);
+  });
+  await expect(new Client("fake", "13800138000").start(new File(["x"], "a.txt"), capabilities, taskId, "pdf", () => {})).rejects.toThrow("重试上传");
+  expect(fetcher.mock.calls.some(([path]) => path === "/api/document-tasks")).toBe(false);
+});
+it.each(["metadata", "content"] as const)("offers upload retry when %s times out without starting a task", async stage => {
+  vi.useFakeTimers();
+  const fetcher = mockUpload(), original = fetcher.getMockImplementation()!;
+  let stalled = false;
+  fetcher.mockImplementation(async (path: string, init: RequestInit) => {
+    if (stage === "metadata" ? path === "/api/uploads" : path.startsWith("/api/uploads/content?")) {
+      stalled = true;
+      return new Promise<Response>((_resolve, reject) => init.signal!.addEventListener("abort", () => reject(init.signal!.reason)));
+    }
+    return original(path, init);
+  });
+  const pending = expect(new Client("fake", "13800138000").start(new File(["x"], "a.txt"), capabilities, taskId, "pdf", () => {})).rejects.toThrow("上传超时");
+  await vi.waitFor(() => expect(stalled).toBe(true));
+  await vi.advanceTimersByTimeAsync(125_000); await pending;
+  expect(fetcher.mock.calls.some(([path]) => path === "/api/document-tasks")).toBe(false);
+});
+it.each(["network", "server", "timeout"] as const)("treats POST artifact reads as passive when %s fails", async failure => {
+  vi.useFakeTimers();
+  const fetcher = vi.fn(async (_path: string, init: RequestInit) => {
+    if (failure === "network") throw new TypeError("Connection lost");
+    if (failure === "server") return json({ detail: { code: "ARTIFACT_UNAVAILABLE" } }, 503);
+    return new Promise<Response>((_resolve, reject) => init.signal!.addEventListener("abort", () => reject(init.signal!.reason)));
+  });
+  vi.stubGlobal("fetch", fetcher);
+  const reference = { objectKey: "managed.png", sha256: "a".repeat(64), sizeBytes: 1, mediaType: "image/png" };
+  const pending = expect(new Client("fake", "13800138000").image(reference, taskId)).rejects.toThrow(/重试读取/);
+  if (failure === "timeout") await vi.advanceTimersByTimeAsync(125_000);
+  await pending;
+  expect(fetcher).toHaveBeenCalledOnce();
+  expect(fetcher.mock.calls[0][1].method).toBe("POST");
+});
+
+
+it.each(["headers", "body"] as const)("offers passive product-read recovery when %s stalls", async stage => {
+  vi.useFakeTimers();
+  vi.stubGlobal("fetch", vi.fn(async (_path: string, init: RequestInit) => {
+    if (stage === "headers") return new Promise<Response>((_resolve, reject) => init.signal!.addEventListener("abort", () => reject(init.signal!.reason)));
+    return new Response(new ReadableStream());
+  }));
+  const pending = expect(products()).rejects.toThrow("商品读取超时，请稍后手动重试读取。");
+  await vi.advanceTimersByTimeAsync(30_000); await pending;
   expect(fetch).toHaveBeenCalledOnce();
 });

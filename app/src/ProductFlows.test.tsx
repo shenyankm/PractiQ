@@ -45,7 +45,12 @@ it.each([false,true])("requires replacement confirmation and explicit recovery s
   setup(); render(<App />);
   await screen.findByText("English");
   await userEvent.click(screen.getByRole("button",{name:"设置"}));
-  await userEvent.click(await screen.findByRole("button",{name:"恢复备份"}));
+  const trigger = await screen.findByRole("button", { name: "恢复备份" });
+  await userEvent.click(trigger);
+  await userEvent.click(screen.getByRole("menuitem",{name:recover ? "修复资源并恢复备份" : "恢复学习数据备份"}));
+  await userEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "取消" }));
+  await waitFor(() => expect(document.activeElement).toBe(trigger));
+  await userEvent.click(trigger);
   await userEvent.click(screen.getByRole("menuitem",{name:recover ? "修复资源并恢复备份" : "恢复学习数据备份"}));
   expect(vi.mocked(api).mock.calls.some(([request])=>request.type==="restore")).toBe(false);
   const dialog = screen.getByRole("alertdialog");

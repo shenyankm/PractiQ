@@ -723,3 +723,24 @@ for (const width of [1440, 390]) {
     expect(writes).toBe(0);
   });
 }
+
+for (const stage of ['metadata', 'content']) {
+  test(`upload transport recovery stays explicit before a task exists (${stage})`, async ({ page }, testInfo) => {
+    const http = await fakeHTTP(page); let fail = true;
+    http.server.intercept = async (route, call) => {
+      if (fail && call.path === (stage === 'metadata' ? '/api/uploads' : '/api/uploads/content')) { await route.abort('failed'); return true; }
+      return false;
+    };
+    await connect(page);
+    await page.getByLabel('选择文档').setInputFiles({ name: 'retry-upload.txt', mimeType: 'text/plain', buffer: Buffer.from('Synthetic upload') });
+    await page.getByRole('button', { name: '开始导入', exact: true }).click();
+    await expect(page.getByText('文件上传未确认，请检查连接后手动重试上传。', { exact: true })).toBeVisible();
+    expect(starts(http.calls)).toHaveLength(0);
+    await page.screenshot({ path: testInfo.outputPath(`upload-recovery-${stage}.png`) });
+    fail = false;
+    await page.getByRole('button', { name: '重试开始', exact: true }).click();
+    await expect(page.getByText(/任务已创建。页面/)).toBeVisible();
+    expect(starts(http.calls)).toHaveLength(1);
+    expect(http.server.modelStarts).toBe(1);
+  });
+}

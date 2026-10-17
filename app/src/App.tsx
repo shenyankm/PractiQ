@@ -485,8 +485,9 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
             <Settings /></SidebarButton>
         </div>
   </>;
+  const dialogOpen = !!(confirm || bankEditor || editor || importPreview || practiceSetup || detail || mergeOpen || navigationOpen);
   return (
-    <OperationFailure.Provider value={operationError ? { error: operationError.error, dismiss: () => setOperationError(null) } : null}>
+    <OperationFailure.Provider value={operationError ? { error: operationError.error, dialogOpen, dismiss: () => setOperationError(null) } : null}>
     <div className="app-shell flex overflow-hidden bg-background text-foreground">
       <Tooltip.Provider delayDuration={200}>
       {compact ? <Dialog open={navigationOpen} onOpenChange={setNavigationOpen}>
@@ -497,7 +498,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
       </Dialog> : <aside id="app-sidebar" className={`flex shrink-0 flex-col border-r bg-card px-2 py-4 transition-[width] duration-200 ease-in-out motion-reduce:transition-none ${sidebarCollapsed ? "w-16" : "w-52"}`}>{navigationContent}</aside>}
       </Tooltip.Provider>
       <main className="flex min-w-0 flex-1 flex-col">
-        {operationError && page !== "service-settings" && !confirm && !bankEditor && !editor && !importPreview && !practiceSetup && !detail && !mergeOpen && !navigationOpen && <div className="p-4"><OperationFeedback /></div>}
+        {operationError && !dialogOpen && <div className="p-4"><OperationFeedback /></div>}
         <header className="app-header flex shrink-0 flex-wrap items-center justify-between gap-4 border-b">
           <div className="flex min-w-0 items-center gap-3">
             {compact && <Button size="icon" variant="ghost" aria-label={t("打开主导航")} aria-expanded={navigationOpen} disabled={busy} onClick={() => setNavigationOpen(true)}><Menu /></Button>}
@@ -882,7 +883,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
               restoreOpen={restoreOpen} onRestoreOpenChange={setRestoreOpen}
               onConfigure={() => navigate("service-settings")}
               onPickImport={pickImport}
-              onRestore={recoverAssets => openConfirm({
+              onRestore={(recoverAssets, trigger) => openConfirm({
                 title: message("用备份替换当前数据？"),
                 label: message("恢复备份"),
                 description: recoverAssets ? message("恢复会替换全部本地题库和练习记录，并修复缺失或损坏的资源。应用会先校验备份，保留原数据库、现存原始文件和损坏清单；该副本不能作为普通备份直接恢复。") : message("恢复会替换全部本地题库和练习记录。应用将先校验备份，并自动保存当前数据的恢复副本。"),
@@ -900,7 +901,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                     toast.success(message("恢复完成。原数据副本：{0}", { 0: result.recoveryPath }));
                   }
                 },
-              })} />
+              }, trigger)} />
           )}
           </Suspense></ErrorBoundary>
           </div>

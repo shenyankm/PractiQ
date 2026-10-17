@@ -90,14 +90,16 @@ function DialogContent({
 
 function DialogHeader({ className, children, ...props }: React.ComponentProps<"div">) {
   return (
+    <>
     <div
       data-slot="dialog-header"
       className={cn("flex flex-col gap-2", className)}
       {...props}
     >
       {children}
-      <OperationFeedback />
     </div>
+    <OperationFeedback />
+    </>
   );
 }
 

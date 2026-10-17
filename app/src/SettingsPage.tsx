@@ -1,4 +1,4 @@
-import type { ComponentProps } from "react";
+import { useRef, type ComponentProps } from "react";
 import { Download, ArchiveRestore } from "lucide-react";
 import { api } from "./api";
 import { message, t } from "./i18n";
@@ -16,10 +16,11 @@ export function SettingsPage({ busy, run, flushRef, revision, version, onConfigu
   version: string | undefined;
   onConfigure: () => void;
   onPickImport: () => Promise<void>;
-  onRestore: (recoverAssets: boolean) => void;
+  onRestore: (recoverAssets: boolean, trigger: HTMLButtonElement | null) => void;
   restoreOpen: boolean;
   onRestoreOpenChange: (open: boolean) => void;
 }) {
+  const restoreTrigger = useRef<HTMLButtonElement>(null);
   return <div className="max-w-3xl space-y-6">
     <ConnectionSettingsPanel key={revision} busy={busy} run={run} onConfigure={onConfigure} flushRef={flushRef} />
     <Card>
@@ -34,11 +35,11 @@ export function SettingsPage({ busy, run, flushRef, revision, version, onConfigu
             if (result) toast.success(message("备份已保存：{0}", { 0: result.path }));
           })}><Download />{t("导出备份")}</Button>
           <DropdownMenu open={restoreOpen} onOpenChange={onRestoreOpenChange}>
-            <DropdownMenuTrigger asChild><Button variant="outline" disabled={busy}><ArchiveRestore />{t("恢复备份")}</Button></DropdownMenuTrigger>
+            <DropdownMenuTrigger asChild><Button ref={restoreTrigger} variant="outline" disabled={busy}><ArchiveRestore />{t("恢复备份")}</Button></DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="min-w-48">
               <DropdownMenuItem aria-label={t("导入题库 ZIP")} className="flex-col items-start" disabled={busy} onSelect={() => run(onPickImport)}>{t("导入题库 ZIP")}<span className="text-xs text-muted-foreground">{t("追加题库，不替换已有学习记录")}</span></DropdownMenuItem>
-              <DropdownMenuItem aria-label={t("恢复学习数据备份")} className="flex-col items-start" disabled={busy} onSelect={()=>onRestore(false)}>{t("恢复学习数据备份")}<span className="text-xs text-muted-foreground">{t("替换全部本地数据，操作前需确认")}</span></DropdownMenuItem>
-              <DropdownMenuItem disabled={busy} onSelect={()=>onRestore(true)}>{t("修复资源并恢复备份")}</DropdownMenuItem>
+              <DropdownMenuItem aria-label={t("恢复学习数据备份")} className="flex-col items-start" disabled={busy} onSelect={()=>onRestore(false, restoreTrigger.current)}>{t("恢复学习数据备份")}<span className="text-xs text-muted-foreground">{t("替换全部本地数据，操作前需确认")}</span></DropdownMenuItem>
+              <DropdownMenuItem disabled={busy} onSelect={()=>onRestore(true, restoreTrigger.current)}>{t("修复资源并恢复备份")}</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

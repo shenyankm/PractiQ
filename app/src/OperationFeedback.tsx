@@ -3,7 +3,7 @@ import { errorMessage } from "./api";
 import { t, useI18n } from "./i18n";
 import { Button } from "@/components/ui/button";
 
-export const OperationFailure = createContext<{ error: unknown; dismiss: () => void } | null>(null);
+export const OperationFailure = createContext<{ error: unknown; dialogOpen: boolean; dismiss: () => void } | null>(null);
 export function ErrorNotice({ error }: { error: unknown }) {
   useI18n();
   const [copyStatus, setCopyStatus] = useState<"copied" | "failed" | null>(null);

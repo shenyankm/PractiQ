@@ -110,6 +110,11 @@ export class Client {
     headers.set("X-Practiq-Phone", this.phone);
     const signals = [this.session.signal];
     if (signal) signals.push(signal);
+    const pathname = path.split("?")[0];
+    const upload = pathname === "/api/uploads" || pathname === "/api/uploads/content";
+    // Upload transport and POST artifact reads do not create tasks or orders.
+    const mutation = !!init.method && !["GET", "HEAD"].includes(init.method) && !upload && pathname !== "/api/artifacts/read";
+    const uploadRetry = "文件上传未确认，请检查连接后手动重试上传。";
     const timeout = path.startsWith("/api/payments/") ? 20_000 : path.includes("/export?") ? 600_000 : init.method && !["GET", "HEAD"].includes(init.method) ? 125_000 : 30_000;
     return withDeadline(timeout, signals, async requestSignal => {
       let response: Response;
@@ -117,7 +122,7 @@ export class Client {
         response = await fetch(path, { ...init, headers, cache: "no-store", credentials: "omit", redirect: "error", signal: requestSignal });
       } catch {
         if (!this.active || signal?.aborted) throw new DOMException("请求已取消", "AbortError");
-        throw new ApiError(init.method && !["GET", "HEAD"].includes(init.method) ? "连接中断，操作结果尚未确认。请先查询原任务或订单，再决定是否重试。" : "无法连接服务。请检查服务状态，再手动重试读取。", "NETWORK_ERROR");
+        throw new ApiError(upload ? uploadRetry : mutation ? "连接中断，操作结果尚未确认。请先查询原任务或订单，再决定是否重试。" : "无法连接服务。请检查服务状态，再手动重试读取。", "NETWORK_ERROR");
       }
       if (!response.ok) {
         let code = `HTTP_${response.status}`;
@@ -135,16 +140,16 @@ export class Client {
           TASK_BUSY: "任务正在处理，请等待并刷新状态。",
           PAYMENT_REQUEST_INVALID: "订单参数无效，请刷新商品后重新选择。",
         };
-        const mutation = !!init.method && !["GET", "HEAD"].includes(init.method);
         const message = response.status === 401 || response.status === 403 ? "手机号与账户令牌不匹配或账户令牌已被撤销。"
           : known[code] ?? (response.status === 429 ? "请求过于频繁，请稍后再操作。"
+          : upload ? uploadRetry
           : !mutation ? "读取失败，请稍后重试读取。"
           : response.status >= 500 || response.status === 408 ? "操作结果尚未确认，请先查询原任务或订单；不要重复提交。"
           : "服务未接受此操作，请检查输入并刷新相关状态后再操作。");
         throw new ApiError(`${message}（${code}）`, code, response.status);
       }
       return read(response, requestSignal);
-    }, init.method && !["GET", "HEAD"].includes(init.method) ? undefined : "读取请求超时，请稍后重试读取。");
+    }, upload ? "文件上传超时，请检查连接后手动重试上传。" : mutation ? undefined : "读取请求超时，请稍后重试读取。");
   }
   private async json<T>(path: string, init?: RequestInit, signal?: AbortSignal): Promise<T> {
     return this.request(path, init ?? {}, async (response, requestSignal) => {
@@ -254,7 +259,7 @@ export async function products(signal?: AbortSignal): Promise<ImportProducts> {
     const response = await fetch("/api/products", { signal: requestSignal, cache: "no-store", credentials: "omit", redirect: "error" });
     if (!response.ok) throw new ApiError("无法读取商品，请手动重试。");
     return JSON.parse(new TextDecoder().decode(await readBytes(response, 64 * 1024, requestSignal))) as ImportProducts;
-  });
+  }, "商品读取超时，请稍后手动重试读取。");
 }
 export function pointLabel(micropoints: string) {
   const value = BigInt(micropoints), absolute = value < 0n ? -value : value;
