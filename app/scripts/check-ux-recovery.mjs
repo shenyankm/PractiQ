@@ -17,6 +17,57 @@ async function navigate(page, name) {
   await page.getByRole('button', { name, exact: true }).click();
 }
 
+for (const width of [1280, 390]) for (const theme of ['light', 'dark']) {
+  test(`service failures stay with their controls at ${width}px in ${theme}`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 850 });
+    await page.addInitScript(value => localStorage.setItem('practiq-theme', value), theme);
+    await inject(page, `
+      if (command === 'request' && args?.request?.type === 'test_settings') {
+        globalThis.connectionTests = (globalThis.connectionTests || 0) + 1;
+        throw new Error('Synthetic connection failure');
+      }
+      if (command === 'request' && args?.request?.type === 'save_settings' && args.request.service_token === '') {
+        globalThis.clearAttempts = (globalThis.clearAttempts || 0) + 1;
+        if (globalThis.clearAttempts === 1) throw new Error('Synthetic credential clear failure');
+      }
+    `);
+    await page.goto('/');
+    await navigate(page, '设置');
+    await page.getByRole('button', { name: '配置', exact: true }).click();
+    await page.getByRole('button', { name: '测试', exact: true }).click();
+    await expect(page.getByRole('alert')).toHaveCount(1);
+    await expect(page.getByRole('alert')).toContainText('Synthetic connection failure');
+    const errorToast = page.locator('[data-sonner-toast][data-type="error"]');
+    await expect(errorToast).toHaveCount(0);
+    await page.screenshot({ path: testInfo.outputPath(`connection-error-${width}-${theme}.png`), fullPage: true });
+    await navigate(page, '设置');
+    await page.getByRole('button', { name: '恢复备份', exact: true }).click();
+    await page.getByRole('menuitem', { name: '导入题库 ZIP', exact: true }).click();
+    const confirm = page.getByRole('button', { name: '确认导入', exact: true });
+    await expect(confirm).toBeEnabled();
+    await confirm.scrollIntoViewIfNeeded();
+    expect(await confirm.evaluate(element => {
+      const rect = element.getBoundingClientRect();
+      return element.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2));
+    })).toBe(true);
+    await expect(errorToast).toHaveCount(0);
+    await page.screenshot({ path: testInfo.outputPath(`import-unobscured-${width}-${theme}.png`), fullPage: true });
+    await page.getByRole('button', { name: '取消', exact: true }).click();
+    await page.getByRole('button', { name: '配置', exact: true }).click();
+    const clear = page.getByRole('button', { name: '清除已保存的访问令牌', exact: true });
+    await expect(clear).toBeEnabled();
+    await clear.click();
+    await expect(page.getByRole('alert')).toHaveCount(1);
+    await expect(page.getByRole('alert')).toContainText('Synthetic credential clear failure');
+    await expect(errorToast).toHaveCount(0);
+    await expect(clear).toBeEnabled();
+    await clear.click();
+    await expect(page.getByRole('alert')).toHaveCount(0);
+    await expect(clear).toBeDisabled();
+    expect(await page.evaluate(() => ({ tests: globalThis.connectionTests, clears: globalThis.clearAttempts }))).toEqual({ tests: 1, clears: 2 });
+  });
+}
+
 for (const width of [1280, 360]) {
   test(`history refresh stays beside filters and preserves read recovery at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 850 });

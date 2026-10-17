@@ -42,8 +42,9 @@ export function ConnectionSettingsPanel({
   const revision = useRef(0);
   const pending = useRef<{ version: number; request: Promise<SettingsResult> } | null>(null);
   useEffect(() => () => { ++revision.current; }, []);
-  function invalidate() { ++revision.current; setDirty(true); setSaveError(null); }
+  function invalidate() { ++revision.current; setDirty(true); setSaveError(null); setClearError(null); }
   const [saveError, setSaveError] = useState<unknown>(null);
+  const [clearError, setClearError] = useState<unknown>(null);
   const operationFailure = useContext(OperationFailure);
   useEffect(() => {
     // A modal can hide these fields; only deduplicate a visible inline failure.
@@ -125,7 +126,7 @@ export function ConnectionSettingsPanel({
   }, [dirty, saved, busy, run, persist]);
   function clearToken() {
     if (busy || locked.current || dirty || pending.current || !saved?.config.service_url) return;
-    locked.current = true; setOperation("clear"); setTestResult(null);
+    locked.current = true; setOperation("clear"); setTestResult(null); setClearError(null);
     const version = ++revision.current;
     run(async () => {
       try {
@@ -133,7 +134,7 @@ export function ConnectionSettingsPanel({
         if (version !== revision.current) return;
         setSaved(result); setConfig(result.config); setServiceToken(""); setDirty(false); setSaveError(null);
         toast.success(message("连接配置已保存"));
-      } catch (error) { if (version === revision.current) toast.error(error); }
+      } catch (error) { if (version === revision.current) setClearError(error); }
       finally { locked.current = false; setOperation(null); }
     });
   }
@@ -197,6 +198,7 @@ export function ConnectionSettingsPanel({
           </fieldset>
           {saveError != null && <div role="alert" className="flex flex-wrap items-start justify-between gap-3 text-sm text-destructive"><div className="min-w-0 flex-1"><ErrorNotice error={saveError} /></div><Button type="button" variant="outline" disabled={busy || operation !== null} onClick={save}>{t("重试保存")}</Button></div>}
           {testResult && (testResult.error ? <div role="alert" className="text-destructive"><ErrorNotice error={testResult.error} /></div> : <p role="status" className="workflow-note">{t("连接测试通过")}</p>)}
+          {clearError != null && <div role="alert" className="text-destructive"><ErrorNotice error={clearError} /></div>}
           <div className="flex flex-wrap items-center justify-end gap-3 border-t pt-4">
           <Button variant="outline" type="button" disabled={busy || operation !== null || dirty || !saved?.config.service_url || configured === false} onClick={clearToken}>{t("清除已保存的访问令牌")}</Button>
           <Button variant="outline" type="button" disabled={busy || operation !== null || !saved || missing.length > 0} onClick={() => {
@@ -204,13 +206,15 @@ export function ConnectionSettingsPanel({
             locked.current = true; setOperation("test"); setSaveError(null); setTestResult(null);
             const version = revision.current;
             run(async () => {
+              let persisted = false;
               try {
                 await persist();
+                persisted = true;
                 await api({ type: "test_settings", config, service_token: null });
                 if (version !== revision.current) return;
                 setTestResult({});
                 toast.success(message("连接测试通过"));
-              } catch (e) { if (version === revision.current) { setTestResult({error:e}); toast.error(e); } }
+              } catch (e) { if (version === revision.current && persisted) setTestResult({error:e}); }
               finally { locked.current = false; setOperation(null); }
             });
           }}>
