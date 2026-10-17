@@ -7,6 +7,8 @@
 
 <!-- Replace with user-visible additions and fixes. Introduce the separate Web import and offline practice workflows for the first release. -->
 
+@CHANGES@
+
 ## Downloads
 
 | Platform | Minimum requirements | File | Automated final-package checks | Publisher signing | Clean-machine acceptance |
@@ -46,6 +48,7 @@ The independent service accepts PDF, TXT, CSV and PNG/JPEG; Office support requi
 - [ ] Frozen-candidate live parsing/grading, failure injection and representative manual review were recorded, with failures and limitations disclosed.
 - [ ] Highlights, installation steps, known limitations and comparison link are complete; remove placeholder comments.
 - [ ] Download every draft attachment and confirm its size, SHA-256 and acceptance evidence match.
+- [ ] Verify Actions provenance for every unchanged CI attachment against the candidate tag, commit and release workflow. Any signed/restaged replacement needs separately reviewed final-byte provenance.
 
 Explain incomplete items. Stable publication requires all applicable acceptance. Permitted test-candidate deferrals must be explicit; package-integrity and notice failures still block distribution.
 
@@ -56,6 +59,7 @@ Explain incomplete items. Stable publication requires all applicable acceptance.
 - `release-manifest.json`: files, sizes, SHA-256, component versions, build links and acceptance status.
 - `release-evidence.zip`: declared service checks and each final practice-client package's metadata/notices/checks.
 - `SHA256SUMS.txt`: hashes of all other public attachments; hashes do not replace publisher signatures.
+- GitHub artifact attestations: the Release draft workflow attests and verifies the unchanged CI attachments. Follow the release policy to reverify downloads; signing or restaging invalidates that proof for changed bytes.
 - Full changelog: <!-- Link the previous tag...@TAG@, or tagged source for the first release. -->
 
 Automated package checks do not establish clean-machine acceptance, independent-service deployment or live-model accuracy. Read the platform evidence and known limitations before installation.
