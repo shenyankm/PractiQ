@@ -140,13 +140,13 @@ impl Store {
         let mut total = 0u64;
         for i in 0..archive.len() {
             let entry = archive.by_index(i).map_err(error)?;
-            let name = entry.name();
+            let name = entry.name().map_err(error)?;
             if entry.is_dir()
                 || name.contains('\\')
                 || name
                     .split('/')
                     .any(|v| v.is_empty() || v == "." || v == "..")
-                || !names.insert(name.to_owned())
+                || !names.insert(name.into_owned())
                 || entry
                     .unix_mode()
                     .is_some_and(|m| m & 0o170000 != 0 && m & 0o170000 != 0o100000)
@@ -948,7 +948,7 @@ mod tests {
                 let mut entry = zip.by_index(i).unwrap();
                 let mut bytes = Vec::new();
                 entry.read_to_end(&mut bytes).unwrap();
-                (entry.name().to_owned(), bytes)
+                (entry.name().unwrap().into_owned(), bytes)
             })
             .collect();
         for field in ["audioStartSeconds", "audioEndSeconds"] {
@@ -1028,7 +1028,7 @@ mod tests {
         let entries: Vec<_> = (0..zip.len())
             .map(|i| {
                 let mut entry = zip.by_index(i).unwrap();
-                let name = entry.name().to_owned();
+                let name = entry.name().unwrap().into_owned();
                 let mut data = Vec::new();
                 entry.read_to_end(&mut data).unwrap();
                 (name, data)

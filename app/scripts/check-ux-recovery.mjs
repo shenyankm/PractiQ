@@ -1,3 +1,4 @@
+import { chooseOption } from "../../shared/select-test.mjs";
 import { test, expect } from 'playwright/test';
 
 async function inject(page, source) {
@@ -45,7 +46,7 @@ for (const width of [1280, 360]) {
     await page.getByRole('button', { name: '导入题库 ZIP', exact: true }).click();
     expect(await page.evaluate(() => globalThis.auditImports || 0)).toBe(0);
     await page.getByRole('menuitem', { name: '导入题库 ZIP', exact: true }).click();
-    await page.getByRole('combobox', { name: '导入到', exact: true }).selectOption('preview-bank-0');
+    await chooseOption(page.getByRole('combobox', { name: '导入到', exact: true }), 'preview-bank-0');
     await page.getByRole('button', { name: '确认导入', exact: true }).click();
     await expect(page.getByText('已导入 9 道题目', { exact: true })).toBeVisible();
     await expect(retry).toBeVisible();
@@ -108,13 +109,13 @@ for (const width of [1280, 360]) {
     await page.goto('/');
     await page.getByRole('button', { name: '查看题目', exact: true }).first().click();
     await page.getByLabel('搜索题目', { exact: true }).fill('no-matching-question');
-    await page.getByLabel('筛选题型').selectOption('single');
+    await chooseOption(page.getByLabel('筛选题型'), 'single');
     await page.getByRole('checkbox', { name: '仅看待复核' }).check();
     await expect(page.getByText('没有符合筛选的题目', { exact: true })).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath(`filters-empty-${width}.png`), fullPage: true });
     await page.getByRole('button', { name: '清除筛选', exact: true }).click();
     await expect(page.getByLabel('搜索题目', { exact: true })).toBeFocused();
-    await expect(page.getByLabel('筛选题型')).toHaveValue('');
+    await expect(page.getByLabel('筛选题型')).toHaveAttribute('data-value', '');
     await expect(page.getByRole('checkbox', { name: '仅看待复核' })).not.toBeChecked();
     await expect(page.getByText('9 道题目', { exact: true })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -129,7 +130,7 @@ for (const width of [375, 768, 1440]) {
     const bank=page.locator('[data-slot=card]').filter({has:page.getByRole('heading',{name:'基础知识 · 全题型',exact:true})});
     await bank.getByRole('button',{name:'开始练习',exact:true}).click();
     const setup=page.getByRole('dialog',{name:'开始练习或考试',exact:true});
-    await expect(setup.getByText('提交后立即查看参考答案，可对照答案自评。',{exact:true})).toBeVisible();
+    await expect(setup.getByText('提交后查看参考答案，可对照自评。',{exact:true})).toBeVisible();
     await expect(setup.getByRole('button',{name:'立即开始',exact:true})).toBeEnabled();
     await page.screenshot({path:testInfo.outputPath(`setup-${width}.png`),fullPage:true});
     await setup.getByRole('button',{name:'立即开始',exact:true}).click();
@@ -150,7 +151,9 @@ for (const width of [375, 768, 1440]) {
     await editor.getByRole('button',{name:'保存题库',exact:true}).click();
     await expect(page.getByRole('heading',{name:'新建的本地题库',exact:true})).toBeVisible();
     const empty=page.locator('[data-slot=card]').filter({has:page.getByRole('heading',{name:'新建的本地题库',exact:true})});
-    await expect(empty.getByText('题库还是空的，打开后可新增题目。',{exact:true})).toBeVisible();
+    await expect(empty.getByText('0 题',{exact:true})).toBeVisible();
+    await empty.getByRole('button',{name:'查看题目',exact:true}).click();
+    await expect(page.getByRole('button',{name:'新增题目',exact:true})).toBeEnabled();
     await navigate(page,'设置');
     await page.screenshot({path:testInfo.outputPath(`settings-${width}.png`),fullPage:true});
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);

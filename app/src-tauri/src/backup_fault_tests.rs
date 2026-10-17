@@ -167,11 +167,11 @@ fn explicit_recovery_rejects_bad_replacement_before_preserving_or_changing_live_
         let mut entry = input.by_index(index).unwrap();
         let mut bytes = Vec::new();
         entry.read_to_end(&mut bytes).unwrap();
-        if entry.name() == format!("assets/{digest}") {
+        if entry.name().unwrap() == format!("assets/{digest}") {
             bytes[0] ^= 1;
         }
         output
-            .start_file(entry.name(), SimpleFileOptions::default())
+            .start_file(entry.name().unwrap(), SimpleFileOptions::default())
             .unwrap();
         output.write_all(&bytes).unwrap();
     }

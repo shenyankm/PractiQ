@@ -10,6 +10,15 @@ afterEach(() => { cleanup(); vi.clearAllMocks(); });
 const banks = [{id:"one",title:"题库一",count:2,description:"",createdAt:0}, {id:"two",title:"题库二",count:1,description:"",createdAt:0}];
 const rows = fixture.questions.slice(0,2).map((question,i) => ({id:`q${i}`,bankId:"one",bankTitle:"题库一",question,groups:[],visuals:[],sources:[],warnings:[],missingAssets:false,favorite:false,latestResult:null})) as QuestionRow[];
 
+it("omits unavailable quick counts while keeping a small valid paper usable", async () => {
+  vi.mocked(api).mockResolvedValue({count:3,types:{single:3},feasibleCounts:[1,2,3]} as never);
+  render(<StudySetup banks={banks} initialBank="one" initialFilter="" busy={false} run={job=>{void job();}} onStart={async()=>{}} onClose={()=>{}}/>);
+  await screen.findByText(/可用 3 题/);
+  expect(screen.queryByRole("group",{name:"快捷题数"})).toBeNull();
+  expect(screen.getByLabelText("题目数量")).toHaveProperty("value","3");
+  expect(screen.getByRole("button",{name:"立即开始"}).hasAttribute("disabled")).toBe(false);
+});
+
 it("preserves the review filter when opening study setup from the review list", async () => {
   vi.mocked(api).mockResolvedValue({count:1,types:{single:1},feasibleCounts:[1]} as never);
   render(<StudySetup banks={banks} initialBank="one" initialFilter="review" busy={false} run={job=>{void job();}} onStart={async()=>{}} onClose={()=>{}}/>);
@@ -452,14 +461,16 @@ it("offers only feasible quick counts and explains each session mode before star
   vi.mocked(api).mockResolvedValue({count:50,types:{single:50},feasibleCounts:[5,20,50]} as never);
   render(<StudySetup banks={banks} initialBank="one" initialFilter="" busy={false} run={job=>{void job();}} onStart={async()=>{}} onClose={()=>{}}/>);
   await screen.findByText(/可用 50 题/);
+  expect(screen.getByText("提交后查看参考答案，可对照自评。")).toBeTruthy();
+  expect(screen.queryByText("到时自动交卷，关闭应用仍会计时。")).toBeNull();
   const quick=screen.getByRole("group",{name:"快捷题数"});
   expect(quick.querySelectorAll('button')).toHaveLength(3);
   await user.click(screen.getByRole("button",{name:"5 题"}));
   expect(screen.getByLabelText("题目数量")).toHaveProperty("value","5");
   expect(screen.getByRole("button",{name:"5 题"}).getAttribute("aria-pressed")).toBe("true");
   await user.selectOptions(screen.getByLabelText("模式"),"self_test");
-  expect(screen.getByText("作答时隐藏答案，交卷后统一核对评分，不限时。")).toBeTruthy();
+  expect(screen.getByText("作答时隐藏答案，交卷后核对评分；先预览配分，更改选题或总分后需重新预览。")).toBeTruthy();
   await user.selectOptions(screen.getByLabelText("模式"),"mock_exam");
-  expect(screen.getByText(/倒计时结束自动交卷/)).toBeTruthy();
+  expect(screen.getByText("到时自动交卷，关闭应用仍会计时。")).toBeTruthy();
   expect(vi.mocked(api).mock.calls.every(([request])=>request.type==="question_stats")).toBe(true);
 });

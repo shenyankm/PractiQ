@@ -18,7 +18,7 @@ export default defineConfig(({ mode }) => ({
     },
     react(), tailwindcss(),
   ],
-  resolve: { alias: { "@": new URL("./src", import.meta.url).pathname } },
+  resolve: { dedupe: ["react", "react-dom", "radix-ui", "lucide-react", "cn"], alias: { "@": new URL("./src", import.meta.url).pathname } },
   server: {
     host: "127.0.0.1",
     port: 5173,

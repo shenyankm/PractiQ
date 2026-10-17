@@ -1,3 +1,4 @@
+import { chooseOption } from "../../shared/select-test.mjs";
 import { test as base, expect } from 'playwright/test';
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
@@ -78,7 +79,7 @@ test('question-list failures persist, hide stale actions and retry the current f
  await expect(page.getByRole('button',{name:'Edit question',exact:true})).toBeEnabled();
  await page.evaluate(()=>{window.__failQuestionRead=true;});
  await page.getByRole('textbox',{name:'Search questions',exact:true}).fill('beta');
- await page.getByRole('combobox',{name:'Filter by question type',exact:true}).selectOption('single');
+ await chooseOption(page.getByRole('combobox',{name:'Filter by question type',exact:true}), 'single');
  await page.getByRole('checkbox',{name:'Show only items needing review',exact:true}).check();
  const alert=page.getByRole('alert');
  await expect(alert).toContainText('Could not load questions');
@@ -96,7 +97,7 @@ test('question-list failures persist, hide stale actions and retry the current f
  await expect(page.getByText('Current beta question',{exact:true})).toBeVisible();
  await expect(alert).toHaveCount(0);
  await expect(page.getByRole('textbox',{name:'Search questions',exact:true})).toHaveValue('beta');
- await expect(page.getByRole('combobox',{name:'Filter by question type',exact:true})).toHaveValue('single');
+ await expect(page.getByRole('combobox',{name:'Filter by question type',exact:true})).toHaveAttribute('data-value', 'single');
  await expect(page.getByRole('checkbox',{name:'Show only items needing review',exact:true})).toBeChecked();
  expect(observedCalls.filter(c=>c.request.type==='questions_page').at(-1).request).toEqual({type:'questions_page',bank_ids:['one'],search:'beta',mode:'single',filter:'review',limit:30,offset:0});
 });
@@ -391,7 +392,7 @@ for (const delay of ['reload', 'mutation']) test(`favorite ${delay} completion p
  const search=page.getByRole('textbox',{name:'Search questions',exact:true});
  await expect(search).toBeEnabled();
  await search.fill('beta');
- await page.getByRole('combobox',{name:'Filter by question type',exact:true}).selectOption('true_false');
+ await chooseOption(page.getByRole('combobox',{name:'Filter by question type',exact:true}), 'true_false');
  await expect(page.getByText('beta',{exact:true})).toBeVisible();
  await expect(page.getByText('Questions 1–30',{exact:true})).toBeVisible();
  const reads=observedCalls.filter(call=>call.request.type==='questions_page').length;

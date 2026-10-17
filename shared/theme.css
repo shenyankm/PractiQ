@@ -122,10 +122,11 @@ input, textarea { caret-color: var(--primary); }
 [data-slot="card-description"] { line-height: 1.75; }
 [data-slot="button"] { font-weight: 500; }
 [data-slot="button"]:not([data-size^="icon"]) { min-height: var(--control-height); }
-[data-slot="input"], [data-slot="input-group"], [data-slot="native-select"], select { min-height: var(--control-height); }
-[data-slot="native-select"][data-size="sm"] { min-height: 2rem; }
+[data-slot="input"], [data-slot="input-group"], [data-slot="native-select"], [data-slot="select-trigger"], select { min-height: var(--control-height); }
+[data-slot="native-select"][data-size="sm"], [data-slot="select-trigger"][data-size="sm"] { min-height: 2rem; }
 [data-slot="input-group-control"] { min-height: 0; align-self: stretch; height: auto; }
 select { border-radius: var(--radius); font-size: 0.875rem; color: var(--foreground); }
+select:not([multiple]) { display: flex; align-items: center; }
 select option { background: var(--popover); color: var(--popover-foreground); }
 [data-slot="badge"] { font-variant-numeric: tabular-nums; }
 [data-slot="empty-icon"] { background: var(--secondary); color: var(--secondary-foreground); }
@@ -161,30 +162,12 @@ html [data-sonner-toaster][data-sonner-theme] {
 }
 [data-sonner-toaster] [data-sonner-toast][data-styled="true"] { border-radius: var(--radius-menu); box-shadow: none; }
 [data-sonner-toaster] [data-sonner-toast][data-styled="true"]:focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
-/* Keep system pickers on touch devices and browsers without customizable selects. */
-@supports (appearance: base-select) {
-  @media (min-width: 768px) and (pointer: fine) {
-    select:not([multiple]), select:not([multiple])::picker(select) { appearance: base-select; }
-    select:not([multiple])::picker(select) {
-      background: var(--popover); color: var(--popover-foreground);
-      border: 1px solid var(--border); border-radius: var(--radius-menu);
-      box-shadow: none; padding: 0.25rem; margin-block: 0.25rem;
-      max-height: min(20rem, 70dvh); overflow-y: auto; overscroll-behavior: contain;
-    }
-    select:not([multiple]) option { min-height: 2.25rem; padding: 0.5rem 0.75rem; border-radius: var(--radius-item); font-size: 0.875rem; }
-    select:not([multiple]) option:checked { background: var(--secondary); color: var(--secondary-foreground); }
-    select:not([multiple]) option:not(:disabled):is(:hover, :focus) { background: var(--accent); color: var(--accent-foreground); }
-    select:not([multiple]) option:disabled { opacity: 0.5; }
-    select:not([multiple]) option::checkmark { color: var(--primary); }
-    [data-slot="native-select"]::picker-icon { display: none; }
-  }
-}
 @media (max-width: 767px) {
   [data-slot="card"]:not([data-size="sm"]) { --card-spacing: 1rem; }
 }
 @media (max-width: 767px), (any-pointer: coarse) {
   :root { --control-height: 3rem; }
-  [data-slot="button"], [data-slot="button"]:not([data-size^="icon"]), [data-slot="native-select"][data-size="sm"], [data-slot="dropdown-menu-item"], [data-slot="dropdown-menu-radio-item"] { min-height: 3rem; }
+  [data-slot="button"], [data-slot="button"]:not([data-size^="icon"]), [data-slot="native-select"][data-size="sm"], [data-slot="select-trigger"][data-size="sm"], [data-slot="select-item"], [data-slot="dropdown-menu-item"], [data-slot="dropdown-menu-radio-item"] { min-height: 3rem; }
 }
 @media (prefers-reduced-motion: reduce) {
   [data-slot="button"] { transition: none; }

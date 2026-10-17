@@ -61,13 +61,13 @@ it("searches shared options once per query and preserves review filtering", asyn
   await user.click(screen.getByRole("searchbox"));
   content.mockClear();
   await user.paste("absent");
-  expect(screen.getByText("显示 0 / 1000 条记录。筛选不会修改复核标记或导出内容。")).toBeTruthy();
+  expect(screen.getByText("显示 0 / 1000 条记录")).toBeTruthy();
   expect(content.mock.calls.length).toBeLessThanOrEqual(100);
   await user.clear(screen.getByRole("searchbox"));
   content.mockClear();
   await user.paste("OPTION 99");
-  expect(screen.getByText("显示 1000 / 1000 条记录。筛选不会修改复核标记或导出内容。")).toBeTruthy();
+  expect(screen.getByText("显示 1000 / 1000 条记录")).toBeTruthy();
   expect(content.mock.calls.length).toBeLessThanOrEqual(100);
   await user.click(screen.getByRole("checkbox", { name: "仅看需要复核" }));
-  expect(screen.getByText("显示 500 / 1000 条记录。筛选不会修改复核标记或导出内容。")).toBeTruthy();
+  expect(screen.getByText("显示 500 / 1000 条记录")).toBeTruthy();
 });

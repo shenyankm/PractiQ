@@ -1,3 +1,4 @@
+import { chooseOption } from "../../shared/select-test.mjs";
 import { createHash } from "node:crypto";
 import { mkdir, readFile } from "node:fs/promises";
 import { expect, test, type Page, type Route } from "playwright/test";
@@ -81,6 +82,38 @@ async function openTask(page: Page) {
 const mutations = (calls: Call[]) => calls.filter(call => call.method !== "GET");
 const starts = (calls: Call[]) => calls.filter(call => call.path === "/api/document-tasks" && call.method === "POST");
 
+test("shared dropdowns preserve themed menus, empty filters and keyboard focus", async ({ page }, testInfo) => {
+  const http = await fakeHTTP(page);
+  await connect(page);
+  const filter = page.getByRole("combobox", { name: "筛选任务状态" });
+  await expect(filter).toHaveAttribute("data-slot", "select-trigger");
+  await filter.focus();
+  await page.keyboard.press("Space");
+  const all = page.getByRole("option", { name: "全部任务", exact: true });
+  await expect(all).toBeFocused();
+  await expect(all).toHaveAttribute("data-state", "checked");
+  await expect(page.getByRole("listbox")).toHaveCSS("background-color", "rgb(255, 252, 250)");
+  await page.screenshot({ path: testInfo.outputPath("web-select-menu.png"), animations: "disabled" });
+  await page.keyboard.press("End");
+  await expect(page.getByRole("option", { name: "已过期", exact: true })).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(filter).toHaveAttribute("data-value", "expired");
+  await expect(filter).toBeFocused();
+  await chooseOption(filter, "");
+  await expect(filter).toHaveAttribute("data-value", "");
+  await filter.click();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("listbox")).toBeHidden();
+  await expect(filter).toBeFocused();
+  const office = page.getByRole("combobox", { name: "Word / Excel 转换模式" });
+  await chooseOption(office, "text");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(office).toHaveAttribute("data-slot", "select-trigger");
+  await expect(office).toHaveAttribute("data-value", "text");
+  await expect(office).toHaveCSS("min-height", "48px");
+  expect(mutations(http.calls)).toHaveLength(0);
+});
+
 test("1000 question searches scan a shared option bank once and stay passive", async ({ page }, testInfo) => {
   const children = Array.from({ length: 999 }, (_, index) => question({ id: `child-${index}` }));
   const owner = question({ ...material, answerMode: "word_bank", questionTypeId: "word_bank", options: Array.from({ length: 100 }, (_, index) => ({ label: String(index), content: `Benchmark option ${index}` })), passage: children.map(child => ({ partType: "blank", questionId: child.id })) });
@@ -106,7 +139,7 @@ test("1000 question searches scan a shared option bank once and stay passive", a
   for (let index = 0; index < 5; index++) {
     await page.evaluate(() => { (window as typeof window & { optionComparisons: number }).optionComparisons = 0; });
     await search.fill(`absent-${index}`);
-    await expect(page.getByText("显示 0 / 1000 条记录。筛选不会修改复核标记或导出内容。")).toBeVisible();
+    await expect(page.getByText("显示 0 / 1000 条记录")).toBeVisible();
     comparisons.push(await page.evaluate(() => (window as typeof window & { optionComparisons: number }).optionComparisons));
   }
   expect(comparisons).toEqual(Array(5).fill(expectedComparisons));
@@ -126,11 +159,18 @@ for (const [width, height] of [[1440, 1000], [390, 844]]) {
     await expect(page.getByRole("button", { name: "刷新余额与商品" })).toBeHidden();
     await page.screenshot({ path: `${evidence}/after-connection-${width}.png`, fullPage: true });
     await connect(page);
+    const importRules = page.getByText("格式与导入规则", { exact: true });
+    await importRules.focus();
+    await page.keyboard.press("Enter");
+    await expect(page.getByText(/转换模式与去重选项在开始导入后固定/)).toBeVisible();
+    await expect(page.getByText(/下载的 ZIP 可在 App/)).toBeVisible();
+    await page.keyboard.press("Enter");
+    await expect(page.getByText(/转换模式与去重选项在开始导入后固定/)).toBeHidden();
     await page.evaluate(() => scrollTo(0, 0));
     await page.mouse.move(0, 0);
     await expect(page.getByRole("button", { name: "查看积分明细", exact: true })).toBeHidden();
     await expect(page.getByLabel("追加卡密")).toHaveCount(0);
-    await expect(page.getByText(/服务启用 AI 复核时/)).toBeVisible();
+    await expect(page.getByText(/启用 AI 复核会增加调用与费用/)).toBeVisible();
     await page.screenshot({ path: `${evidence}/after-workspace-${width}.png`, fullPage: true });
     const points = page.getByText("充值与积分明细", { exact: true });
     await points.focus();
@@ -141,6 +181,10 @@ for (const [width, height] of [[1440, 1000], [390, 844]]) {
     await page.evaluate(() => scrollTo(0, 0));
     await page.mouse.move(0, 0);
     await expect(page.locator('.import-steps [aria-current="step"]')).toHaveText(/检查解析结果/);
+    await page.getByRole("searchbox", { name: "搜索解析题目" }).fill("absent");
+    await expect(page.getByText("显示 0 / 3 条记录")).toBeVisible();
+    await expect(page.getByText("筛选仅影响显示，导出仍包含全部已完成题目。")).toBeVisible();
+    await expect(page.getByRole("button", { name: "下载题库 ZIP", exact: true })).toBeEnabled();
     await page.screenshot({ path: `${evidence}/after-review-${width}.png`, fullPage: true });
     await page.evaluate(() => document.documentElement.classList.add("dark"));
     await page.screenshot({ path: `${evidence}/after-review-dark-${width}.png`, fullPage: true, animations: "disabled" });
@@ -156,7 +200,7 @@ for (const [width, height] of [[1440, 1000], [390, 844]]) {
     await page.getByRole("button", { name: "下载题库 ZIP", exact: true }).click();
     await download;
     await expect(page.locator('.import-steps [aria-current="step"]')).toHaveText(/导出并离线练习/);
-    await expect(page.getByText("ZIP 已下载，在 App 中追加题库", { exact: true })).toBeAttached();
+    await expect(page.getByText("ZIP 已下载 · App：设置 → 恢复备份", { exact: true })).toBeAttached();
     expect(http.server.modelStarts).toBe(0);
     await page.evaluate(() => scrollTo(0, 0));
     await page.mouse.move(0, 0);
@@ -226,7 +270,7 @@ test("workspace fits narrow and desktop windows with keyboard shortcuts to conte
 test("passive file selection becomes one authenticated SHA upload only after explicit Start", async ({ page }) => {
   const http = await fakeHTTP(page);
   await page.goto("/"); expect(http.calls.every(call => call.path === "/api/products")).toBe(true); await connect(page);
-  await page.getByLabel("Word / Excel 转换模式").selectOption("text");
+  await chooseOption(page.getByLabel("Word / Excel 转换模式"), "text");
   const bytes = Buffer.from("synthetic office file");
   await page.getByLabel("选择文档").setInputFiles({ name: "selected.docx", mimeType: "application/octet-stream", buffer: bytes });
   await expect(page.getByText(/尚未提交/)).toBeVisible(); expect(mutations(http.calls)).toHaveLength(0);
@@ -262,7 +306,7 @@ test("uncertain accepted POST never auto replays; explicit retry preserves reque
     }
     return false;
   };
-  await connect(page); await page.getByLabel("Word / Excel 转换模式").selectOption("text");
+  await connect(page); await chooseOption(page.getByLabel("Word / Excel 转换模式"), "text");
   await page.getByLabel("选择文档").setInputFiles({ name: "uncertain.docx", mimeType: "application/octet-stream", buffer: Buffer.from("fake office") });
   await page.getByRole("button", { name: "开始导入", exact: true }).click(); await expect(page.getByRole("button", { name: "重试开始", exact: true })).toBeVisible();
   const reads = http.calls.filter(call => call.method === "GET").length;
@@ -322,7 +366,7 @@ test("failed reads retry explicitly and stale pages cannot overwrite a new filte
   };
   await connect(page); await page.getByRole("button", { name: "重试任务列表", exact: true }).click(); await expect(page.getByRole("button", { name: /sample.docx/ })).toBeVisible();
   await page.getByRole("button", { name: "下一页任务", exact: true }).click(); await expect.poll(() => !!release).toBe(true);
-  await page.getByLabel("筛选任务状态").selectOption("failed"); await expect(page.getByRole("button", { name: /current-failed.pdf/ })).toBeVisible();
+  await chooseOption(page.getByLabel("筛选任务状态"), "failed"); await expect(page.getByRole("button", { name: /current-failed.pdf/ })).toBeVisible();
   await release!(); await expect(page.getByRole("button", { name: /sample.docx/ })).toHaveCount(0); await expect(page.getByText("第 1 页", { exact: true })).toBeVisible();
   expect(mutations(http.calls)).toHaveLength(0);
 });
@@ -391,10 +435,10 @@ test("empty task guidance preserves keyboard focus and only reads when clearing 
   await connect(page);
   await page.getByRole("button", { name: "选择第一份文档" }).click();
   await expect(page.getByLabel("选择文档")).toBeFocused();
-  await page.getByLabel("筛选任务状态").selectOption("failed");
+  await chooseOption(page.getByLabel("筛选任务状态"), "failed");
   await expect(page.getByText("没有符合此状态的任务。", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "查看全部任务" }).click();
-  await expect(page.getByLabel("筛选任务状态")).toHaveValue("");
+  await expect(page.getByLabel("筛选任务状态")).toHaveAttribute('data-value', "");
   await expect(page.getByRole("button", { name: "选择第一份文档" })).toBeVisible();
   expect(mutations(http.calls)).toHaveLength(0);
 });

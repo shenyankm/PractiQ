@@ -506,19 +506,11 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
               <h1 ref={pageHeading} tabIndex={-1} className="break-words text-xl font-semibold tracking-tight outline-none md:text-2xl">
                 {heading}
               </h1>
-              <p className="mt-1 text-sm text-muted-foreground">
+              {(page === "banks" || listPage) && <p className="mt-1 text-sm text-muted-foreground">
                 {page === "banks"
                   ? bankError != null ? t("题库概览读取失败") : !banksReady ? t("加载中…") : t("{0} 个题库 · {1} 道题目", { 0: banks.length, 1: banks.reduce((n, b) => n + b.count, 0) })
-                  : listPage
-                    ? questionError != null ? t("加载题目失败") : loading ? t("加载中…") : t("{0} 道题目{1}", { 0: questionTotal, 1: "" })
-                    : page === "history"
-                      ? t("回顾每一次作答与进步")
-                      : page === "settings"
-                        ? t("管理 AI 服务连接与本地学习数据")
-                        : page === "service-settings"
-                          ? t("用于显式请求主观题 AI 评分")
-                        : t("循序渐进，保持专注")}
-              </p>
+                  : questionError != null ? t("加载题目失败") : loading ? t("加载中…") : t("{0} 道题目{1}", { 0: questionTotal, 1: "" })}
+              </p>}
             </div>
           </div>
           <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -569,7 +561,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
             <Button variant="outline" disabled={busy} onClick={() => run(reloadOverview)}>{t("重试读取概览")}</Button>
           </div>}
           <Suspense fallback={loadingView}>
-          {page === "history" && <div className="mb-5 flex flex-wrap items-center gap-3"><Label htmlFor="history-filter">{t("练习记录状态")}</Label><NativeSelect id="history-filter" value={sessionFilter} disabled={busy} onChange={e => { setSessionFilter(e.target.value as SessionFilter); setSessionOffset(0); }}>
+          {page === "history" && <div className="mb-5 flex flex-wrap items-center gap-3"><Label htmlFor="history-filter">{t("练习记录状态")}</Label><NativeSelect id="history-filter" value={sessionFilter} disabled={busy} onValueChange={value => { setSessionFilter(value as SessionFilter); setSessionOffset(0); }}>
             <NativeSelectOption value="all">{t("全部")}</NativeSelectOption><NativeSelectOption value="active">{t("进行中")}</NativeSelectOption><NativeSelectOption value="review">{t("待核对")}</NativeSelectOption><NativeSelectOption value="finished">{t("已结束")}</NativeSelectOption>
           </NativeSelect></div>}
           {page === "history" && (summaryLoading || summaryError != null) && (
@@ -625,7 +617,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                     className="w-full"
                     aria-label={t("筛选题型")}
                     value={mode}
-                    onChange={(event) => setMode(event.target.value)}
+                    onValueChange={value => setMode(value)}
                   >
                     <NativeSelectOption value="">{t("全部题型")}</NativeSelectOption>
                     <NativeSelectOption value="single">{t("单选题")}</NativeSelectOption>

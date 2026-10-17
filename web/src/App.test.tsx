@@ -92,8 +92,14 @@ it.each<[boolean, string, string, string]>([
 
 it("keeps Token in memory, clears it on disconnect, and performs no HTTP before connect", async () => {
   const user = userEvent.setup(); const http = fakeHTTP(); const persist = vi.spyOn(Storage.prototype, "setItem"); render(<App />);
+  expect(screen.getByText(/令牌仅保存在本页内存，刷新后需重填/)).toBeTruthy();
   expect(http.calls.every(call => call.url === "/api/products" && call.method === "GET")).toBe(true);
   await connect(user);
+  const rules = screen.getByText("格式与导入规则", { selector: "summary" });
+  expect(rules.closest("details")?.open).toBe(false);
+  expect(screen.getByText("服务支持：PDF、TXT、CSV、PNG/JPEG、Word (.doc)、Word (.docx)、Excel (.xls)、Excel (.xlsx)").closest("details")).toBeNull();
+  await user.click(rules);
+  expect(rules.closest("details")?.open).toBe(true);
   expect(screen.getByText("服务支持：PDF、TXT、CSV、PNG/JPEG、Word (.doc)、Word (.docx)、Excel (.xls)、Excel (.xlsx)")).toBeTruthy();
   expect(screen.queryByLabelText("账户令牌")).toBeNull(); expect(persist).not.toHaveBeenCalled();
   expect(http.calls.every(call => (call.url === "/api/products" || call.auth === "Account fake-service-token") && !call.url.includes("fake-service-token") && call.method === "GET")).toBe(true);
@@ -103,9 +109,9 @@ it("keeps Token in memory, clears it on disconnect, and performs no HTTP before 
 });
 it("selection is passive; explicit Start performs bounded SHA upload and task creation", async () => {
   const user = userEvent.setup(); const http = fakeHTTP(); render(<App />); await connect(user);
-  expect(screen.getByText(/服务启用 AI 复核时/)).toBeTruthy();
+  expect(screen.getByText(/启用 AI 复核会增加调用与费用/)).toBeTruthy();
   expect((screen.getByRole("checkbox", { name: "自动去重" }) as HTMLInputElement).checked).toBe(false);
-  expect(screen.getByText(/仅对完全相同的题目或整组复合题自动去重；未勾选只提示候选并保留全部/)).toBeTruthy();
+  expect(screen.getByText(/仅去除完全相同的题目或整组复合题；关闭则全部保留/)).toBeTruthy();
   await user.selectOptions(screen.getByLabelText("Word / Excel 转换模式"), "text");
   await user.upload(screen.getByLabelText("选择文档"), new File(["office"], "document.docx"));
   expect(screen.getByText(/尚未提交/)).toBeTruthy(); expect(http.calls.filter(call => call.method !== "GET")).toHaveLength(0);
@@ -147,7 +153,7 @@ it("displays the source-specific Office ceiling alongside the configured general
   const user = userEvent.setup(); const http = fakeHTTP();
   http.server.intercept = url => url.includes("capabilities") ? json({ ...capabilities, sourceMaxBytes: 100 * 1024 * 1024, officeSourceMaxBytes: 25 * 1024 * 1024 }) : undefined;
   render(<App />); await connect(user);
-  expect(screen.getByText(/每个不超过 100.0 MB，Word \/ Excel 不超过 25.0 MB/)).toBeTruthy();
+  expect(screen.getByText(/每个 ≤ 100.0 MB · Word \/ Excel ≤ 25.0 MB/)).toBeTruthy();
   expect(http.calls.every(call => call.method === "GET")).toBe(true);
 });
 it("polling paused/partial checkpoints only reads; resume/retry/pause require explicit clicks", async () => {
@@ -176,19 +182,36 @@ it("recovers failed task/capability reads and ignores obsolete pages after a fil
   await user.click(screen.getByRole("button", { name: "刷新任务列表" })); await screen.findByRole("button", { name: /current-failed.pdf/ });
 });
 it("disables checkpoint actions when detail/preview reads fail or disagree, then recovers explicitly", async () => {
-  const user = userEvent.setup(); const http = fakeHTTP({ ...task, state: "PAUSED", allowedActions: ["resume"] }); let failDetail = true, failPreview = true;
+  const user = userEvent.setup(); const http = fakeHTTP({ ...task, state: "PAUSED", allowedActions: ["resume"], canExportCompleted: true }); let failDetail = true, failPreview = true;
   http.server.intercept = url => { if (url.endsWith(`/${taskId}`) && failDetail) { failDetail = false; return json({}, 503); } if (url.endsWith("/preview") && failPreview) { failPreview = false; return json({}, 503); } };
   render(<App />); await connect(user); await user.click(await screen.findByRole("button", { name: /sample.docx/ }));
   await screen.findByRole("button", { name: "重试任务详情" }); await screen.findByRole("button", { name: "重试检查点预览" });
   http.server.intercept = url => url.endsWith("/preview") ? json({ ...preview, checkpointId: "different-checkpoint" }) : undefined;
   await user.click(screen.getByRole("button", { name: "重试任务详情" })); await screen.findByRole("button", { name: "继续解析" }); expect((screen.getByRole("button", { name: "继续解析" }) as HTMLButtonElement).disabled).toBe(true);
+  expect((screen.getByRole("button", { name: "下载题库 ZIP" }) as HTMLButtonElement).disabled).toBe(true);
   http.server.intercept = undefined; await user.click(screen.getByRole("button", { name: "刷新任务详情" })); await waitFor(() => expect((screen.getByRole("button", { name: "继续解析" }) as HTMLButtonElement).disabled).toBe(false));
+  expect((screen.getByRole("button", { name: "下载题库 ZIP" }) as HTMLButtonElement).disabled).toBe(false);
   http.server.intercept = url => url.endsWith("/control") ? json({ detail: { code: "STALE_CHECKPOINT" } }, 409) : undefined;
   await user.click(screen.getByRole("button", { name: "继续解析" })); expect(await screen.findByText(/STALE_CHECKPOINT/)).toBeTruthy();
+});
+it.each([false, true])("explains partial export requirements without bypassing readiness (%s)", async canExportCompleted => {
+  const user = userEvent.setup(); const http = fakeHTTP({ ...task, state: "PAUSED", result: null, canExportCompleted });
+  render(<App />); await connect(user); await openTask(user);
+  expect(screen.getByText("暂停后可下载已完成题目，需有可用题目且检查点一致。")).toBeTruthy();
+  expect((screen.getByRole("button", { name: "下载题库 ZIP" }) as HTMLButtonElement).disabled).toBe(!canExportCompleted);
+  expect(http.calls.every(call => call.method === "GET" && !call.url.includes("/export?"))).toBe(true);
 });
 it("exports the current partial checkpoint via authenticated ZIP GET and never starts a model", async () => {
   const user = userEvent.setup(); const http = fakeHTTP(); const create = vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:bank"); const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
   render(<App />); await connect(user); await openTask(user);
+  expect(screen.queryByText("筛选仅影响显示，导出仍包含全部已完成题目。")).toBeNull();
+  await user.type(screen.getByRole("searchbox", { name: "搜索解析题目" }), "absent");
+  expect(screen.getByText("显示 0 / 3 条记录")).toBeTruthy();
+  expect(screen.getByText("筛选仅影响显示，导出仍包含全部已完成题目。")).toBeTruthy();
+  await user.click(screen.getByRole("button", { name: "清除结果筛选" }));
+  expect(screen.queryByText("筛选仅影响显示，导出仍包含全部已完成题目。")).toBeNull();
+  await user.click(screen.getByRole("checkbox", { name: "仅看需要复核" }));
+  expect(screen.getByText("筛选仅影响显示，导出仍包含全部已完成题目。")).toBeTruthy();
   await user.click(screen.getByRole("button", { name: "下载题库 ZIP" })); await screen.findByText(/题库 ZIP 已下载/);
   expect(http.calls.find(call => call.url.includes("/export?"))).toMatchObject({ method: "GET", auth: "Account fake-service-token", url: `/api/document-tasks/${taskId}/export?checkpoint_id=checkpoint-one&scope=full` });
   expect(create).toHaveBeenCalledTimes(1); expect(click).toHaveBeenCalledTimes(1); expect(http.calls.filter(call => call.method !== "GET")).toHaveLength(0);

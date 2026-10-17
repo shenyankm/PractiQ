@@ -1,3 +1,4 @@
+import { chooseOption } from "../../shared/select-test.mjs";
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
@@ -24,11 +25,18 @@ async function capture(page, name) {
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), { message: `${name}: document overflow` }).toBe(true);
   const content = page.locator(".app-content");
   if (await content.count()) await expect.poll(() => content.evaluate(node => node.scrollWidth <= node.clientWidth), { message: `${name}: content overflow` }).toBe(true);
-  const defects = await page.locator('[data-slot="input"], [data-slot="input-group"], select, [data-slot="button"]:not([data-size^="icon"])').evaluateAll(nodes => {
+  const defects = await page.locator('[data-slot="input"], [data-slot="input-group"], [data-slot="select-trigger"], select, [data-slot="button"]:not([data-size^="icon"])').evaluateAll(nodes => {
     const minimum = matchMedia('(max-width: 767px), (any-pointer: coarse)').matches ? 48 : 40;
     return nodes.filter(node => node.getClientRects().length && node.getBoundingClientRect().height < minimum - 1).map(node => ({ name: node.getAttribute('aria-label') || node.textContent, height: node.getBoundingClientRect().height }));
   });
   assert.deepEqual(defects, [], `${name}: inconsistent control height`);
+  const misalignedSelects = await page.locator('[data-slot="native-select"], [data-slot="select-trigger"]').evaluateAll(nodes => nodes.filter(node => {
+    if (!node.getClientRects().length) return false;
+    const control = node.getBoundingClientRect(), wrapper = node.parentElement.getBoundingClientRect();
+    const icon = node.parentElement.querySelector('[data-slot="select-icon"]').getBoundingClientRect();
+    return getComputedStyle(node).alignItems !== 'center' || Math.abs(wrapper.height - control.height) > 1 || Math.abs(icon.y + icon.height / 2 - control.y - control.height / 2) > 1;
+  }).map(node => node.getAttribute('aria-label') || node.closest('label')?.textContent));
+  assert.deepEqual(misalignedSelects, [], `${name}: select text or arrow is off-center`);
   await page.screenshot({ path: fileURLToPath(new URL(`${name}.png`, output)), fullPage: true, animations: "disabled" });
   report.screenshots.push(name);
 }
@@ -72,17 +80,19 @@ try {
     if (name === "练习记录") {
       const filter = app.getByLabel("练习记录状态", { exact: true });
       await filter.click();
-      await expect(filter).toHaveCSS("appearance", "base-select");
-      await expect(filter.locator('option[value="all"]')).toBeVisible();
-      await expect(filter.locator('option[value="all"]')).toHaveCSS("color", "rgb(89, 55, 101)");
+      await expect(filter).toHaveAttribute("data-slot", "select-trigger");
+      await expect(app.getByRole("option", { name: "全部", exact: true })).toBeVisible();
+      await expect(app.getByRole("option", { name: "全部", exact: true })).toHaveCSS("color", "rgb(121, 80, 136)");
       await capture(app, "app-history-menu-light-desktop");
       await app.keyboard.press("Escape");
       await filter.focus();
       await app.keyboard.press("Space");
+      await expect(app.getByRole("option", { name: "全部", exact: true })).toBeFocused();
       await app.keyboard.press("End");
+      await expect(app.getByRole("option", { name: "已结束", exact: true })).toBeFocused();
       await app.keyboard.press("Enter");
-      await expect(filter).toHaveValue("finished");
-      await filter.selectOption("all");
+      await expect(filter).toHaveAttribute('data-value', "finished");
+      await chooseOption(filter, "all");
     }
   }
   await app.getByRole("button", { name: "配置", exact: true }).click();

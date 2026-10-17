@@ -28,7 +28,9 @@ Cards use 16px corners and a single thin border without shadows. Reuse existing 
 
 Ordinary buttons, inputs, input groups and selects have a desktop minimum height of 40px and a touch minimum of 48px. Desktop icon buttons retain their existing sizes; compact selects are 32px. Panels use 16px corners, controls use `--radius`, menus use 12px and menu items use 8px. Badges remain pill-shaped; checkboxes and radio buttons retain their semantic shapes. English buttons may wrap, with the same minimum height as Chinese buttons.
 
-Desktop single-select controls use themed picker panels, selected surfaces and checkmarks when `appearance: base-select` is supported. Touch devices and unsupported browsers retain system pickers, without changes to select values, events or keyboard behavior. Follow [MDN's progressive-enhancement approach](https://developer.mozilla.org/en-US/docs/Learn_web_development/Extensions/Forms/Customizable_select); no JavaScript select dependency is added.
+App and import Web share the shadcn/Radix single-select component. Desktop browsers use themed popup panels, selected surfaces and checkmarks without relying on `appearance: base-select` support. Coarse primary pointers retain system pickers with the same values and callbacks. Narrow desktop windows keep the custom menu. Both forms preserve labels, disabled states and keyboard selection; resizing preserves the current value.
+
+Single-select controls center their selected text within the shared control height, with wrappers matching the control bounds so the arrow stays centered. Do not render empty quick-count rows in study setup; unavailable presets must not add blank vertical spacing.
 
 Notifications reuse Sonner and existing theme switching. Success, information, warning and error foregrounds, backgrounds and borders come from shared semantic tokens, with 12px corners, one border and visible keyboard focus. See the [component audit](../history/product/design-audit.md).
 
@@ -37,6 +39,10 @@ Notifications reuse Sonner and existing theme switching. Success, information, w
 Dark mode uses warm-purple black pages (`#211c26`), cards (`#2b2431`) and pale-purple primary color (`#d9b5e5`). App retains system/light/dark preferences and reduced-motion support. Web retains its light default, with dark tokens shared with App; preview dark mode through `?theme=dark`. Preserve Android narrow navigation, dynamic viewports, safe areas and 48px touch targets.
 
 ## States and content
+
+Keep interface guidance concise: remove generic page subtitles and repeated bank-card instructions, while preserving user-authored descriptions. Backup contents and import rules are available in keyboard-accessible disclosures. Keep supported formats and upload limits visible before file selection. Keep cost notices, destructive-action consequences, timed-exam behavior and recovery messages visible at the relevant action. App copy changes apply to both Chinese and English.
+
+Exam setup must state that answers stay hidden during the exam and that a score preview is required before starting. Active result filters must explain that exports still include all completed questions. Partial-export guidance retains the available-question and matching-checkpoint requirements. Describe account tokens as stored only in page memory, without implying that refresh revokes the token.
 
 Production continues to use existing local data or the independent service. Demo entry points use existing mock banks and task fixtures. Preserve unfinished practice, empty banks, failed units, missing answers, review flags, loading and errors. Do not change questions, grading, persistence, import, restore or authentication. The Web preview API is isolated from the real service and does not upload, call models or download real artifacts.
 

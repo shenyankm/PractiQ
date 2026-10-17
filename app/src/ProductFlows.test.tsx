@@ -14,6 +14,34 @@ HTMLElement.prototype.hasPointerCapture = () => false;
 HTMLElement.prototype.scrollIntoView = () => {};
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
+it.each(["", "本周复习范围"])("keeps bank descriptions without adding repeated guidance (%s)", async description => {
+  setup();
+  const original = vi.mocked(api).getMockImplementation()!;
+  vi.mocked(api).mockImplementation(async request => request.type === "banks_page"
+    ? { items: [{ id: "bank", title: "English", count: 20, description }], total: 1, offset: 0 } as never
+    : original(request));
+  render(<App />);
+  await screen.findByRole("heading", { name: "English" });
+  if (description) expect(screen.getByText(description)).toBeTruthy();
+  expect(screen.queryByText("选择题目开始练习，或查看内容与复核提示。")).toBeNull();
+  expect(screen.getByRole("button", { name: "开始练习" })).toBeTruthy();
+});
+
+it("keeps backup exclusions available on demand and restore warnings visible", async () => {
+  setup(); render(<App />);
+  await screen.findByText("English");
+  await userEvent.click(screen.getByRole("button", { name: "设置" }));
+  const summary = await screen.findByText("备份范围与注意事项", { selector: "summary" });
+  expect(screen.queryByText("管理 AI 服务连接与本地学习数据")).toBeNull();
+  expect(screen.getByText("备份题库与学习记录，不含访问令牌。")).toBeTruthy();
+  expect(summary.closest("details")?.open).toBe(false);
+  await userEvent.click(summary);
+  expect(summary.closest("details")?.open).toBe(true);
+  expect(screen.getByText(/包含题库、图片、收藏、作答和评分记录/)).toBeTruthy();
+  await userEvent.click(screen.getByRole("button", { name: "恢复备份" }));
+  expect(screen.getByText("替换全部本地数据，操作前需确认")).toBeTruthy();
+});
+
 it.each([false,true])("requires replacement confirmation and explicit recovery selection (%s)",async recover => {
   setup(); render(<App />);
   await screen.findByText("English");
