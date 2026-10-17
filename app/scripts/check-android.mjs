@@ -381,7 +381,7 @@ test('dirty dialogs retain and save edits after a shortened viewport', async ({ 
   await save.tap();
   await expect(editor).toBeHidden();
   await page.setViewportSize(viewport);
-  const row = page.getByRole('button', { name: new RegExp(`${original} 移动端保存$`) }).locator('..');
+  const row = page.getByRole('button', { name: new RegExp(`^${original} 移动端保存`) }).locator('..');
   await row.getByRole('button', { name: '编辑题目', exact: true }).tap();
   await expect(stem).toHaveValue(`${original} 移动端保存`);
   await expect(maximum).toHaveValue('180');

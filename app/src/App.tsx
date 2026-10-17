@@ -621,7 +621,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
           {listPage && (
             <div className="space-y-5">
               <div className="question-filters flex flex-wrap items-end gap-3">
-                <div className="min-w-0 basis-full space-y-2 sm:basis-0 sm:flex-1">
+                <div className="min-w-0 basis-full space-y-2 sm:min-w-64 sm:basis-64 sm:flex-1">
                   <Label htmlFor="question-search">{t("搜索题目")}</Label>
                   <InputGroup>
                     <InputGroupAddon><Search /></InputGroupAddon>
@@ -634,7 +634,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                     />
                   </InputGroup>
                 </div>
-                <div className="w-full space-y-2 sm:w-40">
+                <div className="w-full space-y-2 sm:w-64">
                   <Label htmlFor="question-mode">{t("筛选题型")}</Label>
                   <NativeSelect
                     id="question-mode"
@@ -670,11 +670,16 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                           {offset + i + 1}
                         </span>
                         <button
-                          className="grid min-w-0 flex-1 grid-cols-1 items-center gap-2 md:grid-cols-[max-content_minmax(0,1fr)] md:gap-4 rounded-sm text-left focus-visible:outline-2 focus-visible:outline-ring"
+                          className="flex min-w-0 flex-1 flex-col items-stretch gap-2 rounded-sm text-left focus-visible:outline-2 focus-visible:outline-ring"
                           disabled={busy}
                           onClick={() => run(async () => setDetail(await api({type:"question_detail",id:row.id})))}
                         >
-                          <div className="min-w-0 space-y-2 md:min-w-40">
+                          <p className="line-clamp-2 min-w-0 text-sm leading-6 wrap-anywhere">
+                            {row.question.stem ||
+                              row.question.sourceText ||
+                              t("题干缺失")}
+                          </p>
+                          <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
                             <div className="flex flex-wrap items-center gap-2">
                               <Badge variant="outline">
                                 {modeNames()[row.question.answerMode || ""] ||
@@ -689,16 +694,11 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                             </div>
                             {row.latestScore && <span className="text-xs text-muted-foreground">{t("上次 {0} / {1} 分", { 0: row.latestScore.earnedCents / 100, 1: row.latestScore.maxCents / 100 })}</span>}
                             {page !== "questions" && (
-                              <span className="block max-w-40 truncate text-xs text-muted-foreground" title={row.bankTitle}>
+                              <span className="max-w-full truncate text-xs text-muted-foreground" title={row.bankTitle}>
                                 {row.bankTitle}
                               </span>
                             )}
                           </div>
-                          <p className="line-clamp-2 min-w-0 text-sm leading-6 wrap-anywhere">
-                            {row.question.stem ||
-                              row.question.sourceText ||
-                              t("题干缺失")}
-                          </p>
                         </button>
                         <div className="question-actions flex shrink-0 gap-3 sm:gap-4">
                         <Button
