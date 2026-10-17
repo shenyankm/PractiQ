@@ -65,6 +65,7 @@ class Delivery:
         self.service = service
         self.connected = False
         self.failed = asyncio.Event()
+        self.wake = asyncio.Event()
         self.handlers: set[asyncio.Task] = set()
 
     async def consume(self, message: AbstractIncomingMessage):
@@ -108,6 +109,7 @@ class Delivery:
         while not self.service.stopping:
             connection = None
             try:
+                self.wake.clear()
                 if load().read_only:
                     await self.wait(1)
                     continue
@@ -122,6 +124,7 @@ class Delivery:
                 tag = await queue.consume(self.consume, no_ack=False)
                 self.connected = True
                 while not self.service.stopping:
+                    self.wake.clear()
                     if connection.is_closed or consumer.is_closed or self.failed.is_set():
                         raise RuntimeError('Delivery connection lost')
                     rows = await self.service.db.rows(
@@ -139,7 +142,8 @@ class Delivery:
                         async with self.service.db.connection() as conn:
                             await conn.execute('UPDATE document_outbox SET published_at=now() WHERE run_id=%s AND created_at=%s', (row['run_id'], row['created_at']))
                     delay = 1
-                    await self.wait(1)
+                    if len(rows) < 100:
+                        await self.wait(1)
                 await queue.cancel(tag, timeout=5)
             except asyncio.CancelledError:
                 raise
@@ -168,7 +172,6 @@ class Delivery:
 
     async def wait(self, seconds):
         try:
-            await asyncio.wait_for(self.service.wake.wait(), timeout=seconds)
+            await asyncio.wait_for(self.wake.wait(), timeout=seconds)
         except TimeoutError:
             pass
-        self.service.wake.clear()

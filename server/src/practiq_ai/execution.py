@@ -161,7 +161,7 @@ async def store_put(runtime: Runtime[Any], kind: str, key: str, value: dict[str,
         raise DocumentProcessingError(503, "Execution store is unavailable", "EXECUTION_STORE_UNAVAILABLE") from exc
 
 
-async def reserve_model_call(runtime: Runtime[Any] | None) -> None:
+async def reserve_model_call(runtime: Runtime[Any] | None, *, check_only: bool = False) -> None:
     """Spend a preallocated unit slot before I/O, including unknown/replayed calls.
 
     A unit has exactly one sequential writer under native per-thread run exclusion;
@@ -177,7 +177,8 @@ async def reserve_model_call(runtime: Runtime[Any] | None) -> None:
         spent = previous.value["spent"] if previous else 0
         if spent >= CURRENT_ALLOWANCE.get():
             raise DocumentProcessingError(429, "Document model-call budget exhausted", "MODEL_BUDGET_EXCEEDED")
-        await store_put(runtime, "budget", unit, {"spent": spent + 1})
+        if not check_only:
+            await store_put(runtime, "budget", unit, {"spent": spent + 1})
     except DocumentProcessingError:
         raise
     except Exception as exc:

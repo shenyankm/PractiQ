@@ -9,6 +9,7 @@ from json import loads as json_decode
 from typing import Any, BinaryIO, Literal, LiteralString, cast
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
+from .capacity import bounded_map
 from .config import load, require_model_config
 from .contracts import (
     COMPOSITE_MODES,
@@ -40,7 +41,6 @@ from .execution import (
     supported_task_sql,
 )
 from .graphs.document import (
-    _bounded_map,
     _retry_update,
     load_unit_result,
     unit_failures,
@@ -147,7 +147,7 @@ async def create_task(request: DocumentTaskCreate) -> dict[str, Any]:
         response = await _enqueue(conn, task, request_id, request_hash,
                                   graph_input=request.model_dump(mode='json', include={'document', 'failurePolicy', 'officeMode', 'deduplicateQuestions'}))
         await _save_receipt(conn, thread_id, request_id, request_hash, response)
-    service.wake.set()
+    service.notify()
     return response
 
 
@@ -428,7 +428,7 @@ async def control_task(thread_id: str, request: DocumentTaskControl) -> dict[str
             response = await _enqueue(conn, task, request_id, request_hash, graph_input=graph_input, command=command,
                                       base=service.checkpoint_id(snapshot, run), generation=admission.value['generation'] if admission else 0)
         await _save_receipt(conn, thread_id, request_id, request_hash, response)
-    service.wake.set()
+    service.notify()
     return response
 
 
@@ -620,7 +620,7 @@ async def review_task(thread_id: str) -> dict[str, Any]:
     else:
         for key, stage, refs in (('visionResults', 'vision_parse', 'pageRefs'), ('chunkResults', 'document_parse', 'chunkRefs')):
             candidates = [item for item in sorted(values.get(key, []), key=lambda item: item['index']) if item.get('parsed')]
-            loaded = await _bounded_map(candidates, lambda item: load_unit_result(item, _task['document']['sha256']))
+            loaded = await bounded_map(candidates, lambda item: load_unit_result(item, _task['document']['sha256']))
             for item in loaded:
                 references = values.get(refs, [])
                 units.append({'stage': stage, 'index': item['index'], 'questions': item['parsed'].get('questions', []),

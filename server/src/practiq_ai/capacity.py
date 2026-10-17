@@ -3,12 +3,35 @@
 import asyncio
 import time
 from collections import deque
+from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
-from typing import Any
+from typing import Any, cast
 from weakref import WeakKeyDictionary
 
 from . import telemetry
 from .config import load
+
+
+async def bounded_map[ItemT, ResultT](
+    items: list[ItemT], function: Callable[[ItemT], Awaitable[ResultT]],
+) -> list[ResultT]:
+    """Bound storage tasks as well as I/O; drain workers before returning errors."""
+    work = iter(enumerate(items))
+    results = cast(list[ResultT], [None] * len(items))
+
+    async def worker() -> None:
+        for index, item in work:
+            results[index] = await function(item)
+
+    tasks = [asyncio.create_task(worker()) for _ in range(min(len(items), load().storage_concurrency))]
+    try:
+        await asyncio.gather(*tasks)
+        return results
+    finally:
+        for task in tasks:
+            if not task.done():
+                task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
 
 
 class ProviderGate:

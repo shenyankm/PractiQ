@@ -14,6 +14,7 @@ from openai import APIConnectionError, APIStatusError, APITimeoutError, RateLimi
 from pydantic import ValidationError
 
 from practiq_ai import llm
+from practiq_ai.capacity import bounded_map
 from practiq_ai.contracts import (
     ArtifactReference,
     VisualElement,
@@ -435,7 +436,7 @@ def test_storage_work_is_bounded_by_configuration(monkeypatch):
         active -= 1
         return item
 
-    assert asyncio.run(document._bounded_map(list(range(10)), work)) == list(
+    assert asyncio.run(bounded_map(list(range(10)), work)) == list(
         range(10)
     )
     assert peak == 2
