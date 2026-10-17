@@ -123,28 +123,32 @@ export class Client {
         if (!this.active || signal?.aborted) throw new DOMException("请求已取消", "AbortError");
         throw new ApiError(upload ? uploadRetry : mutation ? "连接中断，操作结果尚未确认。请先查询原任务，再决定是否重试。" : "无法连接服务。请检查服务状态，再手动重试读取。", "NETWORK_ERROR");
       }
-      if (!response.ok) {
-        let code = `HTTP_${response.status}`;
-        try {
-          const body = JSON.parse(new TextDecoder().decode(await readBytes(response, 64 * 1024, requestSignal))) as { detail?: { code?: string } };
-          if (body.detail?.code && /^[A-Z0-9_]{1,64}$/.test(body.detail.code)) code = body.detail.code;
-        } catch { /* Error bodies may be empty, text, or validation arrays. */ }
-        const known: Record<string, string> = {
-          DOCUMENT_TOO_LARGE: "文件超过服务限制，请选择较小的文件。",
-          UNSUPPORTED_FILE: "服务不支持此文件格式，请更换文件。",
-          OFFICE_NOT_FOUND: "服务尚未配置 Office 转换，请联系服务提供方或改用 PDF。",
-          STALE_RUN: "任务状态已更新，请刷新任务详情后再操作。",
-          TASK_BUSY: "任务正在处理，请等待并刷新状态。",
-        };
-        const message = response.status === 401 || response.status === 403 ? "服务访问令牌无效，请检查 AI_SERVICE_TOKEN。"
-          : known[code] ?? (response.status === 429 ? "请求过于频繁，请稍后再操作。"
-          : upload ? uploadRetry
-          : !mutation ? "读取失败，请稍后重试读取。"
-          : response.status >= 500 || response.status === 408 ? "操作结果尚未确认，请先查询原任务；不要重复提交。"
-          : "服务未接受此操作，请检查输入并刷新相关状态后再操作。");
-        throw new ApiError(`${message}（${code}）`, code, response.status);
+      try {
+        if (!response.ok) {
+          let code = `HTTP_${response.status}`;
+          try {
+            const body = JSON.parse(new TextDecoder().decode(await readBytes(response, 64 * 1024, requestSignal))) as { detail?: { code?: string } };
+            if (body.detail?.code && /^[A-Z0-9_]{1,64}$/.test(body.detail.code)) code = body.detail.code;
+          } catch { /* Error bodies may be empty, text, or validation arrays. */ }
+          const known: Record<string, string> = {
+            DOCUMENT_TOO_LARGE: "文件超过服务限制，请选择较小的文件。",
+            UNSUPPORTED_FILE: "服务不支持此文件格式，请更换文件。",
+            OFFICE_NOT_FOUND: "服务尚未配置 Office 转换，请联系服务提供方或改用 PDF。",
+            STALE_RUN: "任务状态已更新，请刷新任务详情后再操作。",
+            TASK_BUSY: "任务正在处理，请等待并刷新状态。",
+          };
+          const message = response.status === 401 || response.status === 403 ? "服务访问令牌无效，请检查 AI_SERVICE_TOKEN。"
+            : known[code] ?? (response.status === 429 ? "请求过于频繁，请稍后再操作。"
+            : upload ? uploadRetry
+            : !mutation ? "读取失败，请稍后重试读取。"
+            : response.status >= 500 || response.status === 408 ? "操作结果尚未确认，请先查询原任务；不要重复提交。"
+            : "服务未接受此操作，请检查输入并刷新相关状态后再操作。");
+          throw new ApiError(`${message}（${code}）`, code, response.status);
+        }
+        return await read(response, requestSignal);
+      } finally {
+        void response.body?.cancel().catch(() => {});
       }
-      return read(response, requestSignal);
     }, upload ? "文件上传超时，请检查连接后手动重试上传。" : mutation ? undefined : "读取请求超时，请稍后重试读取。");
   }
   private async json<T>(path: string, init?: RequestInit, signal?: AbortSignal): Promise<T> {

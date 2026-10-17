@@ -199,7 +199,7 @@ describe("task reads and explicit controls", () => {
     const client = new Client("fake-secret");
     await expect(client.capabilities()).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
     await expect(client.list(0)).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
-    try { await client.detail(taskId); } catch (error) { expect((error as Error).message).not.toContain("fake-secret"); expect(error).toMatchObject({ status: 401 }); }
+    await expect(client.detail(taskId)).rejects.toMatchObject({ status: 401, message: expect.not.stringContaining("fake-secret") });
   });
   it("targets running operations by run ID, and checkpoint operations by checkpoint ID", async () => {
     const fetcher = vi.fn().mockImplementation(async () => json(receipt, 202)); vi.stubGlobal("fetch", fetcher);
@@ -277,6 +277,17 @@ describe("checked private downloads", () => {
     await expect(client.exportBank(task)).resolves.toMatchObject({ name: `practiq-bank-${taskId}.zip` });
     await expect(client.exportBank(task)).rejects.toMatchObject({ code: "RESPONSE_TOO_LARGE" });
     expect(MAX_BANK_ZIP_BYTES).toBe(300 * 1024 * 1024);
+  });
+  it.each(["declared size", "content type", "error response"] as const)("cancels unread response bodies rejected for %s", async failure => {
+    const cancel = vi.fn();
+    const response = new Response(new ReadableStream({ cancel }), {
+      status: failure === "error response" ? 503 : 200,
+      headers: { "Content-Type": failure === "content type" ? "text/html" : "application/zip", "Content-Length": failure === "content type" ? "1" : String(MAX_BANK_ZIP_BYTES + 1) },
+    });
+    vi.stubGlobal("fetch", vi.fn(async () => response));
+    await expect(new Client("fake").exportBank(task)).rejects.toMatchObject({ code: failure === "declared size" ? "RESPONSE_TOO_LARGE" : failure === "content type" ? "INVALID_RESPONSE" : "HTTP_503" });
+    expect(cancel).toHaveBeenCalledTimes(1);
+    expect(response.body?.locked).toBe(false);
   });
 });
 
