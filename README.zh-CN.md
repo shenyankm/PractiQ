@@ -21,11 +21,13 @@ PractiQ 仍处于开发阶段，请按下方步骤从源码运行；已发布安
 
 ## 截图
 
-桌面开发预览使用内存示例数据，Web 连接界面使用模拟任务 API；未输入凭据、上传文件或调用模型。点击图片可查看原图。
+以下截图均为英文环境下的桌面开发预览，题库名称、描述、题目和练习记录使用人工编写的英文示例。所有数据仅保存在内存中，未输入凭据、上传文件或调用模型。点击图片可查看原图。
 
-| 桌面题库 | Web 文档导入 |
-| --- | --- |
-| [![PractiQ 桌面开发预览中的题库首页](docs/assets/desktop-preview.png)](docs/assets/desktop-preview.png) | [![独立文档导入 Web 前端](docs/assets/new-web-import.png)](docs/assets/new-web-import.png) |
+| 题库 | 答题 |
+| :---: | :---: |
+| [![英文题库首页，包含示例题库名称和描述](docs/assets/screenshots/banks-en.png)](docs/assets/screenshots/banks-en.png) | [![英文答题页面，包含选项和答题卡](docs/assets/screenshots/practice-en.png)](docs/assets/screenshots/practice-en.png) |
+| **错题** | **练习记录** |
+| [![英文错题列表，包含得分和所属题库](docs/assets/screenshots/mistakes-en.png)](docs/assets/screenshots/mistakes-en.png) | [![英文练习记录，包含进度和成绩](docs/assets/screenshots/history-en.png)](docs/assets/screenshots/history-en.png) |
 
 ## 先体验：无需配置模型
 
