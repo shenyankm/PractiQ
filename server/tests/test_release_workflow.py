@@ -9,6 +9,7 @@ import shutil
 import struct
 import subprocess
 import sys
+import tomllib
 import zipfile
 from contextlib import contextmanager
 from pathlib import Path, PureWindowsPath
@@ -141,6 +142,48 @@ def test_release_versions_preserve_independent_service_and_reject_lock_drift(rel
     lock.write_text(json.dumps(payload))
     with pytest.raises(ValueError, match="must match"):
         release.versions(source, "v0.1.0")
+
+
+@pytest.mark.parametrize("version", ["0.2.0-alpha.1", "0.2.0-beta.2", "0.2.0-rc.3", "1.0.0"])
+def test_version_bump_updates_only_client_versions_and_is_idempotent(release, source, version):
+    bump = runpy.run_path(str(ROOT / "app/scripts/bump-version.py"))["bump_version"]
+    npm_path = source / "app/package-lock.json"
+    npm = json.loads(npm_path.read_text())
+    npm["packages"]["node_modules/unchanged"] = {"version": "0.1.0"}
+    npm_path.write_text(json.dumps(npm))
+    cargo_path = source / "app/src-tauri/Cargo.lock"
+    cargo_path.write_text(cargo_path.read_text() + '\n[[package]]\nname = "unchanged"\nversion = "0.1.0"\n')
+    before = {path: path.read_bytes() for path in source.rglob("*") if path.is_file()}
+    bump(source, version)
+    assert release.versions(source, f"v{version}") == {"desktop": version, "aiServiceSource": "0.3.0"}
+    npm["version"] = npm["packages"][""]["version"] = version
+    assert json.loads(npm_path.read_text()) == npm
+    cargo_before = tomllib.loads(before[cargo_path].decode())
+    own = next(package for package in cargo_before["package"] if package["name"] == "practiq-desktop")
+    own["version"] = version
+    assert tomllib.loads(cargo_path.read_text()) == cargo_before
+    assert (source / "server/pyproject.toml").read_bytes() == before[source / "server/pyproject.toml"]
+    assert (source / "app/src-tauri/tauri.android.conf.json").read_bytes() == before[source / "app/src-tauri/tauri.android.conf.json"]
+    after = {path: path.read_bytes() for path in before}
+    bump(source, version)
+    assert {path: path.read_bytes() for path in before} == after
+
+
+@pytest.mark.parametrize("fault", ["invalid", "drift", "layout"])
+def test_version_bump_rejects_invalid_inputs_before_writing_any_file(source, fault):
+    bump = runpy.run_path(str(ROOT / "app/scripts/bump-version.py"))["bump_version"]
+    if fault == "drift":
+        path = source / "app/src-tauri/tauri.conf.json"
+        data = json.loads(path.read_text())
+        data["version"] = "0.9.0"
+        path.write_text(json.dumps(data))
+    elif fault == "layout":
+        path = source / "app/src-tauri/Cargo.toml"
+        path.write_text(path.read_text().replace('version = "0.1.0"', "version = '0.1.0'", 1))
+    before = {path: path.read_bytes() for path in source.rglob("*") if path.is_file()}
+    with pytest.raises(ValueError, match="Use X|must match|Expected one"):
+        bump(source, "v0.2.0" if fault == "invalid" else "0.2.0")
+    assert {path: path.read_bytes() for path in before} == before
 
 
 @pytest.mark.parametrize("field,value", [("packageMode", "bundled-ai"), ("packageSchemaVersion", 1)])
@@ -325,6 +368,10 @@ def test_release_candidate_requires_clean_tagged_main_ancestor(release, source):
         release.check_candidate(source, "v0.1.0")
     git("tag", "-d", "v0.1.0")
     git("tag", "v0.1.0")
+    with pytest.raises(ValueError, match="annotated tag"):
+        release.check_candidate(source, "v0.1.0")
+    git("tag", "-d", "v0.1.0")
+    git("tag", "-a", "v0.1.0", "-m", "Not on main")
     with pytest.raises(subprocess.CalledProcessError):
         release.check_candidate(source, "v0.1.0")
 
@@ -390,6 +437,24 @@ def test_release_assembly_hashes_every_public_asset_and_keeps_acceptance_pending
     assert "@VERSION@" not in notes and "0.3.0" in notes and "[ ]" in notes
     with pytest.raises(FileExistsError):
         release.assemble(source, "v0.1.0", staged, output)
+
+
+def test_release_notes_include_generated_changes_without_completing_acceptance(release, source, staged):
+    changes = source / "changes.md"
+    changes.write_text("## Changes\n* Fix bank import (#123)\n\n**Full Changelog**: previous...v0.1.0\n")
+    output = source / "assets"
+    release.assemble(source, "v0.1.0", staged, output, changes=changes)
+    notes = (output / "RELEASE_NOTES.md").read_text()
+    assert changes.read_text() in notes and "@CHANGES@" not in notes
+    assert "[ ]" in notes and "[x]" not in notes
+    assert "Pending" in notes and "Unsigned" in notes
+
+
+def test_release_changes_option_cannot_be_used_for_candidate_validation(release, monkeypatch):
+    monkeypatch.setattr(sys, "argv", ["release.py", "check", "--tag", "v0.1.0", "--changes", "changes.md"])
+    with pytest.raises(SystemExit) as error:
+        release.main()
+    assert error.value.code == 2
 
 
 @pytest.mark.parametrize("mutation", ["missing_platform", "commit", "asset", "evidence", "failed_gate", "escape", "missing_notice", "missing_service"])
@@ -1154,6 +1219,57 @@ def test_release_workflow_uses_full_checks_and_only_creates_drafts():
     commands = "\n".join(s.get("run", "") for s in workflow["jobs"]["draft"]["steps"])
     assert "--draft --verify-tag --latest=false" in commands and "--clobber" not in commands
     assert "remote_sha" in commands and "release publish" not in commands
+
+
+@pytest.mark.parametrize("ref,sha,passes", [("refs/tags/v0.1.0", "a" * 40, True),
+    ("refs/heads/main", "a" * 40, False), ("refs/tags/v0.1.0", "b" * 40, False)])
+def test_release_dispatch_rejects_a_different_workflow_source(tmp_path, ref, sha, passes):
+    workflow = yaml.load((ROOT / ".github/workflows/release.yml").read_text(), Loader=yaml.BaseLoader)
+    candidate = next(step for step in workflow["jobs"]["candidate"]["steps"] if step.get("id") == "candidate")
+    assert candidate["env"]["WORKFLOW_SHA"] == "${{ github.sha }}"
+    assert candidate["env"]["WORKFLOW_REF"] == "${{ github.ref }}"
+    marker = tmp_path / "checked"
+    for name, body in (("git", 'printf "%s\\n" ' + "a" * 40), ("python", f'touch "{marker}"')):
+        script = tmp_path / name
+        script.write_text("#!/bin/sh\n" + body + "\n")
+        script.chmod(0o755)
+    result = subprocess.run(["bash", "-eo", "pipefail", "-c", candidate["run"]], check=False,
+                            env={**os.environ, "PATH": str(tmp_path) + os.pathsep + os.environ["PATH"],
+                                 "RELEASE_TAG": "v0.1.0", "WORKFLOW_REF": ref, "WORKFLOW_SHA": sha})
+    assert (result.returncode == 0) is passes and marker.exists() is passes
+
+
+def test_draft_assets_are_attested_and_verified_before_creation():
+    workflow = yaml.load((ROOT / ".github/workflows/release.yml").read_text(), Loader=yaml.BaseLoader)
+    draft = workflow["jobs"]["draft"]
+    assert draft["permissions"] == {"contents": "write", "id-token": "write", "attestations": "write"}
+    steps = draft["steps"]
+    attest = next(step for step in steps if step.get("id") == "provenance")
+    verify = next(step for step in steps if "gh attestation verify" in step.get("run", ""))
+    create = next(step for step in steps if "gh release create" in step.get("run", ""))
+    assert steps.index(attest) < steps.index(verify) < steps.index(create)
+    assert "if" not in verify and "continue-on-error" not in verify and "if" not in create
+    for name in ("PractiQ_*", "SHA256SUMS.txt", "release-manifest.json", "release-evidence.zip"):
+        assert f"app/.build/release-assets/{name}" in attest["with"]["subject-path"]
+        assert f"app/.build/release-assets/{name}" in verify["run"] and name in create["run"]
+    assert verify["env"]["CANDIDATE_SHA"] == "${{ needs.candidate.outputs.sha }}"
+    assert verify["env"]["ATTESTATION_BUNDLE"] == "${{ steps.provenance.outputs.bundle-path }}"
+    assert '--source-digest "$CANDIDATE_SHA"' in verify["run"]
+    assert '--source-ref "refs/tags/$RELEASE_TAG"' in verify["run"]
+    assert '--signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release.yml"' in verify["run"]
+    assert "--deny-self-hosted-runners" in verify["run"]
+
+
+def test_release_tag_policies_separate_creation_privileges_from_immutability():
+    creation = json.loads((ROOT / ".github/release-tag-creation-ruleset.json").read_text())
+    immutable = json.loads((ROOT / ".github/release-tag-immutability-ruleset.json").read_text())
+    for ruleset in (creation, immutable):
+        assert ruleset["target"] == "tag" and ruleset["enforcement"] == "active"
+        assert ruleset["conditions"]["ref_name"] == {"include": ["refs/tags/v*"], "exclude": []}
+    assert creation["rules"] == [{"type": "creation"}]
+    assert creation["bypass_actors"] == [{"actor_id": 5, "actor_type": "RepositoryRole", "bypass_mode": "always"}]
+    assert {rule["type"] for rule in immutable["rules"]} == {"update", "deletion"}
+    assert immutable["bypass_actors"] == []
 
 
 @pytest.mark.parametrize("platform,damage", [("darwin", "wrong_cpu"), ("darwin", "script"),
