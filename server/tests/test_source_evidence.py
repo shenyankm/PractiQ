@@ -1,4 +1,5 @@
 from copy import deepcopy
+from types import SimpleNamespace
 
 import pytest
 
@@ -32,6 +33,46 @@ def evidence(text, questions, **kwargs):
     spans: list[chunking.ChunkSpan] = [{'start': 0, 'end': len(text), 'overlapStart': 0, 'overlapEnd': 0}]
     sources = [QuestionSource(questionIndex=index, stage='document_parse', unitIndex=0) for index in range(len(questions))]
     return chunking.build_source_evidence(text, questions, sources, spans, **kwargs)
+
+
+@pytest.mark.parametrize('newline', ['\n', '\r\n'])
+@pytest.mark.parametrize('indent', ['', '  \t'])
+def test_source_frame_matching_bounds_work_and_preserves_offsets(monkeypatch, newline, indent):
+    count = 100
+    records = [f'{indent}{i + 1}. Short answer: Prompt {i}{newline}Reference answer: Answer {i}' for i in range(count)]
+    text = f'Worksheet instructions{newline}{newline}' + (newline * 2).join(records)
+    questions = [ParsedQuestion(id=f'q{i}', stem=f'Prompt {i}', answerMode='short_answer',
+                                answerPayload={'text': f'Answer {i}'}, sourceText=records[i]) for i in reversed(range(count))]
+    before = deepcopy(questions)
+    pattern = chunking._TYPED_QUESTION
+    calls = 0
+
+    def match(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        return pattern.match(*args, **kwargs)
+
+    monkeypatch.setattr(chunking, '_TYPED_QUESTION', SimpleNamespace(match=match, finditer=pattern.finditer))
+    proven = evidence(text, questions)
+    assert len(proven) == count and all(proven.values())
+    for i in range(count):
+        assert f'Prompt {i}' in str(proven[f'q{i}'])
+    assert questions == before
+    assert calls <= count * 10
+
+
+@pytest.mark.parametrize('quote', [
+    'Worksheet instructions', 'Short answer: Q', '1. Short answer:',
+    '1. Short answer: Q\nReference answer: A\n2. Short answer: Other',
+])
+def test_source_frame_lookup_rejects_preamble_partial_and_cross_record_quotes(quote):
+    first = '1. Short answer: Q\nReference answer: A'
+    second = '2. Short answer: Other\nReference answer: B'
+    text = 'Worksheet instructions\n\n' + first + '\n' + second
+    questions = [ParsedQuestion(id='q0', stem='Q', sourceText=quote),
+                 ParsedQuestion(id='q1', stem='Other', sourceText=second)]
+    proven = evidence(text, questions)
+    assert proven['q0'] is None and proven['q1']
 
 
 def test_source_identity_normalization_requires_whole_proven_tree_and_keeps_business_fields():

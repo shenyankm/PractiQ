@@ -1,0 +1,155 @@
+{
+  "checkedAt": "2026-10-17T09:29:25.998124+00:00",
+  "baseline": "039bce0890451c90563d0c0a455df5a92ce5c3d0",
+  "branch": "sheny/server-python-performance",
+  "scope": "Local macOS Python CPU and verified-storage passive projection; full local service checks with substituted models and disposable PostgreSQL/RabbitMQ. No hosted/live-model or production-throughput claim.",
+  "fullVerification": {
+    "command": "PYTHONPATH=<checkout>/server/src make verify AI_PYTHON=<existing Python 3.14 interpreter>",
+    "exitCode": 0,
+    "tests": {
+      "tests": 2743,
+      "errors": 0,
+      "failures": 0,
+      "skipped": 0
+    },
+    "warnings": 11,
+    "durationSeconds": 418.28,
+    "coverage": {
+      "lineRate": 0.9485,
+      "branchRate": 0.9004,
+      "linesCovered": 6818,
+      "linesValid": 7188,
+      "branchesCovered": 2404,
+      "branchesValid": 2670
+    },
+    "evaluationFixtures": 33,
+    "probeCount": 61,
+    "probeMetrics": {
+      "recoverySuccessRate": 100.0,
+      "correctStopRate": 100.0,
+      "routingPassRate": 100.0,
+      "unknownUsagePassRate": 100.0
+    },
+    "durableCrashRecoveryAggregate": "NOT_ASSESSED",
+    "package": {
+      "sourceFiles": 40,
+      "wheelSha256": "82e8400b1afe88df0ab0ea6648ae63ced24400fa5107abf1391eca828d1b5ce6",
+      "sdistSha256": "7756c7791bc4460344e8e659d80c0fe5adb5b2c65b2c26369a13751519d55c6c",
+      "licenseSha256": "045e49d0a632ea4bf644d1db045d300b313c03097212268a6c3dc15235795079"
+    }
+  },
+  "focusedRegression": {
+    "passedAfter": 103,
+    "newBaselineFailures": 4,
+    "newBaselinePasses": 4,
+    "failureReason": "100-question typed-heading matching performed 5350 regex calls, exceeding the 1000-operation bound"
+  },
+  "retainedFirstFailures": {
+    "benchmark-fixture-error.log": "Incomplete synthetic DocumentParseResult fixture rejected before measurement; corrected fixture validates the full shared contract.",
+    "ruff.log": "Initial benchmark closure/import lint findings; corrected before final timings.",
+    "pyright.log": "Initial benchmark type findings; corrected before final timings.",
+    "verify.log": "Installed namespace import failure before test execution; rerun with explicit current-source PYTHONPATH."
+  },
+  "measurement": {
+    "workloads": 6,
+    "measuredSamplesPerVersionWorkloadOperation": 21,
+    "allOutputHashesMatch": true,
+    "unchangedInputsAsserted": true,
+    "baselineHelpersAstUnchanged": true,
+    "baselineChunkingSha256": "b3afc7e337bbf56c46959d18741fcc96f64b7740804a7dd4bd2e1981c0a16883",
+    "probeSha256": "5eddabe9d5fa563ede9f0373415fe3b400f3f2ca117229d78d394540ca7d6f52",
+    "candidateSourceSha256": {
+      "server/src/practiq_ai/graphs/chunking.py": "d845e9812300929b29273c5aa52f458d7abb02d4b94bb8d8c8184071e42cbaa9",
+      "server/src/practiq_ai/graphs/document.py": "b555b7b4634694a7bc905daf0d1ded8bba15ea001d1c724a3b9b7a6ffc33819f"
+    }
+  },
+  "preservedPriorEvidence": {
+    "files": 842,
+    "pngs": 658,
+    "missing": [],
+    "changed": [],
+    "appendOnlyRuntimeLogs": []
+  },
+  "files": {
+    "server/reports/python-performance-20261017.json": {
+      "bytes": 16571,
+      "sha256": "99b073aa5b680ea1fbc269de3f562d43a6765cd74fa03235491f6edf39bf3af9"
+    },
+    "server/reports/checks/probes.json": {
+      "bytes": 11799,
+      "sha256": "352a156da47998036e4abbd4e2fb8229aaafddce2a7db7dd9f3cdbb1b8297fef"
+    },
+    "server/reports/checks/probes.xml": {
+      "bytes": 1465283,
+      "sha256": "fd7678e5c7ffa8c264dbca12ee08f556c2e2031c585f8e17fb14b491a3cf9a91"
+    },
+    "server/reports/checks/coverage.xml": {
+      "bytes": 332120,
+      "sha256": "ec8c7a48a0aeccbcb9ce50626a98f7495cbf9ff6f6ebfb269ee65131481a7ffa"
+    },
+    "server/reports/checks/python-performance-20261017/verify.log": {
+      "bytes": 1368,
+      "sha256": "ba4157bd8cea39b595a8c8d9dfa3068c3eac179296cf6b891d43d9cad7b2619e"
+    },
+    "server/reports/checks/python-performance-20261017/benchmark-final.log": {
+      "bytes": 518,
+      "sha256": "5517bc4211561db072f8da3c24f1467f444cafefddb360c0c0a97e6172e529a5"
+    },
+    "server/reports/checks/python-performance-20261017/benchmark.log": {
+      "bytes": 518,
+      "sha256": "23ed18f2d968856f13399292c139249e4646cbdb9c62a7fd2e053320c0daaf19"
+    },
+    "server/reports/checks/python-performance-20261017/ruff-fix.log": {
+      "bytes": 38,
+      "sha256": "aac3a0503d8b95052cc85fb9f1717dc82b74aa55853a5aa9749b41e30275d472"
+    },
+    "server/reports/checks/python-performance-20261017/regression-after.log": {
+      "bytes": 180,
+      "sha256": "22eb829faaf18af5662aee8dc00d611635ae615f4e701d52e94f680064af5901"
+    },
+    "server/reports/checks/python-performance-20261017/pyright-final.log": {
+      "bytes": 191,
+      "sha256": "f552d237ad0bd249c05f97eb62dbc65d2d0e4a5fe2346608e10fb7838dba9ed1"
+    },
+    "server/reports/checks/python-performance-20261017/ruff.log": {
+      "bytes": 6248,
+      "sha256": "e82afee43ac16c6ca8374deb9e1af8f2f057b541f318ed6d98d799f67368732d"
+    },
+    "server/reports/checks/python-performance-20261017/benchmark-prelint.log": {
+      "bytes": 518,
+      "sha256": "23ed18f2d968856f13399292c139249e4646cbdb9c62a7fd2e053320c0daaf19"
+    },
+    "server/reports/checks/python-performance-20261017/pyright.log": {
+      "bytes": 1313,
+      "sha256": "69ce3e9610d93ab6289d30f8f5e580ecc0286d88a1d690d2215d7c0f093f315e"
+    },
+    "server/reports/checks/python-performance-20261017/regression-before.log": {
+      "bytes": 6937,
+      "sha256": "a328ce7151cff3b52bcaf206edebb1222d740c96d8c74202a510832791eec781"
+    },
+    "server/reports/checks/python-performance-20261017/ruff-final.log": {
+      "bytes": 19,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    "server/reports/checks/python-performance-20261017/benchmark-fixture-error.log": {
+      "bytes": 2784,
+      "sha256": "6287e20fb9dd75c2e0e0201f03fbaf5bea5651cdd809680b7d5d289c3c3eb755"
+    },
+    "server/reports/checks/python-performance-20261017/verify-source-path.log": {
+      "bytes": 17748,
+      "sha256": "c1211da3cf476273fbefc43a0f93d691e626506b1221715851edca0138100753"
+    },
+    "server/reports/checks/python-performance-20261017/profile-baseline.txt": {
+      "bytes": 2249,
+      "sha256": "f12c0e66edf22af9524a0f1b14c77111fb3083f98531c70c7fe64b7b1dcbbf48"
+    },
+    "server/reports/checks/python-performance-20261017/benchmark-prelint.json": {
+      "bytes": 16579,
+      "sha256": "bb837c1a428051cec940c2c5133390e7b0f278442ba41cab61bfc05597bf5b56"
+    },
+    "server/reports/checks/python-performance-20261017/probe-prelint.py": {
+      "bytes": 8962,
+      "sha256": "24e2370da426c5bd539c4b7792e5c7fd8577d3bfece1b2a211dac016f7091ed9"
+    }
+  }
+}
