@@ -48,6 +48,11 @@ class Service:
         self.lock = None
         self.fatal = os._exit
 
+    def notify(self):
+        # Each loop owns its event; one reader must not consume another's wakeup.
+        self.wake.set()
+        self.delivery.wake.set()
+
     async def start(self):
         await self.db.open()
         try:
@@ -129,7 +134,7 @@ class Service:
         self.accepting = False
         self.stopping = True
         self.stop_event.set()
-        self.wake.set()
+        self.notify()
         if self.loop:
             await self.loop
         if self.active:
@@ -259,7 +264,7 @@ class Service:
         self.active.pop(run_id, None)
         if account and self.account_runs.get(account) == run_id:
             self.account_runs.pop(account)
-        self.wake.set()
+        self.notify()
         if not task.cancelled() and task.exception() is not None:
             self.accepting = False
             self.fatal(70)
@@ -304,7 +309,8 @@ class Service:
                 if await self.unknown_calls(run):
                     raise DocumentProcessingError(409, 'Model result unknown; explicit recovery required', 'MODEL_RESULT_UNKNOWN')
                 await graph.ainvoke(graph_input, {'configurable': {'thread_id': run['thread_id']},
-                    'run_id': run_id, 'metadata': {'practiqRunId': run_id}}, context=dict(run['context']), durability='sync')
+                    'run_id': run_id, 'metadata': {'practiqRunId': run_id}},
+                    context={**run['context'], 'runDatabase': self.db}, durability='sync')
             snapshot = await self.snapshot(task)
             # A resumed node can pause again without advancing its checkpoint.
             saved_status = 'waiting' if snapshot.interrupts else self.saved_run_status(snapshot, run)

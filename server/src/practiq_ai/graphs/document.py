@@ -22,6 +22,7 @@ from langgraph.types import Overwrite, Send, interrupt
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from practiq_ai import telemetry
+from practiq_ai.capacity import bounded_map
 from practiq_ai.config import load
 from practiq_ai.contracts import (
     COMPOSITE_MODES,
@@ -611,26 +612,6 @@ class ChunkTask(TypedDict):
     unitKey: NotRequired[str]
 
 
-async def _bounded_map[ItemT, ResultT](
-    items: list[ItemT],
-    function: Callable[[ItemT], Awaitable[ResultT]],
-) -> list[ResultT]:
-    semaphore = asyncio.Semaphore(load().storage_concurrency)
-
-    async def run(item: ItemT) -> ResultT:
-        async with semaphore:
-            return await function(item)
-
-    tasks = [asyncio.create_task(run(item)) for item in items]
-    try:
-        return list(await asyncio.gather(*tasks))
-    finally:
-        for task in tasks:
-            if not task.done():
-                task.cancel()
-        await asyncio.gather(*tasks, return_exceptions=True)
-
-
 async def _load_context(state: DocumentState, runtime: Runtime[None]) -> dict[str, Any]:
     incoming = DocumentParseInput.model_validate(
         {
@@ -797,7 +778,7 @@ async def _prepare(state: DocumentState, *, source_types: tuple[DocumentSourceTy
         if text
         else None
     )
-    page_refs = await _bounded_map(
+    page_refs = await bounded_map(
         [
             (data, "page", index, vision._media_type(data))
             for index, data in enumerate(page_images)
@@ -1200,7 +1181,7 @@ async def _assemble(state: DocumentState) -> dict[str, Any]:
             media_type="text/plain",
         )
 
-    chunk_refs = await _bounded_map(list(enumerate(chunks)), put_chunk)
+    chunk_refs = await bounded_map(list(enumerate(chunks)), put_chunk)
     return {
         "warnings": warnings,
         "truncated": truncated,
@@ -1351,7 +1332,7 @@ async def _crop_visuals(
                                         [visuals[index].kind for index, _ in items])
         return [(item[0], crop) for item, crop in zip(items, crops, strict=True)]
 
-    payloads = dict(item for batch in await _bounded_map(selected_pages, get_crops) for item in batch)
+    payloads = dict(item for batch in await bounded_map(selected_pages, get_crops) for item in batch)
     reference = DocumentReference.model_validate(state["document"])
 
     async def crop(
@@ -1380,7 +1361,7 @@ async def _crop_visuals(
         return visual_index, artifact, None
 
     failures: list[UnitFailure] = []
-    for index, artifact, failure in await _bounded_map(selected, crop):
+    for index, artifact, failure in await bounded_map(selected, crop):
         if artifact is not None:
             visuals[index] = visuals[index].model_copy(update={"imageRef": artifact, "description": ("[page crop] " + visuals[index].description)[:20_000] if state.get("effectiveSourceType", reference.sourceType) == "pdf" else visuals[index].description})
         if failure is not None:
@@ -1425,7 +1406,7 @@ async def load_unit_result(item: dict[str, Any], source_sha256: str) -> dict[str
 async def _merge(state: DocumentState, *, passive: bool = False) -> dict[str, Any]:
     checkpoint_state = state
     source_sha256 = state["document"]["sha256"]
-    state = cast(DocumentState, {**state, **{key: await _bounded_map(state.get(key, []), lambda item: load_unit_result(item, source_sha256))
+    state = cast(DocumentState, {**state, **{key: await bounded_map(state.get(key, []), lambda item: load_unit_result(item, source_sha256))
                                            for key in ("visionResults", "chunkResults")}})
     pages = bool(state.get("pageRefs"))
     ordered = sorted(
@@ -1782,28 +1763,28 @@ def _guarded(function: Callable[..., Awaitable[dict[str, Any]]], *, with_runtime
             try:
                 async with asyncio.timeout(await run_remaining(runtime)):
                     result = await (function(state, runtime) if with_runtime else function(state))
+                    for key in ("visionResults", "chunkResults", "failures"):
+                        if isinstance(result.get(key), list):
+                            result[key] = [dict(item, round=state.get("round", 0)) for item in result[key]]
+                            if key != "failures":
+                                for item in result[key]:
+                                    if item.get("parsed") is None or item.get("resultRef"):
+                                        continue
+                                    store = await asyncio.to_thread(get_object_store)
+                                    audit = item.get("agentReview")
+                                    payload = json.dumps({"parsed":item["parsed"], "visuals":item.get("visuals", []), "agentReview":audit}, ensure_ascii=False, separators=(",", ":")).encode()
+                                    source_sha256 = state.get("sourceSha256") or state["execution"]["document"]["sha256"]
+                                    reference = await store.put_artifact(payload, source_sha256=source_sha256, kind="unit-result", index=item["index"], media_type="application/json")
+                                    item["resultRef"] = reference.model_dump(mode="json")
+                                    item["parsed"] = {"questionCount":len(item["parsed"].get("questions", []))}
+                                    item["visuals"] = []
+                                    if audit:
+                                        item["agentReview"] = {
+                                            "status": audit["status"], "failureCode": audit["failureCode"],
+                                            "missingQuestions": audit["missingQuestions"],
+                                        }
             except TimeoutError as exc:
                 raise DocumentProcessingError(504, "Run execution deadline exceeded", "RUN_DEADLINE_EXCEEDED") from exc
-            for key in ("visionResults", "chunkResults", "failures"):
-                if isinstance(result.get(key), list):
-                    result[key] = [dict(item, round=state.get("round", 0)) for item in result[key]]
-                    if key != "failures":
-                        for item in result[key]:
-                            if item.get("parsed") is None or item.get("resultRef"):
-                                continue
-                            store = await asyncio.to_thread(get_object_store)
-                            audit = item.get("agentReview")
-                            payload = json.dumps({"parsed":item["parsed"], "visuals":item.get("visuals", []), "agentReview":audit}, ensure_ascii=False, separators=(",", ":")).encode()
-                            source_sha256 = state.get("sourceSha256") or state["execution"]["document"]["sha256"]
-                            reference = await store.put_artifact(payload, source_sha256=source_sha256, kind="unit-result", index=item["index"], media_type="application/json")
-                            item["resultRef"] = reference.model_dump(mode="json")
-                            item["parsed"] = {"questionCount":len(item["parsed"].get("questions", []))}
-                            item["visuals"] = []
-                            if audit:
-                                item["agentReview"] = {
-                                    "status": audit["status"], "failureCode": audit["failureCode"],
-                                    "missingQuestions": audit["missingQuestions"],
-                                }
             if result.get("status") in {"SUCCEEDED", "PARTIAL"}:
                 telemetry.event("review_candidate", status=result["status"], sourceType=source_type,
                                 reviewRequired=result.get("processing", {}).get("quality", {}).get("reviewRequired", False),

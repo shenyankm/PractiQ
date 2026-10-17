@@ -260,7 +260,7 @@ async def test_cancelled_provider_wait_is_measured_and_releases_only_owned_slot(
     if phase == "concurrency":
         await gate.semaphore.acquire()
     else:
-        async def wait_rate():
+        async def wait_rate(_check=None):
             entered.set()
             await asyncio.Event().wait()
         monkeypatch.setattr(gate, "wait_rate", wait_rate)

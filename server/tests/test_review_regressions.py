@@ -18,6 +18,7 @@ from PIL import Image
 from pydantic import ValidationError
 
 from practiq_ai import config, execution, webapp
+from practiq_ai.capacity import bounded_map
 from practiq_ai.contracts import ParsedQuestion, VisualElement
 from practiq_ai.errors import DocumentProcessingError
 from practiq_ai.extractors import ExtractedDocument, image, isolated
@@ -191,7 +192,7 @@ async def test_failed_batch_waits_for_sibling_cancellation():
         finally:
             stopped.set()
     with pytest.raises(ValueError, match='failed'):
-        await document._bounded_map([0, 1], work)
+        await bounded_map([0, 1], work)
     assert stopped.is_set()
 
 

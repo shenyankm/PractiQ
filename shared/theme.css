@@ -120,8 +120,9 @@ input, textarea { caret-color: var(--primary); }
 [data-slot="card"]:not([data-size="sm"]) { --card-spacing: 1.5rem; }
 [data-slot="card-title"] { font-size: 1.125rem; font-weight: 600; line-height: 1.5; }
 [data-slot="card-description"] { line-height: 1.75; }
-[data-slot="button"] { font-weight: 500; }
-[data-slot="button"]:not([data-size^="icon"]) { min-height: var(--control-height); }
+/* Radix composition replaces data-slot; button identity must remain stable. */
+[data-button] { font-weight: 500; }
+[data-button]:not([data-size^="icon"]) { min-height: var(--control-height); }
 [data-slot="input"], [data-slot="input-group"], [data-slot="native-select"], [data-slot="select-trigger"], select { min-height: var(--control-height); }
 [data-slot="native-select"][data-size="sm"], [data-slot="select-trigger"][data-size="sm"] { min-height: 2rem; }
 [data-slot="input-group-control"] { min-height: 0; align-self: stretch; height: auto; }
@@ -167,8 +168,8 @@ html [data-sonner-toaster][data-sonner-theme] {
 }
 @media (max-width: 767px), (any-pointer: coarse) {
   :root { --control-height: 3rem; }
-  [data-slot="button"], [data-slot="button"]:not([data-size^="icon"]), [data-slot="native-select"][data-size="sm"], [data-slot="select-trigger"][data-size="sm"], [data-slot="select-item"], [data-slot="dropdown-menu-item"], [data-slot="dropdown-menu-radio-item"] { min-height: 3rem; }
+  [data-button], [data-button]:not([data-size^="icon"]), [data-slot="native-select"][data-size="sm"], [data-slot="select-trigger"][data-size="sm"], [data-slot="select-item"], [data-slot="dropdown-menu-item"], [data-slot="dropdown-menu-radio-item"] { min-height: 3rem; }
 }
 @media (prefers-reduced-motion: reduce) {
-  [data-slot="button"] { transition: none; }
+  [data-button] { transition: none; }
 }

@@ -521,8 +521,11 @@ async def structured_call[ResultT: BaseModel](
                 error_code = "MODEL_INPUT_TOO_LARGE"
                 return {"error": {"status": 413, "code": "MODEL_INPUT_TOO_LARGE", "detail": "Model text input exceeds the configured limit"}}
             metered = await saas.begin_call(runtime, str(call_key), result_key)
-            await reserve_model_call(runtime)
-            async with provider_slot(record):
+            # Reject exhausted units before queueing; spend only after pause recheck.
+            await reserve_model_call(runtime, check_only=True)
+            async with provider_slot(record, check=lambda: guard(runtime)):
+                await guard(runtime)
+                await reserve_model_call(runtime)
                 if runtime:
                     await store_put(runtime, "calls", str(call_key), record)
                 if call_record_writer:

@@ -18,6 +18,52 @@ async function navigate(page, name) {
 }
 
 for (const width of [1280, 360]) {
+  test(`history refresh stays beside filters and preserves read recovery at ${width}px`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 850 });
+    await inject(page, `
+      if (command === 'request' && args?.request?.type === 'sessions_page') {
+        globalThis.historyReads = [...(globalThis.historyReads || []), args.request];
+        if (globalThis.historyFail) { globalThis.historyFail = false; throw new Error('Synthetic history read failure'); }
+        while (globalThis.historyHold) await new Promise(resolve => setTimeout(resolve, 20));
+        if (!globalThis.historyPopulated) return { items: [], total: 0, offset: 0 };
+      }
+    `);
+    await page.goto('/');
+    await navigate(page, '练习记录');
+    const refresh = page.getByRole('button', { name: '刷新', exact: true });
+    const filter = page.getByRole('combobox', { name: '练习记录状态', exact: true });
+    await expect(refresh).toBeEnabled();
+    await expect(page.getByText('还没有练习记录', { exact: true })).toBeVisible();
+    const [action, select, empty] = await Promise.all([refresh, filter, page.locator('[data-slot="empty"]')].map(node => node.boundingBox()));
+    expect(Math.abs(action.y + action.height / 2 - select.y - select.height / 2)).toBeLessThanOrEqual(1);
+    expect(action.y + action.height).toBeLessThan(empty.y);
+    expect(action.x).toBeGreaterThan(select.x + select.width);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath(`history-refresh-empty-${width}.png`), fullPage: true });
+    await chooseOption(filter, 'active');
+    await expect(page.getByText('没有符合此状态的记录', { exact: true })).toBeVisible();
+    const reads = await page.evaluate(() => globalThis.historyReads.length);
+    await page.evaluate(() => { globalThis.historyPopulated = true; globalThis.historyHold = true; });
+    await refresh.click();
+    await expect(refresh).toBeDisabled();
+    await page.evaluate(() => { globalThis.historyHold = false; });
+    await expect(page.getByRole('button', { name: '继续练习', exact: true }).first()).toBeVisible();
+    await expect(refresh).toBeEnabled();
+    const requests = await page.evaluate(() => globalThis.historyReads.slice(-1));
+    expect(requests[0]).toMatchObject({ filter: 'active', offset: 0 });
+    expect(await page.evaluate(() => globalThis.historyReads.length)).toBe(reads + 1);
+    await page.screenshot({ path: testInfo.outputPath(`history-refresh-populated-${width}.png`), fullPage: true });
+    await page.evaluate(() => { globalThis.historyFail = true; });
+    await refresh.click();
+    await expect(page.getByRole('alert')).toBeVisible();
+    await expect(refresh).toBeEnabled();
+    await page.getByRole('button', { name: '重试', exact: true }).click();
+    await expect(page.getByRole('alert')).toBeHidden();
+    await expect(filter).toHaveText('进行中');
+  });
+}
+
+for (const width of [1280, 360]) {
   test(`overview and committed import recover without replay at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 800 });
     await inject(page, `

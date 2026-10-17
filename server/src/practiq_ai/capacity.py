@@ -3,12 +3,35 @@
 import asyncio
 import time
 from collections import deque
+from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
-from typing import Any
+from typing import Any, cast
 from weakref import WeakKeyDictionary
 
 from . import telemetry
 from .config import load
+
+
+async def bounded_map[ItemT, ResultT](
+    items: list[ItemT], function: Callable[[ItemT], Awaitable[ResultT]],
+) -> list[ResultT]:
+    """Bound storage tasks as well as I/O; drain workers before returning errors."""
+    work = iter(enumerate(items))
+    results = cast(list[ResultT], [None] * len(items))
+
+    async def worker() -> None:
+        for index, item in work:
+            results[index] = await function(item)
+
+    tasks = [asyncio.create_task(worker()) for _ in range(min(len(items), load().storage_concurrency))]
+    try:
+        await asyncio.gather(*tasks)
+        return results
+    finally:
+        for task in tasks:
+            if not task.done():
+                task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
 
 
 class ProviderGate:
@@ -18,8 +41,10 @@ class ProviderGate:
         self.starts: deque[float] = deque()
         self.lock = asyncio.Lock()
 
-    async def wait_rate(self) -> None:
+    async def wait_rate(self, check: Callable[[], Awaitable[None]] | None = None) -> None:
         while True:
+            if check is not None:
+                await check()
             async with self.lock:
                 now = time.monotonic()
                 while self.starts and self.starts[0] <= now - 60:
@@ -35,7 +60,9 @@ _providers: WeakKeyDictionary[asyncio.AbstractEventLoop, ProviderGate] = WeakKey
 
 
 @asynccontextmanager
-async def provider_slot(record: dict[str, Any] | None = None):
+async def provider_slot(
+    record: dict[str, Any] | None = None, *, check: Callable[[], Awaitable[None]] | None = None,
+):
     loop = asyncio.get_running_loop()
     if loop not in _providers:
         config = load()
@@ -46,7 +73,7 @@ async def provider_slot(record: dict[str, Any] | None = None):
         await gate.semaphore.acquire()
     try:
         with telemetry.measure("provider_rate_wait", timings, "rateWaitMs"):
-            await gate.wait_rate()
+            await gate.wait_rate(check)
         with telemetry.inflight.track_inprogress():
             yield
     finally:

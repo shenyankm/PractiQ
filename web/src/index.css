@@ -182,9 +182,9 @@ footer { padding: 18px 36px; border-top: 1px solid var(--border); color: var(--m
   footer { padding: 18px 16px; line-height: 1.7; }
 }
 @media (max-width: 767px), (any-pointer: coarse) {
-  [data-slot="button"], select, summary, .workspace-link { min-height: 48px; }
-  [data-slot="button"] { min-width: 48px; }
-  [data-slot="button"]:not([data-size^="icon"]) { height: auto; white-space: normal; }
+  [data-button], select, summary, .workspace-link { min-height: 48px; }
+  [data-button] { min-width: 48px; }
+  [data-button]:not([data-size^="icon"]) { height: auto; white-space: normal; }
   [data-slot="input"] { min-height: 48px; font-size: 16px; }
   #main-content, #task-detail, #task-list-heading { scroll-margin-top: 160px; }
 }
