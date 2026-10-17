@@ -1,7 +1,7 @@
 @import "tailwindcss";
 @import "../../shared/theme.css";
 @import "../../shared/document-content.css";
-@source "../../shared/select.tsx";
+@source "../../shared";
 /*!
 shadcn 4.21.0 CSS variants.
 Source: https://github.com/shadcn-ui/ui/tree/7c9eaba1c0a6404c990c144a654792e3313c650d/packages/shadcn
@@ -96,6 +96,9 @@ h4 { font-size: 14px; font-weight: 600; margin: 8px 0; }
 .empty-panel p { max-width: 400px; font-size: 14px; line-height: 1.7; }
 .file-picker { display: block; padding: 24px 16px; border: 1px dashed var(--input); border-radius: var(--radius); background: var(--background); text-align: center; }
 .file-picker > svg { margin: 0 auto 6px; width: 26px; height: 26px; color: var(--primary); }
+/* Native file labels must share the full inner control height. */
+[data-slot="input"][type="file"] { padding-block: 0; line-height: calc(var(--control-height) - 2px); }
+[data-slot="input"][type="file"]::file-selector-button { height: calc(var(--control-height) - 2px); font-size: inherit; line-height: inherit; }
 .file-picker > span { display: block; margin-bottom: 10px; font-weight: 500; }
 .file-picker:hover, .file-picker:focus-within { border-color: var(--primary); background: var(--secondary); }
 select { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 6px 10px; border: 1px solid var(--input); }
@@ -209,4 +212,3 @@ footer { padding: 18px 36px; border-top: 1px solid var(--border); color: var(--m
 .delete-confirmation:focus-visible { outline: 3px solid var(--ring); outline-offset: 4px; }
 
 .task-title h2 { font-size: 1.625rem; }
-.design-preview-notice { padding: 0.625rem 1rem; text-align: center; font-size: 0.8125rem; color: var(--secondary-foreground); background: var(--secondary); }

@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { expect, it, vi } from "vitest";
 import App from "./App";
@@ -39,7 +39,7 @@ function fakeHTTP(initial: DocumentTaskDetail = task) {
 }
 async function connect(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText("手机号"), "13800138000"); await user.type(screen.getByLabelText("账户令牌"), "fake-service-token"); await user.click(screen.getByRole("button", { name: "查询记录" }));
-  await screen.findByText("服务已连接");
+  await screen.findByText(/^服务支持：/);
 }
 async function openTask(user: ReturnType<typeof userEvent.setup>) {
   await user.click(await screen.findByRole("button", { name: /sample.docx/ }));
@@ -90,7 +90,7 @@ it.each<[boolean, string, string, string]>([
   expect(http.calls.every(call => call.method === "GET")).toBe(true);
 });
 
-it("keeps Token in memory, clears it on disconnect, and performs no HTTP before connect", async () => {
+it("keeps Token in memory, clears it on remount, and performs no HTTP before connect", async () => {
   const user = userEvent.setup(); const http = fakeHTTP(); const persist = vi.spyOn(Storage.prototype, "setItem"); render(<App />);
   expect(screen.getByText(/令牌仅保存在本页内存，刷新后需重填/)).toBeTruthy();
   expect(http.calls.every(call => call.url === "/api/products" && call.method === "GET")).toBe(true);
@@ -103,7 +103,9 @@ it("keeps Token in memory, clears it on disconnect, and performs no HTTP before 
   expect(screen.getByText("服务支持：PDF、TXT、CSV、PNG/JPEG、Word (.doc)、Word (.docx)、Excel (.xls)、Excel (.xlsx)")).toBeTruthy();
   expect(screen.queryByLabelText("账户令牌")).toBeNull(); expect(persist).not.toHaveBeenCalled();
   expect(http.calls.every(call => (call.url === "/api/products" || call.auth === "Account fake-service-token") && !call.url.includes("fake-service-token") && call.method === "GET")).toBe(true);
-  await user.click(screen.getByRole("button", { name: "断开连接" })); expect((screen.getByLabelText("账户令牌") as HTMLInputElement).value).toBe("");
+  expect(screen.queryByRole("button", { name: "断开连接" })).toBeNull();
+  expect(screen.queryByText("服务已连接")).toBeNull();
+  cleanup(); render(<App />); expect((screen.getByLabelText("账户令牌") as HTMLInputElement).value).toBe("");
   const count = http.calls.length; vi.useFakeTimers(); await act(async () => vi.advanceTimersByTimeAsync(10_000)); expect(http.calls).toHaveLength(count);
   expect(localStorage.length).toBe(0); expect(sessionStorage.length).toBe(0);
 });
@@ -170,9 +172,9 @@ it("recovers failed task/capability reads and ignores obsolete pages after a fil
   const user = userEvent.setup(); const http = fakeHTTP(); let failList = true, failCap = true;
   http.server.intercept = url => { if (url.includes("capabilities") && failCap) { failCap = false; return json({ detail: { code: "SERVICE_UNAVAILABLE" } }, 503); } if (url.startsWith("/api/document-tasks?") && failList) { failList = false; return json({ detail: { code: "TASK_SERVICE_UNAVAILABLE" } }, 503); } };
   render(<App />); await user.type(screen.getByLabelText("手机号"), "13800138000"); await user.type(screen.getByLabelText("账户令牌"), "fake-service-token"); await user.click(screen.getByRole("button", { name: "查询记录" }));
-  await screen.findByText("连接验证失败");
+  await screen.findByRole("button", { name: "重试读取服务能力" });
   expect(screen.queryByText("正在验证服务")).toBeNull();
-  await user.click(await screen.findByRole("button", { name: "重试读取服务能力" })); await screen.findByText("服务已连接");
+  await user.click(await screen.findByRole("button", { name: "重试读取服务能力" })); await screen.findByText(/^服务支持：/);
   await user.click(await screen.findByRole("button", { name: "重试任务列表" })); await screen.findByRole("button", { name: /sample.docx/ });
   let release!: (response: Response) => void;
   http.server.intercept = url => { if (url.includes("offset=20")) return new Promise(resolve => { release = resolve; }); if (url.includes("state_filter=failed")) return json({ items: [{ ...summary, threadId: newTaskId, fileName: "current-failed.pdf" }], hasMore: false }); };
@@ -368,7 +370,7 @@ it("connects an existing account with passive reads and has no card binding acti
   await user.type(screen.getByLabelText("账户令牌"), "account-token");
   expect(http.calls.filter(call => call.method === "POST")).toHaveLength(0);
   await user.click(screen.getByRole("button", { name: "查询记录" }));
-  await screen.findByText("服务已连接");
+  await screen.findByText(/^服务支持：/);
   expect(http.calls.filter(call => call.method === "POST")).toHaveLength(0);
   expect(screen.queryByRole("button", { name: "绑定并查询" })).toBeNull();
 });

@@ -6,7 +6,7 @@ The independent AI service's Web frontend handles source selection, upload, task
 
 ## Start and review
 
-Enter a phone number and an operator-issued token for an existing account. Both credentials remain in browser memory and clear on disconnect or reload. Service Bearer tokens are reserved for legacy-task administration and App grading; they do not authorize customer imports. Choose up to ten supported files, select the Office mode when available and explicitly start import. File selection makes no upload or model request. The server validates the source bytes and stores the original SHA-256; Office normalization remains part of that same source task.
+Enter a phone number and an operator-issued token for an existing account. Both credentials remain in browser memory and clear on page reload. Service Bearer tokens are reserved for legacy-task administration and App grading; they do not authorize customer imports. Choose up to ten supported files, select the Office mode when available and explicitly start import. File selection makes no upload or model request. The server validates the source bytes and stores the original SHA-256; Office normalization remains part of that same source task.
 
 **自动去重** is off by default. When enabled before **开始导入**, it merges only questions or complete composite-question trees with identical business payloads and source evidence, retaining source associations and warnings. Missing or conflicting evidence is kept for review. When disabled, possible duplicate candidates appear in result warnings and all copies remain. The choice is fixed for each submitted file and retained by explicit retries and parse again; start a new import to change it. Selecting the checkbox makes no request.
 

@@ -1,0 +1,48 @@
+Window: "PractiQ Simplify QA — isolated regression", App: PractiQ Simplify QA.
+0 standard window PractiQ Simplify QA — isolated regression, Secondary Actions: Raise
+	1 scroll area
+		2 HTML content Description: PractiQ, URL: tauri://localhost
+			3 container
+				4 button (expanded) 收起侧边栏, Secondary Actions: Collapse
+				5 text PractiQ
+				6 container 主导航
+					7 button 我的题库
+					8 button 错题本
+					9 button 收藏夹
+					10 button 练习记录
+				11 pop up button 主题
+				12 pop up button 语言
+				13 button 设置
+			14 container
+				15 heading 我的题库, Value: 1
+					16 text 我的题库
+				17 text 1 个题库 · 20 道题目
+				18 button 刷新
+				19 button 新建题库
+				20 button 导入
+				21 heading 继续未完成的练习, Value: 2
+					22 text 继续未完成的练习
+				23 text 全题型示例题库 · 练习 · 5 题 已提交 0/5 题
+				24 progress indicator (settable, float) 继续未完成的练习, Value: 0
+				25 button 查看全部
+				26 button 继续练习
+				27 heading 全题型示例题库, Value: 2
+					28 text 全题型示例题库
+				29 pop up button 题库操作 全题型示例题库
+				30 text 人工编写的操作样例，不代表模型准确率。 20 题
+				31 button 查看题目
+				32 button 开始练习
+			33 container 通知 alt+T
+	34 close button
+	35 full screen button Help: this button also has an action to zoom the window, Secondary Actions: zoom the window
+	36 minimize button
+	37 text PractiQ Simplify QA — isolated regression
+38 menu bar
+	39 PractiQ Simplify QA
+	40 File
+	41 Edit
+	42 View
+	43 Window
+	44 Help
+
+The focused UI element is 19 button 新建题库

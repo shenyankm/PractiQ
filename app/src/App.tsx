@@ -136,6 +136,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
   const [restoreOpen, setRestoreOpen] = useState(false);
   const [banks, setBanks] = useState<BankChoice[]>([]);
   const [banksReady, setBanksReady] = useState(false);
+  const [bankListLoading, setBankListLoading] = useState(true);
   const [bankError, setBankError] = useState<unknown>(null);
   const [infoError, setInfoError] = useState<unknown>(null);
   const [bank, setBank] = useState<string | null>(null);
@@ -539,7 +540,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
             )}
 
             {page === "banks" && (
-              <><Button variant="outline" disabled={bankActionsUnavailable} onClick={event => { bankEditorTrigger.current = event.currentTarget; setOperationError(null); setBankEditor({ id: null, title: "", description: "" }); }}><Plus />{t("新建题库")}</Button><Button disabled={bankActionsUnavailable} onClick={() => navigate("settings", null, true)}><Upload />{t("导入")}</Button></>
+              <><Button variant="outline" disabled={busy || bankListLoading} onClick={() => setListRevision(value => value + 1)}>{t("刷新")}</Button><Button variant="outline" disabled={bankActionsUnavailable} onClick={event => { bankEditorTrigger.current = event.currentTarget; setOperationError(null); setBankEditor({ id: null, title: "", description: "" }); }}><Plus />{t("新建题库")}</Button><Button disabled={bankActionsUnavailable} onClick={() => navigate("settings", null, true)}><Upload />{t("导入")}</Button></>
             )}
             {page === "banks" && banks.length > 1 && (
               <Button ref={mergeTrigger} variant="outline" disabled={bankActionsUnavailable} onClick={() => setMergeOpen(true)}>{t("合并题库")}</Button>
@@ -595,6 +596,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
             offset={bankOffset}
             onOffsetChange={setBankOffset}
             revision={listRevision}
+            onLoadingChange={setBankListLoading}
             busy={bankActionsUnavailable}
             ready={!!info && banksReady}
             run={run}

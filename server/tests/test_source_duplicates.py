@@ -135,9 +135,10 @@ async def test_source_warning_after_safe_removal_names_only_surviving_trees_and_
     assert [item['id'] for item in result['result']['questions']] == ['q0', 'q2']
     assert all(item['needsReview'] for item in result['result']['questions'])
     assert result['processing']['quality']['reviewQuestionCount'] == 2
-    assert {(issue['questionId'], issue['code']) for issue in result['processing']['quality']['issues']} == {('q0', 'NEEDS_REVIEW'), ('q2', 'NEEDS_REVIEW')}
+    assert [(issue['questionId'], issue['code']) for issue in result['processing']['quality']['issues']] == [('q0', 'NEEDS_REVIEW'), ('q2', 'NEEDS_REVIEW')]
     warning = next(warning for warning in result['result']['warnings'] if warning.startswith('Repeated source question groups'))
-    assert 'q0' in warning and 'q2' in warning and 'q1' not in warning
+    assert warning == ('Repeated source question groups: q0 (fragment 1); q2 (fragment 1). '
+                       'Parsed versions are not strictly identical; the remaining copies were retained for review.')
     assert any('Removed 1 exact duplicate' in warning for warning in result['result']['warnings'])
 
 

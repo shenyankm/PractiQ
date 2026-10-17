@@ -1,11 +1,9 @@
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
-import { designPreview } from "./scripts/design-preview.ts";
 
-export default defineConfig(({ mode }) => ({
+export default defineConfig({
   plugins: [
-    ...(mode === "design-preview" ? [designPreview()] : []),
     {
       name: "katex-woff2",
       enforce: "pre",
@@ -18,7 +16,7 @@ export default defineConfig(({ mode }) => ({
     },
     react(), tailwindcss(),
   ],
-  resolve: { dedupe: ["react", "react-dom", "radix-ui", "lucide-react", "cn"], alias: { "@": new URL("./src", import.meta.url).pathname } },
+  resolve: { dedupe: ["react", "react-dom", "radix-ui", "lucide-react", "cn", "class-variance-authority"], alias: { "@": new URL("./src", import.meta.url).pathname } },
   server: {
     host: "127.0.0.1",
     port: 5173,
@@ -42,4 +40,4 @@ export default defineConfig(({ mode }) => ({
       thresholds: { statements: 80, branches: 73, functions: 73, lines: 85 },
     },
   },
-}));
+});
