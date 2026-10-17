@@ -22,7 +22,7 @@ PractiQ is in development. Run it from source using the instructions below; chec
 These screenshots show the desktop development preview in English, including hand-written English question banks and practice records. All data is held in memory; no credentials, uploads or model calls were used. Click an image to view it at full size.
 
 | Question banks | Practice |
-| --- | --- |
+| :---: | :---: |
 | [![English question banks with sample titles and descriptions](docs/assets/screenshots/banks-en.png)](docs/assets/screenshots/banks-en.png) | [![English practice question with answer options and answer sheet](docs/assets/screenshots/practice-en.png)](docs/assets/screenshots/practice-en.png) |
 | **Mistakes** | **Practice history** |
 | [![English mistakes list with scores and source banks](docs/assets/screenshots/mistakes-en.png)](docs/assets/screenshots/mistakes-en.png) | [![English practice history with session progress and results](docs/assets/screenshots/history-en.png)](docs/assets/screenshots/history-en.png) |
