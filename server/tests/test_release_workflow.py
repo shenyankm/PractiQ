@@ -9,13 +9,13 @@ import shutil
 import struct
 import subprocess
 import sys
+import tomllib
 import zipfile
 from contextlib import contextmanager
 from pathlib import Path, PureWindowsPath
 from types import SimpleNamespace
 
 import pytest
-import tomllib
 import yaml
 
 ROOT = Path(__file__).parents[2]
