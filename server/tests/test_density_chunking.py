@@ -16,11 +16,7 @@ from practiq_ai.extractors.csv import extract as extract_csv
 from practiq_ai.extractors.isolated import _read_result, _write_result
 from practiq_ai.extractors.isolated import extract as isolated_extract
 from practiq_ai.graphs import document
-from practiq_ai.graphs.chunking import (
-    source_presence_hints,
-    split_chunk_plan,
-    split_chunk_spans,
-)
+from practiq_ai.graphs.chunking import split_chunk_plan
 from tests.support import (
     FakeModel,
     MemoryStore,
@@ -28,6 +24,7 @@ from tests.support import (
     question,
     run_config,
     source,
+    source_presence_hints,
 )
 
 
@@ -43,7 +40,7 @@ def table_questions(count: int) -> str:
 
 def test_short_dense_source_uses_node_budget_without_source_overlap():
     text = numbered_questions(33)
-    spans = split_chunk_spans(text)
+    spans, _, _ = split_chunk_plan(text)
     assert len(spans) == 3
     assert ''.join(text[item['start']:item['end']] for item in spans) == text
     assert [len(re.findall(r'^\d+\. Short answer:', text[item['start']:item['end']], re.MULTILINE)) for item in spans] == [16, 16, 1]
@@ -66,7 +63,7 @@ def test_parent_tree_is_not_cut_at_node_budget():
         '17. Single choice: First\nParent ID: 16. Shared option owner: 16.\n'
         '18. Single choice: Second\nParent ID: 16. Shared option owner: 16.'
     )
-    spans = split_chunk_spans(text)
+    spans, _, _ = split_chunk_plan(text)
     assert len(spans) == 2
     assert text[spans[1]['start']:].startswith('16. Word bank:')
     assert spans[0]['end'] == spans[1]['start']
@@ -123,7 +120,7 @@ def test_closed_tree_over_node_target_remains_whole():
     assert len(spans) == 1 and counts == [18] and header is None
     assert spans[0]['start'] == 0 and spans[0]['end'] == len(text)
     with pytest.raises(DocumentProcessingError) as invalid:
-        split_chunk_spans('1. Short answer: ' + 'x' * 40_000)
+        split_chunk_plan('1. Short answer: ' + 'x' * 40_000)
     assert invalid.value.code == 'DOCUMENT_CHUNK_TOO_LARGE'
 
 

@@ -11,8 +11,8 @@ from pydantic import ValidationError
 
 from practiq_ai import execution, llm
 from practiq_ai.graphs import document
-from practiq_ai.graphs.chunking import source_presence_hints, split_chunk_plan
-from tests.support import FakeModel, MemoryStore, source
+from practiq_ai.graphs.chunking import split_chunk_plan
+from tests.support import FakeModel, MemoryStore, source, source_presence_hints
 
 SOURCE = (
     'Reading comprehension — Morning\nArticle: The sky is blue.\n'

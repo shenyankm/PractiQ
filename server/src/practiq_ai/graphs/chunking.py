@@ -227,14 +227,6 @@ def _reference_supplied(value: str) -> bool:
     return nonempty(decoded)
 
 
-def source_presence_hints(
-    text: str, *, source_type: str = 'text', tabular_rows_safe: bool = False,
-    complete: bool = True, start: int = 0, end: int | None = None,
-) -> dict[str, SourcePresenceHint] | None:
-    span: ChunkSpan = {'start': start, 'end': len(text) if end is None else end, 'overlapStart': start, 'overlapEnd': start}
-    return source_presence_plan(text, [span], source_type=source_type, tabular_rows_safe=tabular_rows_safe, complete=complete)[0]
-
-
 def source_presence_plan(
     text: str, spans: list[ChunkSpan], *, source_type: str = 'text',
     tabular_rows_safe: bool = False, complete: bool = True,
@@ -308,10 +300,6 @@ def source_presence_plan(
     return plan
 
 
-def split_chunk_spans(text: str, target_chars: int = CHUNK_TARGET_CHARS, *, tabular_rows_safe: bool = False) -> list[ChunkSpan]:
-    return split_chunk_plan(text, target_chars, tabular_rows_safe=tabular_rows_safe)[0]
-
-
 def split_chunk_plan(text: str, target_chars: int = CHUNK_TARGET_CHARS, *, tabular_rows_safe: bool = False, source_type: str = 'text', complete: bool = True) -> tuple[list[ChunkSpan], str | None, list[int | None]]:
     """Keep verified trees whole; otherwise preserve legacy source spans exactly."""
     if not 0 < target_chars <= CHUNK_MAX_CHARS:
@@ -341,8 +329,6 @@ def split_chunk_plan(text: str, target_chars: int = CHUNK_TARGET_CHARS, *, tabul
 
 def _legacy_split_chunk_spans(text: str, target_chars: int) -> list[ChunkSpan]:
     """Persist source offsets; overlap is source identity, never a stem heuristic."""
-    if not 0 < target_chars <= CHUNK_MAX_CHARS:
-        raise ValueError("Chunk target must be within the hard input limit")
     ranges: list[tuple[int, int]] = []
     boundaries = [match.start() for match in QUESTION_BOUNDARY_PATTERN.finditer(text)]
     if len(text) <= target_chars:
