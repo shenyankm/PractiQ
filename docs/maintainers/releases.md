@@ -24,6 +24,19 @@ service version is independent. Native installer metadata may normalize
 prerelease syntax; document that mapping rather than changing the product tag.
 Keep the full version in the application and asset names.
 
+Use the existing Python 3.14+ interpreter to update all six client entries without
+resolving dependencies or changing the independent service version:
+
+```sh
+"$AI_PYTHON" app/scripts/bump-version.py 0.2.0-alpha.1
+git diff -- app/package.json app/package-lock.json app/src-tauri/Cargo.toml app/src-tauri/Cargo.lock app/src-tauri/tauri.conf.json
+```
+
+The updater rejects noncanonical versions, inconsistent current versions and
+unsupported TOML layouts before writing. Review and commit the diff; this command
+does not commit, create a tag or run release acceptance. Version `0.2.0-alpha.1`
+is an example for a future test candidate, not a selected or published release.
+
 Create an annotated tag on a clean, committed candidate already on `main`:
 
 ```sh
@@ -36,6 +49,32 @@ Tagging/pushing and publication require maintainer intent; building alone does
 not authorize them. Never move a published tag or replace its assets. Corrections
 need a new version. Mark suffix versions as **Pre-release**; use **Latest** only
 for an accepted ordinary release. A draft is preparation, not acceptance.
+
+## Repository protection setup
+
+After reviewing and merging these policies, an administrator can apply both
+checked-in tag rulesets through Settings → Rules → Rulesets, or explicitly:
+
+```sh
+gh api --method POST repos/shenyankm/PractiQ/rulesets --input .github/release-tag-creation-ruleset.json
+gh api --method POST repos/shenyankm/PractiQ/rulesets --input .github/release-tag-immutability-ruleset.json
+gh api repos/shenyankm/PractiQ/rulesets
+```
+
+Inspect existing rulesets first; update an existing policy by its ID rather than
+creating duplicates. Both target `refs/tags/v*`. The creation policy allows only
+repository administrators (RepositoryRole 5) to bypass creation restrictions.
+The separate immutability policy forbids updates and deletions with no bypass
+actors, including administrators. Keep these policies separate so permission to
+create a candidate never permits silently moving or deleting it. Review any
+future change to eligible creators explicitly. Rulesets alone do not enforce
+SemVer, annotated tags or main ancestry; candidate checks enforce those.
+
+Enable **Settings → General → Releases → Enable release immutability** before
+publication and verify the resulting published Release is immutable. Checked-in
+JSON and a merged PR do not activate repository settings; record the actual
+ruleset IDs/enforcement and immutability setting separately. Public settings
+changes, tagging and publication remain explicit maintainer operations.
 
 ## Assets
 
@@ -83,14 +122,19 @@ release description. SHA-256 detects content changes; it is not a publisher sign
 ## Draft workflow
 
 Merge the release workflow and matching versions before creating the candidate
-tag. Run **Release draft** from Actions on `main`, entering the existing tag, or:
+tag. Run **Release draft** from Actions using that candidate tag as the workflow
+ref and entering the same existing tag, or:
 
 ```sh
-gh workflow run release.yml --ref main -f tag=v0.1.0-alpha.1
+gh workflow run release.yml --ref v0.1.0-alpha.1 -f tag=v0.1.0-alpha.1
 ```
 
-The workflow validates versions, the tag's commit, clean source and ancestry on
-`main`. It reuses Service and Desktop CI at that exact commit, forces full checks
+The workflow validates versions, an annotated tag, the tag's commit, clean source
+and ancestry on `main`. It rejects a workflow ref other than the selected tag or
+a workflow source SHA different from the candidate checkout. This binds the
+Actions OIDC source identity to the candidate rather than a later main commit.
+The candidate must already include this workflow version. It reuses Service and
+Desktop CI at that exact commit, forces full checks
 regardless of changed paths, and gates macOS arm64, Windows x64 and Android arm64
 assets. From a private read-only installer snapshot it mounts the final macOS
 DMG, safely extracts the NSIS payload, or inspects the APK archive and binary
@@ -104,11 +148,53 @@ diagnostics remain in Actions. Prerelease status never bypasses these gates.
 Assembly rejects missing platforms, mismatched commits/versions, altered
 installers or missing/failed package evidence. It bundles service reports,
 generates checksums, and fills [the release template](../../.github/RELEASE_TEMPLATE.md).
+GitHub's [generated release notes](https://docs.github.com/en/repositories/releasing-projects-on-github/automatically-generated-release-notes)
+provide a merged-PR summary using [.github/release.yml](../../.github/release.yml):
+enhancements, fixes and other changes. The first release covers the repository's
+initial history; later summaries use GitHub's previous-release comparison.
+Maintainers review this draft, curate user-visible highlights and record published
+versions in [CHANGELOG.md](../../CHANGELOG.md). Automatic summaries do not complete
+manual compatibility, signing or acceptance sections and do not publish a Release.
 The template is project-owned; GitHub does not load this filename automatically.
 The workflow verifies the remote tag again, creates only a draft and never
 updates an existing release, publishes, or marks a draft Latest. Retry failed
 pre-draft runs; an existing draft is deliberately rejected to avoid replacing
 reviewed assets silently. Review or discard that draft explicitly before retrying.
+
+### Actions provenance
+
+After assembly, the pinned [actions/attest](https://github.com/actions/attest)
+action attests all three installers, the manifest, evidence ZIP and checksums.
+Only the draft job receives `id-token: write` and `attestations: write`.
+Before draft creation, `gh attestation verify` checks every attachment using the
+generated bundle, repository, release workflow, candidate tag and exact source SHA;
+self-hosted runner attestations are rejected. Any attestation or verification
+failure blocks draft creation. Attestations remain available through GitHub's API.
+
+Reverify each downloaded, unchanged CI draft attachment before publication:
+
+```sh
+TAG=v0.2.0-alpha.1
+CANDIDATE_SHA=$(git -C /path/to/candidate-checkout rev-parse "refs/tags/$TAG^{commit}")
+for asset in PractiQ_* SHA256SUMS.txt release-manifest.json release-evidence.zip; do
+  gh attestation verify "$asset" --repo shenyankm/PractiQ \
+    --signer-workflow shenyankm/PractiQ/.github/workflows/release.yml \
+    --source-ref "refs/tags/$TAG" --source-digest "$CANDIDATE_SHA" --deny-self-hosted-runners
+done
+```
+
+Run this in a fresh directory containing only the downloaded candidate assets,
+using a GitHub CLI with the documented attestation verification flags. SHA-256
+still checks downloaded bytes; [attestations](https://docs.github.com/en/actions/how-tos/secure-your-work/use-artifact-attestations/use-artifact-attestations)
+authenticate the Actions assembly identity and its source, not OS publisher
+signing or clean-machine/live-model acceptance. This is an assembly attestation;
+it does not independently attest each native compiler invocation. Build and
+package evidence remains bound in the manifest and ZIP from the same run.
+Signing, stapling or restaging changes bytes and invalidates the original proof
+for changed attachments. Preserve original CI provenance and independently review
+the final-byte signing/acceptance handoff; never claim original CI attestations
+cover replacement files. No automated final signing or public Publish workflow
+is added while [#91](https://github.com/shenyankm/PractiQ/issues/91) remains pending.
 
 CI currently has no publisher signing credentials. Desktop candidates state
 **unsigned**. The Android CI debug/test APK is not a publisher-verified release:
