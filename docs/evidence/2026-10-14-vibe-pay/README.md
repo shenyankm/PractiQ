@@ -1,9 +1,11 @@
 # Vibe Pay checkout browser evidence
 
+Screenshot files were removed on October 17, 2026 during repository cleanup. The results below describe the original acceptance. Logs, measurements and original hash manifests are retained as historical records; screenshot entries in those manifests no longer identify available files. Current product screenshots remain in the root README files.
+
 Captured on macOS with Chromium and mocked same-origin payment responses. The screenshots use the production Web theme and simulated phone/order data; they contain no credentials, cards or receipt files.
 
-- [Desktop checkout, 1280 × 720](desktop-checkout.png): frozen price/points, explicit Alipay link and account-owned order history.
-- [Mobile credited order, 390 × 844](mobile-credited.png): reconnection after reload, confirmed direct credit and guidance to continue parsing explicitly.
+- Desktop checkout, 1280 × 720: frozen price/points, explicit Alipay link and account-owned order history.
+- Mobile credited order, 390 × 844: reconnection after reload, confirmed direct credit and guidance to continue parsing explicitly.
 
 The 24 Web browser scenarios passed, including both checkout sizes, all supported question layouts, tables, formulas and images. The checkout scenarios assert no horizontal overflow, account-authenticated private headers, no credentials in URLs/localStorage/sessionStorage, reload recovery through owned-order GETs, and only explicit order creation/payment-link POSTs. The billing scenario verifies that an external recharge and balance refresh start no models until Continue is clicked. The Web component suite passed 80 tests with 97.67% line coverage.
 

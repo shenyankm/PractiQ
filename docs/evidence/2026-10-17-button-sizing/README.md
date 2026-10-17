@@ -1,5 +1,9 @@
 # Button sizing and history toolbar acceptance, October 17, 2026
 
+Screenshot files were removed on October 17, 2026 during repository cleanup. The results below describe the original acceptance. Logs, measurements and original hash manifests are retained as historical records; screenshot entries in those manifests no longer identify available files. Current product screenshots remain in the root README files.
+
+The complete original 14-entry checksum list is retained in [SHA256SUMS.original](SHA256SUMS.original) for verifying files recovered from Git history. [SHA256SUMS](SHA256SUMS) covers only the files still present in this directory.
+
 The Settings backup actions used the same Button size, but Radix's composed
 dropdown trigger replaced `data-slot="button"`. Shared theme selectors therefore
 missed the restore action: the normal export button was 40 px high while the
@@ -22,9 +26,9 @@ from loopback port 1420. Its title still identifies the original native host
 build, `main a430f7e`; the screenshots validate the current frontend through live
 reload in macOS WebKit, not a rebuilt installer or a new Rust binary.
 
-- [Before](native-before.png): mismatched backup action heights.
-- [After](native-after.png): matching heights and vertical alignment.
-- [Open restore menu](native-menu.png): all three existing restore/import actions
+- Before: mismatched backup action heights.
+- After: matching heights and vertical alignment.
+- Open restore menu: all three existing restore/import actions
   remain available.
 - [Focus restoration](native-focus-restored.txt): Escape returns focus to the
   Restore backup trigger. No native backup/restore file mutation was performed.
@@ -38,12 +42,12 @@ must be 48 px high. Icons must match in size. Actions share a vertical center wh
 they fit on one row; otherwise wrapping retains left alignment and the existing
 12 px row gap. English 360 px deliberately wraps into two rows.
 
-| Scenario | Screenshot | Action height |
+| Scenario | Original capture | Action height |
 | --- | --- | --- |
-| Chinese, light, 1280 px | [Desktop](settings-buttons-zh-CN-1280-light.png) | 40 px |
-| English, dark, 960 px | [Desktop](settings-buttons-en-960-dark.png) | 40 px |
-| Chinese, light, 390 px | [Narrow](settings-buttons-zh-CN-390-light.png) | 48 px |
-| English, dark, 360 px | [Wrapped actions](settings-buttons-en-360-dark.png) | 48 px |
+| Chinese, light, 1280 px | Desktop | 40 px |
+| English, dark, 960 px | Desktop | 40 px |
+| Chinese, light, 390 px | Narrow | 48 px |
+| English, dark, 360 px | Wrapped actions | 48 px |
 
 The same scenarios open the restore menu, close it with Escape, check restored
 focus, and invoke fake export exactly through the existing preview path. The
@@ -58,7 +62,7 @@ editor microbenchmark (`PRACTIQ_EDITOR_BENCH`). The complete final App browser
 repeat passed 83 tests with two workers, zero skips/flaky/unexpected results.
 Web types/lint/coverage passed 115 tests, its browser suite passed 36 tests, and
 the Web production build passed. The mechanical design scan reported no findings.
-All earlier screenshot and performance records are retained. Browser Android
+Earlier performance records and screenshot hashes are retained. Browser Android
 projects exercise touch layouts with mocked native commands; this change does
 not establish Android-device or Windows-native package acceptance.
 
@@ -69,12 +73,12 @@ area. Only pagination remains below the list. Empty, loading and failed reads
 retain the same refresh control; loading disables it, and refreshing retains
 the selected status and page. No native command or read/retry behavior changes.
 
-- [Native macOS empty history](native-history-refresh.png): the existing isolated
+- Native macOS empty history: the existing isolated
   WebKit host shows the current frontend after a successful passive refresh.
-- [Desktop empty history](history-refresh-empty-1280.png) and
-  [populated history](history-refresh-populated-1280.png).
-- [Narrow empty history](history-refresh-empty-360.png) and
-  [populated history](history-refresh-populated-360.png).
+- Desktop empty history and
+  populated history.
+- Narrow empty history and
+  populated history.
 
 Two browser regressions assert geometry, absence of horizontal overflow, one
 read per refresh, preserved status, loading disablement and recovery after a
