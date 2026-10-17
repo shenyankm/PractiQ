@@ -4,7 +4,8 @@ import { writeFileSync } from "node:fs";
 import { Profiler } from "react";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
-import { blankQuestion, QuestionEditor } from "./QuestionEditor";
+import { QuestionEditor } from "./QuestionEditor";
+import { blankQuestion } from "./api";
 
 it.skipIf(!process.env.PRACTIQ_EDITOR_BENCH)("measures repeated edits of a large synthetic group", () => {
   const root = { ...blankQuestion(), id: "root", parentId: "", answerMode: "reading" as const, choiceVariant: null, options: [],

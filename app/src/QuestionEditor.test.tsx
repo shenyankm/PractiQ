@@ -2,7 +2,8 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { blankQuestion, QuestionEditor } from "./QuestionEditor";
+import { QuestionEditor } from "./QuestionEditor";
+import { blankQuestion } from "./api";
 import type { Question } from "./api";
 
 HTMLElement.prototype.scrollIntoView = () => {};

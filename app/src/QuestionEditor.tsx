@@ -11,7 +11,6 @@ import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import { EnglishFields } from "./EnglishFields";
 import { kindModes, questionKinds } from "./english";
 import { AnswerInput } from "./AnswerInput";
-export { blankQuestion } from "./api";
 const nullableQuestionFields = new Set<keyof Question>([
   "id", "parentId", "questionKind", "instructions", "audioRef", "audioEndSeconds",
   "sourceLanguage", "targetLanguage", "writingGenre", "minWords", "maxWords",
