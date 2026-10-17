@@ -1115,7 +1115,7 @@ fn legacy_ai_import_receipts_survive_backup_without_work_manifests() {
     s.backup(&archive).unwrap();
     let mut zip = zip::ZipArchive::new(std::fs::File::open(&archive).unwrap()).unwrap();
     for i in 0..zip.len() {
-        assert!(!zip.by_index(i).unwrap().name().starts_with("ai/"));
+        assert!(!zip.by_index(i).unwrap().name().unwrap().starts_with("ai/"));
     }
     drop(db);
     s.restore(&archive).unwrap();

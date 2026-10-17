@@ -348,7 +348,8 @@ impl Store {
         let mut total = 0u64;
         for i in 0..archive.len() {
             let f = archive.by_index(i).map_err(err)?;
-            if !allowed.remove(f.name()) || f.unix_mode().is_some_and(|m| m & 0o170000 == 0o120000)
+            if !allowed.remove(f.name().map_err(err)?.as_ref())
+                || f.unix_mode().is_some_and(|m| m & 0o170000 == 0o120000)
             {
                 return Err(crate::language::error(
                     "LOCAL_BACKUP_UNSAFE_PATH",

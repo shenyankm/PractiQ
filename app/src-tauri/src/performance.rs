@@ -161,7 +161,10 @@ fn archive_contention() {
         let mut entry = zip.by_index(index).unwrap();
         let mut data = Vec::new();
         entry.read_to_end(&mut data).unwrap();
-        entries.insert(entry.name().to_owned(), crate::store::hash(&data));
+        entries.insert(
+            entry.name().unwrap().into_owned(),
+            crate::store::hash(&data),
+        );
     }
     report["exportCrcValidationMs"] = json!(validation.elapsed().as_secs_f64() * 1000.0);
     report["exportSemanticSha256"] =

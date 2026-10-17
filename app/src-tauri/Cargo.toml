@@ -26,7 +26,7 @@ image = { version = "0.25.10", default-features = false, features = ["png", "jpe
 uuid = { version = "1", features = ["v4"] }
 fastrand = "2.5.0"
 base64 = "0.22"
-zip = { version = "4", default-features = false, features = ["deflate"] }
+zip = { version = "9", default-features = false, features = ["deflate"] }
 
 tempfile = "3"
 symphonia = { version = "0.6.1", default-features = false, features = ["aac", "mp3", "isomp4", "wav", "pcm", "alac", "id3v2"] }
