@@ -1,35 +1,26 @@
 name: Feature request
-description: Propose an improvement to PractiQ's desktop app, import Web frontend, AI service, or development workflow
+description: Propose an improvement to the practice app, import Web frontend, service, or tooling
 title: "[Feature]: "
-labels:
-  - enhancement
+labels: ["enhancement"]
 body:
   - type: markdown
     attributes:
       value: |
-        Search [existing issues](https://github.com/shenyankm/PractiQ/issues) and review the relevant sections of [README.md](https://github.com/shenyankm/PractiQ/blob/main/README.md) before proposing a feature. Describe the need before prescribing an implementation.
-
-  - type: checkboxes
-    id: preflight
-    attributes:
-      label: Before submitting
-      options:
-        - label: I searched existing issues and found no duplicate.
-          required: true
-        - label: I reviewed the relevant sections of `README.md`.
-          required: true
+        Write in English. Search [existing issues](https://github.com/shenyankm/PractiQ/issues) and read the relevant [README](https://github.com/shenyankm/PractiQ/blob/main/README.md) sections first.
+        Start with the user's problem and desired outcome. Technical proposals should follow [AGENTS.md](https://github.com/shenyankm/PractiQ/blob/main/AGENTS.md): practice stays offline; document parsing and explicit AI grading use the independent service.
 
   - type: dropdown
     id: area
     attributes:
       label: Primary area
       options:
-        - Python AI service (`server/`)
-        - Import Web frontend (`web/`)
-        - Practice application (`app/`, macOS/Windows/Android)
+        - Practice app - macOS or Windows
+        - Practice app - Android
+        - Import Web frontend
+        - AI service or document processing
+        - Build, CI, or packaging
         - Documentation
-        - Build or development tooling
-        - Cross-layer feature
+        - Multiple areas or not sure
     validations:
       required: true
 
@@ -37,41 +28,41 @@ body:
     id: problem
     attributes:
       label: What problem should this solve?
-      description: Describe who is affected, the current limitation, and why it matters.
+      description: Explain who is affected, what they are trying to do, and the limitation in the current behavior.
     validations:
       required: true
 
   - type: textarea
     id: outcome
     attributes:
-      label: What outcome do you want?
-      description: Describe observable behavior and acceptance criteria without assuming a specific implementation.
+      label: Desired outcome and acceptance criteria
+      description: Describe observable behavior that would make this improvement complete. Include important boundaries or cases that should keep working.
+      placeholder: |
+        Desired behavior:
+        - ...
+        Acceptance examples:
+        - Given ..., when ..., then ...
     validations:
       required: true
 
   - type: textarea
     id: proposal
     attributes:
-      label: Proposed approach
-      description: Describe an implementation only if you have one. For technical proposals, consult AGENTS.md and the relevant architecture documentation, and reuse existing components. Document parsing and explicit AI grading belong in the existing service; practice remains offline.
+      label: Possible approach and alternatives
+      description: If you have an implementation idea, explain it and any simpler alternative or workaround. An implementation proposal is not required.
 
   - type: textarea
     id: impact
     attributes:
       label: Scope and impact
-      description: Note API, storage, security, privacy, configuration, or deployment implications.
-
-  - type: textarea
-    id: alternatives
-    attributes:
-      label: Alternatives considered
-      description: List existing behavior, workarounds, or smaller options you considered.
+      description: Note known platform, API, data/backup, configuration, dependency, accessibility, or deployment effects. For AI work, explain any new explicit action, provider cost, or recovery behavior. Unknown details are acceptable.
 
   - type: dropdown
     id: contribution
     attributes:
-      label: Are you willing to implement this?
+      label: How could you help?
+      description: Optional. Proposing a feature does not commit you to implementing it.
       options:
-        - "Yes"
-        - "No"
-        - I can help with part of it
+        - I can help implement it
+        - I can help test or provide examples
+        - I am proposing it for discussion

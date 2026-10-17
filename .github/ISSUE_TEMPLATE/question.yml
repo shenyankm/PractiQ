@@ -1,0 +1,46 @@
+name: Usage question
+description: Ask about setup, supported workflows, or unclear documentation
+title: "[Question]: "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Check the [documentation index](https://github.com/shenyankm/PractiQ/blob/main/docs/README.md) and [existing issues](https://github.com/shenyankm/PractiQ/issues) first, then write your question in English.
+        Use Bug report for incorrect behavior and Feature request for a proposed change. Remove secrets and private data; follow [SECURITY.md](https://github.com/shenyankm/PractiQ/blob/main/SECURITY.md) for suspected vulnerabilities.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Related area
+      options:
+        - Practice app - macOS or Windows
+        - Practice app - Android
+        - Import Web frontend
+        - AI service or document processing
+        - Build or development setup
+        - Documentation or not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: question
+    attributes:
+      label: What are you trying to do?
+      description: Describe your goal and the specific question you need answered.
+    validations:
+      required: true
+
+  - type: textarea
+    id: attempts
+    attributes:
+      label: What have you read or tried?
+      description: Link the relevant instructions and describe what remains unclear. It is fine to say you could not find the relevant guide.
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Relevant environment and evidence
+      description: Include version/commit, OS, browser or Android WebView details when relevant. Add only sanitized commands, logs, or screenshots. Explain if this is a general question with no relevant environment.

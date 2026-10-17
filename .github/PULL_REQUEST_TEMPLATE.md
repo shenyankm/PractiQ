@@ -1,45 +1,39 @@
 ## Summary
 
-<!-- Read CONTRIBUTING.md before requesting review. Keep the pull request focused and do not hard-wrap prose. Explain the problem and resulting behavior, not a list of files. If AI assistance was used, describe its role and your manual verification. -->
+<!-- Explain the problem, what changes, and the resulting behavior. Keep the change focused. Read CONTRIBUTING.md and retain all template sections, including for CLI/API submissions. -->
+
+**AI assistance:** <!-- None, or the tool's role and how you reviewed and verified its output. -->
 
 ## Linked issue
 
-<!-- Use "Fixes #123" when this pull request should close an issue. Use N/A when no issue is required under CONTRIBUTING.md. -->
+<!-- Use Closes #123 only when this PR fully resolves the issue. For partial work, use Related to #123. Use N/A with a reason when an issue is not required by CONTRIBUTING.md. -->
 
 ## Affected areas
 
-- [ ] Python AI service (`server/`)
-- [ ] Import Web frontend (`web/`)
-- [ ] Practice application (`app/`, macOS/Windows/Android)
-- [ ] Documentation or tooling
+<!-- List the affected components and platforms: app (macOS / Windows / Android), import Web, AI service, shared contracts, documentation, or tooling. -->
 
 ## Validation
 
-Choose checks from the [contribution guide](https://github.com/shenyankm/PractiQ/blob/main/CONTRIBUTING.md#validate-the-change) for the affected areas.
+Choose relevant checks from [CONTRIBUTING.md](https://github.com/shenyankm/PractiQ/blob/main/CONTRIBUTING.md#validate-the-change).
 
-<!-- Add commands and manual flows with their platform/environment and results. Distinguish local checks from CI and mocked checks from native or live-model validation. Use Passed, Failed — reason, Not run — reason, or N/A — reason. Report untested platforms and flows below. -->
+<!-- Record exact commands or manual flows, the environment, and results. Use Passed, Failed - reason, Not run - reason, or N/A - reason. Separate local checks from CI, browser mocks from native checks, and fake-model tests from live-model evaluation. Include screenshots or recordings for visible UI changes when useful. Identify untested affected platforms and flows. -->
 
-| Check or manual flow | Platform / environment | Result |
+| Check or manual flow | Platform / environment | Result and evidence |
 | --- | --- | --- |
 | | | |
 
 ## Risk and rollout
 
-<!-- Use N/A with a reason for unrelated items. Where affected, consider backup compatibility, practice and score snapshots, image/audio integrity, credential storage, and explicit model-call triggers. For independent-service deployment changes, verify loopback binding and HTTPS at the external entry point. -->
+<!-- Keep this proportional to the change. Explain non-applicable items. Where relevant, address immutable practice/score snapshots, backup and resource integrity, credential storage, explicit model-call triggers, provider costs, and failed or unknown outcomes. For service deployment changes, verify loopback binding and HTTPS at the external entry point. -->
 
-- **Main risk or tradeoff**:
-- **Database or migration impact**:
-- **Configuration or secret changes**:
-- **Not validated or out of scope**:
+- **Data, contracts, and backup compatibility:**
+- **Configuration, dependencies, and security:**
+- **Main risk and rollout or recovery steps:**
 
 ## Checklist
 
-<!-- Only check verified items. Explain non-applicable items rather than marking them complete. -->
+<!-- Check only completed actions. Passing CI is evaluated by checks, not by this checklist. -->
 
-- [ ] This pull request addresses one concern
-- [ ] The diff contains no unrelated files or generated build artifacts; required tracked generated contracts are synchronized
-- [ ] Behavior changes have focused regression coverage
-- [ ] Required checks pass, or failures are explained above
-- [ ] API, schema, environment, and user-facing changes are documented
-- [ ] Logs, fixtures, screenshots, and commits contain no secrets or personal data
-- [ ] Affected flows preserve the architecture and explicit model-call boundaries in AGENTS.md
+- [ ] I reviewed the full diff and kept it focused, including any required generated files and documentation.
+- [ ] I recorded relevant validation results and explained remaining gaps.
+- [ ] I checked code, fixtures, logs, and attachments for secrets and personal data.

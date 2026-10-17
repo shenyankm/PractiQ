@@ -1,5 +1,8 @@
 blank_issues_enabled: false
 contact_links:
+  - name: Documentation and setup guides
+    url: https://github.com/shenyankm/PractiQ/blob/main/docs/README.md
+    about: Find setup instructions, supported workflows, and technical references.
   - name: Report a security vulnerability privately
-    url: https://github.com/shenyankm/PractiQ/security/advisories/new
-    about: Report suspected vulnerabilities privately. Do not post exploit details or secrets in public issues.
+    url: https://github.com/shenyankm/PractiQ/blob/main/SECURITY.md
+    about: Follow the private reporting instructions and fallback contact guidance. Do not disclose vulnerabilities in a public issue.
