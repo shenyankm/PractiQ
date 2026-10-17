@@ -14,7 +14,7 @@ from practiq_ai.contracts import DocumentTaskCreate
 from practiq_ai.errors import DocumentProcessingError
 from practiq_ai.extractors import extract, pdf
 from practiq_ai.graphs import document
-from practiq_ai.graphs.chunking import split_chunk_spans
+from practiq_ai.graphs.chunking import split_chunk_plan
 from tests.db_support import setup_api
 from tests.support import parsed, run_config, setup_graph
 
@@ -47,13 +47,13 @@ def test_pdf_entry_points_share_lock_and_release_after_failure(monkeypatch):
 
 def test_long_numbered_question_is_rejected_without_truncation():
     with pytest.raises(DocumentProcessingError) as error:
-        split_chunk_spans("1. " + "文" * 90_000)
+        split_chunk_plan("1. " + "文" * 90_000)
     assert error.value.code == "DOCUMENT_CHUNK_TOO_LARGE"
     for target in (0, 40_001):
         with pytest.raises(ValueError):
-            split_chunk_spans("small", target)
+            split_chunk_plan("small", target)
     text = "1. " + "文" * 25_000 + "\n2. " + "字" * 25_000
-    spans = split_chunk_spans(text)
+    spans, _, _ = split_chunk_plan(text)
     assert all(span["end"] - span["start"] <= 40_000 for span in spans)
     assert "".join(text[span["start"]:span["end"]] for span in spans) == text
 

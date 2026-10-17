@@ -11,6 +11,40 @@ fn store() -> (tempfile::TempDir, Store) {
     let store = Store::new(dir.path().to_owned()).unwrap();
     (dir, store)
 }
+pub(crate) fn fixture_bank_zip(
+    root: &Value,
+    resources: &std::path::Path,
+) -> tempfile::NamedTempFile {
+    use std::io::Write;
+    let file = tempfile::NamedTempFile::new().unwrap();
+    let mut writer = zip::ZipWriter::new(file.reopen().unwrap());
+    let options = zip::write::SimpleFileOptions::default();
+    for (name, value) in [
+        (
+            "manifest.json",
+            json!({"format":"practiq-question-bank","version":2,"bank":{"title":"Fixture","description":""}}),
+        ),
+        ("questions.json", root.clone()),
+    ] {
+        writer.start_file(name, options).unwrap();
+        writer
+            .write_all(&serde_json::to_vec(&value).unwrap())
+            .unwrap();
+    }
+    let keys: std::collections::BTreeSet<_> = contract::resource_refs(contract::result(root))
+        .map(|reference| text(reference, "objectKey"))
+        .collect();
+    for key in keys {
+        writer
+            .start_file(format!("resources/{key}"), options)
+            .unwrap();
+        writer
+            .write_all(&std::fs::read(resources.join(key)).unwrap())
+            .unwrap();
+    }
+    writer.finish().unwrap();
+    file
+}
 #[test]
 fn question_query_requests_use_bank_id_lists() {
     for kind in ["questions_page", "question_stats"] {
@@ -444,11 +478,11 @@ fn shared_images_survive_until_last_bank_is_deleted() {
     let (_dir, mut s) = store();
     let mut banks = Vec::new();
     for title in ["first", "second"] {
-        let preview = s.preview(sample(), title.into()).unwrap();
-        s.resources(
-            &std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../fixtures/resources"),
-        )
-        .unwrap();
+        let preview = s
+            .preview_bank_zip(
+                &std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../fixtures/sample.zip"),
+            )
+            .unwrap();
         banks.push(
             text(
                 &s.import(text(&preview, "ticket"), None, title).unwrap(),
@@ -482,8 +516,10 @@ fn cleanup_failure_does_not_mask_committed_delete_or_restore() {
 #[test]
 fn assets_backup_restore_and_failed_restore_preserve_data() {
     let (dir, mut s) = store();
-    let preview = s.preview(sample(), "示例".into()).unwrap();
-    s.resources(&std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../fixtures/resources"))
+    let preview = s
+        .preview_bank_zip(
+            &std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../fixtures/sample.zip"),
+        )
         .unwrap();
     let bank = text(
         &s.import(text(&preview, "ticket"), None, "示例").unwrap(),
@@ -522,7 +558,7 @@ fn assets_backup_restore_and_failed_restore_preserve_data() {
     assert_eq!(s.banks().unwrap()[0]["count"], 9);
 }
 #[test]
-fn malformed_import_rolls_back_and_resources_cannot_escape() {
+fn malformed_import_does_not_create_a_bank() {
     let (_dir, mut s) = store();
     let mut root: Value = serde_json::from_slice(&sample()).unwrap();
     root["questions"][1]["options"][0]["label"] = json!("C");
@@ -530,19 +566,6 @@ fn malformed_import_rolls_back_and_resources_cannot_escape() {
         .preview(serde_json::to_vec(&root).unwrap(), "bad".into())
         .is_err());
     assert_eq!(s.banks().unwrap(), json!([]));
-    let mut root: Value = serde_json::from_slice(&sample()).unwrap();
-    root["visualElements"][0]["imageRef"]["objectKey"] = json!("../outside.png");
-    s.preview(serde_json::to_vec(&root).unwrap(), "escape".into())
-        .unwrap();
-    assert!(s.resources(&s.dir.clone()).is_err());
-    let root: Value = serde_json::from_slice(&sample()).unwrap();
-    s.preview(serde_json::to_vec(&root).unwrap(), "broken".into())
-        .unwrap();
-    let key = text(&root["visualElements"][0]["imageRef"], "objectKey");
-    let path = s.dir.join(key);
-    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
-    std::fs::write(path, b"wrong checksum").unwrap();
-    assert!(s.resources(&s.dir.clone()).is_err());
 }
 #[test]
 fn self_grade_preserves_auto_result_and_ungraded_denominator() {
@@ -1176,9 +1199,10 @@ fn database_failure_rolls_back_bank_and_import_together() {
 fn e2e_exam_restart_restore_on_fresh_install_and_retry() {
     use crate::exams::Paper;
     let (dir, mut source) = store();
-    let preview = source.preview(sample(), "离线题库".into()).unwrap();
-    source
-        .resources(&std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../fixtures/resources"))
+    let preview = source
+        .preview_bank_zip(
+            &std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../fixtures/sample.zip"),
+        )
         .unwrap();
     let imported = source
         .import(text(&preview, "ticket"), None, "离线题库")
@@ -1295,17 +1319,12 @@ fn rich_content_survives_import_reopen_practice_and_backup_exactly() {
         serde_json::from_slice(include_bytes!("../../fixtures/rich-content/expected.json"))
             .unwrap();
     expected["visualElements"][0]["sourceRef"] = expected["visualElements"][0]["imageRef"].clone();
-    let p = s
-        .preview(
-            serde_json::to_vec(&expected).unwrap(),
-            "Rich content".into(),
-        )
-        .unwrap();
-    s.resources(
+    let package = fixture_bank_zip(
+        &expected,
         &std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../fixtures/rich-content/resources"),
-    )
-    .unwrap();
+    );
+    let p = s.preview_bank_zip(package.path()).unwrap();
     let bank = text(
         &s.import(text(&p, "ticket"), None, "Rich content").unwrap(),
         "bankId",
@@ -1368,11 +1387,6 @@ fn rich_content_survives_import_reopen_practice_and_backup_exactly() {
         submitted["attempts"][0]["snapshot"]["visuals"][0]["sourceRef"],
         expected["visualElements"][0]["sourceRef"]
     );
-    // The added reference uses the same path and checksum boundary as crops.
-    expected["visualElements"][0]["sourceRef"]["objectKey"] = json!("../escape.png");
-    s.preview(serde_json::to_vec(&expected).unwrap(), "bad source".into())
-        .unwrap();
-    assert!(s.resources(dir.path()).is_err());
 }
 
 #[test]
@@ -1397,10 +1411,8 @@ fn source_image_upload_limit_survives_import_and_backup() {
     let mut raw: Value = serde_json::from_slice(&sample()).unwrap();
     raw["visualElements"] = json!([{"kind":"image","description":"Full page","questionIds":["q0"],
         "sourceRef":{"objectKey":"page.png","sha256":digest,"sizeBytes":image.len(),"mediaType":"image/png"}}]);
-    let preview = s
-        .preview(serde_json::to_vec(&raw).unwrap(), "Source page".into())
-        .unwrap();
-    s.resources(dir.path()).unwrap();
+    let package = fixture_bank_zip(&raw, dir.path());
+    let preview = s.preview_bank_zip(package.path()).unwrap();
     let imported = s
         .import(text(&preview, "ticket"), None, "Source page")
         .unwrap();
@@ -1420,9 +1432,11 @@ fn source_image_upload_limit_survives_import_and_backup() {
     std::fs::write(dir.path().join("page.png"), &image).unwrap();
     raw["visualElements"][0]["sourceRef"]["sizeBytes"] = json!(image.len());
     raw["visualElements"][0]["sourceRef"]["sha256"] = json!(crate::store::hash(&image));
-    s.preview(serde_json::to_vec(&raw).unwrap(), "Too large".into())
-        .unwrap();
-    assert!(s.resources(dir.path()).is_err());
+    let package = fixture_bank_zip(&raw, dir.path());
+    assert_eq!(
+        s.preview_bank_zip(package.path()).unwrap_err().code,
+        "LOCAL_BANK_ZIP_INVALID"
+    );
     assert!(s.write_asset(&crate::store::hash(&image), &image).is_err());
 }
 
@@ -1614,12 +1628,20 @@ fn missing_optional_source_page_does_not_disable_grading() {
         let preview = s
             .preview(serde_json::to_vec(&raw).unwrap(), "Optional page".into())
             .unwrap();
-        let resources = s
-            .resources(
-                &std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-                    .join("../fixtures/rich-content/resources"),
-            )
-            .unwrap();
+        // Seed incomplete historical data; new ZIP imports require every referenced file.
+        if !missing_crop {
+            let pending = s.pending.as_mut().unwrap();
+            let crop = &raw["visualElements"][0]["imageRef"];
+            pending.assets.insert(
+                text(crop, "sha256").into(),
+                (
+                    "image/png".into(),
+                    include_bytes!("../../fixtures/rich-content/resources/chart.png").to_vec(),
+                ),
+            );
+            pending.missing.retain(|key| key != text(crop, "objectKey"));
+        }
+        let resources = s.preview_value().unwrap();
         assert!(resources["missingAssets"]
             .as_array()
             .unwrap()

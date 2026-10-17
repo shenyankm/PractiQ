@@ -59,9 +59,6 @@ class FakeInput:
         self.worker.events.append("eof")
         self.worker.finished.set()
 
-    async def wait_closed(self):
-        return
-
 
 class FakeWorker:
     def __init__(self, entries, files, *, response=None, hanging=False):

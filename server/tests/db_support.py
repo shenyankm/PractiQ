@@ -39,10 +39,10 @@ def test_uri():
         return TEST_URI
     name = 'practiq-tests-' + uuid4().hex
     CONTAINER = name
+    atexit.register(lambda: subprocess.run(['docker', 'rm', '--force', name], capture_output=True, check=False, timeout=20))
     subprocess.run(['docker', 'run', '--detach', '--name', name, '--publish', '127.0.0.1::5432',
                     '--env', 'POSTGRES_PASSWORD=practiq-test', '--tmpfs', '/var/lib/postgresql/data',
                     'postgres:16'], check=True, capture_output=True, timeout=120)
-    atexit.register(lambda: subprocess.run(['docker', 'rm', '--force', name], capture_output=True, check=False, timeout=20))
     port = subprocess.check_output(['docker', 'port', name, '5432/tcp'], text=True, timeout=10).strip().rsplit(':', 1)[1]
     TEST_URI = f'postgresql://postgres:practiq-test@127.0.0.1:{port}/postgres'
     deadline = time.monotonic() + 30

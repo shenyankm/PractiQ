@@ -452,12 +452,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let mut s = Store::new(dir.path().into()).unwrap();
         let p = s
-            .preview(
-                include_bytes!("../../fixtures/sample.json").to_vec(),
-                "Shared".into(),
-            )
-            .unwrap();
-        s.resources(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../fixtures/resources"))
+            .preview_bank_zip(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../fixtures/sample.zip"))
             .unwrap();
         let id = s.import(text(&p, "ticket"), None, "Shared").unwrap()["bankId"]
             .as_str()
@@ -543,12 +538,11 @@ mod tests {
             if scenario == "deleted-last-question" {
                 partial["questions"] = json!([{"id":"q0","stem":"Deleted question","answerMode":"short_answer","answerPayload":null}]);
             }
-            let preview = store
-                .preview(serde_json::to_vec(&partial).unwrap(), "Partial".into())
-                .unwrap();
-            store
-                .resources(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../fixtures/resources"))
-                .unwrap();
+            let package = crate::tests::fixture_bank_zip(
+                &partial,
+                &Path::new(env!("CARGO_MANIFEST_DIR")).join("../fixtures/resources"),
+            );
+            let preview = store.preview_bank_zip(package.path()).unwrap();
             let partial_bank = store
                 .import(text(&preview, "ticket"), None, "Partial")
                 .unwrap();
@@ -1037,6 +1031,8 @@ mod tests {
         let before = s.banks().unwrap();
         for case in [
             "traversal",
+            "image-path",
+            "source-path",
             "extra",
             "checksum",
             "missing",
@@ -1064,8 +1060,22 @@ mod tests {
                             .compression_method(zip::CompressionMethod::Deflated),
                     )
                     .unwrap();
-                if case == "checksum" && name.starts_with("resources/") {
-                    writer.write_all(b"invalid").unwrap();
+                if name == "questions.json"
+                    && ["checksum", "image-path", "source-path"].contains(&case)
+                {
+                    let mut root: Value = serde_json::from_slice(bytes).unwrap();
+                    let visual = &mut root["visualElements"][0];
+                    match case {
+                        "checksum" => visual["imageRef"]["sha256"] = json!("0".repeat(64)),
+                        "image-path" => visual["imageRef"]["objectKey"] = json!("../escape.png"),
+                        _ => {
+                            visual["sourceRef"] = visual["imageRef"].clone();
+                            visual["sourceRef"]["objectKey"] = json!("../escape.png");
+                        }
+                    }
+                    writer
+                        .write_all(&serde_json::to_vec(&root).unwrap())
+                        .unwrap();
                 } else if case == "oversize" && name == "manifest.json" {
                     writer.write_all(&vec![0; MANIFEST_LIMIT + 1]).unwrap();
                 } else if case == "version" && name == "manifest.json" {
@@ -1095,7 +1105,17 @@ mod tests {
                     .set_len(12)
                     .unwrap();
             }
-            assert!(s.preview_bank_zip(&path).is_err(), "{case}");
+            let failure = s.preview_bank_zip(&path).expect_err(case);
+            assert_eq!(failure.code, "LOCAL_BANK_ZIP_INVALID", "{case}");
+            if ["image-path", "source-path"].contains(&case) {
+                assert_eq!(failure.params["detail"], "Unsafe image path", "{case}");
+            }
+            if case == "checksum" {
+                assert!(failure.params["detail"]
+                    .as_str()
+                    .unwrap()
+                    .starts_with("Invalid or missing resource:"));
+            }
             assert_eq!(s.banks().unwrap(), before);
         }
         let duplicate = dir.path().join("duplicate.zip");

@@ -33,11 +33,11 @@ def broker():
             sock.bind(('127.0.0.1', 0))
             return sock.getsockname()[1]
     amqp_port, management_port = available_port(), available_port()
+    atexit.register(lambda: subprocess.run(['docker', 'rm', '--force', name], capture_output=True, check=False, timeout=20))
     subprocess.run(['docker', 'run', '--detach', '--name', name, '--hostname', name,
                     '--publish', f'127.0.0.1:{amqp_port}:5672', '--publish', f'127.0.0.1:{management_port}:15672',
                     '--env', 'RABBITMQ_DEFAULT_USER=practiq-test', '--env', 'RABBITMQ_DEFAULT_PASS=practiq-test',
                     IMAGE], check=True, capture_output=True, timeout=120)
-    atexit.register(lambda: subprocess.run(['docker', 'rm', '--force', name], capture_output=True, check=False, timeout=20))
     def port(number):
         return subprocess.check_output(['docker', 'port', name, f'{number}/tcp'], text=True, timeout=10).strip().rsplit(':', 1)[1]
     URI = f'amqp://practiq-test:practiq-test@127.0.0.1:{port(5672)}/'

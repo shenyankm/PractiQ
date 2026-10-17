@@ -27,6 +27,7 @@ from practiq_ai.contracts import (
 )
 from practiq_ai.errors import DocumentProcessingError
 from practiq_ai.graphs import document
+from practiq_ai.graphs.chunking import source_presence_plan, split_chunk_plan
 from practiq_ai.storage import ObjectStore, StorageHealth
 
 
@@ -154,6 +155,12 @@ def source(text: str) -> tuple[FakeObjectStore, dict[str, Any]]:
         fileName="quiz.txt",
     )
     return FakeObjectStore({key: payload}), reference.model_dump(mode="json")
+
+
+def source_presence_hints(text: str, *, source_type: str = 'text', tabular_rows_safe: bool = False):
+    spans, _, _ = split_chunk_plan(text, source_type=source_type, tabular_rows_safe=tabular_rows_safe)
+    assert len(spans) == 1, 'Source-presence fixture must fit one complete chunk'
+    return source_presence_plan(text, spans, source_type=source_type, tabular_rows_safe=tabular_rows_safe)[0]
 
 
 def run_config(thread: str = "thread-1") -> RunnableConfig:

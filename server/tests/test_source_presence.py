@@ -12,7 +12,7 @@ from pydantic import ValidationError
 from practiq_ai import execution, llm
 from practiq_ai.extractors import ExtractedDocument
 from practiq_ai.graphs import document
-from practiq_ai.graphs.chunking import SourcePresenceHint, source_presence_hints
+from practiq_ai.graphs.chunking import SourcePresenceHint
 from tests.support import (
     FakeModel,
     MemoryStore,
@@ -20,6 +20,7 @@ from tests.support import (
     question,
     run_config,
     source,
+    source_presence_hints,
 )
 
 SOURCE = (
