@@ -19,6 +19,7 @@
       "react": ["./node_modules/@types/react"],
       "react/jsx-runtime": ["./node_modules/@types/react/jsx-runtime"],
       "radix-ui": ["./node_modules/radix-ui"],
+      "class-variance-authority": ["./node_modules/class-variance-authority"],
       "lucide-react": ["./node_modules/lucide-react"],
       "cn": ["./node_modules/cn"]
     }

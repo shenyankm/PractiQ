@@ -10,10 +10,11 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { ErrorNotice } from "./OperationFeedback";
 
-export function BankList({ offset, onOffsetChange, revision, busy, ready, run, onOpenSession, onAddExample, onImport, onHistory, onOpenQuestions, onPractice, onPracticeUnattempted, onEdit, onDelete }: {
+export function BankList({ offset, onOffsetChange, revision, onLoadingChange, busy, ready, run, onOpenSession, onAddExample, onImport, onHistory, onOpenQuestions, onPractice, onPracticeUnattempted, onEdit, onDelete }: {
   offset: number;
   onOffsetChange: (offset: number) => void;
   revision: number;
+  onLoadingChange: (loading: boolean) => void;
   busy: boolean;
   ready: boolean;
   run: (job: () => Promise<void>) => void;
@@ -37,6 +38,7 @@ export function BankList({ offset, onOffsetChange, revision, busy, ready, run, o
   useEffect(() => {
     let active = true;
     setLoading(true);
+    onLoadingChange(true);
     setError(null);
     void Promise.all([
       api({ type: "banks_page", limit: 30, offset }),
@@ -48,9 +50,9 @@ export function BankList({ offset, onOffsetChange, revision, busy, ready, run, o
         onOffsetChange(result.offset);
       }
     }).catch(cause => { if (active) setError(cause); })
-      .finally(() => { if (active) setLoading(false); });
+      .finally(() => { if (active) { setLoading(false); onLoadingChange(false); } });
     return () => { active = false; };
-  }, [offset, revision, refresh, onOffsetChange]);
+  }, [offset, revision, refresh, onOffsetChange, onLoadingChange]);
   const timedSession = unfinished?.deadlineAt != null ? unfinished.id : null;
   useEffect(() => {
     if (!timedSession) return;
@@ -102,8 +104,7 @@ export function BankList({ offset, onOffsetChange, revision, busy, ready, run, o
         </CardContent>
       </Card>)}
     </div>
-    <div className="flex items-center justify-end gap-3">
-      {page.total > 30 && (
+    {page.total > 30 && (
         <nav aria-label={t("题库分页")} className="flex flex-1 flex-wrap items-center justify-between gap-3">
           <span role="status" className="text-sm text-muted-foreground">{!loading && !error && t("{0}–{1} / {2} 条", { 0: page.total ? page.offset + 1 : 0, 1: page.offset + page.items.length, 2: page.total })}</span>
           <div className="flex gap-2">
@@ -111,8 +112,6 @@ export function BankList({ offset, onOffsetChange, revision, busy, ready, run, o
             <Button variant="outline" disabled={busy || loading || !!error || page.offset + 30 >= page.total} onClick={() => onOffsetChange(page.offset + 30)}>{t("下一页")}</Button>
           </div>
         </nav>
-      )}
-      <Button variant="outline" disabled={busy || loading} onClick={() => setRefresh(value => value + 1)}>{t("刷新")}</Button>
-    </div>
+    )}
   </div>;
 }

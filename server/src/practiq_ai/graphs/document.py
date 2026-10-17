@@ -1508,47 +1508,47 @@ async def _merge(state: DocumentState, *, passive: bool = False) -> dict[str, An
         source_duplicate_groups = find_source_duplicate_question_trees(questions, source_evidence=source_evidence)
         removable_groups = [trees for trees in duplicate_groups
                             if all(source_evidence.get(qid) for tree in trees for qid in tree)] if state.get("deduplicateQuestions", False) else []
-        for trees in [trees for trees in duplicate_groups if trees not in removable_groups]:
-            by_id = {q.id: (index, q) for index, q in enumerate(questions)}
-            locations = []
+        by_id = {q.id: (index, q) for index, q in enumerate(questions)}
+        review_issues = {issue.questionIndex for issue in quality.issues if issue.code == 'NEEDS_REVIEW'}
+
+        def locations(trees: list[list[str]]) -> str:
+            values = []
             for tree in trees:
                 index, _ = by_id[tree[0]]
                 units = sorted({f"{'page' if source.stage == 'vision_parse' else 'fragment'} {source.unitIndex + 1}"
                                 for source in question_sources if source.questionIndex == index})
-                locations.append(", ".join(tree) + (f" ({', '.join(units)})" if units else ""))
+                values.append(", ".join(tree) + (f" ({', '.join(units)})" if units else ""))
+            return "; ".join(values)
+
+        def mark_review(index: int, question: ParsedQuestion) -> None:
+            question.needsReview = True
+            if index not in review_issues:
+                quality.issues.append(QualityIssue(questionIndex=index, code='NEEDS_REVIEW'))
+                review_issues.add(index)
+
+        for trees in [trees for trees in duplicate_groups if trees not in removable_groups]:
             warnings.append("Possible repeated questions: " + (by_id[trees[0][0]][1].stem or "")[:80]
-                            + " — " + "; ".join(locations)
+                            + " — " + locations(trees)
                             + ". All copies were retained; you decide whether to remove any.")
             duplicates = {qid for tree in trees for qid in tree}
             for index, question in enumerate(questions):
                 if question.id in duplicates:
-                    question.needsReview = True
-                    if not any(issue.questionIndex == index and issue.code == 'NEEDS_REVIEW' for issue in quality.issues):
-                        quality.issues.append(QualityIssue(questionIndex=index, code='NEEDS_REVIEW'))
-        quality.reviewQuestionCount = sum(q.needsReview for q in questions)
-        quality.reviewRequired = bool(quality.reviewQuestionCount)
+                    mark_review(index, question)
         if state.get("deduplicateQuestions", False):
             questions, duplicate_warnings = remove_duplicate_question_trees(
                 questions, groups, visual_elements, question_sources, quality, removable_groups,
             )
             warnings.extend(duplicate_warnings)
         by_id = {q.id: (index, q) for index, q in enumerate(questions)}
+        review_issues = {issue.questionIndex for issue in quality.issues if issue.code == 'NEEDS_REVIEW'}
         for trees in source_duplicate_groups:
             surviving = [tree for tree in trees if all(qid in by_id for qid in tree)]
             if len(surviving) < 2 or any(all(tree in strict for tree in surviving) for strict in duplicate_groups):
                 continue
-            locations = []
             for tree in surviving:
-                index, _ = by_id[tree[0]]
-                units = sorted({f"{'page' if source.stage == 'vision_parse' else 'fragment'} {source.unitIndex + 1}"
-                                for source in question_sources if source.questionIndex == index})
-                locations.append(", ".join(tree) + (f" ({', '.join(units)})" if units else ""))
                 for qid in tree:
-                    index, question = by_id[qid]
-                    question.needsReview = True
-                    if not any(issue.questionIndex == index and issue.code == 'NEEDS_REVIEW' for issue in quality.issues):
-                        quality.issues.append(QualityIssue(questionIndex=index, code='NEEDS_REVIEW'))
-            warnings.append("Repeated source question groups: " + "; ".join(locations)
+                    mark_review(*by_id[qid])
+            warnings.append("Repeated source question groups: " + locations(surviving)
                             + ". Parsed versions are not strictly identical; the remaining copies were retained for review.")
         quality.reviewQuestionCount = sum(q.needsReview for q in questions)
         quality.reviewRequired = bool(quality.reviewQuestionCount)

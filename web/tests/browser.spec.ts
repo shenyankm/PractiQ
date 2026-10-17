@@ -72,7 +72,7 @@ async function fakeHTTP(page: Page, initial: DocumentTaskDetail = task) {
 }
 async function connect(page: Page) {
   await page.goto("/"); await page.getByLabel("手机号").fill("13800138000"); await page.getByLabel("账户令牌").fill(fakeToken); await page.getByRole("button", { name: "查询记录", exact: true }).click();
-  await expect(page.getByText("服务已连接", { exact: true })).toBeVisible();
+  await expect(page.getByText(/^服务支持：/)).toBeVisible();
 }
 async function openTask(page: Page) {
   await page.getByRole("button", { name: /sample.docx/ }).click();
@@ -208,7 +208,9 @@ for (const [width, height] of [[1440, 1000], [390, 844]]) {
     http.records.set(taskId, { ...task, checkpointId: "new-checkpoint" });
     await page.getByRole("button", { name: "刷新任务详情", exact: true }).click();
     await expect(page.locator('.import-steps [aria-current="step"]')).toHaveText(/检查解析结果/);
-    await page.getByRole("button", { name: "断开连接", exact: true }).click();
+    await expect(page.getByRole("button", { name: "断开连接", exact: true })).toHaveCount(0);
+    await expect(page.getByText("服务已连接", { exact: true })).toHaveCount(0);
+    await page.reload();
     await expect(page.locator('.import-steps [aria-current="step"]')).toHaveText(/选择并导入/);
   });
 }
@@ -283,14 +285,14 @@ test("passive file selection becomes one authenticated SHA upload only after exp
   expect(http.server.modelStarts).toBe(1);
 });
 
-test("invalid auth makes no model request; disconnect and reload clear memory-only Token", async ({ page }) => {
+test("invalid auth makes no model request; reload clears memory-only Token", async ({ page }) => {
   const http = await fakeHTTP(page); await page.goto("/");
   await page.getByLabel("手机号").fill("13800138000"); await page.getByLabel("账户令牌").fill("invalid-synthetic-token"); await page.getByRole("button", { name: "查询记录", exact: true }).click();
   await expect(page.getByText(/手机号与账户令牌不匹配/).first()).toBeVisible();
   expect(mutations(http.calls)).toHaveLength(0);
   await page.getByLabel("账户令牌").fill("");
   await page.getByLabel("手机号").fill("13800138000"); await page.getByLabel("账户令牌").fill(fakeToken); await page.getByRole("button", { name: "查询记录", exact: true }).click();
-  await expect(page.getByText("服务已连接", { exact: true })).toBeVisible();
+  await expect(page.getByText(/^服务支持：/)).toBeVisible();
   expect(await page.evaluate(() => ({ local: localStorage.length, session: sessionStorage.length, query: location.search }))).toEqual({ local: 0, session: 0, query: "" });
   await page.reload(); await expect(page.getByLabel("账户令牌")).toHaveValue("");
   expect(await page.locator("body").innerText()).not.toContain(fakeToken);
@@ -776,3 +778,42 @@ for (const stage of ['metadata', 'content']) {
     expect(http.server.modelStarts).toBe(1);
   });
 }
+
+test("file picker text stays centered across control sizes and themes", async ({ page }, testInfo) => {
+  const http = await fakeHTTP(page); await connect(page);
+  const input = page.getByLabel("选择文档", { exact: true });
+  for (const width of [1440, 390, 360]) {
+    await page.setViewportSize({ width, height: 950 });
+    for (const dark of [false, true]) {
+      await page.evaluate(value => document.documentElement.classList.toggle("dark", value), dark);
+      for (const selected of [false, true]) {
+        await input.setInputFiles(selected ? { name: "文件选择控件-vertical-alignment-and-long-name.txt", mimeType: "text/plain", buffer: Buffer.from("Synthetic layout fixture") } : []);
+        const geometry = await input.evaluate(node => {
+          const style = getComputedStyle(node), button = getComputedStyle(node, "::file-selector-button");
+          const number = (value: string) => parseFloat(value);
+          return { height: node.getBoundingClientRect().height, paddingTop: number(style.paddingTop), paddingBottom: number(style.paddingBottom),
+            content: node.clientHeight - number(style.paddingTop) - number(style.paddingBottom), lineHeight: number(style.lineHeight),
+            buttonHeight: number(button.height), buttonLineHeight: number(button.lineHeight), font: style.fontSize, buttonFont: button.fontSize };
+        });
+        expect(geometry.height).toBe(width < 768 ? 48 : 40);
+        expect(Math.abs(geometry.paddingTop - geometry.paddingBottom)).toBeLessThanOrEqual(1);
+        expect(geometry.lineHeight).toBe(geometry.content);
+        expect(geometry.buttonHeight).toBe(geometry.content);
+        expect(geometry.buttonLineHeight).toBe(geometry.content);
+        expect(geometry.buttonFont).toBe(geometry.font);
+        const otherControls = await page.locator("button[data-button], [data-slot='badge']").evaluateAll(nodes => nodes.map(node => {
+          const style = getComputedStyle(node); return { align: style.alignItems, top: style.paddingTop, bottom: style.paddingBottom };
+        }));
+        expect(otherControls.every(control => control.align === "center" && control.top === control.bottom)).toBe(true);
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+        expect(mutations(http.calls)).toHaveLength(0);
+        if (selected) await input.screenshot({ path: testInfo.outputPath(`file-picker-${width}-${dark ? "dark" : "light"}.png`) });
+      }
+      await input.focus(); await page.keyboard.press("Tab"); await page.keyboard.press("Shift+Tab");
+      await expect(input).toBeFocused();
+      await input.evaluate(node => { (node as HTMLInputElement).disabled = true; });
+      expect(await input.evaluate(node => parseFloat(getComputedStyle(node, "::file-selector-button").height))).toBe(width < 768 ? 46 : 38);
+      await input.evaluate(node => { (node as HTMLInputElement).disabled = false; });
+    }
+  }
+});

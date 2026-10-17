@@ -1,0 +1,324 @@
+{
+  "schemaVersion": 1,
+  "kind": "probes",
+  "runId": "a0e6aa49-2015-452a-9e81-9c0c68634d2c",
+  "generatedAt": "2026-10-17T13:27:51.918163+00:00",
+  "environment": "offline-fake-services",
+  "probeFingerprint": "0833dbca0281b5497b9d5ec1b949b88bca5a1c9c150125598e945fb34f6b3994",
+  "probeMetrics": {
+    "recoverySuccessRate": 100.0,
+    "correctStopRate": 100.0,
+    "routingPassRate": 100.0,
+    "unknownUsagePassRate": 100.0
+  },
+  "probes": [
+    {
+      "id": "test_messaging.test_ambiguous_broker_windows_do_not_repeat_models[before_publish]",
+      "metric": "recoverySuccessRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_messaging.test_ambiguous_broker_windows_do_not_repeat_models[after_publish]",
+      "metric": "recoverySuccessRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_messaging.test_ambiguous_broker_windows_do_not_repeat_models[confirm_unknown]",
+      "metric": "recoverySuccessRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_messaging.test_ambiguous_broker_windows_do_not_repeat_models[ack_unknown]",
+      "metric": "recoverySuccessRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_messaging.test_broker_failure_keeps_old_execution_exclusive_and_outbox_durable[disconnect]",
+      "metric": "recoverySuccessRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_messaging.test_broker_failure_keeps_old_execution_exclusive_and_outbox_durable[restart]",
+      "metric": "recoverySuccessRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_messaging.test_consumer_timeout_does_not_overlap_or_repeat_old_execution",
+      "metric": "recoverySuccessRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_messaging.test_cancelled_delivery_handler_cannot_release_execution_capacity",
+      "metric": "recoverySuccessRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_messaging.test_execution_cancelled_before_first_step_is_redelivered_without_stale_active_entry",
+      "metric": "recoverySuccessRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_runtime_recovery.test_process_kill_automatically_recovers_same_run[outbox_committed]",
+      "metric": "recoverySuccessRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_runtime_recovery.test_process_kill_automatically_recovers_same_run[published]",
+      "metric": "recoverySuccessRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_runtime_recovery.test_process_kill_automatically_recovers_same_run[queued]",
+      "metric": "recoverySuccessRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_runtime_recovery.test_process_kill_automatically_recovers_same_run[model]",
+      "metric": "recoverySuccessRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_runtime_recovery.test_process_kill_automatically_recovers_same_run[provider_completed]",
+      "metric": "recoverySuccessRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_runtime_recovery.test_process_kill_automatically_recovers_same_run[model_receipt]",
+      "metric": "recoverySuccessRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_runtime_recovery.test_process_kill_automatically_recovers_same_run[model_saved]",
+      "metric": "recoverySuccessRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_runtime_recovery.test_process_kill_automatically_recovers_same_run[completed]",
+      "metric": "recoverySuccessRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_runtime_recovery.test_process_kill_automatically_recovers_same_run[result_saved]",
+      "metric": "recoverySuccessRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_queue_upgrade.test_upgrade_retains_history_receipts_files_deadlines_and_only_stages_recoverable_runs",
+      "metric": "recoverySuccessRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_queue_upgrade.test_startup_does_not_reset_published_outbox_or_replay_dead_letters",
+      "metric": "recoverySuccessRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_task_execution.test_retry_failed_units_preserves_successes_and_replaces_failures[False]",
+      "metric": "recoverySuccessRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_task_execution.test_retry_failed_units_preserves_successes_and_replaces_failures[True]",
+      "metric": "recoverySuccessRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_task_execution.test_pause_between_attempts_reuses_corrections_and_budget",
+      "metric": "recoverySuccessRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_task_execution.test_model_result_survives_artifact_write_failure",
+      "metric": "recoverySuccessRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_task_execution.test_retry_page_preserves_successes_without_text_model_or_chunks",
+      "metric": "recoverySuccessRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_evaluation.test_transient_probe_recovers_with_trace[timeout]",
+      "metric": "recoverySuccessRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_evaluation.test_transient_probe_recovers_with_trace[rate_limit]",
+      "metric": "recoverySuccessRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_messaging.test_shutdown_during_delivery_admission_does_not_start_execution",
+      "metric": "correctStopRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_messaging.test_queued_pause_stops_without_broker_and_requires_explicit_resume",
+      "metric": "correctStopRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_messaging.test_resume_queued_pause_preserves_selected_retry_input_or_review_command[False]",
+      "metric": "correctStopRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_messaging.test_resume_queued_pause_preserves_selected_retry_input_or_review_command[True]",
+      "metric": "correctStopRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_page_rendering.test_missing_model_fails_before_read_or_render[text]",
+      "metric": "correctStopRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_page_rendering.test_missing_model_fails_before_read_or_render[pdf]",
+      "metric": "correctStopRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_runtime.test_unsupported_tasks_are_unchanged_and_do_not_block_current_work[docx_parser-text-False]",
+      "metric": "correctStopRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_runtime.test_unsupported_tasks_are_unchanged_and_do_not_block_current_work[docx_parser-text-True]",
+      "metric": "correctStopRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_runtime.test_unsupported_tasks_are_unchanged_and_do_not_block_current_work[document_parser-docm-False]",
+      "metric": "correctStopRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_runtime.test_unsupported_tasks_are_unchanged_and_do_not_block_current_work[document_parser-docm-True]",
+      "metric": "correctStopRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_runtime.test_unsupported_tasks_are_unchanged_and_do_not_block_current_work[document_parser-xlsm-False]",
+      "metric": "correctStopRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_runtime.test_unsupported_tasks_are_unchanged_and_do_not_block_current_work[document_parser-xlsm-True]",
+      "metric": "correctStopRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_workflows.test_document_integrity_fails_before_model_call[sha256-0000000000000000000000000000000000000000000000000000000000000000-DOCUMENT_CHECKSUM_MISMATCH]",
+      "metric": "correctStopRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_workflows.test_document_integrity_fails_before_model_call[sizeBytes-1-DOCUMENT_SIZE_MISMATCH]",
+      "metric": "correctStopRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_workflows.test_structured_call_does_not_retry_permanent_errors",
+      "metric": "correctStopRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_task_execution.test_store_failure_stops_model_calls",
+      "metric": "correctStopRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_task_execution.test_retry_limits_shared_by_native_input_and_review[False-False]",
+      "metric": "correctStopRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_task_execution.test_retry_limits_shared_by_native_input_and_review[False-True]",
+      "metric": "correctStopRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_task_execution.test_retry_limits_shared_by_native_input_and_review[True-False]",
+      "metric": "correctStopRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_task_execution.test_retry_limits_shared_by_native_input_and_review[True-True]",
+      "metric": "correctStopRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_structured_output.test_corrections_keep_only_latest_output_and_stop_on_identical_failure",
+      "metric": "correctStopRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_chunking.test_distinct_source_positions_preserve_questions[xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxA-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxB]",
+      "metric": "routingPassRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_chunking.test_distinct_source_positions_preserve_questions[Record A-Record a]",
+      "metric": "routingPassRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_chunking.test_distinct_source_positions_preserve_questions[Repeated-Repeated]",
+      "metric": "routingPassRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_task_execution.test_identical_questions_on_different_pages_are_preserved",
+      "metric": "routingPassRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_structured_output.test_native_wire_format_repairs_and_records_failed_usage[ {\"value\":1}-length]",
+      "metric": "routingPassRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_structured_output.test_native_wire_format_repairs_and_records_failed_usage[{\"value\":-stop]",
+      "metric": "routingPassRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_structured_output.test_native_wire_format_repairs_and_records_failed_usage[{\"value\":-1}-stop]",
+      "metric": "routingPassRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_evaluation.test_trajectory_ignores_parallel_completion_order_and_rejects_wrong_route",
+      "metric": "routingPassRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_queue_upgrade.test_startup_recovers_upgrade_interrupted_after_schema_commit[None]",
+      "metric": "unknownUsagePassRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_queue_upgrade.test_startup_recovers_upgrade_interrupted_after_schema_commit[started]",
+      "metric": "unknownUsagePassRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_queue_upgrade.test_startup_recovers_upgrade_interrupted_after_schema_commit[completed]",
+      "metric": "unknownUsagePassRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_production_limits.test_unknown_call_consumes_budget_after_interruption",
+      "metric": "unknownUsagePassRate",
+      "status": "PASSED"
+    },
+    {
+      "id": "test_task_execution.test_unknown_provider_usage_is_not_recorded_as_zero",
+      "metric": "unknownUsagePassRate",
+      "status": "PASSED"
+    }
+  ],
+  "durableCrashRecovery": "NOT_ASSESSED",
+  "status": "PASSED",
+  "gateReasons": []
+}
