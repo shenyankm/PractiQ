@@ -1,92 +1,80 @@
 # PractiQ agent-bot
 
-The private `practiq-agent-bot` App is installed only on PractiQ, with the default
-GitHub App avatar. It only squash-merges eligible PRs targeting `main`. It does
-not classify issues, review source code or publish releases. The configured AI
-interprets existing GPT review results; it does not create a GitHub approval.
+The private `practiq-agent-bot` App only squash-merges eligible PRs targeting
+`main`. It consumes existing GPT review evidence through deterministic checks;
+it does not interpret review prose, call a model, create approvals or publish releases.
 
 ## Merge conditions
 
-Before any model call, all three final GitHub Actions gates (`Service CI`,
-`Desktop CI`, `Android CI`) must succeed, along with every applicable check and
-commit status. Skipped intermediate jobs are inapplicable; a skipped final gate
-never qualifies. GitHub must report an open, non-draft PR with a clean merge,
-current base, no conflicts and no branch-protection blocker.
+All three final GitHub Actions gates (`Service CI`, `Desktop CI`, `Android CI`)
+and every applicable check and commit status must succeed. Skipped intermediate
+jobs are inapplicable; a skipped final gate never qualifies. GitHub must report
+an open, non-draft PR with a clean merge, current base and no protection blocker.
 
-PRs that add, modify, delete or rename workflow files, `.github/scripts/`
-(including the privileged agent and its tests), or `server/scripts/`
-(including CI scope code and modules that could shadow its imports)
-are excluded from the bot,
-even on manual dispatch; maintainers must inspect their CI definitions and merge
-them manually. This prevents PR-defined jobs from spoofing the required CI names.
+PRs touching `.github/workflows/`, `.github/scripts/` or `server/scripts/`,
+including either side of a rename, require manual inspection and manual merge.
+This prevents PR-defined CI from spoofing required check names.
 
-Automatic paid interpretation is limited to PR authors with current repository
-`admin`, `maintain` or `write` access. An external contribution requires a
-maintainer to manually dispatch the workflow; that actor's permission is checked
-before inference. Public issue/PR edits cannot trigger arbitrary paid analysis.
+Automatic runs require the PR author to have current `admin`, `maintain` or
+`write` access. External contributions require an explicit maintainer dispatch;
+the dispatch actor must have one of those permissions. `dry_run` defaults to
+true; only an explicit false permits that dispatch to merge.
 
-Evidence is fetched only from `chatgpt-codex-connector[bot]`: submitted reviews
-on the exact current head, their inline findings, the bot's Code Review Summary
-and its thumbs-up timestamps. A summary must explicitly identify a completed
-Code Review on the current head; a completed Security Review alone is insufficient.
-Abbreviated SHAs are resolved uniquely through GitHub to the full current head.
-Explicit passing feedback is required: a current-head approval/clean report, or
-a GPT thumbs-up created after all current-head reviews complete. Completion alone
-is insufficient. Old/reused global reactions cannot approve a new head; if the
-connector retains an old reaction and emits no clean report, the PR stays open. All current-head reviews and findings are retained. Any active current-head
-CHANGES_REQUESTED or PENDING review blocks inference; dismissed reviews are ignored.
-A same-head Code or Security re-review still running also blocks earlier approvals.
+Evidence comes only from `chatgpt-codex-connector[bot]`. Submitted reviews must
+match the exact current head; abbreviated summary SHAs resolve uniquely through
+GitHub. Current-head `CHANGES_REQUESTED` or `PENDING` reviews block evaluation;
+dismissed reviews are ignored. A summary with stale or incomplete Code/Security
+Review status also blocks earlier approvals. Current-head inline findings block
+merging even when another report passes.
 
-AI must return completed/passed, the exact head SHA and an existing supporting
-report ID. It is instructed to reject unresolved blockers, pending security
-review, ambiguous results and generic help text. COMMENTED can contain a clean
-report or findings; its state alone is not treated as a pass. Missing/stale
-reports, malformed output, truncated answers, model/network errors or an
-uncertain verdict cause no merge. No model tools or source-code review run.
+A summary must include a valid `codex-review-state:v1` record with the full head
+SHA, `completed` status and both finding flags explicitly false for Code Review
+and any Security Review. Missing, malformed or conflicting state blocks merging.
+A pass requires either the latest current-head review to be `APPROVED`, or a
+completed current-head Code Review summary with a GPT thumbs-up created after
+all current-head reviews finish. A completed Security Review alone is insufficient.
+A reused reaction cannot approve a later head or review. `COMMENTED` prose such
+as “no findings” cannot authorize a merge on its own; ambiguous cases stay open
+for a maintainer. No model verdict or interpretation cache is needed.
 
-The merge request includes the analyzed head SHA. GitHub rejects a changed head
-and enforces the repository's existing rules, including resolved conversations
-and checks against the current base. Protection failures are not bypassed or
-retried within a run. Squash attribution and source-branch cleanup follow the
-repository's existing settings.
+Immediately before merging, the bot refetches the PR, reviews, reactions, checks
+and statuses, then rechecks the author or dispatch actor's write permission.
+Changed evidence, head or authorization aborts the merge. The merge endpoint
+receives the exact head SHA and enforces GitHub protections, including resolved
+conversations. API errors skip that PR and permit later PRs to proceed; failed
+merge requests are not retried within the run.
 
 ## Configuration and operation
 
-App permissions: Contents read/write and mandatory Metadata read. Pull requests
-write is not needed: the merge endpoint only requires Contents write.
-Contents write is needed by the merge API; Issues and Actions permissions are not
-needed. Read-only CI/review/reaction queries use the workflow token (including Issues read); a narrowly scoped
-App token performs the merge. The model request never includes GitHub tokens or
-App keys and does not give the model tool access.
+The protected `practiq-agent` environment allows only `main` and contains
+`PRACTIQ_APP_CLIENT_ID` (variable) and `PRACTIQ_APP_PRIVATE_KEY` (secret).
+The App needs Contents read/write and mandatory Metadata read; read-only
+queries use the workflow token. Only the App token calls the merge endpoint.
+Privileged runs check out trusted `main`, never the PR or `workflow_run` head.
 
-Environment variables in `practiq-agent`:
+After this change reaches `main`, remove the unused `PRACTIQ_AGENT_API_KEY`
+secret and `PRACTIQ_AGENT_BASE_URL` / `PRACTIQ_AGENT_MODEL` variables from that
+environment. This branch removes their use without altering hosted credentials.
 
-- `PRACTIQ_APP_CLIENT_ID`
-- `PRACTIQ_AGENT_BASE_URL`: `https://amr-link.open-design.ai/v1`
-- `PRACTIQ_AGENT_MODEL`: `deepseek-v4.1-flash`
+The [workflow](../../.github/workflows/maintainer.yml) runs after **AI service**
+or **Practice App** completes. Direct current-head connector approvals trigger
+the unprivileged [PR review signal](../../.github/workflows/review-signal.yml).
+That workflow has no token permissions, secrets or checkout; its successful
+completion wakes the protected `main` workflow, which refetches all evidence
+and permissions. It targets the associated PR when GitHub supplies its number;
+otherwise it scans open PRs under the same access restrictions. The signal
+itself never authorizes merging or runs privileged PR code.
+A GPT review-summary comment creation/edit checks
+that PR only. Other public comments do not start the privileged job. A daily
+03:23 UTC scan catches later reactions and missed events; GitHub may delay it.
+Scheduled opportunities decrease from 96 to one per day. There are no paid
+model calls. Reaction-only updates may wait for the daily scan or manual dispatch.
 
-Environment secrets in `practiq-agent`: `PRACTIQ_APP_PRIVATE_KEY` and
-`PRACTIQ_AGENT_API_KEY`. This environment permits deployments only from the
-`main` branch, with no tag policy or per-run approval. The credentials and provider variables no longer remain at
-repository scope, so a branch-controlled workflow cannot read them. Privileged
-runs also require `refs/heads/main`, and always check out `main`.
-Only bounded GPT report/reaction evidence (at most 30,000 characters) is sent to
-the provider, with a 750-token answer cap and two-minute timeout. Calls may incur
-provider charges. Unsuccessful verdicts can be re-evaluated every 15 minutes;
-A per-PR API, model, revalidation or merge error skips that PR and allows later
-PRs to proceed. Automatic scans have a 30-minute job budget.
-AI interpretation can be wrong, so CI and GitHub protections remain mandatory.
+Choose **PractiQ agent-bot → Run workflow** on `main` for an immediate check,
+optionally selecting a PR number. Automatic runs merge eligible trusted-author
+PRs; disable the workflow in Actions to stop the bot. The checked-in main ruleset
+permits squash only once applied to GitHub; see [repository security settings](dependency-security.md#repository-security-settings).
 
-The [workflow](../../.github/workflows/maintainer.yml) checks open PRs when **AI
-service** or **Practice App** completes and every 15 minutes to catch a later GPT
-review. Scheduled runs can be delayed by GitHub. Only trusted `main` code is
-checked out, including when processing an external fork's CI completion.
-
-For a manual check, choose **PractiQ agent-bot → Run workflow** on `main`, with an
-optional PR number. `dry_run` defaults to true; it may interpret an eligible GPT
-report but never merges. Automatic runs merge eligible PRs. Disable the workflow
-in Actions to stop the bot. Existing release policy and workflow are unchanged.
-
-Run `node --test .github/scripts/maintainer.test.mjs` and actionlint for gate changes.
-Local mock tests and synthetic model smoke tests do not establish a live merge or
-real review accuracy. No PR/release is merged/published merely to test setup.
+Run `node --test .github/scripts/maintainer.test.mjs` and actionlint for changes.
+Local mocks establish gate behavior, not a live merge or review accuracy. Do not
+merge or publish a PR/release merely to test setup.

@@ -1,0 +1,17 @@
+name: PR review signal
+# Review events use a PR ref; privileged revalidation must run on main.
+on:
+  pull_request_review:
+    types: [submitted]
+permissions: {}
+jobs:
+  signal:
+    if: >-
+      github.event.review.user.login == 'chatgpt-codex-connector[bot]' &&
+      github.event.review.state == 'approved' &&
+      github.event.review.commit_id == github.event.pull_request.head.sha &&
+      github.event.pull_request.base.ref == 'main'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    steps:
+      - run: echo 'Connector approval submitted; trusted main will revalidate.'
