@@ -1495,12 +1495,11 @@ mod visual_tests {
         } else {
             source["visualElements"] = json!([]);
         }
-        let preview = store
-            .preview(serde_json::to_vec(&source).unwrap(), title.into())
-            .unwrap();
-        store
-            .resources(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../fixtures/resources"))
-            .unwrap();
+        let package = crate::tests::fixture_bank_zip(
+            &source,
+            &Path::new(env!("CARGO_MANIFEST_DIR")).join("../fixtures/resources"),
+        );
+        let preview = store.preview_bank_zip(package.path()).unwrap();
         text(
             &store.import(text(&preview, "ticket"), None, title).unwrap(),
             "bankId",

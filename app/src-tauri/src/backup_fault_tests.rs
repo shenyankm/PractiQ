@@ -224,24 +224,12 @@ pub(super) fn checkpoint(phase: &str) {
 fn populated(path: &Path, title: &str) -> Store {
     let mut store = Store::new(path.to_owned()).unwrap();
     let preview = store
-        .preview(
-            include_bytes!("../../fixtures/sample.json").to_vec(),
-            title.into(),
-        )
-        .unwrap();
-    store
-        .resources(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../fixtures/resources"))
+        .preview_bank_zip(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../fixtures/sample.zip"))
         .unwrap();
     store.import(text(&preview, "ticket"), None, title).unwrap();
     let bank = store.banks().unwrap()[0]["id"].as_str().unwrap().to_owned();
     let preview = store
-        .preview(
-            include_bytes!("../../fixtures/english.json").to_vec(),
-            title.into(),
-        )
-        .unwrap();
-    store
-        .resources(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../fixtures/resources"))
+        .preview_bank_zip(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../fixtures/english.zip"))
         .unwrap();
     store
         .import(text(&preview, "ticket"), Some(bank), title)
