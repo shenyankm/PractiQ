@@ -68,6 +68,14 @@ This is a build-time operation; no dependency discovery or download occurs in
 the installed practice client. Android x86_64 uses the same reviewed runtime
 closure for emulator checks, while advertised APK candidates use arm64-v8a.
 
+Material 1.14.0 and its resolved ConstraintLayout, Core, CustomView and Tracing
+updates are synchronized across all four locked runtime configurations. Their
+seven artifact/POM pairs match the official Google Maven downloads. The notice
+lock retains the full POM-declared Apache 2.0 terms and five embedded license
+files from the exact selected artifacts. Arm64 and x86_64 runtime exports use
+the same reviewed external closure; minimum SDK and build-tool settings remain
+unchanged. Native packaging and emulator acceptance still require current CI.
+
 ## objc2-family terms
 
 The ten affected versions retain their original, commit-pinned `LICENSE.md`
