@@ -6,14 +6,15 @@ The optional checkout is a separate FastAPI process. An authenticated existing a
 
 Use a separate Python 3.14+ checkout interpreter and `make payments-install-locked AI_PYTHON=/absolute/path/to/checkout-python3.14`. The SDK is a `payments` extra; the default production AI image does not install it. Full development installs include both `dev` and `payments` so the complete test suite runs.
 
-Create the private checkout configuration separately:
+The shared [configuration template](../../.env.example) documents both services. Create the private checkout configuration separately; these commands preserve an existing file's contents:
 
 ```sh
 umask 077
-cp -n .env.payments.example .env.payments
+touch .env.payments
+chmod 600 .env.payments
 ```
 
-Configure the same dedicated `DATABASE_URI`, optional `AI_WEB_DIR` and `PAYMENT_*` values there. Keep AI/LLM/RabbitMQ credentials in the AI service `.env`; do not export merchant secrets into its parent shell or add them to that file. If upgrading an existing shared configuration, move its payment values into `.env.payments` before restarting either service. Checkout startup and payment CLI commands load only `.env.payments`; the AI Compose service continues to load only `.env`. Run checkout under a separate service identity or container and never mount its private environment file into the AI container. Choose `sandbox` or `production` explicitly; gateways are fixed. Set `TZ=Asia/Shanghai` for SDK timestamps (the Make target does this). Optionally configure `PAYMENT_SELLER_EMAIL` with the verified seller login account when notifications identify the seller without `seller_id`. A present seller ID must match the configured ID; an email cannot override a conflicting ID. Both RSA keys must have at least 2048 bits: PKCS1 application private key and SubjectPublicKeyInfo Alipay public key, as PEM or base64 bodies. Disable SDK request/response logging.
+Copy only the same dedicated `DATABASE_URI`, optional `AI_WEB_DIR` and `PAYMENT_*` entries from the template into `.env.payments`, then uncomment the checkout entries and fill their values. Do not copy the entire template into that file. Keep AI/LLM/RabbitMQ credentials in the AI service `.env`; do not export merchant secrets into its parent shell or add them to that file. Leave the template's `PAYMENT_*` entries commented when copying it to the AI `.env`. If upgrading an existing shared configuration, move its payment values into `.env.payments` before restarting either service. Checkout startup and payment CLI commands load only `.env.payments`; the AI Compose service continues to load only `.env`. Run checkout under a separate service identity or container and never mount its private environment file into the AI container. Choose `sandbox` or `production` explicitly; gateways are fixed. Set `TZ=Asia/Shanghai` for SDK timestamps (the Make target does this). Optionally configure `PAYMENT_SELLER_EMAIL` with the verified seller login account when notifications identify the seller without `seller_id`. A present seller ID must match the configured ID; an email cannot override a conflicting ID. Both RSA keys must have at least 2048 bits: PKCS1 application private key and SubjectPublicKeyInfo Alipay public key, as PEM or base64 bodies. Disable SDK request/response logging.
 
 Use the same dedicated PostgreSQL database as the AI service. Stop both services and back up the entire database, storage and secrets. Upgrade service schemas 1/2/3 explicitly to 4 before initializing optional payment schema 3:
 
