@@ -9,17 +9,18 @@ import { Label } from "@/components/ui/label";
 
 export interface BankDraft { id: string | null; title: string; description: string }
 
-export function BankEditor({ initial, busy, onClose, onSave }: {
+export function BankEditor({ initial, busy, onClose, onSave, trigger }: {
   initial: BankDraft;
   busy: boolean;
   onClose: () => void;
   onSave: (draft: BankDraft) => void;
+  trigger?: HTMLElement | null;
 }) {
   useI18n();
   const [draft, setDraft] = useState(() => ({ ...initial }));
   const [original] = useState(() => ({ ...initial }));
   const dirty = draft.title !== original.title || draft.description !== original.description;
-  return <EditorDialog title={t(initial.id ? "编辑题库" : "新建题库")} dirty={dirty} busy={busy} onClose={onClose}>
+  return <EditorDialog title={t(initial.id ? "编辑题库" : "新建题库")} dirty={dirty} busy={busy} onClose={onClose} trigger={trigger}>
     <fieldset disabled={busy} className="space-y-4">
       <Label htmlFor="bankTitle">{t("题库名称")}</Label>
       <Input id="bankTitle" value={draft.title} onChange={event => setDraft({ ...draft, title: event.target.value })} />

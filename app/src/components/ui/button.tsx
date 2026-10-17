@@ -45,6 +45,7 @@ function Button({
   variant = "default",
   size = "default",
   asChild = false,
+  onMouseDown,
   ...props
 }: React.ComponentProps<"button"> &
   VariantProps<typeof buttonVariants> & {
@@ -58,6 +59,11 @@ function Button({
       data-variant={variant}
       data-size={size}
       className={cn(buttonVariants({ variant, size, className }))}
+      onMouseDown={event => {
+        onMouseDown?.(event);
+        // WebKit does not focus mouse-pressed buttons; dialogs need a stable invoker.
+        if (!event.defaultPrevented && event.button === 0 && !props.disabled) event.currentTarget.focus({ preventScroll: true });
+      }}
       {...props}
     />
   );

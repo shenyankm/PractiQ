@@ -287,3 +287,44 @@ for (const width of [1280, 360]) {
     expect(await page.evaluate(() => globalThis.auditRestores || 0)).toBe(0);
   });
 }
+
+for (const width of [1280, 360]) {
+  test(`workspace errors stay below headings and keep diagnostics compact at ${width}px`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 });
+    if (width === 360) await page.emulateMedia({ colorScheme: 'dark' });
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, 'clipboard', { value: { writeText: async value => { globalThis.auditCopiedError = value; } } });
+    });
+    await inject(page, `if (command === 'request' && args?.request?.type === 'backup') throw { code: 'LOCAL_BANK_ZIP_INVALID', params: { detail: 'ZIP entry checksum mismatch. '.repeat(160) } };`);
+    await page.goto('/'); await navigate(page, '设置');
+    await page.getByRole('button', { name: '导出备份', exact: true }).click();
+    const alert = page.getByRole('alert');
+    await expect(alert).toBeVisible();
+    const header = await page.locator('.app-header').boundingBox();
+    const card = await page.locator('[data-slot=card]').filter({ has: page.getByRole('heading', { name: '学习数据备份', exact: true }) }).boundingBox();
+    const closed = await alert.boundingBox();
+    expect(closed.y).toBeGreaterThanOrEqual(header.y + header.height);
+    expect(Math.abs(closed.x - card.x)).toBeLessThan(2);
+    expect(Math.abs(closed.width - card.width)).toBeLessThan(2);
+    expect(closed.height).toBeLessThan(width === 360 ? 180 : 120);
+    await page.screenshot({ path: testInfo.outputPath(`workspace-error-collapsed-${width}.png`), animations: 'disabled' });
+    await alert.getByText('诊断详情', { exact: true }).click();
+    await alert.getByRole('button', { name: '复制诊断', exact: true }).click();
+    await expect(alert.getByRole('status')).toHaveText('诊断已复制');
+    const expanded = await alert.boundingBox();
+    expect(expanded.height).toBeLessThan(width === 360 ? 400 : 320);
+    await expect(alert.locator('pre')).not.toContainText('题库 ZIP 无法读写');
+    expect(await alert.locator('pre').evaluate(element => element.scrollHeight > element.clientHeight)).toBe(true);
+    await alert.locator('summary').focus();
+    await page.keyboard.press('Tab');
+    await expect(alert.locator('pre')).toBeFocused();
+    await page.keyboard.press('End');
+    await expect.poll(() => alert.locator('pre').evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+    expect(await page.evaluate(() => globalThis.auditCopiedError)).toContain('题库 ZIP 无法读写');
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath(`workspace-error-expanded-${width}.png`), animations: 'disabled' });
+    await alert.getByRole('button', { name: '关闭提示', exact: true }).click();
+    await expect(alert).toBeHidden();
+    await expect(page.getByRole('heading', { name: '学习数据备份', exact: true })).toBeVisible();
+  });
+}

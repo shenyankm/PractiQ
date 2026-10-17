@@ -58,9 +58,10 @@ function DialogContent({
         onCloseAutoFocus={(event) => {
           onCloseAutoFocus?.(event);
           // Programmatically opened dialogs do not have a Radix Trigger to restore.
-          if (!event.defaultPrevented && returnFocus.current?.isConnected) {
-            event.preventDefault();
-            returnFocus.current.focus();
+          if (!event.defaultPrevented) {
+            const trigger = returnFocus.current;
+            const target = trigger?.isConnected && trigger !== document.body && !trigger.matches(":disabled") ? trigger : document.querySelector<HTMLElement>("main h1");
+            if (target) { event.preventDefault(); target.focus(); }
           }
         }}
         data-slot="dialog-content"

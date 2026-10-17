@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { BookOpen, ChevronRight, Download, EllipsisVertical, Pencil, Play, Trash2, Upload } from "lucide-react";
-import { api, errorMessage, type Bank, type BankPage, type UnfinishedSession } from "./api";
+import { api, type Bank, type BankPage, type UnfinishedSession } from "./api";
 import { message, t, useI18n } from "./i18n";
 import { toast } from "./notifications";
 import { SessionProgress } from "./SessionProgress";
@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
+import { ErrorNotice } from "./OperationFeedback";
 
 export function BankList({ offset, onOffsetChange, revision, busy, ready, run, onOpenSession, onAddExample, onImport, onHistory, onOpenQuestions, onPractice, onPracticeUnattempted, onEdit, onDelete }: {
   offset: number;
@@ -23,7 +24,7 @@ export function BankList({ offset, onOffsetChange, revision, busy, ready, run, o
   onOpenQuestions: (bankId: string) => void;
   onPractice: (bankId: string) => void;
   onPracticeUnattempted: (bankId: string) => void;
-  onEdit: (bank: Bank) => void;
+  onEdit: (bank: Bank, trigger: HTMLElement | null) => void;
   onDelete: (bank: Bank, trigger: HTMLElement | null) => void;
 }) {
   useI18n();
@@ -68,7 +69,7 @@ export function BankList({ offset, onOffsetChange, revision, busy, ready, run, o
   return <div className="space-y-5">
     {(loading || error != null) && <div className="space-y-3" aria-busy={loading}>
       {loading && <p role="status">{t("加载中…")}</p>}
-      {error != null && <div role="alert"><p>{errorMessage(error)}</p><Button variant="outline" onClick={() => setRefresh(value => value + 1)}>{t("重试")}</Button></div>}
+      {error != null && <div role="alert" className="space-y-2"><ErrorNotice error={error} /><Button variant="outline" onClick={() => setRefresh(value => value + 1)}>{t("重试")}</Button></div>}
     </div>}
     {!loading && !error && unfinished && <Card className="resume-card"><CardContent className="resume-content"><div className="min-w-0 flex-1"><h2 className="text-lg font-semibold">{t("继续未完成的练习")}</h2><p className="mt-1 break-words font-medium">{unfinished.title}</p><p className="mt-2 text-sm text-muted-foreground"><SessionProgress session={unfinished} onExpired={() => setRefresh(value => value + 1)}/></p><progress className="practice-progress mt-3" aria-label={t("继续未完成的练习")} max={unfinished.count || 1} value={unfinished.kind && unfinished.kind !== "practice" ? unfinished.draftAnswered ?? 0 : unfinished.answered}/></div><div className="resume-actions"><Button variant="ghost" disabled={busy} onClick={onHistory}>{t("查看全部")}<ChevronRight aria-hidden="true" /></Button><Button disabled={busy} onClick={() => onOpenSession(unfinished.id)}><Play aria-hidden="true" />{unfinished.kind && unfinished.kind !== "practice" ? t("继续考试") : t("继续练习")}</Button></div></CardContent></Card>}
     {!page.total && !loading && !error && ready && <Empty className="min-h-96 border border-dashed"><EmptyHeader><EmptyMedia><BookOpen /></EmptyMedia><EmptyTitle>{t("从第一份题库开始")}</EmptyTitle><EmptyDescription>{t("导入 ZIP 开始离线练习；文档解析请前往 AI 服务网页。")}</EmptyDescription></EmptyHeader><EmptyContent><Button disabled={busy} onClick={onImport}><Upload />{t("导入题库 ZIP")}</Button><Button variant="outline" disabled={busy} onClick={onAddExample}><BookOpen />{t("添加示例题库")}</Button></EmptyContent></Empty>}
@@ -85,7 +86,7 @@ export function BankList({ offset, onOffsetChange, revision, busy, ready, run, o
                     const result = await api({ type: "export_bank", bank_id: bank.id });
                     if (result) toast.success(message("题库已导出：{0}", { 0: result.path }));
                   })}><Download className="size-4" />{t("导出题库 ZIP")}</DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => onEdit(bank)}><Pencil className="size-4" />{t("编辑题库")}</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => onEdit(bank, triggers.current.get(bank.id) ?? null)}><Pencil className="size-4" />{t("编辑题库")}</DropdownMenuItem>
                   <DropdownMenuItem disabled={busy || !bank.count} onSelect={() => onPracticeUnattempted(bank.id)}><Play className="size-4" />{t("练习未做题")}</DropdownMenuItem>
                   <DropdownMenuItem variant="destructive" onSelect={() => onDelete(bank, triggers.current.get(bank.id) ?? null)}><Trash2 className="size-4" />{t("删除题库")}</DropdownMenuItem>
                 </DropdownMenuContent>

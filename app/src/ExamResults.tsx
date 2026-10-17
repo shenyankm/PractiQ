@@ -6,7 +6,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useRef, useState } from "react";
 import { ai } from "./ai-api";
-import { api, errorMessage, type Session, type Attempt, type GradingResponse } from "./api";
+import { api, type Session, type Attempt, type GradingResponse } from "./api";
+import { ErrorNotice } from "./OperationFeedback";
 import { cents } from "./paper";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,9 +18,9 @@ export interface GradingDraft { score: string; reason: string }
 function gradingStatus(status: string) { return ({graded: t("已完成"), ungraded:t("未能评分，需复核"), unknown:t("评分结果待确认")})[status] || status; }
 function eligible(a:Attempt){const q=a.snapshot.question;return q.answerMode==="short_answer"&&!!q.stem&&!!a.answer?.text?.trim()&&!!(q.scoringRubric||q.answerPayload?.text)&&!a.snapshot.missingAssets&&!q.missingFields.some(k=>["stem","material","media","answerMode"].includes(k))&&a.gradeKind!=="manual";}
 function GradeDetails({request}: {request: GradingResponse}) {
-  const error = request.appError ? errorMessage(request.appError) : request.error ? errorMessage(request.error) : null;
+  const error = request.appError || request.error;
   return <div className="space-y-2">
-    {error && <p>{error}</p>}
+    {error && <ErrorNotice error={error} />}
     {request.result?.reason && <p>{request.result.reason}</p>}
     {request.result?.evidence.map((e,i)=><p key={i}>{e}</p>)}
     {request.result?.reviewReasons.map((e,i)=><p key={i}>{t("复核提示：{0}", {0:e})}</p>)}
@@ -99,7 +100,7 @@ export function ExamResults({session,onSession,run,onNextUnattempted,draft,onDra
       });}catch(e){setError(e);}}}>{saving ? t("正在保存…") : t("保存人工评分")}</Button></div>
       <p className="text-xs text-muted-foreground">{t("人工评分草稿仅在本次应用运行期间保留；点击保存后才写入记录。")}</p>
     </>}
-    {error != null &&<p role="alert">{errorMessage(error)}</p>}
+    {error != null && <div role="alert"><ErrorNotice error={error} /></div>}
     {needsConfiguration && onConfigure && <Button variant="outline" disabled={running || saving} onClick={onConfigure}>{t("配置 AI 服务")}</Button>}
   </section>;
 }

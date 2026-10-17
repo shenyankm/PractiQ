@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { api, errorMessage, type AudioLink, type StagedAudio, type Question } from "./api";
+import { api, type AudioLink, type StagedAudio, type Question } from "./api";
+import { ErrorNotice } from "./OperationFeedback";
 import { message, MessageError, t, useI18n } from "./i18n";
 import { ListeningPlayer } from "./ListeningPlayer";
 import { Input } from "@/components/ui/input";
@@ -75,7 +76,7 @@ export function EnglishFields({question:q,patch,images=[],onPendingChange,onDraf
       <p className="text-xs text-muted-foreground">{t("支持音频直链或含公开音频链接的网页。二维码先识别网址，点击获取后才联网；下载后可离线播放。")}</p>
       {picking && <p role="status">{t("正在处理听力资源…")}</p>}
       {links.length>0 && <div className="space-y-2"><p>{t("请选择资源网址，再点击获取音频。")}</p>{links.map(link=><Button key={link.url} variant="outline" disabled={picking} className="h-auto w-full justify-start whitespace-normal break-all text-left" onClick={()=>{changeUrl(link.url);setLinks([]);}}>{link.label ? link.label+" · " : ""}{link.url}</Button>)}</div>}
-      {error != null && <p role="alert">{errorMessage(error)}</p>}
+      {error != null && <div role="alert"><ErrorNotice error={error} /></div>}
       <p className="text-xs text-muted-foreground">{t("支持 MP3、M4A/AAC、WAV，每个文件不超过 25 MiB。")}</p>
       <ListeningPlayer key={q.audioRef?.sha256 || "missing"} question={q}/>
       <div className="grid grid-cols-3 gap-3">
