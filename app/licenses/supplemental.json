@@ -445,5 +445,21 @@
         "sha256": "178b2aeab305af17f50a3d09f8391ffb3d11426d302d8ac85fb8fdd555ada634"
       }
     }
+  ],
+  "cargo:jsonschema-regex@0.58.6": [
+    {
+      "source": "https://raw.githubusercontent.com/Stranger6667/jsonschema/55ac1664384793c5d3b20745d3f9c169dfe2c06f/LICENSE",
+      "sha256": "117829c3ca21efb132d81a44b55363d395ab8eea18526873bc828da4c0e5f038",
+      "file": "texts/117829c3ca21efb132d81a44b55363d395ab8eea18526873bc828da4c0e5f038.txt",
+      "verification": "The published crate declares the upstream workspace MIT license and its .cargo_vcs_info.json matches this commit. The root terms match the LICENSE bundled by jsonschema 0.58.6 from the same commit."
+    }
+  ],
+  "cargo:jsonschema-value@0.58.6": [
+    {
+      "source": "https://raw.githubusercontent.com/Stranger6667/jsonschema/55ac1664384793c5d3b20745d3f9c169dfe2c06f/LICENSE",
+      "sha256": "117829c3ca21efb132d81a44b55363d395ab8eea18526873bc828da4c0e5f038",
+      "file": "texts/117829c3ca21efb132d81a44b55363d395ab8eea18526873bc828da4c0e5f038.txt",
+      "verification": "The published crate declares the upstream workspace MIT license and its .cargo_vcs_info.json matches this commit. The root terms match the LICENSE bundled by jsonschema 0.58.6 from the same commit."
+    }
   ]
 }

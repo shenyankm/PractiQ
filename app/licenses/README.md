@@ -22,6 +22,11 @@ the platform-filtered resolve graph. AI service dependencies and its configured
 Office engine are independently deployed and require their own license review.
 They are never claimed as redistributed desktop components.
 
+The jsonschema-regex and jsonschema-value 0.58.6 archives omit license files.
+Their published VCS identities and workspace declarations bind the supplemental
+MIT text to upstream commit `55ac1664384793c5d3b20745d3f9c169dfe2c06f`.
+Those complete terms also match the jsonschema 0.58.6 archive from that commit.
+
 ## Android runtime source evidence
 
 The Gradle `exportRuntimeNoticeInventory` task resolves the actual variant's
