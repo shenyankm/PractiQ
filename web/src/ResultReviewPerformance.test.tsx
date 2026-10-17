@@ -27,7 +27,7 @@ it("reuses unchanged Markdown across parent updates and renders changed or null 
 it("serializes complete records only after opening and reuses them on reopen", async () => {
   const user = userEvent.setup();
   const record = question({ id: "lazy-record", stem: "Lazy question", parentId: null, optionSourceId: null });
-  const client = new Client("fake", "13800138000");
+  const client = new Client("fake");
   const current = { ...preview, units: [{ ...preview.units[0], questions: [record] }] };
   const stringify = vi.spyOn(JSON, "stringify");
   const view = render(<ResultReview task={task} preview={current} client={client} />);
@@ -57,7 +57,7 @@ it("searches shared options once per query and preserves review filtering", asyn
   const children = Array.from({ length: 999 }, (_, index) => question({ id: `child-${index}`, parentId: "bank", optionSourceId: "bank", needsReview: index % 2 === 0 }));
   const owner = question({ id: "bank", parentId: null, optionSourceId: null, answerMode: "word_bank", questionTypeId: "word_bank", choiceVariant: null, options, needsReview: false, missingFields: [], passage: children.map(child => ({ partType: "blank", questionId: child.id })) });
   const current = { ...preview, units: [{ ...preview.units[0], questions: [owner, ...children] }] };
-  render(<ResultReview task={task} preview={current} client={new Client("fake", "13800138000")} />);
+  render(<ResultReview task={task} preview={current} client={new Client("fake")} />);
   await user.click(screen.getByRole("searchbox"));
   content.mockClear();
   await user.paste("absent");

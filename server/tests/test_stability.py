@@ -10,7 +10,7 @@ from zipfile import ZipFile
 import httpx
 import pytest
 
-from practiq_ai import execution, runtime, saas, storage, task_api, webapp
+from practiq_ai import execution, runtime, storage, task_api, webapp
 from practiq_ai.contracts import (
     DocumentReference,
     DocumentTaskControl,
@@ -22,7 +22,7 @@ from practiq_ai.errors import DocumentProcessingError
 from practiq_ai.graphs import document
 from practiq_ai.storage import StorageHealth
 from scripts import load_test
-from tests.db_support import SERVICES, new_database, seed_account, setup_api
+from tests.db_support import new_database, setup_api
 from tests.support import object_store, parsed, upload
 
 pytestmark = pytest.mark.usefixtures('disposable_databases')
@@ -134,47 +134,16 @@ async def test_temporary_budget_stop_requires_explicit_resume_without_model_repl
     assert len(model.calls) == 1
 
 
-async def test_durable_unknown_usage_metrics_survive_restart_and_clear_after_settlement(monkeypatch):
-    service, _, model = await setup_api(monkeypatch)
-    keys = [str(uuid4()), str(uuid4())]
-    credentials = []
-    for index, status in enumerate(('pending', 'unknown')):
-        token = await seed_account(service.db, str(13800138000 + index))
-        credentials.append(token)
-        account = await saas.identity(str(13800138000 + index), token)
-        async with service.db.transaction() as conn:
-            await conn.execute("INSERT INTO import_calls(call_key,account_id,thread_id,rates,status,dispatched,created_at) VALUES(%s,%s,'deleted-task',%s,%s,true,now()-interval '15 minutes')",
-                               (keys[index], account, '{"inputMicropointsPer1k":1,"outputMicropointsPer1k":1}', status))
-    uri = service.db.uri
-    await service.stop(timeout=0)
-    restarted = runtime.Service(Database(uri))
-    await restarted.start()
-    SERVICES.append(restarted)
-    monkeypatch.setattr(runtime, 'current', restarted)
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=webapp.app), base_url='http://test', headers={'Authorization': 'Bearer test-token'}) as client:
-        response = await client.get('/api/metrics')
-        assert response.status_code == 200
-        assert 'practiq_import_calls{status="unknown"} 2\n' in response.text
-        assert 'practiq_import_calls{status="pending"} 0\n' in response.text
-        assert all(key not in response.text for key in keys)
-        assert 'deleted-task' not in response.text and all(token not in response.text for token in credentials)
-        for key in keys:
-            await saas.settle(key, {'inputTokens': 1, 'outputTokens': 1}, database=restarted.db)
-        assert 'practiq_import_calls{status="unknown"} 0\n' in (await client.get('/api/metrics')).text
-    assert model.calls == []
 
 
-async def test_account_load_driver_uses_real_auth_upload_queue_and_export(monkeypatch, tmp_path):
-    monkeypatch.setenv('AI_INPUT_POINTS_PER_1K', '1')
-    monkeypatch.setenv('AI_OUTPUT_POINTS_PER_1K', '1')
-    service, _, model = await setup_api(monkeypatch, [parsed('First')])
-    credential = await seed_account(service.db)
+async def test_personal_load_driver_uses_real_auth_upload_queue_and_export(monkeypatch, tmp_path):
+    _service, _, model = await setup_api(monkeypatch, [parsed('First')])
     files = object_store(tmp_path / 'uploaded-files')
     for module in (runtime, task_api, execution, webapp, storage, document):
         monkeypatch.setattr(module, 'get_object_store', lambda: files)
     real_client = httpx.AsyncClient
     monkeypatch.setattr(load_test.httpx, 'AsyncClient', lambda **kwargs: real_client(transport=httpx.ASGITransport(app=webapp.app), **kwargs))
-    args = argparse.Namespace(token='test-token', phone='13800138000', account_token=credential,
+    args = argparse.Namespace(token='test-token',
                               base_url='http://test', input=None, text='1. First', total=1,
                               submit_concurrency=1, request_timeout=5, completion_timeout=10,
                               pid=None, api='document-tasks', max_running=8, graph_concurrency=2,
@@ -182,8 +151,8 @@ async def test_account_load_driver_uses_real_auth_upload_queue_and_export(monkey
     report = await load_test.run(args)
     assert report['status'] == 'PASSED', report['failures']
     assert report['results']['runs'] == {'success': 1}
-    assert credential not in json.dumps(report) and 'test-token' not in json.dumps(report)
-    async with real_client(transport=httpx.ASGITransport(app=webapp.app), base_url='http://test', headers={'Authorization': 'Account ' + credential, 'X-Practiq-Phone': args.phone}) as client:
+    assert 'test-token' not in json.dumps(report)
+    async with real_client(transport=httpx.ASGITransport(app=webapp.app), base_url='http://test', headers={'Authorization': 'Bearer test-token'}) as client:
         thread = report['runs'][0]['threadId']
         detail = (await client.get(f'/api/document-tasks/{thread}')).json()
         exported = await client.get(f'/api/document-tasks/{thread}/export', params={'checkpoint_id': detail['checkpointId']})

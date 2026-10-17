@@ -54,7 +54,7 @@ New model output with `confidence < 0.5` always requires review. This threshold 
 
 Successful checkpointed units are reused. A provider request whose result was not persisted blocks automatic same-run recovery with MODEL_RESULT_UNKNOWN; unknown usage remains recorded. Exactly-once provider calls are not guaranteed. Pause does not forcibly cancel accepted remote requests, and canceling a local wait does not terminate an underlying synchronous thread.
 
-See [RabbitMQ delivery, upgrade, rollback and dead-letter recovery](rabbitmq.md) for transactional delivery; see [SaaS deployment](saas.md) for schema 4, account credentials and points, broker setup, outage/read-only/maintenance semantics and failure windows.
+See [RabbitMQ delivery, upgrade, rollback and dead-letter recovery](rabbitmq.md) for transactional delivery; see [personal deployment](personal-use.md) for schema 5, service-token access and safe migration.
 
 ## Configuration and observability
 
@@ -79,11 +79,11 @@ Unhealthy storage returns 503 `OBJECT_STORE_UNAVAILABLE` for new upload preparat
 
 ### Monitoring installation and verification
 
-`deploy/prometheus.example.yml` fixes the job names used by the rules. Adapt the public HTTPS readiness target and local ports, then merge it into the deployment's existing Prometheus configuration. It expects a loopback blackbox exporter with an `http_2xx` module at `127.0.0.1:9115`, cAdvisor at `127.0.0.1:8082` exposing the Compose service label `ai`, and the existing Alertmanager at `127.0.0.1:9093`. These exporters and the receiver are deployment prerequisites; the service Compose file does not install or expose them. Keep metrics/exporter ports private. Store the service Bearer token in a private mode-0600 credentials file readable only by the monitoring identity, not in YAML or command history. Customer account tokens must not scrape metrics.
+`deploy/prometheus.example.yml` fixes the job names used by the rules. Adapt the public HTTPS readiness target and local ports, then merge it into the deployment's existing Prometheus configuration. It expects a loopback blackbox exporter with an `http_2xx` module at `127.0.0.1:9115`, cAdvisor at `127.0.0.1:8082` exposing the Compose service label `ai`, and the existing Alertmanager at `127.0.0.1:9093`. These exporters and the receiver are deployment prerequisites; the service Compose file does not install or expose them. Keep metrics/exporter ports private. Store the service Bearer token in a private mode-0600 credentials file readable only by the monitoring identity, not in YAML or command history.
 
-Alerts include missing/down service scrapes, missing/failed external readiness probes, unhealthy/full file storage, persistent unknown or stale-pending import calls, and container OOM/restart signals. `practiq_import_calls{status="pending|unknown"}` and `practiq_import_call_oldest_seconds` are recomputed from PostgreSQL on each scrape, so a restart or task deletion cannot erase unresolved accounting from monitoring. They never expose account, task or call identifiers as labels. Storage metrics are `practiq_storage_healthy` and `practiq_storage_{free,total}_{bytes,inodes}`; unavailable measurements are omitted, not reported as zero.
+Alerts include missing/down service scrapes, missing/failed external readiness probes, unhealthy/full file storage, and container OOM/restart signals. Storage metrics are `practiq_storage_healthy` and `practiq_storage_{free,total}_{bytes,inodes}`; unavailable measurements are omitted, not reported as zero.
 
-When optional payment schema 3 is installed, metrics additionally expose uncredited paid-order count/oldest age and `practiq_payment_refund_evidence_orders`. The latter counts all retained refund evidence, not a proven unresolved-review queue: the current schema has no review-acknowledgement state. Operators must retain that evidence and manage acknowledgement/silence through the alert receiver after reconciliation. Scraping never credits points, queries the gateway or resumes models. Absent/older optional payment schemas do not prevent AI metrics collection.
+Payment and import-point accounting metrics have been removed. Model call diagnostics remain in saved task details.
 
 Run `make alerts-check` (Docker required) to execute rule firing/recovery tests and example-config syntax checks with a digest-pinned Prometheus tool. Service CI runs this separately from `make verify`. Then verify actual private scrapes, the public probe and a synthetic alert/recovery at the configured notification receiver. Local rule success does not establish that a production notification was delivered. Alert on exporter absence too; an application cannot report its own disappearance through its application metrics alone.
 
@@ -120,9 +120,9 @@ Load configuration into the shell first. Inventory covers retained tasks, comple
 
 `make verify` uses isolated PostgreSQL databases, RabbitMQ vhosts and model fakes, without external model calls. `TEST_DATABASE_URI` may point to a dedicated disposable instance whose role can create/drop databases; otherwise the helper starts one temporary Docker PostgreSQL container bound to loopback and removes it on exit. Every test gets its own randomly named database; pure tests do not start Docker. Independent-process tests cover forced termination, unknown calls, and human-review recovery.
 
-TXT/CSV extraction workers read parser limits without loading SaaS billing, LangGraph or public contract models. Configured billing rates still use the existing point conversion. Real-worker import tests guard this startup boundary without replacing extraction or changing deadlines. See the [startup investigation](../../docs/extractor-startup-20261016.md) for measurements and the unresolved original timeout.
+TXT/CSV extraction workers read parser limits without loading LangGraph or public contract models. Real-worker import tests guard this startup boundary without replacing extraction or changing deadlines.
 
-Provision a dedicated existing test account with an operator-issued token and enough points. Export `PRACTIQ_LOAD_PHONE` and `PRACTIQ_LOAD_ACCOUNT_TOKEN` privately into the shell; `AI_SERVICE_TOKEN` is used separately for metrics only. Do not put credentials on the command line or use a customer production account. Start the service, then run this load test from the repository root:
+Export `AI_SERVICE_TOKEN` privately into the shell and use an isolated test deployment. The same token authorizes task and metrics APIs. Start the service, then run this load test from the repository root:
 
 ```sh
 cd server
@@ -134,13 +134,13 @@ python -m dotenv -f ../.env run -- python scripts/load_test.py \
 
 The load driver supports only the document business API. It uses the Prometheus text parser for the five capacity gauges and retains only finite, unlabelled samples; labelled series are not combined into deployment totals. Load tests/evaluations connected to real models incur costs and require separate planning. Historical Agent Server, Redis, licensing, and capacity reports remain historical evidence, not acceptance of the current runtime.
 
-Business uploads, task creation and polling use `Account` authentication with the phone header; the metrics client uses the service Bearer token and carries no phone header. Reports contain neither credential. A service token cannot create customer tasks. The driver also retains the account's serial-call and queue quotas; use separate provisioned accounts/processes for a multi-account capacity test. Its existing synthetic thresholds do not establish the capacity of the default 2 GiB container for large documents.
+Uploads, task creation, polling and metrics share the personal service Bearer token. Reports contain no credentials. The driver retains global queue admission, worker concurrency and provider limits. Its synthetic thresholds do not establish production capacity for large documents.
 
-The example starts within an otherwise idle account's default eight-run allowance. For an intentional overload test, pass `--allow-rejections`: explicit 429/503 outcomes are then permitted, but at least one task must still succeed. Otherwise rejection is a failed strict-capacity gate. The CLI's larger default batch is not a promise that one account can submit that many tasks successfully.
+For an intentional overload test, pass `--allow-rejections`: explicit 429/503 outcomes are permitted, but at least one task must still succeed. Otherwise rejection is a failed strict-capacity gate.
 
 ### Web network deadlines
 
-The Web client bounds ordinary GET/JSON requests at 30 seconds, payment requests at 20 seconds, uploads and other mutations/artifact reads at 125 seconds, and ZIP downloads at 600 seconds. Each deadline includes response-body reception. Session disconnect and page cancellation release readers and timers. List/detail polling backs off failed reads with jitter up to 30 seconds, resets after a successful read, and retains background-tab/authentication stops. Mutations are never automatically retried. A timed-out mutation is uncertain; inspect task/order state, and only explicitly retry with its retained request ID. Refreshing/disconnecting still ends the in-memory session and its pending intents.
+The Web client bounds ordinary GET/JSON requests at 30 seconds, uploads and other mutations/artifact reads at 125 seconds, and ZIP downloads at 600 seconds. Each deadline includes response-body reception. Session disconnect and page cancellation release readers and timers. List/detail polling backs off failed reads with jitter up to 30 seconds, resets after a successful read, and retains background-tab/authentication stops. Mutations are never automatically retried. A timed-out mutation is uncertain; inspect task state, and only explicitly retry with its retained request ID. Refreshing/disconnecting still ends the in-memory session and its pending intents.
 
 These operational changes do not migrate schemas or relax execution signatures. Drain existing work and retain the original image/database/files/configuration before upgrading; unfinished tasks with an older code fingerprint still require their original deployment.
 

@@ -11,16 +11,13 @@ from psycopg import AsyncConnection
 from psycopg.rows import dict_row
 
 from .config import database_uri
-from .saas import DDL as SAAS_DDL
-from .saas import TABLES as SAAS_TABLES
-from .saas import TOKEN_DDL
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 # Separate session ownership from short API transactions, scoped to this database.
 LOCK_NAMESPACE = 817241
 DDL = """
 CREATE TABLE practiq_schema(version integer NOT NULL);
-INSERT INTO practiq_schema VALUES (4);
+INSERT INTO practiq_schema VALUES (5);
 CREATE TABLE document_tasks (
  thread_id text PRIMARY KEY, request_hash text NOT NULL, graph_id text NOT NULL,
  document jsonb NOT NULL, failure_policy text NOT NULL, parent_thread_id text,
@@ -56,7 +53,6 @@ CREATE TABLE document_outbox (
 CREATE INDEX document_outbox_pending ON document_outbox(created_at) WHERE published_at IS NULL;
 """
 DDL += OUTBOX_DDL
-DDL += SAAS_DDL
 INDEX_DDL = """
 CREATE INDEX IF NOT EXISTS document_task_order ON document_tasks(created_at DESC,thread_id DESC);
 CREATE INDEX IF NOT EXISTS document_run_latest ON document_runs(thread_id,created_at DESC);
@@ -64,7 +60,8 @@ CREATE INDEX IF NOT EXISTS document_active_order ON document_runs(created_at) WH
 """
 STATE_TABLES = {'checkpoints', 'checkpoint_blobs', 'checkpoint_writes', 'checkpoint_migrations', 'store', 'store_migrations'}
 TASK_TABLES = {'practiq_schema', 'document_tasks', 'document_runs', 'document_receipts', 'grades', 'grade_calls', 'grade_calls_sequence_seq', 'document_outbox'}
-TASK_TABLES |= SAAS_TABLES
+# Offline validation only; these tables remain inert archives after upgrade.
+LEGACY_ACCOUNT_TABLES = {'import_accounts', 'import_products', 'import_account_tokens', 'import_ledger', 'import_ledger_id_seq', 'import_uploads', 'import_calls'}
 
 
 class Ownership:
@@ -165,15 +162,9 @@ class Database:
     async def check_schema(self):
         tables = await self.tables()
         if 'practiq_schema' not in tables or await self.rows('SELECT version FROM practiq_schema') != [{'version': SCHEMA_VERSION}]:
-            raise RuntimeError('Unsupported service schema; use init-db only for an empty database, or upgrade-db for schema 1, 2 or 3')
+            raise RuntimeError('Unsupported service schema; use init-db only for an empty database, or upgrade-db for schema 1, 2, 3 or 4')
         if not STATE_TABLES | TASK_TABLES <= tables:
             raise RuntimeError('Incomplete PostgreSQL state; restore the entire service database before starting')
-        if not await self.upload_verification_column():
-            raise RuntimeError('Upload ownership requires an explicit offline upgrade-db')
-
-    async def upload_verification_column(self):
-        return bool(await self.rows("SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='import_uploads' AND column_name='verified' AND data_type='boolean'"))
-
     @asynccontextmanager
     async def transaction(self):
         async with self.control_lock, self.connection() as conn, conn.transaction():
@@ -206,33 +197,28 @@ class Database:
             raise RuntimeError('Upgrade requires an initialized service database')
         versions = await self.rows('SELECT version FROM practiq_schema')
         if versions == [{'version': SCHEMA_VERSION}]:
-            if not STATE_TABLES | TASK_TABLES <= tables:
-                raise RuntimeError('Upgrade requires complete PostgreSQL state')
-            if not await self.upload_verification_column():
-                async with self.transaction() as conn:
-                    await conn.execute('ALTER TABLE import_uploads ADD COLUMN verified boolean NOT NULL DEFAULT true')
-                    await conn.execute('ALTER TABLE import_uploads ALTER COLUMN verified SET DEFAULT false')
             await self.check_schema()
             return
         version = versions[0]['version'] if len(versions) == 1 else None
-        required = TASK_TABLES - SAAS_TABLES - ({'document_outbox'} if version == 1 else set())
-        if version == 3:
-            legacy_saas = SAAS_TABLES - {'import_account_tokens'} | {'import_cards'}
-            if 'import_account_tokens' in tables or not STATE_TABLES | required | legacy_saas <= tables:
-                raise RuntimeError('Upgrade requires complete service schema 3')
-        elif version not in {1, 2} or tables & SAAS_TABLES or not STATE_TABLES | required <= tables:
-            raise RuntimeError('Upgrade supports only complete service schema 1, 2 or 3')
+        required = TASK_TABLES - ({'document_outbox'} if version == 1 else set())
+        if version not in {1, 2, 3, 4} or not STATE_TABLES | required <= tables:
+            raise RuntimeError('Upgrade requires complete service schema 1, 2, 3 or 4')
+        legacy = LEGACY_ACCOUNT_TABLES - {'import_account_tokens'} | {'import_cards'} if version == 3 else LEGACY_ACCOUNT_TABLES
+        if ((version in {3, 4} and not legacy <= tables)
+                or (version == 3 and 'import_account_tokens' in tables)
+                or (version in {1, 2} and tables & (LEGACY_ACCOUNT_TABLES | {'import_cards'}))):
+            raise RuntimeError('Upgrade requires complete service schema 1, 2, 3 or 4')
         async with self.transaction() as conn:
+            if version in {3, 4}:
+                # Never adopt customer data or let personal cleanup delete unsettled evidence.
+                owned = await (await conn.execute('SELECT 1 FROM document_tasks WHERE account_id IS NOT NULL LIMIT 1')).fetchone()
+                uploads = await (await conn.execute('SELECT 1 FROM import_uploads LIMIT 1')).fetchone()
+                unsettled = await (await conn.execute("SELECT 1 FROM import_calls WHERE status IN ('pending','unknown') LIMIT 1")).fetchone()
+                if owned or uploads or unsettled:
+                    raise RuntimeError('Customer tasks, uploads or unsettled calls require a separate archived database; initialize a new personal database and storage directory')
             if version == 1:
                 await conn.execute(OUTBOX_DDL, prepare=False)
                 await conn.execute('DROP INDEX IF EXISTS document_queue')
-            if version == 3:
-                await conn.execute(TOKEN_DDL, prepare=False)
-                if not await self.upload_verification_column():
-                    await conn.execute('ALTER TABLE import_uploads ADD COLUMN verified boolean NOT NULL DEFAULT true')
-                    await conn.execute('ALTER TABLE import_uploads ALTER COLUMN verified SET DEFAULT false')
-            else:
-                await conn.execute(SAAS_DDL, prepare=False)
             await conn.execute('UPDATE practiq_schema SET version=%s', (SCHEMA_VERSION,))
 
     async def acquire(self, message: str = 'Another service already owns this database', *, slot: int = 1) -> Ownership:

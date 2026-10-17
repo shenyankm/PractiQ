@@ -17,7 +17,7 @@ from psycopg import Error as DatabaseError
 from starlette.responses import StreamingResponse
 from starlette.types import Receive, Scope, Send
 
-from practiq_ai import saas, task_api
+from practiq_ai import task_api
 from practiq_ai.bank_export import ZIP_CHUNK_BYTES
 from practiq_ai.config import load, require_model_config
 from practiq_ai.contracts import (
@@ -35,11 +35,8 @@ from practiq_ai.contracts import (
     DocumentTaskReview,
     DocumentUploadRequest,
     DocumentUploadResponse,
-    ImportAccount,
     ImportCapabilities,
-    ImportProducts,
     OfficeMode,
-    PointLedger,
     document_source_key,
     document_source_limit,
 )
@@ -48,7 +45,7 @@ from practiq_ai.execution import supported_task_sql
 from practiq_ai.extractors.isolated import _thread_io
 from practiq_ai.grading import GradeWireRequest, grade
 from practiq_ai.middleware import JsonBodyLimitMiddleware, SecurityHeadersMiddleware
-from practiq_ai.storage import get_object_store, validate_source_size
+from practiq_ai.storage import get_object_store
 from practiq_ai.telemetry import configure_logging, registry
 
 
@@ -114,43 +111,6 @@ def authorize(authorization: str | None = Header(default=None)) -> None:
     authenticate(authorization)
 
 
-async def authorize_document(authorization: str | None = Header(default=None),
-                             x_practiq_phone: str | None = Header(default=None)) -> AsyncGenerator[str | None]:
-    scheme, _, credential = (authorization or '').partition(' ')
-    account = None
-    if scheme.lower() == 'account':
-        account = await _task_response(saas.identity(x_practiq_phone or '', credential))
-    else:
-        authorize(authorization)
-    token = saas.ACCOUNT.set(account)
-    try:
-        yield account
-    finally:
-        saas.ACCOUNT.reset(token)
-
-
-def customer(account: Annotated[str | None, Depends(authorize_document)]) -> str:
-    if account is None:
-        raise HTTPException(401, {'code': 'ACCOUNT_REQUIRED'})
-    return account
-
-
-@app.get('/api/products', response_model=ImportProducts)
-async def import_products():
-    return await _task_response(saas.products())
-
-
-@app.get('/api/account', response_model=ImportAccount)
-async def import_account(account: Annotated[str, Depends(customer)]):
-    return await _task_response(saas.account_summary(account))
-
-
-@app.get('/api/account/ledger', response_model=PointLedger)
-async def point_ledger(account: Annotated[str, Depends(customer)], limit: int = Query(default=20, ge=1, le=100),
-                       before: int | None = Query(default=None, gt=0)):
-    return await _task_response(saas.ledger(account, limit, before))
-
-
 async def upload_slot() -> AsyncGenerator[None]:
     try:
         config = load()
@@ -185,18 +145,6 @@ async def application_metrics() -> Response:
         for name in ('free_bytes', 'total_bytes', 'free_inodes', 'total_inodes'):
             if (value := getattr(health, name)) is not None:
                 body += f'practiq_storage_{name} {value}\n'.encode()
-        calls = await current.db.rows("SELECT status,count(*) AS n,extract(epoch FROM now()-min(created_at)) AS age FROM import_calls WHERE status IN ('pending','unknown') GROUP BY status")
-        by_status = {row['status']: row for row in calls}
-        for status in ('pending', 'unknown'):
-            row = by_status.get(status, {'n': 0, 'age': 0})
-            body += (f'practiq_import_calls{{status="{status}"}} {row["n"]}\n'
-                     f'practiq_import_call_oldest_seconds{{status="{status}"}} {max(0, row["age"])}\n').encode()
-        payment_table = await current.db.rows("SELECT to_regclass('public.payment_schema') IS NOT NULL AS present")
-        if payment_table[0]['present'] and await current.db.rows('SELECT version FROM payment_schema') == [{'version': 3}]:
-            payments = (await current.db.rows("SELECT count(*) FILTER (WHERE status='paid') AS uncredited,count(*) FILTER (WHERE refund_evidence!='{}'::jsonb) AS refunds,coalesce(extract(epoch FROM now()-min(paid_at) FILTER (WHERE status='paid')),0) AS age FROM payment_orders"))[0]
-            body += (f'practiq_payment_uncredited_orders {payments["uncredited"]}\n'
-                     f'practiq_payment_uncredited_oldest_seconds {max(0, payments["age"])}\n'
-                     f'practiq_payment_refund_evidence_orders {payments["refunds"]}\n').encode()
         rows = await current.db.rows(f"SELECT r.status,count(*) AS n FROM document_runs r JOIN document_tasks t ON t.thread_id=r.thread_id WHERE r.status IN ('pending','running') AND {supported_task_sql('t')} GROUP BY r.status")
         counts = {row['status']: row['n'] for row in rows}
         outbox = (await current.db.rows('SELECT count(*) AS n,coalesce(extract(epoch FROM now()-min(created_at)),0) AS age FROM document_outbox WHERE published_at IS NULL'))[0]
@@ -217,7 +165,7 @@ async def maintenance_status() -> dict[str, bool]:
     return {"enabled": load().maintenance}
 
 
-@app.get("/api/import-capabilities", response_model=ImportCapabilities, dependencies=[Depends(authorize_document)])
+@app.get("/api/import-capabilities", response_model=ImportCapabilities, dependencies=[Depends(authorize)])
 async def import_capabilities() -> ImportCapabilities:
     settings = load()
     office = settings.office_executable is not None and settings.office_executable.is_file()
@@ -238,12 +186,12 @@ async def _task_response[ResultT](operation: Awaitable[ResultT]) -> ResultT:
         raise HTTPException(503, {"code": "TASK_SERVICE_UNAVAILABLE", "message": "Task database is unavailable"}) from exc
 
 
-@app.post("/api/document-tasks", status_code=202, response_model=DocumentTaskReceipt, dependencies=[Depends(customer)])
+@app.post("/api/document-tasks", status_code=202, response_model=DocumentTaskReceipt, dependencies=[Depends(authorize)])
 async def create_document_task(request: DocumentTaskCreate) -> dict[str, Any]:
     return await _task_response(task_api.create_task(request))
 
 
-@app.get("/api/document-tasks", response_model=DocumentTaskList, dependencies=[Depends(authorize_document)])
+@app.get("/api/document-tasks", response_model=DocumentTaskList, dependencies=[Depends(authorize)])
 async def list_document_tasks(limit: int = Query(default=20, ge=1, le=100), offset: int = Query(default=0, ge=0),
                               sha256: str | None = Query(default=None, pattern=r'^[a-f0-9]{64}$'),
                               state_filter: task_api.TaskFilter | None = None, officeMode: OfficeMode | None = None,
@@ -251,27 +199,27 @@ async def list_document_tasks(limit: int = Query(default=20, ge=1, le=100), offs
     return await _task_response(task_api.list_tasks(limit, offset, sha256, state_filter, officeMode, cursor))
 
 
-@app.get("/api/document-tasks/{thread_id}", response_model=DocumentTaskDetail, dependencies=[Depends(authorize_document)])
+@app.get("/api/document-tasks/{thread_id}", response_model=DocumentTaskDetail, dependencies=[Depends(authorize)])
 async def get_document_task(thread_id: UUID) -> dict[str, Any]:
     return await _task_response(task_api.get_task(str(thread_id)))
 
 
-@app.get("/api/document-tasks/{thread_id}/head", response_model=DocumentTaskHead, dependencies=[Depends(authorize_document)])
+@app.get("/api/document-tasks/{thread_id}/head", response_model=DocumentTaskHead, dependencies=[Depends(authorize)])
 async def get_document_task_head(thread_id: UUID) -> dict[str, Any]:
     return await _task_response(task_api.get_task_head(str(thread_id)))
 
 
-@app.delete("/api/document-tasks/{thread_id}", dependencies=[Depends(authorize_document)])
+@app.delete("/api/document-tasks/{thread_id}", dependencies=[Depends(authorize)])
 async def delete_document_task(thread_id: UUID) -> dict[str, bool]:
     return await _task_response(task_api.delete_task(str(thread_id)))
 
 
-@app.get("/api/document-tasks/{thread_id}/preview", response_model=DocumentTaskReview, dependencies=[Depends(authorize_document)])
+@app.get("/api/document-tasks/{thread_id}/preview", response_model=DocumentTaskReview, dependencies=[Depends(authorize)])
 async def preview_document_task(thread_id: UUID) -> dict[str, Any]:
     return await _task_response(task_api.review_task(str(thread_id)))
 
 
-@app.get("/api/document-tasks/{thread_id}/export", dependencies=[Depends(authorize_document), Depends(export_slot)])
+@app.get("/api/document-tasks/{thread_id}/export", dependencies=[Depends(authorize), Depends(export_slot)])
 async def export_document_task(thread_id: UUID, checkpoint_id: str | None = Query(default=None, max_length=255),
                                scope: str = Query(default='full', pattern='^(full|completed)$')) -> Response:
     try:
@@ -287,12 +235,12 @@ async def export_document_task(thread_id: UUID, checkpoint_id: str | None = Quer
         raise
 
 
-@app.post("/api/document-tasks/{thread_id}/control", status_code=202, response_model=DocumentTaskReceipt, dependencies=[Depends(authorize_document)])
+@app.post("/api/document-tasks/{thread_id}/control", status_code=202, response_model=DocumentTaskReceipt, dependencies=[Depends(authorize)])
 async def control_document_task(thread_id: UUID, request: DocumentTaskControl) -> dict[str, Any]:
     return await _task_response(task_api.control_task(str(thread_id), request))
 
 
-@app.post("/api/document-tasks/{thread_id}/reparse", status_code=202, response_model=DocumentTaskReceipt, dependencies=[Depends(authorize_document)])
+@app.post("/api/document-tasks/{thread_id}/reparse", status_code=202, response_model=DocumentTaskReceipt, dependencies=[Depends(authorize)])
 async def reparse_document_task(thread_id: UUID, request: DocumentTaskReparse) -> dict[str, Any]:
     return await _task_response(task_api.reparse_task(str(thread_id), request))
 
@@ -302,14 +250,12 @@ async def reparse_document_task(thread_id: UUID, request: DocumentTaskReparse) -
     "/api/uploads",
     status_code=201,
     response_model=DocumentUploadResponse,
-    dependencies=[Depends(authorize_document), Depends(upload_slot)],
+    dependencies=[Depends(authorize), Depends(upload_slot)],
 )
 async def upload_document(request: DocumentUploadRequest) -> DocumentUploadResponse:
     try:
         store = await asyncio.to_thread(get_object_store)
         await store.require_available()
-        if saas.ACCOUNT.get():
-            return await _task_response(saas.prepare_upload(request))
         return await store.prepare_document(request)
     except DocumentProcessingError as exc:
         raise HTTPException(
@@ -318,17 +264,17 @@ async def upload_document(request: DocumentUploadRequest) -> DocumentUploadRespo
         ) from exc
 
 
-@app.post("/api/artifacts/read", dependencies=[Depends(authorize_document)])
+@app.post("/api/artifacts/read", dependencies=[Depends(authorize)])
 async def read_artifact(reference: ArtifactReference, thread_id: Annotated[UUID | None, Query()] = None) -> Response:
     """Private verified download; never expose service credentials to clients."""
     try:
         if thread_id is None:
-            raise saas.failure('TASK_NOT_FOUND', 404)
+            raise DocumentProcessingError(404, 'Task not found', 'TASK_NOT_FOUND')
         task = await task_api._read_task_record(task_api.client(), str(thread_id))
         source = task['document']
         if (reference.objectKey != source['objectKey']
                 and not reference.objectKey.startswith(f"practiq-agent/artifacts/{source['sha256']}/")):
-            raise saas.failure('ARTIFACT_NOT_FOUND', 404)
+            raise DocumentProcessingError(404, 'Artifact not found', 'ARTIFACT_NOT_FOUND')
         review = await task_api.review_task(str(thread_id))
         detail = await task_api.get_task(str(thread_id))
         metadata = reference.model_dump()
@@ -339,7 +285,7 @@ async def read_artifact(reference: ArtifactReference, thread_id: Annotated[UUID 
                 return any(contains(item) for item in value.values())
             return isinstance(value, list) and any(contains(item) for item in value)
         if not contains([source, review, detail]):
-            raise saas.failure('ARTIFACT_NOT_FOUND', 404)
+            raise DocumentProcessingError(404, 'Artifact not found', 'ARTIFACT_NOT_FOUND')
         checked: ArtifactReference | DocumentReference = reference
         if (reference.mediaType in {"image/png", "image/jpeg"}
                 and reference.objectKey == document_source_key("image", reference.sha256)):
@@ -353,17 +299,13 @@ async def read_artifact(reference: ArtifactReference, thread_id: Annotated[UUID 
                     headers={"Cache-Control": "no-store"})
 
 
-@app.put("/api/uploads/content", dependencies=[Depends(authorize_document), Depends(upload_slot)])
+@app.put("/api/uploads/content", dependencies=[Depends(authorize), Depends(upload_slot)])
 async def upload_content(request: Request, metadata: Annotated[DocumentUploadRequest, Query()]) -> DocumentReference:
     """Private, bounded binary upload; references never expose filesystem paths."""
     try:
         store = await asyncio.to_thread(get_object_store)
         await store.require_available()
-        if saas.ACCOUNT.get():
-            assert metadata.sizeBytes is not None
-            validate_source_size(metadata.sizeBytes, metadata.sourceType, load())
-        else:
-            await store.prepare_document(metadata)
+        await store.prepare_document(metadata)
         assert metadata.sizeBytes is not None
         payload = bytearray()
         try:
@@ -374,8 +316,6 @@ async def upload_content(request: Request, metadata: Annotated[DocumentUploadReq
                     payload.extend(chunk)
         except TimeoutError as exc:
             raise DocumentProcessingError(408, "Upload reception timed out", "UPLOAD_TIMEOUT") from exc
-        if saas.ACCOUNT.get():
-            return await saas.store_upload(store, bytes(payload), metadata)
         return await store.put_document(bytes(payload), metadata)
     except DatabaseError as exc:
         raise HTTPException(503, {"code": "TASK_SERVICE_UNAVAILABLE", "message": "Task database is unavailable"}) from exc

@@ -36,21 +36,6 @@ groups:
         for: 5m
         labels: {severity: warning}
         annotations: {summary: "Artifact storage has less than 10% free bytes or inodes"}
-      - alert: PractiQUnsettledUsage
-        expr: practiq_import_calls{status="unknown"} > 0 or practiq_import_call_oldest_seconds{status="pending"} > 300
-        for: 2m
-        labels: {severity: warning}
-        annotations: {summary: "Durable model accounting needs reconciliation"}
-      - alert: PractiQPaymentCreditPending
-        expr: practiq_payment_uncredited_oldest_seconds > 300
-        for: 2m
-        labels: {severity: warning}
-        annotations: {summary: "Verified payment remains uncredited; inspect retained evidence"}
-      - alert: PractiQRefundReview
-        expr: practiq_payment_refund_evidence_orders > 0
-        for: 2m
-        labels: {severity: warning}
-        annotations: {summary: "Payment refund evidence requires operator review"}
       - alert: PractiQContainerOOM
         expr: increase(container_oom_events_total{container_label_com_docker_compose_service="ai"}[5m]) > 0
         labels: {severity: critical}

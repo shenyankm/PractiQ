@@ -234,7 +234,7 @@ args = sys.argv[1:]
 if args[0] == "export":
     assert "--locked" in args and "--no-emit-project" in args
     extras = {args[i + 1] for i, arg in enumerate(args) if arg == "--extra"}
-    assert extras == {"dev", "payments"}
+    assert extras == {"dev"}
     Path(args[args.index("-o") + 1]).write_text("langgraph==1.2.1\\n")
 elif args[:2] == ["-m", "pip_audit"]:
     assert {"--strict", "--disable-pip", "--no-deps"} <= set(args)

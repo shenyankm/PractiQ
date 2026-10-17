@@ -1,6 +1,6 @@
 # PractiQ AI import Web
 
-This independent React/Vite frontend uploads source documents to the authenticated AI service, reads task progress and checkpoints, reviews extracted content, and downloads question-bank ZIP packages. Practice remains in the offline desktop app. The Web client uses phone/account-token access, an import-point balance and direct payment recharge for existing accounts; it has no password login or online practice. See [identity and billing](../server/docs/saas.md).
+This React/Vite frontend uses the personal service Bearer token to upload source documents, inspect tasks and download question-bank ZIPs. Practice remains in the offline app. No account, phone, products, point balance or checkout is required. See [personal use](../server/docs/personal-use.md).
 
 ```sh
 npm ci --prefix web
@@ -10,7 +10,7 @@ npm --prefix web run test:browser
 npm --prefix web run build
 ```
 
-Development binds to `127.0.0.1:5173` and proxies `/api` to the loopback service on port `8090`. Production builds into `web/dist`; the independent service serves those assets from `/` when available and can also run without Web assets. API requests use the same origin as the page. A phone number and card are entered into the connection form; the card uses a password field and both credentials are kept only in memory, and cleared on page reload. Provider credentials and model configuration stay on the server. No credentials are saved in browser storage or included in URLs.
+Development binds to `127.0.0.1:5173` and proxies `/api` to the loopback service on port `8090`. Production builds into `web/dist`; the independent service serves those assets from `/` when available and can also run without Web assets. API requests use the same origin as the page. The service access token is entered into a password field, kept only in page memory and cleared on reload. Provider credentials and model configuration stay on the server. No credentials are saved in browser storage or included in URLs.
 
 The service's capability response supplies supported formats, the configured per-file byte limit, Office availability and conversion modes. The optional `officeSourceMaxBytes` supplies the lower Word/Excel limit when present; older responses fall back to `sourceMaxBytes`. A selection contains at most ten files. Selecting files makes no upload or model request. Clicking **Start import** computes each file's SHA-256, prepares and uploads its exact bytes, and creates a task with a stable request ID. Word and Excel conversion runs on the server; PDF is the default and text mode uses Word text or one CSV per worksheet. The selected conversion mode is fixed after submission. A failed or uncertain submission is never replayed automatically; an explicit retry reuses its request ID and mode.
 
@@ -24,4 +24,4 @@ KaTeX keeps all 20 font faces in WOFF2, supported by Vite's modern browser targe
 
 Vitest uses at most two workers and enforces the existing desktop coverage thresholds (80% statements, 73% branches/functions, 85% lines). Playwright uses one Chromium worker on loopback port `1671` and intercepts every API request with synthetic HTTP responses. Its ZIP fixture checks download transport and bytes; native ZIP compatibility is covered by the shared service/desktop contract and native tests. These browser tests do not run a model, Office conversion, or a real service. A separate bounded hosting smoke may load built assets from a disposable read-only local service with model configuration absent; that checks static hosting, authentication and passive file selection, not live AI parsing or production deployment.
 
-Phone/card binding, products, point billing and recoverable partial export are documented in [the SaaS guide](../server/docs/saas.md). Binding and recharge are explicit actions; neither starts or resumes parsing. Service tokens are reserved for administration and App grading.
+The service token stays only in page memory and clears on reload. Only explicit import/control actions start model work; task reads and ZIP exports remain passive.

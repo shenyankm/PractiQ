@@ -9,7 +9,6 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
-    PlainSerializer,
     StrictBool,
     StrictInt,
     TypeAdapter,
@@ -52,82 +51,6 @@ DOCUMENT_MEDIA_TYPES = {
 
 class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
-
-
-Micropoints = Annotated[int, PlainSerializer(str, return_type=str, when_used='json')]
-
-
-class ImportAccount(StrictModel):
-    phone: str
-    balanceMicropoints: Micropoints
-    usageUnknown: bool
-
-
-class ImportProduct(StrictModel):
-    productId: str
-    name: str
-    pointsMicropoints: Micropoints
-    purchaseUrl: str
-
-
-class ImportProducts(StrictModel):
-    items: list[ImportProduct]
-
-
-class PaymentOrderCreate(StrictModel):
-    requestId: UUID
-    productId: str = Field(pattern=r'^[a-zA-Z0-9_-]{1,64}$')
-
-
-class PaymentProduct(StrictModel):
-    productId: str
-    name: str
-    priceCents: int = Field(ge=1, le=10_000_000_000)
-    pointsMicropoints: Micropoints
-
-
-class PaymentProducts(StrictModel):
-    items: list[PaymentProduct]
-
-
-class PaymentOrder(PaymentProduct):
-    orderId: str
-    status: Literal['pending', 'paid', 'credited', 'closed']
-    createdAt: str
-    expiresAt: str
-    creditedMicropoints: Micropoints
-    refundReviewRequired: bool = False
-
-
-class PaymentOrders(StrictModel):
-    items: list[PaymentOrder]
-    hasMore: bool
-
-
-class PaymentLink(StrictModel):
-    url: str
-
-
-class PointEntry(StrictModel):
-    id: int
-    amountMicropoints: Micropoints
-    kind: str
-    createdAt: str
-
-
-class PointLedger(StrictModel):
-    items: list[PointEntry]
-    nextBefore: int | None
-
-
-class PointRates(StrictModel):
-    inputMicropointsPer1k: Micropoints = Field(gt=0)
-    outputMicropointsPer1k: Micropoints = Field(gt=0)
-
-
-class TaskBilling(ImportAccount):
-    chargedMicropoints: Micropoints = Field(ge=0)
-    rates: PointRates
 
 
 def _non_blank(value: str) -> str:
@@ -910,7 +833,6 @@ class DocumentTaskDetail(StrictModel):
     processing: DocumentProcessing | None
     usage: list[ModelCallUsage]
     unknownUsageCalls: list[UUID]
-    billing: TaskBilling | None = None
     canExportCompleted: bool = False
 
 

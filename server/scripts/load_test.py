@@ -21,7 +21,6 @@ from uuid import uuid4
 import httpx
 from prometheus_client.parser import text_string_to_metric_families
 
-from practiq_ai.errors import DocumentProcessingError
 from practiq_ai.execution import code_version, runtime_version
 
 ROOT = Path(__file__).parents[1]
@@ -129,7 +128,7 @@ async def wait_for_run(
 
 
 async def run(args: argparse.Namespace) -> dict[str, Any]:
-    headers = {"Authorization": f"Account {args.account_token}", "X-Practiq-Phone": args.phone}
+    headers = {"Authorization": f"Bearer {args.token}"}
     limits = httpx.Limits(
         max_connections=args.submit_concurrency + 20,
         max_keepalive_connections=args.submit_concurrency,
@@ -273,9 +272,7 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--base-url", required=True)
-    parser.add_argument("--token", default=os.getenv("AI_SERVICE_TOKEN"), help='Service token for metrics only; prefer environment variables')
-    parser.add_argument('--phone', default=os.getenv('PRACTIQ_LOAD_PHONE'))
-    parser.add_argument('--account-token', default=os.getenv('PRACTIQ_LOAD_ACCOUNT_TOKEN'), help='Test account token; prefer PRACTIQ_LOAD_ACCOUNT_TOKEN')
+    parser.add_argument("--token", default=os.getenv("AI_SERVICE_TOKEN"), help='Personal service token; prefer AI_SERVICE_TOKEN')
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--input", type=Path)
     source.add_argument("--text")
@@ -294,14 +291,7 @@ def parse_args() -> argparse.Namespace:
     args = parser.parse_args()
     if not args.token:
         parser.error("--token or AI_SERVICE_TOKEN is required")
-    if not args.phone or not args.account_token:
-        parser.error('A provisioned test account phone and token are required')
-    from practiq_ai.saas import phone
-    try:
-        phone(args.phone)
-    except DocumentProcessingError:
-        parser.error('Invalid test account phone')
-    if any(char in args.account_token + args.token for char in '\r\n'):
+    if any(char in args.token for char in '\r\n'):
         parser.error('Invalid credential format')
     if args.environment == "container" and not args.image_digest:
         parser.error("container evidence requires --image-digest")

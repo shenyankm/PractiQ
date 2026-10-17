@@ -6,29 +6,11 @@ from uuid import uuid4
 
 import pytest
 from httpx import ASGITransport, AsyncClient
-from psycopg import OperationalError
 
 from practiq_ai import task_api
 from practiq_ai.config import load
 from practiq_ai.middleware import DEFAULT_JSON_BODY_BYTES, JsonBodyLimitMiddleware
 from practiq_ai.webapp import app
-
-
-@pytest.mark.parametrize('method,path', [('POST', '/api/uploads'), ('POST', '/api/document-tasks'),
-                                       ('POST', '/api/artifacts/read'), ('PUT', '/api/document-tasks/current/control')])
-async def test_account_preauth_database_failure_is_bounded_503_without_reading_body(monkeypatch, method, path):
-    from practiq_ai import saas
-    monkeypatch.setattr(saas, 'identity', AsyncMock(side_effect=OperationalError('private database details')))
-    reads = []
-    async def body():
-        reads.append(True)
-        yield b'{}'
-    headers = {'Authorization': 'Account private-token', 'X-Practiq-Phone': '13800138000', 'Content-Type': 'application/json'}
-    async with AsyncClient(transport=ASGITransport(app=app), base_url='http://test') as client:
-        response = await client.request(method, path, content=body(), headers=headers)
-    assert response.status_code == 503
-    assert response.json() == {'detail': {'code': 'TASK_SERVICE_UNAVAILABLE', 'message': 'Task database is unavailable'}}
-    assert len(response.content) < 256 and not reads
 
 
 @pytest.mark.parametrize('suffix', ['', '/control', '/reparse'])
@@ -73,8 +55,6 @@ async def test_reparse_accepts_limit_sized_json_only_with_auth(monkeypatch, stre
     receipt = {'threadId': thread_id, 'requestId': request_id, 'runId': str(uuid4()), 'accepted': True}
     reparse = AsyncMock(return_value=receipt)
     monkeypatch.setattr(task_api, 'reparse_task', reparse)
-    from practiq_ai import saas
-    monkeypatch.setattr(saas, 'identity', AsyncMock(return_value='customer'))
     body = f'{{"requestId":"{request_id}"}}'.encode().ljust(DEFAULT_JSON_BODY_BYTES)
 
     async def chunks():
@@ -83,7 +63,7 @@ async def test_reparse_accepts_limit_sized_json_only_with_auth(monkeypatch, stre
 
     headers = {'Content-Type': 'application/json'}
     if authenticated:
-        headers.update(Authorization='Account test-token', **{'X-Practiq-Phone': '13800138000'})
+        headers.update(Authorization='Bearer test-token')
     async with AsyncClient(transport=ASGITransport(app=app), base_url='http://test') as client:
         response = await client.post(f'/api/document-tasks/{thread_id}/reparse',
                                      content=chunks() if streamed else body, headers=headers)

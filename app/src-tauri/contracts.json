@@ -4167,25 +4167,6 @@
         "title": "ParsedQuestion",
         "type": "object"
       },
-      "PointRates": {
-        "additionalProperties": false,
-        "properties": {
-          "inputMicropointsPer1k": {
-            "title": "Inputmicropointsper1K",
-            "type": "string"
-          },
-          "outputMicropointsPer1k": {
-            "title": "Outputmicropointsper1K",
-            "type": "string"
-          }
-        },
-        "required": [
-          "inputMicropointsPer1k",
-          "outputMicropointsPer1k"
-        ],
-        "title": "PointRates",
-        "type": "object"
-      },
       "ShortAnswerPayload": {
         "additionalProperties": false,
         "properties": {
@@ -4200,39 +4181,6 @@
           "text"
         ],
         "title": "ShortAnswerPayload",
-        "type": "object"
-      },
-      "TaskBilling": {
-        "additionalProperties": false,
-        "properties": {
-          "phone": {
-            "title": "Phone",
-            "type": "string"
-          },
-          "balanceMicropoints": {
-            "title": "Balancemicropoints",
-            "type": "string"
-          },
-          "usageUnknown": {
-            "title": "Usageunknown",
-            "type": "boolean"
-          },
-          "chargedMicropoints": {
-            "title": "Chargedmicropoints",
-            "type": "string"
-          },
-          "rates": {
-            "$ref": "#/$defs/PointRates"
-          }
-        },
-        "required": [
-          "phone",
-          "balanceMicropoints",
-          "usageUnknown",
-          "chargedMicropoints",
-          "rates"
-        ],
-        "title": "TaskBilling",
         "type": "object"
       },
       "TaskModelBudget": {
@@ -4568,17 +4516,6 @@
         },
         "title": "Unknownusagecalls",
         "type": "array"
-      },
-      "billing": {
-        "anyOf": [
-          {
-            "$ref": "#/$defs/TaskBilling"
-          },
-          {
-            "type": "null"
-          }
-        ],
-        "default": null
       },
       "canExportCompleted": {
         "default": false,

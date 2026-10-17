@@ -147,17 +147,13 @@ async def test_non_office_queue_still_runs_after_configured_engine_disappears(mo
 
 
 async def test_upload_remains_available_in_service_read_only_mode_but_start_is_blocked(monkeypatch, tmp_path):
-    service, _, _ = await setup_api(monkeypatch)
-    from tests.db_support import seed_account
-    credential = await seed_account(service.db)
-    monkeypatch.setenv('AI_INPUT_POINTS_PER_1K', '1')
-    monkeypatch.setenv('AI_OUTPUT_POINTS_PER_1K', '3')
+    await setup_api(monkeypatch)
     store = object_store(tmp_path)
     monkeypatch.setattr(webapp, "get_object_store", lambda: store)
     monkeypatch.setenv("AI_READ_ONLY", "1")
     metadata = upload().model_dump(mode="json")
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=webapp.app), base_url="http://test",
-                                headers={"Authorization": "Account " + credential, "X-Practiq-Phone": "13800138000"}) as client:
+                                headers={"Authorization": "Bearer test-service-token"}) as client:
         prepared = await client.post("/api/uploads", json=metadata)
         assert prepared.status_code == 201
         sent = await client.put(prepared.json()["upload"]["url"], content=b"quiz")
