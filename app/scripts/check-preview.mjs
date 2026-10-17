@@ -283,7 +283,8 @@ test('reverted empty reference answers close without losing real editor changes'
    await editor.getByRole('textbox',{name:'题干（支持 Markdown 和公式）',exact:true}).fill(`Empty reference ${mode} ${action}`);
    await editor.getByRole('button',{name:'保存题目',exact:true}).click();
    const row=page.getByRole('button',{name:new RegExp(`Empty reference ${mode} ${action}$`)}).locator('..');
-   await row.getByRole('button',{name:'编辑题目',exact:true}).click();
+   // Development overlays can cover appended rows; reopen with the keyboard.
+   await row.getByRole('button',{name:'编辑题目',exact:true}).press('Enter');
    if(mode==='choice'){
     const choice=editor.getByRole('checkbox',{name:/A\./});
     await choice.check();await choice.uncheck();
@@ -299,7 +300,7 @@ test('reverted empty reference answers close without losing real editor changes'
   }
  }
  const changedRow=page.getByRole('button',{name:/Empty reference fill_blank outside$/}).locator('..');
- await changedRow.getByRole('button',{name:'编辑题目',exact:true}).click();
+ await changedRow.getByRole('button',{name:'编辑题目',exact:true}).press('Enter');
  const answer=editor.getByRole('textbox',{name:'第 1 空',exact:true});
  await answer.fill('Real reference');
  await page.keyboard.press('Escape');
@@ -308,7 +309,7 @@ test('reverted empty reference answers close without losing real editor changes'
  await confirmation.getByRole('button',{name:'继续编辑',exact:true}).click();
  await expect(answer).toHaveValue('Real reference');
  await editor.getByRole('button',{name:'保存题目',exact:true}).click();
- await changedRow.getByRole('button',{name:'编辑题目',exact:true}).click();
+ await changedRow.getByRole('button',{name:'编辑题目',exact:true}).press('Enter');
  await expect(answer).toHaveValue('Real reference');
  await page.keyboard.press('Escape');
  await expect(editor).toBeHidden();
