@@ -19,6 +19,7 @@ These records preserve the result of a particular source revision, workload and 
 | [Web fonts, October 9](performance/performance-web-fonts-20261009.md) | Static assets and repeated build samples; no initial-load or image-size claim |
 | [Web and service, October 15](performance/performance-web-server-20261015.md) | Shared-option search, duplicate-association indexing and artifact membership; synthetic measurements and limits |
 | [App, October 15](performance/performance-app-20261015.md) | Snapshot and draft-context copies; paired output hashes and local timings |
+| [Rust, October 17](performance/performance-rust-20261017.md) | Full native source review and measured immutable-snapshot copy removal |
 | [Grading arrays, October 9](performance/performance-grading-arrays-20261009.md) | Fixed real-model anchors and avoided correction calls; no full parser-quality claim |
 | [Payload checks, October 9](performance/performance-payload-check-20261009.md) | Shared storage/Office size-checksum validation and event-loop probes |
 | [Web build-once, October 9](performance/performance-build-once-20261009.md) | One duplicate build removed; no overall CI-speed claim |

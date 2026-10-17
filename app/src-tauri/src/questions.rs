@@ -831,15 +831,25 @@ pub fn freeze(rows: &[Value]) -> Value {
     let mixed_banks = rows
         .windows(2)
         .any(|pair| pair[0]["bankId"] != pair[1]["bankId"]);
-    let mut qs = rows.to_vec();
+    let mut qs = Vec::with_capacity(rows.len());
     let mut groups = Vec::new();
     let mut visuals = Vec::new();
     let mut seen = HashSet::new();
-    for row in &mut qs {
-        // Live list metadata is neither document content nor an immutable attempt snapshot.
-        for key in ["latestScore", "answerableCount", "reviewedAt"] {
-            row.as_object_mut().unwrap().remove(key);
-        }
+    for row in rows {
+        // Shared context is copied once below; live list metadata is not snapshot content.
+        qs.push(Value::Object(
+            row.as_object()
+                .unwrap()
+                .iter()
+                .filter(|(key, _)| {
+                    !matches!(
+                        key.as_str(),
+                        "groups" | "visuals" | "latestScore" | "answerableCount" | "reviewedAt"
+                    )
+                })
+                .map(|(key, value)| (key.clone(), value.clone()))
+                .collect(),
+        ));
         for (key, values) in [("groups", &mut groups), ("visuals", &mut visuals)] {
             for item in list(row, key) {
                 if seen.insert((key, item["id"].to_string())) {
@@ -858,7 +868,6 @@ pub fn freeze(rows: &[Value]) -> Value {
                     values.push(item);
                 }
             }
-            row.as_object_mut().unwrap().remove(key);
         }
     }
     json!({"schemaVersion":3,"questions":qs,"groups":groups,"visuals":visuals})
@@ -1342,6 +1351,46 @@ impl Store {
 #[cfg(test)]
 mod snapshot_copy_tests {
     use super::*;
+
+    #[test]
+    fn frozen_metadata_preserves_content_scope_order_and_digest() {
+        let group = json!({"id":"g","questionIds":["a","b","outside"],"instructions":null});
+        let rows = vec![
+            json!({"id":"a","bankId":"one","question":{"id":"a","answer":null},"groups":[group],"visuals":[{"id":"one-image","questionIds":[]}],"favorite":true,"latestResult":"correct","latestScore":10,"answerableCount":1,"reviewedAt":123,"missingAssets":true}),
+            json!({"id":"c","bankId":"one","question":{"id":"c","needsReview":true},"groups":[group],"visuals":[{"id":"one-image","questionIds":[]}]}),
+            json!({"id":"b","bankId":"two","question":{"id":"b","sourceQuestionId":"source"},"groups":[],"visuals":[{"id":"two-image","questionIds":[]}]}),
+        ];
+        let before = rows.clone();
+        let expected = json!({"schemaVersion":3,"questions":[
+            {"id":"a","bankId":"one","question":{"id":"a","answer":null},"favorite":true,"latestResult":"correct","missingAssets":true},
+            {"id":"c","bankId":"one","question":{"id":"c","needsReview":true}},
+            {"id":"b","bankId":"two","question":{"id":"b","sourceQuestionId":"source"}}
+        ],"groups":[{"id":"g","questionIds":["a","b"],"instructions":null}],"visuals":[
+            {"id":"one-image","questionIds":["a","c"]},
+            {"id":"two-image","questionIds":["b"]}
+        ]});
+        assert_eq!(freeze(&rows), expected);
+        let digest = crate::paper::digest(&rows).unwrap();
+        let mut changed = rows.clone();
+        changed[0]["favorite"] = json!(false);
+        changed[0]["latestResult"] = Value::Null;
+        changed[0]["latestScore"] = Value::Null;
+        changed[0]["reviewedAt"] = Value::Null;
+        assert_eq!(crate::paper::digest(&changed).unwrap(), digest);
+        changed[0]["question"]["answer"] = json!(false);
+        assert_ne!(crate::paper::digest(&changed).unwrap(), digest);
+        assert_eq!(rows, before);
+        assert_eq!(
+            freeze(&[]),
+            json!({"schemaVersion":3,"questions":[],"groups":[],"visuals":[]})
+        );
+        assert_eq!(
+            crate::paper::digest(&[Value::Null])
+                .unwrap_err()
+                .to_string(),
+            "Invalid question row"
+        );
+    }
 
     #[test]
     fn selected_context_keeps_ancestors_exclusive_siblings_and_scoped_metadata() {

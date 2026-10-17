@@ -69,14 +69,17 @@ pub fn selected_rows(rows: &[Value], roots: &[String]) -> Result<Vec<Value>> {
     Ok(selected)
 }
 pub fn digest(rows: &[Value]) -> Result<String> {
-    let mut rows = rows.to_vec();
-    for r in &mut rows {
+    if rows.iter().any(|row| !row.is_object()) {
+        return Err("Invalid question row".into());
+    }
+    let mut document = questions::freeze(rows);
+    for r in document["questions"].as_array_mut().unwrap() {
         for key in ["favorite", "latestResult"] {
             r.as_object_mut().ok_or("Invalid question row")?.remove(key);
         }
     }
     Ok(hash(
-        &serde_json::to_vec(&questions::freeze(&rows)).map_err(|e| e.to_string())?,
+        &serde_json::to_vec(&document).map_err(|e| e.to_string())?,
     ))
 }
 fn split(total: i64, count: usize) -> Result<Vec<i64>> {
