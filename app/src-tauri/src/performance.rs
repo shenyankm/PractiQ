@@ -696,3 +696,135 @@ fn backup_restore_stress() {
     .unwrap();
     println!("{}", report);
 }
+
+#[test]
+#[ignore = "paired snapshot metadata copy benchmark; release only"]
+fn snapshot_metadata_copies() {
+    fn sample(mut run: impl FnMut() -> Value, mut check: impl FnMut(&mut Value)) -> Value {
+        let mut times = Vec::new();
+        let mut expected = None;
+        let mut size = 0;
+        for iteration in 0..8 {
+            let start = Instant::now();
+            let mut value = run();
+            let elapsed = start.elapsed().as_secs_f64() * 1000.0;
+            check(&mut value);
+            let bytes = serde_json::to_vec(&value).unwrap();
+            size = bytes.len();
+            let digest = crate::store::hash(&bytes);
+            if let Some(previous) = &expected {
+                assert_eq!(&digest, previous);
+            } else {
+                expected = Some(digest);
+            }
+            if iteration > 0 {
+                times.push(elapsed);
+            }
+        }
+        let mut sorted = times.clone();
+        sorted.sort_by(f64::total_cmp);
+        json!({"samplesMs":times,"medianMs":sorted[3],"outputBytes":size,"outputSha256":expected})
+    }
+    let mut report = json!({"probeSha256":crate::store::hash(include_bytes!("performance.rs")),"scope":"Release Rust, disposable SQLite, one warmup and seven samples. Setup, checks, output hashing, response normalization, result destruction and session cleanup are outside timings; excludes IPC/WebView.","workloads":[]});
+    for (count, groups, context_bytes) in [(20, 0, 0), (20, 2, 1000), (1000, 4, 5000)] {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::new(dir.path().into()).unwrap();
+        let mut source =
+            crate::contract::parse(include_bytes!("../../fixtures/sample.json")).unwrap();
+        let template = list(&source, "questions")
+            .iter()
+            .find(|q| text(q, "answerMode") == "true_false")
+            .unwrap()
+            .clone();
+        let ids: Vec<_> = (0..count).map(|i| format!("q{i:04}")).collect();
+        source["questions"] = json!(ids
+            .iter()
+            .map(|id| {
+                let mut q = template.clone();
+                q["id"] = json!(id);
+                q
+            })
+            .collect::<Vec<_>>());
+        source["groups"] = json!((0..groups).map(|i| json!({"title":format!("Group {i}"),"instructions":"x".repeat(context_bytes),"questionIds":ids})).collect::<Vec<_>>());
+        source["visualElements"] = json!([]);
+        let source_bytes = serde_json::to_vec(&source).unwrap();
+        assert!(source_bytes.len() <= crate::contract::MAX_JSON);
+        source = crate::contract::parse(&source_bytes).unwrap();
+        let mut db = store.connect().unwrap();
+        let tx = db.transaction().unwrap();
+        tx.execute("INSERT INTO banks VALUES('bank','Synthetic','',1)", [])
+            .unwrap();
+        for (i, q) in list(&source, "questions").iter().enumerate() {
+            crate::questions::write(&tx, q, "bank", None, i as i64, false, false).unwrap();
+        }
+        for (i, group) in list(&source, "groups").iter().enumerate() {
+            let gid = format!("g{i}");
+            tx.execute(
+                "INSERT INTO sections VALUES(?1,'bank',?2,?3)",
+                params![gid, text(group, "title"), text(group, "instructions")],
+            )
+            .unwrap();
+            for id in &ids {
+                tx.execute(
+                    "INSERT INTO section_questions VALUES(?1,?2)",
+                    params![gid, id],
+                )
+                .unwrap();
+            }
+        }
+        tx.commit().unwrap();
+        let rows = crate::questions::read_scoped(&db, &[], Some(&ids)).unwrap();
+        assert_eq!(rows.len(), count);
+        let encoded = serde_json::to_vec(&rows).unwrap();
+        let mut workload = json!({"questions":count,"groups":groups,"contextBytes":context_bytes,"sourceBytes":source_bytes.len(),"inputBytes":encoded.len(),"inputSha256":crate::store::hash(&encoded)});
+        drop(encoded);
+        workload["freeze"] = sample(
+            || crate::questions::freeze(std::hint::black_box(&rows)),
+            |value| {
+                assert_eq!(list(value, "questions").len(), count);
+                assert_eq!(list(value, "groups").len(), groups);
+            },
+        );
+        let digest = crate::paper::digest(&rows).unwrap();
+        workload["digest"] = sample(
+            || json!(crate::paper::digest(std::hint::black_box(&rows)).unwrap()),
+            |value| assert_eq!(value, &digest),
+        );
+        workload["startPaper"] = sample(
+            || {
+                store
+                    .start_paper_data(crate::exams::Paper {
+                        question_ids: ids.clone(),
+                        kind: "practice".into(),
+                        minutes: None,
+                        scores: vec![],
+                        total_cents: 0,
+                        digest: digest.clone(),
+                    })
+                    .unwrap()
+            },
+            |value| {
+                assert_eq!(list(value, "attempts").len(), count);
+                let sid = text(value, "id").to_owned();
+                for field in ["id", "createdAt", "snapshotKey", "attemptKey"] {
+                    value.as_object_mut().unwrap().remove(field);
+                }
+                db.execute("DELETE FROM sessions WHERE id=?1", [&sid])
+                    .unwrap();
+            },
+        );
+        assert_eq!(
+            db.query_row("SELECT count(*) FROM attempts", [], |r| r
+                .get::<_, usize>(0))
+                .unwrap(),
+            0
+        );
+        report["workloads"].as_array_mut().unwrap().push(workload);
+    }
+    std::fs::write(
+        std::env::var("PRACTIQ_BENCH_OUTPUT").expect("set PRACTIQ_BENCH_OUTPUT"),
+        serde_json::to_vec_pretty(&report).unwrap(),
+    )
+    .unwrap();
+    println!("{report}");
+}

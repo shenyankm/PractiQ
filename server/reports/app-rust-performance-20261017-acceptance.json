@@ -1,0 +1,60 @@
+{
+  "scope": "Local macOS Rust/SQLite acceptance; no IPC, WebView, installer, remote CI or Windows/Android acceptance",
+  "command": "make app-check AI_PYTHON=<existing Python 3.14 interpreter>",
+  "exitCode": 0,
+  "rustTests": {
+    "passed": 192,
+    "failed": 0,
+    "ignored": 14
+  },
+  "frontendTests": {
+    "passed": 415,
+    "failed": 0,
+    "skipped": 1
+  },
+  "checks": [
+    "contract export consistency",
+    "shared fixtures",
+    "TypeScript",
+    "ESLint",
+    "Rust fmt",
+    "native regression suite",
+    "Clippy all targets with warnings denied"
+  ],
+  "newRegressionPassesOnBaseline": true,
+  "pairedReleaseProcesses": 6,
+  "measuredSamplesPerVersionWorkloadOperation": 21,
+  "previousEvidence": {
+    "originalFiles": 791,
+    "originalPngs": 658,
+    "missing": [],
+    "changed": [
+      "app/.build/native-error-feedback-20261017/native-clean-runtime.log"
+    ],
+    "nativeRuntimeLogOriginalPrefixBytes": 10486,
+    "nativeRuntimeLogAppendOnly": true
+  },
+  "files": {
+    "server/reports/app-rust-performance-20261017.json": {
+      "bytes": 45530,
+      "sha256": "3cf4c9e5bd9eb92b66b5f0e6905d88f90725da43cd40564034c8283f89cf55c0"
+    },
+    "app/.build/rust-performance-20261017/app-check.log": {
+      "bytes": 21282,
+      "sha256": "38a683d32949668696002e60f952ef01aa73018a799b774da79efdd60132c58f"
+    },
+    "app/.build/rust-performance-20261017/regression-baseline.log": {
+      "bytes": 477,
+      "sha256": "da85bef43b314323b511896891d5b8b557eda218aa16ace48b27eb935c6643da"
+    },
+    "app/.build/rust-performance-20261017/baseline-build.log": {
+      "bytes": 2494,
+      "sha256": "1a5ffabf07eda0fc169aa44089d1223ecf4b7c98b60fa4d7faa404acc18447cf"
+    },
+    "app/.build/rust-performance-20261017/candidate-build.log": {
+      "bytes": 254,
+      "sha256": "546120de392d4fd9ecb59bf1865b7b8696af792587af49a7de99fa475ac3532e"
+    }
+  },
+  "commandPathNote": "The machine-specific interpreter path is omitted from the public record; the original command and record remain in local ignored evidence."
+}

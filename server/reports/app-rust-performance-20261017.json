@@ -1,0 +1,1308 @@
+{
+  "manifest": {
+    "baseCommit": "9f312f59a2f1bcefcca050e75f3c966765a0baf4",
+    "branch": "sheny/rust-performance",
+    "host": "macOS-27.0.1-arm64-arm-64bit",
+    "cpu": "Apple M4",
+    "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)\nbinary: rustc\ncommit-hash: 48a229ceaefd4985c50990b14116b6d856af0985\ncommit-date: 2026-09-01\nhost: aarch64-apple-darwin\nrelease: 1.98.1\nLLVM version: 22.1.8",
+    "cargo": "cargo 1.98.1 (797e8a9bc 2026-08-05)",
+    "buildFlags": "TAURI_CONFIG={\"bundle\":{\"resources\":[]}} cargo test --offline --release --locked --manifest-path app/src-tauri/Cargo.toml --lib snapshot_metadata_copies --no-run",
+    "order": [
+      {
+        "report": "baseline-pair-1.json",
+        "elapsedSeconds": 7.3891801834106445
+      },
+      {
+        "report": "candidate-pair-1.json",
+        "elapsedSeconds": 4.949068784713745
+      },
+      {
+        "report": "baseline-pair-2.json",
+        "elapsedSeconds": 7.450417995452881
+      },
+      {
+        "report": "candidate-pair-2.json",
+        "elapsedSeconds": 3.974118947982788
+      },
+      {
+        "report": "baseline-pair-3.json",
+        "elapsedSeconds": 7.593362092971802
+      },
+      {
+        "report": "candidate-pair-3.json",
+        "elapsedSeconds": 4.027057886123657
+      }
+    ],
+    "binaries": {
+      "baseline": {
+        "sha256": "1442b1e12065a99c62b25b0629832e72b0d4c5c1f816859b2537f5b2e5bcb053",
+        "bytes": 17062400
+      },
+      "candidate": {
+        "sha256": "41dae477c4080b2dd2fbe792c09ccd4cb927eac6fd4fc2dfd04f0a785a3bce96",
+        "bytes": 17178224
+      }
+    },
+    "sources": [
+      {
+        "path": "app/src-tauri/build.rs",
+        "baseSha256": "9807dca94f53f52495fbfc16cdf2a6c964407761efdd361a541c1a4f3d525212",
+        "candidateSha256": "9807dca94f53f52495fbfc16cdf2a6c964407761efdd361a541c1a4f3d525212"
+      },
+      {
+        "path": "app/src-tauri/src/ai.rs",
+        "baseSha256": "7e91a2097713c8e24e671d05bf3056c6f891c15ab892c822f882625d8b1e5539",
+        "candidateSha256": "7e91a2097713c8e24e671d05bf3056c6f891c15ab892c822f882625d8b1e5539"
+      },
+      {
+        "path": "app/src-tauri/src/assets.rs",
+        "baseSha256": "e6df72faf883ef1a262952d52f933211e8b6333db4fe3829a04702c7bbb0fd46",
+        "candidateSha256": "e6df72faf883ef1a262952d52f933211e8b6333db4fe3829a04702c7bbb0fd46"
+      },
+      {
+        "path": "app/src-tauri/src/audio.rs",
+        "baseSha256": "c24db044f7e488042fae1997b6701b3f660af86c188088afbcb73162e952fb39",
+        "candidateSha256": "c24db044f7e488042fae1997b6701b3f660af86c188088afbcb73162e952fb39"
+      },
+      {
+        "path": "app/src-tauri/src/audio_import.rs",
+        "baseSha256": "7abbf57fa8048091c30bc0426a5e2d5dd46bf32d08ab9d70c4a55b984e758e51",
+        "candidateSha256": "7abbf57fa8048091c30bc0426a5e2d5dd46bf32d08ab9d70c4a55b984e758e51"
+      },
+      {
+        "path": "app/src-tauri/src/backup.rs",
+        "baseSha256": "755d2db22be560bedd59b69bbfa7e1dc8e38e79d6c405907c3d091ed4908a871",
+        "candidateSha256": "755d2db22be560bedd59b69bbfa7e1dc8e38e79d6c405907c3d091ed4908a871"
+      },
+      {
+        "path": "app/src-tauri/src/backup_fault_tests.rs",
+        "baseSha256": "9a1ab5c731dbf32fbe87e779c5839be9c3a5ce838b9e0692f8853917516c12b8",
+        "candidateSha256": "9a1ab5c731dbf32fbe87e779c5839be9c3a5ce838b9e0692f8853917516c12b8"
+      },
+      {
+        "path": "app/src-tauri/src/backup_schema_tests.rs",
+        "baseSha256": "97550eb213fb3b3d939fc001419e39349f1de525c096f8c842da93fd21f49fe6",
+        "candidateSha256": "97550eb213fb3b3d939fc001419e39349f1de525c096f8c842da93fd21f49fe6"
+      },
+      {
+        "path": "app/src-tauri/src/bank_zip.rs",
+        "baseSha256": "6167cf97b258dcdc4ea9399ffabb6fd345181951831eaac2b2ac7342b2ac0dac",
+        "candidateSha256": "6167cf97b258dcdc4ea9399ffabb6fd345181951831eaac2b2ac7342b2ac0dac"
+      },
+      {
+        "path": "app/src-tauri/src/contract.rs",
+        "baseSha256": "2ef24a9b4cced853ac34da277261122e3763cb5357ea3b5e015c580083add485",
+        "candidateSha256": "2ef24a9b4cced853ac34da277261122e3763cb5357ea3b5e015c580083add485"
+      },
+      {
+        "path": "app/src-tauri/src/credentials.rs",
+        "baseSha256": "19c574259ac8ea6df498957ba06f2de686a7e5fb1f6a7361218ab7acfe3bf421",
+        "candidateSha256": "19c574259ac8ea6df498957ba06f2de686a7e5fb1f6a7361218ab7acfe3bf421"
+      },
+      {
+        "path": "app/src-tauri/src/exams.rs",
+        "baseSha256": "6fc85c926723acdc6e13f27aa7fc5cee283546a202a4c2a51c898fa360bbc503",
+        "candidateSha256": "6fc85c926723acdc6e13f27aa7fc5cee283546a202a4c2a51c898fa360bbc503"
+      },
+      {
+        "path": "app/src-tauri/src/filesystem.rs",
+        "baseSha256": "d432569003747b86a61eb1578056180ad6956674e95ab9fcb03654ffc77f6a46",
+        "candidateSha256": "d432569003747b86a61eb1578056180ad6956674e95ab9fcb03654ffc77f6a46"
+      },
+      {
+        "path": "app/src-tauri/src/language.rs",
+        "baseSha256": "130415409b03b2d9d5de113e4f0388022e42e57e5d3cd774a54f2eff4ee112bf",
+        "candidateSha256": "130415409b03b2d9d5de113e4f0388022e42e57e5d3cd774a54f2eff4ee112bf"
+      },
+      {
+        "path": "app/src-tauri/src/lib.rs",
+        "baseSha256": "b58469daf701dd72c1e0916f47acc2e6cec1f33f2a0d91939aad2435e9bd9064",
+        "candidateSha256": "b58469daf701dd72c1e0916f47acc2e6cec1f33f2a0d91939aad2435e9bd9064"
+      },
+      {
+        "path": "app/src-tauri/src/main.rs",
+        "baseSha256": "8bf5ac2af323a6c5748b9673349c5a350a3700abfb7d01ddaa009ac7128fd1f6",
+        "candidateSha256": "8bf5ac2af323a6c5748b9673349c5a350a3700abfb7d01ddaa009ac7128fd1f6"
+      },
+      {
+        "path": "app/src-tauri/src/paper.rs",
+        "baseSha256": "8eda6a3a1bd4943b17bceb2329acbe866191d06c8491af56754ccb10b1b7ff0b",
+        "candidateSha256": "d203636f57fce328997fd5a08c19101f2f1e372376078eca307f2f4ef7b47cc7"
+      },
+      {
+        "path": "app/src-tauri/src/performance.rs",
+        "baseSha256": "4d1623a27f7a7f14784da3e4b8567024ab73f2ca06887ef6c55658a02dc37774",
+        "candidateSha256": "d927ee55238f7c56c8fb3431805e052483407d195a17a494012f2b45887d52c5"
+      },
+      {
+        "path": "app/src-tauri/src/question_metadata.rs",
+        "baseSha256": "41e5dbf1646096085000b39e38eb42a6310d33776f7a700dd43e97c2ca47d291",
+        "candidateSha256": "41e5dbf1646096085000b39e38eb42a6310d33776f7a700dd43e97c2ca47d291"
+      },
+      {
+        "path": "app/src-tauri/src/question_review_tests.rs",
+        "baseSha256": "1561958a387c2acd8bb18706f75f97d4ae02e58ec256b4a9a478a53e5cdf78b4",
+        "candidateSha256": "1561958a387c2acd8bb18706f75f97d4ae02e58ec256b4a9a478a53e5cdf78b4"
+      },
+      {
+        "path": "app/src-tauri/src/questions.rs",
+        "baseSha256": "f3de48333777f5818452ede0593b824552429b8a19955be11969353f3fffd048",
+        "candidateSha256": "8dd658d64595f51f4713ca15164376fc2be8eb4d39afbebea3771a8db3d23d71"
+      },
+      {
+        "path": "app/src-tauri/src/search_performance.rs",
+        "baseSha256": "3ae859250ba125a0dc233dd11283a1bdcbd7ca910f2ccb5e1e5a9c486dc4e771",
+        "candidateSha256": "3ae859250ba125a0dc233dd11283a1bdcbd7ca910f2ccb5e1e5a9c486dc4e771"
+      },
+      {
+        "path": "app/src-tauri/src/selected_file.rs",
+        "baseSha256": "78d7061b281275cb54ecf9b8417ccfea8fa8539b72f3bf813b84772e9054f831",
+        "candidateSha256": "78d7061b281275cb54ecf9b8417ccfea8fa8539b72f3bf813b84772e9054f831"
+      },
+      {
+        "path": "app/src-tauri/src/service_export_tests.rs",
+        "baseSha256": "5923c14e8a39db760e0fe1c6fd0b10295fd2a088656cef673f7e2844f2714f30",
+        "candidateSha256": "5923c14e8a39db760e0fe1c6fd0b10295fd2a088656cef673f7e2844f2714f30"
+      },
+      {
+        "path": "app/src-tauri/src/session_clock.rs",
+        "baseSha256": "1bf02674b139f4f92409962995a389021093fb2307e0bb786fab321130262143",
+        "candidateSha256": "1bf02674b139f4f92409962995a389021093fb2307e0bb786fab321130262143"
+      },
+      {
+        "path": "app/src-tauri/src/sessions.rs",
+        "baseSha256": "e2f94707b4c991defc1b88f034b1e832256d0d603023d4dcdba7dbd2e34651b9",
+        "candidateSha256": "e2f94707b4c991defc1b88f034b1e832256d0d603023d4dcdba7dbd2e34651b9"
+      },
+      {
+        "path": "app/src-tauri/src/settings.rs",
+        "baseSha256": "c16e186725f7927f32ad0169e25723fe2b61f5de296fa46bdbda2b677dafa07f",
+        "candidateSha256": "c16e186725f7927f32ad0169e25723fe2b61f5de296fa46bdbda2b677dafa07f"
+      },
+      {
+        "path": "app/src-tauri/src/shared_snapshots_tests.rs",
+        "baseSha256": "7f3564aa2bc11475549d911d9293d96adca613535ecdb8bb3c55c7bbfcfadfaa",
+        "candidateSha256": "7f3564aa2bc11475549d911d9293d96adca613535ecdb8bb3c55c7bbfcfadfaa"
+      },
+      {
+        "path": "app/src-tauri/src/store.rs",
+        "baseSha256": "217b59cd2fce8a75d93c123687942e3eaaac95f14e669030715ca867e7fbb652",
+        "candidateSha256": "217b59cd2fce8a75d93c123687942e3eaaac95f14e669030715ca867e7fbb652"
+      },
+      {
+        "path": "app/src-tauri/src/tests.rs",
+        "baseSha256": "9ee12cbb10263214f69e305759cd7411a6d5d57e356b5ebe84f3b9f0158fce9f",
+        "candidateSha256": "9ee12cbb10263214f69e305759cd7411a6d5d57e356b5ebe84f3b9f0158fce9f"
+      },
+      {
+        "path": "app/src-tauri/src/ux_sessions_tests.rs",
+        "baseSha256": "0af520dc5acd47b958e9f9d9def135f6c5e724ff3018424d5ddad3c7ecdbdec3",
+        "candidateSha256": "0af520dc5acd47b958e9f9d9def135f6c5e724ff3018424d5ddad3c7ecdbdec3"
+      }
+    ]
+  },
+  "allHashesMatch": true,
+  "summary": [
+    {
+      "questions": 20,
+      "groups": 0,
+      "contextBytes": 0,
+      "sourceBytes": 9680,
+      "inputBytes": 15841,
+      "inputSha256": "fe169cd126af0048154fa8bf6fcc12f0d0ec002fb86769f6daa8e85b07535afc",
+      "freeze": {
+        "baseline": {
+          "medianMs": 0.053416,
+          "minMs": 0.052333000000000005,
+          "maxMs": 0.06025,
+          "samples": 21
+        },
+        "candidate": {
+          "medianMs": 0.056375,
+          "minMs": 0.051125000000000004,
+          "maxMs": 0.139292,
+          "samples": 21
+        },
+        "reductionPercent": -5.539538714991776
+      },
+      "digest": {
+        "baseline": {
+          "medianMs": 0.114209,
+          "minMs": 0.11175,
+          "maxMs": 0.121709,
+          "samples": 21
+        },
+        "candidate": {
+          "medianMs": 0.096916,
+          "minMs": 0.093459,
+          "maxMs": 0.1445,
+          "samples": 21
+        },
+        "reductionPercent": 15.141538757891237
+      },
+      "startPaper": {
+        "baseline": {
+          "medianMs": 1.7203330000000001,
+          "minMs": 1.506458,
+          "maxMs": 2.211458,
+          "samples": 21
+        },
+        "candidate": {
+          "medianMs": 1.827417,
+          "minMs": 1.659083,
+          "maxMs": 2.2009999999999996,
+          "samples": 21
+        },
+        "reductionPercent": -6.224608840265233
+      }
+    },
+    {
+      "questions": 20,
+      "groups": 2,
+      "contextBytes": 1000,
+      "sourceBytes": 12107,
+      "inputBytes": 64781,
+      "inputSha256": "fdf1de3ac62b9b7bb1838f9517ab6437c294beb2e979104d82122d9e3b41f083",
+      "freeze": {
+        "baseline": {
+          "medianMs": 0.08174999999999999,
+          "minMs": 0.078959,
+          "maxMs": 0.22420900000000002,
+          "samples": 21
+        },
+        "candidate": {
+          "medianMs": 0.060458000000000005,
+          "minMs": 0.058084000000000004,
+          "maxMs": 0.06625,
+          "samples": 21
+        },
+        "reductionPercent": 26.045259938837905
+      },
+      "digest": {
+        "baseline": {
+          "medianMs": 0.171875,
+          "minMs": 0.165333,
+          "maxMs": 0.186042,
+          "samples": 21
+        },
+        "candidate": {
+          "medianMs": 0.110416,
+          "minMs": 0.105708,
+          "maxMs": 0.127375,
+          "samples": 21
+        },
+        "reductionPercent": 35.757963636363634
+      },
+      "startPaper": {
+        "baseline": {
+          "medianMs": 2.0482500000000003,
+          "minMs": 1.9065,
+          "maxMs": 2.4265,
+          "samples": 21
+        },
+        "candidate": {
+          "medianMs": 1.9029159999999998,
+          "minMs": 1.711542,
+          "maxMs": 2.252708,
+          "samples": 21
+        },
+        "reductionPercent": 7.095520566337143
+      }
+    },
+    {
+      "questions": 1000,
+      "groups": 4,
+      "contextBytes": 5000,
+      "sourceBytes": 527395,
+      "inputBytes": 53047001,
+      "inputSha256": "6b64787ccb73a82b812b3d4d18ec2583adfa8d3498f4348596ad1ad0e02b0dd7",
+      "freeze": {
+        "baseline": {
+          "medianMs": 72.240042,
+          "minMs": 70.447875,
+          "maxMs": 95.816167,
+          "samples": 21
+        },
+        "candidate": {
+          "medianMs": 4.266708,
+          "minMs": 3.6814999999999998,
+          "maxMs": 5.31375,
+          "samples": 21
+        },
+        "reductionPercent": 94.09370775282771
+      },
+      "digest": {
+        "baseline": {
+          "medianMs": 142.045583,
+          "minMs": 139.43275,
+          "maxMs": 147.94891700000002,
+          "samples": 21
+        },
+        "candidate": {
+          "medianMs": 6.655792,
+          "minMs": 6.2191670000000006,
+          "maxMs": 7.629792,
+          "samples": 21
+        },
+        "reductionPercent": 95.3143266693481
+      },
+      "startPaper": {
+        "baseline": {
+          "medianMs": 613.615208,
+          "minMs": 604.2035,
+          "maxMs": 746.703333,
+          "samples": 21
+        },
+        "candidate": {
+          "medianMs": 417.759042,
+          "minMs": 409.091125,
+          "maxMs": 472.773625,
+          "samples": 21
+        },
+        "reductionPercent": 31.918401540008766
+      }
+    }
+  ],
+  "processReports": {
+    "baseline": [
+      {
+        "probeSha256": "d927ee55238f7c56c8fb3431805e052483407d195a17a494012f2b45887d52c5",
+        "scope": "Release Rust, disposable SQLite, one warmup and seven samples. Setup, checks, output hashing, response normalization, result destruction and session cleanup are outside timings; excludes IPC/WebView.",
+        "workloads": [
+          {
+            "contextBytes": 0,
+            "digest": {
+              "medianMs": 0.112125,
+              "outputBytes": 66,
+              "outputSha256": "d745c7ef3ec0e6fee39ec6429bf3da4932fd7666e85381ed4dd1d781df90dda1",
+              "samplesMs": [
+                0.115,
+                0.112125,
+                0.111833,
+                0.11175,
+                0.11204099999999999,
+                0.11570799999999999,
+                0.113666
+              ]
+            },
+            "freeze": {
+              "medianMs": 0.052625,
+              "outputBytes": 14658,
+              "outputSha256": "a9cf1938c8d5f06064efa9e5237a341f2ce8870a9eb7b6b5cc9c166882f34824",
+              "samplesMs": [
+                0.0555,
+                0.053416,
+                0.052833,
+                0.052458,
+                0.052542,
+                0.052625,
+                0.052333000000000005
+              ]
+            },
+            "groups": 0,
+            "inputBytes": 15841,
+            "inputSha256": "fe169cd126af0048154fa8bf6fcc12f0d0ec002fb86769f6daa8e85b07535afc",
+            "questions": 20,
+            "sourceBytes": 9680,
+            "startPaper": {
+              "medianMs": 1.654209,
+              "outputBytes": 20886,
+              "outputSha256": "f2d4e42dcc6ec69ef952028cefd9be90a176b472d245b5fd9801cd1ab2c6b91f",
+              "samplesMs": [
+                1.823792,
+                1.654209,
+                1.601416,
+                1.5425,
+                1.664542,
+                1.7387920000000001,
+                1.543291
+              ]
+            }
+          },
+          {
+            "contextBytes": 1000,
+            "digest": {
+              "medianMs": 0.171875,
+              "outputBytes": 66,
+              "outputSha256": "832a4bb385e36a4c4ea8ae0545a310580593f78acce7330c1045b06ca2d8083d",
+              "samplesMs": [
+                0.172459,
+                0.170375,
+                0.167042,
+                0.17650000000000002,
+                0.172333,
+                0.171875,
+                0.171
+              ]
+            },
+            "freeze": {
+              "medianMs": 0.08174999999999999,
+              "outputBytes": 17105,
+              "outputSha256": "9c6210e9756cd1762da1eacbea9ebb82c5b546fb09980e2223bd57866f49edce",
+              "samplesMs": [
+                0.082625,
+                0.081625,
+                0.08270799999999999,
+                0.08224999999999999,
+                0.081667,
+                0.08174999999999999,
+                0.081666
+              ]
+            },
+            "groups": 2,
+            "inputBytes": 64781,
+            "inputSha256": "fdf1de3ac62b9b7bb1838f9517ab6437c294beb2e979104d82122d9e3b41f083",
+            "questions": 20,
+            "sourceBytes": 12107,
+            "startPaper": {
+              "medianMs": 2.008708,
+              "outputBytes": 23755,
+              "outputSha256": "37510a1d9a250aca527e945670807bd78759db4715a3fe683c651d90026b9a54",
+              "samplesMs": [
+                2.349584,
+                1.995958,
+                2.008708,
+                1.9405830000000002,
+                2.1579580000000003,
+                2.262042,
+                1.993458
+              ]
+            }
+          },
+          {
+            "contextBytes": 5000,
+            "digest": {
+              "medianMs": 142.21925,
+              "outputBytes": 66,
+              "outputSha256": "e7e7192ab79ae8a386e9a1ddd1c5351af5a4abbe503af1b38cafcfc0a3ded3d2",
+              "samplesMs": [
+                143.293208,
+                142.21925,
+                142.822667,
+                143.62325,
+                142.045583,
+                139.43275,
+                142.1765
+              ]
+            },
+            "freeze": {
+              "medianMs": 71.209625,
+              "outputBytes": 782313,
+              "outputSha256": "f7b652132e5ee395a09afbacc6e555d568adf12f8620f1f4670acd3800dcabf9",
+              "samplesMs": [
+                85.255708,
+                70.875833,
+                70.447875,
+                71.393958,
+                70.491792,
+                71.323958,
+                71.209625
+              ]
+            },
+            "groups": 4,
+            "inputBytes": 53047001,
+            "inputSha256": "6b64787ccb73a82b812b3d4d18ec2583adfa8d3498f4348596ad1ad0e02b0dd7",
+            "questions": 1000,
+            "sourceBytes": 527395,
+            "startPaper": {
+              "medianMs": 610.211167,
+              "outputBytes": 1113345,
+              "outputSha256": "09ff6a0fdb36cea876af146ce18f744a413f928f3c7ae4a3ef08b6302e9b623c",
+              "samplesMs": [
+                638.5085,
+                606.771667,
+                609.940167,
+                609.958125,
+                610.211167,
+                619.976958,
+                614.225417
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "probeSha256": "d927ee55238f7c56c8fb3431805e052483407d195a17a494012f2b45887d52c5",
+        "scope": "Release Rust, disposable SQLite, one warmup and seven samples. Setup, checks, output hashing, response normalization, result destruction and session cleanup are outside timings; excludes IPC/WebView.",
+        "workloads": [
+          {
+            "contextBytes": 0,
+            "digest": {
+              "medianMs": 0.114209,
+              "outputBytes": 66,
+              "outputSha256": "d745c7ef3ec0e6fee39ec6429bf3da4932fd7666e85381ed4dd1d781df90dda1",
+              "samplesMs": [
+                0.118792,
+                0.114209,
+                0.114167,
+                0.114083,
+                0.11425,
+                0.1145,
+                0.113917
+              ]
+            },
+            "freeze": {
+              "medianMs": 0.052959,
+              "outputBytes": 14658,
+              "outputSha256": "a9cf1938c8d5f06064efa9e5237a341f2ce8870a9eb7b6b5cc9c166882f34824",
+              "samplesMs": [
+                0.06025,
+                0.053208000000000005,
+                0.052416000000000004,
+                0.052959,
+                0.052458,
+                0.057417,
+                0.052542
+              ]
+            },
+            "groups": 0,
+            "inputBytes": 15841,
+            "inputSha256": "fe169cd126af0048154fa8bf6fcc12f0d0ec002fb86769f6daa8e85b07535afc",
+            "questions": 20,
+            "sourceBytes": 9680,
+            "startPaper": {
+              "medianMs": 1.8146250000000002,
+              "outputBytes": 20886,
+              "outputSha256": "f2d4e42dcc6ec69ef952028cefd9be90a176b472d245b5fd9801cd1ab2c6b91f",
+              "samplesMs": [
+                1.7849579999999998,
+                1.6078329999999998,
+                1.9602909999999998,
+                1.612292,
+                2.211458,
+                1.8146250000000002,
+                1.8591669999999998
+              ]
+            }
+          },
+          {
+            "contextBytes": 1000,
+            "digest": {
+              "medianMs": 0.17491600000000002,
+              "outputBytes": 66,
+              "outputSha256": "832a4bb385e36a4c4ea8ae0545a310580593f78acce7330c1045b06ca2d8083d",
+              "samplesMs": [
+                0.18125,
+                0.17491600000000002,
+                0.173125,
+                0.186042,
+                0.18066600000000002,
+                0.174125,
+                0.172292
+              ]
+            },
+            "freeze": {
+              "medianMs": 0.08237499999999999,
+              "outputBytes": 17105,
+              "outputSha256": "9c6210e9756cd1762da1eacbea9ebb82c5b546fb09980e2223bd57866f49edce",
+              "samplesMs": [
+                0.08237499999999999,
+                0.081166,
+                0.08125,
+                0.08029099999999999,
+                0.090708,
+                0.08524999999999999,
+                0.089917
+              ]
+            },
+            "groups": 2,
+            "inputBytes": 64781,
+            "inputSha256": "fdf1de3ac62b9b7bb1838f9517ab6437c294beb2e979104d82122d9e3b41f083",
+            "questions": 20,
+            "sourceBytes": 12107,
+            "startPaper": {
+              "medianMs": 2.054,
+              "outputBytes": 23755,
+              "outputSha256": "37510a1d9a250aca527e945670807bd78759db4715a3fe683c651d90026b9a54",
+              "samplesMs": [
+                2.4265,
+                2.063458,
+                1.912291,
+                2.011291,
+                2.0482500000000003,
+                2.054,
+                2.0598330000000002
+              ]
+            }
+          },
+          {
+            "contextBytes": 5000,
+            "digest": {
+              "medianMs": 141.78745800000002,
+              "outputBytes": 66,
+              "outputSha256": "e7e7192ab79ae8a386e9a1ddd1c5351af5a4abbe503af1b38cafcfc0a3ded3d2",
+              "samplesMs": [
+                144.402334,
+                143.886,
+                141.744167,
+                140.282084,
+                147.94891700000002,
+                141.78745800000002,
+                140.980833
+              ]
+            },
+            "freeze": {
+              "medianMs": 74.866417,
+              "outputBytes": 782313,
+              "outputSha256": "f7b652132e5ee395a09afbacc6e555d568adf12f8620f1f4670acd3800dcabf9",
+              "samplesMs": [
+                84.96695799999999,
+                79.086291,
+                72.29275,
+                71.40575,
+                72.268709,
+                74.866417,
+                75.255125
+              ]
+            },
+            "groups": 4,
+            "inputBytes": 53047001,
+            "inputSha256": "6b64787ccb73a82b812b3d4d18ec2583adfa8d3498f4348596ad1ad0e02b0dd7",
+            "questions": 1000,
+            "sourceBytes": 527395,
+            "startPaper": {
+              "medianMs": 613.615208,
+              "outputBytes": 1113345,
+              "outputSha256": "09ff6a0fdb36cea876af146ce18f744a413f928f3c7ae4a3ef08b6302e9b623c",
+              "samplesMs": [
+                630.1770829999999,
+                611.43375,
+                604.2035,
+                607.244125,
+                619.93725,
+                613.615208,
+                615.274625
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "probeSha256": "d927ee55238f7c56c8fb3431805e052483407d195a17a494012f2b45887d52c5",
+        "scope": "Release Rust, disposable SQLite, one warmup and seven samples. Setup, checks, output hashing, response normalization, result destruction and session cleanup are outside timings; excludes IPC/WebView.",
+        "workloads": [
+          {
+            "contextBytes": 0,
+            "digest": {
+              "medianMs": 0.11445899999999999,
+              "outputBytes": 66,
+              "outputSha256": "d745c7ef3ec0e6fee39ec6429bf3da4932fd7666e85381ed4dd1d781df90dda1",
+              "samplesMs": [
+                0.114,
+                0.11433399999999999,
+                0.114667,
+                0.11733299999999999,
+                0.11445899999999999,
+                0.121709,
+                0.114208
+              ]
+            },
+            "freeze": {
+              "medianMs": 0.054417,
+              "outputBytes": 14658,
+              "outputSha256": "a9cf1938c8d5f06064efa9e5237a341f2ce8870a9eb7b6b5cc9c166882f34824",
+              "samplesMs": [
+                0.055375,
+                0.054417,
+                0.054458,
+                0.054291,
+                0.05425,
+                0.054292,
+                0.054541
+              ]
+            },
+            "groups": 0,
+            "inputBytes": 15841,
+            "inputSha256": "fe169cd126af0048154fa8bf6fcc12f0d0ec002fb86769f6daa8e85b07535afc",
+            "questions": 20,
+            "sourceBytes": 9680,
+            "startPaper": {
+              "medianMs": 1.7203330000000001,
+              "outputBytes": 20886,
+              "outputSha256": "f2d4e42dcc6ec69ef952028cefd9be90a176b472d245b5fd9801cd1ab2c6b91f",
+              "samplesMs": [
+                1.827542,
+                1.7725,
+                1.775625,
+                1.590417,
+                1.7203330000000001,
+                1.683125,
+                1.506458
+              ]
+            }
+          },
+          {
+            "contextBytes": 1000,
+            "digest": {
+              "medianMs": 0.166625,
+              "outputBytes": 66,
+              "outputSha256": "832a4bb385e36a4c4ea8ae0545a310580593f78acce7330c1045b06ca2d8083d",
+              "samplesMs": [
+                0.16858399999999998,
+                0.166625,
+                0.16612500000000002,
+                0.168541,
+                0.1685,
+                0.16612500000000002,
+                0.165333
+              ]
+            },
+            "freeze": {
+              "medianMs": 0.080083,
+              "outputBytes": 17105,
+              "outputSha256": "9c6210e9756cd1762da1eacbea9ebb82c5b546fb09980e2223bd57866f49edce",
+              "samplesMs": [
+                0.080083,
+                0.078959,
+                0.079417,
+                0.079042,
+                0.082041,
+                0.22420900000000002,
+                0.081833
+              ]
+            },
+            "groups": 2,
+            "inputBytes": 64781,
+            "inputSha256": "fdf1de3ac62b9b7bb1838f9517ab6437c294beb2e979104d82122d9e3b41f083",
+            "questions": 20,
+            "sourceBytes": 12107,
+            "startPaper": {
+              "medianMs": 1.931083,
+              "outputBytes": 23755,
+              "outputSha256": "37510a1d9a250aca527e945670807bd78759db4715a3fe683c651d90026b9a54",
+              "samplesMs": [
+                1.9065,
+                1.928334,
+                2.126417,
+                2.072625,
+                1.92925,
+                2.107542,
+                1.931083
+              ]
+            }
+          },
+          {
+            "contextBytes": 5000,
+            "digest": {
+              "medianMs": 141.60762499999998,
+              "outputBytes": 66,
+              "outputSha256": "e7e7192ab79ae8a386e9a1ddd1c5351af5a4abbe503af1b38cafcfc0a3ded3d2",
+              "samplesMs": [
+                142.952375,
+                142.108083,
+                140.771875,
+                140.679917,
+                140.316041,
+                141.60762499999998,
+                141.941958
+              ]
+            },
+            "freeze": {
+              "medianMs": 72.240042,
+              "outputBytes": 782313,
+              "outputSha256": "f7b652132e5ee395a09afbacc6e555d568adf12f8620f1f4670acd3800dcabf9",
+              "samplesMs": [
+                82.17025,
+                82.733416,
+                71.628708,
+                72.240042,
+                71.669167,
+                70.958,
+                95.816167
+              ]
+            },
+            "groups": 4,
+            "inputBytes": 53047001,
+            "inputSha256": "6b64787ccb73a82b812b3d4d18ec2583adfa8d3498f4348596ad1ad0e02b0dd7",
+            "questions": 1000,
+            "sourceBytes": 527395,
+            "startPaper": {
+              "medianMs": 618.101416,
+              "outputBytes": 1113345,
+              "outputSha256": "09ff6a0fdb36cea876af146ce18f744a413f928f3c7ae4a3ef08b6302e9b623c",
+              "samplesMs": [
+                746.703333,
+                618.101416,
+                613.199375,
+                610.344125,
+                612.9857920000001,
+                633.631792,
+                669.1125420000001
+              ]
+            }
+          }
+        ]
+      }
+    ],
+    "candidate": [
+      {
+        "probeSha256": "d927ee55238f7c56c8fb3431805e052483407d195a17a494012f2b45887d52c5",
+        "scope": "Release Rust, disposable SQLite, one warmup and seven samples. Setup, checks, output hashing, response normalization, result destruction and session cleanup are outside timings; excludes IPC/WebView.",
+        "workloads": [
+          {
+            "contextBytes": 0,
+            "digest": {
+              "medianMs": 0.13325,
+              "outputBytes": 66,
+              "outputSha256": "d745c7ef3ec0e6fee39ec6429bf3da4932fd7666e85381ed4dd1d781df90dda1",
+              "samplesMs": [
+                0.106041,
+                0.105583,
+                0.11637499999999999,
+                0.13325,
+                0.13362500000000002,
+                0.13366699999999998,
+                0.1445
+              ]
+            },
+            "freeze": {
+              "medianMs": 0.07470800000000001,
+              "outputBytes": 14658,
+              "outputSha256": "a9cf1938c8d5f06064efa9e5237a341f2ce8870a9eb7b6b5cc9c166882f34824",
+              "samplesMs": [
+                0.076125,
+                0.07470800000000001,
+                0.074625,
+                0.0745,
+                0.07437500000000001,
+                0.13758299999999998,
+                0.084875
+              ]
+            },
+            "groups": 0,
+            "inputBytes": 15841,
+            "inputSha256": "fe169cd126af0048154fa8bf6fcc12f0d0ec002fb86769f6daa8e85b07535afc",
+            "questions": 20,
+            "sourceBytes": 9680,
+            "startPaper": {
+              "medianMs": 2.0218749999999996,
+              "outputBytes": 20886,
+              "outputSha256": "f2d4e42dcc6ec69ef952028cefd9be90a176b472d245b5fd9801cd1ab2c6b91f",
+              "samplesMs": [
+                2.1034159999999997,
+                2.00975,
+                1.965,
+                2.07875,
+                2.019667,
+                2.0218749999999996,
+                2.041042
+              ]
+            }
+          },
+          {
+            "contextBytes": 1000,
+            "digest": {
+              "medianMs": 0.116167,
+              "outputBytes": 66,
+              "outputSha256": "832a4bb385e36a4c4ea8ae0545a310580593f78acce7330c1045b06ca2d8083d",
+              "samplesMs": [
+                0.115042,
+                0.127375,
+                0.126917,
+                0.117042,
+                0.11591699999999999,
+                0.1155,
+                0.116167
+              ]
+            },
+            "freeze": {
+              "medianMs": 0.06370799999999999,
+              "outputBytes": 17105,
+              "outputSha256": "9c6210e9756cd1762da1eacbea9ebb82c5b546fb09980e2223bd57866f49edce",
+              "samplesMs": [
+                0.06625,
+                0.063833,
+                0.063958,
+                0.06370799999999999,
+                0.063625,
+                0.063333,
+                0.063625
+              ]
+            },
+            "groups": 2,
+            "inputBytes": 64781,
+            "inputSha256": "fdf1de3ac62b9b7bb1838f9517ab6437c294beb2e979104d82122d9e3b41f083",
+            "questions": 20,
+            "sourceBytes": 12107,
+            "startPaper": {
+              "medianMs": 1.9345,
+              "outputBytes": 23755,
+              "outputSha256": "37510a1d9a250aca527e945670807bd78759db4715a3fe683c651d90026b9a54",
+              "samplesMs": [
+                1.948459,
+                2.252708,
+                1.776916,
+                1.9345,
+                2.1427080000000003,
+                1.850375,
+                1.843458
+              ]
+            }
+          },
+          {
+            "contextBytes": 5000,
+            "digest": {
+              "medianMs": 6.655792,
+              "outputBytes": 66,
+              "outputSha256": "e7e7192ab79ae8a386e9a1ddd1c5351af5a4abbe503af1b38cafcfc0a3ded3d2",
+              "samplesMs": [
+                6.688584,
+                6.533665999999999,
+                6.577625,
+                6.655792,
+                6.720125,
+                6.6955,
+                6.6385000000000005
+              ]
+            },
+            "freeze": {
+              "medianMs": 4.4218340000000005,
+              "outputBytes": 782313,
+              "outputSha256": "f7b652132e5ee395a09afbacc6e555d568adf12f8620f1f4670acd3800dcabf9",
+              "samplesMs": [
+                4.009875,
+                4.380249999999999,
+                4.863042,
+                4.4218340000000005,
+                4.42875,
+                4.4182500000000005,
+                5.31375
+              ]
+            },
+            "groups": 4,
+            "inputBytes": 53047001,
+            "inputSha256": "6b64787ccb73a82b812b3d4d18ec2583adfa8d3498f4348596ad1ad0e02b0dd7",
+            "questions": 1000,
+            "sourceBytes": 527395,
+            "startPaper": {
+              "medianMs": 417.260334,
+              "outputBytes": 1113345,
+              "outputSha256": "09ff6a0fdb36cea876af146ce18f744a413f928f3c7ae4a3ef08b6302e9b623c",
+              "samplesMs": [
+                429.611958,
+                416.478708,
+                417.260334,
+                472.773625,
+                413.245583,
+                409.091125,
+                421.627625
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "probeSha256": "d927ee55238f7c56c8fb3431805e052483407d195a17a494012f2b45887d52c5",
+        "scope": "Release Rust, disposable SQLite, one warmup and seven samples. Setup, checks, output hashing, response normalization, result destruction and session cleanup are outside timings; excludes IPC/WebView.",
+        "workloads": [
+          {
+            "contextBytes": 0,
+            "digest": {
+              "medianMs": 0.094542,
+              "outputBytes": 66,
+              "outputSha256": "d745c7ef3ec0e6fee39ec6429bf3da4932fd7666e85381ed4dd1d781df90dda1",
+              "samplesMs": [
+                0.11983400000000001,
+                0.104875,
+                0.097,
+                0.094542,
+                0.093875,
+                0.093917,
+                0.093459
+              ]
+            },
+            "freeze": {
+              "medianMs": 0.051625000000000004,
+              "outputBytes": 14658,
+              "outputSha256": "a9cf1938c8d5f06064efa9e5237a341f2ce8870a9eb7b6b5cc9c166882f34824",
+              "samplesMs": [
+                0.052875,
+                0.051625000000000004,
+                0.051291,
+                0.051709000000000005,
+                0.051666000000000004,
+                0.051125000000000004,
+                0.051291
+              ]
+            },
+            "groups": 0,
+            "inputBytes": 15841,
+            "inputSha256": "fe169cd126af0048154fa8bf6fcc12f0d0ec002fb86769f6daa8e85b07535afc",
+            "questions": 20,
+            "sourceBytes": 9680,
+            "startPaper": {
+              "medianMs": 1.7585840000000001,
+              "outputBytes": 20886,
+              "outputSha256": "f2d4e42dcc6ec69ef952028cefd9be90a176b472d245b5fd9801cd1ab2c6b91f",
+              "samplesMs": [
+                1.7044169999999998,
+                1.7585840000000001,
+                2.2009999999999996,
+                1.8257919999999999,
+                1.6726670000000001,
+                1.784458,
+                1.712583
+              ]
+            }
+          },
+          {
+            "contextBytes": 1000,
+            "digest": {
+              "medianMs": 0.105917,
+              "outputBytes": 66,
+              "outputSha256": "832a4bb385e36a4c4ea8ae0545a310580593f78acce7330c1045b06ca2d8083d",
+              "samplesMs": [
+                0.105916,
+                0.105708,
+                0.105917,
+                0.106208,
+                0.105916,
+                0.11075,
+                0.110416
+              ]
+            },
+            "freeze": {
+              "medianMs": 0.058292,
+              "outputBytes": 17105,
+              "outputSha256": "9c6210e9756cd1762da1eacbea9ebb82c5b546fb09980e2223bd57866f49edce",
+              "samplesMs": [
+                0.06075,
+                0.058875000000000004,
+                0.058292,
+                0.058208,
+                0.058125,
+                0.058292,
+                0.058084000000000004
+              ]
+            },
+            "groups": 2,
+            "inputBytes": 64781,
+            "inputSha256": "fdf1de3ac62b9b7bb1838f9517ab6437c294beb2e979104d82122d9e3b41f083",
+            "questions": 20,
+            "sourceBytes": 12107,
+            "startPaper": {
+              "medianMs": 1.7986250000000001,
+              "outputBytes": 23755,
+              "outputSha256": "37510a1d9a250aca527e945670807bd78759db4715a3fe683c651d90026b9a54",
+              "samplesMs": [
+                1.9697500000000001,
+                1.7986250000000001,
+                1.7440000000000002,
+                1.74025,
+                1.735416,
+                1.891875,
+                1.940208
+              ]
+            }
+          },
+          {
+            "contextBytes": 5000,
+            "digest": {
+              "medianMs": 6.425333,
+              "outputBytes": 66,
+              "outputSha256": "e7e7192ab79ae8a386e9a1ddd1c5351af5a4abbe503af1b38cafcfc0a3ded3d2",
+              "samplesMs": [
+                6.261042,
+                6.959625,
+                6.2191670000000006,
+                7.129207999999999,
+                7.219917000000001,
+                6.2543750000000005,
+                6.425333
+              ]
+            },
+            "freeze": {
+              "medianMs": 4.076083000000001,
+              "outputBytes": 782313,
+              "outputSha256": "f7b652132e5ee395a09afbacc6e555d568adf12f8620f1f4670acd3800dcabf9",
+              "samplesMs": [
+                3.957375,
+                4.076083000000001,
+                4.103916,
+                4.0138750000000005,
+                4.756833,
+                4.266708,
+                3.9914579999999997
+              ]
+            },
+            "groups": 4,
+            "inputBytes": 53047001,
+            "inputSha256": "6b64787ccb73a82b812b3d4d18ec2583adfa8d3498f4348596ad1ad0e02b0dd7",
+            "questions": 1000,
+            "sourceBytes": 527395,
+            "startPaper": {
+              "medianMs": 415.5945,
+              "outputBytes": 1113345,
+              "outputSha256": "09ff6a0fdb36cea876af146ce18f744a413f928f3c7ae4a3ef08b6302e9b623c",
+              "samplesMs": [
+                427.631959,
+                416.09633299999996,
+                414.72337500000003,
+                415.130167,
+                415.0025,
+                415.5945,
+                418.681958
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "probeSha256": "d927ee55238f7c56c8fb3431805e052483407d195a17a494012f2b45887d52c5",
+        "scope": "Release Rust, disposable SQLite, one warmup and seven samples. Setup, checks, output hashing, response normalization, result destruction and session cleanup are outside timings; excludes IPC/WebView.",
+        "workloads": [
+          {
+            "contextBytes": 0,
+            "digest": {
+              "medianMs": 0.09466699999999999,
+              "outputBytes": 66,
+              "outputSha256": "d745c7ef3ec0e6fee39ec6429bf3da4932fd7666e85381ed4dd1d781df90dda1",
+              "samplesMs": [
+                0.096916,
+                0.0955,
+                0.094833,
+                0.09466699999999999,
+                0.09466699999999999,
+                0.094417,
+                0.094459
+              ]
+            },
+            "freeze": {
+              "medianMs": 0.056375,
+              "outputBytes": 14658,
+              "outputSha256": "a9cf1938c8d5f06064efa9e5237a341f2ce8870a9eb7b6b5cc9c166882f34824",
+              "samplesMs": [
+                0.060041000000000004,
+                0.053958,
+                0.139292,
+                0.054875,
+                0.054,
+                0.057,
+                0.056375
+              ]
+            },
+            "groups": 0,
+            "inputBytes": 15841,
+            "inputSha256": "fe169cd126af0048154fa8bf6fcc12f0d0ec002fb86769f6daa8e85b07535afc",
+            "questions": 20,
+            "sourceBytes": 9680,
+            "startPaper": {
+              "medianMs": 1.784625,
+              "outputBytes": 20886,
+              "outputSha256": "f2d4e42dcc6ec69ef952028cefd9be90a176b472d245b5fd9801cd1ab2c6b91f",
+              "samplesMs": [
+                1.827417,
+                1.784625,
+                2.091459,
+                1.774541,
+                1.707625,
+                1.8909580000000001,
+                1.659083
+              ]
+            }
+          },
+          {
+            "contextBytes": 1000,
+            "digest": {
+              "medianMs": 0.108958,
+              "outputBytes": 66,
+              "outputSha256": "832a4bb385e36a4c4ea8ae0545a310580593f78acce7330c1045b06ca2d8083d",
+              "samplesMs": [
+                0.106208,
+                0.106,
+                0.10625,
+                0.113709,
+                0.111042,
+                0.109042,
+                0.108958
+              ]
+            },
+            "freeze": {
+              "medianMs": 0.060417,
+              "outputBytes": 17105,
+              "outputSha256": "9c6210e9756cd1762da1eacbea9ebb82c5b546fb09980e2223bd57866f49edce",
+              "samplesMs": [
+                0.06208299999999999,
+                0.060458000000000005,
+                0.060416,
+                0.060417,
+                0.060625000000000005,
+                0.060083,
+                0.059542
+              ]
+            },
+            "groups": 2,
+            "inputBytes": 64781,
+            "inputSha256": "fdf1de3ac62b9b7bb1838f9517ab6437c294beb2e979104d82122d9e3b41f083",
+            "questions": 20,
+            "sourceBytes": 12107,
+            "startPaper": {
+              "medianMs": 1.967958,
+              "outputBytes": 23755,
+              "outputSha256": "37510a1d9a250aca527e945670807bd78759db4715a3fe683c651d90026b9a54",
+              "samplesMs": [
+                2.120875,
+                2.083333,
+                1.892333,
+                1.711542,
+                1.9029159999999998,
+                1.967958,
+                2.228583
+              ]
+            }
+          },
+          {
+            "contextBytes": 5000,
+            "digest": {
+              "medianMs": 6.682583,
+              "outputBytes": 66,
+              "outputSha256": "e7e7192ab79ae8a386e9a1ddd1c5351af5a4abbe503af1b38cafcfc0a3ded3d2",
+              "samplesMs": [
+                6.883875000000001,
+                6.9669170000000005,
+                6.274417,
+                6.682583,
+                6.331584,
+                6.274,
+                7.629792
+              ]
+            },
+            "freeze": {
+              "medianMs": 4.226416,
+              "outputBytes": 782313,
+              "outputSha256": "f7b652132e5ee395a09afbacc6e555d568adf12f8620f1f4670acd3800dcabf9",
+              "samplesMs": [
+                4.652667,
+                4.007584,
+                4.647792000000001,
+                4.573333,
+                3.6814999999999998,
+                4.120209,
+                4.226416
+              ]
+            },
+            "groups": 4,
+            "inputBytes": 53047001,
+            "inputSha256": "6b64787ccb73a82b812b3d4d18ec2583adfa8d3498f4348596ad1ad0e02b0dd7",
+            "questions": 1000,
+            "sourceBytes": 527395,
+            "startPaper": {
+              "medianMs": 421.73983300000003,
+              "outputBytes": 1113345,
+              "outputSha256": "09ff6a0fdb36cea876af146ce18f744a413f928f3c7ae4a3ef08b6302e9b623c",
+              "samplesMs": [
+                423.53075,
+                417.759042,
+                418.027875,
+                417.307292,
+                421.73983300000003,
+                427.007417,
+                428.112041
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  }
+}
