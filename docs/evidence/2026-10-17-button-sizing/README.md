@@ -2,6 +2,8 @@
 
 Screenshot files were removed on October 17, 2026 during repository cleanup. The results below describe the original acceptance. Logs, measurements and original hash manifests are retained as historical records; screenshot entries in those manifests no longer identify available files. Current product screenshots remain in the root README files.
 
+The complete original 14-entry checksum list is retained in [SHA256SUMS.original](SHA256SUMS.original) for verifying files recovered from Git history. [SHA256SUMS](SHA256SUMS) covers only the files still present in this directory.
+
 The Settings backup actions used the same Button size, but Radix's composed
 dropdown trigger replaced `data-slot="button"`. Shared theme selectors therefore
 missed the restore action: the normal export button was 40 px high while the
