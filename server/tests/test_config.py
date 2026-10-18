@@ -59,6 +59,23 @@ def test_load_requires_service_token(monkeypatch: pytest.MonkeyPatch):
         config.load()
 
 
+@pytest.mark.parametrize("token", ["审计令牌", "bad token", "bad\ttoken", "bad\ntoken", "bad\x1btoken", "bad\x7ftoken"])
+@pytest.mark.parametrize("read_only", ["0", "1"])
+def test_service_token_rejects_unusable_bearer_credentials(monkeypatch, token, read_only):
+    _env(monkeypatch, AI_SERVICE_TOKEN=token, AI_READ_ONLY=read_only)
+    for read in (config.load, config.service_token):
+        with pytest.raises(ValueError, match="AI_SERVICE_TOKEN") as error:
+            read()
+        assert token not in str(error.value)
+
+
+def test_service_token_preserves_visible_ascii_and_trims_surrounding_whitespace(monkeypatch):
+    token = "service-Token_123.!~"
+    _env(monkeypatch, AI_SERVICE_TOKEN=f"  {token}\n")
+    config.load()
+    assert config.service_token() == token
+
+
 def test_service_read_only_requires_auth_but_no_model(monkeypatch):
     from practiq_ai.errors import DocumentProcessingError
 

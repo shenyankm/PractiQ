@@ -4,6 +4,8 @@ PractiQ is an open-source personal document importer and offline practice app. T
 
 ## Access
 
+`AI_SERVICE_TOKEN` must use visible ASCII characters without spaces. Configuration rejects Unicode, internal whitespace and control characters before startup; surrounding whitespace is trimmed.
+
 Set `AI_SERVICE_TOKEN` in the service environment. The Web importer and optional App grading use `Authorization: Bearer <token>`. The token authorizes all personal imports and grading on this deployment; do not share it as a customer credential. Keep the service on loopback, or behind your private authenticated TLS access path. Model keys stay on the service. Web keeps the service token only in page memory and clears it on reload. The App keeps it in platform credential storage, outside backups.
 
 Only Start import, resume, retry, parse again and explicit grading authorize model work. File selection, task reads, partial export and downloads do not call a model. Unknown results retain their call records; inspect provider usage before explicitly retrying because the provider may have charged for the earlier request.
