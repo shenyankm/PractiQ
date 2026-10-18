@@ -62,7 +62,7 @@ The API guide owns task payloads and controls; the user import guide explains th
 | Review dependency risks and repository safeguards | [Dependency security](maintainers/dependency-security.md) |
 | Review outstanding workstream status | [Roadmap evidence](maintainers/roadmap-evidence.md) |
 | Reproduce contributor setup and hand over responsibilities | [Contributor handover](maintainers/contributor-handover.md) |
-| Operate the trusted PR merge workflow | [PractiQ PR bot](maintainers/maintainer-agent.md) |
+| Operate trusted PR approvals and AI labels | [PractiQ PR bot](maintainers/maintainer-agent.md) |
 | Select, tag and stage release assets | [Release policy](maintainers/releases.md) |
 
 Fixture provenance and reproduction belong beside their inputs: [service-export](../app/fixtures/service-export/README.md), [AI-import corpus](../app/fixtures/ai-import/README.md), [Office fixtures](../app/fixtures/office/README.md), [SaaS-export](../app/fixtures/saas-export/README.md), and [rich-content fixtures](../app/fixtures/rich-content/README.md). Package notices are documented in [app licenses](../app/licenses/README.md).

@@ -71,8 +71,8 @@ and digests in `Dockerfile.server`, including the deployed second-stage
 in a focused PR, run `make verify` and `make image-check`, and retain the build
 and deployment checks for the resulting image. A builder-only Dependabot PR
 does not establish that the deployed Python/OS image is current.
-Dependency PRs from external authors require an explicit maintainer dispatch
-or manual merge; see [the merge workflow](maintainer-agent.md).
+Dependency PRs use the same connector-evidence and CI approval gates; see
+[the PR approval workflow](maintainer-agent.md).
 
 The maintainer reviews updater failures and uncovered dependencies at least
 monthly during active maintenance and before each release. Python currently uses
@@ -118,16 +118,27 @@ claiming static-analysis coverage. Keep dependency audits: they check locked
 packages, while CodeQL checks source patterns. No duplicate scanning workflow
 is needed for default setup. This branch does not change hosted settings.
 
-The active main ruleset currently requires `Service CI`, `Desktop CI` and
-`Android CI` and resolved conversations, with no mandatory
-second maintainer approval. The checked-in [ruleset](../../.github/main-ruleset.json)
-does not require a PR branch to include the latest main commit; conflict-free
-branches still need successful current-head checks. It restricts new merges to
-squash. After merging and verifying those three checks,
-apply it from the repository root, then verify the live rule:
+The active main ruleset requires `Service CI`, `Desktop CI`, `Android CI`,
+resolved conversations and **two valid approving reviews**. Stale approvals are
+dismissed on push and no actors bypass the rules. The checked-in
+[ruleset](../../.github/main-ruleset.json) preserves the hosted merge-method
+options (merge, squash and rebase) and does not require a PR branch to include
+the latest main commit. Repository native auto-merge is enabled; maintainers
+still enable it per PR. GitHub waits for all review and CI requirements.
+The PR bot has only Pull requests write / Metadata read, submits an approval
+after trusted Codex evidence, and does not merge or enable auto-merge.
+
+These hosted settings were applied and read back on 2026-10-18. Before future
+changes, read the live rule and preserve unrelated parameters; a checked-in
+file alone does not activate settings:
 
 ```bash
+gh api repos/shenyankm/PractiQ/rulesets/24200305
 gh api --method PUT repos/shenyankm/PractiQ/rulesets/24200305 --input .github/main-ruleset.json
+gh api repos/shenyankm/PractiQ --jq .allow_auto_merge
 ```
 
-Until applied, the hosted ruleset still permits merge, squash and rebase.
+The rules cover `main`, the repository's default PR target. Reviews on other
+base branches do not inherit this main-only rule. A thumbs-up or a COMMENTED
+review does not count as a native approving review; the PR author cannot
+approve their own PR. Two distinct eligible approving reviewers are required.

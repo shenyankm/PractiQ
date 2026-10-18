@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import { mergeBlocker, reviewEvidence, reviewPassed, main } from './maintainer.mjs';
+import { approvalBlocker, reviewEvidence, reviewPassed, main } from './maintainer.mjs';
 
 const sha = 'a'.repeat(40);
 const pr = { number: 228, user: { login: 'shenyankm' }, state: 'open', draft: false, base: { ref: 'main' }, head: { sha }, mergeable: true, mergeable_state: 'clean' };
@@ -10,34 +11,46 @@ const completed = { commit_sha: sha, status: 'completed', has_any_findings: fals
 const summaryBody = (body, state = { code_review: completed }) =>
   '<!-- codex-pull-request-review-summary -->\n<!-- codex-review-state:v1 ' + JSON.stringify(state) + ' -->\n' + body;
 
-test('all final CI gates and every applicable check/status must succeed', () => {
-  assert.equal(mergeBlocker(pr, checks, []), null);
-  for (const conclusion of ['failure', 'cancelled', 'timed_out', 'neutral', 'skipped', null]) {
-    assert(mergeBlocker(pr, [{ ...checks[0], conclusion }, ...checks.slice(1)], []));
-  }
-  assert(mergeBlocker(pr, checks.slice(1), []));
-  assert(mergeBlocker(pr, [{ ...checks[0], app: { slug: 'other-app' } }, ...checks.slice(1)], []));
-  assert(mergeBlocker(pr, [...checks, { status: 'in_progress', conclusion: null }], []));
-  assert(mergeBlocker(pr, checks, [{ state: 'pending' }]));
-  assert.equal(mergeBlocker(pr, [...checks, { status: 'completed', conclusion: 'skipped' }], [{ state: 'success' }]), null);
+test('main requires two approvals, stale dismissal, resolved discussions and all CI gates without bypass', () => {
+  const ruleset = JSON.parse(readFileSync(new URL('../main-ruleset.json', import.meta.url), 'utf8'));
+  assert.equal(ruleset.enforcement, 'active');
+  assert.deepEqual(ruleset.bypass_actors, []);
+  const review = ruleset.rules.find(rule => rule.type === 'pull_request').parameters;
+  assert.equal(review.required_approving_review_count, 2);
+  assert.equal(review.dismiss_stale_reviews_on_push, true);
+  assert.equal(review.required_review_thread_resolution, true);
+  assert.deepEqual(ruleset.rules.find(rule => rule.type === 'required_status_checks').parameters.required_status_checks
+    .map(check => check.context).sort(), ['Android CI', 'Desktop CI', 'Service CI']);
 });
 
-test('drafts, closed PRs, other branches and protection blockers cannot merge', () => {
+test('all final CI gates and every applicable check/status must succeed', () => {
+  assert.equal(approvalBlocker(pr, checks, []), null);
+  for (const conclusion of ['failure', 'cancelled', 'timed_out', 'neutral', 'skipped', null]) {
+    assert(approvalBlocker(pr, [{ ...checks[0], conclusion }, ...checks.slice(1)], []));
+  }
+  assert(approvalBlocker(pr, checks.slice(1), []));
+  assert(approvalBlocker(pr, [{ ...checks[0], app: { slug: 'other-app' } }, ...checks.slice(1)], []));
+  assert(approvalBlocker(pr, [...checks, { status: 'in_progress', conclusion: null }], []));
+  assert(approvalBlocker(pr, checks, [{ state: 'pending' }]));
+  assert.equal(approvalBlocker(pr, [...checks, { status: 'completed', conclusion: 'skipped' }], [{ state: 'success' }]), null);
+});
+
+test('drafts, closed PRs, other branches and conflicts cannot be approved', () => {
   for (const changed of [{ ...pr, draft: true }, { ...pr, state: 'closed' },
     { ...pr, base: { ref: 'release' } }, { ...pr, mergeable: null }, { ...pr, mergeable: false },
-    ...['blocked', 'unstable', 'dirty', 'unknown'].map(mergeable_state => ({ ...pr, mergeable_state }))]) {
-    assert(mergeBlocker(changed, checks, []));
+    { ...pr, mergeable: false, mergeable_state: 'dirty' }]) {
+    assert(approvalBlocker(changed, checks, []));
   }
 });
 
 test('a conflict-free PR behind main still requires successful current-head gates', () => {
   const behind = { ...pr, mergeable_state: 'behind' };
-  assert.equal(mergeBlocker(behind, checks, []), null);
-  assert(mergeBlocker({ ...behind, mergeable: false }, checks, []));
-  assert(mergeBlocker(behind, checks.slice(1), []));
-  assert(mergeBlocker(behind, [{ ...checks[0], conclusion: 'failure' }, ...checks.slice(1)], []));
-  assert(mergeBlocker(behind, [...checks, { status: 'in_progress', conclusion: null }], []));
-  assert(mergeBlocker(behind, checks, [{ state: 'pending' }]));
+  assert.equal(approvalBlocker(behind, checks, []), null);
+  assert(approvalBlocker({ ...behind, mergeable: false }, checks, []));
+  assert(approvalBlocker(behind, checks.slice(1), []));
+  assert(approvalBlocker(behind, [{ ...checks[0], conclusion: 'failure' }, ...checks.slice(1)], []));
+  assert(approvalBlocker(behind, [...checks, { status: 'in_progress', conclusion: null }], []));
+  assert(approvalBlocker(behind, checks, [{ state: 'pending' }]));
 });
 
 test('GPT evidence excludes old heads, other authors and security-only summaries', () => {
@@ -111,7 +124,7 @@ test('a security summary must agree with structured state and finish before the 
 
 function scenario(t, options = {}) {
   const previous = { ...process.env };
-  const env = { GITHUB_REPOSITORY: 'shenyankm/PractiQ', PR_NUMBER: options.multiple ? '' : '228', GH_READ_TOKEN: 'read-only', GH_MERGE_TOKEN: 'write-only', DRY_RUN: 'false', GITHUB_EVENT_NAME: 'schedule' };
+  const env = { GITHUB_REPOSITORY: 'shenyankm/PractiQ', PR_NUMBER: options.multiple ? '' : '228', GH_READ_TOKEN: 'read-only', GH_REVIEW_TOKEN: 'write-only', DRY_RUN: 'false', GITHUB_EVENT_NAME: 'schedule' };
   Object.assign(process.env, env);
   t.after(() => { for (const key of Object.keys(env)) {
     if (previous[key] === undefined) delete process.env[key]; else process.env[key] = previous[key];
@@ -119,20 +132,29 @@ function scenario(t, options = {}) {
   const writes = [];
   const reviewReads = new Map();
   let permissionReads = 0;
+  let prReads = 0;
+  const botReviews = options.botApproved ? [{ id: 9, user: { login: 'practiq-pr-bot[bot]' }, state: 'APPROVED', commit_id: sha }] : [];
   t.mock.method(globalThis, 'fetch', async (url, request) => {
     assert.equal(new URL(url).hostname, 'api.github.com');
     const actualPath = new URL(url).pathname.split('/').slice(4).join('/');
     const path = actualPath.replace(/229/g, '228');
-    if (request.method === 'PUT') {
+    if (request.method !== 'GET') {
       assert.equal(request.headers.Authorization, 'Bearer write-only');
-      writes.push(JSON.parse(request.body));
-      return options.conflict ? Response.json({}, { status: 409 }) : Response.json({ merged: true });
+      const body = JSON.parse(request.body);
+      assert((request.method === 'POST' && path === 'pulls/228/reviews') ||
+        (request.method === 'PUT' && path === 'pulls/228/reviews/9/dismissals'), `Unexpected mutation: ${request.method} ${path}`);
+      writes.push(body);
+      if (options.conflict) return Response.json({}, { status: 409 });
+      if (request.method === 'PUT') { botReviews[0].state = 'DISMISSED'; return Response.json(botReviews[0]); }
+      botReviews.push({ id: 9, user: { login: 'practiq-pr-bot[bot]' }, state: 'APPROVED', commit_id: body.commit_id });
+      return Response.json(botReviews.at(-1));
     }
     assert.equal(request.headers.Authorization, 'Bearer read-only');
+    if (path === 'pulls/228') prReads++;
     if (path.endsWith('/reviews')) reviewReads.set(actualPath, (reviewReads.get(actualPath) ?? 0) + 1);
     if (options.apiError && actualPath === 'pulls/228/reviews') return Response.json({}, { status: 503 });
     if (path.startsWith('collaborators/')) permissionReads++;
-    const responses = { pulls: [{ number: 228 }, { number: 229 }], 'pulls/228': { ...pr, number: actualPath.endsWith('/229') ? 229 : 228 }, 'pulls/228/reviews': options.changedReport && reviewReads.get(actualPath) > 1 && actualPath.includes('/228/') ? [{ ...review, body: 'New unresolved P1' }] : options.summary ? [] : [review], 'pulls/228/reviews/1/comments': [], 'pulls/228/files': options.files ?? [],
+    const responses = { pulls: [{ number: 228 }, { number: 229 }], 'pulls/228': { ...pr, ...(options.pr ?? {}), ...((options.changedHead && prReads > 1) || (options.changedAfterApproval && prReads > 2) ? { head: { sha: 'b'.repeat(40) } } : {}), number: actualPath.endsWith('/229') ? 229 : 228 }, 'pulls/228/reviews': options.changedReport && reviewReads.get(actualPath) > 1 && actualPath.includes('/228/') ? [{ ...review, body: 'New unresolved P1' }] : [...(options.reviews ?? (options.summary ? [] : [review])), ...botReviews], 'pulls/228/reviews/1/comments': [], 'pulls/228/files': options.files ?? [],
       [`commits/${sha}/check-runs`]: { check_runs: options.checks ?? checks }, [`commits/${sha}/status`]: { statuses: [] },
       'collaborators/shenyankm/permission': { permission: options.revoked && permissionReads > 1 ? 'read' : options.permission ?? 'admin' },
       'collaborators/maintainer/permission': { permission: options.revoked && permissionReads > 1 ? 'read' : 'write' },
@@ -144,25 +166,23 @@ function scenario(t, options = {}) {
   return { writes };
 }
 
-test('pending CI cannot merge', async t => {
+test('pending CI cannot approve', async t => {
   const fixture = scenario(t, { checks: checks.slice(1) });
   await main();
   assert.equal(fixture.writes.length, 0);
 });
 
-test('external authors require an explicit maintainer dispatch', async t => {
+test('external authors can receive approval from clean trusted connector evidence', async t => {
   const fixture = scenario(t, { permission: 'read' });
   await main();
-  assert.equal(fixture.writes.length, 0);
+  assert.equal(fixture.writes.length, 1);
 });
 
-for (const manual of [false, true]) test(`revoked ${manual ? 'dispatch actor' : 'author'} permission prevents merging`, async t => {
+test('revoked dispatch actor permission prevents approval', async t => {
   const fixture = scenario(t, { revoked: true });
   const actor = process.env.GITHUB_ACTOR;
-  if (manual) {
-    process.env.GITHUB_EVENT_NAME = 'workflow_dispatch';
-    process.env.GITHUB_ACTOR = 'maintainer';
-  }
+  process.env.GITHUB_EVENT_NAME = 'workflow_dispatch';
+  process.env.GITHUB_ACTOR = 'maintainer';
   t.after(() => { if (actor === undefined) delete process.env.GITHUB_ACTOR; else process.env.GITHUB_ACTOR = actor; });
   await main();
   assert.equal(fixture.writes.length, 0);
@@ -174,20 +194,20 @@ test('one PR API failure does not starve later PRs', async t => {
   assert.equal(fixture.writes.length, 1);
 });
 
-test('a GPT report change during evaluation prevents merging', async t => {
+test('a GPT report change during evaluation prevents approval', async t => {
   const fixture = scenario(t, { changedReport: true, multiple: true });
   await main();
   assert.equal(fixture.writes.length, 1);
 });
 
-test('dry run does not merge; rejected merges bind the exact head and are not retried', async t => {
+test('dry run does not approve; rejected approvals bind the exact head and are not retried', async t => {
   const fixture = scenario(t, { conflict: true });
   process.env.DRY_RUN = 'true';
   await main();
   assert.equal(fixture.writes.length, 0);
   process.env.DRY_RUN = 'false';
   await main();
-  assert.deepEqual(fixture.writes, [{ sha, merge_method: 'squash' }]);
+  assert.deepEqual(fixture.writes, [{ commit_id: sha, event: 'APPROVE', body: 'Current-head Codex connector review evidence and CI checks passed. Approval only; GitHub enforces the two-review and merge requirements.' }]);
 });
 
 test('GitHub resolves abbreviated summary commits before evaluation', async t => {
@@ -196,12 +216,12 @@ test('GitHub resolves abbreviated summary commits before evaluation', async t =>
   assert.equal(fixture.writes.length, 0);
 });
 
-test('a clean structured summary and a fresh connector reaction can merge', async t => {
+test('a clean structured summary and a fresh connector reaction can approve', async t => {
   const fixture = scenario(t, { summary: true, reactions: [
     { user: review.user, content: '+1', created_at: '2026-10-13T14:01:00Z' },
   ] });
   await main();
-  assert.deepEqual(fixture.writes, [{ sha, merge_method: 'squash' }]);
+  assert.deepEqual(fixture.writes, [{ commit_id: sha, event: 'APPROVE', body: 'Current-head Codex connector review evidence and CI checks passed. Approval only; GitHub enforces the two-review and merge requirements.' }]);
 });
 
 test('another user cannot approve a completed summary with a reaction', async t => {
@@ -212,7 +232,7 @@ test('another user cannot approve a completed summary with a reaction', async t 
   assert.equal(fixture.writes.length, 0);
 });
 
-test('workflow changes and renames cannot auto-merge', async t => {
+test('workflow changes and renames require manual approval', async t => {
   const fixture = scenario(t, { files: [{ filename: 'safe.yml', previous_filename: '.github/workflows/server.yml' }] });
   await main();
   assert.equal(fixture.writes.length, 0);
@@ -224,13 +244,13 @@ test('CI scope implementation changes require manual inspection', async t => {
   assert.equal(fixture.writes.length, 0);
 });
 
-for (const filename of ['.github/scripts/maintainer.mjs', '.github/scripts/maintainer.test.mjs']) test(`${filename} cannot auto-merge`, async t => {
+for (const filename of ['.github/scripts/maintainer.mjs', '.github/scripts/maintainer.test.mjs']) test(`${filename} require manual approval`, async t => {
   const fixture = scenario(t, { files: [{ filename }] });
   await main();
   assert.equal(fixture.writes.length, 0);
 });
 
-test('a shadowing module beside the CI gate cannot auto-merge', async t => {
+test('a shadowing module beside the CI gate require manual approval', async t => {
   const fixture = scenario(t, { files: [{ filename: 'server/scripts/json.py' }] });
   await main();
   assert.equal(fixture.writes.length, 0);
@@ -243,5 +263,58 @@ test('a maintainer can explicitly dispatch an external PR', async t => {
   process.env.GITHUB_ACTOR = 'maintainer';
   t.after(() => { if (actor === undefined) delete process.env.GITHUB_ACTOR; else process.env.GITHUB_ACTOR = actor; });
   await main();
-  assert.deepEqual(fixture.writes, [{ sha, merge_method: 'squash' }]);
+  assert.deepEqual(fixture.writes, [{ commit_id: sha, event: 'APPROVE', body: 'Current-head Codex connector review evidence and CI checks passed. Approval only; GitHub enforces the two-review and merge requirements.' }]);
+});
+
+test('missing required approvals do not deadlock the bot approval', async t => {
+  const fixture = scenario(t, { pr: { mergeable_state: 'blocked' } });
+  await main();
+  assert.equal(fixture.writes.length, 1);
+  assert.equal(fixture.writes[0].event, 'APPROVE');
+});
+
+test('the same bot approves a head only once across repeated scans', async t => {
+  const fixture = scenario(t);
+  await main();
+  await main();
+  assert.equal(fixture.writes.length, 1);
+});
+
+test('an existing bot approval on this head is not duplicated', async t => {
+  const fixture = scenario(t, { botApproved: true });
+  await main();
+  assert.equal(fixture.writes.length, 0);
+});
+
+for (const reason of ['review', 'ci', 'protected-file']) test(`invalid ${reason} withdraws only this bot's approval`, async t => {
+  const fixture = scenario(t, { botApproved: true,
+    ...(reason === 'review' ? { reviews: [{ ...review, state: 'CHANGES_REQUESTED' }] } : {}),
+    ...(reason === 'ci' ? { checks: checks.slice(1) } : {}),
+    ...(reason === 'protected-file' ? { files: [{ filename: '.github/scripts/maintainer.mjs' }] } : {}),
+  });
+  await main();
+  assert.deepEqual(fixture.writes, [{ message: 'PR bot approval withdrawn: current Codex review or validation conditions no longer pass.' }]);
+  await main();
+  assert.equal(fixture.writes.length, 1);
+});
+
+test('dry run never withdraws a bot approval', async t => {
+  const fixture = scenario(t, { botApproved: true, reviews: [] });
+  process.env.DRY_RUN = 'true';
+  await main();
+  assert.equal(fixture.writes.length, 0);
+});
+
+test('changed head prevents approving an old commit', async t => {
+  const fixture = scenario(t, { changedHead: true });
+  await main();
+  assert.equal(fixture.writes.length, 0);
+});
+
+test('a push racing with approval causes the new approval to be withdrawn', async t => {
+  const fixture = scenario(t, { changedAfterApproval: true });
+  await main();
+  assert.equal(fixture.writes.length, 2);
+  assert.equal(fixture.writes[0].event, 'APPROVE');
+  assert.match(fixture.writes[1].message, /current head could not be confirmed/);
 });
