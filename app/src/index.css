@@ -297,3 +297,5 @@ html[data-native-insets="true"] {
 @media (max-width: 767px), (any-pointer: coarse) {
   #app-sidebar nav [data-button] { min-height: 3rem; }
 }
+
+/* CI scope acceptance: app-only UI edit. */
