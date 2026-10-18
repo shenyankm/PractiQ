@@ -1,5 +1,9 @@
 """Stage the repository license only while Hatchling runs a packaging hook."""
 
+import hashlib
+import sqlite3
+import tempfile
+from contextlib import closing
 from functools import wraps
 from pathlib import Path
 
@@ -9,18 +13,23 @@ from hatchling import build
 def _with_license(hook):
     @wraps(hook)
     def run(*args, **kwargs):
-        notice = Path(__file__).parent / 'LICENSE'
-        if notice.exists():
-            return hook(*args, **kwargs)
-        # Source archives already carry LICENSE; repository builds use the root copy.
-        content = (notice.parent.parent / 'LICENSE').read_bytes()
-        stream = notice.open('xb')
-        try:
-            with stream:
-                stream.write(content)
-            return hook(*args, **kwargs)
-        finally:
-            notice.unlink()
+        notice = Path(__file__).resolve().parent / 'LICENSE'
+        key = hashlib.sha256(str(notice).encode()).hexdigest()
+        lock = Path(tempfile.gettempdir()) / f'practiq-build-{key}.sqlite3'
+        # SQLite provides process-safe locks on all build hosts without a dependency.
+        with closing(sqlite3.connect(lock, timeout=600)) as connection, connection:
+            connection.execute('BEGIN EXCLUSIVE')
+            if notice.exists():
+                return hook(*args, **kwargs)
+            # Source archives already carry LICENSE; repository builds use the root copy.
+            content = (notice.parent.parent / 'LICENSE').read_bytes()
+            stream = notice.open('xb')
+            try:
+                with stream:
+                    stream.write(content)
+                return hook(*args, **kwargs)
+            finally:
+                notice.unlink()
 
     return run
 
