@@ -1,6 +1,6 @@
-# PractiQ agent-bot
+# PractiQ PR bot
 
-The private `practiq-agent-bot` App only squash-merges eligible PRs targeting
+The private `practiq-pr-bot` App only squash-merges eligible PRs targeting
 `main`. It consumes existing GPT review evidence through deterministic checks;
 it does not interpret review prose, call a model, create approvals or publish releases.
 
@@ -76,7 +76,7 @@ that PR only. Other public comments do not start the privileged job. A daily
 Scheduled opportunities decrease from 96 to one per day. The merge agent makes
 no paid model calls. Reaction-only updates may wait for the daily scan or manual dispatch.
 
-Choose **PractiQ agent-bot → Run workflow** on `main` for an immediate check,
+Choose **PractiQ PR bot → Run workflow** on `main` for an immediate check,
 optionally selecting a PR number. Automatic runs merge eligible trusted-author
 PRs; disable the workflow in Actions to stop the bot. The checked-in main ruleset
 permits squash only once applied to GitHub; see [repository security settings](dependency-security.md#repository-security-settings).
