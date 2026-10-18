@@ -19,10 +19,12 @@ def _with_license(hook):
         # SQLite provides process-safe locks on all build hosts without a dependency.
         with closing(sqlite3.connect(lock, timeout=600)) as connection, connection:
             connection.execute('BEGIN EXCLUSIVE')
-            if notice.exists():
+            # PKG-INFO identifies an extracted sdist; repository copies are temporary.
+            if (notice.parent / 'PKG-INFO').is_file():
+                notice.read_bytes()
                 return hook(*args, **kwargs)
-            # Source archives already carry LICENSE; repository builds use the root copy.
             content = (notice.parent.parent / 'LICENSE').read_bytes()
+            notice.unlink(missing_ok=True)
             stream = notice.open('xb')
             try:
                 with stream:

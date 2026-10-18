@@ -13,7 +13,7 @@ def check_package(root: Path, output: Path) -> dict[str, str | int]:
     project = tomllib.loads((root / 'pyproject.toml').read_text())['project']
     if project.get('license') != 'MIT' or project.get('license-files') != ['LICENSE']:
         raise ValueError('Project license declaration mismatch')
-    notice_path = root / 'LICENSE' if (root / 'LICENSE').is_file() else root.parent / 'LICENSE'
+    notice_path = root / 'LICENSE' if (root / 'PKG-INFO').is_file() else root.parent / 'LICENSE'
     notice = notice_path.read_bytes()
 
     def check_metadata(data: bytes) -> None:

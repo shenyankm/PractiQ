@@ -23,7 +23,8 @@ CHECK = runpy.run_path(str(Path(__file__).parents[1] / 'scripts/check_package.py
     ('wheel', 'missing-license-header'), ('sdist', 'missing-license-header'),
     ('wheel', 'missing-license-declaration'), ('sdist', 'missing-license-declaration'),
 ])
-def test_service_archive_guard(tmp_path, archive_kind, mutation):
+@pytest.mark.parametrize('standalone', [False, True])
+def test_service_archive_guard(tmp_path, archive_kind, mutation, standalone):
     root = tmp_path / 'service'
     output = tmp_path / 'dist'
     (root / 'src/practiq_ai').mkdir(parents=True)
@@ -36,7 +37,12 @@ def test_service_archive_guard(tmp_path, archive_kind, mutation):
     source = b'"""Service source."""\n'
     notice = b'Synthetic MIT notice\n'
     metadata = b'License-Expression: MIT\nLicense-File: LICENSE\n'
-    (root / 'LICENSE').write_bytes(notice)
+    if standalone:
+        (root / 'PKG-INFO').write_bytes(metadata)
+        (root / 'LICENSE').write_bytes(notice)
+    else:
+        (root.parent / 'LICENSE').write_bytes(notice)
+        (root / 'LICENSE').write_bytes(b'stale interrupted-build notice')
     (root / 'src/practiq_ai/__init__.py').write_bytes(source)
     wheel_files = {'practiq_ai/__init__.py': source, 'practiq_ai/uv.lock': b'locked dependencies'}
     source_files = {'src/practiq_ai/__init__.py': source, 'uv.lock': b'locked dependencies', 'pyproject.toml': project, 'build_backend.py': backend}
