@@ -9,19 +9,27 @@ import sys
 from fnmatch import fnmatchcase
 from pathlib import Path
 
-APP_INPUTS = (
-    "app/**", "shared/**", "Makefile", "rust-toolchain.toml", ".gitattributes", ".gitignore", "LICENSE",
+COMMON_INPUTS = (
+    # The unchanged workflow must validate edited selectors and privileged workflow YAML.
+    ".github/actions/**", ".github/workflows/**", ".github/main-ruleset.json",
+    ".github/release-tag-*.json", ".github/dependabot.yml",
+    "server/scripts/ci_scope.py", "Makefile", ".gitignore", "LICENSE",
+)
+APP_INPUTS = COMMON_INPUTS + (
+    ".github/RELEASE_TEMPLATE.md", ".github/release.yml",
+    "app/**", "shared/**", "rust-toolchain.toml", ".gitattributes",
     "server/src/practiq_ai/__init__.py", "server/src/practiq_ai/contracts.py",
-    "server/pyproject.toml", "server/uv.lock", "server/conftest.py", "server/scripts/**",
+    "server/pyproject.toml", "server/uv.lock", "server/build_backend.py", "server/conftest.py",
+    "server/scripts/evaluate.py",
     "server/tests/__init__.py", "server/tests/conftest.py", "server/tests/test_ci.py", "server/tests/test_ci_scope.py",
     "server/tests/test_release_checks.py", "server/tests/test_release_workflow.py",
     "server/tests/test_desktop_package.py", "server/tests/test_android_package.py",
     "server/tests/test_android_licenses.py",
 )
 PATTERNS = {
-    "service": (
+    "service": COMMON_INPUTS + (
         "server/**", "web/**", "shared/**", "app/fixtures/**", "app/scripts/check-rich-recognition.py",
-        "Dockerfile.server", ".dockerignore", ".gitignore", ".env.example", "Makefile",
+        "Dockerfile.server", ".dockerignore", ".env.example",
     ),
     "android": APP_INPUTS,
     "desktop": APP_INPUTS,
@@ -37,9 +45,8 @@ def checks_required(scope: str, paths: list[str] | None) -> bool:
     if paths is None:
         return True
     return any(
-        path.startswith(".github/")
-        or (not any(fnmatchcase(path, pattern) for pattern in DOCUMENTATION)
-            and any(fnmatchcase(path, pattern) for pattern in PATTERNS[scope]))
+        not any(fnmatchcase(path, pattern) for pattern in DOCUMENTATION)
+        and any(fnmatchcase(path, pattern) for pattern in PATTERNS[scope])
         for path in paths
     )
 

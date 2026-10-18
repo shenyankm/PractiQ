@@ -23,7 +23,25 @@ def ci_scope():
     (["README.md", "README.zh-CN.md", "docs/guide.md"], False, False),
     (["CONTRIBUTING.md", "SECURITY.md", "AGENTS.md", "app/docs/guide.md", "server/docs/guide.md"], False, False),
     ([".agents/skills/example/SKILL.md"], False, False),
-    ([".github/PULL_REQUEST_TEMPLATE.md"], True, True),
+    ([".github/PULL_REQUEST_TEMPLATE.md"], False, False),
+    ([".github/ISSUE_TEMPLATE/bug.yml"], False, False),
+    ([".github/labels.json"], False, False),
+    ([".github/scripts/maintainer.mjs"], False, False),
+    ([".github/scripts/pr-labeler.mjs"], False, False),
+    ([".github/scripts/issue-labeler.mjs"], False, False),
+    ([".github/workflows/maintainer.yml"], True, True),
+    ([".github/workflows/pr-labels.yml"], True, True),
+    ([".github/workflows/issue-labels.yml"], True, True),
+    ([".github/workflows/review-signal.yml"], True, True),
+    ([".github/workflows/app.yml"], True, True),
+    ([".github/workflows/server.yml"], True, True),
+    ([".github/workflows/release.yml"], True, True),
+    ([".github/main-ruleset.json"], True, True),
+    ([".github/release-tag-creation-ruleset.json"], True, True),
+    ([".github/release-tag-immutability-ruleset.json"], True, True),
+    ([".github/dependabot.yml"], True, True),
+    ([".github/RELEASE_TEMPLATE.md"], False, True),
+    ([".github/release.yml"], False, True),
     ([".github/actions/check/action.yml"], True, True),
     (["server/src/practiq_ai/webapp.py"], True, False),
     (["server/src/practiq_ai/graphs/document.py"], True, False),
@@ -32,7 +50,11 @@ def ci_scope():
     (["server/src/practiq_ai/__init__.py"], True, True),
     (["server/pyproject.toml"], True, True),
     (["server/uv.lock"], True, True),
+    (["server/build_backend.py"], True, True),
     (["server/scripts/ci_scope.py"], True, True),
+    (["server/scripts/evaluate.py"], True, True),
+    (["server/scripts/check_package.py"], True, False),
+    (["server/scripts/benchmark_pipeline.py", "server/scripts/storage_gc.py"], True, False),
     (["server/conftest.py"], True, True),
     (["server/tests/conftest.py"], True, True),
     (["server/tests/test_ci.py"], True, True),
@@ -48,6 +70,10 @@ def ci_scope():
     (["app/licenses/android-runtime.lock.json"], False, True),
     (["server/src/practiq_ai/prompts/import.md"], True, False),
     (["app/src/App.tsx", "README.md"], False, True),
+    (["app/src/App.tsx", ".github/PULL_REQUEST_TEMPLATE.md"], False, True),
+    (["app/src/index.css", "app/src/locales/en.ts"], False, True),
+    (["app/src/App.tsx", "web/src/App.tsx"], True, True),
+    (["server/src/practiq_ai/webapp.py", "app/src/App.tsx"], True, True),
     (["Makefile"], True, True),
     (["rust-toolchain.toml"], False, True),
     (["Dockerfile.server"], True, False),
@@ -55,7 +81,7 @@ def ci_scope():
     ([".gitignore"], True, True),
     ([".env.example"], True, False),
     ([".gitattributes"], False, True),
-    (["LICENSE"], False, True),
+    (["LICENSE"], True, True),
     (["tools/local.py"], False, False),
 ])
 def test_selectors_preserve_real_inputs_and_skip_documentation(ci_scope, paths, service, desktop):
@@ -147,6 +173,29 @@ def needs_for(scope, required=True):
 @pytest.mark.parametrize("required", [True, False])
 def test_gate_accepts_completed_checks_or_deliberate_documentation_skip(ci_scope, scope, required):
     ci_scope.check_gate(scope, needs_for(scope, required))
+
+
+@pytest.mark.parametrize("paths,required_scopes", [
+    (["app/src/App.tsx"], {"desktop", "android"}),
+    (["web/src/App.tsx"], {"service"}),
+    (["server/src/practiq_ai/webapp.py"], {"service"}),
+    (["server/scripts/check_package.py"], {"service"}),
+    (["app/src/App.tsx", ".github/ISSUE_TEMPLATE/bug.yml"], {"desktop", "android"}),
+    (["shared/SelectControl.tsx"], {"service", "desktop", "android"}),
+    (["server/src/practiq_ai/contracts.py"], {"service", "desktop", "android"}),
+    ([".github/workflows/server.yml"], {"service", "desktop", "android"}),
+    ([".github/workflows/app.yml"], {"service", "desktop", "android"}),
+    ([".github/PULL_REQUEST_TEMPLATE.md"], set()),
+])
+def test_component_changes_skip_only_unrelated_jobs_and_keep_final_gates(ci_scope, paths, required_scopes):
+    for scope in ("service", "desktop", "android"):
+        required = ci_scope.checks_required(scope, paths)
+        assert required is (scope in required_scopes)
+        needs = needs_for(scope, required)
+        ci_scope.check_gate(scope, needs)
+        needs["quality"]["result"] = "skipped" if required else "success"
+        with pytest.raises(ValueError):
+            ci_scope.check_gate(scope, needs)
 
 
 @pytest.mark.parametrize("scope", ["desktop", "android"])
@@ -243,11 +292,12 @@ def test_manual_scope_cli_requires_checks_and_writes_action_output(tmp_path, sco
     assert "required=true" in output.read_text(encoding="utf-8").splitlines()
 
 
-def test_release_ref_forces_full_checks_without_querying_changed_paths(tmp_path):
+@pytest.mark.parametrize("scope", ["service", "desktop", "android"])
+def test_release_ref_forces_full_checks_without_querying_changed_paths(tmp_path, scope):
     event, output = tmp_path / "event.json", tmp_path / "output"
     # No PR number: accidental change detection would fail instead of querying GitHub.
     event.write_text("{}", encoding="utf-8")
-    process = subprocess.run([sys.executable, str(SCRIPT), "scope", "desktop"],
+    process = subprocess.run([sys.executable, str(SCRIPT), "scope", scope],
                              env={**os.environ, "GITHUB_EVENT_NAME": "pull_request",
                                   "GITHUB_EVENT_PATH": str(event), "GITHUB_REPOSITORY": "owner/repo",
                                   "CI_FULL_CHECKS": "true", "GITHUB_OUTPUT": str(output)},

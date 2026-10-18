@@ -148,7 +148,18 @@ Before `make audit-rust`, install the `cargo-audit` version pinned in the [App w
 
 Record exact commands or manual flows, platform/environment, results, and evidence in the PR. Explain failed, unrun, and non-applicable checks. Keep local checks, remote CI, browser mocks, native acceptance, and live-model evaluation separate. Model substitutes do not establish extraction or grading accuracy; follow the [evaluation guide](server/docs/evaluation.md) for separately authorized live checks. Validate affected native interactions, credentials, and audio on the target OS, and report untested platforms.
 
-CI selects work using [shared path rules](server/scripts/ci_scope.py). Documentation paths skip heavy jobs; changes anywhere under `.github/`, including contribution templates, trigger all affected workflows. Manual full dispatch also runs all checks. The final `Service CI`, `Desktop CI`, and `Android CI` gates check deliberate skips and failures. The [Service](.github/workflows/server.yml) and [App](.github/workflows/app.yml) workflows define commands, platform matrices, and retained diagnostics.
+CI selects work using [shared path rules](server/scripts/ci_scope.py):
+
+| Changed paths | Heavy CI jobs |
+| --- | --- |
+| App frontend or native code | App quality, macOS/Windows packages, Android APK and emulator; skip Service/Web checks |
+| Web frontend, service implementation, or service-only scripts | Service/Web checks and service image; skip App quality and all native builds |
+| Shared frontend code, AI contracts, shared fixtures, or build/check dependencies used by both components | Both workflows |
+| Release notes configuration or release template | App workflow |
+| Any workflow YAML, shared CI actions, scope selector, rulesets, or dependency-update configuration | Both workflows; cross-check selectors and privileged workflow safeguards |
+| Documentation, issue/PR templates, or bot labels/scripts | Skip heavy Service/App jobs; bot workflows retain their own tests |
+
+Mixed changes run the union of affected checks. App inputs also include the service dependency lock/manifest, build backend, and evaluation helper used by its contract/regression checks. Manual dispatch and release calls run all checks. The final `Service CI`, `Desktop CI`, and `Android CI` gates always run and verify deliberate skips and failures, so required checks still report a result. The [Service](.github/workflows/server.yml) and [App](.github/workflows/app.yml) workflows define commands, platform matrices, and retained diagnostics.
 
 ## Submit a pull request
 
