@@ -42,7 +42,6 @@ jobs:
     environment: PractiQ Issue
     permissions:
       contents: read
-      issues: write
     steps:
       # Only default-branch code receives the write token; issue text stays in JSON.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -50,9 +49,17 @@ jobs:
           ref: main
           persist-credentials: false
       - run: node --test .github/scripts/issue-labeler.test.mjs
+      - name: Create dedicated issue bot token
+        id: app
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+        with:
+          client-id: ${{ vars.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          repositories: ${{ github.repository }}
+          permission-issues: write
       - name: Synchronize labels or classify an issue
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.app.outputs.token }}
           PRACTIQ_AGENT_API_KEY: ${{ secrets.API_KEY }}
           PRACTIQ_AGENT_BASE_URL: ${{ secrets.BASE_URL }}
           PRACTIQ_AGENT_MODEL: ${{ secrets.MODEL }}

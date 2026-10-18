@@ -56,9 +56,11 @@ Privileged runs check out trusted `main`, never the PR or `workflow_run` head.
 
 The separate [Issue labels workflow](../../CONTRIBUTING.md#issue-labels) uses
 the dedicated `PractiQ Issue` environment's `API_KEY`, `BASE_URL`, and `MODEL`
-secrets to classify issues and assess missing priorities. It does not receive
-the merge agent's App private key or merge permissions. The merge agent does
-not use model credentials.
+secrets to classify issues and assess missing priorities. Its separate
+`practiq-issue-bot` App uses `APP_CLIENT_ID` and `APP_PRIVATE_KEY` from that
+environment with Issues write access only. It does not receive the merge
+agent's App private key or merge permissions. The merge agent does not use
+model credentials.
 
 The [workflow](../../.github/workflows/maintainer.yml) runs after **AI service**
 or **Practice App** completes. Direct current-head connector approvals trigger
