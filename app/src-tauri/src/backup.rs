@@ -716,16 +716,19 @@ fn validate_database_contents(db: &Connection) -> Result<()> {
             return Err("Snapshot exceeds backup limit".into());
         }
         let doc: Value = serde_json::from_str(&raw).map_err(err)?;
-        let rows = crate::questions::thaw(&doc)?;
+        let mut rows = crate::questions::thaw(&doc)?;
+        if rows.iter().any(|r| r["id"] != r["question"]["id"]) {
+            return Err("Frozen question identity mismatch".into());
+        }
         let mut qs: Vec<_> = rows.iter().map(|r| r["question"].clone()).collect();
         crate::contract::validate_tree(&mut qs)?;
+        for (row, question) in rows.iter_mut().zip(qs) {
+            row["question"] = question;
+        }
         let ids: std::collections::HashSet<_> = rows
             .iter()
             .map(|r| crate::contract::text(r, "id"))
             .collect();
-        if rows.iter().any(|r| r["id"] != r["question"]["id"]) {
-            return Err("Frozen question identity mismatch".into());
-        }
         crate::contract::validate_context(
             crate::contract::list(&doc, "groups"),
             crate::contract::list(&doc, "visuals"),
@@ -741,15 +744,45 @@ fn validate_database_contents(db: &Connection) -> Result<()> {
             .collect::<std::result::Result<Vec<_>, _>>()
             .map_err(err)?;
         let index = crate::questions::Index::new(&rows);
+        let mut remaining: std::collections::HashSet<_> = rows
+            .iter()
+            .filter(|r| !crate::questions::composite(&r["question"]))
+            .map(|r| crate::contract::text(r, "id"))
+            .collect();
+        let mut selected =
+            std::collections::HashMap::<&str, std::collections::HashSet<String>>::new();
         for (qid, answer) in &attempts {
-            if !ids.contains(qid.as_str()) {
-                return Err("Attempt references a missing frozen question".into());
+            if !remaining.remove(qid.as_str()) {
+                return Err(crate::language::error("LOCAL_BACKUP_RELATIONS", json!({})));
             }
+            if answer.len() > 256 * 1024 {
+                return Err(crate::language::error("LOCAL_ANSWER_INVALID", json!({})));
+            }
+            let answer: Value = serde_json::from_str(answer).map_err(err)?;
             let snapshot = index.snapshot(qid)?;
-            crate::contract::validate_attempt(
-                &snapshot["question"],
-                &serde_json::from_str::<Value>(answer).map_err(err)?,
-            )?;
+            let question = &snapshot["question"];
+            crate::contract::validate_attempt(question, &answer)?;
+            if let Some(parent) = index
+                .by_id
+                .get(crate::contract::text(question, "optionSourceId"))
+            {
+                if parent["question"]["allowReuse"] != true {
+                    let used = selected
+                        .entry(crate::contract::text(parent, "id"))
+                        .or_default();
+                    for option in crate::contract::list(&answer, "correct")
+                        .iter()
+                        .filter_map(Value::as_str)
+                    {
+                        if !used.insert(option.to_ascii_lowercase()) {
+                            return Err(crate::language::error("LOCAL_WORD_REUSED", json!({})));
+                        }
+                    }
+                }
+            }
+        }
+        if !remaining.is_empty() {
+            return Err(crate::language::error("LOCAL_BACKUP_RELATIONS", json!({})));
         }
         let mut statement=db.prepare("SELECT question_id,used,position,active FROM listening_playback WHERE session_id=?1").map_err(err)?;
         let plays = statement
@@ -769,8 +802,9 @@ fn validate_database_contents(db: &Connection) -> Result<()> {
             .map_err(err)?;
         for play in plays {
             let (qid, used, position, active) = play.map_err(err)?;
-            let q = qs
+            let q = rows
                 .iter()
+                .map(|r| &r["question"])
                 .find(|q| {
                     crate::contract::text(q, "id") == qid
                         && crate::contract::text(q, "answerMode") == "listening"
