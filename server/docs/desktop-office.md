@@ -30,6 +30,8 @@ One task retains the original uploaded Office reference, filename and SHA-256. N
 
 ## Isolation and recovery
 
+Office workers and their conversion children do not inherit model credentials, service tokens or `RABBITMQ_URI` broker credentials.
+
 Each operation uses temporary source/output directories and a separate hardened LibreOffice profile. Macros, trusted macro locations, external-link updates and Writer field/chart updates are disabled. Conversion children are terminated and reaped on timeout, cancellation or worker exit; existing Office sessions use separate profiles. Outputs must be regular bounded files within the operation directory and match the manifest's type, size and hash. The original source remains unchanged.
 
 The private standard-library Office worker keeps its legacy DOC-to-temporary-DOCX PDF path and table-ending DOCX text regression repair. The intermediate DOCX is never a public artifact or replacement source. The same timeout and validation boundaries cover both DOC stages. These are conversion compatibility fixes, not another source parser.

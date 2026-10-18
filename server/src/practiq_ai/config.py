@@ -78,7 +78,10 @@ def _positive_float(values: dict[str, str], key: str, default: float) -> float:
 
 
 def service_token() -> str:
-    return _required(dict(os.environ), "AI_SERVICE_TOKEN")
+    token = _required(dict(os.environ), "AI_SERVICE_TOKEN")
+    if not all("!" <= character <= "~" for character in token):
+        raise ValueError("AI_SERVICE_TOKEN must contain only visible ASCII characters without spaces")
+    return token
 
 
 def is_loopback_host(hostname: str | None) -> bool:
@@ -102,7 +105,7 @@ def load() -> Config:
             raise ValueError("AI_OFFICE_EXECUTABLE must be an explicit absolute path")
         if not office_version.startswith(("LibreOffice ", "LibreOfficeDev ")) or len(office_version) > 255:
             raise ValueError("AI_OFFICE_VERSION must contain the exact deployed LibreOffice version")
-    _required(values, "AI_SERVICE_TOKEN")
+    service_token()
     read_only = values.get("AI_READ_ONLY") == "1"
     provider = "" if read_only else _required(values, "LLM_PROVIDER")
     if not read_only and provider not in {"dashscope", "deepseek", "moonshot", "openai"}:

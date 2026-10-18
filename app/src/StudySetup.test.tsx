@@ -271,7 +271,8 @@ it("never turns clearing the last selected bank into all banks", async () => {
   await screen.findByText(/可用 2 题/);
   await userEvent.click(screen.getByText(/高级设置/, { selector: "summary" }));
   await userEvent.click(screen.getByRole("checkbox",{name:"题库一（2）"}));
-  expect(await screen.findByText("请选择至少一个题库")).toBeTruthy();
+  await screen.findByRole("button", {name:"调整选题范围"});
+  expect(screen.getByRole("status").textContent).toBe("请选择至少一个题库");
   expect(screen.getByRole("button",{name:"立即开始"}).hasAttribute("disabled")).toBe(true);
   expect(vi.mocked(api).mock.calls.filter(([r])=>r.type === "question_stats")).toHaveLength(1);
   await userEvent.click(screen.getByRole("button",{name:"全选可用题库"}));

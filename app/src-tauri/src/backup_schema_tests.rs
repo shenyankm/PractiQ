@@ -99,6 +99,235 @@ fn regression_restore_rejects_invalid_session_navigation_without_replacement() {
 }
 
 #[test]
+fn restore_validates_saved_answers_against_frozen_questions_before_replacement() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut source = Store::new(dir.path().join("source")).unwrap();
+    let raw = json!({"schemaVersion":3,"questions":[
+        {"id":"q0","stem":"Choose","answerMode":"choice","choiceVariant":"single","options":[{"label":"A","content":"First"},{"label":"B","content":"Second"}],"answerPayload":{"correct":["A"]}},
+        {"id":"words","stem":"Shared words","answerMode":"word_bank","passage":[{"partType":"blank","questionId":"gap"},{"partType":"blank","questionId":"gap2"}],"options":[{"label":"A","content":"First"},{"label":"B","content":"Second"}]},
+        {"id":"gap","stem":"Gap","parentId":"words","optionSourceId":"words","answerMode":"choice","choiceVariant":"single","answerPayload":{"correct":["A"]}},
+        {"id":"gap2","stem":"Second gap","parentId":"words","optionSourceId":"words","answerMode":"choice","choiceVariant":"single","answerPayload":{"correct":["B"]}},
+        {"id":"incomplete","stem":"Incomplete choice","answerMode":"choice","choiceVariant":"single","options":[],"answerPayload":null},
+        {"id":"text","stem":"Explain","answerMode":"short_answer","answerPayload":null}
+    ],"groups":[],"visualElements":[],"warnings":[],"confidenceScore":0});
+    let preview = source
+        .preview(serde_json::to_vec(&raw).unwrap(), "Source".into())
+        .unwrap();
+    source
+        .import(crate::contract::text(&preview, "ticket"), None, "Source")
+        .unwrap();
+    let rows = source.question_rows().unwrap();
+    let session = source
+        .start_paper(crate::exams::Paper {
+            question_ids: rows
+                .iter()
+                .filter(|row| crate::contract::text(&row["question"], "parentId").is_empty())
+                .map(|row| crate::contract::text(row, "id").into())
+                .collect(),
+            kind: "practice".into(),
+            minutes: None,
+            scores: vec![],
+            total_cents: 0,
+            digest: crate::paper::digest(&rows).unwrap(),
+        })
+        .unwrap();
+    let sid = crate::contract::text(&session, "id");
+    // Live edits must not invalidate a saved answer to the frozen B option.
+    source
+        .connect()
+        .unwrap()
+        .execute("UPDATE question_options SET label='C' WHERE label='B' AND owner_id=(SELECT option_set_id FROM choice_questions WHERE question_id=(SELECT snapshot_question_id FROM attempts WHERE session_id=?1 AND ordinal=0))", [sid])
+        .unwrap();
+    let original_doc: String = source
+        .connect()
+        .unwrap()
+        .query_row(
+            "SELECT content FROM session_documents WHERE session_id=?1",
+            [sid],
+            |r| r.get(0),
+        )
+        .unwrap();
+    let mut failures = Vec::new();
+    for (case, ordinal, answer, valid) in [
+        ("null", 0, Value::Null, true),
+        ("empty", 0, json!({"correct":[]}), true),
+        ("frozen-option", 0, json!({"correct":["B"]}), true),
+        ("shared-option", 1, json!({"correct":["B"]}), true),
+        (
+            "free-text",
+            3,
+            json!({"text":"Draft for an incomplete question"}),
+            true,
+        ),
+        ("wrong-type", 0, json!({"correct":42}), false),
+        (
+            "foreign-field",
+            0,
+            json!({"correct":["A"],"matches":42}),
+            false,
+        ),
+        ("unknown-option", 0, json!({"correct":["Z"]}), false),
+        ("unknown-shared-option", 1, json!({"correct":["Z"]}), false),
+        ("string", 0, json!("A"), false),
+        ("forged-missing-options", 0, json!({"text":"Bypass"}), false),
+        ("exclusive-word", 1, json!({"correct":["B"]}), false),
+        ("reusable-word", 1, json!({"correct":["B"]}), true),
+        ("distinct-words", 1, json!({"correct":["B"]}), true),
+        (
+            "multibyte-limit",
+            4,
+            json!({"text":"😀".repeat(70_000)}),
+            false,
+        ),
+        (
+            "multibyte-within-limit",
+            4,
+            json!({"text":"😀".repeat(65_000)}),
+            true,
+        ),
+        ("duplicate-leaf", 0, Value::Null, false),
+        ("composite-attempt", 0, Value::Null, false),
+        ("missing-leaf", 0, Value::Null, false),
+        (
+            "bounded-answer-validation",
+            0,
+            json!({"text":"😀".repeat(70_000)}),
+            false,
+        ),
+    ] {
+        let candidate = dir.path().join(format!("{case}.sqlite"));
+        source
+            .connect()
+            .unwrap()
+            .backup(rusqlite::MAIN_DB, &candidate, None)
+            .unwrap();
+        let db = Connection::open(&candidate).unwrap();
+        db.execute(
+            "UPDATE attempts SET answer=?1 WHERE ordinal=?2",
+            rusqlite::params![answer.to_string(), ordinal],
+        )
+        .unwrap();
+        let mut doc: Value = serde_json::from_str(&original_doc).unwrap();
+        let qid: String = db
+            .query_row(
+                "SELECT snapshot_question_id FROM attempts WHERE ordinal=0",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        let owner = doc["questions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|r| r["question"]["answerMode"] == "word_bank")
+            .unwrap()["id"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        match case {
+            "forged-missing-options" => {
+                let row = doc["questions"]
+                    .as_array_mut()
+                    .unwrap()
+                    .iter_mut()
+                    .find(|r| r["id"] == qid)
+                    .unwrap();
+                row["question"]["missingFields"] = json!(["options"]);
+            }
+            "exclusive-word" | "reusable-word" | "distinct-words" => {
+                db.execute(
+                    "UPDATE attempts SET answer=?1 WHERE ordinal=2",
+                    [
+                        json!({"correct":[if case == "distinct-words" { "A" } else { "b" }]})
+                            .to_string(),
+                    ],
+                )
+                .unwrap();
+                if case == "reusable-word" {
+                    let row = doc["questions"]
+                        .as_array_mut()
+                        .unwrap()
+                        .iter_mut()
+                        .find(|r| r["id"] == owner)
+                        .unwrap();
+                    row["question"]["allowReuse"] = json!(true);
+                }
+            }
+            "duplicate-leaf" => {
+                db.execute(
+                    "UPDATE attempts SET snapshot_question_id=?1 WHERE ordinal=1",
+                    [&qid],
+                )
+                .unwrap();
+            }
+            "composite-attempt" => {
+                db.execute(
+                    "UPDATE attempts SET snapshot_question_id=?1 WHERE ordinal=1",
+                    [&owner],
+                )
+                .unwrap();
+            }
+            "missing-leaf" => {
+                db.execute("DELETE FROM attempts WHERE ordinal=4", [])
+                    .unwrap();
+            }
+            "bounded-answer-validation" => {
+                // A later unreadable value must not hide the first answer's size failure.
+                db.execute(
+                    "UPDATE attempts SET answer=CAST('null' AS BLOB) WHERE ordinal=4",
+                    [],
+                )
+                .unwrap();
+            }
+            _ => {}
+        }
+        db.execute("UPDATE session_documents SET content=?1", [doc.to_string()])
+            .unwrap();
+        drop(db);
+        let archive = dir.path().join(format!("{case}.zip"));
+        archive_database(&candidate, &archive);
+        for repair in [false, true] {
+            let target_dir = tempfile::tempdir().unwrap();
+            let mut target = Store::new(target_dir.path().into()).unwrap();
+            target.save_bank(Some("keep".into()), "Keep", "").unwrap();
+            let before = fs::read(target.db_path()).unwrap();
+            let outcome = if repair {
+                target.restore_recovering(&archive)
+            } else {
+                target.restore(&archive)
+            };
+            if outcome.is_ok() != valid {
+                failures.push(format!("{case}, repair={repair}: {outcome:?}"));
+                continue;
+            }
+            if valid {
+                assert_eq!(
+                    target.session(sid).unwrap()["attempts"][ordinal]["answer"],
+                    answer
+                );
+            } else {
+                let code = match case {
+                    "wrong-type" => "LOCAL_ANSWER_FIELD_INVALID",
+                    "foreign-field" | "forged-missing-options" => "LOCAL_ANSWER_MODE_MISMATCH",
+                    "unknown-option" | "unknown-shared-option" => "LOCAL_OPTION_REFERENCE_INVALID",
+                    "string" => "LOCAL_SCHEMA_INVALID",
+                    "exclusive-word" => "LOCAL_WORD_REUSED",
+                    "multibyte-limit" | "bounded-answer-validation" => "LOCAL_ANSWER_INVALID",
+                    "duplicate-leaf" | "composite-attempt" | "missing-leaf" => {
+                        "LOCAL_BACKUP_RELATIONS"
+                    }
+                    _ => unreachable!(),
+                };
+                assert_eq!(outcome.unwrap_err().code, code, "{case}, repair={repair}");
+                assert_eq!(fs::read(target.db_path()).unwrap(), before);
+                assert_eq!(target.banks().unwrap()[0]["id"], "keep");
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
 fn backups_restore_across_lf_and_crlf_schema_sources() {
     for line_ending in ["\n", "\r\n"] {
         let source_dir = tempfile::tempdir().unwrap();
