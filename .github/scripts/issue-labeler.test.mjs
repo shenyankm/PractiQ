@@ -180,12 +180,27 @@ for (const number of ['', '285']) test(`manual dispatch supports ${number ? 'one
   assert.equal(fixture.calls.some(call => call.path === 'issues/285/labels'), Boolean(number));
 });
 
-for (const action of ['edited', 'reopened']) test(`${action} events preserve manual triage`, async t => {
+for (const action of ['edited', 'reopened']) test(`repeated ${action} events cannot bill for an uncertain classification`, async t => {
   const fixture = scenario(t, { event: { action, issue: { number: 285 } },
-    issue: { title: '[Bug]: Example', labels: [{ name: 'question' }, { name: 'area:shared' }, { name: 'P1' }] } });
+    issue: { title: 'Unclear report', body: 'Not enough context', labels: [{ name: 'P2' }] },
+    answer: { type: null, area: null, priority: 'P2', topics: [] } });
   await main();
-  assert.equal(fixture.calls.filter(call => call.method !== 'GET').length, 0);
+  await main();
+  assert.equal(fixture.calls.length, 0);
   assert.equal(fixture.modelCalls.length, 0);
+});
+
+test('editing or reopening after an initial provider failure cannot retry the paid request', async t => {
+  const fixture = scenario(t, { modelStatus: 429 });
+  await assert.rejects(main(), /Model request failed: 429/);
+  const before = fixture.calls.length;
+  for (const action of ['edited', 'reopened']) {
+    writeFileSync(process.env.GITHUB_EVENT_PATH, JSON.stringify({ action, issue: { number: 285 } }));
+    await main();
+  }
+  assert.equal(fixture.calls.length, before);
+  assert.equal(fixture.modelCalls.length, 1);
+  assert.equal(fixture.calls.filter(call => call.method !== 'GET').length, 0);
 });
 
 test('pull requests are never sent to the model or labeled', async t => {

@@ -131,7 +131,10 @@ export async function main() {
   const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
   const eventName = process.env.GITHUB_EVENT_NAME;
   assert(['issues', 'push', 'workflow_dispatch'].includes(eventName), 'Unsupported event');
-  if (eventName === 'issues') assert(['opened', 'edited', 'reopened'].includes(event.action), 'Unsupported issue action');
+  if (eventName === 'issues' && event.action !== 'opened') {
+    console.log('Only newly opened issues are classified automatically; use workflow_dispatch to retry.');
+    return;
+  }
   const number = eventName === 'issues' ? event.issue?.number : eventName === 'workflow_dispatch' ? event.inputs?.number : undefined;
   if (number === undefined || number === '') {
     assert(eventName !== 'issues', 'Missing issue number');
