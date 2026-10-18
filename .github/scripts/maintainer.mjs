@@ -2,15 +2,16 @@ import assert from 'node:assert/strict';
 import { pathToFileURL } from 'node:url';
 
 const reviewer = 'chatgpt-codex-connector[bot]';
+const approver = 'practiq-pr-bot[bot]';
 const requiredCI = ['Service CI', 'Desktop CI', 'Android CI'];
 
-export function mergeBlocker(pr, checks, statuses) {
+export function approvalBlocker(pr, checks, statuses) {
   if (pr.state !== 'open' || pr.draft || pr.base.ref !== 'main') return 'Not an open, ready PR targeting main';
   if (!requiredCI.every(name => checks.some(check => check.name === name && check.app?.slug === 'github-actions' && check.status === 'completed' && check.conclusion === 'success'))) return 'Required CI gates have not all passed';
   // Skipped jobs are inapplicable; the three final CI gates must still succeed.
   if (checks.some(check => check.status !== 'completed' || !['success', 'skipped'].includes(check.conclusion))) return 'A check is pending or not successful';
   if (statuses.some(status => status.state !== 'success')) return 'A commit status is pending or not successful';
-  if (pr.mergeable !== true || !['clean', 'behind'].includes(pr.mergeable_state)) return 'GitHub reports conflicts or a protection blocker';
+  if (pr.mergeable !== true) return 'GitHub reports conflicts or unknown mergeability';
   return null;
 }
 
@@ -53,8 +54,10 @@ export function reviewPassed(reports, reactions = []) {
 }
 
 async function api(path, method = 'GET', body) {
-  const token = method === 'GET' ? process.env.GH_READ_TOKEN : process.env.GH_MERGE_TOKEN;
-  assert(token, `Missing ${method === 'GET' ? 'read' : 'merge'} token`);
+  const token = method === 'GET' ? process.env.GH_READ_TOKEN : process.env.GH_REVIEW_TOKEN;
+  assert(token, `Missing ${method === 'GET' ? 'read' : 'review'} token`);
+  assert(method === 'GET' || (method === 'POST' && /^pulls\/\d+\/reviews$/.test(path)) ||
+    (method === 'PUT' && /^pulls\/\d+\/reviews\/\d+\/dismissals$/.test(path)), 'Unsupported review mutation');
   const response = await fetch(`https://api.github.com/repos/${process.env.GITHUB_REPOSITORY}/${path}`, {
     method, signal: AbortSignal.timeout(30000),
     headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json',
@@ -73,7 +76,7 @@ async function pages(path, key) {
     rows.push(...batch);
     if (batch.length < 100) return rows;
   }
-  throw new Error('Pagination exceeds supported limit; no merge attempted');
+  throw new Error('Pagination exceeds supported limit; no approval attempted');
 }
 
 async function evidenceFor(pr) {
@@ -93,7 +96,9 @@ async function evidenceFor(pr) {
   const reactions = reports.length ? (await pages(`issues/${pr.number}/reactions`))
     .filter(reaction => reaction.user?.login === reviewer && reaction.content === '+1')
     .map(reaction => ({ id: reaction.id, created_at: reaction.created_at, content: reaction.content })) : [];
-  return { reports, reactions };
+  const approvals = reviews.filter(review => review.user?.login === approver && review.commit_id === pr.head.sha &&
+    review.state === 'APPROVED').map(review => review.id);
+  return { reports, reactions, approvals };
 }
 
 export async function main() {
@@ -104,39 +109,59 @@ export async function main() {
   for (const target of targets) {
     try {
       const pr = await api(`pulls/${target.number}`);
-      if (pr.state !== 'open' || pr.draft || pr.base.ref !== 'main') continue;
+      if (pr.merged) continue;
+      const evidence = await evidenceFor(pr);
       const files = await pages(`pulls/${target.number}/files`);
-      if (files.some(file => [file.filename, file.previous_filename].some(path => path?.startsWith('.github/workflows/') || path?.startsWith('.github/scripts/') || path?.startsWith('server/scripts/')))) {
-        console.log(`#${target.number}: CI definition or scope changes require maintainer inspection and manual merge`);
-        continue;
-      }
+      const protectedFiles = files.some(file => [file.filename, file.previous_filename].some(path =>
+        path?.startsWith('.github/workflows/') || path?.startsWith('.github/scripts/') || path?.startsWith('server/scripts/')));
       const checks = await pages(`commits/${pr.head.sha}/check-runs?filter=latest`, 'check_runs');
       const statuses = await pages(`commits/${pr.head.sha}/status`, 'statuses');
-      const reason = mergeBlocker(pr, checks, statuses);
-      if (reason) { console.log(`#${target.number}: ${reason}`); continue; }
-      // External contributions require an explicit maintainer dispatch.
-      const actor = process.env.GITHUB_EVENT_NAME === 'workflow_dispatch' ? process.env.GITHUB_ACTOR : pr.user.login;
-      const permission = await api(`collaborators/${encodeURIComponent(actor)}/permission`);
-      if (!['admin', 'maintain', 'write'].includes(permission.permission)) {
-        console.log(`#${target.number}: a maintainer must manually dispatch this external PR`);
+      let reason = protectedFiles ? 'CI definition or scope changes require manual review' : approvalBlocker(pr, checks, statuses);
+      if (!reviewPassed(evidence.reports, evidence.reactions)) reason = 'No clean completed current-head GPT Code Review';
+      if (process.env.GITHUB_EVENT_NAME === 'workflow_dispatch') {
+        const permission = await api(`collaborators/${encodeURIComponent(process.env.GITHUB_ACTOR)}/permission`);
+        assert(['admin', 'maintain', 'write'].includes(permission.permission), 'Dispatch actor is not a maintainer');
+      }
+      if (reason) {
+        console.log(`#${target.number}: ${reason}`);
+        if (process.env.DRY_RUN === 'false' && evidence.approvals.length) {
+          const fresh = await api(`pulls/${target.number}`);
+          assert.equal(fresh.head.sha, pr.head.sha, 'PR head changed; no dismissal');
+          const current = await evidenceFor(fresh);
+          for (const id of evidence.approvals.filter(id => current.approvals.includes(id))) {
+            await api(`pulls/${target.number}/reviews/${id}/dismissals`, 'PUT', {
+              message: 'PR bot approval withdrawn: current Codex review or validation conditions no longer pass.',
+            });
+          }
+        }
         continue;
       }
-      const evidence = await evidenceFor(pr);
-      const { reports, reactions } = evidence;
-      if (!reports.length) { console.log(`#${target.number}: no completed current-head GPT Code Review`); continue; }
-      if (!reviewPassed(reports, reactions)) { console.log(`#${target.number}: no explicit current-head GPT approval`); continue; }
-      if (process.env.DRY_RUN !== 'false') { console.log(`#${target.number}: eligible (dry run)`); continue; }
+      if (evidence.approvals.length) { console.log(`#${target.number}: already approved this head`); continue; }
+      if (process.env.DRY_RUN !== 'false') { console.log(`#${target.number}: eligible for approval (dry run)`); continue; }
       const fresh = await api(`pulls/${target.number}`);
-      assert.equal(fresh.head.sha, pr.head.sha, 'PR head changed after evaluation; no merge');
-      assert.deepEqual(await evidenceFor(fresh), evidence, 'GPT review changed after evaluation; no merge');
+      assert.equal(fresh.head.sha, pr.head.sha, 'PR head changed after evaluation; no approval');
+      assert.deepEqual(await evidenceFor(fresh), evidence, 'GPT review changed after evaluation; no approval');
       const finalChecks = await pages(`commits/${pr.head.sha}/check-runs?filter=latest`, 'check_runs');
       const finalStatuses = await pages(`commits/${pr.head.sha}/status`, 'statuses');
-      assert.equal(mergeBlocker(fresh, finalChecks, finalStatuses), null, 'Merge conditions changed after evaluation');
-      const finalPermission = await api(`collaborators/${encodeURIComponent(actor)}/permission`);
-      assert(['admin', 'maintain', 'write'].includes(finalPermission.permission), 'Merge authorization changed after evaluation');
-      const result = await api(`pulls/${target.number}/merge`, 'PUT', { sha: pr.head.sha, merge_method: 'squash' });
-      assert(result.merged === true, `PR #${target.number} was not merged`);
-      console.log(`#${target.number}: squash merged ${pr.head.sha}`);
+      assert.equal(approvalBlocker(fresh, finalChecks, finalStatuses), null, 'Approval conditions changed after evaluation');
+      if (process.env.GITHUB_EVENT_NAME === 'workflow_dispatch') {
+        const permission = await api(`collaborators/${encodeURIComponent(process.env.GITHUB_ACTOR)}/permission`);
+        assert(['admin', 'maintain', 'write'].includes(permission.permission), 'Dispatch authorization changed after evaluation');
+      }
+      const result = await api(`pulls/${target.number}/reviews`, 'POST', {
+        commit_id: pr.head.sha, event: 'APPROVE',
+        body: 'Current-head Codex connector review evidence and CI checks passed. Approval only; GitHub enforces required review and CI gates; merging remains manual.',
+      });
+      assert(result.state === 'APPROVED' && result.commit_id === pr.head.sha, 'Review approval was not confirmed');
+      try {
+        assert.equal((await api(`pulls/${target.number}`)).head.sha, pr.head.sha, 'PR head changed during approval');
+      } catch (error) {
+        await api(`pulls/${target.number}/reviews/${result.id}/dismissals`, 'PUT', {
+          message: 'PR bot approval withdrawn: the current head could not be confirmed after submission.',
+        });
+        throw error;
+      }
+      console.log(`#${target.number}: approved ${pr.head.sha}`);
     } catch (error) { console.error(`#${target.number}: ${error.message}; skipped`); }
   }
 }

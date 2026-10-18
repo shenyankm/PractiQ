@@ -18,8 +18,10 @@ body:
         - Practice app - Android
         - Import Web frontend
         - AI service or document processing
-        - Build or development setup
-        - Documentation or not sure
+        - Shared UI or data contracts
+        - Build, CI, or packaging
+        - Documentation
+        - Multiple areas or not sure
     validations:
       required: true
 
