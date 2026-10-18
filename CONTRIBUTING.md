@@ -2,6 +2,8 @@
 
 Use this guide to prepare a focused contribution. [README.md](README.md) covers setup and supported platforms; [AGENTS.md](AGENTS.md) defines architecture and coding rules; the [documentation index](docs/README.md) links to detailed guides.
 
+Follow our [Code of Conduct](CODE_OF_CONDUCT.md) in all project community spaces.
+
 ## Choose a change
 
 Search existing issues before opening a new one. Use the [issue chooser](https://github.com/shenyankm/PractiQ/issues/new/choose) for bug reports, feature requests, and usage questions. Report suspected vulnerabilities privately through [SECURITY.md](SECURITY.md).
