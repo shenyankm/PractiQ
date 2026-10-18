@@ -50,7 +50,6 @@ jobs:
         with:
           client-id: ${{ vars.PRACTIQ_APP_CLIENT_ID }}
           private-key: ${{ secrets.PRACTIQ_APP_PRIVATE_KEY }}
-          repositories: ${{ github.repository }}
           permission-pull-requests: write
       - name: Classify the pull request
         env:
