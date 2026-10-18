@@ -298,6 +298,21 @@ for (const reason of ['review', 'ci', 'protected-file']) test(`invalid ${reason}
   assert.equal(fixture.writes.length, 1);
 });
 
+for (const change of [{ state: 'closed' }, { draft: true }, { base: { ref: 'other' } }]) {
+  test(`ineligible PR ${JSON.stringify(change)} withdraws its approval before skipping`, async t => {
+    const fixture = scenario(t, { botApproved: true, pr: change, reviews: [] });
+    await main();
+    assert.equal(fixture.writes.length, 1);
+    assert.match(fixture.writes[0].message, /approval withdrawn/);
+  });
+}
+
+test('merged PRs retain historical approvals', async t => {
+  const fixture = scenario(t, { botApproved: true, pr: { state: 'closed', merged: true }, reviews: [] });
+  await main();
+  assert.equal(fixture.writes.length, 0);
+});
+
 test('dry run never withdraws a bot approval', async t => {
   const fixture = scenario(t, { botApproved: true, reviews: [] });
   process.env.DRY_RUN = 'true';

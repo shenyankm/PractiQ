@@ -1,5 +1,7 @@
 name: PractiQ PR bot
 on:
+  pull_request_target:
+    types: [closed, converted_to_draft, reopened, ready_for_review, edited]
   pull_request:
     paths:
       - .github/scripts/maintainer*.mjs
@@ -72,6 +74,6 @@ jobs:
         env:
           GH_READ_TOKEN: ${{ github.token }}
           GH_REVIEW_TOKEN: ${{ steps.app.outputs.token }}
-          PR_NUMBER: ${{ github.event_name == 'issue_comment' && github.event.issue.number || github.event_name == 'workflow_run' && github.event.workflow_run.name == 'PR review signal' && github.event.workflow_run.pull_requests[0].number || inputs.number }}
+          PR_NUMBER: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.number || github.event_name == 'issue_comment' && github.event.issue.number || github.event_name == 'workflow_run' && github.event.workflow_run.name == 'PR review signal' && github.event.workflow_run.pull_requests[0].number || inputs.number }}
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || 'false' }}
         run: node .github/scripts/maintainer.mjs

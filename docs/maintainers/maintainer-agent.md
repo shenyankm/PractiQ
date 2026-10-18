@@ -45,6 +45,9 @@ not duplicate its current-head approval. If clean evidence or CI stops passing,
 the next scan dismisses only this bot's own current-head approvals; GitHub also
 dismisses stale approvals on push. API errors skip that PR and allow later PRs
 to proceed, without replaying uncertain writes.
+Closing, converting to draft, reopening, marking ready or editing/retargeting a
+PR triggers trusted-main revalidation. Ineligible PRs still have stale bot
+approvals withdrawn; merged PRs retain their historical reviews.
 
 ## Configuration and operation
 
@@ -92,6 +95,8 @@ token. The approval job remains separate and does not receive model credentials.
 permission also permits other PR changes; the label script only adds allowed
 labels. Approve that permission for the existing installation when enabling
 this feature. Disable **PR labels** in Actions to stop automatic classification.
+Missing catalog definitions can be created with the same PR-write token;
+GitHub's label endpoints accept either Issues write or Pull requests write.
 The workflow must reach `main` before automatic events activate it. Validate
 with `node --test .github/scripts/issue-labeler.test.mjs .github/scripts/pr-labeler.test.mjs`
 and actionlint; live provider and App writes are separate acceptance checks.

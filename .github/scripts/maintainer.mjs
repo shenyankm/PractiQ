@@ -109,7 +109,7 @@ export async function main() {
   for (const target of targets) {
     try {
       const pr = await api(`pulls/${target.number}`);
-      if (pr.state !== 'open' || pr.draft || pr.base.ref !== 'main') continue;
+      if (pr.merged) continue;
       const evidence = await evidenceFor(pr);
       const files = await pages(`pulls/${target.number}/files`);
       const protectedFiles = files.some(file => [file.filename, file.previous_filename].some(path =>

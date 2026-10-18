@@ -25,6 +25,7 @@ export async function main() {
   assert(Array.isArray(files), 'Invalid PR files response');
   const candidates = await classify(pr, { pullRequest: true, files });
   const proposed = missingLabels(pr, candidates);
+  // GitHub accepts Pull requests write for repository label creation too.
   await syncLabels(catalog.filter(label => proposed.includes(label.name)), false);
   const fresh = await api(`pulls/${number}`);
   assert(fresh && fresh.state === 'open' && fresh.base?.ref === 'main' &&

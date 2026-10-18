@@ -9,7 +9,7 @@ import { main } from './pr-labeler.mjs';
 function scenario(t, { eventName = 'pull_request_target', action = 'opened', number = 286,
   answer = { type: 'enhancement', area: 'area:build', priority: 'P2', topics: ['topic:testing'] },
   modelStatus = 200, files = [{ filename: '.github/workflows/example.yml', patch: 'Never send source patches' }],
-  labels = [], onRead } = {}) {
+  labels = [], definitions = catalog, onRead } = {}) {
   const directory = mkdtempSync(join(tmpdir(), 'practiq-pr-labels-'));
   const eventPath = join(directory, 'event.json');
   writeFileSync(eventPath, JSON.stringify({ action, pull_request: { number, title: 'stale event' }, inputs: { number } }));
@@ -29,6 +29,7 @@ function scenario(t, { eventName = 'pull_request_target', action = 'opened', num
     head: { sha: 'a'.repeat(40) }, base: { ref: 'main', sha: 'b'.repeat(40) }, state: 'open', changed_files: files.length };
   const calls = [];
   const modelCalls = [];
+  const repositoryLabels = new Map(definitions.map(label => [label.name, label]));
   let reads = 0;
   t.mock.method(globalThis, 'fetch', async (url, request) => {
     const parsed = new URL(url);
@@ -48,8 +49,13 @@ function scenario(t, { eventName = 'pull_request_target', action = 'opened', num
       return Response.json(pr);
     }
     if (path === 'pulls/286/files?per_page=100') return Response.json(files);
+    if (path === 'labels' && request.method === 'POST') {
+      repositoryLabels.set(body.name, body);
+      return Response.json(body, { status: 201 });
+    }
     if (path.startsWith('labels/') && request.method === 'GET') {
-      return Response.json(catalog.find(label => label.name === decodeURIComponent(path.slice(7))));
+      const label = repositoryLabels.get(decodeURIComponent(path.slice(7)));
+      return Response.json(label ?? {}, { status: label ? 200 : 404 });
     }
     assert.equal(path, 'issues/286/labels');
     assert.equal(request.method, 'POST');
@@ -115,6 +121,15 @@ test('manual dispatch explicitly reclassifies but preserves all maintainer dimen
   await main();
   assert.equal(fixture.modelCalls.length, 1);
   assert.deepEqual(fixture.calls.filter(call => call.method === 'POST').map(call => call.body), [{ labels: ['topic:testing'] }]);
+});
+
+test('missing catalog definitions are created before applying PR labels', async t => {
+  const fixture = scenario(t, { definitions: [] });
+  await main();
+  const writes = fixture.calls.filter(call => call.method !== 'GET');
+  assert.deepEqual(writes.map(call => call.path), ['labels', 'labels', 'labels', 'labels', 'issues/286/labels']);
+  assert.deepEqual(writes.slice(0, 4).map(call => call.body.name), ['enhancement', 'area:build', 'P2', 'topic:testing']);
+  assert.equal(fixture.modelCalls.length, 1);
 });
 
 for (const change of ['head', 'base', 'title', 'body', 'state', 'target']) {

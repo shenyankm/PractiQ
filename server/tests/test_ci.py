@@ -48,6 +48,9 @@ def test_maintainer_events_keep_privileged_code_and_credentials_on_main():
     workflow = yaml.load((root / ".github/workflows/maintainer.yml").read_text(), Loader=yaml.BaseLoader)
     assert workflow["on"]["schedule"] == [{"cron": "23 3 * * *"}]
     assert workflow["on"]["issue_comment"]["types"] == ["created", "edited"]
+    assert workflow["on"]["pull_request_target"]["types"] == [
+        "closed", "converted_to_draft", "reopened", "ready_for_review", "edited",
+    ]
     assert "PR review signal" in workflow["on"]["workflow_run"]["workflows"]
     assert "auto-merge" not in workflow["jobs"]
     job = workflow["jobs"]["approve"]
@@ -60,6 +63,7 @@ def test_maintainer_events_keep_privileged_code_and_credentials_on_main():
     assert checkout["with"] == {"ref": "main", "persist-credentials": "false"}
     run = job["steps"][-1]
     assert "github.event.issue.number" in run["env"]["PR_NUMBER"]
+    assert "github.event.pull_request.number" in run["env"]["PR_NUMBER"]
     assert "github.event.workflow_run.name == 'PR review signal'" in run["env"]["PR_NUMBER"]
     assert "github.event.workflow_run.pull_requests[0].number" in run["env"]["PR_NUMBER"]
     assert not any(key.startswith("PRACTIQ_AGENT_") for key in run["env"])
