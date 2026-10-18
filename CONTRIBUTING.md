@@ -14,6 +14,8 @@ Write issue and PR titles and descriptions in English. Project documentation als
 
 Use the applicable [issue form](.github/ISSUE_TEMPLATE/) or [PR template](.github/PULL_REQUEST_TEMPLATE.md) for GitHub UI, CLI, and API submissions. Preserve its fields and sections; for CLI/API issues, use form labels as body headings. Complete required fields, explain non-applicable items, and check only verified checklist items. Placeholders are prompts, not answers.
 
+Issue forms assign a type label. When enabled, [AI issue labeling](docs/maintainers/issue-labels.md) can add missing type and project-area labels from issue text; existing labels are preserved. Maintainers review uncertain classifications and assign priorities manually.
+
 ## Work from a fork
 
 [Fork PractiQ](https://github.com/shenyankm/PractiQ/fork), then create a focused branch from the project's current `main`. Replace `YOUR_GITHUB_USERNAME` with your username:

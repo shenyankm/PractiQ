@@ -1,0 +1,63 @@
+name: AI issue labels
+on:
+  issues:
+    types: [opened, edited, reopened]
+  pull_request:
+    paths:
+      - .github/scripts/issue-labeler*.mjs
+      - .github/workflows/issue-labeler.yml
+  workflow_dispatch:
+    inputs:
+      number:
+        description: Existing open issue number
+        required: true
+        type: string
+      dry_run:
+        description: Call the model and show proposed labels without applying them
+        type: boolean
+        default: true
+permissions:
+  contents: read
+concurrency:
+  group: issue-labeler-${{ github.event.issue.number || github.event.pull_request.number || inputs.number }}
+  cancel-in-progress: false
+jobs:
+  test:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+      - run: node --test .github/scripts/issue-labeler.test.mjs
+  label:
+    if: >-
+      github.event_name != 'pull_request' && github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' || vars.ISSUE_LABELER_ENABLED == 'true') &&
+      (github.event_name != 'issues' || github.event.action != 'edited' ||
+       github.event.changes.title || github.event.changes.body)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 3
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      # Only trusted main is executed; issue text is sent as data to the model.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+      - run: node .github/scripts/issue-labeler.mjs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_LABELER_API_KEY: ${{ secrets.ISSUE_LABELER_API_KEY }}
+          ISSUE_LABELER_ENDPOINT: ${{ vars.ISSUE_LABELER_ENDPOINT }}
+          ISSUE_NUMBER: ${{ inputs.number }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && 'true' || 'false' }}
