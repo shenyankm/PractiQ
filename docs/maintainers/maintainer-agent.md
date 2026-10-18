@@ -46,8 +46,17 @@ the next scan dismisses only this bot's own current-head approvals; GitHub also
 dismisses stale approvals on push. API errors skip that PR and allow later PRs
 to proceed, without replaying uncertain writes.
 Closing, converting to draft, reopening, marking ready or editing/retargeting a
-PR triggers trusted-main revalidation. Ineligible PRs still have stale bot
-approvals withdrawn; merged PRs retain their historical reviews.
+PR triggers trusted-main revalidation. The bot attempts to withdraw its own
+approval when the PR is ineligible; merged PRs retain their historical reviews.
+
+For a closed, unmerged PR, GitHub can return HTTP 200 from the review-dismissal
+endpoint while leaving the review `APPROVED`. This was observed on 2026-10-18
+with both PR-only and Contents-write tokens in [acceptance PR #287](https://github.com/shenyankm/PractiQ/pull/287).
+A successful workflow or HTTP response therefore does not prove withdrawal;
+check the native review state. A closed PR cannot merge. On reopening, the
+workflow rechecks current Codex evidence and CI and withdraws an invalid approval
+while the PR is open. Wait for that revalidation before manually merging a
+reopened PR. Draft and other open, ineligible PRs use the normal dismissal path.
 
 ## Configuration and operation
 
