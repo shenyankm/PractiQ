@@ -301,3 +301,5 @@ export default function App() {
     </main><footer>PractiQ · 保留来源与不确定性，由你检查并决定下一步。</footer>
   </div>;
 }
+
+// CI scope acceptance: web-only edit.
