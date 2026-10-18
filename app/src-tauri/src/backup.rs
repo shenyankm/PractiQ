@@ -732,12 +732,25 @@ fn validate_database_contents(db: &Connection) -> Result<()> {
             &ids,
         )?;
         let attempts = db
-            .prepare("SELECT snapshot_question_id FROM attempts WHERE session_id=?1")
+            .prepare("SELECT snapshot_question_id,answer FROM attempts WHERE session_id=?1")
             .map_err(err)?
-            .query_map([&sid], |r| r.get::<_, String>(0))
+            .query_map([&sid], |r| {
+                Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
+            })
             .map_err(err)?
             .collect::<std::result::Result<Vec<_>, _>>()
             .map_err(err)?;
+        let index = crate::questions::Index::new(&rows);
+        for (qid, answer) in &attempts {
+            if !ids.contains(qid.as_str()) {
+                return Err("Attempt references a missing frozen question".into());
+            }
+            let snapshot = index.snapshot(qid)?;
+            crate::contract::validate_attempt(
+                &snapshot["question"],
+                &serde_json::from_str::<Value>(answer).map_err(err)?,
+            )?;
+        }
         let mut statement=db.prepare("SELECT question_id,used,position,active FROM listening_playback WHERE session_id=?1").map_err(err)?;
         let plays = statement
             .query_map([&sid], |r| {
@@ -771,9 +784,6 @@ fn validate_database_contents(db: &Connection) -> Result<()> {
             {
                 return Err("Invalid saved playback state".into());
             }
-        }
-        if attempts.iter().any(|id| !ids.contains(id.as_str())) {
-            return Err("Attempt references a missing frozen question".into());
         }
     }
     let missing:bool=db.query_row("SELECT EXISTS(SELECT 1 FROM sessions s LEFT JOIN session_documents d ON d.session_id=s.id WHERE d.session_id IS NULL)",[],|r|r.get(0)).map_err(err)?;

@@ -99,6 +99,104 @@ fn regression_restore_rejects_invalid_session_navigation_without_replacement() {
 }
 
 #[test]
+fn restore_validates_saved_answers_against_frozen_questions_before_replacement() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut source = Store::new(dir.path().join("source")).unwrap();
+    let raw = json!({"schemaVersion":3,"questions":[
+        {"id":"q0","stem":"Choose","answerMode":"choice","choiceVariant":"single","options":[{"label":"A","content":"First"},{"label":"B","content":"Second"}],"answerPayload":{"correct":["A"]}},
+        {"id":"words","stem":"Shared words","answerMode":"word_bank","passage":[{"partType":"blank","questionId":"gap"}],"options":[{"label":"A","content":"First"},{"label":"B","content":"Second"}]},
+        {"id":"gap","stem":"Gap","parentId":"words","optionSourceId":"words","answerMode":"choice","choiceVariant":"single","answerPayload":{"correct":["A"]}},
+        {"id":"incomplete","stem":"Incomplete choice","answerMode":"choice","choiceVariant":"single","options":[],"answerPayload":null}
+    ],"groups":[],"visualElements":[],"warnings":[],"confidenceScore":0});
+    let preview = source
+        .preview(serde_json::to_vec(&raw).unwrap(), "Source".into())
+        .unwrap();
+    source
+        .import(crate::contract::text(&preview, "ticket"), None, "Source")
+        .unwrap();
+    let rows = source.question_rows().unwrap();
+    let session = source
+        .start_paper(crate::exams::Paper {
+            question_ids: rows
+                .iter()
+                .filter(|row| crate::contract::text(&row["question"], "parentId").is_empty())
+                .map(|row| crate::contract::text(row, "id").into())
+                .collect(),
+            kind: "practice".into(),
+            minutes: None,
+            scores: vec![],
+            total_cents: 0,
+            digest: crate::paper::digest(&rows).unwrap(),
+        })
+        .unwrap();
+    let sid = crate::contract::text(&session, "id");
+    // Live edits must not invalidate a saved answer to the frozen B option.
+    source
+        .connect()
+        .unwrap()
+        .execute("UPDATE question_options SET label='C' WHERE label='B'", [])
+        .unwrap();
+    for (case, ordinal, answer, valid) in [
+        ("null", 0, Value::Null, true),
+        ("empty", 0, json!({"correct":[]}), true),
+        ("frozen-option", 0, json!({"correct":["B"]}), true),
+        ("shared-option", 1, json!({"correct":["B"]}), true),
+        (
+            "free-text",
+            2,
+            json!({"text":"Draft for an incomplete question"}),
+            true,
+        ),
+        ("wrong-type", 0, json!({"correct":42}), false),
+        (
+            "foreign-field",
+            0,
+            json!({"correct":["A"],"matches":42}),
+            false,
+        ),
+        ("unknown-option", 0, json!({"correct":["Z"]}), false),
+        ("unknown-shared-option", 1, json!({"correct":["Z"]}), false),
+        ("string", 0, json!("A"), false),
+    ] {
+        let db = source.connect().unwrap();
+        db.execute("UPDATE attempts SET answer='null'", []).unwrap();
+        db.execute(
+            "UPDATE attempts SET answer=?1 WHERE ordinal=?2",
+            rusqlite::params![answer.to_string(), ordinal],
+        )
+        .unwrap();
+        drop(db);
+        let archive = dir.path().join(format!("{case}.zip"));
+        archive_database(&source.db_path(), &archive);
+        for repair in [false, true] {
+            let target_dir = tempfile::tempdir().unwrap();
+            let mut target = Store::new(target_dir.path().into()).unwrap();
+            target.save_bank(Some("keep".into()), "Keep", "").unwrap();
+            let before = fs::read(target.db_path()).unwrap();
+            let outcome = if repair {
+                target.restore_recovering(&archive)
+            } else {
+                target.restore(&archive)
+            };
+            assert_eq!(
+                outcome.is_ok(),
+                valid,
+                "{case}, repair={repair}: {outcome:?}"
+            );
+            if valid {
+                assert_eq!(
+                    target.session(sid).unwrap()["attempts"][ordinal]["answer"],
+                    answer
+                );
+            } else {
+                assert_eq!(fs::read(target.db_path()).unwrap(), before);
+                assert_eq!(target.banks().unwrap()[0]["id"], "keep");
+            }
+        }
+    }
+}
+
+#[test]
 fn backups_restore_across_lf_and_crlf_schema_sources() {
     for line_ending in ["\n", "\r\n"] {
         let source_dir = tempfile::tempdir().unwrap();
