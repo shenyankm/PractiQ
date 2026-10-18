@@ -150,7 +150,7 @@ export async function main() {
       }
       const result = await api(`pulls/${target.number}/reviews`, 'POST', {
         commit_id: pr.head.sha, event: 'APPROVE',
-        body: 'Current-head Codex connector review evidence and CI checks passed. Approval only; GitHub enforces the two-review and merge requirements.',
+        body: 'Current-head Codex connector review evidence and CI checks passed. Approval only; GitHub enforces required review and CI gates; merging remains manual.',
       });
       assert(result.state === 'APPROVED' && result.commit_id === pr.head.sha, 'Review approval was not confirmed');
       try {

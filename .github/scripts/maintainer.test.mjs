@@ -11,12 +11,12 @@ const completed = { commit_sha: sha, status: 'completed', has_any_findings: fals
 const summaryBody = (body, state = { code_review: completed }) =>
   '<!-- codex-pull-request-review-summary -->\n<!-- codex-review-state:v1 ' + JSON.stringify(state) + ' -->\n' + body;
 
-test('main requires two approvals, stale dismissal, resolved discussions and all CI gates without bypass', () => {
+test('main requires one approval, stale dismissal, resolved discussions and all CI gates without bypass', () => {
   const ruleset = JSON.parse(readFileSync(new URL('../main-ruleset.json', import.meta.url), 'utf8'));
   assert.equal(ruleset.enforcement, 'active');
   assert.deepEqual(ruleset.bypass_actors, []);
   const review = ruleset.rules.find(rule => rule.type === 'pull_request').parameters;
-  assert.equal(review.required_approving_review_count, 2);
+  assert.equal(review.required_approving_review_count, 1);
   assert.equal(review.dismiss_stale_reviews_on_push, true);
   assert.equal(review.required_review_thread_resolution, true);
   assert.deepEqual(ruleset.rules.find(rule => rule.type === 'required_status_checks').parameters.required_status_checks
@@ -207,7 +207,7 @@ test('dry run does not approve; rejected approvals bind the exact head and are n
   assert.equal(fixture.writes.length, 0);
   process.env.DRY_RUN = 'false';
   await main();
-  assert.deepEqual(fixture.writes, [{ commit_id: sha, event: 'APPROVE', body: 'Current-head Codex connector review evidence and CI checks passed. Approval only; GitHub enforces the two-review and merge requirements.' }]);
+  assert.deepEqual(fixture.writes, [{ commit_id: sha, event: 'APPROVE', body: 'Current-head Codex connector review evidence and CI checks passed. Approval only; GitHub enforces required review and CI gates; merging remains manual.' }]);
 });
 
 test('GitHub resolves abbreviated summary commits before evaluation', async t => {
@@ -221,7 +221,7 @@ test('a clean structured summary and a fresh connector reaction can approve', as
     { user: review.user, content: '+1', created_at: '2026-10-13T14:01:00Z' },
   ] });
   await main();
-  assert.deepEqual(fixture.writes, [{ commit_id: sha, event: 'APPROVE', body: 'Current-head Codex connector review evidence and CI checks passed. Approval only; GitHub enforces the two-review and merge requirements.' }]);
+  assert.deepEqual(fixture.writes, [{ commit_id: sha, event: 'APPROVE', body: 'Current-head Codex connector review evidence and CI checks passed. Approval only; GitHub enforces required review and CI gates; merging remains manual.' }]);
 });
 
 test('another user cannot approve a completed summary with a reaction', async t => {
@@ -263,7 +263,7 @@ test('a maintainer can explicitly dispatch an external PR', async t => {
   process.env.GITHUB_ACTOR = 'maintainer';
   t.after(() => { if (actor === undefined) delete process.env.GITHUB_ACTOR; else process.env.GITHUB_ACTOR = actor; });
   await main();
-  assert.deepEqual(fixture.writes, [{ commit_id: sha, event: 'APPROVE', body: 'Current-head Codex connector review evidence and CI checks passed. Approval only; GitHub enforces the two-review and merge requirements.' }]);
+  assert.deepEqual(fixture.writes, [{ commit_id: sha, event: 'APPROVE', body: 'Current-head Codex connector review evidence and CI checks passed. Approval only; GitHub enforces required review and CI gates; merging remains manual.' }]);
 });
 
 test('missing required approvals do not deadlock the bot approval', async t => {

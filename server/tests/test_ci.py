@@ -72,7 +72,7 @@ def test_maintainer_events_keep_privileged_code_and_credentials_on_main():
     }
     rules = json.loads((root / ".github/main-ruleset.json").read_text())["rules"]
     review = next(rule["parameters"] for rule in rules if rule["type"] == "pull_request")
-    assert review["required_approving_review_count"] == 2
+    assert review["required_approving_review_count"] == 1
     assert review["dismiss_stale_reviews_on_push"] is True
     assert review["required_review_thread_resolution"] is True
 

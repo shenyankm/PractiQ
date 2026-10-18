@@ -119,12 +119,12 @@ packages, while CodeQL checks source patterns. No duplicate scanning workflow
 is needed for default setup. This branch does not change hosted settings.
 
 The active main ruleset requires `Service CI`, `Desktop CI`, `Android CI`,
-resolved conversations and **two valid approving reviews**. Stale approvals are
+resolved conversations and **one valid approving review**. Stale approvals are
 dismissed on push and no actors bypass the rules. The checked-in
 [ruleset](../../.github/main-ruleset.json) preserves the hosted merge-method
 options (merge, squash and rebase) and does not require a PR branch to include
-the latest main commit. Repository native auto-merge is enabled; maintainers
-still enable it per PR. GitHub waits for all review and CI requirements.
+the latest main commit. Repository native auto-merge is disabled; maintainers
+merge manually after the review and CI requirements pass.
 The PR bot has only Pull requests write / Metadata read, submits an approval
 after trusted Codex evidence, and does not merge or enable auto-merge.
 
@@ -141,4 +141,4 @@ gh api repos/shenyankm/PractiQ --jq .allow_auto_merge
 The rules cover `main`, the repository's default PR target. Reviews on other
 base branches do not inherit this main-only rule. A thumbs-up or a COMMENTED
 review does not count as a native approving review; the PR author cannot
-approve their own PR. Two distinct eligible approving reviewers are required.
+approve their own PR. One eligible approving reviewer is required.

@@ -2,9 +2,9 @@
 
 The private `practiq-pr-bot` App labels newly opened PRs with AI and submits
 an `APPROVE` review after clean current-head Codex connector evidence and CI.
-It does not merge PRs or enable auto-merge. GitHub enforces two valid approving
-reviews, required CI and resolved conversations before a PR targeting `main`
-can merge. A maintainer may enable GitHub native auto-merge on an individual PR.
+It does not merge PRs or enable auto-merge. GitHub enforces one valid approving
+review, required CI and resolved conversations before a PR targeting `main`
+can merge. Repository auto-merge is disabled; a maintainer merges manually.
 
 ## Approval conditions
 
@@ -124,14 +124,15 @@ Choose **PractiQ PR bot → Run workflow** on `main` for an immediate check,
 optionally selecting a PR number. Disable this workflow to stop bot approvals
 and withdrawals; **PR labels** can be controlled independently.
 
-The active [main ruleset](../../.github/main-ruleset.json) requires two valid
-approving reviewers, dismisses stale approvals on push, retains required CI and
-resolved conversations, and has no bypass actors. A thumbs-up reaction or a
-`COMMENTED` review is not one of GitHub's two approvals. The PR author's own
-review cannot supply the second approval. The bot contributes at most one vote;
-another eligible reviewer must supply the other. Repository auto-merge is
-allowed, but must be enabled for each PR by a maintainer; the bot never enables
-or executes it. See [repository security settings](dependency-security.md#repository-security-settings).
+The active [main ruleset](../../.github/main-ruleset.json) requires one valid
+approving review, dismisses stale approvals on push, retains required CI and
+resolved conversations, and has no bypass actors. A clean current-head Codex
+summary plus a fresh connector thumbs-up can authorize the PR bot's formal
+`APPROVE`; `COMMENTED` or a thumbs-up alone does not count as a native approval.
+The PR author's own review cannot supply that vote. Repository auto-merge is
+disabled; a maintainer manually merges after the review and CI gates pass.
+The bot never enables or executes merging. See
+[repository security settings](dependency-security.md#repository-security-settings).
 
 Run `node --test .github/scripts/maintainer.test.mjs` and actionlint for changes.
 Local mocks establish gate behavior, not a live App approval or review accuracy.
