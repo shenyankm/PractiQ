@@ -53,9 +53,18 @@ approvals withdrawn; merged PRs retain their historical reviews.
 
 The protected `practiq-agent` environment allows only `main` and contains
 `PRACTIQ_APP_CLIENT_ID` (variable) and `PRACTIQ_APP_PRIVATE_KEY` (secret).
-The App needs only Pull requests read/write and mandatory Metadata read, with
-no Contents access. The approval job requests a repository-scoped PR-write App
-token, revoked at job completion. Read-only queries use the workflow token.
+The App installation needs Pull requests read/write, Contents read/write and
+mandatory Metadata read. GitHub counts required approvals only from reviewers
+with repository write access. A PR-write-only installation can submit an
+`APPROVED` review without satisfying the required-approval rule; rollout
+acceptance must also verify the PR's native `reviewDecision` becomes `APPROVED`.
+See [GitHub's required-review rules](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets#require-a-pull-request-before-merging).
+
+Contents write makes the App capable of minting tokens that modify repository
+files. Limit its installation to PractiQ, protect the private key in this
+environment, and grant no ruleset bypass. The workflows still request only
+repository-scoped PR-write App tokens, revoked at job completion; they do not
+request Contents write. Read-only queries use the workflow token.
 Privileged runs check out trusted `main`, never the PR or `workflow_run` head.
 The API helper permits only review creation and review dismissal mutations.
 

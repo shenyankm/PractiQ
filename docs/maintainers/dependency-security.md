@@ -125,8 +125,13 @@ dismissed on push and no actors bypass the rules. The checked-in
 options (merge, squash and rebase) and does not require a PR branch to include
 the latest main commit. Repository native auto-merge is disabled; maintainers
 merge manually after the review and CI requirements pass.
-The PR bot has only Pull requests write / Metadata read, submits an approval
-after trusted Codex evidence, and does not merge or enable auto-merge.
+The PR App installation needs Pull requests write, Contents write and Metadata
+read so its approval can count toward required reviews. Its workflows request
+PR-write-only tokens; their scripts submit reviews after trusted Codex evidence
+and never merge or enable auto-merge. Contents write is an App-level capability,
+so protect its private key, keep the installation limited to PractiQ and grant
+no ruleset bypass. Verify the native review decision after installation changes;
+successful creation of an `APPROVED` review alone does not prove it counts.
 
 These hosted settings were applied and read back on 2026-10-18. Before future
 changes, read the live rule and preserve unrelated parameters; a checked-in
