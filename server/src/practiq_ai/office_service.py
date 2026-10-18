@@ -78,6 +78,7 @@ def _environment(directory: str) -> dict[str, str]:
     # Keep deployment code and OS libraries, excluding model and deployment token credentials.
     env = {key: value for key, value in os.environ.items()
            if not key.upper().startswith(("AI_", "LLM_", "DATABASE_"))
+           and key.upper() != "RABBITMQ_URI"
            and not any(word in key.upper() for word in ("API_KEY", "TOKEN", "SECRET", "PASSWORD"))}
     env.update(TMPDIR=directory, TEMP=directory, TMP=directory,
                PRACTIQ_OFFICE_WORKSPACE=directory, PYTHONDONTWRITEBYTECODE="1",
