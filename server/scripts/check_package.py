@@ -13,7 +13,8 @@ def check_package(root: Path, output: Path) -> dict[str, str | int]:
     project = tomllib.loads((root / 'pyproject.toml').read_text())['project']
     if project.get('license') != 'MIT' or project.get('license-files') != ['LICENSE']:
         raise ValueError('Project license declaration mismatch')
-    notice = (root / 'LICENSE').read_bytes()
+    notice_path = root / 'LICENSE' if (root / 'LICENSE').is_file() else root.parent / 'LICENSE'
+    notice = notice_path.read_bytes()
 
     def check_metadata(data: bytes) -> None:
         metadata = message_from_bytes(data)
@@ -42,7 +43,8 @@ def check_package(root: Path, output: Path) -> dict[str, str | int]:
     with tarfile.open(sdist) as archive:
         for name, content in {**{f'src/{name}': data for name, data in modules.items()}, **supplemental,
                               'uv.lock': lock, 'pyproject.toml': (root / 'pyproject.toml').read_bytes(),
-                              'LICENSE': notice}.items():
+                              'LICENSE': notice,
+                              'build_backend.py': (root / 'build_backend.py').read_bytes()}.items():
             target = f'{prefix}/{name}'
             if target not in archive.getnames():
                 raise ValueError(f'Source archive is missing: {name}')

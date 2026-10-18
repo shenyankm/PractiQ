@@ -5,8 +5,9 @@
 !server/
 server/**
 !server/pyproject.toml
+!server/build_backend.py
 !server/uv.lock
-!server/LICENSE
+!LICENSE
 !server/licenses/
 !server/licenses/**
 !server/src/
