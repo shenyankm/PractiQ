@@ -734,14 +734,13 @@ fn validate_database_contents(db: &Connection) -> Result<()> {
             crate::contract::list(&doc, "visuals"),
             &ids,
         )?;
-        let attempts = db
-            .prepare("SELECT snapshot_question_id,answer FROM attempts WHERE session_id=?1")
-            .map_err(err)?
+        let mut statement = db
+            .prepare("SELECT snapshot_question_id,answer FROM attempts WHERE session_id=?1 ORDER BY ordinal")
+            .map_err(err)?;
+        let attempts = statement
             .query_map([&sid], |r| {
                 Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
             })
-            .map_err(err)?
-            .collect::<std::result::Result<Vec<_>, _>>()
             .map_err(err)?;
         let index = crate::questions::Index::new(&rows);
         let mut remaining: std::collections::HashSet<_> = rows
@@ -751,15 +750,16 @@ fn validate_database_contents(db: &Connection) -> Result<()> {
             .collect();
         let mut selected =
             std::collections::HashMap::<&str, std::collections::HashSet<String>>::new();
-        for (qid, answer) in &attempts {
+        for attempt in attempts {
+            let (qid, answer) = attempt.map_err(err)?;
             if !remaining.remove(qid.as_str()) {
                 return Err(crate::language::error("LOCAL_BACKUP_RELATIONS", json!({})));
             }
             if answer.len() > 256 * 1024 {
                 return Err(crate::language::error("LOCAL_ANSWER_INVALID", json!({})));
             }
-            let answer: Value = serde_json::from_str(answer).map_err(err)?;
-            let snapshot = index.snapshot(qid)?;
+            let answer: Value = serde_json::from_str(&answer).map_err(err)?;
+            let snapshot = index.snapshot(&qid)?;
             let question = &snapshot["question"];
             crate::contract::validate_attempt(question, &answer)?;
             if let Some(parent) = index

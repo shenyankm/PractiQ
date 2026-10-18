@@ -188,6 +188,12 @@ fn restore_validates_saved_answers_against_frozen_questions_before_replacement()
         ("duplicate-leaf", 0, Value::Null, false),
         ("composite-attempt", 0, Value::Null, false),
         ("missing-leaf", 0, Value::Null, false),
+        (
+            "bounded-answer-validation",
+            0,
+            json!({"text":"😀".repeat(70_000)}),
+            false,
+        ),
     ] {
         let candidate = dir.path().join(format!("{case}.sqlite"));
         source
@@ -265,6 +271,14 @@ fn restore_validates_saved_answers_against_frozen_questions_before_replacement()
                 db.execute("DELETE FROM attempts WHERE ordinal=4", [])
                     .unwrap();
             }
+            "bounded-answer-validation" => {
+                // A later unreadable value must not hide the first answer's size failure.
+                db.execute(
+                    "UPDATE attempts SET answer=CAST('null' AS BLOB) WHERE ordinal=4",
+                    [],
+                )
+                .unwrap();
+            }
             _ => {}
         }
         db.execute("UPDATE session_documents SET content=?1", [doc.to_string()])
@@ -298,7 +312,7 @@ fn restore_validates_saved_answers_against_frozen_questions_before_replacement()
                     "unknown-option" | "unknown-shared-option" => "LOCAL_OPTION_REFERENCE_INVALID",
                     "string" => "LOCAL_SCHEMA_INVALID",
                     "exclusive-word" => "LOCAL_WORD_REUSED",
-                    "multibyte-limit" => "LOCAL_ANSWER_INVALID",
+                    "multibyte-limit" | "bounded-answer-validation" => "LOCAL_ANSWER_INVALID",
                     "duplicate-leaf" | "composite-attempt" | "missing-leaf" => {
                         "LOCAL_BACKUP_RELATIONS"
                     }
