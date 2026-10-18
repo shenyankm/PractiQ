@@ -54,9 +54,11 @@ The App needs Contents read/write and mandatory Metadata read; read-only
 queries use the workflow token. Only the App token calls the merge endpoint.
 Privileged runs check out trusted `main`, never the PR or `workflow_run` head.
 
-After this change reaches `main`, remove the unused `PRACTIQ_AGENT_API_KEY`
-secret and `PRACTIQ_AGENT_BASE_URL` / `PRACTIQ_AGENT_MODEL` variables from that
-environment. This branch removes their use without altering hosted credentials.
+The merge agent does not use `PRACTIQ_AGENT_API_KEY`, `PRACTIQ_AGENT_BASE_URL`,
+or `PRACTIQ_AGENT_MODEL`. Keep them in this environment for the separate
+[Issue labels workflow](../../CONTRIBUTING.md#issue-labels), which uses the
+configured AI to classify issues and assess missing priorities. This does not
+grant the classifier merge permissions or the App private key.
 
 The [workflow](../../.github/workflows/maintainer.yml) runs after **AI service**
 or **Practice App** completes. Direct current-head connector approvals trigger
@@ -69,8 +71,8 @@ itself never authorizes merging or runs privileged PR code.
 A GPT review-summary comment creation/edit checks
 that PR only. Other public comments do not start the privileged job. A daily
 03:23 UTC scan catches later reactions and missed events; GitHub may delay it.
-Scheduled opportunities decrease from 96 to one per day. There are no paid
-model calls. Reaction-only updates may wait for the daily scan or manual dispatch.
+Scheduled opportunities decrease from 96 to one per day. The merge agent makes
+no paid model calls. Reaction-only updates may wait for the daily scan or manual dispatch.
 
 Choose **PractiQ agent-bot → Run workflow** on `main` for an immediate check,
 optionally selecting a PR number. Automatic runs merge eligible trusted-author
