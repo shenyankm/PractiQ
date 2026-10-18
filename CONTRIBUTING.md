@@ -48,6 +48,17 @@ Label operations use a dedicated private GitHub App, `practiq-issue-bot`, instal
 
 The initial issue-open event makes at most one model request when Type, Area, or Priority is missing; supplying an issue number in a maintainer's manual dispatch also authorizes one request. The configured provider receives the title, up to 12,000 body characters, and classification labels. This also applies to public contributors' new issues, so provider charges may result; avoid private data in issues. Requests have a 60-second timeout and a 750-token output limit, no tools, no automatic retries, and strict validation against Type, Area, P0–P3, and the eight allowed topics. Errors leave missing labels unassigned and fail the workflow for maintainer inspection or explicit rerun. Uncertain classifications and failed requests cannot be retried by editing or reopening the issue. An initial event for an already complete classification and catalog-only synchronization make no model calls. Maintainer labels and issue text are checked again before adding labels. Disable **Issue labels** in Actions to stop automatic classification. The workflow must reach the default branch before issue events activate it. Validate changes with `node --test .github/scripts/issue-labeler.test.mjs` and actionlint.
 
+### Pull request labels
+
+New PRs targeting `main` use the same catalog, AI assessment and preservation
+rules through `practiq-pr-bot`. The [PR labels workflow](.github/workflows/pr-labels.yml)
+uses the PR title, description and at most 100 changed file paths; it never
+executes PR code or sends source patches to the model. It runs only on initial
+creation; edits, commits and reopening do not repeat paid work. Maintainers
+can explicitly retry with **PR labels → Run workflow** on `main`, supplying a
+PR number. Model suggestions only add missing labels and never authorize
+approval or merging. See [setup, costs and trust boundaries](docs/maintainers/maintainer-agent.md#ai-pull-request-labels).
+
 ## Work from a fork
 
 [Fork PractiQ](https://github.com/shenyankm/PractiQ/fork), then create a focused branch from the project's current `main`. Replace `YOUR_GITHUB_USERNAME` with your username:

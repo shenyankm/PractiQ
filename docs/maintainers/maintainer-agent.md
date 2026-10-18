@@ -1,8 +1,9 @@
 # PractiQ PR bot
 
-The private `practiq-pr-bot` App only squash-merges eligible PRs targeting
-`main`. It consumes existing GPT review evidence through deterministic checks;
-it does not interpret review prose, call a model, create approvals or publish releases.
+The private `practiq-pr-bot` App labels newly opened PRs with AI and
+squash-merges eligible PRs targeting `main`. Merge decisions consume existing
+GPT review evidence through deterministic checks; AI labels never authorize
+merging, create approvals or publish releases.
 
 ## Merge conditions
 
@@ -50,17 +51,60 @@ merge requests are not retried within the run.
 
 The protected `practiq-agent` environment allows only `main` and contains
 `PRACTIQ_APP_CLIENT_ID` (variable) and `PRACTIQ_APP_PRIVATE_KEY` (secret).
-The App needs Contents read/write and mandatory Metadata read; read-only
-queries use the workflow token. Only the App token calls the merge endpoint.
+The App needs Contents read/write for merges, Pull requests read/write for
+labels, and mandatory Metadata read. Merge queries use the workflow token;
+only a Contents-write App token calls the merge endpoint.
 Privileged runs check out trusted `main`, never the PR or `workflow_run` head.
+
+### AI pull request labels
+
+The separate [PR labels workflow](../../.github/workflows/pr-labels.yml) uses
+the same App and `practiq-agent` environment. Set `PRACTIQ_AGENT_API_KEY` as a
+secret and `PRACTIQ_AGENT_BASE_URL` / `PRACTIQ_AGENT_MODEL` as variables. The
+base URL must be HTTPS and OpenAI-compatible; `/chat/completions` is appended.
+The existing DeepSeek Flash configuration uses `thinking: {type: disabled}`;
+Qwen models use `enable_thinking: false`. The shared classifier validates
+responses against the [same catalog and ownership rules](../../CONTRIBUTING.md#issue-labels)
+as Issue labels: missing Type, Area, P0–P3 and at most two topics. Maintenance
+changes may have no matching Type. Existing labels always take precedence;
+status and community labels remain manual.
+
+Only `pull_request_target: opened` targeting `main` automatically authorizes
+one model request when a core classification is missing. Edits, new commits,
+reopening, CI completion and merge scans do not retry it. Maintainers can run
+**PR labels → Run workflow** on `main` with a PR number for one explicit retry.
+Closed PRs and other target branches are skipped. Changing or removing a label
+alone does not start a model call. No historical PRs are scanned automatically.
+
+The model receives up to 256 title and 12,000 body characters, classification
+labels, and up to 100 changed file paths (256 characters each, including prior
+paths for renames). Patches, source files, links and PR code are never loaded
+or executed. The input reports the total file count and truncation. Public
+contributors' new PRs can incur provider charges; avoid private data in PRs.
+Requests have a 60-second timeout, 750 output tokens, no tools and no retries.
+Invalid or failed answers leave labels unassigned. Before adding labels the
+script refetches the PR and rejects changed title, body, head, base or open
+state, while preserving concurrent maintainer labels.
+
+PR tests receive no environment or credentials. The privileged job runs only
+trusted `main` code and requests a repository-scoped Pull-requests-write App
+token; it receives no Contents-write merge token. The merge job remains
+separate and does not receive model credentials. GitHub's Pull requests write
+permission also permits other PR changes; the label script only adds allowed
+labels. Approve that permission for the existing installation when enabling
+this feature. Disable **PR labels** in Actions to stop automatic classification.
+The workflow must reach `main` before automatic events activate it. Validate
+with `node --test .github/scripts/issue-labeler.test.mjs .github/scripts/pr-labeler.test.mjs`
+and actionlint; live provider and App writes are separate acceptance checks.
+
+### Issue labels and merge operation
 
 The separate [Issue labels workflow](../../CONTRIBUTING.md#issue-labels) uses
 the dedicated `PractiQ Issue` environment's `API_KEY`, `BASE_URL`, and `MODEL`
 secrets to classify issues and assess missing priorities. Its separate
 `practiq-issue-bot` App uses `APP_CLIENT_ID` and `APP_PRIVATE_KEY` from that
 environment with Issues write access only. It does not receive the merge
-agent's App private key or merge permissions. The merge agent does not use
-model credentials.
+agent's App private key or merge permissions.
 
 The [workflow](../../.github/workflows/maintainer.yml) runs after **AI service**
 or **Practice App** completes. Direct current-head connector approvals trigger
@@ -73,7 +117,7 @@ itself never authorizes merging or runs privileged PR code.
 A GPT review-summary comment creation/edit checks
 that PR only. Other public comments do not start the privileged job. A daily
 03:23 UTC scan catches later reactions and missed events; GitHub may delay it.
-Scheduled opportunities decrease from 96 to one per day. The merge agent makes
+Scheduled opportunities decrease from 96 to one per day. Merge scans make
 no paid model calls. Reaction-only updates may wait for the daily scan or manual dispatch.
 
 Choose **PractiQ PR bot → Run workflow** on `main` for an immediate check,
