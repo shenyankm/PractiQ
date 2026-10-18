@@ -37,3 +37,5 @@ Choose relevant checks from [CONTRIBUTING.md](https://github.com/shenyankm/Pract
 - [ ] I reviewed the full diff and kept it focused, including any required generated files and documentation.
 - [ ] I recorded relevant validation results and explained remaining gaps.
 - [ ] I checked code, fixtures, logs, and attachments for secrets and personal data.
+
+<!-- CI scope acceptance: template-only edit. -->
