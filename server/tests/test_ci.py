@@ -43,64 +43,32 @@ def test_dependency_maintenance_covers_locked_manifests_and_bounded_queues():
     assert "make image-check" in policy
 
 
-def test_maintainer_events_keep_privileged_code_and_credentials_on_main():
+def test_main_requires_ci_and_resolved_threads_without_approval_automation():
     root = Path(__file__).resolve().parents[2]
-    workflow = yaml.load((root / ".github/workflows/maintainer.yml").read_text(), Loader=yaml.BaseLoader)
-    assert workflow["on"]["schedule"] == [{"cron": "23 3 * * *"}]
-    assert workflow["on"]["issue_comment"]["types"] == ["created", "edited"]
-    assert workflow["on"]["pull_request_target"]["types"] == [
-        "closed", "converted_to_draft", "reopened", "ready_for_review", "edited",
-    ]
-    assert "PR review signal" in workflow["on"]["workflow_run"]["workflows"]
-    assert "auto-merge" not in workflow["jobs"]
-    job = workflow["jobs"]["approve"]
-    assert "github.ref == 'refs/heads/main'" in job["if"]
-    assert "github.event.issue.pull_request" in job["if"]
-    assert "github.event.comment.user.login == 'chatgpt-codex-connector[bot]'" in job["if"]
-    assert "contains(github.event.comment.body, 'codex-pull-request-review-summary')" in job["if"]
-    assert job["environment"] == "practiq-agent"
-    checkout, = (step for step in job["steps"] if step.get("uses", "").startswith("actions/checkout@"))
-    assert checkout["with"] == {"ref": "main", "persist-credentials": "false"}
-    run = job["steps"][-1]
-    assert "github.event.issue.number" in run["env"]["PR_NUMBER"]
-    assert "github.event.pull_request.number" in run["env"]["PR_NUMBER"]
-    assert "github.event.workflow_run.name == 'PR review signal'" in run["env"]["PR_NUMBER"]
-    assert "github.event.workflow_run.pull_requests[0].number" in run["env"]["PR_NUMBER"]
-    assert not any(key.startswith("PRACTIQ_AGENT_") for key in run["env"])
-    assert run["env"]["GH_REVIEW_TOKEN"] == "${{ steps.app.outputs.token }}"
-    token, = (step for step in job["steps"] if step.get("id") == "app")
-    assert token["with"] == {
-        "client-id": "${{ vars.PRACTIQ_APP_CLIENT_ID }}",
-        "private-key": "${{ secrets.PRACTIQ_APP_PRIVATE_KEY }}",
-        "permission-pull-requests": "write",
-    }
-    rules = json.loads((root / ".github/main-ruleset.json").read_text())["rules"]
-    review = next(rule["parameters"] for rule in rules if rule["type"] == "pull_request")
-    assert review["required_approving_review_count"] == 1
-    assert review["dismiss_stale_reviews_on_push"] is True
+    for name in (
+        ".github/workflows/maintainer.yml", ".github/workflows/review-signal.yml",
+        ".github/scripts/maintainer.mjs", ".github/scripts/maintainer.test.mjs",
+    ):
+        assert not (root / name).exists()
+    ruleset = json.loads((root / ".github/main-ruleset.json").read_text())
+    assert ruleset["enforcement"] == "active"
+    assert ruleset["bypass_actors"] == []
+    assert ruleset["conditions"]["ref_name"] == {"include": ["refs/heads/main"], "exclude": []}
+    rules = {rule["type"]: rule.get("parameters", {}) for rule in ruleset["rules"]}
+    review = rules["pull_request"]
+    assert review["required_approving_review_count"] == 0
+    assert review["require_extra_approval_for_unattributed_changes"] is False
+    assert review["require_code_owner_review"] is False
+    assert review["require_last_push_approval"] is False
     assert review["required_review_thread_resolution"] is True
-
-
-def test_direct_review_signal_has_no_privileges_and_wakes_only_trusted_revalidation():
-    root = Path(__file__).resolve().parents[2]
-    signal = yaml.load((root / ".github/workflows/review-signal.yml").read_text(), Loader=yaml.BaseLoader)
-    assert signal["name"] == "PR review signal"
-    assert signal["on"] == {"pull_request_review": {"types": ["submitted", "edited", "dismissed"]}}
-    assert signal["permissions"] == {}
-    job, = signal["jobs"].values()
-    assert "github.event.review.user.login == 'chatgpt-codex-connector[bot]'" in job["if"]
-    assert "github.event.review.state == 'approved'" not in job["if"]
-    assert "github.event.review.commit_id == github.event.pull_request.head.sha" in job["if"]
-    assert "github.event.pull_request.base.ref == 'main'" in job["if"]
-    assert set(job) == {"if", "runs-on", "timeout-minutes", "steps"}
-    assert job["steps"] == [{"run": "echo 'Connector review changed; trusted main will revalidate approval.'"}]
-    workflow = yaml.load((root / ".github/workflows/maintainer.yml").read_text(), Loader=yaml.BaseLoader)
-    assert "github.event.workflow_run.conclusion == 'success'" in workflow["jobs"]["approve"]["if"]
-    assert "github.event.workflow_run.event == 'pull_request_review'" in workflow["jobs"]["approve"]["if"]
+    assert rules["required_status_checks"]["required_status_checks"] == [
+        {"context": name, "integration_id": 15368}
+        for name in ("Service CI", "Desktop CI", "Android CI")
+    ]
+    assert {"deletion", "non_fast_forward"} <= rules.keys()
 
 
 @pytest.mark.parametrize("workflow_name, job_name, permission", [
-    ("maintainer", "approve", "pull-requests"),
     ("pr-labels", "label", "pull-requests"),
     ("issue-labels", "label", "issues"),
 ])
@@ -115,9 +83,7 @@ def test_bot_tokens_default_to_only_the_current_repository(workflow_name, job_na
     assert {key: value for key, value in token["with"].items() if key.startswith("permission-")} == {
         f"permission-{permission}": "write",
     }
-    assert job["permissions"] == ({"contents": "read"} if job_name == "label" else {
-        "contents": "read", "pull-requests": "read", "issues": "read", "checks": "read", "statuses": "read",
-    })
+    assert job["permissions"] == {"contents": "read"}
 
 
 @pytest.mark.parametrize("exit_code", [0, 9])

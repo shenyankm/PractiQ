@@ -71,8 +71,8 @@ and digests in `Dockerfile.server`, including the deployed second-stage
 in a focused PR, run `make verify` and `make image-check`, and retain the build
 and deployment checks for the resulting image. A builder-only Dependabot PR
 does not establish that the deployed Python/OS image is current.
-Dependency PRs use the same connector-evidence and CI approval gates; see
-[the PR approval workflow](maintainer-agent.md).
+Dependency PRs require the same current-head CI and maintainer inspection of
+Code Review and Security Review results; see [the contribution guide](../../CONTRIBUTING.md).
 
 The maintainer reviews updater failures and uncovered dependencies at least
 monthly during active maintenance and before each release. Python currently uses
@@ -118,32 +118,31 @@ claiming static-analysis coverage. Keep dependency audits: they check locked
 packages, while CodeQL checks source patterns. No duplicate scanning workflow
 is needed for default setup. This branch does not change hosted settings.
 
-The active main ruleset requires `Service CI`, `Desktop CI`, `Android CI`,
-resolved conversations and **one valid approving review**. Stale approvals are
-dismissed on push and no actors bypass the rules. The checked-in
+The main ruleset requires `Service CI`, `Desktop CI`, `Android CI` and
+resolved conversations, with no bypass actors. Native approving votes and
+extra approval for unattributed changes are not required. Automatic review
+approval and withdrawal have been removed. The checked-in
 [ruleset](../../.github/main-ruleset.json) preserves the hosted merge-method
 options (merge, squash and rebase) and does not require a PR branch to include
 the latest main commit. Repository native auto-merge is disabled; maintainers
-merge manually after the review and CI requirements pass.
-The PR App installation needs Pull requests write, Contents write and Metadata
-read so its approval can count toward required reviews. Its workflows request
-PR-write-only tokens; their scripts submit reviews after trusted Codex evidence
-and never merge or enable auto-merge. Contents write is an App-level capability,
-so protect its private key, keep the installation limited to PractiQ and grant
-no ruleset bypass. Verify the native review decision after installation changes;
-successful creation of an `APPROVED` review alone does not prove it counts.
+inspect current-head Code Review and Security Review results, resolve findings
+and merge manually after CI passes.
+The PR App is retained for labeling and requests repository-scoped PR-write-only
+tokens. Pull requests write and Metadata read suffice for labeling; remove any
+legacy Contents write permission in the App settings. Protect its private key,
+keep the installation limited to PractiQ and grant no ruleset bypass.
 
-These hosted settings were applied and read back on 2026-10-18. Before future
-changes, read the live rule and preserve unrelated parameters; a checked-in
-file alone does not activate settings:
+Before changing hosted settings, read the live rule, back it up and preserve
+unrelated parameters in the update payload; a checked-in file alone does not
+activate settings:
 
 ```bash
 gh api repos/shenyankm/PractiQ/rulesets/24200305
-gh api --method PUT repos/shenyankm/PractiQ/rulesets/24200305 --input .github/main-ruleset.json
+gh api --method PUT repos/shenyankm/PractiQ/rulesets/24200305 --input /path/to/reviewed-ruleset-payload.json
 gh api repos/shenyankm/PractiQ --jq .allow_auto_merge
 ```
 
 The rules cover `main`, the repository's default PR target. Reviews on other
-base branches do not inherit this main-only rule. A thumbs-up or a COMMENTED
-review does not count as a native approving review; the PR author cannot
-approve their own PR. One eligible approving reviewer is required.
+base branches do not inherit this main-only rule. Automated review results
+remain evidence for maintainer inspection; they do not trigger an approval bot
+or automatic merging.
