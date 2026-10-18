@@ -37,7 +37,8 @@ dev = [
 
 [build-system]
 requires = ["hatchling==1.32.4"]
-build-backend = "hatchling.build"
+build-backend = "build_backend"
+backend-path = ["."]
 
 [tool.uv]
 build-constraint-dependencies = [
@@ -50,7 +51,7 @@ build-constraint-dependencies = [
 
 [tool.hatch.build.targets.sdist]
 # Select source directories directly so ignored report symlinks cannot consume them.
-only-include = ["src", "tests", "scripts", "evals", "docs", "deploy", "licenses", "conftest.py", "pyrightconfig.json", "uv.lock"]
+only-include = ["src", "tests", "scripts", "evals", "docs", "deploy", "licenses", "conftest.py", "pyrightconfig.json", "uv.lock", "build_backend.py"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/practiq_ai"]

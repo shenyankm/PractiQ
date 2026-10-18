@@ -13,6 +13,7 @@ CHECK = runpy.run_path(str(Path(__file__).parents[1] / 'scripts/check_package.py
 
 @pytest.mark.parametrize('archive_kind,mutation', [
     ('wheel', None), ('sdist', None),
+    ('sdist', 'missing-backend'), ('sdist', 'changed-backend'),
     ('wheel', 'missing-source'), ('sdist', 'missing-source'),
     ('wheel', 'changed-source'), ('sdist', 'changed-source'),
     ('wheel', 'missing-lock'), ('sdist', 'missing-lock'),
@@ -22,7 +23,8 @@ CHECK = runpy.run_path(str(Path(__file__).parents[1] / 'scripts/check_package.py
     ('wheel', 'missing-license-header'), ('sdist', 'missing-license-header'),
     ('wheel', 'missing-license-declaration'), ('sdist', 'missing-license-declaration'),
 ])
-def test_service_archive_guard(tmp_path, archive_kind, mutation):
+@pytest.mark.parametrize('standalone', [False, True])
+def test_service_archive_guard(tmp_path, archive_kind, mutation, standalone):
     root = tmp_path / 'service'
     output = tmp_path / 'dist'
     (root / 'src/practiq_ai').mkdir(parents=True)
@@ -30,19 +32,30 @@ def test_service_archive_guard(tmp_path, archive_kind, mutation):
     project = b'[project]\nname="practiq-ai-service"\nversion="0.3.0"\nlicense="MIT"\nlicense-files=["LICENSE"]\n'
     (root / 'pyproject.toml').write_bytes(project)
     (root / 'uv.lock').write_bytes(b'locked dependencies')
+    backend = b'# packaging backend\n'
+    (root / 'build_backend.py').write_bytes(backend)
     source = b'"""Service source."""\n'
     notice = b'Synthetic MIT notice\n'
     metadata = b'License-Expression: MIT\nLicense-File: LICENSE\n'
-    (root / 'LICENSE').write_bytes(notice)
+    if standalone:
+        (root / 'PKG-INFO').write_bytes(metadata)
+        (root / 'LICENSE').write_bytes(notice)
+    else:
+        (root.parent / 'LICENSE').write_bytes(notice)
+        (root / 'LICENSE').write_bytes(b'stale interrupted-build notice')
     (root / 'src/practiq_ai/__init__.py').write_bytes(source)
     wheel_files = {'practiq_ai/__init__.py': source, 'practiq_ai/uv.lock': b'locked dependencies'}
-    source_files = {'src/practiq_ai/__init__.py': source, 'uv.lock': b'locked dependencies', 'pyproject.toml': project}
+    source_files = {'src/practiq_ai/__init__.py': source, 'uv.lock': b'locked dependencies', 'pyproject.toml': project, 'build_backend.py': backend}
     wheel_files.update({'practiq_ai_service-0.3.0.dist-info/licenses/LICENSE': notice,
                         'practiq_ai_service-0.3.0.dist-info/METADATA': metadata})
     source_files.update({'LICENSE': notice, 'PKG-INFO': metadata})
     files = wheel_files if archive_kind == 'wheel' else source_files
     name = 'practiq_ai/__init__.py' if archive_kind == 'wheel' else 'src/practiq_ai/__init__.py'
-    if mutation == 'missing-source':
+    if mutation == 'missing-backend':
+        del files['build_backend.py']
+    elif mutation == 'changed-backend':
+        files['build_backend.py'] = b'changed backend'
+    elif mutation == 'missing-source':
         del files[name]
     elif mutation == 'changed-source':
         files[name] = b'changed module'

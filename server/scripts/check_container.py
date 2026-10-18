@@ -12,11 +12,12 @@ from practiq_ai.storage import get_object_store
 async def main():
     assert os.getuid() == 10001
     assert not os.access('/app/server', os.W_OK)
+    assert not os.path.lexists('/app/server/LICENSE')
     package = distribution('practiq-ai-service')
     assert package.metadata['License-Expression'] == 'MIT'
     notices = [path for path in package.files or [] if str(path).endswith('.dist-info/licenses/LICENSE')]
     assert len(notices) == 1
-    assert package.locate_file(notices[0]).read_bytes() == Path('/app/server/LICENSE').read_bytes()
+    assert package.locate_file(notices[0]).read_bytes() == Path('/app/LICENSE').read_bytes()
     before = set(Path('/tmp').iterdir())
     document = await extract('pdf', Path('/fixtures/pdf/text-layer.pdf').read_bytes())
     assert document.page_images and not document.truncated
