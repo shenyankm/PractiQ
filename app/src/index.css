@@ -237,9 +237,49 @@ html[data-native-insets="true"] {
 .bank-count svg { width: 1rem; height: 1rem; }
 .question-filters { padding: 1rem; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--card); }
 .review-warning { color: var(--warning-foreground); }
-.answer-card-answered { border-color: var(--input); background: var(--secondary); color: var(--secondary-foreground); }
-.answer-card-answered:hover { background: var(--accent); }
-.answer-card-flagged { outline: 2px solid var(--warning-border); outline-offset: 2px; }
+.answer-card-help { width: 17rem; max-width: calc(100vw - 1.5rem); max-height: var(--radix-popover-content-available-height); overflow-y: auto; padding: 1rem; border: 1px solid var(--border); border-radius: var(--radius-menu); background: var(--popover); color: var(--popover-foreground); outline: none; }
+.answer-card-help-arrow { fill: var(--popover); }
+.answer-card-grid, .answer-card-legend {
+  --answer-neutral-background: #f0efed;
+  --answer-neutral-foreground: #615d65;
+  --answer-neutral-border: #837c87;
+  --answer-blue-background: #e7effa;
+  --answer-blue-foreground: #27558b;
+  --answer-blue-border: #6080aa;
+}
+.dark .answer-card-grid, .dark .answer-card-legend {
+  --answer-neutral-background: #302d35;
+  --answer-neutral-foreground: #c9c3ce;
+  --answer-neutral-border: #93899b;
+  --answer-blue-background: #25364c;
+  --answer-blue-foreground: #b3d1f5;
+  --answer-blue-border: #7a9fcf;
+}
+[data-answer-state] {
+  --answer-background: var(--answer-neutral-background);
+  --answer-foreground: var(--answer-neutral-foreground);
+  --answer-border: var(--answer-neutral-border);
+}
+[data-answer-state="answered"] { --answer-background: var(--answer-blue-background); --answer-foreground: var(--answer-blue-foreground); --answer-border: var(--answer-blue-border); }
+[data-answer-state="draft"] { --answer-background: var(--secondary); --answer-foreground: var(--secondary-foreground); --answer-border: var(--primary); }
+[data-answer-state="correct"] { --answer-background: var(--success-background); --answer-foreground: var(--success-foreground); --answer-border: color-mix(in srgb, var(--success-border), var(--success-foreground) 20%); }
+[data-answer-state="incorrect"] { --answer-background: var(--error-background); --answer-foreground: var(--error-foreground); --answer-border: var(--destructive); }
+[data-answer-state="pending"], [data-answer-state="partial"] { --answer-background: var(--warning-background); --answer-foreground: var(--warning-foreground); --answer-border: color-mix(in srgb, var(--warning-border), var(--warning-foreground) 20%); }
+.answer-card-item, .answer-card-swatch {
+  border: 1px solid var(--answer-border);
+  background: var(--answer-background);
+  color: var(--answer-foreground);
+  font-variant-numeric: tabular-nums;
+}
+.answer-card-item:hover { background: color-mix(in srgb, var(--answer-background), var(--answer-foreground) 8%); color: var(--answer-foreground); }
+[data-answer-state="pending"], [data-answer-state="skipped"] { border-style: dashed; }
+.answer-card-item[aria-current="step"], .answer-card-current { outline: 2px solid var(--ring); outline-offset: 2px; }
+.answer-card-item[aria-current="step"] { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; }
+.answer-card-item:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.answer-card-flag { position: absolute; bottom: 2px; right: 1px; border-radius: 2px; background: var(--warning-background); color: var(--warning-foreground); }
+.answer-card-swatch { display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center; width: 1.125rem; height: 1.125rem; border-radius: 4px; }
+.answer-card-current { background: var(--card); color: var(--primary); border-color: var(--primary); }
+.answer-card-review { background: var(--warning-background); color: var(--warning-foreground); border-color: var(--warning-border); }
 @media (max-width: 767px) {
   .app-header h1 { font-size: 1.375rem; }
   .bank-card { min-height: 0; }
