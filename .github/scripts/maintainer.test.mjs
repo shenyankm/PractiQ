@@ -10,6 +10,10 @@ const checks = ['Service CI', 'Desktop CI', 'Android CI'].map(name => ({ name, a
 const completed = { commit_sha: sha, status: 'completed', has_any_findings: false, has_unresolved_findings: false };
 const summaryBody = (body, state = { code_review: completed }) =>
   '<!-- codex-pull-request-review-summary -->\n<!-- codex-review-state:v1 ' + JSON.stringify(state) + ' -->\n' + body;
+const dualReviewRows = '| Code Review | Completed <relative-time datetime="2026-10-13T14:00:00Z"> | `aaaaaaa` |\n' +
+  '| Security Review | Completed <relative-time datetime="2026-10-13T14:02:00Z"> | `aaaaaaa` |';
+const dualReviewSummary = summaryBody(dualReviewRows, { code_review: completed, security_review: completed });
+const dualReviewReaction = { user: review.user, content: '+1', created_at: '2026-10-13T14:03:00Z' };
 
 test('main requires one approval, stale dismissal, resolved discussions and all CI gates without bypass', () => {
   const ruleset = JSON.parse(readFileSync(new URL('../main-ruleset.json', import.meta.url), 'utf8'));
@@ -158,7 +162,8 @@ function scenario(t, options = {}) {
       [`commits/${sha}/check-runs`]: { check_runs: options.checks ?? checks }, [`commits/${sha}/status`]: { statuses: [] },
       'collaborators/shenyankm/permission': { permission: options.revoked && permissionReads > 1 ? 'read' : options.permission ?? 'admin' },
       'collaborators/maintainer/permission': { permission: options.revoked && permissionReads > 1 ? 'read' : 'write' },
-      'issues/228/comments': options.summary ? [{ id: 1, user: review.user, body: summaryBody('| Code Review | Completed <relative-time datetime="2026-10-13T14:00:00Z"> | `aaaaaaa` |') }] : [],
+      'issues/228/comments': options.summary ? [{ id: 1, user: review.user, body: typeof options.summary === 'string'
+        ? options.summary : summaryBody('| Code Review | Completed <relative-time datetime="2026-10-13T14:00:00Z"> | `aaaaaaa` |') }] : [],
       'issues/228/reactions': options.reactions ?? [], 'commits/aaaaaaa': { sha: options.resolvedSha ?? sha } };
     assert(path in responses, `Unexpected request: ${path}`);
     return Response.json(responses[path]);
@@ -238,7 +243,7 @@ test('workflow changes and renames require manual approval', async t => {
   assert.equal(fixture.writes.length, 0);
 });
 
-test('CI scope implementation changes require manual inspection', async t => {
+test('CI scripts cannot be approved without explicit security review evidence', async t => {
   const fixture = scenario(t, { files: [{ filename: 'server/scripts/ci_scope.py' }] });
   await main();
   assert.equal(fixture.writes.length, 0);
@@ -250,11 +255,55 @@ for (const filename of ['.github/scripts/maintainer.mjs', '.github/scripts/maint
   assert.equal(fixture.writes.length, 0);
 });
 
-test('a shadowing module beside the CI gate require manual approval', async t => {
+test('a shadowing module beside the CI gate needs explicit security review evidence', async t => {
   const fixture = scenario(t, { files: [{ filename: 'server/scripts/json.py' }] });
   await main();
   assert.equal(fixture.writes.length, 0);
 });
+
+for (const file of [{ filename: 'server/scripts/ci_scope.py' },
+  { filename: 'safe.py', previous_filename: 'server/scripts/ci_scope.py' }]) {
+  test(`CI script ${JSON.stringify(file)} can be approved after both clean reviews and CI`, async t => {
+    const fixture = scenario(t, { files: [file], summary: dualReviewSummary, reactions: [dualReviewReaction] });
+    await main();
+    assert.equal(fixture.writes.length, 1);
+    assert.equal(fixture.writes[0].event, 'APPROVE');
+    assert.equal(fixture.writes[0].commit_id, sha);
+  });
+}
+
+for (const change of [null, { status: 'running' }, { commit_sha: 'b'.repeat(40) },
+  { has_any_findings: true }, { has_unresolved_findings: true }, { has_any_findings: undefined }]) {
+  test(`CI script security evidence rejects ${JSON.stringify(change)} even with an approved code review`, async t => {
+    const state = { code_review: completed, ...(change ? { security_review: { ...completed, ...change } } : {}) };
+    const fixture = scenario(t, { files: [{ filename: 'server/scripts/ci_scope.py' }], reviews: [review],
+      summary: summaryBody(dualReviewRows, state), reactions: [dualReviewReaction] });
+    await main();
+    assert.equal(fixture.writes.length, 0);
+  });
+}
+
+test('CI scripts require successful CI even after both reviews pass', async t => {
+  const fixture = scenario(t, { files: [{ filename: 'server/scripts/ci_scope.py' }],
+    summary: dualReviewSummary, reactions: [dualReviewReaction], checks: checks.slice(1) });
+  await main();
+  assert.equal(fixture.writes.length, 0);
+});
+
+test('CI script reviews are rechecked before approval', async t => {
+  const fixture = scenario(t, { files: [{ filename: 'server/scripts/ci_scope.py' }], changedReport: true,
+    summary: dualReviewSummary, reactions: [dualReviewReaction] });
+  await main();
+  assert.equal(fixture.writes.length, 0);
+});
+
+for (const filename of ['.github/workflows/maintainer.yml', '.github/scripts/maintainer.mjs']) {
+  test(`${filename} still needs manual approval after both reviews pass`, async t => {
+    const fixture = scenario(t, { files: [{ filename }], summary: dualReviewSummary, reactions: [dualReviewReaction] });
+    await main();
+    assert.equal(fixture.writes.length, 0);
+  });
+}
 
 test('a maintainer can explicitly dispatch an external PR', async t => {
   const fixture = scenario(t, { permission: 'read' });
@@ -286,10 +335,11 @@ test('an existing bot approval on this head is not duplicated', async t => {
   assert.equal(fixture.writes.length, 0);
 });
 
-for (const reason of ['review', 'ci', 'protected-file']) test(`invalid ${reason} withdraws only this bot's approval`, async t => {
+for (const reason of ['review', 'ci', 'security', 'protected-file']) test(`invalid ${reason} withdraws only this bot's approval`, async t => {
   const fixture = scenario(t, { botApproved: true,
     ...(reason === 'review' ? { reviews: [{ ...review, state: 'CHANGES_REQUESTED' }] } : {}),
     ...(reason === 'ci' ? { checks: checks.slice(1) } : {}),
+    ...(reason === 'security' ? { files: [{ filename: 'server/scripts/ci_scope.py' }] } : {}),
     ...(reason === 'protected-file' ? { files: [{ filename: '.github/scripts/maintainer.mjs' }] } : {}),
   });
   await main();

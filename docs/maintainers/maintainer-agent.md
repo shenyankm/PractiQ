@@ -15,10 +15,20 @@ non-draft, conflict-free and target `main`. Being blocked by missing approvals
 is expected and does not block the bot's review. A branch may be behind main;
 all checks and review evidence must still match its exact current head.
 
-PRs touching `.github/workflows/`, `.github/scripts/` or `server/scripts/`,
-including either side of a rename, require manual inspection and approval.
-This prevents PR-defined CI from spoofing required check names. External
-contributors can receive a bot approval under the same evidence checks.
+PRs touching `server/scripts/`, including either side of a rename, can receive
+bot approval only after all current-head CI passes and the trusted connector's
+structured summary explicitly confirms completed Code Review and Security
+Review with no findings on that same head. A code approval without an explicit
+security summary is insufficient. Review evidence is checked again immediately
+before approval.
+
+Changes to `.github/workflows/` or `.github/scripts/` still require manual
+inspection and approval, even with clean automated reviews. This keeps
+privileged workflows and the bot's own approval policy outside its approval
+authority. The updated policy must reach protected `main` through normal
+review before it can approve pending script PRs; dispatching the
+old workflow does not activate unmerged policy changes. External contributors
+can receive a bot approval under the same evidence checks.
 Manual dispatch requires current `admin`, `maintain` or `write` access and
 `dry_run` defaults to true; explicitly set false to submit or dismiss reviews.
 

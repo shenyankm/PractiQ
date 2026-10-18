@@ -15,7 +15,7 @@ export function approvalBlocker(pr, checks, statuses) {
   return null;
 }
 
-export function reviewEvidence(pr, reviews, comments, resolvedShas = {}) {
+export function reviewEvidence(pr, reviews, comments, resolvedShas = {}, requireSecurity = false) {
   const current = reviews.filter(review => review.user?.login === reviewer && review.commit_id === pr.head.sha);
   if (current.some(review => ['CHANGES_REQUESTED', 'PENDING'].includes(review.state))) return [];
   const reports = current.filter(review => review.state !== 'DISMISSED').map(review =>
@@ -23,7 +23,8 @@ export function reviewEvidence(pr, reviews, comments, resolvedShas = {}) {
   for (const comment of comments.filter(comment => comment.user?.login === reviewer && comment.body.includes('codex-pull-request-review-summary')).slice(-1)) {
     let state;
     try { state = JSON.parse(comment.body.match(/<!-- codex-review-state:v1 (.*?) -->/)?.[1]); } catch { return []; }
-    if (!state?.code_review || [state.code_review, ...(state.security_review ? [state.security_review] : [])].some(review =>
+    if (!state?.code_review || (requireSecurity && !state.security_review) ||
+      [state.code_review, ...(state.security_review ? [state.security_review] : [])].some(review =>
       review.commit_sha !== pr.head.sha || review.status !== 'completed' ||
       review.has_any_findings !== false || review.has_unresolved_findings !== false)) return [];
     const lines = comment.body.split('\n');
@@ -41,7 +42,7 @@ export function reviewEvidence(pr, reviews, comments, resolvedShas = {}) {
     reports.push({ id: comment.id, type: 'summary', body: comment.body,
       completed_at: completed.every(Number.isFinite) ? new Date(Math.max(...completed)).toISOString() : null });
   }
-  return reports;
+  return requireSecurity && !reports.some(report => report.type === 'summary') ? [] : reports;
 }
 
 export function reviewPassed(reports, reactions = []) {
@@ -79,7 +80,7 @@ async function pages(path, key) {
   throw new Error('Pagination exceeds supported limit; no approval attempted');
 }
 
-async function evidenceFor(pr) {
+async function evidenceFor(pr, requireSecurity = false) {
   const reviews = await pages(`pulls/${pr.number}/reviews`);
   const comments = await pages(`issues/${pr.number}/comments`);
   const summary = comments.filter(comment => comment.user?.login === reviewer && comment.body.includes('codex-pull-request-review-summary')).at(-1);
@@ -88,7 +89,7 @@ async function evidenceFor(pr) {
     const sha = row.match(/`([0-9a-f]{7,40})`/)?.[1];
     if (sha && sha.length < 40) resolvedShas[sha] = (await api(`commits/${sha}`)).sha;
   }
-  const reports = reviewEvidence(pr, reviews, comments, resolvedShas);
+  const reports = reviewEvidence(pr, reviews, comments, resolvedShas, requireSecurity);
   for (const report of reports.filter(report => report.type === 'review')) {
     report.findings = (await pages(`pulls/${pr.number}/reviews/${report.id}/comments`))
       .map(comment => ({ path: comment.path, line: comment.line, body: comment.body }));
@@ -110,14 +111,18 @@ export async function main() {
     try {
       const pr = await api(`pulls/${target.number}`);
       if (pr.merged) continue;
-      const evidence = await evidenceFor(pr);
       const files = await pages(`pulls/${target.number}/files`);
       const protectedFiles = files.some(file => [file.filename, file.previous_filename].some(path =>
-        path?.startsWith('.github/workflows/') || path?.startsWith('.github/scripts/') || path?.startsWith('server/scripts/')));
+        path?.startsWith('.github/workflows/') || path?.startsWith('.github/scripts/')));
+      const requireSecurity = files.some(file => [file.filename, file.previous_filename].some(path =>
+        path?.startsWith('server/scripts/')));
+      const evidence = await evidenceFor(pr, requireSecurity);
       const checks = await pages(`commits/${pr.head.sha}/check-runs?filter=latest`, 'check_runs');
       const statuses = await pages(`commits/${pr.head.sha}/status`, 'statuses');
-      let reason = protectedFiles ? 'CI definition or scope changes require manual review' : approvalBlocker(pr, checks, statuses);
-      if (!reviewPassed(evidence.reports, evidence.reactions)) reason = 'No clean completed current-head GPT Code Review';
+      let reason = protectedFiles ? 'Privileged workflow or bot changes require manual review' : approvalBlocker(pr, checks, statuses);
+      if (!reviewPassed(evidence.reports, evidence.reactions)) reason = requireSecurity
+        ? 'CI scripts require clean completed current-head Code and Security Reviews'
+        : 'No clean completed current-head GPT Code Review';
       if (process.env.GITHUB_EVENT_NAME === 'workflow_dispatch') {
         const permission = await api(`collaborators/${encodeURIComponent(process.env.GITHUB_ACTOR)}/permission`);
         assert(['admin', 'maintain', 'write'].includes(permission.permission), 'Dispatch actor is not a maintainer');
@@ -127,7 +132,7 @@ export async function main() {
         if (process.env.DRY_RUN === 'false' && evidence.approvals.length) {
           const fresh = await api(`pulls/${target.number}`);
           assert.equal(fresh.head.sha, pr.head.sha, 'PR head changed; no dismissal');
-          const current = await evidenceFor(fresh);
+          const current = await evidenceFor(fresh, requireSecurity);
           for (const id of evidence.approvals.filter(id => current.approvals.includes(id))) {
             await api(`pulls/${target.number}/reviews/${id}/dismissals`, 'PUT', {
               message: 'PR bot approval withdrawn: current Codex review or validation conditions no longer pass.',
@@ -140,7 +145,7 @@ export async function main() {
       if (process.env.DRY_RUN !== 'false') { console.log(`#${target.number}: eligible for approval (dry run)`); continue; }
       const fresh = await api(`pulls/${target.number}`);
       assert.equal(fresh.head.sha, pr.head.sha, 'PR head changed after evaluation; no approval');
-      assert.deepEqual(await evidenceFor(fresh), evidence, 'GPT review changed after evaluation; no approval');
+      assert.deepEqual(await evidenceFor(fresh, requireSecurity), evidence, 'GPT review changed after evaluation; no approval');
       const finalChecks = await pages(`commits/${pr.head.sha}/check-runs?filter=latest`, 'check_runs');
       const finalStatuses = await pages(`commits/${pr.head.sha}/status`, 'statuses');
       assert.equal(approvalBlocker(fresh, finalChecks, finalStatuses), null, 'Approval conditions changed after evaluation');
