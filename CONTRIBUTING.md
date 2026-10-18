@@ -155,10 +155,9 @@ CI selects work using [shared path rules](server/scripts/ci_scope.py):
 | App frontend or native code | App quality, macOS/Windows packages, Android APK and emulator; skip Service/Web checks |
 | Web frontend, service implementation, or service-only scripts | Service/Web checks and service image; skip App quality and all native builds |
 | Shared frontend code, AI contracts, shared fixtures, or build/check dependencies used by both components | Both workflows |
-| `app.yml` or `server.yml` | The corresponding workflow |
 | Release notes configuration or release template | App workflow |
-| Shared CI actions, scope selector, rulesets, dependency-update configuration, or release workflow | Both workflows |
-| Documentation, issue/PR templates, or bot labels/scripts/workflows | Skip heavy Service/App jobs; bot workflows retain their own tests |
+| Any workflow YAML, shared CI actions, scope selector, rulesets, or dependency-update configuration | Both workflows; cross-check selectors and privileged workflow safeguards |
+| Documentation, issue/PR templates, or bot labels/scripts | Skip heavy Service/App jobs; bot workflows retain their own tests |
 
 Mixed changes run the union of affected checks. App inputs also include the service dependency lock/manifest, build backend, and evaluation helper used by its contract/regression checks. Manual dispatch and release calls run all checks. The final `Service CI`, `Desktop CI`, and `Android CI` gates always run and verify deliberate skips and failures, so required checks still report a result. The [Service](.github/workflows/server.yml) and [App](.github/workflows/app.yml) workflows define commands, platform matrices, and retained diagnostics.
 

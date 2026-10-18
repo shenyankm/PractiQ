@@ -10,12 +10,13 @@ from fnmatch import fnmatchcase
 from pathlib import Path
 
 COMMON_INPUTS = (
-    ".github/actions/**", ".github/workflows/release.yml", ".github/main-ruleset.json",
+    # The unchanged workflow must validate edited selectors and privileged workflow YAML.
+    ".github/actions/**", ".github/workflows/**", ".github/main-ruleset.json",
     ".github/release-tag-*.json", ".github/dependabot.yml",
     "server/scripts/ci_scope.py", "Makefile", ".gitignore", "LICENSE",
 )
 APP_INPUTS = COMMON_INPUTS + (
-    ".github/workflows/app.yml", ".github/RELEASE_TEMPLATE.md", ".github/release.yml",
+    ".github/RELEASE_TEMPLATE.md", ".github/release.yml",
     "app/**", "shared/**", "rust-toolchain.toml", ".gitattributes",
     "server/src/practiq_ai/__init__.py", "server/src/practiq_ai/contracts.py",
     "server/pyproject.toml", "server/uv.lock", "server/build_backend.py", "server/conftest.py",
@@ -27,7 +28,6 @@ APP_INPUTS = COMMON_INPUTS + (
 )
 PATTERNS = {
     "service": COMMON_INPUTS + (
-        ".github/workflows/server.yml",
         "server/**", "web/**", "shared/**", "app/fixtures/**", "app/scripts/check-rich-recognition.py",
         "Dockerfile.server", ".dockerignore", ".env.example",
     ),
