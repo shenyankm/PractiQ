@@ -730,11 +730,11 @@ base('study setup retries failed statistics and manual pages without resetting s
  expect(errors).toEqual([]);
 });
 
-for (const colorScheme of ['light','dark']) {
- base(`answer-card status markers match the legend and preserve keyboard navigation in ${colorScheme} theme`,async ({page},testInfo)=>{
+for (const colorScheme of ['light','dark']) for (const width of [1280,390]) {
+ base(`answer-card status markers match the legend and preserve keyboard navigation in ${colorScheme} theme at ${width}px`,async ({page},testInfo)=>{
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
   await page.emulateMedia({colorScheme});
-  await page.setViewportSize({width:960,height:640});
+  await page.setViewportSize({width,height:844});
   await page.addInitScript(()=>{
    sessionStorage.setItem('practiq-preview','local');
    window.isTauri=false;
@@ -769,36 +769,78 @@ for (const colorScheme of ['light','dark']) {
   const grid=page.getByRole('region',{name:'答题卡',exact:true});
   await expect(grid.getByRole('button')).toHaveCount(8);
   await expect(page.locator('html')).toHaveClass(colorScheme==='dark'?/dark/:/^(?!.*dark)/);
-  const matrix=[['未作答','circle','未作答'],['已作答，未提交，待检查','pencil','草稿'],['草稿未完成','pencil','草稿'],['已提交，待判定','check','已提交'],['正确','check','已提交'],['错误','x','错误'],['已跳过','skip-forward','跳过'],['文本不完全一致','x','错误']];
-  for(const [index,[label,marker,legend]] of matrix.entries()) {
+  const helpButton=page.getByRole('button',{name:'答题卡状态说明',exact:true});
+  const help=page.getByRole('dialog',{name:'答题卡状态说明',exact:true});
+  await expect(help).toBeHidden();
+  await expect(helpButton).toHaveAttribute('aria-expanded','false');
+  await helpButton.click();
+  await expect(help).toBeVisible();
+  const helpBounds=await help.boundingBox();
+  expect(helpBounds.x).toBeGreaterThanOrEqual(0);
+  expect(helpBounds.x+helpBounds.width).toBeLessThanOrEqual(width);
+  expect(helpBounds.y).toBeGreaterThanOrEqual(0);
+  expect(helpBounds.y+helpBounds.height).toBeLessThanOrEqual(844);
+  await page.screenshot({path:testInfo.outputPath(`answer-card-help-${colorScheme}-${width}.png`)});
+  await help.screenshot({path:testInfo.outputPath(`answer-card-popover-${colorScheme}-${width}.png`)});
+  const matrix=[['未作答','circle','未作答','unanswered'],['已作答，未提交，待检查','pencil','已作答','answered'],['草稿未完成','pencil','草稿','draft'],['已提交，待判定','circle-dashed','待判定','pending'],['正确','check','正确','correct'],['错误','x','错误','incorrect'],['已跳过','skip-forward','跳过','skipped'],['文本不完全一致','x','错误','incorrect']];
+  for(const [index,[label,marker,legend,status]] of matrix.entries()) {
    const button=grid.getByRole('button',{name:`转到第 ${index+1} 题，${label}`,exact:true});
    const icon=button.locator(`svg.lucide-${marker}`);
    await expect(button).toBeVisible();
    await expect(button).toHaveText(String(index+1));
+   await expect(button).toHaveAttribute('data-answer-state',status);
+   expect(await button.evaluate(node=>node.getBoundingClientRect().height)).toBeGreaterThanOrEqual(width<768?48:40);
    await expect(icon).toBeVisible();
    await expect(icon).toHaveAttribute('aria-hidden','true');
-   await expect(page.locator('p > span').filter({hasText:legend}).locator(`svg.lucide-${marker}`)).toBeVisible();
+   await expect(help.locator('p > span').filter({hasText:legend}).locator(`svg.lucide-${marker}`)).toBeVisible();
    const fits=await button.evaluate(element=>{const box=element.getBoundingClientRect();return [...element.children].every(child=>{const rect=child.getBoundingClientRect();return rect.left>=box.left&&rect.right<=box.right&&rect.top>=box.top&&rect.bottom<=box.bottom;});});
    expect(fits).toBe(true);
   }
+  await page.keyboard.press('Escape');
+  await expect(help).toBeHidden();
+  await expect(helpButton).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(help).toBeVisible();
+  await help.getByRole('button',{name:'关闭',exact:true}).click();
+  await expect(help).toBeHidden();
+  await helpButton.click();
+  await page.getByText('答题卡',{exact:true}).click();
+  await expect(help).toBeHidden();
   const current=grid.getByRole('button',{name:'转到第 1 题，未作答',exact:true});
+  const colors=await grid.getByRole('button').evaluateAll(nodes=>{
+   const context=document.createElement('canvas').getContext('2d',{willReadFrequently:true});
+   const luminance=color=>{
+    context.fillStyle=color;context.fillRect(0,0,1,1);
+    const channels=[...context.getImageData(0,0,1,1).data].slice(0,3).map(value=>{const s=value/255;return s<=0.04045?s/12.92:((s+0.055)/1.055)**2.4;});
+    return channels.reduce((sum,value,index)=>sum+value*[0.2126,0.7152,0.0722][index],0);
+   };
+   const contrast=(first,second)=>(Math.max(first,second)+0.05)/(Math.min(first,second)+0.05);
+   return nodes.map(node=>{const style=getComputedStyle(node),background=luminance(style.backgroundColor);return {background:style.backgroundColor,text:contrast(luminance(style.color),background),border:contrast(luminance(style.borderColor),background)};});
+  });
+  expect(new Set(colors.slice(0,6).map(color=>color.background)).size).toBe(6);
+  for(const color of colors){expect(color.text).toBeGreaterThanOrEqual(4.5);expect(color.border).toBeGreaterThanOrEqual(3);}
   await expect(current).toHaveAttribute('aria-current','step');
   await expect(current).toHaveCSS('text-decoration-line','underline');
   const flagged=grid.getByRole('button',{name:'转到第 2 题，已作答，未提交，待检查',exact:true});
-  await expect(flagged).toHaveCSS('outline-width','2px');
-  await expect(flagged).toHaveCSS('outline-style','solid');
+  await expect(flagged.locator('svg.lucide-flag')).toBeVisible();
+  const answerColor=await flagged.evaluate(node=>getComputedStyle(node).backgroundColor);
   await current.focus();
   await page.keyboard.press('Tab');
   await expect(flagged).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(page.getByRole('heading',{name:'第 2 / 8 题',exact:true})).toBeFocused();
   await expect(flagged).toHaveAttribute('aria-current','step');
+  await expect(flagged).toHaveCSS('outline-width','2px');
+  await expect(flagged).toHaveCSS('outline-style','solid');
+  await expect(flagged).toHaveCSS('background-color',answerColor);
+  await expect(flagged.locator('svg.lucide-flag')).toBeVisible();
   await page.getByRole('button',{name:'定位当前题',exact:true}).focus();
   await page.keyboard.press('Enter');
   await expect(flagged).toBeFocused();
   await page.keyboard.press('Space');
   await expect(page.getByRole('heading',{name:'第 2 / 8 题',exact:true})).toBeVisible();
-  await page.screenshot({path:testInfo.outputPath(`answer-card-markers-${colorScheme}.png`)});
+  await page.screenshot({path:testInfo.outputPath(`answer-card-markers-${colorScheme}-${width}.png`)});
+  await grid.locator('xpath=ancestor::*[@data-slot="card"][1]').screenshot({path:testInfo.outputPath(`answer-card-colors-${colorScheme}-${width}.png`)});
   expect(errors).toEqual([]);
  });
 }

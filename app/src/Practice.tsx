@@ -15,7 +15,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Check, X, SkipForward, Pencil, Circle, ArrowUpToLine, ArrowDownToLine, LocateFixed, type LucideIcon } from "lucide-react";
+import { Popover } from "radix-ui";
+import { Info, Check, X, SkipForward, Pencil, Circle, CircleDashed, CircleDot, Flag, ArrowUpToLine, ArrowDownToLine, LocateFixed } from "lucide-react";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel } from "@/components/ui/alert-dialog";
 import { Content, Markdown } from "./Content";
 import { AnswerInput, AnswerDisplay } from "./AnswerInput";
@@ -440,35 +441,44 @@ function hasAnswer(value: unknown): boolean {
   return true;
 }
 
-function answerState(a: Attempt, draft: Answer | null, exam: boolean) {
-    if (a.skipped) return t("已跳过");
+const answerCardStates = {
+  unanswered: { label: "未作答", Marker: Circle },
+  answered: { label: "已作答", Marker: Pencil },
+  draft: { label: "草稿", Marker: Pencil },
+  correct: { label: "正确", Marker: Check },
+  incorrect: { label: "错误", Marker: X },
+  pending: { label: "待判定", Marker: CircleDashed },
+  partial: { label: "部分得分", Marker: CircleDot },
+  skipped: { label: "跳过", Marker: SkipForward },
+} as const;
+type AnswerCardStatus = keyof typeof answerCardStates;
+
+function answerState(a: Attempt, draft: Answer | null, exam: boolean): { status: AnswerCardStatus; label: string } {
+    if (a.skipped) return { status: "skipped", label: t("已跳过") };
     if (a.submittedAt != null) {
-      if (a.result === true) return t("正确");
-      if (a.result === false) return exam ? (a.earnedCents || 0) > 0 ? t("部分得分") : t("未得满分") : a.snapshot.question.answerMode === "fill_blank" && a.gradeKind === "auto" ? t("文本不完全一致") : t("错误");
-      return t("已提交，待判定");
+      if (a.result === true) return { status: "correct", label: t("正确") };
+      if (a.result === false) return exam && (a.earnedCents || 0) > 0
+        ? { status: "partial", label: t("部分得分") }
+        : { status: "incorrect", label: exam ? t("未得满分") : a.snapshot.question.answerMode === "fill_blank" && a.gradeKind === "auto" ? t("文本不完全一致") : t("错误") };
+      return { status: "pending", label: t("已提交，待判定") };
     }
-    if (answerReady(canInteract(a.snapshot.question) ? a.snapshot.question : { ...a.snapshot.question, answerMode: "short_answer" }, draft)) return t("已作答，未提交");
-    if (hasAnswer(draft)) return t("草稿未完成");
-    return t("未作答");
+    if (answerReady(canInteract(a.snapshot.question) ? a.snapshot.question : { ...a.snapshot.question, answerMode: "short_answer" }, draft)) return { status: "answered", label: t("已作答，未提交") };
+    if (hasAnswer(draft)) return { status: "draft", label: t("草稿未完成") };
+    return { status: "unanswered", label: t("未作答") };
   }
 
-function answerMarker(a: Attempt, draft: Answer | null): LucideIcon {
-  if (a.skipped) return SkipForward;
-  if (a.submittedAt != null) return a.result === false ? X : Check;
-  return hasAnswer(draft) ? Pencil : Circle;
-}
-
-const AnswerCardItem = memo(function AnswerCardItem({ordinal, current, state, Marker, answered, flagged, variant, go}: {
-  ordinal: number; current: boolean; state: string; answered: boolean; flagged: boolean;
-  Marker: LucideIcon;
-  variant: "default" | "destructive" | "secondary" | "outline"; go: (position: number) => void;
+const AnswerCardItem = memo(function AnswerCardItem({ordinal, current, state, status, flagged, go}: {
+  ordinal: number; current: boolean; state: string; status: AnswerCardStatus; flagged: boolean;
+  go: (position: number) => void;
 }) {
   useI18n();
+  const Marker = answerCardStates[status].Marker;
   return (
                 <Button
                   size="sm"
-                  variant={variant}
-                  className={`relative h-auto min-h-10 flex-col gap-0 px-1 py-1 ${current ? "underline decoration-2 underline-offset-4" : answered ? "answer-card-answered" : ""} ${flagged ? "answer-card-flagged" : ""}`}
+                  variant="outline"
+                  data-answer-state={status}
+                  className="answer-card-item relative h-auto min-h-10 flex-col gap-0 px-1 py-1"
                   aria-current={current ? "step" : undefined}
                   aria-label={t("转到第 {0} 题，{1}{2}", { 0: ordinal + 1, 1: state, 2: flagged ? t("，待检查") : "" })}
                   title={`${state}${flagged ? t("，待检查") : ""}`}
@@ -476,6 +486,7 @@ const AnswerCardItem = memo(function AnswerCardItem({ordinal, current, state, Ma
                 >
                   <span>{ordinal + 1}</span>
                   <Marker className="size-3" aria-hidden="true" focusable="false"/>
+                  {flagged && <Flag className="answer-card-flag size-3" aria-hidden="true" focusable="false"/>}
                 </Button>
   );
 });
@@ -496,8 +507,27 @@ const AnswerCard = memo(function AnswerCard({session, answer, exam, go}: {
   useEffect(() => { revealCurrent(); }, [session.position, revealCurrent]);
   return (
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between gap-2">
             <CardTitle>{t("答题卡")}</CardTitle>
+            <Popover.Root>
+              <Popover.Trigger asChild>
+                <Button variant="ghost" size="icon" aria-label={t("答题卡状态说明")} title={t("答题卡状态说明")}><Info/></Button>
+              </Popover.Trigger>
+              <Popover.Portal>
+                <Popover.Content className="answer-card-help z-50" align="end" sideOffset={8} collisionPadding={12} aria-label={t("答题卡状态说明")}>
+                  <div className="mb-3 flex items-center justify-between gap-2">
+                    <h3 className="text-sm font-semibold">{t("答题卡状态说明")}</h3>
+                    <Popover.Close asChild><Button variant="ghost" size="icon" aria-label={t("关闭")}><X/></Button></Popover.Close>
+                  </div>
+                  <p className="answer-card-legend grid grid-cols-2 gap-x-2 gap-y-2 text-xs text-muted-foreground">
+                    {Object.entries(answerCardStates).filter(([status]) => exam || status !== "partial").map(([status, { label, Marker }]) => <span key={status} className="flex items-center gap-1.5"><span className="answer-card-swatch" data-answer-state={status}><Marker className="size-3" aria-hidden="true"/></span>{t(status === "incorrect" && exam ? "未得满分" : label)}</span>)}
+                    <span className="flex items-center gap-1.5"><span className="answer-card-swatch answer-card-current"><LocateFixed className="size-3" aria-hidden="true"/></span>{t("当前题")}</span>
+                    <span className="flex items-center gap-1.5"><span className="answer-card-swatch answer-card-review"><Flag className="size-3" aria-hidden="true"/></span>{t("待检查")}</span>
+                  </p>
+                  <Popover.Arrow className="answer-card-help-arrow"/>
+                </Popover.Content>
+              </Popover.Portal>
+            </Popover.Root>
           </CardHeader>
           <CardContent>
             <div className="mb-3 flex gap-2">
@@ -506,14 +536,14 @@ const AnswerCard = memo(function AnswerCard({session, answer, exam, go}: {
               <Button variant="outline" size="icon" aria-label={t("转到最后一题")} title={t("转到最后一题")} disabled={session.position === session.attempts.length - 1} onClick={() => go(session.attempts.length - 1)}><ArrowDownToLine/></Button>
             </div>
             <progress className="practice-progress mb-3" aria-label={exam ? t("作答进度") : t("提交进度")} max={Math.max(1, session.attempts.length)} value={session.attempts.filter(a => exam ? hasAnswer(a.ordinal === session.position ? answer : a.answer) : a.submittedAt != null).length}/>
-            <div id="answer-card" ref={grid} role="region" aria-label={t("答题卡")} tabIndex={0} className="answer-card-grid relative grid max-h-[min(45vh,24rem)] grid-cols-4 gap-2 overflow-y-auto rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <div id="answer-card" ref={grid} role="region" aria-label={t("答题卡")} tabIndex={0} className="answer-card-grid relative grid max-h-[min(45vh,24rem)] grid-cols-4 gap-2 overflow-y-auto rounded-sm p-1 outline-none focus-visible:ring-2 focus-visible:ring-ring">
               {session.attempts.map(a => {
                 const current = a.ordinal === session.position;
                 const draft = current ? answer : a.answer;
-                return <AnswerCardItem key={a.ordinal} ordinal={a.ordinal} current={current} state={answerState(a, draft, exam)} Marker={answerMarker(a, draft)} answered={!current && !a.skipped && a.result !== false && hasAnswer(draft)} flagged={!!a.flagged} variant={current ? "default" : a.result === false && !(exam && (a.earnedCents || 0) > 0) ? "destructive" : a.submittedAt ? "secondary" : "outline"} go={go}/>;
+                const state = answerState(a, draft, exam);
+                return <AnswerCardItem key={a.ordinal} ordinal={a.ordinal} current={current} state={state.label} status={state.status} flagged={!!a.flagged} go={go}/>;
               })}
             </div>
-            <p className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground"><span className="flex items-center gap-1"><Circle className="size-3" aria-hidden="true"/>{t("未作答")}</span><span className="flex items-center gap-1"><Pencil className="size-3" aria-hidden="true"/>{t("草稿")}</span><span className="flex items-center gap-1"><Check className="size-3" aria-hidden="true"/>{t("已提交")}</span><span className="flex items-center gap-1"><X className="size-3" aria-hidden="true"/>{exam ? t("未得满分") : t("错误")}</span><span className="flex items-center gap-1"><SkipForward className="size-3" aria-hidden="true"/>{t("跳过")}</span></p>
             <p className="mt-4 text-xs leading-5 text-muted-foreground">{t("{0} {1} / {2}。草稿自动保存，可随时离开后继续。", { 0: exam ? t("已作答") : t("已提交"), 1: session.attempts.filter((a) => exam ? hasAnswer(a.ordinal === session.position ? answer : a.answer) : a.submittedAt != null).length, 2: session.attempts.length })}</p>
             <Button asChild variant="ghost" className="mt-3 w-full"><a href="#current-question">{t("返回当前题")}</a></Button>
           </CardContent>
