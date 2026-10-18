@@ -255,7 +255,8 @@ test('AI assesses missing priorities and topics while explicit form classificati
   assert.deepEqual(fixture.issue.labels.map(label => label.name), ['enhancement', 'area:build', 'P1', 'topic:testing', 'accessibility']);
   assert.equal(fixture.modelCalls[0].model, 'configured-model');
   assert.equal(fixture.modelCalls[0].max_tokens, 750);
-  assert.deepEqual(fixture.modelCalls[0].thinking, { type: 'disabled' });
+  assert.equal(fixture.modelCalls[0].enable_thinking, false);
+  assert.equal(fixture.modelCalls[0].thinking, undefined);
   assert.deepEqual(fixture.modelCalls[0].response_format, { type: 'json_object' });
   assert.equal(fixture.modelCalls[0].tools, undefined);
   assert(!JSON.stringify(fixture.modelCalls[0]).includes('test-token'));

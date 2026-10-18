@@ -39,7 +39,7 @@ jobs:
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-22.04
     timeout-minutes: 5
-    environment: practiq-agent
+    environment: PractiQ Issue
     permissions:
       contents: read
       issues: write
@@ -53,7 +53,7 @@ jobs:
       - name: Synchronize labels or classify an issue
         env:
           GH_TOKEN: ${{ github.token }}
-          PRACTIQ_AGENT_API_KEY: ${{ secrets.PRACTIQ_AGENT_API_KEY }}
-          PRACTIQ_AGENT_BASE_URL: ${{ vars.PRACTIQ_AGENT_BASE_URL }}
-          PRACTIQ_AGENT_MODEL: ${{ vars.PRACTIQ_AGENT_MODEL }}
+          PRACTIQ_AGENT_API_KEY: ${{ secrets.API_KEY }}
+          PRACTIQ_AGENT_BASE_URL: ${{ secrets.BASE_URL }}
+          PRACTIQ_AGENT_MODEL: ${{ secrets.MODEL }}
         run: node .github/scripts/issue-labeler.mjs
