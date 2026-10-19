@@ -887,6 +887,7 @@ class ReviewUnit(StrictModel):
     groups: list[ParsedGroup | DocumentGroup]
     visualElements: list[VisualElement | DocumentVisual] = Field(default_factory=list)
     sourceRef: ArtifactReference | None = None
+    evidenceRef: ArtifactReference | None = None
 
 
 class DocumentTaskReview(StrictModel):

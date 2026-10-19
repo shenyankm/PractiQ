@@ -227,3 +227,15 @@ def test_load_accepts_exact_scratch_capacity_and_rejects_one_byte_more(monkeypat
     monkeypatch.setenv('AI_MAX_VISION_BYTES', '53411841')
     with pytest.raises(ValueError, match='scratch budget'):
         config.load()
+
+
+@pytest.mark.parametrize('value', ['301', '1000'])
+def test_page_configuration_rejects_provider_ceiling_overflow(monkeypatch, value):
+    _env(monkeypatch, AI_MAX_DOCUMENT_PAGES=value)
+    with pytest.raises(ValueError, match='300-page limit'):
+        config.load()
+
+
+def test_page_configuration_accepts_provider_ceiling(monkeypatch):
+    _env(monkeypatch, AI_MAX_DOCUMENT_PAGES='300')
+    assert config.load().max_document_pages == 300

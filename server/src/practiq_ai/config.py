@@ -121,6 +121,9 @@ def load() -> Config:
     tencent_input_max_bytes = _positive_int(values, "AI_TENCENT_INPUT_MAX_BYTES", 150 * MIB)
     if not 4 <= tencent_input_max_bytes <= 150 * MIB:
         raise ValueError("AI_TENCENT_INPUT_MAX_BYTES must be between 4 and 157286400")
+    max_document_pages = _positive_int(values, "AI_MAX_DOCUMENT_PAGES", 100)
+    if max_document_pages > 300:
+        raise ValueError("AI_MAX_DOCUMENT_PAGES must not exceed Tencent's 300-page limit")
     cos_enabled = values.get("AI_TENCENT_COS_ENABLED", "false").strip().lower()
     if cos_enabled not in {"true", "false"}:
         raise ValueError("AI_TENCENT_COS_ENABLED must be true or false")
@@ -205,7 +208,7 @@ def load() -> Config:
         storage_dir=storage_path(storage_dir),
         source_max_bytes=source_max_bytes,
         vision_max_bytes=vision_max_bytes,
-        max_document_pages=_positive_int(values, "AI_MAX_DOCUMENT_PAGES", 100),
+        max_document_pages=max_document_pages,
         max_vision_page_pixels=_positive_int(
             values, "AI_MAX_VISION_PAGE_PIXELS", 25_000_000
         ),

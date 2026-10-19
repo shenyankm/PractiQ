@@ -2682,6 +2682,17 @@
               }
             ],
             "default": null
+          },
+          "evidenceRef": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ArtifactReference"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
           }
         },
         "required": [

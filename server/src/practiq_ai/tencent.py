@@ -232,6 +232,14 @@ async def parse_job(reference: ArtifactReference, runtime: Runtime[Any], *, key:
             result = JobResult.model_validate(await request("DescribeMultimodalDocParseJob", {"TaskId": record["taskId"]}, config)).model_dump()
         except ValidationError as exc:
             raise DocumentProcessingError(502, "Tencent returned invalid job metadata", "TENCENT_RESULT_INVALID") from exc
+        except DocumentProcessingError as exc:
+            if exc.code != "TENCENT_REQUEST_REJECTED":
+                raise
+            if isinstance(exc, RequestRejected):
+                record["queryRequestId"] = exc.request_id
+                await store_put(runtime, "tencent_jobs", key, record)
+            raise DocumentProcessingError(502, "Tencent query was rejected; resume polling the saved task after correcting the cause",
+                                          "TENCENT_QUERY_REJECTED") from exc
         status = result.get("Status")
         if status not in {"Created", "Processing", "Success", "Failed", "Unknown"}:
             raise DocumentProcessingError(502, "Tencent returned an invalid task status", "TENCENT_RESULT_INVALID")

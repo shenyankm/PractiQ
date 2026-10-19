@@ -601,6 +601,11 @@ async def review_task(thread_id: str) -> dict[str, Any]:
     for refs, stage in (('pageRefs', 'vision_parse'), ('chunkRefs', 'document_parse')):
         units.extend({'stage': stage, 'index': index, 'questions': [], 'groups': [], 'sourceRef': reference}
                      for index, reference in enumerate(values.get(refs, [])) if (stage, index) not in present)
+    evidence = values.get('ocrPageRefs', [])
+    for unit in units:
+        index = unit['index']
+        if unit['stage'] == 'vision_parse' and index < len(evidence) and evidence[index] != unit.get('sourceRef'):
+            unit['evidenceRef'] = evidence[index]
     processing = values.get('processing', {})
     return DocumentTaskReview.model_validate({
         'document': _task['document'] if {'objectKey', 'sha256', 'sizeBytes', 'mediaType'} <= _task['document'].keys() else None,

@@ -111,7 +111,7 @@ same way. Markdown output is bounded UTF-8 source evidence, never rendered HTML;
 unsafe paths, ambiguous full-document files and malformed archives fail closed.
 
 All parts pass individual size, part-count and total visual-byte checks before
-the first job. The configured document-page limit also bounds the number of
+the first job. The configured document-page limit cannot exceed Tencent's 300-page ceiling and also bounds the number of
 parts and the combined returned pages. Direct Office requests set
 `FileEndPageNumber` to that configured limit before paid submission. A live
 XLSX check showed that Tencent can still return multiple sheets with an end-page
@@ -138,7 +138,8 @@ succeeds but its response or local receipt is lost, the saved intent remains
 resubmission. Check Tencent-side records before explicitly parsing again; another
 submission may charge again. Local run cancellation cannot cancel cloud work
 through these two APIs. Terminal rejection, unknown submission without a task ID,
-and terminal job failure do not offer Resume; inspect the retained evidence before
+and terminal job failure do not offer Resume; query rejections with a saved
+task ID remain resumable without another paid submission; inspect the retained evidence before
 explicitly parsing again.
 An explicit provider rejection is saved as `REJECTED`, separate from an unknown
 network outcome. Both require explicit recovery rather than automatic submission.
@@ -154,7 +155,9 @@ a page failure and remains available for human partial-result review; the task
 must not claim complete recognition. Semantic retries reuse stored OCR evidence.
 Retrying Tencent recognition requires an explicit new parsing action.
 
-The authenticated preview includes the retained original document reference. The
+The authenticated preview includes the retained original document reference.
+Visual review units expose separate rendered-source and OCR-evidence references;
+both use authenticated, task-scoped, checksum-verified artifact downloads. The
 Web review panel can download that checksum-verified original and explicitly
 read saved OCR JSON/text as inert source evidence. These passive reads, including
 after restart or in read-only mode, never submit Tencent or model work.

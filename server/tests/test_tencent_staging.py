@@ -274,3 +274,30 @@ async def test_cleanup_failure_keeps_prepare_incomplete_until_explicit_resume(mo
     assert (await task_api.get_task(created['threadId']))['state'] == 'COMPLETED'
     assert len(model.calls) == upload.await_count == 1 and delete.await_count == 2
     assert calls == ['SubmitMultimodalDocParseJob','DescribeMultimodalDocParseJob']
+
+
+@pytest.mark.usefixtures('disposable_databases')
+async def test_query_rejection_resumes_saved_task_without_another_submission(monkeypatch):
+    from uuid import uuid4
+
+    from practiq_ai import task_api
+    from practiq_ai.contracts import DocumentTaskControl, DocumentTaskCreate
+    from tests.db_support import setup_api
+    service, reference, model = await setup_api(monkeypatch)
+    original = tencent.request
+    actions = []
+    async def request(action, data, settings):
+        actions.append(action)
+        if action == 'DescribeMultimodalDocParseJob' and actions.count(action) == 1:
+            raise tencent.RequestRejected('AuthFailure.SignatureFailure', 'query-request')
+        return await original(action, data, settings)
+    monkeypatch.setattr(tencent, 'request', request)
+    created = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
+    await service.wait_idle()
+    failed = await task_api.get_task(created['threadId'])
+    assert failed['state'] == 'FAILED' and failed['blocking'] == ['TENCENT_QUERY_REJECTED']
+    assert failed['allowedActions'] == ['resume'] and failed['parserJobs'][0]['taskId'] and not model.calls
+    await task_api.control_task(created['threadId'], DocumentTaskControl(requestId=uuid4(), action='resume', checkpointId=failed['checkpointId']))
+    await service.wait_idle()
+    assert (await task_api.get_task(created['threadId']))['state'] == 'COMPLETED'
+    assert actions.count('SubmitMultimodalDocParseJob') == 1 and len(model.calls) == 1

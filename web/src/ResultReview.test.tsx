@@ -7,11 +7,11 @@ import { Client } from "./api";
 import { material, preview, question, task } from "./test-fixtures";
 import htmlBlocks from "../../app/fixtures/rich-content/html-blocks.json";
 
-it("loads Office OCR evidence only on demand and renders source markup as inert text", async () => {
+it.each(["sourceRef", "evidenceRef"] as const)("loads %s OCR evidence only on demand and renders source markup as inert text", async (field) => {
   const literal = '<script>window.injected=true</script>\\nOCR source';
   const evidence = vi.spyOn(Client.prototype, "evidence").mockResolvedValue({ text: async () => literal } as Blob);
   const reference = { objectKey: "managed-ocr", sha256: "a".repeat(64), sizeBytes: literal.length, mediaType: "application/json" };
-  const checkpoint = { ...preview, units: [{ ...preview.units[0], sourceRef: reference, visualElements: [] }] };
+  const checkpoint = { ...preview, units: [{ ...preview.units[0], sourceRef: undefined, [field]: reference, visualElements: [] }] };
   const { container } = render(<ResultReview task={task} preview={checkpoint} client={new Client("fake")} />);
   await userEvent.click(screen.getByRole("button", { name: "来源与资源" }));
   expect(evidence).not.toHaveBeenCalled();
