@@ -42,6 +42,23 @@ it("keeps the submitted fill response literal while rendering reference Markdown
   expect(container.querySelector("strong")?.textContent).toBe("Reference");
 });
 
+it.each([{options:[]},{options:[{label:"A",content:"Only imported option"}]}])("retains free-text fallback responses for incomplete choices: %j", ({options}) => {
+  const value="<example>**Preserved response**</example>";
+  const {container}=render(<AnswerReview question={{...blankQuestion(),options}} answer={{text:value}}/>);
+  expect(container.textContent).toContain(value);
+  expect(container.querySelector("example, strong")).toBeNull();
+});
+
+it("labels missing slots in partial fill review without trimming saved text", () => {
+  render(<AnswerReview question={{...blankQuestion(),answerMode:"fill_blank",blankCount:3}} answer={{answers:["  saved\ntext  ",""," \n "]}}/>);
+  expect(screen.getAllByRole("listitem").map(item=>item.textContent)).toEqual(["  saved\ntext  ","未作答","未作答"]);
+});
+
+it("labels whitespace-only fill responses in reference comparison", () => {
+  render(<AnswerDisplay question={{...blankQuestion(),answerMode:"fill_blank"}} answer={{answers:["Reference"]}} response={{answers:[" \n "]}}/>);
+  expect(screen.getAllByText("未作答")).toHaveLength(2);
+});
+
 it("adds blank inputs only when the source leaves the count open", async () => {
   const user = userEvent.setup();
   const question = { ...blankQuestion(), answerMode: "fill_blank" as const, blankCount: null, choiceVariant: null, options: [] };
