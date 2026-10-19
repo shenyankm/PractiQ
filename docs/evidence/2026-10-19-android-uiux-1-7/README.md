@@ -52,3 +52,13 @@ The original index's `016` caption said “scoring details”, while its screens
 - Database and encrypted credential snapshots remain outside the repository in a private local temporary directory. They are not included in this evidence gallery.
 
 Preliminary captures and failure evidence are retained locally (excluded from this PR) in `round1-pre-fix/`, `round2-pre-fix/`, `round3-pre-final/` and `browser-layout-failure/`. They are diagnostic archives, not the accepted gallery. The final gallery is `after/`; the authoritative package report is `android-package-final-anchor.json`.
+
+## PR CI follow-up
+
+The first remote App quality run passed frontend/contract checks but found eight failures in the complete browser suite. Material tests still expected the old dialog, screenshot capture still assumed the outer scroll container and an always-present action bar, and the new answer-card panel anchor did not receive keyboard focus.
+
+The panel now accepts focus with a visible keyboard focus ring. Browser checks use the inline material region, actual mobile/desktop scrolling container and independent navigation footer, and verify focused card entry with its legend in view at 375, 768 and 1440 px. The answer-hiding assertion remains in place.
+
+`npm --prefix app run check:ui` passed again: 423 tests, one existing opt-in benchmark skipped; see [check-ui-followup.txt](check-ui-followup.txt). `npm --prefix app run test:browser -- --project rich-content --grep 'all question layouts'` passed all four answering/reference layouts at 390×844 and 1280×720; see [responsive-followup.txt](responsive-followup.txt). The three workspace-focus cases and inline answer-hiding case also passed during focused reproduction. Full-suite and current-head remote results are tracked on PR #302.
+
+The screenshot/APK/source manifests above retain their original acceptance identities. They precede this keyboard-focus attribute correction; no replacement native gallery is claimed for the follow-up. No data or native-command changes were added.

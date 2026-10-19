@@ -502,7 +502,7 @@ const AnswerCard = memo(function AnswerCard({session, answer, exam, go}: {
   }, []);
   useEffect(() => { revealCurrent(); }, [session.position, revealCurrent]);
   return (
-        <Card id="answer-card-panel">
+        <Card id="answer-card-panel" tabIndex={-1} className="outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <CardHeader className="flex flex-row items-center justify-between gap-2">
             <CardTitle>{t("答题卡")}</CardTitle>
             <Popover.Root>

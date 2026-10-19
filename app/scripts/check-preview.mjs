@@ -565,7 +565,7 @@ test('preview nested word-bank answers use inherited choices offline',async ({pa
  await expect(page.getByRole('status',{name:'答题状态',exact:true})).toHaveText('第 3 题：回答正确');
 });
 
-test('preview material dialog hides ancestor answer passage before submission',async ({page})=>{
+test('preview inline material hides ancestor answer passage before submission',async ({page})=>{
  await page.goto('/');
  await page.evaluate(async()=>{
   const {invoke}=await import('/src/transport.ts');
@@ -585,9 +585,9 @@ test('preview material dialog hides ancestor answer passage before submission',a
  await page.getByRole('button',{name:'立即开始',exact:true}).click();
  await page.getByRole('region',{name:'答题卡',exact:true}).getByRole('button',{name:/^转到第 3 题，未作答/}).click();
  await page.getByRole('button',{name:'查看原文',exact:true}).click();
- const dialog=page.getByRole('dialog');
- await expect(dialog.getByText('Visible preview material marker',{exact:true})).toBeVisible();
- await expect(dialog.getByText('Hidden preview solution marker',{exact:true})).toBeHidden();
+ const material=page.getByRole('region',{name:'题目材料',exact:true});
+ await expect(material.getByText('Visible preview material marker',{exact:true})).toBeVisible();
+ await expect(material.getByText('Hidden preview solution marker',{exact:true})).toBeHidden();
  const source=await page.evaluate(async()=>{
   const {invoke}=await import('/src/transport.ts');
   const result=await invoke('request',{request:{type:'questions_page',bank_ids:['preview-bank-2'],search:'',mode:'reading',filter:'',offset:0,limit:20}});
