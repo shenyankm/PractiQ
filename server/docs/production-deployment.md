@@ -68,9 +68,6 @@ loads the image from stdin, and updates only the AI container. It never executes
 repository scripts supplied through SSH. Changes to the root-owned host receiver,
 Compose files, Caddy or infrastructure require a separate operator update.
 
-The temporary bootstrap branch trigger validates the initial pipeline without
-allowing that branch to deploy automatically; remove it after commissioning.
-
 ## Recovery and limitations
 
 The receiver retains the previous image setting and restores it if container

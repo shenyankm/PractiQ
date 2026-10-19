@@ -4,13 +4,13 @@ practiq.shenyankm.com {
     @grading path /api/subjective-grades /api/subjective-grades/
     handle @grading {
         request_body {
-            max_size 32MB
+            max_size 32MiB
         }
         reverse_proxy 127.0.0.1:8090
     }
     handle {
         request_body {
-            max_size 26MB
+            max_size 26MiB
         }
         reverse_proxy 127.0.0.1:8090
     }
