@@ -638,3 +638,6 @@ def test_android_ci_builds_shared_frontend_once_and_only_packages_final_apks():
         assert 'gh run download "$GITHUB_RUN_ID"' in commands
         assert "--name android-frontend --dir app/dist" in commands
         assert job["permissions"] == {"contents": "read", "actions": "read"}
+
+    release_jobs = yaml.load((root / ".github/workflows/release.yml").read_text(), Loader=yaml.BaseLoader)["jobs"]
+    assert release_jobs["apps"]["permissions"]["actions"] == "read"

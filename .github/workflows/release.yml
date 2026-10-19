@@ -54,6 +54,7 @@ jobs:
   apps:
     needs: candidate
     permissions:
+      actions: read
       contents: read
       pull-requests: read
     uses: ./.github/workflows/app.yml

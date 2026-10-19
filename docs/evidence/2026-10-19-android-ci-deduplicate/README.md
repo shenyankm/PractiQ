@@ -6,6 +6,7 @@ The arm64 package check and API 35 x86_64 emulator remain independent jobs feedi
 
 - Red/green regression: the new bootstrap/workflow checks first failed against the old pipeline, then passed after implementation.
 - [Workflow, scope, release, package, license and bootstrap regressions](quality-tests.txt): **776 passed**, including the required native-build guard. The two warnings come from deliberate duplicate-class ZIP fixtures.
+- Review follow-up: the release caller grants `actions: read` to its reusable App workflow so both Android jobs can download the same-run frontend artifact. A regression fails without the caller permission.
 - Ruff (`--target-version py314`) and `git diff --check`: passed.
 - [Production frontend build](frontend-build.txt): passed.
 - [Native arm64 bootstrap](bootstrap-arm64.txt): passed from a worktree without generated Gradle bindings. It created both plugin binding files and produced no APK. The worktree reused the local Cargo target cache; this is not a cold-cache timing benchmark.
@@ -19,3 +20,5 @@ The arm64 package check and API 35 x86_64 emulator remain independent jobs feedi
 [checks.json](checks.json) records the removed command counts: four production frontend builds become one, and four APK packaging passes become two. Each ABI still needs native plugin discovery, runtime notice verification, its final package and its separate gate. No end-to-end timing improvement or byte-identical APK claim is made across hosts/profiles.
 
 The tracked Android host sources remained unchanged through the real bootstrap/build. No local app was installed, launched, uninstalled or cleared. Existing practice data, credentials and unrelated worktree evidence were not touched. Build outputs, dependency symlinks and the APK itself are excluded from this contribution.
+
+Review follow-up validation: `PRACTIQ_REQUIRE_NATIVE_BUILD_GUARD=1 python3.14 -m pytest server/tests/test_ci.py server/tests/test_release_checks.py server/tests/test_release_workflow.py server/tests/test_android_bootstrap.py -q` passed **395 tests**. The added caller-permission assertion first failed with `KeyError: actions`, then passed with the release permission in place. No release was published or workflow dispatched during this verification.
