@@ -4,12 +4,12 @@ services:
     build:
       context: ../..
       dockerfile: Dockerfile.server
-    image: practiq-ai:local
+    image: ${PRACTIQ_IMAGE:-practiq-ai:local}
     restart: unless-stopped
     network_mode: host
     init: true
     user: "10001:10001"
-    env_file: ../../.env
+    env_file: ${PRACTIQ_ENV_FILE:-../../.env}
     environment:
       N_JOBS_PER_WORKER: "2"
       AI_STORAGE_DIR: /var/lib/practiq

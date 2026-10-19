@@ -1,5 +1,7 @@
 # Operate the open-source LangGraph service
 
+For the hosted domain and GitHub Actions rollout, see [production deployment](production-deployment.md).
+
 The runtime uses a single FastAPI/Uvicorn process, open-source LangGraph, and PostgreSQL. It requires neither Agent Server, Redis, nor a LangSmith runtime license. Parsing, subjective grading, and infrastructure costs are separate. This guide covers startup, backup, recovery, and maintenance for the independent service; see the [project overview](../../README.md) for desktop data management.
 
 ## Initialize and start

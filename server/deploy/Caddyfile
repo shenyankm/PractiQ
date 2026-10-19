@@ -1,0 +1,18 @@
+# Append this site to the host's Caddyfile; preserve all existing sites.
+practiq.shenyankm.com {
+    encode zstd gzip
+    @grading path /api/subjective-grades /api/subjective-grades/
+    handle @grading {
+        request_body {
+            max_size 32MB
+        }
+        reverse_proxy 127.0.0.1:8090
+    }
+    handle {
+        request_body {
+            max_size 26MB
+        }
+        reverse_proxy 127.0.0.1:8090
+    }
+    header Strict-Transport-Security "max-age=31536000"
+}
