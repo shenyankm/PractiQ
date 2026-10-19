@@ -539,3 +539,19 @@ async def test_terminal_tencent_failure_has_no_resume_action(monkeypatch, code):
     assert detail['state'] == 'FAILED' and 'resume' not in detail['allowedActions'] and not model.calls
     with pytest.raises(DocumentProcessingError, match='new document'):
         await task_api.control_task(created['threadId'], DocumentTaskControl(requestId=uuid4(), action='resume', checkpointId=detail['checkpointId']))
+
+
+async def test_detail_exposes_all_three_hundred_parser_receipts_in_part_order(monkeypatch):
+    from practiq_ai.execution import namespace
+    service, reference, model = await setup_api(monkeypatch)
+    created = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
+    await service.wait_idle()
+    for index in [*range(0,300,2), *range(1,300,2)]:
+        await service.db.store.aput(namespace(created['threadId'], 'tencent_jobs'), f'source-0-{index}',
+                                   {'status':'SUBMITTING' if index == 299 else 'Success',
+                                    'taskId':None if index == 299 else str(index), 'requestId':f'request-{index}'})
+    detail = await task_api.get_task(created['threadId'])
+    assert len(detail['parserJobs']) == 300
+    assert [item['requestId'] for item in detail['parserJobs']] == [f'request-{index}' for index in range(300)]
+    assert detail['parserJobs'][-1]['status'] == 'SUBMITTING' and detail['parserJobs'][-1]['taskId'] is None
+    assert len(model.calls) == 1

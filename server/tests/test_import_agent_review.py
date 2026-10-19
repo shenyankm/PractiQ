@@ -661,3 +661,25 @@ async def test_ocr_review_accepts_literal_multiline_and_formula_evidence(monkeyp
     assert audit["reports"][0]["issues"][0]["evidence"] == literal
     assert audit["failureCode"] is None
     assert result["visionResults"][0]["parsed"]["questions"][0]["needsReview"]
+
+
+async def test_oversized_optional_context_keeps_primary_without_another_model_call(monkeypatch):
+    monkeypatch.setenv('AI_MODEL_MAX_INPUT_CHARS', '64000')
+    primary = {**parsed(), 'figures':[]}
+    primary['questions'][0]['id'] = 'q1'
+    model = FakeModel(responses=[primary])
+    monkeypatch.setattr(document, 'get_model', lambda: model)
+    files = FakeObjectStore({})
+    refs = []
+    for index, content in enumerate(['First', 'Context ' * 15000]):
+        ref = await files.put_artifact(json.dumps({'page':index,'elements':[{'text_info':{'content':content}}],'figures':[]}).encode(),
+                                       source_sha256='a'*64, kind='ocr-page', index=index, media_type='application/json')
+        refs.append(ref.model_dump(mode='json'))
+    monkeypatch.setattr(document, 'get_object_store', lambda: files)
+    artifact = ArtifactReference(objectKey='page.png', sha256='a'*64, mediaType='image/png', sizeBytes=1)
+    result = await document._vision({'kind':'page','index':0,'artifact':artifact.model_dump(mode='json'),
+                                     'ocrArtifact':refs[0], 'neighbors':[{'index':1,'ocrArtifact':refs[1]}]}, Runtime())
+    unit = result['visionResults'][0]
+    assert unit['parsed']['questions'][0]['stem'] == 'First'
+    assert unit['parsed']['questions'][0]['needsReview'] and unit['contextSkipped']
+    assert result['failures'] == [] and len(model.calls) == 1

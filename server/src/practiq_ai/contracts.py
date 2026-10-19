@@ -849,7 +849,7 @@ class DocumentTaskDetail(StrictModel):
     usage: list[ModelCallUsage]
     unknownUsageCalls: list[UUID]
     canExportCompleted: bool = False
-    parserJobs: list[DocumentParserJob] = Field(default_factory=list, max_length=100)
+    parserJobs: list[DocumentParserJob] = Field(default_factory=list, max_length=300)
 
 
 class DocumentTaskSummary(StrictModel):

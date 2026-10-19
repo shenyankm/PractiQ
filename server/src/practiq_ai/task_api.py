@@ -261,7 +261,8 @@ async def get_task(thread_id: str) -> dict[str, Any]:
     interruptions = _interrupts(snapshot)
     state, actions, failures = _task_state(snapshot, run)
     calls = await _calls(service, thread_id)
-    parser_jobs = await service.db.store.asearch(namespace(thread_id, 'tencent_jobs'), limit=100, refresh_ttl=False)
+    parser_jobs = await service.db.store.asearch(namespace(thread_id, 'tencent_jobs'), limit=300, refresh_ttl=False)
+    parser_jobs.sort(key=lambda item: int(item.key.rsplit('-', 1)[-1]) if item.key.rsplit('-', 1)[-1].isdigit() else -1)
     usage = {item['callKey']: item for item in values.get('usage', [])}
     usage.update({item['callKey']: {k: item[k] for k in ('callKey', 'modelId', 'inputTokens', 'outputTokens', 'callKind')}
                   for item in calls if item['status'] == 'completed'})

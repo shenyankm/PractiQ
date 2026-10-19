@@ -112,7 +112,9 @@ unsafe paths, ambiguous full-document files and malformed archives fail closed.
 
 All parts pass individual size, part-count and total visual-byte checks before
 the first job. The configured document-page limit cannot exceed Tencent's 300-page ceiling and also bounds the number of
-parts and the combined returned pages. Direct Office requests set
+parts and the combined returned pages. The isolated Office worker receives the
+same page bound; task diagnostics retain every parser receipt in numeric part
+order up to the shared 300-part ceiling. Direct Office requests set
 `FileEndPageNumber` to that configured limit before paid submission. A live
 XLSX check showed that Tencent can still return multiple sheets with an end-page
 value of one, so XLSX metadata also rejects workbooks with too many sheets before
@@ -153,7 +155,9 @@ validated before interpretation. Unsupported result layouts fail explicitly.
 Tencent `Success` may include failed pages. Missing page evidence is retained as
 a page failure and remains available for human partial-result review; the task
 must not claim complete recognition. Semantic retries reuse stored OCR evidence.
-Retrying Tencent recognition requires an explicit new parsing action.
+Retrying Tencent recognition requires an explicit new parsing action. If optional
+neighbor-context enrichment exceeds the model input limit, the valid primary
+extraction is retained with review flags and a warning rather than discarded.
 
 The authenticated preview includes the retained original document reference.
 Visual review units expose separate rendered-source and OCR-evidence references;

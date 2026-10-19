@@ -165,7 +165,7 @@ def _profile(directory: Path) -> Path:
     return profile
 
 
-def _export(engine: Path, source: Path, output: Path, family: str, mode: str, deadline: float) -> list[dict[str, Any]]:
+def _export(engine: Path, source: Path, output: Path, family: str, mode: str, deadline: float, max_pages: int = 100) -> list[dict[str, Any]]:
     output.mkdir()
     filters = {("writer", "pdf"): "pdf:writer_pdf_Export", ("calc", "pdf"): 'pdf:calc_pdf_Export:{"SinglePageSheets":{"type":"boolean","value":"true"}}',
                ("impress", "pdf"): 'pdf:impress_pdf_Export:{"ExportHiddenSlides":{"type":"boolean","value":"true"}}',
@@ -189,7 +189,7 @@ def _export(engine: Path, source: Path, output: Path, family: str, mode: str, de
             import pypdfium2 as pdfium
             try:
                 with pdfium.PdfDocument(data) as document:
-                    if not 0 < len(document) <= 100:
+                    if not 0 < len(document) <= max_pages:
                         raise OfficeError("OFFICE_OUTPUT_LIMIT")
             except OfficeError:
                 raise
@@ -453,7 +453,7 @@ def _validate_normalized_docx(data: bytes) -> None:
         raise OfficeError("OFFICE_OUTPUT_INVALID") from exc
 
 
-def _legacy_writer_pdf(engine: Path, source: Path, output: Path, deadline: float) -> list[dict[str, Any]]:
+def _legacy_writer_pdf(engine: Path, source: Path, output: Path, deadline: float, max_pages: int = 100) -> list[dict[str, Any]]:
     # LO's legacy DOC PDF path can render an equation's bar without its digits.
     # The same engine preserves the formula through a private DOCX snapshot.
     with TemporaryDirectory(prefix="practiq-writer-pdf-") as directory:
@@ -473,10 +473,12 @@ def _legacy_writer_pdf(engine: Path, source: Path, output: Path, deadline: float
         _validate_normalized_docx(_read_file(files[0], FILE_LIMIT))
         if time.monotonic() >= deadline:
             raise OfficeError("OFFICE_TIMEOUT")
-        return _export(engine, files[0], output, "writer", "pdf", deadline)
+        return _export(engine, files[0], output, "writer", "pdf", deadline, max_pages)
 
 
-def convert(engine: str, source: Path, output: Path, mode: str, *, expected_version: str | None = None) -> list[dict[str, Any]]:
+def convert(engine: str, source: Path, output: Path, mode: str, *, expected_version: str | None = None, max_pages: int = 100) -> list[dict[str, Any]]:
+    if type(max_pages) is not int or not 1 <= max_pages <= 300:
+        raise OfficeError("OFFICE_INPUT_INVALID")
     family = FORMATS.get(source.suffix.lower())
     if family is None or mode not in ("pdf", "text") or family == "impress" and mode != "pdf":
         raise OfficeError("OFFICE_FORMAT_UNSUPPORTED")
@@ -491,7 +493,7 @@ def convert(engine: str, source: Path, output: Path, mode: str, *, expected_vers
     if expected_version is not None and engine_version(Path(engine), deadline) != expected_version:
         raise OfficeError("OFFICE_ENGINE_INVALID")
     if source.suffix.lower() == '.doc' and mode == 'pdf':
-        return _legacy_writer_pdf(Path(engine), source, output, deadline)
+        return _legacy_writer_pdf(Path(engine), source, output, deadline, max_pages)
     if source.suffix.lower() == '.docx' and mode == 'text':
         try:
             with zipfile.ZipFile(io.BytesIO(data)) as archive:
@@ -503,10 +505,10 @@ def convert(engine: str, source: Path, output: Path, mode: str, *, expected_vers
                         with zipfile.ZipFile(snapshot, 'w', zipfile.ZIP_DEFLATED) as target:
                             for entry in archive.infolist():
                                 target.writestr(entry, terminated if entry.filename == 'word/document.xml' else archive.read(entry))
-                        return _export(Path(engine), snapshot, output, family, mode, deadline)
+                        return _export(Path(engine), snapshot, output, family, mode, deadline, max_pages)
         except (zipfile.BadZipFile, RuntimeError, EOFError, zlib.error) as exc:
             raise OfficeError("OFFICE_INPUT_INVALID") from exc
-    return _export(Path(engine), source, output, family, mode, deadline)
+    return _export(Path(engine), source, output, family, mode, deadline, max_pages)
 
 
 def main() -> None:
@@ -525,10 +527,10 @@ def main() -> None:
             if not isinstance(request["engine"], str):
                 raise OfficeError("OFFICE_INPUT_INVALID")
             result = detect(request["engine"])
-        elif request.get("type") == "convert" and set(request) == {"type", "engine", "version", "source", "output", "mode"}:
+        elif request.get("type") == "convert" and set(request) == {"type", "engine", "version", "source", "output", "mode", "maxPages"}:
             if any(not isinstance(request[key], str) for key in ("engine", "version", "source", "output", "mode")):
                 raise OfficeError("OFFICE_INPUT_INVALID")
-            result = {"artifacts": convert(request["engine"], Path(request["source"]), Path(request["output"]), request["mode"], expected_version=request["version"])}
+            result = {"artifacts": convert(request["engine"], Path(request["source"]), Path(request["output"]), request["mode"], expected_version=request["version"], max_pages=request["maxPages"])}
         else:
             raise OfficeError("OFFICE_INPUT_INVALID")
         print(json.dumps({"result": result}), flush=True)

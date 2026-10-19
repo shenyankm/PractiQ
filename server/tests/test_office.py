@@ -164,7 +164,7 @@ def test_legacy_doc_pdf_shared_deadline_stops_before_next_engine_launch(tmp_path
 def test_other_office_paths_do_not_normalize_legacy_word(tmp_path, monkeypatch, extension, mode):
     fixtures = Path(__file__).parents[2] / 'app/fixtures/office'
     source = next(fixtures.glob(f'*.{extension}'))
-    def export(engine, snapshot, output, family, selected_mode, deadline):
+    def export(engine, snapshot, output, family, selected_mode, deadline, max_pages=100):
         assert snapshot == source and selected_mode == mode
         return [{'name': 'existing-path'}]
     monkeypatch.setattr(office, '_export', export)
@@ -176,7 +176,7 @@ def test_table_ending_docx_text_uses_private_snapshot_without_changing_input(tmp
     source = Path(__file__).parents[2] / 'app/fixtures/office/regressions/table-ending.docx'
     original = source.read_bytes()
 
-    def export(engine, snapshot, output, family, mode, deadline):
+    def export(engine, snapshot, output, family, mode, deadline, max_pages=100):
         assert snapshot != source and snapshot.name == source.name
         with zipfile.ZipFile(source) as before, zipfile.ZipFile(snapshot) as after:
             assert before.namelist() == after.namelist()
@@ -228,7 +228,7 @@ def test_bundled_engine_verifies_capabilities_and_rejects_invalid_binary(tmp_pat
     with pytest.raises(office.OfficeError, match="OFFICE_ENGINE_INVALID"):
         office.detect(str(engine))
     monkeypatch.setattr(office, "_run", lambda *args: b"LibreOffice 26.8.0.3")
-    def export(engine, source, output, family, mode, deadline):
+    def export(engine, source, output, family, mode, deadline, max_pages=100):
         if family == "writer" and mode == "pdf":
             raise office.OfficeError("OFFICE_CONVERSION_FAILED")
         return [{}]
@@ -425,7 +425,7 @@ office.main()
         unrelated.wait()
 
 
-@pytest.mark.parametrize("payload", [{}, [], {"type": "detect", "engine": 3}, {"type": "convert", "engine": 1, "version": "x", "source": "x", "output": "y", "mode": "pdf"}])
+@pytest.mark.parametrize("payload", [{}, [], {"type": "detect", "engine": 3}, {"type": "convert", "engine": 1, "version": "x", "source": "x", "output": "y", "mode": "pdf", "maxPages": 100}])
 def test_private_worker_rejects_malformed_requests(payload, monkeypatch, capsys):
     monkeypatch.setattr(office.sys, "stdin", SimpleNamespace(buffer=io.BytesIO(json.dumps(payload).encode() + b"\n")))
     monkeypatch.setattr(office, "watch_parent", lambda cleanup: None)
@@ -448,10 +448,11 @@ def test_private_worker_detection_has_no_service_bootstrap(monkeypatch, capsys):
 
 
 def test_private_conversion_requires_and_forwards_the_detected_version(monkeypatch, capsys):
-    request = {"type": "convert", "engine": "soffice", "version": "LibreOffice 26.2", "source": "source.docx", "output": "output", "mode": "text"}
+    request = {"type": "convert", "engine": "soffice", "version": "LibreOffice 26.2", "source": "source.docx", "output": "output", "mode": "text", "maxPages": 150}
     monkeypatch.setattr(office.sys, "stdin", SimpleNamespace(buffer=io.BytesIO(json.dumps(request).encode() + b"\n")))
     monkeypatch.setattr(office, "watch_parent", lambda cleanup: None)
-    def convert(engine, source, output, mode, *, expected_version):
+    def convert(engine, source, output, mode, *, expected_version, max_pages):
+        assert max_pages == 150
         assert (engine, source, output, mode, expected_version) == ("soffice", Path("source.docx"), Path("output"), "text", "LibreOffice 26.2")
         return [{"name": "source.txt"}]
     monkeypatch.setattr(office, "convert", convert)
@@ -569,3 +570,21 @@ def test_visible_workbook_rejects_entities_and_malformed_metadata(xml):
         archive.writestr('xl/workbook.xml', xml)
     with pytest.raises(office.OfficeError):
         visible_workbook(data.getvalue())
+
+
+def test_pdf_export_uses_requested_page_limit_above_one_hundred(monkeypatch, tmp_path):
+    from tests.support import make_blank_pdf
+    pdf = make_blank_pdf(101)
+    def run(_args, _deadline, output):
+        (output / 'source.pdf').write_bytes(pdf)
+    monkeypatch.setattr(office, '_run', run)
+    result = office._export(Path('soffice'), tmp_path/'source.pptx', tmp_path/'allowed', 'impress', 'pdf', time.monotonic()+10, 101)
+    assert len(result) == 1
+    with pytest.raises(office.OfficeError, match='OFFICE_OUTPUT_LIMIT'):
+        office._export(Path('soffice'), tmp_path/'source.pptx', tmp_path/'rejected', 'impress', 'pdf', time.monotonic()+10, 100)
+
+
+@pytest.mark.parametrize('value', [0,301,True,'100'])
+def test_converter_rejects_untrusted_page_limits_before_reading_source(tmp_path, value):
+    with pytest.raises(office.OfficeError, match='OFFICE_INPUT_INVALID'):
+        office.convert('unused', tmp_path/'absent.docx', tmp_path/'out', 'pdf', max_pages=value)

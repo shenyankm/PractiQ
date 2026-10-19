@@ -208,7 +208,7 @@ async def convert_office(reference: DocumentReference, payload: bytes, *, mode: 
                     if process.stdin is None or process.stdout is None:
                         raise _error("OFFICE_CONVERSION_FAILED")
                     request = {"type": "convert", "engine": str(config.office_executable), "version": config.office_version,
-                               "source": str(source), "output": str(output), "mode": mode}
+                               "source": str(source), "output": str(output), "mode": mode, "maxPages": config.max_document_pages}
                     process.stdin.write(json.dumps(request).encode("utf-8") + b"\n")
                     await process.stdin.drain()
                     raw = await process.stdout.readline()

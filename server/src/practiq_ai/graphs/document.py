@@ -976,6 +976,7 @@ async def _vision(state: VisionTask, runtime: Runtime[None]) -> dict[str, list[d
     messages = [SystemMessage(content=SYSTEM_PROMPT), HumanMessage(content=instruction + primary_text)]
     token = OCR_FIGURES.set(primary["figures"])
     usage: list[ModelCallUsage] = []
+    context_skipped = False
     try:
         parsed, usage, failure = await structured_call(model, messages, OcrPageParseResult, "vision_parse", runtime=runtime)
         if parsed is None:
@@ -998,8 +999,13 @@ async def _vision(state: VisionTask, runtime: Runtime[None]) -> dict[str, list[d
                                                                          "vision_parse", runtime=runtime)
                 usage.extend(context_usage)
                 if enriched is None:
-                    return _unit_failure("vision_parse", state["index"], failure or "OUTPUT_INVALID", usage)
-                parsed = enriched
+                    if failure != "MODEL_INPUT_TOO_LARGE":
+                        return _unit_failure("vision_parse", state["index"], failure or "OUTPUT_INVALID", usage)
+                    context_skipped = True
+                    for question in parsed.questions:
+                        question.needsReview = True
+                else:
+                    parsed = enriched
             finally:
                 PRIMARY_PAGE.reset(context_token)
         agent_review = None
@@ -1015,6 +1021,8 @@ async def _vision(state: VisionTask, runtime: Runtime[None]) -> dict[str, list[d
             for index in figure.questionIndexes:
                 page.questions[index].needsReview = True
         value = _page_result(state, page, usage, agent_review, set(range(len(page.figures))))
+        if context_skipped:
+            value["visionResults"][0]["contextSkipped"] = True
         source_figures = {figure["elementIndex"]: figure for figure in primary["figures"]}
         for visual, association in zip(value["visionResults"][0]["visuals"], parsed.figures, strict=True):
             if image_ref := source_figures[association.elementIndex].get("imageRef"):
@@ -1417,6 +1425,8 @@ async def _merge(state: DocumentState, *, passive: bool = False) -> dict[str, An
         f"Fragment {item['index'] + 1} of {len(ordered)} failed and was skipped."
         for item in failed_chunks
     )
+    warnings.extend(f"Page {item['index'] + 1}: oversized optional context was skipped; primary extraction was retained for review."
+                    for item in ordered if item.get("contextSkipped"))
     parsed = [
         (
             item["index"],

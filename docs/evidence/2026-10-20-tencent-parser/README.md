@@ -16,6 +16,8 @@ This change routes recognition through Tencent asynchronous document jobs while 
 
 - Third review: query rejections with a saved task ID remain resumable without duplicate submission; configuration rejects page bounds above 300; visual review exposes authenticated OCR evidence separately from the rendered page. HTTP regression checks task membership, checksum and Bearer authentication; Web checks load source evidence only on demand as inert text.
 
+- Fourth review: expose all 300 ordered parser receipts (including an uncertain final submission), pass the configured page limit through the isolated Office worker, and retain the primary extraction when optional context is too large. Focused regressions cover 101-page PDF acceptance/rejection, worker protocol bounds and skipped enrichment with one model call.
+
 ## Initial local validation
 
 All commands ran on macOS arm64 with the existing Python 3.14.7 interpreter; no project virtual environment was created. `AI_PYTHON` selected that interpreter and `PYTHONPATH` selected this worktree's `server/src`.
