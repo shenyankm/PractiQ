@@ -179,7 +179,8 @@ it("shows numeric partial credit after an exam and locks answer controls", () =>
   render(<Practice session={session} onSession={()=>{}} run={()=>{}} flushRef={{current:async()=>{}}}/>);
   expect(screen.getByText("部分得分 · 3 / 5 分")).toBeTruthy();
   expect(screen.queryByText("回答错误")).toBeNull();
-  expect((screen.getByRole("textbox",{name:"作答内容"}) as HTMLTextAreaElement).disabled).toBe(true);
+  expect(screen.queryByRole("textbox",{name:"作答内容"})).toBeNull();
+  expect(screen.getByRole("region",{name:"我的答案"})).toBeTruthy();
   expect(screen.getByText(/正确率（满分题/)).toBeTruthy();
 });
 
@@ -265,9 +266,9 @@ it("replaces an unsaved timeout edit with the durable submitted answer", async (
   await waitFor(()=>expect(api).toHaveBeenCalledWith(expect.objectContaining({type:"save_draft",answer:{text:"unsaved after deadline"}})));
   const locked={...session,submittedAt:1,attempts:[{...session.attempts[0],submittedAt:1}]};
   rerender(<Practice session={locked} {...props}/>);
-  const input=screen.getByRole("textbox",{name:"作答内容"}) as HTMLTextAreaElement;
-  expect(input.value).toBe("durable");
-  expect(input.disabled).toBe(true);
+  expect(screen.queryByRole("textbox",{name:"作答内容"})).toBeNull();
+  expect(screen.getByRole("region",{name:"我的答案"}).textContent).toContain("durable");
+  expect(screen.queryByText("unsaved after deadline")).toBeNull();
 });
 
 it("uses live favorite state and refreshes the session after toggling", async () => {

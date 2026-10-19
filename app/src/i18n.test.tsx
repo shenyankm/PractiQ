@@ -288,12 +288,13 @@ it("formats history accuracy counts through the translated sentence", async () =
   saved = "en";
   const original = vi.mocked(invoke).getMockImplementation()!;
   vi.mocked(invoke).mockImplementation(async (command, args) => {
-    if ((args as { request: { type: string } }).request.type === "sessions_page") return { items: [{ id: "history", title: "Original", createdAt: 1, finishedAt: 2, elapsedMs: 0, correct: 5000, graded: 10000 }], total: 1, offset: 0 };
+    if ((args as { request: { type: string } }).request.type === "sessions_page") return { items: [{ id: "history", title: "Original", createdAt: 1, finishedAt: 2, elapsedMs: 0, count:10020, answered:10020, skipped:19, correct: 5000, graded: 10000 }], total: 1, offset: 0 };
     return original(command, args);
   });
   wrap(<App />); await ready();
   await userEvent.click(screen.getByRole("button", { name: "History" }));
-  expect(await screen.findByText("Accuracy: 50% (5,000/10,000)")).toBeTruthy();
+  expect(await screen.findByText("Graded 10,000 questions, correct 5,000 · Accuracy: 50%")).toBeTruthy();
+  expect(screen.getByText("Unanswered/skipped: 19 · Ungraded: 1")).toBeTruthy();
 });
 it.each(["en", "zh-CN"] as const)("imports offline ZIP and saves a translated service form in %s", async value => {
   saved = value;

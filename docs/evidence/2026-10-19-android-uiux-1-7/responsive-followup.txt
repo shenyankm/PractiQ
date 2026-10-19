@@ -1,0 +1,27 @@
+
+> practiq-desktop@0.2.0 test:browser
+> playwright test --project rich-content --grep all question layouts
+
+[WebServer] (node:35769) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:35798) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:35800) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:35837) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:35840) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:35869) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 4 tests using 1 worker
+
+(node:35870) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [rich-content] › scripts/check-responsive-content.mjs:39:3 › all question layouts at 390x844 (answering) (8.0s)
+  ✓  2 [rich-content] › scripts/check-responsive-content.mjs:39:3 › all question layouts at 390x844 (reference) (8.7s)
+  ✓  3 [rich-content] › scripts/check-responsive-content.mjs:39:3 › all question layouts at 1280x720 (answering) (7.9s)
+  ✓  4 [rich-content] › scripts/check-responsive-content.mjs:39:3 › all question layouts at 1280x720 (reference) (8.8s)
+
+  4 passed (37.6s)

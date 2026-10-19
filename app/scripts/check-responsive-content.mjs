@@ -3,14 +3,16 @@ import { installLayoutSession, layoutSnapshots, layoutViewports } from './respon
 
 async function capture(page, card, prefix, testInfo) {
   await card.scrollIntoViewIfNeeded();
-  const range = await card.evaluate(e => {
-    const scroller = e.closest('.app-content');
+  const nested = await page.locator('.practice-scroll').evaluate(e => getComputedStyle(e).overflowY === 'auto');
+  const scroller = page.locator(nested ? '.practice-scroll' : '.app-content');
+  const range = await card.evaluate((e, nested) => {
+    const scroller = e.closest(nested ? '.practice-scroll' : '.app-content');
     return { top: e.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop, height: e.offsetHeight, viewport: scroller.clientHeight };
-  });
-  const actions = await card.locator('.practice-actions').boundingBox();
+  }, nested);
+  const actions = await page.locator('.practice-footer').boundingBox();
   const step = Math.max(80, range.viewport - (actions?.height || 0) - 24);
   for (let part = 0; part < Math.ceil(range.height / step); part++) {
-    await page.locator('.app-content').evaluate((e, top) => e.scrollTop = top, range.top + part * step);
+    await scroller.evaluate((e, top) => e.scrollTop = top, range.top + part * step);
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     await page.screenshot({ path: testInfo.outputPath(`${prefix}-${part}.png`) });
   }
@@ -57,7 +59,8 @@ for (const variant of variants) {
         await expect.poll(() => card.locator('figure img').first().evaluate(img => img.complete && img.naturalWidth > 0)).toBe(true);
         const option = page.getByText('Matrix option:', { exact: true });
         await option.evaluate(e => {
-          const scroller = e.closest('.app-content');
+          const workspace = e.closest('.practice-scroll');
+          const scroller = getComputedStyle(workspace).overflowY === 'auto' ? workspace : e.closest('.app-content');
           scroller.scrollTop += e.getBoundingClientRect().top - scroller.getBoundingClientRect().top - 20;
         });
         await expect(option).toBeInViewport();
@@ -71,11 +74,14 @@ for (const variant of variants) {
       const material = page.getByRole('button', { name: '查看原文', exact: true });
       if (await material.count()) {
         await material.click();
-        const dialog = page.getByRole('dialog');
-        await expect(dialog).toBeVisible();
+        const reader = page.getByRole('region', { name: '题目材料', exact: true });
+        const collapse = page.getByRole('button', { name: '收起原文', exact: true });
+        await expect(reader).toBeVisible();
+        await expect(collapse).toHaveAttribute('aria-expanded', 'true');
         await checkContent(page);
-        await dialog.screenshot({ path: testInfo.outputPath(`${key}-material.png`) });
-        await page.keyboard.press('Escape');
+        await reader.screenshot({ path: testInfo.outputPath(`${key}-material.png`) });
+        await collapse.click();
+        await expect(reader).toHaveCount(0);
         await expect(material).toBeFocused();
       }
       if (key === 'rich-choice') {

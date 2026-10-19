@@ -1,4 +1,16 @@
 export const en = {
+  "题目导航": "Question navigation",
+  "我的答案": "My answer",
+  "本次未作答": "Not answered in this session",
+  "已选": "Selected",
+  "练习回顾": "Practice review",
+  "本次作答已结束，正在回顾作答与解析。": "This session has ended. Review your answers and explanations.",
+  "本次共 {0} 题，作答已锁定；可切换题目回顾。": "This session has {0} questions. Answers are locked; switch questions to review.",
+  "本次题目状态": "Question states in this session",
+  "已判定 {0} 题，答对 {1} 题 · 正确率 {2}%": "Graded {0} questions, correct {1} \u00b7 Accuracy: {2}%",
+  "未答／跳过 {0} 题 · {1} {2} 题": "Unanswered/skipped: {0} \u00b7 {1}: {2}",
+  "收起原文": "Collapse passage",
+
   "复制诊断": "Copy diagnostics",
   "诊断已复制": "Diagnostics copied",
   "复制失败，请手动选择诊断文字。": "Could not copy. Select the diagnostic text manually.",

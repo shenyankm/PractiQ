@@ -3,16 +3,61 @@ import { useState } from "react";
 import { afterEach, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { AnswerDisplay, AnswerInput } from "./AnswerInput";
+import { AnswerDisplay, AnswerInput, AnswerReview } from "./AnswerInput";
 import { blankQuestion, type Answer, type Question } from "./api";
 
 HTMLElement.prototype.scrollIntoView = () => {};
 afterEach(cleanup);
 
+it("reviews selected choices as readable content and retains a false answer", () => {
+  const question = {...blankQuestion(), options:[{label:"A",content:"Alpha"},{label:"B",content:"Beta"}]};
+  const view = render(<AnswerReview question={question} answer={{correct:["B"]}}/>);
+  expect(screen.getByText("Alpha")).toBeTruthy();
+  expect(screen.getByText("Beta")).toBeTruthy();
+  expect(screen.getAllByText("已选")).toHaveLength(1);
+  expect(screen.queryByRole("radio")).toBeNull();
+  view.rerender(<AnswerReview question={{...question,answerMode:"true_false"}} answer={{value:false}}/>);
+  expect(screen.getByText("错误")).toBeTruthy();
+  expect(screen.queryByText("本次未作答")).toBeNull();
+});
+
 function Controlled({ question }: { question: Question }) {
   const [value, setValue] = useState<Answer | null>(null);
   return <AnswerInput question={question} value={value} onChange={setValue} />;
 }
+
+it.each(["short_answer", "writing", "fill_blank"] as const)("keeps saved %s text literal in review", mode => {
+  const value = "<example>**saved**</example>\n  # literal heading";
+  const question: Question = {...blankQuestion(), answerMode:mode === "fill_blank" ? "fill_blank" : "short_answer", questionKind:mode === "writing" ? "writing" : null};
+  const answer = mode === "fill_blank" ? {answers:[value]} : {text:value};
+  const {container} = render(<AnswerReview question={question} answer={answer}/>);
+  expect(container.textContent).toContain(value);
+  expect(container.querySelector("example, strong, h1")).toBeNull();
+});
+
+it("keeps the submitted fill response literal while rendering reference Markdown", () => {
+  const value = "<example>**saved**</example>\nsecond line";
+  const {container} = render(<AnswerDisplay question={{...blankQuestion(),answerMode:"fill_blank"}} answer={{answers:["**Reference**"]}} response={{answers:[value]}}/>);
+  expect(container.textContent).toContain(value);
+  expect(container.querySelector("strong")?.textContent).toBe("Reference");
+});
+
+it.each([{options:[]},{options:[{label:"A",content:"Only imported option"}]}])("retains free-text fallback responses for incomplete choices: %j", ({options}) => {
+  const value="<example>**Preserved response**</example>";
+  const {container}=render(<AnswerReview question={{...blankQuestion(),options}} answer={{text:value}}/>);
+  expect(container.textContent).toContain(value);
+  expect(container.querySelector("example, strong")).toBeNull();
+});
+
+it("labels missing slots in partial fill review without trimming saved text", () => {
+  render(<AnswerReview question={{...blankQuestion(),answerMode:"fill_blank",blankCount:3}} answer={{answers:["  saved\ntext  ",""," \n "]}}/>);
+  expect(screen.getAllByRole("listitem").map(item=>item.textContent)).toEqual(["  saved\ntext  ","未作答","未作答"]);
+});
+
+it("labels whitespace-only fill responses in reference comparison", () => {
+  render(<AnswerDisplay question={{...blankQuestion(),answerMode:"fill_blank"}} answer={{answers:["Reference"]}} response={{answers:[" \n "]}}/>);
+  expect(screen.getAllByText("未作答")).toHaveLength(2);
+});
 
 it("adds blank inputs only when the source leaves the count open", async () => {
   const user = userEvent.setup();

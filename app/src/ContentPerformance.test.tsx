@@ -179,7 +179,8 @@ it("keeps App answer-card callbacks stable through busy updates and retries navi
   await user.click(within(dialog).getByRole("button",{name:"提交草稿并结束"}));
   await waitFor(()=>expect(screen.queryByRole("alertdialog")).toBeNull());
   expect(toast.success).toHaveBeenCalledExactlyOnceWith(message("练习已结束，记录已保存"));
-  expect((screen.getByRole("textbox",{name:"作答内容"}) as HTMLTextAreaElement).disabled).toBe(true);
+  expect(screen.queryByRole("textbox",{name:"作答内容"})).toBeNull();
+  expect(screen.getByRole("region",{name:"我的答案"})).toBeTruthy();
   await user.click(screen.getByRole("button",{name:"上一题"}));
   await screen.findByRole("heading",{name:"第 1 / 100 题"});
   expect(toast.success).toHaveBeenCalledTimes(1);

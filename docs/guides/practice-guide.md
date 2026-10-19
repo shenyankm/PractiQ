@@ -12,6 +12,10 @@ Selection preserves complete material groups. Question counts count answerable c
 
 Finished-session navigation uses the full attempt count even when cached responses contain only changed attempts. Browsing history changes the displayed question without modifying the saved practice position.
 
+Finished sessions open as **Practice review**, with readable **My answer** content instead of disabled answer inputs. Empty responses are labelled explicitly. History shows the graded-question denominator next to accuracy and lists skipped and ungraded questions separately. The answer card includes a visible legend for states present in the session.
+
+During practice and review, **View passage** expands material within the question. Moving between children of the same material group preserves its expansion and reading position for the current app run. General group instructions can be expanded from their title. On narrow screens, question content scrolls above a separate Previous/Next bar.
+
 ## Submit answers and review scores
 
 In practice, submit an answer before choosing **I got it right** or **I got it wrong**. Self-assessment remains available after finishing for submitted, unskipped answers that need it, including fill-in-the-blank overrides. It uses a separate action and preserves the submitted answer, automatic result and practice snapshot. Self-tests and mock exams use their score-review workflow.
