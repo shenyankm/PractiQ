@@ -41,6 +41,11 @@ reload Caddy. It obtains and renews TLS certificates. Public ports are 80/443;
 service 8090, PostgreSQL 5433, RabbitMQ 5673 and management 15673 bind to loopback.
 No provider credentials or service tokens are supplied to GitHub Actions.
 
+If Docker Hub is unreachable, transfer infrastructure images from a trusted host.
+After pulling RabbitMQ using the pinned digest, save/load its tagged image and set
+`PRACTIQ_RABBITMQ_IMAGE` to that image's verified `sha256:` image ID. This preserves
+an immutable local reference without requiring a registry lookup after loading.
+
 ## CI and deployment
 
 `Production deployment` calls the existing full AI service/Web CI for the exact

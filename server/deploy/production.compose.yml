@@ -5,6 +5,8 @@ services:
     healthcheck:
       test: [CMD, python, -c, "import urllib.request; urllib.request.build_opener(urllib.request.ProxyHandler({})).open('http://127.0.0.1:8090/ready', timeout=3).close()"]
   rabbitmq:
+    # A verified image ID also supports hosts without registry connectivity.
+    image: ${PRACTIQ_RABBITMQ_IMAGE:-rabbitmq:4.3.6-management@sha256:8dd6e3570ddaa2ef82a6c3a8950e79c1f73893adfbdddbc374fc1f1ac8a0f5dd}
     ports: !override
       - '127.0.0.1:5673:5672'
       - '127.0.0.1:15673:15672'
