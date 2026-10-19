@@ -57,7 +57,7 @@ jobs:
           printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
-          gzip -dc service-image.tar.gz | ssh -o BatchMode=yes -o StrictHostKeyChecking=yes ubuntu@122.51.255.108 "deploy $GITHUB_SHA"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes ubuntu@122.51.255.108 "deploy $GITHUB_SHA" < service-image.tar.gz
           curl --fail --silent --show-error --retry 5 --retry-delay 5 --max-time 15 https://practiq.shenyankm.com/ready
       - name: Remove temporary SSH credentials
         if: always()
