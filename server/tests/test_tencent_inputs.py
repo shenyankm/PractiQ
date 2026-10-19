@@ -267,3 +267,14 @@ def test_invalid_cmyk_profile_returns_a_controlled_error():
     with pytest.raises(DocumentProcessingError) as error:
         split_image(source.getvalue(), 700, 100)
     assert error.value.code == 'IMAGE_FORMAT_UNSUPPORTED'
+
+
+async def test_workbook_sheet_limit_rejects_before_any_paid_submission(monkeypatch):
+    payload = (Path(__file__).parents[2] / 'app/fixtures/office/中文 表格.xlsx').read_bytes()
+    state, _, runtime = prepare(monkeypatch, 'xlsx', payload)
+    monkeypatch.setenv('AI_MAX_DOCUMENT_PAGES', '1')
+    calls = tencent_provider(monkeypatch, [ocr_text_page('unused')])
+    with pytest.raises(DocumentProcessingError) as error:
+        await document._prepare(cast(Any, state), runtime)
+    assert error.value.status_code == 413 and error.value.code == 'OFFICE_OUTPUT_LIMIT'
+    assert calls == []

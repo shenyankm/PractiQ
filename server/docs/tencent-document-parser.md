@@ -113,7 +113,10 @@ unsafe paths, ambiguous full-document files and malformed archives fail closed.
 All parts pass individual size, part-count and total visual-byte checks before
 the first job. The configured document-page limit also bounds the number of
 parts and the combined returned pages. Direct Office requests set
-`FileEndPageNumber` to that configured limit before paid submission. Reaching the
+`FileEndPageNumber` to that configured limit before paid submission. A live
+XLSX check showed that Tencent can still return multiple sheets with an end-page
+value of one, so XLSX metadata also rejects workbooks with too many sheets before
+any paid submission; XLS uses the bounded PDF conversion path. Reaching the
 ceiling retains partial evidence with a warning rather than claiming full coverage. Original source hashes, ordered part
 hashes, text byte ranges and image pixel bounds/original-page references are
 retained; visual review and crops use the exact submitted tile. Each part has

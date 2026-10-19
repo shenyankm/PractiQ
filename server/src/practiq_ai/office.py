@@ -383,7 +383,7 @@ def _validate_ooxml(data: bytes, family: str) -> None:
         raise OfficeError("OFFICE_INPUT_INVALID") from exc
 
 
-def visible_workbook(data: bytes) -> bytes:
+def visible_workbook(data: bytes, max_sheets: int = 100) -> bytes:
     """Expose sheet visibility in a derived copy without interpreting cell content."""
     _validate_ooxml(data, "calc")
     try:
@@ -403,8 +403,10 @@ def visible_workbook(data: bytes) -> bytes:
                 if root is None or root.localName != "workbook":
                     raise OfficeError("OFFICE_INPUT_INVALID")
                 sheets = [node for node in dom.getElementsByTagName("*")
-                          if node.localName == "sheet" and node.namespaceURI == root.namespaceURI
-                          and node.getAttribute("state") in {"hidden", "veryHidden"}]
+                          if node.localName == "sheet" and node.namespaceURI == root.namespaceURI]
+                if len(sheets) > max_sheets:
+                    raise OfficeError("OFFICE_OUTPUT_LIMIT")
+                sheets = [node for node in sheets if node.getAttribute("state") in {"hidden", "veryHidden"}]
                 if not sheets:
                     return data
                 for sheet in sheets:

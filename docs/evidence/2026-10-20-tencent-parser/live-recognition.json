@@ -51,6 +51,17 @@
       "hiddenSheetPresent": true,
       "sourceUnchanged": true,
       "submittedSha256": "0dfb465d566d97a51efb6208561604c5e7f38ef461d9439c6225b1f099cdd45d"
+    },
+    {
+      "source": "中文 表格.xlsx (visible-sheet copy, requested end page 1)",
+      "resultType": 9,
+      "requestedFileEndPageNumber": 1,
+      "Status": "Success",
+      "SuccessPageNum": 1,
+      "FailPageNum": 0,
+      "decoded": true,
+      "decodedPages": 2,
+      "requiresLocalSheetLimit": true
     }
   ],
   "limits": [

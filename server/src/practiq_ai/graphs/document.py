@@ -783,9 +783,9 @@ async def _prepare(state: DocumentState, runtime: Runtime[None], *, source_types
         from practiq_ai.office import OfficeError, visible_workbook
         try:
             async with preparation(LIMIT):
-                prepared = await _thread_io(visible_workbook, payload)
+                prepared = await _thread_io(visible_workbook, payload, settings.max_document_pages)
         except OfficeError as exc:
-            raise DocumentProcessingError(422, "Workbook visibility preparation failed", exc.code) from exc
+            raise DocumentProcessingError(413 if exc.code == "OFFICE_OUTPUT_LIMIT" else 422, "Workbook visibility or sheet-limit preparation failed", exc.code) from exc
     normalization = None
     input_parts = []
     submissions: list[tuple[ArtifactReference, DocumentSourceType, int | None]] = [(reference, reference.sourceType, len(images) or None)]
