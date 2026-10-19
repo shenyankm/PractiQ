@@ -1,0 +1,145 @@
+{
+  "baselineCommit": "b20b937a60973d86179d03e866c6e08adbb80ce9",
+  "capturedVia": "Codex in-app browser (CUA), React design-preview synthetic data",
+  "theme": "dark",
+  "locale": "zh-CN",
+  "pairs": 9,
+  "captures": [
+    {
+      "path": "before/practice-1440.jpg",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "f4ce69893d71c7c7b6b4e40d795652789c4e2a094fb7c38e7e3d761ce9e39a43"
+    },
+    {
+      "path": "after/practice-1440.jpg",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "4100a965f07d674f43349b1fd6e75cedd658b49a322df8348b05538855ed5402"
+    },
+    {
+      "path": "before/practice-1024.jpg",
+      "width": 1024,
+      "height": 900,
+      "sha256": "4343c7959999d4147b45ca26424f956a4467a0eacfe06d8de0e6f46cde6c2ea9"
+    },
+    {
+      "path": "after/practice-1024.jpg",
+      "width": 1024,
+      "height": 900,
+      "sha256": "51d18235f5b7b0d3af1efd527a02efb144fba73a87fcccefc7010b3d2ceb5b52"
+    },
+    {
+      "path": "before/practice-390.jpg",
+      "width": 390,
+      "height": 844,
+      "sha256": "74518e306427e39d3ee8b9eeacf7d6f697066284b84fa94494b266c9c233a67b"
+    },
+    {
+      "path": "after/practice-390.jpg",
+      "width": 390,
+      "height": 844,
+      "sha256": "13d64f38b01496b87a821cae78f91b326603d1543ba4eba318e2a72692db32ef"
+    },
+    {
+      "path": "before/editor-1440.jpg",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "98235dbc2ed844fb623cbac1444aeccde0c95157251fa6f9fe01c5ca1e5faf64"
+    },
+    {
+      "path": "after/editor-1440.jpg",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "99a8ab4a47142c718e51663ae55b3f4cb2c55baa71093276aa878478c8a1fe53"
+    },
+    {
+      "path": "before/editor-1024.jpg",
+      "width": 1024,
+      "height": 900,
+      "sha256": "7629128c033d3149b712b48b17e085893a997f0fcfde6971fb993abc0def9d7c"
+    },
+    {
+      "path": "after/editor-1024.jpg",
+      "width": 1024,
+      "height": 900,
+      "sha256": "f7e487645d636c768e147984e6bb9499026ddf26447c22cb5d2c10485c23a088"
+    },
+    {
+      "path": "before/editor-390.jpg",
+      "width": 390,
+      "height": 844,
+      "sha256": "16a695e4c30fb89843da8a50c7dfc8efff3a77402d183df4484ae3c976926cde"
+    },
+    {
+      "path": "after/editor-390.jpg",
+      "width": 390,
+      "height": 844,
+      "sha256": "1e12f1f20e766bb7b7ad71f9027554ad440c1e15b533bb53a27f7f396cc18c80"
+    },
+    {
+      "path": "before/history-1440.jpg",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "f09200da0bd3f733e86b5c8ada30a57348dd2625353db66d40c1c2cc697fc09d"
+    },
+    {
+      "path": "after/history-1440.jpg",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "e36aa9cd24eec7f9ffc82814e92b35518751a93068dc103feb9aa7d45fea7e26"
+    },
+    {
+      "path": "before/history-1024.jpg",
+      "width": 1024,
+      "height": 900,
+      "sha256": "2665df51e98f20777c00ee8a83b47335dcbcbad4aea2d9b37f3c70b43dc31310"
+    },
+    {
+      "path": "after/history-1024.jpg",
+      "width": 1024,
+      "height": 900,
+      "sha256": "b99e5ac71728b03e29b2d4783b35c5914a9e60880230c7d68bd3525ded347a47"
+    },
+    {
+      "path": "before/history-390.jpg",
+      "width": 390,
+      "height": 844,
+      "sha256": "a19f914e1f52f224678935a7caa5db9ef722b4a5f16845edf5556ee6f8bd28f7"
+    },
+    {
+      "path": "after/history-390.jpg",
+      "width": 390,
+      "height": 844,
+      "sha256": "3bdf4072f6ff941458ef3d636800a3484bd97489b67ce1b9f047fee818a361f1"
+    }
+  ],
+  "baseline390": "Recaptured from an isolated git archive of baselineCommit; initial truncated captures retained separately; temporary Vite allowlist permitted the same installed KaTeX fonts",
+  "limitations": [
+    "No native Tauri acceptance",
+    "No physical Android acceptance",
+    "No live model or service calls",
+    "Timestamps, elapsed timers and focus vary between captures"
+  ],
+  "integrationBase": "58b726f104b1021978667581ed622685fb254e1e",
+  "integratedCaptures": [
+    {
+      "path": "integrated/practice-1440.jpg",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "3e39c2e07fba6a8e81376780f5217c756860b2734207c36d2cb3bc5bf04e2d5d"
+    },
+    {
+      "path": "integrated/editor-1440.jpg",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "309b5a4ea0935ac9f2fa2e293c94e1752840025233dfda7d47cf9e373c1c16c2"
+    },
+    {
+      "path": "integrated/history-1440.jpg",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "95d283c6b545b78a5b5de1622f698699148fde8c75c744b2051dc1394e707921"
+    }
+  ]
+}

@@ -23,6 +23,21 @@ function Study({ initial }: { initial: Session }) {
   return <Practice session={session} onSession={setSession} run={job => { void job(); }} flushRef={{ current: async () => {} }} />;
 }
 
+it("keeps submission beside navigation and removes it after submitting", async () => {
+  const initial = practice();
+  initial.finishedAt = initial.submittedAt = initial.attempts[0].submittedAt = null;
+  vi.mocked(api).mockResolvedValue({ ...initial, attempts: [{ ...initial.attempts[0], submittedAt: 2 }] });
+  render(<Study initial={initial}/>);
+  const navigation = screen.getByRole("navigation", { name: "题目导航" });
+  const toolbar = within(navigation.parentElement!);
+  expect(toolbar.getByRole("button", { name: "提交答案" })).toBeTruthy();
+  expect(toolbar.getByRole("button", { name: "跳过此题" })).toBeTruthy();
+  await userEvent.click(toolbar.getByRole("button", { name: "提交答案" }));
+  await waitFor(() => expect(toolbar.queryByRole("button", { name: "提交答案" })).toBeNull());
+  expect(toolbar.getByRole("button", { name: "下一题" })).toBeTruthy();
+  expect(api).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ type: "save_attempt", submit: true, skip: false }));
+});
+
 it("shows finished review copy, readable answers and a visible state legend without saving", () => {
   const initial = practice();
   initial.attempts.push({...initial.attempts[0], ordinal:1, answer:null, skipped:true});

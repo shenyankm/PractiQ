@@ -303,6 +303,7 @@ test('new question reverted nullable fields close without discarding other edits
  const open=()=>page.getByRole('button',{name:'新增题目',exact:true}).click();
  for(const action of ['Escape','close','outside']){
   await open();
+  await editor.getByText('更多设置',{exact:true}).click();
   await instructions.fill('Temporary instructions');
   await instructions.fill('');
   if(action==='Escape')await page.keyboard.press('Escape');
@@ -312,6 +313,7 @@ test('new question reverted nullable fields close without discarding other edits
   await expect(page.getByRole('alertdialog')).toHaveCount(0);
  }
  await open();
+ await editor.getByText('更多设置',{exact:true}).click();
  await instructions.fill('Temporary instructions');
  await instructions.fill('');
  const stem=editor.getByRole('textbox',{name:'题干（支持 Markdown 和公式）',exact:true});

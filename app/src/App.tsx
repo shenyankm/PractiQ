@@ -808,18 +808,18 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                           <Badge variant="secondary">
                             {s.finishedAt ? t("已结束") : s.submittedAt ? t("待核对") : t("进行中")}
                           </Badge>
-                          <span className="text-xs text-muted-foreground">
-                            {date(s.createdAt)} · {duration(s.elapsedMs)}
-                          </span>
                         </div>
-                        <div className="flex flex-wrap gap-2 text-sm tabular-nums">
-                          <SessionProgress session={s} active={!s.finishedAt && !s.submittedAt} onExpired={() => setListRevision(v => v + 1)}/>
-                          {!!(s.finishedAt || s.submittedAt) && (s.kind && s.kind !== "practice" ? <>
-                            <Badge variant="secondary">{t("{0} {1} / {2} 分", { 0: s.pendingGrades ? t("暂定成绩") : t("成绩"), 1: (s.earnedCents || 0) / 100, 2: (s.totalCents || 0) / 100 })}</Badge>
-                            {!!s.pendingGrades && <Badge variant="outline">{t("待评分 {0} 题", { 0: s.pendingGrades })}</Badge>}
-                          </> : <span>{s.graded ? t("已判定 {0} 题，答对 {1} 题 · 正确率 {2}%", { 0: s.graded, 1: s.correct, 2: Math.round((s.correct / s.graded) * 100) }) : t("暂无已判定题目")}</span>)}
+                        <div className="text-sm tabular-nums">
+                          {s.finishedAt || s.submittedAt ? <p className="font-semibold">{s.kind && s.kind !== "practice"
+                            ? t("{0} {1} / {2} 分", { 0: s.pendingGrades ? t("暂定成绩") : t("成绩"), 1: (s.earnedCents || 0) / 100, 2: (s.totalCents || 0) / 100 })
+                            : s.graded ? t("已判定 {0} 题，答对 {1} 题 · 正确率 {2}%", { 0: s.graded, 1: s.correct, 2: Math.round((s.correct / s.graded) * 100) }) : t("暂无已判定题目")}</p>
+                            : <SessionProgress session={s} onExpired={() => setListRevision(v => v + 1)}/>}
                         </div>
                         {!!(s.finishedAt || s.submittedAt) && <p className="text-sm text-muted-foreground">{t("未答／跳过 {0} 题 · {1} {2} 题", {0:s.skipped, 1:s.kind && s.kind !== "practice" ? t("待评分") : t("未判定"), 2:s.kind && s.kind !== "practice" ? s.pendingGrades ?? 0 : Math.max(0,s.answered-s.graded-s.skipped)})}</p>}
+                        <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground tabular-nums">
+                          <span>{date(s.createdAt)} · {duration(s.elapsedMs)}</span>
+                          {!!(s.finishedAt || s.submittedAt) && <SessionProgress session={s} active={false}/>}
+                        </div>
                         {!!(s.answered || s.finishedAt || s.submittedAt) && <details className="text-sm text-muted-foreground"><summary className="cursor-pointer">{t("判定详情")}</summary><p className="mt-2">{t("自动判定 {0} · 自评 {1} · 跳过 {2} · 未判定 {3}", { 0: s.autoGraded, 1: s.selfGraded, 2: s.skipped, 3: s.kind && s.kind !== "practice" ? s.pendingGrades : s.answered - s.graded - s.skipped })}</p></details>}
                       </div>
                       <Button
