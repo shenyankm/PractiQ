@@ -212,25 +212,8 @@ export function QuestionEditor({
                 ))}
               </NativeSelect>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor={`${formId}-typeName`}>{t("题型名称")}</Label>
-              <Input
-                id={`${formId}-typeName`}
-                value={q.questionTypeId || ""}
-                onChange={(e) => patch({ questionTypeId: e.target.value })}
-              />
-            </div>
-          </div>
-          {(!parent || parent.answerMode === "reading") && <label className="grid gap-2">{t("英语题型")}
-            <NativeSelect disabled={busy} className="w-full" value={q.questionKind || ""} onValueChange={value =>{
-              const kind=value as NonNullable<Question["questionKind"]>;
-              if(kind && kindModes[kind]!==q.answerMode)mode(kindModes[kind]);
-              patch({questionKind:kind || null,sourceLanguage:null,targetLanguage:null,writingGenre:null,minWords:null,maxWords:null});
-            }}><NativeSelectOption value="">{t("通用题型")}</NativeSelectOption>{Object.entries(questionKinds()).filter(([kind])=>!parent || !["reading","listening"].includes(kind)).map(([kind,label])=><NativeSelectOption key={kind} value={kind}>{label}</NativeSelectOption>)}</NativeSelect>
-          </label>}
-          <EnglishFields question={q} patch={patch} images={images} onPendingChange={setAudioPending} onDraftChange={setAudioDraft}/>
           {q.answerMode === "choice" && (
-            <label className="grid gap-2">{t("选择题类型")}<NativeSelect
+            <label className="grid gap-2">{t("选择题类型")}<NativeSelect className="w-full"
               aria-label={t("选择题类型")}
               disabled={busy || !!parent && ["word_bank","cloze","gap_fill"].includes(parent.answerMode || "")}
               value={q.choiceVariant || "single"}
@@ -246,7 +229,7 @@ export function QuestionEditor({
             </NativeSelect></label>
           )}
           {q.answerMode === "matching" && (
-            <label className="grid gap-2">{t("匹配类型")}<NativeSelect
+            <label className="grid gap-2">{t("匹配类型")}<NativeSelect className="w-full"
               aria-label={t("匹配类型")}
               disabled={busy}
               value={q.matchingVariant || "one_to_one"}
@@ -261,6 +244,7 @@ export function QuestionEditor({
               <NativeSelectOption value="many_to_one">{t("多对一匹配")}</NativeSelectOption>
             </NativeSelect></label>
           )}
+          </div>
           {(q.answerMode === "ordering" || q.answerMode === "matching") && (
             <div className="space-y-3">
               <Label>{t("题项")}</Label>
@@ -358,6 +342,25 @@ export function QuestionEditor({
               onChange={(a) => patch({ answerPayload: a })}
             />
           </div>}
+          <details className="space-y-4" open={!!(initial.questionKind || initial.instructions || q.answerMode === "listening")}>
+            <summary className="cursor-pointer text-sm font-medium">{t("更多设置")}</summary>
+            <div className="space-y-2">
+              <Label htmlFor={`${formId}-typeName`}>{t("题型名称")}</Label>
+              <Input
+                id={`${formId}-typeName`}
+                value={q.questionTypeId || ""}
+                onChange={(e) => patch({ questionTypeId: e.target.value })}
+              />
+            </div>
+          {(!parent || parent.answerMode === "reading") && <label className="grid gap-2">{t("英语题型")}
+            <NativeSelect disabled={busy} className="w-full" value={q.questionKind || ""} onValueChange={value =>{
+              const kind=value as NonNullable<Question["questionKind"]>;
+              if(kind && kindModes[kind]!==q.answerMode)mode(kindModes[kind]);
+              patch({questionKind:kind || null,sourceLanguage:null,targetLanguage:null,writingGenre:null,minWords:null,maxWords:null});
+            }}><NativeSelectOption value="">{t("通用题型")}</NativeSelectOption>{Object.entries(questionKinds()).filter(([kind])=>!parent || !["reading","listening"].includes(kind)).map(([kind,label])=><NativeSelectOption key={kind} value={kind}>{label}</NativeSelectOption>)}</NativeSelect>
+          </label>}
+          <EnglishFields question={q} patch={patch} images={images} onPendingChange={setAudioPending} onDraftChange={setAudioDraft}/>
+          </details>
           <div className="space-y-2">
             <Label htmlFor={`${formId}-sourceScore`}>{t("原卷分值（没有则留空）")}</Label>
             <Input id={`${formId}-sourceScore`} type="number" min="0.01" max="1000000" step="0.01" value={q.sourceScore ?? ""} onChange={e => patch({sourceScore: e.target.value === "" ? null : Number(e.target.value)})}/>

@@ -9,6 +9,30 @@ import type { Question } from "./api";
 HTMLElement.prototype.scrollIntoView = () => {};
 afterEach(cleanup);
 
+it("discloses optional settings without losing their edits when collapsed", async () => {
+  const user = userEvent.setup(), save = vi.fn();
+  const initial = { ...blankQuestion(), stem: "Question", answerPayload: { correct: ["A"] } };
+  render(<QuestionEditor initial={initial} busy={false} onClose={vi.fn()} onSave={save}/>);
+  const toggle = screen.getByText("更多设置", { selector: "summary" });
+  expect(toggle.closest("details")?.open).toBe(false);
+  await user.click(toggle);
+  expect(toggle.closest("details")?.open).toBe(true);
+  await user.type(screen.getByRole("textbox", { name: "作答说明" }), "Read carefully");
+  await user.click(toggle);
+  expect(toggle.closest("details")?.open).toBe(false);
+  await user.click(screen.getByRole("button", { name: "保存题目" }));
+  expect(save).toHaveBeenCalledWith({ ...initial, id: expect.any(String), instructions: "Read carefully" }, []);
+  expect(initial).not.toHaveProperty("instructions");
+});
+
+it("opens listening settings when switching to a listening question", async () => {
+  const user = userEvent.setup();
+  render(<QuestionEditor initial={blankQuestion()} busy={false} onClose={vi.fn()} onSave={vi.fn()}/>);
+  await user.selectOptions(screen.getByRole("combobox", { name: "答题方式" }), "listening");
+  expect(screen.getByText("更多设置", { selector: "summary" }).closest("details")?.open).toBe(true);
+  expect(screen.getByRole("button", { name: "选择听力音频" })).toBeTruthy();
+});
+
 it("invalidates cached child answer defaults when shared options change and become empty again", async () => {
   const close = vi.fn(), save = vi.fn();
   const child: Question = { ...blankQuestion(), id:"child", parentId:"root", optionSourceId:"root", options:[], choiceVariant:"multiple", answerPayload:{correct:[]} };

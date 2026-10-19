@@ -208,6 +208,24 @@ it("shows saved exam answers, filters history natively and focuses the page head
   expect(api).toHaveBeenCalledWith({ type: "sessions_page", limit: 30, offset: 0, filter: "finished" });
 });
 
+it.each(["practice", "mock_exam"] as const)("keeps %s results, unknown counts and submitted totals in history", async kind => {
+  setup();
+  const original = vi.mocked(api).getMockImplementation()!;
+  vi.mocked(api).mockImplementation(async request => request.type === "sessions_page"
+    ? { items: [{ ...exam, title: "Saved result", kind, finishedAt: 1, submittedAt: 1, answered: 20, graded: 15, correct: 10, skipped: 1, pendingGrades: 4, earnedCents: 1000, totalCents: 2000 }], total: 1, offset: 0 } as never
+    : original(request));
+  render(<App/>);
+  await screen.findByText("English");
+  await userEvent.click(screen.getByRole("button", { name: "练习记录" }));
+  await screen.findByRole("heading", { name: "Saved result" });
+  expect(screen.getByText(kind === "practice" ? "已判定 15 题，答对 10 题 · 正确率 67%" : "暂定成绩 10 / 20 分")).toBeTruthy();
+  expect(screen.getByText(kind === "practice" ? "未答／跳过 1 题 · 未判定 4 题" : "未答／跳过 1 题 · 待评分 4 题")).toBeTruthy();
+  expect(screen.getByText("已提交 20/20 题")).toBeTruthy();
+  await userEvent.click(screen.getByText("判定详情", { selector: "summary" }));
+  expect(screen.getByText("自动判定 0 · 自评 0 · 跳过 1 · 未判定 4")).toBeTruthy();
+  expect(api).not.toHaveBeenCalledWith(expect.objectContaining({ type: "start_paper" }));
+});
+
 it("distinguishes partial credit in the review list and starts unattempted practice explicitly", async () => {
   setup(); render(<App/>);
   await screen.findByText("English");

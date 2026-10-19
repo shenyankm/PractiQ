@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { duration, t, useI18n } from "./i18n";
 import { ListeningPlayer } from "./ListeningPlayer";
 import { questionKinds } from "./english";
@@ -41,6 +42,7 @@ export function Practice(props: PracticeProps) {
   const [draft, setDraft] = useState<{ sessionId: string; position: number; answer: Answer | null }>();
   const answer = !finished && draft?.sessionId === session.id && draft.position === session.position ? draft.answer : attempt.answer;
   const onDraft = useCallback((answer: Answer | null) => setDraft({ sessionId: session.id, position: session.position, answer }), [session.id, session.position]);
+  const [actionsContainer, setActionsContainer] = useState<HTMLDivElement | null>(null);
   const [confirmFinish,setConfirmFinish]=useState(false);
   const [finishing, setFinishing] = useState(false);
   useEffect(() => { setConfirmFinish(false); setDraft(undefined); }, [session.id]);
@@ -70,7 +72,7 @@ export function Practice(props: PracticeProps) {
     <div className="practice-scroll space-y-4">
     {listening && <ListeningPlayer key={`${session.id}-${listening.id}-${listening.audioRef?.sha256}`} question={listening} session={session}/>}
     <div className="grid grid-cols-1 gap-6 @2xl:grid-cols-[minmax(0,1fr)_240px]">
-      <PracticeQuestion key={`${session.id}-${session.position}`} {...props} go={go} onDraft={onDraft} questionHeading={questionHeading} materialReading={materialReading}/>
+      <PracticeQuestion key={`${session.id}-${session.position}`} {...props} go={go} onDraft={onDraft} questionHeading={questionHeading} materialReading={materialReading} actionsContainer={actionsContainer}/>
       <aside className="min-w-0 self-start space-y-4 @2xl:sticky @2xl:top-0">
         <AnswerCard key={session.id} session={session} answer={answer} exam={exam} go={go} />
         {!finished && <Button ref={finishButton} className="w-full" variant="outline" onClick={() => run(async () => { await flushRef.current(); onSession(await api({type:"session", id:session.id})); setConfirmFinish(true); })}>{exam ? t("交卷") : t("结束练习")}</Button>}
@@ -83,10 +85,13 @@ export function Practice(props: PracticeProps) {
       </aside>
     </div>
     </div>
-    <nav className="practice-navigation practice-footer sticky bottom-0 z-30 flex gap-3 rounded-lg border-t bg-card p-3" aria-label={t("题目导航")}>
-      <Button variant="outline" disabled={session.position === 0} onClick={() => go(session.position - 1)}>{t("上一题")}</Button>
-      <Button variant="outline" disabled={session.position === session.attempts.length - 1} onClick={() => go(session.position + 1)}>{t("下一题")}</Button>
-    </nav>
+    <div className="practice-footer sticky bottom-0 z-30 flex gap-3 rounded-lg border-t bg-card p-3">
+      <div className="practice-actions" ref={setActionsContainer}/>
+      <nav className="practice-navigation" aria-label={t("题目导航")}>
+        <Button variant="outline" disabled={session.position === 0} onClick={() => go(session.position - 1)}>{t("上一题")}</Button>
+        <Button variant={exam || finished || attempt.submittedAt != null ? "default" : "outline"} disabled={session.position === session.attempts.length - 1} onClick={() => go(session.position + 1)}>{t("下一题")}</Button>
+      </nav>
+    </div>
   </div>;
 }
 function PracticeQuestion({
@@ -102,11 +107,13 @@ function PracticeQuestion({
   onDraft,
   questionHeading,
   materialReading,
+  actionsContainer,
 }: PracticeProps & {
   go: (position: number) => void;
   onDraft: (answer: Answer | null) => void;
   questionHeading: MutableRefObject<HTMLHeadingElement | null>;
   materialReading: MutableRefObject<MaterialReading>;
+  actionsContainer: HTMLDivElement | null;
 }) {
   useI18n();
   const attempt = session.attempts[session.position];
@@ -337,8 +344,8 @@ function PracticeQuestion({
             onDraftChange={onGradingDraftChange ? draft => onGradingDraftChange(attempt.ordinal, draft) : undefined}
             onConfigure={onConfigureGrading}/>
         </CardContent>
-          {!exam && !submitted && !finished && <div className="practice-actions z-10 flex sticky bottom-0 flex-wrap items-center justify-between gap-3 border-t bg-card px-4 py-3">
-            <div className="flex gap-3">
+          {/* Keep answer state with the question and its actions beside navigation. */}
+          {!exam && !submitted && !finished && actionsContainer && createPortal(<>
               <Button
                 disabled={
                   submitting || !answerReady(
@@ -361,8 +368,7 @@ function PracticeQuestion({
                   })
                 }
               >{t("跳过此题")}</Button>
-            </div>
-          </div>}
+          </>, actionsContainer)}
       </Card>
   );
 }

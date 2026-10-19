@@ -254,6 +254,7 @@ export const en = {
   "调整选题范围": "Adjust question scope",
   "答案自动保存，交卷后统一核对评分。": "Answers save automatically. Review scores after submitting the exam.",
   "草稿自动保存，提交后查看答案与解析。": "Drafts save automatically. Submit to see answers and explanations.",
+  "更多设置": "More settings",
   "查看答题卡": "View answer card",
   "返回当前题": "Return to current question",
   "作答进度": "Answer progress",
