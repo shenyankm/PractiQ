@@ -1,0 +1,11 @@
+{
+  "sha256": "450174f55cf03caed8d1c65280c97955ff3a8675a1f013cae4e0fdd260496385",
+  "bytes": 193603363,
+  "avd": "PractiQ_Followup_QA",
+  "api": 35,
+  "abi": "arm64-v8a",
+  "originalAvdTouched": false,
+  "sessionsStarted": false,
+  "liveModelCalls": false,
+  "resourceMode": "UI-only Debug APK, bundle resources omitted; release/package gate remains CI"
+}

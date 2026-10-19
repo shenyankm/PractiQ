@@ -1,0 +1,5 @@
+TypeScript build: passed
+ESLint: passed
+Vitest: 434 passed, 1 pre-existing skipped; statements 90.53%, branches 85.75%, functions 87.84%, lines 93.68%
+Playwright: 112 existing checks passed; 3 new focused checks passed
+Android API 35 arm64: setup, preview, keyboard, live total, back/view persistence passed; no session started; crash buffer empty

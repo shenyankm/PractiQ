@@ -28,8 +28,11 @@ export function StudySetup({banks, initialBank, initialBankIds, initialFilter, i
   const preview = paper?.questions ?? [];
   const [scores, setScores] = useState<string[]>([]), [total, setTotal] = useState("100"), [budgets, setBudgets] = useState<Record<string,string>>({});
   const [scorePage, setScorePage] = useState(0);
+  const [reviewing, setReviewing] = useState(false), [editingScore, setEditingScore] = useState<number | null>(null);
   const [advancedLoaded, setAdvancedLoaded] = useState(false);
   const advanced = useRef<HTMLDetailsElement>(null);
+  const title = useRef<HTMLHeadingElement>(null), scroll = useRef<HTMLDivElement>(null);
+  useEffect(() => { title.current?.focus(); if (scroll.current) scroll.current.scrollTop = 0; }, [reviewing]);
   const currentScorePage = Math.min(scorePage, Math.max(0, Math.ceil(preview.length / 30) - 1));
   const previewTypes = Array.from(new Set(preview.map(row => row.rootType ?? questionType(row.question))));
   const query = JSON.stringify({bank_ids: bankIds, search, mode, filter});
@@ -46,7 +49,7 @@ export function StudySetup({banks, initialBank, initialBankIds, initialFilter, i
     countEditedForQuery.current = false;
     completedStats.current = ""; completedPage.current = "";
     setLoadedQuery(""); setLoadedPage("");
-    setError(null); setStatsError(null); setPageError(null); setPaper(null); setSelected({}); setOffset(0);
+    setError(null); setStatsError(null); setPageError(null); setPaper(null); setReviewing(false); setSelected({}); setOffset(0);
     setStatsRetry({query:"",attempt:0}); setPageRetry({query:"",attempt:0});
   }, [query]);
   useEffect(() => {
@@ -87,7 +90,7 @@ export function StudySetup({banks, initialBank, initialBankIds, initialFilter, i
     return () => { active = false; clearTimeout(timer); };
   }, [query,statsQuery,pageQuery,pageAttempt,selection,offset]);
     const perform = (job:()=>Promise<void>) => run(async()=>{setError(null);try{await job();}catch(e){setError(e);}});
-  const invalidate = () => { setPaper(null); setScorePage(0); };
+  const invalidate = () => { setPaper(null); setScorePage(0); setReviewing(false); setEditingScore(null); };
   async function generate(withBudgets = false) {
     if (withBudgets && !paper) throw new MessageError(message("请先选择题目并生成预览"));
     const result = await api({type:"preview_paper", request:{bank_ids:bankIds,search,mode,filter,selection:withBudgets ? "manual" : selection,count,quotas,question_ids:withBudgets ? paper!.questionIds : Object.keys(selected),random:withBudgets ? false : random,total_cents:kind === "practice" ? 0 : cents(total),budgets:withBudgets ? Object.fromEntries(previewTypes.map(key => [key,cents(budgets[key] || "0")])) : {}}});
@@ -117,19 +120,24 @@ export function StudySetup({banks, initialBank, initialBankIds, initialFilter, i
   const selectedSingles = selection === "manual" ? Object.values(selected).filter(item => !item.group).length : Object.entries(quotas).reduce((sum, [type, amount]) => sum + (COMPOSITE_FILTERS.includes(type) ? 0 : amount), 0);
   const invalidSelection = invalidCount || (selection === "manual" && (manualCount < 1 || manualCount > 1000)) || (selection === "quota" && (!Object.values(quotas).some(n => n > 0) || Object.entries(quotas).some(([type, n]) => !Number.isInteger(n) || n < 0 || n > (stats.types[type] || 0))));
   const selectionSummary = selection === "count" ? t("{0} 题", {0:count}) : selection === "quota" ? t("{0} 组 + {1} 单题；小题数将在生成时确定", {0:selectedGroups,1:selectedSingles}) : selectedGroups ? selectedSingles ? t("{0} 组 + {1} 单题 / {2} 小题", {0:selectedGroups,1:selectedSingles,2:manualCount}) : t("{0} 组 / {1} 小题", {0:selectedGroups,1:manualCount}) : t("{0} 题", {0:manualCount});
+  let allocatedScore: string;
+  try { allocatedScore = String(scores.reduce((sum, value) => sum + cents(value), 0) / 100); }
+  catch { allocatedScore = "—"; }
   return <Dialog open onOpenChange={v => { if (!v && !busy) onClose(); }}>
-    <DialogContent className="flex max-h-[90vh] flex-col overflow-hidden sm:max-w-3xl">
-      <DialogHeader className="shrink-0 pr-8"><DialogTitle>{t("开始练习或考试")}</DialogTitle><DialogDescription>{kind === "practice" ? t("提交后查看参考答案，可对照自评。") : t("作答时隐藏答案，交卷后核对评分；先预览配分，更改选题或总分后需重新预览。")}</DialogDescription></DialogHeader>
-      <div className="min-h-0 flex-1 overflow-y-auto">
+    <DialogContent className="study-setup flex max-h-[90vh] flex-col overflow-hidden sm:max-w-3xl">
+      <DialogHeader className="shrink-0 pr-8"><DialogTitle ref={title} tabIndex={-1}>{reviewing ? t("检查题目与配分") : t("开始练习或考试")}</DialogTitle><DialogDescription>{kind === "practice" ? t("提交后查看参考答案，可对照自评。") : t("作答时隐藏答案，交卷后核对评分；先预览配分，更改选题或总分后需重新预览。")}</DialogDescription></DialogHeader>
+      <div ref={scroll} className="min-h-0 flex-1 overflow-y-auto">
       <fieldset disabled={busy} className="min-w-0 space-y-5 p-1 text-sm">
+        <div hidden={reviewing} className="space-y-5">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <label className="grid gap-2 font-medium">{t("模式")}<NativeSelect disabled={busy} className="w-full" value={kind} onValueChange={value => { setKind(value as SessionKind); invalidate(); }}><NativeSelectOption value="practice">{t("即时反馈练习")}</NativeSelectOption><NativeSelectOption value="self_test">{t("不限时自测")}</NativeSelectOption><NativeSelectOption value="mock_exam">{t("限时模考")}</NativeSelectOption></NativeSelect></label>
           {kind === "mock_exam" && <label className="grid gap-2 font-medium">{t("考试时长（分钟）")}<Input aria-label={t("考试分钟数")} type="number" min={1} max={1440} value={minutes} onChange={e => setMinutes(Number(e.target.value))}/></label>}
-          {selection === "count" && <label className="grid gap-2 font-medium">{t("题目数量")}<Input aria-describedby="count-help" aria-invalid={!loading && available > 0 && invalidCount} type="number" min={1} max={Math.min(1000, available)} value={count} onChange={e => { countEditedForQuery.current = true; setCount(Number(e.target.value)); invalidate(); }}/></label>}
-          {kind !== "practice" && <label className="grid gap-2 font-medium">{t("考试总分")}<Input value={total} onChange={e => { setTotal(e.target.value); invalidate(); }}/></label>}
+          {selection === "count" && <div className="grid gap-2"><label className="grid gap-2 font-medium">{t("题目数量")}<Input aria-describedby="count-help" aria-invalid={!loading && available > 0 && invalidCount} type="number" min={1} max={Math.min(1000, available)} value={count} onChange={e => { countEditedForQuery.current = true; setCount(Number(e.target.value)); invalidate(); }}/></label>
+            {quickCounts.length > 0 && <div className="flex flex-wrap gap-2" role="group" aria-label={t("快捷题数")}>{quickCounts.map(n => <Button key={n} variant={count === n ? "secondary" : "outline"} aria-pressed={count === n} disabled={busy || loading} onClick={() => { countEditedForQuery.current = true; setCount(n); invalidate(); }}>{t("{0} 题", {0:n})}</Button>)}</div>}
+            <p id="count-help" className="text-sm text-muted-foreground">{t("材料题整组选取，按小题计数；上限 1000。")}</p></div>}
+          {kind !== "practice" && <label className="grid content-start gap-2 font-medium">{t("考试总分")}<Input aria-label={t("考试总分")} inputMode="decimal" aria-describedby="total-unit" value={total} onChange={e => { setTotal(e.target.value); invalidate(); }}/><span id="total-unit" className="font-normal text-muted-foreground">{t("单位：分")}</span></label>}
         </div>
         {kind === "mock_exam" && <p className="workflow-note">{t("到时自动交卷，关闭应用仍会计时。")}</p>}
-        {selection === "count" && <>{quickCounts.length > 0 && <div className="flex flex-wrap gap-2" role="group" aria-label={t("快捷题数")}>{quickCounts.map(n => <Button key={n} variant={count === n ? "secondary" : "outline"} aria-pressed={count === n} disabled={busy || loading} onClick={() => { countEditedForQuery.current = true; setCount(n); invalidate(); }}>{t("{0} 题", {0:n})}</Button>)}</div>}<p id="count-help" className="text-sm text-muted-foreground">{t("材料题整组选取，按小题计数；上限 1000。")}</p></>}
         {invalidCount && !loading && available > 0 && <div role="status" className="space-y-2 text-sm"><p>{t(feasibleCounts.length ? "该数量无法由完整题组组成，请选择可用数量。" : "当前完整题组均超过 1000 小题上限，请调整筛选。")}</p><div className="flex gap-2">{nearbyCounts.map(n => <Button key={n} variant="outline" onClick={() => { countEditedForQuery.current = true; setCount(n); invalidate(); }}>{t("选择 {0} 小题", {0:n})}</Button>)}</div></div>}
         {selection !== "manual" && <label className="flex items-center gap-2">{t("出题顺序")}<NativeSelect disabled={busy} aria-label={t("出题顺序")} className="w-full max-w-40" value={random ? "random" : "ordered"} onValueChange={value => { setRandom(value === "random"); invalidate(); }}><NativeSelectOption value="ordered">{t("顺序练习")}</NativeSelectOption><NativeSelectOption value="random">{t("随机抽题")}</NativeSelectOption></NativeSelect></label>}
         <details ref={advanced} className="rounded-lg border p-4" onToggle={event => { if (event.currentTarget.open) setAdvancedLoaded(true); }}>
@@ -153,11 +161,12 @@ export function StudySetup({banks, initialBank, initialBankIds, initialFilter, i
             </div>}
           </div>}
         </details>
-        {kind !== "practice" && !!preview.length && <section className="space-y-4 rounded-xl border p-4"><h3 className="font-semibold">{t("选题与配分预览 · {0} 题", { 0: preview.length })}</h3><p className="text-muted-foreground">{t("材料题按子题计数，原卷分值仅供参考。")}</p>
+        </div>
+        {kind !== "practice" && reviewing && !!preview.length && <section className="space-y-4"><h3 className="font-semibold">{t("选题与配分预览 · {0} 题", { 0: preview.length })}</h3><p className="text-muted-foreground">{t("材料题按子题计数，原卷分值仅供参考。")}</p>
           <details><summary className="cursor-pointer">{t("按题型分配总分")}</summary><div className="my-3 grid grid-cols-1 gap-3 sm:grid-cols-3">{previewTypes.map(k => <label className="grid gap-2" key={k}>{t("{0}预算", { 0: types()[k] || t("未分类") })}<Input aria-label={t("{0}预算", { 0: types()[k] || t("未分类") })} value={budgets[k] || "0"} onChange={e => setBudgets({...budgets, [k]:e.target.value})}/></label>)}</div><Button variant="outline" onClick={() => perform(async () => { await generate(true); })}>{t("按题型预算重新配分（覆盖逐题修改）")}</Button></details>
           <div className="divide-y">{preview.slice(currentScorePage * 30, currentScorePage * 30 + 30).map((q, index) => {
             const i = currentScorePage * 30 + index;
-            return <div key={q.id} className="flex items-center gap-3 py-3"><span className="min-w-0 flex-1 break-words">{i + 1}. {q.question.stem || t("题干缺失")}{q.question.sourceScore != null && t("（原卷 {0} 分）", { 0: q.question.sourceScore })}</span><Input className="w-24 shrink-0" aria-label={t("第 {0} 题分值", { 0: i + 1 })} value={scores[i]} onChange={e => setScores(scores.map((s, j) => j === i ? e.target.value : s))}/></div>;
+            return <div key={q.id} className="flex items-center gap-3 py-3"><span className="min-w-0 flex-1 break-words">{i + 1}. {q.question.stem || t("题干缺失")}{q.question.sourceScore != null && t("（原卷 {0} 分）", { 0: q.question.sourceScore })}</span>{editingScore === i ? <Input autoFocus className="w-24 shrink-0" inputMode="decimal" aria-label={t("第 {0} 题分值", { 0: i + 1 })} value={scores[i]} onBlur={() => setEditingScore(null)} onChange={e => setScores(scores.map((s, j) => j === i ? e.target.value : s))}/> : <Button variant="outline" className="shrink-0" aria-label={t("第 {0} 题分值", { 0: i + 1 })} onClick={() => setEditingScore(i)}>{t("{0} 分", {0: /^\d+(\.\d{1,2})?$/.test(scores[i] ?? "") ? Number(scores[i]) : scores[i] || "—"})}</Button>}</div>;
           })}</div>
           {preview.length > 30 && <nav aria-label={t("选题与配分预览 · {0} 题", { 0: preview.length })} className="flex flex-wrap items-center justify-between gap-3">
             <span role="status">{t("第 {0}–{1} 项", { 0: currentScorePage * 30 + 1, 1: Math.min(currentScorePage * 30 + 30, preview.length) })}</span>
@@ -167,6 +176,7 @@ export function StudySetup({banks, initialBank, initialBankIds, initialFilter, i
       </fieldset>
       </div>
       <div className="shrink-0 space-y-3 border-t pt-3">
+        {reviewing && <p role="status" className="font-semibold">{t("已分配 {0} / 目标 {1} 分", {0: allocatedScore, 1: total})}{allocatedScore === "—" && <span className="ml-2 text-destructive">{t("分数最多保留两位小数")}</span>}</p>}
         <p role="status" className="text-sm">{!bankIds.length ? t("请选择至少一个题库") : loading ? t("正在加载题目…") : <>{t("已选 {0} · 可用 {1} 题 · 本次 {2}{3}{4}{5}", { 0: chosen.length === 1 ? chosen[0].title : t("{0} 个题库", { 0: chosen.length }), 1: available, 2: selectionSummary, 3: filter && ` · ${{wrong:t("错题"), favorite:t("收藏"), unattempted:t("未做题"), review:t("待复核")}[filter]}`, 4: mode && ` · ${types()[mode] || t("选择题")}`, 5: search && t(" · 关键词：{0}", { 0: search }) })}</>}</p>
         {!!filter && ["reading", "word_bank", "cloze", "listening", "gap_fill", "grammar_fill", "sentence_selection"].some(type => stats.types[type]) && <p className="text-sm text-muted-foreground">{t("命中子题时纳入完整题组，包含组内其他子题。")}</p>}
         {selection === "manual" && manualCount > 1000 && <p role="alert" className="text-sm text-destructive">{t("每次最多选择 1000 小题。")}</p>}
@@ -174,7 +184,7 @@ export function StudySetup({banks, initialBank, initialBankIds, initialFilter, i
         {statsError != null && <div role="alert" className="space-y-2 text-sm text-destructive"><ErrorNotice error={statsError} /><Button variant="outline" disabled={busy || statsLoading} onClick={() => setStatsRetry(previous => ({query,attempt:previous.query === query ? previous.attempt + 1 : 1}))}>{t("重试题目统计")}</Button></div>}
         {selection === "manual" && pageError != null && <div role="alert" className="space-y-2 text-sm text-destructive"><ErrorNotice error={pageError} /><Button variant="outline" disabled={busy || pageLoading} onClick={() => setPageRetry(previous => ({query:pageRequest,attempt:previous.query === pageRequest ? previous.attempt + 1 : 1}))}>{t("重试选题列表")}</Button></div>}
         {error != null && <div role="alert" className="text-destructive"><ErrorNotice error={error} /></div>}
-        <div className="flex flex-wrap justify-end gap-2"><Button variant="outline" disabled={busy} onClick={onClose}>{t("取消")}</Button>{kind !== "practice" && <Button variant={preview.length ? "outline" : "default"} disabled={busy || loading || !available || !bankIds.length || invalidSelection} onClick={() => perform(async () => { await generate(); })}>{preview.length ? t("重新生成预览") : t("预览题目与配分")}</Button>}{(kind === "practice" || !!preview.length) && <Button disabled={busy || loading || !available || !bankIds.length || invalidSelection} onClick={start}>{kind === "practice" ? t("立即开始") : t("开始考试")}</Button>}</div>
+        <div className="flex flex-wrap justify-end gap-2">{!reviewing && <Button variant="outline" disabled={busy} onClick={onClose}>{t("取消")}</Button>}{!reviewing && !!preview.length && <Button variant="outline" disabled={busy} onClick={() => setReviewing(true)}>{t("查看配分")}</Button>}{reviewing && <Button variant="outline" disabled={busy} onClick={() => setReviewing(false)}>{t("返回设置")}</Button>}{kind !== "practice" && !reviewing && <Button variant={preview.length ? "outline" : "default"} disabled={busy || loading || !available || !bankIds.length || invalidSelection} onClick={() => perform(async () => { await generate(); setReviewing(true); setEditingScore(null); })}>{preview.length ? t("重新生成预览") : t("预览题目与配分")}</Button>}{(kind === "practice" || (reviewing && !!preview.length)) && <Button disabled={busy || loading || !available || !bankIds.length || invalidSelection} onClick={start}>{kind === "practice" ? t("立即开始") : t("开始考试")}</Button>}</div>
       </div>
     </DialogContent>
   </Dialog>;
