@@ -5,8 +5,8 @@ from pathlib import Path
 
 from practiq_ai import llm, messaging, runtime
 from practiq_ai.graphs import document
-from practiq_ai.webapp import app
 from tests.support import FakeModel, question
+from tests.tencent_service import app
 
 root = Path(os.environ['TEST_EVENTS'])
 root.mkdir(exist_ok=True)

@@ -110,7 +110,8 @@ def test_manifest_covers_formats_modes_and_every_fixture() -> None:
     assert {case["sourceType"] for case in cases} == ev.SOURCE_TYPES
     assert {q["answerMode"] for case in cases for q in case["expectedQuestions"]} == ev.ANSWER_MODES
     assert {"chinese", "no-source-answer", "long-stem", "repeated-stem", "chunk-boundary", "no-questions", "corrupt-input"} <= {tag for case in cases for tag in case["tags"]}
-    assert {Path("evals", case["path"]).resolve() for case in cases} == {path.resolve() for path in Path("evals/fixtures").rglob("*") if path.is_file()}
+    historical = ev.load_manifest(Path("evals/legacy-csv-cases.json"))["cases"]
+    assert {Path("evals", case["path"]).resolve() for case in [*cases, *historical]} == {path.resolve() for path in Path("evals/fixtures").rglob("*") if path.is_file()}
     text = Path("evals/fixtures/text/text-multi-chunk.txt").read_text()
     chunks = [text[span["start"]:span["end"]] for span in split_chunk_plan(text)[0]]
     assert len(chunks) > 1
@@ -471,6 +472,9 @@ def setup_runner(tmp_path, monkeypatch, responses):
     monkeypatch.setattr(ev, "get_object_store", lambda: store)
     monkeypatch.setattr(document, "get_object_store", lambda: store)
     monkeypatch.setattr(document, "get_model", lambda *args: model)
+    from tests.support import tencent_provider
+
+    tencent_provider(monkeypatch)
     return path, model
 
 
@@ -508,20 +512,14 @@ def test_graph_evaluator_accepts_review_repair_and_recheck_calls(tmp_path, monke
     assert {event["kind"] for event in report["cases"][0]["trajectory"]["events"] if event["event"] == "model_start"} == {"document_parse", "import_review", "import_repair", "import_recheck"}
 
 
-def test_evaluation_records_transport_changes_with_the_same_provider_and_model(tmp_path, monkeypatch):
-    reports = []
-    for api in [None, 'chat_completions', 'responses']:
-        if api is None:
-            monkeypatch.delenv('AI_MODEL_API', raising=False)
-        else:
-            monkeypatch.setenv('AI_MODEL_API', api)
-        path, _ = setup_runner(tmp_path, monkeypatch, [model_result()] * 3)
-        report = asyncio.run(ev.run_evaluation(path, repetitions=3))
-        assert report['settings']['model_api'] == api
-        assert report['status'] == 'PASSED'
-        reports.append(report)
-    assert reports[0]['models'] == reports[1]['models'] == reports[2]['models']
-    change = ev.compare_reports(reports[1], reports[2])['changes']['settings']
+def test_evaluation_records_fixed_responses_transport_and_compares_historical_reports(tmp_path, monkeypatch):
+    path, _ = setup_runner(tmp_path, monkeypatch, [model_result()] * 3)
+    report = asyncio.run(ev.run_evaluation(path, repetitions=3))
+    assert report['settings']['model_api'] == 'responses' and report['status'] == 'PASSED'
+    from copy import deepcopy
+    historical = deepcopy(report)
+    historical['settings']['model_api'] = 'chat_completions'
+    change = ev.compare_reports(historical, report)['changes']['settings']
     assert change['baseline']['model_api'] == 'chat_completions'
     assert change['candidate']['model_api'] == 'responses'
 
@@ -823,7 +821,7 @@ def test_answerless_image_manifest_case_rejects_invented_grading_evidence(
 
 
 def test_csv_no_answer_gold_matches_original_source_without_grading_evidence():
-    case = next(case for case in ev.load_manifest(Path("evals/cases.json"))["cases"] if case["id"] == "csv-no-answer")
+    case = next(case for case in ev.load_manifest(Path("evals/legacy-csv-cases.json"))["cases"] if case["id"] == "csv-no-answer")
     assert case["sourceType"] == "csv" and case["sourceHasNoAnswers"]
     assert case["critical"] and case["split"] == "regression"
     with Path("evals", case["path"]).open(encoding="utf-8", newline="") as stream:
@@ -840,7 +838,7 @@ def test_csv_no_answer_gold_matches_original_source_without_grading_evidence():
 
 @pytest.mark.parametrize("target", ["first-matched", "second-matched", "unmatched", "extra"])
 def test_csv_no_answer_rejects_invented_answers_in_every_output_question(target):
-    case = next(case for case in ev.load_manifest(Path("evals/cases.json"))["cases"] if case["id"] == "csv-no-answer")
+    case = next(case for case in ev.load_manifest(Path("evals/legacy-csv-cases.json"))["cases"] if case["id"] == "csv-no-answer")
     questions = [{"stem": gold["stem"], "answerMode": gold["answerMode"], "options": deepcopy(gold["options"]),
                   "answerPayload": None, "needsReview": True} for gold in case["expectedQuestions"]]
     clean = case_record(case, {"questions": deepcopy(questions)})
@@ -1054,7 +1052,7 @@ def test_trajectory_accepts_only_approved_two_prior_one_next_context(primary, pa
     assert ('INVALID_PAGE_CONTEXT' in score['reasons']) is not passed
 
 
-@pytest.mark.parametrize("source_type,extraction,schema", [("text", "document_parse", "ChunkParseResult"), ("image", "vision_parse", "PageParseResult")])
+@pytest.mark.parametrize("source_type,extraction,schema", [("text", "document_parse", "ChunkParseResult"), ("image", "vision_parse", "OcrPageParseResult")])
 def test_review_trajectory_checks_routes_and_limits_each_stage(source_type, extraction, schema):
     kinds = [extraction, "import_review", "import_repair", "import_recheck"]
     if source_type == "image":

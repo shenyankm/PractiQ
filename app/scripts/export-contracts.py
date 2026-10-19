@@ -9,7 +9,7 @@ from practiq_ai.contracts import (  # noqa: E402
     AnswerMode, COMPOSITE_MODES, QUESTION_KIND_MODES, DocumentParseResult, DocumentProcessing,
     DocumentSourceType, DocumentTaskControl, DocumentTaskCreate, DocumentTaskDetail, DocumentTaskHead, DocumentTaskList,
     DocumentTaskReceipt, DocumentTaskReparse, DocumentTaskReview, DocumentTaskSummary, DocumentUploadRequest,
-    DocumentUploadResponse, ImportCapabilities, OfficeMode,
+    DocumentUploadResponse, ImportCapabilities, ImportSourceType, OfficeMode,
 )
 
 path = Path(__file__).resolve().parents[1] / 'src-tauri/contracts.json'
@@ -88,6 +88,7 @@ for model in wire_models:
 lines.append('export const QUESTION_KIND_MODES = ' + json.dumps(QUESTION_KIND_MODES) + ' as const;')
 lines.append('export type DocumentSourceType = ' + ' | '.join(json.dumps(v) for v in get_args(DocumentSourceType)) + ';')
 lines.append('export type OfficeMode = ' + ' | '.join(json.dumps(v) for v in get_args(OfficeMode)) + ';')
+lines.append('export const IMPORT_SOURCE_TYPES = ' + json.dumps(list(get_args(ImportSourceType))) + ' as const;')
 lines.append('export const COMPOSITE_MODES: readonly string[] = ' + json.dumps(sorted(COMPOSITE_MODES)) + ';')
 lines.append('export const COMPOSITE_FILTERS: readonly string[] = ' + json.dumps(sorted(COMPOSITE_MODES | {k for k, v in QUESTION_KIND_MODES.items() if v in COMPOSITE_MODES})) + ';')
 generated = '\n'.join(lines) + '\n'

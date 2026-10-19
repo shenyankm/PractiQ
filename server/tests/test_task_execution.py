@@ -14,12 +14,14 @@ from practiq_ai.errors import DocumentProcessingError
 from practiq_ai.extractors import ExtractedDocument
 from practiq_ai.graphs import document
 from tests.support import (
-    FakeModel,
     local_graph,
     make_image,
+    ocr_draft,
+    ocr_page_model,
     parsed,
     run_config,
     setup_graph,
+    tencent_pages,
 )
 
 
@@ -107,7 +109,7 @@ async def test_parallel_pause_stops_future_batches_and_resumes_all_interrupts(mo
     assert len(model.calls) == 4
 
 
-@pytest.mark.parametrize("kind", ["text", "csv", "pdf", "image"])
+@pytest.mark.parametrize("kind", ["text", "markdown", "pdf", "image"])
 @pytest.mark.parametrize("change", ["path", "version", "unconfigured", "unavailable"])
 async def test_non_office_pause_resumes_after_office_deployment_changes(monkeypatch, tmp_path, kind, change):
     engine = tmp_path / "soffice"
@@ -116,12 +118,15 @@ async def test_non_office_pause_resumes_after_office_deployment_changes(monkeypa
     monkeypatch.setenv("AI_OFFICE_VERSION", "LibreOffice 26.8.0.3")
     graph, store, files, reference, model = setup_graph(monkeypatch, [parsed()])
     old_key = reference["objectKey"]
-    reference.update(sourceType=kind, mediaType={"text": "text/plain", "csv": "text/csv",
+    reference.update(sourceType=kind, mediaType={"text": "text/plain", "markdown": "text/markdown",
         "pdf": "application/pdf", "image": "image/png"}[kind],
         objectKey=document_source_key(kind, reference["sha256"]), fileName=f"source.{kind}")
     files.blobs[reference["objectKey"]] = files.blobs.pop(old_key)
-    monkeypatch.setattr(document, "extract", AsyncMock(return_value=ExtractedDocument(text="First")))
-    original = document._chunk
+    if kind in {"pdf", "image"}:
+        tencent_pages(monkeypatch, reference, 1)
+        monkeypatch.setattr(document, "extract", AsyncMock(return_value=ExtractedDocument(text="", page_images=[make_image()])))
+    stage = "_vision" if kind in {"pdf", "image"} else "_chunk"
+    original = getattr(document, stage)
     config = run_config()
 
     async def chunk(state, runtime):
@@ -129,7 +134,7 @@ async def test_non_office_pause_resumes_after_office_deployment_changes(monkeypa
             await store.aput(execution.namespace("thread-1", "pause"), str(config.get("run_id")), {"requested": True})
         return await original(state, runtime)
 
-    monkeypatch.setattr(document, "_chunk", chunk)
+    monkeypatch.setattr(document, stage, chunk)
     graph = local_graph(InMemorySaver(), store=store)
     paused = await graph.ainvoke({"document": reference}, config)
     assert paused["__interrupt__"] and not model.calls
@@ -185,6 +190,7 @@ async def test_partial_export_allowed_when_every_unit_failed(monkeypatch):
 
 async def test_failed_page_export_retains_source_and_missing_marker(monkeypatch):
     graph, _, _, reference, _ = setup_graph(monkeypatch, [])
+    tencent_pages(monkeypatch, reference, 1)
     monkeypatch.setattr(document, "extract", AsyncMock(return_value=ExtractedDocument(text="source evidence", page_images=[make_image()])))
     monkeypatch.setattr(document, "structured_call", AsyncMock(return_value=(None, [], "OUTPUT_INVALID")))
     config = run_config()
@@ -198,7 +204,8 @@ async def test_failed_page_export_retains_source_and_missing_marker(monkeypatch)
 
 async def test_model_result_survives_artifact_write_failure(monkeypatch):
     graph, store, files, reference, model = setup_graph(monkeypatch, [parsed()])
-    vision_model = FakeModel(responses=[{**parsed(), "figures": [{"description": "Chart", "bbox": [0, 0, 1, 1]}]}, {"figures": [{"index": 0, "complete": True, "role": "material", "bbox": [0, 0, 1, 1]}]}])
+    vision_model = ocr_page_model(monkeypatch, [{**parsed(), "figures": [{"description": "Chart", "bbox": [0, 0, 1, 1]}]}])
+    tencent_pages(monkeypatch, reference, 1, figures=[{"bbox": [0, 0, 1, 1]}])
     monkeypatch.setattr(document, "get_model", lambda *args: vision_model)
     monkeypatch.setattr(document, "extract", AsyncMock(side_effect=lambda *_: ExtractedDocument(text="", page_images=[make_image()])))
     original = files.put_artifact
@@ -216,21 +223,22 @@ async def test_model_result_survives_artifact_write_failure(monkeypatch):
     fail = False
     result = await graph.ainvoke(None, {**config, "run_id": uuid4()})
     assert result["status"] == "SUCCEEDED"
-    assert len(vision_model.calls) == 2
-    assert len(result["usage"]) == 2
+    assert len(vision_model.calls) == 1
+    assert len(result["usage"]) == 1
     assert not model.calls
-    assert len(await store.asearch(execution.namespace("thread-1", "calls"))) == 2
+    assert len(await store.asearch(execution.namespace("thread-1", "calls"))) == 1
 
 
 async def test_retry_page_preserves_successes_without_text_model_or_chunks(monkeypatch):
     graph, _, files, reference, model = setup_graph(monkeypatch, [])
+    tencent_pages(monkeypatch, reference, 2)
     monkeypatch.setattr(document, "get_model", lambda *args: model)
     monkeypatch.setattr(document, "extract", AsyncMock(side_effect=lambda *_: ExtractedDocument(text="Office source evidence", page_images=[make_image(), make_image()])))
     calls = Counter()
     fail = True
 
     async def page_call(_model, messages, schema, call_kind, *, runtime=None):
-        index = 0 if "PRIMARY page 1" in messages[-1].content else 1
+        index = 0 if "PRIMARY is page 1" in messages[-1].content else 1
         calls[index] += 1
         if fail and index == 1:
             return None, [], "OUTPUT_INVALID"
@@ -244,7 +252,7 @@ async def test_retry_page_preserves_successes_without_text_model_or_chunks(monke
     output = await graph.ainvoke({"document": reference, "retry": {"requestId": str(uuid4())}}, config)
     assert calls == Counter({0: 1, 1: 2})
     assert not model.calls
-    assert "text" in files.put_kinds and "chunk" not in files.put_kinds
+    assert "ocr-page" in files.put_kinds and "chunk" not in files.put_kinds
     assert output["processing"]["chunks"]["total"] == 0
     assert [item["stem"] for item in output["result"]["questions"]] == ["0", "1"]
     assert output["status"] == "SUCCEEDED"
@@ -327,6 +335,8 @@ async def test_crop_failure_requires_review_but_is_not_retryable(monkeypatch):
         {**parsed(), "figures": [{"description": "Chart", "bbox": [0, 0, 1, 1]}]},
         {"figures": [{"index": 0, "complete": True, "role": "material", "bbox": [0, 0, 1, 1]}]},
     ])
+    model.responses = [ocr_draft(model.responses[0])]
+    tencent_pages(monkeypatch, reference, 1, figures=[{"bbox": [0, 0, 1, 1]}])
     monkeypatch.setattr(document, "get_model", lambda *args: model)
     monkeypatch.setattr(document, "extract", AsyncMock(side_effect=lambda *_: ExtractedDocument(text="", page_images=[make_image()])))
     monkeypatch.setattr(document.vision, "crop_figure", lambda *_: None)
@@ -337,17 +347,18 @@ async def test_crop_failure_requires_review_but_is_not_retryable(monkeypatch):
     assert review["failures"][0]["code"] == "CROP_FAILED"
     assert not review["failures"][0]["retryable"]
     output = await graph.ainvoke(Command(resume={"action": "accept_partial"}), config)
-    assert output["status"] == "PARTIAL" and len(model.calls) == 2
+    assert output["status"] == "PARTIAL" and len(model.calls) == 1
 
 
 async def test_identical_questions_on_different_pages_are_preserved(monkeypatch):
     graph, _, files, reference, model = setup_graph(monkeypatch, [parsed("Repeated"), parsed("Repeated")])
+    tencent_pages(monkeypatch, reference, 2)
     monkeypatch.setattr(document, "get_model", lambda *args: model)
     monkeypatch.setattr(document, "extract", AsyncMock(side_effect=lambda *_: ExtractedDocument(text="", page_images=[make_image(), make_image()])))
     result = await graph.ainvoke({"document": reference}, run_config())
     assert [q["stem"] for q in result["result"]["questions"]] == ["Repeated", "Repeated"]
     assert len(model.calls) == 2
-    assert set(files.put_kinds) == {"page", "unit-result"}
+    assert set(files.put_kinds) == {"page", "ocr-page", "tencent-result", "unit-result"}
 
 
 async def test_recovery_provider_uses_real_model_http_protocol(tmp_path):
@@ -359,7 +370,7 @@ async def test_recovery_provider_uses_real_model_http_protocol(tmp_path):
     from scripts.recovery_provider import app_for
 
     async with httpx2.AsyncClient(transport=httpx2.ASGITransport(app=app_for(tmp_path / "calls.jsonl"))) as client:
-        model = ChatOpenAI(model="synthetic-vision", api_key=SecretStr("test-key"), base_url="http://test/v1", http_async_client=client, max_retries=0)
+        model = ChatOpenAI(model="synthetic-vision", api_key=SecretStr("test-key"), base_url="http://test/v1", http_async_client=client, max_retries=0, use_responses_api=True, store=False)
         parsed_result, usage, failure = await llm.structured_call(model, [HumanMessage(content="test")], document.PageParseResult, "vision_parse")
     assert failure is None and parsed_result is not None
     assert parsed_result.figures and parsed_result.questions
@@ -370,6 +381,7 @@ async def test_recovery_provider_uses_real_model_http_protocol(tmp_path):
 async def test_maximum_pages_use_bounded_visual_batches(monkeypatch):
     graph, _, _, reference, model = setup_graph(monkeypatch, [])
     count = document.load().max_document_pages
+    tencent_pages(monkeypatch, reference, count)
     monkeypatch.setattr(document, "get_model", lambda *args: model)
     monkeypatch.setattr(document, "extract", AsyncMock(side_effect=lambda *_: ExtractedDocument(text="", page_images=[make_image()] * count)))
     active, peak, calls = 0, 0, 0
@@ -407,6 +419,7 @@ async def test_retry_limits_shared_by_native_input_and_review(monkeypatch, revie
 
     monkeypatch.setattr(document, '_vision' if pages else '_chunk', unit)
     if pages:
+        tencent_pages(monkeypatch, reference, 2)
         monkeypatch.setattr(document, 'extract', AsyncMock(side_effect=lambda *_: ExtractedDocument(text='', page_images=[make_image(), make_image()])))
     graph = local_graph(InMemorySaver(), store=store)
     config = run_config()
@@ -523,7 +536,7 @@ async def test_recovery_provider_invalid_calls_survive_provider_restart(tmp_path
         app_for(log, -1)
     for attempt in range(2):
         async with httpx2.AsyncClient(transport=httpx2.ASGITransport(app=app_for(log, invalid_responses=2))) as client:
-            model = ChatOpenAI(model='synthetic', api_key=SecretStr('test'), base_url='http://test/v1', http_async_client=client, max_retries=0)
+            model = ChatOpenAI(model='synthetic', api_key=SecretStr('test'), base_url='http://test/v1', http_async_client=client, max_retries=0, use_responses_api=True, store=False)
             result, usage, failure = await llm.structured_call(model, [HumanMessage(content='test')], document.PageParseResult, 'vision_parse')
             if attempt == 0:
                 assert result is None and failure == 'OUTPUT_STALLED' and len(usage) == 2

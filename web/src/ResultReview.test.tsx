@@ -7,6 +7,33 @@ import { Client } from "./api";
 import { material, preview, question, task } from "./test-fixtures";
 import htmlBlocks from "../../app/fixtures/rich-content/html-blocks.json";
 
+it("loads Office OCR evidence only on demand and renders source markup as inert text", async () => {
+  const literal = '<script>window.injected=true</script>\\nOCR source';
+  const evidence = vi.spyOn(Client.prototype, "evidence").mockResolvedValue({ text: async () => literal } as Blob);
+  const reference = { objectKey: "managed-ocr", sha256: "a".repeat(64), sizeBytes: literal.length, mediaType: "application/json" };
+  const checkpoint = { ...preview, units: [{ ...preview.units[0], sourceRef: reference, visualElements: [] }] };
+  const { container } = render(<ResultReview task={task} preview={checkpoint} client={new Client("fake")} />);
+  await userEvent.click(screen.getByRole("button", { name: "来源与资源" }));
+  expect(evidence).not.toHaveBeenCalled();
+  await userEvent.click(screen.getByRole("button", { name: "查看来源证据" }));
+  expect(await screen.findByText(literal)).toBeTruthy();
+  expect(container.querySelector("script")).toBeNull();
+  expect(evidence).toHaveBeenCalledWith(reference, task.threadId);
+});
+
+it("downloads the original document only after an explicit action", async () => {
+  const source = vi.spyOn(Client.prototype, "source").mockResolvedValue(new Blob(["source"]));
+  vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:original");
+  const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+  const document = { objectKey: "managed-source", sha256: "a".repeat(64), sizeBytes: 6, mediaType: "text/plain", sourceType: "text" as const, fileName: "source.txt" };
+  render(<ResultReview task={task} preview={{ ...preview, document }} client={new Client("fake")} />);
+  await userEvent.click(screen.getByRole("button", { name: "来源与资源" }));
+  expect(source).not.toHaveBeenCalled();
+  await userEvent.click(screen.getByRole("button", { name: "下载原文件" }));
+  expect(source).toHaveBeenCalledWith(document, task.threadId);
+  expect(click).toHaveBeenCalledTimes(1);
+});
+
 for (const source of ["checkpoint", "result"]) {
   it(`does not transfer expanded idless cards after ${source} filtering`, async () => {
     const user = userEvent.setup();

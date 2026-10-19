@@ -58,11 +58,15 @@ async def test_capabilities_report_effective_office_limit(monkeypatch, tmp_path,
     monkeypatch.setenv("AI_OFFICE_EXECUTABLE", str(engine))
     monkeypatch.setenv("AI_OFFICE_VERSION", "LibreOffice 26.8.0.3")
     monkeypatch.setenv("AI_SOURCE_MAX_BYTES", str(configured))
+    monkeypatch.setenv("AI_TENCENT_SECRET_ID", "synthetic-id")
+    monkeypatch.setenv("AI_TENCENT_SECRET_KEY", "synthetic-key")
     response = await webapp.import_capabilities()
     assert response.sourceMaxBytes == configured
     assert response.model_dump()["officeSourceMaxBytes"] == min(OFFICE_LIMIT, configured)
     monkeypatch.delenv("AI_OFFICE_EXECUTABLE")
     monkeypatch.delenv("AI_OFFICE_VERSION")
+    assert (await webapp.import_capabilities()).model_dump()["officeSourceMaxBytes"] == min(OFFICE_LIMIT, configured)
+    monkeypatch.delenv("AI_TENCENT_SECRET_KEY")
     assert (await webapp.import_capabilities()).model_dump()["officeSourceMaxBytes"] is None
 
 

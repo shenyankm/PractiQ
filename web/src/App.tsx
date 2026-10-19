@@ -2,7 +2,7 @@ import { lazy, memo, Suspense, useEffect, useRef, useState } from "react";
 import { Select, SelectOption } from "./components/ui/select";
 import { Upload, Play, RefreshCw, Download, Trash2, LockKeyhole, ChevronLeft, ChevronRight, FileText, LoaderCircle, Check } from "lucide-react";
 import logo from "./assets/octopus.png";
-import { ApiError, Client, downloadBlob, fileFormat, MAX_FILES, sourceLimit, validateFiles, type Action, type Capabilities, type OfficeMode, type TaskList, type UploadStage } from "./api";
+import { ApiError, Client, downloadBlob, fileFormat, MAX_FILES, sourceLimit, validateFiles, type Action, type Capabilities, type TaskList, type UploadStage } from "./api";
 import type { DocumentTaskDetail, DocumentTaskReview, DocumentTaskSummary } from "./contracts.generated";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
@@ -12,11 +12,11 @@ import { ErrorBoundary } from "../../shared/error-boundary";
 import { RenderFailure } from "./RenderFailure";
 const ResultReview = lazy(() => import("./ResultReview"));
 
-const sourceExtensions: Record<Capabilities["sourceTypes"][number], string> = { pdf: ".pdf", text: ".txt", csv: ".csv", image: ".png,.jpg,.jpeg", doc: ".doc", docx: ".docx", xls: ".xls", xlsx: ".xlsx" };
-type FileItem = { id: string; file: File; mode?: OfficeMode; deduplicateQuestions?: boolean; state: "ready" | UploadStage | "created" | "failed"; error?: string };
+const sourceExtensions: Record<Capabilities["sourceTypes"][number], string> = { pdf: ".pdf", text: ".txt", markdown: ".md", ppt: ".ppt", pptx: ".pptx", image: ".png,.jpg,.jpeg", doc: ".doc", docx: ".docx", xls: ".xls", xlsx: ".xlsx" };
+type FileItem = { id: string; file: File; deduplicateQuestions?: boolean; state: "ready" | UploadStage | "created" | "failed"; error?: string };
 const stateLabels: Record<DocumentTaskSummary["state"], string> = { PENDING: "等待开始", RUNNING: "正在解析", PAUSING: "正在暂停", PAUSED: "已暂停", INTERRUPTED: "已中断", CANCELLED: "已取消", FAILED: "失败", WAITING_REVIEW: "等待复核", COMPLETED: "已完成", EXPIRED: "已过期" };
 const actionLabels: Record<Action, string> = { pause: "暂停", interrupt: "中断", resume: "继续解析", retry_failed: "重试失败单元", accept_partial: "接受部分结果" };
-const formatLabels: Record<Capabilities["sourceTypes"][number], string> = { pdf: "PDF", text: "TXT", csv: "CSV", image: "PNG/JPEG", doc: "Word (.doc)", docx: "Word (.docx)", xls: "Excel (.xls)", xlsx: "Excel (.xlsx)" };
+const formatLabels: Record<Capabilities["sourceTypes"][number], string> = { pdf: "PDF", text: "TXT", markdown: "Markdown", ppt: "PPT (.ppt)", pptx: "PPT (.pptx)", image: "PNG/JPEG", doc: "Word (.doc)", docx: "Word (.docx)", xls: "Excel (.xls)", xlsx: "Excel (.xlsx)" };
 const fileLabels: Record<FileItem["state"], string> = { ready: "尚未提交", hashing: "校验文件", uploading: "上传文件", starting: "创建任务", created: "任务已创建", failed: "提交失败" };
 const errorText = (error: unknown) => error instanceof ApiError ? error.message : "读取或操作失败，请手动重试。";
 const authFailure = (error: unknown) => error instanceof ApiError && [401, 403].includes(error.status);
@@ -24,15 +24,21 @@ const pollRetryDelay = (failures: number) => Math.min(30_000, 3000 * 2 ** Math.m
 const sizeLabel = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 
 function Progress({ task }: { task: DocumentTaskDetail }) {
-  return <div className="progress-grid">{(["chunks", "visuals"] as const).map(kind => {
+  const jobs = task.parserJobs || [];
+  const active = ["RUNNING", "PENDING", "PAUSING"].includes(task.state);
+  const uncertain = jobs.some(job => job.status === "Unknown" || (job.status === "SUBMITTING" && !job.taskId && !active));
+  return <>{!!jobs.length && <section aria-label="腾讯文档识别"><p role="status">腾讯文档识别：已保存 {jobs.filter(job => job.resultSaved).length} 个任务结果 · 处理中 {jobs.filter(job => ["STAGING", "Created", "Processing"].includes(job.status) || (active && job.status === "SUBMITTING")).length} 个任务</p>
+    {uncertain && <p className="notice" role="alert">上次腾讯提交结果尚未确认。请先核对腾讯云记录；重新解析会创建新任务并可能再次计费。任务 ID 与请求 ID 可在任务诊断中查看。</p>}
+    {jobs.some(job => ["REJECTED", "Failed"].includes(job.status)) && <p className="notice">腾讯文档识别失败。请核对任务诊断，修正问题后再重新解析。</p>}
+  </section>}<div className="progress-grid">{(["chunks", "visuals"] as const).map(kind => {
     const progress = task.progress[kind];
     return <section key={kind}><div className="flex justify-between"><strong>{kind === "chunks" ? "文本单元" : "视觉单元"}</strong><span>{progress.succeeded + progress.failed}/{progress.total}</span></div><progress aria-label={kind === "chunks" ? "文本单元进度" : "视觉单元进度"} value={progress.succeeded + progress.failed} max={Math.max(1, progress.total)} /><p className="text-sm text-muted-foreground">{progress.total ? `成功 ${progress.succeeded} · 失败 ${progress.failed} · 剩余 ${progress.remaining}` : "尚无处理单元"}</p></section>;
-  })}</div>;
+  })}</div></>;
 }
 const Usage = memo(function Usage({ task }: { task: DocumentTaskDetail }) {
   const input = task.usage.reduce((sum, call) => sum + call.inputTokens, 0);
   const output = task.usage.reduce((sum, call) => sum + call.outputTokens, 0);
-  return <details className="resource-card"><summary>模型用量与任务诊断</summary><div className="space-y-3 pt-3"><p>已知用量：{task.usage.length} 次调用，输入 {input} tokens，输出 {output} tokens。</p><p>{task.unknownUsageCalls.length ? `有 ${task.unknownUsageCalls.length} 次调用未返回用量，实际总用量未知。` : "没有已记录的未知用量调用。"}</p><p>调用预算：已预留 {task.modelBudget.reserved}/{task.modelBudget.limit} 次。</p><dl className="metadata-grid"><dt>检查点</dt><dd>{task.checkpointId ?? "尚无（null）"}</dd><dt>运行 ID</dt><dd>{task.runId ?? "无（null）"}</dd><dt>父任务</dt><dd>{task.parentThreadId ?? "无（null）"}</dd><dt>到期时间</dt><dd>{task.expiresAt}</dd></dl><pre className="raw-data">{JSON.stringify({ usage: task.usage, unknownUsageCalls: task.unknownUsageCalls, processing: task.processing, blocking: task.blocking }, null, 2)}</pre></div></details>;
+  return <details className="resource-card"><summary>模型用量与任务诊断</summary><div className="space-y-3 pt-3"><p>已知用量：{task.usage.length} 次调用，输入 {input} tokens，输出 {output} tokens。</p><p>{task.unknownUsageCalls.length ? `有 ${task.unknownUsageCalls.length} 次调用未返回用量，实际总用量未知。` : "没有已记录的未知用量调用。"}</p><p>调用预算：已预留 {task.modelBudget.reserved}/{task.modelBudget.limit} 次。</p><dl className="metadata-grid"><dt>检查点</dt><dd>{task.checkpointId ?? "尚无（null）"}</dd><dt>运行 ID</dt><dd>{task.runId ?? "无（null）"}</dd><dt>父任务</dt><dd>{task.parentThreadId ?? "无（null）"}</dd><dt>到期时间</dt><dd>{task.expiresAt}</dd></dl><pre className="raw-data">{JSON.stringify({ usage: task.usage, unknownUsageCalls: task.unknownUsageCalls, processing: task.processing, blocking: task.blocking, parserJobs: task.parserJobs || [] }, null, 2)}</pre></div></details>;
 });
 
 export default function App() {
@@ -44,7 +50,6 @@ export default function App() {
   const [capRevision, setCapRevision] = useState(0);
   const [files, setFiles] = useState<FileItem[]>([]);
   const [fileError, setFileError] = useState<string | null>(null);
-  const [officeMode, setOfficeMode] = useState<OfficeMode>("pdf");
   const [deduplicateQuestions, setDeduplicateQuestions] = useState(false);
   const [tasks, setTasks] = useState<TaskList>({ items: [], hasMore: false });
   const [listError, setListError] = useState<string | null>(null);
@@ -90,7 +95,7 @@ export default function App() {
     setCapabilities(null); setCapError(null);
     if (!client) return;
     const controller = new AbortController();
-    void client.capabilities(controller.signal).then(result => { if (!controller.signal.aborted) { setCapabilities(result); setOfficeMode(mode => result.officeModes.includes(mode) ? mode : result.officeModes[0] || "pdf"); } }).catch(error => { if (!controller.signal.aborted) setCapError(errorText(error)); });
+    void client.capabilities(controller.signal).then(result => { if (!controller.signal.aborted) { setCapabilities(result); } }).catch(error => { if (!controller.signal.aborted) setCapError(errorText(error)); });
     return () => controller.abort();
   }, [client, capRevision]);
   useEffect(() => {
@@ -211,12 +216,11 @@ export default function App() {
     await run(async current => {
       let created: string | null = null;
       for (const item of items) {
-        const mode = item.mode || officeMode;
         const deduplicate = item.deduplicateQuestions ?? deduplicateQuestions;
         const update = (value: Partial<FileItem>) => { if (current.active) setFiles(previous => previous.map(file => file.id === item.id ? { ...file, ...value } : file)); };
-        update({ mode, deduplicateQuestions: deduplicate, error: undefined });
+        update({ deduplicateQuestions: deduplicate, error: undefined });
         try {
-          const receipt = await current.start(item.file, capabilities, item.id, mode, stage => update({ state: stage }), deduplicate);
+          const receipt = await current.start(item.file, capabilities, item.id, stage => update({ state: stage }), deduplicate);
           update({ state: "created" }); created = receipt.threadId;
         } catch (error) { update({ state: "failed", error: errorText(error) }); }
         if (!current.active) return;
@@ -251,20 +255,19 @@ export default function App() {
             {!capabilities ? <p>正在读取服务支持的格式与限制…</p> : <>
               <p id="file-help" className="text-sm text-muted-foreground">最多 {MAX_FILES} 个文件 · 每个 ≤ {sizeLabel(sourceLimit(capabilities))}{capabilities.officeAvailable && sourceLimit(capabilities, "docx") < sourceLimit(capabilities) && ` · Word / Excel ≤ ${sizeLabel(sourceLimit(capabilities, "docx"))}`}</p>
               <label className="file-picker"><FileText /><span>选择文档</span><Input ref={fileInput} type="file" multiple aria-describedby="file-help" aria-invalid={!!fileError} accept={capabilities.sourceTypes.map(type => sourceExtensions[type]).join(",")} disabled={busy} onChange={event => chooseFiles(Array.from(event.target.files || []))} /></label>
-              <p className="text-xs text-muted-foreground">服务支持：{capabilities.sourceTypes.map(type => formatLabels[type]).join("、")}{!capabilities.officeAvailable && "。Office 转换当前不可用。"}</p>
-              {capabilities.officeAvailable && <label className="space-y-1 block"><span>Word / Excel 转换模式</span><Select className="w-full" aria-label="Word / Excel 转换模式" value={officeMode} disabled={busy || files.some(file => file.state !== "ready")} onValueChange={value => setOfficeMode(value as OfficeMode)}>{capabilities.officeModes.map(mode => <SelectOption key={mode} value={mode}>{mode === "pdf" ? "PDF（保留版面）" : "文本 / 每工作表 CSV"}</SelectOption>)}</Select></label>}
+              <p className="text-xs text-muted-foreground">服务支持：{capabilities.sourceTypes.map(type => formatLabels[type]).join("、")}{capabilities.parserConfigured === false && "。腾讯解析尚未配置，当前无法开始新的文档导入。"}</p>
               <div className="space-y-1"><label className="review-checkbox"><input type="checkbox" aria-describedby="dedup-help" checked={deduplicateQuestions} disabled={busy || files.some(file => file.state !== "ready")} onChange={event => setDeduplicateQuestions(event.target.checked)} />自动去重</label><p id="dedup-help" className="text-xs text-muted-foreground">仅去除完全相同的题目或整组复合题；关闭则全部保留。</p></div>
               <details className="text-sm text-muted-foreground"><summary className="cursor-pointer">格式与导入规则</summary><div className="space-y-2 pt-2">
-                <p>转换模式与去重选项在开始导入后固定，重新解析沿用。</p>
+                <p>所有支持的格式统一使用腾讯异步解析，再由 AI 整理题库；不支持 CSV 导入。当前传输上限 {sizeLabel(capabilities.parserInputMaxBytes ?? 8 * 1024 * 1024)}，还受文件类型和部署限制；超限时由服务端切分，大 Office 文件需要转换器。默认使用本地文件，服务端可主动开启私有 COS 中转。</p>
                 <p>未启用去重时仍会提示重复候选。</p>
                 <p>AI 复核会对照原文检查，最多修正一轮。</p>
                 <p>下载的 ZIP 可在 App 的「设置 → 恢复备份 → 导入题库 ZIP」中追加。</p>
               </div></details>
               {!capabilities.modelConfigured && <p className="notice">服务端尚未配置模型，暂不能开始解析。</p>}
               {fileError && <p role="alert" className="text-destructive">{fileError}</p>}
-              {!!files.length && <ul className="file-list">{files.map(item => <li key={item.id}><div><strong>{item.file.name}</strong><span>{sizeLabel(item.file.size)} · {fileLabels[item.state]} · {formatLabels[fileFormat(item.file).sourceType]}</span>{item.error && <p role="alert" className="text-destructive">{item.error}</p>}</div>{item.state === "ready" && <Button size="icon" variant="ghost" disabled={busy} aria-label={`移除文件 ${item.file.name}`} onClick={() => setFiles(previous => previous.filter(file => file.id !== item.id))}><Trash2 /></Button>}{item.state === "failed" && <Button size="sm" variant="outline" disabled={busy || !capabilities.modelConfigured} onClick={() => void start([item])}>重试开始</Button>}</li>)}</ul>}
+              {!!files.length && <ul className="file-list">{files.map(item => <li key={item.id}><div><strong>{item.file.name}</strong><span>{sizeLabel(item.file.size)} · {fileLabels[item.state]} · {formatLabels[fileFormat(item.file).sourceType]} · 腾讯解析 → AI 整理</span>{item.error && <p role="alert" className="text-destructive">{item.error}</p>}</div>{item.state === "ready" && <Button size="icon" variant="ghost" disabled={busy} aria-label={`移除文件 ${item.file.name}`} onClick={() => setFiles(previous => previous.filter(file => file.id !== item.id))}><Trash2 /></Button>}{item.state === "failed" && <Button size="sm" variant="outline" disabled={busy || capabilities.parserConfigured === false || !capabilities.modelConfigured} onClick={() => void start([item])}>重试开始</Button>}</li>)}</ul>}
               <p className="text-xs text-muted-foreground">点击「开始导入」后上传并调用模型。启用 AI 复核会增加调用与费用，结果仍需人工核对。</p>
-              <Button className="w-full" disabled={busy || !capabilities.modelConfigured || !files.some(file => file.state === "ready")} onClick={() => void start(files.filter(file => file.state === "ready"))}>{busy ? <LoaderCircle className="loading-icon" /> : <Play />}开始导入</Button>
+              <Button className="w-full" disabled={busy || capabilities.parserConfigured === false || !capabilities.modelConfigured || !files.some(file => file.state === "ready")} onClick={() => void start(files.filter(file => file.state === "ready"))}>{busy ? <LoaderCircle className="loading-icon" /> : <Play />}开始导入</Button>
               {files.some(file => file.state === "failed") && <p className="text-xs text-muted-foreground">失败后需手动重试，沿用原请求，避免重复创建任务。</p>}
             </>}
           </CardContent></Card>
@@ -289,7 +292,7 @@ export default function App() {
               <Progress task={detail} />
               <div className="task-actions" aria-label="当前任务操作">{detail.allowedActions.map(action => <Button key={action} variant="outline" disabled={busy || !detailFresh || (!["pause", "interrupt"].includes(action) && !matchingCheckpoint) || (["resume", "retry_failed"].includes(action) && (!detail.modelConfigured || !detail.resumeCompatible))} onClick={() => act(action)}>{actionLabels[action]}</Button>)}<Button disabled={busy || !canExport} onClick={() => void run(async current => { const exported = await current.exportBank(detail); if (current.active) { downloadBlob(exported.blob, exported.name); setDownloadedCheckpoint(`${detail.threadId}:${detail.checkpointId}`); setNotice("题库 ZIP 已下载。每次导出包含当前全部已完成内容，重复导入会创建独立题库。请在应用设置中追加导入。"); } })}><Download />下载题库 ZIP</Button></div>
               {detail.state !== "COMPLETED" && <p className="text-sm text-muted-foreground">暂停后可下载已完成题目，需有可用题目且检查点一致。</p>}
-              <details className="task-secondary-actions"><summary>其他任务操作</summary><p className="text-sm text-muted-foreground">重新解析会创建新的模型请求；删除会移除此任务和检查点。已下载的题库不受影响。</p><div className="task-actions"><Button variant="outline" disabled={busy || !detailFresh || !detail.modelConfigured || detail.state === "EXPIRED"} onClick={() => void run(async current => { const receipt = await current.reparse(detail.threadId); if (current.active) { setSelected(value => value === detail.threadId ? receipt.threadId : value); setListRevision(value => value + 1); setDetailRevision(value => value + 1); setNotice("新解析任务已创建。"); } })}><RefreshCw />重新解析为新任务</Button><Button variant="destructive" disabled={busy || !detailFresh || ["RUNNING", "PENDING", "PAUSING"].includes(detail.state)} onClick={() => setDeleteTarget({ threadId: detail.threadId, fileName: detail.fileName })}><Trash2 />删除任务</Button></div></details>
+              <details className="task-secondary-actions"><summary>其他任务操作</summary><p className="text-sm text-muted-foreground">重新解析会重新提交腾讯识别并创建新的 AI 整理请求，可能再次计费；删除会移除此任务和检查点。已下载的题库不受影响。</p><div className="task-actions"><Button variant="outline" disabled={busy || !detailFresh || !detail.modelConfigured || detail.state === "EXPIRED"} onClick={() => void run(async current => { const receipt = await current.reparse(detail.threadId); if (current.active) { setSelected(value => value === detail.threadId ? receipt.threadId : value); setListRevision(value => value + 1); setDetailRevision(value => value + 1); setNotice("新解析任务已创建。"); } })}><RefreshCw />重新解析为新任务</Button><Button variant="destructive" disabled={busy || !detailFresh || ["RUNNING", "PENDING", "PAUSING"].includes(detail.state)} onClick={() => setDeleteTarget({ threadId: detail.threadId, fileName: detail.fileName })}><Trash2 />删除任务</Button></div></details>
               {!!detail.failures.length && <section className="notice"><h3>失败单元</h3><ul>{detail.failures.map(failure => <li key={`${failure.stage}:${failure.index}`}>{failure.stage} · {failure.index} · {failure.code} · {failure.retryable ? `可重试，剩余 ${failure.retriesRemaining ?? 0} 次` : "不可重试"}</li>)}</ul></section>}
               {(!detail.modelConfigured || !detail.resumeCompatible) && <p className="notice">{!detail.modelConfigured ? "服务端模型未配置。" : "当前模型配置与检查点不兼容。"}继续和重试暂不可用，现有结果仍可检查。</p>}
               <ErrorBoundary key={`${selected}:${detail.checkpointId}`} fallback={<RenderFailure />}><Suspense fallback={<p>正在加载结果检查视图…</p>}><ResultReview task={detail} preview={preview} client={client} /></Suspense></ErrorBoundary>

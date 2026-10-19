@@ -50,7 +50,9 @@ PractiQ 仍处于开发阶段，请按下方步骤从源码运行；已发布安
 3. 查看任务进度、保存的题目、图片、原文答案与待复核提示，下载题库 ZIP。
 4. 在桌面 app 中通过**设置 → 导入与恢复 → 导入题库 ZIP**新建题库或追加到已有题库。
 
-服务支持 **PDF、TXT、CSV 和 PNG/JPEG**；部署端配置 LibreOffice 后，还可导入 **DOC、DOCX、XLS、XLSX**，由服务完成规范化。桌面安装包不内置 Python 服务或 LibreOffice。部署方式与保真边界见 [Office 指南](server/docs/desktop-office.md)。
+服务支持 **PDF、TXT、Markdown、PNG/JPEG、DOC、DOCX、PPT、PPTX、XLS 和 XLSX**，统一使用腾讯云[异步多模态文档解析 `SubmitMultimodalDocParseJob`](https://cloud.tencent.com/document/product/866/139312)，再由 AI 整理题库。腾讯云目前在首次开通时一次性赠送 **1,000 页免费额度，有效期一年**，以[官方额度说明](https://cloud.tencent.com/document/api/866/35945)为准。新导入不再支持 CSV，已保存的数据和题库保留。桌面安装包不内置 Python 服务或 LibreOffice。
+
+默认保留本地目录，通过 Base64 提交，每份输入上限 8 MiB，超限由服务切分；大型 Office 切分需要部署 LibreOffice。高级功能私有 COS 中转默认关闭，设置 `AI_TENCENT_COS_ENABLED=true` 并填写 Bucket、地域后，全部输入使用短期签名 URL，本地源文件与结果仍保留。凭据仅配置在服务端；模型端点必须支持 Responses API。详见[腾讯解析配置](server/docs/tencent-document-parser.md)。
 
 任务历史、暂停、中断、恢复、失败单元重试、部分结果复核与重新解析均在 Web 前端处理。读取结果、复核和下载 ZIP 不调用模型；恢复、重试及重新解析须主动触发，可能产生模型供应商费用。项目不再提供账号、积分或充值，模型费用由你直接向供应商支付。详见[导入任务指南](docs/guides/import-tasks.md)及[个人自托管指南](server/docs/personal-use.md)。
 

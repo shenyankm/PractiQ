@@ -54,7 +54,7 @@ from practiq_ai.storage import get_object_store
 
 ROOT = Path(__file__).parents[1]
 SCORER_VERSION = "6.3.0"
-SOURCE_TYPES = {"text", "csv", "pdf", "image"}
+SOURCE_TYPES = {"text", "pdf", "image"}
 ANSWER_MODES = {"choice", "true_false", "fill_blank", "short_answer", "ordering", "matching", *COMPOSITE_MODES}
 METRICS = (
     "questionPrecision", "questionRecall", "answerModeAccuracy", "optionsAccuracy",
@@ -416,7 +416,7 @@ def score_trajectory(case: dict[str, Any], events: list[dict[str, Any]], calls: 
     allowed = {extraction, "import_review", "import_repair", "import_recheck"}
     if extraction == "vision_parse":
         allowed.add("vision_describe")
-    extraction_schema = "PageParseResult" if extraction == "vision_parse" else "ChunkParseResult"
+    extraction_schema = "OcrPageParseResult" if extraction == "vision_parse" else "ChunkParseResult"
     schemas = {extraction: extraction_schema, "vision_describe": "FigureChecks",
                "import_review": "ReviewReport", "import_recheck": "ReviewReport", "import_repair": extraction_schema}
     starts = [e for e in events if e["event"] == "model_start"]
@@ -877,7 +877,7 @@ PROBE_TESTS = {
     "routingPassRate": {
         "test_chunking": ["test_distinct_source_positions_preserve_questions"],
         "test_task_execution": ["test_identical_questions_on_different_pages_are_preserved"],
-        "test_structured_output": ["test_native_wire_format_repairs_and_records_failed_usage"],
+        "test_structured_output": ["test_responses_wire_format_repairs_and_records_failed_usage"],
         "test_evaluation": ["test_trajectory_ignores_parallel_completion_order_and_rejects_wrong_route"],
     },
     "unknownUsagePassRate": {

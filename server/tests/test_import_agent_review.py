@@ -16,7 +16,7 @@ from practiq_ai.errors import DocumentProcessingError
 from practiq_ai.graphs import document, review
 from tests.support import (
     FakeModel,
-    make_image,
+    FakeObjectStore,
     parsed,
     question,
     run_config,
@@ -599,15 +599,17 @@ async def test_visual_extraction_gets_independent_source_review(monkeypatch):
     monkeypatch.setenv("AI_IMPORT_REVIEW", "true")
     model = FakeModel(responses=[{**parsed(), "figures": []}, {"issues": []}])
     monkeypatch.setattr(document, "get_model", lambda: model)
-    async def image(*args, **kwargs):
-        return make_image(), "data:image/png;base64,synthetic"
-    monkeypatch.setattr(document, "_page_image", image)
-    monkeypatch.setattr(document, "get_object_store", lambda: object())
+    files = FakeObjectStore({})
+    evidence = await files.put_artifact(json.dumps({"page": 0, "elements": [{"text_info": {"content": "First"}}], "figures": []}).encode(),
+                                        source_sha256="a" * 64, kind="ocr-page", index=0, media_type="application/json")
+    monkeypatch.setattr(document, "get_object_store", lambda: files)
     artifact = ArtifactReference(objectKey="page.png", sha256="a" * 64, mediaType="image/png", sizeBytes=1)
-    result = await document._vision({"kind": "page", "index": 0, "artifact": artifact.model_dump(mode="json")}, Runtime())
+    result = await document._vision({"kind": "page", "index": 0, "artifact": artifact.model_dump(mode="json"),
+                                     "ocrArtifact": evidence.model_dump(mode="json")}, Runtime())
     assert result["visionResults"][0]["agentReview"]["status"] == "no_discrepancy"
     assert [item["callKind"] for item in result["usage"]] == ["vision_parse", "import_review"]
-    assert any(isinstance(message.content, list) for message in model.calls[1])
+    assert not any(isinstance(message.content, list) for call in model.calls for message in call)
+    assert any("First" in str(message.content) for message in model.calls[1])
 
 
 async def test_unit_storage_failure_replays_durable_extraction_and_review_receipts(monkeypatch):
@@ -641,3 +643,21 @@ def test_review_setting_is_trusted_and_validated(monkeypatch, value, enabled):
     monkeypatch.setenv("AI_IMPORT_REVIEW", "1")
     with pytest.raises(ValueError, match="AI_IMPORT_REVIEW"):
         load()
+
+
+@pytest.mark.parametrize("literal", ["First\nSecond", r"First $\frac{1}{2}$", 'First "quoted"'])
+async def test_ocr_review_accepts_literal_multiline_and_formula_evidence(monkeypatch, literal):
+    monkeypatch.setenv("AI_IMPORT_REVIEW", "true")
+    model = FakeModel(responses=[{**parsed(), "figures": []}, {"issues": [issue(evidence=literal, repairable=False)]}])
+    monkeypatch.setattr(document, "get_model", lambda: model)
+    files = FakeObjectStore({})
+    evidence = await files.put_artifact(json.dumps({"page": 0, "elements": [{"text_info": {"content": literal}}], "figures": []}).encode(),
+                                        source_sha256="a" * 64, kind="ocr-page", index=0, media_type="application/json")
+    monkeypatch.setattr(document, "get_object_store", lambda: files)
+    artifact = ArtifactReference(objectKey="page.png", sha256="a" * 64, mediaType="image/png", sizeBytes=1)
+    result = await document._vision({"kind": "page", "index": 0, "artifact": artifact.model_dump(mode="json"),
+                                     "ocrArtifact": evidence.model_dump(mode="json")}, Runtime())
+    audit = result["visionResults"][0]["agentReview"]
+    assert audit["reports"][0]["issues"][0]["evidence"] == literal
+    assert audit["failureCode"] is None
+    assert result["visionResults"][0]["parsed"]["questions"][0]["needsReview"]

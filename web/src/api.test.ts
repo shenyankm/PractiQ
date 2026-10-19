@@ -5,6 +5,24 @@ import { capabilities, task, taskId, runId } from "./test-fixtures";
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 const receipt = { threadId: taskId, requestId: taskId, runId, accepted: true };
 
+it("verifies OCR evidence and strips document-only fields from original-file reads", async () => {
+  const bytes = new TextEncoder().encode('{"text":"Source <script>inert</script>"}');
+  const reference = { objectKey: "managed-ocr", sha256: await sha256(bytes.buffer), sizeBytes: bytes.length, mediaType: "application/json" };
+  const fetcher = vi.fn().mockImplementation(async (_path, init) => new Response(bytes, { headers: { "Content-Type": JSON.parse(init.body).mediaType } }));
+  vi.stubGlobal("fetch", fetcher);
+  const client = new Client("fake");
+  expect((await client.evidence(reference, taskId)).size).toBe(bytes.length);
+  await client.source({ ...reference, mediaType: "text/plain", sourceType: "text", fileName: "source.txt" }, taskId);
+  expect(JSON.parse(fetcher.mock.calls[1][1].body)).toEqual({ ...reference, mediaType: "text/plain" });
+  await expect(client.evidence({ ...reference, sha256: "0".repeat(64) }, taskId)).rejects.toMatchObject({ code: "ARTIFACT_CHECKSUM_MISMATCH" });
+});
+
+it.each([{ mediaType: "text/html" }, { sizeBytes: 25 * 1024 * 1024 + 1 }, { sizeBytes: 1.5 }])("rejects unsafe evidence metadata before fetching: %s", async change => {
+  const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);
+  await expect(new Client("fake").evidence({ objectKey: "managed", sha256: "a".repeat(64), sizeBytes: 1, mediaType: "application/json", ...change }, taskId)).rejects.toMatchObject({ code: "INVALID_REFERENCE" });
+  expect(fetcher).not.toHaveBeenCalled();
+});
+
 it.each(["headers", "body"])("bounds stalled %s and permits the next read", async stage => {
   vi.useFakeTimers();
   let signal: AbortSignal;
@@ -88,7 +106,7 @@ describe("source selection and bounded upload", () => {
     const office = new File(["x"], "large.docx");
     Object.defineProperty(office, "size", { value: 25 * 1024 * 1024 + 1 });
     const read = vi.spyOn(office, "arrayBuffer"); const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);
-    await expect(new Client("fake").start(office, limits, taskId, "pdf", () => {})).rejects.toMatchObject({ code: "DOCUMENT_TOO_LARGE" });
+    await expect(new Client("fake").start(office, limits, taskId, () => {})).rejects.toMatchObject({ code: "DOCUMENT_TOO_LARGE" });
     expect(read).not.toHaveBeenCalled(); expect(fetcher).not.toHaveBeenCalled();
     const pdf = new File(["x"], "large.pdf"); Object.defineProperty(pdf, "size", { value: office.size });
     expect(() => validateFiles([pdf], limits)).not.toThrow();
@@ -98,6 +116,9 @@ describe("source selection and bounded upload", () => {
   });
   it("validates formats, filenames, empty files, count and authoritative size before HTTP", () => {
     expect(fileFormat(new File(["x"], "a.JPEG"))).toEqual({ sourceType: "image", mediaType: "image/jpeg" });
+    expect(fileFormat(new File(["x"], "a.md"))).toEqual({ sourceType: "markdown", mediaType: "text/markdown" });
+    expect(fileFormat(new File(["x"], "a.pptx"))).toEqual({ sourceType: "pptx", mediaType: "application/vnd.openxmlformats-officedocument.presentationml.presentation" });
+    expect(() => fileFormat(new File(["x"], "a.csv"))).toThrow(ApiError);
     expect(() => fileFormat(new File(["x"], "a.exe"))).toThrow(ApiError);
     expect(() => fileFormat(new File(["x"], `${"a".repeat(256)}.txt`))).toThrow(ApiError);
     expect(() => validateFiles([], capabilities)).toThrow("1–10");
@@ -111,7 +132,7 @@ describe("source selection and bounded upload", () => {
     const fetcher = mockUpload();
     const stages: string[] = [];
     const client = new Client("fake-service-token");
-    await expect(client.start(new File(["hello"], "a.txt"), capabilities, taskId, "text", stage => stages.push(stage))).resolves.toEqual(receipt);
+    await expect(client.start(new File(["hello"], "a.txt"), capabilities, taskId, stage => stages.push(stage))).resolves.toEqual(receipt);
     expect(stages).toEqual(["hashing", "uploading", "starting"]);
     expect(fetcher.mock.calls).toHaveLength(3);
     const metadata = JSON.parse(fetcher.mock.calls[0][1].body as string);
@@ -128,52 +149,60 @@ describe("source selection and bounded upload", () => {
     }
     client.disconnect();
   });
-  it("skips binary PUT when the managed source already exists, and sends Office mode only for Office", async () => {
+  it("skips existing binary upload and lets the server route Office automatically", async () => {
     const fetcher = mockUpload({ existing: true });
-    await new Client("fake").start(new File(["office"], "a.docx"), capabilities, taskId, "text", () => {});
+    await new Client("fake").start(new File(["office"], "a.docx"), capabilities, taskId, () => {});
     expect(fetcher.mock.calls).toHaveLength(2);
-    expect(JSON.parse(fetcher.mock.calls[1][1].body as string)).toMatchObject({ requestId: taskId, officeMode: "text", document: { sourceType: "docx", mediaType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" } });
+    expect(JSON.parse(fetcher.mock.calls[1][1].body as string)).toMatchObject({ requestId: taskId, document: { sourceType: "docx", mediaType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" } });
   });
   it.each([false, true])("sends deduplication only when explicitly enabled (%s)", async deduplicateQuestions => {
     const fetcher = mockUpload({ existing: true });
-    await new Client("fake").start(new File(["x"], "a.txt"), capabilities, taskId, "pdf", () => {}, deduplicateQuestions);
+    await new Client("fake").start(new File(["x"], "a.txt"), capabilities, taskId, () => {}, deduplicateQuestions);
     const create = JSON.parse(fetcher.mock.calls[1][1].body as string);
     if (deduplicateQuestions) expect(create).toHaveProperty("deduplicateQuestions", true);
     else expect(create).not.toHaveProperty("deduplicateQuestions");
   });
   it.each([{ badReference: true }, { badUrl: true }])("rejects altered reference or external upload URL before PUT/model submission: %j", async options => {
     const fetcher = mockUpload(options);
-    await expect(new Client("fake").start(new File(["x"], "a.txt"), capabilities, taskId, "pdf", () => {})).rejects.toBeInstanceOf(ApiError);
+    await expect(new Client("fake").start(new File(["x"], "a.txt"), capabilities, taskId, () => {})).rejects.toBeInstanceOf(ApiError);
     expect(fetcher.mock.calls).toHaveLength(1);
   });
   it("rejects an altered uploaded reference before task creation", async () => {
     const fetcher = mockUpload({ badUploadedReference: true });
-    await expect(new Client("fake").start(new File(["x"], "a.txt"), capabilities, taskId, "pdf", () => {})).rejects.toMatchObject({ code: "INVALID_REFERENCE" });
+    await expect(new Client("fake").start(new File(["x"], "a.txt"), capabilities, taskId, () => {})).rejects.toMatchObject({ code: "INVALID_REFERENCE" });
     expect(fetcher.mock.calls.map(([url]) => new URL(url, location.origin).pathname)).toEqual(["/api/uploads", "/api/uploads/content"]);
   });
   it("does not replay an uncertain create automatically and preserves the supplied request ID for explicit retry", async () => {
     const fetcher = mockUpload({ existing: true, networkAtCreate: true });
     const client = new Client("fake");
     const file = new File(["x"], "a.txt");
-    await expect(client.start(file, capabilities, taskId, "pdf", () => {})).rejects.toMatchObject({ code: "NETWORK_ERROR" });
+    await expect(client.start(file, capabilities, taskId, () => {})).rejects.toMatchObject({ code: "NETWORK_ERROR" });
     expect(fetcher.mock.calls).toHaveLength(2);
-    await expect(client.start(file, capabilities, taskId, "pdf", () => {})).rejects.toMatchObject({ code: "NETWORK_ERROR" });
+    await expect(client.start(file, capabilities, taskId, () => {})).rejects.toMatchObject({ code: "NETWORK_ERROR" });
     const creates = fetcher.mock.calls.filter(([url]) => url === "/api/document-tasks");
     expect(creates.map(([, init]) => JSON.parse(init.body as string).requestId)).toEqual([taskId, taskId]);
   });
-  it("blocks unavailable conversion/model and mismatched bytes without posting", async () => {
+  it("blocks unavailable cloud parsing/model and mismatched bytes without posting", async () => {
     const fetcher = mockUpload();
     const client = new Client("fake");
     const office = new File(["x"], "a.xls");
-    await expect(client.start(office, { ...capabilities, officeAvailable: false }, taskId, "pdf", () => {})).rejects.toMatchObject({ code: "OFFICE_UNAVAILABLE" });
-    await expect(client.start(office, { ...capabilities, modelConfigured: false }, taskId, "pdf", () => {})).rejects.toMatchObject({ code: "MODEL_NOT_CONFIGURED" });
+    await expect(client.start(office, { ...capabilities, parserConfigured: false }, taskId, () => {})).rejects.toMatchObject({ code: "TENCENT_NOT_CONFIGURED" });
+    await expect(client.start(office, { ...capabilities, modelConfigured: false }, taskId, () => {})).rejects.toMatchObject({ code: "MODEL_NOT_CONFIGURED" });
     const file = new File(["x"], "a.txt");
     vi.spyOn(file, "arrayBuffer").mockResolvedValue(new ArrayBuffer(2));
-    await expect(client.start(file, capabilities, taskId, "pdf", () => {})).rejects.toMatchObject({ code: "DOCUMENT_SIZE_MISMATCH" });
+    await expect(client.start(file, capabilities, taskId, () => {})).rejects.toMatchObject({ code: "DOCUMENT_SIZE_MISMATCH" });
     expect(fetcher).not.toHaveBeenCalled();
   });
 });
 describe("task reads and explicit controls", () => {
+  it.each([8 * 1024 * 1024, 150 * 1024 * 1024])("accepts local and COS transport ceilings: %s", async parserInputMaxBytes => {
+    vi.stubGlobal("fetch", vi.fn(async () => json({ ...capabilities, parserInputMaxBytes })));
+    await expect(new Client("fake").capabilities()).resolves.toMatchObject({ parserInputMaxBytes });
+  });
+  it.each([0, -1, 3, 1.5, "8388608", 150 * 1024 * 1024 + 1])("rejects an invalid Tencent per-job limit: %s", async parserInputMaxBytes => {
+    vi.stubGlobal("fetch", vi.fn(async () => json({ ...capabilities, parserInputMaxBytes })));
+    await expect(new Client("fake").capabilities()).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
+  });
   it.each([0, -1, 1.5, "25", 26 * 1024 * 1024])("rejects an invalid optional Office limit: %s", async officeSourceMaxBytes => {
     vi.stubGlobal("fetch", vi.fn(async () => json({ ...capabilities, officeSourceMaxBytes })));
     await expect(new Client("fake").capabilities()).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
@@ -311,7 +340,7 @@ it.each(["metadata", "content"] as const)("offers upload retry when %s transport
     if (stage === "metadata" ? path === "/api/uploads" : path.startsWith("/api/uploads/content?")) throw new TypeError("Connection lost");
     return original(path, init);
   });
-  await expect(new Client("fake").start(new File(["x"], "a.txt"), capabilities, taskId, "pdf", () => {})).rejects.toThrow("重试上传");
+  await expect(new Client("fake").start(new File(["x"], "a.txt"), capabilities, taskId, () => {})).rejects.toThrow("重试上传");
   expect(fetcher.mock.calls.some(([path]) => path === "/api/document-tasks")).toBe(false);
 });
 it.each(["metadata", "content"] as const)("offers upload retry when %s returns a server error without starting a task", async stage => {
@@ -320,7 +349,7 @@ it.each(["metadata", "content"] as const)("offers upload retry when %s returns a
     if (stage === "metadata" ? path === "/api/uploads" : path.startsWith("/api/uploads/content?")) return json({ detail: { code: "UPLOAD_STORAGE_UNAVAILABLE" } }, 503);
     return original(path, init);
   });
-  await expect(new Client("fake").start(new File(["x"], "a.txt"), capabilities, taskId, "pdf", () => {})).rejects.toThrow("重试上传");
+  await expect(new Client("fake").start(new File(["x"], "a.txt"), capabilities, taskId, () => {})).rejects.toThrow("重试上传");
   expect(fetcher.mock.calls.some(([path]) => path === "/api/document-tasks")).toBe(false);
 });
 it.each(["metadata", "content"] as const)("offers upload retry when %s times out without starting a task", async stage => {
@@ -334,7 +363,7 @@ it.each(["metadata", "content"] as const)("offers upload retry when %s times out
     }
     return original(path, init);
   });
-  const pending = expect(new Client("fake").start(new File(["x"], "a.txt"), capabilities, taskId, "pdf", () => {})).rejects.toThrow("上传超时");
+  const pending = expect(new Client("fake").start(new File(["x"], "a.txt"), capabilities, taskId, () => {})).rejects.toThrow("上传超时");
   await vi.waitFor(() => expect(stalled).toBe(true));
   await vi.advanceTimersByTimeAsync(125_000); await pending;
   expect(fetcher.mock.calls.some(([path]) => path === "/api/document-tasks")).toBe(false);

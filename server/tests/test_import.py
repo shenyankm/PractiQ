@@ -15,7 +15,15 @@ from httpx import ASGITransport, AsyncClient
 from practiq_ai import task_api, webapp
 from practiq_ai.contracts import DOCUMENT_MEDIA_TYPES
 from practiq_ai.graphs import document
-from tests.support import FakeModel, local_graph, object_store, question, run_config
+from tests.support import (
+    FakeModel,
+    local_graph,
+    object_store,
+    ocr_text_page,
+    question,
+    run_config,
+    tencent_provider,
+)
 
 HEADERS = {"Authorization": "Bearer test-token"}
 
@@ -24,14 +32,16 @@ HEADERS = {"Authorization": "Bearer test-token"}
 def setup(monkeypatch, tmp_path):
     store = object_store(tmp_path)
     def response(_messages, schema):
-        if schema is document.vision.FigureChecks:
-            return {"figures": [{"index": 0, "complete": True, "role": "material", "bbox": [0.1, 0.1, 0.8, 0.8]}]}
-        return {"questions": [question("Imported")], "groups": [], "figures": [{"kind": "image", "description": "Figure", "bbox": [0.1, 0.1, 0.8, 0.8]}]} if schema is document.PageParseResult else {"questions": [question("Imported")], "groups": []}
+        result = {"questions": [question("Imported")], "groups": []}
+        if schema is document.OcrPageParseResult:
+            result["figures"] = [{"elementIndex": 0, "kind": "image", "description": "Figure", "questionIndexes": [0]}]
+        return result
 
     model = FakeModel(responses=[response] * 2)
     monkeypatch.setattr(document, "get_object_store", lambda: store)
     monkeypatch.setattr(webapp, "get_object_store", lambda: store)
     monkeypatch.setattr(document, "get_model", lambda *args: model)
+    tencent_provider(monkeypatch)
     return store, model
 
 
@@ -50,11 +60,12 @@ async def ingest(client, payload, kind, name):
 
 
 @pytest.mark.parametrize("kind,fixture", [
-    ("pdf", "pdf/text-layer.pdf"), ("csv", "csv/basic.csv"),
+    ("pdf", "pdf/text-layer.pdf"),
     ("image", "image/clean.png"),
 ])
 async def test_native_binary_import_and_verified_artifacts(setup, kind, fixture, monkeypatch):
     store, _ = setup
+    tencent_provider(monkeypatch, [ocr_text_page("Imported", figures=[{"bbox": [0.1, 0.1, 0.8, 0.8]}])])
     payload = (Path(__file__).parents[1] / "evals/fixtures" / fixture).read_bytes()
     async with AsyncClient(transport=ASGITransport(app=webapp.app), base_url="http://test", headers=HEADERS) as client:
         reference = await ingest(client, payload, kind, Path(fixture).name)

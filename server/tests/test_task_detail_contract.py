@@ -17,6 +17,7 @@ from practiq_ai.contracts import (
     DocumentTaskDetail,
 )
 from practiq_ai.database import utcnow
+from practiq_ai.execution import namespace
 from practiq_ai.webapp import app
 from tests.db_support import new_database, setup_api
 
@@ -52,6 +53,7 @@ async def test_task_detail_http_contract_for_saved_states(monkeypatch, state, ru
     values = {'phase': phase, 'status': 'SUCCEEDED' if state == 'COMPLETED' else '', 'result': {}, 'processing': {}}
     snapshot = SimpleNamespace(values=values, interrupts=[SimpleNamespace(id=str(i), value=value) for i, value in enumerate(blocking)],
                                next=('chunk_gate',) if state != 'COMPLETED' else (), created_at=None)
+    await db.store.aput(namespace(thread_id, 'tencent_jobs'), 'source-0-0', {'status': 'STAGING'})
     service = SimpleNamespace(db=db, snapshot=AsyncMock(return_value=snapshot), checkpoint_id=lambda *_: None)
     monkeypatch.setattr(task_api, 'client', lambda: service)
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='http://test') as http:
@@ -62,6 +64,8 @@ async def test_task_detail_http_contract_for_saved_states(monkeypatch, state, ru
     wire = response.json()
     assert DocumentTaskDetail.model_validate(wire).model_dump(mode='json') == wire
     assert set(wire) == set(DocumentTaskDetail.model_fields)
+    assert wire['parserJobs'] == [{'taskId': None, 'requestId': None, 'status': 'STAGING',
+                                   'successPageCount': None, 'failedPageCount': None, 'resultSaved': False}]
     assert wire['state'] == state and wire['phase'] == phase and wire['allowedActions'] == actions
     assert wire['runId'] == run_id and wire['fileName'] == 'fixture.txt'
     assert wire['modelConfigured'] and wire['resumeCompatible']

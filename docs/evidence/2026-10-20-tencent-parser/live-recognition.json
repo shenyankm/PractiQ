@@ -1,0 +1,49 @@
+{
+  "environment": "Tencent OCR asynchronous API, local Base64, synthetic repository fixtures",
+  "questionStructuringOrGradingCalls": 0,
+  "checks": [
+    {
+      "source": "synthetic text-layer.pdf",
+      "resultType": 9,
+      "Status": "Success",
+      "SuccessPageNum": 1,
+      "FailPageNum": 0,
+      "decoded": true,
+      "decodedPages": 1
+    },
+    {
+      "source": "中文 试卷.docx",
+      "resultType": 9,
+      "Status": "Success",
+      "SuccessPageNum": 2,
+      "FailPageNum": 0,
+      "decoded": true,
+      "decodedPages": 2
+    },
+    {
+      "source": "中文 表格.xlsx",
+      "resultType": 9,
+      "Status": "Success",
+      "SuccessPageNum": 1,
+      "FailPageNum": 0,
+      "decoded": true,
+      "decodedPages": 1,
+      "nativeTableLayoutPreserved": true,
+      "hiddenSheetPresent": false
+    },
+    {
+      "source": "basic.txt",
+      "resultType": 2,
+      "Status": "Success",
+      "SuccessPageNum": 1,
+      "FailPageNum": 0,
+      "decoded": true,
+      "decodedPages": 1
+    }
+  ],
+  "limits": [
+    "COS was not exercised because bucket and region are intentionally unset.",
+    "Recognition/decoding success does not establish question extraction accuracy.",
+    "The XLSX response omitted its hidden sheet; original-workbook review remains required."
+  ]
+}

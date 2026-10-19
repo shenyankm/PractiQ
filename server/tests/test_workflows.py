@@ -26,10 +26,18 @@ from tests.support import (
     FakeModel,
     local_graph,
     make_image,
+    ocr_draft,
     question,
     run_config,
     source,
+    tencent_pages,
+    tencent_provider,
 )
+
+
+@pytest.fixture(autouse=True)
+def tencent_boundary(monkeypatch):
+    return tencent_provider(monkeypatch)
 
 
 def assert_json_value(value: Any) -> None:
@@ -448,11 +456,12 @@ def test_extractor_truncation_makes_result_partial(monkeypatch):
         responses=[{"questions": [question("1. Question")], "groups": []}]
     )
     monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
+    tencent_pages(monkeypatch, reference, 1)
     monkeypatch.setattr(document, "get_model", lambda *args: model)
     monkeypatch.setattr(
         document,
         "extract",
-        AsyncMock(side_effect=lambda *_args: ExtractedDocument(text="1. Question", truncated=True)),
+        AsyncMock(side_effect=lambda *_args: ExtractedDocument(text="", page_images=[make_image()], truncated=True)),
     )
     graph = local_graph(InMemorySaver())
     output = asyncio.run(
@@ -465,11 +474,8 @@ def test_extractor_truncation_makes_result_partial(monkeypatch):
     assert output["processing"]["truncated"] is True
 
 
-def test_document_graph_extracts_directly_from_image_and_crops(monkeypatch):
-    from tests.support import accept_figure_checks
-
-    monkeypatch.setattr(document, "_verify_figures", accept_figure_checks)
-    fake_store, reference = source("")
+def test_document_graph_structures_tencent_evidence_and_crops(monkeypatch):
+    fake_store, reference = source("Synthetic image")
     image = make_image()
     model = FakeModel(
         responses=[
@@ -486,6 +492,8 @@ def test_document_graph_extracts_directly_from_image_and_crops(monkeypatch):
         ]
     )
     monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
+    model.responses = [ocr_draft(model.responses[0])]
+    tencent_pages(monkeypatch, reference, 1, figures=[{"bbox": [0.1, 0.1, 0.6, 0.6]}])
     monkeypatch.setattr(document, "get_model", lambda *args: model)
     monkeypatch.setattr(
         document,
@@ -503,7 +511,7 @@ def test_document_graph_extracts_directly_from_image_and_crops(monkeypatch):
     assert output["result"]["visualElements"][0]["imageRef"] is not None
     assert output["processing"]["visuals"]["succeeded"] == 1
     assert len(model.calls) == 1
-    assert "ocr" not in fake_store.put_kinds
+    assert "ocr-page" in fake_store.put_kinds and "tencent-result" in fake_store.put_kinds
     assert "chunk" not in fake_store.put_kinds
 
 
@@ -529,9 +537,10 @@ def test_document_graph_rejects_documents_without_content(monkeypatch):
 
 
 def test_document_graph_exports_failed_vision_source(monkeypatch):
-    fake_store, reference = source("")
+    fake_store, reference = source("Synthetic image")
     model = FakeModel(responses=[{"invalid": True}] * 4)
     monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
+    tencent_pages(monkeypatch, reference, 1)
     monkeypatch.setattr(document, "get_model", lambda *args: model)
     monkeypatch.setattr(
         document,
@@ -546,32 +555,17 @@ def test_document_graph_exports_failed_vision_source(monkeypatch):
     assert result["result"]["visualElements"][0]["sourceRef"]
 
 
-def test_document_graph_marks_text_truncation_and_missing_questions(monkeypatch):
+def test_over_limit_text_stops_before_paid_recognition_and_preserves_source(monkeypatch, tencent_boundary):
     fake_store, reference = source("1. A long question")
-    model = FakeModel(
-        responses=[
-            {"questions": [question("1. A")], "groups": []},
-            {"questions": [], "groups": []},
-        ]
-    )
+    model = FakeModel(responses=[])
     monkeypatch.setenv("AI_MAX_TOTAL_INPUT_CHARS", "6")
     monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
     monkeypatch.setattr(document, "get_model", lambda *args: model)
-    graph = local_graph(InMemorySaver())
-
-    output = asyncio.run(
-        graph.ainvoke(
-            {"document": reference}, run_config("truncate")
-        )
-    )
-    assert output["status"] == "PARTIAL"
-    assert output["processing"]["truncated"] is True
-    assert any("truncated" in warning for warning in output["result"]["warnings"])
-
-    empty = asyncio.run(graph.ainvoke({"document": reference}, run_config("no-questions")))
-    assert empty["status"] == "PARTIAL"
-    assert empty["result"]["questions"] == []
-    assert empty["result"]["missingFields"] == ["questions"]
+    with pytest.raises(DocumentProcessingError) as error:
+        asyncio.run(local_graph(InMemorySaver()).ainvoke({"document": reference}, run_config("truncate")))
+    assert error.value.code == "TENCENT_SOURCE_TOO_LARGE"
+    assert model.calls == [] and tencent_boundary == []
+    assert fake_store.blobs[reference["objectKey"]] == b"1. A long question"
 
 
 def test_crop_failures_are_reported(monkeypatch):

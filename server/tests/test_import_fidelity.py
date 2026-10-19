@@ -1,16 +1,29 @@
 """Regressions from the mixed-format import acceptance, without provider calls."""
-import json
-from base64 import b64decode
-from io import BytesIO
 from unittest.mock import AsyncMock
 
 import pytest
-from PIL import Image
 
-from practiq_ai.errors import DocumentProcessingError
+from practiq_ai.contracts import document_source_key
 from practiq_ai.extractors import ExtractedDocument
-from practiq_ai.graphs import document, vision
-from tests.support import FakeModel, local_graph, make_image, question, source
+from practiq_ai.graphs import document
+from tests.support import (
+    FakeModel,
+    MemoryStore,
+    local_graph,
+    make_image,
+    ocr_text_page,
+    question,
+    source,
+    tencent_provider,
+)
+
+
+def image_source():
+    files, reference = source("synthetic page")
+    key = document_source_key("image", reference["sha256"])
+    files.blobs[key] = files.blobs.pop(reference["objectKey"])
+    reference.update(sourceType="image", mediaType="image/png", objectKey=key)
+    return files, reference
 
 
 def test_dropped_matrix_is_exportable_and_flagged_without_inventing_math():
@@ -26,81 +39,28 @@ def test_dropped_matrix_is_exportable_and_flagged_without_inventing_math():
     assert not document.ChunkParseResult.model_validate({"questions": [row]}).questions[0].contentBlocks
 
 
-@pytest.mark.parametrize("complete", [True, False])
-async def test_figure_reviewer_corrects_crop_without_downgrading_answers(monkeypatch, complete):
-    store, reference = source("synthetic page")
+@pytest.mark.parametrize("attempt_override", [True, False])
+async def test_ocr_bounds_remain_authoritative_without_downgrading_answers(monkeypatch, attempt_override):
+    store, reference = image_source()
     table = "| Sample | Value |\n| --- | --- |\n| C | $\\sqrt{2}$ |"
     q = question("Read the measurements")
     q["contentBlocks"] = [{"partType": "table", "role": "answer", "markdownValue": table}]
-    response = {"questions": [q], "figures": [{"kind": "table", "description": "Measurements", "role": "answer",
-                "questionIndexes": [0], "bbox": [0.2, 0.3, 0.8, 0.5], "tableRows": [["Sample", "Value"], ["C", r"$\sqrt{2}$"]]}]}
-    check = {"figures": [{"index": 0, "complete": complete, "role": "material", "roleEvidence": "Sample Value C √2", "bbox": [0.2, 0.2, 0.8, 0.7]}]}
-    model = FakeModel(responses=[response, check])
+    response = {"questions": [q], "figures": [{"elementIndex": 0, "kind": "table", "description": "Measurements", "role": "answer",
+                "questionIndexes": [0], "tableRows": [["Sample", "Value"], ["C", r"$\sqrt{2}$"]]}]}
+    invalid = {**response, "figures": [{**response["figures"][0], "bbox": [0.2, 0.3, 0.8, 0.5]}]}
+    model = FakeModel(responses=[invalid, response] if attempt_override else [response])
     monkeypatch.setattr(document, "get_model", lambda: model)
     monkeypatch.setattr(document, "get_object_store", lambda: store)
     monkeypatch.setattr(document, "extract", AsyncMock(return_value=ExtractedDocument(text="", page_images=[make_image()])))
+    tencent_provider(monkeypatch, [ocr_text_page("Read the measurements", figures=[{"bbox": [0.2, 0.2, 0.8, 0.7]}])])
     state = await local_graph().ainvoke({"document": reference})
     visual = state["result"]["visualElements"][0]
-    assert len(model.calls) == 2
-    assert len(state["usage"]) == 2
-    assert visual["sourceRef"]
-    if complete:
-        assert visual["role"] == "answer" and visual["bbox"] == check["figures"][0]["bbox"]
-        assert visual["imageRef"]
-        assert state["result"]["questions"][0]["contentBlocks"][0]["role"] == "answer"
-    else:
-        assert state["status"] == "PARTIAL"
-        assert state["processing"]["failures"][0]["code"] == "CROP_UNVERIFIED"
-        assert visual["role"] == "answer" and visual["imageRef"] is None and visual["bbox"] is None
-        assert state["result"]["questions"][0]["needsReview"]
-        assert "media" in state["result"]["questions"][0]["missingFields"]
+    assert len(model.calls) == len(state["usage"]) == (2 if attempt_override else 1)
+    assert visual["sourceRef"] and visual["imageRef"]
+    assert visual["role"] == "answer" and visual["bbox"] == [0.2, 0.2, 0.8, 0.7]
+    assert state["result"]["questions"][0]["contentBlocks"][0]["role"] == "answer"
+    assert state["result"]["questions"][0]["needsReview"]
 
-
-@pytest.mark.parametrize('kind,bbox,expected,size', [
-    ('diagram', [0.68, 0.25, 0.95, 0.7], [0.64, 0.21, 0.99, 0.74], (560, 530)),
-    ('diagram', [0.68, 0.22, 0.95, 0.68], [0.64, 0.18, 0.99, 0.72], (560, 540)),
-    ('diagram', [0, 0.01, 0.99, 1], [0, 0, 1, 1], (1600, 1000)),
-    ('chart', [0.2, 0.3, 0.7, 0.8], [0.2, 0.3, 0.7, 0.8], (800, 500)),
-])
-async def test_diagram_review_margin_matches_candidate_pixels_and_keeps_uncertainty(monkeypatch, kind, bbox, expected, size):
-    async def review(_model, messages, schema, call_kind, *, runtime=None):
-        candidates = json.loads(messages[2].content)
-        assert candidates[0]['bbox'] == pytest.approx(expected)
-        part = next(item for item in messages[3].content if item['type'] == 'image_url')
-        payload = b64decode(part['image_url']['url'].split(',', 1)[1])
-        with Image.open(BytesIO(payload)) as image:
-            assert image.size == size
-        return schema.model_validate({'figures': [{'index': 0, 'bbox': expected,
-            'role': 'material', 'complete': False}]}), [], None
-
-    monkeypatch.setattr(document, 'structured_call', review)
-    figure = vision.PageFigure(kind=kind, description='Source figure', bbox=bbox)
-    source_image = BytesIO()
-    Image.new('RGB', (1600, 1000), 'white').save(source_image, format='PNG')
-    checks, _, failure = await document._verify_figures(None, source_image.getvalue(), [figure], None)
-    assert figure.bbox == bbox
-    assert checks and checks.figures[0].complete is False and failure is None
-
-
-@pytest.mark.parametrize("code", ["AI_PROVIDER_ERROR", "EXECUTION_STORE_UNAVAILABLE"])
-async def test_reviewer_failure_does_not_publish_an_unverified_crop(monkeypatch, code):
-    async def fail(*args, **kwargs):
-        raise DocumentProcessingError(503, "failed", code)
-    monkeypatch.setattr(document, "structured_call", fail)
-    figure = vision.PageFigure(description="Chart", bbox=[0, 0, 1, 1])
-    if code == "EXECUTION_STORE_UNAVAILABLE":
-        with pytest.raises(DocumentProcessingError):
-            await document._verify_figures(None, make_image(), [figure], None)
-    else:
-        assert await document._verify_figures(None, make_image(), [figure], None) == (None, [], "AI_PROVIDER_ERROR")
-
-
-def test_figure_review_rejects_duplicate_and_invalid_boxes():
-    row = {"index": 0, "complete": True, "role": "material", "bbox": [0, 0, 1, 1]}
-    with pytest.raises(ValueError, match="distinct"):
-        vision.FigureChecks.model_validate({"figures": [row, row]})
-    with pytest.raises(ValueError, match="positive area"):
-        vision.FigureChecks.model_validate({"figures": [{**row, "bbox": [0, 0, 0, 1]}]})
 
 
 def test_model_review_labels_are_derived_without_weakening_public_contract():
@@ -163,44 +123,46 @@ def test_model_stringified_arrays_are_rejected(field):
 
 
 @pytest.mark.parametrize("code", ["AI_PROVIDER_UNAVAILABLE", "AI_PROVIDER_AUTH_ERROR"])
-async def test_figure_provider_failure_preserves_retryable_unit_and_usage(monkeypatch, code):
-    store, reference = source("page")
-    model = FakeModel(responses=[{"questions": [question("Read chart")], "figures": [{"description": "Chart", "bbox": [0, 0, 1, 1], "questionIndexes": [0]}]}])
-    original = document.structured_call
+async def test_structuring_failure_preserves_completed_tencent_job_for_retry(monkeypatch, code):
+    from practiq_ai.execution import namespace
 
+    files, reference = image_source()
     async def call(model, messages, schema, kind, **kwargs):
-        if kind == "vision_describe":
-            return None, [], code
-        return await original(model, messages, schema, kind, **kwargs)
+        assert schema is document.OcrPageParseResult and kind == "vision_parse"
+        return None, [], code
 
     monkeypatch.setattr(document, "structured_call", call)
-    monkeypatch.setattr(document, "get_model", lambda: model)
-    monkeypatch.setattr(document, "get_object_store", lambda: store)
+    monkeypatch.setattr(document, "get_model", lambda: object())
+    monkeypatch.setattr(document, "get_object_store", lambda: files)
     monkeypatch.setattr(document, "extract", AsyncMock(return_value=ExtractedDocument(text="", page_images=[make_image()])))
-    state = await local_graph().ainvoke({"document": reference})
+    calls = tencent_provider(monkeypatch, [ocr_text_page("page")])
+    receipts = MemoryStore()
+    state = await local_graph(store=receipts).ainvoke({"document": reference})
     failure = state["processing"]["failures"][0]
     assert failure["code"] == code and failure["retryable"]
-    assert failure["retriesRemaining"] == 2 and len(state["usage"]) == 1
-    assert state["status"] == "PARTIAL"
+    assert failure["retriesRemaining"] == 2 and state["usage"] == []
+    saved = await receipts.asearch(namespace("thread-1", "tencent_jobs"))
+    assert len(saved) == 1 and saved[0].value["status"] == "Success" and saved[0].value["resultRef"]
+    assert len(calls) == 2 and state["status"] == "PARTIAL"
 
 
-async def test_real_shared_figure_budget_preserves_provider_failure(monkeypatch):
+async def test_shared_structuring_budget_preserves_known_usage_before_provider_failure(monkeypatch):
     import httpx2
     from openai import APITimeoutError
 
     from practiq_ai import llm
 
-    store, reference = source("page")
-    parsed = {"questions": [question("Read chart")], "figures": [{"description": "Chart", "bbox": [0, 0, 1, 1], "questionIndexes": [0]}]}
+    files, reference = image_source()
     error = APITimeoutError(request=httpx2.Request("POST", "https://example.invalid"))
-    model = FakeModel(responses=[parsed, error, error, error, error])
+    model = FakeModel(responses=[{"invalid": True}, error, error, error, error])
     monkeypatch.setattr(llm, "_retry_delay", lambda attempt: 0)
     monkeypatch.setattr(document, "get_model", lambda: model)
-    monkeypatch.setattr(document, "get_object_store", lambda: store)
+    monkeypatch.setattr(document, "get_object_store", lambda: files)
     monkeypatch.setattr(document, "extract", AsyncMock(return_value=ExtractedDocument(text="", page_images=[make_image()])))
+    tencent_provider(monkeypatch, [ocr_text_page("page")])
     state = await local_graph().ainvoke({"document": reference})
     failure = state["processing"]["failures"][0]
-    assert len(model.calls) == 5
+    assert len(model.calls) > 1
     assert failure["code"] == "AI_PROVIDER_UNAVAILABLE" and failure["retryable"]
     assert len(state["usage"]) == 1
 

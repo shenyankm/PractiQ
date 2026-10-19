@@ -785,3 +785,20 @@ async def test_failed_export_releases_budget_when_closed_file_reports_an_error(t
         await bank_export.export_task_bank(detail(), store, source=source)
     assert output.closed
     assert temporary.current().used == 0
+
+
+async def test_partial_ocr_export_keeps_json_evidence_out_of_image_resources(tmp_path, monkeypatch):
+    store, source = await source_store(tmp_path)
+    pages = [await store.put_artifact(b'{"failed":true}', source_sha256=source.sha256,
+                                     kind='ocr-page', index=i, media_type='application/json') for i in range(2)]
+    state = {'document': source.model_dump(mode='json'), 'pageRefs': [page.model_dump() for page in pages], 'visualTotal': 2,
+             'visionResults': [{'kind': 'page', 'index': 0, 'artifact': pages[0].model_dump(),
+                                'parsed': {'questions': [question('Completed unit')], 'groups': []}, 'visuals': []}],
+             'failures': [{'stage': 'vision_parse', 'index': 1, 'code': 'OUTPUT_INVALID', 'retryable': True}]}
+    monkeypatch.setattr(document, 'get_object_store', lambda: store)
+    projected = await document.completed_result(cast(Any, state))
+    assert projected['status'] == 'PARTIAL' and projected['result']['visualElements']
+    payload = await bank_export.export_task_bank(detail(**projected), store, source=source)
+    with payload, ZipFile(payload) as archive:
+        assert not any(name.startswith('resources/') for name in archive.namelist())
+    assert await store.get_verified(pages[1]) == b'{"failed":true}'

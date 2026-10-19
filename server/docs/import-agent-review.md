@@ -1,6 +1,6 @@
 # Source-grounded import agent collaboration
 
-The existing parser graphs support a bounded extraction/review workflow for each text fragment or primary page. It uses the same configured multimodal model in separate calls with independent roles, not a second document parser or a free-form agent conversation. The existing neighboring-page context and PRIMARY ownership rules remain in force. This feature implements [issue #217](https://github.com/shenyankm/PractiQ/issues/217); measured live-model quality improvement remains a separate evaluation requirement.
+The existing parser graphs support a bounded extraction/review workflow for each text fragment or primary page. It uses the same configured structured-output model in separate calls with independent roles, not a second document parser or a free-form agent conversation. The existing neighboring-page context and PRIMARY ownership rules remain in force. This feature implements [issue #217](https://github.com/shenyankm/PractiQ/issues/217); measured live-model quality improvement remains a separate evaluation requirement.
 
 ## Enable explicitly
 

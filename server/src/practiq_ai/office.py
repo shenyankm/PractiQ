@@ -27,7 +27,7 @@ FILE_LIMIT = OFFICE_FILE_MAX_BYTES
 TOTAL_LIMIT = 100 * 1024 * 1024
 FILE_COUNT = 100
 TIMEOUT = 180
-FORMATS = {".doc": "writer", ".docx": "writer", ".xls": "calc", ".xlsx": "calc"}
+FORMATS = {".doc": "writer", ".docx": "writer", ".xls": "calc", ".xlsx": "calc", ".ppt": "impress", ".pptx": "impress"}
 _children: set[subprocess.Popen] = set()
 _lock = threading.Lock()
 _abandoned = False
@@ -166,7 +166,8 @@ def _profile(directory: Path) -> Path:
 
 def _export(engine: Path, source: Path, output: Path, family: str, mode: str, deadline: float) -> list[dict[str, Any]]:
     output.mkdir()
-    filters = {("writer", "pdf"): "pdf:writer_pdf_Export", ("calc", "pdf"): "pdf:calc_pdf_Export",
+    filters = {("writer", "pdf"): "pdf:writer_pdf_Export", ("calc", "pdf"): 'pdf:calc_pdf_Export:{"SinglePageSheets":{"type":"boolean","value":"true"}}',
+               ("impress", "pdf"): 'pdf:impress_pdf_Export:{"ExportHiddenSlides":{"type":"boolean","value":"true"}}',
                ("writer", "text"): "txt:Text (encoded):UTF8",
                ("calc", "text"): "csv:Text - txt - csv (StarCalc):44,34,76,1,,0,false,true,true,false,false,-1"}
     with TemporaryDirectory(prefix="practiq-office-profile-") as directory:
@@ -317,7 +318,8 @@ def _validate_legacy(data: bytes, family: str) -> None:
             pending.extend(struct.unpack_from("<II", entry, 68))
         streams = {name for name, kind in names.items() if kind == 2}
         required = ({"worddocument"} <= streams and bool({"0table", "1table"} & streams)
-                    if family == "writer" else bool({"workbook", "book"} & streams))
+                    if family == "writer" else {"powerpoint document", "current user"} <= streams
+                    if family == "impress" else bool({"workbook", "book"} & streams))
         if not required or {"encryptioninfo", "encryptedpackage"} & streams:
             raise ValueError("Wrong or encrypted document family")
     except (ValueError, struct.error) as exc:
@@ -371,7 +373,7 @@ def _validate_ooxml(data: bytes, family: str) -> None:
         with zipfile.ZipFile(io.BytesIO(data)) as archive:
             entries = archive.infolist()
             names = archive.namelist()
-            required = "word/document.xml" if family == "writer" else "xl/workbook.xml"
+            required = "word/document.xml" if family == "writer" else "ppt/presentation.xml" if family == "impress" else "xl/workbook.xml"
             if (required not in names or "[Content_Types].xml" not in names
                     or len(entries) > 10000 or sum(entry.file_size for entry in entries) > TOTAL_LIMIT
                     or any(entry.flag_bits & 1 or entry.filename.lower().endswith("vbaproject.bin") for entry in entries)):
@@ -436,12 +438,12 @@ def _legacy_writer_pdf(engine: Path, source: Path, output: Path, deadline: float
 
 def convert(engine: str, source: Path, output: Path, mode: str, *, expected_version: str | None = None) -> list[dict[str, Any]]:
     family = FORMATS.get(source.suffix.lower())
-    if family is None or mode not in ("pdf", "text"):
+    if family is None or mode not in ("pdf", "text") or family == "impress" and mode != "pdf":
         raise OfficeError("OFFICE_FORMAT_UNSUPPORTED")
     if source.is_symlink():
         raise OfficeError("OFFICE_INPUT_INVALID")
     data = _read_file(source, FILE_LIMIT)
-    if source.suffix.lower() in (".doc", ".xls"):
+    if source.suffix.lower() in (".doc", ".xls", ".ppt"):
         _validate_legacy(data, family)
     else:
         _validate_ooxml(data, family)

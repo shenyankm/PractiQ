@@ -29,22 +29,24 @@ def service_token(monkeypatch):
     monkeypatch.setenv("AI_SERVICE_TOKEN", "test-service-token")
 
 
-async def test_capabilities_are_authenticated_and_expose_only_configured_office(monkeypatch, tmp_path):
+async def test_capabilities_are_authenticated_and_report_tencent_configuration(monkeypatch, tmp_path):
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=webapp.app), base_url="http://test") as client:
         assert (await client.get("/api/import-capabilities")).status_code == 401
         client.headers["Authorization"] = "Bearer test-service-token"
         response = await client.get("/api/import-capabilities")
         assert response.status_code == 200, response.text
-        assert set(response.json()["sourceTypes"]) == {"csv", "image", "text", "pdf"}
+        assert set(response.json()["sourceTypes"]) == {"image", "text", "markdown", "pdf", "doc", "docx", "ppt", "pptx", "xls", "xlsx"}
         assert not response.json()["officeAvailable"] and response.json()["officeModes"] == []
+        monkeypatch.setenv("AI_TENCENT_SECRET_ID", "synthetic-id")
+        monkeypatch.setenv("AI_TENCENT_SECRET_KEY", "synthetic-key")
         engine = tmp_path / "soffice"
         engine.write_bytes(b"fake deployed engine")
         monkeypatch.setenv("AI_OFFICE_EXECUTABLE", str(engine))
         monkeypatch.setenv("AI_OFFICE_VERSION", "LibreOffice 26.8.0.3")
         monkeypatch.setenv("AI_SOURCE_MAX_BYTES", "1234")
         response = await client.get("/api/import-capabilities")
-        assert set(response.json()["sourceTypes"]) == {"csv", "image", "text", "pdf", "doc", "docx", "xls", "xlsx"}
-        assert response.json()["officeAvailable"] and response.json()["officeModes"] == ["pdf", "text"]
+        assert set(response.json()["sourceTypes"]) == {"image", "text", "markdown", "pdf", "doc", "docx", "ppt", "pptx", "xls", "xlsx"}
+        assert response.json()["officeAvailable"] and response.json()["officeModes"] == [] and response.json()["parserConfigured"]
         assert response.json()["sourceMaxBytes"] == 1234
         monkeypatch.setenv("AI_READ_ONLY", "1")
         for key in ("LLM_PROVIDER", "LLM_API_KEY", "LLM_MODEL"):
@@ -112,9 +114,9 @@ async def test_saved_non_office_reads_survive_unavailable_office_engine(monkeypa
             assert json.loads(archive.read("questions.json"))["result"] == detail["result"]
     elif read == "capabilities":
         capabilities = response.json()
-        assert not capabilities["officeAvailable"] and capabilities["officeModes"] == []
-        assert capabilities["officeSourceMaxBytes"] is None
-        assert set(capabilities["sourceTypes"]) == {"pdf", "text", "csv", "image"}
+        assert capabilities["officeAvailable"] and capabilities["officeModes"] == [] and capabilities["parserConfigured"]
+        assert capabilities["officeSourceMaxBytes"] == min(capabilities["sourceMaxBytes"], 25 * 1024 * 1024)
+        assert set(capabilities["sourceTypes"]) == {"pdf", "text", "markdown", "image", "doc", "docx", "ppt", "pptx", "xls", "xlsx"}
     else:
         assert response.json() == {"enabled": False}
     assert len(model.calls) == 1
@@ -129,7 +131,7 @@ async def test_capabilities_do_not_advertise_directory_as_office_engine(monkeypa
     assert response.status_code == 200, response.text
     assert not response.json()["officeAvailable"] and response.json()["officeModes"] == []
     assert response.json()["officeSourceMaxBytes"] is None
-    assert set(response.json()["sourceTypes"]) == {"pdf", "text", "csv", "image"}
+    assert set(response.json()["sourceTypes"]) == {"pdf", "text", "markdown", "image", "doc", "docx", "ppt", "pptx", "xls", "xlsx"}
 
 
 async def test_non_office_queue_still_runs_after_configured_engine_disappears(monkeypatch, tmp_path):

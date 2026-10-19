@@ -1715,6 +1715,72 @@
         "title": "DocumentQuestionSource",
         "type": "object"
       },
+      "DocumentReference": {
+        "additionalProperties": false,
+        "properties": {
+          "objectKey": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "title": "Objectkey",
+            "type": "string"
+          },
+          "sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sha256",
+            "type": "string"
+          },
+          "mediaType": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Mediatype",
+            "type": "string"
+          },
+          "sizeBytes": {
+            "minimum": 0,
+            "title": "Sizebytes",
+            "type": "integer"
+          },
+          "sourceType": {
+            "enum": [
+              "csv",
+              "image",
+              "text",
+              "markdown",
+              "pdf",
+              "doc",
+              "docx",
+              "ppt",
+              "pptx",
+              "xls",
+              "xlsx"
+            ],
+            "title": "Sourcetype",
+            "type": "string"
+          },
+          "fileName": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Filename"
+          }
+        },
+        "required": [
+          "objectKey",
+          "sha256",
+          "mediaType",
+          "sizeBytes",
+          "sourceType"
+        ],
+        "title": "DocumentReference",
+        "type": "object"
+      },
       "DocumentVisual": {
         "additionalProperties": false,
         "properties": {
@@ -2834,6 +2900,17 @@
     },
     "additionalProperties": false,
     "properties": {
+      "document": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/DocumentReference"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null
+      },
       "threadId": {
         "format": "uuid",
         "title": "Threadid",
@@ -3224,6 +3301,87 @@
           "confidenceScore"
         ],
         "title": "DocumentParseResult",
+        "type": "object"
+      },
+      "DocumentParserJob": {
+        "additionalProperties": false,
+        "properties": {
+          "taskId": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Taskid"
+          },
+          "requestId": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Requestid"
+          },
+          "status": {
+            "enum": [
+              "STAGING",
+              "SUBMITTING",
+              "REJECTED",
+              "Created",
+              "Processing",
+              "Success",
+              "Failed",
+              "Unknown"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "successPageCount": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Successpagecount"
+          },
+          "failedPageCount": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Failedpagecount"
+          },
+          "resultSaved": {
+            "title": "Resultsaved",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "status",
+          "resultSaved"
+        ],
+        "title": "DocumentParserJob",
         "type": "object"
       },
       "DocumentProcessing": {
@@ -4521,6 +4679,14 @@
         "default": false,
         "title": "Canexportcompleted",
         "type": "boolean"
+      },
+      "parserJobs": {
+        "items": {
+          "$ref": "#/$defs/DocumentParserJob"
+        },
+        "maxItems": 100,
+        "title": "Parserjobs",
+        "type": "array"
       }
     },
     "required": [

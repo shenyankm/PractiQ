@@ -13,7 +13,6 @@ from .capacity import bounded_map
 from .config import load, require_model_config
 from .contracts import (
     COMPOSITE_MODES,
-    OFFICE_SOURCE_TYPES,
     DocumentReference,
     DocumentTaskControl,
     DocumentTaskCreate,
@@ -110,8 +109,8 @@ async def create_task(request: DocumentTaskCreate) -> dict[str, Any]:
         if previous:
             return previous
         settings = load()
-        if request.document.sourceType in OFFICE_SOURCE_TYPES and settings.office_executable is None:
-            raise DocumentProcessingError(503, 'Office conversion is not configured in this deployment', 'OFFICE_NOT_CONFIGURED')
+        if not settings.parser_configured:
+            raise DocumentProcessingError(503, 'Configure Tencent parsing credentials and, when enabled, private COS staging', 'TENCENT_NOT_CONFIGURED')
         validate_source_size(request.document.sizeBytes, request.document.sourceType, settings)
         if request.parentThreadId:
             parent = await (await conn.execute('SELECT * FROM document_tasks WHERE thread_id=%s', (str(request.parentThreadId),))).fetchone()
@@ -251,11 +250,17 @@ async def get_task(thread_id: str) -> dict[str, Any]:
     interruptions = _interrupts(snapshot)
     state, actions, failures = _task_state(snapshot, run)
     calls = await _calls(service, thread_id)
+    parser_jobs = await service.db.store.asearch(namespace(thread_id, 'tencent_jobs'), limit=100, refresh_ttl=False)
     usage = {item['callKey']: item for item in values.get('usage', [])}
     usage.update({item['callKey']: {k: item[k] for k in ('callKey', 'modelId', 'inputTokens', 'outputTokens', 'callKind')}
                   for item in calls if item['status'] == 'completed'})
     return DocumentTaskDetail.model_validate({
         'threadId': thread_id, 'runId': run['run_id'] if run else None,
+        'parserJobs': [{
+            'taskId': item.value.get('taskId'), 'requestId': item.value.get('requestId'),
+            'status': item.value['status'], 'successPageCount': item.value.get('SuccessPageNum'),
+            'failedPageCount': item.value.get('FailPageNum'), 'resultSaved': bool(item.value.get('resultRef')),
+        } for item in parser_jobs],
         'parentThreadId': task['parent_thread_id'],
         'modelConfigured': not load().read_only,
         'resumeCompatible': not load().read_only and (not values.get('execution') or values['execution'].get('signature') == signature()),
@@ -581,8 +586,13 @@ async def review_task(thread_id: str) -> dict[str, Any]:
                 units.append({'stage': stage, 'index': item['index'], 'questions': item['parsed'].get('questions', []),
                               'groups': item['parsed'].get('groups', []), 'visualElements': item.get('visuals', []),
                               'sourceRef': references[item['index']] if item['index'] < len(references) else None})
+    present = {(unit['stage'], unit['index']) for unit in units}
+    for refs, stage in (('pageRefs', 'vision_parse'), ('chunkRefs', 'document_parse')):
+        units.extend({'stage': stage, 'index': index, 'questions': [], 'groups': [], 'sourceRef': reference}
+                     for index, reference in enumerate(values.get(refs, [])) if (stage, index) not in present)
     processing = values.get('processing', {})
     return DocumentTaskReview.model_validate({
+        'document': _task['document'] if {'objectKey', 'sha256', 'sizeBytes', 'mediaType'} <= _task['document'].keys() else None,
         'threadId': thread_id, 'checkpointId': service.checkpoint_id(snapshot, run),
         'state': state, 'phase': values.get('phase', 'pending'), 'units': units,
         'failures': failures, 'quality': processing.get('quality', {}),

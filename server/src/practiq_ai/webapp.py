@@ -21,7 +21,6 @@ from practiq_ai import task_api
 from practiq_ai.bank_export import ZIP_CHUNK_BYTES
 from practiq_ai.config import load, require_model_config
 from practiq_ai.contracts import (
-    OFFICE_SOURCE_TYPES,
     ArtifactReference,
     DocumentReference,
     DocumentSourceType,
@@ -37,7 +36,6 @@ from practiq_ai.contracts import (
     DocumentUploadResponse,
     ImportCapabilities,
     OfficeMode,
-    document_source_key,
     document_source_limit,
 )
 from practiq_ai.errors import DocumentProcessingError
@@ -168,11 +166,11 @@ async def maintenance_status() -> dict[str, bool]:
 @app.get("/api/import-capabilities", response_model=ImportCapabilities, dependencies=[Depends(authorize)])
 async def import_capabilities() -> ImportCapabilities:
     settings = load()
-    office = settings.office_executable is not None and settings.office_executable.is_file()
-    return ImportCapabilities(sourceTypes=[kind for kind in get_args(DocumentSourceType) if office or kind not in OFFICE_SOURCE_TYPES],
+    office = settings.parser_configured
+    return ImportCapabilities(sourceTypes=[kind for kind in get_args(DocumentSourceType) if kind != "csv"],
                               sourceMaxBytes=settings.source_max_bytes, officeAvailable=office,
                               officeSourceMaxBytes=document_source_limit("docx", settings.source_max_bytes) if office else None,
-                              officeModes=["pdf", "text"] if office else [], modelConfigured=not settings.read_only)
+                              officeModes=[], modelConfigured=not settings.read_only, parserConfigured=office, parserInputMaxBytes=min(settings.tencent_input_max_bytes, 150 * 1024 * 1024 if settings.tencent_cos_enabled else 8 * 1024 * 1024))
 
 
 async def _task_response[ResultT](operation: Awaitable[ResultT]) -> ResultT:
@@ -287,9 +285,8 @@ async def read_artifact(reference: ArtifactReference, thread_id: Annotated[UUID 
         if not contains([source, review, detail]):
             raise DocumentProcessingError(404, 'Artifact not found', 'ARTIFACT_NOT_FOUND')
         checked: ArtifactReference | DocumentReference = reference
-        if (reference.mediaType in {"image/png", "image/jpeg"}
-                and reference.objectKey == document_source_key("image", reference.sha256)):
-            checked = DocumentReference(sourceType="image", fileName=None, **reference.model_dump())
+        if reference.objectKey == source["objectKey"]:
+            checked = DocumentReference.model_validate(source)
         payload = await (await asyncio.to_thread(get_object_store)).get_verified(checked)
     except DatabaseError as exc:
         raise HTTPException(503, {"code": "TASK_SERVICE_UNAVAILABLE", "message": "Task database is unavailable"}) from exc

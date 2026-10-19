@@ -423,6 +423,8 @@ async def test_truncation_is_visible_and_not_manually_retryable(monkeypatch, pag
 
     api, reference, _ = await setup_api(monkeypatch)
     if pages:
+        from tests.support import tencent_pages
+        tencent_pages(monkeypatch, reference, 1)
         monkeypatch.setattr(document, 'extract', AsyncMock(side_effect=lambda *_: ExtractedDocument(text='', page_images=[make_image()])))
     class Runner:
         async def ainvoke(self, messages, config=None):
@@ -438,6 +440,11 @@ async def test_truncation_is_visible_and_not_manually_retryable(monkeypatch, pag
     assert state['failures'] == [{'stage': 'vision_parse' if pages else 'document_parse', 'index': 0,
                                   'code': 'OUTPUT_TRUNCATED', 'retryable': False, 'retriesRemaining': 0}]
     assert len(state['usage']) == 1 and state['unknownUsageCalls'] == []
+    preview = await task_api.review_task(created['threadId'])
+    assert preview['document'] == reference
+    assert len(preview['units']) == 1 and preview['units'][0]['questions'] == []
+    assert preview['units'][0]['sourceRef']
+    assert preview['units'][0]['stage'] == ('vision_parse' if pages else 'document_parse')
     assert 'retry_failed' not in state['allowedActions']
     with pytest.raises(DocumentProcessingError, match='retryable'):
         await task_api.control_task(created['threadId'], DocumentTaskControl(requestId=uuid4(), action='retry_failed', checkpointId=state['checkpointId']))

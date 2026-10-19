@@ -30,6 +30,7 @@ from tests.support import (
     parsed,
     run_config,
     setup_graph,
+    tencent_pages,
     upload,
 )
 
@@ -40,6 +41,7 @@ async def test_pause_then_review_keeps_interrupt_order(monkeypatch, phase, decis
     responses = [parsed('First'), {'bad': 1}, {'bad': 1}] if phase != 'result' else [parsed('Not in source')]
     graph, store, _, reference, model = setup_graph(monkeypatch, responses, parts=['First', 'Second'] if phase == 'chunk' else None)
     if phase == 'vision':
+        tencent_pages(monkeypatch, reference, 2)
         monkeypatch.setattr(document, 'extract', AsyncMock(return_value=ExtractedDocument(text='', page_images=[make_image(), make_image()])))
     initial = run_config()
     result = await graph.ainvoke({'document': reference, 'failurePolicy': 'review'}, initial)

@@ -6,7 +6,7 @@ import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
 import { Image as ImageIcon, ChevronLeft, ChevronRight } from "lucide-react";
 import type { ArtifactReference, ContentBlock, DocumentTaskDetail, DocumentTaskReview, ParsedQuestion } from "./contracts.generated";
-import { Client } from "./api";
+import { Client, downloadBlob } from "./api";
 import { Button } from "./components/ui/button";
 import { Badge } from "./components/ui/badge";
 import { Input } from "./components/ui/input";
@@ -59,6 +59,42 @@ export function ImageArtifact({ reference, description, client, threadId }: { re
     {error && <p role="alert" className="text-destructive">{error}</p>}
     <Button variant="outline" disabled={loading} onClick={() => void load()}><ImageIcon />{loading ? "正在校验图片…" : url ? "重新读取图片" : "查看图片"}</Button>
   </figure>;
+}
+function SourceEvidence({ reference, client, threadId }: { reference: ArtifactReference; client: Client; threadId: string }) {
+  const [text, setText] = useState<string | null>(null);
+  const [error, setError] = useState(false);
+  const [loading, setLoading] = useState(false);
+  async function load() {
+    setLoading(true); setError(false);
+    try {
+      const value = await (await client.evidence(reference, threadId)).text();
+      if (client.active) setText(value);
+    } catch { if (client.active) setError(true); }
+    finally { if (client.active) setLoading(false); }
+  }
+  return <section className="resource-card">
+    <h5>来源证据（只读）</h5>
+    <p className="text-xs text-muted-foreground">腾讯识别结果可能有误，请与原文件核对。SHA-256：{reference.sha256}</p>
+    {text !== null && <pre className="raw-data">{text}</pre>}
+    {error && <p role="alert">来源证据无法读取或校验失败，请重试。</p>}
+    <Button variant="outline" disabled={loading} onClick={() => void load()}>{loading ? "正在校验来源…" : "查看来源证据"}</Button>
+  </section>;
+}
+function OriginalSource({ document, client, threadId }: { document: NonNullable<DocumentTaskReview["document"]>; client: Client; threadId: string }) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+  async function download() {
+    setLoading(true); setError(false);
+    try {
+      const blob = await client.source(document, threadId);
+      if (client.active) downloadBlob(blob, document.fileName || "source");
+    } catch { if (client.active) setError(true); }
+    finally { if (client.active) setLoading(false); }
+  }
+  return <section className="resource-card"><h4>原始文档</h4><p>{document.fileName || "原文件"} · 文件校验通过后下载，供人工核对。</p>
+    <Button variant="outline" disabled={loading} onClick={() => void download()}>{loading ? "正在校验原文件…" : "下载原文件"}</Button>
+    {error && <p role="alert">原文件无法读取或校验失败，请重试。</p>}
+  </section>;
 }
 type Entry = { question: ParsedQuestion; stage: string; index: number; ordinal: number };
 const questionTypes: Record<NonNullable<ParsedQuestion["answerMode"]>, string> = { choice: "选择题", true_false: "判断题", fill_blank: "填空题", short_answer: "简答题", ordering: "排序题", matching: "匹配题", reading: "阅读理解", word_bank: "选词填空", cloze: "完形填空", listening: "听力题", gap_fill: "语法填空" };
@@ -137,9 +173,10 @@ export default function ResultReview({ task, preview, client }: { task: Document
       {filteredEntries.length > 20 && <nav className="flex items-center justify-between" aria-label="结果分页"><Button variant="outline" disabled={!currentPage} onClick={() => setPage(currentPage - 1)}><ChevronLeft />上一页题目</Button><span>第 {currentPage * 20 + 1}–{Math.min(filteredEntries.length, currentPage * 20 + 20)} 条，共 {filteredEntries.length} 条</span><Button variant="outline" disabled={(currentPage + 1) * 20 >= filteredEntries.length} onClick={() => setPage(currentPage + 1)}>下一页题目<ChevronRight /></Button></nav>}
     </> : <div className="space-y-4">
       <section><h4>文档分组</h4>{groups.length ? groups.slice(resourceStart,resourceStart+20).map((group, index) => <div key={index} className="resource-card"><strong>{group.title}</strong><Markdown text={group.instructions} /><p>题目关联：{"questionIds" in group ? group.questionIds.join("、") : group.questionIndexes.join("、")}</p></div>) : <p>无文档分组。</p>}</section>
+      {preview?.document && <OriginalSource key={preview.document.sha256} document={preview.document} client={client} threadId={task.threadId} />}
       <section><h4>题目来源关联</h4><pre className="raw-data">{JSON.stringify(sources.slice(resourceStart,resourceStart+20), null, 2)}</pre></section>
       <section><h4>质量记录</h4><pre className="raw-data">{JSON.stringify(preview?.quality || task.processing?.quality || {}, null, 2)}</pre></section>
-      <section><h4>图片与来源单元</h4>{visuals.slice(resourceStart,resourceStart+20).map((visual, index) => <div key={index} className="resource-card"><p>{visual.label || visual.kind} · {visual.description}</p><Markdown text={visual.extractedText} /><p>题目关联：{"questionIds" in visual ? visual.questionIds?.join("、") || "未确定" : "questionIndexes" in visual ? visual.questionIndexes?.join("、") || "未确定" : "未确定"}</p>{visual.imageRef && <ImageArtifact key={`image:${visual.imageRef.sha256}`} reference={visual.imageRef} description={visual.description} client={client} threadId={task.threadId} />}{visual.sourceRef && ["image/png", "image/jpeg"].includes(visual.sourceRef.mediaType) && <ImageArtifact key={`source:${visual.sourceRef.sha256}`} reference={visual.sourceRef} description="完整来源页" client={client} threadId={task.threadId} />}</div>)}{units.slice(resourceStart,resourceStart+20).map(unit => unit.sourceRef && ["image/png", "image/jpeg"].includes(unit.sourceRef.mediaType) && <ImageArtifact key={`${unit.stage}:${unit.index}:${unit.sourceRef.sha256}`} reference={unit.sourceRef} description={`来源单元 ${unit.stage} · ${unit.index}`} client={client} threadId={task.threadId} />)}{!visuals.length && !units.some(unit => unit.sourceRef) && <p>无关联图片。</p>}</section>
+      <section><h4>图片与来源单元</h4>{visuals.slice(resourceStart,resourceStart+20).map((visual, index) => <div key={index} className="resource-card"><p>{visual.label || visual.kind} · {visual.description}</p><Markdown text={visual.extractedText} /><p>题目关联：{"questionIds" in visual ? visual.questionIds?.join("、") || "未确定" : "questionIndexes" in visual ? visual.questionIndexes?.join("、") || "未确定" : "未确定"}</p>{visual.imageRef && <ImageArtifact key={`image:${visual.imageRef.sha256}`} reference={visual.imageRef} description={visual.description} client={client} threadId={task.threadId} />}{visual.sourceRef && ["image/png", "image/jpeg"].includes(visual.sourceRef.mediaType) && <ImageArtifact key={`source:${visual.sourceRef.sha256}`} reference={visual.sourceRef} description="完整来源页" client={client} threadId={task.threadId} />}</div>)}{units.slice(resourceStart,resourceStart+20).map(unit => unit.sourceRef && ["image/png", "image/jpeg"].includes(unit.sourceRef.mediaType) && <ImageArtifact key={`${unit.stage}:${unit.index}:${unit.sourceRef.sha256}`} reference={unit.sourceRef} description={`来源单元 ${unit.stage} · ${unit.index}`} client={client} threadId={task.threadId} />)}{units.slice(resourceStart,resourceStart+20).map(unit => unit.sourceRef && ["application/json", "text/plain", "text/markdown"].includes(unit.sourceRef.mediaType) && <SourceEvidence key={`evidence:${unit.stage}:${unit.index}:${unit.sourceRef.sha256}`} reference={unit.sourceRef} client={client} threadId={task.threadId} />)}{!visuals.length && !units.some(unit => unit.sourceRef) && <p>无关联图片。</p>}</section>
       {resourceCount > 20 && <nav className="flex items-center justify-between" aria-label="资源分页"><Button variant="outline" disabled={!currentResourcePage} onClick={() => setResourcePage(currentResourcePage - 1)}>上一页资源</Button><span>第 {resourceStart + 1}–{Math.min(resourceCount,resourceStart+20)} 项，共 {resourceCount} 项</span><Button variant="outline" disabled={resourceStart + 20 >= resourceCount} onClick={() => setResourcePage(currentResourcePage + 1)}>下一页资源</Button></nav>}
     </div>}
   </section>;

@@ -20,7 +20,7 @@ from practiq_ai.contracts import (
 from practiq_ai.extractors import ExtractedDocument
 from practiq_ai.graphs import document
 from tests.db_support import setup_api
-from tests.support import make_image, run_config, setup_graph
+from tests.support import make_image, run_config, setup_graph, tencent_pages
 
 
 def complete_question(stem, source_id, confidence=0.8):
@@ -40,9 +40,9 @@ def source_responses(respond, count, pages):
 
     def response(messages, schema):
         page = next(int(match[1]) for message in reversed(messages)
-                    if isinstance(message.content, str) and (match := re.search(r'PRIMARY page (\d+)', message.content)))
+                    if isinstance(message.content, str) and (match := re.search(r'PRIMARY(?: is)? page (\d+)', message.content)))
         # These recovery tests isolate final merging; context has no new source data.
-        if messages[-1].content.startswith('Complete PRIMARY page '):
+        if messages[-1].content.startswith('Complete the PRIMARY draft'):
             return deepcopy(primary[page])
         primary[page] = pending.pop(0)(messages, schema)
         return deepcopy(primary[page])
@@ -59,9 +59,9 @@ async def test_merge_preserves_section_only_units_and_continuation_confidence(mo
 
     def respond(messages, _schema):
         prompt = messages[-1].content
-        if "PRIMARY page 1" in prompt or prompt.endswith(parts[0]):
+        if "PRIMARY is page 1" in prompt or prompt.endswith(parts[0]):
             return {"questions": [], "groups": [section] if has_section else []}
-        first = "PRIMARY page 2" in prompt or prompt.endswith("First")
+        first = "PRIMARY is page 2" in prompt or prompt.endswith("First")
         return {"questions": [{"id": parent_id, "stem": "Article", "answerMode": "reading",
                                "sourceText": "First" if first else "Second", "confidence": 0.95 if first else 0.2,
                                "passage": [{"partType": "text", "textValue": "First" if first else "Second"}]}]}
@@ -69,6 +69,7 @@ async def test_merge_preserves_section_only_units_and_continuation_confidence(mo
     graph, _, _, reference, model = setup_graph(monkeypatch, source_responses(respond, 3, pages),
                                                parts=parts)
     if pages:
+        tencent_pages(monkeypatch, reference, 3)
         monkeypatch.setattr(document, "extract", AsyncMock(return_value=ExtractedDocument(
             text="", page_images=[make_image()] * 3,
         )))
@@ -142,6 +143,7 @@ async def test_closed_gap_tree_is_corrected_before_merge(monkeypatch, page):
         {"questions": [parent, child]}, {"questions": [corrected, child]},
     ], parts=[source])
     if page:
+        tencent_pages(monkeypatch, reference, 1)
         monkeypatch.setattr(document, "extract", AsyncMock(return_value=ExtractedDocument(
             text="", page_images=[make_image()],
         )))
@@ -168,13 +170,14 @@ async def test_shared_option_answer_conflict_retries_only_its_source_unit(monkey
 
     def respond(messages, _schema):
         nonlocal calls
-        if "PRIMARY page 1" in messages[-1].content or messages[-1].content.endswith("Word bank"):
+        if "PRIMARY is page 1" in messages[-1].content or messages[-1].content.endswith("Word bank"):
             return {"questions": [parent]}
         calls += 1
         return {"questions": [{**child, "answerPayload": {"correct": ["C" if calls == 1 else "B"]}}]}
 
     api, reference, model = await setup_api(monkeypatch, source_responses(respond, 3, pages), parts=["Word bank", "Choose"])
     if pages:
+        tencent_pages(monkeypatch, reference, 2)
         monkeypatch.setattr(document, "extract", AsyncMock(return_value=ExtractedDocument(text="", page_images=[make_image(), make_image()])))
     created = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference), failurePolicy="review"))
     thread = created["threadId"]
@@ -217,13 +220,14 @@ async def test_cross_unit_duplicate_ids_preserve_successes_and_allow_explicit_re
 
     def respond(messages, _schema):
         nonlocal second_calls
-        if "PRIMARY page 1" in messages[-1].content or messages[-1].content.endswith("First"):
+        if "PRIMARY is page 1" in messages[-1].content or messages[-1].content.endswith("First"):
             return {"questions": [first]}
         second_calls += 1
         return {"questions": [{**second, "id": "same" if second_calls == 1 else "second"}]}
 
     api, reference, model = await setup_api(monkeypatch, source_responses(respond, 3, pages), parts=["First", "Second"])
     if pages:
+        tencent_pages(monkeypatch, reference, 2)
         monkeypatch.setattr(document, "extract", AsyncMock(return_value=ExtractedDocument(
             text="", page_images=[make_image(), make_image()],
         )))
@@ -298,7 +302,7 @@ async def test_conflicting_child_unit_preserves_partial_passage_and_retry_restor
 
     def respond(messages, _schema):
         nonlocal second_calls
-        if "PRIMARY page 1" in messages[-1].content or messages[-1].content.endswith("First"):
+        if "PRIMARY is page 1" in messages[-1].content or messages[-1].content.endswith("First"):
             return {"questions": first}
         second_calls += 1
         if conflict_kind == "continuation":
@@ -309,6 +313,7 @@ async def test_conflicting_child_unit_preserves_partial_passage_and_retry_restor
     parts = ["\n".join(q["sourceText"] for q in unit) for unit in [first, second]]
     api, reference, model = await setup_api(monkeypatch, source_responses(respond, 3, pages), parts=parts)
     if pages:
+        tencent_pages(monkeypatch, reference, 2)
         monkeypatch.setattr(document, "extract", AsyncMock(return_value=ExtractedDocument(
             text="", page_images=[make_image(), make_image()],
         )))
@@ -364,13 +369,14 @@ async def test_conflicting_child_unit_preserves_partial_passage_and_retry_restor
 
 async def test_failed_word_bank_parent_can_be_accepted_without_inventing_options(monkeypatch):
     graph, _, _, reference, _ = setup_graph(monkeypatch, [])
+    tencent_pages(monkeypatch, reference, 2)
     monkeypatch.setattr(document, "extract", AsyncMock(return_value=ExtractedDocument(
         text="", page_images=[make_image(), make_image()],
     )))
     source_text = "1. ___ Answer: A"
 
     async def page_call(_model, messages, schema, call_kind, *, runtime=None):
-        if "PRIMARY page 1" in messages[-1].content:
+        if "PRIMARY is page 1" in messages[-1].content:
             return None, [], "OUTPUT_INVALID"
         return schema.model_validate({"questions": [{
             "id": "page:2:1", "parentId": "page:1:bank", "optionSourceId": "page:1:bank",
@@ -416,9 +422,9 @@ async def test_tree_error_after_continuation_retries_the_offending_unit(monkeypa
     def respond(messages, _schema):
         nonlocal child_calls
         prompt = messages[-1].content
-        if "PRIMARY page 1" in prompt or prompt.endswith("First"):
+        if "PRIMARY is page 1" in prompt or prompt.endswith("First"):
             return {"questions": [{**parent, "sourceText": "First"}]}
-        if "PRIMARY page 2" in prompt or prompt.endswith("Second"):
+        if "PRIMARY is page 2" in prompt or prompt.endswith("Second"):
             return {"questions": [{**parent, "sourceText": "Second"}]}
         child_calls += 1
         return {"questions": [{**child, "answerMode": "reading" if child_calls == 1 else "short_answer",
@@ -426,6 +432,7 @@ async def test_tree_error_after_continuation_retries_the_offending_unit(monkeypa
 
     api, reference, model = await setup_api(monkeypatch, source_responses(respond, 4, pages), parts=["First", "Second", "Child"])
     if pages:
+        tencent_pages(monkeypatch, reference, 3)
         monkeypatch.setattr(document, "extract", AsyncMock(return_value=ExtractedDocument(
             text="", page_images=[make_image(), make_image(), make_image()],
         )))
@@ -467,13 +474,14 @@ async def test_oversized_continuation_retries_only_its_source_unit(monkeypatch, 
     def respond(messages, _schema):
         nonlocal calls
         prompt = messages[-1].content
-        if "PRIMARY page 1" in prompt or prompt.endswith("First"):
+        if "PRIMARY is page 1" in prompt or prompt.endswith("First"):
             return {"questions": [{**parent, "sourceText": "First", field: values("First")}]}
         calls += 1
         return {"questions": [{**parent, "sourceText": "Second", field: values("Second") if calls == 1 else []}]}
 
     api, reference, model = await setup_api(monkeypatch, source_responses(respond, 3, pages), parts=["First", "Second"])
     if pages:
+        tencent_pages(monkeypatch, reference, 2)
         monkeypatch.setattr(document, "extract", AsyncMock(return_value=ExtractedDocument(
             text="", page_images=[make_image(), make_image()],
         )))

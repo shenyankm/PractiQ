@@ -19,12 +19,14 @@ from tests.support import (
     FakeObjectStore,
     MemoryStore,
     make_image,
+    ocr_text_page,
     question,
     run_config,
+    tencent_provider,
 )
 
 FORMAT_GRAPHS = [
-    ("text_csv_parser", ("text", "csv")),
+    ("text_csv_parser", ("text", "markdown")),
     ("pdf_parser", ("pdf",)),
 ]
 
@@ -65,6 +67,7 @@ async def test_format_graph_enforces_source_type_before_storage(
     monkeypatch.setattr(document, "get_object_store", get_store)
     monkeypatch.setattr(document, "get_model", lambda *args: vision if source_type == "pdf" else model)
     monkeypatch.setattr(document, "extract", AsyncMock(side_effect=extract))
+    tencent_provider(monkeypatch, [ocr_text_page("1. What is 2 + 2?")])
     graph = document.build_document_graph(name=name, source_types=allowed, store=MemoryStore())
     config = run_config()
     graph_input = {"document": reference}
@@ -78,7 +81,7 @@ async def test_format_graph_enforces_source_type_before_storage(
         output = await graph.ainvoke(graph_input, config)
         assert output["status"] == "SUCCEEDED"
         assert output["result"]["questions"][0]["stem"] == "2 + 2?"
-        assert extracted == [source_type]
+        assert extracted == ([source_type] if source_type == "pdf" else [])
         assert len(model.calls) == (0 if source_type == "pdf" else 1)
         assert len(vision.calls) == (1 if source_type == "pdf" else 0)
     else:

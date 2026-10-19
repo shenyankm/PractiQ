@@ -2,6 +2,7 @@
 import asyncio
 import hashlib
 import json
+import zipfile
 from dataclasses import replace
 from io import BytesIO
 from pathlib import Path
@@ -71,6 +72,95 @@ class FakeModel(BaseChatModel):
             return {"raw": raw, "parsed": parsed, "parsing_error": error}
 
         return RunnableLambda(invoke)
+
+
+def tencent_provider(monkeypatch, pages: list[dict[str, Any]] | None = None):
+    """Replace only Tencent HTTP; plain-text fixtures echo the actual input bytes."""
+    import base64
+
+    from practiq_ai import tencent
+
+    monkeypatch.setenv("AI_TENCENT_SECRET_ID", "synthetic-id")
+    monkeypatch.setenv("AI_TENCENT_SECRET_KEY", "synthetic-key")
+    calls = []
+    archives = {}
+    counts = {}
+
+    async def request(action, data, config):
+        calls.append((action, data))
+        if action == "SubmitMultimodalDocParseJob":
+            payload = base64.b64decode(data["FileBase64"])
+            task_id = "synthetic-" + hashlib.sha256(payload).hexdigest()
+            evidence = pages
+            if evidence is None:
+                assert data["FileType"] in {5, 6}, "Visual fixtures must provide explicit Tencent OCR evidence"
+                evidence = [ocr_text_page(payload.decode("utf-8-sig"))]
+            buffer = BytesIO()
+            with zipfile.ZipFile(buffer, "w") as archive:
+                if data["ResultType"] == 2:
+                    archive.writestr("fixture_md_full.md", "\n".join(
+                        element["text_info"]["content"] for page in evidence for element in page["elements"] if "text_info" in element))
+                else:
+                    for index, page in enumerate(evidence):
+                        archive.writestr(f"fixture_ocr_page{index}.json", json.dumps(page))
+            archives[task_id] = buffer.getvalue()
+            counts[task_id] = len(evidence)
+            return {"TaskId": task_id, "RequestId": str(uuid4())}
+        return {"Status": "Success", "ResultUrl": "https://fixture.cos.ap-guangzhou.myqcloud.com/" + data["TaskId"],
+                "SuccessPageNum": counts[data["TaskId"]], "FailPageNum": 0, "FailedPages": [], "RequestId": str(uuid4())}
+
+    async def download(url):
+        return archives[url.rsplit("/", 1)[1]]
+
+    monkeypatch.setattr(tencent, "request", request)
+    monkeypatch.setattr(tencent, "download_result", download)
+    monkeypatch.setattr(tencent, "get_object_store", lambda: document.get_object_store())
+    return calls
+
+
+def ocr_text_page(text: str, *, figures: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    elements = [{"type": 2, "text_info": {"content": text}}]
+    for index, figure in enumerate(figures or []):
+        x0, y0, x1, y1 = [value * 1000 for value in figure["bbox"]]
+        elements.append({"index": index, "figure_info": {}, "polygon": {
+            "left_top": {"x": x0, "y": y0}, "right_top": {"x": x1, "y": y0},
+            "left_bottom": {"x": x0, "y": y1}, "right_bottom": {"x": x1, "y": y1},
+        }})
+    return {"width": 1000, "height": 1000, "elements": elements}
+
+
+def ocr_page_model(monkeypatch, responses, *, page_count=1):
+    """Migrate fixed page fixtures: boxes belong to Tencent, identities to the LLM.
+
+    The first draft defines this fixture's immutable PRIMARY inventory. Context
+    drafts can change associations/content, but cannot replace its source boxes.
+    Tests of untrusted model coordinates use FakeModel directly instead.
+    """
+    source_figures = next((row.get("figures", []) for row in responses
+                           if isinstance(row, dict) and row.get("figures")), [])
+    tencent_provider(monkeypatch, [ocr_text_page("Synthetic primary source", figures=source_figures),
+                                  *[ocr_text_page("Synthetic context source") for _ in range(page_count - 1)]])
+    return FakeModel(responses=[ocr_draft(row) for row in responses])
+
+
+def ocr_draft(row):
+    """Fixture wire representation; the legacy box is deliberately not LLM input."""
+    if not isinstance(row, dict) or not isinstance(row.get("figures", []), list):
+        return row
+    return {**row, "figures": [{**{key: value for key, value in figure.items() if key != "bbox"}, "elementIndex": index}
+                              for index, figure in enumerate(row.get("figures", []))]}
+
+
+def tencent_pages(monkeypatch, reference, count, *, figures=None):
+    """Turn a graph fixture into a managed visual source with fixed OCR pages."""
+    files = document.get_object_store()
+    assert isinstance(files, FakeObjectStore), "Visual graph fixtures require their in-memory object store"
+    old_key = reference["objectKey"]
+    kind = reference["sourceType"] if reference["sourceType"] in {"pdf", "image"} else "pdf"
+    reference.update(sourceType=kind, mediaType="image/png" if kind == "image" else "application/pdf",
+                     objectKey=document_source_key(kind, reference["sha256"]))
+    files.blobs[reference["objectKey"]] = files.blobs.pop(old_key)
+    return tencent_provider(monkeypatch, [ocr_text_page(f"Source page {index + 1}", figures=figures or []) for index in range(count)])
 
 
 class FakeObjectStore:
@@ -199,6 +289,7 @@ def setup_graph(monkeypatch, responses, *, parts=None):
              "overlapStart": sum(map(len, parts[:i])), "overlapEnd": sum(map(len, parts[:i]))}
             for i in range(len(parts))
         ], None, [None] * len(parts)))
+    tencent_provider(monkeypatch)
     graph = local_graph(InMemorySaver(), store=store)
     return graph, store, files, reference, model
 
@@ -226,13 +317,3 @@ def object_store(root: Path, **overrides) -> ObjectStore:
 def upload(payload=b"quiz"):
     return DocumentUploadRequest(sourceType="text", fileName="quiz.txt", mediaType="text/plain",
                                  sizeBytes=len(payload), sha256=hashlib.sha256(payload).hexdigest())
-
-
-async def accept_figure_checks(_model, _image, figures, _runtime, *, data_url=None):
-    """Isolate existing crop/merge tests from the separately tested model reviewer."""
-    from practiq_ai.graphs.vision import FigureChecks
-
-    return FigureChecks.model_validate({"figures": [
-        {"index": i, "complete": True, "role": "answer" if f.role == "answer" else "material", "bbox": f.bbox}
-        for i, f in enumerate(figures)
-    ]}), [], None

@@ -183,7 +183,7 @@ async def test_singleton_lock_readiness_and_failed_start_cleanup(monkeypatch):
         while not await service.ready():
             await asyncio.sleep(.02)
     assert {call.kwargs["name"]: call.kwargs["source_types"] for call in build.call_args_list} == {
-        "document_parser": None, "text_csv_parser": ("text", "csv"),
+        "document_parser": None, "text_csv_parser": ("text", "markdown"),
         "pdf_parser": ("pdf",),
     }
     assert set(service.graphs) == {call.kwargs["name"] for call in build.call_args_list}

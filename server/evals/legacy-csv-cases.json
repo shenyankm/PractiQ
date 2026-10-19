@@ -1,0 +1,165 @@
+{
+  "schemaVersion": 2,
+  "cases": [
+    {
+      "id": "csv-basic",
+      "sourceType": "csv",
+      "path": "fixtures/csv/basic.csv",
+      "expectedQuestions": [
+        {
+          "stem": "What is 10 - 4?",
+          "answerMode": "choice",
+          "options": [
+            {
+              "label": "A",
+              "content": "5"
+            },
+            {
+              "label": "B",
+              "content": "6"
+            },
+            {
+              "label": "C",
+              "content": "7"
+            }
+          ],
+          "answerPayload": {
+            "correct": [
+              "B"
+            ]
+          }
+        },
+        {
+          "stem": "Mammals are warm-blooded.",
+          "answerMode": "true_false",
+          "options": [],
+          "answerPayload": {
+            "value": true
+          }
+        }
+      ],
+      "tags": [
+        "synthetic",
+        "smoke",
+        "csv"
+      ],
+      "critical": false,
+      "expectedVisualKinds": [],
+      "expectedProcess": {
+        "requiredCallKinds": [
+          "document_parse"
+        ]
+      }
+    },
+    {
+      "id": "csv-quoted",
+      "sourceType": "csv",
+      "path": "fixtures/csv/quoted.csv",
+      "expectedQuestions": [
+        {
+          "stem": "The freezing point of water, in degrees Celsius, is ____.",
+          "answerMode": "fill_blank",
+          "options": [],
+          "answerPayload": {
+            "answers": [
+              "0"
+            ]
+          }
+        },
+        {
+          "stem": "What is 12 + 8?",
+          "answerMode": "short_answer",
+          "options": [],
+          "answerPayload": {
+            "text": "20"
+          }
+        }
+      ],
+      "tags": [
+        "synthetic",
+        "smoke",
+        "csv"
+      ],
+      "critical": false,
+      "expectedVisualKinds": [],
+      "expectedProcess": {
+        "requiredCallKinds": [
+          "document_parse"
+        ]
+      }
+    },
+    {
+      "id": "csv-no-answer",
+      "sourceType": "csv",
+      "path": "fixtures/csv/csv-no-answer.csv",
+      "tags": [
+        "synthetic",
+        "regression",
+        "csv",
+        "no-source-answer"
+      ],
+      "critical": true,
+      "sourceHasNoAnswers": true,
+      "expectedQuestions": [
+        {
+          "stem": "Which route should the practice note use?",
+          "answerMode": "choice",
+          "options": [
+            {
+              "label": "A",
+              "content": "North path"
+            },
+            {
+              "label": "B",
+              "content": "South path"
+            },
+            {
+              "label": "C",
+              "content": "East path"
+            }
+          ],
+          "answerPayload": null,
+          "expectedNeedsReview": true,
+          "expectedEvidence": {
+            "analysis": null,
+            "sourceScore": null,
+            "scoringRubric": null,
+            "scoreSourceText": null
+          }
+        },
+        {
+          "stem": "Which label should the exercise card show?",
+          "answerMode": "choice",
+          "options": [
+            {
+              "label": "A",
+              "content": "Cedar"
+            },
+            {
+              "label": "B",
+              "content": "Maple"
+            },
+            {
+              "label": "C",
+              "content": "Willow"
+            }
+          ],
+          "answerPayload": null,
+          "expectedNeedsReview": true,
+          "expectedEvidence": {
+            "analysis": null,
+            "sourceScore": null,
+            "scoringRubric": null,
+            "scoreSourceText": null
+          }
+        }
+      ],
+      "expectedVisualKinds": [],
+      "expectedProcess": {
+        "requiredCallKinds": [
+          "document_parse"
+        ]
+      }
+    }
+  ]
+}

@@ -17,9 +17,10 @@ from pydantic import (
 )
 
 AnswerMode = Literal["choice", "true_false", "fill_blank", "short_answer", "ordering", "matching", "reading", "word_bank", "cloze", "listening", "gap_fill"]
-DocumentSourceType = Literal["csv", "image", "text", "pdf", "doc", "docx", "xls", "xlsx"]
+DocumentSourceType = Literal["csv", "image", "text", "markdown", "pdf", "doc", "docx", "ppt", "pptx", "xls", "xlsx"]
+ImportSourceType = Literal["image", "text", "markdown", "pdf", "doc", "docx", "ppt", "pptx", "xls", "xlsx"]
 OfficeMode = Literal["pdf", "text"]
-OFFICE_SOURCE_TYPES = {"doc", "docx", "xls", "xlsx"}
+OFFICE_SOURCE_TYPES = {"doc", "docx", "ppt", "pptx", "xls", "xlsx"}
 OFFICE_FILE_MAX_BYTES = 25 * 1024 * 1024
 BANK_IMAGE_MAX_DIMENSION = 16_384
 BANK_IMAGE_MAX_PIXELS = 32_000_000
@@ -42,6 +43,9 @@ DOCUMENT_MEDIA_TYPES = {
     "csv": {"text/csv"},
     "pdf": {"application/pdf"},
     "text": {"text/plain"},
+    "markdown": {"text/markdown", "text/plain"},
+    "ppt": {"application/vnd.ms-powerpoint"},
+    "pptx": {"application/vnd.openxmlformats-officedocument.presentationml.presentation"},
     "doc": {"application/msword"},
     "docx": {"application/vnd.openxmlformats-officedocument.wordprocessingml.document"},
     "xls": {"application/vnd.ms-excel"},
@@ -65,7 +69,7 @@ def _media_type_matches(source_type: DocumentSourceType, media_type: str) -> boo
 
 
 def document_source_key(source_type: DocumentSourceType, sha256: str) -> str:
-    suffix = "txt" if source_type == "text" else source_type
+    suffix = {"text": "txt", "markdown": "md"}.get(source_type, source_type)
     return f"practiq-agent/sources/{sha256}/source.{suffix}"
 
 
@@ -82,7 +86,7 @@ class ModelCallUsage(StrictModel):
 
 
 class DocumentUploadRequest(StrictModel):
-    sourceType: DocumentSourceType
+    sourceType: ImportSourceType
     fileName: str | None = Field(default=None, max_length=255)
     mediaType: str | None = Field(default=None, max_length=255)
     sizeBytes: int | None = Field(default=None, gt=0)
@@ -492,12 +496,14 @@ class DocumentUploadResponse(StrictModel):
 
 
 class ImportCapabilities(StrictModel):
-    sourceTypes: list[DocumentSourceType]
+    sourceTypes: list[ImportSourceType]
     sourceMaxBytes: int = Field(gt=0)
     officeSourceMaxBytes: int | None = Field(default=None, gt=0)
     officeAvailable: bool
     officeModes: list[OfficeMode]
     modelConfigured: bool
+    parserConfigured: bool = False
+    parserInputMaxBytes: int = Field(default=8 * 1024 * 1024, ge=4, le=150 * 1024 * 1024)
 
 
 VisualLabel = Annotated[str, Field(max_length=1_000)]
@@ -722,10 +728,8 @@ class DocumentParseInput(StrictModel):
             raise ValueError("document must reference a managed storage source object")
         if not _media_type_matches(document.sourceType, document.mediaType):
             raise ValueError("document mediaType does not match sourceType")
-        if document.sourceType in OFFICE_SOURCE_TYPES:
-            self.officeMode = self.officeMode or "pdf"
-        elif self.officeMode is not None:
-            raise ValueError("officeMode is only accepted for Office documents")
+        if self.officeMode is not None:
+            raise ValueError("Office conversion modes are no longer supported; document routing is automatic")
         return self
 
 
@@ -743,6 +747,8 @@ class DocumentTaskCreate(StrictModel):
 
     @model_validator(mode="after")
     def validate_document(self) -> Self:
+        if self.document.sourceType == "csv":
+            raise ValueError("CSV document import is no longer supported; saved tasks and banks are retained")
         parsed = DocumentParseInput(document=self.document, officeMode=self.officeMode)
         self.officeMode = parsed.officeMode
         if self.document.sourceType in OFFICE_SOURCE_TYPES and self.graphId != "document_parser":
@@ -809,6 +815,15 @@ class TaskModelBudget(StrictModel):
     reserved: int = Field(ge=0)
 
 
+class DocumentParserJob(StrictModel):
+    taskId: str | None = Field(default=None, max_length=128)
+    requestId: str | None = Field(default=None, max_length=128)
+    status: Literal["STAGING", "SUBMITTING", "REJECTED", "Created", "Processing", "Success", "Failed", "Unknown"]
+    successPageCount: int | None = Field(default=None, ge=0)
+    failedPageCount: int | None = Field(default=None, ge=0)
+    resultSaved: bool
+
+
 class DocumentTaskDetail(StrictModel):
     """Existing task GET response; nullable fields are always present on the wire."""
 
@@ -834,6 +849,7 @@ class DocumentTaskDetail(StrictModel):
     usage: list[ModelCallUsage]
     unknownUsageCalls: list[UUID]
     canExportCompleted: bool = False
+    parserJobs: list[DocumentParserJob] = Field(default_factory=list, max_length=100)
 
 
 class DocumentTaskSummary(StrictModel):
@@ -874,6 +890,7 @@ class ReviewUnit(StrictModel):
 
 
 class DocumentTaskReview(StrictModel):
+    document: DocumentReference | None = None
     threadId: UUID
     checkpointId: str | None
     state: TaskState

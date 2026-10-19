@@ -23,6 +23,13 @@ from tests.support import (
     source_presence_hints,
 )
 
+
+@pytest.fixture(autouse=True)
+def tencent_boundary(monkeypatch):
+    from tests.support import tencent_provider
+    return tencent_provider(monkeypatch)
+
+
 SOURCE = (
     '1. Single choice: source-stem-token\n'
     'A. source-option-token-a\nB. source-option-token-b\n'

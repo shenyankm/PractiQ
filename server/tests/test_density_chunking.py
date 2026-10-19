@@ -239,6 +239,9 @@ def test_incomplete_source_disables_density_and_exact_counts():
 
 @pytest.mark.parametrize('first_count', [15, 17])
 async def test_missing_or_extra_record_is_corrected_with_durable_failed_usage(monkeypatch, first_count):
+    from tests.support import tencent_provider
+
+    tencent_provider(monkeypatch)
     text = numbered_questions(16)
     files, reference = source(text)
     model = FakeModel(responses=[{'questions': [{**question(f'Q{index}'), 'id': f'fragment:1:{index}',

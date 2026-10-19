@@ -2,9 +2,11 @@
 
 import ipaddress
 import os
-from dataclasses import dataclass
+import re
+from dataclasses import dataclass, field
 from math import isfinite
 from pathlib import Path
+from typing import Literal
 from urllib.parse import urlsplit
 
 MIB = 1024 * 1024
@@ -43,9 +45,19 @@ class Config:
     max_busy_threads: int = 300
     maintenance: bool = False
     structured_output_method: str = "function_calling"
-    model_api: str | None = None
+    model_api: Literal["responses"] = field(default="responses", init=False)
     office_executable: Path | None = None
     office_version: str | None = None
+    tencent_secret_id: str = ""
+    tencent_secret_key: str = ""
+    tencent_input_max_bytes: int = 150 * MIB
+    tencent_cos_enabled: bool = False
+    tencent_cos_bucket: str = ""
+    tencent_cos_region: str = ""
+
+    @property
+    def parser_configured(self) -> bool:
+        return bool(self.tencent_secret_id and self.tencent_secret_key and (not self.tencent_cos_enabled or self.tencent_cos_bucket and self.tencent_cos_region))
 
 
 def _required(values: dict[str, str], key: str) -> str:
@@ -106,6 +118,19 @@ def load() -> Config:
         if not office_version.startswith(("LibreOffice ", "LibreOfficeDev ")) or len(office_version) > 255:
             raise ValueError("AI_OFFICE_VERSION must contain the exact deployed LibreOffice version")
     service_token()
+    tencent_input_max_bytes = _positive_int(values, "AI_TENCENT_INPUT_MAX_BYTES", 150 * MIB)
+    if not 4 <= tencent_input_max_bytes <= 150 * MIB:
+        raise ValueError("AI_TENCENT_INPUT_MAX_BYTES must be between 4 and 157286400")
+    cos_enabled = values.get("AI_TENCENT_COS_ENABLED", "false").strip().lower()
+    if cos_enabled not in {"true", "false"}:
+        raise ValueError("AI_TENCENT_COS_ENABLED must be true or false")
+    cos_bucket = values.get("AI_TENCENT_COS_BUCKET", "").strip()
+    cos_region = values.get("AI_TENCENT_COS_REGION", "").strip()
+    if bool(cos_bucket) != bool(cos_region):
+        raise ValueError("AI_TENCENT_COS_BUCKET and AI_TENCENT_COS_REGION must be configured together")
+    if cos_bucket and (not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,49}-[0-9]{5,20}", cos_bucket)
+                       or not re.fullmatch(r"[a-z]{2}-[a-z0-9]+(?:-[a-z0-9]+)*", cos_region)):
+        raise ValueError("AI_TENCENT_COS_BUCKET and AI_TENCENT_COS_REGION require a COS bucket name and region, not URLs")
     read_only = values.get("AI_READ_ONLY") == "1"
     provider = "" if read_only else _required(values, "LLM_PROVIDER")
     if not read_only and provider not in {"dashscope", "deepseek", "moonshot", "openai"}:
@@ -116,13 +141,8 @@ def load() -> Config:
     if values.get("AI_STORAGE_BACKEND", "local").strip() != "local":
         raise ValueError("AI_STORAGE_BACKEND no longer supports remote storage; migrate files to AI_STORAGE_DIR before using local storage")
     method = values.get("AI_STRUCTURED_OUTPUT_METHOD", "function_calling")
-    if method not in {"auto", "json_schema", "function_calling"}:
-        raise ValueError("AI_STRUCTURED_OUTPUT_METHOD must be auto, json_schema or function_calling")
-    model_api = values.get("AI_MODEL_API")
-    if model_api not in {None, "chat_completions", "responses"}:
-        raise ValueError("AI_MODEL_API must be chat_completions or responses")
-    if model_api == "responses" and method == "json_schema":
-        raise ValueError("AI_STRUCTURED_OUTPUT_METHOD=json_schema requires AI_MODEL_API=chat_completions")
+    if method not in {"auto", "function_calling"}:
+        raise ValueError("Responses API requires AI_STRUCTURED_OUTPUT_METHOD=auto or function_calling")
     model_id = "" if read_only else _required(values, "LLM_MODEL")
     jobs_per_worker = _positive_int(values, "N_JOBS_PER_WORKER", 8)
     graph_max_concurrency = _positive_int(values, "AI_GRAPH_MAX_CONCURRENCY", 2)
@@ -171,9 +191,14 @@ def load() -> Config:
         upload_timeout_seconds=_positive_float(values, "AI_UPLOAD_TIMEOUT_SECONDS", 120),
         max_busy_threads=_positive_int(values, "AI_MAX_BUSY_THREADS", 300),
         structured_output_method=method,
-        model_api=model_api,
         office_executable=office_executable,
         office_version=office_version or None,
+        tencent_secret_id=values.get("AI_TENCENT_SECRET_ID", "").strip(),
+        tencent_secret_key=values.get("AI_TENCENT_SECRET_KEY", "").strip(),
+        tencent_input_max_bytes=tencent_input_max_bytes,
+        tencent_cos_enabled=cos_enabled == "true",
+        tencent_cos_bucket=cos_bucket,
+        tencent_cos_region=cos_region,
         provider=provider,
         api_key="" if read_only else _required(values, "LLM_API_KEY"),
         model_id=model_id,

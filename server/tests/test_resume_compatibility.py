@@ -46,7 +46,9 @@ async def test_checkpoint_resume_compatibility_preserves_units_usage_and_receipt
     elif change == "model":
         monkeypatch.setenv("LLM_MODEL", "synthetic-other-model")
     elif change == "model-api":
-        monkeypatch.setenv("AI_MODEL_API", "responses")
+        old_execution = deepcopy(before["execution"])
+        old_execution["signature"]["settings"]["model_api"] = "chat_completions"
+        await graph.aupdate_state(config, {"execution": old_execution})
     elif change == "parser-limit":
         monkeypatch.setenv("AI_MAX_DOCUMENT_PAGES", "2")
     elif change == "budget":

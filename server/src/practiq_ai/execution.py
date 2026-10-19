@@ -47,6 +47,7 @@ def code_version() -> str:
         paths.append(root / "office_service.py")
     paths.append(root / "normalization.py")
     paths.append(root / "temporary.py")
+    paths.extend(sorted(root.glob("tencent*.py")))
     paths.extend(sorted((root / "graphs").glob("*.py")))
     paths.extend(sorted((root / "extractors").glob("*.py")))
     bundled_lock = root / "uv.lock"
@@ -68,6 +69,8 @@ def runtime_version() -> dict[str, Any]:
 def signature() -> dict[str, Any]:
     settings = asdict(load())
     settings.pop("api_key")
+    settings.pop("tencent_secret_id")
+    settings.pop("tencent_secret_key")
     # Concurrency and timeouts can change without changing document semantics.
     for key in ("jobs_per_worker", "graph_max_concurrency", "storage_concurrency", "storage_timeout_seconds", "model_timeout_seconds", "deployment_workers", "provider_concurrency", "provider_rpm", "upload_concurrency", "upload_timeout_seconds", "max_busy_threads", "maintenance", "read_only"):
         settings.pop(key)
@@ -117,7 +120,11 @@ async def preflight(values: dict[str, Any]) -> None:
         from .normalization import verified_normalization
         await verified_normalization(DocumentReference.model_validate(values['document']), values['normalization'],
                                      mode=values.get('officeMode') or 'pdf', store=store, config=load())
-    references = [item for key in ('pageRefs', 'chunkRefs') for item in values.get(key, [])]
+    references = [item for key in ('pageRefs', 'ocrPageRefs', 'chunkRefs') for item in values.get(key, [])]
+    for part in values.get('inputParts', []):
+        references.append(part['reference'])
+        if part.get('originalPageRef'):
+            references.append(part['originalPageRef'])
     from .graphs.document import load_unit_result
     for key in ('visionResults', 'chunkResults'):
         for item in values.get(key, []):

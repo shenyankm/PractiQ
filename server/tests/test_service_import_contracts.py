@@ -47,13 +47,14 @@ async def test_office_upload_verifies_original_bytes_and_family_before_publishin
     assert not (tmp_path / f'practiq-agent/sources/{invalid.sha256}/source.{kind}').exists()
 
 
-def test_office_mode_defaults_pdf_but_is_explicit_request_identity():
+def test_office_modes_are_rejected_and_new_routing_keeps_source_identity():
     reference = office_reference()
     request_id = uuid4()
     default = DocumentTaskCreate(requestId=request_id, document=reference)
-    assert default.officeMode == 'pdf'
-    text = DocumentTaskCreate(requestId=request_id, document=reference, officeMode='text')
-    assert text.model_dump() != default.model_dump()
+    assert default.officeMode is None and default.document == reference
+    for mode in ('pdf', 'text'):
+        with pytest.raises(ValidationError, match='no longer supported'):
+            DocumentTaskCreate.model_validate({'requestId': request_id, 'document': reference, 'officeMode': mode})
     with pytest.raises(ValidationError):
         DocumentTaskCreate.model_validate({'requestId': request_id, 'document': reference, 'officeMode': 'shell'})
     with pytest.raises(ValidationError):
