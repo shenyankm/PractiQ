@@ -465,12 +465,12 @@ it("clears a newly saved service token from the webview before testing the crede
   render(<ConnectionSettingsPanel busy={false} run={job => { void job(); }} />);
   const key = await screen.findByLabelText("AI 服务访问令牌") as HTMLInputElement;
   expect(screen.queryByText(/解析配置还缺/)).toBeNull();
-  expect(screen.getByRole("button", {name:"测试"}).hasAttribute("disabled")).toBe(true);
+  expect(screen.getByRole("button", {name:"测试连接"}).hasAttribute("disabled")).toBe(true);
   await userEvent.type(key,"replacement-key");
   await userEvent.tab();
   await waitFor(() => expect(api).toHaveBeenCalledWith(expect.objectContaining({type:"save_settings",service_token:"replacement-key"})));
   await waitFor(() => expect(key.value).toBe(""));
-  await userEvent.click(screen.getByRole("button",{name:"测试"}));
+  await userEvent.click(screen.getByRole("button",{name:"测试连接"}));
   await waitFor(() => expect(api).toHaveBeenCalledWith(expect.objectContaining({type:"test_settings",service_token:null})));
 });
 
@@ -507,7 +507,7 @@ it("leaves saved credentials unchecked until an explicit connection test", async
   const key = await screen.findByLabelText("AI 服务访问令牌") as HTMLInputElement;
   await waitFor(() => expect(key.placeholder).toBe("********************************"));
   expect(vi.mocked(api).mock.calls.every(([request]) => request.type === "settings")).toBe(true);
-  await userEvent.click(screen.getByRole("button", {name:"测试"}));
+  await userEvent.click(screen.getByRole("button", {name:"测试连接"}));
   await waitFor(() => expect(api).toHaveBeenCalledWith({type:"test_settings",config:settings.config,service_token:null}));
 });
 

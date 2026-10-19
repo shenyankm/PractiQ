@@ -46,11 +46,11 @@ it("hides previous rows, totals and actions on page failure and retries the same
     return { items: [request.offset ? beta : row], total: 60, offset: request.offset };
   });
   await openBank(user);
-  expect(screen.getByText("60 道题目")).toBeTruthy();
+  expect(screen.getByText(/当前匹配 60 项/)).toBeTruthy();
   await user.click(screen.getByRole("button", { name: "下一页" }));
   await waitFor(() => expect(rejectPage).toBeTypeOf("function"));
   expect(screen.queryByText(row.question.stem!)).toBeNull();
-  expect(screen.queryByText("60 道题目")).toBeNull();
+  expect(screen.queryByText(/当前匹配 60 项/)).toBeNull();
   expect(screen.queryByRole("button", { name: "编辑题目" })).toBeNull();
   expect(screen.queryByRole("button", { name: "删除题目" })).toBeNull();
   expect(screen.getByRole("button", { name: "开始练习" }).hasAttribute("disabled")).toBe(true);
@@ -113,7 +113,7 @@ it.each(["success", "failure"])("ignores obsolete %s after the current query suc
   expect(screen.getByText(beta.question.stem!)).toBeTruthy();
   expect(screen.queryByText(row.question.stem!)).toBeNull();
   expect(screen.queryByRole("alert")).toBeNull();
-  expect(screen.getByText("1 道题目")).toBeTruthy();
+  expect(screen.getByText(/当前匹配 1 项/)).toBeTruthy();
   expect(screen.queryByRole("button", { name: "下一页" })).toBeNull();
 });
 

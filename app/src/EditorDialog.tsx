@@ -20,6 +20,7 @@ export function EditorDialog({ title, dirty, busy, onClose, className, children,
   useUnsavedChanges(dirty);
   const [discardOpen, setDiscardOpen] = useState(false);
   const returnFocus = useRef<HTMLElement | null>(null);
+  const titleElement = useRef<HTMLHeadingElement>(null);
   function requestClose() {
     if (busy) return;
     if (dirty) {
@@ -28,7 +29,10 @@ export function EditorDialog({ title, dirty, busy, onClose, className, children,
     else onClose();
   }
   return <Dialog open onOpenChange={open => { if (!open) requestClose(); }}>
-    <DialogContent className={className} aria-describedby={undefined} onCloseAutoFocus={event => {
+    <DialogContent className={className} aria-describedby={undefined} onOpenAutoFocus={event => {
+      // Touch editors should reveal the form before the user opens the keyboard.
+      if (window.matchMedia("(pointer: coarse)").matches) { event.preventDefault(); titleElement.current?.focus(); }
+    }} onCloseAutoFocus={event => {
       if (trigger?.isConnected && !trigger.matches(":disabled")) { event.preventDefault(); trigger.focus(); }
     }} onFocusCapture={event => {
       if (event.target instanceof HTMLElement) returnFocus.current = event.target;
@@ -39,7 +43,7 @@ export function EditorDialog({ title, dirty, busy, onClose, className, children,
       event.detail.originalEvent.preventDefault();
       requestClose();
     }}>
-      <DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>
+      <DialogHeader><DialogTitle ref={titleElement} tabIndex={-1} className="outline-none">{title}</DialogTitle></DialogHeader>
       {children}
     </DialogContent>
     <AlertDialog open={discardOpen} onOpenChange={setDiscardOpen}>

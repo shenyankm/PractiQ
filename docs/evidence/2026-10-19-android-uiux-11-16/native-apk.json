@@ -1,0 +1,12 @@
+{
+  "sha256": "739da23fe90071a5a057a9a178032206df67acf9f098a1662d7623ad15f8a299",
+  "bytes": 193604782,
+  "api": 35,
+  "abi": "arm64-v8a",
+  "avd": "PractiQ_Followup_QA",
+  "optionalBundleResources": "omitted in UI-only Debug build",
+  "currentFrontendIndexVerifiedInNativeLibrary": true,
+  "originalAvdTouched": false,
+  "liveModelsCalled": false,
+  "nullableModeLabelRecaptured": true
+}

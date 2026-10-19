@@ -6,7 +6,7 @@ A single ZIP is enough to share a question bank. The app no longer offers separa
 
 On the empty question-bank page, choose **Add example bank** to add the [all-types sample](../../app/fixtures/all-types.zip) offline: 20 answerable questions and six material parent nodes covering all 11 answer modes and nine English question kinds, including images and listening tones. No model configuration is required.
 
-1. In **Settings → Restore backup**, choose **Import bank ZIP**. Try the [basic sample](../../app/fixtures/sample.zip) or [composite sample](../../app/fixtures/composite.zip) without model configuration. The [nine English question kinds sample](../../app/fixtures/english.zip) also includes tones for player verification.
+1. In **Settings → Import and restore**, choose **Import bank ZIP**. Try the [basic sample](../../app/fixtures/sample.zip) or [composite sample](../../app/fixtures/composite.zip) without model configuration. The [nine English question kinds sample](../../app/fixtures/english.zip) also includes tones for player verification.
 2. The app validates questions, packaged images, and audio, then displays a preview. A new bank defaults to the package title and description; the title is editable. Appending preserves the target bank's metadata.
 3. Choose **Export bank ZIP** from a bank card's action menu, save the file, and distribute it. To share multiple banks together, copy-merge them before exporting.
 

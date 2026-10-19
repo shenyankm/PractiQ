@@ -249,7 +249,7 @@ it.each(["en", null] as const)("reloads restored preference %s through the setti
   });
   wrap(<App />); await ready();
   await userEvent.click(screen.getByRole("button", { name: "设置" }));
-  await userEvent.click(await screen.findByRole("button", { name: "恢复备份" }));
+  await userEvent.click(await screen.findByRole("button", { name: "导入与恢复" }));
   await userEvent.click(await screen.findByRole("menuitem",{name:"恢复学习数据备份"}));
   await userEvent.click(screen.getByRole("button", { name: "恢复备份" }));
   await waitFor(() => expect(document.documentElement.lang).toBe("en"));
@@ -309,7 +309,7 @@ it.each(["en", "zh-CN"] as const)("imports offline ZIP and saves a translated se
   });
   wrap(<App />); await ready();
   await userEvent.click(await screen.findByRole("button",{name:t("设置")}));
-  await userEvent.click(await screen.findByRole("button",{name:t("恢复备份")}));
+  await userEvent.click(await screen.findByRole("button",{name:t("导入与恢复")}));
   await userEvent.click(await screen.findByRole("menuitem",{name:t("导入题库 ZIP")}));
   expect(await screen.findByRole("dialog")).toBeTruthy();
   await userEvent.click(screen.getByRole("button", {name:t("确认导入")}));
@@ -359,7 +359,7 @@ it.each(["cancel", "failure"])("keeps preference when native restore returns %s"
   });
   wrap(<App />); await ready();
   await userEvent.click(screen.getByRole("button", {name:"Settings"}));
-  await userEvent.click(await screen.findByRole("button", {name:t("恢复备份")}));
+  await userEvent.click(await screen.findByRole("button", {name:t("导入与恢复")}));
   await userEvent.click(await screen.findByRole("menuitem",{name:t("恢复学习数据备份")}));
   await userEvent.click(screen.getByRole("button", {name:t("恢复备份")}));
   await waitFor(() => expect(invoke).toHaveBeenCalledWith("request",{locale:"en",request:{type:"restore"}}));

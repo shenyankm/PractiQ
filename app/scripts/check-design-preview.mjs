@@ -3,6 +3,11 @@ import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { chromium, expect } from "playwright/test";
+async function editQuestion(page, trigger) {
+  await trigger.click();
+  await page.getByRole('menuitem', {name:'编辑题目',exact:true}).click();
+}
+
 
 const output = new URL("../.build/design-preview/", import.meta.url);
 await mkdir(output, { recursive: true });
@@ -66,7 +71,7 @@ try {
   const summary = app.locator(".question-row > button").first();
   assert.ok(await summary.evaluate(node => node.getBoundingClientRect().width >= 200), "Mobile question stem must have readable width");
   await app.setViewportSize({ width: 1440, height: 1000 });
-  await app.getByRole("button", { name: "编辑题目", exact: true }).first().click();
+  await editQuestion(app, app.getByRole("button", {name:/^题目更多操作/}).first());
   await expect(app.getByRole("dialog", { name: "编辑题目", exact: true })).toBeVisible();
   await capture(app, "app-editor-light-desktop");
   await app.setViewportSize({ width: 390, height: 844 });

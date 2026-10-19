@@ -31,7 +31,7 @@ These screenshots show the desktop development preview in English, including han
 
 [Run the desktop app](#run-the-desktop-app), then:
 
-1. Choose **Add example bank** when **My banks** is empty, or import [sample.zip](app/fixtures/sample.zip) through **Settings → Restore backup → Import bank ZIP**. More examples: [composite questions](app/fixtures/composite.zip) and [all question types](app/fixtures/all-types.zip).
+1. Choose **Add example bank** when **My banks** is empty, or import [sample.zip](app/fixtures/sample.zip) through **Settings → Import and restore → Import bank ZIP**. More examples: [composite questions](app/fixtures/composite.zip) and [all question types](app/fixtures/all-types.zip).
 2. Open the bank and choose **Start practice**. Try practice, an untimed self-test, or a timed mock exam.
 3. Submit your answers and review scores and explanations.
 
@@ -46,7 +46,7 @@ Use the independent service's Web frontend for document import:
 1. Start the [independent AI service](#run-the-ai-service-independently), open its Web frontend and enter your service access token (`AI_SERVICE_TOKEN`). Model configuration and provider credentials stay in the service environment.
 2. Select up to 10 source files and explicitly choose **Start import**. Selecting files does not upload or parse them.
 3. Inspect task progress, saved questions, images, supplied answers and review warnings. Download the result as a question-bank ZIP.
-4. In the desktop app, use **Settings → Restore backup → Import bank ZIP** to create a bank or append content to an existing bank.
+4. In the desktop app, use **Settings → Import and restore → Import bank ZIP** to create a bank or append content to an existing bank.
 
 The service accepts **PDF, TXT, CSV and PNG/JPEG**. Deployments configured with LibreOffice also accept **DOC, DOCX, XLS and XLSX**, normalized in the service. Desktop packages contain no Python service or LibreOffice. See the [Office guide](server/docs/desktop-office.md) for deployment and fidelity boundaries.
 

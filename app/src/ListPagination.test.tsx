@@ -64,7 +64,7 @@ it("pages native bank summaries, keeps all merge/study choices, and clamps after
   await userEvent.keyboard("{Escape}");
   await userEvent.click(await screen.findByRole("button",{name:"设置"}));
   await act(async () => { await vi.dynamicImportSettled(); });
-  await userEvent.click(await screen.findByRole("button",{name:"恢复备份"}));
+  await userEvent.click(await screen.findByRole("button",{name:"导入与恢复"}));
   await userEvent.click(await screen.findByRole("menuitem",{name:"导入题库 ZIP"}));
   expect(within(await screen.findByRole("dialog")).getByRole("option",{name:"Bank 30"})).toBeTruthy();
   await userEvent.click(within(screen.getByRole("dialog")).getByRole("button",{name:"取消"}));
@@ -151,7 +151,7 @@ it("refreshes merge totals and clamps both lists after restoring a smaller backu
   await screen.findByText("Session 30");
   await userEvent.click(screen.getByRole("button",{name:"设置"}));
   await act(async () => { await vi.dynamicImportSettled(); });
-  await userEvent.click(await screen.findByRole("button",{name:"恢复备份"}));
+  await userEvent.click(await screen.findByRole("button",{name:"导入与恢复"}));
   await userEvent.click(await screen.findByRole("menuitem",{name:"恢复学习数据备份"}));
   await userEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button",{name:"恢复备份"}));
   await waitFor(()=>expect(api).toHaveBeenCalledWith({type:"restore"}));

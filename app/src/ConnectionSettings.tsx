@@ -37,12 +37,14 @@ export function ConnectionSettingsPanel({
   });
   const [serviceToken, setServiceToken] = useState("");
   const [dirty, setDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
   const [operation, setOperation] = useState<"test" | "save" | "clear" | null>(null);
   const locked = useRef(false);
   const revision = useRef(0);
   const pending = useRef<{ version: number; request: Promise<SettingsResult> } | null>(null);
   useEffect(() => () => { ++revision.current; }, []);
-  function invalidate() { ++revision.current; setDirty(true); setSaveError(null); setClearError(null); }
+  function invalidate() { setJustSaved(false); ++revision.current; setDirty(true); setSaveError(null); setClearError(null); }
   const [saveError, setSaveError] = useState<unknown>(null);
   const [clearError, setClearError] = useState<unknown>(null);
   const operationFailure = useContext(OperationFailure);
@@ -95,18 +97,18 @@ export function ConnectionSettingsPanel({
       await pending.current.request.catch(() => {});
     }
     if (version !== revision.current) return saved;
-    setSaveError(null);
+    setSaveError(null); setSaving(true);
     const request = api({ type: "save_settings", config, service_token: serviceToken.trim() || null });
     pending.current = { version, request };
     try {
       const result = await request;
       if (version === revision.current) {
-        setSaved(result); setConfig(result.config); setServiceToken(""); setDirty(false);
+        setSaved(result); setConfig(result.config); setServiceToken(""); setDirty(false); setJustSaved(true);
         toast.success(message("连接配置已保存"));
       }
       return result;
     } catch (e) { if (version === revision.current) setSaveError(e); throw e; }
-    finally { if (pending.current?.request === request) pending.current = null; }
+    finally { if (pending.current?.request === request) { pending.current = null; setSaving(false); } }
   }, [dirty, saved, config, serviceToken]);
   useEffect(() => {
     if (!flushRef || onConfigure) return;
@@ -196,8 +198,10 @@ export function ConnectionSettingsPanel({
               {saved && <p className="text-sm text-muted-foreground">{t(configured ? "令牌已保存；留空保留。" : "离开输入框后自动安全保存。")}</p>}
             </div>
           </fieldset>
+          {saved && <p role="status" className="text-sm text-muted-foreground">{saving ? t("正在保存配置…") : saveError != null ? t("配置未保存") : dirty ? t("有未保存的修改") : justSaved ? t("连接配置已保存") : t("配置已读取")}</p>}
+          {saved && <p role="status" className="text-sm">{operation === "test" ? t("测试中…") : testResult ? t(testResult.error ? "连接测试失败" : "连接测试通过") : missing.length ? t("未配置") : t("已配置 · 尚未测试")}</p>}
           {saveError != null && <div role="alert" className="flex flex-wrap items-start justify-between gap-3 text-sm text-destructive"><div className="min-w-0 flex-1"><ErrorNotice error={saveError} /></div><Button type="button" variant="outline" disabled={busy || operation !== null} onClick={save}>{t("重试保存")}</Button></div>}
-          {testResult && (testResult.error ? <div role="alert" className="text-destructive"><ErrorNotice error={testResult.error} /></div> : <p role="status" className="workflow-note">{t("连接测试通过")}</p>)}
+          {testResult && (testResult.error ? <div role="alert" className="text-destructive"><ErrorNotice error={testResult.error} /></div> : null)}
           {clearError != null && <div role="alert" className="text-destructive"><ErrorNotice error={clearError} /></div>}
           <div className="flex flex-wrap items-center justify-end gap-3 border-t pt-4">
           <Button variant="outline" type="button" disabled={busy || operation !== null || dirty || !saved?.config.service_url || configured === false} onClick={clearToken}>{t("清除已保存的访问令牌")}</Button>
@@ -219,7 +223,7 @@ export function ConnectionSettingsPanel({
             });
           }}>
             {operation === "test" ? <LoaderCircle className="animate-spin" /> : <PlugZap />}
-            {operation === "test" ? t("测试中…") : t("测试")}
+            {operation === "test" ? t("测试中…") : t("测试连接")}
           </Button>
           </div>
         </form>

@@ -1,0 +1,27 @@
+{
+  "fixtureAvd": "PractiQ_Followup_QA",
+  "retainedOriginalAvdBooted": false,
+  "practiceTablesCompared": 32,
+  "allPracticeTableRowsUnchanged": true,
+  "afterCounts": {
+    "banks": 1,
+    "questions": 26,
+    "sessions": 0,
+    "attempts": 0,
+    "assets": 2,
+    "grade_requests": 0
+  },
+  "nativeHealthCalls": [
+    {
+      "method": "GET",
+      "path": "/api/maintenance",
+      "status": 503
+    },
+    {
+      "method": "GET",
+      "path": "/api/maintenance",
+      "status": 200
+    }
+  ],
+  "scope": "Native health QA intentionally writes only the isolated AVD service sidecar and synthetic credential; no model or grading calls."
+}

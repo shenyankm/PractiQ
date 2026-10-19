@@ -14,7 +14,7 @@ The same workflows must fit narrow touch windows and desktop windows. Touch cont
 
 | Workflow | Resulting interaction |
 | --- | --- |
-| Bank management | Create a bank with the existing native editor command, or import through Settings > Restore backup. An empty bank leads to question management rather than presenting a ZIP action that creates a different bank. Cards have headings and useful fallback descriptions. |
+| Bank management | Create a bank with the existing native editor command, or import through Settings > Import and restore. An empty bank leads to question management rather than presenting a ZIP action that creates a different bank. Cards have headings and useful fallback descriptions. |
 | Question lists | Search/type controls have visible labels. Clear filters keeps the current bank/list and restores search focus. No-match copy is distinct from no mistakes or favorites. |
 | Question editor | Content scrolls inside the dialog; Save and Discard stay reachable. Existing nullable-field handling, nested-editor staging and unsaved-change confirmation are retained. |
 | Session setup | Each mode explains answer visibility, scoring and timing. Quick counts appear only when complete question groups can form that count. An empty scope leads to advanced selection settings. |

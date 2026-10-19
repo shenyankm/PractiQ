@@ -181,7 +181,7 @@ it("retains connection test results inline and clears them when the address chan
     return settings as never;
   });
   mount(); await waitFor(()=>expect(screen.getByLabelText("AI 服务地址")).toHaveProperty("value",settings.config.service_url));
-  await user.click(screen.getByRole("button",{name:"测试"}));
+  await user.click(screen.getByRole("button",{name:"测试连接"}));
   expect(toast.error).not.toHaveBeenCalled();
   expect((await screen.findByRole("alert")).textContent).toContain("Service temporarily unavailable");
   await user.type(screen.getByLabelText("AI 服务地址"),"/changed");
@@ -192,10 +192,11 @@ it("clears the previous connection verdict when the saved token is removed", asy
   vi.mocked(api).mockResolvedValue(settings as never);
   mount();
   await waitFor(()=>expect(screen.getByLabelText("AI 服务地址")).toHaveProperty("value",settings.config.service_url));
-  await userEvent.click(screen.getByRole("button",{name:"测试"}));
-  expect((await screen.findByRole("status")).textContent).toContain("连接测试通过");
+  await userEvent.click(screen.getByRole("button",{name:"测试连接"}));
+  expect(await screen.findByText("连接测试通过")).toBeTruthy();
   await userEvent.click(screen.getByRole("button",{name:"清除已保存的访问令牌"}));
-  expect(screen.queryByRole("status")).toBeNull();
+  expect(screen.queryByText("连接测试通过")).toBeNull();
+  expect(screen.getByText("已配置 · 尚未测试")).toBeTruthy();
 });
 
 
@@ -224,7 +225,7 @@ it("shows a failed pre-test save once and preserves the token draft for retry", 
   const key = await screen.findByLabelText("AI 服务访问令牌") as HTMLInputElement;
   await waitFor(() => expect(screen.getByLabelText("AI 服务地址")).toHaveProperty("value", settings.config.service_url));
   fireEvent.change(key, {target:{value:"replacement-key"}});
-  await user.click(screen.getByRole("button", {name:"测试"}));
+  await user.click(screen.getByRole("button", {name:"测试连接"}));
   expect((await screen.findByRole("alert")).textContent).toContain("Settings save unavailable");
   expect(screen.getAllByRole("alert")).toHaveLength(1);
   expect(key.value).toBe("replacement-key");
