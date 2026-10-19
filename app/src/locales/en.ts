@@ -4,7 +4,7 @@ export const en = {
   "当前匹配 {0} 项": "{0} matching items",
   "浏览题库时点击题目旁的星标，即可在这里集中复习。": "Tap the star beside a question in a bank to review it here.",
   "浏览题库": "Browse banks",
-  "答题方式（必选）": "Answer mode (required)",
+  "答题方式（缺失时待复核）": "Answer mode (review if missing)",
   "导入与恢复": "Import and restore",
   "资源损坏时使用，仍会替换全部本地数据": "Use for damaged resources; replaces all local data",
   "正在保存配置…": "Saving settings…",

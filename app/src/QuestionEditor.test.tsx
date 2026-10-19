@@ -643,7 +643,15 @@ it("places stem and options before classification and names a new editor explici
  const stem=screen.getByLabelText('题干（支持 Markdown 和公式）');
  const classification=screen.getByLabelText('题型名称');
  expect(stem.compareDocumentPosition(classification)&Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
- expect(screen.getByLabelText('答题方式').getAttribute('aria-required')).toBe('true');
+ expect(screen.getByLabelText('答题方式').getAttribute('aria-required')).toBeNull();
  await waitFor(()=>expect(document.activeElement).toBe(screen.getByRole('heading',{name:'新增题目'})));
  media.mockRestore();
+});
+
+it("preserves a missing answer mode when saving imported incomplete content",async()=>{
+ const save=vi.fn();
+ render(<QuestionEditor initial={{...blankQuestion(),stem:"Kept source content",answerMode:null,choiceVariant:null,options:[]}} busy={false} onClose={vi.fn()} onSave={save}/>);
+ expect(screen.getByText('答题方式（缺失时待复核）')).toBeTruthy();
+ await userEvent.click(screen.getByRole('button',{name:'保存题目'}));
+ expect(save).toHaveBeenCalledWith(expect.objectContaining({answerMode:null,stem:'Kept source content'}),[]);
 });

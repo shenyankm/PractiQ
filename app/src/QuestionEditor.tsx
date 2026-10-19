@@ -197,11 +197,10 @@ export function QuestionEditor({
           )}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor={`${formId}-answer-mode`}>{t("答题方式（必选）")}</Label>
+              <Label htmlFor={`${formId}-answer-mode`}>{t("答题方式（缺失时待复核）")}</Label>
               <NativeSelect
                 id={`${formId}-answer-mode`}
                 aria-label={t("答题方式")}
-                aria-required="true"
                 className="w-full"
                 disabled={busy || !!parent && ["word_bank","cloze","gap_fill"].includes(parent.answerMode || "")}
                 value={q.answerMode || ""}
