@@ -1,0 +1,15 @@
+{
+  "capturedAt": "2026-10-19T08:56:11.918515+08:00",
+  "timezone": "Asia/Singapore",
+  "serial": "emulator-5560",
+  "avd": "PractiQ_UIUX_20261018",
+  "androidVersion": "15",
+  "apiLevel": "35",
+  "abi": "arm64-v8a",
+  "resolution": "Physical size: 1080x2400",
+  "density": "Physical density: 420",
+  "fontScale": "1.0",
+  "webView": "(com.android.webview, 124.0.6367.219)",
+  "installedApkSha256": "341864b5de1fa1c3adf046b702b3858eecc12e079a2fc589f89c3f757de4e421",
+  "packageReport": "android-package-final-anchor.json"
+}

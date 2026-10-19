@@ -1,0 +1,184 @@
+{
+  "practiceDatabase": {
+    "integrityCheck": "ok",
+    "schemaIdentical": true,
+    "changedTables": [],
+    "tables": {
+      "ai_imports": {
+        "before": 0,
+        "after": 0,
+        "identical": true
+      },
+      "assets": {
+        "before": 2,
+        "after": 2,
+        "identical": true
+      },
+      "attempts": {
+        "before": 40,
+        "after": 40,
+        "identical": true
+      },
+      "banks": {
+        "before": 1,
+        "after": 1,
+        "identical": true
+      },
+      "choice_questions": {
+        "before": 9,
+        "after": 9,
+        "identical": true
+      },
+      "cloze_questions": {
+        "before": 1,
+        "after": 1,
+        "identical": true
+      },
+      "fill_blank_questions": {
+        "before": 2,
+        "after": 2,
+        "identical": true
+      },
+      "gap_fill_questions": {
+        "before": 1,
+        "after": 1,
+        "identical": true
+      },
+      "grade_requests": {
+        "before": 0,
+        "after": 0,
+        "identical": true
+      },
+      "import_warnings": {
+        "before": 1,
+        "after": 1,
+        "identical": true
+      },
+      "imports": {
+        "before": 1,
+        "after": 1,
+        "identical": true
+      },
+      "listening_playback": {
+        "before": 1,
+        "after": 1,
+        "identical": true
+      },
+      "listening_questions": {
+        "before": 1,
+        "after": 1,
+        "identical": true
+      },
+      "matching_questions": {
+        "before": 3,
+        "after": 3,
+        "identical": true
+      },
+      "option_sets": {
+        "before": 8,
+        "after": 8,
+        "identical": true
+      },
+      "ordering_questions": {
+        "before": 1,
+        "after": 1,
+        "identical": true
+      },
+      "question_items": {
+        "before": 15,
+        "after": 15,
+        "identical": true
+      },
+      "question_options": {
+        "before": 19,
+        "after": 19,
+        "identical": true
+      },
+      "question_reviews": {
+        "before": 0,
+        "after": 0,
+        "identical": true
+      },
+      "question_sources": {
+        "before": 0,
+        "after": 0,
+        "identical": true
+      },
+      "question_visuals": {
+        "before": 1,
+        "after": 1,
+        "identical": true
+      },
+      "questions": {
+        "before": 26,
+        "after": 26,
+        "identical": true
+      },
+      "reading_questions": {
+        "before": 1,
+        "after": 1,
+        "identical": true
+      },
+      "section_questions": {
+        "before": 3,
+        "after": 3,
+        "identical": true
+      },
+      "sections": {
+        "before": 1,
+        "after": 1,
+        "identical": true
+      },
+      "session_documents": {
+        "before": 2,
+        "after": 2,
+        "identical": true
+      },
+      "sessions": {
+        "before": 2,
+        "after": 2,
+        "identical": true
+      },
+      "settings": {
+        "before": 1,
+        "after": 1,
+        "identical": true
+      },
+      "short_answer_questions": {
+        "before": 4,
+        "after": 4,
+        "identical": true
+      },
+      "true_false_questions": {
+        "before": 1,
+        "after": 1,
+        "identical": true
+      },
+      "visuals": {
+        "before": 1,
+        "after": 1,
+        "identical": true
+      },
+      "word_bank_questions": {
+        "before": 2,
+        "after": 2,
+        "identical": true
+      }
+    }
+  },
+  "serviceSettingsDatabase": {
+    "integrityCheck": "ok",
+    "schemaIdentical": true,
+    "changedTables": [],
+    "tables": {
+      "service_settings": {
+        "before": 1,
+        "after": 1,
+        "identical": true
+      }
+    }
+  },
+  "resourceAndRecoveryFilesIdentical": true,
+  "credentialFilesIdentical": true,
+  "passed": true
+}

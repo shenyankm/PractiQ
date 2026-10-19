@@ -399,7 +399,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
             : page === "history"
               ? t("练习记录")
               : page === "practice"
-                ? t("专注练习")
+                ? t(session && (session.finishedAt != null || (session.kind && session.kind !== "practice" && session.submittedAt != null)) ? "练习回顾" : "专注练习")
                 : page === "service-settings" ? t("AI 服务") : t("设置");
   const loadingView = <p role="status" className="p-4 text-sm text-muted-foreground">{t("加载中…")}</p>;
   const hasQuestionFilters = !!(search || mode || onlyReview);
@@ -817,8 +817,9 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                           {!!(s.finishedAt || s.submittedAt) && (s.kind && s.kind !== "practice" ? <>
                             <Badge variant="secondary">{t("{0} {1} / {2} 分", { 0: s.pendingGrades ? t("暂定成绩") : t("成绩"), 1: (s.earnedCents || 0) / 100, 2: (s.totalCents || 0) / 100 })}</Badge>
                             {!!s.pendingGrades && <Badge variant="outline">{t("待评分 {0} 题", { 0: s.pendingGrades })}</Badge>}
-                          </> : <span>{s.graded ? t("正确率 {0}%（{1}/{2}）", { 0: Math.round((s.correct / s.graded) * 100), 1: s.correct, 2: s.graded }) : t("正确率 {0}", { 0: t("暂无已判定题目") })}</span>)}
+                          </> : <span>{s.graded ? t("已判定 {0} 题，答对 {1} 题 · 正确率 {2}%", { 0: s.graded, 1: s.correct, 2: Math.round((s.correct / s.graded) * 100) }) : t("暂无已判定题目")}</span>)}
                         </div>
+                        {!!(s.finishedAt || s.submittedAt) && <p className="text-sm text-muted-foreground">{t("未答／跳过 {0} 题 · {1} {2} 题", {0:s.skipped, 1:s.kind && s.kind !== "practice" ? t("待评分") : t("未判定"), 2:s.kind && s.kind !== "practice" ? s.pendingGrades ?? 0 : Math.max(0,s.answered-s.graded-s.skipped)})}</p>}
                         {!!(s.answered || s.finishedAt || s.submittedAt) && <details className="text-sm text-muted-foreground"><summary className="cursor-pointer">{t("判定详情")}</summary><p className="mt-2">{t("自动判定 {0} · 自评 {1} · 跳过 {2} · 未判定 {3}", { 0: s.autoGraded, 1: s.selfGraded, 2: s.skipped, 3: s.kind && s.kind !== "practice" ? s.pendingGrades : s.answered - s.graded - s.skipped })}</p></details>}
                       </div>
                       <Button

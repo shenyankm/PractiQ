@@ -8,7 +8,7 @@ import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import { ArrowUp, ArrowDown } from "lucide-react";
 import { type Question, type Answer, canInteract, itemIds } from "./api";
 import { answerLanguage, countEnglishWords, materialLanguage } from "./english";
-import { Markdown } from "./Content";
+import { Markdown, LazyDetails } from "./Content";
 export function AnswerInput({
   question: q,
   value,
@@ -263,6 +263,26 @@ export function AnswerInput({
       );
   }
 }
+export function AnswerReview({ question, answer }: { question: Question; answer: Answer | null }) {
+  useI18n();
+  return <section className="space-y-3" aria-label={t("我的答案")}>
+    <h3 className="font-medium">{t("我的答案")}</h3>
+    {!answer && <p>{t("本次未作答")}</p>}
+    {question.answerMode === "choice" ? <ul className="space-y-2">
+      {question.options.map((option, index) => <li key={index} className="flex items-start gap-3 rounded-lg border p-3">
+        <span className="font-medium">{option.label}.</span>
+        <div className="min-w-0 flex-1"><Markdown lang={materialLanguage(question)}>{option.content}</Markdown></div>
+        {answer?.correct?.includes(option.label!) && <span className="font-medium text-primary">{t("已选")}</span>}
+      </li>)}
+    </ul> : <>
+      {question.items.length > 0 && <LazyDetails summary={t("题项")} className="rounded-lg border px-3">
+        <ul className="space-y-2 pb-3">{question.items.map((item,index)=><li key={index} className="flex gap-2"><span>{item.label || (item.side === "right" ? t("选项") : index+1)}.</span><Markdown lang={materialLanguage(question)}>{item.content}</Markdown></li>)}</ul>
+      </LazyDetails>}
+      {answer && <AnswerDisplay answer={answer} question={question} />}
+    </>}
+  </section>;
+}
+
 export function AnswerDisplay({
   answer,
   question,

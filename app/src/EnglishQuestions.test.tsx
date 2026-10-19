@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { Content } from "./Content";
+import { Content, type MaterialReading } from "./Content";
 import { AnswerInput } from "./AnswerInput";
 import { ListeningPlayer } from "./ListeningPlayer";
 import { QuestionEditor } from "./QuestionEditor";
@@ -16,6 +16,23 @@ const question=(id:string)=>questions.find(q=>q.id===id)!;
 const mockApi=vi.mocked(api);
 beforeEach(()=>{mockApi.mockReset();mockApi.mockResolvedValue(null as never);});
 afterEach(()=>{cleanup();vi.restoreAllMocks();});
+it("preserves expanded passage and scroll position across sibling questions without a dialog", async () => {
+  const materialReading = {current:{} as MaterialReading};
+  const go=vi.fn();
+  const snapshot={question:question("words-1"),materials:[question("words")],groups:[],visuals:[],sources:[],warnings:[],missingAssets:false};
+  const view=render(<Content key="first" materialDialog materialReading={materialReading} onBlank={go} snapshot={snapshot}/>);
+  await userEvent.click(screen.getByRole("button",{name:"查看原文"}));
+  const region=screen.getByRole("region",{name:"题目材料"});
+  region.scrollTop=120; fireEvent.scroll(region);
+  await userEvent.click(screen.getByRole("button",{name:"空位 1"}));
+  expect(go).toHaveBeenCalledWith("words-1");
+  view.rerender(<Content key="second" materialDialog materialReading={materialReading} onBlank={go} snapshot={{...snapshot,question:{...snapshot.question,id:"words-2"}}}/>);
+  expect(screen.getByRole("button",{name:"收起原文"}).getAttribute("aria-expanded")).toBe("true");
+  expect(screen.getByRole("region",{name:"题目材料"}).scrollTop).toBe(120);
+  expect(screen.queryByRole("dialog")).toBeNull();
+  await userEvent.click(screen.getByRole("button",{name:"收起原文"}));
+  expect(screen.queryByRole("region",{name:"题目材料"})).toBeNull();
+});
 it("opens material only on request and locates a gap without changing the draft",async()=>{
   const go=vi.fn();
   render(<Content materialDialog onBlank={go} blankAnswers={{"words-1":"A"}} snapshot={{question:question("words-1"),materials:[question("words")],groups:[],visuals:[],sources:[],warnings:[],missingAssets:false}}/>);

@@ -132,6 +132,73 @@ async function serviceMock(page) {
   return calls;
 }
 
+test('review keeps readable answers and its final content above the separate navigation bar', async ({ page }) => {
+  const calls = await serviceMock(page);
+  await page.goto('/');
+  await navigate(page, '练习记录');
+  await page.getByRole('button', {name:'核对评分',exact:true}).tap();
+  await expect(page.getByRole('heading', {name:'练习回顾',exact:true})).toBeVisible();
+  await expect(page.getByRole('region', {name:'我的答案',exact:true})).toContainText('A preserved answer.');
+  await expect(page.getByText(/草稿自动保存/)).toHaveCount(0);
+  await expect(page.getByRole('button', {name:'查看原文',exact:true})).toBeVisible();
+  await page.getByRole('button', {name:'查看原文',exact:true}).tap();
+  await expect(page.getByRole('region', {name:'题目材料',exact:true})).toBeVisible();
+  await page.getByRole('button', {name:'收起原文',exact:true}).tap();
+  await page.getByRole('link',{name:'查看答题卡',exact:true}).tap();
+  const legend = await page.getByLabel('本次题目状态',{exact:true}).boundingBox();
+  const scrollArea = await page.locator('.practice-scroll').boundingBox();
+  expect(legend.y).toBeGreaterThanOrEqual(scrollArea.y);
+  await page.getByRole('link',{name:'返回当前题',exact:true}).tap();
+  const body = page.locator('.practice-question-body');
+  await body.locator(':scope > section').last().evaluate(node => {
+    const scroller = node.closest('.practice-scroll');
+    scroller.scrollTop += node.getBoundingClientRect().bottom - scroller.getBoundingClientRect().bottom + 16;
+  });
+  const footer = await page.locator('.practice-footer').boundingBox();
+  const content = await page.locator('.practice-scroll').boundingBox();
+  const last = await body.locator(':scope > section').last().boundingBox();
+  expect(content.y + content.height).toBeLessThanOrEqual(footer.y + 1);
+  expect(last.y + last.height).toBeLessThanOrEqual(footer.y + 1);
+  await noHorizontalOverflow(page, 'finished review');
+  expect(calls.filter(call => ['save_draft','save_attempt','grade'].includes(call.request?.type))).toEqual([]);
+});
+
+test('sibling review retains the actual scroll offset of a long expanded passage', async ({ page }) => {
+  await serviceMock(page);
+  await page.goto('/');
+  const fixture = JSON.parse(readFileSync('fixtures/english.json', 'utf8'));
+  await page.evaluate(async fixture => {
+    const original = window.__TAURI_INTERNALS__.invoke;
+    const session = await original('request', {request:{type:'session',id:'mobile-grade'}});
+    const parent = fixture.questions.find(question => question.id === 'read');
+    const child = fixture.questions.find(question => question.id === 'read-1');
+    parent.contentBlocks = [{partType:'text', markdownValue:'A long reading passage for scroll retention. '.repeat(200)}];
+    session.attempts = [0,1].map(ordinal => ({...session.attempts[0],ordinal,
+      snapshot:{...session.attempts[0].snapshot,question:{...child,id:`reading-${ordinal}`},materials:[parent]}}));
+    window.__TAURI_INTERNALS__.invoke = async (command,args) => {
+      const request = args?.request;
+      if (command === 'request' && request?.type === 'position') {
+        session.position = request.position;
+        return structuredClone(session);
+      }
+      if (command === 'request' && request?.type === 'session') return structuredClone(session);
+      const result = await original(command,args);
+      if (request?.type === 'sessions_page') result.items = result.items.map(item => ({...item,count:2,answered:2,pendingGrades:2}));
+      return result;
+    };
+  },fixture);
+  await navigate(page,'练习记录');
+  await page.getByRole('button',{name:'核对评分',exact:true}).tap();
+  await page.getByRole('button',{name:'查看原文',exact:true}).tap();
+  const reader = page.getByRole('region',{name:'题目材料',exact:true});
+  expect(await reader.evaluate(node => node.scrollHeight > node.clientHeight)).toBe(true);
+  await reader.evaluate(node => {node.scrollTop=120;});
+  await page.getByRole('button',{name:'下一题',exact:true}).tap();
+  await expect(page.getByRole('heading',{name:'第 2 / 2 题',exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'收起原文',exact:true})).toBeVisible();
+  await expect.poll(() => reader.evaluate(node => node.scrollTop)).toBe(120);
+});
+
 test('touch navigation works in both languages and consumes back only when needed', async ({ page }, testInfo) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: '我的题库', exact: true })).toBeVisible();
@@ -316,6 +383,8 @@ test('listening uses local audio with touch-sized playback, speed and seek contr
   await setup.getByRole('button', { name: '立即开始', exact: true }).tap();
   const player = page.getByRole('region', { name: '听力播放器', exact: true });
   const play = player.getByRole('button', { name: '播放听力', exact: true });
+  const next = await page.getByRole('button', {name:'下一题',exact:true}).boundingBox();
+  expect(next.y + next.height).toBeLessThanOrEqual(page.viewportSize().height);
   await expect(play).toBeEnabled();
   await touchTarget(play);
   const speed = player.getByRole('combobox', { name: '播放速度', exact: true });

@@ -23,6 +23,31 @@ function Study({ initial }: { initial: Session }) {
   return <Practice session={session} onSession={setSession} run={job => { void job(); }} flushRef={{ current: async () => {} }} />;
 }
 
+it("shows finished review copy, readable answers and a visible state legend without saving", () => {
+  const initial = practice();
+  initial.attempts.push({...initial.attempts[0], ordinal:1, answer:null, skipped:true});
+  render(<Study initial={initial}/>);
+  expect(screen.getByText("本次作答已结束，正在回顾作答与解析。")).toBeTruthy();
+  expect(screen.getByText("本次共 2 题，作答已锁定；可切换题目回顾。")).toBeTruthy();
+  expect(screen.queryByText(/草稿自动保存/)).toBeNull();
+  expect(screen.queryByRole("textbox")).toBeNull();
+  expect(within(screen.getByRole("region", {name:"我的答案"})).getByText("My answer")).toBeTruthy();
+  const legend = screen.getByLabelText("本次题目状态");
+  expect(legend.textContent).toContain("待判定 1");
+  expect(legend.textContent).toContain("跳过 1");
+  expect(api).not.toHaveBeenCalled();
+});
+
+it.each([null, {text:"  "}])("labels empty historical writing without submission hints: %j", answer => {
+  const initial = practice();
+  initial.attempts[0].answer = answer;
+  Object.assign(initial.attempts[0].snapshot.question, {questionKind:"writing", minWords:80, maxWords:120});
+  render(<Study initial={initial}/>);
+  expect(screen.getByText("本次未作答")).toBeTruthy();
+  expect(screen.queryByText(/仍可提交/)).toBeNull();
+  expect(screen.queryByRole("textbox")).toBeNull();
+});
+
 it.each([false, true])("locks a pending submission (skip=%s) and shows the persisted answer", async skip => {
   const initial = practice();
   initial.finishedAt = initial.submittedAt = initial.attempts[0].submittedAt = null;
@@ -68,13 +93,13 @@ it("self-assesses a finished practice while keeping the answer locked and announ
   const initial = practice();
   vi.mocked(api).mockResolvedValue({ ...initial, attempts: [{ ...initial.attempts[0], result: true, gradeKind: "self" }] });
   render(<Study initial={initial} />);
-  const input = screen.getByRole("textbox", { name: "作答内容" }) as HTMLTextAreaElement;
-  expect(input.disabled).toBe(true);
+  expect(screen.queryByRole("textbox", { name: "作答内容" })).toBeNull();
+  expect(within(screen.getByRole("region", {name:"我的答案"})).getByText("My answer")).toBeTruthy();
   await user.click(screen.getByRole("button", { name: "我答对了" }));
   await waitFor(() => expect(screen.getByRole("status", { name: "答题状态" }).textContent).toBe("第 1 题：回答正确"));
   expect(api).toHaveBeenCalledExactlyOnceWith({ type: "self_assess", id: "practice", ordinal: 0, result: true });
-  expect(input.value).toBe("My answer");
-  expect(input.disabled).toBe(true);
+  expect(screen.queryByRole("textbox", { name: "作答内容" })).toBeNull();
+  expect(within(screen.getByRole("region", {name:"我的答案"})).getByText("My answer")).toBeTruthy();
 });
 
 it("submits practice answers before self-assessing through the separate command", async () => {

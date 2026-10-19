@@ -1,5 +1,5 @@
 import { list, t, useI18n } from "./i18n";
-import { memo, useEffect, useRef, useState, type ReactNode } from "react";
+import { memo, useEffect, useRef, useState, useId, type ReactNode, type MutableRefObject } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -141,6 +141,8 @@ function ImageAsset({ visual, original = false }: { visual: Visual; original?: b
     </figure>
   );
 }
+export type MaterialReading = Record<string, { open: boolean; scrollTop: number }>;
+
 export const Content = memo(function Content({
   snapshot,
   reviewed = snapshot.reviewedAt != null,
@@ -148,6 +150,8 @@ export const Content = memo(function Content({
   exam = false,
   revealOriginal = true,
   materialDialog = false,
+  materialReading,
+  compactGroups = false,
   onBlank,
   blankAnswers,
 }: {
@@ -157,6 +161,8 @@ export const Content = memo(function Content({
   exam?: boolean;
   revealOriginal?: boolean;
   materialDialog?: boolean;
+  materialReading?: MutableRefObject<MaterialReading>;
+  compactGroups?: boolean;
   onBlank?:(id:string)=>void;
   blankAnswers?:Record<string,string>;
 }) {
@@ -164,18 +170,25 @@ export const Content = memo(function Content({
   const q = snapshot.question;
   const ownMaterial = ["translation","writing","paragraph_matching"].includes(q.questionKind || "") || !!q.passage?.length;
   const materials = [...(snapshot.materials || []), ...(ownMaterial ? [q] : [])];
-  const [open,setOpen]=useState(false);
+  const materialKey = materials.map(m=>m.id).join(":");
+  const [open,setOpen]=useState(()=>materialReading?.current[materialKey]?.open ?? false);
+  const materialId = useId();
   const trigger=useRef<HTMLButtonElement>(null);
+  function toggleMaterial() {
+    const next = !open;
+    if (materialReading) materialReading.current[materialKey] = {open:next, scrollTop:materialReading.current[materialKey]?.scrollTop ?? 0};
+    setOpen(next);
+  }
   function material(q:Question) {
     return <section key={q.id} className="space-y-3">
       <Markdown>{q.stem}</Markdown><Markdown>{q.instructions}</Markdown>
-      <Blocks blocks={[...(q.passage || []), ...q.contentBlocks]} language={block=>materialLanguage(q,block.role)} blankAnswers={blankAnswers} onBlank={id=>{setOpen(false);onBlank?.(id);}}/>
+      <Blocks blocks={[...(q.passage || []), ...q.contentBlocks]} language={block=>materialLanguage(q,block.role)} blankAnswers={blankAnswers} onBlank={id=>{if (!materialReading) setOpen(false);onBlank?.(id);}}/>
       {q.questionKind === "paragraph_matching" && q.items.filter(i=>i.side==="right").map((item,i)=><div key={item.id ?? i}><strong>{item.label || String(i+1)}</strong><Markdown lang={materialLanguage(q)}>{item.content}</Markdown></div>)}
       {!!q.transcript?.length && <LazyDetails summary={t("听力原文")}><Blocks blocks={q.transcript} language={block=>materialLanguage(q,block.role)}/></LazyDetails>}
     </section>;
   }
   return (
-    <div className="space-y-5">
+    <div className={materialReading ? "practice-content space-y-4" : "space-y-5"}>
       {(reviewed || q.needsReview ||
         q.missingFields.length > 0 ||
         snapshot.missingAssets) && (
@@ -187,7 +200,9 @@ export const Content = memo(function Content({
         </div>
       )}
       {snapshot.groups.map((g) => (
-        <section key={g.id} className="rounded-lg border-l-4 bg-muted/40 p-4">
+        compactGroups ? <LazyDetails key={g.id} className="rounded-lg border bg-muted/40 px-3 text-sm" summary={g.title}>
+          <div className="space-y-2 pb-3"><Markdown>{g.instructions}</Markdown><Blocks blocks={g.contentBlocks || []}/></div>
+        </LazyDetails> : <section key={g.id} className="rounded-lg border-l-4 bg-muted/40 p-4">
           <h3 className="mb-2 font-medium">{g.title}</h3>
           <Markdown>{g.instructions}</Markdown>
           <Blocks blocks={g.contentBlocks || []} />
@@ -199,7 +214,10 @@ export const Content = memo(function Content({
       <Markdown>{q.instructions}</Markdown>
       {(q.sourceLanguage || q.targetLanguage) && <p className="text-sm text-muted-foreground">{q.sourceLanguage}{q.sourceLanguage ? " → " : ""}{q.targetLanguage}</p>}
       {q.writingGenre && <p className="text-sm text-muted-foreground">{q.writingGenre}</p>}
-      {materialDialog && materials.some(m=>m.passage?.length || m.contentBlocks.length || m.transcript?.length || m.questionKind === "paragraph_matching" || (m.id !== q.id && (m.stem || m.instructions))) ? <>
+      {materialDialog && materials.some(m=>m.passage?.length || m.contentBlocks.length || m.transcript?.length || m.questionKind === "paragraph_matching" || (m.id !== q.id && (m.stem || m.instructions))) ? materialReading ? <div className="practice-material rounded-lg border bg-card p-2">
+        <Button ref={trigger} variant="outline" className="w-full" aria-expanded={open} aria-controls={materialId} onClick={toggleMaterial}>{t(open ? "收起原文" : "查看原文")}</Button>
+        {open && <div id={materialId} role="region" aria-label={t("题目材料")} tabIndex={0} className="practice-material-body space-y-4 overflow-auto p-2" ref={node=>{if(node) node.scrollTop=materialReading.current[materialKey]?.scrollTop ?? 0;}} onScroll={event=>{materialReading.current[materialKey]={open:true,scrollTop:event.currentTarget.scrollTop};}}>{materials.map(material)}</div>}
+      </div> : <>
         <Button ref={trigger} variant="outline" onClick={()=>setOpen(true)}>{t("查看原文")}</Button>
         <Dialog open={open} onOpenChange={setOpen}><DialogContent className="flex max-h-[85vh] flex-col sm:max-w-4xl" onCloseAutoFocus={e=>{e.preventDefault();trigger.current?.focus();}}><DialogHeader><DialogTitle>{t("查看原文")}</DialogTitle><DialogDescription>{t("题目材料；点击空位可定位对应子题。")}</DialogDescription></DialogHeader><div className="min-h-0 space-y-6 overflow-auto pr-3">{materials.map(material)}{snapshot.visuals.map(v=><ImageAsset key={v.id} visual={v}/>)}</div></DialogContent></Dialog>
       </> : !materialDialog && materials.filter(m=>m.id!==q.id).map(material)}

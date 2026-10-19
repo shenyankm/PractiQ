@@ -3,11 +3,23 @@ import { useState } from "react";
 import { afterEach, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { AnswerDisplay, AnswerInput } from "./AnswerInput";
+import { AnswerDisplay, AnswerInput, AnswerReview } from "./AnswerInput";
 import { blankQuestion, type Answer, type Question } from "./api";
 
 HTMLElement.prototype.scrollIntoView = () => {};
 afterEach(cleanup);
+
+it("reviews selected choices as readable content and retains a false answer", () => {
+  const question = {...blankQuestion(), options:[{label:"A",content:"Alpha"},{label:"B",content:"Beta"}]};
+  const view = render(<AnswerReview question={question} answer={{correct:["B"]}}/>);
+  expect(screen.getByText("Alpha")).toBeTruthy();
+  expect(screen.getByText("Beta")).toBeTruthy();
+  expect(screen.getAllByText("已选")).toHaveLength(1);
+  expect(screen.queryByRole("radio")).toBeNull();
+  view.rerender(<AnswerReview question={{...question,answerMode:"true_false"}} answer={{value:false}}/>);
+  expect(screen.getByText("错误")).toBeTruthy();
+  expect(screen.queryByText("本次未作答")).toBeNull();
+});
 
 function Controlled({ question }: { question: Question }) {
   const [value, setValue] = useState<Answer | null>(null);

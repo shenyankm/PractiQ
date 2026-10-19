@@ -488,7 +488,7 @@ Sources: [ListeningPlayer.tsx](../../app/src/ListeningPlayer.tsx), `listening_pl
 
 Session behavior is selected by `Session.kind` / `sessions.kind`, not question `answerMode` or the separate `sessions.mode` used for ordering.
 
-The answer-card legend is collapsed into an information button beside the card title. Activating it opens a non-modal popover; its close button, Escape or an outside click dismisses it. The popover stays within the viewport in both themes and on narrow screens.
+The answer card shows a compact legend and counts for states present in the session; its information button opens the complete legend. Activating it opens a non-modal popover; its close button, Escape or an outside click dismisses it. The popover stays within the viewport in both themes and on narrow screens.
 
 Answer-card buttons show their question number above a compact status icon and share their colors with the visible legend: neutral gray for unanswered questions, blue for complete unsubmitted answers, purple for incomplete drafts, green for correct answers, red for incorrect/text-mismatch results and amber for pending grading or partial credit. Pending answers use a dashed-circle icon instead of a correctness check; skipped questions use a dashed neutral border and skip arrow. The current question retains its status color with a purple outer outline, underline and `aria-current="step"`. Review flags add an amber corner flag without replacing the answer status or current-question outline. Accessible names and hover titles retain the detailed state, including partial scores and exact-text fill-answer mismatches. Icons are decorative for assistive technology; numbered buttons keep their existing keyboard navigation and focus behavior in both themes.
 
@@ -496,7 +496,7 @@ Answer-card buttons show their question number above a compact status icon and s
 | --- | --- | --- | --- |
 | Submission | Submit/skip individual questions; on finish submit drafts or mark them skipped | Submit the entire paper; drafts remain editable beforehand | Entire-paper submission; expiration submits saved drafts |
 | Answers/explanations | After current-question submission | After paper submission | After paper submission |
-| Reading/source material dialog | Available | Answering material remains available | Answering material remains available |
+| Expandable reading/source material | Available | Answering material remains available | Answering material remains available |
 | Complete source-page image | After current submission; may remain hidden until listening group unlocks | Hidden before paper submission | Hidden before paper submission |
 | Listening transcript | After every child in the listening group is submitted, or session finishes | After paper submission | After paper submission |
 | Listening controls | Replay, seek, and 0.75/1/1.25/1.5 speed | Before submission: speed 1, no seek, `examPlayCount` limit; pause/resume allowed | Same as self-test |

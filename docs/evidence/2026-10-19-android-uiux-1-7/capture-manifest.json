@@ -1,0 +1,453 @@
+{
+  "createdAt": "2026-10-19T08:56:11.918515+08:00",
+  "device": {
+    "capturedAt": "2026-10-19T08:56:11.918515+08:00",
+    "timezone": "Asia/Singapore",
+    "serial": "emulator-5560",
+    "avd": "PractiQ_UIUX_20261018",
+    "androidVersion": "15",
+    "apiLevel": "35",
+    "abi": "arm64-v8a",
+    "resolution": "Physical size: 1080x2400",
+    "density": "Physical density: 420",
+    "fontScale": "1.0",
+    "webView": "(com.android.webview, 124.0.6367.219)",
+    "installedApkSha256": "341864b5de1fa1c3adf046b702b3858eecc12e079a2fc589f89c3f757de4e421",
+    "packageReport": "android-package-final-anchor.json"
+  },
+  "baseline": "before/",
+  "comparisonCount": 49,
+  "supplementaryCount": 3,
+  "nativeScreenshotCount": 52,
+  "rounds": [
+    {
+      "apkSha256": "2e6002b6d34eb4f843f2137214d007ce58223ae13a0dd12e0e65c33baca94f9a",
+      "coverage": "All 49 original gallery states plus 3 supplementary captures, using the existing data."
+    },
+    {
+      "apkSha256": "341864b5de1fa1c3adf046b702b3858eecc12e079a2fc589f89c3f757de4e421",
+      "coverage": "After the final answer-card anchor correction, repeat bank/history, first/last question, and answer-card entry/legend states. Other gallery states were not repeated after this anchor-only correction."
+    }
+  ],
+  "screenshots": [
+    {
+      "file": "after/001-banks-populated-zh.png",
+      "sha256": "9a2e621555915267a344ac885da3cc9d113e8b27bd032c3a6ab5e55461c88bc2",
+      "apkSha256": "341864b5de1fa1c3adf046b702b3858eecc12e079a2fc589f89c3f757de4e421",
+      "baselineFile": "before/001-banks-populated-zh.png",
+      "redacted": false,
+      "baselineSha256": "e22c52e9cb1763d4af634099b52efde72f10031605243e5e10700fe03f4a90de"
+    },
+    {
+      "file": "after/002-navigation-drawer-zh.png",
+      "sha256": "826db3a08b77c968fe1fda9394e8e43606552ccf3d4d687177dc403c91ecd82b",
+      "apkSha256": "2e6002b6d34eb4f843f2137214d007ce58223ae13a0dd12e0e65c33baca94f9a",
+      "baselineFile": "before/002-navigation-drawer-zh.png",
+      "redacted": false,
+      "baselineSha256": "6b310594eef2542c185c3d9ae2fad0923e195732cf9926cc108b883a7e08d4a4"
+    },
+    {
+      "file": "after/003-mistakes-zh.png",
+      "sha256": "114d20da819292672fc559c4016a8e52125a641c2539d0efccfdfe59a16552cc",
+      "apkSha256": "2e6002b6d34eb4f843f2137214d007ce58223ae13a0dd12e0e65c33baca94f9a",
+      "baselineFile": "before/003-mistakes-zh.png",
+      "redacted": false,
+      "baselineSha256": "9023b31f1971282b0974c6e9d41e5a265a283f320bff83eb3d6195e7abc325d7"
+    },
+    {
+      "file": "after/004-favorites-zh.png",
+      "sha256": "974d3e3bab20c709917ed40e959c337679e513793ce0f760a7850c186109d3c4",
+      "apkSha256": "2e6002b6d34eb4f843f2137214d007ce58223ae13a0dd12e0e65c33baca94f9a",
+      "baselineFile": "before/004-favorites-zh.png",
+      "redacted": false,
+      "baselineSha256": "f76b031ca8d46470fc9ad29fed7f89ab57adec5fc6f447f300e9537a2e0807e8"
+    },
+    {
+      "file": "after/005-history-zh.png",
+      "sha256": "f11b3ea51d744e1a8eae484b4f121c91468e8ded65ae9d6c8c980aedf6713ecb",
+      "apkSha256": "341864b5de1fa1c3adf046b702b3858eecc12e079a2fc589f89c3f757de4e421",
+      "baselineFile": "before/005-history-zh.png",
+      "redacted": false,
+      "baselineSha256": "4504b67fb0251eb7cb897305f45cff52ca23d0e461454cab1bc8c5520cef38b5"
+    },
+    {
+      "file": "after/006-settings-zh.png",
+      "sha256": "27bb65aed4a86ea4ea60c24bd237c95c7cf39a4930ff7b846253d233d424c27c",
+      "apkSha256": "2e6002b6d34eb4f843f2137214d007ce58223ae13a0dd12e0e65c33baca94f9a",
+      "baselineFile": "before/006-settings-zh.png",
+      "redacted": false,
+      "baselineSha256": "517b75472af6351490cf4bd77e0efc9a2ccebf50ee96538a52bc70471f746f77"
+    },
+    {
+      "file": "after/007-questions-list-top-zh.png",
+      "sha256": "fb0661472326de91941dd77f71f7109b51ea0fc883efd7844b19b6d204ffe15d",
+      "apkSha256": "2e6002b6d34eb4f843f2137214d007ce58223ae13a0dd12e0e65c33baca94f9a",
+      "baselineFile": "before/007-questions-list-top-zh.png",
+      "redacted": false,
+      "baselineSha256": "538f849fdbb778b476cd17129818621cb0010415c1d2c97694cc9610f2b06c84"
+    },
+    {
+      "file": "after/008-questions-list-bottom-zh.png",
+      "sha256": "c5a5e020b442c510a6dd2b166d1e2520649f6e2b48ac2efdf4579ad8b95bd09a",
+      "apkSha256": "2e6002b6d34eb4f843f2137214d007ce58223ae13a0dd12e0e65c33baca94f9a",
+      "baselineFile": "before/008-questions-list-bottom-zh.png",
+      "redacted": false,
+      "baselineSha256": "b5f3eeef217752e13af25e190cedb3110ca13cc5b217c2dff9350a61157a9939"
+    },
+    {
+      "file": "after/009-question-detail-zh.png",
+      "sha256": "b0c0653a177f94a0e4257f26c23af3ed4b9840dabbf8a5aeb48a32df977357e5",
+      "apkSha256": "2e6002b6d34eb4f843f2137214d007ce58223ae13a0dd12e0e65c33baca94f9a",
+      "baselineFile": "before/009-question-detail-zh.png",
+      "redacted": false,
+      "baselineSha256": "54071f40ce00cce6d9efdb2daf942baba845bbc6781654b07a4d560b3f0ca4e7"
+    },
+    {
+      "file": "after/010-question-editor-zh.png",
+      "sha256": "403e736a11514e72ad02503ed17626d747b424b514343823d06c4b14a2b7a5e4",
+      "apkSha256": "2e6002b6d34eb4f843f2137214d007ce58223ae13a0dd12e0e65c33baca94f9a",
+      "baselineFile": "before/010-question-editor-zh.png",
+      "redacted": false,
+      "baselineSha256": "73e655be89b77e846a418c27f17296f9ad94f7f3d73905c5ead44fdbe6046a7e"
+    },
+    {
+      "file": "after/011-new-question-editor-zh.png",
+      "sha256": "856b2b565e66200a2826cebd6dee68d4aa397cf969a9b653c013683879e9ac17",
+      "apkSha256": "2e6002b6d34eb4f843f2137214d007ce58223ae13a0dd12e0e65c33baca94f9a",
+      "baselineFile": "before/011-new-question-editor-zh.png",
+      "redacted": false,
+      "baselineSha256": "7db3224fd8a467dd562d69d00936e2bf28d67a1ddf65050ccbeffc3889c2823c"
+    },
+    {
+      "file": "after/012-practice-setup-zh.png",
+      "sha256": "e4b35143d39375643fe506832ba6e881939cbef4d197f39a37fc737cbfab2564",
+      "apkSha256": "2e6002b6d34eb4f843f2137214d007ce58223ae13a0dd12e0e65c33baca94f9a",
+      "baselineFile": "before/012-practice-setup-zh.png",
+      "redacted": false,
+      "baselineSha256": "54447e465bbd9fcdf9942fca65bbba1e00f90fb2c8b5094a27109554135024e5"
+    },
+    {
+      "file": "after/014-practice-record-top-zh.png",
+      "sha256": "c6b6d98f93200572525c44e61b7780663f26c0dd2d3a5ba697a71787fb2397a1",
+      "apkSha256": "341864b5de1fa1c3adf046b702b3858eecc12e079a2fc589f89c3f757de4e421",
+      "baselineFile": "before/014-practice-record-top-zh.png",
+      "redacted": false,
+      "baselineSha256": "e261c1019e9a1250fa6642970662b3639d0f1084a001d22eb27d09dd3193a0a8"
+    },
+    {
+      "file": "after/015-practice-record-bottom-zh.png",
+      "sha256": "a5da1b813b2e698a983b0e4520a0307ced4913b637a23c18db3f804a32bf615b",
+      "apkSha256": "341864b5de1fa1c3adf046b702b3858eecc12e079a2fc589f89c3f757de4e421",
+      "baselineFile": "before/015-practice-record-bottom-zh.png",
+      "redacted": false,
+      "baselineSha256": "2640ddbae9856c427e4156288c5f60e00ac74b0e1b74394da8413dd567455eac"
+    },
+    {
+      "file": "after/016-practice-scoring-details-zh.png",
+      "sha256": "1a3ab30ad56d73011571ebfca6675d694dd0d58deaeca8a781faa0818cd5a553",
+      "apkSha256": "341864b5de1fa1c3adf046b702b3858eecc12e079a2fc589f89c3f757de4e421",
+      "baselineFile": "before/016-practice-scoring-details-zh.png",
+      "redacted": false,
+      "baselineSha256": "5a6c01ee63c23a5706547117dff5fb6a397c9e0b616a1fbcf0f1e8766e48ee03"
+    },
+    {
+      "file": "after/026-service-settings-zh-redacted.png",
+      "sha256": "2dbfadbb618f890b957f2d6a87e2608606c9336f58a042e7897f23505fd50685",
+      "apkSha256": "2e6002b6d34eb4f843f2137214d007ce58223ae13a0dd12e0e65c33baca94f9a",
+      "baselineFile": "before/026-service-settings-zh-redacted.png",
+      "redacted": true,
+      "baselineSha256": "19b575e67e5f22faead12058609cfa701b1cfc72ec06d90d8d76a5a9460db1b4"
+    },
+    {
+      "file": "after/027-settings-bottom-zh.png",
+      "sha256": "adf10e42839c0ee413bcf2809ca4d0a4252d42be01e2a15f1040f9312b8f5fc5",
+      "apkSha256": "2e6002b6d34eb4f843f2137214d007ce58223ae13a0dd12e0e65c33baca94f9a",
+      "baselineFile": "before/027-settings-bottom-zh.png",
+      "redacted": false,
+      "baselineSha256": "5ac205a5f261b712e610d7fd191e951f55a6b848d83b2c5b5e4d515794f2e2d4"
+    },
+    {
+      "file": "after/028-settings-backup-notes-expanded-zh.png",
+      "sha256": "3db8037e2433af735d22b9921b8f40840ce8c2cf126cd24f2f74dadc8147b43e",
+      "apkSha256": "2e6002b6d34eb4f843f2137214d007ce58223ae13a0dd12e0e65c33baca94f9a",
+      "baselineFile": "before/028-settings-backup-notes-expanded-zh.png",
+      "redacted": false,
+      "baselineSha256": "428786ed5d47d88be33d8d3fa193d6df2fd2601660d1c8f21c420f1090eda3d6"
+    },
+    {
+      "file": "after/029-navigation-theme-menu-zh.png",
+      "sha256": "dc55d6fb797ea993367941bf37f4714f8661fc0b8d865c369dbb48b063d9e8ba",
+      "apkSha256": "2e6002b6d34eb4f843f2137214d007ce58223ae13a0dd12e0e65c33baca94f9a",
+      "baselineFile": "before/029-navigation-theme-menu-zh.png",
+      "redacted": false,
+      "baselineSha256": "64afee45c6d18847d2065f9863b0ddacb46272a82c49352e50b3792e37e183ce"
+    },
+    {
+      "file": "after/030-navigation-language-menu-zh.png",
+      "sha256": "6a8e165b0d51eed45267bb190c62a88ede420426c80c9a6dea5b79984a5ed44f",
+      "apkSha256": "2e6002b6d34eb4f843f2137214d007ce58223ae13a0dd12e0e65c33baca94f9a",
+      "baselineFile": "before/030-navigation-language-menu-zh.png",
+      "redacted": false,
+      "baselineSha256": "64afee45c6d18847d2065f9863b0ddacb46272a82c49352e50b3792e37e183ce"
+    },
+    {
+      "file": "after/032-settings-restore-menu-zh.png",
+      "sha256": "c4c1a67f744bbf65062b7f37b16b472a2c5089ff6c33cd7585ddcc04ac49fb3d",
+      "apkSha256": "2e6002b6d34eb4f843f2137214d007ce58223ae13a0dd12e0e65c33baca94f9a",
+      "baselineFile": "before/032-settings-restore-menu-zh.png",
+      "redacted": false,
+      "baselineSha256": "e39cfc4ec66b514fc59c70e14af3441730aca48da40b7664a5fab565a69e3925"
+    },
+    {
+      "file": "after/033-new-bank-dialog-zh.png",
+      "sha256": "98e64c5f7a1a7772e60668dabce2a8935b29e29732a1ea502d69164d953b3820",
+      "apkSha256": "2e6002b6d34eb4f843f2137214d007ce58223ae13a0dd12e0e65c33baca94f9a",
+      "baselineFile": "before/033-new-bank-dialog-zh.png",
+      "redacted": false,
+      "baselineSha256": "4e6348a8af9355f6abdcad2a01c49c4a7df04f699de3d4313c1a8d52ef8006fa"
+    },
+    {
+      "file": "after/034-bank-actions-menu-zh.png",
+      "sha256": "170cbd0c3e5c8860c8573706da8e014f888a87edee7f7f77afad473565c4e754",
+      "apkSha256": "2e6002b6d34eb4f843f2137214d007ce58223ae13a0dd12e0e65c33baca94f9a",
+      "baselineFile": "before/034-bank-actions-menu-zh.png",
+      "redacted": false,
+      "baselineSha256": "2adab10de3975a925cfa598e465b4342d110cb307efe8dfd6cd82ba0c928fa42"
+    },
+    {
+      "file": "after/035-question-filter-empty-zh.png",
+      "sha256": "d57d6aff4a30d270256acd5d338720286a8268df67666042196849c34bb2764b",
+      "apkSha256": "2e6002b6d34eb4f843f2137214d007ce58223ae13a0dd12e0e65c33baca94f9a",
+      "baselineFile": "before/035-question-filter-empty-zh.png",
+      "redacted": false,
+      "baselineSha256": "62125bf5607f15c89f0210153c758a686414bec2588c8915a44718031d479c32"
+    },
+    {
+      "file": "after/037-practice-setup-advanced-zh.png",
+      "sha256": "68d03baebb6c94c6a72a6b5287113bf0485576e8220e933149f2a5ebbb677fb4",
+      "apkSha256": "2e6002b6d34eb4f843f2137214d007ce58223ae13a0dd12e0e65c33baca94f9a",
+      "baselineFile": "before/037-practice-setup-advanced-zh.png",
+      "redacted": false,
+      "baselineSha256": "600c4c988a972acd3576af75a96100111c8bc66ff6858c9fe5ad13332da9ec57"
+    },
+    {
+      "file": "after/037a-practice-setup-advanced-options-zh.png",
+      "sha256": "83c47b74b305b70f97f3234db7ad22224882e94a799bd49ba282f77bc0160ad0",
+      "apkSha256": "2e6002b6d34eb4f843f2137214d007ce58223ae13a0dd12e0e65c33baca94f9a",
+      "baselineFile": "before/037a-practice-setup-advanced-options-zh.png",
+      "redacted": false,
+      "baselineSha256": "5ce5107098da89795a3f1a78e57b07fd3e8b41f5163b337ae796c349b3f06e70"
+    },
+    {
+      "file": "after/038-practice-paper-preview-top-zh.png",
+      "sha256": "44cf14efb0b70a97dbf9ec33048a784bbbcf2e430ccaafa528d7477a9bb92d35",
+      "apkSha256": "2e6002b6d34eb4f843f2137214d007ce58223ae13a0dd12e0e65c33baca94f9a",
+      "baselineFile": "before/038-practice-paper-preview-top-zh.png",
+      "redacted": false,
+      "baselineSha256": "a3fc77b6fbedfec3f1c416fbb97856fb6924d12bcee9db415ff0fc1d27a5ee70"
+    },
+    {
+      "file": "after/039-practice-paper-preview-bottom-zh.png",
+      "sha256": "19a23eff6b122f36e59c41bcfd001927a53c15f802299d7c3834813af5b08889",
+      "apkSha256": "2e6002b6d34eb4f843f2137214d007ce58223ae13a0dd12e0e65c33baca94f9a",
+      "baselineFile": "before/039-practice-paper-preview-bottom-zh.png",
+      "redacted": false,
+      "baselineSha256": "e065e2afffb118d3f0a51cf9d5ada4de9e057f93dd57207478d09d1da11509b6"
+    },
+    {
+      "file": "after/040-android-file-picker-zh.png",
+      "sha256": "c7617020b4c392b864afb1d60ccffb3d4a98504e3a100e45326a59d7c2e54845",
+      "apkSha256": "2e6002b6d34eb4f843f2137214d007ce58223ae13a0dd12e0e65c33baca94f9a",
+      "baselineFile": "before/040-android-file-picker-zh.png",
+      "redacted": false,
+      "baselineSha256": "a225b8188fb1e74cd0791720632c7bfe804a15da4497e7fea67c7bef92cfc2c8"
+    },
+    {
+      "file": "after/extra-material-q13-expanded.png",
+      "sha256": "7f770175d9ec6d3a26860585e91be666dcc19b16d2f39af9529a199be9204792",
+      "apkSha256": "2e6002b6d34eb4f843f2137214d007ce58223ae13a0dd12e0e65c33baca94f9a",
+      "baselineFile": null,
+      "redacted": false
+    },
+    {
+      "file": "after/extra-material-q14-preserved.png",
+      "sha256": "9c1e8e6cdc7e2991771789ab98924e076d05f968b653074a3a714483cdd1c179",
+      "apkSha256": "2e6002b6d34eb4f843f2137214d007ce58223ae13a0dd12e0e65c33baca94f9a",
+      "baselineFile": null,
+      "redacted": false
+    },
+    {
+      "file": "after/extra-writing-result-bottom.png",
+      "sha256": "ec6eedc5ee038b35d3a68cb03fd416c52d1d9d0f1707988ca81688a82fc5213e",
+      "apkSha256": "2e6002b6d34eb4f843f2137214d007ce58223ae13a0dd12e0e65c33baca94f9a",
+      "baselineFile": null,
+      "redacted": false
+    },
+    {
+      "file": "after/practice-q01-zh.png",
+      "sha256": "c6b6d98f93200572525c44e61b7780663f26c0dd2d3a5ba697a71787fb2397a1",
+      "apkSha256": "341864b5de1fa1c3adf046b702b3858eecc12e079a2fc589f89c3f757de4e421",
+      "baselineFile": "before/practice-q01-zh.png",
+      "redacted": false,
+      "baselineSha256": "32613aec2bb7e727b7d1bba48221e5f73e69816661ff3f41ddf04fee10b81acf"
+    },
+    {
+      "file": "after/practice-q02-zh.png",
+      "sha256": "bd8ffca2e00e275c4d0f998da715ed695c43080797e60b7afa1107cfeaab50a7",
+      "apkSha256": "2e6002b6d34eb4f843f2137214d007ce58223ae13a0dd12e0e65c33baca94f9a",
+      "baselineFile": "before/practice-q02-zh.png",
+      "redacted": false,
+      "baselineSha256": "e23fb8c2face68d77b8050f28e91f96abdf257abf4ef6d9d339ddf86be618f96"
+    },
+    {
+      "file": "after/practice-q03-zh.png",
+      "sha256": "0f3cdc70a9abe478144be7543771568159a92f15f3eaee5a32254131d3f273d6",
+      "apkSha256": "2e6002b6d34eb4f843f2137214d007ce58223ae13a0dd12e0e65c33baca94f9a",
+      "baselineFile": "before/practice-q03-zh.png",
+      "redacted": false,
+      "baselineSha256": "c4868fe0e904c01277bb3652f7dc66f95589cb56e1d9e7e01e835fd4c47dd9f9"
+    },
+    {
+      "file": "after/practice-q04-zh.png",
+      "sha256": "a04b10a56d0667bed30e2adcc1f4b6eb08adf78533d800d865a1a95dc38979f8",
+      "apkSha256": "2e6002b6d34eb4f843f2137214d007ce58223ae13a0dd12e0e65c33baca94f9a",
+      "baselineFile": "before/practice-q04-zh.png",
+      "redacted": false,
+      "baselineSha256": "3acddb114cc36053ad46d7d3b825e6ada18f658b7452cdc598fb077b00f19512"
+    },
+    {
+      "file": "after/practice-q05-zh.png",
+      "sha256": "d1a6b3d43b2e8562024bb1c7324a1d3897e48404909aa0a1031013c9542957ef",
+      "apkSha256": "2e6002b6d34eb4f843f2137214d007ce58223ae13a0dd12e0e65c33baca94f9a",
+      "baselineFile": "before/practice-q05-zh.png",
+      "redacted": false,
+      "baselineSha256": "0b63db2799dc2157258bb852762f23f972b1e48a2b7b7bf1319d955b5bba0322"
+    },
+    {
+      "file": "after/practice-q06-zh.png",
+      "sha256": "57490ed647eab4a15b95c3ca03d1e8746cf80e54e9510b9e87ddb665663f4946",
+      "apkSha256": "2e6002b6d34eb4f843f2137214d007ce58223ae13a0dd12e0e65c33baca94f9a",
+      "baselineFile": "before/practice-q06-zh.png",
+      "redacted": false,
+      "baselineSha256": "20a4d25a83e62ea5d941b38ac17cbd722f8060994d0f64fcebccf0233b4464c5"
+    },
+    {
+      "file": "after/practice-q07-zh.png",
+      "sha256": "14b4a20a35f7dccfd65bc5f6e14483c2bd5772926b207d76440aa794c999ca1b",
+      "apkSha256": "2e6002b6d34eb4f843f2137214d007ce58223ae13a0dd12e0e65c33baca94f9a",
+      "baselineFile": "before/practice-q07-zh.png",
+      "redacted": false,
+      "baselineSha256": "c087bbbaa39901152c0a9a15cc0606615dfcbc056d4c38ffd567275bd87768c8"
+    },
+    {
+      "file": "after/practice-q08-zh.png",
+      "sha256": "ffc77469719cca7e52520c0806cad6ee3e18d7d02b3092bddc040400cf4dee61",
+      "apkSha256": "2e6002b6d34eb4f843f2137214d007ce58223ae13a0dd12e0e65c33baca94f9a",
+      "baselineFile": "before/practice-q08-zh.png",
+      "redacted": false,
+      "baselineSha256": "99a7bc6c9e1077a3f852d3e20c572bfa5f9feb4e08484a820dc12bf3908c1467"
+    },
+    {
+      "file": "after/practice-q09-zh.png",
+      "sha256": "6a6a1b2e7042e12b0f3897f0f0c5d2e1b8229331c242f9b6f83092e7b3bfe5a0",
+      "apkSha256": "2e6002b6d34eb4f843f2137214d007ce58223ae13a0dd12e0e65c33baca94f9a",
+      "baselineFile": "before/practice-q09-zh.png",
+      "redacted": false,
+      "baselineSha256": "ed4cfd37d60cfa4fe4ad4741421175aa39c82ea4af9944db6d1c0e995aec071c"
+    },
+    {
+      "file": "after/practice-q10-zh.png",
+      "sha256": "31f3f4cd622dece98f7dd36d273d1aea5484666cfa026cab53d30e49d4137006",
+      "apkSha256": "2e6002b6d34eb4f843f2137214d007ce58223ae13a0dd12e0e65c33baca94f9a",
+      "baselineFile": "before/practice-q10-zh.png",
+      "redacted": false,
+      "baselineSha256": "a4b62df59bf89ab84b9680385bc401bb864e84b4ceeacd8a81292bc1aa9c2c79"
+    },
+    {
+      "file": "after/practice-q11-zh.png",
+      "sha256": "e63ab260ca0915dfaf3eeffea239a6d578fa783cb1d30956960f2473d47aa45a",
+      "apkSha256": "2e6002b6d34eb4f843f2137214d007ce58223ae13a0dd12e0e65c33baca94f9a",
+      "baselineFile": "before/practice-q11-zh.png",
+      "redacted": false,
+      "baselineSha256": "d3c7e65dfc630b83945aebc192adf6743a813528f4ba4bd98651bd29e6df0460"
+    },
+    {
+      "file": "after/practice-q12-zh.png",
+      "sha256": "b44c6271b3e31c2a208ce21cd89fc5b6852e4195eefff18d8fb649dffb174d16",
+      "apkSha256": "2e6002b6d34eb4f843f2137214d007ce58223ae13a0dd12e0e65c33baca94f9a",
+      "baselineFile": "before/practice-q12-zh.png",
+      "redacted": false,
+      "baselineSha256": "c79e19f2831439499a72ddc6ae45cfec59754ee5d1cfb046e0f975b7383ddef6"
+    },
+    {
+      "file": "after/practice-q13-zh.png",
+      "sha256": "026a4dc92a4a1f7937ebedaf2b95c60854b0f0ee90b4018c4a483fbddced45b4",
+      "apkSha256": "2e6002b6d34eb4f843f2137214d007ce58223ae13a0dd12e0e65c33baca94f9a",
+      "baselineFile": "before/practice-q13-zh.png",
+      "redacted": false,
+      "baselineSha256": "55dafe5970481f7ec802c1705785df049b959890a93bbdc4247e6529767ab7a6"
+    },
+    {
+      "file": "after/practice-q14-zh.png",
+      "sha256": "62ba8c472eb4c7347213bd85bd64a15e5e65b7ef38589fc61a07c3bd8f8c14a3",
+      "apkSha256": "2e6002b6d34eb4f843f2137214d007ce58223ae13a0dd12e0e65c33baca94f9a",
+      "baselineFile": "before/practice-q14-zh.png",
+      "redacted": false,
+      "baselineSha256": "1059d05ac157aff02fb0e0e2685b4affb7dc464a91f73a0ebf30529ff6f6cb36"
+    },
+    {
+      "file": "after/practice-q15-zh.png",
+      "sha256": "28ce6c30fd99d0571066d5888896139f783812562b9b9231f54bbb0885124652",
+      "apkSha256": "2e6002b6d34eb4f843f2137214d007ce58223ae13a0dd12e0e65c33baca94f9a",
+      "baselineFile": "before/practice-q15-zh.png",
+      "redacted": false,
+      "baselineSha256": "0431d38d5b9bc811dd0b407b049ccd7439ab978491b8c542cffd8dd02e7e1450"
+    },
+    {
+      "file": "after/practice-q16-zh.png",
+      "sha256": "ca5a169b5cb55703bf4d6e648fa02c157431aaa1428d2dced3d4495dd190645a",
+      "apkSha256": "2e6002b6d34eb4f843f2137214d007ce58223ae13a0dd12e0e65c33baca94f9a",
+      "baselineFile": "before/practice-q16-zh.png",
+      "redacted": false,
+      "baselineSha256": "9465159d77f29e6ac2222bb39dfffafd84f284f65e23e9f0d03078af4393344c"
+    },
+    {
+      "file": "after/practice-q17-zh.png",
+      "sha256": "192e952ab95c4e005a25a9cdda81be1b8b98e6fb3a38780118613708b45ecbeb",
+      "apkSha256": "2e6002b6d34eb4f843f2137214d007ce58223ae13a0dd12e0e65c33baca94f9a",
+      "baselineFile": "before/practice-q17-zh.png",
+      "redacted": false,
+      "baselineSha256": "dc088f587c75192502d9db25e3f2447a2c3455c801778b2d5679c76b04689b60"
+    },
+    {
+      "file": "after/practice-q18-zh.png",
+      "sha256": "c730ac506844aac25d0bd58e47cec78038320b1a1987dab137a16210ccb89319",
+      "apkSha256": "2e6002b6d34eb4f843f2137214d007ce58223ae13a0dd12e0e65c33baca94f9a",
+      "baselineFile": "before/practice-q18-zh.png",
+      "redacted": false,
+      "baselineSha256": "1814c00a05f1822572a2ca71efb0b8d843e0f8fe780f178d2e2b81c6e39c86ad"
+    },
+    {
+      "file": "after/practice-q19-zh.png",
+      "sha256": "b998d0eb09fb54e6774aee066ea2edfb0953ff42f7f09405c4d4c3c8538019aa",
+      "apkSha256": "2e6002b6d34eb4f843f2137214d007ce58223ae13a0dd12e0e65c33baca94f9a",
+      "baselineFile": "before/practice-q19-zh.png",
+      "redacted": false,
+      "baselineSha256": "49ac76d95c4f30727439efe08aaf57115cfa6a18680c28b0cd76d89971e2ee9a"
+    },
+    {
+      "file": "after/practice-q20-zh.png",
+      "sha256": "d5948e66fdab7ce22ee31186097914174915443c90aafc4674236f4964791bef",
+      "apkSha256": "341864b5de1fa1c3adf046b702b3858eecc12e079a2fc589f89c3f757de4e421",
+      "baselineFile": "before/practice-q20-zh.png",
+      "redacted": false,
+      "baselineSha256": "a0ee9968ef3e758efda7d051e9612346f8adb73be953ffcf9d88e362590439ef"
+    }
+  ],
+  "notes": [
+    "Field pixels in the AI-service screenshot are redacted; its UI tree is not retained in evidence.",
+    "No file was selected, no session was created, no editor was saved, no scoring or AI action was invoked, and no data was restored.",
+    "The original screenshot files retain their original SHA-256 hashes.",
+    "The existing native material is short: native screenshots prove expansion retention, while the browser long-material fixture verifies a real 120 px scroll offset across siblings."
+  ]
+}
