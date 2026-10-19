@@ -100,21 +100,16 @@ def test_load_defaults_worker_limit(monkeypatch: pytest.MonkeyPatch):
     assert config.load().jobs_per_worker == 8
 
 
-@pytest.mark.parametrize('model_api', [None, 'chat_completions', 'responses'])
-def test_model_api_selection_is_explicit_and_validated(monkeypatch, model_api):
+def test_model_transport_is_fixed_and_not_a_constructor_option(monkeypatch):
+    from dataclasses import fields
     _env(monkeypatch)
-    monkeypatch.delenv('AI_MODEL_API', raising=False)
-    if model_api is not None:
-        monkeypatch.setenv('AI_MODEL_API', model_api)
-    assert config.load().model_api == model_api
-    monkeypatch.setenv('AI_MODEL_API', 'invalid')
-    with pytest.raises(ValueError, match='AI_MODEL_API'):
-        config.load()
+    assert config.load().model_api == 'responses'
+    assert not next(field for field in fields(config.Config) if field.name == 'model_api').init
 
 
 def test_responses_rejects_chat_native_schema_before_model_work(monkeypatch):
-    _env(monkeypatch, AI_MODEL_API='responses', AI_STRUCTURED_OUTPUT_METHOD='json_schema')
-    with pytest.raises(ValueError, match='requires AI_MODEL_API=chat_completions'):
+    _env(monkeypatch, AI_STRUCTURED_OUTPUT_METHOD='json_schema')
+    with pytest.raises(ValueError, match='Responses API requires'):
         config.load()
 
 
@@ -232,3 +227,15 @@ def test_load_accepts_exact_scratch_capacity_and_rejects_one_byte_more(monkeypat
     monkeypatch.setenv('AI_MAX_VISION_BYTES', '53411841')
     with pytest.raises(ValueError, match='scratch budget'):
         config.load()
+
+
+@pytest.mark.parametrize('value', ['301', '1000'])
+def test_page_configuration_rejects_provider_ceiling_overflow(monkeypatch, value):
+    _env(monkeypatch, AI_MAX_DOCUMENT_PAGES=value)
+    with pytest.raises(ValueError, match='300-page limit'):
+        config.load()
+
+
+def test_page_configuration_accepts_provider_ceiling(monkeypatch):
+    _env(monkeypatch, AI_MAX_DOCUMENT_PAGES='300')
+    assert config.load().max_document_pages == 300

@@ -47,6 +47,7 @@ from .graphs.document import (
     unit_failures,
 )
 from .storage import get_object_store, validate_source_size
+from .tencent import submission_limit
 
 
 def client():
@@ -110,9 +111,13 @@ async def create_task(request: DocumentTaskCreate) -> dict[str, Any]:
         if previous:
             return previous
         settings = load()
-        if request.document.sourceType in OFFICE_SOURCE_TYPES and settings.office_executable is None:
-            raise DocumentProcessingError(503, 'Office conversion is not configured in this deployment', 'OFFICE_NOT_CONFIGURED')
+        if not settings.parser_configured:
+            raise DocumentProcessingError(503, 'Configure Tencent parsing credentials and, when enabled, private COS staging', 'TENCENT_NOT_CONFIGURED')
         validate_source_size(request.document.sizeBytes, request.document.sourceType, settings)
+        if (request.document.sourceType in OFFICE_SOURCE_TYPES
+                and (request.document.sourceType == 'xls' or request.document.sizeBytes > submission_limit(request.document.sourceType, settings))
+                and not (settings.office_executable and settings.office_executable.is_file())):
+            raise DocumentProcessingError(503, 'Office preparation requires the configured converter', 'OFFICE_NOT_CONFIGURED')
         if request.parentThreadId:
             parent = await (await conn.execute('SELECT * FROM document_tasks WHERE thread_id=%s', (str(request.parentThreadId),))).fetchone()
             if not parent:
@@ -171,9 +176,13 @@ async def reparse_task(thread_id: str, request: DocumentTaskReparse) -> dict[str
         raise DocumentProcessingError(404, 'Document task not found', 'TASK_NOT_FOUND')
     task = tasks[0]
     require_supported_task(task)
+    if task['document'].get('sourceType') == 'csv':
+        raise DocumentProcessingError(422, 'CSV document import is no longer supported; saved results remain available', 'DOCUMENT_SOURCE_TYPE_MISMATCH')
+    options = await _parse_options(service, thread_id)
+    options.pop('officeMode', None)
     create = DocumentTaskCreate(requestId=request.requestId, document=DocumentReference.model_validate(task['document']),
                                 graphId=task['graph_id'], failurePolicy=task['failure_policy'], parentThreadId=UUID(thread_id),
-                                **await _parse_options(service, thread_id))
+                                **options)
     async with service.db.connection() as conn:
         previous = await _replay(conn, str(uuid5(NAMESPACE_URL, f'practiq/document/{request.requestId}')),
                                  str(request.requestId), fingerprint(_create_payload(create)))
@@ -222,6 +231,7 @@ def _task_state(snapshot, run) -> tuple[TaskState, list[TaskAction], list[dict[s
         actions = ['resume'] if snapshot.next and run['error_code'] not in {
             'DOCUMENT_PARSE_FAILED', 'NO_QUESTIONS_FOUND', 'DOCUMENT_SOURCE_TYPE_MISMATCH',
             'DOCUMENT_PREPARE_FAILED', 'MODEL_INPUT_TOO_LARGE', 'MODEL_BUDGET_EXCEEDED',
+            'TENCENT_REQUEST_REJECTED', 'TENCENT_SUBMISSION_UNKNOWN', 'TENCENT_JOB_FAILED',
         } else []
         if any(f['retryable'] for f in failures):
             actions.append('retry_failed')
@@ -251,11 +261,18 @@ async def get_task(thread_id: str) -> dict[str, Any]:
     interruptions = _interrupts(snapshot)
     state, actions, failures = _task_state(snapshot, run)
     calls = await _calls(service, thread_id)
+    parser_jobs = await service.db.store.asearch(namespace(thread_id, 'tencent_jobs'), limit=300, refresh_ttl=False)
+    parser_jobs.sort(key=lambda item: int(item.key.rsplit('-', 1)[-1]) if item.key.rsplit('-', 1)[-1].isdigit() else -1)
     usage = {item['callKey']: item for item in values.get('usage', [])}
     usage.update({item['callKey']: {k: item[k] for k in ('callKey', 'modelId', 'inputTokens', 'outputTokens', 'callKind')}
                   for item in calls if item['status'] == 'completed'})
     return DocumentTaskDetail.model_validate({
         'threadId': thread_id, 'runId': run['run_id'] if run else None,
+        'parserJobs': [{
+            'taskId': item.value.get('taskId'), 'requestId': item.value.get('requestId'),
+            'status': item.value['status'], 'successPageCount': item.value.get('SuccessPageNum'),
+            'failedPageCount': item.value.get('FailPageNum'), 'resultSaved': bool(item.value.get('resultRef')),
+        } for item in parser_jobs],
         'parentThreadId': task['parent_thread_id'],
         'modelConfigured': not load().read_only,
         'resumeCompatible': not load().read_only and (not values.get('execution') or values['execution'].get('signature') == signature()),
@@ -581,8 +598,18 @@ async def review_task(thread_id: str) -> dict[str, Any]:
                 units.append({'stage': stage, 'index': item['index'], 'questions': item['parsed'].get('questions', []),
                               'groups': item['parsed'].get('groups', []), 'visualElements': item.get('visuals', []),
                               'sourceRef': references[item['index']] if item['index'] < len(references) else None})
+    present = {(unit['stage'], unit['index']) for unit in units}
+    for refs, stage in (('pageRefs', 'vision_parse'), ('chunkRefs', 'document_parse')):
+        units.extend({'stage': stage, 'index': index, 'questions': [], 'groups': [], 'sourceRef': reference}
+                     for index, reference in enumerate(values.get(refs, [])) if (stage, index) not in present)
+    evidence = values.get('ocrPageRefs', [])
+    for unit in units:
+        index = unit['index']
+        if unit['stage'] == 'vision_parse' and index < len(evidence) and evidence[index] != unit.get('sourceRef'):
+            unit['evidenceRef'] = evidence[index]
     processing = values.get('processing', {})
     return DocumentTaskReview.model_validate({
+        'document': _task['document'] if {'objectKey', 'sha256', 'sizeBytes', 'mediaType'} <= _task['document'].keys() else None,
         'threadId': thread_id, 'checkpointId': service.checkpoint_id(snapshot, run),
         'state': state, 'phase': values.get('phase', 'pending'), 'units': units,
         'failures': failures, 'quality': processing.get('quality', {}),

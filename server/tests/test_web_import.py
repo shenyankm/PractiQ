@@ -29,22 +29,24 @@ def service_token(monkeypatch):
     monkeypatch.setenv("AI_SERVICE_TOKEN", "test-service-token")
 
 
-async def test_capabilities_are_authenticated_and_expose_only_configured_office(monkeypatch, tmp_path):
+async def test_capabilities_are_authenticated_and_report_tencent_configuration(monkeypatch, tmp_path):
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=webapp.app), base_url="http://test") as client:
         assert (await client.get("/api/import-capabilities")).status_code == 401
         client.headers["Authorization"] = "Bearer test-service-token"
         response = await client.get("/api/import-capabilities")
         assert response.status_code == 200, response.text
-        assert set(response.json()["sourceTypes"]) == {"csv", "image", "text", "pdf"}
+        assert set(response.json()["sourceTypes"]) == {"image", "text", "markdown", "pdf", "doc", "docx", "ppt", "pptx", "xlsx"}
         assert not response.json()["officeAvailable"] and response.json()["officeModes"] == []
+        monkeypatch.setenv("AI_TENCENT_SECRET_ID", "synthetic-id")
+        monkeypatch.setenv("AI_TENCENT_SECRET_KEY", "synthetic-key")
         engine = tmp_path / "soffice"
         engine.write_bytes(b"fake deployed engine")
         monkeypatch.setenv("AI_OFFICE_EXECUTABLE", str(engine))
         monkeypatch.setenv("AI_OFFICE_VERSION", "LibreOffice 26.8.0.3")
         monkeypatch.setenv("AI_SOURCE_MAX_BYTES", "1234")
         response = await client.get("/api/import-capabilities")
-        assert set(response.json()["sourceTypes"]) == {"csv", "image", "text", "pdf", "doc", "docx", "xls", "xlsx"}
-        assert response.json()["officeAvailable"] and response.json()["officeModes"] == ["pdf", "text"]
+        assert set(response.json()["sourceTypes"]) == {"image", "text", "markdown", "pdf", "doc", "docx", "ppt", "pptx", "xls", "xlsx"}
+        assert response.json()["officeAvailable"] and response.json()["officeModes"] == [] and response.json()["parserConfigured"]
         assert response.json()["sourceMaxBytes"] == 1234
         monkeypatch.setenv("AI_READ_ONLY", "1")
         for key in ("LLM_PROVIDER", "LLM_API_KEY", "LLM_MODEL"):
@@ -112,9 +114,9 @@ async def test_saved_non_office_reads_survive_unavailable_office_engine(monkeypa
             assert json.loads(archive.read("questions.json"))["result"] == detail["result"]
     elif read == "capabilities":
         capabilities = response.json()
-        assert not capabilities["officeAvailable"] and capabilities["officeModes"] == []
-        assert capabilities["officeSourceMaxBytes"] is None
-        assert set(capabilities["sourceTypes"]) == {"pdf", "text", "csv", "image"}
+        assert capabilities["officeAvailable"] and capabilities["officeModes"] == [] and capabilities["parserConfigured"]
+        assert capabilities["officeSourceMaxBytes"] == min(capabilities["sourceMaxBytes"], 8 * 1024 * 1024)
+        assert set(capabilities["sourceTypes"]) == {"pdf", "text", "markdown", "image", "doc", "docx", "ppt", "pptx", "xlsx"}
     else:
         assert response.json() == {"enabled": False}
     assert len(model.calls) == 1
@@ -129,7 +131,7 @@ async def test_capabilities_do_not_advertise_directory_as_office_engine(monkeypa
     assert response.status_code == 200, response.text
     assert not response.json()["officeAvailable"] and response.json()["officeModes"] == []
     assert response.json()["officeSourceMaxBytes"] is None
-    assert set(response.json()["sourceTypes"]) == {"pdf", "text", "csv", "image"}
+    assert set(response.json()["sourceTypes"]) == {"pdf", "text", "markdown", "image", "doc", "docx", "ppt", "pptx", "xlsx"}
 
 
 async def test_non_office_queue_still_runs_after_configured_engine_disappears(monkeypatch, tmp_path):
@@ -217,3 +219,29 @@ def test_openapi_exposes_strict_shared_receipts_and_office_create_mode():
         assert schema["paths"]["/api/document-tasks" + suffix]["post"]["responses"]["202"]["content"]["application/json"]["schema"] == {"$ref": "#/components/schemas/DocumentTaskReceipt"}
     assert schema["components"]["schemas"]["DocumentTaskCreate"]["additionalProperties"] is False
     assert "officeMode" in schema["components"]["schemas"]["DocumentTaskCreate"]["properties"]
+
+
+async def test_review_exposes_rendered_source_and_authenticated_ocr_evidence(monkeypatch, tmp_path):
+    service, _, model = await setup_api(monkeypatch)
+    store = object_store(tmp_path)
+    upload_request = upload(make_image()).model_copy(update={'sourceType':'image','mediaType':'image/png','fileName':'source.png'})
+    reference = await store.put_document(make_image(), upload_request)
+    for owner in (task_api, execution, document, webapp):
+        monkeypatch.setattr(owner, 'get_object_store', lambda: store)
+    from tests.support import ocr_text_page, tencent_provider
+    tencent_provider(monkeypatch, [ocr_text_page('1. First')])
+    receipt = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=reference))
+    await service.wait_idle()
+    review = await task_api.review_task(receipt['threadId'])
+    assert any(unit['stage'] == 'vision_parse' for unit in review['units']), await task_api.get_task(receipt['threadId'])
+    unit = next(unit for unit in review['units'] if unit['stage'] == 'vision_parse')
+    assert unit['sourceRef']['mediaType'] == 'image/png' and unit['evidenceRef']['mediaType'] == 'application/json'
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=webapp.app), base_url='http://test') as client:
+        path = f"/api/artifacts/read?thread_id={receipt['threadId']}"
+        assert (await client.post(path, json=unit['evidenceRef'])).status_code == 401
+        client.headers['Authorization'] = 'Bearer test-service-token'
+        response = await client.post(path, json=unit['evidenceRef'])
+        assert response.status_code == 200 and response.json()['elements']
+        forged = {**unit['evidenceRef'], 'sha256':'a'*64}
+        assert (await client.post(path, json=forged)).status_code == 404
+    assert len(model.calls) == 1

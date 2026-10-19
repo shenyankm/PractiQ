@@ -34,7 +34,7 @@ async function fakeHTTP(page: Page, initial: DocumentTaskDetail = task) {
     }
     if (call.path === "/api/uploads") {
       const metadata = call.body!;
-      const document = { ...metadata, objectKey: `practiq-agent/sources/${metadata.sha256}/source.${metadata.sourceType === "text" ? "txt" : metadata.sourceType}` };
+      const document = { ...metadata, objectKey: `practiq-agent/sources/${metadata.sha256}/source.${metadata.sourceType === "text" ? "txt" : metadata.sourceType === "markdown" ? "md" : metadata.sourceType}` };
       const exists = uploads.has(metadata.sha256);
       uploads.set(metadata.sha256, document);
       await respond(route, { document, upload: exists ? null : { method: "PUT", url: "/api/uploads/content?" + new URLSearchParams(metadata), headers: { "Content-Type": metadata.mediaType } } }); return;
@@ -102,12 +102,9 @@ test("shared dropdowns preserve themed menus, empty filters and keyboard focus",
   await page.keyboard.press("Escape");
   await expect(page.getByRole("listbox")).toBeHidden();
   await expect(filter).toBeFocused();
-  const office = page.getByRole("combobox", { name: "Word / Excel 转换模式" });
-  await chooseOption(office, "text");
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect(office).toHaveAttribute("data-slot", "select-trigger");
-  await expect(office).toHaveAttribute("data-value", "text");
-  await expect(office).toHaveCSS("min-height", "48px");
+  await expect(page.getByRole("combobox", { name: "Word / Excel 转换模式" })).toHaveCount(0);
+  await expect(filter).toHaveCSS("min-height", "48px");
   expect(mutations(http.calls)).toHaveLength(0);
 });
 
@@ -159,10 +156,10 @@ for (const [width, height] of [[1440, 1000], [390, 844]]) {
     const importRules = page.getByText("格式与导入规则", { exact: true });
     await importRules.focus();
     await page.keyboard.press("Enter");
-    await expect(page.getByText(/转换模式与去重选项在开始导入后固定/)).toBeVisible();
+    await expect(page.getByText(/所有支持的格式统一使用腾讯异步解析/)).toBeVisible();
     await expect(page.getByText(/下载的 ZIP 可在 App/)).toBeVisible();
     await page.keyboard.press("Enter");
-    await expect(page.getByText(/转换模式与去重选项在开始导入后固定/)).toBeHidden();
+    await expect(page.getByText(/所有支持的格式统一使用腾讯异步解析/)).toBeHidden();
     await page.evaluate(() => scrollTo(0, 0));
     await page.mouse.move(0, 0);
     await expect(page.getByRole("button", { name: "查看积分明细", exact: true })).toBeHidden();
@@ -264,7 +261,6 @@ test("workspace fits narrow and desktop windows with keyboard shortcuts to conte
 test("passive file selection becomes one authenticated SHA upload only after explicit Start", async ({ page }) => {
   const http = await fakeHTTP(page);
   await page.goto("/"); expect(http.calls.length === 0).toBe(true); await connect(page);
-  await chooseOption(page.getByLabel("Word / Excel 转换模式"), "text");
   const bytes = Buffer.from("synthetic office file");
   await page.getByLabel("选择文档").setInputFiles({ name: "selected.docx", mimeType: "application/octet-stream", buffer: bytes });
   await expect(page.getByText(/尚未提交/)).toBeVisible(); expect(mutations(http.calls)).toHaveLength(0);
@@ -272,7 +268,8 @@ test("passive file selection becomes one authenticated SHA upload only after exp
   await expect(page.getByText(/任务已创建。页面/)).toBeVisible();
   expect(mutations(http.calls).map(call => call.method)).toEqual(["POST", "PUT", "POST"]);
   expect(mutations(http.calls)[0].body).toMatchObject({ sourceType: "docx", mediaType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", sizeBytes: bytes.length, sha256: digest(bytes) });
-  expect(starts(http.calls)[0].body).toMatchObject({ officeMode: "text", graphId: "document_parser", failurePolicy: "return_partial" });
+  expect(starts(http.calls)[0].body).toMatchObject({ graphId: "document_parser", failurePolicy: "return_partial" });
+  expect(starts(http.calls)[0].body).not.toHaveProperty("officeMode");
   expect(http.calls.every(call => (call.authenticated) && !call.query.includes(fakeToken))).toBe(true);
   expect(http.server.modelStarts).toBe(1);
 });
@@ -289,7 +286,7 @@ test("invalid auth makes no model request; reload clears memory-only Token", asy
   expect(await page.locator("body").innerText()).not.toContain(fakeToken);
 });
 
-test("uncertain accepted POST never auto replays; explicit retry preserves requestId and Office mode", async ({ page }) => {
+test("uncertain accepted POST never auto replays; explicit retry preserves requestId and source", async ({ page }) => {
   await page.clock.install();
   const http = await fakeHTTP(page); let lose = true;
   http.server.intercept = async (route, call) => {
@@ -299,13 +296,13 @@ test("uncertain accepted POST never auto replays; explicit retry preserves reque
     }
     return false;
   };
-  await connect(page); await chooseOption(page.getByLabel("Word / Excel 转换模式"), "text");
+  await connect(page);
   await page.getByLabel("选择文档").setInputFiles({ name: "uncertain.docx", mimeType: "application/octet-stream", buffer: Buffer.from("fake office") });
   await page.getByRole("button", { name: "开始导入", exact: true }).click(); await expect(page.getByRole("button", { name: "重试开始", exact: true })).toBeVisible();
   const reads = http.calls.filter(call => call.method === "GET").length;
   await page.clock.fastForward(30000);
   await expect.poll(() => http.calls.filter(call => call.method === "GET").length).toBeGreaterThan(reads);
-  expect(starts(http.calls)).toHaveLength(1); await expect(page.getByLabel("Word / Excel 转换模式")).toBeDisabled();
+  expect(starts(http.calls)).toHaveLength(1); await expect(page.getByLabel("Word / Excel 转换模式")).toHaveCount(0);
   await page.getByRole("button", { name: "重试开始", exact: true }).click(); await expect(page.getByText(/任务已创建。页面/)).toBeVisible();
   expect(starts(http.calls)).toHaveLength(2); expect(starts(http.calls)[0].body).toEqual(starts(http.calls)[1].body); expect(http.server.modelStarts).toBe(1);
 });
@@ -447,7 +444,7 @@ test("server format, byte limit, and model availability gate submission before a
   http.server.intercept = async (route, call) => {
     if (call.path === "/api/import-capabilities") { await respond(route, { ...capabilities, sourceTypes: ["text"], sourceMaxBytes: 1, modelConfigured: false, officeAvailable: false, officeModes: [] }); return true; } return false; };
   await connect(page); await expect(page.getByLabel("Word / Excel 转换模式")).toHaveCount(0);
-  await expect(page.getByText("服务支持：TXT。Office 转换当前不可用。", { exact: true })).toBeVisible();
+  await expect(page.getByText("服务支持：TXT", { exact: true })).toBeVisible();
   await page.getByLabel("选择文档").setInputFiles({ name: "too-large.txt", mimeType: "text/plain", buffer: Buffer.from("xx") }); await expect(page.getByText(/为空或超过/)).toBeVisible();
   await page.getByLabel("选择文档").setInputFiles({ name: "small.txt", mimeType: "text/plain", buffer: Buffer.from("x") }); await expect(page.getByRole("button", { name: "开始导入", exact: true })).toBeDisabled();
   await expect(page.getByText(/服务端尚未配置模型/)).toBeVisible(); expect(mutations(http.calls)).toHaveLength(0);

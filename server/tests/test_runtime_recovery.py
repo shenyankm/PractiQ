@@ -29,6 +29,8 @@ class Server:
         self.env = {**os.environ, 'DATABASE_URI': str(uri), 'AI_STORAGE_DIR': str(tmp_path / 'files'),
                     'TEST_EVENTS': str(tmp_path), 'TEST_PHASE': phase, 'N_JOBS_PER_WORKER': '1',
                     'AI_GRAPH_MAX_CONCURRENCY': '1', 'AI_DEPLOYMENT_WORKERS': '1',
+                    'AI_TENCENT_SECRET_ID': 'synthetic-id', 'AI_TENCENT_SECRET_KEY': 'synthetic-key',
+                    'PRACTIQ_TEST_TENCENT_DIR': str(tmp_path / 'tencent'),
                     'PYTHONPATH': str(ROOT / 'src') + os.pathsep + str(ROOT)}
         self.client = httpx.Client(base_url=f'http://127.0.0.1:{port}', headers={'Authorization': 'Bearer test-token'}, timeout=5, trust_env=False)
         self.port = port

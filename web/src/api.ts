@@ -1,7 +1,7 @@
-import type { ArtifactReference, DocumentReference, DocumentSourceType, DocumentTaskControl, DocumentTaskCreate, DocumentTaskDetail, DocumentTaskHead, DocumentTaskList, DocumentTaskReceipt, DocumentTaskReparse, DocumentTaskReview, DocumentUploadResponse, ImportCapabilities, OfficeMode } from "./contracts.generated";
+import type { ArtifactReference, DocumentReference, DocumentSourceType, DocumentTaskControl, DocumentTaskCreate, DocumentTaskDetail, DocumentTaskHead, DocumentTaskList, DocumentTaskReceipt, DocumentTaskReparse, DocumentTaskReview, DocumentUploadResponse, ImportCapabilities } from "./contracts.generated";
+import { IMPORT_SOURCE_TYPES } from "./contracts.generated";
 
-export type SourceType = DocumentSourceType;
-export type { OfficeMode } from "./contracts.generated";
+export type SourceType = Exclude<DocumentSourceType, "csv">;
 export type Capabilities = ImportCapabilities;
 export type UploadDocument = DocumentReference;
 export type TaskList = DocumentTaskList;
@@ -14,12 +14,14 @@ export const MAX_BANK_ZIP_BYTES = 300 * MIB;
 const formats: Record<string, { sourceType: SourceType; mediaType: string }> = {
   pdf: { sourceType: "pdf", mediaType: "application/pdf" },
   txt: { sourceType: "text", mediaType: "text/plain" },
-  csv: { sourceType: "csv", mediaType: "text/csv" },
+  md: { sourceType: "markdown", mediaType: "text/markdown" },
   png: { sourceType: "image", mediaType: "image/png" },
   jpg: { sourceType: "image", mediaType: "image/jpeg" },
   jpeg: { sourceType: "image", mediaType: "image/jpeg" },
   doc: { sourceType: "doc", mediaType: "application/msword" },
   docx: { sourceType: "docx", mediaType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" },
+  ppt: { sourceType: "ppt", mediaType: "application/vnd.ms-powerpoint" },
+  pptx: { sourceType: "pptx", mediaType: "application/vnd.openxmlformats-officedocument.presentationml.presentation" },
   xls: { sourceType: "xls", mediaType: "application/vnd.ms-excel" },
   xlsx: { sourceType: "xlsx", mediaType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
 };
@@ -27,7 +29,7 @@ const formats: Record<string, { sourceType: SourceType; mediaType: string }> = {
 export class ApiError extends Error {
   constructor(message: string, public readonly code = "CLIENT_ERROR", public readonly status = 0) { super(message); }
 }
-export const isOffice = (source: SourceType) => ["doc", "docx", "xls", "xlsx"].includes(source);
+export const isOffice = (source: SourceType) => ["doc", "docx", "ppt", "pptx", "xls", "xlsx"].includes(source);
 export const sourceLimit = (capabilities: Capabilities, source?: SourceType) => source && isOffice(source) ? Math.min(capabilities.sourceMaxBytes, capabilities.officeSourceMaxBytes ?? capabilities.sourceMaxBytes) : capabilities.sourceMaxBytes;
 export function fileFormat(file: File) {
   const format = formats[file.name.split(".").at(-1)?.toLowerCase() || ""];
@@ -169,8 +171,9 @@ export class Client {
   }
   async capabilities(signal?: AbortSignal) {
     const value = await this.json<Capabilities>("/api/import-capabilities", undefined, signal);
-    if (!Number.isSafeInteger(value.sourceMaxBytes) || value.sourceMaxBytes <= 0 || !Array.isArray(value.sourceTypes) || !value.sourceTypes.every(type => ["pdf", "text", "csv", "image", "doc", "docx", "xls", "xlsx"].includes(type)) || !Array.isArray(value.officeModes) || !value.officeModes.every(mode => ["pdf", "text"].includes(mode)) || typeof value.officeAvailable !== "boolean" || typeof value.modelConfigured !== "boolean") throw new ApiError("服务能力响应无效。", "INVALID_RESPONSE");
+    if (!Number.isSafeInteger(value.sourceMaxBytes) || value.sourceMaxBytes <= 0 || !Array.isArray(value.sourceTypes) || !value.sourceTypes.every(type => IMPORT_SOURCE_TYPES.some(supported => supported === type)) || !Array.isArray(value.officeModes) || !value.officeModes.every(mode => ["pdf", "text"].includes(mode)) || typeof value.officeAvailable !== "boolean" || typeof value.modelConfigured !== "boolean") throw new ApiError("服务能力响应无效。", "INVALID_RESPONSE");
     if (value.officeSourceMaxBytes != null && (!Number.isSafeInteger(value.officeSourceMaxBytes) || value.officeSourceMaxBytes <= 0 || value.officeSourceMaxBytes > value.sourceMaxBytes)) throw new ApiError("服务能力响应无效。", "INVALID_RESPONSE");
+    if (value.parserInputMaxBytes != null && (!Number.isSafeInteger(value.parserInputMaxBytes) || value.parserInputMaxBytes < 4 || value.parserInputMaxBytes > 150 * MIB)) throw new ApiError("服务能力响应无效。", "INVALID_RESPONSE");
     return value;
   }
   list(offset: number, filter = "", signal?: AbortSignal, cursor?: string) {
@@ -182,10 +185,10 @@ export class Client {
   detail(id: string, signal?: AbortSignal) { return this.json<DocumentTaskDetail>(`/api/document-tasks/${encodeURIComponent(id)}`, undefined, signal); }
   head(id: string, signal?: AbortSignal) { return this.json<DocumentTaskHead>(`/api/document-tasks/${encodeURIComponent(id)}/head`, undefined, signal); }
   preview(id: string, signal?: AbortSignal) { return this.json<DocumentTaskReview>(`/api/document-tasks/${encodeURIComponent(id)}/preview`, undefined, signal); }
-  async start(file: File, capabilities: Capabilities, requestId: string, officeMode: OfficeMode, onStage: (stage: UploadStage) => void, deduplicateQuestions = false) {
+  async start(file: File, capabilities: Capabilities, requestId: string, onStage: (stage: UploadStage) => void, deduplicateQuestions = false) {
     validateFiles([file], capabilities);
     const format = fileFormat(file);
-    if (isOffice(format.sourceType) && (!capabilities.officeAvailable || !capabilities.officeModes.includes(officeMode))) throw new ApiError("服务端 Office 转换暂不可用。", "OFFICE_UNAVAILABLE");
+    if (capabilities.parserConfigured === false) throw new ApiError("服务端尚未配置腾讯文档解析。", "TENCENT_NOT_CONFIGURED");
     if (!capabilities.modelConfigured) throw new ApiError("服务端尚未配置模型。", "MODEL_NOT_CONFIGURED");
     onStage("hashing");
     const bytes = await file.arrayBuffer();
@@ -194,7 +197,7 @@ export class Client {
     onStage("uploading");
     const prepared = await this.post<DocumentUploadResponse>("/api/uploads", metadata);
     const document = prepared.document;
-    const suffix = format.sourceType === "text" ? "txt" : format.sourceType;
+    const suffix = format.sourceType === "text" ? "txt" : format.sourceType === "markdown" ? "md" : format.sourceType;
     if (document.sha256 !== metadata.sha256 || document.sizeBytes !== metadata.sizeBytes || document.mediaType !== metadata.mediaType || document.sourceType !== metadata.sourceType || document.fileName !== metadata.fileName || document.objectKey !== `practiq-agent/sources/${metadata.sha256}/source.${suffix}`) throw new ApiError("服务返回的文件引用不匹配。", "INVALID_REFERENCE");
     if (prepared.upload) {
       const url = new URL(prepared.upload.url, location.origin);
@@ -204,7 +207,7 @@ export class Client {
       if (Object.keys(document).some(key => uploaded[key as keyof UploadDocument] !== document[key as keyof UploadDocument])) throw new ApiError("上传后的文件引用不匹配。", "INVALID_REFERENCE");
     }
     onStage("starting");
-    const request: DocumentTaskCreate = { requestId, document, graphId: "document_parser", failurePolicy: "return_partial", ...(isOffice(format.sourceType) ? { officeMode } : {}), ...(deduplicateQuestions ? { deduplicateQuestions: true } : {}) };
+    const request: DocumentTaskCreate = { requestId, document, graphId: "document_parser", failurePolicy: "return_partial", ...(deduplicateQuestions ? { deduplicateQuestions: true } : {}) };
     return this.post<Receipt>("/api/document-tasks", request);
   }
   async control(task: DocumentTaskDetail, action: Action) {
@@ -216,13 +219,26 @@ export class Client {
   }
   reparse(id: string) { return this.intent(`reparse:${id}`, requestId => { const request: DocumentTaskReparse = { requestId }; return this.post<Receipt>(`/api/document-tasks/${encodeURIComponent(id)}/reparse`, request); }); }
   delete(id: string) { return this.json<{ deleted: boolean }>(`/api/document-tasks/${encodeURIComponent(id)}`, { method: "DELETE" }); }
-  async image(reference: ArtifactReference, threadId: string) {
-    if (!["image/png", "image/jpeg"].includes(reference.mediaType) || !/^[a-f0-9]{64}$/.test(reference.sha256) || reference.sizeBytes <= 0 || reference.sizeBytes > 50 * MIB) throw new ApiError("图片引用无效。", "INVALID_REFERENCE");
+  private async artifact(reference: ArtifactReference, threadId: string, limit: number) {
+    if (!/^[a-f0-9]{64}$/.test(reference.sha256) || !Number.isSafeInteger(reference.sizeBytes) || reference.sizeBytes <= 0 || reference.sizeBytes > limit) throw new ApiError("来源引用无效。", "INVALID_REFERENCE");
     return this.request(`/api/artifacts/read?thread_id=${encodeURIComponent(threadId)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(reference) }, async (response, signal) => {
       const bytes = await readBytes(response, reference.sizeBytes, signal);
-      if (bytes.length !== reference.sizeBytes || response.headers.get("content-type")?.split(";")[0] !== reference.mediaType || await sha256(bytes.buffer) !== reference.sha256) throw new ApiError("图片校验失败。", "ARTIFACT_CHECKSUM_MISMATCH");
+      if (bytes.length !== reference.sizeBytes || response.headers.get("content-type")?.split(";")[0] !== reference.mediaType || await sha256(bytes.buffer) !== reference.sha256) throw new ApiError("来源文件校验失败。", "ARTIFACT_CHECKSUM_MISMATCH");
       return new Blob([bytes], { type: reference.mediaType });
     });
+  }
+  image(reference: ArtifactReference, threadId: string) {
+    if (!["image/png", "image/jpeg"].includes(reference.mediaType)) return Promise.reject(new ApiError("图片引用无效。", "INVALID_REFERENCE"));
+    return this.artifact(reference, threadId, 50 * MIB);
+  }
+  evidence(reference: ArtifactReference, threadId: string) {
+    if (!["application/json", "text/plain", "text/markdown"].includes(reference.mediaType)) return Promise.reject(new ApiError("来源证据类型无效。", "INVALID_REFERENCE"));
+    return this.artifact(reference, threadId, 25 * MIB);
+  }
+  source(reference: DocumentReference, threadId: string) {
+    if (!Object.values(formats).some(format => format.sourceType === reference.sourceType && format.mediaType === reference.mediaType) && !(reference.sourceType === "csv" && reference.mediaType === "text/csv") && !(reference.sourceType === "markdown" && reference.mediaType === "text/plain")) return Promise.reject(new ApiError("原文件类型无效。", "INVALID_REFERENCE"));
+    const { objectKey, sha256, sizeBytes, mediaType } = reference;
+    return this.artifact({ objectKey, sha256, sizeBytes, mediaType }, threadId, 50 * MIB);
   }
   async exportBank(task: DocumentTaskDetail) {
     if ((!task.canExportCompleted && (task.state !== "COMPLETED" || !task.result)) || !task.checkpointId) throw new ApiError("任务结果尚不可导出。", "BANK_EXPORT_NOT_READY");

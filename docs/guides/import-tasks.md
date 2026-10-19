@@ -6,7 +6,7 @@ The independent AI service's Web frontend handles source selection, upload, task
 
 ## Start and review
 
-Enter your self-hosted service access token (`AI_SERVICE_TOKEN`). It remains in page memory and clears on reload. Choose up to ten supported files, select the Office mode when available and explicitly start import. File selection makes no upload or model request. The server validates source bytes and stores the original SHA-256; Office normalization remains part of the same task.
+Enter your self-hosted service access token (`AI_SERVICE_TOKEN`). It remains in page memory and clears on reload. Choose up to ten supported files and explicitly start import. File selection makes no upload or model request. The server validates source bytes and stores the original SHA-256; Tencent asynchronous recognition remains part of the same task.
 
 **自动去重** is off by default. When enabled before **开始导入**, it merges only questions or complete composite-question trees with identical business payloads and source evidence, retaining source associations and warnings. Missing or conflicting evidence is kept for review. When disabled, possible duplicate candidates appear in result warnings and all copies remain. The choice is fixed for each submitted file and retained by explicit retries and parse again; start a new import to change it. Selecting the checkbox makes no request.
 
@@ -38,7 +38,7 @@ An uncertain mutation is not a successful transition. Persistent server receipts
 
 ## Office and retention
 
-Office tasks retain the original document identity and mode. PDF is the default; text mode includes ordered Excel sheets, including hidden sheets. Duplicate checks use the raw source hash and mode. A mode change is new parsing work. Converted artifacts and the engine identity are verified on resume; an incompatible deployment requires the original version or a new task.
+Office originals use Tencent asynchronous parsing directly within the active per-job limit. Oversized Office sources use the isolated service converter for PDF pagination; users do not select a conversion mode. Source hashes, split-part associations and any conversion manifests are retained. Converted artifacts and the engine identity are verified on resume; an incompatible deployment requires the original version or a new task. See [Tencent parser setup](../../server/docs/tencent-document-parser.md) for local mode and optional private COS staging.
 
 Task results expire after 180 days. Download needed banks before then. Safe task deletion requires stopping active work and does not delete already imported banks or practice history. Existing desktop AI files and import receipts from older builds remain untouched; they are not migrated into the independent service.
 

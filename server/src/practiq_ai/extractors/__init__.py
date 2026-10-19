@@ -32,7 +32,7 @@ def extract(
 ) -> ExtractedDocument:
     if len(payload) > load().source_max_bytes:
         raise DocumentProcessingError(413, "Uploaded file is too large")
-    if source_type == "text":
+    if source_type in {"text", "markdown"}:
         try:
             return ExtractedDocument(text=payload.decode("utf-8"))
         except UnicodeDecodeError as exc:

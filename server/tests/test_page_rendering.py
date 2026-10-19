@@ -18,8 +18,12 @@ from tests.support import (
     local_graph,
     make_image,
     object_store,
+    ocr_draft,
+    ocr_page_model,
+    ocr_text_page,
     question,
     source,
+    tencent_provider,
 )
 
 
@@ -46,7 +50,7 @@ async def test_unexportable_source_dimensions_fail_before_model_calls(monkeypatc
         mediaType='image/png' if kind == 'image' else 'application/pdf',
         sizeBytes=len(data), sha256=hashlib.sha256(data).hexdigest(),
     ))
-    model = FakeModel(responses=[])
+    model = ocr_page_model(monkeypatch, [], page_count=1)
     monkeypatch.setattr(document, 'get_model', lambda: model)
     monkeypatch.setattr(document, 'get_object_store', lambda: files)
     with pytest.raises(DocumentProcessingError) as error:
@@ -54,13 +58,6 @@ async def test_unexportable_source_dimensions_fail_before_model_calls(monkeypatc
     assert error.value.status_code == 413
     assert error.value.code == 'IMAGE_TOO_LARGE'
     assert model.calls == []
-
-
-@pytest.fixture(autouse=True)
-def isolate_figure_reviewer(monkeypatch):
-    from tests.support import accept_figure_checks
-
-    monkeypatch.setattr(document, "_verify_figures", accept_figure_checks)
 
 
 def paged_source(kind):
@@ -91,6 +88,7 @@ def test_missing_model_fails_before_read_or_render(monkeypatch, kind):
 
 @pytest.mark.parametrize("failed", [set(), {1}, {0, 1, 2}])
 async def test_page_order_gaps_and_crops(monkeypatch, failed):
+    tencent_provider(monkeypatch, [ocr_text_page("Page source", figures=[{"bbox": [0.1, 0.1, 0.8, 0.8]}]) for _ in range(3)])
     store, reference = paged_source("pdf")
     model = FakeModel(responses=[{"questions": [question("Across pages")]}])
     monkeypatch.setattr(document, "get_object_store", lambda: store)
@@ -106,12 +104,10 @@ async def test_page_order_gaps_and_crops(monkeypatch, failed):
 
     async def page_call(_model, messages, schema, call_kind, *, runtime=None):
         prompt = messages[-1].content
-        index = next(i for i in range(3) if f"PRIMARY page {i + 1}" in prompt)
-        assert schema is document.PageParseResult and call_kind == "vision_parse"
+        index = next(i for i in range(3) if f"PRIMARY is page {i + 1}" in prompt)
+        assert schema is document.OcrPageParseResult and call_kind == "vision_parse"
         images = [message for message in messages if isinstance(message.content, list)]
-        assert len(images) == 1  # Initial extraction sees PRIMARY only; these drafts have no IDs.
-        assert images[-1].content[0]['text'] == f'Page {index + 1}: PRIMARY'
-        assert all('CONTEXT ONLY' in item.content[0]['text'] for item in images[:-1])
+        assert images == []  # Only Tencent evidence reaches question structuring.
         if index == 0:
             await asyncio.wait_for(second_finished.wait(), 5)
         completed.append(index)
@@ -119,8 +115,8 @@ async def test_page_order_gaps_and_crops(monkeypatch, failed):
             second_finished.set()
         if index in failed:
             return None, [], "OUTPUT_INVALID"
-        return schema.model_validate({"questions": [question(f"Page {index + 1}")],
-            "figures": [{"kind": "image", "description": "Figure", "questionIndexes": [0], "bbox": [0.1, 0.1, 0.8, 0.8]}]}), [], None
+        return schema.model_validate(ocr_draft({"questions": [question(f"Page {index + 1}")],
+            "figures": [{"kind": "image", "description": "Figure", "questionIndexes": [0]}]})), [], None
 
     monkeypatch.setattr(document, "structured_call", page_call)
     result = await local_graph().ainvoke({"document": reference})
@@ -141,6 +137,7 @@ async def test_page_order_gaps_and_crops(monkeypatch, failed):
 
 
 async def test_answer_page_ignores_neighbors_after_empty_primary(monkeypatch):
+    tencent_provider(monkeypatch, [ocr_text_page("Page source", figures=[]) for _ in range(2)])
     store, reference = paged_source('pdf')
     model = FakeModel(responses=[])
     monkeypatch.setattr(document, 'get_object_store', lambda: store)
@@ -155,8 +152,8 @@ async def test_answer_page_ignores_neighbors_after_empty_primary(monkeypatch):
         assert 'never copy a question from CONTEXT onto an answer page' in prompt
         assert 'only when there is no associated text material' in prompt
         assert 'background text alone does not create a reading parent' in prompt
-        assert len([message for message in messages if isinstance(message.content, list)]) == 1
-        primary = 0 if 'PRIMARY page 1' in prompt else 1
+        assert not any(isinstance(message.content, list) for message in messages)
+        primary = 0 if 'PRIMARY is page 1' in prompt else 1
         seen.append(primary)
         return schema.model_validate({'questions': [question('Original question')] if primary == 0 else [],
                                       'groups': [], 'figures': []}), [], None
@@ -216,7 +213,7 @@ def test_rich_pdf_preserves_formula_and_table_blocks(monkeypatch, tmp_path):
         sha256=hashlib.sha256(payload).hexdigest(), sizeBytes=len(payload))))
     response = {"questions": expected["questions"], "groups": [], "figures": [
         {"kind": "chart", "description": "Measurement curve", "bbox": [0.1, 0.6, 0.9, 0.8]}]}
-    monkeypatch.setattr(document, "get_model", lambda *args: FakeModel(responses=[response]))
+    monkeypatch.setattr(document, "get_model", lambda *args: ocr_page_model(monkeypatch, [response], page_count=1))
     monkeypatch.setattr(document, "get_object_store", lambda: store)
     result = asyncio.run(local_graph().ainvoke({"document": ref.model_dump()}))
     assert result["status"] == "SUCCEEDED"
@@ -254,6 +251,7 @@ def test_rich_recognition_gate_rejects_wrong_formula_and_clipped_table(tmp_path)
 
 
 def test_figure_links_remap_across_pages_and_failed_crops_keep_source(monkeypatch):
+    tencent_provider(monkeypatch, [ocr_text_page("Page source", figures=[{"bbox": [0.1, 0.2, 0.8, 0.9]}]) for _ in range(2)])
     from practiq_ai.graphs import vision
 
     store, reference = paged_source("pdf")
@@ -263,9 +261,9 @@ def test_figure_links_remap_across_pages_and_failed_crops_keep_source(monkeypatc
     monkeypatch.setattr(document, "extract", AsyncMock(return_value=ExtractedDocument(text="", page_images=[make_image()] * 2)))
 
     async def page_call(_model, messages, schema, call_kind, *, runtime=None):
-        index = 0 if "PRIMARY page 1" in messages[-1].content else 1
-        return schema.model_validate({"questions": [question(f"Page {index}")], "figures": [
-            {"kind": "table", "description": "Unstructured table", "questionIndexes": [0], "bbox": [0.1, 0.2, 0.8, 0.9]}]}), [], None
+        index = 0 if "PRIMARY is page 1" in messages[-1].content else 1
+        return schema.model_validate(ocr_draft({"questions": [question(f"Page {index}")], "figures": [
+            {"kind": "table", "description": "Unstructured table", "questionIndexes": [0]}]})), [], None
 
     monkeypatch.setattr(document, "structured_call", page_call)
     monkeypatch.setattr(vision, "crop_figure", lambda *_: None)
@@ -350,8 +348,8 @@ def test_incomplete_table_page_retains_question_and_continuation_figure():
 ])
 def test_oversized_generated_table_degrades_without_losing_usage(monkeypatch, rows):
     store, reference = paged_source("pdf")
-    model = FakeModel(responses=[{"questions": [question("Table")], "figures": [
-        {"kind": "table", "description": "Large table", "questionIndexes": [0], "tableRows": rows, "bbox": [0, 0, 1, 1]}]}])
+    model = ocr_page_model(monkeypatch, [{"questions": [question("Table")], "figures": [
+        {"kind": "table", "description": "Large table", "questionIndexes": [0], "tableRows": rows, "bbox": [0, 0, 1, 1]}]}], page_count=1)
     monkeypatch.setattr(document, "get_model", lambda *_: model)
     monkeypatch.setattr(document, "get_object_store", lambda: store)
     monkeypatch.setattr(document, "extract", AsyncMock(return_value=ExtractedDocument(text="", page_images=[make_image()])))
@@ -372,9 +370,9 @@ def test_answer_table_role_reaches_both_blocks_and_visuals(monkeypatch, header, 
     q = question("Table")
     if header == "Answer" and not transposed:
         q["contentBlocks"] = [{"partType": "table", "markdownValue": "| Question | Answer |\n| --- | --- |\n| 1 | SECRET |"}]
-    model = FakeModel(responses=[{"questions": [q], "figures": [
+    model = ocr_page_model(monkeypatch, [{"questions": [q], "figures": [
         {"kind": "table", "role": "answer" if header == "Value" else role, "description": "Supplied values", "questionIndexes": [0],
-         "tableRows": [["Field", "Value"], [header, "SECRET"]] if transposed else [["Question", header], ["1", "SECRET"]], "bbox": [0, 0, 1, 1]}]}])
+         "tableRows": [["Field", "Value"], [header, "SECRET"]] if transposed else [["Question", header], ["1", "SECRET"]], "bbox": [0, 0, 1, 1]}]}], page_count=1)
     monkeypatch.setattr(document, "get_model", lambda *_: model)
     monkeypatch.setattr(document, "get_object_store", lambda: store)
     monkeypatch.setattr(document, "extract", AsyncMock(return_value=ExtractedDocument(text="", page_images=[make_image()])))
@@ -387,13 +385,14 @@ def test_answer_table_role_reaches_both_blocks_and_visuals(monkeypatch, header, 
 
 @pytest.mark.parametrize("failed", [{1}, {0, 1, 2}])
 def test_failed_pages_remain_unassociated_without_source_evidence(monkeypatch, failed):
+    tencent_provider(monkeypatch, [ocr_text_page("Page source", figures=[]) for _ in range(5)])
     store, reference = paged_source("pdf")
     monkeypatch.setattr(document, "get_object_store", lambda: store)
     monkeypatch.setattr(document, "get_model", lambda *_: FakeModel(responses=[]))
     monkeypatch.setattr(document, "extract", AsyncMock(return_value=ExtractedDocument(text="", page_images=[make_image()] * 5)))
 
     async def page_call(_model, messages, schema, call_kind, *, runtime=None):
-        index = next(i for i in range(5) if f"PRIMARY page {i + 1}" in messages[-1].content)
+        index = next(i for i in range(5) if f"PRIMARY is page {i + 1}" in messages[-1].content)
         if index in failed:
             return None, [], "OUTPUT_INVALID"
         return schema.model_validate({"questions": [question(f"Page {index}")]}), [], None
@@ -416,8 +415,8 @@ def test_material_crop_does_not_include_answer_outside_model_bounds(monkeypatch)
     image = BytesIO()
     page.save(image, "PNG")
     store, reference = paged_source("pdf")
-    model = FakeModel(responses=[{"questions": [question("Material")], "figures": [
-        {"kind": "chart", "role": "material", "description": "Chart", "questionIndexes": [0], "bbox": [0.2, 0.2, 0.6, 0.6]}]}])
+    model = ocr_page_model(monkeypatch, [{"questions": [question("Material")], "figures": [
+        {"kind": "chart", "role": "material", "description": "Chart", "questionIndexes": [0], "bbox": [0.2, 0.2, 0.6, 0.6]}]}], page_count=1)
     monkeypatch.setattr(document, "get_model", lambda *_: model)
     monkeypatch.setattr(document, "get_object_store", lambda: store)
     monkeypatch.setattr(document, "extract", AsyncMock(return_value=ExtractedDocument(text="", page_images=[image.getvalue()])))
@@ -433,16 +432,17 @@ def test_material_crop_does_not_include_answer_outside_model_bounds(monkeypatch)
 
 @pytest.mark.parametrize("continuations", [{1, 2}, {0}])
 def test_unowned_continuation_figures_do_not_guess_a_question(monkeypatch, continuations):
+    tencent_provider(monkeypatch, [ocr_text_page("Page source", figures=[{"bbox": [0, 0, 1, 1]}] if index in continuations else []) for index in range(5)])
     store, reference = paged_source("pdf")
     monkeypatch.setattr(document, "get_object_store", lambda: store)
     monkeypatch.setattr(document, "get_model", lambda *_: FakeModel(responses=[]))
     monkeypatch.setattr(document, "extract", AsyncMock(return_value=ExtractedDocument(text="", page_images=[make_image()] * 5)))
 
     async def page_call(_model, messages, schema, call_kind, *, runtime=None):
-        index = next(i for i in range(5) if f"PRIMARY page {i + 1}" in messages[-1].content)
+        index = next(i for i in range(5) if f"PRIMARY is page {i + 1}" in messages[-1].content)
         if index in continuations:
-            return schema.model_validate({"questions": [], "figures": [
-                {"kind": "table", "description": "Continuation", "bbox": [0, 0, 1, 1], "questionIndexes": [0]}]}), [], None
+            return schema.model_validate(ocr_draft({"questions": [], "figures": [
+                {"kind": "table", "description": "Continuation", "questionIndexes": [0]}]})), [], None
         return schema.model_validate({"questions": [question(f"Page {index} A"), question(f"Page {index} B")]}), [], None
 
     monkeypatch.setattr(document, "structured_call", page_call)
@@ -469,7 +469,7 @@ def test_existing_answer_block_protects_shared_table_visual_and_all_copies(monke
         {"partType": "table", "role": answer_role, "markdownValue": markdown},
         {"partType": "table", "markdownValue": markdown},
     ]
-    model = FakeModel(responses=[{"questions": questions, "figures": [figure]}])
+    model = ocr_page_model(monkeypatch, [{"questions": questions, "figures": [figure]}], page_count=1)
     monkeypatch.setattr(document, "get_model", lambda *_: model)
     monkeypatch.setattr(document, "get_object_store", lambda: store)
     monkeypatch.setattr(document, "extract", AsyncMock(return_value=ExtractedDocument(text="", page_images=[make_image()])))
@@ -488,7 +488,7 @@ def test_unstructured_answer_table_classifies_text_and_matching_block(monkeypatc
     q["contentBlocks"] = [{"partType": "table", "role": "material", "textValue": text}]
     figure = {"kind": "table", "description": "Merged table", "tableRows": None,
               "extractedText": text, "role": role, "questionIndexes": [0], "bbox": [0, 0, 1, 1]}
-    model = FakeModel(responses=[{"questions": [q], "figures": [figure]}])
+    model = ocr_page_model(monkeypatch, [{"questions": [q], "figures": [figure]}], page_count=1)
     monkeypatch.setattr(document, "get_model", lambda *_: model)
     monkeypatch.setattr(document, "get_object_store", lambda: store)
     monkeypatch.setattr(document, "extract", AsyncMock(return_value=ExtractedDocument(text="", page_images=[make_image()])))
@@ -515,7 +515,7 @@ def test_equivalent_answer_tables_propagate_without_order_or_format_dependence(m
     if reverse:
         figures.reverse()
     figures.append({**base, "questionIndexes": [2]})
-    model = FakeModel(responses=[{"questions": questions, "figures": figures}])
+    model = ocr_page_model(monkeypatch, [{"questions": questions, "figures": figures}], page_count=1)
     monkeypatch.setattr(document, "get_model", lambda *_: model)
     monkeypatch.setattr(document, "get_object_store", lambda: store)
     monkeypatch.setattr(document, "extract", AsyncMock(return_value=ExtractedDocument(text="", page_images=[make_image()])))
@@ -543,7 +543,7 @@ def test_table_comparison_preserves_cells_and_non_table_text():
 def test_crop_only_truncation_marks_media_not_questions(monkeypatch):
     store, reference = paged_source("pdf")
     figure = {"kind":"diagram", "description":"Figure", "bbox":[0,0,1,1], "questionIndexes":[0]}
-    model = FakeModel(responses=[{"questions":[question("Complete source question")], "figures":[figure,figure]}])
+    model = ocr_page_model(monkeypatch, [{"questions":[question("Complete source question")], "figures":[figure,figure]}], page_count=1)
     monkeypatch.setattr(document, "get_model", lambda: model)
     monkeypatch.setattr(document, "get_object_store", lambda: store)
     monkeypatch.setattr(document.vision, "MAX_CROPS", 1)
@@ -561,8 +561,8 @@ async def test_context_enrichment_cannot_add_a_question_with_a_false_primary_anc
     primary = {**question('PRIMARY question'), 'id': 'page:1:1'}
     enriched = {**primary, 'answerPayload': {'text': 'Printed reference'}}
     copied = {**question('Context-only question'), 'id': 'page:1:context-copy'}
-    model = FakeModel(responses=[{'questions': [primary]}, {'questions': [primary, copied]},
-                                {'questions': [enriched]}, {'questions': []}])
+    model = ocr_page_model(monkeypatch, [{'questions': [primary]}, {'questions': [primary, copied]},
+                                {'questions': [enriched]}, {'questions': []}], page_count=2)
     monkeypatch.setenv('AI_IMPORT_REVIEW', 'false')
     monkeypatch.setenv('AI_GRAPH_MAX_CONCURRENCY', '1')
     monkeypatch.setattr(document, 'get_object_store', lambda: store)
@@ -571,8 +571,8 @@ async def test_context_enrichment_cannot_add_a_question_with_a_false_primary_anc
         text='', page_images=[make_image()] * 2)))
     state = await local_graph().ainvoke({'document': reference})
     assert len(model.calls) == len(state['usage']) == 4
-    assert len([m for m in model.calls[0] if isinstance(m.content, list)]) == 1
-    assert len([m for m in model.calls[1] if isinstance(m.content, list)]) == 2
+    assert len(model.calls[0]) == 2 and not any(isinstance(m.content, list) for m in model.calls[0])
+    assert 'CONTEXT ONLY' in model.calls[1][-1].content
     assert 'PRIMARY question IDs' in model.calls[2][-1].content
     assert [q['stem'] for q in state['result']['questions']] == ['PRIMARY question']
     assert state['result']['questions'][0]['answerPayload'] == {'text': 'Printed reference'}
@@ -585,8 +585,8 @@ async def test_primary_and_context_passes_each_have_all_correction_attempts(monk
     primary = {**question('PRIMARY question'), 'id': 'page:1:1'}
     enriched = {**primary, 'answerPayload': {'text': 'Printed reference'}}
     invalid = [{'questions': [question(f'Invalid context question {i}')]} for i in range(3)]
-    model = FakeModel(responses=[*[{'questions': str(i)} for i in range(3)], {'questions': [primary]},
-                                *invalid, {'questions': [enriched]}, {'questions': []}])
+    model = ocr_page_model(monkeypatch, [*[{'questions': str(i)} for i in range(3)], {'questions': [primary]},
+                                *invalid, {'questions': [enriched]}, {'questions': []}], page_count=2)
     monkeypatch.setenv('AI_IMPORT_REVIEW', 'false')
     monkeypatch.setenv('AI_GRAPH_MAX_CONCURRENCY', '1')
     monkeypatch.setattr(document, 'get_object_store', lambda: store)
@@ -614,8 +614,8 @@ async def test_context_correction_retains_primary_composite_material(monkeypatch
              'options': [] if mode == 'word_bank' else options,
              'optionSourceId': parent['id'] if mode == 'word_bank' else None,
              'answerPayload': {'correct': ['A']}}
-    model = FakeModel(responses=[{'questions': [parent, child]}, {'questions': [child]},
-                                {'questions': [parent, child]}, {'questions': []}])
+    model = ocr_page_model(monkeypatch, [{'questions': [parent, child]}, {'questions': [child]},
+                                {'questions': [parent, child]}, {'questions': []}], page_count=2)
     monkeypatch.setenv('AI_IMPORT_REVIEW', 'false')
     monkeypatch.setenv('AI_GRAPH_MAX_CONCURRENCY', '1')
     monkeypatch.setattr(document, 'get_object_store', lambda: store)
@@ -651,9 +651,9 @@ async def test_context_correction_preserves_composite_payload_and_allows_additio
              'options': [] if mode == 'word_bank' else options,
              'optionSourceId': parent['id'] if mode == 'word_bank' else None,
              'answerPayload': {'correct': ['B']}}
-    model = FakeModel(responses=[{'questions': [parent, child]},
+    model = ocr_page_model(monkeypatch, [{'questions': [parent, child]},
                                 {'questions': [{**parent, field: broken_items}, child]},
-                                {'questions': [complete, child]}, {'questions': []}])
+                                {'questions': [complete, child]}, {'questions': []}], page_count=2)
     monkeypatch.setenv('AI_IMPORT_REVIEW', 'false')
     monkeypatch.setenv('AI_GRAPH_MAX_CONCURRENCY', '1')
     monkeypatch.setattr(document, 'get_object_store', lambda: store)
@@ -701,9 +701,9 @@ async def test_context_correction_preserves_primary_groups_and_reordered_members
         broken.append(deepcopy(groups[2]))
     else:
         broken[1]['questionIndexes'] = [1]
-    model = FakeModel(responses=[{'questions': questions, 'groups': groups},
+    model = ocr_page_model(monkeypatch, [{'questions': questions, 'groups': groups},
                                 {'questions': questions[::-1], 'groups': broken},
-                                {'questions': questions[::-1], 'groups': corrected}, {'questions': []}])
+                                {'questions': questions[::-1], 'groups': corrected}, {'questions': []}], page_count=2)
     monkeypatch.setenv('AI_IMPORT_REVIEW', 'false')
     monkeypatch.setenv('AI_GRAPH_MAX_CONCURRENCY', '1')
     monkeypatch.setattr(document, 'get_object_store', lambda: store)
@@ -738,9 +738,9 @@ async def test_context_correction_preserves_primary_figures_and_reordered_owners
     corrected = [{**figures[0], 'questionIndexes': [1]}, {**figures[1], 'questionIndexes': [0]}]
     broken = {'all': [], 'one': corrected[:1],
               'association': [{**corrected[0], 'questionIndexes': []}, corrected[1]]}[loss]
-    model = FakeModel(responses=[{'questions': questions, 'figures': figures},
+    model = ocr_page_model(monkeypatch, [{'questions': questions, 'figures': figures},
                                 {'questions': questions[::-1], 'figures': broken},
-                                {'questions': questions[::-1], 'figures': corrected}, {'questions': []}])
+                                {'questions': questions[::-1], 'figures': corrected}, {'questions': []}], page_count=2)
     monkeypatch.setenv('AI_IMPORT_REVIEW', 'false')
     monkeypatch.setenv('AI_GRAPH_MAX_CONCURRENCY', '1')
     monkeypatch.setattr(document, 'get_object_store', lambda: store)
@@ -749,7 +749,7 @@ async def test_context_correction_preserves_primary_figures_and_reordered_owners
         text='', page_images=[make_image()] * 2)))
     state = await local_graph().ainvoke({'document': reference})
     assert len(model.calls) == len(state['usage']) == 4
-    assert 'PRIMARY figure' in model.calls[2][-1].content
+    assert ('PRIMARY figure' in model.calls[2][-1].content or 'Retain every supplied OCR figure exactly once' in model.calls[2][-1].content)
     visuals = state['result']['visualElements']
     assert len(visuals) == 2 and all(visual['imageRef'] for visual in visuals)
     by_id = {q['id']: q['stem'] for q in state['result']['questions']}
@@ -781,9 +781,9 @@ async def test_context_correction_preserves_primary_figure_payload_and_allows_mo
         broken['role'] = 'material'
     else:
         broken['label'] = None
-    model = FakeModel(responses=[{'questions': [primary], 'figures': [figure]},
+    model = ocr_page_model(monkeypatch, [{'questions': [primary], 'figures': [figure]},
                                 {'questions': [primary], 'figures': [broken]},
-                                {'questions': [primary], 'figures': [complete]}, {'questions': []}])
+                                {'questions': [primary], 'figures': [complete]}, {'questions': []}], page_count=2)
     monkeypatch.setenv('AI_IMPORT_REVIEW', 'false')
     monkeypatch.setenv('AI_GRAPH_MAX_CONCURRENCY', '1')
     monkeypatch.setattr(document, 'get_object_store', lambda: store)
@@ -801,7 +801,7 @@ async def test_context_correction_preserves_primary_figure_payload_and_allows_mo
 async def test_empty_primary_page_does_not_submit_neighbors_for_question_extraction(monkeypatch):
     store, reference = paged_source('pdf')
     owned = {**question('Starts on page two'), 'id': 'page:2:1'}
-    model = FakeModel(responses=[{'questions': []}, {'questions': [owned]}, {'questions': [owned]}])
+    model = ocr_page_model(monkeypatch, [{'questions': []}, {'questions': [owned]}, {'questions': [owned]}], page_count=2)
     monkeypatch.setenv('AI_IMPORT_REVIEW', 'false')
     monkeypatch.setenv('AI_GRAPH_MAX_CONCURRENCY', '1')
     monkeypatch.setattr(document, 'get_object_store', lambda: store)
@@ -810,7 +810,7 @@ async def test_empty_primary_page_does_not_submit_neighbors_for_question_extract
         text='', page_images=[make_image()] * 2)))
     state = await local_graph().ainvoke({'document': reference})
     assert len(model.calls) == len(state['usage']) == 3
-    assert [len([m for m in call if isinstance(m.content, list)]) for call in model.calls] == [1, 1, 2]
+    assert ['CONTEXT:\n' in call[-1].content for call in model.calls] == [False, False, True]
     assert [q['stem'] for q in state['result']['questions']] == ['Starts on page two']
 
 
@@ -832,11 +832,11 @@ def test_context_identity_guard_allows_composite_fragments_and_resets_for_histor
 async def test_context_failure_retains_known_primary_usage_and_clears_identity_guard(monkeypatch):
     store, reference = paged_source('pdf')
     primary = {**question('Visible PRIMARY question'), 'id': 'page:1:1'}
-    model = FakeModel(responses=[{'questions': [primary]}])
+    model = ocr_page_model(monkeypatch, [{'questions': [primary]}], page_count=2)
     original = document.structured_call
 
     async def fail_context(model, messages, schema, call_kind, *, runtime=None):
-        if len([message for message in messages if isinstance(message.content, list)]) > 1:
+        if 'CONTEXT:\n' in messages[-1].content:
             raise DocumentProcessingError(503, 'Context storage unavailable', 'EXECUTION_STORE_UNAVAILABLE')
         return await original(model, messages, schema, call_kind, runtime=runtime)
 

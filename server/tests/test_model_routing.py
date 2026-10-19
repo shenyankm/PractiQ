@@ -28,18 +28,17 @@ def test_single_model_and_execution_signature(monkeypatch):
     llm.get_model.cache_clear()
 
 
-def test_model_api_switch_changes_model_and_resume_signature(monkeypatch):
+@pytest.mark.parametrize('legacy_api', ['chat_completions', 'responses', 'invalid'])
+def test_legacy_api_setting_cannot_override_responses(monkeypatch, legacy_api):
     llm.get_model.cache_clear()
     monkeypatch.delenv('AI_MODEL_API', raising=False)
     before = execution.new_execution()
-    assert llm.get_model().use_responses_api is None
-    monkeypatch.setenv('AI_MODEL_API', 'responses')
-    llm.get_model.cache_clear()
+    monkeypatch.setenv('AI_MODEL_API', legacy_api)
     try:
         model = llm.get_model()
         assert model.use_responses_api is True and model.store is False
-        with pytest.raises(DocumentProcessingError, match='original deployment'):
-            execution.validate_execution(before)
+        assert before['signature']['settings']['model_api'] == 'responses'
+        execution.validate_execution(before)
     finally:
         llm.get_model.cache_clear()
 
@@ -55,17 +54,19 @@ def test_visual_result_rejects_invalid_final_question_index():
 
 
 
-@pytest.mark.parametrize('kind', ['text', 'csv'])
+@pytest.mark.parametrize('kind', ['text', 'markdown'])
 async def test_text_formats_use_unified_model(monkeypatch, kind):
     from tests.support import source
     files, reference = source('1. Question?')
-    if kind == 'csv':
+    if kind == 'markdown':
         original = reference['objectKey']
-        reference.update(sourceType='csv', mediaType='text/csv', objectKey=document_source_key('csv', reference['sha256']))
+        reference.update(sourceType='markdown', mediaType='text/markdown', objectKey=document_source_key('markdown', reference['sha256']))
         files.blobs[reference['objectKey']] = files.blobs.pop(original)
     model = FakeModel(responses=[{'questions': [question('Question?')]}])
     monkeypatch.setattr(document, 'get_model', lambda: model)
     monkeypatch.setattr(document, 'get_object_store', lambda: files)
+    from tests.support import tencent_provider
+    tencent_provider(monkeypatch)
     result = await local_graph().ainvoke({'document': reference}, run_config())
     assert result['status'] == 'SUCCEEDED'
     assert result['result']['questions'][0]['stem'] == 'Question?'

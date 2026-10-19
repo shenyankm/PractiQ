@@ -172,9 +172,9 @@ class ObjectStore:
     @staticmethod
     def _validate_office(payload: bytes, source_type: str) -> None:
         from .office import OfficeError, _validate_legacy, _validate_ooxml
-        family = "writer" if source_type in {"doc", "docx"} else "calc"
+        family = "writer" if source_type in {"doc", "docx"} else "impress" if source_type in {"ppt", "pptx"} else "calc"
         try:
-            (_validate_legacy if source_type in {"doc", "xls"} else _validate_ooxml)(payload, family)
+            (_validate_legacy if source_type in {"doc", "xls", "ppt"} else _validate_ooxml)(payload, family)
         except OfficeError as exc:
             raise DocumentProcessingError(422, "Office container does not match the declared source type", exc.code) from exc
 

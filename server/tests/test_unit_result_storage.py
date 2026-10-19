@@ -45,8 +45,9 @@ async def test_paused_unit_references_survive_restart_without_replaying_successe
     assert len(units) == 2
     assert all(unit['parsed'] == {'questionCount': 1} for unit in units)
     review = await task_api.review_task(thread)
-    assert len(review['units']) == 2 and len(model.calls) == 2
-    assert all(unit['questions'] for unit in review['units'])
+    assert len(review['units']) == 3 and len(model.calls) == 2
+    assert sum(bool(unit['questions']) for unit in review['units']) == 2
+    assert all(unit['sourceRef'] for unit in review['units'])
     artifact = tmp_path / 'objects' / units[0]['resultRef']['objectKey']
     stored = artifact.read_bytes()
     assert json.loads(stored)['parsed']['questions'][0]['stem'] in {'First', 'Second'}

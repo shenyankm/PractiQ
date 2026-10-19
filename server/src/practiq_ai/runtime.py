@@ -24,7 +24,7 @@ from .messaging import Delivery
 from .storage import get_object_store
 
 current: Service | None = None
-GRAPH_FORMATS = {'document_parser': None, 'text_csv_parser': ('text', 'csv'),
+GRAPH_FORMATS = {'document_parser': None, 'text_csv_parser': ('text', 'markdown'),
                  'pdf_parser': ('pdf',)}
 
 

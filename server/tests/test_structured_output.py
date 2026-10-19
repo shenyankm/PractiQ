@@ -16,20 +16,13 @@ class Result(BaseModel):
     value: int = Field(ge=0)
 
 
-@pytest.mark.parametrize("method", ["function_calling", "json_schema"])
+@pytest.mark.parametrize("method", ["function_calling", "auto"])
 def test_cached_schema_is_detached_from_provider_mutation(monkeypatch, method):
     monkeypatch.setenv("AI_STRUCTURED_OUTPUT_METHOD", method)
     model = llm.build_model("dashscope", "test", "qwen3.7-flash")
     llm._model_schema.cache_clear()
     schemas = []
-    if method == "json_schema":
-        def bind(_self, **kwargs):
-            schemas.append(kwargs["extra_body"]["response_format"]["json_schema"]["schema"])
-            from langchain_core.runnables import RunnableLambda
-            return RunnableLambda(lambda value: value)
-        monkeypatch.setattr(ChatOpenAI, "bind", bind)
-    else:
-        monkeypatch.setattr(ChatOpenAI, "with_structured_output", lambda self, schema, **kwargs: schemas.append(schema["function"]["parameters"]))
+    monkeypatch.setattr(ChatOpenAI, "with_structured_output", lambda self, schema, **kwargs: schemas.append(schema["function"]["parameters"]))
     llm.structured_output(model, Result)
     schemas[0]["properties"]["value"]["minimum"] = -100
     llm.structured_output(model, Result)
@@ -37,70 +30,37 @@ def test_cached_schema_is_detached_from_provider_mutation(monkeypatch, method):
     assert llm._model_schema.cache_info().misses == 1 and llm._model_schema.cache_info().hits == 1
 
 
+def wire_response(arguments, *, call_id='call-test', truncated=False):
+    return {"id": "resp-test", "object": "response", "created_at": 0,
+            "model": "qwen3.7-flash", "status": "incomplete" if truncated else "completed",
+            "incomplete_details": {"reason": "max_output_tokens"} if truncated else None,
+            "output": [{"type": "function_call", "id": "fc-" + call_id, "call_id": call_id,
+                        "status": "completed", "name": "Result", "arguments": arguments}],
+            "usage": {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15}}
+
+
 @pytest.mark.parametrize(
     "bad_content,finish",
     [(' {"value":1}', "length"), ('{"value":', "stop"), ('{"value":-1}', "stop")],
 )
-async def test_native_wire_format_repairs_and_records_failed_usage(
-    monkeypatch, bad_content, finish
-):
-    monkeypatch.setenv("AI_STRUCTURED_OUTPUT_METHOD", "json_schema")
+async def test_responses_wire_format_repairs_and_records_failed_usage(monkeypatch, bad_content, finish):
+    monkeypatch.setenv("AI_STRUCTURED_OUTPUT_METHOD", "function_calling")
     requests = []
-
     def respond(request):
         payload = json.loads(request.content)
         requests.append(payload)
-        assert payload["response_format"]["type"] == "json_schema"
-        assert payload["response_format"]["json_schema"]["strict"] is True
-        assert (
-            payload["response_format"]["json_schema"]["schema"]
-            == Result.model_json_schema()
-        )
-        assert payload["enable_thinking"] is False
-        assert "tools" not in payload
+        assert request.url.path.endswith('/responses')
+        assert payload['store'] is False and 'response_format' not in payload
+        assert payload['tools'][0]['name'] == 'Result' and payload['tools'][0]['strict'] is False
         first = len(requests) == 1
-        return httpx2.Response(
-            200,
-            json={
-                "id": "test",
-                "object": "chat.completion",
-                "created": 0,
-                "model": "qwen3.7-flash",
-                "choices": [
-                    {
-                        "index": 0,
-                        "finish_reason": finish if first else "stop",
-                        "message": {
-                            "role": "assistant",
-                            "content": bad_content if first else '{"value":2}',
-                        },
-                    }
-                ],
-                "usage": {
-                    "prompt_tokens": 10,
-                    "completion_tokens": 5,
-                    "total_tokens": 15,
-                },
-            },
-        )
-
+        return httpx2.Response(200, json=wire_response(bad_content if first else '{"value":2}', truncated=first and finish == 'length'))
     async with httpx2.AsyncClient(transport=httpx2.MockTransport(respond)) as client:
-        model = ChatOpenAI(
-            model="qwen3.7-flash",
-            api_key=cast(Any, "test"),
-            base_url=llm.BASE_URLS["dashscope"],
-            max_retries=0,
-            extra_body={"enable_thinking": False},
-            http_async_client=client,
-        )
+        model = ChatOpenAI(model='qwen3.7-flash', api_key=cast(Any, 'test'), max_retries=0,
+                           use_responses_api=True, store=False, http_async_client=client)
         messages: list[BaseMessage] = [HumanMessage(content="Return JSON with value=2")]
-        result, corrected, first_usage = await llm.structured_attempt(
-            model, messages, Result, "test", runtime=None, logical_attempt=1
-        )
+        result, corrected, first_usage = await llm.structured_attempt(model, messages, Result, 'test', logical_attempt=1)
         assert result is None
-        result, _, second_usage = await llm.structured_attempt(
-            model, corrected, Result, "test", runtime=None, logical_attempt=2
-        )
+        result, _, second_usage = await llm.structured_attempt(model, corrected, Result, 'test', logical_attempt=2)
         assert result == Result(value=2)
         assert first_usage.outputTokens == second_usage.outputTokens == 5
         assert len(requests) == 2
@@ -110,21 +70,15 @@ def test_default_and_supported_protocol_selection(monkeypatch):
     monkeypatch.delenv("AI_STRUCTURED_OUTPUT_METHOD", raising=False)
     model = llm.build_model("dashscope", "test", "qwen3.7-flash")
     calls = []
-    monkeypatch.setattr(
-        ChatOpenAI,
-        "with_structured_output",
-        lambda self, schema, **kwargs: calls.append(kwargs),
-    )
+    monkeypatch.setattr(ChatOpenAI, 'with_structured_output', lambda self, schema, **kwargs: calls.append(kwargs))
     llm.structured_output(model, Result)
     assert calls == [{"method": "function_calling", "include_raw": True}]
-    assert cast(ChatOpenAI, model).extra_body == {"enable_thinking": False}
-    monkeypatch.setenv("AI_STRUCTURED_OUTPUT_METHOD", "json_schema")
-    other = llm.build_model("deepseek", "test", "deepseek-chat")
-    with pytest.raises(ValueError, match="provider/model"):
-        llm.structured_output(other, Result)
-    monkeypatch.setenv("AI_STRUCTURED_OUTPUT_METHOD", "invalid")
-    with pytest.raises(ValueError, match="AI_STRUCTURED_OUTPUT_METHOD"):
-        llm.structured_output(model, Result)
+    assert model.use_responses_api is True
+    assert model.extra_body == {"enable_thinking": False}
+    for method in ('json_schema', 'invalid'):
+        monkeypatch.setenv('AI_STRUCTURED_OUTPUT_METHOD', method)
+        with pytest.raises(ValueError, match='AI_STRUCTURED_OUTPUT_METHOD'):
+            llm.structured_output(model, Result)
 
 
 @pytest.mark.parametrize('tool', [False, True])
@@ -137,7 +91,7 @@ async def test_local_repair_accepts_incomplete_question_without_another_call(mon
     raw = AIMessage(content='' if tool else source,
                     additional_kwargs={'tool_calls': [{'id':'repair','type':'function','function':{'name':'ParsedQuestion','arguments':source}}]} if tool else {},
                     usage_metadata={'input_tokens':10,'output_tokens':5,'total_tokens':15},
-                    response_metadata={'finish_reason':'stop'})
+                    response_metadata={'finish_reason':'stop', 'status':'completed', 'object':'response'})
     class Runner:
         async def ainvoke(self, messages, config=None):
             return {'raw':raw,'parsed':None,'parsing_error':ValueError('invalid JSON')}
@@ -240,7 +194,7 @@ async def test_wire_validation_cannot_be_bypassed_by_parsed_object(monkeypatch, 
     from langchain_core.messages import AIMessage
 
     # Construct malformed provider envelopes without SDK normalization hiding them.
-    raw = AIMessage(content='', usage_metadata={'input_tokens': 10, 'output_tokens': 5, 'total_tokens': 15})
+    raw = AIMessage(content='', response_metadata={'status': 'completed', 'object': 'response'}, usage_metadata={'input_tokens': 10, 'output_tokens': 5, 'total_tokens': 15})
     raw.additional_kwargs['tool_calls'] = wire
     response = {'raw': raw, 'parsed': Result(value=1), 'parsing_error': None}
     with pytest.raises(ValueError, match='tool'):
@@ -338,23 +292,19 @@ async def test_default_tool_protocol_correction_pairs_every_call(monkeypatch, ar
         payload = json.loads(request.content)
         requests.append(payload)
         pending = set()
-        for message in payload['messages']:
-            if message['role'] == 'assistant':
-                pending.update(call['id'] for call in message.get('tool_calls', []))
-            elif message['role'] == 'tool':
-                pending.remove(message['tool_call_id'])
+        for item in payload['input']:
+            if item['type'] == 'function_call':
+                pending.add(item['call_id'])
+            elif item['type'] == 'function_call_output':
+                pending.remove(item['call_id'])
             else:
                 assert not pending, 'unanswered tool call before user message'
         assert not pending
-        assert payload['tools'][0]['function']['name'] == 'Result'
-        return httpx2.Response(200, json={
-            'id': 'test', 'object': 'chat.completion', 'created': 0, 'model': 'qwen3.7-flash',
-            'choices': [{'index': 0, 'finish_reason': 'tool_calls', 'message': {'role': 'assistant', 'content': None,
-                'tool_calls': [{'id': f'call-{len(requests)}', 'type': 'function', 'function': {
-                    'name': 'Result', 'arguments': arguments if len(requests) == 1 else '{"value":2}'}}]}}],
-            'usage': {'prompt_tokens': 10, 'completion_tokens': 5, 'total_tokens': 15}})
+        assert request.url.path.endswith('/responses') and payload['tools'][0]['name'] == 'Result'
+        return httpx2.Response(200, json=wire_response(arguments if len(requests) == 1 else '{"value":2}', call_id=f'call-{len(requests)}'))
     async with httpx2.AsyncClient(transport=httpx2.MockTransport(respond)) as client:
-        model = ChatOpenAI(model='qwen3.7-flash', api_key=cast(Any, 'test'), max_retries=0, http_async_client=client)
+        model = ChatOpenAI(model='qwen3.7-flash', api_key=cast(Any, 'test'), max_retries=0,
+                           use_responses_api=True, store=False, http_async_client=client)
         result, usage, failure = await llm.structured_call(model, [HumanMessage(content='Extract')], Result, 'test')
     assert result == Result(value=2) and failure is None
     assert len(requests) == len(usage) == 2 and sum(item.outputTokens for item in usage) == 10

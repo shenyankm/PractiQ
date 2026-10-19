@@ -22,6 +22,13 @@ from tests.support import (
 )
 
 
+@pytest.fixture(autouse=True)
+def tencent_boundary(monkeypatch):
+    from tests.support import tencent_provider
+    return tencent_provider(monkeypatch)
+
+
+
 def stem_hash(stem):
     return hashlib.sha256(stem.strip().encode()).hexdigest()
 

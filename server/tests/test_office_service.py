@@ -123,7 +123,7 @@ def test_engine_identity_rejects_unconfigured_or_invalid_engine(tmp_path, case):
 
 
 async def test_worker_protocol_keeps_stdin_open_and_preserves_sheet_order_and_empty_csv(tmp_path, monkeypatch):
-    config = settings(tmp_path)
+    config = replace(settings(tmp_path), max_document_pages=150)
     monkeypatch.setenv("LLM_API_KEY", "must-not-inherit")
     monkeypatch.setenv("AI_SERVICE_TOKEN", "must-not-inherit")
     monkeypatch.setenv("OPENAI_API_KEY", "must-not-inherit")
@@ -134,7 +134,7 @@ async def test_worker_protocol_keeps_stdin_open_and_preserves_sheet_order_and_em
     assert [(item.name, item.source_type, item.media_type, item.payload, item.has_content) for item in converted] == [
         ("source-Z.csv", "csv", "text/csv", b"1,2\n", True), ("source-A.csv", "csv", "text/csv", b"", False)]
     assert worker.request == {"type": "convert", "engine": str(config.office_executable), "version": config.office_version,
-                              "source": str(Path(worker.request["source"])), "output": str(Path(worker.request["output"])), "mode": "text"}
+                              "source": str(Path(worker.request["source"])), "output": str(Path(worker.request["output"])), "mode": "text", "maxPages": 150}
     assert Path(worker.request["source"]).name == "source.xlsx"
     assert worker.arguments == (sys.executable, "-m", "practiq_ai.office")
     env = worker.options["env"]

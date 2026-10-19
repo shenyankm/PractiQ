@@ -9,8 +9,10 @@ import sys
 import threading
 import time
 from contextlib import contextmanager
+from io import BytesIO
 from pathlib import Path
 from uuid import uuid4
+from zipfile import ZipFile
 
 import httpx
 import pytest
@@ -36,6 +38,8 @@ async def service(tmp_path, disposable_databases):
         "LLM_BASE_URL": f"http://127.0.0.1:{sock.getsockname()[1]}/v1",
         "LLM_MODEL": "synthetic-model",
         "DATABASE_URI": db.uri, "AI_STORAGE_DIR": str(tmp_path / "files"),
+        "AI_TENCENT_SECRET_ID": "synthetic-id", "AI_TENCENT_SECRET_KEY": "synthetic-key",
+        "PRACTIQ_TEST_TENCENT_DIR": str(tmp_path / "tencent"),
     }
 
     @contextmanager
@@ -45,7 +49,7 @@ async def service(tmp_path, disposable_databases):
                if not key.startswith(("AI_", "LLM_")) and not key.lower().endswith("_proxy")}
         # A dead proxy makes loopback bypass part of this end-to-end check.
         env.update(ALL_PROXY="http://127.0.0.1:9", NO_PROXY="")
-        env["PYTHONPATH"] = str(Path(__file__).resolve().parents[1] / "src")
+        env["PYTHONPATH"] = os.pathsep.join(str(path) for path in (Path(__file__).resolve().parents[1] / "src", Path(__file__).resolve().parents[1]))
         env.update(bootstrap, LLM_PROVIDER="openai")
         if read_only:
             env["AI_READ_ONLY"] = "1"
@@ -55,7 +59,7 @@ async def service(tmp_path, disposable_databases):
             port_socket.bind(("127.0.0.1", 0))
             port = port_socket.getsockname()[1]
         with (tmp_path / "service.log").open("w+") as log:
-            process = subprocess.Popen([sys.executable, "-m", "uvicorn", "practiq_ai.webapp:app",
+            process = subprocess.Popen([sys.executable, "-m", "uvicorn", "tests.tencent_service:app",
                                         "--host", "127.0.0.1", "--port", str(port), "--workers", "1"],
                                        stdout=log, stderr=log, cwd=tmp_path, env=env, text=True)
             try:
@@ -119,12 +123,11 @@ def wait_task(client, path, expected):
         time.sleep(0.05)
 
 
-@pytest.mark.parametrize("kind", ["text", "csv", "image", "pdf"])
+@pytest.mark.parametrize("kind", ["text", "image", "pdf"])
 def test_e2e_upload_parse_artifacts_and_restart(service, kind):
     start, calls = service
     data, media, name = {
         "text": (b"Synthetic recovery question", "text/plain", "quiz.txt"),
-        "csv": (b"Question,Answer\nSynthetic recovery question,A\n", "text/csv", "quiz.csv"),
         "image": (make_image(), "image/png", "quiz.png"),
         "pdf": (make_blank_pdf(1), "application/pdf", "quiz.pdf"),
     }[kind]
@@ -140,11 +143,15 @@ def test_e2e_upload_parse_artifacts_and_restart(service, kind):
         state = wait_task(client, path, "COMPLETED")
         assert state["status"] == "SUCCEEDED" and state["failures"] == []
         assert state["result"]["questions"][0]["stem"] == "Synthetic recovery question"
-        expected_calls = 2 if kind in {"image", "pdf"} else 1
+        expected_calls = 1
         assert len(state["usage"]) == expected_calls and state["unknownUsageCalls"] == []
         assert client.post("/api/document-tasks", json=request).json() == receipt
         preview = client.get(path + "/preview")
         assert preview.status_code == 200 and preview.json()["units"][0]["questions"] == state["result"]["questions"]
+        assert preview.json()["document"] == document
+        original = {key: document[key] for key in ("objectKey", "sha256", "sizeBytes", "mediaType")}
+        original_read = client.post("/api/artifacts/read?thread_id=" + receipt["threadId"], json=original)
+        assert original_read.status_code == 200 and original_read.content == data
         references = [v["imageRef"] for v in state["result"]["visualElements"] if v.get("imageRef")]
         if kind in {"image", "pdf"}:
             assert references, "Vision output must expose a downloadable verified crop"
@@ -155,6 +162,17 @@ def test_e2e_upload_parse_artifacts_and_restart(service, kind):
             assert hashlib.sha256(response.content).hexdigest() == reference["sha256"]
             assert len(response.content) == reference["sizeBytes"]
             assert client.post("/api/artifacts/read?thread_id=" + receipt["threadId"], json={**reference, "sizeBytes": reference["sizeBytes"] + 1}).status_code == 404
+        exported = client.get(path + "/export", params={"checkpoint_id": state["checkpointId"]})
+        assert exported.status_code == 200, exported.text
+        with ZipFile(BytesIO(exported.content)) as bank:
+            manifest = json.loads(bank.read("manifest.json"))
+            assert manifest["format"] == "practiq-question-bank" and manifest["version"] == 2
+            questions = json.loads(bank.read("questions.json"))
+            assert questions["result"]["schemaVersion"] == 3
+            assert questions["result"]["questions"] == state["result"]["questions"]
+            assert "parserJobs" not in questions and "usage" not in questions
+            for reference in references:
+                assert hashlib.sha256(bank.read("resources/" + reference["objectKey"])).hexdigest() == reference["sha256"]
         assert "practiq_workers_available" in client.get("/api/metrics", headers={"Authorization": "Bearer e2e-token"}).text
     with start(read_only=True) as client:
         restored = client.get(path).json()
@@ -163,7 +181,9 @@ def test_e2e_upload_parse_artifacts_and_restart(service, kind):
         assert not restored['modelConfigured'] and not restored['resumeCompatible']
         assert client.post("/api/document-tasks", json=request).json() == receipt
         assert client.get(path, headers={'Authorization': ''}).status_code == 401
-        assert client.get(path + '/preview').status_code == 200
+        assert client.get(path + '/preview').json()["document"] == document
+        assert client.post("/api/artifacts/read?thread_id=" + receipt["threadId"], json=original).content == data
+        assert client.get(path + "/export").status_code == 200
         for reference in references:
             assert client.post('/api/artifacts/read?thread_id=' + receipt['threadId'], json=reference).status_code == 200
         for url, body in (
@@ -181,6 +201,8 @@ def test_e2e_upload_parse_artifacts_and_restart(service, kind):
         assert client.get('/api/document-tasks', params={'sha256': document['sha256']}).json()['items'] == listing
         assert client.get('/api/document-tasks', params={'sha256': 'invalid'}).status_code == 422
     assert len(calls.read_text().splitlines()) == expected_calls, "Reads, restart and replay must not charge again"
+    cloud_calls = [json.loads(line) for line in (calls.parent / "tencent/calls.jsonl").read_text().splitlines()]
+    assert [item["action"] for item in cloud_calls] == ["SubmitMultimodalDocParseJob", "DescribeMultimodalDocParseJob"]
 
 
 def test_e2e_review_acceptance_is_explicit_and_survives_restart(service):

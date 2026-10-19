@@ -1,6 +1,8 @@
 """Office preparation retains raw provenance and deterministic sheet boundaries."""
 
+import base64
 import hashlib
+import json
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Literal, cast
@@ -11,7 +13,6 @@ import pytest
 
 from practiq_ai import execution, normalization, office_service, task_api
 from practiq_ai.contracts import (
-    DocumentReference,
     DocumentTaskCreate,
     DocumentTaskReparse,
     DocumentUploadRequest,
@@ -20,7 +21,15 @@ from practiq_ai.errors import DocumentProcessingError
 from practiq_ai.extractors import ExtractedDocument
 from practiq_ai.graphs import document
 from tests.db_support import setup_api
-from tests.support import MemoryStore, make_blank_pdf, make_image, object_store, parsed
+from tests.support import (
+    MemoryStore,
+    make_blank_pdf,
+    make_image,
+    object_store,
+    ocr_text_page,
+    parsed,
+    tencent_provider,
+)
 
 pytestmark = pytest.mark.usefixtures("disposable_databases")
 
@@ -45,54 +54,38 @@ async def setup_office(monkeypatch, tmp_path, kind: Literal["docx", "xlsx"] = "x
     return service, reference, model, store, identity
 
 
-async def test_two_sheet_import_retains_raw_source_order_mode_and_per_call_usage(monkeypatch, tmp_path):
+async def test_tencent_office_pages_retain_raw_source_order_receipts_and_usage(monkeypatch, tmp_path):
     def respond(messages, schema):
-        return parsed("First" if messages[-1].content.endswith("First") else "Second")
+        return parsed("First" if "PRIMARY is page 1" in messages[1].content else "Second")
 
-    service, reference, model, store, identity = await setup_office(monkeypatch, tmp_path, responses=[respond] * 4)
-    conversions = []
-
-    async def convert(raw, payload, **options):
-        conversions.append((raw, payload, options))
-        return [office_service.ConvertedSource("Sheet1.csv", "csv", "text/csv", b"First", True),
-                office_service.ConvertedSource("Hidden.csv", "csv", "text/csv", b"Second", True),
-                office_service.ConvertedSource("Empty.csv", "csv", "text/csv", b"", False)]
-
-    async def extract(kind, payload):
-        assert kind == "csv"
-        return ExtractedDocument(payload.decode())
-
+    service, reference, model, _, _ = await setup_office(monkeypatch, tmp_path, responses=[respond] * 4)
+    calls = tencent_provider(monkeypatch, [ocr_text_page("First"), ocr_text_page("Second")])
+    convert = AsyncMock(side_effect=AssertionError("Small Office sources go directly to Tencent"))
     monkeypatch.setattr(office_service, "convert_office", convert)
-    monkeypatch.setattr(document, "extract", extract)
-    request = DocumentTaskCreate(requestId=uuid4(), document=reference, officeMode="text")
+    request = DocumentTaskCreate(requestId=uuid4(), document=reference)
     receipt = await task_api.create_task(request)
     assert await task_api.create_task(request) == receipt
     await service.wait_idle()
     detail = await task_api.get_task(receipt["threadId"])
     assert detail["state"] == "COMPLETED", detail
-    assert len(model.calls) == 2 and len(detail["usage"]) == 2
+    assert len(model.calls) == len(detail["usage"]) == 2
     assert [q["stem"] for q in detail["result"]["questions"]] == ["First", "Second"]
     task, snapshot, _ = await task_api._read_task(service, receipt["threadId"])
-    assert task["document"] == reference.model_dump(mode="json")
-    assert snapshot.values["execution"]["document"] == reference.model_dump(mode="json")
-    manifest = snapshot.values["normalization"]
-    assert manifest["engine"] == identity and manifest["mode"] == "text"
-    assert [item["name"] for item in manifest["sources"]] == ["Sheet1.csv", "Hidden.csv", "Empty.csv"]
-    assert [item["hasContent"] for item in manifest["sources"]] == [True, True, False]
-    assert len(conversions) == 1 and conversions[0][0] == reference
-    assert conversions[0][1] == await store.get_verified(reference)
-    assert 0 < conversions[0][2]["timeout"] <= 180
-    assert snapshot.values["chunkSources"] == [{"fileName": "Sheet1.csv", "sourceType": "csv", "sourceIndex": 0},
-                                               {"fileName": "Hidden.csv", "sourceType": "csv", "sourceIndex": 1}]
-    assert len((await task_api.list_tasks(sha256=reference.sha256, office_mode="text"))["items"]) == 1
-    assert not (await task_api.list_tasks(sha256=reference.sha256, office_mode="pdf"))["items"]
-    with pytest.raises(DocumentProcessingError) as conflict:
-        await task_api.create_task(request.model_copy(update={"officeMode": "pdf"}))
-    assert conflict.value.code == "REQUEST_CONFLICT"
+    assert task["document"] == snapshot.values["execution"]["document"] == reference.model_dump(mode="json")
+    assert snapshot.values["normalization"] is None and len(snapshot.values["ocrPageRefs"]) == 2
+    from practiq_ai.office import visible_workbook
+    original_bytes = await document.get_object_store().get_verified(reference)
+    assert base64.b64decode(calls[0][1]["FileBase64"]) == visible_workbook(original_bytes)
+    assert snapshot.values["inputParts"][0]["preparation"] == "visible_excel_sheets"
+    assert snapshot.values["inputParts"][0]["reference"]["sha256"] != reference.sha256
+    assert detail["parserJobs"][0]["resultSaved"] and detail["parserJobs"][0]["successPageCount"] == 2
+    convert.assert_not_awaited()
+    assert len(calls) == 2
     child = await task_api.reparse_task(receipt["threadId"], DocumentTaskReparse(requestId=uuid4()))
     await service.wait_idle()
-    _, child_snapshot, _ = await task_api._read_task(service, child["threadId"])
-    assert child_snapshot.values["officeMode"] == "text" and len(conversions) == 2
+    child_detail = await task_api.get_task(child["threadId"])
+    assert child_detail["state"] == "COMPLETED" and len(model.calls) == 4
+    assert len(calls) == 4  # Only explicit parse-again creates a second Tencent job.
 
 
 async def test_durable_manifest_replays_without_conversion_and_rejects_cross_source_or_engine(monkeypatch, tmp_path):
@@ -132,34 +125,27 @@ async def test_durable_manifest_replays_without_conversion_and_rejects_cross_sou
     assert len(calls) == 1
 
 
-async def test_sheet_text_limit_is_shared_and_does_not_merge_sheet_chunks(monkeypatch, tmp_path):
-    _, reference, _, store, identity = await setup_office(monkeypatch, tmp_path)
-    monkeypatch.setenv("AI_MAX_TOTAL_INPUT_CHARS", "9")
-    refs = [await store.put_artifact(payload, source_sha256=reference.sha256, kind="office", index=index, media_type="text/csv")
-            for index, payload in enumerate((b"First", b"Second"))]
-    manifest = normalization.OfficeNormalization(sourceSha256=reference.sha256, mode="text", engine=identity,
-        sources=[normalization.NormalizedSource(index=index, name=f"Sheet{index}.csv", sourceType="csv", hasContent=True, reference=ref)
-                 for index, ref in enumerate(refs)])
-
-    async def extract(kind, payload):
-        return ExtractedDocument(payload.decode())
-
-    monkeypatch.setattr(document, "extract", extract)
-    state = cast(Any, {"document": reference.model_dump(mode="json"), "normalization": manifest.model_dump(mode="json")})
-    prepared = await document._prepare(state)
-    assert prepared["truncated"] and len(prepared["textUnits"]) == 2
-    assert await store.get_verified(DocumentReference.model_validate(reference))
-    state.update(prepared)
-    chunks = await document._assemble(state)
-    assert len(chunks["chunkRefs"]) == 2
-    assert chunks["chunkSpans"][0]["end"] <= chunks["chunkSpans"][1]["start"]
+async def test_tencent_sheet_text_limit_is_shared_and_never_silently_truncates(monkeypatch, tmp_path):
+    service, reference, model, store, _ = await setup_office(monkeypatch, tmp_path)
+    monkeypatch.setenv("AI_MAX_TOTAL_INPUT_CHARS", "100")
+    tencent_provider(monkeypatch, [ocr_text_page("First" * 30), ocr_text_page("Second" * 30)])
+    receipt = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=reference))
+    await service.wait_idle()
+    detail = await task_api.get_task(receipt["threadId"])
+    assert detail["state"] == "FAILED" and detail["blocking"] == ["TENCENT_RESULT_INVALID"], detail
+    assert not model.calls
+    assert await store.get_verified(reference)
+    assert detail["parserJobs"][0]["resultSaved"]
 
 
 async def test_failed_manifest_write_cannot_advance_to_extraction_or_models(monkeypatch, tmp_path):
     service, reference, model, _, _ = await setup_office(monkeypatch, tmp_path, kind="docx")
 
+    monkeypatch.setenv("AI_TENCENT_INPUT_MAX_BYTES", "1024")
+    cloud_calls = tencent_provider(monkeypatch, [ocr_text_page("First")])
+
     async def convert(*args, **kwargs):
-        return [office_service.ConvertedSource("source.txt", "text", "text/plain", b"First", True)]
+        return [office_service.ConvertedSource("source.pdf", "pdf", "application/pdf", make_blank_pdf(1), True)]
 
     original = service.db.store.aput
 
@@ -170,22 +156,24 @@ async def test_failed_manifest_write_cannot_advance_to_extraction_or_models(monk
 
     monkeypatch.setattr(office_service, "convert_office", convert)
     monkeypatch.setattr(service.db.store, "aput", fail)
-    receipt = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=reference, officeMode="text"))
+    receipt = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=reference))
     await service.wait_idle()
     result = await task_api.get_task(receipt["threadId"])
     assert result["state"] == "FAILED" and result["blocking"] == ["EXECUTION_STORE_UNAVAILABLE"]
     _, snapshot, _ = await task_api._read_task(service, receipt["threadId"])
     assert not snapshot.values["normalization"] and not snapshot.values["textRef"]
-    assert not model.calls
+    assert not model.calls and not cloud_calls
 
 
 async def test_separate_sheets_with_same_printed_source_id_remain_separate_questions(monkeypatch, tmp_path):
     def respond(messages, schema):
-        result = parsed("First" if messages[-1].content.endswith("First") else "Second")
-        result["questions"][0]["id"] = "printed:1"
+        result = parsed("First" if "PRIMARY is page 1" in messages[1].content else "Second")
+        result["questions"][0]["id"] = "page:1:printed:1" if "PRIMARY is page 1" in messages[1].content else "page:2:printed:1"
         return result
 
-    service, reference, model, _, _ = await setup_office(monkeypatch, tmp_path, responses=[respond] * 2)
+    service, reference, model, _, _ = await setup_office(monkeypatch, tmp_path, responses=[respond] * 4)
+
+    tencent_provider(monkeypatch, [ocr_text_page("First"), ocr_text_page("Second")])
 
     async def convert(*args, **kwargs):
         return [office_service.ConvertedSource("A.csv", "csv", "text/csv", b"First", True),
@@ -196,27 +184,30 @@ async def test_separate_sheets_with_same_printed_source_id_remain_separate_quest
 
     monkeypatch.setattr(office_service, "convert_office", convert)
     monkeypatch.setattr(document, "extract", extract)
-    receipt = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=reference, officeMode="text"))
+    receipt = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=reference))
     await service.wait_idle()
     detail = await task_api.get_task(receipt["threadId"])
     assert detail["state"] == "COMPLETED", detail
     assert [q["stem"] for q in detail["result"]["questions"]] == ["First", "Second"]
     assert [q["id"] for q in detail["result"]["questions"]] == ["q0", "q1"]
-    assert len(model.calls) == 2
+    assert len(model.calls) == 4
 
 
 async def test_material_and_blank_anchors_remain_with_their_own_sheet(monkeypatch, tmp_path):
     def respond(messages, schema):
-        stem = "First" if messages[-1].content.endswith("First") else "Second"
+        stem = "First" if "PRIMARY is page 1" in messages[1].content else "Second"
+        prefix = "page:1" if "PRIMARY is page 1" in messages[1].content else "page:2"
         return {"questions": [
-            {"id": "fragment:1:bank", "stem": stem, "sourceText": stem, "answerMode": "word_bank",
+            {"id": prefix + ":bank", "stem": stem, "sourceText": stem, "answerMode": "word_bank",
              "options": [{"label": "A", "content": "word"}], "passage": [
-                 {"partType": "text", "textValue": stem}, {"partType": "blank", "questionId": "fragment:1:bank:1"}]},
-            {"id": "fragment:1:bank:1", "parentId": "fragment:1:bank", "optionSourceId": "fragment:1:bank",
+                 {"partType": "text", "textValue": stem}, {"partType": "blank", "questionId": prefix + ":bank:1"}]},
+            {"id": prefix + ":bank:1", "parentId": prefix + ":bank", "optionSourceId": prefix + ":bank",
              "stem": stem + " gap", "sourceText": stem, "answerMode": "choice", "choiceVariant": "single",
              "answerPayload": {"correct": ["A"]}}], "groups": []}
 
-    service, reference, model, _, _ = await setup_office(monkeypatch, tmp_path, responses=[respond] * 2)
+    service, reference, model, _, _ = await setup_office(monkeypatch, tmp_path, responses=[respond] * 4)
+
+    tencent_provider(monkeypatch, [ocr_text_page("First"), ocr_text_page("Second")])
 
     async def convert(*args, **kwargs):
         return [office_service.ConvertedSource("A.csv", "csv", "text/csv", b"First", True),
@@ -227,7 +218,7 @@ async def test_material_and_blank_anchors_remain_with_their_own_sheet(monkeypatc
 
     monkeypatch.setattr(office_service, "convert_office", convert)
     monkeypatch.setattr(document, "extract", extract)
-    receipt = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=reference, officeMode="text"))
+    receipt = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=reference))
     await service.wait_idle()
     detail = await task_api.get_task(receipt["threadId"])
     assert detail["state"] == "COMPLETED", detail
@@ -235,12 +226,13 @@ async def test_material_and_blank_anchors_remain_with_their_own_sheet(monkeypatc
     assert len(questions) == 4
     assert [(q["parentId"], q["optionSourceId"]) for q in (questions[1], questions[3])] == [("q0", "q0"), ("q2", "q2")]
     assert [q["passage"][-1]["questionId"] for q in (questions[0], questions[2])] == ["q1", "q3"]
-    assert len(model.calls) == 2
+    assert len(model.calls) == 4
 
 
 @pytest.mark.parametrize("kind", ["docx", "xlsx"])
-async def test_office_default_pdf_uses_existing_page_graph_and_preserves_raw_reference(monkeypatch, tmp_path, kind):
+async def test_office_direct_tencent_uses_shared_page_graph_and_preserves_raw_reference(monkeypatch, tmp_path, kind):
     service, reference, model, _, _ = await setup_office(monkeypatch, tmp_path, kind=kind, responses=[parsed()])
+    tencent_provider(monkeypatch, [ocr_text_page("First")])
 
     async def convert(*args, **kwargs):
         assert kwargs["mode"] == "pdf"
@@ -258,7 +250,7 @@ async def test_office_default_pdf_uses_existing_page_graph_and_preserves_raw_ref
     assert detail["state"] == "COMPLETED", detail
     assert detail["result"]["questions"][0]["stem"] == "First"
     _, snapshot, _ = await task_api._read_task(service, receipt["threadId"])
-    assert snapshot.values["effectiveSourceType"] == "pdf" and not snapshot.values["chunkSources"]
+    assert snapshot.values["effectiveSourceType"] == kind and not snapshot.values.get("chunkSources") and snapshot.values["normalization"] is None
     assert snapshot.values["document"] == reference.model_dump(mode="json")
     assert len(model.calls) == 1
 
@@ -284,3 +276,21 @@ async def test_invalid_manifest_is_never_treated_as_valid_resume_input(monkeypat
     with pytest.raises(DocumentProcessingError) as failure:
         await normalization.verified_normalization(reference, manifest, mode="text", store=store, config=normalization.load())
     assert failure.value.code == "OFFICE_MANIFEST_INVALID"
+
+
+@pytest.mark.parametrize("legacy_mode", ["pdf", "text"])
+async def test_reparse_legacy_office_mode_uses_automatic_routing_without_rewriting_parent(monkeypatch, tmp_path, legacy_mode):
+    service, reference, _, _, _ = await setup_office(monkeypatch, tmp_path, kind="docx")
+    tencent_provider(monkeypatch, [ocr_text_page("First")])
+    parent = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=reference, deduplicateQuestions=True))
+    await service.wait_idle()
+    async with service.db.connection() as conn:
+        await conn.execute("UPDATE document_runs SET input=jsonb_set(input,'{officeMode}',%s::jsonb) WHERE run_id=%s", (json.dumps(legacy_mode),parent['runId']))
+    before = await service.db.rows('SELECT input FROM document_runs WHERE run_id=%s', (parent['runId'],))
+    child = await task_api.reparse_task(parent['threadId'], DocumentTaskReparse(requestId=uuid4()))
+    await service.wait_idle()
+    detail = await task_api.get_task(child['threadId'])
+    assert detail['state'] == 'COMPLETED'
+    child_input = (await service.db.rows('SELECT input FROM document_runs WHERE run_id=%s', (child['runId'],)))[0]['input']
+    assert child_input.get('officeMode') is None and child_input['deduplicateQuestions']
+    assert await service.db.rows('SELECT input FROM document_runs WHERE run_id=%s', (parent['runId'],)) == before

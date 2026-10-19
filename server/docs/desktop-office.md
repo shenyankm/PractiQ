@@ -1,5 +1,14 @@
 # Office import in the independent AI service
 
+This page describes the historical LibreOffice deployment for recovering old
+tasks on their original deployment. New imports submit Word, PPT and Excel
+directly to [Tencent asynchronous parsing](tencent-document-parser.md), without
+local conversion modes. The same isolated deployment is also required to paginate
+new Office sources exceeding the active transport/type limit (8 MiB in default
+local mode); optional private COS staging raises that limit.
+New CSV imports remain unsupported; the sections below describe historical
+formats and recovery, not the current upload capability list.
+
 Office import runs in the independent service and its Web frontend. The practice app ships no Python or LibreOffice runtime and accepts downloaded question-bank ZIP files for offline practice. This guide retains its historical filename so existing links remain valid.
 
 ## Deployment

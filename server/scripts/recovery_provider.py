@@ -31,18 +31,20 @@ def app_for(log: Path, invalid_responses: int = 0, delay: float = 0) -> FastAPI:
             handle.flush()
             os.fsync(handle.fileno())
 
-    @app.post("/v1/chat/completions")
+    @app.post("/v1/responses")
     async def completion(request: Request):
         nonlocal call_count
         body = await request.json()
-        schema = body["tools"][0]["function"]["name"]
+        schema = body["tools"][0]["name"]
         result: dict[str, Any] = {"questions": [ParsedQuestion.model_validate({"stem": "Synthetic recovery question", "sourceText": "Synthetic recovery question"}).model_dump(mode="json")], "groups": []}
         if schema == "PageParseResult":
             result["figures"] = [{"description": "Synthetic figure", "bbox": [0.1, 0.1, 0.8, 0.8], "kind": "image"}]
+        if schema == "OcrPageParseResult":
+            result["figures"] = [{"elementIndex": 0, "description": "Synthetic figure", "kind": "image"}]
         if schema == "FigureChecks":
             result = {"figures": [{"index": 0, "complete": True, "role": "material", "bbox": [0.1, 0.1, 0.8, 0.8]}]}
         if schema == "GradeResult":
-            content = body["messages"][-1]["content"]
+            content = body["input"][-1]["content"]
             data = json.loads(content[0]["text"] if isinstance(content, list) else content)
             maximum = data["assessmentMaxCents"]
             result = {"scoreCents": maximum * 3 // 5, "maxCents": maximum,
@@ -54,10 +56,12 @@ def app_for(log: Path, invalid_responses: int = 0, delay: float = 0) -> FastAPI:
             await asyncio.to_thread(record, {"id": request_id, "schema": schema, "inputTokens": 10, "outputTokens": 5})
             call_count += 1
         await asyncio.sleep(delay)
-        return {"id": request_id, "object": "chat.completion", "created": 1, "model": body["model"],
-                "choices": [{"index": 0, "finish_reason": "tool_calls", "message": {"role": "assistant", "content": None,
-                    "tool_calls": [{"id": "call_" + request_id, "type": "function", "function": {"name": schema, "arguments": json.dumps(result)}}]}}],
-                "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15}}
+        return {"id": request_id, "object": "response", "created_at": 1, "status": "completed", "model": body["model"],
+                "error": None, "incomplete_details": None,
+                "output": [{"id": "fc_" + request_id, "type": "function_call", "call_id": "call_" + request_id,
+                            "status": "completed", "name": schema, "arguments": json.dumps(result)}],
+                "usage": {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15}}
+
 
     @app.get("/calls")
     async def calls():

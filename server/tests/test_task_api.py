@@ -1,4 +1,5 @@
 import asyncio
+import json
 from datetime import timedelta
 from typing import Any, cast
 from unittest.mock import AsyncMock
@@ -423,6 +424,8 @@ async def test_truncation_is_visible_and_not_manually_retryable(monkeypatch, pag
 
     api, reference, _ = await setup_api(monkeypatch)
     if pages:
+        from tests.support import tencent_pages
+        tencent_pages(monkeypatch, reference, 1)
         monkeypatch.setattr(document, 'extract', AsyncMock(side_effect=lambda *_: ExtractedDocument(text='', page_images=[make_image()])))
     class Runner:
         async def ainvoke(self, messages, config=None):
@@ -438,6 +441,11 @@ async def test_truncation_is_visible_and_not_manually_retryable(monkeypatch, pag
     assert state['failures'] == [{'stage': 'vision_parse' if pages else 'document_parse', 'index': 0,
                                   'code': 'OUTPUT_TRUNCATED', 'retryable': False, 'retriesRemaining': 0}]
     assert len(state['usage']) == 1 and state['unknownUsageCalls'] == []
+    preview = await task_api.review_task(created['threadId'])
+    assert preview['document'] == reference
+    assert len(preview['units']) == 1 and preview['units'][0]['questions'] == []
+    assert preview['units'][0]['sourceRef']
+    assert preview['units'][0]['stage'] == ('vision_parse' if pages else 'document_parse')
     assert 'retry_failed' not in state['allowedActions']
     with pytest.raises(DocumentProcessingError, match='retryable'):
         await task_api.control_task(created['threadId'], DocumentTaskControl(requestId=uuid4(), action='retry_failed', checkpointId=state['checkpointId']))
@@ -499,3 +507,51 @@ async def test_head_returns_only_current_read_state_without_building_usage_or_re
         assert (await http.get(endpoint)).status_code == 401
         response = await http.get(endpoint,headers={'Authorization':'Bearer head-test-token'})
         assert response.status_code == 200 and response.json() == head
+
+
+async def test_legacy_csv_reparse_returns_controlled_http_error_and_preserves_saved_task(monkeypatch):
+    service, reference, model = await setup_api(monkeypatch)
+    receipt = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
+    await service.wait_idle()
+    legacy = {**reference, 'sourceType':'csv', 'mediaType':'text/csv', 'fileName':'legacy.csv',
+              'objectKey':reference['objectKey'].replace('source.txt','source.csv')}
+    files = cast(FakeObjectStore, task_api.get_object_store())
+    files.blobs[legacy['objectKey']] = files.blobs[reference['objectKey']]
+    async with service.db.connection() as conn:
+        await conn.execute('UPDATE document_tasks SET document=%s WHERE thread_id=%s', (json.dumps(legacy),receipt['threadId']))
+    before = await task_api.get_task(receipt['threadId'])
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app, raise_app_exceptions=False), base_url='http://test') as http:
+        response = await http.post(f"/api/document-tasks/{receipt['threadId']}/reparse", json={'requestId':str(uuid4())}, headers={'Authorization':'Bearer test-token'})
+    assert response.status_code == 422, response.text
+    assert response.json()['detail']['code'] == 'DOCUMENT_SOURCE_TYPE_MISMATCH'
+    assert await task_api.get_task(receipt['threadId']) == before
+    assert len(model.calls) == 1
+
+
+@pytest.mark.parametrize('code', ['TENCENT_REQUEST_REJECTED', 'TENCENT_SUBMISSION_UNKNOWN', 'TENCENT_JOB_FAILED'])
+async def test_terminal_tencent_failure_has_no_resume_action(monkeypatch, code):
+    from practiq_ai import tencent
+    service, reference, model = await setup_api(monkeypatch)
+    monkeypatch.setattr(tencent, 'request', AsyncMock(side_effect=DocumentProcessingError(502, 'terminal', code)))
+    created = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
+    await service.wait_idle()
+    detail = await task_api.get_task(created['threadId'])
+    assert detail['state'] == 'FAILED' and 'resume' not in detail['allowedActions'] and not model.calls
+    with pytest.raises(DocumentProcessingError, match='new document'):
+        await task_api.control_task(created['threadId'], DocumentTaskControl(requestId=uuid4(), action='resume', checkpointId=detail['checkpointId']))
+
+
+async def test_detail_exposes_all_three_hundred_parser_receipts_in_part_order(monkeypatch):
+    from practiq_ai.execution import namespace
+    service, reference, model = await setup_api(monkeypatch)
+    created = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
+    await service.wait_idle()
+    for index in [*range(0,300,2), *range(1,300,2)]:
+        await service.db.store.aput(namespace(created['threadId'], 'tencent_jobs'), f'source-0-{index}',
+                                   {'status':'SUBMITTING' if index == 299 else 'Success',
+                                    'taskId':None if index == 299 else str(index), 'requestId':f'request-{index}'})
+    detail = await task_api.get_task(created['threadId'])
+    assert len(detail['parserJobs']) == 300
+    assert [item['requestId'] for item in detail['parserJobs']] == [f'request-{index}' for index in range(300)]
+    assert detail['parserJobs'][-1]['status'] == 'SUBMITTING' and detail['parserJobs'][-1]['taskId'] is None
+    assert len(model.calls) == 1

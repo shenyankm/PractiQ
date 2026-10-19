@@ -6,6 +6,21 @@ import { capabilities, newTaskId, preview, runId, summary, task, taskId } from "
 import type { DocumentTaskDetail } from "./contracts.generated";
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+
+it("shows uncertain Tencent submission and saved jobs without automatically retrying", async () => {
+  const detail: DocumentTaskDetail = { ...task, state: "FAILED", status: null, result: null, allowedActions: ["resume"], parserJobs: [
+    { taskId: null, requestId: null, status: "SUBMITTING", resultSaved: false },
+    { taskId: "cloud-job-known", requestId: "request-known", status: "Success", successPageCount: 3, failedPageCount: 0, resultSaved: true },
+  ] };
+  const http = fakeHTTP(detail); const user = userEvent.setup();
+  render(<App />); await connect(user);
+  await user.click(await screen.findByRole("button", { name: /sample.docx/ }));
+  expect(await screen.findByText(/上次腾讯提交结果尚未确认/)).toBeTruthy();
+  expect(screen.getByText(/腾讯文档识别：已保存 1 个任务结果 · 处理中 0 个任务/)).toBeTruthy();
+  await user.click(screen.getByText("模型用量与任务诊断"));
+  expect(screen.getByText(/"taskId": "cloud-job-known"/)).toBeTruthy();
+  expect(http.calls.every(call => call.method === "GET")).toBe(true);
+});
 type Call = { url: string; method: string; body: Record<string, unknown> | null; auth: string | null };
 function fakeHTTP(initial: DocumentTaskDetail = task) {
   const calls: Call[] = [];
@@ -77,10 +92,10 @@ it("keeps Token in memory, clears it on remount, and performs no HTTP before con
   await connect(user);
   const rules = screen.getByText("格式与导入规则", { selector: "summary" });
   expect(rules.closest("details")?.open).toBe(false);
-  expect(screen.getByText("服务支持：PDF、TXT、CSV、PNG/JPEG、Word (.doc)、Word (.docx)、Excel (.xls)、Excel (.xlsx)").closest("details")).toBeNull();
+  expect(screen.getByText("服务支持：PDF、TXT、Markdown、PNG/JPEG、Word (.doc)、Word (.docx)、PPT (.ppt)、PPT (.pptx)、Excel (.xls)、Excel (.xlsx)").closest("details")).toBeNull();
   await user.click(rules);
   expect(rules.closest("details")?.open).toBe(true);
-  expect(screen.getByText("服务支持：PDF、TXT、CSV、PNG/JPEG、Word (.doc)、Word (.docx)、Excel (.xls)、Excel (.xlsx)")).toBeTruthy();
+  expect(screen.getByText("服务支持：PDF、TXT、Markdown、PNG/JPEG、Word (.doc)、Word (.docx)、PPT (.ppt)、PPT (.pptx)、Excel (.xls)、Excel (.xlsx)")).toBeTruthy();
   expect(screen.queryByLabelText("服务访问令牌")).toBeNull(); expect(persist).not.toHaveBeenCalled();
   expect(http.calls.every(call => call.auth === "Bearer fake-service-token" && !call.url.includes("fake-service-token") && call.method === "GET")).toBe(true);
   expect(screen.queryByRole("button", { name: "断开连接" })).toBeNull();
@@ -94,13 +109,15 @@ it("selection is passive; explicit Start performs bounded SHA upload and task cr
   expect(screen.getByText(/启用 AI 复核会增加调用与费用/)).toBeTruthy();
   expect((screen.getByRole("checkbox", { name: "自动去重" }) as HTMLInputElement).checked).toBe(false);
   expect(screen.getByText(/仅去除完全相同的题目或整组复合题；关闭则全部保留/)).toBeTruthy();
-  await user.selectOptions(screen.getByLabelText("Word / Excel 转换模式"), "text");
+  expect((screen.getByLabelText("选择文档") as HTMLInputElement).accept).not.toContain(".csv");
+  expect(screen.queryByLabelText("Word / Excel 转换模式")).toBeNull();
   await user.upload(screen.getByLabelText("选择文档"), new File(["office"], "document.docx"));
   expect(screen.getByText(/尚未提交/)).toBeTruthy(); expect(http.calls.filter(call => call.method !== "GET")).toHaveLength(0);
   await user.click(screen.getByRole("button", { name: "开始导入" })); await screen.findByText(/任务已创建。页面/);
   const mutations = http.calls.filter(call => call.method !== "GET"); expect(mutations.map(call => call.method)).toEqual(["POST", "PUT", "POST"]);
   expect(mutations[0].body).toMatchObject({ sourceType: "docx", sizeBytes: 6 });
-  expect(mutations[2].body).toMatchObject({ officeMode: "text", graphId: "document_parser" });
+  expect(mutations[2].body).toMatchObject({ graphId: "document_parser" });
+  expect(mutations[2].body).not.toHaveProperty("officeMode");
   expect(mutations[2].body).not.toHaveProperty("deduplicateQuestions");
   expect(mutations[2].body?.requestId).toMatch(/^[a-f0-9-]{36}$/);
 });
@@ -108,7 +125,7 @@ it.each([false, true])("never automatically replays uncertain POST, and an expli
   const user = userEvent.setup(); const http = fakeHTTP(); let fail = true;
   let rejectCreate!: () => void;
   http.server.intercept = (url, init) => { if (url === "/api/document-tasks" && init.method === "POST" && fail) { fail = false; return new Promise((_, reject) => { rejectCreate = () => reject(new TypeError("lost reply")); }); } };
-  render(<App />); await connect(user); await user.selectOptions(screen.getByLabelText("Word / Excel 转换模式"), "text"); await user.upload(screen.getByLabelText("选择文档"), new File(["office"], "document.docx"));
+  render(<App />); await connect(user); await user.upload(screen.getByLabelText("选择文档"), new File(["office"], "document.docx"));
   const dedup = screen.getByRole("checkbox", { name: "自动去重" }) as HTMLInputElement;
   if (deduplicateQuestions) await user.click(dedup);
   expect(http.calls.every(call => call.method === "GET")).toBe(true);
@@ -116,7 +133,7 @@ it.each([false, true])("never automatically replays uncertain POST, and an expli
   await waitFor(() => expect(rejectCreate).toBeDefined()); expect(dedup.disabled).toBe(true);
   await act(async () => rejectCreate()); const retry = await screen.findByRole("button", { name: "重试开始" });
   expect(http.calls.filter(call => call.url === "/api/document-tasks" && call.method === "POST")).toHaveLength(1);
-  expect((screen.getByLabelText("Word / Excel 转换模式") as HTMLSelectElement).disabled).toBe(true);
+  expect(screen.queryByLabelText("Word / Excel 转换模式")).toBeNull();
   expect(dedup.disabled).toBe(true); expect(dedup.checked).toBe(deduplicateQuestions);
   await user.click(dedup); expect(dedup.checked).toBe(deduplicateQuestions);
   await user.click(retry); await screen.findByText(/任务已创建。页面/);
@@ -125,8 +142,8 @@ it.each([false, true])("never automatically replays uncertain POST, and an expli
   else expect(creates[0].body).not.toHaveProperty("deduplicateQuestions");
 });
 it("uses service limits and configuration before starting, and keeps provider settings out of the browser", async () => {
-  const user = userEvent.setup(); const http = fakeHTTP(); http.server.intercept = url => url.includes("capabilities") ? json({ ...capabilities, sourceMaxBytes: 1, modelConfigured: false, officeAvailable: false, officeModes: [], sourceTypes: ["text"] }) : undefined;
-  render(<App />); await connect(user); expect(screen.getByText("服务支持：TXT。Office 转换当前不可用。")).toBeTruthy(); await user.upload(screen.getByLabelText("选择文档"), new File(["xx"], "large.txt")); expect(await screen.findByText(/为空或超过/)).toBeTruthy();
+  const user = userEvent.setup(); const http = fakeHTTP(); http.server.intercept = url => url.includes("capabilities") ? json({ ...capabilities, sourceMaxBytes: 1, modelConfigured: false, parserConfigured: false, officeAvailable: false, officeModes: [], sourceTypes: ["text"] }) : undefined;
+  render(<App />); await connect(user); expect(screen.getByText("服务支持：TXT。腾讯解析尚未配置，当前无法开始新的文档导入。")).toBeTruthy(); await user.upload(screen.getByLabelText("选择文档"), new File(["xx"], "large.txt")); expect(await screen.findByText(/为空或超过/)).toBeTruthy();
   await user.upload(screen.getByLabelText("选择文档"), new File(["x"], "small.txt")); expect((screen.getByRole("button", { name: "开始导入" }) as HTMLButtonElement).disabled).toBe(true);
   await openTask(user); expect((screen.getByRole("button", { name: "重新解析为新任务" }) as HTMLButtonElement).disabled).toBe(false); // Existing task exposes its own current configuration.
   expect(screen.queryByLabelText(/API Key|模型密钥/)).toBeNull(); expect(http.calls.filter(call => call.method !== "GET")).toHaveLength(0);
@@ -248,11 +265,11 @@ it("reuses task diagnostics across unrelated filters and updates them after an e
   const diagnostic = vi.fn();
   const stringify = vi.spyOn(JSON, "stringify").mockImplementation((...args) => {
     const value: unknown = args[0];
-    if (value && typeof value === "object" && Object.keys(value).length === 4 && ["usage", "unknownUsageCalls", "processing", "blocking"].every(key => Object.hasOwn(value, key))) diagnostic(value);
+    if (value && typeof value === "object" && Object.keys(value).length === 5 && ["usage", "unknownUsageCalls", "processing", "blocking", "parserJobs"].every(key => Object.hasOwn(value, key))) diagnostic(value);
     return originalStringify(...args);
   });
   const details = () => screen.getByText("模型用量与任务诊断", { exact: true }).closest("details")!;
-  const expected = (current: DocumentTaskDetail) => originalStringify({ usage: current.usage, unknownUsageCalls: current.unknownUsageCalls, processing: current.processing, blocking: current.blocking }, null, 2);
+  const expected = (current: DocumentTaskDetail) => originalStringify({ usage: current.usage, unknownUsageCalls: current.unknownUsageCalls, processing: current.processing, blocking: current.blocking, parserJobs: current.parserJobs || [] }, null, 2);
   const listReads = () => http.calls.filter(call => call.url.startsWith("/api/document-tasks?")).length;
   try {
     render(<App />); await connect(user); await openTask(user);
@@ -285,7 +302,7 @@ it("reuses task diagnostics across unrelated filters and updates them after an e
     expect(await screen.findByText("已知用量：1 次调用，输入 22 tokens，输出 8 tokens。", { exact: true })).toBeTruthy();
     expect(details().querySelector("pre")?.textContent).toBe(expected(updated));
     expect(diagnostic.mock.calls.length).toBeGreaterThan(initialCalls);
-    expect(diagnostic).toHaveBeenLastCalledWith({ usage: updated.usage, unknownUsageCalls: updated.unknownUsageCalls, processing: updated.processing, blocking: updated.blocking });
+    expect(diagnostic).toHaveBeenLastCalledWith({ usage: updated.usage, unknownUsageCalls: updated.unknownUsageCalls, processing: updated.processing, blocking: updated.blocking, parserJobs: updated.parserJobs || [] });
     expect(http.calls.every(call => call.method === "GET")).toBe(true);
     expect(http.calls.every(call => call.auth === "Bearer fake-service-token")).toBe(true);
   } finally { stringify.mockRestore(); }

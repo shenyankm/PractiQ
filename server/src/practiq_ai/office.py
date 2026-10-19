@@ -18,6 +18,7 @@ import zlib
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
+from xml.dom import minidom
 from xml.parsers import expat
 
 from .contracts import OFFICE_FILE_MAX_BYTES
@@ -27,7 +28,7 @@ FILE_LIMIT = OFFICE_FILE_MAX_BYTES
 TOTAL_LIMIT = 100 * 1024 * 1024
 FILE_COUNT = 100
 TIMEOUT = 180
-FORMATS = {".doc": "writer", ".docx": "writer", ".xls": "calc", ".xlsx": "calc"}
+FORMATS = {".doc": "writer", ".docx": "writer", ".xls": "calc", ".xlsx": "calc", ".ppt": "impress", ".pptx": "impress"}
 _children: set[subprocess.Popen] = set()
 _lock = threading.Lock()
 _abandoned = False
@@ -164,9 +165,10 @@ def _profile(directory: Path) -> Path:
     return profile
 
 
-def _export(engine: Path, source: Path, output: Path, family: str, mode: str, deadline: float) -> list[dict[str, Any]]:
+def _export(engine: Path, source: Path, output: Path, family: str, mode: str, deadline: float, max_pages: int = 100) -> list[dict[str, Any]]:
     output.mkdir()
-    filters = {("writer", "pdf"): "pdf:writer_pdf_Export", ("calc", "pdf"): "pdf:calc_pdf_Export",
+    filters = {("writer", "pdf"): "pdf:writer_pdf_Export", ("calc", "pdf"): 'pdf:calc_pdf_Export:{"SinglePageSheets":{"type":"boolean","value":"true"}}',
+               ("impress", "pdf"): 'pdf:impress_pdf_Export:{"ExportHiddenSlides":{"type":"boolean","value":"true"}}',
                ("writer", "text"): "txt:Text (encoded):UTF8",
                ("calc", "text"): "csv:Text - txt - csv (StarCalc):44,34,76,1,,0,false,true,true,false,false,-1"}
     with TemporaryDirectory(prefix="practiq-office-profile-") as directory:
@@ -187,7 +189,7 @@ def _export(engine: Path, source: Path, output: Path, family: str, mode: str, de
             import pypdfium2 as pdfium
             try:
                 with pdfium.PdfDocument(data) as document:
-                    if not 0 < len(document) <= 100:
+                    if not 0 < len(document) <= max_pages:
                         raise OfficeError("OFFICE_OUTPUT_LIMIT")
             except OfficeError:
                 raise
@@ -317,7 +319,8 @@ def _validate_legacy(data: bytes, family: str) -> None:
             pending.extend(struct.unpack_from("<II", entry, 68))
         streams = {name for name, kind in names.items() if kind == 2}
         required = ({"worddocument"} <= streams and bool({"0table", "1table"} & streams)
-                    if family == "writer" else bool({"workbook", "book"} & streams))
+                    if family == "writer" else {"powerpoint document", "current user"} <= streams
+                    if family == "impress" else bool({"workbook", "book"} & streams))
         if not required or {"encryptioninfo", "encryptedpackage"} & streams:
             raise ValueError("Wrong or encrypted document family")
     except (ValueError, struct.error) as exc:
@@ -371,12 +374,51 @@ def _validate_ooxml(data: bytes, family: str) -> None:
         with zipfile.ZipFile(io.BytesIO(data)) as archive:
             entries = archive.infolist()
             names = archive.namelist()
-            required = "word/document.xml" if family == "writer" else "xl/workbook.xml"
+            required = "word/document.xml" if family == "writer" else "ppt/presentation.xml" if family == "impress" else "xl/workbook.xml"
             if (required not in names or "[Content_Types].xml" not in names
                     or len(entries) > 10000 or sum(entry.file_size for entry in entries) > TOTAL_LIMIT
                     or any(entry.flag_bits & 1 or entry.filename.lower().endswith("vbaproject.bin") for entry in entries)):
                 raise OfficeError("OFFICE_INPUT_INVALID")
     except zipfile.BadZipFile as exc:
+        raise OfficeError("OFFICE_INPUT_INVALID") from exc
+
+
+def visible_workbook(data: bytes, max_sheets: int = 100) -> bytes:
+    """Expose sheet visibility in a derived copy without interpreting cell content."""
+    _validate_ooxml(data, "calc")
+    try:
+        with zipfile.ZipFile(io.BytesIO(data)) as source:
+            if len(source.namelist()) != len(set(source.namelist())) or source.getinfo("xl/workbook.xml").file_size > 2 * 1024 * 1024:
+                raise OfficeError("OFFICE_INPUT_INVALID")
+            xml = source.read("xl/workbook.xml")
+            parser = expat.ParserCreate()
+            def reject(*_):
+                raise OfficeError("OFFICE_INPUT_INVALID")
+            parser.StartDoctypeDeclHandler = reject
+            parser.EntityDeclHandler = reject
+            parser.Parse(xml, True)
+            dom = minidom.parseString(xml)
+            try:
+                root = dom.documentElement
+                if root is None or root.localName != "workbook":
+                    raise OfficeError("OFFICE_INPUT_INVALID")
+                sheets = [node for node in dom.getElementsByTagName("*")
+                          if node.localName == "sheet" and node.namespaceURI == root.namespaceURI]
+                if len(sheets) > max_sheets:
+                    raise OfficeError("OFFICE_OUTPUT_LIMIT")
+                sheets = [node for node in sheets if node.getAttribute("state") in {"hidden", "veryHidden"}]
+                if not sheets:
+                    return data
+                for sheet in sheets:
+                    sheet.setAttribute("state", "visible")
+                output = io.BytesIO()
+                with zipfile.ZipFile(output, "w") as target:
+                    for entry in source.infolist():
+                        target.writestr(entry, dom.toxml(encoding="utf-8") if entry.filename == "xl/workbook.xml" else source.read(entry))
+                return output.getvalue()
+            finally:
+                dom.unlink()
+    except (zipfile.BadZipFile, KeyError, expat.ExpatError) as exc:
         raise OfficeError("OFFICE_INPUT_INVALID") from exc
 
 
@@ -411,7 +453,7 @@ def _validate_normalized_docx(data: bytes) -> None:
         raise OfficeError("OFFICE_OUTPUT_INVALID") from exc
 
 
-def _legacy_writer_pdf(engine: Path, source: Path, output: Path, deadline: float) -> list[dict[str, Any]]:
+def _legacy_writer_pdf(engine: Path, source: Path, output: Path, deadline: float, max_pages: int = 100) -> list[dict[str, Any]]:
     # LO's legacy DOC PDF path can render an equation's bar without its digits.
     # The same engine preserves the formula through a private DOCX snapshot.
     with TemporaryDirectory(prefix="practiq-writer-pdf-") as directory:
@@ -431,17 +473,19 @@ def _legacy_writer_pdf(engine: Path, source: Path, output: Path, deadline: float
         _validate_normalized_docx(_read_file(files[0], FILE_LIMIT))
         if time.monotonic() >= deadline:
             raise OfficeError("OFFICE_TIMEOUT")
-        return _export(engine, files[0], output, "writer", "pdf", deadline)
+        return _export(engine, files[0], output, "writer", "pdf", deadline, max_pages)
 
 
-def convert(engine: str, source: Path, output: Path, mode: str, *, expected_version: str | None = None) -> list[dict[str, Any]]:
+def convert(engine: str, source: Path, output: Path, mode: str, *, expected_version: str | None = None, max_pages: int = 100) -> list[dict[str, Any]]:
+    if type(max_pages) is not int or not 1 <= max_pages <= 300:
+        raise OfficeError("OFFICE_INPUT_INVALID")
     family = FORMATS.get(source.suffix.lower())
-    if family is None or mode not in ("pdf", "text"):
+    if family is None or mode not in ("pdf", "text") or family == "impress" and mode != "pdf":
         raise OfficeError("OFFICE_FORMAT_UNSUPPORTED")
     if source.is_symlink():
         raise OfficeError("OFFICE_INPUT_INVALID")
     data = _read_file(source, FILE_LIMIT)
-    if source.suffix.lower() in (".doc", ".xls"):
+    if source.suffix.lower() in (".doc", ".xls", ".ppt"):
         _validate_legacy(data, family)
     else:
         _validate_ooxml(data, family)
@@ -449,7 +493,7 @@ def convert(engine: str, source: Path, output: Path, mode: str, *, expected_vers
     if expected_version is not None and engine_version(Path(engine), deadline) != expected_version:
         raise OfficeError("OFFICE_ENGINE_INVALID")
     if source.suffix.lower() == '.doc' and mode == 'pdf':
-        return _legacy_writer_pdf(Path(engine), source, output, deadline)
+        return _legacy_writer_pdf(Path(engine), source, output, deadline, max_pages)
     if source.suffix.lower() == '.docx' and mode == 'text':
         try:
             with zipfile.ZipFile(io.BytesIO(data)) as archive:
@@ -461,10 +505,10 @@ def convert(engine: str, source: Path, output: Path, mode: str, *, expected_vers
                         with zipfile.ZipFile(snapshot, 'w', zipfile.ZIP_DEFLATED) as target:
                             for entry in archive.infolist():
                                 target.writestr(entry, terminated if entry.filename == 'word/document.xml' else archive.read(entry))
-                        return _export(Path(engine), snapshot, output, family, mode, deadline)
+                        return _export(Path(engine), snapshot, output, family, mode, deadline, max_pages)
         except (zipfile.BadZipFile, RuntimeError, EOFError, zlib.error) as exc:
             raise OfficeError("OFFICE_INPUT_INVALID") from exc
-    return _export(Path(engine), source, output, family, mode, deadline)
+    return _export(Path(engine), source, output, family, mode, deadline, max_pages)
 
 
 def main() -> None:
@@ -483,10 +527,10 @@ def main() -> None:
             if not isinstance(request["engine"], str):
                 raise OfficeError("OFFICE_INPUT_INVALID")
             result = detect(request["engine"])
-        elif request.get("type") == "convert" and set(request) == {"type", "engine", "version", "source", "output", "mode"}:
+        elif request.get("type") == "convert" and set(request) == {"type", "engine", "version", "source", "output", "mode", "maxPages"}:
             if any(not isinstance(request[key], str) for key in ("engine", "version", "source", "output", "mode")):
                 raise OfficeError("OFFICE_INPUT_INVALID")
-            result = {"artifacts": convert(request["engine"], Path(request["source"]), Path(request["output"]), request["mode"], expected_version=request["version"])}
+            result = {"artifacts": convert(request["engine"], Path(request["source"]), Path(request["output"]), request["mode"], expected_version=request["version"], max_pages=request["maxPages"])}
         else:
             raise OfficeError("OFFICE_INPUT_INVALID")
         print(json.dumps({"result": result}), flush=True)

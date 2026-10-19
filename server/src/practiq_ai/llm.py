@@ -23,7 +23,6 @@ from langchain_core.messages import (
     messages_from_dict,
     messages_to_dict,
 )
-from langchain_core.runnables import RunnableLambda
 from langchain_core.utils.function_calling import convert_to_openai_tool
 from langchain_openai import ChatOpenAI
 from langgraph.errors import GraphInterrupt
@@ -70,7 +69,6 @@ def get_model() -> ChatOpenAI:
     return build_model(
         config.provider, config.api_key, config.model_id,
         max_tokens=config.model_max_tokens, timeout=config.model_timeout_seconds, base_url=config.base_url,
-        model_api=config.model_api,
     )
 
 
@@ -106,15 +104,12 @@ def build_model(
     max_tokens: int = 16_384,
     timeout: float = 180,
     base_url: str | None = None,
-    model_api: str | None = None,
 ) -> ChatOpenAI:
     if provider not in BASE_URLS and not (provider == "openai" and base_url):
         raise ValueError(f"Unsupported LLM provider: {provider}")
-    if model_api not in {None, "chat_completions", "responses"}:
-        raise ValueError(f"Unsupported model API: {model_api}")
     endpoint = (base_url or BASE_URLS[provider]).rstrip("/")
     loopback = is_loopback_host(urlsplit(endpoint).hostname)
-    # Validate the actual Responses route, including SDK-selected transport, before usage normalization.
+    # Validate raw Responses usage before the SDK normalizes token counts.
     clients = {
         "http_client": DefaultHttpxClient(timeout=timeout, trust_env=not loopback,
             event_hooks={"response": [_responses_response]}),
@@ -128,7 +123,7 @@ def build_model(
         **cast(dict[str, Any], {"max_tokens": max_tokens}),
         timeout=timeout,
         max_retries=0,
-        use_responses_api=None if model_api is None else model_api == "responses",
+        use_responses_api=True,
         store=False,
         extra_body={"enable_thinking": False}
         if endpoint == BASE_URLS["dashscope"] and model_name.startswith("qwen3.7-")
@@ -190,51 +185,9 @@ def _model_schema(schema: type[BaseModel]) -> dict[str, Any]:
 
 
 def structured_output(model: BaseChatModel, schema: type[BaseModel]):
-    # Only documented model families use the provider's constrained JSON decoder.
-    families = (
-        "qwen3.7-plus",
-        "qwen3.7-flash",
-        "qwen3.7-max",
-        "qwen3.8-flash",
-        "qwen3.8-max",
-    )
-    method = load().structured_output_method
-    supported = (
-        isinstance(model, ChatOpenAI)
-        and not model.use_responses_api
-        and model.openai_api_base == BASE_URLS["dashscope"]
-        and any(
-            model.model_name == name or model.model_name.startswith(name + "-")
-            for name in families
-        )
-    )
-    if method == "json_schema" and not supported:
-        raise ValueError("Native JSON Schema is not enabled for this provider/model")
-    if isinstance(model, ChatOpenAI) and supported and method != "function_calling":
-        # Keep the raw response (including usage on truncation) instead of letting
-        # the SDK parse and raise before our accounting/validation boundary.
-        response_format = {
-            "type": "json_schema",
-            "json_schema": {
-                "name": schema.__name__,
-                "strict": True,
-                "schema": deepcopy(_model_schema(schema)),
-            },
-        }
-        return model.bind(
-            extra_body={
-                **(model.extra_body or {}),
-                "response_format": response_format,
-            }
-        ) | RunnableLambda(
-            lambda raw: {
-                "raw": raw,
-                "parsed": cast(BaseMessage, raw).content,
-                "parsing_error": None,
-            }
-        )
+    load()
     return model.with_structured_output(
-        convert_to_openai_tool(deepcopy(_model_schema(schema)), strict=False if model.use_responses_api else None) if isinstance(model, ChatOpenAI) else schema,
+        convert_to_openai_tool(deepcopy(_model_schema(schema)), strict=False) if isinstance(model, ChatOpenAI) else schema,
         method="function_calling", include_raw=True,
     )
 
@@ -247,7 +200,6 @@ def validate_response[ResultT: BaseModel](
     responses_api: bool = False,
 ) -> ResultT:
     metadata = response["raw"].response_metadata
-    # The SDK can select Responses while the explicit model setting remains unset.
     if responses_api or metadata.get("object") == "response":
         incomplete = metadata.get("incomplete_details")
         if metadata.get("status") == "incomplete" and isinstance(incomplete, dict) and incomplete.get("reason") == "max_output_tokens":
@@ -323,8 +275,16 @@ def _retry_delay(attempt: int) -> float:
 
 def _failure_fingerprint(raw: BaseMessage, error: BaseMessage) -> str:
     wire_calls = raw.additional_kwargs.get("tool_calls")
+    content = raw.content
+    if isinstance(content, list):
+        # Responses assigns fresh call IDs even when invalid arguments are identical.
+        content = [
+            {key: value for key, value in block.items() if key not in {"id", "call_id", "status"}}
+            if isinstance(block, dict) and block.get("type") == "function_call" else block
+            for block in content
+        ]
     return fingerprint({
-        "content": raw.content,
+        "content": content,
         "tools": [(call.get("name"), call.get("args")) for call in [
             *getattr(raw, "tool_calls", []), *getattr(raw, "invalid_tool_calls", []),
         ]],

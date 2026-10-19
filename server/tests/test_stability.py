@@ -2,6 +2,7 @@
 
 import argparse
 import json
+from contextlib import asynccontextmanager
 from io import BytesIO
 from unittest.mock import AsyncMock
 from uuid import uuid4
@@ -10,7 +11,7 @@ from zipfile import ZipFile
 import httpx
 import pytest
 
-from practiq_ai import execution, runtime, storage, task_api, webapp
+from practiq_ai import execution, runtime, storage, task_api, tencent, webapp
 from practiq_ai.contracts import (
     DocumentReference,
     DocumentTaskControl,
@@ -119,19 +120,26 @@ async def test_queued_storage_failure_before_first_checkpoint_remains_explicitly
 
 async def test_temporary_budget_stop_requires_explicit_resume_without_model_replay(monkeypatch):
     service, reference, model = await setup_api(monkeypatch)
-    extract = document.extract
-    monkeypatch.setattr(document, 'extract', AsyncMock(side_effect=DocumentProcessingError(503, 'Temporary resources busy', 'TEMPORARY_BUSY')))
+    preparation = tencent.preparation
+    @asynccontextmanager
+    async def busy(_size):
+        raise DocumentProcessingError(503, 'Temporary resources busy', 'TEMPORARY_BUSY')
+        yield
+    requests = AsyncMock(wraps=tencent.request)
+    monkeypatch.setattr(tencent, 'request', requests)
+    monkeypatch.setattr(tencent, 'preparation', busy)
     receipt = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
     await service.wait_idle()
     stopped = await task_api.get_task(receipt['threadId'])
     assert stopped['state'] == 'INTERRUPTED' and stopped['allowedActions'] == ['resume']
     assert not model.calls
-    monkeypatch.setattr(document, 'extract', extract)
+    monkeypatch.setattr(tencent, 'preparation', preparation)
     assert not model.calls
     await task_api.control_task(receipt['threadId'], DocumentTaskControl(requestId=uuid4(), action='resume', checkpointId=stopped['checkpointId']))
     await service.wait_idle()
     assert (await task_api.get_task(receipt['threadId']))['state'] == 'COMPLETED'
     assert len(model.calls) == 1
+    assert sum(call.args[0] == 'SubmitMultimodalDocParseJob' for call in requests.await_args_list) == 1
 
 
 
