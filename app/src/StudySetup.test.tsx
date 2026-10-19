@@ -489,6 +489,8 @@ it("keeps setup and edited scores across steps and reports incomplete score inpu
   await userEvent.click(screen.getByRole("button", {name:"预览题目与配分"}));
   expect(screen.queryByRole("combobox", {name:"模式"})).toBeNull();
   expect(screen.getByText("已分配 100 / 目标 100 分")).toBeTruthy();
+  const scoreButton=screen.getByRole("button", {name:"第 1 题分值"});
+  expect(document.getElementById(scoreButton.getAttribute("aria-describedby")!)?.textContent).toBe("50 分");
   await userEvent.click(screen.getByRole("button", {name:"第 1 题分值"}));
   fireEvent.change(screen.getByLabelText("第 1 题分值"), {target:{value:"40"}});
   expect(screen.getByText("已分配 90 / 目标 100 分")).toBeTruthy();

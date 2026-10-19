@@ -1,6 +1,6 @@
 import { COMPOSITE_FILTERS } from "./contracts.generated";
 import { message, MessageError, t, useI18n } from "./i18n";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { api, isComposite, type BankChoice, type Session, type SessionKind, type QuestionSummary, type QuestionStats, type PaperPreview } from "./api";
 import { ErrorNotice } from "./OperationFeedback";
 import { cents, defaultPaperCount, questionType, types } from "./paper";
@@ -26,6 +26,7 @@ export function StudySetup({banks, initialBank, initialBankIds, initialFilter, i
   const [selection, setSelection] = useState("count"), [selected, setSelected] = useState<Record<string, { count: number; group: boolean }>>({}), [quotas, setQuotas] = useState<Record<string,number>>({});
   const [paper, setPaper] = useState<PaperPreview | null>(null);
   const preview = paper?.questions ?? [];
+  const scoreId = useId();
   const [scores, setScores] = useState<string[]>([]), [total, setTotal] = useState("100"), [budgets, setBudgets] = useState<Record<string,string>>({});
   const [scorePage, setScorePage] = useState(0);
   const [reviewing, setReviewing] = useState(false), [editingScore, setEditingScore] = useState<number | null>(null);
@@ -166,7 +167,7 @@ export function StudySetup({banks, initialBank, initialBankIds, initialFilter, i
           <details><summary className="cursor-pointer">{t("按题型分配总分")}</summary><div className="my-3 grid grid-cols-1 gap-3 sm:grid-cols-3">{previewTypes.map(k => <label className="grid gap-2" key={k}>{t("{0}预算", { 0: types()[k] || t("未分类") })}<Input aria-label={t("{0}预算", { 0: types()[k] || t("未分类") })} value={budgets[k] || "0"} onChange={e => setBudgets({...budgets, [k]:e.target.value})}/></label>)}</div><Button variant="outline" onClick={() => perform(async () => { await generate(true); })}>{t("按题型预算重新配分（覆盖逐题修改）")}</Button></details>
           <div className="divide-y">{preview.slice(currentScorePage * 30, currentScorePage * 30 + 30).map((q, index) => {
             const i = currentScorePage * 30 + index;
-            return <div key={q.id} className="flex items-center gap-3 py-3"><span className="min-w-0 flex-1 break-words">{i + 1}. {q.question.stem || t("题干缺失")}{q.question.sourceScore != null && t("（原卷 {0} 分）", { 0: q.question.sourceScore })}</span>{editingScore === i ? <Input autoFocus className="w-24 shrink-0" inputMode="decimal" aria-label={t("第 {0} 题分值", { 0: i + 1 })} value={scores[i]} onBlur={() => setEditingScore(null)} onChange={e => setScores(scores.map((s, j) => j === i ? e.target.value : s))}/> : <Button variant="outline" className="shrink-0" aria-label={t("第 {0} 题分值", { 0: i + 1 })} onClick={() => setEditingScore(i)}>{t("{0} 分", {0: /^\d+(\.\d{1,2})?$/.test(scores[i] ?? "") ? Number(scores[i]) : scores[i] || "—"})}</Button>}</div>;
+            return <div key={q.id} className="flex items-center gap-3 py-3"><span className="min-w-0 flex-1 break-words">{i + 1}. {q.question.stem || t("题干缺失")}{q.question.sourceScore != null && t("（原卷 {0} 分）", { 0: q.question.sourceScore })}</span>{editingScore === i ? <Input autoFocus className="w-24 shrink-0" inputMode="decimal" aria-label={t("第 {0} 题分值", { 0: i + 1 })} value={scores[i]} onBlur={() => setEditingScore(null)} onChange={e => setScores(scores.map((s, j) => j === i ? e.target.value : s))}/> : <Button variant="outline" className="shrink-0" aria-describedby={`${scoreId}-${i}`} aria-label={t("第 {0} 题分值", { 0: i + 1 })} onClick={() => setEditingScore(i)}><span id={`${scoreId}-${i}`}>{t("{0} 分", {0: /^\d+(\.\d{1,2})?$/.test(scores[i] ?? "") ? Number(scores[i]) : scores[i] || "—"})}</span></Button>}</div>;
           })}</div>
           {preview.length > 30 && <nav aria-label={t("选题与配分预览 · {0} 题", { 0: preview.length })} className="flex flex-wrap items-center justify-between gap-3">
             <span role="status">{t("第 {0}–{1} 项", { 0: currentScorePage * 30 + 1, 1: Math.min(currentScorePage * 30 + 30, preview.length) })}</span>

@@ -4,7 +4,7 @@ Study setup separates basic settings from exam score review. Android gets a full
 
 ## Validation
 
-- TypeScript production build and ESLint: passed.
+- TypeScript production build and ESLint: passed. A follow-up exposes compact score values through accessible descriptions; all 23 StudySetup tests passed after that markup change. Native screenshots remain visual evidence from the preceding UI-equivalent candidate.
 - Vitest with coverage (`vitest run --coverage --maxWorkers=2`): **434 passed, one pre-existing skipped test**. Coverage remains above the configured thresholds.
 - Playwright: **112 existing regression checks passed**, including desktop, 360/390px touch and built-production navigation. The **3 new step/score persistence checks passed** in a focused preview run at 360, 390 and 1280px, after using the existing select-control test helper. [Browser screenshots](browser/) are separate from the native captures.
 - Actual Android: API 35 arm64, separate disposable Pixel 7 AVD `PractiQ_Followup_QA`, native example bank (20 answerable questions). Open timed setup, preview, focus a score with the Android keyboard, change 5 to 4 points, observe **99 / 100**, return to setup and view scores again: passed. No session was started. The crash buffer stayed empty.
