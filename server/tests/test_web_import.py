@@ -35,7 +35,7 @@ async def test_capabilities_are_authenticated_and_report_tencent_configuration(m
         client.headers["Authorization"] = "Bearer test-service-token"
         response = await client.get("/api/import-capabilities")
         assert response.status_code == 200, response.text
-        assert set(response.json()["sourceTypes"]) == {"image", "text", "markdown", "pdf", "doc", "docx", "ppt", "pptx", "xls", "xlsx"}
+        assert set(response.json()["sourceTypes"]) == {"image", "text", "markdown", "pdf", "doc", "docx", "ppt", "pptx", "xlsx"}
         assert not response.json()["officeAvailable"] and response.json()["officeModes"] == []
         monkeypatch.setenv("AI_TENCENT_SECRET_ID", "synthetic-id")
         monkeypatch.setenv("AI_TENCENT_SECRET_KEY", "synthetic-key")
@@ -115,8 +115,8 @@ async def test_saved_non_office_reads_survive_unavailable_office_engine(monkeypa
     elif read == "capabilities":
         capabilities = response.json()
         assert capabilities["officeAvailable"] and capabilities["officeModes"] == [] and capabilities["parserConfigured"]
-        assert capabilities["officeSourceMaxBytes"] == min(capabilities["sourceMaxBytes"], 25 * 1024 * 1024)
-        assert set(capabilities["sourceTypes"]) == {"pdf", "text", "markdown", "image", "doc", "docx", "ppt", "pptx", "xls", "xlsx"}
+        assert capabilities["officeSourceMaxBytes"] == min(capabilities["sourceMaxBytes"], 8 * 1024 * 1024)
+        assert set(capabilities["sourceTypes"]) == {"pdf", "text", "markdown", "image", "doc", "docx", "ppt", "pptx", "xlsx"}
     else:
         assert response.json() == {"enabled": False}
     assert len(model.calls) == 1
@@ -131,7 +131,7 @@ async def test_capabilities_do_not_advertise_directory_as_office_engine(monkeypa
     assert response.status_code == 200, response.text
     assert not response.json()["officeAvailable"] and response.json()["officeModes"] == []
     assert response.json()["officeSourceMaxBytes"] is None
-    assert set(response.json()["sourceTypes"]) == {"pdf", "text", "markdown", "image", "doc", "docx", "ppt", "pptx", "xls", "xlsx"}
+    assert set(response.json()["sourceTypes"]) == {"pdf", "text", "markdown", "image", "doc", "docx", "ppt", "pptx", "xlsx"}
 
 
 async def test_non_office_queue_still_runs_after_configured_engine_disappears(monkeypatch, tmp_path):

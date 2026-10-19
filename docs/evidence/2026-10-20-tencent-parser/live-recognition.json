@@ -39,11 +39,22 @@
       "FailPageNum": 0,
       "decoded": true,
       "decodedPages": 1
+    },
+    {
+      "source": "中文 表格.xlsx (visible-sheet derived copy)",
+      "resultType": 9,
+      "Status": "Success",
+      "SuccessPageNum": 1,
+      "FailPageNum": 0,
+      "decoded": true,
+      "decodedPages": 2,
+      "hiddenSheetPresent": true,
+      "sourceUnchanged": true,
+      "submittedSha256": "0dfb465d566d97a51efb6208561604c5e7f38ef461d9439c6225b1f099cdd45d"
     }
   ],
   "limits": [
     "COS was not exercised because bucket and region are intentionally unset.",
-    "Recognition/decoding success does not establish question extraction accuracy.",
-    "The XLSX response omitted its hidden sheet; original-workbook review remains required."
+    "Recognition/decoding success does not establish question extraction accuracy."
   ]
 }

@@ -65,7 +65,7 @@ async def test_capabilities_report_effective_office_limit(monkeypatch, tmp_path,
     assert response.model_dump()["officeSourceMaxBytes"] == min(OFFICE_LIMIT, configured)
     monkeypatch.delenv("AI_OFFICE_EXECUTABLE")
     monkeypatch.delenv("AI_OFFICE_VERSION")
-    assert (await webapp.import_capabilities()).model_dump()["officeSourceMaxBytes"] == min(OFFICE_LIMIT, configured)
+    assert (await webapp.import_capabilities()).model_dump()["officeSourceMaxBytes"] == min(8 * 1024 * 1024, configured)
     monkeypatch.delenv("AI_TENCENT_SECRET_KEY")
     assert (await webapp.import_capabilities()).model_dump()["officeSourceMaxBytes"] is None
 
@@ -101,3 +101,17 @@ async def test_direct_office_task_is_rejected_before_queue_admission(monkeypatch
     assert await service.db.rows("SELECT thread_id FROM document_tasks") == []
     assert await service.db.rows("SELECT run_id FROM document_runs") == []
     assert model.calls == []
+
+
+@pytest.mark.usefixtures("disposable_databases")
+@pytest.mark.parametrize("source_type,size", [("docx",9 * 1024 * 1024), ("xls",1024)])
+async def test_missing_converter_rejects_office_task_before_queueing(monkeypatch, source_type, size):
+    service, _, model = await setup_api(monkeypatch)
+    monkeypatch.delenv('AI_OFFICE_EXECUTABLE', raising=False)
+    monkeypatch.delenv('AI_OFFICE_VERSION', raising=False)
+    request = metadata(source_type,size)
+    reference = DocumentReference(objectKey=f"practiq-agent/sources/{request.sha256}/source.{source_type}", **request.model_dump())
+    with pytest.raises(DocumentProcessingError) as error:
+        await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=reference))
+    assert error.value.code == 'OFFICE_NOT_CONFIGURED'
+    assert not await service.db.rows('SELECT thread_id FROM document_tasks') and not model.calls

@@ -107,7 +107,9 @@ async def test_unknown_paid_submission_keeps_source_and_never_uploads_or_submits
 async def test_cleanup_failure_keeps_saved_result_and_retries_only_cleanup(cos_job):
     reference, _, runtime = cos_job
     provider.delete_source.side_effect = [DocumentProcessingError(502, 'cleanup failed', 'TENCENT_COS_CLEANUP_FAILED'), None]
-    result = await tencent.parse_job(reference, runtime)
+    with pytest.raises(DocumentProcessingError, match='COS cleanup failed'):
+        await tencent.parse_job(reference, runtime)
+    result = (await runtime.store.aget(namespace('t', 'tencent_jobs'), 'source')).value
     assert result['resultRef'] and result['staging']['cleanupError'] == 'TENCENT_COS_CLEANUP_FAILED'
     result = await tencent.parse_job(reference, runtime)
     assert result['staging']['deleted'] and 'cleanupError' not in result['staging']
@@ -232,3 +234,43 @@ async def test_capabilities_report_the_enabled_transport_limit(cos_job, monkeypa
     monkeypatch.setenv('AI_TENCENT_COS_ENABLED', 'false')
     capabilities = await import_capabilities()
     assert capabilities.parserConfigured and capabilities.parserInputMaxBytes == 8 * 1024**2
+
+
+@pytest.mark.usefixtures('disposable_databases')
+async def test_cleanup_failure_keeps_prepare_incomplete_until_explicit_resume(monkeypatch):
+    import base64
+    from uuid import uuid4
+
+    from practiq_ai import task_api
+    from practiq_ai.contracts import DocumentTaskControl, DocumentTaskCreate
+    from tests.db_support import setup_api
+
+    service, reference, model = await setup_api(monkeypatch)
+    for key, value in {'AI_TENCENT_COS_ENABLED':'true','AI_TENCENT_COS_BUCKET':'fixture-1250000000','AI_TENCENT_COS_REGION':'ap-guangzhou'}.items():
+        monkeypatch.setenv(key, value)
+    original_request = tencent.request
+    calls = []
+    async def request(action, data, settings):
+        calls.append(action)
+        if action == 'SubmitMultimodalDocParseJob':
+            assert 'FileUrl' in data and 'FileBase64' not in data
+            files = cast(FakeObjectStore, task_api.get_object_store())
+            data = {**data, 'FileBase64':base64.b64encode(files.blobs[reference['objectKey']]).decode()}
+        return await original_request(action, data, settings)
+    monkeypatch.setattr(tencent, 'request', request)
+    upload = AsyncMock()
+    delete = AsyncMock(side_effect=[DocumentProcessingError(502,'temporary cleanup failure','TENCENT_COS_CLEANUP_FAILED'),None])
+    monkeypatch.setattr(tencent, 'upload_source', upload)
+    monkeypatch.setattr(tencent, 'delete_source', delete)
+    created = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(),document=DocumentReference.model_validate(reference)))
+    await service.wait_idle()
+    failed = await task_api.get_task(created['threadId'])
+    assert failed['state'] == 'FAILED' and failed['blocking'] == ['TENCENT_COS_CLEANUP_FAILED']
+    assert failed['parserJobs'][0]['resultSaved'] and not model.calls
+    await task_api.review_task(created['threadId'])
+    assert delete.await_count == 1
+    await task_api.control_task(created['threadId'],DocumentTaskControl(requestId=uuid4(),action='resume',checkpointId=failed['checkpointId']))
+    await service.wait_idle()
+    assert (await task_api.get_task(created['threadId']))['state'] == 'COMPLETED'
+    assert len(model.calls) == upload.await_count == 1 and delete.await_count == 2
+    assert calls == ['SubmitMultimodalDocParseJob','DescribeMultimodalDocParseJob']

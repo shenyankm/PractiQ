@@ -258,7 +258,7 @@ export default function App() {
               <p className="text-xs text-muted-foreground">服务支持：{capabilities.sourceTypes.map(type => formatLabels[type]).join("、")}{capabilities.parserConfigured === false && "。腾讯解析尚未配置，当前无法开始新的文档导入。"}</p>
               <div className="space-y-1"><label className="review-checkbox"><input type="checkbox" aria-describedby="dedup-help" checked={deduplicateQuestions} disabled={busy || files.some(file => file.state !== "ready")} onChange={event => setDeduplicateQuestions(event.target.checked)} />自动去重</label><p id="dedup-help" className="text-xs text-muted-foreground">仅去除完全相同的题目或整组复合题；关闭则全部保留。</p></div>
               <details className="text-sm text-muted-foreground"><summary className="cursor-pointer">格式与导入规则</summary><div className="space-y-2 pt-2">
-                <p>所有支持的格式统一使用腾讯异步解析，再由 AI 整理题库；不支持 CSV 导入。当前传输上限 {sizeLabel(capabilities.parserInputMaxBytes ?? 8 * 1024 * 1024)}，还受文件类型和部署限制；超限时由服务端切分，大 Office 文件需要转换器。默认使用本地文件，服务端可主动开启私有 COS 中转。</p>
+                <p>所有支持的格式统一使用腾讯异步解析，再由 AI 整理题库；不支持 CSV 导入。当前传输上限 {sizeLabel(capabilities.parserInputMaxBytes ?? 8 * 1024 * 1024)}，还受文件类型和部署限制；超限时由服务端切分，XLS 和大 Office 文件需要转换器。默认使用本地文件，服务端可主动开启私有 COS 中转。</p>
                 <p>未启用去重时仍会提示重复候选。</p>
                 <p>AI 复核会对照原文检查，最多修正一轮。</p>
                 <p>下载的 ZIP 可在 App 的「设置 → 恢复备份 → 导入题库 ZIP」中追加。</p>

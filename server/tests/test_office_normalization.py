@@ -1,6 +1,8 @@
 """Office preparation retains raw provenance and deterministic sheet boundaries."""
 
+import base64
 import hashlib
+import json
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Literal, cast
@@ -71,6 +73,11 @@ async def test_tencent_office_pages_retain_raw_source_order_receipts_and_usage(m
     task, snapshot, _ = await task_api._read_task(service, receipt["threadId"])
     assert task["document"] == snapshot.values["execution"]["document"] == reference.model_dump(mode="json")
     assert snapshot.values["normalization"] is None and len(snapshot.values["ocrPageRefs"]) == 2
+    from practiq_ai.office import visible_workbook
+    original_bytes = await document.get_object_store().get_verified(reference)
+    assert base64.b64decode(calls[0][1]["FileBase64"]) == visible_workbook(original_bytes)
+    assert snapshot.values["inputParts"][0]["preparation"] == "visible_excel_sheets"
+    assert snapshot.values["inputParts"][0]["reference"]["sha256"] != reference.sha256
     assert detail["parserJobs"][0]["resultSaved"] and detail["parserJobs"][0]["successPageCount"] == 2
     convert.assert_not_awaited()
     assert len(calls) == 2
@@ -269,3 +276,21 @@ async def test_invalid_manifest_is_never_treated_as_valid_resume_input(monkeypat
     with pytest.raises(DocumentProcessingError) as failure:
         await normalization.verified_normalization(reference, manifest, mode="text", store=store, config=normalization.load())
     assert failure.value.code == "OFFICE_MANIFEST_INVALID"
+
+
+@pytest.mark.parametrize("legacy_mode", ["pdf", "text"])
+async def test_reparse_legacy_office_mode_uses_automatic_routing_without_rewriting_parent(monkeypatch, tmp_path, legacy_mode):
+    service, reference, _, _, _ = await setup_office(monkeypatch, tmp_path, kind="docx")
+    tencent_provider(monkeypatch, [ocr_text_page("First")])
+    parent = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=reference, deduplicateQuestions=True))
+    await service.wait_idle()
+    async with service.db.connection() as conn:
+        await conn.execute("UPDATE document_runs SET input=jsonb_set(input,'{officeMode}',%s::jsonb) WHERE run_id=%s", (json.dumps(legacy_mode),parent['runId']))
+    before = await service.db.rows('SELECT input FROM document_runs WHERE run_id=%s', (parent['runId'],))
+    child = await task_api.reparse_task(parent['threadId'], DocumentTaskReparse(requestId=uuid4()))
+    await service.wait_idle()
+    detail = await task_api.get_task(child['threadId'])
+    assert detail['state'] == 'COMPLETED'
+    child_input = (await service.db.rows('SELECT input FROM document_runs WHERE run_id=%s', (child['runId'],)))[0]['input']
+    assert child_input.get('officeMode') is None and child_input['deduplicateQuestions']
+    assert await service.db.rows('SELECT input FROM document_runs WHERE run_id=%s', (parent['runId'],)) == before

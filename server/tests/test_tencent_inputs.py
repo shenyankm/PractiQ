@@ -171,14 +171,14 @@ async def test_oversized_office_without_engine_fails_before_any_paid_job(monkeyp
     assert calls == []
 
 
-@pytest.mark.parametrize("kind", ["doc", "docx", "xls", "xlsx"])
-async def test_oversized_office_reuses_isolated_pdf_conversion_before_tencent(monkeypatch, kind):
+@pytest.mark.parametrize("kind,limit", [("doc", 700), ("docx", 700), ("xls", 700), ("xlsx", 700), ("xls", 8 * 1024 * 1024)])
+async def test_oversized_office_reuses_isolated_pdf_conversion_before_tencent(monkeypatch, kind, limit):
     from practiq_ai.extractors import ExtractedDocument
 
     fixture = f"中文 试卷.{kind}" if kind.startswith("doc") else f"中文 表格.{kind}"
     payload = (Path(__file__).parents[2] / "app/fixtures/office" / fixture).read_bytes()
     state, files, runtime = prepare(monkeypatch, kind, payload)
-    monkeypatch.setenv("AI_TENCENT_INPUT_MAX_BYTES", "700")
+    monkeypatch.setenv("AI_TENCENT_INPUT_MAX_BYTES", str(limit))
     pdf = await files.put_artifact(b"pdf", source_sha256=state["document"]["sha256"], kind="office", index=0, media_type="application/pdf")
     manifest = {"sources": [{"reference": pdf.model_dump(mode="json")}]}
     normalize = AsyncMock(return_value={"normalization": manifest})

@@ -230,7 +230,7 @@ The extractor delivers binary page images and a bounded manifest. The parent rea
 
 Returned `page` values are zero-based. Automated tests do not call real models; recognition quality requires separate acceptance.
 
-Raw Word/Excel uploads use the independently configured [service Office adapter](desktop-office.md); their original references remain task identity. Unsupported historical graph identifiers still return `TASK_FORMAT_UNSUPPORTED` and are excluded from scheduling without deleting old data. Desktop ZIP import accepts AI JSON schema 3; full restore requires backup container 4 and database schema 11. See [task errors](document-tasks.md) for details.
+Word/Excel uploads use [Tencent recognition](tencent-document-parser.md); XLS and oversized Office inputs require the deployed converter. XLSX preparation exposes hidden sheets in a derived copy; original references remain task identity. Unsupported historical graph identifiers still return `TASK_FORMAT_UNSUPPORTED` and are excluded from scheduling without deleting old data. Desktop ZIP import accepts AI JSON schema 3; full restore requires backup container 4 and database schema 11. See [task errors](document-tasks.md) for details.
 
 ## Long-running task controls
 

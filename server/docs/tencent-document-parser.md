@@ -27,13 +27,16 @@ are normalized against each OCR page's own width and height before cropping the
 stored source page. Models may associate and classify known figures, but cannot
 invent or modify their bounds.
 
-Word, PPT and Excel originals are submitted directly after container validation;
-originals within the per-job limit do not invoke LibreOffice. Oversized Office
-inputs require the existing isolated LibreOffice adapter to produce reviewable
-PDF pages before Tencent recognition. PPT/PPTX use the Impress PDF export. Tencent's treatment of hidden
-worksheets requires separate real-document acceptance. A live synthetic XLSX
-check omitted its hidden sheet; Excel output always requires review against the
-original workbook. Native table JSON retains cells and fields, with uniquely
+Word and PPT originals within the per-job limit are submitted directly after
+container validation. XLSX preparation exposes hidden and very-hidden sheets in
+an immutable derived copy, preserving all other ZIP members and the original
+source. Live recognition of the synthetic prepared workbook returned both sheets.
+Legacy XLS always requires the existing isolated LibreOffice adapter; it exports
+all sheets to PDF. Oversized Office inputs also use that adapter to produce
+reviewable PDF pages before Tencent recognition. PPT/PPTX use Impress PDF export.
+Without a configured converter, capabilities exclude XLS and cap other Office
+uploads at their direct-submission limit. Excel output still requires original
+workbook review for cell and merged-layout fidelity. Native table JSON retains cells and fields, with uniquely
 matched XML table layouts preserving merged spans; no page coordinates are invented. Original source bytes and
 checksums remain authoritative. TXT and Markdown are validated as UTF-8 before
 submission, without performing local recognition. After Tencent returns, text-only evidence
@@ -64,8 +67,9 @@ A lost PUT acknowledgement can retry the same bytes at the same key; the paid
 submission intent is written separately before calling the parser. Signed source
 URLs last one hour and are never stored, logged or returned to clients. After a
 known terminal failure or a safely saved result, the service deletes its staged
-object. Cleanup failures keep the local result usable and are retained for a
-later execution to retry; they never trigger another parser submission. Configure
+object. Cleanup failures preserve the local archive and fail the prepare stage with
+`TENCENT_COS_CLEANUP_FAILED`. Explicit resume retries deletion before continuing,
+reusing the saved archive without another upload or parser submission. Configure
 a bucket lifecycle rule to expire only `practiq-import/` after one day for crash
 orphans and submissions whose outcome remains unknown. Unknown submissions keep
 the source available until that expiry and are never resubmitted automatically.

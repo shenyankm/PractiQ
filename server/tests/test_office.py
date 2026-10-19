@@ -534,3 +534,38 @@ def test_docx_snapshot_rejects_corrupt_member_crc(tmp_path, monkeypatch, member)
     monkeypatch.setattr(zipfile.ZipFile, "read", read)
     with pytest.raises(office.OfficeError, match="OFFICE_INPUT_INVALID"):
         office.convert("unused", source, tmp_path / "out", "text")
+
+
+def test_visible_workbook_preserves_every_member_and_source_bytes():
+    from io import BytesIO
+    from pathlib import Path
+    from xml.dom import minidom
+    from zipfile import ZipFile
+
+    from practiq_ai.office import visible_workbook
+
+    source = (Path(__file__).parents[2] / 'app/fixtures/office/中文 表格.xlsx').read_bytes()
+    prepared = visible_workbook(source)
+    assert prepared != source and visible_workbook(prepared) == prepared
+    assert visible_workbook(source) == prepared
+    with ZipFile(BytesIO(source)) as original, ZipFile(BytesIO(prepared)) as derived:
+        assert original.namelist() == derived.namelist()
+        assert all(original.read(name) == derived.read(name) for name in original.namelist() if name != 'xl/workbook.xml')
+        dom = minidom.parseString(derived.read('xl/workbook.xml'))
+        assert all(node.getAttribute('state') not in {'hidden', 'veryHidden'} for node in dom.getElementsByTagName('sheet'))
+        assert b'hidden' in original.read('xl/workbook.xml')
+
+
+@pytest.mark.parametrize('xml', [b'<!DOCTYPE workbook [<!ENTITY x "unsafe">]><workbook/>', b'<workbook>'])
+def test_visible_workbook_rejects_entities_and_malformed_metadata(xml):
+    from io import BytesIO
+    from zipfile import ZipFile
+
+    from practiq_ai.office import visible_workbook
+
+    data = BytesIO()
+    with ZipFile(data, 'w') as archive:
+        archive.writestr('[Content_Types].xml', '<Types/>')
+        archive.writestr('xl/workbook.xml', xml)
+    with pytest.raises(office.OfficeError):
+        visible_workbook(data.getvalue())

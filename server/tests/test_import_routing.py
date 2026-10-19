@@ -72,7 +72,7 @@ def test_csv_cannot_enter_uploads_or_new_tasks_but_saved_references_still_valida
     assert DocumentReference.model_validate(reference.model_dump()).sourceType == "csv"
 
 
-@pytest.mark.parametrize("kind", ["doc", "docx", "xls", "xlsx"])
+@pytest.mark.parametrize("kind", ["doc", "docx", "xlsx"])
 async def test_office_original_enters_tencent_without_local_conversion(monkeypatch, kind):
     fixture = Path(__file__).parents[2] / "app/fixtures/office" / (f"中文 试卷.{kind}" if kind.startswith("doc") else f"中文 表格.{kind}")
     payload = fixture.read_bytes()
@@ -92,7 +92,12 @@ async def test_office_original_enters_tencent_without_local_conversion(monkeypat
     assert output["status"] == "SUCCEEDED"
     assert calls[0][0] == "SubmitMultimodalDocParseJob"
     import base64
-    assert base64.b64decode(calls[0][1]["FileBase64"]) == payload
+    submitted = base64.b64decode(calls[0][1]["FileBase64"])
+    if kind == "xlsx":
+        from practiq_ai.office import visible_workbook
+        assert submitted == visible_workbook(payload) and submitted != payload
+    else:
+        assert submitted == payload
     assert calls[0][1]["FileType"] == (2 if kind.startswith("doc") else 4)
     if kind in {"xls", "xlsx"}:
         assert output["result"]["questions"][0]["needsReview"]

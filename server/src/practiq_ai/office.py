@@ -18,6 +18,7 @@ import zlib
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
+from xml.dom import minidom
 from xml.parsers import expat
 
 from .contracts import OFFICE_FILE_MAX_BYTES
@@ -379,6 +380,43 @@ def _validate_ooxml(data: bytes, family: str) -> None:
                     or any(entry.flag_bits & 1 or entry.filename.lower().endswith("vbaproject.bin") for entry in entries)):
                 raise OfficeError("OFFICE_INPUT_INVALID")
     except zipfile.BadZipFile as exc:
+        raise OfficeError("OFFICE_INPUT_INVALID") from exc
+
+
+def visible_workbook(data: bytes) -> bytes:
+    """Expose sheet visibility in a derived copy without interpreting cell content."""
+    _validate_ooxml(data, "calc")
+    try:
+        with zipfile.ZipFile(io.BytesIO(data)) as source:
+            if len(source.namelist()) != len(set(source.namelist())) or source.getinfo("xl/workbook.xml").file_size > 2 * 1024 * 1024:
+                raise OfficeError("OFFICE_INPUT_INVALID")
+            xml = source.read("xl/workbook.xml")
+            parser = expat.ParserCreate()
+            def reject(*_):
+                raise OfficeError("OFFICE_INPUT_INVALID")
+            parser.StartDoctypeDeclHandler = reject
+            parser.EntityDeclHandler = reject
+            parser.Parse(xml, True)
+            dom = minidom.parseString(xml)
+            try:
+                root = dom.documentElement
+                if root is None or root.localName != "workbook":
+                    raise OfficeError("OFFICE_INPUT_INVALID")
+                sheets = [node for node in dom.getElementsByTagName("*")
+                          if node.localName == "sheet" and node.namespaceURI == root.namespaceURI
+                          and node.getAttribute("state") in {"hidden", "veryHidden"}]
+                if not sheets:
+                    return data
+                for sheet in sheets:
+                    sheet.setAttribute("state", "visible")
+                output = io.BytesIO()
+                with zipfile.ZipFile(output, "w") as target:
+                    for entry in source.infolist():
+                        target.writestr(entry, dom.toxml(encoding="utf-8") if entry.filename == "xl/workbook.xml" else source.read(entry))
+                return output.getvalue()
+            finally:
+                dom.unlink()
+    except (zipfile.BadZipFile, KeyError, expat.ExpatError) as exc:
         raise OfficeError("OFFICE_INPUT_INVALID") from exc
 
 

@@ -143,6 +143,8 @@ async def _cleanup_source(record: dict[str, Any], runtime: Runtime[Any], key: st
         staging["deleted"] = True
         staging.pop("cleanupError", None)
     await store_put(runtime, "tencent_jobs", key, record)
+    if staging.get("cleanupError"):
+        raise DocumentProcessingError(502, "COS cleanup failed; explicitly resume to retry cleanup without resubmitting recognition", "TENCENT_COS_CLEANUP_FAILED")
 
 
 async def parse_job(reference: ArtifactReference, runtime: Runtime[Any], *, key: str = "source",
@@ -165,6 +167,7 @@ async def parse_job(reference: ArtifactReference, runtime: Runtime[Any], *, key:
         await _cleanup_source(record, runtime, key, config)
         return record
     if record and record.get("status") == "REJECTED":
+        await _cleanup_source(record, runtime, key, config)
         raise DocumentProcessingError(502, "Tencent rejected the original submission; explicitly parse again after correcting the cause",
                                       "TENCENT_REQUEST_REJECTED")
     if record is None or record.get("status") == "STAGING":

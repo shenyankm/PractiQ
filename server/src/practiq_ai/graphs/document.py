@@ -778,10 +778,22 @@ async def _prepare(state: DocumentState, runtime: Runtime[None], *, source_types
         except UnicodeDecodeError as exc:
             raise DocumentProcessingError(422, "Text and Markdown sources must be UTF-8", "DOCUMENT_ENCODING_INVALID") from exc
     limit = submission_limit(reference.sourceType, settings)
+    prepared = payload
+    if reference.sourceType == "xlsx":
+        from practiq_ai.office import OfficeError, visible_workbook
+        try:
+            async with preparation(LIMIT):
+                prepared = await _thread_io(visible_workbook, payload)
+        except OfficeError as exc:
+            raise DocumentProcessingError(422, "Workbook visibility preparation failed", exc.code) from exc
     normalization = None
     input_parts = []
     submissions: list[tuple[ArtifactReference, DocumentSourceType, int | None]] = [(reference, reference.sourceType, len(images) or None)]
-    if len(payload) > limit:
+    if reference.sourceType == "xlsx" and prepared != payload and len(prepared) <= limit:
+        artifact = await put(prepared, "visible-workbook", 0, reference.mediaType)
+        submissions = [(artifact, "xlsx", None)]
+        input_parts.append({"reference": artifact.model_dump(mode="json"), "preparation": "visible_excel_sheets"})
+    if len(prepared) > limit or reference.sourceType == "xls":
         from practiq_ai.tencent_inputs import split_image, split_text
         submissions = []
         if reference.sourceType in {"text", "markdown"}:
@@ -824,7 +836,7 @@ async def _prepare(state: DocumentState, runtime: Runtime[None], *, source_types
     pages = []
     warnings = render_warnings
     if reference.sourceType in {"xls", "xlsx"}:
-        warnings.append("Excel sheet coverage and merged cells require review against the original workbook; Tencent may omit hidden sheets.")
+        warnings.append("Excel sheets, including hidden sheets, were prepared for recognition; review cell and merged-layout fidelity against the original workbook.")
     truncated = render_truncated
     total_chars = 0
     asset_bytes = 0
@@ -861,7 +873,7 @@ async def _prepare(state: DocumentState, runtime: Runtime[None], *, source_types
         if job.get("FailPageNum") or len(decoded) != count:
             truncated = True
             warnings.append("Tencent parsing contains failed or missing pages; retain human review.")
-    if input_parts:
+    if len(submissions) > 1:
         warnings.append("Oversized source was split into ordered Tencent inputs; review content across part boundaries.")
     ocr_refs = [await put(json.dumps(page, ensure_ascii=False).encode(), "ocr-page", index, "application/json")
                 for index, page in enumerate(pages)]

@@ -13,6 +13,7 @@ from .capacity import bounded_map
 from .config import load, require_model_config
 from .contracts import (
     COMPOSITE_MODES,
+    OFFICE_SOURCE_TYPES,
     DocumentReference,
     DocumentTaskControl,
     DocumentTaskCreate,
@@ -46,6 +47,7 @@ from .graphs.document import (
     unit_failures,
 )
 from .storage import get_object_store, validate_source_size
+from .tencent import submission_limit
 
 
 def client():
@@ -112,6 +114,10 @@ async def create_task(request: DocumentTaskCreate) -> dict[str, Any]:
         if not settings.parser_configured:
             raise DocumentProcessingError(503, 'Configure Tencent parsing credentials and, when enabled, private COS staging', 'TENCENT_NOT_CONFIGURED')
         validate_source_size(request.document.sizeBytes, request.document.sourceType, settings)
+        if (request.document.sourceType in OFFICE_SOURCE_TYPES
+                and (request.document.sourceType == 'xls' or request.document.sizeBytes > submission_limit(request.document.sourceType, settings))
+                and not (settings.office_executable and settings.office_executable.is_file())):
+            raise DocumentProcessingError(503, 'Office preparation requires the configured converter', 'OFFICE_NOT_CONFIGURED')
         if request.parentThreadId:
             parent = await (await conn.execute('SELECT * FROM document_tasks WHERE thread_id=%s', (str(request.parentThreadId),))).fetchone()
             if not parent:
@@ -170,9 +176,13 @@ async def reparse_task(thread_id: str, request: DocumentTaskReparse) -> dict[str
         raise DocumentProcessingError(404, 'Document task not found', 'TASK_NOT_FOUND')
     task = tasks[0]
     require_supported_task(task)
+    if task['document'].get('sourceType') == 'csv':
+        raise DocumentProcessingError(422, 'CSV document import is no longer supported; saved results remain available', 'DOCUMENT_SOURCE_TYPE_MISMATCH')
+    options = await _parse_options(service, thread_id)
+    options.pop('officeMode', None)
     create = DocumentTaskCreate(requestId=request.requestId, document=DocumentReference.model_validate(task['document']),
                                 graphId=task['graph_id'], failurePolicy=task['failure_policy'], parentThreadId=UUID(thread_id),
-                                **await _parse_options(service, thread_id))
+                                **options)
     async with service.db.connection() as conn:
         previous = await _replay(conn, str(uuid5(NAMESPACE_URL, f'practiq/document/{request.requestId}')),
                                  str(request.requestId), fingerprint(_create_payload(create)))

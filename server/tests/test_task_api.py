@@ -1,4 +1,5 @@
 import asyncio
+import json
 from datetime import timedelta
 from typing import Any, cast
 from unittest.mock import AsyncMock
@@ -506,3 +507,22 @@ async def test_head_returns_only_current_read_state_without_building_usage_or_re
         assert (await http.get(endpoint)).status_code == 401
         response = await http.get(endpoint,headers={'Authorization':'Bearer head-test-token'})
         assert response.status_code == 200 and response.json() == head
+
+
+async def test_legacy_csv_reparse_returns_controlled_http_error_and_preserves_saved_task(monkeypatch):
+    service, reference, model = await setup_api(monkeypatch)
+    receipt = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
+    await service.wait_idle()
+    legacy = {**reference, 'sourceType':'csv', 'mediaType':'text/csv', 'fileName':'legacy.csv',
+              'objectKey':reference['objectKey'].replace('source.txt','source.csv')}
+    files = cast(FakeObjectStore, task_api.get_object_store())
+    files.blobs[legacy['objectKey']] = files.blobs[reference['objectKey']]
+    async with service.db.connection() as conn:
+        await conn.execute('UPDATE document_tasks SET document=%s WHERE thread_id=%s', (json.dumps(legacy),receipt['threadId']))
+    before = await task_api.get_task(receipt['threadId'])
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app, raise_app_exceptions=False), base_url='http://test') as http:
+        response = await http.post(f"/api/document-tasks/{receipt['threadId']}/reparse", json={'requestId':str(uuid4())}, headers={'Authorization':'Bearer test-token'})
+    assert response.status_code == 422, response.text
+    assert response.json()['detail']['code'] == 'DOCUMENT_SOURCE_TYPE_MISMATCH'
+    assert await task_api.get_task(receipt['threadId']) == before
+    assert len(model.calls) == 1

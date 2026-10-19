@@ -45,6 +45,7 @@ from practiq_ai.grading import GradeWireRequest, grade
 from practiq_ai.middleware import JsonBodyLimitMiddleware, SecurityHeadersMiddleware
 from practiq_ai.storage import get_object_store
 from practiq_ai.telemetry import configure_logging, registry
+from practiq_ai.tencent import submission_limit
 
 
 @asynccontextmanager
@@ -167,9 +168,13 @@ async def maintenance_status() -> dict[str, bool]:
 async def import_capabilities() -> ImportCapabilities:
     settings = load()
     office = settings.parser_configured
-    return ImportCapabilities(sourceTypes=[kind for kind in get_args(DocumentSourceType) if kind != "csv"],
+    converter = settings.office_executable is not None and settings.office_executable.is_file()
+    office_limit = document_source_limit("docx", settings.source_max_bytes)
+    if not converter:
+        office_limit = min(office_limit, *(submission_limit(kind, settings) for kind in ("docx", "pptx", "xlsx")))
+    return ImportCapabilities(sourceTypes=[kind for kind in get_args(DocumentSourceType) if kind != "csv" and (kind != "xls" or converter)],
                               sourceMaxBytes=settings.source_max_bytes, officeAvailable=office,
-                              officeSourceMaxBytes=document_source_limit("docx", settings.source_max_bytes) if office else None,
+                              officeSourceMaxBytes=office_limit if office else None,
                               officeModes=[], modelConfigured=not settings.read_only, parserConfigured=office, parserInputMaxBytes=min(settings.tencent_input_max_bytes, 150 * 1024 * 1024 if settings.tencent_cos_enabled else 8 * 1024 * 1024))
 
 
