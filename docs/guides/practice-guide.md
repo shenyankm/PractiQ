@@ -28,6 +28,8 @@ Missing reference answers, required resources or grading evidence remain ungrade
 
 Practice and local scoring work offline. For optional subjective AI grading, configure the independent service URL and access token in desktop **Settings → AI service**, then explicitly start grading or retry. Grading requires a reference answer or rubric; missing evidence, failed calls and unknown outcomes remain ungraded. It is intended for personal practice, not formal examination scoring. Opening the app or changing settings does not call a model. Missing service configuration offers **Configure AI service** and **Return to grading**, preserving the current session and question without automatically retrying. Manual score and reason drafts survive question changes and returning through history during the current app run; they are not persisted or included in backups until **Save manual score** succeeds. Failed saves keep the draft.
 
+Service settings show saving and saved feedback separately from connection-test status. A configured URL and token remain untested until **Test connection** is explicitly pressed; changing either clears the previous verdict. This health check does not grade answers.
+
 The app stores service tokens in the platform credential store. Provider configuration and keys stay in the independent service. Service URLs and saved grading results have different backup rules; see [data and credential boundaries](../reference/question-model.md#versions-and-directories). Parsing extracts supplied answers and rubrics without solving unanswered questions.
 
 ## Keep editor drafts
@@ -43,7 +45,7 @@ On Android, system Back closes dialogs or the navigation drawer first and respec
 
 ## Retry failed reads
 
-Question lists have visible search and question-type labels. When filters are active, **清除筛选** resets search, type, review-only selection and pagination within the current bank or list, then returns focus to search. An empty filtered list is identified as no matches rather than no mistakes or favorites.
+Question lists have visible search and question-type labels. Bank totals count answerable subquestions; matching list items count whole material groups once. Favorites remain directly accessible on each row, while Edit and Delete are under the question actions menu. An empty Favorites list offers Browse banks and explains the star action; filter-empty results retain the filter-clearing guidance. When filters are active, **清除筛选** resets search, type, review-only selection and pagination within the current bank or list, then returns focus to search. An empty filtered list is identified as no matches rather than no mistakes or favorites.
 
 Question lists hide previous results while loading. A failed read stays visible with a Retry action that preserves the current bank, search, type, review filter and page. A failed overview read has its own retry action and is never displayed as zero banks. If import, merge or save succeeds but the overview cannot refresh, the completed action is retained and retry only reloads data; do not repeat the write. Import completion clears search, type and review filters in the destination bank.
 

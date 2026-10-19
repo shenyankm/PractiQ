@@ -1,6 +1,12 @@
 import { test as base, expect } from 'playwright/test';
 import { readFileSync } from 'node:fs';
 
+
+async function editQuestion(page, trigger) {
+  await trigger.click();
+  await page.getByRole('menuitem', {name:'编辑题目',exact:true}).click();
+}
+
 // Chromium touch previews exercise layout and user actions. Native SAF, system
 // insets and the real Android keyboard belong to the emulator/device checks.
 const test = base.extend({ page: async ({ page }, use) => {
@@ -256,7 +262,7 @@ test('ZIP and service settings stay local until an explicit connection test', as
   await token.focus();
   await expect.poll(() => calls.filter(call => call.request.type === 'save_settings').length).toBe(1);
   await token.fill('fake-android-browser-token');
-  const connectionTest = page.getByRole('button', { name: '测试', exact: true });
+  const connectionTest = page.getByRole('button', { name: '测试连接', exact: true });
   await connectionTest.focus();
   await expect(token).toHaveValue('');
   expect(calls.some(call => call.command === 'ai_request')).toBe(false);
@@ -424,7 +430,7 @@ test('dirty dialogs retain and save edits after a shortened viewport', async ({ 
   const bank = page.locator('[data-slot=card]').filter({ has: page.getByText('英语专项 · 听力与写作', { exact: true }) });
   await bank.getByRole('button', { name: '查看题目', exact: true }).tap();
   const writing = page.getByRole('button', { name: /Write an invitation to a reading club\./ }).locator('..');
-  await writing.getByRole('button', { name: '编辑题目', exact: true }).tap();
+  await editQuestion(page, writing.getByRole('button', {name:/^题目更多操作/}));
   const editor = page.getByRole('dialog', { name: '编辑题目', exact: true });
   const stem = editor.getByRole('textbox', { name: '题干（支持 Markdown 和公式）', exact: true });
   const original = await stem.inputValue();
@@ -451,7 +457,7 @@ test('dirty dialogs retain and save edits after a shortened viewport', async ({ 
   await expect(editor).toBeHidden();
   await page.setViewportSize(viewport);
   const row = page.getByRole('button', { name: new RegExp(`^${original} 移动端保存`) }).locator('..');
-  await row.getByRole('button', { name: '编辑题目', exact: true }).tap();
+  await editQuestion(page, row.getByRole('button', {name:/^题目更多操作/}));
   await expect(stem).toHaveValue(`${original} 移动端保存`);
   await expect(maximum).toHaveValue('180');
   await page.screenshot({ path: testInfo.outputPath('android-saved-editor.png'), fullPage: true });

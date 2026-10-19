@@ -62,6 +62,8 @@ function draftSnapshot(question: Question, children: Question[], parent?: Questi
 }
 export function QuestionEditor({
   initial,
+  creating = false,
+  trigger,
   initialChildren = [],
   images = [],
   parent,
@@ -70,6 +72,8 @@ export function QuestionEditor({
   busy,
 }: {
   initial: Question;
+  creating?: boolean;
+  trigger?: HTMLElement | null;
   initialChildren?: Question[];
   images?: {hash:string;label:string}[];
   parent?: Question;
@@ -122,75 +126,10 @@ export function QuestionEditor({
     });
   }
   return (
-      <EditorDialog title={t("编辑题目")} dirty={dirty || audioPending || audioDraft} busy={busy} onClose={onClose} className="flex max-h-[90vh] flex-col overflow-hidden sm:max-w-3xl">
+      <EditorDialog trigger={trigger} title={t(creating ? "新增题目" : "编辑题目")} dirty={dirty || audioPending || audioDraft} busy={busy} onClose={onClose} className="flex max-h-[90vh] flex-col overflow-hidden sm:max-w-3xl">
         {/* Separate scrolling from the fieldset so positioned controls cannot cover the footer. */}
         <div className="relative min-h-0 min-w-0 flex-1 overflow-y-auto p-1">
         <fieldset disabled={busy} className="min-w-0 space-y-5">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor={`${formId}-answer-mode`}>{t("答题方式")}</Label>
-              <NativeSelect
-                id={`${formId}-answer-mode`}
-                className="w-full"
-                disabled={busy || !!parent && ["word_bank","cloze","gap_fill"].includes(parent.answerMode || "")}
-                value={q.answerMode || ""}
-                onValueChange={value => mode(value as Mode)}
-              >
-                <NativeSelectOption value="" disabled>{t("选择答题方式")}</NativeSelectOption>
-                {Object.entries(modeNames()).filter(([k]) => !parent || (parent.answerMode === "reading" ? !["reading","listening"].includes(k) : parent.answerMode === "listening" ? ["choice","fill_blank","short_answer"].includes(k) : parent.answerMode === "gap_fill" ? k === "fill_blank" : k === "choice")).map(([v, label]) => (
-                  <NativeSelectOption key={v} value={v}>{label}</NativeSelectOption>
-                ))}
-              </NativeSelect>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor={`${formId}-typeName`}>{t("题型名称")}</Label>
-              <Input
-                id={`${formId}-typeName`}
-                value={q.questionTypeId || ""}
-                onChange={(e) => patch({ questionTypeId: e.target.value })}
-              />
-            </div>
-          </div>
-          {(!parent || parent.answerMode === "reading") && <label className="grid gap-2">{t("英语题型")}
-            <NativeSelect disabled={busy} className="w-full" value={q.questionKind || ""} onValueChange={value =>{
-              const kind=value as NonNullable<Question["questionKind"]>;
-              if(kind && kindModes[kind]!==q.answerMode)mode(kindModes[kind]);
-              patch({questionKind:kind || null,sourceLanguage:null,targetLanguage:null,writingGenre:null,minWords:null,maxWords:null});
-            }}><NativeSelectOption value="">{t("通用题型")}</NativeSelectOption>{Object.entries(questionKinds()).filter(([kind])=>!parent || !["reading","listening"].includes(kind)).map(([kind,label])=><NativeSelectOption key={kind} value={kind}>{label}</NativeSelectOption>)}</NativeSelect>
-          </label>}
-          <EnglishFields question={q} patch={patch} images={images} onPendingChange={setAudioPending} onDraftChange={setAudioDraft}/>
-          {q.answerMode === "choice" && (
-            <NativeSelect
-              aria-label={t("选择题类型")}
-              disabled={busy || !!parent && ["word_bank","cloze","gap_fill"].includes(parent.answerMode || "")}
-              value={q.choiceVariant || "single"}
-              onValueChange={value =>
-                patch({
-                  choiceVariant: value as "single" | "multiple",
-                  answerPayload: null,
-                })
-              }
-            >
-              <NativeSelectOption value="single">{t("单选")}</NativeSelectOption>
-              <NativeSelectOption value="multiple">{t("多选")}</NativeSelectOption>
-            </NativeSelect>
-          )}
-          {q.answerMode === "matching" && (
-            <NativeSelect
-              aria-label={t("匹配类型")}
-              disabled={busy}
-              value={q.matchingVariant || "one_to_one"}
-              onValueChange={value =>
-                patch({
-                  matchingVariant: value as "one_to_one" | "many_to_one",
-                  answerPayload: null,
-                })
-              }
-            >
-              <NativeSelectOption value="one_to_one">{t("一对一匹配")}</NativeSelectOption>
-              <NativeSelectOption value="many_to_one">{t("多对一匹配")}</NativeSelectOption>
-            </NativeSelect>
-          )}
           <div className="space-y-2">
             <Label htmlFor={`${formId}-stem`}>{t("题干（支持 Markdown 和公式）")}</Label>
             <Textarea
@@ -255,6 +194,73 @@ export function QuestionEditor({
                 }}
               >{t("增加选项")}</Button>
             </div>
+          )}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor={`${formId}-answer-mode`}>{t("答题方式（必选）")}</Label>
+              <NativeSelect
+                id={`${formId}-answer-mode`}
+                aria-label={t("答题方式")}
+                aria-required="true"
+                className="w-full"
+                disabled={busy || !!parent && ["word_bank","cloze","gap_fill"].includes(parent.answerMode || "")}
+                value={q.answerMode || ""}
+                onValueChange={value => mode(value as Mode)}
+              >
+                <NativeSelectOption value="" disabled>{t("选择答题方式")}</NativeSelectOption>
+                {Object.entries(modeNames()).filter(([k]) => !parent || (parent.answerMode === "reading" ? !["reading","listening"].includes(k) : parent.answerMode === "listening" ? ["choice","fill_blank","short_answer"].includes(k) : parent.answerMode === "gap_fill" ? k === "fill_blank" : k === "choice")).map(([v, label]) => (
+                  <NativeSelectOption key={v} value={v}>{label}</NativeSelectOption>
+                ))}
+              </NativeSelect>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor={`${formId}-typeName`}>{t("题型名称")}</Label>
+              <Input
+                id={`${formId}-typeName`}
+                value={q.questionTypeId || ""}
+                onChange={(e) => patch({ questionTypeId: e.target.value })}
+              />
+            </div>
+          </div>
+          {(!parent || parent.answerMode === "reading") && <label className="grid gap-2">{t("英语题型")}
+            <NativeSelect disabled={busy} className="w-full" value={q.questionKind || ""} onValueChange={value =>{
+              const kind=value as NonNullable<Question["questionKind"]>;
+              if(kind && kindModes[kind]!==q.answerMode)mode(kindModes[kind]);
+              patch({questionKind:kind || null,sourceLanguage:null,targetLanguage:null,writingGenre:null,minWords:null,maxWords:null});
+            }}><NativeSelectOption value="">{t("通用题型")}</NativeSelectOption>{Object.entries(questionKinds()).filter(([kind])=>!parent || !["reading","listening"].includes(kind)).map(([kind,label])=><NativeSelectOption key={kind} value={kind}>{label}</NativeSelectOption>)}</NativeSelect>
+          </label>}
+          <EnglishFields question={q} patch={patch} images={images} onPendingChange={setAudioPending} onDraftChange={setAudioDraft}/>
+          {q.answerMode === "choice" && (
+            <label className="grid gap-2">{t("选择题类型")}<NativeSelect
+              aria-label={t("选择题类型")}
+              disabled={busy || !!parent && ["word_bank","cloze","gap_fill"].includes(parent.answerMode || "")}
+              value={q.choiceVariant || "single"}
+              onValueChange={value =>
+                patch({
+                  choiceVariant: value as "single" | "multiple",
+                  answerPayload: null,
+                })
+              }
+            >
+              <NativeSelectOption value="single">{t("单选")}</NativeSelectOption>
+              <NativeSelectOption value="multiple">{t("多选")}</NativeSelectOption>
+            </NativeSelect></label>
+          )}
+          {q.answerMode === "matching" && (
+            <label className="grid gap-2">{t("匹配类型")}<NativeSelect
+              aria-label={t("匹配类型")}
+              disabled={busy}
+              value={q.matchingVariant || "one_to_one"}
+              onValueChange={value =>
+                patch({
+                  matchingVariant: value as "one_to_one" | "many_to_one",
+                  answerPayload: null,
+                })
+              }
+            >
+              <NativeSelectOption value="one_to_one">{t("一对一匹配")}</NativeSelectOption>
+              <NativeSelectOption value="many_to_one">{t("多对一匹配")}</NativeSelectOption>
+            </NativeSelect></label>
           )}
           {(q.answerMode === "ordering" || q.answerMode === "matching") && (
             <div className="space-y-3">
@@ -385,7 +391,7 @@ export function QuestionEditor({
           <Button variant="outline" disabled={busy} onClick={onClose}>{t("放弃更改")}</Button>
           <Button disabled={busy || audioPending || audioDraft} onClick={() => {if(!audioPending && !audioDraft)onSave(q,children);}}>{t("保存题目")}</Button>
         </DialogFooter>
-      {childEditor && <QuestionEditor key={childEditor.id} initial={childEditor} parent={q} initialChildren={children.filter(c=>c.parentId===childEditor.id)} busy={false} onClose={()=>setChildEditor(null)} onSave={(child,nested)=>{
+      {childEditor && <QuestionEditor key={childEditor.id} creating={!children.some(child => child.id === childEditor.id)} initial={childEditor} parent={q} initialChildren={children.filter(c=>c.parentId===childEditor.id)} busy={false} onClose={()=>setChildEditor(null)} onSave={(child,nested)=>{
         const index=children.findIndex(c=>c.id===child.id);
         if(index>=0 && draftSnapshot(children[index],children.filter(c=>c.parentId===child.id),q)===draftSnapshot(child,nested,q)){setChildEditor(null);return;}
         const removed=new Set([child.id]);for(const c of children) if(removed.has(c.parentId))removed.add(c.id);

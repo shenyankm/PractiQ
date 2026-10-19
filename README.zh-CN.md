@@ -33,7 +33,7 @@ PractiQ 仍处于开发阶段，请按下方步骤从源码运行；已发布安
 
 [运行桌面应用](#运行桌面应用)后：
 
-1. “我的题库”为空时，点击**添加示例题库**；也可通过**设置 → 恢复备份 → 导入题库 ZIP** 导入 [sample.zip](app/fixtures/sample.zip)。更多样例：[复合题](app/fixtures/composite.zip)、[全题型](app/fixtures/all-types.zip)。
+1. “我的题库”为空时，点击**添加示例题库**；也可通过**设置 → 导入与恢复 → 导入题库 ZIP** 导入 [sample.zip](app/fixtures/sample.zip)。更多样例：[复合题](app/fixtures/composite.zip)、[全题型](app/fixtures/all-types.zip)。
 2. 打开题库，选择**开始练习**，体验即时反馈练习、不限时自测或限时模考。
 3. 提交作答，查看评分和解析。
 
@@ -48,7 +48,7 @@ PractiQ 仍处于开发阶段，请按下方步骤从源码运行；已发布安
 1. [启动独立 AI 服务](#独立运行-ai-服务)，打开 Web 前端，填写自托管服务的访问令牌（`AI_SERVICE_TOKEN`）。模型配置及供应商密钥留在服务端。
 2. 一次选择最多 10 份源文件，主动点击**开始导入**。只选择文件不会上传或调用模型。
 3. 查看任务进度、保存的题目、图片、原文答案与待复核提示，下载题库 ZIP。
-4. 在桌面 app 中通过**设置 → 恢复备份 → 导入题库 ZIP**新建题库或追加到已有题库。
+4. 在桌面 app 中通过**设置 → 导入与恢复 → 导入题库 ZIP**新建题库或追加到已有题库。
 
 服务支持 **PDF、TXT、CSV 和 PNG/JPEG**；部署端配置 LibreOffice 后，还可导入 **DOC、DOCX、XLS、XLSX**，由服务完成规范化。桌面安装包不内置 Python 服务或 LibreOffice。部署方式与保真边界见 [Office 指南](server/docs/desktop-office.md)。
 

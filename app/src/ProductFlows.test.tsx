@@ -37,7 +37,7 @@ it("keeps backup exclusions available on demand and restore warnings visible", a
   await userEvent.click(summary);
   expect(summary.closest("details")?.open).toBe(true);
   expect(screen.getByText(/包含题库、图片、收藏、作答和评分记录/)).toBeTruthy();
-  await userEvent.click(screen.getByRole("button", { name: "恢复备份" }));
+  await userEvent.click(screen.getByRole("button", { name: "导入与恢复" }));
   expect(screen.getByText("替换全部本地数据，操作前需确认")).toBeTruthy();
 });
 
@@ -45,7 +45,7 @@ it.each([false,true])("requires replacement confirmation and explicit recovery s
   setup(); render(<App />);
   await screen.findByText("English");
   await userEvent.click(screen.getByRole("button",{name:"设置"}));
-  const trigger = await screen.findByRole("button", { name: "恢复备份" });
+  const trigger = await screen.findByRole("button", { name: "导入与恢复" });
   await userEvent.click(trigger);
   await userEvent.click(screen.getByRole("menuitem",{name:recover ? "修复资源并恢复备份" : "恢复学习数据备份"}));
   await userEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "取消" }));
@@ -142,7 +142,7 @@ it("opens the existing offline ZIP entry with an explicit append/replace distinc
   setup(); render(<App/>);
   await screen.findByText("English");
   await userEvent.click(screen.getByRole("button", { name: "设置" }));
-  await userEvent.click(await screen.findByRole("button", { name: "恢复备份" }));
+  await userEvent.click(await screen.findByRole("button", { name: "导入与恢复" }));
   expect(await screen.findByRole("menuitem", { name: "导入题库 ZIP" })).toBeTruthy();
   expect(screen.getByText("追加题库，不替换已有学习记录")).toBeTruthy();
   expect(screen.getByText("替换全部本地数据，操作前需确认")).toBeTruthy();
@@ -339,4 +339,28 @@ it("appends an untitled import using the selected bank title without prompting f
   expect(within(dialog).queryByLabelText("题库名称")).toBeNull();
   await user.click(within(dialog).getByRole("button",{name:"确认导入"}));
   await waitFor(()=>expect(api).toHaveBeenCalledWith({type:"import",ticket:"untitled",bank_id:"bank",title:"English"}));
+});
+
+it("keeps favorites visible and moves editing and deletion into a question menu",async()=>{
+ setup();render(<App/>);
+ await userEvent.click(await screen.findByRole('button',{name:'查看题目'}));
+ await screen.findByRole('button',{name:'收藏题目'});
+ expect(screen.queryByRole('button',{name:'编辑题目'})).toBeNull();
+ await userEvent.click(screen.getByRole('button',{name:'题目更多操作 1'}));
+ expect(screen.getByRole('menuitem',{name:'编辑题目'})).toBeTruthy();
+ await userEvent.click(screen.getByRole('menuitem',{name:'删除题目'}));
+ expect(screen.getByRole('alertdialog',{name:'删除这道题目？'})).toBeTruthy();
+ expect(api).not.toHaveBeenCalledWith(expect.objectContaining({type:'delete_question'}));
+});
+
+it("distinguishes an empty favorites list from a search with no matches",async()=>{
+ setup();const original=vi.mocked(api).getMockImplementation()!;
+ vi.mocked(api).mockImplementation(async request=>request.type==='questions_page'?{items:[],total:0,offset:0} as never:original(request));
+ render(<App/>);
+ await userEvent.click(await screen.findByRole('button',{name:'收藏夹'}));
+ await screen.findByText('还没有收藏题目');
+ expect(await screen.findByRole('button',{name:'浏览题库'})).toBeTruthy();
+ await userEvent.type(screen.getByLabelText('搜索题目'),'no match');
+ await screen.findByText('没有符合筛选的题目');
+ expect(screen.queryByRole('button',{name:'浏览题库'})).toBeNull();
 });

@@ -2,6 +2,12 @@ import { chooseOption } from "../../shared/select-test.mjs";
 import { test as base, expect } from 'playwright/test';
 import { writeFile } from 'node:fs/promises';
 
+
+async function editQuestion(page, trigger) {
+  await trigger.click();
+  await page.getByRole('menuitem', {name:'编辑题目',exact:true}).click();
+}
+
 function textLines(node) {
  const walker=document.createTreeWalker(node,NodeFilter.SHOW_TEXT);
  const tops=new Set();
@@ -75,7 +81,7 @@ for (const [locale, width, theme] of [['zh-CN', 1280, 'light'], ['en', 960, 'dar
   if(width<768) await page.getByRole('button',{name:english?'Open navigation':'打开主导航',exact:true}).click();
   await page.getByRole('button',{name:english?'Settings':'设置',exact:true}).click();
   const exportButton=page.getByRole('button',{name:english?'Export backup':'导出备份',exact:true});
-  const restore=page.getByRole('button',{name:english?'Restore backup':'恢复备份',exact:true});
+  const restore=page.getByRole('button',{name:english?'Import and restore':'导入与恢复',exact:true});
   await expect(restore).toHaveAttribute('data-slot','dropdown-menu-trigger');
   const dimensions=await Promise.all([exportButton,restore].map(button=>button.evaluate(node=>{
    const box=node.getBoundingClientRect(), icon=node.querySelector('svg').getBoundingClientRect();
@@ -129,7 +135,7 @@ test('development preview pages stay offline',async ({page},testInfo)=>{
  await page.getByRole('button',{name:'我的题库',exact:true}).click();
  const bank=page.locator('[data-slot=card]').filter({has:page.getByText('基础知识 · 全题型',{exact:true})});
  await bank.getByRole('button',{name:'查看题目',exact:true}).click();
- await expect(page.getByText('9 道题目',{exact:true})).toBeVisible();
+ await expect(page.getByText('题库共 9 小题 · 当前匹配 9 项',{exact:true})).toBeVisible();
  await page.screenshot({path:testInfo.outputPath('preview.png'),fullPage:true});
 });
 
@@ -234,7 +240,7 @@ for (const kind of ['bank','question']) {
    if(kind==='bank'){
     await page.getByRole('button',{name:`题库操作 ${bankTitle}`,exact:true}).click();
     await page.getByRole('menuitem',{name:title,exact:true}).click();
-   }else await page.getByRole('button',{name:title,exact:true}).first().click();
+   }else await editQuestion(page, page.getByRole('button',{name:/^题目更多操作/}).first());
    await expect(page.getByRole('dialog',{name:title,exact:true})).toBeVisible();
   };
   const dismiss=async action=>{
@@ -279,7 +285,7 @@ for (const kind of ['bank','question']) {
    await page.getByRole('menuitem',{name:title,exact:true}).click();
   }else{
    const row=page.getByRole('button',{name:new RegExp(`${original} saved`)}).locator('..');
-   await row.getByRole('button',{name:title,exact:true}).click();
+   await editQuestion(page, row.getByRole('button',{name:/^题目更多操作/}));
   }
   await expect(field).toHaveValue(`${original} saved`);
   await page.keyboard.press('Escape');
@@ -291,7 +297,7 @@ for (const kind of ['bank','question']) {
 test('new question reverted nullable fields close without discarding other edits',async ({page})=>{
  await page.goto('/');
  await page.getByRole('button',{name:'查看题目',exact:true}).first().click();
- const editor=page.getByRole('dialog',{name:'编辑题目',exact:true});
+ const editor=page.getByRole('dialog',{name:/^(编辑题目|新增题目)$/,exact:true});
  const instructions=editor.getByRole('textbox',{name:'作答说明',exact:true});
  const open=()=>page.getByRole('button',{name:'新增题目',exact:true}).click();
  for(const action of ['Escape','close','outside']){
@@ -322,7 +328,7 @@ test('new question reverted nullable fields close without discarding other edits
 test('reverted empty reference answers close without losing real editor changes',async ({page})=>{
  await page.goto('/');
  await page.getByRole('button',{name:'查看题目',exact:true}).first().click();
- const editor=page.getByRole('dialog',{name:'编辑题目',exact:true});
+ const editor=page.getByRole('dialog',{name:/^(编辑题目|新增题目)$/,exact:true});
  const open=()=>page.getByRole('button',{name:'新增题目',exact:true}).click();
  for(const mode of ['short_answer','choice','fill_blank']){
   for(const action of ['Escape','close','outside']){
@@ -338,7 +344,7 @@ test('reverted empty reference answers close without losing real editor changes'
    await editor.getByRole('button',{name:'保存题目',exact:true}).click();
    const row=page.getByRole('button',{name:new RegExp(`^Empty reference ${mode} ${action}`)}).locator('..');
    // Development overlays can cover appended rows; reopen with the keyboard.
-   await row.getByRole('button',{name:'编辑题目',exact:true}).press('Enter');
+   await editQuestion(page, row.getByRole('button',{name:/^题目更多操作/}));
    if(mode==='choice'){
     const choice=editor.getByRole('checkbox',{name:/A\./});
     await choice.check();await choice.uncheck();
@@ -354,7 +360,7 @@ test('reverted empty reference answers close without losing real editor changes'
   }
  }
  const changedRow=page.getByRole('button',{name:/^Empty reference fill_blank outside/}).locator('..');
- await changedRow.getByRole('button',{name:'编辑题目',exact:true}).press('Enter');
+ await editQuestion(page, changedRow.getByRole('button',{name:/^题目更多操作/}));
  const answer=editor.getByRole('textbox',{name:'第 1 空',exact:true});
  await answer.fill('Real reference');
  await page.keyboard.press('Escape');
@@ -363,7 +369,7 @@ test('reverted empty reference answers close without losing real editor changes'
  await confirmation.getByRole('button',{name:'继续编辑',exact:true}).click();
  await expect(answer).toHaveValue('Real reference');
  await editor.getByRole('button',{name:'保存题目',exact:true}).click();
- await changedRow.getByRole('button',{name:'编辑题目',exact:true}).press('Enter');
+ await editQuestion(page, changedRow.getByRole('button',{name:/^题目更多操作/}));
  await expect(answer).toHaveValue('Real reference');
  await page.keyboard.press('Escape');
  await expect(editor).toBeHidden();
@@ -372,7 +378,7 @@ test('reverted empty reference answers close without losing real editor changes'
 test('incomplete question reference fallbacks close after reverting text and keep real edits',async ({page})=>{
  await page.goto('/');
  await page.getByRole('button',{name:'查看题目',exact:true}).first().click();
- const editor=page.getByRole('dialog',{name:'编辑题目',exact:true});
+ const editor=page.getByRole('dialog',{name:/^(编辑题目|新增题目)$/,exact:true});
  for(const mode of ['choice','ordering','matching']){
   await page.getByRole('button',{name:'新增题目',exact:true}).click();
   if(mode!=='choice')await chooseOption(editor.getByRole('combobox',{name:'答题方式',exact:true}), mode);
@@ -380,11 +386,11 @@ test('incomplete question reference fallbacks close after reverting text and kee
   await editor.getByRole('textbox',{name:'题干（支持 Markdown 和公式）',exact:true}).fill(title);
   await editor.getByRole('button',{name:'保存题目',exact:true}).click();
   const open=async()=>{
-   const button=page.getByRole('button',{name:new RegExp(`^${title}`)}).locator('..').getByRole('button',{name:'编辑题目',exact:true});
+   const button=page.getByRole('button',{name:new RegExp(`^${title}`)}).locator('..').getByRole('button',{name:/^题目更多操作/});
    await button.evaluate(node=>node.scrollIntoView({block:'center'}));
    await page.mouse.move(0,0);
    await expect(page.getByText('题目已保存，历史练习不受影响',{exact:true})).toBeHidden();
-   await button.click();
+   await editQuestion(page, button);
   };
   for(const dismiss of ['Escape','close','outside']){
    await open();
@@ -421,8 +427,8 @@ test('listening URL drafts survive every implicit dismissal without triggering d
  await page.goto('/');
  const bank=page.locator('[data-slot=card]').filter({has:page.getByText('英语专项 · 听力与写作',{exact:true})});
  await bank.getByRole('button',{name:'查看题目',exact:true}).click();
- const open=()=>page.getByRole('button',{name:/^Listening — chimes/}).locator('..').getByRole('button',{name:'编辑题目',exact:true}).click();
- const editor=page.getByRole('dialog',{name:'编辑题目',exact:true});
+ const open=()=>editQuestion(page, page.getByRole('button',{name:/^Listening — chimes/}).locator('..').getByRole('button',{name:/^题目更多操作/}));
+ const editor=page.getByRole('dialog',{name:/^(编辑题目|新增题目)$/,exact:true});
  const input=editor.getByRole('textbox',{name:'听力资源网址',exact:true});
  await open();
  const url='https://example.com/unapplied.wav';
@@ -465,12 +471,12 @@ test('applied listening URLs become guarded when their audio is removed or repla
  await page.goto('/');
  const bank=page.locator('[data-slot=card]').filter({has:page.getByText('英语专项 · 听力与写作',{exact:true})});
  await bank.getByRole('button',{name:'查看题目',exact:true}).click();
- const editor=page.getByRole('dialog',{name:'编辑题目',exact:true});
+ const editor=page.getByRole('dialog',{name:/^(编辑题目|新增题目)$/,exact:true});
  const input=editor.getByRole('textbox',{name:'听力资源网址',exact:true});
  const save=editor.getByRole('button',{name:'保存题目',exact:true});
  const confirmation=page.getByRole('alertdialog',{name:'放弃未保存的更改？',exact:true});
  for(const action of ['remove','mode','file']){
-  await page.getByRole('button',{name:/^Listening — chimes/}).locator('..').getByRole('button',{name:'编辑题目',exact:true}).click();
+  await editQuestion(page, page.getByRole('button',{name:/^Listening — chimes/}).locator('..').getByRole('button',{name:/^题目更多操作/}));
   const url=`https://example.com/${action}.wav`;
   await input.fill(url);
   await editor.getByRole('button',{name:'从网址获取音频',exact:true}).click();
@@ -505,8 +511,8 @@ test('child editors retain changed drafts and stage changes until the parent sav
  await page.goto('/');
  const bank=page.locator('[data-slot=card]').filter({has:page.getByText('阅读与组合题',{exact:true})});
  await bank.getByRole('button',{name:'查看题目',exact:true}).click();
- const openRoot=()=>page.getByRole('button',{name:/^words-root/}).locator('..').getByRole('button',{name:'编辑题目',exact:true}).click();
- const editor=page.getByRole('dialog',{name:'编辑题目',exact:true});
+ const openRoot=()=>editQuestion(page, page.getByRole('button',{name:/^words-root/}).locator('..').getByRole('button',{name:/^题目更多操作/}));
+ const editor=page.getByRole('dialog',{name:/^(编辑题目|新增题目)$/,exact:true});
  const field=editor.getByRole('textbox',{name:'题干（支持 Markdown 和公式）',exact:true});
  await openRoot();
  await editor.getByText('1. words-root1',{exact:true}).locator('..').getByRole('button',{name:'编辑题目',exact:true}).click();
@@ -948,7 +954,7 @@ for (const reducedMotion of ['reduce', 'no-preference']) {
   const dialog = page.getByRole('dialog');
   await expect(dialog).toHaveCSS('animation-name', expected);
   await expect(page.locator('[data-slot="dialog-overlay"]')).toHaveCSS('animation-name', expected);
-  await expect(dialog).toContainText('编辑题目');
+  await expect(dialog).toContainText('新增题目');
   expect(await dialog.evaluate(element => element.contains(document.activeElement))).toBe(true);
   await expectExitStyle(['dialog-content', 'dialog-overlay']);
   await page.keyboard.press('Escape');

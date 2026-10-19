@@ -2,7 +2,7 @@
 
 The Web workspace outlines three steps: select and import, check results, then export a question-bank ZIP for offline practice. Task status filtering has a visible label. An empty filtered list offers **查看全部任务**, which resets the filter and pagination using read-only requests. An empty unfiltered list offers **选择第一份文档**, which focuses the file picker; selection remains passive until **开始导入**.
 
-The independent AI service's Web frontend handles source selection, upload, task history, progress and saved-result review. The desktop app imports downloaded question-bank ZIP files under **Settings → Restore backup**. It contains no AI document-task interface.
+The independent AI service's Web frontend handles source selection, upload, task history, progress and saved-result review. The desktop app imports downloaded question-bank ZIP files under **Settings → Import and restore**. It contains no AI document-task interface.
 
 ## Start and review
 

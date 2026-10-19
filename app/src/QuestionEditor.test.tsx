@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from "vitest";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QuestionEditor } from "./QuestionEditor";
 import { blankQuestion } from "./api";
@@ -633,4 +633,17 @@ it("preserves sibling order when saving a changed child whose descendant precede
   expect(save.mock.calls[0][1].map((question: { id: string }) => question.id)).toEqual(["child", "leaf", "sibling"]);
   expect(save.mock.calls[0][1][0]).toMatchObject({ stem: "Cloze material changed", instructions: null });
   expect(save.mock.calls[0][1].find((question: { id: string }) => question.id === "leaf")).toEqual(children[0]);
+});
+
+it("places stem and options before classification and names a new editor explicitly",async()=>{
+ const originalMatchMedia=window.matchMedia;
+ const media=vi.spyOn(window,"matchMedia").mockImplementation(query=>({...originalMatchMedia(query),matches:query === "(pointer: coarse)" || originalMatchMedia(query).matches}));
+ render(<QuestionEditor initial={blankQuestion()} creating busy={false} onClose={vi.fn()} onSave={vi.fn()}/>);
+ expect(screen.getByRole('dialog',{name:'新增题目'})).toBeTruthy();
+ const stem=screen.getByLabelText('题干（支持 Markdown 和公式）');
+ const classification=screen.getByLabelText('题型名称');
+ expect(stem.compareDocumentPosition(classification)&Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+ expect(screen.getByLabelText('答题方式').getAttribute('aria-required')).toBe('true');
+ await waitFor(()=>expect(document.activeElement).toBe(screen.getByRole('heading',{name:'新增题目'})));
+ media.mockRestore();
 });

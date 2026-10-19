@@ -118,13 +118,13 @@ it("uses the existing dirty-editor confirmation before Android Back can leave a 
 
 it("dismisses the restore menu before navigating back and keeps ZIP import an explicit action", async () => {
   setup(); const user = userEvent.setup(); render(<App />); await openSettings(user);
-  await user.click(screen.getByRole("button", { name: "恢复备份" }));
+  await user.click(screen.getByRole("button", { name: "导入与恢复" }));
   expect(await screen.findByRole("menuitem", { name: "导入题库 ZIP" })).toBeTruthy();
   expect(androidBack()).toBe(true);
   await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
   expect(screen.getByRole("heading", { name: "设置", level: 1 })).toBeTruthy();
   expect(api).not.toHaveBeenCalledWith({ type: "pick_import" });
-  await user.click(screen.getByRole("button", { name: "恢复备份" }));
+  await user.click(screen.getByRole("button", { name: "导入与恢复" }));
   await user.click(await screen.findByRole("menuitem", { name: "导入题库 ZIP" }));
   await waitFor(() => expect(api).toHaveBeenCalledWith({ type: "pick_import" }));
 });

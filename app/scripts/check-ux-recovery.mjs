@@ -34,14 +34,14 @@ for (const width of [1280, 390]) for (const theme of ['light', 'dark']) {
     await page.goto('/');
     await navigate(page, '设置');
     await page.getByRole('button', { name: '配置', exact: true }).click();
-    await page.getByRole('button', { name: '测试', exact: true }).click();
+    await page.getByRole('button', { name: '测试连接', exact: true }).click();
     await expect(page.getByRole('alert')).toHaveCount(1);
     await expect(page.getByRole('alert')).toContainText('Synthetic connection failure');
     const errorToast = page.locator('[data-sonner-toast][data-type="error"]');
     await expect(errorToast).toHaveCount(0);
     await page.screenshot({ path: testInfo.outputPath(`connection-error-${width}-${theme}.png`), fullPage: true });
     await navigate(page, '设置');
-    await page.getByRole('button', { name: '恢复备份', exact: true }).click();
+    await page.getByRole('button', { name: '导入与恢复', exact: true }).click();
     await page.getByRole('menuitem', { name: '导入题库 ZIP', exact: true }).click();
     const confirm = page.getByRole('button', { name: '确认导入', exact: true });
     await expect(confirm).toBeEnabled();
@@ -220,7 +220,7 @@ for (const width of [1280, 360]) {
     await expect(page.getByLabel('搜索题目', { exact: true })).toBeFocused();
     await expect(page.getByLabel('筛选题型')).toHaveAttribute('data-value', '');
     await expect(page.getByRole('checkbox', { name: '仅看待复核' })).not.toBeChecked();
-    await expect(page.getByText('9 道题目', { exact: true })).toBeVisible();
+    await expect(page.getByText('题库共 9 小题 · 当前匹配 9 项', { exact: true })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   });
 }
@@ -373,7 +373,7 @@ for (const width of [1280, 360]) {
     await page.setViewportSize({ width, height: 800 });
     await inject(page, `if (command === 'request' && args?.request?.type === 'restore') { globalThis.auditRestores = (globalThis.auditRestores || 0) + 1; }`);
     await page.goto('/'); await navigate(page, '设置');
-    const trigger = page.getByRole('button', { name: '恢复备份', exact: true });
+    const trigger = page.getByRole('button', { name: '导入与恢复', exact: true });
     for (const name of ['恢复学习数据备份', '修复资源并恢复备份']) {
       await trigger.click(); await page.getByRole('menuitem', { name, exact: true }).click();
       const confirmation = page.getByRole('alertdialog', { name: '用备份替换当前数据？', exact: true });

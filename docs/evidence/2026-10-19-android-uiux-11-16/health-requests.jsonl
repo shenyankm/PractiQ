@@ -1,0 +1,2 @@
+{"method": "GET", "path": "/api/maintenance", "status": 503}
+{"method": "GET", "path": "/api/maintenance", "status": 200}

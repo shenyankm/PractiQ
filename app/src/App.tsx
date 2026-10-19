@@ -10,6 +10,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   BookOpen,
   Menu,
+  MoreHorizontal,
   Upload,
   Plus,
   Star,
@@ -31,7 +32,7 @@ import {
 import { toast } from "./notifications";
 import { canCloseWindow, useUnsavedChanges } from "./useUnsavedChanges";
 import type { GradingDraft } from "./ExamResults";
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Empty, EmptyContent, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
@@ -163,6 +164,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
   const [importPreview, setImportPreview] = useState<{ preview: Preview; initialBank: string } | null>(null);
   const [bankEditor, setBankEditor] = useState<BankDraft | null>(null);
   const bankEditorTrigger = useRef<HTMLElement | null>(null);
+  const questionEditorTrigger = useRef<HTMLElement | null>(null);
   const [editor, setEditor] = useState<{
     id: string | null;
     question: Question;
@@ -530,7 +532,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
               {(page === "banks" || listPage) && <p className="mt-1 text-sm text-muted-foreground">
                 {page === "banks"
                   ? bankError != null ? t("题库概览读取失败") : !banksReady ? t("加载中…") : t("{0} 个题库 · {1} 道题目", { 0: banks.length, 1: banks.reduce((n, b) => n + b.count, 0) })
-                  : questionError != null ? t("加载题目失败") : loading ? t("加载中…") : t("{0} 道题目{1}", { 0: questionTotal, 1: "" })}
+                  : questionError != null ? t("加载题目失败") : loading ? t("加载中…") : page === "questions" && banksReady && bankError == null ? t("题库共 {0} 小题 · 当前匹配 {1} 项", {0:banks.find(b => b.id === bank)?.count ?? 0,1:questionTotal}) : t("当前匹配 {0} 项", {0:questionTotal})}
               </p>}
             </div>
           </div>
@@ -557,9 +559,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                   <Button
                     variant="outline"
                     disabled={busy}
-                    onClick={() =>
-                      setEditor({ id: null, question: blankQuestion() })
-                    }
+                    onClick={event => { questionEditorTrigger.current = event.currentTarget; setEditor({ id: null, question: blankQuestion() }); }}
                   >
                     <Plus />{t("新增题目")}</Button>
                 )}
@@ -722,12 +722,12 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                             className={row.favorite ? "fill-current" : ""}
                           />
                         </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          aria-label={t("编辑题目")}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild><Button id={`question-actions-${row.id}`} size="icon" variant="ghost" aria-label={t("题目更多操作 {0}", {0: offset + i + 1})} disabled={busy}><MoreHorizontal /></Button></DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                        <DropdownMenuItem
                           disabled={busy}
-                          onClick={() => run(async () => {
+                          onSelect={() => { questionEditorTrigger.current = document.getElementById(`question-actions-${row.id}`); run(async () => {
                             const full = await api({type:"question_detail",id:row.id});
                             setBank(row.bankId);
                             const visuals = [full, ...(full.children || [])].flatMap(r=>r.visuals);
@@ -736,16 +736,13 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                               return ref ? [[ref.sha256,{hash:ref.sha256,label:v.label || v.description || ""}] as const] : [];
                             })).values());
                             setEditor({ id: row.id, question: full.question, images, children: (full.children || []).map(c=>({...c.question, options:c.question.optionSourceId ? [] : c.question.options})) });
-                          })}
+                          }); }}
                         >
-                          <Pencil />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          aria-label={t("删除题目")}
+                          <Pencil />{t("编辑题目")}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem variant="destructive"
                           disabled={busy}
-                          onClick={() =>
+                          onSelect={() =>
                             openConfirm({
                               title: message("删除这道题目？"),
                               label: message("删除题目"),
@@ -758,11 +755,13 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                                 refreshQuestions();
                                 await reloadBanks();
                               },
-                            })
+                            }, document.getElementById(`question-actions-${row.id}`))
                           }
                         >
-                          <Trash2 />
-                        </Button>
+                          <Trash2 />{t("删除题目")}
+                        </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                         </div>
                       </div>
                     ))}
@@ -789,8 +788,9 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                     <EmptyHeader>
                       <EmptyMedia>{page === "favorite" ? <Star /> : <BookOpen />}</EmptyMedia>
                       <EmptyTitle>{hasQuestionFilters ? t("没有符合筛选的题目") : page === "wrong" ? t("暂时没有错题") : page === "favorite" ? t("还没有收藏题目") : t("没有找到题目")}</EmptyTitle>
-                      <EmptyDescription>{hasQuestionFilters ? t("清除筛选以查看当前列表中的全部题目。") : page === "wrong" ? t("错误和未得满分的题目会出现在这里，再次答对或得满分后自动移出；未评分不算错题。") : t("尝试调整筛选，或导入新的题目。")}</EmptyDescription>
+                      <EmptyDescription>{hasQuestionFilters ? t("清除筛选以查看当前列表中的全部题目。") : page === "wrong" ? t("错误和未得满分的题目会出现在这里，再次答对或得满分后自动移出；未评分不算错题。") : page === "favorite" ? t("浏览题库时点击题目旁的星标，即可在这里集中复习。") : t("尝试调整筛选，或导入新的题目。")}</EmptyDescription>
                     </EmptyHeader>
+                    {page === "favorite" && !hasQuestionFilters && <EmptyContent><Button variant="outline" onClick={() => navigate("banks")}>{t("浏览题库")}</Button></EmptyContent>}
                   </Empty>
                 )
               )}
@@ -982,6 +982,8 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
       )}
       {editor && bank && (
         <ErrorBoundary fallback={<RenderFailureDialog onClose={() => setEditor(null)} />}> <Suspense fallback={loadingView}><QuestionEditor
+          trigger={questionEditorTrigger.current}
+          creating={editor.id === null}
           initial={editor.question}
           initialChildren={editor.children}
           images={editor.images}

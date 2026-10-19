@@ -76,7 +76,7 @@ test('question-list failures persist, hide stale actions and retry the current f
  });
  await page.getByRole('button',{name:'View questions',exact:true}).first().click();
  await expect(page.getByText('Previous alpha question',{exact:true})).toBeVisible();
- await expect(page.getByRole('button',{name:'Edit question',exact:true})).toBeEnabled();
+ await expect(page.getByRole('button',{name:'More actions for question 1',exact:true})).toBeEnabled();
  await page.evaluate(()=>{window.__failQuestionRead=true;});
  await page.getByRole('textbox',{name:'Search questions',exact:true}).fill('beta');
  await chooseOption(page.getByRole('combobox',{name:'Filter by question type',exact:true}), 'single');
@@ -85,8 +85,8 @@ test('question-list failures persist, hide stale actions and retry the current f
  await expect(alert).toContainText('Could not load questions');
  await expect(alert).toContainText('Question read unavailable');
  await expect(page.getByText('Previous alpha question',{exact:true})).toHaveCount(0);
- await expect(page.getByText('60 questions',{exact:true})).toHaveCount(0);
- for(const name of ['Edit question','Delete question','Favorite question','Next page']) await expect(page.getByRole('button',{name,exact:true})).toHaveCount(0);
+ await expect(page.getByText(/60 matching items/)).toHaveCount(0);
+ for(const name of ['More actions for question 1','Favorite question','Next page']) await expect(page.getByRole('button',{name,exact:true})).toHaveCount(0);
  await expect(page.getByRole('button',{name:'Start practice',exact:true})).toBeDisabled();
  await expect(page.getByText('No questions found',{exact:true})).toHaveCount(0);
  await expectNoOverflow(page,'question-list failure');
@@ -283,7 +283,7 @@ test('offline ZIP entry and service settings never submit documents or start mod
  await token.focus();
  await expect.poll(()=>observedCalls.some(c=>c.request.type==='save_settings'&&c.request.config.service_url==='https://service.example.test')).toBe(true);
  await token.fill('fake-browser-token');
- await page.getByRole('button',{name:'Test',exact:true}).focus();
+ await page.getByRole('button',{name:'Test connection',exact:true}).focus();
  await expect(token).toHaveValue('');
  const savedRequests=()=>observedCalls.filter(c=>c.request.type==='save_settings').map(c=>c.request);
  await expect.poll(savedRequests,'Each completed field blur saves once').toEqual([
@@ -291,7 +291,7 @@ test('offline ZIP entry and service settings never submit documents or start mod
   {type:'save_settings',config:{service_url:'https://service.example.test'},service_token:'fake-browser-token'},
  ]);
  await expectNoOverflow(page,'autosaved service settings');
- await page.getByRole('button',{name:'Test',exact:true}).click();
+ await page.getByRole('button',{name:'Test connection',exact:true}).click();
  await expect(page.getByRole('status').filter({hasText:'Connection test passed'})).toBeVisible();
  expect(savedRequests()).toHaveLength(2);
  await expect.poll(()=>observedCalls.filter(c=>c.request.type==='test_settings').map(c=>c.request)).toEqual([{type:'test_settings',config:{service_url:'https://service.example.test'},service_token:null}]);
@@ -304,12 +304,12 @@ test('offline ZIP entry and service settings never submit documents or start mod
  await expect(url).toHaveValue('https://service-latest.example.test');
  await expect(token).toHaveValue('');
  await token.fill('fake-latest-service-token');
- await page.getByRole('button',{name:'Test',exact:true}).focus();
+ await page.getByRole('button',{name:'Test connection',exact:true}).focus();
  await expect.poll(savedRequests).toHaveLength(4);
  await page.getByRole('button',{name:'Clear saved access token',exact:true}).click();
  await expect.poll(savedRequests).toHaveLength(5);
  expect(savedRequests().at(-1)).toEqual({type:'save_settings',config:{service_url:'https://service-latest.example.test'},service_token:''});
- await expect(page.getByRole('button',{name:'Test',exact:true})).toBeDisabled();
+ await expect(page.getByRole('button',{name:'Test connection',exact:true})).toBeDisabled();
  await expect(token).toHaveValue('');
  await page.getByRole('button',{name:'Back to settings',exact:true}).click();
  await expect(page.getByRole('status').filter({hasText:'Not configured'})).toBeVisible();
