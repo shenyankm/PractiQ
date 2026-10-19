@@ -146,3 +146,9 @@ Then configure `http://127.0.0.1:8090` in Settings → AI service. Connection te
 ## CI and acceptance
 
 The `Android CI` final job gates shared UI/contracts and package regressions, a complete arm64 debug APK, and API 35 x86_64 unit/instrumentation tests. `Desktop CI` covers macOS/Windows; `Service CI` covers the separate service and Web frontend. Required checks, review conversations and candidate identity must pass before merging. APK and emulator evidence does not establish physical-device, minimum-OS/WebView, release-signing, live-model or participant acceptance.
+
+## Navigation and reading feedback
+
+Compact root pages expose the navigation drawer. Question lists, practice/review and AI-service settings show their return action without a second menu button. Desktop navigation remains in the sidebar. An unchanged bank editor offers Cancel; leaving a dirty bank through its footer still requires discard confirmation.
+
+Question metadata labels source/target languages and writing genre in the selected interface language. Question text and unknown source genre values remain unchanged. The listening player shows elapsed/total segment time, aligns playback controls, and resets an unknown duration while a new source loads. Restricted exam playback still has no seeking or speed controls; timestamps do not announce continuously to screen readers.

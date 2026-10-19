@@ -316,3 +316,19 @@ it("releases the previous audio when its source changes",async()=>{
   await waitFor(()=>expect(view.container.querySelector("audio")?.getAttribute("src")).toBe("blob:replacement"));
   expect(URL.revokeObjectURL).toHaveBeenCalledExactlyOnceWith("blob:audio");
 });
+
+it("shows elapsed and total segment time and clears duration for an unloaded source",async()=>{
+  const {container}=render(<ListeningPlayer question={{...question,audioStartSeconds:1,audioEndSeconds:3}}/>);
+  reveal();
+  await waitFor(()=>expect(container.querySelector("audio")?.src).toBe("blob:audio"));
+  const player=container.querySelector("audio")!;
+  fireEvent.loadedMetadata(player);
+  expect(screen.getByLabelText(/^播放时间：/).textContent).toBe("0:00 / 0:02");
+  player.currentTime=2;
+  fireEvent.timeUpdate(player);
+  expect(screen.getByLabelText(/^播放时间：/).textContent).toBe("0:01 / 0:02");
+  expect(screen.getByLabelText(/^播放时间：/).getAttribute("aria-label")).toBe("播放时间：0:01 / 0:02");
+  vi.mocked(Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype,"duration")!.get!).mockReturnValue(NaN);
+  fireEvent.emptied(player);
+  expect(screen.getByLabelText(/^播放时间：/).textContent).toContain(" / —");
+});

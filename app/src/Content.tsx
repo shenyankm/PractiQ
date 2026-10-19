@@ -6,7 +6,7 @@ import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
 import { fieldName, type Snapshot, type Visual, type Block, type Question } from "./api";
-import { materialLanguage } from "./english";
+import { languageLabel, materialLanguage, writingGenreLabel } from "./english";
 import { acquireAsset } from "./asset-urls";
 import { ZoomIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -212,8 +212,8 @@ export const Content = memo(function Content({
         {q.stem || (!exam && q.sourceText) || t("此题题干缺失，请查看以下内容或跳过。")}
       </Markdown>
       <Markdown>{q.instructions}</Markdown>
-      {(q.sourceLanguage || q.targetLanguage) && <p className="text-sm text-muted-foreground">{q.sourceLanguage}{q.sourceLanguage ? " → " : ""}{q.targetLanguage}</p>}
-      {q.writingGenre && <p className="text-sm text-muted-foreground">{q.writingGenre}</p>}
+      {(q.sourceLanguage || q.targetLanguage) && <p className="text-sm text-muted-foreground">{[q.sourceLanguage && t("源语言：{0}", {0:languageLabel(q.sourceLanguage)}), q.targetLanguage && t("目标语言：{0}", {0:languageLabel(q.targetLanguage)})].filter(Boolean).join(" · ")}</p>}
+      {q.writingGenre && <p className="text-sm text-muted-foreground">{t("文体：{0}", {0:writingGenreLabel(q.writingGenre)})}</p>}
       {materialDialog && materials.some(m=>m.passage?.length || m.contentBlocks.length || m.transcript?.length || m.questionKind === "paragraph_matching" || (m.id !== q.id && (m.stem || m.instructions))) ? materialReading ? <div className="practice-material rounded-lg border bg-card p-2">
         <Button ref={trigger} variant="outline" className="w-full" aria-expanded={open} aria-controls={materialId} onClick={toggleMaterial}>{t(open ? "收起原文" : "查看原文")}</Button>
         {open && <div id={materialId} role="region" aria-label={t("题目材料")} tabIndex={0} className="practice-material-body space-y-4 overflow-auto p-2" ref={node=>{if(node) node.scrollTop=materialReading.current[materialKey]?.scrollTop ?? 0;}} onScroll={event=>{materialReading.current[materialKey]={open:true,scrollTop:event.currentTarget.scrollTop};}}>{materials.map(material)}{snapshot.visuals.map(v=><ImageAsset key={v.id} visual={v}/>)}</div>}

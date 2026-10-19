@@ -155,8 +155,11 @@ function DialogDescription({
   );
 }
 
+const DialogClose = DialogPrimitive.Close;
+
 export {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,

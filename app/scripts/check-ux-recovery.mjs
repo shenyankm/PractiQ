@@ -13,7 +13,12 @@ async function inject(page, source) {
 
 async function navigate(page, name) {
   const menu = page.getByRole('button', { name: '打开主导航', exact: true });
-  if (page.viewportSize().width < 768) await menu.click();
+  if (page.viewportSize().width < 768) {
+    const back=page.getByRole('button',{name:/^返回(题库|练习记录|设置|评分)$/});
+    await expect(menu.or(back).first()).toBeVisible();
+    if (!await menu.count()) { await back.click(); await expect(menu).toBeVisible(); }
+    await menu.click();
+  }
   await page.getByRole('button', { name, exact: true }).click();
 }
 
@@ -347,7 +352,7 @@ for (const width of [1280, 360]) {
 }
 
 
-test('drawer keeps failed navigation feedback visible outside its hidden title', async ({ page }, testInfo) => {
+test('subpage return preserves failed settings feedback without a second navigation control', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 360, height: 800 });
   await inject(page, `
     if (command === 'request' && args?.request?.type === 'save_settings') throw { code: 'OPERATION_FAILED', diagnostic: 'Settings save unavailable (synthetic)' };
@@ -357,15 +362,12 @@ test('drawer keeps failed navigation feedback visible outside its hidden title',
   await page.getByLabel('AI 服务地址', { exact: true }).fill('http://127.0.0.1:8000');
   await page.getByRole('heading', { name: 'AI 服务', exact: true }).click();
   await expect(page.getByRole('alert')).toBeVisible();
-  await page.getByRole('button', { name: '打开主导航', exact: true }).click();
-  await page.getByRole('button', { name: '我的题库', exact: true }).click();
-  const drawer = page.getByRole('dialog', { name: '主导航', exact: true });
-  await expect(drawer.getByRole('alert')).toBeVisible();
-  await page.screenshot({ path: testInfo.outputPath('drawer-navigation-error-360.png') });
-  await page.keyboard.press('Escape');
-  await expect(drawer).toBeHidden();
+  await expect(page.getByRole('button',{name:'打开主导航',exact:true})).toHaveCount(0);
+  await page.getByRole('button',{name:'返回设置',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'AI 服务',exact:true})).toBeVisible();
   await expect(page.getByRole('alert')).toHaveCount(1);
   await expect(page.getByLabel('AI 服务地址', { exact: true })).toHaveValue('http://127.0.0.1:8000');
+  await page.screenshot({path:testInfo.outputPath('subpage-return-save-error-360.png')});
 });
 
 for (const width of [1280, 360]) {

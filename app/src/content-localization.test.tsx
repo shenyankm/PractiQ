@@ -113,3 +113,19 @@ it.each(["file", "url"] as const)("retranslates a stored audio %s error without 
   expect(screen.getByRole("alert").textContent).not.toBe(before);
   expect(vi.mocked(invoke).mock.calls.slice(requests).map(([,args])=>(args!.request as {type:string}).type)).toEqual(["save_language"]);
 });
+
+it("labels translated metadata without translating question content or losing unknown genres", async () => {
+  const question={...blankQuestion(),questionKind:'writing' as const,targetLanguage:'en',writingGenre:'Invitation',stem:'Write an invitation.'};
+  const view=wrap(<Content snapshot={snapshot(question)}/>); await ready();
+  expect(screen.getByText('目标语言：英语')).toBeTruthy();
+  expect(screen.getByText('文体：邀请函')).toBeTruthy();
+  expect(screen.getByText('Write an invitation.')).toBeTruthy();
+  await change('en');
+  expect(screen.getByText('Target language: English')).toBeTruthy();
+  expect(screen.getByText('Genre: Invitation')).toBeTruthy();
+  expect(screen.getByText('Write an invitation.')).toBeTruthy();
+  view.unmount();
+  wrap(<Content snapshot={snapshot({...question,writingGenre:'Custom source genre',targetLanguage:'bad_<code>'})}/>); await ready();
+  expect(screen.getByText(/Custom source genre/)).toBeTruthy();
+  expect(screen.getByText(/bad_<code>/)).toBeTruthy();
+});
