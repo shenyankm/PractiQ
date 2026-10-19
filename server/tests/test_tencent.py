@@ -350,3 +350,14 @@ def test_native_excel_table_rejects_invalid_collections(change):
     table = {"table_name": "Synthetic", "fields": [], "rows": [], **change}
     with pytest.raises(DocumentProcessingError):
         decode_bundle(archive([("sample_ocr_page0.json", json.dumps(table))]), load(), page_count=1)
+
+
+@pytest.mark.parametrize('kind', ['doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx'])
+async def test_direct_office_submission_caps_paid_pages(monkeypatch, kind):
+    reference, _, runtime = job_runtime(monkeypatch)
+    monkeypatch.setenv('AI_MAX_DOCUMENT_PAGES', '2')
+    request = AsyncMock(side_effect=[{'TaskId':'123'}, {'Status':'Success','ResultUrl':'result','SuccessPageNum':2}])
+    monkeypatch.setattr(tencent, 'request', request)
+    monkeypatch.setattr(tencent, 'download_result', AsyncMock(return_value=b'archive'))
+    await tencent.parse_job(reference, runtime, source_type=kind)
+    assert request.await_args_list[0].args[1]['FileEndPageNumber'] == 2

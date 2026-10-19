@@ -870,6 +870,9 @@ async def _prepare(state: DocumentState, runtime: Runtime[None], *, source_types
             page = by_page.get(number, {"failed": True})
             page["page"] = len(pages)
             pages.append(page)
+        if source_type in OFFICE_SOURCE_TYPES and count >= settings.max_document_pages:
+            truncated = True
+            warnings.append("Office recognition reached the configured page limit; review the original for additional content.")
         if job.get("FailPageNum") or len(decoded) != count:
             truncated = True
             warnings.append("Tencent parsing contains failed or missing pages; retain human review.")
@@ -882,7 +885,7 @@ async def _prepare(state: DocumentState, runtime: Runtime[None], *, source_types
         contents = [(element["text_info"].get("content") if isinstance(element.get("text_info"), dict) else None) for page in pages for element in page.get("elements", [])]
         original = payload.decode("utf-8-sig")
         if (contents and all(isinstance(value, str) for value in contents)
-                and not any(page.get("figures") for page in pages) and original in {"".join(cast(list[str], contents)), "\n".join(cast(list[str], contents))}):
+                and not any(page.get("figures") for page in pages) and original == "".join(cast(list[str], contents))):
             text_ref = await put(original.encode(), "text", 0, "text/plain")
             return {"textRef": text_ref.model_dump(mode="json"), "pageRefs": [],
                     "ocrPageRefs": [ref.model_dump(mode="json") for ref in ocr_refs], "inputParts": input_parts,

@@ -31,8 +31,9 @@ Word and PPT originals within the per-job limit are submitted directly after
 container validation. XLSX preparation exposes hidden and very-hidden sheets in
 an immutable derived copy, preserving all other ZIP members and the original
 source. Live recognition of the synthetic prepared workbook returned both sheets.
-Legacy XLS always requires the existing isolated LibreOffice adapter; it exports
-all sheets to PDF. Oversized Office inputs also use that adapter to produce
+Legacy XLS always requires the existing isolated LibreOffice adapter; its
+`SinglePageSheets` PDF export includes hidden sheets. A Docker LibreOffice 7.4.7
+check exported both sheets, including hidden content, from the original fixture. Oversized Office inputs also use that adapter to produce
 reviewable PDF pages before Tencent recognition. PPT/PPTX use Impress PDF export.
 Without a configured converter, capabilities exclude XLS and cap other Office
 uploads at their direct-submission limit. Excel output still requires original
@@ -90,7 +91,8 @@ limit are sent intact; larger inputs split before the first paid request.
 TXT/Markdown split at UTF-8 boundaries, preferring newline boundaries; joining
 the parts reproduces every original byte. PDF uses its retained rendered pages.
 Large PNG/JPEG or rendered pages split into lossless PNG tiles without resizing,
-removing pixels or changing transparency. Oversized Office uses the trusted
+removing pixels or changing transparency. CMYK JPEG tiles convert to RGB before
+PNG encoding, using the embedded color profile when present. Oversized Office uses the trusted
 isolated adapter to render PDF pages and follows the same visual split path.
 Missing Office configuration fails before submission. Enabling COS avoids the
 Base64-specific 8 MiB split while preserving the other limits.
@@ -110,7 +112,9 @@ unsafe paths, ambiguous full-document files and malformed archives fail closed.
 
 All parts pass individual size, part-count and total visual-byte checks before
 the first job. The configured document-page limit also bounds the number of
-parts and the combined returned pages. Original source hashes, ordered part
+parts and the combined returned pages. Direct Office requests set
+`FileEndPageNumber` to that configured limit before paid submission. Reaching the
+ceiling retains partial evidence with a warning rather than claiming full coverage. Original source hashes, ordered part
 hashes, text byte ranges and image pixel bounds/original-page references are
 retained; visual review and crops use the exact submitted tile. Each part has
 its own durable Tencent receipt and replay reuses completed jobs. Cross-part
@@ -130,7 +134,9 @@ succeeds but its response or local receipt is lost, the saved intent remains
 `SUBMITTING`. Recovery reports `TENCENT_SUBMISSION_UNKNOWN` and refuses automatic
 resubmission. Check Tencent-side records before explicitly parsing again; another
 submission may charge again. Local run cancellation cannot cancel cloud work
-through these two APIs.
+through these two APIs. Terminal rejection, unknown submission without a task ID,
+and terminal job failure do not offer Resume; inspect the retained evidence before
+explicitly parsing again.
 An explicit provider rejection is saved as `REJECTED`, separate from an unknown
 network outcome. Both require explicit recovery rather than automatic submission.
 

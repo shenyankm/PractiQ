@@ -214,3 +214,56 @@ def test_office_pdf_export_retains_hidden_sheets_and_slides(monkeypatch, tmp_pat
     export_filter = args[args.index("--convert-to") + 1]
     assert export_filter.startswith(f"pdf:{family if family == 'calc' else 'impress'}_pdf_Export:")
     assert json.loads(export_filter.split(":", 2)[2])[option] == {"type": "boolean", "value": "true"}
+
+
+def test_cmyk_jpeg_tiles_use_png_rgb_without_losing_pixels():
+    original = Image.frombytes('CMYK', (40, 40), random.Random(8).randbytes(40*40*4))
+    source = BytesIO()
+    original.save(source, format='JPEG')
+    parts = split_image(source.getvalue(), 700, 100)
+    restored = Image.new('RGB', original.size)
+    for data, media, bounds in parts:
+        with Image.open(BytesIO(data)) as tile:
+            assert tile.mode == 'RGB' and media == 'image/png' and len(data) <= 700
+            restored.paste(tile, bounds[:2])
+    with Image.open(BytesIO(source.getvalue())) as decoded:
+        assert restored.tobytes() == decoded.convert('RGB').tobytes()
+    assert len(parts) > 1
+
+
+@pytest.mark.parametrize('kind', ['text', 'markdown'])
+async def test_split_text_cannot_restore_proofs_by_inserting_newlines(monkeypatch, kind):
+    original = b'first\nsecond'
+    state, _, runtime = prepare(monkeypatch, kind, original)
+    monkeypatch.setenv('AI_TENCENT_INPUT_MAX_BYTES', '6')
+    tencent_provider(monkeypatch, [ocr_text_page('unused')])
+    original_decode = document.decode_bundle
+    def decode(bundle, settings, **kwargs):
+        index = len(decoded)
+        pages = original_decode(bundle, settings, **kwargs)
+        pages[0]['elements'][0]['text_info']['content'] = ['first','second'][index]
+        decoded.append(pages)
+        return pages
+    decoded = []
+    monkeypatch.setattr(document, 'decode_bundle', decode)
+    result = await document._prepare(cast(Any, state), runtime)
+    assert result['textRef'] is None
+    assert any('original-text source proofs are unavailable' in item for item in result['warnings'])
+
+
+async def test_office_page_ceiling_preserves_partial_evidence_for_review(monkeypatch):
+    payload = (Path(__file__).parents[2] / 'app/fixtures/office/中文 试卷.docx').read_bytes()
+    state, _, runtime = prepare(monkeypatch, 'docx', payload)
+    monkeypatch.setenv('AI_MAX_DOCUMENT_PAGES', '1')
+    tencent_provider(monkeypatch, [ocr_text_page('first page')])
+    result = await document._prepare(cast(Any, state), runtime)
+    assert result['truncated'] and len(result['ocrPageRefs']) == 1
+    assert any('configured page limit' in item for item in result['warnings'])
+
+
+def test_invalid_cmyk_profile_returns_a_controlled_error():
+    source = BytesIO()
+    Image.new('CMYK', (20, 20)).save(source, format='JPEG', icc_profile=b'invalid profile')
+    with pytest.raises(DocumentProcessingError) as error:
+        split_image(source.getvalue(), 700, 100)
+    assert error.value.code == 'IMAGE_FORMAT_UNSUPPORTED'

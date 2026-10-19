@@ -526,3 +526,16 @@ async def test_legacy_csv_reparse_returns_controlled_http_error_and_preserves_sa
     assert response.json()['detail']['code'] == 'DOCUMENT_SOURCE_TYPE_MISMATCH'
     assert await task_api.get_task(receipt['threadId']) == before
     assert len(model.calls) == 1
+
+
+@pytest.mark.parametrize('code', ['TENCENT_REQUEST_REJECTED', 'TENCENT_SUBMISSION_UNKNOWN', 'TENCENT_JOB_FAILED'])
+async def test_terminal_tencent_failure_has_no_resume_action(monkeypatch, code):
+    from practiq_ai import tencent
+    service, reference, model = await setup_api(monkeypatch)
+    monkeypatch.setattr(tencent, 'request', AsyncMock(side_effect=DocumentProcessingError(502, 'terminal', code)))
+    created = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
+    await service.wait_idle()
+    detail = await task_api.get_task(created['threadId'])
+    assert detail['state'] == 'FAILED' and 'resume' not in detail['allowedActions'] and not model.calls
+    with pytest.raises(DocumentProcessingError, match='new document'):
+        await task_api.control_task(created['threadId'], DocumentTaskControl(requestId=uuid4(), action='resume', checkpointId=detail['checkpointId']))

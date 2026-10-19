@@ -16,7 +16,12 @@ from langgraph.runtime import Runtime
 from pydantic import BaseModel, Field, StrictInt, ValidationError
 
 from .config import Config, load
-from .contracts import ArtifactReference, DocumentReference, DocumentSourceType
+from .contracts import (
+    OFFICE_SOURCE_TYPES,
+    ArtifactReference,
+    DocumentReference,
+    DocumentSourceType,
+)
 from .errors import DocumentProcessingError
 from .execution import guard, namespace, run_remaining, store_put
 from .storage import get_object_store
@@ -179,6 +184,8 @@ async def parse_job(reference: ArtifactReference, runtime: Runtime[Any], *, key:
         await guard(runtime)
         data: dict[str, Any] = {"FileType": FILE_TYPES[source_type], "ResultType": RESULT_TYPES[source_type],
                                 "EnableSubImg": RESULT_TYPES[source_type] == 9, "TaskType": 0}
+        if source_type in OFFICE_SOURCE_TYPES:
+            data["FileEndPageNumber"] = config.max_document_pages
         if config.tencent_cos_enabled:
             staging = staging_object(config, info.thread_id, key, reference.sha256)
             if record is None:

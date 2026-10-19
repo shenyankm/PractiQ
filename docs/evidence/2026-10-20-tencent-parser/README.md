@@ -12,6 +12,8 @@ This change routes recognition through Tencent asynchronous document jobs while 
 
 - Follow up all five PR findings: preserve hidden sheets, retry COS deletion through an incomplete prepare checkpoint, advertise usable Office limits, remove legacy Office modes only from reparse children, and reject legacy CSV reparse with a controlled 422 while retaining saved tasks.
 
+- Second review: bound direct Office paid pages, disable futile terminal Resume actions, convert CMYK tiles safely and require unchanged concatenated text for original-source proofs. The oversized XLSX concern was checked against the existing `SinglePageSheets` export: Docker LibreOffice 7.4.7 returned both sheets and hidden content from the original workbook.
+
 ## Local validation
 
 All commands ran on macOS arm64 with the existing Python 3.14.7 interpreter; no project virtual environment was created. `AI_PYTHON` selected that interpreter and `PYTHONPATH` selected this worktree's `server/src`.

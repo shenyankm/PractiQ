@@ -2,7 +2,7 @@
 
 from io import BytesIO
 
-from PIL import Image
+from PIL import Image, ImageCms
 
 from .errors import DocumentProcessingError
 
@@ -37,7 +37,19 @@ def split_image(payload: bytes, limit: int, max_parts: int) -> list[tuple[bytes,
             bounds = pending.pop()
             with image.crop(bounds) as tile:
                 buffer = BytesIO()
-                tile.save(buffer, format="PNG")
+                if tile.mode == "CMYK":
+                    try:
+                        profile = image.info.get("icc_profile")
+                        converted = (ImageCms.profileToProfile(tile, ImageCms.ImageCmsProfile(BytesIO(profile)),
+                                     ImageCms.createProfile("sRGB"), outputMode="RGB") if profile else tile.convert("RGB"))
+                        if converted is None:
+                            raise ValueError("Color transform returned no image")
+                        with converted:
+                            converted.save(buffer, format="PNG")
+                    except (ImageCms.PyCMSError, OSError, ValueError) as exc:
+                        raise DocumentProcessingError(422, "CMYK color conversion failed", "IMAGE_FORMAT_UNSUPPORTED") from exc
+                else:
+                    tile.save(buffer, format="PNG")
                 data = buffer.getvalue()
             if len(data) <= limit:
                 parts.append((data, "image/png", bounds))

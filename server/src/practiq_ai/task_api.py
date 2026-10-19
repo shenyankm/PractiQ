@@ -231,6 +231,7 @@ def _task_state(snapshot, run) -> tuple[TaskState, list[TaskAction], list[dict[s
         actions = ['resume'] if snapshot.next and run['error_code'] not in {
             'DOCUMENT_PARSE_FAILED', 'NO_QUESTIONS_FOUND', 'DOCUMENT_SOURCE_TYPE_MISMATCH',
             'DOCUMENT_PREPARE_FAILED', 'MODEL_INPUT_TOO_LARGE', 'MODEL_BUDGET_EXCEEDED',
+            'TENCENT_REQUEST_REJECTED', 'TENCENT_SUBMISSION_UNKNOWN', 'TENCENT_JOB_FAILED',
         } else []
         if any(f['retryable'] for f in failures):
             actions.append('retry_failed')
