@@ -77,7 +77,7 @@ jobs:
         run: make install-locked AI_PYTHON=python
       - run: python app/scripts/export-contracts.py --check
       - run: python app/scripts/check-fixtures.py
-      - run: python -m pytest server/tests/test_ci.py server/tests/test_ci_scope.py server/tests/test_release_checks.py server/tests/test_release_workflow.py server/tests/test_desktop_package.py server/tests/test_android_package.py server/tests/test_android_licenses.py
+      - run: python -m pytest server/tests/test_ci.py server/tests/test_ci_scope.py server/tests/test_release_checks.py server/tests/test_release_workflow.py server/tests/test_desktop_package.py server/tests/test_android_package.py server/tests/test_android_licenses.py server/tests/test_android_bootstrap.py
         env:
           PRACTIQ_REQUIRE_NATIVE_BUILD_GUARD: '1'
       - run: npm ci
@@ -91,6 +91,16 @@ jobs:
         working-directory: app
       - run: npm run test:browser
         working-directory: app
+      - name: Build the shared production frontend for Android
+        run: npm run build
+        working-directory: app
+      - name: Retain the exact production frontend for both Android targets
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: android-frontend
+          path: app/dist/
+          if-no-files-found: error
+          retention-days: 7
       - name: Upload browser diagnostics
         if: ${{ always() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -222,6 +232,9 @@ jobs:
           retention-days: 14
   android-package:
     name: Android arm64 APK
+    permissions:
+      contents: read
+      actions: read
     needs: [changes, quality]
     if: needs.changes.outputs.required == 'true'
     runs-on: ubuntu-24.04
@@ -257,16 +270,19 @@ jobs:
           python-version: '3.14'
       - run: npm ci
         working-directory: app
-      - name: Resolve native Android projects without distributable resources
-        working-directory: app
-        run: npm run tauri -- android build --debug --apk --split-per-abi --target aarch64 --ci --config '{"bundle":{"resources":[]}}'
+      - name: Reuse the checked production frontend
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name android-frontend --dir app/dist
+      - name: Resolve native Android projects without building an APK
+        run: python app/scripts/bootstrap-android.py aarch64-linux-android
       - name: Bind notices to the locked actual runtime
         run: |
           app/src-tauri/gen/android/gradlew -p app/src-tauri/gen/android :app:exportRuntimeNoticeInventory -PpractiqNoticeConfiguration=arm64DebugRuntimeClasspath -PpractiqNoticeOutput="$PWD/app/.build/android-runtime.json" --no-daemon
           python app/scripts/prepare-package.py --platform android --architecture arm64 --android-runtime-inventory app/.build/android-runtime.json
       - name: Build the final practice-client APK
         working-directory: app
-        run: npm run tauri -- android build --debug --apk --split-per-abi --target aarch64 --ci
+        run: npm run tauri -- android build --debug --apk --split-per-abi --target aarch64 --ci --config '{"build":{"beforeBuildCommand":""}}'
       - name: Verify exact final APK and retain selected bytes
         run: |
           python app/scripts/check-apk.py --installer app/src-tauri/gen/android/app/build/outputs/apk/arm64/debug/app-arm64-debug.apk --abi arm64-v8a --aapt2 "$ANDROID_HOME/build-tools/36.0.0/aapt2" --expected-notices app/src-tauri/bundled/THIRD-PARTY.txt --retain-installer app/.build/android-final/PractiQ.apk --output server/reports/checks/android-package.json
@@ -302,6 +318,9 @@ jobs:
           retention-days: 14
   emulator:
     name: Android API 35 emulator
+    permissions:
+      contents: read
+      actions: read
     needs: [changes, quality]
     if: needs.changes.outputs.required == 'true'
     runs-on: ubuntu-24.04
@@ -337,9 +356,12 @@ jobs:
           python-version: '3.14'
       - run: npm ci
         working-directory: app
-      - name: Resolve native Android projects without distributable resources
-        working-directory: app
-        run: npm run tauri -- android build --debug --apk --split-per-abi --target x86_64 --ci --config '{"bundle":{"resources":[]}}'
+      - name: Reuse the checked production frontend
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name android-frontend --dir app/dist
+      - name: Resolve native Android projects without building an APK
+        run: python app/scripts/bootstrap-android.py x86_64-linux-android
       - name: Prepare the exact emulator runtime notices
         run: |
           app/src-tauri/gen/android/gradlew -p app/src-tauri/gen/android :app:exportRuntimeNoticeInventory -PpractiqNoticeConfiguration=x86_64DebugRuntimeClasspath -PpractiqNoticeOutput="$PWD/app/.build/android-runtime.json" --no-daemon
@@ -347,7 +369,7 @@ jobs:
       - name: Build and check the emulator APK
         run: |
           cd app
-          npm run tauri -- android build --debug --apk --split-per-abi --target x86_64 --ci
+          npm run tauri -- android build --debug --apk --split-per-abi --target x86_64 --ci --config '{"build":{"beforeBuildCommand":""}}'
           cd ..
           python app/scripts/check-apk.py --installer app/src-tauri/gen/android/app/build/outputs/apk/x86_64/debug/app-x86_64-debug.apk --abi x86_64 --aapt2 "$ANDROID_HOME/build-tools/36.0.0/aapt2" --expected-notices app/src-tauri/bundled/THIRD-PARTY.txt --output server/reports/checks/android-package.json
       - name: Enable KVM access

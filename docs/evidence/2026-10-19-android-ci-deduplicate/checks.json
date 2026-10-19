@@ -1,0 +1,22 @@
+{
+  "baseCommit": "b20b937a60973d86179d03e866c6e08adbb80ce9",
+  "localHost": "macOS arm64",
+  "java": "21.0.12",
+  "sdk": 36,
+  "ndk": "28.2.13676358",
+  "nativeTarget": "aarch64-linux-android",
+  "cargoProfileDevDebug": "1",
+  "workflowAndPackagingTestsPassed": 776,
+  "productionFrontendBuildsInAndroidPath": {
+    "before": 4,
+    "after": 1
+  },
+  "apkPackagingPasses": {
+    "before": 4,
+    "after": 2
+  },
+  "bootstrapGeneratedBindingsWithoutApk": true,
+  "trackedAndroidHostSourcesUnchanged": true,
+  "installedOnRetainedAvd": false,
+  "endToEndSpeedupMeasured": false
+}

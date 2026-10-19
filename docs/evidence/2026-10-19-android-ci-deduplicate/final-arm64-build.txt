@@ -1,0 +1,60 @@
+
+> practiq-desktop@0.2.0 tauri
+> tauri android build --debug --apk --split-per-abi --target aarch64 --ci --config {"build":{"beforeBuildCommand":""}}
+
+        Info Using installed NDK: /Users/sheny/Library/Android/sdk/ndk/28.2.13676358
+        Info Looking up installed tauri packages to check mismatched versions...
+[1m[92m   Compiling[0m wry v0.57.0
+[1m[92m   Compiling[0m practiq-desktop v0.2.0 (/Users/sheny/.codex/worktrees/android-ci-deduplicate/PractiQ/app/src-tauri)
+[1m[92m   Compiling[0m tauri-runtime-wry v2.12.1
+[1m[92m   Compiling[0m tauri v2.12.1
+[1m[92m   Compiling[0m tauri-plugin-fs v2.5.2
+[1m[92m   Compiling[0m tauri-plugin-dialog v2.7.3
+[1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 9.16s
+        Info symlinking lib "/Users/sheny/Developer/code/PractiQ/app/src-tauri/target/aarch64-linux-android/debug/libpractiq_desktop.so" in jniLibs dir "/Users/sheny/.codex/worktrees/android-ci-deduplicate/PractiQ/app/src-tauri/gen/android/app/src/main/jniLibs/arm64-v8a"
+        Info "/Users/sheny/Developer/code/PractiQ/app/src-tauri/target/aarch64-linux-android/debug/libpractiq_desktop.so" requires shared lib "libandroid.so"
+        Info "/Users/sheny/Developer/code/PractiQ/app/src-tauri/target/aarch64-linux-android/debug/libpractiq_desktop.so" requires shared lib "libdl.so"
+        Info "/Users/sheny/Developer/code/PractiQ/app/src-tauri/target/aarch64-linux-android/debug/libpractiq_desktop.so" requires shared lib "liblog.so"
+        Info "/Users/sheny/Developer/code/PractiQ/app/src-tauri/target/aarch64-linux-android/debug/libpractiq_desktop.so" requires shared lib "libm.so"
+        Info "/Users/sheny/Developer/code/PractiQ/app/src-tauri/target/aarch64-linux-android/debug/libpractiq_desktop.so" requires shared lib "libc.so"
+        Info symlink at "/Users/sheny/.codex/worktrees/android-ci-deduplicate/PractiQ/app/src-tauri/gen/android/app/src/main/jniLibs/arm64-v8a/libpractiq_desktop.so" points to "/Users/sheny/Developer/code/PractiQ/app/src-tauri/target/aarch64-linux-android/debug/libpractiq_desktop.so"
+        Info connection; remote_addr=127.0.0.1:52352 conn_id=0
+
+> practiq-desktop@0.2.0 tauri
+> tauri android android-studio-script --target aarch64
+
+[1m[32m        Info[0m Using installed NDK: /Users/sheny/Library/Android/sdk/ndk/28.2.13676358
+[1m[92m   Compiling[0m practiq-desktop v0.2.0 (/Users/sheny/.codex/worktrees/android-ci-deduplicate/PractiQ/app/src-tauri)
+w: file:///Users/sheny/.codex/worktrees/android-ci-deduplicate/PractiQ/app/src-tauri/gen/android/app/src/main/java/com/practiq/android/generated/RustWebView.kt:26:18 'setter for databaseEnabled: Boolean' is deprecated. Deprecated in Java
+w: file:///Users/sheny/.codex/worktrees/android-ci-deduplicate/PractiQ/app/src-tauri/gen/android/app/src/main/java/com/practiq/android/generated/WryActivity.kt:66:46 'onBackPressed(): Unit' is deprecated. This method has been deprecated in favor of using the
+      {@link OnBackPressedDispatcher} via {@link #getOnBackPressedDispatcher()}.
+      The OnBackPressedDispatcher controls how back button events are dispatched
+      to one or more {@link OnBackPressedCallback} objects.
+[1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 5.45s
+[1m[32m        Info[0m symlinking lib "/Users/sheny/Developer/code/PractiQ/app/src-tauri/target/aarch64-linux-android/debug/libpractiq_desktop.so" in jniLibs dir "/Users/sheny/.codex/worktrees/android-ci-deduplicate/PractiQ/app/src-tauri/gen/android/app/src/main/jniLibs/arm64-v8a"
+[1m[32m        Info[0m "/Users/sheny/Developer/code/PractiQ/app/src-tauri/target/aarch64-linux-android/debug/libpractiq_desktop.so" requires shared lib "libandroid.so"
+[1m[32m        Info[0m "/Users/sheny/Developer/code/PractiQ/app/src-tauri/target/aarch64-linux-android/debug/libpractiq_desktop.so" requires shared lib "libdl.so"
+[1m[32m        Info[0m "/Users/sheny/Developer/code/PractiQ/app/src-tauri/target/aarch64-linux-android/debug/libpractiq_desktop.so" requires shared lib "liblog.so"
+[1m[32m        Info[0m "/Users/sheny/Developer/code/PractiQ/app/src-tauri/target/aarch64-linux-android/debug/libpractiq_desktop.so" requires shared lib "libm.so"
+[1m[32m        Info[0m "/Users/sheny/Developer/code/PractiQ/app/src-tauri/target/aarch64-linux-android/debug/libpractiq_desktop.so" requires shared lib "libc.so"
+Java compiler version 21 has deprecated support for compiling with source/target version 8.
+Try one of the following options:
+    1. [Recommended] Use Java toolchain with a lower language version
+    2. Set a higher source/target version
+    3. Use a lower version of the JDK running the build (if you're not using Java toolchain)
+For more details on how to configure these settings, see https://developer.android.com/build/jdks.
+To suppress this warning, set android.javaCompile.suppressSourceTargetDeprecationWarning=true in gradle.properties.
+warning: [options] source value 8 is obsolete and will be removed in a future release
+warning: [options] target value 8 is obsolete and will be removed in a future release
+warning: [options] To suppress warnings about obsolete options, use -Xlint:-options.
+3 warnings
+
+[Incubating] Problems report is available at: file:///Users/sheny/.codex/worktrees/android-ci-deduplicate/PractiQ/app/src-tauri/gen/android/build/reports/problems/problems-report.html
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/8.14.3/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+    Finished 1 APK at:
+        /Users/sheny/.codex/worktrees/android-ci-deduplicate/PractiQ/app/src-tauri/gen/android/app/build/outputs/apk/arm64/debug/app-arm64-debug.apk

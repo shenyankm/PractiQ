@@ -71,6 +71,14 @@ app/src-tauri/gen/android/gradlew -p app/src-tauri/gen/android \
 
 Inventory and report destinations must be fresh; retain old evidence rather than overwriting it. Read `sizeBytes` in the final package report for the actual APK size (MB = bytes / 1,000,000; MiB = bytes / 1,048,576). With no configured release signing, this produces an **unsigned Release APK**, not an installable signed release. Signing changes the final bytes and requires measuring and checking that signed APK again. This local build does not change CI's Debug APK or publish a release. App 0.2.0 uses Android `versionCode` 2 (0.1.0 used 1).
 
+## Android CI build reuse
+
+The arm64 APK and API 35 x86_64 emulator remain separate jobs and required inputs to the Android gate. App quality builds the production frontend once; both jobs download that artifact from their own workflow run and disable only the CLI's frontend rebuild hook. Each runner still installs its locked dependencies because runtime notice verification reads the resolved dependency trees.
+
+Before exporting each ABI's runtime inventory, `app/scripts/bootstrap-android.py` builds the native Rust library with the pinned NDK and resource-free configuration. Tauri's own build scripts generate the plugin Gradle bindings, without generating a temporary APK or replacing the tracked Android host project. Runtime inventory/notice validation then precedes the sole final CLI APK build. Strict ABI/package/notice checks and emulator unit/device tests remain in place.
+
+This reduces the Android path from four production frontend builds to one and from four APK packaging passes to two. The ABI-specific Rust bootstrap remains necessary for plugin discovery, and the final build reuses Cargo output. These command counts establish removed work, not an end-to-end timing improvement.
+
 ## Files, backups and credentials
 
 Question-bank ZIP import, study-data restore, bank export and backup creation begin with the Android system file picker. The app never asks the frontend to supply a file path or content URI. Inputs become bounded private snapshots before the existing ZIP, checksum and database validation; outputs are complete verified private ZIPs before copying to the selected destination. Write/sync failures are reported, but a provider may retain partial destination bytes; the app does not promise provider-level atomic replacement or rollback. Cancellation starts no import. Bank import appends content; restoring full study data asks for replacement confirmation. The same `v4/`, SQLite schema 11, ZIP version 2 and backup container version 4 apply. Older full backups are rejected without altering old directories.

@@ -1,0 +1,113 @@
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.14.3/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build
+> Task :buildSrc:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :buildSrc:pluginDescriptors
+> Task :buildSrc:processResources
+
+> Task :buildSrc:compileKotlin
+w: file:///Users/sheny/.codex/worktrees/android-ci-deduplicate/PractiQ/app/src-tauri/gen/android/buildSrc/src/main/java/com/practiq/android/kotlin/BuildTask.kt:53:17 'exec(Action<in ExecSpec!>): ExecResult' is deprecated. Deprecated in Java
+
+> Task :buildSrc:compileJava NO-SOURCE
+> Task :buildSrc:compileGroovy NO-SOURCE
+> Task :buildSrc:classes
+> Task :buildSrc:jar
+> Task :tauri-android:preBuild UP-TO-DATE
+> Task :tauri-android:preDebugBuild UP-TO-DATE
+> Task :tauri-android:mergeDebugJniLibFolders
+> Task :tauri-android:mergeDebugNativeLibs NO-SOURCE
+> Task :tauri-android:stripDebugDebugSymbols NO-SOURCE
+> Task :tauri-android:checkKotlinGradlePluginConfigurationErrors
+> Task :tauri-android:copyDebugJniLibsProjectAndLocalJars
+> Task :tauri-android:generateDebugBuildConfig
+> Task :tauri-android:generateDebugResValues
+> Task :tauri-android:generateDebugResources
+> Task :tauri-android:packageDebugResources
+> Task :tauri-android:extractDeepLinksForAarDebug
+> Task :tauri-android:mergeDebugShaders
+> Task :tauri-android:compileDebugShaders NO-SOURCE
+> Task :tauri-android:generateDebugAssets UP-TO-DATE
+> Task :tauri-android:mergeDebugAssets
+> Task :tauri-android:javaPreCompileDebug
+> Task :tauri-android:prepareDebugArtProfile
+> Task :tauri-android:prepareLintJarForPublish
+> Task :tauri-android:parseDebugLocalResources
+> Task :tauri-android:generateDebugRFile
+> Task :tauri-android:processDebugManifest
+> Task :tauri-android:writeDebugAarMetadata
+> Task :tauri-plugin-dialog:preBuild UP-TO-DATE
+> Task :tauri-plugin-dialog:preDebugBuild UP-TO-DATE
+> Task :tauri-plugin-dialog:mergeDebugJniLibFolders
+> Task :tauri-plugin-dialog:mergeDebugNativeLibs NO-SOURCE
+> Task :tauri-plugin-dialog:stripDebugDebugSymbols NO-SOURCE
+> Task :tauri-plugin-dialog:copyDebugJniLibsProjectAndLocalJars
+> Task :tauri-plugin-dialog:checkKotlinGradlePluginConfigurationErrors
+> Task :tauri-plugin-dialog:generateDebugResValues
+> Task :tauri-plugin-dialog:generateDebugResources
+> Task :tauri-plugin-dialog:packageDebugResources
+> Task :tauri-plugin-dialog:parseDebugLocalResources
+> Task :tauri-plugin-dialog:generateDebugRFile
+> Task :tauri-plugin-dialog:extractDeepLinksForAarDebug
+> Task :tauri-plugin-dialog:mergeDebugShaders
+> Task :tauri-plugin-dialog:compileDebugShaders NO-SOURCE
+> Task :tauri-plugin-dialog:generateDebugAssets UP-TO-DATE
+> Task :tauri-plugin-dialog:mergeDebugAssets
+> Task :tauri-plugin-dialog:javaPreCompileDebug
+> Task :tauri-plugin-dialog:prepareDebugArtProfile
+> Task :tauri-plugin-dialog:prepareLintJarForPublish
+> Task :tauri-plugin-dialog:processDebugManifest
+> Task :tauri-plugin-dialog:writeDebugAarMetadata
+
+> Task :tauri-android:compileDebugKotlin
+w: file:///Users/sheny/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-2.12.1/mobile/android/src/main/java/app/tauri/AppPlugin.kt:35:37 'onBackPressed(): Unit' is deprecated. Deprecated in Java
+w: file:///Users/sheny/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-2.12.1/mobile/android/src/main/java/app/tauri/plugin/Plugin.kt:125:5 'onDestroy(): Unit' is deprecated. use onDestroy(activity: AppCompatActivity) instead
+w: file:///Users/sheny/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-2.12.1/mobile/android/src/main/java/app/tauri/plugin/Plugin.kt:130:5 'onRestart(): Unit' is deprecated. use onRestart(activity: AppCompatActivity) instead
+w: file:///Users/sheny/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-2.12.1/mobile/android/src/main/java/app/tauri/plugin/Plugin.kt:135:5 'onPause(): Unit' is deprecated. use onPause(activity: AppCompatActivity) instead
+w: file:///Users/sheny/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-2.12.1/mobile/android/src/main/java/app/tauri/plugin/Plugin.kt:140:5 'onResume(): Unit' is deprecated. use onResume(activity: AppCompatActivity) instead
+w: file:///Users/sheny/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-2.12.1/mobile/android/src/main/java/app/tauri/plugin/Plugin.kt:145:5 'onStop(): Unit' is deprecated. use onStop(activity: AppCompatActivity) instead
+w: file:///Users/sheny/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-2.12.1/mobile/android/src/main/java/app/tauri/plugin/PluginMethodData.kt:11:23 Parameter 'methodDecorator' is never used
+
+> Task :tauri-android:extractDebugAnnotations
+
+> Task :tauri-android:compileDebugJavaWithJavac
+Java compiler version 21 has deprecated support for compiling with source/target version 8.
+Try one of the following options:
+    1. [Recommended] Use Java toolchain with a lower language version
+    2. Set a higher source/target version
+    3. Use a lower version of the JDK running the build (if you're not using Java toolchain)
+For more details on how to configure these settings, see https://developer.android.com/build/jdks.
+To suppress this warning, set android.javaCompile.suppressSourceTargetDeprecationWarning=true in gradle.properties.
+warning: [options] source value 8 is obsolete and will be removed in a future release
+warning: [options] target value 8 is obsolete and will be removed in a future release
+warning: [options] To suppress warnings about obsolete options, use -Xlint:-options.
+3 warnings
+
+> Task :tauri-android:mergeDebugGeneratedProguardFiles
+> Task :tauri-android:mergeDebugConsumerProguardFiles
+> Task :tauri-android:processDebugJavaRes
+> Task :tauri-android:bundleLibRuntimeToJarDebug
+> Task :tauri-android:bundleLibCompileToJarDebug
+> Task :tauri-android:mergeDebugJavaResource
+> Task :tauri-android:syncDebugLibJars
+> Task :tauri-android:bundleDebugAar
+> Task :tauri-plugin-dialog:compileDebugKotlin
+> Task :tauri-plugin-dialog:extractDebugAnnotations
+> Task :tauri-plugin-dialog:compileDebugJavaWithJavac NO-SOURCE
+> Task :tauri-plugin-dialog:mergeDebugGeneratedProguardFiles
+> Task :tauri-plugin-dialog:mergeDebugConsumerProguardFiles
+> Task :tauri-plugin-dialog:processDebugJavaRes
+> Task :tauri-plugin-dialog:mergeDebugJavaResource
+> Task :tauri-plugin-dialog:bundleLibRuntimeToJarDebug
+> Task :tauri-plugin-dialog:syncDebugLibJars
+> Task :tauri-plugin-dialog:bundleDebugAar
+> Task :app:exportRuntimeNoticeInventory
+
+[Incubating] Problems report is available at: file:///Users/sheny/.codex/worktrees/android-ci-deduplicate/PractiQ/app/src-tauri/gen/android/build/reports/problems/problems-report.html
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/8.14.3/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD SUCCESSFUL in 15s
+58 actionable tasks: 58 executed

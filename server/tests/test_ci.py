@@ -620,3 +620,24 @@ def test_android_ci_uses_the_actual_apk_runtime_and_emulator_not_linux_applicati
     assert emulator["with"]["api-level"] == "35" and emulator["with"]["arch"] == "x86_64"
     assert "connectedX86_64DebugAndroidTest" in emulator["with"]["script"]
     assert "-x rustBuildX86_64Debug" in emulator["with"]["script"]
+
+
+def test_android_ci_builds_shared_frontend_once_and_only_packages_final_apks():
+    root = Path(__file__).resolve().parents[2]
+    jobs = yaml.load((root / ".github/workflows/app.yml").read_text(), Loader=yaml.BaseLoader)["jobs"]
+    quality = jobs["quality"]["steps"]
+    assert sum(step.get("run") == "npm run build" for step in quality) == 1
+    assert any(step.get("with", {}).get("name") == "android-frontend" and
+               step["with"]["path"] == "app/dist/" for step in quality)
+    for name in ("android-package", "emulator"):
+        job = jobs[name]
+        commands = "\n".join(step.get("run", "") for step in job["steps"])
+        assert commands.count("tauri -- android build") == 1
+        assert "bootstrap-android.py" in commands
+        assert '"beforeBuildCommand":""' in commands
+        assert 'gh run download "$GITHUB_RUN_ID"' in commands
+        assert "--name android-frontend --dir app/dist" in commands
+        assert job["permissions"] == {"contents": "read", "actions": "read"}
+
+    release_jobs = yaml.load((root / ".github/workflows/release.yml").read_text(), Loader=yaml.BaseLoader)["jobs"]
+    assert release_jobs["apps"]["permissions"]["actions"] == "read"
