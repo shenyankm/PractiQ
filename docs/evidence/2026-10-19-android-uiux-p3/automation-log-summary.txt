@@ -1,0 +1,6 @@
+10-19 14:13:48.119  4370  4394 E AndroidRuntime: FATAL EXCEPTION: UiAutomation
+10-19 14:13:48.119  4370  4394 E AndroidRuntime: java.lang.RuntimeException: Bad file descriptor
+10-19 14:13:48.119  4370  4394 E AndroidRuntime: java.lang.RuntimeException: Bad file descriptor
+10-19 14:18:43.915  5199  5215 E AndroidRuntime: FATAL EXCEPTION: UiAutomation
+10-19 14:18:43.915  5199  5215 E AndroidRuntime: java.lang.RuntimeException: Bad file descriptor
+10-19 14:18:43.916  5199  5215 E AndroidRuntime: java.lang.RuntimeException: Bad file descriptor

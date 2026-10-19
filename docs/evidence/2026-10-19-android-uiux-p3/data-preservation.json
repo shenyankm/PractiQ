@@ -1,0 +1,18 @@
+{
+  "fixtureAvd": "PractiQ_Followup_QA",
+  "retainedOriginalAvdBooted": false,
+  "all32PracticeTablesUnchanged": true,
+  "counts": {
+    "banks": 1,
+    "questions": 26,
+    "sessions": 0,
+    "attempts": 0,
+    "assets": 2,
+    "grade_requests": 0
+  },
+  "crashBufferEmpty": false,
+  "healthStubRequestsStillTwo": true,
+  "automationDumperFaults": 2,
+  "appCrashObserved": false,
+  "crashBufferNote": "The global buffer contains UiAutomation Bad file descriptor failures; these are separate automation-process errors, not an empty crash buffer."
+}

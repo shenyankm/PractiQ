@@ -34,7 +34,7 @@ it.each(["Escape", "close"])("keeps changed bank fields through %s and Continue 
   expect(initial.title).toBe("Original bank");
 });
 
-it("closes a reverted bank without prompting and deliberately discards with one click", async () => {
+it("closes a reverted bank without prompting and confirms discarding a dirty bank", async () => {
   const user = userEvent.setup();
   const close = vi.fn();
   render(<BankEditor initial={initial} busy={false} onClose={close} onSave={vi.fn()} />);
@@ -46,8 +46,9 @@ it("closes a reverted bank without prompting and deliberately discards with one 
   expect(close).toHaveBeenCalledOnce();
   await user.type(description, " discarded");
   await user.click(screen.getByRole("button", { name: "放弃更改" }));
+  expect(close).toHaveBeenCalledOnce();
+  await user.click(within(screen.getByRole("alertdialog")).getByRole("button", {name:"放弃更改"}));
   expect(close).toHaveBeenCalledTimes(2);
-  expect(screen.queryByRole("alertdialog")).toBeNull();
 });
 
 it("discards a changed bank from the confirmation without submitting it", async () => {
@@ -68,9 +69,17 @@ it("blocks bank edits, saves and dismissals while a save is in flight", async ()
   await user.type(screen.getByRole("textbox", { name: "题库名称" }), " ignored");
   await user.keyboard("{Escape}");
   await user.click(screen.getByRole("button", { name: "关闭" }));
-  await user.click(screen.getByRole("button", { name: "放弃更改" }));
+  await user.click(screen.getByRole("button", { name: "取消" }));
   await user.click(screen.getByRole("button", { name: "保存题库" }));
   expect((screen.getByRole("textbox", { name: "题库名称" }) as HTMLInputElement).value).toBe(initial.title);
   expect(close).not.toHaveBeenCalled();
   expect(save).not.toHaveBeenCalled();
+});
+
+it("labels an unchanged new bank dismissal Cancel", async () => {
+ const close=vi.fn();
+ render(<BankEditor initial={{id:null,title:"",description:""}} busy={false} onClose={close} onSave={vi.fn()}/>);
+ await userEvent.click(screen.getByRole("button", {name:"取消"}));
+ expect(close).toHaveBeenCalledOnce();
+ expect(screen.queryByRole("alertdialog")).toBeNull();
 });

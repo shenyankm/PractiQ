@@ -505,7 +505,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
       <main className="flex min-w-0 flex-1 flex-col">
         <header className="app-header flex shrink-0 flex-wrap items-center justify-between gap-4 border-b">
           <div className="flex min-w-0 items-center gap-3">
-            {compact && <Button size="icon" variant="ghost" aria-label={t("打开主导航")} aria-expanded={navigationOpen} disabled={busy} onClick={() => setNavigationOpen(true)}><Menu /></Button>}
+            {compact && !["questions", "practice", "service-settings"].includes(page) && <Button size="icon" variant="ghost" aria-label={t("打开主导航")} aria-expanded={navigationOpen} disabled={busy} onClick={() => setNavigationOpen(true)}><Menu /></Button>}
             {page === "practice" && <Button size="icon" variant="ghost" aria-label={t("返回练习记录")} disabled={busy} onClick={() => navigate("history")}><ArrowLeft /></Button>}
             {page === "questions" && (
               <Button

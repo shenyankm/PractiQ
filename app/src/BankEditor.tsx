@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { t, useI18n } from "./i18n";
 import { EditorDialog } from "./EditorDialog";
-import { DialogFooter } from "@/components/ui/dialog";
+import { DialogClose, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -28,7 +28,7 @@ export function BankEditor({ initial, busy, onClose, onSave, trigger }: {
       <Textarea id="description" value={draft.description} onChange={event => setDraft({ ...draft, description: event.target.value })} />
     </fieldset>
     <DialogFooter>
-      <Button variant="outline" disabled={busy} onClick={onClose}>{t("放弃更改")}</Button>
+      <DialogClose asChild><Button variant="outline" disabled={busy}>{t(dirty ? "放弃更改" : "取消")}</Button></DialogClose>
       <Button disabled={busy || !draft.title.trim()} onClick={() => onSave(draft)}>{t("保存题库")}</Button>
     </DialogFooter>
   </EditorDialog>;

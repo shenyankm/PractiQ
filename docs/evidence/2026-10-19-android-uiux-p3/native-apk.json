@@ -1,0 +1,11 @@
+{
+  "sha256": "303b18e0be8f788d796c29981d0213a89e8d40f0d8cda2ca9a235521c4a9a47f",
+  "bytes": 193604790,
+  "api": 35,
+  "abi": "arm64-v8a",
+  "avd": "PractiQ_Followup_QA",
+  "productionFrontendIndexEmbedded": true,
+  "optionalBundleResources": "omitted in UI-only Debug build",
+  "originalAvdTouched": false,
+  "nativeExamStarted": false
+}

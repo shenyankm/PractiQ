@@ -47,6 +47,10 @@ async function nativeBack(page) {
 }
 
 async function navigate(page, name, english = false) {
+  const menu=page.getByRole('button',{name:english?'Open navigation':'打开主导航',exact:true});
+  const back=page.getByRole('button',{name:english?/^Back to (banks|practice history|settings|grading)$/:/^返回(题库|练习记录|设置|评分)$/});
+  await expect(menu.or(back).first()).toBeVisible();
+  if (!await menu.count()) { await back.click(); await expect(menu).toBeVisible(); }
   await page.getByRole('button', { name: english ? 'Open navigation' : '打开主导航', exact: true }).tap();
   const drawer = page.getByRole('dialog', { name: english ? 'Main navigation' : '主导航', exact: true });
   await expect(drawer).toBeVisible();

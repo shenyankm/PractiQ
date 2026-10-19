@@ -267,6 +267,7 @@ for (const kind of ['bank','question']) {
    await expect(action==='close'?editor.getByRole('button',{name:'关闭',exact:true}):field).toBeFocused();
   }
   await editor.getByRole('button',{name:'放弃更改',exact:true}).click();
+  if(kind==='bank')await page.getByRole('alertdialog').getByRole('button',{name:'放弃更改',exact:true}).click();
   await expect(editor).toBeHidden();
   await expect(page.getByRole('alertdialog')).toHaveCount(0);
   await open();
