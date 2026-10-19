@@ -1,0 +1,30 @@
+{
+  "screenshots": [
+    "app-banks-light-desktop",
+    "app-banks-light-375",
+    "app-banks-light-768",
+    "app-banks-light-1024",
+    "app-questions-light-desktop",
+    "app-questions-light-mobile",
+    "app-editor-light-desktop",
+    "app-editor-light-mobile",
+    "app-mistakes-light-desktop",
+    "app-favorites-light-desktop",
+    "app-history-light-desktop",
+    "app-history-menu-light-desktop",
+    "app-settings-light-desktop",
+    "app-service-light-desktop",
+    "app-settings-dark-desktop",
+    "app-banks-dark-desktop",
+    "app-banks-dark-mobile",
+    "app-banks-light-english-mobile",
+    "app-practice-light-desktop",
+    "app-practice-light-mobile",
+    "app-practice-light-360",
+    "app-practice-light-landscape"
+  ],
+  "errors": [],
+  "checks": [
+    "App preview fits 1440/1024/768/390/375/360px, gives mobile stems readable width, keeps Previous/Next together, supports English wrapping, uses 40px/48px ordinary controls, supports keyboard filtering and light/dark toast colors, preserves theme switching and practice, and makes no native requests."
+  ]
+}

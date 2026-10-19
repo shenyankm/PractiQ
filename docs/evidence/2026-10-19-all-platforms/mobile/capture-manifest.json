@@ -1,0 +1,380 @@
+{
+  "capturedAt": "2026-10-19T11:28:24.434Z",
+  "sourceCommit": "b20b937a60973d86179d03e866c6e08adbb80ce9",
+  "applicationId": "com.practiq.android",
+  "versionName": "0.2.0",
+  "versionCode": 2,
+  "apkSha256": "5746a482a274e695d7c4dc95cebcd1bb66242599f0ea2b479b89d85792aff1f2",
+  "avd": "PractiQ_UIUX_20261018",
+  "androidVersion": "15",
+  "apiLevel": "35",
+  "abi": "arm64-v8a",
+  "resolution": "Physical size: 1080x2400",
+  "packageCheckPassed": true,
+  "notes": [
+    "Installed with adb install -r; the existing AVD data was retained.",
+    "Screens are from the current Android app runtime and existing synthetic fixtures.",
+    "No question bank import, session start, answer submission, AI call, backup restore, or file selection occurred.",
+    "The service settings values are visually redacted in the screenshot.",
+    "The complete settings page fits in one 1080 × 2400 screen; its identical repeat was omitted from the organized gallery."
+  ],
+  "screenshots": [
+    {
+      "sha256": "c92806301f8956d565a079e6a59f9cf17e814b5df5807bf8489b2b5f26e23aa2",
+      "bytes": 99546,
+      "width": 1080,
+      "height": 2400,
+      "file": "001-banks-populated-zh.png"
+    },
+    {
+      "sha256": "23c501cacf740cac0e1cffcbce293f4d9764d0b22ee7854be45a2b26ed7759c9",
+      "bytes": 164496,
+      "width": 1080,
+      "height": 2400,
+      "file": "002-navigation-drawer-zh.png"
+    },
+    {
+      "sha256": "5f9b2df2c0709edf16b8060d510803dbc60588a8d62a714e154d12193dc08d0e",
+      "bytes": 217795,
+      "width": 1080,
+      "height": 2400,
+      "file": "003-mistakes-zh.png"
+    },
+    {
+      "sha256": "1a965ed865fdb7266de4dc99d62bc39b41102b59d4c3da706657280ded71db00",
+      "bytes": 117277,
+      "width": 1080,
+      "height": 2400,
+      "file": "004-favorites-zh.png"
+    },
+    {
+      "sha256": "fc125e807641df1f79d72df4623e18a1a187133d9b8d58d46fa834b4ce32ce50",
+      "bytes": 198153,
+      "width": 1080,
+      "height": 2400,
+      "file": "005-history-zh.png"
+    },
+    {
+      "sha256": "1d7862cd2ed6b07c15e211d7c694cd6092dd8b6a4475d8ea34cd4fa92ef93916",
+      "bytes": 128505,
+      "width": 1080,
+      "height": 2400,
+      "file": "006-settings-zh.png"
+    },
+    {
+      "sha256": "7a2d79085d855e64d84deb11cce9e56fea8861d70fb673b282619a76b2efec16",
+      "bytes": 175177,
+      "width": 1080,
+      "height": 2400,
+      "file": "007-questions-list-top-zh.png"
+    },
+    {
+      "sha256": "5f46c478e0bcacaf5f7d713208c2a60795383c81885ff3e7855c1b75294e3afd",
+      "bytes": 177899,
+      "width": 1080,
+      "height": 2400,
+      "file": "008-questions-list-bottom-zh.png"
+    },
+    {
+      "sha256": "547ab23cc261282f066b424042c8b6ee47ac6d5b2139257a78d712f2be2aa030",
+      "bytes": 137259,
+      "width": 1080,
+      "height": 2400,
+      "file": "009-question-detail-zh.png"
+    },
+    {
+      "sha256": "8ff981d626fe764cf16b4c1ae4c477f72b3c7ad8b12c7631d910c6402de28a89",
+      "bytes": 135021,
+      "width": 1080,
+      "height": 2400,
+      "file": "010-question-editor-zh.png"
+    },
+    {
+      "sha256": "b978a6eba16ab4b7cb43706be8b90f770abf465921fb9e545385000637df6963",
+      "bytes": 125706,
+      "width": 1080,
+      "height": 2400,
+      "file": "011-new-question-editor-zh.png"
+    },
+    {
+      "sha256": "55feebdbcc24d212e420c9f78ffe8e3e9e6dc9f6e4af4718faccec4a901ddd19",
+      "bytes": 206264,
+      "width": 1080,
+      "height": 2400,
+      "file": "012-practice-setup-zh.png"
+    },
+    {
+      "sha256": "64ec6adf145e4a9696d19f9826bfb12033c43b4a9e3a1155d587434aa98c6172",
+      "bytes": 141003,
+      "width": 1080,
+      "height": 2400,
+      "file": "014-practice-record-top-zh.png"
+    },
+    {
+      "sha256": "84bd2e787d9b4a3e8212f24762da7484c20acac32a428dc1e98ae8add9107ba0",
+      "bytes": 148542,
+      "width": 1080,
+      "height": 2400,
+      "file": "015-practice-record-bottom-zh.png"
+    },
+    {
+      "sha256": "9e1d322e3466a14be38ac99d6f279307e58948ed533f3f6dbd05a1b55f7fcdbb",
+      "bytes": 162051,
+      "width": 1080,
+      "height": 2400,
+      "file": "016-practice-scoring-details-zh.png"
+    },
+    {
+      "sha256": "bab4d70bf5f0a27c5c06e52a473650a5b53304d4b08dbd52db1439c595ab6e45",
+      "bytes": 160166,
+      "width": 1080,
+      "height": 2400,
+      "file": "026-service-settings-zh-redacted.png"
+    },
+    {
+      "sha256": "0376305842baf4b3a2832c789afcfb08fa86a6aeca3b26eab2678d5f04c907b0",
+      "bytes": 186002,
+      "width": 1080,
+      "height": 2400,
+      "file": "028-settings-backup-notes-expanded-zh.png"
+    },
+    {
+      "sha256": "db3c804813704e20f9a9a189bc52b3c58c49e0394a33ce3c50f87e0eb681e34e",
+      "bytes": 107925,
+      "width": 1080,
+      "height": 2400,
+      "file": "029-navigation-theme-menu-zh.png"
+    },
+    {
+      "sha256": "1ba571840b89d5d208c4524b95ccad00b7ce894bd529b96d57c77eeaf05c5cf9",
+      "bytes": 100033,
+      "width": 1080,
+      "height": 2400,
+      "file": "030-navigation-language-menu-zh.png"
+    },
+    {
+      "sha256": "2b95e57b20ae95d8b5e385e5cb82b1d0b3cf650a74e9a4405f7e9bde49cd9984",
+      "bytes": 205822,
+      "width": 1080,
+      "height": 2400,
+      "file": "032-settings-restore-menu-zh.png"
+    },
+    {
+      "sha256": "cdf25cb68fc9657eb230d87f10b695478a4069a993acb91ddb31fe4258422df4",
+      "bytes": 165150,
+      "width": 1080,
+      "height": 2400,
+      "file": "033-new-bank-dialog-zh.png"
+    },
+    {
+      "sha256": "72e120a891fcc74f0e4572d502cfebb924f35cc2e3cac1318cf5370747d98cd2",
+      "bytes": 118089,
+      "width": 1080,
+      "height": 2400,
+      "file": "034-bank-actions-menu-zh.png"
+    },
+    {
+      "sha256": "e1220bccf08a54e5a3294264709dff0c7f1a7da1b05e7518dd96464d61875a44",
+      "bytes": 153844,
+      "width": 1080,
+      "height": 2400,
+      "file": "035-question-filter-empty-zh.png"
+    },
+    {
+      "sha256": "e2015045141c24709c25bf1e35e3205e33b6a67e14b6341b12bf18a9965bf5a7",
+      "bytes": 197669,
+      "width": 1080,
+      "height": 2400,
+      "file": "037-practice-setup-advanced-zh.png"
+    },
+    {
+      "sha256": "f863fe7ed96c2522dc89bf48fb66765fb624b49082c353dded0fbf616c2c28e7",
+      "bytes": 198098,
+      "width": 1080,
+      "height": 2400,
+      "file": "037a-practice-setup-advanced-options-zh.png"
+    },
+    {
+      "sha256": "8d15cfbc30f59025d9dac660cfdf4c9652aa8550a213224e6b894036a84201f2",
+      "bytes": 202884,
+      "width": 1080,
+      "height": 2400,
+      "file": "038-practice-paper-preview-top-zh.png"
+    },
+    {
+      "sha256": "32e9dc6551872fc539855e972820ec08eb312f0b22ae60873ad11ac3a7bf8532",
+      "bytes": 233673,
+      "width": 1080,
+      "height": 2400,
+      "file": "039-practice-paper-preview-bottom-zh.png"
+    },
+    {
+      "sha256": "6ca72ac7fc65217f8d03c3ef800ad27f28ae942fbe595dbe948e5b336d8dd684",
+      "bytes": 87701,
+      "width": 1080,
+      "height": 2400,
+      "file": "040-android-file-picker-zh.png"
+    },
+    {
+      "sha256": "8d49a92c714d0cd4a7367530b88e017419824220b9b1201be559f38e77cc791d",
+      "bytes": 162313,
+      "width": 1080,
+      "height": 2400,
+      "file": "extra-material-q13-expanded.png"
+    },
+    {
+      "sha256": "24f35528d930ea63032d4cba1aa28e6ab946aee2e23981135f4c75974eae84a4",
+      "bytes": 162327,
+      "width": 1080,
+      "height": 2400,
+      "file": "extra-material-q14-preserved.png"
+    },
+    {
+      "sha256": "0bb78c5949b3c18c54bde228af88db23a7c7ba7acb8b01b9655fcd6528e906d5",
+      "bytes": 139597,
+      "width": 1080,
+      "height": 2400,
+      "file": "extra-writing-result-bottom.png"
+    },
+    {
+      "sha256": "2dfae6bef99978bc82951a705b98d7a453e858283b117a1fa4cd1ed0a5f5afd4",
+      "bytes": 130269,
+      "width": 1080,
+      "height": 2400,
+      "file": "practice-q01-zh.png"
+    },
+    {
+      "sha256": "c1c6a31ab887c81dc51bece4ffdcac789eb7bcd2d3fda3bba83dba9522932cba",
+      "bytes": 149865,
+      "width": 1080,
+      "height": 2400,
+      "file": "practice-q02-zh.png"
+    },
+    {
+      "sha256": "01ba519801ec8fc1d1539e754b6860590e9cb7a31edf5e858919d9aa82fc0b75",
+      "bytes": 167295,
+      "width": 1080,
+      "height": 2400,
+      "file": "practice-q03-zh.png"
+    },
+    {
+      "sha256": "4d7396f67b52781a96db9f70e9462346d1787d1dd44ee6ed58a6393bb3f18265",
+      "bytes": 168616,
+      "width": 1080,
+      "height": 2400,
+      "file": "practice-q04-zh.png"
+    },
+    {
+      "sha256": "0ea6d943f29e5f14f9a50c1f1da2ca79f94ea984d22b3d808eb7976dff994bf5",
+      "bytes": 189850,
+      "width": 1080,
+      "height": 2400,
+      "file": "practice-q05-zh.png"
+    },
+    {
+      "sha256": "5772a1a05388ea020c81004d43dcc2c900d7200c06d156ac007084c84fd0b7a8",
+      "bytes": 165071,
+      "width": 1080,
+      "height": 2400,
+      "file": "practice-q06-zh.png"
+    },
+    {
+      "sha256": "0c0745ea3246ee158998f2a92052e0e0221696ed4e12a2701a4ce1fbacc966af",
+      "bytes": 158315,
+      "width": 1080,
+      "height": 2400,
+      "file": "practice-q07-zh.png"
+    },
+    {
+      "sha256": "c5fef435db38210f1201e633f6072bb5de27eb34a3f04c58717738d1df18878a",
+      "bytes": 161414,
+      "width": 1080,
+      "height": 2400,
+      "file": "practice-q08-zh.png"
+    },
+    {
+      "sha256": "8851578289bfeb86b69b64c3e503343648e806fdda83e2fa2e56ea24f0258dea",
+      "bytes": 453204,
+      "width": 1080,
+      "height": 2400,
+      "file": "practice-q09-zh.png"
+    },
+    {
+      "sha256": "8a65b497e4ab3443b6ef44781d95eb6718e8635360cfd10fb63cf46842059d3a",
+      "bytes": 155717,
+      "width": 1080,
+      "height": 2400,
+      "file": "practice-q10-zh.png"
+    },
+    {
+      "sha256": "8cb83efe6ea4caa367a319414d7198bac1f589f7802b4d0e6e7d41f690b79b68",
+      "bytes": 153904,
+      "width": 1080,
+      "height": 2400,
+      "file": "practice-q11-zh.png"
+    },
+    {
+      "sha256": "798963d578a5c79681effb7f94cc086bf922b7d368ac6a443cfd7383ac8ad64e",
+      "bytes": 152792,
+      "width": 1080,
+      "height": 2400,
+      "file": "practice-q12-zh.png"
+    },
+    {
+      "sha256": "212b5306d157aa40f9fb522c77656d3597c480d02884ec83713dc6a60e763356",
+      "bytes": 147152,
+      "width": 1080,
+      "height": 2400,
+      "file": "practice-q13-zh.png"
+    },
+    {
+      "sha256": "de2978a6a858a87e5b6bc4d63b70b83bbd8b04b441c391a55f5de41a5803b892",
+      "bytes": 147175,
+      "width": 1080,
+      "height": 2400,
+      "file": "practice-q14-zh.png"
+    },
+    {
+      "sha256": "21bad44a253f41d3f1208b3442f0aa188281b3f6ba9b1ac63e400c3312e6a64a",
+      "bytes": 151744,
+      "width": 1080,
+      "height": 2400,
+      "file": "practice-q15-zh.png"
+    },
+    {
+      "sha256": "3ddf5c75a3e74ed00a34b885814da2746d9833095e912ec37088ee74222ceabb",
+      "bytes": 158232,
+      "width": 1080,
+      "height": 2400,
+      "file": "practice-q16-zh.png"
+    },
+    {
+      "sha256": "6e1ca8dea3fa1d6a8ae0ad126261876287497fc0c748d0ae173f2f549fd78110",
+      "bytes": 170633,
+      "width": 1080,
+      "height": 2400,
+      "file": "practice-q17-zh.png"
+    },
+    {
+      "sha256": "1488b27bc62626d839a3104f1a1c6c34162e201f097ded58d2ff230e7b871f1e",
+      "bytes": 204422,
+      "width": 1080,
+      "height": 2400,
+      "file": "practice-q18-zh.png"
+    },
+    {
+      "sha256": "757caa57a836018cb3142c17647634161ba757fb48be760dca2822201fd15918",
+      "bytes": 169213,
+      "width": 1080,
+      "height": 2400,
+      "file": "practice-q19-zh.png"
+    },
+    {
+      "sha256": "15d9b37a06d9340723d4d0994100ad4c3b0a97b0b5a56de15847ad5d8d44bc06",
+      "bytes": 185123,
+      "width": 1080,
+      "height": 2400,
+      "file": "practice-q20-zh.png"
+    }
+  ]
+}
