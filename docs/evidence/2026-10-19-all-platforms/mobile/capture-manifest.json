@@ -13,7 +13,7 @@
   "packageCheckPassed": true,
   "notes": [
     "Installed with adb install -r; the existing AVD data was retained.",
-    "Screens are from the current Android app runtime and existing synthetic fixtures.",
+    "Screens are from the captured-version Android app runtime and existing synthetic fixtures; see sourceCommit for the recorded source version.",
     "No question bank import, session start, answer submission, AI call, backup restore, or file selection occurred.",
     "The service settings values are visually redacted in the screenshot.",
     "The complete settings page fits in one 1080 × 2400 screen; its identical repeat was omitted from the organized gallery."
