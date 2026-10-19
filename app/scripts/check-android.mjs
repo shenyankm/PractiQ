@@ -59,7 +59,7 @@ async function navigate(page, name, english = false) {
 async function startPractice(page, title = '基础知识 · 全题型', count = '9') {
   const bank = page.locator('[data-slot=card]').filter({ has: page.getByText(title, { exact: true }) });
   await bank.getByRole('button', { name: '开始练习', exact: true }).tap();
-  const setup = page.getByRole('dialog', { name: '开始练习或考试', exact: true });
+  const setup = page.getByRole('dialog');
   await expect(setup).toBeVisible();
   await touchTarget(setup.getByLabel('题目数量', { exact: true }));
   await setup.getByRole('combobox', { name: /^模式/ }).selectOption('self_test');
@@ -76,6 +76,7 @@ async function startPractice(page, title = '基础知识 · 全题型', count = 
   await touchTarget(budget);
   await budget.fill('90');
   await noHorizontalOverflow(page, 'score budgets');
+  await setup.getByRole('button', { name: '返回设置', exact: true }).tap();
   await setup.getByRole('combobox', { name: /^模式/ }).selectOption('practice');
   await setup.getByRole('combobox', { name: '选题方式', exact: true }).selectOption('count');
   await setup.getByLabel('题目数量', { exact: true }).fill(count);
@@ -375,7 +376,7 @@ test('listening uses local audio with touch-sized playback, speed and seek contr
   await page.goto('/');
   const bank = page.locator('[data-slot=card]').filter({ has: page.getByText('英语专项 · 听力与写作', { exact: true }) });
   await bank.getByRole('button', { name: '开始练习', exact: true }).tap();
-  const setup = page.getByRole('dialog', { name: '开始练习或考试', exact: true });
+  const setup = page.getByRole('dialog');
   await setup.getByLabel('出题顺序', { exact: true }).selectOption('ordered');
   await setup.getByText('高级设置 · 题库、筛选与选题方式', { exact: true }).tap();
   await setup.getByRole('combobox', { name: '题型', exact: true }).selectOption('listening');

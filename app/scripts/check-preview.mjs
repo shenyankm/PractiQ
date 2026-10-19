@@ -971,3 +971,33 @@ for (const reducedMotion of ['reduce', 'no-preference']) {
   await expect(finish).toBeFocused();
  });
 }
+
+for (const width of [360, 390, 1280]) {
+ base(`study setup separates settings from live score review at ${width}px`, async ({page}, testInfo) => {
+  await page.setViewportSize({width,height:850});
+  await page.emulateMedia({reducedMotion:'reduce'});
+  await page.goto('/');
+  await page.locator('.bank-card').first().getByRole('button',{name:'开始练习',exact:true}).click();
+  const dialog=page.getByRole('dialog');
+  await chooseOption(dialog.getByRole('combobox',{name:/^模式/}), 'mock_exam');
+  await dialog.getByLabel('考试分钟数',{exact:true}).fill('45');
+  await expect(dialog.getByRole('group',{name:'快捷题数'})).toBeVisible();
+  await page.screenshot({path:testInfo.outputPath(`setup-${width}.png`)});
+  await dialog.getByRole('button',{name:'预览题目与配分',exact:true}).click();
+  await expect(dialog.getByRole('heading',{name:'检查题目与配分'})).toBeFocused();
+  await expect(dialog.getByRole('combobox',{name:/^模式/})).toBeHidden();
+  await expect(dialog.getByText('已分配 100 / 目标 100 分',{exact:true})).toBeVisible();
+  await dialog.getByRole('button',{name:'第 1 题分值',exact:true}).click();
+  await dialog.getByRole('textbox',{name:'第 1 题分值',exact:true}).fill('0');
+  await page.screenshot({path:testInfo.outputPath(`scores-${width}.png`)});
+  await dialog.getByRole('button',{name:'返回设置',exact:true}).click();
+  await expect(dialog.getByLabel('考试分钟数',{exact:true})).toHaveValue('45');
+  await dialog.getByRole('button',{name:'查看配分',exact:true}).click();
+  await expect(dialog.getByRole('button',{name:'第 1 题分值',exact:true})).toHaveText('0 分');
+  const box=await dialog.boundingBox();
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.x+box.width).toBeLessThanOrEqual(width);
+  expect(box.y+box.height).toBeLessThanOrEqual(851);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ });
+}

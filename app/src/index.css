@@ -311,3 +311,18 @@ html[data-native-insets="true"] {
 @media (max-width: 767px), (any-pointer: coarse) {
   #app-sidebar nav [data-button] { min-height: 3rem; }
 }
+
+@media (max-width: 639px) {
+  html [data-slot="dialog-content"].study-setup {
+    top: var(--app-safe-top);
+    left: var(--app-safe-left);
+    width: calc(100% - var(--app-safe-left) - var(--app-safe-right));
+    max-width: none;
+    height: calc(100dvh - var(--app-safe-top) - var(--app-safe-bottom));
+    max-height: none;
+    overflow: hidden;
+    --tw-translate-x: 0px;
+    --tw-translate-y: 0px;
+    border-radius: 0;
+  }
+}

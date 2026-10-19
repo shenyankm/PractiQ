@@ -6,6 +6,8 @@ Use the offline practice app on macOS, Windows or Android. Start with the [no-mo
 
 If question statistics or the manual question list fails to load in study setup, use its retry button to read the same query again. Retrying preserves selected banks and questions, per-type quotas, a question count you entered, and exam settings. If you have not changed the count, the first successful statistics read initializes a feasible default, including after a retry. The button is disabled while that read is pending.
 
+Self-tests and mock exams have separate setup and score-review steps. Quick question counts sit beside the count field. The review shows allocated points against the target total; tap a question score to edit it. **Back to setup** and **View scores** preserve edited scores unless question selection or the target total changes. Generating a new preview explicitly replaces the selection and scores.
+
 Practice submits individual answers. Self-tests and mock exams submit the entire paper; answers and explanations become available after submission. Timed exams keep their deadline when the app closes or the device sleeps. Reopening an expired exam submits the last saved answers; closing the app does not extend its time limit.
 
 Selection preserves complete material groups. Question counts count answerable children; parents hold material and receive no score. Source edits and deletions do not rewrite saved session snapshots. See the [session behavior reference](../reference/question-types-data-rendering.md#6-practice-self-test-and-mock-exams) for timing, scoring and reveal rules.

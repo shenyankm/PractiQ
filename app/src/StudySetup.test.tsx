@@ -284,11 +284,13 @@ it("requires a fresh exam preview and validates the score total", async () => {
   await userEvent.selectOptions(screen.getByLabelText("模式"), "self_test");
   expect(screen.queryByRole("button",{name:"开始考试"})).toBeNull();
   await userEvent.click(screen.getByRole("button",{name:"预览题目与配分"}));
+  await userEvent.click(screen.getByRole("button", {name:"第 1 题分值"}));
   await userEvent.clear(screen.getByLabelText("第 1 题分值"));
   await userEvent.type(screen.getByLabelText("第 1 题分值"), "40");
   await userEvent.click(screen.getByRole("button",{name:"开始考试"}));
   expect(screen.getByRole("alert").textContent).toContain("分值之和必须等于总分");
   expect(vi.mocked(api).mock.calls.some(([r])=>r.type === "start_paper")).toBe(true);
+  await userEvent.click(screen.getByRole("button", {name:"返回设置"}));
   await userEvent.clear(screen.getByLabelText("考试总分"));
   await userEvent.type(screen.getByLabelText("考试总分"), "90");
   expect(screen.queryByRole("button",{name:"开始考试"})).toBeNull();
@@ -395,7 +397,7 @@ it("keeps an explicit resumed bank scope instead of falling back to every bank",
   expect(api).not.toHaveBeenCalled();
 });
 
-it("mounts only 30 score inputs and preserves edits across a 1000-question paper", async () => {
+it("mounts only 30 score controls and preserves edits across a 1000-question paper", async () => {
   const questions = Array.from({length:1000}, (_,i)=>({...rows[0],id:`q${i}`,question:{...rows[0].question,id:`q${i}`,stem:`Question ${i}`}}));
   vi.mocked(api).mockImplementation(async r => {
     if(r.type === "question_stats") return {count:1000,types:{single:1000},feasibleCounts:[1000]} as never;
@@ -407,13 +409,16 @@ it("mounts only 30 score inputs and preserves edits across a 1000-question paper
   await screen.findByText(/可用 1,000 题/);
   await userEvent.selectOptions(screen.getByLabelText("模式"), "self_test");
   await userEvent.click(screen.getByRole("button", {name:"预览题目与配分"}));
-  expect(document.querySelectorAll('input[aria-label$="题分值"]')).toHaveLength(30);
+  expect(document.querySelectorAll('button[aria-label$="题分值"]')).toHaveLength(30);
+  expect(document.querySelectorAll('input[aria-label$="题分值"]')).toHaveLength(0);
+  await userEvent.click(screen.getByRole("button", {name:"第 1 题分值"}));
   fireEvent.change(screen.getByLabelText("第 1 题分值"), {target:{value:"0.20"}});
   await userEvent.click(screen.getByRole("button", {name:"下一页"}));
+  await userEvent.click(screen.getByRole("button", {name:"第 31 题分值"}));
   fireEvent.change(screen.getByLabelText("第 31 题分值"), {target:{value:"0.00"}});
   expect(screen.queryByLabelText("第 1 题分值")).toBeNull();
   await userEvent.click(screen.getByRole("button", {name:"上一页"}));
-  expect((screen.getByLabelText("第 1 题分值") as HTMLInputElement).value).toBe("0.20");
+  expect(screen.getByRole("button", {name:"第 1 题分值"}).textContent).toBe("0.2 分");
   await userEvent.click(screen.getByRole("button", {name:"开始考试"}));
   const start = vi.mocked(api).mock.calls.find(([r])=>r.type === "start_paper")?.[0];
   expect(start).toMatchObject({type:"start_paper",paper:{scores:expect.arrayContaining([20,0])}});
@@ -474,4 +479,27 @@ it("offers only feasible quick counts and explains each session mode before star
   await user.selectOptions(screen.getByLabelText("模式"),"mock_exam");
   expect(screen.getByText("到时自动交卷，关闭应用仍会计时。")).toBeTruthy();
   expect(vi.mocked(api).mock.calls.every(([request])=>request.type==="question_stats")).toBe(true);
+});
+
+it("keeps setup and edited scores across steps and reports incomplete score input", async () => {
+  setup();
+  await screen.findByText(/可用 2 题/);
+  await userEvent.selectOptions(screen.getByLabelText("模式"), "mock_exam");
+  fireEvent.change(screen.getByLabelText("考试分钟数"), {target:{value:"45"}});
+  await userEvent.click(screen.getByRole("button", {name:"预览题目与配分"}));
+  expect(screen.queryByRole("combobox", {name:"模式"})).toBeNull();
+  expect(screen.getByText("已分配 100 / 目标 100 分")).toBeTruthy();
+  const scoreButton=screen.getByRole("button", {name:"第 1 题分值"});
+  expect(document.getElementById(scoreButton.getAttribute("aria-describedby")!)?.textContent).toBe("50 分");
+  await userEvent.click(screen.getByRole("button", {name:"第 1 题分值"}));
+  fireEvent.change(screen.getByLabelText("第 1 题分值"), {target:{value:"40"}});
+  expect(screen.getByText("已分配 90 / 目标 100 分")).toBeTruthy();
+  await userEvent.click(screen.getByRole("button", {name:"返回设置"}));
+  expect(screen.getByLabelText("考试分钟数")).toHaveProperty("value", "45");
+  await userEvent.click(screen.getByRole("button", {name:"查看配分"}));
+  expect(screen.getByRole("button", {name:"第 1 题分值"}).textContent).toBe("40 分");
+  expect(vi.mocked(api).mock.calls.filter(([r]) => r.type === "preview_paper")).toHaveLength(1);
+  await userEvent.click(screen.getByRole("button", {name:"第 1 题分值"}));
+  fireEvent.change(screen.getByLabelText("第 1 题分值"), {target:{value:""}});
+  expect(screen.getByText("已分配 — / 目标 100 分")).toBeTruthy();
 });
