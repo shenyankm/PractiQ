@@ -1,0 +1,51 @@
+{
+  "desktop": {
+    "focus": "desktop/app-banks-dark-desktop.png",
+    "focusVisible": true,
+    "height": 900,
+    "images": [
+      {
+        "h": 393.046875,
+        "nh": 1000,
+        "nw": 1440,
+        "src": "desktop/app-banks-dark-desktop.png",
+        "w": 566
+      },
+      {
+        "h": 497.453125,
+        "nh": 900,
+        "nw": 1024,
+        "src": "desktop/app-banks-light-1024.png",
+        "w": 566
+      }
+    ],
+    "offset": "-4px",
+    "outline": "rgb(118, 81, 132) solid 2px",
+    "overflow": false,
+    "width": 1280
+  },
+  "narrow": {
+    "focus": "desktop/app-banks-dark-desktop.png",
+    "focusVisible": true,
+    "height": 844,
+    "images": [
+      {
+        "h": 236.109375,
+        "nh": 1000,
+        "nw": 1440,
+        "src": "desktop/app-banks-dark-desktop.png",
+        "w": 340
+      },
+      {
+        "h": 298.828125,
+        "nh": 900,
+        "nw": 1024,
+        "src": "desktop/app-banks-light-1024.png",
+        "w": 340
+      }
+    ],
+    "offset": "-4px",
+    "overflow": false,
+    "width": 390
+  }
+}
