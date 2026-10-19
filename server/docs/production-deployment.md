@@ -17,7 +17,7 @@ credentials in `service.env`, which supplies Compose interpolation only:
 
 ```dotenv
 PRACTIQ_ENV_FILE=/etc/practiq/runtime.env
-PRACTIQ_STORAGE_DIR=/var/lib/practiq
+PRACTIQ_STORAGE_DIR=/var/lib/practiq-production
 DATABASE_URI=postgresql://practiq:GENERATE_PASSWORD@127.0.0.1:5433/practiq
 POSTGRES_PASSWORD=GENERATE_PASSWORD
 RABBITMQ_URI=amqp://practiq:GENERATE_SERVICE_PASSWORD@127.0.0.1:5673/practiq
