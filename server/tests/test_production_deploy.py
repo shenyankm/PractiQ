@@ -41,7 +41,7 @@ if [ "$FAILURE" = update ] && [ "$1" = compose ] && \
     env = {**os.environ, 'PATH': f'{bin_dir}:{os.environ["PATH"]}',
            'COMMAND_LOG': str(log), 'IMAGE_ENV': str(image_env),
            'REVISION': revision, 'FAILURE': failure}
-    result = subprocess.run(['bash', str(script), f'deploy {revision}'], input=b'image', env=env, capture_output=True)
+    result = subprocess.run(['bash', str(script), f'deploy {revision}'], input=b'image', env=env, capture_output=True, check=False)
     assert (result.returncode == 0) == (failure == '')
     expected = 'previous' if failure else revision
     assert image_env.read_text() == f'PRACTIQ_IMAGE=practiq-ai:{expected}\n'
@@ -50,5 +50,5 @@ if [ "$FAILURE" = update ] && [ "$1" = compose ] && \
 
 @pytest.mark.parametrize('command', ['bash', 'deploy ../main', 'deploy ' + 'a' * 40 + '; id'])
 def test_deploy_rejects_arbitrary_commands(command):
-    result = subprocess.run(['bash', str(ROOT / 'server/deploy/deploy.sh'), command], capture_output=True)
+    result = subprocess.run(['bash', str(ROOT / 'server/deploy/deploy.sh'), command], capture_output=True, check=False)
     assert result.returncode == 64
