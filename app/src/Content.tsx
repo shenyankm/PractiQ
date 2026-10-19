@@ -170,7 +170,7 @@ export const Content = memo(function Content({
   const q = snapshot.question;
   const ownMaterial = ["translation","writing","paragraph_matching"].includes(q.questionKind || "") || !!q.passage?.length;
   const materials = [...(snapshot.materials || []), ...(ownMaterial ? [q] : [])];
-  const materialKey = materials.map(m=>m.id).join(":");
+  const materialKey = JSON.stringify(materials.map(m=>m.id));
   const [open,setOpen]=useState(()=>materialReading?.current[materialKey]?.open ?? false);
   const materialId = useId();
   const trigger=useRef<HTMLButtonElement>(null);
@@ -216,7 +216,7 @@ export const Content = memo(function Content({
       {q.writingGenre && <p className="text-sm text-muted-foreground">{q.writingGenre}</p>}
       {materialDialog && materials.some(m=>m.passage?.length || m.contentBlocks.length || m.transcript?.length || m.questionKind === "paragraph_matching" || (m.id !== q.id && (m.stem || m.instructions))) ? materialReading ? <div className="practice-material rounded-lg border bg-card p-2">
         <Button ref={trigger} variant="outline" className="w-full" aria-expanded={open} aria-controls={materialId} onClick={toggleMaterial}>{t(open ? "收起原文" : "查看原文")}</Button>
-        {open && <div id={materialId} role="region" aria-label={t("题目材料")} tabIndex={0} className="practice-material-body space-y-4 overflow-auto p-2" ref={node=>{if(node) node.scrollTop=materialReading.current[materialKey]?.scrollTop ?? 0;}} onScroll={event=>{materialReading.current[materialKey]={open:true,scrollTop:event.currentTarget.scrollTop};}}>{materials.map(material)}</div>}
+        {open && <div id={materialId} role="region" aria-label={t("题目材料")} tabIndex={0} className="practice-material-body space-y-4 overflow-auto p-2" ref={node=>{if(node) node.scrollTop=materialReading.current[materialKey]?.scrollTop ?? 0;}} onScroll={event=>{materialReading.current[materialKey]={open:true,scrollTop:event.currentTarget.scrollTop};}}>{materials.map(material)}{snapshot.visuals.map(v=><ImageAsset key={v.id} visual={v}/>)}</div>}
       </div> : <>
         <Button ref={trigger} variant="outline" onClick={()=>setOpen(true)}>{t("查看原文")}</Button>
         <Dialog open={open} onOpenChange={setOpen}><DialogContent className="flex max-h-[85vh] flex-col sm:max-w-4xl" onCloseAutoFocus={e=>{e.preventDefault();trigger.current?.focus();}}><DialogHeader><DialogTitle>{t("查看原文")}</DialogTitle><DialogDescription>{t("题目材料；点击空位可定位对应子题。")}</DialogDescription></DialogHeader><div className="min-h-0 space-y-6 overflow-auto pr-3">{materials.map(material)}{snapshot.visuals.map(v=><ImageAsset key={v.id} visual={v}/>)}</div></DialogContent></Dialog>

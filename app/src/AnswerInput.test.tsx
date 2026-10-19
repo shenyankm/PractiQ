@@ -26,6 +26,22 @@ function Controlled({ question }: { question: Question }) {
   return <AnswerInput question={question} value={value} onChange={setValue} />;
 }
 
+it.each(["short_answer", "writing", "fill_blank"] as const)("keeps saved %s text literal in review", mode => {
+  const value = "<example>**saved**</example>\n  # literal heading";
+  const question: Question = {...blankQuestion(), answerMode:mode === "fill_blank" ? "fill_blank" : "short_answer", questionKind:mode === "writing" ? "writing" : null};
+  const answer = mode === "fill_blank" ? {answers:[value]} : {text:value};
+  const {container} = render(<AnswerReview question={question} answer={answer}/>);
+  expect(container.textContent).toContain(value);
+  expect(container.querySelector("example, strong, h1")).toBeNull();
+});
+
+it("keeps the submitted fill response literal while rendering reference Markdown", () => {
+  const value = "<example>**saved**</example>\nsecond line";
+  const {container} = render(<AnswerDisplay question={{...blankQuestion(),answerMode:"fill_blank"}} answer={{answers:["**Reference**"]}} response={{answers:[value]}}/>);
+  expect(container.textContent).toContain(value);
+  expect(container.querySelector("strong")?.textContent).toBe("Reference");
+});
+
 it("adds blank inputs only when the source leaves the count open", async () => {
   const user = userEvent.setup();
   const question = { ...blankQuestion(), answerMode: "fill_blank" as const, blankCount: null, choiceVariant: null, options: [] };

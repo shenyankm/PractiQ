@@ -278,7 +278,9 @@ export function AnswerReview({ question, answer }: { question: Question; answer:
       {question.items.length > 0 && <LazyDetails summary={t("题项")} className="rounded-lg border px-3">
         <ul className="space-y-2 pb-3">{question.items.map((item,index)=><li key={index} className="flex gap-2"><span>{item.label || (item.side === "right" ? t("选项") : index+1)}.</span><Markdown lang={materialLanguage(question)}>{item.content}</Markdown></li>)}</ul>
       </LazyDetails>}
-      {answer && <AnswerDisplay answer={answer} question={question} />}
+      {answer && (answer.answers ? <ol lang={answerLanguage(question)} className="list-inside list-decimal space-y-2">
+        {answer.answers.map((value,index)=><li key={index} className="whitespace-pre-wrap [overflow-wrap:anywhere]">{value ?? t("未作答")}</li>)}
+      </ol> : answer.text != null ? <p lang={answerLanguage(question)} className="whitespace-pre-wrap [overflow-wrap:anywhere]">{answer.text}</p> : <AnswerDisplay answer={answer} question={question} />)}
     </>}
   </section>;
 }
@@ -304,7 +306,7 @@ export function AnswerDisplay({
       <tbody>{Array.from({length:Math.max(answer.answers.length,response.answers.length)},(_,i)=>{
         const expected=answer.answers![i], actual=response.answers![i];
         const state=!expected?.trim()?t("参考答案不完整"):!actual?.trim()?t("未作答"):actual.trim()===expected.trim()?t("文本一致"):t("文本不一致");
-        return <tr key={i} className="border-b align-top"><th scope="row" className="p-2 font-normal">{i+1}</th><td className="p-2"><Markdown lang={actual ? lang : undefined}>{actual || t("未作答")}</Markdown></td><td className="p-2"><Markdown lang={expected ? lang : undefined}>{expected || t("缺失")}</Markdown></td><td className="p-2">{state}</td></tr>;
+        return <tr key={i} className="border-b align-top"><th scope="row" className="p-2 font-normal">{i+1}</th><td className="p-2"><p lang={actual ? lang : undefined} className="whitespace-pre-wrap [overflow-wrap:anywhere]">{actual || t("未作答")}</p></td><td className="p-2"><Markdown lang={expected ? lang : undefined}>{expected || t("缺失")}</Markdown></td><td className="p-2">{state}</td></tr>;
       })}</tbody>
     </table></div>;
   }

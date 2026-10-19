@@ -62,3 +62,9 @@ The panel now accepts focus with a visible keyboard focus ring. Browser checks u
 `npm --prefix app run check:ui` passed again: 423 tests, one existing opt-in benchmark skipped; see [check-ui-followup.txt](check-ui-followup.txt). `npm --prefix app run test:browser -- --project rich-content --grep 'all question layouts'` passed all four answering/reference layouts at 390×844 and 1280×720; see [responsive-followup.txt](responsive-followup.txt). The three workspace-focus cases and inline answer-hiding case also passed during focused reproduction. Full-suite and current-head remote results are tracked on PR #302.
 
 The screenshot/APK/source manifests above retain their original acceptance identities. They precede this keyboard-focus attribute correction; no replacement native gallery is claimed for the follow-up. No data or native-command changes were added.
+
+### Review findings addressed
+
+The next review identified three additional edge cases. Saved free-text and fill responses now render as escaped, pre-wrapped text, including in the fill-answer comparison table; question/reference Markdown remains formatted. The inline material reader includes associated non-original visuals. Material-state keys serialize the ID array with JSON, avoiding collisions between groups such as `["a:b", "c"]` and `["a", "b:c"]`.
+
+Six added regression cases cover literal short-answer/writing/fill responses, literal fill comparison with formatted references, associated diagrams without original-page exposure, and independent material groups. TypeScript, ESLint and all 429 frontend tests passed (one pre-existing opt-in benchmark skipped); see [check-ui-review-fixes.txt](check-ui-review-fixes.txt). The complete 112-case browser suite and current-head remote CI/review are tracked on PR #302. The earlier native gallery remains historical evidence for its recorded APKs; these review fixes do not change stored answers or data formats.
