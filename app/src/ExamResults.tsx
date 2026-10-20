@@ -44,7 +44,7 @@ export function ExamResults({session,onSession,run,onNextUnattempted,draft,onDra
   const pendingAi=pending.filter(a=>eligible(a)&&!a.grading?.ai&&!a.grading?.lastRequest);
   const latest=a.grading?.lastRequest;
   const configurationError = error ?? latest?.appError;
-  const needsConfiguration = ["LOCAL_SERVICE_URL_REQUIRED", "LOCAL_SERVICE_TOKEN_REQUIRED", "LOCAL_SERVICE_TOKEN_INVALID", "INVALID_SERVICE_TOKEN"].includes(String((configurationError as { code?: string } | null)?.code ?? ""));
+  const needsConfiguration = ["LOCAL_SERVICE_URL_REQUIRED", "LOCAL_SERVICE_TOKEN_REQUIRED", "LOCAL_SERVICE_TOKEN_INVALID", "INVALID_SERVICE_TOKEN", "LOCAL_MODEL_URL_REQUIRED", "LOCAL_MODEL_ID_REQUIRED", "LOCAL_MODEL_KEY_REQUIRED"].includes(String((configurationError as { code?: string } | null)?.code ?? ""));
   const retryCount=session.attempts.filter(a=>a.result===false).length;
   const skipped = session.attempts.filter(a => a.skipped).length;
   const unresolved = session.attempts.length - graded.length - session.attempts.filter(a => !exam && a.skipped).length;
@@ -72,7 +72,7 @@ export function ExamResults({session,onSession,run,onNextUnattempted,draft,onDra
       {eligible(a)&&latest?.status==="unknown"&&<><p>{t("先核对上次请求；重新评分会创建新的付费请求。")}</p><Button variant="outline" disabled={running} onClick={()=>grade([a])}>{t("核对上次评分结果")}</Button></>}
       {a.grading?.manual&&<p>{t("人工改分原因：{0}", { 0: a.grading.manual.reason })}</p>}
       {!eligible(a)&&a.earnedCents==null&&<p>{t("缺少完整题目、作答或评分依据，需人工处理。")}</p>}
-      {eligible(a) && (a.grading?.ai || a.grading?.lastRequest) && (
+      {eligible(a) && (a.grading?.ai || a.grading?.lastRequest || (error as {code?:string} | null)?.code === "LOCAL_GRADING_TARGET_CHANGED") && (
         <AlertDialog open={retryConfirm} onOpenChange={setRetryConfirm}>
           <AlertDialogTrigger asChild>
             <Button variant="outline" disabled={running}>{t("重新评分当前题")}</Button>

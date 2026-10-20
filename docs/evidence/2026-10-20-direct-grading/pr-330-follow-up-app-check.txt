@@ -1,0 +1,268 @@
+"/Users/sheny/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/bin/python3.14" app/scripts/export-contracts.py --check
+"/Users/sheny/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/bin/python3.14" app/scripts/check-fixtures.py
+49 shared contract cases and the sample validated by Python
+cd app && TAURI_CONFIG='{"bundle":{"resources":[]}}' npm run check
+
+> practiq-desktop@0.2.0 check
+> tsc -b && npm run lint && vitest run && cargo fmt --manifest-path src-tauri/Cargo.toml --check && cargo test --manifest-path src-tauri/Cargo.toml && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+
+
+> practiq-desktop@0.2.0 lint
+> cd .. && node app/node_modules/eslint/bin/eslint.js --config app/eslint.config.mjs "app/src/**/*.{ts,tsx}" shared/*.tsx --max-warnings 0
+
+
+ RUN  v5.0.1 /Users/sheny/.codex/worktrees/d041/PractiQ/app
+
+
+ Test Files  38 passed | 2 skipped (40)
+      Tests  451 passed | 2 skipped (453)
+   Start at  21:31:20
+   Duration  15.98s (tests 73%, environment 14%, import 10%, transform 3%)
+
+    Isolate  40 workers spawned · ~583ms startup each (spawn + environment, per file)
+             at least ~2.01s faster with isolate: false — reuses workers across files instead of one per file
+
+   Compiling practiq-desktop v0.2.0 (/Users/sheny/.codex/worktrees/d041/PractiQ/app/src-tauri)
+    Finished `test` profile [unoptimized] target(s) in 6.35s
+     Running unittests src/lib.rs (src-tauri/target/debug/deps/practiq_desktop-e39c0a9333e8d41a)
+
+running 222 tests
+test ai::tests::grading_blocks_restore_and_settings_only_while_a_request_is_active ... ok
+test ai::tests::model_connection_checks_only_read_the_model_list ... ok
+test ai::tests::model_connection_rejects_unavailable_ids_and_invalid_lists ... ok
+test ai::tests::connects_with_service_auth_without_model_calls_or_redirects ... ok
+test ai::tests::responses_are_bounded_and_cannot_redirect_grade_credentials ... ok
+test audio::tests::audio_probe_accepts_id3_prefixed_aac ... ok
+test audio::tests::audio_probe_decodes_aac_containers_without_platform_tools ... ok
+test audio::tests::audio_selection_is_staged_and_checks_real_format ... ok
+test assets::tests::image_only_collection_skips_audio_content_and_preserves_snapshot_audio_when_present ... ok
+test audio::tests::deleting_unreferenced_listening_question_collects_audio ... ok
+test ai::tests::direct_grading_uses_chat_completions_and_reuses_local_receipts_without_resending ... ok
+test ai::tests::model_changes_require_explicit_retry_and_bad_output_keeps_existing_scores ... ok
+test audio::tests::audio_leases_isolate_stale_cleanup_and_missing_references_cannot_be_saved ... ok
+test ai::tests::explicit_grade_sends_frozen_payload_and_preserves_local_manual_override ... ok
+test audio::tests::protected_practice_hides_answer_groups_and_visuals_until_submission ... ok
+test ai::tests::network_failure_stays_unknown_and_resume_reuses_only_the_same_request ... ok
+test ai::tests::interrupted_direct_requests_survive_reopening_without_another_paid_call ... ok
+test audio::tests::unchanged_missing_audio_from_an_incomplete_import_remains_editable ... ok
+test audio::tests::unsubmitted_writing_hides_answer_lines_in_question_text ... ok
+test ai::tests::reflected_service_tokens_never_reach_local_grade_history_or_diagnostics ... ok
+test audio_import::tests::decodes_qr_image_and_rejects_invalid_or_oversized_images ... ok
+test audio_import::tests::extracts_public_audio_links_without_executing_page_content ... ok
+test audio_import::tests::limits_reads_without_trusting_content_length ... ok
+test audio_import::tests::rejects_private_destinations_and_non_web_urls ... ok
+test audio_import::tests::removed_image_formats_are_rejected_even_if_mislabeled ... ok
+test backup::fault_tests::backup_size_boundary_is_bounded ... ignored, reads the real 512 MiB boundary; run explicitly with --ignored
+test audio::tests::listening_practice_reveals_transcript_only_after_whole_group ... ok
+test audio::tests::playback_progress_does_not_rehash_the_audio_file ... ok
+test audio_import::tests::downloaded_audio_uses_local_validation_and_staging ... ok
+test audio::tests::exam_playback_uses_continuous_time_across_clock_jumps_and_sleep ... ok
+test audio::tests::question_save_collects_replaced_audio_and_failed_persistence ... ok
+test audio::tests::exam_progress_cannot_accumulate_seek_allowance_across_updates_or_pauses ... ok
+test backup::fault_tests::restore_child ... ignored, subprocess entry point; exercised by killed_restore_reopens_a_complete_generation
+test ai::tests::model_http_failures_and_reflected_keys_are_safe_and_never_redirected ... ok
+test audio::tests::restore_rejects_audio_segments_past_duration_in_questions_and_snapshots ... ok
+test audio::tests::english_roundtrip_redaction_playback_and_immutable_history ... ok
+test backup::schema_tests::backups_restore_across_lf_and_crlf_schema_sources ... ok
+test backup::fault_tests::explicit_recovery_rejects_bad_replacement_before_preserving_or_changing_live_files ... ok
+test backup::tests::rejects_legacy_database_without_upgrading ... ok
+test backup::tests::historical_grading_errors_survive_reopen_and_backup_restore_without_rewriting ... ok
+test backup::schema_tests::regression_restore_rejects_invalid_session_navigation_without_replacement ... ok
+test bank_zip::tests::composite_roundtrip_preserves_contract_and_reference_graph ... ok
+test bank_zip::tests::missing_content_survives_export_and_reimport ... ok
+test bank_zip::tests::packaged_examples_are_ready_for_offline_import ... ok
+test bank_zip::tests::bundled_example_covers_all_types_and_imports_resources ... ok
+test backup::fault_tests::publication_errors_preserve_backup_and_restore_generation ... ok
+test backup::fault_tests::explicit_recovery_preserves_damaged_bytes_and_repairs_bank_and_history_resources ... ok
+test bank_zip::tests::startup_rejects_early_import_layout_without_changing_it ... ok
+test bank_zip::tests::zero_question_visuals_do_not_attach_to_existing_bank_questions ... ok
+test backup::fault_tests::explicit_recovery_failures_preserve_original_data_and_durable_inventory ... ok
+test contract::validation_tests::import_and_tree_validation_locate_the_invalid_question ... ok
+test contract::validation_tests::import_validation_performance ... ignored, synthetic validation benchmark; run with --release --ignored --nocapture
+test contract::validation_tests::question_schema_rejection_preserves_normalized_content_and_error_path ... ok
+test contract::validation_tests::question_validation_preserves_nested_nulls_false_answers_and_review_flags ... ok
+test credentials::tests::desktop_mock_credentials_follow_the_same_read_write_and_safe_error_contract ... ok
+test credentials::tests::document_bridge_binds_selected_uri_and_rejects_invalid_descriptors_without_details ... ok
+test credentials::tests::legacy_or_unsafe_accounts_and_invalid_tokens_never_reach_android ... ok
+test credentials::tests::mobile_token_reads_use_the_fixed_private_protocol_and_validate_returned_values ... ok
+test credentials::tests::mobile_writes_and_deletions_do_not_read_and_fail_closed_on_native_errors ... ok
+test credentials::tests::model_keys_use_the_same_private_bridge_with_a_separate_account_namespace ... ok
+test bank_zip::tests::zip_rejects_audio_segments_outside_file_duration ... ok
+test filesystem::tests::publication_preserves_existing_content_unless_replacement_is_requested ... ok
+test language::tests::failed_language_write_preserves_preference_and_model_settings ... ok
+test language::tests::invalid_backup_language_does_not_replace_current_data ... ok
+test language::tests::version_seven_is_not_modified ... ok
+test model_grading::tests::builds_data_only_messages_and_preserves_images ... ok
+test model_grading::tests::rejects_invalid_or_incomplete_scores_without_rounding_or_clamping ... ok
+test model_grading::tests::scales_partial_credit_and_preserves_abstention_and_zero ... ok
+test language::tests::preference_round_trip_backup_and_validation ... ok
+test paper::tests::changing_previous_scores_keeps_previews_valid_and_snapshots_free_of_live_metadata ... ok
+test paper::tests::indivisible_groups ... ok
+test paper::tests::feasible_counts_match_all_small_subsets_and_count_limits ... ok
+test paper::tests::quotas_preserve_interleaved_order_complete_groups_scores_and_digest ... ok
+test paper::tests::selection_paths_keep_future_smaller_groups_and_first_selection_order ... ok
+test backup::schema_tests::startup_and_restore_reject_noncurrent_schemas_without_changing_data ... ok
+test performance::archive_contention ... ignored, synthetic Store lock and archive contention measurement
+test performance::backup_restore_stress ... ignored, deterministic full backup and restore profile
+test performance::batch_attempt_writes ... ignored, paired batch attempt writes; run in release mode
+test performance::desktop_stress ... ignored, synthetic performance workload; run with --release --ignored --nocapture
+test performance::list_and_selection_stress ... ignored, large composite list and subset-sum profile
+test performance::paper_preview_stress ... ignored, large flat-bank count and quota preview profile
+test performance::snapshot_metadata_copies ... ignored, paired snapshot metadata copy benchmark; release only
+test paper::tests::statistics_and_random_papers_preserve_complete_groups ... ok
+test question_review_tests::confirmation_filters_complete_trees_and_persists_without_changing_source_flags ... ok
+test paper::tests::reallocates_all_supported_types_without_changing_selection_or_content ... ok
+test question_review_tests::list_summaries_preserve_child_flags_and_fetch_the_material_only_on_demand ... ok
+test question_review_tests::review_rejects_missing_or_child_ids_and_editing_clears_tree_confirmation ... ok
+test questions::snapshot_copy_tests::frozen_metadata_preserves_content_scope_order_and_digest ... ok
+test questions::snapshot_copy_tests::inherited_material_keeps_order_redaction_and_child_context_precedence ... ok
+test questions::snapshot_copy_tests::selected_context_keeps_ancestors_exclusive_siblings_and_scoped_metadata ... ok
+test question_review_tests::full_backup_keeps_confirmation_but_shared_copies_and_snapshots_exclude_it ... ok
+test question_review_tests::review_search_matches_other_nodes_and_shared_content_in_a_pending_tree ... ok
+test bank_zip::tests::rejects_corrupt_unlisted_and_oversized_packages_without_changes ... ok
+test bank_zip::tests::roundtrip_shares_content_only_and_repairs_duplicate_images ... ok
+test selected_file::tests::authorized_bank_export_generates_complete_private_zip_before_provider_write ... ok
+test selected_file::tests::exact_limit_snapshot_is_immutable_and_removed_after_use ... ok
+test selected_file::tests::oversized_document_is_rejected_and_its_private_partial_copy_removed ... ok
+test selected_file::tests::provider_read_failure_does_not_keep_a_partial_import ... ok
+test selected_file::tests::provider_sync_failure_after_complete_file_write_never_reports_success ... ok
+test selected_file::tests::provider_write_and_flush_failures_never_report_success ... ok
+test questions::visual_tests::startup_collects_canonical_orphaned_visuals ... ok
+test service_export_tests::live_service_exports_survive_sqlite_import_and_restart ... ignored, requires explicitly supplied live service ZIPs and an isolated evidence directory
+test service_export_tests::saas_paused_snapshot_imports_as_independent_banks_with_review_flags ... ok
+test backup::schema_tests::restore_validates_saved_answers_against_frozen_questions_before_replacement ... ok
+test sessions::shared_snapshots_tests::flags_self_assessment_manual_and_ai_scores_reuse_snapshot_keys ... ok
+test questions::visual_tests::single_bank_document_visuals_keep_unassociated_scope_in_sessions_and_zip ... ok
+test service_export_tests::service_export_imports_partial_media_and_preserves_offline_history ... ok
+test sessions::shared_snapshots_tests::playback_reuses_the_cached_immutable_document_and_checks_identity ... ok
+test sessions::shared_snapshots_tests::shared_material_keeps_distinct_redacted_variants ... ok
+test sessions::shared_snapshots_tests::shared_snapshot_roundtrip_keeps_exam_and_partial_listening_visibility ... ok
+test sessions::shared_snapshots_tests::shared_snapshot_stress ... ignored, release synthetic workload; run each mode in a separate process for RSS
+test sessions::shared_snapshots_tests::shared_warning_context_is_pooled_without_dropping_quality_flags ... ok
+test sessions::shared_snapshots_tests::snapshot_copy_stress ... ignored, release snapshot-copy workload; temporary databases only
+test sessions::shared_snapshots_tests::mutable_deltas_are_bound_to_the_current_view_and_fall_back_after_visibility_changes ... ok
+test bank_zip::tests::regression_merge_preserves_unlinked_content_and_resources ... ok
+test backup::fault_tests::locked_database_rejects_write_without_losing_saved_data ... ok
+test sessions::shared_snapshots_tests::uncached_playback_keeps_the_selective_read_through_path ... ok
+test sessions::shared_snapshots_tests::oversized_playback_documents_keep_the_cache_bound_and_read_through ... ok
+test sessions::ux_sessions_tests::clock_initializes_from_all_saved_sessions_once_without_history_jumps ... ok
+test sessions::ux_sessions_tests::clock_jumps_do_not_reject_drafts_or_change_a_running_exam_deadline ... ok
+test sessions::ux_sessions_tests::clock_restart_clamps_backwards_time_and_preserves_drafts_on_forward_expiry ... ok
+test sessions::ux_sessions_tests::completed_practice_accepts_only_self_assessment_without_changing_answers ... ok
+test selected_file::tests::streamed_bank_and_backup_use_the_real_import_and_restore_validators ... ok
+test settings::tests::connection_input_uses_explicit_service_token_without_saving_configuration ... ok
+test questions::visual_tests::document_visuals_keep_their_bank_scope_across_sessions_merge_and_archives ... ok
+test settings::tests::clearing_the_service_url_preserves_schema_eleven_without_credentials ... ok
+test settings::tests::credential_errors_do_not_leak_values_or_persist_configuration ... ok
+test settings::tests::explicit_current_account_clear_recovers_unreadable_credentials_without_sql_or_read ... ok
+test settings::tests::failed_credential_rollback_reports_a_safe_error ... ok
+test settings::tests::failed_database_persistence_restores_the_previous_token ... ok
+test settings::tests::explicit_grade_and_test_read_only_the_selected_account_and_validate_saved_tokens ... ok
+test sessions::shared_snapshots_tests::thousand_subquestions_send_shared_material_options_and_context_once ... ok
+test settings::tests::explicit_token_save_and_empty_token_clear_return_only_configuration_and_status ... ok
+test sessions::ux_sessions_tests::grading_replays_frozen_language_and_rejects_missing_locale_and_clears_stale_failures ... ok
+test settings::tests::failed_service_sidecar_save_rolls_back_mock_token_and_preserves_legacy_bytes ... ok
+test settings::tests::model_backups_reject_unknown_fields_invalid_urls_and_secret_fields ... ok
+test sessions::ux_sessions_tests::titles_draft_progress_activity_and_filters_match_session_lifecycle ... ok
+test settings::tests::native_keychain_roundtrip ... ignored, uses an isolated native credential entry; run explicitly on the target OS
+test settings::tests::model_key_changes_roll_back_on_failed_configuration_writes_and_clear_explicitly ... ok
+test settings::tests::legacy_provider_settings_remain_unchanged_after_explicit_service_saves ... ok
+test settings::tests::only_the_exact_service_marker_exposes_the_stored_url ... ok
+test settings::tests::direct_model_configuration_is_passive_and_secrets_are_isolated_and_excluded_from_backups ... ok
+test settings::tests::passive_reads_and_unchanged_saves_leave_token_status_unknown ... ok
+test settings::tests::killed_sqlite_writes_recover_journals_before_resolving_service_settings ... ok
+test settings::tests::pending_restore_rejects_service_save_and_rolls_back_mock_token ... ok
+test settings::tests::recovery_boundary_blocks_active_store_writes_until_restore_finishes ... ok
+test settings::tests::repeated_service_url_changes_preserve_legacy_database_bytes ... ok
+test settings::tests::recovery_boundary_killed_first_sidecar_initialization_preserves_offline_startup ... ok
+test settings::tests::service_restore_child ... ignored, subprocess entry point; invoked only by the disposable killed restore test
+test settings::tests::service_settings_are_strict_and_do_not_accept_provider_fields_or_tokens ... ok
+test settings::tests::service_settings_backup_artifact_is_strict_and_versioned ... ok
+test settings::tests::service_token_accounts_are_canonical_and_separate_from_old_model_keys ... ok
+test settings::tests::old_service_marker_backup_and_explicit_clear_overlay_restore_independently ... ok
+test settings::tests::service_urls_normalize_and_keep_legacy_url_and_model_validation ... ok
+test settings::tests::service_tokens_obey_bearer_and_native_storage_limits_before_keychain_access ... ok
+test settings::tests::recovery_boundary_failed_rollback_sync_keeps_pending_and_blocks_offline_writes ... ok
+test settings::tests::legacy_and_service_marker_backups_restore_without_schema_migration ... ok
+test settings::tests::unknown_or_corrupt_service_sidecars_are_not_reinitialized ... ok
+test settings::tests::unreadable_credential_clear_cannot_silently_change_configuration_and_delete_errors_stay_errors ... ok
+test settings::tests::killed_restore_recovers_service_url_before_first_offline_database_write ... ok
+test store::search_tests::search_pages_and_stats_do_not_construct_unselected_details ... ok
+test store::search_tests::search_stress ... ignored, synthetic search workload; run with --release --ignored --nocapture
+test settings::tests::restore_sync_error_keeps_previous_service_url_even_for_identical_database_bytes ... ok
+test settings::tests::settings_read_waits_for_restore_to_release_the_store ... ok
+test tests::bulk_detail_validation_rejects_missing_extra_and_wrong_type_rows ... ok
+test store::search_tests::search_filters_require_content_and_selection_on_the_same_node ... ok
+test tests::cleanup_failure_does_not_mask_committed_delete_or_restore ... ok
+test tests::backup_rejects_unsupported_and_corrupt_media_without_publishing ... ok
+test tests::completion_requests_require_explicit_submission_or_review ... ok
+test tests::closed_review_composite_content_search_and_favorites ... ok
+test tests::compact_sessions_keep_mutable_data_and_refresh_visibility_after_expiry ... ok
+test tests::database_failure_rolls_back_bank_and_import_together ... ok
+test tests::deleting_a_question_does_not_reassign_its_visuals ... ok
+test tests::desktop_ai_requests_only_accept_explicit_grading ... ok
+test tests::current_storage_does_not_touch_previous_directories ... ok
+test tests::exam_filters_answer_table_and_crop_then_restores_original_snapshot ... ok
+test tests::assets_backup_restore_and_failed_restore_preserve_data ... ok
+test questions::visual_tests::deleted_question_visuals_collect_assets_unless_shared_document_or_history_references_remain ... ok
+test tests::composite_import_paper_edit_history_and_restore ... ok
+test tests::exam_redacts_answer_headings_in_parent_materials ... ok
+test tests::exam_hides_answer_roles_and_reads_live_favorites_without_changing_snapshot ... ok
+test tests::file_assets_and_corruption_do_not_replace_database ... ok
+test tests::grading_all_modes_and_partial_results ... ok
+test tests::image_validation_rejects_truncated_and_mislabeled_files ... ok
+test tests::filtered_search_does_not_hydrate_unselected_details_or_match_a_different_favorite ... ok
+test store::search_tests::search_projection_preserves_text_fields_associations_and_unicode ... ok
+test tests::listening_fields_identify_a_parent_without_a_stem ... ok
+test tests::finished_session_navigation_uses_membership_not_delta_length ... ok
+test tests::exam_submit_expiry_scores_and_manual_override ... ok
+test tests::legacy_and_malicious_backups_do_not_replace_data ... ok
+test tests::malformed_import_does_not_create_a_bank ... ok
+test tests::legacy_ai_import_receipts_survive_backup_without_work_manifests ... ok
+test tests::new_imports_do_not_update_inserted_rows_and_edits_replace_old_details ... ok
+test tests::paper_manual_selection_skips_unselected_question_details ... ok
+test tests::missing_optional_source_page_does_not_disable_grading ... ok
+test tests::paper_preview_reads_only_selected_bank_details ... ok
+test tests::question_query_requests_use_bank_id_lists ... ok
+test tests::read_order_and_deadline_queries_use_optional_indexes ... ok
+test tests::e2e_exam_restart_restore_on_fresh_install_and_retry ... ok
+test tests::merged_copy_filters_grading_and_backup_preserve_independence ... ok
+test tests::save_attempt_requests_keep_self_assessment_separate ... ok
+test tests::restore_invalidates_the_immutable_document_cache ... ok
+test tests::scoped_edits_start_and_merge_ignore_unrelated_details_and_reject_id_collisions ... ok
+test tests::rich_content_survives_import_reopen_practice_and_backup_exactly ... ok
+test tests::search_keeps_literal_schema_words_in_content ... ok
+test tests::service_settings_requests_reject_legacy_provider_fields ... ok
+test tests::shared_contract_corpus ... ok
+test backup::fault_tests::killed_restore_reopens_a_complete_generation ... ok
+test tests::self_grade_preserves_auto_result_and_ungraded_denominator ... ok
+test tests::stale_edits_and_deleted_import_targets_are_rejected ... ok
+test tests::startup_rejects_old_visual_schema_without_collecting_assets ... ok
+test tests::shared_images_survive_until_last_bank_is_deleted ... ok
+test tests::transcript_blocks_follow_shared_content_rules ... ok
+test tests::partial_fill_blank_import_preserves_answers_counts_and_review_flags ... ok
+test tests::transactional_import_resume_snapshot_and_latest_wrong ... ok
+test tests::malformed_backup_snapshots_leave_the_store_lock_and_database_usable ... ok
+test tests::summary_pages_keep_stable_boundaries_choices_and_expire_off_page_exams ... ok
+test store::search_tests::plain_pages_preserve_filters_order_totals_and_clamped_offsets ... ok
+test tests::paged_filters_preserve_complete_groups_and_drafts_survive_reopen ... ok
+test settings::tests::real_sqlite_failure_rolls_back_token_replacement_and_deletion ... ok
+test tests::source_image_upload_limit_survives_import_and_backup ... ok
+test bank_zip::tests::appended_packages_enforce_the_export_entry_limit_and_round_trip ... ok
+
+test result: ok. 206 passed; 0 failed; 16 ignored; 0 measured; 0 filtered out; finished in 40.12s
+
+     Running unittests src/main.rs (src-tauri/target/debug/deps/PractiQ-5f83e1ec4d74f0f5)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests practiq_desktop
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+    Checking practiq-desktop v0.2.0 (/Users/sheny/.codex/worktrees/d041/PractiQ/app/src-tauri)
+    Finished `dev` profile [unoptimized] target(s) in 2.95s

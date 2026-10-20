@@ -1,0 +1,53 @@
+
+> practiq-desktop@0.2.0 test:android-browser
+> playwright test --project android-390 --project android-360
+
+[WebServer] (node:94031) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:94054) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:94056) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:94079) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:94080) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:94103) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 24 tests using 1 worker
+
+(node:94104) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 [built-android-390] › scripts/check-built-navigation.mjs:32:3 › built touch drawer keeps navigation visible and usable (zh-CN) (4.9s)
+  ✓   2 [built-android-390] › scripts/check-built-navigation.mjs:32:3 › built touch drawer keeps navigation visible and usable (en) (3.6s)
+(node:94163) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   3 [built-android-360] › scripts/check-built-navigation.mjs:32:3 › built touch drawer keeps navigation visible and usable (zh-CN) (3.9s)
+  ✓   4 [built-android-360] › scripts/check-built-navigation.mjs:32:3 › built touch drawer keeps navigation visible and usable (en) (3.7s)
+(node:94186) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   5 [android-390] › scripts/check-android.mjs:147:1 › review keeps readable answers and its final content above the separate navigation bar (2.0s)
+  ✓   6 [android-390] › scripts/check-android.mjs:178:1 › sibling review retains the actual scroll offset of a long expanded passage (1.6s)
+  ✓   7 [android-390] › scripts/check-android.mjs:214:1 › touch navigation works in both languages and consumes back only when needed (4.9s)
+  ✓   8 [android-390] › scripts/check-android.mjs:247:1 › ZIP and service settings stay local until an explicit connection test (2.3s)
+  ✓   9 [android-390] › scripts/check-android.mjs:287:1 › direct model settings fit touch screens and never start grading (2.3s)
+  ✓  10 [android-390] › scripts/check-android.mjs:317:1 › remote grading requires the explicit action and manual review remains usable (1.6s)
+  ✓  11 [android-390] › scripts/check-android.mjs:339:1 › question summaries stay readable and sequential practice controls stay together on touch screens (3.0s)
+  ✓  12 [android-390] › scripts/check-android.mjs:367:1 › all answer controls and answer-card navigation preserve drafts on touch screens (4.9s)
+  ✓  13 [android-390] › scripts/check-android.mjs:416:1 › listening uses local audio with touch-sized playback, speed and seek controls (8.9s)
+  ✓  14 [android-390] › scripts/check-android.mjs:464:1 › dirty dialogs retain and save edits after a shortened viewport (4.2s)
+(node:94786) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  15 [android-360] › scripts/check-android.mjs:147:1 › review keeps readable answers and its final content above the separate navigation bar (2.0s)
+  ✓  16 [android-360] › scripts/check-android.mjs:178:1 › sibling review retains the actual scroll offset of a long expanded passage (1.5s)
+  ✓  17 [android-360] › scripts/check-android.mjs:214:1 › touch navigation works in both languages and consumes back only when needed (5.3s)
+  ✓  18 [android-360] › scripts/check-android.mjs:247:1 › ZIP and service settings stay local until an explicit connection test (2.7s)
+  ✓  19 [android-360] › scripts/check-android.mjs:287:1 › direct model settings fit touch screens and never start grading (2.3s)
+  ✓  20 [android-360] › scripts/check-android.mjs:317:1 › remote grading requires the explicit action and manual review remains usable (1.7s)
+  ✓  21 [android-360] › scripts/check-android.mjs:339:1 › question summaries stay readable and sequential practice controls stay together on touch screens (2.9s)
+  ✓  22 [android-360] › scripts/check-android.mjs:367:1 › all answer controls and answer-card navigation preserve drafts on touch screens (4.6s)
+  ✓  23 [android-360] › scripts/check-android.mjs:416:1 › listening uses local audio with touch-sized playback, speed and seek controls (8.8s)
+  ✓  24 [android-360] › scripts/check-android.mjs:464:1 › dirty dialogs retain and save edits after a shortened viewport (3.7s)
+
+  24 passed (1.6m)

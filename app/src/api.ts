@@ -209,6 +209,7 @@ export type Request =
       type: "save_settings" | "test_settings";
       config: ServiceConfig;
       service_token: string | null;
+      api_key?: string | null;
     }
   | {
       type:
@@ -445,14 +446,21 @@ export function canInteract(q: Question) {
 
 export interface ServiceConfig {
   service_url: string | null;
+  model?: { base_url: string | null; model_id: string | null };
 }
 export interface SettingsResult {
   config: ServiceConfig;
   /** null means unchecked; only explicit credential operations inspect the token. */
   hasServiceToken: boolean | null;
+  hasApiKey?: boolean | null;
 }
 
 export function missingServiceSettings(settings: SettingsResult): string[] {
+  if (settings.config.model) return [
+    !settings.config.model.base_url?.trim() && t("模型 API 地址"),
+    !settings.config.model.model_id?.trim() && t("模型 ID"),
+    settings.hasApiKey === false && t("模型 API Key"),
+  ].filter((field): field is string => !!field);
   return [
     !settings.config.service_url?.trim() && t("AI 服务地址"),
     settings.hasServiceToken === false && t("AI 服务访问令牌"),

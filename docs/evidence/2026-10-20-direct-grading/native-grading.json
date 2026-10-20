@@ -1,0 +1,9 @@
+{
+  "passed": true,
+  "sessionId": "ee85493d-3310-4b91-a484-934b87f1a4c8",
+  "missingEvidenceSessionId": "671f7401-84bc-46fe-92cc-f7a520fa6feb",
+  "modelCalls": 3,
+  "modelListReads": 1,
+  "scoreAfterManualReview": 750,
+  "realModelCalls": 0
+}

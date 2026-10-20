@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.practiq.android.TokenEnvelopeTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-10-20T12:46:12.557Z" hostname="sheny.local" time="0.011">
+  <properties/>
+  <testcase name="envelopeRoundTripsIvAndCiphertextAtBothBounds" classname="com.practiq.android.TokenEnvelopeTest" time="0.008"/>
+  <testcase name="envelopeRejectsWrongVersionTruncationOversizeAndIvLength" classname="com.practiq.android.TokenEnvelopeTest" time="0.0"/>
+  <testcase name="accountAcceptsOnlyCanonicalHashedNamespace" classname="com.practiq.android.TokenEnvelopeTest" time="0.001"/>
+  <testcase name="tokenMatchesRustAsciiAndSizeBoundary" classname="com.practiq.android.TokenEnvelopeTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

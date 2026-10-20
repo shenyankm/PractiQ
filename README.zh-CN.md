@@ -58,9 +58,13 @@ PractiQ 仍处于开发阶段，请按下方步骤从源码运行；已发布安
 
 解析只提取原文已有答案与评分细则，不替缺答案的题目解题；缺失内容保留待复核标记。请在 **180 天**内下载需要保留的结果，任务到期不影响已导入 app 的题库。
 
-练习和本地判分可离线使用。需要主观题 AI 评分时，在桌面**设置 → AI 服务**中配置独立服务地址及访问令牌，再主动开始评分或重试。评分须有参考答案或评分细则；缺少依据、失败或结果未知时保持未判定。此功能用于个人练习，不作为正式考试阅卷依据；打开 app 或修改设置不会调用模型。
+练习和本地判分可离线使用。需要主观题 AI 评分时，在 **设置 → AI 服务** 中选择 **直连模型 API**，填写兼容 OpenAI 的 API 地址（包含 `/v1` 或供应商要求的基础路径）、模型 ID 和自己的 API Key。macOS、Windows 和 Android 共用 Rust `reqwest` 调用 `/chat/completions`，无需部署评分服务，也不依赖 SDK 或 curl。已有部署仍可选择 **独立 AI 服务**，使用原服务地址及令牌。
 
-app 访问令牌保存在 macOS Keychain、Windows Credential Manager 或 Android Keystore 保护的私有存储中，Web 服务访问令牌只保存在浏览器内存中，断开或刷新后清除。同一服务访问令牌用于个人文档导入与 app 评分。服务地址保存在独立的 `v4/service-settings-v1.sqlite` 中，完整备份可包含版本化的地址设置，但不含凭据及 AI 任务状态；练习数据库仍为 schema 11。旧模型配置与密钥原样保留，不会自动作为独立服务凭据使用。限时模考在关闭应用或电脑休眠后仍继续计时，重新进入超时考试时按最后保存的答案交卷。恢复和兼容边界见[数据模型](docs/reference/question-model.md#versions-and-directories)。
+评分必须有参考答案或细则，会把当前题目快照、相关材料、图片和作答发送给所选模型供应商，可能产生费用。接口须支持 JSON 模式（`response_format: json_object`）和 `max_tokens`；含图题需要视觉模型。每次明确评分最多调用一次，超时 120 秒，输出上限 4,096 token；无效、拒绝或截断结果保持未判定，已有分数与人工改分保留。结果未知时不会自动重发；核对仅返回本地记录，明确重新评分才会创建新的付费请求。测试连接仅读取 `/models`，不验证评分能力。此功能用于个人练习，不作为正式考试阅卷依据。
+
+App API Key 与服务令牌保存在 macOS Keychain、Windows Credential Manager 或 Android Keystore 保护的私有存储中，Web 服务令牌只保存在浏览器内存中。非敏感连接配置沿用 `v4/service-settings-v1.sqlite` 和完整备份恢复机制，不包含凭据，练习数据库仍为 schema 11；旧 schema-11 备份继续支持。保存新模型配置后，旧版本会拒绝读取对应配置文件及备份，请继续使用当前版本。旧模型配置与密钥原样保留，不会自动启用。
+
+限时模考在关闭应用或电脑休眠后仍继续计时，重新进入超时考试时按最后保存的答案交卷。恢复和兼容边界见[数据模型](docs/reference/question-model.md#versions-and-directories)。
 
 开发模式默认使用内存示例数据；预览面板可切换场景或选择真实本地数据，详见[开发预览](app/docs/development-preview.md)。
 

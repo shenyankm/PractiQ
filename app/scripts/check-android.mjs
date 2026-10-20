@@ -98,17 +98,17 @@ async function startPractice(page, title = '基础知识 · 全题型', count = 
   await expect(page.getByRole('heading', { name: '专注练习', exact: true })).toBeVisible();
 }
 
-async function serviceMock(page) {
+async function serviceMock(page, service = false) {
   const calls = [];
   await page.exposeFunction('__recordAndroidMockCall', call => calls.push(call));
   const english = JSON.parse(readFileSync('fixtures/english.json', 'utf8'));
-  await page.addInitScript(({ question }) => {
+  await page.addInitScript(({ question, service }) => {
     sessionStorage.setItem('practiq-preview', 'local');
     window.isTauri = false;
     const bank = { id: 'mobile', title: '浏览器题库', description: '', count: 1, createdAt: 1 };
     const snapshot = { question, groups: [], visuals: [], sources: [], warnings: [], missingAssets: false };
     const session = { id: 'mobile-grade', title: '浏览器评分场景', kind: 'self_test', createdAt: 1, submittedAt: 2, finishedAt: null, position: 0, mode: 'ordered', attempts: [{ ordinal: 0, snapshot, answer: { text: 'A preserved answer.' }, autoResult: null, result: null, gradeKind: 'ungraded', maxCents: 1000, earnedCents: null, submittedAt: 2, skipped: false, elapsedMs: 1000 }] };
-    let settings = { config: { service_url: null }, hasServiceToken: false };
+    let settings = { config: { service_url: service ? 'https://initial-service.example.test' : null }, hasServiceToken: false };
     window.__TAURI_INTERNALS__ = { invoke: async (command, args) => {
       const request = args?.request;
       await window.__recordAndroidMockCall({ command, request });
@@ -127,7 +127,8 @@ async function serviceMock(page) {
         case 'settings': return settings;
         case 'save_settings': {
           const hasServiceToken = request.service_token === null ? (request.config.service_url === settings.config.service_url ? settings.hasServiceToken : null) : !!request.service_token.trim();
-          settings = { config: request.config, hasServiceToken };
+          const hasApiKey = request.api_key == null ? (request.config.model?.base_url === settings.config.model?.base_url ? settings.hasApiKey : null) : !!request.api_key.trim();
+          settings = { config: request.config, hasServiceToken, ...(request.config.model ? {hasApiKey} : {}) };
           return settings;
         }
         case 'test_settings': case 'pick_import': return null;
@@ -139,7 +140,7 @@ async function serviceMock(page) {
         default: throw new Error(`Unexpected mobile mock request: ${request.type}`);
       }
     } };
-  }, { question: english.questions.find(question => question.questionKind === 'translation') });
+  }, { question: english.questions.find(question => question.questionKind === 'translation'), service });
   return calls;
 }
 
@@ -244,7 +245,7 @@ test('touch navigation works in both languages and consumes back only when neede
 });
 
 test('ZIP and service settings stay local until an explicit connection test', async ({ page }) => {
-  const calls = await serviceMock(page);
+  const calls = await serviceMock(page, true);
   await page.goto('/');
   const directImport = page.getByRole('button', { name: '导入', exact: true });
   await touchTarget(directImport);
@@ -281,6 +282,36 @@ test('ZIP and service settings stay local until an explicit connection test', as
   expect(calls.filter(call => call.request.type === 'save_settings').at(-1).request.config.service_url).toBe('https://service-latest.example.test');
   await noHorizontalOverflow(page, 'saved service settings');
   expect(calls.every(call => call.command === 'request')).toBe(true);
+});
+
+test('direct model settings fit touch screens and never start grading', async ({ page }, testInfo) => {
+  const calls = await serviceMock(page);
+  await page.goto('/');
+  await navigate(page, '设置');
+  await page.getByRole('button', {name:'配置',exact:true}).tap();
+  const address=page.getByLabel('模型 API 地址',{exact:true});
+  const model=page.getByLabel('模型 ID',{exact:true});
+  const key=page.getByLabel('模型 API Key',{exact:true});
+  for (const field of [address,model,key]) await touchTarget(field);
+  await address.fill('https://models.example.test/v1');
+  await model.fill('fixture-model');
+  await key.fill('fixture-key-never-a-real-credential');
+  const testConnection=page.getByRole('button',{name:'测试连接',exact:true});
+  await testConnection.focus();
+  await expect(key).toHaveValue('');
+  await expect.poll(()=>calls.filter(call=>call.request.type==='save_settings').at(-1)?.request.api_key).toBe('fixture-key-never-a-real-credential');
+  expect(calls.some(call=>call.command==='ai_request' || call.request.type==='test_settings')).toBe(false);
+  await testConnection.tap();
+  await expect(page.getByRole('status').filter({hasText:'连接测试通过'})).toBeVisible();
+  const testCall=calls.filter(call=>call.request.type==='test_settings').at(-1).request;
+  expect(testCall).toEqual({type:'test_settings',config:{service_url:null,model:{base_url:'https://models.example.test/v1',model_id:'fixture-model'}},service_token:null,api_key:null});
+  const clear=page.getByRole('button',{name:'清除已保存的 API Key',exact:true});
+  await touchTarget(clear);
+  await clear.tap();
+  await expect(clear).toBeDisabled();
+  await noHorizontalOverflow(page,'direct model settings');
+  expect(calls.every(call=>call.command==='request')).toBe(true);
+  await page.screenshot({path:testInfo.outputPath('direct-model-settings.png'),fullPage:true});
 });
 
 test('remote grading requires the explicit action and manual review remains usable', async ({ page }) => {

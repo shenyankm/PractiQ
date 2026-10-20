@@ -34,8 +34,12 @@ class SecureStoragePluginTest {
         private lateinit var scenario: ActivityScenario<MainActivity>
         private lateinit var activity: Activity
         @JvmStatic @BeforeClass fun launch() {
-            scenario = ActivityScenario.launch(MainActivity::class.java)
+            if (!::scenario.isInitialized) scenario = ActivityScenario.launch(MainActivity::class.java)
             scenario.onActivity { activity = it }
+        }
+        internal fun sharedScenario(): ActivityScenario<MainActivity> {
+            launch()
+            return scenario
         }
     }
 

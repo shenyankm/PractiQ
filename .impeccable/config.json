@@ -1,0 +1,26 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "cream-palette",
+        "value": "*",
+        "files": [
+          "app/.build/dist-browser-test/index.html"
+        ],
+        "createdAt": "2026-10-20T13:11:52.107Z",
+        "reason": "Agent triage: generated browser-test HTML uses the unchanged shared/theme.css background #f7f4f1 and octopus purple palette already present at HEAD; this grading change preserves the incumbent design system"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "app/.build/dist-browser-test/assets/index-9gdz3qWQ.css"
+        ],
+        "createdAt": "2026-10-20T13:11:52.380Z",
+        "reason": "Agent triage: generated minified browser-test CSS includes unchanged Content.tsx border-l-4 on a semantic question-material section, not a newly added colored card accent; source remains reviewable"
+      }
+    ]
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "passed": true,
+  "sessionId": "ee85493d-3310-4b91-a484-934b87f1a4c8",
+  "schemaVersion": 11,
+  "earnedCents": 750,
+  "gradeKind": "manual",
+  "requestStatuses": [
+    "graded",
+    "ungraded",
+    "unknown"
+  ],
+  "lastRequestStatus": "unknown",
+  "processRestartVerified": true
+}

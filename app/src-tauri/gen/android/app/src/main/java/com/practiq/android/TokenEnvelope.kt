@@ -2,7 +2,7 @@ package com.practiq.android
 
 internal object TokenRules {
     const val MAX_TOKEN_BYTES = 8192
-    private val accountPattern = Regex("ai-service-token-[0-9a-f]{64}")
+    private val accountPattern = Regex("(?:ai-service-token-|ai-model-key-v1-)[0-9a-f]{64}")
 
     fun validateAccount(account: String) {
         require(accountPattern.matches(account)) { "SECURE_STORAGE_INVALID_INPUT" }

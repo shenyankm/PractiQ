@@ -96,12 +96,12 @@ Shared-contract checks need the locked service dependencies, even when the AI se
 
 | Area | Responsibility |
 | --- | --- |
-| `app/` | Offline Tauri/React practice app with Rust and SQLite, targeting macOS, Windows, and Android. Imports bank ZIPs and supports explicit service connection checks; only explicit AI grading or retry starts model work. |
+| `app/` | Offline Tauri/React practice app with Rust and SQLite, targeting macOS, Windows, and Android. Imports bank ZIPs and supports explicit model/service connection checks; only explicit AI grading or retry starts model work. |
 | `web/` | Import frontend for explicit source-document submission, task control, result review, and bank ZIP download. |
 | `server/` | Python/LangGraph document processing and grading, with PostgreSQL state, RabbitMQ delivery, and local file storage. |
 | `shared/` | Frontend code used by both App and Web; validate both consumers when affected. |
 
-App packages contain no Python or LibreOffice runtime. Passive reads, polling, export, and backup must not start model work. Provider credentials stay in the service environment; the service remains a personal self-hosted deployment without user management or built-in billing. Follow the [service recovery guide](server/docs/rabbitmq.md) when changing durable state or delivery.
+App packages contain no Python or LibreOffice runtime. Passive reads, polling, export, and backup must not start model work. Document-import provider credentials stay in the service environment; direct App grading uses the user's API key held only in the native credential store; the service remains a personal self-hosted deployment without user management or built-in billing. Follow the [service recovery guide](server/docs/rabbitmq.md) when changing durable state or delivery.
 
 Preserve review flags, immutable practice and score snapshots, resource checksums, and the database/backup compatibility and recovery rules in [AGENTS.md](AGENTS.md). Do not delete existing data or credentials to make a change work.
 
