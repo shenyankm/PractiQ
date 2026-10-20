@@ -846,5 +846,37 @@
   "LOCAL_DOCUMENT_SAVE_FAILED": {
     "zh-CN": "无法保存到授权位置，请重新选择保存位置",
     "en": "Cannot save to the authorized location. Choose the save location again."
+  },
+  "LOCAL_MODEL_URL_REQUIRED": {
+    "zh-CN": "请配置模型 API 地址",
+    "en": "Configure a model API URL"
+  },
+  "LOCAL_MODEL_ID_REQUIRED": {
+    "zh-CN": "请配置模型 ID",
+    "en": "Configure a model ID"
+  },
+  "LOCAL_MODEL_KEY_REQUIRED": {
+    "zh-CN": "请配置模型 API Key",
+    "en": "Configure a model API key"
+  },
+  "LOCAL_MODEL_CONNECTION_FAILED": {
+    "zh-CN": "模型连接中断或超时。已发送的评分不会自动重试；可能已产生费用，请核对后明确重新评分。",
+    "en": "The model connection failed or timed out. Sent grading requests are never retried automatically and may have incurred charges. Check before explicitly regrading."
+  },
+  "LOCAL_MODEL_HTTP": {
+    "zh-CN": "模型接口返回 HTTP {status}；请检查模型地址、API Key 和接口兼容性。",
+    "en": "The model API returned HTTP {status}. Check the URL, API key and API compatibility."
+  },
+  "LOCAL_MODEL_RESPONSE_INVALID": {
+    "zh-CN": "模型未返回有效的评分 JSON，已保留原得分。请人工复核，或明确重新评分。",
+    "en": "The model did not return valid grading JSON. Existing scores are kept. Review manually or explicitly regrade."
+  },
+  "LOCAL_MODEL_RESULT_UNKNOWN": {
+    "zh-CN": "上次直连评分结果未知，可能已产生费用。不会自动重发；如需再次调用模型，请明确重新评分。",
+    "en": "The previous direct grading result is unknown and may have incurred charges. It will not be resent; explicitly regrade to call the model again."
+  },
+  "LOCAL_GRADING_TARGET_CHANGED": {
+    "zh-CN": "评分连接或模型已更改。上次请求不会发送到新接口；如需调用当前模型，请明确重新评分。",
+    "en": "The grading connection or model changed. The previous request will not be sent to the new endpoint; explicitly regrade to use the current model."
   }
 }

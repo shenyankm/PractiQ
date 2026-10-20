@@ -23,6 +23,11 @@ function Controls() { language = useI18n(); return null; }
 function wrap(children: React.ReactNode) { return render(<I18nProvider><Controls />{children}</I18nProvider>); }
 async function ready() { await act(async () => {}); await waitFor(() => expect(language.ready).toBe(true)); }
 async function change(locale: Locale) { await act(async () => language.change(locale)); }
+async function selectService() {
+  const control = await screen.findByLabelText(t("评分连接方式"));
+  await waitFor(() => expect(control.closest("fieldset")?.disabled).toBe(false));
+  await userEvent.selectOptions(control, "service");
+}
 beforeEach(() => {
   saved = null; failSave = false;
   Object.defineProperty(navigator, "languages", { configurable: true, value: ["zh-CN"] });
@@ -128,6 +133,7 @@ it.each(["zh-CN", "en"] as const)("collapses the sidebar without resetting setti
   wrap(<App />); await ready();
   await userEvent.click(screen.getByRole("button", { name: t("设置") }));
   await userEvent.click(await screen.findByRole("button", { name: t("配置") }));
+  await selectService();
   const input = await screen.findByLabelText(t("AI 服务地址"));
   await userEvent.type(input, "https://example.com/v1");
   const calls = vi.mocked(invoke).mock.calls.length;
@@ -316,6 +322,7 @@ it.each(["en", "zh-CN"] as const)("imports offline ZIP and saves a translated se
   await waitFor(() => expect(invoke).toHaveBeenCalledWith("request", expect.objectContaining({locale:value,request:expect.objectContaining({type:"import",ticket:"ticket",title:"原文 filename"})})));
   await userEvent.click(screen.getByRole("button", {name:t("设置")}));
   await userEvent.click(await screen.findByRole("button", {name:t("配置")}));
+  await selectService();
   const model = await screen.findByLabelText(t("AI 服务地址"));
   await waitFor(() => expect(model.closest("fieldset")?.disabled).toBe(false));
   await userEvent.type(screen.getByLabelText(t("AI 服务访问令牌")),"test-key");

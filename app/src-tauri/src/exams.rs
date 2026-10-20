@@ -525,12 +525,23 @@ pub(crate) fn answer_text(value: &str) -> bool {
 }
 
 impl Store {
+    #[cfg(test)]
     pub fn prepare_grade(
         &self,
         sid: &str,
         ordinal: usize,
         retry: bool,
         locale: crate::language::Locale,
+    ) -> Result<Value> {
+        self.prepare_grade_target(sid, ordinal, retry, locale, None)
+    }
+    pub(crate) fn prepare_grade_target(
+        &self,
+        sid: &str,
+        ordinal: usize,
+        retry: bool,
+        locale: crate::language::Locale,
+        target: Option<&Value>,
     ) -> Result<Value> {
         let db = self.connect()?;
         self.session_now_with(&db)?;
@@ -618,6 +629,12 @@ impl Store {
             if let Some(row) = rows.next().map_err(err)? {
                 let previous: Value =
                     serde_json::from_str(&row.get::<_, String>(0).map_err(err)?).map_err(err)?;
+                if previous.get("target") != target {
+                    return Err(crate::language::error(
+                        "LOCAL_GRADING_TARGET_CHANGED",
+                        json!({}),
+                    ));
+                }
                 let mut original: Value = serde_json::from_str(&raw).map_err(err)?;
                 match previous["feedbackLocale"].as_str() {
                     Some(locale @ ("zh-CN" | "en")) => original["feedbackLocale"] = json!(locale),
@@ -643,18 +660,68 @@ impl Store {
         }
         let rid = id();
         payload["requestId"] = json!(rid);
+        let mut receipt = json!({"requestId":rid,"inputDigest":payload["inputDigest"],"feedbackLocale":locale.as_str()});
+        if let Some(target) = target {
+            receipt["target"] = target.clone();
+        }
         db.execute(
             "INSERT INTO grade_requests VALUES(?1,?2,?3,?4,NULL,?5)",
             params![
                 rid,
                 sid,
                 ordinal,
-                json!({"requestId":rid,"inputDigest":payload["inputDigest"],"feedbackLocale":locale.as_str()}).to_string(),
+                receipt.to_string(),
                 self.session_clock.now()?
             ],
         )
         .map_err(err)?;
         Ok(payload)
+    }
+    pub(crate) fn cached_model_grade(
+        &self,
+        sid: &str,
+        ordinal: usize,
+        locale: crate::language::Locale,
+        target: &Value,
+        snapshot_key: Option<&str>,
+    ) -> Result<Option<Value>> {
+        let cached: bool = self.connect()?.query_row(
+            "SELECT EXISTS(SELECT 1 FROM grade_requests WHERE id=(SELECT id FROM grade_requests WHERE session_id=?1 AND ordinal=?2 ORDER BY created_at DESC,rowid DESC LIMIT 1) AND response IS NOT NULL)",
+            params![sid, ordinal], |r| r.get(0),
+        ).map_err(err)?;
+        if !cached {
+            return Ok(None);
+        }
+        self.prepare_grade_target(sid, ordinal, false, locale, Some(target))?;
+        self.session_data(sid, snapshot_key).map(Some)
+    }
+    pub(crate) fn claim_model_grade(&self, rid: &str) -> Result<Option<Value>> {
+        let mut db = self.connect()?;
+        let tx = db
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+            .map_err(err)?;
+        let previous: Option<String> = tx
+            .query_row(
+                "SELECT response FROM grade_requests WHERE id=?1",
+                [rid],
+                |r| r.get(0),
+            )
+            .map_err(err)?;
+        if let Some(previous) = previous {
+            return Ok(Some(serde_json::from_str(&previous).map_err(err)?));
+        }
+        // Persist uncertainty before paid work; a killed process must never replay it.
+        let error = crate::language::error("LOCAL_MODEL_RESULT_UNKNOWN", json!({}));
+        let receipt =
+            json!({"status":"unknown","appError":error,"usageStatus":"unknown"}).to_string();
+        tx.execute(
+            "UPDATE grade_requests SET response=?2 WHERE id=?1",
+            params![rid, receipt],
+        )
+        .map_err(err)?;
+        tx.execute("UPDATE attempts SET grading=json_set(grading,'$.lastRequest',json(?2)) WHERE (session_id,ordinal)=(SELECT session_id,ordinal FROM grade_requests WHERE id=?1) AND ?1=(SELECT id FROM grade_requests WHERE session_id=attempts.session_id AND ordinal=attempts.ordinal ORDER BY created_at DESC,rowid DESC LIMIT 1)", params![rid, receipt]).map_err(err)?;
+        tx.commit().map_err(err)?;
+        Ok(None)
     }
     #[cfg(test)]
     pub fn record_grade(

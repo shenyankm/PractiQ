@@ -25,7 +25,9 @@ fn error(code: &str) -> crate::AppError {
 }
 
 fn validate_account(account: &str) -> Result<()> {
-    let digest = account.strip_prefix("ai-service-token-");
+    let digest = account
+        .strip_prefix("ai-service-token-")
+        .or_else(|| account.strip_prefix("ai-model-key-v1-"));
     if !digest.is_some_and(|digest| {
         digest.len() == 64
             && digest
@@ -264,6 +266,14 @@ mod tests {
                 "LOCAL_SERVICE_TOKEN_INVALID"
             );
         }
+    }
+    #[test]
+    fn model_keys_use_the_same_private_bridge_with_a_separate_account_namespace() {
+        let mut model = credential(Ok(json!({"token":"dummy-model-key"})));
+        model.account = format!("ai-model-key-v1-{}", "a".repeat(64));
+        assert_eq!(model.read().unwrap().as_deref(), Some("dummy-model-key"));
+        assert_eq!(model.invoker.calls.borrow()[0].1["account"], model.account);
+        assert!(validate_account(&format!("ai-model-key-v1-{}", "A".repeat(64))).is_err());
     }
     #[test]
     fn mobile_writes_and_deletions_do_not_read_and_fail_closed_on_native_errors() {

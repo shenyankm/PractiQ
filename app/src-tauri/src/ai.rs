@@ -1,4 +1,4 @@
-//! Explicit subjective grading through an independently managed AI service.
+//! Explicit subjective grading through a model API or an independently managed service.
 use crate::{
     contract::{self, Result},
     settings, AppError, Shared,
@@ -87,6 +87,7 @@ struct Endpoint {
     client: Client,
     origin: String,
     token: String,
+    model: Option<settings::ConnectionSettings>,
 }
 impl Endpoint {
     fn new(origin: String, token: String) -> Result<Self> {
@@ -100,9 +101,13 @@ impl Endpoint {
             client,
             origin,
             token,
+            model: None,
         })
     }
     fn grade(&self, payload: &Value) -> Result<Value> {
+        if let Some(model) = &self.model {
+            return crate::model_grading::grade(&self.client, model, &self.token, payload);
+        }
         let response = self
             .client
             .post(format!("{}/api/subjective-grades", self.origin))
@@ -142,7 +147,7 @@ impl Endpoint {
         Ok(value)
     }
 }
-fn redact(value: Value, token: &str) -> Value {
+pub(crate) fn redact(value: Value, token: &str) -> Value {
     if token.is_empty() {
         return value;
     }
@@ -160,7 +165,7 @@ fn redact(value: Value, token: &str) -> Value {
         other => other,
     }
 }
-fn read_json(response: Response, limit: usize) -> Result<Value> {
+pub(crate) fn read_json(response: Response, limit: usize) -> Result<Value> {
     let mut bytes = Vec::new();
     response
         .take(limit as u64 + 1)
@@ -207,10 +212,39 @@ pub fn save_settings(
     shared: &Shared,
     config: settings::ServiceSettings,
     service_token: Option<String>,
+    api_key: Option<String>,
 ) -> Result<Value> {
     let state = app.state::<GradingState>();
     let _configuration = state.configure()?;
+    if config.model.is_some() {
+        return settings::model_settings(shared, config, api_key, app);
+    }
     settings::snapshot(shared)?.save_settings(app, config, service_token)
+}
+
+pub fn test_model_connection(model: &settings::ConnectionSettings, key: String) -> Result<Value> {
+    let endpoint = Endpoint::new(model.base_url.clone().ok_or("Missing model URL")?, key)?;
+    let response = endpoint
+        .client
+        .get(format!("{}/models", endpoint.origin))
+        .timeout(Duration::from_secs(15))
+        .bearer_auth(&endpoint.token)
+        .send()
+        .map_err(|_| crate::language::error("LOCAL_MODEL_CONNECTION_FAILED", json!({})))?;
+    if !response.status().is_success() {
+        return Err(crate::language::error(
+            "LOCAL_MODEL_HTTP",
+            json!({"status":response.status().as_u16()}),
+        ));
+    }
+    let value = read_json(response, 1024 * 1024)?;
+    if !value["data"].is_array() {
+        return Err(crate::language::error(
+            "LOCAL_MODEL_RESPONSE_INVALID",
+            json!({}),
+        ));
+    }
+    Ok(Value::Null)
 }
 
 fn grade(
@@ -222,10 +256,25 @@ fn grade(
     snapshot_key: Option<&str>,
     locale: crate::language::Locale,
 ) -> Result<Value> {
+    let target = endpoint.model.as_ref().map(|model| json!({"kind":"direct","baseUrl":model.base_url,"model":model.model_id,"promptVersion":1}));
     let payload = shared
         .lock()
         .map_err(|_| crate::language::error("LOCAL_DATABASE_UNAVAILABLE", json!({})))?
-        .prepare_grade(id, ordinal, retry, locale)?;
+        .prepare_grade_target(id, ordinal, retry, locale, target.as_ref())?;
+    let previous = if endpoint.model.is_some() {
+        shared
+            .lock()
+            .map_err(|_| crate::language::error("LOCAL_DATABASE_UNAVAILABLE", json!({})))?
+            .claim_model_grade(contract::text(&payload, "requestId"))?
+    } else {
+        None
+    };
+    if previous.is_some() {
+        return shared
+            .lock()
+            .map_err(|_| crate::language::error("LOCAL_DATABASE_UNAVAILABLE", json!({})))?
+            .session_data(id, snapshot_key);
+    }
     let response = endpoint.grade(&payload).unwrap_or_else(|error| json!({"status":"unknown","error":error.message,"appError":error,"usageStatus":"unknown"}));
     shared
         .lock()
@@ -247,14 +296,34 @@ pub fn request(
 ) -> Result<Value> {
     let state = app.state::<GradingState>();
     let _grading = state.enter()?;
-    let (origin, token) = settings::snapshot(&shared)?.grading_input(&app)?;
-    let endpoint = Endpoint::new(origin, token)?;
+    let store = settings::snapshot(&shared)?;
+    let config = store.service_settings()?;
     let AiRequest::Grade {
         id,
         ordinal,
         retry,
         snapshot_key,
     } = request;
+    let endpoint = if let Some(model) = config.model {
+        if !retry {
+            let model = model.clone().validate()?;
+            let target = json!({"kind":"direct","baseUrl":model.base_url,"model":model.model_id,"promptVersion":1});
+            if let Some(session) = shared
+                .lock()
+                .map_err(|_| crate::language::error("LOCAL_DATABASE_UNAVAILABLE", json!({})))?
+                .cached_model_grade(&id, ordinal, locale, &target, snapshot_key.as_deref())?
+            {
+                return Ok(session);
+            }
+        }
+        let (model, key) = settings::model_input(&model, None, &app)?;
+        let mut endpoint = Endpoint::new(model.base_url.clone().ok_or("Missing model URL")?, key)?;
+        endpoint.model = Some(model);
+        endpoint
+    } else {
+        let (origin, token) = store.grading_input(&app)?;
+        Endpoint::new(origin, token)?
+    };
     grade(
         &shared,
         &endpoint,
@@ -383,6 +452,199 @@ mod tests {
             }
             assert!(handle.join().unwrap().is_null());
         }
+    }
+    fn direct(origin: String) -> Endpoint {
+        let mut endpoint = Endpoint::new(origin.clone(), "test-service-token".into()).unwrap();
+        endpoint.model = Some(settings::ConnectionSettings {
+            base_url: Some(origin),
+            model_id: Some("fixture-model".into()),
+        });
+        endpoint
+    }
+    fn completion() -> String {
+        json!({"id":"fixture-receipt","choices":[{"finish_reason":"stop","message":{"content":json!({"scoreCents":600,"maxCents":1000,"reason":"Partial","evidence":["Reference"],"reviewReasons":[]}).to_string()}}],"usage":{"prompt_tokens":50,"completion_tokens":20,"total_tokens":70}}).to_string()
+    }
+    #[test]
+    fn direct_grading_uses_chat_completions_and_reuses_local_receipts_without_resending() {
+        let (_dir, shared, id) = submitted();
+        let (origin, handle) = server("200 OK", completion(), "POST /chat/completions HTTP/1.1");
+        let endpoint = direct(origin);
+        let session = grade(
+            &shared,
+            &endpoint,
+            &id,
+            0,
+            false,
+            None,
+            crate::language::Locale::English,
+        )
+        .unwrap();
+        let sent = handle.join().unwrap();
+        assert_eq!(sent["model"], "fixture-model");
+        assert_eq!(sent["response_format"]["type"], "json_object");
+        assert_eq!(session["attempts"][0]["earnedCents"], 600);
+        let receipt = &session["attempts"][0]["grading"]["ai"];
+        assert_eq!(receipt["usageStatus"], "known");
+        assert_eq!(receipt["usage"][0]["inputTokens"], 50);
+        assert_eq!(receipt["providerRequestId"], "fixture-receipt");
+        // The server has exited; checking again must use the durable local result.
+        let again = grade(
+            &shared,
+            &endpoint,
+            &id,
+            0,
+            false,
+            None,
+            crate::language::Locale::Chinese,
+        )
+        .unwrap();
+        assert_eq!(again["attempts"][0]["grading"]["ai"], *receipt);
+    }
+    #[test]
+    fn interrupted_direct_requests_survive_reopening_without_another_paid_call() {
+        let (dir, shared, id) = submitted();
+        let endpoint = direct("http://127.0.0.1:9".into());
+        let target = json!({"kind":"direct","baseUrl":endpoint.model.as_ref().unwrap().base_url,"model":"fixture-model","promptVersion":1});
+        {
+            let store = shared.lock().unwrap();
+            let payload = store
+                .prepare_grade_target(
+                    &id,
+                    0,
+                    false,
+                    crate::language::Locale::Chinese,
+                    Some(&target),
+                )
+                .unwrap();
+            assert!(store
+                .claim_model_grade(contract::text(&payload, "requestId"))
+                .unwrap()
+                .is_none());
+        }
+        let reopened = Arc::new(Mutex::new(Store::new(dir.path().to_owned()).unwrap()));
+        assert_eq!(
+            reopened.lock().unwrap().session(&id).unwrap()["attempts"][0]["grading"]["lastRequest"]
+                ["appError"]["code"],
+            "LOCAL_MODEL_RESULT_UNKNOWN"
+        );
+        let result = grade(
+            &reopened,
+            &endpoint,
+            &id,
+            0,
+            false,
+            None,
+            crate::language::Locale::Chinese,
+        )
+        .unwrap();
+        assert_eq!(
+            result["attempts"][0]["grading"]["lastRequest"]["appError"]["code"],
+            "LOCAL_MODEL_RESULT_UNKNOWN"
+        );
+        assert!(result["attempts"][0]["earnedCents"].is_null());
+    }
+    #[test]
+    fn model_changes_require_explicit_retry_and_bad_output_keeps_existing_scores() {
+        let (_dir, shared, id) = submitted();
+        let (origin, handle) = server("200 OK", completion(), "POST /chat/completions HTTP/1.1");
+        grade(
+            &shared,
+            &direct(origin),
+            &id,
+            0,
+            false,
+            None,
+            crate::language::Locale::Chinese,
+        )
+        .unwrap();
+        handle.join().unwrap();
+        let (origin, handle)=server("200 OK",r#"{"choices":[{"finish_reason":"stop","message":{"content":"{\"scoreCents\":999999999}"}}]}"#.into(),"POST /chat/completions HTTP/1.1");
+        let endpoint = direct(origin);
+        assert_eq!(
+            grade(
+                &shared,
+                &endpoint,
+                &id,
+                0,
+                false,
+                None,
+                crate::language::Locale::Chinese
+            )
+            .unwrap_err()
+            .code,
+            "LOCAL_GRADING_TARGET_CHANGED"
+        );
+        let result = grade(
+            &shared,
+            &endpoint,
+            &id,
+            0,
+            true,
+            None,
+            crate::language::Locale::Chinese,
+        )
+        .unwrap();
+        handle.join().unwrap();
+        assert_eq!(result["attempts"][0]["earnedCents"], 600);
+        assert_eq!(
+            result["attempts"][0]["grading"]["lastRequest"]["status"],
+            "ungraded"
+        );
+    }
+    #[test]
+    fn model_http_failures_and_reflected_keys_are_safe_and_never_redirected() {
+        for (status, body) in [
+            ("302 Found", String::new()),
+            ("401 Unauthorized", "test-service-token".into()),
+            (
+                "200 OK",
+                completion().replace("Partial", "test-service-token"),
+            ),
+        ] {
+            let (_dir, shared, id) = submitted();
+            let (origin, handle) = server(status, body, "POST /chat/completions HTTP/1.1");
+            let endpoint = direct(origin);
+            let result = grade(
+                &shared,
+                &endpoint,
+                &id,
+                0,
+                false,
+                None,
+                crate::language::Locale::Chinese,
+            )
+            .unwrap();
+            handle.join().unwrap();
+            assert!(!result.to_string().contains("test-service-token"));
+            let replay = grade(
+                &shared,
+                &endpoint,
+                &id,
+                0,
+                false,
+                None,
+                crate::language::Locale::Chinese,
+            )
+            .unwrap();
+            assert_eq!(
+                replay["attempts"][0]["grading"],
+                result["attempts"][0]["grading"]
+            );
+        }
+    }
+    #[test]
+    fn model_connection_checks_only_read_the_model_list() {
+        let (origin, handle) = server(
+            "200 OK",
+            r#"{"data":[{"id":"fixture-model"}]}"#.into(),
+            "GET /models HTTP/1.1",
+        );
+        let config = direct(origin).model.unwrap();
+        assert_eq!(
+            test_model_connection(&config, "test-service-token".into()).unwrap(),
+            Value::Null
+        );
+        assert!(handle.join().unwrap().is_null());
     }
     #[test]
     fn explicit_grade_sends_frozen_payload_and_preserves_local_manual_override() {

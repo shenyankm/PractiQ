@@ -9,6 +9,7 @@ mod credentials;
 mod exams;
 mod filesystem;
 mod language;
+mod model_grading;
 mod paper;
 #[cfg(test)]
 mod performance;
@@ -201,10 +202,12 @@ enum Request {
     TestSettings {
         config: settings::ServiceSettings,
         service_token: Option<String>,
+        api_key: Option<String>,
     },
     SaveSettings {
         config: settings::ServiceSettings,
         service_token: Option<String>,
+        api_key: Option<String>,
     },
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -314,13 +317,20 @@ async fn request(
         if matches!(&request, Request::Settings) {
             return settings::settings(&shared);
         }
-        if let Request::TestSettings { config, service_token } = request {
+        if let Request::TestSettings { config, service_token, api_key } = request {
+            if let Some(model) = &config.model {
+                if service_token.is_some() { return Err("Use an API key for direct model access".into()); }
+                let (model, key) = settings::model_input(model, api_key, &app)?;
+                return ai::test_model_connection(&model, key);
+            }
+            if api_key.is_some() { return Err("Select direct model access before saving an API key".into()); }
             let (config, key) = settings::snapshot(&shared)?
                 .connection_test_input(&app, config, service_token)?;
             return settings::test_connection(config, key);
         }
-        if let Request::SaveSettings { config, service_token } = request {
-            return ai::save_settings(&app, &shared, config, service_token);
+        if let Request::SaveSettings { config, service_token, api_key } = request {
+            if (config.model.is_some() && service_token.is_some()) || (config.model.is_none() && api_key.is_some()) { return Err("Credential does not match the selected grading connection".into()); }
+            return ai::save_settings(&app, &shared, config, service_token, api_key);
         }
         let work = app.state::<ai::GradingState>();
         let _restore = if matches!(&request, Request::Restore {..}) { Some(work.restore()?) } else { None };

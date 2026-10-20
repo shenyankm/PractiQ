@@ -56,7 +56,11 @@ Task history, pause, interrupt, resume, failed-unit retry, partial-result review
 
 Parsing extracts supplied answers and rubrics without solving unanswered questions; missing content stays flagged for review. Download results within **180 days** to keep them; task expiry does not affect banks already imported into the app.
 
-Offline practice needs no service. For optional subjective AI grading, configure **Settings → AI service**, then explicitly start grading or retry. A reference answer or rubric is required; failed, unknown or unsupported results remain ungraded.
+Offline practice needs no service. For optional subjective AI grading, open **Settings → AI service**, select **Direct model API**, and enter an OpenAI-compatible API base URL (including its `/v1` or provider-specific base path), model ID and your own API key. Rust calls `/chat/completions` directly; no grading service, SDK or curl executable is required on macOS, Windows or Android. Existing deployments can select **Independent AI service** and keep using their service URL/token.
+
+A reference answer or rubric is required. Grading sends the current frozen question, related materials, images and answer to the selected provider and may incur charges. The endpoint must support JSON mode (`response_format: json_object`) and `max_tokens`; image questions require a vision model. Each explicit action makes at most one request, with a 120-second timeout and 4,096 output-token limit. Invalid, refused or truncated results remain ungraded, and existing scores/manual corrections are retained. Unknown requests are never automatically resent; checking them reads the local receipt, while explicit regrading creates a new potentially paid request. Connection testing only reads `/models` and does not validate grading quality.
+
+API keys and service tokens stay in the system credential store and are excluded from backups. Non-secret connection settings share the existing versioned sidecar and backup recovery; the practice schema remains 11 and old schema-11 backups remain supported. Earlier App versions reject settings sidecars and backups containing the new model configuration; continue using the current App after enabling it. Legacy model settings and keys are never automatically reused.
 
 Development starts with in-memory sample data. The preview panel lets you switch scenarios or choose real local data. See [development preview](app/docs/development-preview.md) for its controls and boundaries.
 

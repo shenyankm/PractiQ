@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 export function ConnectionSettingsPanel({
   busy,
   run,
@@ -34,6 +35,7 @@ export function ConnectionSettingsPanel({
   const [saved, setSaved] = useState<SettingsResult | null>(null);
   const [config, setConfig] = useState<ServiceConfig>({
     service_url: null,
+    model: { base_url: null, model_id: null },
   });
   const [serviceToken, setServiceToken] = useState("");
   const [dirty, setDirty] = useState(false);
@@ -65,7 +67,7 @@ export function ConnectionSettingsPanel({
       .then((result) => {
         if (active) {
           setSaved(result);
-          setConfig(result.config);
+          setConfig(result.config.model || result.config.service_url ? result.config : { ...result.config, model: { base_url: null, model_id: null } });
           setError(null);
         }
       })
@@ -78,16 +80,24 @@ export function ConnectionSettingsPanel({
     };
   };
   useEffect(load, []);
-  const configured =
-    saved && saved.config.service_url === config.service_url ? saved.hasServiceToken : null;
-  const missing = missingServiceSettings({ config, hasServiceToken: serviceToken.trim() ? true : configured });
-  function field(name: keyof ServiceConfig, value: string) {
+  const direct = !!config.model;
+  const endpoint = direct ? config.model?.base_url : config.service_url;
+  const configured = direct
+    ? saved?.config.model?.base_url === endpoint ? saved?.hasApiKey ?? null : false
+    : saved && saved.config.service_url === config.service_url ? saved.hasServiceToken : null;
+  const missing = missingServiceSettings({ config, hasServiceToken: serviceToken.trim() ? true : configured, hasApiKey: serviceToken.trim() ? true : configured });
+  function field(name: "service_url", value: string) {
     setTestResult(null);
     invalidate();
     setConfig((old) => ({ ...old, [name]: value || null }));
     if (name === "service_url") {
       setServiceToken("");
     }
+  }
+  function modelField(name: "base_url" | "model_id", value: string) {
+    setTestResult(null); invalidate();
+    setConfig(old => ({ ...old, model: { base_url: null, model_id: null, ...old.model, [name]: value || null } }));
+    if (name === "base_url") setServiceToken("");
   }
   const persist = useCallback(async () => {
     if (!dirty || !saved) return saved;
@@ -98,7 +108,7 @@ export function ConnectionSettingsPanel({
     }
     if (version !== revision.current) return saved;
     setSaveError(null); setSaving(true);
-    const request = api({ type: "save_settings", config, service_token: serviceToken.trim() || null });
+    const request = api({ type: "save_settings", config, service_token: config.model ? null : serviceToken.trim() || null, ...(config.model ? { api_key: serviceToken.trim() || null } : {}) });
     pending.current = { version, request };
     try {
       const result = await request;
@@ -127,12 +137,12 @@ export function ConnectionSettingsPanel({
     });
   }, [dirty, saved, busy, run, persist]);
   function clearToken() {
-    if (busy || locked.current || dirty || pending.current || !saved?.config.service_url) return;
+    if (busy || locked.current || dirty || pending.current || !saved || !endpoint) return;
     locked.current = true; setOperation("clear"); setTestResult(null); setClearError(null);
     const version = ++revision.current;
     run(async () => {
       try {
-        const result = await api({type:"save_settings", config:saved.config, service_token:""});
+        const result = await api({type:"save_settings", config:saved.config, service_token:direct ? null : "", ...(direct ? {api_key:""} : {})});
         if (version !== revision.current) return;
         setSaved(result); setConfig(result.config); setServiceToken(""); setDirty(false); setSaveError(null);
         toast.success(message("连接配置已保存"));
@@ -177,11 +187,33 @@ export function ConnectionSettingsPanel({
           <p className="text-sm text-muted-foreground">{t("仅 AI 评分需要配置；离开输入框自动保存。")}</p>
           <fieldset disabled={busy || operation !== null || !saved} className="min-w-0 space-y-4" onBlur={() => { void persist().catch(() => { /* persist retains the error beside these fields. */ }); }}>
             <div className="space-y-2">
+              <Label htmlFor="gradingConnection">{t("评分连接方式")}</Label>
+              <NativeSelect id="gradingConnection" value={direct ? "direct" : "service"} onValueChange={value => {
+                invalidate(); setTestResult(null); setServiceToken("");
+                setConfig(old => value === "direct" ? { ...old, model: saved?.config.model ?? {base_url:null, model_id:null} } : {service_url:old.service_url});
+              }}>
+                <NativeSelectOption value="direct">{t("直连模型 API")}</NativeSelectOption>
+                <NativeSelectOption value="service">{t("独立 AI 服务")}</NativeSelectOption>
+              </NativeSelect>
+            </div>
+            {direct ? <>
+              <p className="text-sm text-muted-foreground">{t("使用兼容 OpenAI 的 Chat Completions API，无需部署评分服务。评分时会发送当前题目、相关材料、图片和作答，可能产生模型费用。")}</p>
+              <div className="space-y-2">
+                <Label htmlFor="modelUrl">{t("模型 API 地址")}</Label>
+                <Input id="modelUrl" type="url" autoCapitalize="none" enterKeyHint="done" autoComplete="off" spellCheck={false} placeholder="https://api.example.com/v1" value={config.model?.base_url || ""} onChange={e => modelField("base_url", e.target.value)}/>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="modelId">{t("模型 ID")}</Label>
+                <Input id="modelId" autoCapitalize="none" enterKeyHint="done" autoComplete="off" spellCheck={false} value={config.model?.model_id || ""} onChange={e => modelField("model_id", e.target.value)}/>
+              </div>
+            </> :
+            <div className="space-y-2">
               <Label htmlFor="serviceUrl">{t("AI 服务地址")}</Label>
               <Input id="serviceUrl" type="url" autoCapitalize="none" enterKeyHint="done" autoComplete="off" spellCheck={false} placeholder="http://127.0.0.1:8000" value={config.service_url || ""} onChange={e => field("service_url", e.target.value)}/>
             </div>
+            }
             <div className="space-y-2">
-              <Label htmlFor="serviceToken">{t("AI 服务访问令牌")}</Label>
+              <Label htmlFor="serviceToken">{t(direct ? "模型 API Key" : "AI 服务访问令牌")}</Label>
               <Input
                 id="serviceToken"
                 type="password"
@@ -190,12 +222,12 @@ export function ConnectionSettingsPanel({
                 autoComplete="new-password"
                 spellCheck={false}
                 placeholder={
-                  configured !== false && config.service_url ? "********************************" : t("填写此服务对应的访问令牌")
+                  configured !== false && endpoint ? "********************************" : t(direct ? "填写此模型服务对应的 API Key" : "填写此服务对应的访问令牌")
                 }
                 value={serviceToken}
                 onChange={(e) => { invalidate(); setTestResult(null); setServiceToken(e.target.value); }}
               />
-              {saved && <p className="text-sm text-muted-foreground">{t(configured ? "令牌已保存；留空保留。" : "离开输入框后自动安全保存。")}</p>}
+              {saved && <p className="text-sm text-muted-foreground">{t(configured ? direct ? "API Key 已保存；留空保留。" : "令牌已保存；留空保留。" : "离开输入框后自动安全保存。")}</p>}
             </div>
           </fieldset>
           {saved && <p role="status" className="text-sm text-muted-foreground">{saving ? t("正在保存配置…") : saveError != null ? t("配置未保存") : dirty ? t("有未保存的修改") : justSaved ? t("连接配置已保存") : t("配置已读取")}</p>}
@@ -203,8 +235,9 @@ export function ConnectionSettingsPanel({
           {saveError != null && <div role="alert" className="flex flex-wrap items-start justify-between gap-3 text-sm text-destructive"><div className="min-w-0 flex-1"><ErrorNotice error={saveError} /></div><Button type="button" variant="outline" disabled={busy || operation !== null} onClick={save}>{t("重试保存")}</Button></div>}
           {testResult && (testResult.error ? <div role="alert" className="text-destructive"><ErrorNotice error={testResult.error} /></div> : null)}
           {clearError != null && <div role="alert" className="text-destructive"><ErrorNotice error={clearError} /></div>}
+          {direct && <p className="text-sm text-muted-foreground">{t("测试连接仅读取模型列表，不进行评分。含图题需要支持图片的模型；评分 JSON 无效时保持未判定。")}</p>}
           <div className="flex flex-wrap items-center justify-end gap-3 border-t pt-4">
-          <Button variant="outline" type="button" disabled={busy || operation !== null || dirty || !saved?.config.service_url || configured === false} onClick={clearToken}>{t("清除已保存的访问令牌")}</Button>
+          <Button variant="outline" type="button" disabled={busy || operation !== null || dirty || !saved || !endpoint || configured === false} onClick={clearToken}>{t(direct ? "清除已保存的 API Key" : "清除已保存的访问令牌")}</Button>
           <Button variant="outline" type="button" disabled={busy || operation !== null || !saved || missing.length > 0} onClick={() => {
             if (locked.current) return;
             locked.current = true; setOperation("test"); setSaveError(null); setTestResult(null);
@@ -214,7 +247,7 @@ export function ConnectionSettingsPanel({
               try {
                 await persist();
                 persisted = true;
-                await api({ type: "test_settings", config, service_token: null });
+                await api({ type: "test_settings", config, service_token: null, ...(direct ? { api_key: null } : {}) });
                 if (version !== revision.current) return;
                 setTestResult({});
                 toast.success(message("连接测试通过"));

@@ -1,0 +1,8 @@
+
+com.practiq.android.DirectGradingTest:.
+com.practiq.android.SecureStoragePluginTest:..........
+com.practiq.android.SecureTokenStoreTest:.......
+
+Time: 8.822
+
+OK (18 tests)

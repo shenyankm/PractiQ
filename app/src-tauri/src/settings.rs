@@ -81,7 +81,7 @@ fn read_sidecar(db: &Connection) -> Result<ServiceSettingsState> {
             |r| Ok((r.get(0)?, r.get(1)?)),
         )
         .map_err(err)?;
-    if active.len() > 4096 || pending.as_ref().is_some_and(|s| s.len() > 16384) {
+    if active.len() > 8192 || pending.as_ref().is_some_and(|s| s.len() > 32768) {
         return Err("Service settings exceed their size limit".into());
     }
     let active: Option<ServiceSettings> = serde_json::from_str(&active).map_err(err)?;
@@ -135,7 +135,7 @@ pub(crate) fn rollback_sync_checkpoint() {
 }
 
 /// Raw schema-11 configuration retained for validation of existing backups.
-#[derive(Clone, Default, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct ConnectionSettings {
     pub base_url: Option<String>,
@@ -164,10 +164,13 @@ impl ConnectionSettings {
 #[serde(deny_unknown_fields)]
 pub struct ServiceSettings {
     pub service_url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<ConnectionSettings>,
 }
 impl ServiceSettings {
     pub fn validate(mut self) -> Result<Self> {
         self.service_url = validate_url(self.service_url, "Service URL")?;
+        self.model = self.model.map(ConnectionSettings::validate).transpose()?;
         Ok(self)
     }
 }
@@ -257,6 +260,57 @@ fn persist_with_secret(
     }
     Ok(())
 }
+
+fn model_account(config: &ConnectionSettings) -> Result<String> {
+    let url = config.base_url.as_deref().ok_or(crate::language::error(
+        "LOCAL_MODEL_URL_REQUIRED",
+        json!({}),
+    ))?;
+    Ok(format!("ai-model-key-v1-{}", hash(url.as_bytes())))
+}
+
+fn model_key(entry: &impl Credential) -> Result<String> {
+    let key = entry
+        .read()?
+        .filter(|s| !s.trim().is_empty())
+        .ok_or(crate::language::error(
+            "LOCAL_MODEL_KEY_REQUIRED",
+            json!({}),
+        ))?;
+    validate_service_token(&key)?;
+    Ok(key.trim().to_owned())
+}
+
+pub fn model_settings(
+    shared: &crate::Shared,
+    config: ServiceSettings,
+    api_key: Option<String>,
+    app: &tauri::AppHandle,
+) -> Result<Value> {
+    snapshot(shared)?.save_model_settings_with(config, api_key, |account| {
+        crate::credentials::entry(app, account)
+    })
+}
+
+pub fn model_input(
+    config: &ConnectionSettings,
+    api_key: Option<String>,
+    app: &tauri::AppHandle,
+) -> Result<(ConnectionSettings, String)> {
+    let config = config.clone().validate()?;
+    let account = model_account(&config)?;
+    if config.model_id.is_none() {
+        return Err(crate::language::error("LOCAL_MODEL_ID_REQUIRED", json!({})));
+    }
+    let key = match api_key {
+        Some(key) if !key.trim().is_empty() => {
+            validate_service_token(&key)?;
+            key.trim().to_owned()
+        }
+        _ => model_key(&crate::credentials::entry(app, &account)?)?,
+    };
+    Ok((config, key))
+}
 pub fn test_connection(config: ServiceSettings, token: String) -> Result<Value> {
     let url = config
         .validate()?
@@ -293,7 +347,15 @@ pub fn settings(shared: &crate::Shared) -> Result<Value> {
         .map_err(|_| crate::language::error("LOCAL_DATABASE_UNAVAILABLE", json!({})))?
         .service_settings()?;
     let configured = config.service_url.is_none().then_some(false);
-    Ok(json!({"config":config,"hasServiceToken":configured}))
+    let mut result = json!({"config":config,"hasServiceToken":configured});
+    if let Some(model) = &config.model {
+        result["hasApiKey"] = if model.base_url.is_none() {
+            json!(false)
+        } else {
+            Value::Null
+        };
+    }
+    Ok(result)
 }
 impl Store {
     pub(crate) fn service_settings_path(&self) -> std::path::PathBuf {
@@ -494,6 +556,7 @@ impl Store {
         }
         ServiceSettings {
             service_url: raw.base_url,
+            model: None,
         }
         .validate()
     }
@@ -504,6 +567,50 @@ impl Store {
         service_token: Option<String>,
     ) -> Result<Value> {
         self.save_settings_with(config, service_token, |url| entry(app, url))
+    }
+    fn save_model_settings_with<C: Credential>(
+        &self,
+        config: ServiceSettings,
+        api_key: Option<String>,
+        credential: impl FnOnce(&str) -> Result<C>,
+    ) -> Result<Value> {
+        let config = config.validate()?;
+        let model = config.model.as_ref().ok_or("Missing model configuration")?;
+        if let Some(key) = &api_key {
+            validate_service_token(key)?;
+        }
+        let configured = match (&model.base_url, &api_key) {
+            (Some(_), Some(key)) => Some(!key.trim().is_empty()),
+            (Some(_), None) => None,
+            (None, Some(key)) if !key.trim().is_empty() => {
+                return Err(crate::language::error(
+                    "LOCAL_MODEL_URL_REQUIRED",
+                    json!({}),
+                ))
+            }
+            _ => Some(false),
+        };
+        let persist = || {
+            self.update_sidecar(|mut state| {
+                if state.pending.is_some() {
+                    return Err("Service settings restoration is pending".into());
+                }
+                state.active = Some(config.clone());
+                Ok(state)
+            })
+        };
+        if let (Some(_), Some(key)) = (&model.base_url, &api_key) {
+            let entry = credential(&model_account(model)?)?;
+            let key = key.trim();
+            if key.is_empty() && self.service_settings()? == config {
+                entry.write(None)?;
+            } else {
+                persist_with_secret(&entry, (!key.is_empty()).then_some(key), persist)?;
+            }
+        } else {
+            persist()?;
+        }
+        Ok(json!({"config":config,"hasServiceToken":null,"hasApiKey":configured}))
     }
     fn save_settings_with<C: Credential>(
         &self,
@@ -583,6 +690,98 @@ mod tests {
     fn config(url: &str) -> ServiceSettings {
         ServiceSettings {
             service_url: Some(url.into()),
+            model: None,
+        }
+    }
+    fn direct_config() -> ServiceSettings {
+        ServiceSettings {
+            service_url: Some("https://service.example.com".into()),
+            model: Some(ConnectionSettings {
+                base_url: Some("https://models.example.com/v1".into()),
+                model_id: Some("fixture-model".into()),
+            }),
+        }
+    }
+    #[test]
+    fn direct_model_configuration_is_passive_and_secrets_are_isolated_and_excluded_from_backups() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::new(dir.path().to_owned()).unwrap();
+        let original = std::fs::read(store.db_path()).unwrap();
+        let config = direct_config();
+        let credential = mock_entry(None);
+        let saved = store
+            .save_model_settings_with(config.clone(), Some("dummy-model-key".into()), |account| {
+                assert!(account.starts_with("ai-model-key-v1-"));
+                assert_ne!(
+                    account,
+                    credential_account("https://models.example.com/v1").unwrap()
+                );
+                Ok(credential.clone())
+            })
+            .unwrap();
+        assert_eq!(saved["hasApiKey"], true);
+        assert_eq!(store.service_settings().unwrap(), config);
+        assert_eq!(std::fs::read(store.db_path()).unwrap(), original);
+        let backup = dir.path().join("model-backup.zip");
+        store.backup(&backup).unwrap();
+        let restored_dir = tempfile::tempdir().unwrap();
+        let mut restored = Store::new(restored_dir.path().to_owned()).unwrap();
+        restored.restore(&backup).unwrap();
+        assert_eq!(restored.service_settings().unwrap(), config);
+        assert!(!std::fs::read(restored.service_settings_path())
+            .unwrap()
+            .windows(b"dummy-model-key".len())
+            .any(|s| s == b"dummy-model-key"));
+        let shared = std::sync::Arc::new(std::sync::Mutex::new(restored));
+        assert!(settings(&shared).unwrap()["hasApiKey"].is_null());
+        assert_eq!(credential.0.lock().unwrap().reads, 1);
+        store
+            .save_model_settings_with(config, None, |_| -> Result<MockEntry> {
+                panic!("Passive save must not read credentials")
+            })
+            .unwrap();
+    }
+    #[test]
+    fn model_key_changes_roll_back_on_failed_configuration_writes_and_clear_explicitly() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::new(dir.path().to_owned()).unwrap();
+        let config = direct_config();
+        let credential = mock_entry(Some("previous-model-key"));
+        std::fs::write(store.service_settings_path(), b"not a settings database").unwrap();
+        assert!(store
+            .save_model_settings_with(
+                config.clone(),
+                Some("replacement-model-key".into()),
+                |_| Ok(credential.clone())
+            )
+            .is_err());
+        assert_eq!(
+            credential.0.lock().unwrap().value.as_deref(),
+            Some("previous-model-key")
+        );
+        std::fs::remove_file(store.service_settings_path()).unwrap();
+        store
+            .save_model_settings_with(config.clone(), None, |_| -> Result<MockEntry> {
+                panic!("No key access")
+            })
+            .unwrap();
+        let result = store
+            .save_model_settings_with(config, Some(String::new()), |_| Ok(credential.clone()))
+            .unwrap();
+        assert_eq!(result["hasApiKey"], false);
+        assert!(credential.0.lock().unwrap().value.is_none());
+    }
+    #[test]
+    fn model_backups_reject_unknown_fields_invalid_urls_and_secret_fields() {
+        for model in [
+            json!({"base_url":"https://model.example.com/v1?key=secret","model_id":"m"}),
+            json!({"base_url":"https://model.example.com/v1","model_id":"m","api_key":"secret"}),
+            json!({"base_url":"http://remote.example.com/v1","model_id":"m"}),
+        ] {
+            let raw = json!({"version":1,"config":{"service_url":null,"model":model}});
+            assert!(serde_json::from_value::<ServiceSettingsBackup>(raw)
+                .and_then(|b| b.validate().map_err(serde::de::Error::custom))
+                .is_err());
         }
     }
     #[derive(Clone)]

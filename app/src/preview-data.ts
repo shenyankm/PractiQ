@@ -145,7 +145,8 @@ function request(r:Request,scenario:PreviewScenario):unknown {
     case "settings": return settings;
     case "save_settings": {
       const hasServiceToken=r.service_token===null ? (r.config.service_url===settings.config.service_url ? settings.hasServiceToken:null):!!r.service_token.trim();
-      settings={config:r.config,hasServiceToken};return settings;
+      const hasApiKey=r.api_key == null ? (r.config.model?.base_url===settings.config.model?.base_url ? settings.hasApiKey:null):!!r.api_key.trim();
+      settings={config:r.config,hasServiceToken,...(r.config.model ? {hasApiKey} : {})};return settings;
     }
     case "test_settings": return null;
     case "save_bank": {const b=banks.find(b=>b.id===r.id);if(b)Object.assign(b,{title:r.title,description:r.description});else banks.push({id:crypto.randomUUID(),title:r.title,description:r.description,count:0,createdAt:Date.now()});return b?.id || banks.at(-1)!.id;}

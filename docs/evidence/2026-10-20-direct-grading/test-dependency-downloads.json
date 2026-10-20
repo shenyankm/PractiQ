@@ -1,0 +1,82 @@
+[
+  {
+    "url": "https://dl.google.com/dl/android/maven2/androidx/test/espresso/espresso-core/3.7.0/espresso-core-3.7.0.pom",
+    "sha256": "b6e7f43cb396b89a4ce329a7e5acef79d375203a87a11a7639d18c0e6de50b56",
+    "sha1Verified": true
+  },
+  {
+    "url": "https://dl.google.com/dl/android/maven2/androidx/test/espresso/espresso-core/3.7.0/espresso-core-3.7.0.aar",
+    "sha256": "5dd90e366838bf044cb52eae06474debd285df18a7a77c40441ac8e8951bb00f",
+    "sha1Verified": true
+  },
+  {
+    "url": "https://dl.google.com/dl/android/maven2/androidx/test/runner/1.7.0/runner-1.7.0.pom",
+    "sha256": "622831c6d31666fb3438cb0d2ee1fbbbc78cabcd49717699578d92550062207f",
+    "sha1Verified": true
+  },
+  {
+    "url": "https://dl.google.com/dl/android/maven2/androidx/test/runner/1.7.0/runner-1.7.0.aar",
+    "sha256": "970311c47119928a2e406a88892a3d270387cc5a49a181a1c44511105b41b818",
+    "sha1Verified": true
+  },
+  {
+    "url": "https://dl.google.com/dl/android/maven2/androidx/test/ext/junit/1.2.1/junit-1.2.1.pom",
+    "sha256": "983e474e47aafea0d078c4bd0b72aab1a292aceac198856371a02e1e1cb51751",
+    "sha1Verified": true
+  },
+  {
+    "url": "https://dl.google.com/dl/android/maven2/androidx/test/ext/junit/1.2.1/junit-1.2.1.aar",
+    "sha256": "7b146a73c545b983430d2fae0081df67c76722c19a9abd2904e131696a8c5b20",
+    "sha1Verified": true
+  },
+  {
+    "url": "https://dl.google.com/dl/android/maven2/androidx/test/core/1.7.0/core-1.7.0.pom",
+    "sha256": "b97dd112cd684ad3686f5ccf581b92b106ca76565cf02ccfece060af3bc50743",
+    "sha1Verified": true
+  },
+  {
+    "url": "https://dl.google.com/dl/android/maven2/androidx/test/core/1.7.0/core-1.7.0.aar",
+    "sha256": "f4dacd8edceeec48e0c76ecf28339b28f4b4f6b74f8e34e9e59b472c27d9eb81",
+    "sha1Verified": true
+  },
+  {
+    "url": "https://dl.google.com/dl/android/maven2/androidx/test/services/storage/1.6.0/storage-1.6.0.pom",
+    "sha256": "8e5d72e2bceef6ef807bc38834dbc7aa53177fd20da349f53dce5a4f2a028bbf",
+    "sha1Verified": true
+  },
+  {
+    "url": "https://dl.google.com/dl/android/maven2/androidx/test/services/storage/1.6.0/storage-1.6.0.aar",
+    "sha256": "f97e3cf6aaf4e3fb97ef219d37a9c0a0720183c1f6db87b37642521e26fb6d30",
+    "sha1Verified": true
+  },
+  {
+    "url": "https://dl.google.com/dl/android/maven2/androidx/test/monitor/1.8.0/monitor-1.8.0.pom",
+    "sha256": "681cf08c41700c73b146953867c0ac826da9c2a810bd2a4a8f878ea11c64d40c",
+    "sha1Verified": true
+  },
+  {
+    "url": "https://dl.google.com/dl/android/maven2/androidx/test/monitor/1.8.0/monitor-1.8.0.aar",
+    "sha256": "56cb7496a06d9f2dca7d3ff76c50a8a30bd18e00a24a3b267d5a31437b278e67",
+    "sha1Verified": true
+  },
+  {
+    "url": "https://dl.google.com/dl/android/maven2/androidx/test/espresso/espresso-idling-resource/3.7.0/espresso-idling-resource-3.7.0.pom",
+    "sha256": "72c5f3dff213bd143cdfa2eb416d1bde1ced6656d9c54b69efca8f74a2cc831d",
+    "sha1Verified": true
+  },
+  {
+    "url": "https://dl.google.com/dl/android/maven2/androidx/test/espresso/espresso-idling-resource/3.7.0/espresso-idling-resource-3.7.0.aar",
+    "sha256": "5ff62326b49c308c1d060466ae3cf4aa0e3deaf9295f077a6886048dda3e9b14",
+    "sha1Verified": true
+  },
+  {
+    "url": "https://dl.google.com/dl/android/maven2/androidx/concurrent/concurrent-futures-ktx/1.2.0/concurrent-futures-ktx-1.2.0.pom",
+    "sha256": "7869d39aa7a7754a4f311771abfd9d95ccbd7ffb27e970f8cb15fdf5b5355b6d",
+    "sha1Verified": true
+  },
+  {
+    "url": "https://dl.google.com/dl/android/maven2/androidx/concurrent/concurrent-futures-ktx/1.2.0/concurrent-futures-ktx-1.2.0.jar",
+    "sha256": "e1f3e17bb4358ccd6c77ca45f70635c9aba237261f19eaa4f64a0218c00e2a3e",
+    "sha1Verified": true
+  }
+]

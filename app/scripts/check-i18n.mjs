@@ -14,7 +14,7 @@ const test=base.extend({observedCalls:[async ({page},use)=>{
   let lang=localStorage.getItem('test-language');
   const banks=[{id:'one',title:'原始题库 — Original bank',description:'Imported content stays unchanged',count:fixture.questions.length,createdAt:1},{id:'two',title:'Mathematics',description:'',count:0,createdAt:1}];
   const questions=fixture.questions.map((q,i)=>({id:String(i),bankId:'one',bankTitle:banks[0].title,question:q,groups:[],visuals:[],sources:[],warnings:[],missingAssets:false,favorite:false,latestResult:null}));
-  let settings={config:{service_url:null},hasServiceToken:false};
+  let settings={config:{service_url:'https://initial-service.example.test'},hasServiceToken:false};
   window.__TAURI_INTERNALS__={invoke:async(command,args)=>{
    const request = args?.request;
    await window.__recordMockCall({command,request});

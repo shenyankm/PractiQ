@@ -8,7 +8,8 @@ class TokenEnvelopeTest {
 
     @Test fun accountAcceptsOnlyCanonicalHashedNamespace() {
         TokenRules.validateAccount(account)
-        for (invalid in listOf("", "../$account", account.uppercase(), account + ".bak", "ai-service-token-" + "a".repeat(63))) {
+        TokenRules.validateAccount("ai-model-key-v1-" + "a".repeat(64))
+        for (invalid in listOf("", "../$account", account.uppercase(), account + ".bak", "ai-service-token-" + "a".repeat(63), "ai-model-key-v1-" + "a".repeat(63), "ai-model-key-v1-" + "A".repeat(64))) {
             assertThrows(IllegalArgumentException::class.java) { TokenRules.validateAccount(invalid) }
         }
     }

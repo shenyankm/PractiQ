@@ -45,6 +45,18 @@ class SecureTokenStoreTest {
         store.write(account, "fixture-token-never-a-real-credential")
         assertFalse(first.contentEquals(file(account).readBytes()))
     }
+    @Test fun modelKeysRemainSeparateFromServiceTokens() {
+        val model = "ai-model-key-v1-" + "a".repeat(64)
+        try {
+            store.write(account, "fixture-service-token")
+            store.write(model, "fixture-model-key")
+            assertEquals("fixture-model-key", SecureTokenStore(context).read(model))
+            assertEquals("fixture-service-token", store.read(account))
+            assertFalse(file(model).readText(Charsets.ISO_8859_1).contains("fixture-model-key"))
+            store.write(model, null)
+            assertEquals("fixture-service-token", store.read(account))
+        } finally { store.write(model, null) }
+    }
 
     @Test fun ciphertextTamperingAndLostKeysAreErrorsAndClearRecovers() {
         store.write(account, "fixture-token")
