@@ -4,6 +4,8 @@ The app calls an OpenAI-compatible Chat Completions endpoint through the existin
 
 The APK was built and tested from the local working tree before the feature commit. [Source hashes](candidate-sources.json) identify its changed implementation and test files; [the package report](android-package.json) identifies the actual APK independently of the Git base commit.
 
+The later connection-test review fix has separate [follow-up regression evidence](pr-330-follow-up.md); the APK hash below identifies the original pre-review build.
+
 ## Results
 
 | Check | Result | Evidence |

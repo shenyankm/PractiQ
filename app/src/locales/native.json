@@ -855,6 +855,10 @@
     "zh-CN": "请配置模型 ID",
     "en": "Configure a model ID"
   },
+  "LOCAL_MODEL_UNAVAILABLE": {
+    "zh-CN": "模型列表中未找到配置的模型，请检查模型 ID 或访问权限。",
+    "en": "The configured model is absent from the model list. Check the model ID or access permissions."
+  },
   "LOCAL_MODEL_KEY_REQUIRED": {
     "zh-CN": "请配置模型 API Key",
     "en": "Configure a model API key"

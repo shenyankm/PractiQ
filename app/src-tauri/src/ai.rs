@@ -238,11 +238,15 @@ pub fn test_model_connection(model: &settings::ConnectionSettings, key: String) 
         ));
     }
     let value = read_json(response, 1024 * 1024)?;
-    if !value["data"].is_array() {
-        return Err(crate::language::error(
-            "LOCAL_MODEL_RESPONSE_INVALID",
-            json!({}),
-        ));
+    let models = value["data"]
+        .as_array()
+        .ok_or_else(|| crate::language::error("LOCAL_MODEL_RESPONSE_INVALID", json!({})))?;
+    if !models
+        .iter()
+        .filter_map(|entry| entry["id"].as_str())
+        .any(|id| Some(id) == model.model_id.as_deref())
+    {
+        return Err(crate::language::error("LOCAL_MODEL_UNAVAILABLE", json!({})));
     }
     Ok(Value::Null)
 }
@@ -636,7 +640,7 @@ mod tests {
     fn model_connection_checks_only_read_the_model_list() {
         let (origin, handle) = server(
             "200 OK",
-            r#"{"data":[{"id":"fixture-model"}]}"#.into(),
+            r#"{"data":[{"id":"other-model"},{"id":null},{"id":"fixture-model"}]}"#.into(),
             "GET /models HTTP/1.1",
         );
         let config = direct(origin).model.unwrap();
@@ -645,6 +649,23 @@ mod tests {
             Value::Null
         );
         assert!(handle.join().unwrap().is_null());
+    }
+    #[test]
+    fn model_connection_rejects_unavailable_ids_and_invalid_lists() {
+        for (body, code) in [
+            (r#"{"data":[]}"#, "LOCAL_MODEL_UNAVAILABLE"),
+            (
+                r#"{"data":[{"id":"other-model"},{"id":null},{}]}"#,
+                "LOCAL_MODEL_UNAVAILABLE",
+            ),
+            (r#"{"data":{}}"#, "LOCAL_MODEL_RESPONSE_INVALID"),
+        ] {
+            let (origin, handle) = server("200 OK", body.into(), "GET /models HTTP/1.1");
+            let config = direct(origin).model.unwrap();
+            let result = test_model_connection(&config, "test-service-token".into());
+            assert!(handle.join().unwrap().is_null());
+            assert_eq!(result.unwrap_err().code, code);
+        }
     }
     #[test]
     fn explicit_grade_sends_frozen_payload_and_preserves_local_manual_override() {
