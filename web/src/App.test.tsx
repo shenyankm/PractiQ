@@ -390,6 +390,48 @@ it.each([false, true])("retains uncertain start across file reselection includin
   expect(creates).toHaveLength(2); expect(creates[1].body).toEqual(creates[0].body);
 });
 
+it.each(["network", "receipt"])("stops a duplicate-file batch after an uncertain %s result until an explicit retry", async failure => {
+  const user = userEvent.setup(); const http = fakeHTTP(); let fail = true;
+  http.server.intercept = (url, init) => {
+    if (url === "/api/document-tasks" && init.method === "POST" && fail) {
+      fail = false;
+      if (failure === "network") throw new TypeError("lost reply");
+      return json({});
+    }
+  };
+  render(<App />); await connect(user);
+  await user.upload(screen.getByLabelText("选择文档"), [new File(["same"], "same.txt"), new File(["same"], "same.txt")]);
+  await user.click(screen.getByRole("button", { name: "开始导入" }));
+  await screen.findByRole("button", { name: "重试开始" });
+  await waitFor(() => expect((screen.getByRole("button", { name: "开始导入" }) as HTMLButtonElement).disabled).toBe(false));
+  expect(http.calls.filter(call => call.url === "/api/document-tasks" && call.method === "POST")).toHaveLength(1);
+  expect(screen.getByText(/尚未提交/, { selector: "span" })).toBeTruthy();
+  await user.click(screen.getByRole("button", { name: "重试开始" }));
+  await screen.findByText(/任务已创建。页面/);
+  const creates = http.calls.filter(call => call.url === "/api/document-tasks" && call.method === "POST");
+  expect(creates).toHaveLength(2); expect(creates[1].body).toEqual(creates[0].body);
+  expect(screen.getByText(/尚未提交/, { selector: "span" })).toBeTruthy();
+});
+
+it("lets users discard a retained failure and reclaim its file slot without another mutation", async () => {
+  const user = userEvent.setup(); const http = fakeHTTP();
+  http.server.intercept = (url, init) => { if (url === "/api/document-tasks" && init.method === "POST") throw new TypeError("lost reply"); };
+  render(<App />); await connect(user);
+  await user.upload(screen.getByLabelText("选择文档"), new File(["old"], "old.txt"));
+  await user.click(screen.getByRole("button", { name: "开始导入" }));
+  await screen.findByRole("button", { name: "重试开始" });
+  const ten = Array.from({ length: 10 }, (_, index) => new File(["new"], `${index}.txt`));
+  await user.upload(screen.getByLabelText("选择文档"), ten);
+  await screen.findByText(/请先处理保留的失败提交/);
+  const mutations = http.calls.filter(call => call.method !== "GET").length;
+  await user.click(screen.getByRole("button", { name: "移除文件 old.txt" }));
+  expect(screen.queryByRole("button", { name: "重试开始" })).toBeNull();
+  await user.upload(screen.getByLabelText("选择文档"), ten);
+  expect(screen.queryByText(/请先处理保留的失败提交/)).toBeNull();
+  expect(screen.getAllByRole("button", { name: /^移除文件/ })).toHaveLength(10);
+  expect(http.calls.filter(call => call.method !== "GET")).toHaveLength(mutations);
+});
+
 it("shows budget capacity before any upload without promising page counts", async () => {
   const user = userEvent.setup(); const http = fakeHTTP();
   http.server.intercept = url => url.includes("capabilities") ? json({ ...capabilities, modelBudget: { limit: 400, unitCalls: 16, contextUnitCalls: 20 } }) : undefined;

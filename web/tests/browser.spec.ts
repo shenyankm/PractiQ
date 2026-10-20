@@ -703,6 +703,48 @@ test("file picker text stays centered across control sizes and themes", async ({
   }
 });
 
+for (const width of [1440, 390]) test(`uncertain duplicate batch stops and failed files can be discarded at ${width}px`, async ({ page }, testInfo) => {
+  await page.setViewportSize({ width, height: 1040 });
+  await page.clock.install();
+  const http = await fakeHTTP(page); let requestId: string | undefined;
+  http.server.intercept = async (route, call) => {
+    if (call.path !== "/api/document-tasks" || call.method !== "POST") return false;
+    if (!requestId) { requestId = call.body!.requestId; http.server.modelStarts++; }
+    expect(call.body!.requestId).toBe(requestId);
+    http.records.set(newTaskId, { ...task, threadId: newTaskId, fileName: "same.txt" });
+    const attempt = starts(http.calls).length;
+    await respond(route, { threadId: newTaskId, requestId, runId: attempt === 2 ? null : runId, accepted: attempt !== 1 }, 202);
+    return true;
+  };
+  await connect(page);
+  const file = { name: "same.txt", mimeType: "text/plain", buffer: Buffer.from("same") };
+  await page.getByLabel("选择文档").setInputFiles([file, file]);
+  await page.getByRole("button", { name: "开始导入", exact: true }).click();
+  await expect(page.getByText(/任务操作回执无效，结果尚未确认/)).toBeVisible();
+  await page.clock.fastForward(30000);
+  expect(starts(http.calls)).toHaveLength(1);
+  await expect(page.locator(".file-list").getByText(/尚未提交/)).toHaveCount(1);
+  await page.getByRole("button", { name: "重试开始", exact: true }).click();
+  await expect(page.getByRole("button", { name: "重试开始", exact: true })).toBeEnabled();
+  expect(starts(http.calls)).toHaveLength(2);
+  await expect(page.getByText(/任务已创建。页面/)).toHaveCount(0);
+  const failed = page.locator(".file-list > li").filter({ has: page.getByRole("button", { name: "重试开始", exact: true }) });
+  await failed.scrollIntoViewIfNeeded();
+  await expect(page.getByText(/移除文件只清理本页队列，不会取消服务端任务/)).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
+  await page.screenshot({ path: testInfo.outputPath(`failed-file-${width}.png`), fullPage: true });
+  const mutationCount = mutations(http.calls).length;
+  await failed.getByRole("button", { name: "移除文件 same.txt", exact: true }).click();
+  await expect(page.getByRole("button", { name: "重试开始", exact: true })).toHaveCount(0);
+  expect(mutations(http.calls)).toHaveLength(mutationCount);
+  await page.getByRole("button", { name: "开始导入", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "same.txt", exact: true })).toBeVisible();
+  expect(starts(http.calls)).toHaveLength(3);
+  expect(starts(http.calls).every(call => call.body!.requestId === requestId)).toBe(true);
+  expect(http.server.modelStarts).toBe(1);
+});
+
 test("a malformed accepted reparse receipt keeps its original request until explicit retry", async ({ page }) => {
   await page.clock.install();
   const http = await fakeHTTP(page); let requestId: string | undefined;

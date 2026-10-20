@@ -401,7 +401,7 @@ it.each([{ limit: -1, unitCalls: 4, contextUnitCalls: 8 }, { limit: 400, unitCal
   await expect(new Client("fake").capabilities()).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
 });
 
-it.each([null, {}, { ...receipt, requestId: runId }, { ...receipt, accepted: "yes" }, { ...receipt, runId: undefined }])("retains the original intent when a creation receipt is invalid: %s", async invalid => {
+it.each([null, {}, { ...receipt, requestId: runId }, { ...receipt, accepted: "yes" }, { ...receipt, accepted: false }, { ...receipt, runId: null }, { ...receipt, runId: undefined }])("retains the original intent when a creation receipt is invalid: %s", async invalid => {
   const upload = mockUpload(); const bodies: unknown[] = []; let fail = true;
   vi.stubGlobal("fetch", vi.fn(async (path: string, init: RequestInit) => {
     if (path !== "/api/document-tasks") return upload(path, init);
@@ -415,18 +415,19 @@ it.each([null, {}, { ...receipt, requestId: runId }, { ...receipt, accepted: "ye
   expect(bodies[0]).toEqual(bodies[1]);
 });
 
-it.each(["reparse", "resume"] as const)("retains an uncertain %s intent after a malformed success receipt", async action => {
+it.each(["reparse", "resume"] as const)("retains an uncertain %s intent after incomplete success receipts", async action => {
+  const invalid = [{}, { ...receipt, accepted: false }, { ...receipt, runId: null }];
   const bodies: Record<string, unknown>[] = [];
   vi.stubGlobal("fetch", vi.fn(async (_path: string, init: RequestInit) => {
     const body = JSON.parse(init.body as string); bodies.push(body);
-    return json(bodies.length === 1 ? {} : { ...receipt, requestId: body.requestId });
+    return json(bodies.length <= invalid.length ? { ...invalid[bodies.length - 1], requestId: body.requestId } : { ...receipt, requestId: body.requestId });
   }));
   const client = new Client("fake");
   const perform = () => action === "reparse" ? client.reparse(taskId) : client.control({ ...task, allowedActions: ["resume"] }, "resume");
-  await expect(perform()).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
-  expect(bodies).toHaveLength(1);
+  for (let attempt = 0; attempt < invalid.length; attempt++) await expect(perform()).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
+  expect(bodies).toHaveLength(invalid.length);
   await expect(perform()).resolves.toHaveProperty("requestId", bodies[0].requestId);
-  expect(bodies).toHaveLength(2); expect(bodies[0]).toEqual(bodies[1]);
+  expect(bodies).toHaveLength(invalid.length + 1); for (const body of bodies) expect(body).toEqual(bodies[0]);
 });
 
 it.each([null, {}, { deleted: false }, { deleted: "true" }])("does not confirm task deletion from a malformed or negative success receipt: %s", async value => {

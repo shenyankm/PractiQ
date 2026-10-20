@@ -229,7 +229,7 @@ export default function App() {
           const receipt = await current.start(item.file, capabilities, item.requestId ?? item.id, (stage, requestId) => update({ state: stage, ...(requestId ? { requestId } : {}) }), deduplicate);
           if (current.active) setFiles(previous => previous.map(file => (file.requestId ?? file.id) === receipt.requestId ? { ...file, state: "created", error: undefined } : file));
           created = receipt.threadId;
-        } catch (error) { update({ state: "failed", error: errorText(error) }); }
+        } catch (error) { update({ state: "failed", error: errorText(error) }); break; }
         if (!current.active) return;
       }
       setListRevision(value => value + 1);
@@ -272,11 +272,11 @@ export default function App() {
               </div></details>
               {!capabilities.modelConfigured && <p className="notice">服务端尚未配置模型，暂不能开始解析。</p>}
               {fileError && <p role="alert" className="text-destructive">{fileError}</p>}
-              {!!files.length && <ul className="file-list">{files.map(item => <li key={item.id}><div><strong>{item.file.name}</strong><span>{sizeLabel(item.file.size)} · {fileLabels[item.state]} · {formatLabels[fileFormat(item.file).sourceType]} · 腾讯解析 → AI 整理</span>{item.error && <><p role="alert" className="text-destructive">{item.error}</p><small>原提交请求 ID：{item.requestId ?? item.id}</small></>}</div>{item.state === "ready" && <Button size="icon" variant="ghost" disabled={busy} aria-label={`移除文件 ${item.file.name}`} onClick={() => setFiles(previous => previous.filter(file => file.id !== item.id))}><Trash2 /></Button>}{item.state === "failed" && <Button size="sm" variant="outline" disabled={busy || capabilities.parserConfigured === false || !capabilities.modelConfigured} onClick={() => void start([item])}>重试开始</Button>}</li>)}</ul>}
+              {!!files.length && <ul className="file-list">{files.map(item => <li key={item.id}><div><strong>{item.file.name}</strong><span>{sizeLabel(item.file.size)} · {fileLabels[item.state]} · {formatLabels[fileFormat(item.file).sourceType]} · 腾讯解析 → AI 整理</span>{item.error && <><p role="alert" className="text-destructive">{item.error}</p><small>原提交请求 ID：{item.requestId ?? item.id}</small></>}</div>{["ready", "failed"].includes(item.state) && <Button size="icon" variant="ghost" disabled={busy} aria-label={`移除文件 ${item.file.name}`} onClick={() => setFiles(previous => previous.filter(file => file.id !== item.id))}><Trash2 /></Button>}{item.state === "failed" && <Button size="sm" variant="outline" disabled={busy || capabilities.parserConfigured === false || !capabilities.modelConfigured} onClick={() => void start([item])}>重试开始</Button>}</li>)}</ul>}
               {capabilities.modelBudget && <p className="notice">每任务预算 {capabilities.modelBudget.limit} 次：按完整预留计算，普通单元最多 {Math.floor(capabilities.modelBudget.limit / capabilities.modelBudget.unitCalls)} 个，带上下文的视觉单元最多 {Math.floor(capabilities.modelBudget.limit / capabilities.modelBudget.contextUnitCalls)} 个。混合任务共享预算；单元数量不等于页数，重试仍占用预算，剩余预算不足时可能仅有部分结果。</p>}
               <p className="text-xs text-muted-foreground">点击「开始导入」后上传并调用模型。启用 AI 复核会增加调用与费用，结果仍需人工核对。</p>
               <Button className="w-full" disabled={busy || capabilities.parserConfigured === false || !capabilities.modelConfigured || !files.some(file => file.state === "ready")} onClick={() => void start(files.filter(file => file.state === "ready"))}>{busy ? <LoaderCircle className="loading-icon" /> : <Play />}开始导入</Button>
-              {files.some(file => file.state === "failed") && <p className="text-xs text-muted-foreground">失败提交的原文件、请求 ID 和参数已保留，重新选文件不会覆盖。请先刷新任务列表核对结果，再手动“重试开始”沿用原请求；刷新或关闭页面会丢失此记录。</p>}
+              {files.some(file => file.state === "failed") && <p className="text-xs text-muted-foreground">本批次已停止，剩余文件尚未提交。失败提交的原文件、请求 ID 和参数已保留，重新选文件不会覆盖。请先刷新任务列表核对结果，再手动“重试开始”沿用原请求；移除文件只清理本页队列，不会取消服务端任务。刷新或关闭页面会丢失此记录。</p>}
             </>}
           </CardContent></Card>
           <Card><CardHeader><div className="flex items-center justify-between"><CardTitle role="heading" aria-level={2} id="task-list-heading" tabIndex={-1}>文档任务</CardTitle><Button variant="ghost" size="icon" aria-label="刷新任务列表" onClick={() => setListRevision(value => value + 1)}><RefreshCw /></Button></div></CardHeader><CardContent className="space-y-3">

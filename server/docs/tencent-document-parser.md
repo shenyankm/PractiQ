@@ -245,8 +245,13 @@ Web retains failed source submissions, including their original File, options an
 request ID, when another selection succeeds or fails validation. Within the
 connected page, identical verified content/filename/options reuse an uncertain
 creation intent even if file timestamps change. This is still an explicit user
-retry; selecting a file never creates a task. Pending receipts exist only in
-memory: inspect the task list before refreshing, disconnecting or closing the page.
+retry; selecting a file never creates a task. A failed start stops the batch,
+leaving the remaining files unsubmitted until another explicit action. Mutation
+receipts must affirm acceptance and include valid task/run IDs before the intent
+is cleared. Failed files can be removed to free queue slots; removal does not
+cancel server work, and uncertain content intents remain available in memory for
+explicit reselection. Pending receipts exist only in memory: inspect the task
+list before refreshing, disconnecting or closing the page.
 
 The authenticated capabilities response reports the same per-unit reservations
 used by dispatch. With a 400-call budget, ordinary/context units reserve 4/8 calls

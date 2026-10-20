@@ -164,7 +164,7 @@ export class Client {
   }
   private async receipt(path: string, body: { requestId: string }) {
     const receipt = await this.post<Receipt>(path, body);
-    if (!receipt || receipt.requestId !== body.requestId || typeof receipt.accepted !== "boolean" || ![receipt.threadId, ...(receipt.runId === null ? [] : [receipt.runId])].every(id => typeof id === "string" && /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(id))) throw new ApiError("任务操作回执无效，结果尚未确认。请先查询任务。", "INVALID_RESPONSE");
+    if (!receipt || receipt.requestId !== body.requestId || receipt.accepted !== true || ![receipt.threadId, receipt.runId].every(id => typeof id === "string" && /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(id))) throw new ApiError("任务操作回执无效，结果尚未确认。请先查询任务。", "INVALID_RESPONSE");
     return receipt;
   }
   private async intent<T>(key: string, perform: (requestId: string) => Promise<T>) {
