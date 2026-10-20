@@ -1,6 +1,11 @@
 import { contentLanguage, locale, t } from "./i18n";
 import type { Question } from "./api";
-export function countEnglishWords(text:string) { return text.match(/[\p{L}\p{N}]+(?:['’\-‐‑][\p{L}\p{N}]+)*/gu)?.length ?? 0; }
+export function countEnglishWords(text:string) {
+  const words = /[\p{L}\p{N}]+(?:['’\-‐‑][\p{L}\p{N}]+)*/gu;
+  let count = 0;
+  while (words.test(text)) count++;
+  return count;
+}
 export function materialLanguage(question: Question, role?: string | null): string | undefined {
   const english = question.questionKind && !["translation", "writing"].includes(question.questionKind) ? "en" : undefined;
   if (role === "source_text") return contentLanguage(question.sourceLanguage) ?? english;
