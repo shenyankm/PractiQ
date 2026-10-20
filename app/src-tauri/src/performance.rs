@@ -189,6 +189,116 @@ fn measure(mut run: impl FnMut() -> Value) -> Value {
 }
 
 #[test]
+#[ignore = "paired batch attempt writes; run in release mode"]
+fn batch_attempt_writes() {
+    let mut report = json!({"probeSha256":crate::store::hash(include_bytes!("performance.rs")),"scope":"Complete native Store start/submit/retry methods, disposable SQLite, one warmup and seven samples per operation. Setup, assertions, semantic hashes and cleanup excluded. No IPC, WebView or device measurement.","workloads":[]});
+    for count in [20usize, 1000] {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::new(dir.path().into()).unwrap();
+        let mut db = store.connect().unwrap();
+        let tx = db.transaction().unwrap();
+        tx.execute("INSERT INTO banks VALUES('bank','Synthetic','',1)", [])
+            .unwrap();
+        let ids: Vec<_> = (0..count).map(|i| format!("q{i:04}")).collect();
+        for (i, id) in ids.iter().enumerate() {
+            tx.execute("INSERT INTO questions(id,bank_id,position,stem,mode,content_blocks,confidence,needs_review,missing_fields) VALUES(?1,'bank',?2,?3,'true_false','[]',1,0,'[]')",params![id,i,format!("Question {i}")]).unwrap();
+            tx.execute("INSERT INTO true_false_questions VALUES(?1,'true')", [id])
+                .unwrap();
+        }
+        tx.commit().unwrap();
+        let rows = store.question_rows().unwrap();
+        let digest = crate::paper::digest(&rows).unwrap();
+        let mut workload = json!({"questions":count,"inputSha256":crate::store::hash(&serde_json::to_vec(&rows).unwrap()),"start":[],"submit":[],"retry":[]});
+        for sample in 0..8 {
+            let start = Instant::now();
+            let session = store
+                .start_paper_data(crate::exams::Paper {
+                    question_ids: ids.clone(),
+                    kind: "self_test".into(),
+                    minutes: None,
+                    scores: vec![100; count],
+                    total_cents: count as i64 * 100,
+                    digest: digest.clone(),
+                })
+                .unwrap();
+            let start_ms = start.elapsed().as_secs_f64() * 1000.0;
+            let sid = text(&session, "id");
+            assert_eq!(list(&session, "attempts").len(), count);
+            db.execute("UPDATE attempts SET answer='{\"value\":false}',elapsed_ms=42,flagged=1 WHERE session_id=?1", [sid]).unwrap();
+            let start = Instant::now();
+            store.submit_paper_data(sid, true).unwrap();
+            let submit_ms = start.elapsed().as_secs_f64() * 1000.0;
+            let submitted = store.session(sid).unwrap();
+            assert!(list(&submitted, "attempts")
+                .iter()
+                .all(|a| a["result"] == false
+                    && a["earnedCents"] == 0
+                    && a["elapsedMs"] == 42
+                    && a["flagged"] == true));
+            let start = Instant::now();
+            let retry = store.retry_wrong_data(sid).unwrap();
+            let retry_ms = start.elapsed().as_secs_f64() * 1000.0;
+            assert_eq!(list(&retry, "attempts").len(), count);
+            let retried = store.session(text(&retry, "id")).unwrap();
+            assert!(list(&retried, "attempts")
+                .iter()
+                .all(|a| a["answer"].is_null() && a["result"].is_null()));
+            let mut statement = db.prepare("SELECT ordinal,snapshot_question_id,answer,result,grade_kind,elapsed_ms,max_cents,earned_cents,flagged FROM attempts WHERE session_id=?1 ORDER BY ordinal").unwrap();
+            let semantic: Vec<_> = statement
+                .query_map([sid], |r| {
+                    Ok(json!([
+                        r.get::<_, i64>(0)?,
+                        r.get::<_, String>(1)?,
+                        r.get::<_, String>(2)?,
+                        r.get::<_, bool>(3)?,
+                        r.get::<_, String>(4)?,
+                        r.get::<_, i64>(5)?,
+                        r.get::<_, i64>(6)?,
+                        r.get::<_, i64>(7)?,
+                        r.get::<_, bool>(8)?
+                    ]))
+                })
+                .unwrap()
+                .map(Result::unwrap)
+                .collect();
+            let hash = json!(crate::store::hash(&serde_json::to_vec(&semantic).unwrap()));
+            if sample == 0 {
+                workload["outputSha256"] = hash;
+            } else {
+                assert_eq!(workload["outputSha256"], hash);
+                for (operation, elapsed) in [
+                    ("start", start_ms),
+                    ("submit", submit_ms),
+                    ("retry", retry_ms),
+                ] {
+                    workload[operation]
+                        .as_array_mut()
+                        .unwrap()
+                        .push(json!(elapsed));
+                }
+            }
+            db.execute(
+                "DELETE FROM sessions WHERE id IN (?1,?2)",
+                params![sid, text(&retry, "id")],
+            )
+            .unwrap();
+        }
+        assert_eq!(
+            db.query_row("SELECT count(*) FROM attempts", [], |r| r
+                .get::<_, usize>(0))
+                .unwrap(),
+            0
+        );
+        report["workloads"].as_array_mut().unwrap().push(workload);
+    }
+    std::fs::write(
+        std::env::var("PRACTIQ_BENCH_OUTPUT").expect("set PRACTIQ_BENCH_OUTPUT"),
+        serde_json::to_vec_pretty(&report).unwrap(),
+    )
+    .unwrap();
+}
+
+#[test]
 #[ignore = "synthetic performance workload; run with --release --ignored --nocapture"]
 fn desktop_stress() {
     let dir = tempfile::tempdir().unwrap();

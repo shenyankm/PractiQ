@@ -152,7 +152,7 @@ impl Store {
         .map_err(err)?;
         for (i, row) in leaves.iter().enumerate() {
             let qid = text(row, "id");
-            tx.execute("INSERT INTO attempts(session_id,ordinal,question_id,snapshot_question_id,max_cents) VALUES(?1,?2,?3,?3,?4)",params![sid,i as i64,qid,if exam {Some(paper.scores[i])} else {None}]).map_err(err)?;
+            tx.prepare_cached("INSERT INTO attempts(session_id,ordinal,question_id,snapshot_question_id,max_cents) VALUES(?1,?2,?3,?3,?4)").map_err(err)?.execute(params![sid,i as i64,qid,if exam {Some(paper.scores[i])} else {None}]).map_err(err)?;
         }
         tx.commit().map_err(err)?;
         Ok(sid)
@@ -218,7 +218,7 @@ impl Store {
             } else {
                 None
             };
-            tx.execute("UPDATE attempts SET submitted_at=?3,skipped=?4,auto_result=?5,result=?8,grade_kind=?6,earned_cents=?7 WHERE session_id=?1 AND ordinal=?2",params![sid,ordinal,self.session_clock.now()?,skipped,auto,if auto.is_some() || earned.is_some(){"auto"}else{"ungraded"},earned,if max.is_some(){earned.map(|v|Some(v)==max)}else{auto}]).map_err(err)?;
+            tx.prepare_cached("UPDATE attempts SET submitted_at=?3,skipped=?4,auto_result=?5,result=?8,grade_kind=?6,earned_cents=?7 WHERE session_id=?1 AND ordinal=?2").map_err(err)?.execute(params![sid,ordinal,self.session_clock.now()?,skipped,auto,if auto.is_some() || earned.is_some(){"auto"}else{"ungraded"},earned,if max.is_some(){earned.map(|v|Some(v)==max)}else{auto}]).map_err(err)?;
         }
         tx.execute("UPDATE sessions SET submitted_at=?2,finished_at=CASE WHEN kind='practice' THEN ?2 ELSE finished_at END WHERE id=?1",params![sid,self.session_clock.now()?]).map_err(err)?;
         tx.commit().map_err(err)?;
@@ -365,7 +365,7 @@ impl Store {
             .filter(|r| !crate::questions::composite(&r["question"]))
             .enumerate()
         {
-            tx.execute("INSERT INTO attempts(session_id,ordinal,question_id,snapshot_question_id) VALUES(?1,?2,?3,?3)",params![sid2,i as i64,text(row,"id")]).map_err(err)?;
+            tx.prepare_cached("INSERT INTO attempts(session_id,ordinal,question_id,snapshot_question_id) VALUES(?1,?2,?3,?3)").map_err(err)?.execute(params![sid2,i as i64,text(row,"id")]).map_err(err)?;
         }
         tx.commit().map_err(err)?;
         self.session_data(&sid2, None)
