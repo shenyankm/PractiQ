@@ -120,3 +120,11 @@ from shadcn 4.21.0: `data-open`, `data-closed`, `data-checked` and `data-disable
 The source is [release commit 7c9eaba](https://github.com/shadcn-ui/ui/tree/7c9eaba1c0a6404c990c144a654792e3313c650d/packages/shadcn).
 The same file includes the complete upstream MIT license and copyright notice
 in a preserved CSS comment, so built application styles carry the terms.
+
+AppCompat 1.8.0 and AppCompat Resources 1.8.0 require Kotlin 2.1 metadata.
+The Android Kotlin compiler and resolved stdlib are aligned to 2.1.20; all
+four Gradle runtime locks use the same updated closure. Exact Google Maven
+and Maven Central downloads verify these three artifact/POM pairs, and the
+notice lock retains both embedded AppCompat license entries and canonical
+Apache 2.0 terms. Current-head Android packaging and emulator CI still gate
+merging this upgrade.
