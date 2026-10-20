@@ -44,15 +44,20 @@ const Usage = memo(function Usage({ task }: { task: DocumentTaskDetail }) {
 
 type Page = "import" | "records" | "settings";
 const pages = [{ id: "import", label: "开始导入", icon: Upload }, { id: "records", label: "导入记录", icon: History }, { id: "settings", label: "设置", icon: Settings }] as const;
-const pageFromHash = (): Page => pages.find(item => `#${item.id}` === window.location.hash)?.id ?? "import";
+function pageFromHash(): Page | undefined {
+  const hash = window.location.hash;
+  if (!hash) return "import";
+  if (["#task-detail", "#task-list-heading"].includes(hash)) return "records";
+  return pages.find(item => `#${item.id}` === hash)?.id;
+}
 const dateLabel = (value: string) => { const date = new Date(value); return Number.isNaN(date.getTime()) ? "时间未知" : new Intl.DateTimeFormat("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }).format(date); };
 
 export default function App() {
-  const [page, setPage] = useState<Page>(pageFromHash);
+  const [page, setPage] = useState<Page>(() => pageFromHash() ?? "import");
   const previousPage = useRef(page);
   useLayoutEffect(() => { if (previousPage.current !== page) { previousPage.current = page; document.getElementById("page-heading")?.focus(); } }, [page]);
   function navigate(value: Page) { setPage(value); setDeleteTarget(null); window.location.hash = value; }
-  useEffect(() => { const change = () => { if (pages.some(item => `#${item.id}` === window.location.hash)) setPage(pageFromHash()); }; window.addEventListener("hashchange", change); return () => window.removeEventListener("hashchange", change); }, []);
+  useEffect(() => { const change = () => { const next = pageFromHash(); if (next) setPage(next); }; window.addEventListener("hashchange", change); return () => window.removeEventListener("hashchange", change); }, []);
   const [draftToken, setDraftToken] = useState("");
   const [connecting, setConnecting] = useState(false);
   const [client, setClient] = useState<Client | null>(null);

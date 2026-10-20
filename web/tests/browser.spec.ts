@@ -83,6 +83,29 @@ const mutations = (calls: Call[]) => calls.filter(call => call.method !== "GET")
 const starts = (calls: Call[]) => calls.filter(call => call.path === "/api/document-tasks" && call.method === "POST");
 
 for (const width of [1440, 390]) {
+  for (const anchor of ["task-detail", "task-list-heading"]) test(`history restores ${anchor} at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    const http = await fakeHTTP(page);
+    await connect(page); await openTask(page);
+    await page.getByRole("link", { name: anchor === "task-detail" ? "查看当前任务详情" : "返回任务列表", exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`#${anchor}$`));
+    await page.getByRole("link", { name: "设置", exact: true }).click();
+    await page.getByLabel("腾讯识别并发上限").fill("3");
+    await page.goBack();
+    await expect(page).toHaveURL(new RegExp(`#${anchor}$`));
+    await expect(page.getByRole("heading", { name: "导入记录", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "导入记录", exact: true })).toHaveAttribute("aria-current", "page");
+    await expect(page.getByRole("heading", { name: "sample.docx", exact: true })).toBeVisible();
+    await page.goForward();
+    await expect(page.getByRole("heading", { name: "设置", exact: true })).toBeVisible();
+    await expect(page.getByLabel("腾讯识别并发上限")).toHaveValue("3");
+    await page.goto(`/#${anchor}`); await page.reload();
+    await expect(page.getByRole("heading", { name: "导入记录", exact: true })).toBeVisible();
+    await page.getByLabel("服务访问令牌").fill(fakeToken);
+    await page.getByRole("button", { name: "连接服务", exact: true }).click();
+    await expect(page.getByRole("table", { name: "文档导入记录" })).toBeVisible();
+    expect(mutations(http.calls)).toHaveLength(0);
+  });
   test(`full records page opens task controls with keyboard at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 1000 });
     const http = await fakeHTTP(page, { ...task, state: "RUNNING", allowedActions: ["pause", "interrupt"] });

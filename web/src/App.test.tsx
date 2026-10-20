@@ -527,3 +527,19 @@ it("sidebar navigation preserves selected files and settings drafts without star
   expect(concurrency).toHaveProperty("value", "3");
   expect(http.calls.every(call => call.method === "GET")).toBe(true);
 });
+
+it.each(["task-detail", "task-list-heading"])("opens the records page for a direct #%s anchor", anchor => {
+  window.history.replaceState(null, "", `/#${anchor}`);
+  render(<App />);
+  expect(screen.getByRole("heading", { name: "导入记录", level: 1 })).toBeTruthy();
+  expect(screen.getByRole("link", { name: "导入记录" }).getAttribute("aria-current")).toBe("page");
+});
+
+it("keeps shared anchors on the current page and restores import for root history", async () => {
+  const user = userEvent.setup(); render(<App />);
+  await user.click(screen.getByRole("link", { name: "设置" }));
+  await act(async () => { window.location.hash = "main-content"; window.dispatchEvent(new HashChangeEvent("hashchange")); });
+  expect(screen.getByRole("heading", { name: "设置", level: 1 })).toBeTruthy();
+  await act(async () => { window.location.hash = ""; window.dispatchEvent(new HashChangeEvent("hashchange")); });
+  expect(screen.getByRole("heading", { name: "开始导入", level: 1 })).toBeTruthy();
+});
