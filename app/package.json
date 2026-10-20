@@ -18,7 +18,7 @@
     "test:android-browser": "playwright test --project android-390 --project android-360"
   },
   "dependencies": {
-    "@tauri-apps/api": "^2.12.3",
+    "@tauri-apps/api": "^2.12.4",
     "class-variance-authority": "^0.7.1",
     "cn": "^0.4.0",
     "katex": "0.19.0",
