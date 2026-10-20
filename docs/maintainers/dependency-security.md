@@ -146,3 +146,10 @@ The rules cover `main`, the repository's default PR target. Reviews on other
 base branches do not inherit this main-only rule. Automated review results
 remain evidence for maintainer inspection; they do not trigger an approval bot
 or automatic merging.
+
+The service image runs Python 3.15 on Bookworm; CI retains full service checks
+on Python 3.14 and 3.15. Locked native dependencies must support 3.15 without
+ABI compatibility overrides. The pinned Rust toolchain and C build tools live
+only in the dependency build stage; the runtime receives the installed Python
+packages. Python 3.15 reports retain the canonical service artifact names used
+by release assembly, while 3.14 compatibility artifacts have a distinct suffix.

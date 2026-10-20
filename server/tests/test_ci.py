@@ -493,7 +493,7 @@ def test_workflows_deduplicate_common_checks_without_dropping_native_gates():
         scope = "service" if name == "server" else "desktop"
         jobs = workflow["jobs"]
         quality, changes = (jobs[key] for key in ("quality", "changes"))
-        assert quality["name"] == ("Service quality" if name == "server" else "App quality")
+        assert quality["name"] == ("Service quality (Python ${{ matrix.python }})" if name == "server" else "App quality")
         assert quality["needs"] == "changes"
         assert quality["if"] == "needs.changes.outputs.required == 'true'"
         assert changes["permissions"] == {"contents": "read", "pull-requests": "read"}
@@ -584,7 +584,7 @@ def test_service_web_upload_covers_configured_nonhidden_report_outputs():
     upload, = (
         step for step in workflow["jobs"]["quality"]["steps"]
         if step.get("uses", "").startswith("actions/upload-artifact@")
-        and step["with"].get("name") == "service-web-checks"
+        and step["with"].get("name", "").startswith("service-web-checks")
     )
     assert upload["if"] == "${{ always() }}"
     assert upload["with"]["if-no-files-found"] == "error"
@@ -641,3 +641,20 @@ def test_android_ci_builds_shared_frontend_once_and_only_packages_final_apks():
 
     release_jobs = yaml.load((root / ".github/workflows/release.yml").read_text(), Loader=yaml.BaseLoader)["jobs"]
     assert release_jobs["apps"]["permissions"]["actions"] == "read"
+
+
+def test_service_python_matrix_retains_minimum_version_and_runtime_artifact_names():
+    root = Path(__file__).resolve().parents[2]
+    workflow = yaml.load((root / ".github/workflows/server.yml").read_text(), Loader=yaml.BaseLoader)
+    quality = workflow["jobs"]["quality"]
+    assert quality["strategy"] == {"fail-fast": "false", "matrix": {"python": ["3.14", "3.15"]}}
+    setup, = (step for step in quality["steps"] if step.get("uses", "").startswith("actions/setup-python@"))
+    assert setup["with"]["python-version"] == "${{ matrix.python }}"
+    image, = (step for step in quality["steps"] if step.get("name") == "Build service image")
+    assert image["if"] == "matrix.python == '3.15'" and image["run"] == "make image-check"
+    smoke, = (step for step in quality["steps"] if step.get("name") == "Smoke-test runtime image")
+    assert smoke["if"] == "matrix.python == '3.15'"
+    assert 'practiq-ai:ci' in smoke["run"] and 'os.getuid() == 10001' in smoke["run"]
+    assert all(tool in smoke["run"] for tool in ["ormsgpack", "pydantic", "gcc", "cargo", "rustc"])
+    names = [step["with"]["name"] for step in quality["steps"] if step.get("uses", "").startswith("actions/upload-artifact@")]
+    assert names == ["service-web-checks${{ matrix.python == '3.14' && '-python314' || '' }}", "service-checks${{ matrix.python == '3.14' && '-python314' || '' }}"]

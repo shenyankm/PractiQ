@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-10-20T08:16:18.795352+00:00",
+  "status": "PASSED_LOCAL",
+  "upstreamHead": "e978926665f27c61d13b52bac20514984a856f2d",
+  "failuresReproduced": [
+    "Original image lacks gcc for native source builds",
+    "Compiler probe exposes PyO3 maximum Python 3.14 in old locked native packages"
+  ],
+  "changes": [
+    "Update Pydantic and compatible native transitive dependencies with Python 3.15 support",
+    "Build native dependencies in isolated pinned C/Rust stages and copy installed packages into the nonroot runtime",
+    "Run full service CI on both Python 3.14 and 3.15; preserve canonical release artifact names on the runtime version",
+    "Smoke-test imports, runtime Python version, uid and compiler isolation in CI"
+  ],
+  "updatedPackages": {
+    "jiter": "0.17.0",
+    "orjson": "3.13.0",
+    "ormsgpack": "1.13.0",
+    "pydantic": "2.14.1",
+    "pydantic-core": "2.50.1",
+    "typing-inspection": "0.4.4",
+    "uuid-utils": "0.18.0"
+  },
+  "localChecks": {
+    "uvLockCheck": "PASSED",
+    "ruff": "PASSED",
+    "actionlint": {
+      "version": "1.7.12",
+      "status": "PASSED",
+      "releaseSha256": "aba9ced2dee8d27fecca3dc7feb1a7f9a52caefa1eb46f3271ea66b6e0e6953f"
+    },
+    "ciAndReleaseRegressionTests": 55,
+    "webBuild": "PASSED",
+    "dockerBuild": {
+      "status": "PASSED",
+      "platform": "linux/arm64",
+      "manifestListSha256": "740087584e1b267bfb50b9ed193c1b74e8c2a1efa8582a9cbd3e80bb9030cec6"
+    },
+    "runtimeSmoke": {
+      "Python": "3.15.0",
+      "uid": 10001,
+      "serviceImport": "PASSED",
+      "nativeDependencyImports": "PASSED",
+      "gccCargoRustcAbsent": true
+    },
+    "isolatedPython315Tests": {
+      "passed": 219,
+      "deselected": 2,
+      "scope": "Selected config, source-contract, Tencent and structured-output tests in an isolated source snapshot; two explicit database-integration cases reserved for full CI"
+    }
+  },
+  "notAssessed": [
+    "Full current-head Python 3.14/3.15 service and native CI after push",
+    "Independent current-head Code Review and Security Review",
+    "Real Tencent/LLM calls",
+    "linux/amd64 Docker build: current-head CI must verify"
+  ],
+  "sourceSha256": {
+    ".github/workflows/server.yml": "4bde7ef3361b84274e1de616e61cffd8f8d1c3dd8e85b5b3a5bf0589cc57f77e",
+    "Dockerfile.server": "26524717ee92f732743ffb4ac38028406d0c87ae818f0d2cc98985f86fb76da2",
+    "docs/maintainers/dependency-security.md": "98541acd39cfe88f1df2da94ea32d60a3c98a45607240ae8d514b2fc46586686",
+    "server/pyproject.toml": "4abdd3489438ba75050b31b26a683e1c7682f6a9c53c3b1ab9019d8472703d59",
+    "server/tests/test_ci.py": "377ef54d78c5a2ddaac47f66d6ddc7abfe33c493e8ba3c119e12b731d385c03e",
+    "server/uv.lock": "ad978718ed166e4eb4168640e8597db7327a458141d1284748b17127ac53bc9f"
+  }
+}
