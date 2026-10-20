@@ -35,6 +35,25 @@ def evidence(text, questions, **kwargs):
     return chunking.build_source_evidence(text, questions, sources, spans, **kwargs)
 
 
+def test_source_tree_membership_does_not_rescan_every_frame(monkeypatch):
+    questions = [ParsedQuestion(id=f'q{i}', stem=f'Prompt {i}', answerMode='short_answer',
+                                sourceText=f'{i + 1}. Short answer: Prompt {i}\nReference answer: Answer {i}.') for i in range(100)]
+    text = '\n\n'.join(q.sourceText or '' for q in questions)
+    original = chunking._typed_frames
+    reads = 0
+
+    class Frame(dict):
+        def __getitem__(self, key):
+            nonlocal reads
+            reads += key == 'parent'
+            return super().__getitem__(key)
+
+    monkeypatch.setattr(chunking, '_typed_frames', lambda source: [Frame(frame) for frame in original(source) or []])
+    proven = evidence(text, questions)
+    assert len(proven) == len(questions) and all(proven.values())
+    assert reads <= len(questions) * 5
+
+
 @pytest.mark.parametrize('newline', ['\n', '\r\n'])
 @pytest.mark.parametrize('indent', ['', '  \t'])
 def test_source_frame_matching_bounds_work_and_preserves_offsets(monkeypatch, newline, indent):
