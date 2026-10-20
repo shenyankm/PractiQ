@@ -4,7 +4,7 @@
 
 # PractiQ
 
-English | [简体中文](README.zh-CN.md)
+English | [简体中文](README.zh-CN.md) | [繁體中文（台灣）](README.zh-TW.md)
 
 Turn documents into question banks, then practise and take mock exams offline on macOS, Windows or Android.
 

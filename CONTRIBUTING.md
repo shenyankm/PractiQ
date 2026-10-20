@@ -10,7 +10,7 @@ Search existing issues before opening a new one. Use the [issue chooser](https:/
 
 Open an issue before starting a feature, architecture change, new dependency, or public API change. Explain the problem and intended outcome so the scope can be discussed. Focused bug fixes and documentation corrections may go directly to a pull request unless the proposed solution changes those boundaries.
 
-Write issue and PR titles and descriptions in English. Project documentation also uses English, except `README.zh-CN.md`; preserve source-language examples, quoted UI labels, and historical evaluation evidence.
+Write issue and PR titles and descriptions in English. Project documentation also uses English, except `README.zh-CN.md` and `README.zh-TW.md`; preserve source-language examples, quoted UI labels, and historical evaluation evidence.
 
 Use the applicable [issue form](.github/ISSUE_TEMPLATE/) or [PR template](.github/PULL_REQUEST_TEMPLATE.md) for GitHub UI, CLI, and API submissions. Preserve its fields and sections; for CLI/API issues, use form labels as body headings. Complete required fields, explain non-applicable items, and check only verified checklist items. Placeholders are prompts, not answers.
 
