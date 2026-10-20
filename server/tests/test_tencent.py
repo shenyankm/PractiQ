@@ -400,6 +400,7 @@ async def test_transient_known_reads_retry_with_same_job_and_bounded_backoff(mon
     success = {'Status': 'Success', 'ResultUrl': 'unused'}
     request = AsyncMock(side_effect=[{'TaskId': '123'}, *([transient, transient] if phase == 'query' else []), success])
     download = AsyncMock(side_effect=[*([transient, transient] if phase == 'download' else []), b'archive'])
+    monkeypatch.setattr(tencent.random, 'uniform', lambda *_: 0.8)
     sleep = AsyncMock()
     monkeypatch.setattr(tencent, 'request', request)
     monkeypatch.setattr(tencent, 'download_result', download)
@@ -407,9 +408,8 @@ async def test_transient_known_reads_retry_with_same_job_and_bounded_backoff(mon
     assert (await tencent.parse_job(reference, runtime))['resultRef']
     assert [call.args[0] for call in request.await_args_list].count('SubmitMultimodalDocParseJob') == 1
     assert all(call.args[1] == {'TaskId': '123'} for call in request.await_args_list[1:])
-    assert len(sleep.await_args_list) == 2
-    assert 0.8 <= sleep.await_args_list[0].args[0] <= 1.2
-    assert 1.6 <= sleep.await_args_list[1].args[0] <= 2.4
+    assert sum(call.args[0] for call in sleep.await_args_list) == pytest.approx(2.4)
+    assert all(0 < call.args[0] <= 1 for call in sleep.await_args_list)
 
 
 async def test_retry_exhaustion_does_not_resubmit_and_unknown_submit_is_not_retried(monkeypatch):
@@ -442,7 +442,9 @@ async def test_query_rejections_preserve_diagnostics_and_only_throttling_is_retr
     with pytest.raises(DocumentProcessingError) as error:
         await tencent.parse_job(reference, runtime)
     assert error.value.code == 'TENCENT_QUERY_REJECTED'
-    assert sleep.await_count == retries
+    assert request.await_count == retries + 2
+    assert bool(sleep.await_count) == bool(retries)
+    assert all(0 < call.args[0] <= 1 for call in sleep.await_args_list)
     saved = (await runtime.store.aget(namespace('t', 'tencent_jobs'), 'source')).value
     assert saved['queryRequestId'] == 'query' and saved['errorCode'] == code
 

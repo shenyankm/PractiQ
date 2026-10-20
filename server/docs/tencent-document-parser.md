@@ -238,7 +238,8 @@ failures, HTTP 408/429/500/502/503/504, or query `RequestLimitExceeded` and
 `InternalError` responses. By default each read has at most three attempts, with 1/2-second
 backoff and 20% jitter, bounded by the saved run deadline and control checks.
 The authenticated Web Settings page can persist 0–5 additional read retries
-and a 0.5–10-second base backoff for subsequent read operations.
+and a 0.5–10-second base backoff for subsequent read operations. Backoff checks
+pause and execution guards at intervals of at most one second.
 Authentication failures, malformed results, terminal job failures and paid
 submission are never automatically retried. An exhausted read retains the job ID
 for an explicit resume. An unacknowledged submission remains blocked from replay.

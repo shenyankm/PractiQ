@@ -101,7 +101,11 @@ async def _read[T](runtime: Runtime[Any], stage: str, operation: Callable[[], Aw
                 raise
             telemetry.event("tencent_read_retry", stage=stage, attempt=attempt, errorCode=exc.code,
                             threadId=runtime.execution_info.thread_id if runtime.execution_info else None)
-            await asyncio.sleep(delay)
+            while delay > 0:
+                interval = min(1, delay)
+                await asyncio.sleep(interval)
+                delay -= interval
+                await guard(runtime)
     raise AssertionError("unreachable")
 
 

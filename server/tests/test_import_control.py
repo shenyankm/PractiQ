@@ -12,6 +12,7 @@ from pydantic import ValidationError
 
 from practiq_ai import runtime, tencent
 from practiq_ai.contracts import ImportSettings, ImportSettingsSnapshot
+from practiq_ai.errors import DocumentProcessingError
 from practiq_ai.import_control import ImportControl
 from practiq_ai.webapp import app
 from tests.db_support import SERVICES, setup_api
@@ -24,7 +25,7 @@ from tests.db_support import SERVICES, setup_api
 ])
 def test_import_settings_reject_unsafe_or_unknown_values(values):
     with pytest.raises(ValidationError):
-        ImportSettings.model_validate(values)
+        ImportSettings.model_validate({'tencentConcurrency': 5, 'readRetryCount': 2, 'retryBaseSeconds': 1, **values})
 
 
 async def test_lowering_concurrency_drains_existing_slots_and_preserves_cancelled_waiters():
@@ -33,7 +34,7 @@ async def test_lowering_concurrency_drains_existing_slots_and_preserves_cancelle
     async with AsyncExitStack() as stack:
         await stack.enter_async_context(control.slot(AsyncMock()))
         await stack.enter_async_context(control.slot(AsyncMock()))
-        await control.save(store, ImportSettingsSnapshot(revision=control.snapshot.revision, settings=ImportSettings(tencentConcurrency=1)))
+        await control.save(store, ImportSettingsSnapshot(revision=control.snapshot.revision, settings=ImportSettings(tencentConcurrency=1, readRetryCount=2, retryBaseSeconds=1)))
         async def wait():
             async with control.slot(AsyncMock()):
                 assert control.active == 1
@@ -79,7 +80,7 @@ async def test_cancelled_work_releases_capacity_while_settings_storage_is_blocke
 @pytest.mark.parametrize('retries', [0, 1, 5])
 async def test_configured_read_retries_and_base_delay_do_not_repeat_submissions(monkeypatch, retries):
     control = ImportControl()
-    control.snapshot = ImportSettingsSnapshot(revision=uuid4(), settings=ImportSettings(readRetryCount=retries, retryBaseSeconds=2))
+    control.snapshot = ImportSettingsSnapshot(revision=uuid4(), settings=ImportSettings(tencentConcurrency=5, readRetryCount=retries, retryBaseSeconds=2))
     context = SimpleNamespace(context={'importControl': control}, execution_info=None)
     monkeypatch.setattr(tencent, 'guard', AsyncMock())
     monkeypatch.setattr(tencent, 'run_remaining', AsyncMock(return_value=1000))
@@ -90,7 +91,8 @@ async def test_configured_read_retries_and_base_delay_do_not_repeat_submissions(
     with pytest.raises(tencent.RequestRejected):
         await tencent._read(cast(Any, context), 'tencent_query', operation)
     assert operation.await_count == retries + 1
-    assert [call.args[0] for call in sleep.await_args_list] == [2 * 2 ** i for i in range(retries)]
+    assert sum(call.args[0] for call in sleep.await_args_list) == 2 * (2 ** retries - 1)
+    assert all(0 < call.args[0] <= 1 for call in sleep.await_args_list)
 
 
 @pytest.mark.usefixtures('disposable_databases')
@@ -120,3 +122,43 @@ async def test_authenticated_settings_survive_service_restart_and_reject_stale_w
         assert (await http.put('/api/import-settings', headers=headers, json=saved.json())).status_code == 409
         assert (await http.get('/api/import-settings', headers=headers)).json() == saved.json()
     assert not model.calls
+
+
+@pytest.mark.parametrize('omitted', ['tencentConcurrency', 'readRetryCount', 'retryBaseSeconds'])
+@pytest.mark.usefixtures('disposable_databases')
+async def test_settings_put_rejects_incomplete_snapshots_without_overwriting_saved_values(monkeypatch, omitted):
+    await setup_api(monkeypatch)
+    monkeypatch.setenv('AI_SERVICE_TOKEN', 'test-token')
+    headers = {'Authorization': 'Bearer test-token'}
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='http://test') as http:
+        initial = (await http.get('/api/import-settings', headers=headers)).json()
+        value = {**initial, 'settings': {'tencentConcurrency': 2, 'readRetryCount': 4, 'retryBaseSeconds': 3}}
+        saved = (await http.put('/api/import-settings', headers=headers, json=value)).json()
+        incomplete = {**saved, 'settings': {key: value for key, value in saved['settings'].items() if key != omitted}}
+        assert (await http.put('/api/import-settings', headers=headers, json=incomplete)).status_code == 422
+        assert (await http.get('/api/import-settings', headers=headers)).json() == saved
+
+
+async def test_long_read_backoff_observes_pause_within_one_second_without_replaying_the_read(monkeypatch):
+    control = ImportControl()
+    control.snapshot = ImportSettingsSnapshot(revision=uuid4(), settings=ImportSettings(tencentConcurrency=5, readRetryCount=5, retryBaseSeconds=10))
+    context = SimpleNamespace(context={'importControl': control}, execution_info=None)
+    paused = False
+    delays = []
+    async def check(_runtime):
+        if paused:
+            raise DocumentProcessingError(409, 'pause', 'TASK_PAUSED')
+    async def sleep(delay):
+        nonlocal paused
+        delays.append(delay)
+        paused = True
+    monkeypatch.setattr(tencent, 'guard', check)
+    monkeypatch.setattr(tencent, 'run_remaining', AsyncMock(return_value=1000))
+    monkeypatch.setattr(tencent.random, 'uniform', lambda *_: 1.2)
+    monkeypatch.setattr(tencent.asyncio, 'sleep', sleep)
+    operation = AsyncMock(side_effect=tencent.RequestRejected('RequestLimitExceeded', 'safe-request'))
+    with pytest.raises(DocumentProcessingError) as error:
+        await tencent._read(cast(Any, context), 'tencent_query', operation)
+    assert error.value.code == 'TASK_PAUSED'
+    assert delays == [1]
+    assert operation.await_count == 1

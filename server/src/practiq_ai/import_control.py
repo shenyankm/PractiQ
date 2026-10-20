@@ -16,7 +16,7 @@ KEY = 'current'
 
 class ImportControl:
     def __init__(self):
-        self.snapshot = ImportSettingsSnapshot(revision=UUID(int=0), settings=ImportSettings())
+        self.snapshot = ImportSettingsSnapshot(revision=UUID(int=0), settings=ImportSettings(tencentConcurrency=5, readRetryCount=2, retryBaseSeconds=1))
         self.changed = asyncio.Event()
         self.write_lock = asyncio.Lock()
         self.active = 0

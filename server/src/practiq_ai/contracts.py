@@ -502,9 +502,9 @@ class ImportBudgetCapacity(StrictModel):
 
 
 class ImportSettings(StrictModel):
-    tencentConcurrency: StrictInt = Field(default=5, ge=1, le=5)
-    readRetryCount: StrictInt = Field(default=2, ge=0, le=5)
-    retryBaseSeconds: float = Field(default=1, ge=0.5, le=10, allow_inf_nan=False, strict=True)
+    tencentConcurrency: StrictInt = Field(ge=1, le=5)
+    readRetryCount: StrictInt = Field(ge=0, le=5)
+    retryBaseSeconds: float = Field(ge=0.5, le=10, allow_inf_nan=False, strict=True)
 
 
 class ImportSettingsSnapshot(StrictModel):

@@ -227,7 +227,9 @@ Web **Settings** persists Tencent concurrency (1–5, default 5), known-job read
 retries (0–5 after the first attempt, default 2), and base retry delay
 (0.5–10 seconds, default 1) in the existing PostgreSQL Store. The service
 loads the record at startup; no schema migration or environment file rewrite
-is required. A revision protects updates from stale browser overwrites.
+is required. A revision protects updates from stale browser overwrites. Every PUT snapshot
+must include all three setting values; missing fields are rejected without changing
+the saved record.
 Authenticated reads and saves are passive and never start model work.
 Read-only deployments reject setting writes. Model/provider credentials and
 worker/LLM allocation remain trusted service environment configuration.
