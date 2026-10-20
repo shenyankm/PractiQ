@@ -9,7 +9,7 @@ from practiq_ai.contracts import (  # noqa: E402
     AnswerMode, COMPOSITE_MODES, QUESTION_KIND_MODES, DocumentParseResult, DocumentProcessing,
     DocumentSourceType, DocumentTaskControl, DocumentTaskCreate, DocumentTaskDetail, DocumentTaskHead, DocumentTaskList,
     DocumentTaskReceipt, DocumentTaskReparse, DocumentTaskReview, DocumentTaskSummary, DocumentUploadRequest,
-    DocumentUploadResponse, ImportCapabilities, ImportSourceType, OfficeMode,
+    DocumentUploadResponse, ImportCapabilities, ImportSettingsSnapshot, ImportSourceType, OfficeMode,
 )
 
 path = Path(__file__).resolve().parents[1] / 'src-tauri/contracts.json'
@@ -63,7 +63,7 @@ def ts_type(node):
 schema = DocumentParseResult.model_json_schema(mode='serialization')
 wire_models = (DocumentTaskSummary, DocumentTaskReview, DocumentTaskDetail, DocumentTaskHead, DocumentTaskList,
                DocumentTaskCreate, DocumentTaskControl, DocumentTaskReparse, DocumentTaskReceipt,
-               DocumentUploadRequest, DocumentUploadResponse, ImportCapabilities)
+               DocumentUploadRequest, DocumentUploadResponse, ImportCapabilities, ImportSettingsSnapshot)
 definitions = {}
 for model in wire_models:
     definitions.update(model.model_json_schema(mode='serialization').get('$defs', {}))

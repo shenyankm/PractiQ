@@ -1,9 +1,11 @@
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { expect, it, vi } from "vitest";
+import { beforeEach, expect, it, vi } from "vitest";
 import App from "./App";
 import { capabilities, newTaskId, preview, runId, summary, task, taskId } from "./test-fixtures";
 import type { DocumentTaskDetail } from "./contracts.generated";
+
+beforeEach(() => window.history.replaceState(null, "", "/"));
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
@@ -14,7 +16,7 @@ it("shows uncertain Tencent submission and saved jobs without automatically retr
   ] };
   const http = fakeHTTP(detail); const user = userEvent.setup();
   render(<App />); await connect(user);
-  await user.click(await screen.findByRole("button", { name: /sample.docx/ }));
+  await user.click(screen.getByRole("link", { name: "导入记录" })); await user.click(await screen.findByRole("button", { name: "sample.docx" }));
   expect(await screen.findByText(/上次腾讯提交结果尚未确认/)).toBeTruthy();
   expect(screen.getByText(/腾讯文档识别：已保存 1 个任务结果 · 处理中 0 个任务/)).toBeTruthy();
   await user.click(screen.getByText("模型用量与任务诊断"));
@@ -35,6 +37,7 @@ function fakeHTTP(initial: DocumentTaskDetail = task) {
     const intercepted = await server.intercept?.(url, init); if (intercepted) return intercepted;
     const path = new URL(url, location.origin).pathname;
     if (path === "/api/import-capabilities") return json(capabilities);
+    if (path === "/api/import-settings") return json({ revision: taskId, settings: { tencentConcurrency: 5, readRetryCount: 2, retryBaseSeconds: 1 } });
     if (path === "/api/document-tasks" && method === "GET") return json({ items: Array.from(records.values()).map(current => ({ ...summary, threadId: current.threadId, fileName: current.fileName, state: current.state, checkpointId: current.checkpointId, status: current.status })), hasMore: new URL(url, location.origin).searchParams.get("offset") === "0" });
     if (path === "/api/uploads") { document = { ...body, objectKey: `practiq-agent/sources/${body.sha256}/source.${body.sourceType === "text" ? "txt" : body.sourceType}` }; return json({ document, upload: { method: "PUT", url: "/api/uploads/content?" + new URLSearchParams(body), headers: { "Content-Type": body.mediaType } } }); }
     if (path === "/api/uploads/content") return json(document);
@@ -50,18 +53,19 @@ function fakeHTTP(initial: DocumentTaskDetail = task) {
   vi.stubGlobal("fetch", fetcher);
   return { calls, records, server, fetcher };
 }
-async function connect(user: ReturnType<typeof userEvent.setup>) { await user.type(screen.getByLabelText("服务访问令牌"), "fake-service-token"); await user.click(screen.getByRole("button", { name: "连接服务" }));
+async function connect(user: ReturnType<typeof userEvent.setup>) { await user.click(screen.getByRole("link", { name: "开始导入" })); await user.type(screen.getByLabelText("服务访问令牌"), "fake-service-token"); await user.click(screen.getByRole("button", { name: "连接服务" }));
   await screen.findByText(/^服务支持：/);
 }
 async function openTask(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(await screen.findByRole("button", { name: /sample.docx/ }));
+  await user.click(screen.getByRole("link", { name: "导入记录" }));
+  await user.click(screen.getByRole("link", { name: "导入记录" })); await user.click(await screen.findByRole("button", { name: "sample.docx" }));
   await screen.findByRole("heading", { name: "sample.docx", level: 2 });
   await screen.findByText("根据材料选择答案");
 }
 
 it("recovers polling after a hung read and backs off repeated failures without mutations", async () => {
   const user = userEvent.setup(); const http = fakeHTTP();
-  render(<App />); await connect(user); await screen.findByRole("button", { name: /sample.docx/ });
+  render(<App />); await connect(user); await user.click(screen.getByRole("link", { name: "导入记录" })); await screen.findByRole("button", { name: "sample.docx" });
   vi.useFakeTimers(); vi.spyOn(Math, "random").mockReturnValue(0.5);
   let attempts = 0;
   http.server.intercept = (url, init) => {
@@ -82,7 +86,7 @@ it("recovers polling after a hung read and backs off repeated failures without m
   expect(attempts).toBe(3);
   await act(async () => vi.advanceTimersByTimeAsync(10_800));
   expect(attempts).toBe(4);
-  expect(screen.getByRole("button", { name: /sample.docx/ })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "sample.docx" })).toBeTruthy();
   expect(http.calls.every(call => call.method === 'GET')).toBe(true);
 });
 
@@ -100,7 +104,7 @@ it("keeps Token in memory, clears it on remount, and performs no HTTP before con
   expect(screen.queryByLabelText("服务访问令牌")).toBeNull(); expect(persist).not.toHaveBeenCalled();
   expect(http.calls.every(call => call.auth === "Bearer fake-service-token" && !call.url.includes("fake-service-token") && call.method === "GET")).toBe(true);
   expect(screen.queryByRole("button", { name: "断开连接" })).toBeNull();
-  expect(screen.queryByText("服务已连接")).toBeNull();
+  expect(screen.getByText("服务已连接")).toBeTruthy();
   cleanup(); render(<App />); expect((screen.getByLabelText("服务访问令牌") as HTMLInputElement).value).toBe("");
   const count = http.calls.length; vi.useFakeTimers(); await act(async () => vi.advanceTimersByTimeAsync(10_000)); expect(http.calls).toHaveLength(count);
   expect(localStorage.length).toBe(0); expect(sessionStorage.length).toBe(0);
@@ -173,18 +177,18 @@ it("recovers failed task/capability reads and ignores obsolete pages after a fil
   await screen.findByRole("button", { name: "重试读取服务能力" });
   expect(screen.queryByText("正在验证服务")).toBeNull();
   await user.click(await screen.findByRole("button", { name: "重试读取服务能力" })); await screen.findByText(/^服务支持：/);
-  await user.click(await screen.findByRole("button", { name: "重试任务列表" })); await screen.findByRole("button", { name: /sample.docx/ });
+  await user.click(screen.getByRole("link", { name: "导入记录" })); await user.click(await screen.findByRole("button", { name: "重试任务列表" })); await screen.findByRole("button", { name: "sample.docx" });
   let release!: (response: Response) => void;
   http.server.intercept = url => { if (url.includes("offset=20")) return new Promise(resolve => { release = resolve; }); if (url.includes("state_filter=failed")) return json({ items: [{ ...summary, threadId: newTaskId, fileName: "current-failed.pdf" }], hasMore: false }); };
   await user.click(screen.getByRole("button", { name: "下一页任务" })); await waitFor(() => expect(release).toBeTypeOf("function"));
   await user.selectOptions(screen.getByLabelText("筛选任务状态"), "failed"); await screen.findByRole("button", { name: /current-failed.pdf/ });
-  await act(async () => release(json({ items: [summary], hasMore: false }))); expect(screen.queryByRole("button", { name: /sample.docx/ })).toBeNull(); expect(http.calls.at(-1)?.url).toContain("offset=0&state_filter=failed");
+  await act(async () => release(json({ items: [summary], hasMore: false }))); expect(screen.queryByRole("button", { name: "sample.docx" })).toBeNull(); expect(http.calls.at(-1)?.url).toContain("offset=0&state_filter=failed");
   await user.click(screen.getByRole("button", { name: "刷新任务列表" })); await screen.findByRole("button", { name: /current-failed.pdf/ });
 });
 it("disables checkpoint actions when detail/preview reads fail or disagree, then recovers explicitly", async () => {
   const user = userEvent.setup(); const http = fakeHTTP({ ...task, state: "PAUSED", allowedActions: ["resume"], canExportCompleted: true }); let failDetail = true, failPreview = true;
   http.server.intercept = url => { if (url.endsWith(`/${taskId}`) && failDetail) { failDetail = false; return json({}, 503); } if (url.endsWith("/preview") && failPreview) { failPreview = false; return json({}, 503); } };
-  render(<App />); await connect(user); await user.click(await screen.findByRole("button", { name: /sample.docx/ }));
+  render(<App />); await connect(user); await user.click(screen.getByRole("link", { name: "导入记录" })); await user.click(await screen.findByRole("button", { name: "sample.docx" }));
   await screen.findByRole("button", { name: "重试任务详情" }); await screen.findByRole("button", { name: "重试检查点预览" });
   http.server.intercept = url => url.endsWith("/preview") ? json({ ...preview, checkpointId: "different-checkpoint" }) : undefined;
   await user.click(screen.getByRole("button", { name: "重试任务详情" })); await screen.findByRole("button", { name: "继续解析" }); expect((screen.getByRole("button", { name: "继续解析" }) as HTMLButtonElement).disabled).toBe(true);
@@ -220,7 +224,7 @@ it("creates a reparse task only on explicit action and confirms deletion before 
   const user = userEvent.setup(); const http = fakeHTTP(); render(<App />); await connect(user); await openTask(user);
   await user.click(screen.getByRole("button", { name: "删除任务" })); expect(http.calls.some(call => call.method === "DELETE")).toBe(false); await user.click(screen.getByRole("button", { name: "保留任务" }));
   await user.click(screen.getByRole("button", { name: "重新解析为新任务" })); await screen.findByRole("heading", { name: "reparsed.docx", level: 2 }); expect(http.calls.filter(call => call.url.endsWith("/reparse"))).toHaveLength(1);
-  await user.click(screen.getByRole("button", { name: /sample.docx/ })); await screen.findByRole("heading", { name: "sample.docx", level: 2 });
+  await user.click(screen.getByRole("button", { name: "sample.docx" })); await screen.findByRole("heading", { name: "sample.docx", level: 2 });
   await user.click(screen.getByRole("button", { name: "删除任务" })); await user.click(screen.getByRole("button", { name: "确认删除" })); await screen.findByText("任务已删除。"); expect(http.calls.filter(call => call.method === "DELETE")).toHaveLength(1);
 });
 
@@ -231,7 +235,7 @@ it("deletes an expired row despite 410 detail reads only after confirmation, ret
     if (init.method !== "DELETE" && [ `/api/document-tasks/${taskId}`, `/api/document-tasks/${taskId}/preview` ].includes(url)) return json({ detail: { code: "TASK_EXPIRED" } }, 410);
   };
   render(<App />); await connect(user);
-  await user.click(await screen.findByRole("button", { name: /sample.docx.*已过期/ }));
+  await user.click(screen.getByRole("link", { name: "导入记录" })); await user.click(await screen.findByRole("button", { name: "sample.docx" }));
   await screen.findByRole("button", { name: "重试任务详情" });
   await user.click(screen.getByRole("button", { name: "删除已过期任务 sample.docx" }));
   expect(http.calls.filter(call => call.method === "DELETE")).toHaveLength(0);
@@ -285,7 +289,7 @@ it("reuses task diagnostics across unrelated filters and updates them after an e
         const reads = listReads();
         await user.selectOptions(screen.getByLabelText("筛选任务状态"), filter);
         await waitFor(() => expect(listReads()).toBe(reads + 1));
-        await screen.findByRole("button", { name: /sample.docx/ });
+        await screen.findByRole("button", { name: "sample.docx" });
         expect(diagnostic).toHaveBeenCalledTimes(initialCalls);
         expect(details().querySelector("pre")?.textContent).toBe(expected(task));
       }
@@ -321,7 +325,7 @@ it("pauses background polling and reloads when the document becomes visible", as
 });
 it("keeps a cursor per visited page and resets it when filters change", async () => {
   const user = userEvent.setup(); const http = fakeHTTP(); http.server.intercept = url => url.startsWith("/api/document-tasks?") ? json({items:[summary],hasMore:true,nextCursor:"next-page"}):undefined;
-  render(<App/>); await connect(user); await screen.findByRole("button",{name:/sample.docx/});
+  render(<App/>); await connect(user); await user.click(screen.getByRole("link", { name: "导入记录" })); await screen.findByRole("button",{name:/sample.docx/});
   await user.click(screen.getByRole("button",{name:"下一页任务"})); await waitFor(()=>expect(http.calls.at(-1)?.url).toContain("cursor=next-page"));
   await user.click(screen.getByRole("button",{name:"上一页任务"})); await waitFor(()=>expect(http.calls.at(-1)?.url).toContain("offset=0"));
   expect(http.calls.at(-1)?.url).not.toContain("cursor=");
@@ -333,10 +337,12 @@ it("empty task states guide file selection or clear the current filter without s
   const user = userEvent.setup(); const http = fakeHTTP();
   http.server.intercept = url => url.startsWith("/api/document-tasks?") ? json({ items: [], hasMore: false }) : undefined;
   render(<App />);
-  expect(screen.getByRole("list", { name: "文档导入流程" }).children).toHaveLength(3);
   await connect(user);
+  expect(screen.getByRole("list", { name: "文档导入流程" }).children).toHaveLength(3);
+  await user.click(screen.getByRole("link", { name: "导入记录" }));
   await user.click(await screen.findByRole("button", { name: "选择第一份文档" }));
-  expect(document.activeElement).toBe(screen.getByLabelText("选择文档"));
+  await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText("选择文档")));
+  await user.click(screen.getByRole("link", { name: "导入记录" }));
   await user.selectOptions(screen.getByLabelText("筛选任务状态"), "failed");
   await screen.findByText("没有符合此状态的任务。");
   await user.click(screen.getByRole("button", { name: "查看全部任务" }));
@@ -492,7 +498,7 @@ it("lets new files choose deduplication while an older uncertain retry keeps its
 it("keeps task deletion unconfirmed until an affirmative receipt arrives", async () => {
   const user = userEvent.setup(); const http = fakeHTTP(); let invalid = true;
   http.server.intercept = (_url, init) => { if (init.method === "DELETE" && invalid) { invalid = false; return json({ deleted: false }); } };
-  render(<App />); await connect(user); await user.click(await screen.findByRole("button", { name: /sample.docx/ }));
+  render(<App />); await connect(user); await user.click(screen.getByRole("link", { name: "导入记录" })); await user.click(await screen.findByRole("button", { name: "sample.docx" }));
   await user.click(await screen.findByText("其他任务操作"));
   await user.click(screen.getByRole("button", { name: "删除任务" }));
   await user.click(screen.getByRole("button", { name: "确认删除" }));
@@ -503,4 +509,21 @@ it("keeps task deletion unconfirmed until an affirmative receipt arrives", async
   await user.click(screen.getByRole("button", { name: "确认删除" }));
   await screen.findByText("任务已删除。");
   expect(http.calls.filter(call => call.method === "DELETE")).toHaveLength(2);
+});
+
+it("sidebar navigation preserves selected files and settings drafts without starting work", async () => {
+  const user = userEvent.setup(); const http = fakeHTTP(); render(<App />); await connect(user);
+  expect(screen.getByRole("link", { name: "开始导入" }).getAttribute("aria-current")).toBe("page");
+  await user.upload(screen.getByLabelText("选择文档"), new File(["unchanged"], "pending.txt"));
+  await user.click(screen.getByRole("link", { name: "设置" }));
+  const concurrency = await screen.findByLabelText("腾讯识别并发上限"); await user.clear(concurrency); await user.type(concurrency, "3");
+  await user.click(screen.getByRole("link", { name: "导入记录" }));
+  expect(await screen.findByRole("table", { name: "文档导入记录" })).toBeTruthy();
+  expect(screen.getByText("3 条题目 · 2 条待复核")).toBeTruthy();
+  await user.click(screen.getByRole("link", { name: "开始导入" }));
+  expect(screen.getByText("pending.txt")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "开始导入" })).toHaveProperty("disabled", false);
+  await user.click(screen.getByRole("link", { name: "设置" }));
+  expect(concurrency).toHaveProperty("value", "3");
+  expect(http.calls.every(call => call.method === "GET")).toBe(true);
 });

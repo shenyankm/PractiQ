@@ -29,6 +29,7 @@ async function fakeHTTP(page: Page, initial: DocumentTaskDetail = task) {
     if (!call.authenticated) { await respond(route, { detail: { code: "INVALID_TOKEN" } }, 401); return; }
     if (await server.intercept?.(route, call)) return;
     if (call.path === "/api/import-capabilities") { await respond(route, capabilities); return; }
+    if (call.path === "/api/import-settings") { await respond(route, { revision: taskId, settings: { tencentConcurrency: 5, readRetryCount: 2, retryBaseSeconds: 1 } }); return; }
     if (call.path === "/api/document-tasks" && call.method === "GET") {
       await respond(route, { items: Array.from(records.values()).map(current => ({ ...summary, threadId: current.threadId, fileName: current.fileName, state: current.state, checkpointId: current.checkpointId, status: current.status })), hasMore: server.hasMore }); return;
     }
@@ -54,8 +55,8 @@ async function fakeHTTP(page: Page, initial: DocumentTaskDetail = task) {
     if (call.path.endsWith("/preview")) { await respond(route, { ...(server.review || preview), threadId: id, checkpointId: current?.checkpointId, state: current?.state }); return; }
     if (call.path.endsWith("/export")) { await route.fulfill({ contentType: "application/zip", headers: { "Content-Disposition": `attachment; filename="practiq-bank-${id}.zip"` }, body: zip }); return; }
     if (call.path.endsWith("/control")) {
-      const paused = call.body!.action === "pause";
-      records.set(id, { ...current!, state: paused ? "PAUSED" : "RUNNING", runId, allowedActions: paused ? ["resume", "retry_failed", "accept_partial"] : ["pause", "interrupt"] });
+      const paused = call.body!.action === "pause", cancelled = call.body!.action === "interrupt";
+      records.set(id, { ...current!, state: paused ? "PAUSED" : cancelled ? "CANCELLED" : "RUNNING", runId, allowedActions: paused ? ["resume", "retry_failed", "accept_partial"] : cancelled ? ["resume"] : ["pause", "interrupt"] });
       await respond(route, { threadId: id, requestId: call.body!.requestId, runId, accepted: true }, 202); return;
     }
     if (call.path.endsWith("/reparse")) {
@@ -73,16 +74,91 @@ async function connect(page: Page) {
   await expect(page.getByText(/普通单元最多 100 个.*带上下文的视觉单元最多 50 个/)).toBeVisible();
 }
 async function openTask(page: Page) {
-  await page.getByRole("button", { name: /sample.docx/ }).click();
+  await page.getByRole("link", { name: "导入记录", exact: true }).click();
+  await page.getByRole("button", { name: "sample.docx", exact: true }).click();
   await expect(page.getByRole("heading", { name: "sample.docx", exact: true })).toBeVisible();
   await expect(page.getByText("根据材料选择答案", { exact: true })).toBeVisible();
 }
 const mutations = (calls: Call[]) => calls.filter(call => call.method !== "GET");
 const starts = (calls: Call[]) => calls.filter(call => call.path === "/api/document-tasks" && call.method === "POST");
 
+for (const width of [1440, 390]) {
+  test(`full records page opens task controls with keyboard at ${width}px`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 1000 });
+    const http = await fakeHTTP(page, { ...task, state: "RUNNING", allowedActions: ["pause", "interrupt"] });
+    for (let index = 1; index < 20; index++) {
+      const id = `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`;
+      http.records.set(id, { ...task, threadId: id, fileName: `record-${index}.docx` });
+    }
+    await connect(page);
+    await page.getByRole("link", { name: "导入记录", exact: true }).click();
+    await expect(page.getByRole("row")).toHaveCount(21);
+    const manage = page.getByRole("button", { name: "管理任务", exact: true }).first();
+    await manage.focus(); await page.keyboard.press("Enter");
+    await expect(page.getByRole("region", { name: "任务详情", exact: true })).toBeFocused();
+    await expect(page.getByRole("button", { name: "暂停", exact: true })).toBeInViewport();
+    await page.getByRole("link", { name: "返回任务列表", exact: true }).click();
+    await page.getByRole("button", { name: "sample.docx", exact: true }).click();
+    await expect(page.getByRole("region", { name: "任务详情", exact: true })).toBeFocused();
+    await expect(page.getByRole("button", { name: "取消任务", exact: true })).toBeInViewport();
+    await page.screenshot({ path: testInfo.outputPath(`management-full-records-${width}.png`) });
+    expect(mutations(http.calls)).toHaveLength(0);
+  });
+  test(`sidebar import management and durable settings at ${width}px`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 1000 });
+    const http = await fakeHTTP(page, { ...task, state: "RUNNING", phase: "vision", runId, allowedActions: ["pause", "interrupt"] });
+    let saved = { revision: taskId, settings: { tencentConcurrency: 5, readRetryCount: 2, retryBaseSeconds: 1 } };
+    http.server.intercept = async (route, call) => {
+      if (call.path !== "/api/import-settings") return false;
+      if (call.method === "PUT") {
+        if (call.body!.revision !== saved.revision) { await respond(route, { detail: { code: "IMPORT_SETTINGS_CONFLICT" } }, 409); return true; }
+        saved = { revision: newTaskId, settings: call.body!.settings };
+      }
+      await respond(route, saved); return true;
+    };
+    await connect(page);
+    await page.getByLabel("选择文档").setInputFiles({ name: "pending.txt", mimeType: "text/plain", buffer: Buffer.from("Unsubmitted source") });
+    await page.evaluate(() => scrollTo(0, 0));
+    await page.screenshot({ path: testInfo.outputPath(`management-import-${width}.png`), fullPage: true });
+    await openTask(page);
+    await expect(page.getByRole("table", { name: "文档导入记录" })).toBeVisible();
+    await expect(page.getByText("3 条题目 · 2 条待复核", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "暂停", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "取消任务", exact: true })).toBeVisible();
+    await page.evaluate(() => scrollTo(0, 0));
+    await page.screenshot({ path: testInfo.outputPath(`management-records-${width}.png`), fullPage: true });
+    await page.getByRole("link", { name: "设置", exact: true }).click();
+    const concurrency = page.getByLabel("腾讯识别并发上限");
+    await expect(concurrency).toHaveValue("5");
+    await concurrency.fill("6"); await page.getByRole("button", { name: "保存设置", exact: true }).click();
+    expect(mutations(http.calls)).toHaveLength(0);
+    await concurrency.fill("2"); await page.getByLabel("读取失败重试次数").fill("0"); await page.getByLabel("初始退避间隔（秒）").fill("1.5");
+    await page.getByRole("link", { name: "开始导入", exact: true }).click();
+    await expect(page.getByText("pending.txt", { exact: true })).toBeVisible();
+    await page.getByRole("link", { name: "设置", exact: true }).click(); await expect(concurrency).toHaveValue("2");
+    await page.getByRole("button", { name: "保存设置", exact: true }).click(); await expect(page.getByText("设置已保存", { exact: true })).toBeVisible();
+    await page.evaluate(() => scrollTo(0, 0));
+    await page.screenshot({ path: testInfo.outputPath(`management-settings-${width}.png`), fullPage: true });
+    expect(mutations(http.calls).map(call => [call.method, call.path])).toEqual([["PUT", "/api/import-settings"]]);
+    await page.getByRole("link", { name: "导入记录", exact: true }).click();
+    await page.getByRole("button", { name: "暂停", exact: true }).click(); await expect(page.getByRole("button", { name: "继续解析", exact: true })).toBeEnabled();
+    await page.getByRole("button", { name: "继续解析", exact: true }).click(); await expect(page.getByRole("button", { name: "暂停", exact: true })).toBeEnabled();
+    await page.getByRole("button", { name: "暂停", exact: true }).click(); await expect(page.getByRole("button", { name: "重试失败单元", exact: true })).toBeEnabled();
+    await page.getByRole("button", { name: "重试失败单元", exact: true }).click(); await expect(page.getByRole("button", { name: "取消任务", exact: true })).toBeEnabled();
+    await page.getByRole("button", { name: "取消任务", exact: true }).click(); await expect(page.getByRole("button", { name: "继续解析", exact: true })).toBeEnabled();
+    await page.reload(); await page.getByLabel("服务访问令牌").fill(fakeToken); await page.getByRole("button", { name: "连接服务", exact: true }).click();
+    await page.getByRole("link", { name: "设置", exact: true }).click();
+    await expect(concurrency).toHaveValue("2"); await expect(page.getByLabel("读取失败重试次数")).toHaveValue("0");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    expect(http.server.modelStarts).toBe(0);
+    expect(http.calls.every(call => call.authenticated)).toBe(true);
+  });
+}
+
 test("shared dropdowns preserve themed menus, empty filters and keyboard focus", async ({ page }, testInfo) => {
   const http = await fakeHTTP(page);
   await connect(page);
+  await page.getByRole("link", { name: "导入记录", exact: true }).click();
   const filter = page.getByRole("combobox", { name: "筛选任务状态" });
   await expect(filter).toHaveAttribute("data-slot", "select-trigger");
   await filter.focus();
@@ -125,7 +201,7 @@ test("1000 question searches scan a shared option bank once and stay passive", a
     };
   });
   await connect(page);
-  await page.getByRole("button", { name: /sample.docx/ }).click();
+  await page.getByRole("link", { name: "导入记录", exact: true }).click(); await page.getByRole("button", { name: "sample.docx", exact: true }).click();
   const search = page.getByRole("searchbox");
   await expect(search).toBeVisible();
   // Development StrictMode repeats the memo calculation; production runs it once.
@@ -150,7 +226,7 @@ for (const [width, height] of [[1440, 1000], [390, 844]]) {
     const http = await fakeHTTP(page);
     await page.goto("/");
     await page.mouse.move(0, 0);
-    await expect(page.locator('.import-steps [aria-current="step"]')).toHaveText(/选择并导入/);
+    await expect(page.getByRole("heading", { name: "连接个人服务", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "刷新余额与商品" })).toBeHidden();
     await page.screenshot({ path: `${evidence}/after-connection-${width}.png`, fullPage: true });
     await connect(page);
@@ -170,7 +246,7 @@ for (const [width, height] of [[1440, 1000], [390, 844]]) {
     await openTask(page);
     await page.evaluate(() => scrollTo(0, 0));
     await page.mouse.move(0, 0);
-    await expect(page.locator('.import-steps [aria-current="step"]')).toHaveText(/检查解析结果/);
+    await expect(page.getByRole("link", { name: "导入记录", exact: true })).toHaveAttribute("aria-current", "page");
     await page.getByRole("searchbox", { name: "搜索解析题目" }).fill("absent");
     await expect(page.getByText("显示 0 / 3 条记录")).toBeVisible();
     await expect(page.getByText("筛选仅影响显示，导出仍包含全部已完成题目。")).toBeVisible();
@@ -189,19 +265,18 @@ for (const [width, height] of [[1440, 1000], [390, 844]]) {
     const download = page.waitForEvent("download");
     await page.getByRole("button", { name: "下载题库 ZIP", exact: true }).click();
     await download;
-    await expect(page.locator('.import-steps [aria-current="step"]')).toHaveText(/导出并离线练习/);
-    await expect(page.getByText("ZIP 已下载 · App：设置 → 恢复备份", { exact: true })).toBeAttached();
+    await expect(page.getByText(/题库 ZIP 已下载。每次导出/)).toBeVisible();
     expect(http.server.modelStarts).toBe(0);
     await page.evaluate(() => scrollTo(0, 0));
     await page.mouse.move(0, 0);
     await page.screenshot({ path: `${evidence}/after-export-${width}.png`, fullPage: true, animations: "disabled" });
     http.records.set(taskId, { ...task, checkpointId: "new-checkpoint" });
     await page.getByRole("button", { name: "刷新任务详情", exact: true }).click();
-    await expect(page.locator('.import-steps [aria-current="step"]')).toHaveText(/检查解析结果/);
+    await expect(page.getByRole("link", { name: "导入记录", exact: true })).toHaveAttribute("aria-current", "page");
     await expect(page.getByRole("button", { name: "断开连接", exact: true })).toHaveCount(0);
-    await expect(page.getByText("服务已连接", { exact: true })).toHaveCount(0);
+    await expect(page.getByText("服务已连接", { exact: true })).toBeAttached();
     await page.reload();
-    await expect(page.locator('.import-steps [aria-current="step"]')).toHaveText(/选择并导入/);
+    await expect(page.getByRole("heading", { name: "连接个人服务", exact: true })).toBeVisible();
   });
 }
 
@@ -237,7 +312,7 @@ test("workspace fits narrow and desktop windows with keyboard shortcuts to conte
   await page.keyboard.press("Enter");
   await expect(page.getByRole("main")).toBeFocused();
   await connect(page);
-  await page.getByRole("button", { name: /很长的来源文档名称/ }).click();
+  await page.getByRole("link", { name: "导入记录", exact: true }).click(); await page.getByRole("button", { name: /很长的来源文档名称/ }).click();
   await expect(page.getByRole("heading", { name: /很长的来源文档名称/ })).toBeVisible();
   await expect(page.getByText("根据材料选择答案", { exact: true })).toBeVisible();
   for (const width of [1440, 900, 390, 320]) {
@@ -389,9 +464,9 @@ test("failed reads retry explicitly and stale pages cannot overwrite a new filte
     }
     return false;
   };
-  await connect(page); await page.getByRole("button", { name: "重试任务列表", exact: true }).click(); await expect(page.getByRole("button", { name: /sample.docx/ })).toBeVisible();
+  await connect(page); await page.getByRole("link", { name: "导入记录", exact: true }).click(); await page.getByRole("button", { name: "重试任务列表", exact: true }).click(); await expect(page.getByRole("button", { name: /sample.docx/ })).toBeVisible();
   await page.getByRole("button", { name: "下一页任务", exact: true }).click(); await expect.poll(() => !!release).toBe(true);
-  await chooseOption(page.getByLabel("筛选任务状态"), "failed"); await expect(page.getByRole("button", { name: /current-failed.pdf/ })).toBeVisible();
+  await page.getByRole("link", { name: "导入记录", exact: true }).click(); await chooseOption(page.getByLabel("筛选任务状态"), "failed"); await expect(page.getByRole("button", { name: /current-failed.pdf/ })).toBeVisible();
   await release!(); await expect(page.getByRole("button", { name: /sample.docx/ })).toHaveCount(0); await expect(page.getByText("第 1 页", { exact: true })).toBeVisible();
   expect(mutations(http.calls)).toHaveLength(0);
 });
@@ -408,13 +483,13 @@ test("expired task deletion stays explicit and recoverable when detail and previ
     if (call.method === "GET" && [`/api/document-tasks/${taskId}`, `/api/document-tasks/${taskId}/preview`].includes(call.path)) { await respond(route, { detail: { code: "TASK_EXPIRED" } }, 410); return true; }
     return false;
   };
-  await connect(page); await page.getByRole("button", { name: /sample.docx.*已过期/ }).click();
+  await connect(page); await page.getByRole("link", { name: "导入记录", exact: true }).click(); await page.getByRole("button", { name: "sample.docx", exact: true }).click();
   await expect(page.getByRole("button", { name: "重试任务详情", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "删除已过期任务 sample.docx", exact: true }).click();
+  await page.getByRole("link", { name: "导入记录", exact: true }).click(); await page.getByRole("button", { name: "删除已过期任务 sample.docx", exact: true }).click();
   expect(mutations(http.calls)).toHaveLength(0);
   await page.getByRole("button", { name: "保留任务", exact: true }).click();
   await expect(page.getByRole("group", { name: "删除任务确认" })).toHaveCount(0);
-  await page.getByRole("button", { name: "删除已过期任务 sample.docx", exact: true }).click();
+  await page.getByRole("link", { name: "导入记录", exact: true }).click(); await page.getByRole("button", { name: "删除已过期任务 sample.docx", exact: true }).click();
   await page.getByRole("button", { name: "确认删除", exact: true }).click();
   await expect(page.getByRole("button", { name: "确认删除", exact: true })).toBeDisabled();
   await expect(page.getByRole("button", { name: "保留任务", exact: true })).toBeDisabled();
@@ -458,9 +533,9 @@ test("empty task guidance preserves keyboard focus and only reads when clearing 
   const http = await fakeHTTP(page);
   http.records.clear();
   await connect(page);
-  await page.getByRole("button", { name: "选择第一份文档" }).click();
+  await page.getByRole("link", { name: "导入记录", exact: true }).click(); await page.getByRole("button", { name: "选择第一份文档" }).click();
   await expect(page.getByLabel("选择文档")).toBeFocused();
-  await chooseOption(page.getByLabel("筛选任务状态"), "failed");
+  await page.getByRole("link", { name: "导入记录", exact: true }).click(); await chooseOption(page.getByLabel("筛选任务状态"), "failed");
   await expect(page.getByText("没有符合此状态的任务。", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "查看全部任务" }).click();
   await expect(page.getByLabel("筛选任务状态")).toHaveAttribute('data-value', "");
@@ -544,7 +619,7 @@ for (const entry of ["detail", "expired"] as const) {
       await page.getByText("其他任务操作", { exact: true }).click();
       await page.getByRole("button", { name: "删除任务", exact: true }).click();
     } else {
-      await page.getByRole("button", { name: "删除已过期任务 sample.docx", exact: true }).click();
+      await page.getByRole("link", { name: "导入记录", exact: true }).click(); await page.getByRole("button", { name: "删除已过期任务 sample.docx", exact: true }).click();
     }
     await page.getByRole("button", { name: "确认删除", exact: true }).click();
     await expect(page.getByRole("button", { name: /sample.docx/ })).toHaveCount(0);
@@ -556,7 +631,7 @@ for (const entry of ["detail", "expired"] as const) {
 
 
 async function captureReview(page: Page, card: ReturnType<Page['locator']>, prefix: string, testInfo: { outputPath: (name: string) => string }) {
-  const range = await card.evaluate(e => ({ top: e.getBoundingClientRect().top + scrollY, height: (e as HTMLElement).offsetHeight, header: document.querySelector('.web-header')!.getBoundingClientRect().height }));
+  const range = await card.evaluate(e => ({ top: e.getBoundingClientRect().top + scrollY, height: (e as HTMLElement).offsetHeight, header: innerWidth < 768 ? document.querySelector('.web-sidebar')!.getBoundingClientRect().height : 0 }));
   const step = Math.max(80, (await page.evaluate(() => innerHeight)) - range.header - 32);
   for (let part = 0; part < Math.ceil(range.height / step); part++) {
     await page.evaluate(top => scrollTo(0, top), range.top - range.header - 16 + part * step);
@@ -577,7 +652,7 @@ for (const [width, height] of layoutViewports) {
       return true;
     };
     await connect(page);
-    await page.getByRole('button', { name: /sample.docx/ }).click();
+    await page.getByRole("link", { name: "导入记录", exact: true }).click(); await page.getByRole('button', { name: /sample.docx/ }).click();
     await expect(page.locator('.question-card')).toHaveCount(layoutSnapshots.length);
     for (let index = 0; index < layoutSnapshots.length; index++) {
       const card = page.locator('.question-card').nth(index);
@@ -623,8 +698,8 @@ for (const width of [1440, 390]) {
     const error = page.getByRole('alert').filter({ hasText: '操作结果尚未确认' });
     await expect(error).toBeInViewport({ ratio: 1 });
     await expect.poll(async () => {
-      const banner = await error.boundingBox(), header = await page.locator('.web-header').boundingBox();
-      return !!banner && !!header && banner.y >= header.y + header.height && banner.y + banner.height <= 950;
+      const banner = await error.boundingBox(), headerHeight = await page.evaluate(() => innerWidth < 768 ? document.querySelector('.web-sidebar')!.getBoundingClientRect().height : 0);
+      return !!banner && banner.y >= headerHeight && banner.y + banner.height <= 950;
     }).toBe(true);
     expect(mutations(http.calls)).toHaveLength(1);
     await page.screenshot({ path: testInfo.outputPath(`web-action-error-${width}.png`) });
@@ -633,7 +708,7 @@ for (const width of [1440, 390]) {
     await expect(page.getByLabel('服务访问令牌')).toHaveValue('');
     await page.getByLabel('服务访问令牌').fill(fakeToken);
     await page.getByRole('button', { name: '连接服务', exact: true }).click();
-    await page.getByRole('button', { name: /sample.docx/ }).click();
+    await page.getByRole("link", { name: "导入记录", exact: true }).click(); await page.getByRole('button', { name: /sample.docx/ }).click();
     await expect(page.getByRole('heading', { name: '此界面暂时无法显示', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: '下载题库 ZIP', exact: true })).toBeEnabled();
     expect(mutations(http.calls)).toHaveLength(1);

@@ -235,8 +235,10 @@ successful query can still report a failed document job.
 
 Only reads of an acknowledged task and its result retry transient transport
 failures, HTTP 408/429/500/502/503/504, or query `RequestLimitExceeded` and
-`InternalError` responses. Each read has at most three attempts, with 1/2-second
+`InternalError` responses. By default each read has at most three attempts, with 1/2-second
 backoff and 20% jitter, bounded by the saved run deadline and control checks.
+The authenticated Web Settings page can persist 0–5 additional read retries
+and a 0.5–10-second base backoff for subsequent read operations.
 Authentication failures, malformed results, terminal job failures and paid
 submission are never automatically retried. An exhausted read retains the job ID
 for an explicit resume. An unacknowledged submission remains blocked from replay.
@@ -275,7 +277,8 @@ retains the latest diagnostic receipt.
 
 
 Tencent parsing has a separate shared admission ceiling of five concurrent
-workflows in this service, independent of LLM concurrency. A slot covers submit,
+workflows in this service, independent of LLM concurrency. Web Settings can
+lower this limit to 1–5; active workflows drain before new work is admitted. A slot covers submit,
 known-task polling and local result saving. Waiting is bounded by the persisted
 run deadline and happens before any new paid-submission intent is written;
 cancellation while queued cannot leave a false `SUBMITTING` receipt. Pause is

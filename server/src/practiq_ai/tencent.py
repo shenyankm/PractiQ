@@ -9,11 +9,11 @@ import random
 import re
 import time
 from collections.abc import Awaitable, Callable
+from contextlib import AsyncExitStack
 from datetime import UTC, datetime
 from functools import partial
 from typing import Any
 from urllib.parse import urlsplit
-from weakref import WeakKeyDictionary
 
 import httpx
 from langgraph.runtime import Runtime
@@ -29,12 +29,10 @@ from .contracts import (
 )
 from .errors import DocumentProcessingError
 from .execution import guard, namespace, run_remaining, store_put
+from .import_control import current as import_control
 from .storage import get_object_store
 from .temporary import preparation
 from .tencent_staging import delete_source, source_url, staging_object, upload_source
-
-MAX_CONCURRENT_JOBS = 5
-_jobs: WeakKeyDictionary[asyncio.AbstractEventLoop, asyncio.Semaphore] = WeakKeyDictionary()
 
 HOST = "ocr.tencentcloudapi.com"
 BASE64_LIMIT = 8 * 1024 * 1024
@@ -86,7 +84,9 @@ def _status(record: dict[str, Any], status: str) -> None:
 
 
 async def _read[T](runtime: Runtime[Any], stage: str, operation: Callable[[], Awaitable[T]]) -> T:
-    for attempt in range(1, 4):
+    settings = import_control(runtime).snapshot.settings
+    attempts = settings.readRetryCount + 1
+    for attempt in range(1, attempts + 1):
         await guard(runtime)
         timing: dict[str, Any] = {}
         try:
@@ -96,8 +96,8 @@ async def _read[T](runtime: Runtime[Any], stage: str, operation: Callable[[], Aw
         except (TransientReadError, RequestRejected) as exc:
             retryable = isinstance(exc, TransientReadError) or (
                 isinstance(exc, RequestRejected) and (exc.provider_code or "").split(".")[0] in {"RequestLimitExceeded", "InternalError"})
-            delay = 2 ** (attempt - 1) * random.uniform(0.8, 1.2)
-            if not retryable or attempt == 3 or await run_remaining(runtime) <= delay:
+            delay = settings.retryBaseSeconds * 2 ** (attempt - 1) * random.uniform(0.8, 1.2)
+            if not retryable or attempt == attempts or await run_remaining(runtime) <= delay:
                 raise
             telemetry.event("tencent_read_retry", stage=stage, attempt=attempt, errorCode=exc.code,
                             threadId=runtime.execution_info.thread_id if runtime.execution_info else None)
@@ -206,24 +206,11 @@ async def _cleanup_source(record: dict[str, Any], runtime: Runtime[Any], key: st
 
 async def parse_job(reference: ArtifactReference, runtime: Runtime[Any], *, key: str = "source",
                     source_type: DocumentSourceType | None = None, source_sha256: str | None = None) -> dict[str, Any]:
-    """Limit this service to five concurrent Tencent parsing workflows."""
-    loop = asyncio.get_running_loop()
-    if loop not in _jobs:
-        _jobs[loop] = asyncio.Semaphore(MAX_CONCURRENT_JOBS)
-    gate = _jobs[loop]
-    async with asyncio.timeout(await run_remaining(runtime)):
+    """Use service-wide admission before writing any paid submission intent."""
+    async with asyncio.timeout(await run_remaining(runtime)), AsyncExitStack() as stack:
         with telemetry.measure("tencent_admission", {}, "durationMs"):
-            while True:
-                try:
-                    async with asyncio.timeout(1):
-                        await gate.acquire()
-                    break
-                except TimeoutError:
-                    await guard(runtime)
-        try:
-            return await _parse_job(reference, runtime, key=key, source_type=source_type, source_sha256=source_sha256)
-        finally:
-            gate.release()
+            await stack.enter_async_context(import_control(runtime).slot(partial(guard, runtime)))
+        return await _parse_job(reference, runtime, key=key, source_type=source_type, source_sha256=source_sha256)
 
 
 async def _parse_job(reference: ArtifactReference, runtime: Runtime[Any], *, key: str,
