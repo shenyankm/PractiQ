@@ -827,7 +827,7 @@ impl<'a> Index<'a> {
 }
 
 pub fn freeze(rows: &[Value]) -> Value {
-    let ids: HashSet<_> = rows.iter().map(|r| r["id"].clone().to_string()).collect();
+    let ids: HashSet<_> = rows.iter().map(|r| &r["id"]).collect();
     let mixed_banks = rows
         .windows(2)
         .any(|pair| pair[0]["bankId"] != pair[1]["bankId"]);
@@ -852,7 +852,7 @@ pub fn freeze(rows: &[Value]) -> Value {
         ));
         for (key, values) in [("groups", &mut groups), ("visuals", &mut visuals)] {
             for item in list(row, key) {
-                if seen.insert((key, item["id"].to_string())) {
+                if seen.insert((key, &item["id"])) {
                     let mut item = item.clone();
                     if mixed_banks && key == "visuals" && list(&item, "questionIds").is_empty() {
                         // A source-bank document image must not become global in a mixed snapshot.
@@ -863,7 +863,7 @@ pub fn freeze(rows: &[Value]) -> Value {
                             .collect::<Vec<_>>());
                     }
                     if let Some(refs) = item["questionIds"].as_array_mut() {
-                        refs.retain(|id| ids.contains(&id.to_string()));
+                        refs.retain(|id| ids.contains(id));
                     }
                     values.push(item);
                 }
@@ -1390,6 +1390,25 @@ mod snapshot_copy_tests {
                 .to_string(),
             "Invalid question row"
         );
+    }
+
+    #[test]
+    fn frozen_reference_sets_preserve_escaped_ids_and_distinct_context_types() {
+        let id = "q\"\\\n中";
+        let context =
+            json!({"id":"shared\"中","questionIds":[id,"other","outside"],"instructions":null});
+        let rows = vec![
+            json!({"id":id,"bankId":"bank","question":{"id":id},"groups":[context],"visuals":[context]}),
+            json!({"id":"other","bankId":"bank","question":{"id":"other"},"groups":[context],"visuals":[context]}),
+        ];
+        let before = rows.clone();
+        let frozen = freeze(&rows);
+        for field in ["groups", "visuals"] {
+            assert_eq!(list(&frozen, field).len(), 1);
+            assert_eq!(frozen[field][0]["questionIds"], json!([id, "other"]));
+            assert!(frozen[field][0]["instructions"].is_null());
+        }
+        assert_eq!(rows, before);
     }
 
     #[test]
