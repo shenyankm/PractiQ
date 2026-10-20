@@ -501,6 +501,17 @@ class ImportBudgetCapacity(StrictModel):
     contextUnitCalls: int = Field(gt=0)
 
 
+class ImportSettings(StrictModel):
+    tencentConcurrency: StrictInt = Field(ge=1, le=5)
+    readRetryCount: StrictInt = Field(ge=0, le=5)
+    retryBaseSeconds: float = Field(ge=0.5, le=10, allow_inf_nan=False, strict=True)
+
+
+class ImportSettingsSnapshot(StrictModel):
+    revision: UUID
+    settings: ImportSettings
+
+
 class ImportCapabilities(StrictModel):
     sourceTypes: list[ImportSourceType]
     sourceMaxBytes: int = Field(gt=0)

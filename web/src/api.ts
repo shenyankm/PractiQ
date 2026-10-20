@@ -1,4 +1,4 @@
-import type { ArtifactReference, DocumentReference, DocumentSourceType, DocumentTaskControl, DocumentTaskCreate, DocumentTaskDetail, DocumentTaskHead, DocumentTaskList, DocumentTaskReceipt, DocumentTaskReparse, DocumentTaskReview, DocumentUploadResponse, ImportCapabilities } from "./contracts.generated";
+import type { ArtifactReference, DocumentReference, DocumentSourceType, DocumentTaskControl, DocumentTaskCreate, DocumentTaskDetail, DocumentTaskHead, DocumentTaskList, DocumentTaskReceipt, DocumentTaskReparse, DocumentTaskReview, DocumentUploadResponse, ImportCapabilities, ImportSettingsSnapshot } from "./contracts.generated";
 import { IMPORT_SOURCE_TYPES } from "./contracts.generated";
 
 export type SourceType = Exclude<DocumentSourceType, "csv">;
@@ -161,6 +161,18 @@ export class Client {
   }
   private post<T>(path: string, body: unknown) {
     return this.json<T>(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  }
+  private checkedSettings(value: ImportSettingsSnapshot) {
+    const settings = value?.settings;
+    if (!value || typeof value.revision !== "string" || !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(value.revision) || !settings || !Number.isInteger(settings.tencentConcurrency) || settings.tencentConcurrency! < 1 || settings.tencentConcurrency! > 5 || !Number.isInteger(settings.readRetryCount) || settings.readRetryCount! < 0 || settings.readRetryCount! > 5 || !Number.isFinite(settings.retryBaseSeconds) || settings.retryBaseSeconds! < 0.5 || settings.retryBaseSeconds! > 10) throw new ApiError("导入设置响应无效，请重新读取。", "INVALID_RESPONSE");
+    return value;
+  }
+  async importSettings(signal?: AbortSignal) { return this.checkedSettings(await this.json<ImportSettingsSnapshot>("/api/import-settings", undefined, signal)); }
+  async saveImportSettings(value: ImportSettingsSnapshot) {
+    this.checkedSettings(value);
+    const saved = this.checkedSettings(await this.json<ImportSettingsSnapshot>("/api/import-settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(value) }));
+    if (saved.revision === value.revision || Object.keys(value.settings).some(key => saved.settings[key as keyof typeof saved.settings] !== value.settings[key as keyof typeof value.settings])) throw new ApiError("保存结果尚未确认，请重新读取设置后核对。", "INVALID_RESPONSE");
+    return saved;
   }
   private async receipt(path: string, body: { requestId: string }) {
     const receipt = await this.post<Receipt>(path, body);

@@ -219,3 +219,25 @@ Tencent parsing uses a shared ceiling of five local workflows, independent of
 second and respects the saved run deadline; interrupted waiters have no new
 paid intent. Already submitted remote work and other clients share the actual
 account quota; an unknown submission still requires explicit reconciliation.
+
+
+### Shared Web import settings
+
+Web **Settings** persists Tencent concurrency (1–5, default 5), known-job read
+retries (0–5 after the first attempt, default 2), and base retry delay
+(0.5–10 seconds, default 1) in the existing PostgreSQL Store. The service
+loads the record at startup; no schema migration or environment file rewrite
+is required. A revision protects updates from stale browser overwrites. Every PUT snapshot
+must include all three setting values; missing fields are rejected without changing
+the saved record.
+Authenticated reads and saves are passive and never start model work.
+Read-only deployments reject setting writes. Model/provider credentials and
+worker/LLM allocation remain trusted service environment configuration.
+
+Lowered concurrency applies to subsequent admissions without cancelling
+in-flight work. New known-job reads capture the current retry policy; paid
+submissions and unknown outcomes remain excluded. The saved run deadline and
+pause checks still bound waits. Capacity release does not wait for settings
+storage, including cancellation while a save is blocked. Retain the service
+database and original deployment for rollback; do not adopt older checkpoints
+by changing their recorded execution signatures.

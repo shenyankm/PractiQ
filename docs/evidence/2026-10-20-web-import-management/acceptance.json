@@ -1,0 +1,158 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-10-20T07:26:03.339444+00:00",
+  "status": "PASSED",
+  "environment": "macOS arm64; Python 3.14.7; model substitutes and disposable PostgreSQL/RabbitMQ",
+  "baseCommit": "60c27dbcb7eeb6fd83ae52435be72cf48b8405c3",
+  "scope": [
+    "Start import, Import history and Settings navigation",
+    "History information, question/review counts and server-authorized controls",
+    "Durable service-wide Tencent concurrency and safe read retry policy"
+  ],
+  "settings": {
+    "defaults": {
+      "tencentConcurrency": 5,
+      "readRetryCount": 2,
+      "retryBaseSeconds": 1
+    },
+    "bounds": {
+      "tencentConcurrency": [
+        1,
+        5
+      ],
+      "readRetryCount": [
+        0,
+        5
+      ],
+      "retryBaseSeconds": [
+        0.5,
+        10
+      ]
+    },
+    "persistence": "existing PostgreSQL Store, startup reload",
+    "staleWrites": "409 IMPORT_SETTINGS_CONFLICT",
+    "readOnlyWrites": "409 SERVICE_READ_ONLY",
+    "paidSubmitRetries": false
+  },
+  "checks": [
+    {
+      "command": "PYTHONPATH=<repo>/server/src make verify AI_PYTHON=<existing Python 3.14.7>",
+      "exitCode": 0,
+      "testsPassed": 2984,
+      "warnings": 8,
+      "coveragePercent": 93,
+      "evaluationFixtures": 30,
+      "ruff": "PASSED",
+      "pyright": "PASSED",
+      "recoveryProbes": "PASSED",
+      "packageBuildAndIntegrity": "PASSED",
+      "scope": "Run before rebase; all server implementation/tests and app paths are byte-identical after rebase"
+    },
+    {
+      "command": "make web-check",
+      "exitCode": 0,
+      "componentTests": 136,
+      "browserTests": 39,
+      "statementCoveragePercent": 94.51,
+      "lineCoveragePercent": 97.18,
+      "typescript": "PASSED",
+      "eslint": "PASSED",
+      "scope": "Repeated after integrating latest main import safeguards"
+    },
+    {
+      "command": "make web-build",
+      "exitCode": 0,
+      "scope": "Repeated after integrating latest main"
+    },
+    {
+      "command": "make app-check AI_PYTHON=<existing Python 3.14.7>",
+      "exitCode": 0,
+      "frontendPassed": 446,
+      "frontendSkipped": 1,
+      "rustPassed": 193,
+      "rustIgnored": 15,
+      "clippy": "PASSED",
+      "scope": "Generated contract compatibility; app paths unchanged by rebase"
+    }
+  ],
+  "regressions": [
+    "Authenticated settings save and service restart reload with no model calls",
+    "Stale revision and invalid/read-only writes rejected",
+    "Lowered concurrency drains existing work",
+    "Repeated cancellation releases capacity during blocked settings write",
+    "Configured read retries and backoff; paid submits unchanged",
+    "Unknown receipts, checkpoint conflicts and explicit recovery remain protected",
+    "20-row task selection by keyboard and repeated selection focuses and scrolls to controls at 1440/390",
+    "Navigation preserves source files and settings drafts; settings save and navigation never start models",
+    "Latest-main uncertain duplicate-batch stop, failed-file removal and affirmative receipt tests retained and passing"
+  ],
+  "finishReview": {
+    "initialDisposition": "fix",
+    "finding": "Task selection did not bring controls into view on full history pages",
+    "verdictDisposition": "ship",
+    "findingResolution": "resolved",
+    "scope": "Verdict pass for the one P2 finding; original six-screenshot visual review retained"
+  },
+  "documentation": "Existing three documents checked; README App import destination corrected; incumbent design preserved",
+  "notAssessed": [
+    "Real Tencent/LLM calls for this feature",
+    "Remote CI at local acceptance time",
+    "New native-device UI acceptance"
+  ],
+  "screenshots": {
+    "desktop.png": {
+      "sha256": "54f178204a5a6ace130ef8f0661b122d60f3a1d5eac99f4be3528a9e35d0feb2",
+      "syntheticData": true
+    },
+    "full-records-390.png": {
+      "sha256": "0f73f0146fe929b37f10662d41e3c67095a11817f3a7c74087f6a47446dbd383",
+      "syntheticData": true
+    },
+    "records-mobile.png": {
+      "sha256": "1416889ddaba9b0928f714aba62903c27868a24f8f14f7fae45c8c4a2e089558",
+      "syntheticData": true
+    },
+    "full-records-1440.png": {
+      "sha256": "f96eea0ba84f4a9f3c714f8071fc36c01815d639cb6e507f7d4dd80bc6b3d211",
+      "syntheticData": true
+    },
+    "settings-desktop.png": {
+      "sha256": "1b8fd312dbad1d63ba4aa54b57b9c6ed299b1fb9d81c2e87bec896cfbc1b96be",
+      "syntheticData": true
+    },
+    "records-desktop.png": {
+      "sha256": "9f7b42a2f08b6d89f624dd838ed34e24e1bdb528352f439dde173ee5d6fb656c",
+      "syntheticData": true
+    },
+    "mobile.png": {
+      "sha256": "b965cf5a61dc02d5cf0a3eb42a7dde7e3cd639c71b26a223e0abfe376c47df41",
+      "syntheticData": true
+    },
+    "settings-mobile.png": {
+      "sha256": "177a04211270175ff77360dca0c4c74956d6506e86de15f0572c54224ee934ef",
+      "syntheticData": true
+    }
+  },
+  "sourceSha256": {
+    "app/scripts/export-contracts.py": "8ea0230466949c3b5d17cd76561e19c1e0d00501ee0cd0cc36708f8c3dea4978",
+    "app/src/contracts.generated.ts": "f3fe740b806daf9b9fb057a7e18612d9e738b965564b5d95c74bc086b6f077b5",
+    "server/docs/operations.md": "23e20c82ce35ddfa64123f365a74c0c36f26316c83022806c7faed573b14a670",
+    "server/docs/tencent-document-parser.md": "704283c4430cf5d96107e56bd74cee7e183da885cf2af7e8d721b63e6890287b",
+    "server/src/practiq_ai/contracts.py": "b98283552b62380cebdd6b7b87487f6b312ae32d685f34b0e680e134e6d1bd93",
+    "server/src/practiq_ai/import_control.py": "1594085e0c4312f154c16ff1c3d96515e6b869d93f7bbf17f6f6af6f7894a7cc",
+    "server/src/practiq_ai/middleware.py": "59aa232dd0dfb59ce036bdd65390c2f8ec307f5b0edc36967e9f2d341d5c96c2",
+    "server/src/practiq_ai/runtime.py": "2a59c9a487b04ab8eba30f13ebb6373c8ec57b388d6360e65563adc70d006ec3",
+    "server/src/practiq_ai/tencent.py": "79a582a36b34c2fc24fac3716010ce9baf6f810ee8c4638f6495f6d0d5a98390",
+    "server/src/practiq_ai/webapp.py": "3d3a10ff6635c012dbefa07717ac2e59382d0823ae4ee5fbbb0ba9e9ba41510d",
+    "server/tests/test_import_control.py": "74242d8aaa0bbe7223b44490bbc00e4e4f3d8c6c55be5343421927101829b04d",
+    "web/README.md": "ab934f9226dfacb208f1436b62e448a1c8fdb8e5da96fb84d95ced9ca135e176",
+    "web/src/App.test.tsx": "2f321cddfc2ffd4a875ba908511fc11dcb580ffe6c3e03ecf61dbd692efa0cef",
+    "web/src/App.tsx": "df48f9ef22a255316422d025c739fec544b5a0997c160cca295c5b6b90d4bba4",
+    "web/src/ImportSettingsPanel.test.tsx": "212a8a6f753c33cc53242cce579861fba0a7cb2b02e50a00d4329fea208a22a7",
+    "web/src/ImportSettingsPanel.tsx": "06d822d06761b8663d0d1488e11f6145c694fb1f67d4663173d44e517a1a255d",
+    "web/src/api.ts": "99b62148631de9af727048e6a652e83d95fd889539f94d9e75b53de467663893",
+    "web/src/contracts.generated.ts": "f3fe740b806daf9b9fb057a7e18612d9e738b965564b5d95c74bc086b6f077b5",
+    "web/src/index.css": "1b789a9b6ca1530ed31fd5f4cd6f0fa91f8a8e54c4c4cee496c33db27598ac1e",
+    "web/tests/browser.spec.ts": "07f1121309c2cfb1f59ba4024ee2d1a7219da2a48547d9c53e2c2742400a0177"
+  }
+}

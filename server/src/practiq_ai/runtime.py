@@ -21,6 +21,7 @@ from .execution import (
     supported_task_sql,
 )
 from .graphs.document import build_document_graph
+from .import_control import ImportControl
 from .messaging import Delivery
 from .storage import get_object_store
 
@@ -32,6 +33,7 @@ GRAPH_FORMATS = {'document_parser': None, 'text_csv_parser': ('text', 'markdown'
 class Service:
     def __init__(self, db: Database):
         self.db = db
+        self.import_control = ImportControl()
         self.graphs: dict[str, Any] = {}
         self.active: dict[str, asyncio.Task] = {}
         self.task_summaries: OrderedDict[str, tuple[tuple, dict[str, Any]]] = OrderedDict()
@@ -59,6 +61,7 @@ class Service:
             await self.db.check_schema()
             self.execution_slots = asyncio.Semaphore(load().jobs_per_worker)
             self.lock = await self.db.acquire()
+            await self.import_control.load(self.db.store)
             await (await asyncio.to_thread(get_object_store)).require_available()
             await self.db.ensure_indexes()
             self.graphs = {name: build_document_graph(self.db.checkpointer, store=self.db.store, name=name, source_types=types)
@@ -305,7 +308,7 @@ class Service:
                     raise DocumentProcessingError(409, 'Model result unknown; explicit recovery required', 'MODEL_RESULT_UNKNOWN')
                 await graph.ainvoke(graph_input, {'configurable': {'thread_id': run['thread_id']},
                     'run_id': run_id, 'metadata': {'practiqRunId': run_id}},
-                    context={**run['context'], 'runDatabase': self.db}, durability='sync')
+                    context={**run['context'], 'runDatabase': self.db, 'importControl': self.import_control}, durability='sync')
             snapshot = await self.snapshot(task)
             # A resumed node can pause again without advancing its checkpoint.
             saved_status = 'waiting' if snapshot.interrupts else self.saved_run_status(snapshot, run)

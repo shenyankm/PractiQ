@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-10-20T08:13:45.684960+00:00",
+  "status": "PASSED_LOCAL",
+  "reviewedHead": "a2c9b7134ca47e5010203fdc060f78b61ede1f79",
+  "findings": [
+    {
+      "thread": "PRRT_kwDOT856w86uPnA8",
+      "problem": "Incomplete PUT snapshots silently reset omitted settings",
+      "fix": "Require all wire fields and create initial defaults explicitly",
+      "regression": "Three authenticated HTTP omission cases reject 422 and retain saved values and revision"
+    },
+    {
+      "thread": "PRRT_kwDOT856w86uPnBC",
+      "problem": "Long exponential backoff delayed cooperative pause",
+      "fix": "Split waits into at-most-one-second intervals with an execution/pause guard after each",
+      "regression": "Pause during maximum-base backoff stops before another read; total exponential delay and safe attempt counts retained"
+    }
+  ],
+  "baselineRegression": "Four cases failed before the fixes; all passed afterward",
+  "checks": {
+    "makeVerify": {
+      "exitCode": 0,
+      "passed": 2988,
+      "coveragePercent": 93,
+      "warnings": 8,
+      "ruff": "PASSED",
+      "pyright": "PASSED",
+      "evaluationFixtures": 30,
+      "recoveryProbes": "PASSED",
+      "packageBuildAndIntegrity": "PASSED"
+    },
+    "focusedServer": {
+      "passed": 95
+    },
+    "makeWebCheck": {
+      "exitCode": 0,
+      "componentTests": 139,
+      "browserTests": 43
+    },
+    "makeWebBuild": {
+      "exitCode": 0
+    },
+    "makeAppCheck": {
+      "exitCode": 0,
+      "frontendPassed": 446,
+      "frontendSkipped": 1,
+      "rustPassed": 193,
+      "rustIgnored": 15,
+      "clippy": "PASSED"
+    }
+  },
+  "notAssessed": [
+    "Current-head remote CI and review after push",
+    "Real Tencent/LLM calls"
+  ],
+  "sourceSha256": {
+    "app/src/contracts.generated.ts": "5cdae182ed25f7f4cecb7a55401a9428f18ec879df26253ce7c159c7f61a25e2",
+    "server/docs/operations.md": "dcc1be702ae7afe516f1f9d7a8e4129252be80512e69a0b406b24f9e2db65a01",
+    "server/docs/tencent-document-parser.md": "cabd78355272e49c33c5415f3dc958bf221292171e1c50a151dd53f3d75197fa",
+    "server/src/practiq_ai/contracts.py": "86de0af8bf65cba9d7a3d7a2db3673809ab76b6e7d6f1c36b0bfcaab1e81ee36",
+    "server/src/practiq_ai/import_control.py": "f7794fab9b6a44699295bc3c500bab49b83e5e1641cae456d090aa3801c68a1b",
+    "server/src/practiq_ai/tencent.py": "977b3f2500b86ee1176182d00d0c6fd8c3c68354e797324f5d738810b0b69ad8",
+    "server/tests/test_import_control.py": "b7a12dff4e98f751e022aa13b1cc70fb313c54331e5c421bc56d9472ed48ad77",
+    "server/tests/test_tencent.py": "2e530744dd67dc5af733e7ca2f6cbb29090fe24e021584cdca193e511162067e",
+    "web/src/contracts.generated.ts": "5cdae182ed25f7f4cecb7a55401a9428f18ec879df26253ce7c159c7f61a25e2"
+  }
+}

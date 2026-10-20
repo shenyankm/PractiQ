@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-10-20T07:41:21.102622+00:00",
+  "status": "PASSED",
+  "review": "https://github.com/shenyankm/PractiQ/pull/321#pullrequestreview-5582025202",
+  "finding": "Browser Back from Settings to task-detail/task-list-heading left Settings visible",
+  "reproduction": {
+    "baselineHead": "e2641e1635b9ecf23138c1e7164971fd851086db",
+    "test": "history restores task-detail at 1440px",
+    "result": "FAILED before fix: records heading remained hidden after Back"
+  },
+  "change": "Use the same hash-to-page resolver for initial load and hashchange; map record anchors to records, root to import, and preserve current page for shared anchors",
+  "checks": [
+    {
+      "command": "make web-check",
+      "exitCode": 0,
+      "componentTests": 139,
+      "browserTests": 43,
+      "typescript": "PASSED",
+      "eslint": "PASSED",
+      "statementCoveragePercent": 94.54,
+      "lineCoveragePercent": 97.2
+    },
+    {
+      "command": "make web-build",
+      "exitCode": 0
+    }
+  ],
+  "regressions": [
+    "Both record anchors restore Import history after Back and Settings after Forward at 1440px and 390px",
+    "Settings draft and selected task survive history navigation",
+    "Direct anchor URLs and reload initialize Import history before and after token connection",
+    "Navigation causes no mutation or model start",
+    "Shared main-content anchor preserves current page; root history restores Start import"
+  ],
+  "notRun": [
+    "Service and App full suites: no implementation or contract changes in those areas",
+    "Real Tencent/LLM calls",
+    "Current-head remote CI and independent re-review at local acceptance time"
+  ],
+  "sourceSha256": {
+    "web/src/App.tsx": "2c97fa7c51a81dcacb4b32f9d72cd0676809c0fe5488d28711b8ff9ae40820c2",
+    "web/src/App.test.tsx": "b2ebe775e410d4879a6319bfcd102d7fd0e404dd79f5abd372e6df63d816c98d",
+    "web/tests/browser.spec.ts": "d41e48895b90779aa093b597cf07447d4f72ef415244cb901e4d47858e77dcd5",
+    "web/README.md": "d96b9716830904bd07f5e1c928b148e34dae02b494d2c97ea1d750baae85b4dd"
+  }
+}

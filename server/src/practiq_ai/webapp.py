@@ -36,6 +36,7 @@ from practiq_ai.contracts import (
     DocumentUploadResponse,
     ImportBudgetCapacity,
     ImportCapabilities,
+    ImportSettingsSnapshot,
     OfficeMode,
     document_source_limit,
 )
@@ -134,6 +135,22 @@ def model_configured() -> None:
         require_model_config()
     except DocumentProcessingError as exc:
         raise HTTPException(exc.status_code, {"code": exc.code, "message": exc.detail}) from exc
+
+
+@app.get('/api/import-settings', response_model=ImportSettingsSnapshot, dependencies=[Depends(authorize)])
+async def get_import_settings() -> ImportSettingsSnapshot:
+    return task_api.client().import_control.snapshot
+
+
+@app.put('/api/import-settings', response_model=ImportSettingsSnapshot, dependencies=[Depends(authorize)])
+async def save_import_settings(value: ImportSettingsSnapshot) -> ImportSettingsSnapshot:
+    if load().read_only:
+        raise HTTPException(409, {'code': 'SERVICE_READ_ONLY', 'message': 'Service is read-only'})
+    service = task_api.client()
+    try:
+        return await service.import_control.save(service.db.store, value)
+    except DocumentProcessingError as exc:
+        raise HTTPException(exc.status_code, {'code': exc.code, 'message': exc.detail}) from exc
 
 
 @app.get("/api/metrics", dependencies=[Depends(authorize)])
