@@ -27,6 +27,17 @@ are normalized against each OCR page's own width and height before cropping the
 stored source page. Models may associate and classify known figures, but cannot
 invent or modify their bounds.
 
+Model-facing OCR page numbers use the same one-based numbering as question IDs;
+stored OCR indices remain unchanged. Context completion preserves ordinary
+questions' existing material blocks as well as composite content. Associated
+material from neighboring pages must be retained in displayable content blocks
+or passages, not only in `sourceText` quotations.
+
+An unassociated figure with a retained full source page is not published as a
+verified crop: keep the full-page `sourceRef`, report `CROP_UNVERIFIED` and retain
+partial-result/media review flags. Provider bounds can omit detached labels;
+the service does not expand those immutable coordinates or invent associations.
+
 Word and PPT originals within the per-job limit are submitted directly after
 container validation. XLSX preparation exposes hidden and very-hidden sheets in
 an immutable derived copy, preserving all other ZIP members and the original
@@ -45,6 +56,13 @@ that exactly matches the original UTF-8 text retains the existing chunking,
 source-presence validation and explicitly opted-in deduplication path. Evidence
 that differs stays in the OCR page workflow; it cannot authorize original-text
 deduplication and remains flagged for review.
+
+The existing XLSX metadata preparation retains the original sheet inventory.
+If native table names do not cover that inventory, the task remains partial with
+missing-question markers, even when Tencent reports `Success` and zero failed
+pages. Matching names are only a coverage check, not proof that all cells or
+images were recognized. No missing content is synthesized or resubmitted
+automatically.
 
 ## Input transport and output format
 
@@ -158,6 +176,10 @@ must not claim complete recognition. Semantic retries reuse stored OCR evidence.
 Retrying Tencent recognition requires an explicit new parsing action. If optional
 neighbor-context enrichment exceeds the model input limit, the valid primary
 extraction is retained with review flags and a warning rather than discarded.
+Correction feedback gives the actual question-array bounds for group indexes.
+Local JSON punctuation repair may remove duplicated closing delimiters after a
+complete root value; it still rejects mismatched nested brackets, multiple values,
+unfinished strings and invalid business fields.
 
 The authenticated preview includes the retained original document reference.
 Visual review units expose separate rendered-source and OCR-evidence references;

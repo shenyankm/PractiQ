@@ -395,6 +395,7 @@ def test_crop_uploads_never_exceed_global_limit(monkeypatch):
         VisualElement(
             kind="chart",
             description=f"Chart {index}",
+            questionIndexes=[0],
             page=index // 30,
             bbox=[0.1, 0.1, 0.6, 0.6],
         )
@@ -485,6 +486,7 @@ def test_document_graph_structures_tencent_evidence_and_crops(monkeypatch):
                     {
                         "kind": "chart",
                         "description": "A chart",
+                        "questionIndexes": [0],
                         "bbox": [0.1, 0.1, 0.6, 0.6],
                     }
                 ],
@@ -599,6 +601,7 @@ def test_crop_failures_are_reported(monkeypatch):
                 VisualElement(
                     kind="chart",
                     description="Chart",
+                    questionIndexes=[0],
                     page=0,
                     bbox=[0.1, 0.1, 0.6, 0.6],
                 )

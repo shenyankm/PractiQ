@@ -136,6 +136,26 @@ async def test_page_order_gaps_and_crops(monkeypatch, failed):
     assert {v["page"] for v in result["result"]["visualElements"] if v["imageRef"] is None and v["sourceRef"]} == failed
 
 
+async def test_unassociated_ocr_figure_requires_full_source_review(monkeypatch):
+    tencent_provider(monkeypatch, [ocr_text_page("Known question", figures=[{"bbox": [0.1, 0.1, 0.8, 0.8]}])])
+    store, reference = paged_source("image")
+    draft = question("Known question")
+    draft["answerPayload"] = {"text": "Printed answer"}
+    model = FakeModel(responses=[ocr_draft({"questions": [draft], "figures": [
+        {"kind": "image", "description": "Unassociated source figure", "questionIndexes": []}]})])
+    monkeypatch.setattr(document, "get_object_store", lambda: store)
+    monkeypatch.setattr(document, "get_model", lambda: model)
+    monkeypatch.setattr(document, "extract", AsyncMock(return_value=ExtractedDocument(text="", page_images=[make_image()])))
+    result = await local_graph().ainvoke({"document": reference})
+    assert result["processing"]["quality"]["reviewRequired"]
+    assert any("detached labels" in warning for warning in result["result"]["warnings"])
+    visual = result["result"]["visualElements"][0]
+    assert visual["questionIds"] == [] and visual["sourceRef"]
+    assert visual["imageRef"] is None
+    assert result["status"] == "PARTIAL" and "media" in result["result"]["missingFields"]
+    assert any(failure["code"] == "CROP_UNVERIFIED" for failure in result["processing"]["failures"])
+
+
 async def test_answer_page_ignores_neighbors_after_empty_primary(monkeypatch):
     tencent_provider(monkeypatch, [ocr_text_page("Page source", figures=[]) for _ in range(2)])
     store, reference = paged_source('pdf')
@@ -212,7 +232,7 @@ def test_rich_pdf_preserves_formula_and_table_blocks(monkeypatch, tmp_path):
         sourceType="pdf", fileName="source.pdf", mediaType="application/pdf",
         sha256=hashlib.sha256(payload).hexdigest(), sizeBytes=len(payload))))
     response = {"questions": expected["questions"], "groups": [], "figures": [
-        {"kind": "chart", "description": "Measurement curve", "bbox": [0.1, 0.6, 0.9, 0.8]}]}
+        {"kind": "chart", "description": "Measurement curve", "questionIndexes": [0], "bbox": [0.1, 0.6, 0.9, 0.8]}]}
     monkeypatch.setattr(document, "get_model", lambda *args: ocr_page_model(monkeypatch, [response], page_count=1))
     monkeypatch.setattr(document, "get_object_store", lambda: store)
     result = asyncio.run(local_graph().ainvoke({"document": ref.model_dump()}))
@@ -629,6 +649,25 @@ async def test_context_correction_retains_primary_composite_material(monkeypatch
     assert kept['passage'][0]['textValue'] == 'They arrive '
     assert kept['options'] == parent['options']
     assert document.PRIMARY_PAGE.get() is None
+
+
+@pytest.mark.parametrize("loss", ["removed", "changed", "reordered"])
+def test_context_must_preserve_ordinary_question_material_before_adding_context(loss):
+    from pydantic import ValidationError
+
+    blocks = [{"partType": "text", "role": "material", "textValue": value}
+              for value in ("Printed material one", "Printed material two")]
+    primary = {**question("Question?"), "id": "page:3:1", "contentBlocks": blocks}
+    token = document.PRIMARY_PAGE.set(document.PageParseResult.model_validate({"questions": [primary]}))
+    try:
+        added = {"partType": "text", "role": "material", "textValue": "Earlier context material"}
+        broken = {"removed": blocks[1:], "changed": [added, blocks[1]], "reordered": blocks[::-1]}[loss]
+        with pytest.raises(ValidationError, match="PRIMARY question contentBlocks"):
+            document.PageParseResult.model_validate({"questions": [{**primary, "contentBlocks": broken}]})
+        complete = document.PageParseResult.model_validate({"questions": [{**primary, "contentBlocks": [*blocks, added]}]})
+        assert [block.textValue for block in complete.questions[0].contentBlocks] == [block["textValue"] for block in [*blocks, added]]
+    finally:
+        document.PRIMARY_PAGE.reset(token)
 
 
 @pytest.mark.parametrize('field', ['passage', 'options', 'contentBlocks', 'transcript'])

@@ -383,7 +383,7 @@ def _validate_ooxml(data: bytes, family: str) -> None:
         raise OfficeError("OFFICE_INPUT_INVALID") from exc
 
 
-def visible_workbook(data: bytes, max_sheets: int = 100) -> bytes:
+def prepare_workbook(data: bytes, max_sheets: int = 100) -> tuple[bytes, list[str]]:
     """Expose sheet visibility in a derived copy without interpreting cell content."""
     _validate_ooxml(data, "calc")
     try:
@@ -406,16 +406,17 @@ def visible_workbook(data: bytes, max_sheets: int = 100) -> bytes:
                           if node.localName == "sheet" and node.namespaceURI == root.namespaceURI]
                 if len(sheets) > max_sheets:
                     raise OfficeError("OFFICE_OUTPUT_LIMIT")
+                names = [sheet.getAttribute("name") for sheet in sheets]
                 sheets = [node for node in sheets if node.getAttribute("state") in {"hidden", "veryHidden"}]
                 if not sheets:
-                    return data
+                    return data, names
                 for sheet in sheets:
                     sheet.setAttribute("state", "visible")
                 output = io.BytesIO()
                 with zipfile.ZipFile(output, "w") as target:
                     for entry in source.infolist():
                         target.writestr(entry, dom.toxml(encoding="utf-8") if entry.filename == "xl/workbook.xml" else source.read(entry))
-                return output.getvalue()
+                return output.getvalue(), names
             finally:
                 dom.unlink()
     except (zipfile.BadZipFile, KeyError, expat.ExpatError) as exc:

@@ -537,18 +537,18 @@ def test_docx_snapshot_rejects_corrupt_member_crc(tmp_path, monkeypatch, member)
         office.convert("unused", source, tmp_path / "out", "text")
 
 
-def test_visible_workbook_preserves_every_member_and_source_bytes():
+def test_prepare_workbook_preserves_every_member_and_source_bytes():
     from io import BytesIO
     from pathlib import Path
     from xml.dom import minidom
     from zipfile import ZipFile
 
-    from practiq_ai.office import visible_workbook
+    from practiq_ai.office import prepare_workbook
 
     source = (Path(__file__).parents[2] / 'app/fixtures/office/中文 表格.xlsx').read_bytes()
-    prepared = visible_workbook(source)
-    assert prepared != source and visible_workbook(prepared) == prepared
-    assert visible_workbook(source) == prepared
+    prepared, sheets = prepare_workbook(source)
+    assert prepared != source and prepare_workbook(prepared) == (prepared, sheets)
+    assert prepare_workbook(source) == (prepared, sheets)
     with ZipFile(BytesIO(source)) as original, ZipFile(BytesIO(prepared)) as derived:
         assert original.namelist() == derived.namelist()
         assert all(original.read(name) == derived.read(name) for name in original.namelist() if name != 'xl/workbook.xml')
@@ -558,18 +558,18 @@ def test_visible_workbook_preserves_every_member_and_source_bytes():
 
 
 @pytest.mark.parametrize('xml', [b'<!DOCTYPE workbook [<!ENTITY x "unsafe">]><workbook/>', b'<workbook>'])
-def test_visible_workbook_rejects_entities_and_malformed_metadata(xml):
+def test_prepare_workbook_rejects_entities_and_malformed_metadata(xml):
     from io import BytesIO
     from zipfile import ZipFile
 
-    from practiq_ai.office import visible_workbook
+    from practiq_ai.office import prepare_workbook
 
     data = BytesIO()
     with ZipFile(data, 'w') as archive:
         archive.writestr('[Content_Types].xml', '<Types/>')
         archive.writestr('xl/workbook.xml', xml)
     with pytest.raises(office.OfficeError):
-        visible_workbook(data.getvalue())
+        prepare_workbook(data.getvalue())
 
 
 def test_pdf_export_uses_requested_page_limit_above_one_hundred(monkeypatch, tmp_path):

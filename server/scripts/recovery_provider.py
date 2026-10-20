@@ -38,9 +38,9 @@ def app_for(log: Path, invalid_responses: int = 0, delay: float = 0) -> FastAPI:
         schema = body["tools"][0]["name"]
         result: dict[str, Any] = {"questions": [ParsedQuestion.model_validate({"stem": "Synthetic recovery question", "sourceText": "Synthetic recovery question"}).model_dump(mode="json")], "groups": []}
         if schema == "PageParseResult":
-            result["figures"] = [{"description": "Synthetic figure", "bbox": [0.1, 0.1, 0.8, 0.8], "kind": "image"}]
+            result["figures"] = [{"description": "Synthetic figure", "bbox": [0.1, 0.1, 0.8, 0.8], "kind": "image", "questionIndexes": [0]}]
         if schema == "OcrPageParseResult":
-            result["figures"] = [{"elementIndex": 0, "description": "Synthetic figure", "kind": "image"}]
+            result["figures"] = [{"elementIndex": 0, "description": "Synthetic figure", "kind": "image", "questionIndexes": [0]}]
         if schema == "FigureChecks":
             result = {"figures": [{"index": 0, "complete": True, "role": "material", "bbox": [0.1, 0.1, 0.8, 0.8]}]}
         if schema == "GradeResult":

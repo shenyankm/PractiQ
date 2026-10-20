@@ -10,6 +10,162 @@ use serde_json::{json, Value};
 use std::{io::Read, path::Path};
 
 #[test]
+#[ignore = "requires explicitly supplied live service ZIPs and an isolated evidence directory"]
+fn live_service_exports_survive_sqlite_import_and_restart() {
+    let directory = std::path::PathBuf::from(
+        std::env::var_os("PRACTIQ_LIVE_EXPORT_DIR").expect("PRACTIQ_LIVE_EXPORT_DIR"),
+    );
+    let mut files: Vec<_> = std::fs::read_dir(&directory)
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .filter(|path| path.extension().is_some_and(|suffix| suffix == "zip"))
+        .collect();
+    files.sort();
+    assert!(!files.is_empty(), "No live exports supplied");
+    let mut checks = Vec::new();
+    for file in files {
+        let name = file.file_stem().unwrap().to_str().unwrap();
+        let mut archive = zip::ZipArchive::new(std::fs::File::open(&file).unwrap()).unwrap();
+        let exported: Value =
+            serde_json::from_reader(archive.by_name("questions.json").unwrap()).unwrap();
+        let root = crate::contract::parse(&serde_json::to_vec(&exported).unwrap()).unwrap();
+        let result = crate::contract::result(&root);
+        let mut resources = Vec::new();
+        for index in 0..archive.len() {
+            let mut entry = archive.by_index(index).unwrap();
+            if entry.name().unwrap().starts_with("resources/") {
+                let mut bytes = Vec::new();
+                entry.read_to_end(&mut bytes).unwrap();
+                resources.push((hash(&bytes), bytes));
+            }
+        }
+        for repetition in 0..3 {
+            let dir = directory
+                .join("native")
+                .join(format!("{name}-{repetition}-{}", uuid::Uuid::new_v4()));
+            let mut store = Store::new(dir.clone()).unwrap();
+            let preview = store.preview_bank_zip(&file).unwrap();
+            assert_eq!(preview["questions"], result["questions"], "{name}: preview");
+            assert_eq!(preview["processing"], root["processing"]);
+            assert_eq!(preview["missingAssets"], json!([]));
+            let imported = store.import(text(&preview, "ticket"), None, name).unwrap();
+            let bank = text(&imported, "bankId").to_owned();
+            let before = store.question_rows().unwrap();
+            assert_eq!(before.len(), list(result, "questions").len());
+            let ids: std::collections::HashMap<_, _> = list(result, "questions")
+                .iter()
+                .zip(&before)
+                .map(|(question, row)| {
+                    (text(question, "id").to_owned(), text(row, "id").to_owned())
+                })
+                .collect();
+            for (source, row) in list(result, "questions").iter().zip(&before) {
+                let mut expected = source.clone();
+                crate::questions::remap(&mut expected, &ids).unwrap();
+                let mut actual = row["question"].clone();
+                crate::contract::validate_question(&mut actual).unwrap();
+                for (key, value) in expected.as_object().unwrap() {
+                    assert!(
+                        &actual[key] == value
+                            || (value.is_number()
+                                && actual[key].is_number()
+                                && actual[key].as_f64() == value.as_f64()),
+                        "{name}: persisted question field {key}: {} != {value}",
+                        actual[key]
+                    );
+                }
+                assert_eq!(row["warnings"], result["warnings"], "{name}: warnings");
+                let sources: Vec<_> = list(&root["processing"], "questionSources")
+                    .iter()
+                    .filter(|item| item["questionId"] == source["id"])
+                    .map(|item| {
+                        let mut item = item.clone();
+                        item["questionId"] = row["id"].clone();
+                        item
+                    })
+                    .collect();
+                assert_eq!(row["sources"], json!(sources), "{name}: provenance");
+            }
+            for (digest, bytes) in &resources {
+                assert_eq!(store.asset_bytes(digest).unwrap().unwrap().1, *bytes);
+            }
+            drop(store);
+            let mut reopened = Store::new(dir.clone()).unwrap();
+            assert_eq!(reopened.question_rows().unwrap(), before, "{name}: restart");
+            let roundtrip = dir.join("roundtrip.zip");
+            reopened.export_bank(&bank, &roundtrip).unwrap();
+            let mut archive =
+                zip::ZipArchive::new(std::fs::File::open(roundtrip).unwrap()).unwrap();
+            let saved: Value =
+                serde_json::from_reader(archive.by_name("questions.json").unwrap()).unwrap();
+            let saved = crate::contract::result(&saved);
+            for key in ["groups", "visualElements"] {
+                let mut expected = list(result, key).to_vec();
+                for item in &mut expected {
+                    for id in item["questionIds"].as_array_mut().unwrap() {
+                        *id = json!(ids[id.as_str().unwrap()]);
+                    }
+                }
+                let canonical = |items: &[Value]| {
+                    let mut items: Vec<_> = items
+                        .iter()
+                        .map(|item| {
+                            let mut item = item.clone();
+                            item["questionIds"]
+                                .as_array_mut()
+                                .unwrap()
+                                .sort_by_key(Value::to_string);
+                            item.to_string()
+                        })
+                        .collect();
+                    items.sort();
+                    items
+                };
+                assert_eq!(
+                    canonical(list(saved, key)),
+                    canonical(&expected),
+                    "{name}: {key}"
+                );
+            }
+            assert_eq!(saved["missingFields"], result["missingFields"]);
+            let again = reopened.preview_bank_zip(&file).unwrap();
+            let duplicate = reopened
+                .import(text(&again, "ticket"), Some(bank), name)
+                .unwrap();
+            assert_eq!(duplicate["duplicate"], true);
+            assert_eq!(duplicate["count"], 0);
+            assert_eq!(
+                reopened.question_rows().unwrap(),
+                before,
+                "{name}: duplicate import"
+            );
+            let integrity: String = reopened
+                .connect()
+                .unwrap()
+                .query_row("PRAGMA integrity_check", [], |row| row.get(0))
+                .unwrap();
+            assert_eq!(integrity, "ok");
+            let broken_references: usize = reopened
+                .connect()
+                .unwrap()
+                .query_row("SELECT COUNT(*) FROM pragma_foreign_key_check", [], |row| {
+                    row.get(0)
+                })
+                .unwrap();
+            assert_eq!(broken_references, 0);
+            checks.push(json!({"file":file.file_name().unwrap().to_str().unwrap(), "repetition":repetition,
+                "questions":before.len(), "resources":resources.len(), "store":dir,
+                "fieldsPreserved":true,"restartPreserved":true,"duplicateAdded":0,"sqliteIntegrity":integrity,"brokenReferences":broken_references}));
+        }
+    }
+    std::fs::write(
+        directory.join("native-report.json"),
+        serde_json::to_vec_pretty(&checks).unwrap(),
+    )
+    .unwrap();
+}
+
+#[test]
 fn service_export_imports_partial_media_and_preserves_offline_history() {
     let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../fixtures/service-export/partial-media-bank.zip");

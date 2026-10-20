@@ -73,9 +73,9 @@ async def test_tencent_office_pages_retain_raw_source_order_receipts_and_usage(m
     task, snapshot, _ = await task_api._read_task(service, receipt["threadId"])
     assert task["document"] == snapshot.values["execution"]["document"] == reference.model_dump(mode="json")
     assert snapshot.values["normalization"] is None and len(snapshot.values["ocrPageRefs"]) == 2
-    from practiq_ai.office import visible_workbook
+    from practiq_ai.office import prepare_workbook
     original_bytes = await document.get_object_store().get_verified(reference)
-    assert base64.b64decode(calls[0][1]["FileBase64"]) == visible_workbook(original_bytes)
+    assert base64.b64decode(calls[0][1]["FileBase64"]) == prepare_workbook(original_bytes)[0]
     assert snapshot.values["inputParts"][0]["preparation"] == "visible_excel_sheets"
     assert snapshot.values["inputParts"][0]["reference"]["sha256"] != reference.sha256
     assert detail["parserJobs"][0]["resultSaved"] and detail["parserJobs"][0]["successPageCount"] == 2

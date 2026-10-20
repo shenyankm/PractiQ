@@ -82,7 +82,7 @@ def test_default_and_supported_protocol_selection(monkeypatch):
 
 
 @pytest.mark.parametrize('tool', [False, True])
-@pytest.mark.parametrize('source', ['{"stem":"题干","answerMode":"short_answer"', '{"stem":"题干","options":[],}', '```json\n{"stem":"题干"}\n```'])
+@pytest.mark.parametrize('source', ['{"stem":"题干","answerMode":"short_answer"', '{"stem":"题干","options":[],}', '```json\n{"stem":"题干"}\n```', '{"stem":"题干","options":[]}}'])
 async def test_local_repair_accepts_incomplete_question_without_another_call(monkeypatch, tool, source):
     from langchain_core.messages import AIMessage
 
@@ -106,7 +106,7 @@ async def test_local_repair_accepts_incomplete_question_without_another_call(mon
     assert result[2].inputTokens == 10 and result[2].outputTokens == 5
 
 
-@pytest.mark.parametrize('source', ['{"value":', '{"value":"cut', '{"value":tru', '{"value":1,', '{"value":1]', '{"value":-1,}', '{"value":"2",}'])
+@pytest.mark.parametrize('source', ['{"value":', '{"value":"cut', '{"value":tru', '{"value":1,', '{"value":1]', '{"value":-1,}', '{"value":"2",}', '{"value":1}}{"value":2}', '{"value":[1}}', '{"value":1}]'])
 def test_local_repair_does_not_invent_values_or_bypass_validation(source):
     from langchain_core.messages import AIMessage
     from pydantic import ConfigDict
