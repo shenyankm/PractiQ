@@ -322,29 +322,31 @@ export function AnswerDisplay({
       .map((s, i) => `${i + 1}. ${s ?? t("缺失")}`)
       .join("\n\n");
   } else if (answer.order) {
-    renderedLanguage = question && answer.order.every(id => id != null && itemIds(question).some(item => item.id === id && item.content)) ? lang : undefined;
+    const items = question ? itemIds(question) : [];
+    renderedLanguage = question && answer.order.every(id => id != null && items.some(item => item.id === id && item.content)) ? lang : undefined;
     rendered = answer.order
       .map((id) =>
         id == null
           ? t("缺失")
           : question
-            ? itemIds(question).find((i) => i.id === id)?.content || t("题项缺失")
+            ? items.find((i) => i.id === id)?.content || t("题项缺失")
             : String(id),
       )
       .join(" → ");
-  } else if (answer.matches)
+  } else if (answer.matches) {
+    const items = {left: question ? itemIds(question, "left") : [], right: question ? itemIds(question, "right") : []};
     return <div className="space-y-2">{answer.matches.map((p, index) => {
         if (!p) return <Markdown key={index}>{t("缺失")}</Markdown>;
         const label = (side: "left" | "right") =>
           p[side] == null
             ? t("缺失")
             : question
-              ? itemIds(question, side).find((i) => i.id === p[side])
+              ? items[side].find((i) => i.id === p[side])
                   ?.content || t("题项缺失")
               : String(p[side]);
-        const complete = question && (["left","right"] as const).every(side => p[side] != null && itemIds(question,side).some(item => item.id === p[side] && item.content));
+        const complete = question && (["left","right"] as const).every(side => p[side] != null && items[side].some(item => item.id === p[side] && item.content));
         return <Markdown key={index} lang={complete ? lang : undefined}>{`${label("left")} → ${label("right")}`}</Markdown>;
       })}</div>;
-  else { rendered = answer.text || t("参考答案不完整"); renderedLanguage = answer.text ? lang : undefined; }
+  } else { rendered = answer.text || t("参考答案不完整"); renderedLanguage = answer.text ? lang : undefined; }
   return <Markdown lang={renderedLanguage}>{rendered}</Markdown>;
 }

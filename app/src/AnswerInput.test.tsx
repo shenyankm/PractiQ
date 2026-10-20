@@ -9,6 +9,18 @@ import { blankQuestion, type Answer, type Question } from "./api";
 HTMLElement.prototype.scrollIntoView = () => {};
 afterEach(cleanup);
 
+it.each(["ordering", "matching"] as const)("normalizes %s items once per side while displaying an answer", mode => {
+  const items = Array.from({length:100}, (_, i) => ({id: mode === "matching" ? i % 50 : i, side: mode === "matching" ? (i < 50 ? "left" as const : "right" as const) : null, content:`Item ${i}`}));
+  const question = {...blankQuestion(), answerMode:mode, items};
+  const reads = vi.fn(() => items);
+  Object.defineProperty(question, "items", {get:reads});
+  const answer = mode === "ordering" ? {order:items.map(item => item.id)} : {matches:Array.from({length:50}, (_, i) => ({left:i,right:i}))};
+  const {container} = render(<AnswerDisplay question={question} answer={answer}/>);
+  expect(container.textContent).toContain("Item 0");
+  expect(container.textContent).toContain("Item 99");
+  expect(reads).toHaveBeenCalledTimes(mode === "ordering" ? 1 : 2);
+});
+
 it("reviews selected choices as readable content and retains a false answer", () => {
   const question = {...blankQuestion(), options:[{label:"A",content:"Alpha"},{label:"B",content:"Beta"}]};
   const view = render(<AnswerReview question={question} answer={{correct:["B"]}}/>);
