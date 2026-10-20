@@ -887,7 +887,7 @@ async def _prepare(state: DocumentState, runtime: Runtime[None], *, source_types
         warnings.append("Oversized source was split into ordered Tencent inputs; review content across part boundaries.")
     returned_sheets = {element["table_info"]["table_name"] for page in pages if page.get("format") == "table"
                        for element in page["elements"]}
-    if workbook_sheets and returned_sheets and not set(workbook_sheets) <= returned_sheets:
+    if workbook_sheets and not set(workbook_sheets) <= returned_sheets:
         truncated = True
         warnings.append("Tencent native tables do not establish coverage of every workbook sheet. Some sheet names are absent; review the original workbook for omitted questions, tables and images.")
     ocr_refs = [await put(json.dumps(page, ensure_ascii=False).encode(), "ocr-page", index, "application/json")

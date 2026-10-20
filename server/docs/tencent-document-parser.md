@@ -58,7 +58,8 @@ that differs stays in the OCR page workflow; it cannot authorize original-text
 deduplication and remains flagged for review.
 
 The existing XLSX metadata preparation retains the original sheet inventory.
-If native table names do not cover that inventory, the task remains partial with
+If native table names do not cover that inventory, including when Tencent returns
+only ordinary OCR pages and no native tables, the task remains partial with
 missing-question markers, even when Tencent reports `Success` and zero failed
 pages. Matching names are only a coverage check, not proof that all cells or
 images were recognized. No missing content is synthesized or resubmitted
