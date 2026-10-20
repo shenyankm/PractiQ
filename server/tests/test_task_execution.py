@@ -204,7 +204,7 @@ async def test_failed_page_export_retains_source_and_missing_marker(monkeypatch)
 
 async def test_model_result_survives_artifact_write_failure(monkeypatch):
     graph, store, files, reference, model = setup_graph(monkeypatch, [parsed()])
-    vision_model = ocr_page_model(monkeypatch, [{**parsed(), "figures": [{"description": "Chart", "bbox": [0, 0, 1, 1]}]}])
+    vision_model = ocr_page_model(monkeypatch, [{**parsed(), "figures": [{"description": "Chart", "bbox": [0, 0, 1, 1], "questionIndexes": [0]}]}])
     tencent_pages(monkeypatch, reference, 1, figures=[{"bbox": [0, 0, 1, 1]}])
     monkeypatch.setattr(document, "get_model", lambda *args: vision_model)
     monkeypatch.setattr(document, "extract", AsyncMock(side_effect=lambda *_: ExtractedDocument(text="", page_images=[make_image()])))
@@ -332,7 +332,7 @@ async def test_unknown_provider_usage_is_not_recorded_as_zero(monkeypatch):
 
 async def test_crop_failure_requires_review_but_is_not_retryable(monkeypatch):
     graph, _, _, reference, model = setup_graph(monkeypatch, [
-        {**parsed(), "figures": [{"description": "Chart", "bbox": [0, 0, 1, 1]}]},
+        {**parsed(), "figures": [{"description": "Chart", "bbox": [0, 0, 1, 1], "questionIndexes": [0]}]},
         {"figures": [{"index": 0, "complete": True, "role": "material", "bbox": [0, 0, 1, 1]}]},
     ])
     model.responses = [ocr_draft(model.responses[0])]

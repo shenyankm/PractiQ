@@ -27,6 +27,9 @@ def repair_json(text: str) -> str:
         elif char in "{[":
             stack.append("}" if char == "{" else "]")
         elif char in "}]":
+            # A complete root may have a duplicated closing delimiter, never another value.
+            if not stack and output and char == {"{": "}", "[": "]"}.get(output[0]):
+                continue
             if not stack or stack.pop() != char:
                 raise ValueError("JSON contains mismatched closing brackets")
             while output and output[-1].isspace():

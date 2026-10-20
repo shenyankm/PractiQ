@@ -129,6 +129,26 @@ def test_source_parent_checks_preserve_history_and_unproven_numbered_text():
         execution.CURRENT_UNIT.reset(token)
 
 
+def test_flattened_ocr_heading_retains_questions_for_review_without_expanding_the_title():
+    question = {"id": "page:2:1", "answerMode": "matching", "stem": "Match words and numbers (one-to-one)",
+                "sourceText": "Matching — Match words and numbers (one-to-one)Left: 0. One; 1. Two. Right: 0. 1; 1. 2.",
+                "confidence": 1, "needsReview": False}
+    token = execution.CURRENT_UNIT.set("vision_parse:1:0")
+    try:
+        parsed = document.ChunkParseResult.model_validate({"questions": [question]})
+        assert parsed.questions[0].stem == question["stem"]
+        assert parsed.questions[0].sourceText == question["sourceText"]
+        assert parsed.questions[0].needsReview
+    finally:
+        execution.CURRENT_UNIT.reset(token)
+    token = execution.CURRENT_UNIT.set("document_parse:0:0")
+    try:
+        with pytest.raises(ValidationError, match="printed exercise title"):
+            document.ChunkParseResult.model_validate({"questions": [question]})
+    finally:
+        execution.CURRENT_UNIT.reset(token)
+
+
 @pytest.mark.parametrize('only_reading', [False, True])
 async def test_explicit_dash_titles_are_corrected_together_without_generic_replacements(monkeypatch, only_reading):
     headings = [('reading', 'Reading comprehension', 'Identify the season'),

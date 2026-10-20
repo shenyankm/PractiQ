@@ -89,13 +89,13 @@ async def test_office_original_enters_tencent_without_local_conversion(monkeypat
     graph = local_graph(InMemorySaver())
     config = run_config()
     output = await graph.ainvoke({"document": reference.model_dump(mode="json")}, config)
-    assert output["status"] == "SUCCEEDED"
+    assert output["status"] == ("PARTIAL" if kind == "xlsx" else "SUCCEEDED")
     assert calls[0][0] == "SubmitMultimodalDocParseJob"
     import base64
     submitted = base64.b64decode(calls[0][1]["FileBase64"])
     if kind == "xlsx":
-        from practiq_ai.office import visible_workbook
-        assert submitted == visible_workbook(payload) and submitted != payload
+        from practiq_ai.office import prepare_workbook
+        assert submitted == prepare_workbook(payload)[0] and submitted != payload
     else:
         assert submitted == payload
     assert calls[0][1]["FileType"] == (2 if kind.startswith("doc") else 4)
@@ -122,3 +122,30 @@ async def test_changed_tencent_text_cannot_enable_original_text_proofs(monkeypat
     assert any("original-text source proofs are unavailable" in warning for warning in result["result"]["warnings"])
     assert len(calls) == 2 and len(model.calls) == 1
     assert files.blobs[reference["objectKey"]] == b"1. First\n2. Second"
+
+
+@pytest.mark.parametrize("returned_count", [0, 1, 2])
+async def test_native_workbook_missing_sheet_coverage_stays_partial(monkeypatch, returned_count):
+    from practiq_ai.office import prepare_workbook
+
+    payload = (Path(__file__).parents[2] / "app/fixtures/office/中文 表格.xlsx").read_bytes()
+    _, names = prepare_workbook(payload)
+    assert len(names) == 2
+    returned = names[:returned_count]
+    complete = returned_count == len(names)
+    digest = hashlib.sha256(payload).hexdigest()
+    reference = DocumentReference(sourceType="xlsx", objectKey=document_source_key("xlsx", digest), sha256=digest,
+                                  mediaType=next(iter(DOCUMENT_MEDIA_TYPES["xlsx"])), sizeBytes=len(payload))
+    files = FakeObjectStore({reference.objectKey: payload})
+    for module in (document, execution):
+        monkeypatch.setattr(module, "get_object_store", lambda: files)
+    model = FakeModel(responses=[parsed(name) for name in returned] or [parsed("First")])
+    monkeypatch.setattr(document, "get_model", lambda: model)
+    calls = tencent_provider(monkeypatch, [{"table_name": name, "fields": [], "rows": []} for name in returned] or [ocr_text_page("First")])
+    output = await local_graph().ainvoke({"document": reference.model_dump(mode="json")}, run_config())
+    assert output["status"] == ("SUCCEEDED" if complete else "PARTIAL")
+    assert len(output["result"]["questions"]) == max(1, returned_count)
+    assert output["processing"]["truncated"] is not complete
+    assert ("questions" in output["result"]["missingFields"]) is not complete
+    assert any("coverage of every workbook sheet" in warning for warning in output["result"]["warnings"]) is not complete
+    assert sum(action == "SubmitMultimodalDocParseJob" for action, _ in calls) == 1
