@@ -4,7 +4,7 @@
 
 # PractiQ
 
-[English](README.md) | 简体中文 | [繁體中文（台灣）](README.zh-TW.md)
+[English](README.md) | 简体中文 | [繁體中文](README.zh-TW.md)
 
 把文档变成题库，在 macOS、Windows 或 Android 上离线练习、自测和模考。
 

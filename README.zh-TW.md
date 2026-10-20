@@ -4,7 +4,7 @@
 
 # PractiQ
 
-[English](README.md) | [简体中文](README.zh-CN.md) | 繁體中文（台灣）
+[English](README.md) | [简体中文](README.zh-CN.md) | 繁體中文
 
 將文件轉成題庫，在 macOS、Windows 或 Android 上離線練習、自我測驗及模擬考。
 
