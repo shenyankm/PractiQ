@@ -3,6 +3,29 @@ evaluation_interval: 1m
 tests:
   - interval: 1m
     input_series:
+      - series: 'practiq_failures_total{code="MODEL_RESULT_UNKNOWN"}'
+        values: '0 1+0x10'
+      - series: 'practiq_failures_total{code="RUN_DEADLINE_EXCEEDED"}'
+        values: '0 1+0x10'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: PractiQUnknownUsage
+        exp_alerts:
+          - exp_labels: {severity: warning}
+            exp_annotations: {summary: "Provider usage is unknown; inspect durable call records"}
+      - eval_time: 2m
+        alertname: PractiQBudgetOrDeadline
+        exp_alerts:
+          - exp_labels: {severity: warning}
+            exp_annotations: {summary: "Document execution reached a bounded stop"}
+      - eval_time: 10m
+        alertname: PractiQUnknownUsage
+        exp_alerts: []
+      - eval_time: 10m
+        alertname: PractiQBudgetOrDeadline
+        exp_alerts: []
+  - interval: 1m
+    input_series:
       - series: 'practiq_model_calls_total{kind="document_parse",outcome="unknown"}'
         values: '0 1 1 1'
       - series: 'practiq_failures_total{code="DOCUMENT_CHECKSUM_MISMATCH"}'
@@ -211,3 +234,20 @@ tests:
     - eval_time: 23m
       alertname: PractiQBackupFailed
       exp_alerts: []
+
+  - interval: 1m
+    input_series:
+      - series: 'practiq_tencent_unknown_jobs'
+        values: '1+0x6 0+0x3'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: PractiQTencentUnknownSubmission
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: PractiQTencentUnknownSubmission
+        exp_alerts:
+          - exp_labels: {severity: warning}
+            exp_annotations: {summary: "Tencent submission outcome is unknown; inspect saved jobs before resubmitting"}
+      - eval_time: 8m
+        alertname: PractiQTencentUnknownSubmission
+        exp_alerts: []

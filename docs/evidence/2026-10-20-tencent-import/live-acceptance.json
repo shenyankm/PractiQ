@@ -1,0 +1,419 @@
+{
+  "generatedAt": "2026-10-20T06:40:46.388046+00:00",
+  "status": "PASSED",
+  "scope": "Real Tencent Submit/Describe/download, configured real question-structuring model, authenticated HTTP upload/task/preview/export, PostgreSQL/RabbitMQ, local storage and restart. No model or Tencent substitutes on the normal paths.",
+  "transport": "Existing Base64 channel; private COS is disabled and bucket/region remain unset.",
+  "realProviderUsage": {
+    "acceptedTencentSubmissions": 15,
+    "uniqueTencentTaskIds": 15,
+    "remoteRecognitionSuccesses": 15,
+    "modelCallStartsObserved": 13,
+    "billing": "May incur charges; provider invoice and monetary amount not verified. Counts include setup attempts and deliberate lost-reply scenarios."
+  },
+  "concurrency": {
+    "tasks": 8,
+    "completed": 8,
+    "observedPeakLocalWorkflows": 5,
+    "admissionLimit": 5,
+    "observedPeakRealTencentHTTPRequestConcurrency": 5,
+    "sources": [
+      {
+        "threadId": "cff36281-b5e5-529e-ab45-5cff8612f570",
+        "fileName": "acceptance-0.txt",
+        "state": "COMPLETED",
+        "questionCount": 1,
+        "suppliedQuestionTextOptionsAndAnswerPreserved": true,
+        "exactStemMatch": true,
+        "retainedSourceHeading": false,
+        "reviewRequired": true,
+        "modelUsageRecords": 1,
+        "parserJobs": [
+          {
+            "queryRequestId": "df50867a-359a-4b2d-8618-4473db8734be",
+            "errorCode": null,
+            "statusUpdatedAt": "2026-10-20T06:25:35.307073+00:00",
+            "taskId": "1504006651576852480",
+            "requestId": "47f5a694-efd7-4b0e-88e2-ff9d16493640",
+            "status": "Success",
+            "successPageCount": 1,
+            "failedPageCount": 0,
+            "resultSaved": true
+          }
+        ]
+      },
+      {
+        "threadId": "ff71126f-473d-5eca-ac8e-570089190897",
+        "fileName": "acceptance-1.txt",
+        "state": "COMPLETED",
+        "questionCount": 1,
+        "suppliedQuestionTextOptionsAndAnswerPreserved": true,
+        "exactStemMatch": true,
+        "retainedSourceHeading": false,
+        "reviewRequired": true,
+        "modelUsageRecords": 1,
+        "parserJobs": [
+          {
+            "queryRequestId": "45606703-69f2-4044-af70-fc5bd0e4f0cc",
+            "errorCode": null,
+            "statusUpdatedAt": "2026-10-20T06:25:35.262553+00:00",
+            "taskId": "1504006651421540352",
+            "requestId": "802b4c13-a9a1-47b9-af82-5569725663e2",
+            "status": "Success",
+            "successPageCount": 1,
+            "failedPageCount": 0,
+            "resultSaved": true
+          }
+        ]
+      },
+      {
+        "threadId": "0a1c6dc6-dd07-5072-af00-5867adcb6733",
+        "fileName": "acceptance-2.txt",
+        "state": "COMPLETED",
+        "questionCount": 1,
+        "suppliedQuestionTextOptionsAndAnswerPreserved": true,
+        "exactStemMatch": true,
+        "retainedSourceHeading": false,
+        "reviewRequired": true,
+        "modelUsageRecords": 1,
+        "parserJobs": [
+          {
+            "queryRequestId": "4da9df67-dec3-42f0-91b7-21c0147a799f",
+            "errorCode": null,
+            "statusUpdatedAt": "2026-10-20T06:25:35.335388+00:00",
+            "taskId": "1504006651618795520",
+            "requestId": "3833ed78-7194-412b-9b47-9749e7f84e8c",
+            "status": "Success",
+            "successPageCount": 1,
+            "failedPageCount": 0,
+            "resultSaved": true
+          }
+        ]
+      },
+      {
+        "threadId": "af20b684-e857-5298-ab0e-de76d24e8e02",
+        "fileName": "acceptance-3.txt",
+        "state": "COMPLETED",
+        "questionCount": 1,
+        "suppliedQuestionTextOptionsAndAnswerPreserved": true,
+        "exactStemMatch": false,
+        "retainedSourceHeading": true,
+        "reviewRequired": true,
+        "modelUsageRecords": 1,
+        "parserJobs": [
+          {
+            "queryRequestId": "17c80b52-9c42-4734-88a4-d3c0c32a3cdd",
+            "errorCode": null,
+            "statusUpdatedAt": "2026-10-20T06:25:35.338261+00:00",
+            "taskId": "1504006651740151808",
+            "requestId": "c2484a8f-c09a-422f-8047-d7fd485a4610",
+            "status": "Success",
+            "successPageCount": 1,
+            "failedPageCount": 0,
+            "resultSaved": true
+          }
+        ]
+      },
+      {
+        "threadId": "951163a5-e013-5a66-9bfb-7bb84d6e5455",
+        "fileName": "acceptance-4.txt",
+        "state": "COMPLETED",
+        "questionCount": 1,
+        "suppliedQuestionTextOptionsAndAnswerPreserved": true,
+        "exactStemMatch": true,
+        "retainedSourceHeading": false,
+        "reviewRequired": true,
+        "modelUsageRecords": 1,
+        "parserJobs": [
+          {
+            "queryRequestId": "a03f44ad-da61-4838-b987-d4ad44aae0c6",
+            "errorCode": null,
+            "statusUpdatedAt": "2026-10-20T06:25:35.488722+00:00",
+            "taskId": "1504006652218458112",
+            "requestId": "08ec46b5-63ea-4be2-b0df-b3aa3b7b84ff",
+            "status": "Success",
+            "successPageCount": 1,
+            "failedPageCount": 0,
+            "resultSaved": true
+          }
+        ]
+      },
+      {
+        "threadId": "56c9aaff-33a0-56e2-a9a7-79451af355a0",
+        "fileName": "acceptance-5.txt",
+        "state": "COMPLETED",
+        "questionCount": 1,
+        "suppliedQuestionTextOptionsAndAnswerPreserved": true,
+        "exactStemMatch": true,
+        "retainedSourceHeading": false,
+        "reviewRequired": true,
+        "modelUsageRecords": 1,
+        "parserJobs": [
+          {
+            "queryRequestId": "0baa4d80-f24c-4c4a-b961-ac28948a0acd",
+            "errorCode": null,
+            "statusUpdatedAt": "2026-10-20T06:25:40.023075+00:00",
+            "taskId": "1504006680311750656",
+            "requestId": "9daae35c-2f2e-4bf9-9867-15d87403a72b",
+            "status": "Success",
+            "successPageCount": 1,
+            "failedPageCount": 0,
+            "resultSaved": true
+          }
+        ]
+      },
+      {
+        "threadId": "ae1c20b7-93c0-51ab-a630-3b590c3e76de",
+        "fileName": "acceptance-6.txt",
+        "state": "COMPLETED",
+        "questionCount": 1,
+        "suppliedQuestionTextOptionsAndAnswerPreserved": true,
+        "exactStemMatch": true,
+        "retainedSourceHeading": false,
+        "reviewRequired": true,
+        "modelUsageRecords": 1,
+        "parserJobs": [
+          {
+            "queryRequestId": "a9a67d0b-7dd4-4e94-a5dd-10c746262b02",
+            "errorCode": null,
+            "statusUpdatedAt": "2026-10-20T06:25:42.410778+00:00",
+            "taskId": "1504006681083502592",
+            "requestId": "28754388-f9dc-431e-bddb-8204001fdc5f",
+            "status": "Success",
+            "successPageCount": 1,
+            "failedPageCount": 0,
+            "resultSaved": true
+          }
+        ]
+      },
+      {
+        "threadId": "f264ff54-b06b-501b-a919-9a7ea9fb8db2",
+        "fileName": "acceptance-7.txt",
+        "state": "COMPLETED",
+        "questionCount": 1,
+        "suppliedQuestionTextOptionsAndAnswerPreserved": true,
+        "exactStemMatch": true,
+        "retainedSourceHeading": false,
+        "reviewRequired": true,
+        "modelUsageRecords": 1,
+        "parserJobs": [
+          {
+            "queryRequestId": "8889840f-4186-43ac-8478-6de73e8829b7",
+            "errorCode": null,
+            "statusUpdatedAt": "2026-10-20T06:25:39.548994+00:00",
+            "taskId": "1504006682559897600",
+            "requestId": "0a1fd1e6-0e5a-4a21-bcc7-de823a392b33",
+            "status": "Success",
+            "successPageCount": 1,
+            "failedPageCount": 0,
+            "resultSaved": true
+          }
+        ]
+      }
+    ],
+    "boundary": "Saturation was measured before the three-line first-error classification fix. Post-fix live scenarios rerun the affected path; full regression validates final source. No claim of account-wide remote page admission."
+  },
+  "realRateLimitRecovery": {
+    "source": "Actual Tencent response, not injected",
+    "rejection": {
+      "at": 1792477535.8451142,
+      "threadId": "56c9aaff-33a0-56e2-a9a7-79451af355a0",
+      "sha256": "540e87feb0ce893112f6ad96d8b95042046324b59512a6543fc88628d3738299",
+      "event": "request_rejected",
+      "action": "DescribeMultimodalDocParseJob",
+      "taskId": "1504006680311750656",
+      "requestId": "14bc225b-c688-4455-8acc-69596553befe",
+      "errorCode": "RequestLimitExceeded"
+    },
+    "nextRead": {
+      "at": 1792477536.729345,
+      "threadId": "56c9aaff-33a0-56e2-a9a7-79451af355a0",
+      "sha256": "540e87feb0ce893112f6ad96d8b95042046324b59512a6543fc88628d3738299",
+      "event": "request_start",
+      "action": "DescribeMultimodalDocParseJob",
+      "taskId": "1504006680311750656"
+    },
+    "retryDelaySeconds": 0.884231,
+    "terminal": {
+      "at": 1792477540.022617,
+      "threadId": "56c9aaff-33a0-56e2-a9a7-79451af355a0",
+      "sha256": "540e87feb0ce893112f6ad96d8b95042046324b59512a6543fc88628d3738299",
+      "event": "request_result",
+      "action": "DescribeMultimodalDocParseJob",
+      "taskId": "1504006680311750656",
+      "requestId": "0baa4d80-f24c-4c4a-b961-ac28948a0acd",
+      "status": "Success",
+      "successPages": 1,
+      "failedPages": 0
+    },
+    "submissionsForAffectedTask": 1,
+    "state": "COMPLETED"
+  },
+  "injectedFaultsWithRealPaidJobs": {
+    "twoQueryRejections": {
+      "threadId": "0d2c0ed5-1467-5b73-a911-69019231ab1b",
+      "state": "COMPLETED",
+      "injectedRejections": 2,
+      "paidSubmissions": 1,
+      "export": {
+        "sha256": "e8c00046a303a99a6fec22f1a81c069a684353fba0443ce3e1c79ae0b10d2370",
+        "questions": 1
+      }
+    },
+    "threeQueryRejectionsThenExplicitResume": {
+      "threadId": "400d1b3c-bbb7-518a-aea1-815aaedd5bc8",
+      "taskId": "1504007807518523392",
+      "initialState": "FAILED",
+      "initialBlocking": [
+        "TENCENT_QUERY_REJECTED"
+      ],
+      "initialAllowedActions": [
+        "resume"
+      ],
+      "diagnosticRequestId": "acceptance-injected-3",
+      "injectedQueryRejections": 3,
+      "passiveWaitSeconds": 3,
+      "finalState": "COMPLETED",
+      "paidSubmissions": 1,
+      "repeatedControlReceiptIdentical": true,
+      "export": {
+        "sha256": "f7e4b3f7fa63a4b98c3b10e4768dfd1808de4805a9fbf4ff6ae43f0579491b26",
+        "questions": 1
+      }
+    },
+    "lostSubmitReplyAfterFix": {
+      "threadId": "4a86a75c-691d-56b8-8117-c51458e866cf",
+      "state": "FAILED",
+      "allowedActions": [],
+      "parserJobs": [
+        {
+          "queryRequestId": null,
+          "errorCode": null,
+          "statusUpdatedAt": "2026-10-20T06:28:20.176879+00:00",
+          "taskId": null,
+          "requestId": null,
+          "status": "SUBMITTING",
+          "successPageCount": null,
+          "failedPageCount": null,
+          "resultSaved": false
+        }
+      ],
+      "paidSubmissions": 1,
+      "replayReceiptIdentical": true
+    },
+    "lostReplyRemoteJobsReadOnlyAudit": {
+      "outcomes": [
+        {
+          "taskId": "1504007371000373248",
+          "status": "Success",
+          "requestId": "6e4b1315-4404-4b1c-8077-00c5276696a7",
+          "successPages": 1,
+          "failedPages": 0
+        },
+        {
+          "taskId": "1504006777548578816",
+          "status": "Success",
+          "requestId": "e81e33dd-0761-4537-bf33-0d307c426516",
+          "successPages": 1,
+          "failedPages": 0
+        }
+      ],
+      "note": "Read-only acceptance audit; no task ID injected into product receipts and no new submissions."
+    }
+  },
+  "observability": {
+    "unknownGaugeAfterLostReplyAndRestart": 1,
+    "unknownGaugeAfterKnownJobResume": 0,
+    "knownJobQueryFailureMetricCount": 3,
+    "stageMetrics": "Captured admission/submit/query/download; unknown gauge survives restart."
+  },
+  "duplicateProtection": {
+    "create": 3,
+    "conflictingCreateRequestStatus": 409,
+    "postFixReparse": {
+      "receipt": {
+        "threadId": "bdf460b4-26c0-5e5a-9087-dd925d54d3c1",
+        "requestId": "06fa2c6c-97ba-4cf2-8e14-3eae5d923703",
+        "runId": "023a6631-fe39-41dc-be79-17cf21b3b475",
+        "accepted": true
+      },
+      "identicalConcurrentReceipts": 3,
+      "state": "COMPLETED",
+      "export": {
+        "sha256": "92d9230fc149a53e82e0b285c289fae1074fa47b37df18ec330aeb0d50fd6544",
+        "questions": 1
+      }
+    },
+    "postFixRestart": {
+      "restoredTasks": 1,
+      "newSubmissions": 0
+    },
+    "knownJobResume": "Repeated control receipt identical; original Tencent task ID and one paid submission retained.",
+    "passiveSelection": "All eight sources uploaded before the first Tencent event."
+  },
+  "fixedDefect": {
+    "observedBefore": "An accepted submit reply was deliberately dropped. Durable SUBMITTING blocked resubmission, but the first error TENCENT_API_UNAVAILABLE exposed a futile Resume action.",
+    "change": "Translate unavailable submission responses to TENCENT_SUBMISSION_UNKNOWN at the submit boundary on first failure; retain the durable intent and forbid normal Resume. Confirmed provider rejections and retryable reads retain existing behavior.",
+    "source": "server/src/practiq_ai/tencent.py",
+    "tests": [
+      "server/tests/test_tencent.py::test_unavailable_submit_is_unknown_on_first_failure (2 cases)",
+      "server/tests/test_task_api.py::test_lost_tencent_submit_reply_blocks_resume_without_second_submission"
+    ],
+    "regressionBefore": "2 new unit cases failed before the fix; live pre-fix detail retained under run-2.",
+    "regressionAfter": "122 focused tests passed; live unknown outcome now has allowedActions=[] and explicit resume returns 409, with one submission."
+  },
+  "validation": {
+    "makeVerify": {
+      "exitCode": 0,
+      "testsPassed": 2968,
+      "warnings": 8,
+      "coveragePercent": 93,
+      "ruff": "PASSED",
+      "pyright": "PASSED",
+      "evaluationFixtures": 30,
+      "recoveryProbes": "PASSED",
+      "packageBuildAndIntegrity": "PASSED"
+    },
+    "focusedTests": {
+      "passed": 122,
+      "exitCode": 0
+    },
+    "postFixLiveRun3": {
+      "exitCode": 0
+    },
+    "knownJobResumeLiveRun4": {
+      "exitCode": 0
+    },
+    "gitDiffCheck": "PASSED"
+  },
+  "attemptHistory": [
+    {
+      "run": 1,
+      "result": "Harness hit intentional REQUEST_BODY_BUSY 429 before full admission; one Tencent task completed recognition. Driver shutdown assertion was corrected; not Tencent throttling."
+    },
+    {
+      "run": 2,
+      "result": "Eight tasks and real query-throttle recovery passed. Lost-reply scenario reproduced the fixed Resume classification bug; failed assertion is retained."
+    },
+    {
+      "run": 3,
+      "result": "Affected path, create/reparse idempotency, restart and out-of-band remote completion audit passed after fix."
+    },
+    {
+      "run": 4,
+      "result": "Three injected query rejections exhaust retries, then explicit resume completes the same real job without resubmission."
+    }
+  ],
+  "limitations": [
+    "Only repository-authored small English TXT questions; not broad recognition-accuracy or large/Office/media acceptance. Seven batch stems match exactly; one retains its printed Acceptance sample heading before the question. All eight retain correct supplied options/answer and review flags, so manual quality review remains necessary.",
+    "No real COS, native GUI/device acceptance, deployment, remote CI or production alert delivery.",
+    "No real submit-rate-limit rejection observed; real throttling occurred on Describe. No artificial six-way paid submit probe was run.",
+    "Lost submit reply and deterministic query exhaustion are acceptance-only injected faults. Successful recognition/LLM work remains real.",
+    "Local five-workflow limit cannot reserve vendor account capacity; already submitted remote jobs and other clients can consume it.",
+    "Prior unrelated and findings 1-8 changes retained; no branch, commit, push or PR created."
+  ],
+  "officialReferences": [
+    "https://cloud.tencent.com/document/api/866/139312",
+    "https://cloud.tencent.com/document/api/866/139313"
+  ],
+  "baseCommit": "96f8bedd7be6f59dfcf64a0416e5246193c17984"
+}

@@ -10,7 +10,7 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
 it("shows uncertain Tencent submission and saved jobs without automatically retrying", async () => {
   const detail: DocumentTaskDetail = { ...task, state: "FAILED", status: null, result: null, allowedActions: ["resume"], parserJobs: [
     { taskId: null, requestId: null, status: "SUBMITTING", resultSaved: false },
-    { taskId: "cloud-job-known", requestId: "request-known", status: "Success", successPageCount: 3, failedPageCount: 0, resultSaved: true },
+    { taskId: "cloud-job-known", requestId: "request-known", queryRequestId: "query-known", errorCode: "UnsupportedFile", statusUpdatedAt: "2026-10-20T00:00:00Z", status: "Success", successPageCount: 3, failedPageCount: 0, resultSaved: true },
   ] };
   const http = fakeHTTP(detail); const user = userEvent.setup();
   render(<App />); await connect(user);
@@ -19,6 +19,7 @@ it("shows uncertain Tencent submission and saved jobs without automatically retr
   expect(screen.getByText(/腾讯文档识别：已保存 1 个任务结果 · 处理中 0 个任务/)).toBeTruthy();
   await user.click(screen.getByText("模型用量与任务诊断"));
   expect(screen.getByText(/"taskId": "cloud-job-known"/)).toBeTruthy();
+  expect(screen.getByText(/"queryRequestId": "query-known"/)).toBeTruthy();
   expect(http.calls.every(call => call.method === "GET")).toBe(true);
 });
 type Call = { url: string; method: string; body: Record<string, unknown> | null; auth: string | null };
@@ -370,4 +371,136 @@ it("connects the personal service with passive reads and has no account fields",
   expect(http.calls.filter(call => call.method === "POST")).toHaveLength(0);
   expect(screen.queryByLabelText("手机号")).toBeNull();
   expect(screen.queryByText("充值与积分明细")).toBeNull();
+});
+
+it.each([false, true])("retains uncertain start across file reselection including invalid selection (%s)", async invalid => {
+  const user = userEvent.setup({ applyAccept: false }); const http = fakeHTTP(); let fail = true;
+  http.server.intercept = (url, init) => { if (url === "/api/document-tasks" && init.method === "POST" && fail) { fail = false; throw new TypeError("lost reply"); } };
+  render(<App />); await connect(user);
+  const file = new File(["original"], "original.txt");
+  await user.upload(screen.getByLabelText("选择文档"), file);
+  await user.click(screen.getByRole("button", { name: "开始导入" }));
+  await screen.findByRole("button", { name: "重试开始" });
+  await user.upload(screen.getByLabelText("选择文档"), invalid ? new File(["csv"], "bad.csv") : file);
+  expect(screen.getAllByText("original.txt").length).toBeGreaterThan(0);
+  expect((screen.getByRole("button", { name: "开始导入" }) as HTMLButtonElement).disabled).toBe(invalid);
+  await user.click(screen.getByRole("button", { name: "重试开始" }));
+  await screen.findByText(/任务已创建。页面/);
+  const creates = http.calls.filter(call => call.url === "/api/document-tasks" && call.method === "POST");
+  expect(creates).toHaveLength(2); expect(creates[1].body).toEqual(creates[0].body);
+});
+
+it.each(["network", "receipt"])("stops a duplicate-file batch after an uncertain %s result until an explicit retry", async failure => {
+  const user = userEvent.setup(); const http = fakeHTTP(); let fail = true;
+  http.server.intercept = (url, init) => {
+    if (url === "/api/document-tasks" && init.method === "POST" && fail) {
+      fail = false;
+      if (failure === "network") throw new TypeError("lost reply");
+      return json({});
+    }
+  };
+  render(<App />); await connect(user);
+  await user.upload(screen.getByLabelText("选择文档"), [new File(["same"], "same.txt"), new File(["same"], "same.txt")]);
+  await user.click(screen.getByRole("button", { name: "开始导入" }));
+  await screen.findByRole("button", { name: "重试开始" });
+  await waitFor(() => expect((screen.getByRole("button", { name: "开始导入" }) as HTMLButtonElement).disabled).toBe(false));
+  expect(http.calls.filter(call => call.url === "/api/document-tasks" && call.method === "POST")).toHaveLength(1);
+  expect(screen.getByText(/尚未提交/, { selector: "span" })).toBeTruthy();
+  await user.click(screen.getByRole("button", { name: "重试开始" }));
+  await screen.findByText(/任务已创建。页面/);
+  const creates = http.calls.filter(call => call.url === "/api/document-tasks" && call.method === "POST");
+  expect(creates).toHaveLength(2); expect(creates[1].body).toEqual(creates[0].body);
+  expect(screen.getByText(/尚未提交/, { selector: "span" })).toBeTruthy();
+});
+
+it("lets users discard a retained failure and reclaim its file slot without another mutation", async () => {
+  const user = userEvent.setup(); const http = fakeHTTP();
+  http.server.intercept = (url, init) => { if (url === "/api/document-tasks" && init.method === "POST") throw new TypeError("lost reply"); };
+  render(<App />); await connect(user);
+  await user.upload(screen.getByLabelText("选择文档"), new File(["old"], "old.txt"));
+  await user.click(screen.getByRole("button", { name: "开始导入" }));
+  await screen.findByRole("button", { name: "重试开始" });
+  const ten = Array.from({ length: 10 }, (_, index) => new File(["new"], `${index}.txt`));
+  await user.upload(screen.getByLabelText("选择文档"), ten);
+  await screen.findByText(/请先处理保留的失败提交/);
+  const mutations = http.calls.filter(call => call.method !== "GET").length;
+  await user.click(screen.getByRole("button", { name: "移除文件 old.txt" }));
+  expect(screen.queryByRole("button", { name: "重试开始" })).toBeNull();
+  await user.upload(screen.getByLabelText("选择文档"), ten);
+  expect(screen.queryByText(/请先处理保留的失败提交/)).toBeNull();
+  expect(screen.getAllByRole("button", { name: /^移除文件/ })).toHaveLength(10);
+  expect(http.calls.filter(call => call.method !== "GET")).toHaveLength(mutations);
+});
+
+it("shows budget capacity before any upload without promising page counts", async () => {
+  const user = userEvent.setup(); const http = fakeHTTP();
+  http.server.intercept = url => url.includes("capabilities") ? json({ ...capabilities, modelBudget: { limit: 400, unitCalls: 16, contextUnitCalls: 20 } }) : undefined;
+  render(<App />); await connect(user);
+  expect(await screen.findByText(/普通单元最多 25 个.*带上下文的视觉单元最多 20 个/)).toBeTruthy();
+  expect(http.calls.every(call => call.method === "GET")).toBe(true);
+});
+
+it("resolves all retained copies when a reselected source receives the original receipt", async () => {
+  const user = userEvent.setup(); const http = fakeHTTP(); let fail = true;
+  http.server.intercept = (url, init) => { if (url === "/api/document-tasks" && init.method === "POST" && fail) { fail = false; throw new TypeError("lost reply"); } };
+  render(<App />); await connect(user);
+  await user.upload(screen.getByLabelText("选择文档"), new File(["same"], "same.txt", { lastModified: 1 }));
+  await user.click(screen.getByRole("button", { name: "开始导入" }));
+  await screen.findByRole("button", { name: "重试开始" });
+  await user.upload(screen.getByLabelText("选择文档"), new File(["same"], "same.txt", { lastModified: 2 }));
+  await user.click(screen.getByRole("button", { name: "开始导入" }));
+  await screen.findByText(/任务已创建。页面/);
+  expect(screen.queryByRole("button", { name: "重试开始" })).toBeNull();
+  const creates = http.calls.filter(call => call.url === "/api/document-tasks" && call.method === "POST");
+  expect(creates).toHaveLength(2); expect(creates[0].body).toEqual(creates[1].body);
+});
+
+it("does not treat filename, size and timestamp as proof of identical source bytes", async () => {
+  const user = userEvent.setup(); const http = fakeHTTP(); let fail = true;
+  http.server.intercept = (url, init) => { if (url === "/api/document-tasks" && init.method === "POST" && fail) { fail = false; throw new TypeError("lost reply"); } };
+  render(<App />); await connect(user);
+  for (const bytes of ["old", "new"]) {
+    await user.upload(screen.getByLabelText("选择文档"), new File([bytes], "same.txt", { lastModified: 1 }));
+    await user.click(screen.getByRole("button", { name: "开始导入" }));
+    if (bytes === "old") await screen.findByRole("button", { name: "重试开始" });
+    else await screen.findByText(/任务已创建。页面/);
+  }
+  expect(screen.getByRole("button", { name: "重试开始" })).toBeTruthy();
+  const creates = http.calls.filter(call => call.url === "/api/document-tasks" && call.method === "POST");
+  expect(creates).toHaveLength(2); expect(creates[0].body?.requestId).not.toEqual(creates[1].body?.requestId);
+  expect(creates[0].body?.document).not.toEqual(creates[1].body?.document);
+});
+
+it("lets new files choose deduplication while an older uncertain retry keeps its original options", async () => {
+  const user = userEvent.setup(); const http = fakeHTTP(); let fail = true;
+  http.server.intercept = (url, init) => { if (url === "/api/document-tasks" && init.method === "POST" && fail) { fail = false; throw new TypeError("lost reply"); } };
+  render(<App />); await connect(user);
+  await user.upload(screen.getByLabelText("选择文档"), new File(["old"], "old.txt"));
+  await user.click(screen.getByRole("button", { name: "开始导入" }));
+  await screen.findByRole("button", { name: "重试开始" });
+  await user.upload(screen.getByLabelText("选择文档"), new File(["new"], "new.txt"));
+  await user.click(screen.getByRole("checkbox", { name: "自动去重" }));
+  await user.click(screen.getByRole("button", { name: "重试开始" }));
+  await screen.findByText(/任务已创建。页面/);
+  await user.click(screen.getByRole("button", { name: "开始导入" }));
+  await waitFor(() => expect(http.calls.filter(call => call.url === "/api/document-tasks" && call.method === "POST")).toHaveLength(3));
+  const creates = http.calls.filter(call => call.url === "/api/document-tasks" && call.method === "POST");
+  expect(creates[0].body).toEqual(creates[1].body);
+  expect(creates[2].body).toHaveProperty("deduplicateQuestions", true);
+});
+
+it("keeps task deletion unconfirmed until an affirmative receipt arrives", async () => {
+  const user = userEvent.setup(); const http = fakeHTTP(); let invalid = true;
+  http.server.intercept = (_url, init) => { if (init.method === "DELETE" && invalid) { invalid = false; return json({ deleted: false }); } };
+  render(<App />); await connect(user); await user.click(await screen.findByRole("button", { name: /sample.docx/ }));
+  await user.click(await screen.findByText("其他任务操作"));
+  await user.click(screen.getByRole("button", { name: "删除任务" }));
+  await user.click(screen.getByRole("button", { name: "确认删除" }));
+  await screen.findByText(/删除回执无效，结果尚未确认/);
+  expect(screen.queryByText("任务已删除。")).toBeNull();
+  expect(screen.getByRole("group", { name: "删除任务确认" })).toBeTruthy();
+  expect(http.records.has(taskId)).toBe(true);
+  await user.click(screen.getByRole("button", { name: "确认删除" }));
+  await screen.findByText("任务已删除。");
+  expect(http.calls.filter(call => call.method === "DELETE")).toHaveLength(2);
 });

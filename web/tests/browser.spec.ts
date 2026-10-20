@@ -70,6 +70,7 @@ async function fakeHTTP(page: Page, initial: DocumentTaskDetail = task) {
 async function connect(page: Page) {
   await page.goto("/"); await page.getByLabel("服务访问令牌").fill(fakeToken); await page.getByRole("button", { name: "连接服务", exact: true }).click();
   await expect(page.getByText(/^服务支持：/)).toBeVisible();
+  await expect(page.getByText(/普通单元最多 100 个.*带上下文的视觉单元最多 50 个/)).toBeVisible();
 }
 async function openTask(page: Page) {
   await page.getByRole("button", { name: /sample.docx/ }).click();
@@ -281,6 +282,7 @@ test("invalid auth makes no model request; reload clears memory-only Token", asy
   expect(mutations(http.calls)).toHaveLength(0);
   await page.getByLabel("服务访问令牌").fill(fakeToken); await page.getByRole("button", { name: "连接服务", exact: true }).click();
   await expect(page.getByText(/^服务支持：/)).toBeVisible();
+  await expect(page.getByText(/普通单元最多 100 个.*带上下文的视觉单元最多 50 个/)).toBeVisible();
   expect(await page.evaluate(() => ({ local: localStorage.length, session: sessionStorage.length, query: location.search }))).toEqual({ local: 0, session: 0, query: "" });
   await page.reload(); await expect(page.getByLabel("服务访问令牌")).toHaveValue("");
   expect(await page.locator("body").innerText()).not.toContain(fakeToken);
@@ -303,7 +305,9 @@ test("uncertain accepted POST never auto replays; explicit retry preserves reque
   await page.clock.fastForward(30000);
   await expect.poll(() => http.calls.filter(call => call.method === "GET").length).toBeGreaterThan(reads);
   expect(starts(http.calls)).toHaveLength(1); await expect(page.getByLabel("Word / Excel 转换模式")).toHaveCount(0);
-  await page.getByRole("button", { name: "重试开始", exact: true }).click(); await expect(page.getByText(/任务已创建。页面/)).toBeVisible();
+  await page.getByLabel("选择文档").setInputFiles({ name: "uncertain.docx", mimeType: "application/octet-stream", buffer: Buffer.from("fake office") });
+  await page.getByRole("button", { name: "开始导入", exact: true }).click();
+  await expect(page.getByText(/任务已创建。页面/)).toBeVisible();
   expect(starts(http.calls)).toHaveLength(2); expect(starts(http.calls)[0].body).toEqual(starts(http.calls)[1].body); expect(http.server.modelStarts).toBe(1);
 });
 
@@ -697,4 +701,74 @@ test("file picker text stays centered across control sizes and themes", async ({
       await input.evaluate(node => { (node as HTMLInputElement).disabled = false; });
     }
   }
+});
+
+for (const width of [1440, 390]) test(`uncertain duplicate batch stops and failed files can be discarded at ${width}px`, async ({ page }, testInfo) => {
+  await page.setViewportSize({ width, height: 1040 });
+  await page.clock.install();
+  const http = await fakeHTTP(page); let requestId: string | undefined;
+  http.server.intercept = async (route, call) => {
+    if (call.path !== "/api/document-tasks" || call.method !== "POST") return false;
+    if (!requestId) { requestId = call.body!.requestId; http.server.modelStarts++; }
+    expect(call.body!.requestId).toBe(requestId);
+    http.records.set(newTaskId, { ...task, threadId: newTaskId, fileName: "same.txt" });
+    const attempt = starts(http.calls).length;
+    await respond(route, { threadId: newTaskId, requestId, runId: attempt === 2 ? null : runId, accepted: attempt !== 1 }, 202);
+    return true;
+  };
+  await connect(page);
+  const file = { name: "same.txt", mimeType: "text/plain", buffer: Buffer.from("same") };
+  await page.getByLabel("选择文档").setInputFiles([file, file]);
+  await page.getByRole("button", { name: "开始导入", exact: true }).click();
+  await expect(page.getByText(/任务操作回执无效，结果尚未确认/)).toBeVisible();
+  await page.clock.fastForward(30000);
+  expect(starts(http.calls)).toHaveLength(1);
+  await expect(page.locator(".file-list").getByText(/尚未提交/)).toHaveCount(1);
+  await page.getByRole("button", { name: "重试开始", exact: true }).click();
+  await expect(page.getByRole("button", { name: "重试开始", exact: true })).toBeEnabled();
+  expect(starts(http.calls)).toHaveLength(2);
+  await expect(page.getByText(/任务已创建。页面/)).toHaveCount(0);
+  const failed = page.locator(".file-list > li").filter({ has: page.getByRole("button", { name: "重试开始", exact: true }) });
+  await failed.scrollIntoViewIfNeeded();
+  await expect(page.getByText(/移除文件只清理本页队列，不会取消服务端任务/)).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
+  await page.screenshot({ path: testInfo.outputPath(`failed-file-${width}.png`), fullPage: true });
+  const mutationCount = mutations(http.calls).length;
+  await failed.getByRole("button", { name: "移除文件 same.txt", exact: true }).click();
+  await expect(page.getByRole("button", { name: "重试开始", exact: true })).toHaveCount(0);
+  expect(mutations(http.calls)).toHaveLength(mutationCount);
+  await page.getByRole("button", { name: "开始导入", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "same.txt", exact: true })).toBeVisible();
+  expect(starts(http.calls)).toHaveLength(3);
+  expect(starts(http.calls).every(call => call.body!.requestId === requestId)).toBe(true);
+  expect(http.server.modelStarts).toBe(1);
+});
+
+test("a malformed accepted reparse receipt keeps its original request until explicit retry", async ({ page }) => {
+  await page.clock.install();
+  const http = await fakeHTTP(page); let requestId: string | undefined;
+  http.server.intercept = async (route, call) => {
+    if (!call.path.endsWith("/reparse")) return false;
+    if (!requestId) {
+      requestId = call.body!.requestId;
+      http.server.modelStarts++;
+      http.records.set(newTaskId, { ...task, threadId: newTaskId, fileName: "reparsed.docx" });
+      await respond(route, {}, 202);
+    } else {
+      expect(call.body!.requestId).toBe(requestId);
+      await respond(route, { threadId: newTaskId, requestId, runId, accepted: true }, 202);
+    }
+    return true;
+  };
+  await connect(page); await openTask(page);
+  await page.getByText("其他任务操作", { exact: true }).click();
+  await page.getByRole("button", { name: "重新解析为新任务", exact: true }).click();
+  await expect(page.getByText(/任务操作回执无效，结果尚未确认/)).toBeVisible();
+  await page.clock.fastForward(30000);
+  expect(http.calls.filter(call => call.path.endsWith("/reparse"))).toHaveLength(1);
+  await page.getByRole("button", { name: "重新解析为新任务", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "reparsed.docx", exact: true })).toBeVisible();
+  expect(http.calls.filter(call => call.path.endsWith("/reparse"))).toHaveLength(2);
+  expect(http.server.modelStarts).toBe(1);
 });

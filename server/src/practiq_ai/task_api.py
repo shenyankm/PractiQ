@@ -47,7 +47,7 @@ from .graphs.document import (
     unit_failures,
 )
 from .storage import get_object_store, validate_source_size
-from .tencent import submission_limit
+from .tencent import diagnostic_value, submission_limit
 
 
 def client():
@@ -269,7 +269,9 @@ async def get_task(thread_id: str) -> dict[str, Any]:
     return DocumentTaskDetail.model_validate({
         'threadId': thread_id, 'runId': run['run_id'] if run else None,
         'parserJobs': [{
-            'taskId': item.value.get('taskId'), 'requestId': item.value.get('requestId'),
+            'taskId': item.value.get('taskId'), 'requestId': diagnostic_value(item.value.get('requestId')),
+            'queryRequestId': diagnostic_value(item.value.get('queryRequestId')), 'errorCode': diagnostic_value(item.value.get('errorCode'), code=True),
+            'statusUpdatedAt': item.value.get('statusUpdatedAt'),
             'status': item.value['status'], 'successPageCount': item.value.get('SuccessPageNum'),
             'failedPageCount': item.value.get('FailPageNum'), 'resultSaved': bool(item.value.get('resultRef')),
         } for item in parser_jobs],

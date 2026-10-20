@@ -78,7 +78,7 @@ from practiq_ai.graphs.chunking import (
     split_chunk_plan,
 )
 from practiq_ai.graphs.review import review_extraction
-from practiq_ai.llm import MAX_MODEL_CALLS, get_model, structured_call
+from practiq_ai.llm import get_model, import_call_allowance, structured_call
 from practiq_ai.normalization import normalize_source
 from practiq_ai.storage import ObjectStore, get_object_store
 from practiq_ai.temporary import LIMIT, preparation
@@ -852,13 +852,13 @@ async def _prepare(state: DocumentState, runtime: Runtime[None], *, source_types
         archive_ref = ArtifactReference.model_validate(job["resultRef"])
         async with preparation(max(1, archive_ref.sizeBytes * 2 + 8 * 1024 * 1024)):
             bundle = await store.get_verified(archive_ref)
-            decoded = await asyncio.to_thread(decode_bundle, bundle, settings, page_count=expected_count or settings.max_document_pages,
-                                              allow_empty=job.get("SuccessPageNum") == 0 and bool(job.get("FailPageNum")), result_type=job.get("resultType", 9))
+            decoded = await _thread_io(partial(decode_bundle, bundle, settings, page_count=expected_count or settings.max_document_pages,
+                                               allow_empty=job.get("SuccessPageNum") == 0 and bool(job.get("FailPageNum")), result_type=job.get("resultType", 9)))
             for page in decoded:
                 for figure in page["figures"]:
                     member = figure.pop("imageMember", None)
                     if member:
-                        image, media_type = await asyncio.to_thread(read_bundle_image, bundle, member, settings)
+                        image, media_type = await _thread_io(read_bundle_image, bundle, member, settings)
                         asset_bytes += len(image)
                         if asset_bytes > settings.vision_max_bytes:
                             raise DocumentProcessingError(413, "Tencent subimages exceed the visual byte limit", "TENCENT_RESULT_TOO_LARGE")
@@ -1646,7 +1646,7 @@ async def _merge(state: DocumentState, *, passive: bool = False) -> dict[str, An
         ),
     )
     if not passive:
-        telemetry.results.labels(status, str(quality.reviewRequired).lower()).inc()
+        telemetry.results.labels(status, str(processing.quality.reviewRequired).lower()).inc()
         for failure in failures:
             telemetry.failures.labels(failure.code).inc()
     return {
@@ -1731,12 +1731,11 @@ async def _gate(state: DocumentState, *, phase: str) -> dict[str, Any]:
     allowances = dict(state.get("callAllowances", {}))
     reserved = state.get("reservedCalls", 0)
     # Each extraction/context/figure/review/repair/recheck pass has its own correction loop.
-    passes = 1 + (3 if load().import_review else 0)
     for item in work:
         key = item.arg["unitKey"]
         if key not in allowances:
             has_context = phase == "vision" and len(item.arg.get("neighbors", [])) > 1
-            unit_limit = MAX_MODEL_CALLS * (passes + int(has_context))
+            unit_limit = import_call_allowance(context=has_context)
             allowance = min(unit_limit, max(0, load().task_max_model_calls - reserved))
             allowances[key] = allowance
             reserved += allowance
@@ -1831,7 +1830,6 @@ def _guarded(function: Callable[..., Awaitable[dict[str, Any]]], *, with_runtime
             outcome = "error"
             code = exc.code if isinstance(exc, DocumentProcessingError) else "STAGE_ERROR"
             error_code = code
-            telemetry.failures.labels(code).inc()
             telemetry.event("review_candidate", status="ERROR", sourceType=source_type,
                             errorCode=code, reviewRequired=True,
                             threadId=info.thread_id if info else None, runId=info.run_id if info else None)

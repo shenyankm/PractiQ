@@ -5,16 +5,21 @@ import base64
 import hashlib
 import hmac
 import json
+import random
 import re
 import time
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
+from functools import partial
 from typing import Any
 from urllib.parse import urlsplit
+from weakref import WeakKeyDictionary
 
 import httpx
 from langgraph.runtime import Runtime
-from pydantic import BaseModel, Field, StrictInt, ValidationError
+from pydantic import BaseModel, Field, StrictInt, ValidationError, field_validator
 
+from . import telemetry
 from .config import Config, load
 from .contracts import (
     OFFICE_SOURCE_TYPES,
@@ -27,6 +32,9 @@ from .execution import guard, namespace, run_remaining, store_put
 from .storage import get_object_store
 from .temporary import preparation
 from .tencent_staging import delete_source, source_url, staging_object, upload_source
+
+MAX_CONCURRENT_JOBS = 5
+_jobs: WeakKeyDictionary[asyncio.AbstractEventLoop, asyncio.Semaphore] = WeakKeyDictionary()
 
 HOST = "ocr.tencentcloudapi.com"
 BASE64_LIMIT = 8 * 1024 * 1024
@@ -42,19 +50,59 @@ def submission_limit(kind: DocumentSourceType, config: Config) -> int:
     return min(config.tencent_input_max_bytes, SOURCE_LIMITS[kind], URL_LIMIT if config.tencent_cos_enabled else BASE64_LIMIT)
 
 
+def diagnostic_value(value: Any, *, code: bool = False) -> str | None:
+    return value if isinstance(value, str) and re.fullmatch(r"[A-Za-z0-9_.]{1,128}" if code else r"[A-Za-z0-9_-]{1,128}", value) else None
+
+
+class TransientReadError(DocumentProcessingError):
+    """Transport failure eligible for retry only when reading an existing job."""
+
+
 class RequestRejected(DocumentProcessingError):
     def __init__(self, code: str, request_id: Any):
         super().__init__(502, f"Tencent rejected the request ({code})", "TENCENT_REQUEST_REJECTED")
-        self.request_id = request_id if isinstance(request_id, str) and re.fullmatch(r"[A-Za-z0-9_-]{1,128}", request_id) else None
+        self.request_id = diagnostic_value(request_id)
+        self.provider_code = diagnostic_value(code, code=True)
 
 
 class JobResult(BaseModel):
     Status: str
     RequestId: str | None = Field(default=None, max_length=128)
+    ErrorCode: str | None = Field(default=None, max_length=128)
     ResultUrl: str | None = Field(default=None, max_length=16_384)
     FailedPages: list[dict[str, Any]] = Field(default_factory=list, max_length=300)
     SuccessPageNum: StrictInt | None = Field(default=None, ge=0, le=300)
     FailPageNum: StrictInt | None = Field(default=None, ge=0, le=300)
+
+    @field_validator("RequestId", "ErrorCode", mode="before")
+    @classmethod
+    def safe_diagnostic(cls, value: Any, info: Any) -> str | None:
+        return diagnostic_value(value, code=info.field_name == "ErrorCode")
+
+
+def _status(record: dict[str, Any], status: str) -> None:
+    if record.get("status") != status:
+        record.update(status=status, statusUpdatedAt=datetime.now(UTC).isoformat())
+
+
+async def _read[T](runtime: Runtime[Any], stage: str, operation: Callable[[], Awaitable[T]]) -> T:
+    for attempt in range(1, 4):
+        await guard(runtime)
+        timing: dict[str, Any] = {}
+        try:
+            async with asyncio.timeout(await run_remaining(runtime)):
+                with telemetry.measure(stage, timing, "durationMs"):
+                    return await operation()
+        except (TransientReadError, RequestRejected) as exc:
+            retryable = isinstance(exc, TransientReadError) or (
+                isinstance(exc, RequestRejected) and (exc.provider_code or "").split(".")[0] in {"RequestLimitExceeded", "InternalError"})
+            delay = 2 ** (attempt - 1) * random.uniform(0.8, 1.2)
+            if not retryable or attempt == 3 or await run_remaining(runtime) <= delay:
+                raise
+            telemetry.event("tencent_read_retry", stage=stage, attempt=attempt, errorCode=exc.code,
+                            threadId=runtime.execution_info.thread_id if runtime.execution_info else None)
+            await asyncio.sleep(delay)
+    raise AssertionError("unreachable")
 
 
 def signed_headers(action: str, payload: bytes, config: Config, timestamp: int) -> dict[str, str]:
@@ -94,7 +142,9 @@ async def request(action: str, data: dict[str, Any], config: Config) -> dict[str
                 raise TypeError("Invalid API envelope")
     except (httpx.HTTPError, ValueError, KeyError, TypeError) as exc:
         # Exception strings may contain signed URLs or raw document content.
-        raise DocumentProcessingError(502, "Tencent API response is unavailable or invalid", "TENCENT_API_UNAVAILABLE") from exc
+        transient = isinstance(exc, httpx.TransportError) or (isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code in {408, 429, 500, 502, 503, 504})
+        error = TransientReadError if transient else DocumentProcessingError
+        raise error(502, "Tencent API response is unavailable or invalid", "TENCENT_API_UNAVAILABLE") from exc
     if error := result.get("Error"):
         code = error.get("Code", "Unknown") if isinstance(error, dict) else "Unknown"
         code = code if isinstance(code, str) and re.fullmatch(r"[A-Za-z0-9_.]{1,128}", code) else "Unknown"
@@ -133,7 +183,9 @@ async def download_result(url: Any) -> bytes:
                 output.extend(chunk)
             return bytes(output)
     except (httpx.HTTPError, ValueError) as exc:
-        raise DocumentProcessingError(502, "Tencent result download failed", "TENCENT_DOWNLOAD_FAILED") from exc
+        transient = isinstance(exc, httpx.TransportError) or (isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code in {408, 429, 500, 502, 503, 504})
+        error = TransientReadError if transient else DocumentProcessingError
+        raise error(502, "Tencent result download failed", "TENCENT_DOWNLOAD_FAILED") from exc
 
 
 async def _cleanup_source(record: dict[str, Any], runtime: Runtime[Any], key: str, config: Config) -> None:
@@ -154,6 +206,28 @@ async def _cleanup_source(record: dict[str, Any], runtime: Runtime[Any], key: st
 
 async def parse_job(reference: ArtifactReference, runtime: Runtime[Any], *, key: str = "source",
                     source_type: DocumentSourceType | None = None, source_sha256: str | None = None) -> dict[str, Any]:
+    """Limit this service to five concurrent Tencent parsing workflows."""
+    loop = asyncio.get_running_loop()
+    if loop not in _jobs:
+        _jobs[loop] = asyncio.Semaphore(MAX_CONCURRENT_JOBS)
+    gate = _jobs[loop]
+    async with asyncio.timeout(await run_remaining(runtime)):
+        with telemetry.measure("tencent_admission", {}, "durationMs"):
+            while True:
+                try:
+                    async with asyncio.timeout(1):
+                        await gate.acquire()
+                    break
+                except TimeoutError:
+                    await guard(runtime)
+        try:
+            return await _parse_job(reference, runtime, key=key, source_type=source_type, source_sha256=source_sha256)
+        finally:
+            gate.release()
+
+
+async def _parse_job(reference: ArtifactReference, runtime: Runtime[Any], *, key: str,
+                     source_type: DocumentSourceType | None, source_sha256: str | None) -> dict[str, Any]:
     """Resume a known job; an unacknowledged submission is never replayed."""
     config = load()
     source_type = source_type or (reference.sourceType if isinstance(reference, DocumentReference) else None)
@@ -189,8 +263,8 @@ async def parse_job(reference: ArtifactReference, runtime: Runtime[Any], *, key:
         if config.tencent_cos_enabled:
             staging = staging_object(config, info.thread_id, key, reference.sha256)
             if record is None:
-                record = {"sourceSha256": reference.sha256, "status": "STAGING", "staging": staging,
-                          "resultType": RESULT_TYPES[source_type]}
+                record = {"sourceSha256": reference.sha256, "staging": staging, "resultType": RESULT_TYPES[source_type]}
+                _status(record, "STAGING")
                 await store_put(runtime, "tencent_jobs", key, record)
             elif record.get("staging") != staging:
                 raise DocumentProcessingError(409, "COS staging belongs to another deployment", "TENCENT_COS_CONFLICT")
@@ -202,48 +276,57 @@ async def parse_job(reference: ArtifactReference, runtime: Runtime[Any], *, key:
                 raise DocumentProcessingError(409, "COS staging cannot resume in local-only mode", "TENCENT_COS_CONFLICT")
             record = {"sourceSha256": reference.sha256, "resultType": RESULT_TYPES[source_type]}
             data["FileBase64"] = base64.b64encode(payload).decode()
-        record.update(status="SUBMITTING", submittedAt=datetime.now(UTC).isoformat())
+        _status(record, "SUBMITTING")
+        record["submittedAt"] = record["statusUpdatedAt"]
         await store_put(runtime, "tencent_jobs", key, record)
         try:
-            result = await request("SubmitMultimodalDocParseJob", data, config)
+            with telemetry.measure("tencent_submit", {}, "durationMs"):
+                result = await request("SubmitMultimodalDocParseJob", data, config)
         except DocumentProcessingError as exc:
             if exc.code == "TENCENT_REQUEST_REJECTED":
-                record["status"] = "REJECTED"
+                _status(record, "REJECTED")
                 if isinstance(exc, RequestRejected):
-                    record["requestId"] = exc.request_id
+                    record.update(requestId=exc.request_id, errorCode=exc.provider_code)
                 await store_put(runtime, "tencent_jobs", key, record)
                 await _cleanup_source(record, runtime, key, config)
+            elif exc.code == "TENCENT_API_UNAVAILABLE":
+                raise DocumentProcessingError(502, "Tencent submission has an unknown outcome; inspect the provider task before parsing again",
+                                              "TENCENT_SUBMISSION_UNKNOWN") from exc
             raise
         task_id = result.get("TaskId")
         if not isinstance(task_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", task_id):
             raise DocumentProcessingError(502, "Tencent submission returned no valid task ID", "TENCENT_SUBMISSION_UNKNOWN")
-        request_id = result.get("RequestId")
-        if request_id is not None and (not isinstance(request_id, str) or len(request_id) > 128):
-            request_id = None
-        record.update(taskId=task_id, requestId=request_id, status="Created")
+        record.update(taskId=task_id, requestId=diagnostic_value(result.get("RequestId")))
+        _status(record, "Created")
         await store_put(runtime, "tencent_jobs", key, record)
     if not record.get("taskId"):
         raise DocumentProcessingError(409, "Previous Tencent submission has an unknown outcome; do not resubmit automatically",
                                       "TENCENT_SUBMISSION_UNKNOWN")
+    async def query() -> dict[str, Any]:
+        try:
+            return await request("DescribeMultimodalDocParseJob", {"TaskId": record["taskId"]}, config)
+        except RequestRejected as exc:
+            record.update(queryRequestId=exc.request_id, errorCode=exc.provider_code)
+            await store_put(runtime, "tencent_jobs", key, record)
+            raise
+
     while True:
         await guard(runtime)
         remaining = await run_remaining(runtime)
         try:
-            result = JobResult.model_validate(await request("DescribeMultimodalDocParseJob", {"TaskId": record["taskId"]}, config)).model_dump()
+            result = JobResult.model_validate(await _read(runtime, "tencent_query", query)).model_dump()
         except ValidationError as exc:
             raise DocumentProcessingError(502, "Tencent returned invalid job metadata", "TENCENT_RESULT_INVALID") from exc
         except DocumentProcessingError as exc:
             if exc.code != "TENCENT_REQUEST_REJECTED":
                 raise
-            if isinstance(exc, RequestRejected):
-                record["queryRequestId"] = exc.request_id
-                await store_put(runtime, "tencent_jobs", key, record)
             raise DocumentProcessingError(502, "Tencent query was rejected; resume polling the saved task after correcting the cause",
                                           "TENCENT_QUERY_REJECTED") from exc
         status = result.get("Status")
         if status not in {"Created", "Processing", "Success", "Failed", "Unknown"}:
             raise DocumentProcessingError(502, "Tencent returned an invalid task status", "TENCENT_RESULT_INVALID")
-        record.update(status=status, queryRequestId=result.get("RequestId"))
+        _status(record, status)
+        record.update(queryRequestId=result.get("RequestId"), errorCode=result.get("ErrorCode"))
         if status == "Success":
             for name in ("FailedPages", "SuccessPageNum", "FailPageNum"):
                 record[name] = result.get(name)
@@ -251,7 +334,7 @@ async def parse_job(reference: ArtifactReference, runtime: Runtime[Any], *, key:
         if status == "Success":
             # Download bytes and the immutable copy coexist until storage completes.
             async with preparation(RESULT_LIMIT * 2):
-                payload = await download_result(result.get("ResultUrl"))
+                payload = await _read(runtime, "tencent_download", partial(download_result, result.get("ResultUrl")))
                 artifact = await store.put_artifact(payload, source_sha256=source_sha256 or reference.sha256,
                                                     kind="tencent-result", index=0, media_type="application/octet-stream")
             record["resultRef"] = artifact.model_dump(mode="json")

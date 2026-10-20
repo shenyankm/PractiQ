@@ -1,13 +1,16 @@
 import asyncio
+import json
+import logging
 from contextlib import asynccontextmanager
 from datetime import timedelta
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 from uuid import UUID, uuid4
 
 import pytest
 from psycopg import AsyncCursor, ProgrammingError, errors
 
-from practiq_ai import runtime, task_api
+from practiq_ai import runtime, task_api, telemetry
 from practiq_ai.contracts import (
     DocumentReference,
     DocumentTaskControl,
@@ -15,11 +18,42 @@ from practiq_ai.contracts import (
 )
 from practiq_ai.database import Database, utcnow
 from practiq_ai.errors import DocumentProcessingError
+from practiq_ai.graphs import document
 from practiq_ai.manage import cleanup, exclusive
 from tests.db_support import SERVICES, new_database, setup_api
 from tests.support import parsed
 
 pytestmark = pytest.mark.usefixtures("disposable_databases")
+
+
+@pytest.mark.parametrize('graph_error', [False, True])
+async def test_run_failure_is_observable_once_after_commit_and_duplicate_finish(monkeypatch, caplog, graph_error):
+    service, reference, model = await setup_api(monkeypatch)
+    failure = DocumentProcessingError(409, 'private provider detail', 'DOCUMENT_CHECKSUM_MISMATCH')
+    if graph_error:
+        monkeypatch.setattr(document, '_prepare', AsyncMock(side_effect=failure))
+        # Recompile the existing guarded node with the injected preparation failure.
+        service.graphs['document_parser'] = document.build_document_graph(service.db.checkpointer, store=service.db.store)
+    else:
+        monkeypatch.setattr(service, 'unknown_calls', AsyncMock(side_effect=failure))
+    counter = telemetry.failures.labels(failure.code)
+    before = counter._value.get()
+    monkeypatch.setattr(telemetry.logger, 'handlers', [caplog.handler])
+    monkeypatch.setattr(telemetry.logger, 'level', logging.INFO)
+    monkeypatch.setattr(telemetry.logger, 'propagate', False)
+    created = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
+    await service.wait_idle()
+    await service.finish(created['runId'], 'error', failure.code)
+    await service.finish(created['runId'], 'error', failure.code)
+    events = [json.loads(record.getMessage()) for record in caplog.records if record.name == 'practiq.events']
+    run = (await service.db.rows('SELECT * FROM document_runs WHERE run_id=%s', (created['runId'],)))[0]
+    assert run['status'] == 'error' and run['error_code'] == failure.code
+    assert counter._value.get() == before + 1
+    stopped = [item for item in events if item['event'] == 'document_run_state']
+    assert len(stopped) == 1
+    assert stopped[0]['threadId'] == created['threadId'] and stopped[0]['runId'] == created['runId']
+    assert stopped[0]['errorCode'] == failure.code and stopped[0]['status'] == 'error'
+    assert 'private provider detail' not in str(events) and not model.calls
 
 
 @pytest.mark.parametrize('action', ['create', 'resume'])

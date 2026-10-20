@@ -34,6 +34,7 @@ from practiq_ai.contracts import (
     DocumentTaskReview,
     DocumentUploadRequest,
     DocumentUploadResponse,
+    ImportBudgetCapacity,
     ImportCapabilities,
     OfficeMode,
     document_source_limit,
@@ -42,6 +43,7 @@ from practiq_ai.errors import DocumentProcessingError
 from practiq_ai.execution import supported_task_sql
 from practiq_ai.extractors.isolated import _thread_io
 from practiq_ai.grading import GradeWireRequest, grade
+from practiq_ai.llm import import_call_allowance
 from practiq_ai.middleware import JsonBodyLimitMiddleware, SecurityHeadersMiddleware
 from practiq_ai.storage import get_object_store
 from practiq_ai.telemetry import configure_logging, registry
@@ -147,10 +149,18 @@ async def application_metrics() -> Response:
         rows = await current.db.rows(f"SELECT r.status,count(*) AS n FROM document_runs r JOIN document_tasks t ON t.thread_id=r.thread_id WHERE r.status IN ('pending','running') AND {supported_task_sql('t')} GROUP BY r.status")
         counts = {row['status']: row['n'] for row in rows}
         outbox = (await current.db.rows('SELECT count(*) AS n,coalesce(extract(epoch FROM now()-min(created_at)),0) AS age FROM document_outbox WHERE published_at IS NULL'))[0]
+        unknown = (await current.db.rows(f"""
+            SELECT count(*) AS n FROM document_tasks t JOIN store s
+            ON s.prefix='document_tasks.' || t.thread_id::text || '.tencent_jobs'
+            WHERE {supported_task_sql('t')} AND (s.expires_at IS NULL OR s.expires_at > now())
+            AND (s.value->>'status'='Unknown' OR (s.value->>'status'='SUBMITTING' AND s.value->>'taskId' IS NULL))
+            AND NOT EXISTS (SELECT 1 FROM document_runs r WHERE r.thread_id=t.thread_id AND r.status IN ('pending','running'))
+        """))[0]['n']
         jobs = load().jobs_per_worker
         body += (f"practiq_broker_connected {int(current.delivery.connected)}\n"
                  f"practiq_outbox_pending {outbox['n']}\n"
                  f"practiq_outbox_oldest_seconds {outbox['age']}\n"
+                 f"practiq_tencent_unknown_jobs {unknown}\n"
                  f"practiq_pending_runs {counts.get('pending', 0)}\n"
                  f"practiq_running_runs {counts.get('running', 0)}\n"
                  f"practiq_queue_capacity {load().max_busy_threads}\n"
@@ -174,6 +184,9 @@ async def import_capabilities() -> ImportCapabilities:
         office_limit = min(office_limit, *(submission_limit(kind, settings) for kind in ("docx", "pptx", "xlsx")))
     return ImportCapabilities(sourceTypes=[kind for kind in get_args(DocumentSourceType) if kind != "csv" and (kind != "xls" or converter)],
                               sourceMaxBytes=settings.source_max_bytes, officeAvailable=office,
+                              modelBudget=ImportBudgetCapacity(limit=settings.task_max_model_calls,
+                                                               unitCalls=import_call_allowance(),
+                                                               contextUnitCalls=import_call_allowance(context=True)),
                               officeSourceMaxBytes=office_limit if office else None,
                               officeModes=[], modelConfigured=not settings.read_only, parserConfigured=office, parserInputMaxBytes=min(settings.tencent_input_max_bytes, 150 * 1024 * 1024 if settings.tencent_cos_enabled else 8 * 1024 * 1024))
 

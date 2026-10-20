@@ -8,7 +8,7 @@ const receipt = { threadId: taskId, requestId: taskId, runId, accepted: true };
 it("verifies OCR evidence and strips document-only fields from original-file reads", async () => {
   const bytes = new TextEncoder().encode('{"text":"Source <script>inert</script>"}');
   const reference = { objectKey: "managed-ocr", sha256: await sha256(bytes.buffer), sizeBytes: bytes.length, mediaType: "application/json" };
-  const fetcher = vi.fn().mockImplementation(async (_path, init) => new Response(bytes, { headers: { "Content-Type": JSON.parse(init.body).mediaType } }));
+  const fetcher = vi.fn().mockImplementation(async (_path, init) => new Response(bytes, { headers: { "Content-Type": JSON.parse(init.body as string).mediaType } }));
   vi.stubGlobal("fetch", fetcher);
   const client = new Client("fake");
   expect((await client.evidence(reference, taskId)).size).toBe(bytes.length);
@@ -51,7 +51,7 @@ it("does not replay a timed out mutation and preserves its request ID for explic
   await pending;
   expect(fetcher).toHaveBeenCalledTimes(1);
   const first = JSON.parse(fetcher.mock.calls[0][1].body as string);
-  fetcher.mockImplementation(async () => json(receipt));
+  fetcher.mockImplementation(async (_path, init) => json({ ...receipt, requestId: JSON.parse(init.body as string).requestId }));
   await client.reparse(taskId);
   expect(JSON.parse(fetcher.mock.calls[1][1].body as string)).toEqual(first);
 });
@@ -231,7 +231,7 @@ describe("task reads and explicit controls", () => {
     await expect(client.detail(taskId)).rejects.toMatchObject({ status: 401, message: expect.not.stringContaining("fake-secret") });
   });
   it("targets running operations by run ID, and checkpoint operations by checkpoint ID", async () => {
-    const fetcher = vi.fn().mockImplementation(async () => json(receipt, 202)); vi.stubGlobal("fetch", fetcher);
+    const fetcher = vi.fn().mockImplementation(async (_path: string, init: RequestInit) => json({ ...receipt, requestId: JSON.parse(init.body as string).requestId }, 202)); vi.stubGlobal("fetch", fetcher);
     const client = new Client("fake");
     await client.control({ ...task, runId, allowedActions: ["pause"] }, "pause");
     await client.control({ ...task, allowedActions: ["resume", "retry_failed", "accept_partial"] }, "retry_failed");
@@ -243,18 +243,22 @@ describe("task reads and explicit controls", () => {
     expect(fetcher).toHaveBeenCalledTimes(2);
   });
   it("reuses an uncertain control/reparse intent only when the user explicitly repeats it", async () => {
-    const fetcher = vi.fn().mockRejectedValueOnce(new TypeError("lost")).mockResolvedValueOnce(json(receipt, 202)).mockResolvedValueOnce(json(receipt, 202)).mockRejectedValueOnce(new TypeError("lost")).mockResolvedValueOnce(json(receipt, 202));
+    let attempts = 0;
+    const fetcher = vi.fn(async (_path: string, init: RequestInit) => {
+      if ([1, 4].includes(++attempts)) throw new TypeError("lost");
+      return json({ ...receipt, requestId: JSON.parse(init.body as string).requestId }, 202);
+    });
     vi.stubGlobal("fetch", fetcher);
     const client = new Client("fake"); const paused = { ...task, allowedActions: ["resume"] as const };
     await expect(client.control({ ...paused, allowedActions: [...paused.allowedActions] }, "resume")).rejects.toMatchObject({ code: "NETWORK_ERROR" });
     expect(fetcher).toHaveBeenCalledTimes(1);
     await client.control({ ...paused, allowedActions: [...paused.allowedActions] }, "resume");
     await client.control({ ...paused, allowedActions: [...paused.allowedActions] }, "resume");
-    const ids = fetcher.mock.calls.slice(0, 3).map(([, init]) => JSON.parse(init.body).requestId);
+    const ids = fetcher.mock.calls.slice(0, 3).map(([, init]) => JSON.parse(init.body as string).requestId);
     expect(ids[0]).toBe(ids[1]); expect(ids[2]).not.toBe(ids[1]);
     await expect(client.reparse(taskId)).rejects.toMatchObject({ code: "NETWORK_ERROR" });
     await client.reparse(taskId);
-    expect(JSON.parse(fetcher.mock.calls[3][1].body).requestId).toBe(JSON.parse(fetcher.mock.calls[4][1].body).requestId);
+    expect(JSON.parse(fetcher.mock.calls[3][1].body as string).requestId).toBe(JSON.parse(fetcher.mock.calls[4][1].body as string).requestId);
   });
   it("disconnect cancels in-flight reads and rejects new HTTP; token is never persisted", async () => {
     const fetcher = vi.fn((_url: string, init: RequestInit) => new Promise<Response>((_resolve, reject) => init.signal!.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")))));
@@ -382,4 +386,51 @@ it.each(["network", "server", "timeout"] as const)("treats POST artifact reads a
   await pending;
   expect(fetcher).toHaveBeenCalledOnce();
   expect(fetcher.mock.calls[0][1].method).toBe("POST");
+});
+
+it("reuses an uncertain source intent by verified content when caller changes the request ID", async () => {
+  const fetcher = mockUpload({ networkAtCreate: true }); const client = new Client("fake");
+  for (const id of [taskId, runId]) await expect(client.start(new File(["same"], "same.txt"), capabilities, id, () => {})).rejects.toMatchObject({ code: "NETWORK_ERROR" });
+  const creates = fetcher.mock.calls.filter(call => call[0] === "/api/document-tasks");
+  expect(creates).toHaveLength(2);
+  expect(JSON.parse(creates[0][1].body as string)).toEqual(JSON.parse(creates[1][1].body as string));
+});
+
+it.each([{ limit: -1, unitCalls: 4, contextUnitCalls: 8 }, { limit: 400, unitCalls: 0, contextUnitCalls: 8 }, { limit: 400, unitCalls: 4, contextUnitCalls: 1.5 }])("rejects invalid model capacity: %s", async modelBudget => {
+  vi.stubGlobal("fetch", vi.fn(async () => json({ ...capabilities, modelBudget })));
+  await expect(new Client("fake").capabilities()).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
+});
+
+it.each([null, {}, { ...receipt, requestId: runId }, { ...receipt, accepted: "yes" }, { ...receipt, accepted: false }, { ...receipt, runId: null }, { ...receipt, runId: undefined }])("retains the original intent when a creation receipt is invalid: %s", async invalid => {
+  const upload = mockUpload(); const bodies: unknown[] = []; let fail = true;
+  vi.stubGlobal("fetch", vi.fn(async (path: string, init: RequestInit) => {
+    if (path !== "/api/document-tasks") return upload(path, init);
+    const body = JSON.parse(init.body as string); bodies.push(body);
+    if (fail) { fail = false; return json(invalid); }
+    return json({ ...receipt, requestId: body.requestId });
+  }));
+  const client = new Client("fake"); const file = new File(["source"], "source.txt");
+  await expect(client.start(file, capabilities, taskId, () => {})).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
+  await expect(client.start(file, capabilities, runId, () => {})).resolves.toMatchObject({ requestId: taskId });
+  expect(bodies[0]).toEqual(bodies[1]);
+});
+
+it.each(["reparse", "resume"] as const)("retains an uncertain %s intent after incomplete success receipts", async action => {
+  const invalid = [{}, { ...receipt, accepted: false }, { ...receipt, runId: null }];
+  const bodies: Record<string, unknown>[] = [];
+  vi.stubGlobal("fetch", vi.fn(async (_path: string, init: RequestInit) => {
+    const body = JSON.parse(init.body as string); bodies.push(body);
+    return json(bodies.length <= invalid.length ? { ...invalid[bodies.length - 1], requestId: body.requestId } : { ...receipt, requestId: body.requestId });
+  }));
+  const client = new Client("fake");
+  const perform = () => action === "reparse" ? client.reparse(taskId) : client.control({ ...task, allowedActions: ["resume"] }, "resume");
+  for (let attempt = 0; attempt < invalid.length; attempt++) await expect(perform()).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
+  expect(bodies).toHaveLength(invalid.length);
+  await expect(perform()).resolves.toHaveProperty("requestId", bodies[0].requestId);
+  expect(bodies).toHaveLength(invalid.length + 1); for (const body of bodies) expect(body).toEqual(bodies[0]);
+});
+
+it.each([null, {}, { deleted: false }, { deleted: "true" }])("does not confirm task deletion from a malformed or negative success receipt: %s", async value => {
+  vi.stubGlobal("fetch", vi.fn(async () => json(value)));
+  await expect(new Client("fake").delete(taskId)).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
 });

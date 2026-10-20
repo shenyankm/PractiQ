@@ -170,6 +170,9 @@ from validated Tencent COS HTTPS hosts without redirects, and are not saved in
 task state. Archives are retained in local content-addressed storage. Archive
 paths, expanded size, entry count, OCR schema, page indices and coordinates are
 validated before interpretation. Unsupported result layouts fail explicitly.
+Cancellation waits for archive/subimage decoding threads to finish before
+releasing their shared preparation slot and resource reservation. This bounds
+overlapping work; it does not forcibly terminate a running decoding thread.
 
 Tencent `Success` may include failed pages. Missing page evidence is retained as
 a page failure and remains available for human partial-result review; the task
@@ -204,9 +207,82 @@ Live synthetic TXT (Markdown output), PDF, DOCX and XLSX jobs completed and
 their downloaded archives decoded successfully; the XLSX merged span was retained.
 See [sanitized evidence](../../docs/evidence/2026-10-20-tencent-parser/README.md).
 COS remains untested live because bucket and region are unset.
+The subsequent [live import acceptance](../../docs/evidence/2026-10-20-tencent-import/live-acceptance.json)
+uses real Tencent and configured question-structuring calls through an isolated
+HTTP service, PostgreSQL, RabbitMQ and local storage. Eight admitted tasks reached
+five concurrent Tencent workflows; a real query `RequestLimitExceeded` recovered
+without a second submission. Separate injected query exhaustion and lost-submit
+reply checks distinguish known-job resume from uncertain paid work. The latter
+exposed and fixed an incorrect Resume action on the first transport failure.
+Repeated create/control/reparse receipts and a service restart did not add
+submissions. These small synthetic questions do not establish document accuracy
+or account-wide remote page admission.
 Deployment acceptance still requires enabled Tencent APIs and authorized real
 samples: Chinese and English questions, shared and cross-page materials, answer
 keys, formulas, tables, figures, Office sheets, partial pages and large sources.
 
 Existing tasks keep their original deployment and files for recovery; do not
 rewrite execution signatures or old checkpoints to adopt the new parser.
+
+## Import engineering safeguards
+
+Task diagnostics expose the submission and latest query request IDs, a bounded
+provider error code and `statusUpdatedAt` (the last status transition). They never
+save provider error messages or signed result URLs. Legacy records show null for
+new diagnostic fields. `practiq_stage_seconds` includes `tencent_submit`,
+`tencent_query` and `tencent_download`; outcome describes the HTTP operation, so a
+successful query can still report a failed document job.
+
+Only reads of an acknowledged task and its result retry transient transport
+failures, HTTP 408/429/500/502/503/504, or query `RequestLimitExceeded` and
+`InternalError` responses. Each read has at most three attempts, with 1/2-second
+backoff and 20% jitter, bounded by the saved run deadline and control checks.
+Authentication failures, malformed results, terminal job failures and paid
+submission are never automatically retried. An exhausted read retains the job ID
+for an explicit resume. An unacknowledged submission remains blocked from replay.
+
+Web retains failed source submissions, including their original File, options and
+request ID, when another selection succeeds or fails validation. Within the
+connected page, identical verified content/filename/options reuse an uncertain
+creation intent even if file timestamps change. This is still an explicit user
+retry; selecting a file never creates a task. A failed start stops the batch,
+leaving the remaining files unsubmitted until another explicit action. Mutation
+receipts must affirm acceptance and include valid task/run IDs before the intent
+is cleared. Failed files can be removed to free queue slots; removal does not
+cancel server work, and uncertain content intents remain available in memory for
+explicit reselection. Pending receipts exist only in memory: inspect the task
+list before refreshing, disconnecting or closing the page.
+
+The authenticated capabilities response reports the same per-unit reservations
+used by dispatch. With a 400-call budget, ordinary/context units reserve 4/8 calls
+without AI review (100/50 full reservations), or 16/20 with review (25/20).
+Mixed units share the budget; units do not equal pages. Reservations are retained
+on failure and retry, and a last unit may receive only the remaining allowance.
+The pre-import Web hint describes full reservation capacity, not guaranteed output
+or recognition quality. This change does not refund spent or uncertain calls.
+
+A submission transport failure is reported as `TENCENT_SUBMISSION_UNKNOWN` on
+the first failure, while retaining its `SUBMITTING` intent. It cannot offer a
+normal Resume action: an unavailable response does not establish whether paid
+recognition started. Inspect the provider task before explicitly parsing again.
+
+Create, control and reparse all validate task receipts before clearing their
+request IDs. A malformed successful response is still an uncertain outcome and
+requires an explicit retry with the same ID. Deletion also requires an affirmative
+receipt before the UI confirms removal. A rejected Tencent query saves its
+safe request ID and error code before retry backoff, so pausing during that wait
+retains the latest diagnostic receipt.
+
+
+Tencent parsing has a separate shared admission ceiling of five concurrent
+workflows in this service, independent of LLM concurrency. A slot covers submit,
+known-task polling and local result saving. Waiting is bounded by the persisted
+run deadline and happens before any new paid-submission intent is written;
+cancellation while queued cannot leave a false `SUBMITTING` receipt. Pause is
+checked at least once per second while queued. `tencent_admission` records slot
+wait duration separately from provider requests. Slots are released on success, failure, pause and cancellation. Tencent may continue an
+already submitted remote job after a pause or process exit; retained task IDs
+still govern recovery and unknown submissions are never replayed. Other clients
+using the same account also consume its quota; this local ceiling does not
+reserve account-wide capacity. The official default is [five pages in parallel](https://cloud.tencent.com/document/api/866/139312), shared by synchronous and
+asynchronous parsing; it is not a five-requests-per-second policy.

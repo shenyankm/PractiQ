@@ -495,6 +495,12 @@ class DocumentUploadResponse(StrictModel):
     upload: LocalUpload | None
 
 
+class ImportBudgetCapacity(StrictModel):
+    limit: int = Field(ge=0)
+    unitCalls: int = Field(gt=0)
+    contextUnitCalls: int = Field(gt=0)
+
+
 class ImportCapabilities(StrictModel):
     sourceTypes: list[ImportSourceType]
     sourceMaxBytes: int = Field(gt=0)
@@ -502,6 +508,7 @@ class ImportCapabilities(StrictModel):
     officeAvailable: bool
     officeModes: list[OfficeMode]
     modelConfigured: bool
+    modelBudget: ImportBudgetCapacity | None = None
     parserConfigured: bool = False
     parserInputMaxBytes: int = Field(default=8 * 1024 * 1024, ge=4, le=150 * 1024 * 1024)
 
@@ -816,6 +823,9 @@ class TaskModelBudget(StrictModel):
 
 
 class DocumentParserJob(StrictModel):
+    queryRequestId: str | None = Field(default=None, max_length=128, pattern=r"^[A-Za-z0-9_-]+$")
+    errorCode: str | None = Field(default=None, max_length=128, pattern=r"^[A-Za-z0-9_.]+$")
+    statusUpdatedAt: str | None = Field(default=None, max_length=64)
     taskId: str | None = Field(default=None, max_length=128)
     requestId: str | None = Field(default=None, max_length=128)
     status: Literal["STAGING", "SUBMITTING", "REJECTED", "Created", "Processing", "Success", "Failed", "Unknown"]
