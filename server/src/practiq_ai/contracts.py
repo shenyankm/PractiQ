@@ -231,11 +231,11 @@ def normalize_answer(mode, payload):
                         if entry.get(side) is None:
                             partial = True
                         else:
-                            TypeAdapter(StrictInt).validate_python(entry[side], strict=True)
+                            TypeAdapter(int).validate_python(entry[side], strict=True)
                 else:
-                    TypeAdapter(StrictInt if key == "order" else str).validate_python(entry, strict=True)
+                    TypeAdapter(int if key == "order" else str).validate_python(entry, strict=True)
         else:
-            TypeAdapter(Annotated[field.annotation, *field.metadata]).validate_python(value, strict=True)
+            TypeAdapter(field.rebuild_annotation()).validate_python(value, strict=True)
     return payload if partial else schema.model_validate(payload)
 
 

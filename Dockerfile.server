@@ -2,6 +2,7 @@ FROM ghcr.io/astral-sh/uv:python3.14-bookworm-slim@sha256:7cf77f594be8042dab6daa
 WORKDIR /lock
 COPY server/pyproject.toml server/uv.lock ./
 RUN uv export --frozen --no-dev --no-emit-project --no-hashes -o requirements.txt
+RUN python -c "import tomllib; project = tomllib.load(open('pyproject.toml', 'rb')); print(*project['build-system']['requires'] + project['tool']['uv']['build-constraint-dependencies'], sep='\n', file=open('build-constraints.txt', 'w'))"
 
 FROM rust:1.98.1-slim-bookworm@sha256:ff521445a372125ed4f76e1453a1f8098f2d05332d1601d30db1c1f62757e730 AS rust-toolchain
 
@@ -14,13 +15,15 @@ COPY --from=rust-toolchain /usr/local/rustup /usr/local/rustup
 ENV CARGO_HOME=/usr/local/cargo RUSTUP_HOME=/usr/local/rustup PATH=/usr/local/cargo/bin:$PATH
 COPY --from=lock /usr/local/bin/uv /usr/local/bin/uv
 COPY --from=lock /lock/requirements.txt /tmp/requirements.txt
-RUN UV_HTTP_TIMEOUT=120 uv pip install --prefix /opt/runtime --no-cache-dir -r /tmp/requirements.txt
+COPY --from=lock /lock/build-constraints.txt /tmp/build-constraints.txt
+RUN UV_HTTP_TIMEOUT=120 uv pip install --prefix /opt/runtime --no-cache-dir --build-constraints /tmp/build-constraints.txt -r /tmp/requirements.txt
 
 FROM python:3.15-slim-bookworm@sha256:2a41267d9de9d358f77a1de356e0f16ecba8d39827855be0ce9ef4792edce402
 RUN sed -i 's|http://deb.debian.org|https://deb.debian.org|g' /etc/apt/sources.list.d/debian.sources \
     && apt-get -o Acquire::Retries=3 update && apt-get -o Acquire::Retries=3 install -y --no-install-recommends fonts-noto-cjk libreoffice-writer libreoffice-calc \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=lock /usr/local/bin/uv /usr/local/bin/uv
+COPY --from=lock /lock/build-constraints.txt /tmp/build-constraints.txt
 COPY --from=dependencies /opt/runtime /usr/local
 COPY server/pyproject.toml server/uv.lock server/build_backend.py /app/server/
 COPY LICENSE /app/LICENSE
@@ -29,7 +32,7 @@ COPY server/licenses /app/server/licenses
 # make image-check builds the locked Web frontend before this image.
 COPY web/dist /app/web/dist
 WORKDIR /app/server
-RUN UV_HTTP_TIMEOUT=120 uv pip install --system --no-cache-dir --no-deps .
+RUN UV_HTTP_TIMEOUT=120 uv pip install --system --no-cache-dir --no-deps --build-constraints /tmp/build-constraints.txt .
 RUN groupadd --gid 10001 practiq && useradd --uid 10001 --gid 10001 --create-home practiq \
     && mkdir -p /var/lib/practiq && chown 10001:10001 /var/lib/practiq
 ENV LANGSMITH_TRACING=false LANGCHAIN_TRACING_V2=false AI_STORAGE_DIR=/var/lib/practiq/files AI_WEB_DIR=/app/web/dist

@@ -39,7 +39,8 @@ def test_dependency_maintenance_covers_locked_manifests_and_bounded_queues():
     policy = (root / "docs/maintainers/dependency-security.md").read_text()
     assert "manual route" in policy and "build-constraint-dependencies" in policy
     assert "at least monthly" in policy
-    assert "python:3.14-slim-bookworm" in policy and "multi-stage" in policy
+    assert "python:3.15-slim-bookworm" in policy and "multi-stage" in policy
+    assert "rust:1.98.1-slim-bookworm" in policy and "uv:python3.14-bookworm-slim" in policy
     assert "make image-check" in policy
 
 
@@ -658,3 +659,19 @@ def test_service_python_matrix_retains_minimum_version_and_runtime_artifact_name
     assert all(tool in smoke["run"] for tool in ["ormsgpack", "pydantic", "gcc", "cargo", "rustc"])
     names = [step["with"]["name"] for step in quality["steps"] if step.get("uses", "").startswith("actions/upload-artifact@")]
     assert names == ["service-web-checks${{ matrix.python == '3.14' && '-python314' || '' }}", "service-checks${{ matrix.python == '3.14' && '-python314' || '' }}"]
+
+
+def test_service_native_builds_apply_pinned_build_dependencies():
+    root = Path(__file__).resolve().parents[2]
+    project = tomllib.loads((root / "server/pyproject.toml").read_text())
+    constraints = project["tool"]["uv"]["build-constraint-dependencies"]
+    pins = dict(item.split("==") for item in constraints)
+    assert {"setuptools", "wheel", "Cython", "maturin", "cffi", "pycparser", "packaging"} <= pins.keys()
+    dockerfile = (root / "Dockerfile.server").read_text()
+    assert "project['build-system']['requires'] + project['tool']['uv']['build-constraint-dependencies']" in dockerfile
+    blocks = dockerfile.split("FROM python:3.15-slim-bookworm@")[1:]
+    assert len(blocks) == 2
+    for block in blocks:
+        assert "COPY --from=lock /lock/build-constraints.txt /tmp/build-constraints.txt" in block
+        install, = (line for line in block.splitlines() if line.startswith("RUN UV_HTTP_TIMEOUT"))
+        assert "--build-constraints /tmp/build-constraints.txt" in install

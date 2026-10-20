@@ -1,17 +1,22 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-20T08:16:18.795352+00:00",
+  "generatedAt": "2026-10-20T08:38:43.991776+00:00",
   "status": "PASSED_LOCAL",
   "upstreamHead": "e978926665f27c61d13b52bac20514984a856f2d",
   "failuresReproduced": [
     "Original image lacks gcc for native source builds",
-    "Compiler probe exposes PyO3 maximum Python 3.14 in old locked native packages"
+    "Compiler probe exposes PyO3 maximum Python 3.14 in old locked native packages",
+    "Current-head Python 3.14 and 3.15 CI reject three TypeAdapter calls after the Pydantic typing update",
+    "Native build constraints and canonical image-maintenance policy regressions fail before repair"
   ],
   "changes": [
     "Update Pydantic and compatible native transitive dependencies with Python 3.15 support",
     "Build native dependencies in isolated pinned C/Rust stages and copy installed packages into the nonroot runtime",
     "Run full service CI on both Python 3.14 and 3.15; preserve canonical release artifact names on the runtime version",
-    "Smoke-test imports, runtime Python version, uid and compiler isolation in CI"
+    "Smoke-test imports, runtime Python version, uid and compiler isolation in CI",
+    "Export exact project and native build constraints into both image install commands",
+    "Retain strict integer indices and field metadata using compatible TypeAdapter calls",
+    "Update operations and image maintenance for all four pinned stages"
   ],
   "updatedPackages": {
     "jiter": "0.17.0",
@@ -35,7 +40,7 @@
     "dockerBuild": {
       "status": "PASSED",
       "platform": "linux/arm64",
-      "manifestListSha256": "740087584e1b267bfb50b9ed193c1b74e8c2a1efa8582a9cbd3e80bb9030cec6"
+      "manifestListSha256": "8e5d2b003170da816e145a21407d034caf6f6e4326a118bd5442992e53da36a6"
     },
     "runtimeSmoke": {
       "Python": "3.15.0",
@@ -45,9 +50,26 @@
       "gccCargoRustcAbsent": true
     },
     "isolatedPython315Tests": {
-      "passed": 219,
+      "passed": 318,
       "deselected": 2,
-      "scope": "Selected config, source-contract, Tencent and structured-output tests in an isolated source snapshot; two explicit database-integration cases reserved for full CI"
+      "scope": "Selected source-contract, answer, config, Tencent and structured-output tests in an isolated source snapshot; two explicit database-integration cases reserved for full CI"
+    },
+    "focusedReviewRegressions": 155,
+    "pyright": "PASSED: three errors reproduced with locked Pydantic 2.14.1 before repair; zero after repair",
+    "fullPython314Verify": {
+      "status": "PASSED",
+      "python": "3.14.7",
+      "dependencyEnvironment": "Exact locked runtime/dev dependencies in an isolated temporary target, using an existing interpreter without a project virtual environment",
+      "passed": 2982,
+      "warnings": 8,
+      "coveragePercent": 93,
+      "evaluationFixtures": 30,
+      "recoveryProbes": "PASSED",
+      "wheelAndSdistIntegrity": "PASSED"
+    },
+    "audit": {
+      "runtimeLock": "PASSED: no known vulnerabilities",
+      "projectAndNativeBuildConstraints": "PASSED: no known vulnerabilities"
     }
   },
   "notAssessed": [
@@ -58,10 +80,34 @@
   ],
   "sourceSha256": {
     ".github/workflows/server.yml": "4bde7ef3361b84274e1de616e61cffd8f8d1c3dd8e85b5b3a5bf0589cc57f77e",
-    "Dockerfile.server": "26524717ee92f732743ffb4ac38028406d0c87ae818f0d2cc98985f86fb76da2",
-    "docs/maintainers/dependency-security.md": "98541acd39cfe88f1df2da94ea32d60a3c98a45607240ae8d514b2fc46586686",
-    "server/pyproject.toml": "4abdd3489438ba75050b31b26a683e1c7682f6a9c53c3b1ab9019d8472703d59",
-    "server/tests/test_ci.py": "377ef54d78c5a2ddaac47f66d6ddc7abfe33c493e8ba3c119e12b731d385c03e",
-    "server/uv.lock": "ad978718ed166e4eb4168640e8597db7327a458141d1284748b17127ac53bc9f"
+    "Dockerfile.server": "9b1d6d98fc283b5427a04dcbd9ef0a774fcfe093f89d73f75ae7aa11553e3517",
+    "docs/maintainers/dependency-security.md": "b256166cae043f9aa1845ddcb7ae824cad0a967d32b5446f9ebd046d5242f850",
+    "server/pyproject.toml": "c33c5033d041d869b242bec2906d5c63901a26a668195d3b91f27af3b54e87e9",
+    "server/tests/test_ci.py": "6c9d83204bffefd9adcf661a2f96bb45b5187e5c0cb47e1e34db1b5959ebb035",
+    "server/uv.lock": "5769ca9ac884c34e0c142ea68e2f345e696c73051b5e2df5d8f33cf1e3886d7f",
+    "server/docs/operations.md": "e651c62f816b5cb38db8ca82fd3e46e00b6403f30833e3ef7ec11fe71db41b1b",
+    "server/src/practiq_ai/contracts.py": "3f69875b0b5ba08abc743afb3c540e3441590333ffc3602456e56c8865dfe591",
+    "server/tests/test_schemas.py": "b5803b89e6b2673feb25beaa589b2a4e0f87ad3631bb02f1c51c01a8536e1d7a"
+  },
+  "nativeBuildConstraints": [
+    "cffi==2.1.1",
+    "Cython==3.3.0",
+    "maturin==1.15.0",
+    "packaging==26.3",
+    "pathspec==1.1.1",
+    "pluggy==1.6.0",
+    "pycparser==3.11",
+    "setuptools==84.2.0",
+    "tomlkit==0.15.1",
+    "trove-classifiers==2026.9.21.13",
+    "wheel==0.48.0"
+  ],
+  "reviewFollowup": {
+    "reviewedHead": "3fbe2a18fe19f980cd6dd6c5caeb06b119c46481",
+    "addressedThreads": [
+      "https://github.com/shenyankm/PractiQ/pull/316#discussion_r4322936831",
+      "https://github.com/shenyankm/PractiQ/pull/316#discussion_r4322936839"
+    ],
+    "failedCIRun": "https://github.com/shenyankm/PractiQ/actions/runs/39392212440"
   }
 }

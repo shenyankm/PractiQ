@@ -65,9 +65,10 @@ Actions remain pinned to full commit SHAs and Docker bases retain digests.
 Docker coverage is partial: GitHub documents that Dependabot may update only the
 first `FROM` and does not support multi-stage builds. See the
 [Docker limitations](https://docs.github.com/en/code-security/how-tos/secure-your-supply-chain/manage-your-dependency-security/configure-private-registries#limitations-and-workarounds).
-Before each release and at least monthly, manually review **both** image tags
-and digests in `Dockerfile.server`, including the deployed second-stage
-`python:3.14-slim-bookworm` base and the uv builder. Update each selected digest
+Before each release and at least monthly, manually review **all** image tags
+and digests in `Dockerfile.server`: the `uv:python3.14-bookworm-slim` lock exporter,
+the `rust:1.98.1-slim-bookworm` toolchain, and both `python:3.15-slim-bookworm`
+dependency-builder and production-runtime stages. Update each selected digest
 in a focused PR, run `make verify` and `make image-check`, and retain the build
 and deployment checks for the resulting image. A builder-only Dependabot PR
 does not establish that the deployed Python/OS image is current.
@@ -153,3 +154,7 @@ ABI compatibility overrides. The pinned Rust toolchain and C build tools live
 only in the dependency build stage; the runtime receives the installed Python
 packages. Python 3.15 reports retain the canonical service artifact names used
 by release assembly, while 3.14 compatibility artifacts have a distinct suffix.
+Both dependency and project builds explicitly consume constraints exported from
+the service's build-system requirements and build-constraint dependencies,
+including native build backends and their transitive tooling. Audit those pins
+with `make audit`; do not resolve unconstrained PEP 517 tooling in image stages.
