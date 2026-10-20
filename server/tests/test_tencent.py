@@ -80,6 +80,20 @@ async def test_timeout_after_submission_never_replays_paid_request(monkeypatch):
     assert request.await_count == 1
 
 
+@pytest.mark.parametrize('error_type', [tencent.TransientReadError, DocumentProcessingError])
+async def test_unavailable_submit_is_unknown_on_first_failure(monkeypatch, error_type):
+    reference, _, runtime = job_runtime(monkeypatch)
+    request = AsyncMock(side_effect=error_type(502, 'unavailable', 'TENCENT_API_UNAVAILABLE'))
+    monkeypatch.setattr(tencent, 'request', request)
+    for _ in range(2):
+        with pytest.raises(DocumentProcessingError) as error:
+            await tencent.parse_job(reference, runtime)
+        assert error.value.code == 'TENCENT_SUBMISSION_UNKNOWN'
+    record = await runtime.store.aget(namespace('t', 'tencent_jobs'), 'source')
+    assert record.value['status'] == 'SUBMITTING' and not record.value.get('taskId')
+    assert request.await_count == 1
+
+
 async def test_download_retry_queries_existing_task_without_resubmitting(monkeypatch):
     reference, _, runtime = job_runtime(monkeypatch)
     await runtime.store.aput(namespace("t", "tencent_jobs"), "source",
@@ -361,3 +375,261 @@ async def test_direct_office_submission_caps_paid_pages(monkeypatch, kind):
     monkeypatch.setattr(tencent, 'download_result', AsyncMock(return_value=b'archive'))
     await tencent.parse_job(reference, runtime, source_type=kind)
     assert request.await_args_list[0].args[1]['FileEndPageNumber'] == 2
+
+
+async def test_failed_job_retains_only_safe_diagnostics_and_phase_metrics(monkeypatch):
+    from practiq_ai import telemetry
+
+    reference, _, runtime = job_runtime(monkeypatch)
+    monkeypatch.setattr(tencent, 'request', AsyncMock(side_effect=[{'TaskId': '123', 'RequestId': 'submit'},
+        {'Status': 'Failed', 'RequestId': 'query-456', 'ErrorCode': 'UnsupportedFile', 'ErrorMessage': 'private-document'}]))
+    before = telemetry.duration.labels('tencent_query', 'success')._sum.get()
+    with pytest.raises(DocumentProcessingError, match='Failed'):
+        await tencent.parse_job(reference, runtime)
+    saved = (await runtime.store.aget(namespace('t', 'tencent_jobs'), 'source')).value
+    assert saved['queryRequestId'] == 'query-456' and saved['errorCode'] == 'UnsupportedFile'
+    assert saved['statusUpdatedAt'] >= saved['submittedAt']
+    assert 'private-document' not in json.dumps(saved)
+    assert telemetry.duration.labels('tencent_query', 'success')._sum.get() > before
+
+
+@pytest.mark.parametrize('phase', ['query', 'download'])
+async def test_transient_known_reads_retry_with_same_job_and_bounded_backoff(monkeypatch, phase):
+    reference, _, runtime = job_runtime(monkeypatch)
+    transient = tencent.TransientReadError(502, 'temporary', 'TENCENT_API_UNAVAILABLE')
+    success = {'Status': 'Success', 'ResultUrl': 'unused'}
+    request = AsyncMock(side_effect=[{'TaskId': '123'}, *([transient, transient] if phase == 'query' else []), success])
+    download = AsyncMock(side_effect=[*([transient, transient] if phase == 'download' else []), b'archive'])
+    sleep = AsyncMock()
+    monkeypatch.setattr(tencent, 'request', request)
+    monkeypatch.setattr(tencent, 'download_result', download)
+    monkeypatch.setattr(tencent.asyncio, 'sleep', sleep)
+    assert (await tencent.parse_job(reference, runtime))['resultRef']
+    assert [call.args[0] for call in request.await_args_list].count('SubmitMultimodalDocParseJob') == 1
+    assert all(call.args[1] == {'TaskId': '123'} for call in request.await_args_list[1:])
+    assert len(sleep.await_args_list) == 2
+    assert 0.8 <= sleep.await_args_list[0].args[0] <= 1.2
+    assert 1.6 <= sleep.await_args_list[1].args[0] <= 2.4
+
+
+async def test_retry_exhaustion_does_not_resubmit_and_unknown_submit_is_not_retried(monkeypatch):
+    reference, _, runtime = job_runtime(monkeypatch)
+    transient = tencent.TransientReadError(502, 'temporary', 'TENCENT_API_UNAVAILABLE')
+    request = AsyncMock(side_effect=[{'TaskId': '123'}, transient, transient, transient])
+    monkeypatch.setattr(tencent, 'request', request)
+    monkeypatch.setattr(tencent.asyncio, 'sleep', AsyncMock())
+    with pytest.raises(tencent.TransientReadError):
+        await tencent.parse_job(reference, runtime)
+    assert request.await_count == 4
+    reference, _, runtime = job_runtime(monkeypatch)
+    request.reset_mock(side_effect=True)
+    request.side_effect = transient
+    with pytest.raises(DocumentProcessingError) as error:
+        await tencent.parse_job(reference, runtime)
+    assert error.value.code == 'TENCENT_SUBMISSION_UNKNOWN'
+    with pytest.raises(DocumentProcessingError, match='unknown outcome'):
+        await tencent.parse_job(reference, runtime)
+    assert request.await_count == 1
+
+
+@pytest.mark.parametrize('code,retries', [('AuthFailure.SignatureFailure', 0), ('RequestLimitExceeded', 2)])
+async def test_query_rejections_preserve_diagnostics_and_only_throttling_is_retried(monkeypatch, code, retries):
+    reference, _, runtime = job_runtime(monkeypatch)
+    request = AsyncMock(side_effect=[{'TaskId': '123'}, *[tencent.RequestRejected(code, 'query') for _ in range(retries + 1)]])
+    monkeypatch.setattr(tencent, 'request', request)
+    sleep = AsyncMock()
+    monkeypatch.setattr(tencent.asyncio, 'sleep', sleep)
+    with pytest.raises(DocumentProcessingError) as error:
+        await tencent.parse_job(reference, runtime)
+    assert error.value.code == 'TENCENT_QUERY_REJECTED'
+    assert sleep.await_count == retries
+    saved = (await runtime.store.aget(namespace('t', 'tencent_jobs'), 'source')).value
+    assert saved['queryRequestId'] == 'query' and saved['errorCode'] == code
+
+
+async def test_retry_checks_deadline_and_control_before_next_attempt(monkeypatch):
+    reference, _, runtime = job_runtime(monkeypatch)
+    monkeypatch.setattr(tencent, 'request', AsyncMock(side_effect=[{'TaskId': '123'},
+        tencent.TransientReadError(502, 'temporary', 'TENCENT_API_UNAVAILABLE')]))
+    monkeypatch.setattr(tencent, 'run_remaining', AsyncMock(return_value=0.25))
+    sleep = AsyncMock()
+    monkeypatch.setattr(tencent.asyncio, 'sleep', sleep)
+    with pytest.raises(tencent.TransientReadError):
+        await tencent.parse_job(reference, runtime)
+    sleep.assert_not_awaited()
+
+
+@pytest.mark.parametrize('value', ['private?signature=secret', '<html>', 'x' * 129, 123])
+async def test_unsafe_provider_diagnostics_are_not_persisted(monkeypatch, value):
+    reference, _, runtime = job_runtime(monkeypatch)
+    monkeypatch.setattr(tencent, 'request', AsyncMock(side_effect=[{'TaskId': '123', 'RequestId': value},
+        {'Status': 'Failed', 'RequestId': value, 'ErrorCode': value}]))
+    with pytest.raises(DocumentProcessingError):
+        await tencent.parse_job(reference, runtime)
+    saved = (await runtime.store.aget(namespace('t', 'tencent_jobs'), 'source')).value
+    assert saved.get('requestId') is None and saved.get('queryRequestId') is None and saved.get('errorCode') is None
+
+
+@pytest.mark.parametrize('operation', ['query', 'download'])
+@pytest.mark.parametrize('status,retryable', [(401, False), (404, False), (429, True), (503, True)])
+async def test_http_status_classification_does_not_retry_permanent_failures(monkeypatch, operation, status, retryable):
+    import httpx
+
+    job_runtime(monkeypatch)
+    original = httpx.AsyncClient
+    transport = httpx.MockTransport(lambda request: httpx.Response(status))
+    monkeypatch.setattr(httpx, 'AsyncClient', lambda **kwargs: original(transport=transport, **kwargs))
+    with pytest.raises(DocumentProcessingError) as error:
+        if operation == 'query':
+            await tencent.request('DescribeMultimodalDocParseJob', {'TaskId': '123'}, load())
+        else:
+            await tencent.download_result('https://test.cos.ap-guangzhou.myqcloud.com/result?signature=private')
+    assert isinstance(error.value, tencent.TransientReadError) == retryable
+    assert 'private' not in str(error.value)
+
+
+async def test_query_retry_obeys_pause_before_replaying_known_read(monkeypatch):
+    reference, _, runtime = job_runtime(monkeypatch)
+    request = AsyncMock(side_effect=[{'TaskId': '123'}, tencent.TransientReadError(502, 'temporary', 'TENCENT_API_UNAVAILABLE')])
+    monkeypatch.setattr(tencent, 'request', request)
+    sleep = AsyncMock()
+    monkeypatch.setattr(tencent.asyncio, 'sleep', sleep)
+    guard = AsyncMock(side_effect=[None, None, None, DocumentProcessingError(409, 'pause', 'TASK_PAUSED')])
+    monkeypatch.setattr(tencent, 'guard', guard)
+    with pytest.raises(DocumentProcessingError) as error:
+        await tencent.parse_job(reference, runtime)
+    assert error.value.code == 'TASK_PAUSED' and request.await_count == 2 and sleep.await_count == 1
+
+
+async def test_rejected_query_diagnostics_survive_pause_during_retry_backoff(monkeypatch):
+    from langgraph.errors import GraphInterrupt
+
+    reference, _, runtime = job_runtime(monkeypatch)
+    monkeypatch.setattr(tencent, 'request', AsyncMock(side_effect=[{'TaskId': '123'},
+        tencent.RequestRejected('RequestLimitExceeded', 'latest-query')]))
+    monkeypatch.setattr(tencent, 'guard', AsyncMock(side_effect=[None, None, None, GraphInterrupt()]))
+    monkeypatch.setattr(tencent.asyncio, 'sleep', AsyncMock())
+    with pytest.raises(GraphInterrupt):
+        await tencent.parse_job(reference, runtime)
+    saved = (await runtime.store.aget(namespace('t', 'tencent_jobs'), 'source')).value
+    assert saved['queryRequestId'] == 'latest-query' and saved['errorCode'] == 'RequestLimitExceeded'
+
+
+async def test_tencent_workflows_share_five_slots_and_cancelled_waiter_has_no_submit_intent(monkeypatch):
+    import asyncio
+
+    reference, _, runtime = job_runtime(monkeypatch)
+    pending = [SimpleNamespace(store=runtime.store, execution_info=SimpleNamespace(thread_id=f't-{i}', run_id=f'r-{i}'))
+               for i in range(8)]
+    release = asyncio.Event()
+    full = asyncio.Event()
+    active = peak = submits = 0
+
+    async def send(action, _data, _config):
+        nonlocal active, peak, submits
+        active += 1
+        peak = max(active, peak)
+        try:
+            if action == 'SubmitMultimodalDocParseJob':
+                submits += 1
+                if submits == 5:
+                    full.set()
+                await release.wait()
+                return {'TaskId': 'known'}
+            return {'Status': 'Success', 'ResultUrl': 'unused'}
+        finally:
+            active -= 1
+
+    monkeypatch.setattr(tencent, 'request', send)
+    monkeypatch.setattr(tencent, 'download_result', AsyncMock(return_value=b'archive'))
+    jobs = [asyncio.create_task(tencent.parse_job(reference, cast(Any, item))) for item in pending]
+    try:
+        await asyncio.wait_for(full.wait(), 2)
+        # Let the other coroutines reach admission while the first five are blocked.
+        for _ in range(5):
+            await asyncio.sleep(0)
+        assert submits == peak == 5
+        assert await runtime.store.aget(namespace('t-7', 'tencent_jobs'), 'source') is None
+        jobs[-1].cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await jobs[-1]
+        assert await runtime.store.aget(namespace('t-7', 'tencent_jobs'), 'source') is None
+    finally:
+        release.set()
+        results = await asyncio.gather(*jobs, return_exceptions=True)
+    assert all(isinstance(result, dict) and result.get('resultRef') for result in results[:-1])
+    assert submits == 7 and peak == 5
+
+
+async def test_tencent_admission_wait_is_bounded_by_the_saved_deadline(monkeypatch):
+    import asyncio
+
+    reference, _, runtime = job_runtime(monkeypatch)
+    hold = asyncio.Event()
+    entered = asyncio.Event()
+    count = 0
+
+    async def send(*_args):
+        nonlocal count
+        count += 1
+        if count == 5:
+            entered.set()
+        await hold.wait()
+
+    monkeypatch.setattr(tencent, 'request', send)
+    jobs = [asyncio.create_task(tencent.parse_job(reference, cast(Any, SimpleNamespace(
+        store=runtime.store, execution_info=SimpleNamespace(thread_id=f'held-{i}', run_id=f'r-{i}'))))) for i in range(5)]
+    try:
+        await asyncio.wait_for(entered.wait(), 2)
+        monkeypatch.setattr(tencent, 'run_remaining', AsyncMock(return_value=0.01))
+        async def wait_for_admission():
+            try:
+                await tencent.parse_job(reference, runtime)
+            except TimeoutError:
+                return 'deadline'
+            return 'unexpected result'
+
+        assert await asyncio.wait_for(wait_for_admission(), 0.5) == 'deadline'
+        assert count == 5
+        assert await runtime.store.aget(namespace('t', 'tencent_jobs'), 'source') is None
+    finally:
+        for job in jobs:
+            job.cancel()
+        await asyncio.gather(*jobs, return_exceptions=True)
+
+
+async def test_pause_is_observed_while_waiting_for_tencent_admission(monkeypatch):
+    import asyncio
+
+    from langgraph.errors import GraphInterrupt
+
+    reference, _, runtime = job_runtime(monkeypatch)
+    full = asyncio.Event()
+    hold = asyncio.Event()
+    count = 0
+
+    async def send(*_args):
+        nonlocal count
+        count += 1
+        if count == 5:
+            full.set()
+        await hold.wait()
+
+    async def guard(item):
+        if item.execution_info.thread_id == 't':
+            raise GraphInterrupt()
+
+    monkeypatch.setattr(tencent, 'request', send)
+    monkeypatch.setattr(tencent, 'guard', guard)
+    jobs = [asyncio.create_task(tencent.parse_job(reference, cast(Any, SimpleNamespace(
+        store=runtime.store, execution_info=SimpleNamespace(thread_id=f'busy-{i}', run_id=f'r-{i}'))))) for i in range(5)]
+    try:
+        await asyncio.wait_for(full.wait(), 2)
+        with pytest.raises(GraphInterrupt):
+            await asyncio.wait_for(tencent.parse_job(reference, runtime), 2)
+        assert count == 5
+        assert await runtime.store.aget(namespace('t', 'tencent_jobs'), 'source') is None
+    finally:
+        for job in jobs:
+            job.cancel()
+        await asyncio.gather(*jobs, return_exceptions=True)

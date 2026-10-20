@@ -162,6 +162,11 @@ export class Client {
   private post<T>(path: string, body: unknown) {
     return this.json<T>(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   }
+  private async receipt(path: string, body: { requestId: string }) {
+    const receipt = await this.post<Receipt>(path, body);
+    if (!receipt || receipt.requestId !== body.requestId || typeof receipt.accepted !== "boolean" || ![receipt.threadId, ...(receipt.runId === null ? [] : [receipt.runId])].every(id => typeof id === "string" && /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(id))) throw new ApiError("任务操作回执无效，结果尚未确认。请先查询任务。", "INVALID_RESPONSE");
+    return receipt;
+  }
   private async intent<T>(key: string, perform: (requestId: string) => Promise<T>) {
     const requestId = this.intents.get(key) || crypto.randomUUID();
     this.intents.set(key, requestId);
@@ -174,6 +179,7 @@ export class Client {
     if (!Number.isSafeInteger(value.sourceMaxBytes) || value.sourceMaxBytes <= 0 || !Array.isArray(value.sourceTypes) || !value.sourceTypes.every(type => IMPORT_SOURCE_TYPES.some(supported => supported === type)) || !Array.isArray(value.officeModes) || !value.officeModes.every(mode => ["pdf", "text"].includes(mode)) || typeof value.officeAvailable !== "boolean" || typeof value.modelConfigured !== "boolean") throw new ApiError("服务能力响应无效。", "INVALID_RESPONSE");
     if (value.officeSourceMaxBytes != null && (!Number.isSafeInteger(value.officeSourceMaxBytes) || value.officeSourceMaxBytes <= 0 || value.officeSourceMaxBytes > value.sourceMaxBytes)) throw new ApiError("服务能力响应无效。", "INVALID_RESPONSE");
     if (value.parserInputMaxBytes != null && (!Number.isSafeInteger(value.parserInputMaxBytes) || value.parserInputMaxBytes < 4 || value.parserInputMaxBytes > 150 * MIB)) throw new ApiError("服务能力响应无效。", "INVALID_RESPONSE");
+    if (value.modelBudget != null && (![value.modelBudget.limit, value.modelBudget.unitCalls, value.modelBudget.contextUnitCalls].every(Number.isSafeInteger) || value.modelBudget.limit < 0 || value.modelBudget.unitCalls <= 0 || value.modelBudget.contextUnitCalls <= 0)) throw new ApiError("服务能力响应无效。", "INVALID_RESPONSE");
     return value;
   }
   list(offset: number, filter = "", signal?: AbortSignal, cursor?: string) {
@@ -185,7 +191,7 @@ export class Client {
   detail(id: string, signal?: AbortSignal) { return this.json<DocumentTaskDetail>(`/api/document-tasks/${encodeURIComponent(id)}`, undefined, signal); }
   head(id: string, signal?: AbortSignal) { return this.json<DocumentTaskHead>(`/api/document-tasks/${encodeURIComponent(id)}/head`, undefined, signal); }
   preview(id: string, signal?: AbortSignal) { return this.json<DocumentTaskReview>(`/api/document-tasks/${encodeURIComponent(id)}/preview`, undefined, signal); }
-  async start(file: File, capabilities: Capabilities, requestId: string, onStage: (stage: UploadStage) => void, deduplicateQuestions = false) {
+  async start(file: File, capabilities: Capabilities, requestId: string, onStage: (stage: UploadStage, requestId?: string) => void, deduplicateQuestions = false) {
     validateFiles([file], capabilities);
     const format = fileFormat(file);
     if (capabilities.parserConfigured === false) throw new ApiError("服务端尚未配置腾讯文档解析。", "TENCENT_NOT_CONFIGURED");
@@ -206,19 +212,28 @@ export class Client {
       const uploaded = await this.json<UploadDocument>(url.pathname + url.search, { method: "PUT", headers: { "Content-Type": metadata.mediaType }, body: bytes });
       if (Object.keys(document).some(key => uploaded[key as keyof UploadDocument] !== document[key as keyof UploadDocument])) throw new ApiError("上传后的文件引用不匹配。", "INVALID_REFERENCE");
     }
-    onStage("starting");
+    const key = `start:${JSON.stringify(metadata)}:${deduplicateQuestions}`;
+    requestId = this.intents.get(key) || requestId;
+    this.intents.set(key, requestId);
+    onStage("starting", requestId);
     const request: DocumentTaskCreate = { requestId, document, graphId: "document_parser", failurePolicy: "return_partial", ...(deduplicateQuestions ? { deduplicateQuestions: true } : {}) };
-    return this.post<Receipt>("/api/document-tasks", request);
+    const receipt = await this.receipt("/api/document-tasks", request);
+    this.intents.delete(key);
+    return receipt;
   }
   async control(task: DocumentTaskDetail, action: Action) {
     const running = action === "pause" || action === "interrupt";
     if (!task.allowedActions.includes(action) || (running ? !task.runId : !task.checkpointId)) throw new ApiError("此检查点暂不允许该操作，请刷新任务。", "ACTION_UNAVAILABLE");
     if (["resume", "retry_failed"].includes(action) && (!task.modelConfigured || !task.resumeCompatible)) throw new ApiError("服务模型未配置或检查点不兼容，无法继续。", "MODEL_NOT_CONFIGURED");
     const target = running ? task.runId : task.checkpointId;
-    return this.intent(`control:${task.threadId}:${action}:${target}`, requestId => { const request: DocumentTaskControl = { requestId, action, runId: running ? task.runId : null, checkpointId: running ? null : task.checkpointId, units: [] }; return this.post<Receipt>(`/api/document-tasks/${encodeURIComponent(task.threadId)}/control`, request); });
+    return this.intent(`control:${task.threadId}:${action}:${target}`, requestId => { const request: DocumentTaskControl = { requestId, action, runId: running ? task.runId : null, checkpointId: running ? null : task.checkpointId, units: [] }; return this.receipt(`/api/document-tasks/${encodeURIComponent(task.threadId)}/control`, request); });
   }
-  reparse(id: string) { return this.intent(`reparse:${id}`, requestId => { const request: DocumentTaskReparse = { requestId }; return this.post<Receipt>(`/api/document-tasks/${encodeURIComponent(id)}/reparse`, request); }); }
-  delete(id: string) { return this.json<{ deleted: boolean }>(`/api/document-tasks/${encodeURIComponent(id)}`, { method: "DELETE" }); }
+  reparse(id: string) { return this.intent(`reparse:${id}`, requestId => { const request: DocumentTaskReparse = { requestId }; return this.receipt(`/api/document-tasks/${encodeURIComponent(id)}/reparse`, request); }); }
+  async delete(id: string) {
+    const receipt = await this.json<{ deleted: boolean }>(`/api/document-tasks/${encodeURIComponent(id)}`, { method: "DELETE" });
+    if (!receipt || receipt.deleted !== true) throw new ApiError("删除回执无效，结果尚未确认。请先查询任务。", "INVALID_RESPONSE");
+    return receipt;
+  }
   private async artifact(reference: ArtifactReference, threadId: string, limit: number) {
     if (!/^[a-f0-9]{64}$/.test(reference.sha256) || !Number.isSafeInteger(reference.sizeBytes) || reference.sizeBytes <= 0 || reference.sizeBytes > limit) throw new ApiError("来源引用无效。", "INVALID_REFERENCE");
     return this.request(`/api/artifacts/read?thread_id=${encodeURIComponent(threadId)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(reference) }, async (response, signal) => {

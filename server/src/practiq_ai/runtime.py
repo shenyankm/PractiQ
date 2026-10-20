@@ -9,6 +9,7 @@ from typing import Any
 from langgraph.types import Command
 from psycopg import Error as DatabaseError
 
+from . import telemetry
 from .config import load, rabbitmq_uri, require_model_config
 from .database import Database, utcnow, watch_ownership
 from .errors import DocumentProcessingError
@@ -256,7 +257,16 @@ class Service:
 
     async def finish(self, run_id, status, error=None):
         async with self.db.connection() as conn:
-            await conn.execute('UPDATE document_runs SET status=%s,error_code=%s,finished_at=now() WHERE run_id=%s', (status, error, run_id))
+            changed = await (await conn.execute(
+                'UPDATE document_runs SET status=%s,error_code=%s,finished_at=now() '
+                'WHERE run_id=%s AND (status,error_code) IS DISTINCT FROM (%s,%s) RETURNING thread_id',
+                (status, error, run_id, status, error),
+            )).fetchone()
+        if changed:
+            if error:
+                telemetry.failures.labels(error).inc()
+            telemetry.event('document_run_state', threadId=changed['thread_id'], runId=run_id,
+                            status=status, errorCode=error)
 
     async def execute(self, run):
         run_id = run['run_id']

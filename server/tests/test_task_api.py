@@ -541,6 +541,24 @@ async def test_terminal_tencent_failure_has_no_resume_action(monkeypatch, code):
         await task_api.control_task(created['threadId'], DocumentTaskControl(requestId=uuid4(), action='resume', checkpointId=detail['checkpointId']))
 
 
+async def test_lost_tencent_submit_reply_blocks_resume_without_second_submission(monkeypatch):
+    from practiq_ai import tencent
+    service, reference, model = await setup_api(monkeypatch)
+    submit = AsyncMock(side_effect=tencent.TransientReadError(502, 'lost reply', 'TENCENT_API_UNAVAILABLE'))
+    monkeypatch.setattr(tencent, 'request', submit)
+    request = DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference))
+    created = await task_api.create_task(request)
+    await service.wait_idle()
+    detail = await task_api.get_task(created['threadId'])
+    assert detail['state'] == 'FAILED' and detail['blocking'] == ['TENCENT_SUBMISSION_UNKNOWN']
+    assert detail['allowedActions'] == []
+    assert detail['parserJobs'][0]['status'] == 'SUBMITTING' and detail['parserJobs'][0]['taskId'] is None
+    assert await task_api.create_task(request) == created
+    with pytest.raises(DocumentProcessingError, match='new document'):
+        await task_api.control_task(created['threadId'], DocumentTaskControl(requestId=uuid4(), action='resume', checkpointId=detail['checkpointId']))
+    assert submit.await_count == 1 and not model.calls
+
+
 async def test_detail_exposes_all_three_hundred_parser_receipts_in_part_order(monkeypatch):
     from practiq_ai.execution import namespace
     service, reference, model = await setup_api(monkeypatch)

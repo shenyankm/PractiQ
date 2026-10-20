@@ -69,6 +69,21 @@ See the [configuration template](../../.env.example) for all variables. Limits i
 
 `deploy/alerts.rules.yml` covers partial results, unknown usage, budgets, checksums, queues, and latency. `SUCCEEDED` does not establish semantic quality; clients must still inspect `processing.quality`.
 
+Result metrics use the exported `processing.quality.reviewRequired` flag, including
+empty, truncated and unassociated-media results. Run stops emit
+`document_run_state` only after the changed status/error commits, with task/run
+IDs and a sanitized error code. Failed preflight, expired deadlines and recovery
+stops increment `practiq_failures_total`; repeating the same saved status/error
+does not count it again. Node events retain stage timings without counting the
+same terminal error twice. Unknown-usage alerts also cover recovery stops with
+`MODEL_RESULT_UNKNOWN`, even when the original provider counter was lost on
+restart. Metrics remain process-local and are not a durable billing ledger.
+
+Startup suppresses HTTPX/HTTPCore transport logs (including the model client's
+versioned transports), which can contain signed URLs and debug headers. Use the
+allowlisted application events for diagnostics; do not re-enable raw transport
+logging against private documents or credentials.
+
 ### Storage readiness and admission
 
 Startup verifies the configured local root before accepting work. The first probe may initialize an empty root, as normal file writes do; it never adopts an existing non-directory. Subsequent probes reject a missing or replaced root rather than recreating it after a mount disappears. Restore the original mount or explicitly restart with the verified database/file/configuration set.
@@ -184,3 +199,23 @@ Compose uses `restart: unless-stopped` to restart a process that exits after los
 The [October 9 isolated deployment checks](../../docs/history/operations/operations-single-machine-20261009.md) record the tested resource profile, synthetic overload batches, process/database failure recovery, HTTPS entry, matching backup/restore and rollback. They do not establish live-model quality or capacity for representative production documents. Database driver cancellation can delay ownership-loss handling when the database cannot respond; the monitor's polling interval is not an end-to-end failure-detection guarantee.
 
 Only supported task records participate in startup recovery, scheduling and queue capacity. Unsupported records remain unchanged and return `TASK_FORMAT_UNSUPPORTED` on direct access. Read-only service mode leaves unfinished tasks waiting and makes no model calls. Ordinary independent deployments retain checkpoint recovery of originally authorized unfinished runs; unknown paid-call outcomes require explicit recovery. Browser GET polling starts no new model work. Desktop ZIP backups exclude legacy AI task directories.
+
+Tencent import diagnostics now include safe provider error codes, query request
+IDs and last status-transition timestamps in authenticated task details. Inspect
+`practiq_stage_seconds{stage=~"tencent_submit|tencent_query|tencent_download"}` for
+phase latency and `tencent_read_retry` events for bounded retry attempts. Request
+IDs stay out of metric labels and logs. The database-derived
+`practiq_tencent_unknown_jobs` gauge counts unresolved `Unknown` jobs and
+unacknowledged `SUBMITTING` intents without active runs, excluding expired Store
+records and unsupported tasks. It survives process restarts and returns to zero
+when records are resolved or removed through the normal task lifecycle.
+`PractiQTencentUnknownSubmission` fires after five minutes; inspect cloud records
+and retained source/task IDs before explicitly parsing again, which may charge
+again. This gauge is a count of unresolved retained records, not provider billing.
+
+Tencent parsing uses a shared ceiling of five local workflows, independent of
+`N_JOBS_PER_WORKER` and LLM allocation. `tencent_admission` in
+`practiq_stage_seconds` measures the admission wait. Waiting checks pause each
+second and respects the saved run deadline; interrupted waiters have no new
+paid intent. Already submitted remote work and other clients share the actual
+account quota; an unknown submission still requires explicit reconciliation.

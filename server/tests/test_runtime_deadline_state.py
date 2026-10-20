@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from practiq_ai import runtime
+from practiq_ai import runtime, telemetry
 from practiq_ai.database import Database, utcnow
 from practiq_ai.execution import namespace
 from tests.support import MemoryStore
@@ -23,7 +23,7 @@ async def test_deadline_preserves_only_this_runs_unknown_result(monkeypatch, unk
     await store.aput(namespace('other-thread', 'calls'), 'other-thread', call)
     if expired and unknown:
         await store.aput(namespace(thread_id, 'calls'), 'unknown-call', call)
-    execute = AsyncMock()
+    execute = AsyncMock(return_value=SimpleNamespace(fetchone=AsyncMock(return_value={'thread_id': thread_id})))
 
     @asynccontextmanager
     async def connection():
@@ -47,10 +47,19 @@ async def test_deadline_preserves_only_this_runs_unknown_result(monkeypatch, unk
     run = {'run_id': run_id, 'thread_id': thread_id, 'base_checkpoint': None,
            'deadline': utcnow() + timedelta(seconds=-1 if expired else 60),
            'pause_requested': False, 'command': None, 'input': {}, 'context': {}}
-    await service.execute(run)
+    code = 'MODEL_RESULT_UNKNOWN' if unknown else 'RUN_DEADLINE_EXCEEDED'
+    counter = telemetry.failures.labels(code)
+    before = counter._value.get()
+    with telemetry.capture_events() as events:
+        await service.execute(run)
     finish = execute.call_args_list[-1].args
-    assert finish[1] == (('interrupted', 'MODEL_RESULT_UNKNOWN', run_id) if unknown
-                         else ('error', 'RUN_DEADLINE_EXCEEDED', run_id))
+    status = 'interrupted' if unknown else 'error'
+    assert finish[1][:3] == (status, code, run_id)
+    assert counter._value.get() == before + 1
+    assert [item for item in events if item['event'] == 'document_run_state'] == [
+        {'event': 'document_run_state', 'timestamp': events[-1]['timestamp'],
+         'threadId': thread_id, 'runId': run_id, 'status': status, 'errorCode': code},
+    ]
     assert service.execution_slots._value == 1
     assert service.graphs['document_parser'].ainvoke.call_count == (0 if expired else 1)
     if unknown:

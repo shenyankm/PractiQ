@@ -245,3 +245,15 @@ async def test_review_exposes_rendered_source_and_authenticated_ocr_evidence(mon
         forged = {**unit['evidenceRef'], 'sha256':'a'*64}
         assert (await client.post(path, json=forged)).status_code == 404
     assert len(model.calls) == 1
+
+
+@pytest.mark.parametrize('review,unit,context', [('false', 4, 8), ('true', 16, 20)])
+async def test_budget_capacity_matches_dispatch_reservations(monkeypatch, review, unit, context):
+    from practiq_ai import llm
+
+    monkeypatch.setenv('AI_IMPORT_REVIEW', review)
+    monkeypatch.setenv('AI_TASK_MAX_MODEL_CALLS', '400')
+    response = await webapp.import_capabilities()
+    assert response.modelBudget is not None
+    assert response.modelBudget.model_dump() == {'limit': 400, 'unitCalls': unit, 'contextUnitCalls': context}
+    assert llm.import_call_allowance() == unit and llm.import_call_allowance(context=True) == context

@@ -55,9 +55,14 @@ groups:
         labels: {severity: warning}
         annotations: {summary: "Document partial-result ratio exceeds 2%"}
       - alert: PractiQUnknownUsage
-        expr: sum(increase(practiq_model_calls_total{outcome="unknown"}[5m])) > 0
+        expr: sum(increase(practiq_model_calls_total{outcome="unknown"}[5m])) > 0 or sum(increase(practiq_failures_total{code="MODEL_RESULT_UNKNOWN"}[5m])) > 0
         labels: {severity: warning}
         annotations: {summary: "Provider usage is unknown; inspect durable call records"}
+      - alert: PractiQTencentUnknownSubmission
+        expr: practiq_tencent_unknown_jobs > 0
+        for: 5m
+        labels: {severity: warning}
+        annotations: {summary: "Tencent submission outcome is unknown; inspect saved jobs before resubmitting"}
       - alert: PractiQBudgetOrDeadline
         expr: sum(increase(practiq_failures_total{code=~"MODEL_BUDGET_EXCEEDED|RUN_DEADLINE_EXCEEDED|OUTPUT_STALLED"}[5m])) > 0
         labels: {severity: warning}

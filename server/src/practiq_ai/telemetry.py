@@ -30,6 +30,9 @@ EVENT_FIELDS = {
 
 
 def configure_logging() -> None:
+    # Transport logs expose signed URLs and debug headers; use our allowlisted events.
+    for name in ("httpx", "httpcore", "httpx2", "httpcore2"):
+        logging.getLogger(name).setLevel(logging.CRITICAL)
     if not logger.handlers:
         handler = logging.StreamHandler()
         handler.setFormatter(logging.Formatter("%(message)s"))

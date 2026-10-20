@@ -53,7 +53,7 @@ async def test_task_detail_http_contract_for_saved_states(monkeypatch, state, ru
     values = {'phase': phase, 'status': 'SUCCEEDED' if state == 'COMPLETED' else '', 'result': {}, 'processing': {}}
     snapshot = SimpleNamespace(values=values, interrupts=[SimpleNamespace(id=str(i), value=value) for i, value in enumerate(blocking)],
                                next=('chunk_gate',) if state != 'COMPLETED' else (), created_at=None)
-    await db.store.aput(namespace(thread_id, 'tencent_jobs'), 'source-0-0', {'status': 'STAGING'})
+    await db.store.aput(namespace(thread_id, 'tencent_jobs'), 'source-0-0', {'status': 'STAGING', 'queryRequestId': 'https://unsafe?secret=x', 'errorCode': '<private>'})
     service = SimpleNamespace(db=db, snapshot=AsyncMock(return_value=snapshot), checkpoint_id=lambda *_: None)
     monkeypatch.setattr(task_api, 'client', lambda: service)
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='http://test') as http:
@@ -65,7 +65,8 @@ async def test_task_detail_http_contract_for_saved_states(monkeypatch, state, ru
     assert DocumentTaskDetail.model_validate(wire).model_dump(mode='json') == wire
     assert set(wire) == set(DocumentTaskDetail.model_fields)
     assert wire['parserJobs'] == [{'taskId': None, 'requestId': None, 'status': 'STAGING',
-                                   'successPageCount': None, 'failedPageCount': None, 'resultSaved': False}]
+                                   'successPageCount': None, 'failedPageCount': None, 'resultSaved': False,
+                                   'queryRequestId': None, 'errorCode': None, 'statusUpdatedAt': None}]
     assert wire['state'] == state and wire['phase'] == phase and wire['allowedActions'] == actions
     assert wire['runId'] == run_id and wire['fileName'] == 'fixture.txt'
     assert wire['modelConfigured'] and wire['resumeCompatible']
@@ -130,3 +131,32 @@ def test_task_detail_changes_invalidate_generated_contract_check(monkeypatch, ch
     monkeypatch.setattr('sys.argv', ['export-contracts.py', '--check'])
     with pytest.raises(SystemExit, match='AI contract changed'):
         runpy.run_path(str(APP_ROOT / 'scripts/export-contracts.py'), run_name='__main__')
+
+
+@pytest.mark.usefixtures('disposable_databases')
+async def test_unknown_tencent_gauge_survives_reads_and_excludes_active_and_resolved_jobs(monkeypatch):
+    from practiq_ai import runtime, webapp
+    from practiq_ai.storage import StorageHealth
+
+    monkeypatch.setenv('AI_SERVICE_TOKEN', 'test-token')
+    db = await new_database()
+    service = SimpleNamespace(db=db, delivery=SimpleNamespace(connected=True), active={})
+    monkeypatch.setattr(runtime, 'current', service)
+    health = StorageHealth(healthy=True)
+    monkeypatch.setattr(webapp, 'get_object_store', lambda: SimpleNamespace(health=AsyncMock(return_value=health)))
+    identifiers = []
+    for status, active in [('SUBMITTING', False), ('Unknown', False), ('SUBMITTING', True), ('Success', False)]:
+        thread_id, run_id = str(uuid4()), str(uuid4())
+        identifiers.append(thread_id)
+        async with db.connection() as conn:
+            await conn.execute('INSERT INTO document_tasks(thread_id,request_hash,graph_id,document,failure_policy,expires_at) VALUES (%s,%s,%s,%s,%s,%s)',
+                               (thread_id, thread_id, 'document_parser', json.dumps({'sourceType': 'text'}), 'return_partial', utcnow() + timedelta(days=1)))
+            await conn.execute("INSERT INTO document_runs(run_id,thread_id,request_id,context,status) VALUES (%s,%s,%s,'{}',%s)",
+                               (run_id, thread_id, run_id, 'running' if active else 'error'))
+        await db.store.aput(namespace(thread_id, 'tencent_jobs'), 'source', {'status': status})
+    for _ in range(2):
+        response = await webapp.application_metrics()
+        assert b'practiq_tencent_unknown_jobs 2\n' in response.body
+    for thread_id in identifiers[:2]:
+        await db.store.aput(namespace(thread_id, 'tencent_jobs'), 'source', {'status': 'Success', 'taskId': 'known'})
+    assert b'practiq_tencent_unknown_jobs 0\n' in (await webapp.application_metrics()).body
