@@ -6,10 +6,7 @@ RUN python -c "import tomllib; project = tomllib.load(open('pyproject.toml', 'rb
 
 FROM rust:1.98.1-slim-bookworm@sha256:ff521445a372125ed4f76e1453a1f8098f2d05332d1601d30db1c1f62757e730 AS rust-toolchain
 
-FROM python:3.15-slim-bookworm@sha256:2a41267d9de9d358f77a1de356e0f16ecba8d39827855be0ce9ef4792edce402 AS dependencies
-RUN sed -i 's|http://deb.debian.org|https://deb.debian.org|g' /etc/apt/sources.list.d/debian.sources \
-    && apt-get -o Acquire::Retries=3 update && apt-get -o Acquire::Retries=3 install -y --no-install-recommends build-essential pkg-config \
-    && rm -rf /var/lib/apt/lists/*
+FROM python:3.15-bookworm@sha256:589def1896e0bb0f4d73278a020391b4f91c16cccc3736631f6ab53a3d6c5acc AS dependencies
 COPY --from=rust-toolchain /usr/local/cargo /usr/local/cargo
 COPY --from=rust-toolchain /usr/local/rustup /usr/local/rustup
 ENV CARGO_HOME=/usr/local/cargo RUSTUP_HOME=/usr/local/rustup PATH=/usr/local/cargo/bin:$PATH
@@ -20,7 +17,7 @@ RUN UV_HTTP_TIMEOUT=120 uv pip install --prefix /opt/runtime --no-cache-dir --bu
 
 FROM python:3.15-slim-bookworm@sha256:2a41267d9de9d358f77a1de356e0f16ecba8d39827855be0ce9ef4792edce402
 RUN sed -i 's|http://deb.debian.org|https://deb.debian.org|g' /etc/apt/sources.list.d/debian.sources \
-    && apt-get -o Acquire::Retries=3 update && apt-get -o Acquire::Retries=3 install -y --no-install-recommends fonts-noto-cjk libreoffice-writer libreoffice-calc \
+    && apt-get -o Acquire::Retries=3 update && apt-get -o Acquire::Retries=3 install -y --no-install-recommends fonts-noto-cjk libreoffice-writer libreoffice-calc libyaml-0-2 \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=lock /usr/local/bin/uv /usr/local/bin/uv
 COPY --from=lock /lock/build-constraints.txt /tmp/build-constraints.txt

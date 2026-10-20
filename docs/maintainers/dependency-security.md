@@ -67,8 +67,11 @@ first `FROM` and does not support multi-stage builds. See the
 [Docker limitations](https://docs.github.com/en/code-security/how-tos/secure-your-supply-chain/manage-your-dependency-security/configure-private-registries#limitations-and-workarounds).
 Before each release and at least monthly, manually review **all** image tags
 and digests in `Dockerfile.server`: the `uv:python3.14-bookworm-slim` lock exporter,
-the `rust:1.98.1-slim-bookworm` toolchain, and both `python:3.15-slim-bookworm`
-dependency-builder and production-runtime stages. Update each selected digest
+the `rust:1.98.1-slim-bookworm` toolchain, the `python:3.15-bookworm`
+dependency builder (including its C compiler, linker and development headers),
+and the `python:3.15-slim-bookworm` production runtime. The dependency builder
+uses the C toolchain already present in that digest; do not install floating apt
+compiler packages in this stage. Update each selected digest
 in a focused PR, run `make verify` and `make image-check`, and retain the build
 and deployment checks for the resulting image. A builder-only Dependabot PR
 does not establish that the deployed Python/OS image is current.

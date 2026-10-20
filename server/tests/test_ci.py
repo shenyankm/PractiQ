@@ -658,6 +658,9 @@ def test_service_python_matrix_retains_minimum_version_and_runtime_artifact_name
     workflow = yaml.load((root / ".github/workflows/server.yml").read_text(), Loader=yaml.BaseLoader)
     quality = workflow["jobs"]["quality"]
     assert quality["strategy"] == {"fail-fast": "false", "matrix": {"python": ["3.14", "3.15"]}}
+    guide = (root / "server/docs/service-guide.md").read_text()
+    assert all(f"Python {version}" in guide for version in quality["strategy"]["matrix"]["python"])
+    assert all(tool in guide for tool in ["build-essential", "pkg-config", "Rust 1.98.1", "Python development headers"])
     setup, = (step for step in quality["steps"] if step.get("uses", "").startswith("actions/setup-python@"))
     assert setup["with"]["python-version"] == "${{ matrix.python }}"
     image, = (step for step in quality["steps"] if step.get("name") == "Build service image")
@@ -665,7 +668,7 @@ def test_service_python_matrix_retains_minimum_version_and_runtime_artifact_name
     smoke, = (step for step in quality["steps"] if step.get("name") == "Smoke-test runtime image")
     assert smoke["if"] == "matrix.python == '3.15'"
     assert 'practiq-ai:ci' in smoke["run"] and 'os.getuid() == 10001' in smoke["run"]
-    assert all(tool in smoke["run"] for tool in ["ormsgpack", "pydantic", "gcc", "cargo", "rustc"])
+    assert all(tool in smoke["run"] for tool in ["ormsgpack", "pydantic", "yaml._yaml", "gcc", "cargo", "rustc"])
     names = [step["with"]["name"] for step in quality["steps"] if step.get("uses", "").startswith("actions/upload-artifact@")]
     assert names == ["service-web-checks${{ matrix.python == '3.14' && '-python314' || '' }}", "service-checks${{ matrix.python == '3.14' && '-python314' || '' }}"]
 
@@ -678,7 +681,10 @@ def test_service_native_builds_apply_pinned_build_dependencies():
     assert {"setuptools", "wheel", "Cython", "maturin", "cffi", "pycparser", "packaging"} <= pins.keys()
     dockerfile = (root / "Dockerfile.server").read_text()
     assert "project['build-system']['requires'] + project['tool']['uv']['build-constraint-dependencies']" in dockerfile
-    blocks = dockerfile.split("FROM python:3.15-slim-bookworm@")[1:]
+    builder, = re.findall(r"FROM (python:\S+) AS dependencies\n(.*?)\nFROM ", dockerfile, re.DOTALL)
+    assert re.fullmatch(r"python:3\.15-bookworm@sha256:[a-f0-9]{64}", builder[0])
+    assert "apt-get" not in builder[1]
+    blocks = re.split(r"FROM python:3\.15(?:-slim)?-bookworm@", dockerfile)[1:]
     assert len(blocks) == 2
     for block in blocks:
         assert "COPY --from=lock /lock/build-constraints.txt /tmp/build-constraints.txt" in block

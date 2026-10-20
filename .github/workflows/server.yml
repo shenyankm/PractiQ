@@ -140,7 +140,7 @@ jobs:
         run: >-
           docker run --rm --entrypoint python practiq-ai:ci -c
           'import os,sys,shutil,pydantic,ormsgpack,orjson,jiter,uuid_utils,zstandard;
-          import practiq_ai.webapp;
+          import practiq_ai.webapp,yaml._yaml;
           assert sys.version_info[:2] == (3,15);
           assert os.getuid() == 10001;
           assert all(shutil.which(tool) is None for tool in ("gcc","cargo","rustc"))'
