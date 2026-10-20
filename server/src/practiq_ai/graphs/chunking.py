@@ -376,6 +376,8 @@ def _source_locations(source: tuple[str, list[int]], quote: str | None) -> list[
     # Two matches suffice to prove ambiguity; do not scan repeated boilerplate.
     while offset >= 0 and len(locations) < 2:
         locations.append((positions[offset], positions[offset + len(needle) - 1] + 1))
+        if len(locations) == 2:
+            break
         offset = text.find(needle, offset + 1)
     return locations
 
