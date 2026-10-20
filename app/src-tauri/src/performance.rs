@@ -836,7 +836,9 @@ fn snapshot_metadata_copies() {
         json!({"samplesMs":times,"medianMs":sorted[3],"outputBytes":size,"outputSha256":expected})
     }
     let mut report = json!({"probeSha256":crate::store::hash(include_bytes!("performance.rs")),"scope":"Release Rust, disposable SQLite, one warmup and seven samples. Setup, checks, output hashing, response normalization, result destruction and session cleanup are outside timings; excludes IPC/WebView.","workloads":[]});
-    for (count, groups, context_bytes) in [(20, 0, 0), (20, 2, 1000), (1000, 4, 5000)] {
+    for (count, groups, context_bytes) in
+        [(20, 0, 0), (20, 2, 1000), (100, 100, 0), (1000, 4, 5000)]
+    {
         let dir = tempfile::tempdir().unwrap();
         let store = Store::new(dir.path().into()).unwrap();
         let mut source =
