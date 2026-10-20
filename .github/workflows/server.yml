@@ -36,11 +36,15 @@ jobs:
           CI_FULL_CHECKS: ${{ inputs.ref != '' }}
         run: python server/scripts/ci_scope.py scope service
   quality:
-    name: Service quality
+    name: Service quality (Python ${{ matrix.python }})
     needs: changes
     if: needs.changes.outputs.required == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.14', '3.15']
     env:
       TEST_DATABASE_URI: postgresql://postgres:practiq-test@127.0.0.1:5432/postgres
       TEST_RABBITMQ_URI: amqp://practiq-test:practiq-test@127.0.0.1:5672/
@@ -72,7 +76,7 @@ jobs:
           ref: ${{ inputs.ref || github.sha }}
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: '3.14'
+          python-version: ${{ matrix.python }}
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           version: '0.12.13'
@@ -97,7 +101,7 @@ jobs:
         if: ${{ always() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: service-web-checks
+          name: service-web-checks${{ matrix.python == '3.14' && '-python314' || '' }}
           path: |
             web/test-results/
             coverage/web/
@@ -118,7 +122,7 @@ jobs:
         if: ${{ always() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: service-checks
+          name: service-checks${{ matrix.python == '3.14' && '-python314' || '' }}
           path: |
             server/reports/checks/probes.xml
             server/reports/checks/probes.json
@@ -129,7 +133,17 @@ jobs:
       - name: Audit locked dependencies
         run: make audit AI_PYTHON="$(command -v python)"
       - name: Build service image
+        if: matrix.python == '3.15'
         run: make image-check
+      - name: Smoke-test runtime image
+        if: matrix.python == '3.15'
+        run: >-
+          docker run --rm --entrypoint python practiq-ai:ci -c
+          'import os,sys,shutil,pydantic,ormsgpack,orjson,jiter,uuid_utils,zstandard;
+          import practiq_ai.webapp,yaml._yaml;
+          assert sys.version_info[:2] == (3,15);
+          assert os.getuid() == 10001;
+          assert all(shutil.which(tool) is None for tool in ("gcc","cargo","rustc"))'
   gate:
     name: Service CI
     needs: [changes, quality]

@@ -8,7 +8,7 @@ requires-python = ">=3.14"
 dependencies = [
   "aio-pika==10.1.1",
   "fastapi==0.139.0",
-  "pydantic==2.13.4",
+  "pydantic==2.14.1",
   "pypdfium2==5.12.1",
   "pillow==12.3.0",
   "langgraph==1.2.11",
@@ -42,11 +42,17 @@ backend-path = ["."]
 
 [tool.uv]
 build-constraint-dependencies = [
+  "cffi==2.1.1",
+  "Cython==3.3.0",
+  "maturin==1.15.0",
   "packaging==26.3",
   "pathspec==1.1.1",
   "pluggy==1.6.0",
+  "pycparser==3.11",
+  "setuptools==84.2.0",
   "tomlkit==0.15.1",
   "trove-classifiers==2026.9.21.13",
+  "wheel==0.48.0",
 ]
 
 [tool.hatch.build.targets.sdist]

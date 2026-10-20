@@ -1,0 +1,186 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-10-20T09:26:08.841357+00:00",
+  "status": "PASSED_LOCAL",
+  "upstreamHead": "e978926665f27c61d13b52bac20514984a856f2d",
+  "failuresReproduced": [
+    "Original image lacks gcc for native source builds",
+    "Compiler probe exposes PyO3 maximum Python 3.14 in old locked native packages",
+    "Current-head Python 3.14 and 3.15 CI reject three TypeAdapter calls after the Pydantic typing update",
+    "Native build constraints and canonical image-maintenance policy regressions fail before repair",
+    "Locked pip-api 0.0.34 fails auditor startup on Python 3.15 because its vendored parser imports removed sre_constants",
+    "Service-guide matrix/prerequisite and immutable compiler-image regressions fail before repair",
+    "The pinned full builder compiles PyYAML against libyaml, absent from the original slim runtime; native linkage check fails before adding its runtime library"
+  ],
+  "changes": [
+    "Update Pydantic and compatible native transitive dependencies with Python 3.15 support",
+    "Build native dependencies in isolated pinned C/Rust stages and copy installed packages into the nonroot runtime",
+    "Run full service CI on both Python 3.14 and 3.15; preserve canonical release artifact names on the runtime version",
+    "Smoke-test imports, runtime Python version, uid and compiler isolation in CI",
+    "Export exact project and native build constraints into both image install commands",
+    "Retain strict integer indices and field metadata using compatible TypeAdapter calls",
+    "Update operations and image maintenance for all four pinned stages",
+    "Update only the pip-api development-tool lock to 0.0.35 and exercise auditor CLI startup in every full service matrix",
+    "Use the digest-pinned full Python 3.15 Bookworm builder for its existing C compiler/linker/header closure instead of installing floating compiler packages",
+    "Document native source-install prerequisites and both required Python service matrices, job timeout and distinct report retention",
+    "Install the libyaml runtime library and require the compiled PyYAML extension to load in the CI image smoke check"
+  ],
+  "updatedPackages": {
+    "jiter": "0.17.0",
+    "orjson": "3.13.0",
+    "ormsgpack": "1.13.0",
+    "pydantic": "2.14.1",
+    "pydantic-core": "2.50.1",
+    "typing-inspection": "0.4.4",
+    "uuid-utils": "0.18.0",
+    "pip-api": "0.0.35"
+  },
+  "localChecks": {
+    "uvLockCheck": "PASSED",
+    "ruff": "PASSED",
+    "actionlint": {
+      "version": "1.7.12",
+      "status": "PASSED",
+      "releaseSha256": "aba9ced2dee8d27fecca3dc7feb1a7f9a52caefa1eb46f3271ea66b6e0e6953f"
+    },
+    "ciAndReleaseRegressionTests": 55,
+    "webBuild": "PASSED",
+    "dockerBuild": {
+      "status": "PASSED",
+      "platform": "linux/arm64",
+      "manifestListSha256": "a699980c20287a84b723fd51b2ea4d7e7927ef085176daebe9480d19116e5f7d"
+    },
+    "runtimeSmoke": {
+      "Python": "3.15.0",
+      "uid": 10001,
+      "serviceImport": "PASSED",
+      "nativeDependencyImports": "PASSED",
+      "gccCargoRustcAbsent": true
+    },
+    "isolatedPython315Tests": {
+      "passed": 318,
+      "deselected": 2,
+      "scope": "Selected source-contract, answer, config, Tencent and structured-output tests in an isolated source snapshot; two explicit database-integration cases reserved for full CI"
+    },
+    "focusedReviewRegressions": 155,
+    "pyright": "PASSED: three errors reproduced with locked Pydantic 2.14.1 before repair; zero after repair",
+    "fullPython314Verify": {
+      "status": "PASSED",
+      "python": "3.14.7",
+      "dependencyEnvironment": "Exact locked runtime/dev dependencies in an isolated temporary target, using an existing interpreter without a project virtual environment",
+      "passed": 2982,
+      "warnings": 8,
+      "coveragePercent": 93,
+      "evaluationFixtures": 30,
+      "recoveryProbes": "PASSED",
+      "wheelAndSdistIntegrity": "PASSED"
+    },
+    "audit": {
+      "runtimeLock": "PASSED: no known vulnerabilities",
+      "projectAndNativeBuildConstraints": "PASSED: no known vulnerabilities"
+    }
+  },
+  "notAssessed": [
+    "Full current-head Python 3.14/3.15 service and native CI after push",
+    "Independent current-head Code Review and Security Review",
+    "Real Tencent/LLM calls",
+    "linux/amd64 Docker build: current-head CI must verify"
+  ],
+  "sourceSha256": {
+    ".github/workflows/server.yml": "6800f56c8e2b74d77a5a630f7896fd133d9d551a20c1660572fbb376f7911acc",
+    "Dockerfile.server": "865e85a5596ab1230fbd3a9f1d39e46efd62ec69974794638e4e415e81f32bdd",
+    "docs/maintainers/dependency-security.md": "b37a2bdfb5b55e028e798602da5dc5da1cf387714599335c31c8e1078509d8d6",
+    "server/pyproject.toml": "c33c5033d041d869b242bec2906d5c63901a26a668195d3b91f27af3b54e87e9",
+    "server/tests/test_ci.py": "3a6785a10c6cae8085716a670123486bec0a4012ef190330384ff10175caf864",
+    "server/uv.lock": "d9d44c2ca6355015f4944c02e914ba46190778e5fff49a8ced796a42121e3a80",
+    "server/docs/operations.md": "e651c62f816b5cb38db8ca82fd3e46e00b6403f30833e3ef7ec11fe71db41b1b",
+    "server/src/practiq_ai/contracts.py": "3f69875b0b5ba08abc743afb3c540e3441590333ffc3602456e56c8865dfe591",
+    "server/tests/test_schemas.py": "b5803b89e6b2673feb25beaa589b2a4e0f87ad3631bb02f1c51c01a8536e1d7a",
+    "server/docs/service-guide.md": "162334b87696557dada71a0ffb1ef950fcd5a65d94893e0171876470f62c8e70"
+  },
+  "nativeBuildConstraints": [
+    "cffi==2.1.1",
+    "Cython==3.3.0",
+    "maturin==1.15.0",
+    "packaging==26.3",
+    "pathspec==1.1.1",
+    "pluggy==1.6.0",
+    "pycparser==3.11",
+    "setuptools==84.2.0",
+    "tomlkit==0.15.1",
+    "trove-classifiers==2026.9.21.13",
+    "wheel==0.48.0"
+  ],
+  "reviewFollowup": {
+    "reviewedHead": "3fbe2a18fe19f980cd6dd6c5caeb06b119c46481",
+    "addressedThreads": [
+      "https://github.com/shenyankm/PractiQ/pull/316#discussion_r4322936831",
+      "https://github.com/shenyankm/PractiQ/pull/316#discussion_r4322936839"
+    ],
+    "failedCIRun": "https://github.com/shenyankm/PractiQ/actions/runs/39392212440"
+  },
+  "auditorFollowup": {
+    "previousHead": "c6381749682816ddabc9f9ec0d71f96774914d58",
+    "previousCI": {
+      "url": "https://github.com/shenyankm/PractiQ/actions/runs/39394923300/job/118535262812",
+      "python315ServiceVerify": {
+        "passed": 2995,
+        "skipped": 7,
+        "coveragePercent": 93,
+        "recoveryProbes": "PASSED",
+        "packageIntegrity": "PASSED"
+      },
+      "audit": "FAILED before audit could start"
+    },
+    "regression": "The new CLI startup assertion fails with pip-api 0.0.34 and passes with 0.0.35 in the same Python 3.15 container",
+    "python315StrictAudit": "PASSED: both unchanged runtime/dev-lock and build-tool audit commands report no known vulnerabilities",
+    "python314StrictAudit": "PASSED: both unchanged audit commands report no known vulnerabilities",
+    "focusedCIAndReleaseTests": 57,
+    "ruff": "PASSED",
+    "pyright": "PASSED: zero errors",
+    "notRepeated": "Full service tests and 318 image source tests: this followup only updates one development-tool dependency and adds its CLI startup regression; full hosted CI remains required on the new head"
+  },
+  "pinnedCompilerFollowup": {
+    "reviewedHead": "d64783274b24bea7648b26c429c7a3e02cbdc2ac",
+    "addressedThreads": [
+      "https://github.com/shenyankm/PractiQ/pull/316#discussion_r4323349177",
+      "https://github.com/shenyankm/PractiQ/pull/316#discussion_r4323349183",
+      "https://github.com/shenyankm/PractiQ/pull/316#discussion_r4323349187"
+    ],
+    "platform": "linux/arm64",
+    "builder": "python:3.15-bookworm@sha256:589def1896e0bb0f4d73278a020391b4f91c16cccc3736631f6ab53a3d6c5acc",
+    "builderInventory": {
+      "python": "3.15.0 (main, Oct 16 2026, 22:34:32) [GCC 12.2.0]",
+      "toolVersions": {
+        "gcc": "gcc (Debian 12.2.0-14+deb12u1) 12.2.0",
+        "g++": "g++ (Debian 12.2.0-14+deb12u1) 12.2.0",
+        "ld": "GNU ld (GNU Binutils for Debian) 2.40",
+        "make": "GNU Make 4.3",
+        "pkg-config": "1.8.1"
+      },
+      "compilerPackages": [
+        "binutils\t2.40-2",
+        "g++-12\t12.2.0-14+deb12u1",
+        "gcc\t4:12.2.0-3",
+        "gcc-12\t12.2.0-14+deb12u1",
+        "libc6-dev:arm64\t2.36-9+deb12u14",
+        "make\t4.3-4.1",
+        "pkg-config:arm64\t1.8.1-1"
+      ]
+    },
+    "floatingCompilerAptInstall": false,
+    "nativeRuntimeLinkage": "PASSED: no missing shared-library dependencies across installed native libraries",
+    "compiledPyYamlImport": "PASSED with libyaml",
+    "compilerIsolation": "PASSED: gcc, g++, ld build tools, make, pkg-config, cargo and rustc are not copied from the builder; runtime compiler executable checks pass",
+    "focusedRegressions": 57,
+    "python315ImageTests": {
+      "passed": 318,
+      "deselected": 2
+    },
+    "ruff": "PASSED",
+    "pyright": "PASSED",
+    "actionlint": "PASSED",
+    "packageIntegrity": "PASSED",
+    "scopeLimit": "Current-head hosted checks/reviews and clean macOS/Windows Python 3.15 source installations remain unverified. Runtime Office/font/libyaml apt layers retain the existing signed Bookworm repository policy; bit-for-bit image reproducibility is not claimed."
+  }
+}

@@ -9,7 +9,35 @@ from practiq_ai.contracts import (
     ParsedQuestion,
     UnitCounts,
     VisualElement,
+    normalize_answer,
 )
+
+
+@pytest.mark.parametrize("invalid", [True, False, 1.0, "1"])
+@pytest.mark.parametrize("mode", ["ordering", "matching"])
+def test_partial_answer_indices_remain_strict(mode, invalid) -> None:
+    payload = ({"order": [None, invalid]} if mode == "ordering"
+               else {"matches": [{"left": None, "right": invalid}]})
+    with pytest.raises(ValidationError):
+        normalize_answer(mode, payload)
+
+
+@pytest.mark.parametrize("payload", [
+    {"order": [None, 1]},
+    {"matches": [{"left": None, "right": 1}]},
+])
+def test_partial_answer_indices_preserve_missing_values(payload) -> None:
+    mode = "ordering" if "order" in payload else "matching"
+    assert normalize_answer(mode, payload) == payload
+
+
+@pytest.mark.parametrize("mode,payload", [
+    ("short_answer", {"text": "x" * 120_001}),
+    ("true_false", {"value": 1}),
+])
+def test_rebuilt_answer_annotations_preserve_constraints(mode, payload) -> None:
+    with pytest.raises(ValidationError):
+        normalize_answer(mode, payload)
 
 
 def question() -> dict:

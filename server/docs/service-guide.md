@@ -12,6 +12,35 @@ Use uv and an existing Python 3.14+ interpreter; do not create a project `.venv`
 cp -n .env.example .env
 ```
 
+### Native installation prerequisites
+
+Installing the service from source with Python 3.15 requires native build
+tools: the current lock has no compatible 3.15 wheels for `regex` and
+`zstandard`, and other packages
+may build from source depending on the platform and libc version. Install a
+C/C++ compiler and linker, libc development headers, `make`, `pkg-config`, and
+Rust 1.98.1 with Cargo before running `make install-locked`. The selected
+interpreter must also provide its matching Python development headers; headers
+for another system Python version do not suffice.
+
+On Debian/Ubuntu, install the C tools with
+`sudo apt-get install --no-install-recommends build-essential pkg-config`.
+Install Rust 1.98.1 through the trusted host toolchain setup and make it
+available on `PATH`. On macOS use Xcode Command Line Tools; on Windows use
+Visual Studio Build Tools with the C++ workload and the matching MSVC Rust
+target. Verify the selected platform's native installation; wheels are not
+guaranteed for every supported interpreter/platform combination.
+
+For a host without those build tools, use `make image-check` with Docker and
+the Web build prerequisites instead. `Dockerfile.server` builds dependencies
+in a digest-pinned `python:3.15-bookworm` image containing the C toolchain and
+uses a separately pinned Rust toolchain. The production image is the slim
+Python 3.15 runtime, includes libyaml for the compiled PyYAML extension, and
+excludes compiler tools. Review all stage digests using
+the [image-maintenance procedure](../../docs/maintainers/dependency-security.md).
+
+### Configure and start
+
 Provision an empty dedicated PostgreSQL database and its owner. Configure the service token, model, PostgreSQL URL (`DATABASE_URI`), dedicated RabbitMQ vhost URL (`RABBITMQ_URI`), and file storage in `.env`, then install locked dependencies, initialize the service tables and start:
 
 ```sh
@@ -164,7 +193,21 @@ Database tests explicitly request `disposable_databases` and use unique disposab
 
 `make verify` checks lockfile consistency, Ruff, Pyright, evaluation fixtures, one test run with at least 90% coverage, recovery probes, and package builds. `make audit` audits locked runtime/development dependencies, requires network access, and fails on vulnerabilities or audit errors. `make image-check` requires Docker and builds the service image without publishing it.
 
-CI runs these Make targets on every PR, pushes to `main`, and manual dispatch. It uses Ubuntu 24.04, Python 3.14, and uv 0.12.13. `make install-locked AI_PYTHON=/path/to/python3.14` installs locked dependencies and the editable project into the selected interpreter without a project `.venv`; CI uses a dedicated interpreter. `make install` remains a development convenience. Jobs time out after 20 minutes; a newer run cancels an older run for the same workflow/ref. JUnit, coverage XML, and probe JSON/Markdown go to `server/reports/checks/`. Each verification replaces only those four generated reports. CI retains available reports for 14 days, including on test failure. Recovery probes provide regression evidence, not complete production crash-recovery acceptance.
+Service CI selects applicable checks for PRs and pushes to `main`, and supports
+manual dispatch. It uses Ubuntu 24.04 and uv 0.12.13 with required Python 3.14
+and Python 3.15 service matrices. Both run locked installation, full service
+verification and strict dependency audits; Python 3.15 also builds and
+smoke-tests the production image. The Python 3.15 reports keep the canonical
+release artifact names, while Python 3.14 reports use the `-python314` suffix.
+`make install-locked AI_PYTHON=/path/to/python3.14` installs locked dependencies
+and the editable project into the selected interpreter without a project
+`.venv`; CI uses dedicated interpreters. `make install` remains a development
+convenience. Service quality jobs have a 30-minute timeout; a newer run cancels
+an older run for the same workflow/ref. JUnit, coverage XML, and probe
+JSON/Markdown go to `server/reports/checks/`. Each verification replaces only
+those four generated reports. CI retains available service reports for 14 days
+and Web check artifacts for 7 days, including on test failure. Recovery probes
+provide regression evidence, not complete production crash-recovery acceptance.
 
 Automated tests do not call real models. The [evaluation guide](evaluation.md) and historical reports remain available; historical failures do not establish a current quality baseline.
 

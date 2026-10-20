@@ -13,6 +13,15 @@ import pytest
 import yaml
 
 
+def test_locked_dependency_auditor_starts():
+    result = subprocess.run(
+        [sys.executable, "-m", "pip_audit", "--help"],
+        capture_output=True, text=True, check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "--strict" in result.stdout and "--disable-pip" in result.stdout
+
+
 def test_dependency_maintenance_covers_locked_manifests_and_bounded_queues():
     root = Path(__file__).resolve().parents[2]
     updates = yaml.safe_load((root / ".github/dependabot.yml").read_text())["updates"]
@@ -39,7 +48,8 @@ def test_dependency_maintenance_covers_locked_manifests_and_bounded_queues():
     policy = (root / "docs/maintainers/dependency-security.md").read_text()
     assert "manual route" in policy and "build-constraint-dependencies" in policy
     assert "at least monthly" in policy
-    assert "python:3.14-slim-bookworm" in policy and "multi-stage" in policy
+    assert "python:3.15-slim-bookworm" in policy and "multi-stage" in policy
+    assert "rust:1.98.1-slim-bookworm" in policy and "uv:python3.14-bookworm-slim" in policy
     assert "make image-check" in policy
 
 
@@ -493,7 +503,7 @@ def test_workflows_deduplicate_common_checks_without_dropping_native_gates():
         scope = "service" if name == "server" else "desktop"
         jobs = workflow["jobs"]
         quality, changes = (jobs[key] for key in ("quality", "changes"))
-        assert quality["name"] == ("Service quality" if name == "server" else "App quality")
+        assert quality["name"] == ("Service quality (Python ${{ matrix.python }})" if name == "server" else "App quality")
         assert quality["needs"] == "changes"
         assert quality["if"] == "needs.changes.outputs.required == 'true'"
         assert changes["permissions"] == {"contents": "read", "pull-requests": "read"}
@@ -584,7 +594,7 @@ def test_service_web_upload_covers_configured_nonhidden_report_outputs():
     upload, = (
         step for step in workflow["jobs"]["quality"]["steps"]
         if step.get("uses", "").startswith("actions/upload-artifact@")
-        and step["with"].get("name") == "service-web-checks"
+        and step["with"].get("name", "").startswith("service-web-checks")
     )
     assert upload["if"] == "${{ always() }}"
     assert upload["with"]["if-no-files-found"] == "error"
@@ -641,3 +651,42 @@ def test_android_ci_builds_shared_frontend_once_and_only_packages_final_apks():
 
     release_jobs = yaml.load((root / ".github/workflows/release.yml").read_text(), Loader=yaml.BaseLoader)["jobs"]
     assert release_jobs["apps"]["permissions"]["actions"] == "read"
+
+
+def test_service_python_matrix_retains_minimum_version_and_runtime_artifact_names():
+    root = Path(__file__).resolve().parents[2]
+    workflow = yaml.load((root / ".github/workflows/server.yml").read_text(), Loader=yaml.BaseLoader)
+    quality = workflow["jobs"]["quality"]
+    assert quality["strategy"] == {"fail-fast": "false", "matrix": {"python": ["3.14", "3.15"]}}
+    guide = (root / "server/docs/service-guide.md").read_text()
+    assert all(f"Python {version}" in guide for version in quality["strategy"]["matrix"]["python"])
+    assert all(tool in guide for tool in ["build-essential", "pkg-config", "Rust 1.98.1", "Python development headers"])
+    setup, = (step for step in quality["steps"] if step.get("uses", "").startswith("actions/setup-python@"))
+    assert setup["with"]["python-version"] == "${{ matrix.python }}"
+    image, = (step for step in quality["steps"] if step.get("name") == "Build service image")
+    assert image["if"] == "matrix.python == '3.15'" and image["run"] == "make image-check"
+    smoke, = (step for step in quality["steps"] if step.get("name") == "Smoke-test runtime image")
+    assert smoke["if"] == "matrix.python == '3.15'"
+    assert 'practiq-ai:ci' in smoke["run"] and 'os.getuid() == 10001' in smoke["run"]
+    assert all(tool in smoke["run"] for tool in ["ormsgpack", "pydantic", "yaml._yaml", "gcc", "cargo", "rustc"])
+    names = [step["with"]["name"] for step in quality["steps"] if step.get("uses", "").startswith("actions/upload-artifact@")]
+    assert names == ["service-web-checks${{ matrix.python == '3.14' && '-python314' || '' }}", "service-checks${{ matrix.python == '3.14' && '-python314' || '' }}"]
+
+
+def test_service_native_builds_apply_pinned_build_dependencies():
+    root = Path(__file__).resolve().parents[2]
+    project = tomllib.loads((root / "server/pyproject.toml").read_text())
+    constraints = project["tool"]["uv"]["build-constraint-dependencies"]
+    pins = dict(item.split("==") for item in constraints)
+    assert {"setuptools", "wheel", "Cython", "maturin", "cffi", "pycparser", "packaging"} <= pins.keys()
+    dockerfile = (root / "Dockerfile.server").read_text()
+    assert "project['build-system']['requires'] + project['tool']['uv']['build-constraint-dependencies']" in dockerfile
+    builder, = re.findall(r"FROM (python:\S+) AS dependencies\n(.*?)\nFROM ", dockerfile, re.DOTALL)
+    assert re.fullmatch(r"python:3\.15-bookworm@sha256:[a-f0-9]{64}", builder[0])
+    assert "apt-get" not in builder[1]
+    blocks = re.split(r"FROM python:3\.15(?:-slim)?-bookworm@", dockerfile)[1:]
+    assert len(blocks) == 2
+    for block in blocks:
+        assert "COPY --from=lock /lock/build-constraints.txt /tmp/build-constraints.txt" in block
+        install, = (line for line in block.splitlines() if line.startswith("RUN UV_HTTP_TIMEOUT"))
+        assert "--build-constraints /tmp/build-constraints.txt" in install
