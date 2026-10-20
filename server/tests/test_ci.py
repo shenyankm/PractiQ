@@ -13,6 +13,15 @@ import pytest
 import yaml
 
 
+def test_locked_dependency_auditor_starts():
+    result = subprocess.run(
+        [sys.executable, "-m", "pip_audit", "--help"],
+        capture_output=True, text=True, check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "--strict" in result.stdout and "--disable-pip" in result.stdout
+
+
 def test_dependency_maintenance_covers_locked_manifests_and_bounded_queues():
     root = Path(__file__).resolve().parents[2]
     updates = yaml.safe_load((root / ".github/dependabot.yml").read_text())["updates"]
