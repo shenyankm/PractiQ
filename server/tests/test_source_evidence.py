@@ -12,6 +12,20 @@ from practiq_ai.contracts import (
 from practiq_ai.graphs import chunking
 
 
+@pytest.mark.parametrize('suffix', ['', 'unrelated' * 5000])
+def test_ambiguous_source_quotes_stop_searching_after_second_match(suffix):
+    calls = []
+
+    class Observed(str):
+        def find(self, *args):
+            calls.append(args)
+            return super().find(*args)
+
+    text, positions = chunking._normalized_source(' A B A B ' + suffix, 40000)
+    assert chunking._source_locations((Observed(text), positions), 'A B') == [(40001, 40004), (40005, 40008)]
+    assert len(calls) == 2
+
+
 def printed_bank(start: int, physical: int):
     ids = [f'q{start + index}' for index in range(3)]
     quotes = [
