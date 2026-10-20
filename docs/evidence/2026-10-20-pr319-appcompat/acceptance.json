@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-10-20T08:08:30.901968+00:00",
+  "status": "PASSED_LOCAL",
+  "upstreamHead": "c66cd670de4da116c8b96b08fe24fdc0cfc0ce8f",
+  "failuresReproduced": [
+    "Gradle locking kept AppCompat 1.7.1 after declaration upgraded to 1.8.0",
+    "Kotlin compiler 1.9.25 could not consume Kotlin 2.1 metadata"
+  ],
+  "changes": [
+    "Regenerate all four Gradle configurations with AppCompat/Resources 1.8.0 and Kotlin stdlib 2.1.20",
+    "Align Kotlin compiler to 2.1.20 without suppressing metadata checks",
+    "Update exact artifact/POM and embedded license proofs; preserve historical provenance"
+  ],
+  "localChecks": {
+    "GradleRuntimeResolution": [
+      "arm64DebugRuntimeClasspath",
+      "x86_64DebugRuntimeClasspath",
+      "universalDebugRuntimeClasspath",
+      "arm64ReleaseRuntimeClasspath"
+    ],
+    "runtimeNoticeValidation": [
+      {
+        "variant": "arm64",
+        "verifiedExternalArtifacts": 65
+      },
+      {
+        "variant": "x86_64",
+        "verifiedExternalArtifacts": 65
+      },
+      {
+        "variant": "release",
+        "verifiedExternalArtifacts": 65
+      },
+      {
+        "variant": "universal",
+        "verifiedExternalArtifacts": 65
+      }
+    ],
+    "KotlinCompile": "PASSED",
+    "KotlinUnitTests": 4,
+    "licenseRegressionTests": 59,
+    "sourceVerification": [
+      {
+        "coordinate": "androidx.appcompat:appcompat-resources:1.8.0",
+        "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/appcompat/appcompat-resources/1.8.0/appcompat-resources-1.8.0.aar",
+        "pomSource": "https://dl.google.com/dl/android/maven2/androidx/appcompat/appcompat-resources/1.8.0/appcompat-resources-1.8.0.pom",
+        "artifactSha256": "3fe48cc3df409bed03063a4f5f5f9f8c51f1d63ea9e88d41e6489bf58495a5af",
+        "pomSha256": "cc6e87c34b66e610d8ac0ad8ed0f657a086f4a8765244f7927b15e6099bf3a17",
+        "licenses": [
+          {
+            "name": "The Apache Software License, Version 2.0",
+            "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+          }
+        ],
+        "embeddedTerms": [
+          "META-INF/androidx/appcompat/appcompat-resources/LICENSE.txt"
+        ]
+      },
+      {
+        "coordinate": "androidx.appcompat:appcompat:1.8.0",
+        "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/appcompat/appcompat/1.8.0/appcompat-1.8.0.aar",
+        "pomSource": "https://dl.google.com/dl/android/maven2/androidx/appcompat/appcompat/1.8.0/appcompat-1.8.0.pom",
+        "artifactSha256": "773f79306eb0ca2447af8752e923ce6269e201e7fe6b275cc76e2998ee87e838",
+        "pomSha256": "2d6c30b8b8bb3f684e08c7f21b2d20bf853533227b178a8e5069966efec4ec93",
+        "licenses": [
+          {
+            "name": "The Apache Software License, Version 2.0",
+            "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+          }
+        ],
+        "embeddedTerms": [
+          "META-INF/androidx/appcompat/appcompat/LICENSE.txt"
+        ]
+      },
+      {
+        "coordinate": "org.jetbrains.kotlin:kotlin-stdlib:2.1.20",
+        "artifactSource": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/2.1.20/kotlin-stdlib-2.1.20.jar",
+        "pomSource": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/2.1.20/kotlin-stdlib-2.1.20.pom",
+        "artifactSha256": "1bcc74e8ce84e2c25eaafde10f1248349cce3062b6e36978cbeec610db1e930a",
+        "pomSha256": "6750e1799ee502077dae5c3d599796f667606f60d35e95cb790448dc7912b40b",
+        "licenses": [
+          {
+            "name": "The Apache License, Version 2.0",
+            "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+          }
+        ],
+        "embeddedTerms": []
+      }
+    ],
+    "JDK": "17.0.20.1 on macOS arm64"
+  },
+  "notAssessed": [
+    "Current-head CI JDK21 APK packaging and emulator acceptance: pending after push",
+    "Native-device interactive acceptance"
+  ],
+  "sourceSha256": {
+    "app/src-tauri/gen/android/app/build.gradle.kts": "679bc6cc0109bddea6029fe81c06041612d085c899e0a52e99b57dfe155d49eb",
+    "app/src-tauri/gen/android/build.gradle.kts": "8d545e98187ba7f40c3f04c0bccca451a8f57e8f977988a2a1745c0b72124e9c",
+    "app/src-tauri/gen/android/app/gradle.lockfile": "55213cd73e36842cedb02d2cf998e2bf97b4f67b59dc14efe5a519de4957d5a7",
+    "app/licenses/android-runtime.lock.json": "0d805b0417bcab8c1c2e53bef97b467a67d64430449434c01ef08cb6b3024fd7",
+    "app/licenses/android-runtime.provenance.json": "cde82a6f6adfe17d0339e5af2ec6985a132e2f3ef82a0b69e5a5378a5b22ba79",
+    "app/licenses/README.md": "563166e479cf8bfbdf21d25a5d932ac0a820b001890bd59d0ab1b98f5fe9aba5",
+    "app/src-tauri/gen/android/.gitignore": "17ed74b835abf820d4b3351453059781b51087a0820d04212f3a36995b747b0b"
+  }
+}

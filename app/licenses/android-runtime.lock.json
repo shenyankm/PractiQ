@@ -100,12 +100,12 @@
       "artifactVariant": "androidx.annotation:annotation-jvm:1.9.1 variant jvmRuntimeElements-published"
     },
     {
-      "coordinate": "androidx.appcompat:appcompat-resources:1.7.1",
+      "coordinate": "androidx.appcompat:appcompat-resources:1.8.0",
       "extension": "aar",
-      "artifactSha256": "8e2db31224ca53b108c784da2b361959062716d416b210cfef3d5a3828306df0",
-      "pomSha256": "2faf922e8c3d706f29d862b3fbb3aa1347705c21c6eae18586d2bb1f7366ea01",
-      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/appcompat/appcompat-resources/1.7.1/appcompat-resources-1.7.1.aar",
-      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/appcompat/appcompat-resources/1.7.1/appcompat-resources-1.7.1.pom",
+      "artifactSha256": "3fe48cc3df409bed03063a4f5f5f9f8c51f1d63ea9e88d41e6489bf58495a5af",
+      "pomSha256": "cc6e87c34b66e610d8ac0ad8ed0f657a086f4a8765244f7927b15e6099bf3a17",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/appcompat/appcompat-resources/1.8.0/appcompat-resources-1.8.0.aar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/appcompat/appcompat-resources/1.8.0/appcompat-resources-1.8.0.pom",
       "declaration": "The Apache Software License, Version 2.0",
       "texts": [
         {
@@ -113,19 +113,25 @@
           "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
           "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
           "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        },
+        {
+          "file": "texts/809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0.txt",
+          "sha256": "809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0",
+          "source": "https://dl.google.com/dl/android/maven2/androidx/appcompat/appcompat-resources/1.8.0/appcompat-resources-1.8.0.aar!META-INF/androidx/appcompat/appcompat-resources/LICENSE.txt",
+          "artifactEntry": "META-INF/androidx/appcompat/appcompat-resources/LICENSE.txt"
         }
       ],
-      "artifactFileName": "appcompat-resources-1.7.1.aar",
-      "artifactIdentity": "appcompat-resources-1.7.1.aar (androidx.appcompat:appcompat-resources:1.7.1)",
-      "artifactVariant": "androidx.appcompat:appcompat-resources:1.7.1 variant releaseVariantReleaseRuntimePublication"
+      "artifactFileName": "appcompat-resources-1.8.0.aar",
+      "artifactIdentity": "appcompat-resources-1.8.0.aar (androidx.appcompat:appcompat-resources:1.8.0)",
+      "artifactVariant": "androidx.appcompat:appcompat-resources:1.8.0 variant releaseVariantReleaseRuntimePublication"
     },
     {
-      "coordinate": "androidx.appcompat:appcompat:1.7.1",
+      "coordinate": "androidx.appcompat:appcompat:1.8.0",
       "extension": "aar",
-      "artifactSha256": "2ad334a323b28046e89b738c77d184cb3dcca32a551ab048851b2fda23a3ba26",
-      "pomSha256": "1f79910cc20de198acf3867b1e93f9ed59ddb643585b2e9c28ee55518af1bc00",
-      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/appcompat/appcompat/1.7.1/appcompat-1.7.1.aar",
-      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/appcompat/appcompat/1.7.1/appcompat-1.7.1.pom",
+      "artifactSha256": "773f79306eb0ca2447af8752e923ce6269e201e7fe6b275cc76e2998ee87e838",
+      "pomSha256": "2d6c30b8b8bb3f684e08c7f21b2d20bf853533227b178a8e5069966efec4ec93",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/appcompat/appcompat/1.8.0/appcompat-1.8.0.aar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/appcompat/appcompat/1.8.0/appcompat-1.8.0.pom",
       "declaration": "The Apache Software License, Version 2.0",
       "texts": [
         {
@@ -133,11 +139,17 @@
           "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
           "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
           "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        },
+        {
+          "file": "texts/809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0.txt",
+          "sha256": "809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0",
+          "source": "https://dl.google.com/dl/android/maven2/androidx/appcompat/appcompat/1.8.0/appcompat-1.8.0.aar!META-INF/androidx/appcompat/appcompat/LICENSE.txt",
+          "artifactEntry": "META-INF/androidx/appcompat/appcompat/LICENSE.txt"
         }
       ],
-      "artifactFileName": "appcompat-1.7.1.aar",
-      "artifactIdentity": "appcompat-1.7.1.aar (androidx.appcompat:appcompat:1.7.1)",
-      "artifactVariant": "androidx.appcompat:appcompat:1.7.1 variant releaseVariantReleaseRuntimePublication"
+      "artifactFileName": "appcompat-1.8.0.aar",
+      "artifactIdentity": "appcompat-1.8.0.aar (androidx.appcompat:appcompat:1.8.0)",
+      "artifactVariant": "androidx.appcompat:appcompat:1.8.0 variant releaseVariantReleaseRuntimePublication"
     },
     {
       "coordinate": "androidx.arch.core:core-common:2.2.0",
@@ -1435,12 +1447,12 @@
       "artifactVariant": "com.google.guava:listenablefuture:1.0 configuration runtime"
     },
     {
-      "coordinate": "org.jetbrains.kotlin:kotlin-stdlib:2.0.21",
+      "coordinate": "org.jetbrains.kotlin:kotlin-stdlib:2.1.20",
       "extension": "jar",
-      "artifactSha256": "f31cc53f105a7e48c093683bbd5437561d1233920513774b470805641bedbc09",
-      "pomSha256": "fcbada4cd2e9f39658293570ef613752331db69fd1dad1cabaa60548403e17da",
-      "artifactSource": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/2.0.21/kotlin-stdlib-2.0.21.jar",
-      "pomSource": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/2.0.21/kotlin-stdlib-2.0.21.pom",
+      "artifactSha256": "1bcc74e8ce84e2c25eaafde10f1248349cce3062b6e36978cbeec610db1e930a",
+      "pomSha256": "6750e1799ee502077dae5c3d599796f667606f60d35e95cb790448dc7912b40b",
+      "artifactSource": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/2.1.20/kotlin-stdlib-2.1.20.jar",
+      "pomSource": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/2.1.20/kotlin-stdlib-2.1.20.pom",
       "declaration": "The Apache License, Version 2.0",
       "texts": [
         {
@@ -1450,9 +1462,9 @@
           "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
         }
       ],
-      "artifactFileName": "kotlin-stdlib-2.0.21.jar",
-      "artifactIdentity": "kotlin-stdlib-2.0.21.jar (org.jetbrains.kotlin:kotlin-stdlib:2.0.21)",
-      "artifactVariant": "org.jetbrains.kotlin:kotlin-stdlib:2.0.21 variant jvmRuntimeElements"
+      "artifactFileName": "kotlin-stdlib-2.1.20.jar",
+      "artifactIdentity": "kotlin-stdlib-2.1.20.jar (org.jetbrains.kotlin:kotlin-stdlib:2.1.20)",
+      "artifactVariant": "org.jetbrains.kotlin:kotlin-stdlib:2.1.20 variant jvmRuntimeElements"
     },
     {
       "coordinate": "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0",
