@@ -642,6 +642,7 @@ def build_source_evidence(
     if not complete or source_text is None or not chunk_spans:
         return {}
     layouts = []
+    layout_trees: list[dict[str, set[str]]] = []
     uncertain_layouts: set[int] = set()
     for unit in text_units or [{'start': 0, 'end': len(source_text), 'sourceType': source_type,
                               'sourceIndex': 0, 'tabularRowsSafe': tabular_rows_safe}]:
@@ -649,6 +650,13 @@ def build_source_evidence(
         table = _table_frames(text) if unit.get('tabularRowsSafe') else None
         frames = table[0] if table else _typed_frames(text) if unit['sourceType'] != 'csv' else None
         if frames is not None:
+            roots: dict[str, str] = {}
+            members: dict[str, set[str]] = {}
+            for frame in frames:
+                root = roots[frame['parent']] if frame['parent'] else frame['id']
+                roots[frame['id']] = root
+                members.setdefault(root, set()).add(frame['id'])
+            layout_trees.append(members)
             if table is None and not _record_body_scope_known(text, frames):
                 uncertain_layouts.add(len(layouts))
             layouts.append((unit, text, frames, table[1] if table else None,
@@ -735,10 +743,7 @@ def build_source_evidence(
         source_root = selected[0]
         if source_root['parent']:
             continue
-        expected = {source_root['id']}
-        for frame in frames:
-            if frame['parent'] in expected:
-                expected.add(frame['id'])
+        expected = layout_trees[layout_index][source_root['id']]
         if set(physical) != expected:
             continue
         local_ids = {questions[index].id: local for local, index in enumerate(indexes)}
