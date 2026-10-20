@@ -7,6 +7,7 @@ import { AnswerInput } from "./AnswerInput";
 import { ListeningPlayer } from "./ListeningPlayer";
 import { QuestionEditor } from "./QuestionEditor";
 import { countEnglishWords } from "./english";
+import * as english from "./english";
 import { api, type Question, type Session } from "./api";
 import fixture from "../fixtures/english.json";
 HTMLElement.prototype.scrollIntoView=()=>{};
@@ -80,6 +81,20 @@ it("counts contractions and hyphenated words once, without disabling submission"
   expect(screen.getByRole("status").textContent).toContain("当前 4 词");
   expect(screen.getByRole("status").textContent).toContain("仍可提交");
   expect((screen.getByRole("textbox") as HTMLTextAreaElement).disabled).toBe(false);
+});
+it("counts a writing response once per render for the counter and both limits",()=>{
+  const count = vi.spyOn(english, "countEnglishWords");
+  const {rerender} = render(<AnswerInput question={question("write")} value={{text:"word ".repeat(100)}} onChange={()=>{}}/>);
+  expect(screen.getByRole("status").textContent).toContain("当前 100 词");
+  expect(count).toHaveBeenCalledTimes(1);
+  rerender(<AnswerInput question={question("write")} value={{text:"word ".repeat(121)}} onChange={()=>{}}/>);
+  expect(screen.getByRole("status").textContent).toContain("仍可提交");
+  expect(count).toHaveBeenCalledTimes(2);
+});
+it.each(["", " \n\t", "école 中文 １２３", "a-b a‐b a‑b a–b a—b", "rock’n’roll can't 'quoted'", "e\u0301 😀 42"])("preserves Unicode word boundaries: %j", text=>{
+  const expected = text.match(/[\p{L}\p{N}]+(?:['’\-‐‑][\p{L}\p{N}]+)*/gu)?.length ?? 0;
+  expect(countEnglishWords(text)).toBe(expected);
+  expect(countEnglishWords(text)).toBe(expected);
 });
 it("disables options used in sibling gaps while allowing the current choice",()=>{
   render(<AnswerInput question={{...question("words-1"),options:question("words").options}} value={{correct:["B"]}} usedOptions={["A"]} onChange={()=>{}}/>);

@@ -242,7 +242,8 @@ export function AnswerInput({
           ))}
         </div>
       );
-    default:
+    default: {
+      const words = q.questionKind === "writing" ? countEnglishWords(a.text || "") : 0;
       return (
         <div className="space-y-2">
         <Textarea
@@ -255,12 +256,13 @@ export function AnswerInput({
           rows={q.questionKind === "writing" ? 14 : 7}
           spellCheck={false}
         />
-        {q.questionKind === "writing" && <p role="status" className="text-sm text-muted-foreground">{t("当前 {0} 词",{0:countEnglishWords(a.text || "")})}
+        {q.questionKind === "writing" && <p role="status" className="text-sm text-muted-foreground">{t("当前 {0} 词",{0:words})}
           {(q.minWords != null || q.maxWords != null) && <span> · {t("要求：{0}–{1} 词",{0:q.minWords ?? 0,1:q.maxWords ?? t("不限")})}</span>}
-          {(q.minWords != null && countEnglishWords(a.text || "")<q.minWords || q.maxWords != null && countEnglishWords(a.text || "")>q.maxWords) && <span> · {t("词数超出要求范围，仍可提交。")}</span>}
+          {(q.minWords != null && words<q.minWords || q.maxWords != null && words>q.maxWords) && <span> · {t("词数超出要求范围，仍可提交。")}</span>}
         </p>}
         </div>
       );
+    }
   }
 }
 export function AnswerReview({ question, answer }: { question: Question; answer: Answer | null }) {
