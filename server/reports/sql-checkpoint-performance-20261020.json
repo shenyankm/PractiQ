@@ -1,0 +1,636 @@
+{
+  "baseline": "c7635acb13f520f2206ce9180db0cca3d7448fc5",
+  "scope": "Disposable PostgreSQL metadata SQL, 20 requested threads, 3 alternating pairs of one warmup and seven timed samples. Includes local database round trips; excludes checkpoint payloads and task projection. No schema/index changes.",
+  "probeSha256": "90ad62e1400ed3e6c3875e9120d017d1d3cf21f5b09012597e3e018003e9cc72",
+  "workloads": [
+    {
+      "threads": 20,
+      "historyPerThread": 20,
+      "rows": 400,
+      "before": {
+        "samplesMs": [
+          0.9513749973848462,
+          0.8174579706974328,
+          0.8008750155568123,
+          0.763332995120436,
+          0.8760420023463666,
+          0.7672079955227673,
+          0.8061249973252416,
+          0.7102920208126307,
+          0.6639999919570982,
+          0.6713750190101564,
+          0.7799169979989529,
+          1.051833969540894,
+          0.7470829878002405,
+          0.711957982275635,
+          0.7056249887682498,
+          0.6708750152029097,
+          0.684084021486342,
+          0.7244590087793767,
+          0.7710829959250987,
+          0.6813330110162497,
+          0.6850000354461372
+        ],
+        "sql": "SELECT DISTINCT ON (thread_id) thread_id,checkpoint_id FROM checkpoints WHERE thread_id=ANY(%s) AND checkpoint_ns='' ORDER BY thread_id,checkpoint_id DESC",
+        "medianMs": 0.7470829878002405,
+        "plan": [
+          {
+            "QUERY PLAN": [
+              {
+                "Plan": {
+                  "Node Type": "Unique",
+                  "Parallel Aware": false,
+                  "Async Capable": false,
+                  "Startup Cost": 20.34,
+                  "Total Cost": 21.62,
+                  "Plan Rows": 20,
+                  "Plan Width": 16,
+                  "Actual Startup Time": 0.515,
+                  "Actual Total Time": 0.563,
+                  "Actual Rows": 20,
+                  "Actual Loops": 1,
+                  "Shared Hit Blocks": 3,
+                  "Shared Read Blocks": 0,
+                  "Shared Dirtied Blocks": 0,
+                  "Shared Written Blocks": 0,
+                  "Local Hit Blocks": 0,
+                  "Local Read Blocks": 0,
+                  "Local Dirtied Blocks": 0,
+                  "Local Written Blocks": 0,
+                  "Temp Read Blocks": 0,
+                  "Temp Written Blocks": 0,
+                  "Plans": [
+                    {
+                      "Node Type": "Sort",
+                      "Parent Relationship": "Outer",
+                      "Parallel Aware": false,
+                      "Async Capable": false,
+                      "Startup Cost": 20.34,
+                      "Total Cost": 20.98,
+                      "Plan Rows": 257,
+                      "Plan Width": 16,
+                      "Actual Startup Time": 0.514,
+                      "Actual Total Time": 0.53,
+                      "Actual Rows": 400,
+                      "Actual Loops": 1,
+                      "Sort Key": [
+                        "thread_id",
+                        "checkpoint_id DESC"
+                      ],
+                      "Sort Method": "quicksort",
+                      "Sort Space Used": 42,
+                      "Sort Space Type": "Memory",
+                      "Shared Hit Blocks": 3,
+                      "Shared Read Blocks": 0,
+                      "Shared Dirtied Blocks": 0,
+                      "Shared Written Blocks": 0,
+                      "Local Hit Blocks": 0,
+                      "Local Read Blocks": 0,
+                      "Local Dirtied Blocks": 0,
+                      "Local Written Blocks": 0,
+                      "Temp Read Blocks": 0,
+                      "Temp Written Blocks": 0,
+                      "Plans": [
+                        {
+                          "Node Type": "Seq Scan",
+                          "Parent Relationship": "Outer",
+                          "Parallel Aware": false,
+                          "Async Capable": false,
+                          "Relation Name": "checkpoints",
+                          "Alias": "checkpoints",
+                          "Startup Cost": 0.05,
+                          "Total Cost": 10.05,
+                          "Plan Rows": 257,
+                          "Plan Width": 16,
+                          "Actual Startup Time": 0.037,
+                          "Actual Total Time": 0.093,
+                          "Actual Rows": 400,
+                          "Actual Loops": 1,
+                          "Filter": "((checkpoint_ns = ''::text) AND (thread_id = ANY ('{thread-1,thread-2,thread-3,thread-4,thread-5,thread-6,thread-7,thread-8,thread-9,thread-10,thread-11,thread-12,thread-13,thread-14,thread-15,thread-16,thread-17,thread-18,thread-19,thread-20,missing}'::text[])))",
+                          "Rows Removed by Filter": 0,
+                          "Shared Hit Blocks": 3,
+                          "Shared Read Blocks": 0,
+                          "Shared Dirtied Blocks": 0,
+                          "Shared Written Blocks": 0,
+                          "Local Hit Blocks": 0,
+                          "Local Read Blocks": 0,
+                          "Local Dirtied Blocks": 0,
+                          "Local Written Blocks": 0,
+                          "Temp Read Blocks": 0,
+                          "Temp Written Blocks": 0
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "Planning": {
+                  "Shared Hit Blocks": 0,
+                  "Shared Read Blocks": 0,
+                  "Shared Dirtied Blocks": 0,
+                  "Shared Written Blocks": 0,
+                  "Local Hit Blocks": 0,
+                  "Local Read Blocks": 0,
+                  "Local Dirtied Blocks": 0,
+                  "Local Written Blocks": 0,
+                  "Temp Read Blocks": 0,
+                  "Temp Written Blocks": 0
+                },
+                "Planning Time": 0.102,
+                "Triggers": [],
+                "Execution Time": 0.657
+              }
+            ]
+          }
+        ]
+      },
+      "after": {
+        "samplesMs": [
+          0.49404200399294496,
+          0.49766601296141744,
+          0.39300002390518785,
+          0.40374998934566975,
+          0.3691249876283109,
+          0.34079101169481874,
+          0.31987502006813884,
+          0.32704201294109225,
+          0.3220840007998049,
+          0.339541002176702,
+          0.37504202919080853,
+          0.34541700733825564,
+          0.3296670038253069,
+          0.3938750014640391,
+          0.3707499708980322,
+          0.33495802199468017,
+          0.3322080010548234,
+          0.546958006452769,
+          0.3322080010548234,
+          0.3487080102786422,
+          0.30999997397884727
+        ],
+        "sql": "SELECT requested.thread_id,head.checkpoint_id FROM unnest(%s::text[]) AS requested(thread_id) CROSS JOIN LATERAL (SELECT checkpoint_id FROM checkpoints WHERE thread_id=requested.thread_id AND checkpoint_ns='' ORDER BY checkpoint_id DESC LIMIT 1) head",
+        "medianMs": 0.34541700733825564,
+        "plan": [
+          {
+            "QUERY PLAN": [
+              {
+                "Plan": {
+                  "Node Type": "Nested Loop",
+                  "Parallel Aware": false,
+                  "Async Capable": false,
+                  "Join Type": "Inner",
+                  "Startup Cost": 0.28,
+                  "Total Cost": 10.77,
+                  "Plan Rows": 21,
+                  "Plan Width": 39,
+                  "Actual Startup Time": 0.031,
+                  "Actual Total Time": 0.088,
+                  "Actual Rows": 20,
+                  "Actual Loops": 1,
+                  "Inner Unique": false,
+                  "Shared Hit Blocks": 43,
+                  "Shared Read Blocks": 0,
+                  "Shared Dirtied Blocks": 0,
+                  "Shared Written Blocks": 0,
+                  "Local Hit Blocks": 0,
+                  "Local Read Blocks": 0,
+                  "Local Dirtied Blocks": 0,
+                  "Local Written Blocks": 0,
+                  "Temp Read Blocks": 0,
+                  "Temp Written Blocks": 0,
+                  "Plans": [
+                    {
+                      "Node Type": "Function Scan",
+                      "Parent Relationship": "Outer",
+                      "Parallel Aware": false,
+                      "Async Capable": false,
+                      "Function Name": "unnest",
+                      "Alias": "requested",
+                      "Startup Cost": 0.0,
+                      "Total Cost": 0.21,
+                      "Plan Rows": 21,
+                      "Plan Width": 32,
+                      "Actual Startup Time": 0.011,
+                      "Actual Total Time": 0.012,
+                      "Actual Rows": 21,
+                      "Actual Loops": 1,
+                      "Shared Hit Blocks": 0,
+                      "Shared Read Blocks": 0,
+                      "Shared Dirtied Blocks": 0,
+                      "Shared Written Blocks": 0,
+                      "Local Hit Blocks": 0,
+                      "Local Read Blocks": 0,
+                      "Local Dirtied Blocks": 0,
+                      "Local Written Blocks": 0,
+                      "Temp Read Blocks": 0,
+                      "Temp Written Blocks": 0
+                    },
+                    {
+                      "Node Type": "Limit",
+                      "Parent Relationship": "Inner",
+                      "Parallel Aware": false,
+                      "Async Capable": false,
+                      "Startup Cost": 0.27,
+                      "Total Cost": 0.49,
+                      "Plan Rows": 1,
+                      "Plan Width": 7,
+                      "Actual Startup Time": 0.003,
+                      "Actual Total Time": 0.003,
+                      "Actual Rows": 1,
+                      "Actual Loops": 21,
+                      "Shared Hit Blocks": 43,
+                      "Shared Read Blocks": 0,
+                      "Shared Dirtied Blocks": 0,
+                      "Shared Written Blocks": 0,
+                      "Local Hit Blocks": 0,
+                      "Local Read Blocks": 0,
+                      "Local Dirtied Blocks": 0,
+                      "Local Written Blocks": 0,
+                      "Temp Read Blocks": 0,
+                      "Temp Written Blocks": 0,
+                      "Plans": [
+                        {
+                          "Node Type": "Index Only Scan",
+                          "Parent Relationship": "Outer",
+                          "Parallel Aware": false,
+                          "Async Capable": false,
+                          "Scan Direction": "Backward",
+                          "Index Name": "checkpoints_pkey",
+                          "Relation Name": "checkpoints",
+                          "Alias": "checkpoints",
+                          "Startup Cost": 0.27,
+                          "Total Cost": 4.67,
+                          "Plan Rows": 20,
+                          "Plan Width": 7,
+                          "Actual Startup Time": 0.003,
+                          "Actual Total Time": 0.003,
+                          "Actual Rows": 1,
+                          "Actual Loops": 21,
+                          "Index Cond": "((thread_id = requested.thread_id) AND (checkpoint_ns = ''::text))",
+                          "Rows Removed by Index Recheck": 0,
+                          "Heap Fetches": 0,
+                          "Shared Hit Blocks": 43,
+                          "Shared Read Blocks": 0,
+                          "Shared Dirtied Blocks": 0,
+                          "Shared Written Blocks": 0,
+                          "Local Hit Blocks": 0,
+                          "Local Read Blocks": 0,
+                          "Local Dirtied Blocks": 0,
+                          "Local Written Blocks": 0,
+                          "Temp Read Blocks": 0,
+                          "Temp Written Blocks": 0
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "Planning": {
+                  "Shared Hit Blocks": 0,
+                  "Shared Read Blocks": 0,
+                  "Shared Dirtied Blocks": 0,
+                  "Shared Written Blocks": 0,
+                  "Local Hit Blocks": 0,
+                  "Local Read Blocks": 0,
+                  "Local Dirtied Blocks": 0,
+                  "Local Written Blocks": 0,
+                  "Temp Read Blocks": 0,
+                  "Temp Written Blocks": 0
+                },
+                "Planning Time": 0.12,
+                "Triggers": [],
+                "Execution Time": 0.105
+              }
+            ]
+          }
+        ]
+      },
+      "outputSha256": "326d74dff80133efebbc41dcbce06aa549814852b8cad8f301e4ffeb241ee67c",
+      "reductionPercent": 53.764573283173824
+    },
+    {
+      "threads": 20,
+      "historyPerThread": 1000,
+      "rows": 20000,
+      "before": {
+        "samplesMs": [
+          26.67595900129527,
+          25.855917017906904,
+          25.374207994900644,
+          26.274333999026567,
+          26.586292020510882,
+          26.48670901544392,
+          26.61033399635926,
+          26.37941704597324,
+          26.768499985337257,
+          26.32575004827231,
+          26.346791011746973,
+          25.840457994490862,
+          25.7723749964498,
+          25.89383296435699,
+          25.663624983280897,
+          25.652124953921884,
+          25.94591601518914,
+          26.113333995454013,
+          25.85775003535673,
+          25.892874982673675,
+          25.829417048953474
+        ],
+        "sql": "SELECT DISTINCT ON (thread_id) thread_id,checkpoint_id FROM checkpoints WHERE thread_id=ANY(%s) AND checkpoint_ns='' ORDER BY thread_id,checkpoint_id DESC",
+        "medianMs": 25.94591601518914,
+        "plan": [
+          {
+            "QUERY PLAN": [
+              {
+                "Plan": {
+                  "Node Type": "Unique",
+                  "Parallel Aware": false,
+                  "Async Capable": false,
+                  "Startup Cost": 58.92,
+                  "Total Cost": 1365.72,
+                  "Plan Rows": 20,
+                  "Plan Width": 16,
+                  "Actual Startup Time": 1.304,
+                  "Actual Total Time": 27.043,
+                  "Actual Rows": 20,
+                  "Actual Loops": 1,
+                  "Shared Hit Blocks": 184,
+                  "Shared Read Blocks": 0,
+                  "Shared Dirtied Blocks": 0,
+                  "Shared Written Blocks": 0,
+                  "Local Hit Blocks": 0,
+                  "Local Read Blocks": 0,
+                  "Local Dirtied Blocks": 0,
+                  "Local Written Blocks": 0,
+                  "Temp Read Blocks": 0,
+                  "Temp Written Blocks": 0,
+                  "Plans": [
+                    {
+                      "Node Type": "Incremental Sort",
+                      "Parent Relationship": "Outer",
+                      "Parallel Aware": false,
+                      "Async Capable": false,
+                      "Startup Cost": 58.92,
+                      "Total Cost": 1333.64,
+                      "Plan Rows": 12830,
+                      "Plan Width": 16,
+                      "Actual Startup Time": 1.304,
+                      "Actual Total Time": 25.832,
+                      "Actual Rows": 20000,
+                      "Actual Loops": 1,
+                      "Sort Key": [
+                        "thread_id",
+                        "checkpoint_id DESC"
+                      ],
+                      "Presorted Key": [
+                        "thread_id"
+                      ],
+                      "Full-sort Groups": {
+                        "Group Count": 20,
+                        "Sort Methods Used": [
+                          "quicksort"
+                        ],
+                        "Sort Space Memory": {
+                          "Average Sort Space Used": 27,
+                          "Peak Sort Space Used": 27
+                        }
+                      },
+                      "Pre-sorted Groups": {
+                        "Group Count": 20,
+                        "Sort Methods Used": [
+                          "quicksort"
+                        ],
+                        "Sort Space Memory": {
+                          "Average Sort Space Used": 64,
+                          "Peak Sort Space Used": 64
+                        }
+                      },
+                      "Shared Hit Blocks": 184,
+                      "Shared Read Blocks": 0,
+                      "Shared Dirtied Blocks": 0,
+                      "Shared Written Blocks": 0,
+                      "Local Hit Blocks": 0,
+                      "Local Read Blocks": 0,
+                      "Local Dirtied Blocks": 0,
+                      "Local Written Blocks": 0,
+                      "Temp Read Blocks": 0,
+                      "Temp Written Blocks": 0,
+                      "Plans": [
+                        {
+                          "Node Type": "Index Only Scan",
+                          "Parent Relationship": "Outer",
+                          "Parallel Aware": false,
+                          "Async Capable": false,
+                          "Scan Direction": "Forward",
+                          "Index Name": "checkpoints_pkey",
+                          "Relation Name": "checkpoints",
+                          "Alias": "checkpoints",
+                          "Startup Cost": 0.29,
+                          "Total Cost": 574.65,
+                          "Plan Rows": 12830,
+                          "Plan Width": 16,
+                          "Actual Startup Time": 0.028,
+                          "Actual Total Time": 2.209,
+                          "Actual Rows": 20000,
+                          "Actual Loops": 1,
+                          "Index Cond": "((thread_id = ANY ('{thread-1,thread-2,thread-3,thread-4,thread-5,thread-6,thread-7,thread-8,thread-9,thread-10,thread-11,thread-12,thread-13,thread-14,thread-15,thread-16,thread-17,thread-18,thread-19,thread-20,missing}'::text[])) AND (checkpoint_ns = ''::text))",
+                          "Rows Removed by Index Recheck": 0,
+                          "Heap Fetches": 0,
+                          "Shared Hit Blocks": 184,
+                          "Shared Read Blocks": 0,
+                          "Shared Dirtied Blocks": 0,
+                          "Shared Written Blocks": 0,
+                          "Local Hit Blocks": 0,
+                          "Local Read Blocks": 0,
+                          "Local Dirtied Blocks": 0,
+                          "Local Written Blocks": 0,
+                          "Temp Read Blocks": 0,
+                          "Temp Written Blocks": 0
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "Planning": {
+                  "Shared Hit Blocks": 0,
+                  "Shared Read Blocks": 0,
+                  "Shared Dirtied Blocks": 0,
+                  "Shared Written Blocks": 0,
+                  "Local Hit Blocks": 0,
+                  "Local Read Blocks": 0,
+                  "Local Dirtied Blocks": 0,
+                  "Local Written Blocks": 0,
+                  "Temp Read Blocks": 0,
+                  "Temp Written Blocks": 0
+                },
+                "Planning Time": 0.096,
+                "Triggers": [],
+                "Execution Time": 27.056
+              }
+            ]
+          }
+        ]
+      },
+      "after": {
+        "samplesMs": [
+          0.5561659927479923,
+          0.54583401652053,
+          0.4900419735349715,
+          0.4355409764684737,
+          0.4255409585312009,
+          0.44237502152100205,
+          0.40541699854657054,
+          0.5351250292733312,
+          0.4883329966105521,
+          0.44079095823690295,
+          0.4432499990798533,
+          0.482166011352092,
+          0.4128749715164304,
+          0.40016701677814126,
+          0.42812497122213244,
+          0.5159159773029387,
+          1.4168330235406756,
+          0.5543340230360627,
+          0.4549170262180269,
+          0.4642499843612313,
+          0.38837501779198647
+        ],
+        "sql": "SELECT requested.thread_id,head.checkpoint_id FROM unnest(%s::text[]) AS requested(thread_id) CROSS JOIN LATERAL (SELECT checkpoint_id FROM checkpoints WHERE thread_id=requested.thread_id AND checkpoint_ns='' ORDER BY checkpoint_id DESC LIMIT 1) head",
+        "medianMs": 0.4549170262180269,
+        "plan": [
+          {
+            "QUERY PLAN": [
+              {
+                "Plan": {
+                  "Node Type": "Nested Loop",
+                  "Parallel Aware": false,
+                  "Async Capable": false,
+                  "Join Type": "Inner",
+                  "Startup Cost": 0.29,
+                  "Total Cost": 7.55,
+                  "Plan Rows": 21,
+                  "Plan Width": 39,
+                  "Actual Startup Time": 0.011,
+                  "Actual Total Time": 0.138,
+                  "Actual Rows": 20,
+                  "Actual Loops": 1,
+                  "Inner Unique": false,
+                  "Shared Hit Blocks": 43,
+                  "Shared Read Blocks": 0,
+                  "Shared Dirtied Blocks": 0,
+                  "Shared Written Blocks": 0,
+                  "Local Hit Blocks": 0,
+                  "Local Read Blocks": 0,
+                  "Local Dirtied Blocks": 0,
+                  "Local Written Blocks": 0,
+                  "Temp Read Blocks": 0,
+                  "Temp Written Blocks": 0,
+                  "Plans": [
+                    {
+                      "Node Type": "Function Scan",
+                      "Parent Relationship": "Outer",
+                      "Parallel Aware": false,
+                      "Async Capable": false,
+                      "Function Name": "unnest",
+                      "Alias": "requested",
+                      "Startup Cost": 0.0,
+                      "Total Cost": 0.21,
+                      "Plan Rows": 21,
+                      "Plan Width": 32,
+                      "Actual Startup Time": 0.002,
+                      "Actual Total Time": 0.003,
+                      "Actual Rows": 21,
+                      "Actual Loops": 1,
+                      "Shared Hit Blocks": 0,
+                      "Shared Read Blocks": 0,
+                      "Shared Dirtied Blocks": 0,
+                      "Shared Written Blocks": 0,
+                      "Local Hit Blocks": 0,
+                      "Local Read Blocks": 0,
+                      "Local Dirtied Blocks": 0,
+                      "Local Written Blocks": 0,
+                      "Temp Read Blocks": 0,
+                      "Temp Written Blocks": 0
+                    },
+                    {
+                      "Node Type": "Limit",
+                      "Parent Relationship": "Inner",
+                      "Parallel Aware": false,
+                      "Async Capable": false,
+                      "Startup Cost": 0.29,
+                      "Total Cost": 0.34,
+                      "Plan Rows": 1,
+                      "Plan Width": 7,
+                      "Actual Startup Time": 0.006,
+                      "Actual Total Time": 0.006,
+                      "Actual Rows": 1,
+                      "Actual Loops": 21,
+                      "Shared Hit Blocks": 43,
+                      "Shared Read Blocks": 0,
+                      "Shared Dirtied Blocks": 0,
+                      "Shared Written Blocks": 0,
+                      "Local Hit Blocks": 0,
+                      "Local Read Blocks": 0,
+                      "Local Dirtied Blocks": 0,
+                      "Local Written Blocks": 0,
+                      "Temp Read Blocks": 0,
+                      "Temp Written Blocks": 0,
+                      "Plans": [
+                        {
+                          "Node Type": "Index Only Scan",
+                          "Parent Relationship": "Outer",
+                          "Parallel Aware": false,
+                          "Async Capable": false,
+                          "Scan Direction": "Backward",
+                          "Index Name": "checkpoints_pkey",
+                          "Relation Name": "checkpoints",
+                          "Alias": "checkpoints",
+                          "Startup Cost": 0.29,
+                          "Total Cost": 52.29,
+                          "Plan Rows": 1000,
+                          "Plan Width": 7,
+                          "Actual Startup Time": 0.006,
+                          "Actual Total Time": 0.006,
+                          "Actual Rows": 1,
+                          "Actual Loops": 21,
+                          "Index Cond": "((thread_id = requested.thread_id) AND (checkpoint_ns = ''::text))",
+                          "Rows Removed by Index Recheck": 0,
+                          "Heap Fetches": 0,
+                          "Shared Hit Blocks": 43,
+                          "Shared Read Blocks": 0,
+                          "Shared Dirtied Blocks": 0,
+                          "Shared Written Blocks": 0,
+                          "Local Hit Blocks": 0,
+                          "Local Read Blocks": 0,
+                          "Local Dirtied Blocks": 0,
+                          "Local Written Blocks": 0,
+                          "Temp Read Blocks": 0,
+                          "Temp Written Blocks": 0
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "Planning": {
+                  "Shared Hit Blocks": 0,
+                  "Shared Read Blocks": 0,
+                  "Shared Dirtied Blocks": 0,
+                  "Shared Written Blocks": 0,
+                  "Local Hit Blocks": 0,
+                  "Local Read Blocks": 0,
+                  "Local Dirtied Blocks": 0,
+                  "Local Written Blocks": 0,
+                  "Temp Read Blocks": 0,
+                  "Temp Written Blocks": 0
+                },
+                "Planning Time": 0.078,
+                "Triggers": [],
+                "Execution Time": 0.145
+              }
+            ]
+          }
+        ]
+      },
+      "outputSha256": "cc32db399efbcb5f15c198730d1c0e21ae5cc647814375931949d7a1ec9862d2",
+      "reductionPercent": 98.24667193884497
+    }
+  ]
+}

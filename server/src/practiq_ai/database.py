@@ -146,8 +146,9 @@ class Database:
         # Read only primary-key metadata, never the serialized checkpoint payload.
         async with self.checkpointer.lock, self.connections[0].cursor() as cursor:
             await cursor.execute(
-                "SELECT DISTINCT ON (thread_id) thread_id,checkpoint_id FROM checkpoints "
-                "WHERE thread_id=ANY(%s) AND checkpoint_ns='' ORDER BY thread_id,checkpoint_id DESC",
+                "SELECT requested.thread_id,head.checkpoint_id FROM unnest(%s::text[]) AS requested(thread_id) "
+                "CROSS JOIN LATERAL (SELECT checkpoint_id FROM checkpoints "
+                "WHERE thread_id=requested.thread_id AND checkpoint_ns='' ORDER BY checkpoint_id DESC LIMIT 1) head",
                 (thread_ids,),
             )
             return {row['thread_id']: row['checkpoint_id'] for row in await cursor.fetchall()}
