@@ -173,20 +173,37 @@ pub(crate) fn grade(
             json!({"status":if status.is_client_error() {"ungraded"} else {"unknown"},"appError":error,"usageStatus":"unknown"}),
         );
     }
-    let value = crate::ai::redact(crate::ai::read_json(response, 1024 * 1024)?, key);
+    let value = match crate::ai::read_json(response, 1024 * 1024) {
+        Ok(value) => value,
+        Err(error)
+            if matches!(
+                error.code.as_str(),
+                "LOCAL_RESPONSE_INVALID" | "LOCAL_RESPONSE_TOO_LARGE"
+            ) =>
+        {
+            return Ok(json!({"status":"ungraded","appError":error,"usageStatus":"unknown"}));
+        }
+        Err(error) => return Err(error),
+    };
     let mut output = result(&value, &input)
         .unwrap_or_else(|error| json!({"status":"ungraded","appError":error}));
+    if let Some(result) = output.get_mut("result") {
+        for field in ["reason", "evidence", "reviewReasons"] {
+            result[field] = crate::ai::redact(result[field].take(), key);
+        }
+    }
     let usage = &value["usage"];
     let known_usage = ["prompt_tokens", "completion_tokens"]
         .iter()
         .all(|k| usage[k].as_u64().is_some());
     output["usageStatus"] = json!(if known_usage { "known" } else { "unknown" });
+    let model_id = crate::ai::redact(json!(model.model_id), key);
     if known_usage {
-        output["usage"] = json!([{"callKey":wire["requestId"],"callKind":"subjective_grade","modelId":model.model_id,"inputTokens":usage["prompt_tokens"],"outputTokens":usage["completion_tokens"]}]);
+        output["usage"] = json!([{"callKey":wire["requestId"],"callKind":"subjective_grade","modelId":model_id,"inputTokens":usage["prompt_tokens"],"outputTokens":usage["completion_tokens"]}]);
     }
-    output["modelId"] = json!(model.model_id);
+    output["modelId"] = model_id;
     if let Some(id) = value["id"].as_str().filter(|id| id.len() <= 255) {
-        output["providerRequestId"] = json!(id);
+        output["providerRequestId"] = crate::ai::redact(json!(id), key);
     }
     Ok(output)
 }

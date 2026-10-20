@@ -170,7 +170,7 @@ pub(crate) fn read_json(response: Response, limit: usize) -> Result<Value> {
     response
         .take(limit as u64 + 1)
         .read_to_end(&mut bytes)
-        .map_err(|_| crate::language::error("LOCAL_RESPONSE_INVALID", json!({})))?;
+        .map_err(|_| crate::language::error("LOCAL_RESPONSE_READ_FAILED", json!({})))?;
     if bytes.len() > limit {
         return Err(crate::language::error(
             "LOCAL_RESPONSE_TOO_LARGE",
@@ -354,6 +354,15 @@ mod tests {
         body: String,
         path: &'static str,
     ) -> (String, std::thread::JoinHandle<Value>) {
+        server_response(status, body, path, "test-service-token", None)
+    }
+    fn server_response(
+        status: &'static str,
+        body: String,
+        path: &'static str,
+        token: &'static str,
+        declared_length: Option<usize>,
+    ) -> (String, std::thread::JoinHandle<Value>) {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let origin = format!("http://{}", listener.local_addr().unwrap());
         let handle = std::thread::spawn(move || {
@@ -371,7 +380,7 @@ mod tests {
             assert!(headers.starts_with(path), "{headers}");
             assert!(headers
                 .to_lowercase()
-                .contains("authorization: bearer test-service-token"));
+                .contains(&format!("authorization: bearer {token}")));
             let length = headers
                 .lines()
                 .find_map(|line| {
@@ -392,7 +401,7 @@ mod tests {
             } else {
                 ""
             };
-            let _ = write!(stream, "HTTP/1.1 {status}\r\n{redirect}Content-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len());
+            let _ = write!(stream, "HTTP/1.1 {status}\r\n{redirect}Content-Length: {}\r\nConnection: close\r\n\r\n{body}", declared_length.unwrap_or(body.len()));
             request
         });
         (origin, handle)
@@ -635,6 +644,105 @@ mod tests {
                 result["attempts"][0]["grading"]
             );
         }
+    }
+    #[test]
+    fn direct_complete_invalid_responses_are_ungraded_but_interrupted_bodies_stay_unknown() {
+        let (_dir, shared, id) = submitted();
+        let (origin, handle) = server("200 OK", completion(), "POST /chat/completions HTTP/1.1");
+        grade(
+            &shared,
+            &direct(origin),
+            &id,
+            0,
+            false,
+            None,
+            crate::language::Locale::English,
+        )
+        .unwrap();
+        handle.join().unwrap();
+        for (body, length, status, code) in [
+            ("{".into(), None, "ungraded", "LOCAL_RESPONSE_INVALID"),
+            (
+                " ".repeat(1024 * 1024 + 1),
+                None,
+                "ungraded",
+                "LOCAL_RESPONSE_TOO_LARGE",
+            ),
+            (
+                "{".into(),
+                Some(100),
+                "unknown",
+                "LOCAL_RESPONSE_READ_FAILED",
+            ),
+        ] {
+            let (origin, handle) = server_response(
+                "200 OK",
+                body,
+                "POST /chat/completions HTTP/1.1",
+                "test-service-token",
+                length,
+            );
+            let endpoint = direct(origin);
+            let session = grade(
+                &shared,
+                &endpoint,
+                &id,
+                0,
+                true,
+                None,
+                crate::language::Locale::English,
+            )
+            .unwrap();
+            handle.join().unwrap();
+            let attempt = &session["attempts"][0];
+            assert_eq!(attempt["earnedCents"], 600);
+            assert_eq!(attempt["grading"]["lastRequest"]["status"], status);
+            assert_eq!(attempt["grading"]["lastRequest"]["appError"]["code"], code);
+            let cached = grade(
+                &shared,
+                &endpoint,
+                &id,
+                0,
+                false,
+                None,
+                crate::language::Locale::English,
+            )
+            .unwrap();
+            assert_eq!(cached["attempts"][0]["grading"], attempt["grading"]);
+        }
+    }
+    #[test]
+    fn direct_short_keys_redact_retained_text_without_changing_score_fields() {
+        let (_dir, shared, id) = submitted();
+        let body = completion()
+            .replace("Partial", "score evidence")
+            .replace("fixture-receipt", "score-receipt");
+        let (origin, handle) = server_response(
+            "200 OK",
+            body,
+            "POST /chat/completions HTTP/1.1",
+            "score",
+            None,
+        );
+        let mut endpoint = direct(origin);
+        endpoint.token = "score".into();
+        let session = grade(
+            &shared,
+            &endpoint,
+            &id,
+            0,
+            false,
+            None,
+            crate::language::Locale::English,
+        )
+        .unwrap();
+        handle.join().unwrap();
+        let attempt = &session["attempts"][0];
+        assert_eq!(attempt["earnedCents"], 600);
+        let receipt = &attempt["grading"]["ai"];
+        assert_eq!(receipt["result"]["scoreCents"], 600);
+        assert_eq!(receipt["result"]["reason"], "[redacted] evidence");
+        assert_eq!(receipt["providerRequestId"], "[redacted]-receipt");
     }
     #[test]
     fn model_connection_checks_only_read_the_model_list() {

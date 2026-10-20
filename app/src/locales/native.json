@@ -427,6 +427,10 @@
     "zh-CN": "AI 服务返回无效数据",
     "en": "The AI service returned invalid data"
   },
+  "LOCAL_RESPONSE_READ_FAILED": {
+    "zh-CN": "读取响应失败，连接可能中断或超时。",
+    "en": "Could not read the response; the connection may have closed or timed out."
+  },
   "LOCAL_DATABASE_RESTART": {
     "zh-CN": "数据库暂不可用，请重启应用",
     "en": "Database is unavailable. Restart the app."
