@@ -8,7 +8,7 @@ practice error-recovery fix added after review.
 
 - Practice notices now take space from a flex workspace rather than pushing a
   full-height session below the clipped viewport. Expanded diagnostics scroll in
-  a bounded notice; the footer and remaining question scroller stay reachable.
+  a bounded notice group; the footer and remaining question scroller stay reachable.
 - Ordering item IDs fall back to their zero-based positions. Matching IDs use
   zero-based positions independently within each side, matching
   `answer_references_missing` in the server contract. Explicit IDs still win.
@@ -65,3 +65,14 @@ Python 3.14.7 interpreter. Both Python audit sets report no known vulnerabilitie
 Rust retains its six existing allowed warnings, with no audit configuration or
 threshold changes. All five supported native dependency graphs pass the existing
 GLib reachability guard. Native Rust tests and new-head CI continue separately.
+
+
+The recovery matrix also retains a failing overview read while navigation fails.
+Before grouping notices under one shared height cap, two narrow-screen cases
+still clipped the footer (360x640 and 667x375). All practice notices now share one
+bounded scroller, so their combined height leaves space for the practice session.
+
+The combined-notice fix passed the 24-case layout matrix and all three recovery
+cases, including keyboard access to the overview retry action. App types, lint,
+460 tests (3 existing skips) and production build passed again. Follow-up images
+and their metadata now reflect this combined-notice state.
