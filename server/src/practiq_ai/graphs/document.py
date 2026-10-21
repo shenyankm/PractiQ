@@ -79,7 +79,6 @@ from practiq_ai.graphs.chunking import (
     source_presence_plan,
     split_chunk_plan,
 )
-from practiq_ai.graphs.review import review_extraction
 from practiq_ai.llm import (
     get_model,
     import_call_allowance,
@@ -1217,11 +1216,6 @@ async def _vision(state: VisionTask, runtime: Runtime[None]) -> dict[str, list[d
                     parsed = enriched
             finally:
                 PRIMARY_PAGE.reset(context_token)
-        agent_review = None
-        if load().import_review:
-            parsed, review_usage, agent_review = await review_extraction(model, messages, parsed, OcrPageParseResult,
-                                                                        source_text=evidence_text(primary["elements"]), runtime=runtime)
-            usage.extend(review_usage)
         page = parsed.page_result()
         if state.get("splitSource"):
             for question in page.questions:
@@ -1229,7 +1223,7 @@ async def _vision(state: VisionTask, runtime: Runtime[None]) -> dict[str, list[d
         for figure in page.figures:
             for index in figure.questionIndexes:
                 page.questions[index].needsReview = True
-        value = _page_result(state, page, usage, agent_review, set(range(len(page.figures))))
+        value = _page_result(state, page, usage, set(range(len(page.figures))))
         if context_skipped:
             value["visionResults"][0]["contextSkipped"] = True
         source_figures = {figure["elementIndex"]: figure for figure in primary["figures"]}
@@ -1249,7 +1243,7 @@ async def _vision(state: VisionTask, runtime: Runtime[None]) -> dict[str, list[d
         OCR_FIGURES.reset(token)
 
 
-def _page_result(state, parsed, usage, agent_review, verified):
+def _page_result(state, parsed, usage, verified):
     # Connect equivalent table copies within their associated questions before
     # inserting blocks. Shared figures propagate roles across all their owners.
     copies: dict[tuple[int, str], list[ContentBlock | vision.PageFigure]] = {}
@@ -1308,7 +1302,6 @@ def _page_result(state, parsed, usage, agent_review, verified):
         "kind": "page",
         "index": state["index"],
         "artifact": state["artifact"],
-        "agentReview": agent_review,
         "parsed": parsed.model_dump(mode="json", exclude={"figures"}),
         "visuals": [VisualElement(**{**item.model_dump(exclude={"tableRows"}), "bbox": item.bbox if i in verified else None}, page=state["index"]).model_dump(mode="json") for i, item in enumerate(parsed.figures)],
     }
@@ -1490,10 +1483,6 @@ async def _chunk(
     presence_token = EXPECTED_SOURCE_PRESENCE.set(presence)
     try:
         parsed, usage, failure = await structured_call(model, messages, ChunkParseResult, "document_parse", runtime=runtime)
-        agent_review = None
-        if parsed is not None and load().import_review:
-            parsed, review_usage, agent_review = await review_extraction(model, messages, parsed, ChunkParseResult, source_text=chunk, runtime=runtime)
-            usage.extend(review_usage)
     finally:
         EXPECTED_SOURCE_PRESENCE.reset(presence_token)
         EXPECTED_NODE_COUNT.reset(token)
@@ -1502,7 +1491,6 @@ async def _chunk(
             {
                 "index": state["index"],
                 "parsed": parsed.model_dump(mode="json") if parsed else None,
-                "agentReview": agent_review,
                 "failureCode": failure,
             }
         ],
@@ -1664,6 +1652,7 @@ async def _merge(state: DocumentState, *, passive: bool = False) -> dict[str, An
         source_text=source_text, chunk_spans=state.get("chunkSpans") if not pages else None,
     )
     warnings.extend(merge_warnings)
+    # Preserve historical audit warnings without starting new review calls.
     agent_reviews = [item["agentReview"] for item in ordered if item.get("agentReview")]
     for item in ordered:
         if audit := item.get("agentReview"):
@@ -1997,18 +1986,12 @@ def _guarded(function: Callable[..., Awaitable[dict[str, Any]]], *, with_runtime
                                     if item.get("parsed") is None or item.get("resultRef"):
                                         continue
                                     store = await asyncio.to_thread(get_object_store)
-                                    audit = item.get("agentReview")
-                                    payload = json.dumps({"parsed":item["parsed"], "visuals":item.get("visuals", []), "agentReview":audit}, ensure_ascii=False, separators=(",", ":")).encode()
+                                    payload = json.dumps({"parsed":item["parsed"], "visuals":item.get("visuals", [])}, ensure_ascii=False, separators=(",", ":")).encode()
                                     source_sha256 = state.get("sourceSha256") or state["execution"]["document"]["sha256"]
                                     reference = await store.put_artifact(payload, source_sha256=source_sha256, kind="unit-result", index=item["index"], media_type="application/json")
                                     item["resultRef"] = reference.model_dump(mode="json")
                                     item["parsed"] = {"questionCount":len(item["parsed"].get("questions", []))}
                                     item["visuals"] = []
-                                    if audit:
-                                        item["agentReview"] = {
-                                            "status": audit["status"], "failureCode": audit["failureCode"],
-                                            "missingQuestions": audit["missingQuestions"],
-                                        }
             except TimeoutError as exc:
                 raise DocumentProcessingError(504, "Run execution deadline exceeded", "RUN_DEADLINE_EXCEEDED") from exc
             if result.get("status") in {"SUCCEEDED", "PARTIAL"}:

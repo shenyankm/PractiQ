@@ -53,7 +53,7 @@ from practiq_ai.execution import runtime_version
 from practiq_ai.storage import get_object_store
 
 ROOT = Path(__file__).parents[1]
-SCORER_VERSION = "6.4.0"
+SCORER_VERSION = "6.5.0"
 SOURCE_TYPES = {"text", "pdf", "image"}
 ANSWER_MODES = {"choice", "true_false", "fill_blank", "short_answer", "ordering", "matching", *COMPOSITE_MODES}
 METRICS = (
@@ -79,7 +79,7 @@ SETTING_NAMES = (
     "max_total_input_chars", "graph_max_concurrency", "storage_concurrency",
     "storage_timeout_seconds", "model_timeout_seconds", "model_max_tokens",
     "task_max_model_calls", "run_timeout_seconds", "model_max_input_chars",
-    "provider_concurrency", "provider_rpm", "deployment_workers", "structured_output_method", "import_review", "model_api",
+    "provider_concurrency", "provider_rpm", "deployment_workers", "structured_output_method", "model_api",
 )
 
 
@@ -139,7 +139,7 @@ class GoldVisual(GoldModel):
     questionIndexes: list[int] | None = None
 
 
-CallKind = Literal["document_parse", "vision_parse", "vision_describe", "import_review", "import_repair", "import_recheck"]
+CallKind = Literal["document_parse", "vision_parse", "vision_describe"]
 
 
 class ProcessExpectations(GoldModel):
@@ -412,17 +412,16 @@ def quality_passed(case: dict[str, Any]) -> bool:
                 and case.get("trajectory", {}).get("passed", True))
 
 
-def score_trajectory(case: dict[str, Any], events: list[dict[str, Any]], calls: list[dict[str, Any]], max_calls: int, *, import_review: bool = False) -> dict[str, Any]:
+def score_trajectory(case: dict[str, Any], events: list[dict[str, Any]], calls: list[dict[str, Any]], max_calls: int) -> dict[str, Any]:
     """Check per-unit constraints, never the total ordering of concurrent units."""
     expected = case.get("expectedProcess") or {}
     routes = [e for e in events if e["event"] == "extraction_route"]
     extraction = routes[0]["kind"] if len(routes) == 1 else ""
-    allowed = {extraction, "import_review", "import_repair", "import_recheck"}
+    allowed = {extraction}
     if extraction == "vision_parse":
         allowed.add("vision_describe")
     extraction_schema = "OcrPageParseResult" if extraction == "vision_parse" else "ChunkParseResult"
-    schemas = {extraction: extraction_schema, "vision_describe": "FigureChecks",
-               "import_review": "ReviewReport", "import_recheck": "ReviewReport", "import_repair": extraction_schema}
+    schemas = {extraction: extraction_schema, "vision_describe": "FigureChecks"}
     starts = [e for e in events if e["event"] == "model_start"]
     limits = expected.get("maxModelCalls")
     reasons = []
@@ -436,11 +435,6 @@ def score_trajectory(case: dict[str, Any], events: list[dict[str, Any]], calls: 
     required = {extraction if kind == "document_parse" else kind for kind in expected.get("requiredCallKinds", [])}
     if required - {e["kind"] for e in starts}:
         reasons.append("REQUIRED_CALL_MISSING")
-    if import_review:
-        extracted = {e.get("unitKey") for e in events if e["event"] == "model_call" and e.get("kind") == extraction and e.get("validation") == "passed"}
-        reviewed = {e.get("unitKey") for e in starts if e["kind"] == "import_review"}
-        if extracted - reviewed:
-            reasons.append("REVIEW_CALL_MISSING")
     completed_stages: set[str] = set()
     units: Counter[tuple[str, str]] = Counter()
     for event in events:
@@ -707,7 +701,7 @@ async def run_evaluation(manifest_path: Path, repetitions: int = 1, case_ids: li
     # Include inline page instructions and response schemas, not only system constants.
     report["promptHash"] = _digest([SYSTEM_PROMPT,
         *(hashlib.sha256((ROOT / "src/practiq_ai" / name).read_bytes()).hexdigest()
-          for name in ("graphs/document.py", "graphs/vision.py", "graphs/review.py", "llm.py", "contracts.py"))])
+          for name in ("graphs/document.py", "graphs/vision.py", "llm.py", "contracts.py"))])
     graph = build_document_graph(InMemorySaver(), store=InMemoryStore())
     for repetition in range(1, repetitions + 1):
         for case in cases:
@@ -769,7 +763,7 @@ async def run_evaluation(manifest_path: Path, repetitions: int = 1, case_ids: li
                 "expectedError": expected_error, "outcomeMatched": outcome_matched,
                 "blocked": blocked, "error": error, "processing": processing,
                 "score": score, "modelCalls": model_calls,
-                "trajectory": score_trajectory(case, events, model_calls, config.task_max_model_calls, import_review=config.import_review),
+                "trajectory": score_trajectory(case, events, model_calls, config.task_max_model_calls),
                 "visualArtifactChecks": artifact_checks, "visualSemanticReview": "NOT_REVIEWED",
             })
             print(f"{case['id']} [{repetition}/{repetitions}]: {status}" + (f" {error['code']}" if error else ""), flush=True)

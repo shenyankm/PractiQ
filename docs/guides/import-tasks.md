@@ -12,8 +12,6 @@ Enter your self-hosted service access token (`AI_SERVICE_TOKEN`). It remains in 
 
 Inspect saved questions, supplied answers, images, source associations, quality warnings, errors and usage. `COMPLETED` can contain `PARTIAL`; a completed task is not a claim that extraction is accurate. Missing answers remain null and require review. Parsing does not solve unanswered questions.
 
-Deployments can opt in to [independent AI source review](../../server/docs/import-agent-review.md) with `AI_IMPORT_REVIEW=true`. Start import then includes review and, for source-evidenced discrepancies, at most one repair and recheck; these consume the existing model budget and can increase cost. Result warnings distinguish no discrepancy, repaired, rejected, unresolved and unreviewed outcomes. Missing source answers are never solved, and AI review does not clear existing human-review flags or establish accuracy. Reviewing saved results remains read-only.
-
 Model calls use your configured provider directly, with recorded usage and a per-task call budget. Unknown results remain available for inspection and explicit recovery. **下载题库 ZIP** exports completed questions from paused tasks when available, retaining missing-field and review warnings; export never resumes parsing. See [personal use](../../server/docs/personal-use.md).
 
 Download a completed result as a bank ZIP, then open it with the desktop importer. Review flags do not block ZIP import or offline practice. Native import lets you create a bank or append to an existing one. Personal answers and historical score snapshots stay local.

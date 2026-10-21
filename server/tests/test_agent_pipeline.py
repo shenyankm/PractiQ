@@ -192,11 +192,9 @@ async def test_paused_provider_wait_does_not_consume_rpm(monkeypatch, phase):
         await asyncio.gather(pending, return_exceptions=True)
 
 
-@pytest.mark.parametrize("review", [False, True])
-async def test_exhausted_budget_does_not_enter_provider_queue(monkeypatch, review):
+async def test_exhausted_budget_does_not_enter_provider_queue(monkeypatch):
     monkeypatch.setenv("AI_TASK_MAX_MODEL_CALLS", "1")
-    monkeypatch.setenv("AI_IMPORT_REVIEW", "true" if review else "false")
-    graph, store, _, reference, model = setup_graph(monkeypatch, [parsed()], parts=["First"] if review else ["First", "Second"])
+    graph, store, _, reference, model = setup_graph(monkeypatch, [parsed()], parts=["First", "Second"])
     admitted = []
 
     @asynccontextmanager

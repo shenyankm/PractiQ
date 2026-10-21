@@ -237,33 +237,6 @@ async def test_presence_is_isolated_between_chunks_and_restored_after_error(monk
         document.EXPECTED_SOURCE_PRESENCE.reset(token)
 
 
-@pytest.mark.parametrize('fail_review', [False, True])
-async def test_review_preserves_presence_requirements_and_resets_after_failure(monkeypatch, fail_review):
-    files, reference = source(SOURCE)
-    model = FakeModel(responses=[{'questions': [complete_question()]}])
-    monkeypatch.setattr(document, 'get_object_store', lambda: files)
-    monkeypatch.setattr(document, 'get_model', lambda: model)
-    monkeypatch.setenv('AI_IMPORT_REVIEW', 'true')
-
-    async def review(_model, _messages, parsed, schema, **_kwargs):
-        assert document.EXPECTED_SOURCE_PRESENCE.get() == {'fragment:1:1': PRESENCE}
-        incomplete = complete_question()
-        incomplete['analysis'] = None
-        with pytest.raises(ValidationError, match='requires extracted analysis'):
-            schema.model_validate({'questions': [incomplete]})
-        if fail_review:
-            raise RuntimeError('controlled review failure')
-        return parsed, [], None
-
-    monkeypatch.setattr(document, 'review_extraction', review)
-    if fail_review:
-        with pytest.raises(RuntimeError, match='controlled review failure'):
-            await document._chunk(chunk_task(reference, {'1': PRESENCE}), Runtime(store=MemoryStore()))
-    else:
-        result = await document._chunk(chunk_task(reference, {'1': PRESENCE}), Runtime(store=MemoryStore()))
-        assert result['chunkResults'][0]['parsed']['questions'][0]['analysis'] == 'source-analysis-token'
-    assert document.EXPECTED_SOURCE_PRESENCE.get() is None
-    assert document.EXPECTED_NODE_COUNT.get() is None
 
 
 async def test_presence_prompt_carries_ids_and_field_names_without_source_values(monkeypatch):
