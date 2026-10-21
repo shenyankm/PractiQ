@@ -1,0 +1,338 @@
+{
+  "schemaVersion": 1,
+  "labelSource": "Unchanged existing synthetic regression gold; not teacher/independent annotations",
+  "baseManifestSha256": "1f3427d9a2ebfc0d2a9970441a306ce10969212f22d2675c903d60b4f3795cc5",
+  "fontSha256": "876af2cd4854644e7f3e7feb2f688997fdb3343c6df6693611209c9dfb47ccec",
+  "cases": [
+    {
+      "id": "f30-text-01",
+      "regressionCaseId": "text-grouped",
+      "sourceSha256": "bfab6d32b4cbe251807d1842fdd27e6976762ae07d149496f3c7bdcded2f0da0",
+      "path": "sources/text/text-01.txt",
+      "sha256": "bfab6d32b4cbe251807d1842fdd27e6976762ae07d149496f3c7bdcded2f0da0"
+    },
+    {
+      "id": "f30-docx-01",
+      "regressionCaseId": "text-grouped",
+      "sourceSha256": "bfab6d32b4cbe251807d1842fdd27e6976762ae07d149496f3c7bdcded2f0da0",
+      "path": "sources/docx/docx-01.docx",
+      "sha256": "5c5ce748434294083ceddc537e15c65a40e480ec308d9af7ef39dcf4b1ab3eec"
+    },
+    {
+      "id": "f30-pdf-01",
+      "regressionCaseId": "text-grouped",
+      "sourceSha256": "bfab6d32b4cbe251807d1842fdd27e6976762ae07d149496f3c7bdcded2f0da0",
+      "path": "sources/pdf/pdf-01.pdf",
+      "sha256": "216f2d12b80a7999f4a07ac7c9f0f378a85e90db38453e461d9f33eb5536e8b8"
+    },
+    {
+      "id": "f30-xlsx-01",
+      "regressionCaseId": "text-grouped",
+      "sourceSha256": "bfab6d32b4cbe251807d1842fdd27e6976762ae07d149496f3c7bdcded2f0da0",
+      "worksheet": "Arithmetic",
+      "path": "sources/xlsx/xlsx-01.xlsx",
+      "sha256": "bcd82e290165c3d4c3497536b90d3cadd23730d8b8ce6e62b2c654c589b2c565"
+    },
+    {
+      "id": "f30-image-01",
+      "regressionCaseId": "text-grouped",
+      "sourceSha256": "bfab6d32b4cbe251807d1842fdd27e6976762ae07d149496f3c7bdcded2f0da0",
+      "imageGroup": [
+        {
+          "path": "groups/image-01/page-01.png",
+          "sha256": "48b7249ca691a01cd178438c90b168c3f1b5b77f9fb058c39f2f6d60aa092026",
+          "x": 0,
+          "y": 0,
+          "width": 1600,
+          "height": 1200
+        },
+        {
+          "path": "groups/image-01/page-02.png",
+          "sha256": "ab03249a8c03478d2ad32d098aa1d3e028d3ed67346ebf43eff6f270adfe4698",
+          "x": 0,
+          "y": 1200,
+          "width": 1600,
+          "height": 1200
+        }
+      ],
+      "composition": "Lossless ordered vertical composition for the existing single-image import API",
+      "path": "sources/image/image-01.png",
+      "sha256": "575b76e14dba8263d2d5371c11c31bbc5030f21873d3ca87a71188aefbea489d"
+    },
+    {
+      "id": "f30-text-02",
+      "regressionCaseId": "text-chinese",
+      "sourceSha256": "40bf3317da7b10117d16b1fbbab6231048c17528d63c6b241c48c3e9307f5da6",
+      "path": "sources/text/text-02.txt",
+      "sha256": "40bf3317da7b10117d16b1fbbab6231048c17528d63c6b241c48c3e9307f5da6"
+    },
+    {
+      "id": "f30-docx-02",
+      "regressionCaseId": "text-chinese",
+      "sourceSha256": "40bf3317da7b10117d16b1fbbab6231048c17528d63c6b241c48c3e9307f5da6",
+      "path": "sources/docx/docx-02.docx",
+      "sha256": "d5d2ce62234099e461557a8b7e473a1e68afe81125a3ae8824207d6c93e922d1"
+    },
+    {
+      "id": "f30-pdf-02",
+      "regressionCaseId": "text-chinese",
+      "sourceSha256": "40bf3317da7b10117d16b1fbbab6231048c17528d63c6b241c48c3e9307f5da6",
+      "path": "sources/pdf/pdf-02.pdf",
+      "sha256": "fa2d331472a32e0a666ef6ea7d0975e641000b6b3f9b460946a692e71fbbad5d"
+    },
+    {
+      "id": "f30-xlsx-02",
+      "regressionCaseId": "text-chinese",
+      "sourceSha256": "40bf3317da7b10117d16b1fbbab6231048c17528d63c6b241c48c3e9307f5da6",
+      "worksheet": "Paper02",
+      "path": "sources/xlsx/xlsx-02.xlsx",
+      "sha256": "9cd8d833526cdbf91462201cc9b98786af92f2d43adde13ea7abe7bf85a8e0a5"
+    },
+    {
+      "id": "f30-image-02",
+      "regressionCaseId": "text-chinese",
+      "sourceSha256": "40bf3317da7b10117d16b1fbbab6231048c17528d63c6b241c48c3e9307f5da6",
+      "imageGroup": [
+        {
+          "path": "groups/image-02/page-01.png",
+          "sha256": "6158d88f01971180887b64739766ee23ef17ac92c05dee51161d8c5b1ecdc2b2",
+          "x": 0,
+          "y": 0,
+          "width": 1600,
+          "height": 1200
+        },
+        {
+          "path": "groups/image-02/page-02.png",
+          "sha256": "1da908e18d4591c19f93a47e4e69514f6623b9a69e45ce93d0a9f1d2fc2f6cbe",
+          "x": 0,
+          "y": 1200,
+          "width": 1600,
+          "height": 1200
+        }
+      ],
+      "composition": "Lossless ordered vertical composition for the existing single-image import API",
+      "path": "sources/image/image-02.png",
+      "sha256": "ac25f58069a28927c8f6eb093f1814c27f2cb41aa2812f625753bd5189c599c6"
+    },
+    {
+      "id": "f30-text-03",
+      "regressionCaseId": "text-composites",
+      "sourceSha256": "de805cc345696ebeb1c82b6848c9da544f03dda35cbf24f185a2a56ad1dde50e",
+      "path": "sources/text/text-03.txt",
+      "sha256": "de805cc345696ebeb1c82b6848c9da544f03dda35cbf24f185a2a56ad1dde50e"
+    },
+    {
+      "id": "f30-docx-03",
+      "regressionCaseId": "text-composites",
+      "sourceSha256": "de805cc345696ebeb1c82b6848c9da544f03dda35cbf24f185a2a56ad1dde50e",
+      "path": "sources/docx/docx-03.docx",
+      "sha256": "6c0096235dc2a0d8098d7237b78a74e56db2a3c004f4f63e513980abbc965abe"
+    },
+    {
+      "id": "f30-pdf-03",
+      "regressionCaseId": "text-composites",
+      "sourceSha256": "de805cc345696ebeb1c82b6848c9da544f03dda35cbf24f185a2a56ad1dde50e",
+      "path": "sources/pdf/pdf-03.pdf",
+      "sha256": "cf63dd8298be14b2d539b44ec8922aa846831a354689736cb18e3d73a0112b55"
+    },
+    {
+      "id": "f30-xlsx-03",
+      "regressionCaseId": "text-composites",
+      "sourceSha256": "de805cc345696ebeb1c82b6848c9da544f03dda35cbf24f185a2a56ad1dde50e",
+      "worksheet": "Paper03",
+      "path": "sources/xlsx/xlsx-03.xlsx",
+      "sha256": "26f4bc05b47189f07ea9eecccdf99ad298d73deea53b171c985c85c00c5c4990"
+    },
+    {
+      "id": "f30-image-03",
+      "regressionCaseId": "text-composites",
+      "sourceSha256": "de805cc345696ebeb1c82b6848c9da544f03dda35cbf24f185a2a56ad1dde50e",
+      "imageGroup": [
+        {
+          "path": "groups/image-03/page-01.png",
+          "sha256": "2ccff52586d093d12f5557b22d8ba2da8dbe1fcbc88ab6569198d19f3821e195",
+          "x": 0,
+          "y": 0,
+          "width": 1600,
+          "height": 1200
+        },
+        {
+          "path": "groups/image-03/page-02.png",
+          "sha256": "055ea52d9dde588fe5aec1891f6aa7841f1d654cd3888a995beaba707663f743",
+          "x": 0,
+          "y": 1200,
+          "width": 1600,
+          "height": 1200
+        }
+      ],
+      "composition": "Lossless ordered vertical composition for the existing single-image import API",
+      "path": "sources/image/image-03.png",
+      "sha256": "5bccd978e8cb6fcd6f86e4f4d39f7c7496372d9c401771dfd4af52b852ee677a"
+    },
+    {
+      "id": "f30-text-04",
+      "regressionCaseId": "text-no-answer",
+      "sourceSha256": "4cadd5c4cd6875e2c7a0dae9b21306d9aa5afde7d4d8b76a61fb2ab9439a81fe",
+      "path": "sources/text/text-04.txt",
+      "sha256": "4cadd5c4cd6875e2c7a0dae9b21306d9aa5afde7d4d8b76a61fb2ab9439a81fe"
+    },
+    {
+      "id": "f30-docx-04",
+      "regressionCaseId": "text-no-answer",
+      "sourceSha256": "4cadd5c4cd6875e2c7a0dae9b21306d9aa5afde7d4d8b76a61fb2ab9439a81fe",
+      "path": "sources/docx/docx-04.docx",
+      "sha256": "3c8acd655bff97d95bdf9cc43a71727c5636d7e1eebaeb8c09f6eebd0c82345f"
+    },
+    {
+      "id": "f30-pdf-04",
+      "regressionCaseId": "text-no-answer",
+      "sourceSha256": "4cadd5c4cd6875e2c7a0dae9b21306d9aa5afde7d4d8b76a61fb2ab9439a81fe",
+      "path": "sources/pdf/pdf-04.pdf",
+      "sha256": "8d53eff169921197b044bb6e8865a453e528ae49f5cb01d1a75334bacc1932f9"
+    },
+    {
+      "id": "f30-xlsx-04",
+      "regressionCaseId": "text-no-answer",
+      "sourceSha256": "4cadd5c4cd6875e2c7a0dae9b21306d9aa5afde7d4d8b76a61fb2ab9439a81fe",
+      "worksheet": "Paper04",
+      "path": "sources/xlsx/xlsx-04.xlsx",
+      "sha256": "edcedc8ee40fe15ba1066e304fb6b476aebe74222f319b592df369f2a6696829"
+    },
+    {
+      "id": "f30-image-04",
+      "regressionCaseId": "text-no-answer",
+      "sourceSha256": "4cadd5c4cd6875e2c7a0dae9b21306d9aa5afde7d4d8b76a61fb2ab9439a81fe",
+      "imageGroup": [
+        {
+          "path": "groups/image-04/page-01.png",
+          "sha256": "ba3f1576b9d0538c0eaebbe43298f7c0e213e16e15d06c982988e874ea16a1b3",
+          "x": 0,
+          "y": 0,
+          "width": 1600,
+          "height": 1200
+        },
+        {
+          "path": "groups/image-04/page-02.png",
+          "sha256": "b852b78b921c4247d54d8f739b5f0b49d92c6a2c7ae03397536c972bcd4ba729",
+          "x": 0,
+          "y": 1200,
+          "width": 1600,
+          "height": 1200
+        }
+      ],
+      "composition": "Lossless ordered vertical composition for the existing single-image import API",
+      "path": "sources/image/image-04.png",
+      "sha256": "4a22c0ef81fb8dd5c28cff24a35981ae68e8b9e56ce6fc4cef212f0b6d1b392d"
+    },
+    {
+      "id": "f30-text-05",
+      "regressionCaseId": "text-grammar-evidence",
+      "sourceSha256": "25e613d5d5796eb6d1185e7a871b55551044daaf7736a2f55a4043f6e283682b",
+      "path": "sources/text/text-05.txt",
+      "sha256": "25e613d5d5796eb6d1185e7a871b55551044daaf7736a2f55a4043f6e283682b"
+    },
+    {
+      "id": "f30-docx-05",
+      "regressionCaseId": "text-grammar-evidence",
+      "sourceSha256": "25e613d5d5796eb6d1185e7a871b55551044daaf7736a2f55a4043f6e283682b",
+      "path": "sources/docx/docx-05.docx",
+      "sha256": "07740ea8f1ae35c150e81a667f32db9cc4a6bfa83601037d3120269a39c786ec"
+    },
+    {
+      "id": "f30-pdf-05",
+      "regressionCaseId": "text-grammar-evidence",
+      "sourceSha256": "25e613d5d5796eb6d1185e7a871b55551044daaf7736a2f55a4043f6e283682b",
+      "path": "sources/pdf/pdf-05.pdf",
+      "sha256": "f1480fef5da081b27465f754b990df44fb38ffadf17a383344e3f18f63396fbb"
+    },
+    {
+      "id": "f30-xlsx-05",
+      "regressionCaseId": "text-grammar-evidence",
+      "sourceSha256": "25e613d5d5796eb6d1185e7a871b55551044daaf7736a2f55a4043f6e283682b",
+      "worksheet": "Paper05",
+      "path": "sources/xlsx/xlsx-05.xlsx",
+      "sha256": "bba9befb543d9ec86be4bd09c35c6c81f90d5cf58c6902d1ba1b0703b48d26bd"
+    },
+    {
+      "id": "f30-image-05",
+      "regressionCaseId": "text-grammar-evidence",
+      "sourceSha256": "25e613d5d5796eb6d1185e7a871b55551044daaf7736a2f55a4043f6e283682b",
+      "imageGroup": [
+        {
+          "path": "groups/image-05/page-01.png",
+          "sha256": "e3068dfb5536494413f185108bdc81512bf2109270c22a5f20848a0a2e89056c",
+          "x": 0,
+          "y": 0,
+          "width": 1600,
+          "height": 1200
+        },
+        {
+          "path": "groups/image-05/page-02.png",
+          "sha256": "bcab6eda430e3331508bb1d444c8220cce0435c0f7f232309c15f4a2edf58c01",
+          "x": 0,
+          "y": 1200,
+          "width": 1600,
+          "height": 1200
+        }
+      ],
+      "composition": "Lossless ordered vertical composition for the existing single-image import API",
+      "path": "sources/image/image-05.png",
+      "sha256": "d5bfb7aa810fd5e2af416aefc936d6c511c1b1134adf7a50eb92d54c5c6a5f6d"
+    },
+    {
+      "id": "f30-text-06",
+      "regressionCaseId": "text-listening-evidence",
+      "sourceSha256": "e6a7e7d8f6e0cf08070b3d70262b1bc23090fb57b2cbeb01d5051d27d8ea76da",
+      "path": "sources/text/text-06.txt",
+      "sha256": "e6a7e7d8f6e0cf08070b3d70262b1bc23090fb57b2cbeb01d5051d27d8ea76da"
+    },
+    {
+      "id": "f30-docx-06",
+      "regressionCaseId": "text-listening-evidence",
+      "sourceSha256": "e6a7e7d8f6e0cf08070b3d70262b1bc23090fb57b2cbeb01d5051d27d8ea76da",
+      "path": "sources/docx/docx-06.docx",
+      "sha256": "c914749538f98535b13d4192dabbbee0ea80e16e736bf5d4afef45a2a58d1283"
+    },
+    {
+      "id": "f30-pdf-06",
+      "regressionCaseId": "text-listening-evidence",
+      "sourceSha256": "e6a7e7d8f6e0cf08070b3d70262b1bc23090fb57b2cbeb01d5051d27d8ea76da",
+      "path": "sources/pdf/pdf-06.pdf",
+      "sha256": "5fee65e2062d4394ed93b50373e820c16ee81004ef439c62b3a16a4646508421"
+    },
+    {
+      "id": "f30-xlsx-06",
+      "regressionCaseId": "text-listening-evidence",
+      "sourceSha256": "e6a7e7d8f6e0cf08070b3d70262b1bc23090fb57b2cbeb01d5051d27d8ea76da",
+      "worksheet": "Paper06",
+      "path": "sources/xlsx/xlsx-06.xlsx",
+      "sha256": "ce59e0ee7a072c5d2aa61b604f9096e4bd4b900acff13ae4a46aa0ab8639a0b2"
+    },
+    {
+      "id": "f30-image-06",
+      "regressionCaseId": "image-two-column",
+      "sourceSha256": "2ba33c66bfee22371a3f05139c6ffec63e47dbf5a3416ba3a04355e8ed972133",
+      "imageGroup": [
+        {
+          "path": "groups/image-06/page-01.png",
+          "sha256": "713f22bdfb07379de499ae16224d60b7764da9601769df9217c2737a1f4bace8",
+          "x": 0,
+          "y": 0,
+          "width": 1600,
+          "height": 1000
+        },
+        {
+          "path": "groups/image-06/page-02.png",
+          "sha256": "7828a46b5b992f55faf67e7140061f4b743e8f9fa620009250e5d24200ab5a92",
+          "x": 0,
+          "y": 1000,
+          "width": 1600,
+          "height": 1200
+        }
+      ],
+      "composition": "Lossless ordered vertical composition for the existing single-image import API",
+      "path": "sources/image/image-06.png",
+      "sha256": "d7ef3a8d3fb31da57106741119443d0e833afdac39e207ff038764c3211184ca"
+    }
+  ]
+}

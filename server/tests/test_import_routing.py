@@ -139,12 +139,20 @@ async def test_native_workbook_missing_sheet_coverage_stays_partial(monkeypatch,
     files = FakeObjectStore({reference.objectKey: payload})
     for module in (document, execution):
         monkeypatch.setattr(module, "get_object_store", lambda: files)
-    model = FakeModel(responses=[parsed(name) for name in returned] or [parsed("First")])
+    def worksheet_response(_messages, _schema):
+        page = document.OCR_PAGE.get()
+        assert page is not None
+        name = page["elements"][0]["table_info"]["table_name"]
+        return {**parsed(name), "groups": [{"title": name, "questionIndexes": [0]}]}
+
+    model = FakeModel(responses=[worksheet_response] * len(returned) or [parsed("First")])
     monkeypatch.setattr(document, "get_model", lambda: model)
     calls = tencent_provider(monkeypatch, [{"table_name": name, "fields": [], "rows": []} for name in returned] or [ocr_text_page("First")])
     output = await local_graph().ainvoke({"document": reference.model_dump(mode="json")}, run_config())
     assert output["status"] == ("SUCCEEDED" if complete else "PARTIAL")
     assert len(output["result"]["questions"]) == max(1, returned_count)
+    if returned:
+        assert {group["title"] for group in output["result"]["groups"]} == set(returned)
     assert output["processing"]["truncated"] is not complete
     assert ("questions" in output["result"]["missingFields"]) is not complete
     assert any("coverage of every workbook sheet" in warning for warning in output["result"]["warnings"]) is not complete

@@ -176,7 +176,7 @@ def _model_schema(schema: type[BaseModel]) -> dict[str, Any]:
             elif {"side", "id", "content", "label"} <= properties.keys():
                 node["required"] = list(properties)
                 properties["side"]["description"] = "Required left/right for each matching item; null for ordering."
-                properties["id"]["description"] = "Integer ID counted independently from zero within each matching side; answers reference these IDs, not the global array position."
+                properties["id"]["description"] = "Always supply an integer ID for ordering/matching items: zero-based position for ordering, independently from zero within each matching side. Answers reference these IDs, not printed labels or the global matching array position."
             elif {"questions", "groups"} <= properties.keys() or {"bbox", "description", "kind"} <= properties.keys():
                 node["required"] = list(properties)
             for child in node.values():

@@ -12,7 +12,8 @@ from practiq_ai.storage import ObjectStore
 
 
 @pytest.mark.parametrize('kind', ['diagram', 'image', 'table'])
-async def test_cut_diagram_keeps_full_source_and_other_kinds_keep_original_crop(monkeypatch, tmp_path, kind):
+@pytest.mark.parametrize('associated', [False, True])
+async def test_cut_diagram_keeps_full_source_and_other_kinds_keep_original_crop(monkeypatch, tmp_path, kind, associated):
     buffer = BytesIO()
     with Image.new('RGB', (200, 160), 'white') as image:
         ImageDraw.Draw(image).line((150, 70, 170, 70), fill='black', width=3)
@@ -34,7 +35,7 @@ async def test_cut_diagram_keeps_full_source_and_other_kinds_keep_original_crop(
     page = await store.put_artifact(payload, source_sha256=reference.sha256, kind='page', index=0, media_type='image/png')
     monkeypatch.setattr(document, 'get_object_store', lambda: store)
     box = [.2, .25, .8, .75]
-    visual = VisualElement(kind=kind, description='Cut source stroke', page=0, bbox=box, questionIndexes=[0])
+    visual = VisualElement(kind=kind, description='Cut source stroke', page=0, bbox=box, questionIndexes=[0] if associated else [])
     result, failures, truncated = await document._crop_visuals({
         'document': reference.model_dump(),
         'visionResults': [{'index': 0, 'kind': 'page', 'artifact': page.model_dump()}],
@@ -49,3 +50,31 @@ async def test_cut_diagram_keeps_full_source_and_other_kinds_keep_original_crop(
     else:
         assert not failures and result[0].imageRef is not None
         assert await store.get_verified(result[0].imageRef) == vision.crop_figures(payload, [box])[0]
+
+
+@pytest.mark.parametrize('bottom,expected_success', [(125 / 160, True), (121 / 160, False)])
+async def test_source_label_crop_bounds_still_pass_original_cut_guard(monkeypatch, tmp_path, bottom, expected_success):
+    buffer = BytesIO()
+    with Image.new('RGB', (200, 160), 'white') as image:
+        ImageDraw.Draw(image).line((80, 115, 80, 123), fill='black', width=2)
+        image.save(buffer, 'PNG')
+    payload = buffer.getvalue()
+    monkeypatch.setenv('AI_STORAGE_DIR', str(tmp_path))
+    from practiq_ai.config import load
+
+    store = ObjectStore(load())
+    monkeypatch.setattr(document, 'get_object_store', lambda: store)
+    reference = await store.put_document(payload, DocumentUploadRequest(
+        sourceType='image', fileName='source.png', mediaType='image/png', sizeBytes=len(payload),
+        sha256=hashlib.sha256(payload).hexdigest()))
+    page = await store.put_artifact(payload, source_sha256=reference.sha256, kind='page', index=0, media_type='image/png')
+    box = [.2, .25, .8, .75]
+    crop = [.2, .25, .8, bottom]
+    visual = VisualElement(kind='diagram', description='Verified crossing source label', page=0, bbox=box, cropBbox=crop)
+    result, failures, _ = await document._crop_visuals({'document': reference.model_dump(),
+        'visionResults': [{'index': 0, 'kind': 'page', 'artifact': page.model_dump()}]}, [visual])
+    assert result[0].bbox == box and result[0].cropBbox == crop and result[0].sourceRef == page
+    assert bool(result[0].imageRef) == expected_success
+    assert [f.code for f in failures] == ([] if expected_success else ['CROP_UNVERIFIED'])
+    if result[0].imageRef is not None:
+        assert await store.get_verified(result[0].imageRef) == vision.crop_figures(payload, [crop])[0]

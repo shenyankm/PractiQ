@@ -107,7 +107,7 @@ async def test_page_order_gaps_and_crops(monkeypatch, failed):
         index = next(i for i in range(3) if f"PRIMARY is page {i + 1}" in prompt)
         assert schema is document.OcrPageParseResult and call_kind == "vision_parse"
         images = [message for message in messages if isinstance(message.content, list)]
-        assert images == []  # Only Tencent evidence reaches question structuring.
+        assert len(images) == 1  # One fixed Tencent figure crop, not page recognition.
         if index == 0:
             await asyncio.wait_for(second_finished.wait(), 5)
         completed.append(index)
@@ -151,9 +151,9 @@ async def test_unassociated_ocr_figure_requires_full_source_review(monkeypatch):
     assert any("detached labels" in warning for warning in result["result"]["warnings"])
     visual = result["result"]["visualElements"][0]
     assert visual["questionIds"] == [] and visual["sourceRef"]
-    assert visual["imageRef"] is None
-    assert result["status"] == "PARTIAL" and "media" in result["result"]["missingFields"]
-    assert any(failure["code"] == "CROP_UNVERIFIED" for failure in result["processing"]["failures"])
+    assert visual["imageRef"] and visual["imageRef"]["objectKey"] in store.blobs
+    assert result["status"] == "SUCCEEDED" and "media" not in result["result"]["missingFields"]
+    assert not result["processing"]["failures"]
 
 
 async def test_answer_page_ignores_neighbors_after_empty_primary(monkeypatch):

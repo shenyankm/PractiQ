@@ -53,7 +53,7 @@ from practiq_ai.execution import runtime_version
 from practiq_ai.storage import get_object_store
 
 ROOT = Path(__file__).parents[1]
-SCORER_VERSION = "6.3.0"
+SCORER_VERSION = "6.4.0"
 SOURCE_TYPES = {"text", "pdf", "image"}
 ANSWER_MODES = {"choice", "true_false", "fill_blank", "short_answer", "ordering", "matching", *COMPOSITE_MODES}
 METRICS = (
@@ -63,6 +63,8 @@ METRICS = (
 MEDIA_TYPES = {
     "csv": "text/csv",
     "image": "image/png", "pdf": "application/pdf", "text": "text/plain",
+    "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 }
 BLOCKING_CODES = {
     "AI_PROVIDER_ERROR", "AI_PROVIDER_UNAVAILABLE", "OBJECT_STORE_UNAVAILABLE",
@@ -352,7 +354,7 @@ def _structure_score(expected: list[Any] | None, predicted: list[Any]) -> dict[s
     }
 
 
-def score_result(case: dict[str, Any], result: dict[str, Any], processing: dict[str, Any] | None = None) -> dict[str, Any]:
+def score_result(case: dict[str, Any], result: dict[str, Any], processing: dict[str, Any] | None = None, *, extraction_route: str | None = None) -> dict[str, Any]:
     score = score_document_case(case["expectedQuestions"], result.get("questions", []),
                                source_has_no_answers=case.get("sourceHasNoAnswers", False))
     mapping = {row["predictedIndex"]: row["expectedIndex"] for row in score["questions"] if row["matched"]}
@@ -362,7 +364,8 @@ def score_result(case: dict[str, Any], result: dict[str, Any], processing: dict[
     ]
     id_indexes = {q.get("id"): i for i, q in enumerate(result.get("questions", []))}
     score["sources"] = _structure_score(
-        [(s["questionIndex"], s["stage"], s["unitIndex"]) for s in case["expectedSources"]] if case.get("expectedSources") is not None else None,
+        [(s["questionIndex"], "vision_parse" if s["stage"] == "document_parse" and extraction_route == "vision_parse" else s["stage"], s["unitIndex"])
+         for s in case["expectedSources"]] if case.get("expectedSources") is not None else None,
         [(mapping.get(id_indexes.get(s["questionId"], -1), -1), s["stage"], s["unitIndex"]) for s in (processing or {}).get("questionSources", [])],
     )
     actual_groups = [
@@ -412,7 +415,8 @@ def quality_passed(case: dict[str, Any]) -> bool:
 def score_trajectory(case: dict[str, Any], events: list[dict[str, Any]], calls: list[dict[str, Any]], max_calls: int, *, import_review: bool = False) -> dict[str, Any]:
     """Check per-unit constraints, never the total ordering of concurrent units."""
     expected = case.get("expectedProcess") or {}
-    extraction = "vision_parse" if case["sourceType"] in {"pdf", "image"} else "document_parse"
+    routes = [e for e in events if e["event"] == "extraction_route"]
+    extraction = routes[0]["kind"] if len(routes) == 1 else ""
     allowed = {extraction, "import_review", "import_repair", "import_recheck"}
     if extraction == "vision_parse":
         allowed.add("vision_describe")
@@ -422,9 +426,15 @@ def score_trajectory(case: dict[str, Any], events: list[dict[str, Any]], calls: 
     starts = [e for e in events if e["event"] == "model_start"]
     limits = expected.get("maxModelCalls")
     reasons = []
+    if starts and (len(routes) != 1 or extraction not in {"document_parse", "vision_parse"}
+                   or routes[0].get("sourceType") != case["sourceType"]
+                   or extraction == "document_parse" and case["sourceType"] != "text"
+                   or events.index(routes[0]) > events.index(starts[0])):
+        reasons.append("INVALID_EXTRACTION_ROUTE")
     if len(starts) > min(max_calls, limits if limits is not None else max_calls):
         reasons.append("MODEL_CALL_LIMIT")
-    if set(expected.get("requiredCallKinds", [])) - {e["kind"] for e in starts}:
+    required = {extraction if kind == "document_parse" else kind for kind in expected.get("requiredCallKinds", [])}
+    if required - {e["kind"] for e in starts}:
         reasons.append("REQUIRED_CALL_MISSING")
     if import_review:
         extracted = {e.get("unitKey") for e in events if e["event"] == "model_call" and e.get("kind") == extraction and e.get("validation") == "passed"}
@@ -729,7 +739,8 @@ async def run_evaluation(manifest_path: Path, repetitions: int = 1, case_ids: li
                             "visuals": {"total": state.get("visualTotal", 0), "succeeded": len(state.get("visionResults", [])), "skipped": state.get("visualSkipped", 0)},
                             "truncated": bool(state.get("truncated")), "failures": failures,
                         }).model_dump(mode="json")
-            score = score_result(case, result, processing)
+            extraction_route = next((e["kind"] for e in events if e["event"] == "extraction_route"), None)
+            score = score_result(case, result, processing, extraction_route=extraction_route)
             unverified = {row["predictedIndex"] for row in score["questions"] if row["expectedIndex"] is None}
             id_indexes = {q.get("id"): i for i, q in enumerate(result.get("questions", []))}
             unverified.update(id_indexes.get(issue["questionId"], -1) for issue in (processing or {}).get("quality", {}).get("issues", [])
