@@ -253,3 +253,29 @@ it("filters all checkpoints locally, resets pagination and retains shared materi
   expect(JSON.stringify(view)).toBe(before);
   expect(image).not.toHaveBeenCalled();
 });
+
+it.each([
+  [{correct:["A","B"]}, "A、B"],
+  [{value:false}, "错误"],
+  [{answers:["First",null]}, "该空未提供答案（null）"],
+  [{text:"Reference **answer**"}, "answer"],
+  [{order:[2,1]}, "Second"],
+  [{matches:[{left:1,right:2}]}, "First → Second"],
+  [{unrecognized:{raw:"preserved"}}, "答案结构需人工核对，请展开来源与技术详情。"],
+  [null, "未提供（null），不会补写答案"],
+] as const)("prioritizes readable reference answers and retains raw evidence: %j", async (answer, text) => {
+  const q = question({id:"readable", stem:"Readable review", parentId:null, optionSourceId:null, answerPayload:structuredClone(answer) as ReturnType<typeof question>["answerPayload"], items:[{id:1,side:"left",content:"First"},{id:2,side:"right",content:"Second"}]});
+  const original = JSON.stringify(q);
+  const {container} = render(<ResultReview task={{...task,result:{...task.result!,questions:[q]}}} preview={null} client={new Client("fake")}/>);
+  await userEvent.click(screen.getByText("Readable review", {selector:"summary span"}));
+  const card = container.querySelector(".question-card")!;
+  const reference = screen.getByRole("heading", {name:"文档提供的参考答案"}).parentElement!;
+  expect(within(reference).getByText(text)).toBeTruthy();
+  const technical = card.querySelector<HTMLDetailsElement>(".review-technical")!;
+  expect(technical.open).toBe(false);
+  expect(card.querySelector(".metadata-grid")!.closest(".review-technical")).toBe(technical);
+  await userEvent.click(screen.getByText("来源与技术详情"));
+  await userEvent.click(screen.getByText("完整结构化记录（只读）"));
+  expect(technical.textContent).toContain(JSON.stringify(q, null, 2));
+  expect(JSON.stringify(q)).toBe(original);
+});

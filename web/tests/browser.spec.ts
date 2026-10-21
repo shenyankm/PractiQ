@@ -1,12 +1,15 @@
+import { withEvidence } from "../../shared/browser-evidence.mjs";
 import { chooseOption } from "../../shared/select-test.mjs";
 import { createHash } from "node:crypto";
 import { mkdir, readFile } from "node:fs/promises";
-import { expect, test, type Page, type Route } from "playwright/test";
+import { expect, test as runner, type Page, type Route } from "playwright/test";
 import type { DocumentTaskDetail, DocumentTaskReview } from "../src/contracts.generated";
 import { capabilities, material, newTaskId, preview, question, runId, summary, task, taskId } from "../src/test-fixtures";
 import { layoutImage, layoutSnapshots, layoutViewports } from "../../app/scripts/responsive-fixtures.mjs";
 
 // All HTTP here is synthetic. No model, Office worker, or live service is used.
+const test = withEvidence(runner);
+
 const fakeToken = "fake-service-token";
 const digest = (bytes: Buffer) => createHash("sha256").update(bytes).digest("hex");
 const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jF1sAAAAASUVORK5CYII=", "base64");
@@ -771,31 +774,25 @@ test("file picker text stays centered across control sizes and themes", async ({
       await page.evaluate(value => document.documentElement.classList.toggle("dark", value), dark);
       for (const selected of [false, true]) {
         await input.setInputFiles(selected ? { name: "文件选择控件-vertical-alignment-and-long-name.txt", mimeType: "text/plain", buffer: Buffer.from("Synthetic layout fixture") } : []);
-        const geometry = await input.evaluate(node => {
-          const style = getComputedStyle(node), button = getComputedStyle(node, "::file-selector-button");
-          const number = (value: string) => parseFloat(value);
-          return { height: node.getBoundingClientRect().height, paddingTop: number(style.paddingTop), paddingBottom: number(style.paddingBottom),
-            content: node.clientHeight - number(style.paddingTop) - number(style.paddingBottom), lineHeight: number(style.lineHeight),
-            buttonHeight: number(button.height), buttonLineHeight: number(button.lineHeight), font: style.fontSize, buttonFont: button.fontSize };
-        });
-        expect(geometry.height).toBe(width < 768 ? 48 : 40);
-        expect(Math.abs(geometry.paddingTop - geometry.paddingBottom)).toBeLessThanOrEqual(1);
-        expect(geometry.lineHeight).toBe(geometry.content);
-        expect(geometry.buttonHeight).toBe(geometry.content);
-        expect(geometry.buttonLineHeight).toBe(geometry.content);
-        expect(geometry.buttonFont).toBe(geometry.font);
+        const picker = page.locator('.file-picker');
+        const action = picker.locator('.file-picker-action');
+        await expect(action).toHaveText('选择文件');
+        await expect(input).toHaveClass(/sr-only/);
+        expect((await action.boundingBox())!.height).toBe(width < 768 ? 48 : 40);
+        await input.focus();
+        expect(await picker.evaluate(node => getComputedStyle(node).outlineStyle)).toBe('solid');
         const otherControls = await page.locator("button[data-button], [data-slot='badge']").evaluateAll(nodes => nodes.map(node => {
           const style = getComputedStyle(node); return { align: style.alignItems, top: style.paddingTop, bottom: style.paddingBottom };
         }));
         expect(otherControls.every(control => control.align === "center" && control.top === control.bottom)).toBe(true);
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
         expect(mutations(http.calls)).toHaveLength(0);
-        if (selected) await input.screenshot({ path: testInfo.outputPath(`file-picker-${width}-${dark ? "dark" : "light"}.png`) });
+        if (selected) await page.locator(".file-picker").screenshot({ path: testInfo.outputPath(`file-picker-${width}-${dark ? "dark" : "light"}.png`) });
       }
       await input.focus(); await page.keyboard.press("Tab"); await page.keyboard.press("Shift+Tab");
       await expect(input).toBeFocused();
       await input.evaluate(node => { (node as HTMLInputElement).disabled = true; });
-      expect(await input.evaluate(node => parseFloat(getComputedStyle(node, "::file-selector-button").height))).toBe(width < 768 ? 46 : 38);
+      expect(await page.locator(".file-picker").evaluate(node => getComputedStyle(node).opacity)).toBe("0.5");
       await input.evaluate(node => { (node as HTMLInputElement).disabled = false; });
     }
   }

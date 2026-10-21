@@ -54,7 +54,7 @@ export function ImageArtifact({ reference, description, client, threadId }: { re
   }
   return <figure className="resource-card">
     <figcaption>{description}</figcaption>
-    <p className="text-xs text-muted-foreground">SHA-256：{reference.sha256}</p>
+    <details className="resource-details"><summary>图片校验信息</summary><p className="text-xs text-muted-foreground">SHA-256：{reference.sha256}</p></details>
     {url && <img src={url} alt={description} className="max-h-96 max-w-full object-contain" />}
     {error && <p role="alert" className="text-destructive">{error}</p>}
     <Button variant="outline" disabled={loading} onClick={() => void load()}><ImageIcon />{loading ? "正在校验图片…" : url ? "重新读取图片" : "查看图片"}</Button>
@@ -101,6 +101,18 @@ const questionTypes: Record<NonNullable<ParsedQuestion["answerMode"]>, string> =
 function relatedQuestion(entry: Entry, questions: Map<string, ParsedQuestion | null>, id?: string | null) {
   return id ? questions.get(JSON.stringify([entry.stage, entry.index, id])) || questions.get(JSON.stringify([id])) : undefined;
 }
+function ReferenceAnswer({ question: q }: { question: ParsedQuestion }) {
+  const answer: Record<string, unknown> | null = q.answerPayload;
+  if (answer == null) return <p>未提供（null），不会补写答案</p>;
+  if (Array.isArray(answer.correct) && answer.correct.every(value => typeof value === "string")) return <p>{answer.correct.join("、") || "参考答案为空"}</p>;
+  if (typeof answer.value === "boolean") return <p>{answer.value ? "正确" : "错误"}</p>;
+  if (Array.isArray(answer.answers) && answer.answers.every(value => value == null || typeof value === "string")) return <ol className="list-inside list-decimal space-y-2">{answer.answers.map((value, index) => <li key={index}><Markdown text={value ?? "该空未提供答案（null）"}/></li>)}</ol>;
+  if (typeof answer.text === "string") return <Markdown text={answer.text}/>;
+  if (Array.isArray(answer.order) && answer.order.every(value => typeof value === "number")) return <ol className="list-inside list-decimal space-y-2">{answer.order.map((id, index) => <li key={index}><Markdown text={q.items.find(item => item.id === id)?.content ?? `未关联题项（${id}）`}/></li>)}</ol>;
+  if (Array.isArray(answer.matches) && answer.matches.every(pair => pair && typeof pair === "object" && typeof pair.left === "number" && typeof pair.right === "number")) return <ul className="space-y-2">{answer.matches.map((pair, index) => <li key={index}><Markdown text={`${q.items.find(item => item.id === pair.left && item.side === "left")?.content ?? `未关联题项（${pair.left}）`} → ${q.items.find(item => item.id === pair.right && item.side === "right")?.content ?? `未关联题项（${pair.right}）`}`}/></li>)}</ul>;
+  return <p>答案结构需人工核对，请展开来源与技术详情。</p>;
+}
+const missingFieldNames: Record<string, string> = { stem:"题干", questionTypeId:"题型", answerMode:"作答方式", choiceVariant:"选择题类型", matchingVariant:"匹配方式", options:"选项", items:"题项", answerPayload:"参考答案", analysis:"解析", sourceText:"来源原文", media:"图片或音频", material:"材料" };
 function QuestionCard({ entry, questions, sourcesById }: { entry: Entry; questions: Map<string, ParsedQuestion | null>; sourcesById: Map<string, NonNullable<DocumentTaskReview>["questionSources"]> }) {
   const [expanded, setExpanded] = useState(false);
   const q = entry.question;
@@ -110,14 +122,14 @@ function QuestionCard({ entry, questions, sourcesById }: { entry: Entry; questio
   return <details className="question-card" onToggle={event => setExpanded(event.currentTarget.open)}>
     <summary><span className="font-medium">{q.stem?.slice(0, 160) || "题干未提供（null）"}</span><span className="flex flex-wrap gap-2"><Badge variant="outline">{q.answerMode ? questionTypes[q.answerMode] : "题型未知（null）"}</Badge>{q.needsReview && <Badge variant="secondary">需要复核</Badge>}</span></summary>
     {expanded && <div className="space-y-5 pt-4">
-      <dl className="metadata-grid"><dt>题目 ID</dt><dd>{q.id ?? "未提供（null）"}</dd><dt>所属材料</dt><dd>{q.parentId ?? "无（null）"}</dd><dt>共享选项来源</dt><dd>{q.optionSourceId ?? "无（null）"}</dd><dt>置信度</dt><dd>{q.confidence}</dd><dt>缺失字段</dt><dd>{q.missingFields.join("、") || "无"}</dd><dt>来源单元</dt><dd>{entry.stage} · {entry.index}{sources.map(source => <p key={`${source.stage}:${source.unitIndex}`}>{source.stage} · {source.unitIndex}</p>)}</dd></dl>
+      {(q.needsReview || q.missingFields.length > 0) && <p className="notice">需要人工复核{q.missingFields.length > 0 ? `；缺失：${q.missingFields.map(field => missingFieldNames[field] || field).join("、")}` : "；请与原文件核对。"}</p>}
       <section><h4>完整题干</h4><Markdown text={q.stem} /><Markdown text={q.instructions} /><Blocks blocks={[...(q.passage || []), ...q.contentBlocks, ...(q.transcript || [])]} /></section>
       {parent && <section className="material-context"><h4>所属材料 · {parent.id}</h4><Markdown text={parent.stem} /><Markdown text={parent.instructions} /><Blocks blocks={[...(parent.passage || []), ...parent.contentBlocks]} /></section>}
       {(q.options.length > 0 || owner) && <section><h4>{owner ? `共享选项 · ${q.optionSourceId}` : "选项"}</h4>{(owner?.options || q.options).map((option, index) => <div key={index} className="option-row"><span>{option.label ?? "标签未提供（null）"}</span><Markdown text={option.content} /></div>)}</section>}
       {q.items.length > 0 && <section><h4>条目</h4>{q.items.map((item, index) => <div className="option-row" key={index}><span>{item.label ?? item.id ?? index + 1} {item.side}</span><Markdown text={item.content} /></div>)}</section>}
-      <section><h4>文档提供的参考答案</h4><pre className="raw-data">{q.answerPayload == null ? "未提供（null），不会补写答案" : JSON.stringify(q.answerPayload, null, 2)}</pre><h4>解析与评分依据</h4><Markdown text={q.analysis} /><Markdown text={q.scoringRubric} /></section>
+      <section><h4>文档提供的参考答案</h4><ReferenceAnswer question={q}/><h4>解析与评分依据</h4><Markdown text={q.analysis} /><Markdown text={q.scoringRubric} /></section>
       <section><h4>来源原文</h4><Markdown text={q.sourceText} /></section>
-      <QuestionRecord question={q} />
+      <details className="review-technical"><summary>来源与技术详情</summary><dl className="metadata-grid"><dt>题目 ID</dt><dd>{q.id ?? "未提供（null）"}</dd><dt>所属材料</dt><dd>{q.parentId ?? "无（null）"}</dd><dt>共享选项来源</dt><dd>{q.optionSourceId ?? "无（null）"}</dd><dt>置信度</dt><dd>{q.confidence}</dd><dt>缺失字段</dt><dd>{q.missingFields.join("、") || "无"}</dd><dt>来源单元</dt><dd>{entry.stage} · {entry.index}{sources.map(source => <p key={`${source.stage}:${source.unitIndex}`}>{source.stage} · {source.unitIndex}</p>)}</dd></dl><QuestionRecord question={q}/></details>
     </div>}
   </details>;
 }
