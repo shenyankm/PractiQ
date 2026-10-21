@@ -87,6 +87,51 @@ def _bbox(element: dict[str, Any], width: int, height: int) -> list[float]:
     return values
 
 
+def _label_crop_bbox(figure: dict[str, Any], elements: list[dict[str, Any]], width: int, height: int) -> list[float] | None:
+    """Retain crossing labels only when Tencent also identifies them inside this figure."""
+    # shortcut: skip repair above 1,000 elements; revisit for dense OCR pages.
+    if len(elements) > 1_000 or any(not isinstance(element, dict) for element in elements):
+        return None
+    original = _bbox(figure, width, height)
+    labels = {line.strip() for line in evidence_text(figure.get("figure_info")).splitlines()
+              if re.fullmatch(r"[\w.()+−/\-]{1,16}", line.strip())}
+    candidates = []
+    for element in elements:
+        if element is figure or not isinstance(element.get("text_info"), dict):
+            continue
+        text = element["text_info"].get("content", "")
+        if not isinstance(text, str):
+            continue
+        text = text.strip()
+        if text not in labels:
+            continue
+        try:
+            box = _bbox(element, width, height)
+        except (KeyError, TypeError, ValueError):
+            continue
+        if (max(box[0], original[0]) < min(box[2], original[2])
+                and max(box[1], original[1]) < min(box[3], original[3])
+                and not (original[0] <= box[0] < box[2] <= original[2] and original[1] <= box[1] < box[3] <= original[3])):
+            candidates.append((element, text, box))
+    if not candidates or len({text for _, text, _ in candidates}) != len(candidates):
+        return None
+    boxes = [original, *(box for _, _, box in candidates)]
+    crop = [min(b[0] for b in boxes), min(b[1] for b in boxes), max(b[2] for b in boxes), max(b[3] for b in boxes)]
+    if (crop[2] - crop[0]) * (crop[3] - crop[1]) > 1.25 * (original[2] - original[0]) * (original[3] - original[1]):
+        return None
+    for element in elements:
+        if element is figure or any(element is candidate for candidate, _, _ in candidates):
+            continue
+        try:
+            box = _bbox(element, width, height)
+        except (KeyError, TypeError, ValueError):
+            return None
+        if (max(box[0], crop[0]) < min(box[2], crop[2]) and max(box[1], crop[1]) < min(box[3], crop[3])
+                and not (original[0] <= box[0] < box[2] <= original[2] and original[1] <= box[1] < box[3] <= original[3])):
+            return None  # Additional source content must never enter a label repair.
+    return crop
+
+
 def decode_bundle(payload: bytes, config: Config, *, page_count: int, allow_empty: bool = False, result_type: int = 9) -> list[dict[str, Any]]:
     """No archive paths are written; reject unsupported layouts rather than guess."""
     try:
@@ -177,6 +222,8 @@ def decode_bundle(payload: bytes, config: Config, *, page_count: int, allow_empt
                                         "bbox": _bbox(element, width, height),
                                         "kind": "table" if "table_info" in element else "image",
                                         "imageMember": image_members.get((page, identifier))})
+                        if "figure_info" in element and (crop := _label_crop_bbox(element, elements, width, height)):
+                            figures[-1]["cropBbox"] = crop
                 # Keep nested table cells, formulas and reading order in source evidence.
                 text = json.dumps(elements, ensure_ascii=False, separators=(",", ":"))
                 text_size += len(text)

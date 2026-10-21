@@ -1,0 +1,2465 @@
+{
+  "schemaVersion": 2,
+  "cases": [
+    {
+      "id": "f30-text-01",
+      "sourceType": "text",
+      "path": "sources/text/text-01.txt",
+      "expectedQuestions": [
+        {
+          "stem": "6 × 7 = ____.",
+          "answerMode": "fill_blank",
+          "options": [],
+          "answerPayload": {
+            "answers": [
+              "42"
+            ]
+          },
+          "stemAliases": [
+            "6 \\times 7 = ____.",
+            "$6 \\times 7 = ____$."
+          ]
+        },
+        {
+          "stem": "What is the square root of 81?",
+          "answerMode": "short_answer",
+          "options": [],
+          "answerPayload": {
+            "text": "9"
+          }
+        }
+      ],
+      "tags": [
+        "synthetic",
+        "smoke",
+        "text",
+        "format-matrix"
+      ],
+      "critical": false,
+      "expectedGroups": [
+        {
+          "title": "Arithmetic",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ],
+      "expectedVisualKinds": [],
+      "expectedProcess": {
+        "requiredCallKinds": [
+          "document_parse"
+        ]
+      }
+    },
+    {
+      "id": "f30-docx-01",
+      "sourceType": "docx",
+      "path": "sources/docx/docx-01.docx",
+      "expectedQuestions": [
+        {
+          "stem": "6 × 7 = ____.",
+          "answerMode": "fill_blank",
+          "options": [],
+          "answerPayload": {
+            "answers": [
+              "42"
+            ]
+          },
+          "stemAliases": [
+            "6 \\times 7 = ____.",
+            "$6 \\times 7 = ____$."
+          ]
+        },
+        {
+          "stem": "What is the square root of 81?",
+          "answerMode": "short_answer",
+          "options": [],
+          "answerPayload": {
+            "text": "9"
+          }
+        }
+      ],
+      "tags": [
+        "synthetic",
+        "smoke",
+        "text",
+        "format-matrix"
+      ],
+      "critical": false,
+      "expectedGroups": [
+        {
+          "title": "Arithmetic",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ],
+      "expectedVisualKinds": [],
+      "expectedProcess": {
+        "requiredCallKinds": [
+          "vision_parse"
+        ]
+      }
+    },
+    {
+      "id": "f30-pdf-01",
+      "sourceType": "pdf",
+      "path": "sources/pdf/pdf-01.pdf",
+      "expectedQuestions": [
+        {
+          "stem": "6 × 7 = ____.",
+          "answerMode": "fill_blank",
+          "options": [],
+          "answerPayload": {
+            "answers": [
+              "42"
+            ]
+          },
+          "stemAliases": [
+            "6 \\times 7 = ____.",
+            "$6 \\times 7 = ____$."
+          ]
+        },
+        {
+          "stem": "What is the square root of 81?",
+          "answerMode": "short_answer",
+          "options": [],
+          "answerPayload": {
+            "text": "9"
+          }
+        }
+      ],
+      "tags": [
+        "synthetic",
+        "smoke",
+        "text",
+        "format-matrix"
+      ],
+      "critical": false,
+      "expectedGroups": [
+        {
+          "title": "Arithmetic",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ],
+      "expectedVisualKinds": [],
+      "expectedProcess": {
+        "requiredCallKinds": [
+          "vision_parse"
+        ]
+      }
+    },
+    {
+      "id": "f30-xlsx-01",
+      "sourceType": "xlsx",
+      "path": "sources/xlsx/xlsx-01.xlsx",
+      "expectedQuestions": [
+        {
+          "stem": "6 × 7 = ____.",
+          "answerMode": "fill_blank",
+          "options": [],
+          "answerPayload": {
+            "answers": [
+              "42"
+            ]
+          },
+          "stemAliases": [
+            "6 \\times 7 = ____.",
+            "$6 \\times 7 = ____$."
+          ]
+        },
+        {
+          "stem": "What is the square root of 81?",
+          "answerMode": "short_answer",
+          "options": [],
+          "answerPayload": {
+            "text": "9"
+          }
+        }
+      ],
+      "tags": [
+        "synthetic",
+        "smoke",
+        "text",
+        "format-matrix"
+      ],
+      "critical": false,
+      "expectedGroups": [
+        {
+          "title": "Arithmetic",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ],
+      "expectedVisualKinds": [],
+      "expectedProcess": {
+        "requiredCallKinds": [
+          "vision_parse"
+        ]
+      }
+    },
+    {
+      "id": "f30-image-01",
+      "sourceType": "image",
+      "path": "sources/image/image-01.png",
+      "expectedQuestions": [
+        {
+          "stem": "6 × 7 = ____.",
+          "answerMode": "fill_blank",
+          "options": [],
+          "answerPayload": {
+            "answers": [
+              "42"
+            ]
+          },
+          "stemAliases": [
+            "6 \\times 7 = ____.",
+            "$6 \\times 7 = ____$."
+          ]
+        },
+        {
+          "stem": "What is the square root of 81?",
+          "answerMode": "short_answer",
+          "options": [],
+          "answerPayload": {
+            "text": "9"
+          }
+        }
+      ],
+      "tags": [
+        "synthetic",
+        "smoke",
+        "text",
+        "format-matrix"
+      ],
+      "critical": false,
+      "expectedGroups": [
+        {
+          "title": "Arithmetic",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ],
+      "expectedVisualKinds": [],
+      "expectedProcess": {
+        "requiredCallKinds": [
+          "vision_parse"
+        ]
+      }
+    },
+    {
+      "id": "f30-text-02",
+      "sourceType": "text",
+      "path": "sources/text/text-02.txt",
+      "tags": [
+        "synthetic",
+        "regression",
+        "chinese",
+        "format-matrix"
+      ],
+      "critical": true,
+      "expectedQuestions": [
+        {
+          "stem": "中国的首都是哪座城市？",
+          "answerMode": "choice",
+          "options": [
+            {
+              "label": "A",
+              "content": "北京"
+            },
+            {
+              "label": "B",
+              "content": "上海"
+            }
+          ],
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          }
+        },
+        {
+          "stem": "地球绕太阳公转。",
+          "answerMode": "true_false",
+          "options": [],
+          "answerPayload": {
+            "value": true
+          }
+        }
+      ],
+      "expectedVisualKinds": [],
+      "expectedProcess": {
+        "requiredCallKinds": [
+          "document_parse"
+        ]
+      }
+    },
+    {
+      "id": "f30-docx-02",
+      "sourceType": "docx",
+      "path": "sources/docx/docx-02.docx",
+      "tags": [
+        "synthetic",
+        "regression",
+        "chinese",
+        "format-matrix"
+      ],
+      "critical": true,
+      "expectedQuestions": [
+        {
+          "stem": "中国的首都是哪座城市？",
+          "answerMode": "choice",
+          "options": [
+            {
+              "label": "A",
+              "content": "北京"
+            },
+            {
+              "label": "B",
+              "content": "上海"
+            }
+          ],
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          }
+        },
+        {
+          "stem": "地球绕太阳公转。",
+          "answerMode": "true_false",
+          "options": [],
+          "answerPayload": {
+            "value": true
+          }
+        }
+      ],
+      "expectedVisualKinds": [],
+      "expectedProcess": {
+        "requiredCallKinds": [
+          "vision_parse"
+        ]
+      }
+    },
+    {
+      "id": "f30-pdf-02",
+      "sourceType": "pdf",
+      "path": "sources/pdf/pdf-02.pdf",
+      "tags": [
+        "synthetic",
+        "regression",
+        "chinese",
+        "format-matrix"
+      ],
+      "critical": true,
+      "expectedQuestions": [
+        {
+          "stem": "中国的首都是哪座城市？",
+          "answerMode": "choice",
+          "options": [
+            {
+              "label": "A",
+              "content": "北京"
+            },
+            {
+              "label": "B",
+              "content": "上海"
+            }
+          ],
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          }
+        },
+        {
+          "stem": "地球绕太阳公转。",
+          "answerMode": "true_false",
+          "options": [],
+          "answerPayload": {
+            "value": true
+          }
+        }
+      ],
+      "expectedVisualKinds": [],
+      "expectedProcess": {
+        "requiredCallKinds": [
+          "vision_parse"
+        ]
+      }
+    },
+    {
+      "id": "f30-xlsx-02",
+      "sourceType": "xlsx",
+      "path": "sources/xlsx/xlsx-02.xlsx",
+      "tags": [
+        "synthetic",
+        "regression",
+        "chinese",
+        "format-matrix"
+      ],
+      "critical": true,
+      "expectedQuestions": [
+        {
+          "stem": "中国的首都是哪座城市？",
+          "answerMode": "choice",
+          "options": [
+            {
+              "label": "A",
+              "content": "北京"
+            },
+            {
+              "label": "B",
+              "content": "上海"
+            }
+          ],
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          }
+        },
+        {
+          "stem": "地球绕太阳公转。",
+          "answerMode": "true_false",
+          "options": [],
+          "answerPayload": {
+            "value": true
+          }
+        }
+      ],
+      "expectedVisualKinds": [],
+      "expectedProcess": {
+        "requiredCallKinds": [
+          "vision_parse"
+        ]
+      },
+      "expectedGroups": [
+        {
+          "title": "Paper02",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    },
+    {
+      "id": "f30-image-02",
+      "sourceType": "image",
+      "path": "sources/image/image-02.png",
+      "tags": [
+        "synthetic",
+        "regression",
+        "chinese",
+        "format-matrix"
+      ],
+      "critical": true,
+      "expectedQuestions": [
+        {
+          "stem": "中国的首都是哪座城市？",
+          "answerMode": "choice",
+          "options": [
+            {
+              "label": "A",
+              "content": "北京"
+            },
+            {
+              "label": "B",
+              "content": "上海"
+            }
+          ],
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          }
+        },
+        {
+          "stem": "地球绕太阳公转。",
+          "answerMode": "true_false",
+          "options": [],
+          "answerPayload": {
+            "value": true
+          }
+        }
+      ],
+      "expectedVisualKinds": [],
+      "expectedProcess": {
+        "requiredCallKinds": [
+          "vision_parse"
+        ]
+      }
+    },
+    {
+      "id": "f30-text-03",
+      "sourceType": "text",
+      "path": "sources/text/text-03.txt",
+      "expectedQuestions": [
+        {
+          "id": "r",
+          "stem": "Seasons",
+          "answerMode": "reading",
+          "answerPayload": null,
+          "passage": [
+            {
+              "partType": "text",
+              "textValue": "Snow is white. Grass is green."
+            }
+          ]
+        },
+        {
+          "id": "r1",
+          "stem": "Snow is white.",
+          "answerMode": "true_false",
+          "answerPayload": {
+            "value": true
+          },
+          "parentId": "r"
+        },
+        {
+          "id": "w",
+          "stem": "Complete the sentence",
+          "answerMode": "word_bank",
+          "answerPayload": null,
+          "passage": [
+            {
+              "partType": "text",
+              "textValue": "Snow is "
+            },
+            {
+              "partType": "blank",
+              "questionId": "w1"
+            },
+            {
+              "partType": "text",
+              "textValue": ". Grass is "
+            },
+            {
+              "partType": "blank",
+              "questionId": "w2"
+            },
+            {
+              "partType": "text",
+              "textValue": "."
+            }
+          ],
+          "options": [
+            {
+              "label": "A",
+              "content": "white"
+            },
+            {
+              "label": "B",
+              "content": "green"
+            }
+          ]
+        },
+        {
+          "id": "w1",
+          "stem": "Snow is",
+          "answerMode": "choice",
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "parentId": "w",
+          "optionSourceId": "w",
+          "choiceVariant": "single"
+        },
+        {
+          "id": "w2",
+          "stem": "Grass is",
+          "answerMode": "choice",
+          "answerPayload": {
+            "correct": [
+              "B"
+            ]
+          },
+          "parentId": "w",
+          "optionSourceId": "w",
+          "choiceVariant": "single"
+        },
+        {
+          "id": "c",
+          "stem": "Complete the statement",
+          "answerMode": "cloze",
+          "answerPayload": null,
+          "passage": [
+            {
+              "partType": "text",
+              "textValue": "Snow is "
+            },
+            {
+              "partType": "blank",
+              "questionId": "c1"
+            },
+            {
+              "partType": "text",
+              "textValue": "."
+            }
+          ]
+        },
+        {
+          "id": "c1",
+          "stem": "Snow is",
+          "answerMode": "choice",
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "parentId": "c",
+          "options": [
+            {
+              "label": "A",
+              "content": "white"
+            },
+            {
+              "label": "B",
+              "content": "green"
+            }
+          ],
+          "choiceVariant": "single"
+        },
+        {
+          "id": "o",
+          "stem": "Sort ascending",
+          "answerMode": "ordering",
+          "answerPayload": {
+            "order": [
+              1,
+              0
+            ]
+          },
+          "items": [
+            {
+              "id": 0,
+              "content": "Two",
+              "label": "0"
+            },
+            {
+              "id": 1,
+              "content": "One",
+              "label": "1"
+            }
+          ]
+        },
+        {
+          "id": "m",
+          "stem": "Match words and numbers (one-to-one)",
+          "answerMode": "matching",
+          "answerPayload": {
+            "matches": [
+              {
+                "left": 0,
+                "right": 0
+              },
+              {
+                "left": 1,
+                "right": 1
+              }
+            ]
+          },
+          "matchingVariant": "one_to_one",
+          "items": [
+            {
+              "id": 0,
+              "side": "left",
+              "content": "One",
+              "label": "0"
+            },
+            {
+              "id": 1,
+              "side": "left",
+              "content": "Two",
+              "label": "1"
+            },
+            {
+              "id": 0,
+              "side": "right",
+              "content": "1",
+              "label": "0"
+            },
+            {
+              "id": 1,
+              "side": "right",
+              "content": "2",
+              "label": "1"
+            }
+          ],
+          "stemAliases": []
+        }
+      ],
+      "tags": [
+        "synthetic",
+        "composite",
+        "text",
+        "format-matrix"
+      ],
+      "critical": true,
+      "expectedVisualKinds": [],
+      "expectedProcess": {
+        "requiredCallKinds": [
+          "document_parse"
+        ]
+      }
+    },
+    {
+      "id": "f30-docx-03",
+      "sourceType": "docx",
+      "path": "sources/docx/docx-03.docx",
+      "expectedQuestions": [
+        {
+          "id": "r",
+          "stem": "Seasons",
+          "answerMode": "reading",
+          "answerPayload": null,
+          "passage": [
+            {
+              "partType": "text",
+              "textValue": "Snow is white. Grass is green."
+            }
+          ]
+        },
+        {
+          "id": "r1",
+          "stem": "Snow is white.",
+          "answerMode": "true_false",
+          "answerPayload": {
+            "value": true
+          },
+          "parentId": "r"
+        },
+        {
+          "id": "w",
+          "stem": "Complete the sentence",
+          "answerMode": "word_bank",
+          "answerPayload": null,
+          "passage": [
+            {
+              "partType": "text",
+              "textValue": "Snow is "
+            },
+            {
+              "partType": "blank",
+              "questionId": "w1"
+            },
+            {
+              "partType": "text",
+              "textValue": ". Grass is "
+            },
+            {
+              "partType": "blank",
+              "questionId": "w2"
+            },
+            {
+              "partType": "text",
+              "textValue": "."
+            }
+          ],
+          "options": [
+            {
+              "label": "A",
+              "content": "white"
+            },
+            {
+              "label": "B",
+              "content": "green"
+            }
+          ]
+        },
+        {
+          "id": "w1",
+          "stem": "Snow is",
+          "answerMode": "choice",
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "parentId": "w",
+          "optionSourceId": "w",
+          "choiceVariant": "single"
+        },
+        {
+          "id": "w2",
+          "stem": "Grass is",
+          "answerMode": "choice",
+          "answerPayload": {
+            "correct": [
+              "B"
+            ]
+          },
+          "parentId": "w",
+          "optionSourceId": "w",
+          "choiceVariant": "single"
+        },
+        {
+          "id": "c",
+          "stem": "Complete the statement",
+          "answerMode": "cloze",
+          "answerPayload": null,
+          "passage": [
+            {
+              "partType": "text",
+              "textValue": "Snow is "
+            },
+            {
+              "partType": "blank",
+              "questionId": "c1"
+            },
+            {
+              "partType": "text",
+              "textValue": "."
+            }
+          ]
+        },
+        {
+          "id": "c1",
+          "stem": "Snow is",
+          "answerMode": "choice",
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "parentId": "c",
+          "options": [
+            {
+              "label": "A",
+              "content": "white"
+            },
+            {
+              "label": "B",
+              "content": "green"
+            }
+          ],
+          "choiceVariant": "single"
+        },
+        {
+          "id": "o",
+          "stem": "Sort ascending",
+          "answerMode": "ordering",
+          "answerPayload": {
+            "order": [
+              1,
+              0
+            ]
+          },
+          "items": [
+            {
+              "id": 0,
+              "content": "Two",
+              "label": "0"
+            },
+            {
+              "id": 1,
+              "content": "One",
+              "label": "1"
+            }
+          ]
+        },
+        {
+          "id": "m",
+          "stem": "Match words and numbers (one-to-one)",
+          "answerMode": "matching",
+          "answerPayload": {
+            "matches": [
+              {
+                "left": 0,
+                "right": 0
+              },
+              {
+                "left": 1,
+                "right": 1
+              }
+            ]
+          },
+          "matchingVariant": "one_to_one",
+          "items": [
+            {
+              "id": 0,
+              "side": "left",
+              "content": "One",
+              "label": "0"
+            },
+            {
+              "id": 1,
+              "side": "left",
+              "content": "Two",
+              "label": "1"
+            },
+            {
+              "id": 0,
+              "side": "right",
+              "content": "1",
+              "label": "0"
+            },
+            {
+              "id": 1,
+              "side": "right",
+              "content": "2",
+              "label": "1"
+            }
+          ],
+          "stemAliases": []
+        }
+      ],
+      "tags": [
+        "synthetic",
+        "composite",
+        "text",
+        "format-matrix"
+      ],
+      "critical": true,
+      "expectedVisualKinds": [],
+      "expectedProcess": {
+        "requiredCallKinds": [
+          "vision_parse"
+        ]
+      }
+    },
+    {
+      "id": "f30-pdf-03",
+      "sourceType": "pdf",
+      "path": "sources/pdf/pdf-03.pdf",
+      "expectedQuestions": [
+        {
+          "id": "r",
+          "stem": "Seasons",
+          "answerMode": "reading",
+          "answerPayload": null,
+          "passage": [
+            {
+              "partType": "text",
+              "textValue": "Snow is white. Grass is green."
+            }
+          ]
+        },
+        {
+          "id": "r1",
+          "stem": "Snow is white.",
+          "answerMode": "true_false",
+          "answerPayload": {
+            "value": true
+          },
+          "parentId": "r"
+        },
+        {
+          "id": "w",
+          "stem": "Complete the sentence",
+          "answerMode": "word_bank",
+          "answerPayload": null,
+          "passage": [
+            {
+              "partType": "text",
+              "textValue": "Snow is "
+            },
+            {
+              "partType": "blank",
+              "questionId": "w1"
+            },
+            {
+              "partType": "text",
+              "textValue": ". Grass is "
+            },
+            {
+              "partType": "blank",
+              "questionId": "w2"
+            },
+            {
+              "partType": "text",
+              "textValue": "."
+            }
+          ],
+          "options": [
+            {
+              "label": "A",
+              "content": "white"
+            },
+            {
+              "label": "B",
+              "content": "green"
+            }
+          ]
+        },
+        {
+          "id": "w1",
+          "stem": "Snow is",
+          "answerMode": "choice",
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "parentId": "w",
+          "optionSourceId": "w",
+          "choiceVariant": "single"
+        },
+        {
+          "id": "w2",
+          "stem": "Grass is",
+          "answerMode": "choice",
+          "answerPayload": {
+            "correct": [
+              "B"
+            ]
+          },
+          "parentId": "w",
+          "optionSourceId": "w",
+          "choiceVariant": "single"
+        },
+        {
+          "id": "c",
+          "stem": "Complete the statement",
+          "answerMode": "cloze",
+          "answerPayload": null,
+          "passage": [
+            {
+              "partType": "text",
+              "textValue": "Snow is "
+            },
+            {
+              "partType": "blank",
+              "questionId": "c1"
+            },
+            {
+              "partType": "text",
+              "textValue": "."
+            }
+          ]
+        },
+        {
+          "id": "c1",
+          "stem": "Snow is",
+          "answerMode": "choice",
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "parentId": "c",
+          "options": [
+            {
+              "label": "A",
+              "content": "white"
+            },
+            {
+              "label": "B",
+              "content": "green"
+            }
+          ],
+          "choiceVariant": "single"
+        },
+        {
+          "id": "o",
+          "stem": "Sort ascending",
+          "answerMode": "ordering",
+          "answerPayload": {
+            "order": [
+              1,
+              0
+            ]
+          },
+          "items": [
+            {
+              "id": 0,
+              "content": "Two",
+              "label": "0"
+            },
+            {
+              "id": 1,
+              "content": "One",
+              "label": "1"
+            }
+          ]
+        },
+        {
+          "id": "m",
+          "stem": "Match words and numbers (one-to-one)",
+          "answerMode": "matching",
+          "answerPayload": {
+            "matches": [
+              {
+                "left": 0,
+                "right": 0
+              },
+              {
+                "left": 1,
+                "right": 1
+              }
+            ]
+          },
+          "matchingVariant": "one_to_one",
+          "items": [
+            {
+              "id": 0,
+              "side": "left",
+              "content": "One",
+              "label": "0"
+            },
+            {
+              "id": 1,
+              "side": "left",
+              "content": "Two",
+              "label": "1"
+            },
+            {
+              "id": 0,
+              "side": "right",
+              "content": "1",
+              "label": "0"
+            },
+            {
+              "id": 1,
+              "side": "right",
+              "content": "2",
+              "label": "1"
+            }
+          ],
+          "stemAliases": []
+        }
+      ],
+      "tags": [
+        "synthetic",
+        "composite",
+        "text",
+        "format-matrix"
+      ],
+      "critical": true,
+      "expectedVisualKinds": [],
+      "expectedProcess": {
+        "requiredCallKinds": [
+          "vision_parse"
+        ]
+      }
+    },
+    {
+      "id": "f30-xlsx-03",
+      "sourceType": "xlsx",
+      "path": "sources/xlsx/xlsx-03.xlsx",
+      "expectedQuestions": [
+        {
+          "id": "r",
+          "stem": "Seasons",
+          "answerMode": "reading",
+          "answerPayload": null,
+          "passage": [
+            {
+              "partType": "text",
+              "textValue": "Snow is white. Grass is green."
+            }
+          ]
+        },
+        {
+          "id": "r1",
+          "stem": "Snow is white.",
+          "answerMode": "true_false",
+          "answerPayload": {
+            "value": true
+          },
+          "parentId": "r"
+        },
+        {
+          "id": "w",
+          "stem": "Complete the sentence",
+          "answerMode": "word_bank",
+          "answerPayload": null,
+          "passage": [
+            {
+              "partType": "text",
+              "textValue": "Snow is "
+            },
+            {
+              "partType": "blank",
+              "questionId": "w1"
+            },
+            {
+              "partType": "text",
+              "textValue": ". Grass is "
+            },
+            {
+              "partType": "blank",
+              "questionId": "w2"
+            },
+            {
+              "partType": "text",
+              "textValue": "."
+            }
+          ],
+          "options": [
+            {
+              "label": "A",
+              "content": "white"
+            },
+            {
+              "label": "B",
+              "content": "green"
+            }
+          ]
+        },
+        {
+          "id": "w1",
+          "stem": "Snow is",
+          "answerMode": "choice",
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "parentId": "w",
+          "optionSourceId": "w",
+          "choiceVariant": "single"
+        },
+        {
+          "id": "w2",
+          "stem": "Grass is",
+          "answerMode": "choice",
+          "answerPayload": {
+            "correct": [
+              "B"
+            ]
+          },
+          "parentId": "w",
+          "optionSourceId": "w",
+          "choiceVariant": "single"
+        },
+        {
+          "id": "c",
+          "stem": "Complete the statement",
+          "answerMode": "cloze",
+          "answerPayload": null,
+          "passage": [
+            {
+              "partType": "text",
+              "textValue": "Snow is "
+            },
+            {
+              "partType": "blank",
+              "questionId": "c1"
+            },
+            {
+              "partType": "text",
+              "textValue": "."
+            }
+          ]
+        },
+        {
+          "id": "c1",
+          "stem": "Snow is",
+          "answerMode": "choice",
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "parentId": "c",
+          "options": [
+            {
+              "label": "A",
+              "content": "white"
+            },
+            {
+              "label": "B",
+              "content": "green"
+            }
+          ],
+          "choiceVariant": "single"
+        },
+        {
+          "id": "o",
+          "stem": "Sort ascending",
+          "answerMode": "ordering",
+          "answerPayload": {
+            "order": [
+              1,
+              0
+            ]
+          },
+          "items": [
+            {
+              "id": 0,
+              "content": "Two",
+              "label": "0"
+            },
+            {
+              "id": 1,
+              "content": "One",
+              "label": "1"
+            }
+          ]
+        },
+        {
+          "id": "m",
+          "stem": "Match words and numbers (one-to-one)",
+          "answerMode": "matching",
+          "answerPayload": {
+            "matches": [
+              {
+                "left": 0,
+                "right": 0
+              },
+              {
+                "left": 1,
+                "right": 1
+              }
+            ]
+          },
+          "matchingVariant": "one_to_one",
+          "items": [
+            {
+              "id": 0,
+              "side": "left",
+              "content": "One",
+              "label": "0"
+            },
+            {
+              "id": 1,
+              "side": "left",
+              "content": "Two",
+              "label": "1"
+            },
+            {
+              "id": 0,
+              "side": "right",
+              "content": "1",
+              "label": "0"
+            },
+            {
+              "id": 1,
+              "side": "right",
+              "content": "2",
+              "label": "1"
+            }
+          ],
+          "stemAliases": []
+        }
+      ],
+      "tags": [
+        "synthetic",
+        "composite",
+        "text",
+        "format-matrix"
+      ],
+      "critical": true,
+      "expectedVisualKinds": [],
+      "expectedProcess": {
+        "requiredCallKinds": [
+          "vision_parse"
+        ]
+      },
+      "expectedGroups": [
+        {
+          "title": "Paper03",
+          "questionIndexes": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8
+          ]
+        }
+      ]
+    },
+    {
+      "id": "f30-image-03",
+      "sourceType": "image",
+      "path": "sources/image/image-03.png",
+      "expectedQuestions": [
+        {
+          "id": "r",
+          "stem": "Seasons",
+          "answerMode": "reading",
+          "answerPayload": null,
+          "passage": [
+            {
+              "partType": "text",
+              "textValue": "Snow is white. Grass is green."
+            }
+          ]
+        },
+        {
+          "id": "r1",
+          "stem": "Snow is white.",
+          "answerMode": "true_false",
+          "answerPayload": {
+            "value": true
+          },
+          "parentId": "r"
+        },
+        {
+          "id": "w",
+          "stem": "Complete the sentence",
+          "answerMode": "word_bank",
+          "answerPayload": null,
+          "passage": [
+            {
+              "partType": "text",
+              "textValue": "Snow is "
+            },
+            {
+              "partType": "blank",
+              "questionId": "w1"
+            },
+            {
+              "partType": "text",
+              "textValue": ". Grass is "
+            },
+            {
+              "partType": "blank",
+              "questionId": "w2"
+            },
+            {
+              "partType": "text",
+              "textValue": "."
+            }
+          ],
+          "options": [
+            {
+              "label": "A",
+              "content": "white"
+            },
+            {
+              "label": "B",
+              "content": "green"
+            }
+          ]
+        },
+        {
+          "id": "w1",
+          "stem": "Snow is",
+          "answerMode": "choice",
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "parentId": "w",
+          "optionSourceId": "w",
+          "choiceVariant": "single"
+        },
+        {
+          "id": "w2",
+          "stem": "Grass is",
+          "answerMode": "choice",
+          "answerPayload": {
+            "correct": [
+              "B"
+            ]
+          },
+          "parentId": "w",
+          "optionSourceId": "w",
+          "choiceVariant": "single"
+        },
+        {
+          "id": "c",
+          "stem": "Complete the statement",
+          "answerMode": "cloze",
+          "answerPayload": null,
+          "passage": [
+            {
+              "partType": "text",
+              "textValue": "Snow is "
+            },
+            {
+              "partType": "blank",
+              "questionId": "c1"
+            },
+            {
+              "partType": "text",
+              "textValue": "."
+            }
+          ]
+        },
+        {
+          "id": "c1",
+          "stem": "Snow is",
+          "answerMode": "choice",
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "parentId": "c",
+          "options": [
+            {
+              "label": "A",
+              "content": "white"
+            },
+            {
+              "label": "B",
+              "content": "green"
+            }
+          ],
+          "choiceVariant": "single"
+        },
+        {
+          "id": "o",
+          "stem": "Sort ascending",
+          "answerMode": "ordering",
+          "answerPayload": {
+            "order": [
+              1,
+              0
+            ]
+          },
+          "items": [
+            {
+              "id": 0,
+              "content": "Two",
+              "label": "0"
+            },
+            {
+              "id": 1,
+              "content": "One",
+              "label": "1"
+            }
+          ]
+        },
+        {
+          "id": "m",
+          "stem": "Match words and numbers (one-to-one)",
+          "answerMode": "matching",
+          "answerPayload": {
+            "matches": [
+              {
+                "left": 0,
+                "right": 0
+              },
+              {
+                "left": 1,
+                "right": 1
+              }
+            ]
+          },
+          "matchingVariant": "one_to_one",
+          "items": [
+            {
+              "id": 0,
+              "side": "left",
+              "content": "One",
+              "label": "0"
+            },
+            {
+              "id": 1,
+              "side": "left",
+              "content": "Two",
+              "label": "1"
+            },
+            {
+              "id": 0,
+              "side": "right",
+              "content": "1",
+              "label": "0"
+            },
+            {
+              "id": 1,
+              "side": "right",
+              "content": "2",
+              "label": "1"
+            }
+          ],
+          "stemAliases": []
+        }
+      ],
+      "tags": [
+        "synthetic",
+        "composite",
+        "text",
+        "format-matrix"
+      ],
+      "critical": true,
+      "expectedVisualKinds": [],
+      "expectedProcess": {
+        "requiredCallKinds": [
+          "vision_parse"
+        ]
+      }
+    },
+    {
+      "id": "f30-text-04",
+      "sourceType": "text",
+      "path": "sources/text/text-04.txt",
+      "tags": [
+        "synthetic",
+        "regression",
+        "no-source-answer",
+        "format-matrix"
+      ],
+      "critical": true,
+      "expectedQuestions": [
+        {
+          "stem": "What is the capital of France?",
+          "answerMode": "short_answer",
+          "options": [],
+          "answerPayload": null,
+          "expectedNeedsReview": true
+        },
+        {
+          "stem": "Which number is even?",
+          "answerMode": "choice",
+          "options": [
+            {
+              "label": "A",
+              "content": "3"
+            },
+            {
+              "label": "B",
+              "content": "4"
+            }
+          ],
+          "answerPayload": null,
+          "expectedNeedsReview": true
+        }
+      ],
+      "expectedVisualKinds": [],
+      "expectedProcess": {
+        "requiredCallKinds": [
+          "document_parse"
+        ]
+      },
+      "sourceHasNoAnswers": true
+    },
+    {
+      "id": "f30-docx-04",
+      "sourceType": "docx",
+      "path": "sources/docx/docx-04.docx",
+      "tags": [
+        "synthetic",
+        "regression",
+        "no-source-answer",
+        "format-matrix"
+      ],
+      "critical": true,
+      "expectedQuestions": [
+        {
+          "stem": "What is the capital of France?",
+          "answerMode": "short_answer",
+          "options": [],
+          "answerPayload": null,
+          "expectedNeedsReview": true
+        },
+        {
+          "stem": "Which number is even?",
+          "answerMode": "choice",
+          "options": [
+            {
+              "label": "A",
+              "content": "3"
+            },
+            {
+              "label": "B",
+              "content": "4"
+            }
+          ],
+          "answerPayload": null,
+          "expectedNeedsReview": true
+        }
+      ],
+      "expectedVisualKinds": [],
+      "expectedProcess": {
+        "requiredCallKinds": [
+          "vision_parse"
+        ]
+      },
+      "sourceHasNoAnswers": true
+    },
+    {
+      "id": "f30-pdf-04",
+      "sourceType": "pdf",
+      "path": "sources/pdf/pdf-04.pdf",
+      "tags": [
+        "synthetic",
+        "regression",
+        "no-source-answer",
+        "format-matrix"
+      ],
+      "critical": true,
+      "expectedQuestions": [
+        {
+          "stem": "What is the capital of France?",
+          "answerMode": "short_answer",
+          "options": [],
+          "answerPayload": null,
+          "expectedNeedsReview": true
+        },
+        {
+          "stem": "Which number is even?",
+          "answerMode": "choice",
+          "options": [
+            {
+              "label": "A",
+              "content": "3"
+            },
+            {
+              "label": "B",
+              "content": "4"
+            }
+          ],
+          "answerPayload": null,
+          "expectedNeedsReview": true
+        }
+      ],
+      "expectedVisualKinds": [],
+      "expectedProcess": {
+        "requiredCallKinds": [
+          "vision_parse"
+        ]
+      },
+      "sourceHasNoAnswers": true
+    },
+    {
+      "id": "f30-xlsx-04",
+      "sourceType": "xlsx",
+      "path": "sources/xlsx/xlsx-04.xlsx",
+      "tags": [
+        "synthetic",
+        "regression",
+        "no-source-answer",
+        "format-matrix"
+      ],
+      "critical": true,
+      "expectedQuestions": [
+        {
+          "stem": "What is the capital of France?",
+          "answerMode": "short_answer",
+          "options": [],
+          "answerPayload": null,
+          "expectedNeedsReview": true
+        },
+        {
+          "stem": "Which number is even?",
+          "answerMode": "choice",
+          "options": [
+            {
+              "label": "A",
+              "content": "3"
+            },
+            {
+              "label": "B",
+              "content": "4"
+            }
+          ],
+          "answerPayload": null,
+          "expectedNeedsReview": true
+        }
+      ],
+      "expectedVisualKinds": [],
+      "expectedProcess": {
+        "requiredCallKinds": [
+          "vision_parse"
+        ]
+      },
+      "sourceHasNoAnswers": true,
+      "expectedGroups": [
+        {
+          "title": "Paper04",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    },
+    {
+      "id": "f30-image-04",
+      "sourceType": "image",
+      "path": "sources/image/image-04.png",
+      "tags": [
+        "synthetic",
+        "regression",
+        "no-source-answer",
+        "format-matrix"
+      ],
+      "critical": true,
+      "expectedQuestions": [
+        {
+          "stem": "What is the capital of France?",
+          "answerMode": "short_answer",
+          "options": [],
+          "answerPayload": null,
+          "expectedNeedsReview": true
+        },
+        {
+          "stem": "Which number is even?",
+          "answerMode": "choice",
+          "options": [
+            {
+              "label": "A",
+              "content": "3"
+            },
+            {
+              "label": "B",
+              "content": "4"
+            }
+          ],
+          "answerPayload": null,
+          "expectedNeedsReview": true
+        }
+      ],
+      "expectedVisualKinds": [],
+      "expectedProcess": {
+        "requiredCallKinds": [
+          "vision_parse"
+        ]
+      },
+      "sourceHasNoAnswers": true
+    },
+    {
+      "id": "f30-text-05",
+      "sourceType": "text",
+      "path": "sources/text/text-05.txt",
+      "tags": [
+        "synthetic",
+        "regression",
+        "evidence",
+        "format-matrix"
+      ],
+      "critical": true,
+      "expectedQuestions": [
+        {
+          "id": "g",
+          "stem": "Complete the sentence",
+          "answerMode": "gap_fill",
+          "answerPayload": null,
+          "passage": [
+            {
+              "partType": "text",
+              "textValue": "She enjoys "
+            },
+            {
+              "partType": "blank",
+              "questionId": "g1"
+            },
+            {
+              "partType": "text",
+              "textValue": " every day."
+            }
+          ],
+          "expectedEvidence": {
+            "questionKind": "grammar_fill"
+          }
+        },
+        {
+          "id": "g1",
+          "stem": "Hint: read",
+          "answerMode": "fill_blank",
+          "answerPayload": {
+            "answers": [
+              "reading"
+            ]
+          },
+          "parentId": "g",
+          "blankCount": 1
+        }
+      ],
+      "expectedSources": [
+        {
+          "questionIndex": 0,
+          "stage": "document_parse",
+          "unitIndex": 0
+        },
+        {
+          "questionIndex": 1,
+          "stage": "document_parse",
+          "unitIndex": 0
+        }
+      ],
+      "expectedProcess": {
+        "requiredCallKinds": [
+          "document_parse"
+        ]
+      }
+    },
+    {
+      "id": "f30-docx-05",
+      "sourceType": "docx",
+      "path": "sources/docx/docx-05.docx",
+      "tags": [
+        "synthetic",
+        "regression",
+        "evidence",
+        "format-matrix"
+      ],
+      "critical": true,
+      "expectedQuestions": [
+        {
+          "id": "g",
+          "stem": "Complete the sentence",
+          "answerMode": "gap_fill",
+          "answerPayload": null,
+          "passage": [
+            {
+              "partType": "text",
+              "textValue": "She enjoys "
+            },
+            {
+              "partType": "blank",
+              "questionId": "g1"
+            },
+            {
+              "partType": "text",
+              "textValue": " every day."
+            }
+          ],
+          "expectedEvidence": {
+            "questionKind": "grammar_fill"
+          }
+        },
+        {
+          "id": "g1",
+          "stem": "Hint: read",
+          "answerMode": "fill_blank",
+          "answerPayload": {
+            "answers": [
+              "reading"
+            ]
+          },
+          "parentId": "g",
+          "blankCount": 1
+        }
+      ],
+      "expectedSources": [
+        {
+          "questionIndex": 0,
+          "stage": "document_parse",
+          "unitIndex": 0
+        },
+        {
+          "questionIndex": 1,
+          "stage": "document_parse",
+          "unitIndex": 0
+        }
+      ],
+      "expectedProcess": {
+        "requiredCallKinds": [
+          "vision_parse"
+        ]
+      }
+    },
+    {
+      "id": "f30-pdf-05",
+      "sourceType": "pdf",
+      "path": "sources/pdf/pdf-05.pdf",
+      "tags": [
+        "synthetic",
+        "regression",
+        "evidence",
+        "format-matrix"
+      ],
+      "critical": true,
+      "expectedQuestions": [
+        {
+          "id": "g",
+          "stem": "Complete the sentence",
+          "answerMode": "gap_fill",
+          "answerPayload": null,
+          "passage": [
+            {
+              "partType": "text",
+              "textValue": "She enjoys "
+            },
+            {
+              "partType": "blank",
+              "questionId": "g1"
+            },
+            {
+              "partType": "text",
+              "textValue": " every day."
+            }
+          ],
+          "expectedEvidence": {
+            "questionKind": "grammar_fill"
+          }
+        },
+        {
+          "id": "g1",
+          "stem": "Hint: read",
+          "answerMode": "fill_blank",
+          "answerPayload": {
+            "answers": [
+              "reading"
+            ]
+          },
+          "parentId": "g",
+          "blankCount": 1
+        }
+      ],
+      "expectedSources": [
+        {
+          "questionIndex": 0,
+          "stage": "document_parse",
+          "unitIndex": 0
+        },
+        {
+          "questionIndex": 1,
+          "stage": "document_parse",
+          "unitIndex": 0
+        }
+      ],
+      "expectedProcess": {
+        "requiredCallKinds": [
+          "vision_parse"
+        ]
+      }
+    },
+    {
+      "id": "f30-xlsx-05",
+      "sourceType": "xlsx",
+      "path": "sources/xlsx/xlsx-05.xlsx",
+      "tags": [
+        "synthetic",
+        "regression",
+        "evidence",
+        "format-matrix"
+      ],
+      "critical": true,
+      "expectedQuestions": [
+        {
+          "id": "g",
+          "stem": "Complete the sentence",
+          "answerMode": "gap_fill",
+          "answerPayload": null,
+          "passage": [
+            {
+              "partType": "text",
+              "textValue": "She enjoys "
+            },
+            {
+              "partType": "blank",
+              "questionId": "g1"
+            },
+            {
+              "partType": "text",
+              "textValue": " every day."
+            }
+          ],
+          "expectedEvidence": {
+            "questionKind": "grammar_fill"
+          }
+        },
+        {
+          "id": "g1",
+          "stem": "Hint: read",
+          "answerMode": "fill_blank",
+          "answerPayload": {
+            "answers": [
+              "reading"
+            ]
+          },
+          "parentId": "g",
+          "blankCount": 1
+        }
+      ],
+      "expectedSources": [
+        {
+          "questionIndex": 0,
+          "stage": "document_parse",
+          "unitIndex": 0
+        },
+        {
+          "questionIndex": 1,
+          "stage": "document_parse",
+          "unitIndex": 0
+        }
+      ],
+      "expectedProcess": {
+        "requiredCallKinds": [
+          "vision_parse"
+        ]
+      },
+      "expectedGroups": [
+        {
+          "title": "Paper05",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    },
+    {
+      "id": "f30-image-05",
+      "sourceType": "image",
+      "path": "sources/image/image-05.png",
+      "tags": [
+        "synthetic",
+        "regression",
+        "evidence",
+        "format-matrix"
+      ],
+      "critical": true,
+      "expectedQuestions": [
+        {
+          "id": "g",
+          "stem": "Complete the sentence",
+          "answerMode": "gap_fill",
+          "answerPayload": null,
+          "passage": [
+            {
+              "partType": "text",
+              "textValue": "She enjoys "
+            },
+            {
+              "partType": "blank",
+              "questionId": "g1"
+            },
+            {
+              "partType": "text",
+              "textValue": " every day."
+            }
+          ],
+          "expectedEvidence": {
+            "questionKind": "grammar_fill"
+          }
+        },
+        {
+          "id": "g1",
+          "stem": "Hint: read",
+          "answerMode": "fill_blank",
+          "answerPayload": {
+            "answers": [
+              "reading"
+            ]
+          },
+          "parentId": "g",
+          "blankCount": 1
+        }
+      ],
+      "expectedSources": [
+        {
+          "questionIndex": 0,
+          "stage": "document_parse",
+          "unitIndex": 0
+        },
+        {
+          "questionIndex": 1,
+          "stage": "document_parse",
+          "unitIndex": 0
+        }
+      ],
+      "expectedProcess": {
+        "requiredCallKinds": [
+          "vision_parse"
+        ]
+      }
+    },
+    {
+      "id": "f30-text-06",
+      "sourceType": "text",
+      "path": "sources/text/text-06.txt",
+      "tags": [
+        "synthetic",
+        "regression",
+        "evidence",
+        "format-matrix"
+      ],
+      "critical": true,
+      "expectedQuestions": [
+        {
+          "id": "l",
+          "stem": "Train announcement",
+          "answerMode": "listening",
+          "answerPayload": null,
+          "expectedEvidence": {
+            "questionKind": "listening",
+            "examPlayCount": 2
+          }
+        },
+        {
+          "id": "l1",
+          "stem": "When does the train leave?",
+          "answerMode": "choice",
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "parentId": "l",
+          "choiceVariant": "single",
+          "options": [
+            {
+              "label": "A",
+              "content": "Nine"
+            },
+            {
+              "label": "B",
+              "content": "Ten"
+            }
+          ]
+        }
+      ],
+      "expectedSources": [
+        {
+          "questionIndex": 0,
+          "stage": "document_parse",
+          "unitIndex": 0
+        },
+        {
+          "questionIndex": 1,
+          "stage": "document_parse",
+          "unitIndex": 0
+        }
+      ],
+      "expectedProcess": {
+        "requiredCallKinds": [
+          "document_parse"
+        ]
+      }
+    },
+    {
+      "id": "f30-docx-06",
+      "sourceType": "docx",
+      "path": "sources/docx/docx-06.docx",
+      "tags": [
+        "synthetic",
+        "regression",
+        "evidence",
+        "format-matrix"
+      ],
+      "critical": true,
+      "expectedQuestions": [
+        {
+          "id": "l",
+          "stem": "Train announcement",
+          "answerMode": "listening",
+          "answerPayload": null,
+          "expectedEvidence": {
+            "questionKind": "listening",
+            "examPlayCount": 2
+          }
+        },
+        {
+          "id": "l1",
+          "stem": "When does the train leave?",
+          "answerMode": "choice",
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "parentId": "l",
+          "choiceVariant": "single",
+          "options": [
+            {
+              "label": "A",
+              "content": "Nine"
+            },
+            {
+              "label": "B",
+              "content": "Ten"
+            }
+          ]
+        }
+      ],
+      "expectedSources": [
+        {
+          "questionIndex": 0,
+          "stage": "document_parse",
+          "unitIndex": 0
+        },
+        {
+          "questionIndex": 1,
+          "stage": "document_parse",
+          "unitIndex": 0
+        }
+      ],
+      "expectedProcess": {
+        "requiredCallKinds": [
+          "vision_parse"
+        ]
+      }
+    },
+    {
+      "id": "f30-pdf-06",
+      "sourceType": "pdf",
+      "path": "sources/pdf/pdf-06.pdf",
+      "tags": [
+        "synthetic",
+        "regression",
+        "evidence",
+        "format-matrix"
+      ],
+      "critical": true,
+      "expectedQuestions": [
+        {
+          "id": "l",
+          "stem": "Train announcement",
+          "answerMode": "listening",
+          "answerPayload": null,
+          "expectedEvidence": {
+            "questionKind": "listening",
+            "examPlayCount": 2
+          }
+        },
+        {
+          "id": "l1",
+          "stem": "When does the train leave?",
+          "answerMode": "choice",
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "parentId": "l",
+          "choiceVariant": "single",
+          "options": [
+            {
+              "label": "A",
+              "content": "Nine"
+            },
+            {
+              "label": "B",
+              "content": "Ten"
+            }
+          ]
+        }
+      ],
+      "expectedSources": [
+        {
+          "questionIndex": 0,
+          "stage": "document_parse",
+          "unitIndex": 0
+        },
+        {
+          "questionIndex": 1,
+          "stage": "document_parse",
+          "unitIndex": 0
+        }
+      ],
+      "expectedProcess": {
+        "requiredCallKinds": [
+          "vision_parse"
+        ]
+      }
+    },
+    {
+      "id": "f30-xlsx-06",
+      "sourceType": "xlsx",
+      "path": "sources/xlsx/xlsx-06.xlsx",
+      "tags": [
+        "synthetic",
+        "regression",
+        "evidence",
+        "format-matrix"
+      ],
+      "critical": true,
+      "expectedQuestions": [
+        {
+          "id": "l",
+          "stem": "Train announcement",
+          "answerMode": "listening",
+          "answerPayload": null,
+          "expectedEvidence": {
+            "questionKind": "listening",
+            "examPlayCount": 2
+          }
+        },
+        {
+          "id": "l1",
+          "stem": "When does the train leave?",
+          "answerMode": "choice",
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "parentId": "l",
+          "choiceVariant": "single",
+          "options": [
+            {
+              "label": "A",
+              "content": "Nine"
+            },
+            {
+              "label": "B",
+              "content": "Ten"
+            }
+          ]
+        }
+      ],
+      "expectedSources": [
+        {
+          "questionIndex": 0,
+          "stage": "document_parse",
+          "unitIndex": 0
+        },
+        {
+          "questionIndex": 1,
+          "stage": "document_parse",
+          "unitIndex": 0
+        }
+      ],
+      "expectedProcess": {
+        "requiredCallKinds": [
+          "vision_parse"
+        ]
+      },
+      "expectedGroups": [
+        {
+          "title": "Paper06",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    },
+    {
+      "id": "f30-image-06",
+      "sourceType": "image",
+      "path": "sources/image/image-06.png",
+      "expectedQuestions": [
+        {
+          "stem": "How many days are in one week?",
+          "answerMode": "short_answer",
+          "options": [],
+          "answerPayload": {
+            "text": "7"
+          }
+        },
+        {
+          "stem": "The Moon is a star.",
+          "answerMode": "true_false",
+          "options": [],
+          "answerPayload": {
+            "value": false
+          }
+        }
+      ],
+      "tags": [
+        "synthetic",
+        "smoke",
+        "image",
+        "format-matrix"
+      ],
+      "critical": false,
+      "expectedProcess": {
+        "requiredCallKinds": [
+          "vision_parse"
+        ]
+      },
+      "expectedVisuals": [
+        {
+          "kind": "diagram",
+          "page": 0
+        }
+      ]
+    }
+  ]
+}

@@ -103,6 +103,7 @@ def test_documented_fixture_generator_consumes_stream_and_preserves_portable_con
         for field in ("imageRef", "sourceRef"):
             assert expected["result"]["visualElements"][0][field] == historical["image"]
             expected["result"]["visualElements"][0][field] = provenance["image"]
+        expected["result"]["visualElements"][0].setdefault("cropBbox", None)
         assert actual == expected
         dumped = json.dumps(actual["result"], sort_keys=True, ensure_ascii=False).encode()
         assert provenance["resultDumpSha256"] == hashlib.sha256(dumped).hexdigest()

@@ -43,7 +43,7 @@ These rule-based synthetic samples are not independent teacher annotations or cr
 
 ## Extraction dataset and human gold labels
 
-`evals/cases.json` uses `schemaVersion: 2` with synthetic cases. The active scorer version in `scripts/evaluate.py` is `6.3.0`; freeze a separate three-repetition baseline for this version rather than reusing historical 6.2.0 reports. The active manifest covers Text, PDF, and Image; seven basic question types; reading, word-bank, and cloze composites; and cases involving Chinese, missing source answers, long stems with identical prefixes, legitimate duplicates, long text spanning chunks, text without questions, and corrupt PDFs. Two focused text cases cover multiple-choice and ordinary fill-blank extraction. Six additional regression cases cover listening without audio, grammar fill, sentence selection, paragraph matching, translation/writing, and supplied or absent grading evidence. Their source and labels are synthetic maintenance fixtures, not independent teacher annotations. Real-model results remain separate from fixture validation. Manifest fields mean:
+`evals/cases.json` uses `schemaVersion: 2` with synthetic cases. The active scorer version in `scripts/evaluate.py` is `6.4.0`; freeze a separate three-repetition baseline for this version rather than reusing historical 6.3.0 reports. The active manifest covers Text, PDF, and Image; seven basic question types; reading, word-bank, and cloze composites; and cases involving Chinese, missing source answers, long stems with identical prefixes, legitimate duplicates, long text spanning chunks, text without questions, and corrupt PDFs. Two focused text cases cover multiple-choice and ordinary fill-blank extraction. Six additional regression cases cover listening without audio, grammar fill, sentence selection, paragraph matching, translation/writing, and supplied or absent grading evidence. Their source and labels are synthetic maintenance fixtures, not independent teacher annotations. Real-model results remain separate from fixture validation. Manifest fields mean:
 
 - `id` is a stable, unique case identifier. `path` must point inside the manifest directory; path and symlink escapes are forbidden.
 - `tags` group cases by scenario. With `critical: true`, any discrepancy in an annotated field or structure fails the case.
@@ -145,6 +145,30 @@ python -m pytest tests/test_evaluation.py
 ```
 
 CI checks coverage of all four formats, the eleven answer modes in `ANSWER_MODES`, seven difficult-case tags, and a manifest entry for every fixture. `choice` covers both single and multiple choice. The manifest validator accepts any nonempty dataset size for small debugging sets.
+
+## Tencent route compatibility (scorer 6.4.0)
+
+The preparation stage records its trusted `extraction_route` before any model call.
+Exact Tencent/original text identity uses `document_parse` / `ChunkParseResult`;
+differing text and layout inputs use `vision_parse` / `OcrPageParseResult`.
+The scorer requires one matching route record and retains schema, preparation,
+per-unit attempt, total-call, context and review checks. Legacy `document_parse`
+process/source-stage annotations follow the selected OCR route while retaining
+question identity and unit indexes. Gold files, strict content comparisons and
+quality thresholds are unchanged. Preserve 6.3.0 reports; cross-version baseline
+comparison remains blocked and a fresh three-repetition 6.4.0 run is required.
+
+For unsplit UTF-8 text/Markdown whose Tencent text differs, bounded original text
+may accompany OCR as character/label comparison context. It does not enable the
+original-text source-presence or deduplication proofs. Oversized context is omitted
+before model admission; failed or uncertain provider submissions are not replayed.
+
+Fixed Tencent figure crops may accompany OCR for visual classification in the
+same bounded model call. Models cannot invent figures or change coordinates.
+Unassociated document figures retain empty question associations, checked crop
+artifacts, full-page references and human-review warnings. Diagram edge-cut checks
+still reject unsafe crops; retaining an artifact does not establish semantic
+completeness of detached labels. Passive projections never create crop artifacts.
 
 ## Scoring and gates
 
@@ -606,3 +630,84 @@ paragraphs/items maps to `many_to_one`; missing policy stays null.
 ## Grading format Badcases
 
 The [version-1 array-field corpus](../evals/badcases/grading-arrays-v1.json) adds four offline response-validation cases with explicit schema criteria and provenance to the real failure report. `test_invalid_grading_arrays_retain_usage_and_cached_score` evaluates bounded correction, retained usage and exact cached reference scores. These reconstructed invalid values are model substitutes, not additional live-model inputs or grading-quality labels; the frozen parser manifest and five live grading anchors remain separate.
+
+### Source-bound structure and crossing-label corrections (2026-10-21)
+
+For new Tencent OCR output, explicit composite headings with their supplied
+material require a composite parent, rather than an answered ordinary replacement.
+A unique verbatim passage match may separate a title/body newline lost by OCR;
+this validates the printed title without synthesizing a passage or answers.
+Native Excel `table_name` remains the worksheet group for all page questions,
+including parents. Inferred column headers do not create section groups; explicit
+`Section:` boundaries remain supported. Violations use the existing bounded model
+correction loop, not a new parser or a fallback recognition path.
+
+The original Tencent figure `bbox` stays immutable. A separate optional
+`cropBbox` records actual crop bounds only for source-bound label recovery: a
+standalone OCR label must cross that figure boundary, appear literally in the
+figure's own Tencent text, and have a unique crossing association. Recovery adds
+at most 25% area, includes no other OCR element in the added region, and is
+skipped for pages with more than 1,000 elements. Detached/ambiguous labels and
+nearby answer text retain the original crop failure. The final diagram still
+passes the unchanged source-image cut-ink guard, byte limits and checksum checks.
+Models cannot supply either coordinate change; both bounds and the complete
+source page remain available for review. Partial projections still perform no
+new writes. These rules do not establish semantic completeness for arbitrary
+unrecognized labels, or prove that OCR omitted no surrounding text.
+
+When OCR supplies exactly one unambiguous heading of a type, new-output title
+checks use that source heading even if the model omits it from `sourceText`.
+Native table XML cells supply literal display text instead of formatted column
+aliases that may substitute underscores for spaces. Multiple distinct titles or
+unresolved body boundaries remain ambiguous. Numeric item labels delimit merged
+ordering/matching headings; explicit `(one-to-one)` qualifiers retain their
+matching policy. Native worksheets allow only their sheet group and literal
+`Section:` groups. These are validation constraints in the existing correction
+loop; no questions or answers are generated from the hints.
+
+For blank passages, a unique match of source words and printed gap positions can
+validate punctuation between those positions and attached sentence endings;
+whitespace wrapping is ignored for this validation. Ambiguous/overlapping matches,
+unknown material and placeholder collisions establish no proof. This does not
+prove that the entire passage was extracted. A unique numbered `Hint:` line with
+one local grammar parent/child keeps the child hint separate from shared material
+and requires blankCount=1. Unique-title enforcement likewise defers when several
+records use that answer mode; it must not assign an unheaded parent to another
+exercise's sole printed title. All checks request bounded correction and retain
+the original source; none rewrite answers, fill a missing question or relax gold.
+
+Choice stems cannot duplicate a separately extracted option after the question
+mark when Tencent evidence confirms that boundary. Word-bank/cloze children with
+an assigned parent blank cannot duplicate that gap marker and attached sentence
+ending when their wording is exactly the preceding passage clause. The original
+markers and punctuation stay on the parent. Separately printed child wording and
+hints are preserved; uncertain clause boundaries are not synthesized. These
+checks correct model field assignment without adding aliases or changing scoring.
+
+An OCR fill-blank equation whose LaTeX command and equals sign are dollar-wrapped
+but whose final blank is outside that wrapper enters bounded correction. Keep the
+complete unsolved equation, exact underscores and punctuation together; readable
+math symbols belong in the stem and LaTeX conversions in formula blocks. Currency
+and surrounding prose are not treated as equation-only wrappers. Saved records
+are unaffected; this validation applies only to active vision extraction.
+
+For cost-limited incremental acceptance, freeze a complete three-repetition report
+as the baseline. Carry its passed slots forward without invoking the graph; replace
+only failed slots with already-saved successful focused results or new model work
+using verified local Tencent archives. Record each slot's original report,
+repetition and code hash. Block Tencent submission, polling, download and staging
+in the replay harness; a missing or invalid archive must stop rather than fall back
+to Tencent. Label this incremental acceptance across code versions, not a fresh
+same-version live three-round evaluation. Preserve the original failures and apply
+the unchanged scorer and quality gates to the assembled 90 slots.
+
+Verified crop bounds follow every figure classification, including charts. An
+existing Tencent subimage does not satisfy an expanded crop: active finalization
+re-crops the source page and retains a failure if the source page is unavailable
+or the unchanged boundary check rejects it. Unknown coordinates of any other
+element suppress label repair. Retained Tencent subimages also provide bounded
+figure previews for Office pages without a rendered page image. Optional original
+text uses the same complete-message character accounting as the model limiter,
+including figure prompt text, delimiters and additional message metadata. Native
+worksheet aliases with non-string values remain source evidence but are never
+used as group identifiers.

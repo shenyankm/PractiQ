@@ -176,7 +176,7 @@ def _model_schema(schema: type[BaseModel]) -> dict[str, Any]:
             elif {"side", "id", "content", "label"} <= properties.keys():
                 node["required"] = list(properties)
                 properties["side"]["description"] = "Required left/right for each matching item; null for ordering."
-                properties["id"]["description"] = "Integer ID counted independently from zero within each matching side; answers reference these IDs, not the global array position."
+                properties["id"]["description"] = "Always supply an integer ID for ordering/matching items: zero-based position for ordering, independently from zero within each matching side. Answers reference these IDs, not printed labels or the global matching array position."
             elif {"questions", "groups"} <= properties.keys() or {"bbox", "description", "kind"} <= properties.keys():
                 node["required"] = list(properties)
             for child in node.values():
@@ -431,6 +431,11 @@ async def structured_attempt[ResultT: BaseModel](
     )
 
 
+def message_input_chars(messages: list[BaseMessage]) -> int:
+    chars = sum(len(message.content) if isinstance(message.content, str) else sum(len(str(part.get("text", ""))) if isinstance(part, dict) else len(str(part)) for part in message.content) for message in messages)
+    return chars + sum(len(json.dumps(message.additional_kwargs, default=str)) for message in messages)
+
+
 async def structured_call[ResultT: BaseModel](
     model: BaseChatModel,
     messages: list[BaseMessage],
@@ -476,9 +481,7 @@ async def structured_call[ResultT: BaseModel](
         error_code = None
         provider_started = False
         try:
-            chars = sum(len(message.content) if isinstance(message.content, str) else sum(len(str(part.get("text", ""))) if isinstance(part, dict) else len(str(part)) for part in message.content) for message in messages)
-            chars += sum(len(json.dumps(message.additional_kwargs, default=str)) for message in messages)
-            if chars > load().model_max_input_chars:
+            if message_input_chars(messages) > load().model_max_input_chars:
                 outcome = "rejected"
                 error_code = "MODEL_INPUT_TOO_LARGE"
                 return {"error": {"status": 413, "code": "MODEL_INPUT_TOO_LARGE", "detail": "Model text input exceeds the configured limit"}}

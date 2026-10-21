@@ -1,0 +1,17 @@
+Reading comprehension — Seasons
+Article: Snow is white. Grass is green.
+1. True or false: Snow is white. Answer: True.
+
+Word bank — Complete the sentence
+Bank: A. white B. green. Do not reuse words.
+Snow is [1]. Grass is [2]. Answers: 1 A; 2 B.
+
+Cloze — Complete the statement
+Snow is [1]. 1: A. white B. green. Answer: A.
+
+Ordering — Sort ascending
+Items: 0. Two; 1. One. Answer order: 1, 0.
+
+Matching — Match words and numbers (one-to-one)
+Left: 0. One; 1. Two. Right: 0. 1; 1. 2.
+Answer: left 0 -> right 0; left 1 -> right 1.

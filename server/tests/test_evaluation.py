@@ -501,6 +501,26 @@ def test_real_graph_runner_with_fake_model_and_store(tmp_path, monkeypatch) -> N
     assert later["datasetHash"] != report["datasetHash"]
 
 
+@pytest.mark.parametrize("large_original", [False, True])
+def test_changed_tencent_text_keeps_ocr_route_with_original_character_context(tmp_path, monkeypatch, large_original):
+    from tests.support import ocr_text_page, tencent_provider
+
+    path, model = setup_runner(tmp_path, monkeypatch, [model_result()])
+    if large_original:
+        payload = (tmp_path / "source.txt").read_bytes() + b"x" * 90_000
+        (tmp_path / "source.txt").write_bytes(payload)
+        cast(EvaluationStore, ev.get_object_store()).blobs[document_source_key("text", hashlib.sha256(payload).hexdigest())] = payload
+    tencent_provider(monkeypatch, [ocr_text_page("1. What is 2 + 2? Changed OCR whitespace.")])
+    report = asyncio.run(ev.run_evaluation(path))
+    case = report["cases"][0]
+    assert case["qualityPassed"] and case["trajectory"]["passed"]
+    assert {e["kind"] for e in case["trajectory"]["events"] if e["event"] == "extraction_route"} == {"vision_parse"}
+    prompt = model.captured[0][-1].content
+    assert ("Original UTF-8 source for character/label comparison" in prompt) is not large_original
+    if not large_original:
+        assert "Answer: B" in prompt
+
+
 def test_graph_evaluator_accepts_review_repair_and_recheck_calls(tmp_path, monkeypatch):
     monkeypatch.setenv("AI_IMPORT_REVIEW", "true")
     finding = {"questionIndex": 0, "code": "stem", "evidence": "What is 2 + 2?", "instruction": "Retain source stem", "repairable": True}
@@ -1027,16 +1047,42 @@ async def test_visual_artifact_reads_verify_checksums_and_decode(monkeypatch):
 
 def test_trajectory_ignores_parallel_completion_order_and_rejects_wrong_route():
     events: list[dict[str, Any]] = [{"event": "stage", "stage": stage, "outcome": "success"} for stage in ("prepare", "assemble")]
+    events.insert(0, {"event": "extraction_route", "kind": "document_parse", "sourceType": "text"})
     events.extend({"event": "model_start", "callKey": str(index), "kind": "document_parse", "schema": "ChunkParseResult", "unitKey": f"document_parse:{index}:0", "attempt": 1} for index in (1, 0))
     events.extend({"event": "model_call", "callKey": str(index), "validation": "passed"} for index in (0, 1))
     assert ev.score_trajectory(gold_case(), events, [], 4)["passed"]
-    events[2]["schema"] = "PageParseResult"
-    events[3]["attempt"] = 5
+    events[3]["schema"] = "PageParseResult"
+    events[4]["attempt"] = 5
     score = ev.score_trajectory(gold_case(), events, [], 1)
     assert {"WRONG_ROUTE_OR_SCHEMA", "UNIT_ATTEMPT_LIMIT", "MODEL_CALL_LIMIT"} <= set(score["reasons"])
-    assert "MISSING_PREREQUISITE" in ev.score_trajectory(gold_case(), events[2:], [], 4)["reasons"]
+    assert "MISSING_PREREQUISITE" in ev.score_trajectory(gold_case(), events[3:], [], 4)["reasons"]
     page = {"event": "page_context", "primaryPage": 1, "contextPages": [0, 3]}
     assert "INVALID_PAGE_CONTEXT" in ev.score_trajectory(gold_case(), [page], [{"callKey": "missing"}], 4)["reasons"]
+
+
+@pytest.mark.parametrize("route", ["document_parse", "vision_parse"])
+def test_text_trajectory_uses_prepared_route_without_relaxing_call_limits(route):
+    marker = {"event": "extraction_route", "kind": route, "sourceType": "text"}
+    start = {"event": "model_start", "kind": route, "schema": "ChunkParseResult" if route == "document_parse" else "OcrPageParseResult",
+             "callKey": "call", "unitKey": f"{route}:0:0", "attempt": 1}
+    events = [marker, *({"event": "stage", "stage": stage, "outcome": "success"} for stage in ("prepare", "assemble")), start]
+    case = {**gold_case(), "expectedProcess": {"requiredCallKinds": ["document_parse"], "maxModelCalls": 1}}
+    assert ev.score_trajectory(case, events, [], 4)["passed"]
+    for bad in [events[1:], [*events, marker], [*events[1:], marker], [{**marker, "sourceType": "image"}, *events[1:]]]:
+        assert "INVALID_EXTRACTION_ROUTE" in ev.score_trajectory(case, bad, [], 4)["reasons"]
+    assert "MODEL_CALL_LIMIT" in ev.score_trajectory(case, [*events, start], [], 4)["reasons"]
+
+
+def test_ocr_source_stage_translation_preserves_gold_and_unit_indexes():
+    case = {**gold_case(), "expectedSources": [{"questionIndex": 0, "stage": "document_parse", "unitIndex": 1}]}
+    before = deepcopy(case)
+    result = {"questions": [{**question(), "id": "q"}]}
+    processing = {"questionSources": [{"questionId": "q", "stage": "vision_parse", "unitIndex": 1}]}
+    assert not ev.score_result(case, result, processing, extraction_route="vision_parse")["sources"]["missing"]
+    assert ev.score_result(case, result, processing)["sources"]["missing"]
+    processing["questionSources"][0]["unitIndex"] = 0
+    assert ev.score_result(case, result, processing, extraction_route="vision_parse")["sources"]["missing"]
+    assert case == before
 
 
 @pytest.mark.parametrize('primary,pages,passed', [
@@ -1060,6 +1106,7 @@ def test_review_trajectory_checks_routes_and_limits_each_stage(source_type, extr
     case = {**gold_case(), "sourceType": source_type, "expectedProcess": {"requiredCallKinds": kinds}}
     ev.ProcessExpectations.model_validate(case["expectedProcess"])
     events: list[dict[str, Any]] = [{"event": "stage", "stage": stage, "outcome": "success"} for stage in ("prepare", "assemble")]
+    events.insert(0, {"event": "extraction_route", "kind": extraction, "sourceType": source_type})
     for kind in kinds:
         call_schema = "ReviewReport" if kind in {"import_review", "import_recheck"} else "FigureChecks" if kind == "vision_describe" else schema
         events.extend({"event": "model_start", "callKey": f"{kind}-{attempt}", "kind": kind, "schema": call_schema,
@@ -1078,6 +1125,7 @@ def test_review_trajectory_checks_routes_and_limits_each_stage(source_type, extr
 
 def test_review_trajectory_requires_a_review_attempt_for_each_successful_extraction_unit():
     events: list[dict[str, Any]] = [{"event": "stage", "stage": stage, "outcome": "success"} for stage in ("prepare", "assemble")]
+    events.insert(0, {"event": "extraction_route", "kind": "document_parse", "sourceType": "text"})
     for index in (0, 1):
         unit = f"document_parse:{index}:0"
         events.extend([

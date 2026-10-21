@@ -536,10 +536,11 @@ class VisualContent(StrictModel):
     extractedText: str | None = Field(default=None, max_length=100_000)
     page: int | None = Field(default=None, ge=0)
     bbox: list[float] | None = Field(default=None, min_length=4, max_length=4)
+    cropBbox: list[float] | None = Field(default=None, min_length=4, max_length=4, description="Actual source crop bounds when verified Tencent label boxes extend the original bbox; model coordinates remain unchanged.")
     imageRef: ArtifactReference | None = None
     sourceRef: ArtifactReference | None = Field(default=None, description="Complete source page image for visual verification; may include printed answers.")
 
-    @field_validator("bbox")
+    @field_validator("bbox", "cropBbox")
     @classmethod
     def validate_bbox(cls, value: list[float] | None) -> list[float] | None:
         if value is None:
@@ -550,6 +551,15 @@ class VisualContent(StrictModel):
         if x1 <= x0 or y1 <= y0:
             raise ValueError("bbox must have positive area")
         return value
+
+    @model_validator(mode="after")
+    def validate_crop_bounds(self) -> Self:
+        if self.cropBbox is not None and (self.bbox is None or not (
+            self.cropBbox[0] <= self.bbox[0] < self.bbox[2] <= self.cropBbox[2]
+            and self.cropBbox[1] <= self.bbox[1] < self.bbox[3] <= self.cropBbox[3]
+        )):
+            raise ValueError("cropBbox must contain the original bbox")
+        return self
 
 
 class VisualElement(VisualContent):
