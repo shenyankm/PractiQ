@@ -146,6 +146,7 @@ for (const width of [1280, 360]) {
     await expect(page.getByText('4 个题库 · 30 道题目', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: '查看题目', exact: true }).first().click();
     const review = page.getByRole('checkbox', { name: '仅看待复核', exact: true });
+    if (width < 768) await page.getByRole('button', { name: '筛选', exact: true }).click();
     await review.check();
     await page.getByRole('button', { name: '导入题库 ZIP', exact: true }).click();
     expect(await page.evaluate(() => globalThis.auditImports || 0)).toBe(0);
@@ -154,6 +155,7 @@ for (const width of [1280, 360]) {
     await page.getByRole('button', { name: '确认导入', exact: true }).click();
     await expect(page.getByText('已导入 9 道题目', { exact: true })).toBeVisible();
     await expect(retry).toBeVisible();
+    if (width < 768) await page.getByRole('button', { name: '筛选', exact: true }).click();
     await expect(review).not.toBeChecked();
     await retry.click();
     await expect(retry).toBeHidden();
@@ -219,6 +221,7 @@ for (const width of [1280, 360]) {
     await page.goto('/');
     await page.getByRole('button', { name: '查看题目', exact: true }).first().click();
     await page.getByLabel('搜索题目', { exact: true }).fill('no-matching-question');
+    if (width < 768) await page.getByRole('button', { name: '筛选', exact: true }).click();
     await chooseOption(page.getByLabel('筛选题型'), 'single');
     await page.getByRole('checkbox', { name: '仅看待复核' }).check();
     await expect(page.getByText('没有符合筛选的题目', { exact: true })).toBeVisible();

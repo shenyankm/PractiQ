@@ -1,0 +1,1335 @@
+{
+ "url": "http://127.0.0.1:1426",
+ "at": "2026-10-21T15:41:17.543Z",
+ "allow": [
+  "palette-purple"
+ ],
+ "viewports": [
+  {
+   "width": 1440,
+   "height": 900,
+   "load": "load",
+   "screens": 1,
+   "filled": [
+    0.67
+   ],
+   "motion": {
+    "elements": 8,
+    "css": 0,
+    "transitions": 8,
+    "scripted": 0,
+    "videos": 0,
+    "playingVideos": 0
+   },
+   "metrics": {
+    "viewport": {
+     "w": 1440,
+     "h": 900
+    },
+    "page": {
+     "height": 900,
+     "screens": 1,
+     "words": 54,
+     "img": 1,
+     "video": 0,
+     "canvas": 0,
+     "svg": 27,
+     "sections": 1,
+     "horizontalOverflow": 0,
+     "overflowCulprits": [],
+     "uiFragments": 0,
+     "uiAbuse": false,
+     "realPictures": 0,
+     "videoCount": 0,
+     "uiPictures": 0,
+     "pictureSamples": [],
+     "blendText": 0,
+     "sideScrollers": 0,
+     "brokenImages": [],
+     "emoji": [],
+     "videosNoPoster": 0
+    },
+    "hero": {
+     "text": "我的题库",
+     "words": 1,
+     "chars": 4,
+     "lines": 1,
+     "size": 28,
+     "vw": 1.9,
+     "font": "system-ui",
+     "weight": 600,
+     "tracking": -0.02,
+     "leading": 1.35,
+     "top": 24,
+     "tag": "h1",
+     "kind": "heading",
+     "align": "left",
+     "position": "left"
+    },
+    "h1": {
+     "text": "我的题库",
+     "words": 1,
+     "lines": 1,
+     "size": 28,
+     "font": "system-ui"
+    },
+    "headings": [
+     {
+      "text": "我的题库",
+      "words": 1,
+      "chars": 4,
+      "lines": 1,
+      "size": 28,
+      "vw": 1.9,
+      "font": "system-ui",
+      "weight": 600,
+      "tracking": -0.025,
+      "leading": 1.35,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "left",
+      "widthRatio": 0.09,
+      "top": 24,
+      "tag": "h1",
+      "kind": "heading"
+     }
+    ],
+    "headingSummary": {
+     "count": 1,
+     "maxLines": 1,
+     "over2Lines": 0,
+     "statements": 0,
+     "centered": 0,
+     "medianWords": null,
+     "mixedFontHeadings": 0
+    },
+    "type": {
+     "families": [
+      {
+       "family": "system-ui",
+       "share": 1,
+       "mono": false
+      }
+     ],
+     "familyCount": 1,
+     "sizes": [
+      14,
+      18,
+      28
+     ],
+     "sizeCount": 3,
+     "notLoaded": [],
+     "body": null,
+     "measureChars": null,
+     "max": {
+      "size": 28,
+      "vw": 1.9,
+      "font": "system-ui",
+      "text": "我的题库"
+     },
+     "monoShare": 0,
+     "monoProseShare": 0,
+     "monoFamilies": [],
+     "monoSamples": [],
+     "microLabels": 0,
+     "microLabelShare": 0,
+     "microSamples": [],
+     "upperShare": 0,
+     "centerShare": 0.27,
+     "smallText": 0
+    },
+    "eyebrows": [],
+    "numbered": [],
+    "color": {
+     "bodyBg": "#211c26",
+     "bodyBgHsl": {
+      "h": 270,
+      "s": 0.15,
+      "l": 0.13
+     },
+     "dark": true,
+     "sectionBgs": [
+      {
+       "color": "#211c26",
+       "top": 0,
+       "hsl": {
+        "h": 270,
+        "s": 0.15,
+        "l": 0.13
+       }
+      }
+     ],
+     "textColors": [
+      {
+       "color": "#f3ebf0",
+       "share": 0.49
+      },
+      {
+       "color": "#c4b5ca",
+       "share": 0.48
+      },
+      {
+       "color": "#efd7f5",
+       "share": 0.02
+      },
+      {
+       "color": "#302139",
+       "share": 0.02
+      }
+     ],
+     "button": {
+      "bg": "#413148",
+      "hsl": {
+       "h": 282,
+       "s": 0.19,
+       "l": 0.24
+      },
+      "fg": "#efd7f5"
+     },
+     "lowContrast": []
+    },
+    "buttons": {
+     "count": 19,
+     "inHero": 19,
+     "radius": 14,
+     "height": 40,
+     "withShadow": 0,
+     "withGradient": 0,
+     "mono": 0,
+     "upper": 0,
+     "heroLabels": [
+      "我的题库",
+      "错题本",
+      "收藏夹",
+      "练习记录",
+      "主题"
+     ]
+    },
+    "surfaces": {
+     "shadowStatic": 0,
+     "shadowOverlay": 0,
+     "shadowSamples": [],
+     "gradients": 0,
+     "scrims": 0,
+     "gradientSamples": [],
+     "gradientText": 0,
+     "hairlines": 6,
+     "hairlineSamples": [
+      "aside#app-sidebar.flex.shrink-0 208px",
+      "header.app-header.flex 1232px",
+      "div.px-(--card-spacing).bank-actions 374px",
+      "div.px-(--card-spacing).bank-actions 374px",
+      "div.px-(--card-spacing).bank-actions 374px"
+     ],
+     "outlinedBoxes": 5,
+     "dashed": 0,
+     "blurred": 0,
+     "roundedBoxes": 5,
+     "boxRadius": 16,
+     "squareMedia": 0,
+     "roundedMedia": 0,
+     "mediaRadius": 0,
+     "textShadow": 0,
+     "cardRows": [
+      {
+       "count": 4,
+       "iconTopped": true,
+       "rounded": true,
+       "top": 313
+      }
+     ]
+    },
+    "heroMedia": [],
+    "nav": {
+     "links": 0,
+     "fixed": false,
+     "height": 200,
+     "floatingPill": false,
+     "blur": false
+    },
+    "fontsLoaded": []
+   },
+   "layout": {
+    "viewport": {
+     "w": 1440,
+     "h": 900
+    },
+    "pageH": 900,
+    "margins": {
+     "left": 8,
+     "right": 43
+    },
+    "sections": [
+     {
+      "sel": "div.group/card.flex",
+      "tag": "div",
+      "top": 143,
+      "height": 150,
+      "words": 9,
+      "media": 0,
+      "middle": 766,
+      "heading": {
+       "text": "继续未完成的练习",
+       "size": 18,
+       "tag": "h2"
+      },
+      "left": 265,
+      "right": 57,
+      "textLeft": 265,
+      "textRight": 68,
+      "fullBleed": false,
+      "footer": false,
+      "hero": true,
+      "continues": false,
+      "pinned": false
+     },
+     {
+      "sel": "div.bank-grid",
+      "tag": "div",
+      "top": 313,
+      "height": 499,
+      "words": 27,
+      "media": 0,
+      "middle": 70,
+      "heading": {
+       "text": "基础知识 · 全题型",
+       "size": 18,
+       "tag": "h2"
+      },
+      "left": 265,
+      "right": 57,
+      "textLeft": 265,
+      "textRight": 61,
+      "fullBleed": false,
+      "footer": true,
+      "hero": true,
+      "continues": false,
+      "pinned": false
+     }
+    ],
+    "gaps": [],
+    "h1s": [
+     {
+      "text": "我的题库",
+      "size": 28,
+      "top": 24,
+      "firstScreen": true
+     }
+    ],
+    "edgeText": [],
+    "edges": [
+     {
+      "x": 265,
+      "n": 3
+     },
+     {
+      "x": 240,
+      "n": 1
+     },
+     {
+      "x": 661,
+      "n": 1
+     },
+     {
+      "x": 1057,
+      "n": 1
+     }
+    ],
+    "leftBlocks": 6,
+    "bodySize": 16,
+    "stage": false,
+    "explains": false,
+    "slivers": [],
+    "voidShare": 0.23,
+    "voidBox": {
+     "x": 600,
+     "y": 540,
+     "w": 840,
+     "h": 360
+    }
+   },
+   "app": {
+    "viewport": {
+     "w": 1440,
+     "h": 900
+    },
+    "dark": true,
+    "ground": "#211c26",
+    "sidebar": {
+     "w": 208,
+     "tag": "aside",
+     "links": 8,
+     "share": 0.14
+    },
+    "topbar": null,
+    "canvas": {
+     "left": 32,
+     "right": 43
+    },
+    "hero": {
+     "text": "我的题库",
+     "words": 1,
+     "chars": 4,
+     "lines": 1,
+     "size": 28,
+     "vw": 1.9,
+     "font": "system-ui",
+     "weight": 600,
+     "tracking": -0.02,
+     "leading": 1.35,
+     "top": 24,
+     "tag": "h1",
+     "kind": "heading",
+     "align": "left",
+     "position": "left"
+    },
+    "charts": 0,
+    "layout": {
+     "panels": 7,
+     "firstScreen": 7,
+     "ragged": [],
+     "voids": []
+    },
+    "tiles": 0,
+    "panels": {
+     "count": 7,
+     "radii": [
+      [
+       16,
+       5
+      ],
+      [
+       0,
+       2
+      ]
+     ],
+     "heavyBorders": 1,
+     "borderSamples": [
+      "#76627d on #413148 (2.17:1)"
+     ],
+     "heavyShadows": 0,
+     "softShadows": 0,
+     "shadowSamples": [],
+     "glass": 0
+    },
+    "chips": {
+     "count": 0,
+     "hues": 0,
+     "samples": []
+    },
+    "numbers": {
+     "cells": 0,
+     "leftAligned": 0,
+     "figures": 0,
+     "tabularShare": null,
+     "kpiMax": null
+    },
+    "rows": null,
+    "chartHues": 0,
+    "placeholders": [],
+    "type": {
+     "under13": 0,
+     "tiny": 0,
+     "tinySamples": [],
+     "sizes": [
+      14,
+      18,
+      28
+     ]
+    },
+    "title": {
+     "text": "我的题库",
+     "size": 28,
+     "top": 24
+    },
+    "colourShare": 0.002
+   },
+   "consoleErrors": []
+  },
+  {
+   "width": 768,
+   "height": 1024,
+   "load": "load",
+   "screens": 1,
+   "filled": [
+    0.87
+   ],
+   "motion": {
+    "elements": 8,
+    "css": 0,
+    "transitions": 8,
+    "scripted": 0,
+    "videos": 0,
+    "playingVideos": 0
+   },
+   "metrics": {
+    "viewport": {
+     "w": 768,
+     "h": 1024
+    },
+    "page": {
+     "height": 1024,
+     "screens": 1,
+     "words": 46,
+     "img": 1,
+     "video": 0,
+     "canvas": 0,
+     "svg": 27,
+     "sections": 1,
+     "horizontalOverflow": 0,
+     "overflowCulprits": [],
+     "uiFragments": 0,
+     "uiAbuse": false,
+     "realPictures": 0,
+     "videoCount": 0,
+     "uiPictures": 0,
+     "pictureSamples": [],
+     "blendText": 0,
+     "sideScrollers": 0,
+     "brokenImages": [],
+     "emoji": [],
+     "videosNoPoster": 0
+    },
+    "hero": {
+     "text": "我的题库",
+     "words": 1,
+     "chars": 4,
+     "lines": 1,
+     "size": 28,
+     "vw": 3.6,
+     "font": "system-ui",
+     "weight": 600,
+     "tracking": -0.02,
+     "leading": 1.35,
+     "top": 24,
+     "tag": "h1",
+     "kind": "heading",
+     "align": "left",
+     "position": "left"
+    },
+    "h1": {
+     "text": "我的题库",
+     "words": 1,
+     "lines": 1,
+     "size": 28,
+     "font": "system-ui"
+    },
+    "headings": [
+     {
+      "text": "我的题库",
+      "words": 1,
+      "chars": 4,
+      "lines": 1,
+      "size": 28,
+      "vw": 3.6,
+      "font": "system-ui",
+      "weight": 600,
+      "tracking": -0.025,
+      "leading": 1.35,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "left",
+      "widthRatio": 0.17,
+      "top": 24,
+      "tag": "h1",
+      "kind": "heading"
+     }
+    ],
+    "headingSummary": {
+     "count": 1,
+     "maxLines": 1,
+     "over2Lines": 0,
+     "statements": 0,
+     "centered": 0,
+     "medianWords": null,
+     "mixedFontHeadings": 0
+    },
+    "type": {
+     "families": [
+      {
+       "family": "system-ui",
+       "share": 1,
+       "mono": false
+      }
+     ],
+     "familyCount": 1,
+     "sizes": [
+      14,
+      18,
+      28
+     ],
+     "sizeCount": 3,
+     "notLoaded": [],
+     "body": null,
+     "measureChars": null,
+     "max": {
+      "size": 28,
+      "vw": 3.6,
+      "font": "system-ui",
+      "text": "我的题库"
+     },
+     "monoShare": 0,
+     "monoProseShare": 0,
+     "monoFamilies": [],
+     "monoSamples": [],
+     "microLabels": 0,
+     "microLabelShare": 0,
+     "microSamples": [],
+     "upperShare": 0,
+     "centerShare": 0.22,
+     "smallText": 0
+    },
+    "eyebrows": [],
+    "numbered": [],
+    "color": {
+     "bodyBg": "#211c26",
+     "bodyBgHsl": {
+      "h": 270,
+      "s": 0.15,
+      "l": 0.13
+     },
+     "dark": true,
+     "sectionBgs": [
+      {
+       "color": "#211c26",
+       "top": 0,
+       "hsl": {
+        "h": 270,
+        "s": 0.15,
+        "l": 0.13
+       }
+      }
+     ],
+     "textColors": [
+      {
+       "color": "#c4b5ca",
+       "share": 0.54
+      },
+      {
+       "color": "#f3ebf0",
+       "share": 0.45
+      },
+      {
+       "color": "#302139",
+       "share": 0.02
+      }
+     ],
+     "button": {
+      "bg": "#d9b5e5",
+      "hsl": {
+       "h": 285,
+       "s": 0.48,
+       "l": 0.8
+      },
+      "fg": "#302139"
+     },
+     "lowContrast": []
+    },
+    "buttons": {
+     "count": 12,
+     "inHero": 11,
+     "radius": 14,
+     "height": 40,
+     "withShadow": 0,
+     "withGradient": 0,
+     "mono": 0,
+     "upper": 0,
+     "heroLabels": [
+      "新建题库",
+      "导入",
+      "合并题库",
+      "查看全部",
+      "继续练习"
+     ]
+    },
+    "surfaces": {
+     "shadowStatic": 0,
+     "shadowOverlay": 0,
+     "shadowSamples": [],
+     "gradients": 0,
+     "scrims": 0,
+     "gradientSamples": [],
+     "gradientText": 0,
+     "hairlines": 6,
+     "hairlineSamples": [
+      "aside#app-sidebar.flex.shrink-0 64px",
+      "header.app-header.flex 704px",
+      "div.px-(--card-spacing).bank-actions 638px",
+      "div.px-(--card-spacing).bank-actions 638px",
+      "div.px-(--card-spacing).bank-actions 638px"
+     ],
+     "outlinedBoxes": 5,
+     "dashed": 0,
+     "blurred": 0,
+     "roundedBoxes": 5,
+     "boxRadius": 16,
+     "squareMedia": 0,
+     "roundedMedia": 0,
+     "mediaRadius": 0,
+     "textShadow": 0,
+     "cardRows": [
+      {
+       "count": 4,
+       "iconTopped": true,
+       "rounded": true,
+       "top": 313
+      }
+     ]
+    },
+    "heroMedia": [],
+    "nav": {
+     "links": 0,
+     "fixed": false,
+     "height": 200,
+     "floatingPill": false,
+     "blur": false
+    },
+    "fontsLoaded": []
+   },
+   "layout": {
+    "viewport": {
+     "w": 768,
+     "h": 1024
+    },
+    "pageH": 1024,
+    "margins": {
+     "left": 8,
+     "right": 43
+    },
+    "sections": [
+     {
+      "sel": "div.group/card.flex",
+      "tag": "div",
+      "top": 143,
+      "height": 150,
+      "words": 9,
+      "media": 0,
+      "middle": 238,
+      "heading": {
+       "text": "继续未完成的练习",
+       "size": 18,
+       "tag": "h2"
+      },
+      "left": 121,
+      "right": 57,
+      "textLeft": 121,
+      "textRight": 68,
+      "fullBleed": false,
+      "footer": false,
+      "hero": true,
+      "continues": false,
+      "pinned": false
+     },
+     {
+      "sel": "div.bank-grid",
+      "tag": "div",
+      "top": 313,
+      "height": 1018,
+      "words": 27,
+      "media": 0,
+      "middle": 0,
+      "heading": {
+       "text": "基础知识 · 全题型",
+       "size": 18,
+       "tag": "h2"
+      },
+      "left": 121,
+      "right": 57,
+      "textLeft": 121,
+      "textRight": 164,
+      "fullBleed": false,
+      "footer": true,
+      "hero": true,
+      "continues": false,
+      "pinned": false
+     }
+    ],
+    "gaps": [],
+    "h1s": [
+     {
+      "text": "我的题库",
+      "size": 28,
+      "top": 24,
+      "firstScreen": true
+     }
+    ],
+    "edgeText": [],
+    "edges": [
+     {
+      "x": 121,
+      "n": 5
+     },
+     {
+      "x": 96,
+      "n": 1
+     }
+    ],
+    "leftBlocks": 6,
+    "bodySize": 16,
+    "stage": false,
+    "explains": false,
+    "slivers": [],
+    "voidShare": 0,
+    "voidBox": null
+   },
+   "app": {
+    "viewport": {
+     "w": 768,
+     "h": 1024
+    },
+    "dark": true,
+    "ground": "#211c26",
+    "sidebar": {
+     "w": 64,
+     "tag": "aside",
+     "links": 8,
+     "share": 0.08
+    },
+    "topbar": null,
+    "canvas": {
+     "left": 32,
+     "right": 43
+    },
+    "hero": {
+     "text": "我的题库",
+     "words": 1,
+     "chars": 4,
+     "lines": 1,
+     "size": 28,
+     "vw": 3.6,
+     "font": "system-ui",
+     "weight": 600,
+     "tracking": -0.02,
+     "leading": 1.35,
+     "top": 24,
+     "tag": "h1",
+     "kind": "heading",
+     "align": "left",
+     "position": "left"
+    },
+    "charts": 0,
+    "layout": {
+     "panels": 6,
+     "firstScreen": 5,
+     "ragged": [],
+     "voids": []
+    },
+    "tiles": 0,
+    "panels": {
+     "count": 6,
+     "radii": [
+      [
+       16,
+       5
+      ],
+      [
+       0,
+       1
+      ]
+     ],
+     "heavyBorders": 1,
+     "borderSamples": [
+      "#76627d on #413148 (2.17:1)"
+     ],
+     "heavyShadows": 0,
+     "softShadows": 0,
+     "shadowSamples": [],
+     "glass": 0
+    },
+    "chips": {
+     "count": 1,
+     "hues": 1,
+     "samples": [
+      {
+       "hue": 282,
+       "size": 47,
+       "radius": "14px"
+      }
+     ]
+    },
+    "numbers": {
+     "cells": 0,
+     "leftAligned": 0,
+     "figures": 0,
+     "tabularShare": null,
+     "kpiMax": null
+    },
+    "rows": null,
+    "chartHues": 0,
+    "placeholders": [],
+    "type": {
+     "under13": 0,
+     "tiny": 0,
+     "tinySamples": [],
+     "sizes": [
+      14,
+      18,
+      28
+     ]
+    },
+    "title": {
+     "text": "我的题库",
+     "size": 28,
+     "top": 24
+    },
+    "colourShare": 0.004
+   },
+   "consoleErrors": []
+  },
+  {
+   "width": 390,
+   "height": 844,
+   "load": "load",
+   "screens": 1,
+   "filled": [
+    0.87
+   ],
+   "motion": {
+    "elements": 4,
+    "css": 0,
+    "transitions": 4,
+    "scripted": 0,
+    "videos": 0,
+    "playingVideos": 0
+   },
+   "metrics": {
+    "viewport": {
+     "w": 390,
+     "h": 844
+    },
+    "page": {
+     "height": 844,
+     "screens": 1,
+     "words": 44,
+     "img": 0,
+     "video": 0,
+     "canvas": 0,
+     "svg": 22,
+     "sections": 1,
+     "horizontalOverflow": 0,
+     "overflowCulprits": [],
+     "uiFragments": 0,
+     "uiAbuse": false,
+     "realPictures": 0,
+     "videoCount": 0,
+     "uiPictures": 0,
+     "pictureSamples": [],
+     "blendText": 0,
+     "sideScrollers": 0,
+     "brokenImages": [],
+     "emoji": [],
+     "videosNoPoster": 0
+    },
+    "hero": {
+     "text": "我的题库",
+     "words": 1,
+     "chars": 4,
+     "lines": 1,
+     "size": 22,
+     "vw": 5.6,
+     "font": "system-ui",
+     "weight": 600,
+     "tracking": -0.02,
+     "leading": 1.35,
+     "top": 16,
+     "tag": "h1",
+     "kind": "heading",
+     "align": "left",
+     "position": "left"
+    },
+    "h1": {
+     "text": "我的题库",
+     "words": 1,
+     "lines": 1,
+     "size": 22,
+     "font": "system-ui"
+    },
+    "headings": [
+     {
+      "text": "我的题库",
+      "words": 1,
+      "chars": 4,
+      "lines": 1,
+      "size": 22,
+      "vw": 5.6,
+      "font": "system-ui",
+      "weight": 600,
+      "tracking": -0.025,
+      "leading": 1.35,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "left",
+      "widthRatio": 0.33,
+      "top": 16,
+      "tag": "h1",
+      "kind": "heading"
+     }
+    ],
+    "headingSummary": {
+     "count": 1,
+     "maxLines": 1,
+     "over2Lines": 0,
+     "statements": 0,
+     "centered": 0,
+     "medianWords": null,
+     "mixedFontHeadings": 0
+    },
+    "type": {
+     "families": [
+      {
+       "family": "system-ui",
+       "share": 1,
+       "mono": false
+      }
+     ],
+     "familyCount": 1,
+     "sizes": [
+      14,
+      18,
+      22
+     ],
+     "sizeCount": 3,
+     "notLoaded": [],
+     "body": null,
+     "measureChars": null,
+     "max": {
+      "size": 22,
+      "vw": 5.6,
+      "font": "system-ui",
+      "text": "我的题库"
+     },
+     "monoShare": 0,
+     "monoProseShare": 0,
+     "monoFamilies": [],
+     "monoSamples": [],
+     "microLabels": 0,
+     "microLabelShare": 0,
+     "microSamples": [],
+     "upperShare": 0,
+     "centerShare": 0.19,
+     "smallText": 0
+    },
+    "eyebrows": [],
+    "numbered": [],
+    "color": {
+     "bodyBg": "#211c26",
+     "bodyBgHsl": {
+      "h": 270,
+      "s": 0.15,
+      "l": 0.13
+     },
+     "dark": true,
+     "sectionBgs": [
+      {
+       "color": "#211c26",
+       "top": 0,
+       "hsl": {
+        "h": 270,
+        "s": 0.15,
+        "l": 0.13
+       }
+      }
+     ],
+     "textColors": [
+      {
+       "color": "#c4b5ca",
+       "share": 0.55
+      },
+      {
+       "color": "#f3ebf0",
+       "share": 0.43
+      },
+      {
+       "color": "#302139",
+       "share": 0.02
+      }
+     ],
+     "button": {
+      "bg": "#d9b5e5",
+      "hsl": {
+       "h": 285,
+       "s": 0.48,
+       "l": 0.8
+      },
+      "fg": "#302139"
+     },
+     "lowContrast": []
+    },
+    "buttons": {
+     "count": 11,
+     "inHero": 8,
+     "radius": 14,
+     "height": 48,
+     "withShadow": 0,
+     "withGradient": 0,
+     "mono": 0,
+     "upper": 0,
+     "heroLabels": [
+      "新建题库",
+      "导入",
+      "查看全部",
+      "继续练习",
+      "查看题目"
+     ]
+    },
+    "surfaces": {
+     "shadowStatic": 0,
+     "shadowOverlay": 0,
+     "shadowSamples": [],
+     "gradients": 0,
+     "scrims": 0,
+     "gradientSamples": [],
+     "gradientText": 0,
+     "hairlines": 5,
+     "hairlineSamples": [
+      "header.app-header.flex 390px",
+      "div.px-(--card-spacing).bank-actions 356px",
+      "div.px-(--card-spacing).bank-actions 356px",
+      "div.px-(--card-spacing).bank-actions 356px",
+      "div.px-(--card-spacing).bank-actions 356px"
+     ],
+     "outlinedBoxes": 5,
+     "dashed": 0,
+     "blurred": 0,
+     "roundedBoxes": 5,
+     "boxRadius": 16,
+     "squareMedia": 0,
+     "roundedMedia": 0,
+     "mediaRadius": 0,
+     "textShadow": 0,
+     "cardRows": []
+    },
+    "heroMedia": [],
+    "nav": {
+     "links": 0,
+     "fixed": false,
+     "height": 151,
+     "floatingPill": false,
+     "blur": false
+    },
+    "fontsLoaded": []
+   },
+   "layout": {
+    "viewport": {
+     "w": 390,
+     "h": 844
+    },
+    "pageH": 844,
+    "margins": {
+     "left": 16,
+     "right": 33
+    },
+    "sections": [
+     {
+      "sel": "header.app-header.flex",
+      "tag": "header",
+      "top": 0,
+      "height": 151,
+      "words": 8,
+      "media": 0,
+      "middle": 8,
+      "heading": {
+       "text": "我的题库",
+       "size": 22,
+       "tag": "h1"
+      },
+      "left": 16,
+      "right": 82,
+      "textLeft": 76,
+      "textRight": 149,
+      "fullBleed": false,
+      "footer": false,
+      "hero": true,
+      "continues": false,
+      "pinned": false
+     },
+     {
+      "sel": "div.app-content.min-h-0",
+      "tag": "div",
+      "top": 151,
+      "height": 693,
+      "words": 25,
+      "media": 0,
+      "middle": 0,
+      "heading": {
+       "text": "继续未完成的练习",
+       "size": 18,
+       "tag": "h2"
+      },
+      "left": 33,
+      "right": 33,
+      "textLeft": 33,
+      "textRight": 35,
+      "fullBleed": false,
+      "footer": true,
+      "hero": true,
+      "continues": false,
+      "pinned": false
+     }
+    ],
+    "gaps": [],
+    "h1s": [
+     {
+      "text": "我的题库",
+      "size": 22,
+      "top": 16,
+      "firstScreen": true
+     }
+    ],
+    "edgeText": [],
+    "edges": [
+     {
+      "x": 33,
+      "n": 5
+     },
+     {
+      "x": 76,
+      "n": 1
+     }
+    ],
+    "leftBlocks": 6,
+    "bodySize": 16,
+    "stage": false,
+    "explains": false,
+    "slivers": [],
+    "voidShare": 0,
+    "voidBox": null
+   },
+   "app": {
+    "viewport": {
+     "w": 390,
+     "h": 844
+    },
+    "dark": true,
+    "ground": "#211c26",
+    "sidebar": null,
+    "topbar": null,
+    "canvas": {
+     "left": 16,
+     "right": 33
+    },
+    "hero": {
+     "text": "我的题库",
+     "words": 1,
+     "chars": 4,
+     "lines": 1,
+     "size": 22,
+     "vw": 5.6,
+     "font": "system-ui",
+     "weight": 600,
+     "tracking": -0.02,
+     "leading": 1.35,
+     "top": 16,
+     "tag": "h1",
+     "kind": "heading",
+     "align": "left",
+     "position": "left"
+    },
+    "charts": 0,
+    "layout": {
+     "panels": 5,
+     "firstScreen": 3,
+     "ragged": [],
+     "voids": []
+    },
+    "tiles": 0,
+    "panels": {
+     "count": 5,
+     "radii": [
+      [
+       16,
+       5
+      ]
+     ],
+     "heavyBorders": 1,
+     "borderSamples": [
+      "#76627d on #413148 (2.17:1)"
+     ],
+     "heavyShadows": 0,
+     "softShadows": 0,
+     "shadowSamples": [],
+     "glass": 0
+    },
+    "chips": {
+     "count": 2,
+     "hues": 1,
+     "samples": [
+      {
+       "hue": 282,
+       "size": 48,
+       "radius": "14px"
+      },
+      {
+       "hue": 282,
+       "size": 48,
+       "radius": "14px"
+      }
+     ]
+    },
+    "numbers": {
+     "cells": 0,
+     "leftAligned": 0,
+     "figures": 0,
+     "tabularShare": null,
+     "kpiMax": null
+    },
+    "rows": null,
+    "chartHues": 0,
+    "placeholders": [],
+    "type": {
+     "under13": 0,
+     "tiny": 0,
+     "tinySamples": [],
+     "sizes": [
+      14,
+      18,
+      22
+     ]
+    },
+    "title": {
+     "text": "我的题库",
+     "size": 22,
+     "top": 16
+    },
+    "colourShare": 0.01
+   },
+   "consoleErrors": []
+  }
+ ],
+ "findings": [],
+ "images": [
+  {
+   "viewport": "desktop",
+   "width": 1440,
+   "fold": "/Users/sheny/.codex/worktrees/4f2c/PractiQ/app/.build/taste-skill/final/desktop-fold.jpg",
+   "pages": [
+    "/Users/sheny/.codex/worktrees/4f2c/PractiQ/app/.build/taste-skill/final/desktop-page-01.jpg"
+   ],
+   "film": []
+  },
+  {
+   "viewport": "tablet",
+   "width": 768,
+   "fold": "/Users/sheny/.codex/worktrees/4f2c/PractiQ/app/.build/taste-skill/final/tablet-fold.jpg",
+   "pages": [
+    "/Users/sheny/.codex/worktrees/4f2c/PractiQ/app/.build/taste-skill/final/tablet-page-01.jpg"
+   ],
+   "film": []
+  },
+  {
+   "viewport": "mobile",
+   "width": 390,
+   "fold": "/Users/sheny/.codex/worktrees/4f2c/PractiQ/app/.build/taste-skill/final/mobile-fold.jpg",
+   "pages": [
+    "/Users/sheny/.codex/worktrees/4f2c/PractiQ/app/.build/taste-skill/final/mobile-page-01.jpg"
+   ],
+   "film": []
+  }
+ ]
+}

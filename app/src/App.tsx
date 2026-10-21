@@ -23,6 +23,7 @@ import {
   PanelLeftOpen,
   CircleAlert,
   Search,
+  SlidersHorizontal,
   ArrowLeft,
   Play,
   Trash2,
@@ -115,21 +116,24 @@ function SidebarButton({ collapsed, label, children, className = "", ...props }:
 }
 const compactNavigationQuery = "(max-width: 767px)";
 function subscribeCompactNavigation(listener: () => void) {
-  const media = window.matchMedia(compactNavigationQuery);
-  media.addEventListener("change", listener);
-  return () => media.removeEventListener("change", listener);
+  const queries = [compactNavigationQuery, "(max-width: 1023px)"].map(query => window.matchMedia(query));
+  queries.forEach(media => media.addEventListener("change", listener));
+  return () => queries.forEach(media => media.removeEventListener("change", listener));
 }
-function compactNavigation() { return window.matchMedia(compactNavigationQuery).matches; }
-function desktopNavigation() { return false; }
+function navigationLayout() {
+  return window.matchMedia(compactNavigationQuery).matches ? "compact" : window.matchMedia("(max-width: 1023px)").matches ? "narrow" : "wide";
+}
+function desktopNavigation() { return "wide"; }
 export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}) {
   const language = useI18n();
   const theme = useTheme(initialTheme);
   const [themeOpen, setThemeOpen] = useState(false);
   const themeTrigger = useRef<HTMLButtonElement>(null);
-  const compact = useSyncExternalStore(subscribeCompactNavigation, compactNavigation, desktopNavigation);
+  const layout = useSyncExternalStore(subscribeCompactNavigation, navigationLayout, desktopNavigation);
+  const compact = layout === "compact";
   const [navigationOpen, setNavigationOpen] = useState(false);
-  const [desktopSidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const sidebarCollapsed = !compact && desktopSidebarCollapsed;
+  const [desktopSidebarCollapsed, setSidebarCollapsed] = useState<boolean | null>(null);
+  const sidebarCollapsed = !compact && (desktopSidebarCollapsed ?? layout === "narrow");
   const [languageOpen, setLanguageOpen] = useState(false);
   const languageTrigger = useRef<HTMLButtonElement>(null);
   const [page, setPage] = useState<Page>("banks");
@@ -160,6 +164,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
   const [search, setSearch] = useState("");
   const [mode, setMode] = useState("");
   const [onlyReview, setOnlyReview] = useState(false);
+  const [questionFiltersOpen, setQuestionFiltersOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(false);
   const [importPreview, setImportPreview] = useState<{ preview: Preview; initialBank: string } | null>(null);
@@ -354,6 +359,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
       setSearch("");
       setMode("");
       setOnlyReview(false);
+      setQuestionFiltersOpen(false);
       if (next === "banks" || next === "history") setListRevision(v => v + 1);
     });
   }
@@ -413,7 +419,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
   }}>{t("重试")}</Button></div>;
   const navigationContent = <>
         <div className="mb-4 flex items-center gap-2 overflow-hidden px-1 pt-3">
-          {compact ? <img src={logo} alt="" className="size-10 shrink-0 object-contain" /> : <Button variant="ghost" size="icon" className="group relative size-10 shrink-0 rounded-xl border-0 aria-expanded:bg-transparent" aria-label={sidebarCollapsed ? t("展开侧边栏") : t("收起侧边栏")} aria-expanded={!sidebarCollapsed} aria-controls="app-sidebar" onClick={() => setSidebarCollapsed(value => !value)}>
+          {compact ? <img src={logo} alt="" className="size-10 shrink-0 object-contain" /> : <Button variant="ghost" size="icon" className="group relative size-10 shrink-0 rounded-xl border-0 aria-expanded:bg-transparent" aria-label={sidebarCollapsed ? t("展开侧边栏") : t("收起侧边栏")} aria-expanded={!sidebarCollapsed} aria-controls="app-sidebar" onClick={() => setSidebarCollapsed(!sidebarCollapsed)}>
             <img src={logo} alt="" className="size-10 shrink-0 object-contain group-hover:opacity-0 group-focus-visible:opacity-0" />
             <span className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100" aria-hidden="true">{sidebarCollapsed ? <PanelLeftOpen /> : <PanelLeftClose />}</span>
           </Button>}
@@ -543,7 +549,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
             )}
 
             {page === "banks" && (
-              <><Button variant="outline" size={compact ? "icon" : "default"} aria-label={t("刷新")} title={t("刷新")} disabled={busy || bankListLoading} onClick={() => setListRevision(value => value + 1)}>{compact ? <RefreshCw /> : t("刷新")}</Button><Button variant="outline" disabled={bankActionsUnavailable} onClick={event => { bankEditorTrigger.current = event.currentTarget; setOperationError(null); setBankEditor({ id: null, title: "", description: "" }); }}><Plus />{t("新建题库")}</Button><Button disabled={bankActionsUnavailable} onClick={() => navigate("settings", null, true)}><Upload />{t("导入")}</Button></>
+              <><Button variant="outline" size={compact ? "icon" : "default"} aria-label={t("刷新")} title={t("刷新")} disabled={busy || bankListLoading} onClick={() => setListRevision(value => value + 1)}>{compact ? <RefreshCw /> : t("刷新")}</Button><Button variant="outline" disabled={bankActionsUnavailable} onClick={event => { bankEditorTrigger.current = event.currentTarget; setOperationError(null); setBankEditor({ id: null, title: "", description: "" }); }}><Plus />{t("新建题库")}</Button><Button variant="outline" disabled={bankActionsUnavailable} onClick={() => navigate("settings", null, true)}><Upload />{t("导入")}</Button></>
             )}
             {page === "banks" && banks.length > 1 && (
               compact ? <DropdownMenu><DropdownMenuTrigger asChild><Button ref={mergeTrigger} size="icon" variant="outline" disabled={bankActionsUnavailable} aria-label={t("更多题库操作")}><MoreHorizontal /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onSelect={() => setMergeOpen(true)}>{t("合并题库")}</DropdownMenuItem></DropdownMenuContent></DropdownMenu> : <Button ref={mergeTrigger} variant="outline" disabled={bankActionsUnavailable} onClick={() => setMergeOpen(true)}>{t("合并题库")}</Button>
@@ -624,7 +630,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
           {listPage && (
             <div className="space-y-5">
               <div className="question-filters flex flex-wrap items-end gap-3">
-                <div className="min-w-0 basis-full space-y-2 sm:min-w-64 sm:basis-64 sm:flex-1">
+                <div className="min-w-0 flex-1 space-y-2 sm:min-w-64 sm:basis-64">
                   <Label htmlFor="question-search">{t("搜索题目")}</Label>
                   <InputGroup>
                     <InputGroupAddon><Search /></InputGroupAddon>
@@ -637,6 +643,8 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                     />
                   </InputGroup>
                 </div>
+                {compact && <Button variant="outline" aria-expanded={questionFiltersOpen} aria-controls="question-filter-options" onClick={() => setQuestionFiltersOpen(value => !value)}><SlidersHorizontal />{t("筛选")}{(mode || onlyReview) && <Badge variant="secondary">{Number(!!mode) + Number(onlyReview)}</Badge>}</Button>}
+                <div id="question-filter-options" className={compact ? questionFiltersOpen ? "flex basis-full flex-wrap items-end gap-3" : "hidden" : "contents"}>
                 <div className="w-full space-y-2 sm:w-64">
                   <Label htmlFor="question-mode">{t("筛选题型")}</Label>
                   <NativeSelect
@@ -654,8 +662,9 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                     ))}
                   </NativeSelect>
                 </div>
-                {hasQuestionFilters && <Button variant="outline" disabled={busy} onClick={() => { setSearch(""); setMode(""); setOnlyReview(false); setOffset(0); document.getElementById("question-search")?.focus(); }}>{t("清除筛选")}</Button>}
                 {page === "questions" && <label className="flex shrink-0 items-center gap-2 text-sm"><Checkbox checked={onlyReview} disabled={busy} onCheckedChange={checked => setOnlyReview(checked === true)} />{t("仅看待复核")}</label>}
+                </div>
+                {hasQuestionFilters && <Button variant="outline" disabled={busy} onClick={() => { setSearch(""); setMode(""); setOnlyReview(false); setOffset(0); document.getElementById("question-search")?.focus(); }}>{t("清除筛选")}</Button>}
               </div>
               {page === "wrong" && questions.length > 0 && <p className="text-sm text-muted-foreground">{t("错误和未得满分的题目会出现在这里，再次答对或得满分后自动移出；未评分不算错题。")}</p>}
               {loading ? loadingView : questionError != null ? (

@@ -22,6 +22,15 @@ visible and put merge in the labelled action menu. On phones, form labels sit
 above full-width controls. Use semantic color tokens for normal, warning, error,
 success, selected, read-only and disabled states.
 
+The bank home reserves filled emphasis for resuming the unfinished session (or
+the first-import empty state). Bank viewing stays a text action; starting a new
+practice and the header import action use outlined buttons with their existing labels.
+At 768–1023px the existing sidebar starts collapsed to 64px; at 1024px and wider it
+starts expanded to 208px. An explicit toggle takes precedence for the current window.
+Below 768px, question search remains visible beside a labelled filter toggle.
+Type and review filters expand in place, retain their values when collapsed, and
+show an applied-filter count; clearing filters remains available outside the disclosure.
+
 Practice has one bounded content scroller and a separate footer. The footer must
 never cover content, focused controls or the finish action. Failure notices take
 space from the workspace; expanded diagnostics stay bounded and scroll separately. Narrow-screen answer

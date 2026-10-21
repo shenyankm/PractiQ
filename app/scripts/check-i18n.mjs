@@ -130,6 +130,7 @@ test('theme follows system preferences and persists an explicit choice',async ({
  await page.reload();
  await expect(page.getByRole('heading',{name:'My banks',exact:true})).toBeVisible();
  await expect(page.locator('html')).not.toHaveClass(/dark/);
+ await page.getByRole('button',{name:'Expand sidebar',exact:true}).click();
  await page.getByRole('button',{name:'Collapse sidebar',exact:true}).click();
  await page.getByRole('button',{name:'Theme',exact:true}).click();
  await expect(page.getByRole('menuitemradio',{name:'Light',exact:true})).toHaveAttribute('aria-checked','true');
@@ -144,6 +145,8 @@ test('theme follows system preferences and persists an explicit choice',async ({
 
 test('trilingual sidebar preserves alignment, keyboard navigation and language preferences',async ({page,observedCalls},testInfo)=>{
  await expectNoOverflow(page,'banks');
+ await page.getByRole('button',{name:'Expand sidebar',exact:true}).click();
+ await settleSidebar(page);
  for (const names of [
   {locale:'en',language:'Language',collapse:'Collapse sidebar',expand:'Expand sidebar',nav:['My banks','Mistakes','Favorites','History','Settings']},
   {locale:'zh-CN',language:'语言',collapse:'收起侧边栏',expand:'展开侧边栏',nav:['我的题库','错题本','收藏夹','练习记录','设置']},
@@ -321,6 +324,7 @@ test('offline ZIP entry and service settings never submit documents or start mod
 });
 
 test('practice preserves answers across sidebar and viewport changes',async ({page,observedCalls})=>{
+ await page.getByRole('button',{name:'Expand sidebar',exact:true}).click();
  await page.getByRole('button',{name:'Start practice',exact:true}).first().click();
  await expect(page.getByRole('dialog')).toBeVisible();
  await page.keyboard.press('Escape');

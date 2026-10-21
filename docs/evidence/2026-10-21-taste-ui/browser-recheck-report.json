@@ -1,0 +1,324 @@
+{
+  "config": {
+    "argv": [
+      "/Users/sheny/.nvm/versions/node/v22.23.2/bin/node",
+      "/Users/sheny/.codex/worktrees/4f2c/PractiQ/app/node_modules/.bin/playwright",
+      "test",
+      "--last-failed",
+      "--reporter=json"
+    ],
+    "configFile": "/Users/sheny/.codex/worktrees/4f2c/PractiQ/app/playwright.config.mjs",
+    "rootDir": "/Users/sheny/.codex/worktrees/4f2c/PractiQ/app/scripts",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/Users/sheny/.codex/worktrees/4f2c/PractiQ/app/test-results/browser",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "mocked",
+        "name": "mocked",
+        "testDir": "/Users/sheny/.codex/worktrees/4f2c/PractiQ/app/scripts",
+        "testIgnore": [],
+        "testMatch": [
+          "check-i18n.mjs"
+        ],
+        "timeout": 60000
+      },
+      {
+        "outputDir": "/Users/sheny/.codex/worktrees/4f2c/PractiQ/app/test-results/browser",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "preview",
+        "name": "preview",
+        "testDir": "/Users/sheny/.codex/worktrees/4f2c/PractiQ/app/scripts",
+        "testIgnore": [],
+        "testMatch": [
+          "check-preview.mjs",
+          "check-ux-recovery.mjs",
+          "check-uiux-fixes.mjs",
+          "check-taste-ui.mjs"
+        ],
+        "timeout": 60000
+      },
+      {
+        "outputDir": "/Users/sheny/.codex/worktrees/4f2c/PractiQ/app/test-results/browser",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "rich-content",
+        "name": "rich-content",
+        "testDir": "/Users/sheny/.codex/worktrees/4f2c/PractiQ/app/scripts",
+        "testIgnore": [],
+        "testMatch": [
+          "check-rich-content.mjs",
+          "check-responsive-content.mjs"
+        ],
+        "timeout": 60000
+      },
+      {
+        "outputDir": "/Users/sheny/.codex/worktrees/4f2c/PractiQ/app/test-results/browser",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "android-390",
+        "name": "android-390",
+        "testDir": "/Users/sheny/.codex/worktrees/4f2c/PractiQ/app/scripts",
+        "testIgnore": [],
+        "testMatch": [
+          "check-android.mjs"
+        ],
+        "timeout": 60000
+      },
+      {
+        "outputDir": "/Users/sheny/.codex/worktrees/4f2c/PractiQ/app/test-results/browser",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "android-360",
+        "name": "android-360",
+        "testDir": "/Users/sheny/.codex/worktrees/4f2c/PractiQ/app/scripts",
+        "testIgnore": [],
+        "testMatch": [
+          "check-android.mjs"
+        ],
+        "timeout": 60000
+      },
+      {
+        "outputDir": "/Users/sheny/.codex/worktrees/4f2c/PractiQ/app/test-results/browser",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "built-android-390",
+        "name": "built-android-390",
+        "testDir": "/Users/sheny/.codex/worktrees/4f2c/PractiQ/app/scripts",
+        "testIgnore": [],
+        "testMatch": [
+          "check-built-navigation.mjs"
+        ],
+        "timeout": 60000
+      },
+      {
+        "outputDir": "/Users/sheny/.codex/worktrees/4f2c/PractiQ/app/test-results/browser",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "built-android-360",
+        "name": "built-android-360",
+        "testDir": "/Users/sheny/.codex/worktrees/4f2c/PractiQ/app/scripts",
+        "testIgnore": [],
+        "testMatch": [
+          "check-built-navigation.mjs"
+        ],
+        "timeout": 60000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "json"
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.63.0",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "check-i18n.mjs",
+      "file": "check-i18n.mjs",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "theme follows system preferences and persists an explicit choice",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "mocked",
+              "projectName": "mocked",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2762,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-21T15:49:10.525Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "03a6f3411bd5aebc00f9-927ec907174a7dd0ed4f",
+          "file": "check-i18n.mjs",
+          "line": 123,
+          "column": 1
+        },
+        {
+          "title": "trilingual sidebar preserves alignment, keyboard navigation and language preferences",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "mocked",
+              "projectName": "mocked",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 10308,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-21T15:49:13.544Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "03a6f3411bd5aebc00f9-828b908311fc314b7b22",
+          "file": "check-i18n.mjs",
+          "line": 146,
+          "column": 1
+        },
+        {
+          "title": "practice preserves answers across sidebar and viewport changes",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "mocked",
+              "projectName": "mocked",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2721,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-21T15:49:23.860Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "03a6f3411bd5aebc00f9-08d28c55c4879a92aa9a",
+          "file": "check-i18n.mjs",
+          "line": 326,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "check-ux-recovery.mjs",
+      "file": "check-ux-recovery.mjs",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "overview and committed import recover without replay at 360px",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "preview",
+              "projectName": "preview",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2474,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-21T15:49:26.821Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "6b8de07d4fc421907d7f-6a14bc066171790e1a4e",
+          "file": "check-ux-recovery.mjs",
+          "line": 125,
+          "column": 3
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-21T15:49:07.605Z",
+    "duration": 21816.978,
+    "expected": 4,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

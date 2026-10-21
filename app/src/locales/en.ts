@@ -275,6 +275,7 @@ export const en = {
   "令牌已保存；留空保留。": "Token saved. Leave blank to keep it.",
   "离开输入框后自动安全保存。": "Saved securely when you leave the field.",
   "清除筛选": "Clear filters",
+  "筛选": "Filters",
   "没有符合筛选的题目": "No questions match your filters",
   "清除筛选以查看当前列表中的全部题目。": "Clear filters to see all questions in this list.",
   "搜索题目": "Search questions",

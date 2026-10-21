@@ -99,8 +99,8 @@ export function BankList({ offset, onOffsetChange, revision, onLoadingChange, bu
           <p className="bank-count"><BookOpen aria-hidden="true" />{t("{0} 题", { 0: bank.count })}</p>
         </CardHeader>
         <CardContent className="bank-actions mt-auto">
-          <Button variant="outline" disabled={busy} onClick={() => onOpenQuestions(bank.id)}>{t("查看题目")}<ChevronRight /></Button>
-          {!!bank.count && <Button disabled={busy} onClick={() => onPractice(bank.id)}><Play />{t("开始练习")}</Button>}
+          <Button variant="ghost" disabled={busy} onClick={() => onOpenQuestions(bank.id)}>{t("查看题目")}<ChevronRight /></Button>
+          {!!bank.count && <Button variant="outline" disabled={busy} onClick={() => onPractice(bank.id)}><Play />{t("开始练习")}</Button>}
         </CardContent>
       </Card>)}
     </div>

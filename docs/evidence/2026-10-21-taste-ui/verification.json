@@ -1,0 +1,101 @@
+{
+  "frontend": {
+    "typescript": "passed",
+    "eslint": "passed",
+    "tests_passed": 464,
+    "tests_skipped": 3,
+    "statement_coverage": 90.59,
+    "line_coverage": 93.7,
+    "production_build": "passed"
+  },
+  "browser": {
+    "initial_full_run": {
+      "total": 170,
+      "passed": 166,
+      "failed": 4,
+      "minutes": 8.8
+    },
+    "failed_recheck": {
+      "startTime": "2026-10-21T15:49:07.605Z",
+      "duration": 21816.978,
+      "expected": 4,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "new_responsive_scenario": "passed",
+    "final_phone_matrix": {
+      "passed": 12,
+      "includes_filter_value_retention_and_clear": true
+    },
+    "unique_scenarios_covered": 171,
+    "unresolved_failures": 0,
+    "failure_explanation": "Three tests assumed an expanded sidebar at 960px. One recovery test needed to expand the newly collapsed filters after import. Their existing behavior assertions remain intact."
+  },
+  "preview": {
+    "screenshots": 22,
+    "errors": [],
+    "native_calls": 0
+  },
+  "taste_inspector": {
+    "fail": 0,
+    "warn": 0,
+    "widths": [
+      1440,
+      768,
+      390
+    ],
+    "allowed": {
+      "palette-purple": "Existing PractiQ warm-purple brand"
+    }
+  },
+  "taste_source_lint": {
+    "fail": 0,
+    "warn": 1,
+    "accepted_warning": "Existing floating tooltip shadow"
+  },
+  "screenshots": {
+    "png_count": 108,
+    "unique_hashes": 102,
+    "matched_pairs": 48,
+    "expanded_filter_states": 12,
+    "png_bytes": 7110468,
+    "locales": [
+      "zh-CN",
+      "zh-TW",
+      "en"
+    ],
+    "themes": [
+      "light",
+      "dark"
+    ],
+    "widths": [
+      1440,
+      768,
+      390,
+      360
+    ],
+    "sha256_bytes_actual_metadata_and_ids": "passed",
+    "gallery_independent_filters": "verified in browser"
+  },
+  "not_run": [
+    "native macOS/Windows acceptance",
+    "Android APK/device and IME",
+    "live service/model",
+    "remote CI"
+  ],
+  "review_recheck": {
+    "command": "npx playwright test --project=preview check-taste-ui.mjs --reporter=json",
+    "stats": {
+      "startTime": "2026-10-21T15:51:32.045Z",
+      "duration": 56943.17,
+      "expected": 25,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "frozen_png_and_sidecar_files_not_rewritten": true,
+    "fix": "Default captures use testInfo.outputPath; explicit PRACTIQ_TASTE_EVIDENCE_DIR is required for exports."
+  },
+  "commit_or_pr_created_at_original_capture": false
+}
