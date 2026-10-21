@@ -134,14 +134,13 @@ html[data-native-insets="true"] {
   padding: var(--app-safe-top) var(--app-safe-right) var(--app-safe-bottom) var(--app-safe-left);
 }
 .app-header { min-height: 6rem; padding: 1.5rem 2rem; }
-.app-content { padding: 2rem; overscroll-behavior: contain; }
+.app-content { padding: var(--space-page); overscroll-behavior: contain; }
 .audio-seek { min-height: 3rem; }
 
 @media (max-width: 767px) {
   .app-header { min-height: 4.5rem; padding: 1rem; }
-  .app-content { padding: 1rem; }
-  /* This panel exists only in development; reserve its closed footprint below the app. */
-  #root:has(.preview-controls) .app-shell { height: calc(100dvh - 6rem); }
+  .app-content { padding: var(--space-page); }
+  html:not([data-uiux-evidence]) #root:has(.preview-controls) .app-shell { height: calc(100dvh - 6rem); }
   .preview-controls {
     z-index: 40;
     max-width: calc(100vw - 1.5rem);
@@ -202,7 +201,16 @@ html[data-native-insets="true"] {
 
 /* Product workspace: readable content, clear surfaces, and persistent practice controls. */
 .page-workspace { width: 100%; max-width: 80rem; margin-inline: auto; }
-.practice-workspace { max-width: 90rem; }
+.practice-workspace { max-width: 90rem; height: 100%; }
+.practice-app-content { overflow: hidden; }
+.practice-session { display: flex; height: 100%; min-height: 0; flex-direction: column; gap: var(--space-section); }
+.practice-session > * { margin-block: 0; }
+.practice-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 2px; }
+.practice-overview, .practice-footer { flex-shrink: 0; }
+.practice-answer-card > summary { display: none; }
+.connection-settings-form [data-slot="select-wrapper"] { width: 100%; }
+.connection-status { display: grid; gap: 0.5rem; border-radius: var(--radius-item); background: var(--muted); padding: 0.75rem 1rem; }
+.image-viewport:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
 .app-header { background: var(--card); }
 .app-content { line-height: 1.6; }
 .workflow-note { padding: 0.75rem 1rem; border: 1px solid color-mix(in oklch, var(--primary) 25%, var(--border)); border-radius: var(--radius); background: color-mix(in oklch, var(--primary) 5%, var(--card)); color: var(--foreground); font-size: 0.875rem; line-height: 1.6; }
@@ -290,11 +298,15 @@ html[data-native-insets="true"] {
   .practice-workspace .practice-overview { gap: 0.5rem; }
   .practice-workspace .practice-overview p { flex: 1; min-width: 12rem; font-size: 0.75rem; }
   .practice-workspace { height: 100%; }
-  .practice-session { display: flex; height: 100%; min-height: 0; flex-direction: column; gap: 0.75rem; }
+  .practice-session { gap: 0.75rem; }
   .practice-session > * { margin-block: 0; }
   .practice-overview, .practice-footer { flex-shrink: 0; }
-  .practice-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 2px; }
+  .practice-scroll { padding: 2px; }
   .practice-question-body { padding-bottom: 1rem; }
+  .practice-answer-card { border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--card); }
+  .practice-answer-card > summary { display: list-item; padding: 0.75rem 1rem; }
+  .practice-answer-card > [data-slot="card"] { border: 0; }
+  .practice-answer-card [data-slot="card-header"] { padding-top: 0; }
   .practice-footer { position: static; flex-direction: column; width: 100%; }
   .practice-navigation, .practice-actions:not(:empty) { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .app-header h1 { font-size: 1.375rem; }
@@ -319,13 +331,13 @@ html[data-native-insets="true"] {
     left: var(--app-safe-left);
     width: calc(100% - var(--app-safe-left) - var(--app-safe-right));
     max-width: none;
-    height: calc(100dvh - var(--app-safe-top) - var(--app-safe-bottom));
-    max-height: none;
+    max-height: calc(100dvh - var(--app-safe-top) - var(--app-safe-bottom));
     overflow: hidden;
     --tw-translate-x: 0px;
     --tw-translate-y: 0px;
     border-radius: 0;
   }
+  .study-setup .study-setup-fields { flex: 0 1 auto; }
 }
 
 @media (min-width: 600px) and (max-width: 767px) and (max-height: 480px) {

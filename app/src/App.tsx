@@ -18,6 +18,7 @@ import {
   Settings,
   Languages,
   Palette,
+  RefreshCw,
   PanelLeftClose,
   PanelLeftOpen,
   CircleAlert,
@@ -542,10 +543,10 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
             )}
 
             {page === "banks" && (
-              <><Button variant="outline" disabled={busy || bankListLoading} onClick={() => setListRevision(value => value + 1)}>{t("刷新")}</Button><Button variant="outline" disabled={bankActionsUnavailable} onClick={event => { bankEditorTrigger.current = event.currentTarget; setOperationError(null); setBankEditor({ id: null, title: "", description: "" }); }}><Plus />{t("新建题库")}</Button><Button disabled={bankActionsUnavailable} onClick={() => navigate("settings", null, true)}><Upload />{t("导入")}</Button></>
+              <><Button variant="outline" size={compact ? "icon" : "default"} aria-label={t("刷新")} title={t("刷新")} disabled={busy || bankListLoading} onClick={() => setListRevision(value => value + 1)}>{compact ? <RefreshCw /> : t("刷新")}</Button><Button variant="outline" disabled={bankActionsUnavailable} onClick={event => { bankEditorTrigger.current = event.currentTarget; setOperationError(null); setBankEditor({ id: null, title: "", description: "" }); }}><Plus />{t("新建题库")}</Button><Button disabled={bankActionsUnavailable} onClick={() => navigate("settings", null, true)}><Upload />{t("导入")}</Button></>
             )}
             {page === "banks" && banks.length > 1 && (
-              <Button ref={mergeTrigger} variant="outline" disabled={bankActionsUnavailable} onClick={() => setMergeOpen(true)}>{t("合并题库")}</Button>
+              compact ? <DropdownMenu><DropdownMenuTrigger asChild><Button ref={mergeTrigger} size="icon" variant="outline" disabled={bankActionsUnavailable} aria-label={t("更多题库操作")}><MoreHorizontal /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onSelect={() => setMergeOpen(true)}>{t("合并题库")}</DropdownMenuItem></DropdownMenuContent></DropdownMenu> : <Button ref={mergeTrigger} variant="outline" disabled={bankActionsUnavailable} onClick={() => setMergeOpen(true)}>{t("合并题库")}</Button>
             )}
             {listPage && (
               <>
@@ -574,7 +575,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
             )}
           </div>
         </header>
-        <div className="app-content min-h-0 flex-1 overflow-y-auto">
+        <div className={`app-content min-h-0 flex-1 overflow-y-auto ${page === "practice" ? "practice-app-content" : ""}`}>
           <div className={`page-workspace ${page === "practice" ? "practice-workspace" : ""}`}>
           {operationError && !dialogOpen && <div ref={operationNotice} className={`mb-5 ${page === "settings" || page === "service-settings" ? "max-w-3xl" : ""}`}><OperationFeedback /></div>}
           {(bankError != null || infoError != null) && <div role="alert" className="mb-5 space-y-2 rounded-lg border border-destructive/40 p-4">
@@ -856,6 +857,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
           </div>}
           {page === "practice" && session && (
             <Practice
+              compact={compact}
               key={session.id}
               session={session}
               onSession={onPracticeSession}

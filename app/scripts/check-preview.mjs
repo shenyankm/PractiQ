@@ -1,7 +1,9 @@
+import { withEvidence } from "../../shared/browser-evidence.mjs";
 import { chooseOption } from "../../shared/select-test.mjs";
-import { test as base, expect } from 'playwright/test';
+import { test as runner, expect } from 'playwright/test';
 import { writeFile } from 'node:fs/promises';
 
+const base = withEvidence(runner);
 
 async function editQuestion(page, trigger) {
   await trigger.click();
@@ -44,6 +46,18 @@ for(const locale of ['zh-CN','en']) for(const width of [360,390,960,1280]) for(c
    expect.soft(box.x).toBeGreaterThanOrEqual(container.x);
    expect.soft(box.x+box.width).toBeLessThanOrEqual(container.x+container.width);
    expect.soft(box.height).toBe(width<768?48:40);
+  }
+  if (width < 768) {
+   const actions = page.locator('.app-header').getByRole('button').filter({hasNotText: /Open navigation|打开主导航/});
+   const boxes = await actions.evaluateAll(nodes => nodes.filter(node => node.closest('.app-header') && !node.getAttribute('aria-label')?.match(/navigation|主导航/)).map(node => node.getBoundingClientRect().top));
+   expect(Math.max(...boxes) - Math.min(...boxes)).toBeLessThanOrEqual(1);
+   await page.getByRole('button',{name:english?'More bank actions':'更多题库操作',exact:true}).click();
+   await page.getByRole('menuitem',{name:english?'Merge banks':'合并题库',exact:true}).click();
+   const merge=page.getByRole('dialog',{name:english?'Merge banks':'合并题库',exact:true});
+   await expect(merge).toBeVisible();
+   await page.keyboard.press('Escape');
+   await expect(merge).toBeHidden();
+   await expect(page.getByRole('button',{name:english?'More bank actions':'更多题库操作',exact:true})).toBeFocused();
   }
   await page.screenshot({path:testInfo.outputPath('banks.png'),fullPage:true});
   const trigger=card.getByRole('button',{name:english?/^Actions for bank /:/^题库操作 /});
@@ -181,6 +195,7 @@ test('study rules and backup details remain available on desktop and narrow scre
   await dialog.locator('.overflow-y-auto').evaluate(node=>{node.scrollTop=0;});
   await page.screenshot({path:testInfo.outputPath(`exam-rules-${width}.png`),fullPage:true,animations:'disabled'});
   await dialog.getByRole('button',{name:'取消',exact:true}).click();
+  await expect(dialog).toBeHidden();
   if(width===390) await page.getByRole('button',{name:'打开主导航',exact:true}).click();
   await page.getByRole('button',{name:'设置',exact:true}).click();
   const details=page.getByText('备份范围与注意事项',{exact:true});
@@ -775,6 +790,7 @@ for (const colorScheme of ['light','dark']) for (const width of [1280,390]) {
   await page.getByRole('button',{name:'开始练习',exact:true}).click();
   await page.getByLabel('题目数量').fill('8');
   await page.getByRole('button',{name:'立即开始',exact:true}).click();
+  if (width < 768) await page.getByRole('link',{name:'查看答题卡',exact:true}).click();
   const grid=page.getByRole('region',{name:'答题卡',exact:true});
   await expect(grid.getByRole('button')).toHaveCount(8);
   await expect(page.locator('html')).toHaveClass(colorScheme==='dark'?/dark/:/^(?!.*dark)/);
@@ -792,7 +808,14 @@ for (const colorScheme of ['light','dark']) for (const width of [1280,390]) {
   await page.screenshot({path:testInfo.outputPath(`answer-card-help-${colorScheme}-${width}.png`)});
   await help.screenshot({path:testInfo.outputPath(`answer-card-popover-${colorScheme}-${width}.png`)});
   const matrix=[['未作答','circle','未作答','unanswered'],['已作答，未提交，待检查','pencil','已作答','answered'],['草稿未完成','pencil','草稿','draft'],['已提交，待判定','circle-dashed','待判定','pending'],['正确','check','正确','correct'],['错误','x','错误','incorrect'],['已跳过','skip-forward','跳过','skipped'],['文本不完全一致','x','错误','incorrect']];
-  for(const [index,[label,marker,legend,status]] of matrix.entries()) {
+  for (const [,marker,legend] of matrix) {
+   await expect(help.locator('p > span').filter({hasText:legend}).locator(`svg.lucide-${marker}`)).toBeVisible();
+  }
+  if (width < 768) await expect(grid).toBeHidden();
+  await page.keyboard.press('Escape');
+  await expect(help).toBeHidden();
+  await expect(helpButton).toBeFocused();
+  for(const [index,[label,marker,,status]] of matrix.entries()) {
    const button=grid.getByRole('button',{name:`转到第 ${index+1} 题，${label}`,exact:true});
    const icon=button.locator(`svg.lucide-${marker}`);
    await expect(button).toBeVisible();
@@ -801,7 +824,6 @@ for (const colorScheme of ['light','dark']) for (const width of [1280,390]) {
    expect(await button.evaluate(node=>node.getBoundingClientRect().height)).toBeGreaterThanOrEqual(width<768?48:40);
    await expect(icon).toBeVisible();
    await expect(icon).toHaveAttribute('aria-hidden','true');
-   await expect(help.locator('p > span').filter({hasText:legend}).locator(`svg.lucide-${marker}`)).toBeVisible();
    const fits=await button.evaluate(element=>{const box=element.getBoundingClientRect();return [...element.children].every(child=>{const rect=child.getBoundingClientRect();return rect.left>=box.left&&rect.right<=box.right&&rect.top>=box.top&&rect.bottom<=box.bottom;});});
    expect(fits).toBe(true);
   }
@@ -813,7 +835,9 @@ for (const colorScheme of ['light','dark']) for (const width of [1280,390]) {
   await help.getByRole('button',{name:'关闭',exact:true}).click();
   await expect(help).toBeHidden();
   await helpButton.click();
-  await page.getByText('答题卡',{exact:true}).click();
+  await expect(help).toBeVisible();
+  if (width < 768) await page.locator('[data-slot=dialog-overlay]').click({position:{x:4,y:4}});
+  else await page.getByText('答题卡',{exact:true}).click();
   await expect(help).toBeHidden();
   const current=grid.getByRole('button',{name:'转到第 1 题，未作答',exact:true});
   const colors=await grid.getByRole('button').evaluateAll(nodes=>{
@@ -885,6 +909,7 @@ for (const width of [960,1280]) {
   await page.getByRole('button',{name:'开始练习',exact:true}).click();
   await page.getByLabel('题目数量').fill('1000');
   await page.getByRole('button',{name:'立即开始',exact:true}).click();
+  if (width < 768) await page.getByRole('link',{name:'查看答题卡',exact:true}).click();
   const grid=page.getByRole('region',{name:'答题卡',exact:true});
   await expect(grid.getByRole('button')).toHaveCount(1000);
   await grid.getByRole('button',{name:'转到第 501 题，未作答',exact:true}).evaluate(button=>{window.__retainedAnswerButton=button;});

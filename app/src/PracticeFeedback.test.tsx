@@ -81,8 +81,8 @@ it.each([false, true])("locks a pending submission (skip=%s) and shows the persi
   expect(api).toHaveBeenCalledTimes(1);
   const submitted = { ...initial, attempts: [{ ...initial.attempts[0], submittedAt: 2, skipped: skip, answer: { text: "Authoritative answer" } }] };
   await act(async () => resolve(submitted));
-  await waitFor(() => expect(input.value).toBe("Authoritative answer"));
-  expect(input.disabled).toBe(true);
+  await waitFor(() => expect(within(screen.getByRole("region", {name:"我的答案"})).getByText("Authoritative answer")).toBeTruthy());
+  expect(screen.queryByRole("textbox")).toBeNull();
   expect(api).toHaveBeenCalledTimes(1);
 });
 
@@ -137,9 +137,8 @@ it("submits practice answers before self-assessing through the separate command"
     { type: "save_attempt", id: "practice", ordinal: 0, answer: { text: "My answer" }, elapsed_ms: expect.any(Number), submit: true, skip: false },
     { type: "self_assess", id: "practice", ordinal: 0, result: false },
   ]);
-  const input = screen.getByRole("textbox", { name: "作答内容" }) as HTMLTextAreaElement;
-  expect(input.value).toBe("My answer");
-  expect(input.disabled).toBe(true);
+  expect(within(screen.getByRole("region", {name:"我的答案"})).getByText("My answer")).toBeTruthy();
+  expect(screen.queryByRole("textbox")).toBeNull();
 });
 
 it.each(["skipped", "auto"])("does not offer self-assessment for a %s attempt", kind => {
@@ -196,7 +195,8 @@ it("offers review of submitted unassessed practice answers without changing them
     { type: "session", id: "practice" },
     { type: "position", id: "practice", position: 1 },
   ]);
-  expect((screen.getByRole("textbox", { name: "作答内容" }) as HTMLTextAreaElement).value).toBe("My answer");
+  expect(within(screen.getByRole("region", {name:"我的答案"})).getByText("My answer")).toBeTruthy();
+  expect(screen.queryByRole("textbox")).toBeNull();
 });
 
 it.each([true, false])("keeps unassessed answers while finishing with submit_drafts=%s", async submitDrafts => {
@@ -248,4 +248,15 @@ it("announces an exam score only once and focuses a heading with its question nu
   expect(screen.getAllByRole("status")).toHaveLength(1);
   expect(screen.getByRole("status").textContent).toContain("当前题：1 / 3 分");
   expect(document.activeElement).toBe(screen.getByRole("heading", { name: "第 2 / 2 题" }));
+});
+
+it("opens the compact answer card explicitly without saving or grading", async () => {
+  const initial = practice();
+  render(<Practice compact session={initial} onSession={vi.fn()} run={job => { void job(); }} flushRef={{current:async () => {}}}/>);
+  const details = document.querySelector<HTMLDetailsElement>(".practice-answer-card")!;
+  expect(details.open).toBe(false);
+  await userEvent.click(screen.getByRole("link", {name:"查看答题卡"}));
+  expect(details.open).toBe(true);
+  expect(screen.getByRole("region", {name:"答题卡"})).toBeTruthy();
+  expect(api).not.toHaveBeenCalled();
 });

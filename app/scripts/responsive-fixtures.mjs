@@ -30,8 +30,8 @@ stressed.visuals = [{ ...rich.visualElements[0], id: 'rich-visual', questionIds:
 selected.set(stressed.key, stressed);
 export const layoutSnapshots = [...selected.values()];
 
-export async function installLayoutSession(page, { submitted = false } = {}) {
-  await page.addInitScript(({ snapshots, image, portrait, audio, submitted }) => {
+export async function installLayoutSession(page, { submitted = false, locale = 'zh-CN' } = {}) {
+  await page.addInitScript(({ snapshots, image, portrait, audio, submitted, locale }) => {
     sessionStorage.setItem('practiq-preview', 'local');
     window.isTauri = false;
     const bank = { id: 'layout-bank', title: '布局检查题库', description: 'Synthetic browser fixture', count: snapshots.length, createdAt: 1 };
@@ -46,7 +46,7 @@ export async function installLayoutSession(page, { submitted = false } = {}) {
       if (command !== 'request') throw Error(`Unexpected layout mock command: ${command}`);
       const request = args.request;
       switch (request.type) {
-        case 'language': return 'zh-CN';
+        case 'language': return locale;
         case 'banks': return [bank];
         case 'info': return { version: 'Browser layout mock', dataDirectory: '/mock' };
         case 'banks_page': return { items: [bank], total: 1, offset: 0 };
@@ -58,5 +58,5 @@ export async function installLayoutSession(page, { submitted = false } = {}) {
         default: throw Error(`Unexpected layout mock request: ${request.type}`);
       }
     } };
-  }, { snapshots: layoutSnapshots, image: [...layoutImage], portrait: [...portrait], audio: [...audio], submitted });
+  }, { snapshots: layoutSnapshots, image: [...layoutImage], portrait: [...portrait], audio: [...audio], submitted, locale });
 }

@@ -101,3 +101,24 @@ it("fetches shared image bytes only when figures approach the viewport", async (
     expect(URL.revokeObjectURL).toHaveBeenCalledExactlyOnceWith("blob:visible");
   } finally { vi.unstubAllGlobals(); }
 });
+
+it("fits images initially and allows explicit original-size inspection without refetching", async () => {
+  const user = (await import("@testing-library/user-event")).default.setup();
+  vi.mocked(api).mockResolvedValue(new ArrayBuffer(4));
+  vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:fit-image");
+  vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+  const snapshot = {question:fixture.questions[0], groups:[], sources:[], warnings:[], missingAssets:false,
+    visuals:[{...fixture.visualElements[0], sourceRef:null, id:"fit", questionIds:["q"]}]} as unknown as Snapshot;
+  render(<Content snapshot={snapshot}/>);
+  await screen.findByRole("img");
+  await user.click(screen.getByRole("button", {name:"放大查看图片"}));
+  const dialog = screen.getByRole("dialog");
+  expect(dialog.querySelector("img")?.className).toContain("max-w-full");
+  await user.click(screen.getByRole("button", {name:"原始尺寸"}));
+  expect(dialog.querySelector("img")?.className).toBe("max-w-none");
+  expect(screen.getByText("原始尺寸下可横向和纵向滚动查看细节。")).toBeTruthy();
+  await user.keyboard("{Escape}");
+  await user.click(screen.getByRole("button", {name:"放大查看图片"}));
+  expect(screen.getByRole("dialog").querySelector("img")?.className).toContain("max-w-full");
+  expect(api).toHaveBeenCalledTimes(1);
+});

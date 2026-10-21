@@ -80,6 +80,7 @@ function ImageAsset({ visual, original = false }: { visual: Visual; original?: b
   const [src, setSrc] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
   const zoomButton = useRef<HTMLButtonElement>(null);
+  const [originalSize, setOriginalSize] = useState(false);
   const [loading, setLoading] = useState(!!visual.imageRef);
   const imageHash = visual.imageRef?.sha256;
   const mediaType = visual.imageRef?.mediaType;
@@ -122,8 +123,10 @@ function ImageAsset({ visual, original = false }: { visual: Visual; original?: b
       {src || original ? (
         <>
           {!original && src && <img src={src} alt={visual.description} className="max-h-[min(28vh,20rem)] max-w-full object-contain"/>}
-          <Button ref={zoomButton} size="sm" variant="outline" onClick={() => setExpanded(true)}><ZoomIn/>{original ? t("查看原页") : t("放大查看图片")}</Button>
-          <Dialog open={expanded} onOpenChange={setExpanded}><DialogContent onCloseAutoFocus={(event) => { event.preventDefault(); zoomButton.current?.focus(); }} className="flex max-h-[90vh] flex-col sm:max-w-[90vw]"><DialogHeader className="shrink-0 pr-8"><DialogTitle>{original ? t("查看原页") : t("查看图片")}</DialogTitle><DialogDescription>{visual.description || t("原始图片，可滚动查看完整细节。")}</DialogDescription></DialogHeader><div className="min-h-0 overflow-auto">{src ? <img src={src} alt={visual.description} className="max-w-none"/> : <p>{loading ? t("正在加载原页…") : t("原页不可用，请重新导入来源资源。")}</p>}</div></DialogContent></Dialog>
+          <Button ref={zoomButton} size="sm" variant="outline" onClick={() => { setOriginalSize(false); setExpanded(true); }}><ZoomIn/>{original ? t("查看原页") : t("放大查看图片")}</Button>
+          <Dialog open={expanded} onOpenChange={setExpanded}><DialogContent onCloseAutoFocus={(event) => { event.preventDefault(); zoomButton.current?.focus(); }} className="image-viewer flex max-h-[90dvh] flex-col sm:max-w-[90vw]"><DialogHeader className="shrink-0 pr-8"><DialogTitle>{original ? t("查看原页") : t("查看图片")}</DialogTitle><DialogDescription>{visual.description || t("原始图片")}</DialogDescription></DialogHeader>
+            <div className="flex shrink-0 flex-wrap items-center gap-3"><Button variant="outline" aria-pressed={originalSize} onClick={() => setOriginalSize(value => !value)}>{originalSize ? t("适应窗口") : t("原始尺寸")}</Button><p className="text-sm text-muted-foreground">{t("原始尺寸下可横向和纵向滚动查看细节。")}</p></div>
+            <div className="image-viewport min-h-0 overflow-auto" tabIndex={0} aria-label={t("图片浏览区域")}>{src ? <img src={src} alt={visual.description} className={originalSize ? "max-w-none" : "mx-auto h-auto max-h-[60dvh] max-w-full object-contain"}/> : <p>{loading ? t("正在加载原页…") : t("原页不可用，请重新导入来源资源。")}</p>}</div></DialogContent></Dialog>
         </>
       ) : visual.imageRef ? (
         <p className="text-sm text-muted-foreground">
@@ -202,7 +205,7 @@ export const Content = memo(function Content({
       {snapshot.groups.map((g) => (
         compactGroups ? <LazyDetails key={g.id} className="rounded-lg border bg-muted/40 px-3 text-sm" summary={g.title}>
           <div className="space-y-2 pb-3"><Markdown>{g.instructions}</Markdown><Blocks blocks={g.contentBlocks || []}/></div>
-        </LazyDetails> : <section key={g.id} className="rounded-lg border-l-4 bg-muted/40 p-4">
+        </LazyDetails> : <section key={g.id} className="rounded-lg border bg-muted/40 p-4">
           <h3 className="mb-2 font-medium">{g.title}</h3>
           <Markdown>{g.instructions}</Markdown>
           <Blocks blocks={g.contentBlocks || []} />

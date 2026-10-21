@@ -1,4 +1,6 @@
-import { test, expect } from 'playwright/test';
+import { test as runner, expect } from 'playwright/test';
+import { withEvidence } from '../../shared/browser-evidence.mjs';
+const test = withEvidence(runner);
 
 test('rich content renders math, tables and images with keyboard zoom', async ({ page }, testInfo) => {
   const errors = [];
