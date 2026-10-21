@@ -700,3 +700,14 @@ in the replay harness; a missing or invalid archive must stop rather than fall b
 to Tencent. Label this incremental acceptance across code versions, not a fresh
 same-version live three-round evaluation. Preserve the original failures and apply
 the unchanged scorer and quality gates to the assembled 90 slots.
+
+Verified crop bounds follow every figure classification, including charts. An
+existing Tencent subimage does not satisfy an expanded crop: active finalization
+re-crops the source page and retains a failure if the source page is unavailable
+or the unchanged boundary check rejects it. Unknown coordinates of any other
+element suppress label repair. Retained Tencent subimages also provide bounded
+figure previews for Office pages without a rendered page image. Optional original
+text uses the same complete-message character accounting as the model limiter,
+including figure prompt text, delimiters and additional message metadata. Native
+worksheet aliases with non-string values remain source evidence but are never
+used as group identifiers.

@@ -37,7 +37,7 @@ def test_crossing_source_label_is_recovered_without_changing_original_figure_or_
     assert value.bbox == [.2, .25, .8, .75] and value.cropBbox == crop
 
 
-@pytest.mark.parametrize('defect', ['unidentified', 'detached', 'ambiguous', 'answer_nearby', 'large', 'invalid', 'non_text'])
+@pytest.mark.parametrize('defect', ['unidentified', 'detached', 'ambiguous', 'answer_nearby', 'large', 'invalid', 'non_text', 'unknown_bounds'])
 def test_uncertain_or_answer_adjacent_labels_do_not_expand_bounds(defect):
     figure = element((40, 40, 160, 120), '3', figure=True)
     label = element((75, 113, 90, 125), '3')
@@ -54,6 +54,8 @@ def test_uncertain_or_answer_adjacent_labels_do_not_expand_bounds(defect):
         elements[1] = element((75, 113, 190, 159), '3')
     elif defect == 'invalid':
         elements[1]['polygon'] = {}
+    elif defect == 'unknown_bounds':
+        elements.append({'text_info': {'content': 'Answer: 42'}, 'polygon': {}})
     else:
         elements[1]['text_info']['content'] = 3
     assert _label_crop_bbox(figure, elements, 200, 160) is None

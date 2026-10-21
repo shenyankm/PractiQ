@@ -53,7 +53,9 @@ async def test_cut_diagram_keeps_full_source_and_other_kinds_keep_original_crop(
 
 
 @pytest.mark.parametrize('bottom,expected_success', [(125 / 160, True), (121 / 160, False)])
-async def test_source_label_crop_bounds_still_pass_original_cut_guard(monkeypatch, tmp_path, bottom, expected_success):
+@pytest.mark.parametrize('existing_image', [False, True])
+@pytest.mark.parametrize('page_available', [False, True])
+async def test_source_label_crop_bounds_still_pass_original_cut_guard(monkeypatch, tmp_path, bottom, expected_success, existing_image, page_available):
     buffer = BytesIO()
     with Image.new('RGB', (200, 160), 'white') as image:
         ImageDraw.Draw(image).line((80, 115, 80, 123), fill='black', width=2)
@@ -70,11 +72,14 @@ async def test_source_label_crop_bounds_still_pass_original_cut_guard(monkeypatc
     page = await store.put_artifact(payload, source_sha256=reference.sha256, kind='page', index=0, media_type='image/png')
     box = [.2, .25, .8, .75]
     crop = [.2, .25, .8, bottom]
-    visual = VisualElement(kind='diagram', description='Verified crossing source label', page=0, bbox=box, cropBbox=crop)
+    old_image = await store.put_artifact(vision.crop_figures(payload, [box])[0] or b'', source_sha256=reference.sha256,
+        kind='ocr-figure', index=0, media_type='image/jpeg') if existing_image else None
+    visual = VisualElement(kind='diagram', description='Verified crossing source label', page=0, bbox=box, cropBbox=crop, imageRef=old_image)
     result, failures, _ = await document._crop_visuals({'document': reference.model_dump(),
-        'visionResults': [{'index': 0, 'kind': 'page', 'artifact': page.model_dump()}]}, [visual])
-    assert result[0].bbox == box and result[0].cropBbox == crop and result[0].sourceRef == page
-    assert bool(result[0].imageRef) == expected_success
-    assert [f.code for f in failures] == ([] if expected_success else ['CROP_UNVERIFIED'])
+        'visionResults': [{'index': 0, 'kind': 'page', 'artifact': page.model_dump()}] if page_available else []}, [visual])
+    assert result[0].bbox == box and result[0].cropBbox == crop
+    assert result[0].sourceRef == (page if page_available else None)
+    assert bool(result[0].imageRef) == (expected_success and page_available)
+    assert [f.code for f in failures] == (['CROP_FAILED'] if not page_available else [] if expected_success else ['CROP_UNVERIFIED'])
     if result[0].imageRef is not None:
         assert await store.get_verified(result[0].imageRef) == vision.crop_figures(payload, [crop])[0]

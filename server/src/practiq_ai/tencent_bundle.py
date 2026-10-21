@@ -125,7 +125,7 @@ def _label_crop_bbox(figure: dict[str, Any], elements: list[dict[str, Any]], wid
         try:
             box = _bbox(element, width, height)
         except (KeyError, TypeError, ValueError):
-            continue
+            return None
         if (max(box[0], crop[0]) < min(box[2], crop[2]) and max(box[1], crop[1]) < min(box[3], crop[3])
                 and not (original[0] <= box[0] < box[2] <= original[2] and original[1] <= box[1] < box[3] <= original[3])):
             return None  # Additional source content must never enter a label repair.
