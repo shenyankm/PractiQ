@@ -42,3 +42,9 @@ The App browser checks cover a production-built touch drawer at 360px and 390px 
 ## Limits
 
 This is local functional/storage and browser acceptance. Native Windows/Android flows, physical devices, system file pickers/IME, credential-store behavior on those platforms, signed packaging, and live-model quality were not exercised. Remote CI, review and merge status must be read separately from the PR.
+
+## PR #336 review follow-up
+
+Code Review found that direct grading still appended the Simplified Chinese missing-rubric warning for `zh-TW`. The regression reproduced the mismatch before the fix. The direct result mapper now selects the Traditional Chinese warning, matching the service path.
+
+The new regression covers Simplified Chinese, Traditional Chinese and English, both an absent warning and an already-present localized warning, and unchanged score values. After the fix, the full native `cargo test --locked` run passed 215 tests with the same 16 existing ignored checks; binary/doc targets, formatting and Clippy with `--all-targets -- -D warnings` also passed. No provider requests or frontend/database behavior changed in this follow-up. Remote checks and reviews for the resulting commit are tracked on the PR.

@@ -141,6 +141,8 @@ fn result(value: &Value, input: &Value) -> Result<Value> {
     {
         let warning = if english {
             "No detailed scoring rubric was provided."
+        } else if traditional {
+            "未提供詳細評分細則"
         } else {
             "未提供详细评分细则"
         };
@@ -261,6 +263,31 @@ mod tests {
             .as_str()
             .unwrap()
             .contains("按原卷 5 分比例換算至本次 10 分"));
+    }
+    #[test]
+    fn missing_rubric_warning_uses_the_frozen_locale_without_duplicates() {
+        for (locale, warning) in [
+            ("zh-CN", "未提供详细评分细则"),
+            ("zh-TW", "未提供詳細評分細則"),
+            ("en", "No detailed scoring rubric was provided."),
+        ] {
+            let mut input = input();
+            input["feedbackLocale"] = json!(locale);
+            input["question"]["scoringRubric"] = Value::Null;
+            input["question"]["answerPayload"] = json!({"text":"Reference items"});
+            let mut response = partial();
+            response["maxCents"] = input["maxCents"].clone();
+            for reasons in [json!([]), json!([warning])] {
+                response["reviewReasons"] = reasons;
+                let grade = result(&completion(response.clone()), &input).unwrap();
+                assert_eq!(
+                    grade["result"]["reviewReasons"],
+                    json!([warning]),
+                    "{locale}"
+                );
+                assert_eq!(grade["result"]["scoreCents"], 300);
+            }
+        }
     }
     #[test]
     fn scales_partial_credit_and_preserves_abstention_and_zero() {
