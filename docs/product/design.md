@@ -12,7 +12,7 @@ Use warm-white pages (`#f7f4f1`), soft warm-white cards (`#fffcfa`), body text (
 
 ## Typography
 
-Keep the system Chinese font stack. App page headings are 28px, Web headings 32px and bank headings 18px. Preserve existing body sizes; use line height and spacing to establish hierarchy. Counts and status numbers use tabular figures, and long question text wraps.
+Keep the system Chinese font stack. App and Web page headings are 28px (22px on narrow screens), and bank headings are 18px. Preserve existing body sizes; use line height and spacing to establish hierarchy. Counts and status numbers use tabular figures, and long question text wraps.
 
 App and Web import `shared/document-content.css` for document rendering. Keep long formulas and tables horizontally scrollable inside their content area. Table words and numeric values retain their natural minimum width; oversized display equations keep their beginning reachable instead of centering into negative overflow. Practice and matching layouts use their container width, so the sidebar or large text cannot squeeze the question and selectors into unreadable columns.
 
@@ -20,19 +20,19 @@ App and Web import `shared/document-content.css` for document rendering. Keep lo
 
 App retains sidebar navigation, header actions, bank grids, question lists, mistakes, favorites, history, settings, service configuration, practice and existing editor/confirmation dialogs. The expanded sidebar is 208px; the collapsed width is unchanged. The resume region shows the saved session title and progress: submitted answers for practice, saved drafts for exams. Bank counts sit below their descriptions, leaving titles room to wrap. Question filters share one surface. Narrow question lists place actions below the summary; Previous/Next remain together in practice.
 
-Web retains its three-step flow, upload/task sidebar and result review panel. Show the steps as one continuous region rather than separate cards, with a semantic current-step indicator. Connection precedes purchasing information; a compact balance strip keeps recharge and ledger controls expandable. The final step reflects a verified ZIP download for the same task/checkpoint, resets when the checkpoint changes and never starts model work. Cost information remains visible before import. See the [2026-10-14 acceptance record](../evidence/2026-10-14-uiux/README.md).
+Web keeps separate import, task history and import-settings pages. Show import steps as one continuous region with a semantic current-step indicator. Connection uses the personal service token. The final step reflects a verified ZIP download for the same task/checkpoint, resets when the checkpoint changes and never starts model work. Result review puts question content, supplied answers and source text before collapsible technical records.
 
 ## Components
 
 Cards use 16px corners and a single thin border without shadows. Reuse existing buttons and fields, events and disabled rules. Primary actions use purple; secondary actions use borders. Current navigation, tasks and answered items use soft-purple surfaces. Answer-card icons and text still convey state, while flagged items use a warning outline. Fields and dialogs use warm-white or warm-purple surfaces; existing components retain disabled, focus and error handling.
 
-Ordinary buttons, inputs, input groups and selects have a desktop minimum height of 40px and a touch minimum of 48px. Desktop icon buttons retain their existing sizes; compact selects are 32px. Panels use 16px corners, controls use `--radius`, menus use 12px and menu items use 8px. Badges remain pill-shaped; checkboxes and radio buttons retain their semantic shapes. English buttons may wrap, with the same minimum height as Chinese buttons.
+Ordinary buttons, inputs, input groups and selects have a desktop minimum height of 40px and a touch minimum of 48px. Desktop xs, sm and lg buttons use 32px, 36px and 44px minimums respectively, including icon buttons; compact selects are 36px. Panels use 16px corners, controls use `--radius`, menus use 12px and menu items use 8px. Badges remain pill-shaped; checkboxes and radio buttons retain their semantic shapes. English buttons may wrap, with the same minimum height as Chinese buttons.
 
 App and import Web reuse Card, Badge, Input and button variants from `shared/ui.tsx`; their local modules retain the public imports. App buttons keep their WebKit focus handling. Both Tailwind entries scan `shared/` for component classes.
 
 App and import Web share the shadcn/Radix single-select component. Desktop browsers use themed popup panels, selected surfaces and checkmarks without relying on `appearance: base-select` support. Coarse primary pointers retain system pickers with the same values and callbacks. Narrow desktop windows keep the custom menu. Both forms preserve labels, disabled states and keyboard selection; resizing preserves the current value.
 
-Web file inputs keep the native file picker. Their filename and selector button share the 40px desktop / 48px touch control height, inner line height and font size, so both text labels remain vertically centered.
+Web file selection keeps a keyboard-accessible native input and a visible Chinese action label, with 40px desktop / 48px touch targets. File selection alone does not upload or start import.
 
 The bank-home Refresh action belongs to the top action group beside New bank and Import. Keep bank pagination below the list, and disable refresh while its read is pending. The import Web header shows the brand; connection errors remain next to their recovery action.
 
@@ -61,3 +61,5 @@ Production continues to use existing local data or the independent service. Demo
 The implementation's recorded workflow used the official `od-code-migration` Skill: read existing code, extract design constraints, map tokens, define scope, implement/build, review the diff and deliver the production theme. The original implementation record attributes execution to Codex; it did not start the OpenDesign desktop app or daemon.
 
 Sources: [OpenDesign Skill](https://github.com/nexu-io/open-design/blob/main/plugins/_official/scenarios/od-code-migration/SKILL.md) and [design-system contract](https://github.com/nexu-io/open-design/blob/main/design-systems/README.md). OpenDesign uses [Apache-2.0](https://github.com/nexu-io/open-design/blob/main/LICENSE); the palette and CSS were written for PractiQ.
+
+Shared spacing, responsive forms, readable submitted answers, fitted image viewing and answer-card help follow the [UI conventions](../ui-design-system.md). See the [2026-10-21 fixes and acceptance gallery](../evidence/2026-10-21-uiux-fixes/README.md).

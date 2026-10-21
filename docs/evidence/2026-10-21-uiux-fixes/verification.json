@@ -1,0 +1,70 @@
+{
+  "appUi": {
+    "passed": 460,
+    "skipped": 3,
+    "statementCoverage": 90.6,
+    "lineCoverage": 93.71
+  },
+  "webUi": {
+    "passed": 147
+  },
+  "appBrowser": {
+    "scenarios": 141,
+    "comprehensive": {
+      "startTime": "2026-10-21T02:13:14.240Z",
+      "duration": 461663.69999999995,
+      "expected": 139,
+      "skipped": 0,
+      "unexpected": 2,
+      "flaky": 0
+    },
+    "focusedLegend": {
+      "startTime": "2026-10-21T02:18:38.795Z",
+      "duration": 12297.32,
+      "expected": 4,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "focusedActions": {
+      "startTime": "2026-10-21T02:20:23.740Z",
+      "duration": 6449.501,
+      "expected": 2,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "resolvedFailures": [
+      {
+        "title": "answer-card status markers match the legend and preserve keyboard navigation in light theme at 390px",
+        "project": "preview",
+        "status": "unexpected"
+      },
+      {
+        "title": "answer-card status markers match the legend and preserve keyboard navigation in dark theme at 390px",
+        "project": "preview",
+        "status": "unexpected"
+      }
+    ],
+    "unresolved": []
+  },
+  "webBrowser": {
+    "passed": 43
+  },
+  "builds": {
+    "app": "passed",
+    "web": "passed"
+  },
+  "detectorFindings": [],
+  "nativeDeviceAcceptance": "not run",
+  "liveServiceAcceptance": "not run",
+  "galleryFilters": {
+    "independentSearchThemeLanguage": "passed",
+    "groupReset": "passed",
+    "observations": [
+      "mobile 1/185; desktop 188/188; web 97/97",
+      "mobile 1/185; desktop English 25/188; web dark 6/97",
+      "reset mobile 185/185; desktop 25/188; web 6/97"
+    ]
+  }
+}
