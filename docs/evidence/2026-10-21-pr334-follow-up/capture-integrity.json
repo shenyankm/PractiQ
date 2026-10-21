@@ -1,0 +1,14 @@
+{
+  "practice-error-360x640.png": {
+    "bytes": 42890,
+    "sha256": "91a4a1396493bc80d04c1b4cf1ef714c057f3a226ba3bae7201d74e1e9cc00f8"
+  },
+  "practice-error-667x375.png": {
+    "bytes": 22384,
+    "sha256": "2b22e0b96e997d15fdf1a7a3922749aa048b258c7ac5167445eb9c45d3890c72"
+  },
+  "practice-error-1280x720.png": {
+    "bytes": 87432,
+    "sha256": "742ddea65c86e3ebb52958a940e6e4515bb39d2fd4deef60ddbc5f77441fe237"
+  }
+}

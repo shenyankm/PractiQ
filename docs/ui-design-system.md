@@ -23,7 +23,8 @@ above full-width controls. Use semantic color tokens for normal, warning, error,
 success, selected, read-only and disabled states.
 
 Practice has one bounded content scroller and a separate footer. The footer must
-never cover content, focused controls or the finish action. Narrow-screen answer
+never cover content, focused controls or the finish action. Failure notices take
+space from the workspace; expanded diagnostics stay bounded and scroll separately. Narrow-screen answer
 cards start collapsed; the View answer card link opens and focuses the existing
 panel. Keep keyboard navigation, status counts and current-question markers.
 Answer and grading states are separate from position/review markers in the help.

@@ -66,3 +66,9 @@ python3 docs/evidence/2026-10-21-uiux-fixes/build-gallery.py
 
 生成器只读取成功测试的采集记录，按平台连续编号，检查文件存在、SHA-256、字节数、编号连续性、重复哈希和 CSV 行数。
 离线索引每个平台拥有独立的搜索、场景、状态、视口、主题、语言和构图筛选器。
+
+## PR review follow-up
+
+The [PR #334 follow-up](../2026-10-21-pr334-follow-up/README.md) records subsequent
+error-banner layout, reference-answer edge cases, image-action semantics and Vite
+security fixes. The 470 captures above retain their original capture provenance.
