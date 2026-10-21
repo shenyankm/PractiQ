@@ -328,6 +328,57 @@ fn restore_validates_saved_answers_against_frozen_questions_before_replacement()
 }
 
 #[test]
+fn restores_backups_with_the_pre_zh_tw_locale_constraint() {
+    let source_dir = tempfile::tempdir().unwrap();
+    let path = source_dir.path().join("practiq.sqlite");
+    let db = Connection::open(&path).unwrap();
+    db.execute_batch(&include_str!("schema.sql").replace("'zh-CN','zh-TW','en'", "'zh-CN','en'"))
+        .unwrap();
+    db.execute_batch("INSERT INTO banks VALUES('old','Old','',1); UPDATE settings SET locale='en',model_id='keep-model',base_url='http://127.0.0.1:8000';")
+        .unwrap();
+    drop(db);
+    let original = fs::read(&path).unwrap();
+    let archive = source_dir.path().join("old.zip");
+    archive_database(&path, &archive);
+    let target_dir = tempfile::tempdir().unwrap();
+    let mut store = Store::new(target_dir.path().to_path_buf()).unwrap();
+    store.restore(&archive).unwrap();
+    assert_eq!(store.banks().unwrap()[0]["id"], "old");
+    assert_eq!(
+        store.language().unwrap(),
+        Some(crate::language::Locale::English)
+    );
+    assert_eq!(
+        store.connection_settings().unwrap().model_id.as_deref(),
+        Some("keep-model")
+    );
+    assert_eq!(fs::read(&path).unwrap(), original);
+    store
+        .save_language(crate::language::Locale::TraditionalChinese)
+        .unwrap();
+    assert_eq!(
+        store.language().unwrap(),
+        Some(crate::language::Locale::TraditionalChinese)
+    );
+    let roundtrip = target_dir.path().join("traditional.zip");
+    store.backup(&roundtrip).unwrap();
+    store
+        .save_language(crate::language::Locale::Chinese)
+        .unwrap();
+    store.restore_recovering(&roundtrip).unwrap();
+    let reopened = Store::new(target_dir.path().to_path_buf()).unwrap();
+    assert_eq!(
+        reopened.language().unwrap(),
+        Some(crate::language::Locale::TraditionalChinese)
+    );
+    assert_eq!(reopened.banks().unwrap()[0]["id"], "old");
+    assert_eq!(
+        reopened.connection_settings().unwrap().model_id.as_deref(),
+        Some("keep-model")
+    );
+}
+
+#[test]
 fn backups_restore_across_lf_and_crlf_schema_sources() {
     for line_ending in ["\n", "\r\n"] {
         let source_dir = tempfile::tempdir().unwrap();
@@ -382,41 +433,49 @@ fn startup_and_restore_reject_noncurrent_schemas_without_changing_data() {
         "DROP INDEX visuals_bank; CREATE INDEX visuals_bank ON visuals(content);",
         "DROP TABLE IF EXISTS question_reviews; CREATE TABLE question_reviews(question_id TEXT PRIMARY KEY);",
     ];
-    for line_ending in ["\n", "\r\n"] {
-        for alteration in alterations {
-            let source_dir = tempfile::tempdir().unwrap();
-            let source_path = source_dir.path().join("practiq.sqlite");
-            let db = Connection::open(&source_path).unwrap();
-            db.execute_batch(
-                &include_str!("schema.sql")
-                    .replace("\r\n", "\n")
-                    .replace('\n', line_ending),
-            )
-            .unwrap();
-            db.execute_batch(alteration).unwrap();
-            drop(db);
-            let original = fs::read(&source_path).unwrap();
-            assert!(
-                Store::new(source_dir.path().to_owned()).is_err(),
-                "{alteration}"
-            );
-            assert_eq!(fs::read(&source_path).unwrap(), original);
-            let archive = source_dir.path().join("invalid.zip");
-            archive_database(&source_path, &archive);
-            let target_dir = tempfile::tempdir().unwrap();
-            let mut target = Store::new(target_dir.path().to_owned()).unwrap();
-            target.save_bank(Some("keep".into()), "Keep", "").unwrap();
-            let before = fs::read(target.db_path()).unwrap();
-            assert_eq!(
-                target.restore(&archive).unwrap_err().code,
-                if alteration.starts_with("PRAGMA user_version") {
-                    "LOCAL_BACKUP_DATABASE_VERSION"
-                } else {
-                    "LOCAL_BACKUP_SCHEMA_UNSUPPORTED"
+    for legacy_settings in [false, true] {
+        for line_ending in ["\n", "\r\n"] {
+            for alteration in alterations {
+                let source_dir = tempfile::tempdir().unwrap();
+                let source_path = source_dir.path().join("practiq.sqlite");
+                let db = Connection::open(&source_path).unwrap();
+                db.execute_batch(
+                    &include_str!("schema.sql")
+                        .replace("\r\n", "\n")
+                        .replace('\n', line_ending),
+                )
+                .unwrap();
+                if legacy_settings {
+                    db.execute_batch("DROP TABLE settings;").unwrap();
+                    db.execute_batch(crate::store::OLD_SETTINGS_SQL).unwrap();
+                    db.execute_batch("INSERT INTO settings VALUES(1,NULL,NULL,NULL);")
+                        .unwrap();
                 }
-            );
-            assert_eq!(fs::read(target.db_path()).unwrap(), before);
-            assert_eq!(target.banks().unwrap()[0]["id"], "keep");
+                db.execute_batch(alteration).unwrap();
+                drop(db);
+                let original = fs::read(&source_path).unwrap();
+                assert!(
+                    Store::new(source_dir.path().to_owned()).is_err(),
+                    "{alteration}"
+                );
+                assert_eq!(fs::read(&source_path).unwrap(), original);
+                let archive = source_dir.path().join("invalid.zip");
+                archive_database(&source_path, &archive);
+                let target_dir = tempfile::tempdir().unwrap();
+                let mut target = Store::new(target_dir.path().to_owned()).unwrap();
+                target.save_bank(Some("keep".into()), "Keep", "").unwrap();
+                let before = fs::read(target.db_path()).unwrap();
+                assert_eq!(
+                    target.restore(&archive).unwrap_err().code,
+                    if alteration.starts_with("PRAGMA user_version") {
+                        "LOCAL_BACKUP_DATABASE_VERSION"
+                    } else {
+                        "LOCAL_BACKUP_SCHEMA_UNSUPPORTED"
+                    }
+                );
+                assert_eq!(fs::read(target.db_path()).unwrap(), before);
+                assert_eq!(target.banks().unwrap()[0]["id"], "keep");
+            }
         }
     }
 }

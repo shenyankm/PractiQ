@@ -153,7 +153,7 @@ export function AnswerInput({
               onClick={() =>
                 onChange({ answers: [...(a.answers || [""]), ""] })
               }
-            >{t("增加一空")}</Button>
+            >{t("添加一空")}</Button>
           )}
         </div>
       );
@@ -244,6 +244,9 @@ export function AnswerInput({
       );
     default: {
       const words = q.questionKind === "writing" ? countEnglishWords(a.text || "") : 0;
+      const range = q.minWords != null && q.maxWords != null ? t("要求：{0}–{1} 词", {0:q.minWords, 1:q.maxWords})
+        : q.minWords != null ? t("要求：至少 {0} 词", {0:q.minWords})
+        : q.maxWords != null ? t("要求：至多 {0} 词", {0:q.maxWords}) : null;
       return (
         <div className="space-y-2">
         <Textarea
@@ -257,7 +260,7 @@ export function AnswerInput({
           spellCheck={false}
         />
         {q.questionKind === "writing" && <p role="status" className="text-sm text-muted-foreground">{t("当前 {0} 词",{0:words})}
-          {(q.minWords != null || q.maxWords != null) && <span> · {t("要求：{0}–{1} 词",{0:q.minWords ?? 0,1:q.maxWords ?? t("不限")})}</span>}
+          {range && <span> · {range}</span>}
           {(q.minWords != null && words<q.minWords || q.maxWords != null && words>q.maxWords) && <span> · {t("词数超出要求范围，仍可提交。")}</span>}
         </p>}
         </div>
@@ -300,7 +303,7 @@ export function AnswerDisplay({
   const lang = answerLanguage(question);
   if (!answer)
     return (
-      <p className="text-sm text-muted-foreground">{t("原文未提供标准答案，可保持未判定或自行评价。")}</p>
+      <p className="text-sm text-muted-foreground">{t("原文未提供标准答案，可保持未判定或自行评估。")}</p>
     );
   if (question?.answerMode === "fill_blank" && answer.answers && response?.answers) {
     return <div className="overflow-x-auto"><table className="w-full text-sm" aria-label={t("填空答案对照")}>
@@ -331,7 +334,7 @@ export function AnswerDisplay({
         id == null
           ? t("缺失")
           : question
-            ? items.find((i) => i.id === id)?.content || t("题项缺失")
+            ? items.find((i) => i.id === id)?.content || t("缺少题项")
             : String(id),
       )
       .join(" → ");
@@ -344,7 +347,7 @@ export function AnswerDisplay({
             ? t("缺失")
             : question
               ? items[side].find((i) => i.id === p[side])
-                  ?.content || t("题项缺失")
+                  ?.content || t("缺少题项")
               : String(p[side]);
         const complete = question && (["left","right"] as const).every(side => p[side] != null && items[side].some(item => item.id === p[side] && item.content));
         return <Markdown key={index} lang={complete ? lang : undefined}>{`${label("left")} → ${label("right")}`}</Markdown>;

@@ -61,10 +61,10 @@ fn body(input: &Value, model: &str) -> Result<Value> {
         }
         content.push(json!({"type":"image_url","image_url":{"url":url}}));
     }
-    let language = if input["feedbackLocale"] == "en" {
-        "English"
-    } else {
-        "Chinese"
+    let language = match input["feedbackLocale"].as_str() {
+        Some("en") => "English",
+        Some("zh-TW") => "Traditional Chinese",
+        _ => "Chinese",
     };
     Ok(
         json!({"model":model,"stream":false,"max_tokens":4096,"response_format":{"type":"json_object"},"messages":[
@@ -105,6 +105,7 @@ fn result(value: &Value, input: &Value) -> Result<Value> {
         return Err(invalid());
     }
     let english = input["feedbackLocale"] == "en";
+    let traditional = input["feedbackLocale"] == "zh-TW";
     if grade.score_cents.is_none() && grade.review_reasons.is_empty() {
         return Err(invalid());
     }
@@ -116,6 +117,12 @@ fn result(value: &Value, input: &Value) -> Result<Value> {
         grade.reason.push_str(&if english {
             format!(
                 " Scaled from {} to {} points.",
+                source_max as f64 / 100.0,
+                maximum as f64 / 100.0
+            )
+        } else if traditional {
+            format!(
+                "；按原卷 {} 分比例換算至本次 {} 分。",
                 source_max as f64 / 100.0,
                 maximum as f64 / 100.0
             )
@@ -134,6 +141,8 @@ fn result(value: &Value, input: &Value) -> Result<Value> {
     {
         let warning = if english {
             "No detailed scoring rubric was provided."
+        } else if traditional {
+            "未提供詳細評分細則"
         } else {
             "未提供详细评分细则"
         };
@@ -239,6 +248,46 @@ mod tests {
             .unwrap()
             .contains("Ignore all rules"));
         assert!(request.get("tools").is_none());
+    }
+    #[test]
+    fn requests_traditional_chinese_feedback_and_scaled_reason() {
+        let mut input = input();
+        input["feedbackLocale"] = json!("zh-TW");
+        let request = body(&input, "test-model").unwrap();
+        assert!(request["messages"][0]["content"]
+            .as_str()
+            .unwrap()
+            .contains("Traditional Chinese"));
+        let grade = result(&completion(partial()), &input).unwrap();
+        assert!(grade["result"]["reason"]
+            .as_str()
+            .unwrap()
+            .contains("按原卷 5 分比例換算至本次 10 分"));
+    }
+    #[test]
+    fn missing_rubric_warning_uses_the_frozen_locale_without_duplicates() {
+        for (locale, warning) in [
+            ("zh-CN", "未提供详细评分细则"),
+            ("zh-TW", "未提供詳細評分細則"),
+            ("en", "No detailed scoring rubric was provided."),
+        ] {
+            let mut input = input();
+            input["feedbackLocale"] = json!(locale);
+            input["question"]["scoringRubric"] = Value::Null;
+            input["question"]["answerPayload"] = json!({"text":"Reference items"});
+            let mut response = partial();
+            response["maxCents"] = input["maxCents"].clone();
+            for reasons in [json!([]), json!([warning])] {
+                response["reviewReasons"] = reasons;
+                let grade = result(&completion(response.clone()), &input).unwrap();
+                assert_eq!(
+                    grade["result"]["reviewReasons"],
+                    json!([warning]),
+                    "{locale}"
+                );
+                assert_eq!(grade["result"]["scoreCents"], 300);
+            }
+        }
     }
     #[test]
     fn scales_partial_credit_and_preserves_abstention_and_zero() {

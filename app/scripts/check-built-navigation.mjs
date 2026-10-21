@@ -4,6 +4,7 @@ import { test, expect } from 'playwright/test';
 // the installed APK still needs its own Android navigation acceptance.
 const languages = [
   { locale: 'zh-CN', open: '打开主导航', drawer: '主导航', banks: '我的题库', nav: ['我的题库', '错题本', '收藏夹', '练习记录', '设置'], theme: '主题', language: '语言', close: '关闭' },
+  { locale: 'zh-TW', open: '開啟主導航', drawer: '主導航', banks: '我的題庫', nav: ['我的題庫', '錯題本', '收藏夾', '練習紀錄', '設定'], theme: '主題', language: '語言', close: '關閉' },
   { locale: 'en', open: 'Open navigation', drawer: 'Main navigation', banks: 'My banks', nav: ['My banks', 'Mistakes', 'Favorites', 'History', 'Settings'], theme: 'Theme', language: 'Language', close: 'Close' },
 ];
 

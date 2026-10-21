@@ -22,7 +22,7 @@ const fileLabels: Record<FileItem["state"], string> = { ready: "尚未提交", h
 const errorText = (error: unknown) => error instanceof ApiError ? error.message : "读取或操作失败，请手动重试。";
 const authFailure = (error: unknown) => error instanceof ApiError && [401, 403].includes(error.status);
 const pollRetryDelay = (failures: number) => Math.min(30_000, 3000 * 2 ** Math.min(failures - 1, 4)) * (0.8 + Math.random() * 0.2);
-const sizeLabel = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+const sizeLabel = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1)} MiB`;
 
 function Progress({ task }: { task: DocumentTaskDetail }) {
   const jobs = task.parserJobs || [];
@@ -272,19 +272,19 @@ export default function App() {
             {!capabilities ? <p>正在读取服务支持的格式与限制…</p> : <>
               <p id="file-help" className="text-sm text-muted-foreground">最多 {MAX_FILES} 个文件 · 每个 ≤ {sizeLabel(sourceLimit(capabilities))}{capabilities.officeAvailable && sourceLimit(capabilities, "docx") < sourceLimit(capabilities) && ` · Word / Excel ≤ ${sizeLabel(sourceLimit(capabilities, "docx"))}`}</p>
               <label className="file-picker"><FileText /><span>选择文档</span><span className="file-picker-action">选择文件</span><Input className="sr-only" ref={fileInput} type="file" multiple aria-label="选择文档" aria-describedby="file-help" aria-invalid={!!fileError} accept={capabilities.sourceTypes.map(type => sourceExtensions[type]).join(",")} disabled={busy} onChange={event => chooseFiles(Array.from(event.target.files || []))} /></label>
-              <p className="text-xs text-muted-foreground">服务支持：{capabilities.sourceTypes.map(type => formatLabels[type]).join("、")}{capabilities.parserConfigured === false && "。腾讯解析尚未配置，当前无法开始新的文档导入。"}</p>
+              <p className="text-xs text-muted-foreground">服务支持：{capabilities.sourceTypes.map(type => formatLabels[type]).join("、")}{capabilities.parserConfigured === false && "。腾讯文档识别尚未配置，当前无法开始新的文档导入。"}</p>
               <div className="space-y-1"><label className="review-checkbox"><input type="checkbox" aria-describedby="dedup-help" checked={deduplicateQuestions} disabled={busy || !!files.length && !files.some(file => file.state === "ready")} onChange={event => setDeduplicateQuestions(event.target.checked)} />自动去重</label><p id="dedup-help" className="text-xs text-muted-foreground">仅去除完全相同的题目或整组复合题；关闭则全部保留。</p></div>
               <details className="text-sm text-muted-foreground"><summary className="cursor-pointer">格式与导入规则</summary><div className="space-y-2 pt-2">
-                <p>所有支持的格式统一使用腾讯异步解析，再由 AI 整理题库；不支持 CSV 导入。当前传输上限 {sizeLabel(capabilities.parserInputMaxBytes ?? 8 * 1024 * 1024)}，还受文件类型和部署限制；超限时由服务端切分，XLS 和大 Office 文件需要转换器。默认使用本地文件，服务端可主动开启私有 COS 中转。</p>
+                <p>所有支持的格式统一使用腾讯文档识别，再由 AI 整理题库；不支持 CSV 导入。当前传输上限 {sizeLabel(capabilities.parserInputMaxBytes ?? 8 * 1024 * 1024)}，还受文件类型和部署限制；超限时由服务端切分，XLS 和大 Office 文件需要转换器。默认使用本地文件，服务端可主动开启私有 COS 中转。</p>
                 <p>未启用去重时仍会提示重复候选。</p>
                 <p>AI 复核会对照原文检查，最多修正一轮。</p>
-                <p>下载的 ZIP 可在 App 的「设置 → 恢复备份 → 导入题库 ZIP」中追加。</p>
+                <p>下载的 ZIP 可在应用的“设置 → 恢复备份 → 导入题库 ZIP”中追加。</p>
               </div></details>
               {!capabilities.modelConfigured && <p className="notice">服务端尚未配置模型，暂不能开始解析。</p>}
               {fileError && <p role="alert" className="text-destructive">{fileError}</p>}
-              {!!files.length && <ul className="file-list">{files.map(item => <li key={item.id}><div><strong>{item.file.name}</strong><span>{sizeLabel(item.file.size)} · {fileLabels[item.state]} · {formatLabels[fileFormat(item.file).sourceType]} · 腾讯解析 → AI 整理</span>{item.error && <><p role="alert" className="text-destructive">{item.error}</p><small>原提交请求 ID：{item.requestId ?? item.id}</small></>}</div>{["ready", "failed"].includes(item.state) && <Button size="icon" variant="ghost" disabled={busy} aria-label={`移除文件 ${item.file.name}`} onClick={() => setFiles(previous => previous.filter(file => file.id !== item.id))}><Trash2 /></Button>}{item.state === "failed" && <Button size="sm" variant="outline" disabled={busy || capabilities.parserConfigured === false || !capabilities.modelConfigured} onClick={() => void start([item])}>重试开始</Button>}</li>)}</ul>}
+              {!!files.length && <ul className="file-list">{files.map(item => <li key={item.id}><div><strong>{item.file.name}</strong><span>{sizeLabel(item.file.size)} · {fileLabels[item.state]} · {formatLabels[fileFormat(item.file).sourceType]} · 腾讯文档识别 → AI 整理</span>{item.error && <><p role="alert" className="text-destructive">{item.error}</p><small>原提交请求 ID：{item.requestId ?? item.id}</small></>}</div>{["ready", "failed"].includes(item.state) && <Button size="icon" variant="ghost" disabled={busy} aria-label={`移除文件 ${item.file.name}`} onClick={() => setFiles(previous => previous.filter(file => file.id !== item.id))}><Trash2 /></Button>}{item.state === "failed" && <Button size="sm" variant="outline" disabled={busy || capabilities.parserConfigured === false || !capabilities.modelConfigured} onClick={() => void start([item])}>重试开始</Button>}</li>)}</ul>}
               {capabilities.modelBudget && <p className="notice">每任务预算 {capabilities.modelBudget.limit} 次：按完整预留计算，普通单元最多 {Math.floor(capabilities.modelBudget.limit / capabilities.modelBudget.unitCalls)} 个，带上下文的视觉单元最多 {Math.floor(capabilities.modelBudget.limit / capabilities.modelBudget.contextUnitCalls)} 个。混合任务共享预算；单元数量不等于页数，重试仍占用预算，剩余预算不足时可能仅有部分结果。</p>}
-              <p className="text-xs text-muted-foreground">点击「开始导入」后上传并调用模型。启用 AI 复核会增加调用与费用，结果仍需人工核对。</p>
+              <p className="text-xs text-muted-foreground">点击“开始导入”后上传并调用模型。启用 AI 复核会增加调用与费用，结果仍需人工核对。</p>
               <Button className="w-full" disabled={busy || capabilities.parserConfigured === false || !capabilities.modelConfigured || !files.some(file => file.state === "ready")} onClick={() => void start(files.filter(file => file.state === "ready"))}>{busy ? <LoaderCircle className="loading-icon" /> : <Play />}开始导入</Button>
               {files.some(file => file.state === "failed") && <p className="text-xs text-muted-foreground">本批次已停止，剩余文件尚未提交。失败提交的原文件、请求 ID 和参数已保留，重新选文件不会覆盖。请先刷新任务列表核对结果，再手动“重试开始”沿用原请求；移除文件只清理本页队列，不会取消服务端任务。刷新或关闭页面会丢失此记录。</p>}
             </>}
@@ -305,7 +305,7 @@ export default function App() {
   const detailContent = client && (<section id="task-detail" tabIndex={-1} className="task-panel" aria-label="任务详情">
           <a className="workspace-link" href="#task-list-heading">返回任务列表</a>
 
-          {deleteTarget && <div ref={deletePrompt} tabIndex={-1} onKeyDown={event => { if (event.key === "Escape" && !busy) setDeleteTarget(null); }} className="notice delete-confirmation" role="group" aria-label="删除任务确认"><p>确认删除「{deleteTarget.fileName}」及其检查点？已下载的题库不受影响。</p><div className="flex gap-2 mt-3"><Button variant="destructive" disabled={busy} onClick={() => void run(async current => { await current.delete(deleteTarget.threadId); if (current.active) { deleteCompleted.current = true; setSelected(value => value === deleteTarget.threadId ? null : value); setListRevision(value => value + 1); setDeleteTarget(null); setNotice("任务已删除。"); } })}>确认删除</Button><Button variant="outline" disabled={busy} onClick={() => setDeleteTarget(null)}>保留任务</Button></div></div>}
+          {deleteTarget && <div ref={deletePrompt} tabIndex={-1} onKeyDown={event => { if (event.key === "Escape" && !busy) setDeleteTarget(null); }} className="notice delete-confirmation" role="group" aria-label="删除任务确认"><p>确认删除“{deleteTarget.fileName}”及其检查点？已下载的题库不受影响。</p><div className="flex gap-2 mt-3"><Button variant="destructive" disabled={busy} onClick={() => void run(async current => { await current.delete(deleteTarget.threadId); if (current.active) { deleteCompleted.current = true; setSelected(value => value === deleteTarget.threadId ? null : value); setListRevision(value => value + 1); setDeleteTarget(null); setNotice("任务已删除。"); } })}>确认删除</Button><Button variant="outline" disabled={busy} onClick={() => setDeleteTarget(null)}>保留任务</Button></div></div>}
           {!selected ? <div className="empty-panel"><FileText /><h2>选择一个任务查看结果</h2></div> : <>
             {detailError && <div className="error-banner" role="alert"><span className="min-w-0 flex-1">{detailError}</span><Button variant="outline" onClick={() => setDetailRevision(value => value + 1)}>重试任务详情</Button></div>}
             {previewError && <div className="error-banner" role="alert"><span className="min-w-0 flex-1">{previewError}</span><Button variant="outline" onClick={() => setDetailRevision(value => value + 1)}>重试检查点预览</Button></div>}
@@ -339,7 +339,7 @@ export default function App() {
         {operationError && <div ref={operationNotice} className="error-banner" role="alert"><span className="min-w-0 flex-1">{operationError}</span></div>}
         {busy && <p role="status" className="operation-status"><LoaderCircle className="loading-icon" aria-hidden="true" />正在处理当前操作，请勿重复提交。</p>}
         <div hidden={page !== "import"} className="import-page">
-          <ol className="import-steps" aria-label="文档导入流程">{[["选择并导入", "选择文件后开始解析"], ["检查解析结果", "到导入记录核对题目与答案"], ["导出题库", "下载 ZIP，在 App 中离线练习"]].map(([title, description], index) => <li key={title} aria-current={index === 0 ? "step" : undefined}><span>{index + 1}</span><div><strong>{title}</strong><p>{description}</p></div></li>)}</ol>
+          <ol className="import-steps" aria-label="文档导入流程">{[["选择并导入", "选择文件后开始解析"], ["检查解析结果", "到导入记录核对题目与答案"], ["导出题库", "下载 ZIP，在应用中离线练习"]].map(([title, description], index) => <li key={title} aria-current={index === 0 ? "step" : undefined}><span>{index + 1}</span><div><strong>{title}</strong><p>{description}</p></div></li>)}</ol>
           {importContent}
         </div>
         <div hidden={page !== "records"} className="records-page">{recordsContent}{detailContent}</div>

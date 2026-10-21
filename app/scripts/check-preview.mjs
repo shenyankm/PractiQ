@@ -174,7 +174,7 @@ test('study rules and backup details remain available on desktop and narrow scre
   await expect(dialog.getByRole('button',{name:'预览题目与配分',exact:true})).toBeVisible();
   await expect(dialog.getByRole('button',{name:'开始考试',exact:true})).toBeHidden();
   await chooseOption(dialog.getByRole('combobox',{name:/^模式/}), 'mock_exam');
-  await expect(dialog.getByText('到时自动交卷，关闭应用仍会计时。',{exact:true})).toBeVisible();
+  await expect(dialog.getByText('到时自动交卷，关闭应用后仍会计时。',{exact:true})).toBeVisible();
   await expect(dialog.getByRole('button',{name:'预览题目与配分',exact:true})).toBeEnabled();
   await dialog.getByText('高级设置 · 题库、筛选与选题方式',{exact:true}).click();
   await expect(dialog.getByRole('combobox',{name:'选题方式',exact:true})).toBeVisible();
@@ -407,7 +407,7 @@ test('incomplete question reference fallbacks close after reverting text and kee
    const button=page.getByRole('button',{name:new RegExp(`^${title}`)}).locator('..').getByRole('button',{name:/^题目更多操作/});
    await button.evaluate(node=>node.scrollIntoView({block:'center'}));
    await page.mouse.move(0,0);
-   await expect(page.getByText('题目已保存，历史练习不受影响',{exact:true})).toBeHidden();
+   await expect(page.getByText('题目已保存，练习历史不受影响。',{exact:true})).toBeHidden();
    await editQuestion(page, button);
   };
   for(const dismiss of ['Escape','close','outside']){
@@ -627,7 +627,7 @@ for(const scenario of ['empty','many','unconfigured','missing','slow','error']) 
   await page.goto('/');
   await expect(page.getByRole('heading',{name:'我的题库',exact:true})).toBeVisible();
   if(scenario==='empty') {
-   await expect(page.getByText('从第一份题库开始',{exact:true})).toBeVisible();
+   await expect(page.getByText('从第一个题库开始',{exact:true})).toBeVisible();
    await page.getByRole('button',{name:'导入题库 ZIP',exact:true}).click();
    await expect(page.getByRole('menuitem',{name:'恢复学习数据备份',exact:true})).toBeVisible();
    await page.getByRole('menuitem',{name:'导入题库 ZIP',exact:true}).click();
@@ -1015,7 +1015,7 @@ for (const width of [360, 390, 1280]) {
   const dialog=page.getByRole('dialog');
   await chooseOption(dialog.getByRole('combobox',{name:/^模式/}), 'mock_exam');
   await dialog.getByLabel('考试分钟数',{exact:true}).fill('45');
-  await expect(dialog.getByRole('group',{name:'快捷题数'})).toBeVisible();
+  await expect(dialog.getByRole('group',{name:'快捷选题'})).toBeVisible();
   await page.screenshot({path:testInfo.outputPath(`setup-${width}.png`)});
   await dialog.getByRole('button',{name:'预览题目与配分',exact:true}).click();
   await expect(dialog.getByRole('heading',{name:'检查题目与配分'})).toBeFocused();

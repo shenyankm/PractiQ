@@ -8,6 +8,8 @@ pub enum Locale {
     #[serde(rename = "zh-CN")]
     #[default]
     Chinese,
+    #[serde(rename = "zh-TW")]
+    TraditionalChinese,
     #[serde(rename = "en")]
     English,
 }
@@ -15,14 +17,15 @@ impl Locale {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Chinese => "zh-CN",
+            Self::TraditionalChinese => "zh-TW",
             Self::English => "en",
         }
     }
-    pub fn text<'a>(self, chinese: &'a str, english: &'a str) -> &'a str {
-        if self == Self::Chinese {
-            chinese
-        } else {
-            english
+    pub fn text<'a>(self, simplified: &'a str, traditional: &'a str, english: &'a str) -> &'a str {
+        match self {
+            Self::Chinese => simplified,
+            Self::TraditionalChinese => traditional,
+            Self::English => english,
         }
     }
 }
@@ -96,7 +99,14 @@ mod tests {
         );
         let backup = dir.path().join("backup.zip");
         store.backup(&backup).unwrap();
-        store.save_language(Locale::Chinese).unwrap();
+        store.save_language(Locale::TraditionalChinese).unwrap();
+        assert_eq!(
+            Store::new(dir.path().to_path_buf())
+                .unwrap()
+                .language()
+                .unwrap(),
+            Some(Locale::TraditionalChinese)
+        );
         store.restore(&backup).unwrap();
         assert_eq!(store.language().unwrap(), Some(Locale::English));
         assert!(serde_json::from_value::<Locale>(json!("fr")).is_err());
@@ -120,7 +130,57 @@ mod tests {
             let translated = message(code, &json!({}), Locale::English);
             assert!(translated.starts_with("This file"));
             assert_ne!(translated, message(code, &json!({}), Locale::Chinese));
+            assert_ne!(
+                translated,
+                message(code, &json!({}), Locale::TraditionalChinese)
+            );
         }
+    }
+    #[test]
+    fn old_locale_constraint_upgrades_without_losing_data() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("practiq.sqlite");
+        let db = rusqlite::Connection::open(&path).unwrap();
+        db.execute_batch(
+            &include_str!("schema.sql").replace("'zh-CN','zh-TW','en'", "'zh-CN','en'"),
+        )
+        .unwrap();
+        db.execute_batch(
+            "UPDATE settings SET model_id='keep-model', base_url='http://127.0.0.1:8000'; \
+             INSERT INTO banks VALUES('keep-bank','Keep','',1);",
+        )
+        .unwrap();
+        drop(db);
+        let mut store = Store::new(dir.path().to_path_buf()).unwrap();
+        assert_eq!(store.banks().unwrap()[0]["id"], "keep-bank");
+        assert_eq!(
+            store.connection_settings().unwrap().model_id.as_deref(),
+            Some("keep-model")
+        );
+        store.save_language(Locale::TraditionalChinese).unwrap();
+        assert_eq!(
+            Store::new(dir.path().to_path_buf())
+                .unwrap()
+                .language()
+                .unwrap(),
+            Some(Locale::TraditionalChinese)
+        );
+    }
+    #[test]
+    fn failed_locale_upgrade_rolls_back_the_settings_table_and_data() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("practiq.sqlite");
+        let db = rusqlite::Connection::open(&path).unwrap();
+        db.execute_batch(
+            &include_str!("schema.sql").replace("'zh-CN','zh-TW','en'", "'zh-CN','en'"),
+        )
+        .unwrap();
+        db.execute_batch("PRAGMA ignore_check_constraints=ON; UPDATE settings SET locale='fr',model_id='keep-model'; INSERT INTO banks VALUES('keep-bank','Keep','',1);")
+            .unwrap();
+        drop(db);
+        let original = std::fs::read(&path).unwrap();
+        assert!(Store::new(dir.path().to_path_buf()).is_err());
+        assert_eq!(std::fs::read(&path).unwrap(), original);
     }
     #[test]
     fn failed_language_write_preserves_preference_and_model_settings() {

@@ -282,7 +282,7 @@ function PracticeQuestion({
           {!exam && <p role="status" aria-label={t("答题状态")} aria-live="polite" aria-atomic="true" className="sr-only">{submitted ? t("第 {0} 题：{1}", {0:attempt.ordinal+1,1:resultLabel}) : ""}</p>}
           <Content snapshot={attempt.snapshot} exam={exam&&!handedIn} revealOriginal={exam ? handedIn : submitted} materialDialog
             materialReading={materialReading} compactGroups onBlank={blankTargets.length ? onBlank : undefined} blankAnswers={blankAnswers}/>
-          {materialSiblings.length > 1 && <nav className="flex flex-wrap gap-2" aria-label={t("题组子题")}>
+          {materialSiblings.length > 1 && <nav className="flex flex-wrap gap-2" aria-label={t("本组子题")}>
             {materialSiblings.slice(siblingPage * 30, siblingPage * 30 + 30).map(a=><Button key={a.ordinal} aria-current={a.ordinal===session.position?"step":undefined} variant={a.ordinal===session.position?"secondary":"outline"} size="sm" onClick={()=>go(a.ordinal)}>{a.ordinal+1}</Button>)}
             {materialSiblings.length > 30 && <div className="flex w-full items-center justify-between gap-3 text-sm">
               <span>{t("第 {0}–{1} 项", { 0: siblingPage * 30 + 1, 1: Math.min(siblingPage * 30 + 30, materialSiblings.length) })}</span>

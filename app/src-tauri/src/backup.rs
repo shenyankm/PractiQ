@@ -598,6 +598,10 @@ pub(crate) fn validate_database_schema(path: &Path) -> Result<i64> {
         .map_err(err)?;
     db.execute_batch("PRAGMA trusted_schema=OFF;")
         .map_err(err)?;
+    validate_database_connection(&db)
+}
+
+pub(crate) fn validate_database_connection(db: &Connection) -> Result<i64> {
     let version: i64 = db
         .query_row("PRAGMA user_version", [], |r| r.get(0))
         .map_err(err)?;
@@ -623,7 +627,23 @@ pub(crate) fn validate_database_schema(path: &Path) -> Result<i64> {
     expected
         .execute_batch(include_str!("schema.sql"))
         .map_err(err)?;
-    if schema(&db)? != schema(&expected)? {
+    let expected = schema(&expected)?;
+    let current_settings = expected
+        .iter()
+        .find(|row| row.starts_with("table:settings:"))
+        .cloned();
+    // Backups written before the zh-TW locale only differ by the settings CHECK.
+    let candidate = schema(db)?
+        .into_iter()
+        .map(|row| {
+            if row == format!("table:settings:{}", crate::store::OLD_SETTINGS_SQL) {
+                current_settings.clone().unwrap_or(row)
+            } else {
+                row
+            }
+        })
+        .collect::<Vec<_>>();
+    if candidate != expected {
         return Err(crate::language::error(
             "LOCAL_BACKUP_SCHEMA_UNSUPPORTED",
             serde_json::json!({}),
@@ -636,7 +656,10 @@ fn validate_database_contents(db: &Connection) -> Result<()> {
     let locale: Option<String> = db
         .query_row("SELECT locale FROM settings WHERE id=1", [], |r| r.get(0))
         .map_err(err)?;
-    if locale.as_deref().is_some_and(|v| v != "zh-CN" && v != "en") {
+    if locale
+        .as_deref()
+        .is_some_and(|v| v != "zh-CN" && v != "zh-TW" && v != "en")
+    {
         return Err("Invalid locale".into());
     }
     let config = db

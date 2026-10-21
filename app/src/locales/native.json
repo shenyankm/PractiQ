@@ -1,890 +1,1112 @@
 {
   "LOCAL_REVIEW_ROOT_INVALID": {
-    "zh-CN": "请选择完整题目确认或撤销复核",
-    "en": "Select a complete question to confirm or undo its review"
+    "zh-CN": "请选择完整题目确认或撤销复核。",
+    "en": "Select a complete question to confirm or undo its review.",
+    "zh-TW": "請選擇完整題目以確認或取消複核。"
   },
   "LOCAL_WORK_UNAVAILABLE": {
-    "zh-CN": "工作状态不可用",
-    "en": "Work state is unavailable"
+    "zh-CN": "工作状态不可用。",
+    "en": "Practice state is unavailable.",
+    "zh-TW": "工作狀態不可用。"
   },
   "LOCAL_RESTORE_BUSY": {
-    "zh-CN": "请等待当前 AI 评分请求结束后，再恢复备份",
-    "en": "Wait for the current AI grading request to finish before restoring a backup."
+    "zh-CN": "请等待当前 AI 评分请求结束后，再恢复备份。",
+    "en": "Wait for the current AI grading request to finish before restoring a backup.",
+    "zh-TW": "請等待目前的 AI 評分請求結束後，再還原備份。"
   },
   "LOCAL_DATABASE_UNAVAILABLE": {
-    "zh-CN": "数据库不可用",
-    "en": "Database is unavailable"
+    "zh-CN": "数据库不可用。",
+    "en": "Database is unavailable.",
+    "zh-TW": "資料庫不可用。"
   },
   "LOCAL_REGULAR_FILE_REQUIRED": {
-    "zh-CN": "请选择普通文件",
-    "en": "Choose a regular file"
+    "zh-CN": "请选择普通文件。",
+    "en": "Choose a regular file.",
+    "zh-TW": "請選擇一般檔案。"
   },
   "LOCAL_FILE_TOO_LARGE": {
-    "zh-CN": "文件超过大小限制",
-    "en": "File exceeds the size limit"
+    "zh-CN": "文件超过大小限制。",
+    "en": "File exceeds the size limit.",
+    "zh-TW": "檔案超過大小限制。"
   },
   "LOCAL_IMPORT_MISSING": {
-    "zh-CN": "没有待导入文件",
-    "en": "No file is ready to import"
+    "zh-CN": "没有待导入文件。",
+    "en": "No file is ready to import.",
+    "zh-TW": "沒有待匯入檔案。"
   },
   "LOCAL_JSON_REQUIRED": {
-    "zh-CN": "请先选择 JSON",
-    "en": "Choose a JSON file first"
+    "zh-CN": "请先选择 JSON。",
+    "en": "Choose a JSON file first.",
+    "zh-TW": "請先選擇 JSON。"
   },
   "LOCAL_RESOURCE_PATH_UNSAFE": {
-    "zh-CN": "资源路径不安全: {key}",
-    "en": "Unsafe resource path: {key}"
+    "zh-CN": "资源路径不安全：{key}。",
+    "en": "Unsafe resource path: {key}.",
+    "zh-TW": "資源路徑不安全：{key}。"
   },
   "LOCAL_RESOURCE_PATH_OUTSIDE": {
-    "zh-CN": "资源路径越界: {key}",
-    "en": "Resource path is outside the allowed directory: {key}"
+    "zh-CN": "资源路径越界：{key}。",
+    "en": "Resource path is outside the allowed directory: {key}.",
+    "zh-TW": "資源路徑超出範圍：{key}。"
   },
   "LOCAL_RESOURCE_CHECKSUM_MISMATCH": {
-    "zh-CN": "资源大小或 SHA-256 不匹配: {key}",
-    "en": "Resource size or SHA-256 does not match: {key}"
+    "zh-CN": "资源大小或 SHA-256 不匹配：{key}。",
+    "en": "Resource size or SHA-256 does not match: {key}.",
+    "zh-TW": "資源大小或 SHA-256 不符：{key}。"
   },
   "LOCAL_IMAGE_FORMAT_MISMATCH": {
-    "zh-CN": "图片实际格式不匹配: {key}",
-    "en": "Actual image format does not match: {key}"
+    "zh-CN": "图片实际格式不匹配：{key}。",
+    "en": "Actual image format does not match: {key}.",
+    "zh-TW": "圖片實際格式不符：{key}。"
   },
   "LOCAL_RESOURCES_TOO_LARGE": {
-    "zh-CN": "单次资源总量超过 256 MiB",
-    "en": "Combined resources exceed 256 MiB"
+    "zh-CN": "单次资源总量超过 256 MiB。",
+    "en": "Combined resources exceed 256 MiB.",
+    "zh-TW": "單次資源總量超過 256 MiB。"
   },
   "LOCAL_IMPORT_PREVIEW_EXPIRED": {
-    "zh-CN": "导入预览已失效，请重新选择 JSON",
-    "en": "Import preview expired. Choose the JSON file again."
+    "zh-CN": "导入预览已失效，请重新选择 JSON。",
+    "en": "Import preview expired. Choose the JSON file again.",
+    "zh-TW": "匯入預覽已失效，請重新選擇 JSON。"
   },
   "LOCAL_IMPORT_EXPIRED": {
-    "zh-CN": "导入预览已失效",
-    "en": "Import preview expired"
+    "zh-CN": "导入预览已失效。",
+    "en": "Import preview expired.",
+    "zh-TW": "匯入預覽已失效。"
   },
   "LOCAL_BANK_MISSING": {
-    "zh-CN": "题库已不存在，请重新选择",
-    "en": "The bank no longer exists. Select another bank."
+    "zh-CN": "题库已不存在，请重新选择。",
+    "en": "The bank no longer exists. Select another bank.",
+    "zh-TW": "題庫已不存在，請重新選擇。"
   },
   "LOCAL_DESCRIPTION_TOO_LONG": {
-    "zh-CN": "说明过长",
-    "en": "Description is too long"
+    "zh-CN": "说明过长。",
+    "en": "Description is too long.",
+    "zh-TW": "說明過長。"
   },
   "LOCAL_FAVORITE_DELETED": {
-    "zh-CN": "原题已删除，不能修改收藏",
-    "en": "The original question was deleted; its favorite status cannot be changed"
+    "zh-CN": "原题已删除，不能修改收藏。",
+    "en": "The original question was deleted; its favorite status cannot be changed.",
+    "zh-TW": "原題已刪除，不能變更收藏。"
   },
   "LOCAL_EXAM_LOCKED": {
-    "zh-CN": "考试请统一交卷；交卷后不能修改作答",
-    "en": "Submit the exam as a whole. Answers cannot be changed after submission."
+    "zh-CN": "考试请统一交卷；交卷后不能修改作答。",
+    "en": "Submit the exam as a whole. Answers cannot be changed after submission.",
+    "zh-TW": "考試請統一交卷；交卷後不能變更作答。"
   },
   "LOCAL_ANSWER_INVALID": {
-    "zh-CN": "作答数据不合法",
-    "en": "Invalid answer data"
+    "zh-CN": "作答数据不合法。",
+    "en": "Invalid answer data.",
+    "zh-TW": "作答資料不合法。"
   },
   "LOCAL_PRACTICE_FINISHED": {
-    "zh-CN": "练习已结束，不能修改作答",
-    "en": "Practice has finished. Answers cannot be changed."
+    "zh-CN": "练习已结束，不能修改作答。",
+    "en": "Practice has finished. Answers cannot be changed.",
+    "zh-TW": "練習已結束，不能變更作答。"
   },
   "LOCAL_ELAPSED_INVALID": {
-    "zh-CN": "作答用时不合法",
-    "en": "Invalid answer duration"
+    "zh-CN": "作答用时不合法。",
+    "en": "Invalid answer duration.",
+    "zh-TW": "作答用時不合法。"
   },
   "LOCAL_NAME_INVALID": {
-    "zh-CN": "名称须为 1–255 个字符",
-    "en": "Name must contain 1–255 characters"
+    "zh-CN": "名称须为 1–255 个字符。",
+    "en": "Name must contain 1–255 characters.",
+    "zh-TW": "名稱須為 1–255 個字元。"
   },
   "LOCAL_BACKUP_OVERWRITE": {
-    "zh-CN": "不能覆盖应用数据",
-    "en": "Cannot overwrite application data"
+    "zh-CN": "不能覆盖应用数据。",
+    "en": "Cannot overwrite application data.",
+    "zh-TW": "不能覆蓋應用程式資料。"
   },
   "LOCAL_MANIFEST_TOO_LARGE": {
-    "zh-CN": "备份清单过大",
-    "en": "Backup manifest is too large"
+    "zh-CN": "备份清单过大。",
+    "en": "Backup manifest is too large.",
+    "zh-TW": "備份清單過大。"
   },
   "LOCAL_BACKUP_PATH_INVALID": {
-    "zh-CN": "备份路径无效",
-    "en": "Invalid backup path"
+    "zh-CN": "备份路径无效。",
+    "en": "Invalid backup path.",
+    "zh-TW": "備份路徑無效。"
   },
   "LOCAL_IMAGE_HASH_INVALID": {
-    "zh-CN": "图片摘要无效",
-    "en": "Invalid image checksum"
+    "zh-CN": "图片摘要无效。",
+    "en": "Invalid image checksum.",
+    "zh-TW": "圖片摘要無效。"
   },
   "LOCAL_IMAGE_PATH_INVALID": {
-    "zh-CN": "图片路径无效",
-    "en": "Invalid image path"
+    "zh-CN": "图片路径无效。",
+    "en": "Invalid image path.",
+    "zh-TW": "圖片路徑無效。"
   },
   "LOCAL_IMAGE_SIZE_INVALID": {
-    "zh-CN": "图片大小无效",
-    "en": "Invalid image size"
+    "zh-CN": "图片大小无效。",
+    "en": "Invalid image size.",
+    "zh-TW": "圖片大小無效。"
   },
   "LOCAL_BACKUP_TOO_LARGE": {
-    "zh-CN": "备份数据超过 512 MiB",
-    "en": "Backup data exceeds 512 MiB"
+    "zh-CN": "备份数据超过 512 MiB。",
+    "en": "Backup data exceeds 512 MiB.",
+    "zh-TW": "備份資料超過 512 MiB。"
   },
   "LOCAL_ARCHIVE_TOO_LARGE": {
-    "zh-CN": "备份包超过大小限制",
-    "en": "Backup archive exceeds the size limit"
+    "zh-CN": "备份包超过大小限制。",
+    "en": "Backup archive exceeds the size limit.",
+    "zh-TW": "備份壓縮檔超過大小限制。"
   },
   "LOCAL_BACKUP_VERSION_UNSUPPORTED": {
-    "zh-CN": "不支持的备份版本",
-    "en": "Unsupported backup version"
+    "zh-CN": "不支持的备份版本。",
+    "en": "Unsupported backup version.",
+    "zh-TW": "不支援的備份版本。"
   },
   "LOCAL_IMAGE_MANIFEST_MISSING": {
-    "zh-CN": "缺少图片清单",
-    "en": "Image manifest is missing"
+    "zh-CN": "缺少图片清单。",
+    "en": "Image manifest is missing.",
+    "zh-TW": "缺少圖片清單。"
   },
   "LOCAL_IMAGE_MANIFEST_INVALID": {
-    "zh-CN": "备份图片清单重复或路径非法",
-    "en": "Backup image manifest has duplicates or invalid paths"
+    "zh-CN": "备份图片清单重复或路径非法。",
+    "en": "Backup image manifest has duplicates or invalid paths.",
+    "zh-TW": "備份圖片清單重複或路徑非法。"
   },
   "LOCAL_BACKUP_UNDECLARED_FILE": {
-    "zh-CN": "备份包含未声明文件",
-    "en": "Backup contains undeclared files"
+    "zh-CN": "备份包含未声明文件。",
+    "en": "Backup contains undeclared files.",
+    "zh-TW": "備份包含未宣告檔案。"
   },
   "LOCAL_BACKUP_UNSAFE_PATH": {
-    "zh-CN": "备份包含非法路径或链接",
-    "en": "Backup contains unsafe paths or links"
+    "zh-CN": "备份包含非法路径或链接。",
+    "en": "Backup contains unsafe paths or links.",
+    "zh-TW": "備份包含非法路徑或連結。"
   },
   "LOCAL_BACKUP_SIZE_OVERFLOW": {
-    "zh-CN": "备份大小溢出",
-    "en": "Backup size overflow"
+    "zh-CN": "备份大小溢出。",
+    "en": "Backup size overflow.",
+    "zh-TW": "備份大小溢位。"
   },
   "LOCAL_BACKUP_EXPANDED_TOO_LARGE": {
-    "zh-CN": "备份解压后超过大小限制",
-    "en": "Expanded backup exceeds the size limit"
+    "zh-CN": "备份解压后超过大小限制。",
+    "en": "Expanded backup exceeds the size limit.",
+    "zh-TW": "備份解壓後超過大小限制。"
   },
   "LOCAL_BACKUP_CHECKSUM_MISMATCH": {
-    "zh-CN": "备份数据库大小或校验和不匹配",
-    "en": "Backup database size or checksum does not match"
+    "zh-CN": "备份数据库大小或校验和不匹配。",
+    "en": "Backup database size or checksum does not match.",
+    "zh-TW": "備份資料庫大小或校驗和不符。"
   },
   "LOCAL_BACKUP_SCHEMA_MISMATCH": {
-    "zh-CN": "备份清单与数据库版本不一致",
-    "en": "Backup manifest and database versions do not match"
+    "zh-CN": "备份清单与数据库版本不一致。",
+    "en": "Backup manifest and database versions do not match.",
+    "zh-TW": "備份清單與資料庫版本不一致。"
   },
   "LOCAL_BACKUP_IMAGE_SIZE": {
-    "zh-CN": "备份图片大小不匹配",
-    "en": "Backup image size does not match"
+    "zh-CN": "备份图片大小不匹配。",
+    "en": "Backup image size does not match.",
+    "zh-TW": "備份圖片大小不符。"
   },
   "LOCAL_BACKUP_IMAGE_MANIFEST": {
-    "zh-CN": "图片清单与数据库不一致",
-    "en": "Image manifest does not match the database"
+    "zh-CN": "图片清单与数据库不一致。",
+    "en": "Image manifest does not match the database.",
+    "zh-TW": "圖片清單與資料庫不一致。"
   },
   "LOCAL_BACKUP_IMAGE_PATH": {
-    "zh-CN": "备份图片路径不合法",
-    "en": "Invalid backup image path"
+    "zh-CN": "备份图片路径不合法。",
+    "en": "Invalid backup image path.",
+    "zh-TW": "備份圖片路徑不合法。"
   },
   "LOCAL_BACKUP_IMAGE_FORMAT": {
-    "zh-CN": "备份图片格式不匹配",
-    "en": "Backup image format does not match"
+    "zh-CN": "备份图片格式不匹配。",
+    "en": "Backup image format does not match.",
+    "zh-TW": "備份圖片格式不符。"
   },
   "LOCAL_RESTORE_ROLLBACK_FAILED": {
-    "zh-CN": "恢复失败：{error}；回滚失败：{rollback}；恢复副本：{path}",
-    "en": "Restore failed: {error}; rollback failed: {rollback}; recovery copy: {path}"
+    "zh-CN": "恢复失败：{error}；回滚失败：{rollback}；恢复副本：{path}。",
+    "en": "Restore failed: {error}; rollback failed: {rollback}; recovery copy: {path}.",
+    "zh-TW": "還原失敗：{error}；復原失敗：{rollback}；還原副本：{path}。"
   },
   "LOCAL_RESTORE_FAILED": {
-    "zh-CN": "恢复未完成：{error}；已恢复原数据库",
-    "en": "Restore incomplete: {error}; the original database was restored"
+    "zh-CN": "恢复未完成：{error}；已恢复原数据库。",
+    "en": "Restore incomplete: {error}; the original database was restored.",
+    "zh-TW": "還原未完成：{error}；已還原原始資料庫。"
   },
   "LOCAL_RESTORE_RECOVERY_FAILED": {
-    "zh-CN": "恢复未完成：{error}；原始数据及损坏清单：{path}",
-    "en": "Restore incomplete: {error}; original data and damage inventory: {path}"
+    "zh-CN": "恢复未完成：{error}；原始数据及损坏清单：{path}。",
+    "en": "Restore incomplete: {error}; original data and damage inventory: {path}.",
+    "zh-TW": "還原未完成：{error}；原始資料與損壞清單：{path}。"
   },
   "LOCAL_BACKUP_DATABASE_VERSION": {
-    "zh-CN": "备份数据库版本不兼容",
-    "en": "Incompatible backup database version"
+    "zh-CN": "备份数据库版本不兼容。",
+    "en": "Incompatible backup database version.",
+    "zh-TW": "備份資料庫版本不相容。"
   },
   "LOCAL_BACKUP_SCHEMA_UNSUPPORTED": {
-    "zh-CN": "备份数据库结构不受支持",
-    "en": "Unsupported backup database schema"
+    "zh-CN": "备份数据库结构不受支持。",
+    "en": "Unsupported backup database schema.",
+    "zh-TW": "備份資料庫結構不受支援。"
   },
   "LOCAL_BACKUP_INTEGRITY": {
-    "zh-CN": "备份数据库完整性检查失败",
-    "en": "Backup database integrity check failed"
+    "zh-CN": "备份数据库完整性检查失败。",
+    "en": "Backup database integrity check failed.",
+    "zh-TW": "備份資料庫完整性檢查失敗。"
   },
   "LOCAL_BACKUP_RELATIONS": {
-    "zh-CN": "备份数据库关联损坏",
-    "en": "Backup database relationships are corrupted"
+    "zh-CN": "备份数据库关联损坏。",
+    "en": "Backup database relationships are corrupted.",
+    "zh-TW": "備份資料庫關聯損壞。"
   },
   "LOCAL_BACKUP_SNAPSHOT_FIELD": {
-    "zh-CN": "备份快照字段不合法: {key}",
-    "en": "Invalid backup snapshot field: {key}"
+    "zh-CN": "备份快照字段不合法：{key}。",
+    "en": "Invalid backup snapshot field: {key}.",
+    "zh-TW": "備份快照欄位不合法：{key}。"
   },
   "LOCAL_ITEM_ID_INVALID": {
-    "zh-CN": "items.id 必须是整数",
-    "en": "items.id must be an integer"
+    "zh-CN": "items.id 必须是整数。",
+    "en": "items.id must be an integer.",
+    "zh-TW": "items.id 必須是整數。"
   },
   "LOCAL_CONTENT_EMPTY": {
-    "zh-CN": "contentBlocks: 内容不能为空",
-    "en": "contentBlocks: content cannot be empty"
+    "zh-CN": "contentBlocks: 内容不能为空。",
+    "en": "contentBlocks: content cannot be empty.",
+    "zh-TW": "contentBlocks: 內容不能為空。"
   },
   "LOCAL_CHOICE_FIELDS_INVALID": {
-    "zh-CN": "options / choiceVariant 仅适用于选择题",
-    "en": "options / choiceVariant only apply to choice questions"
+    "zh-CN": "options / choiceVariant 仅适用于选择题。",
+    "en": "options / choiceVariant only apply to choice questions.",
+    "zh-TW": "options / choiceVariant 僅適用於選擇題。"
   },
   "LOCAL_ITEMS_MODE_INVALID": {
-    "zh-CN": "items 仅适用于排序和匹配题",
-    "en": "items only apply to ordering and matching questions"
+    "zh-CN": "items 仅适用于排序和匹配题。",
+    "en": "items only apply to ordering and matching questions.",
+    "zh-TW": "items 僅適用於排序和配對題。"
   },
   "LOCAL_MATCHING_MODE_INVALID": {
-    "zh-CN": "matchingVariant 仅适用于匹配题",
-    "en": "matchingVariant only applies to matching questions"
+    "zh-CN": "matchingVariant 仅适用于匹配题。",
+    "en": "matchingVariant only applies to matching questions.",
+    "zh-TW": "matchingVariant 僅適用於配對題。"
   },
   "LOCAL_ORDERING_SIDE_INVALID": {
-    "zh-CN": "排序项不能含 side",
-    "en": "Ordering items cannot contain side"
+    "zh-CN": "排序项不能含 side。",
+    "en": "Ordering items cannot contain side.",
+    "zh-TW": "排序項不能含 side。"
   },
   "LOCAL_OPTION_LABEL_DUPLICATE": {
-    "zh-CN": "选项标签重复",
-    "en": "Duplicate option labels"
+    "zh-CN": "选项标签重复。",
+    "en": "Duplicate option labels.",
+    "zh-TW": "選項標籤重複。"
   },
   "LOCAL_ANSWER_PAYLOAD_INVALID": {
-    "zh-CN": "answerPayload 必须为对象或 null",
-    "en": "answerPayload must be an object or null"
+    "zh-CN": "answerPayload 必须为对象或 null。",
+    "en": "answerPayload must be an object or null.",
+    "zh-TW": "answerPayload 必須為物件或 null。"
   },
   "LOCAL_ANSWER_MODE_MISMATCH": {
-    "zh-CN": "answerPayload 与 answerMode 不匹配",
-    "en": "answerPayload does not match answerMode"
+    "zh-CN": "answerPayload 与 answerMode 不匹配。",
+    "en": "answerPayload does not match answerMode.",
+    "zh-TW": "answerPayload 與 answerMode 不符。"
   },
   "LOCAL_ANSWER_FIELD_INVALID": {
-    "zh-CN": "answerPayload.{key}: 类型或长度不合法",
-    "en": "answerPayload.{key}: invalid type or length"
+    "zh-CN": "answerPayload.{key}: 类型或长度不合法。",
+    "en": "answerPayload.{key}: invalid type or length.",
+    "zh-TW": "answerPayload.{key}: 類型或長度不合法。"
   },
   "LOCAL_OPTION_REFERENCE_INVALID": {
-    "zh-CN": "答案引用不存在或重复的选项",
-    "en": "Answer refers to missing or duplicate options"
+    "zh-CN": "答案引用不存在或重复的选项。",
+    "en": "Answer refers to missing or duplicate options.",
+    "zh-TW": "答案引用不存在或重複的選項。"
   },
   "LOCAL_ORDER_REFERENCE_INVALID": {
-    "zh-CN": "排序答案引用无效",
-    "en": "Invalid ordering answer references"
+    "zh-CN": "排序答案引用无效。",
+    "en": "Invalid ordering answer references.",
+    "zh-TW": "排序答案引用無效。"
   },
   "LOCAL_MATCH_REFERENCE_INVALID": {
-    "zh-CN": "匹配答案引用无效",
-    "en": "Invalid matching answer references"
+    "zh-CN": "匹配答案引用无效。",
+    "en": "Invalid matching answer references.",
+    "zh-TW": "配對答案引用無效。"
   },
   "LOCAL_QUESTION_EMPTY": {
-    "zh-CN": "不能导入空题目",
-    "en": "Cannot import an empty question"
+    "zh-CN": "不能导入空题目。",
+    "en": "Cannot import an empty question.",
+    "zh-TW": "不能匯入空題目。"
   },
   "LOCAL_JSON_TOO_LARGE": {
-    "zh-CN": "JSON 超过 32 MiB",
-    "en": "JSON exceeds 32 MiB"
+    "zh-CN": "JSON 超过 32 MiB。",
+    "en": "JSON exceeds 32 MiB.",
+    "zh-TW": "JSON 超過 32 MiB。"
   },
   "LOCAL_GROUP_TITLE_EMPTY": {
-    "zh-CN": "groups.title 不能为空",
-    "en": "groups.title cannot be empty"
+    "zh-CN": "groups.title 不能为空。",
+    "en": "groups.title cannot be empty.",
+    "zh-TW": "groups.title 不能為空。"
   },
   "LOCAL_VISUAL_DESCRIPTION_EMPTY": {
-    "zh-CN": "visualElements.description 不能为空",
-    "en": "visualElements.description cannot be empty"
+    "zh-CN": "visualElements.description 不能为空。",
+    "en": "visualElements.description cannot be empty.",
+    "zh-TW": "visualElements.description 不能為空。"
   },
   "LOCAL_QUESTION_INDEX_INVALID": {
-    "zh-CN": "{key}[{i}].questionIndexes: 越界",
-    "en": "{key}[{i}].questionIndexes: out of bounds"
+    "zh-CN": "{key}[{i}].questionIndexes: 越界。",
+    "en": "{key}[{i}].questionIndexes: out of bounds.",
+    "zh-TW": "{key}[{i}].questionIndexes: 超出範圍。"
   },
   "LOCAL_VISUAL_BBOX_INVALID": {
-    "zh-CN": "visualElements[{i}].bbox: 无效区域",
-    "en": "visualElements[{i}].bbox: invalid region"
+    "zh-CN": "visualElements[{i}].bbox: 无效区域。",
+    "en": "visualElements[{i}].bbox: invalid region.",
+    "zh-TW": "visualElements[{i}].bbox: 無效區域。"
   },
   "LOCAL_PROCESSING_COUNT_INVALID": {
-    "zh-CN": "processing.{key}: 计数越界",
-    "en": "processing.{key}: count out of bounds"
+    "zh-CN": "processing.{key}: 计数越界。",
+    "en": "processing.{key}: count out of bounds.",
+    "zh-TW": "processing.{key}: 計數超出範圍。"
   },
   "LOCAL_ASSET_HASH_INVALID": {
-    "zh-CN": "图片摘要不合法",
-    "en": "Invalid image digest"
+    "zh-CN": "图片摘要不合法。",
+    "en": "Invalid image digest.",
+    "zh-TW": "圖片摘要不合法。"
   },
   "LOCAL_ASSET_DIRECTORY_LINK": {
-    "zh-CN": "图片目录不能是链接",
-    "en": "Image directory cannot be a link"
+    "zh-CN": "图片目录不能是链接。",
+    "en": "Image directory cannot be a link.",
+    "zh-TW": "圖片目錄不能是連結。"
   },
   "LOCAL_ASSET_CHECKSUM_MISMATCH": {
-    "zh-CN": "图片大小或摘要不匹配",
-    "en": "Image size or digest does not match"
+    "zh-CN": "图片大小或摘要不匹配。",
+    "en": "Image size or digest does not match.",
+    "zh-TW": "圖片大小或摘要不符。"
   },
   "LOCAL_ASSET_DIRECTORY_INVALID": {
-    "zh-CN": "图片目录无效",
-    "en": "Invalid image directory"
+    "zh-CN": "图片目录无效。",
+    "en": "Invalid image directory.",
+    "zh-TW": "圖片目錄無效。"
   },
   "LOCAL_ASSET_LINK": {
-    "zh-CN": "图片不能是链接",
-    "en": "Image cannot be a link"
+    "zh-CN": "图片不能是链接。",
+    "en": "Image cannot be a link.",
+    "zh-TW": "圖片不能是連結。"
   },
   "LOCAL_ASSET_MISSING": {
-    "zh-CN": "图片文件缺失或损坏",
-    "en": "Image file is missing or corrupted"
+    "zh-CN": "图片文件缺失或损坏。",
+    "en": "Image file is missing or corrupted.",
+    "zh-TW": "圖片檔案缺失或損壞。"
   },
   "LOCAL_URL_TOO_LONG": {
-    "zh-CN": "{name} 过长",
-    "en": "{name} is too long"
+    "zh-CN": "{name} 过长。",
+    "en": "{name} is too long.",
+    "zh-TW": "{name} 過長。"
   },
   "LOCAL_URL_INVALID": {
-    "zh-CN": "{name} 必须为完整的 http(s) 地址",
-    "en": "{name} must be a complete HTTP(S) URL"
+    "zh-CN": "{name} 必须为完整的 http(s) 地址。",
+    "en": "{name} must be a complete HTTP(S) URL.",
+    "zh-TW": "{name} 必須為完整的 http(s) 位址。"
   },
   "LOCAL_URL_HTTPS_REQUIRED": {
-    "zh-CN": "{name} 需要 HTTPS，本机回环地址可使用 HTTP",
-    "en": "{name} requires HTTPS; HTTP is allowed for loopback addresses"
+    "zh-CN": "{name} 需要 HTTPS，本机回环地址可使用 HTTP。",
+    "en": "{name} requires HTTPS; HTTP is allowed for loopback addresses.",
+    "zh-TW": "{name} 需要 HTTPS，本機回送位址可使用 HTTP。"
   },
   "LOCAL_URL_CREDENTIALS_FORBIDDEN": {
-    "zh-CN": "{name} 不能包含用户名、密码、查询参数或片段",
-    "en": "{name} cannot contain a username, password, query, or fragment"
+    "zh-CN": "{name} 不能包含用户名、密码、查询参数或片段。",
+    "en": "{name} cannot contain a username, password, query, or fragment.",
+    "zh-TW": "{name} 不能包含使用者名稱、密碼、查詢字串或片段。"
   },
   "LOCAL_MODEL_ID_INVALID": {
-    "zh-CN": "Model ID 不合法",
-    "en": "Invalid model ID"
+    "zh-CN": "Model ID 不合法。",
+    "en": "Invalid model ID.",
+    "zh-TW": "Model ID 不合法。"
   },
   "LOCAL_KEYCHAIN_READ": {
-    "zh-CN": "无法读取系统凭据存储，请检查系统凭据存储是否已解锁",
-    "en": "Cannot read the system credential store. Check that it is unlocked."
+    "zh-CN": "无法读取系统凭据存储，请检查系统凭据存储是否已解锁。",
+    "en": "Cannot read the system credential store. Check that it is unlocked.",
+    "zh-TW": "無法讀取系統憑證存放區，請確認系統憑證存放區已解鎖。"
   },
   "LOCAL_KEYCHAIN_WRITE": {
-    "zh-CN": "无法写入系统凭据存储；访问令牌未保存",
-    "en": "Cannot write to the system credential store. The access token was not saved."
+    "zh-CN": "无法写入系统凭据存储；访问令牌未保存。",
+    "en": "Cannot write to the system credential store. The access token was not saved.",
+    "zh-TW": "無法寫入系統憑證存放區；存取權杖未儲存。"
   },
   "LOCAL_KEYCHAIN_DELETE": {
-    "zh-CN": "无法移除系统凭据存储中的访问令牌",
-    "en": "Cannot remove the access token from the credential store"
+    "zh-CN": "无法移除系统凭据存储中的访问令牌。",
+    "en": "Cannot remove the access token from the credential store.",
+    "zh-TW": "無法移除系統憑證存放區中的存取權杖。"
   },
   "LOCAL_KEYCHAIN_INIT": {
-    "zh-CN": "无法初始化系统凭据存储",
-    "en": "Cannot initialize the system credential store"
+    "zh-CN": "无法初始化系统凭据存储。",
+    "en": "Cannot initialize the system credential store.",
+    "zh-TW": "無法初始化系統憑證存放區。"
   },
   "LOCAL_KEYCHAIN_ROLLBACK": {
-    "zh-CN": "设置保存失败，系统凭据存储回滚失败；请重新设置访问令牌",
-    "en": "Settings could not be saved and credential store rollback failed. Set the access token again."
+    "zh-CN": "设置保存失败，系统凭据存储回滚失败；请重新设置访问令牌。",
+    "en": "Settings could not be saved and credential store rollback failed. Set the access token again.",
+    "zh-TW": "設定儲存失敗，且系統憑證存放區復原失敗；請重新設定存取權杖。"
   },
   "LOCAL_FILTER_INVALID": {
-    "zh-CN": "筛选条件不合法",
-    "en": "Invalid filter"
+    "zh-CN": "筛选条件不合法。",
+    "en": "Invalid filter.",
+    "zh-TW": "篩選條件不合法。"
   },
   "LOCAL_QUESTION_SELECTION_INVALID": {
-    "zh-CN": "请选择 1–1000 道不重复的题目",
-    "en": "Select 1–1,000 distinct questions"
+    "zh-CN": "请选择 1–1000 道不重复的题目。",
+    "en": "Select 1–1,000 distinct questions.",
+    "zh-TW": "請選擇 1–1000 道不重複的題目。"
   },
   "LOCAL_EXAM_MODE_INVALID": {
-    "zh-CN": "考试模式或时长不合法",
-    "en": "Invalid exam mode or duration"
+    "zh-CN": "考试模式或时长不合法。",
+    "en": "Invalid exam mode or duration.",
+    "zh-TW": "考試模式或時長不合法。"
   },
   "LOCAL_EXAM_SCORES_INVALID": {
-    "zh-CN": "每题至少 0.01 分，分值之和必须等于总分（不超过 100 万分）",
-    "en": "Each question needs at least 0.01 points. Scores must add up to the total (at most 1,000,000)."
+    "zh-CN": "每题至少 0.01 分，分值之和必须等于总分（不超过 100 万分）。",
+    "en": "Each question needs at least 0.01 points. Scores must add up to the total (at most 1,000,000).",
+    "zh-TW": "每題至少 0.01 分，且分值總和必須等於總分（不超過 100 萬分）。"
   },
   "LOCAL_OVERRIDE_REASON_REQUIRED": {
-    "zh-CN": "请填写改分原因（最多 20000 字节）",
-    "en": "Enter an override reason (at most 20,000 bytes)"
+    "zh-CN": "请填写改分原因（最多 20000 字节）。",
+    "en": "Enter an override reason (at most 20,000 bytes).",
+    "zh-TW": "請填寫改分原因（最多 20000 位元組）。"
   },
   "LOCAL_MANUAL_SCORE_INVALID": {
-    "zh-CN": "请先交卷，且分数须在 0 至本题满分之间",
-    "en": "Submit the exam first. The score must be between zero and full credit."
+    "zh-CN": "请先交卷，且分数须在 0 至本题满分之间。",
+    "en": "Submit the exam first. The score must be between zero and full credit.",
+    "zh-TW": "請先交卷，且分數須介於 0 與本題滿分之間。"
   },
   "LOCAL_SESSION_CORRUPTED": {
-    "zh-CN": "练习记录损坏",
-    "en": "Practice record is corrupted"
+    "zh-CN": "练习记录损坏。",
+    "en": "Practice record is corrupted.",
+    "zh-TW": "練習紀錄損壞。"
   },
   "LOCAL_MERGE_SELECTION_INVALID": {
-    "zh-CN": "请选择至少两个不同题库，并填写 1–200 字名称",
-    "en": "Select at least two distinct banks and enter a name of 1–200 characters"
+    "zh-CN": "请选择至少两个不同题库，并填写 1–200 字名称。",
+    "en": "Select at least two distinct banks and enter a name of 1–200 characters.",
+    "zh-TW": "請選擇至少兩個不同題庫，並填寫 1–200 字名稱。"
   },
   "LOCAL_SOURCE_BANK_DELETED": {
-    "zh-CN": "来源题库已删除",
-    "en": "Source bank was deleted"
+    "zh-CN": "来源题库已删除。",
+    "en": "Source bank was deleted.",
+    "zh-TW": "來源題庫已刪除。"
   },
   "LOCAL_GRADING_INELIGIBLE": {
-    "zh-CN": "请先交卷；仅对有完整依据和作答、未经人工确认的简答题评分",
-    "en": "Submit first. Only short answers with complete evidence and an answer, without manual grading, can be graded."
+    "zh-CN": "请先交卷；仅对有完整依据和作答、未经人工确认的简答题评分。",
+    "en": "Submit first. Only short answers with complete evidence and an answer, without manual grading, can be graded.",
+    "zh-TW": "請先交卷；僅能對具備完整依據與作答、且未經人工確認的簡答題評分。"
   },
   "LOCAL_GRADING_IMAGE_MISSING": {
-    "zh-CN": "图片缺失，无法评分",
-    "en": "Cannot grade with missing images"
+    "zh-CN": "图片缺失，无法评分。",
+    "en": "Missing images prevent grading.",
+    "zh-TW": "圖片缺失，無法評分。"
   },
   "LOCAL_GRADING_TOO_LARGE": {
-    "zh-CN": "评分题目资源超过 31 MiB，请人工评分",
-    "en": "Grading resources exceed 31 MiB. Grade manually."
+    "zh-CN": "评分题目资源超过 31 MiB，请人工评分。",
+    "en": "Grading resources exceed 31 MiB. Grade manually.",
+    "zh-TW": "評分題目資源超過 31 MiB，請改為人工評分。"
   },
   "LOCAL_GRADING_INPUT_CHANGED": {
-    "zh-CN": "评分输入已变化，请明确重新评分",
-    "en": "Grading input changed. Explicitly request regrading."
+    "zh-CN": "评分输入已变化，请明确重新评分。",
+    "en": "Grading input changed. Explicitly request regrading.",
+    "zh-TW": "評分輸入已變更，請明確重新評分。"
   },
   "LOCAL_AI_SCORE_INVALID": {
-    "zh-CN": "AI 分数不合法",
-    "en": "Invalid AI score"
+    "zh-CN": "AI 分数不合法。",
+    "en": "Invalid AI score.",
+    "zh-TW": "AI 分數不合法。"
   },
   "LOCAL_AI_MAX_MISMATCH": {
-    "zh-CN": "AI 满分不匹配",
-    "en": "AI maximum score does not match"
+    "zh-CN": "AI 满分不匹配。",
+    "en": "AI maximum score does not match.",
+    "zh-TW": "AI 滿分不符。"
   },
   "LOCAL_GRADING_REQUEST_MISSING": {
-    "zh-CN": "评分请求不存在",
-    "en": "Grading request does not exist"
+    "zh-CN": "评分请求不存在。",
+    "en": "Grading request does not exist.",
+    "zh-TW": "評分請求不存在。"
   },
   "LOCAL_LANGUAGE_INVALID": {
-    "zh-CN": "语言设置无效",
-    "en": "Invalid language setting"
+    "zh-CN": "语言设置无效。",
+    "en": "Invalid language setting.",
+    "zh-TW": "語言設定無效。"
   },
   "LOCAL_RESPONSE_TOO_LARGE": {
-    "zh-CN": "AI 服务响应过大",
-    "en": "AI service response is too large"
+    "zh-CN": "AI 服务响应过大。",
+    "en": "AI service response is too large.",
+    "zh-TW": "AI 服務回應過大。"
   },
   "LOCAL_RESPONSE_INVALID": {
-    "zh-CN": "AI 服务返回无效数据",
-    "en": "The AI service returned invalid data"
+    "zh-CN": "AI 服务返回无效数据。",
+    "en": "The AI service returned invalid data.",
+    "zh-TW": "AI 服務傳回無效資料。"
   },
   "LOCAL_RESPONSE_READ_FAILED": {
     "zh-CN": "读取响应失败，连接可能中断或超时。",
-    "en": "Could not read the response; the connection may have closed or timed out."
+    "en": "Could not read the response; the connection may have closed or timed out.",
+    "zh-TW": "讀取回應失敗，連線可能中斷或逾時。"
   },
   "LOCAL_DATABASE_RESTART": {
-    "zh-CN": "数据库暂不可用，请重启应用",
-    "en": "Database is unavailable. Restart the app."
+    "zh-CN": "数据库暂不可用，请重启应用。",
+    "en": "Database is unavailable. Restart the app.",
+    "zh-TW": "資料庫暫時無法使用，請重新啟動應用程式。"
   },
   "LOCAL_FILE_NOT_SELECTED": {
-    "zh-CN": "未选择文件",
-    "en": "No file selected"
+    "zh-CN": "未选择文件。",
+    "en": "No file selected.",
+    "zh-TW": "未選擇檔案。"
   },
   "LOCAL_SAVE_LOCATION_MISSING": {
-    "zh-CN": "未选择保存位置",
-    "en": "No save location selected"
+    "zh-CN": "未选择保存位置。",
+    "en": "No save location selected.",
+    "zh-TW": "未選擇儲存位置。"
   },
   "LOCAL_BACKUP_NOT_SELECTED": {
-    "zh-CN": "未选择备份",
-    "en": "No backup selected"
+    "zh-CN": "未选择备份。",
+    "en": "No backup selected.",
+    "zh-TW": "未選擇備份。"
   },
   "LOCAL_SCHEMA_INVALID": {
-    "zh-CN": "{path}: {detail}",
-    "en": "{path}: {detail}"
+    "zh-CN": "{path}: {detail}。",
+    "en": "{path}: {detail}.",
+    "zh-TW": "{path}: {detail}。"
   },
   "OPERATION_BUSY": {
-    "zh-CN": "操作正在执行，请查看进度",
-    "en": "An operation is running. Check its progress."
+    "zh-CN": "操作正在执行，请查看进度。",
+    "en": "An operation is running. Check its progress.",
+    "zh-TW": "操作正在執行，請檢視進度。"
   },
   "RESTORE_BUSY": {
-    "zh-CN": "请先等待当前 AI 请求结束或停止导入批次，再恢复备份",
-    "en": "Wait for AI requests or stop the import batch before restoring."
+    "zh-CN": "请先等待当前 AI 请求结束或停止导入批次，再恢复备份。",
+    "en": "Wait for AI requests or stop the import batch before restoring.",
+    "zh-TW": "請先等待目前 AI 請求結束或停止匯入批次，再還原備份。"
   },
   "ARTIFACT_INVALID": {
-    "zh-CN": "解析资源缺失或校验失败",
-    "en": "Parsed resource is missing or failed verification."
+    "zh-CN": "解析资源缺失或校验失败。",
+    "en": "Parsed resource is missing or failed verification.",
+    "zh-TW": "解析資源缺失或驗證失敗。"
   },
   "TASK_NOT_COMPLETED": {
-    "zh-CN": "请先完成解析或接受部分结果",
-    "en": "Finish parsing or accept partial results first."
+    "zh-CN": "请先完成解析或接受部分结果。",
+    "en": "Finish parsing or accept partial results first.",
+    "zh-TW": "請先完成解析或接受部分結果。"
   },
   "INVALID_RECEIPT": {
-    "zh-CN": "服务回执不完整，请重试待确认操作",
-    "en": "Service receipt is incomplete. Retry the unconfirmed operation."
+    "zh-CN": "服务回执不完整，请重试待确认操作。",
+    "en": "Service receipt is incomplete. Retry the unconfirmed operation.",
+    "zh-TW": "服務回條不完整，請重試待確認操作。"
   },
   "AI_USAGE_INVALID": {
-    "zh-CN": "模型返回了无效的用量信息",
-    "en": "The model returned invalid token usage."
+    "zh-CN": "模型返回了无效的用量信息。",
+    "en": "The model returned invalid token usage.",
+    "zh-TW": "模型傳回了無效的用量資訊。"
   },
   "AI_USAGE_MISSING": {
-    "zh-CN": "模型未返回用量信息",
-    "en": "The model response omitted token usage."
+    "zh-CN": "模型未返回用量信息。",
+    "en": "The model response omitted token usage.",
+    "zh-TW": "模型未傳回用量資訊。"
   },
   "CONTROL_ALREADY_EXECUTED": {
-    "zh-CN": "此操作已执行，请刷新任务",
-    "en": "This operation was already applied. Refresh the task."
+    "zh-CN": "此操作已执行，请刷新任务。",
+    "en": "This operation was already applied. Refresh the task.",
+    "zh-TW": "此操作已執行，請重新整理任務。"
   },
   "DOCUMENT_CHECKSUM_MISMATCH": {
-    "zh-CN": "文档校验和不匹配，请重新导入",
-    "en": "Document checksum mismatch. Import it again."
+    "zh-CN": "文档校验和不匹配，请重新导入。",
+    "en": "Document checksum mismatch. Import it again.",
+    "zh-TW": "文件校驗和不符，請重新匯入。"
   },
   "DOCUMENT_CHUNK_TOO_LARGE": {
-    "zh-CN": "题目片段过长，请先拆分来源文档",
-    "en": "A question fragment is too large. Split the source document first."
+    "zh-CN": "题目片段过长，请先拆分来源文档。",
+    "en": "A question fragment is too large. Split the source document first.",
+    "zh-TW": "題目片段過長，請先分割來源文件。"
   },
   "DOCUMENT_PARSE_FAILED": {
-    "zh-CN": "文档解析失败，请检查来源并重试",
-    "en": "Document parsing failed. Check the source and retry."
+    "zh-CN": "文档解析失败，请检查来源并重试。",
+    "en": "Document parsing failed. Check the source and retry.",
+    "zh-TW": "文件解析失敗，請檢查來源後重試。"
   },
   "DOCUMENT_PREPARE_FAILED": {
-    "zh-CN": "文档提取失败，请检查文件",
-    "en": "Document extraction failed. Check the file."
+    "zh-CN": "文档提取失败，请检查文件。",
+    "en": "Document extraction failed. Check the file.",
+    "zh-TW": "文件擷取失敗，請檢查檔案。"
   },
   "DOCUMENT_PREPARE_TIMEOUT": {
-    "zh-CN": "文档准备超时，请重试",
-    "en": "Document preparation timed out. Retry."
+    "zh-CN": "文档准备超时，请重试。",
+    "en": "Document preparation timed out. Retry.",
+    "zh-TW": "文件準備逾時，請重試。"
   },
   "DOCUMENT_SIZE_MISMATCH": {
-    "zh-CN": "文档大小不匹配，请重新导入",
-    "en": "Document size mismatch. Import it again."
+    "zh-CN": "文档大小不匹配，请重新导入。",
+    "en": "Document size mismatch. Import it again.",
+    "zh-TW": "文件大小不符，請重新匯入。"
   },
   "DOCUMENT_SOURCE_TYPE_MISMATCH": {
-    "zh-CN": "来源文档类型不匹配",
-    "en": "Source document type does not match."
+    "zh-CN": "来源文档类型不匹配。",
+    "en": "Source document type does not match.",
+    "zh-TW": "來源文件類型不符。"
   },
   "DOCUMENT_TOO_LARGE": {
-    "zh-CN": "文档超过大小限制",
-    "en": "Document exceeds the size limit."
+    "zh-CN": "文档超过大小限制。",
+    "en": "Document exceeds the size limit.",
+    "zh-TW": "文件超過大小限制。"
   },
   "EXECUTION_STORE_REQUIRED": {
-    "zh-CN": "任务控制需要持久化存储",
-    "en": "Task controls require persistent storage."
+    "zh-CN": "任务控制需要持久化存储。",
+    "en": "Task controls require persistent storage.",
+    "zh-TW": "任務控制需要持久化儲存。"
   },
   "EXECUTION_STORE_UNAVAILABLE": {
-    "zh-CN": "任务存储不可用，请稍后重试",
-    "en": "Task storage is unavailable. Retry later."
+    "zh-CN": "任务存储不可用，请稍后重试。",
+    "en": "Task storage is unavailable. Retry later.",
+    "zh-TW": "任務儲存不可用，請稍後重試。"
   },
   "IMAGE_FORMAT_UNSUPPORTED": {
-    "zh-CN": "仅支持 PNG 和 JPEG 图片",
-    "en": "Only PNG and JPEG images are supported."
+    "zh-CN": "仅支持 PNG 和 JPEG 图片。",
+    "en": "Only PNG and JPEG images are supported.",
+    "zh-TW": "僅支援 PNG 和 JPEG 圖片。"
   },
   "IMAGE_MULTIFRAME_UNSUPPORTED": {
-    "zh-CN": "不支持多帧图片",
-    "en": "Multi-frame images are unsupported."
+    "zh-CN": "不支持多帧图片。",
+    "en": "Multi-frame images are unsupported.",
+    "zh-TW": "不支援多幀圖片。"
   },
   "IMAGE_TOO_LARGE": {
-    "zh-CN": "图片像素数超过限制",
-    "en": "Image exceeds the pixel limit."
+    "zh-CN": "图片像素数超过限制。",
+    "en": "Image exceeds the pixel limit.",
+    "zh-TW": "圖片像素數超過限制。"
   },
   "INVALID_CONTROL": {
-    "zh-CN": "任务操作无效，请刷新任务",
-    "en": "Invalid task action. Refresh the task."
+    "zh-CN": "任务操作无效，请刷新任务。",
+    "en": "Invalid task action. Refresh the task.",
+    "zh-TW": "任務操作無效，請重新整理任務。"
   },
   "INVALID_OBJECT_REFERENCE": {
-    "zh-CN": "资源引用超出允许的存储范围",
-    "en": "Resource reference is outside managed storage."
+    "zh-CN": "资源引用超出允许的存储范围。",
+    "en": "Resource reference is outside managed storage.",
+    "zh-TW": "資源引用超出允許的儲存範圍。"
   },
   "INVALID_RETRY_UNITS": {
-    "zh-CN": "请选择已有且可重试的失败项",
-    "en": "Select existing retryable failures."
+    "zh-CN": "请选择已有且可重试的失败项。",
+    "en": "Select existing retryable failures.",
+    "zh-TW": "請選擇已有且可重試的失敗項。"
   },
   "MAINTENANCE": {
-    "zh-CN": "服务维护中，请稍后重试",
-    "en": "Service is under maintenance. Retry later."
+    "zh-CN": "服务维护中，请稍后重试。",
+    "en": "Service is under maintenance. Retry later.",
+    "zh-TW": "服務維護中，請稍後重試。"
   },
   "MODEL_BUDGET_EXCEEDED": {
-    "zh-CN": "文档模型调用预算已用尽",
-    "en": "The document model-call budget is exhausted."
+    "zh-CN": "文档模型调用预算已用尽。",
+    "en": "The document model-call budget is exhausted.",
+    "zh-TW": "文件模型呼叫預算已用盡。"
   },
   "NO_QUESTIONS_FOUND": {
-    "zh-CN": "未提取到题目，请检查来源文档",
-    "en": "No questions were extracted. Check the source document."
+    "zh-CN": "未提取到题目，请检查来源文档。",
+    "en": "No questions were extracted. Check the source document.",
+    "zh-TW": "未擷取到題目，請檢查來源文件。"
   },
   "OBJECT_NOT_FOUND": {
-    "zh-CN": "找不到存储资源",
-    "en": "Stored resource was not found."
+    "zh-CN": "找不到存储资源。",
+    "en": "Stored resource was not found.",
+    "zh-TW": "找不到儲存資源。"
   },
   "OBJECT_STORE_UNAVAILABLE": {
-    "zh-CN": "资源存储不可用",
-    "en": "Resource storage is unavailable."
+    "zh-CN": "资源存储不可用。",
+    "en": "Resource storage is unavailable.",
+    "zh-TW": "資源儲存不可用。"
   },
   "QUEUE_FULL": {
-    "zh-CN": "任务队列已满，请稍后重试",
-    "en": "The task queue is full. Retry later."
+    "zh-CN": "任务队列已满，请稍后重试。",
+    "en": "The task queue is full. Retry later.",
+    "zh-TW": "任務佇列已滿，請稍後重試。"
   },
   "REQUEST_CONFLICT": {
-    "zh-CN": "请求内容已变化，请检查后重新提交",
-    "en": "Request content changed. Review it before submitting again."
+    "zh-CN": "请求内容已变化，请检查后重新提交。",
+    "en": "Request content changed. Review it before submitting again.",
+    "zh-TW": "請求內容已變更，請檢查後重新提交。"
   },
   "RETRY_LIMIT_EXCEEDED": {
-    "zh-CN": "失败项已达到重试次数上限",
-    "en": "A failed item reached its retry limit."
+    "zh-CN": "失败项已达到重试次数上限。",
+    "en": "A failed item reached its retry limit.",
+    "zh-TW": "失敗項已達到重試次數上限。"
   },
   "RUN_DEADLINE_EXCEEDED": {
-    "zh-CN": "任务运行超时",
-    "en": "The task exceeded its execution deadline."
+    "zh-CN": "任务运行超时。",
+    "en": "The task exceeded its execution deadline.",
+    "zh-TW": "任務執行逾時。"
   },
   "TASK_ALREADY_STARTED": {
-    "zh-CN": "任务已启动，请继续、重试或新建任务",
-    "en": "The task has started. Resume, retry, or create a new task."
+    "zh-CN": "任务已启动，请继续、重试或新建任务。",
+    "en": "The task has started. Resume, retry, or create a new task.",
+    "zh-TW": "任務已啟動，請繼續、重試或新增任務。"
   },
   "TASK_EXPIRED": {
-    "zh-CN": "任务已过期，请重新导入文档",
-    "en": "The task expired. Import the document again."
+    "zh-CN": "任务已过期，请重新导入文档。",
+    "en": "The task expired. Import the document again.",
+    "zh-TW": "任務已過期，請重新匯入文件。"
   },
   "TASK_NOT_FOUND": {
-    "zh-CN": "找不到任务",
-    "en": "Task was not found."
+    "zh-CN": "找不到任务。",
+    "en": "Task was not found.",
+    "zh-TW": "找不到任務。"
   },
   "TASK_SERVICE_UNAVAILABLE": {
-    "zh-CN": "任务服务不可用，请稍后重试",
-    "en": "Task service is unavailable. Retry later."
+    "zh-CN": "任务服务不可用，请稍后重试。",
+    "en": "Task service is unavailable. Retry later.",
+    "zh-TW": "任務服務不可用，請稍後重試。"
   },
   "UPLOAD_TIMEOUT": {
-    "zh-CN": "上传超时，请重试",
-    "en": "Upload timed out. Retry."
+    "zh-CN": "上传超时，请重试。",
+    "en": "Upload timed out. Retry.",
+    "zh-TW": "上傳逾時，請重試。"
   },
   "VISION_MODEL_REQUIRED": {
-    "zh-CN": "请配置支持图片输入的模型",
-    "en": "Configure a model that supports image input."
+    "zh-CN": "请配置支持图片输入的模型。",
+    "en": "Configure a model that supports image input.",
+    "zh-TW": "請設定支援圖片輸入的模型。"
   },
   "VISION_OUTPUT_EMPTY": {
-    "zh-CN": "图片识别未返回文字",
-    "en": "Image processing returned no text."
+    "zh-CN": "图片识别未返回文字。",
+    "en": "Image processing returned no text.",
+    "zh-TW": "圖片辨識未傳回文字。"
   },
   "UPLOAD_BUSY": {
-    "zh-CN": "上传繁忙，请稍后重试",
-    "en": "Uploads are busy. Retry later."
+    "zh-CN": "上传繁忙，请稍后重试。",
+    "en": "Uploads are busy. Retry later.",
+    "zh-TW": "上傳忙碌，請稍後重試。"
   },
   "CONTROL_TIMEOUT": {
-    "zh-CN": "任务操作超时，请刷新状态",
-    "en": "Task control timed out. Refresh its status."
+    "zh-CN": "任务操作超时，请刷新状态。",
+    "en": "Task control timed out. Refresh its status.",
+    "zh-TW": "任務操作逾時，請重新整理狀態。"
   },
   "AI_PROVIDER_RATE_LIMIT": {
-    "zh-CN": "模型服务限流，请稍后重试",
-    "en": "The model provider is rate limiting requests. Retry later."
+    "zh-CN": "模型服务限流，请稍后重试。",
+    "en": "The model provider is rate limiting requests. Retry later.",
+    "zh-TW": "模型服務速率限制，請稍後重試。"
   },
   "AI_PROVIDER_TIMEOUT": {
-    "zh-CN": "模型请求超时，请明确重试",
-    "en": "Model request timed out. Explicitly retry when ready."
+    "zh-CN": "模型请求超时，请明确重试。",
+    "en": "Model request timed out. Explicitly retry when ready.",
+    "zh-TW": "模型請求逾時，請明確重試。"
   },
   "AI_PROVIDER_RESPONSE_INVALID": {
-    "zh-CN": "模型返回格式无效，请检查模型配置",
-    "en": "Invalid model response. Check the model configuration."
+    "zh-CN": "模型返回格式无效，请检查模型配置。",
+    "en": "Invalid model response. Check the model configuration.",
+    "zh-TW": "模型傳回格式無效，請檢查模型設定。"
   },
   "AI_PROVIDER_ERROR": {
-    "zh-CN": "模型服务请求失败，请检查配置后重试",
-    "en": "Model provider request failed. Check the configuration before retrying."
+    "zh-CN": "模型服务请求失败，请检查配置后重试。",
+    "en": "Model provider request failed. Check the configuration before retrying.",
+    "zh-TW": "模型服務請求失敗，請檢查設定後重試。"
   },
   "MODEL_INPUT_TOO_LARGE": {
-    "zh-CN": "模型输入超过限制，请拆分文档",
-    "en": "Model input exceeds the limit. Split the document."
+    "zh-CN": "模型输入超过限制，请拆分文档。",
+    "en": "Model input exceeds the limit. Split the document.",
+    "zh-TW": "模型輸入超過限制，請拆分文件。"
   },
   "OUTPUT_INVALID": {
-    "zh-CN": "模型输出不符合题目结构，请重试失败项",
-    "en": "Model output does not match the question structure. Retry failed items."
+    "zh-CN": "模型输出不符合题目结构，请重试失败项。",
+    "en": "Model output does not match the question structure. Retry failed items.",
+    "zh-TW": "模型輸出不符合題目結構，請重試失敗項。"
   },
   "OUTPUT_STALLED": {
-    "zh-CN": "模型未返回完整内容，请重试失败项",
-    "en": "The model did not return complete content. Retry failed items."
+    "zh-CN": "模型未返回完整内容，请重试失败项。",
+    "en": "The model did not return complete content. Retry failed items.",
+    "zh-TW": "模型未傳回完整內容，請重試失敗項。"
   },
   "DOCUMENT_PROCESSING_FAILED": {
-    "zh-CN": "文档处理失败，请查看诊断详情",
-    "en": "Document processing failed. See diagnostic details."
+    "zh-CN": "文档处理失败，请查看诊断详情。",
+    "en": "Document processing failed. See diagnostic details.",
+    "zh-TW": "文件處理失敗，請查看診斷詳情。"
   },
   "CROP_FAILED": {
-    "zh-CN": "图片裁剪失败，请复核来源图片",
-    "en": "Image cropping failed. Review the source image."
+    "zh-CN": "图片裁剪失败，请复核来源图片。",
+    "en": "Image cropping failed. Review the source image.",
+    "zh-TW": "圖片裁切失敗，請複核來源圖片。"
   },
   "LOCAL_GROUP_COUNT_UNSATISFIABLE": {
-    "zh-CN": "完整题组无法恰好满足此题数，请调整题数或手动选择题组",
-    "en": "Complete groups cannot satisfy this exact count; adjust the count or select groups manually"
+    "zh-CN": "完整题组无法恰好满足此题数，请调整题数或手动选择题组。",
+    "en": "Complete groups cannot satisfy this exact count; adjust the count or select groups manually.",
+    "zh-TW": "完整題組無法恰好滿足此題數，請調整題數或手動選擇題組。"
   },
   "LOCAL_PAPER_CHANGED": {
-    "zh-CN": "题目内容已变化，请重新生成组卷预览",
-    "en": "Questions changed; regenerate the paper preview"
+    "zh-CN": "题目内容已变化，请重新生成组卷预览。",
+    "en": "Questions changed; regenerate the paper preview.",
+    "zh-TW": "題目內容已變更，請重新產生組卷預覽。"
   },
   "LOCAL_WORD_REUSED": {
-    "zh-CN": "此词已用于其他空位，请先清空原作答再选择",
-    "en": "This word is already selected in another blank; clear that answer first"
+    "zh-CN": "此词已用于其他空位，请先清空原作答再选择。",
+    "en": "This word is already selected in another blank; clear that answer first.",
+    "zh-TW": "此詞已用於其他空格，請先清空原作答再選擇。"
   },
   "LOCAL_JSON_VERSION": {
-    "zh-CN": "只支持 schemaVersion 为 3 的 PractiQ JSON，请重新导出",
-    "en": "Only PractiQ JSON schemaVersion 3 is supported"
+    "zh-CN": "只支持 schemaVersion 为 3 的 PractiQ JSON，请重新导出。",
+    "en": "Only PractiQ JSON schemaVersion 3 is supported.",
+    "zh-TW": "只支援 schemaVersion 為 3 的 PractiQ JSON，請重新匯出。"
   },
   "LOCAL_GROUP_DELETE_CHILD": {
-    "zh-CN": "请编辑完整题组以删除子题",
-    "en": "Edit the complete group to remove a subquestion"
+    "zh-CN": "请编辑完整题组以删除子题。",
+    "en": "Edit the complete group to remove a subquestion.",
+    "zh-TW": "請編輯完整題組以刪除子題。"
   },
   "LOCAL_SERVICE_UNAVAILABLE": {
     "zh-CN": "AI 服务连接中断。请检查服务地址和网络，再从原评分操作重试。",
-    "en": "The AI service connection failed. Check the service URL and network, then retry the original grading action."
+    "en": "The AI service connection failed. Check the service URL and network, then retry the original grading action.",
+    "zh-TW": "AI 服務連線中斷。請檢查服務位址和網路，再從原評分操作重試。"
   },
   "STALE_CHECKPOINT": {
     "zh-CN": "任务已变化，请刷新任务或重新创建导入批次。",
-    "en": "The task changed. Refresh it or recreate the import batch."
+    "en": "The task changed. Refresh it or recreate the import batch.",
+    "zh-TW": "任務已變更，請重新整理任務或重新建立匯入批次。"
   },
   "LOCAL_BANK_ZIP_INVALID": {
     "zh-CN": "题库 ZIP 无法读写。导入请确认包和资源完整；导出请选择新文件名。",
-    "en": "Cannot read or write the bank ZIP. For import, check the package and resources; for export, choose a new filename."
+    "en": "Cannot read or write the bank ZIP. For import, check the package and resources; for export, choose a new filename.",
+    "zh-TW": "題庫 ZIP 無法讀寫。匯入請確認包和資源完整；匯出請選擇新檔名。"
   },
   "LOCAL_USE_BACKUP_RESTORE": {
     "zh-CN": "这是学习数据备份，请到设置中选择“恢复备份”。",
-    "en": "This is a learning-data backup. Use Restore backup in Settings."
+    "en": "This is a learning-data backup. Use Restore backup in Settings.",
+    "zh-TW": "這是學習資料備份，請到設定中選擇「還原備份」。"
   },
   "LOCAL_USE_BANK_IMPORT": {
     "zh-CN": "这是题库分享包，请到设置中的“恢复备份”选择“导入题库 ZIP”。",
-    "en": "This is a question-bank package. In Settings, choose Restore backup, then Import bank ZIP."
+    "en": "This is a question-bank package. In Settings, choose Restore backup, then Import bank ZIP.",
+    "zh-TW": "這是題庫分享包，請到設定中的「還原備份」選擇「匯入題庫 ZIP」。"
   },
   "LOCAL_CONNECTION_FAILED": {
     "zh-CN": "AI 服务连接失败或超时，请检查地址和网络。",
-    "en": "AI service connection failed or timed out. Check the URL and network."
+    "en": "AI service connection failed or timed out. Check the URL and network.",
+    "zh-TW": "AI 服務連線失敗或逾時，請檢查位址和網路。"
   },
   "LOCAL_CONNECTION_HTTP": {
     "zh-CN": "AI 服务连接测试失败（HTTP {status}），请检查地址、访问令牌和访问权限。",
-    "en": "AI service connection test failed (HTTP {status}). Check the URL, access token and permissions."
+    "en": "AI service connection test failed (HTTP {status}). Check the URL, access token and permissions.",
+    "zh-TW": "AI 服務連線測試失敗（HTTP {status}），請檢查位址、存取權杖和存取權限。"
   },
   "LOCAL_CONNECTION_RESPONSE": {
     "zh-CN": "AI 服务响应无效，无法验证连接。",
-    "en": "Invalid AI service response; the connection could not be verified."
+    "en": "Invalid AI service response; the connection could not be verified.",
+    "zh-TW": "AI 服務回應無效，無法驗證連線。"
   },
   "LOCAL_SELF_ASSESSMENT_INELIGIBLE": {
     "zh-CN": "此题不能自评：仅支持已提交、未跳过且允许自评的普通练习题。",
-    "en": "This question cannot be self-assessed. Self-assessment is available only for eligible, submitted, unskipped questions in ordinary practice."
+    "en": "This question cannot be self-assessed. Self-assessment is available only for eligible, submitted, unskipped questions in ordinary practice.",
+    "zh-TW": "此題不能自評：僅支援已提交、未跳過且允許自評的一般練習題。"
   },
   "AI_RESULT_IMPORTED_ELSEWHERE": {
-    "zh-CN": "该结果已导入其他题库，请打开原题库查看",
-    "en": "This result was already imported into another bank. Open that bank to view it."
+    "zh-CN": "该结果已导入其他题库，请打开原题库查看。",
+    "en": "This result was already imported into another bank. Open that bank to view it.",
+    "zh-TW": "此結果已匯入其他題庫，請開啟該題庫檢視。"
   },
   "MODEL_NOT_CONFIGURED": {
     "zh-CN": "开始或继续 AI 任务前，请先配置模型。",
-    "en": "Configure a model before starting or resuming AI work"
+    "en": "Configure a model before starting or resuming AI work.",
+    "zh-TW": "開始或繼續 AI 工作前，請先設定模型。"
   },
   "OFFICE_BUSY": {
-    "zh-CN": "已有 LibreOffice 检测或转换正在进行",
-    "en": "LibreOffice detection or conversion is already running"
+    "zh-CN": "已有 LibreOffice 检测或转换正在进行。",
+    "en": "A LibreOffice conversion is already running.",
+    "zh-TW": "已有 LibreOffice 檢測或轉換正在進行。"
   },
   "OFFICE_CANCELLED": {
-    "zh-CN": "本机转换已取消",
-    "en": "Local conversion cancelled"
+    "zh-CN": "本机转换已取消。",
+    "en": "Local conversion cancelled.",
+    "zh-TW": "本機轉換已取消。"
   },
   "OFFICE_TIMEOUT": {
-    "zh-CN": "LibreOffice 转换超时，原文件未修改",
-    "en": "LibreOffice conversion timed out; the source file is unchanged"
+    "zh-CN": "LibreOffice 转换超时，原文件未修改。",
+    "en": "LibreOffice conversion timed out; the source file is unchanged.",
+    "zh-TW": "LibreOffice 轉換逾時，原檔案未變更。"
   },
   "OFFICE_OUTPUT_LIMIT": {
-    "zh-CN": "转换结果超过文件数量、大小或页数限制",
-    "en": "Conversion exceeded the file count, size or page limit"
+    "zh-CN": "转换结果超过文件数量、大小或页数限制。",
+    "en": "Conversion exceeded the file count, size or page limit.",
+    "zh-TW": "轉換結果超過檔案數量、大小或頁數限制。"
   },
   "OFFICE_OUTPUT_INVALID": {
-    "zh-CN": "LibreOffice 未生成有效完整的转换结果",
-    "en": "LibreOffice did not produce valid, complete output"
+    "zh-CN": "LibreOffice 未生成有效完整的转换结果。",
+    "en": "LibreOffice did not produce valid, complete output.",
+    "zh-TW": "LibreOffice 未產生有效完整的轉換結果。"
   },
   "OFFICE_INPUT_INVALID": {
-    "zh-CN": "Office 文件无效或超过 25 MiB 限制",
-    "en": "Invalid Office file or input exceeds 25 MiB"
+    "zh-CN": "Office 文件无效或超过 25 MiB 限制。",
+    "en": "Invalid Office file or input exceeds 25 MiB.",
+    "zh-TW": "Office 檔案無效或超過 25 MiB 限制。"
   },
   "OFFICE_FORMAT_UNSUPPORTED": {
-    "zh-CN": "仅支持 DOC、DOCX、XLS 和 XLSX 文件",
-    "en": "Only DOC, DOCX, XLS and XLSX files are supported"
+    "zh-CN": "仅支持 DOC、DOCX、XLS 和 XLSX 文件。",
+    "en": "Only DOC, DOCX, XLS and XLSX files are supported.",
+    "zh-TW": "僅支援 DOC、DOCX、XLS 和 XLSX 檔案。"
   },
   "OFFICE_CONVERSION_FAILED": {
-    "zh-CN": "LibreOffice 转换失败，请检查文件是否损坏、加密或缺少组件",
-    "en": "LibreOffice conversion failed; check for a corrupt or encrypted file or missing components"
+    "zh-CN": "LibreOffice 转换失败，请检查文件是否损坏、加密或缺少组件。",
+    "en": "LibreOffice conversion failed; check for a corrupt or encrypted file or missing components.",
+    "zh-TW": "LibreOffice 轉換失敗，請檢查檔案是否損壞、加密或缺少元件。"
   },
   "OFFICE_WORKER_FAILED": {
-    "zh-CN": "本机转换进程异常退出，请重新检查转换组件",
-    "en": "The conversion worker exited unexpectedly; check LibreOffice again"
+    "zh-CN": "本机转换进程异常退出，请重新检查转换组件。",
+    "en": "The conversion worker exited unexpectedly; check LibreOffice again.",
+    "zh-TW": "本機轉換程序異常結束，請重新檢查轉換元件。"
   },
   "OFFICE_NOT_FOUND": {
-    "zh-CN": "内置转换组件缺失或损坏，请重新安装 PractiQ",
-    "en": "The built-in conversion component is missing or damaged; reinstall PractiQ"
+    "zh-CN": "内置转换组件缺失或损坏，请重新安装 PractiQ。",
+    "en": "The built-in conversion component is missing or damaged; reinstall PractiQ.",
+    "zh-TW": "內建轉換元件缺失或損壞，請重新安裝 PractiQ。"
   },
   "OFFICE_CAPABILITY_MISSING": {
-    "zh-CN": "内置组件无法完成此类转换，请重新安装 PractiQ 后检查",
-    "en": "The built-in component cannot perform this conversion; reinstall PractiQ and check again"
+    "zh-CN": "内置组件无法完成此类转换，请重新安装 PractiQ 后检查。",
+    "en": "The built-in component cannot perform this conversion; reinstall PractiQ and check again.",
+    "zh-TW": "內建元件無法完成此類轉換，請重新安裝 PractiQ 後檢查。"
   },
   "OFFICE_SOURCE_OVERWRITE": {
-    "zh-CN": "不能覆盖原始 Office 文件，请选择其他位置",
-    "en": "The original Office file cannot be overwritten; select another destination"
+    "zh-CN": "不能覆盖原始 Office 文件，请选择其他位置。",
+    "en": "The original Office file cannot be overwritten; select another destination.",
+    "zh-TW": "不能覆蓋原始 Office 檔案，請選擇其他位置。"
   },
   "OFFICE_EMPTY_OUTPUT": {
-    "zh-CN": "此文件提取结果为空，已跳过且未为此文件创建 AI 任务；仍可使用独立导出保存文件",
-    "en": "This file's extracted content is empty; it was skipped without creating tasks for this file. Use standalone export to save it"
+    "zh-CN": "此文件提取结果为空，已跳过且未为此文件创建 AI 任务；仍可使用独立导出保存文件。",
+    "en": "This file's extracted content is empty, so it was skipped without creating tasks. Use standalone export to save it.",
+    "zh-TW": "此檔案擷取結果為空，已跳過且未為此檔案建立 AI 任務；仍可使用獨立匯出儲存檔案。"
   },
   "OFFICE_IMPORT_PENDING": {
-    "zh-CN": "此文件有待确认的解析请求，请先重试待确认操作，避免重复提交",
-    "en": "This file has pending parsing requests. Retry pending operations before importing it again"
+    "zh-CN": "此文件有待确认的解析请求，请先重试待确认操作，避免重复提交。",
+    "en": "This file has pending parsing requests. Retry pending operations before importing it again.",
+    "zh-TW": "此檔案有待確認的解析請求，請先重試待確認操作，避免重複提交。"
   },
   "LOCAL_AUDIO_URL_INVALID": {
     "zh-CN": "请使用公开的 HTTP/HTTPS 网址（80/443 端口），不能包含账号密码或指向本地、内网地址。",
-    "en": "Use a public HTTP/HTTPS URL on port 80 or 443, without credentials or local/private addresses."
+    "en": "Use a public HTTP/HTTPS URL on port 80 or 443, without credentials or local/private addresses.",
+    "zh-TW": "請使用公開的 HTTP/HTTPS 網址（80/443 埠），不能包含帳號密碼或指向本機、內網位址。"
   },
   "LOCAL_AUDIO_DOWNLOAD_FAILED": {
     "zh-CN": "获取资源失败，请检查网址和网络；资源可能需要登录或已过期。也可下载音频后选择本地文件。",
-    "en": "Could not fetch this resource. Check the URL and connection; it may require sign-in or have expired. You can also download the audio and choose the local file."
+    "en": "Could not fetch this resource. Check the URL and connection; it may require sign-in or have expired. You can also download the audio and choose the local file.",
+    "zh-TW": "取得資源失敗，請檢查網址與網路；資源可能需要登入或已過期。也可先下載音訊，再選擇本機檔案。"
   },
   "LOCAL_AUDIO_DOWNLOAD_SIZE": {
     "zh-CN": "资源过大：音频最多 25 MiB，网页最多 2 MiB。",
-    "en": "Resource too large: audio is limited to 25 MiB and pages to 2 MiB."
+    "en": "Resource too large: audio is limited to 25 MiB and pages to 2 MiB.",
+    "zh-TW": "資源過大：音訊最多 25 MiB，網頁最多 2 MiB。"
   },
   "LOCAL_AUDIO_NO_LINKS": {
     "zh-CN": "未找到公开音频链接。需要登录或运行脚本的网页，请自行下载音频后选择本地文件。",
-    "en": "No public audio links found. For pages requiring sign-in or scripts, download the audio yourself and choose the local file."
+    "en": "No public audio links found. For pages requiring sign-in or scripts, download the audio yourself and choose the local file.",
+    "zh-TW": "找不到公開音訊連結。需要登入或執行指令碼的網頁，請自行下載音訊後選擇本機檔案。"
   },
   "LOCAL_AUDIO_QR_INVALID": {
     "zh-CN": "未识别到有效的公开网址二维码。请选择清晰的 PNG/JPEG 图片（宽高不超过 4096 像素），或直接粘贴网址。",
-    "en": "No valid public-URL QR code found. Choose a clear PNG/JPEG image up to 4096 pixels per side, or paste the URL."
+    "en": "No valid public-URL QR code found. Choose a clear PNG/JPEG image up to 4096 pixels per side, or paste the URL.",
+    "zh-TW": "未辨識到有效的公開網址 QR Code。請選擇清晰的 PNG/JPEG 圖片（寬高不超過 4096 像素），或直接貼上網址。"
   },
   "LOCAL_AUDIO_INVALID": {
     "zh-CN": "资源不是有效的 MP3、M4A/AAC 或 WAV 音频，或音频暂存空间已满。",
-    "en": "The resource is not valid MP3, M4A/AAC or WAV audio, or audio staging storage is full."
+    "en": "The resource is not valid MP3, M4A/AAC or WAV audio, or audio staging storage is full.",
+    "zh-TW": "資源不是有效的 MP3、M4A/AAC 或 WAV 音訊，或音訊暫存空間已滿。"
   },
   "LOCAL_AUDIO_MISSING": {
     "zh-CN": "音频暂存已失效，请重新导入音频后保存。",
-    "en": "The staged audio is no longer available. Import the audio again before saving."
+    "en": "The staged audio is no longer available. Import the audio again before saving.",
+    "zh-TW": "音訊暫存已失效，請重新匯入音訊後儲存。"
   },
   "LOCAL_BACKUP_RESOURCE_INVALID": {
     "zh-CN": "当前数据含不支持或损坏的图片、音频，备份已取消；已有备份未被覆盖。",
-    "en": "Current data contains unsupported or damaged images or audio. Backup canceled; any existing backup was preserved."
+    "en": "Current data contains unsupported or damaged images or audio. Backup canceled; any existing backup was preserved.",
+    "zh-TW": "目前資料含不支援或損壞的圖片、音訊，備份已取消；已有備份未被覆蓋。"
   },
   "LOCAL_CONFIGURE_BUSY": {
-    "zh-CN": "请等待当前 AI 评分请求结束，再更改服务连接设置",
-    "en": "Wait for the current AI grading request to finish before changing service connection settings."
+    "zh-CN": "请等待当前 AI 评分请求结束，再更改服务连接设置。",
+    "en": "Wait for the current AI grading request to finish before changing service connection settings.",
+    "zh-TW": "請等待目前 AI 評分請求結束，再變更服務連線設定。"
   },
   "GRADING_INPUT_INVALID": {
-    "zh-CN": "评分输入或摘要不合法",
-    "en": "Grading input or digest is invalid."
+    "zh-CN": "评分输入或摘要不合法。",
+    "en": "Grading input or digest is invalid.",
+    "zh-TW": "評分輸入或摘要不合法。"
   },
   "INVALID_SERVICE_TOKEN": {
-    "zh-CN": "AI 服务令牌无效",
-    "en": "AI service token is invalid."
+    "zh-CN": "AI 服务令牌无效。",
+    "en": "AI service token is invalid.",
+    "zh-TW": "AI 服務權杖無效。"
   },
   "REQUEST_TOO_LARGE": {
-    "zh-CN": "请求体过大",
-    "en": "Request body is too large."
+    "zh-CN": "请求体过大。",
+    "en": "Request body is too large.",
+    "zh-TW": "請求體過大。"
   },
   "SERVICE_ERROR": {
-    "zh-CN": "AI 服务请求失败，请查看诊断详情",
-    "en": "The AI service request failed. Check the diagnostic details."
+    "zh-CN": "AI 服务请求失败，请查看诊断详情。",
+    "en": "The AI service request failed. Check the diagnostic details.",
+    "zh-TW": "AI 服務請求失敗，請查看診斷詳情。"
   },
   "LOCAL_SERVICE_URL_REQUIRED": {
-    "zh-CN": "请配置 AI 服务地址",
-    "en": "Configure an AI service URL"
+    "zh-CN": "请配置 AI 服务地址。",
+    "en": "Configure an AI service URL.",
+    "zh-TW": "請設定 AI 服務位址。"
   },
   "LOCAL_SERVICE_TOKEN_REQUIRED": {
-    "zh-CN": "请配置 AI 服务访问令牌",
-    "en": "Configure an AI service access token"
+    "zh-CN": "请配置 AI 服务访问令牌。",
+    "en": "Configure an AI service access token.",
+    "zh-TW": "請設定 AI 服務存取權杖。"
   },
   "LOCAL_SERVICE_TOKEN_INVALID": {
-    "zh-CN": "AI 服务访问令牌格式无效",
-    "en": "Invalid AI service access token format"
+    "zh-CN": "AI 服务访问令牌格式无效。",
+    "en": "Invalid AI service access token format.",
+    "zh-TW": "AI 服務存取權杖格式無效。"
   },
   "LOCAL_DOCUMENT_UNAVAILABLE": {
-    "zh-CN": "无法读取授权文件或创建临时副本，请重新选择文件",
-    "en": "Cannot read the authorized file or create a temporary copy. Choose the file again."
+    "zh-CN": "无法读取授权文件或创建临时副本，请重新选择文件。",
+    "en": "Cannot read the authorized file or create a temporary copy. Choose the file again.",
+    "zh-TW": "無法讀取授權檔案或建立臨時副本，請重新選擇檔案。"
   },
   "LOCAL_DOCUMENT_TOO_LARGE": {
-    "zh-CN": "所选文件超过允许大小，请选择较小的文件",
-    "en": "The selected file exceeds the size limit. Choose a smaller file."
+    "zh-CN": "所选文件超过允许大小，请选择较小的文件。",
+    "en": "The selected file exceeds the size limit. Choose a smaller file.",
+    "zh-TW": "所選檔案超過允許大小，請選擇較小的檔案。"
   },
   "LOCAL_DOCUMENT_SAVE_FAILED": {
-    "zh-CN": "无法保存到授权位置，请重新选择保存位置",
-    "en": "Cannot save to the authorized location. Choose the save location again."
+    "zh-CN": "无法保存到授权位置，请重新选择保存位置。",
+    "en": "Cannot save to the authorized location. Choose the save location again.",
+    "zh-TW": "無法儲存到授權位置，請重新選擇儲存位置。"
   },
   "LOCAL_MODEL_URL_REQUIRED": {
-    "zh-CN": "请配置模型 API 地址",
-    "en": "Configure a model API URL"
+    "zh-CN": "请配置模型 API 地址。",
+    "en": "Configure a model API URL.",
+    "zh-TW": "請設定模型 API 位址。"
   },
   "LOCAL_MODEL_ID_REQUIRED": {
-    "zh-CN": "请配置模型 ID",
-    "en": "Configure a model ID"
+    "zh-CN": "请配置模型 ID。",
+    "en": "Configure a model ID.",
+    "zh-TW": "請設定模型 ID。"
   },
   "LOCAL_MODEL_UNAVAILABLE": {
     "zh-CN": "模型列表中未找到配置的模型，请检查模型 ID 或访问权限。",
-    "en": "The configured model is absent from the model list. Check the model ID or access permissions."
+    "en": "The configured model is absent from the model list. Check the model ID or access permissions.",
+    "zh-TW": "模型清單中找不到設定的模型，請檢查模型 ID 或存取權限。"
   },
   "LOCAL_MODEL_KEY_REQUIRED": {
-    "zh-CN": "请配置模型 API Key",
-    "en": "Configure a model API key"
+    "zh-CN": "请配置模型 API Key。",
+    "en": "Configure a model API key.",
+    "zh-TW": "請設定模型 API Key。"
   },
   "LOCAL_MODEL_CONNECTION_FAILED": {
     "zh-CN": "模型连接中断或超时。已发送的评分不会自动重试；可能已产生费用，请核对后明确重新评分。",
-    "en": "The model connection failed or timed out. Sent grading requests are never retried automatically and may have incurred charges. Check before explicitly regrading."
+    "en": "The model connection failed or timed out. Sent grading requests are never retried automatically and may have incurred charges. Check before explicitly regrading.",
+    "zh-TW": "模型連線中斷或逾時。已送出的評分不會自動重試；可能已產生費用，請核對後明確重新評分。"
   },
   "LOCAL_MODEL_HTTP": {
     "zh-CN": "模型接口返回 HTTP {status}；请检查模型地址、API Key 和接口兼容性。",
-    "en": "The model API returned HTTP {status}. Check the URL, API key and API compatibility."
+    "en": "The model API returned HTTP {status}. Check the URL, API key and API compatibility.",
+    "zh-TW": "模型介面傳回 HTTP {status}；請檢查模型位址、API Key 和介面相容性。"
   },
   "LOCAL_MODEL_RESPONSE_INVALID": {
     "zh-CN": "模型未返回有效的评分 JSON，已保留原得分。请人工复核，或明确重新评分。",
-    "en": "The model did not return valid grading JSON. Existing scores are kept. Review manually or explicitly regrade."
+    "en": "The model did not return valid grading JSON. Existing scores are kept. Review manually or explicitly regrade.",
+    "zh-TW": "模型未傳回有效的評分 JSON，已保留原得分。請人工複核，或明確重新評分。"
   },
   "LOCAL_MODEL_RESULT_UNKNOWN": {
     "zh-CN": "上次直连评分结果未知，可能已产生费用。不会自动重发；如需再次调用模型，请明确重新评分。",
-    "en": "The previous direct grading result is unknown and may have incurred charges. It will not be resent; explicitly regrade to call the model again."
+    "en": "The previous direct grading result is unknown and may have incurred charges. It will not be resent; explicitly regrade to call the model again.",
+    "zh-TW": "上次直連評分結果未知，可能已產生費用。不會自動重送；如需再次呼叫模型，請明確重新評分。"
   },
   "LOCAL_GRADING_TARGET_CHANGED": {
     "zh-CN": "评分连接或模型已更改。上次请求不会发送到新接口；如需调用当前模型，请明确重新评分。",
-    "en": "The grading connection or model changed. The previous request will not be sent to the new endpoint; explicitly regrade to use the current model."
+    "en": "The grading connection or model changed. The previous request will not be sent to the new endpoint; explicitly regrade to use the current model.",
+    "zh-TW": "評分連線或模型已變更。上次請求不會送到新介面；如需呼叫目前模型，請明確重新評分。"
   }
 }

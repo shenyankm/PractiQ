@@ -285,6 +285,7 @@ def test_score_contract_nullable_and_strict():
 @pytest.mark.parametrize("feedback_locale,language,reason,missing_rubric,rescale_note", [
     (None, "Chinese", "缺少表面", "未提供详细评分细则", "比例换算"),
     ("zh-CN", "Chinese", "缺少表面", "未提供详细评分细则", "比例换算"),
+    ("zh-TW", "Traditional Chinese", "缺少表面", "未提供詳細評分細則", "比例換算"),
     ("en", "English", "Missing the surface condition.", "No detailed scoring rubric was provided.", "Scaled proportionally"),
 ])
 async def test_grade_partial_cache_and_rescale(setup,monkeypatch,feedback_locale,language,reason,missing_rubric,rescale_note):
@@ -557,6 +558,8 @@ def test_feedback_locale_is_validated_and_part_of_the_frozen_payload():
     assert legacy.feedbackLocale == "zh-CN"
     english = wire(payload(feedbackLocale="en"))
     assert grading.GradeWireRequest.model_validate(english).verified_request().feedbackLocale == "en"
+    traditional = wire(payload(feedbackLocale="zh-TW"))
+    assert grading.GradeWireRequest.model_validate(traditional).verified_request().feedbackLocale == "zh-TW"
     with pytest.raises(ValidationError):
         grading.GradeWireRequest.model_validate(wire(payload(feedbackLocale="fr"))).verified_request()
     with pytest.raises(ValueError, match="Grading input digest does not match"):
@@ -581,6 +584,29 @@ async def test_english_grading_failures_preserve_abstention_and_unknown_replay(s
     response = await grading.grade(request)
     assert response["status"] == "unknown"
     assert response["error"] == "Result unknown; check the record before explicitly requesting another grade."
+
+
+def test_feedback_language_and_localized_copy_cover_traditional_chinese():
+    assert grading._feedback_language("zh-CN") == "Chinese"
+    assert grading._feedback_language("zh-TW") == "Traditional Chinese"
+    assert grading._feedback_language("en") == "English"
+    assert grading._localized("zh-TW", "简体", "繁體", "English") == "繁體"
+    assert grading._localized("en", "简体", "繁體", "English") == "English"
+
+
+async def test_traditional_chinese_failures_use_traditional_copy(setup, monkeypatch):
+    async def forbidden(*args, **kwargs):
+        pytest.fail("Missing evidence must not call the model")
+    monkeypatch.setattr(grading, "structured_call", forbidden)
+    missing_basis = {**payload()["question"], "answerPayload": None}
+    response = await grading.grade(grading.GradeRequest.model_validate(payload(question=missing_basis, feedbackLocale="zh-TW")))
+    assert response["status"] == "ungraded"
+    assert response["error"] == "缺少完整題目、作答或評分依據"
+    request = grading.GradeRequest.model_validate(payload(feedbackLocale="zh-TW"))
+    assert grading._claim(request) is None
+    response = await grading.grade(request)
+    assert response["status"] == "unknown"
+    assert response["error"] == "結果未知；請檢查紀錄後明確重新評分"
 
 
 def test_grading_endpoint_digest_auth_and_limits(setup,monkeypatch):

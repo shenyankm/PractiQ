@@ -29,6 +29,44 @@ pub fn hash(bytes: &[u8]) -> String {
 #[cfg(test)]
 #[path = "search_performance.rs"]
 mod search_tests;
+// Schema 11 previously limited the locale CHECK to two values. Upgrade that table
+// in place so existing practice data keeps working; unrelated schema drift still fails below.
+pub(crate) const OLD_SETTINGS_SQL: &str = "CREATE TABLE settings(id INTEGER PRIMARY KEY CHECK(id=1),base_url TEXT,model_id TEXT,locale TEXT CHECK(locale IS NULL OR locale IN('zh-CN','en')))";
+fn upgrade_settings_locale(db: &mut Connection) -> Result<()> {
+    let sql: String = db
+        .query_row(
+            "SELECT COALESCE(sql,'') FROM sqlite_master WHERE type='table' AND name='settings'",
+            [],
+            |r| r.get(0),
+        )
+        .map_err(err)?;
+    if sql != OLD_SETTINGS_SQL {
+        return Ok(());
+    }
+    let tx = db
+        .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+        .map_err(err)?;
+    // Validate before any rewrite, including when another instance upgraded while we waited.
+    crate::backup::validate_database_connection(&tx)?;
+    let sql: String = tx
+        .query_row(
+            "SELECT sql FROM sqlite_master WHERE name='settings'",
+            [],
+            |r| r.get(0),
+        )
+        .map_err(err)?;
+    if sql == OLD_SETTINGS_SQL {
+        tx.execute_batch(
+        "ALTER TABLE settings RENAME TO settings_locale_upgrade;
+         CREATE TABLE settings(id INTEGER PRIMARY KEY CHECK(id=1),base_url TEXT,model_id TEXT,locale TEXT CHECK(locale IS NULL OR locale IN('zh-CN','zh-TW','en')));
+         INSERT INTO settings(id,base_url,model_id,locale) SELECT id,base_url,model_id,locale FROM settings_locale_upgrade;
+         DROP TABLE settings_locale_upgrade;",
+    )
+    .map_err(err)?;
+    }
+    tx.commit().map_err(err)
+}
+
 pub(crate) fn err(e: impl std::fmt::Display) -> crate::AppError {
     e.to_string().into()
 }
@@ -270,7 +308,7 @@ impl Store {
         if self.service_settings_recovery_required.get() {
             return Err("Database restoration requires recovery; restart before continuing".into());
         }
-        let db = Connection::open(self.db_path()).map_err(err)?;
+        let mut db = Connection::open(self.db_path()).map_err(err)?;
         db.busy_timeout(std::time::Duration::from_secs(5))
             .map_err(err)?;
         db.execute_batch("PRAGMA foreign_keys=ON;").map_err(err)?;
@@ -290,6 +328,7 @@ impl Store {
                 "Only database schema 11 is supported; existing data remains unchanged".into(),
             );
         }
+        upgrade_settings_locale(&mut db)?;
         Ok(db)
     }
     #[cfg(test)]

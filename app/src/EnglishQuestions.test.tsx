@@ -82,6 +82,15 @@ it("counts contractions and hyphenated words once, without disabling submission"
   expect(screen.getByRole("status").textContent).toContain("仍可提交");
   expect((screen.getByRole("textbox") as HTMLTextAreaElement).disabled).toBe(false);
 });
+it("shows only the word limits that exist",()=>{
+  const write=question("write");
+  const view=render(<AnswerInput question={{...write,minWords:80,maxWords:null}} value={{text:"word"}} onChange={()=>{}}/>);
+  expect(screen.getByRole("status").textContent).toContain("要求：至少 80 词");
+  view.rerender(<AnswerInput question={{...write,minWords:null,maxWords:120}} value={{text:"word"}} onChange={()=>{}}/>);
+  expect(screen.getByRole("status").textContent).toContain("要求：至多 120 词");
+  view.rerender(<AnswerInput question={{...write,minWords:80,maxWords:120}} value={{text:"word"}} onChange={()=>{}}/>);
+  expect(screen.getByRole("status").textContent).toContain("要求：80–120 词");
+});
 it("counts a writing response once per render for the counter and both limits",()=>{
   const count = vi.spyOn(english, "countEnglishWords");
   const {rerender} = render(<AnswerInput question={question("write")} value={{text:"word ".repeat(100)}} onChange={()=>{}}/>);
@@ -219,10 +228,10 @@ it("saves writing limits and materials while preserving continuation roles", asy
   await user.type(screen.getByLabelText("最少词数"), "80");
   await user.clear(screen.getByLabelText("最多词数"));
   await user.type(screen.getByLabelText("最多词数"), "120");
-  await user.click(screen.getByRole("button", { name: "增加材料段落" }));
+  await user.click(screen.getByRole("button", { name: "添加材料段落" }));
   await user.type(screen.getByLabelText("材料段落标签"), "A");
   await user.type(screen.getByLabelText("材料内容"), "Invite a friend.");
-  await user.click(screen.getByRole("button", { name: "增加续写开头" }));
+  await user.click(screen.getByRole("button", { name: "添加续写开头" }));
   await user.type(screen.getAllByLabelText("材料内容")[1], "Dear friend,");
   await user.click(screen.getByRole("button", { name: "保存题目" }));
   expect(save).toHaveBeenLastCalledWith(expect.objectContaining({

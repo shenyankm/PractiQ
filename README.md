@@ -13,7 +13,9 @@ Turn documents into question banks, then practise and take mock exams offline on
 - **Review scores**: score objective questions locally, request AI short-answer grading, or record manual corrections.
 - **Keep and share**: resume sessions, back up personal records, and share banks with images and audio as ZIP files.
 
-The app supports Simplified Chinese and English, light and dark themes, seven basic question types, and English listening, reading, cloze, translation, and writing tasks. Offline practice data stays on your device and needs no account or cloud sync. The separate Web importer uses your self-hosted service access token; there are no user accounts or built-in billing.
+The app supports Simplified Chinese, Traditional Chinese, and English, light and dark themes, seven basic question types, and English listening, reading, cloze, translation, and writing tasks. Offline practice data stays on your device and needs no account or cloud sync. The separate Web importer uses your self-hosted service access token; there are no user accounts or built-in billing.
+
+On first launch, PractiQ chooses a supported language from your system preference; you can also switch from the sidebar. The choice is saved on this device and included in full backups, and a failed save can be retried. Dates and numbers use the system regional preference that matches the interface language. Switching languages keeps question text and answers unchanged, and materials with reliable language information declare their own language for assistive tools. AI grading records the feedback language when it starts and keeps it when the same request continues.
 
 PractiQ is in development. Run it from source using the instructions below; check [GitHub Releases](https://github.com/shenyankm/PractiQ/releases) for published packages and their stated limitations. Platform build checks do not establish signed-release or clean-machine acceptance.
 

@@ -3,8 +3,8 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 
-// Product/technical names and the two self-identifying language choices are intentional.
-const literalLabels = new Set(["PractiQ", "http://127.0.0.1:8000", "https://api.example.com/v1", "简体中文", "English"]);
+// Product/technical names and the three self-identifying language choices are intentional.
+const literalLabels = new Set(["PractiQ", "http://127.0.0.1:8000", "https://api.example.com/v1", "简体中文", "繁體中文", "English"]);
 function untranslated(source: string) {
   const failures: string[] = [];
   const bindings = new Map<string, any>();
@@ -113,6 +113,19 @@ it("collects native constructor outputs and interpolation parameters", () => {
   expect(nativeFailures(nativeCalls('language::error("LOCAL_PATH", json!({}));'), {LOCAL_PATH:{en:"Path {key}","zh-CN":"路径 {key}"}})).toEqual(["LOCAL_PATH: missing parameter key"]);
   expect(nativeCalls('language::error("LOCAL_PATH", json!({"diagnostic":{"key":"nested"},"name":func("key: text")}));')[0].params).toEqual(new Set(["diagnostic","name"]));
   expect(nativeCalls('AppError::new("RESTORE_BUSY", "Restore pending"); exclusive("LOCAL_CONFIGURE_BUSY"); AppError::new(endpoint.code, endpoint.message);').map(c => c.code)).toEqual(["RESTORE_BUSY", "LOCAL_CONFIGURE_BUSY"]);
+});
+it("ends every native error in terminal punctuation for all languages", async () => {
+  const {default:messages} = await import("./locales/native.json");
+  const failures = Object.entries(messages).flatMap(([code, pair]) => [
+    ...(/[。！？…]$/u.test(pair["zh-CN"]) ? [] : [`${code}: zh-CN`]),
+    ...(/[。！？…]$/u.test(pair["zh-TW"]) ? [] : [`${code}: zh-TW`]),
+    ...(/[.!?…]$/u.test(pair.en) ? [] : [`${code}: en`]),
+  ]);
+  expect(failures).toEqual([]);
+});
+it("translates every native error into Traditional Chinese", async () => {
+  const {default:messages} = await import("./locales/native.json");
+  expect(Object.entries(messages).filter(([, pair]) => !pair["zh-TW"]?.trim()).map(([code]) => code)).toEqual([]);
 });
 it("translates native error outputs and supplies their interpolation parameters", async () => {
   const {default:messages} = await import("./locales/native.json");

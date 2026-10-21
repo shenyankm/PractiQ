@@ -110,7 +110,7 @@ Preserve review flags, immutable practice and score snapshots, resource checksum
 - Reuse existing code, components, and dependencies.
 - Add a focused regression for each behavior change. Test observable behavior with current contracts and complete valid fixtures; rejection tests should change only the intended field and assert its error.
 - Reset mocks and global stubs per test. Use events, fake time, or retrying assertions for asynchronous work. Keep UI behavior in component tests, layout/focus in Playwright, and persistence/recovery in native or service integration tests.
-- Update affected documentation, contracts, and `.env.example`. Desktop frontend copy uses Simplified Chinese message keys with English translations in `app/src/locales/en.ts`.
+- Update affected documentation, contracts, and `.env.example`. Desktop frontend copy uses Simplified Chinese message keys with English and Traditional Chinese translations in `app/src/locales/en.ts` and `app/src/locales/zh-TW.ts`.
 - Keep secrets, personal learning data, local databases, and generated build output out of Git. Never put API keys in SQLite, logs, fixtures, or backups.
 
 When shared AI contracts change, run `/path/to/python3.14 app/scripts/export-contracts.py` and commit all affected generated files:

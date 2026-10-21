@@ -1,0 +1,40 @@
+{
+  "evidenceType": "browser-synthetic",
+  "baseCommit": "fb91d2cf5611bb90ac8e6e066f73d3eff721d2b3",
+  "appRuns": [
+    {
+      "startTime": "2026-10-21T05:15:50.020Z",
+      "duration": 489683.27900000004,
+      "expected": 140,
+      "skipped": 0,
+      "unexpected": 6,
+      "flaky": 0
+    },
+    {
+      "startTime": "2026-10-21T05:24:14.163Z",
+      "duration": 120361.089,
+      "expected": 11,
+      "skipped": 0,
+      "unexpected": 3,
+      "flaky": 0
+    },
+    {
+      "startTime": "2026-10-21T05:26:31.121Z",
+      "duration": 40765.073,
+      "expected": 9,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    }
+  ],
+  "appLatestUniqueCases": {
+    "passed": 146,
+    "failed": 0
+  },
+  "webCases": {
+    "passed": 43,
+    "failed": 0,
+    "initialPassed": 41,
+    "fixedAndRerun": 2
+  }
+}

@@ -6,6 +6,7 @@ import userEvent from "@testing-library/user-event";
 import { invoke } from "@tauri-apps/api/core";
 import { I18nProvider, contentLanguage, date, duration, formatLocale, message, MessageError, systemLocale, number, list, locale, t, translate, useI18n, type Locale } from "./i18n";
 import { en } from "./locales/en";
+import { zhTW } from "./locales/zh-TW";
 import native from "./locales/native.json";
 import { blankQuestion, errorMessage, type Session, type Question } from "./api";
 import App from "./App";
@@ -57,7 +58,14 @@ it("has complete dictionaries, matching parameters and count plurals", () => {
     expect(value.trim(), key).not.toBe("");
     expect(slots(value), key).toEqual(slots(key));
   }
-  for (const pair of Object.values(native)) expect(slots(pair.en)).toEqual(slots(pair["zh-CN"]));
+  for (const [key, value] of Object.entries(zhTW)) {
+    expect(value.trim(), key).not.toBe("");
+    expect(slots(value), key).toEqual(slots(key));
+  }
+  for (const pair of Object.values(native)) {
+    expect(slots(pair.en)).toEqual(slots(pair["zh-CN"]));
+    expect(slots(pair["zh-TW"])).toEqual(slots(pair["zh-CN"]));
+  }
   expect(translate("en", "{0} 题", { 0: 1 })).toBe("1 question");
   expect(translate("en", "{0} 题", { 0: 2 })).toBe("2 questions");
   expect(translate("en", "{0} 个题库 · {1} 道题目", { 0: 1, 1: 1234 })).toBe("1 bank · 1,234 questions");
@@ -73,12 +81,20 @@ it.each([0, 1, 2])("keeps bank, word and review counts grammatical (%s)", count 
   expect(translate("en", "已识别 {0} 道题目，其中 {1} 道待复核，仍可直接练习。", { 0: count, 1: count })).toBe(`Found ${count} ${count === 1 ? "question" : "questions"}; needing review: ${count}. You can still practice now.`);
 });
 it("resolves the system language and prefers a saved selection across remounts", async () => {
-  expect(systemLocale(["zh-TW"])).toBe("zh-CN");
+  expect(systemLocale(["zh-TW"])).toBe("zh-TW");
+  expect(systemLocale(["zh-Hant-CN"])).toBe("zh-TW");
+  expect(systemLocale(["zh-HK"])).toBe("zh-TW");
+  expect(systemLocale(["zh-MO"])).toBe("zh-TW");
   expect(systemLocale(["zh-Hans-CN"])).toBe("zh-CN");
+  expect(systemLocale(["zh-Hans-TW"])).toBe("zh-CN");
+  expect(systemLocale(["zh-Hant-SG"])).toBe("zh-TW");
   expect(systemLocale(["fr-FR", "zh-CN"])).toBe("zh-CN");
   expect(systemLocale(["invalid_language", "en-GB", "zh-CN"])).toBe("en");
   expect(systemLocale(["fr-FR"])).toBe("en");
   expect(systemLocale([])).toBe("en");
+  expect(formatLocale("zh-TW", ["zh-CN"])).toBe("zh-TW");
+  expect(formatLocale("zh-TW", ["zh-HK"])).toBe("zh-HK");
+  expect(formatLocale("zh-CN", ["zh-TW"])).toBe("zh-CN");
   Object.defineProperty(navigator, "languages", { configurable: true, value: ["en-US"] });
   const view = wrap(<App />); await ready();
   expect(await screen.findByRole("heading", { name: "My banks" })).toBeTruthy();
@@ -86,6 +102,20 @@ it("resolves the system language and prefers a saved selection across remounts",
   expect(document.documentElement.lang).toBe("zh-CN");
   view.unmount(); wrap(<App />); await ready();
   expect(await screen.findByRole("heading", { name: "我的题库" })).toBeTruthy();
+});
+it("selects Traditional Chinese and formats through a Taiwan locale", async () => {
+  Object.defineProperty(navigator, "languages", { configurable: true, value: ["zh-TW"] });
+  const view = wrap(<App />); await ready();
+  expect(await screen.findByRole("heading", { name: "我的題庫" })).toBeTruthy();
+  expect(document.documentElement.lang).toBe("zh-TW");
+  expect(translate("zh-TW", "已导入 {0} 道题目", { 0: 2 })).toBe("已匯入 2 道題目");
+  await userEvent.click(screen.getByRole("button", { name: "語言" }));
+  expect(screen.getByRole("menuitemradio", { name: "繁體中文" }).getAttribute("aria-checked")).toBe("true");
+  await userEvent.click(screen.getByRole("menuitemradio", { name: "English" }));
+  await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+  expect(saved).toBe("en");
+  expect(document.documentElement.lang).toBe("en");
+  view.unmount();
 });
 it("retries the failed language selection from the retry button", async () => {
   wrap(<App />); await ready();
@@ -300,7 +330,7 @@ it("formats history accuracy counts through the translated sentence", async () =
   wrap(<App />); await ready();
   await userEvent.click(screen.getByRole("button", { name: "History" }));
   expect(await screen.findByText("Graded 10,000 questions, correct 5,000 · Accuracy: 50%")).toBeTruthy();
-  expect(screen.getByText("Unanswered/skipped: 19 · Ungraded: 1")).toBeTruthy();
+  expect(screen.getByText("Unanswered / skipped: 19 · Ungraded: 1")).toBeTruthy();
 });
 it.each(["en", "zh-CN"] as const)("imports offline ZIP and saves a translated service form in %s", async value => {
   saved = value;

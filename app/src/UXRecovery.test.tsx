@@ -201,7 +201,7 @@ it("returns from AI configuration to the same grading question without automatic
   await screen.findByText("English"); await openExam(user);
   await user.click(screen.getByRole("button", { name: "下一题" }));
   await user.type(screen.getByRole("textbox", { name: "人工得分" }), "3");
-  await user.click(screen.getByRole("button", { name: /AI 评分／继续/ }));
+  await user.click(screen.getByRole("button", { name: /AI 评分\/继续/ }));
   await user.click(await screen.findByRole("button", { name: "配置 AI 服务" }));
   await user.type(await screen.findByRole("textbox", { name: "模型 API 地址" }), "http://127.0.0.1:8000");
   await user.click(screen.getByRole("button", { name: "返回评分" }));
@@ -259,7 +259,7 @@ it("shows a failed return from service settings while preserving the grading dra
   const user = userEvent.setup(); render(<App />);
   await screen.findByText("English"); await openExam(user);
   await user.type(screen.getByRole("textbox", { name: "人工得分" }), "3");
-  await user.click(screen.getByRole("button", { name: /AI 评分／继续/ }));
+  await user.click(screen.getByRole("button", { name: /AI 评分\/继续/ }));
   await user.click(await screen.findByRole("button", { name: "配置 AI 服务" }));
   await screen.findByRole("textbox", { name: "模型 API 地址" });
   failSession = true;

@@ -53,7 +53,7 @@ it("stops queued AI grading after the in-flight request completes", async () => 
   vi.mocked(invoke).mockImplementation(() => new Promise(resolve => { finish = resolve; }));
   render(<ExamResults session={session} onSession={onSession} run={job => { void job(); }} />);
 
-  await user.click(screen.getByRole("button", { name: "AI 评分／继续（2 题，将调用模型）" }));
+  await user.click(screen.getByRole("button", { name: "AI 评分/继续（2 题，将调用模型）" }));
   await waitFor(() => expect(invoke).toHaveBeenCalledTimes(1));
   await user.click(screen.getByRole("button", { name: "停止后续评分" }));
   await act(async () => { finish(session); });
@@ -75,7 +75,7 @@ it("shows abstention evidence and only starts grading attempts without a previou
   expect(screen.getByText("复核提示：请人工核对评分依据")).toBeTruthy();
   expect(screen.getByText("上次请求：未能评分，需复核")).toBeTruthy();
   expect(screen.queryByText(/已有得分保留/)).toBeNull();
-  await user.click(screen.getByRole("button", { name: "AI 评分／继续（1 题，将调用模型）" }));
+  await user.click(screen.getByRole("button", { name: "AI 评分/继续（1 题，将调用模型）" }));
   await waitFor(() => expect(invoke).toHaveBeenCalledTimes(1));
   expect(invoke).toHaveBeenCalledWith("ai_request", expect.objectContaining({ request: { type: "grade", id: "exam", ordinal: 0, retry: false } }));
 });
@@ -88,7 +88,7 @@ it("checks an unknown result using the existing request and distinguishes a reta
   render(<ExamResults session={session} onSession={vi.fn()} run={job => { void job(); }} />);
   expect(screen.getByText(/部分得分/)).toBeTruthy();
   expect(screen.getByText(/上次请求：评分结果待确认.*已有得分保留/)).toBeTruthy();
-  expect(screen.queryByRole("button", { name: /AI 评分／继续/ })).toBeNull();
+  expect(screen.queryByRole("button", { name: /AI 评分\/继续/ })).toBeNull();
   await user.click(screen.getByRole("button", { name: "核对上次评分结果" }));
   await waitFor(() => expect(invoke).toHaveBeenCalledTimes(1));
   expect(invoke).toHaveBeenCalledWith("ai_request", expect.objectContaining({ request: { type: "grade", id: "exam", ordinal: 0, retry: false } }));

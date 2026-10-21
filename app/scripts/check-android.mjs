@@ -323,7 +323,7 @@ test('remote grading requires the explicit action and manual review remains usab
   await page.getByRole('button', { name: '核对评分', exact: true }).tap();
   await expect(page.getByText('尚未请求 AI 评分。', { exact: true })).toBeVisible();
   expect(calls.filter(call => call.command === 'ai_request')).toEqual([]);
-  const grade = page.getByRole('button', { name: 'AI 评分／继续（1 题，将调用模型）', exact: true });
+  const grade = page.getByRole('button', { name: 'AI 评分/继续（1 题，将调用模型）', exact: true });
   await touchTarget(grade);
   await noHorizontalOverflow(page, 'explicit grading');
   await grade.tap();

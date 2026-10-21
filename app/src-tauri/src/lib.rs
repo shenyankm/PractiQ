@@ -270,16 +270,16 @@ async fn request(
         let locale = locale.unwrap_or_default();
         // Native file dialogs select the only external paths accessible to business commands.
         let selected=match &request {
-            Request::PickAudio=>app.dialog().file().add_filter(locale.text("听力音频","Listening audio"),&["mp3","m4a","aac","wav"]).blocking_pick_file(),
-            Request::PickAudioQr=>app.dialog().file().add_filter(locale.text("二维码图片","QR image"),&["png","jpg","jpeg"]).blocking_pick_file(),
-            Request::PickImport=>app.dialog().file().add_filter(locale.text("PractiQ 题库 ZIP", "PractiQ bank ZIP"),&["zip"]).blocking_pick_file(),
+            Request::PickAudio=>app.dialog().file().add_filter(locale.text("听力音频","聽力音訊","Listening audio"),&["mp3","m4a","aac","wav"]).blocking_pick_file(),
+            Request::PickAudioQr=>app.dialog().file().add_filter(locale.text("二维码图片","QR Code 圖片","QR image"),&["png","jpg","jpeg"]).blocking_pick_file(),
+            Request::PickImport=>app.dialog().file().add_filter(locale.text("PractiQ 题库 ZIP", "PractiQ 題庫 ZIP", "PractiQ bank ZIP"),&["zip"]).blocking_pick_file(),
             Request::ExportBank{bank_id}=>{
                 let title = { let store=shared.lock().map_err(|_|language::error("LOCAL_DATABASE_UNAVAILABLE",json!({})))?;
                     store.connect()?.query_row("SELECT title FROM banks WHERE id=?1",[bank_id],|r|r.get::<_,String>(0)).map_err(|e|AppError::from(e.to_string()))? };
-                app.dialog().file().set_file_name(bank_zip::filename(&title)).add_filter(locale.text("PractiQ 题库 ZIP","PractiQ bank ZIP"), &["zip"]).blocking_save_file()
+                app.dialog().file().set_file_name(bank_zip::filename(&title)).add_filter(locale.text("PractiQ 题库 ZIP","PractiQ 題庫 ZIP","PractiQ bank ZIP"), &["zip"]).blocking_save_file()
             },
-            Request::Backup=>app.dialog().file().set_file_name("PractiQ-backup.zip").add_filter(locale.text("PractiQ 备份", "PractiQ backup"),&["zip"]).blocking_save_file(),
-            Request::Restore{..}=>app.dialog().file().add_filter(locale.text("PractiQ 备份", "PractiQ backup"),&["zip"]).blocking_pick_file(),
+            Request::Backup=>app.dialog().file().set_file_name("PractiQ-backup.zip").add_filter(locale.text("PractiQ 备份", "PractiQ 備份", "PractiQ backup"),&["zip"]).blocking_save_file(),
+            Request::Restore{..}=>app.dialog().file().add_filter(locale.text("PractiQ 备份", "PractiQ 備份", "PractiQ backup"),&["zip"]).blocking_pick_file(),
             _=>None,
         };
         let selected=selected.map(|file| {

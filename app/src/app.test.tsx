@@ -246,7 +246,7 @@ it("keeps grading idle when the shared UI lock declines the job", async () => {
   const session=examSession();session.submittedAt=1;session.attempts[0].submittedAt=1;
   const onSession=vi.fn();
   const {rerender}=render(<ExamResults session={session} onSession={onSession} run={()=>{}}/>);
-  const button=screen.getByRole("button",{name:/AI 评分／继续/}) as HTMLButtonElement;
+  const button=screen.getByRole("button",{name:/AI 评分\/继续/}) as HTMLButtonElement;
   await userEvent.click(button);
   expect(button.disabled).toBe(false);
   expect(screen.queryByText("停止后续评分")).toBeNull();
