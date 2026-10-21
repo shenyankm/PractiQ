@@ -156,10 +156,12 @@ function DialogDescription({
 }
 
 const DialogClose = DialogPrimitive.Close;
+const DialogTrigger = DialogPrimitive.Trigger;
 
 export {
   Dialog,
   DialogClose,
+  DialogTrigger,
   DialogContent,
   DialogDescription,
   DialogFooter,

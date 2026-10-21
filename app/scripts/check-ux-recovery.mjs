@@ -1,5 +1,7 @@
 import { chooseOption } from "../../shared/select-test.mjs";
-import { test, expect } from 'playwright/test';
+import { test as runner, expect } from 'playwright/test';
+import { withEvidence } from '../../shared/browser-evidence.mjs';
+const test = withEvidence(runner);
 
 async function inject(page, source) {
   await page.route('**/src/transport.ts', async route => {
@@ -242,8 +244,8 @@ for (const width of [375, 768, 1440]) {
     await expect(setup.getByRole('button',{name:'立即开始',exact:true})).toBeEnabled();
     await page.screenshot({path:testInfo.outputPath(`setup-${width}.png`),fullPage:true});
     await setup.getByRole('button',{name:'立即开始',exact:true}).click();
-    await expect(page.getByRole('progressbar',{name:'提交进度'})).toHaveAttribute('value','0');
     await page.getByRole('link',{name:'查看答题卡',exact:true}).click();
+    await expect(page.getByRole('progressbar',{name:'提交进度'})).toHaveAttribute('value','0');
     await expect(page.locator('#answer-card-panel')).toBeFocused();
     await expect(page.getByLabel('本次题目状态',{exact:true})).toBeInViewport();
     await page.getByRole('link',{name:'返回当前题',exact:true}).click();
@@ -336,7 +338,7 @@ for (const width of [1280, 360]) {
 
   test(`lazy view failure stays local and closes without native work at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 900 });
-    await page.route('**/src/StudySetup.tsx', route => route.abort('failed'));
+    await page.route(/\/src\/StudySetup\.tsx(?:\?.*)?$/, route => route.abort('failed'));
     if (width === 360) await page.emulateMedia({ colorScheme: "dark" });
     await page.goto('/');
     await page.getByRole('button', { name: '开始练习', exact: true }).first().click();

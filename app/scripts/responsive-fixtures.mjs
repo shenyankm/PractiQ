@@ -30,8 +30,8 @@ stressed.visuals = [{ ...rich.visualElements[0], id: 'rich-visual', questionIds:
 selected.set(stressed.key, stressed);
 export const layoutSnapshots = [...selected.values()];
 
-export async function installLayoutSession(page, { submitted = false } = {}) {
-  await page.addInitScript(({ snapshots, image, portrait, audio, submitted }) => {
+export async function installLayoutSession(page, { submitted = false, locale = 'zh-CN', failPositionOnce = false, failInfo = false } = {}) {
+  await page.addInitScript(({ snapshots, image, portrait, audio, submitted, locale, failPositionOnce, failInfo }) => {
     sessionStorage.setItem('practiq-preview', 'local');
     window.isTauri = false;
     const bank = { id: 'layout-bank', title: '布局检查题库', description: 'Synthetic browser fixture', count: snapshots.length, createdAt: 1 };
@@ -46,17 +46,21 @@ export async function installLayoutSession(page, { submitted = false } = {}) {
       if (command !== 'request') throw Error(`Unexpected layout mock command: ${command}`);
       const request = args.request;
       switch (request.type) {
-        case 'language': return 'zh-CN';
+        case 'language': return locale;
         case 'banks': return [bank];
-        case 'info': return { version: 'Browser layout mock', dataDirectory: '/mock' };
+        case 'info':
+          if(failInfo) throw {code:'OPERATION_FAILED',diagnostic:'Overview unavailable (synthetic)'};
+          return { version: 'Browser layout mock', dataDirectory: '/mock' };
         case 'banks_page': return { items: [bank], total: 1, offset: 0 };
         case 'sessions_page': return { items: [{ ...session, attempts: undefined, count: snapshots.length, answered: submitted ? snapshots.length : 0, draftAnswered: 0, correct: 0, graded: 0, skipped: 0, elapsedMs: 0, autoGraded: 0, selfGraded: 0, pendingGrades: 0, totalCents: 0, earnedCents: 0, lastActiveAt: 1 }], total: 1, offset: 0 };
         case 'session': return structuredClone(session);
-        case 'position': session.position = request.position; return structuredClone(session);
+        case 'position':
+          if (failPositionOnce) { failPositionOnce = false; throw { code:'OPERATION_FAILED', diagnostic:'Navigation unavailable (synthetic). '.repeat(12) }; }
+          session.position = request.position; return structuredClone(session);
         case 'save_draft': return null;
         case 'listening_playback': return { used: 0, position: 0, active: false, limit: 2, restricted: false };
         default: throw Error(`Unexpected layout mock request: ${request.type}`);
       }
     } };
-  }, { snapshots: layoutSnapshots, image: [...layoutImage], portrait: [...portrait], audio: [...audio], submitted });
+  }, { snapshots: layoutSnapshots, image: [...layoutImage], portrait: [...portrait], audio: [...audio], submitted, locale, failPositionOnce, failInfo });
 }

@@ -1,4 +1,6 @@
-import { test, expect } from 'playwright/test';
+import { test as runner, expect } from 'playwright/test';
+import { withEvidence } from '../../shared/browser-evidence.mjs';
+const test = withEvidence(runner);
 import { installLayoutSession, layoutSnapshots, layoutViewports } from './responsive-fixtures.mjs';
 
 async function capture(page, card, prefix, testInfo) {
@@ -47,6 +49,7 @@ for (const variant of variants) {
     if (await navigation.isVisible()) await navigation.click();
     await page.getByRole('button', { name: '练习记录', exact: true }).click();
     await page.getByRole('button', { name: '继续练习', exact: true }).click();
+    if (width < 768) await page.getByRole('link', {name:'查看答题卡',exact:true}).click();
     for (let index = 0; index < layoutSnapshots.length; index++) {
       if (index) await page.locator('#answer-card').getByRole('button').nth(index).click();
       await expect(page.locator('#current-question')).toContainText(`${index + 1} /`);
@@ -68,6 +71,17 @@ for (const variant of variants) {
         await page.screenshot({ path: testInfo.outputPath('rich-choice-option.png') });
       }
       await capture(page, card, key, testInfo);
+      const scrollBox = await page.locator('.practice-scroll').boundingBox();
+      const footerBox = await page.locator('.practice-footer').boundingBox();
+      expect(scrollBox.y + scrollBox.height).toBeLessThanOrEqual(footerBox.y + 1);
+      await page.getByRole('button', {name:'结束练习',exact:true}).scrollIntoViewIfNeeded();
+      const finishBox = await page.getByRole('button', {name:'结束练习',exact:true}).boundingBox();
+      expect(finishBox.y + finishBox.height).toBeLessThanOrEqual(footerBox.y + 1);
+      if (submitted) {
+        await expect(card.getByRole('region', {name:'我的答案',exact:true})).toBeVisible();
+        await expect(card.getByRole('textbox')).toHaveCount(0);
+        await expect(card.getByRole('combobox')).toHaveCount(0);
+      }
       if (['one_to_one','many_to_one','paragraph_matching'].includes(key) && !submitted) {
         for (const select of await card.getByRole('combobox').all()) expect((await select.boundingBox()).width).toBeGreaterThanOrEqual(160);
       }
@@ -94,6 +108,10 @@ for (const variant of variants) {
           const dialog = page.getByRole('dialog');
           await expect.poll(() => dialog.locator('img').evaluate(img => img.complete && img.naturalWidth > 0)).toBe(true);
           expect((await dialog.boundingBox()).height).toBeLessThanOrEqual(height);
+          expect(await dialog.locator('img').evaluate(img => img.getBoundingClientRect().width <= img.parentElement.clientWidth)).toBe(true);
+          await dialog.getByRole('button', {name:'原始尺寸',exact:true}).click();
+          await expect(dialog.getByRole('button', {name:'适应窗口',exact:true})).not.toHaveAttribute('aria-pressed');
+          await dialog.getByRole('button', {name:'适应窗口',exact:true}).click();
           await dialog.screenshot({ path: testInfo.outputPath(`${key}-${name}.png`) });
           await page.keyboard.press('Escape');
           await expect(trigger).toBeFocused();

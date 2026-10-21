@@ -1,4 +1,12 @@
 export const en = {
+  "更多题库操作": "More bank actions",
+  "作答与判定状态": "Answer and grading states",
+  "位置与检查标记": "Position and review markers",
+  "原始图片": "Original image",
+  "适应窗口": "Fit to window",
+  "原始尺寸": "Original size",
+  "原始尺寸下可横向和纵向滚动查看细节。": "At original size, scroll horizontally and vertically to inspect details.",
+  "图片浏览区域": "Image viewing area",
   "题目更多操作 {0}": "More actions for question {0}",
   "题库共 {0} 小题 · 当前匹配 {1} 项": "Bank total {0} subquestions · {1} matching items",
   "当前匹配 {0} 项": "{0} matching items",

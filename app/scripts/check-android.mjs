@@ -1,4 +1,6 @@
-import { test as base, expect } from 'playwright/test';
+import { test as runner, expect } from 'playwright/test';
+import { withEvidence } from '../../shared/browser-evidence.mjs';
+const base = withEvidence(runner);
 import { readFileSync } from 'node:fs';
 
 
@@ -9,12 +11,12 @@ async function editQuestion(page, trigger) {
 
 // Chromium touch previews exercise layout and user actions. Native SAF, system
 // insets and the real Android keyboard belong to the emulator/device checks.
-const test = base.extend({ page: async ({ page }, use) => {
+const test = base.extend({ page: async ({ page, baseURL }, use) => {
   const errors = [], externalRequests = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.route('**/*', route => {
     const url = new URL(route.request().url());
-    if (['http://127.0.0.1:1421', 'http://127.0.0.1:1422'].includes(url.origin)) return route.continue();
+    if (url.origin === new URL(baseURL).origin) return route.continue();
     externalRequests.push(url.href);
     return route.abort();
   });
@@ -367,9 +369,11 @@ test('question summaries stay readable and sequential practice controls stay tog
 test('all answer controls and answer-card navigation preserve drafts on touch screens', async ({ page }, testInfo) => {
   await page.goto('/');
   await startPractice(page);
+  await page.getByRole('link', {name:'查看答题卡',exact:true}).tap();
   const card = page.getByRole('region', { name: '答题卡', exact: true });
   await expect(card.getByRole('button')).toHaveCount(9);
   const go = async number => {
+    if (!await page.locator(".practice-answer-card").evaluate(node => node.open)) await page.getByRole("link", {name:"查看答题卡",exact:true}).tap();
     const button = card.getByRole('button', { name: new RegExp(`^转到第 ${number} 题，`) });
     await touchTarget(button);
     await button.tap();

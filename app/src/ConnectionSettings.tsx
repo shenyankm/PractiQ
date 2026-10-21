@@ -170,7 +170,7 @@ export function ConnectionSettingsPanel({
     <Card>
       <CardContent>
         <form
-          className="space-y-4"
+          className="connection-settings-form space-y-4"
           onSubmit={e => e.preventDefault()}
         >
           {error != null && (
@@ -230,8 +230,7 @@ export function ConnectionSettingsPanel({
               {saved && <p className="text-sm text-muted-foreground">{t(configured ? direct ? "API Key 已保存；留空保留。" : "令牌已保存；留空保留。" : "离开输入框后自动安全保存。")}</p>}
             </div>
           </fieldset>
-          {saved && <p role="status" className="text-sm text-muted-foreground">{saving ? t("正在保存配置…") : saveError != null ? t("配置未保存") : dirty ? t("有未保存的修改") : justSaved ? t("连接配置已保存") : t("配置已读取")}</p>}
-          {saved && <p role="status" className="text-sm">{operation === "test" ? t("测试中…") : testResult ? t(testResult.error ? "连接测试失败" : "连接测试通过") : missing.length ? t("未配置") : t("已配置 · 尚未测试")}</p>}
+          {saved && <div role="status" className="connection-status"><p className="text-sm text-muted-foreground">{saving ? t("正在保存配置…") : saveError != null ? t("配置未保存") : dirty ? t("有未保存的修改") : justSaved ? t("连接配置已保存") : t("配置已读取")}</p><p className="text-sm">{operation === "test" ? t("测试中…") : testResult ? t(testResult.error ? "连接测试失败" : "连接测试通过") : missing.length ? t("未配置") : t("已配置 · 尚未测试")}</p></div>}
           {saveError != null && <div role="alert" className="flex flex-wrap items-start justify-between gap-3 text-sm text-destructive"><div className="min-w-0 flex-1"><ErrorNotice error={saveError} /></div><Button type="button" variant="outline" disabled={busy || operation !== null} onClick={save}>{t("重试保存")}</Button></div>}
           {testResult && (testResult.error ? <div role="alert" className="text-destructive"><ErrorNotice error={testResult.error} /></div> : null)}
           {clearError != null && <div role="alert" className="text-destructive"><ErrorNotice error={clearError} /></div>}

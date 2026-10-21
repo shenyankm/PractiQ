@@ -22,6 +22,13 @@ In development mode, `transport.ts` sends business calls to `preview-data.ts`. U
 
 The preview validates UI behavior and interaction. It does not validate native storage, extraction quality, file authorization or model services. Scoring and question selection remain simplified demonstrations; native tests verify their full rules.
 
+The [shared UI conventions](../../docs/ui-design-system.md) document the deliberate
+Nova overrides, spacing and read-only states. Browser acceptance uses
+`shared/browser-evidence.mjs` to hide development controls, finish animations and
+record the rendered theme, language and viewport. The development panel keeps its
+own space during ordinary narrow-screen preview; acceptance captures use the full
+application viewport. See the [2026-10-21 fixes and gallery](../../docs/evidence/2026-10-21-uiux-fixes/README.md).
+
 For clean App screenshots without the floating preview panel, run `npm --prefix app run dev -- --mode design-preview --port 1426` from the repository root. It uses the same in-memory data and production [shared theme](../../docs/product/design.md); language follows the browser preference or the sidebar language menu.
 
 Run `node app/scripts/check-design-preview.mjs` against the App design-preview server to capture App pages and check responsive layout, control sizes, theme/language switching and offline behavior. The script covers App only; its screenshots and report are written to `app/.build/design-preview/`.

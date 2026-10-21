@@ -1,0 +1,35 @@
+{
+  "practice-error-360x640.png": {
+    "viewportWidth": 360,
+    "viewportHeight": 640,
+    "theme": "light",
+    "locale": "zh-CN",
+    "title": "practice error recovery retains the footer at 360x640",
+    "bytes": 36991,
+    "sha256": "2a7b74f6ab4d7c5790cc9ed75009205e9116b4fa64ebe656add9f38ae8831f02",
+    "baseRevision": "bdc6d0b9dcb53b42ef25a52cc75ce2309b9855f9",
+    "workingDiffSha256": "278010e8217de2f22d01c25b5fd5b42cad2a822c54cd6203d448671a793abfd6"
+  },
+  "practice-error-667x375.png": {
+    "viewportWidth": 667,
+    "viewportHeight": 375,
+    "theme": "light",
+    "locale": "zh-CN",
+    "title": "practice error recovery retains the footer at 667x375",
+    "bytes": 20817,
+    "sha256": "c3bdb609c504b5dc6b856e4e10f3a3e7d9a967e61ed3bc6f54ec23d8719eeda9",
+    "baseRevision": "bdc6d0b9dcb53b42ef25a52cc75ce2309b9855f9",
+    "workingDiffSha256": "278010e8217de2f22d01c25b5fd5b42cad2a822c54cd6203d448671a793abfd6"
+  },
+  "practice-error-1280x720.png": {
+    "viewportWidth": 1280,
+    "viewportHeight": 720,
+    "theme": "light",
+    "locale": "zh-CN",
+    "title": "practice error recovery retains the footer at 1280x720",
+    "bytes": 80210,
+    "sha256": "c59b42a411cb9ac2d92e721c8d65bf4676fcfc95f75dc1e1d1281983f80ef891",
+    "baseRevision": "bdc6d0b9dcb53b42ef25a52cc75ce2309b9855f9",
+    "workingDiffSha256": "278010e8217de2f22d01c25b5fd5b42cad2a822c54cd6203d448671a793abfd6"
+  }
+}
