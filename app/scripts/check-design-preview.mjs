@@ -31,8 +31,11 @@ async function capture(page, name) {
   const content = page.locator(".app-content");
   if (await content.count()) await expect.poll(() => content.evaluate(node => node.scrollWidth <= node.clientWidth), { message: `${name}: content overflow` }).toBe(true);
   const defects = await page.locator('[data-slot="input"], [data-slot="input-group"], [data-slot="select-trigger"], select, [data-slot="button"]:not([data-size^="icon"])').evaluateAll(nodes => {
-    const minimum = matchMedia('(max-width: 767px), (any-pointer: coarse)').matches ? 48 : 40;
-    return nodes.filter(node => node.getClientRects().length && node.getBoundingClientRect().height < minimum - 1).map(node => ({ name: node.getAttribute('aria-label') || node.textContent, height: node.getBoundingClientRect().height }));
+    const touch = matchMedia('(max-width: 767px), (any-pointer: coarse)').matches;
+    return nodes.filter(node => {
+      const minimum = touch ? 48 : ({ xs: 32, sm: 36, lg: 44 }[node.dataset.size] ?? 40);
+      return node.getClientRects().length && node.getBoundingClientRect().height < minimum - 1;
+    }).map(node => ({ name: node.getAttribute('aria-label') || node.textContent, height: node.getBoundingClientRect().height }));
   });
   assert.deepEqual(defects, [], `${name}: inconsistent control height`);
   const misalignedSelects = await page.locator('[data-slot="native-select"], [data-slot="select-trigger"]').evaluateAll(nodes => nodes.filter(node => {
@@ -129,6 +132,7 @@ try {
   }));
   assert.equal(sonner.success, '#79947a');
   assert.equal(sonner.warning, '#ab873e');
+  await notice.getByRole('button', { name: '关闭', exact: true }).click();
   await expect(notice).toBeHidden();
   await app.getByRole("button", { name: "语言", exact: true }).click();
   await app.getByRole("menuitemradio", { name: "English", exact: true }).click();

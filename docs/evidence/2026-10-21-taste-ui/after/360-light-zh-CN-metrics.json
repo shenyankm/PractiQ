@@ -1,0 +1,10 @@
+{
+  "width": 360,
+  "height": 640,
+  "theme": "light",
+  "locale": "zh-CN",
+  "source": "Chromium preview; repository demo data; no native or model calls",
+  "sidebarWidth": 0,
+  "firstQuestionTop": 347.6875,
+  "contentWidth": 360
+}

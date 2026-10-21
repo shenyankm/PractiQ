@@ -1,0 +1,1091 @@
+{
+  "base_commit": "21ce804d38f7f2c6506d51296da5bca1e756c156",
+  "after_source_diff_sha256": "7e4c008d2a11e6e210d816f11888134af39cf8cf0caa028b867e6324ccadf217",
+  "style": "editorial-greeting; component restyle preserving the existing shell and brand",
+  "seed": 400891399,
+  "allow": [
+    "palette-purple: existing PractiQ brand"
+  ],
+  "rows": [
+    {
+      "id": "DSK-001",
+      "platform": "DSK",
+      "width": 1440,
+      "theme": "light",
+      "locale": "zh-CN",
+      "scene": "banks",
+      "source": "Chromium preview; repository synthetic data",
+      "before": {
+        "path": "before/1440-light-zh-CN-banks.png",
+        "bytes": 88221,
+        "sha256": "950cdde4513275392e3c812de8d2879fbbca3fdd9c15b7c698685f4890e9ef1b"
+      },
+      "after": {
+        "path": "after/1440-light-zh-CN-banks.png",
+        "bytes": 85943,
+        "sha256": "f86181857000e1c9016f1d5795eb95644ccec29eec36e02d72d912c2b68d9c77"
+      }
+    },
+    {
+      "id": "DSK-002",
+      "platform": "DSK",
+      "width": 1440,
+      "theme": "light",
+      "locale": "zh-CN",
+      "scene": "questions",
+      "source": "Chromium preview; repository synthetic data",
+      "before": {
+        "path": "before/1440-light-zh-CN-questions.png",
+        "bytes": 97949,
+        "sha256": "9405d8ff2e81934ceb31180fe719c0ea8b57936af21b34a8b3877ad987a9da24"
+      },
+      "after": {
+        "path": "after/1440-light-zh-CN-questions.png",
+        "bytes": 97949,
+        "sha256": "9405d8ff2e81934ceb31180fe719c0ea8b57936af21b34a8b3877ad987a9da24"
+      }
+    },
+    {
+      "id": "DSK-003",
+      "platform": "DSK",
+      "width": 1440,
+      "theme": "light",
+      "locale": "zh-TW",
+      "scene": "banks",
+      "source": "Chromium preview; repository synthetic data",
+      "before": {
+        "path": "before/1440-light-zh-TW-banks.png",
+        "bytes": 90564,
+        "sha256": "1d4e0e1f7bd862a2a78d73489c6dadd627280077d35e878021321602f8827a87"
+      },
+      "after": {
+        "path": "after/1440-light-zh-TW-banks.png",
+        "bytes": 88586,
+        "sha256": "c9262ccb50bb4b55bd8d484edfd84738d4210b28a1437b1066d0bb2f8a63507c"
+      }
+    },
+    {
+      "id": "DSK-004",
+      "platform": "DSK",
+      "width": 1440,
+      "theme": "light",
+      "locale": "zh-TW",
+      "scene": "questions",
+      "source": "Chromium preview; repository synthetic data",
+      "before": {
+        "path": "before/1440-light-zh-TW-questions.png",
+        "bytes": 99580,
+        "sha256": "27fa52ae20f008c9b6c88aa5a56638b8d9ac03a87449ee75f8848cced12dbbd9"
+      },
+      "after": {
+        "path": "after/1440-light-zh-TW-questions.png",
+        "bytes": 99580,
+        "sha256": "27fa52ae20f008c9b6c88aa5a56638b8d9ac03a87449ee75f8848cced12dbbd9"
+      }
+    },
+    {
+      "id": "DSK-005",
+      "platform": "DSK",
+      "width": 1440,
+      "theme": "light",
+      "locale": "en",
+      "scene": "banks",
+      "source": "Chromium preview; repository synthetic data",
+      "before": {
+        "path": "before/1440-light-en-banks.png",
+        "bytes": 92336,
+        "sha256": "6a64f836dd5c4ebd58ba19e1c7cd06b62ba0b5c360424842f8a8818038ae7529"
+      },
+      "after": {
+        "path": "after/1440-light-en-banks.png",
+        "bytes": 90286,
+        "sha256": "75e561fef13607e300224f393b84652adc450c823d741a3adab9ddcec57efd29"
+      }
+    },
+    {
+      "id": "DSK-006",
+      "platform": "DSK",
+      "width": 1440,
+      "theme": "light",
+      "locale": "en",
+      "scene": "questions",
+      "source": "Chromium preview; repository synthetic data",
+      "before": {
+        "path": "before/1440-light-en-questions.png",
+        "bytes": 102663,
+        "sha256": "25bcf90906a87903f4b634a2952b3bc56e0ef6f39bfbf51061ee15586fc641a2"
+      },
+      "after": {
+        "path": "after/1440-light-en-questions.png",
+        "bytes": 102663,
+        "sha256": "25bcf90906a87903f4b634a2952b3bc56e0ef6f39bfbf51061ee15586fc641a2"
+      }
+    },
+    {
+      "id": "DSK-007",
+      "platform": "DSK",
+      "width": 1440,
+      "theme": "dark",
+      "locale": "zh-CN",
+      "scene": "banks",
+      "source": "Chromium preview; repository synthetic data",
+      "before": {
+        "path": "before/1440-dark-zh-CN-banks.png",
+        "bytes": 88970,
+        "sha256": "44e4758cbcb6f83851e298e4609bdbb67e23c5a1325850e7a8e2ce404a5a3418"
+      },
+      "after": {
+        "path": "after/1440-dark-zh-CN-banks.png",
+        "bytes": 86715,
+        "sha256": "7f62338cbe345f05b1f407a4487af3ec616543fc40da74415ea964d8cda7c8e7"
+      }
+    },
+    {
+      "id": "DSK-008",
+      "platform": "DSK",
+      "width": 1440,
+      "theme": "dark",
+      "locale": "zh-CN",
+      "scene": "questions",
+      "source": "Chromium preview; repository synthetic data",
+      "before": {
+        "path": "before/1440-dark-zh-CN-questions.png",
+        "bytes": 98264,
+        "sha256": "4a097414a91705b63bc8efc9fb36f5ad0e0596555421caf7caf2a3316993fdeb"
+      },
+      "after": {
+        "path": "after/1440-dark-zh-CN-questions.png",
+        "bytes": 98264,
+        "sha256": "4a097414a91705b63bc8efc9fb36f5ad0e0596555421caf7caf2a3316993fdeb"
+      }
+    },
+    {
+      "id": "DSK-009",
+      "platform": "DSK",
+      "width": 1440,
+      "theme": "dark",
+      "locale": "zh-TW",
+      "scene": "banks",
+      "source": "Chromium preview; repository synthetic data",
+      "before": {
+        "path": "before/1440-dark-zh-TW-banks.png",
+        "bytes": 91244,
+        "sha256": "36a99ff498ebb4bc672d9facfcfa1f2c0f0bf90aca39df5f076bff7b27adb580"
+      },
+      "after": {
+        "path": "after/1440-dark-zh-TW-banks.png",
+        "bytes": 89072,
+        "sha256": "042572f2df80842bfd03bc01d0026dcd442af691ce8f1b817da767e51d805644"
+      }
+    },
+    {
+      "id": "DSK-010",
+      "platform": "DSK",
+      "width": 1440,
+      "theme": "dark",
+      "locale": "zh-TW",
+      "scene": "questions",
+      "source": "Chromium preview; repository synthetic data",
+      "before": {
+        "path": "before/1440-dark-zh-TW-questions.png",
+        "bytes": 99571,
+        "sha256": "7141124365e550eb0e48cd1f26ad838c048a59804dcee4fe09ed3d8b6e452eb2"
+      },
+      "after": {
+        "path": "after/1440-dark-zh-TW-questions.png",
+        "bytes": 99571,
+        "sha256": "7141124365e550eb0e48cd1f26ad838c048a59804dcee4fe09ed3d8b6e452eb2"
+      }
+    },
+    {
+      "id": "DSK-011",
+      "platform": "DSK",
+      "width": 1440,
+      "theme": "dark",
+      "locale": "en",
+      "scene": "banks",
+      "source": "Chromium preview; repository synthetic data",
+      "before": {
+        "path": "before/1440-dark-en-banks.png",
+        "bytes": 93101,
+        "sha256": "1fbff157c5766798b41b96ffb9bffd26c9529385d15c3e90f41b537e2e1ee6af"
+      },
+      "after": {
+        "path": "after/1440-dark-en-banks.png",
+        "bytes": 90884,
+        "sha256": "1d0177c626f77fdcdaea4cca4a7f8173cc8552516ac6034d61a57e59e0cf084d"
+      }
+    },
+    {
+      "id": "DSK-012",
+      "platform": "DSK",
+      "width": 1440,
+      "theme": "dark",
+      "locale": "en",
+      "scene": "questions",
+      "source": "Chromium preview; repository synthetic data",
+      "before": {
+        "path": "before/1440-dark-en-questions.png",
+        "bytes": 103036,
+        "sha256": "1c58e527312a7fdb3bd656b21fd0103f0dad7ac84748d07011babf08cd5817ed"
+      },
+      "after": {
+        "path": "after/1440-dark-en-questions.png",
+        "bytes": 103036,
+        "sha256": "1c58e527312a7fdb3bd656b21fd0103f0dad7ac84748d07011babf08cd5817ed"
+      }
+    },
+    {
+      "id": "DSK-013",
+      "platform": "DSK",
+      "width": 768,
+      "theme": "light",
+      "locale": "zh-CN",
+      "scene": "banks",
+      "source": "Chromium preview; repository synthetic data",
+      "before": {
+        "path": "before/768-light-zh-CN-banks.png",
+        "bytes": 84971,
+        "sha256": "6320ffd32fc5584b5b01ae2fddc9a9a9353544d1a5e5e6263267bd968dcea844"
+      },
+      "after": {
+        "path": "after/768-light-zh-CN-banks.png",
+        "bytes": 74033,
+        "sha256": "eb931c8e95e03ec87b46c1b4bd71de671374f6c8fcb28066679c6feb14facba4"
+      }
+    },
+    {
+      "id": "DSK-014",
+      "platform": "DSK",
+      "width": 768,
+      "theme": "light",
+      "locale": "zh-CN",
+      "scene": "questions",
+      "source": "Chromium preview; repository synthetic data",
+      "before": {
+        "path": "before/768-light-zh-CN-questions.png",
+        "bytes": 85671,
+        "sha256": "d7747c93451a4e55e87352f613bbdb838bba5d1c62f7412a0b90ccf26d207cd2"
+      },
+      "after": {
+        "path": "after/768-light-zh-CN-questions.png",
+        "bytes": 79479,
+        "sha256": "e79cfae150a2d1a768283318be253156f12491e9d7b2b2d7479d430b2199a14a"
+      }
+    },
+    {
+      "id": "DSK-015",
+      "platform": "DSK",
+      "width": 768,
+      "theme": "light",
+      "locale": "zh-TW",
+      "scene": "banks",
+      "source": "Chromium preview; repository synthetic data",
+      "before": {
+        "path": "before/768-light-zh-TW-banks.png",
+        "bytes": 84412,
+        "sha256": "bee32bc5b59104a5ab459a6c29956110797e2115e631458137d8448a65987702"
+      },
+      "after": {
+        "path": "after/768-light-zh-TW-banks.png",
+        "bytes": 76140,
+        "sha256": "fd473e6d4e505b8d066abc15ceefdea697727ba65b680b0261ddb166d78e1624"
+      }
+    },
+    {
+      "id": "DSK-016",
+      "platform": "DSK",
+      "width": 768,
+      "theme": "light",
+      "locale": "zh-TW",
+      "scene": "questions",
+      "source": "Chromium preview; repository synthetic data",
+      "before": {
+        "path": "before/768-light-zh-TW-questions.png",
+        "bytes": 87143,
+        "sha256": "c8ba7d8de889fac71a41b1b94a834ca3cddcd71f5c762237af599d468be9c68b"
+      },
+      "after": {
+        "path": "after/768-light-zh-TW-questions.png",
+        "bytes": 80641,
+        "sha256": "fd1eea3cd005dfdcfb9cab25215b7527249f6e412c713d7f962fa53231358a12"
+      }
+    },
+    {
+      "id": "DSK-017",
+      "platform": "DSK",
+      "width": 768,
+      "theme": "light",
+      "locale": "en",
+      "scene": "banks",
+      "source": "Chromium preview; repository synthetic data",
+      "before": {
+        "path": "before/768-light-en-banks.png",
+        "bytes": 82869,
+        "sha256": "35472cbeebc0298f5dcbf1adc8c20b045387f97290145d5b8c96869b457e4795"
+      },
+      "after": {
+        "path": "after/768-light-en-banks.png",
+        "bytes": 77289,
+        "sha256": "8605f54516aef1c451a880d4bd7aeea39353ecb9b855c63c46533ad5007b7a3e"
+      }
+    },
+    {
+      "id": "DSK-018",
+      "platform": "DSK",
+      "width": 768,
+      "theme": "light",
+      "locale": "en",
+      "scene": "questions",
+      "source": "Chromium preview; repository synthetic data",
+      "before": {
+        "path": "before/768-light-en-questions.png",
+        "bytes": 88844,
+        "sha256": "040686dc2e9826bee57640e4f89de06f069c19d2cbaa96839d23c6cab2b2f04c"
+      },
+      "after": {
+        "path": "after/768-light-en-questions.png",
+        "bytes": 82593,
+        "sha256": "19485ff422f71ec4422a941ddcc145ca888d3ebb419ebb1a2049715bddc16c94"
+      }
+    },
+    {
+      "id": "DSK-019",
+      "platform": "DSK",
+      "width": 768,
+      "theme": "dark",
+      "locale": "zh-CN",
+      "scene": "banks",
+      "source": "Chromium preview; repository synthetic data",
+      "before": {
+        "path": "before/768-dark-zh-CN-banks.png",
+        "bytes": 85951,
+        "sha256": "23cca6797dfd441b9dc7af86db94db529dd6b73fe1fd6d1825da28ffbbaa03a9"
+      },
+      "after": {
+        "path": "after/768-dark-zh-CN-banks.png",
+        "bytes": 74836,
+        "sha256": "d03a564c2b03a9c22df0d912874265fbcd4eb65ef8605914b0d46861c4b70e6e"
+      }
+    },
+    {
+      "id": "DSK-020",
+      "platform": "DSK",
+      "width": 768,
+      "theme": "dark",
+      "locale": "zh-CN",
+      "scene": "questions",
+      "source": "Chromium preview; repository synthetic data",
+      "before": {
+        "path": "before/768-dark-zh-CN-questions.png",
+        "bytes": 86228,
+        "sha256": "4d251727f0999aad63e09de490787eeb9b47c301ad3b1ad25d461eec3f0b5075"
+      },
+      "after": {
+        "path": "after/768-dark-zh-CN-questions.png",
+        "bytes": 80064,
+        "sha256": "6763f222952e100e602ae6eca3b382abb0fe3e9c2b5c29dd21edff312e218e55"
+      }
+    },
+    {
+      "id": "DSK-021",
+      "platform": "DSK",
+      "width": 768,
+      "theme": "dark",
+      "locale": "zh-TW",
+      "scene": "banks",
+      "source": "Chromium preview; repository synthetic data",
+      "before": {
+        "path": "before/768-dark-zh-TW-banks.png",
+        "bytes": 85426,
+        "sha256": "d00f516c6fbb7ce00dbe025621a162eeedc50506bc82d97f135803d0ca8401f8"
+      },
+      "after": {
+        "path": "after/768-dark-zh-TW-banks.png",
+        "bytes": 77027,
+        "sha256": "bb74b18ab8fdb8ce6c0b9f1b3ec309532564772fc3a950376685750f89c8efbb"
+      }
+    },
+    {
+      "id": "DSK-022",
+      "platform": "DSK",
+      "width": 768,
+      "theme": "dark",
+      "locale": "zh-TW",
+      "scene": "questions",
+      "source": "Chromium preview; repository synthetic data",
+      "before": {
+        "path": "before/768-dark-zh-TW-questions.png",
+        "bytes": 87451,
+        "sha256": "ee53061cf55a7bd3302394d975bc1cfae89bca5fe275b1cab52ac9973e8ccf28"
+      },
+      "after": {
+        "path": "after/768-dark-zh-TW-questions.png",
+        "bytes": 81064,
+        "sha256": "fc77d338998cfb7ee78b81191e7c99d3b8d277f65d13ba059f681de2f53a1749"
+      }
+    },
+    {
+      "id": "DSK-023",
+      "platform": "DSK",
+      "width": 768,
+      "theme": "dark",
+      "locale": "en",
+      "scene": "banks",
+      "source": "Chromium preview; repository synthetic data",
+      "before": {
+        "path": "before/768-dark-en-banks.png",
+        "bytes": 83716,
+        "sha256": "a11f9459228bb7e4eac82dc64fd918b33269539a75b91cc7d8518b0ab1fc6825"
+      },
+      "after": {
+        "path": "after/768-dark-en-banks.png",
+        "bytes": 78066,
+        "sha256": "892a022c1304bd40f4637eec084fb97a803d8c475267b9bd80f446e2ee954d1b"
+      }
+    },
+    {
+      "id": "DSK-024",
+      "platform": "DSK",
+      "width": 768,
+      "theme": "dark",
+      "locale": "en",
+      "scene": "questions",
+      "source": "Chromium preview; repository synthetic data",
+      "before": {
+        "path": "before/768-dark-en-questions.png",
+        "bytes": 89462,
+        "sha256": "22dcdbde7b885be3a39caab1cc23b942496d1c7b33d9a0a113592ac4bfce9132"
+      },
+      "after": {
+        "path": "after/768-dark-en-questions.png",
+        "bytes": 83169,
+        "sha256": "829ecf5ddb4f0633cd548286e0c6b4add96f4e81e6d0848b2c820db9c9a4e186"
+      }
+    },
+    {
+      "id": "MOB-001",
+      "platform": "MOB",
+      "width": 390,
+      "theme": "light",
+      "locale": "zh-CN",
+      "scene": "banks",
+      "source": "Chromium preview; repository synthetic data",
+      "before": {
+        "path": "before/390-light-zh-CN-banks.png",
+        "bytes": 60221,
+        "sha256": "80167f1762f91d2f3143b84c008a3c743ec91930be31443324069dd753631eee"
+      },
+      "after": {
+        "path": "after/390-light-zh-CN-banks.png",
+        "bytes": 58938,
+        "sha256": "b21e929021892f2a43192d5052ca889c9d2f2eb3bec5db8394d13e211005e6c0"
+      }
+    },
+    {
+      "id": "MOB-002",
+      "platform": "MOB",
+      "width": 390,
+      "theme": "light",
+      "locale": "zh-CN",
+      "scene": "questions",
+      "source": "Chromium preview; repository synthetic data",
+      "before": {
+        "path": "before/390-light-zh-CN-questions.png",
+        "bytes": 48959,
+        "sha256": "198439ba3f5e77689c6cdc621a18837c1243ad45f65c40e127d06235f16f22f5"
+      },
+      "after": {
+        "path": "after/390-light-zh-CN-questions.png",
+        "bytes": 48411,
+        "sha256": "70bc5a3400966a62476a062eff518ca8c721fe3c5124a7aab16b9dbdc1fb08ea"
+      }
+    },
+    {
+      "id": "MOB-003",
+      "platform": "MOB",
+      "width": 390,
+      "theme": "light",
+      "locale": "zh-CN",
+      "scene": "filters-open",
+      "source": "Chromium preview; repository synthetic data",
+      "after": {
+        "path": "after/390-light-zh-CN-filters-open.png",
+        "bytes": 44256,
+        "sha256": "22b9db1c28d7683f6b253d57338788c9f12f86a9e0385260933461b98548fd6d"
+      }
+    },
+    {
+      "id": "MOB-004",
+      "platform": "MOB",
+      "width": 390,
+      "theme": "light",
+      "locale": "zh-TW",
+      "scene": "banks",
+      "source": "Chromium preview; repository synthetic data",
+      "before": {
+        "path": "before/390-light-zh-TW-banks.png",
+        "bytes": 61385,
+        "sha256": "34b21454b731715014d75e5c1eaf35bd00637e7f1c27be5106cd545f7b14e125"
+      },
+      "after": {
+        "path": "after/390-light-zh-TW-banks.png",
+        "bytes": 60150,
+        "sha256": "38eedd4f874700d272f18e2e5fd526d850749002f73e91553c2d9b44e4cecbcd"
+      }
+    },
+    {
+      "id": "MOB-005",
+      "platform": "MOB",
+      "width": 390,
+      "theme": "light",
+      "locale": "zh-TW",
+      "scene": "questions",
+      "source": "Chromium preview; repository synthetic data",
+      "before": {
+        "path": "before/390-light-zh-TW-questions.png",
+        "bytes": 49909,
+        "sha256": "7534dabc7cf9c6b0c95957acd9367d219eec63cd00a8a232d2be3621797bd72b"
+      },
+      "after": {
+        "path": "after/390-light-zh-TW-questions.png",
+        "bytes": 49223,
+        "sha256": "0d4dbfcc974b4dcf44f2f207241fb896ec47a75fc546ec8166e61a8ebd3b1460"
+      }
+    },
+    {
+      "id": "MOB-006",
+      "platform": "MOB",
+      "width": 390,
+      "theme": "light",
+      "locale": "zh-TW",
+      "scene": "filters-open",
+      "source": "Chromium preview; repository synthetic data",
+      "after": {
+        "path": "after/390-light-zh-TW-filters-open.png",
+        "bytes": 45408,
+        "sha256": "84ee268c7831906df0c30c7cfba219847a7780c53e3ec115b1698757571f84dd"
+      }
+    },
+    {
+      "id": "MOB-007",
+      "platform": "MOB",
+      "width": 390,
+      "theme": "light",
+      "locale": "en",
+      "scene": "banks",
+      "source": "Chromium preview; repository synthetic data",
+      "before": {
+        "path": "before/390-light-en-banks.png",
+        "bytes": 61777,
+        "sha256": "7615806e92252bc2a65bfba943b2f3c91c6c31d11acf47c822583d9768a2febc"
+      },
+      "after": {
+        "path": "after/390-light-en-banks.png",
+        "bytes": 60413,
+        "sha256": "9cd37dd459cb04a3b5b8454fcceffd95a7c78e39b02a572933e745da9ae1e572"
+      }
+    },
+    {
+      "id": "MOB-008",
+      "platform": "MOB",
+      "width": 390,
+      "theme": "light",
+      "locale": "en",
+      "scene": "questions",
+      "source": "Chromium preview; repository synthetic data",
+      "before": {
+        "path": "before/390-light-en-questions.png",
+        "bytes": 52783,
+        "sha256": "388c1319795ed6ce6a090d7bbec7d3eee42abbe89fea6999bacdfc4116b36a77"
+      },
+      "after": {
+        "path": "after/390-light-en-questions.png",
+        "bytes": 48370,
+        "sha256": "5be3f215e4f461f06161626801b909bd4da0b4f318cd2b323ae5980a1f8c7d02"
+      }
+    },
+    {
+      "id": "MOB-009",
+      "platform": "MOB",
+      "width": 390,
+      "theme": "light",
+      "locale": "en",
+      "scene": "filters-open",
+      "source": "Chromium preview; repository synthetic data",
+      "after": {
+        "path": "after/390-light-en-filters-open.png",
+        "bytes": 46748,
+        "sha256": "8cd52958f2606a731a4ef1d9f4081fb19867252cd55e5d18fd2efa6fc1df94d7"
+      }
+    },
+    {
+      "id": "MOB-010",
+      "platform": "MOB",
+      "width": 390,
+      "theme": "dark",
+      "locale": "zh-CN",
+      "scene": "banks",
+      "source": "Chromium preview; repository synthetic data",
+      "before": {
+        "path": "before/390-dark-zh-CN-banks.png",
+        "bytes": 61549,
+        "sha256": "7cf89803adfd50d097bc142d3ee69500569d1e69fa9373026a10171653d272e1"
+      },
+      "after": {
+        "path": "after/390-dark-zh-CN-banks.png",
+        "bytes": 60051,
+        "sha256": "ade261765ea9e110fb58c83c5074c47986baef16934187a9af82aba0e34406af"
+      }
+    },
+    {
+      "id": "MOB-011",
+      "platform": "MOB",
+      "width": 390,
+      "theme": "dark",
+      "locale": "zh-CN",
+      "scene": "questions",
+      "source": "Chromium preview; repository synthetic data",
+      "before": {
+        "path": "before/390-dark-zh-CN-questions.png",
+        "bytes": 49607,
+        "sha256": "ccf39a8ac550f65c96795abfbabe9b4502a019351b21cb70806099e45a916311"
+      },
+      "after": {
+        "path": "after/390-dark-zh-CN-questions.png",
+        "bytes": 49102,
+        "sha256": "58989f9f81fbfecd3051ce6571bd9802c72bd10a4c18fbf2621dd2d77f6eff8e"
+      }
+    },
+    {
+      "id": "MOB-012",
+      "platform": "MOB",
+      "width": 390,
+      "theme": "dark",
+      "locale": "zh-CN",
+      "scene": "filters-open",
+      "source": "Chromium preview; repository synthetic data",
+      "after": {
+        "path": "after/390-dark-zh-CN-filters-open.png",
+        "bytes": 44963,
+        "sha256": "739ec040e11a9036f75753fbf5a76abd3c28100d735b2a6cddec264191a7bd16"
+      }
+    },
+    {
+      "id": "MOB-013",
+      "platform": "MOB",
+      "width": 390,
+      "theme": "dark",
+      "locale": "zh-TW",
+      "scene": "banks",
+      "source": "Chromium preview; repository synthetic data",
+      "before": {
+        "path": "before/390-dark-zh-TW-banks.png",
+        "bytes": 62664,
+        "sha256": "6fa52b39eb027b0c91db6a260aac04d8fcdd93fac770ef2cdf2ff8c287a338a1"
+      },
+      "after": {
+        "path": "after/390-dark-zh-TW-banks.png",
+        "bytes": 61033,
+        "sha256": "e83452ec02e18dea0d5256c69160ec7d51b3fec22ee9bf949bfb406121173969"
+      }
+    },
+    {
+      "id": "MOB-014",
+      "platform": "MOB",
+      "width": 390,
+      "theme": "dark",
+      "locale": "zh-TW",
+      "scene": "questions",
+      "source": "Chromium preview; repository synthetic data",
+      "before": {
+        "path": "before/390-dark-zh-TW-questions.png",
+        "bytes": 50225,
+        "sha256": "2badd33cef130fdddefc76e554dad4faf54ba8d1f2cf01205cc00e58f478ad5b"
+      },
+      "after": {
+        "path": "after/390-dark-zh-TW-questions.png",
+        "bytes": 49611,
+        "sha256": "aa5616463e4ce37477d5ba2468b625c9a8dcd6f29dfb83311dd5acc9db82fa3f"
+      }
+    },
+    {
+      "id": "MOB-015",
+      "platform": "MOB",
+      "width": 390,
+      "theme": "dark",
+      "locale": "zh-TW",
+      "scene": "filters-open",
+      "source": "Chromium preview; repository synthetic data",
+      "after": {
+        "path": "after/390-dark-zh-TW-filters-open.png",
+        "bytes": 45858,
+        "sha256": "1be0e007b3616af948a08905a1e941fd7a946695e2d5742e9f3f0df4dc019b65"
+      }
+    },
+    {
+      "id": "MOB-016",
+      "platform": "MOB",
+      "width": 390,
+      "theme": "dark",
+      "locale": "en",
+      "scene": "banks",
+      "source": "Chromium preview; repository synthetic data",
+      "before": {
+        "path": "before/390-dark-en-banks.png",
+        "bytes": 62906,
+        "sha256": "4f296226b22e011f8de40ef1cf98cc53d820fe6f28e760029dc88830f8912462"
+      },
+      "after": {
+        "path": "after/390-dark-en-banks.png",
+        "bytes": 61402,
+        "sha256": "b0cb6e29f59243ac82d45e10f9f2c67f271f20a0dd41d94369a71ddae5c029b3"
+      }
+    },
+    {
+      "id": "MOB-017",
+      "platform": "MOB",
+      "width": 390,
+      "theme": "dark",
+      "locale": "en",
+      "scene": "questions",
+      "source": "Chromium preview; repository synthetic data",
+      "before": {
+        "path": "before/390-dark-en-questions.png",
+        "bytes": 53436,
+        "sha256": "e86428044475ad9d652a00675820c3f45fe4b67fa05008b43767f775b5258432"
+      },
+      "after": {
+        "path": "after/390-dark-en-questions.png",
+        "bytes": 48976,
+        "sha256": "17195cd0db00598b8e780de63f7c89d21446330a1ab22798a5040a1b167c928f"
+      }
+    },
+    {
+      "id": "MOB-018",
+      "platform": "MOB",
+      "width": 390,
+      "theme": "dark",
+      "locale": "en",
+      "scene": "filters-open",
+      "source": "Chromium preview; repository synthetic data",
+      "after": {
+        "path": "after/390-dark-en-filters-open.png",
+        "bytes": 47606,
+        "sha256": "2dba8fa8cd8ba1b4371a19e38e365fbd51fb872e4608e42c0429006c7fc05056"
+      }
+    },
+    {
+      "id": "MOB-019",
+      "platform": "MOB",
+      "width": 360,
+      "theme": "light",
+      "locale": "zh-CN",
+      "scene": "banks",
+      "source": "Chromium preview; repository synthetic data",
+      "before": {
+        "path": "before/360-light-zh-CN-banks.png",
+        "bytes": 43407,
+        "sha256": "26be29f6f756f0ccf927e289c16ab14ca875cabce8fec6b4a6168a72594599c2"
+      },
+      "after": {
+        "path": "after/360-light-zh-CN-banks.png",
+        "bytes": 42376,
+        "sha256": "d817e7257313954f0dbdef0a4d9262b83a66f601010d5b322fb1fa368d785470"
+      }
+    },
+    {
+      "id": "MOB-020",
+      "platform": "MOB",
+      "width": 360,
+      "theme": "light",
+      "locale": "zh-CN",
+      "scene": "questions",
+      "source": "Chromium preview; repository synthetic data",
+      "before": {
+        "path": "before/360-light-zh-CN-questions.png",
+        "bytes": 37618,
+        "sha256": "92c93d2790f82f2e9cdca4c7f777961246cba1caab39883f82a29b1894d551f1"
+      },
+      "after": {
+        "path": "after/360-light-zh-CN-questions.png",
+        "bytes": 37492,
+        "sha256": "0cc98d932988b668fd42a9d370c7ef3c9afaed0e7a36d962519834872ce1f2c4"
+      }
+    },
+    {
+      "id": "MOB-021",
+      "platform": "MOB",
+      "width": 360,
+      "theme": "light",
+      "locale": "zh-CN",
+      "scene": "filters-open",
+      "source": "Chromium preview; repository synthetic data",
+      "after": {
+        "path": "after/360-light-zh-CN-filters-open.png",
+        "bytes": 41650,
+        "sha256": "ee13c5010a040b202070da9cd669c6155a6eb22b11802edc9438b878302af3d5"
+      }
+    },
+    {
+      "id": "MOB-022",
+      "platform": "MOB",
+      "width": 360,
+      "theme": "light",
+      "locale": "zh-TW",
+      "scene": "banks",
+      "source": "Chromium preview; repository synthetic data",
+      "before": {
+        "path": "before/360-light-zh-TW-banks.png",
+        "bytes": 44328,
+        "sha256": "22dfdf6b58dd875f95023a210bd2340890ff42994877236ddbd7f6f7c5e2bd1f"
+      },
+      "after": {
+        "path": "after/360-light-zh-TW-banks.png",
+        "bytes": 43338,
+        "sha256": "a303e91711bbd7d0f773015e13ddbbb1602f34aac4a9e7b7ab86a80eadcf7ad7"
+      }
+    },
+    {
+      "id": "MOB-023",
+      "platform": "MOB",
+      "width": 360,
+      "theme": "light",
+      "locale": "zh-TW",
+      "scene": "questions",
+      "source": "Chromium preview; repository synthetic data",
+      "before": {
+        "path": "before/360-light-zh-TW-questions.png",
+        "bytes": 38451,
+        "sha256": "24f0829bb95cb9a3305a5604275c56a6284d4b2a8839f8faf7f5481475c183f9"
+      },
+      "after": {
+        "path": "after/360-light-zh-TW-questions.png",
+        "bytes": 38293,
+        "sha256": "ed9ea5c6b91b3e0f69310bbb8f5185bb3e85f92abfdcbb9ced959834f82ae023"
+      }
+    },
+    {
+      "id": "MOB-024",
+      "platform": "MOB",
+      "width": 360,
+      "theme": "light",
+      "locale": "zh-TW",
+      "scene": "filters-open",
+      "source": "Chromium preview; repository synthetic data",
+      "after": {
+        "path": "after/360-light-zh-TW-filters-open.png",
+        "bytes": 42764,
+        "sha256": "29a0306e7f146f1e8787bd753b2474bbb98c50d7a621a08d18847dcab0835747"
+      }
+    },
+    {
+      "id": "MOB-025",
+      "platform": "MOB",
+      "width": 360,
+      "theme": "light",
+      "locale": "en",
+      "scene": "banks",
+      "source": "Chromium preview; repository synthetic data",
+      "before": {
+        "path": "before/360-light-en-banks.png",
+        "bytes": 43323,
+        "sha256": "f7223beda06ba0a7ed960e82b9da94f9473a7c5acff8537b758ba81b8001f619"
+      },
+      "after": {
+        "path": "after/360-light-en-banks.png",
+        "bytes": 42347,
+        "sha256": "e07e8156a26c60f17117ea7d5f39c32b9b66c5abeec71dd3b5908ede79874a7f"
+      }
+    },
+    {
+      "id": "MOB-026",
+      "platform": "MOB",
+      "width": 360,
+      "theme": "light",
+      "locale": "en",
+      "scene": "questions",
+      "source": "Chromium preview; repository synthetic data",
+      "before": {
+        "path": "before/360-light-en-questions.png",
+        "bytes": 42191,
+        "sha256": "7a15801fdbf3ce8687f471b72e039445c7d8415df89dd19d04f4046fc80d6366"
+      },
+      "after": {
+        "path": "after/360-light-en-questions.png",
+        "bytes": 37637,
+        "sha256": "af8a6d778e2254bf21783ccd9388583b00fbb38996bdb1a8f8578bf198ad563c"
+      }
+    },
+    {
+      "id": "MOB-027",
+      "platform": "MOB",
+      "width": 360,
+      "theme": "light",
+      "locale": "en",
+      "scene": "filters-open",
+      "source": "Chromium preview; repository synthetic data",
+      "after": {
+        "path": "after/360-light-en-filters-open.png",
+        "bytes": 44709,
+        "sha256": "3a0ad0a6748565dfd0ca3cb09c5b763c8626a4fbe9fb9f77cf22b973dc13b41c"
+      }
+    },
+    {
+      "id": "MOB-028",
+      "platform": "MOB",
+      "width": 360,
+      "theme": "dark",
+      "locale": "zh-CN",
+      "scene": "banks",
+      "source": "Chromium preview; repository synthetic data",
+      "before": {
+        "path": "before/360-dark-zh-CN-banks.png",
+        "bytes": 44345,
+        "sha256": "e9ecabe105bc08bc6bf6206ac336c1bea1b324237d21082f30fcc3571b83ad60"
+      },
+      "after": {
+        "path": "after/360-dark-zh-CN-banks.png",
+        "bytes": 43233,
+        "sha256": "c512e6340ab1cbe73a812526b07d56d75e6a6905ebf564c8525061990ddef689"
+      }
+    },
+    {
+      "id": "MOB-029",
+      "platform": "MOB",
+      "width": 360,
+      "theme": "dark",
+      "locale": "zh-CN",
+      "scene": "questions",
+      "source": "Chromium preview; repository synthetic data",
+      "before": {
+        "path": "before/360-dark-zh-CN-questions.png",
+        "bytes": 38158,
+        "sha256": "868da4d4e3b73af9bedf947fad295676fa99afc55023eb7f50ec429771d474dc"
+      },
+      "after": {
+        "path": "after/360-dark-zh-CN-questions.png",
+        "bytes": 38139,
+        "sha256": "893600d1ed4c79d0da51eedd961a80581773c0c6493b2ced1ece1b429bea5358"
+      }
+    },
+    {
+      "id": "MOB-030",
+      "platform": "MOB",
+      "width": 360,
+      "theme": "dark",
+      "locale": "zh-CN",
+      "scene": "filters-open",
+      "source": "Chromium preview; repository synthetic data",
+      "after": {
+        "path": "after/360-dark-zh-CN-filters-open.png",
+        "bytes": 42423,
+        "sha256": "06f29ef0a6e184a1663c6eaa648ae006eab1e688995d30cfa057aed1753b540c"
+      }
+    },
+    {
+      "id": "MOB-031",
+      "platform": "MOB",
+      "width": 360,
+      "theme": "dark",
+      "locale": "zh-TW",
+      "scene": "banks",
+      "source": "Chromium preview; repository synthetic data",
+      "before": {
+        "path": "before/360-dark-zh-TW-banks.png",
+        "bytes": 45150,
+        "sha256": "9f5dc28f9e7aeab8d928da08b0cfb6c18223b927b8932fd30d29629aeecdae6c"
+      },
+      "after": {
+        "path": "after/360-dark-zh-TW-banks.png",
+        "bytes": 43981,
+        "sha256": "5b37171fb3f98b59d07d0252c1c42425a0d28c1630fcddd2ccaff7010d1770e9"
+      }
+    },
+    {
+      "id": "MOB-032",
+      "platform": "MOB",
+      "width": 360,
+      "theme": "dark",
+      "locale": "zh-TW",
+      "scene": "questions",
+      "source": "Chromium preview; repository synthetic data",
+      "before": {
+        "path": "before/360-dark-zh-TW-questions.png",
+        "bytes": 38785,
+        "sha256": "da712b997c54dadf2b19aa4e8a263f98372e37934d8a9011b45f6fb44c425a34"
+      },
+      "after": {
+        "path": "after/360-dark-zh-TW-questions.png",
+        "bytes": 38685,
+        "sha256": "9bfdbc6695845d62fb8204fcd79cea9f11c11bbd917a10fab1c4251e2fdb35c3"
+      }
+    },
+    {
+      "id": "MOB-033",
+      "platform": "MOB",
+      "width": 360,
+      "theme": "dark",
+      "locale": "zh-TW",
+      "scene": "filters-open",
+      "source": "Chromium preview; repository synthetic data",
+      "after": {
+        "path": "after/360-dark-zh-TW-filters-open.png",
+        "bytes": 43316,
+        "sha256": "3ccc68af62ad9a629e7cdd59f13d0dce1fd0c1262f4a4bd12b4c31f47708e637"
+      }
+    },
+    {
+      "id": "MOB-034",
+      "platform": "MOB",
+      "width": 360,
+      "theme": "dark",
+      "locale": "en",
+      "scene": "banks",
+      "source": "Chromium preview; repository synthetic data",
+      "before": {
+        "path": "before/360-dark-en-banks.png",
+        "bytes": 44071,
+        "sha256": "3f4deaa7db40e99bc86043ccd88b35c8165ffa01cadb896eebecc38d897dc21d"
+      },
+      "after": {
+        "path": "after/360-dark-en-banks.png",
+        "bytes": 42971,
+        "sha256": "24d3f8244ae410f258fafa7433a3a4889135cedd4b6e50d75db4ab294f99d61e"
+      }
+    },
+    {
+      "id": "MOB-035",
+      "platform": "MOB",
+      "width": 360,
+      "theme": "dark",
+      "locale": "en",
+      "scene": "questions",
+      "source": "Chromium preview; repository synthetic data",
+      "before": {
+        "path": "before/360-dark-en-questions.png",
+        "bytes": 42849,
+        "sha256": "e1f9e63e1179f8d4489dce1301fc845cba08347a183b7316e3509aa1c5496598"
+      },
+      "after": {
+        "path": "after/360-dark-en-questions.png",
+        "bytes": 38230,
+        "sha256": "3ae18245e8209928f076dbf45a57219b36fca86c332676b54349eab9b74c9051"
+      }
+    },
+    {
+      "id": "MOB-036",
+      "platform": "MOB",
+      "width": 360,
+      "theme": "dark",
+      "locale": "en",
+      "scene": "filters-open",
+      "source": "Chromium preview; repository synthetic data",
+      "after": {
+        "path": "after/360-dark-en-filters-open.png",
+        "bytes": 45675,
+        "sha256": "009b03e8b830727a573519aa4b1af65b08ab9f1c83cd0d0f7f555f107ab24199"
+      }
+    }
+  ]
+}
