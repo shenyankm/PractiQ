@@ -110,7 +110,7 @@ for (const variant of variants) {
           expect((await dialog.boundingBox()).height).toBeLessThanOrEqual(height);
           expect(await dialog.locator('img').evaluate(img => img.getBoundingClientRect().width <= img.parentElement.clientWidth)).toBe(true);
           await dialog.getByRole('button', {name:'原始尺寸',exact:true}).click();
-          await expect(dialog.getByRole('button', {name:'适应窗口',exact:true})).toHaveAttribute('aria-pressed','true');
+          await expect(dialog.getByRole('button', {name:'适应窗口',exact:true})).not.toHaveAttribute('aria-pressed');
           await dialog.getByRole('button', {name:'适应窗口',exact:true}).click();
           await dialog.screenshot({ path: testInfo.outputPath(`${key}-${name}.png`) });
           await page.keyboard.press('Escape');

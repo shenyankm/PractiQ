@@ -201,7 +201,9 @@ html[data-native-insets="true"] {
 
 /* Product workspace: readable content, clear surfaces, and persistent practice controls. */
 .page-workspace { width: 100%; max-width: 80rem; margin-inline: auto; }
-.practice-workspace { max-width: 90rem; height: 100%; }
+.practice-workspace { display: flex; flex-direction: column; min-height: 0; max-width: 90rem; height: 100%; }
+.practice-workspace > .practice-session { flex: 1; height: auto; }
+.practice-workspace > .workspace-notice { flex-shrink: 0; max-height: 35%; overflow-y: auto; }
 .practice-app-content { overflow: hidden; }
 .practice-session { display: flex; height: 100%; min-height: 0; flex-direction: column; gap: var(--space-section); }
 .practice-session > * { margin-block: 0; }

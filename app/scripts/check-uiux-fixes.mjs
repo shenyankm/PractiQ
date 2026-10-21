@@ -42,3 +42,33 @@ for (const [width,height] of [[360,640],[390,844],[667,375],[768,900],[960,640],
     expect(await page.evaluate(() => window.__layoutNativeCalls.filter(call => call.command === 'ai_request' || ['save_attempt','submit_paper'].includes(call.request?.type)))).toEqual([]);
   });
 }
+
+for (const [width,height] of [[360,640],[667,375],[1280,720]]) {
+  test(`practice error recovery retains the footer at ${width}x${height}`, async ({page},testInfo) => {
+    await page.setViewportSize({width,height});
+    await installLayoutSession(page,{submitted:true,failPositionOnce:true});
+    await page.goto('/');
+    if(width<768) await page.getByRole('button',{name:'打开主导航',exact:true}).click();
+    await page.getByRole('button',{name:'练习记录',exact:true}).click();
+    await page.getByRole('button',{name:'继续练习',exact:true}).click();
+    await page.getByRole('button',{name:'下一题',exact:true}).click();
+    const failure=page.getByRole('alert').filter({hasText:'操作失败'});
+    await expect(failure).toBeVisible();
+    for(const expanded of [false,true]) {
+      if(expanded) await failure.getByText('诊断详情',{exact:true}).click();
+      const content=await page.locator('.practice-app-content').boundingBox();
+      const footer=await page.locator('.practice-footer').boundingBox();
+      const scroll=await page.locator('.practice-scroll').boundingBox();
+      expect(footer.y+footer.height).toBeLessThanOrEqual(content.y+content.height);
+      expect(scroll.height).toBeGreaterThan(0);
+      expect(scroll.y+scroll.height).toBeLessThanOrEqual(footer.y+1);
+      const next=page.getByRole('button',{name:'下一题',exact:true});
+      await next.focus();
+      await expect(next).toBeInViewport();
+    }
+    await page.screenshot({path:testInfo.outputPath('practice-error-recovery.png')});
+    await page.getByRole('button',{name:'下一题',exact:true}).click();
+    await expect(failure).toBeHidden();
+    await expect(page.getByRole('heading',{name:/第 2 \/ /})).toBeVisible();
+  });
+}
