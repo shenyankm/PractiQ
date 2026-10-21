@@ -257,6 +257,10 @@ it("filters all checkpoints locally, resets pagination and retains shared materi
 it.each([
   [{correct:["A","B"]}, "A、B"],
   [{value:false}, "错误"],
+  [{correct:[]}, "参考答案为空"],
+  [{answers:[]}, "参考答案为空"],
+  [{order:[]}, "参考答案为空"],
+  [{matches:[]}, "参考答案为空"],
   [{answers:["First",null]}, "该空未提供答案（null）"],
   [{text:"Reference **answer**"}, "answer"],
   [{order:[2,1]}, "Second"],
@@ -277,5 +281,20 @@ it.each([
   await userEvent.click(screen.getByText("来源与技术详情"));
   await userEvent.click(screen.getByText("完整结构化记录（只读）"));
   expect(technical.textContent).toContain(JSON.stringify(q, null, 2));
+  expect(JSON.stringify(q)).toBe(original);
+});
+
+it.each([
+  {answer:{order:[1,0]}, items:[{content:"First"},{id:null,content:"Second"}], expected:["Second","First"]},
+  {answer:{order:[8,1]}, items:[{id:8,content:"First"},{content:"Second"}], expected:["First","Second"]},
+  {answer:{matches:[{left:0,right:1},{left:7,right:0}]}, items:[{side:"right",content:"Right first"},{side:"left",content:"Left first"},{side:"right",id:null,content:"Right second"},{side:"left",id:7,content:"Left second"}], expected:["Left first → Right second","Left second → Right first"]},
+] as const)("resolves optional item IDs using contract positions: %j", async ({answer,items,expected}) => {
+  const q=question({stem:"Positional answers",answerMode:"order" in answer ? "ordering" : "matching",answerPayload:structuredClone(answer) as ReturnType<typeof question>["answerPayload"],items:items.map(item=>({...item}))});
+  const original=JSON.stringify(q);
+  render(<ResultReview task={{...task,result:{...task.result!,questions:[q]}}} preview={null} client={new Client("fake")}/>);
+  await userEvent.click(screen.getByText("Positional answers",{selector:"summary span"}));
+  const reference=screen.getByRole("heading",{name:"文档提供的参考答案"}).parentElement!;
+  expect(within(reference).getAllByRole("listitem").map(item=>item.textContent)).toEqual(expected);
+  expect(reference.textContent).not.toContain("未关联题项");
   expect(JSON.stringify(q)).toBe(original);
 });

@@ -101,15 +101,28 @@ const questionTypes: Record<NonNullable<ParsedQuestion["answerMode"]>, string> =
 function relatedQuestion(entry: Entry, questions: Map<string, ParsedQuestion | null>, id?: string | null) {
   return id ? questions.get(JSON.stringify([entry.stage, entry.index, id])) || questions.get(JSON.stringify([id])) : undefined;
 }
+function answerItemContent(items: ParsedQuestion["items"], id: number) {
+  return items.find((item,index) => (item.id ?? index) === id)?.content ?? `未关联题项（${id}）`;
+}
 function ReferenceAnswer({ question: q }: { question: ParsedQuestion }) {
   const answer: Record<string, unknown> | null = q.answerPayload;
   if (answer == null) return <p>未提供（null），不会补写答案</p>;
   if (Array.isArray(answer.correct) && answer.correct.every(value => typeof value === "string")) return <p>{answer.correct.join("、") || "参考答案为空"}</p>;
   if (typeof answer.value === "boolean") return <p>{answer.value ? "正确" : "错误"}</p>;
-  if (Array.isArray(answer.answers) && answer.answers.every(value => value == null || typeof value === "string")) return <ol className="list-inside list-decimal space-y-2">{answer.answers.map((value, index) => <li key={index}><Markdown text={value ?? "该空未提供答案（null）"}/></li>)}</ol>;
+  if (Array.isArray(answer.answers) && answer.answers.every(value => value == null || typeof value === "string")) {
+    if (!answer.answers.length) return <p>参考答案为空</p>;
+    return <ol className="list-inside list-decimal space-y-2">{answer.answers.map((value, index) => <li key={index}><Markdown text={value ?? "该空未提供答案（null）"}/></li>)}</ol>;
+  }
   if (typeof answer.text === "string") return <Markdown text={answer.text}/>;
-  if (Array.isArray(answer.order) && answer.order.every(value => typeof value === "number")) return <ol className="list-inside list-decimal space-y-2">{answer.order.map((id, index) => <li key={index}><Markdown text={q.items.find(item => item.id === id)?.content ?? `未关联题项（${id}）`}/></li>)}</ol>;
-  if (Array.isArray(answer.matches) && answer.matches.every(pair => pair && typeof pair === "object" && typeof pair.left === "number" && typeof pair.right === "number")) return <ul className="space-y-2">{answer.matches.map((pair, index) => <li key={index}><Markdown text={`${q.items.find(item => item.id === pair.left && item.side === "left")?.content ?? `未关联题项（${pair.left}）`} → ${q.items.find(item => item.id === pair.right && item.side === "right")?.content ?? `未关联题项（${pair.right}）`}`}/></li>)}</ul>;
+  if (Array.isArray(answer.order) && answer.order.every(value => typeof value === "number")) {
+    if (!answer.order.length) return <p>参考答案为空</p>;
+    return <ol className="list-inside list-decimal space-y-2">{answer.order.map((id, index) => <li key={index}><Markdown text={answerItemContent(q.items,id)}/></li>)}</ol>;
+  }
+  if (Array.isArray(answer.matches) && answer.matches.every(pair => pair && typeof pair === "object" && typeof pair.left === "number" && typeof pair.right === "number")) {
+    if (!answer.matches.length) return <p>参考答案为空</p>;
+    const left=q.items.filter(item => item.side === "left"), right=q.items.filter(item => item.side === "right");
+    return <ul className="space-y-2">{answer.matches.map((pair, index) => <li key={index}><Markdown text={`${answerItemContent(left,pair.left)} → ${answerItemContent(right,pair.right)}`}/></li>)}</ul>;
+  }
   return <p>答案结构需人工核对，请展开来源与技术详情。</p>;
 }
 const missingFieldNames: Record<string, string> = { stem:"题干", questionTypeId:"题型", answerMode:"作答方式", choiceVariant:"选择题类型", matchingVariant:"匹配方式", options:"选项", items:"题项", answerPayload:"参考答案", analysis:"解析", sourceText:"来源原文", media:"图片或音频", material:"材料" };
