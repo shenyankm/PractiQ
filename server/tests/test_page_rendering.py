@@ -583,7 +583,6 @@ async def test_context_enrichment_cannot_add_a_question_with_a_false_primary_anc
     copied = {**question('Context-only question'), 'id': 'page:1:context-copy'}
     model = ocr_page_model(monkeypatch, [{'questions': [primary]}, {'questions': [primary, copied]},
                                 {'questions': [enriched]}, {'questions': []}], page_count=2)
-    monkeypatch.setenv('AI_IMPORT_REVIEW', 'false')
     monkeypatch.setenv('AI_GRAPH_MAX_CONCURRENCY', '1')
     monkeypatch.setattr(document, 'get_object_store', lambda: store)
     monkeypatch.setattr(document, 'get_model', lambda: model)
@@ -607,7 +606,6 @@ async def test_primary_and_context_passes_each_have_all_correction_attempts(monk
     invalid = [{'questions': [question(f'Invalid context question {i}')]} for i in range(3)]
     model = ocr_page_model(monkeypatch, [*[{'questions': str(i)} for i in range(3)], {'questions': [primary]},
                                 *invalid, {'questions': [enriched]}, {'questions': []}], page_count=2)
-    monkeypatch.setenv('AI_IMPORT_REVIEW', 'false')
     monkeypatch.setenv('AI_GRAPH_MAX_CONCURRENCY', '1')
     monkeypatch.setattr(document, 'get_object_store', lambda: store)
     monkeypatch.setattr(document, 'get_model', lambda: model)
@@ -636,7 +634,6 @@ async def test_context_correction_retains_primary_composite_material(monkeypatch
              'answerPayload': {'correct': ['A']}}
     model = ocr_page_model(monkeypatch, [{'questions': [parent, child]}, {'questions': [child]},
                                 {'questions': [parent, child]}, {'questions': []}], page_count=2)
-    monkeypatch.setenv('AI_IMPORT_REVIEW', 'false')
     monkeypatch.setenv('AI_GRAPH_MAX_CONCURRENCY', '1')
     monkeypatch.setattr(document, 'get_object_store', lambda: store)
     monkeypatch.setattr(document, 'get_model', lambda: model)
@@ -693,7 +690,6 @@ async def test_context_correction_preserves_composite_payload_and_allows_additio
     model = ocr_page_model(monkeypatch, [{'questions': [parent, child]},
                                 {'questions': [{**parent, field: broken_items}, child]},
                                 {'questions': [complete, child]}, {'questions': []}], page_count=2)
-    monkeypatch.setenv('AI_IMPORT_REVIEW', 'false')
     monkeypatch.setenv('AI_GRAPH_MAX_CONCURRENCY', '1')
     monkeypatch.setattr(document, 'get_object_store', lambda: store)
     monkeypatch.setattr(document, 'get_model', lambda: model)
@@ -743,7 +739,6 @@ async def test_context_correction_preserves_primary_groups_and_reordered_members
     model = ocr_page_model(monkeypatch, [{'questions': questions, 'groups': groups},
                                 {'questions': questions[::-1], 'groups': broken},
                                 {'questions': questions[::-1], 'groups': corrected}, {'questions': []}], page_count=2)
-    monkeypatch.setenv('AI_IMPORT_REVIEW', 'false')
     monkeypatch.setenv('AI_GRAPH_MAX_CONCURRENCY', '1')
     monkeypatch.setattr(document, 'get_object_store', lambda: store)
     monkeypatch.setattr(document, 'get_model', lambda: model)
@@ -780,7 +775,6 @@ async def test_context_correction_preserves_primary_figures_and_reordered_owners
     model = ocr_page_model(monkeypatch, [{'questions': questions, 'figures': figures},
                                 {'questions': questions[::-1], 'figures': broken},
                                 {'questions': questions[::-1], 'figures': corrected}, {'questions': []}], page_count=2)
-    monkeypatch.setenv('AI_IMPORT_REVIEW', 'false')
     monkeypatch.setenv('AI_GRAPH_MAX_CONCURRENCY', '1')
     monkeypatch.setattr(document, 'get_object_store', lambda: store)
     monkeypatch.setattr(document, 'get_model', lambda: model)
@@ -823,7 +817,6 @@ async def test_context_correction_preserves_primary_figure_payload_and_allows_mo
     model = ocr_page_model(monkeypatch, [{'questions': [primary], 'figures': [figure]},
                                 {'questions': [primary], 'figures': [broken]},
                                 {'questions': [primary], 'figures': [complete]}, {'questions': []}], page_count=2)
-    monkeypatch.setenv('AI_IMPORT_REVIEW', 'false')
     monkeypatch.setenv('AI_GRAPH_MAX_CONCURRENCY', '1')
     monkeypatch.setattr(document, 'get_object_store', lambda: store)
     monkeypatch.setattr(document, 'get_model', lambda: model)
@@ -841,7 +834,6 @@ async def test_empty_primary_page_does_not_submit_neighbors_for_question_extract
     store, reference = paged_source('pdf')
     owned = {**question('Starts on page two'), 'id': 'page:2:1'}
     model = ocr_page_model(monkeypatch, [{'questions': []}, {'questions': [owned]}, {'questions': [owned]}], page_count=2)
-    monkeypatch.setenv('AI_IMPORT_REVIEW', 'false')
     monkeypatch.setenv('AI_GRAPH_MAX_CONCURRENCY', '1')
     monkeypatch.setattr(document, 'get_object_store', lambda: store)
     monkeypatch.setattr(document, 'get_model', lambda: model)
@@ -879,7 +871,6 @@ async def test_context_failure_retains_known_primary_usage_and_clears_identity_g
             raise DocumentProcessingError(503, 'Context storage unavailable', 'EXECUTION_STORE_UNAVAILABLE')
         return await original(model, messages, schema, call_kind, runtime=runtime)
 
-    monkeypatch.setenv('AI_IMPORT_REVIEW', 'false')
     monkeypatch.setenv('AI_GRAPH_MAX_CONCURRENCY', '1')
     monkeypatch.setattr(document, 'structured_call', fail_context)
     monkeypatch.setattr(document, 'get_object_store', lambda: store)

@@ -50,7 +50,6 @@ async def test_complete_mixed_extraction_is_not_corrected_to_one_question(monkey
     model = FakeModel(responses=[{'questions': questions}])
     monkeypatch.setattr(document, 'get_object_store', lambda: files)
     monkeypatch.setattr(document, 'get_model', lambda: model)
-    monkeypatch.setenv('AI_IMPORT_REVIEW', 'false')
     artifact = {key: value for key, value in reference.items() if key not in {'sourceType', 'fileName'}}
     prepared = await document._assemble({'document': reference, 'textRef': artifact})
     assert prepared['chunkNodeCounts'] == [None] and prepared['chunkPresence'] == [None]

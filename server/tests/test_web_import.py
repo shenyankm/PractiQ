@@ -247,13 +247,13 @@ async def test_review_exposes_rendered_source_and_authenticated_ocr_evidence(mon
     assert len(model.calls) == 1
 
 
-@pytest.mark.parametrize('review,unit,context', [('false', 4, 8), ('true', 16, 20)])
-async def test_budget_capacity_matches_dispatch_reservations(monkeypatch, review, unit, context):
+@pytest.mark.parametrize('legacy_setting', ['false', 'true', 'invalid'])
+async def test_budget_capacity_matches_dispatch_reservations(monkeypatch, legacy_setting):
     from practiq_ai import llm
 
-    monkeypatch.setenv('AI_IMPORT_REVIEW', review)
+    monkeypatch.setenv('AI_IMPORT_REVIEW', legacy_setting)
     monkeypatch.setenv('AI_TASK_MAX_MODEL_CALLS', '400')
     response = await webapp.import_capabilities()
     assert response.modelBudget is not None
-    assert response.modelBudget.model_dump() == {'limit': 400, 'unitCalls': unit, 'contextUnitCalls': context}
-    assert llm.import_call_allowance() == unit and llm.import_call_allowance(context=True) == context
+    assert response.modelBudget.model_dump() == {'limit': 400, 'unitCalls': 4, 'contextUnitCalls': 8}
+    assert llm.import_call_allowance() == 4 and llm.import_call_allowance(context=True) == 8

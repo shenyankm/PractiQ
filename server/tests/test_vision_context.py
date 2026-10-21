@@ -31,7 +31,6 @@ async def test_model_page_numbers_match_one_based_question_ids_without_rewriting
                                         kind="ocr-page", index=3, media_type="application/json")
     monkeypatch.setattr(document, "get_object_store", lambda: files)
     monkeypatch.setattr(document, "get_model", lambda: object())
-    monkeypatch.setattr(document, "load", lambda: SimpleNamespace(import_review=False))
     calls = []
 
     async def call(_model, messages, schema, _kind, *, runtime):

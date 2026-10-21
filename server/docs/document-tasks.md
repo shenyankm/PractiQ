@@ -68,10 +68,6 @@ CPU-bound question merging runs in a worker thread so it does not monopolize the
 
 `retry_failed` may omit `units` or send `[]` to retry all eligible units. It may also select units, for example `[{"stage":"vision_parse","index":1}]`. Indexes are zero-based; stage is `vision_parse`, `vision_describe`, or `document_parse`. Each unit allows at most two additional retry rounds, with the remainder in `retriesRemaining`. Successful units are reused. Follow `allowedActions` for exhausted retries, input limits, preparation failures, repeated truncation, and other non-retryable errors. Ordinary resume does not retry already completed PARTIAL units.
 
-## Optional AI source review
-
-Trusted deployment setting `AI_IMPORT_REVIEW=true` enables independent review within existing chunk/vision processing, before ordinary merge validation. It does not repurpose `vision_review`, `chunk_review` or `result_review`, which remain human-control stages. Usage records distinguish `import_review`, `import_repair` and `import_recheck`; warnings retain incomplete/disputed outcomes. Public payload schemas remain unchanged. See [bounded agent collaboration](import-agent-review.md) for evidence, one-round correction, preserved originals, budgets and recovery.
-
 ## Human review
 
 The default is `failurePolicy="return_partial"`. With `"review"`, stage failures or source-quality issues trigger an `interrupt`. Source issues include `SOURCE_TEXT_NOT_FOUND`, `AMBIGUOUS_OVERLAP`, and `OVERLAP_CONFLICT`.

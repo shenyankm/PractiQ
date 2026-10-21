@@ -65,7 +65,7 @@ logger = logging.getLogger(__name__)
 
 def import_call_allowance(*, context: bool = False) -> int:
     """Worst-case reservation shared by dispatch and the pre-import capacity hint."""
-    return MAX_MODEL_CALLS * (1 + (3 if load().import_review else 0) + int(context))
+    return MAX_MODEL_CALLS * (1 + int(context))
 
 
 @lru_cache(maxsize=1)
