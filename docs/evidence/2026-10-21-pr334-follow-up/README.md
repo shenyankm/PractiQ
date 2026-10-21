@@ -44,3 +44,24 @@ are in [capture-integrity.json](capture-integrity.json).
 ![Compact practice error](practice-error-360x640.png)
 ![Landscape practice error](practice-error-667x375.png)
 ![Desktop practice error](practice-error-1280x720.png)
+
+## Subsequent dependency-audit gates
+
+After the frontend audit passed, CI reached two previously blocked audit stages:
+
+- Python: update Pillow 12.3.0 to 13.0.0 and locked certifi 2026.7.22 to
+  2026.10.19. Only these two locked Python package versions changed. The
+  [Pillow release notes](https://pillow.readthedocs.io/en/stable/releasenotes/13.0.0.html)
+  describe its security fixes and removals; affected image paths passed 257 local
+  tests across Tencent input normalization, page rendering, figure cropping,
+  extraction environment, bank export and document handling.
+- Rust: update rustls-webpki 0.103.15 to 0.103.16 and webpki-roots 1.0.9 to
+  1.0.10 for [RUSTSEC-2026-0382](https://rustsec.org/advisories/RUSTSEC-2026-0382.html)
+  and [RUSTSEC-2026-0381](https://rustsec.org/advisories/RUSTSEC-2026-0381.html).
+  These patches reject/remove the distrusted emSign certificate paths.
+
+`uv lock --check`, `make audit` and `make audit-rust` passed using the existing
+Python 3.14.7 interpreter. Both Python audit sets report no known vulnerabilities;
+Rust retains its six existing allowed warnings, with no audit configuration or
+threshold changes. All five supported native dependency graphs pass the existing
+GLib reachability guard. Native Rust tests and new-head CI continue separately.
