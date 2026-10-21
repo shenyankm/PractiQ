@@ -46,13 +46,14 @@ for (const [width,height] of [[360,640],[390,844],[667,375],[768,900],[960,640],
 for (const [width,height] of [[360,640],[667,375],[1280,720]]) {
   test(`practice error recovery retains the footer at ${width}x${height}`, async ({page},testInfo) => {
     await page.setViewportSize({width,height});
-    await installLayoutSession(page,{submitted:true,failPositionOnce:true});
+    await installLayoutSession(page,{submitted:true,failPositionOnce:true,failInfo:true});
     await page.goto('/');
     if(width<768) await page.getByRole('button',{name:'打开主导航',exact:true}).click();
     await page.getByRole('button',{name:'练习记录',exact:true}).click();
     await page.getByRole('button',{name:'继续练习',exact:true}).click();
     await page.getByRole('button',{name:'下一题',exact:true}).click();
-    const failure=page.getByRole('alert').filter({hasText:'操作失败'});
+    const failure=page.getByRole('alert').filter({has:page.getByRole('button',{name:'关闭提示',exact:true})});
+    await expect(page.getByRole('alert').filter({hasText:'概览读取失败'})).toBeVisible();
     await expect(failure).toBeVisible();
     for(const expanded of [false,true]) {
       if(expanded) await failure.getByText('诊断详情',{exact:true}).click();
@@ -66,6 +67,10 @@ for (const [width,height] of [[360,640],[667,375],[1280,720]]) {
       await next.focus();
       await expect(next).toBeInViewport();
     }
+    const overviewRetry=page.getByRole('button',{name:'重试读取概览',exact:true});
+    await overviewRetry.focus();
+    await expect(overviewRetry).toBeInViewport();
+    expect(await page.locator('.practice-footer').evaluate(node=>node.getBoundingClientRect().bottom)).toBeLessThanOrEqual(height);
     await page.screenshot({path:testInfo.outputPath('practice-error-recovery.png')});
     await page.getByRole('button',{name:'下一题',exact:true}).click();
     await expect(failure).toBeHidden();
