@@ -49,7 +49,7 @@ class GradeImage(StrictModel):
 class GradeRequest(StrictModel):
     requestId: UUID
     inputDigest: str = Field(pattern=r"^[a-f0-9]{64}$")
-    feedbackLocale: Literal["zh-CN", "en"] = "zh-CN"
+    feedbackLocale: Literal["zh-CN", "zh-TW", "en"] = "zh-CN"
     question: ParsedQuestion
     materials: list[str] = Field(default_factory=list, max_length=100)
     answer: str = Field(max_length=120_000)
@@ -127,6 +127,18 @@ def _database():
         yield db
 
 
+def _localized(locale: str, simplified: str, traditional: str, english: str) -> str:
+    if locale == "en":
+        return english
+    return traditional if locale == "zh-TW" else simplified
+
+
+def _feedback_language(locale: str) -> str:
+    if locale == "en":
+        return "English"
+    return "Traditional Chinese" if locale == "zh-TW" else "Chinese"
+
+
 def _claim(request: GradeRequest):
     with _database() as db:
         # Concurrent requests wait for the first claim's commit, then observe its receipt.
@@ -144,7 +156,10 @@ def _claim(request: GradeRequest):
             "SELECT record FROM grade_calls WHERE grade_id=%s ORDER BY sequence", (str(request.requestId),)
         )]
         usage = _known_usage(calls)
-        return {"status":"unknown", "error":"Result unknown; check the record before explicitly requesting another grade." if request.feedbackLocale == "en" else "结果未知；请检查记录后明确重新评分", "usage":usage, "usageStatus":"unknown", "calls":calls}
+        return {"status":"unknown", "error":_localized(request.feedbackLocale,
+            "结果未知；请检查记录后明确重新评分", "結果未知；請檢查紀錄後明確重新評分",
+            "Result unknown; check the record before explicitly requesting another grade."),
+            "usage":usage, "usageStatus":"unknown", "calls":calls}
 
 
 def _known_usage(calls: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -178,18 +193,22 @@ async def grade(request: GradeRequest) -> dict:
     if previous is not None:
         return previous
     english = request.feedbackLocale == "en"
+    traditional = request.feedbackLocale == "zh-TW"
     q = request.question
     reference = q.answerPayload.model_dump() if isinstance(q.answerPayload, StrictModel) else q.answerPayload
     if q.answerMode != "short_answer" or not q.stem or not request.answer.strip() or any(k in q.missingFields for k in ("stem", "material", "media", "answerMode")) or not (q.scoringRubric or reference and reference.get("text")):
-        response = {"status":"ungraded", "error":"The question, answer, or grading evidence is incomplete." if english else "缺少完整题目、作答或评分依据", "usage":[]}
+        response = {"status":"ungraded", "error":_localized(request.feedbackLocale,
+            "缺少完整题目、作答或评分依据", "缺少完整題目、作答或評分依據",
+            "The question, answer, or grading evidence is incomplete."), "usage":[]}
     else:
         source_max = round(q.sourceScore * 100) if q.scoringRubric and q.sourceScore else request.maxCents
         payload = {"question":q.model_dump(mode="json", exclude={"sourceText", "scoreSourceText", "options", "items"}), "materials":request.materials, "answer":request.answer, "assessmentMaxCents":source_max}
         content: list = [{"type":"text", "text":json.dumps(payload, ensure_ascii=False)}]
         urls = await asyncio.to_thread(lambda: [image.verified_url() for image in request.images])
         content.extend({"type":"image_url", "image_url":{"url":url}} for url in urls)
-        missing_rubric = "No detailed scoring rubric was provided." if english else "未提供详细评分细则"
-        language = "English" if english else "Chinese"
+        missing_rubric = _localized(request.feedbackLocale,
+            "未提供详细评分细则", "未提供詳細評分細則", "No detailed scoring rubric was provided.")
+        language = _feedback_language(request.feedbackLocale)
         prompt = f"{PROMPT}\nReturn explanations in {language}. Preserve quoted assessment evidence in its original language. If a rubric is absent, include '{missing_rubric}' in reviewReasons."
         calls: list[dict] = []
         try:
@@ -199,14 +218,16 @@ async def grade(request: GradeRequest) -> dict:
                 call_record_writer=lambda record: _record_call(request, record),
             )
             if result is None or result.maxCents != source_max:
-                response = {"status":"ungraded", "error":failure or ("The grading maximum does not match the requested score." if english else "评分满分不匹配"), "usage":[u.model_dump(mode="json") for u in usage]}
+                response = {"status":"ungraded", "error":failure or _localized(request.feedbackLocale,
+                    "评分满分不匹配", "評分滿分不匹配",
+                    "The grading maximum does not match the requested score."), "usage":[u.model_dump(mode="json") for u in usage]}
                 if failure and failure.startswith("AI_PROVIDER"):
                     response.update(status="unknown", usageStatus="unknown")
             else:
                 if source_max != request.maxCents:
                     if result.scoreCents is not None:
                         result.scoreCents = (result.scoreCents * request.maxCents + source_max // 2) // source_max
-                    result.reason += f" Scaled proportionally from the source maximum of {source_max/100:g} to this session's maximum of {request.maxCents/100:g} points." if english else f"；按原卷 {source_max/100:g} 分比例换算至本次 {request.maxCents/100:g} 分。"
+                    result.reason += f" Scaled proportionally from the source maximum of {source_max/100:g} to this session's maximum of {request.maxCents/100:g} points." if english else f"；按原卷 {source_max/100:g} 分比例{'換' if traditional else '换'}算至本次 {request.maxCents/100:g} 分。"
                 result.maxCents = request.maxCents
                 if not q.scoringRubric and missing_rubric not in result.reviewReasons:
                     result.reviewReasons.append(missing_rubric)

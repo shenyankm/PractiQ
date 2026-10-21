@@ -259,10 +259,10 @@ for (const [width, height] of [[1440, 1000], [390, 844]]) {
     const importRules = page.getByText("格式与导入规则", { exact: true });
     await importRules.focus();
     await page.keyboard.press("Enter");
-    await expect(page.getByText(/所有支持的格式统一使用腾讯异步解析/)).toBeVisible();
-    await expect(page.getByText(/下载的 ZIP 可在 App/)).toBeVisible();
+    await expect(page.getByText(/所有支持的格式统一使用腾讯文档识别/)).toBeVisible();
+    await expect(page.getByText(/下载的 ZIP 可在应用/)).toBeVisible();
     await page.keyboard.press("Enter");
-    await expect(page.getByText(/所有支持的格式统一使用腾讯异步解析/)).toBeHidden();
+    await expect(page.getByText(/所有支持的格式统一使用腾讯文档识别/)).toBeHidden();
     await page.evaluate(() => scrollTo(0, 0));
     await page.mouse.move(0, 0);
     await expect(page.getByRole("button", { name: "查看积分明细", exact: true })).toBeHidden();

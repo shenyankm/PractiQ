@@ -91,7 +91,7 @@ it("keeps localized missing-answer fallbacks out of the content language", async
   ]};
   wrap(<><AnswerDisplay question={question} answer={{matches:[{left:0,right:0},{left:0,right:99}]}}/><AnswerDisplay question={question} answer={{text:""}}/></>); await ready();
   expect(content("First → Original target").getAttribute("lang")).toBe("en");
-  expect(content("First → 题项缺失").hasAttribute("lang")).toBe(false);
+  expect(content("First → 缺少题项").hasAttribute("lang")).toBe(false);
   expect(content("参考答案不完整").hasAttribute("lang")).toBe(false);
 });
 

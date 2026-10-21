@@ -53,7 +53,7 @@ it("adds an unused choice label after deleting a middle option without renumberi
   const save = vi.fn();
   render(<QuestionEditor initial={{ ...blankQuestion(), options: [{label:" a ",content:"One"}, {label:"B",content:"Two"}, {label:"C",content:"Three"}] }} busy={false} onClose={vi.fn()} onSave={save} />);
   await userEvent.click(screen.getAllByRole("button", {name:"删除"})[1]);
-  await userEvent.click(screen.getByRole("button", {name:"增加选项"}));
+  await userEvent.click(screen.getByRole("button", {name:"添加选项"}));
   await userEvent.click(screen.getByRole("button", {name:"保存题目"}));
   expect(save.mock.calls[0][0].options.map((option: {label:string}) => option.label)).toEqual([" a ", "C", "B"]);
 });
@@ -66,7 +66,7 @@ it("edits choice content and source evidence without mutating the original quest
 
   await user.clear(screen.getByRole("textbox", { name: "题干（支持 Markdown 和公式）" }));
   await user.type(screen.getByRole("textbox", { name: "题干（支持 Markdown 和公式）" }), "New stem");
-  await user.click(screen.getByRole("button", { name: "增加选项" }));
+  await user.click(screen.getByRole("button", { name: "添加选项" }));
   await user.type(screen.getByRole("textbox", { name: "选项 3 内容" }), "Three");
   await user.click(screen.getAllByRole("button", { name: "删除" })[1]);
   await user.type(screen.getByRole("spinbutton", { name: "原卷分值（没有则留空）" }), "2.5");
@@ -90,9 +90,9 @@ it("keeps matching item IDs on their own side when adding and removing items", a
   const save = vi.fn();
   render(<QuestionEditor initial={initial} busy={false} onClose={vi.fn()} onSave={save} />);
 
-  await user.click(screen.getByRole("button", { name: "增加左侧题项" }));
+  await user.click(screen.getByRole("button", { name: "添加左侧题项" }));
   await user.type(screen.getByRole("textbox", { name: "题项 5" }), "L2");
-  await user.click(screen.getByRole("button", { name: "增加右侧题项" }));
+  await user.click(screen.getByRole("button", { name: "添加右侧题项" }));
   await user.type(screen.getByRole("textbox", { name: "题项 6" }), "R2");
   await user.click(screen.getAllByRole("button", { name: "删除" })[1]);
   await user.click(screen.getByRole("button", { name: "保存题目" }));
@@ -113,9 +113,9 @@ it("adds and removes a word-bank child together with its passage blank", async (
   const save = vi.fn();
   render(<QuestionEditor initial={root} busy={false} onClose={vi.fn()} onSave={save} />);
 
-  await user.click(screen.getByRole("button", { name: "增加文章段落" }));
+  await user.click(screen.getByRole("button", { name: "添加文章段落" }));
   await user.type(screen.getByRole("textbox", { name: "文章段落" }), "A season arrives.");
-  await user.click(screen.getByRole("button", { name: "增加子题" }));
+  await user.click(screen.getByRole("button", { name: "添加子题" }));
   const childStem = screen.getByRole("textbox", { name: "题干（支持 Markdown 和公式）" });
   await user.clear(childStem);
   await user.type(childStem, "Choose a season");
@@ -353,7 +353,7 @@ it("protects clearing actual reference evidence including false and extra metada
 
 it("keeps added empty answer slots and explicit ordering references dirty", async () => {
   for (const scenario of [
-    { question: { ...blankQuestion(), answerMode: "fill_blank" as const, blankCount: null }, action: "增加一空" },
+    { question: { ...blankQuestion(), answerMode: "fill_blank" as const, blankCount: null }, action: "添加一空" },
     { question: { ...blankQuestion(), answerMode: "ordering" as const, items: [{ id: 0, content: "First" }, { id: 1, content: "Second" }] }, action: "确认当前顺序" },
   ]) {
     const user = userEvent.setup(), close = vi.fn();

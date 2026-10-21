@@ -192,7 +192,7 @@ export function QuestionEditor({
                   }
                   patch({options: [...q.options, {label, content: ""}]});
                 }}
-              >{t("增加选项")}</Button>
+              >{t("添加选项")}</Button>
             </div>
           )}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -302,7 +302,7 @@ export function QuestionEditor({
                           answerPayload: null,
                         });
                       }}
-                    >{t("增加{0}题项", { 0: side === "left"
+                    >{t("添加{0}题项", { 0: side === "left"
                         ? t("左侧")
                         : side === "right"
                           ? t("右侧")
@@ -320,10 +320,10 @@ export function QuestionEditor({
               {b.partType === "blank" ? <span>{t("空位")} {children.findIndex(c => c.id === b.questionId)+1}</span> : <Textarea aria-label={t("文章段落")} value={b.markdownValue || b.textValue || b.latexValue || ""} onChange={e => patch({passage:q.passage!.map((v,j)=>j===i ? {...v,textValue:e.target.value,markdownValue:null,latexValue:null}:v)})}/>}
               {b.partType !== "blank" && <Button variant="outline" onClick={()=>patch({passage:q.passage!.filter((_,j)=>j!==i)})}>{t("删除")}</Button>}
             </div>)}
-            <Button variant="outline" onClick={()=>patch({passage:[...(q.passage || []),{partType:"text",textValue:""}]})}>{t("增加文章段落")}</Button>
+            <Button variant="outline" onClick={()=>patch({passage:[...(q.passage || []),{partType:"text",textValue:""}]})}>{t("添加文章段落")}</Button>
             {q.answerMode === "word_bank" && <label className="flex items-center gap-2"><input type="checkbox" checked={q.allowReuse || false} onChange={e=>patch({allowReuse:e.target.checked})}/>{t("允许重复选词")}</label>}
             {children.filter(c=>c.parentId===q.id).map((c,i)=><div key={c.id} className="flex items-center gap-2"><span className="flex-1">{i+1}. {c.stem || t("题干缺失")}</span><Button variant="outline" onClick={()=>setChildEditor(c)}>{t("编辑题目")}</Button><Button variant="outline" onClick={()=>{ const removed=new Set([c.id]); for(const v of children) if(removed.has(v.parentId)) removed.add(v.id); setChildren(children.filter(v=>!removed.has(v.id)));patch({passage:(q.passage || []).filter(b=>!removed.has(b.questionId))}); }}>{t("删除")}</Button></div>)}
-            <Button variant="outline" onClick={()=>{const c=blankQuestion();c.parentId=q.id;c.stem=["reading","listening"].includes(q.answerMode || "") ? "" : t("空位");if(q.answerMode === "gap_fill"){c.answerMode="fill_blank";c.blankCount=1;c.choiceVariant=null;c.options=[];}if(q.answerMode === "word_bank"){c.optionSourceId=q.id;c.options=[];}setChildEditor(c);}}>{t("增加子题")}</Button>
+            <Button variant="outline" onClick={()=>{const c=blankQuestion();c.parentId=q.id;c.stem=["reading","listening"].includes(q.answerMode || "") ? "" : t("空位");if(q.answerMode === "gap_fill"){c.answerMode="fill_blank";c.blankCount=1;c.choiceVariant=null;c.options=[];}if(q.answerMode === "word_bank"){c.optionSourceId=q.id;c.options=[];}setChildEditor(c);}}>{t("添加子题")}</Button>
           </section>}
           {!isComposite(q) && <div className="space-y-3 rounded-lg border p-4">
 

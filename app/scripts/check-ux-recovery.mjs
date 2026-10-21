@@ -452,7 +452,7 @@ for (const [width, locale] of [[1280, 'zh-CN'], [390, 'zh-CN'], [360, 'en']]) {
     const refresh = page.locator('header').getByRole('button', { name: label, exact: true });
     await expect(refresh).toBeEnabled();
     await expect(page.getByRole('button', { name: label, exact: true })).toHaveCount(1);
-    const empty = page.getByText(english ? 'Start with your first bank' : '从第一份题库开始', { exact: true });
+    const empty = page.getByText(english ? 'Start with your first bank' : '从第一个题库开始', { exact: true });
     await expect(empty).toBeVisible();
     const [action, content] = await Promise.all([refresh.boundingBox(), empty.boundingBox()]);
     expect(action.y + action.height).toBeLessThan(content.y);

@@ -142,14 +142,15 @@ test('theme follows system preferences and persists an explicit choice',async ({
  await page.getByRole('button',{name:'Expand sidebar',exact:true}).click();
 });
 
-test('bilingual sidebar preserves alignment, keyboard navigation and language preferences',async ({page,observedCalls})=>{
+test('trilingual sidebar preserves alignment, keyboard navigation and language preferences',async ({page,observedCalls},testInfo)=>{
  await expectNoOverflow(page,'banks');
  for (const names of [
   {locale:'en',language:'Language',collapse:'Collapse sidebar',expand:'Expand sidebar',nav:['My banks','Mistakes','Favorites','History','Settings']},
   {locale:'zh-CN',language:'语言',collapse:'收起侧边栏',expand:'展开侧边栏',nav:['我的题库','错题本','收藏夹','练习记录','设置']},
+  {locale:'zh-TW',language:'語言',collapse:'收合側邊欄',expand:'展開側邊欄',nav:['我的題庫','錯題本','收藏夾','練習紀錄','設定']},
  ]) {
-  await page.locator('aside').getByRole('button',{name:/^(Language|语言)$/,exact:true}).click();
-  await page.getByRole('menuitemradio',{name:names.locale==='en'?'English':'简体中文',exact:true}).click();
+  await page.locator('aside').getByRole('button',{name:/^(Language|语言|語言)$/,exact:true}).click();
+  await page.getByRole('menuitemradio',{name:names.locale==='en'?'English':names.locale==='zh-TW'?'繁體中文':'简体中文',exact:true}).click();
   await expect(page.locator('html')).toHaveAttribute('lang',names.locale);
   await page.keyboard.press('Escape');
   await expect(page.getByRole('menu')).toBeHidden();
@@ -217,15 +218,16 @@ test('bilingual sidebar preserves alignment, keyboard navigation and language pr
   await expect(page.locator('#app-sidebar')).toHaveCSS('width','208px');
   assert.deepEqual(await sidebarPositions(),expandedPositions,'Sidebar rows and icons stay aligned after expanding');
   await expectNoOverflow(page,names.locale+' expanded');
-  const serviceEntry=page.getByRole('button',{name:names.locale==='en'?'Configure':'配置',exact:true});
+  const serviceEntry=page.locator('main').getByRole('button',{name:names.locale==='en'?'Configure':names.locale==='zh-TW'?'設定':'配置',exact:true});
   await serviceEntry.click();
-  await expect(page.getByLabel(names.locale==='en'?'AI service URL':'AI 服务地址',{exact:true})).toBeVisible();
+  await expect(page.getByLabel(names.locale==='en'?'AI service URL':names.locale==='zh-TW'?'AI 服務位址':'AI 服务地址',{exact:true})).toBeVisible();
   await expectNoOverflow(page,names.locale+' service settings');
-  await page.getByRole('button',{name:names.locale==='en'?'Back to settings':'返回设置',exact:true}).click();
+  if(names.locale==='zh-TW') await page.screenshot({path:testInfo.outputPath('zh-TW-service-settings.png'),fullPage:true});
+  await page.getByRole('button',{name:names.locale==='en'?'Back to settings':names.locale==='zh-TW'?'返回設定':'返回设置',exact:true}).click();
   await expect(serviceEntry).toBeVisible();
-  await expect(page.getByLabel(names.locale==='en'?'AI service URL':'AI 服务地址',{exact:true})).toHaveCount(0);
+  await expect(page.getByLabel(names.locale==='en'?'AI service URL':names.locale==='zh-TW'?'AI 服務位址':'AI 服务地址',{exact:true})).toHaveCount(0);
  }
- await page.getByRole('button',{name:'语言',exact:true}).click();
+ await page.getByRole('button',{name:'語言',exact:true}).click();
  await page.getByRole('menuitemradio',{name:'English',exact:true}).click();
  await expect(page.getByRole('menu')).toBeHidden();
  await page.getByRole('button',{name:'Settings',exact:true}).click();
@@ -247,6 +249,8 @@ test('bilingual sidebar preserves alignment, keyboard navigation and language pr
  await page.getByRole('button',{name:'语言',exact:true}).click();
  await expect(page.getByRole('menu')).toBeVisible();
  await page.keyboard.press('Home'); await page.keyboard.press('ArrowDown');
+  await expect(page.getByRole('menuitemradio',{name:'繁體中文',exact:true})).toBeFocused();
+  await page.keyboard.press('ArrowDown');
  await expect(page.getByRole('menuitemradio',{name:'English',exact:true})).toBeFocused();
  await page.keyboard.press('Enter');
  await expect(page.getByRole('menu')).toBeHidden();

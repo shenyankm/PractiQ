@@ -228,7 +228,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
     setSession(next);
     if (next.id !== sessionId) setSessionOffset(0);
     if (next.finishedAt && !sessionFinishedAt)
-      toast.success(message("练习已结束，记录已保存"));
+      toast.success(message("练习已结束，记录已保存。"));
   }, [sessionId, sessionFinishedAt]);
   const reloadBanks = useCallback(async () => {
     try {
@@ -312,7 +312,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
       .onCloseRequested(async (event) => {
         event.preventDefault();
         if (lock.current) {
-          toast.info(message("请等待当前操作完成后关闭"));
+          toast.info(message("请等待当前操作完成后关闭。"));
           return;
         }
         try {
@@ -457,9 +457,9 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
               </DropdownMenuTrigger>
               <DropdownMenuContent side="top" align="start" sideOffset={8} className="min-w-40" aria-label={t("主题")} onCloseAutoFocus={event => { event.preventDefault(); themeTrigger.current?.focus(); theme.applyPending(); }}>
                 <DropdownMenuRadioGroup value={theme.theme}>
-                  {([{ value: "system", label: "跟随系统" }, { value: "light", label: "白天" }, { value: "dark", label: "黑夜" }] as const).map(({ value, label }) => <DropdownMenuRadioItem key={value} value={value} onSelect={event => { event.preventDefault(); if (theme.change(value, true)) setThemeOpen(false); }}>{t(label)}</DropdownMenuRadioItem>)}
+                  {([{ value: "system", label: "跟随系统" }, { value: "light", label: "浅色" }, { value: "dark", label: "深色" }] as const).map(({ value, label }) => <DropdownMenuRadioItem key={value} value={value} onSelect={event => { event.preventDefault(); if (theme.change(value, true)) setThemeOpen(false); }}>{t(label)}</DropdownMenuRadioItem>)}
                 </DropdownMenuRadioGroup>
-                {theme.error != null && <div role="alert" className="p-2 text-xs text-destructive"><p>{t("主题设置失败，请重试")}</p><ErrorNotice error={theme.error} /></div>}
+                {theme.error != null && <div role="alert" className="p-2 text-xs text-destructive"><p>{t("主题设置失败，请重试。")}</p><ErrorNotice error={theme.error} /></div>}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -472,7 +472,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
               </DropdownMenuTrigger>
               <DropdownMenuContent side="top" align="start" sideOffset={8} className="min-w-40" aria-label={t("语言")} onCloseAutoFocus={event => { event.preventDefault(); languageTrigger.current?.focus(); }}>
                 <DropdownMenuRadioGroup value={language.locale}>
-                  {(["zh-CN", "en"] as const).map(value => <DropdownMenuRadioItem key={value} value={value} disabled={!language.ready || language.saving || busy} onSelect={event => { event.preventDefault(); void language.change(value).then(saved => { if (saved) setLanguageOpen(false); }); }}>{value === "zh-CN" ? "简体中文" : "English"}</DropdownMenuRadioItem>)}
+                  {(["zh-CN", "zh-TW", "en"] as const).map(value => <DropdownMenuRadioItem key={value} value={value} disabled={!language.ready || language.saving || busy} onSelect={event => { event.preventDefault(); void language.change(value).then(saved => { if (saved) setLanguageOpen(false); }); }}>{value === "zh-CN" ? "简体中文" : value === "zh-TW" ? "繁體中文" : "English"}</DropdownMenuRadioItem>)}
                 </DropdownMenuRadioGroup>
                 {languageError}
               </DropdownMenuContent>
@@ -814,11 +814,11 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                         </div>
                         <div className="text-sm tabular-nums">
                           {s.finishedAt || s.submittedAt ? <p className="font-semibold">{s.kind && s.kind !== "practice"
-                            ? t("{0} {1} / {2} 分", { 0: s.pendingGrades ? t("暂定成绩") : t("成绩"), 1: (s.earnedCents || 0) / 100, 2: (s.totalCents || 0) / 100 })
+                            ? t("{0} {1} / {2} 分", { 0: s.pendingGrades ? t("预估成绩") : t("成绩"), 1: (s.earnedCents || 0) / 100, 2: (s.totalCents || 0) / 100 })
                             : s.graded ? t("已判定 {0} 题，答对 {1} 题 · 正确率 {2}%", { 0: s.graded, 1: s.correct, 2: Math.round((s.correct / s.graded) * 100) }) : t("暂无已判定题目")}</p>
                             : <SessionProgress session={s} onExpired={() => setListRevision(v => v + 1)}/>}
                         </div>
-                        {!!(s.finishedAt || s.submittedAt) && <p className="text-sm text-muted-foreground">{t("未答／跳过 {0} 题 · {1} {2} 题", {0:s.skipped, 1:s.kind && s.kind !== "practice" ? t("待评分") : t("未判定"), 2:s.kind && s.kind !== "practice" ? s.pendingGrades ?? 0 : Math.max(0,s.answered-s.graded-s.skipped)})}</p>}
+                        {!!(s.finishedAt || s.submittedAt) && <p className="text-sm text-muted-foreground">{t("未答/跳过 {0} 题 · {1} {2} 题", {0:s.skipped, 1:s.kind && s.kind !== "practice" ? t("待评分") : t("未判定"), 2:s.kind && s.kind !== "practice" ? s.pendingGrades ?? 0 : Math.max(0,s.answered-s.graded-s.skipped)})}</p>}
                         <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground tabular-nums">
                           <span>{date(s.createdAt)} · {duration(s.elapsedMs)}</span>
                           {!!(s.finishedAt || s.submittedAt) && <SessionProgress session={s} active={false}/>}
@@ -1004,7 +1004,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
               setEditor(null);
               refreshQuestions();
               await reloadBanks();
-              toast.success(message("题目已保存，历史练习不受影响"));
+              toast.success(message("题目已保存，练习历史不受影响。"));
             })
           }
         /></Suspense></ErrorBoundary>

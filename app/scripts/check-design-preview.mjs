@@ -105,7 +105,7 @@ try {
   await capture(app, "app-service-light-desktop");
   await app.getByRole("button", { name: "返回设置", exact: true }).click();
   await app.getByRole("button", { name: "主题", exact: true }).click();
-  await app.getByRole("menuitemradio", { name: "黑夜", exact: true }).click();
+  await app.getByRole("menuitemradio", { name: "深色", exact: true }).click();
   await capture(app, "app-settings-dark-desktop");
   await app.getByRole("button", { name: "我的题库", exact: true }).click();
   await capture(app, "app-banks-dark-desktop");
@@ -121,7 +121,7 @@ try {
   await expect(notice).toHaveCSS('border-radius', '12px');
   await expect(notice).toHaveCSS('box-shadow', 'none');
   await app.getByRole("button", { name: "主题", exact: true }).click();
-  await app.getByRole("menuitemradio", { name: "白天", exact: true }).click();
+  await app.getByRole("menuitemradio", { name: "浅色", exact: true }).click();
   await expect(notice).toHaveCSS('background-color', 'rgb(251, 235, 237)');
   const sonner = await app.locator('[data-sonner-toaster]').evaluate(node => ({
     success: getComputedStyle(node).getPropertyValue('--success-border').trim(),

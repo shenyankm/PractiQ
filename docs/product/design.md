@@ -50,7 +50,7 @@ Dark mode uses warm-purple black pages (`#211c26`), cards (`#2b2431`) and pale-p
 
 ## States and content
 
-Keep interface guidance concise: remove generic page subtitles and repeated bank-card instructions, while preserving user-authored descriptions. Backup contents and import rules are available in keyboard-accessible disclosures. Keep supported formats and upload limits visible before file selection. Keep cost notices, destructive-action consequences, timed-exam behavior and recovery messages visible at the relevant action. App copy changes apply to both Chinese and English.
+Keep interface guidance concise: remove generic page subtitles and repeated bank-card instructions, while preserving user-authored descriptions. Both Chinese variants use full-width punctuation and “” quotes, refer to the desktop app as 应用/應用程式, and end error messages with terminal punctuation in every language; binary file limits are labelled MiB. Backup contents and import rules are available in keyboard-accessible disclosures. Keep supported formats and upload limits visible before file selection. Keep cost notices, destructive-action consequences, timed-exam behavior and recovery messages visible at the relevant action. App copy changes apply to Simplified Chinese, Traditional Chinese and English.
 
 Exam setup must state that answers stay hidden during the exam and that a score preview is required before starting. Active result filters must explain that exports still include all completed questions. Partial-export guidance retains the available-question and matching-checkpoint requirements. Describe account tokens as stored only in page memory, without implying that refresh revokes the token.
 

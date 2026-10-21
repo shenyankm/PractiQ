@@ -104,8 +104,8 @@ export function EnglishFields({question:q,patch,images=[],onPendingChange,onDraf
           <Textarea aria-label={t("材料内容")} rows={5} value={b.textValue || b.markdownValue || ""} onChange={e=>patch({contentBlocks:q.contentBlocks.map((v,j)=>j===i?{...v,textValue:e.target.value,markdownValue:null}:v)})}/>
           <Button variant="ghost" onClick={()=>patch({contentBlocks:q.contentBlocks.filter((_,j)=>j!==i)})}>{t("删除")}</Button>
         </div>)}
-        <Button variant="outline" onClick={()=>patch({contentBlocks:[...q.contentBlocks,{partType:"text",role:q.questionKind === "translation"?"source_text":"material",textValue:""}]})}>{t("增加材料段落")}</Button>
-        {q.questionKind === "writing" && <Button variant="outline" onClick={()=>patch({contentBlocks:[...q.contentBlocks,{partType:"text",role:"starter_text",label:t("续写开头"),textValue:""}]})}>{t("增加续写开头")}</Button>}
+        <Button variant="outline" onClick={()=>patch({contentBlocks:[...q.contentBlocks,{partType:"text",role:q.questionKind === "translation"?"source_text":"material",textValue:""}]})}>{t("添加材料段落")}</Button>
+        {q.questionKind === "writing" && <Button variant="outline" onClick={()=>patch({contentBlocks:[...q.contentBlocks,{partType:"text",role:"starter_text",label:t("续写开头"),textValue:""}]})}>{t("添加续写开头")}</Button>}
       </div>
     </>}
   </section>;

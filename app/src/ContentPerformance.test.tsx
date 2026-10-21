@@ -120,7 +120,7 @@ it("bounds the material sibling navigator without dropping later children", asyn
   const onSession=vi.fn();
   vi.mocked(api).mockImplementation(async request=>request.type === "position" ? {...session,position:request.position} as never : undefined as never);
   render(<Practice session={session} onSession={onSession} run={job=>{void job();}} flushRef={{current:async()=>{}}}/>);
-  const navigator=within(screen.getByRole("navigation", {name:"题组子题"}));
+  const navigator=within(screen.getByRole("navigation", {name:"本组子题"}));
   expect(navigator.getAllByRole("button")).toHaveLength(32);
   expect(navigator.queryByRole("button", {name:"31"})).toBeNull();
   await userEvent.click(navigator.getByRole("button", {name:"下一页"}));
@@ -178,7 +178,7 @@ it("keeps App answer-card callbacks stable through busy updates and retries navi
   expect(toast.success).not.toHaveBeenCalled();
   await user.click(within(dialog).getByRole("button",{name:"提交草稿并结束"}));
   await waitFor(()=>expect(screen.queryByRole("alertdialog")).toBeNull());
-  expect(toast.success).toHaveBeenCalledExactlyOnceWith(message("练习已结束，记录已保存"));
+  expect(toast.success).toHaveBeenCalledExactlyOnceWith(message("练习已结束，记录已保存。"));
   expect(screen.queryByRole("textbox",{name:"作答内容"})).toBeNull();
   expect(screen.getByRole("region",{name:"我的答案"})).toBeTruthy();
   await user.click(screen.getByRole("button",{name:"上一题"}));

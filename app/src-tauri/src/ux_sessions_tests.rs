@@ -171,6 +171,14 @@ fn completed_practice_accepts_only_self_assessment_without_changing_answers() {
 }
 
 #[test]
+fn traditional_chinese_session_titles_use_taiwan_wording() {
+    let (_dir, mut store, rows) = setup();
+    store.locale = Locale::TraditionalChinese;
+    let session = start(&store, &rows[4..5], "practice");
+    assert_eq!(session["title"], "英语 · 練習 · 1 題");
+}
+
+#[test]
 fn grading_replays_frozen_language_and_rejects_missing_locale_and_clears_stale_failures() {
     let (_dir, mut store, rows) = setup();
     store.locale = Locale::English;
@@ -190,7 +198,18 @@ fn grading_replays_frozen_language_and_rejects_missing_locale_and_clears_stale_f
         store.prepare_grade(sid, 0, false, Locale::Chinese).unwrap(),
         english
     );
+    let traditional = store
+        .prepare_grade(sid, 0, true, Locale::TraditionalChinese)
+        .unwrap();
+    let input: Value = serde_json::from_str(text(&traditional, "payload")).unwrap();
+    assert_eq!(input["feedbackLocale"], "zh-TW");
+    assert_ne!(traditional["inputDigest"], english["inputDigest"]);
+    assert_ne!(traditional["requestId"], english["requestId"]);
     store.locale = Locale::English;
+    assert_eq!(
+        store.prepare_grade(sid, 0, false, Locale::Chinese).unwrap(),
+        traditional
+    );
     let chinese = store.prepare_grade(sid, 0, true, Locale::Chinese).unwrap();
     assert_ne!(chinese["inputDigest"], english["inputDigest"]);
     assert_ne!(chinese["requestId"], english["requestId"]);

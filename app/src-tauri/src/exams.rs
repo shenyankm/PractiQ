@@ -113,15 +113,14 @@ impl Store {
                     .then_some(text(row, "bankTitle"))
             })
             .collect();
-        let bank_title = bank_titles
-            .first()
-            .copied()
-            .unwrap_or(self.locale.text("题库", "Question bank"));
+        let bank_title = bank_titles.first().copied().unwrap_or(self.locale.text(
+            "题库",
+            "題庫",
+            "Question bank",
+        ));
         let banks = if bank_titles.len() > 1 {
-            if self.locale == crate::language::Locale::Chinese {
-                format!("{bank_title}等 {} 个题库", bank_titles.len())
-            } else {
-                format!(
+            match self.locale {
+                crate::language::Locale::English => format!(
                     "{bank_title} and {} other {}",
                     bank_titles.len() - 1,
                     if bank_titles.len() == 2 {
@@ -129,20 +128,26 @@ impl Store {
                     } else {
                         "banks"
                     }
-                )
+                ),
+                crate::language::Locale::TraditionalChinese => {
+                    format!("{bank_title}等 {} 個題庫", bank_titles.len())
+                }
+                crate::language::Locale::Chinese => {
+                    format!("{bank_title}等 {} 个题库", bank_titles.len())
+                }
             }
         } else {
             bank_title.to_owned()
         };
         let mode = match paper.kind.as_str() {
-            "self_test" => self.locale.text("不限时自测", "Self-test"),
-            "mock_exam" => self.locale.text("限时模考", "Timed mock exam"),
-            _ => self.locale.text("练习", "Practice"),
+            "self_test" => self.locale.text("不限时自测", "不限時自測", "Self-test"),
+            "mock_exam" => self.locale.text("限时模考", "限時模考", "Timed mock exam"),
+            _ => self.locale.text("练习", "練習", "Practice"),
         };
         let title = format!(
             "{banks} · {mode} · {n} {}",
             self.locale
-                .text("题", if n == 1 { "question" } else { "questions" })
+                .text("题", "題", if n == 1 { "question" } else { "questions" })
         );
         tx.execute("INSERT INTO sessions(id,bank_title,created_at,position,mode,kind,deadline_at) VALUES(?1,?2,?3,0,'ordered',?4,?5)",params![sid,title,created,paper.kind,paper.minutes.map(|m|created.saturating_add(m*60_000))]).map_err(err)?;
         tx.execute(
@@ -354,7 +359,7 @@ impl Store {
             .collect();
         let sid2 = id();
         let tx = db.transaction().map_err(err)?;
-        tx.execute("INSERT INTO sessions(id,bank_title,created_at,position,mode) VALUES(?1,?2,?3,0,'ordered')",params![sid2,self.locale.text("本次错题重练", "Retry session mistakes"),self.session_clock.now()?]).map_err(err)?;
+        tx.execute("INSERT INTO sessions(id,bank_title,created_at,position,mode) VALUES(?1,?2,?3,0,'ordered')",params![sid2,self.locale.text("本次错题重练", "本次錯題重練", "Retry session mistakes"),self.session_clock.now()?]).map_err(err)?;
         tx.execute(
             "INSERT INTO session_documents VALUES(?1,?2)",
             params![sid2, crate::questions::freeze(&selected).to_string()],
@@ -414,7 +419,7 @@ impl Store {
             params![
                 bank,
                 title.trim(),
-                self.locale.text("合并副本", "Merged copy"),
+                self.locale.text("合并副本", "合併副本", "Merged copy"),
                 now()
             ],
         )
@@ -637,7 +642,9 @@ impl Store {
                 }
                 let mut original: Value = serde_json::from_str(&raw).map_err(err)?;
                 match previous["feedbackLocale"].as_str() {
-                    Some(locale @ ("zh-CN" | "en")) => original["feedbackLocale"] = json!(locale),
+                    Some(locale @ ("zh-CN" | "zh-TW" | "en")) => {
+                        original["feedbackLocale"] = json!(locale)
+                    }
                     _ => {
                         return Err(crate::language::error(
                             "LOCAL_GRADING_INPUT_CHANGED",

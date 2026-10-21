@@ -1,8 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { invoke } from "./transport";
 import { en } from "./locales/en";
+import { zhTW } from "./locales/zh-TW";
 
-export type Locale = "zh-CN" | "en";
+export type Locale = "zh-CN" | "zh-TW" | "en";
 export type LanguageRequest = { type: "language" } | { type: "save_language"; locale: Locale };
 type MessageKey = keyof typeof en;
 type Slots<S extends string> = S extends `${string}{${infer P}}${infer Rest}` ? P | Slots<Rest> : never;
@@ -12,22 +13,32 @@ export function contentLanguage(value?: string | null): string | undefined {
   try { return value ? Intl.getCanonicalLocales(value)[0] : undefined; }
   catch { return undefined; }
 }
+function chineseLocale(value?: string | null): Locale | undefined {
+  const canonical = contentLanguage(value);
+  if (!canonical) return undefined;
+  const [language, ...parts] = canonical.toLowerCase().split("-");
+  if (language !== "zh") return undefined;
+  return parts.includes("hant") || !parts.includes("hans") && parts.some(part => ["tw", "hk", "mo"].includes(part)) ? "zh-TW" : "zh-CN";
+}
 export function systemLocale(languages: readonly string[]): Locale {
   for (const value of languages) {
-    const language = contentLanguage(value)?.split("-")[0];
-    if (language === "zh") return "zh-CN";
-    if (language === "en") return "en";
+    const chinese = chineseLocale(value);
+    if (chinese) return chinese;
+    if (contentLanguage(value)?.split("-")[0] === "en") return "en";
   }
   return "en";
 }
-function isLocale(value: unknown): value is Locale { return value === "zh-CN" || value === "en"; }
+function isLocale(value: unknown): value is Locale { return value === "zh-CN" || value === "zh-TW" || value === "en"; }
 // One desktop window owns the locale. Async callbacks read the current language,
 // rather than retaining the language in which a request was started.
 let current: Locale = systemLocale(typeof navigator === "undefined" ? [] : navigator.languages);
 export function locale() { return current; }
 export function formatLocale(language: Locale = current, languages: readonly string[] = typeof navigator === "undefined" ? [] : navigator.languages): string {
-  const base = language.split("-")[0];
-  return languages.map(contentLanguage).find(value => value?.split("-")[0] === base) ?? language;
+  const match = languages.map(contentLanguage).find(value => {
+    if (!value) return false;
+    return language === "en" ? value.split("-")[0] === "en" : chineseLocale(value) === language;
+  });
+  return match ?? language;
 }
 const listFormats = new Map<string, Intl.ListFormat>();
 const plurals = new Intl.PluralRules("en");
@@ -51,9 +62,10 @@ export function list(values: string[]) {
 export function number(value: number, digits?: number) {
   return numberFormat(current, digits).format(value);
 }
+const dictionaries = { en, "zh-TW": zhTW } as const;
 export function translate<K extends MessageKey>(language: Locale, key: K, ...args: Args<K>): string {
   const params = (args[0] ?? {}) as Record<string, Value>;
-  let template: string = language === "en" ? en[key] : key;
+  let template: string = language === "zh-CN" ? key : dictionaries[language][key];
   // Counts in these messages are immediately followed by their English noun.
   if (language === "en") template = template.replace(/\{(\d+)\} (questions|banks|images|resources|calls|points)\b/g,
     (text, slot: string, noun: string) => typeof params[slot] === "number" && plurals.select(params[slot] as number) === "one" ? `{${slot}} ${noun.slice(0, -1)}` : text);

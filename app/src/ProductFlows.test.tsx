@@ -218,8 +218,8 @@ it.each(["practice", "mock_exam"] as const)("keeps %s results, unknown counts an
   await screen.findByText("English");
   await userEvent.click(screen.getByRole("button", { name: "练习记录" }));
   await screen.findByRole("heading", { name: "Saved result" });
-  expect(screen.getByText(kind === "practice" ? "已判定 15 题，答对 10 题 · 正确率 67%" : "暂定成绩 10 / 20 分")).toBeTruthy();
-  expect(screen.getByText(kind === "practice" ? "未答／跳过 1 题 · 未判定 4 题" : "未答／跳过 1 题 · 待评分 4 题")).toBeTruthy();
+  expect(screen.getByText(kind === "practice" ? "已判定 15 题，答对 10 题 · 正确率 67%" : "预估成绩 10 / 20 分")).toBeTruthy();
+  expect(screen.getByText(kind === "practice" ? "未答/跳过 1 题 · 未判定 4 题" : "未答/跳过 1 题 · 待评分 4 题")).toBeTruthy();
   expect(screen.getByText("已提交 20/20 题")).toBeTruthy();
   await userEvent.click(screen.getByText("判定详情", { selector: "summary" }));
   expect(screen.getByText("自动判定 0 · 自评 0 · 跳过 1 · 未判定 4")).toBeTruthy();
