@@ -14,6 +14,9 @@ practice error-recovery fix added after review.
   `answer_references_missing` in the server contract. Explicit IDs still win.
 - Empty fill-blank, ordering and matching answer arrays show an explicit empty
   reference message. Original records and nulls remain unchanged.
+- Partial choice, ordering and matching answers retain supplied values alongside
+  explicit missing-value placeholders, including null list entries and missing
+  sides of a matching pair. Raw records remain unchanged.
 - Image-size actions retain their changing action labels without `aria-pressed`,
   so the accessible name does not contradict the current image-size state.
 
@@ -25,9 +28,10 @@ and [advisory](https://github.com/advisories/GHSA-r825-w8mm-5pxw).
 ## Local validation before push
 
 - App `npm run check:ui`: 460 passed, 3 existing skips.
-- Web `npm run check`: 154 passed, including positional/explicit/mixed item IDs,
-  independent matching-side positions, empty arrays and source immutability.
+- Web `npm run check`: 163 passed, including positional/explicit/mixed item IDs,
+  independent matching-side positions, empty and partial arrays, and source immutability.
   Six added regression cases failed before the implementation fix.
+  Five partial-answer cases also failed before the subsequent null-preservation fix.
 - App Playwright `--project=preview --grep 'practice error recovery'`: 3 passed
   at 360x640, 667x375 and 1280x720. All three failed before the layout fix.
   Each verifies collapsed/expanded diagnostics, positive content-scroller height,
@@ -64,7 +68,8 @@ After the frontend audit passed, CI reached two previously blocked audit stages:
 Python 3.14.7 interpreter. Both Python audit sets report no known vulnerabilities;
 Rust retains its six existing allowed warnings, with no audit configuration or
 threshold changes. All five supported native dependency graphs pass the existing
-GLib reachability guard. Native Rust tests and new-head CI continue separately.
+GLib reachability guard. Native macOS Rust library tests passed (209 passed,
+16 existing ignores); new-head CI continues separately.
 
 
 The recovery matrix also retains a failing overview read while navigation fails.
