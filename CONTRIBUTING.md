@@ -1,6 +1,6 @@
 # Contribute to PractiQ
 
-Use this guide to prepare a focused contribution. [README.md](README.md) covers setup and supported platforms; [AGENTS.md](AGENTS.md) defines architecture and coding rules; the [documentation index](docs/README.md) links to detailed guides.
+Use this guide to prepare a focused contribution. The [installation guide](docs/guides/installation.md) covers setup; [README.md](README.md) covers the product and supported platforms; [AGENTS.md](AGENTS.md) defines architecture and coding rules; the [documentation index](docs/README.md) links to detailed guides.
 
 Follow our [Code of Conduct](CODE_OF_CONDUCT.md) in all project community spaces.
 
@@ -84,11 +84,11 @@ Run the relevant commands from the repository root:
 | Area | Install and develop |
 | --- | --- |
 | Practice app — macOS | `make app-install`, then `make app-dev AI_PYTHON=/path/to/python3.14` |
-| Practice app — Windows | Follow the [README PowerShell setup](README.md#run-the-desktop-app), starting with `npm --prefix app ci`; GNU Make is not a Windows prerequisite |
+| Practice app — Windows | Follow the [installation guide's Windows steps](docs/guides/installation.md#windows), starting with `npm --prefix app ci`; GNU Make is not a Windows prerequisite |
 | Import Web | `make web-install`, then `make web-dev` |
-| AI service | `make install-locked AI_PYTHON=/path/to/python3.14`; follow the [README service setup](README.md#run-the-ai-service-independently) for configuration and `make server-dev AI_PYTHON=/path/to/python3.14` |
+| AI service | `make install-locked AI_PYTHON=/path/to/python3.14`; follow the [installation guide's service setup](docs/guides/installation.md#install-the-ai-import-service-optional) for configuration and `make server-dev AI_PYTHON=/path/to/python3.14` |
 
-See the [README prerequisites](README.md#run-the-desktop-app) for native toolchains and the [Android guide](app/docs/android.md) for Android development on any supported host. Service integration and recovery tests need Docker for disposable PostgreSQL/RabbitMQ instances; pure tests must not start Docker. Model-substitute tests need no real model credentials or running AI service.
+See the [installation requirements](docs/guides/installation.md#before-you-start) for native toolchains and the [Android guide](app/docs/android.md) for Android development on any supported host. Service integration and recovery tests need Docker for disposable PostgreSQL/RabbitMQ instances; pure tests must not start Docker. Model-substitute tests need no real model credentials or running AI service.
 
 Shared-contract checks need the locked service dependencies, even when the AI service itself is not being developed or started. On hosts with GNU Make, install them with `make install-locked AI_PYTHON=/path/to/python3.14`. App package preparation uses standard-library/local Python modules and does not require the AI-service environment.
 

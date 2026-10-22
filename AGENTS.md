@@ -23,7 +23,7 @@ The independent service is for personal self-hosted use with one service Bearer 
 
 - `make app-install` / `make app-dev`: install locked desktop dependencies / start the Tauri desktop application.
 - `make app-check AI_PYTHON=...`: on macOS/Windows, check shared AI contracts, frontend interactions, host Rust integration tests and Clippy. For Android development on any host, use the shared checks and actual Android build/tests in `app/docs/android.md`; Linux app builds are unsupported.
-- `make app-build`: build a native macOS package without publishing; use the README PowerShell commands on Windows. Android build and emulator commands are documented in `app/docs/android.md`.
+- `make app-build`: build a native macOS package without publishing; use the Windows steps in `docs/guides/installation.md`. Android build and emulator commands are documented in `app/docs/android.md`.
 - `make web-install` / `make web-dev`: install locked Web dependencies / start the loopback import frontend with a proxy to the independent service.
 - `make web-check` / `make web-build`: check the Web frontend / build its static assets for the independent service.
 
