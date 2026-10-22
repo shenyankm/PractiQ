@@ -6,6 +6,7 @@ import json
 import re
 import time
 from collections.abc import Awaitable, Callable
+from contextlib import ExitStack
 from contextvars import ContextVar
 from copy import deepcopy
 from functools import partial
@@ -79,6 +80,7 @@ from practiq_ai.graphs.chunking import (
     source_presence_plan,
     split_chunk_plan,
 )
+from practiq_ai.import_control import current as import_control
 from practiq_ai.llm import (
     get_model,
     import_call_allowance,
@@ -89,7 +91,12 @@ from practiq_ai.normalization import normalize_source
 from practiq_ai.storage import ObjectStore, get_object_store
 from practiq_ai.temporary import LIMIT, preparation
 from practiq_ai.tencent import parse_job, submission_limit
-from practiq_ai.tencent_bundle import decode_bundle, evidence_text, read_bundle_image
+from practiq_ai.tencent_bundle import (
+    decode_bundle,
+    evidence_text,
+    open_bundle,
+    read_bundle_image,
+)
 
 SYSTEM_PROMPT = """Extract assessment questions faithfully from the supplied fragment.
 Extract sourceScore, scoringRubric and scoreSourceText ONLY when explicitly supplied.
@@ -902,6 +909,47 @@ def _graph_reference(
     return reference
 
 
+async def _parse_submissions(
+    submissions: list[tuple[ArtifactReference, DocumentSourceType, int | None]],
+    runtime: Runtime[None], source_sha256: str,
+) -> list[dict[str, Any]]:
+    """Keep only ordered receipts; parse_job owns shared admission and durable intents."""
+    work = iter(enumerate(submissions))
+    results: list[dict[str, Any]] = [{} for _ in submissions]
+    stopped = False
+
+    async def worker() -> None:
+        nonlocal stopped
+        try:
+            for index, (reference, source_type, _) in work:
+                if stopped:
+                    return
+                results[index] = await parse_job(reference, runtime, key=f"source-0-{index}",
+                                                 source_type=source_type, source_sha256=source_sha256)
+        except BaseException:
+            stopped = True
+            raise
+
+    count = min(len(submissions), import_control(runtime).snapshot.settings.tencentConcurrency)
+    tasks = [asyncio.create_task(worker()) for _ in range(count)]
+    running = asyncio.gather(*tasks)
+    try:
+        await asyncio.shield(running)
+    except BaseException:
+        for task in tasks:
+            if not task.done():
+                task.cancel()
+        settled = asyncio.gather(running, *tasks, return_exceptions=True)
+        # Repeated cancellation must not detach provider/storage cleanup.
+        while not settled.done():
+            try:
+                await asyncio.shield(settled)
+            except asyncio.CancelledError:
+                pass
+        raise
+    return results
+
+
 async def _prepare(state: DocumentState, runtime: Runtime[None], *, source_types: tuple[DocumentSourceType, ...] | None = None) -> dict[str, Any]:
     reference = _graph_reference(state, source_types=source_types)
     if reference.sourceType == "csv":
@@ -922,6 +970,7 @@ async def _prepare(state: DocumentState, runtime: Runtime[None], *, source_types
         images = extracted.page_images
         render_warnings.extend(extracted.warnings)
         render_truncated = extracted.truncated
+        del extracted
     elif reference.sourceType in OFFICE_SOURCE_TYPES:
         await asyncio.to_thread(ObjectStore._validate_office, payload, reference.sourceType)
     else:
@@ -961,6 +1010,8 @@ async def _prepare(state: DocumentState, runtime: Runtime[None], *, source_types
                 submissions.append((artifact, reference.sourceType, None))
                 input_parts.append({"reference": artifact.model_dump(mode="json"), "byteStart": offset, "byteEnd": offset + len(part)})
                 offset += len(part)
+                del part
+            del parts
         else:
             if reference.sourceType in OFFICE_SOURCE_TYPES:
                 normalized = await normalize_source(cast(dict[str, Any], state), runtime)
@@ -970,6 +1021,7 @@ async def _prepare(state: DocumentState, runtime: Runtime[None], *, source_types
                 images = extracted.page_images
                 render_warnings.extend(extracted.warnings)
                 render_truncated |= extracted.truncated
+                del extracted
             split_images = []
             for page_index, image in enumerate(images):
                 original = await put(image, "source-page", page_index, vision._media_type(image))
@@ -981,7 +1033,10 @@ async def _prepare(state: DocumentState, runtime: Runtime[None], *, source_types
                     input_parts.append({"reference": artifact.model_dump(mode="json"), "sourcePage": page_index,
                                         "pixelBounds": list(bounds), "originalPageRef": original.model_dump(mode="json")})
                     split_images.append(part)
+                    del part
+                del image, parts
             images = split_images
+            del split_images
     if input_parts:
         await store_put(runtime, "tencent_inputs", "source", {"sourceSha256": reference.sha256, "parts": input_parts})
     # Check every part before submitting the first paid job.
@@ -990,6 +1045,12 @@ async def _prepare(state: DocumentState, runtime: Runtime[None], *, source_types
     if sum(map(len, images)) > settings.vision_max_bytes:
         raise DocumentProcessingError(413, "Split images exceed the shared visual byte limit", "TENCENT_SOURCE_TOO_LARGE")
 
+    page_refs = [await put(image, "page", index, vision._media_type(image)) for index, image in enumerate(images)]
+    del images, prepared
+    if reference.sourceType not in {"text", "markdown"}:
+        payload = b""
+    jobs = await _parse_submissions(submissions, runtime, reference.sha256)
+
     pages = []
     warnings = render_warnings
     if reference.sourceType in {"xls", "xlsx"}:
@@ -997,24 +1058,27 @@ async def _prepare(state: DocumentState, runtime: Runtime[None], *, source_types
     truncated = render_truncated
     total_chars = 0
     asset_bytes = 0
-    for index, (submission, source_type, expected_count) in enumerate(submissions):
-        job = await parse_job(submission, runtime, key=f"source-0-{index}", source_type=source_type, source_sha256=reference.sha256)
+    for (_, source_type, expected_count), job in zip(submissions, jobs, strict=True):
         archive_ref = ArtifactReference.model_validate(job["resultRef"])
         async with preparation(max(1, archive_ref.sizeBytes * 2 + 8 * 1024 * 1024)):
             bundle = await store.get_verified(archive_ref)
-            decoded = await _thread_io(partial(decode_bundle, bundle, settings, page_count=expected_count or settings.max_document_pages,
-                                               allow_empty=job.get("SuccessPageNum") == 0 and bool(job.get("FailPageNum")), result_type=job.get("resultType", 9)))
-            for page in decoded:
-                for figure in page["figures"]:
-                    member = figure.pop("imageMember", None)
-                    if member:
-                        image, media_type = await _thread_io(read_bundle_image, bundle, member, settings)
-                        asset_bytes += len(image)
-                        if asset_bytes > settings.vision_max_bytes:
-                            raise DocumentProcessingError(413, "Tencent subimages exceed the visual byte limit", "TENCENT_RESULT_TOO_LARGE")
-                        image_ref = await put(image, "ocr-figure", len(pages) * 1000 + figure["elementIndex"], media_type)
-                        figure["imageRef"] = image_ref.model_dump(mode="json")
-            del bundle
+            # Register the ZIP in the worker; _thread_io drains before ExitStack closes it.
+            with ExitStack() as resources:
+                archive = await _thread_io(lambda bundle=bundle, resources=resources: resources.enter_context(open_bundle(bundle)))
+                decoded = await _thread_io(partial(decode_bundle, archive, settings, page_count=expected_count or settings.max_document_pages,
+                                                   allow_empty=job.get("SuccessPageNum") == 0 and bool(job.get("FailPageNum")), result_type=job.get("resultType", 9)))
+                for page in decoded:
+                    for figure in page["figures"]:
+                        member = figure.pop("imageMember", None)
+                        if member:
+                            image, media_type = await _thread_io(read_bundle_image, archive, member, settings)
+                            asset_bytes += len(image)
+                            if asset_bytes > settings.vision_max_bytes:
+                                raise DocumentProcessingError(413, "Tencent subimages exceed the visual byte limit", "TENCENT_RESULT_TOO_LARGE")
+                            image_ref = await put(image, "ocr-figure", len(pages) * 1000 + figure["elementIndex"], media_type)
+                            figure["imageRef"] = image_ref.model_dump(mode="json")
+                            del image
+            del archive, bundle
         total_chars += sum(len(json.dumps(page, ensure_ascii=False)) for page in decoded)
         if total_chars > settings.max_total_input_chars:
             raise DocumentProcessingError(413, "OCR text exceeds the shared document limit", "TENCENT_RESULT_TOO_LARGE")
@@ -1055,7 +1119,6 @@ async def _prepare(state: DocumentState, runtime: Runtime[None], *, source_types
                     "normalization": None, "visualTotal": 0, "textUnits": [], "tabularRowsSafe": False,
                     "effectiveSourceType": reference.sourceType, "warnings": warnings, "truncated": False, "chunkRefs": []}
         warnings.append("Tencent text differs from the original; original-text source proofs are unavailable. Retain human review.")
-    page_refs = [await put(image, "page", index, vision._media_type(image)) for index, image in enumerate(images)]
     if not page_refs:
         page_refs = ocr_refs
         warnings.append("Full-page images are unavailable; review the original document and retained OCR evidence.")
@@ -1154,9 +1217,12 @@ async def _vision(state: VisionTask, runtime: Runtime[None]) -> dict[str, list[d
     if primary["figures"]:
         figures = primary["figures"][:vision.MAX_CROPS]
         crops: list[bytes | None] = [None] * len(figures)
-        if state["artifact"]["mediaType"] in {"image/png", "image/jpeg"}:
+        missing = [index for index, figure in enumerate(figures) if not figure.get("imageRef")]
+        if missing and state["artifact"]["mediaType"] in {"image/png", "image/jpeg"}:
             payload = await store.get_verified(ArtifactReference.model_validate(state["artifact"]))
-            crops = await asyncio.to_thread(vision.crop_figures, payload, [figure["bbox"] for figure in figures])
+            generated = await asyncio.to_thread(vision.crop_figures, payload, [figures[index]["bbox"] for index in missing])
+            for index, crop in zip(missing, generated, strict=True):
+                crops[index] = crop
         for figure, crop in zip(figures, crops, strict=True):
             media_type = "image/jpeg"
             if image_ref := figure.get("imageRef"):

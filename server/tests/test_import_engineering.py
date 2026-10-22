@@ -4,6 +4,8 @@ import asyncio
 import json
 import logging
 import threading
+import zipfile
+from io import BytesIO
 from types import SimpleNamespace
 from typing import Any, cast
 from unittest.mock import AsyncMock
@@ -44,10 +46,13 @@ async def test_signed_result_download_never_enters_verbose_transport_logs(monkey
     assert 'private-' not in caplog.text
 
 
-@pytest.mark.parametrize('worker', ['decode_bundle', 'read_bundle_image'])
+@pytest.mark.parametrize('worker', ['open_bundle', 'decode_bundle', 'read_bundle_image'])
 async def test_cancelled_tencent_decode_holds_preparation_until_worker_finishes(monkeypatch, worker):
     files, reference = source('Synthetic source')
-    artifact = await files.put_artifact(b'archive', source_sha256=reference['sha256'],
+    buffer = BytesIO()
+    with zipfile.ZipFile(buffer, 'w'):
+        pass
+    artifact = await files.put_artifact(buffer.getvalue(), source_sha256=reference['sha256'],
                                       kind='tencent-result', index=0, media_type='application/octet-stream')
     monkeypatch.setattr(document, 'get_object_store', lambda: files)
     monkeypatch.setattr(document, 'get_model', lambda: object())
@@ -62,12 +67,16 @@ async def test_cancelled_tencent_decode_holds_preparation_until_worker_finishes(
     started = asyncio.Event()
     release = threading.Event()
     finished = threading.Event()
+    archives = []
+    open_bundle = document.open_bundle
 
     def blocked(*_args, **_kwargs):
+        archive = open_bundle(_args[0]) if worker == 'open_bundle' else _args[0]
+        archives.append(archive)
         loop.call_soon_threadsafe(started.set)
         try:
             assert release.wait(5), 'Test did not release the worker'
-            return [] if worker == 'decode_bundle' else (make_image(), 'image/png')
+            return archive if worker == 'open_bundle' else [] if worker == 'decode_bundle' else (make_image(), 'image/png')
         finally:
             finished.set()
 
@@ -81,11 +90,12 @@ async def test_cancelled_tencent_decode_holds_preparation_until_worker_finishes(
         await asyncio.sleep(0)
         assert not finished.is_set() and not running.done()
         assert temporary.current().used > 0 and temporary.current().preparing.locked()
+        assert len(archives) == 1 and archives[0].fp is not None
     finally:
         release.set()
         with pytest.raises(asyncio.CancelledError):
             await running
-    assert finished.is_set()
+    assert finished.is_set() and archives[0].fp is None
     assert temporary.current().used == 0 and not temporary.current().preparing.locked()
     async with temporary.preparation(1):
         assert temporary.current().used == 1

@@ -91,7 +91,8 @@ async def test_oversized_text_has_ordered_receipts_and_replay_reuses_every_job(m
     output = await document._prepare(cast(Any, state), runtime)
     submitted = [data for action, data in calls if action == "SubmitMultimodalDocParseJob"]
     assert len(submitted) == 3
-    assert b"".join(base64.b64decode(data["FileBase64"]) for data in submitted) == original
+    by_digest = {hashlib.sha256(base64.b64decode(data["FileBase64"])).hexdigest(): base64.b64decode(data["FileBase64"]) for data in submitted}
+    assert b"".join(by_digest[part["reference"]["sha256"]] for part in output["inputParts"]) == original
     assert all(len(base64.b64decode(data["FileBase64"])) <= 12 for data in submitted)
     assert [part["byteStart"] for part in output["inputParts"]] == [0, 10, 20]
     assert len(output["ocrPageRefs"]) == 3
@@ -134,7 +135,9 @@ async def test_oversized_image_retains_source_page_bounds_and_submits_only_bound
     assert len(submitted) > 1 and all(len(part) <= 700 for part in submitted)
     assert len(output["pageRefs"]) == len(output["ocrPageRefs"]) == len(submitted)
     restored = Image.new("RGBA", (40, 40))
-    for part, payload in zip(output["inputParts"], submitted, strict=True):
+    by_digest = {hashlib.sha256(payload).hexdigest(): payload for payload in submitted}
+    for part in output["inputParts"]:
+        payload = by_digest[part["reference"]["sha256"]]
         assert part["sourcePage"] == 0
         assert files.blobs[part["originalPageRef"]["objectKey"]] == source.getvalue()
         with Image.open(BytesIO(payload)) as image:
