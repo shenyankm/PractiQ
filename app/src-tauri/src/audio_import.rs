@@ -15,7 +15,7 @@ use url::Url;
 
 const PAGE_LIMIT: usize = 2 * 1024 * 1024;
 const MAX_LINKS: usize = 50;
-static DNS_WORKER: Mutex<Option<JoinHandle<()>>> = Mutex::new(None);
+static DNS_WORKERS: Mutex<Vec<(JoinHandle<()>, Instant)>> = Mutex::new(Vec::new());
 #[derive(Serialize)]
 pub struct Link {
     pub url: String,
@@ -140,29 +140,31 @@ fn resolve_before(
     lookup: impl FnOnce() -> std::io::Result<Vec<SocketAddr>> + Send + 'static,
 ) -> Result<Vec<SocketAddr>> {
     let failed = || failure("LOCAL_AUDIO_DOWNLOAD_FAILED");
-    let mut worker = DNS_WORKER.try_lock().map_err(|_| failed())?;
-    // A timed-out system resolver cannot be cancelled; keep at most one worker alive.
-    if worker.as_ref().is_some_and(|job| !job.is_finished()) || Instant::now() >= deadline {
+    let mut workers = DNS_WORKERS.lock().map_err(|_| failed())?;
+    while let Some(index) = workers.iter().position(|(job, _)| job.is_finished()) {
+        drop(workers.remove(index));
+    }
+    // A resolver whose caller gave up cannot be cancelled; refuse new lookups until it returns.
+    if Instant::now() >= deadline || workers.iter().any(|(_, until)| Instant::now() >= *until) {
         return Err(failed());
     }
-    if let Some(previous) = worker.take() {
-        let _ = previous.join();
-    }
     let (sender, receiver) = mpsc::channel();
-    *worker = Some(
-        std::thread::Builder::new()
-            .name("practiq-audio-dns".into())
-            .spawn(move || {
-                let _ = sender.send(lookup());
-            })
-            .map_err(|_| failed())?,
-    );
+    let job = std::thread::Builder::new()
+        .name("practiq-audio-dns".into())
+        .spawn(move || {
+            let _ = sender.send(lookup());
+        })
+        .map_err(|_| failed())?;
+    let id = job.thread().id();
+    workers.push((job, deadline));
+    drop(workers);
     let result = receiver
         .recv_timeout(deadline.saturating_duration_since(Instant::now()))
         .map_err(|_| failed())?;
-    // Sending is the worker's last operation; reap it before another lookup is admitted.
-    if let Some(completed) = worker.take() {
-        let _ = completed.join();
+    // Reaching this point means the resolver returned; only a timed-out worker stays registered.
+    let mut workers = DNS_WORKERS.lock().map_err(|_| failed())?;
+    if let Some(index) = workers.iter().position(|(job, _)| job.thread().id() == id) {
+        let _ = workers.remove(index).0.join();
     }
     result.map_err(|_| failed())
 }
@@ -320,7 +322,14 @@ mod tests {
         );
         assert!(calls.try_recv().is_err());
         release.send(()).unwrap();
-        DNS_WORKER.lock().unwrap().take().unwrap().join().unwrap();
+        while DNS_WORKERS
+            .lock()
+            .unwrap()
+            .iter()
+            .any(|(job, _)| !job.is_finished())
+        {
+            std::thread::sleep(Duration::from_millis(1));
+        }
         assert_eq!(
             resolve_before(Instant::now() + Duration::from_secs(2), || {
                 Ok(vec!["8.8.8.8:443".parse().unwrap()])
@@ -334,6 +343,25 @@ mod tests {
         .is_err());
         assert!(
             resolve_before(Instant::now(), || panic!("Expired lookup must not start")).is_err()
+        );
+        let (release_healthy, blocked_healthy) = mpsc::channel();
+        let healthy = std::thread::spawn(move || {
+            resolve_before(Instant::now() + Duration::from_secs(5), move || {
+                blocked_healthy.recv().unwrap();
+                Ok(vec!["1.1.1.1:443".parse().unwrap()])
+            })
+        });
+        while DNS_WORKERS.lock().unwrap().is_empty() {
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        assert!(
+            resolve_before(Instant::now() + Duration::from_secs(1), || Ok(vec![])).is_ok(),
+            "A healthy in-flight lookup must not fail another fetch"
+        );
+        release_healthy.send(()).unwrap();
+        assert_eq!(
+            healthy.join().unwrap().unwrap(),
+            vec!["1.1.1.1:443".parse::<SocketAddr>().unwrap()]
         );
     }
 
