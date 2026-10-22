@@ -6,13 +6,16 @@ use serde::Serialize;
 use serde_json::json;
 use std::{
     io::{Cursor, Read},
-    net::{IpAddr, ToSocketAddrs},
+    net::{IpAddr, SocketAddr, ToSocketAddrs},
+    sync::{mpsc, Mutex},
+    thread::JoinHandle,
     time::{Duration, Instant},
 };
 use url::Url;
 
 const PAGE_LIMIT: usize = 2 * 1024 * 1024;
 const MAX_LINKS: usize = 50;
+static DNS_WORKERS: Mutex<Vec<(JoinHandle<()>, Instant)>> = Mutex::new(Vec::new());
 #[derive(Serialize)]
 pub struct Link {
     pub url: String,
@@ -132,6 +135,40 @@ fn bounded_body(reader: impl Read, limit: usize) -> Result<Vec<u8>> {
     }
     Ok(bytes)
 }
+fn resolve_before(
+    deadline: Instant,
+    lookup: impl FnOnce() -> std::io::Result<Vec<SocketAddr>> + Send + 'static,
+) -> Result<Vec<SocketAddr>> {
+    let failed = || failure("LOCAL_AUDIO_DOWNLOAD_FAILED");
+    let mut workers = DNS_WORKERS.lock().map_err(|_| failed())?;
+    while let Some(index) = workers.iter().position(|(job, _)| job.is_finished()) {
+        drop(workers.remove(index));
+    }
+    // A resolver whose caller gave up cannot be cancelled; refuse new lookups until it returns.
+    if Instant::now() >= deadline || workers.iter().any(|(_, until)| Instant::now() >= *until) {
+        return Err(failed());
+    }
+    let (sender, receiver) = mpsc::channel();
+    let job = std::thread::Builder::new()
+        .name("practiq-audio-dns".into())
+        .spawn(move || {
+            let _ = sender.send(lookup());
+        })
+        .map_err(|_| failed())?;
+    let id = job.thread().id();
+    workers.push((job, deadline));
+    drop(workers);
+    let result = receiver
+        .recv_timeout(deadline.saturating_duration_since(Instant::now()))
+        .map_err(|_| failed())?;
+    // Reaching this point means the resolver returned; only a timed-out worker stays registered.
+    let mut workers = DNS_WORKERS.lock().map_err(|_| failed())?;
+    if let Some(index) = workers.iter().position(|(job, _)| job.thread().id() == id) {
+        let _ = workers.remove(index).0.join();
+    }
+    result.map_err(|_| failed())
+}
+
 pub fn download(raw: &str) -> Result<Download> {
     let mut url = public_url(raw)?;
     let deadline = Instant::now() + Duration::from_secs(45);
@@ -146,11 +183,15 @@ pub fn download(raw: &str) -> Result<Download> {
             Some(url::Host::Ipv6(ip)) => {
                 vec![(IpAddr::V6(ip), url.port_or_known_default().unwrap()).into()]
             }
-            _ => (host, url.port_or_known_default().unwrap())
-                .to_socket_addrs()
-                .map_err(|_| failure("LOCAL_AUDIO_DOWNLOAD_FAILED"))?
-                .take(32)
-                .collect(),
+            _ => {
+                let host = host.to_owned();
+                let port = url.port_or_known_default().unwrap();
+                resolve_before(deadline, move || {
+                    (host.as_str(), port)
+                        .to_socket_addrs()
+                        .map(|addresses| addresses.take(32).collect())
+                })?
+            }
         };
         if addresses.is_empty() || addresses.iter().any(|a| !public_ip(a.ip())) {
             return Err(failure("LOCAL_AUDIO_URL_INVALID"));
@@ -261,6 +302,69 @@ pub fn qr_links(bytes: &[u8]) -> Result<Vec<Link>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn dns_deadline_returns_without_leaking_workers_and_recovers_after_completion() {
+        let (release, blocked) = mpsc::channel();
+        let started = Instant::now();
+        let result = resolve_before(started + Duration::from_millis(50), move || {
+            blocked.recv().unwrap();
+            Ok(vec!["8.8.8.8:443".parse().unwrap()])
+        });
+        assert_eq!(result.unwrap_err().code, "LOCAL_AUDIO_DOWNLOAD_FAILED");
+        assert!(started.elapsed() < Duration::from_secs(2));
+        let (called, calls) = mpsc::channel();
+        assert!(
+            resolve_before(Instant::now() + Duration::from_secs(1), move || {
+                called.send(()).unwrap();
+                Ok(vec![])
+            })
+            .is_err()
+        );
+        assert!(calls.try_recv().is_err());
+        release.send(()).unwrap();
+        while DNS_WORKERS
+            .lock()
+            .unwrap()
+            .iter()
+            .any(|(job, _)| !job.is_finished())
+        {
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        assert_eq!(
+            resolve_before(Instant::now() + Duration::from_secs(2), || {
+                Ok(vec!["8.8.8.8:443".parse().unwrap()])
+            })
+            .unwrap(),
+            vec!["8.8.8.8:443".parse::<SocketAddr>().unwrap()]
+        );
+        assert!(resolve_before(Instant::now() + Duration::from_secs(2), || {
+            Err(std::io::ErrorKind::NotFound.into())
+        })
+        .is_err());
+        assert!(
+            resolve_before(Instant::now(), || panic!("Expired lookup must not start")).is_err()
+        );
+        let (release_healthy, blocked_healthy) = mpsc::channel();
+        let healthy = std::thread::spawn(move || {
+            resolve_before(Instant::now() + Duration::from_secs(5), move || {
+                blocked_healthy.recv().unwrap();
+                Ok(vec!["1.1.1.1:443".parse().unwrap()])
+            })
+        });
+        while DNS_WORKERS.lock().unwrap().is_empty() {
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        assert!(
+            resolve_before(Instant::now() + Duration::from_secs(1), || Ok(vec![])).is_ok(),
+            "A healthy in-flight lookup must not fail another fetch"
+        );
+        release_healthy.send(()).unwrap();
+        assert_eq!(
+            healthy.join().unwrap().unwrap(),
+            vec!["1.1.1.1:443".parse::<SocketAddr>().unwrap()]
+        );
+    }
+
     #[test]
     fn rejects_private_destinations_and_non_web_urls() {
         for raw in [
