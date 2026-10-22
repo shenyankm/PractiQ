@@ -265,7 +265,7 @@ function PracticeQuestion({
                     : t(" · 单选")
                   : ""}
               </Badge>
-              <h2 id="current-question" ref={questionHeading} tabIndex={-1} className="text-sm text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring">{t("第 {0} / {1} 题", { 0: session.position + 1, 1: session.attempts.length })}</h2>
+              <h2 id="current-question" ref={questionHeading} tabIndex={-1} className="text-sm text-muted-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring">{t("第 {0} / {1} 题", { 0: session.position + 1, 1: session.attempts.length })}</h2>
             </div>
             {attempt.snapshot.id && favorite != null && <Button size="icon" variant="ghost" aria-label={favorite?t("取消收藏"):t("收藏原题")} aria-pressed={favorite} onClick={()=>run(async()=>{await api({type:"favorite",id:attempt.snapshot.id!,value:!favorite});onSession(await api({type:"session",id:session.id}));})}><Star className={favorite ? "fill-current" : ""}/></Button>}
           </div>
@@ -529,7 +529,7 @@ const AnswerCard = memo(function AnswerCard({session, answer, exam, go, boundary
   }, []);
   useEffect(() => { revealCurrent(); }, [session.position, revealCurrent]);
   return (
-        <Card id="answer-card-panel" tabIndex={-1} className="outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <Card id="answer-card-panel" tabIndex={-1} className="outline-none focus-visible:ring-3 focus-visible:ring-ring">
           <CardHeader className="flex flex-row items-center justify-between gap-2">
             <CardTitle>{t("答题卡")}</CardTitle>
             {compact ? <Dialog>
@@ -568,7 +568,7 @@ const AnswerCard = memo(function AnswerCard({session, answer, exam, go, boundary
               <Button variant="outline" size="icon" aria-label={t("转到最后一题")} title={t("转到最后一题")} disabled={session.position === session.attempts.length - 1} onClick={() => go(session.attempts.length - 1)}><ArrowDownToLine/></Button>
             </div>
             <progress className="practice-progress mb-3" aria-label={exam ? t("作答进度") : t("提交进度")} max={Math.max(1, session.attempts.length)} value={session.attempts.filter(a => exam ? hasAnswer(a.ordinal === session.position ? answer : a.answer) : a.submittedAt != null).length}/>
-            <div id="answer-card" ref={grid} role="region" aria-label={t("答题卡")} tabIndex={0} className="answer-card-grid relative grid max-h-[min(45vh,24rem)] grid-cols-4 gap-2 overflow-y-auto rounded-sm p-1 outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <div id="answer-card" ref={grid} role="region" aria-label={t("答题卡")} tabIndex={0} className="answer-card-grid relative grid max-h-[min(45vh,24rem)] grid-cols-4 gap-2 overflow-y-auto rounded-sm p-1 outline-none focus-visible:ring-3 focus-visible:ring-ring">
               {session.attempts.map(a => {
                 const current = a.ordinal === session.position;
                 const draft = current ? answer : a.answer;

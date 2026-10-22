@@ -863,7 +863,7 @@ for (const colorScheme of ['light','dark']) for (const width of [1280,390]) {
   await page.keyboard.press('Enter');
   await expect(page.getByRole('heading',{name:'第 2 / 8 题',exact:true})).toBeFocused();
   await expect(flagged).toHaveAttribute('aria-current','step');
-  await expect(flagged).toHaveCSS('outline-width','2px');
+  await expect(flagged).toHaveCSS('outline-width','3px');
   await expect(flagged).toHaveCSS('outline-style','solid');
   await expect(flagged).toHaveCSS('background-color',answerColor);
   await expect(flagged.locator('svg.lucide-flag')).toBeVisible();

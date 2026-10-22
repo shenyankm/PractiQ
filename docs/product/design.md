@@ -8,11 +8,11 @@ Keep the PractiQ name, existing octopus artwork and Lucide functional icons. Dis
 
 ## Colors
 
-Use warm-white pages (`#f7f4f1`), soft warm-white cards (`#fffcfa`), body text (`#302939`), primary purple (`#795088`) and secondary purple surfaces (`#eee6f0`). Danger, warning, review-required and unavailable states retain their semantics. The complete token set lives in `shared/theme.css` and maps to the existing shadcn semantic variables.
+Use warm-white pages (`#f7f4f1`), soft warm-white cards (`#fffcfa`), body text (`#302939`), primary purple (`#795088`) and secondary purple surfaces (`#eee6f0`). Sidebars and app chrome use the second neutral layer (`--sidebar`, `--sidebar-accent`), one step warmer than the page. Danger, warning, review-required and unavailable states retain their semantics. The complete token set lives in `shared/theme.css` and maps to the existing shadcn semantic variables.
 
 ## Typography
 
-Keep the system Chinese font stack. App and Web page headings are 28px (22px on narrow screens), and bank headings are 18px. Preserve existing body sizes; use line height and spacing to establish hierarchy. Counts and status numbers use tabular figures, and long question text wraps.
+Keep the system Chinese font stack. Roles use the fixed scale in `shared/theme.css`: page heading `--text-page` (28px, 22px on narrow screens), section heading `--text-section` (20px), card and dialog title `--text-card` (18px), body `--text-body` (14px) and meta `--text-meta` (12px). Do not add one-off font sizes; use line height and spacing to establish hierarchy. Headings use balanced wrapping and prose paragraphs use pretty wrapping. Keep prose within 68ch; dense tables and records may run wider. Counts and status numbers use tabular figures, and long question text wraps.
 
 App and Web import `shared/document-content.css` for document rendering. Keep long formulas and tables horizontally scrollable inside their content area. Table words and numeric values retain their natural minimum width; oversized display equations keep their beginning reachable instead of centering into negative overflow. Practice and matching layouts use their container width, so the sidebar or large text cannot squeeze the question and selectors into unreadable columns.
 
@@ -24,7 +24,7 @@ Web keeps separate import, task history and import-settings pages. Show import s
 
 ## Components
 
-Cards use 16px corners and a single thin border without shadows. Reuse existing buttons and fields, events and disabled rules. Primary actions use purple; secondary actions use borders. Current navigation, tasks and answered items use soft-purple surfaces. Answer-card icons and text still convey state, while flagged items use a warning outline. Fields and dialogs use warm-white or warm-purple surfaces; existing components retain disabled, focus and error handling.
+Cards use 16px corners and a single thin border without shadows. Overlays (dialogs, menus, popovers, toasts) separate from the page with `--overlay-shadow`: a soft offset shadow with blur, never a hard block shadow. Reuse existing buttons and fields, events and disabled rules. Primary actions use purple; secondary actions use borders. Current navigation, tasks and answered items use soft-purple surfaces. Answer-card icons and text still convey state, while flagged items use a warning outline. Fields and dialogs use warm-white or warm-purple surfaces; existing components retain disabled, focus and error handling. Focus indicators use a 3px full-opacity ring; a translucent ring is not sufficient contrast.
 
 Ordinary buttons, inputs, input groups and selects have a desktop minimum height of 40px and a touch minimum of 48px. Desktop xs, sm and lg buttons use 32px, 36px and 44px minimums respectively, including icon buttons; compact selects are 36px. Panels use 16px corners, controls use `--radius`, menus use 12px and menu items use 8px. Badges remain pill-shaped; checkboxes and radio buttons retain their semantic shapes. English buttons may wrap, with the same minimum height as Chinese buttons.
 
@@ -46,7 +46,7 @@ Service-configuration save, connection-test and token-clear failures stay beside
 
 ## Dark mode and platforms
 
-Dark mode uses warm-purple black pages (`#211c26`), cards (`#2b2431`) and pale-purple primary color (`#d9b5e5`). App retains system/light/dark preferences and reduced-motion support. Web retains its light default, with dark tokens shared with App; preview dark mode through `?theme=dark`. Preserve Android narrow navigation, dynamic viewports, safe areas and 48px touch targets.
+Dark mode uses warm-purple black pages (`#211c26`), cards (`#2b2431`), sidebars (`#251f2a`) and pale-purple primary color (`#d9b5e5`). Interactions use the shared `--motion-duration` (180ms) and `--motion-ease` tokens; motion conveys state only. App retains system/light/dark preferences and reduced-motion support, which removes overlay entrances without removing their final state. Web retains its light default, with dark tokens shared with App; preview dark mode through `?theme=dark`. Preserve Android narrow navigation, dynamic viewports, safe areas and 48px touch targets.
 
 ## States and content
 
