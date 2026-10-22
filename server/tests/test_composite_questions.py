@@ -11,6 +11,7 @@ from practiq_ai.contracts import (
     ParsedQuestion,
     QuestionSource,
     scorable_count,
+    validate_question_tree,
 )
 from practiq_ai.graphs.chunking import finalize_question_ids
 from tests.support import run_config, setup_graph
@@ -138,6 +139,40 @@ def test_continuation_normalizes_shared_option_labels(content):
     else:
         merged = finalize_question_ids(parents, [], [], sources, DocumentQuality())
         assert merged[0].options == [ParsedOption(label="A", content="First")]
+
+
+def test_shared_option_validation_serializes_each_pool_once(monkeypatch):
+    questions = []
+    for owner_id, label in [("bank-a", "A"), ("bank-b", "B")]:
+        children = [ParsedQuestion(
+            id=f"{owner_id}-{i}", parentId=owner_id, optionSourceId=owner_id,
+            stem="Choose", answerMode="choice", choiceVariant="single",
+            answerPayload={"correct": [label.lower()]},
+        ) for i in range(20)]
+        questions.extend([ParsedQuestion(
+            id=owner_id, stem="Shared bank", answerMode="word_bank", allowReuse=True,
+            options=[ParsedOption(label=label, content="Supplied option")],
+            passage=[ContentBlock(partType="blank", questionId=child.id) for child in children],
+        ), *children])
+    option_dump = ParsedOption.model_dump
+    dumps = []
+
+    def counted_dump(self, *args, **kwargs):
+        dumps.append(self.label)
+        return option_dump(self, *args, **kwargs)
+
+    def unexpected_question_dump(*args, **kwargs):
+        pytest.fail("Shared option validation must not serialize unrelated question content")
+
+    monkeypatch.setattr(ParsedOption, "model_dump", counted_dump)
+    monkeypatch.setattr(ParsedQuestion, "model_dump", unexpected_question_dump)
+    validate_question_tree(questions)
+    assert dumps == ["A", "B"]
+    assert all(q.answerPayload.correct == ["A" if q.parentId == "bank-a" else "B"]
+               for q in questions if q.parentId)
+    questions[0].options[0].label = "Changed"
+    with pytest.raises(ValueError, match="supplied option labels"):
+        validate_question_tree(questions)
 
 
 def test_options_added_by_continuation_report_invalid_earlier_child():
