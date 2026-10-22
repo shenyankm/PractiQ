@@ -4,9 +4,11 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import App from "./App";
 import { api, blankQuestion, type QuestionPage, type QuestionRow } from "./api";
+import { toast } from "./notifications";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(), isTauri: () => false }));
 vi.mock("./api", async () => ({ ...await vi.importActual("./api"), api: vi.fn() }));
+vi.mock("./notifications", () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() } }));
 HTMLElement.prototype.hasPointerCapture = () => false;
 HTMLElement.prototype.scrollIntoView = () => {};
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
@@ -106,6 +108,40 @@ it.each(mutations)("ignores an obsolete %s reload after the current search and t
   await user.click(screen.getByRole("button", { name: "下一页" }));
   await screen.findByText("第 31–31 题");
   await waitFor(() => expect(api).toHaveBeenCalledWith(expect.objectContaining({ type: "questions_page", search: "beta", mode: "true_false", offset: 30 })));
+});
+
+it("keeps the same row mounted and updates its star while the favorite refresh is pending", async () => {
+  const user = userEvent.setup();
+  const pending = setup("favorite");
+  await openQuestions(user);
+  const question = screen.getByRole("button", { name: /alpha/ });
+  const star = screen.getByRole("button", { name: "取消收藏" });
+  expect(star.querySelector("svg")?.getAttribute("class")).toContain("text-amber-");
+  await mutate(user, "favorite");
+  await waitFor(() => expect(vi.mocked(api).mock.calls.filter(([request]) => request.type === "questions_page")).toHaveLength(3));
+  expect(screen.getByRole("button", { name: /alpha/ })).toBe(question);
+  expect(screen.getByText("第 31–60 题")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "收藏题目" })).toBe(star);
+  expect(star.getAttribute("aria-pressed")).toBe("false");
+  expect(star.querySelector("svg")?.getAttribute("class")).not.toContain("fill-current");
+  expect(toast.success).toHaveBeenCalledWith({ key: "已取消收藏" }, { position: "top-center", style: { width: "min(100%, calc(100vw - 2 * var(--mobile-offset-left, 16px)))" } });
+  await act(async () => pending.releaseReload());
+});
+
+it("does not change the favorite or show success when saving fails", async () => {
+  const user = userEvent.setup();
+  setup("favorite");
+  const original = vi.mocked(api).getMockImplementation()!;
+  vi.mocked(api).mockImplementation(async request => {
+    if (request.type === "favorite") throw new Error("Favorite save failed");
+    return original(request);
+  });
+  await openQuestions(user);
+  await mutate(user, "favorite");
+  expect((await screen.findByRole("alert")).textContent).toContain("Favorite save failed");
+  expect(screen.getByRole("button", { name: "取消收藏" }).getAttribute("aria-pressed")).toBe("true");
+  expect(toast.success).not.toHaveBeenCalled();
+  expect(vi.mocked(api).mock.calls.filter(([request]) => request.type === "questions_page")).toHaveLength(2);
 });
 
 it("reloads the current query when a favorite mutation finishes after filtering", async () => {

@@ -294,6 +294,8 @@ export const en = {
   "错题": "Mistakes",
   "题干缺失": "Missing question text",
   "取消收藏": "Remove favorite",
+  "已收藏": "Added to favorites",
+  "已取消收藏": "Removed from favorites",
   "收藏题目": "Favorite question",
   "编辑题目": "Edit question",
   "删除题目": "Delete question",

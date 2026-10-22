@@ -40,7 +40,6 @@ import { Empty, EmptyContent, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescript
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import {
   api,
-  blankQuestion,
   modeNames,
   type BankChoice,
   type SessionPage,
@@ -149,6 +148,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
   const [questions, setQuestions] = useState<QuestionSummary[]>([]);
   const [questionTotal, setQuestionTotal] = useState(0);
   const [questionRevision, setQuestionRevision] = useState(0);
+  const preserveQuestionRows = useRef(false);
   const [questionError, setQuestionError] = useState<unknown>(null);
   const [sessionPage, setSessionPage] = useState<SessionPage>({ items: [], total: 0, offset: 0 });
   const [bankOffset, setBankOffset] = useState(0);
@@ -163,7 +163,6 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
   useUnsavedChanges(Object.keys(gradingDrafts).length > 0);
   const [search, setSearch] = useState("");
   const [mode, setMode] = useState("");
-  const [onlyReview, setOnlyReview] = useState(false);
   const [questionFiltersOpen, setQuestionFiltersOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -211,7 +210,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
   const flushRef = useRef<() => Promise<void>>(async () => {});
   const lock = useRef(false);
   const filter =
-    page === "wrong" ? "wrong" : page === "favorite" ? "favorite" : page === "questions" && onlyReview ? "review" : "";
+    page === "wrong" ? "wrong" : page === "favorite" ? "favorite" : "";
   const currentBank = banks.find((b) => b.id === bank);
   const run = useCallback((job: () => Promise<void>) => {
     if (lock.current) return;
@@ -286,10 +285,13 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
   useEffect(() => {
     if (!["questions", "wrong", "favorite"].includes(page)) return;
     let active = true;
-    setLoading(true);
+    if (!preserveQuestionRows.current) {
+      setLoading(true);
+      setQuestions([]);
+      setQuestionTotal(0);
+    }
+    preserveQuestionRows.current = false;
     setQuestionError(null);
-    setQuestions([]);
-    setQuestionTotal(0);
     const timer = setTimeout(() => {
       void api({ type: "questions_page", bank_ids: page === "questions" && bank ? [bank] : [], search, mode, filter, limit: 30, offset })
         .then((rows) => {
@@ -358,7 +360,6 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
       setDetail(null);
       setSearch("");
       setMode("");
-      setOnlyReview(false);
       setQuestionFiltersOpen(false);
       if (next === "banks" || next === "history") setListRevision(v => v + 1);
     });
@@ -389,7 +390,8 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
       setPage("practice");
     });
   }
-  function refreshQuestions() {
+  function refreshQuestions(preserveRows = false) {
+    preserveQuestionRows.current = preserveRows;
     setQuestionRevision(value => value + 1);
   }
   async function pickImport() {
@@ -411,7 +413,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                 ? t(session && (session.finishedAt != null || (session.kind && session.kind !== "practice" && session.submittedAt != null)) ? "练习回顾" : "专注练习")
                 : page === "service-settings" ? t("AI 服务") : t("设置");
   const loadingView = <p role="status" className="p-4 text-sm text-muted-foreground">{t("加载中…")}</p>;
-  const hasQuestionFilters = !!(search || mode || onlyReview);
+  const hasQuestionFilters = !!(search || mode);
   const listPage = ["questions", "wrong", "favorite"].includes(page);
   const languageError = language.error != null && <div role="alert" className="text-xs text-destructive"><p>{t(language.error.key)}</p><ErrorNotice error={language.error.cause} /><Button size="sm" variant="outline" disabled={language.saving || busy} onClick={() => {
     if (language.error?.key === "保存语言设置失败") void language.change(language.error.locale).then(saved => { if (saved) setLanguageOpen(false); });
@@ -554,30 +556,12 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
             {page === "banks" && banks.length > 1 && (
               compact ? <DropdownMenu><DropdownMenuTrigger asChild><Button ref={mergeTrigger} size="icon" variant="outline" disabled={bankActionsUnavailable} aria-label={t("更多题库操作")}><MoreHorizontal /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onSelect={() => setMergeOpen(true)}>{t("合并题库")}</DropdownMenuItem></DropdownMenuContent></DropdownMenu> : <Button ref={mergeTrigger} variant="outline" disabled={bankActionsUnavailable} onClick={() => setMergeOpen(true)}>{t("合并题库")}</Button>
             )}
-            {listPage && (
-              <>
-                {page === "questions" && <Button
-                  variant="outline"
-                  disabled={bankActionsUnavailable}
-                  onClick={() => navigate("settings", null, true)}
-                >
-                  <Upload />{t("导入题库 ZIP")}</Button>}
-                {page === "questions" && (
-                  <Button
-                    variant="outline"
-                    disabled={busy}
-                    onClick={event => { questionEditorTrigger.current = event.currentTarget; setEditor({ id: null, question: blankQuestion() }); }}
-                  >
-                    <Plus />{t("新增题目")}</Button>
-                )}
-                <Button
-                  disabled={bankActionsUnavailable || !questions.length || loading || questionError != null}
-                  onClick={() => {
-                    setPracticeSetup({ bank: page === "questions" ? bank : null });
-                  }}
-                >
-                  <Play />{t("开始练习")}</Button>
-              </>
+            {(page === "wrong" || page === "favorite") && (
+              <Button
+                disabled={bankActionsUnavailable || !questions.length || loading || questionError != null}
+                onClick={() => setPracticeSetup({ bank: null })}
+              >
+                <Play />{t("开始练习")}</Button>
             )}
           </div>
         </header>
@@ -643,13 +627,12 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                     />
                   </InputGroup>
                 </div>
-                {compact && <Button variant="outline" aria-expanded={questionFiltersOpen} aria-controls="question-filter-options" onClick={() => setQuestionFiltersOpen(value => !value)}><SlidersHorizontal />{t("筛选")}{(mode || onlyReview) && <Badge variant="secondary">{Number(!!mode) + Number(onlyReview)}</Badge>}</Button>}
+                {compact && <Button variant="outline" aria-expanded={questionFiltersOpen} aria-controls="question-filter-options" onClick={() => setQuestionFiltersOpen(value => !value)}><SlidersHorizontal />{t("筛选")}{mode && <Badge variant="secondary">1</Badge>}</Button>}
                 <div id="question-filter-options" className={compact ? questionFiltersOpen ? "flex basis-full flex-wrap items-end gap-3" : "hidden" : "contents"}>
-                <div className="w-full space-y-2 sm:w-64">
+                <div className="min-w-0 max-w-full space-y-2">
                   <Label htmlFor="question-mode">{t("筛选题型")}</Label>
                   <NativeSelect
                     id="question-mode"
-                    className="w-full"
                     aria-label={t("筛选题型")}
                     value={mode}
                     onValueChange={value => setMode(value)}
@@ -662,9 +645,8 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                     ))}
                   </NativeSelect>
                 </div>
-                {page === "questions" && <label className="flex shrink-0 items-center gap-2 text-sm"><Checkbox checked={onlyReview} disabled={busy} onCheckedChange={checked => setOnlyReview(checked === true)} />{t("仅看待复核")}</label>}
                 </div>
-                {hasQuestionFilters && <Button variant="outline" disabled={busy} onClick={() => { setSearch(""); setMode(""); setOnlyReview(false); setOffset(0); document.getElementById("question-search")?.focus(); }}>{t("清除筛选")}</Button>}
+                {hasQuestionFilters && <Button variant="outline" disabled={busy} onClick={() => { setSearch(""); setMode(""); setOffset(0); document.getElementById("question-search")?.focus(); }}>{t("清除筛选")}</Button>}
               </div>
               {page === "wrong" && questions.length > 0 && <p className="text-sm text-muted-foreground">{t("错误和未得满分的题目会出现在这里，再次答对或得满分后自动移出；未评分不算错题。")}</p>}
               {loading ? loadingView : questionError != null ? (
@@ -686,17 +668,16 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                           disabled={busy}
                           onClick={() => run(async () => setDetail(await api({type:"question_detail",id:row.id})))}
                         >
-                          <p className="line-clamp-2 min-w-0 text-sm leading-6 wrap-anywhere">
-                            {row.question.stem ||
-                              row.question.sourceText ||
-                              t("题干缺失")}
-                          </p>
+                          <div className="flex min-w-0 items-start gap-3">
+                            <Badge variant="outline" className="mt-0.5 shrink-0">
+                              {modeNames()[row.question.answerMode || ""] || t("未知题型")}
+                            </Badge>
+                            <p className="line-clamp-2 min-w-0 flex-1 text-sm leading-6 wrap-anywhere">
+                              {row.question.stem || row.question.sourceText || t("题干缺失")}
+                            </p>
+                          </div>
                           <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
                             <div className="flex flex-wrap items-center gap-2">
-                              <Badge variant="outline">
-                                {modeNames()[row.question.answerMode || ""] ||
-                                  t("未知题型")}
-                              </Badge>
                               {row.reviewRequired && (
                                 <CircleAlert className="size-4 review-warning" role="img" aria-label={t("待复核")} />
                               )}
@@ -726,12 +707,14 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                                 id: row.id,
                                 value: !row.favorite,
                               });
-                              refreshQuestions();
+                              setQuestions(current => current.map(item => item.id === row.id ? { ...item, favorite: !row.favorite } : item));
+                              toast.success(message(row.favorite ? "已取消收藏" : "已收藏"), { position: "top-center", style: { width: "min(100%, calc(100vw - 2 * var(--mobile-offset-left, 16px)))" } });
+                              refreshQuestions(true);
                             })
                           }
                         >
                           <Star
-                            className={row.favorite ? "fill-current" : ""}
+                            className={row.favorite ? "fill-current text-amber-500 dark:text-amber-400" : ""}
                           />
                         </Button>
                         <DropdownMenu>
@@ -972,7 +955,6 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
           setBank(bankId);
           setSearch("");
           setMode("");
-          setOnlyReview(false);
           setPage("questions");
           setOffset(0);
           setQuestions([]);

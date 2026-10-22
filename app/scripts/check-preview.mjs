@@ -10,6 +10,19 @@ async function editQuestion(page, trigger) {
   await page.getByRole('menuitem', {name:'编辑题目',exact:true}).click();
 }
 
+async function openEmptyQuestionEditor(page) {
+ const stem = `Editor fixture ${Date.now()}`;
+ await page.evaluate(async stem => {
+  const { invoke } = await import('/src/transport.ts');
+  const { blankQuestion } = await import('/src/api.ts');
+  await invoke('request', { request: { type: 'save_question_tree', bank_id: 'preview-bank-0', root_id: null, questions: [{ ...blankQuestion(), id: crypto.randomUUID(), stem }] } });
+ }, stem);
+ await page.getByRole('button', { name: '我的题库', exact: true }).click();
+ await page.getByRole('button', { name: '查看题目', exact: true }).first().click();
+ await editQuestion(page, page.getByRole('button', { name: new RegExp(stem) }).locator('..').getByRole('button', { name: /^题目更多操作/ }));
+}
+
+
 function textLines(node) {
  const walker=document.createTreeWalker(node,NodeFilter.SHOW_TEXT);
  const tops=new Set();
@@ -30,6 +43,55 @@ const test=base.extend({page:async ({page},use)=>{
  expect(errors).toEqual([]);
  expect(await page.evaluate(()=>window.__previewNativeCalls)).toBe(0);
 }});
+
+for (const width of [390, 1280]) {
+ test(`question browsing stays compact and favorites update in place at ${width}px`, async ({page}, testInfo) => {
+  await page.setViewportSize({width, height: 850});
+  await page.goto('/');
+  await page.getByRole('button', {name:'查看题目', exact:true}).first().click();
+  for (const name of ['导入题库 ZIP', '新增题目', '开始练习']) {
+   await expect(page.getByRole('banner').getByRole('button', {name, exact:true})).toHaveCount(0);
+  }
+  await expect(page.getByRole('checkbox', {name:'仅看待复核', exact:true})).toHaveCount(0);
+  if (width < 768) await page.getByRole('button', {name:'筛选', exact:true}).click();
+  const type = page.getByLabel('筛选题型', {exact:true});
+  expect((await type.boundingBox()).width).toBeLessThan(200);
+  await type.click();
+  const popup = page.locator('[data-slot="select-content"]');
+  await expect(popup).toBeVisible();
+  expect((await popup.boundingBox()).width).toBeLessThan(200);
+  await page.keyboard.press('Escape');
+  const row = page.locator('.question-row').nth(1);
+  const label = await row.locator('[data-slot="badge"]').first().boundingBox();
+  const stem = await row.locator('p').first().boundingBox();
+  expect(label.x + label.width).toBeLessThan(stem.x);
+  expect(Math.abs(label.y - stem.y)).toBeLessThan(8);
+  const favorite = row.getByRole('button', {name:'收藏题目', exact:true});
+  await row.evaluate(node => {
+   window.__favoriteRowRemoved = false;
+   window.__favoriteObserver = new MutationObserver(records => {
+    if (records.some(record => [...record.removedNodes].some(removed => removed === node || removed.contains?.(node)))) window.__favoriteRowRemoved = true;
+   });
+   window.__favoriteObserver.observe(node.parentElement.parentElement, {childList:true, subtree:true});
+  });
+  await favorite.click();
+  const selected = row.getByRole('button', {name:'取消收藏', exact:true});
+  await expect(selected).toHaveAttribute('aria-pressed', 'true');
+  await expect(selected.locator('svg')).toHaveClass(/text-amber-/);
+  const notice = page.locator('[data-sonner-toast]').filter({hasText:'已收藏'});
+  await expect(notice).toBeVisible();
+  const rect = await notice.boundingBox();
+  expect(Math.abs(rect.x + rect.width / 2 - width / 2)).toBeLessThan(3);
+  expect(rect.y).toBeLessThan(100);
+  await page.screenshot({path:testInfo.outputPath(`question-favorite-${width}.png`), fullPage:true});
+  await selected.click();
+  await expect(row.getByRole('button', {name:'收藏题目', exact:true})).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.locator('[data-sonner-toast]').filter({hasText:'已取消收藏'})).toBeVisible();
+  expect(await page.evaluate(() => window.__favoriteRowRemoved)).toBe(false);
+  await page.evaluate(() => window.__favoriteObserver.disconnect());
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+ });
+}
 
 for(const locale of ['zh-CN','en']) for(const width of [360,390,960,1280]) for(const theme of ['light','dark']) {
  test(`localized bank actions and question lists fit in ${locale} at ${width}px (${theme})`,async ({page},testInfo)=>{
@@ -220,7 +282,7 @@ test('preview question filters preserve imported warnings through review confirm
  await expect(page.getByRole('button',{name:/请选择偶数。/})).toBeVisible();
  await expect(page.getByRole('button',{name:/下面哪一个是质数？/})).toBeHidden();
  await chooseOption(type, '');
- await page.getByRole('checkbox',{name:'仅看待复核',exact:true}).check();
+ await expect(page.getByRole('checkbox',{name:'仅看待复核',exact:true})).toHaveCount(0);
  const question=page.getByRole('button',{name:/观察 PractiQ 图标，描述你的印象。/});
  await question.click();
  const dialog=page.getByRole('dialog',{name:'题目详情',exact:true});
@@ -234,12 +296,10 @@ test('preview question filters preserve imported warnings through review confirm
  expect(stored.reviewedAt).toBeGreaterThan(0);
  expect(stored.warnings).toEqual(['原文未提供参考答案，请人工确认。']);
  await page.keyboard.press('Escape');
- await expect(question).toBeHidden();
- await page.getByRole('checkbox',{name:'仅看待复核',exact:true}).uncheck();
+ await expect(question).toBeVisible();
  await question.click();
  await dialog.getByRole('button',{name:'撤销复核确认',exact:true}).click();
  await page.keyboard.press('Escape');
- await page.getByRole('checkbox',{name:'仅看待复核',exact:true}).check();
  await expect(question).toBeVisible();
 });
 
@@ -315,7 +375,7 @@ test('new question reverted nullable fields close without discarding other edits
  await page.getByRole('button',{name:'查看题目',exact:true}).first().click();
  const editor=page.getByRole('dialog',{name:/^(编辑题目|新增题目)$/,exact:true});
  const instructions=editor.getByRole('textbox',{name:'作答说明',exact:true});
- const open=()=>page.getByRole('button',{name:'新增题目',exact:true}).click();
+ const open=()=>openEmptyQuestionEditor(page);
  for(const action of ['Escape','close','outside']){
   await open();
   await editor.getByText('更多设置',{exact:true}).click();
@@ -347,7 +407,7 @@ test('reverted empty reference answers close without losing real editor changes'
  await page.goto('/');
  await page.getByRole('button',{name:'查看题目',exact:true}).first().click();
  const editor=page.getByRole('dialog',{name:/^(编辑题目|新增题目)$/,exact:true});
- const open=()=>page.getByRole('button',{name:'新增题目',exact:true}).click();
+ const open=()=>openEmptyQuestionEditor(page);
  for(const mode of ['short_answer','choice','fill_blank']){
   for(const action of ['Escape','close','outside']){
    await open();
@@ -360,7 +420,7 @@ test('reverted empty reference answers close without losing real editor changes'
    // Save the mode first so the reopened reference starts null with no other draft.
    await editor.getByRole('textbox',{name:'题干（支持 Markdown 和公式）',exact:true}).fill(`Empty reference ${mode} ${action}`);
    await editor.getByRole('button',{name:'保存题目',exact:true}).click();
-   const row=page.getByRole('button',{name:new RegExp(`^Empty reference ${mode} ${action}`)}).locator('..');
+   const row=page.getByRole('button',{name:new RegExp(`Empty reference ${mode} ${action}`)}).locator('..');
    // Development overlays can cover appended rows; reopen with the keyboard.
    await editQuestion(page, row.getByRole('button',{name:/^题目更多操作/}));
    if(mode==='choice'){
@@ -377,7 +437,7 @@ test('reverted empty reference answers close without losing real editor changes'
    await expect(page.getByRole('alertdialog')).toHaveCount(0);
   }
  }
- const changedRow=page.getByRole('button',{name:/^Empty reference fill_blank outside/}).locator('..');
+ const changedRow=page.getByRole('button',{name:/Empty reference fill_blank outside/}).locator('..');
  await editQuestion(page, changedRow.getByRole('button',{name:/^题目更多操作/}));
  const answer=editor.getByRole('textbox',{name:'第 1 空',exact:true});
  await answer.fill('Real reference');
@@ -398,13 +458,13 @@ test('incomplete question reference fallbacks close after reverting text and kee
  await page.getByRole('button',{name:'查看题目',exact:true}).first().click();
  const editor=page.getByRole('dialog',{name:/^(编辑题目|新增题目)$/,exact:true});
  for(const mode of ['choice','ordering','matching']){
-  await page.getByRole('button',{name:'新增题目',exact:true}).click();
+  await openEmptyQuestionEditor(page);
   if(mode!=='choice')await chooseOption(editor.getByRole('combobox',{name:'答题方式',exact:true}), mode);
   const title=`Incomplete ${mode} reference`;
   await editor.getByRole('textbox',{name:'题干（支持 Markdown 和公式）',exact:true}).fill(title);
   await editor.getByRole('button',{name:'保存题目',exact:true}).click();
   const open=async()=>{
-   const button=page.getByRole('button',{name:new RegExp(`^${title}`)}).locator('..').getByRole('button',{name:/^题目更多操作/});
+   const button=page.getByRole('button',{name:new RegExp(title)}).locator('..').getByRole('button',{name:/^题目更多操作/});
    await button.evaluate(node=>node.scrollIntoView({block:'center'}));
    await page.mouse.move(0,0);
    await expect(page.getByText('题目已保存，练习历史不受影响。',{exact:true})).toBeHidden();
@@ -445,7 +505,7 @@ test('listening URL drafts survive every implicit dismissal without triggering d
  await page.goto('/');
  const bank=page.locator('[data-slot=card]').filter({has:page.getByText('英语专项 · 听力与写作',{exact:true})});
  await bank.getByRole('button',{name:'查看题目',exact:true}).click();
- const open=()=>editQuestion(page, page.getByRole('button',{name:/^Listening — chimes/}).locator('..').getByRole('button',{name:/^题目更多操作/}));
+ const open=()=>editQuestion(page, page.getByRole('button',{name:/Listening — chimes/}).locator('..').getByRole('button',{name:/^题目更多操作/}));
  const editor=page.getByRole('dialog',{name:/^(编辑题目|新增题目)$/,exact:true});
  const input=editor.getByRole('textbox',{name:'听力资源网址',exact:true});
  await open();
@@ -494,7 +554,7 @@ test('applied listening URLs become guarded when their audio is removed or repla
  const save=editor.getByRole('button',{name:'保存题目',exact:true});
  const confirmation=page.getByRole('alertdialog',{name:'放弃未保存的更改？',exact:true});
  for(const action of ['remove','mode','file']){
-  await editQuestion(page, page.getByRole('button',{name:/^Listening — chimes/}).locator('..').getByRole('button',{name:/^题目更多操作/}));
+  await editQuestion(page, page.getByRole('button',{name:/Listening — chimes/}).locator('..').getByRole('button',{name:/^题目更多操作/}));
   const url=`https://example.com/${action}.wav`;
   await input.fill(url);
   await editor.getByRole('button',{name:'从网址获取音频',exact:true}).click();
@@ -529,7 +589,7 @@ test('child editors retain changed drafts and stage changes until the parent sav
  await page.goto('/');
  const bank=page.locator('[data-slot=card]').filter({has:page.getByText('阅读与组合题',{exact:true})});
  await bank.getByRole('button',{name:'查看题目',exact:true}).click();
- const openRoot=()=>editQuestion(page, page.getByRole('button',{name:/^words-root/}).locator('..').getByRole('button',{name:/^题目更多操作/}));
+ const openRoot=()=>editQuestion(page, page.getByRole('button',{name:/words-root/}).locator('..').getByRole('button',{name:/^题目更多操作/}));
  const editor=page.getByRole('dialog',{name:/^(编辑题目|新增题目)$/,exact:true});
  const field=editor.getByRole('textbox',{name:'题干（支持 Markdown 和公式）',exact:true});
  await openRoot();
@@ -976,13 +1036,12 @@ for (const reducedMotion of ['reduce', 'no-preference']) {
   await expect(page.getByRole('menu')).toBeHidden();
   await expect(theme).toBeFocused();
   await page.getByRole('button', {name:'查看题目', exact:true}).first().click();
-  const add = page.getByRole('button', {name:'新增题目', exact:true});
-  await add.focus();
-  await page.keyboard.press('Enter');
+  const add = page.getByRole('button', {name:'题目更多操作 1', exact:true});
+  await editQuestion(page, add);
   const dialog = page.getByRole('dialog');
   await expect(dialog).toHaveCSS('animation-name', expected);
   await expect(page.locator('[data-slot="dialog-overlay"]')).toHaveCSS('animation-name', expected);
-  await expect(dialog).toContainText('新增题目');
+  await expect(dialog).toContainText('编辑题目');
   expect(await dialog.evaluate(element => element.contains(document.activeElement))).toBe(true);
   await expectExitStyle(['dialog-content', 'dialog-overlay']);
   await page.keyboard.press('Escape');

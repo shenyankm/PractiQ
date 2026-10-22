@@ -119,7 +119,7 @@ it.each(["banks", "info"] as const)("recovers an initial %s read without restart
   expect(api).not.toHaveBeenCalledWith(expect.objectContaining({ type: "import" }));
 });
 
-it("reports committed import success, clears review filters and retries only reads after refresh failure", async () => {
+it("reports committed import success, returns to the destination bank and retries only reads after refresh failure", async () => {
   const original = setup(); let committed = false, failed = false;
   vi.mocked(api).mockImplementation(async request => {
     if (request.type === "import") committed = true;
@@ -128,15 +128,16 @@ it("reports committed import success, clears review filters and retries only rea
   });
   const user = userEvent.setup(); render(<App />);
   await user.click(await screen.findByRole("button", { name: "查看题目" }));
-  await user.click(screen.getByRole("checkbox", { name: "仅看待复核" }));
-  await user.click(screen.getByRole("button", { name: "导入题库 ZIP" }));
+
+  await user.click(screen.getByRole("button", { name: "设置" }));
+  await user.click(await screen.findByRole("button", { name: "导入与恢复" }));
   await user.click(await screen.findByRole("menuitem", { name: "导入题库 ZIP" }));
   await user.selectOptions(await screen.findByRole("combobox", { name: "导入到" }), "bank");
   await user.click(screen.getByRole("button", { name: "确认导入" }));
   await screen.findByRole("button", { name: "重试读取概览" });
   expect(toast.success).toHaveBeenCalledWith({ key: "已导入 {0} 道题目", params: { 0: 1 } });
   expect(toast.error).not.toHaveBeenCalled();
-  expect((screen.getByRole("checkbox", { name: "仅看待复核" }) as HTMLButtonElement).getAttribute("data-state")).toBe("unchecked");
+  expect(screen.queryByRole("checkbox", { name: "仅看待复核" })).toBeNull();
   await user.click(screen.getByRole("button", { name: "重试读取概览" }));
   await waitFor(() => expect(screen.queryByRole("button", { name: "重试读取概览" })).toBeNull());
   expect(vi.mocked(api).mock.calls.filter(([r]) => r.type === "import")).toHaveLength(1);
