@@ -59,6 +59,7 @@ The API guide owns task payloads and controls; the user import guide explains th
 | Task | Guide |
 | --- | --- |
 | Prepare issues/PRs and choose checks | [Contributing](../CONTRIBUTING.md) |
+| Reproduce performance work-count and bounded timing checks | [Service I/O](../server/docs/performance-io.md), [document pipeline](../server/docs/performance-pipeline.md), [native data](../app/docs/performance-native.md), [frontend](../web/docs/performance.md) |
 | Report vulnerabilities and review dependencies | [Security policy](../SECURITY.md) |
 | Review dependency risks and repository safeguards | [Dependency security](maintainers/dependency-security.md) |
 | Review outstanding workstream status | [Roadmap evidence](maintainers/roadmap-evidence.md) |

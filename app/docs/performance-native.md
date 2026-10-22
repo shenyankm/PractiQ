@@ -36,7 +36,7 @@ The resource override is the existing native-test pattern; it avoids requiring g
 
 ## Example release observations
 
-Apple M4 / arm64 macOS 27.0.1, Rust 1.98.1. These are bounded synthetic observations, not product latency guarantees. Setup, output hashing and assertions are outside the timed regions. OS caches are not flushed. No IPC, WebView or picker is measured.
+Apple M4 / arm64 macOS 27.0.1, Rust 1.98.1. These are bounded synthetic observations, not product latency guarantees. Setup and output hashing are outside the timed regions. Search timings include lightweight result assertions and the test-only visual-search counter. OS caches are not flushed. No IPC, WebView or picker is measured.
 
 ### Search
 
