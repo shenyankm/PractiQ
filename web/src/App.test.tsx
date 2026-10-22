@@ -148,7 +148,7 @@ it.each([false, true])("never automatically replays uncertain POST, and an expli
 });
 it("uses service limits and configuration before starting, and keeps provider settings out of the browser", async () => {
   const user = userEvent.setup(); const http = fakeHTTP(); http.server.intercept = url => url.includes("capabilities") ? json({ ...capabilities, sourceMaxBytes: 1, modelConfigured: false, parserConfigured: false, officeAvailable: false, officeModes: [], sourceTypes: ["text"] }) : undefined;
-  render(<App />); await connect(user); expect(screen.getByText("服务支持：TXT。腾讯文档识别尚未配置，当前无法开始新的文档导入。")).toBeTruthy(); await user.upload(screen.getByLabelText("选择文档"), new File(["xx"], "large.txt")); expect(await screen.findByText(/为空或超过/)).toBeTruthy();
+  render(<App />); await connect(user); expect(screen.getByText("服务支持：TXT")).toBeTruthy(); expect(screen.getByText("腾讯文档识别尚未配置，当前无法开始新的文档导入。")).toBeTruthy(); await user.upload(screen.getByLabelText("选择文档"), new File(["xx"], "large.txt")); expect(await screen.findByText(/为空或超过/)).toBeTruthy();
   await user.upload(screen.getByLabelText("选择文档"), new File(["x"], "small.txt")); expect((screen.getByRole("button", { name: "开始导入" }) as HTMLButtonElement).disabled).toBe(true);
   await openTask(user); expect((screen.getByRole("button", { name: "重新解析为新任务" }) as HTMLButtonElement).disabled).toBe(false); // Existing task exposes its own current configuration.
   expect(screen.queryByLabelText(/API Key|模型密钥/)).toBeNull(); expect(http.calls.filter(call => call.method !== "GET")).toHaveLength(0);

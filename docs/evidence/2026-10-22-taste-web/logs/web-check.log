@@ -1,0 +1,43 @@
+
+> practiq-ai-web@0.1.0 check
+> tsc -b && npm run lint && npm run test:coverage
+
+
+> practiq-ai-web@0.1.0 lint
+> cd .. && node web/node_modules/eslint/bin/eslint.js --config web/eslint.config.mjs "web/src/**/*.{ts,tsx}" shared/*.tsx --max-warnings 0
+
+
+> practiq-ai-web@0.1.0 test:coverage
+> vitest run --coverage
+
+
+ RUN  v5.0.1 /Users/sheny/Developer/code/PractiQ/web
+      Coverage enabled with v8
+
+
+ Test Files  6 passed (6)
+      Tests  163 passed (163)
+   Start at  10:20:24
+   Duration  11.34s (tests 70%, environment 17%, import 6%, setup 3%, transform 3%, worker 1%)
+
+    Isolate  6 workers spawned · ~609ms startup each (spawn + environment, per file)
+             at least ~1.22s faster with isolate: false — reuses workers across files instead of one per file
+
+ % Coverage report from v8
+-------------------|---------|----------|---------|---------|-------------------
+File               | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s
+-------------------|---------|----------|---------|---------|-------------------
+All files          |   94.77 |    88.05 |   97.09 |    97.3 |
+ App.tsx           |   92.94 |    82.72 |   96.26 |   96.12 | ...01,221,315,334
+ ...tingsPanel.tsx |   95.91 |     82.5 |     100 |     100 | 8-24,29-34
+ RenderFailure.tsx |      50 |      100 |      50 |      50 | 6
+ ResultReview.tsx  |   97.36 |    90.93 |   98.55 |    98.3 | 72,91
+ api.ts            |   96.37 |    93.93 |   98.18 |   98.29 | 54-56
+-------------------|---------|----------|---------|---------|-------------------
+
+=============================== Coverage summary ===============================
+Statements   : 94.77% ( 907/957 )
+Branches     : 88.05% ( 892/1013 )
+Functions    : 97.09% ( 267/275 )
+Lines        : 97.3% ( 541/556 )
+================================================================================
