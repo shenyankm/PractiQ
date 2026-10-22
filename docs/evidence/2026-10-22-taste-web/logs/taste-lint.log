@@ -1,0 +1,6 @@
+TASTESKILL · LINT   3 file(s)
+
+No banned patterns in source. Now run inspect.mjs on the rendered page.
+
+RESULT: 0 FAIL, 0 WARN
+Interface fragments marked data-ui keep their own borders and shadows. Any other line that must keep a flagged pattern for a real reason can carry the comment taste-skill-ignore.

@@ -1,0 +1,12 @@
+{
+  "width": 768,
+  "height": 1024,
+  "theme": "dark",
+  "start": {
+    "x": 619,
+    "y": 556.578125,
+    "width": 100,
+    "height": 40
+  },
+  "source": "Chromium; synthetic HTTP; no live service"
+}

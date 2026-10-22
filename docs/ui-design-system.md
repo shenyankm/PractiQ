@@ -22,6 +22,16 @@ visible and put merge in the labelled action menu. On phones, form labels sit
 above full-width controls. Use semantic color tokens for normal, warning, error,
 success, selected, read-only and disabled states.
 
+Web import keeps file selection, the pending queue, deduplication and the explicit
+Start action together. Above 1100px, a 296px guide beside the upload card holds
+formats, the complete call-budget explanation and the source → review → ZIP flow.
+At narrower widths the guide follows the upload card; the fee notice stays before
+Start. A single ready file keeps Start in the first 390×844 viewport. Larger queues
+remain bounded and scrollable. Navigation and selected records use neutral fills,
+leaving purple emphasis for the main action and focus. Desktop count/date columns
+align right; phone record rows align left. Narrow settings inputs stack below their
+labels and descriptions at full width.
+
 The bank home reserves filled emphasis for resuming the unfinished session (or
 the first-import empty state). Bank viewing stays a text action; starting a new
 practice and the header import action use outlined buttons with their existing labels.

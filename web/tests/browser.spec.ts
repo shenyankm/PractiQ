@@ -1,7 +1,7 @@
 import { withEvidence } from "../../shared/browser-evidence.mjs";
 import { chooseOption } from "../../shared/select-test.mjs";
 import { createHash } from "node:crypto";
-import { mkdir, readFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { expect, test as runner, type Page, type Route } from "playwright/test";
 import type { DocumentTaskDetail, DocumentTaskReview } from "../src/contracts.generated";
 import { capabilities, material, newTaskId, preview, question, runId, summary, task, taskId } from "../src/test-fixtures";
@@ -84,6 +84,53 @@ async function openTask(page: Page) {
 }
 const mutations = (calls: Call[]) => calls.filter(call => call.method !== "GET");
 const starts = (calls: Call[]) => calls.filter(call => call.path === "/api/document-tasks" && call.method === "POST");
+
+for (const [width, height] of [[1440, 900], [768, 1024], [390, 844], [360, 640], [320, 640]]) {
+  for (const theme of ["light", "dark"]) test(`taste import workspace at ${width}px ${theme}`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height });
+    const http = await fakeHTTP(page);
+    await connect(page);
+    await page.evaluate(dark => document.documentElement.classList.toggle("dark", dark), theme === "dark");
+    await page.getByLabel("选择文档").setInputFiles({ name: "pending.txt", mimeType: "text/plain", buffer: Buffer.from("Unsubmitted source") });
+    const start = page.getByRole("button", { name: "开始导入", exact: true });
+    await expect(start).toBeEnabled();
+    await page.evaluate(() => scrollTo(0, 0));
+    const bounds = await start.boundingBox();
+    if (width >= 390) expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(height);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    const output = process.env.PRACTIQ_TASTE_EVIDENCE_DIR || testInfo.outputPath("captures");
+    await mkdir(output, { recursive: true });
+    await page.screenshot({ path: `${output}/import-${width}-${theme}.png`, fullPage: true });
+    await writeFile(`${output}/import-${width}-${theme}.json`, JSON.stringify({ width, height, theme, start: bounds, source: "Chromium; synthetic HTTP; no live service" }, null, 2));
+    if (width === 1440) {
+      // Static rendered fixture lets Taste inspect the authenticated UI without a token or service.
+      const logo = `data:image/png;base64,${(await readFile(new URL("../src/assets/octopus.png", import.meta.url))).toString("base64")}`;
+      const html = await page.evaluate(logo => {
+        const copy = document.documentElement.cloneNode(true) as HTMLElement;
+        copy.querySelectorAll("script").forEach(node => node.remove());
+        copy.querySelectorAll("img").forEach(node => node.setAttribute("src", logo));
+        return `<!doctype html>${copy.outerHTML}`.replace(/[ \t]+$/gm, "");
+      }, logo);
+      await writeFile(`${output}/import-${theme}.html`, html);
+    }
+    await page.getByRole("link", { name: "设置", exact: true }).click();
+    const field = page.getByLabel("腾讯识别并发上限");
+    await expect(field).toHaveValue("5");
+    if (width < 768) {
+      const label = await page.locator('label[for="tencentConcurrency"]').boundingBox();
+      const input = await field.boundingBox();
+      expect(input!.y).toBeGreaterThan(label!.y + label!.height);
+    }
+    await page.screenshot({ path: `${output}/settings-${width}-${theme}.png`, fullPage: true });
+    await page.getByRole("link", { name: "导入记录", exact: true }).click();
+    await expect(page.getByRole("button", { name: "sample.docx", exact: true })).toBeVisible();
+    expect((await page.getByRole("region", { name: "任务详情", exact: true }).boundingBox())!.height).toBeLessThan(90);
+    if (width >= 768) await expect(page.locator(".records-table tbody td").nth(2)).toHaveCSS("text-align", "right");
+    await page.screenshot({ path: `${output}/records-${width}-${theme}.png`, fullPage: true });
+    expect(mutations(http.calls)).toHaveLength(0);
+    expect(http.server.modelStarts).toBe(0);
+  });
+}
 
 for (const width of [1440, 390]) {
   for (const anchor of ["task-detail", "task-list-heading"]) test(`history restores ${anchor} at ${width}px`, async ({ page }) => {

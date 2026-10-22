@@ -1,0 +1,1286 @@
+{
+ "url": "docs/evidence/2026-10-22-taste-web/after/import-light.html",
+ "at": "2026-10-22T02:19:28.692Z",
+ "allow": [
+  "palette-purple",
+  "palette-cream"
+ ],
+ "viewports": [
+  {
+   "width": 1440,
+   "height": 900,
+   "load": "load",
+   "screens": 1,
+   "filled": [
+    0.33
+   ],
+   "motion": {
+    "elements": 0,
+    "css": 0,
+    "transitions": 0,
+    "scripted": 0,
+    "videos": 0,
+    "playingVideos": 0
+   },
+   "metrics": {
+    "viewport": {
+     "w": 1440,
+     "h": 900
+    },
+    "page": {
+     "height": 900,
+     "screens": 1,
+     "words": 71,
+     "img": 1,
+     "video": 0,
+     "canvas": 0,
+     "svg": 14,
+     "sections": 7,
+     "horizontalOverflow": 0,
+     "overflowCulprits": [],
+     "uiFragments": 0,
+     "uiAbuse": false,
+     "realPictures": 0,
+     "videoCount": 0,
+     "uiPictures": 0,
+     "pictureSamples": [],
+     "blendText": 0,
+     "sideScrollers": 0,
+     "brokenImages": [],
+     "emoji": [],
+     "videosNoPoster": 0
+    },
+    "hero": {
+     "text": "开始导入",
+     "words": 1,
+     "chars": 4,
+     "lines": 1,
+     "size": 28,
+     "vw": 1.9,
+     "font": "system-ui",
+     "weight": 600,
+     "tracking": -0.03,
+     "leading": 1.3,
+     "top": 32,
+     "tag": "h1",
+     "kind": "heading",
+     "align": "left",
+     "position": "left"
+    },
+    "h1": {
+     "text": "开始导入",
+     "words": 1,
+     "lines": 1,
+     "size": 28,
+     "font": "system-ui"
+    },
+    "headings": [
+     {
+      "text": "开始导入",
+      "words": 1,
+      "chars": 4,
+      "lines": 1,
+      "size": 28,
+      "vw": 1.9,
+      "font": "system-ui",
+      "weight": 600,
+      "tracking": -0.03,
+      "leading": 1.3,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.63,
+      "top": 32,
+      "tag": "h1",
+      "kind": "heading"
+     }
+    ],
+    "headingSummary": {
+     "count": 1,
+     "maxLines": 1,
+     "over2Lines": 0,
+     "statements": 0,
+     "centered": 0,
+     "medianWords": null,
+     "mixedFontHeadings": 0
+    },
+    "type": {
+     "families": [
+      {
+       "family": "system-ui",
+       "share": 1,
+       "mono": false
+      }
+     ],
+     "familyCount": 1,
+     "sizes": [
+      11,
+      12,
+      13,
+      14,
+      16,
+      18,
+      20,
+      28
+     ],
+     "sizeCount": 8,
+     "notLoaded": [],
+     "body": {
+      "font": "system-ui",
+      "size": 13,
+      "leading": 1.75,
+      "weight": 400,
+      "tracking": 0,
+      "contrast": 5.3
+     },
+     "measureChars": 42,
+     "max": {
+      "size": 28,
+      "vw": 1.9,
+      "font": "system-ui",
+      "text": "开始导入"
+     },
+     "monoShare": 0,
+     "monoProseShare": 0,
+     "monoFamilies": [],
+     "monoSamples": [],
+     "microLabels": 0,
+     "microLabelShare": 0,
+     "microSamples": [],
+     "upperShare": 0.17,
+     "centerShare": 0.02,
+     "smallText": 4
+    },
+    "eyebrows": [],
+    "numbered": [],
+    "color": {
+     "bodyBg": "#f7f4f1",
+     "bodyBgHsl": {
+      "h": 30,
+      "s": 0.27,
+      "l": 0.96
+     },
+     "dark": false,
+     "sectionBgs": [
+      {
+       "color": "#fffcfa",
+       "top": 128,
+       "hsl": {
+        "h": 24,
+        "s": 1,
+        "l": 0.99
+       }
+      }
+     ],
+     "textColors": [
+      {
+       "color": "#6d6271",
+       "share": 0.87
+      },
+      {
+       "color": "#302939",
+       "share": 0.12
+      },
+      {
+       "color": "#ffffff",
+       "share": 0.01
+      }
+     ],
+     "button": {
+      "bg": "#795088",
+      "hsl": {
+       "h": 284,
+       "s": 0.26,
+       "l": 0.42
+      },
+      "fg": "#ffffff"
+     },
+     "lowContrast": []
+    },
+    "buttons": {
+     "count": 3,
+     "inHero": 3,
+     "radius": 8,
+     "height": 50,
+     "withShadow": 0,
+     "withGradient": 0,
+     "mono": 0,
+     "upper": 0,
+     "heroLabels": [
+      "跳到主要内容",
+      "开始导入",
+      "开始导入"
+     ]
+    },
+    "surfaces": {
+     "shadowStatic": 0,
+     "shadowOverlay": 0,
+     "shadowSamples": [],
+     "gradients": 0,
+     "scrims": 0,
+     "gradientSamples": [],
+     "gradientText": 0,
+     "hairlines": 5,
+     "hairlineSamples": [
+      "aside.web-sidebar 228px",
+      "li 778px",
+      "div.import-submit 778px",
+      "aside.import-guide 296px",
+      "footer 1212px"
+     ],
+     "outlinedBoxes": 2,
+     "dashed": 1,
+     "blurred": 0,
+     "roundedBoxes": 2,
+     "boxRadius": 16,
+     "squareMedia": 0,
+     "roundedMedia": 0,
+     "mediaRadius": 0,
+     "textShadow": 0,
+     "cardRows": []
+    },
+    "heroMedia": [],
+    "nav": {
+     "links": 1,
+     "fixed": true,
+     "height": 900,
+     "floatingPill": false,
+     "blur": false
+    },
+    "fontsLoaded": []
+   },
+   "layout": {
+    "viewport": {
+     "w": 1440,
+     "h": 900
+    },
+    "pageH": 900,
+    "margins": {
+     "left": 54,
+     "right": 36
+    },
+    "sections": [],
+    "gaps": [],
+    "h1s": [
+     {
+      "text": "开始导入",
+      "size": 28,
+      "top": 32,
+      "firstScreen": true
+     }
+    ],
+    "edgeText": [],
+    "edges": [
+     {
+      "x": 1137,
+      "n": 3
+     },
+     {
+      "x": 260,
+      "n": 1
+     }
+    ],
+    "leftBlocks": 4,
+    "bodySize": 13,
+    "stage": false,
+    "explains": false,
+    "slivers": [],
+    "voidShare": 0.16,
+    "voidBox": {
+     "x": 120,
+     "y": 600,
+     "w": 840,
+     "h": 240
+    }
+   },
+   "app": {
+    "viewport": {
+     "w": 1440,
+     "h": 900
+    },
+    "dark": false,
+    "ground": "#f7f4f1",
+    "sidebar": {
+     "w": 228,
+     "tag": "aside",
+     "links": 4,
+     "share": 0.16
+    },
+    "topbar": null,
+    "canvas": {
+     "left": 32,
+     "right": 33
+    },
+    "hero": {
+     "text": "开始导入",
+     "words": 1,
+     "chars": 4,
+     "lines": 1,
+     "size": 28,
+     "vw": 1.9,
+     "font": "system-ui",
+     "weight": 600,
+     "tracking": -0.03,
+     "leading": 1.3,
+     "top": 32,
+     "tag": "h1",
+     "kind": "heading",
+     "align": "left",
+     "position": "left"
+    },
+    "charts": 0,
+    "layout": {
+     "panels": 1,
+     "firstScreen": 1,
+     "ragged": [],
+     "voids": []
+    },
+    "tiles": 0,
+    "panels": {
+     "count": 2,
+     "radii": [
+      [
+       16,
+       1
+      ],
+      [
+       14,
+       1
+      ]
+     ],
+     "heavyBorders": 1,
+     "borderSamples": [
+      "#958798 on #f7f4f1 (3.09:1)"
+     ],
+     "heavyShadows": 0,
+     "softShadows": 0,
+     "shadowSamples": [],
+     "glass": 0
+    },
+    "chips": {
+     "count": 0,
+     "hues": 0,
+     "samples": []
+    },
+    "numbers": {
+     "cells": 0,
+     "leftAligned": 0,
+     "figures": 0,
+     "tabularShare": null,
+     "kpiMax": null
+    },
+    "rows": null,
+    "chartHues": 0,
+    "placeholders": [],
+    "type": {
+     "under13": 0.18,
+     "tiny": 0,
+     "tinySamples": [],
+     "sizes": [
+      11,
+      12,
+      13,
+      14,
+      16,
+      18,
+      20,
+      28
+     ]
+    },
+    "title": {
+     "text": "开始导入",
+     "size": 28,
+     "top": 32
+    },
+    "colourShare": 0.001
+   },
+   "consoleErrors": []
+  },
+  {
+   "width": 768,
+   "height": 1024,
+   "load": "load",
+   "screens": 2,
+   "filled": [
+    0.4,
+    0.41
+   ],
+   "motion": {
+    "elements": 0,
+    "css": 0,
+    "transitions": 0,
+    "scripted": 0,
+    "videos": 0,
+    "playingVideos": 0
+   },
+   "metrics": {
+    "viewport": {
+     "w": 768,
+     "h": 1024
+    },
+    "page": {
+     "height": 1219,
+     "screens": 1.2,
+     "words": 71,
+     "img": 1,
+     "video": 0,
+     "canvas": 0,
+     "svg": 14,
+     "sections": 7,
+     "horizontalOverflow": 0,
+     "overflowCulprits": [],
+     "uiFragments": 0,
+     "uiAbuse": false,
+     "realPictures": 0,
+     "videoCount": 0,
+     "uiPictures": 0,
+     "pictureSamples": [],
+     "blendText": 0,
+     "sideScrollers": 0,
+     "brokenImages": [],
+     "emoji": [],
+     "videosNoPoster": 0
+    },
+    "hero": {
+     "text": "开始导入",
+     "words": 1,
+     "chars": 4,
+     "lines": 1,
+     "size": 28,
+     "vw": 3.6,
+     "font": "system-ui",
+     "weight": 600,
+     "tracking": -0.03,
+     "leading": 1.3,
+     "top": 24,
+     "tag": "h1",
+     "kind": "heading",
+     "align": "left",
+     "position": "left"
+    },
+    "h1": {
+     "text": "开始导入",
+     "words": 1,
+     "lines": 1,
+     "size": 28,
+     "font": "system-ui"
+    },
+    "headings": [
+     {
+      "text": "开始导入",
+      "words": 1,
+      "chars": 4,
+      "lines": 1,
+      "size": 28,
+      "vw": 3.6,
+      "font": "system-ui",
+      "weight": 600,
+      "tracking": -0.03,
+      "leading": 1.3,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "right",
+      "widthRatio": 0.68,
+      "top": 24,
+      "tag": "h1",
+      "kind": "heading"
+     }
+    ],
+    "headingSummary": {
+     "count": 1,
+     "maxLines": 1,
+     "over2Lines": 0,
+     "statements": 0,
+     "centered": 0,
+     "medianWords": null,
+     "mixedFontHeadings": 0
+    },
+    "type": {
+     "families": [
+      {
+       "family": "system-ui",
+       "share": 1,
+       "mono": false
+      }
+     ],
+     "familyCount": 1,
+     "sizes": [
+      11,
+      12,
+      13,
+      14,
+      16,
+      18,
+      20,
+      28
+     ],
+     "sizeCount": 8,
+     "notLoaded": [],
+     "body": {
+      "font": "system-ui",
+      "size": 13,
+      "leading": 1.75,
+      "weight": 400,
+      "tracking": 0,
+      "contrast": 5.3
+     },
+     "measureChars": 80,
+     "max": {
+      "size": 28,
+      "vw": 3.6,
+      "font": "system-ui",
+      "text": "开始导入"
+     },
+     "monoShare": 0,
+     "monoProseShare": 0,
+     "monoFamilies": [],
+     "monoSamples": [],
+     "microLabels": 0,
+     "microLabelShare": 0,
+     "microSamples": [],
+     "upperShare": 0.17,
+     "centerShare": 0.02,
+     "smallText": 4
+    },
+    "eyebrows": [],
+    "numbered": [],
+    "color": {
+     "bodyBg": "#f7f4f1",
+     "bodyBgHsl": {
+      "h": 30,
+      "s": 0.27,
+      "l": 0.96
+     },
+     "dark": false,
+     "sectionBgs": [
+      {
+       "color": "#fffcfa",
+       "top": 120,
+       "hsl": {
+        "h": 24,
+        "s": 1,
+        "l": 0.99
+       }
+      }
+     ],
+     "textColors": [
+      {
+       "color": "#6d6271",
+       "share": 0.87
+      },
+      {
+       "color": "#302939",
+       "share": 0.12
+      },
+      {
+       "color": "#ffffff",
+       "share": 0.01
+      }
+     ],
+     "button": {
+      "bg": "#795088",
+      "hsl": {
+       "h": 284,
+       "s": 0.26,
+       "l": 0.42
+      },
+      "fg": "#ffffff"
+     },
+     "lowContrast": []
+    },
+    "buttons": {
+     "count": 3,
+     "inHero": 3,
+     "radius": 8,
+     "height": 50,
+     "withShadow": 0,
+     "withGradient": 0,
+     "mono": 0,
+     "upper": 0,
+     "heroLabels": [
+      "跳到主要内容",
+      "开始导入",
+      "开始导入"
+     ]
+    },
+    "surfaces": {
+     "shadowStatic": 0,
+     "shadowOverlay": 0,
+     "shadowSamples": [],
+     "gradients": 0,
+     "scrims": 0,
+     "gradientSamples": [],
+     "gradientText": 0,
+     "hairlines": 4,
+     "hairlineSamples": [
+      "aside.web-sidebar 200px",
+      "li 470px",
+      "div.import-submit 470px",
+      "footer 568px"
+     ],
+     "outlinedBoxes": 2,
+     "dashed": 1,
+     "blurred": 0,
+     "roundedBoxes": 2,
+     "boxRadius": 16,
+     "squareMedia": 0,
+     "roundedMedia": 0,
+     "mediaRadius": 0,
+     "textShadow": 0,
+     "cardRows": []
+    },
+    "heroMedia": [],
+    "nav": {
+     "links": 1,
+     "fixed": true,
+     "height": 1024,
+     "floatingPill": false,
+     "blur": false
+    },
+    "fontsLoaded": []
+   },
+   "layout": {
+    "viewport": {
+     "w": 768,
+     "h": 1024
+    },
+    "pageH": 1219,
+    "margins": {
+     "left": 48,
+     "right": 33
+    },
+    "sections": [
+     {
+      "sel": "div.group/card.flex",
+      "tag": "div",
+      "top": 120,
+      "height": 502,
+      "words": 29,
+      "media": 0,
+      "middle": 29,
+      "heading": {
+       "text": "导入文档",
+       "size": 18,
+       "tag": "div"
+      },
+      "left": 249,
+      "right": 49,
+      "textLeft": 249,
+      "textRight": 60,
+      "fullBleed": false,
+      "footer": false,
+      "hero": true,
+      "continues": false,
+      "pinned": false
+     },
+     {
+      "sel": "aside.import-guide",
+      "tag": "aside",
+      "top": 646,
+      "height": 495,
+      "words": 67,
+      "media": 0,
+      "middle": 0,
+      "heading": {
+       "text": "支持的文档",
+       "size": 16,
+       "tag": "h2"
+      },
+      "left": 224,
+      "right": 30,
+      "textLeft": 224,
+      "textRight": 30,
+      "fullBleed": false,
+      "footer": true,
+      "hero": false,
+      "continues": false,
+      "pinned": false
+     }
+    ],
+    "gaps": [],
+    "h1s": [
+     {
+      "text": "开始导入",
+      "size": 28,
+      "top": 24,
+      "firstScreen": true
+     }
+    ],
+    "edgeText": [],
+    "edges": [
+     {
+      "x": 224,
+      "n": 4
+     }
+    ],
+    "leftBlocks": 4,
+    "bodySize": 13,
+    "stage": false,
+    "explains": false,
+    "slivers": [],
+    "voidShare": 0,
+    "voidBox": null
+   },
+   "app": {
+    "viewport": {
+     "w": 768,
+     "h": 1024
+    },
+    "dark": false,
+    "ground": "#f7f4f1",
+    "sidebar": {
+     "w": 200,
+     "tag": "aside",
+     "links": 4,
+     "share": 0.26
+    },
+    "topbar": null,
+    "canvas": {
+     "left": 24,
+     "right": 30
+    },
+    "hero": {
+     "text": "开始导入",
+     "words": 1,
+     "chars": 4,
+     "lines": 1,
+     "size": 28,
+     "vw": 3.6,
+     "font": "system-ui",
+     "weight": 600,
+     "tracking": -0.03,
+     "leading": 1.3,
+     "top": 24,
+     "tag": "h1",
+     "kind": "heading",
+     "align": "left",
+     "position": "left"
+    },
+    "charts": 0,
+    "layout": {
+     "panels": 1,
+     "firstScreen": 1,
+     "ragged": [],
+     "voids": []
+    },
+    "tiles": 0,
+    "panels": {
+     "count": 2,
+     "radii": [
+      [
+       16,
+       1
+      ],
+      [
+       14,
+       1
+      ]
+     ],
+     "heavyBorders": 1,
+     "borderSamples": [
+      "#958798 on #f7f4f1 (3.09:1)"
+     ],
+     "heavyShadows": 0,
+     "softShadows": 0,
+     "shadowSamples": [],
+     "glass": 0
+    },
+    "chips": {
+     "count": 0,
+     "hues": 0,
+     "samples": []
+    },
+    "numbers": {
+     "cells": 0,
+     "leftAligned": 0,
+     "figures": 0,
+     "tabularShare": null,
+     "kpiMax": null
+    },
+    "rows": null,
+    "chartHues": 0,
+    "placeholders": [],
+    "type": {
+     "under13": 0.18,
+     "tiny": 0,
+     "tinySamples": [],
+     "sizes": [
+      11,
+      12,
+      13,
+      14,
+      16,
+      18,
+      20,
+      28
+     ]
+    },
+    "title": {
+     "text": "开始导入",
+     "size": 28,
+     "top": 24
+    },
+    "colourShare": 0.002
+   },
+   "consoleErrors": []
+  },
+  {
+   "width": 390,
+   "height": 844,
+   "load": "load",
+   "screens": 2,
+   "filled": [
+    0.53,
+    0.47
+   ],
+   "motion": {
+    "elements": 0,
+    "css": 0,
+    "transitions": 0,
+    "scripted": 0,
+    "videos": 0,
+    "playingVideos": 0
+   },
+   "metrics": {
+    "viewport": {
+     "w": 390,
+     "h": 844
+    },
+    "page": {
+     "height": 1485,
+     "screens": 1.8,
+     "words": 69,
+     "img": 1,
+     "video": 0,
+     "canvas": 0,
+     "svg": 14,
+     "sections": 7,
+     "horizontalOverflow": 0,
+     "overflowCulprits": [],
+     "uiFragments": 0,
+     "uiAbuse": false,
+     "realPictures": 0,
+     "videoCount": 0,
+     "uiPictures": 0,
+     "pictureSamples": [],
+     "blendText": 0,
+     "sideScrollers": 0,
+     "brokenImages": [],
+     "emoji": [],
+     "videosNoPoster": 0
+    },
+    "hero": {
+     "text": "开始导入",
+     "words": 1,
+     "chars": 4,
+     "lines": 1,
+     "size": 22,
+     "vw": 5.6,
+     "font": "system-ui",
+     "weight": 600,
+     "tracking": -0.03,
+     "leading": 1.3,
+     "top": 159,
+     "tag": "h1",
+     "kind": "heading",
+     "align": "left",
+     "position": "left"
+    },
+    "h1": {
+     "text": "开始导入",
+     "words": 1,
+     "lines": 1,
+     "size": 22,
+     "font": "system-ui"
+    },
+    "headings": [
+     {
+      "text": "开始导入",
+      "words": 1,
+      "chars": 4,
+      "lines": 1,
+      "size": 22,
+      "vw": 5.6,
+      "font": "system-ui",
+      "weight": 600,
+      "tracking": -0.03,
+      "leading": 1.3,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.92,
+      "top": 159,
+      "tag": "h1",
+      "kind": "heading"
+     }
+    ],
+    "headingSummary": {
+     "count": 1,
+     "maxLines": 1,
+     "over2Lines": 0,
+     "statements": 0,
+     "centered": 0,
+     "medianWords": null,
+     "mixedFontHeadings": 0
+    },
+    "type": {
+     "families": [
+      {
+       "family": "system-ui",
+       "share": 1,
+       "mono": false
+      }
+     ],
+     "familyCount": 1,
+     "sizes": [
+      11,
+      12,
+      13,
+      14,
+      16,
+      18,
+      22
+     ],
+     "sizeCount": 7,
+     "notLoaded": [],
+     "body": {
+      "font": "system-ui",
+      "size": 13,
+      "leading": 1.75,
+      "weight": 400,
+      "tracking": 0,
+      "contrast": 5.3
+     },
+     "measureChars": 55,
+     "max": {
+      "size": 22,
+      "vw": 5.6,
+      "font": "system-ui",
+      "text": "开始导入"
+     },
+     "monoShare": 0,
+     "monoProseShare": 0,
+     "monoFamilies": [],
+     "monoSamples": [],
+     "microLabels": 0,
+     "microLabelShare": 0,
+     "microSamples": [],
+     "upperShare": 0.17,
+     "centerShare": 0.02,
+     "smallText": 4
+    },
+    "eyebrows": [],
+    "numbered": [],
+    "color": {
+     "bodyBg": "#f7f4f1",
+     "bodyBgHsl": {
+      "h": 30,
+      "s": 0.27,
+      "l": 0.96
+     },
+     "dark": false,
+     "sectionBgs": [
+      {
+       "color": "#fffcfa",
+       "top": 247,
+       "hsl": {
+        "h": 24,
+        "s": 1,
+        "l": 0.99
+       }
+      }
+     ],
+     "textColors": [
+      {
+       "color": "#6d6271",
+       "share": 0.87
+      },
+      {
+       "color": "#302939",
+       "share": 0.11
+      },
+      {
+       "color": "#ffffff",
+       "share": 0.01
+      }
+     ],
+     "button": {
+      "bg": "#795088",
+      "hsl": {
+       "h": 284,
+       "s": 0.26,
+       "l": 0.42
+      },
+      "fg": "#ffffff"
+     },
+     "lowContrast": []
+    },
+    "buttons": {
+     "count": 3,
+     "inHero": 3,
+     "radius": 8,
+     "height": 48,
+     "withShadow": 0,
+     "withGradient": 0,
+     "mono": 0,
+     "upper": 0,
+     "heroLabels": [
+      "跳到主要内容",
+      "开始导入",
+      "开始导入"
+     ]
+    },
+    "surfaces": {
+     "shadowStatic": 0,
+     "shadowOverlay": 0,
+     "shadowSamples": [],
+     "gradients": 0,
+     "scrims": 0,
+     "gradientSamples": [],
+     "gradientText": 0,
+     "hairlines": 4,
+     "hairlineSamples": [
+      "aside.web-sidebar 390px",
+      "li 324px",
+      "div.import-submit 324px",
+      "footer 390px"
+     ],
+     "outlinedBoxes": 2,
+     "dashed": 1,
+     "blurred": 0,
+     "roundedBoxes": 2,
+     "boxRadius": 16,
+     "squareMedia": 0,
+     "roundedMedia": 0,
+     "mediaRadius": 0,
+     "textShadow": 0,
+     "cardRows": []
+    },
+    "heroMedia": [],
+    "nav": {
+     "links": 3,
+     "fixed": true,
+     "height": 135,
+     "floatingPill": false,
+     "blur": false
+    },
+    "fontsLoaded": []
+   },
+   "layout": {
+    "viewport": {
+     "w": 390,
+     "h": 844
+    },
+    "pageH": 1485,
+    "margins": {
+     "left": 16,
+     "right": 23
+    },
+    "sections": [
+     {
+      "sel": "aside.web-sidebar",
+      "tag": "aside",
+      "top": 0,
+      "height": 135,
+      "words": 6,
+      "media": 0,
+      "middle": 82,
+      "heading": null,
+      "left": 60,
+      "right": 49,
+      "textLeft": 60,
+      "textRight": 49,
+      "fullBleed": false,
+      "footer": false,
+      "hero": true,
+      "continues": false,
+      "pinned": true
+     },
+     {
+      "sel": "div.web-body",
+      "tag": "div",
+      "top": 135,
+      "height": 1350,
+      "words": 101,
+      "media": 0,
+      "middle": 0,
+      "heading": {
+       "text": "开始导入",
+       "size": 22,
+       "tag": "h1"
+      },
+      "left": 16,
+      "right": 17,
+      "textLeft": 16,
+      "textRight": 17,
+      "fullBleed": false,
+      "footer": true,
+      "hero": true,
+      "continues": false,
+      "pinned": false
+     }
+    ],
+    "gaps": [],
+    "h1s": [
+     {
+      "text": "开始导入",
+      "size": 22,
+      "top": 159,
+      "firstScreen": true
+     }
+    ],
+    "edgeText": [],
+    "edges": [
+     {
+      "x": 16,
+      "n": 4
+     }
+    ],
+    "leftBlocks": 4,
+    "bodySize": 13,
+    "stage": false,
+    "explains": false,
+    "slivers": [],
+    "voidShare": 0,
+    "voidBox": null
+   },
+   "app": {
+    "viewport": {
+     "w": 390,
+     "h": 844
+    },
+    "dark": false,
+    "ground": "#f7f4f1",
+    "sidebar": null,
+    "topbar": null,
+    "canvas": {
+     "left": 16,
+     "right": 17
+    },
+    "hero": {
+     "text": "开始导入",
+     "words": 1,
+     "chars": 4,
+     "lines": 1,
+     "size": 22,
+     "vw": 5.6,
+     "font": "system-ui",
+     "weight": 600,
+     "tracking": -0.03,
+     "leading": 1.3,
+     "top": 159,
+     "tag": "h1",
+     "kind": "heading",
+     "align": "left",
+     "position": "left"
+    },
+    "charts": 0,
+    "layout": {
+     "panels": 1,
+     "firstScreen": 1,
+     "ragged": [],
+     "voids": []
+    },
+    "tiles": 0,
+    "panels": {
+     "count": 3,
+     "radii": [
+      [
+       16,
+       1
+      ],
+      [
+       14,
+       1
+      ],
+      [
+       0,
+       1
+      ]
+     ],
+     "heavyBorders": 1,
+     "borderSamples": [
+      "#958798 on #f7f4f1 (3.09:1)"
+     ],
+     "heavyShadows": 0,
+     "softShadows": 0,
+     "shadowSamples": [],
+     "glass": 0
+    },
+    "chips": {
+     "count": 0,
+     "hues": 0,
+     "samples": []
+    },
+    "numbers": {
+     "cells": 0,
+     "leftAligned": 0,
+     "figures": 0,
+     "tabularShare": null,
+     "kpiMax": null
+    },
+    "rows": null,
+    "chartHues": 0,
+    "placeholders": [],
+    "type": {
+     "under13": 0.2,
+     "tiny": 0,
+     "tinySamples": [],
+     "sizes": [
+      11,
+      12,
+      13,
+      14,
+      16,
+      18,
+      20,
+      22
+     ]
+    },
+    "title": {
+     "text": "开始导入",
+     "size": 22,
+     "top": 159
+    },
+    "colourShare": 0.002
+   },
+   "consoleErrors": []
+  }
+ ],
+ "findings": [],
+ "images": [
+  {
+   "viewport": "desktop",
+   "width": 1440,
+   "fold": "/Users/sheny/Developer/code/PractiQ/docs/evidence/2026-10-22-taste-web/inspection/light/desktop-fold.jpg",
+   "pages": [
+    "/Users/sheny/Developer/code/PractiQ/docs/evidence/2026-10-22-taste-web/inspection/light/desktop-page-01.jpg"
+   ],
+   "film": []
+  },
+  {
+   "viewport": "tablet",
+   "width": 768,
+   "fold": "/Users/sheny/Developer/code/PractiQ/docs/evidence/2026-10-22-taste-web/inspection/light/tablet-fold.jpg",
+   "pages": [
+    "/Users/sheny/Developer/code/PractiQ/docs/evidence/2026-10-22-taste-web/inspection/light/tablet-page-01.jpg"
+   ],
+   "film": []
+  },
+  {
+   "viewport": "mobile",
+   "width": 390,
+   "fold": "/Users/sheny/Developer/code/PractiQ/docs/evidence/2026-10-22-taste-web/inspection/light/mobile-fold.jpg",
+   "pages": [
+    "/Users/sheny/Developer/code/PractiQ/docs/evidence/2026-10-22-taste-web/inspection/light/mobile-page-01.jpg"
+   ],
+   "film": []
+  }
+ ]
+}
