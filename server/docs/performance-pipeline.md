@@ -14,7 +14,9 @@ not upload APIs, schemas, model prompts, or explicit-action requirements.
   whole-archive path, duplicate-member, entry-count and expanded-size checks run
   before image reads. XML associations reuse that validated member-name set.
   Images are read, validated and persisted sequentially, not expanded as a batch.
-  CRC, actual-format, size and pixel checks remain in force. Opening, decoding and
+  CRC, actual-format, size and pixel checks remain in force. Invalid ZIP headers,
+  unsupported extraction versions and malformed filename encodings retain the
+  structured `TENCENT_RESULT_INVALID` error. Opening, decoding and
   image reads use the cancellation-draining thread helper: neither the ZIP nor the
   preparation lease closes before a running worker finishes, even after repeated
   cancellation.

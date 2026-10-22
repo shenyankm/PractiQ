@@ -68,6 +68,31 @@ async def test_prepare_opens_one_zip_and_never_rebuilds_member_names(monkeypatch
         assert figure["imageRef"]["sha256"] == hashlib.sha256(image).hexdigest()
 
 
+@pytest.mark.parametrize("bad", ["corrupt", "version", "encoding"])
+async def test_prepare_translates_zip_open_failures(monkeypatch, bad):
+    payload, _ = resource_bundle(0)
+    damaged = bytearray(payload)
+    directory = damaged.index(b"PK\x01\x02")
+    if bad == "corrupt":
+        payload = b"not a zip"
+    elif bad == "version":
+        damaged[directory + 6:directory + 8] = (255).to_bytes(2, "little")
+        payload = bytes(damaged)
+    else:
+        flags = int.from_bytes(damaged[directory + 8:directory + 10], "little") | 0x800
+        damaged[directory + 8:directory + 10] = flags.to_bytes(2, "little")
+        damaged[directory + 46] = 0xff
+        payload = bytes(damaged)
+    files, reference = source("Question")
+    result_ref = await files.put_artifact(payload, source_sha256=reference["sha256"], kind="tencent-result", index=0, media_type="application/octet-stream")
+    monkeypatch.setattr(document, "get_object_store", lambda: files)
+    monkeypatch.setattr(document, "get_model", lambda: object())
+    monkeypatch.setattr(document, "parse_job", AsyncMock(return_value={"resultRef": result_ref.model_dump(), "SuccessPageNum": 1}))
+    with pytest.raises(DocumentProcessingError) as error:
+        await document._prepare(cast(Any, {"document": reference}), cast(Any, SimpleNamespace()))
+    assert error.value.code == "TENCENT_RESULT_INVALID"
+
+
 @pytest.mark.parametrize("bad", ["unsafe", "duplicate", "entries", "expanded"])
 def test_reused_archive_validates_all_members_before_subimage_reads(monkeypatch, bad):
     extra = [("../unused", b"bad")] if bad == "unsafe" else [("assets/0.png", b"duplicate")] if bad == "duplicate" else []

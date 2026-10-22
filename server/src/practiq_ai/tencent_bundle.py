@@ -66,7 +66,7 @@ def _image_members(archive: zipfile.ZipFile, member_names: set[str]) -> dict[tup
 def open_bundle(payload: bytes) -> zipfile.ZipFile:
     try:
         return zipfile.ZipFile(BytesIO(payload))
-    except zipfile.BadZipFile as exc:
+    except (zipfile.BadZipFile, ValueError, NotImplementedError) as exc:
         raise DocumentProcessingError(502, "Tencent result archive is invalid", "TENCENT_RESULT_INVALID") from exc
 
 
