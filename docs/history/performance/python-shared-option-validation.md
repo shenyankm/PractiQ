@@ -19,7 +19,13 @@ queue, checkpoint or artifact behavior changes.
 
 ## Measurements
 
-Baseline `a492117f8c9a4fc4de2b24a44dd4cbd4ed2ba69d`, CPython 3.14.7, macOS arm64.
+Measured baseline `a492117f8c9a4fc4de2b24a44dd4cbd4ed2ba69d`, CPython 3.14.7,
+macOS arm64. That local pre-squash commit is not retained in remote history.
+For reproduction, use retained main commit
+`a17646ab29d3c51f90ac9254f21f62f6ed579c9a` (#345): its entire
+`server/src/practiq_ai/contracts.py` blob is identical to the measured baseline
+(`cb9afa65b0aec47446f7c05d62c508f5fbbc7d2f`). The original measurement metadata
+below remains unchanged.
 The [raw report](../../../server/reports/python-shared-options-performance.json)
 retains samples and probe/function hashes. The benchmark loads only the selected
 baseline function from local Git, using the same current schema classes. It
@@ -77,11 +83,12 @@ physical-device or native UI acceptance is claimed by this change.
 
 ## Reproduction
 
-From the repository root, with the existing Python 3.14+ interpreter:
+From the repository root, with the existing Python 3.14+ interpreter and Git
+history containing main commit `a17646ab` (fetch full history for shallow clones):
 
 ```sh
 PYTHONPATH="$PWD/server/src" python3.14 server/scripts/benchmark_shared_options.py \
-  --baseline a492117f --output /absolute/path/report.json
+  --baseline a17646ab29d3c51f90ac9254f21f62f6ed579c9a --output /absolute/path/report.json
 PYTHONPATH="$PWD/server/src" make verify AI_PYTHON=/path/to/python3.14
 ```
 
