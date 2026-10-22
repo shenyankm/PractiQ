@@ -17,7 +17,9 @@ or additional cache layer.
   result components survive workspace switches, retaining task selection, list
   cursors/filter, result search/filter/page and expanded question details. Returning
   immediately refreshes the list and selected task; task controls remain disabled
-  until detail freshness is confirmed. Already-started reads may finish, but hidden
+  until detail freshness is confirmed. A visible wake arriving during a read is
+  retained and checked immediately after that read settles, rather than waiting
+  for the next polling interval. Already-started reads may finish, but hidden
   successful responses are discarded and do not trigger a follow-up preview.
 - Task diagnostics use the existing first-expansion pattern from `QuestionRecord`.
   Native `details`/`summary` semantics remain unchanged. Before expansion, no usage

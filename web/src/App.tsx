@@ -167,6 +167,7 @@ export default function App() {
     let timer: ReturnType<typeof setTimeout>;
     let reading = false, stopped = false, failures = 0;
     let currentDetail: DocumentTaskDetail | null = null, currentPreview: DocumentTaskReview | null = null;
+    let wakePending = false;
     async function poll(force = false) {
       if (reading || stopped || !recordsVisible.current || document.hidden || controller.signal.aborted) return;
       reading = true;
@@ -209,10 +210,18 @@ export default function App() {
       } finally {
         reading = false;
         failures = failed ? failures + 1 : 0;
-        if (!controller.signal.aborted && !stopped && recordsVisible.current && !document.hidden) timer = setTimeout(() => void poll(), failures ? pollRetryDelay(failures) : currentDetail && !["PENDING", "RUNNING", "PAUSING"].includes(currentDetail.state) ? 30000 : 3000);
+        if (!controller.signal.aborted && !stopped && recordsVisible.current && !document.hidden) {
+          if (wakePending) { wakePending = false; void poll(); }
+          else timer = setTimeout(() => void poll(), failures ? pollRetryDelay(failures) : currentDetail && !["PENDING", "RUNNING", "PAUSING"].includes(currentDetail.state) ? 30000 : 3000);
+        }
       }
     }
-    function wake() { clearTimeout(timer); if (!recordsVisible.current || document.hidden) setDetailFresh(false); void poll(); }
+    function wake() {
+      clearTimeout(timer);
+      if (!recordsVisible.current || document.hidden) { wakePending = false; setDetailFresh(false); return; }
+      if (reading) { wakePending = true; return; }
+      void poll();
+    }
     detailWake.current = wake;
     document.addEventListener("visibilitychange", wake); window.addEventListener("focus", wake);
     void poll(true);

@@ -459,6 +459,27 @@ it("discards an in-flight hidden detail without fetching its preview, then reval
   expect(http.calls.every(call => call.method === "GET")).toBe(true);
 });
 
+it("revalidates immediately when records return before a follow-up preview settles", async () => {
+  const user = userEvent.setup(); const http = fakeHTTP();
+  render(<App />); await connect(user); await openTask(user);
+  const updated = { ...task, checkpointId: "checkpoint-two" };
+  http.records.set(taskId, updated);
+  let release!: (response: Response) => void;
+  http.server.intercept = url => url.endsWith("/preview") ? new Promise(resolve => { release = resolve; }) : undefined;
+  await act(async () => window.dispatchEvent(new Event("focus")));
+  await waitFor(() => expect(release).toBeTypeOf("function"));
+  await user.click(screen.getByRole("link", { name: "设置" }));
+  await user.click(screen.getByRole("link", { name: "导入记录" }));
+  const download = screen.getByRole("button", { name: "下载题库 ZIP" });
+  expect(download).toHaveProperty("disabled", true);
+  const heads = http.calls.filter(call => call.url.endsWith("/head")).length;
+  await act(async () => release(json({ ...preview, checkpointId: updated.checkpointId })));
+  await waitFor(() => expect(download).toHaveProperty("disabled", false));
+  expect(http.calls.filter(call => call.url.endsWith("/head"))).toHaveLength(heads + 1);
+  expect(http.calls.filter(call => call.url.endsWith(`/${taskId}`))).toHaveLength(2);
+  expect(http.calls.every(call => call.method === "GET")).toBe(true);
+});
+
 it("pauses background polling and reloads when the document becomes visible", async () => {
   const user = userEvent.setup(); const http = fakeHTTP({...task,state:"RUNNING",allowedActions:["pause"]}); render(<App/>); await connect(user); await openTask(user);
   vi.useFakeTimers(); await act(async()=>{window.dispatchEvent(new Event("focus"));});
