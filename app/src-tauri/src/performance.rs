@@ -990,3 +990,73 @@ fn snapshot_metadata_copies() {
     .unwrap();
     println!("{report}");
 }
+
+#[test]
+#[ignore = "paired cached association INSERT workload; temporary databases, release only"]
+fn association_insert_cache_stress() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = Store::new(dir.path().into()).unwrap();
+    let mut db = store.connect().unwrap();
+    db.execute("INSERT INTO banks VALUES('bank','Synthetic','',1)", [])
+        .unwrap();
+    db.execute(
+        "INSERT INTO imports(id,bank_id,digest,created_at) VALUES('import','bank','digest',1)",
+        [],
+    )
+    .unwrap();
+    let ids: Vec<_> = (0..200).map(|i| format!("q{i:03}")).collect();
+    for (i, id) in ids.iter().enumerate() {
+        db.execute("INSERT INTO questions(id,bank_id,position,stem,mode,content_blocks,confidence,needs_review,missing_fields) VALUES(?1,'bank',?2,'Question','true_false','[]',1,0,'[]')", params![id,i]).unwrap();
+        db.execute("INSERT INTO true_false_questions VALUES(?1,'true')", [id])
+            .unwrap();
+    }
+    let result = json!({"questions":ids.iter().map(|id|json!({"id":id})).collect::<Vec<_>>(),
+        "warnings":["first","second"],"missingFields":["analysis"],
+        "groups":(0..100).map(|i|json!({"title":format!("Group {i}"),"instructions":null,"questionIds":ids})).collect::<Vec<_>>(),
+        "visualElements":(0..20).map(|i|json!({"description":format!("Visual {i}"),"questionIds":ids})).collect::<Vec<_>>()});
+    let processing = json!({"questionSources":ids.iter().map(|id|json!({"questionId":id,"stage":"document_parse","unitIndex":0})).collect::<Vec<_>>()});
+    let mut expected = None;
+    let mut report =
+        json!({"questions":200,"associationRows":24323,"uniqueInsertSql":6,"samples":[]});
+    for capacity in [0, 16] {
+        db.set_prepared_statement_cache_capacity(capacity);
+        let mut times = Vec::new();
+        for _ in 0..3 {
+            let tx = db.transaction().unwrap();
+            let start = Instant::now();
+            crate::questions::put_context(&tx, "bank", &result, &ids, "import", &processing)
+                .unwrap();
+            times.push(start.elapsed().as_secs_f64() * 1000.0);
+            let mut normalized = json!({});
+            for (name, sql) in [
+                ("groups", "SELECT json_array(s.title,s.instructions,q.position) FROM sections s JOIN section_questions r ON r.section_id=s.id JOIN questions q ON q.id=r.question_id ORDER BY s.rowid,q.position"),
+                ("visuals", "SELECT json_array(v.content,v.document_level,q.position) FROM visuals v JOIN question_visuals r ON r.visual_id=v.id JOIN questions q ON q.id=r.question_id ORDER BY v.rowid,q.position"),
+                ("warnings", "SELECT json_array(position,message) FROM import_warnings ORDER BY position"),
+                ("sources", "SELECT json_array(question_id,stage,unit_index) FROM question_sources ORDER BY question_id,stage,unit_index"),
+            ] {
+                normalized[name] = json!(tx.prepare(sql).unwrap().query_map([], |row| row.get::<_,String>(0)).unwrap().collect::<std::result::Result<Vec<_>,_>>().unwrap());
+            }
+            assert_eq!(list(&normalized, "groups").len(), 20_000);
+            assert_eq!(list(&normalized, "visuals").len(), 4_000);
+            assert_eq!(list(&normalized, "warnings").len(), 3);
+            assert_eq!(list(&normalized, "sources").len(), 200);
+            assert!(!tx
+                .prepare("PRAGMA foreign_key_check")
+                .unwrap()
+                .exists([])
+                .unwrap());
+            let digest = crate::store::hash(&serde_json::to_vec(&normalized).unwrap());
+            if let Some(expected) = &expected {
+                assert_eq!(&digest, expected);
+            }
+            expected = Some(digest);
+            tx.rollback().unwrap();
+        }
+        report["samples"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!({"cacheCapacity":capacity,"elapsedMs":times}));
+    }
+    report["normalizedSha256"] = json!(expected.unwrap());
+    println!("{}", serde_json::to_string_pretty(&report).unwrap());
+}

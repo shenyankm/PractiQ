@@ -1196,6 +1196,53 @@ fn database_failure_rolls_back_bank_and_import_together() {
 }
 
 #[test]
+fn association_insert_failure_rolls_back_all_import_rows_and_assets() {
+    use crate::store::Pending;
+    let (_dir, s) = store();
+    let mut pending = Pending::new(sample(), "Association failure".into()).unwrap();
+    pending.root["processing"] = json!({"questionSources":[
+        {"questionId":"q0","stage":"document_parse","unitIndex":0},
+        {"questionId":"q1","stage":"document_parse","unitIndex":1}
+    ]});
+    let orphan = b"failed association import".to_vec();
+    let digest = crate::store::hash(&orphan);
+    pending
+        .assets
+        .insert(digest.clone(), ("image/png".into(), orphan));
+    let db = s.connect().unwrap();
+    db.execute_batch("CREATE TRIGGER fail_association BEFORE INSERT ON question_sources WHEN (SELECT COUNT(*) FROM question_sources)=1 BEGIN SELECT RAISE(ABORT,'injected association failure'); END;").unwrap();
+    let error = s.import_pending(&pending, None, "failure").unwrap_err();
+    assert!(error.to_string().contains("injected association failure"));
+    assert!(!s.asset_path(&digest).unwrap().exists());
+    for table in [
+        "banks",
+        "imports",
+        "questions",
+        "choice_questions",
+        "import_warnings",
+        "sections",
+        "section_questions",
+        "visuals",
+        "question_visuals",
+        "question_sources",
+        "assets",
+    ] {
+        assert_eq!(
+            db.query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |r| r
+                .get::<_, i64>(0))
+                .unwrap(),
+            0,
+            "{table}"
+        );
+    }
+    assert_eq!(
+        db.query_row("PRAGMA foreign_keys", [], |r| r.get::<_, i64>(0))
+            .unwrap(),
+        1
+    );
+}
+
+#[test]
 fn e2e_exam_restart_restore_on_fresh_install_and_retry() {
     use crate::exams::Paper;
     let (dir, mut source) = store();

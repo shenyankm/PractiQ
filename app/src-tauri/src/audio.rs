@@ -495,6 +495,14 @@ mod tests {
                 |r| r.get(0),
             )
             .unwrap();
+        // The source may be deleted; immutable history is still authoritative for audio.
+        store.delete_bank(&bank).unwrap();
+        let valid_history = dir.path().join("valid-history-only.zip");
+        store.backup(&valid_history).unwrap();
+        restored.restore(&valid_history).unwrap();
+        assert!(restored.banks().unwrap().as_array().unwrap().is_empty());
+        let before_failure = crate::backup::file_digest(&restored.db_path()).unwrap();
+        let expected_session = restored.session_data(sid, None).unwrap();
         let mut document: Value = serde_json::from_str(&raw).unwrap();
         let question = document["questions"]
             .as_array_mut()
@@ -517,6 +525,15 @@ mod tests {
             .to_string()
             .contains("duration"));
         assert!(restored.banks().unwrap().as_array().unwrap().is_empty());
+        assert_eq!(
+            crate::backup::file_digest(&restored.db_path()).unwrap(),
+            before_failure
+        );
+        let actual_session = restored.session_data(sid, None).unwrap();
+        for field in ["snapshotDocument", "attempts"] {
+            assert_eq!(actual_session[field], expected_session[field]);
+        }
+        assert_eq!(restored.asset_bytes(digest).unwrap().unwrap().1, bytes);
     }
     #[test]
     fn question_save_collects_replaced_audio_and_failed_persistence() {

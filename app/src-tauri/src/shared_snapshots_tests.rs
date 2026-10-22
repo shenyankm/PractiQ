@@ -70,8 +70,13 @@ fn snapshot_copy_stress() {
     }
     let mut report = json!({"probeSha256":crate::store::hash(include_bytes!("shared_snapshots_tests.rs")),
         "method":"Release Rust, temporary SQLite, one untimed warmup then seven sequential samples. Setup, output hashing and assertions excluded; operation includes result construction. No picker, IPC, WebView, physical devices or model calls.","workloads":[]});
-    for (nodes, passage_bytes, metadata) in [(20, 1000, 0), (999, 100_000, 0), (999, 10_000, 999)] {
-        let (_dir, store) = shared_session(nodes, "reading", "practice", passage_bytes);
+    for (nodes, passage_bytes, metadata, mode) in [
+        (20, 1000, 0, "reading"),
+        (999, 100_000, 0, "reading"),
+        (999, 10_000, 999, "reading"),
+        (100, 100_000, 0, "word_bank"),
+    ] {
+        let (_dir, store) = shared_session(nodes, mode, "practice", passage_bytes);
         let db = store.connect().unwrap();
         let mut doc = (*store.session_document(&db, "shared").unwrap()).clone();
         for row in doc["questions"].as_array_mut().unwrap().iter_mut().skip(1) {
@@ -94,9 +99,22 @@ fn snapshot_copy_stress() {
         .unwrap();
         *store.session_document_cache.borrow_mut() = None;
         let input = serde_json::to_vec(&doc).unwrap();
-        let mut workload = json!({"nodes":nodes,"passageBytes":passage_bytes,"scopedMetadataPairs":metadata,"inputBytes":input.len(),"inputSha256":crate::store::hash(&input)});
+        let mut workload = json!({"mode":mode,"nodes":nodes,"passageBytes":passage_bytes,"scopedMetadataPairs":metadata,"inputBytes":input.len(),"inputSha256":crate::store::hash(&input)});
         workload["context"] =
             sample(|| json!(crate::questions::context_from_document(&doc, "q0").unwrap()));
+        workload["contextReadThrough"] =
+            sample(|| json!(crate::questions::session_context(&db, "shared", "q0").unwrap()));
+        workload["contextCached"] = sample(|| {
+            let cached = store.session_document(&db, "shared").unwrap();
+            json!(crate::questions::context_from_document(&cached, "q0").unwrap())
+        });
+        for path in ["contextReadThrough", "contextCached"] {
+            assert_eq!(
+                workload[path]["outputSha256"],
+                workload["context"]["outputSha256"]
+            );
+        }
+        assert_eq!(serde_json::to_vec(&doc).unwrap(), input);
         let rows = crate::questions::thaw(&doc).unwrap();
         let index = crate::questions::Index::new(&rows);
         workload["hydrateAll"] = sample(|| {

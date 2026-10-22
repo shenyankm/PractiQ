@@ -569,18 +569,26 @@ fn validate_audio_segments(
     if durations.is_empty() {
         return Ok(());
     }
-    let validate = |rows: Vec<Value>| -> Result<()> {
-        for row in rows {
-            let question = &row["question"];
-            if let Some(duration) =
-                durations.get(crate::contract::text(&question["audioRef"], "sha256"))
-            {
-                crate::audio::validate_segment(question, *duration)?;
-            }
+    let validate = |question: &Value| -> Result<()> {
+        if let Some(duration) =
+            durations.get(crate::contract::text(&question["audioRef"], "sha256"))
+        {
+            crate::audio::validate_segment(question, *duration)?;
         }
         Ok(())
     };
-    validate(crate::questions::read(db)?)?;
+    // Full content validation already ran; this pass only needs listening segment fields.
+    let mut statement = db
+        .prepare("SELECT audio_ref,start_seconds,end_seconds FROM listening_questions")
+        .map_err(err)?;
+    let mut rows = statement.query([]).map_err(err)?;
+    while let Some(row) = rows.next().map_err(err)? {
+        validate(&json!({
+            "audioRef": serde_json::from_str::<Value>(&row.get::<_, String>(0).map_err(err)?).map_err(err)?,
+            "audioStartSeconds": row.get::<_, Option<f64>>(1).map_err(err)?,
+            "audioEndSeconds": row.get::<_, Option<f64>>(2).map_err(err)?
+        }))?;
+    }
     let mut statement = db
         .prepare("SELECT content FROM session_documents")
         .map_err(err)?;
@@ -589,7 +597,9 @@ fn validate_audio_segments(
         .map_err(err)?;
     for raw in documents {
         let document: Value = serde_json::from_str(&raw.map_err(err)?).map_err(err)?;
-        validate(crate::questions::thaw(&document)?)?;
+        for row in crate::contract::list(&document, "questions") {
+            validate(&row["question"])?;
+        }
     }
     Ok(())
 }
@@ -861,6 +871,109 @@ mod fault_tests;
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    #[ignore = "paired audio duration pass workload; temporary databases, release only"]
+    fn audio_duration_pass_stress() {
+        use crate::contract::{list, text};
+        use rusqlite::params;
+        use std::time::Instant;
+        let dir = tempfile::tempdir().unwrap();
+        let mut store = Store::new(dir.path().into()).unwrap();
+        let preview = store
+            .preview_bank_zip(
+                &Path::new(env!("CARGO_MANIFEST_DIR")).join("../fixtures/english.zip"),
+            )
+            .unwrap();
+        store
+            .import(text(&preview, "ticket"), None, "English")
+            .unwrap();
+        let mut db = store.connect().unwrap();
+        let tx = db.transaction().unwrap();
+        tx.execute("INSERT INTO banks VALUES('synthetic','Synthetic','',1)", [])
+            .unwrap();
+        for i in 0..500 {
+            let id = format!("q{i:03}");
+            tx.execute("INSERT INTO questions(id,bank_id,position,stem,mode,content_blocks,confidence,needs_review,missing_fields) VALUES(?1,'synthetic',?2,'Question','true_false','[]',1,0,'[]')", params![id,i]).unwrap();
+            tx.execute("INSERT INTO true_false_questions VALUES(?1,'true')", [&id])
+                .unwrap();
+        }
+        tx.commit().unwrap();
+        let rows = crate::questions::read(&db).unwrap();
+        let mut document = crate::questions::freeze(&rows);
+        for i in 0..10 {
+            document["groups"].as_array_mut().unwrap().push(json!({"id":format!("g{i}"),"title":"Shared context","instructions":"context ".repeat(100),"questionIds":rows.iter().map(|r|text(r,"id")).collect::<Vec<_>>()}));
+        }
+        let raw = document.to_string();
+        let tx = db.transaction().unwrap();
+        for i in 0..5 {
+            let sid = format!("s{i}");
+            tx.execute("INSERT INTO sessions(id,bank_title,created_at,position,mode,kind) VALUES(?1,'Synthetic',1,0,'ordered','practice')", [&sid]).unwrap();
+            tx.execute(
+                "INSERT INTO session_documents VALUES(?1,?2)",
+                params![sid, raw],
+            )
+            .unwrap();
+            for (ordinal, row) in rows
+                .iter()
+                .filter(|r| !crate::questions::composite(&r["question"]))
+                .enumerate()
+            {
+                tx.execute("INSERT INTO attempts(session_id,ordinal,snapshot_question_id) VALUES(?1,?2,?3)", params![sid,ordinal,text(row,"id")]).unwrap();
+            }
+        }
+        tx.commit().unwrap();
+        validate_database_contents(&db).unwrap();
+        let mut durations = std::collections::HashMap::new();
+        for row in &rows {
+            let digest = text(&row["question"]["audioRef"], "sha256");
+            if !digest.is_empty() {
+                let (_, bytes) = store.asset_bytes(digest).unwrap().unwrap();
+                durations.insert(
+                    digest.to_owned(),
+                    crate::audio::audio_info(&bytes).unwrap().1,
+                );
+            }
+        }
+        assert!(!durations.is_empty());
+        let validate_rows = |rows: Vec<Value>| {
+            for row in rows {
+                if let Some(duration) = durations.get(text(&row["question"]["audioRef"], "sha256"))
+                {
+                    crate::audio::validate_segment(&row["question"], *duration).unwrap();
+                }
+            }
+        };
+        let before = file_digest(&store.db_path()).unwrap();
+        let mut report = json!({"currentQuestions":rows.len(),"sessions":5,"snapshotQuestions":list(&document,"questions").len(),"sharedGroupsPerSnapshot":10,"snapshotSha256":crate::store::hash(raw.as_bytes()),"samples":[]});
+        for full_hydration in [true, false] {
+            let mut times = Vec::new();
+            for _ in 0..3 {
+                let start = Instant::now();
+                if full_hydration {
+                    validate_rows(crate::questions::read(&db).unwrap());
+                    let mut statement =
+                        db.prepare("SELECT content FROM session_documents").unwrap();
+                    let docs = statement
+                        .query_map([], |row| row.get::<_, String>(0))
+                        .unwrap();
+                    for raw in docs {
+                        let doc: Value = serde_json::from_str(&raw.unwrap()).unwrap();
+                        validate_rows(crate::questions::thaw(&doc).unwrap());
+                    }
+                } else {
+                    validate_audio_segments(&db, &durations).unwrap();
+                }
+                times.push(start.elapsed().as_secs_f64() * 1000.0);
+            }
+            report["samples"]
+                .as_array_mut()
+                .unwrap()
+                .push(json!({"fullHydration":full_hydration,"elapsedMs":times}));
+        }
+        assert_eq!(file_digest(&store.db_path()).unwrap(), before);
+        println!("{}", serde_json::to_string_pretty(&report).unwrap());
+    }
+
     #[test]
     fn historical_grading_errors_survive_reopen_and_backup_restore_without_rewriting() {
         use crate::contract::text;
