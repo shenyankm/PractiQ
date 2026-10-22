@@ -97,14 +97,21 @@ def _append_response_body(body: bytearray, chunk: bytes) -> None:
     body.extend(chunk)
 
 
+def _reject_content_encoding(response: httpx2.Response) -> None:
+    # Clients ask for identity; decoding first would let a compressed body expand past the limit unchecked.
+    if response.headers.get("content-encoding", "").strip().lower() not in ("", "identity"):
+        raise DocumentProcessingError(502, "AI provider response uses a content encoding", "AI_RESPONSE_ENCODING")
+
+
 def _responses_response(response: httpx2.Response) -> None:
     body = bytearray()
     try:
+        _reject_content_encoding(response)
         for chunk in response.iter_bytes(chunk_size=65_536):
             _append_response_body(body, chunk)
     finally:
         response.close()
-    # Cache the bounded decoded body for the SDK without reading the stream again.
+    # Cache the bounded body for the SDK without reading the stream again.
     response._content = bytes(body)
     if response.request.url.path.endswith("/responses"):
         _verify_responses_usage(response)
@@ -113,6 +120,7 @@ def _responses_response(response: httpx2.Response) -> None:
 async def _responses_async_response(response: httpx2.Response) -> None:
     body = bytearray()
     try:
+        _reject_content_encoding(response)
         async for chunk in response.aiter_bytes(chunk_size=65_536):
             _append_response_body(body, chunk)
     finally:
@@ -137,8 +145,10 @@ def build_model(
     # Validate raw Responses usage before the SDK normalizes token counts.
     clients = {
         "http_client": DefaultHttpxClient(timeout=timeout, trust_env=not loopback, follow_redirects=False,
+            headers={"Accept-Encoding": "identity"},
             event_hooks={"response": [_responses_response]}),
         "http_async_client": DefaultAsyncHttpxClient(timeout=timeout, trust_env=not loopback, follow_redirects=False,
+            headers={"Accept-Encoding": "identity"},
             event_hooks={"response": [_responses_async_response]}),
     }
     return ChatOpenAI(

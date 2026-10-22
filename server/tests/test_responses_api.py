@@ -89,15 +89,13 @@ class ResponseStream(httpx2.SyncByteStream, httpx2.AsyncByteStream):
 
 @pytest.mark.parametrize('asynchronous', [False, True])
 @pytest.mark.parametrize('status', [200, 503])
-@pytest.mark.parametrize('compressed', [False, True])
 @pytest.mark.parametrize('size', [1024, 1025])
-async def test_response_body_limit_covers_decoded_success_and_error_streams(monkeypatch, asynchronous, status, compressed, size):
+async def test_response_body_limit_covers_success_and_error_streams(monkeypatch, asynchronous, status, size):
     monkeypatch.setattr(llm, 'MODEL_RESPONSE_MAX_BYTES', 1024)
     body = json.dumps(response()).encode().ljust(size, b' ')
-    stream = ResponseStream(gzip.compress(body) if compressed else body)
-    headers = {'Content-Encoding': 'gzip'} if compressed else {}
+    stream = ResponseStream(body)
     value = httpx2.Response(status, request=httpx2.Request('POST', 'https://provider.invalid/v1/responses'),
-                           headers=headers, stream=stream)
+                           stream=stream)
 
     async def read():
         if asynchronous:
@@ -114,6 +112,37 @@ async def test_response_body_limit_covers_decoded_success_and_error_streams(monk
         assert value.content == body
         assert value.json()['usage']['input_tokens'] == 10
     assert stream.closed
+
+
+@pytest.mark.parametrize('asynchronous', [False, True])
+@pytest.mark.parametrize('encoding', ['gzip', 'br', 'gzip, br'])
+async def test_encoded_responses_are_rejected_before_decompression(asynchronous, encoding):
+    stream = ResponseStream(gzip.compress(b' ' * 100_000))
+    value = httpx2.Response(200, request=httpx2.Request('POST', 'https://provider.invalid/v1/responses'),
+                           headers={'Content-Encoding': encoding}, stream=stream)
+    with pytest.raises(DocumentProcessingError) as exc:
+        if asynchronous:
+            await llm._responses_async_response(value)
+        else:
+            llm._responses_response(value)
+    assert exc.value.code == 'AI_RESPONSE_ENCODING'
+    assert stream.closed and stream.received == 0
+
+
+async def test_model_clients_request_identity_encoding():
+    requests = []
+
+    def respond(request):
+        requests.append(request)
+        return httpx2.Response(200, content=b'{}')
+
+    async with model_with_transport(respond) as model:
+        client = model.root_client._client
+        client._transport.close()
+        client._transport = httpx2.MockTransport(respond)
+        model.root_client._client.get('https://provider.invalid/v1/probe')
+        await model.root_async_client._client.get('https://provider.invalid/v1/probe')
+    assert [request.headers['accept-encoding'] for request in requests] == ['identity', 'identity']
 
 
 async def test_oversized_response_stays_unknown_without_paid_retry(monkeypatch):
