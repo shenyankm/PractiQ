@@ -20,6 +20,8 @@ These records preserve the result of a particular source revision, workload and 
 | [Web and service, October 15](performance/performance-web-server-20261015.md) | Shared-option search, duplicate-association indexing and artifact membership; synthetic measurements and limits |
 | [App, October 15](performance/performance-app-20261015.md) | Snapshot and draft-context copies; paired output hashes and local timings |
 | [Rust, October 17](performance/performance-rust-20261017.md) | Full native source review and measured immutable-snapshot copy removal |
+| [Rust selected references](performance/rust-selected-reference-index.md) | Requested-row-only snapshot reference index; paired release samples and local App acceptance |
+| [Python shared options](performance/python-shared-option-validation.md) | One option-pool serialization per validation call; equivalent outputs and paired CPU measurements |
 | [Python, October 17](performance/performance-python-20261017.md) | Source-frame lookup and passive result projection; paired local measurements |
 | [Agent pipeline, October 17](performance/agent-pipeline-20261017.md) | Independent dispatch notifications, bounded storage workers, pause admission and persistence deadlines |
 | [Grading arrays, October 9](performance/performance-grading-arrays-20261009.md) | Fixed real-model anchors and avoided correction calls; no full parser-quality claim |

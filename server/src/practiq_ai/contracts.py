@@ -613,6 +613,7 @@ def validate_question_tree(questions: list[ParsedQuestion]) -> None:
     if None in by_id or len(by_id) != len(questions):
         raise QuestionTreeError("questions require unique IDs", None)
     children: dict[str, list[ParsedQuestion]] = {}
+    owner_options: dict[str, list[dict[str, Any]]] = {}
     for q in questions:
         if q.parentId:
             parent = by_id.get(q.parentId)
@@ -641,7 +642,11 @@ def validate_question_tree(questions: list[ParsedQuestion]) -> None:
             if owner is None or owner.answerMode != "word_bank" or q.parentId != owner.id:
                 raise QuestionTreeError("optionSourceId must reference the parent word bank", q.id)
             try:
-                answer_references_missing("choice", q.answerPayload, {**q.model_dump(), "options": [o.model_dump() for o in owner.options]})
+                if q.optionSourceId not in owner_options:
+                    owner_options[q.optionSourceId] = [o.model_dump() for o in owner.options]
+                answer_references_missing("choice", q.answerPayload, {
+                    "choiceVariant": q.choiceVariant, "options": owner_options[q.optionSourceId],
+                })
             except OptionReferenceError as exc:
                 raise QuestionTreeError(str(exc), q.id) from exc
     for q in questions:
