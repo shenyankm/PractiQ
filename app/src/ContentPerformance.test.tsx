@@ -49,6 +49,27 @@ it("updates the practice clock without rerendering 1000 answer buttons and still
 });
 
 
+it("does no item scans for 999 null matching drafts while typing, and computes a partial draft once", async () => {
+  const user = userEvent.setup();
+  const itemReads = vi.fn();
+  const items = Array.from({ length: 100 }, (_, id) => ({ id, content: `Item ${id}`, side: id < 50 ? "left" as const : "right" as const }));
+  const matching = { ...fixture.questions[4], answerMode: "matching", matchingVariant: "one_to_one", get items() { itemReads(); return items; } } as Question;
+  const snapshot = { question: matching, groups: [], visuals: [], sources: [], warnings: [], missingAssets: false };
+  const session: Session = { id: "mixed", title: "Mixed", createdAt: 0, finishedAt: null, position: 0, mode: "ordered", attempts: Array.from({ length: 1000 }, (_, ordinal) => ({ ordinal, snapshot: ordinal ? snapshot : { ...snapshot, question: fixture.questions[4] as Question }, answer: null, autoResult: null, result: null, gradeKind: "ungraded", submittedAt: null, skipped: false, elapsedMs: 0 })) };
+  const props = { onSession: vi.fn(), run: (job: () => Promise<void>) => { void job(); }, flushRef: { current: async () => {} } };
+  const view = render(<Practice session={session} {...props}/>);
+  expect(itemReads).not.toHaveBeenCalled();
+  buttons.mockClear();
+  await user.type(screen.getByRole("textbox", { name: "作答内容" }), "Twenty new characters");
+  expect(itemReads).not.toHaveBeenCalled();
+  expect(buttons.mock.calls.filter(([name]) => typeof name === "string" && name.startsWith("转到第 "))).toHaveLength(1);
+  expect(screen.getByRole("button", { name: /转到第 1,?000 题，未作答/ })).toBeTruthy();
+  const partial = { ...session, attempts: session.attempts.map(a => a.ordinal === 999 ? { ...a, answer: { matches: [{ left: 0, right: 50 }] } } : a) };
+  view.rerender(<Practice session={partial} {...props}/>);
+  expect(itemReads).toHaveBeenCalledTimes(3);
+  expect(screen.getByRole("button", { name: /转到第 1,?000 题，草稿未完成/ })).toBeTruthy();
+}, 15_000);
+
 it("keeps first-occurrence blank numbering when references repeat", () => {
   render(<Blocks blocks={[{partType:"blank",questionId:"a"},{partType:"text",textValue:"between"},{partType:"blank",questionId:"a"},{partType:"blank",questionId:"b"}]} />);
   expect(screen.getAllByRole("button").map(button=>button.textContent)).toEqual(["空位 1","空位 1","空位 3"]);

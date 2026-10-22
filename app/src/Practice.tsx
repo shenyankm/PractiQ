@@ -469,6 +469,7 @@ function answerState(a: Attempt, draft: Answer | null, exam: boolean): { status:
         : { status: "incorrect", label: exam ? t("未得满分") : a.snapshot.question.answerMode === "fill_blank" && a.gradeKind === "auto" ? t("文本不完全一致") : t("错误") };
       return { status: "pending", label: t("已提交，待判定") };
     }
+    if (draft == null) return { status: "unanswered", label: t("未作答") };
     if (answerReady(canInteract(a.snapshot.question) ? a.snapshot.question : { ...a.snapshot.question, answerMode: "short_answer" }, draft)) return { status: "answered", label: t("已作答，未提交") };
     if (hasAnswer(draft)) return { status: "draft", label: t("草稿未完成") };
     return { status: "unanswered", label: t("未作答") };
@@ -569,10 +570,9 @@ const AnswerCard = memo(function AnswerCard({session, answer, exam, go, boundary
             </div>
             <progress className="practice-progress mb-3" aria-label={exam ? t("作答进度") : t("提交进度")} max={Math.max(1, session.attempts.length)} value={session.attempts.filter(a => exam ? hasAnswer(a.ordinal === session.position ? answer : a.answer) : a.submittedAt != null).length}/>
             <div id="answer-card" ref={grid} role="region" aria-label={t("答题卡")} tabIndex={0} className="answer-card-grid relative grid max-h-[min(45vh,24rem)] grid-cols-4 gap-2 overflow-y-auto rounded-sm p-1 outline-none focus-visible:ring-3 focus-visible:ring-ring">
-              {session.attempts.map(a => {
+              {session.attempts.map((a, index) => {
                 const current = a.ordinal === session.position;
-                const draft = current ? answer : a.answer;
-                const state = answerState(a, draft, exam);
+                const state = states[index];
                 return <AnswerCardItem key={a.ordinal} ordinal={a.ordinal} current={current} state={state.label} status={state.status} flagged={!!a.flagged} go={go}/>;
               })}
             </div>
