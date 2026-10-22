@@ -80,14 +80,14 @@ test('question-list failures persist, hide stale actions and retry the current f
  await page.evaluate(()=>{window.__failQuestionRead=true;});
  await page.getByRole('textbox',{name:'Search questions',exact:true}).fill('beta');
  await chooseOption(page.getByRole('combobox',{name:'Filter by question type',exact:true}), 'single');
- await page.getByRole('checkbox',{name:'Show only items needing review',exact:true}).check();
+ await expect(page.getByRole('checkbox',{name:'Show only items needing review',exact:true})).toHaveCount(0);
  const alert=page.getByRole('alert');
  await expect(alert).toContainText('Could not load questions');
  await expect(alert).toContainText('Question read unavailable');
  await expect(page.getByText('Previous alpha question',{exact:true})).toHaveCount(0);
  await expect(page.getByText(/60 matching items/)).toHaveCount(0);
  for(const name of ['More actions for question 1','Favorite question','Next page']) await expect(page.getByRole('button',{name,exact:true})).toHaveCount(0);
- await expect(page.getByRole('button',{name:'Start practice',exact:true})).toBeDisabled();
+ await expect(page.getByRole('button',{name:'Start practice',exact:true})).toHaveCount(0);
  await expect(page.getByText('No questions found',{exact:true})).toHaveCount(0);
  await expectNoOverflow(page,'question-list failure');
  await page.evaluate(()=>{window.__failQuestionRead=false;});
@@ -98,8 +98,8 @@ test('question-list failures persist, hide stale actions and retry the current f
  await expect(alert).toHaveCount(0);
  await expect(page.getByRole('textbox',{name:'Search questions',exact:true})).toHaveValue('beta');
  await expect(page.getByRole('combobox',{name:'Filter by question type',exact:true})).toHaveAttribute('data-value', 'single');
- await expect(page.getByRole('checkbox',{name:'Show only items needing review',exact:true})).toBeChecked();
- expect(observedCalls.filter(c=>c.request.type==='questions_page').at(-1).request).toEqual({type:'questions_page',bank_ids:['one'],search:'beta',mode:'single',filter:'review',limit:30,offset:0});
+ await expect(page.getByRole('checkbox',{name:'Show only items needing review',exact:true})).toHaveCount(0);
+ expect(observedCalls.filter(c=>c.request.type==='questions_page').at(-1).request).toEqual({type:'questions_page',bank_ids:['one'],search:'beta',mode:'single',filter:'',limit:30,offset:0});
 });
 
 test('retry saves the failed language selection without resetting it to the saved preference',async ({page,observedCalls})=>{

@@ -69,12 +69,7 @@ for (const [width, height] of [[1440, 900], [768, 900], [390, 844], [360, 640]])
         await expect(toggle).toContainText('1');
         await toggle.click();
         await expect(type).toHaveAttribute('data-value', 'single');
-        const review = page.getByRole('checkbox');
-        await review.check();
-        await toggle.click();
-        await expect(toggle).toContainText('2');
-        await toggle.click();
-        await expect(review).toBeChecked();
+        await expect(page.getByRole('checkbox')).toHaveCount(0);
       }
       await page.getByRole('button', { name: names.clear, exact: true }).click();
       await expect(page.getByLabel(names.search, { exact: true })).toBeFocused();

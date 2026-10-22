@@ -184,7 +184,12 @@ it("requires Restore backup and explicit destination selection from a question l
   });
   render(<App />);
   await userEvent.click(await screen.findByRole("button", { name: "查看题目" }));
-  await userEvent.click(within(screen.getByRole("banner")).getByRole("button", { name: "导入题库 ZIP" }));
+  for (const name of ["导入题库 ZIP", "新增题目", "开始练习"]) {
+    expect(within(screen.getByRole("banner")).queryByRole("button", { name })).toBeNull();
+  }
+  expect(screen.queryByRole("checkbox", { name: "仅看待复核" })).toBeNull();
+  await userEvent.click(screen.getByRole("button", { name: "设置" }));
+  await userEvent.click(await screen.findByRole("button", { name: "导入与恢复" }));
   await screen.findByRole("menuitem", { name: "导入题库 ZIP" });
   expect(api).not.toHaveBeenCalledWith({ type: "pick_import" });
   await userEvent.click(screen.getByRole("menuitem", { name: "导入题库 ZIP" }));
@@ -244,7 +249,7 @@ it("shows partial credit from a material group's child when the parent has no re
   expect(within(screen.getByRole("banner")).queryByRole("button", { name: "导入题库 ZIP" })).toBeNull();
 });
 
-it("filters pending reviews and confirms or revokes the whole material tree without hiding original warnings", async () => {
+it("keeps all questions visible and confirms or revokes the whole material tree without hiding original warnings", async () => {
   const pending: QuestionRow = {
     ...row, id: "root", latestResult: null, latestScore: null,
     question: { ...blankQuestion(), id: "root", stem: "Shared material", answerMode: "reading", choiceVariant: null, options: [] },
@@ -254,8 +259,8 @@ it("filters pending reviews and confirms or revokes the whole material tree with
   await screen.findByText("English");
   await userEvent.click(screen.getByRole("button", { name: "查看题目" }));
   expect(await screen.findByRole("img", { name: "待复核" })).toBeTruthy();
-  await userEvent.click(screen.getByRole("checkbox", { name: "仅看待复核" }));
-  await waitFor(() => expect(api).toHaveBeenCalledWith(expect.objectContaining({ type: "questions_page", filter: "review", offset: 0 })));
+
+  await waitFor(() => expect(api).toHaveBeenCalledWith(expect.objectContaining({ type: "questions_page", filter: "", offset: 0 })));
   await userEvent.click(screen.getByRole("button", { name: /Shared material/ }));
   let dialog = await screen.findByRole("dialog", { name: "题目详情" });
   expect(within(dialog).getByText("此操作应用于本题及全部子题；原始质量提示会保留。")).toBeTruthy();
@@ -267,8 +272,8 @@ it("filters pending reviews and confirms or revokes the whole material tree with
   expect(within(dialog).getAllByText(/缺失：/)).toHaveLength(1);
   expect(within(dialog).queryByText("内容待复核，仍可练习。")).toBeNull();
   await userEvent.click(within(dialog).getByRole("button", { name: "关闭" }));
-  expect(await screen.findByText("没有符合筛选的题目")).toBeTruthy();
-  await userEvent.click(screen.getByRole("checkbox", { name: "仅看待复核" }));
+  expect(await screen.findByRole("button", { name: /Shared material/ })).toBeTruthy();
+
   const reviewedRow = await screen.findByRole("button", { name: /Shared material/ });
   expect(screen.queryByRole("img", { name: "待复核" })).toBeNull();
   await userEvent.click(reviewedRow);

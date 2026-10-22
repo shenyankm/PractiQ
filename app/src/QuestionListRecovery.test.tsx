@@ -53,7 +53,7 @@ it("hides previous rows, totals and actions on page failure and retries the same
   expect(screen.queryByText(/当前匹配 60 项/)).toBeNull();
   expect(screen.queryByRole("button", { name: "编辑题目" })).toBeNull();
   expect(screen.queryByRole("button", { name: "删除题目" })).toBeNull();
-  expect(screen.getByRole("button", { name: "开始练习" }).hasAttribute("disabled")).toBe(true);
+  expect(screen.queryByRole("button", { name: "开始练习" })).toBeNull();
   await act(async () => rejectPage(new Error("Page unavailable")));
   const alert = await screen.findByRole("alert");
   expect(alert.textContent).toContain("加载题目失败");
@@ -68,7 +68,7 @@ it("hides previous rows, totals and actions on page failure and retries the same
   expect(screen.queryByRole("alert")).toBeNull();
 });
 
-it("retries the current bank, search, type and review filter without resetting controls", async () => {
+it("retries the current bank, search and type filters without resetting controls", async () => {
   const user = userEvent.setup();
   let fail = false;
   setup(async request => {
@@ -79,16 +79,16 @@ it("retries the current bank, search, type and review filter without resetting c
   fail = true;
   await user.type(screen.getByRole("textbox", { name: "搜索题目" }), "beta");
   await user.selectOptions(screen.getByRole("combobox", { name: "筛选题型" }), "single");
-  await user.click(screen.getByRole("checkbox", { name: "仅看待复核" }));
+
   const alert = await screen.findByRole("alert");
   expect(screen.queryByText(row.question.stem!)).toBeNull();
   fail = false;
   await user.click(within(alert).getByRole("button", { name: "重试" }));
   await screen.findByText(beta.question.stem!);
-  expect(api).toHaveBeenLastCalledWith({ type: "questions_page", bank_ids: ["bank"], search: "beta", mode: "single", filter: "review", limit: 30, offset: 0 });
+  expect(api).toHaveBeenLastCalledWith({ type: "questions_page", bank_ids: ["bank"], search: "beta", mode: "single", filter: "", limit: 30, offset: 0 });
   expect(screen.getByRole("textbox", { name: "搜索题目" })).toHaveProperty("value", "beta");
   expect(screen.getByRole("combobox", { name: "筛选题型" })).toHaveProperty("value", "single");
-  expect(screen.getByRole("checkbox", { name: "仅看待复核" }).getAttribute("aria-checked")).toBe("true");
+  expect(screen.queryByRole("checkbox", { name: "仅看待复核" })).toBeNull();
 });
 
 it.each(["success", "failure"])("ignores obsolete %s after the current query succeeds", async outcome => {
@@ -117,19 +117,19 @@ it.each(["success", "failure"])("ignores obsolete %s after the current query suc
   expect(screen.queryByRole("button", { name: "下一页" })).toBeNull();
 });
 
-it("clears search, type and review filters together while preserving the bank", async () => {
+it("clears search and type filters together while preserving the bank", async () => {
   const user = userEvent.setup();
   setup(async request => ({ items: request.search || request.mode || request.filter ? [] : [row], total: request.search || request.mode || request.filter ? 0 : 1, offset: 0 }));
   await openBank(user);
   await user.type(screen.getByLabelText("搜索题目"), "absent");
   await user.selectOptions(screen.getByLabelText("筛选题型"), "single");
-  await user.click(screen.getByRole("checkbox", { name: "仅看待复核" }));
+
   await screen.findByText("没有符合筛选的题目");
   await user.click(screen.getByRole("button", { name: "清除筛选" }));
   await screen.findByText(row.question.stem!);
   expect(screen.getByLabelText("搜索题目")).toHaveProperty("value", "");
   expect(screen.getByLabelText("筛选题型")).toHaveProperty("value", "");
-  expect(screen.getByRole("checkbox", { name: "仅看待复核" }).getAttribute("aria-checked")).toBe("false");
+  expect(screen.queryByRole("checkbox", { name: "仅看待复核" })).toBeNull();
   expect(api).toHaveBeenLastCalledWith({ type: "questions_page", bank_ids: ["bank"], search: "", mode: "", filter: "", limit: 30, offset: 0 });
 });
 
