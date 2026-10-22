@@ -8,6 +8,56 @@ use serde_json::{json, Value};
 use std::time::Instant;
 
 #[test]
+#[ignore = "paired selected snapshot reference index benchmark; release only"]
+fn selected_snapshot_references() {
+    fn sample(mut run: impl FnMut() -> Vec<Value>) -> Value {
+        drop(run());
+        let mut times = Vec::new();
+        let mut expected = None;
+        for _ in 0..7 {
+            let start = Instant::now();
+            let result = run();
+            times.push(start.elapsed().as_secs_f64() * 1000.0);
+            let bytes = serde_json::to_vec(&result).unwrap();
+            let digest = (bytes.len(), crate::store::hash(&bytes));
+            if let Some(expected) = &expected {
+                assert_eq!(&digest, expected);
+            }
+            expected = Some(digest);
+        }
+        let mut sorted = times.clone();
+        sorted.sort_by(f64::total_cmp);
+        let (bytes, hash) = expected.unwrap();
+        json!({"samplesMs":times,"medianMs":sorted[3],"outputBytes":bytes,"outputSha256":hash})
+    }
+    let mut report = json!({"probeSha256":crate::store::hash(include_bytes!("performance.rs")),
+        "method":"Synthetic version-3 immutable snapshots; one warmup and seven samples, setup/hash/assertions excluded. No SQLite, IPC, WebView or model work.","workloads":[]});
+    for (nodes, groups, refs) in [(20, 2, 1), (1000, 1000, 1), (500, 20, 500)] {
+        let questions: Vec<_> = (0..nodes).map(|i| json!({"id":format!("q{i}"),"question":{"id":format!("q{i}"),"parentId":null,"answerMode":"short_answer","answerPayload":null}})).collect();
+        let metadata: Vec<_> = (0..groups).map(|i| json!({"id":format!("g{i}"),"instructions":null,"questionIds":(0..refs).map(|j|format!("q{}",(i+j)%nodes)).collect::<Vec<_>>()})).collect();
+        let doc = json!({"schemaVersion":3,"questions":questions,"groups":metadata,"visuals":[{"id":"global","questionIds":[]}]});
+        let before = crate::store::hash(&serde_json::to_vec(&doc).unwrap());
+        let full = crate::questions::thaw(&doc).unwrap();
+        assert_eq!(
+            crate::questions::context_from_document(&doc, "q0").unwrap(),
+            vec![full[0].clone()]
+        );
+        let context = sample(|| crate::questions::context_from_document(&doc, "q0").unwrap());
+        let thaw = sample(|| crate::questions::thaw(&doc).unwrap());
+        assert_eq!(
+            before,
+            crate::store::hash(&serde_json::to_vec(&doc).unwrap())
+        );
+        report["workloads"].as_array_mut().unwrap().push(json!({"nodes":nodes,"groups":groups,"refsPerGroup":refs,"inputSha256":before,"context":context,"thaw":thaw}));
+    }
+    std::fs::write(
+        std::env::var("PRACTIQ_BENCH_OUTPUT").expect("set PRACTIQ_BENCH_OUTPUT"),
+        serde_json::to_vec_pretty(&report).unwrap(),
+    )
+    .unwrap();
+}
+
+#[test]
 #[ignore = "synthetic Store lock and archive contention measurement"]
 fn archive_contention() {
     use std::{
