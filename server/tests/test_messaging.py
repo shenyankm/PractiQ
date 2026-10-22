@@ -1,8 +1,9 @@
 """Protocol and broker boundaries, including ambiguous publish and ACK outcomes."""
 import asyncio
+from contextlib import asynccontextmanager
 from types import SimpleNamespace
 from typing import Any, cast
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 from uuid import uuid4
 
 import aio_pika
@@ -96,9 +97,12 @@ async def test_delivery_poison_and_infrastructure_are_not_busy_requeued():
 
 @pytest.mark.parametrize('close_error', [None, ConnectionError('close failed')])
 async def test_repeated_publication_failures_back_off_even_when_connection_cleanup_fails(monkeypatch, close_error):
+    @asynccontextmanager
+    async def database_connection():
+        yield SimpleNamespace(execute=AsyncMock())
     service = SimpleNamespace(stopping=False, active={}, stop_event=SimpleNamespace(wait=AsyncMock()),
-                              db=SimpleNamespace(rows=AsyncMock(return_value=[{'run_id': str(uuid4())}])))
-    channel = SimpleNamespace(get_underlay_channel=AsyncMock(return_value=SimpleNamespace(on_consumer_cancel_callbacks=set())))
+                              db=SimpleNamespace(rows=AsyncMock(return_value=[{'run_id': str(uuid4())}]), connection=database_connection))
+    channel = SimpleNamespace(is_closed=False, get_underlay_channel=AsyncMock(return_value=SimpleNamespace(on_consumer_cancel_callbacks=set())))
     connection = SimpleNamespace(channel=AsyncMock(return_value=channel), is_closed=False,
                                  close=AsyncMock(side_effect=close_error))
     queue = SimpleNamespace(consume=AsyncMock())
@@ -112,11 +116,13 @@ async def test_repeated_publication_failures_back_off_even_when_connection_clean
     monkeypatch.setattr(messaging, 'rabbitmq_uri', lambda: 'amqp://host/vhost')
     monkeypatch.setattr(messaging.aio_pika, 'connect', AsyncMock(return_value=connection))
     monkeypatch.setattr(messaging, 'topology', AsyncMock(return_value=queue))
-    monkeypatch.setattr(messaging, 'publish', AsyncMock(side_effect=TimeoutError('confirm unknown')))
+    publish = AsyncMock(side_effect=TimeoutError('confirm unknown'))
+    monkeypatch.setattr(messaging, 'publish', publish)
     monkeypatch.setattr(messaging.asyncio, 'wait_for', wait_for)
     await messaging.Delivery(service).run()
     assert delays == [1, 2, 4]
     assert connection.close.await_count == 3
+    assert publish.await_count == 3
 
 
 @pytest.mark.usefixtures('disposable_databases')
@@ -580,3 +586,88 @@ async def test_restricted_service_identity_can_declare_publish_and_consume(monke
                 await channel.declare_queue('unrelated', durable=True)
     finally:
         await asyncio.to_thread(api, 'DELETE', '/api/users/' + name)
+
+
+@pytest.mark.parametrize('batch_size', [0, 1, 10, 100])
+@pytest.mark.parametrize('failure', [None, 'confirm', 'update', 'cancel', 'stop'])
+async def test_outbox_reuses_batch_connection_and_commits_each_confirm(monkeypatch, batch_size, failure):
+    rows = [{'run_id': str(uuid4()), 'created_at': index} for index in range(batch_size)]
+    events, committed = [], []
+    service = SimpleNamespace(stopping=False, active={}, stop_event=asyncio.Event(), accepting=True, fatal=Mock())
+
+    async def execute(query, params):
+        run_id, created_at = params
+        index = next(index for index, row in enumerate(rows) if row['run_id'] == run_id)
+        assert created_at == rows[index]['created_at']
+        assert query == 'UPDATE document_outbox SET published_at=now() WHERE run_id=%s AND created_at=%s'
+        events.append(('update', index))
+        if failure == 'update' and index == 1:
+            service.stopping = True
+            raise messaging.DatabaseError('connection lost')
+        committed.append(index)  # The production Database connection uses autocommit.
+        if index == batch_size - 1 or failure == 'stop':
+            service.stopping = True
+
+    @asynccontextmanager
+    async def database_connection():
+        events.append(('connect', None))
+        try:
+            yield SimpleNamespace(execute=execute)
+        finally:
+            events.append(('close', None))
+
+    async def broker_publish(message, **kwargs):
+        index = next(index for index, row in enumerate(rows) if row['run_id'] == message.body.decode())
+        events.append(('confirm', index))
+        if index == 1 and failure in {'confirm', 'cancel'}:
+            service.stopping = True
+            if failure == 'cancel':
+                raise asyncio.CancelledError
+            raise TimeoutError('unknown confirmation')
+        return Basic.Ack()
+
+    channel = SimpleNamespace(is_closed=False, default_exchange=SimpleNamespace(publish=broker_publish),
+                              get_underlay_channel=AsyncMock(return_value=SimpleNamespace(on_consumer_cancel_callbacks=set())))
+    broker = SimpleNamespace(channel=AsyncMock(return_value=channel), is_closed=False, close=AsyncMock())
+    queue = SimpleNamespace(consume=AsyncMock(), cancel=AsyncMock())
+    service.db = SimpleNamespace(rows=AsyncMock(return_value=rows), connection=database_connection)
+    delivery = messaging.Delivery(service)
+
+    async def wait(_):
+        service.stopping = True
+
+    monkeypatch.setattr(messaging, 'load', lambda: SimpleNamespace(read_only=False))
+    monkeypatch.setattr(messaging, 'rabbitmq_uri', lambda: 'amqp://localhost/vhost')
+    monkeypatch.setattr(messaging.aio_pika, 'connect', AsyncMock(return_value=broker))
+    monkeypatch.setattr(messaging, 'topology', AsyncMock(return_value=queue))
+    monkeypatch.setattr(delivery, 'wait', wait)
+
+    if failure == 'cancel' and batch_size >= 2:
+        with pytest.raises(asyncio.CancelledError):
+            await delivery.run()
+    else:
+        await delivery.run()
+
+    if batch_size == 0:
+        assert events == []
+        assert committed == []
+    else:
+        assert events[0] == ('connect', None) and events[-1] == ('close', None)
+        assert events.count(('connect', None)) == events.count(('close', None)) == 1
+        completed = min(batch_size, 1) if failure else batch_size
+        expected: list[tuple[str, int | None]] = [('connect', None)]
+        for index in range(completed):
+            expected.extend([('confirm', index), ('update', index)])
+        if batch_size > 1 and failure in {'confirm', 'cancel', 'update'}:
+            expected.append(('confirm', 1))
+            if failure == 'update':
+                expected.append(('update', 1))
+        assert events == [*expected, ('close', None)]
+        assert committed == list(range(completed))
+    if batch_size > 1 and failure == 'update':
+        assert not service.accepting
+        service.fatal.assert_called_once_with(70)
+    else:
+        service.fatal.assert_not_called()
+    broker.close.assert_awaited_once()
+    assert not delivery.connected
