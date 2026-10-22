@@ -1,11 +1,13 @@
 """Exercise Responses wire payloads and accounting boundaries without network calls."""
 
+import gzip
 import json
 from contextlib import asynccontextmanager
 
 import httpx2
 import pytest
 from langchain_core.messages import HumanMessage
+from openai import APIStatusError
 from pydantic import BaseModel, Field
 
 from practiq_ai import llm, telemetry
@@ -37,6 +39,100 @@ async def model_with_transport(respond, model_name='custom-model', base_url='htt
     finally:
         await model.root_async_client.close()
         model.root_client.close()
+
+
+@pytest.mark.parametrize('status', [301, 302, 303, 307, 308])
+@pytest.mark.parametrize('location', ['https://other.invalid/responses', 'http://provider.invalid/v1/responses'])
+async def test_model_clients_never_follow_redirects(status, location):
+    requests = []
+
+    def respond(request):
+        requests.append(request)
+        return httpx2.Response(status, headers={'Location': location})
+
+    async with model_with_transport(respond, base_url='https://provider.invalid/v1') as model:
+        client = model.root_client._client
+        client._transport.close()
+        client._transport = httpx2.MockTransport(respond)
+        for current in (client, model.root_async_client._client):
+            assert current.follow_redirects is False
+        with pytest.raises(APIStatusError):
+            await model.root_async_client.responses.create(model='test', input='private document')
+        with pytest.raises(APIStatusError):
+            model.root_client.responses.create(model='test', input='private document')
+    assert len(requests) == 2
+    assert all(str(request.url) == 'https://provider.invalid/v1/responses' for request in requests)
+
+
+class ResponseStream(httpx2.SyncByteStream, httpx2.AsyncByteStream):
+    def __init__(self, body):
+        self.body = body
+        self.received = 0
+        self.closed = False
+
+    def __iter__(self):
+        for offset in range(0, len(self.body), 128):
+            chunk = self.body[offset:offset + 128]
+            self.received += len(chunk)
+            yield chunk
+
+    async def __aiter__(self):
+        for chunk in self:
+            yield chunk
+
+    def close(self):
+        self.closed = True
+
+    async def aclose(self):
+        self.close()
+
+
+@pytest.mark.parametrize('asynchronous', [False, True])
+@pytest.mark.parametrize('status', [200, 503])
+@pytest.mark.parametrize('compressed', [False, True])
+@pytest.mark.parametrize('size', [1024, 1025])
+async def test_response_body_limit_covers_decoded_success_and_error_streams(monkeypatch, asynchronous, status, compressed, size):
+    monkeypatch.setattr(llm, 'MODEL_RESPONSE_MAX_BYTES', 1024)
+    body = json.dumps(response()).encode().ljust(size, b' ')
+    stream = ResponseStream(gzip.compress(body) if compressed else body)
+    headers = {'Content-Encoding': 'gzip'} if compressed else {}
+    value = httpx2.Response(status, request=httpx2.Request('POST', 'https://provider.invalid/v1/responses'),
+                           headers=headers, stream=stream)
+
+    async def read():
+        if asynchronous:
+            await llm._responses_async_response(value)
+        else:
+            llm._responses_response(value)
+
+    if size > 1024:
+        with pytest.raises(DocumentProcessingError) as exc:
+            await read()
+        assert exc.value.code == 'AI_RESPONSE_TOO_LARGE'
+    else:
+        await read()
+        assert value.content == body
+        assert value.json()['usage']['input_tokens'] == 10
+    assert stream.closed
+
+
+async def test_oversized_response_stays_unknown_without_paid_retry(monkeypatch):
+    monkeypatch.setattr(llm, 'MODEL_RESPONSE_MAX_BYTES', 1024)
+    requests = []
+    stream = ResponseStream(b' ' * 100_000)
+
+    def respond(request):
+        requests.append(request)
+        return httpx2.Response(200, stream=stream)
+
+    records = []
+    async with model_with_transport(respond) as model:
+        with pytest.raises(DocumentProcessingError) as exc:
+            await llm.structured_call(model, [], Result, 'test', call_records=records)
+    assert exc.value.code == 'AI_RESPONSE_TOO_LARGE'
+    assert len(requests) == len(records) == 1
+    assert records[0]['usageStatus'] == 'unknown'
+    assert stream.closed and stream.received < 100_000
 
 
 @pytest.mark.parametrize('method', ['function_calling', 'auto'])

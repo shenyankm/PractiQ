@@ -60,6 +60,7 @@ BASE_URLS = {
     "moonshot": "https://api.moonshot.cn/v1",
 }
 MAX_MODEL_CALLS = 4
+MODEL_RESPONSE_MAX_BYTES = 8 * 1024 * 1024
 logger = logging.getLogger(__name__)
 
 
@@ -90,15 +91,34 @@ def _verify_responses_usage(response: httpx2.Response) -> None:
     _token_counts(usage)
 
 
+def _append_response_body(body: bytearray, chunk: bytes) -> None:
+    if len(body) + len(chunk) > MODEL_RESPONSE_MAX_BYTES:
+        raise DocumentProcessingError(502, "AI provider response exceeds the byte limit", "AI_RESPONSE_TOO_LARGE")
+    body.extend(chunk)
+
+
 def _responses_response(response: httpx2.Response) -> None:
+    body = bytearray()
+    try:
+        for chunk in response.iter_bytes(chunk_size=65_536):
+            _append_response_body(body, chunk)
+    finally:
+        response.close()
+    # Cache the bounded decoded body for the SDK without reading the stream again.
+    response._content = bytes(body)
     if response.request.url.path.endswith("/responses"):
-        response.read()
         _verify_responses_usage(response)
 
 
 async def _responses_async_response(response: httpx2.Response) -> None:
+    body = bytearray()
+    try:
+        async for chunk in response.aiter_bytes(chunk_size=65_536):
+            _append_response_body(body, chunk)
+    finally:
+        await response.aclose()
+    response._content = bytes(body)
     if response.request.url.path.endswith("/responses"):
-        await response.aread()
         _verify_responses_usage(response)
 
 
@@ -116,9 +136,9 @@ def build_model(
     loopback = is_loopback_host(urlsplit(endpoint).hostname)
     # Validate raw Responses usage before the SDK normalizes token counts.
     clients = {
-        "http_client": DefaultHttpxClient(timeout=timeout, trust_env=not loopback,
+        "http_client": DefaultHttpxClient(timeout=timeout, trust_env=not loopback, follow_redirects=False,
             event_hooks={"response": [_responses_response]}),
-        "http_async_client": DefaultAsyncHttpxClient(timeout=timeout, trust_env=not loopback,
+        "http_async_client": DefaultAsyncHttpxClient(timeout=timeout, trust_env=not loopback, follow_redirects=False,
             event_hooks={"response": [_responses_async_response]}),
     }
     return ChatOpenAI(
