@@ -59,8 +59,7 @@ it("pages native bank summaries, keeps all merge/study choices, and clamps after
   expect(within(await screen.findByRole("dialog")).getByRole("checkbox",{name:"Bank 30（1 题）"})).toBeTruthy();
   await userEvent.click(screen.getByRole("button",{name:"取消"}));
   await userEvent.click(screen.getAllByRole("button",{name:"开始练习"})[0]);
-  await userEvent.click(await screen.findByText("高级设置 · 题库、筛选与选题方式"));
-  expect(within(screen.getByRole("dialog")).getByRole("checkbox",{name:"Bank 30（1）"})).toBeTruthy();
+  expect(await within(await screen.findByRole("dialog")).findByText(/已选 Bank 0 · 可用 31 题/)).toBeTruthy();
   await userEvent.keyboard("{Escape}");
   await userEvent.click(await screen.findByRole("button",{name:"设置"}));
   await act(async () => { await vi.dynamicImportSettled(); });

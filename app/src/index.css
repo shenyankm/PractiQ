@@ -182,6 +182,7 @@ html[data-native-insets="true"] {
   [data-slot="native-select"],
   [role="menuitem"],
   [role="menuitemradio"],
+  [role="menuitemcheckbox"],
   summary {
     min-height: 3rem;
   }

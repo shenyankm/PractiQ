@@ -75,15 +75,19 @@ it("drops hidden type budgets when the paper changes and does not restore them w
   await userEvent.click(screen.getByText("按题型分配总分", {selector:"summary"}));
   fireEvent.change(screen.getByLabelText("单选预算"), {target:{value:"50"}});
   fireEvent.change(screen.getByLabelText("填空预算"), {target:{value:"50"}});
+  await userEvent.click(screen.getByRole("button", {name:"返回设置"}));
   await userEvent.click(screen.getByText(/高级设置/, {selector:"summary"}));
-  await userEvent.selectOptions(screen.getByLabelText("题型"), "single");
+  await userEvent.click(screen.getByRole("button", {name:"题型"}));
+  await userEvent.click(screen.getByRole("menuitemcheckbox", {name:"单选"}));
   await screen.findByText(/可用 1 题/);
   await userEvent.click(screen.getByRole("button", {name:"预览题目与配分"}));
   await userEvent.click(screen.getByText("按题型分配总分", {selector:"summary"}));
   fireEvent.change(screen.getByLabelText("单选预算"), {target:{value:"100"}});
   await userEvent.click(screen.getByRole("button", {name:"按题型预算重新配分（覆盖逐题修改）"}));
   expect(api).toHaveBeenLastCalledWith(expect.objectContaining({type:"preview_paper",request:expect.objectContaining({budgets:{single:10000}})}));
-  await userEvent.selectOptions(screen.getByLabelText("题型"), "");
+  await userEvent.click(screen.getByRole("button", {name:"返回设置"}));
+  await userEvent.click(screen.getByRole("button", {name:"题型"}));
+  await userEvent.click(screen.getByRole("menuitemcheckbox", {name:"全部题型"}));
   await screen.findByText(/可用 2 题/);
   await userEvent.click(screen.getByRole("button", {name:"预览题目与配分"}));
   await userEvent.click(screen.getByText("按题型分配总分", {selector:"summary"}));
@@ -163,8 +167,6 @@ it("retries statistics without resetting selections, quotas, count or exam setti
   await waitFor(() => expect(screen.queryByRole("button", {name:"重试题目统计"})).toBeNull());
   expect(screen.queryByRole("alert")).toBeNull();
   expect(screen.getByRole("checkbox", {name:rows[0].question.stem!}).getAttribute("aria-checked")).toBe("true");
-  expect(screen.getByRole("checkbox", {name:"题库一（2）"}).getAttribute("aria-checked")).toBe("true");
-  expect(screen.getByRole("checkbox", {name:"题库二（1）"}).getAttribute("aria-checked")).toBe("false");
   expect((screen.getByLabelText("考试分钟数") as HTMLInputElement).value).toBe("45");
   expect((screen.getByLabelText("考试总分") as HTMLInputElement).value).toBe("90");
   await userEvent.selectOptions(screen.getByLabelText("选题方式"), "quota");
@@ -266,18 +268,21 @@ it("starts ordinary practice directly with the selected questions and no exam sc
   await waitFor(() => expect(started).toHaveBeenCalled());
   expect(api).toHaveBeenCalledWith({type:"start_paper",paper:{digest:"preview",question_ids:["q0","q1"],kind:"practice",minutes:null,scores:[],total_cents:0}});
 });
-it("never turns clearing the last selected bank into all banks", async () => {
+it("filters by several question types while all types stays a separate choice", async () => {
   setup();
   await screen.findByText(/可用 2 题/);
-  await userEvent.click(screen.getByText(/高级设置/, { selector: "summary" }));
-  await userEvent.click(screen.getByRole("checkbox",{name:"题库一（2）"}));
-  await screen.findByRole("button", {name:"调整选题范围"});
-  expect(screen.getByRole("status").textContent).toBe("请选择至少一个题库");
-  expect(screen.getByRole("button",{name:"立即开始"}).hasAttribute("disabled")).toBe(true);
-  expect(vi.mocked(api).mock.calls.filter(([r])=>r.type === "question_stats")).toHaveLength(1);
-  await userEvent.click(screen.getByRole("button",{name:"全选可用题库"}));
-  await waitFor(() => expect(api).toHaveBeenCalledWith(expect.objectContaining({bank_ids:["one","two"]})));
+  await userEvent.click(screen.getByText(/高级设置/, {selector:"summary"}));
+  expect(screen.getByRole("button", {name:"题型"}).textContent).toBe("全部题型");
+  await userEvent.click(screen.getByRole("button", {name:"题型"}));
+  await userEvent.click(screen.getByRole("menuitemcheckbox", {name:"单选"}));
+  await userEvent.click(screen.getByRole("menuitemcheckbox", {name:"多选"}));
+  await waitFor(() => expect(api).toHaveBeenCalledWith(expect.objectContaining({type:"question_stats",mode:"single,multiple"})));
+  expect(screen.getByRole("button", {name:"题型"}).textContent).toBe("单选、多选");
+  await userEvent.click(screen.getByRole("menuitemcheckbox", {name:"全部题型"}));
+  await waitFor(() => expect(api).toHaveBeenCalledWith(expect.objectContaining({type:"question_stats",mode:""})));
+  expect(screen.getByRole("button", {name:"题型"}).textContent).toBe("全部题型");
 });
+
 it("requires a fresh exam preview and validates the score total", async () => {
   setup();
   await screen.findByText(/可用 2 题/);

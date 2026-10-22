@@ -2392,6 +2392,32 @@ fn finished_session_navigation_uses_membership_not_delta_length() {
 }
 
 #[test]
+fn mode_filter_accepts_several_question_types() {
+    let (_dir, mut s) = store();
+    let bank = import(&mut s);
+    let count = |mode: &str| {
+        s.questions(Some(&bank), "", mode, "")
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .len()
+    };
+    assert_eq!((count("single"), count("multiple")), (1, 1));
+    assert_eq!(count("single,multiple"), 2);
+    assert_eq!(count("multiple,single"), 2);
+    assert_eq!(count("choice"), 2);
+    assert_eq!(
+        s.questions(Some(&bank), "选择", "single,multiple", "")
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    assert!(s.questions(Some(&bank), "", "single,bogus", "").is_err());
+}
+
+#[test]
 fn filtered_search_does_not_hydrate_unselected_details_or_match_a_different_favorite() {
     let (_dir, mut s) = store();
     let bank = import(&mut s);
