@@ -19,7 +19,8 @@ PractiQ has an independent AI import service and Web frontend, plus an offline p
 
 | Task | Guide |
 | --- | --- |
-| Install prerequisites and run from source | [English overview](../README.md), [简体中文概览](../README.zh-CN.md) |
+| Install the practice app or the AI service | [Installation guide](guides/installation.md) |
+| Understand what the app does | [English overview](../README.md), [简体中文概览](../README.zh-CN.md) |
 | Practise, submit answers and review scores | [Practice guide](guides/practice-guide.md) |
 | Start, control and review AI imports | [Import tasks](guides/import-tasks.md) |
 | Import/share bank ZIPs or restore personal study data | [Question-bank packages and backups](guides/question-bank-package.md) |

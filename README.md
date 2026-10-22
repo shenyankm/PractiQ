@@ -8,20 +8,20 @@ English | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md)
 
 Turn documents into question banks, then practise and take mock exams offline on macOS, Windows or Android.
 
-- **Import and review**: extract questions from documents with AI, review warnings, and organize your banks.
-- **Practise and test**: select across banks by question type, mistakes, bookmarks, or unanswered questions; practise, take self-tests, or set up timed exams.
-- **Review scores**: score objective questions locally, request AI short-answer grading, or record manual corrections.
-- **Keep and share**: resume sessions, back up personal records, and share banks with images and audio as ZIP files.
+- **Import and review**: pull questions out of documents with AI, check anything that needs a second look, and organise your banks.
+- **Practise and test**: choose questions across banks by type, mistakes, bookmarks or unanswered questions, then practise, self-test or run a timed mock exam.
+- **Review scores**: score objective questions on your device, ask AI to grade short answers, or adjust marks yourself.
+- **Keep and share**: pick up a session where you left off, back up your records, and share a bank with its images and audio as a ZIP file.
 
-The app supports Simplified Chinese, Traditional Chinese, and English, light and dark themes, seven basic question types, and English listening, reading, cloze, translation, and writing tasks. Offline practice data stays on your device and needs no account or cloud sync. The separate Web importer uses your self-hosted service access token; there are no user accounts or built-in billing.
+PractiQ works in English, Simplified Chinese and Traditional Chinese, with light and dark themes. It covers seven basic question types plus English listening, reading, cloze, translation and writing. Your practice data stays on your device: there is no account and no cloud sync. Document import runs on your own self-hosted service and asks only for its access token; there are no user accounts or built-in billing.
 
-On first launch, PractiQ chooses a supported language from your system preference; you can also switch from the sidebar. The choice is saved on this device and included in full backups, and a failed save can be retried. Dates and numbers use the system regional preference that matches the interface language. Switching languages keeps question text and answers unchanged, and materials with reliable language information declare their own language for assistive tools. AI grading records the feedback language when it starts and keeps it when the same request continues.
+On first launch PractiQ follows your system language and remembers your choice on this device; you can also switch from the sidebar. Your language choice is included in full backups, and dates and numbers follow the regional format that matches the interface language. Switching language never changes question text or your answers.
 
-PractiQ is in development. Run it from source using the instructions below; check [GitHub Releases](https://github.com/shenyankm/PractiQ/releases) for published packages and their stated limitations. Platform build checks do not establish signed-release or clean-machine acceptance.
+PractiQ is in development. Install it from source as described in [Install](#install), or check [GitHub Releases](https://github.com/shenyankm/PractiQ/releases) for published packages and their known limitations. A passing build check does not confirm a signed release or a trial on a clean machine.
 
 ## Screenshots
 
-These screenshots show the desktop development preview in English, including hand-written English question banks and practice records. All data is held in memory; no credentials, uploads or model calls were used. Click an image to view it at full size.
+These screenshots show the desktop development preview in English, with hand-written sample banks and practice records. All data is held in memory; no credentials, uploads or model calls were used. Click an image to view it at full size.
 
 | Question banks | Practice |
 | :---: | :---: |
@@ -31,104 +31,62 @@ These screenshots show the desktop development preview in English, including han
 
 ## Try it without a model
 
-[Run the desktop app](#run-the-desktop-app), then:
+[Install PractiQ](#install), then:
 
-1. Choose **Add example bank** when **My banks** is empty, or import [sample.zip](app/fixtures/sample.zip) through **Settings → Import and restore → Import bank ZIP**. More examples: [composite questions](app/fixtures/composite.zip) and [all question types](app/fixtures/all-types.zip).
-2. Open the bank and choose **Start practice**. Try practice, an untimed self-test, or a timed mock exam.
-3. Submit your answers and review scores and explanations.
+1. When **My banks** is empty, choose **Add example bank**, or import [sample.zip](app/fixtures/sample.zip) through **Settings → Import and restore → Import bank ZIP**. More examples: [composite questions](app/fixtures/composite.zip) and [all question types](app/fixtures/all-types.zip).
+2. Open the bank and choose **Start practice**. Try practice with instant feedback, an untimed self-test or a timed mock exam.
+3. Submit your answers and review the scores and explanations.
 
-No API key is needed. The hand-written samples demonstrate question types and review flags; they are not model evaluations.
+No API key is needed. The hand-written samples show the question types and review flags; they are not a measure of model quality.
 
-Export a bank from its card menu to share content without personal answers or scores. Bank import appends content; restoring a full learning-data backup replaces personal data after confirmation. See the [practice guide](docs/guides/practice-guide.md) for answer submission, draft protection, language settings and optional AI grading, and the [package guide](docs/guides/question-bank-package.md) for import and backup boundaries.
+Export a bank from its card menu to share its questions without your answers or scores. Importing a bank ZIP adds to your library; restoring a full learning-data backup replaces your personal data after you confirm. The [practice guide](docs/guides/practice-guide.md) covers submitting answers, draft protection, language settings and optional AI grading, and the [package guide](docs/guides/question-bank-package.md) covers import and backup boundaries.
 
 ## Import documents with AI
 
-Use the independent service's Web frontend for document import:
+Document import runs in the Web page of the self-hosted AI service:
 
-1. Start the [independent AI service](#run-the-ai-service-independently), open its Web frontend and enter your service access token (`AI_SERVICE_TOKEN`). Model configuration and provider credentials stay in the service environment.
-2. Select up to 10 source files and explicitly choose **Start import**. Selecting files does not upload or parse them.
-3. Inspect task progress, saved questions, images, supplied answers and review warnings. Download the result as a question-bank ZIP.
-4. In the desktop app, use **Settings → Import and restore → Import bank ZIP** to create a bank or append content to an existing bank.
+1. [Start the AI service](#self-host-the-import-service), open its Web page and enter the service access token (`AI_SERVICE_TOKEN`). Model settings and provider keys stay on the server.
+2. Choose up to 10 files, then choose **Start import**. Choosing files alone does not upload or parse them.
+3. Follow the progress, then review the questions, images, supplied answers and anything flagged for review. Download the result as a question-bank ZIP.
+4. In the desktop app, open **Settings → Import and restore → Import bank ZIP** to create a bank or add content to an existing one.
 
-The service accepts **PDF, TXT, Markdown, PNG/JPEG, DOC, DOCX, PPT, PPTX, XLS and XLSX** through [Tencent asynchronous parsing](server/docs/tencent-document-parser.md). Configure Tencent credentials in the service environment. New CSV imports are unsupported; existing saved data and imported banks remain intact. Desktop packages contain no Python service or LibreOffice.
+The service reads **PDF, TXT, Markdown, PNG/JPEG, DOC, DOCX, PPT, PPTX, XLS and XLSX** with Tencent Cloud's [asynchronous multimodal document parsing](https://cloud.tencent.com/document/product/866/139312), and AI turns the text into questions. Configure the Tencent credentials in the service environment. CSV files can no longer be imported, but saved data and banks you already have stay unchanged. Desktop packages include no Python service or LibreOffice.
 
-Document recognition uses Tencent Cloud's **异步多模态文档解析** ([`SubmitMultimodalDocParseJob`](https://cloud.tencent.com/document/product/866/139312)). Tencent currently provides **1,000 free pages per user on first activation**, issued once and valid for one year. See the [official free quota policy](https://cloud.tencent.com/document/api/866/35945) for current terms.
+Tencent gives each user **1,000 free pages** on first activation, issued once and valid for one year; see the [official quota page](https://cloud.tencent.com/document/api/866/35945) for current terms. Service operators can find per-format limits, how large files are split and optional private COS staging in the [Tencent parser setup](server/docs/tencent-document-parser.md).
 
-Task history, pause, interrupt, resume, failed-unit retry, partial-result review and parse-again controls belong to the Web frontend. Read-only review and ZIP download make no model calls; resume, retry and parse again are explicit actions that may incur model-provider charges. Use the [import task guide](docs/guides/import-tasks.md) and [personal-use guide](server/docs/personal-use.md).
+Task history, pause, stop, resume, retrying failed parts, reviewing partial results and parsing again are all handled in the Web page. Reading, reviewing and downloading results never calls a model; resuming, retrying and parsing again are actions you take on purpose and may cost money at your model provider. See the [import task guide](docs/guides/import-tasks.md) and [personal-use guide](server/docs/personal-use.md).
 
-Parsing extracts supplied answers and rubrics without solving unanswered questions; missing content stays flagged for review. Download results within **180 days** to keep them; task expiry does not affect banks already imported into the app.
+Parsing only extracts answers and rubrics already in the document; it does not solve questions that have no answer, and missing content stays flagged for review. Download the results you want to keep within **180 days**; a task expiring never affects banks already imported into the app.
 
-Offline practice needs no service. For optional subjective AI grading, open **Settings → AI service**, select **Direct model API**, and enter an OpenAI-compatible API base URL (including its `/v1` or provider-specific base path), model ID and your own API key. Rust calls `/chat/completions` directly; no grading service, SDK or curl executable is required on macOS, Windows or Android. Existing deployments can select **Independent AI service** and keep using their service URL/token.
+## Grade short answers with AI
 
-A reference answer or rubric is required. Grading sends the current frozen question, related materials, images and answer to the selected provider and may incur charges. The endpoint must support JSON mode (`response_format: json_object`) and `max_tokens`; image questions require a vision model. Each explicit action makes at most one request, with a 120-second timeout and 4,096 output-token limit. Invalid, refused or truncated results remain ungraded, and existing scores/manual corrections are retained. Unknown requests are never automatically resent; checking them reads the local receipt, while explicit regrading creates a new potentially paid request. Connection testing only reads `/models` and does not validate grading quality.
+Practice and local scoring work offline. To have short answers graded, open **Settings → AI service**, choose **Direct model API** and enter an OpenAI-compatible API address (including the `/v1` or other base path your provider requires), model ID and your own API key. The app calls the provider directly on macOS, Windows and Android, so you need no extra grading service. If you already run the service, choose **Independent AI service** and keep using its address and token.
 
-API keys and service tokens stay in the system credential store and are excluded from backups. Non-secret connection settings share the existing versioned sidecar and backup recovery; the practice schema remains 11 and old schema-11 backups remain supported. Earlier App versions reject settings sidecars and backups containing the new model configuration; continue using the current App after enabling it. Legacy model settings and keys are never automatically reused.
+Grading needs a reference answer or rubric. It sends the current question, related materials, images and your answer to the provider you chose and may cost money. The API must support JSON mode and an output-length limit; questions with images need a vision model. Each explicit action makes at most one request, with a 120-second timeout and a 4,096-token output limit. Invalid, refused or cut-off results stay ungraded, and existing scores and manual corrections are kept. An unknown request is never resent automatically: checking it reads the local record, and only explicit regrading creates a new, possibly paid request. Testing the connection only reads the list of available models and does not check grading quality. This feature is for personal practice, not for scoring formal exams.
 
-Development starts with in-memory sample data. The preview panel lets you switch scenarios or choose real local data. See [development preview](app/docs/development-preview.md) for its controls and boundaries.
+API keys and service tokens stay in the system credential store and are excluded from backups. Connection settings hold no secrets and are stored apart from your practice data, so practice records and older backups remain compatible. Earlier app versions cannot read settings saved by this one; keep using the current version after you enable AI grading. Earlier model settings and keys are kept as they are and are never reused automatically.
 
-## Run the desktop app
+Timed mock exams keep counting after the app closes or the computer sleeps; when you return to an exam whose time is up, it is submitted with the answers last saved. See the [practice guide](docs/guides/practice-guide.md) for grading and exam details, and the [data format boundaries](docs/reference/question-model.md#versions-and-directories) for restore rules.
 
-Desktop data uses a fresh `v4/` directory and SQLite schema 11. Earlier directories, including `v3/`, remain untouched; old full backups are rejected. Current question-bank ZIP files can still be imported. See the [data format boundaries](docs/reference/question-model.md#versions-and-directories).
+Development starts with in-memory sample data. The preview panel lets you switch scenarios or choose real local data; see [development preview](app/docs/development-preview.md) for its controls and limits.
 
-App targets are macOS 14+ (Apple Silicon), Windows 10/11 (x64), and Android 8+ (API 26+, arm64 APK). Linux app packages are removed. Linux remains an AI-service and CI host. CI checks native macOS/Windows packages and an Android APK plus API 35 emulator tests; physical-device, minimum-version and signed-release acceptance remain separate.
+## Install
 
-Development requires Node.js 22.12+ and Rust. Package preparation and shared-contract checks also use an existing Python 3.14+ interpreter and uv; Python is a build tool and is not shipped in the desktop package. Install the [Tauri platform prerequisites](https://v2.tauri.app/start/prerequisites/): Xcode on macOS or MSVC build tools and WebView2 on Windows. Android also needs JDK 21, SDK 36 and NDK 28.2.13676358; see the [Android guide](app/docs/android.md). Do not create a project `.venv`.
+PractiQ installs from source. You do not need to run the commands yourself: open the repository root and ask your coding agent to do it with this prompt.
 
-Clone the repository and enter its root directory:
+> Read `docs/guides/installation.md` and install PractiQ on this machine. Check the requirements first, run only the steps for my platform, and tell me what you ran, where the build is and anything that failed. Ask before installing system packages.
 
-```sh
-git clone https://github.com/shenyankm/PractiQ.git
-cd PractiQ
-```
+The [installation guide](docs/guides/installation.md) is written for people and for agents. It covers the requirements and commands for macOS, Windows and Android, how to check that the app starts, and the optional AI service.
 
-On macOS, replace the Python path with your interpreter:
+PractiQ runs on macOS 14+ (Apple Silicon), Windows 10/11 (x64) and Android 8+ (API 26+, arm64 APK). Linux packages are not provided; Linux is supported for the AI service and CI. Build checks cover the macOS/Windows packages, an Android APK and emulator tests on API 35; physical devices, minimum versions and signed releases are checked separately.
 
-```sh
-make install-locked AI_PYTHON=/path/to/python3.14
-make app-install
-cargo fetch --locked --manifest-path app/src-tauri/Cargo.toml
-make app-dev AI_PYTHON=/path/to/python3.14
-# Build a local application package:
-make app-build AI_PYTHON=/path/to/python3.14
-```
+Desktop data uses a new `v4/` directory and SQLite schema 11. Older directories, including `v3/`, are left untouched and old full backups are no longer accepted; current question-bank ZIP files still import. See the [data format boundaries](docs/reference/question-model.md#versions-and-directories).
 
-On Windows, use PowerShell from the repository root:
+## Self-host the import service
 
-```powershell
-npm --prefix app ci
-cargo fetch --locked --manifest-path app/src-tauri/Cargo.toml
-python app/scripts/prepare-package.py
-cd app
-npm run desktop
-# Build the Windows installer:
-npm run tauri -- build
-```
+Document import needs the self-hosted AI service; offline practice does not. It requires Python 3.14+, uv, Node.js 22.12+, an empty PostgreSQL database, a dedicated RabbitMQ vhost and a model that accepts text and images. Ask your agent to follow the service part of the [installation guide](docs/guides/installation.md), which lists the settings, start commands and checks.
 
-Use Python 3.14+ for `prepare-package.py`. It generates build metadata and Cargo/npm notices, without downloading or copying document-processing runtimes. Packages are written under `app/src-tauri/target/release/bundle`: `.app`/`.dmg` on macOS and NSIS `.exe` on Windows. Android APKs use the separate [Android build and emulator commands](app/docs/android.md). Package checks verify version, notices and absence of embedded engines; they do not certify signing or interactive playback.
-
-## Run the AI service independently
-
-The independent service provides document import through its Web frontend and API, and explicit grading for the desktop. Use Python 3.14+, uv, Node.js 22.12+ for the Web build, and a model supporting text and image inputs. Copy the configuration template without overwriting existing settings:
-
-```sh
-cp -n .env.example .env
-```
-
-Set the service token, model credentials, `LLM_MODEL`, the PostgreSQL URL `DATABASE_URI`, dedicated RabbitMQ vhost URL `RABBITMQ_URI`, and file storage in `.env`. Provision an empty dedicated PostgreSQL database, then initialize its service tables and start:
-
-```sh
-make install-locked AI_PYTHON=/path/to/python3.14
-make init-db AI_PYTHON=/path/to/python3.14
-make web-install
-make web-build
-make server-dev AI_PYTHON=/path/to/python3.14
-```
-
-The FastAPI/LangGraph service listens on `127.0.0.1:8090`, uses RabbitMQ delivery, PostgreSQL state and local file storage, and runs one process per database. Uploads, tasks, artifacts, and grading require authentication. Open `http://127.0.0.1:8090/` for the built Web frontend. For development, run `make web-dev` separately; its loopback Vite server proxies API requests to the service. Configure `AI_OFFICE_EXECUTABLE` and `AI_OFFICE_VERSION` only on the service for XLS and oversized Office pagination before Tencent submission. XLSX preparation exposes hidden sheets in an immutable derived copy. Local Base64 inputs are capped at 8 MiB and larger sources split automatically. Advanced opt-in private COS staging (`AI_TENCENT_COS_ENABLED=true`) uses signed file URLs for every input while retaining local source/result files; configure its bucket and region in the service environment. See [Tencent parser setup](server/docs/tencent-document-parser.md) for type-specific limits and cleanup. See the [service guide](server/docs/service-guide.md).
-
-AI service upgrades and RabbitMQ setup: [delivery and recovery guide](server/docs/rabbitmq.md). Existing service schemas 1–4 require explicit offline upgrade to schema 5. Back up first; databases containing customer tasks require a new personal database and storage. See the [personal-use guide](server/docs/personal-use.md).
-
-Personal deployment, service-token access and safe upgrades: [personal-use guide](server/docs/personal-use.md). Configure your own model provider; provider charges are paid directly, with no PractiQ billing or user management.
+Service operations, upgrades and storage: [service guide](server/docs/service-guide.md), [delivery and recovery guide](server/docs/rabbitmq.md) and [personal-use guide](server/docs/personal-use.md). Existing service schemas 1–4 must be upgraded offline to schema 5; back up first, and a database that holds customer tasks needs a new personal database and storage. Configure your own model provider; provider charges are paid directly, with no PractiQ billing or user management.
 
 ## Documentation and development
 
@@ -142,7 +100,7 @@ npx playwright install chromium --only-shell
 npm run test:browser
 ```
 
-The runner starts its own loopback Vite servers. Failed tests retain traces and screenshots under `app/test-results/browser/`; inspect a trace with `npx playwright show-trace /path/to/trace.zip`.
+The runner starts its own loopback Vite servers. Failed tests keep traces and screenshots under `app/test-results/browser/`; inspect a trace with `npx playwright show-trace /path/to/trace.zip`.
 
 ## Get help and contribute
 

@@ -26,7 +26,7 @@ At the earlier 10:21 UTC observation, #136 was still awaiting package/emulator j
 
 ## Reproduce focused setup
 
-Follow [README prerequisites](../../README.md) and [CONTRIBUTING](../../CONTRIBUTING.md); do not create a project virtual environment. Choose an existing Python 3.14+ interpreter explicitly. From a fresh fork/checkout:
+Follow the [installation guide](../guides/installation.md) and [CONTRIBUTING](../../CONTRIBUTING.md); do not create a project virtual environment. Choose an existing Python 3.14+ interpreter explicitly. From a fresh fork/checkout:
 
 ```sh
 AI_PYTHON=/absolute/path/to/python3.14
