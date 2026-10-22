@@ -909,7 +909,11 @@ fn thaw_questions(doc: &Value, questions: &Value) -> Result<Vec<Value>> {
     }
     let mut rows = questions.as_array().unwrap().clone();
     for key in ["groups", "visuals"] {
-        let mut refs: HashMap<&str, Vec<&Value>> = HashMap::new();
+        // Index only the requested rows, not unrelated document-wide references.
+        let mut refs: HashMap<&str, Vec<&Value>> = rows
+            .iter()
+            .map(|row| (text(row, "id"), Vec::new()))
+            .collect();
         for item in list(doc, key) {
             let targets: Vec<_> = if key == "visuals" && list(item, "questionIds").is_empty() {
                 rows.iter().map(|r| text(r, "id")).collect()
@@ -920,7 +924,9 @@ fn thaw_questions(doc: &Value, questions: &Value) -> Result<Vec<Value>> {
                     .collect()
             };
             for id in targets {
-                refs.entry(id).or_default().push(item);
+                if let Some(values) = refs.get_mut(id) {
+                    values.push(item);
+                }
             }
         }
         let values: Vec<_> = rows
@@ -1409,6 +1415,46 @@ mod snapshot_copy_tests {
             assert!(frozen[field][0]["instructions"].is_null());
         }
         assert_eq!(rows, before);
+    }
+
+    #[test]
+    fn thaw_context_preserves_reference_order_duplicates_and_global_visuals() {
+        let doc = json!({"schemaVersion":3,"questions":[
+            {"id":"q中","question":{"id":"q中"}},
+            {"id":"other","question":{"id":"other"}}
+        ],"groups":[
+            {"id":"outside","questionIds":["absent"]},
+            {"id":"empty","questionIds":[]},
+            {"id":"first","questionIds":["other","q中","q中",null]},
+            {"id":"second","questionIds":["q中"]}
+        ],"visuals":[
+            {"id":"global","questionIds":[]},
+            {"id":"scoped","questionIds":["q中","absent","q中"]},
+            {"id":"other","questionIds":["other"]}
+        ]});
+        let before = doc.clone();
+        let rows = thaw(&doc).unwrap();
+        let selected = context_from_document(&doc, "q中").unwrap();
+        assert_eq!(selected, vec![rows[0].clone()]);
+        for (field, expected) in [
+            ("groups", vec!["first", "first", "second"]),
+            ("visuals", vec!["global", "scoped", "scoped"]),
+        ] {
+            assert_eq!(
+                list(&selected[0], field)
+                    .iter()
+                    .map(|v| text(v, "id"))
+                    .collect::<Vec<_>>(),
+                expected
+            );
+        }
+        assert_eq!(list(&rows[1], "visuals").len(), 2);
+        assert_eq!(doc, before);
+        let mut empty = doc.clone();
+        empty["questions"] = json!([]);
+        assert!(thaw(&empty).unwrap().is_empty());
+        empty["groups"] = json!([null]);
+        assert!(thaw(&empty).is_err());
     }
 
     #[test]

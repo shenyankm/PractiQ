@@ -29,7 +29,7 @@ export function SelectControl({ className, children, size = "default", value, de
     if (value === undefined) setLocalValue(next);
     onValueChange?.(next);
   }
-  const controlClass = "flex w-full min-w-0 items-center justify-between gap-2 rounded-lg border border-input bg-card px-2.5 py-1 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive";
+  const controlClass = "flex w-full min-w-0 items-center justify-between gap-2 rounded-lg border border-input bg-card px-2.5 py-1 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive";
   // Radix reserves empty item values; a prefix preserves empty filters without collisions.
   return <div data-slot="select-wrapper" data-size={size} className={cn("relative w-fit max-w-full min-w-0", className)}>
     {desktop ? <SelectPrimitive.Root value={`value:${selected}`} onValueChange={next => change(next.slice(6))} disabled={props.disabled}>

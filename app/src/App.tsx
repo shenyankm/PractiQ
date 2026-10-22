@@ -509,7 +509,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
           <DialogHeader className="sr-only"><DialogTitle>{t("主导航")}</DialogTitle></DialogHeader>
           <div className="flex min-h-0 flex-1 flex-col">{navigationContent}</div>
         </DialogContent>
-      </Dialog> : <aside id="app-sidebar" className={`flex shrink-0 flex-col border-r bg-card px-2 py-4 transition-[width] duration-200 ease-in-out motion-reduce:transition-none ${sidebarCollapsed ? "w-16" : "w-52"}`}>{navigationContent}</aside>}
+      </Dialog> : <aside id="app-sidebar" className={`flex shrink-0 flex-col border-r border-sidebar-border bg-sidebar px-2 py-4 text-sidebar-foreground transition-[width] duration-200 ease-in-out motion-reduce:transition-none ${sidebarCollapsed ? "w-16" : "w-52"}`}>{navigationContent}</aside>}
       </Tooltip.Provider>
       <main className="flex min-w-0 flex-1 flex-col">
         <header className="app-header flex shrink-0 flex-wrap items-center justify-between gap-4 border-b">

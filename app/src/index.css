@@ -94,13 +94,13 @@ html[lang="en"] [data-button]:not([data-size^="icon"]) {
 .sidebar-label {
   opacity: 1;
   visibility: visible;
-  transition: opacity 120ms ease-out, visibility 0s;
+  transition: opacity var(--motion-duration) var(--motion-ease), visibility 0s;
 }
 
 .sidebar-label[aria-hidden="true"] {
   opacity: 0;
   visibility: hidden;
-  transition: opacity 120ms ease-out, visibility 0s linear 120ms;
+  transition: opacity var(--motion-duration) var(--motion-ease), visibility 0s linear var(--motion-duration);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -213,7 +213,7 @@ html[data-native-insets="true"] {
 .practice-answer-card > summary { display: none; }
 .connection-settings-form [data-slot="select-wrapper"] { width: 100%; }
 .connection-status { display: grid; gap: 0.5rem; border-radius: var(--radius-item); background: var(--muted); padding: 0.75rem 1rem; }
-.image-viewport:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.image-viewport:focus-visible { outline: 3px solid var(--ring); outline-offset: 2px; }
 .app-header { background: var(--card); }
 .app-content { line-height: 1.6; }
 .workflow-note { padding: 0.75rem 1rem; border: 1px solid color-mix(in oklch, var(--primary) 25%, var(--border)); border-radius: var(--radius); background: color-mix(in oklch, var(--primary) 5%, var(--card)); color: var(--foreground); font-size: 0.875rem; line-height: 1.6; }
@@ -237,7 +237,8 @@ html[data-native-insets="true"] {
 .practice-footer { justify-content: flex-end; }
 .practice-workspace :is(input, textarea, button, a):focus { scroll-margin-block: 1rem 7rem; }
 
-.app-header h1 { font-size: 1.75rem; line-height: 1.35; letter-spacing: -0.025em; }
+.app-header h1 { font-size: var(--text-page); line-height: 1.35; letter-spacing: -0.025em; }
+#app-sidebar [data-button]:hover { background: var(--sidebar-accent); color: var(--sidebar-foreground); }
 #app-sidebar nav [aria-current="page"] { color: var(--secondary-foreground); background: var(--secondary); }
 #app-sidebar nav [data-button] { min-height: 2.75rem; }
 .resume-card { background: var(--secondary); border-color: color-mix(in oklch, var(--primary) 30%, var(--border)); }
@@ -254,7 +255,7 @@ html[data-native-insets="true"] {
 .bank-count svg { width: 1rem; height: 1rem; }
 .question-filters { padding: 1rem; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--card); }
 .review-warning { color: var(--warning-foreground); }
-.answer-card-help { width: 17rem; max-width: calc(100vw - 1.5rem); max-height: var(--radix-popover-content-available-height); overflow-y: auto; padding: 1rem; border: 1px solid var(--border); border-radius: var(--radius-menu); background: var(--popover); color: var(--popover-foreground); outline: none; }
+.answer-card-help { width: 17rem; max-width: calc(100vw - 1.5rem); max-height: var(--radix-popover-content-available-height); overflow-y: auto; padding: 1rem; border: 1px solid var(--border); border-radius: var(--radius-menu); background: var(--popover); color: var(--popover-foreground); box-shadow: var(--overlay-shadow); outline: none; }
 .answer-card-help-arrow { fill: var(--popover); }
 .answer-card-grid, .answer-card-legend {
   --answer-neutral-background: #f0efed;
@@ -290,9 +291,9 @@ html[data-native-insets="true"] {
 }
 .answer-card-item:hover { background: color-mix(in srgb, var(--answer-background), var(--answer-foreground) 8%); color: var(--answer-foreground); }
 [data-answer-state="pending"], [data-answer-state="skipped"] { border-style: dashed; }
-.answer-card-item[aria-current="step"], .answer-card-current { outline: 2px solid var(--ring); outline-offset: 2px; }
+.answer-card-item[aria-current="step"], .answer-card-current { outline: 3px solid var(--ring); outline-offset: 2px; }
 .answer-card-item[aria-current="step"] { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; }
-.answer-card-item:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.answer-card-item:focus-visible { outline: 3px solid var(--ring); outline-offset: 2px; }
 .answer-card-flag { position: absolute; bottom: 2px; right: 1px; border-radius: 2px; background: var(--warning-background); color: var(--warning-foreground); }
 .answer-card-swatch { display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center; width: 1.125rem; height: 1.125rem; border-radius: 4px; }
 .answer-card-current { background: var(--card); color: var(--primary); border-color: var(--primary); }
@@ -312,7 +313,7 @@ html[data-native-insets="true"] {
   .practice-answer-card [data-slot="card-header"] { padding-top: 0; }
   .practice-footer { position: static; flex-direction: column; width: 100%; }
   .practice-navigation, .practice-actions:not(:empty) { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .app-header h1 { font-size: 1.375rem; }
+  .app-header h1 { font-size: var(--text-page-narrow); }
   .bank-card { min-height: 0; }
   .resume-content { align-items: stretch; flex-direction: column; gap: 1rem; }
   .resume-actions { justify-content: flex-start; margin-left: 0; }

@@ -1,0 +1,772 @@
+{
+  "baselineCommit": "3208cc860b6501fa80a1b1e64a9d5c4d8023ba37",
+  "host": {
+    "cpu": "Apple M4",
+    "os": "macOS 27.0.1 arm64",
+    "rust": "1.98.1",
+    "profile": "release, thin LTO, locked offline dependencies"
+  },
+  "processOrder": [
+    "before-1",
+    "after-1",
+    "after-2",
+    "before-2",
+    "before-3",
+    "after-3"
+  ],
+  "baselineNote": "Baseline production sources plus identical added regression and benchmark, built before editing thaw_questions. Saved executables alternated without rebuilding during measurement. Existing frontend changes not modified.",
+  "allComparedHashesMatch": true,
+  "summary": [
+    {
+      "nodes": 20,
+      "groups": 2,
+      "refsPerGroup": 1,
+      "context": {
+        "medianMs": {
+          "before": 0.002125,
+          "after": 0.0022500000000000003
+        },
+        "reductionPercent": -5.882352941176472
+      },
+      "thaw": {
+        "medianMs": {
+          "before": 0.009084,
+          "after": 0.008375
+        },
+        "reductionPercent": 7.804931748128574
+      }
+    },
+    {
+      "nodes": 1000,
+      "groups": 1000,
+      "refsPerGroup": 1,
+      "context": {
+        "medianMs": {
+          "before": 0.11237499999999999,
+          "after": 0.05375
+        },
+        "reductionPercent": 52.1690767519466
+      },
+      "thaw": {
+        "medianMs": {
+          "before": 0.488584,
+          "after": 0.47425
+        },
+        "reductionPercent": 2.933784159939745
+      }
+    },
+    {
+      "nodes": 500,
+      "groups": 20,
+      "refsPerGroup": 500,
+      "context": {
+        "medianMs": {
+          "before": 0.282959,
+          "after": 0.162667
+        },
+        "reductionPercent": 42.51216607353009
+      },
+      "thaw": {
+        "medianMs": {
+          "before": 43.558583,
+          "after": 41.537292
+        },
+        "reductionPercent": 4.640396589576845
+      }
+    }
+  ],
+  "raw": {
+    "before": [
+      {
+        "method": "Synthetic version-3 immutable snapshots; one warmup and seven samples, setup/hash/assertions excluded. No SQLite, IPC, WebView or model work.",
+        "probeSha256": "73206d2f795a5c3a409c4caa4c6a5c02e7c80603ff7afc4a80b6e6546aaa7f62",
+        "workloads": [
+          {
+            "context": {
+              "medianMs": 0.001958,
+              "outputBytes": 210,
+              "outputSha256": "4d317ab76c4f3a2d8b02dbb2ed0f10de1f73120ddbadcce35f0346a8426b6475",
+              "samplesMs": [
+                0.002042,
+                0.002333,
+                0.003,
+                0.001958,
+                0.001917,
+                0.001917,
+                0.001917
+              ]
+            },
+            "groups": 2,
+            "inputSha256": "1f82c186eb244c9555045896dd1301e45f1c4032416c9f47b223337a075eba47",
+            "nodes": 20,
+            "refsPerGroup": 1,
+            "thaw": {
+              "medianMs": 0.008542000000000001,
+              "outputBytes": 3265,
+              "outputSha256": "bb10a2a8dd7f0db871de9e3bfc96aeedb7c5c40aae99adbc23b6c69cf6d59b83",
+              "samplesMs": [
+                0.0095,
+                0.008542000000000001,
+                0.009125,
+                0.009415999999999999,
+                0.008333,
+                0.008166,
+                0.008166
+              ]
+            }
+          },
+          {
+            "context": {
+              "medianMs": 0.111667,
+              "outputBytes": 210,
+              "outputSha256": "4d317ab76c4f3a2d8b02dbb2ed0f10de1f73120ddbadcce35f0346a8426b6475",
+              "samplesMs": [
+                0.111583,
+                0.11508299999999999,
+                0.11708400000000001,
+                0.111667,
+                0.112458,
+                0.11108299999999999,
+                0.110625
+              ]
+            },
+            "groups": 1000,
+            "inputSha256": "138c5693f86bafc71c989d16ac16b9c1385c2e001251e0bf83beac0d84f4c9ad",
+            "nodes": 1000,
+            "refsPerGroup": 1,
+            "thaw": {
+              "medianMs": 0.47100000000000003,
+              "outputBytes": 216561,
+              "outputSha256": "fdcf2d9ab63581b37aa38133a68e440974e9b77af22e7eb39659120d69f74416",
+              "samplesMs": [
+                0.478167,
+                0.466667,
+                0.47154100000000004,
+                0.47100000000000003,
+                0.47100000000000003,
+                0.467,
+                0.473458
+              ]
+            }
+          },
+          {
+            "context": {
+              "medianMs": 0.279833,
+              "outputBytes": 68927,
+              "outputSha256": "44b0fca27c8013b86a3ab702cc0b5df211b3b8eba9ad7a9aa059d98f231e5579",
+              "samplesMs": [
+                0.276375,
+                0.275333,
+                0.279833,
+                0.283709,
+                0.278042,
+                0.282959,
+                0.282791
+              ]
+            },
+            "groups": 20,
+            "inputSha256": "ad3d1013267cc9bb72d8d045825f22c7f03d2eee9904eff49fbd41b031d84651",
+            "nodes": 500,
+            "refsPerGroup": 500,
+            "thaw": {
+              "medianMs": 42.684291,
+              "outputBytes": 34464781,
+              "outputSha256": "9f0f01d011b4e26a398979ce72e1f1fd926acfc2fc5fb6cf8dd42fc71802b2f8",
+              "samplesMs": [
+                45.198584,
+                52.598667,
+                42.684291,
+                41.577792,
+                41.361542,
+                42.089375,
+                43.558583
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "method": "Synthetic version-3 immutable snapshots; one warmup and seven samples, setup/hash/assertions excluded. No SQLite, IPC, WebView or model work.",
+        "probeSha256": "73206d2f795a5c3a409c4caa4c6a5c02e7c80603ff7afc4a80b6e6546aaa7f62",
+        "workloads": [
+          {
+            "context": {
+              "medianMs": 0.002208,
+              "outputBytes": 210,
+              "outputSha256": "4d317ab76c4f3a2d8b02dbb2ed0f10de1f73120ddbadcce35f0346a8426b6475",
+              "samplesMs": [
+                0.0022500000000000003,
+                0.003792,
+                0.002208,
+                0.001917,
+                0.0018750000000000001,
+                0.001958,
+                0.002792
+              ]
+            },
+            "groups": 2,
+            "inputSha256": "1f82c186eb244c9555045896dd1301e45f1c4032416c9f47b223337a075eba47",
+            "nodes": 20,
+            "refsPerGroup": 1,
+            "thaw": {
+              "medianMs": 0.009084,
+              "outputBytes": 3265,
+              "outputSha256": "bb10a2a8dd7f0db871de9e3bfc96aeedb7c5c40aae99adbc23b6c69cf6d59b83",
+              "samplesMs": [
+                0.009084,
+                0.008459,
+                0.010042,
+                0.008375,
+                0.008291000000000001,
+                0.00925,
+                0.009667
+              ]
+            }
+          },
+          {
+            "context": {
+              "medianMs": 0.112166,
+              "outputBytes": 210,
+              "outputSha256": "4d317ab76c4f3a2d8b02dbb2ed0f10de1f73120ddbadcce35f0346a8426b6475",
+              "samplesMs": [
+                0.112166,
+                0.110834,
+                0.112125,
+                0.110708,
+                0.11299999999999999,
+                0.11508299999999999,
+                0.11325
+              ]
+            },
+            "groups": 1000,
+            "inputSha256": "138c5693f86bafc71c989d16ac16b9c1385c2e001251e0bf83beac0d84f4c9ad",
+            "nodes": 1000,
+            "refsPerGroup": 1,
+            "thaw": {
+              "medianMs": 0.49950000000000006,
+              "outputBytes": 216561,
+              "outputSha256": "fdcf2d9ab63581b37aa38133a68e440974e9b77af22e7eb39659120d69f74416",
+              "samplesMs": [
+                0.49950000000000006,
+                0.48708300000000004,
+                0.524208,
+                0.515,
+                0.522625,
+                0.477,
+                0.486583
+              ]
+            }
+          },
+          {
+            "context": {
+              "medianMs": 0.28025,
+              "outputBytes": 68927,
+              "outputSha256": "44b0fca27c8013b86a3ab702cc0b5df211b3b8eba9ad7a9aa059d98f231e5579",
+              "samplesMs": [
+                0.27587500000000004,
+                0.273125,
+                0.28170799999999996,
+                0.274875,
+                0.28025,
+                0.30320800000000003,
+                0.298375
+              ]
+            },
+            "groups": 20,
+            "inputSha256": "ad3d1013267cc9bb72d8d045825f22c7f03d2eee9904eff49fbd41b031d84651",
+            "nodes": 500,
+            "refsPerGroup": 500,
+            "thaw": {
+              "medianMs": 42.326457999999995,
+              "outputBytes": 34464781,
+              "outputSha256": "9f0f01d011b4e26a398979ce72e1f1fd926acfc2fc5fb6cf8dd42fc71802b2f8",
+              "samplesMs": [
+                49.902667,
+                49.171,
+                41.7315,
+                42.326457999999995,
+                41.519542,
+                42.188417,
+                43.658125
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "method": "Synthetic version-3 immutable snapshots; one warmup and seven samples, setup/hash/assertions excluded. No SQLite, IPC, WebView or model work.",
+        "probeSha256": "73206d2f795a5c3a409c4caa4c6a5c02e7c80603ff7afc4a80b6e6546aaa7f62",
+        "workloads": [
+          {
+            "context": {
+              "medianMs": 0.002125,
+              "outputBytes": 210,
+              "outputSha256": "4d317ab76c4f3a2d8b02dbb2ed0f10de1f73120ddbadcce35f0346a8426b6475",
+              "samplesMs": [
+                0.002166,
+                0.0024159999999999997,
+                0.002084,
+                0.002,
+                0.00275,
+                0.002125,
+                0.002125
+              ]
+            },
+            "groups": 2,
+            "inputSha256": "1f82c186eb244c9555045896dd1301e45f1c4032416c9f47b223337a075eba47",
+            "nodes": 20,
+            "refsPerGroup": 1,
+            "thaw": {
+              "medianMs": 0.00925,
+              "outputBytes": 3265,
+              "outputSha256": "bb10a2a8dd7f0db871de9e3bfc96aeedb7c5c40aae99adbc23b6c69cf6d59b83",
+              "samplesMs": [
+                0.010125,
+                0.008583,
+                0.009625,
+                0.009666000000000001,
+                0.00925,
+                0.008291000000000001,
+                0.008124999999999999
+              ]
+            }
+          },
+          {
+            "context": {
+              "medianMs": 0.11254199999999999,
+              "outputBytes": 210,
+              "outputSha256": "4d317ab76c4f3a2d8b02dbb2ed0f10de1f73120ddbadcce35f0346a8426b6475",
+              "samplesMs": [
+                0.112916,
+                0.11445899999999999,
+                0.112792,
+                0.10875,
+                0.11254199999999999,
+                0.111625,
+                0.11237499999999999
+              ]
+            },
+            "groups": 1000,
+            "inputSha256": "138c5693f86bafc71c989d16ac16b9c1385c2e001251e0bf83beac0d84f4c9ad",
+            "nodes": 1000,
+            "refsPerGroup": 1,
+            "thaw": {
+              "medianMs": 0.49762500000000004,
+              "outputBytes": 216561,
+              "outputSha256": "fdcf2d9ab63581b37aa38133a68e440974e9b77af22e7eb39659120d69f74416",
+              "samplesMs": [
+                0.510541,
+                0.49574999999999997,
+                0.49487499999999995,
+                0.488584,
+                0.49762500000000004,
+                0.547417,
+                0.513625
+              ]
+            }
+          },
+          {
+            "context": {
+              "medianMs": 0.294166,
+              "outputBytes": 68927,
+              "outputSha256": "44b0fca27c8013b86a3ab702cc0b5df211b3b8eba9ad7a9aa059d98f231e5579",
+              "samplesMs": [
+                0.292292,
+                0.29508399999999996,
+                0.300625,
+                0.294166,
+                0.291625,
+                0.298792,
+                0.289917
+              ]
+            },
+            "groups": 20,
+            "inputSha256": "ad3d1013267cc9bb72d8d045825f22c7f03d2eee9904eff49fbd41b031d84651",
+            "nodes": 500,
+            "refsPerGroup": 500,
+            "thaw": {
+              "medianMs": 44.193250000000006,
+              "outputBytes": 34464781,
+              "outputSha256": "9f0f01d011b4e26a398979ce72e1f1fd926acfc2fc5fb6cf8dd42fc71802b2f8",
+              "samplesMs": [
+                47.763958,
+                51.112625,
+                44.193250000000006,
+                40.59,
+                43.555083,
+                43.71725,
+                44.772542
+              ]
+            }
+          }
+        ]
+      }
+    ],
+    "after": [
+      {
+        "method": "Synthetic version-3 immutable snapshots; one warmup and seven samples, setup/hash/assertions excluded. No SQLite, IPC, WebView or model work.",
+        "probeSha256": "73206d2f795a5c3a409c4caa4c6a5c02e7c80603ff7afc4a80b6e6546aaa7f62",
+        "workloads": [
+          {
+            "context": {
+              "medianMs": 0.002792,
+              "outputBytes": 210,
+              "outputSha256": "4d317ab76c4f3a2d8b02dbb2ed0f10de1f73120ddbadcce35f0346a8426b6475",
+              "samplesMs": [
+                0.003,
+                0.002458,
+                0.002041,
+                0.002959,
+                0.002792,
+                0.002,
+                0.002875
+              ]
+            },
+            "groups": 2,
+            "inputSha256": "1f82c186eb244c9555045896dd1301e45f1c4032416c9f47b223337a075eba47",
+            "nodes": 20,
+            "refsPerGroup": 1,
+            "thaw": {
+              "medianMs": 0.008333,
+              "outputBytes": 3265,
+              "outputSha256": "bb10a2a8dd7f0db871de9e3bfc96aeedb7c5c40aae99adbc23b6c69cf6d59b83",
+              "samplesMs": [
+                0.010042,
+                0.0095,
+                0.008333,
+                0.008417,
+                0.008208,
+                0.008333,
+                0.008291999999999999
+              ]
+            }
+          },
+          {
+            "context": {
+              "medianMs": 0.059334,
+              "outputBytes": 210,
+              "outputSha256": "4d317ab76c4f3a2d8b02dbb2ed0f10de1f73120ddbadcce35f0346a8426b6475",
+              "samplesMs": [
+                0.07116700000000001,
+                0.06241599999999999,
+                0.060000000000000005,
+                0.059334,
+                0.05925,
+                0.05725,
+                0.053459
+              ]
+            },
+            "groups": 1000,
+            "inputSha256": "138c5693f86bafc71c989d16ac16b9c1385c2e001251e0bf83beac0d84f4c9ad",
+            "nodes": 1000,
+            "refsPerGroup": 1,
+            "thaw": {
+              "medianMs": 0.49799999999999994,
+              "outputBytes": 216561,
+              "outputSha256": "fdcf2d9ab63581b37aa38133a68e440974e9b77af22e7eb39659120d69f74416",
+              "samplesMs": [
+                0.517833,
+                0.509834,
+                0.522334,
+                0.487292,
+                0.49799999999999994,
+                0.487042,
+                0.489125
+              ]
+            }
+          },
+          {
+            "context": {
+              "medianMs": 0.163,
+              "outputBytes": 68927,
+              "outputSha256": "44b0fca27c8013b86a3ab702cc0b5df211b3b8eba9ad7a9aa059d98f231e5579",
+              "samplesMs": [
+                0.170167,
+                0.168583,
+                0.1625,
+                0.162667,
+                0.163,
+                0.161917,
+                0.16370800000000002
+              ]
+            },
+            "groups": 20,
+            "inputSha256": "ad3d1013267cc9bb72d8d045825f22c7f03d2eee9904eff49fbd41b031d84651",
+            "nodes": 500,
+            "refsPerGroup": 500,
+            "thaw": {
+              "medianMs": 44.708667,
+              "outputBytes": 34464781,
+              "outputSha256": "9f0f01d011b4e26a398979ce72e1f1fd926acfc2fc5fb6cf8dd42fc71802b2f8",
+              "samplesMs": [
+                46.800959000000006,
+                47.904375,
+                41.761917000000004,
+                39.369916999999994,
+                40.745541,
+                49.727791,
+                44.708667
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "method": "Synthetic version-3 immutable snapshots; one warmup and seven samples, setup/hash/assertions excluded. No SQLite, IPC, WebView or model work.",
+        "probeSha256": "73206d2f795a5c3a409c4caa4c6a5c02e7c80603ff7afc4a80b6e6546aaa7f62",
+        "workloads": [
+          {
+            "context": {
+              "medianMs": 0.002208,
+              "outputBytes": 210,
+              "outputSha256": "4d317ab76c4f3a2d8b02dbb2ed0f10de1f73120ddbadcce35f0346a8426b6475",
+              "samplesMs": [
+                0.002125,
+                0.0020829999999999998,
+                0.002209,
+                0.0029170000000000003,
+                0.002208,
+                0.002125,
+                0.002916
+              ]
+            },
+            "groups": 2,
+            "inputSha256": "1f82c186eb244c9555045896dd1301e45f1c4032416c9f47b223337a075eba47",
+            "nodes": 20,
+            "refsPerGroup": 1,
+            "thaw": {
+              "medianMs": 0.008457999999999999,
+              "outputBytes": 3265,
+              "outputSha256": "bb10a2a8dd7f0db871de9e3bfc96aeedb7c5c40aae99adbc23b6c69cf6d59b83",
+              "samplesMs": [
+                0.010917000000000001,
+                0.008957999999999999,
+                0.008624999999999999,
+                0.008457999999999999,
+                0.008417,
+                0.008375,
+                0.008209000000000001
+              ]
+            }
+          },
+          {
+            "context": {
+              "medianMs": 0.0535,
+              "outputBytes": 210,
+              "outputSha256": "4d317ab76c4f3a2d8b02dbb2ed0f10de1f73120ddbadcce35f0346a8426b6475",
+              "samplesMs": [
+                0.0575,
+                0.054708,
+                0.053333,
+                0.0535,
+                0.053458000000000006,
+                0.056875,
+                0.053167
+              ]
+            },
+            "groups": 1000,
+            "inputSha256": "138c5693f86bafc71c989d16ac16b9c1385c2e001251e0bf83beac0d84f4c9ad",
+            "nodes": 1000,
+            "refsPerGroup": 1,
+            "thaw": {
+              "medianMs": 0.461125,
+              "outputBytes": 216561,
+              "outputSha256": "fdcf2d9ab63581b37aa38133a68e440974e9b77af22e7eb39659120d69f74416",
+              "samplesMs": [
+                0.508041,
+                0.490083,
+                0.47425,
+                0.453292,
+                0.45883399999999996,
+                0.461125,
+                0.458
+              ]
+            }
+          },
+          {
+            "context": {
+              "medianMs": 0.16329100000000002,
+              "outputBytes": 68927,
+              "outputSha256": "44b0fca27c8013b86a3ab702cc0b5df211b3b8eba9ad7a9aa059d98f231e5579",
+              "samplesMs": [
+                0.16354100000000002,
+                0.16325,
+                0.16245800000000002,
+                0.163208,
+                0.164292,
+                0.16329100000000002,
+                0.16354100000000002
+              ]
+            },
+            "groups": 20,
+            "inputSha256": "ad3d1013267cc9bb72d8d045825f22c7f03d2eee9904eff49fbd41b031d84651",
+            "nodes": 500,
+            "refsPerGroup": 500,
+            "thaw": {
+              "medianMs": 40.344667,
+              "outputBytes": 34464781,
+              "outputSha256": "9f0f01d011b4e26a398979ce72e1f1fd926acfc2fc5fb6cf8dd42fc71802b2f8",
+              "samplesMs": [
+                46.65775,
+                45.540541,
+                40.22320800000001,
+                40.344667,
+                41.537292,
+                39.724624999999996,
+                40.193208
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "method": "Synthetic version-3 immutable snapshots; one warmup and seven samples, setup/hash/assertions excluded. No SQLite, IPC, WebView or model work.",
+        "probeSha256": "73206d2f795a5c3a409c4caa4c6a5c02e7c80603ff7afc4a80b6e6546aaa7f62",
+        "workloads": [
+          {
+            "context": {
+              "medianMs": 0.0022500000000000003,
+              "outputBytes": 210,
+              "outputSha256": "4d317ab76c4f3a2d8b02dbb2ed0f10de1f73120ddbadcce35f0346a8426b6475",
+              "samplesMs": [
+                0.002084,
+                0.003167,
+                0.0022500000000000003,
+                0.004583,
+                0.002167,
+                0.002875,
+                0.002042
+              ]
+            },
+            "groups": 2,
+            "inputSha256": "1f82c186eb244c9555045896dd1301e45f1c4032416c9f47b223337a075eba47",
+            "nodes": 20,
+            "refsPerGroup": 1,
+            "thaw": {
+              "medianMs": 0.008208,
+              "outputBytes": 3265,
+              "outputSha256": "bb10a2a8dd7f0db871de9e3bfc96aeedb7c5c40aae99adbc23b6c69cf6d59b83",
+              "samplesMs": [
+                0.009708,
+                0.0085,
+                0.008208,
+                0.008124999999999999,
+                0.008124999999999999,
+                0.00825,
+                0.008167
+              ]
+            }
+          },
+          {
+            "context": {
+              "medianMs": 0.05325,
+              "outputBytes": 210,
+              "outputSha256": "4d317ab76c4f3a2d8b02dbb2ed0f10de1f73120ddbadcce35f0346a8426b6475",
+              "samplesMs": [
+                0.052791000000000005,
+                0.05475,
+                0.053125,
+                0.05275,
+                0.053708,
+                0.05325,
+                0.05375
+              ]
+            },
+            "groups": 1000,
+            "inputSha256": "138c5693f86bafc71c989d16ac16b9c1385c2e001251e0bf83beac0d84f4c9ad",
+            "nodes": 1000,
+            "refsPerGroup": 1,
+            "thaw": {
+              "medianMs": 0.459542,
+              "outputBytes": 216561,
+              "outputSha256": "fdcf2d9ab63581b37aa38133a68e440974e9b77af22e7eb39659120d69f74416",
+              "samplesMs": [
+                0.459542,
+                0.45883399999999996,
+                0.456666,
+                0.454125,
+                0.47220900000000005,
+                0.475375,
+                0.461792
+              ]
+            }
+          },
+          {
+            "context": {
+              "medianMs": 0.15720900000000002,
+              "outputBytes": 68927,
+              "outputSha256": "44b0fca27c8013b86a3ab702cc0b5df211b3b8eba9ad7a9aa059d98f231e5579",
+              "samplesMs": [
+                0.15720900000000002,
+                0.156916,
+                0.157,
+                0.1605,
+                0.156625,
+                0.158,
+                0.16137500000000002
+              ]
+            },
+            "groups": 20,
+            "inputSha256": "ad3d1013267cc9bb72d8d045825f22c7f03d2eee9904eff49fbd41b031d84651",
+            "nodes": 500,
+            "refsPerGroup": 500,
+            "thaw": {
+              "medianMs": 41.276083,
+              "outputBytes": 34464781,
+              "outputSha256": "9f0f01d011b4e26a398979ce72e1f1fd926acfc2fc5fb6cf8dd42fc71802b2f8",
+              "samplesMs": [
+                46.044209,
+                49.124291,
+                41.276083,
+                52.278709,
+                39.907125,
+                40.040417000000005,
+                40.3065
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "binarySha256": {
+    "before": "1dd0177e81f66cd6127df7ef391afc8a06006a882afc0cb8f00efc16c12770c1",
+    "after": "1be75ea4c9e1aca13b8fb19ff6784db7af8122f5c35faa25ccee31662703763f"
+  },
+  "sourceSha256": {
+    "app/src-tauri/src/questions.rs": "f0aa912b08041f944ab3634a3d747e79dadc63676d5a1bc4f1bdec4831e869f9",
+    "app/src-tauri/src/performance.rs": "73206d2f795a5c3a409c4caa4c6a5c02e7c80603ff7afc4a80b6e6546aaa7f62"
+  },
+  "acceptance": {
+    "appCheck": "Passed: contracts, fixtures, TS, ESLint, 464 frontend tests, Rust fmt, 217 Rust tests, Clippy all-targets -D warnings. 3 frontend and 17 Rust ignored cases; new probe separately exercised six times.",
+    "appBuild": "Passed: macOS arm64 app and DMG",
+    "bundleCheck": {
+      "passed": true,
+      "bundle": "/Users/sheny/Developer/code/PractiQ/app/src-tauri/target/release/bundle/macos/PractiQ.app/Contents/Resources/bundled",
+      "application": "/Users/sheny/Developer/code/PractiQ/app/src-tauri/target/release/bundle/macos/PractiQ.app",
+      "packageMode": "desktop-practice",
+      "manifest": {
+        "schemaVersion": 2,
+        "packageMode": "desktop-practice",
+        "platform": "darwin",
+        "architecture": "arm64",
+        "desktopVersion": "0.2.0"
+      },
+      "embeddedAiEngines": [],
+      "nativeExecutable": "/Users/sheny/Developer/code/PractiQ/app/src-tauri/target/release/bundle/macos/PractiQ.app/Contents/MacOS/PractiQ",
+      "noticeSha256": "2e19aaffd9f93e51d53f1d42dc556edb3f7dfdaabfac080b378b8532daa7c1d6",
+      "sizeBytes": 26990074
+    },
+    "logSha256": {
+      "regression-before.log": "67c81f81aeef30575bab8225f0cf13424896a852c154ae5d50141bf4dd915bf4",
+      "app-check.log": "c07411f209772f11fd4baae9ef6c0c8698ec520227b31f59f454cee7486f07fc",
+      "app-build.log": "16c5d891ca0fd141f43e3c3349eef872e20734e9feb64e57aa90996f525e5cfb"
+    },
+    "notRun": [
+      "Windows/Android builds or runtime",
+      "native UI acceptance",
+      "other ignored native probes",
+      "real model calls"
+    ]
+  }
+}
