@@ -254,7 +254,6 @@ pub(crate) fn search_roots(
             UNION ALL SELECT n.root,i.content,0 FROM nodes n JOIN question_items i ON i.question_id=n.id
             UNION ALL SELECT n.root,s.title,0 FROM nodes n JOIN section_questions r ON r.question_id=n.id JOIN sections s ON s.id=r.section_id
             UNION ALL SELECT n.root,s.instructions,0 FROM nodes n JOIN section_questions r ON r.question_id=n.id JOIN sections s ON s.id=r.section_id
-            UNION ALL SELECT n.root,v.content,1 FROM nodes n JOIN visuals v ON v.bank_id=n.bank_id AND (v.document_level=1 OR EXISTS(SELECT 1 FROM question_visuals r WHERE r.visual_id=v.id AND r.question_id=n.id)) WHERE json_type(v.content,'$.documentOnly') IS NOT 'true'
         ")).map_err(err)?;
         let remaining = json!(remaining).to_string();
         let mut rows = statement
@@ -281,6 +280,55 @@ pub(crate) fn search_roots(
             };
             if found {
                 matches.insert(root);
+            }
+        }
+    }
+    let remaining: Vec<_> = candidates
+        .iter()
+        .filter(|id| !matches.contains(*id))
+        .collect();
+    if !remaining.is_empty() {
+        let remaining = json!(remaining).to_string();
+        // Search each shared visual once, then map only matching IDs to eligible nodes.
+        let mut statement = db.prepare(&format!("{nodes}
+            SELECT v.id,v.content FROM visuals v
+            WHERE json_type(v.content,'$.documentOnly') IS NOT 'true'
+            AND EXISTS(SELECT 1 FROM nodes n WHERE n.bank_id=v.bank_id AND
+                (v.document_level=1 OR EXISTS(SELECT 1 FROM question_visuals r WHERE r.visual_id=v.id AND r.question_id=n.id)))
+        ")).map_err(err)?;
+        let mut rows = statement
+            .query(params![remaining, filter, banks, mode])
+            .map_err(err)?;
+        let mut visual_ids = Vec::new();
+        while let Some(row) = rows.next().map_err(err)? {
+            #[cfg(test)]
+            search_tests::VISUALS_SEARCHED.with(|count| count.set(count.get() + 1));
+            let content =
+                serde_json::from_str(&row.get::<_, String>(1).map_err(err)?).map_err(err)?;
+            if searchable_content_matches(&content, &search) {
+                visual_ids.push(row.get::<_, String>(0).map_err(err)?);
+            }
+        }
+        if !visual_ids.is_empty() {
+            let mut statement = db.prepare(&format!("{nodes}
+                SELECT DISTINCT n.root FROM nodes n JOIN visuals v ON v.bank_id=n.bank_id
+                AND v.id IN (SELECT value FROM json_each(?5))
+                AND (v.document_level=1 OR EXISTS(SELECT 1 FROM question_visuals r WHERE r.visual_id=v.id AND r.question_id=n.id))
+            ")).map_err(err)?;
+            let roots = statement
+                .query_map(
+                    params![
+                        remaining,
+                        filter,
+                        banks,
+                        mode,
+                        json!(visual_ids).to_string()
+                    ],
+                    |row| row.get::<_, String>(0),
+                )
+                .map_err(err)?;
+            for root in roots {
+                matches.insert(root.map_err(err)?);
             }
         }
     }

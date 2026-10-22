@@ -129,12 +129,13 @@ class Delivery:
                     rows = await self.service.db.rows(
                         "SELECT o.run_id,o.created_at FROM document_outbox o JOIN document_runs r USING(run_id) JOIN document_tasks t USING(thread_id) "
                         "WHERE o.published_at IS NULL ORDER BY o.created_at LIMIT 100")
-                    for row in rows:
-                        if self.service.stopping:
-                            break
-                        await publish(publisher, row['run_id'])
+                    if rows:
                         async with self.service.db.connection() as conn:
-                            await conn.execute('UPDATE document_outbox SET published_at=now() WHERE run_id=%s AND created_at=%s', (row['run_id'], row['created_at']))
+                            for row in rows:
+                                if self.service.stopping:
+                                    break
+                                await publish(publisher, row['run_id'])
+                                await conn.execute('UPDATE document_outbox SET published_at=now() WHERE run_id=%s AND created_at=%s', (row['run_id'], row['created_at']))
                     delay = 1
                     if len(rows) < 100:
                         await self.wait(1)

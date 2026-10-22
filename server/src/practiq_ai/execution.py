@@ -16,6 +16,7 @@ from typing import Any, LiteralString, cast, get_args
 from langgraph.runtime import Runtime
 from langgraph.types import interrupt
 
+from .capacity import bounded_map
 from .config import load
 from .contracts import (
     DOCUMENT_MEDIA_TYPES,
@@ -126,17 +127,24 @@ async def preflight(values: dict[str, Any]) -> None:
         if part.get('originalPageRef'):
             references.append(part['originalPageRef'])
     from .graphs.document import load_unit_result
-    for key in ('visionResults', 'chunkResults'):
-        for item in values.get(key, []):
-            if item.get('resultRef'):
-                await load_unit_result(item, values['document']['sha256'])
+    # Discard payloads so bounded_map collects only validation outcomes, not file contents.
+    async def verify_result(item: dict[str, Any]) -> None:
+        await load_unit_result(item, values['document']['sha256'])
+
+    await bounded_map([item for key in ('visionResults', 'chunkResults') for item in values.get(key, []) if item.get('resultRef')], verify_result)
     if values.get('textRef'):
         references.append(values['textRef'])
     seen: set[str] = set()
+    unique: list[dict[str, Any]] = []
     for reference in references:
         if reference['objectKey'] not in seen:
             seen.add(reference['objectKey'])
-            await store.get_verified(ArtifactReference.model_validate(reference))
+            unique.append(reference)
+
+    async def verify_reference(reference: dict[str, Any]) -> None:
+        await store.get_verified(ArtifactReference.model_validate(reference))
+
+    await bounded_map(unique, verify_reference)
 
 
 def remaining_ttl(execution: dict[str, Any]) -> int:

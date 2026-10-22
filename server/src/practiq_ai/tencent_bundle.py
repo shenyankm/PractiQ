@@ -5,6 +5,7 @@ import re
 import stat
 import zipfile
 import zlib
+from contextlib import nullcontext
 from io import BytesIO
 from math import isfinite
 from pathlib import PurePosixPath
@@ -28,7 +29,7 @@ def evidence_text(value: Any) -> str:
     return "\n\n".join(text for item in values if (text := evidence_text(item)))
 
 
-def _image_members(archive: zipfile.ZipFile) -> dict[tuple[int, int], str]:
+def _image_members(archive: zipfile.ZipFile, member_names: set[str]) -> dict[tuple[int, int], str]:
     members: dict[tuple[int, int], str] = {}
     for entry in archive.infolist():
         if not entry.filename.endswith("_xml_full.xml"):
@@ -46,7 +47,7 @@ def _image_members(archive: zipfile.ZipFile) -> dict[tuple[int, int], str]:
             identifier = re.fullmatch(r"p-(\d+)", attrs.get("id", ""))
             pages = attrs.get("page-numbers", "")
             member = attrs["src"]
-            if (identifier is None or not re.fullmatch(r"\d+", pages) or member not in archive.namelist()
+            if (identifier is None or not re.fullmatch(r"\d+", pages) or member not in member_names
                     or not member.lower().endswith((".png", ".jpg", ".jpeg"))):
                 raise ValueError("Image source must reference a local archive member and one page")
             key = (int(pages), int(identifier[1]))
@@ -62,14 +63,23 @@ def _image_members(archive: zipfile.ZipFile) -> dict[tuple[int, int], str]:
     return members
 
 
-def read_bundle_image(payload: bytes, member: str, config: Config) -> tuple[bytes, str]:
+def open_bundle(payload: bytes) -> zipfile.ZipFile:
+    try:
+        return zipfile.ZipFile(BytesIO(payload))
+    except (zipfile.BadZipFile, ValueError, NotImplementedError) as exc:
+        raise DocumentProcessingError(502, "Tencent result archive is invalid", "TENCENT_RESULT_INVALID") from exc
+
+
+def read_bundle_image(archive: zipfile.ZipFile, member: str, config: Config) -> tuple[bytes, str]:
     from .extractors.image import extract
 
-    with zipfile.ZipFile(BytesIO(payload)) as archive:
-        entry = archive.getinfo(member)
-        if entry.file_size > min(config.vision_max_bytes, 25 * 1024 * 1024):
-            raise DocumentProcessingError(413, "Tencent subimage exceeds its limit", "TENCENT_RESULT_TOO_LARGE")
+    entry = archive.getinfo(member)
+    if entry.file_size > min(config.vision_max_bytes, 25 * 1024 * 1024):
+        raise DocumentProcessingError(413, "Tencent subimage exceeds its limit", "TENCENT_RESULT_TOO_LARGE")
+    try:
         data = archive.read(entry)
+    except (zipfile.BadZipFile, zlib.error, NotImplementedError, RuntimeError) as exc:
+        raise DocumentProcessingError(502, "Tencent subimage is invalid", "TENCENT_RESULT_INVALID") from exc
     extract(data)  # Shared actual-format, dimension and pixel validation.
     return data, "image/png" if data.startswith(b"\x89PNG") else "image/jpeg"
 
@@ -132,10 +142,10 @@ def _label_crop_bbox(figure: dict[str, Any], elements: list[dict[str, Any]], wid
     return crop
 
 
-def decode_bundle(payload: bytes, config: Config, *, page_count: int, allow_empty: bool = False, result_type: int = 9) -> list[dict[str, Any]]:
+def decode_bundle(payload: bytes | zipfile.ZipFile, config: Config, *, page_count: int, allow_empty: bool = False, result_type: int = 9) -> list[dict[str, Any]]:
     """No archive paths are written; reject unsupported layouts rather than guess."""
     try:
-        with zipfile.ZipFile(BytesIO(payload)) as archive:
+        with open_bundle(payload) if isinstance(payload, bytes) else nullcontext(payload) as archive:
             entries = archive.infolist()
             if len(entries) > MAX_ENTRIES or sum(e.file_size for e in entries) > MAX_EXPANDED_BYTES:
                 raise ValueError("Archive exceeds limits")
@@ -164,7 +174,7 @@ def decode_bundle(payload: bytes, config: Config, *, page_count: int, allow_empt
                 return [{"page": 0, "format": "markdown", "elements": [{"type": 2, "text_info": {"content": text}}], "figures": []}]
             if result_type != 9:
                 raise ValueError("Unexpected result format")
-            image_members = _image_members(archive)
+            image_members = _image_members(archive, seen)
             tables = None
             for entry in entries:
                 path = PurePosixPath(entry.filename)

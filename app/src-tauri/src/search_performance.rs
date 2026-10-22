@@ -2,6 +2,10 @@
 use super::*;
 use std::time::Instant;
 
+thread_local! {
+    pub(super) static VISUALS_SEARCHED: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
 fn seed(count: usize) -> (tempfile::TempDir, Store) {
     let dir = tempfile::tempdir().unwrap();
     let store = Store::new(dir.path().into()).unwrap();
@@ -499,8 +503,127 @@ fn search_stress() {
         assert_eq!(page["total"], 0);
         page
     });
+    let db = store.connect().unwrap();
+    for i in 0..50 {
+        db.execute(
+            "INSERT INTO visuals VALUES(?1,'bank',?2,1)",
+            params![
+                format!("v{i}"),
+                json!({"description":format!("sharedvisual{i} {}", "context ".repeat(100))})
+                    .to_string()
+            ],
+        )
+        .unwrap();
+    }
+    db.execute(
+        r#"INSERT INTO visuals VALUES('scoped','bank','{"description":"sparsevisual"}',0)"#,
+        [],
+    )
+    .unwrap();
+    db.execute("INSERT INTO question_visuals VALUES('scoped','q00001')", [])
+        .unwrap();
+    for (name, term, total) in [
+        ("sharedVisualMissing", "visualabsent", 0),
+        ("sharedVisualMatch", "sharedvisual49", 10000),
+        ("scopedVisualMatch", "sparsevisual", 1),
+    ] {
+        report[name] = measure(|| {
+            VISUALS_SEARCHED.with(|count| count.set(0));
+            let page = store
+                .query_questions(&[], (term, "", ""), Some((30, 0)))
+                .unwrap();
+            assert_eq!(page["total"], total);
+            assert_eq!(VISUALS_SEARCHED.with(|count| count.get()), 51);
+            page
+        });
+    }
+    report["visualWork"] = json!({"nodes":10000,"sharedVisuals":50,"scopedVisuals":1,"parsesPerSearch":51,"oldMissingSearchParses":500001});
     if let Ok(path) = std::env::var("PRACTIQ_SEARCH_PERF_OUTPUT") {
         fs::write(path, serde_json::to_vec_pretty(&report).unwrap()).unwrap();
     }
     println!("{}", serde_json::to_string_pretty(&report).unwrap());
+}
+
+#[test]
+fn shared_visual_search_parses_once_and_maps_only_eligible_nodes() {
+    let (_dir, store) = seed(100);
+    let db = store.connect().unwrap();
+    db.execute("INSERT INTO banks VALUES('other','Other','',2)", [])
+        .unwrap();
+    db.execute("UPDATE questions SET bank_id='other' WHERE id='q00099'", [])
+        .unwrap();
+    db.execute("UPDATE questions SET favorite=1 WHERE id='q00001'", [])
+        .unwrap();
+    for (id, bank, global, content) in [
+        (
+            "global",
+            "bank",
+            true,
+            json!({"description":"sharedneedle"}),
+        ),
+        (
+            "scoped",
+            "bank",
+            false,
+            json!({"description":"scopedneedle"}),
+        ),
+        (
+            "document",
+            "bank",
+            true,
+            json!({"description":"documentneedle","documentOnly":true}),
+        ),
+        (
+            "foreign",
+            "other",
+            true,
+            json!({"description":"foreignneedle"}),
+        ),
+    ] {
+        db.execute(
+            "INSERT INTO visuals VALUES(?1,?2,?3,?4)",
+            params![id, bank, content.to_string(), global],
+        )
+        .unwrap();
+    }
+    // An association on an ineligible sibling must not leak into favorite search.
+    db.execute(
+        "UPDATE questions SET parent_id='q00000' WHERE id IN ('q00001','q00002')",
+        [],
+    )
+    .unwrap();
+    db.execute("INSERT INTO question_visuals VALUES('scoped','q00002')", [])
+        .unwrap();
+    // Even an invalid cross-bank association must not broaden the bank scope.
+    db.execute(
+        "INSERT INTO question_visuals VALUES('foreign','q00001')",
+        [],
+    )
+    .unwrap();
+    db.execute("INSERT INTO sessions(id,bank_title,created_at,position,mode) VALUES('s','Session',1,0,'ordered')", []).unwrap();
+    db.execute("INSERT INTO attempts(session_id,ordinal,question_id,snapshot_question_id,submitted_at,result) VALUES('s',0,'q00001','q00001',1,0)", []).unwrap();
+    let (roots, _) = crate::questions::matching_roots(&db, &["bank".into()], "", "", None).unwrap();
+    for (term, filter, expected, parses) in [
+        ("missingneedle", "", vec![], 2),
+        ("sharedneedle", "", roots.clone(), 2),
+        ("scopedneedle", "", vec!["q00000".into()], 2),
+        ("scopedneedle", "favorite", vec![], 1),
+        ("scopedneedle", "wrong", vec![], 1),
+        ("sharedneedle", "wrong", vec!["q00000".into()], 1),
+        ("sharedneedle", "favorite", vec!["q00000".into()], 1),
+        ("documentneedle", "", vec![], 2),
+        ("foreignneedle", "", vec![], 2),
+    ] {
+        VISUALS_SEARCHED.with(|count| count.set(0));
+        assert_eq!(
+            search_roots(&db, &["bank".into()], roots.clone(), term, "", filter).unwrap(),
+            expected,
+            "{term} {filter}"
+        );
+        assert_eq!(
+            VISUALS_SEARCHED.with(|count| count.get()),
+            parses,
+            "{term} {filter}"
+        );
+    }
 }

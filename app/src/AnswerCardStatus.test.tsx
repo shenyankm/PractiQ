@@ -46,6 +46,38 @@ it.each([
   expect(screen.getByText(legend, { selector: "p > span" }).querySelector(`svg.lucide-${marker}`)).not.toBeNull();
 });
 
+it("keeps false as an answered draft instead of treating it as null", () => {
+  const initial = session([{}]);
+  initial.attempts[0].snapshot.question = { ...initial.attempts[0].snapshot.question, answerMode: "true_false" };
+  initial.attempts[0].answer = { value: false };
+  render(<Practice session={initial} onSession={vi.fn()} run={job => { void job(); }} flushRef={{ current: async () => {} }} />);
+  expect(screen.getByRole("button", { name: "转到第 1 题，已作答，未提交" }).getAttribute("data-answer-state")).toBe("answered");
+});
+
+it("retains compact Android card collapse, draft state and accessible help focus", async () => {
+  const user = userEvent.setup();
+  render(<Practice compact session={session([{}, {}])} onSession={vi.fn()} run={job => { void job(); }} flushRef={{ current: async () => {} }} />);
+  const summary = screen.getByText("答题卡 · 第 1 / 2 题");
+  expect(summary.closest("details")?.open).toBe(false);
+  await user.type(screen.getByRole("textbox", { name: "作答内容" }), "Draft");
+  expect(summary.closest("details")?.open).toBe(false);
+  await user.click(screen.getByRole("link", { name: "查看答题卡" }));
+  expect(summary.closest("details")?.open).toBe(true);
+  const answered = screen.getByRole("button", { name: "转到第 1 题，已作答，未提交" });
+  expect(screen.getByRole("button", { name: "转到第 2 题，未作答" })).toBeTruthy();
+  await user.click(screen.getByRole("button", { name: "定位当前题" }));
+  expect(document.activeElement).toBe(answered);
+  const help = screen.getByRole("button", { name: "答题卡状态说明" });
+  await user.click(help);
+  expect(screen.getByRole("dialog", { name: "答题卡状态说明" })).toBeTruthy();
+  await user.keyboard("{Escape}");
+  await waitFor(() => expect(document.activeElement).toBe(help));
+  expect(summary.closest("details")?.open).toBe(true);
+  expect(answered.getAttribute("data-answer-state")).toBe("answered");
+  expect(api).toHaveBeenCalledWith(expect.objectContaining({ type: "save_draft", answer: { text: "Draft" } }));
+  expect(vi.mocked(api).mock.calls.every(([request]) => request.type === "save_draft")).toBe(true);
+});
+
 it("marks incomplete fill drafts and exact-text mismatches", () => {
   const initial = session([{}, {}]);
   const snapshot = { ...initial.attempts[0].snapshot, question: { ...initial.attempts[0].snapshot.question, answerMode: "fill_blank" as const, blankCount: 2 } };

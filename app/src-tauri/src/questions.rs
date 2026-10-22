@@ -281,11 +281,14 @@ pub fn put_context(
     processing: &Value,
 ) -> Result<()> {
     for (i, w) in list(result, "warnings").iter().enumerate() {
-        db.execute(
-            "INSERT INTO import_warnings VALUES(?1,?2,?3)",
-            params![import, i as i64, w.as_str().ok_or("Invalid warning")?],
-        )
-        .map_err(err)?;
+        db.prepare_cached("INSERT INTO import_warnings VALUES(?1,?2,?3)")
+            .map_err(err)?
+            .execute(params![
+                import,
+                i as i64,
+                w.as_str().ok_or("Invalid warning")?
+            ])
+            .map_err(err)?;
     }
     // Keep document omissions in the existing warning store across ZIP round trips.
     // Stable codes are exported as missingFields, without interpreting human prose.
@@ -297,11 +300,14 @@ pub fn put_context(
         if list(result, "warnings").contains(&json!(code)) {
             continue;
         }
-        db.execute(
-            "INSERT INTO import_warnings VALUES(?1,?2,?3)",
-            params![import, (list(result, "warnings").len() + i) as i64, code],
-        )
-        .map_err(err)?;
+        db.prepare_cached("INSERT INTO import_warnings VALUES(?1,?2,?3)")
+            .map_err(err)?
+            .execute(params![
+                import,
+                (list(result, "warnings").len() + i) as i64,
+                code
+            ])
+            .map_err(err)?;
     }
     let exported_ids: HashMap<_, _> = list(result, "questions")
         .iter()
@@ -310,20 +316,23 @@ pub fn put_context(
         .collect();
     for g in list(result, "groups") {
         let gid = id();
-        db.execute(
-            "INSERT INTO sections VALUES(?1,?2,?3,?4)",
-            params![gid, bank, text(g, "title"), nullable(g, "instructions")],
-        )
-        .map_err(err)?;
+        db.prepare_cached("INSERT INTO sections VALUES(?1,?2,?3,?4)")
+            .map_err(err)?
+            .execute(params![
+                gid,
+                bank,
+                text(g, "title"),
+                nullable(g, "instructions")
+            ])
+            .map_err(err)?;
         for reference in list(g, "questionIds") {
             let qid = exported_ids
                 .get(reference.as_str().ok_or("Invalid section reference")?)
                 .ok_or("Missing section question")?;
-            db.execute(
-                "INSERT INTO section_questions VALUES(?1,?2)",
-                params![gid, qid],
-            )
-            .map_err(err)?;
+            db.prepare_cached("INSERT INTO section_questions VALUES(?1,?2)")
+                .map_err(err)?
+                .execute(params![gid, qid])
+                .map_err(err)?;
         }
     }
     for v in list(result, "visualElements") {
@@ -333,16 +342,15 @@ pub fn put_context(
             .as_object_mut()
             .ok_or("Invalid visual")?
             .remove("questionIds");
-        db.execute(
-            "INSERT INTO visuals VALUES(?1,?2,?3,?4)",
-            params![
+        db.prepare_cached("INSERT INTO visuals VALUES(?1,?2,?3,?4)")
+            .map_err(err)?
+            .execute(params![
                 vid,
                 bank,
                 content.to_string(),
                 list(v, "questionIds").is_empty()
-            ],
-        )
-        .map_err(err)?;
+            ])
+            .map_err(err)?;
         let targets: Vec<&String> = if list(v, "questionIds").is_empty() {
             Vec::new()
         } else {
@@ -357,22 +365,24 @@ pub fn put_context(
                 .collect::<std::result::Result<_, _>>()?
         };
         for qid in targets {
-            db.execute(
-                "INSERT INTO question_visuals VALUES(?1,?2)",
-                params![vid, qid],
-            )
-            .map_err(err)?;
+            db.prepare_cached("INSERT INTO question_visuals VALUES(?1,?2)")
+                .map_err(err)?
+                .execute(params![vid, qid])
+                .map_err(err)?;
         }
     }
     for source in list(processing, "questionSources") {
         let qid = exported_ids
             .get(text(source, "questionId"))
             .ok_or("Missing source question")?;
-        db.execute(
-            "INSERT OR IGNORE INTO question_sources VALUES(?1,?2,?3)",
-            params![qid, text(source, "stage"), source["unitIndex"].as_i64()],
-        )
-        .map_err(err)?;
+        db.prepare_cached("INSERT OR IGNORE INTO question_sources VALUES(?1,?2,?3)")
+            .map_err(err)?
+            .execute(params![
+                qid,
+                text(source, "stage"),
+                source["unitIndex"].as_i64()
+            ])
+            .map_err(err)?;
     }
     Ok(())
 }
@@ -896,15 +906,15 @@ pub fn freeze(rows: &[Value]) -> Value {
 }
 
 pub fn thaw(doc: &Value) -> Result<Vec<Value>> {
-    thaw_questions(doc, &doc["questions"])
+    thaw_questions(doc, doc["questions"].clone())
 }
 
-fn thaw_questions(doc: &Value, questions: &Value) -> Result<Vec<Value>> {
+fn thaw_questions(doc: &Value, questions: Value) -> Result<Vec<Value>> {
     if doc["schemaVersion"] != 3 {
         return Err("Unsupported session snapshot".into());
     }
     for (key, values) in [
-        ("questions", questions),
+        ("questions", &questions),
         ("groups", &doc["groups"]),
         ("visuals", &doc["visuals"]),
     ] {
@@ -929,7 +939,9 @@ fn thaw_questions(doc: &Value, questions: &Value) -> Result<Vec<Value>> {
             json!({"key":"question"}),
         ));
     }
-    let mut rows = questions.as_array().unwrap().clone();
+    let Value::Array(mut rows) = questions else {
+        unreachable!("validated question array above");
+    };
     for key in ["groups", "visuals"] {
         // Index only the requested rows, not unrelated document-wide references.
         let mut refs: HashMap<&str, Vec<&Value>> = rows
@@ -1020,7 +1032,7 @@ pub(crate) fn context_from_document(doc: &Value, qid: &str) -> Result<Vec<Value>
             .collect(),
     );
     // Borrow document-wide metadata; only the selected context needs owned rows.
-    thaw_questions(doc, &subset)
+    thaw_questions(doc, subset)
 }
 
 pub(crate) fn question_from_document<'a>(doc: &'a Value, qid: &str) -> Result<&'a Value> {
@@ -1480,6 +1492,23 @@ mod snapshot_copy_tests {
     }
 
     #[test]
+    fn thaw_questions_consumes_owned_strings_without_cloning() {
+        let doc = json!({"schemaVersion":3,"groups":[],"visuals":[]});
+        let questions = json!([{"id":"q","question":{"id":"q","stem":"x".repeat(100_000)}}]);
+        let stem = questions[0]["question"]["stem"].as_str().unwrap().as_ptr();
+        let rows = thaw_questions(&doc, questions).unwrap();
+        assert_eq!(rows[0]["question"]["stem"].as_str().unwrap().as_ptr(), stem);
+        for invalid in [
+            Value::Null,
+            json!({}),
+            json!([null]),
+            json!([{"question":null}]),
+        ] {
+            assert!(thaw_questions(&doc, invalid).is_err());
+        }
+    }
+
+    #[test]
     fn selected_context_keeps_ancestors_exclusive_siblings_and_scoped_metadata() {
         let raw = contract::parse(include_bytes!("../../fixtures/composite.json")).unwrap();
         let rows: Vec<_> = list(&raw, "questions")
@@ -1487,6 +1516,9 @@ mod snapshot_copy_tests {
             .map(|q| json!({"id":q["id"],"question":q,"groups":[],"visuals":[]}))
             .collect();
         let mut doc = freeze(&rows);
+        doc["questions"][0]["question"]["stem"] = json!("long stem ".repeat(10_000));
+        doc["questions"][0]["question"]["passage"] =
+            json!([{"partType":"text","textValue":"long material ".repeat(5_000)}]);
         doc["groups"] = json!([{"id":"selected","questionIds":["words1","words2"]},{"id":"other","questionIds":["cloze-root1"]}]);
         doc["visuals"] = json!([{"id":"global","questionIds":[]},{"id":"selected","questionIds":["words1"]},{"id":"other","questionIds":["cloze-root1"]}]);
         for (qid, expected_ids) in [

@@ -451,8 +451,13 @@ test("uncertain accepted POST never auto replays; explicit retry preserves reque
   await page.getByRole("button", { name: "开始导入", exact: true }).click(); await expect(page.getByRole("button", { name: "重试开始", exact: true })).toBeVisible();
   const reads = http.calls.filter(call => call.method === "GET").length;
   await page.clock.fastForward(30000);
+  expect(http.calls.filter(call => call.method === "GET")).toHaveLength(reads);
+  await page.getByRole("link", { name: "导入记录", exact: true }).click();
   await expect.poll(() => http.calls.filter(call => call.method === "GET").length).toBeGreaterThan(reads);
-  expect(starts(http.calls)).toHaveLength(1); await expect(page.getByLabel("Word / Excel 转换模式")).toHaveCount(0);
+  expect(starts(http.calls)).toHaveLength(1);
+  await page.getByRole("link", { name: "开始导入", exact: true }).click();
+  await expect(page.getByRole("button", { name: "重试开始", exact: true })).toBeVisible();
+  await expect(page.getByLabel("Word / Excel 转换模式")).toHaveCount(0);
   await page.getByLabel("选择文档").setInputFiles({ name: "uncertain.docx", mimeType: "application/octet-stream", buffer: Buffer.from("fake office") });
   await page.getByRole("button", { name: "开始导入", exact: true }).click();
   await expect(page.getByText(/任务已创建。页面/)).toBeVisible();

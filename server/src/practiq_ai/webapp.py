@@ -308,8 +308,6 @@ async def read_artifact(reference: ArtifactReference, thread_id: Annotated[UUID 
         if (reference.objectKey != source['objectKey']
                 and not reference.objectKey.startswith(f"practiq-agent/artifacts/{source['sha256']}/")):
             raise DocumentProcessingError(404, 'Artifact not found', 'ARTIFACT_NOT_FOUND')
-        review = await task_api.review_task(str(thread_id))
-        detail = await task_api.get_task(str(thread_id))
         metadata = reference.model_dump()
         def contains(value):
             if isinstance(value, dict):
@@ -317,11 +315,11 @@ async def read_artifact(reference: ArtifactReference, thread_id: Annotated[UUID 
                     return True
                 return any(contains(item) for item in value.values())
             return isinstance(value, list) and any(contains(item) for item in value)
-        if not contains([source, review, detail]):
-            raise DocumentProcessingError(404, 'Artifact not found', 'ARTIFACT_NOT_FOUND')
         checked: ArtifactReference | DocumentReference = reference
-        if reference.objectKey == source["objectKey"]:
+        if contains(source):
             checked = DocumentReference.model_validate(source)
+        elif not contains(await task_api.get_task(str(thread_id))) and not contains(await task_api.review_task(str(thread_id))):
+            raise DocumentProcessingError(404, 'Artifact not found', 'ARTIFACT_NOT_FOUND')
         payload = await (await asyncio.to_thread(get_object_store)).get_verified(checked)
     except DatabaseError as exc:
         raise HTTPException(503, {"code": "TASK_SERVICE_UNAVAILABLE", "message": "Task database is unavailable"}) from exc
