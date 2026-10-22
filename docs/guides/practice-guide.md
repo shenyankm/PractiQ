@@ -38,7 +38,7 @@ The app stores model API keys and service tokens in the platform credential stor
 
 When a bank or question draft has changed, Escape, the close button and clicking outside offer **Continue editing** or **Discard changes**. Unchanged or reverted drafts close immediately. Continuing preserves the draft; discarding closes without saving. Child-question edits stay staged in the parent until you save the top-level question.
 
-Listening URLs require an explicit fetch. An entered or selected URL that has not been applied is protected as an unsaved change; fetch it or clear it before saving. Saving never starts a download. Changing the audio or answer mode can make a retained URL unapplied again.
+Listening URLs require an explicit fetch. An entered or selected URL that has not been applied is protected as an unsaved change; fetch it or clear it before saving. Saving never starts a download. Changing the audio or answer mode can make a retained URL unapplied again. URL fetching has a 45-second total deadline covering DNS lookups, redirects and response reads. A system DNS lookup cannot be cancelled; if it remains blocked after timeout, further hostname lookups fail without starting extra workers until it finishes. Retry explicitly after checking the network or VPN configuration.
 
 Editor drafts stay in memory while open and are not recovered after closing the app. Closing or quitting the macOS/Windows app asks before discarding unsaved editor changes or manual grading drafts. Saved practice drafts and successfully saved manual scores remain durable.
 
