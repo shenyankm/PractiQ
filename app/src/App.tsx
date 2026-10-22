@@ -584,7 +584,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
         <div className={`app-content min-h-0 flex-1 overflow-y-auto ${page === "practice" ? "practice-app-content" : ""}`}>
           <div className={`page-workspace ${page === "practice" ? "practice-workspace" : ""}`}>
           <div className="workspace-notices">
-          {operationError && !dialogOpen && <div ref={operationNotice} className={`mb-5 ${page === "settings" || page === "service-settings" ? "max-w-3xl" : ""}`}><OperationFeedback /></div>}
+          {operationError && !dialogOpen && <div ref={operationNotice} className={`mb-5 ${page === "settings" || page === "service-settings" ? "mx-auto max-w-3xl" : ""}`}><OperationFeedback /></div>}
           {(bankError != null || infoError != null) && <div role="alert" className="mb-5 space-y-2 rounded-lg border border-destructive/40 p-4">
             <p>{t("概览读取失败，已保存的数据和已完成的操作不受影响。请重试读取，不要重复导入或保存。")}</p>
             <ErrorNotice error={bankError ?? infoError} />
@@ -615,7 +615,6 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
             onHistory={() => { setSessionFilter("active"); setSessionOffset(0); navigate("history"); }}
             onOpenQuestions={bankId => navigate("questions", bankId)}
             onPractice={bankId => setPracticeSetup({ bank: bankId })}
-            onPracticeUnattempted={bankId => setPracticeSetup({ bank: bankId, filter: "unattempted" })}
             onEdit={(bankItem, trigger) => { bankEditorTrigger.current = trigger; setOperationError(null); setBankEditor({ id: bankItem.id, title: bankItem.title, description: bankItem.description }); }}
             onDelete={(bankItem, trigger) => openConfirm({
               title: message("删除“{0}”？", { 0: bankItem.title }),

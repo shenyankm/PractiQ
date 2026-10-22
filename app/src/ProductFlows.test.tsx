@@ -226,18 +226,12 @@ it.each(["practice", "mock_exam"] as const)("keeps %s results, unknown counts an
   expect(api).not.toHaveBeenCalledWith(expect.objectContaining({ type: "start_paper" }));
 });
 
-it("distinguishes partial credit in the review list and starts unattempted practice explicitly", async () => {
+it("distinguishes partial credit in the review list", async () => {
   setup(); render(<App/>);
   await screen.findByText("English");
   await userEvent.click(screen.getByRole("button", { name: "查看题目" }));
   expect(await screen.findByText("部分得分")).toBeTruthy();
   expect(screen.getByText("上次 9 / 10 分")).toBeTruthy();
-  await userEvent.click(screen.getByRole("button", { name: "我的题库" }));
-  await screen.findByText("English");
-  await userEvent.click(screen.getByRole("button", { name: "题库操作 English" }));
-  await userEvent.click(screen.getByRole("menuitem", { name: "练习未做题" }));
-  await waitFor(() => expect(api).toHaveBeenCalledWith(expect.objectContaining({ type: "question_stats", bank_ids: ["bank"], filter: "unattempted" })));
-  expect(screen.getByRole("button", { name: "立即开始" }).hasAttribute("disabled")).toBe(true);
 });
 
 it("shows partial credit from a material group's child when the parent has no result", async () => {
