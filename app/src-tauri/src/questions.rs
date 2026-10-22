@@ -11,12 +11,22 @@ pub fn composite(q: &Value) -> bool {
     crate::question_metadata::COMPOSITE_MODES.contains(&text(q, "answerMode"))
 }
 pub(crate) fn validate_filter(banks: &[String], mode: &str, filter: &str) -> Result<()> {
-    if banks.len() > 1000
-        || mode
-            .split(',')
-            .any(|m| !crate::question_metadata::FILTER_MODES.contains(&m))
-        || !["", "wrong", "favorite", "unattempted", "review"].contains(&filter)
-    {
+    let invalid = mode.len() > 256
+        || banks.len() > 1000
+        || !["", "wrong", "favorite", "unattempted", "review"].contains(&filter);
+    if invalid {
+        return Err(crate::language::error("LOCAL_FILTER_INVALID", json!({})));
+    }
+    let modes: Vec<&str> = if mode.is_empty() {
+        Vec::new()
+    } else {
+        mode.split(',').collect()
+    };
+    if modes.iter().enumerate().any(|(i, m)| {
+        m.is_empty()
+            || !crate::question_metadata::FILTER_MODES.contains(m)
+            || modes[..i].contains(m)
+    }) {
         return Err(crate::language::error("LOCAL_FILTER_INVALID", json!({})));
     }
     Ok(())

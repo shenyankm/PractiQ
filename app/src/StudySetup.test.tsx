@@ -268,6 +268,15 @@ it("starts ordinary practice directly with the selected questions and no exam sc
   await waitFor(() => expect(started).toHaveBeenCalled());
   expect(api).toHaveBeenCalledWith({type:"start_paper",paper:{digest:"preview",question_ids:["q0","q1"],kind:"practice",minutes:null,scores:[],total_cents:0}});
 });
+it("expands the legacy choice filter into both choice variants", async () => {
+  vi.mocked(api).mockResolvedValue({count:1,types:{single:1,multiple:1},feasibleCounts:[1]} as never);
+  render(<StudySetup banks={banks} initialBank="one" initialMode="choice" initialFilter="" busy={false} run={job=>{void job();}} onStart={async()=>{}} onClose={()=>{}}/>);
+  await screen.findByText(/可用 1 题/);
+  await waitFor(() => expect(api).toHaveBeenCalledWith(expect.objectContaining({type:"question_stats",mode:"single,multiple"})));
+  await userEvent.click(screen.getByText(/高级设置/, {selector:"summary"}));
+  expect(screen.getByRole("button", {name:"题型"}).textContent).toBe("单选、多选");
+});
+
 it("filters by several question types while all types stays a separate choice", async () => {
   setup();
   await screen.findByText(/可用 2 题/);

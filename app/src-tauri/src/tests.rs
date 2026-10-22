@@ -2415,6 +2415,21 @@ fn mode_filter_accepts_several_question_types() {
         1
     );
     assert!(s.questions(Some(&bank), "", "single,bogus", "").is_err());
+    for malformed in [
+        ",",
+        "single,",
+        ",single",
+        "single,,multiple",
+        "single,single",
+    ] {
+        assert!(
+            s.questions(Some(&bank), "", malformed, "").is_err(),
+            "{malformed}"
+        );
+    }
+    assert!(s
+        .questions(Some(&bank), "", &"single,".repeat(100), "")
+        .is_err());
 }
 
 #[test]

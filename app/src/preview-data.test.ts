@@ -35,6 +35,13 @@ it.each([
  }
 });
 
+it("matches any listed type in preview pages and statistics",async()=>{
+ const result=await call<QuestionPage>({...query,mode:"single,multiple"});
+ expect(result.items.map(row=>row.id)).toEqual(["0-q0","0-q1"]);
+ const stats=await call<{count:number;types:Record<string,number>}>({type:"question_stats",bank_ids:[],mode:"single,multiple",filter:"",search:""});
+ expect(stats.count).toBe(2);
+});
+
 it("keeps imported warnings and quality flags when confirming or undoing review",async()=>{
  const initial=(await call<QuestionPage>({...query,filter:"review"})).items.find(row=>row.id==="0-q8")!;
  const at=await call<number>({type:"review_question",id:initial.id,reviewed:true});

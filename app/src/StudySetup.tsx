@@ -16,7 +16,8 @@ export function StudySetup({banks, initialBank, initialBankIds, initialFilter, i
   useI18n();
   const [bankIds] = useState<string[]>(() => initialBankIds ?? (initialBank ? [initialBank] : banks.filter(b => b.count > 0).map(b => b.id)));
   const [kind, setKind] = useState<SessionKind>("practice");
-  const [modes, setModes] = useState<string[]>(() => initialMode.split(",").filter(Boolean));
+  // The question list still exposes the legacy aggregate; practice asks by variant.
+  const [modes, setModes] = useState<string[]>(() => initialMode.split(",").flatMap(m => m === "choice" ? ["single", "multiple"] : m ? [m] : []));
   const [filter, setFilter] = useState(initialFilter), [search, setSearch] = useState(initialSearch);
   const [rows, setRows] = useState<QuestionSummary[]>([]), [loadedQuery, setLoadedQuery] = useState("");
   const [stats, setStats] = useState<QuestionStats>({ count: 0, types: {} });
