@@ -377,9 +377,7 @@ it("preserves native filters, whole-label selection and disabled controls in stu
   const props = { banks: [{ id: "bank", title: "题库甲", description: "", count: 1, createdAt: 0 }], initialBank: null, initialFilter: "", onClose: vi.fn(), onStart: vi.fn(), run: (job: () => Promise<void>) => { void job(); } };
   const { rerender } = render(<StudySetup {...props} busy={false} />);
   await screen.findByText(/可用 1 题/);
-  await user.click(screen.getByText("高级设置 · 题库、筛选与选题方式"));
-  await user.click(screen.getByRole("button", { name: "清空选择" }));
-  await user.click(screen.getByText("题库甲（1）"));
+  await user.click(screen.getByText("高级设置 · 筛选与选题方式"));
   await waitFor(() => expect(api).toHaveBeenCalledWith(expect.objectContaining({ type: "question_stats", bank_ids: ["bank"] })));
   await user.selectOptions(screen.getByRole("combobox", { name: "范围" }), "wrong");
   await waitFor(() => expect(api).toHaveBeenCalledWith(expect.objectContaining({ type: "question_stats", filter: "wrong" })));

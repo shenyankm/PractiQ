@@ -8,7 +8,7 @@ On the empty question-bank page, choose **Add example bank** to add the [all-typ
 
 1. In **Settings → Import and restore**, choose **Import bank ZIP**. Try the [basic sample](../../app/fixtures/sample.zip) or [composite sample](../../app/fixtures/composite.zip) without model configuration. The [nine English question kinds sample](../../app/fixtures/english.zip) also includes tones for player verification.
 2. The app validates questions, packaged images, and audio, then displays a preview. A new bank defaults to the package title and description; the title is editable. Appending preserves the target bank's metadata.
-3. Choose **Export bank ZIP** from a bank card's action menu, save the file, and distribute it. To share multiple banks together, copy-merge them before exporting.
+3. Choose **Export bank** from a bank card's action menu, save the file, and distribute it. To share multiple banks together, copy-merge them before exporting.
 
 Sharing packages retain questions, answers, explanations, source content, shared materials, composite relationships, source scores, rubrics, images, listening audio, and review flags. They exclude bookmarks, mistake status, personal answers, practice history, grading records, connection settings, and credentials.
 

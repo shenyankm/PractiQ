@@ -1,20 +1,24 @@
 import { COMPOSITE_FILTERS } from "./contracts.generated";
 import { message, MessageError, t, useI18n } from "./i18n";
 import { useEffect, useId, useRef, useState } from "react";
+import { ChevronDown } from "lucide-react";
 import { api, isComposite, type BankChoice, type Session, type SessionKind, type QuestionSummary, type QuestionStats, type PaperPreview } from "./api";
 import { ErrorNotice } from "./OperationFeedback";
 import { cents, defaultPaperCount, questionType, types } from "./paper";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 export function StudySetup({banks, initialBank, initialBankIds, initialFilter, initialMode="", initialSearch="", onClose, onStart, run, busy}: {banks:BankChoice[];initialBank:string|null;initialBankIds?:string[];initialFilter:string;initialMode?:string;initialSearch?:string;onClose:()=>void;onStart:(s:Session)=>Promise<void>;run:(job:()=>Promise<void>)=>void;busy:boolean}) {
   useI18n();
-  const [bankIds, setBanks] = useState<string[]>(() => initialBankIds ?? (initialBank ? [initialBank] : banks.filter(b => b.count > 0).map(b => b.id)));
+  const [bankIds] = useState<string[]>(() => initialBankIds ?? (initialBank ? [initialBank] : banks.filter(b => b.count > 0).map(b => b.id)));
   const [kind, setKind] = useState<SessionKind>("practice");
-  const [mode, setMode] = useState(initialMode), [filter, setFilter] = useState(initialFilter), [search, setSearch] = useState(initialSearch);
+  // The question list still exposes the legacy aggregate; practice asks by variant.
+  const [modes, setModes] = useState<string[]>(() => initialMode.split(",").flatMap(m => m === "choice" ? ["single", "multiple"] : m ? [m] : []));
+  const [filter, setFilter] = useState(initialFilter), [search, setSearch] = useState(initialSearch);
   const [rows, setRows] = useState<QuestionSummary[]>([]), [loadedQuery, setLoadedQuery] = useState("");
   const [stats, setStats] = useState<QuestionStats>({ count: 0, types: {} });
   const [offset, setOffset] = useState(0), [rootCount, setRootCount] = useState(0), [loadedPage, setLoadedPage] = useState("");
@@ -36,6 +40,8 @@ export function StudySetup({banks, initialBank, initialBankIds, initialFilter, i
   useEffect(() => { title.current?.focus(); if (scroll.current) scroll.current.scrollTop = 0; }, [reviewing]);
   const currentScorePage = Math.min(scorePage, Math.max(0, Math.ceil(preview.length / 30) - 1));
   const previewTypes = Array.from(new Set(preview.map(row => row.rootType ?? questionType(row.question))));
+  const mode = modes.length ? Object.keys(types()).filter(key => modes.includes(key)).join(",") : "";
+  const modeLabels = modes.length ? mode.split(",").map(key => types()[key] ?? key).join("、") : t("全部题型");
   const query = JSON.stringify({bank_ids: bankIds, search, mode, filter});
   const statsAttempt = statsRetry.query === query ? statsRetry.attempt : 0;
   const statsQuery = JSON.stringify({ query, attempt:statsAttempt });
@@ -142,13 +148,10 @@ export function StudySetup({banks, initialBank, initialBankIds, initialFilter, i
         {invalidCount && !loading && available > 0 && <div role="status" className="space-y-2 text-sm"><p>{t(feasibleCounts.length ? "该数量无法由完整题组组成，请选择可用数量。" : "当前完整题组均超过 1000 小题上限，请调整筛选。")}</p><div className="flex gap-2">{nearbyCounts.map(n => <Button key={n} variant="outline" onClick={() => { countEditedForQuery.current = true; setCount(n); invalidate(); }}>{t("选择 {0} 小题", {0:n})}</Button>)}</div></div>}
         {selection !== "manual" && <label className="grid content-start gap-2 font-medium">{t("出题顺序")}<NativeSelect disabled={busy} aria-label={t("出题顺序")} className="w-full sm:max-w-[calc(50%-0.5rem)]" value={random ? "random" : "ordered"} onValueChange={value => { setRandom(value === "random"); invalidate(); }}><NativeSelectOption value="ordered">{t("顺序练习")}</NativeSelectOption><NativeSelectOption value="random">{t("随机抽题")}</NativeSelectOption></NativeSelect></label>}
         <details ref={advanced} className="rounded-lg border p-4" onToggle={event => { if (event.currentTarget.open) setAdvancedLoaded(true); }}>
-          <summary className="cursor-pointer font-medium">{t("高级设置 · 题库、筛选与选题方式")}</summary>
+          <summary className="cursor-pointer font-medium">{t("高级设置 · 筛选与选题方式")}</summary>
           {advancedLoaded && <div className="mt-4 space-y-5">
-            <fieldset><legend className="mb-2 font-medium">{t("选择题库")}</legend><div className="mb-3 flex flex-wrap gap-2"><Button variant="outline" onClick={() => { setBanks(banks.filter(b => b.count > 0).map(b => b.id)); invalidate(); }}>{t("全选可用题库")}</Button><Button variant="ghost" onClick={() => { setBanks([]); invalidate(); }}>{t("清空选择")}</Button></div>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">{banks.map(b => <label className="flex min-w-0 items-start gap-2 rounded-lg border p-3 has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5" key={b.id}><Checkbox className="mt-0.5" disabled={busy || !b.count} checked={bankIds.includes(b.id)} onCheckedChange={checked => { setBanks(checked === true ? [...bankIds, b.id] : bankIds.filter(id => id !== b.id)); invalidate(); }}/><span className="min-w-0 break-words">{t("{0}（{1}）", {0:b.title,1:b.count})}</span></label>)}</div>
-            </fieldset>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <label className="grid gap-2">{t("题型")}<NativeSelect disabled={busy} className="w-full" value={mode} onValueChange={value => { setMode(value); invalidate(); }}><NativeSelectOption value="">{t("全部题型")}</NativeSelectOption><NativeSelectOption value="choice">{t("全部选择题")}</NativeSelectOption>{Object.entries(types()).map(([k, v]) => <NativeSelectOption key={k} value={k}>{v}</NativeSelectOption>)}</NativeSelect></label>
+              <div className="grid gap-2"><span className="font-medium">{t("题型")}</span><DropdownMenu modal={false}><DropdownMenuTrigger asChild><Button type="button" variant="outline" className="w-full justify-between font-normal" aria-label={t("题型")} disabled={busy}><span className="truncate">{modeLabels}</span><ChevronDown className="shrink-0 text-muted-foreground" /></Button></DropdownMenuTrigger><DropdownMenuContent align="start" className="max-h-80 overflow-y-auto"><DropdownMenuCheckboxItem checked={!modes.length} disabled={busy} onSelect={event => event.preventDefault()} onCheckedChange={() => { setModes([]); invalidate(); }}>{t("全部题型")}</DropdownMenuCheckboxItem>{Object.entries(types()).map(([k, v]) => <DropdownMenuCheckboxItem key={k} checked={modes.includes(k)} disabled={busy} onSelect={event => event.preventDefault()} onCheckedChange={checked => { setModes(checked ? [...modes, k] : modes.filter(m => m !== k)); invalidate(); }}>{v}</DropdownMenuCheckboxItem>)}</DropdownMenuContent></DropdownMenu></div>
               <label className="grid gap-2">{t("范围")}<NativeSelect disabled={busy} className="w-full" value={filter} onValueChange={value => { setFilter(value); invalidate(); }}>{[["",t("全部")],["wrong",t("错题")],["favorite",t("收藏")],["unattempted",t("未做题")],["review",t("待复核")]].map(([k, v]) => <NativeSelectOption key={k} value={k}>{v}</NativeSelectOption>)}</NativeSelect></label>
             </div>
             <label className="grid gap-2">{t("关键词")}<Input aria-label={t("搜索题目")} placeholder={t("搜索题干或关键词")} value={search} onChange={e => { setSearch(e.target.value); invalidate(); }}/></label>
@@ -178,7 +181,7 @@ export function StudySetup({banks, initialBank, initialBankIds, initialFilter, i
       </div>
       <div className="shrink-0 space-y-3 border-t pt-3">
         {reviewing && <p role="status" className="font-semibold">{t("已分配 {0} / 目标 {1} 分", {0: allocatedScore, 1: total})}{allocatedScore === "—" && <span className="ml-2 text-destructive">{t("分数最多保留两位小数")}</span>}</p>}
-        <p role="status" className="text-sm">{!bankIds.length ? t("请选择至少一个题库") : loading ? t("正在加载题目…") : <>{t("已选 {0} · 可用 {1} 题 · 本次 {2}{3}{4}{5}", { 0: chosen.length === 1 ? chosen[0].title : t("{0} 个题库", { 0: chosen.length }), 1: available, 2: selectionSummary, 3: filter && ` · ${{wrong:t("错题"), favorite:t("收藏"), unattempted:t("未做题"), review:t("待复核")}[filter]}`, 4: mode && ` · ${types()[mode] || t("选择题")}`, 5: search && t(" · 关键词：{0}", { 0: search }) })}</>}</p>
+        <p role="status" className="text-sm">{!bankIds.length ? t("请选择至少一个题库") : loading ? t("正在加载题目…") : <>{t("已选 {0} · 可用 {1} 题 · 本次 {2}{3}{4}{5}", { 0: chosen.length === 1 ? chosen[0].title : t("{0} 个题库", { 0: chosen.length }), 1: available, 2: selectionSummary, 3: filter && ` · ${{wrong:t("错题"), favorite:t("收藏"), unattempted:t("未做题"), review:t("待复核")}[filter]}`, 4: modes.length > 0 && ` · ${modeLabels}`, 5: search && t(" · 关键词：{0}", { 0: search }) })}</>}</p>
         {!!filter && ["reading", "word_bank", "cloze", "listening", "gap_fill", "grammar_fill", "sentence_selection"].some(type => stats.types[type]) && <p className="text-sm text-muted-foreground">{t("命中子题时纳入完整题组，包含组内其他子题。")}</p>}
         {selection === "manual" && manualCount > 1000 && <p role="alert" className="text-sm text-destructive">{t("每次最多选择 1000 小题。")}</p>}
         {!loading && !statsError && (!bankIds.length || !available) && <div className="workflow-note space-y-2"><p>{t(!bankIds.length ? "请选择至少一个题库" : "当前范围没有可用题目，请调整题库或筛选条件。")}</p><Button variant="outline" disabled={busy} onClick={() => { if (advanced.current) { advanced.current.open = true; advanced.current.querySelector("summary")?.focus(); advanced.current.scrollIntoView({block:"nearest"}); } }}>{t("调整选题范围")}</Button></div>}

@@ -10,7 +10,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { ErrorNotice } from "./OperationFeedback";
 
-export function BankList({ offset, onOffsetChange, revision, onLoadingChange, busy, ready, run, onOpenSession, onAddExample, onImport, onHistory, onOpenQuestions, onPractice, onPracticeUnattempted, onEdit, onDelete }: {
+export function BankList({ offset, onOffsetChange, revision, onLoadingChange, busy, ready, run, onOpenSession, onAddExample, onImport, onHistory, onOpenQuestions, onPractice, onEdit, onDelete }: {
   offset: number;
   onOffsetChange: (offset: number) => void;
   revision: number;
@@ -24,7 +24,6 @@ export function BankList({ offset, onOffsetChange, revision, onLoadingChange, bu
   onHistory: () => void;
   onOpenQuestions: (bankId: string) => void;
   onPractice: (bankId: string) => void;
-  onPracticeUnattempted: (bankId: string) => void;
   onEdit: (bank: Bank, trigger: HTMLElement | null) => void;
   onDelete: (bank: Bank, trigger: HTMLElement | null) => void;
 }) {
@@ -87,9 +86,8 @@ export function BankList({ offset, onOffsetChange, revision, onLoadingChange, bu
                   <DropdownMenuItem disabled={busy || !bank.count} onSelect={() => run(async () => {
                     const result = await api({ type: "export_bank", bank_id: bank.id });
                     if (result) toast.success(message("题库已导出：{0}", { 0: result.path }));
-                  })}><Download className="size-4" />{t("导出题库 ZIP")}</DropdownMenuItem>
+                  })}><Download className="size-4" />{t("导出题库")}</DropdownMenuItem>
                   <DropdownMenuItem onSelect={() => onEdit(bank, triggers.current.get(bank.id) ?? null)}><Pencil className="size-4" />{t("编辑题库")}</DropdownMenuItem>
-                  <DropdownMenuItem disabled={busy || !bank.count} onSelect={() => onPracticeUnattempted(bank.id)}><Play className="size-4" />{t("练习未做题")}</DropdownMenuItem>
                   <DropdownMenuItem variant="destructive" onSelect={() => onDelete(bank, triggers.current.get(bank.id) ?? null)}><Trash2 className="size-4" />{t("删除题库")}</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

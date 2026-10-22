@@ -21,7 +21,7 @@ export function SettingsPage({ busy, run, flushRef, revision, version, onConfigu
   onRestoreOpenChange: (open: boolean) => void;
 }) {
   const restoreTrigger = useRef<HTMLButtonElement>(null);
-  return <div className="max-w-3xl space-y-6">
+  return <div className="mx-auto max-w-3xl space-y-6">
     <ConnectionSettingsPanel key={revision} busy={busy} run={run} onConfigure={onConfigure} flushRef={flushRef} />
     <Card>
       <CardHeader>

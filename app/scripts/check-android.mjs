@@ -68,6 +68,12 @@ async function navigate(page, name, english = false) {
   await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
 }
 
+async function chooseType(page, setup, label) {
+  await setup.getByRole('button', { name: '题型', exact: true }).tap();
+  await page.getByRole('menuitemcheckbox', { name: label, exact: true }).tap();
+  await page.keyboard.press('Escape');
+}
+
 async function startPractice(page, title = '基础知识 · 全题型', count = '9') {
   const bank = page.locator('[data-slot=card]').filter({ has: page.getByText(title, { exact: true }) });
   await bank.getByRole('button', { name: '开始练习', exact: true }).tap();
@@ -76,7 +82,7 @@ async function startPractice(page, title = '基础知识 · 全题型', count = 
   await touchTarget(setup.getByLabel('题目数量', { exact: true }));
   await setup.getByRole('combobox', { name: /^模式/ }).selectOption('self_test');
   await setup.getByLabel('考试总分', { exact: true }).fill('90');
-  const advanced = setup.getByText('高级设置 · 题库、筛选与选题方式', { exact: true });
+  const advanced = setup.getByText('高级设置 · 筛选与选题方式', { exact: true });
   await touchTarget(advanced);
   await advanced.tap();
   await setup.getByRole('combobox', { name: '选题方式', exact: true }).selectOption('quota');
@@ -423,8 +429,8 @@ test('listening uses local audio with touch-sized playback, speed and seek contr
   await bank.getByRole('button', { name: '开始练习', exact: true }).tap();
   const setup = page.getByRole('dialog');
   await setup.getByLabel('出题顺序', { exact: true }).selectOption('ordered');
-  await setup.getByText('高级设置 · 题库、筛选与选题方式', { exact: true }).tap();
-  await setup.getByRole('combobox', { name: '题型', exact: true }).selectOption('listening');
+  await setup.getByText('高级设置 · 筛选与选题方式', { exact: true }).tap();
+  await chooseType(page, setup, '听力题');
   await setup.getByLabel('题目数量', { exact: true }).fill('2');
   await setup.getByRole('button', { name: '立即开始', exact: true }).tap();
   const player = page.getByRole('region', { name: '听力播放器', exact: true });

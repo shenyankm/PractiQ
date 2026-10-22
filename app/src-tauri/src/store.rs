@@ -180,8 +180,9 @@ pub(crate) fn search_roots(
         WITH RECURSIVE tree(root,id) AS (
             SELECT q.id,q.id FROM questions q LEFT JOIN choice_questions c ON c.question_id=q.id
             WHERE q.id IN (SELECT value FROM json_each(?1)) AND (
-                ?4='' OR COALESCE(CASE WHEN q.question_kind IS NOT NULL THEN q.question_kind WHEN q.mode='gap_fill' THEN 'grammar_fill' WHEN q.mode='choice' THEN c.variant ELSE q.mode END,'')=?4 OR
-                (?4='choice' AND q.mode='choice') OR (q.mode='choice' AND c.variant=?4)
+                json_array_length(?4)=0 OR EXISTS(SELECT 1 FROM json_each(?4) m WHERE
+                    COALESCE(CASE WHEN q.question_kind IS NOT NULL THEN q.question_kind WHEN q.mode='gap_fill' THEN 'grammar_fill' WHEN q.mode='choice' THEN c.variant ELSE q.mode END,'')=m.value OR
+                    (m.value='choice' AND q.mode='choice') OR (q.mode='choice' AND c.variant=m.value))
             )
             UNION ALL SELECT t.root,q.id FROM questions q JOIN tree t ON q.parent_id=t.id
         ), nodes AS (
@@ -197,6 +198,7 @@ pub(crate) fn search_roots(
     let mut matches = std::collections::HashSet::new();
     let banks = json!(banks).to_string();
     let roots = json!(candidates).to_string();
+    let mode = crate::questions::mode_list(mode);
     let mut statement = db.prepare(&format!("{nodes} SELECT n.root,q.stem,q.instructions,q.analysis,q.source_text,q.scoring_rubric,q.score_source_text,q.content_blocks FROM nodes n JOIN questions q ON q.id=n.id")).map_err(err)?;
     let mut rows = statement
         .query(params![roots, filter, banks, mode])

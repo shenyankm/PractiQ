@@ -11,13 +11,34 @@ pub fn composite(q: &Value) -> bool {
     crate::question_metadata::COMPOSITE_MODES.contains(&text(q, "answerMode"))
 }
 pub(crate) fn validate_filter(banks: &[String], mode: &str, filter: &str) -> Result<()> {
-    if banks.len() > 1000
-        || !crate::question_metadata::FILTER_MODES.contains(&mode)
-        || !["", "wrong", "favorite", "unattempted", "review"].contains(&filter)
-    {
+    let invalid = mode.len() > 256
+        || banks.len() > 1000
+        || !["", "wrong", "favorite", "unattempted", "review"].contains(&filter);
+    if invalid {
+        return Err(crate::language::error("LOCAL_FILTER_INVALID", json!({})));
+    }
+    let modes: Vec<&str> = if mode.is_empty() {
+        Vec::new()
+    } else {
+        mode.split(',').collect()
+    };
+    if modes.iter().enumerate().any(|(i, m)| {
+        m.is_empty()
+            || !crate::question_metadata::FILTER_MODES.contains(m)
+            || modes[..i].contains(m)
+    }) {
         return Err(crate::language::error("LOCAL_FILTER_INVALID", json!({})));
     }
     Ok(())
+}
+
+// Modes arrive comma-separated so existing single-mode callers stay valid.
+pub(crate) fn mode_list(mode: &str) -> String {
+    json!(mode
+        .split(',')
+        .filter(|m| !m.is_empty())
+        .collect::<Vec<_>>())
+    .to_string()
 }
 pub(crate) fn prepare_root_metadata(db: &Connection) -> Result<rusqlite::Statement<'_>> {
     db.prepare(&format!("
@@ -377,7 +398,7 @@ pub fn matching_roots(
     let (choice, kind) = if page.is_some() && mode.is_empty() {
         ("", "")
     } else {
-        ("LEFT JOIN choice_questions c ON c.question_id=q.id", "AND (?2='' OR COALESCE(q.question_kind,q.mode)=?2 OR (?2='grammar_fill' AND q.mode='gap_fill') OR (q.mode='choice' AND c.variant=?2))")
+        ("LEFT JOIN choice_questions c ON c.question_id=q.id", "AND (json_array_length(?2)=0 OR EXISTS(SELECT 1 FROM json_each(?2) m WHERE COALESCE(q.question_kind,q.mode)=m.value OR (m.value='grammar_fill' AND q.mode='gap_fill') OR (q.mode='choice' AND c.variant=m.value)))")
     };
     let sql = format!("
         WITH RECURSIVE tree(root,id) AS (
@@ -393,6 +414,7 @@ pub fn matching_roots(
         WHERE q.parent_id IS NULL AND {scope} {kind}
             AND (?3='' OR q.id IN (SELECT root FROM matches))");
     let bank_ids = json!(banks).to_string();
+    let mode = mode_list(mode);
     let total = if page.is_some() {
         db.query_row(
             &format!("SELECT COUNT(*) FROM ({sql})"),

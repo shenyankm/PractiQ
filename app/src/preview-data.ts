@@ -91,11 +91,13 @@ function summary(s:Session) {const a=s.attempts;return {...s,attempts:undefined,
 function page<T>(items:T[],offset=0,limit=20) {return {items:items.slice(offset,offset+limit),total:items.length,offset};}
 function preview():Preview {return {ticket:"preview-ticket",title:"示例导入题库",count:9,reviewCount:1,warnings:["演示解析结果，包含一道缺少参考答案的题目。"],status:"PARTIAL",processing:null,missingAssets:[],assetCount:1,questions:sample.questions as Question[],groups:[],visuals:[]};}
 function filtered(r:{bank_ids:string[];search?:string;mode?:string;filter?:string},empty:boolean) {
+  const modes=(r.mode||"").split(",").filter(Boolean);
+  const matchesMode=(q:QuestionRow)=>!modes.length || modes.some(mode=>(q.question.questionKind??q.question.answerMode)===mode || (mode==="grammar_fill" && q.question.answerMode==="gap_fill") || (q.question.answerMode==="choice" && q.question.choiceVariant===mode));
   const matchesFilter=(q:QuestionRow)=>r.filter==="wrong" ? q.latestResult===false:r.filter==="favorite" ? q.favorite:r.filter==="review" ? q.question.needsReview && q.reviewedAt==null:r.filter==="unattempted" ? !COMPOSITE_MODES.includes(q.question.answerMode||"") && q.latestResult===null:true;
   return empty ? []:roots(rows).filter(root=>{
-    const q=root.question,nodes=[rows.find(row=>row.id===root.id)!,...root.children];
+    const nodes=[rows.find(row=>row.id===root.id)!,...root.children];
     return (!r.bank_ids.length || r.bank_ids.includes(root.bankId)) &&
-      (!r.mode || (q.questionKind??q.answerMode)===r.mode || (r.mode==="grammar_fill" && q.answerMode==="gap_fill") || (q.answerMode==="choice" && q.choiceVariant===r.mode)) &&
+      matchesMode(root) &&
       nodes.some(matchesFilter) && (!r.search || nodes.some(node=>(!r.filter || r.filter==="review" || matchesFilter(node)) && `${node.question.stem} ${node.bankTitle}`.toLowerCase().includes(r.search!.toLowerCase())));
   });
 }

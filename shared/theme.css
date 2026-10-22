@@ -207,7 +207,7 @@ html [data-sonner-toaster][data-sonner-theme] {
 @media (max-width: 767px), (any-pointer: coarse) {
   :root { --control-height: 3rem; }
   html [data-button][data-size^="icon"] { min-width: 3rem; }
-  html [data-button][data-size], [data-button], [data-button]:not([data-size^="icon"]), [data-slot="native-select"][data-size="sm"], [data-slot="select-trigger"][data-size="sm"], [data-slot="select-item"], [data-slot="dropdown-menu-item"], [data-slot="dropdown-menu-radio-item"] { min-height: 3rem; }
+  html [data-button][data-size], [data-button], [data-button]:not([data-size^="icon"]), [data-slot="native-select"][data-size="sm"], [data-slot="select-trigger"][data-size="sm"], [data-slot="select-item"], [data-slot="dropdown-menu-item"], [data-slot="dropdown-menu-radio-item"], [data-slot="dropdown-menu-checkbox-item"] { min-height: 3rem; }
 }
 @media (prefers-reduced-motion: reduce) {
   [data-button] { transition: none; }
