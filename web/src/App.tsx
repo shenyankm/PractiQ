@@ -37,9 +37,10 @@ function Progress({ task }: { task: DocumentTaskDetail }) {
   })}</div></>;
 }
 const Usage = memo(function Usage({ task }: { task: DocumentTaskDetail }) {
-  const input = task.usage.reduce((sum, call) => sum + call.inputTokens, 0);
-  const output = task.usage.reduce((sum, call) => sum + call.outputTokens, 0);
-  return <details className="resource-card"><summary>模型用量与任务诊断</summary><div className="space-y-3 pt-3"><p>已知用量：{task.usage.length} 次调用，输入 {input} tokens，输出 {output} tokens。</p><p>{task.unknownUsageCalls.length ? `有 ${task.unknownUsageCalls.length} 次调用未返回用量，实际总用量未知。` : "没有已记录的未知用量调用。"}</p><p>调用预算：已预留 {task.modelBudget.reserved}/{task.modelBudget.limit} 次。</p><dl className="metadata-grid"><dt>检查点</dt><dd>{task.checkpointId ?? "尚无（null）"}</dd><dt>运行 ID</dt><dd>{task.runId ?? "无（null）"}</dd><dt>父任务</dt><dd>{task.parentThreadId ?? "无（null）"}</dd><dt>到期时间</dt><dd>{task.expiresAt}</dd></dl><pre className="raw-data">{JSON.stringify({ usage: task.usage, unknownUsageCalls: task.unknownUsageCalls, processing: task.processing, blocking: task.blocking, parserJobs: task.parserJobs || [] }, null, 2)}</pre></div></details>;
+  const [loaded, setLoaded] = useState(false);
+  const input = loaded ? task.usage.reduce((sum, call) => sum + call.inputTokens, 0) : 0;
+  const output = loaded ? task.usage.reduce((sum, call) => sum + call.outputTokens, 0) : 0;
+  return <details className="resource-card" onToggle={event => { if (event.currentTarget.open && !loaded) setLoaded(true); }}><summary>模型用量与任务诊断</summary>{loaded && <div className="space-y-3 pt-3"><p>已知用量：{task.usage.length} 次调用，输入 {input} tokens，输出 {output} tokens。</p><p>{task.unknownUsageCalls.length ? `有 ${task.unknownUsageCalls.length} 次调用未返回用量，实际总用量未知。` : "没有已记录的未知用量调用。"}</p><p>调用预算：已预留 {task.modelBudget.reserved}/{task.modelBudget.limit} 次。</p><dl className="metadata-grid"><dt>检查点</dt><dd>{task.checkpointId ?? "尚无（null）"}</dd><dt>运行 ID</dt><dd>{task.runId ?? "无（null）"}</dd><dt>父任务</dt><dd>{task.parentThreadId ?? "无（null）"}</dd><dt>到期时间</dt><dd>{task.expiresAt}</dd></dl><pre className="raw-data">{JSON.stringify({ usage: task.usage, unknownUsageCalls: task.unknownUsageCalls, processing: task.processing, blocking: task.blocking, parserJobs: task.parserJobs || [] }, null, 2)}</pre></div>}</details>;
 });
 
 type Page = "import" | "records" | "settings";
@@ -54,6 +55,10 @@ const dateLabel = (value: string) => { const date = new Date(value); return Numb
 
 export default function App() {
   const [page, setPage] = useState<Page>(() => pageFromHash() ?? "import");
+  // Wake the existing pollers on workspace changes without discarding their caches.
+  const recordsVisible = useRef(page === "records");
+  const listWake = useRef<(() => void) | null>(null);
+  const detailWake = useRef<(() => void) | null>(null);
   const previousPage = useRef(page);
   useLayoutEffect(() => { if (previousPage.current !== page) { previousPage.current = page; document.getElementById("page-heading")?.focus(); } }, [page]);
   function navigate(value: Page) { setPage(value); setDeleteTarget(null); window.location.hash = value; }
@@ -131,11 +136,12 @@ export default function App() {
     let timer: ReturnType<typeof setTimeout>;
     let reading = false, stopped = false, failures = 0;
     async function poll() {
-      if (reading || stopped || document.hidden || controller.signal.aborted) return;
+      if (reading || stopped || !recordsVisible.current || document.hidden || controller.signal.aborted) return;
       reading = true; setListLoading(true);
       let delay = 3000;
       try {
         const result = await client!.list(offset, filter, controller.signal, cursor);
+        if (!recordsVisible.current || document.hidden) return;
         failures = 0;
         if (!controller.signal.aborted) { setTasks(previous => JSON.stringify(previous) === JSON.stringify(result) ? previous : result); setListError(null); }
         if (filter && filter !== "active" || result.items.length > 0 && result.items.every(item => !["PENDING", "RUNNING", "PAUSING"].includes(item.state))) delay = 30000;
@@ -145,13 +151,14 @@ export default function App() {
         stopped = authFailure(error);
       } finally {
         reading = false;
-        if (!controller.signal.aborted) { setListLoading(false); if (!stopped) timer = setTimeout(() => void poll(), delay); }
+        if (!controller.signal.aborted) { setListLoading(false); if (!stopped && recordsVisible.current && !document.hidden) timer = setTimeout(() => void poll(), delay); }
       }
     }
     function wake() { clearTimeout(timer); void poll(); }
+    listWake.current = wake;
     document.addEventListener("visibilitychange", wake); window.addEventListener("focus", wake);
     void poll();
-    return () => { controller.abort(); clearTimeout(timer); document.removeEventListener("visibilitychange", wake); window.removeEventListener("focus", wake); };
+    return () => { listWake.current = null; controller.abort(); clearTimeout(timer); document.removeEventListener("visibilitychange", wake); window.removeEventListener("focus", wake); };
   }, [client, offset, filter, listRevision, cursor]);
   useEffect(() => {
     setDetail(null); setPreview(null); setDetailError(null); setPreviewError(null); setDetailFresh(false);
@@ -161,33 +168,33 @@ export default function App() {
     let reading = false, stopped = false, failures = 0;
     let currentDetail: DocumentTaskDetail | null = null, currentPreview: DocumentTaskReview | null = null;
     async function poll(force = false) {
-      if (reading || stopped || document.hidden || controller.signal.aborted) return;
+      if (reading || stopped || !recordsVisible.current || document.hidden || controller.signal.aborted) return;
       reading = true;
       let failed = false;
       try {
         if (!currentDetail) {
           const [current, review] = await Promise.allSettled([client!.detail(selected!, controller.signal), client!.preview(selected!, controller.signal)]);
-          if (controller.signal.aborted) return;
+          if (controller.signal.aborted || !recordsVisible.current || document.hidden) return;
           if (current.status === "fulfilled") { currentDetail = current.value; setDetail(current.value); setDetailError(null); setDetailFresh(true); }
           else { failed = true; setDetailError(errorText(current.reason)); setDetailFresh(false); stopped = authFailure(current.reason); }
           if (review.status === "fulfilled") { currentPreview = review.value; setPreview(review.value); setPreviewError(null); }
           else { failed = true; currentPreview = null; setPreview(null); setPreviewError(errorText(review.reason)); stopped ||= authFailure(review.reason); }
           return;
         }
-        if (!force) {
+        if (!force && currentDetail.state === "COMPLETED") {
           const head = await client!.head(selected!, controller.signal);
-          if (controller.signal.aborted) return;
+          if (controller.signal.aborted || !recordsVisible.current || document.hidden) return;
           if (head.checkpointId === currentDetail.checkpointId && head.runId === currentDetail.runId && head.state === currentDetail.state && head.updatedAt === currentDetail.updatedAt && head.modelConfigured === currentDetail.modelConfigured && head.resumeCompatible === currentDetail.resumeCompatible && currentPreview?.checkpointId === head.checkpointId && head.state === "COMPLETED") {
             setDetailFresh(true); setDetailError(null); return;
           }
         }
         const current = await client!.detail(selected!, controller.signal);
-        if (controller.signal.aborted) return;
+        if (controller.signal.aborted || !recordsVisible.current || document.hidden) return;
         currentDetail = current; setDetail(current); setDetailError(null); setDetailFresh(true);
         if (force || !currentPreview || currentPreview.checkpointId !== current.checkpointId || currentPreview.state !== current.state || ["PAUSED", "WAITING_REVIEW"].includes(current.state)) {
           try {
             const review = await client!.preview(selected!, controller.signal);
-            if (controller.signal.aborted) return;
+            if (controller.signal.aborted || !recordsVisible.current || document.hidden) return;
             currentPreview = review; setPreview(review); setPreviewError(null);
           } catch (error) {
             failed = true;
@@ -202,14 +209,19 @@ export default function App() {
       } finally {
         reading = false;
         failures = failed ? failures + 1 : 0;
-        if (!controller.signal.aborted && !stopped) timer = setTimeout(() => void poll(), failures ? pollRetryDelay(failures) : currentDetail && !["PENDING", "RUNNING", "PAUSING"].includes(currentDetail.state) ? 30000 : 3000);
+        if (!controller.signal.aborted && !stopped && recordsVisible.current && !document.hidden) timer = setTimeout(() => void poll(), failures ? pollRetryDelay(failures) : currentDetail && !["PENDING", "RUNNING", "PAUSING"].includes(currentDetail.state) ? 30000 : 3000);
       }
     }
-    function wake() { clearTimeout(timer); void poll(true); }
+    function wake() { clearTimeout(timer); if (!recordsVisible.current || document.hidden) setDetailFresh(false); void poll(); }
+    detailWake.current = wake;
     document.addEventListener("visibilitychange", wake); window.addEventListener("focus", wake);
     void poll(true);
-    return () => { controller.abort(); clearTimeout(timer); document.removeEventListener("visibilitychange", wake); window.removeEventListener("focus", wake); };
+    return () => { detailWake.current = null; controller.abort(); clearTimeout(timer); document.removeEventListener("visibilitychange", wake); window.removeEventListener("focus", wake); };
   }, [client, selected, detailRevision]);
+  useEffect(() => {
+    recordsVisible.current = page === "records";
+    listWake.current?.(); detailWake.current?.();
+  }, [page]);
   async function connect() {
     if (connecting) return;
     setConnecting(true); setCapError(null); setAccessInvalid(false);

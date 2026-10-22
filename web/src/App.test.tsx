@@ -2,7 +2,7 @@ import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it, vi } from "vitest";
 import App from "./App";
-import { capabilities, newTaskId, preview, runId, summary, task, taskId } from "./test-fixtures";
+import { capabilities, newTaskId, preview, question, runId, summary, task, taskId } from "./test-fixtures";
 import type { DocumentTaskDetail } from "./contracts.generated";
 
 beforeEach(() => window.history.replaceState(null, "", "/"));
@@ -165,7 +165,10 @@ it("polling paused/partial checkpoints only reads; resume/retry/pause require ex
   expect(screen.getByRole("button", { name: "重试失败单元" })).toBeTruthy(); expect(screen.getByRole("button", { name: "接受部分结果" })).toBeTruthy();
   await user.click(screen.getByText("模型用量与任务诊断")); expect(screen.getByText(/实际总用量未知/)).toBeTruthy(); expect(screen.getByText(/输入 21 tokens，输出 8 tokens/)).toBeTruthy();
   vi.useFakeTimers(); await act(async () => vi.advanceTimersByTimeAsync(6000)); expect(http.calls.every(call => call.method === "GET")).toBe(true); vi.useRealTimers();
+  const previews = http.calls.filter(call => call.url.endsWith("/preview")).length;
   await user.click(screen.getByRole("button", { name: "继续解析" })); await screen.findByRole("button", { name: "暂停" });
+  expect(http.calls.filter(call => call.url.endsWith("/preview"))).toHaveLength(previews + 1);
+  expect(http.calls.filter(call => call.url.endsWith("/head"))).toHaveLength(0);
   const resume = http.calls.find(call => call.url.endsWith("/control")); expect(resume?.body).toMatchObject({ action: "resume", runId: null, checkpointId: "checkpoint-one", units: [] });
   await user.click(screen.getByRole("button", { name: "暂停" })); await screen.findByRole("button", { name: "继续解析" });
   expect(http.calls.filter(call => call.url.endsWith("/control")).at(-1)?.body).toMatchObject({ action: "pause", runId, checkpointId: null });
@@ -253,18 +256,23 @@ it("deletes an expired row despite 410 detail reads only after confirmation, ret
 });
 
 
-it("uses lightweight completed heads, skips unchanged previews and refreshes on focus", async () => {
+it("uses completed heads for automatic wakes but forces explicit refresh", async () => {
   const user = userEvent.setup(); const http = fakeHTTP(); render(<App />); await connect(user); await openTask(user);
   const reads = () => ({detail:http.calls.filter(c=>c.url.endsWith(`/${taskId}`)).length,preview:http.calls.filter(c=>c.url.endsWith("/preview")).length,head:http.calls.filter(c=>c.url.endsWith("/head")).length});
   expect(reads()).toEqual({detail:1,preview:1,head:0});
-  vi.useFakeTimers(); await act(async()=>{window.dispatchEvent(new Event("focus"));});
-  expect(reads()).toEqual({detail:2,preview:2,head:0});
+  vi.useFakeTimers();
+  for (let wake = 0; wake < 20; wake++) await act(async () => {
+    if (wake % 2) document.dispatchEvent(new Event("visibilitychange"));
+    else window.dispatchEvent(new Event("focus"));
+  });
+  expect(reads()).toEqual({detail:1,preview:1,head:20});
   await act(async()=>vi.advanceTimersByTimeAsync(30000));
-  expect(reads()).toEqual({detail:2,preview:2,head:1});
-  await act(async()=>{ window.dispatchEvent(new Event("focus")); });
-  expect(reads()).toEqual({detail:3,preview:3,head:1}); vi.useRealTimers();
+  expect(reads()).toEqual({detail:1,preview:1,head:21});
+  vi.useRealTimers();
+  await user.click(screen.getByRole("button", { name: "刷新任务详情" }));
+  await waitFor(() => expect(reads()).toEqual({detail:2,preview:2,head:21}));
 });
-it("reuses task diagnostics across unrelated filters and updates them after an explicit refresh", async () => {
+it("loads diagnostics on first expansion, retains them on reopen and updates new details", async () => {
   const user = userEvent.setup(); const http = fakeHTTP();
   const originalStringify = JSON.stringify;
   const diagnostic = vi.fn();
@@ -278,40 +286,179 @@ it("reuses task diagnostics across unrelated filters and updates them after an e
   const listReads = () => http.calls.filter(call => call.url.startsWith("/api/document-tasks?")).length;
   try {
     render(<App />); await connect(user); await openTask(user);
-    const initialCalls = diagnostic.mock.calls.length;
-    expect(initialCalls).toBeGreaterThan(0);
+    expect(diagnostic).not.toHaveBeenCalled();
     expect(details().open).toBe(false);
-    expect(details().querySelector("pre")?.textContent).toBe(expected(task));
+    expect(details().querySelector("pre")).toBeNull();
+    for (let update = 0; update < 5; update++) {
+      http.records.set(taskId, { ...task, updatedAt: `2026-10-20T00:00:0${update}Z` });
+      await act(async () => window.dispatchEvent(new Event("focus")));
+    }
+    expect(diagnostic).not.toHaveBeenCalled();
+    let loadedCalls = 0;
     for (const open of [false, true]) {
-      if (open) await user.click(screen.getByText("模型用量与任务诊断", { exact: true }));
+      if (open) {
+        const summary = screen.getByText("模型用量与任务诊断", { exact: true });
+        await user.click(summary);
+        await waitFor(() => expect(details().querySelector("pre")?.textContent).toBe(expected(task)));
+        loadedCalls = diagnostic.mock.calls.length;
+        expect(loadedCalls).toBe(1);
+      }
       expect(details().open).toBe(open);
       for (const filter of ["completed", ""]) {
         const reads = listReads();
         await user.selectOptions(screen.getByLabelText("筛选任务状态"), filter);
         await waitFor(() => expect(listReads()).toBe(reads + 1));
         await screen.findByRole("button", { name: "sample.docx" });
-        expect(diagnostic).toHaveBeenCalledTimes(initialCalls);
-        expect(details().querySelector("pre")?.textContent).toBe(expected(task));
+        expect(diagnostic).toHaveBeenCalledTimes(loadedCalls);
+        expect(details().querySelector("pre")?.textContent).toBe(open ? expected(task) : undefined);
       }
     }
+    const body = details().querySelector("pre");
+    await user.click(screen.getByText("模型用量与任务诊断", { exact: true }));
+    await user.click(screen.getByText("模型用量与任务诊断", { exact: true }));
+    expect(details().querySelector("pre")).toBe(body);
+    expect(diagnostic).toHaveBeenCalledTimes(loadedCalls);
     const current = http.records.get(taskId)!;
     const updated: DocumentTaskDetail = { ...current,
+      updatedAt: "2026-10-21T00:00:00Z",
       usage: current.usage.map(call => ({ ...call, inputTokens: 22 })),
       processing: { ...current.processing!, questionSources: [...current.processing!.questionSources!, { questionId: "q-child", stage: "document_parse", unitIndex: 2 }] },
       result: { ...current.result!, warnings: [...current.result!.warnings, "Refreshed diagnostic task"] },
     };
     http.records.set(taskId, updated);
-    await user.click(screen.getByRole("button", { name: "刷新任务详情" }));
+    await act(async () => window.dispatchEvent(new Event("focus")));
     await screen.findByText("Refreshed diagnostic task", { exact: true });
     if (!details().open) await user.click(screen.getByText("模型用量与任务诊断", { exact: true }));
     expect(await screen.findByText("已知用量：1 次调用，输入 22 tokens，输出 8 tokens。", { exact: true })).toBeTruthy();
     expect(details().querySelector("pre")?.textContent).toBe(expected(updated));
-    expect(diagnostic.mock.calls.length).toBeGreaterThan(initialCalls);
+    expect(diagnostic).toHaveBeenCalledTimes(loadedCalls + 1);
     expect(diagnostic).toHaveBeenLastCalledWith({ usage: updated.usage, unknownUsageCalls: updated.unknownUsageCalls, processing: updated.processing, blocking: updated.blocking, parserJobs: updated.parserJobs || [] });
     expect(http.calls.every(call => call.method === "GET")).toBe(true);
     expect(http.calls.every(call => call.auth === "Bearer fake-service-token")).toBe(true);
   } finally { stringify.mockRestore(); }
 });
+it.each(["RUNNING", "PAUSED", "WAITING_REVIEW", "FAILED", "INTERRUPTED"] as const)("reads %s directly for ten polling rounds without redundant heads", async state => {
+  const user = userEvent.setup(); const http = fakeHTTP({ ...task, state });
+  render(<App />); await connect(user); await openTask(user);
+  vi.useFakeTimers();
+  await act(async () => window.dispatchEvent(new Event("focus")));
+  const before = http.calls.filter(call => call.url.endsWith(`/${taskId}`)).length;
+  const delay = state === "RUNNING" ? 3000 : 30000;
+  await act(async () => vi.advanceTimersByTimeAsync(delay * 10));
+  expect(http.calls.filter(call => call.url.endsWith(`/${taskId}`))).toHaveLength(before + 10);
+  expect(http.calls.filter(call => call.url.endsWith("/head"))).toHaveLength(0);
+  expect(http.calls.every(call => call.method === "GET")).toBe(true);
+});
+
+it.each([
+  { checkpointId: "checkpoint-two" }, { runId }, { state: "RUNNING" as const },
+  { modelConfigured: false }, { resumeCompatible: false }, { updatedAt: "2026-10-21T00:00:00Z" },
+])("refreshes changed completed heads (%j) and follows active transitions directly", async change => {
+  const user = userEvent.setup(); const http = fakeHTTP();
+  render(<App />); await connect(user); await openTask(user);
+  http.records.set(taskId, { ...task, ...change });
+  await act(async () => window.dispatchEvent(new Event("focus")));
+  expect(http.calls.filter(call => call.url.endsWith("/head"))).toHaveLength(1);
+  expect(http.calls.filter(call => call.url.endsWith(`/${taskId}`))).toHaveLength(2);
+  expect(http.calls.filter(call => call.url.endsWith("/preview"))).toHaveLength("checkpointId" in change || "state" in change ? 2 : 1);
+  if ("state" in change) {
+    await act(async () => window.dispatchEvent(new Event("focus")));
+    expect(http.calls.filter(call => call.url.endsWith("/head"))).toHaveLength(1);
+    expect(http.calls.filter(call => call.url.endsWith(`/${taskId}`))).toHaveLength(3);
+    http.records.set(taskId, task);
+    await act(async () => window.dispatchEvent(new Event("focus")));
+    await act(async () => window.dispatchEvent(new Event("focus")));
+    expect(http.calls.filter(call => call.url.endsWith("/head"))).toHaveLength(2);
+    expect(http.calls.filter(call => call.url.endsWith(`/${taskId}`))).toHaveLength(4);
+  }
+  expect(http.calls.every(call => call.method === "GET")).toBe(true);
+});
+
+it("disables completed actions after an automatic head failure and restores freshness on wake", async () => {
+  const user = userEvent.setup(); const http = fakeHTTP();
+  render(<App />); await connect(user); await openTask(user);
+  const download = screen.getByRole("button", { name: "下载题库 ZIP" });
+  expect(download).toHaveProperty("disabled", false);
+  http.server.intercept = url => url.endsWith("/head") ? json({}, 503) : undefined;
+  await act(async () => window.dispatchEvent(new Event("focus")));
+  expect(download).toHaveProperty("disabled", true);
+  expect(screen.getByRole("button", { name: "重试任务详情" })).toBeTruthy();
+  http.server.intercept = undefined;
+  await act(async () => document.dispatchEvent(new Event("visibilitychange")));
+  expect(download).toHaveProperty("disabled", false);
+  expect(http.calls.filter(call => call.url.endsWith(`/${taskId}`))).toHaveLength(1);
+  expect(http.calls.every(call => call.method === "GET")).toBe(true);
+});
+
+it.each(["开始导入", "设置"])("stops invisible records reads in %s and refreshes immediately without losing workspace state", async destination => {
+  const user = userEvent.setup(); const http = fakeHTTP({ ...task, state: "RUNNING", allowedActions: ["pause"] });
+  const questions = Array.from({ length: 25 }, (_, index) => question({ id: `q-${index}`, stem: `Kept question ${index}`, parentId: null, optionSourceId: null }));
+  http.server.intercept = url => url.endsWith("/preview") ? json({ ...preview, state: "RUNNING", units: [{ ...preview.units[0], questions }] }) : undefined;
+  render(<App />); await connect(user);
+  expect(http.calls.some(call => call.url.startsWith("/api/document-tasks"))).toBe(false);
+  await user.click(screen.getByRole("link", { name: "导入记录" }));
+  await user.selectOptions(screen.getByLabelText("筛选任务状态"), "active");
+  await user.click(await screen.findByRole("button", { name: "sample.docx" }));
+  await screen.findByText("Kept question 0");
+  await user.click(screen.getByRole("button", { name: "下一页任务" }));
+  await user.type(screen.getByRole("searchbox", { name: "搜索解析题目" }), "Kept");
+  await user.click(screen.getByRole("checkbox", { name: "仅看需要复核" }));
+  await user.click(screen.getByRole("button", { name: "下一页题目" }));
+  const entry = screen.getByText("Kept question 20").closest("details")!;
+  await user.click(screen.getByText("Kept question 20"));
+  expect(entry.open).toBe(true);
+  const panel = screen.getByRole("region", { name: "任务详情" });
+  await user.click(screen.getByRole("link", { name: destination }));
+  expect(document.activeElement).toBe(screen.getByRole("heading", { name: destination, level: 1 }));
+  const reads = () => http.calls.filter(call => call.url.startsWith("/api/document-tasks")).length;
+  const before = reads();
+  vi.useFakeTimers();
+  for (let tick = 0; tick < 20; tick++) await act(async () => {
+    window.dispatchEvent(new Event("focus")); document.dispatchEvent(new Event("visibilitychange"));
+    await vi.advanceTimersByTimeAsync(3000);
+  });
+  expect(document.hidden).toBe(false);
+  expect(reads()).toBe(before);
+  vi.useRealTimers();
+  let release!: (response: Response) => void;
+  http.server.intercept = url => url.endsWith(`/${taskId}`) ? new Promise(resolve => { release = resolve; }) : undefined;
+  await user.click(screen.getByRole("link", { name: "导入记录" }));
+  expect(reads()).toBe(before + 2);
+  expect(screen.getByRole("button", { name: "暂停" })).toHaveProperty("disabled", true);
+  expect(screen.getByRole("region", { name: "任务详情" })).toBe(panel);
+  expect(screen.getByLabelText("筛选任务状态")).toHaveProperty("value", "active");
+  expect(screen.getByText("第 2 页")).toBeTruthy();
+  expect(screen.getByRole("searchbox", { name: "搜索解析题目" })).toHaveProperty("value", "Kept");
+  expect(screen.getByRole("checkbox", { name: "仅看需要复核" })).toHaveProperty("checked", true);
+  expect(screen.getByText("第 21–25 条，共 25 条")).toBeTruthy();
+  expect(screen.getByText("Kept question 20", { selector: "summary span" }).closest("details")).toBe(entry);
+  expect(entry.open).toBe(true);
+  await act(async () => release(json({ ...task, state: "RUNNING", allowedActions: ["pause"] })));
+  expect(screen.getByRole("button", { name: "暂停" })).toHaveProperty("disabled", false);
+  expect(http.calls.every(call => call.method === "GET")).toBe(true);
+});
+
+it("discards an in-flight hidden detail without fetching its preview, then revalidates on return", async () => {
+  const user = userEvent.setup(); const http = fakeHTTP({ ...task, state: "RUNNING", allowedActions: ["pause"] });
+  render(<App />); await connect(user); await openTask(user);
+  let release!: (response: Response) => void;
+  http.server.intercept = url => url.endsWith(`/${taskId}`) ? new Promise(resolve => { release = resolve; }) : undefined;
+  await act(async () => window.dispatchEvent(new Event("focus")));
+  await user.click(screen.getByRole("link", { name: "设置" }));
+  const updated = { ...task, state: "PAUSED" as const, checkpointId: "checkpoint-two", allowedActions: ["resume" as const] };
+  http.records.set(taskId, updated);
+  const count = http.calls.length;
+  await act(async () => release(json(updated)));
+  expect(http.calls).toHaveLength(count);
+  expect(http.calls.filter(call => call.url.endsWith("/preview"))).toHaveLength(1);
+  http.server.intercept = undefined;
+  await user.click(screen.getByRole("link", { name: "导入记录" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "继续解析" })).toHaveProperty("disabled", false));
+  expect(http.calls.filter(call => call.url.endsWith("/preview"))).toHaveLength(2);
+  expect(http.calls.filter(call => call.url.endsWith("/head"))).toHaveLength(0);
+  expect(http.calls.every(call => call.method === "GET")).toBe(true);
+});
+
 it("pauses background polling and reloads when the document becomes visible", async () => {
   const user = userEvent.setup(); const http = fakeHTTP({...task,state:"RUNNING",allowedActions:["pause"]}); render(<App/>); await connect(user); await openTask(user);
   vi.useFakeTimers(); await act(async()=>{window.dispatchEvent(new Event("focus"));});
