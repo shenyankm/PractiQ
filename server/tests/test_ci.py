@@ -79,7 +79,6 @@ def test_main_requires_ci_and_resolved_threads_without_approval_automation():
 
 
 @pytest.mark.parametrize("workflow_name, job_name, permission", [
-    ("pr-labels", "label", "pull-requests"),
     ("issue-labels", "label", "issues"),
 ])
 def test_bot_tokens_default_to_only_the_current_repository(workflow_name, job_name, permission):
@@ -94,6 +93,25 @@ def test_bot_tokens_default_to_only_the_current_repository(workflow_name, job_na
         f"permission-{permission}": "write",
     }
     assert job["permissions"] == {"contents": "read"}
+
+
+def test_pr_labels_share_issue_model_secrets_with_a_scoped_repository_token():
+    root = Path(__file__).resolve().parents[2]
+    workflows = [yaml.load((root / f".github/workflows/{name}-labels.yml").read_text(), Loader=yaml.BaseLoader)
+                 for name in ("pr", "issue")]
+    pr, issue = (workflow["jobs"]["label"] for workflow in workflows)
+    assert pr["environment"] == issue["environment"] == "PractiQ Issue"
+    assert pr["permissions"] == {"contents": "read", "pull-requests": "write"}
+    assert pr["if"] == "github.event_name != 'pull_request' && github.ref == 'refs/heads/main'"
+    assert "environment" not in workflows[0]["jobs"]["test"]
+    assert not any("create-github-app-token" in step.get("uses", "") for step in pr["steps"])
+    checkout, = (step for step in pr["steps"] if step.get("uses", "").startswith("actions/checkout@"))
+    assert checkout["with"] == {"ref": "main", "persist-credentials": "false"}
+    pr_env, = (step["env"] for step in pr["steps"] if step.get("run") == "node .github/scripts/pr-labeler.mjs")
+    issue_env, = (step["env"] for step in issue["steps"] if "env" in step)
+    assert pr_env["GH_TOKEN"] == "${{ github.token }}"
+    for key in ("API_KEY", "BASE_URL", "MODEL"):
+        assert pr_env[f"PRACTIQ_AGENT_{key}"] == issue_env[f"PRACTIQ_AGENT_{key}"] == f"${{{{ secrets.{key} }}}}"
 
 
 @pytest.mark.parametrize("exit_code", [0, 9])
