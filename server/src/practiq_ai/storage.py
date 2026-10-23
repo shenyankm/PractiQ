@@ -160,7 +160,8 @@ class ObjectStore:
         self, payload: bytes, request: DocumentUploadRequest
     ) -> DocumentReference:
         prepared = await self.prepare_document(request)
-        if hashlib.sha256(payload).hexdigest() != prepared.document.sha256 or len(payload) != prepared.document.sizeBytes:
+        digest = (await asyncio.to_thread(hashlib.sha256, payload)).hexdigest()
+        if digest != prepared.document.sha256 or len(payload) != prepared.document.sizeBytes:
             raise DocumentProcessingError(409, "Source does not match metadata", "DOCUMENT_CHECKSUM_MISMATCH")
         if prepared.document.sourceType in OFFICE_SOURCE_TYPES:
             await asyncio.to_thread(self._validate_office, payload, prepared.document.sourceType)
