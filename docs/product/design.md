@@ -1,4 +1,4 @@
-# PractiQ warm-purple theme
+# PractiQ clean white & functional color theme
 
 This is the production visual specification for App and Web. Both frontends statically import [`shared/theme.css`](../../shared/theme.css) through `src/index.css`, so development and production use the same colors and base component styles. Changes under `shared/` trigger Service, Desktop and Android CI checks.
 
@@ -8,7 +8,7 @@ Keep the PractiQ name, existing octopus artwork and Lucide functional icons. Dis
 
 ## Colors
 
-Use warm-white pages (`#f7f4f1`), soft warm-white cards (`#fffcfa`), body text (`#302939`), primary purple (`#795088`) and secondary purple surfaces (`#eee6f0`). Sidebars and app chrome use the second neutral layer (`--sidebar`, `--sidebar-accent`), one step warmer than the page. Danger, warning, review-required and unavailable states retain their semantics. The complete token set lives in `shared/theme.css` and maps to the existing shadcn semantic variables.
+Use neutral-white pages (`#f8fafc`), crisp white cards (`#ffffff`), dark slate body text (`#0f172a`), royal blue primary actions (`#1d4ed8`) and secondary blue surfaces (`#eff6ff`). Sidebars and app chrome use the neutral layer (`--sidebar`, `--sidebar-accent`). Danger (`#9f1239`), warning/review (`#d97706`), success (`#059669`) and unavailable states retain their semantics. The complete token set lives in `shared/theme.css` and maps to the existing shadcn semantic variables.
 
 ## Typography
 
@@ -24,7 +24,7 @@ Web keeps separate import, task history and import-settings pages. Show import s
 
 ## Components
 
-Cards use 16px corners and a single thin border without shadows. Overlays (dialogs, menus, popovers, toasts) separate from the page with `--overlay-shadow`: a soft offset shadow with blur, never a hard block shadow. Reuse existing buttons and fields, events and disabled rules. Primary actions use purple; secondary actions use borders. Current navigation, tasks and answered items use soft-purple surfaces. Answer-card icons and text still convey state, while flagged items use a warning outline. Fields and dialogs use warm-white or warm-purple surfaces; existing components retain disabled, focus and error handling. Focus indicators use a 3px full-opacity ring; a translucent ring is not sufficient contrast.
+Cards use 16px corners and a single thin border without shadows. Overlays (dialogs, menus, popovers, toasts) separate from the page with `--overlay-shadow`: a soft offset shadow with blur, never a hard block shadow. Reuse existing buttons and fields, events and disabled rules. Primary actions use royal blue; secondary actions use borders. Current navigation, tasks and answered items use soft-blue surfaces. Answer-card icons and text still convey state, while flagged items use a warning outline. Fields and dialogs use white surfaces; existing components retain disabled, focus and error handling. Focus indicators use a 3px full-opacity ring; a translucent ring is not sufficient contrast.
 
 Ordinary buttons, inputs, input groups and selects have a desktop minimum height of 40px and a touch minimum of 48px. Desktop xs, sm and lg buttons use 32px, 36px and 44px minimums respectively, including icon buttons; compact selects are 36px. Panels use 16px corners, controls use `--radius`, menus use 12px and menu items use 8px. Badges remain pill-shaped; checkboxes and radio buttons retain their semantic shapes. English buttons may wrap, with the same minimum height as Chinese buttons.
 
@@ -46,7 +46,7 @@ Service-configuration save, connection-test and token-clear failures stay beside
 
 ## Dark mode and platforms
 
-Dark mode uses warm-purple black pages (`#211c26`), cards (`#2b2431`), sidebars (`#251f2a`) and pale-purple primary color (`#d9b5e5`). Interactions use the shared `--motion-duration` (180ms) and `--motion-ease` tokens; motion conveys state only. App retains system/light/dark preferences and reduced-motion support, which removes overlay entrances without removing their final state. Web retains its light default, with dark tokens shared with App; preview dark mode through `?theme=dark`. Preserve Android narrow navigation, dynamic viewports, safe areas and 48px touch targets.
+Dark mode uses deep slate pages (`#090d16`), dark slate cards (`#0f172a`), deep slate sidebars (`#090d16`) and bright blue primary color (`#60a5fa`). Interactions use the shared `--motion-duration` (180ms) and `--motion-ease` tokens; motion conveys state only. App retains system/light/dark preferences and reduced-motion support, which removes overlay entrances without removing their final state. Web retains its light default, with dark tokens shared with App; preview dark mode through `?theme=dark`. Preserve Android narrow navigation, dynamic viewports, safe areas and 48px touch targets.
 
 ## States and content
 

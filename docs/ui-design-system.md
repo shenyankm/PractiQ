@@ -1,6 +1,6 @@
 # PractiQ UI conventions
 
-PractiQ extends shadcn/ui radix-nova with the shared warm-purple theme in
+PractiQ extends shadcn/ui radix-nova with the shared clean white & functional color theme in
 `shared/theme.css`. Keep the octopus brand, Lucide icons and existing components.
 Nova defaults are a starting point; the deliberate product overrides below apply
 to both App and Web. No change to service contracts or persisted practice data is
@@ -28,7 +28,7 @@ formats, the complete call-budget explanation and the source → review → ZIP 
 At narrower widths the guide follows the upload card; the fee notice stays before
 Start. A single ready file keeps Start in the first 390×844 viewport. Larger queues
 remain bounded and scrollable. Navigation and selected records use neutral fills,
-leaving purple emphasis for the main action and focus. Desktop count/date columns
+leaving blue emphasis for the main action and focus. Desktop count/date columns
 align right; phone record rows align left. Narrow settings inputs stack below their
 labels and descriptions at full width.
 
