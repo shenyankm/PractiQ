@@ -30,9 +30,10 @@ from practiq_ai.graphs import document
 from tests.support import make_image, object_store, question, upload
 
 
-async def test_completed_projection_exports_read_only_pages_without_crops_or_parse_metrics(tmp_path, monkeypatch):
+@pytest.mark.parametrize('page_kind', ['page', 'ocr-input'])
+async def test_completed_projection_exports_read_only_pages_without_crops_or_parse_metrics(tmp_path, monkeypatch, page_kind):
     store, source = await source_store(tmp_path)
-    page = await store.put_artifact(make_image(), source_sha256=source.sha256, kind='page', index=0, media_type='image/png')
+    page = await store.put_artifact(make_image(), source_sha256=source.sha256, kind=page_kind, index=0, media_type='image/png')
     state = {'document': source.model_dump(mode='json'), 'pageRefs': [page.model_dump()], 'visualTotal': 1,
              'visionResults': [{'kind': 'page', 'index': 0, 'artifact': page.model_dump(),
                                 'parsed': {'questions': [question('Completed page')], 'groups': []},
@@ -55,6 +56,9 @@ async def test_completed_projection_exports_read_only_pages_without_crops_or_par
         with payload:
             snapshots.append(payload.read())
     assert snapshots[0] == snapshots[1] and state == before
+    with ZipFile(io.BytesIO(snapshots[0])) as archive:
+        assert archive.read(f'resources/{page.objectKey}') == make_image()
+        assert json.loads(archive.read('questions.json'))['result']['visualElements'][0]['sourceRef'] == page.model_dump()
     assert all(not metric.mock_calls for metric in metrics)
 
 
