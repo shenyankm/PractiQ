@@ -43,6 +43,26 @@ finishing while hidden; result and list state retention; focus restoration; and
 unchanged GET-only behavior for passive actions. Existing API/result tests retain
 authentication, checksum and rendering safeguards.
 
+### View-owned artifact reads
+
+Image and source-evidence viewers cancel their authenticated artifact read when
+unmounted (including leaving the resources tab or resource page) or when the
+client, task ID, or any reference field changes. Equivalent reference objects
+from subsequent checkpoints retain the loaded view. Cancelled reads cannot publish
+stale images, evidence, or error messages; a new identity requires an explicit
+read. Reload/retry remains explicit, and replaced/unmounted image object URLs are
+revoked. Original-source and ZIP downloads are not cancelled by viewer cleanup.
+
+`web/src/ResultReview.test.tsx` and `web/src/api.test.ts` use synthetic stalled
+responses: abandoning either viewer aborts the fetch signal, cancels the body
+reader once, releases its lock, and performs zero SHA-256 calls. Tests also cover
+header-stage cancellation, deadline cleanup, fresh reads after cancellation,
+StrictMode, complete reference/client/task replacement, late publication, explicit
+reload/retry, and unchanged MIME/byte/hash rejection. Cancellation prevents further
+body buffering; it cannot interrupt a Web Crypto digest already in progress.
+These are deterministic work/lifecycle assertions, not browser throughput or
+memory measurements.
+
 ## Practice App frontend
 
 `answerState` now returns unanswered for a null draft only after skipped/submitted

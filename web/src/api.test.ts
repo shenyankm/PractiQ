@@ -434,3 +434,53 @@ it.each([null, {}, { deleted: false }, { deleted: "true" }])("does not confirm t
   vi.stubGlobal("fetch", vi.fn(async () => json(value)));
   await expect(new Client("fake").delete(taskId)).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
 });
+
+it.each(["image", "evidence"] as const)("cancels view-owned %s reads during headers and body, without disconnecting or retrying", async kind => {
+  vi.useFakeTimers();
+  const bytes = new TextEncoder().encode("x");
+  const reference = { objectKey: "managed", sha256: await sha256(bytes.buffer), sizeBytes: bytes.length, mediaType: kind === "image" ? "image/png" : "text/plain" };
+  const client = new Client("fake");
+  for (const stage of ["headers", "body"]) {
+    const controller = new AbortController();
+    const cancel = vi.fn();
+    const response = new Response(new ReadableStream({ cancel }));
+    const fetcher = vi.fn(async (_path: string, init: RequestInit) => stage === "headers"
+      ? new Promise<Response>((_resolve, reject) => init.signal!.addEventListener("abort", () => reject(init.signal!.reason)))
+      : response);
+    vi.stubGlobal("fetch", fetcher);
+    const digest = vi.spyOn(crypto.subtle, "digest");
+    const pending = expect(client[kind](reference, taskId, controller.signal)).rejects.toMatchObject({ name: "AbortError" });
+    await vi.advanceTimersByTimeAsync(0);
+    controller.abort();
+    await pending;
+    expect(fetcher.mock.calls[0][1].signal?.aborted).toBe(true);
+    expect(cancel).toHaveBeenCalledTimes(stage === "body" ? 1 : 0);
+    expect(response.body?.locked).toBe(false);
+    expect(digest).not.toHaveBeenCalled();
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(vi.getTimerCount()).toBe(0);
+    digest.mockRestore();
+  }
+  expect(client.active).toBe(true);
+  const fetcher = vi.fn(async () => new Response(bytes, { headers: { "Content-Type": reference.mediaType } }));
+  vi.stubGlobal("fetch", fetcher);
+  await expect(client[kind](reference, taskId, new AbortController().signal)).resolves.toMatchObject({ size: 1 });
+  await expect(client[kind](reference, taskId, AbortSignal.abort())).rejects.toMatchObject({ name: "AbortError" });
+  expect(fetcher).toHaveBeenCalledTimes(1);
+});
+
+it.each(["image", "evidence"] as const)("retains %s MIME, byte and hash checks with a view signal", async kind => {
+  const bytes = new TextEncoder().encode("x");
+  const reference = { objectKey: "managed", sha256: await sha256(bytes.buffer), sizeBytes: 1, mediaType: kind === "image" ? "image/png" : "text/plain" };
+  const client = new Client("fake");
+  const signal = new AbortController().signal;
+  for (const [body, mediaType, code] of [
+    ["x", "text/html", "ARTIFACT_CHECKSUM_MISMATCH"],
+    ["", reference.mediaType, "ARTIFACT_CHECKSUM_MISMATCH"],
+    ["xx", reference.mediaType, "RESPONSE_TOO_LARGE"],
+    ["y", reference.mediaType, "ARTIFACT_CHECKSUM_MISMATCH"],
+  ]) {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { headers: { "Content-Type": mediaType } })));
+    await expect(client[kind](reference, taskId, signal)).rejects.toMatchObject({ code });
+  }
+});

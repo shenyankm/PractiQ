@@ -41,16 +41,22 @@ export function ImageArtifact({ reference, description, client, threadId }: { re
   const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const mounted = useRef(true);
-  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  const controller = useRef<AbortController | null>(null);
+  useEffect(() => {
+    const current = new AbortController();
+    controller.current = current;
+    setUrl(null); setError(null); setLoading(false);
+    return () => current.abort();
+  }, [client, threadId, reference.objectKey, reference.sha256, reference.sizeBytes, reference.mediaType]);
   useEffect(() => () => { if (url) URL.revokeObjectURL(url); }, [url]);
   async function load() {
+    const signal = controller.current!.signal;
     setLoading(true); setError(null);
     try {
-      const blob = await client.image(reference, threadId);
-      if (client.active && mounted.current) setUrl(URL.createObjectURL(blob));
-    } catch { if (client.active && mounted.current) setError("图片无法读取或校验失败，请重试。"); }
-    finally { if (client.active && mounted.current) setLoading(false); }
+      const blob = await client.image(reference, threadId, signal);
+      if (client.active && !signal.aborted) setUrl(URL.createObjectURL(blob));
+    } catch { if (client.active && !signal.aborted) setError("图片无法读取或校验失败，请重试。"); }
+    finally { if (client.active && !signal.aborted) setLoading(false); }
   }
   return <figure className="resource-card">
     <figcaption>{description}</figcaption>
@@ -64,13 +70,23 @@ function SourceEvidence({ reference, client, threadId }: { reference: ArtifactRe
   const [text, setText] = useState<string | null>(null);
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(false);
+  const controller = useRef<AbortController | null>(null);
+  useEffect(() => {
+    const current = new AbortController();
+    controller.current = current;
+    setText(null); setError(false); setLoading(false);
+    return () => current.abort();
+  }, [client, threadId, reference.objectKey, reference.sha256, reference.sizeBytes, reference.mediaType]);
   async function load() {
+    const signal = controller.current!.signal;
     setLoading(true); setError(false);
     try {
-      const value = await (await client.evidence(reference, threadId)).text();
-      if (client.active) setText(value);
-    } catch { if (client.active) setError(true); }
-    finally { if (client.active) setLoading(false); }
+      const blob = await client.evidence(reference, threadId, signal);
+      signal.throwIfAborted();
+      const value = await blob.text();
+      if (client.active && !signal.aborted) setText(value);
+    } catch { if (client.active && !signal.aborted) setError(true); }
+    finally { if (client.active && !signal.aborted) setLoading(false); }
   }
   return <section className="resource-card">
     <h5>来源证据（只读）</h5>
