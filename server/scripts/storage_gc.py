@@ -70,6 +70,23 @@ def candidates(items: list[dict[str, Any]], sources: set[str], cutoff: float) ->
             and (match := KEY.match(item["key"])) and match.group(1) not in sources]
 
 
+def _sync_directory(path: Path) -> None:
+    if os.name != 'nt':
+        descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+
+
+def _mkdir_durable(path: Path) -> None:
+    if path.is_dir():
+        return
+    _mkdir_durable(path.parent)
+    path.mkdir(exist_ok=True)
+    _sync_directory(path.parent)
+
+
 def quarantine(store: ObjectStore, items: list[dict[str, Any]], run_id: str) -> None:
     current = {item["key"]: item for item in inventory(store)}
     if any(current.get(item["key"]) != item for item in items):
@@ -79,8 +96,10 @@ def quarantine(store: ObjectStore, items: list[dict[str, Any]], run_id: str) -> 
         target = store.root / ".quarantine" / run_id / item["key"]
         if any(parent.is_symlink() for parent in (target, *target.parents) if parent.is_relative_to(store.root)):
             raise ValueError("Refusing symlinked quarantine")
-        target.parent.mkdir(parents=True, exist_ok=True)
+        _mkdir_durable(target.parent)
         source.rename(target)
+        _sync_directory(target.parent)
+        _sync_directory(source.parent)
 
 
 async def run(args: argparse.Namespace) -> dict[str, Any]:
@@ -111,12 +130,13 @@ async def scan(args, db):
               "mode": "quarantine" if args.quarantine else "dry-run", "retentionDays": args.retention_days,
               "objects": len(selected), "bytes": sum(item["size"] for item in selected), "candidates": selected,
               "completed": False}
-    args.output.parent.mkdir(parents=True, exist_ok=True)
+    _mkdir_durable(args.output.parent)
     # Persist the recovery inventory before moving any object, including on partial failure.
     with args.output.open("x") as handle:
         json.dump(result, handle, indent=2)
         handle.flush()
         os.fsync(handle.fileno())
+    _sync_directory(args.output.parent)
     if args.quarantine:
         if await live_sources(db) != sources:
             raise RuntimeError("References changed; rescan before cleanup")
@@ -130,6 +150,7 @@ async def scan(args, db):
             handle.flush()
             os.fsync(handle.fileno())
         os.replace(temporary, args.output)
+        _sync_directory(args.output.parent)
     finally:
         if temporary is not None:
             temporary.unlink(missing_ok=True)
