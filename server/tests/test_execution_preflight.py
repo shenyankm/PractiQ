@@ -8,7 +8,32 @@ import pytest
 from practiq_ai import capacity, execution, normalization
 from practiq_ai.errors import DocumentProcessingError
 from practiq_ai.graphs import document
-from tests.support import source
+from tests.support import make_image, object_store, source, upload
+
+
+@pytest.mark.parametrize('corrupt', [None, 'tile', 'original'])
+async def test_preflight_verifies_reused_split_page_and_original_once(tmp_path, monkeypatch, corrupt):
+    store = object_store(tmp_path)
+    original = await store.put_document(b'quiz', upload())
+    page = await store.put_artifact(make_image(), source_sha256=original.sha256, kind='source-page', index=0, media_type='image/png')
+    tile = await store.put_artifact(make_image(), source_sha256=original.sha256, kind='ocr-input', index=0, media_type='image/png')
+    values = {'document': original.model_dump(), 'pageRefs': [tile.model_dump()],
+              'inputParts': [{'reference': tile.model_dump(), 'originalPageRef': page.model_dump(),
+                              'sourcePage': 0, 'pixelBounds': [0, 0, 16, 12]}]}
+    if corrupt:
+        reference = tile if corrupt == 'tile' else page
+        (tmp_path / reference.objectKey).write_bytes(b'x' * reference.sizeBytes)
+    reads = AsyncMock(wraps=store.get_verified)
+    monkeypatch.setattr(store, 'get_verified', reads)
+    monkeypatch.setattr(execution, 'get_object_store', lambda: store)
+    monkeypatch.setattr(execution, 'validate_execution', Mock())
+    if corrupt:
+        with pytest.raises(DocumentProcessingError) as raised:
+            await execution.preflight(values)
+        assert raised.value.code == 'DOCUMENT_CHECKSUM_MISMATCH'
+    else:
+        await execution.preflight(values)
+        assert [call.args[0] for call in reads.await_args_list] == [original, tile, page]
 
 
 def preflight_values(count):

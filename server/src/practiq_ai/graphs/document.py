@@ -994,6 +994,7 @@ async def _prepare(state: DocumentState, runtime: Runtime[None], *, source_types
             raise DocumentProcessingError(413 if exc.code == "OFFICE_OUTPUT_LIMIT" else 422, "Workbook visibility or sheet-limit preparation failed", exc.code) from exc
     normalization = None
     input_parts = []
+    page_refs: list[ArtifactReference] = []
     submissions: list[tuple[ArtifactReference, DocumentSourceType, int | None]] = [(reference, reference.sourceType, len(images) or None)]
     if reference.sourceType == "xlsx" and prepared != payload and len(prepared) <= limit:
         artifact = await put(prepared, "visible-workbook", 0, reference.mediaType)
@@ -1022,30 +1023,28 @@ async def _prepare(state: DocumentState, runtime: Runtime[None], *, source_types
                 render_warnings.extend(extracted.warnings)
                 render_truncated |= extracted.truncated
                 del extracted
-            split_images = []
             for page_index, image in enumerate(images):
                 original = await put(image, "source-page", page_index, vision._media_type(image))
                 async with preparation(LIMIT):
-                    parts = await _thread_io(split_image, image, limit, settings.max_document_pages - len(split_images))
+                    parts = await _thread_io(split_image, image, limit, settings.max_document_pages - len(page_refs))
                 for part, media_type, bounds in parts:
                     artifact = await put(part, "ocr-input", len(submissions), media_type)
                     submissions.append((artifact, "image", 1))
                     input_parts.append({"reference": artifact.model_dump(mode="json"), "sourcePage": page_index,
                                         "pixelBounds": list(bounds), "originalPageRef": original.model_dump(mode="json")})
-                    split_images.append(part)
+                    page_refs.append(artifact)
                     del part
                 del image, parts
-            images = split_images
-            del split_images
+            images = []
     if input_parts:
         await store_put(runtime, "tencent_inputs", "source", {"sourceSha256": reference.sha256, "parts": input_parts})
     # Check every part before submitting the first paid job.
     if not submissions or any(part.sizeBytes > limit for part, _, _ in submissions):
         raise DocumentProcessingError(413, "Document could not be split within Tencent's input limit", "TENCENT_SOURCE_TOO_LARGE")
-    if sum(map(len, images)) > settings.vision_max_bytes:
+    if sum(ref.sizeBytes for ref in page_refs) + sum(map(len, images)) > settings.vision_max_bytes:
         raise DocumentProcessingError(413, "Split images exceed the shared visual byte limit", "TENCENT_SOURCE_TOO_LARGE")
 
-    page_refs = [await put(image, "page", index, vision._media_type(image)) for index, image in enumerate(images)]
+    page_refs.extend([await put(image, "page", index, vision._media_type(image)) for index, image in enumerate(images)])
     del images, prepared
     if reference.sourceType not in {"text", "markdown"}:
         payload = b""

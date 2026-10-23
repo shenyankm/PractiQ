@@ -20,14 +20,19 @@ not upload APIs, schemas, model prompts, or explicit-action requirements.
   image reads use the cancellation-draining thread helper: neither the ZIP nor the
   preparation lease closes before a running worker finishes, even after repeated
   cancellation.
-- **15 — Shorten rendered-buffer lifetime.** After all split and visual-byte
-  preflight passes, final `page` artifacts are persisted before the first paid job.
-  Preparation then drops extracted-document objects, original/split image lists,
+- **15 — Shorten rendered-buffer lifetime and reuse persisted tiles.** Visual
+  splits reuse their already-persisted `ocr-input` references as `pageRefs`, without
+  retaining a second tile list or writing identical `page` artifacts. Unsplit
+  rendered sources still persist `page` artifacts. Every page and original-page
+  reference and the ordered split receipt are persisted before the first paid job;
+  the shared visual-byte preflight counts all tile sizes from their references.
+  Preparation then drops extracted-document objects, original image lists,
   last-iteration split buffers and non-text source bytes. Subsequent preparation
   retains page references, source-page references and ordered input receipts, not
   rendered images. Source hashes, pixel bounds, original-page associations and
-  deterministic artifact naming are unchanged. Text bytes remain available for
-  exact source-evidence comparison. A failed page write prevents paid submission.
+  deterministic tile naming are unchanged. Text bytes remain available for
+  exact source-evidence comparison. A failed artifact write prevents paid submission.
+  Existing saved `page` artifacts remain valid; no migration or deletion is needed.
 - **16 — Overlap bounded Tencent waits.** A worker pool invokes `parse_job` for
   preflighted parts. Its size is bounded by the current existing Tencent concurrency
   setting at pool creation; every job still uses the service-wide admission gate.
@@ -73,16 +78,19 @@ there are no real Tencent or model requests.
 | Thirty images in a 32-member ZIP | 31 ZIP opens and 30 `namelist()` calls | One ZIP open, zero `namelist()` calls, 30 ordered image reads and identical image hashes |
 | Four split jobs, admission limit two | One provider wait at a time | Two admitted overlapping waits; controlled completion `[1, 2, 3, 0]`, output pages/receipts `[0, 1, 2, 3]` |
 | Replay of those four completed jobs | Existing receipts should prevent work | Four original submits/queries; zero additional provider requests on replay |
-| Split/unsplit image at paid submission | Rendered lists and source bytes remain in preparation | No nonempty bytes in preparation's container locals; extracted-document and original-image-list weak references are dead; all page artifacts already exist |
+| Split/unsplit image at paid submission | Rendered lists and source bytes remain in preparation | No nonempty bytes in preparation's container locals; extracted-document and original-image-list weak references are dead; all page artifacts and split receipts already exist |
+| Visual split with N tiles totaling T bytes | N `ocr-input` writes plus N duplicate `page` writes, totaling 2T tile bytes | N `ocr-input` writes, zero `page` writes, totaling T tile bytes; identical ordered references, checksums, media types and pixel reconstruction, including preparation replay |
+| Reused tile references during resume/export | Consumers must accept source-scoped artifacts, not just `page` keys | Resume verifies each distinct tile and original-page reference once and rejects corruption; read-only bank export preserves the tile bytes and source reference |
 | Repeated cancellation while opening/decoding/reading ZIP | Cleanup must await threads | ZIP remains open and preparation budget stays held until worker finishes; then both release |
 | Error/cancellation during two admitted jobs | Unsent work must stop | Two initial intents only; blocked cleanup drains; unknown submission remains `SUBMITTING` and is never resent |
 | Two individually valid bundles exceed a shared cap | Aggregate limits must still apply | Page, character and subimage-byte failures remain enforced after concurrent job completion |
 
 The lifetime assertion checks preparation-owned references, not all process memory:
 the fake store deliberately retains artifact bytes, and Tencent's existing request,
-Base64 and download buffers have independent lifetimes. Rendering/splitting peak
-memory is not reduced by this change. No process RSS or hardware timings were
-measured, and no total-memory reduction is claimed.
+Base64 and download buffers have independent lifetimes. Removing the redundant
+retained tile list does not change rendering or single-page splitting allocations.
+No process RSS or hardware timings were measured, and no peak-memory reduction is
+claimed.
 
 Focused regressions live in `tests/test_document_performance.py` and
 `tests/test_tencent_bundle_performance.py`, with thread/lease cancellation coverage
@@ -100,6 +108,7 @@ PYTHONPATH=src "$AI_PYTHON" -m pytest -q \
   tests/test_diagram_crop_boundary.py tests/test_ocr_label_crops.py \
   tests/test_vision_context.py tests/test_ocr_review_regressions.py \
   tests/test_page_rendering.py tests/test_pipeline_performance.py \
+  tests/test_execution_preflight.py tests/test_bank_export.py \
   -k 'not checkpoint_benchmark'
 ```
 

@@ -130,20 +130,65 @@ async def test_oversized_image_retains_source_page_bounds_and_submits_only_bound
     state, files, runtime = prepare(monkeypatch, "image", source.getvalue())
     monkeypatch.setenv("AI_TENCENT_INPUT_MAX_BYTES", "700")
     calls = tencent_provider(monkeypatch, [ocr_text_page("question")])
+    writes = AsyncMock(wraps=files.put_artifact)
+    monkeypatch.setattr(files, "put_artifact", writes)
     output = await document._prepare(cast(Any, state), runtime)
     submitted = [base64.b64decode(data["FileBase64"]) for action, data in calls if action.startswith("Submit")]
     assert len(submitted) > 1 and all(len(part) <= 700 for part in submitted)
     assert len(output["pageRefs"]) == len(output["ocrPageRefs"]) == len(submitted)
+    assert output["pageRefs"] == [part["reference"] for part in output["inputParts"]]
+    tile_writes = [call for call in writes.await_args_list if call.kwargs["kind"] == "ocr-input"]
+    assert len(tile_writes) == len(submitted)
+    assert not any(call.kwargs["kind"] == "page" for call in writes.await_args_list)
+    assert [call.kwargs["index"] for call in tile_writes] == list(range(len(submitted)))
     restored = Image.new("RGBA", (40, 40))
     by_digest = {hashlib.sha256(payload).hexdigest(): payload for payload in submitted}
     for part in output["inputParts"]:
         payload = by_digest[part["reference"]["sha256"]]
         assert part["sourcePage"] == 0
+        assert part["reference"]["mediaType"] == "image/png"
+        assert part["reference"]["sizeBytes"] == len(payload)
+        assert files.blobs[part["reference"]["objectKey"]] == payload
         assert files.blobs[part["originalPageRef"]["objectKey"]] == source.getvalue()
         with Image.open(BytesIO(payload)) as image:
             restored.paste(image, tuple(part["pixelBounds"][:2]))
     with Image.open(BytesIO(source.getvalue())) as original:
         assert original.tobytes() == restored.tobytes()
+    writes.reset_mock()
+    assert await document._prepare(cast(Any, state), runtime) == output
+    assert len(calls) == 2 * len(submitted)
+    assert sum(call.kwargs["kind"] == "ocr-input" for call in writes.await_args_list) == len(submitted)
+    assert not any(call.kwargs["kind"] == "page" for call in writes.await_args_list)
+
+
+@pytest.mark.parametrize("failure", ["tile_write", "original_write", "visual_budget"])
+async def test_visual_split_failure_prevents_every_paid_submission(monkeypatch, failure):
+    source = BytesIO()
+    Image.frombytes("RGBA", (40, 40), random.Random(7).randbytes(40 * 40 * 4)).save(source, format="PNG")
+    state, files, runtime = prepare(monkeypatch, "image", source.getvalue())
+    monkeypatch.setenv("AI_TENCENT_INPUT_MAX_BYTES", "700")
+    if failure == "visual_budget":
+        # Rendering fits, but the sum of lossless tile encodings does not.
+        monkeypatch.setenv("AI_MAX_VISION_BYTES", str(len(source.getvalue())))
+    put = files.put_artifact
+
+    async def fail_write(data, **kwargs):
+        if ((failure == "tile_write" and kwargs["kind"] == "ocr-input" and kwargs["index"] == 1)
+                or (failure == "original_write" and kwargs["kind"] == "source-page")):
+            raise OSError("storage unavailable")
+        return await put(data, **kwargs)
+
+    monkeypatch.setattr(files, "put_artifact", fail_write)
+    paid = AsyncMock()
+    monkeypatch.setattr(document, "parse_job", paid)
+    if failure == "visual_budget":
+        with pytest.raises(DocumentProcessingError, match="shared visual byte limit") as raised:
+            await document._prepare(cast(Any, state), runtime)
+        assert raised.value.code == "TENCENT_SOURCE_TOO_LARGE"
+    else:
+        with pytest.raises(OSError, match="storage unavailable"):
+            await document._prepare(cast(Any, state), runtime)
+    paid.assert_not_awaited()
 
 
 async def test_oversized_pdf_splits_real_rendered_pages_in_source_order(monkeypatch):
@@ -155,6 +200,7 @@ async def test_oversized_pdf_splits_real_rendered_pages_in_source_order(monkeypa
     calls = tencent_provider(monkeypatch, [ocr_text_page("question")])
     output = await document._prepare(cast(Any, state), runtime)
     assert [part["sourcePage"] for part in output["inputParts"]] == [0, 1]
+    assert output["pageRefs"] == [part["reference"] for part in output["inputParts"]]
     submitted = [data for action, data in calls if action.startswith("Submit")]
     assert len(submitted) == len(output["ocrPageRefs"]) == 2
     assert all(data["FileType"] == 7 and len(base64.b64decode(data["FileBase64"])) <= 700 for data in submitted)

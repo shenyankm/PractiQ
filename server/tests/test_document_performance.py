@@ -16,7 +16,7 @@ from langgraph.store.memory import InMemoryStore
 from PIL import Image
 
 from practiq_ai import tencent
-from practiq_ai.contracts import document_source_key
+from practiq_ai.contracts import ArtifactReference, document_source_key
 from practiq_ai.errors import DocumentProcessingError
 from practiq_ai.execution import namespace
 from practiq_ai.extractors import ExtractedDocument
@@ -243,9 +243,19 @@ async def test_page_artifacts_precede_paid_work_without_rendered_bytes_in_prepar
             frame = cast(Any, running.get_coro()).cr_frame
             assert frame is not None and not contains_bytes(frame.f_locals)
             assert all(ref() is None for ref in extracted_refs)
-            page_keys = [key for key in files.blobs if "/page/" in key]
-            assert len(page_keys) == len(frame.f_locals["submissions"])
-            snapshots.append(len(page_keys))
+            page_refs = frame.f_locals["page_refs"]
+            assert len(page_refs) == len(frame.f_locals["submissions"])
+            for ref in page_refs:
+                assert await files.get_verified(ref) == files.blobs[ref.objectKey]
+            if split:
+                saved = await runtime.store.aget(namespace("performance", "tencent_inputs"), "source")
+                assert saved.value["parts"] == frame.f_locals["input_parts"]
+                for part in saved.value["parts"]:
+                    for key in ("reference", "originalPageRef"):
+                        ref = ArtifactReference.model_validate(part[key])
+                        assert hashlib.sha256(files.blobs[ref.objectKey]).hexdigest() == ref.sha256
+                assert page_refs == [ref for ref, _, _ in frame.f_locals["submissions"]]
+            snapshots.append(len(page_refs))
         return await original(action, data, settings)
 
     monkeypatch.setattr(tencent, "request", request)
@@ -256,6 +266,7 @@ async def test_page_artifacts_precede_paid_work_without_rendered_bytes_in_prepar
     for ref in result["pageRefs"]:
         assert hashlib.sha256(files.blobs[ref["objectKey"]]).hexdigest() == ref["sha256"]
     if not split:
+        assert "/page/" in result["pageRefs"][0]["objectKey"]
         assert files.blobs[result["pageRefs"][0]["objectKey"]] == payload
     else:
         assert all(files.blobs[part["originalPageRef"]["objectKey"]] == payload for part in result["inputParts"])
