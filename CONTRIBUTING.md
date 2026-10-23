@@ -142,7 +142,7 @@ CI selects work using [shared path rules](server/scripts/ci_scope.py):
 | Shared frontend code, AI contracts, shared fixtures, or build/check dependencies used by both components | Both workflows |
 | Release notes configuration or release template | App workflow |
 | Any workflow YAML, shared CI actions, scope selector, rulesets, or dependency-update configuration | Both workflows; cross-check selectors and privileged workflow safeguards |
-| Documentation, issue/PR templates, or bot labels/scripts | Skip heavy Service/App jobs; bot workflows retain their own tests |
+| Documentation, issue/PR templates, or label catalog | Skip heavy Service/App jobs; manually verify local links and command syntax, parse changed YAML/JSON, and check form fields and labels against the catalog |
 
 Mixed changes run the union of affected checks. App inputs also include the service dependency lock/manifest, build backend, and evaluation helper used by its contract/regression checks. Manual dispatch and release calls run all checks. The final `Service CI`, `Desktop CI`, and `Android CI` gates always run and verify deliberate skips and failures, so required checks still report a result. The [Service](.github/workflows/server.yml) and [App](.github/workflows/app.yml) workflows define commands, platform matrices, and retained diagnostics.
 
