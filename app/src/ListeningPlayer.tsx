@@ -20,6 +20,8 @@ export function ListeningPlayer({question:q,session}:{question:Question;session?
   const [playing,setPlaying]=useState(false);
   const [busy,setBusy]=useState(false);
   const [state,setState]=useState<PlaybackState|null>(null);
+  const [stateError,setStateError]=useState(false);
+  const [stateLoadAttempt,setStateLoadAttempt]=useState(0);
   const chain=useRef(Promise.resolve());
   const intent=useRef(0);
   const started=useRef(false);
@@ -63,10 +65,10 @@ export function ListeningPlayer({question:q,session}:{question:Question;session?
   },[src,playRequested]);
   useEffect(()=>{
     let active=true;
-    setState(null);
-    if(sid && q.id && live) void api({type:"listening_playback",id:sid,question_id:q.id,action:"state"}).then(next=>{if(active)setState(next);}).catch(()=>{if(active)setError(true);});
+    setState(null);setStateError(false);
+    if(sid && q.id && live) void api({type:"listening_playback",id:sid,question_id:q.id,action:"state"}).then(next=>{if(active)setState(next);}).catch(()=>{if(active)setStateError(true);});
     return ()=>{active=false;};
-  },[sid,q.id,live]);
+  },[sid,q.id,live,stateLoadAttempt]);
   function persist(action:"progress"|"pause"|"end",position:number) {
     if(!sid || !q.id || !live || !started.current) return;
     const question_id=q.id;
@@ -101,6 +103,7 @@ export function ListeningPlayer({question:q,session}:{question:Question;session?
       let current=state;
       if(sid && q.id && live) current=await api({type:"listening_playback",id:sid,question_id:q.id,action:"state"});
       if(!currentIntent())return;
+      setStateError(false);
       if(restricted && current && !current.active && current.used>=current.limit) {setState(current);return;}
       const limit=end ?? player.duration;
       if(!Number.isFinite(player.duration) || start>=player.duration || limit>player.duration+0.05) throw new Error("Invalid audio segment");
@@ -171,6 +174,10 @@ export function ListeningPlayer({question:q,session}:{question:Question;session?
         {restricted && state && <span className="text-sm">{t("已播放 {0} / {1} 遍",{0:state.used,1:state.limit})}</span>}
       </div>
       <AudioSeek player={audio.current} start={start} end={end} canSeek={!restricted} onSeek={()=>{positionChosen.current=true;}}/>
+    </>}
+    {stateError && <>
+      <p role="alert" className="text-sm text-destructive">{t("播放状态读取失败，请重试。")}</p>
+      <Button variant="outline" onClick={()=>setStateLoadAttempt(value=>value+1)}>{t("重试")}</Button>
     </>}
     {error && <p role="alert" className="text-sm text-destructive">{t("音频加载或播放失败，请检查文件后重试。")}</p>}
   </section>;
