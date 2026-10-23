@@ -41,7 +41,8 @@
       "bundled/THIRD-PARTY.txt": "bundled/THIRD-PARTY.txt"
     },
     "macOS": {
-      "minimumSystemVersion": "14.0"
+      "minimumSystemVersion": "14.0",
+      "infoPlist": "Info.plist"
     }
   }
 }

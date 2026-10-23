@@ -102,7 +102,7 @@ def test_android_release_stage_explicitly_selects_the_sdk_on_a_linux_ci_host(rel
 @pytest.fixture
 def source(tmp_path):
     for name in ("app/package.json", "app/package-lock.json", "app/src-tauri/Cargo.toml",
-                 "app/src-tauri/Cargo.lock", "app/src-tauri/tauri.conf.json", "app/src-tauri/tauri.android.conf.json", "server/pyproject.toml",
+                 "app/src-tauri/Cargo.lock", "app/src-tauri/tauri.conf.json", "app/src-tauri/Info.plist", "app/src-tauri/tauri.android.conf.json", "server/pyproject.toml",
                  ".github/RELEASE_TEMPLATE.md"):
         destination = tmp_path / name
         destination.parent.mkdir(parents=True, exist_ok=True)
@@ -120,6 +120,8 @@ def source(tmp_path):
         path = tmp_path / "app/src-tauri" / name
         old = f'version = "{version}"' if name.endswith(".toml") else f'name = "practiq-desktop"\nversion = "{version}"'
         path.write_text(path.read_text().replace(old, old.replace(version, "0.1.0"), 1))
+    (tmp_path / "app/src-tauri/Info.plist").write_bytes(plistlib.dumps({
+        "CFBundleShortVersionString": "0.1.0", "CFBundleVersion": "0.1.0", "PractiQVersion": "0.1.0"}))
     return tmp_path
 
 
@@ -132,6 +134,7 @@ def test_release_rejects_noncanonical_tags(release, source, tag):
 def test_shipping_app_version_matches_manifests_and_lockfiles(release):
     version = json.loads((ROOT / "app/package.json").read_text())["version"]
     assert release.versions(ROOT, f"v{version}")["desktop"] == version
+    assert json.loads((ROOT / "app/src-tauri/tauri.conf.json").read_text())["bundle"]["macOS"]["infoPlist"] == "Info.plist"
 
 
 def test_release_versions_preserve_independent_service_and_reject_lock_drift(release, source):
@@ -158,6 +161,9 @@ def test_version_bump_updates_only_client_versions_and_is_idempotent(release, so
     assert release.versions(source, f"v{version}") == {"desktop": version, "aiServiceSource": "0.3.0"}
     npm["version"] = npm["packages"][""]["version"] = version
     assert json.loads(npm_path.read_text()) == npm
+    assert plistlib.loads((source / "app/src-tauri/Info.plist").read_bytes()) == {
+        "CFBundleShortVersionString": version.split("-")[0],
+        "CFBundleVersion": version.split("-")[0], "PractiQVersion": version}
     cargo_before = tomllib.loads(before[cargo_path].decode())
     own = next(package for package in cargo_before["package"] if package["name"] == "practiq-desktop")
     own["version"] = version
@@ -169,7 +175,7 @@ def test_version_bump_updates_only_client_versions_and_is_idempotent(release, so
     assert {path: path.read_bytes() for path in before} == after
 
 
-@pytest.mark.parametrize("fault", ["invalid", "drift", "layout"])
+@pytest.mark.parametrize("fault", ["invalid", "drift", "layout", "CFBundleShortVersionString", "CFBundleVersion", "PractiQVersion"])
 def test_version_bump_rejects_invalid_inputs_before_writing_any_file(source, fault):
     bump = runpy.run_path(str(ROOT / "app/scripts/bump-version.py"))["bump_version"]
     if fault == "drift":
@@ -180,6 +186,11 @@ def test_version_bump_rejects_invalid_inputs_before_writing_any_file(source, fau
     elif fault == "layout":
         path = source / "app/src-tauri/Cargo.toml"
         path.write_text(path.read_text().replace('version = "0.1.0"', "version = '0.1.0'", 1))
+    elif fault in ("CFBundleShortVersionString", "CFBundleVersion", "PractiQVersion"):
+        path = source / "app/src-tauri/Info.plist"
+        data = plistlib.loads(path.read_bytes())
+        data[fault] = "0.9.0"
+        path.write_bytes(plistlib.dumps(data))
     before = {path: path.read_bytes() for path in source.rglob("*") if path.is_file()}
     with pytest.raises(ValueError, match="Use X|must match|Expected one"):
         bump(source, "v0.2.0" if fault == "invalid" else "0.2.0")
@@ -608,7 +619,8 @@ def final_setup(release, source, monkeypatch):
             for name in ("THIRD-PARTY.txt",):
                 (bundle / name).write_text("Synthetic candidate notice")
             if platform == "darwin":
-                (bundle.parents[1] / "Info.plist").write_bytes(plistlib.dumps({"CFBundleShortVersionString": "0.2.0" if fault == "desktop_version" else "0.1.0", "CFBundleExecutable": "PractiQ"}))
+                (bundle.parents[1] / "Info.plist").write_bytes(plistlib.dumps({"CFBundleShortVersionString": "0.2.0" if fault == "desktop_version" else "0.1.0",
+                    "CFBundleVersion": "0.1.0", "PractiQVersion": "0.1.0", "CFBundleExecutable": "PractiQ"}))
                 executable = bundle.parents[1] / "MacOS/PractiQ"
                 executable.parent.mkdir()
                 executable.write_bytes(state.get("native_payload", native_macho()))
@@ -1015,7 +1027,8 @@ def test_final_native_version_preserves_prerelease_identity(release, source, fin
     bundle.mkdir(parents=True)
     expected = "0.1.0-alpha.1"
     if platform == "darwin":
-        (bundle.parents[1] / "Info.plist").write_bytes(plistlib.dumps({"CFBundleShortVersionString": expected, "CFBundleExecutable": "PractiQ"}))
+        (bundle.parents[1] / "Info.plist").write_bytes(plistlib.dumps({"CFBundleShortVersionString": "0.1.0", "CFBundleVersion": "0.1.0",
+            "PractiQVersion": expected, "CFBundleExecutable": "PractiQ"}))
         executable = bundle.parents[1] / "MacOS/PractiQ"
         executable.parent.mkdir()
         executable.write_bytes(native_macho())
@@ -1026,6 +1039,21 @@ def test_final_native_version_preserves_prerelease_identity(release, source, fin
     assert release.check_desktop_version(installer, bundle, expected, "PractiQ") == expected
     with pytest.raises(ValueError, match="desktop version"):
         release.check_desktop_version(installer, bundle, "0.1.0", "PractiQ")
+    with pytest.raises(ValueError, match="desktop version"):
+        release.check_desktop_version(installer, bundle, "0.1.0-alpha.2", "PractiQ")
+    if platform == "darwin":
+        info = bundle.parents[1] / "Info.plist"
+        original = plistlib.loads(info.read_bytes())
+        for key, value in [("CFBundleShortVersionString", expected), ("CFBundleVersion", expected),
+                           ("PractiQVersion", None)]:
+            metadata = original.copy()
+            if value is None:
+                metadata.pop(key)
+            else:
+                metadata[key] = value
+            info.write_bytes(plistlib.dumps(metadata))
+            with pytest.raises(ValueError, match="desktop version"):
+                release.check_desktop_version(installer, bundle, expected, "PractiQ")
 
 
 @pytest.mark.parametrize("fault", ["gate", "notice", "missing_notice", "source", "snapshot", "signing", "source_after_checks", "snapshot_after_checks"])
@@ -1281,7 +1309,8 @@ def test_native_release_architecture_is_bound_to_actual_package_bytes(release, t
         bundle = tmp_path / "PractiQ.app/Contents/Resources/bundled"
         executable = bundle.parents[1] / "MacOS/PractiQ"
         bundle.mkdir(parents=True)
-        (bundle.parents[1] / "Info.plist").write_bytes(plistlib.dumps({"CFBundleExecutable": "PractiQ", "CFBundleShortVersionString": "0.1.0"}))
+        (bundle.parents[1] / "Info.plist").write_bytes(plistlib.dumps({"CFBundleExecutable": "PractiQ", "CFBundleShortVersionString": "0.1.0",
+            "CFBundleVersion": "0.1.0", "PractiQVersion": "0.1.0"}))
         payload = native_macho(0x1000007) if damage == "wrong_cpu" else native_macho(filetype=6) if damage == "not_executable" else native_macho()
     else:
         bundle = tmp_path / "bundled"

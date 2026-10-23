@@ -21,6 +21,11 @@ These are offline practice clients. They contain no Python AI service or LibreOf
 
 Linux is an independent AI-service deployment and CI host, not an application target. Android x86_64 APKs are emulator diagnostics, not advertised downloads. Android debug signing does not establish publisher identity. GitHub Source code attachments are source, not installers. Record the actual tested OS versions and installation steps.
 
+macOS native `CFBundleShortVersionString` and `CFBundleVersion` use the numeric
+core of `@VERSION@`; the merged plist `PractiQVersion`, application, build manifest,
+tag and asset names retain the full prerelease identity. Package checks verify
+both native fields and the exact full version. No automatic updater is shipped.
+
 ## Data compatibility
 
 - Desktop directory `v4/`, SQLite schema 11; full backup container version 4, schema 11.
