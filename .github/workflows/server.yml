@@ -83,25 +83,30 @@ jobs:
           enable-cache: true
           cache-dependency-glob: server/uv.lock
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: matrix.python == '3.15'
         with:
           node-version: '22'
           cache: npm
           cache-dependency-path: web/package-lock.json
       - name: Install independent web dependencies
+        if: matrix.python == '3.15'
         run: make web-install
       - name: Audit independent web dependencies
+        if: matrix.python == '3.15'
         run: npm --prefix web audit --audit-level=high
       - name: Install browser for service web checks
+        if: matrix.python == '3.15'
         run: npx --prefix web playwright install --with-deps chromium
       - name: Verify independent service web frontend
+        if: matrix.python == '3.15'
         env:
           VITEST_MAX_WORKERS: '2'
         run: make web-check
       - name: Upload service web check reports
-        if: ${{ always() }}
+        if: ${{ always() && matrix.python == '3.15' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: service-web-checks${{ matrix.python == '3.14' && '-python314' || '' }}
+          name: service-web-checks
           path: |
             web/test-results/
             coverage/web/
@@ -117,6 +122,7 @@ jobs:
           TEST_RABBITMQ_CONTAINER: ${{ job.services.rabbitmq.id }}
         run: make verify AI_PYTHON="$(command -v python)"
       - name: Verify operational alert rules
+        if: matrix.python == '3.15'
         run: make alerts-check
       - name: Upload check reports
         if: ${{ always() }}

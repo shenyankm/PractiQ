@@ -122,7 +122,8 @@ def test_web_audit_step_preserves_failing_exit_status(tmp_path, exit_code):
     audits = [step for step in steps if "npm" in step.get("run", "") and "audit" in step["run"]]
     assert len(audits) == 1
     audit, = audits
-    assert "continue-on-error" not in audit and "if" not in audit
+    assert "continue-on-error" not in audit
+    assert audit["if"] == "matrix.python == '3.15'"
     npm = tmp_path / "npm"
     npm.write_text(f"#!{sys.executable}\nimport sys\nassert sys.argv[1:] == ['--prefix', 'web', 'audit', '--audit-level=high']\nsys.exit({exit_code})\n")
     npm.chmod(0o755)
@@ -606,6 +607,29 @@ def test_workflows_deduplicate_common_checks_without_dropping_native_gates():
     assert installers["with"]["retention-days"] == "14"
 
 
+def test_service_python_independent_checks_run_only_on_canonical_matrix_leg():
+    root = Path(__file__).resolve().parents[2]
+    workflow = yaml.load((root / ".github/workflows/server.yml").read_text(), Loader=yaml.BaseLoader)
+    quality = workflow["jobs"]["quality"]
+    assert "continue-on-error" not in quality
+    steps = quality["steps"]
+    node, = (step for step in steps if step.get("uses", "").startswith("actions/setup-node@"))
+    assert node["if"] == "matrix.python == '3.15'"
+    assert "continue-on-error" not in node
+    for command in (
+        "make web-install", "npm --prefix web audit --audit-level=high",
+        "npx --prefix web playwright install --with-deps chromium", "make web-check", "make alerts-check",
+    ):
+        step, = (step for step in steps if step.get("run") == command)
+        assert step["if"] == "matrix.python == '3.15'"
+        assert "continue-on-error" not in step
+    for target in ("install-locked", "verify", "audit"):
+        step, = (step for step in steps if step.get("run") == f'make {target} AI_PYTHON="$(command -v python)"')
+        assert "if" not in step and "continue-on-error" not in step
+    reports, = (step for step in steps if step.get("name") == "Upload check reports")
+    assert reports["if"] == "${{ always() }}"
+
+
 def test_service_web_upload_covers_configured_nonhidden_report_outputs():
     root = Path(__file__).resolve().parents[2]
     workflow = yaml.load((root / ".github/workflows/server.yml").read_text(), Loader=yaml.BaseLoader)
@@ -614,7 +638,9 @@ def test_service_web_upload_covers_configured_nonhidden_report_outputs():
         if step.get("uses", "").startswith("actions/upload-artifact@")
         and step["with"].get("name", "").startswith("service-web-checks")
     )
-    assert upload["if"] == "${{ always() }}"
+    assert upload["if"] == "${{ always() && matrix.python == '3.15' }}"
+    assert "continue-on-error" not in upload
+    assert upload["with"]["name"] == "service-web-checks"
     assert upload["with"]["if-no-files-found"] == "error"
     upload_roots = [(root / line.strip()).resolve() for line in upload["with"]["path"].splitlines()]
     assert re.search(r"\breportOnFailure:\s*true\b", (root / "web/vite.config.ts").read_text())
@@ -688,7 +714,7 @@ def test_service_python_matrix_retains_minimum_version_and_runtime_artifact_name
     assert 'practiq-ai:ci' in smoke["run"] and 'os.getuid() == 10001' in smoke["run"]
     assert all(tool in smoke["run"] for tool in ["ormsgpack", "pydantic", "yaml._yaml", "gcc", "cargo", "rustc"])
     names = [step["with"]["name"] for step in quality["steps"] if step.get("uses", "").startswith("actions/upload-artifact@")]
-    assert names == ["service-web-checks${{ matrix.python == '3.14' && '-python314' || '' }}", "service-checks${{ matrix.python == '3.14' && '-python314' || '' }}"]
+    assert names == ["service-web-checks", "service-checks${{ matrix.python == '3.14' && '-python314' || '' }}"]
 
 
 def test_service_image_checks_real_powerpoint_conversion():
