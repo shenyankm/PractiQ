@@ -17,7 +17,7 @@
 | Windows | Windows 10/11 x64, WebView2 | `PractiQ_@VERSION@_windows_x64_setup.exe` | Record evidence | Unsigned | Pending |
 | Android | Android 8.0+ (API 26), arm64-v8a, Android System WebView | `PractiQ_@VERSION@_android_arm64.apk` | Record evidence | Debug/test key only; publisher signing pending | Pending |
 
-These are offline practice clients. They contain no Python AI service or LibreOffice runtime. Document upload, normalization, task progress, review and bank ZIP download belong to the independent AI service's Web frontend. Explicit desktop AI grading calls that separately deployed service.
+These are offline practice clients. They contain no Python AI service or LibreOffice runtime. Document upload, normalization, task progress, review and bank ZIP download belong to the independent AI service's Web frontend. Explicit AI grading calls a user-configured OpenAI-compatible model directly, or the separately deployed service in service mode.
 
 Linux is an independent AI-service deployment and CI host, not an application target. Android x86_64 APKs are emulator diagnostics, not advertised downloads. Android debug signing does not establish publisher identity. GitHub Source code attachments are source, not installers. Record the actual tested OS versions and installation steps.
 
@@ -26,7 +26,7 @@ Linux is an independent AI-service deployment and CI host, not an application ta
 - Desktop directory `v4/`, SQLite schema 11; full backup container version 4, schema 11.
 - Bank ZIP version 2, AI JSON schema 3. Bank import appends content; full restoration requires replacement confirmation.
 - Old directories remain untouched. Older databases and full backups are rejected without migration. Keep backups before upgrading; downgrade compatibility is not promised.
-- Practice-client service tokens stay in the platform credential store (Android Keystore for Android). Provider keys belong to the independent service. Full desktop backups exclude credentials and AI task state.
+- Practice-client service tokens and direct-grading model API keys stay in the platform credential store (Android Keystore for Android). Document-import provider keys belong to the independent service. Full backups exclude credentials and AI task state; optional version-1 grading connection settings are included without secrets.
 - Existing provider settings, key namespaces and legacy task files are preserved but are not automatically used as service connections or migrated to the independent service.
 <!-- Update these values from tagged source whenever formats change. -->
 
@@ -34,9 +34,9 @@ Linux is an independent AI-service deployment and CI host, not an application ta
 
 <!-- List concrete failed or untested flows. Do not infer interactive acceptance from CI. -->
 
-Offline practice needs no account or service. Parsing and AI grading require explicit user actions, send content to the service and configured provider, and may incur charges. Grading requires a reference answer or rubric; missing evidence, failed calls and unknown outcomes remain ungraded. It is a personal-practice aid.
+Offline practice needs no account or service. Parsing and AI grading require explicit user actions and may incur provider charges. Parsing sends documents to the independent service and its configured providers; direct grading sends grading content to the user-configured model endpoint, while service-mode grading uses the independent service. Grading requires a reference answer or rubric; missing evidence, failed calls and unknown outcomes remain ungraded. It is a personal-practice aid.
 
-The independent service accepts PDF, TXT, CSV and PNG/JPEG; Office support requires a separately configured and verified LibreOffice deployment. Its conversion fidelity, live-model quality and deployment are separate from these desktop packages.
+The independent service accepts PDF, TXT, Markdown, PNG/JPEG, Word (.doc/.docx), PowerPoint (.ppt/.pptx) and Excel (.xls/.xlsx). Every new import uses Tencent Cloud multimodal document parsing before question structuring; new CSV imports are rejected. Oversized Office files additionally require the isolated LibreOffice PDF adapter. Tencent/provider configuration, conversion fidelity, live-model quality and deployment are separate from these client packages.
 
 ## Validation
 
