@@ -564,8 +564,8 @@ pub fn parse(bytes: &[u8]) -> Result<Value> {
                 visual["documentOnly"] = json!(true);
             }
         }
+        schema_check(&schemas().0, result, "result")?;
     }
-    schema_check(&schemas().0, result, "result")?;
     let ids: HashSet<_> = list(result, "questions")
         .iter()
         .map(|q| text(q, "id"))
@@ -743,6 +743,14 @@ pub fn validate_tree(questions: &mut [Value]) -> Result<()> {
             return Err("Questions require unique IDs".into());
         }
     }
+    let mut children_by_parent: std::collections::HashMap<&str, Vec<usize>> =
+        std::collections::HashMap::new();
+    for (i, q) in questions.iter().enumerate() {
+        let parent = text(q, "parentId");
+        if !parent.is_empty() {
+            children_by_parent.entry(parent).or_default().push(i);
+        }
+    }
     for q in questions.iter() {
         let parent = text(q, "parentId");
         if !parent.is_empty() {
@@ -813,10 +821,10 @@ pub fn validate_tree(questions: &mut [Value]) -> Result<()> {
             if !q["answerPayload"].is_null() {
                 return Err("Composite parents cannot have answers".into());
             }
-            let children: Vec<_> = questions
-                .iter()
-                .filter(|c| text(c, "parentId") == text(q, "id"))
-                .collect();
+            let children = children_by_parent
+                .get(text(q, "id"))
+                .map(Vec::as_slice)
+                .unwrap_or(&[]);
             if matches!(text(q, "answerMode"), "word_bank" | "cloze" | "gap_fill") {
                 let refs: Vec<_> = list(q, "passage")
                     .iter()
@@ -825,7 +833,9 @@ pub fn validate_tree(questions: &mut [Value]) -> Result<()> {
                     .collect();
                 if refs.iter().collect::<HashSet<_>>().len() != refs.len()
                     || refs.len() != children.len()
-                    || children.iter().any(|c| !refs.contains(&text(c, "id")))
+                    || children
+                        .iter()
+                        .any(|&i| !refs.contains(&text(&questions[i], "id")))
                 {
                     return Err("Blank references must match child questions exactly".into());
                 }
@@ -833,7 +843,7 @@ pub fn validate_tree(questions: &mut [Value]) -> Result<()> {
             if text(q, "answerMode") == "word_bank" && q["allowReuse"] != true {
                 let selected: Vec<_> = children
                     .iter()
-                    .flat_map(|c| list(&c["answerPayload"], "correct"))
+                    .flat_map(|&i| list(&questions[i]["answerPayload"], "correct"))
                     .filter(|v| !v.is_null())
                     .collect();
                 if selected
@@ -848,19 +858,17 @@ pub fn validate_tree(questions: &mut [Value]) -> Result<()> {
             }
         }
     }
-    let incomplete: Vec<_> = questions
+    let incomplete: HashSet<_> = questions
         .iter()
         .filter(|q| {
             crate::questions::composite(q)
                 && ((text(q, "answerMode") != "listening" && list(q, "passage").is_empty())
-                    || !questions
-                        .iter()
-                        .any(|c| text(c, "parentId") == text(q, "id")))
+                    || !children_by_parent.contains_key(text(q, "id")))
         })
         .map(|q| text(q, "id").to_owned())
         .collect();
     for q in questions {
-        if incomplete.contains(&text(q, "id").to_owned()) {
+        if incomplete.contains(text(q, "id")) {
             q["needsReview"] = json!(true);
             if !list(q, "missingFields").contains(&json!("material")) {
                 q["missingFields"]
@@ -947,6 +955,133 @@ mod validation_tests {
     }
 
     #[test]
+    fn tree_validation_preserves_composites_order_and_first_error() {
+        let valid = parse(include_bytes!("../../fixtures/composite.json")).unwrap();
+        let original = list(&valid, "questions").to_vec();
+        for mut questions in [original.clone(), original.iter().rev().cloned().collect()] {
+            let expected = questions.clone();
+            validate_tree(&mut questions).unwrap();
+            assert_eq!(questions, expected);
+        }
+        for (pointer, value, message) in [
+            ("/1/id", json!("reading"), "Questions require unique IDs"),
+            ("/1/parentId", json!("absent"), "Missing parent question"),
+            (
+                "/0/parentId",
+                json!("r-choice"),
+                "Invalid composite ancestry",
+            ),
+            (
+                "/3/passage/1/questionId",
+                json!("words2"),
+                "Blank references must match child questions exactly",
+            ),
+            (
+                "/5/answerPayload/correct",
+                json!(["A"]),
+                "Word bank answers cannot repeat",
+            ),
+            (
+                "/4/optionSourceId",
+                json!("words-root"),
+                "Word bank must share its options",
+            ),
+            (
+                "/4/answerPayload/correct",
+                json!(["Z"]),
+                "Answer references an unknown shared option",
+            ),
+        ] {
+            let mut questions = json!(original);
+            *questions.pointer_mut(pointer).unwrap() = value;
+            let error = validate_tree(questions.as_array_mut().unwrap()).unwrap_err();
+            assert_eq!(error.code, "OPERATION_FAILED");
+            assert_eq!(error.to_string(), message, "{pointer}");
+        }
+        // Normalization still precedes duplicate IDs, and relational errors precede review marking.
+        let mut invalid = original.clone();
+        invalid[0]["passage"] = json!([]);
+        invalid[1]["id"] = json!("reading");
+        invalid[2]["confidence"] = json!(2);
+        assert_eq!(
+            validate_tree(&mut invalid).unwrap_err().context.as_deref(),
+            Some("questions[2]")
+        );
+        invalid[2]["confidence"] = json!(1);
+        assert_eq!(
+            validate_tree(&mut invalid).unwrap_err().to_string(),
+            "Questions require unique IDs"
+        );
+        assert_eq!(invalid[0]["needsReview"], false);
+        assert!(!list(&invalid[0], "missingFields").contains(&json!("material")));
+    }
+
+    #[test]
+    fn tree_validation_marks_only_incomplete_parents_and_is_idempotent() {
+        let mut questions = vec![
+            json!({"id":"empty","stem":"Empty","answerMode":"reading","passage":[],"needsReview":true,"missingFields":["analysis"]}),
+            json!({"id":"child","parentId":"empty","stem":"Child","answerMode":"short_answer","answerPayload":null}),
+            json!({"id":"childless","stem":"Childless","answerMode":"reading","passage":[{"partType":"text","textValue":"Material"}]}),
+            json!({"id":"complete","stem":"Complete","answerMode":"reading","passage":[{"partType":"text","textValue":"Material"}],"needsReview":true,"missingFields":["sourceText"]}),
+            json!({"id":"complete-child","parentId":"complete","stem":"Child","answerMode":"true_false","answerPayload":{"value":false}}),
+            json!({"id":"listening","stem":"Listening","answerMode":"listening","passage":[]}),
+            json!({"id":"listening-child","parentId":"listening","stem":"Child","answerMode":"short_answer","answerPayload":null}),
+            json!({"id":"childless-listening","stem":"Listening","answerMode":"listening","passage":[]}),
+        ];
+        for q in &mut questions {
+            validate_question(q).unwrap();
+        }
+        let mut expected = questions.clone();
+        for i in [0, 2, 7] {
+            expected[i]["needsReview"] = json!(true);
+            expected[i]["missingFields"]
+                .as_array_mut()
+                .unwrap()
+                .push(json!("material"));
+        }
+        for _ in 0..2 {
+            validate_tree(&mut questions).unwrap();
+            assert_eq!(questions, expected);
+        }
+    }
+
+    #[test]
+    fn parse_preserves_empty_normalization_and_initial_schema_rejections() {
+        let empty = json!({"schemaVersion":3,"questions":[],"groups":[],"visualElements":[{"kind":"image","description":"Unparsed page","questionIds":[]}],"warnings":[],"confidenceScore":0});
+        let mut expected = empty.clone();
+        expected["missingFields"] = json!(["questions"]);
+        expected["visualElements"][0]["documentOnly"] = json!(true);
+        assert_eq!(
+            parse(&serde_json::to_vec(&empty).unwrap()).unwrap(),
+            expected
+        );
+        assert_eq!(
+            parse(&serde_json::to_vec(&expected).unwrap()).unwrap(),
+            expected
+        );
+        for value in [
+            Value::Null,
+            json!("media"),
+            json!({"media":true}),
+            json!(["invalid"]),
+        ] {
+            let mut invalid = empty.clone();
+            invalid["missingFields"] = value;
+            let error = parse(&serde_json::to_vec(&invalid).unwrap()).unwrap_err();
+            assert_eq!(error.code, "LOCAL_SCHEMA_INVALID");
+            assert!(error.params["path"]
+                .as_str()
+                .unwrap()
+                .starts_with("result/missingFields"));
+        }
+        let mut nonempty = parse(include_bytes!("../../fixtures/sample.json")).unwrap();
+        nonempty["confidenceScore"] = json!(101);
+        let error = parse(&serde_json::to_vec(&nonempty).unwrap()).unwrap_err();
+        assert_eq!(error.code, "LOCAL_SCHEMA_INVALID");
+        assert_eq!(error.params["path"], "result/confidenceScore");
+    }
+
+    #[test]
     fn question_schema_rejection_preserves_normalized_content_and_error_path() {
         let blocks = json!([{"partType":"table","jsonValue":{"rows":[[null,false,"evidence"]],"metadata":{"source":null,"flags":[false,true]}}}]);
         let mut question = json!({"id":"kept","stem":"  Evidence  ","sourceText":"  source  ","answerMode":"true_false","confidence":2,"answerPayload":{"value":false},"contentBlocks":blocks});
@@ -991,16 +1126,14 @@ mod validation_tests {
         document["visualElements"] = json!([]);
         let bytes = serde_json::to_vec(&document).unwrap();
         let mut report = json!({"questions":1000,"inputBytes":bytes.len(),"rounds":7,
-            "scope":"JSON import plus the removed duplicate per-question validation pass; no database, IPC or WebView"});
+            "scope":"JSON import with/without the redundant unchanged full result-schema pass; seven sequential warm samples; no database, IPC or WebView"});
         for duplicate in [true, false] {
             let mut times = Vec::new();
             for _ in 0..7 {
                 let start = std::time::Instant::now();
-                let mut value = parse(&bytes).unwrap();
+                let value = parse(&bytes).unwrap();
                 if duplicate {
-                    for q in value["questions"].as_array_mut().unwrap() {
-                        validate_question(q).unwrap();
-                    }
+                    schema_check(&schemas().0, &value, "result").unwrap();
                 }
                 times.push(start.elapsed().as_secs_f64() * 1000.0);
                 assert_eq!(value, document);

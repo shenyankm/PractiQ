@@ -18,6 +18,108 @@ fn archive_database(database: &Path, archive: &Path) {
 }
 
 #[test]
+fn restore_preserves_multi_bank_composites_review_flags_and_snapshots() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut source = Store::new(dir.path().join("source")).unwrap();
+    let mut document: Value =
+        serde_json::from_slice(include_bytes!("../../fixtures/composite.json")).unwrap();
+    document["questions"].as_array_mut().unwrap().push(json!({"id":"incomplete","stem":"Missing material","answerMode":"reading","questionTypeId":"reading","analysis":"Synthetic explanation","needsReview":true,"missingFields":["sourceText"]}));
+    for bank in 0..4 {
+        let preview = source
+            .preview(
+                serde_json::to_vec(&document).unwrap(),
+                format!("Bank {bank}"),
+            )
+            .unwrap();
+        source
+            .import(
+                crate::contract::text(&preview, "ticket"),
+                None,
+                &format!("Bank {bank}"),
+            )
+            .unwrap();
+    }
+    let rows = source.question_rows().unwrap();
+    let session = source
+        .start_paper(crate::exams::Paper {
+            question_ids: rows
+                .iter()
+                .filter(|r| {
+                    crate::contract::text(&r["question"], "parentId").is_empty()
+                        && r["question"]["stem"] != "Missing material"
+                })
+                .map(|r| crate::contract::text(r, "id").to_owned())
+                .collect(),
+            kind: "practice".into(),
+            minutes: None,
+            scores: vec![],
+            total_cents: 0,
+            digest: crate::paper::digest(
+                &rows
+                    .iter()
+                    .filter(|r| r["question"]["stem"] != "Missing material")
+                    .cloned()
+                    .collect::<Vec<_>>(),
+            )
+            .unwrap(),
+        })
+        .unwrap();
+    let sid = crate::contract::text(&session, "id");
+    let db = source.connect().unwrap();
+    let frozen: String = db
+        .query_row(
+            "SELECT content FROM session_documents WHERE session_id=?1",
+            [sid],
+            |r| r.get(0),
+        )
+        .unwrap();
+    db.execute("UPDATE questions SET stem='Edited current material' WHERE mode='reading' AND stem!='Missing material'", []).unwrap();
+    let expected = source.question_rows().unwrap();
+    let incomplete: Vec<_> = expected
+        .iter()
+        .filter(|r| r["question"]["stem"] == "Missing material")
+        .collect();
+    assert_eq!(incomplete.len(), 4);
+    for row in incomplete {
+        assert_eq!(row["question"]["needsReview"], true);
+        assert_eq!(
+            row["question"]["missingFields"],
+            json!(["sourceText", "material"])
+        );
+    }
+    let archive = dir.path().join("multi-bank.zip");
+    source.backup(&archive).unwrap();
+    let mut restored = Store::new(dir.path().join("restored")).unwrap();
+    restored.restore(&archive).unwrap();
+    assert_eq!(restored.banks().unwrap().as_array().unwrap().len(), 4);
+    assert_eq!(restored.question_rows().unwrap(), expected);
+    assert_eq!(
+        restored
+            .connect()
+            .unwrap()
+            .query_row(
+                "SELECT content FROM session_documents WHERE session_id=?1",
+                [sid],
+                |r| r.get::<_, String>(0)
+            )
+            .unwrap(),
+        frozen
+    );
+    assert_eq!(
+        source
+            .connect()
+            .unwrap()
+            .query_row(
+                "SELECT content FROM session_documents WHERE session_id=?1",
+                [sid],
+                |r| r.get::<_, String>(0)
+            )
+            .unwrap(),
+        frozen
+    );
+}
+
+#[test]
 fn regression_restore_rejects_invalid_session_navigation_without_replacement() {
     let dir = tempfile::tempdir().unwrap();
     let mut source = Store::new(dir.path().join("source")).unwrap();

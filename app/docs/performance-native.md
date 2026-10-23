@@ -81,6 +81,55 @@ The exclusive-word-bank context hash is `22e0b949ee09058b6c447dc90a447bb0aade202
 
 The database file digest is unchanged after both variants. This measures only the extra duration-validation pass, **not complete restore**. Historical JSON parsing still scales with document size; the initial full validation and resource hashing/decoding are intentionally retained. Historical snapshot hashes vary between probe invocations because the import creates fresh native IDs; comparisons within one invocation use the same documents.
 
+## Contract validator work bounds
+
+`validate_tree` builds one parent-ID → ordered child-index lookup after question
+normalization and unique-ID validation. Composite checks and incomplete-parent
+detection reuse it; incomplete IDs use a set, without allocating an ID string for
+every membership check. Validation still walks questions in input order, retains
+the same first-error precedence, and appends `material` only after relational
+checks succeed. Blank references, ancestry, shared options, listening exceptions
+and pre-existing review flags are unchanged. This applies to imports, edits,
+current questions across all banks during restore, and each historical snapshot.
+
+For 10,000 reading groups with four children each (50,000 nodes), the old child
+collection alone compared parent IDs 500 million times. The new lookup examines
+50,000 parent IDs once, stores 40,000 child indices, and serves 10,000 composite
+lookups. These are source-derived work counts, not measured latency or a claim
+that every validator operation is linear: ancestry walks and per-group blank
+reference/option checks remain unchanged. Additional lookup memory is O(nodes).
+
+`parse` keeps its initial full result-schema pass. It repeats that pass only when
+an empty question list caused missing-question/document-only metadata mutation;
+nonempty results no longer traverse the unchanged schema twice. All processing,
+reference, resource, checksum and restore trust checks remain in place.
+
+Focused regressions cover valid/reversed composite trees, relational rejection
+and normalization/error order, empty/invalid result metadata, incomplete reading
+and listening parents, and idempotent review marking. The multi-bank backup test
+imports four composite banks with incomplete parents, edits current material
+after creating a practice snapshot, then checks exact current rows and unchanged
+snapshot bytes after restore.
+
+Run the synthetic probes with fresh output destinations (the scaling probe also
+checks exact normalized output at 100, 1,000 and 10,000 groups; it has no timing
+threshold):
+
+```sh
+export TAURI_CONFIG='{"bundle":{"resources":[]}}'
+cargo test --locked --manifest-path app/src-tauri/Cargo.toml contract::validation_tests
+cargo test --locked --manifest-path app/src-tauri/Cargo.toml backup::schema_tests
+PRACTIQ_BENCH_OUTPUT=/tmp/practiq-contract-tree-new.json cargo test --locked --manifest-path app/src-tauri/Cargo.toml --release --lib contract_tree_validation_scaling -- --ignored --nocapture
+PRACTIQ_BENCH_OUTPUT=/tmp/practiq-contract-import-new.json cargo test --locked --manifest-path app/src-tauri/Cargo.toml --release --lib import_validation_performance -- --ignored --nocapture
+```
+
+The import probe compares the new parser with the same parser plus one full
+result-schema pass on an unchanged valid result, not the previously removed
+per-question pass. It is a paired traversal-cost approximation, not execution of
+the historical parser. Neither probe measures ZIP I/O, complete restore, IPC,
+WebView or device latency. Use release builds for latency interpretation;
+unoptimized runs establish synthetic correctness/scaling evidence only.
+
 ## Limits
 
 No allocator/RSS measurement, Windows/Android device measurement, real-user workload or full application verification is included here. Shared-host timing varies; use the work-count/allocation regressions and equivalence assertions as the stable evidence. Combined application/service verification and independent review remain separate gates.

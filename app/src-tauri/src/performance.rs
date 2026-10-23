@@ -1060,3 +1060,51 @@ fn association_insert_cache_stress() {
     report["normalizedSha256"] = json!(expected.unwrap());
     println!("{}", serde_json::to_string_pretty(&report).unwrap());
 }
+
+#[test]
+#[ignore = "synthetic composite validation scaling; no timing assertions"]
+fn contract_tree_validation_scaling() {
+    let mut report = json!({"scope":"validate_tree only; synthetic reading groups with four children, plus childless/incomplete reading groups; three sequential samples per size; setup, cloning and equality checks excluded; no SQLite, IPC or WebView", "workloads":[]});
+    for groups in [100usize, 1000, 10_000] {
+        for incomplete in [false, true] {
+            let mut questions = Vec::new();
+            for group in 0..groups {
+                let id = format!("bank{}-group{group}", group % 10);
+                questions.push(json!({"id":id,"stem":"Material","answerMode":"reading","passage":if incomplete {json!([])} else {json!([{"partType":"text","textValue":"Synthetic material"}])}}));
+                if !incomplete {
+                    for child in 0..4 {
+                        questions.push(json!({"id":format!("{id}-child{child}"),"parentId":id,"stem":"Child","answerMode":"true_false","answerPayload":{"value":false}}));
+                    }
+                }
+            }
+            for q in &mut questions {
+                crate::contract::validate_question(q).unwrap();
+            }
+            let mut expected = questions.clone();
+            if incomplete {
+                for q in &mut expected {
+                    q["needsReview"] = json!(true);
+                    q["missingFields"]
+                        .as_array_mut()
+                        .unwrap()
+                        .push(json!("material"));
+                }
+            }
+            let mut samples = Vec::new();
+            for _ in 0..3 {
+                let mut candidate = questions.clone();
+                let start = Instant::now();
+                crate::contract::validate_tree(&mut candidate).unwrap();
+                samples.push(start.elapsed().as_secs_f64() * 1000.0);
+                assert_eq!(candidate, expected);
+            }
+            report["workloads"].as_array_mut().unwrap().push(json!({"groups":groups,"questions":questions.len(),"incomplete":incomplete,"samplesMs":samples,"outputSha256":crate::store::hash(&serde_json::to_vec(&expected).unwrap())}));
+        }
+    }
+    std::fs::write(
+        std::env::var("PRACTIQ_BENCH_OUTPUT").expect("set PRACTIQ_BENCH_OUTPUT"),
+        serde_json::to_vec_pretty(&report).unwrap(),
+    )
+    .unwrap();
+    println!("{report}");
+}
