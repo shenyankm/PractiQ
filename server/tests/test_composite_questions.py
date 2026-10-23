@@ -77,6 +77,22 @@ def test_composite_limit_does_not_split_group():
     assert "without splitting" in warnings[-1]
 
 
+def test_reading_blank_pointing_outside_its_tree_becomes_review_text():
+    from practiq_ai.graphs.chunking import find_duplicate_question_trees
+
+    article = ParsedQuestion(id="page:1:article", stem="Read the passage", answerMode="reading",
+                             sourceText="Read the passage",
+                             passage=[ContentBlock(partType="text", textValue="Ice is "),
+                                      ContentBlock(partType="blank", questionId="page:1:orphan")])
+    orphan = ParsedQuestion(id="page:1:orphan", stem="What forms from ice?", answerMode="short_answer",
+                            answerPayload={"text": "water"}, sourceText="What forms from ice?")
+    merged = finalize_question_ids([article, orphan], [], [], [], DocumentQuality())
+    blank = merged[0].passage[1]
+    assert (blank.partType, blank.questionId, blank.textValue) == ("text", None, "[____]")
+    assert merged[0].needsReview and "material" in merged[0].missingFields
+    assert find_duplicate_question_trees(merged, [], []) == []
+
+
 def test_nonadjacent_same_anchor_does_not_silently_join_articles():
     qs = [ParsedQuestion(id="page:0:a", stem="Article", answerMode="reading") for _ in range(2)]
     sources = [QuestionSource(questionIndex=i, stage="vision_parse", unitIndex=i * 2) for i in range(2)]
