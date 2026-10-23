@@ -161,10 +161,9 @@ options (merge, squash and rebase) and does not require a PR branch to include
 the latest main commit. Repository native auto-merge is disabled; maintainers
 inspect current-head Code Review and Security Review results, resolve findings
 and merge manually after CI passes.
-The PR App is retained for labeling and requests repository-scoped PR-write-only
-tokens. Pull requests write and Metadata read suffice for labeling; remove any
-legacy Contents write permission in the App settings. Protect its private key,
-keep the installation limited to PractiQ and grant no ruleset bypass.
+Issue and PR labeling workflows have been removed; maintainers assign labels
+manually. No labeling App permissions or private keys are required. Removing
+the workflows does not uninstall existing Apps or delete stored credentials.
 
 Before changing hosted settings, read the live rule, back it up and preserve
 unrelated parameters in the update payload; a checked-in file alone does not
