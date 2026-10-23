@@ -902,6 +902,18 @@ def remove_duplicate_question_trees(questions, groups, visuals, sources, quality
     return retained, [f"Removed {len(aliases)} exact duplicate question nodes after explicit opt-in; retained their source associations."]
 
 
+def _unresolved_blank_as_text(question: ParsedQuestion, block: Any) -> None:
+    # A skipped unit may contain this blank's child. Keep its evidence as
+    # noninteractive text, never invent a child. Only merged copies change;
+    # retry reuses the original unit.
+    block.partType = "text"
+    block.questionId = None
+    if not any(value and value.strip() for value in (block.textValue, block.markdownValue, block.latexValue)) and block.jsonValue is None:
+        block.textValue = "[____]"
+    question.needsReview = True
+    question.missingFields = list(dict.fromkeys([*question.missingFields, "material"]))
+
+
 def finalize_question_ids(questions, groups, visuals, sources, quality):
     """Resolve explicit source-anchored compound fragments in the merge stage only."""
     from practiq_ai.contracts import COMPOSITE_MODES
@@ -989,15 +1001,27 @@ def finalize_question_ids(questions, groups, visuals, sources, quality):
                 if block.questionId in aliases:
                     block.questionId = aliases[block.questionId]
                 else:
-                    # A skipped unit may contain this blank's child. Keep its
-                    # evidence as noninteractive text, never invent a child.
-                    # Only merged copies change; retry reuses the original unit.
-                    block.partType = "text"
-                    block.questionId = None
-                    if not any(value and value.strip() for value in (block.textValue, block.markdownValue, block.latexValue)) and block.jsonValue is None:
-                        block.textValue = "[____]"
-                    q.needsReview = True
-                    q.missingFields = list(dict.fromkeys([*q.missingFields, "material"]))
+                    _unresolved_blank_as_text(q, block)
+    by_id = {q.id: q for q in retained}
+
+    def tree_root(qid: str) -> str:
+        # A malformed ancestry is rejected by the final validation below; stop
+        # walking here so a cycle cannot hang the merge.
+        seen = {qid}
+        while by_id[qid].parentId:
+            qid = by_id[qid].parentId
+            if qid in seen:
+                return ""
+            seen.add(qid)
+        return qid
+
+    for q in retained:
+        # Reading and listening trees allow blanks without matching children, so a
+        # blank left pointing outside its tree must not reach tree-scoped dedup.
+        if q.answerMode in {"reading", "listening"}:
+            for block in q.passage:
+                if block.partType == "blank" and block.questionId and tree_root(block.questionId) != q.id:
+                    _unresolved_blank_as_text(q, block)
     for obj in [*groups, *visuals]:
         obj.questionIndexes = list(dict.fromkeys(index_map[i] for i in obj.questionIndexes))
     for obj in [*sources, *quality.issues]:
