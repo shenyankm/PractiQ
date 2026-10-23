@@ -120,7 +120,7 @@ fn restore_preserves_multi_bank_composites_review_flags_and_snapshots() {
 }
 
 #[test]
-fn regression_restore_rejects_invalid_session_navigation_without_replacement() {
+fn regression_restore_rejects_invalid_session_records_without_replacement() {
     let dir = tempfile::tempdir().unwrap();
     let mut source = Store::new(dir.path().join("source")).unwrap();
     let raw = json!({"schemaVersion":3,"questions":[{"id":"q0","stem":"First","answerMode":"short_answer","answerPayload":null},{"id":"q1","stem":"Last","answerMode":"short_answer","answerPayload":null}],"groups":[],"visualElements":[],"warnings":[],"confidenceScore":0});
@@ -161,6 +161,47 @@ fn regression_restore_rejects_invalid_session_navigation_without_replacement() {
             "UPDATE attempts SET ordinal=2 WHERE ordinal=1",
         ),
         ("empty-attempts", "DELETE FROM attempts"),
+        (
+            "text-created-at",
+            "UPDATE sessions SET created_at='not-a-number'",
+        ),
+        (
+            "text-last-active-at",
+            "UPDATE sessions SET last_active_at='not-a-number'",
+        ),
+        (
+            "text-session-submitted-at",
+            "UPDATE sessions SET submitted_at='not-a-number'",
+        ),
+        (
+            "text-finished-at",
+            "UPDATE sessions SET finished_at='not-a-number'",
+        ),
+        (
+            "text-deadline-at",
+            "UPDATE sessions SET deadline_at='not-a-number'",
+        ),
+        (
+            "text-attempt-submitted-at",
+            "UPDATE attempts SET submitted_at='not-a-number'",
+        ),
+        (
+            "text-elapsed-ms",
+            "UPDATE attempts SET elapsed_ms='not-a-number'",
+        ),
+        (
+            "text-max-cents",
+            "UPDATE attempts SET max_cents='not-a-number'",
+        ),
+        (
+            "text-earned-cents",
+            "UPDATE attempts SET earned_cents='not-a-number'",
+        ),
+        ("text-skipped", "UPDATE attempts SET skipped='not-a-number'"),
+        (
+            "text-auto-result",
+            "UPDATE attempts SET auto_result='not-a-number'",
+        ),
     ] {
         let candidate = dir.path().join(format!("{case}.sqlite"));
         source
@@ -197,6 +238,58 @@ fn regression_restore_rejects_invalid_session_navigation_without_replacement() {
                 assert_eq!(target.banks().unwrap()[0]["id"], "keep");
             }
         }
+    }
+}
+
+#[test]
+fn restore_validation_rejects_non_integer_playback_state() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut store = Store::new(dir.path().join("s")).unwrap();
+    let preview = store
+        .preview_bank_zip(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../fixtures/english.zip"))
+        .unwrap();
+    let bank = store
+        .import(crate::contract::text(&preview, "ticket"), None, "English")
+        .unwrap();
+    let bank = crate::contract::text(&bank, "bankId");
+    let root = crate::contract::text(
+        &store.questions(Some(bank), "", "listening", "").unwrap()[0],
+        "id",
+    )
+    .to_owned();
+    let selected =
+        crate::paper::selected_rows(&store.question_rows().unwrap(), std::slice::from_ref(&root))
+            .unwrap();
+    let session = store
+        .start_paper(crate::exams::Paper {
+            question_ids: vec![root.clone()],
+            kind: "practice".into(),
+            minutes: None,
+            scores: vec![],
+            total_cents: 0,
+            digest: crate::paper::digest(&selected).unwrap(),
+        })
+        .unwrap();
+    let sid = crate::contract::text(&session, "id").to_owned();
+    store
+        .listening_playback(&sid, &root, crate::audio::PlaybackAction::Start, None)
+        .unwrap();
+    let db = store.connect().unwrap();
+    validate_database_contents(&db).unwrap();
+    for column in ["updated_at", "active_elapsed_ms"] {
+        db.execute(
+            &format!("UPDATE listening_playback SET {column}='not-a-number'"),
+            [],
+        )
+        .unwrap();
+        assert_eq!(
+            validate_database_contents(&db).unwrap_err().code,
+            "LOCAL_BACKUP_RELATIONS",
+            "{column}"
+        );
+        db.execute(&format!("UPDATE listening_playback SET {column}=0"), [])
+            .unwrap();
+        validate_database_contents(&db).unwrap();
     }
 }
 
