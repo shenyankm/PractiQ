@@ -190,6 +190,8 @@ Record the original absolute directory before changing paths. Set `AI_STORAGE_DI
 
 ### Unprivileged container deployment
 
+The image includes LibreOffice Writer, Calc and Impress so oversized Word, Excel and PowerPoint inputs can use the isolated PDF adapter. `make image-check` builds the image and runs `scripts/check_container.py` offline with a read-only root and temporary storage: it verifies real PPTX-to-PDF conversion and expected slide text, PDF rendering, worker cleanup and checked artifact storage without models or a database.
+
 The image uses UID/GID `10001:10001`. `server/deploy/service.compose.yml` supplies Linux host constraints: 2 CPUs, 2 GiB memory, 128 processes, a read-only root, all capabilities dropped, privilege escalation disabled, and init-based child reaping. Only `/var/lib/practiq`, bounded `/tmp` tmpfs, and `/home/practiq` are writable. Extraction temporary files use these locations.
 
 Set `PRACTIQ_STORAGE_DIR` to a verified absolute host directory and ensure UID 10001 can read/write it. Do not recursively change existing mount permissions automatically. Use an existing dedicated group/ACL or manually copy to a new dedicated directory while preserving rollback data. Configure `DATABASE_URI` in the deployment environment for the dedicated PostgreSQL database. The mount holds artifacts only; old SQLite directories remain untouched. Host networking exposes the service only on `127.0.0.1:8000`. Validate with `docker compose -f server/deploy/service.compose.yml config --quiet`, then start in an authorized deployment environment. These resource quotas are starting values; validate against representative documents and concurrency.
