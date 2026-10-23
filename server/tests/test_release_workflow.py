@@ -1235,10 +1235,10 @@ def test_release_workflow_uses_full_checks_and_only_creates_drafts():
     for name in ("server", "app"):
         reused = yaml.load((ROOT / f".github/workflows/{name}.yml").read_text(), Loader=yaml.BaseLoader)
         assert "workflow_call" in reused["on"]
-        for key, job in reused["jobs"].items():
+        for job in reused["jobs"].values():
             for step in job["steps"]:
                 if step.get("uses", "").startswith("actions/checkout@"):
-                    assert step["with"]["ref"] == ("${{ needs.changes.outputs.sha }}" if name == "app" and key != "changes" else "${{ inputs.ref || github.sha }}")
+                    assert step["with"]["ref"] == "${{ inputs.ref || github.sha }}"
         selector = next(s for s in reused["jobs"]["changes"]["steps"] if s.get("id") == "scope")
         assert selector["env"]["CI_FULL_CHECKS"] == "${{ inputs.ref != '' }}"
     assert workflow["jobs"]["draft"]["needs"] == ["candidate", "service", "apps"]

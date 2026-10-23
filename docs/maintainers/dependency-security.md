@@ -116,11 +116,40 @@ or secret-scanning alerts returned. CodeQL default setup was `not-configured`;
 the code-scanning alerts endpoint returned `no analysis found`, which does not
 establish a clean scan. These are dated observations, not ongoing guarantees.
 
-Enable CodeQL through **Settings → Code security → Code scanning → Set up →
-Default**, then inspect the actual language coverage and first analysis before
-claiming static-analysis coverage. Keep dependency audits: they check locked
-packages, while CodeQL checks source patterns. No duplicate scanning workflow
-is needed for default setup. This branch does not change hosted settings.
+On 2026-10-23, the default CodeQL setup had completed analyses for Actions,
+JavaScript/TypeScript, Python and Rust. Inspect each analysis and its commit;
+a successful workflow does not mean that it reported no alerts. Keep dependency
+audits: they check locked packages, while CodeQL checks source patterns.
+No duplicate scanning workflow or query exclusions are needed.
+
+### Code scanning triage
+
+The 31 `actions/cache-poisoning/poisonable-step` findings shared the App workflow's
+indirect `needs.changes.outputs.sha` checkout source. App jobs now use the event's
+immutable `github.sha` or the reusable caller's explicit full commit SHA directly.
+The initial job rejects mutable refs before checkout, and both always-running
+gates require that job to succeed before checking out or executing source. The
+release caller supplies its validated candidate SHA; a normal manual dispatch
+has no alternate revision input. Keep the existing PR cache scope, permissions
+and release-candidate checks. SHA syntax validation alone does not establish
+that arbitrary code is trusted.
+
+Rust alerts 32 and 33 (`rust/cleartext-transmission`, CodeQL 2.27.3) were reviewed
+against the complete SARIF paths. The analysis propagates credential results
+through tuple destructuring into the separate URL/configuration element. In
+`settings.rs`, `grading_input_with` returns `(url, token)` and `model_input` returns
+`(config, key)` without copying credentials into the first element. The reported
+`ai.rs` URL-formatting expressions use only that validated URL. Credentials are
+sent separately with `bearer_auth`, never inserted into the request target.
+
+These two alerts are false positives under the current boundaries: service and
+model URLs require HTTPS outside loopback, reject userinfo/query/fragment
+credentials, and use a client with proxies and redirects disabled. Local HTTP
+is intentionally limited to loopback. The settings URL regressions cover remote
+IPv4/IPv6 and deceptive localhost suffixes; synthetic HTTP tests assert the exact
+request line and the separate Bearer header. Reassess the disposition if these
+validators, tuple contents, request construction or transport policies change;
+do not disable the Rust rule.
 
 The main ruleset requires `Service CI`, `Desktop CI`, `Android CI` and
 resolved conversations, with no bypass actors. Native approving votes and

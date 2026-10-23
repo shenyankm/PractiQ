@@ -537,16 +537,16 @@ def test_workflows_deduplicate_common_checks_without_dropping_native_gates():
             assert gate["name"] == f"{gate_scope.title()} CI" and gate["if"] == "${{ always() }}"
             gates.add(gate["name"])
             assert gate["needs"] == ["changes", "quality", *dependencies]
-            gate_step = next(step for step in gate["steps"] if "run" in step)
+            gate_step = next(step for step in gate["steps"]
+                             if step.get("run", "").startswith("python server/scripts/ci_scope.py gate "))
             assert gate_step["run"] == f"python server/scripts/ci_scope.py gate {gate_scope}"
             assert gate_step["env"]["NEEDS"] == "${{ toJSON(needs) }}"
     app = workflows["app"]["jobs"]
-    assert app["changes"]["outputs"]["sha"] == "${{ steps.source.outputs.sha }}"
-    source = next(step for step in app["changes"]["steps"] if step.get("id") == "source")
-    assert 'git rev-parse HEAD' in source["run"] and 'GITHUB_OUTPUT' in source["run"]
+    assert "sha" not in app["changes"]["outputs"]
+    assert app["changes"]["steps"][0]["id"] == "validate-source"
     for key, job in app.items():
         checkout, = (step for step in job["steps"] if step.get("uses", "").startswith("actions/checkout@"))
-        assert checkout["with"]["ref"] == ("${{ inputs.ref || github.sha }}" if key == "changes" else "${{ needs.changes.outputs.sha }}")
+        assert checkout["with"]["ref"] == "${{ inputs.ref || github.sha }}"
         if key != "changes":
             assert "changes" in job["needs"]
     # One scheduler per event/revision; no separate caller starts common checks again.
@@ -695,6 +695,42 @@ def test_android_ci_builds_shared_frontend_once_and_only_packages_final_apks():
 
     release_jobs = yaml.load((root / ".github/workflows/release.yml").read_text(), Loader=yaml.BaseLoader)["jobs"]
     assert release_jobs["apps"]["permissions"]["actions"] == "read"
+
+
+@pytest.mark.parametrize("revision,valid", [
+    ("a1" * 20, True), ("0123456789abcdef" * 2 + "01234567", True),
+    ("", False), ("main", False), ("refs/pull/1/head", False), ("v0.1.0", False),
+    ("a" * 39, False), ("a" * 41, False), ("g" * 40, False),
+    ("a" * 40 + "\n", False), ("$(printf injected)", False),
+])
+def test_app_revisions_must_be_full_commit_shas(revision, valid):
+    root = Path(__file__).resolve().parents[2]
+    workflow = yaml.load((root / ".github/workflows/app.yml").read_text(), Loader=yaml.BaseLoader)
+    assert workflow["on"]["workflow_dispatch"] == ""
+    validator = workflow["jobs"]["changes"]["steps"][0]
+    assert validator["id"] == "validate-source"
+    assert validator["env"]["SOURCE_SHA"] == "${{ inputs.ref || github.sha }}"
+    result = subprocess.run(
+        ["bash", "-eo", "pipefail", "-c", validator["run"]],
+        env={**os.environ, "SOURCE_SHA": revision}, capture_output=True, text=True, check=False,
+    )
+    assert (result.returncode == 0) is valid, result.stdout + result.stderr
+    assert "injected" not in result.stdout
+
+
+@pytest.mark.parametrize("job", ["desktop-gate", "android-gate"])
+@pytest.mark.parametrize("status", ["success", "failure", "cancelled", "skipped"])
+def test_app_gates_require_validated_source_before_checkout(job, status):
+    root = Path(__file__).resolve().parents[2]
+    workflow = yaml.load((root / ".github/workflows/app.yml").read_text(), Loader=yaml.BaseLoader)
+    guard = workflow["jobs"][job]["steps"][0]
+    assert guard["id"] == "source-ready"
+    assert guard["env"]["SOURCE_STATUS"] == "${{ needs.changes.result }}"
+    result = subprocess.run(
+        ["bash", "-eo", "pipefail", "-c", guard["run"]],
+        env={**os.environ, "SOURCE_STATUS": status}, check=False,
+    )
+    assert (result.returncode == 0) is (status == "success")
 
 
 def test_service_python_matrix_retains_minimum_version_and_runtime_artifact_names():

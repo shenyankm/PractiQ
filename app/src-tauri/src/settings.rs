@@ -896,6 +896,9 @@ mod tests {
         for url in [
             "not-a-url",
             "http://example.com",
+            "http://192.0.2.1",
+            "http://[2001:db8::1]",
+            "http://localhost.example.com",
             "https://user:password@example.com",
             "https://example.com?token=dummy",
             "https://example.com#token",
