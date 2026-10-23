@@ -332,3 +332,83 @@ it("shows elapsed and total segment time and clears duration for an unloaded sou
   fireEvent.emptied(player);
   expect(screen.getByLabelText(/^播放时间：/).textContent).toContain(" / —");
 });
+
+it.each(["self_test", "mock_exam"] as const)("retries a failed passive %s state read in place without playing", async kind => {
+  const { state } = strictPlayback(undefined, true);
+  const original = mockApi.getMockImplementation()!;
+  mockApi.mockRejectedValueOnce(new Error("temporary state read failure"));
+  const session = { id: "session", kind, position: 0, finishedAt: null, submittedAt: null } as Session;
+  const view = render(<ListeningPlayer question={question} session={session} />);
+  expect((await screen.findByRole("alert")).textContent).toBe("播放状态读取失败，请重试。");
+  expect((screen.getByRole("button", { name: "播放听力" }) as HTMLButtonElement).disabled).toBe(true);
+  // Practice passes the same listening material when moving between its children.
+  view.rerender(<ListeningPlayer question={{ ...question }} session={{ ...session, position: 1 }} />);
+  expect(mockApi).toHaveBeenCalledTimes(1);
+  expect(screen.getByRole("button", { name: "重试" })).toBeTruthy();
+  mockApi.mockImplementation(original);
+  await userEvent.click(screen.getByRole("button", { name: "重试" }));
+  await waitFor(() => expect((screen.getByRole("button", { name: "播放听力" }) as HTMLButtonElement).disabled).toBe(false));
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(mockApi.mock.calls.map(([request]) => request)).toEqual([
+    { type: "listening_playback", id: "session", question_id: question.id, action: "state" },
+    { type: "listening_playback", id: "session", question_id: question.id, action: "state" },
+  ]);
+  expect(HTMLMediaElement.prototype.play).not.toHaveBeenCalled();
+  expect(state.used).toBe(0);
+  await userEvent.click(screen.getByRole("button", { name: "播放听力" }));
+  await waitFor(() => expect(state.used).toBe(1));
+});
+
+it("keeps exhausted limits and asset errors after retrying a failed state read", async () => {
+  const { state } = strictPlayback(undefined, true);
+  state.used = state.limit;
+  mockApi.mockRejectedValueOnce(new Error("state read failed"));
+  const view = render(<ListeningPlayer question={question} session={{ id: "session", kind: "self_test", finishedAt: null, submittedAt: null } as Session} />);
+  await screen.findByRole("button", { name: "重试" });
+  fireEvent.error(view.container.querySelector("audio")!);
+  await userEvent.click(screen.getByRole("button", { name: "重试" }));
+  await screen.findByText("已播放 2 / 2 遍");
+  expect((screen.getByRole("button", { name: "播放听力" }) as HTMLButtonElement).disabled).toBe(true);
+  expect(screen.getByRole("alert").textContent).toBe("音频加载或播放失败，请检查文件后重试。");
+  expect(screen.queryByRole("button", { name: "重试" })).toBeNull();
+  expect(HTMLMediaElement.prototype.play).not.toHaveBeenCalled();
+  expect(mockApi.mock.calls.every(([request]) => request.type === "listening_playback" && request.action === "state")).toBe(true);
+});
+
+it.each(["session", "question", "finish", "unmount"] as const)("ignores a stale state retry after %s changes", async lifecycle => {
+  const { state } = strictPlayback(undefined, true);
+  const session = { id: "session", kind: "self_test", finishedAt: null, submittedAt: null } as Session;
+  mockApi.mockRejectedValueOnce(new Error("state read failed"));
+  const view = render(<ListeningPlayer question={question} session={session} />);
+  let complete!: (value: typeof state) => void;
+  const pending = new Promise<typeof state>(resolve => { complete = resolve; });
+  mockApi.mockReturnValueOnce(pending as ReturnType<typeof api>);
+  await userEvent.click(await screen.findByRole("button", { name: "重试" }));
+  expect((screen.getByRole("button", { name: "播放听力" }) as HTMLButtonElement).disabled).toBe(true);
+  expect(mockApi).toHaveBeenCalledTimes(2);
+  state.used = state.limit;
+  if (lifecycle === "session") view.rerender(<ListeningPlayer question={question} session={{ ...session, id: "other" }} />);
+  else if (lifecycle === "question") view.rerender(<ListeningPlayer question={{ ...question, id: "other" }} session={session} />);
+  else if (lifecycle === "finish") view.rerender(<ListeningPlayer question={question} session={{ ...session, finishedAt: 1 }} />);
+  else view.unmount();
+  if (lifecycle === "session" || lifecycle === "question") await screen.findByText("已播放 2 / 2 遍");
+  await act(async () => { complete({ ...state, used: 0 }); await pending; });
+  if (lifecycle === "session" || lifecycle === "question") {
+    expect(screen.getByText("已播放 2 / 2 遍")).toBeTruthy();
+    expect((screen.getByRole("button", { name: "播放听力" }) as HTMLButtonElement).disabled).toBe(true);
+  }
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(HTMLMediaElement.prototype.play).not.toHaveBeenCalled();
+  expect(mockApi.mock.calls.every(([request]) => request.type === "listening_playback" && request.action === "state")).toBe(true);
+});
+
+it("clears a passive state error when explicit practice playback rereads state successfully", async () => {
+  const { state } = strictPlayback();
+  mockApi.mockRejectedValueOnce(new Error("state read failed"));
+  render(<ListeningPlayer question={question} session={{ id: "session", kind: "practice", finishedAt: null, submittedAt: null } as Session} />);
+  await screen.findByRole("button", { name: "重试" });
+  await userEvent.click(screen.getByRole("button", { name: "播放听力" }));
+  await waitFor(() => expect(state.used).toBe(1));
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(screen.queryByRole("button", { name: "重试" })).toBeNull();
+});

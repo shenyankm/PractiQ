@@ -119,6 +119,7 @@ export const en = {
   "播放速度": "Playback speed",
   "已播放 {0} / {1} 遍": "Plays used: {0} / {1}",
   "音频加载或播放失败，请检查文件后重试。": "Could not load or play audio. Check the file and try again.",
+  "播放状态读取失败，请重试。": "Could not read playback state. Try again.",
   "听力播放进度": "Audio position",
   "选择听力音频": "Choose audio",
   "移除音频": "Remove audio",
