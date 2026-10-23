@@ -6,6 +6,7 @@ Models are fake; extraction and graph execution are real.
 import asyncio
 import hashlib
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 from uuid import uuid4
 
@@ -75,7 +76,8 @@ async def test_native_binary_import_and_verified_artifacts(setup, kind, fixture,
         assert result["usage"]
         if kind == "pdf":
             thread = str(uuid4())
-            monkeypatch.setattr(task_api, 'client', lambda: None)
+            snapshot = AsyncMock(return_value=SimpleNamespace(values=result))
+            monkeypatch.setattr(task_api, 'client', lambda: SimpleNamespace(snapshot=snapshot))
             monkeypatch.setattr(task_api, '_read_task_record', AsyncMock(return_value={'document': reference}))
             monkeypatch.setattr(task_api, 'review_task', AsyncMock(return_value=result))
             monkeypatch.setattr(task_api, 'get_task', AsyncMock(return_value=result))
@@ -88,6 +90,7 @@ async def test_native_binary_import_and_verified_artifacts(setup, kind, fixture,
             assert response.status_code == 200
             assert response.content == (store.root / artifact["objectKey"]).read_bytes()
             assert hashlib.sha256(response.content).hexdigest() == artifact["sha256"]
+            snapshot.assert_awaited_once_with({'document': reference})
             forged = {**artifact, "objectKey": "private/secret"}
             assert (await client.post(endpoint, json=forged)).status_code == 404
             (store.root / artifact["objectKey"]).write_bytes(b"x" * artifact["sizeBytes"])
