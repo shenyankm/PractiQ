@@ -185,15 +185,21 @@ def checked_crop_figures(
     if len(kinds) != len(boxes):
         raise ValueError("each crop requires one kind")
     try:
-        with Image.open(BytesIO(page_image)) as original, original.convert("RGB") as image:
-            result = []
-            for bbox, kind in zip(boxes, kinds, strict=True):
-                try:
-                    rejected = kind == "diagram" and diagram_crop_has_cut_ink(image, bbox)
-                    result.append((None, True) if rejected else (crop_figure(image, bbox), False))
-                except (OSError, ValueError, OverflowError):
-                    result.append((None, False))
-            return result
+        with Image.open(BytesIO(page_image)) as original:
+            transparent = "A" in original.getbands() or "transparency" in original.info
+            with Image.new("RGB", original.size, "white") if transparent else original.convert("RGB") as image:
+                if transparent:
+                    # Paper compositing must precede both the ink guard and JPEG encoding.
+                    with original.convert("RGBA") as rgba, rgba.getchannel("A") as alpha:
+                        image.paste(rgba, mask=alpha)
+                result = []
+                for bbox, kind in zip(boxes, kinds, strict=True):
+                    try:
+                        rejected = kind == "diagram" and diagram_crop_has_cut_ink(image, bbox)
+                        result.append((None, True) if rejected else (crop_figure(image, bbox), False))
+                    except (OSError, ValueError, OverflowError):
+                        result.append((None, False))
+                return result
     except (OSError, ValueError):
         return [(None, False)] * len(boxes)
 
