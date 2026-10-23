@@ -542,7 +542,7 @@ def test_workflows_deduplicate_common_checks_without_dropping_native_gates():
             assert gate_step["run"] == f"python server/scripts/ci_scope.py gate {gate_scope}"
             assert gate_step["env"]["NEEDS"] == "${{ toJSON(needs) }}"
     app = workflows["app"]["jobs"]
-    assert "sha" not in app["changes"]["outputs"]
+    assert app["changes"]["outputs"]["sha"] == "${{ inputs.ref || github.sha }}"
     assert app["changes"]["steps"][0]["id"] == "validate-source"
     for key, job in app.items():
         checkout, = (step for step in job["steps"] if step.get("uses", "").startswith("actions/checkout@"))

@@ -127,7 +127,8 @@ No duplicate scanning workflow or query exclusions are needed.
 The 31 `actions/cache-poisoning/poisonable-step` findings shared the App workflow's
 indirect `needs.changes.outputs.sha` checkout source. App jobs now use the event's
 immutable `github.sha` or the reusable caller's explicit full commit SHA directly.
-The initial job rejects mutable refs before checkout, and both always-running
+The same SHA remains a `changes` output for the final gate's metadata contract,
+not as a checkout source. The initial job rejects mutable refs before checkout, and both always-running
 gates require that job to succeed before checking out or executing source. The
 release caller supplies its validated candidate SHA; a normal manual dispatch
 has no alternate revision input. Keep the existing PR cache scope, permissions

@@ -30,6 +30,7 @@ jobs:
       pull-requests: read
     outputs:
       required: ${{ steps.scope.outputs.required }}
+      sha: ${{ inputs.ref || github.sha }}
     steps:
       - name: Validate immutable source revision
         id: validate-source
