@@ -691,6 +691,16 @@ def test_service_python_matrix_retains_minimum_version_and_runtime_artifact_name
     assert names == ["service-web-checks${{ matrix.python == '3.14' && '-python314' || '' }}", "service-checks${{ matrix.python == '3.14' && '-python314' || '' }}"]
 
 
+def test_service_image_checks_real_powerpoint_conversion():
+    root = Path(__file__).resolve().parents[2]
+    dockerfile = (root / "Dockerfile.server").read_text()
+    assert "libreoffice-impress" in dockerfile
+    makefile = (root / "Makefile").read_text().split("image-check: web-build\n", 1)[1].split("alerts-check:", 1)[0]
+    assert "check_container.py" in makefile
+    assert "--network none" in makefile and "--read-only" in makefile
+    assert "AI_READ_ONLY=1" in makefile
+
+
 def test_service_native_builds_apply_pinned_build_dependencies():
     root = Path(__file__).resolve().parents[2]
     project = tomllib.loads((root / "server/pyproject.toml").read_text())

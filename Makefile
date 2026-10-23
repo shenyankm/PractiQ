@@ -51,6 +51,7 @@ audit-rust:
 	"$(AI_PYTHON)" app/scripts/check-rust-targets.py
 image-check: web-build
 	docker build -f Dockerfile.server -t practiq-ai:ci .
+	docker run --rm --network none --read-only --cpus 2 --memory 2g --pids-limit 128 --cap-drop ALL --security-opt no-new-privileges --tmpfs /tmp:rw,nosuid,nodev,size=536870912,mode=1777 --tmpfs /home/practiq:rw,nosuid,nodev,size=67108864,uid=10001,gid=10001,mode=700 --tmpfs /var/lib/practiq:rw,nosuid,nodev,size=16777216,uid=10001,gid=10001,mode=700 -e AI_READ_ONLY=1 -e AI_SERVICE_TOKEN=container-check-only --mount type=bind,source="$(CURDIR)/app/fixtures",target=/fixtures,readonly --mount type=bind,source="$(CURDIR)/server/scripts/check_container.py",target=/checks/check_container.py,readonly --entrypoint python practiq-ai:ci /checks/check_container.py
 alerts-check:
 	docker run --rm --network none --read-only --tmpfs /tmp:rw,nosuid,nodev,size=134217728,mode=1777 --cap-drop ALL --security-opt no-new-privileges --mount type=bind,source="$(CURDIR)/server/deploy",target=/rules,readonly --workdir /rules --entrypoint /bin/promtool prom/prometheus:v3.15.0@sha256:efd719c99d83b060d9daefdcf00360461adf279f45ef5391f8d111892118753e test rules alerts.test.yml
 	docker run --rm --network none --read-only --mount type=bind,source="$(CURDIR)/server/deploy",target=/rules,readonly --workdir /rules --entrypoint /bin/promtool prom/prometheus:v3.15.0@sha256:efd719c99d83b060d9daefdcf00360461adf279f45ef5391f8d111892118753e check config --syntax-only prometheus.example.yml
