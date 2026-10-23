@@ -1,9 +1,11 @@
+import asyncio
 import hashlib
+import threading
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from practiq_ai import webapp
+from practiq_ai import storage, webapp
 from practiq_ai.errors import DocumentProcessingError
 from practiq_ai.webapp import app
 from tests.support import FakeObjectStore
@@ -120,6 +122,51 @@ async def test_private_local_put_validates_body_and_token(tmp_path, monkeypatch)
         assert response.status_code == 200, response.text
         assert response.json() == prepared.json()['document']
         assert (await client.post('/api/uploads', json=upload().model_dump(), headers=headers)).json()['upload'] is None
+
+
+async def test_upload_hash_runs_off_event_loop_while_health_remains_responsive(tmp_path, monkeypatch):
+    from tests.support import object_store, upload
+
+    store = object_store(tmp_path)
+    monkeypatch.setattr(webapp, 'get_object_store', lambda: store)
+    payload = b'quiz'
+    metadata = upload(payload)
+    loop = asyncio.get_running_loop()
+    event_loop_thread = threading.get_ident()
+    hash_started = asyncio.Event()
+    release_hash = threading.Event()
+    hash_threads = []
+    sha256 = hashlib.sha256
+
+    def gated_hash(data):
+        thread = threading.get_ident()
+        hash_threads.append(thread)
+        loop.call_soon_threadsafe(hash_started.set)
+        # Fail on thread affinity rather than deadlocking if hashing regresses.
+        if thread != event_loop_thread:
+            assert release_hash.wait(10)
+        return sha256(data)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url='http://test',
+                           headers={'Authorization': 'Bearer test-token'}) as client:
+        prepared = await client.post('/api/uploads', json=metadata.model_dump())
+        monkeypatch.setattr(storage.hashlib, 'sha256', gated_hash)
+        pending = asyncio.create_task(client.put(prepared.json()['upload']['url'], content=payload))
+        try:
+            async with asyncio.timeout(10):
+                await hash_started.wait()
+                assert hash_threads[0] != event_loop_thread
+                assert (await client.get('/ok')).status_code == 200
+                assert not pending.done()
+        finally:
+            release_hash.set()
+            response = await pending
+
+    assert response.status_code == 200, response.text
+    assert response.json() == prepared.json()['document']
+    assert len(hash_threads) == 2  # Incoming digest and stored-byte verification.
+    assert all(thread != event_loop_thread for thread in hash_threads)
+    assert (tmp_path / response.json()['objectKey']).read_bytes() == payload
 
 
 async def test_metadata_limits_security_headers_and_removed_product_routes():
