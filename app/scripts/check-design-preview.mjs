@@ -123,6 +123,12 @@ try {
   await expect(notice).toHaveCSS('background-color', 'rgb(76, 5, 25)');
   await expect(notice).toHaveCSS('border-radius', '12px');
   await expect(notice).toHaveCSS('box-shadow', /rgba\(0,\s*0,\s*0/);
+  const darkSonner = await app.locator('[data-sonner-toaster]').evaluate(node => ({
+    success: getComputedStyle(node).getPropertyValue('--success-border').trim(),
+    warning: getComputedStyle(node).getPropertyValue('--warning-border').trim(),
+  }));
+  assert.equal(darkSonner.success, '#10b981');
+  assert.equal(darkSonner.warning, '#d97706');
   await app.getByRole("button", { name: "主题", exact: true }).click();
   await app.getByRole("menuitemradio", { name: "浅色", exact: true }).click();
   await expect(notice).toHaveCSS('background-color', 'rgb(255, 241, 242)');

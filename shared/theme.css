@@ -64,8 +64,8 @@
   --secondary-foreground: #1d4ed8;
   --muted: #f1f5f9;
   --muted-foreground: #475569;
-  --accent: #f8fafc;
-  --accent-foreground: #0f172a;
+  --accent: #eff6ff;
+  --accent-foreground: #1d4ed8;
   --destructive: #9f1239;
   --border: #e2e8f0;
   --input: #82909f;
@@ -136,6 +136,8 @@
   --success-background: #064e3b;
   --success-border: #10b981;
   --success-foreground: #a7f3d0;
+  --toast-success-border: var(--success-border);
+  --toast-warning-border: var(--warning-border);
 }
 html { color-scheme: light; }
 html.dark { color-scheme: dark; }
