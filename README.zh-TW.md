@@ -25,7 +25,7 @@
 | :---: | :---: |
 | [![英文題庫首頁，包含範例題庫名稱與說明](docs/assets/screenshots/banks-en.png)](docs/assets/screenshots/banks-en.png) | [![英文作答畫面，包含選項與答案卡](docs/assets/screenshots/practice-en.png)](docs/assets/screenshots/practice-en.png) |
 | **錯題** | **練習紀錄** |
-| [![英文錯題清單，包含得分與所屬題庫](docs/assets/screenshots/mistakes-en.png)](docs/assets/screenshots/mistakes-en.png) | [![英文練習紀錄，包含進度與成績](docs/assets/screenshots/history-en.png)](docs/assets/screenshots/history-en.png) |
+| [![英文錯題清單，包含所屬題庫與收藏操作](docs/assets/screenshots/mistakes-en.png)](docs/assets/screenshots/mistakes-en.png) | [![英文練習紀錄，包含進度與成績](docs/assets/screenshots/history-en.png)](docs/assets/screenshots/history-en.png) |
 
 ## 先試用：不需設定模型
 
