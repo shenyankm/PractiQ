@@ -377,7 +377,7 @@ mod tests {
                 headers.push(byte[0]);
             }
             let headers = String::from_utf8(headers).unwrap();
-            assert!(headers.starts_with(path), "{headers}");
+            assert_eq!(headers.lines().next(), Some(path));
             assert!(headers
                 .to_lowercase()
                 .contains(&format!("authorization: bearer {token}")));

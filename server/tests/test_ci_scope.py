@@ -8,6 +8,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+import yaml
 
 SCRIPT = Path(__file__).parents[1] / "scripts/ci_scope.py"
 
@@ -173,6 +174,31 @@ def needs_for(scope, required=True):
 @pytest.mark.parametrize("required", [True, False])
 def test_gate_accepts_completed_checks_or_deliberate_documentation_skip(ci_scope, scope, required):
     ci_scope.check_gate(scope, needs_for(scope, required))
+
+
+@pytest.mark.parametrize("scope", ["desktop", "android"])
+@pytest.mark.parametrize("required", [True, False])
+def test_app_workflow_outputs_satisfy_the_real_gate_contract(scope, required):
+    workflow = yaml.load(
+        (SCRIPT.parents[2] / ".github/workflows/app.yml").read_text(), Loader=yaml.BaseLoader,
+    )
+    context = {
+        "${{ steps.scope.outputs.required }}": str(required).lower(),
+        "${{ inputs.ref || github.sha }}": "a1" * 20,
+    }
+    needs = needs_for(scope, required)
+    needs["changes"]["outputs"] = {
+        name: context[expression]
+        for name, expression in workflow["jobs"]["changes"]["outputs"].items()
+    }
+    gate = workflow["jobs"][f"{scope}-gate"]
+    assert set(gate["needs"]) == set(needs)
+    process = subprocess.run(
+        [sys.executable, str(SCRIPT), "gate", scope],
+        env={**os.environ, "NEEDS": json.dumps(needs)},
+        capture_output=True, text=True, timeout=10, check=False,
+    )
+    assert process.returncode == 0, process.stdout + process.stderr
 
 
 @pytest.mark.parametrize("paths,required_scopes", [
