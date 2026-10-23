@@ -27,6 +27,16 @@ are normalized against each OCR page's own width and height before cropping the
 stored source page. Models may associate and classify known figures, but cannot
 invent or modify their bounds.
 
+Model-facing figure previews are capped at 200 KiB before Base64 encoding.
+Verified Tencent subimages at or below that limit are sent unchanged; larger
+subimages use the bounded JPEG encoder over their full extent. These previews
+never replace stored `imageRef` or source bytes, checksums, IDs or coordinates.
+Generated crops and resized previews composite transparency (including palette
+alpha) onto white before JPEG encoding and the diagram boundary check. A failed
+preview is omitted from model images, while the complete OCR figure inventory,
+authoritative artifacts and existing human-review requirements are retained.
+Neighbor-context completion reuses the same preview messages.
+
 Model-facing OCR page numbers use the same one-based numbering as question IDs;
 stored OCR indices remain unchanged. Context completion preserves ordinary
 questions' existing material blocks as well as composite content. Associated

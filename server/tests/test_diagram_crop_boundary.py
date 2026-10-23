@@ -95,3 +95,40 @@ def test_checked_batch_decodes_once_and_preserves_failure_positions(monkeypatch)
     assert crops[2][0] is not None and crops[2][1] is False
     assert len(opened) == 1
     assert vision.checked_crop_figures(b'not an image', [BOX], ['diagram']) == [(None, False)]
+
+
+@pytest.mark.parametrize('mode', ['RGBA', 'LA', 'P'])
+def test_transparent_diagram_is_composited_before_encoding_and_boundary_guard(mode, monkeypatch):
+    with Image.new(mode, (200, 160), 0) as image:
+        if mode == 'P':
+            image.putpalette([0, 0, 0] * 256)
+            image.info['transparency'] = bytes([0, 255, 128])
+            ink = 1
+        else:
+            ink = (0, 0, 0, 255) if mode == 'RGBA' else (0, 255)
+        draw = ImageDraw.Draw(image)
+        draw.rectangle((60, 55, 100, 85), fill=ink)
+        draw.line((150, 100, 170, 100), fill=ink, width=2)
+        translucent = 2 if mode == 'P' else (0, 0, 0, 128) if mode == 'RGBA' else (0, 128)
+        draw.rectangle((5, 130, 25, 150), fill=translucent)
+        payload = image_bytes(image)
+    original_open = vision.Image.open
+    opened = []
+
+    def counted_open(*args, **kwargs):
+        opened.append(1)
+        return original_open(*args, **kwargs)
+
+    monkeypatch.setattr(vision.Image, 'open', counted_open)
+    crops = vision.checked_crop_figures(payload, [[0, 0, 1, 1], BOX], ['diagram', 'diagram'])
+    assert len(opened) == 1
+    assert crops[1] == (None, True)
+    crop, rejected = crops[0]
+    assert crop is not None and not rejected
+    with original_open(BytesIO(crop)) as preview:
+        background = preview.getpixel((20, 20))
+        foreground = preview.getpixel((80, 70))
+        translucent = preview.getpixel((15, 140))
+        assert isinstance(background, tuple) and min(background) > 245
+        assert isinstance(foreground, tuple) and max(foreground) < 10
+        assert isinstance(translucent, tuple) and all(120 <= channel <= 135 for channel in translucent)

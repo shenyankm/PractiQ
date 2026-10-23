@@ -1229,6 +1229,9 @@ async def _vision(state: VisionTask, runtime: Runtime[None]) -> dict[str, list[d
                 artifact = ArtifactReference.model_validate(image_ref)
                 crop = await store.get_verified(artifact)
                 media_type = artifact.mediaType
+                if len(crop) > vision.MAX_CROP_BYTES:
+                    crop = await asyncio.to_thread(vision.crop_figure, crop, [0, 0, 1, 1])
+                    media_type = "image/jpeg"
             if crop is not None:
                 messages.append(vision._image_message(
                     f"Fixed Tencent PRIMARY figure elementIndex={figure['elementIndex']}. "

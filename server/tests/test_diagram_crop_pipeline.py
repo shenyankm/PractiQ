@@ -83,3 +83,34 @@ async def test_source_label_crop_bounds_still_pass_original_cut_guard(monkeypatc
     assert [f.code for f in failures] == (['CROP_FAILED'] if not page_available else [] if expected_success else ['CROP_UNVERIFIED'])
     if result[0].imageRef is not None:
         assert await store.get_verified(result[0].imageRef) == vision.crop_figures(payload, [crop])[0]
+
+
+async def test_saved_transparent_crop_preserves_contrast_and_immutable_source(monkeypatch, tmp_path):
+    buffer = BytesIO()
+    with Image.new('RGBA', (200, 160), (0, 0, 0, 0)) as image:
+        ImageDraw.Draw(image).rectangle((60, 55, 100, 85), fill='black')
+        image.save(buffer, 'PNG')
+    payload = buffer.getvalue()
+    monkeypatch.setenv('AI_STORAGE_DIR', str(tmp_path))
+    from practiq_ai.config import load
+
+    store = ObjectStore(load())
+    monkeypatch.setattr(document, 'get_object_store', lambda: store)
+    reference = await store.put_document(payload, DocumentUploadRequest(
+        sourceType='image', fileName='source.png', mediaType='image/png', sizeBytes=len(payload),
+        sha256=hashlib.sha256(payload).hexdigest()))
+    page = await store.put_artifact(payload, source_sha256=reference.sha256, kind='page', index=0, media_type='image/png')
+    box = [.2, .25, .8, .75]
+    visual = VisualElement(kind='diagram', description='Black rectangle', page=0, bbox=box, questionIndexes=[0])
+    result, failures, truncated = await document._crop_visuals({'document': reference.model_dump(),
+        'visionResults': [{'index': 0, 'kind': 'page', 'artifact': page.model_dump()}]}, [visual])
+    assert not failures and not truncated
+    assert result[0].bbox == box and result[0].sourceRef == page
+    assert result[0].imageRef is not None
+    with Image.open(BytesIO(await store.get_verified(result[0].imageRef))) as crop:
+        background = crop.getpixel((5, 5))
+        foreground = crop.getpixel((40, 30))
+        assert isinstance(background, tuple) and min(background) > 245
+        assert isinstance(foreground, tuple) and max(foreground) < 10
+    assert await store.get_verified(page) == await store.get_verified(reference) == payload
+    assert page.sha256 == reference.sha256 == hashlib.sha256(payload).hexdigest()
