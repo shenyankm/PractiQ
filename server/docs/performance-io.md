@@ -10,24 +10,44 @@ They add no cache, connection pool, configuration, or dependency.
 reads the authoritative task record, including supported-format and expiry checks.
 The namespace check is only an early rejection, not authorization. Membership
 compares all four reference fields (`objectKey`, `sha256`, `sizeBytes`,
-`mediaType`). An exact source match skips task detail and review; otherwise detail
-is checked first and review is loaded only on a miss. Every accepted reference is
-still read through `get_verified`; sources retain `DocumentReference` validation.
+`mediaType`). An exact original-source match skips snapshots, task detail and
+review. Other references first check the saved checkpoint's public `pageRefs`,
+`chunkRefs`, and OCR evidence for vision units actually exposed by `review_task`.
+OCR entries without a public vision unit are not authorized; once merged questions
+exist, orphan parsed-unit indices no longer expose OCR evidence. Internal text,
+input-part and unit-result references are not recursively authorized.
 
-Deterministic regression evidence in `tests/test_artifact_performance.py` uses
-saved structures with 1, 100, and 300 units. Each workload has these call counts:
+A checkpoint membership miss retains the existing detail-then-review fallback
+for result-only references. Every accepted reference still uses `get_verified`;
+original sources retain `DocumentReference` validation. There is no cross-request
+cache, and source namespace alone never authorizes a read.
 
-| Reference found in | Previous detail / review calls | New detail / review calls | Verified payload reads |
-| --- | --- | --- | --- |
-| Source record | 1 / 1 | 0 / 0 | 1 |
-| Task detail | 1 / 1 | 1 / 0 | 1 |
-| Stage review | 1 / 1 | 1 / 1 | 1 |
+`tests/test_artifact_performance.py` saves real in-memory LangGraph checkpoints
+and local externalized unit JSON files for N = 1, 30, 100. It first verifies that
+real review loads N units and exposes the requested references, then downloads
+all N distinct page, chunk, or OCR evidence artifacts. The asserted work is:
 
-The baseline unconditionally loaded both detail and review. Each such call reads
-a snapshot; skipped review also skips any unit-result reads it would have needed.
-The regression counts the public helper calls, not real checkpoint SQL or disk
-latency. It also checks four-field source mismatches, cross-task rejection,
-missing/expired/unsupported tasks, and actual missing/corrupt local source files.
+| Work for N public checkpoint artifact downloads | Before this fix | After |
+| --- | --- | --- |
+| Detail / review calls | N / N | 0 / 0 |
+| Snapshot reads | 2N | N |
+| Unrelated unit-result loads | N² | 0 |
+| Requested verified payload reads | N | N |
+
+For example, the 30-unit case previously loaded 900 unit results; it now loads
+none. This is deterministic work-count evidence, not a latency benchmark. The
+snapshot path uses the real runtime reader with an in-memory checkpointer;
+authoritative database rows are synthetic, not checkpoint SQL measurements.
+Result-only references still incur full fallback work, plus the initial snapshot
+read on a checkpoint miss. The regression also verifies this real fallback.
+
+Coverage retains four-field mismatches, cross-task and same-source nonmember
+rejection, missing/expired/unsupported tasks, and missing/corrupt requested bytes.
+An unrelated corrupt unit no longer prevents reading a valid public source page.
+Merged/unmerged OCR exposure and internal-reference rejection are tested as well.
+This fix changes only `webapp.py` in production: it is outside `execution.code_version`'s
+hashed inputs, and `task_api.py` is unchanged, so this change alone does not alter
+the execution signature or existing-task resume compatibility.
 
 ## Resume preflight (recommendation 14)
 

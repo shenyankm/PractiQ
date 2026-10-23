@@ -303,7 +303,8 @@ async def read_artifact(reference: ArtifactReference, thread_id: Annotated[UUID 
     try:
         if thread_id is None:
             raise DocumentProcessingError(404, 'Task not found', 'TASK_NOT_FOUND')
-        task = await task_api._read_task_record(task_api.client(), str(thread_id))
+        service = task_api.client()
+        task = await task_api._read_task_record(service, str(thread_id))
         source = task['document']
         if (reference.objectKey != source['objectKey']
                 and not reference.objectKey.startswith(f"practiq-agent/artifacts/{source['sha256']}/")):
@@ -318,8 +319,18 @@ async def read_artifact(reference: ArtifactReference, thread_id: Annotated[UUID 
         checked: ArtifactReference | DocumentReference = reference
         if contains(source):
             checked = DocumentReference.model_validate(source)
-        elif not contains(await task_api.get_task(str(thread_id))) and not contains(await task_api.review_task(str(thread_id))):
-            raise DocumentProcessingError(404, 'Artifact not found', 'ARTIFACT_NOT_FOUND')
+        else:
+            values = (await service.snapshot(task)).values or {}
+            public_refs = [*values.get('pageRefs', []), *values.get('chunkRefs', [])]
+            # Mirror review_task's vision units, not arbitrary internal checkpoint references.
+            vision_indices = set(range(len(values.get('pageRefs', []))))
+            if not values.get('result', {}).get('questions'):
+                vision_indices.update(item['index'] for item in values.get('visionResults', []) if item.get('parsed'))
+            public_refs.extend(ref for index, ref in enumerate(values.get('ocrPageRefs', [])) if index in vision_indices)
+            if (not any(all(ref.get(key) == item for key, item in metadata.items()) for ref in public_refs)
+                    and not contains(await task_api.get_task(str(thread_id)))
+                    and not contains(await task_api.review_task(str(thread_id)))):
+                raise DocumentProcessingError(404, 'Artifact not found', 'ARTIFACT_NOT_FOUND')
         payload = await (await asyncio.to_thread(get_object_store)).get_verified(checked)
     except DatabaseError as exc:
         raise HTTPException(503, {"code": "TASK_SERVICE_UNAVAILABLE", "message": "Task database is unavailable"}) from exc
