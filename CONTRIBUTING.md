@@ -22,10 +22,10 @@ The [label catalog](.github/labels.json) uses five core dimensions plus optional
 | --- | --- |
 | Type | At most one of `bug`, `enhancement`, `documentation`, `question` |
 | Area | One primary `area:app-desktop`, `area:app-android`, `area:web`, `area:server`, `area:shared`, `area:build`, `area:docs`, or `area:cross-cutting`; maintainers may add more for cross-module work |
-| Priority | At most one of `P0` (critical), `P1` (high), `P2` (normal), `P3` (low); AI proposes a missing priority and maintainers can correct it |
+| Priority | At most one of `P0` (critical), `P1` (high), `P2` (normal), `P3` (low); assigned by maintainers |
 | Status | `status:needs-info` or `status:blocked`, maintained manually; use Projects for progress and completion |
 | Community | `good first issue` and `help wanted`, assigned by maintainers |
-| Topic | Up to two relevant `topic:*` or `accessibility` labels, suggested by AI while preserving existing topics |
+| Topic | Up to two relevant `topic:*` or `accessibility` labels, assigned by maintainers |
 
 | Topic label | Scope |
 | --- | --- |
@@ -38,26 +38,11 @@ The [label catalog](.github/labels.json) uses five core dimensions plus optional
 | `topic:testing` | Automated tests, regression coverage, and acceptance |
 | `accessibility` | Accessibility, keyboard navigation, and touch usability; reuses the existing label |
 
-The [Issue labels workflow](.github/workflows/issue-labels.yml) runs automatically only when an issue is first opened. It fills missing Type, Area, and Priority classifications, preserving existing labels and manual triage. Forms supply the Type label; CLI/API submissions can use `[Bug]:`, `[Feature]:`, `[Question]:`, or `[Docs]:` title prefixes, or the corresponding form's body headings. An exact selected option under `### Affected area`, `### Primary area`, or `### Related area` supplies Area. The configured AI fills gaps and assesses priority from reported impact, using `P2` for limited evidence. Ambiguous Type or Area may remain unclassified. Editing or reopening an issue does not trigger classification or additional model charges. Maintainers can adjust labels directly, or remove a dimension's label and manually rerun classification.
-
-Catalog colors and descriptions synchronize after catalog, form, script, or workflow changes reach `main`. Maintainers can also run **Issue labels → Run workflow** on `main`: leave `number` empty to synchronize definitions, or supply one issue number to ask the AI again and fill missing labels. Synchronization does not delete or rename labels, relabel historical issues, or change Dependabot labels. Topic suggestions accompany classification; existing topics count toward the two-label limit, and existing excess topics are not removed. Topics supplement the primary Area.
-
-The write job uses the `PractiQ Issue` environment's `API_KEY`, `BASE_URL`, and `MODEL` secrets, shared with PR labels. Set `BASE_URL` to the provider's HTTPS OpenAI-compatible base URL; the script appends `/chat/completions`. DeepSeek models use `thinking: {type: disabled}` and Qwen models use `enable_thinking: false`. Both workflows follow this environment's model configuration. The job runs only on `main`; the environment can also restrict deployment branches to `main`. No provider SDK or third-party labeling action is installed. See GitHub's [issue-labeling guide](https://docs.github.com/en/actions/tutorials/manage-your-work/add-labels-to-issues).
-
-Label operations use a dedicated private GitHub App, `practiq-issue-bot`, installed only on `shenyankm/PractiQ`. Grant it **Issues: Read and write** and the mandatory **Metadata: Read-only**, with no other permissions, webhooks, or user authorization callbacks. Store its client ID as the `APP_CLIENT_ID` environment variable and its PEM private key as the `APP_PRIVATE_KEY` environment secret in `PractiQ Issue`. The workflow reuses the pinned `actions/create-github-app-token` action to issue an installation token scoped to this repository and Issues write access, then revokes it when the job finishes. The default `GITHUB_TOKEN` has only `contents: read` for checkout; PR tests receive no App or model credentials. The App has no merge or repository-content write permissions. See [GitHub App authentication in Actions](https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/making-authenticated-api-requests-with-a-github-app-in-a-github-actions-workflow).
-
-The initial issue-open event makes at most one model request when Type, Area, or Priority is missing; supplying an issue number in a maintainer's manual dispatch also authorizes one request. The configured provider receives the title, up to 12,000 body characters, and classification labels. This also applies to public contributors' new issues, so provider charges may result; avoid private data in issues. Requests have a 60-second timeout and a 750-token output limit, no tools, no automatic retries, and strict validation against Type, Area, P0–P3, and the eight allowed topics. Errors leave missing labels unassigned and fail the workflow for maintainer inspection or explicit rerun. Uncertain classifications and failed requests cannot be retried by editing or reopening the issue. An initial event for an already complete classification and catalog-only synchronization make no model calls. Maintainer labels and issue text are checked again before adding labels. Disable **Issue labels** in Actions to stop automatic classification. The workflow must reach the default branch before issue events activate it. Validate changes with `node --test .github/scripts/issue-labeler.test.mjs` and actionlint.
+Issue forms supply the Type label. Maintainers assign the remaining labels manually using the catalog above and update label definitions in GitHub when the catalog changes. No issue-labeling workflow synchronizes definitions or calls a model.
 
 ### Pull request labels
 
-New PRs targeting `main` use the same catalog, AI assessment and preservation
-rules through `github-actions[bot]`. The [PR labels workflow](.github/workflows/pr-labels.yml)
-uses the PR title, description and at most 100 changed file paths; it never
-executes PR code or sends source patches to the model. It runs only on initial
-creation; edits, commits and reopening do not repeat paid work. Maintainers
-can explicitly retry with **PR labels → Run workflow** on `main`, supplying a
-PR number. Model suggestions only add missing labels and never authorize
-approval or merging. See [setup, costs and trust boundaries](docs/maintainers/maintainer-agent.md#ai-pull-request-labels).
+Maintainers label PRs manually using the same catalog. Labels do not authorize approval or merging. Issue and PR AI labeling bots have been removed; existing labels remain unchanged.
 
 ## Work from a fork
 
@@ -157,7 +142,7 @@ CI selects work using [shared path rules](server/scripts/ci_scope.py):
 | Shared frontend code, AI contracts, shared fixtures, or build/check dependencies used by both components | Both workflows |
 | Release notes configuration or release template | App workflow |
 | Any workflow YAML, shared CI actions, scope selector, rulesets, or dependency-update configuration | Both workflows; cross-check selectors and privileged workflow safeguards |
-| Documentation, issue/PR templates, or bot labels/scripts | Skip heavy Service/App jobs; bot workflows retain their own tests |
+| Documentation, issue/PR templates, or label catalog | Skip heavy Service/App jobs; manually verify local links and command syntax, parse changed YAML/JSON, and check form fields and labels against the catalog |
 
 Mixed changes run the union of affected checks. App inputs also include the service dependency lock/manifest, build backend, and evaluation helper used by its contract/regression checks. Manual dispatch and release calls run all checks. The final `Service CI`, `Desktop CI`, and `Android CI` gates always run and verify deliberate skips and failures, so required checks still report a result. The [Service](.github/workflows/server.yml) and [App](.github/workflows/app.yml) workflows define commands, platform matrices, and retained diagnostics.
 
@@ -175,7 +160,7 @@ Open a PR to `shenyankm/PractiQ` with base `main`. Complete every template secti
 
 Before requesting review, inspect the full diff for unrelated changes, generated artifacts, secrets, and personal data. Include required generated contracts. All contributions require review before merge; a checked validation box or an explained failure does not replace successful applicable CI.
 
-The [checked-in main ruleset](.github/main-ruleset.json) specifies current-head `Service CI`, `Desktop CI`, and `Android CI` checks and resolved review conversations, without requiring an up-to-date branch or an approving vote. Automatic review approval and withdrawal have been removed. A checked-in ruleset does not activate hosted settings; maintainers verify those separately under [repository security settings](docs/maintainers/dependency-security.md#repository-security-settings). The [PR labels workflow](docs/maintainers/maintainer-agent.md) only assigns labels. A maintainer checks current-head Code Review and Security Review results, resolves findings, and merges manually after all required gates pass. Repository auto-merge is disabled.
+The [checked-in main ruleset](.github/main-ruleset.json) specifies current-head `Service CI`, `Desktop CI`, and `Android CI` checks and resolved review conversations, without requiring an up-to-date branch or an approving vote. Automatic review approval and withdrawal have been removed. A checked-in ruleset does not activate hosted settings; maintainers verify those separately under [repository security settings](docs/maintainers/dependency-security.md#repository-security-settings). A maintainer checks current-head Code Review and Security Review results, resolves findings, and merges manually after all required gates pass. Repository auto-merge is disabled.
 
 ## Release verification
 

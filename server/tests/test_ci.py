@@ -53,11 +53,14 @@ def test_dependency_maintenance_covers_locked_manifests_and_bounded_queues():
     assert "make image-check" in policy
 
 
-def test_main_requires_ci_and_resolved_threads_without_approval_automation():
+def test_main_requires_ci_and_resolved_threads_without_issue_or_pr_bots():
     root = Path(__file__).resolve().parents[2]
     for name in (
         ".github/workflows/maintainer.yml", ".github/workflows/review-signal.yml",
         ".github/scripts/maintainer.mjs", ".github/scripts/maintainer.test.mjs",
+        ".github/workflows/issue-labels.yml", ".github/workflows/pr-labels.yml",
+        ".github/scripts/issue-labeler.mjs", ".github/scripts/issue-labeler.test.mjs",
+        ".github/scripts/pr-labeler.mjs", ".github/scripts/pr-labeler.test.mjs",
     ):
         assert not (root / name).exists()
     ruleset = json.loads((root / ".github/main-ruleset.json").read_text())
@@ -76,42 +79,6 @@ def test_main_requires_ci_and_resolved_threads_without_approval_automation():
         for name in ("Service CI", "Desktop CI", "Android CI")
     ]
     assert {"deletion", "non_fast_forward"} <= rules.keys()
-
-
-@pytest.mark.parametrize("workflow_name, job_name, permission", [
-    ("issue-labels", "label", "issues"),
-])
-def test_bot_tokens_default_to_only_the_current_repository(workflow_name, job_name, permission):
-    root = Path(__file__).resolve().parents[2]
-    workflow = yaml.load((root / f".github/workflows/{workflow_name}.yml").read_text(), Loader=yaml.BaseLoader)
-    job = workflow["jobs"][job_name]
-    token, = (step for step in job["steps"] if step.get("id") == "app")
-    assert "owner" not in token["with"]
-    assert "repositories" not in token["with"]
-    assert "enterprise" not in token["with"]
-    assert {key: value for key, value in token["with"].items() if key.startswith("permission-")} == {
-        f"permission-{permission}": "write",
-    }
-    assert job["permissions"] == {"contents": "read"}
-
-
-def test_pr_labels_share_issue_model_secrets_with_a_scoped_repository_token():
-    root = Path(__file__).resolve().parents[2]
-    workflows = [yaml.load((root / f".github/workflows/{name}-labels.yml").read_text(), Loader=yaml.BaseLoader)
-                 for name in ("pr", "issue")]
-    pr, issue = (workflow["jobs"]["label"] for workflow in workflows)
-    assert pr["environment"] == issue["environment"] == "PractiQ Issue"
-    assert pr["permissions"] == {"contents": "read", "pull-requests": "write"}
-    assert pr["if"] == "github.event_name != 'pull_request' && github.ref == 'refs/heads/main'"
-    assert "environment" not in workflows[0]["jobs"]["test"]
-    assert not any("create-github-app-token" in step.get("uses", "") for step in pr["steps"])
-    checkout, = (step for step in pr["steps"] if step.get("uses", "").startswith("actions/checkout@"))
-    assert checkout["with"] == {"ref": "main", "persist-credentials": "false"}
-    pr_env, = (step["env"] for step in pr["steps"] if step.get("run") == "node .github/scripts/pr-labeler.mjs")
-    issue_env, = (step["env"] for step in issue["steps"] if "env" in step)
-    assert pr_env["GH_TOKEN"] == "${{ github.token }}"
-    for key in ("API_KEY", "BASE_URL", "MODEL"):
-        assert pr_env[f"PRACTIQ_AGENT_{key}"] == issue_env[f"PRACTIQ_AGENT_{key}"] == f"${{{{ secrets.{key} }}}}"
 
 
 @pytest.mark.parametrize("exit_code", [0, 9])
