@@ -259,20 +259,20 @@ html[data-native-insets="true"] {
 .answer-card-help { width: 17rem; max-width: calc(100vw - 1.5rem); max-height: var(--radix-popover-content-available-height); overflow-y: auto; padding: 1rem; border: 1px solid var(--border); border-radius: var(--radius-menu); background: var(--popover); color: var(--popover-foreground); box-shadow: var(--overlay-shadow); outline: none; }
 .answer-card-help-arrow { fill: var(--popover); }
 .answer-card-grid, .answer-card-legend {
-  --answer-neutral-background: #f0efed;
-  --answer-neutral-foreground: #615d65;
-  --answer-neutral-border: #837c87;
-  --answer-blue-background: #e7effa;
-  --answer-blue-foreground: #27558b;
-  --answer-blue-border: #6080aa;
+  --answer-neutral-background: #f8fafc;
+  --answer-neutral-foreground: #0f172a;
+  --answer-neutral-border: #64748b;
+  --answer-blue-background: #dbeafe;
+  --answer-blue-foreground: #1e40af;
+  --answer-blue-border: #3b82f6;
 }
 .dark .answer-card-grid, .dark .answer-card-legend {
-  --answer-neutral-background: #302d35;
-  --answer-neutral-foreground: #c9c3ce;
-  --answer-neutral-border: #93899b;
-  --answer-blue-background: #25364c;
-  --answer-blue-foreground: #b3d1f5;
-  --answer-blue-border: #7a9fcf;
+  --answer-neutral-background: #0f172a;
+  --answer-neutral-foreground: #f8fafc;
+  --answer-neutral-border: #64748b;
+  --answer-blue-background: #1e3a8a;
+  --answer-blue-foreground: #bfdbfe;
+  --answer-blue-border: #60a5fa;
 }
 [data-answer-state] {
   --answer-background: var(--answer-neutral-background);

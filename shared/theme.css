@@ -1,4 +1,4 @@
-/* Shared PractiQ warm-purple theme; imported by both production frontends. */
+/* Shared PractiQ clean white & functional color theme; imported by both production frontends. */
 @theme inline {
   --font-heading: var(--font-sans);
   --font-sans:
@@ -52,24 +52,24 @@
 }
 
 :root {
-  --background: #f7f4f1;
-  --foreground: #302939;
-  --card: #fffcfa;
-  --card-foreground: #302939;
-  --popover: #fffcfa;
-  --popover-foreground: #302939;
-  --primary: #795088;
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --primary: #1d4ed8;
   --primary-foreground: #ffffff;
-  --secondary: #eee6f0;
-  --secondary-foreground: #593765;
-  --muted: #efeae6;
-  --muted-foreground: #6d6271;
-  --accent: #efe6f2;
-  --accent-foreground: #593765;
-  --destructive: #a63845;
-  --border: #ded5da;
-  --input: #958798;
-  --ring: #795088;
+  --secondary: #eff6ff;
+  --secondary-foreground: #1d4ed8;
+  --muted: #f1f5f9;
+  --muted-foreground: #475569;
+  --accent: #f8fafc;
+  --accent-foreground: #0f172a;
+  --destructive: #e11d48;
+  --border: #e2e8f0;
+  --input: #82909f;
+  --ring: #3b82f6;
   --radius: 0.875rem;
   --radius-panel: 1rem;
   --radius-menu: 0.75rem;
@@ -87,55 +87,55 @@
   --text-meta: 0.75rem;
   --motion-duration: 180ms;
   --motion-ease: cubic-bezier(0.2, 0, 0, 1);
-  --sidebar: #f2eee9;
-  --sidebar-foreground: #302939;
-  --sidebar-border: #ded5da;
-  --sidebar-accent: #eae2e6;
-  --overlay-shadow: 0 1px 2px rgb(48 41 57 / 0.06), 0 16px 40px -16px rgb(48 41 57 / 0.32);
-  --success-background: #e8f1e7;
-  --success-border: #79947a;
-  --success-foreground: #355b35;
+  --sidebar: #f8fafc;
+  --sidebar-foreground: #0f172a;
+  --sidebar-border: #e2e8f0;
+  --sidebar-accent: #f1f5f9;
+  --overlay-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.05), 0 20px 45px -15px rgb(0 0 0 / 0.12);
+  --success-background: #ecfdf5;
+  --success-border: #059669;
+  --success-foreground: #065f46;
   /* Sonner reuses these border names; retain the inherited theme values. */
   --toast-success-border: var(--success-border);
   --toast-warning-border: var(--warning-border);
-  --warning-background: #faf0db;
-  --warning-border: #ab873e;
-  --warning-foreground: #73531e;
-  --error-background: #fbebed;
-  --error-foreground: #9b3241;
+  --warning-background: #fffbeb;
+  --warning-border: #d97706;
+  --warning-foreground: #92400e;
+  --error-background: #fff1f2;
+  --error-foreground: #9f1239;
 }
 .dark {
-  --background: #211c26;
-  --foreground: #f3ebf0;
-  --card: #2b2431;
-  --card-foreground: #f3ebf0;
-  --popover: #2b2431;
-  --popover-foreground: #f3ebf0;
-  --sidebar: #251f2a;
-  --sidebar-foreground: #f3ebf0;
-  --sidebar-border: #413548;
-  --sidebar-accent: #332a3a;
-  --overlay-shadow: 0 1px 2px rgb(0 0 0 / 0.45), 0 18px 42px -16px rgb(0 0 0 / 0.6);
-  --primary: #d9b5e5;
-  --primary-foreground: #302139;
-  --secondary: #413148;
-  --secondary-foreground: #efd7f5;
-  --muted: #352c3b;
-  --muted-foreground: #c4b5ca;
-  --accent: #413148;
-  --accent-foreground: #efd7f5;
-  --destructive: #f0a5ae;
-  --border: #504155;
-  --input: #9b83a4;
-  --ring: #d9b5e5;
-  --warning-background: #3b3024;
-  --warning-border: #b49354;
-  --warning-foreground: #ebcf95;
-  --error-background: #412a33;
-  --error-foreground: #f2b3bc;
-  --success-background: #26372d;
-  --success-border: #79947a;
-  --success-foreground: #bdd6b9;
+  --background: #090d16;
+  --foreground: #f8fafc;
+  --card: #0f172a;
+  --card-foreground: #f8fafc;
+  --popover: #0f172a;
+  --popover-foreground: #f8fafc;
+  --sidebar: #090d16;
+  --sidebar-foreground: #f8fafc;
+  --sidebar-border: #1e293b;
+  --sidebar-accent: #1e293b;
+  --overlay-shadow: 0 1px 2px rgb(0 0 0 / 0.5), 0 18px 42px -16px rgb(0 0 0 / 0.7);
+  --primary: #60a5fa;
+  --primary-foreground: #0f172a;
+  --secondary: #1e293b;
+  --secondary-foreground: #93c5fd;
+  --muted: #1e293b;
+  --muted-foreground: #94a3b8;
+  --accent: #1e293b;
+  --accent-foreground: #93c5fd;
+  --destructive: #fb7185;
+  --border: #1e293b;
+  --input: #64748b;
+  --ring: #3b82f6;
+  --warning-background: #451a03;
+  --warning-border: #d97706;
+  --warning-foreground: #fef3c7;
+  --error-background: #4c0519;
+  --error-foreground: #fecdd3;
+  --success-background: #064e3b;
+  --success-border: #10b981;
+  --success-foreground: #a7f3d0;
 }
 html { color-scheme: light; }
 html.dark { color-scheme: dark; }
