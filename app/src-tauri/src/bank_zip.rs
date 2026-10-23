@@ -84,17 +84,7 @@ fn verify_resource(reference: &Value, bytes: &[u8]) -> Result<Option<f64>> {
         return Err(invalid());
     }
     let media = text(reference, "mediaType");
-    if media.starts_with("image/") {
-        if !store::valid_image(bytes, media) {
-            return Err(invalid());
-        }
-        Ok(None)
-    } else {
-        match crate::audio::audio_info(bytes) {
-            Ok((actual, duration)) if actual == media => Ok(Some(duration)),
-            _ => Err(invalid()),
-        }
-    }
+    crate::audio::media_duration(bytes, media).map_err(|_| invalid())
 }
 pub fn filename(title: &str) -> String {
     let clean: String = title
@@ -355,6 +345,20 @@ impl Store {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn resource_format_errors_keep_the_bank_zip_error_code() {
+        for media in ["image/png", "audio/aac"] {
+            let bytes = b"broken";
+            let reference = json!({
+                "objectKey":"resources/broken", "sha256":store::hash(bytes),
+                "sizeBytes":bytes.len(), "mediaType":media,
+            });
+            assert_eq!(
+                verify_resource(&reference, bytes).unwrap_err().code,
+                "LOCAL_BANK_ZIP_INVALID"
+            );
+        }
+    }
     #[test]
     fn appended_packages_enforce_the_export_entry_limit_and_round_trip() {
         let dir = tempfile::tempdir().unwrap();

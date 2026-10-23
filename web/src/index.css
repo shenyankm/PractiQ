@@ -34,7 +34,7 @@ SOFTWARE.
 
 /* Independent import workspace; shares the desktop brand and base tokens. */
 body { margin: 0; background: var(--background); line-height: 1.6; }
-.web-shell { min-width: 0; min-height: 100dvh; display: flex; flex-direction: column; }
+.web-shell { min-width: 0; min-height: 100dvh; display: flex; flex-direction: row; }
 .skip-link { position: fixed; top: 12px; left: 12px; z-index: 20; padding: 12px 16px; border-radius: 8px; background: var(--primary); color: var(--primary-foreground); transform: translateY(-150%); }
 .skip-link:focus { transform: none; }
 .workspace-link { display: inline-flex; align-items: center; min-height: 36px; color: var(--primary); font-size: 13px; text-decoration: underline; text-underline-offset: 4px; }
@@ -46,8 +46,8 @@ body { margin: 0; background: var(--background); line-height: 1.6; }
 .brand img { width: 44px; height: 44px; flex-shrink: 0; object-fit: contain; }
 .brand strong { display: block; font-size: 20px; letter-spacing: -.03em; }
 .brand span { display: block; font-size: 12px; color: var(--muted-foreground); }
-.web-main { width: 100%; flex: 1; max-width: 1440px; margin: 0 auto; padding: var(--space-page); }
-.page-intro { margin-bottom: 24px; max-width: 900px; }
+.web-main { width: 100%; flex: 1; max-width: 1320px; margin: 0 auto; padding: var(--space-page); }
+.page-intro { margin-bottom: 28px; max-width: 900px; }
 h1 { font-size: var(--text-page); font-weight: 600; line-height: 1.3; letter-spacing: -.03em; margin-bottom: 12px; }
 h2 { font-size: var(--text-section); font-weight: 600; line-height: 1.4; overflow-wrap: anywhere; }
 h3 { font-size: 1rem; font-weight: 600; }
@@ -136,7 +136,6 @@ summary { cursor: pointer; list-style-position: inside; font-size: 14px; }
 footer { padding: 18px 32px; border-top: 1px solid var(--border); color: var(--muted-foreground); font-size: var(--text-meta); }
 @media (max-width: 1050px) {
   .web-header { padding-inline: 24px; }
-  .web-main { padding: var(--space-page); }
   .workspace-grid { grid-template-columns: 290px minmax(0, 1fr); gap: 16px; }
   .task-panel { padding: var(--space-card); }
   .progress-grid { grid-template-columns: minmax(0, 1fr); gap: 16px; }
@@ -144,10 +143,8 @@ footer { padding: 18px 32px; border-top: 1px solid var(--border); color: var(--m
 @media (max-width: 767px) {
   .web-header { height: auto; min-height: 78px; padding: 12px 16px; flex-wrap: wrap; gap: 12px; }
   .brand img { width: 36px; height: 36px; }
-  .web-main { padding: 24px 16px 32px; }
   h1 { font-size: var(--text-page-narrow); }
   h2 { font-size: var(--text-section); }
-  .page-intro { margin-bottom: 24px; }
   .connection-card { --card-spacing: var(--space-card); }
   .connection-form { align-items: stretch; flex-direction: column; }
   .workspace-grid { grid-template-columns: minmax(0, 1fr); }
@@ -191,7 +188,6 @@ footer { padding: 18px 32px; border-top: 1px solid var(--border); color: var(--m
 .task-title h2 { font-size: var(--text-section); }
 
 /* Import management extends the existing octopus brand and service tokens. */
-.web-shell { flex-direction: row; }
 .web-body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .web-sidebar { position: sticky; top: 0; width: 228px; height: 100dvh; flex-shrink: 0; display: flex; flex-direction: column; padding: 28px 18px 24px; border-right: 1px solid var(--sidebar-border); background: var(--sidebar); color: var(--sidebar-foreground); }
 .web-sidebar .brand { padding: 0 8px; }
@@ -204,8 +200,6 @@ footer { padding: 18px 32px; border-top: 1px solid var(--border); color: var(--m
 .sidebar-connection > svg { width: 18px; color: var(--primary); flex-shrink: 0; }
 .sidebar-connection strong, .sidebar-connection span { display: block; }
 .sidebar-connection span { color: var(--muted-foreground); font-size: var(--text-meta); margin-top: 3px; }
-.web-main { max-width: 1320px; padding: var(--space-page); }
-.page-intro { margin-bottom: 28px; }
 .page-intro h1 { font-size: var(--text-page); margin-bottom: 8px; }
 #page-heading:focus { outline: none; }
 .settings-page { max-width: 900px; }
@@ -271,7 +265,6 @@ footer { padding: 18px 32px; border-top: 1px solid var(--border); color: var(--m
 @media (max-width: 1100px) {
   .web-sidebar { width: 200px; padding-inline: 12px; }
   .web-main { padding: var(--space-card); }
-  .records-panel, .settings-panel { padding: var(--space-card); }
   .records-table td, .records-table th { padding-inline: 6px; }
   .import-workspace { grid-template-columns: minmax(0, 1fr); }
   .import-guide { border-left: 0; padding: 0; }
@@ -288,7 +281,6 @@ footer { padding: 18px 32px; border-top: 1px solid var(--border); color: var(--m
   .sidebar-connection { display: none; }
   .web-main { padding: 24px var(--space-page); }
   .page-intro h1 { font-size: var(--text-page-narrow); }
-  .records-panel, .settings-panel { padding: var(--space-card); }
   .section-heading { flex-wrap: wrap; gap: 12px; }
   .records-toolbar { align-items: start; flex-direction: column; gap: 10px; }
   .records-toolbar label { width: 100%; }

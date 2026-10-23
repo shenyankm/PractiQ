@@ -461,16 +461,9 @@ impl Store {
             let data = staged.read_asset(digest, *size)?;
             let invalid_format =
                 || crate::language::error("LOCAL_BACKUP_IMAGE_FORMAT", serde_json::json!({}));
-            if media.starts_with("image/") {
-                if !crate::audio::valid_media(&data, media) {
-                    return Err(invalid_format());
-                }
-            } else {
-                let (actual, duration) =
-                    crate::audio::audio_info(&data).map_err(|_| invalid_format())?;
-                if actual != *media {
-                    return Err(invalid_format());
-                }
+            if let Some(duration) =
+                crate::audio::media_duration(&data, media).map_err(|_| invalid_format())?
+            {
                 audio_durations.insert(digest.clone(), duration);
             }
         }

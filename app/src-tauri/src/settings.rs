@@ -234,16 +234,13 @@ fn credential_account(service_url: &str) -> Result<String> {
 fn entry(app: &tauri::AppHandle, service_url: &str) -> Result<Box<dyn Credential>> {
     crate::credentials::entry(app, &credential_account(service_url)?)
 }
-fn required_service_token(entry: &impl Credential) -> Result<String> {
-    let token = entry
+fn required_secret(entry: &impl Credential, missing_code: &str) -> Result<String> {
+    let secret = entry
         .read()?
         .filter(|s| !s.trim().is_empty())
-        .ok_or(crate::language::error(
-            "LOCAL_SERVICE_TOKEN_REQUIRED",
-            json!({}),
-        ))?;
-    validate_service_token(&token)?;
-    Ok(token.trim().to_owned())
+        .ok_or(crate::language::error(missing_code, json!({})))?;
+    validate_service_token(&secret)?;
+    Ok(secret.trim().to_owned())
 }
 fn persist_with_secret(
     entry: &impl Credential,
@@ -267,18 +264,6 @@ fn model_account(config: &ConnectionSettings) -> Result<String> {
         json!({}),
     ))?;
     Ok(format!("ai-model-key-v1-{}", hash(url.as_bytes())))
-}
-
-fn model_key(entry: &impl Credential) -> Result<String> {
-    let key = entry
-        .read()?
-        .filter(|s| !s.trim().is_empty())
-        .ok_or(crate::language::error(
-            "LOCAL_MODEL_KEY_REQUIRED",
-            json!({}),
-        ))?;
-    validate_service_token(&key)?;
-    Ok(key.trim().to_owned())
 }
 
 pub fn model_settings(
@@ -307,7 +292,10 @@ pub fn model_input(
             validate_service_token(&key)?;
             key.trim().to_owned()
         }
-        _ => model_key(&crate::credentials::entry(app, &account)?)?,
+        _ => required_secret(
+            &crate::credentials::entry(app, &account)?,
+            "LOCAL_MODEL_KEY_REQUIRED",
+        )?,
     };
     Ok((config, key))
 }
@@ -508,7 +496,7 @@ impl Store {
         }
         let token = match service_token {
             Some(token) if !token.trim().is_empty() => token.trim().to_owned(),
-            _ => required_service_token(&credential(url)?)?,
+            _ => required_secret(&credential(url)?, "LOCAL_SERVICE_TOKEN_REQUIRED")?,
         };
         Ok((config, token))
     }
@@ -528,7 +516,7 @@ impl Store {
                     "LOCAL_SERVICE_URL_REQUIRED",
                     json!({}),
                 ))?;
-        let token = required_service_token(&credential(&url)?)?;
+        let token = required_secret(&credential(&url)?, "LOCAL_SERVICE_TOKEN_REQUIRED")?;
         Ok((url, token))
     }
     pub fn connection_settings(&self) -> Result<ConnectionSettings> {
@@ -829,6 +817,34 @@ mod tests {
             value: value.map(str::to_owned),
             ..Default::default()
         })))
+    }
+    #[test]
+    fn required_secret_preserves_missing_codes_validation_and_read_errors() {
+        for missing in ["LOCAL_SERVICE_TOKEN_REQUIRED", "LOCAL_MODEL_KEY_REQUIRED"] {
+            for value in [None, Some("   ")] {
+                let entry = mock_entry(value);
+                assert_eq!(required_secret(&entry, missing).unwrap_err().code, missing);
+                assert!(entry.0.lock().unwrap().writes.is_empty());
+            }
+            let entry = mock_entry(Some("  dummy-secret  "));
+            assert_eq!(required_secret(&entry, missing).unwrap(), "dummy-secret");
+            for value in ["\ndummy-secret", "dummy-secret\r", "dummy\tsecret"] {
+                assert_eq!(
+                    required_secret(&mock_entry(Some(value)), missing)
+                        .unwrap_err()
+                        .code,
+                    "LOCAL_SERVICE_TOKEN_INVALID"
+                );
+            }
+            entry.0.lock().unwrap().read_error = true;
+            assert_eq!(
+                required_secret(&entry, missing).unwrap_err().code,
+                "LOCAL_KEYCHAIN_READ"
+            );
+            let state = entry.0.lock().unwrap();
+            assert_eq!(state.reads, 2);
+            assert!(state.writes.is_empty());
+        }
     }
     fn fail_credential(_: &str) -> Result<MockEntry> {
         panic!("passive configuration must not open the credential store")
@@ -1180,7 +1196,9 @@ mod tests {
         let old_model_key = mock_entry(Some("dummy-provider-key"));
         let service_token = mock_entry(None);
         assert_eq!(
-            required_service_token(&service_token).unwrap_err().code,
+            required_secret(&service_token, "LOCAL_SERVICE_TOKEN_REQUIRED")
+                .unwrap_err()
+                .code,
             "LOCAL_SERVICE_TOKEN_REQUIRED"
         );
         assert_eq!(
@@ -1220,7 +1238,9 @@ mod tests {
         assert!(entry.read().unwrap().is_none());
         persist_with_secret(&entry, None, || Ok(())).unwrap();
         assert_eq!(
-            required_service_token(&entry).unwrap_err().code,
+            required_secret(&entry, "LOCAL_SERVICE_TOKEN_REQUIRED")
+                .unwrap_err()
+                .code,
             "LOCAL_SERVICE_TOKEN_REQUIRED"
         );
         let columns = store
@@ -2040,7 +2060,7 @@ mod tests {
         )
         .unwrap();
         entry.write(Some("practiq-dummy-test-value")).unwrap();
-        let read = required_service_token(&entry).unwrap();
+        let read = required_secret(&entry, "LOCAL_SERVICE_TOKEN_REQUIRED").unwrap();
         entry.write(None).unwrap();
         assert_eq!(read, "practiq-dummy-test-value");
         assert!(entry.read().unwrap().is_none());

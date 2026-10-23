@@ -7,7 +7,7 @@ import pytest
 from practiq_ai import storage
 from practiq_ai.contracts import ArtifactReference
 from practiq_ai.errors import DocumentProcessingError
-from tests.support import object_store, upload
+from tests.support import FakeObjectStore, object_store, upload
 
 
 async def test_storage_health_checks_io_and_space_and_rejects_replaced_root(tmp_path):
@@ -94,6 +94,25 @@ async def test_local_source_upload_dedup_restart_and_artifacts(tmp_path):
     assert len({a.objectKey for a in artifacts}) == 1
     assert await store.get_verified(artifacts[0]) == b"text"
     assert sorted(p.name for p in (tmp_path / artifacts[0].objectKey).parent.iterdir()) == [Path(artifacts[0].objectKey).name]
+
+
+@pytest.mark.parametrize('payload,code', [
+    (b'quiz', None),
+    (b'wrong-size', 'DOCUMENT_SIZE_MISMATCH'),
+    (b'oops', 'DOCUMENT_CHECKSUM_MISMATCH'),
+])
+async def test_fake_store_preserves_payload_verification(payload, code):
+    reference = upload()
+    assert reference.sha256 is not None and reference.sizeBytes is not None
+    store = FakeObjectStore({'fixture': payload})
+    ref = ArtifactReference(objectKey='fixture', sha256=reference.sha256,
+                            mediaType='text/plain', sizeBytes=reference.sizeBytes)
+    if code is None:
+        assert await store.get_verified(ref) == payload
+    else:
+        with pytest.raises(DocumentProcessingError) as error:
+            await store.get_verified(ref)
+        assert error.value.code == code
 
 
 async def test_checksums_sizes_missing_and_limits(tmp_path):

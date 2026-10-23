@@ -82,12 +82,21 @@ pub fn audio_info(bytes: &[u8]) -> Result<(String, f64)> {
     }
     Ok((media.into(), duration))
 }
-pub fn valid_media(bytes: &[u8], media: &str) -> bool {
+pub(crate) fn media_duration(bytes: &[u8], media: &str) -> Result<Option<f64>> {
     if media.starts_with("image/") {
-        crate::store::valid_image(bytes, media)
+        if crate::store::valid_image(bytes, media) {
+            return Ok(None);
+        }
     } else {
-        audio_info(bytes).is_ok_and(|(actual, _)| actual == media)
+        let (actual, duration) = audio_info(bytes)?;
+        if actual == media {
+            return Ok(Some(duration));
+        }
     }
+    Err("Invalid media format".into())
+}
+pub fn valid_media(bytes: &[u8], media: &str) -> bool {
+    media_duration(bytes, media).is_ok()
 }
 pub(crate) fn validate_segment(q: &Value, duration: f64) -> Result<()> {
     if q["audioStartSeconds"].as_f64().unwrap_or(0.0) >= duration
@@ -613,6 +622,23 @@ mod tests {
         store.delete_question(root).unwrap();
         assert!(!store.asset_path(digest).unwrap().exists());
         assert!(store.asset_bytes(digest).unwrap().is_none());
+    }
+    #[test]
+    fn media_validation_returns_audio_duration_and_rejects_format_mismatches() {
+        let png = include_bytes!("../../fixtures/rich-content/resources/chart.png");
+        let audio = include_bytes!("../../fixtures/resources/audio/chimes.aac");
+        assert_eq!(media_duration(png, "image/png").unwrap(), None);
+        let duration = media_duration(audio, "audio/aac").unwrap().unwrap();
+        assert!((2.9..3.3).contains(&duration));
+        for (bytes, media) in [
+            (png.as_slice(), "image/jpeg"),
+            (audio.as_slice(), "audio/mp4"),
+            (b"broken".as_slice(), "image/png"),
+            (b"broken".as_slice(), "audio/aac"),
+        ] {
+            assert!(media_duration(bytes, media).is_err());
+            assert!(!valid_media(bytes, media));
+        }
     }
     #[test]
     fn audio_probe_decodes_aac_containers_without_platform_tools() {
