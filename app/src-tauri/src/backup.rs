@@ -701,6 +701,8 @@ fn validate_database_contents(db: &Connection) -> Result<()> {
             serde_json::json!({}),
         ));
     }
+    // SQLite is dynamically typed, so storage classes must be checked here:
+    // every numeric session/attempt column is read as an integer after restore.
     let invalid_navigation: bool = db
         .query_row(
             "SELECT EXISTS(
@@ -708,6 +710,21 @@ fn validate_database_contents(db: &Connection) -> Result<()> {
             HAVING COUNT(a.ordinal)=0 OR MIN(a.ordinal)!=0 OR MAX(a.ordinal)!=COUNT(a.ordinal)-1
                 OR SUM(typeof(a.ordinal)!='integer')>0 OR typeof(s.position)!='integer'
                 OR s.position<0 OR s.position>=COUNT(a.ordinal)
+                OR typeof(s.created_at)!='integer'
+                OR typeof(s.last_active_at) NOT IN ('integer','null')
+                OR typeof(s.submitted_at) NOT IN ('integer','null')
+                OR typeof(s.finished_at) NOT IN ('integer','null')
+                OR typeof(s.deadline_at) NOT IN ('integer','null')
+                OR SUM(typeof(a.submitted_at) NOT IN ('integer','null')
+                    OR typeof(a.elapsed_ms)!='integer'
+                    OR typeof(a.max_cents) NOT IN ('integer','null')
+                    OR typeof(a.earned_cents) NOT IN ('integer','null')
+                    OR typeof(a.skipped)!='integer' OR typeof(a.flagged)!='integer'
+                    OR typeof(a.auto_result) NOT IN ('integer','null')
+                    OR typeof(a.result) NOT IN ('integer','null'))>0
+        ) OR EXISTS(
+            SELECT 1 FROM listening_playback
+            WHERE typeof(updated_at)!='integer' OR typeof(active_elapsed_ms)!='integer'
         )",
             [],
             |r| r.get(0),
