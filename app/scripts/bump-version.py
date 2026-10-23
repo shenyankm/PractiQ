@@ -1,11 +1,12 @@
-"""Synchronize the six client version entries without resolving dependencies."""
+"""Synchronize client versions and macOS native metadata without resolving dependencies."""
 
 import argparse
 import json
+import plistlib
 import re
 from pathlib import Path
 
-from release import ROOT, TAG, read_json, versions
+from release import ROOT, TAG, macos_versions, read_json, versions
 
 
 def bump_version(root: Path, version: str) -> None:
@@ -32,6 +33,10 @@ def bump_version(root: Path, version: str) -> None:
         if count != 1:
             raise ValueError(f"Expected one client version entry in {name}")
         updates[path] = updated
+    info = root / "app/src-tauri/Info.plist"
+    metadata = plistlib.loads(info.read_bytes())
+    metadata.update(macos_versions(version))
+    updates[info] = plistlib.dumps(metadata).decode("utf-8")
     # Validate every input before writing any file; keep dependency versions untouched.
     for path, text in updates.items():
         path.write_text(text, encoding="utf-8")

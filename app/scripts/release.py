@@ -113,6 +113,11 @@ def git(root: Path, *args: str) -> str:
     return subprocess.check_output(["git", *args], cwd=root, text=True).strip()
 
 
+def macos_versions(version: str) -> dict:
+    native = version.split("-")[0]
+    return {"CFBundleShortVersionString": native, "CFBundleVersion": native, "PractiQVersion": version}
+
+
 def versions(root: Path, tag: str) -> dict:
     match = TAG.fullmatch(tag)
     if not match:
@@ -127,6 +132,9 @@ def versions(root: Path, tag: str) -> dict:
                cargo["package"]["version"], read_json(root / "app/src-tauri/tauri.conf.json")["version"]]
     if len(own) != 1 or desktop + [own[0]["version"]] != [version] * 6:
         raise ValueError("Tag, npm/Tauri/Cargo versions and both lockfiles must match")
+    info = plistlib.loads((root / "app/src-tauri/Info.plist").read_bytes())
+    if any(info.get(key) != value for key, value in macos_versions(version).items()):
+        raise ValueError("macOS native and full product versions must match the candidate mapping")
     service = tomllib.loads((root / "server/pyproject.toml").read_text(encoding="utf-8"))
     return {"desktop": version, "aiServiceSource": service["project"]["version"]}
 
@@ -644,7 +652,10 @@ def check_desktop_version(installer: Path, bundle: Path, expected: str, applicat
     if platform == "darwin":
         check_macos_architecture(application)
         info = bundle.parents[1] / "Info.plist"
-        actual = plistlib.loads(info.read_bytes()).get("CFBundleShortVersionString")
+        metadata = plistlib.loads(info.read_bytes())
+        if any(metadata.get(key) != value for key, value in macos_versions(expected).items()):
+            raise ValueError("Final installer desktop version does not match the candidate")
+        actual = metadata["PractiQVersion"]
     elif platform == "win32":
         check_windows_architecture(application)
         for executable in (installer, application):

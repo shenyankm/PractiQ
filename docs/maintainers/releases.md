@@ -19,17 +19,23 @@ JSON, database or backup changes even during development. See [SemVer](https://s
 
 Before tagging, synchronize `app/package.json`, both version entries in
 `app/package-lock.json`, `app/src-tauri/Cargo.toml`, its package entry in
-`Cargo.lock`, and `tauri.conf.json` to the complete version without `v`. The AI
+`Cargo.lock`, and `tauri.conf.json` to the complete version without `v`.
+The explicitly merged `app/src-tauri/Info.plist` keeps that full identity in
+`PractiQVersion`; `CFBundleShortVersionString` and `CFBundleVersion` use the
+three-integer core (for example, `0.2.0-beta.1` maps to `0.2.0`). The final macOS
+package gate checks all three fields, so two betas with the same numeric core
+cannot substitute for each other. Native version fields alone do not order beta
+updates; no automatic updater is shipped. The AI
 service version is independent. Native installer metadata may normalize
 prerelease syntax; document that mapping rather than changing the product tag.
 Keep the full version in the application and asset names.
 
-Use the existing Python 3.14+ interpreter to update all six client entries without
+Use the existing Python 3.14+ interpreter to update all six client entries and the macOS plist without
 resolving dependencies or changing the independent service version:
 
 ```sh
 "$AI_PYTHON" app/scripts/bump-version.py 0.2.0-alpha.1
-git diff -- app/package.json app/package-lock.json app/src-tauri/Cargo.toml app/src-tauri/Cargo.lock app/src-tauri/tauri.conf.json
+git diff -- app/package.json app/package-lock.json app/src-tauri/Cargo.toml app/src-tauri/Cargo.lock app/src-tauri/tauri.conf.json app/src-tauri/Info.plist
 ```
 
 The updater rejects noncanonical versions, inconsistent current versions and
