@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { useState } from "react";
 import { afterEach, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AnswerDisplay, AnswerInput, AnswerReview } from "./AnswerInput";
 import { blankQuestion, type Answer, type Question } from "./api";
@@ -37,6 +37,38 @@ function Controlled({ question }: { question: Question }) {
   const [value, setValue] = useState<Answer | null>(null);
   return <AnswerInput question={question} value={value} onChange={setValue} />;
 }
+
+it.each(["single", "multiple"] as const)("preserves %s choice updates, disabled state and label isolation", async variant => {
+  const user = userEvent.setup();
+  const question: Question = {...blankQuestion(), choiceVariant:variant, options:[
+    {label:"A",content:"Alpha"}, {label:"B",content:"Beta"}, {label:"C",content:"Gamma"},
+  ]};
+  const changed = vi.fn();
+  const props = {question, value:{correct:["A"]}, onChange:changed, usedOptions:["A","C"]};
+  const {rerender} = render(<>
+    <section aria-label="First"><AnswerInput {...props} prefix="first"/></section>
+    <section aria-label="Second"><AnswerInput {...props} prefix="second"/></section>
+  </>);
+  const role = variant === "multiple" ? "checkbox" : "radio";
+  const first = within(screen.getByRole("region", {name:"First"}));
+  const second = within(screen.getByRole("region", {name:"Second"}));
+  expect((first.getByRole(role, {name:/Alpha/}) as HTMLButtonElement).disabled).toBe(false);
+  expect((first.getByRole(role, {name:/Gamma/}) as HTMLButtonElement).disabled).toBe(variant === "single");
+  await user.click(second.getByText("Beta"));
+  expect(changed).toHaveBeenLastCalledWith({correct:variant === "multiple" ? ["A","B"] : ["B"]});
+  expect((first.getByRole(role, {name:/Alpha/})).getAttribute("aria-checked")).toBe("true");
+  expect((first.getByRole(role, {name:/Beta/})).getAttribute("aria-checked")).toBe("false");
+  expect(document.activeElement?.id).toBe("second-1");
+  if (variant === "multiple") {
+    rerender(<AnswerInput {...props} value={{correct:["A","B"]}} prefix="second"/>);
+    await user.click(screen.getByText("Alpha"));
+    expect(changed).toHaveBeenLastCalledWith({correct:["B"]});
+  }
+  changed.mockClear();
+  rerender(<AnswerInput {...props} prefix="disabled" disabled/>);
+  await user.click(screen.getByText("Beta"));
+  expect(changed).not.toHaveBeenCalled();
+});
 
 it.each(["short_answer", "writing", "fill_blank"] as const)("keeps saved %s text literal in review", mode => {
   const value = "<example>**saved**</example>\n  # literal heading";

@@ -48,35 +48,41 @@ export function AnswerInput({
       </div>
     );
   switch (q.answerMode) {
-    case "choice":
-      return q.choiceVariant === "multiple" ? (
+    case "choice": {
+      const multiple = q.choiceVariant === "multiple";
+      const options = q.options.map((o, i) => (
+        <label
+          key={i}
+          htmlFor={`${prefix}-${i}`}
+          className="flex cursor-pointer items-start gap-3 rounded-lg border px-4 py-3"
+        >
+          {multiple ? (
+            <Checkbox
+              className="mt-1 shrink-0"
+              id={`${prefix}-${i}`}
+              checked={a.correct?.includes(o.label!) || false}
+              onCheckedChange={(checked) =>
+                onChange({
+                  correct: checked
+                    ? [...(a.correct || []), o.label!]
+                    : (a.correct || []).filter((s) => s !== o.label),
+                })
+              }
+            />
+          ) : (
+            <RadioGroupItem className="mt-1 shrink-0" id={`${prefix}-${i}`} value={o.label!} disabled={usedOptions.includes(o.label!) && !a.correct?.includes(o.label!)} />
+          )}
+          <div className="grid min-w-0 flex-1 grid-cols-[auto_minmax(0,1fr)] items-start gap-2 leading-[1.75]">
+            <span className="min-w-6 font-medium">{o.label}.</span>
+            <Markdown lang={materialLanguage(q)}>{o.content}</Markdown>
+            {usedOptions.includes(o.label!) && <span className="text-xs text-muted-foreground">{t("已使用")}</span>}
+          </div>
+        </label>
+      ));
+      return multiple ? (
         <fieldset disabled={disabled} className="space-y-3">
           <legend className="mb-2 text-sm text-muted-foreground">{t("多选题，可选择多个答案")}</legend>
-          {q.options.map((o, i) => (
-            <label
-              key={i}
-              htmlFor={`${prefix}-${i}`}
-              className="flex cursor-pointer items-start gap-3 rounded-lg border px-4 py-3"
-            >
-              <Checkbox
-                className="mt-1 shrink-0"
-                id={`${prefix}-${i}`}
-                checked={a.correct?.includes(o.label!) || false}
-                onCheckedChange={(checked) =>
-                  onChange({
-                    correct: checked
-                      ? [...(a.correct || []), o.label!]
-                      : (a.correct || []).filter((s) => s !== o.label),
-                  })
-                }
-              />
-              <div className="grid min-w-0 flex-1 grid-cols-[auto_minmax(0,1fr)] items-start gap-2 leading-[1.75]">
-                <span className="min-w-6 font-medium">{o.label}.</span>
-                <Markdown lang={materialLanguage(q)}>{o.content}</Markdown>
-                {usedOptions.includes(o.label!) && <span className="text-xs text-muted-foreground">{t("已使用")}</span>}
-              </div>
-            </label>
-          ))}
+          {options}
         </fieldset>
       ) : (
         <RadioGroup
@@ -85,22 +91,10 @@ export function AnswerInput({
           onValueChange={(v) => onChange({ correct: [v] })}
           aria-label={t("选择答案")}
         >
-          {q.options.map((o, i) => (
-            <label
-              key={i}
-              htmlFor={`${prefix}-${i}`}
-              className="flex cursor-pointer items-start gap-3 rounded-lg border px-4 py-3"
-            >
-              <RadioGroupItem className="mt-1 shrink-0" id={`${prefix}-${i}`} value={o.label!} disabled={usedOptions.includes(o.label!) && !a.correct?.includes(o.label!)} />
-              <div className="grid min-w-0 flex-1 grid-cols-[auto_minmax(0,1fr)] items-start gap-2 leading-[1.75]">
-                <span className="min-w-6 font-medium">{o.label}.</span>
-                <Markdown lang={materialLanguage(q)}>{o.content}</Markdown>
-                {usedOptions.includes(o.label!) && <span className="text-xs text-muted-foreground">{t("已使用")}</span>}
-              </div>
-            </label>
-          ))}
+          {options}
         </RadioGroup>
       );
+    }
     case "true_false":
       return (
         <RadioGroup

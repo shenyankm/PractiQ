@@ -15,9 +15,11 @@ from practiq_ai.contracts import (  # noqa: E402
 path = Path(__file__).resolve().parents[1] / 'src-tauri/contracts.json'
 
 
-def write_changed(target: Path, value: str) -> None:
+def write_changed(target: Path, value: str, message: str) -> None:
     # Identical exports must not trigger client dev-server reloads.
     if not target.is_file() or target.read_text(encoding='utf-8') != value:
+        if '--check' in sys.argv:
+            raise SystemExit(message)
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(value, encoding='utf-8')
 
@@ -26,11 +28,7 @@ content = json.dumps({name: model.model_json_schema(mode='serialization') for na
     'result': DocumentParseResult, 'processing': DocumentProcessing,
     'taskSummary': DocumentTaskSummary, 'taskReview': DocumentTaskReview, 'taskDetail': DocumentTaskDetail,
 }.items()}, ensure_ascii=False, indent=2) + '\n'
-if '--check' in sys.argv:
-    if path.read_text(encoding='utf-8') != content:
-        raise SystemExit('AI contract changed: run app/scripts/export-contracts.py and review the desktop importer.')
-else:
-    write_changed(path, content)
+write_changed(path, content, 'AI contract changed: run app/scripts/export-contracts.py and review the desktop importer.')
 
 # Derive desktop types from the same schema; defaults are optional input fields.
 def ts_type(node):
@@ -93,11 +91,7 @@ lines.append('export const COMPOSITE_MODES: readonly string[] = ' + json.dumps(s
 lines.append('export const COMPOSITE_FILTERS: readonly string[] = ' + json.dumps(sorted(COMPOSITE_MODES | {k for k, v in QUESTION_KIND_MODES.items() if v in COMPOSITE_MODES})) + ';')
 generated = '\n'.join(lines) + '\n'
 for types_path in (path.parents[1] / 'src' / 'contracts.generated.ts', path.parents[2] / 'web/src/contracts.generated.ts'):
-    if '--check' in sys.argv:
-        if not types_path.is_file() or types_path.read_text(encoding='utf-8') != generated:
-            raise SystemExit('Shared client types changed: run app/scripts/export-contracts.py')
-    else:
-        write_changed(types_path, generated)
+    write_changed(types_path, generated, 'Shared client types changed: run app/scripts/export-contracts.py')
 
 metadata_path = path.parent / 'src/question_metadata.rs'
 filter_modes = sorted({'', 'single', 'multiple', *get_args(AnswerMode), *QUESTION_KIND_MODES})
@@ -110,8 +104,4 @@ for name, values in [('COMPOSITE_MODES', sorted(COMPOSITE_MODES)), ('FILTER_MODE
 rust += 'pub const QUESTION_KIND_MODES: &[(&str, &str)] = &[\n' + ''.join(f'    ({json.dumps(k)}, {json.dumps(v)}),\n' for k,v in QUESTION_KIND_MODES.items()) + '];\n'
 sql = ','.join("'" + mode + "'" for mode in sorted(COMPOSITE_MODES))
 rust += 'pub const COMPOSITE_SQL: &str = ' + json.dumps(sql) + ';\n'
-if '--check' in sys.argv:
-    if metadata_path.read_text(encoding='utf-8') != rust:
-        raise SystemExit('Question metadata changed: run app/scripts/export-contracts.py')
-else:
-    write_changed(metadata_path, rust)
+write_changed(metadata_path, rust, 'Question metadata changed: run app/scripts/export-contracts.py')

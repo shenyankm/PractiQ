@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Reuse native media validation, consolidate choice layouts and import styles, and simplify contract export and storage test helpers without changing data formats.
+
 - Add an explicit client version synchronization command and generated change summaries in draft release notes.
 - Bind draft-asset Actions attestations to the candidate tag and source commit, and verify them before draft creation.
 - Add reviewable release-tag creation and immutability policies.

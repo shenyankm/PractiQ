@@ -29,7 +29,7 @@ from practiq_ai.contracts import (
 from practiq_ai.errors import DocumentProcessingError
 from practiq_ai.graphs import document
 from practiq_ai.graphs.chunking import source_presence_plan, split_chunk_plan
-from practiq_ai.storage import ObjectStore, StorageHealth
+from practiq_ai.storage import ObjectStore, StorageHealth, verify_payload
 
 
 class FakeModel(BaseChatModel):
@@ -184,16 +184,7 @@ class FakeObjectStore:
 
     async def get_verified(self, reference):
         payload = self.blobs[reference.objectKey]
-        if len(payload) != reference.sizeBytes:
-            raise DocumentProcessingError(
-                409, "Stored document size does not match", "DOCUMENT_SIZE_MISMATCH"
-            )
-        if hashlib.sha256(payload).hexdigest() != reference.sha256:
-            raise DocumentProcessingError(
-                409,
-                "Stored document checksum does not match",
-                "DOCUMENT_CHECKSUM_MISMATCH",
-            )
+        await verify_payload(reference, payload)
         return payload
 
     async def put_artifact(

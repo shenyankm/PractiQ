@@ -372,6 +372,20 @@ test("all KaTeX font faces load from WOFF2 with no fallback font requests", asyn
   expect(mutations(http.calls)).toHaveLength(0);
 });
 
+test("workspace preserves layout values across breakpoint boundaries", async ({ page }) => {
+  const http = await fakeHTTP(page);
+  await connect(page);
+  for (const width of [767, 768, 1050, 1051, 1100, 1101]) {
+    await page.setViewportSize({ width, height: 900 });
+    const padding = width <= 767 ? "24px 16px" : width <= 1100 ? "24px" : "32px";
+    await expect(page.locator(".web-main")).toHaveCSS("padding", padding);
+    await expect(page.locator(".web-main")).toHaveCSS("max-width", "1320px");
+    await expect(page.locator(".page-intro")).toHaveCSS("margin-bottom", "28px");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  }
+  expect(mutations(http.calls)).toHaveLength(0);
+});
+
 test("workspace fits narrow and desktop windows with keyboard shortcuts to content", async ({ page }, testInfo) => {
   const http = await fakeHTTP(page, { ...task, fileName: "很长的来源文档名称-".repeat(12) + ".docx" });
   await page.goto("/");

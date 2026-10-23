@@ -117,6 +117,37 @@ async def test_completed_task_http_preserves_result_processing_usage_and_expiry(
     assert len(model.calls) == 1
 
 
+@pytest.mark.parametrize('check', [False, True])
+@pytest.mark.parametrize('state', ['missing', 'same', 'stale'])
+def test_contract_output_checks_without_writes_and_writes_only_changes(monkeypatch, tmp_path, check, state):
+    monkeypatch.setattr('sys.argv', ['export-contracts.py', '--check'])
+    write_changed = runpy.run_path(str(APP_ROOT / 'scripts/export-contracts.py'))['write_changed']
+    target = tmp_path / 'generated' / 'contract.txt'
+    if state != 'missing':
+        target.parent.mkdir()
+        target.write_text('expected' if state == 'same' else 'previous', encoding='utf-8')
+    monkeypatch.setattr('sys.argv', ['export-contracts.py', *(['--check'] if check else [])])
+    message = 'Fixture contract changed'
+    if check or state == 'same':
+        with monkeypatch.context() as patch:
+            def no_write(*args, **kwargs):
+                pytest.fail('Unchanged exports and check mode must not write')
+            patch.setattr(Path, 'write_text', no_write)
+            patch.setattr(Path, 'mkdir', no_write)
+            if check and state != 'same':
+                with pytest.raises(SystemExit, match=message):
+                    write_changed(target, 'expected', message)
+            else:
+                write_changed(target, 'expected', message)
+    else:
+        write_changed(target, 'expected', message)
+    if check and state == 'missing':
+        assert not target.parent.exists()
+    else:
+        expected = 'previous' if check and state == 'stale' else 'expected'
+        assert target.read_text(encoding='utf-8') == expected
+
+
 @pytest.mark.parametrize('change', ['field', 'state'])
 def test_task_detail_changes_invalidate_generated_contract_check(monkeypatch, change):
     schema = DocumentTaskDetail.model_json_schema(mode='serialization')
