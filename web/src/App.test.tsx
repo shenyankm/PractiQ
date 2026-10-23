@@ -438,6 +438,86 @@ it.each(["开始导入", "设置"])("stops invisible records reads in %s and ref
   expect(http.calls.every(call => call.method === "GET")).toBe(true);
 });
 
+it("preserves review state across running checkpoints and resets it for another task", async () => {
+  const user = userEvent.setup();
+  const running: DocumentTaskDetail = { ...task, state: "RUNNING", result: null, allowedActions: ["pause"] };
+  const http = fakeHTTP(running);
+  http.records.set(newTaskId, { ...running, threadId: newTaskId, fileName: "other.docx" });
+  const questions = Array.from({ length: 25 }, (_, index) => question({ id: `q-${index}`, stem: `Kept question ${index}`, parentId: null, optionSourceId: null }));
+  let currentPreview = { ...preview, state: running.state, units: [{ ...preview.units[0], questions }] };
+  http.server.intercept = url => url.endsWith("/preview") ? json({ ...currentPreview, threadId: url.split("/")[3], checkpointId: http.records.get(url.split("/")[3])!.checkpointId }) : undefined;
+  render(<App />); await connect(user);
+  await user.click(screen.getByRole("link", { name: "导入记录" }));
+  await user.click(await screen.findByRole("button", { name: "sample.docx" }));
+  await user.type(await screen.findByRole("searchbox", { name: "搜索解析题目" }), "Kept");
+  await user.click(screen.getByRole("checkbox", { name: "仅看需要复核" }));
+  await user.click(screen.getByRole("button", { name: "下一页题目" }));
+  await user.click(screen.getByText("Kept question 20"));
+  const entry = screen.getByText("Kept question 20", { selector: "summary span" }).closest("details")!;
+  await screen.findByRole("heading", { name: "完整题干" });
+
+  http.records.set(taskId, { ...running, checkpointId: "checkpoint-two" });
+  currentPreview = { ...currentPreview, checkpointId: "checkpoint-two", units: [{ ...currentPreview.units[0], questions: questions.map(q => q.id === "q-20" ? { ...q, analysis: "Updated checkpoint analysis" } : q) }] };
+  vi.useFakeTimers();
+  await act(async () => window.dispatchEvent(new Event("focus")));
+  // The scheduled running-task poll must retain the review, not only a focus wake.
+  http.records.set(taskId, { ...running, checkpointId: "checkpoint-three" });
+  currentPreview = { ...currentPreview, checkpointId: "checkpoint-three" };
+  await act(async () => vi.advanceTimersByTimeAsync(3000));
+  vi.useRealTimers();
+  expect(screen.getByRole("searchbox", { name: "搜索解析题目" })).toHaveProperty("value", "Kept");
+  expect(screen.getByRole("checkbox", { name: "仅看需要复核" })).toHaveProperty("checked", true);
+  expect(screen.getByText("第 21–25 条，共 25 条")).toBeTruthy();
+  expect(screen.getByText("Kept question 20", { selector: "summary span" }).closest("details")).toBe(entry);
+  expect(entry.open).toBe(true);
+  expect(screen.getByText("Updated checkpoint analysis")).toBeTruthy();
+  expect(http.calls.filter(call => call.url.endsWith(`/${taskId}/preview`))).toHaveLength(3);
+
+  await user.click(screen.getByRole("button", { name: "来源与资源" }));
+  http.records.set(taskId, { ...running, checkpointId: "checkpoint-four" });
+  currentPreview = { ...currentPreview, checkpointId: "checkpoint-four" };
+  await act(async () => window.dispatchEvent(new Event("focus")));
+  expect(screen.getByRole("button", { name: "来源与资源" }).getAttribute("aria-pressed")).toBe("true");
+  await user.click(screen.getByRole("button", { name: "other.docx" }));
+  await screen.findByRole("heading", { name: "other.docx", level: 2 });
+  expect(screen.getByRole("button", { name: "题目与材料" }).getAttribute("aria-pressed")).toBe("true");
+  expect(screen.getByRole("searchbox", { name: "搜索解析题目" })).toHaveProperty("value", "");
+  expect(screen.getByRole("checkbox", { name: "仅看需要复核" })).toHaveProperty("checked", false);
+  expect(screen.getByText("第 1–20 条，共 25 条")).toBeTruthy();
+  await user.click(screen.getByRole("button", { name: "下一页题目" }));
+  expect(screen.getByText("Kept question 20", { selector: "summary span" }).closest("details")!.open).toBe(false);
+  expect(questions[20]).not.toHaveProperty("analysis");
+  expect(http.calls.every(call => call.method === "GET")).toBe(true);
+});
+
+it.each(["refresh", "task switch"])("recovers the result error boundary through explicit %s without mutations", async recovery => {
+  const user = userEvent.setup(); const http = fakeHTTP({ ...task, state: "RUNNING" });
+  http.records.set(newTaskId, { ...task, threadId: newTaskId, fileName: "other.docx" });
+  render(<App />); await connect(user); await openTask(user);
+  const stringify = JSON.stringify;
+  const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+  const fault = vi.spyOn(JSON, "stringify").mockImplementation((...args) => {
+    // Inject a render-only failure while keeping valid HTTP payloads and the real boundary.
+    if (Array.isArray(args[0]) && args[0].length === 1 && args[0][0] === "q-child") throw new Error("Synthetic result render failure");
+    return stringify(...args);
+  });
+  try {
+    http.records.set(taskId, { ...task, state: "RUNNING", checkpointId: "checkpoint-two" });
+    await act(async () => window.dispatchEvent(new Event("focus")));
+    expect(screen.getByRole("heading", { name: "此界面暂时无法显示" })).toBeTruthy();
+    expect(errors).toHaveBeenCalled();
+  } finally { fault.mockRestore(); errors.mockRestore(); }
+  if (recovery === "refresh") {
+    await user.click(screen.getByRole("button", { name: "刷新任务详情" }));
+  } else {
+    await user.click(screen.getByRole("button", { name: "other.docx" }));
+    await screen.findByRole("heading", { name: "other.docx", level: 2 });
+  }
+  expect(await screen.findByText("根据材料选择答案")).toBeTruthy();
+  expect(screen.queryByRole("heading", { name: "此界面暂时无法显示" })).toBeNull();
+  expect(http.calls.every(call => call.method === "GET")).toBe(true);
+});
+
 it("discards an in-flight hidden detail without fetching its preview, then revalidates on return", async () => {
   const user = userEvent.setup(); const http = fakeHTTP({ ...task, state: "RUNNING", allowedActions: ["pause"] });
   render(<App />); await connect(user); await openTask(user);
