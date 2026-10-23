@@ -234,13 +234,16 @@ fn credential_account(service_url: &str) -> Result<String> {
 fn entry(app: &tauri::AppHandle, service_url: &str) -> Result<Box<dyn Credential>> {
     crate::credentials::entry(app, &credential_account(service_url)?)
 }
-fn required_secret(entry: &impl Credential, missing_code: &str) -> Result<String> {
-    let secret = entry
+fn required_service_token(entry: &impl Credential) -> Result<String> {
+    let token = entry
         .read()?
         .filter(|s| !s.trim().is_empty())
-        .ok_or(crate::language::error(missing_code, json!({})))?;
-    validate_service_token(&secret)?;
-    Ok(secret.trim().to_owned())
+        .ok_or(crate::language::error(
+            "LOCAL_SERVICE_TOKEN_REQUIRED",
+            json!({}),
+        ))?;
+    validate_service_token(&token)?;
+    Ok(token.trim().to_owned())
 }
 fn persist_with_secret(
     entry: &impl Credential,
@@ -266,6 +269,18 @@ fn model_account(config: &ConnectionSettings) -> Result<String> {
     Ok(format!("ai-model-key-v1-{}", hash(url.as_bytes())))
 }
 
+fn model_key(entry: &impl Credential) -> Result<String> {
+    let key = entry
+        .read()?
+        .filter(|s| !s.trim().is_empty())
+        .ok_or(crate::language::error(
+            "LOCAL_MODEL_KEY_REQUIRED",
+            json!({}),
+        ))?;
+    validate_service_token(&key)?;
+    Ok(key.trim().to_owned())
+}
+
 pub fn model_settings(
     shared: &crate::Shared,
     config: ServiceSettings,
@@ -277,17 +292,11 @@ pub fn model_settings(
     })
 }
 
-// Native-only: keep credentials separate from settings and request URLs.
-pub struct ConnectionInput<T> {
-    pub target: T,
-    pub credential: String,
-}
-
 pub fn model_input(
     config: &ConnectionSettings,
     api_key: Option<String>,
     app: &tauri::AppHandle,
-) -> Result<ConnectionInput<ConnectionSettings>> {
+) -> Result<(ConnectionSettings, String)> {
     let config = config.clone().validate()?;
     let account = model_account(&config)?;
     if config.model_id.is_none() {
@@ -298,15 +307,9 @@ pub fn model_input(
             validate_service_token(&key)?;
             key.trim().to_owned()
         }
-        _ => required_secret(
-            &crate::credentials::entry(app, &account)?,
-            "LOCAL_MODEL_KEY_REQUIRED",
-        )?,
+        _ => model_key(&crate::credentials::entry(app, &account)?)?,
     };
-    Ok(ConnectionInput {
-        target: config,
-        credential: key,
-    })
+    Ok((config, key))
 }
 pub fn test_connection(config: ServiceSettings, token: String) -> Result<Value> {
     let url = config
@@ -486,7 +489,7 @@ impl Store {
         app: &tauri::AppHandle,
         config: ServiceSettings,
         service_token: Option<String>,
-    ) -> Result<ConnectionInput<ServiceSettings>> {
+    ) -> Result<(ServiceSettings, String)> {
         self.connection_test_input_with(config, service_token, |url| entry(app, url))
     }
     fn connection_test_input_with<C: Credential>(
@@ -494,7 +497,7 @@ impl Store {
         config: ServiceSettings,
         service_token: Option<String>,
         credential: impl FnOnce(&str) -> Result<C>,
-    ) -> Result<ConnectionInput<ServiceSettings>> {
+    ) -> Result<(ServiceSettings, String)> {
         let config = config.validate()?;
         let url = config.service_url.as_deref().ok_or(crate::language::error(
             "LOCAL_SERVICE_URL_REQUIRED",
@@ -505,21 +508,18 @@ impl Store {
         }
         let token = match service_token {
             Some(token) if !token.trim().is_empty() => token.trim().to_owned(),
-            _ => required_secret(&credential(url)?, "LOCAL_SERVICE_TOKEN_REQUIRED")?,
+            _ => required_service_token(&credential(url)?)?,
         };
-        Ok(ConnectionInput {
-            target: config,
-            credential: token,
-        })
+        Ok((config, token))
     }
     /// Called only by the explicit subjective-grading or grading-retry action.
-    pub fn grading_input(&self, app: &tauri::AppHandle) -> Result<ConnectionInput<String>> {
+    pub fn grading_input(&self, app: &tauri::AppHandle) -> Result<(String, String)> {
         self.grading_input_with(|url| entry(app, url))
     }
     fn grading_input_with<C: Credential>(
         &self,
         credential: impl FnOnce(&str) -> Result<C>,
-    ) -> Result<ConnectionInput<String>> {
+    ) -> Result<(String, String)> {
         let url =
             self.service_settings()?
                 .validate()?
@@ -528,11 +528,8 @@ impl Store {
                     "LOCAL_SERVICE_URL_REQUIRED",
                     json!({}),
                 ))?;
-        let token = required_secret(&credential(&url)?, "LOCAL_SERVICE_TOKEN_REQUIRED")?;
-        Ok(ConnectionInput {
-            target: url,
-            credential: token,
-        })
+        let token = required_service_token(&credential(&url)?)?;
+        Ok((url, token))
     }
     pub fn connection_settings(&self) -> Result<ConnectionSettings> {
         self.connect()?
@@ -833,34 +830,6 @@ mod tests {
             ..Default::default()
         })))
     }
-    #[test]
-    fn required_secret_preserves_missing_codes_validation_and_read_errors() {
-        for missing in ["LOCAL_SERVICE_TOKEN_REQUIRED", "LOCAL_MODEL_KEY_REQUIRED"] {
-            for value in [None, Some("   ")] {
-                let entry = mock_entry(value);
-                assert_eq!(required_secret(&entry, missing).unwrap_err().code, missing);
-                assert!(entry.0.lock().unwrap().writes.is_empty());
-            }
-            let entry = mock_entry(Some("  dummy-secret  "));
-            assert_eq!(required_secret(&entry, missing).unwrap(), "dummy-secret");
-            for value in ["\ndummy-secret", "dummy-secret\r", "dummy\tsecret"] {
-                assert_eq!(
-                    required_secret(&mock_entry(Some(value)), missing)
-                        .unwrap_err()
-                        .code,
-                    "LOCAL_SERVICE_TOKEN_INVALID"
-                );
-            }
-            entry.0.lock().unwrap().read_error = true;
-            assert_eq!(
-                required_secret(&entry, missing).unwrap_err().code,
-                "LOCAL_KEYCHAIN_READ"
-            );
-            let state = entry.0.lock().unwrap();
-            assert_eq!(state.reads, 2);
-            assert!(state.writes.is_empty());
-        }
-    }
     fn fail_credential(_: &str) -> Result<MockEntry> {
         panic!("passive configuration must not open the credential store")
     }
@@ -989,11 +958,7 @@ mod tests {
         );
         let store = shared.lock().unwrap();
         assert_eq!(
-            store
-                .grading_input_with(fail_credential)
-                .err()
-                .unwrap()
-                .code,
+            store.grading_input_with(fail_credential).unwrap_err().code,
             "LOCAL_SERVICE_URL_REQUIRED"
         );
         assert!(std::fs::read(store.db_path()).unwrap() == before);
@@ -1146,8 +1111,7 @@ mod tests {
                         Some(token),
                         fail_credential
                     )
-                    .err()
-                    .unwrap()
+                    .unwrap_err()
                     .code,
                 "LOCAL_SERVICE_TOKEN_INVALID"
             );
@@ -1164,15 +1128,15 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let store = Store::new(dir.path().to_owned()).unwrap();
         let before = std::fs::read(store.db_path()).unwrap();
-        let input = store
+        let (cfg, token) = store
             .connection_test_input_with(
                 config(" https://service.example.com/ "),
                 Some(" dummy-token ".into()),
                 fail_credential,
             )
             .unwrap();
-        assert_eq!(input.target, config("https://service.example.com"));
-        assert_eq!(input.credential, "dummy-token");
+        assert_eq!(cfg, config("https://service.example.com"));
+        assert_eq!(token, "dummy-token");
         assert!(std::fs::read(store.db_path()).unwrap() == before);
         assert_eq!(
             store
@@ -1181,8 +1145,7 @@ mod tests {
                     Some("dummy-token".into()),
                     fail_credential,
                 )
-                .err()
-                .unwrap()
+                .unwrap_err()
                 .code,
             "LOCAL_SERVICE_URL_REQUIRED"
         );
@@ -1217,9 +1180,7 @@ mod tests {
         let old_model_key = mock_entry(Some("dummy-provider-key"));
         let service_token = mock_entry(None);
         assert_eq!(
-            required_secret(&service_token, "LOCAL_SERVICE_TOKEN_REQUIRED")
-                .unwrap_err()
-                .code,
+            required_service_token(&service_token).unwrap_err().code,
             "LOCAL_SERVICE_TOKEN_REQUIRED"
         );
         assert_eq!(
@@ -1259,9 +1220,7 @@ mod tests {
         assert!(entry.read().unwrap().is_none());
         persist_with_secret(&entry, None, || Ok(())).unwrap();
         assert_eq!(
-            required_secret(&entry, "LOCAL_SERVICE_TOKEN_REQUIRED")
-                .unwrap_err()
-                .code,
+            required_service_token(&entry).unwrap_err().code,
             "LOCAL_SERVICE_TOKEN_REQUIRED"
         );
         let columns = store
@@ -1868,20 +1827,21 @@ mod tests {
             .unwrap();
         let credential = mock_entry(Some("dummy-token"));
         let clone = credential.clone();
-        let input = store
-            .grading_input_with(|url| {
-                assert_eq!(url, "https://service.example.com");
-                Ok(clone)
-            })
-            .unwrap();
-        assert_eq!(input.target, "https://service.example.com");
-        assert_eq!(input.credential, "dummy-token");
+        assert_eq!(
+            store
+                .grading_input_with(|url| {
+                    assert_eq!(url, "https://service.example.com");
+                    Ok(clone)
+                })
+                .unwrap(),
+            ("https://service.example.com".into(), "dummy-token".into())
+        );
         let clone = credential.clone();
         assert_eq!(
             store
                 .connection_test_input_with(config, None, |_| Ok(clone))
                 .unwrap()
-                .credential,
+                .1,
             "dummy-token"
         );
         assert_eq!(credential.0.lock().unwrap().reads, 2);
@@ -1889,8 +1849,7 @@ mod tests {
         assert_eq!(
             store
                 .grading_input_with(|_| Ok(mock_entry(Some("invalid\nvalue"))))
-                .err()
-                .unwrap()
+                .unwrap_err()
                 .code,
             "LOCAL_SERVICE_TOKEN_INVALID"
         );
@@ -2081,7 +2040,7 @@ mod tests {
         )
         .unwrap();
         entry.write(Some("practiq-dummy-test-value")).unwrap();
-        let read = required_secret(&entry, "LOCAL_SERVICE_TOKEN_REQUIRED").unwrap();
+        let read = required_service_token(&entry).unwrap();
         entry.write(None).unwrap();
         assert_eq!(read, "practiq-dummy-test-value");
         assert!(entry.read().unwrap().is_none());

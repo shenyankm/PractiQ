@@ -320,16 +320,13 @@ pub fn request(
                 return Ok(session);
             }
         }
-        let input = settings::model_input(&model, None, &app)?;
-        let mut endpoint = Endpoint::new(
-            input.target.base_url.clone().ok_or("Missing model URL")?,
-            input.credential,
-        )?;
-        endpoint.model = Some(input.target);
+        let (model, key) = settings::model_input(&model, None, &app)?;
+        let mut endpoint = Endpoint::new(model.base_url.clone().ok_or("Missing model URL")?, key)?;
+        endpoint.model = Some(model);
         endpoint
     } else {
-        let input = store.grading_input(&app)?;
-        Endpoint::new(input.target, input.credential)?
+        let (origin, token) = store.grading_input(&app)?;
+        Endpoint::new(origin, token)?
     };
     grade(
         &shared,
