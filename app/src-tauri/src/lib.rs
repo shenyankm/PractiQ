@@ -320,13 +320,13 @@ async fn request(
         if let Request::TestSettings { config, service_token, api_key } = request {
             if let Some(model) = &config.model {
                 if service_token.is_some() { return Err("Use an API key for direct model access".into()); }
-                let (model, key) = settings::model_input(model, api_key, &app)?;
-                return ai::test_model_connection(&model, key);
+                let input = settings::model_input(model, api_key, &app)?;
+                return ai::test_model_connection(&input.target, input.credential);
             }
             if api_key.is_some() { return Err("Select direct model access before saving an API key".into()); }
-            let (config, key) = settings::snapshot(&shared)?
+            let input = settings::snapshot(&shared)?
                 .connection_test_input(&app, config, service_token)?;
-            return settings::test_connection(config, key);
+            return settings::test_connection(input.target, input.credential);
         }
         if let Request::SaveSettings { config, service_token, api_key } = request {
             if (config.model.is_some() && service_token.is_some()) || (config.model.is_none() && api_key.is_some()) { return Err("Credential does not match the selected grading connection".into()); }

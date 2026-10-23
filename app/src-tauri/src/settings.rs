@@ -277,11 +277,17 @@ pub fn model_settings(
     })
 }
 
+// Native-only: keep credentials separate from settings and request URLs.
+pub struct ConnectionInput<T> {
+    pub target: T,
+    pub credential: String,
+}
+
 pub fn model_input(
     config: &ConnectionSettings,
     api_key: Option<String>,
     app: &tauri::AppHandle,
-) -> Result<(ConnectionSettings, String)> {
+) -> Result<ConnectionInput<ConnectionSettings>> {
     let config = config.clone().validate()?;
     let account = model_account(&config)?;
     if config.model_id.is_none() {
@@ -297,7 +303,10 @@ pub fn model_input(
             "LOCAL_MODEL_KEY_REQUIRED",
         )?,
     };
-    Ok((config, key))
+    Ok(ConnectionInput {
+        target: config,
+        credential: key,
+    })
 }
 pub fn test_connection(config: ServiceSettings, token: String) -> Result<Value> {
     let url = config
@@ -477,7 +486,7 @@ impl Store {
         app: &tauri::AppHandle,
         config: ServiceSettings,
         service_token: Option<String>,
-    ) -> Result<(ServiceSettings, String)> {
+    ) -> Result<ConnectionInput<ServiceSettings>> {
         self.connection_test_input_with(config, service_token, |url| entry(app, url))
     }
     fn connection_test_input_with<C: Credential>(
@@ -485,7 +494,7 @@ impl Store {
         config: ServiceSettings,
         service_token: Option<String>,
         credential: impl FnOnce(&str) -> Result<C>,
-    ) -> Result<(ServiceSettings, String)> {
+    ) -> Result<ConnectionInput<ServiceSettings>> {
         let config = config.validate()?;
         let url = config.service_url.as_deref().ok_or(crate::language::error(
             "LOCAL_SERVICE_URL_REQUIRED",
@@ -498,16 +507,19 @@ impl Store {
             Some(token) if !token.trim().is_empty() => token.trim().to_owned(),
             _ => required_secret(&credential(url)?, "LOCAL_SERVICE_TOKEN_REQUIRED")?,
         };
-        Ok((config, token))
+        Ok(ConnectionInput {
+            target: config,
+            credential: token,
+        })
     }
     /// Called only by the explicit subjective-grading or grading-retry action.
-    pub fn grading_input(&self, app: &tauri::AppHandle) -> Result<(String, String)> {
+    pub fn grading_input(&self, app: &tauri::AppHandle) -> Result<ConnectionInput<String>> {
         self.grading_input_with(|url| entry(app, url))
     }
     fn grading_input_with<C: Credential>(
         &self,
         credential: impl FnOnce(&str) -> Result<C>,
-    ) -> Result<(String, String)> {
+    ) -> Result<ConnectionInput<String>> {
         let url =
             self.service_settings()?
                 .validate()?
@@ -517,7 +529,10 @@ impl Store {
                     json!({}),
                 ))?;
         let token = required_secret(&credential(&url)?, "LOCAL_SERVICE_TOKEN_REQUIRED")?;
-        Ok((url, token))
+        Ok(ConnectionInput {
+            target: url,
+            credential: token,
+        })
     }
     pub fn connection_settings(&self) -> Result<ConnectionSettings> {
         self.connect()?
@@ -974,7 +989,11 @@ mod tests {
         );
         let store = shared.lock().unwrap();
         assert_eq!(
-            store.grading_input_with(fail_credential).unwrap_err().code,
+            store
+                .grading_input_with(fail_credential)
+                .err()
+                .unwrap()
+                .code,
             "LOCAL_SERVICE_URL_REQUIRED"
         );
         assert!(std::fs::read(store.db_path()).unwrap() == before);
@@ -1127,7 +1146,8 @@ mod tests {
                         Some(token),
                         fail_credential
                     )
-                    .unwrap_err()
+                    .err()
+                    .unwrap()
                     .code,
                 "LOCAL_SERVICE_TOKEN_INVALID"
             );
@@ -1144,15 +1164,15 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let store = Store::new(dir.path().to_owned()).unwrap();
         let before = std::fs::read(store.db_path()).unwrap();
-        let (cfg, token) = store
+        let input = store
             .connection_test_input_with(
                 config(" https://service.example.com/ "),
                 Some(" dummy-token ".into()),
                 fail_credential,
             )
             .unwrap();
-        assert_eq!(cfg, config("https://service.example.com"));
-        assert_eq!(token, "dummy-token");
+        assert_eq!(input.target, config("https://service.example.com"));
+        assert_eq!(input.credential, "dummy-token");
         assert!(std::fs::read(store.db_path()).unwrap() == before);
         assert_eq!(
             store
@@ -1161,7 +1181,8 @@ mod tests {
                     Some("dummy-token".into()),
                     fail_credential,
                 )
-                .unwrap_err()
+                .err()
+                .unwrap()
                 .code,
             "LOCAL_SERVICE_URL_REQUIRED"
         );
@@ -1847,21 +1868,20 @@ mod tests {
             .unwrap();
         let credential = mock_entry(Some("dummy-token"));
         let clone = credential.clone();
-        assert_eq!(
-            store
-                .grading_input_with(|url| {
-                    assert_eq!(url, "https://service.example.com");
-                    Ok(clone)
-                })
-                .unwrap(),
-            ("https://service.example.com".into(), "dummy-token".into())
-        );
+        let input = store
+            .grading_input_with(|url| {
+                assert_eq!(url, "https://service.example.com");
+                Ok(clone)
+            })
+            .unwrap();
+        assert_eq!(input.target, "https://service.example.com");
+        assert_eq!(input.credential, "dummy-token");
         let clone = credential.clone();
         assert_eq!(
             store
                 .connection_test_input_with(config, None, |_| Ok(clone))
                 .unwrap()
-                .1,
+                .credential,
             "dummy-token"
         );
         assert_eq!(credential.0.lock().unwrap().reads, 2);
@@ -1869,7 +1889,8 @@ mod tests {
         assert_eq!(
             store
                 .grading_input_with(|_| Ok(mock_entry(Some("invalid\nvalue"))))
-                .unwrap_err()
+                .err()
+                .unwrap()
                 .code,
             "LOCAL_SERVICE_TOKEN_INVALID"
         );

@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Reuse native media and credential validation, consolidate choice layouts and import styles, and simplify contract export and storage test helpers without changing data formats.
+- Reuse native media and credential validation, consolidate choice layouts and import styles, and simplify contract export and storage test helpers without changing data formats. Keep native connection targets and credentials in separate named fields.
 
 - Add an explicit client version synchronization command and generated change summaries in draft release notes.
 - Bind draft-asset Actions attestations to the candidate tag and source commit, and verify them before draft creation.
