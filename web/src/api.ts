@@ -246,21 +246,21 @@ export class Client {
     if (!receipt || receipt.deleted !== true) throw new ApiError("删除回执无效，结果尚未确认。请先查询任务。", "INVALID_RESPONSE");
     return receipt;
   }
-  private async artifact(reference: ArtifactReference, threadId: string, limit: number) {
+  private async artifact(reference: ArtifactReference, threadId: string, limit: number, signal?: AbortSignal) {
     if (!/^[a-f0-9]{64}$/.test(reference.sha256) || !Number.isSafeInteger(reference.sizeBytes) || reference.sizeBytes <= 0 || reference.sizeBytes > limit) throw new ApiError("来源引用无效。", "INVALID_REFERENCE");
     return this.request(`/api/artifacts/read?thread_id=${encodeURIComponent(threadId)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(reference) }, async (response, signal) => {
       const bytes = await readBytes(response, reference.sizeBytes, signal);
       if (bytes.length !== reference.sizeBytes || response.headers.get("content-type")?.split(";")[0] !== reference.mediaType || await sha256(bytes.buffer) !== reference.sha256) throw new ApiError("来源文件校验失败。", "ARTIFACT_CHECKSUM_MISMATCH");
       return new Blob([bytes], { type: reference.mediaType });
-    });
+    }, signal);
   }
-  image(reference: ArtifactReference, threadId: string) {
+  image(reference: ArtifactReference, threadId: string, signal?: AbortSignal) {
     if (!["image/png", "image/jpeg"].includes(reference.mediaType)) return Promise.reject(new ApiError("图片引用无效。", "INVALID_REFERENCE"));
-    return this.artifact(reference, threadId, 50 * MIB);
+    return this.artifact(reference, threadId, 50 * MIB, signal);
   }
-  evidence(reference: ArtifactReference, threadId: string) {
+  evidence(reference: ArtifactReference, threadId: string, signal?: AbortSignal) {
     if (!["application/json", "text/plain", "text/markdown"].includes(reference.mediaType)) return Promise.reject(new ApiError("来源证据类型无效。", "INVALID_REFERENCE"));
-    return this.artifact(reference, threadId, 25 * MIB);
+    return this.artifact(reference, threadId, 25 * MIB, signal);
   }
   source(reference: DocumentReference, threadId: string) {
     if (!Object.values(formats).some(format => format.sourceType === reference.sourceType && format.mediaType === reference.mediaType) && !(reference.sourceType === "csv" && reference.mediaType === "text/csv") && !(reference.sourceType === "markdown" && reference.mediaType === "text/plain")) return Promise.reject(new ApiError("原文件类型无效。", "INVALID_REFERENCE"));

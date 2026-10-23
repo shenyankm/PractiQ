@@ -1,4 +1,5 @@
 import { createRequire } from "node:module";
+import { StrictMode } from "react";
 import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { expect, it, vi } from "vitest";
@@ -18,19 +19,22 @@ it.each(["sourceRef", "evidenceRef"] as const)("loads %s OCR evidence only on de
   await userEvent.click(screen.getByRole("button", { name: "查看来源证据" }));
   expect(await screen.findByText(literal)).toBeTruthy();
   expect(container.querySelector("script")).toBeNull();
-  expect(evidence).toHaveBeenCalledWith(reference, task.threadId);
+  expect(evidence).toHaveBeenCalledWith(reference, task.threadId, expect.any(AbortSignal));
 });
 
 it("downloads the original document only after an explicit action", async () => {
-  const source = vi.spyOn(Client.prototype, "source").mockResolvedValue(new Blob(["source"]));
+  let finish!: (blob: Blob) => void;
+  const source = vi.spyOn(Client.prototype, "source").mockImplementation(() => new Promise(resolve => { finish = resolve; }));
   vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:original");
   const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
   const document = { objectKey: "managed-source", sha256: "a".repeat(64), sizeBytes: 6, mediaType: "text/plain", sourceType: "text" as const, fileName: "source.txt" };
-  render(<ResultReview task={task} preview={{ ...preview, document }} client={new Client("fake")} />);
+  const view = render(<ResultReview task={task} preview={{ ...preview, document }} client={new Client("fake")} />);
   await userEvent.click(screen.getByRole("button", { name: "来源与资源" }));
   expect(source).not.toHaveBeenCalled();
   await userEvent.click(screen.getByRole("button", { name: "下载原文件" }));
   expect(source).toHaveBeenCalledWith(document, task.threadId);
+  view.unmount();
+  await act(async () => finish(new Blob(["source"])));
   expect(click).toHaveBeenCalledTimes(1);
 });
 
@@ -306,4 +310,120 @@ it.each([
   expect(within(reference).getAllByRole("listitem").map(item=>item.textContent)).toEqual(expected);
   expect(reference.textContent).not.toContain("未关联题项");
   expect(JSON.stringify(q)).toBe(original);
+});
+
+it.each(["image", "evidence"] as const)("cancels a stalled %s body when its viewer leaves the resources tab", async kind => {
+  const cancel = vi.fn();
+  const response = new Response(new ReadableStream({ cancel }));
+  const fetcher = vi.fn(async (_path: string, _init: RequestInit) => response);
+  vi.stubGlobal("fetch", fetcher);
+  const digest = vi.spyOn(crypto.subtle, "digest");
+  const reference = { objectKey: "managed", sha256: "a".repeat(64), sizeBytes: 1, mediaType: kind === "image" ? "image/png" : "text/plain" };
+  const checkpoint = { ...preview, units: [{ ...preview.units[0], sourceRef: reference, evidenceRef: null, visualElements: [] }] };
+  render(<ResultReview task={task} preview={checkpoint} client={new Client("fake")} />);
+  await userEvent.click(screen.getByRole("button", { name: "来源与资源" }));
+  await userEvent.click(screen.getByRole("button", { name: kind === "image" ? "查看图片" : "查看来源证据" }));
+  expect(response.body?.locked).toBe(true);
+  await userEvent.click(screen.getByRole("button", { name: "题目与材料" }));
+  expect(fetcher.mock.calls[0][1].signal?.aborted).toBe(true);
+  expect(cancel).toHaveBeenCalledTimes(1);
+  expect(response.body?.locked).toBe(false);
+  expect(digest).not.toHaveBeenCalled();
+  expect(screen.queryByRole("alert")).toBeNull();
+});
+
+for (const kind of ["image", "evidence"] as const) {
+  it.each(["client", "task", "objectKey", "sha256", "sizeBytes", "mediaType"] as const)(`resets ${kind} on %s replacement and ignores late publication in StrictMode`, async identity => {
+    const user = userEvent.setup();
+    const client = new Client("fake");
+    const reference = { objectKey: "managed", sha256: "a".repeat(64), sizeBytes: 1, mediaType: kind === "image" ? "image/png" : "text/plain" };
+    const nextReference = { ...reference,
+      ...(identity === "objectKey" ? { objectKey: "replacement" } : {}),
+      ...(identity === "sha256" ? { sha256: "b".repeat(64) } : {}),
+      ...(identity === "sizeBytes" ? { sizeBytes: 2 } : {}),
+      ...(identity === "mediaType" ? { mediaType: kind === "image" ? "image/jpeg" : "text/markdown" } : {}),
+    };
+    let finish!: () => void;
+    const currentBlob = kind === "image" ? new Blob(["current"]) : { text: async () => "current evidence" } as Blob;
+    const read = vi.spyOn(Client.prototype, kind).mockImplementationOnce(() => kind === "image"
+      ? new Promise<Blob>(resolve => { finish = () => resolve(new Blob(["stale"])); })
+      : Promise.resolve({ text: () => new Promise<string>(resolve => { finish = () => resolve("stale evidence"); }) } as Blob))
+      .mockResolvedValue(currentBlob);
+    const create = vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:current");
+    const revoke = vi.spyOn(URL, "revokeObjectURL");
+    const review = (ref: typeof reference, owner = client, threadId = task.threadId) => <StrictMode><ResultReview task={{ ...task, threadId }} preview={{ ...preview, units: [{ ...preview.units[0], sourceRef: ref, evidenceRef: null, visualElements: [] }] }} client={owner} /></StrictMode>;
+    const view = render(review(reference));
+    await user.click(screen.getByRole("button", { name: "来源与资源" }));
+    const loadLabel = kind === "image" ? "查看图片" : "查看来源证据";
+    await user.click(screen.getByRole("button", { name: loadLabel }));
+    const oldSignal = read.mock.calls[0][2]!;
+    const nextClient = identity === "client" ? new Client("replacement") : client;
+    const nextTask = identity === "task" ? "replacement-task" : task.threadId;
+    view.rerender(review(nextReference, nextClient, nextTask));
+    expect(oldSignal.aborted).toBe(true);
+    expect(read).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("alert")).toBeNull();
+    await user.click(screen.getByRole("button", { name: loadLabel }));
+    await act(async () => finish());
+    const currentSignal = read.mock.calls[1][2]!;
+    expect(currentSignal.aborted).toBe(false);
+    if (kind === "image") {
+      expect(create).toHaveBeenCalledTimes(1);
+      expect(create).toHaveBeenCalledWith(currentBlob);
+      expect(screen.getByRole("img").getAttribute("src")).toBe("blob:current");
+    } else {
+      expect(screen.getByText("current evidence")).toBeTruthy();
+      expect(screen.queryByText("stale evidence")).toBeNull();
+    }
+    // Equivalent checkpoint references must not reset a loaded view or its controller.
+    view.rerender(review({ ...nextReference }, nextClient, nextTask));
+    expect(currentSignal.aborted).toBe(false);
+    expect(read).toHaveBeenCalledTimes(2);
+    view.rerender(review(reference));
+    expect(currentSignal.aborted).toBe(true);
+    expect(screen.queryByRole("img")).toBeNull();
+    expect(screen.queryByText("current evidence")).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+    if (kind === "image") expect(revoke).toHaveBeenCalledWith("blob:current");
+  });
+}
+
+it("reloads images explicitly and releases each replaced object URL", async () => {
+  const client = new Client("fake");
+  const image = vi.spyOn(client, "image").mockResolvedValue(new Blob(["image"]));
+  vi.spyOn(URL, "createObjectURL").mockReturnValueOnce("blob:first").mockReturnValueOnce("blob:second");
+  const revoke = vi.spyOn(URL, "revokeObjectURL");
+  const reference = { objectKey: "managed", sha256: "a".repeat(64), sizeBytes: 1, mediaType: "image/png" };
+  const view = render(<StrictMode><ImageArtifact reference={reference} description="图片" client={client} threadId={task.threadId} /></StrictMode>);
+  await userEvent.click(screen.getByRole("button", { name: "查看图片" }));
+  await userEvent.click(screen.getByRole("button", { name: "重新读取图片" }));
+  expect(image).toHaveBeenCalledTimes(2);
+  expect(screen.getByRole("img").getAttribute("src")).toBe("blob:second");
+  expect(revoke).toHaveBeenCalledExactlyOnceWith("blob:first");
+  view.unmount();
+  expect(revoke.mock.calls).toEqual([["blob:first"], ["blob:second"]]);
+});
+
+it("offers explicit evidence retry after failure and suppresses a late cancellation error", async () => {
+  let fail!: (error: Error) => void;
+  const read = vi.spyOn(Client.prototype, "evidence").mockRejectedValueOnce(new Error("integrity"))
+    .mockResolvedValueOnce({ text: async () => "verified evidence" } as Blob)
+    .mockImplementationOnce(() => new Promise((_resolve, reject) => { fail = reject; }));
+  const reference = { objectKey: "managed", sha256: "a".repeat(64), sizeBytes: 1, mediaType: "text/plain" };
+  const client = new Client("fake");
+  const checkpoint = { ...preview, units: [{ ...preview.units[0], sourceRef: reference, evidenceRef: null, visualElements: [] }] };
+  const view = render(<ResultReview task={task} preview={checkpoint} client={client} />);
+  await userEvent.click(screen.getByRole("button", { name: "来源与资源" }));
+  await userEvent.click(screen.getByRole("button", { name: "查看来源证据" }));
+  expect(await screen.findByRole("alert")).toBeTruthy();
+  await userEvent.click(screen.getByRole("button", { name: "查看来源证据" }));
+  expect(await screen.findByText("verified evidence")).toBeTruthy();
+  expect(screen.queryByRole("alert")).toBeNull();
+  await userEvent.click(screen.getByRole("button", { name: "查看来源证据" }));
+  view.rerender(<ResultReview task={{ ...task, threadId: "replacement-task" }} preview={checkpoint} client={client} />);
+  await act(async () => fail(new DOMException("cancelled", "AbortError")));
+  expect(read.mock.calls[2][2]?.aborted).toBe(true);
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(screen.queryByText("verified evidence")).toBeNull();
+  expect((screen.getByRole("button", { name: "查看来源证据" }) as HTMLButtonElement).disabled).toBe(false);
 });
