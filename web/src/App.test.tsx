@@ -126,6 +126,23 @@ it("selection is passive; explicit Start performs bounded SHA upload and task cr
   expect(mutations[2].body).not.toHaveProperty("deduplicateQuestions");
   expect(mutations[2].body?.requestId).toMatch(/^[a-f0-9-]{36}$/);
 });
+it.each(["OFFICE_NOT_CONFIGURED", "TENCENT_NOT_CONFIGURED"])("shows a definite %s rejection and lets the user retry after configuration is fixed", async code => {
+  const user = userEvent.setup(); const http = fakeHTTP(); let configured = false;
+  http.server.intercept = (url, init) => url === "/api/document-tasks" && init.method === "POST" && !configured ? json({ detail: { code } }, 503) : undefined;
+  render(<App />); await connect(user);
+  await user.upload(screen.getByLabelText("选择文档"), new File(["office"], "document.docx"));
+  await user.click(screen.getByRole("button", { name: "开始导入" }));
+  expect(await screen.findByText(/本次提交未创建任务/)).toBeTruthy();
+  expect(screen.queryByText(/操作结果尚未确认|不要重复提交/)).toBeNull();
+  const retry = screen.getByRole("button", { name: "重试开始" });
+  expect(http.records.has(newTaskId)).toBe(false);
+  expect(http.calls.filter(call => call.url === "/api/document-tasks" && call.method === "POST")).toHaveLength(1);
+  configured = true;
+  await user.click(retry); await screen.findByText(/任务已创建。页面/);
+  const creates = http.calls.filter(call => call.url === "/api/document-tasks" && call.method === "POST");
+  expect(creates).toHaveLength(2); expect(creates[0].body).toEqual(creates[1].body);
+  expect(http.records.has(newTaskId)).toBe(true);
+});
 it.each([false, true])("never automatically replays uncertain POST, and an explicit retry retains the request and import options (%s)", async deduplicateQuestions => {
   const user = userEvent.setup(); const http = fakeHTTP(); let fail = true;
   let rejectCreate!: () => void;

@@ -172,6 +172,25 @@ describe("source selection and bounded upload", () => {
     await expect(new Client("fake").start(new File(["x"], "a.txt"), capabilities, taskId, () => {})).rejects.toMatchObject({ code: "INVALID_REFERENCE" });
     expect(fetcher.mock.calls.map(([url]) => new URL(url, location.origin).pathname)).toEqual(["/api/uploads", "/api/uploads/content"]);
   });
+  it.each(["OFFICE_NOT_CONFIGURED", "TENCENT_NOT_CONFIGURED"])("identifies a pre-creation %s rejection and allows only explicit resubmission", async code => {
+    const fetcher = mockUpload({ existing: true }), original = fetcher.getMockImplementation()!;
+    let configured = false;
+    fetcher.mockImplementation(async (path: string, init: RequestInit) => {
+      if (path === "/api/document-tasks" && !configured) return json({ detail: { code } }, 503);
+      return original(path, init);
+    });
+    const client = new Client("fake");
+    const file = new File(["hello"], "fixture.txt");
+    await expect(client.start(file, capabilities, taskId, () => {})).rejects.toMatchObject({
+      code, status: 503, message: expect.stringContaining("本次提交未创建任务"),
+    });
+    expect(fetcher.mock.calls.filter(([path]) => path === "/api/document-tasks")).toHaveLength(1);
+    configured = true;
+    await expect(client.start(file, capabilities, taskId, () => {})).resolves.toEqual(receipt);
+    const creates = fetcher.mock.calls.filter(([path]) => path === "/api/document-tasks");
+    expect(creates).toHaveLength(2);
+    expect(creates.map(([, init]) => JSON.parse(init.body as string).requestId)).toEqual([taskId, taskId]);
+  });
   it("does not replay an uncertain create automatically and preserves the supplied request ID for explicit retry", async () => {
     const fetcher = mockUpload({ existing: true, networkAtCreate: true });
     const client = new Client("fake");
