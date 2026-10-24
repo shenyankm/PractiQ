@@ -2666,3 +2666,330 @@ fn malformed_backup_snapshots_leave_the_store_lock_and_database_usable() {
             .unwrap();
     }
 }
+
+fn repro_reading_document() -> Value {
+    let mut document: Value =
+        serde_json::from_slice(include_bytes!("../../fixtures/composite.json")).unwrap();
+    document["questions"]
+        .as_array_mut()
+        .unwrap()
+        .retain(|q| matches!(text(q, "id"), "reading" | "r-choice" | "r-short"));
+    document["groups"] = json!([]);
+    document
+}
+
+fn repro_import_document(store: &mut Store, document: &Value) -> String {
+    let resources = tempfile::tempdir().unwrap();
+    let package = fixture_bank_zip(document, resources.path());
+    let preview = store.preview_bank_zip(package.path()).unwrap();
+    let receipt = store
+        .import(text(&preview, "ticket"), None, "Repro")
+        .unwrap();
+    text(&receipt, "bankId").to_owned()
+}
+
+fn repro_editor_tree(detail: &Value) -> Vec<Value> {
+    std::iter::once(detail["question"].clone())
+        .chain(
+            list(detail, "children")
+                .iter()
+                .map(|row| row["question"].clone()),
+        )
+        .collect()
+}
+
+#[test]
+fn repro_402_repaired_reading_material_clears_marker_and_grades_correct_answer() {
+    let (_dir, mut store) = store();
+    let mut document = repro_reading_document();
+    let passage = document["questions"][0]["passage"].take();
+    document["questions"][0]["passage"] = json!([]);
+    let bank = repro_import_document(&mut store, &document);
+    let rows = store.questions(Some(&bank), "", "", "").unwrap();
+    let root = text(&rows[0], "id");
+    let detail = store.question_detail(root).unwrap();
+    assert!(list(&detail["question"], "missingFields").contains(&json!("material")));
+    let mut tree = repro_editor_tree(&detail);
+    tree[0]["passage"] = passage;
+    store.save_question_tree(&bank, Some(root), tree).unwrap();
+    let repaired = store.question_detail(root).unwrap();
+    let session = practice(&store, store.questions(Some(&bank), "", "", "").unwrap(), 1);
+    let sid = text(&session, "id");
+    let attempt = list(&session, "attempts")
+        .iter()
+        .find(|a| a["snapshot"]["question"]["answerMode"] == "choice")
+        .unwrap();
+    let ordinal = attempt["ordinal"].as_u64().unwrap() as usize;
+    store
+        .save_attempt((sid, ordinal), json!({"correct":["A"]}), 0, true, false)
+        .unwrap();
+    let saved = store.session(sid).unwrap();
+    eprintln!(
+        "#402 missingFields={} missingAssets={} usable={} result={} gradeKind={}",
+        repaired["question"]["missingFields"],
+        attempt["snapshot"]["missingAssets"],
+        crate::exams::usable(&attempt["snapshot"]),
+        saved["attempts"][ordinal]["result"],
+        saved["attempts"][ordinal]["gradeKind"]
+    );
+    assert!(
+        !list(&repaired["question"], "missingFields").contains(&json!("material")),
+        "repairing the passage must clear the derived material marker"
+    );
+    assert_ne!(attempt["snapshot"]["missingAssets"], true);
+    assert!(crate::exams::usable(&attempt["snapshot"]));
+    assert_eq!(saved["attempts"][ordinal]["result"], true);
+}
+
+#[test]
+fn repro_409_unchanged_child_before_parent_save_preserves_review_confirmations() {
+    for child_first in [false, true] {
+        let (_dir, mut store) = store();
+        let mut document = repro_reading_document();
+        document["questions"][1]["needsReview"] = json!(true);
+        if child_first {
+            document["questions"].as_array_mut().unwrap().swap(0, 1);
+        }
+        let bank = repro_import_document(&mut store, &document);
+        let roots = store.questions(Some(&bank), "", "", "review").unwrap();
+        let root = text(&roots[0], "id");
+        let confirmed = store.review_question(root, true).unwrap();
+        assert_eq!(
+            store.questions(Some(&bank), "", "", "review").unwrap(),
+            json!([])
+        );
+        let detail = store.question_detail(root).unwrap();
+        store
+            .save_question_tree(&bank, Some(root), repro_editor_tree(&detail))
+            .unwrap();
+        let after = store.question_detail(root).unwrap();
+        let pending = store.questions(Some(&bank), "", "", "review").unwrap();
+        eprintln!(
+            "#409 child_first={child_first} confirmed={confirmed} reviewedAt={} pending={}",
+            after["reviewedAt"],
+            pending.as_array().unwrap().len()
+        );
+        assert_eq!(
+            after["reviewedAt"], confirmed,
+            "unchanged editor save must preserve confirmation (child_first={child_first})"
+        );
+        assert_eq!(pending, json!([]));
+    }
+}
+
+fn repro_410_assert_preview_rejects(
+    store: &mut Store,
+    document: &Value,
+    resources: &std::path::Path,
+) {
+    let package = fixture_bank_zip(document, resources);
+    let preview = store.preview_bank_zip(package.path());
+    if let Ok(value) = &preview {
+        let error = store
+            .import(text(value, "ticket"), None, "Invalid references")
+            .unwrap_err();
+        eprintln!("#410 preview accepted; import rejected: {error}");
+        assert_eq!(store.banks().unwrap(), json!([]));
+    }
+    assert!(
+        preview.is_err(),
+        "preview must reject references that the import writer rejects"
+    );
+}
+
+#[test]
+fn repro_410_preview_rejects_duplicate_visual_question_references() {
+    let (_dir, mut store) = store();
+    let mut document: Value =
+        serde_json::from_slice(include_bytes!("../../fixtures/rich-content/expected.json"))
+            .unwrap();
+    let resources =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../fixtures/rich-content/resources");
+    let valid = fixture_bank_zip(&document, &resources);
+    store.preview_bank_zip(valid.path()).unwrap();
+    document["visualElements"][0]["questionIds"] = json!(["q0", "q0"]);
+    repro_410_assert_preview_rejects(&mut store, &document, &resources);
+}
+
+#[test]
+fn repro_410_preview_rejects_duplicate_group_question_references() {
+    let (dir, mut store) = store();
+    let mut document = repro_reading_document();
+    document["groups"] = json!([{"title":"Section","instructions":null,"questionIds":["reading"]}]);
+    let valid = fixture_bank_zip(&document, dir.path());
+    store.preview_bank_zip(valid.path()).unwrap();
+    document["groups"][0]["questionIds"] = json!(["reading", "reading"]);
+    repro_410_assert_preview_rejects(&mut store, &document, dir.path());
+}
+
+#[test]
+fn repro_410_preview_rejects_dangling_reading_passage_blank() {
+    let (dir, mut store) = store();
+    let mut document = repro_reading_document();
+    let valid = fixture_bank_zip(&document, dir.path());
+    store.preview_bank_zip(valid.path()).unwrap();
+    document["questions"][0]["passage"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!({"partType":"blank","questionId":"absent-question"}));
+    repro_410_assert_preview_rejects(&mut store, &document, dir.path());
+}
+
+fn repro_417_material_search_with_filter(filter: &str) {
+    let (_dir, mut store) = store();
+    let mut document = repro_reading_document();
+    document["questions"][0]["passage"][0]["textValue"] = json!("ROOT-MATERIAL-MARKER");
+    let bank = repro_import_document(&mut store, &document);
+    let roots = store
+        .questions(Some(&bank), "ROOT-MATERIAL-MARKER", "", "")
+        .unwrap();
+    assert_eq!(roots.as_array().unwrap().len(), 1);
+    if filter == "wrong" {
+        let session = practice(&store, roots.clone(), 1);
+        let sid = text(&session, "id");
+        let attempt = list(&session, "attempts")
+            .iter()
+            .find(|a| a["snapshot"]["question"]["answerMode"] == "choice")
+            .unwrap();
+        let ordinal = attempt["ordinal"].as_u64().unwrap() as usize;
+        store
+            .save_attempt((sid, ordinal), json!({"correct":["B"]}), 0, true, false)
+            .unwrap();
+        assert_eq!(
+            store.session(sid).unwrap()["attempts"][ordinal]["result"],
+            false
+        );
+    }
+    let filtered = store.questions(Some(&bank), "", "", filter).unwrap();
+    assert_eq!(filtered.as_array().unwrap().len(), 1);
+    let combined = store
+        .questions(Some(&bank), "ROOT-MATERIAL-MARKER", "", filter)
+        .unwrap();
+    assert_eq!(
+        combined
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|row| text(row, "id"))
+            .collect::<Vec<_>>(),
+        filtered
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|row| text(row, "id"))
+            .collect::<Vec<_>>(),
+        "root material search must compose with {filter}"
+    );
+}
+
+#[test]
+fn repro_417_wrong_filter_search_includes_root_material() {
+    repro_417_material_search_with_filter("wrong");
+}
+
+#[test]
+fn repro_417_unattempted_filter_search_includes_root_material() {
+    repro_417_material_search_with_filter("unattempted");
+}
+
+#[test]
+fn repro_403_restore_rejects_wrong_storage_classes_before_replacing_live_data() {
+    let cases = [
+        ("banks.id", "UPDATE banks SET id=x'626164'", "blob"),
+        ("banks.title", "UPDATE banks SET title=x'626164'", "blob"),
+        (
+            "banks.description",
+            "UPDATE banks SET description=x'626164'",
+            "blob",
+        ),
+        (
+            "banks.created_at",
+            "UPDATE banks SET created_at='x'",
+            "text",
+        ),
+        (
+            "banks.created_at",
+            "UPDATE banks SET created_at=0.5",
+            "real",
+        ),
+        (
+            "sessions.mode",
+            "UPDATE sessions SET mode=x'626164'",
+            "blob",
+        ),
+        (
+            "sessions.bank_title",
+            "UPDATE sessions SET bank_title=x'626164'",
+            "blob",
+        ),
+        (
+            "attempts.grade_kind",
+            "UPDATE attempts SET grade_kind=x'626164'",
+            "blob",
+        ),
+        (
+            "attempts.grading",
+            "UPDATE attempts SET grading=x'7b7d'",
+            "blob",
+        ),
+    ];
+    let mut accepted = Vec::new();
+    for (column, mutation, storage_class) in cases {
+        let (dir, mut source) = store();
+        let session_id = if column.starts_with("banks.") {
+            source.save_bank(None, "Source bank", "").unwrap();
+            None
+        } else {
+            let bank = import(&mut source);
+            let session = practice(
+                &source,
+                source.questions(Some(&bank), "", "", "").unwrap(),
+                1,
+            );
+            Some(text(&session, "id").to_owned())
+        };
+        let db = source.connect().unwrap();
+        db.execute(mutation, []).unwrap();
+        let (table, name) = column.split_once('.').unwrap();
+        let actual: String = db
+            .query_row(
+                &format!("SELECT typeof({name}) FROM {table} LIMIT 1"),
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(actual, storage_class);
+        drop(db);
+        let archive = dir.path().join("wrong-storage.zip");
+        source.backup(&archive).unwrap();
+        let target_dir = tempfile::tempdir().unwrap();
+        let mut target = Store::new(target_dir.path().to_owned()).unwrap();
+        target.save_bank(None, "Keep live bank", "").unwrap();
+        let before = target.banks().unwrap();
+        match target.restore(&archive) {
+            Ok(_) => {
+                let read_error = if let Some(sid) = session_id {
+                    target.session(&sid).unwrap_err()
+                } else {
+                    target.banks_page(30, 0).unwrap_err()
+                };
+                eprintln!(
+                    "#403 {column} ({storage_class}): restore accepted; read failed: {read_error}"
+                );
+                accepted.push(format!("{column} ({storage_class})"));
+            }
+            Err(error) => {
+                assert!(error.code.starts_with("LOCAL_BACKUP_"), "{column}: {error}");
+                assert_eq!(
+                    target.banks().unwrap(),
+                    before,
+                    "{column}: live data must survive rejection"
+                );
+            }
+        }
+    }
+    assert!(
+        accepted.is_empty(),
+        "restore must reject wrong storage classes before replacement; accepted: {accepted:?}"
+    );
+}

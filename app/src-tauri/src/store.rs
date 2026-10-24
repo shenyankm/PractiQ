@@ -175,7 +175,7 @@ pub(crate) fn search_roots(
     } else {
         "q.bank_id IN (SELECT value FROM json_each(?3))"
     };
-    // Search the original node, before inheritance, so favorite/wrong/content belong to the same node.
+    // Keep leaf filters exact; wrong/unattempted descendants also inherit ancestor material.
     let nodes = format!("
         WITH RECURSIVE tree(root,id) AS (
             SELECT q.id,q.id FROM questions q LEFT JOIN choice_questions c ON c.question_id=q.id
@@ -185,13 +185,18 @@ pub(crate) fn search_roots(
                     (m.value='choice' AND q.mode='choice') OR (q.mode='choice' AND c.variant=m.value))
             )
             UNION ALL SELECT t.root,q.id FROM questions q JOIN tree t ON q.parent_id=t.id
-        ), nodes AS (
+        ), eligible AS (
             SELECT t.root,q.id,q.bank_id,q.mode FROM tree t JOIN questions q ON q.id=t.id
             WHERE {scope} AND (
                 ?2 IN ('','review') OR (?2='favorite' AND q.favorite=1) OR
                 (?2='wrong' AND (SELECT result FROM attempts WHERE question_id=q.id AND result IS NOT NULL ORDER BY submitted_at DESC,rowid DESC LIMIT 1)=0) OR
                 (?2='unattempted' AND (q.mode IS NULL OR q.mode NOT IN ({COMPOSITE_SQL})) AND NOT EXISTS(SELECT 1 FROM attempts WHERE question_id=q.id AND submitted_at IS NOT NULL AND skipped=0))
             )
+        ), nodes(root,id,bank_id,mode) AS (
+            SELECT root,id,bank_id,mode FROM eligible
+            UNION SELECT n.root,q.id,q.bank_id,q.mode FROM nodes n
+                JOIN questions child ON child.id=n.id JOIN questions q ON q.id=child.parent_id
+                WHERE ?2 IN ('wrong','unattempted') AND {scope}
         )
     ");
     let search = search.to_lowercase();

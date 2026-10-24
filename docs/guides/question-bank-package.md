@@ -7,7 +7,7 @@ A single ZIP is enough to share a question bank. The app no longer offers separa
 On the empty question-bank page, choose **Add example bank** to add the [all-types sample](../../app/fixtures/all-types.zip) offline: 20 answerable questions and six material parent nodes covering all 11 answer modes and nine English question kinds, including images and listening tones. No model configuration is required.
 
 1. In **Settings → Import and restore**, choose **Import bank ZIP**. Try the [basic sample](../../app/fixtures/sample.zip) or [composite sample](../../app/fixtures/composite.zip) without model configuration. The [nine English question kinds sample](../../app/fixtures/english.zip) also includes tones for player verification.
-2. The app validates questions, packaged images, and audio, then displays a preview. A new bank defaults to the package title and description; the title is editable. Appending preserves the target bank's metadata.
+2. The app validates questions, packaged images, and audio, then displays a preview. Duplicate question references within a section or visual, and passage blanks referring to absent questions, are rejected before confirmation. A new bank defaults to the package title and description; the title is editable. Appending preserves the target bank's metadata.
 3. Choose **Export bank** from a bank card's action menu, save the file, and distribute it. To share multiple banks together, copy-merge them before exporting.
 
 Sharing packages retain questions, answers, explanations, source content, shared materials, composite relationships, source scores, rubrics, images, listening audio, and review flags. They exclude bookmarks, mistake status, personal answers, practice history, grading records, connection settings, and credentials.
@@ -22,7 +22,7 @@ Missing or corrupt referenced images or audio prevent export. If a bank was init
 
 Study-data backups allow up to 512 MiB of database and expanded resources combined. Their manifest and repair-recovery inventory each have a separate 16 MiB cap; the ZIP file is capped at 544 MiB to accommodate metadata. These limits apply equally to explicit backups and pre-restore recovery copies. Large inventories do not change the version-4/schema-11 format; backups whose manifests exceed 1 MiB require an updated app to restore.
 
-Restore validates every stored visual record, including document-only and unlinked records, against the shared visual contract before projecting questions or replacing live data. Invalid JSON shapes, resource-reference types and question references reject the incoming backup; the existing database remains usable.
+Restore checks SQLite storage classes against strict bank/session readers before replacement; BLOB values in text fields or non-integer bank timestamps are rejected without replacing live data. It also validates every stored visual record, including document-only and unlinked records, against the shared visual contract before projecting questions or replacing live data. Invalid JSON shapes, resource-reference types and question references reject the incoming backup; the existing database remains usable.
 
 Bank-sharing packages and study-data backups are different formats. Both operations are under **Restore backup** in Settings: **Import bank ZIP** appends content, while **Restore study-data backup** replaces personal data after confirmation. Selecting the wrong format returns an error.
 
