@@ -86,6 +86,7 @@ function mockUpload(options: { existing?: boolean; badReference?: boolean; badUp
   const fetcher = vi.fn(async (path: string, init: RequestInit) => {
     if (path === "/api/uploads") {
       const metadata = JSON.parse(init.body as string);
+      metadata.fileName = metadata.fileName.trim();
       document = { ...metadata, objectKey: `practiq-agent/sources/${metadata.sha256}/source.${metadata.sourceType === "text" ? "txt" : metadata.sourceType}` };
       return json({ document: options.badReference ? { ...document, sha256: "0".repeat(64) } : document, upload: options.existing ? null : { method: "PUT", url: (options.badUrl ? "https://untrusted.invalid" : "") + "/api/uploads/content?" + new URLSearchParams(metadata), headers: { "Content-Type": metadata.mediaType } } });
     }
@@ -148,6 +149,13 @@ describe("source selection and bounded upload", () => {
       expect(init).toMatchObject({ credentials: "omit", redirect: "error", cache: "no-store" });
     }
     client.disconnect();
+  });
+  it.each([" notes.txt", "notes.txt ", "\nnotes.txt\t"])("normalizes filename whitespace before upload and strict reference checks: %j", async name => {
+    const fetcher = mockUpload();
+    await expect(new Client("fake").start(new File(["hello"], name), capabilities, taskId, () => {})).resolves.toEqual(receipt);
+    expect(fetcher.mock.calls).toHaveLength(3);
+    expect(JSON.parse(fetcher.mock.calls[0][1].body as string)).toMatchObject({ fileName: "notes.txt" });
+    expect(JSON.parse(fetcher.mock.calls[2][1].body as string).document).toMatchObject({ fileName: "notes.txt" });
   });
   it("skips existing binary upload and lets the server route Office automatically", async () => {
     const fetcher = mockUpload({ existing: true });
