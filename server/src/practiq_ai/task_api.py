@@ -17,6 +17,7 @@ from .config import load, require_model_config
 from .contracts import (
     COMPOSITE_MODES,
     OFFICE_SOURCE_TYPES,
+    DocumentParseResult,
     DocumentReference,
     DocumentTaskControl,
     DocumentTaskCreate,
@@ -48,6 +49,7 @@ from .execution import (
 from .graphs.document import (
     DocumentState,
     _retry_update,
+    discard_model_audio,
     load_unit_result,
     unit_failures,
 )
@@ -294,6 +296,9 @@ async def get_task(thread_id: str) -> dict[str, Any]:
     values = snapshot.values or {}
     interruptions = _interrupts(snapshot)
     state, actions, failures = _task_state(snapshot, run)
+    result = DocumentParseResult.model_validate(values['result']) if values.get('result') else None
+    if result is not None:
+        discard_model_audio(result.questions)
     calls = await _calls(service, thread_id)
     parser_jobs = await service.db.store.asearch(namespace(thread_id, 'tencent_jobs'), limit=300, refresh_ttl=False)
     parser_jobs.sort(key=lambda item: int(item.key.rsplit('-', 1)[-1]) if item.key.rsplit('-', 1)[-1].isdigit() else -1)
@@ -322,7 +327,7 @@ async def get_task(thread_id: str) -> dict[str, Any]:
             'visuals': _counts(len(values.get('pageRefs', [])), len(values.get('visionResults', [])), sum(f['stage'].startswith('vision_') for f in failures)),
             'chunks': _counts(len(values.get('chunkRefs', [])), sum(item.get('parsed') is not None for item in values.get('chunkResults', [])), sum(f['stage'] == 'document_parse' for f in failures)),
         },
-        'status': values.get('status') or None, 'result': values.get('result') or None,
+        'status': values.get('status') or None, 'result': result,
         'modelBudget': {'limit': values.get('execution', {}).get('signature', {}).get('settings', {}).get('task_max_model_calls', load().task_max_model_calls), 'reserved': values.get('reservedCalls', 0)},
         'processing': values.get('processing') or None, 'usage': list(usage.values()),
         'unknownUsageCalls': [item['callKey'] for item in calls if item['status'] != 'completed'],
@@ -652,10 +657,13 @@ async def review_task(thread_id: str) -> dict[str, Any]:
         if unit['stage'] == 'vision_parse' and index < len(evidence) and evidence[index] != unit.get('sourceRef'):
             unit['evidenceRef'] = evidence[index]
     processing = values.get('processing', {})
-    return DocumentTaskReview.model_validate({
+    review = DocumentTaskReview.model_validate({
         'document': _task['document'] if {'objectKey', 'sha256', 'sizeBytes', 'mediaType'} <= _task['document'].keys() else None,
         'threadId': thread_id, 'checkpointId': service.checkpoint_id(snapshot, run),
         'state': state, 'phase': values.get('phase', 'pending'), 'units': units,
         'failures': failures, 'quality': processing.get('quality', {}),
         'questionSources': processing.get('questionSources', []),
-    }).model_dump(mode='json')
+    })
+    for unit in review.units:
+        discard_model_audio(unit.questions)
+    return review.model_dump(mode='json')

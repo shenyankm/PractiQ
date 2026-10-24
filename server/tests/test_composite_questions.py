@@ -13,7 +13,7 @@ from practiq_ai.contracts import (
     scorable_count,
     validate_question_tree,
 )
-from practiq_ai.graphs.chunking import finalize_question_ids
+from practiq_ai.graphs.chunking import SourceQuestionConflict, finalize_question_ids
 from tests.support import run_config, setup_graph
 
 FIXTURE = Path(__file__).resolve().parents[2] / "app/fixtures/composite.json"
@@ -64,6 +64,69 @@ def test_continuation_retains_the_lowest_extraction_confidence(confidences):
     merged = finalize_question_ids(parents, [], [], sources, DocumentQuality())
     assert len(merged) == 1
     assert merged[0].confidence == min(confidences)
+
+
+@pytest.mark.parametrize('reuse_on_first_page', [False, True])
+def test_continuation_retains_later_allow_reuse_for_shared_answers(reuse_on_first_page):
+    anchor = 'page:0:bank'
+    questions = []
+    sources = []
+    for page in range(2):
+        child_id = f'child{page}'
+        questions.extend([
+            ParsedQuestion(id=anchor, stem='Word bank', answerMode='word_bank',
+                           allowReuse=reuse_on_first_page if page == 0 else True,
+                           instructions='Options may be used more than once' if page else None,
+                           passage=[ContentBlock(partType='blank', questionId=child_id)],
+                           options=[ParsedOption(label='A', content='First'),
+                                    ParsedOption(label='B', content='Second')]),
+            ParsedQuestion(id=child_id, parentId=anchor, optionSourceId=anchor,
+                           stem=f'Choose {page}', answerMode='choice', choiceVariant='single',
+                           answerPayload={'correct': ['A']}),
+        ])
+        sources.extend(QuestionSource(questionIndex=page * 2 + offset, stage='vision_parse', unitIndex=page)
+                       for offset in range(2))
+    merged = finalize_question_ids(questions, [], [], sources, DocumentQuality())
+    validate_question_tree(merged)
+    assert merged[0].allowReuse is True
+    assert [child.answerPayload.correct for child in merged[1:]] == [['A'], ['A']]
+    assert [(s.questionIndex, s.unitIndex) for s in sources] == [(0, 0), (1, 0), (0, 1), (2, 1)]
+
+
+def test_continuation_retains_later_grading_metadata_and_source_associations():
+    metadata = {
+        'analysis': 'Supplied explanation on page two',
+        'scoringRubric': 'Award two points for each supplied answer',
+        'scoreSourceText': 'Total: 4 points',
+        'sourceScore': 4.0,
+        'questionTypeId': 'reading',
+    }
+    parents = [
+        ParsedQuestion(id='page:0:article', stem='Article', answerMode='reading', sourceText='Page one'),
+        ParsedQuestion(id='page:0:article', stem='Article', answerMode='reading',
+                       sourceText='Page two: Total: 4 points', **metadata),
+    ]
+    sources = [QuestionSource(questionIndex=i, stage='vision_parse', unitIndex=i) for i in range(2)]
+    merged = finalize_question_ids(parents, [], [], sources, DocumentQuality())
+    assert len(merged) == 1
+    assert [(s.questionIndex, s.unitIndex) for s in sources] == [(0, 0), (0, 1)]
+    assert {field: getattr(merged[0], field) for field in metadata} == metadata
+    assert 'analysis' not in merged[0].missingFields
+
+
+@pytest.mark.parametrize('field,first,second', [
+    ('analysis', 'First explanation', 'Conflicting explanation'),
+    ('scoringRubric', 'First rubric', 'Conflicting rubric'),
+    ('scoreSourceText', 'First score text', 'Conflicting score text'),
+    ('sourceScore', 2.0, 4.0),
+    ('questionTypeId', 'reading', 'other-kind'),
+])
+def test_continuation_rejects_conflicting_grading_metadata(field, first, second):
+    parents = [ParsedQuestion(id='page:article', stem='Article', answerMode='reading', **{field: value})
+               for value in (first, second)]
+    sources = [QuestionSource(questionIndex=i, stage='vision_parse', unitIndex=i) for i in range(2)]
+    with pytest.raises(SourceQuestionConflict, match='Conflicting composite metadata'):
+        finalize_question_ids(parents, [], [], sources, DocumentQuality())
 
 
 def test_composite_limit_does_not_split_group():

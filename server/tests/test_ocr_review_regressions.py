@@ -7,7 +7,7 @@ from typing import cast
 import pytest
 from langgraph.runtime import Runtime
 
-from practiq_ai import execution, llm
+from practiq_ai import bank_export, execution, llm
 from practiq_ai.graphs import document
 from tests.support import FakeModel, MemoryStore, make_image, source
 
@@ -54,6 +54,34 @@ async def test_retained_figures_reach_models_and_keep_crop_bounds_for_every_kind
     assert visual['kind'] == kind
     assert visual['bbox'] == primary['figures'][0]['bbox']
     assert visual['cropBbox'] == primary['figures'][0]['cropBbox']
+
+
+async def test_shared_ocr_table_keeps_page_result_within_bank_json_limit(monkeypatch):
+    state, _, _, _ = await vision_input(monkeypatch)
+    indexes = list(range(200))
+    reply = {
+        'questions': [{'stem': f'Question {index}', 'answerMode': 'short_answer'} for index in indexes],
+        'groups': [],
+        'figures': [{'kind': 'table', 'description': 'Shared source table',
+                     'questionIndexes': indexes, 'bbox': [.1, .1, .9, .9],
+                     'tableRows': [['Cell'], ['{' * 16_000]]}],
+    }
+    reply_bytes = len(json.dumps(reply, separators=(',', ':')).encode())
+    assert reply_bytes < 64 * 1024
+    page = document.PageParseResult.model_validate(reply)
+    table = page.figures[0].table_markdown()
+    value = document._page_result(state, page, [], {0})['visionResults'][0]
+    assert len(value['parsed']['questions']) == len(indexes)
+    assert value['visuals'][0]['questionIndexes'] == indexes
+    assert value['visuals'][0]['extractedText'] == table
+    assert value['visuals'][0]['bbox'] == [.1, .1, .9, .9]
+    linked_only = [q for q in value['parsed']['questions'] if not q['contentBlocks']]
+    assert linked_only and all(q['needsReview'] for q in linked_only)
+    result_bytes = len(json.dumps(value['parsed'], ensure_ascii=False, separators=(',', ':')).encode())
+    assert result_bytes <= bank_export.JSON_LIMIT, (
+        f'{reply_bytes}-byte model reply expanded to {result_bytes} bytes; '
+        f'bank JSON limit is {bank_export.JSON_LIMIT}'
+    )
 
 
 @pytest.mark.parametrize('extra_chars', [-1, 0, 1])
