@@ -6,6 +6,9 @@ import { useState } from "react";
 import { api, blankQuestion, type Answer, type Session } from "./api";
 import { Practice } from "./Practice";
 import { AnswerDisplay } from "./AnswerInput";
+import { ErrorBoundary } from "../../shared/error-boundary";
+import { RenderFailure } from "./RenderFailure";
+import type { GradingResponse } from "./api";
 
 vi.mock("./api", async () => ({ ...await vi.importActual("./api"), api: vi.fn() }));
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
@@ -22,6 +25,28 @@ function Study({ initial, onError = () => {} }: { initial: Session; onError?: (e
   const [session, setSession] = useState(initial);
   return <Practice session={session} onSession={setSession} run={job => { void job().catch(onError); }} flushRef={{ current: async () => {} }} />;
 }
+
+it.each([
+  { scoreCents: 500, maxCents: 1000, reason: "ok" },
+  { scoreCents: 500, maxCents: 1000, reason: {}, evidence: {}, reviewReasons: [null, {}] },
+  { scoreCents: 500, maxCents: 1000, reason: "ok", evidence: [null, {}, "Retained evidence"], reviewReasons: [] },
+])("#411 safely renders malformed historical service explanations: %j", result => {
+  const initial = practice();
+  initial.kind = "self_test";
+  initial.attempts[0].maxCents = 1000;
+  initial.attempts[0].earnedCents = 500;
+  initial.attempts[0].gradeKind = "ai";
+  initial.attempts[0].result = false;
+  // Older app versions could persist nonconforming service receipts.
+  initial.attempts[0].grading = { ai: { status: "graded", result } as unknown as GradingResponse };
+  const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+  try {
+    render(<ErrorBoundary fallback={<RenderFailure />}><Study initial={initial} /></ErrorBoundary>);
+    expect(screen.queryByRole("heading", { name: "此界面暂时无法显示" }), errorSpy.mock.calls.flat().map(String).join("\n")).toBeNull();
+    expect(screen.getByRole("region", { name: "本次结果" })).toBeTruthy();
+    expect(api).not.toHaveBeenCalled();
+  } finally { errorSpy.mockRestore(); }
+});
 
 it.each(["next", "answer card"])("locks answers while %s navigation is pending and ignores late changes", async target => {
   const initial = practice();

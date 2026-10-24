@@ -21,14 +21,15 @@ function GradeDetails({request}: {request: GradingResponse}) {
   const error = request.appError || request.error;
   return <div className="space-y-2">
     {error && <ErrorNotice error={error} />}
-    {request.result?.reason && <p>{request.result.reason}</p>}
-    {request.result?.evidence.map((e,i)=><p key={i}>{e}</p>)}
-    {request.result?.reviewReasons.map((e,i)=><p key={i}>{t("复核提示：{0}", {0:e})}</p>)}
+    {typeof request.result?.reason === "string" && request.result.reason && <p>{request.result.reason}</p>}
+    {Array.isArray(request.result?.evidence) && request.result.evidence.filter(e=>typeof e === "string").map((e,i)=><p key={i}>{e}</p>)}
+    {Array.isArray(request.result?.reviewReasons) && request.result.reviewReasons.filter(e=>typeof e === "string").map((e,i)=><p key={i}>{t("复核提示：{0}", {0:e})}</p>)}
   </div>;
 }
 export function ExamResults({session,onSession,run,onNextUnattempted,draft,onDraftChange,onConfigure}:{session:Session;onSession:(s:Session)=>void;run:(j:()=>Promise<void>)=>void;onNextUnattempted?:()=>void;draft?:GradingDraft;onDraftChange?:(draft:GradingDraft)=>void;onConfigure?:()=>void}) {
   useI18n();
   const [running,setRunning]=useState(false); const stopped=useRef(false);const [error, setError] = useState<unknown>(null);
+  const [failedAttempt, setFailedAttempt] = useState<{ sessionId: string; ordinal: number } | null>(null);
   const [localDraft, setLocalDraft] = useState<GradingDraft>({ score: "", reason: "" });
   const [saving, setSaving] = useState(false);
   const { score, reason } = draft ?? localDraft;
@@ -48,7 +49,20 @@ export function ExamResults({session,onSession,run,onNextUnattempted,draft,onDra
   const retryCount=session.attempts.filter(a=>a.result===false).length;
   const skipped = session.attempts.filter(a => a.skipped).length;
   const unresolved = session.attempts.length - graded.length - session.attempts.filter(a => !exam && a.skipped).length;
-  function grade(items:Attempt[],retry=false){run(async()=>{stopped.current=false;setRunning(true);setError(null);try{for(const item of items){if(stopped.current)break;const s=await ai({type:"grade",id:session.id,ordinal:item.ordinal,retry});onSession(s);}}catch(e){setError(e);}finally{setRunning(false);}});}
+  function grade(items:Attempt[],retry=false){run(async()=>{
+    stopped.current=false;setRunning(true);setError(null);setFailedAttempt(null);
+    try {
+      for(const item of items){
+        if(stopped.current)break;
+        try {
+          const s=await ai({type:"grade",id:session.id,ordinal:item.ordinal,retry});onSession(s);
+        } catch(e) {
+          setError(e);setFailedAttempt({sessionId:session.id,ordinal:item.ordinal});
+          if(!["LOCAL_GRADING_INELIGIBLE","LOCAL_GRADING_IMAGE_MISSING","LOCAL_GRADING_TOO_LARGE"].includes(String((e as {code?:string} | null)?.code ?? "")))break;
+        }
+      }
+    } finally {setRunning(false);}
+  });}
   return <section className="space-y-3 rounded-lg border p-4" aria-label={t("本次结果")}>
     <h3 className="font-medium">{exam?(pending.length?t("预估成绩"):t("本次成绩")):t("本次练习结果")}</h3>
     <dl className="result-metrics">
@@ -72,7 +86,7 @@ export function ExamResults({session,onSession,run,onNextUnattempted,draft,onDra
       {eligible(a)&&latest?.status==="unknown"&&<><p>{t("先核对上次请求；重新评分会创建新的付费请求。")}</p><Button variant="outline" disabled={running} onClick={()=>grade([a])}>{t("核对上次评分结果")}</Button></>}
       {a.grading?.manual&&<p>{t("人工改分原因：{0}", { 0: a.grading.manual.reason })}</p>}
       {!eligible(a)&&a.earnedCents==null&&<p>{t("缺少完整题目、作答或评分依据，需人工处理。")}</p>}
-      {eligible(a) && (a.grading?.ai || a.grading?.lastRequest || (error as {code?:string} | null)?.code === "LOCAL_GRADING_TARGET_CHANGED") && (
+      {eligible(a) && (a.grading?.ai || a.grading?.lastRequest || (failedAttempt?.sessionId === session.id && failedAttempt.ordinal === a.ordinal && (error as {code?:string} | null)?.code === "LOCAL_GRADING_TARGET_CHANGED")) && (
         <AlertDialog open={retryConfirm} onOpenChange={setRetryConfirm}>
           <AlertDialogTrigger asChild>
             <Button variant="outline" disabled={running}>{t("重新评分当前题")}</Button>

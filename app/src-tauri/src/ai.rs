@@ -144,6 +144,7 @@ impl Endpoint {
             error.http_status = Some(status.as_u16());
             return Err(error);
         }
+        crate::exams::validate_grade_details(&value)?;
         Ok(value)
     }
 }
@@ -649,6 +650,61 @@ mod tests {
         }
     }
     #[test]
+    fn direct_augmented_details_overflow_retains_usage_and_request_receipt() {
+        let (_dir, shared, id) = submitted();
+        let mut response: Value = serde_json::from_str(&completion()).unwrap();
+        let mut result: Value = serde_json::from_str(
+            response["choices"][0]["message"]["content"]
+                .as_str()
+                .unwrap(),
+        )
+        .unwrap();
+        result["reviewReasons"] =
+            json!((0..100).map(|i| format!("Review {i}")).collect::<Vec<_>>());
+        response["choices"][0]["message"]["content"] = json!(result.to_string());
+        let (origin, handle) = server(
+            "200 OK",
+            response.to_string(),
+            "POST /chat/completions HTTP/1.1",
+        );
+        let endpoint = direct(origin);
+        let outcome = grade(
+            &shared,
+            &endpoint,
+            &id,
+            0,
+            false,
+            None,
+            crate::language::Locale::English,
+        );
+        let wire = handle.join().unwrap();
+        let input: Value =
+            serde_json::from_str(wire["messages"][1]["content"][0]["text"].as_str().unwrap())
+                .unwrap();
+        assert!(input["question"]["scoringRubric"].is_null());
+        let session = outcome.unwrap();
+        let attempt = &session["attempts"][0];
+        assert!(attempt["earnedCents"].is_null());
+        let receipt = &attempt["grading"]["lastRequest"];
+        assert_eq!(receipt["status"], "ungraded");
+        assert_eq!(receipt["appError"]["code"], "LOCAL_MODEL_RESPONSE_INVALID");
+        assert_eq!(receipt["usageStatus"], "known");
+        assert_eq!(receipt["usage"][0]["inputTokens"], 50);
+        assert_eq!(receipt["providerRequestId"], "fixture-receipt");
+        let replay = grade(
+            &shared,
+            &endpoint,
+            &id,
+            0,
+            false,
+            None,
+            crate::language::Locale::English,
+        )
+        .unwrap();
+        assert_eq!(replay["attempts"][0]["grading"], attempt["grading"]);
+    }
+
+    #[test]
     fn direct_complete_invalid_responses_are_ungraded_but_interrupted_bodies_stay_unknown() {
         let (_dir, shared, id) = submitted();
         let (origin, handle) = server("200 OK", completion(), "POST /chat/completions HTTP/1.1");
@@ -879,6 +935,76 @@ mod tests {
     }
 
     #[test]
+    fn issue_411_service_grade_without_explanation_arrays_is_not_persisted_as_usable() {
+        let (_dir, shared, id) = submitted();
+        let (origin, handle) = server(
+            "200 OK",
+            r#"{"status":"graded","result":{"scoreCents":500,"maxCents":1000,"reason":"ok"}}"#
+                .into(),
+            "POST /api/subjective-grades HTTP/1.1",
+        );
+        let endpoint = Endpoint::new(origin, "test-service-token".into()).unwrap();
+        let _outcome = grade(
+            &shared,
+            &endpoint,
+            &id,
+            0,
+            false,
+            None,
+            crate::language::Locale::Chinese,
+        );
+        let wire = handle.join().unwrap();
+        assert!(!wire["requestId"].is_null());
+        let session = shared.lock().unwrap().session(&id).unwrap();
+        let attempt = &session["attempts"][0];
+        assert_eq!(
+            attempt["earnedCents"],
+            Value::Null,
+            "malformed service response must not become a usable score: {attempt}"
+        );
+        assert_eq!(attempt["gradeKind"], "ungraded");
+        assert!(attempt["grading"]["ai"].is_null());
+        assert_eq!(attempt["grading"]["lastRequest"]["status"], "unknown");
+        assert_eq!(
+            attempt["grading"]["lastRequest"]["appError"]["code"],
+            "LOCAL_RESPONSE_INVALID"
+        );
+    }
+
+    #[test]
+    fn invalid_grade_details_cannot_replace_a_saved_score() {
+        let (_dir, shared, id) = submitted();
+        let store = shared.lock().unwrap();
+        let request = store.prepare_grade(&id, 0, false, store.locale).unwrap();
+        let rid = contract::text(&request, "requestId");
+        let valid = json!({"status":"graded","result":{"scoreCents":500,"maxCents":1000,"reason":"Reference credit","evidence":[],"reviewReasons":[]}});
+        store.record_grade(&id, 0, rid, &valid).unwrap();
+        for (field, value) in [
+            ("reason", Value::Null),
+            ("reason", json!(" ")),
+            ("reason", json!("x".repeat(20_001))),
+            ("evidence", Value::Null),
+            ("evidence", json!({})),
+            ("evidence", json!([1])),
+            ("evidence", json!(vec!["x"; 101])),
+            ("reviewReasons", Value::Null),
+            ("reviewReasons", json!([{}])),
+            ("reviewReasons", json!(["x".repeat(20_001)])),
+        ] {
+            let mut response = valid.clone();
+            response["result"][field] = value;
+            assert_eq!(
+                store.record_grade(&id, 0, rid, &response).unwrap_err().code,
+                "LOCAL_RESPONSE_INVALID",
+                "{field}"
+            );
+            let session = store.session(&id).unwrap();
+            assert_eq!(session["attempts"][0]["earnedCents"], 500);
+            assert_eq!(session["attempts"][0]["grading"]["ai"], valid);
+        }
+    }
+
+    #[test]
     fn explicit_grade_sends_frozen_payload_and_preserves_local_manual_override() {
         let (_dir, shared, id) = submitted();
         let (origin, handle) = server("200 OK", r#"{"status":"graded","result":{"scoreCents":600,"maxCents":1000,"reason":"Partial","evidence":[],"reviewReasons":[]}}"#.into(), "POST /api/subjective-grades HTTP/1.1");
@@ -937,7 +1063,7 @@ mod tests {
                 &id,
                 0,
                 contract::text(&wire, "requestId"),
-                &json!({"status":"graded","result":{"scoreCents":600,"maxCents":1000}}),
+                &json!({"status":"graded","result":{"scoreCents":600,"maxCents":1000,"reason":"Partial credit","evidence":[],"reviewReasons":[]}}),
                 None,
             )
             .unwrap();

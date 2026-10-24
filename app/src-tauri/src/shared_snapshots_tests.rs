@@ -319,7 +319,7 @@ fn flags_self_assessment_manual_and_ai_scores_reuse_snapshot_keys() {
             "shared",
             0,
             "grade",
-            &json!({"status":"graded","result":{"scoreCents":100,"maxCents":100}}),
+            &json!({"status":"graded","result":{"scoreCents":100,"maxCents":100,"reason":"Reference credit","evidence":[],"reviewReasons":[]}}),
             Some(key),
         )
         .unwrap();
@@ -496,7 +496,7 @@ fn shared_snapshot_stress() {
                 "shared",
                 0,
                 "grade",
-                &json!({"status":"graded","result":{"scoreCents":100,"maxCents":100}}),
+                &json!({"status":"graded","result":{"scoreCents":100,"maxCents":100,"reason":"Reference credit","evidence":[],"reviewReasons":[]}}),
                 Some(key),
             )
             .unwrap();
