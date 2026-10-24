@@ -85,20 +85,25 @@ class Service:
         previous_thread = None
         snapshot = None
         for run in await self.db.rows(f"SELECT r.*,o.run_id IS NULL AS unstaged FROM document_runs r JOIN document_tasks t ON t.thread_id=r.thread_id LEFT JOIN document_outbox o ON o.run_id=r.run_id WHERE r.status IN ('pending','running','interrupted') AND {supported_task_sql('t')} ORDER BY r.thread_id"):
-            if run['thread_id'] != previous_thread:
-                task = (await self.db.rows('SELECT * FROM document_tasks WHERE thread_id=%s', (run['thread_id'],)))[0]
-                snapshot = await self.snapshot(task)
-                previous_thread = run['thread_id']
-            assert snapshot is not None
-            if (saved_status := self.saved_run_status(snapshot, run)) is not None:
-                await self.finish(run['run_id'], saved_status)
-            elif run['status'] in {'pending', 'running'}:
-                if run['cancel_requested']:
-                    await self.finish(run['run_id'], 'interrupted')
-                elif (stop_unknown or run['unstaged']) and await self.unknown_calls(run):
-                    await self.finish(run['run_id'], 'interrupted', 'MODEL_RESULT_UNKNOWN')
-                elif run['pause_requested']:
-                    await self.finish(run['run_id'], 'interrupted')
+            try:
+                if run['thread_id'] != previous_thread:
+                    task = (await self.db.rows('SELECT * FROM document_tasks WHERE thread_id=%s', (run['thread_id'],)))[0]
+                    snapshot = await self.snapshot(task)
+                    previous_thread = run['thread_id']
+                assert snapshot is not None
+                if (saved_status := self.saved_run_status(snapshot, run)) is not None:
+                    await self.finish(run['run_id'], saved_status)
+                elif run['status'] in {'pending', 'running'}:
+                    if run['cancel_requested']:
+                        await self.finish(run['run_id'], 'interrupted')
+                    elif (stop_unknown or run['unstaged']) and await self.unknown_calls(run):
+                        await self.finish(run['run_id'], 'interrupted', 'MODEL_RESULT_UNKNOWN')
+                    elif run['pause_requested']:
+                        await self.finish(run['run_id'], 'interrupted')
+            except DatabaseError:
+                raise
+            except Exception:  # noqa: BLE001 - isolate unreadable saved state without logging its contents
+                await self.finish(run['run_id'], 'error', 'TASK_CHECKPOINT_UNREADABLE')
         async with self.db.transaction() as conn:
             read_only = load().read_only
             await conn.execute(
@@ -276,6 +281,7 @@ class Service:
         slots = self.execution_slots
         assert slots is not None
         acquired = False
+        task = None
         try:
             await slots.acquire()
             acquired = True
@@ -316,8 +322,15 @@ class Service:
                 raise DocumentProcessingError(500, 'Run result is not checkpointed', 'RUN_RESULT_INCOMPLETE')
             await self.finish(run_id, saved_status)
         except asyncio.CancelledError:
+            try:
+                saved_status = self.saved_run_status(await self.snapshot(task), run) if task is not None else None
+            except DatabaseError:
+                raise
+            except Exception:  # noqa: BLE001 - retain a corrupt checkpoint for explicit inspection/deletion
+                await self.finish(run_id, 'error', 'TASK_CHECKPOINT_UNREADABLE')
+                return
             rows = await self.db.rows('SELECT cancel_requested FROM document_runs WHERE run_id=%s', (run_id,))
-            await self.finish(run_id, 'interrupted' if rows[0]['cancel_requested'] else 'pending')
+            await self.finish(run_id, saved_status or ('interrupted' if rows[0]['cancel_requested'] else 'pending'))
         except DatabaseError:
             self.accepting = False
             self.fatal(70)
