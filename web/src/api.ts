@@ -32,7 +32,7 @@ export class ApiError extends Error {
 export const isOffice = (source: SourceType) => ["doc", "docx", "ppt", "pptx", "xls", "xlsx"].includes(source);
 export const sourceLimit = (capabilities: Capabilities, source?: SourceType) => source && isOffice(source) ? Math.min(capabilities.sourceMaxBytes, capabilities.officeSourceMaxBytes ?? capabilities.sourceMaxBytes) : capabilities.sourceMaxBytes;
 export function fileFormat(file: File) {
-  const format = formats[file.name.split(".").at(-1)?.toLowerCase() || ""];
+  const format = formats[file.name.trim().split(".").at(-1)?.toLowerCase() || ""];
   if (!format || file.name.length > 255) throw new ApiError("请选择支持的文档格式，文件名最多 255 个字符。", "UNSUPPORTED_FILE");
   return format;
 }
@@ -213,7 +213,7 @@ export class Client {
     onStage("hashing");
     const bytes = await file.arrayBuffer();
     if (bytes.byteLength !== file.size) throw new ApiError("文件内容与声明大小不一致。", "DOCUMENT_SIZE_MISMATCH");
-    const metadata = { ...format, fileName: file.name, sizeBytes: file.size, sha256: await sha256(bytes) };
+    const metadata = { ...format, fileName: file.name.trim(), sizeBytes: file.size, sha256: await sha256(bytes) };
     onStage("uploading");
     const prepared = await this.post<DocumentUploadResponse>("/api/uploads", metadata);
     const document = prepared.document;
