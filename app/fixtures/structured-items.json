@@ -1,0 +1,74 @@
+[
+  {
+    "name": "ordering-duplicate-explicit",
+    "interactive": false,
+    "missingFields": ["items", "answerPayload"],
+    "question": {"answerMode": "ordering", "items": [{"id": 0, "content": "First"}, {"id": 0, "content": "Second"}], "answerPayload": {"order": [0]}}
+  },
+  {
+    "name": "ordering-explicit-positional-collision",
+    "interactive": false,
+    "missingFields": ["items", "answerPayload"],
+    "question": {"answerMode": "ordering", "items": [{"id": 1, "content": "First"}, {"content": "Second"}], "answerPayload": {"order": [1]}}
+  },
+  {
+    "name": "matching-duplicate-right",
+    "interactive": false,
+    "missingFields": ["items", "answerPayload"],
+    "question": {"answerMode": "matching", "matchingVariant": "many_to_one", "items": [{"id": 0, "side": "left", "content": "Hot"}, {"id": 1, "side": "left", "content": "Cold"}, {"id": 0, "side": "right", "content": "Fire"}, {"id": 0, "side": "right", "content": "Ice"}], "answerPayload": {"matches": [{"left": 0, "right": 0}, {"left": 1, "right": 0}]}}
+  },
+  {
+    "name": "matching-duplicate-left",
+    "interactive": false,
+    "missingFields": ["items", "answerPayload"],
+    "question": {"answerMode": "matching", "matchingVariant": "many_to_one", "items": [{"id": 0, "side": "left", "content": "Hot"}, {"id": 0, "side": "left", "content": "Cold"}, {"id": 0, "side": "right", "content": "Fire"}, {"id": 1, "side": "right", "content": "Ice"}], "answerPayload": {"matches": [{"left": 0, "right": 0}]}}
+  },
+  {
+    "name": "matching-explicit-positional-collision",
+    "interactive": false,
+    "missingFields": ["items", "answerPayload"],
+    "question": {"answerMode": "matching", "matchingVariant": "many_to_one", "items": [{"side": "left", "content": "Hot"}, {"side": "left", "content": "Cold"}, {"id": 1, "side": "right", "content": "Fire"}, {"side": "right", "content": "Ice"}], "answerPayload": {"matches": [{"left": 0, "right": 1}, {"left": 1, "right": 1}]}}
+  },
+  {
+    "name": "matching-independent-sides",
+    "interactive": true,
+    "missingFields": [],
+    "question": {"answerMode": "matching", "matchingVariant": "many_to_one", "items": [{"id": 0, "side": "left", "content": "Hot"}, {"id": 1, "side": "left", "content": "Cold"}, {"id": 0, "side": "right", "content": "Fire"}, {"id": 1, "side": "right", "content": "Ice"}], "answerPayload": {"matches": [{"left": 0, "right": 0}, {"left": 1, "right": 0}]}}
+  },
+  {
+    "name": "matching-positional-sides",
+    "interactive": true,
+    "missingFields": [],
+    "question": {"answerMode": "matching", "matchingVariant": "one_to_one", "items": [{"side": "left", "content": "Hot"}, {"side": "right", "content": "Fire"}, {"side": "left", "content": "Cold"}, {"side": "right", "content": "Ice"}], "answerPayload": {"matches": [{"left": 0, "right": 0}, {"left": 1, "right": 1}]}}
+  },
+  {
+    "name": "ordering-positional",
+    "interactive": true,
+    "missingFields": [],
+    "question": {"answerMode": "ordering", "items": [{"content": "First"}, {"content": "Second"}], "answerPayload": {"order": [0, 1]}}
+  },
+  {
+    "name": "choice-no-variant",
+    "interactive": false,
+    "missingFields": ["choiceVariant"],
+    "question": {"answerMode": "choice", "options": [{"label": "A", "content": "First"}, {"label": "B", "content": "Second"}], "answerPayload": {"correct": ["A"]}}
+  },
+  {
+    "name": "choice-incomplete-options",
+    "interactive": false,
+    "missingFields": ["options"],
+    "question": {"answerMode": "choice", "choiceVariant": "single", "options": [{"label": "A", "content": "First"}, {"label": "B", "content": null}], "answerPayload": {"correct": ["A"]}}
+  },
+  {
+    "name": "ordering-incomplete-items",
+    "interactive": false,
+    "missingFields": ["items"],
+    "question": {"answerMode": "ordering", "items": [{"content": "First"}, {"content": null}], "answerPayload": {"order": [0, 1]}}
+  },
+  {
+    "name": "matching-no-variant",
+    "interactive": false,
+    "missingFields": ["matchingVariant"],
+    "question": {"answerMode": "matching", "items": [{"side": "left", "content": "Hot"}, {"side": "left", "content": "Cold"}, {"side": "right", "content": "Fire"}, {"side": "right", "content": "Ice"}], "answerPayload": {"matches": [{"left": 0, "right": 0}, {"left": 1, "right": 1}]}}
+  }
+]

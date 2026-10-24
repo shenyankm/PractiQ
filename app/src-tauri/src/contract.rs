@@ -64,6 +64,46 @@ pub fn item_ids(q: &Value, side: Option<&str>) -> Vec<Value> {
         })
         .collect()
 }
+fn item_ids_unique(q: &Value) -> bool {
+    match text(q, "answerMode") {
+        "ordering" => unique(&item_ids(q, None)),
+        "matching" => ["left", "right"]
+            .iter()
+            .all(|side| unique(&item_ids(q, Some(side)))),
+        _ => true,
+    }
+}
+
+pub fn can_interact(q: &Value) -> bool {
+    match text(q, "answerMode") {
+        "" => false,
+        "choice" => {
+            !text(q, "choiceVariant").is_empty()
+                && list(q, "options").len() >= 2
+                && list(q, "options")
+                    .iter()
+                    .all(|o| filled(&o["label"]) && filled(&o["content"]))
+        }
+        "ordering" => {
+            list(q, "items").len() >= 2
+                && list(q, "items").iter().all(|i| filled(&i["content"]))
+                && item_ids_unique(q)
+        }
+        "matching" => {
+            !text(q, "matchingVariant").is_empty()
+                && ["left", "right"].iter().all(|side| {
+                    item_ids(q, Some(side)).len() >= 2
+                        && list(q, "items")
+                            .iter()
+                            .filter(|i| text(i, "side") == *side)
+                            .all(|i| filled(&i["content"]))
+                })
+                && item_ids_unique(q)
+        }
+        _ => true,
+    }
+}
+
 fn normalize(q: &mut Value) {
     if let Some(obj) = q.as_object_mut() {
         for key in [
@@ -474,6 +514,7 @@ pub fn validate_question(q: &mut Value) -> Result<()> {
             missing.push(json!("matchingVariant"));
         }
         if list(q, "items").len() < 2
+            || !item_ids_unique(q)
             || list(q, "items").iter().any(|i| !filled(&i["content"]))
             || (mode == "matching"
                 && (item_ids(q, Some("left")).len() < 2
@@ -516,7 +557,7 @@ pub fn answer_complete(q: &Value) -> bool {
         "matching" => "matches",
         _ => return false,
     };
-    if !filled(&a[key]) {
+    if !filled(&a[key]) || !item_ids_unique(q) {
         return false;
     }
     match key {
@@ -650,7 +691,8 @@ pub fn result(root: &Value) -> &Value {
     root.get("result").unwrap_or(root)
 }
 pub fn grade(q: &Value, answer: &Value) -> Option<bool> {
-    if !answer_complete(q)
+    if !can_interact(q)
+        || !answer_complete(q)
         || [
             "media",
             "material",
@@ -887,19 +929,14 @@ pub fn validate_attempt(q: &Value, answer: &Value) -> Result<()> {
     }
     let mut candidate = q.clone();
     candidate["answerPayload"] = answer.clone();
-    // A structurally incomplete question explicitly permits free text and self assessment.
-    if [
-        "answerMode",
-        "options",
-        "items",
-        "choiceVariant",
-        "matchingVariant",
-    ]
-    .iter()
-    .any(|k| list(q, "missingFields").contains(&json!(k)))
-        && answer
-            .as_object()
-            .is_some_and(|o| o.len() == 1 && o.get("text").is_some_and(Value::is_string))
+    // Derive fallback eligibility from the frozen structure, not historical review flags.
+    if !can_interact(q)
+        && answer.as_object().is_some_and(|o| {
+            o.len() == 1
+                && o.get("text")
+                    .and_then(Value::as_str)
+                    .is_some_and(|s| s.chars().count() <= 120_000)
+        })
     {
         return Ok(());
     }

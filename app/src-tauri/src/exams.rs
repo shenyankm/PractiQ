@@ -32,6 +32,7 @@ pub fn has_basis(q: &Value) -> bool {
 }
 pub fn usable(s: &Value) -> bool {
     s["missingAssets"] != true
+        && contract::can_interact(&s["question"])
         && !text(&s["question"], "stem").is_empty()
         && !list(&s["question"], "missingFields").iter().any(|v| {
             matches!(
@@ -202,7 +203,8 @@ impl Store {
             .collect::<std::result::Result<Vec<_>, _>>()
             .map_err(err)?;
         drop(stmt);
-        let frozen = crate::questions::session_rows(&tx, sid)?;
+        let mut frozen = crate::questions::session_rows(&tx, sid)?;
+        crate::assets::mark_missing(&tx, &mut frozen)?;
         let index = crate::questions::Index::new(&frozen);
         for (ordinal, snapshot, answer, max) in rows {
             let snapshot = index.snapshot(&snapshot)?;

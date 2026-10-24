@@ -4,10 +4,28 @@ import { afterEach, expect, it, vi } from "vitest";
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AnswerDisplay, AnswerInput, AnswerReview } from "./AnswerInput";
-import { blankQuestion, type Answer, type Question } from "./api";
+import { answerReady, blankQuestion, canInteract, type Answer, type Question } from "./api";
+import structuredItems from "../fixtures/structured-items.json";
 
 HTMLElement.prototype.scrollIntoView = () => {};
 afterEach(cleanup);
+
+it.each(structuredItems)("keeps shared structure and fallback behavior aligned: $name", async fixture => {
+  const question = {...blankQuestion(), choiceVariant:null, matchingVariant:null, ...fixture.question} as Question;
+  expect(canInteract(question)).toBe(fixture.interactive);
+  if (fixture.interactive) return;
+  const changed = vi.fn();
+  const view = render(<AnswerInput question={question} value={null} onChange={changed}/>);
+  expect(screen.getByText("题目结构不完整，使用自由作答并自评。")).toBeTruthy();
+  await userEvent.setup().type(screen.getByRole("textbox", {name:"自由作答"}), "x");
+  expect(changed).toHaveBeenLastCalledWith({text:"x"});
+  expect(answerReady({...question, answerMode:"short_answer"}, {text:"x"})).toBe(true);
+  view.rerender(<AnswerInput question={question} value={{text:"Saved fallback"}} onChange={changed}/>);
+  expect(screen.getByDisplayValue("Saved fallback")).toBeTruthy();
+  view.rerender(<AnswerReview question={question} answer={{text:"Saved fallback"}}/>);
+  expect(screen.getByText("Saved fallback")).toBeTruthy();
+  expect(screen.queryByRole("textbox")).toBeNull();
+});
 
 it.each(["ordering", "matching"] as const)("normalizes %s items once per side while displaying an answer", mode => {
   const items = Array.from({length:100}, (_, i) => ({id: mode === "matching" ? i % 50 : i, side: mode === "matching" ? (i < 50 ? "left" as const : "right" as const) : null, content:`Item ${i}`}));

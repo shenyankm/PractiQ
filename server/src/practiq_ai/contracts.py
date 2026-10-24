@@ -243,6 +243,15 @@ class OptionReferenceError(ValueError):
     pass
 
 
+def item_ids(items):
+    return [item.get("id") if item.get("id") is not None else index for index, item in enumerate(items)]
+
+
+def item_ids_unique(mode, items):
+    namespaces = [[item for item in items if item.get("side") == side] for side in ("left", "right")] if mode == "matching" else [items]
+    return all(len(set(item_ids(values))) == len(values) for values in namespaces)
+
+
 def answer_references_missing(mode, answer, data):
     if answer is None:
         return True
@@ -262,14 +271,14 @@ def answer_references_missing(mode, answer, data):
             answer.correct = [labels[v.casefold()] for v in selected]
     items = data.get("items") or []
     if mode == "ordering" and items:
-        ids = [i.get("id") if i.get("id") is not None else n for n, i in enumerate(items)]
+        ids = item_ids(items)
         order = [v for v in payload.get("order") or [] if v is not None]
         if len(set(order)) != len(order) or not set(order) <= set(ids):
             raise ValueError("order must reference distinct supplied items")
-        return partial or len(order) != len(ids)
+        return partial or not item_ids_unique(mode, items) or len(order) != len(ids)
     if mode == "matching" and items:
         sides = {side: [i for i in items if i.get("side") == side] for side in ("left", "right")}
-        ids = {side: [i.get("id") if i.get("id") is not None else n for n, i in enumerate(values)] for side, values in sides.items()}
+        ids = {side: item_ids(values) for side, values in sides.items()}
         matches = [m for m in payload.get("matches") or [] if m is not None]
         left = [m["left"] for m in matches if m.get("left") is not None]
         right = [m["right"] for m in matches if m.get("right") is not None]
@@ -277,7 +286,7 @@ def answer_references_missing(mode, answer, data):
             raise ValueError("matches must reference supplied left/right items once; each item needs side=left/right and an id, with each side numbered independently from zero; retain all supplied items and map the printed answers to those IDs")
         if data.get("matchingVariant") == "one_to_one" and len(set(right)) != len(right):
             raise ValueError("one-to-one matches require distinct right items")
-        return partial or len(left) != len(ids["left"])
+        return partial or not item_ids_unique(mode, items) or len(left) != len(ids["left"])
     return partial
 
 
@@ -297,7 +306,7 @@ def question_missing_fields(data):
         items = data.get("items") or []
         if mode == "matching" and not data.get("matchingVariant"):
             missing.append("matchingVariant")
-        if len(items)<2 or any(not item.get("content") for item in items) or mode == "matching" and (any(i.get("side") is None for i in items) or sum(i.get("side")=="left" for i in items)<2 or sum(i.get("side")=="right" for i in items)<2):
+        if len(items)<2 or not item_ids_unique(mode, items) or any(not item.get("content") for item in items) or mode == "matching" and (any(i.get("side") is None for i in items) or sum(i.get("side")=="left" for i in items)<2 or sum(i.get("side")=="right" for i in items)<2):
             missing.append("items")
     answer = normalize_answer(mode, data.get("answerPayload"))
     if mode not in COMPOSITE_MODES and answer_references_missing(mode, answer, data):

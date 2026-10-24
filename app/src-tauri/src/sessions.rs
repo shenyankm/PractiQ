@@ -430,10 +430,13 @@ impl Store {
             ));
         }
         let (snapshot,submitted):(String,Option<i64>)=tx.query_row("SELECT snapshot_question_id,submitted_at FROM attempts WHERE session_id=?1 AND ordinal=?2",params![sid,ordinal],|r|Ok((r.get(0)?,r.get(1)?))).map_err(err)?;
-        let frozen = crate::questions::context_from_document(
+        let mut frozen = crate::questions::context_from_document(
             self.session_document(&tx, sid)?.as_ref(),
             &snapshot,
         )?;
+        if submit && !skip {
+            crate::assets::mark_missing(&tx, &mut frozen)?;
+        }
         let index = crate::questions::Index::new(&frozen);
         let snapshot = index.snapshot(&snapshot)?;
         let q = &snapshot["question"];

@@ -99,29 +99,7 @@ impl Store {
         Ok(())
     }
     pub fn asset_path(&self, digest: &str) -> Result<PathBuf> {
-        if digest.len() != 64
-            || !digest
-                .bytes()
-                .all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c))
-        {
-            return Err(crate::language::error(
-                "LOCAL_ASSET_HASH_INVALID",
-                serde_json::json!({}),
-            ));
-        }
-        let root = self.dir.join("assets");
-        fs::create_dir_all(&root).map_err(err)?;
-        if fs::symlink_metadata(&root)
-            .map_err(err)?
-            .file_type()
-            .is_symlink()
-        {
-            return Err(crate::language::error(
-                "LOCAL_ASSET_DIRECTORY_LINK",
-                serde_json::json!({}),
-            ));
-        }
-        Ok(root.join(digest))
+        asset_path(&self.dir, digest)
     }
     pub fn write_asset(&self, digest: &str, bytes: &[u8]) -> Result<()> {
         if bytes.len() > LIMIT || hash(bytes) != digest {
@@ -144,26 +122,103 @@ impl Store {
         Ok(())
     }
     pub fn read_asset(&self, digest: &str, size: u64) -> Result<Vec<u8>> {
-        let path = self.asset_path(digest)?;
-        if fs::symlink_metadata(&path)
-            .map_err(err)?
-            .file_type()
-            .is_symlink()
-        {
-            return Err(crate::language::error(
-                "LOCAL_ASSET_LINK",
-                serde_json::json!({}),
-            ));
-        }
-        let bytes = read_bounded(&path, LIMIT)?;
-        if bytes.len() as u64 != size || hash(&bytes) != digest {
-            return Err(crate::language::error(
-                "LOCAL_ASSET_MISSING",
-                serde_json::json!({}),
-            ));
-        }
-        Ok(bytes)
+        read_asset(&self.dir, digest, size)
     }
+}
+
+fn asset_path(dir: &std::path::Path, digest: &str) -> Result<PathBuf> {
+    if digest.len() != 64
+        || !digest
+            .bytes()
+            .all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c))
+    {
+        return Err(crate::language::error(
+            "LOCAL_ASSET_HASH_INVALID",
+            serde_json::json!({}),
+        ));
+    }
+    let root = dir.join("assets");
+    fs::create_dir_all(&root).map_err(err)?;
+    if fs::symlink_metadata(&root)
+        .map_err(err)?
+        .file_type()
+        .is_symlink()
+    {
+        return Err(crate::language::error(
+            "LOCAL_ASSET_DIRECTORY_LINK",
+            serde_json::json!({}),
+        ));
+    }
+    Ok(root.join(digest))
+}
+
+fn read_asset(dir: &std::path::Path, digest: &str, size: u64) -> Result<Vec<u8>> {
+    let path = asset_path(dir, digest)?;
+    if fs::symlink_metadata(&path)
+        .map_err(err)?
+        .file_type()
+        .is_symlink()
+    {
+        return Err(crate::language::error(
+            "LOCAL_ASSET_LINK",
+            serde_json::json!({}),
+        ));
+    }
+    let bytes = read_bounded(&path, LIMIT)?;
+    if bytes.len() as u64 != size || hash(&bytes) != digest {
+        return Err(crate::language::error(
+            "LOCAL_ASSET_MISSING",
+            serde_json::json!({}),
+        ));
+    }
+    Ok(bytes)
+}
+
+// Verify each required file once per read; never change the stored question/snapshot.
+pub(crate) fn mark_missing(
+    db: &rusqlite::Connection,
+    rows: &mut [serde_json::Value],
+) -> Result<()> {
+    use crate::contract::{list, text};
+    use serde_json::json;
+    let refs = |row: &serde_json::Value| {
+        list(row, "visuals")
+            .iter()
+            .filter_map(|v| v.get("imageRef"))
+            .chain(row["question"].get("audioRef"))
+            .filter(|r| r.is_object())
+            .map(|r| text(r, "sha256").to_owned())
+            .collect::<Vec<_>>()
+    };
+    let hashes: HashSet<_> = rows.iter().flat_map(refs).collect();
+    if hashes.is_empty() {
+        return Ok(());
+    }
+    let dir = db
+        .path()
+        .map(std::path::Path::new)
+        .and_then(std::path::Path::parent);
+    let mut statement = db
+        .prepare("SELECT hash,size FROM assets WHERE hash IN (SELECT value FROM json_each(?1))")
+        .map_err(err)?;
+    let assets = statement
+        .query_map([json!(hashes).to_string()], |r| {
+            Ok((r.get::<_, String>(0)?, r.get::<_, u64>(1)?))
+        })
+        .map_err(err)?;
+    let mut available = HashSet::new();
+    for asset in assets {
+        let (digest, size) = asset.map_err(err)?;
+        if dir.is_some_and(|dir| read_asset(dir, &digest, size).is_ok()) {
+            available.insert(digest);
+        }
+    }
+    for row in rows {
+        row["missingAssets"] = json!(
+            row["missingAssets"] == true || refs(row).iter().any(|hash| !available.contains(hash))
+        );
+    }
+    Ok(())
 }
 
 #[cfg(test)]
