@@ -18,10 +18,93 @@ function practice(): Session {
   }] };
 }
 
-function Study({ initial }: { initial: Session }) {
+function Study({ initial, onError = () => {} }: { initial: Session; onError?: (error: unknown) => void }) {
   const [session, setSession] = useState(initial);
-  return <Practice session={session} onSession={setSession} run={job => { void job(); }} flushRef={{ current: async () => {} }} />;
+  return <Practice session={session} onSession={setSession} run={job => { void job().catch(onError); }} flushRef={{ current: async () => {} }} />;
 }
+
+it.each(["next", "answer card"])("locks answers while %s navigation is pending and ignores late changes", async target => {
+  const initial = practice();
+  initial.finishedAt = initial.submittedAt = initial.attempts[0].submittedAt = null;
+  initial.attempts.push({ ...initial.attempts[0], ordinal: 1, answer: null });
+  let stored = structuredClone(initial);
+  let save!: () => void;
+  let move!: () => void;
+  vi.mocked(api).mockImplementation(async request => {
+    if (request.type === "save_draft") {
+      if (!save) await new Promise<void>(resolve => { save = resolve; });
+      stored.attempts[request.ordinal].answer = request.answer; return undefined as never;
+    }
+    if (request.type === "position") {
+      const captured = structuredClone({ ...stored, position: request.position });
+      return await new Promise<Session>(resolve => { move = () => { stored = captured; resolve(captured); }; }) as never;
+    }
+    return stored as never;
+  });
+  render(<Study initial={initial} />);
+  const next = screen.getByRole("button", { name: target === "next" ? "下一题" : /转到第 2 题/ });
+  await userEvent.click(next); await waitFor(() => expect(save).toBeDefined());
+  const input = screen.getByRole("textbox", { name: "作答内容" }) as HTMLTextAreaElement;
+  expect(input.disabled).toBe(true);
+  expect(move).toBeUndefined();
+  await act(async () => save()); await waitFor(() => expect(move).toBeDefined());
+  expect(input.disabled).toBe(true);
+  for (const name of ["清空作答", "提交答案", "跳过此题", "下一题"]) expect((screen.getByRole("button", { name }) as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.change(input, { target: { value: "Late unsaved answer" } });
+  fireEvent.click(next);
+  expect(vi.mocked(api).mock.calls.filter(([request]) => request.type === "position")).toHaveLength(1);
+  expect(vi.mocked(api).mock.calls.some(([request]) => request.type === "save_draft" && request.answer?.text === "Late unsaved answer")).toBe(false);
+  await act(async () => move()); await screen.findByRole("heading", { name: "第 2 / 2 题" });
+  expect((screen.getByRole("textbox", { name: "作答内容" }) as HTMLTextAreaElement).disabled).toBe(false);
+  await userEvent.click(screen.getByRole("button", { name: "上一题" }));
+  await waitFor(() => expect(vi.mocked(api).mock.calls.filter(([request]) => request.type === "position")).toHaveLength(2));
+  await act(async () => move()); await screen.findByRole("heading", { name: "第 1 / 2 题" });
+  expect((screen.getByRole("textbox", { name: "作答内容" }) as HTMLTextAreaElement).value).toBe("My answer");
+});
+
+it("retains a failed draft on the current question and unlocks navigation after explicit recovery", async () => {
+  const initial = practice();
+  initial.finishedAt = initial.submittedAt = initial.attempts[0].submittedAt = null;
+  initial.attempts.push({ ...initial.attempts[0], ordinal: 1, answer: null });
+  let fail = true;
+  const onError = vi.fn();
+  vi.mocked(api).mockImplementation(async request => {
+    if (request.type === "save_draft") { if (fail) throw new Error("Disk full"); return undefined as never; }
+    return { ...initial, position: request.type === "position" ? request.position : 0 } as never;
+  });
+  render(<Study initial={initial} onError={onError} />);
+  fireEvent.change(screen.getByRole("textbox", { name: "作答内容" }), { target: { value: "Keep my draft" } });
+  await screen.findByRole("alert");
+  await userEvent.click(screen.getByRole("button", { name: "下一题" }));
+  await waitFor(() => expect(onError).toHaveBeenCalledOnce());
+  expect(vi.mocked(api).mock.calls.some(([request]) => request.type === "position")).toBe(false);
+  const input = screen.getByRole("textbox", { name: "作答内容" }) as HTMLTextAreaElement;
+  expect(input.disabled).toBe(false); expect(input.value).toBe("Keep my draft");
+  expect(screen.getByRole("alert").textContent).toContain("答案保存失败");
+  fail = false; await userEvent.click(screen.getByRole("button", { name: "重试保存" }));
+  await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+  await userEvent.click(screen.getByRole("button", { name: "下一题" }));
+  await screen.findByRole("heading", { name: "第 2 / 2 题" });
+});
+
+it("restores editing on the original question when the destination read fails", async () => {
+  const initial = practice();
+  initial.finishedAt = initial.submittedAt = initial.attempts[0].submittedAt = null;
+  initial.attempts.push({ ...initial.attempts[0], ordinal: 1, answer: null });
+  const failure = new Error("Destination unavailable");
+  const onError = vi.fn();
+  vi.mocked(api).mockImplementation(async request => {
+    if (request.type === "position") throw failure;
+    return undefined as never;
+  });
+  render(<Study initial={initial} onError={onError} />);
+  await userEvent.click(screen.getByRole("button", { name: "下一题" }));
+  await waitFor(() => expect(onError).toHaveBeenCalledExactlyOnceWith(failure));
+  expect(screen.getByRole("heading", { name: "第 1 / 2 题" })).toBeTruthy();
+  const input = screen.getByRole("textbox", { name: "作答内容" }) as HTMLTextAreaElement;
+  expect(input.disabled).toBe(false); expect(input.value).toBe("My answer");
+  expect((screen.getByRole("button", { name: "下一题" }) as HTMLButtonElement).disabled).toBe(false);
+});
 
 it("keeps submission beside navigation and removes it after submitting", async () => {
   const initial = practice();
