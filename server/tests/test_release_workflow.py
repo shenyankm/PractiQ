@@ -226,14 +226,12 @@ def test_macos_desktop_version_rejects_a_host_plist_symlink(release, tmp_path, m
 def test_native_version_checks_require_the_actual_contained_application(release, tmp_path, monkeypatch, platform, fault):
     monkeypatch.setattr(sys, "platform", platform)
     application = tmp_path / "payload"
-    if platform == "darwin":
-        bundle = application / "PractiQ.app/Contents/Resources/bundled"
-        executable = application / "PractiQ.app/Contents/MacOS/PractiQ"
+    bundle = application / "PractiQ.app/Contents/Resources/bundled"
+    executable = application / "PractiQ.app/Contents/MacOS/PractiQ"
     bundle.mkdir(parents=True)
     executable.parent.mkdir(parents=True, exist_ok=True)
-    if platform == "darwin":
-        (bundle.parents[1] / "Info.plist").write_bytes(plistlib.dumps({"CFBundleShortVersionString": "0.1.0",
-            "CFBundleExecutable": "Unrelated" if fault == "executable_identity" else "PractiQ"}))
+    (bundle.parents[1] / "Info.plist").write_bytes(plistlib.dumps({"CFBundleShortVersionString": "0.1.0",
+        "CFBundleExecutable": "Unrelated" if fault == "executable_identity" else "PractiQ"}))
     host = tmp_path / "host-native"
     host.write_bytes(b"Native bytes from an unrelated path")
     if fault == "symlink":
@@ -998,13 +996,12 @@ def test_release_tag_policies_separate_creation_privileges_from_immutability():
     ("darwin", "truncated"), ("darwin", "not_executable")])
 def test_native_release_architecture_is_bound_to_actual_package_bytes(release, tmp_path, monkeypatch, platform, damage):
     monkeypatch.setattr(sys, "platform", platform)
-    if platform == "darwin":
-        bundle = tmp_path / "PractiQ.app/Contents/Resources/bundled"
-        executable = bundle.parents[1] / "MacOS/PractiQ"
-        bundle.mkdir(parents=True)
-        (bundle.parents[1] / "Info.plist").write_bytes(plistlib.dumps({"CFBundleExecutable": "PractiQ", "CFBundleShortVersionString": "0.1.0",
-            "CFBundleVersion": "0.1.0", "PractiQVersion": "0.1.0"}))
-        payload = native_macho(0x1000007) if damage == "wrong_cpu" else native_macho(filetype=6) if damage == "not_executable" else native_macho()
+    bundle = tmp_path / "PractiQ.app/Contents/Resources/bundled"
+    executable = bundle.parents[1] / "MacOS/PractiQ"
+    bundle.mkdir(parents=True)
+    (bundle.parents[1] / "Info.plist").write_bytes(plistlib.dumps({"CFBundleExecutable": "PractiQ", "CFBundleShortVersionString": "0.1.0",
+        "CFBundleVersion": "0.1.0", "PractiQVersion": "0.1.0"}))
+    payload = native_macho(0x1000007) if damage == "wrong_cpu" else native_macho(filetype=6) if damage == "not_executable" else native_macho()
     if damage == "script":
         payload = b"#!/bin/sh\nexit 0\n"
     elif damage == "truncated":
