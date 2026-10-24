@@ -1,5 +1,8 @@
 """Office's converter ceiling applies before upload IO or queue admission."""
 
+import hashlib
+import struct
+from pathlib import Path
 from urllib.parse import urlencode
 from uuid import uuid4
 
@@ -83,6 +86,42 @@ async def test_binary_upload_rejects_office_metadata_before_consuming_body(tmp_p
         response = await client.put("/api/uploads/content?" + urlencode(request.model_dump()), content=body())
     assert response.status_code == 413 and response.json()["detail"]["code"] == "DOCUMENT_TOO_LARGE"
     assert not list(tmp_path.rglob("source.docx"))
+
+
+@pytest.mark.parametrize("corruption", ["extract_version", "utf8_filename"])
+async def test_malformed_ooxml_central_directory_returns_structured_upload_error(tmp_path, monkeypatch, corruption):
+    source = (Path(__file__).parents[2] / "app/fixtures/office/中文 试卷.docx").read_bytes()
+    store = object_store(tmp_path)
+    monkeypatch.setattr(webapp, "get_object_store", lambda: store)
+    monkeypatch.setenv("AI_SERVICE_TOKEN", "test-service-token")
+    payload = bytearray(source)
+    central = payload.index(b"PK\x01\x02")
+    if corruption == "extract_version":
+        struct.pack_into("<H", payload, central + 6, 200)
+    else:
+        flags = struct.unpack_from("<H", payload, central + 8)[0]
+        struct.pack_into("<H", payload, central + 8, flags | 0x800)
+        payload[central + 46] = 0xff
+
+    async def upload(client, data):
+        request = DocumentUploadRequest(sourceType="docx", fileName="source.docx",
+            mediaType=next(iter(DOCUMENT_MEDIA_TYPES["docx"])), sizeBytes=len(data),
+            sha256=hashlib.sha256(data).hexdigest())
+        prepared = await client.post("/api/uploads", json=request.model_dump())
+        assert prepared.status_code == 201
+        return await client.put(prepared.json()["upload"]["url"], content=data,
+                                headers=prepared.json()["upload"]["headers"])
+
+    transport = httpx.ASGITransport(app=webapp.app, raise_app_exceptions=False)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test",
+                                headers={"Authorization": "Bearer test-service-token"}) as client:
+        valid = await upload(client, source)
+        assert valid.status_code == 200
+        response = await upload(client, bytes(payload))
+    assert response.status_code == 422, response.text
+    assert response.json()["detail"]["code"] == "OFFICE_INPUT_INVALID"
+    assert await store.get_verified(DocumentReference.model_validate(valid.json())) == source
+    assert len(list(tmp_path.rglob("source.docx"))) == 1
 
 
 @pytest.mark.usefixtures("disposable_databases")

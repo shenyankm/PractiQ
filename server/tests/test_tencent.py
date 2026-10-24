@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import struct
 import zipfile
 from io import BytesIO
 from pathlib import Path
@@ -17,8 +18,8 @@ from practiq_ai.config import load
 from practiq_ai.contracts import DocumentReference
 from practiq_ai.errors import DocumentProcessingError
 from practiq_ai.execution import namespace
-from practiq_ai.tencent_bundle import decode_bundle
-from tests.support import FakeObjectStore
+from practiq_ai.tencent_bundle import decode_bundle, read_bundle_image
+from tests.support import FakeObjectStore, make_image
 
 
 def archive(entries):
@@ -136,6 +137,39 @@ def test_archive_rejects_unsafe_paths_and_invalid_layouts(name, value):
     with pytest.raises(DocumentProcessingError) as error:
         decode_bundle(archive([(name, value)]), load(), page_count=1)
     assert error.value.code == "TENCENT_RESULT_INVALID"
+
+
+@pytest.mark.parametrize("compression", [zipfile.ZIP_BZIP2, zipfile.ZIP_ZSTANDARD], ids=["bzip2", "zstd"])
+def test_decode_bundle_translates_corrupt_compressed_member_errors(compression):
+    buffer = BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("sample_xml_full.xml", "<document/>")
+        archive.writestr("sample_ocr_page0.json", json.dumps(ocr_page()))
+    payload = buffer.getvalue()
+    assert len(decode_bundle(payload, load(), page_count=1)) == 1
+    corrupt = bytearray(payload)
+    # The first member is XML; only its declared codec changes, not its deflate bytes.
+    struct.pack_into("<H", corrupt, 8, compression)
+    struct.pack_into("<H", corrupt, corrupt.index(b"PK\x01\x02") + 10, compression)
+    with pytest.raises(DocumentProcessingError) as error:
+        decode_bundle(bytes(corrupt), load(), page_count=1)
+    assert error.value.status_code == 502 and error.value.code == "TENCENT_RESULT_INVALID"
+
+
+@pytest.mark.parametrize("compression", [zipfile.ZIP_BZIP2, zipfile.ZIP_ZSTANDARD], ids=["bzip2", "zstd"])
+def test_subimage_read_translates_corrupt_compressed_member_errors(compression):
+    buffer = BytesIO()
+    image = make_image()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("image.png", image)
+    with zipfile.ZipFile(BytesIO(buffer.getvalue())) as archive:
+        assert read_bundle_image(archive, "image.png", load()) == (image, "image/png")
+    corrupt = bytearray(buffer.getvalue())
+    struct.pack_into("<H", corrupt, 8, compression)
+    struct.pack_into("<H", corrupt, corrupt.index(b"PK\x01\x02") + 10, compression)
+    with zipfile.ZipFile(BytesIO(corrupt)) as archive, pytest.raises(DocumentProcessingError) as error:
+        read_bundle_image(archive, "image.png", load())
+    assert error.value.status_code == 502 and error.value.code == "TENCENT_RESULT_INVALID"
 
 
 @pytest.mark.parametrize("url", ["http://test.cos.ap-guangzhou.myqcloud.com/x", "https://127.0.0.1/x",

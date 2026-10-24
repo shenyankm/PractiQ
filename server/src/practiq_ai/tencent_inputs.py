@@ -32,6 +32,10 @@ def split_image(payload: bytes, limit: int, max_parts: int) -> list[tuple[bytes,
     """Tile without downsampling; bounds refer to the retained original page."""
     parts = []
     with Image.open(BytesIO(payload)) as image:
+        try:
+            image.load()
+        except OSError as exc:
+            raise DocumentProcessingError(422, "Image scan data is invalid", "IMAGE_FORMAT_UNSUPPORTED") from exc
         pending = [(0, 0, image.width, image.height)]
         while pending:
             bounds = pending.pop()

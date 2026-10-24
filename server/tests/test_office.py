@@ -572,6 +572,24 @@ def test_prepare_workbook_rejects_entities_and_malformed_metadata(xml):
         prepare_workbook(data.getvalue())
 
 
+def test_prepare_workbook_rejects_excessive_xml_depth_with_office_error():
+    source = (Path(__file__).parents[2] / 'app/fixtures/office/中文 表格.xlsx').read_bytes()
+    visible, sheets = office.prepare_workbook(source)
+    assert office.prepare_workbook(visible) == (visible, sheets)
+    output = io.BytesIO()
+    with zipfile.ZipFile(io.BytesIO(visible)) as original, zipfile.ZipFile(output, 'w') as nested:
+        for entry in original.infolist():
+            data = original.read(entry)
+            if entry.filename == 'xl/workbook.xml':
+                extension = (b'<extLst><ext uri="nested"><a xmlns="urn:test:nested">'
+                             + b'<a>' * 600 + b'</a>' * 600 + b'</a></ext></extLst>')
+                data = data.replace(b'</workbook>', extension + b'</workbook>')
+            nested.writestr(entry, data)
+    payload = output.getvalue()
+    with pytest.raises(office.OfficeError, match='OFFICE_INPUT_INVALID'):
+        office.prepare_workbook(payload)
+
+
 def test_pdf_export_uses_requested_page_limit_above_one_hundred(monkeypatch, tmp_path):
     from tests.support import make_blank_pdf
     pdf = make_blank_pdf(101)

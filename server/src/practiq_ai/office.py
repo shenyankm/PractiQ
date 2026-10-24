@@ -379,7 +379,7 @@ def _validate_ooxml(data: bytes, family: str) -> None:
                     or len(entries) > 10000 or sum(entry.file_size for entry in entries) > TOTAL_LIMIT
                     or any(entry.flag_bits & 1 or entry.filename.lower().endswith("vbaproject.bin") for entry in entries)):
                 raise OfficeError("OFFICE_INPUT_INVALID")
-    except zipfile.BadZipFile as exc:
+    except (zipfile.BadZipFile, ValueError, NotImplementedError) as exc:
         raise OfficeError("OFFICE_INPUT_INVALID") from exc
 
 
@@ -419,7 +419,7 @@ def prepare_workbook(data: bytes, max_sheets: int = 100) -> tuple[bytes, list[st
                 return output.getvalue(), names
             finally:
                 dom.unlink()
-    except (zipfile.BadZipFile, KeyError, expat.ExpatError) as exc:
+    except (zipfile.BadZipFile, KeyError, expat.ExpatError, RecursionError) as exc:
         raise OfficeError("OFFICE_INPUT_INVALID") from exc
 
 

@@ -20,6 +20,12 @@ def extract(file_bytes: bytes) -> ExtractedDocument:
             if getattr(image, 'n_frames', 1) != 1:
                 raise DocumentProcessingError(422, 'Multi-frame images are not supported', 'IMAGE_MULTIFRAME_UNSUPPORTED')
             image.verify()
+        # JPEG verification checks headers, not the scan data used during tiling.
+        with Image.open(BytesIO(file_bytes)) as decoded:
+            try:
+                decoded.load()
+            except OSError as exc:
+                raise DocumentProcessingError(422, 'Image scan data is invalid', 'IMAGE_FORMAT_UNSUPPORTED') from exc
     except DocumentProcessingError:
         raise
     except Exception as exc:
