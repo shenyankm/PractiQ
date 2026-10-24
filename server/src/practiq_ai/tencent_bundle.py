@@ -5,6 +5,7 @@ import re
 import stat
 import zipfile
 import zlib
+from compression.zstd import ZstdError
 from contextlib import nullcontext
 from io import BytesIO
 from math import isfinite
@@ -78,7 +79,7 @@ def read_bundle_image(archive: zipfile.ZipFile, member: str, config: Config) -> 
         raise DocumentProcessingError(413, "Tencent subimage exceeds its limit", "TENCENT_RESULT_TOO_LARGE")
     try:
         data = archive.read(entry)
-    except (zipfile.BadZipFile, zlib.error, NotImplementedError, RuntimeError) as exc:
+    except (zipfile.BadZipFile, zlib.error, OSError, ZstdError, NotImplementedError, RuntimeError) as exc:
         raise DocumentProcessingError(502, "Tencent subimage is invalid", "TENCENT_RESULT_INVALID") from exc
     extract(data)  # Shared actual-format, dimension and pixel validation.
     return data, "image/png" if data.startswith(b"\x89PNG") else "image/jpeg"
@@ -245,6 +246,6 @@ def decode_bundle(payload: bytes | zipfile.ZipFile, config: Config, *, page_coun
                 raise ValueError("No supported OCR page records")
             return [pages[index] for index in sorted(pages)]
     except (ValueError, KeyError, TypeError, OverflowError, ZeroDivisionError, RecursionError,
-            zipfile.BadZipFile, zlib.error, expat.ExpatError, ElementTree.ParseError, NotImplementedError, RuntimeError) as exc:
+            zipfile.BadZipFile, zlib.error, OSError, ZstdError, expat.ExpatError, ElementTree.ParseError, NotImplementedError, RuntimeError) as exc:
         raise DocumentProcessingError(502, "Tencent result archive is invalid or uses an unsupported layout",
                                       "TENCENT_RESULT_INVALID") from exc

@@ -124,7 +124,13 @@ removing pixels or changing transparency. CMYK JPEG tiles convert to RGB before
 PNG encoding, using the embedded color profile when present. Oversized Office uses the trusted
 isolated adapter to render PDF pages and follows the same visual split path.
 Missing Office configuration fails before submission. Enabling COS avoids the
-Base64-specific 8 MiB split while preserving the other limits.
+Base64-specific 8 MiB split while preserving the other limits. Image validation
+also decodes scan data, so a truncated JPEG is rejected before submission;
+tilers apply the same structured `IMAGE_FORMAT_UNSUPPORTED` error to saved inputs.
+Malformed OOXML directories and excessive workbook XML nesting fail with
+`OFFICE_INPUT_INVALID`. Corrupt archive member compression, including BZIP2 and
+Zstandard result/subimage streams, fails with `TENCENT_RESULT_INVALID` without
+resubmitting the paid job.
 
 | Submitted source type | ResultType | Reason |
 | --- | --- | --- |

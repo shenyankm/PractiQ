@@ -21,6 +21,7 @@ from practiq_ai.contracts import (
 )
 from practiq_ai.errors import DocumentProcessingError
 from practiq_ai.execution import namespace
+from practiq_ai.extractors import image
 from practiq_ai.graphs import document
 from practiq_ai.tencent_inputs import split_image, split_text
 from tests.support import FakeObjectStore, ocr_text_page, tencent_provider
@@ -60,6 +61,38 @@ def test_image_tiles_reconstruct_all_pixels_including_alpha():
     assert restored.tobytes() == image.tobytes()
     with pytest.raises(DocumentProcessingError):
         split_image(source.getvalue(), 700, 1)
+
+
+@pytest.fixture
+def jpeg_scan():
+    buffer = BytesIO()
+    with Image.frombytes("RGB", (64, 64), random.Random(7).randbytes(64 * 64 * 3)) as source:
+        source.save(buffer, format="JPEG", quality=95)
+    return buffer.getvalue()
+
+
+def test_image_extract_rejects_truncated_jpeg_scan(jpeg_scan):
+    assert image.extract(jpeg_scan).page_images == [jpeg_scan]
+    with pytest.raises(DocumentProcessingError) as error:
+        image.extract(jpeg_scan[:-128])
+    assert error.value.status_code == 422 and error.value.code == "IMAGE_FORMAT_UNSUPPORTED"
+
+
+def test_split_image_rejects_truncated_jpeg_scan_with_structured_error(jpeg_scan):
+    assert split_image(jpeg_scan, len(jpeg_scan) * 4, 100)
+    with pytest.raises(DocumentProcessingError) as error:
+        split_image(jpeg_scan[:-128], 700, 100)
+    assert error.value.status_code == 422 and error.value.code == "IMAGE_FORMAT_UNSUPPORTED"
+
+
+async def test_prepare_rejects_truncated_jpeg_before_tencent_submission(monkeypatch, jpeg_scan):
+    state, _, runtime = prepare(monkeypatch, "image", jpeg_scan[:-128])
+    monkeypatch.setenv("AI_TENCENT_INPUT_MAX_BYTES", "700")
+    calls = tencent_provider(monkeypatch, [ocr_text_page("question")])
+    with pytest.raises(DocumentProcessingError) as error:
+        await document._prepare(cast(Any, state), runtime)
+    assert error.value.status_code == 422 and error.value.code == "IMAGE_FORMAT_UNSUPPORTED"
+    assert calls == []
 
 
 @pytest.mark.parametrize("value", ["0", "3", "157286401", "no", "-1"])
