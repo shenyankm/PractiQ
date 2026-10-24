@@ -10,7 +10,7 @@ Self-tests and mock exams have separate setup and score-review steps. Quick ques
 
 Practice submits individual answers. Self-tests and mock exams submit the entire paper; answers and explanations become available after submission. Timed exams keep their deadline when the app closes or the device sleeps. Reopening an expired exam submits the last saved answers; closing the app does not extend its time limit.
 
-Selection preserves complete material groups. Question counts count answerable children; parents hold material and receive no score. Source edits and deletions do not rewrite saved session snapshots. See the [session behavior reference](../reference/question-types-data-rendering.md#6-practice-self-test-and-mock-exams) for timing, scoring and reveal rules.
+Selection preserves complete material groups. With Wrong or Unattempted filtering, search also matches shared material on ancestors of eligible children, without matching unrelated siblings. Question counts count answerable children; parents hold material and receive no score. Source edits and deletions do not rewrite saved session snapshots. See the [session behavior reference](../reference/question-types-data-rendering.md#6-practice-self-test-and-mock-exams) for timing, scoring and reveal rules.
 
 Finished-session navigation uses the full attempt count even when cached responses contain only changed attempts. Browsing history changes the displayed question without modifying the saved practice position.
 
@@ -30,7 +30,7 @@ Missing reference answers, required resources or grading evidence remain ungrade
 
 Incomplete choice, ordering and matching structures use free-text answers and practice self-assessment. These answers survive draft saving, restarting and submission even for older frozen questions whose review flags do not describe the structural problem. Structured questions with ambiguous item identities are never automatically graded. Matching IDs are independent on each side; ordering IDs must be unique across the item list. Missing IDs use the item's zero-based position within its side or ordering list, so explicit IDs must not collide with those positions. The app retains ambiguous IDs and reference answers for review rather than guessing a corrected mapping.
 
-Imported review warnings permit practice; confirming review records a local acknowledgement for the whole question tree without clearing source warnings or proving answer correctness. Changing the tree's content or question order clears that acknowledgement; saving an unchanged tree preserves it, including after restarting the app.
+Imported review warnings permit practice; confirming review records a local acknowledgement for the whole question tree without clearing source warnings or proving answer correctness. Changing the tree's content or child-question order clears that acknowledgement; saving an unchanged tree preserves it, including after restarting the app or importing a package that listed children before their parent. Filling a composite's missing passage clears its derived material-missing marker for future practice; imported review warnings and existing practice snapshots remain unchanged.
 
 ## Use optional AI grading
 

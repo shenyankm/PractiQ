@@ -1324,6 +1324,8 @@ impl Store {
         }
         drop(statement);
         let mut previous: Vec<_> = old.iter().map(|row| row["question"].clone()).collect();
+        // The editor places the root first, even when the imported array did not.
+        previous.sort_by_key(|question| text(question, "id") != qid);
         let unchanged = contract::validate_tree(&mut previous).is_ok() && previous == tree;
         if !unchanged {
             tx.execute(

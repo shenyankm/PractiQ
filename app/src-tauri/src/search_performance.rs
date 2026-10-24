@@ -292,7 +292,7 @@ fn search_projection_preserves_text_fields_associations_and_unicode() {
 }
 
 #[test]
-fn search_filters_require_content_and_selection_on_the_same_node() {
+fn search_filters_match_eligible_nodes_and_shared_ancestors() {
     let dir = tempfile::tempdir().unwrap();
     let mut store = Store::new(dir.path().into()).unwrap();
     let preview = store
@@ -328,7 +328,7 @@ fn search_filters_require_content_and_selection_on_the_same_node() {
     .unwrap();
     db.execute("INSERT INTO sessions(id,bank_title,created_at,position,mode) VALUES('session','Session',1,0,'ordered')", []).unwrap();
     db.execute("INSERT INTO attempts(session_id,ordinal,question_id,snapshot_question_id,submitted_at,result) VALUES('session',0,?1,?1,1,0)", [child_id]).unwrap();
-    for filter in ["favorite", "wrong", "unattempted"] {
+    for (filter, total) in [("favorite", 0), ("wrong", 1), ("unattempted", 1)] {
         assert_eq!(
             store
                 .query_questions(
@@ -337,7 +337,7 @@ fn search_filters_require_content_and_selection_on_the_same_node() {
                     Some((1, 0))
                 )
                 .unwrap()["total"],
-            0,
+            total,
             "{filter}"
         );
     }

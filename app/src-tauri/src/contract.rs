@@ -634,9 +634,10 @@ pub fn parse(bytes: &[u8]) -> Result<Value> {
     }
     for key in ["groups", "visualElements"] {
         for (i, group) in list(result, key).iter().enumerate() {
-            if list(group, "questionIds")
-                .iter()
-                .any(|v| v.as_str().is_none_or(|v| !ids.contains(v)))
+            if !unique(list(group, "questionIds"))
+                || list(group, "questionIds")
+                    .iter()
+                    .any(|v| v.as_str().is_none_or(|v| !ids.contains(v)))
             {
                 return Err(crate::language::error(
                     "LOCAL_QUESTION_INDEX_INVALID",
@@ -794,6 +795,11 @@ pub fn validate_tree(questions: &mut [Value]) -> Result<()> {
         }
     }
     for q in questions.iter() {
+        if list(q, "passage").iter().any(|block| {
+            text(block, "partType") == "blank" && !ids.contains_key(text(block, "questionId"))
+        }) {
+            return Err("Passage blank references a missing question".into());
+        }
         let parent = text(q, "parentId");
         if !parent.is_empty() {
             let p = &questions[*ids.get(parent).ok_or("Missing parent question")?];
@@ -910,6 +916,12 @@ pub fn validate_tree(questions: &mut [Value]) -> Result<()> {
         .map(|q| text(q, "id").to_owned())
         .collect();
     for q in questions {
+        if crate::questions::composite(q) {
+            q["missingFields"]
+                .as_array_mut()
+                .unwrap()
+                .retain(|field| field != "material");
+        }
         if incomplete.contains(text(q, "id")) {
             q["needsReview"] = json!(true);
             if !list(q, "missingFields").contains(&json!("material")) {
@@ -961,11 +973,12 @@ pub fn validate_context(groups: &[Value], visuals: &[Value], ids: &HashSet<&str>
             let mut v = value.clone();
             v.as_object_mut().ok_or("Invalid context")?.remove("id");
             schema_check(schema, &v, "context")?;
-            if list(&v, "questionIds")
-                .iter()
-                .any(|id| id.as_str().is_none_or(|id| !ids.contains(id)))
+            if !unique(list(&v, "questionIds"))
+                || list(&v, "questionIds")
+                    .iter()
+                    .any(|id| id.as_str().is_none_or(|id| !ids.contains(id)))
             {
-                return Err("Context references a missing question".into());
+                return Err("Context references a duplicate or missing question".into());
             }
         }
     }

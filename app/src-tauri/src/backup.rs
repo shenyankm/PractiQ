@@ -707,16 +707,20 @@ fn validate_database_contents(db: &Connection) -> Result<()> {
             serde_json::json!({}),
         ));
     }
-    // SQLite is dynamically typed, so storage classes must be checked here:
-    // every numeric session/attempt column is read as an integer after restore.
+    // SQLite storage classes must match strict bank/session readers before replacement.
     let invalid_navigation: bool = db
         .query_row(
             "SELECT EXISTS(
+            SELECT 1 FROM banks WHERE typeof(id)!='text' OR typeof(title)!='text'
+                OR typeof(description)!='text' OR typeof(created_at)!='integer'
+        ) OR EXISTS(
             SELECT 1 FROM sessions s LEFT JOIN attempts a ON a.session_id=s.id GROUP BY s.id
             HAVING COUNT(a.ordinal)=0 OR MIN(a.ordinal)!=0 OR MAX(a.ordinal)!=COUNT(a.ordinal)-1
                 OR SUM(typeof(a.ordinal)!='integer')>0 OR typeof(s.position)!='integer'
                 OR s.position<0 OR s.position>=COUNT(a.ordinal)
                 OR typeof(s.created_at)!='integer'
+                OR typeof(s.mode)!='text' OR typeof(s.bank_title)!='text'
+                OR SUM(typeof(a.grade_kind)!='text' OR typeof(a.grading)!='text')>0
                 OR typeof(s.last_active_at) NOT IN ('integer','null')
                 OR typeof(s.submitted_at) NOT IN ('integer','null')
                 OR typeof(s.finished_at) NOT IN ('integer','null')
