@@ -32,6 +32,10 @@ fn start(store: &Store, rows: &[Value], kind: &str) -> Value {
         .collect::<Vec<_>>();
     let selected =
         crate::paper::selected_rows(&store.question_rows().unwrap(), &question_ids).unwrap();
+    let count = selected
+        .iter()
+        .filter(|row| !crate::questions::composite(&row["question"]))
+        .count();
     store
         .start_paper(Paper {
             question_ids,
@@ -41,15 +45,220 @@ fn start(store: &Store, rows: &[Value], kind: &str) -> Value {
             scores: if kind == "practice" {
                 vec![]
             } else {
-                vec![100; rows.len()]
+                vec![100; count]
             },
             total_cents: if kind == "practice" {
                 0
             } else {
-                rows.len() as i64 * 100
+                count as i64 * 100
             },
         })
         .unwrap()
+}
+
+#[test]
+fn structured_items_import_review_and_legacy_fallback_persist_without_regrading() {
+    let cases: Vec<Value> =
+        serde_json::from_str(include_str!("../../fixtures/structured-items.json")).unwrap();
+    for case in cases {
+        for kind in ["practice", "self_test"] {
+            let dir = tempfile::tempdir().unwrap();
+            let mut store = Store::new(dir.path().into()).unwrap();
+            let mut q = case["question"].clone();
+            q["id"] = json!("q");
+            q["stem"] = json!("Use the supplied items");
+            q["questionTypeId"] = q["answerMode"].clone();
+            q["analysis"] = json!("Supplied explanation");
+            q["sourceText"] = json!("Supplied items and answer");
+            q["needsReview"] = json!(false);
+            let root = json!({"schemaVersion":3,"questions":[q],"groups":[],"visualElements":[],"warnings":[],"confidenceScore":100});
+            let zip = crate::tests::fixture_bank_zip(&root, dir.path());
+            let preview = store.preview_bank_zip(zip.path()).unwrap();
+            let bank = store
+                .import(text(&preview, "ticket"), None, "Items")
+                .unwrap();
+            let rows = store
+                .questions(Some(text(&bank, "bankId")), "", "", "")
+                .unwrap();
+            let imported = &rows[0]["question"];
+            assert_eq!(
+                imported["missingFields"], case["missingFields"],
+                "{}",
+                case["name"]
+            );
+            assert_eq!(
+                imported["needsReview"],
+                !case["missingFields"].as_array().unwrap().is_empty()
+            );
+            assert_eq!(imported["answerPayload"], q["answerPayload"]);
+            if case["interactive"] == true {
+                assert!(crate::contract::validate_attempt(
+                    imported,
+                    &json!({"text":"not a structured answer"})
+                )
+                .is_err());
+                continue;
+            }
+            let session = start(&store, rows.as_array().unwrap(), kind);
+            let sid = text(&session, "id").to_owned();
+            let db = store.connect().unwrap();
+            let raw: String = db
+                .query_row(
+                    "SELECT content FROM session_documents WHERE session_id=?1",
+                    [&sid],
+                    |r| r.get(0),
+                )
+                .unwrap();
+            let mut document: Value = serde_json::from_str(&raw).unwrap();
+            // Historical snapshots can predate the completeness checks; never rewrite them on save.
+            document["questions"][0]["question"]["missingFields"] = json!([]);
+            document["questions"][0]["question"]["needsReview"] = json!(false);
+            assert!(crate::contract::grade(
+                &document["questions"][0]["question"],
+                &q["answerPayload"]
+            )
+            .is_none());
+            let frozen = document.to_string();
+            db.execute(
+                "UPDATE session_documents SET content=?2 WHERE session_id=?1",
+                params![sid, frozen],
+            )
+            .unwrap();
+            drop(db);
+            drop(store);
+            let store = Store::new(dir.path().into()).unwrap();
+            let answer = json!({"text":"My free-text answer"});
+            assert!(store
+                .save_draft((&sid, 0), json!({"text":"x".repeat(120_001)}), 0)
+                .is_err());
+            assert!(store
+                .save_draft((&sid, 0), json!({"text":"x","correct":["A"]}), 0)
+                .is_err());
+            store.save_draft((&sid, 0), answer.clone(), 0).unwrap();
+            drop(store);
+            let store = Store::new(dir.path().into()).unwrap();
+            assert_eq!(
+                store.session(&sid).unwrap()["attempts"][0]["answer"],
+                answer
+            );
+            let result = if kind == "practice" {
+                store
+                    .save_attempt((&sid, 0), answer.clone(), 0, true, false)
+                    .unwrap()
+            } else {
+                store.submit_paper(&sid, true).unwrap()
+            };
+            let attempt = &result["attempts"][0];
+            assert_eq!(attempt["answer"], answer);
+            assert_eq!(attempt["gradeKind"], "ungraded");
+            assert!(attempt["autoResult"].is_null());
+            assert!(attempt["earnedCents"].is_null());
+            if kind == "practice" {
+                assert_eq!(
+                    store.self_assess(&sid, 0, true).unwrap()["attempts"][0]["gradeKind"],
+                    "self"
+                );
+            }
+            let saved: String = store
+                .connect()
+                .unwrap()
+                .query_row(
+                    "SELECT content FROM session_documents WHERE session_id=?1",
+                    [&sid],
+                    |r| r.get(0),
+                )
+                .unwrap();
+            assert_eq!(saved, frozen);
+        }
+    }
+}
+
+#[test]
+fn damaged_assets_are_unavailable_before_start_and_before_submission() {
+    for damage_before_start in [true, false] {
+        for missing in [true, false] {
+            for (fixture, kind) in [
+                ("sample.zip", "practice"),
+                ("sample.zip", "self_test"),
+                ("english.zip", "practice"),
+                ("english.zip", "self_test"),
+            ] {
+                let dir = tempfile::tempdir().unwrap();
+                let mut store = Store::new(dir.path().into()).unwrap();
+                let preview = store
+                    .preview_bank_zip(
+                        &std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                            .join("../fixtures")
+                            .join(fixture),
+                    )
+                    .unwrap();
+                let bank = store
+                    .import(text(&preview, "ticket"), None, "Assets")
+                    .unwrap();
+                let rows = store
+                    .questions(Some(text(&bank, "bankId")), "", "", "")
+                    .unwrap();
+                let image = fixture == "sample.zip";
+                let qid = text(&rows[if image { 2 } else { 0 }], "id");
+                if image {
+                    store
+                        .connect()
+                        .unwrap()
+                        .execute("UPDATE question_visuals SET question_id=?1", [qid])
+                        .unwrap();
+                }
+                let row = store.question_detail(qid).unwrap();
+                let digest = text(
+                    if image {
+                        &row["visuals"][0]["imageRef"]
+                    } else {
+                        &row["question"]["audioRef"]
+                    },
+                    "sha256",
+                );
+                let path = store.asset_path(digest).unwrap();
+                let bytes = std::fs::read(&path).unwrap();
+                let damage = || {
+                    if missing {
+                        std::fs::remove_file(&path).unwrap();
+                    } else {
+                        std::fs::write(&path, vec![0; bytes.len()]).unwrap();
+                    }
+                };
+                let early = if damage_before_start {
+                    None
+                } else {
+                    Some(start(&store, std::slice::from_ref(&row), kind))
+                };
+                damage();
+                assert!(store.asset(digest).is_err());
+                let current = store.question_detail(text(&row, "id")).unwrap();
+                assert_eq!(current["missingAssets"], true);
+                let session =
+                    early.unwrap_or_else(|| start(&store, std::slice::from_ref(&current), kind));
+                let sid = text(&session, "id");
+                for ordinal in 0..list(&session, "attempts").len() {
+                    let answer = if image {
+                        json!({"value":false})
+                    } else {
+                        json!({"correct":["A"]})
+                    };
+                    store.save_draft((sid, ordinal), answer.clone(), 0).unwrap();
+                    if kind == "practice" {
+                        store
+                            .save_attempt((sid, ordinal), answer, 0, true, false)
+                            .unwrap();
+                    }
+                }
+                let result = store.submit_paper(sid, true).unwrap();
+                for attempt in list(&result, "attempts") {
+                    assert_eq!(attempt["gradeKind"], "ungraded");
+                    assert!(attempt["autoResult"].is_null());
+                    assert!(attempt["earnedCents"].is_null());
+                }
+            }
+        }
+    }
 }
 
 #[test]

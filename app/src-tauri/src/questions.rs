@@ -728,33 +728,7 @@ pub fn read_scoped(
         row["groups"] = json!(groups_by_question.remove(&id).unwrap_or_default());
         row["visuals"] = json!(visuals_by_question.remove(&id).unwrap_or_default());
     }
-    let hashes: HashSet<_> = rows
-        .iter()
-        .flat_map(|row| {
-            list(row, "visuals")
-                .iter()
-                .filter_map(|v| v.get("imageRef"))
-                .chain(row["question"].get("audioRef"))
-        })
-        .filter(|r| r.is_object())
-        .map(|r| text(r, "sha256"))
-        .collect();
-    let mut statement = db
-        .prepare("SELECT hash FROM assets WHERE hash IN (SELECT value FROM json_each(?1))")
-        .map_err(err)?;
-    let available = statement
-        .query_map([json!(hashes).to_string()], |r| r.get::<_, String>(0))
-        .map_err(err)?
-        .collect::<std::result::Result<HashSet<_>, _>>()
-        .map_err(err)?;
-    for row in &mut rows {
-        row["missingAssets"] = json!(list(row, "visuals")
-            .iter()
-            .filter_map(|v| v.get("imageRef"))
-            .chain(row["question"].get("audioRef"))
-            .filter(|r| r.is_object())
-            .any(|r| !available.contains(text(r, "sha256"))));
-    }
+    crate::assets::mark_missing(db, &mut rows)?;
     Ok(rows)
 }
 

@@ -26,7 +26,11 @@ Submitting or skipping a practice question locks its answer and clear action unt
 
 Moving between questions locks answer editing, submission and the Previous/Next bar until the current draft is saved and the destination is loaded. Repeated navigation requests are ignored while that move is pending. If saving fails, the original question and draft remain visible with **Retry save**; a failed destination read also restores editing on the current question.
 
-Missing reference answers, required resources or grading evidence remain ungraded. Imported review warnings permit practice; confirming review records a local acknowledgement for the whole question tree without clearing source warnings or proving answer correctness. Changing the tree's content or question order clears that acknowledgement; saving an unchanged tree preserves it, including after restarting the app.
+Missing reference answers, required resources or grading evidence remain ungraded. Required image/audio files are read and checked against their stored size and SHA-256 when loading bank questions and again before submission, including resources inherited from a material group. A missing or damaged file leaves new submissions ungraded; existing score snapshots are not rewritten.
+
+Incomplete choice, ordering and matching structures use free-text answers and practice self-assessment. These answers survive draft saving, restarting and submission even for older frozen questions whose review flags do not describe the structural problem. Structured questions with ambiguous item identities are never automatically graded. Matching IDs are independent on each side; ordering IDs must be unique across the item list. Missing IDs use the item's zero-based position within its side or ordering list, so explicit IDs must not collide with those positions. The app retains ambiguous IDs and reference answers for review rather than guessing a corrected mapping.
+
+Imported review warnings permit practice; confirming review records a local acknowledgement for the whole question tree without clearing source warnings or proving answer correctness. Changing the tree's content or question order clears that acknowledgement; saving an unchanged tree preserves it, including after restarting the app.
 
 ## Use optional AI grading
 
