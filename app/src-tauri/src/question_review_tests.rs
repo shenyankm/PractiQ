@@ -189,6 +189,45 @@ fn review_search_matches_other_nodes_and_shared_content_in_a_pending_tree() {
 }
 
 #[test]
+fn unchanged_tree_save_preserves_review_confirmations_after_reopen() {
+    let (dir, store, bank, root) = setup();
+    store.review_question(&root, true).unwrap();
+    let before = store.question_rows().unwrap();
+    let index = crate::questions::Index::new(&before);
+    let tree: Vec<_> = index.trees[root.as_str()]
+        .iter()
+        .map(|row| row["question"].clone())
+        .collect();
+    store
+        .save_question_tree(&bank, Some(&root), tree.clone())
+        .unwrap();
+    assert_eq!(store.question_rows().unwrap(), before);
+    assert_eq!(
+        store.questions(Some(&bank), "", "", "review").unwrap(),
+        json!([])
+    );
+    drop(store);
+    let store = Store::new(dir.path().to_owned()).unwrap();
+    assert_eq!(store.question_rows().unwrap(), before);
+    let mut edited = tree;
+    edited.last_mut().unwrap()["stem"] = json!("Changed child content");
+    store
+        .save_question_tree(&bank, Some(&root), edited)
+        .unwrap();
+    let after = store.question_rows().unwrap();
+    let index = crate::questions::Index::new(&after);
+    assert!(index.trees[root.as_str()]
+        .iter()
+        .all(|row| row["reviewedAt"].is_null()));
+    assert!(!store
+        .questions(Some(&bank), "", "", "review")
+        .unwrap()
+        .as_array()
+        .unwrap()
+        .is_empty());
+}
+
+#[test]
 fn review_rejects_missing_or_child_ids_and_editing_clears_tree_confirmation() {
     let (_dir, store, bank, root) = setup();
     let rows = store.question_rows().unwrap();
