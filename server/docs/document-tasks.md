@@ -31,7 +31,7 @@ All detail fields are present. `runId`, `parentThreadId`, `checkpointId`, `statu
 
 `phase` is `pending`, `prepare`, `vision`, `chunk`, `vision_review`, `chunk_review`, `result_review`, `result`, or `completed`. `progress.visuals` and `progress.chunks` each contain `total`, `succeeded`, `failed`, and `remaining`. Failures reuse `UnitFailure`: `stage` is `document_parse`, `vision_parse`, `vision_describe`, or `visual_crop`, with `index`, `code`, `retryable`, and `retriesRemaining`. Failure messages are resolved by clients from codes. `blocking` preserves saved interrupt payloads or error codes. `usage` contains completed `ModelCallUsage` records, and `unknownUsageCalls` lists call IDs whose usage is uncertain. `modelBudget` contains `limit` and `reserved`.
 
-Expired detail requests still return HTTP 410 / `TASK_EXPIRED`; the list endpoint exposes the `EXPIRED` state. Authentication and error response shapes are unchanged.
+Expired detail requests still return HTTP 410 / `TASK_EXPIRED`; the list endpoint exposes the `EXPIRED` state. Authentication and error response shapes are unchanged. An unreadable checkpoint is isolated to a read-only `FAILED` diagnostic view with `TASK_CHECKPOINT_UNREADABLE`, no resumable actions and no result; other tasks remain readable. The saved run, checkpoint, usage and resources are not rewritten by reads. Original verified source downloads remain available, while checkpoint-only artifact references return `ARTIFACT_NOT_FOUND`. Database outages and read timeouts retain their structured 503/504 errors, rather than being classified as corrupt checkpoints. Import-settings reads and writes use the same structured service-unavailable mapping.
 
 Choose controls from `state` and `allowedActions`:
 
@@ -44,7 +44,7 @@ Choose controls from `state` and `allowedActions`:
 | FAILED | resume unfinished nodes or retry_failed for eligible failed units |
 | COMPLETED | retry_failed for eligible failures in a PARTIAL result |
 
-An explicit `interrupt` reports `CANCELLED` once stopped; process interruption reports `INTERRUPTED`. Neither automatically resumes. A cancelled task retains its saved work and can resume only through an explicit allowed action.
+An explicit `interrupt` reports `CANCELLED` once stopped; process interruption reports `INTERRUPTED`. Neither automatically resumes. A cancelled task retains its saved work and can resume only through an explicit allowed action. If a cancelled or failed task still holds a non-review pause interrupt, resume it first; `retry_failed` is not advertised until that pause has been resolved.
 
 State and quality are independent: `COMPLETED` may contain `PARTIAL`, and `SUCCEEDED` may still require content review. Progress reflects only persisted data. Clients poll with GET and do not use native SSE, thread, run, or Store APIs.
 

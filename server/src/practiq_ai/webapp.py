@@ -139,18 +139,12 @@ def model_configured() -> None:
 
 @app.get('/api/import-settings', response_model=ImportSettingsSnapshot, dependencies=[Depends(authorize)])
 async def get_import_settings() -> ImportSettingsSnapshot:
-    return task_api.client().import_control.snapshot
+    return await _task_response(task_api.get_import_settings())
 
 
 @app.put('/api/import-settings', response_model=ImportSettingsSnapshot, dependencies=[Depends(authorize)])
 async def save_import_settings(value: ImportSettingsSnapshot) -> ImportSettingsSnapshot:
-    if load().read_only:
-        raise HTTPException(409, {'code': 'SERVICE_READ_ONLY', 'message': 'Service is read-only'})
-    service = task_api.client()
-    try:
-        return await service.import_control.save(service.db.store, value)
-    except DocumentProcessingError as exc:
-        raise HTTPException(exc.status_code, {'code': exc.code, 'message': exc.detail}) from exc
+    return await _task_response(task_api.save_import_settings(value))
 
 
 @app.get("/api/metrics", dependencies=[Depends(authorize)])
@@ -320,7 +314,8 @@ async def read_artifact(reference: ArtifactReference, thread_id: Annotated[UUID 
         if contains(source):
             checked = DocumentReference.model_validate(source)
         else:
-            values = (await service.snapshot(task)).values or {}
+            _, snapshot, _ = await task_api._read_task(service, str(thread_id))
+            values = snapshot.values or {}
             public_refs = [*values.get('pageRefs', []), *values.get('chunkRefs', [])]
             # Mirror review_task's vision units, not arbitrary internal checkpoint references.
             vision_indices = set(range(len(values.get('pageRefs', []))))

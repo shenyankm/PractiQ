@@ -84,6 +84,54 @@ async def test_unreadable_checkpoint_is_isolated_during_restart_and_remains_dele
     assert len(model.calls) == 3
 
 
+@pytest.mark.parametrize('status', ['pending', 'running'])
+@pytest.mark.parametrize('action,flag', [('pause', 'pause_requested'), ('interrupt', 'cancel_requested')])
+async def test_active_controls_persist_intent_without_decoding_checkpoint(monkeypatch, status, action, flag):
+    service, reference, model = await setup_api(monkeypatch)
+    created = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
+    await service.wait_idle()
+    async with service.db.connection() as conn:
+        await conn.execute('UPDATE document_runs SET status=%s WHERE run_id=%s', (status, created['runId']))
+    unreadable = pytest.MonkeyPatch()
+    async def corrupt(_task):
+        raise ValueError('synthetic unreadable checkpoint')
+    unreadable.setattr(service, 'snapshot', corrupt)
+    try:
+        request = DocumentTaskControl(requestId=uuid4(), action=action, runId=created['runId'])
+        receipt = await task_api.control_task(created['threadId'], request)
+        row = (await service.db.rows('SELECT pause_requested,cancel_requested FROM document_runs WHERE run_id=%s', (created['runId'],)))[0]
+        assert row[flag], 'an accepted control must durably persist its intent'
+        assert await task_api.control_task(created['threadId'], request) == receipt
+        assert len(model.calls) == 1
+    finally:
+        unreadable.undo()
+
+
+@pytest.mark.parametrize('status', ['success', 'waiting'])
+async def test_failed_filter_includes_newly_unreadable_terminal_checkpoint(monkeypatch, status):
+    service, reference, model = await setup_api(monkeypatch, [parsed('damaged'), parsed('healthy')])
+    tasks = []
+    for _ in range(2):
+        tasks.append(await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference))))
+        await service.wait_idle()
+    damaged = tasks[0]['threadId']
+    async with service.db.connection() as conn:
+        await conn.execute('UPDATE document_runs SET status=%s WHERE run_id=%s', (status, tasks[0]['runId']))
+    original = service.snapshot
+    async def corrupt(task):
+        if task['thread_id'] == damaged:
+            raise ValueError('synthetic unreadable checkpoint')
+        return await original(task)
+    monkeypatch.setattr(service, 'snapshot', corrupt)
+    service.task_summaries.clear()
+    listing = await task_api.list_tasks(limit=1, state_filter='failed')
+    assert [item['threadId'] for item in listing['items']] == [damaged]
+    assert listing['items'][0]['state'] == 'FAILED' and not listing['hasMore']
+    durable = (await service.db.rows('SELECT status,error_code FROM document_runs WHERE run_id=%s', (tasks[0]['runId'],)))[0]
+    assert durable == {'status': status, 'error_code': None}
+    assert len(model.calls) == 2
+
+
 async def test_reconciliation_does_not_quarantine_database_outages(monkeypatch):
     service, reference, _model = await setup_api(monkeypatch)
     created = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
