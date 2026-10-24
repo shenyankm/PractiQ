@@ -30,6 +30,29 @@ pub fn has_answer(v: &Value) -> bool {
 pub fn has_basis(q: &Value) -> bool {
     !text(q, "scoringRubric").trim().is_empty() || contract::answer_complete(q)
 }
+pub(crate) fn validate_grade_details(response: &Value) -> Result<()> {
+    let result = &response["result"];
+    if result.is_null() && response["status"] != "graded" {
+        return Ok(());
+    }
+    if result["reason"]
+        .as_str()
+        .is_none_or(|reason| reason.trim().is_empty() || reason.chars().count() > 20_000)
+        || ["evidence", "reviewReasons"].iter().any(|field| {
+            result[*field].as_array().is_none_or(|items| {
+                items.len() > 100
+                    || items.iter().any(|item| {
+                        item.as_str()
+                            .is_none_or(|text| text.chars().count() > 20_000)
+                    })
+            })
+        })
+    {
+        return Err(crate::language::error("LOCAL_RESPONSE_INVALID", json!({})));
+    }
+    Ok(())
+}
+
 pub fn usable(s: &Value) -> bool {
     s["missingAssets"] != true
         && contract::can_interact(&s["question"])
@@ -779,6 +802,7 @@ impl Store {
                 serde_json::json!({}),
             ));
         }
+        validate_grade_details(response)?;
         let updated=tx.execute("UPDATE grade_requests SET response=?4 WHERE id=?1 AND session_id=?2 AND ordinal=?3",params![rid,sid,ordinal,response.to_string()]).map_err(err)?;
         if updated != 1 {
             return Err(crate::language::error(

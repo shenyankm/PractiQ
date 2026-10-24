@@ -94,6 +94,75 @@ it("checks an unknown result using the existing request and distinguishes a reta
   expect(invoke).toHaveBeenCalledWith("ai_request", expect.objectContaining({ request: { type: "grade", id: "exam", ordinal: 0, retry: false } }));
 });
 
+it.each(["LOCAL_GRADING_TOO_LARGE", "LOCAL_GRADING_INELIGIBLE", "LOCAL_GRADING_IMAGE_MISSING"])("#404 grades later pending attempts after local preparation fails: %s", async code => {
+  const user = userEvent.setup();
+  const session = exam(2);
+  vi.mocked(invoke).mockImplementation(async (_command, args) => {
+    const { request } = args as { request: { ordinal: number } };
+    if (request.ordinal === 0) throw { code, message: "Question cannot be prepared" };
+    return session;
+  });
+  render(<ExamResults session={session} onSession={vi.fn()} run={job => { void job(); }} />);
+  expect(invoke).not.toHaveBeenCalled();
+
+  for (let click = 0; click < 2; click++) {
+    await user.click(screen.getByRole("button", { name: "AI 评分/继续（2 题，将调用模型）" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "停止后续评分" })).toBeNull());
+  }
+
+  expect(invoke).toHaveBeenCalledWith("ai_request", expect.objectContaining({
+    request: { type: "grade", id: "exam", ordinal: 1, retry: false },
+  }));
+});
+
+it("#418 never retries the displayed question for another ordinal's target-changed failure", async () => {
+  const user = userEvent.setup();
+  const session = exam(2);
+  session.position = 1;
+  vi.mocked(invoke).mockRejectedValueOnce({ code: "LOCAL_GRADING_TARGET_CHANGED", message: "Target changed" }).mockResolvedValue(session);
+  render(<ExamResults session={session} onSession={vi.fn()} run={job => { void job(); }} />);
+  expect(invoke).not.toHaveBeenCalled();
+
+  await user.click(screen.getByRole("button", { name: "AI 评分/继续（2 题，将调用模型）" }));
+  await screen.findByRole("alert");
+  expect(invoke).toHaveBeenCalledExactlyOnceWith("ai_request", expect.objectContaining({
+    request: { type: "grade", id: "exam", ordinal: 0, retry: false },
+  }));
+  const retry = screen.queryByRole("button", { name: "重新评分当前题" });
+  // Hiding an unrelated recovery action is also safe; any offered retry must address the failure.
+  if (retry) {
+    await user.click(retry);
+    expect(invoke).toHaveBeenCalledTimes(1);
+    await user.click(screen.getByRole("button", { name: "确认重新评分" }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledTimes(2));
+    expect(invoke).toHaveBeenLastCalledWith("ai_request", expect.objectContaining({
+      request: { type: "grade", id: "exam", ordinal: 0, retry: true },
+    }));
+  }
+});
+
+it.each(["LOCAL_SERVICE_TOKEN_REQUIRED", "LOCAL_RESPONSE_INVALID"])("stops the batch on configuration or uncertain response errors: %s", async code => {
+  const user = userEvent.setup();
+  vi.mocked(invoke).mockRejectedValue({ code, message: "Grading stopped" });
+  render(<ExamResults session={exam(2)} onSession={vi.fn()} run={job => { void job(); }} />);
+  await user.click(screen.getByRole("button", { name: "AI 评分/继续（2 题，将调用模型）" }));
+  await screen.findByRole("alert");
+  expect(invoke).toHaveBeenCalledTimes(1);
+});
+
+it("#418 retries the failed current ordinal only after explicit confirmation", async () => {
+  const user = userEvent.setup();
+  const session = exam(2);
+  vi.mocked(invoke).mockRejectedValueOnce({ code: "LOCAL_GRADING_TARGET_CHANGED", message: "Target changed" }).mockResolvedValue(session);
+  render(<ExamResults session={session} onSession={vi.fn()} run={job => { void job(); }} />);
+  await user.click(screen.getByRole("button", { name: "AI 评分/继续（2 题，将调用模型）" }));
+  await user.click(await screen.findByRole("button", { name: "重新评分当前题" }));
+  expect(invoke).toHaveBeenCalledTimes(1);
+  await user.click(screen.getByRole("button", { name: "确认重新评分" }));
+  await waitFor(() => expect(invoke).toHaveBeenCalledTimes(2));
+  expect(invoke).toHaveBeenLastCalledWith("ai_request", expect.objectContaining({ request: { type: "grade", id: "exam", ordinal: 0, retry: true } }));
+});
+
 it("offers the next unattempted batch without creating a session or invoking a model", async () => {
   const user = userEvent.setup();
   const next = vi.fn();

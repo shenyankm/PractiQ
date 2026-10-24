@@ -201,6 +201,9 @@ pub(crate) fn grade(
             result[field] = crate::ai::redact(result[field].take(), key);
         }
     }
+    if crate::exams::validate_grade_details(&output).is_err() {
+        output = json!({"status":"ungraded","appError":invalid()});
+    }
     let usage = &value["usage"];
     let known_usage = ["prompt_tokens", "completion_tokens"]
         .iter()
