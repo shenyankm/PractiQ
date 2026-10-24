@@ -7,9 +7,6 @@ ROOT = Path(__file__).resolve().parents[2]
 TARGETS = (
     "aarch64-apple-darwin",
     "x86_64-apple-darwin",
-    "x86_64-pc-windows-msvc",
-    "aarch64-linux-android",
-    "x86_64-linux-android",
 )
 
 

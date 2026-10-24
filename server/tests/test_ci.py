@@ -30,7 +30,6 @@ def test_dependency_maintenance_covers_locked_manifests_and_bounded_queues():
         ("npm", "/app"): "app/package-lock.json",
         ("npm", "/web"): "web/package-lock.json",
         ("cargo", "/app/src-tauri"): "app/src-tauri/Cargo.lock",
-        ("gradle", "/app/src-tauri/gen/android"): "app/src-tauri/gen/android/build.gradle.kts",
         ("docker", "/"): "Dockerfile.server",
     }
     assert {(item["package-ecosystem"], directory) for item in updates
@@ -76,7 +75,7 @@ def test_main_requires_ci_and_resolved_threads_without_issue_or_pr_bots():
     assert review["required_review_thread_resolution"] is True
     assert rules["required_status_checks"]["required_status_checks"] == [
         {"context": name, "integration_id": 15368}
-        for name in ("Service CI", "Desktop CI", "Android CI")
+        for name in ("Service CI", "Desktop CI")
     ]
     assert {"deletion", "non_fast_forward"} <= rules.keys()
 
@@ -288,7 +287,7 @@ assert args[6:] == ["--prefix", "none", "--format", "{p}"]
 with Path(os.environ["TARGET_LOG"]).open("a") as log:
     log.write(json.dumps(args[5]) + "\\n")
 failure = os.environ["GRAPH_FAILURE"]
-if args[5] == "x86_64-linux-android":
+if args[5] == "x86_64-apple-darwin":
     if failure == "cargo":
         sys.exit(7)
     if failure == "empty":
@@ -298,7 +297,7 @@ if args[5] == "x86_64-linux-android":
         sys.exit(0)
 print("practiq-desktop v0.1.0")
 print("tauri v2.11.5")
-if failure == "glib" and args[5] == "x86_64-linux-android":
+if failure == "glib" and args[5] == "x86_64-apple-darwin":
     print("glib v0.18.5 (*)")
 ''')
     checker.chmod(0o755)
@@ -310,18 +309,17 @@ if failure == "glib" and args[5] == "x86_64-linux-android":
         capture_output=True, text=True, check=False,
     )
     assert [json.loads(line) for line in log.read_text().splitlines()] == [
-        "aarch64-apple-darwin", "x86_64-apple-darwin", "x86_64-pc-windows-msvc",
-        "aarch64-linux-android", "x86_64-linux-android",
+        "aarch64-apple-darwin", "x86_64-apple-darwin",
     ]
     assert (result.returncode != 0) == (failure is not None), result.stdout + result.stderr
     if failure == "glib":
-        assert "GLib dependency is reachable on x86_64-linux-android" in result.stderr
+        assert "GLib dependency is reachable on x86_64-apple-darwin" in result.stderr
     elif failure == "cargo":
         assert "exit status 7" in result.stderr
     elif failure:
         assert "Missing app dependency graph" in result.stderr
     else:
-        assert result.stdout.count("app dependency graph contains no glib") == 5
+        assert result.stdout.count("app dependency graph contains no glib") == 2
 
 
 @pytest.mark.parametrize("with_glib", [False, True])
@@ -453,13 +451,10 @@ def test_app_build_rejects_unsupported_os_before_native_packaging(app_build_guar
     if target_os is not None:
         env["CARGO_CFG_TARGET_OS"] = target_os
     result = subprocess.run([str(app_build_guard)], env=env, capture_output=True, text=True, check=False)
-    supported = target_os in {"macos", "windows", "android"}
+    supported = target_os == "macos"
     assert (result.returncode == 0) == supported, result.stdout + result.stderr
     assert ("TAURI_BUILD_CALLED" in result.stdout) == supported
-    if target_os == "android":
-        assert "-Wl,-z,max-page-size=16384" in result.stdout
-        assert "-Wl,-z,common-page-size=16384" in result.stdout
-    elif supported:
+    if supported:
         assert "cargo:rustc-link-arg" not in result.stdout
 
 
@@ -498,7 +493,7 @@ def test_workflows_deduplicate_common_checks_without_dropping_native_gates():
         assert selector["run"] == f"python server/scripts/ci_scope.py scope {scope}"
         for gate_scope, gate_key, dependencies in (
             [("service", "gate", [])] if name == "server" else
-            [("desktop", "desktop-gate", ["package"]), ("android", "android-gate", ["android-package", "emulator"])]
+            [("desktop", "desktop-gate", ["package"])]
         ):
             gate = jobs[gate_key]
             assert gate["name"] == f"{gate_scope.title()} CI" and gate["if"] == "${{ always() }}"
@@ -536,7 +531,9 @@ def test_workflows_deduplicate_common_checks_without_dropping_native_gates():
     assert quality["runs-on"].startswith("ubuntu-")
     assert package["needs"] == ["changes", "quality"]
     assert package["if"] == quality["if"]
-    assert {item["platform"] for item in package["strategy"]["matrix"]["include"]} == {"Windows", "macOS"}
+    assert package["runs-on"] == "macos-15"
+    assert "strategy" not in package
+    assert set(app) == {"changes", "quality", "package", "desktop-gate"}
     quality_commands = "\n".join(step.get("run", "") for step in quality["steps"])
     package_commands = "\n".join(step.get("run", "") for step in package["steps"])
     for command in ("npm run check:ui", "npm run test:browser", "npm audit",
@@ -558,17 +555,12 @@ def test_workflows_deduplicate_common_checks_without_dropping_native_gates():
                     "prepare-package.py", "npm run tauri -- build"):
         assert command in package_commands
     assert "npm run build" not in package_commands  # Tauri already invokes beforeBuildCommand.
-    for platform in ("Windows", "macOS"):
-        commands = "\n".join(step.get("run", "") for step in package["steps"]
-                             if step.get("if") == f"runner.os == '{platform}'")
-        assert "check-installer.py" in commands
-        assert "check-office.py" not in commands and "Start-Process" not in commands
-        if platform != "macOS":
-            assert "native_keychain_roundtrip -- --ignored" in commands
+    assert "check-installer.py" in package_commands
+    assert "check-office.py" not in package_commands and "Start-Process" not in package_commands
     uploads = [step for step in package["steps"] if step.get("uses", "").startswith("actions/upload-artifact@")]
     by_name = {step["with"]["name"]: step for step in uploads}
-    reports = by_name["desktop-checks-${{ matrix.platform }}"]
-    installers = by_name["PractiQ-${{ matrix.platform }}"]
+    reports = by_name["desktop-checks-macOS"]
+    installers = by_name["PractiQ-macOS"]
     assert reports["if"] == "${{ always() }}" and reports["with"]["retention-days"] == "7"
     assert installers["if"] == "github.event_name != 'pull_request'"
     assert installers["with"]["retention-days"] == "14"
@@ -619,49 +611,8 @@ def test_service_web_upload_covers_configured_nonhidden_report_outputs():
         assert any(output == directory or directory in output.parents for directory in upload_roots), output
 
 
-def test_android_ci_uses_the_actual_apk_runtime_and_emulator_not_linux_application():
-    root = Path(__file__).resolve().parents[2]
-    workflow = yaml.load((root / ".github/workflows/app.yml").read_text(), Loader=yaml.BaseLoader)
-    jobs = workflow["jobs"]
-    for name in ("android-package", "emulator"):
-        job = jobs[name]
-        assert job["needs"] == ["changes", "quality"]
-        commands = "\n".join(step.get("run", "") for step in job["steps"])
-        assert "--split-per-abi" in commands
-        assert "exportRuntimeNoticeInventory" in commands and "--android-runtime-inventory" in commands
-        assert "check-apk.py" in commands and "--aapt2" in commands
-        assert "--write-locks" not in commands  # CI consumes reviewed locks; it does not accept a new closure.
-        assert "--release" not in commands  # Test keys are not publisher signing.
-        assert not any("tauri -- build" in step.get("run", "") for step in job["steps"])
-        sdk = next(step for step in job["steps"] if step.get("uses", "").startswith("android-actions/setup-android@"))
-        assert "android-36" in sdk["with"]["packages"] and "ndk;28.2.13676358" in sdk["with"]["packages"]
-        java = next(step for step in job["steps"] if step.get("uses", "").startswith("actions/setup-java@"))
-        assert java["with"]["java-version"] == "21"
-    emulator = next(step for step in jobs["emulator"]["steps"] if step.get("uses", "").startswith("ReactiveCircus/android-emulator-runner@"))
-    assert emulator["with"]["api-level"] == "35" and emulator["with"]["arch"] == "x86_64"
-    assert "connectedX86_64DebugAndroidTest" in emulator["with"]["script"]
-    assert "-x rustBuildX86_64Debug" in emulator["with"]["script"]
 
 
-def test_android_ci_builds_shared_frontend_once_and_only_packages_final_apks():
-    root = Path(__file__).resolve().parents[2]
-    jobs = yaml.load((root / ".github/workflows/app.yml").read_text(), Loader=yaml.BaseLoader)["jobs"]
-    quality = jobs["quality"]["steps"]
-    assert sum(step.get("run") == "npm run build" for step in quality) == 1
-    assert any(step.get("with", {}).get("name") == "android-frontend" and
-               step["with"]["path"] == "app/dist/" for step in quality)
-    for name in ("android-package", "emulator"):
-        job = jobs[name]
-        commands = "\n".join(step.get("run", "") for step in job["steps"])
-        assert commands.count("tauri -- android build") == 1
-        assert "bootstrap-android.py" in commands
-        assert '"beforeBuildCommand":""' in commands
-        assert 'gh run download "$GITHUB_RUN_ID"' in commands
-        assert "--name android-frontend --dir app/dist" in commands
-        assert job["permissions"] == {"contents": "read", "actions": "read"}
-
-    release_jobs = yaml.load((root / ".github/workflows/release.yml").read_text(), Loader=yaml.BaseLoader)["jobs"]
-    assert release_jobs["apps"]["permissions"]["actions"] == "read"
 
 
 @pytest.mark.parametrize("revision,valid", [
@@ -685,7 +636,7 @@ def test_app_revisions_must_be_full_commit_shas(revision, valid):
     assert "injected" not in result.stdout
 
 
-@pytest.mark.parametrize("job", ["desktop-gate", "android-gate"])
+@pytest.mark.parametrize("job", ["desktop-gate"])
 @pytest.mark.parametrize("status", ["success", "failure", "cancelled", "skipped"])
 def test_app_gates_require_validated_source_before_checkout(job, status):
     root = Path(__file__).resolve().parents[2]

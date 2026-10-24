@@ -85,7 +85,7 @@ jobs:
         run: make install-locked AI_PYTHON=python
       - run: python app/scripts/export-contracts.py --check
       - run: python app/scripts/check-fixtures.py
-      - run: python -m pytest server/tests/test_ci.py server/tests/test_ci_scope.py server/tests/test_release_checks.py server/tests/test_release_workflow.py server/tests/test_desktop_package.py server/tests/test_android_package.py server/tests/test_android_licenses.py server/tests/test_android_bootstrap.py
+      - run: python -m pytest server/tests/test_ci.py server/tests/test_ci_scope.py server/tests/test_release_checks.py server/tests/test_release_workflow.py server/tests/test_desktop_package.py
         env:
           PRACTIQ_REQUIRE_NATIVE_BUILD_GUARD: '1'
       - run: npm ci
@@ -99,16 +99,6 @@ jobs:
         working-directory: app
       - run: npm run test:browser
         working-directory: app
-      - name: Build the shared production frontend for Android
-        run: npm run build
-        working-directory: app
-      - name: Retain the exact production frontend for both Android targets
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: android-frontend
-          path: app/dist/
-          if-no-files-found: error
-          retention-days: 7
       - name: Upload browser diagnostics
         if: ${{ always() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -130,18 +120,10 @@ jobs:
           path: coverage/app/
           retention-days: 7
   package:
-    name: Desktop package (${{ matrix.platform }})
+    name: macOS package
     needs: [changes, quality]
     if: needs.changes.outputs.required == 'true'
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: windows-2022
-            platform: Windows
-          - os: macos-15
-            platform: macOS
-    runs-on: ${{ matrix.os }}
+    runs-on: macos-15
     timeout-minutes: 60
     defaults:
       run:
@@ -150,16 +132,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.ref || github.sha }}
-      - name: Install CJK test font on Windows
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $font = Join-Path $env:WINDIR 'Fonts/NotoSansCJKsc-Regular.otf'
-          Invoke-WebRequest 'https://raw.githubusercontent.com/notofonts/noto-cjk/f8d157532fbfaeda587e826d4cd5b21a49186f7c/Sans/OTF/SimplifiedChinese/NotoSansCJKsc-Regular.otf' -OutFile $font
-          if ((Get-FileHash $font -Algorithm SHA256).Hash -ne '2c76254f6fc379fddfce0a7e84fb5385bb135d3e399294f6eeb6680d0365b74b') { throw 'Unexpected CJK font checksum' }
-          New-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts' -Name 'Noto Sans CJK SC (OpenType)' -Value 'NotoSansCJKsc-Regular.otf' -PropertyType String -Force
-          Add-Type 'using System.Runtime.InteropServices; public static class CiFonts { [DllImport("gdi32.dll", CharSet=CharSet.Unicode, ExactSpelling=true)] public static extern int AddFontResourceW(string path); }'
-          if ([CiFonts]::AddFontResourceW($font) -eq 0) { throw 'CJK font registration failed' }
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
@@ -181,26 +153,13 @@ jobs:
         run: |
           cargo test --locked --manifest-path app/src-tauri/Cargo.toml
           cargo clippy --locked --manifest-path app/src-tauri/Cargo.toml --all-targets -- -D warnings
-      - name: Verify Windows credential storage
-        if: runner.os == 'Windows'
-        env:
-          TAURI_CONFIG: '{"bundle":{"resources":[]}}'
-        run: cargo test --locked --manifest-path app/src-tauri/Cargo.toml native_keychain_roundtrip -- --ignored
       - run: python app/scripts/prepare-package.py
       - run: npm run tauri -- build
         working-directory: app
-      - name: Verify extracted Windows desktop payload
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $installer = (Get-ChildItem app/src-tauri/target/release/bundle/nsis/*-setup.exe)[0]
-          python app/scripts/check-installer.py --installer $installer.FullName --output server/reports/checks/desktop-bundle.json
-          if ($LASTEXITCODE -ne 0) { throw "Desktop payload checks failed" }
       - name: Verify packaged macOS desktop payload
-        if: runner.os == 'macOS'
         run: python app/scripts/check-installer.py --installer app/src-tauri/target/release/bundle/dmg/*.dmg --output server/reports/checks/desktop-bundle.json
       - name: Archive macOS application
-        if: runner.os == 'macOS' && github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request'
         run: ditto -c -k --keepParent app/src-tauri/target/release/bundle/macos/PractiQ.app app/PractiQ-macOS.zip
       - name: Verify final installer and stage release assets
         if: inputs.release
@@ -211,7 +170,7 @@ jobs:
         if: inputs.release
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: release-${{ matrix.platform }}
+          name: release-macOS
           path: app/.build/release/
           include-hidden-files: true
           if-no-files-found: error
@@ -220,7 +179,7 @@ jobs:
         if: ${{ always() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: desktop-checks-${{ matrix.platform }}
+          name: desktop-checks-macOS
           path: |
             server/reports/checks/desktop-bundle.json
             server/reports/checks/release/
@@ -231,177 +190,12 @@ jobs:
         if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: PractiQ-${{ matrix.platform }}
+          name: PractiQ-macOS
           path: |
-            app/src-tauri/target/release/bundle/nsis/*-setup.exe
             app/src-tauri/target/release/bundle/dmg/*.dmg
             app/PractiQ-macOS.zip
           if-no-files-found: error
           retention-days: 14
-  android-package:
-    name: Android arm64 APK
-    permissions:
-      contents: read
-      actions: read
-    needs: [changes, quality]
-    if: needs.changes.outputs.required == 'true'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 60
-    env:
-      CARGO_BUILD_JOBS: '2'
-      PYTHONDONTWRITEBYTECODE: '1'
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ inputs.ref || github.sha }}
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: '22'
-          cache: npm
-          cache-dependency-path: app/package-lock.json
-      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
-        with:
-          distribution: temurin
-          java-version: '21'
-      - uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
-        with:
-          packages: 'platform-tools platforms;android-36 build-tools;36.0.0 ndk;28.2.13676358'
-      - name: Select the pinned native toolchain
-        run: echo "NDK_HOME=$ANDROID_HOME/ndk/28.2.13676358" >> "$GITHUB_ENV"
-      - run: rustup target add aarch64-linux-android
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
-        with:
-          workspaces: app/src-tauri
-          key: android-arm64
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: '3.14'
-      - run: npm ci
-        working-directory: app
-      - name: Reuse the checked production frontend
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name android-frontend --dir app/dist
-      - name: Resolve native Android projects without building an APK
-        run: python app/scripts/bootstrap-android.py aarch64-linux-android
-      - name: Bind notices to the locked actual runtime
-        run: |
-          app/src-tauri/gen/android/gradlew -p app/src-tauri/gen/android :app:exportRuntimeNoticeInventory -PpractiqNoticeConfiguration=arm64DebugRuntimeClasspath -PpractiqNoticeOutput="$PWD/app/.build/android-runtime.json" --no-daemon
-          python app/scripts/prepare-package.py --platform android --architecture arm64 --android-runtime-inventory app/.build/android-runtime.json
-      - name: Build the final practice-client APK
-        working-directory: app
-        run: npm run tauri -- android build --debug --apk --split-per-abi --target aarch64 --ci --config '{"build":{"beforeBuildCommand":""}}'
-      - name: Verify exact final APK and retain selected bytes
-        run: |
-          python app/scripts/check-apk.py --installer app/src-tauri/gen/android/app/build/outputs/apk/arm64/debug/app-arm64-debug.apk --abi arm64-v8a --aapt2 "$ANDROID_HOME/build-tools/36.0.0/aapt2" --expected-notices app/src-tauri/bundled/THIRD-PARTY.txt --retain-installer app/.build/android-final/PractiQ.apk --output server/reports/checks/android-package.json
-      - name: Stage gated Android test candidate
-        if: inputs.release
-        env:
-          RELEASE_TAG: ${{ inputs.tag }}
-        run: python app/scripts/release.py stage --platform android --aapt2 "$ANDROID_HOME/build-tools/36.0.0/aapt2" --android-runtime-inventory app/.build/android-runtime.json --tag "$RELEASE_TAG"
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: inputs.release
-        with:
-          name: release-Android
-          path: app/.build/release/
-          include-hidden-files: true
-          if-no-files-found: error
-          retention-days: 14
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: ${{ always() }}
-        with:
-          name: android-package-evidence
-          path: |
-            server/reports/checks/android-package.json
-            app/.build/android-runtime.json
-            app/src-tauri/bundled/build-manifest.json
-            app/src-tauri/bundled/THIRD-PARTY.txt
-          retention-days: 7
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: github.event_name != 'pull_request'
-        with:
-          name: PractiQ-Android-debug-arm64
-          path: app/.build/android-final/PractiQ.apk
-          if-no-files-found: error
-          retention-days: 14
-  emulator:
-    name: Android API 35 emulator
-    permissions:
-      contents: read
-      actions: read
-    needs: [changes, quality]
-    if: needs.changes.outputs.required == 'true'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 60
-    env:
-      CARGO_BUILD_JOBS: '2'
-      PYTHONDONTWRITEBYTECODE: '1'
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ inputs.ref || github.sha }}
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: '22'
-          cache: npm
-          cache-dependency-path: app/package-lock.json
-      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
-        with:
-          distribution: temurin
-          java-version: '21'
-      - uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
-        with:
-          packages: 'platform-tools platforms;android-36 build-tools;36.0.0 ndk;28.2.13676358'
-      - name: Select the pinned native toolchain
-        run: echo "NDK_HOME=$ANDROID_HOME/ndk/28.2.13676358" >> "$GITHUB_ENV"
-      - run: rustup target add x86_64-linux-android
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
-        with:
-          workspaces: app/src-tauri
-          key: android-x86_64
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: '3.14'
-      - run: npm ci
-        working-directory: app
-      - name: Reuse the checked production frontend
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name android-frontend --dir app/dist
-      - name: Resolve native Android projects without building an APK
-        run: python app/scripts/bootstrap-android.py x86_64-linux-android
-      - name: Prepare the exact emulator runtime notices
-        run: |
-          app/src-tauri/gen/android/gradlew -p app/src-tauri/gen/android :app:exportRuntimeNoticeInventory -PpractiqNoticeConfiguration=x86_64DebugRuntimeClasspath -PpractiqNoticeOutput="$PWD/app/.build/android-runtime.json" --no-daemon
-          python app/scripts/prepare-package.py --platform android --architecture x86_64 --android-runtime-inventory app/.build/android-runtime.json
-      - name: Build and check the emulator APK
-        run: |
-          cd app
-          npm run tauri -- android build --debug --apk --split-per-abi --target x86_64 --ci --config '{"build":{"beforeBuildCommand":""}}'
-          cd ..
-          python app/scripts/check-apk.py --installer app/src-tauri/gen/android/app/build/outputs/apk/x86_64/debug/app-x86_64-debug.apk --abi x86_64 --aapt2 "$ANDROID_HOME/build-tools/36.0.0/aapt2" --expected-notices app/src-tauri/bundled/THIRD-PARTY.txt --output server/reports/checks/android-package.json
-      - name: Enable KVM access
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-      - uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
-        with:
-          api-level: 35
-          arch: x86_64
-          target: google_apis
-          disable-animations: true
-          script: app/src-tauri/gen/android/gradlew -p app/src-tauri/gen/android :app:testX86_64DebugUnitTest :app:connectedX86_64DebugAndroidTest -x rustBuildX86_64Debug -PabiList=x86_64 -ParchList=x86_64 -PtargetList=x86_64 --no-daemon
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: ${{ always() }}
-        with:
-          name: android-emulator-tests
-          path: |
-            app/src-tauri/gen/android/app/build/reports/tests/
-            app/src-tauri/gen/android/app/build/reports/androidTests/
-            app/src-tauri/gen/android/app/build/outputs/androidTest-results/
-            server/reports/checks/android-package.json
-          retention-days: 7
   desktop-gate:
     name: Desktop CI
     needs: [changes, quality, package]
@@ -423,24 +217,3 @@ jobs:
       - env:
           NEEDS: ${{ toJSON(needs) }}
         run: python server/scripts/ci_scope.py gate desktop
-  android-gate:
-    name: Android CI
-    needs: [changes, quality, android-package, emulator]
-    if: ${{ always() }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    steps:
-      - name: Require validated source
-        id: source-ready
-        env:
-          SOURCE_STATUS: ${{ needs.changes.result }}
-        run: test "$SOURCE_STATUS" = success
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ inputs.ref || github.sha }}
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: '3.14'
-      - env:
-          NEEDS: ${{ toJSON(needs) }}
-        run: python server/scripts/ci_scope.py gate android

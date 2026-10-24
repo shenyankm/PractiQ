@@ -42,7 +42,7 @@ Notes:
 - `make test` starts disposable PostgreSQL (16) and RabbitMQ containers for tests that request `disposable_databases`/broker fixtures. Pure tests must not start Docker. Set `TEST_DATABASE_URI` and `TEST_RABBITMQ_URI` + `TEST_RABBITMQ_MANAGEMENT_URL` to reuse external instances.
 - `make verify` does not cover Web, app, dependency audits, or the image. Run `make web-check web-build`, `make app-check`, `make audit` / `make audit-rust`, or `make image-check` for those. Reports go to `server/reports/checks/`, including on failure.
 - `make app-check` verifies generated contracts, fixtures, TS types/lint/tests, Rust fmt/tests/clippy; it does not run Playwright or collect frontend coverage.
-- Linux app builds are unsupported. Android commands and acceptance steps are in `app/docs/android.md`.
+- The practice app supports macOS only; Linux remains a service/CI host.
 - Server tests must never call real model or Tencent services; reuse the fakes in `server/tests/support.py`.
 
 ## Architecture (the parts that span files)
@@ -53,7 +53,7 @@ Three independently built components share one contract:
 | --- | --- |
 | `server/` | Python 3.14 + LangGraph document-import and grading service |
 | `web/` | React/Vite import frontend served by the service |
-| `app/` | Offline Tauri 2 practice app (React + Rust + SQLite), macOS/Windows/Android |
+| `app/` | Offline Tauri 2 practice app (React + Rust + SQLite), macOS |
 | `shared/` | TypeScript UI used by both Web and App |
 
 **Service request flow.** `webapp.py` exposes Bearer-authenticated routes; `task_api.py` commits a task, run, outbox row, and replay receipt in one PostgreSQL transaction (`requestId` + fingerprint identity). `runtime.py` publishes outbox rows to RabbitMQ and consumes deliveries; it executes the LangGraph graph with `durability='sync'`, one active run per thread, and enforces run deadlines and model-call budgets through the PostgreSQL Store. Resume replays checkpoints with `Command`; an uncertain paid submission is never replayed automatically (`TENCENT_SUBMISSION_UNKNOWN`, `MODEL_RESULT_UNKNOWN`). Visible state and allowed actions are derived in `task_api._task_state` from the latest checkpoint plus run flags.
@@ -70,7 +70,7 @@ Three independently built components share one contract:
 
 ## Docs map
 
-Use `docs/README.md` as the index. Most useful entry points: `docs/guides/installation.md`, `docs/guides/import-tasks.md`, `docs/guides/question-bank-package.md`, `server/docs/document-tasks.md`, `server/docs/personal-use.md`, `server/docs/rabbitmq.md`, `server/docs/operations.md`, `app/docs/android.md`, and `app/docs/development-preview.md`.
+Use `docs/README.md` as the index. Most useful entry points: `docs/guides/installation.md`, `docs/guides/import-tasks.md`, `docs/guides/question-bank-package.md`, `server/docs/document-tasks.md`, `server/docs/personal-use.md`, `server/docs/rabbitmq.md`, `server/docs/operations.md`, `app/docs/development-preview.md`.
 
 ## Git and GitHub
 

@@ -1,6 +1,6 @@
 # Practise, review scores, and keep drafts
 
-Use the offline practice app on macOS, Windows or Android. Start with the [no-model walkthrough](../../README.md#try-it-without-a-model); import and share files through the [question-bank ZIP guide](question-bank-package.md). This guide explains practice behavior and optional AI grading.
+Use the offline practice app on macOS. Start with the [no-model walkthrough](../../README.md#try-it-without-a-model); import and share files through the [question-bank ZIP guide](question-bank-package.md). This guide explains practice behavior and optional AI grading.
 
 ## Choose questions and start a session
 
@@ -42,10 +42,9 @@ When a bank or question draft has changed, Escape, the close button and clicking
 
 Listening URLs require an explicit fetch. An entered or selected URL that has not been applied is protected as an unsaved change; fetch it or clear it before saving. Saving never starts a download. Changing the audio or answer mode can make a retained URL unapplied again. URL fetching has a 45-second total deadline covering DNS lookups, redirects and response reads. A system DNS lookup cannot be cancelled; if it remains blocked after timeout, further hostname lookups fail without starting extra workers until it finishes. Retry explicitly after checking the network or VPN configuration.
 
-Editor drafts stay in memory while open and are not recovered after closing the app. Closing or quitting the macOS/Windows app asks before discarding unsaved editor changes or manual grading drafts. Saved practice drafts and successfully saved manual scores remain durable.
+Editor drafts stay in memory while open and are not recovered after closing the app. Closing or quitting the macOS app asks before discarding unsaved editor changes or manual grading drafts. Saved practice drafts and successfully saved manual scores remain durable.
 
 
-On Android, system Back closes dialogs or the navigation drawer first and respects unsaved-change confirmation. Leaving a practice route saves its draft; failed saves keep the session visible. See the [Android guide](../../app/docs/android.md#files-backups-and-credentials) for native file and lifecycle behavior.
 
 ## Retry failed reads
 

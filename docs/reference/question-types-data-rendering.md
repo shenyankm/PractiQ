@@ -303,7 +303,7 @@ See [composite.json](../../app/fixtures/composite.json) for complete examples, `
 
 `AudioReference` contains `objectKey` (relative resource path, 1–1024 characters), `sha256` (64 lowercase hexadecimal characters), `mediaType` (`audio/mpeg`, `audio/mp4`, `audio/aac`, or `audio/wav`), and `sizeBytes` (positive integer, maximum 25 MiB). Paths reject backslashes, colons, empty segments, `.` and `..`. Import also checks actual bytes, size, hash, and decoded duration; a valid JSON reference does not establish resource availability.
 
-Start must be before actual file duration, and end must not exceed duration plus a 0.05-second tolerance. Non-listening questions cannot carry audio references, nonempty transcripts, or nondefault audio parameters. Native audio inspection probes and decodes bounded bytes with Symphonia on macOS, Windows and Android. Playback uses local assets, without automatic transcription, TTS, or remote audio streaming.
+Start must be before actual file duration, and end must not exceed duration plus a 0.05-second tolerance. Non-listening questions cannot carry audio references, nonempty transcripts, or nondefault audio parameters. Native audio inspection probes and decodes bounded bytes with Symphonia on macOS. Playback uses local assets, without automatic transcription, TTS, or remote audio streaming.
 
 This reference comes from [english.json](../../app/fixtures/english.json) and requires the actual [chimes.wav](../../app/fixtures/resources/audio/chimes.wav) resource in the package. The three-chime fixture tests playback structure, not English speech recognition.
 

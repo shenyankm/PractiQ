@@ -16,9 +16,6 @@ export default defineConfig({
     { name: 'mocked', testMatch: 'check-i18n.mjs', use: { baseURL: 'http://127.0.0.1:1421', viewport: { width: 960, height: 820 }, locale: 'en-US' } },
     { name: 'preview', testMatch: ['check-preview.mjs', 'check-ux-recovery.mjs', 'check-uiux-fixes.mjs', 'check-taste-ui.mjs'], use: { baseURL: 'http://127.0.0.1:1422', viewport: { width: 1280, height: 900 }, locale: 'zh-CN' } },
     { name: 'rich-content', testMatch: ['check-rich-content.mjs', 'check-responsive-content.mjs'], use: { baseURL: 'http://127.0.0.1:1422', viewport: { width: 1280, height: 850 }, locale: 'zh-CN' } },
-    { name: 'android-390', testMatch: 'check-android.mjs', dependencies: ['built-android-390'], use: { baseURL: 'http://127.0.0.1:1422', viewport: { width: 390, height: 844 }, locale: 'zh-CN', isMobile: true, hasTouch: true } },
-    { name: 'android-360', testMatch: 'check-android.mjs', dependencies: ['built-android-360'], use: { baseURL: 'http://127.0.0.1:1422', viewport: { width: 360, height: 640 }, locale: 'zh-CN', isMobile: true, hasTouch: true } },
-    { name: 'built-android-390', testMatch: 'check-built-navigation.mjs', use: { baseURL: 'http://127.0.0.1:1423', viewport: { width: 390, height: 844 }, locale: 'zh-CN', isMobile: true, hasTouch: true } },
-    { name: 'built-android-360', testMatch: 'check-built-navigation.mjs', use: { baseURL: 'http://127.0.0.1:1423', viewport: { width: 360, height: 640 }, locale: 'zh-CN', isMobile: true, hasTouch: true } },
+    { name: 'built-macos', testMatch: 'check-built-navigation.mjs', use: { baseURL: 'http://127.0.0.1:1423', viewport: { width: 1280, height: 850 }, locale: 'zh-CN' } },
   ],
 });

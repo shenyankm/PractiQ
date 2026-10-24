@@ -8,7 +8,6 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from desktop_package import read_manifest
-from android_licenses import runtime_notices
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -19,9 +18,8 @@ def license_files(directory: Path) -> list[Path]:
                   and any(part.lower().startswith(('license', 'licence', 'copying', 'notice', 'copyright')) for part in path.relative_to(directory).parts))
 
 
-def inventory(bundle: Path, android_runtime_inventory: Path | None = None) -> dict:
+def inventory(bundle: Path) -> dict:
     rows = []
-    runtime_bytes = android_runtime_inventory.read_bytes() if android_runtime_inventory else None
     supplements = json.loads((ROOT/'app/licenses/supplemental.json').read_text(encoding='utf-8'))
 
     def add(ecosystem, name, version, declaration, source, files):
@@ -37,25 +35,22 @@ def inventory(bundle: Path, android_runtime_inventory: Path | None = None) -> di
                      'texts':[{'path':str(p), 'sha256':hashlib.sha256(p.read_bytes()).hexdigest()} for p in files]})
 
     platform = json.loads((bundle/'build-manifest.json').read_text(encoding='utf-8')).get('platform')
-    manifest = read_manifest(bundle, platform)
+    read_manifest(bundle, platform)
     lock = json.loads((ROOT/'app/package-lock.json').read_text(encoding='utf-8'))
     for path, package in lock['packages'].items():
         if not path or package.get('dev'):
             continue
         add('npm', path.split('node_modules/')[-1], package['version'], package.get('license'), package.get('resolved'), license_files(ROOT/'app'/path))
-    target = ({'arm64':'aarch64-linux-android', 'x86_64':'x86_64-linux-android'}[manifest['architecture']]
-              if platform == 'android' else next(line.split(': ', 1)[1] for line in subprocess.check_output(['rustc', '-vV'], text=True, encoding="utf-8").splitlines() if line.startswith('host: ')))
+    target = next(line.split(": ", 1)[1] for line in subprocess.check_output(["rustc", "-vV"], text=True, encoding="utf-8").splitlines() if line.startswith("host: "))
     metadata = json.loads(subprocess.check_output(['cargo', 'metadata', '--manifest-path', str(ROOT/'app/src-tauri/Cargo.toml'), '--locked', '--offline', '--format-version', '1', '--filter-platform', target], text=True, encoding="utf-8"))
     resolved = {node['id'] for node in metadata['resolve']['nodes']}
     for package in metadata['packages']:
         if package['id'] not in resolved or package['name'] == 'practiq-desktop':
             continue
         add('cargo', package['name'], package['version'], package.get('license'), package.get('repository'), license_files(Path(package['manifest_path']).parent))
-    if platform == 'android':
-        rows.extend(runtime_notices(ROOT, android_runtime_inventory, manifest['architecture'], metadata['packages'], raw_inventory=runtime_bytes, cargo_notices=rows))
     missing = [f'{r["ecosystem"]}:{r["name"]}@{r["version"]}' for r in rows if not r['texts']]
     unverified = [f'{r["ecosystem"]}:{r["name"]}@{r["version"]}' for r in rows if any(s.get('note') for s in r['supplementalSources'])]
-    return {'target':target, 'androidRuntimeInventorySha256':hashlib.sha256(runtime_bytes).hexdigest() if platform == 'android' and runtime_bytes is not None else None, 'scope':'Practice-client target Cargo packages (including build dependencies), npm production closure and, on Android, the exact resolved Maven runtime. Local Android Tauri projects use their locked Cargo source licenses. The independently deployed AI service is outside this notice scope. Human obligations review remains required.',
+    return {'target':target, 'scope':'macOS practice-client target Cargo packages (including build dependencies) and npm production closure. The independently deployed AI service is outside this notice scope. Human obligations review remains required.',
             'passed':not missing and not unverified, 'missingTexts':missing, 'unverifiedSources':unverified, 'packages':rows}
 
 
@@ -93,9 +88,8 @@ def main():
     parser.add_argument('--bundle', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--notices', type=Path)
-    parser.add_argument('--android-runtime-inventory', type=Path)
     args = parser.parse_args()
-    report = inventory(args.bundle, args.android_runtime_inventory)
+    report = inventory(args.bundle)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with args.output.open('x', encoding='utf-8') as output:
         json.dump(report, output, ensure_ascii=False, indent=2)

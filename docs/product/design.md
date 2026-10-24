@@ -1,6 +1,6 @@
 # PractiQ clean white & functional color theme
 
-This is the production visual specification for App and Web. Both frontends statically import [`shared/theme.css`](../../shared/theme.css) through `src/index.css`, so development and production use the same colors and base component styles. Changes under `shared/` trigger Service, Desktop and Android CI checks.
+This is the production visual specification for App and Web. Both frontends statically import [`shared/theme.css`](../../shared/theme.css) through `src/index.css`, so development and production use the same colors and base component styles. Changes under `shared/` trigger Service and Desktop CI checks.
 
 ## Brand
 
@@ -46,7 +46,7 @@ Service-configuration save, connection-test and token-clear failures stay beside
 
 ## Dark mode and platforms
 
-Dark mode uses deep slate pages (`#090d16`), dark slate cards (`#0f172a`), deep slate sidebars (`#090d16`) and bright blue primary color (`#60a5fa`). Interactions use the shared `--motion-duration` (180ms) and `--motion-ease` tokens; motion conveys state only. App retains system/light/dark preferences and reduced-motion support, which removes overlay entrances without removing their final state. Web retains its light default, with dark tokens shared with App; preview dark mode through `?theme=dark`. Preserve Android narrow navigation, dynamic viewports, safe areas and 48px touch targets.
+Dark mode uses deep slate pages (`#090d16`), dark slate cards (`#0f172a`), deep slate sidebars (`#090d16`) and bright blue primary color (`#60a5fa`). Interactions use the shared `--motion-duration` (180ms) and `--motion-ease` tokens; motion conveys state only. App retains system/light/dark preferences and reduced-motion support, which removes overlay entrances without removing their final state. Web retains its light default, with dark tokens shared with App; preview dark mode through `?theme=dark`. Preserve accessible desktop navigation and responsive Web layouts.
 
 ## States and content
 

@@ -21,7 +21,7 @@ The [label catalog](.github/labels.json) uses five core dimensions plus optional
 | Dimension | Labels and ownership |
 | --- | --- |
 | Type | At most one of `bug`, `enhancement`, `documentation`, `question` |
-| Area | One primary `area:app-desktop`, `area:app-android`, `area:web`, `area:server`, `area:shared`, `area:build`, `area:docs`, or `area:cross-cutting`; maintainers may add more for cross-module work |
+| Area | One primary `area:app-desktop`, `area:web`, `area:server`, `area:shared`, `area:build`, `area:docs`, or `area:cross-cutting`; maintainers may add more for cross-module work |
 | Priority | At most one of `P0` (critical), `P1` (high), `P2` (normal), `P3` (low); assigned by maintainers |
 | Status | `status:needs-info` or `status:blocked`, maintained manually; use Projects for progress and completion |
 | Community | `good first issue` and `help wanted`, assigned by maintainers |
@@ -69,11 +69,10 @@ Run the relevant commands from the repository root:
 | Area | Install and develop |
 | --- | --- |
 | Practice app — macOS | `make app-install`, then `make app-dev AI_PYTHON=/path/to/python3.14` |
-| Practice app — Windows | Follow the [installation guide's Windows steps](docs/guides/installation.md#windows), starting with `npm --prefix app ci`; GNU Make is not a Windows prerequisite |
 | Import Web | `make web-install`, then `make web-dev` |
 | AI service | `make install-locked AI_PYTHON=/path/to/python3.14`; follow the [installation guide's service setup](docs/guides/installation.md#install-the-ai-import-service-optional) for configuration and `make server-dev AI_PYTHON=/path/to/python3.14` |
 
-See the [installation requirements](docs/guides/installation.md#before-you-start) for native toolchains and the [Android guide](app/docs/android.md) for Android development on any supported host. Service integration and recovery tests need Docker for disposable PostgreSQL/RabbitMQ instances; pure tests must not start Docker. Model-substitute tests need no real model credentials or running AI service.
+See the [installation requirements](docs/guides/installation.md#before-you-start) for native toolchains. Service integration and recovery tests need Docker for disposable PostgreSQL/RabbitMQ instances; pure tests must not start Docker. Model-substitute tests need no real model credentials or running AI service.
 
 Shared-contract checks need the locked service dependencies, even when the AI service itself is not being developed or started. On hosts with GNU Make, install them with `make install-locked AI_PYTHON=/path/to/python3.14`. App package preparation uses standard-library/local Python modules and does not require the AI-service environment.
 
@@ -81,7 +80,7 @@ Shared-contract checks need the locked service dependencies, even when the AI se
 
 | Area | Responsibility |
 | --- | --- |
-| `app/` | Offline Tauri/React practice app with Rust and SQLite, targeting macOS, Windows, and Android. Imports bank ZIPs and supports explicit model/service connection checks; only explicit AI grading or retry starts model work. |
+| `app/` | Offline Tauri/React practice app with Rust and SQLite, targeting macOS. Imports bank ZIPs and supports explicit model/service connection checks; only explicit AI grading or retry starts model work. |
 | `web/` | Import frontend for explicit source-document submission, task control, result review, and bank ZIP download. |
 | `server/` | Python/LangGraph document processing and grading, with PostgreSQL state, RabbitMQ delivery, and local file storage. |
 | `shared/` | Frontend code used by both App and Web; validate both consumers when affected. |
@@ -117,15 +116,14 @@ Choose checks for every affected area, from the repository root. Install the loc
 | Shared AI contracts | Regenerate all four files above; run `make verify`, `make web-check`, and the applicable app checks below |
 | Import Web frontend | `make web-check web-build`: types, lint, coverage, fake-HTTP browser interactions, and static build |
 | Practice app UI, including touch layouts | `npm --prefix app run check:ui` and `npm --prefix app run test:browser`: types, lint, coverage, and desktop/touch browser checks |
-| App native commands, storage, or recovery | `make app-check` on macOS/Windows; actual Android build/tests in the [Android guide](app/docs/android.md). Verify affected native flows on the target OS |
+| App native commands, storage, or recovery | `make app-check` on macOS. Verify affected native flows |
 | Service Office conversion | Focused Office/normalization tests and `make verify`; verify fidelity with the actual deployed engine separately using the [Office guide](server/docs/desktop-office.md) |
-| macOS/Windows resources or packaging | Focused package/release regressions and `make app-check`; on macOS run `make app-package-check`. On Windows run `python app/scripts/check-installer.py --installer C:/path/to/final-installer.exe --output C:/path/to/fresh-package-report.json` with Python 3.14+ and 7-Zip |
-| Android host, storage, or packaging | Shared contracts/frontend and touch-browser checks, actual APK package checks, Kotlin unit/instrumentation tests, and affected native flows in the [Android guide](app/docs/android.md) |
+| macOS resources or packaging | Focused package/release regressions and `make app-check`; on macOS run `make app-package-check`. |
 | Locked dependencies | `make audit` for Python; `make audit-rust` for Cargo; `npm --prefix app audit --audit-level=high` and/or `npm --prefix web audit --audit-level=high` for affected npm lockfiles. Follow the [dependency security guide](docs/maintainers/dependency-security.md) for pinned tools and other ecosystems |
 | Service image | `make image-check` builds Web assets and the Docker image without publishing |
 | Documentation and contribution templates | Verify claims against source, local links and command syntax; parse changed YAML and check form fields and required inputs |
 
-`make app-check` verifies generated contracts, fixtures, frontend types/lint/unit tests, host Rust tests, formatting, and Clippy. It does not run Playwright or collect frontend coverage; use the separate UI/browser commands when relevant. Linux app builds are unsupported; Android development and Linux service/CI work follow their own documented checks.
+`make app-check` verifies generated contracts, fixtures, frontend types/lint/unit tests, host Rust tests, formatting, and Clippy. It does not run Playwright or collect frontend coverage; use the separate UI/browser commands when relevant. Other app targets are unsupported; Linux service/CI work follows its own documented checks.
 
 `make verify` does not include dependency audits, Web checks, or an image build. Run those separately when affected. Service reports remain in `server/reports/checks/`, including on test failure. Use fresh report paths for package checks and retain first failures.
 
@@ -137,14 +135,14 @@ CI selects work using [shared path rules](server/scripts/ci_scope.py):
 
 | Changed paths | Heavy CI jobs |
 | --- | --- |
-| App frontend or native code | App quality, macOS/Windows packages, Android APK and emulator; skip Service/Web checks |
+| App frontend or native code | App quality and macOS package; skip Service/Web checks |
 | Web frontend, service implementation, or service-only scripts | Service/Web checks and service image; skip App quality and all native builds |
 | Shared frontend code, AI contracts, shared fixtures, or build/check dependencies used by both components | Both workflows |
 | Release notes configuration or release template | App workflow |
 | Any workflow YAML, shared CI actions, scope selector, rulesets, or dependency-update configuration | Both workflows; cross-check selectors and privileged workflow safeguards |
 | Documentation, issue/PR templates, or label catalog | Skip heavy Service/App jobs; manually verify local links and command syntax, parse changed YAML/JSON, and check form fields and labels against the catalog |
 
-Mixed changes run the union of affected checks. App inputs also include the service dependency lock/manifest, build backend, and evaluation helper used by its contract/regression checks. Manual dispatch and release calls run all checks. The final `Service CI`, `Desktop CI`, and `Android CI` gates always run and verify deliberate skips and failures, so required checks still report a result. The [Service](.github/workflows/server.yml) and [App](.github/workflows/app.yml) workflows define commands, platform matrices, and retained diagnostics.
+Mixed changes run the union of affected checks. App inputs also include the service dependency lock/manifest, build backend, and evaluation helper used by its contract/regression checks. Manual dispatch and release calls run all checks. The final `Service CI` and `Desktop CI` gates always run and verify deliberate skips and failures, so required checks still report a result. The [Service](.github/workflows/server.yml) and [App](.github/workflows/app.yml) workflows define commands, platform matrices, and retained diagnostics.
 
 ## Submit a pull request
 
@@ -160,7 +158,7 @@ Open a PR to `shenyankm/PractiQ` with base `main`. Complete every template secti
 
 Before requesting review, inspect the full diff for unrelated changes, generated artifacts, secrets, and personal data. Include required generated contracts. All contributions require review before merge; a checked validation box or an explained failure does not replace successful applicable CI.
 
-The [checked-in main ruleset](.github/main-ruleset.json) specifies current-head `Service CI`, `Desktop CI`, and `Android CI` checks and resolved review conversations, without requiring an up-to-date branch or an approving vote. Automatic review approval and withdrawal have been removed. A checked-in ruleset does not activate hosted settings; maintainers verify those separately under [repository security settings](docs/maintainers/dependency-security.md#repository-security-settings). A maintainer checks current-head Code Review and Security Review results, resolves findings, and merges manually after all required gates pass. Repository auto-merge is disabled.
+The [checked-in main ruleset](.github/main-ruleset.json) specifies current-head `Service CI` and `Desktop CI` checks and resolved review conversations, without requiring an up-to-date branch or an approving vote. Automatic review approval and withdrawal have been removed. A checked-in ruleset does not activate hosted settings; maintainers verify those separately under [repository security settings](docs/maintainers/dependency-security.md#repository-security-settings). A maintainer checks current-head Code Review and Security Review results, resolves findings, and merges manually after all required gates pass. Repository auto-merge is disabled.
 
 ## Release verification
 
@@ -174,7 +172,7 @@ Record evidence for the final release candidate before publication:
 - [ ] Capture Web import/review and App ZIP import/practice/score workflows, identifying their separate candidates.
 - [ ] Record separately authorized live parsing/grading examples, failures, and consented user feedback.
 
-Report macOS, Windows, and Android separately. Distinguish browser mocks, emulator tests, physical devices, and minimum Android/WebView versions. Historical reports and model substitutes do not establish clean-machine acceptance or live-model accuracy. Keep unchecked items explicit; grading requires a reference answer or rubric.
+Report macOS native checks separately from browser mocks. Historical reports and model substitutes do not establish clean-machine acceptance or live-model accuracy. Keep unchecked items explicit; grading requires a reference answer or rubric.
 
 ## Release quality and notice gates
 

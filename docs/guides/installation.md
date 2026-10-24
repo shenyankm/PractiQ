@@ -8,13 +8,12 @@ PractiQ is in development; these steps build local packages and a development se
 
 | Item | Requirement |
 | --- | --- |
-| Practice app | macOS 14+ on Apple Silicon, Windows 10/11 x64, or Android 8+ (API 26+, arm64 APK) |
+| Practice app | macOS 14+ on Apple Silicon |
 | Node.js | 22.12 or newer |
 | Rust | Installed through [rustup](https://rustup.rs/); the repository pins its toolchain |
 | Python | An existing 3.14+ interpreter for packaging checks; do not create a project `.venv` |
 | uv | Required for locked dependency installation |
-| Desktop toolchain | Xcode on macOS, or MSVC build tools and WebView2 on Windows; see [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) |
-| Android | JDK 21, SDK 36 and NDK 28.2.13676358; see [Android guide](../../app/docs/android.md) |
+| Desktop toolchain | Xcode on macOS; see [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) |
 
 Clone the repository and enter its root directory:
 
@@ -38,20 +37,6 @@ make app-dev AI_PYTHON=/path/to/python3.14
 make app-build AI_PYTHON=/path/to/python3.14
 ```
 
-### Windows
-
-Run PowerShell from the repository root. GNU Make is not required.
-
-```powershell
-npm --prefix app ci
-cargo fetch --locked --manifest-path app/src-tauri/Cargo.toml
-python app/scripts/prepare-package.py
-cd app
-npm run desktop
-# Build the Windows installer:
-npm run tauri -- build
-```
-
 `prepare-package.py` needs Python 3.14+. It generates build metadata and dependency notices; it does not download or copy any document-processing runtime. A first build downloads Rust and npm dependencies and can take several minutes.
 
 ### Build outputs
@@ -59,9 +44,8 @@ npm run tauri -- build
 Packages are written under `app/src-tauri/target/release/bundle`:
 
 - macOS: `.app` and `.dmg`
-- Windows: an installer `.exe`
 
-Android APKs use the separate [Android build and emulator commands](../../app/docs/android.md). Package checks verify the version, notices and the absence of embedded engines; they do not check signing or interactive playback.
+Package checks verify the version, notices and the absence of embedded engines; they do not check signing or interactive playback.
 
 ### Confirm the app works
 
@@ -122,7 +106,7 @@ The last step calls Tencent and your model provider, and may cost money. Skip it
 
 ## Notes for coding agents
 
-- Follow the platform section for the machine you are on. Do not run macOS commands on Windows or the reverse.
+- Build the app on macOS. The independent service may run on Linux.
 - Ask before installing system packages, upgrading tools, or changing anything outside the repository.
 - Never create a project `.venv`; use an existing Python 3.14+ interpreter.
 - Do not overwrite an existing `.env`. Add missing keys instead.

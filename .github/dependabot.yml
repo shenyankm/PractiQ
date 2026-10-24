@@ -25,11 +25,6 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 1
-  - package-ecosystem: gradle
-    directory: /app/src-tauri/gen/android
-    schedule:
-      interval: weekly
-    open-pull-requests-limit: 1
   - package-ecosystem: docker
     # Multi-stage runtime bases still require the documented manual update route.
     directory: /

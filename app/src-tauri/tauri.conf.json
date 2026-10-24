@@ -33,8 +33,7 @@
     "shortDescription": "\u79bb\u7ebf\u9898\u5e93\u4e0e\u7ec3\u4e60",
     "icon": [
       "icons/icon.png",
-      "icons/icon.icns",
-      "icons/icon.ico"
+      "icons/icon.icns"
     ],
     "resources": {
       "bundled/build-manifest.json": "bundled/build-manifest.json",

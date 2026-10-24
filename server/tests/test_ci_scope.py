@@ -53,7 +53,6 @@ def ci_scope():
     (["server/conftest.py"], True, True),
     (["server/tests/conftest.py"], True, True),
     (["server/tests/test_ci.py"], True, True),
-    (["server/tests/test_android_package.py"], True, True),
     (["web/src/App.tsx"], True, False),
     (["web/package-lock.json"], True, False),
     (["shared/theme.css"], True, True),
@@ -62,7 +61,6 @@ def ci_scope():
     (["app/scripts/check_licenses.py"], False, True),
     (["app/licenses/texts/notice.txt"], False, True),
     (["app/licenses/texts/notice.md"], False, True),
-    (["app/licenses/android-runtime.lock.json"], False, True),
     (["server/src/practiq_ai/prompts/import.md"], True, False),
     (["app/src/App.tsx", "README.md"], False, True),
     (["app/src/App.tsx", ".github/PULL_REQUEST_TEMPLATE.md"], False, True),
@@ -80,10 +78,9 @@ def ci_scope():
     (["tools/local.py"], False, False),
 ])
 def test_selectors_preserve_real_inputs_and_skip_documentation(ci_scope, paths, service, desktop):
-    assert ci_scope.PATTERNS["desktop"] == ci_scope.PATTERNS["android"]
+    assert set(ci_scope.PATTERNS) == {"service", "desktop"}
     assert ci_scope.checks_required("service", paths) is service
     assert ci_scope.checks_required("desktop", paths) is desktop
-    assert ci_scope.checks_required("android", paths) is desktop
 
 
 def test_pr_paths_include_every_api_page_and_both_sides_of_a_rename(ci_scope, monkeypatch):
@@ -157,20 +154,18 @@ def needs_for(scope, required=True):
     result = "success" if required else "skipped"
     needs = {"changes": {"result": "success", "outputs": {"required": str(required).lower(), "sha": "a" * 40}},
              "quality": {"result": result}}
-    if scope in {"desktop", "android"}:
-        needs["android-package" if scope == "android" else "package"] = {"result": result}
-    if scope == "android":
-        needs["emulator"] = {"result": result}
+    if scope == "desktop":
+        needs["package"] = {"result": result}
     return needs
 
 
-@pytest.mark.parametrize("scope", ["service", "desktop", "android"])
+@pytest.mark.parametrize("scope", ["service", "desktop"])
 @pytest.mark.parametrize("required", [True, False])
 def test_gate_accepts_completed_checks_or_deliberate_documentation_skip(ci_scope, scope, required):
     ci_scope.check_gate(scope, needs_for(scope, required))
 
 
-@pytest.mark.parametrize("scope", ["desktop", "android"])
+@pytest.mark.parametrize("scope", ["desktop"])
 @pytest.mark.parametrize("required", [True, False])
 def test_app_workflow_outputs_satisfy_the_real_gate_contract(scope, required):
     workflow = yaml.load(
@@ -196,19 +191,19 @@ def test_app_workflow_outputs_satisfy_the_real_gate_contract(scope, required):
 
 
 @pytest.mark.parametrize("paths,required_scopes", [
-    (["app/src/App.tsx"], {"desktop", "android"}),
+    (["app/src/App.tsx"], {"desktop"}),
     (["web/src/App.tsx"], {"service"}),
     (["server/src/practiq_ai/webapp.py"], {"service"}),
     (["server/scripts/check_package.py"], {"service"}),
-    (["app/src/App.tsx", ".github/ISSUE_TEMPLATE/bug.yml"], {"desktop", "android"}),
-    (["shared/SelectControl.tsx"], {"service", "desktop", "android"}),
-    (["server/src/practiq_ai/contracts.py"], {"service", "desktop", "android"}),
-    ([".github/workflows/server.yml"], {"service", "desktop", "android"}),
-    ([".github/workflows/app.yml"], {"service", "desktop", "android"}),
+    (["app/src/App.tsx", ".github/ISSUE_TEMPLATE/bug.yml"], {"desktop"}),
+    (["shared/SelectControl.tsx"], {"service", "desktop"}),
+    (["server/src/practiq_ai/contracts.py"], {"service", "desktop"}),
+    ([".github/workflows/server.yml"], {"service", "desktop"}),
+    ([".github/workflows/app.yml"], {"service", "desktop"}),
     ([".github/PULL_REQUEST_TEMPLATE.md"], set()),
 ])
 def test_component_changes_skip_only_unrelated_jobs_and_keep_final_gates(ci_scope, paths, required_scopes):
-    for scope in ("service", "desktop", "android"):
+    for scope in ("service", "desktop"):
         required = ci_scope.checks_required(scope, paths)
         assert required is (scope in required_scopes)
         needs = needs_for(scope, required)
@@ -218,7 +213,7 @@ def test_component_changes_skip_only_unrelated_jobs_and_keep_final_gates(ci_scop
             ci_scope.check_gate(scope, needs)
 
 
-@pytest.mark.parametrize("scope", ["desktop", "android"])
+@pytest.mark.parametrize("scope", ["desktop"])
 @pytest.mark.parametrize("required", [True, False])
 @pytest.mark.parametrize("sha", [None, "", "main", "a" * 39])
 def test_app_gate_rejects_absent_or_unresolved_source_revision(ci_scope, scope, required, sha):
@@ -231,7 +226,7 @@ def test_app_gate_rejects_absent_or_unresolved_source_revision(ci_scope, scope, 
         ci_scope.check_gate(scope, needs)
 
 
-@pytest.mark.parametrize("scope,job", [("service", "quality"), ("desktop", "quality"), ("desktop", "package"), ("android", "android-package"), ("android", "emulator")])
+@pytest.mark.parametrize("scope,job", [("service", "quality"), ("desktop", "quality"), ("desktop", "package")])
 @pytest.mark.parametrize("required,result", [
     (True, "failure"), (True, "cancelled"), (True, "skipped"),
     (False, "failure"), (False, "cancelled"),
@@ -258,7 +253,7 @@ def test_gate_rejects_failed_or_missing_scope_detection(ci_scope, changes):
         ci_scope.check_gate("service", needs)
 
 
-@pytest.mark.parametrize("scope", ["service", "desktop", "android"])
+@pytest.mark.parametrize("scope", ["service", "desktop"])
 @pytest.mark.parametrize("mutation", ["missing", "extra", "unexpected_run"])
 def test_gate_rejects_incomplete_dependencies_and_inconsistent_skip(ci_scope, scope, mutation):
     needs = needs_for(scope, required=mutation != "unexpected_run")
@@ -299,7 +294,7 @@ def test_gate_cli_accepts_deliberate_documentation_skip():
     assert process.returncode == 0, process.stdout + process.stderr
 
 
-@pytest.mark.parametrize("scope", ["service", "desktop", "android"])
+@pytest.mark.parametrize("scope", ["service", "desktop"])
 def test_manual_scope_cli_requires_checks_and_writes_action_output(tmp_path, scope):
     event, output = tmp_path / "event.json", tmp_path / "output"
     event.write_text("{}", encoding="utf-8")
@@ -312,7 +307,7 @@ def test_manual_scope_cli_requires_checks_and_writes_action_output(tmp_path, sco
     assert "required=true" in output.read_text(encoding="utf-8").splitlines()
 
 
-@pytest.mark.parametrize("scope", ["service", "desktop", "android"])
+@pytest.mark.parametrize("scope", ["service", "desktop"])
 def test_release_ref_forces_full_checks_without_querying_changed_paths(tmp_path, scope):
     event, output = tmp_path / "event.json", tmp_path / "output"
     # No PR number: accidental change detection would fail instead of querying GitHub.

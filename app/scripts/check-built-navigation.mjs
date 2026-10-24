@@ -1,7 +1,7 @@
 import { test, expect } from 'playwright/test';
 
 // Exercise the minified production assets. Native commands are mocked here;
-// the installed APK still needs its own Android navigation acceptance.
+// the installed macOS app still needs native acceptance.
 const languages = [
   { locale: 'zh-CN', open: '打开主导航', drawer: '主导航', banks: '我的题库', nav: ['我的题库', '错题本', '收藏夹', '练习记录', '设置'], theme: '主题', language: '语言', close: '关闭' },
   { locale: 'zh-TW', open: '開啟主導航', drawer: '主導航', banks: '我的題庫', nav: ['我的題庫', '錯題本', '收藏夾', '練習紀錄', '設定'], theme: '主題', language: '語言', close: '關閉' },
@@ -18,19 +18,8 @@ async function withinViewport(page, locator, name) {
   }, { message: `Visible production navigation bounds: ${name}` }).toBe(true);
 }
 
-async function openDrawer(page, names) {
-  await page.getByRole('button', { name: names.open, exact: true }).tap();
-  const drawer = page.getByRole('dialog', { name: names.drawer, exact: true });
-  await expect(drawer).toBeVisible();
-  await drawer.evaluate(async element => {
-    await Promise.all(element.getAnimations({ subtree: true }).map(animation => animation.finished));
-  });
-  await withinViewport(page, drawer, names.drawer);
-  return drawer;
-}
-
 for (const names of languages) {
-  test(`built touch drawer keeps navigation visible and usable (${names.locale})`, async ({ page }, testInfo) => {
+  test(`built desktop sidebar keeps navigation visible and usable (${names.locale})`, async ({ page }, testInfo) => {
     const errors = [], externalRequests = [], calls = [], unexpectedCalls = [];
     page.on('pageerror', error => errors.push(error.message));
     await page.route('**/*', route => {
@@ -65,32 +54,24 @@ for (const names of languages) {
     await page.goto('/');
     await expect(page.getByRole('heading', { name: names.banks, exact: true })).toBeVisible();
     await expect(page.locator('.preview-controls')).toHaveCount(0);
-    const drawer = await openDrawer(page, names);
+    const sidebar = page.locator('#app-sidebar');
     for (const name of [...names.nav, names.theme, names.language]) {
-      const button = drawer.getByRole('button', { name, exact: true });
+      const button = sidebar.getByRole('button', { name, exact: true });
       await withinViewport(page, button, name);
       await withinViewport(page, button.locator('.sidebar-label'), `${name} label`);
       await withinViewport(page, button.locator('svg'), `${name} icon`);
-      const box = await button.boundingBox();
-      expect(box.width).toBeGreaterThanOrEqual(48);
-      expect(box.height).toBeGreaterThanOrEqual(48);
     }
-    await withinViewport(page, drawer.getByRole('button', { name: names.close, exact: true }), names.close);
     await page.screenshot({ path: testInfo.outputPath('built-navigation.png'), fullPage: true });
-    await drawer.getByRole('button', { name: names.theme, exact: true }).tap();
-    await expect(page.getByRole('menu', { name: names.theme, exact: true })).toBeVisible();
-    await page.keyboard.press('Escape');
-    await drawer.getByRole('button', { name: names.language, exact: true }).tap();
-    await expect(page.getByRole('menu', { name: names.language, exact: true })).toBeVisible();
-    await page.keyboard.press('Escape');
-    for (const name of names.nav) {
-      await drawer.getByRole('button', { name, exact: true }).tap();
-      await expect(drawer).toBeHidden();
-      await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
-      await openDrawer(page, names);
+    for (const name of [names.theme, names.language]) {
+      await sidebar.getByRole('button', { name, exact: true }).click();
+      await expect(page.getByRole('menu', { name, exact: true })).toBeVisible();
+      await page.keyboard.press('Escape');
     }
-    await drawer.getByRole('button', { name: names.close, exact: true }).tap();
-    await expect(drawer).toBeHidden();
+    for (const name of names.nav) {
+      await sidebar.getByRole('button', { name, exact: true }).click();
+      await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
+      await expect(sidebar).toBeVisible();
+    }
     expect(errors).toEqual([]);
     expect(externalRequests).toEqual([]);
     expect(calls.length).toBeGreaterThan(0);

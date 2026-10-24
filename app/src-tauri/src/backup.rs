@@ -265,7 +265,7 @@ impl Store {
         let mut file = fs::File::create(temporary.path().join("inventory.json")).map_err(err)?;
         file.write_all(&inventory).map_err(err)?;
         file.sync_all().map_err(err)?;
-        // Windows cannot rename a directory containing an open file.
+        // Close the inventory before publishing the complete recovery directory.
         drop(file);
         crate::filesystem::sync_directory(&resource_dir).map_err(err)?;
         crate::filesystem::sync_directory(temporary.path()).map_err(err)?;

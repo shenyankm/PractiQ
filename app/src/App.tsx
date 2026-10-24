@@ -3,7 +3,7 @@ import { date, duration, message, renderMessage, type Message, t, useI18n } from
 import { useTheme, type ThemeState } from "./theme";
 import { SessionProgress } from "./SessionProgress";
 import logo from "../src-tauri/icons/icon.png";
-import { lazy, Suspense, useCallback, useEffect, useEffectEvent, useRef, useState, useSyncExternalStore, type ComponentProps } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState, useSyncExternalStore, type ComponentProps } from "react";
 import { Tooltip } from "radix-ui";
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -364,24 +364,6 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
       if (next === "banks" || next === "history") setListRevision(v => v + 1);
     });
   }
-  const onAndroidBack = useEffectEvent((event: Event) => {
-    if (lock.current) { event.preventDefault(); return; }
-    if (document.querySelector('[data-state="open"][role="dialog"], [data-state="open"][role="alertdialog"], [data-state="open"][role="menu"]')) {
-      event.preventDefault();
-      // Reuse each surface's close handler, including the editor's dirty confirmation.
-      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
-      return;
-    }
-    if (page !== "banks") {
-      event.preventDefault();
-      if (page === "service-settings" && gradingReturn) openSession(gradingReturn);
-      else navigate(page === "service-settings" ? "settings" : page === "practice" ? "history" : "banks");
-    }
-  });
-  useEffect(() => {
-    document.addEventListener("practiq-android-back", onAndroidBack);
-    return () => document.removeEventListener("practiq-android-back", onAndroidBack);
-  }, []);
   function openSession(id: string) {
     run(async () => {
       await flushRef.current();

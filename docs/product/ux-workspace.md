@@ -8,7 +8,7 @@ Keep the octopus identity, blue primary actions, system fonts, Lucide icons and 
 
 Separate the primary action from supporting and destructive operations. Make the next step apparent in empty, filtered, loading and failed states. Keep errors until an explicit retry or relevant edit. Preserve keyboard focus after local filter resets, and provide links between the current question and the answer card. Keep editor and import actions outside their scrolling content, while retaining dirty-draft confirmation.
 
-The same workflows must fit narrow touch windows and desktop windows. Touch controls retain the existing 48px targets, dynamic viewport limits and safe-area handling. Native Android Back, storage recovery and credentials remain governed by the existing platform implementation.
+The same workflows must fit narrow touch windows and desktop windows. Touch controls retain the existing 48px targets, dynamic viewport limits and safe-area handling. Native macOS file access, storage recovery and credentials remain governed by the existing implementation.
 
 ## Decisions by workflow
 
@@ -36,7 +36,7 @@ npm --prefix app run test:browser
 make web-check web-build
 ```
 
-Focused checks cover bank creation through the existing command, local filtering, feasible quick counts, persistent connection feedback, untitled ZIP append with a valid bank-title fallback, unchanged checkpoint data, and passive file removal. Browser checks include 375px, 768px and 1440px workflow captures, answer-card focus, light/dark token contrast, 200% root text sizing, and the existing Android-size, reduced-motion, bilingual and dirty-editor suites.
+Focused checks cover bank creation through the existing command, local filtering, feasible quick counts, persistent connection feedback, untitled ZIP append with a valid bank-title fallback, unchanged checkpoint data, and passive file removal. Browser checks include 375px, 768px and 1440px workflow captures, answer-card focus, light/dark token contrast, 200% root text sizing, and the existing responsive, reduced-motion, bilingual and dirty-editor suites.
 
 Screenshots and browser diagnostics are generated under `app/test-results/browser/` and `web/test-results/browser/`. These are browser/model-substitute checks; they do not establish native package acceptance, physical-device behavior, extraction accuracy or user preference. Actual system Dynamic Type remains a separate device check.
 
