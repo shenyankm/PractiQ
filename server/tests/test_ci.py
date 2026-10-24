@@ -6,10 +6,10 @@ import runpy
 import shutil
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 
 import pytest
-import tomllib
 import yaml
 
 
