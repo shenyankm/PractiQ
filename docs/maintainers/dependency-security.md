@@ -50,6 +50,18 @@ second version list here. Dependency updates must retain
 the inherited-setting regression checks and ordinary formula rendering checks;
 updating only the direct renderer can leave an affected nested dependency.
 
+## October 2026 audit remediation
+
+The App and Web lockfiles update Vitest and its coverage provider together to
+5.0.5, `undici` to 8.12.3 and `zod` to 4.6.7. This addresses
+GHSA-qxg6-89mg-rqv8, GHSA-xp26-3454-mjgp, GHSA-4qv8-2p9j-2685,
+GHSA-f72v-6w45-q472, GHSA-xjj6-f33q-929c and GHSA-mrhx-c7xc-m3w5.
+The service lockfile updates `filelock` to 4.2.4 and
+`langgraph-checkpoint-postgres` to 3.1.3 (with its required checkpoint 4.3.0),
+addressing CVE-2026-112940, CVE-2026-112913, CVE-2026-112907 and
+CVE-2026-115883. Keep the existing failing audit thresholds; downstream CI gates
+were failing because these audits failed, not because the gates needed relaxing.
+
 ## Repository and deployment safeguards
 
 [Dependabot configuration](../../.github/dependabot.yml) schedules weekly GitHub
