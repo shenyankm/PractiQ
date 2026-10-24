@@ -433,12 +433,12 @@ async def test_control_waiters_do_not_starve_scheduler_connections(monkeypatch):
             queued.set()
         return await acquire()
     monkeypatch.setattr(service.db.control_lock, 'acquire', observe_acquire)
-    original = task_api._read_task
+    original = task_api._read_task_record
     async def delayed(*args):
         entered.set()
         await release.wait()
         return await original(*args)
-    monkeypatch.setattr(task_api, '_read_task', delayed)
+    monkeypatch.setattr(task_api, '_read_task_record', delayed)
     requests = [asyncio.create_task(task_api.control_task(created['threadId'],
                 DocumentTaskControl(requestId=uuid4(), action='pause', runId=created['runId']))) for _ in range(24)]
     try:

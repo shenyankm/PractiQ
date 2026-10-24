@@ -10,6 +10,7 @@ from typing import Any, BinaryIO, Literal, LiteralString, cast
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from langgraph.types import StateSnapshot
+from psycopg import Error as DatabaseError
 
 from .capacity import bounded_map
 from .config import load, require_model_config
@@ -24,6 +25,7 @@ from .contracts import (
     DocumentTaskList,
     DocumentTaskReparse,
     DocumentTaskReview,
+    ImportSettingsSnapshot,
     OfficeMode,
     RetryUnits,
     TaskAction,
@@ -58,6 +60,17 @@ def client():
     if current is None or not current.accepting:
         raise DocumentProcessingError(503, 'Task service is unavailable', 'TASK_SERVICE_UNAVAILABLE')
     return current
+
+
+async def get_import_settings() -> ImportSettingsSnapshot:
+    return client().import_control.snapshot
+
+
+async def save_import_settings(value: ImportSettingsSnapshot) -> ImportSettingsSnapshot:
+    if load().read_only:
+        raise DocumentProcessingError(409, 'Service is read-only', 'SERVICE_READ_ONLY')
+    service = client()
+    return await service.import_control.save(service.db.store, value)
 
 
 def conflict(message: str, code: str = 'INVALID_CONTROL') -> DocumentProcessingError:
@@ -166,17 +179,25 @@ async def _read_task_record(service, thread_id):
 
 
 async def _read_snapshot(service, task, run):
-    if run and run['error_code'] == 'TASK_CHECKPOINT_UNREADABLE':
-        # Quarantine changes the read view, never the checkpoint or its resources.
-        return StateSnapshot(values={}, next=(), config={}, metadata=None, created_at=None, parent_config=None, tasks=(), interrupts=())
-    return await service.snapshot(task)
+    if not (run and run['error_code'] == 'TASK_CHECKPOINT_UNREADABLE'):
+        try:
+            return await service.snapshot(task), run
+        except (DatabaseError, TimeoutError):
+            raise
+        except Exception:  # noqa: BLE001 - isolate unreadable state without logging source contents
+            # This is a read-only diagnostic overlay, not a durable run/checkpoint update.
+            run = {**(run or {}), 'run_id': run['run_id'] if run else None,
+                   'status': 'error', 'error_code': 'TASK_CHECKPOINT_UNREADABLE'}
+    snapshot = StateSnapshot(values={}, next=(), config={}, metadata=None, created_at=None, parent_config=None, tasks=(), interrupts=())
+    return snapshot, run
 
 
 async def _read_task(service, thread_id):
     task = await _read_task_record(service, thread_id)
     runs = await service.db.rows('SELECT * FROM document_runs WHERE thread_id=%s ORDER BY created_at DESC LIMIT 1', (thread_id,))
     run = runs[0] if runs else None
-    return task, await _read_snapshot(service, task, run), run
+    snapshot, run = await _read_snapshot(service, task, run)
+    return task, snapshot, run
 
 
 async def reparse_task(thread_id: str, request: DocumentTaskReparse) -> dict[str, Any]:
@@ -240,7 +261,7 @@ def _task_state(snapshot, run) -> tuple[TaskState, list[TaskAction], list[dict[s
     elif run and run['status'] == 'interrupted' and run['cancel_requested']:
         state = 'CANCELLED'
         actions = ['resume'] if snapshot.next or not values else []
-        if any(f['retryable'] for f in failures):
+        if not interruptions and any(f['retryable'] for f in failures):
             actions.append('retry_failed')
     elif run and run['status'] == 'error':
         state = 'FAILED'
@@ -249,7 +270,7 @@ def _task_state(snapshot, run) -> tuple[TaskState, list[TaskAction], list[dict[s
             'DOCUMENT_PREPARE_FAILED', 'MODEL_INPUT_TOO_LARGE', 'MODEL_BUDGET_EXCEEDED',
             'TENCENT_REQUEST_REJECTED', 'TENCENT_SUBMISSION_UNKNOWN', 'TENCENT_JOB_FAILED',
         } else []
-        if any(f['retryable'] for f in failures):
+        if not interruptions and any(f['retryable'] for f in failures):
             actions.append('retry_failed')
     elif interruptions:
         state = 'PAUSED'
@@ -323,7 +344,7 @@ async def get_task_head(thread_id: str) -> dict[str, Any]:
         'state': summary['state'], 'checkpointId': summary['checkpointId'],
         'updatedAt': summary['head']['updatedAt'],
         'modelConfigured': not load().read_only,
-        'resumeCompatible': not load().read_only and not (run and run['error_code'] == 'TASK_CHECKPOINT_UNREADABLE') and (not execution or execution['signature'] == signature()),
+        'resumeCompatible': not load().read_only and not summary['head']['unreadable'] and (not execution or execution['signature'] == signature()),
     }).model_dump(mode='json')
 
 
@@ -369,6 +390,8 @@ async def control_task(thread_id: str, request: DocumentTaskControl) -> dict[str
             previous = await _replay(conn, thread_id, request_id, request_hash)
         if previous:
             return previous
+        if run and run['error_code'] == 'TASK_CHECKPOINT_UNREADABLE':
+            raise conflict('Saved checkpoint is unreadable', 'TASK_CHECKPOINT_UNREADABLE')
         require_model_config()
         require_supported_task(task)
         if run and run['status'] in {'pending', 'running'}:
@@ -384,8 +407,10 @@ async def control_task(thread_id: str, request: DocumentTaskControl) -> dict[str
         previous = await _replay(conn, thread_id, request_id, request_hash)
         if previous:
             return previous
-        task, snapshot, run = await _read_task(service, thread_id)
         if request.action in {'pause', 'interrupt'}:
+            task = await _read_task_record(service, thread_id)
+            runs = await service.db.rows('SELECT * FROM document_runs WHERE thread_id=%s ORDER BY created_at DESC LIMIT 1', (thread_id,))
+            run = runs[0] if runs else None
             if not run or run['run_id'] != str(request.runId):
                 raise conflict('The target run is no longer current', 'STALE_RUN')
             if run['status'] in {'pending', 'running'}:
@@ -395,6 +420,9 @@ async def control_task(thread_id: str, request: DocumentTaskControl) -> dict[str
                     await conn.execute('UPDATE document_runs SET cancel_requested=true WHERE run_id=%s', (run['run_id'],))
             response = receipt(thread_id, request_id, run['run_id'])
         else:
+            task, snapshot, run = await _read_task(service, thread_id)
+            if run and run['error_code'] == 'TASK_CHECKPOINT_UNREADABLE':
+                raise conflict('Saved checkpoint is unreadable', 'TASK_CHECKPOINT_UNREADABLE')
             if run and run['status'] in {'pending', 'running'}:
                 raise conflict('Wait until the current run stops', 'TASK_BUSY')
             if service.checkpoint_id(snapshot, run) != request.checkpointId:
@@ -472,7 +500,7 @@ FILTER_RUN_SQL: dict[TaskFilter, LiteralString] = {
     'paused': "(r.status='waiting' OR (r.status='interrupted' AND NOT r.cancel_requested) OR r.run_id IS NULL)",
     'review': "(r.status IN ('waiting','interrupted','error') OR r.run_id IS NULL)",
     'cancelled': "r.status='interrupted' AND r.cancel_requested",
-    'failed': "r.status='error'",
+    'failed': 'true',  # A diagnostic FAILED view can arise from any saved run status.
     'interrupted': "r.status='interrupted' AND NOT r.cancel_requested",
 }
 
@@ -572,13 +600,14 @@ async def _task_summary(service, task, run, checkpoint_id):
     if cached and cached[0] == key:
         service.task_summaries.move_to_end(thread_id)
         return cached[1]
-    snapshot = await _read_snapshot(service, task, run)
+    snapshot, run = await _read_snapshot(service, task, run)
     values = snapshot.values or {}
     questions = values.get('result', {}).get('questions', [])
     summary = {'state': _task_state(snapshot, run)[0], 'status': values.get('status') or None,
                'checkpointId': service.checkpoint_id(snapshot, run), 'questionCount': scorable_count(questions),
                'reviewCount': sum(bool(q.get('needsReview')) and q.get('answerMode') not in COMPOSITE_MODES for q in questions),
                'head': {'updatedAt': snapshot.created_at or task['created_at'].isoformat(),
+                        'unreadable': bool(run and run['error_code'] == 'TASK_CHECKPOINT_UNREADABLE'),
                         'execution': {'signature': values['execution'].get('signature')} if values.get('execution') else None}}
     # Only completed, quiescent checkpoints are safe from same-checkpoint pending writes.
     if summary['state'] == 'COMPLETED' and not snapshot.next and not snapshot.interrupts:

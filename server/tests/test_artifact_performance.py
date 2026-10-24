@@ -28,7 +28,7 @@ async def test_artifact_membership_serializes_reference_once(monkeypatch, presen
     review = {'units': [{'questions': [{'id': f'q{i}', 'stem': 'Saved question'} for i in range(1000)]}],
               'visuals': [saved]}
     store = SimpleNamespace(get_verified=AsyncMock(return_value=b'png'))
-    monkeypatch.setattr(task_api, 'client', lambda: SimpleNamespace(snapshot=AsyncMock(return_value=SimpleNamespace(values={}))))
+    monkeypatch.setattr(task_api, 'client', lambda: SimpleNamespace(db=SimpleNamespace(rows=AsyncMock(return_value=[])), snapshot=AsyncMock(return_value=SimpleNamespace(values={}))))
     monkeypatch.setattr(task_api, '_read_task_record', AsyncMock(return_value={'document': {'sha256': 'a' * 64, 'objectKey': 'source'}}))
     monkeypatch.setattr(task_api, 'review_task', AsyncMock(return_value=review))
     monkeypatch.setattr(task_api, 'get_task', AsyncMock(return_value={}))
@@ -65,7 +65,7 @@ async def test_artifact_authorization_short_circuits_saved_metadata(monkeypatch,
     detail = AsyncMock(return_value=saved if location == 'detail' else {})
     review = AsyncMock(return_value=saved if location == 'review' else {})
     verified = AsyncMock(wraps=store.get_verified)
-    monkeypatch.setattr(task_api, 'client', lambda: SimpleNamespace(snapshot=AsyncMock(return_value=SimpleNamespace(values={}))))
+    monkeypatch.setattr(task_api, 'client', lambda: SimpleNamespace(db=SimpleNamespace(rows=AsyncMock(return_value=[])), snapshot=AsyncMock(return_value=SimpleNamespace(values={}))))
     monkeypatch.setattr(task_api, '_read_task_record', AsyncMock(return_value={'document': document}))
     monkeypatch.setattr(task_api, 'get_task', detail)
     monkeypatch.setattr(task_api, 'review_task', review)
@@ -87,7 +87,7 @@ async def test_artifact_source_requires_all_reference_metadata(monkeypatch, fiel
     reference = ArtifactReference(**{key: document[key] for key in ArtifactReference.model_fields})
     reference = reference.model_copy(update={field: value})
     verified = AsyncMock()
-    monkeypatch.setattr(task_api, 'client', lambda: SimpleNamespace(snapshot=AsyncMock(return_value=SimpleNamespace(values={}))))
+    monkeypatch.setattr(task_api, 'client', lambda: SimpleNamespace(db=SimpleNamespace(rows=AsyncMock(return_value=[])), snapshot=AsyncMock(return_value=SimpleNamespace(values={}))))
     monkeypatch.setattr(task_api, '_read_task_record', AsyncMock(return_value={'document': document}))
     monkeypatch.setattr(task_api, 'get_task', AsyncMock(return_value={'document': document}))
     monkeypatch.setattr(task_api, 'review_task', AsyncMock(return_value={}))
