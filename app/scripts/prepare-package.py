@@ -15,9 +15,8 @@ ROOT = Path(__file__).parents[2]
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--platform', choices=('darwin', 'win32', 'android'), default=sys.platform)
+    parser.add_argument('--platform', choices=('darwin',), default=sys.platform)
     parser.add_argument('--architecture', default=platform.machine())
-    parser.add_argument('--android-runtime-inventory', type=Path)
     args = parser.parse_args()
     output = ROOT / "app/src-tauri/bundled"
     output.mkdir(parents=True, exist_ok=True)
@@ -28,7 +27,7 @@ def main() -> None:
     with tempfile.TemporaryDirectory(prefix="practice-notices-") as temporary:
         staged = Path(temporary)
         (staged / "build-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
-        report = inventory(staged, args.android_runtime_inventory)
+        report = inventory(staged)
         write_notices(report, staged / "THIRD-PARTY.txt")
         if not report["passed"]:
             raise ValueError("Practice-client dependency notices are incomplete or unverified: " +

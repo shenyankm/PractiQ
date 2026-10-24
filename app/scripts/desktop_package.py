@@ -11,14 +11,13 @@ PACKAGE_MODE = "desktop-practice"
 
 
 def validate_manifest(manifest: dict, platform: str = sys.platform, version: str | None = None) -> None:
-    if platform not in {"darwin", "win32", "android"}:
+    if platform != "darwin":
         raise ValueError("Unsupported desktop package platform")
     if set(manifest) != {"schemaVersion", "packageMode", "platform", "architecture", "desktopVersion"}:
         raise ValueError("Expected pure desktop package metadata")
     if manifest["schemaVersion"] != SCHEMA_VERSION or manifest["packageMode"] != PACKAGE_MODE:
         raise ValueError("Unsupported desktop package mode or schema")
-    architectures = {"darwin": {"arm64", "aarch64"}, "win32": {"x86_64", "AMD64", "amd64"},
-                     "android": {"arm64", "x86_64"}}[platform]
+    architectures = {"arm64", "aarch64"}
     if manifest["platform"] != platform or manifest["architecture"] not in architectures:
         raise ValueError("Unsupported desktop package platform or architecture")
     if not isinstance(manifest["desktopVersion"], str) or not manifest["desktopVersion"] or (version is not None and manifest["desktopVersion"] != version):
@@ -32,9 +31,7 @@ def read_manifest(bundle: Path, platform: str | None = None) -> dict:
 
 
 def application_root(bundle: Path) -> Path:
-    if sys.platform == "darwin":
-        return bundle.parents[2]
-    return bundle.parent
+    return bundle.parents[2]
 
 
 def native_application(bundle: Path, application_name: str = "PractiQ") -> Path:
@@ -50,16 +47,11 @@ def native_application(bundle: Path, application_name: str = "PractiQ") -> Path:
                 raise ValueError("Desktop native executable requires real contained parent directories")
             if directory == application:
                 break
-    if sys.platform == "darwin":
-        info = bundle.parents[1] / "Info.plist"
-        regular_file(info)
-        if plistlib.loads(info.read_bytes()).get("CFBundleExecutable") != application_name:
-            raise ValueError("Info.plist native executable identity differs from the desktop application")
-        executable = application / "Contents/MacOS" / application_name
-    elif sys.platform == "win32":
-        executable = application / (application_name + ".exe")
-    else:
-        raise ValueError("Linux desktop applications are no longer a package target")
+    info = bundle.parents[1] / "Info.plist"
+    regular_file(info)
+    if plistlib.loads(info.read_bytes()).get("CFBundleExecutable") != application_name:
+        raise ValueError("Info.plist native executable identity differs from the desktop application")
+    executable = application / "Contents/MacOS" / application_name
     regular_file(executable)
     return executable
 

@@ -115,18 +115,11 @@ html[lang="en"] [data-button]:not([data-size^="icon"]) {
 .passage-fragment, .passage-fragment .document-content, .passage-fragment .document-content > p { display: inline; white-space: pre-wrap; }
 .passage-fragment .document-content > p { margin: 0; }
 
-/* Native Android already applies system-bar, cutout and IME insets to the WebView. */
 :root {
   --app-safe-top: env(safe-area-inset-top, 0px);
   --app-safe-right: env(safe-area-inset-right, 0px);
   --app-safe-bottom: env(safe-area-inset-bottom, 0px);
   --app-safe-left: env(safe-area-inset-left, 0px);
-}
-html[data-native-insets="true"] {
-  --app-safe-top: 0px;
-  --app-safe-right: 0px;
-  --app-safe-bottom: 0px;
-  --app-safe-left: 0px;
 }
 .app-shell {
   height: 100dvh;

@@ -13,7 +13,6 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--installer", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--seven-zip", type=Path)
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[2]
     version = release.read_json(root / "app/package.json")["version"]
@@ -22,7 +21,7 @@ def main() -> None:
     checker = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(checker)
     with (release.installer_snapshot(args.installer.resolve()) as (snapshot, digest),
-          release.final_bundle(snapshot, args.seven_zip, root=root) as bundle):
+          release.final_bundle(snapshot) as bundle):
         report = checker.validate_package(bundle, application_root(bundle))
         report["desktopVersion"] = release.check_desktop_version(snapshot, bundle, version, "PractiQ")
         report["installerSha256"] = digest

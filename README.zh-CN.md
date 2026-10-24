@@ -6,7 +6,7 @@
 
 [English](README.md) | 简体中文 | [繁體中文](README.zh-TW.md)
 
-把文档变成题库，在 macOS、Windows 或 Android 上离线练习和模拟考试。
+把文档变成题库，在 macOS 上离线练习和模拟考试。
 
 - **导入与复核**：用 AI 从文档中提取题目，检查需要复核的内容，整理自己的题库。
 - **练习与组卷**：跨题库按题型、错题、收藏或未做题挑选题目，进行练习、自测或限时模考。
@@ -62,7 +62,7 @@ PractiQ 目前需要从源码安装。你不需要自己敲命令：打开仓库
 
 > 阅读 `docs/guides/installation.md`，在这台电脑上安装 PractiQ。先检查环境要求，只执行适合我系统的步骤，完成后告诉我执行了哪些命令、安装包在哪里，以及哪些步骤失败。安装系统软件前先问我。
 
-[安装指南（英文）](docs/guides/installation.md)包含环境要求、命令和检查步骤。应用支持 macOS 14+（Apple Silicon）、Windows 10/11（x64）和 Android 8+（API 26+）；Linux 仅用于运行 AI 服务和 CI。
+[安装指南（英文）](docs/guides/installation.md)包含环境要求、命令和检查步骤。应用支持 macOS 14+（Apple Silicon）；Linux 仅用于运行 AI 服务和 CI。
 
 PractiQ 仍在开发中：这些步骤只在本机构建，构建通过也不代表已经完成签名发布。已发布的安装包（如有）见 [GitHub Releases](https://github.com/shenyankm/PractiQ/releases)。
 

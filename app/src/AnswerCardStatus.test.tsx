@@ -54,7 +54,7 @@ it("keeps false as an answered draft instead of treating it as null", () => {
   expect(screen.getByRole("button", { name: "转到第 1 题，已作答，未提交" }).getAttribute("data-answer-state")).toBe("answered");
 });
 
-it("retains compact Android card collapse, draft state and accessible help focus", async () => {
+it("retains compact card collapse, draft state and accessible help focus", async () => {
   const user = userEvent.setup();
   render(<Practice compact session={session([{}, {}])} onSession={vi.fn()} run={job => { void job(); }} flushRef={{ current: async () => {} }} />);
   const summary = screen.getByText("答题卡 · 第 1 / 2 题");

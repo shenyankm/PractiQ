@@ -16,11 +16,10 @@ incompatible with the currently locked GTK3 bindings. The upstream
 [Tauri update](https://github.com/tauri-apps/tauri/pull/16170) are still pending
 as of 2026-10-07.
 
-PractiQ supports macOS, Windows and Android apps. Their locked dependency graphs
+PractiQ supports the macOS app only. Its locked dependency graphs
 do not include `glib`; Linux app builds are rejected by the native build script.
 `make audit-rust` retains the complete RustSec lockfile audit and then checks
-both macOS architectures, Windows MSVC, Android arm64 and the x86_64 Android
-emulator graph. The target check fails on reachable `glib`, missing app graphs
+both macOS architecture graphs. The target check fails on reachable `glib`, missing app graphs
 or Cargo errors. This evidence supports a Dependabot disposition of
 **vulnerable code not used** for alert 1, rather than a claim that the locked
 crate has been upgraded or patched. Reassess the disposition when changing
@@ -31,8 +30,7 @@ The independent Python service may run on Linux and does not use this Rust GUI
 dependency. The lockfile remains intact, with no advisory ignore or vendored
 replacement.
 
-The five supported target graphs and Linux build rejection were reverified on
-2026-10-07. The complete `cargo audit` reports RUSTSEC-2024-0429 as an
+Historical five-target graph checks were recorded on 2026-10-07; the current app scope and build guard are macOS-only. The complete `cargo audit` reports RUSTSEC-2024-0429 as an
 informational `unsound` warning for the retained Linux-only crate. A successful
 audit exit does not mean that GLib 0.18.5 has been patched. Alert 1 can be
 classified as **vulnerable code not used** only while the supported-target and
@@ -65,7 +63,7 @@ were failing because these audits failed, not because the gates needed relaxing.
 ## Repository and deployment safeguards
 
 [Dependabot configuration](../../.github/dependabot.yml) schedules weekly GitHub
-Actions, App/Web npm, Cargo, Android Gradle and Docker base-image updates.
+Actions, App/Web npm, Cargo and Docker base-image updates.
 Actions and the combined npm entry each allow two version-update PRs; Cargo,
 Gradle and Docker each allow one. Version-update queue limits do not delay
 security updates. The npm math-renderer group keeps related packages together;
@@ -106,21 +104,20 @@ App and Web npm updates must keep KaTeX and its nested renderers synchronized
 across both manifests and lockfiles; extend a bot PR to both projects when
 necessary. Both owning CI quality jobs run `npm audit --audit-level=high` with
 failing exit status. Cargo updates retain the complete lockfile audit and all
-supported-target graph checks described above. Gradle proposals still require
-dependency-lock regeneration, wrapper checksum/provenance verification, exact
-Android runtime notices and actual Android build/unit/instrumentation checks.
-Review Gradle transitive dependencies manually: automatic security remediation
-is limited without submitted dependency-graph data. Also review the pinned Rust,
-Node, Java, uv, Android SDK/NDK and deployed Office toolchain versions manually;
+supported-target graph checks described above. Also review the pinned Rust,
+Node, uv and deployed Office toolchain versions manually;
 these are not all covered by the configured version-update entries. A successful audit
 today does not establish future cleanliness or replace notice/source review.
 
-Android access tokens use Keystore-backed encryption and private no-backup storage; automatic Android backups are disabled. User-selected exports exclude credentials. The private credential/file-descriptor bridge rejects frontend invocation. See the [Android guide](../../app/docs/android.md) for native checks and supported targets.
+App credentials stay in macOS Keychain and are excluded from backups.
 Changing the independently deployed LibreOffice engine requires version, checksum, license and Office fidelity verification in that deployment. Desktop package checks must reject embedded Python and LibreOffice engines. Dependency auditing does not establish license
 compliance; release notice inventories and their unresolved entries must also be
 reviewed.
 
 ## Repository security settings
+
+When adopting the macOS-only workflow, synchronize the hosted main ruleset with `.github/main-ruleset.json`: require `Service CI` and `Desktop CI`, and remove the retired `Android CI` requirement. Editing the checked-in file does not change hosted settings; a stale required check otherwise blocks merges.
+
 
 Read-only GitHub API verification on 2026-10-17 found Dependabot security
 updates, secret scanning and push protection enabled, with no open Dependabot
@@ -164,7 +161,7 @@ request line and the separate Bearer header. Reassess the disposition if these
 validators, tuple contents, request construction or transport policies change;
 do not disable the Rust rule.
 
-The main ruleset requires `Service CI`, `Desktop CI`, `Android CI` and
+The checked-in main ruleset requires `Service CI`, `Desktop CI` and
 resolved conversations, with no bypass actors. Native approving votes and
 extra approval for unattributed changes are not required. Automatic review
 approval and withdrawal have been removed. The checked-in

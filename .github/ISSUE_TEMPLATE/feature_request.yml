@@ -14,8 +14,7 @@ body:
     attributes:
       label: Primary area
       options:
-        - Practice app - macOS or Windows
-        - Practice app - Android
+        - Practice app - macOS
         - Import Web frontend
         - AI service or document processing
         - Shared UI or data contracts

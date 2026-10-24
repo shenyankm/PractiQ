@@ -14,8 +14,7 @@ body:
     attributes:
       label: Affected area
       options:
-        - Practice app - macOS or Windows
-        - Practice app - Android
+        - Practice app - macOS
         - Import Web frontend
         - AI service or document processing
         - Shared UI or data contracts
@@ -67,7 +66,7 @@ body:
     id: environment
     attributes:
       label: Environment
-      description: Include OS/version and architecture. For Android, add device or emulator and System WebView version; for Web, browser/version; for source or service issues, relevant runtime/container and LibreOffice versions. Explain unknown or non-applicable details.
+      description: Include OS/version and architecture. For Web, include browser/version; for source or service issues, relevant runtime/container and LibreOffice versions. Explain unknown or non-applicable details.
       placeholder: |
         OS/version and architecture:
         Run mode (installed app / source / Web / service container):

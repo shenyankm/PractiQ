@@ -1,6 +1,6 @@
 # PractiQ documentation
 
-PractiQ has an independent AI import service and Web frontend, plus an offline practice app for macOS, Windows and Android. Start with the current guides below; dated reports describe only their recorded source and evidence.
+PractiQ has an independent AI import service and Web frontend, plus an offline practice app for macOS. Start with the current guides below; dated reports describe only their recorded source and evidence, including retired Windows/Android targets.
 
 ## Directory map
 
@@ -24,7 +24,6 @@ PractiQ has an independent AI import service and Web frontend, plus an offline p
 | Practise, submit answers and review scores | [Practice guide](guides/practice-guide.md) |
 | Start, control and review AI imports | [Import tasks](guides/import-tasks.md) |
 | Import/share bank ZIPs or restore personal study data | [Question-bank packages and backups](guides/question-bank-package.md) |
-| Develop or verify Android native flows | [Android guide](../app/docs/android.md) |
 | Explore UI scenarios without native storage or model calls | [Development preview](../app/docs/development-preview.md) |
 
 ## Integrate and operate the service

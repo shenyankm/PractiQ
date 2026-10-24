@@ -23,15 +23,13 @@ APP_INPUTS = COMMON_INPUTS + (
     "server/scripts/evaluate.py",
     "server/tests/__init__.py", "server/tests/conftest.py", "server/tests/test_ci.py", "server/tests/test_ci_scope.py",
     "server/tests/test_release_checks.py", "server/tests/test_release_workflow.py",
-    "server/tests/test_desktop_package.py", "server/tests/test_android_package.py",
-    "server/tests/test_android_licenses.py",
+    "server/tests/test_desktop_package.py",
 )
 PATTERNS = {
     "service": COMMON_INPUTS + (
         "server/**", "web/**", "shared/**", "app/fixtures/**", "app/scripts/check-rich-recognition.py",
         "Dockerfile.server", ".dockerignore", ".env.example",
     ),
-    "android": APP_INPUTS,
     "desktop": APP_INPUTS,
 }
 DOCUMENTATION = (
@@ -85,7 +83,7 @@ def changed_paths(event_name: str, payload: dict, repository: str) -> list[str] 
 
 
 def check_gate(scope: str, needs: dict) -> None:
-    jobs = {"changes", "quality"} | ({"android-package", "emulator"} if scope == "android" else {"package"} if scope == "desktop" else set())
+    jobs = {"changes", "quality"} | ({"package"} if scope == "desktop" else set())
     if set(needs) != jobs:
         raise ValueError("Missing or unexpected CI dependencies")
     changes = needs["changes"]

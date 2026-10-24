@@ -2,7 +2,6 @@
 
 import argparse
 import hashlib
-import importlib.util
 import json
 import os
 import plistlib
@@ -36,8 +35,6 @@ FILE_URI = re.compile(r'''(?<![\w:/\\>])(?:(?P<quote>["'])file:(?:[/\\]|[A-Za-z]
 
 PLATFORMS = {
     "darwin": ("macos", "arm64", "dmg/*.dmg", ".dmg"),
-    "win32": ("windows", "x64", "nsis/*-setup.exe", "_setup.exe"),
-    "android": ("android", "arm64", "app/.build/android-final/*.apk", ".apk"),
 }
 
 ACCEPTANCES = (("cleanMachine", "clean-machine"), ("liveModel", "live-model"))
@@ -46,25 +43,8 @@ ACCEPTANCES = (("cleanMachine", "clean-machine"), ("liveModel", "live-model"))
 def release_platform(platform: str | None = None) -> str:
     platform = platform or sys.platform
     if platform not in PLATFORMS:
-        raise ValueError("Release targets macOS, Windows or explicit --platform android")
+        raise ValueError("Release targets macOS only")
     return platform
-
-
-def android_sdk(aapt2: Path | None) -> Path:
-    if aapt2 is None:
-        raise ValueError("Android final-package checks require explicit --aapt2")
-    sdk = aapt2.resolve(strict=True)
-    if not sdk.is_file():
-        raise ValueError("Select an explicit Android SDK aapt2 executable")
-    return sdk
-
-
-def apk_checker():
-    spec = importlib.util.spec_from_file_location("android_package_check", Path(__file__).with_name("check-apk.py"))
-    assert spec is not None and spec.loader is not None
-    checker = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(checker)
-    return checker
 
 
 def read_json(path: Path) -> dict:
@@ -159,8 +139,8 @@ def normalized_digest(value: object) -> str:
 
 
 def check_original_candidate(candidate: dict) -> None:
-    if "restagedFinalBytes" in candidate or candidate.get("signing") != ("debug/test; publisher unverified" if candidate.get("os") == "android" else "unsigned"):
-        raise ValueError("Build provenance requires the original unsigned desktop or debug/test Android CI candidate")
+    if "restagedFinalBytes" in candidate or candidate.get("signing") != "unsigned":
+        raise ValueError("Build provenance requires the original unsigned macOS CI candidate")
 
 def external_signing_status(report: dict, artifact_sha: str) -> str:
     """Bind a declared outcome; this does not verify signatures or publisher identity."""
@@ -201,19 +181,6 @@ def external_acceptance_status(report, kind: str, identity: dict) -> str:
     if not isinstance(report["status"], str) or report["status"] not in ("passed", "failed"):
         raise ValueError("Acceptance status must be passed or failed")
     return "externally_reported_" + report["status"]
-
-
-def check_apk_evidence(report: dict, digest: str, manifest: dict, version: str, notice_sha: str) -> None:
-    identity = report.get("nativePackage", {})
-    if (report.get("passed") is not True or report.get("installerSha256") != digest
-            or report.get("manifest") != manifest or report.get("desktopVersion") != version
-            or report.get("nativeAbi") != "arm64-v8a" or report.get("embeddedAiEngines") != []
-            or report.get("nativeExecutable") != "lib/arm64-v8a/libpractiq_desktop.so"
-            or report.get("noticeSha256") != notice_sha
-            or identity.get("identifier") != "com.practiq.android" or identity.get("versionName") != version
-            or identity.get("minSdkVersion") != 26 or type(identity.get("versionCode")) is not int or identity["versionCode"] < 1):
-        raise ValueError("APK package evidence does not identify these exact final bytes")
-    normalized_digest(report.get("nativeLibrarySha256"))
 
 
 def public_report(value, roots):
@@ -292,17 +259,6 @@ def original_build(root: Path, tag: str, source_sha: str, path: Path, *, platfor
     if "evidence/build-manifest.json" not in evidence:
         raise ValueError("Original build manifest is missing")
     validate_manifest(read_json(path.parent / "evidence/build-manifest.json"), platform, components["desktop"])
-    if platform == "android":
-        if candidate.get("androidRuntimeInventory") != "evidence/android-runtime-inventory.json" or candidate.get("signing") != "debug/test; publisher unverified":
-            raise ValueError("Original Android candidate must identify its runtime inventory and debug/test status")
-        for name in ("THIRD-PARTY.txt", "android-runtime-inventory.json"):
-            if "evidence/" + name not in evidence:
-                raise ValueError("Original Android build gate evidence is incomplete")
-        check_apk_evidence(read_json(path.parent / "evidence/desktop-bundle.json"), candidate["sha256"],
-                           read_json(path.parent / "evidence/build-manifest.json"), components["desktop"],
-                           checksum(path.parent / "evidence/THIRD-PARTY.txt"))
-        if normalized_digest(candidate.get("androidRuntimeInventorySha256")) != normalized_digest(read_json(path.parent / "evidence/licenses.json").get("androidRuntimeInventorySha256")):
-            raise ValueError("Original Android license evidence identifies a different consumed runtime inventory")
     return {"candidateSha256": hashlib.sha256(raw).hexdigest(), "candidate": candidate,
             "originalCandidate": "evidence/original-candidate.json",
             "verifiedCandidateSha256": hashlib.sha256(json.dumps(candidate, sort_keys=True, separators=(",", ":")).encode()).hexdigest(),
@@ -315,18 +271,12 @@ def stage(root: Path, tag: str, bundle: Path, installer: Path, output: Path, *,
           source_sha: str | None = None, installer_sha: str | None = None,
           signing_report: Path | None = None, build_candidate: dict | None = None,
           desktop_version: str | None = None, platform: str | None = None,
-          aapt2: Path | None = None, android_runtime_inventory: Path | None = None,
           clean_machine_report: Path | None = None, live_model_report: Path | None = None,
           original_candidate_bytes: bytes | None = None, payload: Path | None = None, payload_identity: dict | None = None) -> None:
     components = versions(root, tag)
     platform = release_platform(platform)
-    if platform == "android":
-        aapt2 = android_sdk(aapt2)
-        if android_runtime_inventory is None or not android_runtime_inventory.is_file():
-            raise ValueError("Android license checks require --android-runtime-inventory")
-        inventory_sha = checksum(android_runtime_inventory)
     os_name, arch, _, suffix = PLATFORMS[platform]
-    signing = "unverified" if restaged else ("debug/test; publisher unverified" if platform == "android" else "unsigned")
+    signing = "unverified" if restaged else "unsigned"
     acceptance_paths = {"cleanMachine": clean_machine_report, "liveModel": live_model_report}
     acceptances = {field + "Acceptance": "pending" for field, _ in ACCEPTANCES}
     if not restaged and any(acceptance_paths.values()):
@@ -335,8 +285,6 @@ def stage(root: Path, tag: str, bundle: Path, installer: Path, output: Path, *,
         raise ValueError("Final payload checks require an explicit directory and its pre-gate identity")
     manifest = read_json(bundle / "build-manifest.json")
     validate_manifest(manifest, platform, components["desktop"])
-    if platform == "android" and manifest["architecture"] != "arm64":
-        raise ValueError("Public Android release assets require arm64; x86_64 is diagnostic only")
     if restaged and (build_candidate is None or original_candidate_bytes is None or payload is None or
                      payload_identity is None or desktop_version != components["desktop"]):
         raise ValueError("Final desktop version and original build identity must be checked")
@@ -358,24 +306,14 @@ def stage(root: Path, tag: str, bundle: Path, installer: Path, output: Path, *,
             raise ValueError("Original candidate contains private paths; keep raw diagnostics private instead of publishing")
     if desktop_version is not None:
         (reports / "desktop-version.json").write_text(json.dumps({"passed": True, "platform": platform, "version": desktop_version}) + "\n", encoding="utf-8")
-    package_options = ["--installer", str(installer), "--abi", "arm64-v8a", "--aapt2", str(aapt2)] if platform == "android" else ["--bundle", str(bundle)]
-    license_options = ["--android-runtime-inventory", str(android_runtime_inventory)] if platform == "android" else []
     for script, filename, options in (
-        ("check-apk.py" if platform == "android" else "check-bundle.py", "desktop-bundle.json", package_options),
-        ("check_licenses.py", "licenses.json", ["--bundle", str(bundle), "--notices", str(reports / "expected-THIRD-PARTY.txt"), *license_options]),
+        ("check-bundle.py", "desktop-bundle.json", ["--bundle", str(bundle)]),
+        ("check_licenses.py", "licenses.json", ["--bundle", str(bundle), "--notices", str(reports / "expected-THIRD-PARTY.txt")]),
     ):
         subprocess.run([sys.executable, str(root / "app/scripts" / script),
                         "--output", str(reports / filename), *options], cwd=root, check=True)
         if read_json(reports / filename).get("passed") is not True:
             raise ValueError(f"Release gate did not pass: {filename}")
-    if platform == "android":
-        package = read_json(reports / "desktop-bundle.json")
-        check_apk_evidence(package, checksum(installer), manifest, components["desktop"], checksum(bundle / "THIRD-PARTY.txt"))
-        if read_json(reports / "licenses.json").get("androidRuntimeInventorySha256") != inventory_sha:
-            raise ValueError("Android license evidence identifies a different consumed runtime inventory")
-        shutil.copyfile(android_runtime_inventory, reports / "android-runtime-inventory.json")
-        if checksum(android_runtime_inventory) != inventory_sha or checksum(reports / "android-runtime-inventory.json") != inventory_sha:
-            raise ValueError("Android runtime inventory changed during final-package checks")
     if payload is not None and payload_fingerprint(payload) != payload_identity:
         raise ValueError("Final installer payload changed during package checks")
     if (reports / "expected-THIRD-PARTY.txt").read_bytes() != (bundle / "THIRD-PARTY.txt").read_bytes():
@@ -425,10 +363,6 @@ def stage(root: Path, tag: str, bundle: Path, installer: Path, output: Path, *,
         "buildRun": build_candidate["candidate"]["buildRun"] if restaged else f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}",
         "evidence": {p.relative_to(output).as_posix(): checksum(p) for p in sorted(evidence.rglob("*")) if p.is_file()},
     }
-    if platform == "android":
-        candidate["androidPackageUse"] = "debug/test; publisher verification and device acceptance pending"
-        candidate["androidRuntimeInventory"] = "evidence/android-runtime-inventory.json"
-        candidate["androidRuntimeInventorySha256"] = inventory_sha
     if restaged:
         candidate["restagedFinalBytes"] = True
         candidate["originalBuildCandidate"] = "evidence/build-candidate.json"
@@ -443,15 +377,10 @@ def stage(root: Path, tag: str, bundle: Path, installer: Path, output: Path, *,
     (output / "candidate.json").write_text(json.dumps(candidate, indent=2) + "\n", encoding="utf-8")
 
 
-def stage_installer(root: Path, tag: str, *, platform: str | None = None, aapt2: Path | None = None,
-                    android_runtime_inventory: Path | None = None) -> None:
+def stage_installer(root: Path, tag: str, *, platform: str | None = None) -> None:
     platform = release_platform(platform)
-    if platform == "android":
-        aapt2 = android_sdk(aapt2)
-        if android_runtime_inventory is None or not android_runtime_inventory.is_file():
-            raise ValueError("Android license checks require --android-runtime-inventory")
     _, _, pattern, _ = PLATFORMS[platform]
-    base = root if platform == "android" else root / "app/src-tauri/target/release/bundle"
+    base = root / "app/src-tauri/target/release/bundle"
     installers = list(base.glob(pattern))
     if len(installers) != 1:
         raise ValueError("Expected exactly one installer; remove stale build output before building")
@@ -463,13 +392,13 @@ def stage_installer(root: Path, tag: str, *, platform: str | None = None, aapt2:
     with tempfile.TemporaryDirectory(prefix="practiq-ci-assets-", dir=output.parent) as directory:
         staged = Path(directory) / "assets"
         with (installer_snapshot(installers[0]) as (snapshot, installer_sha),
-              final_bundle(snapshot, root=root, platform=platform, aapt2=aapt2) as bundle):
-            payload = bundle.parents[2] if platform == "darwin" else bundle.parent
+              final_bundle(snapshot, platform=platform) as bundle):
+            payload = bundle.parents[2]
             identity = payload_fingerprint(payload)
-            version = check_desktop_version(snapshot, bundle, versions(root, tag)["desktop"], "PractiQ", platform=platform, aapt2=aapt2)
+            version = check_desktop_version(snapshot, bundle, versions(root, tag)["desktop"], "PractiQ", platform=platform)
             stage(root, tag, bundle, snapshot, staged, desktop_version=version,
-                  source_sha=source_sha, installer_sha=installer_sha, platform=platform, aapt2=aapt2,
-                  android_runtime_inventory=android_runtime_inventory, payload=payload, payload_identity=identity)
+                  source_sha=source_sha, installer_sha=installer_sha, platform=platform,
+                  payload=payload, payload_identity=identity)
             if payload_fingerprint(payload) != identity:
                 raise ValueError("Final installer payload changed before final asset handoff")
         if git(root, "rev-parse", "HEAD") != source_sha or git(root, "status", "--porcelain", "--untracked-files=all"):
@@ -514,75 +443,17 @@ def contained_bundle(payload: Path, bundle: Path) -> Path:
 
 
 @contextmanager
-def final_bundle(installer: Path, seven_zip: Path | None = None, application_name: str = "PractiQ", *, root: Path = ROOT,
-                 platform: str | None = None, aapt2: Path | None = None):
-    """Derive resources from the selected snapshot, never an unrelated installation."""
-    platform = release_platform(platform)
+def final_bundle(installer: Path, *, platform: str | None = None):
+    """Derive resources from the selected DMG snapshot, never an unrelated installation."""
+    release_platform(platform)
     with tempfile.TemporaryDirectory(prefix="practiq-final-package-") as directory:
-        temporary = Path(directory)
-        if platform == "darwin":
-            mount = temporary / "mounted"
-            subprocess.run(["hdiutil", "attach", str(installer), "-readonly", "-nobrowse", "-mountpoint", str(mount)], check=True)
-            try:
-                yield contained_bundle(mount, mount / "PractiQ.app/Contents/Resources/bundled")
-            finally:
-                subprocess.run(["hdiutil", "detach", str(mount)], check=True)
-        elif platform == "win32":
-            destination = temporary / "PractiQ"
-            extractor = str(seven_zip) if seven_zip else shutil.which("7z")
-            if not extractor or (seven_zip and not seven_zip.is_file()):
-                raise ValueError("Install full 7-Zip or provide --seven-zip; NSIS payload extraction must not run the installer")
-            listing = subprocess.check_output([extractor, "l", "-slt", "-ba", "-sccUTF-8", "-tNsis", "--", str(installer)], text=True, encoding="utf-8")
-            entries = []
-            for block in listing.split("\n\n"):
-                paths = [line[7:] for line in block.splitlines() if line.startswith("Path = ")]
-                if not paths:
-                    continue
-                if len(paths) != 1:
-                    raise ValueError("Ambiguous path in NSIS payload listing")
-                relative = PureWindowsPath(paths[0])
-                if not str(relative) or relative.root or relative.drive or ".." in relative.parts or ":" in str(relative):
-                    raise ValueError("Unsafe path in NSIS payload")
-                entries.append(relative)
-            if not {PureWindowsPath(application_name + ".exe"), PureWindowsPath("bundled/build-manifest.json")}.issubset(entries):
-                raise ValueError("NSIS payload is missing the desktop application or bundled manifest")
-            subprocess.run([extractor, "x", "-tNsis", "-y", "-sccUTF-8", f"-o{destination}", "--", str(installer)], check=True)
-            for item in destination.rglob("*"):
-                if item.is_symlink() or item.is_junction() or not item.resolve().is_relative_to(destination.resolve()):
-                    raise ValueError("NSIS extraction escaped its temporary directory")
-            yield destination / "bundled"
-        else:
-            checker = apk_checker()
-            checker.validate_apk(installer, android_sdk(aapt2), "arm64-v8a", read_json(root / "app/package.json")["version"])
-            bundle = temporary / "bundled"
-            bundle.mkdir()
-            with zipfile.ZipFile(installer) as archive:
-                for name, maximum in (("build-manifest.json", 65_536), ("THIRD-PARTY.txt", 32 * 1024 * 1024)):
-                    member = archive.getinfo("assets/bundled/" + name)
-                    (bundle / name).write_bytes(checker.bounded_member(archive, member, maximum))
-            yield contained_bundle(temporary, bundle)
+        mount = Path(directory) / "mounted"
+        subprocess.run(["hdiutil", "attach", str(installer), "-readonly", "-nobrowse", "-mountpoint", str(mount)], check=True)
+        try:
+            yield contained_bundle(mount, mount / "PractiQ.app/Contents/Resources/bundled")
+        finally:
+            subprocess.run(["hdiutil", "detach", str(mount)], check=True)
 
-
-def check_windows_architecture(executable: Path) -> None:
-    """Inspect bounded PE headers; do not execute or infer architecture from a label."""
-    size = executable.stat().st_size
-    with executable.open("rb") as stream:
-        dos = stream.read(64)
-        if len(dos) != 64 or dos[:2] != b"MZ":
-            raise ValueError("Final Windows desktop executable requires a valid PE header")
-        offset = int.from_bytes(dos[60:64], "little")
-        if not 64 <= offset <= size - 26:
-            raise ValueError("Final Windows PE header is outside the executable")
-        stream.seek(offset)
-        header = stream.read(26)
-        optional_size = int.from_bytes(header[20:22], "little")
-        if header[:4] != b"PE\0\0" or optional_size < 2 or offset + 24 + optional_size > size:
-            raise ValueError("Final Windows desktop executable requires complete PE headers")
-        if int.from_bytes(header[4:6], "little") != 0x8664 or int.from_bytes(header[24:26], "little") != 0x20B:
-            raise ValueError("Final Windows desktop executable must be x64 PE32+")
-        characteristics = int.from_bytes(header[22:24], "little")
-        if not characteristics & 0x0002 or characteristics & 0x2000:
-            raise ValueError("Final Windows PE must be an executable application, not a DLL")
 
 def macho_architecture(stream, offset: int, size: int) -> tuple[int, int]:
     stream.seek(offset)
@@ -642,46 +513,25 @@ def check_macos_architecture(executable: Path) -> None:
 
 
 def check_desktop_version(installer: Path, bundle: Path, expected: str, application_name: str, *,
-                          platform: str | None = None, aapt2: Path | None = None) -> str:
-    platform = release_platform(platform)
-    if platform == "android":
-        return apk_checker().native_manifest(installer, android_sdk(aapt2), "arm64-v8a", expected)["versionName"]
+                          platform: str | None = None) -> str:
+    release_platform(platform)
     application = native_application(bundle, application_name)
-    if platform == "darwin" and not application.stat().st_mode & 0o111:
+    if not application.stat().st_mode & 0o111:
         raise ValueError("Final desktop executable requires POSIX execute permission")
-    if platform == "darwin":
-        check_macos_architecture(application)
-        info = bundle.parents[1] / "Info.plist"
-        metadata = plistlib.loads(info.read_bytes())
-        if any(metadata.get(key) != value for key, value in macos_versions(expected).items()):
-            raise ValueError("Final installer desktop version does not match the candidate")
-        actual = metadata["PractiQVersion"]
-    elif platform == "win32":
-        check_windows_architecture(application)
-        for executable in (installer, application):
-            environment = os.environ | {"PRACTIQ_RELEASE_VERSION_FILE": str(executable)}
-            actual = subprocess.check_output(["powershell", "-NoProfile", "-NonInteractive", "-Command",
-                "$ErrorActionPreference = 'Stop'; [Diagnostics.FileVersionInfo]::GetVersionInfo($env:PRACTIQ_RELEASE_VERSION_FILE).ProductVersion"],
-                env=environment, text=True).strip()
-            if actual != expected:
-                raise ValueError("Final installer desktop version does not match the candidate")
-    if actual != expected:
+    check_macos_architecture(application)
+    metadata = plistlib.loads((bundle.parents[1] / "Info.plist").read_bytes())
+    if any(metadata.get(key) != value for key, value in macos_versions(expected).items()):
         raise ValueError("Final installer desktop version does not match the candidate")
-    return actual
+    return metadata["PractiQVersion"]
 
 
 def restage_installer(root: Path, tag: str, installer: Path, output: Path,
                       reports: Path, signing_report: Path | None = None,
-                      build_candidate: Path | None = None, seven_zip: Path | None = None, *,
-                      platform: str | None = None, aapt2: Path | None = None,
-                      android_runtime_inventory: Path | None = None, clean_machine_report: Path | None = None,
+                      build_candidate: Path | None = None, *,
+                      platform: str | None = None, clean_machine_report: Path | None = None,
                       live_model_report: Path | None = None) -> None:
     """Recheck final bytes locally while keeping signing/manual/live verification separate."""
     platform = release_platform(platform)
-    if platform == "android":
-        aapt2 = android_sdk(aapt2)
-        if android_runtime_inventory is None or not android_runtime_inventory.is_file():
-            raise ValueError("Android license checks require --android-runtime-inventory")
     candidate = check_candidate(root, tag)
     for path in (output, reports):
         if path.exists() or path.is_symlink():
@@ -689,7 +539,7 @@ def restage_installer(root: Path, tag: str, installer: Path, output: Path,
     if (output.resolve().is_relative_to(reports.resolve()) or
             reports.resolve().is_relative_to(output.resolve())):
         raise ValueError("Asset and report directories must be separate")
-    suffix = ".exe" if platform == "win32" else PLATFORMS[platform][3]
+    suffix = PLATFORMS[platform][3]
     if installer.suffix.lower() != suffix:
         raise ValueError("Final installer does not match the native platform")
     if build_candidate is None:
@@ -708,14 +558,13 @@ def restage_installer(root: Path, tag: str, installer: Path, output: Path,
         output.parent.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(prefix="practiq-final-assets-", dir=output.parent) as staging:
             staged = Path(staging) / "assets"
-            with final_bundle(snapshot, seven_zip, application_name, root=root, platform=platform, aapt2=aapt2) as bundle:
-                payload = bundle.parents[2] if platform == "darwin" else bundle.parent
+            with final_bundle(snapshot, platform=platform) as bundle:
+                payload = bundle.parents[2]
                 payload_identity = payload_fingerprint(payload)
-                desktop_version = check_desktop_version(snapshot, bundle, versions(root, tag)["desktop"], application_name, platform=platform, aapt2=aapt2)
+                desktop_version = check_desktop_version(snapshot, bundle, versions(root, tag)["desktop"], application_name, platform=platform)
                 stage(root, tag, bundle, snapshot, staged, reports=reports, restaged=True,
                       source_sha=candidate["commit"], installer_sha=original_sha, signing_report=signing_report,
                       build_candidate=provenance, desktop_version=desktop_version, platform=platform,
-                      aapt2=aapt2, android_runtime_inventory=android_runtime_inventory,
                       clean_machine_report=clean_machine_report, live_model_report=live_model_report,
                       original_candidate_bytes=original_candidate_bytes, payload=payload, payload_identity=payload_identity)
                 if payload_fingerprint(payload) != payload_identity:
@@ -738,8 +587,8 @@ def assemble(root: Path, tag: str, inputs: Path, output: Path, *, changes: Path 
         raw = path.read_bytes()
         candidates.append((path.parent, json.loads(raw)))
         candidate_digests[path.parent] = hashlib.sha256(raw).hexdigest()
-    if len(candidates) != 3 or {c["os"] for _, c in candidates} != {"macos", "windows", "android"}:
-        raise ValueError("All three gated platform candidates are required")
+    if len(candidates) != 1 or {c["os"] for _, c in candidates} != {"macos"}:
+        raise ValueError("Exactly one gated macOS candidate is required")
     if len({bool(candidate.get("restagedFinalBytes")) for _, candidate in candidates}) != 1:
         raise ValueError("Mixed original CI and final-byte staging modes in release assets")
     for folder, candidate in candidates:
@@ -820,15 +669,6 @@ def assemble(root: Path, tag: str, inputs: Path, output: Path, *, changes: Path 
         platform = next(key for key, value in PLATFORMS.items() if value[0] == os_name)
         metadata = read_json(folder / "evidence/build-manifest.json")
         validate_manifest(metadata, platform, components["desktop"])
-        if platform == "android":
-            if (metadata["architecture"] != "arm64" or candidate.get("androidRuntimeInventory") != "evidence/android-runtime-inventory.json"
-                    or "evidence/android-runtime-inventory.json" not in candidate["evidence"]
-                    or (not candidate.get("restagedFinalBytes") and candidate.get("signing") != "debug/test; publisher unverified")):
-                raise ValueError("Android public assets require arm64, bound runtime inventory and explicit debug/test status")
-            check_apk_evidence(read_json(folder / "evidence/desktop-bundle.json"), candidate["sha256"], metadata,
-                               components["desktop"], checksum(folder / "evidence/THIRD-PARTY.txt"))
-            if normalized_digest(candidate.get("androidRuntimeInventorySha256")) != normalized_digest(read_json(folder / "evidence/licenses.json").get("androidRuntimeInventorySha256")):
-                raise ValueError("Android license evidence identifies a different consumed runtime inventory")
     service = inputs / "service-checks"
     service_files = [service / name for name in ("probes.json", "probes.md", "probes.xml", "coverage.xml")]
     if not all(path.is_file() for path in service_files):
@@ -902,18 +742,10 @@ def main() -> None:
     parser.add_argument("--clean-machine-report", type=Path, help="Reviewed clean-machine acceptance metadata bound to final bytes; no acceptance is executed")
     parser.add_argument("--live-model-report", type=Path, help="Reviewed live-model acceptance metadata bound to final bytes; no model is called")
     parser.add_argument("--build-candidate", type=Path, help="Original CI candidate.json with its installer and bound evidence in the same directory")
-    parser.add_argument("--seven-zip", type=Path, help="Installed full 7z.exe for Windows NSIS payload extraction")
-    parser.add_argument("--platform", choices=("android",), help="Explicit Android target; macOS/Windows default to the native host")
-    parser.add_argument("--aapt2", type=Path, help="Explicit Android SDK aapt2 executable for actual APK manifest checks")
-    parser.add_argument("--android-runtime-inventory", type=Path, help="Source-checked Gradle runtime dependency inventory for Android licenses")
     args = parser.parse_args()
     if args.changes is not None and args.command != "assemble":
         parser.error("--changes applies only to assemble")
-    if (args.platform is not None or args.aapt2 is not None or args.android_runtime_inventory is not None) and args.command != "stage":
-        parser.error("Android target and SDK options apply only to stage")
-    if args.platform != "android" and (args.aapt2 is not None or args.android_runtime_inventory is not None):
-        parser.error("Android SDK/inventory options require --platform android")
-    explicit = any(value is not None for value in (args.installer, args.reports, args.signing_report, args.build_candidate, args.seven_zip, args.clean_machine_report, args.live_model_report))
+    explicit = any(value is not None for value in (args.installer, args.reports, args.signing_report, args.build_candidate, args.clean_machine_report, args.live_model_report))
     if explicit and (args.command != "stage" or args.installer is None or args.reports is None or args.output is None or args.build_candidate is None):
         parser.error("Explicit final staging requires stage --installer --reports --output --build-candidate")
     if args.command == "check":
@@ -924,14 +756,12 @@ def main() -> None:
                 stream.write(f"sha={candidate['commit']}\nprerelease={str(candidate['prerelease']).lower()}\n")
     elif args.command == "stage":
         if explicit:
-            restage_installer(ROOT, args.tag, args.installer, args.output, args.reports, args.signing_report, args.build_candidate, args.seven_zip,
-                              platform=args.platform, aapt2=args.aapt2, android_runtime_inventory=args.android_runtime_inventory,
+            restage_installer(ROOT, args.tag, args.installer, args.output, args.reports, args.signing_report, args.build_candidate,
                               clean_machine_report=args.clean_machine_report, live_model_report=args.live_model_report)
         else:
             if args.output is not None:
                 parser.error("stage --output also requires --installer and --reports")
-            stage_installer(ROOT, args.tag, platform=args.platform, aapt2=args.aapt2,
-                            android_runtime_inventory=args.android_runtime_inventory)
+            stage_installer(ROOT, args.tag)
     else:
         if args.inputs is None or args.output is None:
             parser.error("assemble requires --inputs and --output")

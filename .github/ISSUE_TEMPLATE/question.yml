@@ -14,8 +14,7 @@ body:
     attributes:
       label: Related area
       options:
-        - Practice app - macOS or Windows
-        - Practice app - Android
+        - Practice app - macOS
         - Import Web frontend
         - AI service or document processing
         - Shared UI or data contracts
@@ -45,4 +44,4 @@ body:
     id: environment
     attributes:
       label: Relevant environment and evidence
-      description: Include version/commit, OS, browser or Android WebView details when relevant. Add only sanitized commands, logs, or screenshots. Explain if this is a general question with no relevant environment.
+      description: Include version/commit, OS and browser details when relevant. Add only sanitized commands, logs, or screenshots. Explain if this is a general question with no relevant environment.

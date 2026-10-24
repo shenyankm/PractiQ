@@ -79,8 +79,8 @@ six from the former duplicate calculation. The null short-circuit also avoids
 all item copies for the other attempts.
 
 `AnswerCardStatus.test.tsx` verifies false, partial, null, skipped and submitted
-states, keyboard jumps, current-button focus, and compact Android card collapse
-and help-dialog focus. `AndroidNavigation.test.tsx` retains Android Back/draft
+states, keyboard jumps, current-button focus, and compact card collapse
+and help-dialog focus. Historical Android Back/draft checks are retired; macOS native lifecycle retains draft
 persistence coverage. These are JSDOM interaction/work-count tests, not physical
 Android/WebView or browser-layout measurements.
 
@@ -90,7 +90,7 @@ With existing locked frontend dependencies installed:
 
 ```sh
 (cd web && node node_modules/vitest/vitest.mjs run src/App.test.tsx src/api.test.ts src/ResultReview.test.tsx)
-(cd app && node node_modules/vitest/vitest.mjs run src/AnswerCardStatus.test.tsx src/ContentPerformance.test.tsx src/AndroidNavigation.test.tsx src/AnswerInput.test.tsx)
+(cd app && node node_modules/vitest/vitest.mjs run src/AnswerCardStatus.test.tsx src/ContentPerformance.test.tsx src/AnswerInput.test.tsx)
 (cd web && node node_modules/typescript/bin/tsc -b && npm run lint)
 (cd app && node node_modules/typescript/bin/tsc -b && npm run lint)
 ```

@@ -212,12 +212,8 @@ fn validate_url(value: Option<String>, name: &str) -> Result<Option<String>> {
     Ok(Some(url.to_string().trim_end_matches('/').to_owned()))
 }
 pub(crate) fn validate_service_token(token: &str) -> Result<()> {
-    // The HTTP service accepts ASCII Bearer tokens; Windows stores UTF-16 blobs.
-    if !token.is_ascii()
-        || token.len() > 8192
-        || token.chars().any(char::is_control)
-        || (cfg!(target_os = "windows") && token.encode_utf16().count() * 2 > 2560)
-    {
+    // The HTTP service accepts bounded ASCII Bearer tokens.
+    if !token.is_ascii() || token.len() > 8192 || token.chars().any(char::is_control) {
         return Err(crate::language::error(
             "LOCAL_SERVICE_TOKEN_INVALID",
             json!({}),
@@ -648,8 +644,8 @@ impl Store {
         if let (Some(url), Some(token)) = (&config.service_url, &service_token) {
             let entry = credential(url)?;
             let token = token.trim();
-            // Explicit clearing of the current account can recover unreadable Android
-            // ciphertext. No database write is needed, so no rollback read is needed.
+            // Explicit clearing can recover an unreadable current credential.
+            // No database write is needed, so no rollback read is needed.
             // Changing configuration still requires a readable previous credential.
             if token.is_empty() && self.service_settings()? == config {
                 entry.write(None)?;
@@ -1121,10 +1117,8 @@ mod tests {
             assert!(store.service_settings().unwrap().service_url.is_none());
         }
         assert!(validate_service_token(&"x".repeat(1280)).is_ok());
-        assert_eq!(
-            validate_service_token(&"x".repeat(1281)).is_err(),
-            cfg!(target_os = "windows")
-        );
+        assert!(validate_service_token(&"x".repeat(8192)).is_ok());
+        assert!(validate_service_token(&"x".repeat(8193)).is_err());
     }
     #[test]
     fn connection_input_uses_explicit_service_token_without_saving_configuration() {
@@ -2034,7 +2028,6 @@ mod tests {
         worker.join().unwrap();
     }
     #[test]
-    #[cfg(any(target_os = "macos", target_os = "windows"))]
     #[ignore = "uses an isolated native credential entry; run explicitly on the target OS"]
     fn native_keychain_roundtrip() {
         let entry = crate::credentials::desktop_entry(

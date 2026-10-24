@@ -12,24 +12,21 @@ import pytest
 ROOT = Path(__file__).parents[2]
 
 
-@pytest.fixture(params=["darwin", "win32"])
-def package(tmp_path, monkeypatch, request):
-    monkeypatch.setattr(sys, "platform", request.param)
-    app = tmp_path / ("PractiQ.app" if sys.platform == "darwin" else "application")
-    bundle = app / {"darwin": "Contents/Resources/bundled",
-                    "win32": "bundled"}[sys.platform]
+@pytest.fixture
+def package(tmp_path, monkeypatch):
+    monkeypatch.setattr(sys, "platform", "darwin")
+    app = tmp_path / "PractiQ.app"
+    bundle = app / "Contents/Resources/bundled"
     bundle.mkdir(parents=True)
     (bundle / "build-manifest.json").write_text(json.dumps({
-        "schemaVersion": 2, "packageMode": "desktop-practice", "platform": sys.platform,
-        "architecture": "arm64" if sys.platform == "darwin" else "x86_64", "desktopVersion": "0.1.0",
+        "schemaVersion": 2, "packageMode": "desktop-practice", "platform": "darwin",
+        "architecture": "arm64", "desktopVersion": "0.1.0",
     }))
     (bundle / "THIRD-PARTY.txt").write_text("Synthetic desktop notices")
-    executable = app / {"darwin": "Contents/MacOS/PractiQ",
-                        "win32": "PractiQ.exe"}[sys.platform]
-    executable.parent.mkdir(parents=True, exist_ok=True)
+    executable = app / "Contents/MacOS/PractiQ"
+    executable.parent.mkdir(parents=True)
     executable.write_bytes(b"Synthetic native application; never executed")
-    if sys.platform == "darwin":
-        (app / "Contents/Info.plist").write_bytes(plistlib.dumps({"CFBundleExecutable": "PractiQ"}))
+    (app / "Contents/Info.plist").write_bytes(plistlib.dumps({"CFBundleExecutable": "PractiQ"}))
     return app, bundle
 
 
@@ -90,10 +87,8 @@ def test_desktop_resources_are_an_exact_metadata_and_notice_whitelist():
         "bundled/build-manifest.json": "bundled/build-manifest.json",
         "bundled/THIRD-PARTY.txt": "bundled/THIRD-PARTY.txt",
     }
-    for platform in ("windows",):
-        config = json.loads((ROOT / f"app/src-tauri/tauri.{platform}.conf.json").read_text())
-        assert "office" not in json.dumps(config).lower()
-        assert "python" not in json.dumps(config).lower()
+    assert config["bundle"]["targets"] == ["app", "dmg"]
+    assert "icons/icon.ico" not in config["bundle"]["icon"]
 
 
 def test_desktop_package_rejects_extra_payload_and_external_symlinks(package, tmp_path):
@@ -109,11 +104,12 @@ def test_desktop_package_rejects_extra_payload_and_external_symlinks(package, tm
         checker()(bundle, app)
 
 
-def test_linux_app_target_and_config_are_removed():
+@pytest.mark.parametrize("platform", ["linux", "win32", "android"])
+def test_unsupported_app_targets_and_configs_are_removed(platform):
     scope = runpy.run_path(str(ROOT / "app/scripts/desktop_package.py"))
     with pytest.raises(ValueError, match="Unsupported"):
-        scope["validate_manifest"]({}, "linux")
-    assert not (ROOT / "app/src-tauri/tauri.linux.conf.json").exists()
+        scope["validate_manifest"]({}, platform)
+    assert not (ROOT / f"app/src-tauri/tauri.{platform if platform != 'win32' else 'windows'}.conf.json").exists()
 
 
 @pytest.mark.parametrize("mutation", ["original", "snapshot"])

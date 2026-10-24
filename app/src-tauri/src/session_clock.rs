@@ -64,25 +64,3 @@ fn continuous_millis() -> Result<u64> {
         )
     }
 }
-
-#[cfg(target_os = "android")]
-fn continuous_millis() -> Result<u64> {
-    let mut time = libc::timespec {
-        tv_sec: 0,
-        tv_nsec: 0,
-    };
-    // Bionic CLOCK_BOOTTIME is monotonic and includes Android suspended time.
-    if unsafe { libc::clock_gettime(libc::CLOCK_BOOTTIME, &mut time) } != 0 {
-        return Err(std::io::Error::last_os_error().to_string().into());
-    }
-    Ok(time.tv_sec as u64 * 1000 + time.tv_nsec as u64 / 1_000_000)
-}
-
-#[cfg(target_os = "windows")]
-fn continuous_millis() -> Result<u64> {
-    #[link(name = "kernel32")]
-    unsafe extern "system" {
-        fn GetTickCount64() -> u64;
-    }
-    Ok(unsafe { GetTickCount64() })
-}

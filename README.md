@@ -6,7 +6,7 @@
 
 English | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md)
 
-Turn documents into question banks, then practise and take mock exams offline on macOS, Windows or Android.
+Turn documents into question banks, then practise and take mock exams offline on macOS.
 
 - **Import and review**: pull questions out of documents with AI, check anything that needs a second look, and organise your banks.
 - **Practise and test**: choose questions across banks by type, mistakes, bookmarks or unanswered questions, then practise, self-test or run a timed mock exam.
@@ -62,7 +62,7 @@ PractiQ installs from source. You do not need to run the commands yourself: open
 
 > Read `docs/guides/installation.md` and install PractiQ on this machine. Check the requirements first, run only the steps for my platform, and tell me what you ran, where the build is and anything that failed. Ask before installing system packages.
 
-The [installation guide](docs/guides/installation.md) covers requirements, commands and checks. PractiQ runs on macOS 14+ (Apple Silicon), Windows 10/11 (x64) and Android 8+ (API 26+); Linux is supported only for the AI service and CI.
+The [installation guide](docs/guides/installation.md) covers requirements, commands and checks. PractiQ runs on macOS 14+ (Apple Silicon); Linux is supported only for the AI service and CI.
 
 PractiQ is still in development: these steps build on your own machine, and a passing build does not confirm a signed release. Published packages, when available, are listed on [GitHub Releases](https://github.com/shenyankm/PractiQ/releases).
 

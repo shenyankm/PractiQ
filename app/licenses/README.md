@@ -11,7 +11,7 @@ Retain upstream text verbatim. Any `note` marks source applicability that needs
 release review; the notice checker fails rather than silently accepting it.
 
 `app/scripts/check_licenses.py` inventories the selected target's Cargo packages,
-npm production dependency closure and Android's resolved Maven runtime. It
+npm production dependency closure. It
 checks supplemental hashes and returns nonzero for missing text or unverified
 source applicability. Build packages include the combined text in
 `bundled/THIRD-PARTY.txt`. Preparation fails on unresolved entries. An inventory is not a decision
@@ -26,60 +26,6 @@ The jsonschema-regex and jsonschema-value 0.58.6 archives omit license files.
 Their published VCS identities and workspace declarations bind the supplemental
 MIT text to upstream commit `55ac1664384793c5d3b20745d3f9c169dfe2c06f`.
 Those complete terms also match the jsonschema 0.58.6 archive from that commit.
-
-## Android runtime source evidence
-
-The Gradle `exportRuntimeNoticeInventory` task resolves the actual variant's
-runtime graph. It records raw Maven AAR/JAR and version-specific POM SHA-256,
-and the locally built Tauri Android libraries. `gradle.lockfile` pins runtime
-versions; CI consumes this reviewed lock and does not regenerate it.
-`android-runtime.lock.json` binds the exact external closure to artifact/POM
-hashes and complete upstream license texts. Android preparation requires this
-inventory and rejects extra, missing or changed dependencies, unmatched POM
-identities and altered terms. Local Tauri Android libraries must come from the
-same Cargo-resolved crate directories and use those crates' complete terms.
-Tauri 2.12.1 supplies the upstream Activity lifecycle and system-result launcher
-management; Gradle compiles its original Cargo source without a local Kotlin
-replacement. The former Tauri 2.11.5 replacement under
-`app/src-tauri/gen/android/patches/` and
-`tauri-android-lifecycle.provenance.json` remain inactive historical source/license
-evidence. They are absent from the current build source selection and override
-lock, and their old inventory hashes are explicitly historical in
-`android-runtime.provenance.json`. Each current build still exports and verifies
-its exact resolved runtime inventory and local AAR identity.
-Maven SPDX declarations alone cannot pass the gate.
-
-Tauri 2.12.1 adds Jackson JSON-org 2.15.3 to this runtime. Its selected JAR and
-POM match the official Maven Central downloads; the notice lock retains the
-complete Apache 2.0 terms, both embedded notice files and its parent POM identity
-proof. The corresponding Cargo upgrade supplements `alloc-stdlib` 0.3.0,
-`ndk-context` 0.1.1 and `selectors` 0.38.0 with complete terms. Their pinned
-provenance records bind official crate checksums, packaged VCS commits and
-matching upstream manifests; `selectors` also retains its original MPL 2.0 source
-notice and the complete canonical terms from Mozilla.
-
-Jackson Core 2.15.3 shades FastDoubleParser. Its embedded `FastDoubleParser-NOTICE`
-identifies Werner Randelshofer's MIT code and a fixed upstream commit, while its
-embedded `FastDoubleParser-LICENSE` contains Apache 2.0 terms. Retain both original
-files and every other artifact notice. The supplemental complete MIT copyright
-and terms come from that exact referenced commit, with their own pinned SHA-256;
-the checker binds the source URL to the exact embedded NOTICE bytes and records
-that provenance separately from Jackson's POM declaration and embedded LICENSE.
-
-Review new runtime versions by resolving the selected Gradle configuration with
-`--write-locks`, verifying the corresponding upstream artifact/POM sources and
-full terms, and updating both reviewed locks. Retain the verification evidence.
-This is a build-time operation; no dependency discovery or download occurs in
-the installed practice client. Android x86_64 uses the same reviewed runtime
-closure for emulator checks, while advertised APK candidates use arm64-v8a.
-
-Material 1.14.0 and its resolved ConstraintLayout, Core, CustomView and Tracing
-updates are synchronized across all four locked runtime configurations. Their
-seven artifact/POM pairs match the official Google Maven downloads. The notice
-lock retains the full POM-declared Apache 2.0 terms and five embedded license
-files from the exact selected artifacts. Arm64 and x86_64 runtime exports use
-the same reviewed external closure; minimum SDK and build-tool settings remain
-unchanged. Native packaging and emulator acceptance still require current CI.
 
 ## objc2-family terms
 
@@ -120,11 +66,3 @@ from shadcn 4.21.0: `data-open`, `data-closed`, `data-checked` and `data-disable
 The source is [release commit 7c9eaba](https://github.com/shadcn-ui/ui/tree/7c9eaba1c0a6404c990c144a654792e3313c650d/packages/shadcn).
 The same file includes the complete upstream MIT license and copyright notice
 in a preserved CSS comment, so built application styles carry the terms.
-
-AppCompat 1.8.0 and AppCompat Resources 1.8.0 require Kotlin 2.1 metadata.
-The Android Kotlin compiler and resolved stdlib are aligned to 2.1.20; all
-four Gradle runtime locks use the same updated closure. Exact Google Maven
-and Maven Central downloads verify these three artifact/POM pairs, and the
-notice lock retains both embedded AppCompat license entries and canonical
-Apache 2.0 terms. Current-head Android packaging and emulator CI still gate
-merging this upgrade.
