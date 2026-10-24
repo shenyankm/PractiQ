@@ -9,6 +9,8 @@ from json import loads as json_decode
 from typing import Any, BinaryIO, Literal, LiteralString, cast
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
+from langgraph.types import StateSnapshot
+
 from .capacity import bounded_map
 from .config import load, require_model_config
 from .contracts import (
@@ -42,6 +44,7 @@ from .execution import (
     supported_task_sql,
 )
 from .graphs.document import (
+    DocumentState,
     _retry_update,
     load_unit_result,
     unit_failures,
@@ -162,11 +165,18 @@ async def _read_task_record(service, thread_id):
     return task
 
 
+async def _read_snapshot(service, task, run):
+    if run and run['error_code'] == 'TASK_CHECKPOINT_UNREADABLE':
+        # Quarantine changes the read view, never the checkpoint or its resources.
+        return StateSnapshot(values={}, next=(), config={}, metadata=None, created_at=None, parent_config=None, tasks=(), interrupts=())
+    return await service.snapshot(task)
+
+
 async def _read_task(service, thread_id):
     task = await _read_task_record(service, thread_id)
-    snapshot = await service.snapshot(task)
     runs = await service.db.rows('SELECT * FROM document_runs WHERE thread_id=%s ORDER BY created_at DESC LIMIT 1', (thread_id,))
-    return task, snapshot, runs[0] if runs else None
+    run = runs[0] if runs else None
+    return task, await _read_snapshot(service, task, run), run
 
 
 async def reparse_task(thread_id: str, request: DocumentTaskReparse) -> dict[str, Any]:
@@ -210,6 +220,7 @@ async def _calls(service, thread_id):
 def _task_state(snapshot, run) -> tuple[TaskState, list[TaskAction], list[dict[str, Any]]]:
     values = snapshot.values or {}
     interruptions = _interrupts(snapshot)
+    reviews = [value for value in interruptions.values() if value.get('kind') == 'review']
     failures = unit_failures(values)
     active = bool(run and run['status'] in {'pending', 'running'})
     state: TaskState
@@ -218,14 +229,19 @@ def _task_state(snapshot, run) -> tuple[TaskState, list[TaskAction], list[dict[s
         assert run is not None
         state = 'PAUSING' if run['pause_requested'] else ('PENDING' if run['status'] == 'pending' else 'RUNNING')
         actions = ['interrupt'] if run['pause_requested'] or run['cancel_requested'] else ['pause', 'interrupt']
+    elif run and run['status'] == 'interrupted' and run['pause_requested'] and not run['cancel_requested'] and run['started_at'] is None:
+        state = 'PAUSED'
+        actions = ['resume']
+    elif reviews:
+        state = 'WAITING_REVIEW'
+        actions = ['retry_failed'] if any(f['retryable'] for f in failures) else []
+        if all(value.get('canAccept') for value in reviews):
+            actions.append('accept_partial')
     elif run and run['status'] == 'interrupted' and run['cancel_requested']:
         state = 'CANCELLED'
         actions = ['resume'] if snapshot.next or not values else []
         if any(f['retryable'] for f in failures):
             actions.append('retry_failed')
-    elif run and run['status'] == 'interrupted' and run['pause_requested'] and run['started_at'] is None:
-        state = 'PAUSED'
-        actions = ['resume']
     elif run and run['status'] == 'error':
         state = 'FAILED'
         actions = ['resume'] if snapshot.next and run['error_code'] not in {
@@ -236,11 +252,8 @@ def _task_state(snapshot, run) -> tuple[TaskState, list[TaskAction], list[dict[s
         if any(f['retryable'] for f in failures):
             actions.append('retry_failed')
     elif interruptions:
-        reviews = [value for value in interruptions.values() if value.get('kind') == 'review']
-        state = 'WAITING_REVIEW' if reviews else 'PAUSED'
-        actions = (['retry_failed'] if any(f['retryable'] for f in failures) else []) if reviews else ['resume']
-        if reviews and all(value.get('canAccept') for value in reviews):
-            actions.append('accept_partial')
+        state = 'PAUSED'
+        actions = ['resume']
     elif run and run['status'] == 'interrupted':
         state = 'PAUSED' if run['pause_requested'] else 'INTERRUPTED'
         actions = ['resume'] if snapshot.next or not values else []
@@ -277,7 +290,7 @@ async def get_task(thread_id: str) -> dict[str, Any]:
         } for item in parser_jobs],
         'parentThreadId': task['parent_thread_id'],
         'modelConfigured': not load().read_only,
-        'resumeCompatible': not load().read_only and (not values.get('execution') or values['execution'].get('signature') == signature()),
+        'resumeCompatible': not load().read_only and not (run and run['error_code'] == 'TASK_CHECKPOINT_UNREADABLE') and (not values.get('execution') or values['execution'].get('signature') == signature()),
         'fileName': task['document'].get('fileName') or '文档',
         'state': state, 'phase': values.get('phase', 'pending'),
         'checkpointId': service.checkpoint_id(snapshot, run),
@@ -292,7 +305,7 @@ async def get_task(thread_id: str) -> dict[str, Any]:
         'modelBudget': {'limit': values.get('execution', {}).get('signature', {}).get('settings', {}).get('task_max_model_calls', load().task_max_model_calls), 'reserved': values.get('reservedCalls', 0)},
         'processing': values.get('processing') or None, 'usage': list(usage.values()),
         'unknownUsageCalls': [item['callKey'] for item in calls if item['status'] != 'completed'],
-        'canExportCompleted': state in {'PAUSED', 'INTERRUPTED', 'COMPLETED'} and bool(values.get('result', {}).get('questions') or
+        'canExportCompleted': state in {'PAUSED', 'INTERRUPTED', 'CANCELLED', 'COMPLETED'} and bool(values.get('result', {}).get('questions') or
             any(item.get('parsed') and (item['parsed'].get('questionCount') or item['parsed'].get('questions')) for key in ('visionResults', 'chunkResults') for item in values.get(key, []))),
     }).model_dump(mode='json')
 
@@ -310,7 +323,7 @@ async def get_task_head(thread_id: str) -> dict[str, Any]:
         'state': summary['state'], 'checkpointId': summary['checkpointId'],
         'updatedAt': summary['head']['updatedAt'],
         'modelConfigured': not load().read_only,
-        'resumeCompatible': not load().read_only and (not execution or execution['signature'] == signature()),
+        'resumeCompatible': not load().read_only and not (run and run['error_code'] == 'TASK_CHECKPOINT_UNREADABLE') and (not execution or execution['signature'] == signature()),
     }).model_dump(mode='json')
 
 
@@ -329,7 +342,7 @@ async def export_task(thread_id: str, checkpoint_id: str | None = None, *, compl
         if not detail.canExportCompleted:
             raise conflict('No completed questions are available', 'BANK_EXPORT_NOT_READY')
         from .graphs.document import completed_result
-        update = await completed_result(snapshot.values)
+        update = await completed_result(cast(DocumentState, snapshot.values))
         detail = DocumentTaskDetail.model_validate({**detail.model_dump(), **update, 'state': 'COMPLETED'})
     payload = await export_task_bank(detail, get_object_store(), source=DocumentReference.model_validate(task['document']))
     try:
@@ -457,7 +470,7 @@ FILTER_RUN_SQL: dict[TaskFilter, LiteralString] = {
     'active': "(r.status IN ('pending','running') OR r.run_id IS NULL)",
     'completed': "(r.status IN ('success','waiting') OR r.run_id IS NULL)",
     'paused': "(r.status='waiting' OR (r.status='interrupted' AND NOT r.cancel_requested) OR r.run_id IS NULL)",
-    'review': "(r.status='waiting' OR (r.status='interrupted' AND NOT r.cancel_requested) OR r.run_id IS NULL)",
+    'review': "(r.status IN ('waiting','interrupted','error') OR r.run_id IS NULL)",
     'cancelled': "r.status='interrupted' AND r.cancel_requested",
     'failed': "r.status='error'",
     'interrupted': "r.status='interrupted' AND NOT r.cancel_requested",
@@ -559,7 +572,7 @@ async def _task_summary(service, task, run, checkpoint_id):
     if cached and cached[0] == key:
         service.task_summaries.move_to_end(thread_id)
         return cached[1]
-    snapshot = await service.snapshot(task)
+    snapshot = await _read_snapshot(service, task, run)
     values = snapshot.values or {}
     questions = values.get('result', {}).get('questions', [])
     summary = {'state': _task_state(snapshot, run)[0], 'status': values.get('status') or None,

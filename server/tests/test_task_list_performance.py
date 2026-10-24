@@ -137,8 +137,12 @@ async def test_filtered_candidates_use_latest_run_and_keep_ambiguous_interrupts_
     assert calls.await_count == 4  # Non-quiescent checkpoints never reuse a completion summary.
     async with service.db.connection() as conn:
         await conn.execute('UPDATE document_runs SET cancel_requested=true WHERE run_id=%s', (newest,))
+    assert (await task_api.list_tasks(state_filter='review'))['items'][0]['threadId'] == tid
+    assert not (await task_api.list_tasks(state_filter='cancelled'))['items']
+    current = snapshot._replace(interrupts=(Interrupt({'kind': 'pause'}),))
     assert (await task_api.list_tasks(state_filter='cancelled'))['items'][0]['threadId'] == tid
     assert not (await task_api.list_tasks(state_filter='review'))['items']
+    current = snapshot._replace(interrupts=(Interrupt({'kind': 'review'}),))
     async with service.db.connection() as conn:
         await conn.execute('DELETE FROM document_runs WHERE thread_id=%s', (tid,))
     assert (await task_api.list_tasks(state_filter='review'))['items'][0]['threadId'] == tid
