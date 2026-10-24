@@ -12,7 +12,9 @@ use std::{
 };
 use zip::{write::SimpleFileOptions, ZipArchive, ZipWriter};
 const LIMIT: usize = 512 * 1024 * 1024;
-pub(crate) const ARCHIVE_LIMIT: u64 = (LIMIT + 2 * 1024 * 1024) as u64;
+const MANIFEST_LIMIT: usize = 16 * 1024 * 1024;
+// Budget metadata separately from the unchanged database/resource payload limit.
+pub(crate) const ARCHIVE_LIMIT: u64 = (LIMIT + 2 * MANIFEST_LIMIT) as u64;
 pub(crate) fn file_digest(path: &Path) -> Result<(u64, String)> {
     let mut file = fs::File::open(path).map_err(err)?;
     let mut digest = Sha256::new();
@@ -63,7 +65,7 @@ impl Store {
                     .map_err(err)?;
         }
         let manifest = serde_json::to_vec(&manifest).map_err(err)?;
-        if manifest.len() > 1024 * 1024 {
+        if manifest.len() > MANIFEST_LIMIT {
             return Err(crate::language::error(
                 "LOCAL_MANIFEST_TOO_LARGE",
                 serde_json::json!({}),
@@ -254,7 +256,7 @@ impl Store {
                     .map_err(err)?;
         }
         let inventory = serde_json::to_vec(&inventory).map_err(err)?;
-        if inventory.len() > 1024 * 1024 {
+        if inventory.len() > MANIFEST_LIMIT {
             return Err(crate::language::error(
                 "LOCAL_MANIFEST_TOO_LARGE",
                 json!({}),
@@ -285,10 +287,10 @@ impl Store {
         archive
             .by_name("manifest.json")
             .map_err(err)?
-            .take(1024 * 1024 + 1)
+            .take((MANIFEST_LIMIT + 1) as u64)
             .read_to_end(&mut manifest)
             .map_err(err)?;
-        if manifest.len() > 1024 * 1024 {
+        if manifest.len() > MANIFEST_LIMIT {
             return Err(crate::language::error(
                 "LOCAL_MANIFEST_TOO_LARGE",
                 serde_json::json!({}),
@@ -348,7 +350,8 @@ impl Store {
         let mut total = 0u64;
         for i in 0..archive.len() {
             let f = archive.by_index(i).map_err(err)?;
-            if !allowed.remove(f.name().map_err(err)?.as_ref())
+            let name = f.name().map_err(err)?;
+            if !allowed.remove(name.as_ref())
                 || f.unix_mode().is_some_and(|m| m & 0o170000 == 0o120000)
             {
                 return Err(crate::language::error(
@@ -356,11 +359,14 @@ impl Store {
                     serde_json::json!({}),
                 ));
             }
+            if name == "manifest.json" {
+                continue;
+            }
             total = total.checked_add(f.size()).ok_or(crate::language::error(
                 "LOCAL_BACKUP_SIZE_OVERFLOW",
                 serde_json::json!({}),
             ))?;
-            if total > (LIMIT + 1024 * 1024) as u64 {
+            if total > LIMIT as u64 {
                 return Err(crate::language::error(
                     "LOCAL_BACKUP_EXPANDED_TOO_LARGE",
                     serde_json::json!({}),
@@ -733,15 +739,28 @@ fn validate_database_contents(db: &Connection) -> Result<()> {
     if invalid_navigation {
         return Err(crate::language::error("LOCAL_BACKUP_RELATIONS", json!({})));
     }
+    let question_ids = db
+        .prepare("SELECT id FROM questions")
+        .map_err(err)?
+        .query_map([], |r| r.get::<_, String>(0))
+        .map_err(err)?
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .map_err(err)?;
+    let ids = question_ids.iter().map(String::as_str).collect();
+    // Question projections omit document-only and unlinked visuals.
+    let mut visuals = db.prepare("SELECT content FROM visuals").map_err(err)?;
+    for raw in visuals
+        .query_map([], |r| r.get::<_, String>(0))
+        .map_err(err)?
+    {
+        let visual: Value = serde_json::from_str(&raw.map_err(err)?).map_err(err)?;
+        crate::contract::validate_context(&[], std::slice::from_ref(&visual), &ids)?;
+    }
     let rows = crate::questions::read(db)?;
     let mut questions: Vec<_> = rows.iter().map(|r| r["question"].clone()).collect();
     crate::contract::validate_tree(&mut questions)?;
     crate::questions::validate_tables(db)?;
     let doc = crate::questions::freeze(&rows);
-    let ids: std::collections::HashSet<_> = rows
-        .iter()
-        .map(|r| crate::contract::text(r, "id"))
-        .collect();
     crate::contract::validate_context(
         crate::contract::list(&doc, "groups"),
         crate::contract::list(&doc, "visuals"),
