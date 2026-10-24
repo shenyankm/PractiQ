@@ -25,8 +25,11 @@ async def test_english_pipeline_keeps_metadata_and_does_not_solve(monkeypatch):
     assert actual.schemaVersion == 3
     assert {q.questionKind for q in actual.questions if q.questionKind} == {q.questionKind for q in expected.questions if q.questionKind}
     for left, right in zip(actual.questions, expected.questions, strict=True):
-        for key in ('instructions', 'audioRef', 'transcript', 'examPlayCount', 'sourceLanguage', 'targetLanguage', 'writingGenre', 'minWords', 'maxWords', 'answerPayload'):
+        for key in ('instructions', 'transcript', 'examPlayCount', 'sourceLanguage', 'targetLanguage', 'writingGenre', 'minWords', 'maxWords', 'answerPayload'):
             assert left.model_dump()[key] == right.model_dump()[key]
+        assert left.audioRef is None
+        if right.audioRef is not None:
+            assert left.needsReview and 'media' in left.missingFields
     assert actual.questions[-1].answerPayload is None
 
 

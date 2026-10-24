@@ -199,6 +199,88 @@ async def test_export_defaults_to_full_filename_when_dot_extension_has_no_stem(t
     assert json.loads(files["questions.json"])["status"] == "PARTIAL"
 
 
+@pytest.mark.parametrize('namespace', ['outside-task', 'missing-in-task'])
+@pytest.mark.parametrize('completed_only', [False, True], ids=['current-result', 'completed-scope'])
+async def test_model_audio_reference_does_not_block_bank_export(tmp_path, monkeypatch, namespace, completed_only):
+    store, source = await source_store(tmp_path)
+    digest = 'a' * 64
+    key = ('audio/lesson.wav' if namespace == 'outside-task' else
+           f'practiq-agent/artifacts/{source.sha256}/audio/0-{digest}.bin')
+    draft = document.ChunkParseResult.model_validate({'questions': [{
+        'stem': 'Listen to the source passage', 'answerMode': 'listening',
+        'questionKind': 'listening', 'questionTypeId': 'listening',
+        'sourceText': 'Listen to the source passage', 'analysis': 'Supplied explanation',
+        'transcript': [{'partType': 'text', 'textValue': 'Supplied transcript'}],
+        'audioRef': {'objectKey': key, 'sha256': digest, 'mediaType': 'audio/wav', 'sizeBytes': 12},
+        'confidence': .9, 'needsReview': False,
+    }], 'groups': []})
+    assert draft.questions[0].audioRef is None
+    assert 'media' in draft.questions[0].missingFields
+    state = cast(Any, {'document': source.model_dump(mode='json'),
+                      'chunkResults': [{'index': 0, 'parsed': draft.model_dump(mode='json')}]})
+    monkeypatch.setattr(document, 'get_object_store', lambda: store)
+    monkeypatch.setattr(document, 'get_model', lambda: pytest.fail('Export must not call a model'))
+    projection = (await document.completed_result(state) if completed_only else
+                  await document._merge(state, passive=True))
+    task = detail(result=projection['result'], status=projection['status'], processing=projection['processing'])
+    files = unpack(await bank_export.export_task_bank(task, store, source=source))
+    exported = json.loads(files['questions.json'])['result']['questions'][0]
+    assert exported['audioRef'] is None
+    assert exported['needsReview'] and 'media' in exported['missingFields']
+    assert exported['transcript'] == draft.questions[0].model_dump(mode='json')['transcript']
+    assert task.processing is not None
+    assert task.processing.questionSources[0].questionId == exported['id']
+
+
+@pytest.mark.parametrize('completed', [False, True])
+async def test_saved_model_audio_is_reviewable_and_exports_without_replaying_work(tmp_path, monkeypatch, completed):
+    from datetime import timedelta
+    from types import SimpleNamespace
+
+    from langgraph.types import StateSnapshot
+
+    from practiq_ai import runtime, task_api
+    from practiq_ai.database import utcnow
+    from tests.support import MemoryStore
+
+    store, source = await source_store(tmp_path)
+    root = parsed(detail()).model_dump(mode='json')
+    root['questions'][0].update(
+        answerMode='listening', questionKind='listening', answerPayload=None,
+        transcript=[{'partType': 'text', 'textValue': 'Supplied transcript'}],
+        audioRef={'objectKey': 'audio/fabricated.wav', 'sha256': 'a' * 64, 'mediaType': 'audio/wav', 'sizeBytes': 12},
+    )
+    saved = {'status': 'SUCCEEDED', 'result': root}
+    before = deepcopy(saved)
+    snapshot = StateSnapshot(values=saved, next=(), config={'configurable': {'checkpoint_id': 'current-result'}},
+                             metadata=None, created_at=None, parent_config=None, tasks=(), interrupts=())
+    task = {'document': source.model_dump(mode='json'), 'created_at': utcnow(),
+            'expires_at': utcnow() + timedelta(days=1), 'parent_thread_id': None}
+    service = SimpleNamespace(db=SimpleNamespace(store=MemoryStore()), checkpoint_id=runtime.Service.checkpoint_id)
+    monkeypatch.setattr(task_api, 'client', lambda: service)
+    monkeypatch.setattr(task_api, '_read_task', AsyncMock(return_value=(task, snapshot, None)))
+    monkeypatch.setattr(task_api, 'get_object_store', lambda: store)
+    monkeypatch.setattr(document, 'get_model', lambda: pytest.fail('Saved projection/export must not invoke a model'))
+    thread_id = str(detail().threadId)
+    projected = await task_api.get_task(thread_id)
+    candidate = projected['result']['questions'][0]
+    assert candidate['audioRef'] is None and candidate['needsReview'] and 'media' in candidate['missingFields']
+    assert candidate['transcript'][0]['textValue'] == 'Supplied transcript'
+    files = unpack(await task_api.export_task(thread_id, 'current-result', completed=completed))
+    assert json.loads(files['questions.json'])['result']['questions'][0]['audioRef'] is None
+    assert saved == before, 'read projection must not rewrite the original saved receipt/result'
+    for inline in (False, True):
+        if inline:
+            saved.pop('result')
+            saved['chunkResults'] = [{'index': 0, 'parsed': {'questions': root['questions'], 'groups': []}}]
+        before_preview = deepcopy(saved)
+        preview = await task_api.review_task(thread_id)
+        reviewed = next(unit['questions'][0] for unit in preview['units'] if unit['questions'])
+        assert reviewed['audioRef'] is None and reviewed['needsReview'] and 'media' in reviewed['missingFields']
+        assert reviewed['transcript'][0]['textValue'] == 'Supplied transcript'
+        assert saved == before_preview
+
+
 async def test_export_includes_deduplicated_images_full_source_ref_and_audio(tmp_path):
     store, source = await source_store(tmp_path)
     image = await store.put_artifact(make_image(), source_sha256=source.sha256, kind="visual", index=0, media_type="image/png")

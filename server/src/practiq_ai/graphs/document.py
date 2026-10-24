@@ -49,6 +49,7 @@ from practiq_ai.contracts import (
     UnitFailureStage,
     VisualElement,
     VisualKind,
+    question_missing_fields,
     validate_question_tree,
 )
 from practiq_ai.errors import DocumentProcessingError
@@ -391,6 +392,15 @@ def _rendered_strings(value: Any) -> list[str]:
     return [text for item in value for text in _rendered_strings(item)] if isinstance(value, list) else []
 
 
+def discard_model_audio(questions: list[ParsedQuestion]) -> None:
+    # Import tasks never create audio artifacts; portable bank contracts still support them.
+    for question in questions:
+        if question.audioRef is not None:
+            question.audioRef = None
+            question.needsReview = True
+            question.missingFields = question_missing_fields(question.model_dump())
+
+
 class ChunkParseResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
     questions: list[ParsedQuestion] = Field(default_factory=list, max_length=1_000)
@@ -429,6 +439,7 @@ class ChunkParseResult(BaseModel):
 
     @model_validator(mode="after")
     def validate_group_indexes(self) -> Self:
+        discard_model_audio(self.questions)
         violations: list[str] = []
         expected = EXPECTED_NODE_COUNT.get()
         if expected is not None and len(self.questions) != expected:
@@ -1341,15 +1352,22 @@ def _page_result(state, parsed, usage, verified):
                 if linked.role != "answer":
                     linked.role = "answer"
                     pending.append(linked)
+    copy_budget = 1024 * 1024  # Full tables remain once in linked visuals after this copy budget.
     for figure in parsed.figures:
         if figure.kind == "table":
             table = table_markdowns[id(figure)]
+            table_bytes = len(json.dumps(table, ensure_ascii=False).encode()) if table else 0
             if table:
                 figure.extractedText = table
             for index in figure.questionIndexes or (range(len(parsed.questions)) if not table else []):
                 question = parsed.questions[index]
                 if table:
                     existing = next((block for block in question.contentBlocks if block.partType == "table" and block.markdownValue == table), None)
+                    added_bytes = table_bytes * (int(existing is None) + int(table not in (question.sourceText or "")))
+                    if added_bytes > copy_budget:
+                        question.needsReview = True
+                        continue
+                    copy_budget -= added_bytes
                     if existing is not None:
                         if figure.role == "answer" or existing.role is None:
                             existing.role = figure.role

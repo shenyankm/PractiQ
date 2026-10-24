@@ -947,7 +947,9 @@ def finalize_question_ids(questions, groups, visuals, sources, quality):
                         raise SourceQuestionConflict("Conflicting composite shared option", index)
                 elif option not in target.options:
                     target.options.append(option)
-            for field in ("questionKind", "instructions", "audioRef", "audioEndSeconds"):
+            target.allowReuse |= question.allowReuse
+            for field in ("questionKind", "questionTypeId", "instructions", "analysis", "scoringRubric",
+                          "scoreSourceText", "sourceScore", "audioRef", "audioEndSeconds"):
                 value = getattr(question, field)
                 old = getattr(target, field)
                 if value is not None:
@@ -966,7 +968,7 @@ def finalize_question_ids(questions, groups, visuals, sources, quality):
             target.confidence = min(target.confidence, question.confidence)
             target.missingFields = list(dict.fromkeys([*target.missingFields, *question.missingFields]))
             try:
-                ParsedQuestion.model_validate(target.model_dump())
+                retained[prior] = ParsedQuestion.model_validate(target.model_dump())
             except ValidationError as exc:
                 raise SourceQuestionConflict("Composite continuation violates question constraints", index) from exc
             index_map[index] = prior

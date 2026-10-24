@@ -41,7 +41,21 @@ Model-facing OCR page numbers use the same one-based numbering as question IDs;
 stored OCR indices remain unchanged. Context completion preserves ordinary
 questions' existing material blocks as well as composite content. Associated
 material from neighboring pages must be retained in displayable content blocks
-or passages, not only in `sourceText` quotations.
+or passages, not only in `sourceText` quotations. Composite continuations retain
+later printed reuse permission, rubric, analysis and source-score metadata;
+conflicting non-null metadata is rejected for review rather than silently lost.
+
+Table copies added to question blocks/source quotations share a 1 MiB per-page
+budget. When exhausted, the full table remains once in its linked visual with
+all question associations and original bounds; questions using the linked-only
+material remain flagged for review. This limits copy amplification without
+raising the 32 MiB bank JSON limit or discarding source/model-provided blocks.
+
+The import service creates no audio artifacts. Model-supplied `audioRef` values
+are discarded from drafts and from read-only projections of saved task results;
+listening content keeps its transcript and missing-media review flag. Saved
+results and provider receipts are not rewritten or resubmitted. Portable bank
+contracts still support verified audio supplied outside this import workflow.
 
 An unassociated figure with a retained full source page is not published as a
 verified crop: keep the full-page `sourceRef`, report `CROP_UNVERIFIED` and retain
