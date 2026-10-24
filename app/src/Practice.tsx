@@ -49,6 +49,8 @@ export function Practice(props: PracticeProps) {
   const [actionsContainer, setActionsContainer] = useState<HTMLDivElement | null>(null);
   const [confirmFinish,setConfirmFinish]=useState(false);
   const [finishing, setFinishing] = useState(false);
+  const [navigating, setNavigating] = useState(false);
+  const navigationJob = useRef(false);
   useEffect(() => { setConfirmFinish(false); setDraft(undefined); }, [session.id]);
   const finishButton = useRef<HTMLButtonElement>(null);
   const questionHeading = useRef<HTMLHeadingElement>(null);
@@ -56,8 +58,16 @@ export function Practice(props: PracticeProps) {
   const reviewOnClose = useRef(false);
   const go = useCallback((position: number) => {
     run(async () => {
-      await flushRef.current();
-      onSession(await api({ type: "position", id: session.id, position }));
+      if (navigationJob.current) return;
+      navigationJob.current = true;
+      setNavigating(true);
+      try {
+        await flushRef.current();
+        onSession(await api({ type: "position", id: session.id, position }));
+      } finally {
+        navigationJob.current = false;
+        setNavigating(false);
+      }
     });
   }, [run, onSession, session.id, flushRef]);
   const unassessed = exam ? [] : session.attempts.filter(a => a.submittedAt != null && !a.skipped && a.result === null);
@@ -71,18 +81,18 @@ export function Practice(props: PracticeProps) {
       } finally { setFinishing(false); }
     });
   }
-  return <div className="practice-session @container space-y-4">
+  return <div className="practice-session @container space-y-4" aria-busy={navigating}>
     <div className="practice-overview"><p className="text-sm text-muted-foreground">{t(finished ? "本次作答已结束，正在回顾作答与解析。" : exam ? "答案自动保存，交卷后统一核对评分。" : "草稿自动保存，提交后查看答案与解析。")}</p><Button asChild variant="outline"><a href="#answer-card-panel" onClick={() => { if (answerCard.current) answerCard.current.open = true; }}>{t("查看答题卡")}</a></Button></div>
     <div ref={setScrollBoundary} className="practice-scroll space-y-4">
     {listening && <ListeningPlayer key={`${session.id}-${listening.id}-${listening.audioRef?.sha256}`} question={listening} session={session}/>}
     <div className="grid grid-cols-1 gap-6 @2xl:grid-cols-[minmax(0,1fr)_240px]">
-      <PracticeQuestion key={`${session.id}-${session.position}`} {...props} go={go} onDraft={onDraft} questionHeading={questionHeading} materialReading={materialReading} actionsContainer={actionsContainer}/>
+      <PracticeQuestion key={`${session.id}-${session.position}`} {...props} navigating={navigating} go={go} onDraft={onDraft} questionHeading={questionHeading} materialReading={materialReading} actionsContainer={actionsContainer}/>
       <aside className="min-w-0 self-start space-y-4 @2xl:sticky @2xl:top-0">
         <details ref={answerCard} className="practice-answer-card" open={!props.compact}>
           <summary className="font-medium">{t("答题卡")} · {t("第 {0} / {1} 题", {0:session.position + 1,1:session.attempts.length})}</summary>
           <AnswerCard key={session.id} session={session} answer={answer} exam={exam} go={go} boundary={scrollBoundary} compact={!!props.compact}/>
         </details>
-        {!finished && <Button ref={finishButton} className="w-full" variant="outline" onClick={() => run(async () => { await flushRef.current(); onSession(await api({type:"session", id:session.id})); setConfirmFinish(true); })}>{exam ? t("交卷") : t("结束练习")}</Button>}
+        {!finished && <Button ref={finishButton} disabled={navigating} className="w-full" variant="outline" onClick={() => run(async () => { await flushRef.current(); onSession(await api({type:"session", id:session.id})); setConfirmFinish(true); })}>{exam ? t("交卷") : t("结束练习")}</Button>}
         <AlertDialog open={confirmFinish && !finished} onOpenChange={open => { if (!finishing) setConfirmFinish(open); }}>
           <AlertDialogContent className="sm:max-w-lg" onCloseAutoFocus={event => { event.preventDefault(); (reviewOnClose.current ? questionHeading : finishButton).current?.focus(); reviewOnClose.current = false; }}>
             <AlertDialogHeader><AlertDialogTitle>{exam ? t("确认交卷？") : t("结束本次练习？")}</AlertDialogTitle><AlertDialogDescription>{t("已提交 {0} 题；未提交草稿 {1} 题；空白 {2} 题。结束后不能修改答案。", { 0: session.attempts.filter(a => a.submittedAt != null).length, 1: session.attempts.filter(a => a.submittedAt == null && hasAnswer(a.answer)).length, 2: session.attempts.filter(a => a.submittedAt == null && !hasAnswer(a.answer)).length })}{unassessed.length > 0 && <span className="mt-2 block">{t("还有 {0} 题未自评。结束后仍可在练习记录中核对并补充自评。", {0:unassessed.length})}</span>}</AlertDialogDescription></AlertDialogHeader>
@@ -95,8 +105,8 @@ export function Practice(props: PracticeProps) {
     <div className="practice-footer flex gap-3 rounded-lg border-t bg-card p-3">
       <div className="practice-actions" ref={setActionsContainer}/>
       <nav className="practice-navigation" aria-label={t("题目导航")}>
-        <Button variant="outline" disabled={session.position === 0} onClick={() => go(session.position - 1)}>{t("上一题")}</Button>
-        <Button variant={exam || finished || attempt.submittedAt != null ? "default" : "outline"} disabled={session.position === session.attempts.length - 1} onClick={() => go(session.position + 1)}>{t("下一题")}</Button>
+        <Button variant="outline" disabled={navigating || session.position === 0} onClick={() => go(session.position - 1)}>{t("上一题")}</Button>
+        <Button variant={exam || finished || attempt.submittedAt != null ? "default" : "outline"} disabled={navigating || session.position === session.attempts.length - 1} onClick={() => go(session.position + 1)}>{t("下一题")}</Button>
       </nav>
     </div>
   </div>;
@@ -115,7 +125,9 @@ function PracticeQuestion({
   questionHeading,
   materialReading,
   actionsContainer,
+  navigating,
 }: PracticeProps & {
+  navigating: boolean;
   go: (position: number) => void;
   onDraft: (answer: Answer | null) => void;
   questionHeading: MutableRefObject<HTMLHeadingElement | null>;
@@ -221,7 +233,7 @@ function PracticeQuestion({
     };
   }, [session.id, session.position, submitted, finished, persist, flushRef]);
   function change(a: Answer | null) {
-    if (submissionJob.current || submitted || finished) return;
+    if (navigating || submissionJob.current || submitted || finished) return;
     setAnswer(a);
     onDraft(a);
     answerRef.current = a;
@@ -275,7 +287,7 @@ function PracticeQuestion({
           </div>
         </CardHeader>
         <CardContent className="practice-question-body space-y-4">
-          {saveError && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/40 p-3 text-sm"><p>{t("答案保存失败，请重试或保持窗口打开。")}</p><Button variant="outline" disabled={saved === "保存中…"} onClick={() => run(async () => { await persist(); })}>{t("重试保存")}</Button></div>}
+          {saveError && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/40 p-3 text-sm"><p>{t("答案保存失败，请重试或保持窗口打开。")}</p><Button variant="outline" disabled={navigating || saved === "保存中…"} onClick={() => run(async () => { await persist(); })}>{t("重试保存")}</Button></div>}
           {exam && !handedIn && <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={()=>run(async()=>{await flushRef.current();onSession(await api({type:"flag",id:session.id,ordinal:session.position,value:!attempt.flagged}));})}>{attempt.flagged?t("取消待检查标记"):t("标记待检查")}</Button>
           </div>}
@@ -294,9 +306,9 @@ function PracticeQuestion({
             value={answer}
             usedOptions={q.optionSourceId && attempt.snapshot.materials?.some(p=>p.id===q.optionSourceId && !p.allowReuse) ? session.attempts.filter(a=>a.ordinal!==session.position && a.snapshot.question.optionSourceId===q.optionSourceId).flatMap(a=>a.answer?.correct || []) : []}
             onChange={change}
-            disabled={submitted || finished || submitting}
+            disabled={navigating || submitted || finished || submitting}
           />}
-          {!submitted && !finished && answer != null && <Button variant="outline" disabled={submitting} onClick={()=>change(null)}>{t("清空作答")}</Button>}
+          {!submitted && !finished && answer != null && <Button variant="outline" disabled={navigating || submitting} onClick={()=>change(null)}>{t("清空作答")}</Button>}
           {submitted && (
             <section className="space-y-4 rounded-lg border bg-muted/30 p-5">
               <div className="flex flex-wrap items-center gap-3">
@@ -355,7 +367,7 @@ function PracticeQuestion({
           {!exam && !submitted && !finished && actionsContainer && createPortal(<>
               <Button
                 disabled={
-                  submitting || !answerReady(
+                  navigating || submitting || !answerReady(
                     canInteract(q) ? q : { ...q, answerMode: "short_answer" },
                     answer,
                   )
@@ -368,7 +380,7 @@ function PracticeQuestion({
               >{t("提交答案")}</Button>
               <Button
                 variant="outline"
-                disabled={submitting}
+                disabled={navigating || submitting}
                 onClick={() =>
                   run(async () => {
                     onSession(await persist(true, true));

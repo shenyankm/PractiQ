@@ -1,4 +1,5 @@
 use super::*;
+use rusqlite::params;
 
 fn archive_database(database: &Path, archive: &Path) {
     let (size, digest) = file_digest(database).unwrap();
@@ -15,6 +16,192 @@ fn archive_database(database: &Path, archive: &Path) {
     zip.start_file("practiq.sqlite", options).unwrap();
     zip.write_all(&fs::read(database).unwrap()).unwrap();
     zip.finish().unwrap();
+}
+
+fn library_with_images(path: &Path, count: u32) -> Store {
+    let store = Store::new(path.to_owned()).unwrap();
+    let mut db = store.connect().unwrap();
+    let tx = db.transaction().unwrap();
+    tx.execute("INSERT INTO banks VALUES('resources','Resources','',0)", [])
+        .unwrap();
+    for index in 0..count {
+        let pixel = image::Rgb([(index >> 16) as u8, (index >> 8) as u8, index as u8]);
+        let mut image = std::io::Cursor::new(Vec::new());
+        image::DynamicImage::ImageRgb8(image::RgbImage::from_pixel(1, 1, pixel))
+            .write_to(&mut image, image::ImageFormat::Png)
+            .unwrap();
+        let bytes = image.into_inner();
+        let digest = crate::store::hash(&bytes);
+        store.write_asset(&digest, &bytes).unwrap();
+        tx.execute(
+            "INSERT INTO assets VALUES(?1,'image/png',?2,?3)",
+            params![digest, bytes.len(), format!("assets/{digest}")],
+        )
+        .unwrap();
+        let visual = json!({"kind":"image","description":"Synthetic pixel","documentOnly":true,"questionIds":[],"imageRef":{"objectKey":format!("practiq-agent/artifacts/{digest}/fixture/0-{digest}.png"),"sha256":digest,"mediaType":"image/png","sizeBytes":bytes.len()}});
+        tx.execute(
+            "INSERT INTO visuals VALUES(?1,'resources',?2,1)",
+            params![format!("image-{index}"), visual.to_string()],
+        )
+        .unwrap();
+    }
+    tx.commit().unwrap();
+    store
+}
+
+#[test]
+fn large_asset_inventory_round_trips_and_keeps_restore_recovery_available() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = library_with_images(&dir.path().join("source"), 5400);
+    let archive = dir.path().join("large.zip");
+    source.backup(&archive).unwrap();
+    let mut zip = ZipArchive::new(fs::File::open(&archive).unwrap()).unwrap();
+    assert!(zip.by_name("manifest.json").unwrap().size() > 1024 * 1024);
+    drop(zip);
+    let inventory = dir.path().join("recovery-inventory");
+    source.preserve_damaged_state(&inventory, &[]).unwrap();
+    assert!(
+        fs::metadata(inventory.join("inventory.json"))
+            .unwrap()
+            .len()
+            > 1024 * 1024
+    );
+    let target_dir = dir.path().join("target");
+    let mut target = Store::new(target_dir.clone()).unwrap();
+    target.restore(&archive).unwrap();
+    let db = target.connect().unwrap();
+    assert_eq!(
+        db.query_row("SELECT count(*) FROM assets", [], |r| r.get::<_, u32>(0))
+            .unwrap(),
+        5400
+    );
+    drop(db);
+    let reopened = Store::new(target_dir).unwrap();
+    let second = dir.path().join("second.zip");
+    reopened.backup(&second).unwrap();
+    let empty = Store::new(dir.path().join("empty")).unwrap();
+    let empty_archive = dir.path().join("empty.zip");
+    empty.backup(&empty_archive).unwrap();
+    let result = target.restore(&empty_archive).unwrap();
+    let recovery = result["recoveryPath"].as_str().unwrap();
+    let mut recovery = ZipArchive::new(fs::File::open(recovery).unwrap()).unwrap();
+    let mut raw = String::new();
+    recovery
+        .by_name("manifest.json")
+        .unwrap()
+        .read_to_string(&mut raw)
+        .unwrap();
+    let manifest: Value = serde_json::from_str(&raw).unwrap();
+    assert_eq!(manifest["assets"].as_array().unwrap().len(), 5400);
+    assert_eq!(target.banks().unwrap(), json!([]));
+}
+
+#[test]
+fn restore_keeps_manifest_archive_and_payload_bounds() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut target = Store::new(dir.path().join("target")).unwrap();
+    let oversized_archive = dir.path().join("oversized.zip");
+    fs::File::create(&oversized_archive)
+        .unwrap()
+        .set_len(ARCHIVE_LIMIT + 1)
+        .unwrap();
+    assert_eq!(
+        target.restore(&oversized_archive).unwrap_err().code,
+        "LOCAL_ARCHIVE_TOO_LARGE"
+    );
+    let manifest_archive = dir.path().join("manifest.zip");
+    let mut zip = ZipWriter::new(fs::File::create(&manifest_archive).unwrap());
+    zip.start_file("manifest.json", SimpleFileOptions::default())
+        .unwrap();
+    zip.write_all(&vec![b' '; MANIFEST_LIMIT + 1]).unwrap();
+    zip.finish().unwrap();
+    assert_eq!(
+        target.restore(&manifest_archive).unwrap_err().code,
+        "LOCAL_MANIFEST_TOO_LARGE"
+    );
+    let payload_archive = dir.path().join("payload.zip");
+    archive_database(&target.db_path(), &payload_archive);
+    let mut bytes = fs::read(&payload_archive).unwrap();
+    // Claim an oversized expanded database without allocating a 512 MiB fixture.
+    let entry = bytes
+        .windows(4)
+        .enumerate()
+        .find_map(|(index, signature)| {
+            (signature == b"PK\x01\x02"
+                && bytes.get(index + 46..index + 60) == Some(b"practiq.sqlite"))
+            .then_some(index)
+        })
+        .unwrap();
+    bytes[entry + 24..entry + 28].copy_from_slice(&((LIMIT + 1) as u32).to_le_bytes());
+    fs::write(&payload_archive, bytes).unwrap();
+    assert_eq!(
+        target.restore(&payload_archive).unwrap_err().code,
+        "LOCAL_BACKUP_EXPANDED_TOO_LARGE"
+    );
+}
+
+#[test]
+fn restore_rejects_malformed_document_visuals_before_changing_live_data() {
+    let cases = [
+        ("", json!([1]), "OPERATION_FAILED"),
+        ("/imageRef/sha256", json!(5), "LOCAL_SCHEMA_INVALID"),
+        ("/sourceRef/sha256", json!(5), "LOCAL_SCHEMA_INVALID"),
+        (
+            "/questionIds",
+            json!("not-an-array"),
+            "LOCAL_SCHEMA_INVALID",
+        ),
+        ("/questionIds", json!(["missing"]), "OPERATION_FAILED"),
+    ];
+    for (index, ((pointer, replacement, code), document_level)) in cases
+        .into_iter()
+        .flat_map(|v| [(v.clone(), 0), (v, 1)])
+        .enumerate()
+    {
+        let dir = tempfile::tempdir().unwrap();
+        let source = library_with_images(&dir.path().join("source"), 1);
+        let raw: String = source
+            .connect()
+            .unwrap()
+            .query_row("SELECT content FROM visuals LIMIT 1", [], |r| r.get(0))
+            .unwrap();
+        let mut visual: Value = serde_json::from_str(&raw).unwrap();
+        visual["sourceRef"] = visual["imageRef"].clone();
+        crate::contract::validate_context(&[], std::slice::from_ref(&visual), &Default::default())
+            .unwrap();
+        if pointer.is_empty() {
+            visual = replacement;
+        } else {
+            *visual.pointer_mut(pointer).unwrap() = replacement;
+        }
+        source
+            .connect()
+            .unwrap()
+            .execute(
+                "INSERT INTO visuals VALUES('bad','resources',?1,?2)",
+                params![visual.to_string(), document_level],
+            )
+            .unwrap();
+        let archive = dir.path().join("malformed.zip");
+        source.backup(&archive).unwrap();
+        let target_dir = dir.path().join("target");
+        let mut target = Store::new(target_dir.clone()).unwrap();
+        target.save_bank(None, "Keep this bank", "").unwrap();
+        let before = file_digest(&target.db_path()).unwrap();
+        let error = target.restore(&archive).unwrap_err();
+        assert_eq!(error.code, code, "malformed visual {index}");
+        assert_eq!(file_digest(&target.db_path()).unwrap(), before);
+        assert_eq!(target.banks().unwrap()[0]["title"], "Keep this bank");
+        drop(target);
+        let reopened = Store::new(target_dir).unwrap();
+        let bank = reopened.banks().unwrap();
+        reopened
+            .export_bank(
+                bank[0]["id"].as_str().unwrap(),
+                &dir.path().join("still-usable.zip"),
+            )
+            .unwrap();
+    }
 }
 
 #[test]
