@@ -4,7 +4,7 @@ PractiQ has two workflows: import and inspect documents in the independent Web f
 
 ## Visual and interaction rules
 
-Keep the octopus identity, purple primary actions, system fonts, Lucide icons and existing shadcn components. Use quiet page backgrounds with distinct cards, bounded content widths and visible field labels. Keep the purple action identity in dark mode. Normal text targets a contrast ratio of at least 4.5:1, and input boundaries target 3:1 against their surface. Do not import remote fonts, add a UI library or animate routine list updates.
+Keep the octopus identity, blue primary actions, system fonts, Lucide icons and existing shadcn components. Use quiet page backgrounds with distinct cards, bounded content widths and visible field labels. Keep the blue action identity in dark mode. Normal text targets a contrast ratio of at least 4.5:1, and input boundaries target 3:1 against their surface. Do not import remote fonts, add a UI library or animate routine list updates.
 
 Separate the primary action from supporting and destructive operations. Make the next step apparent in empty, filtered, loading and failed states. Keep errors until an explicit retry or relevant edit. Preserve keyboard focus after local filter resets, and provide links between the current question and the answer card. Keep editor and import actions outside their scrolling content, while retaining dirty-draft confirmation.
 

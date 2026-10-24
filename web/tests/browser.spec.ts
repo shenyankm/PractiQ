@@ -239,7 +239,7 @@ test("shared dropdowns preserve themed menus, empty filters and keyboard focus",
   const all = page.getByRole("option", { name: "全部任务", exact: true });
   await expect(all).toBeFocused();
   await expect(all).toHaveAttribute("data-state", "checked");
-  await expect(page.getByRole("listbox")).toHaveCSS("background-color", "rgb(255, 252, 250)");
+  await expect(page.getByRole("listbox")).toHaveCSS("background-color", "rgb(255, 255, 255)");
   await page.screenshot({ path: testInfo.outputPath("web-select-menu.png"), animations: "disabled" });
   await page.keyboard.press("End");
   await expect(page.getByRole("option", { name: "已过期", exact: true })).toBeFocused();

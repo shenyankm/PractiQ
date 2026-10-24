@@ -26,7 +26,7 @@ async function capture(page, name) {
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
   const dark = name.includes("-dark-");
   await expect.poll(() => page.evaluate(() => document.documentElement.classList.contains("dark"))).toBe(dark);
-  await expect.poll(() => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--primary").trim())).toBe(dark ? "#d9b5e5" : "#795088");
+  await expect.poll(() => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--primary").trim())).toBe(dark ? "#60a5fa" : "#1d4ed8");
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), { message: `${name}: document overflow` }).toBe(true);
   const content = page.locator(".app-content");
   if (await content.count()) await expect.poll(() => content.evaluate(node => node.scrollWidth <= node.clientWidth), { message: `${name}: content overflow` }).toBe(true);
@@ -90,7 +90,7 @@ try {
       await filter.click();
       await expect(filter).toHaveAttribute("data-slot", "select-trigger");
       await expect(app.getByRole("option", { name: "全部", exact: true })).toBeVisible();
-      await expect(app.getByRole("option", { name: "全部", exact: true })).toHaveCSS("color", "rgb(121, 80, 136)");
+      await expect(app.getByRole("option", { name: "全部", exact: true })).toHaveCSS("color", "rgb(29, 78, 216)");
       await capture(app, "app-history-menu-light-desktop");
       await app.keyboard.press("Escape");
       await filter.focus();
@@ -120,18 +120,24 @@ try {
     toast.error('样式检查：示例错误');
   });
   const notice = app.locator('[data-sonner-toast][data-type="error"]');
-  await expect(notice).toHaveCSS('background-color', 'rgb(65, 42, 51)');
+  await expect(notice).toHaveCSS('background-color', 'rgb(76, 5, 25)');
   await expect(notice).toHaveCSS('border-radius', '12px');
-  await expect(notice).toHaveCSS('box-shadow', 'none');
+  await expect(notice).toHaveCSS('box-shadow', /rgba\(0,\s*0,\s*0/);
+  const darkSonner = await app.locator('[data-sonner-toaster]').evaluate(node => ({
+    success: getComputedStyle(node).getPropertyValue('--success-border').trim(),
+    warning: getComputedStyle(node).getPropertyValue('--warning-border').trim(),
+  }));
+  assert.equal(darkSonner.success, '#10b981');
+  assert.equal(darkSonner.warning, '#d97706');
   await app.getByRole("button", { name: "主题", exact: true }).click();
   await app.getByRole("menuitemradio", { name: "浅色", exact: true }).click();
-  await expect(notice).toHaveCSS('background-color', 'rgb(251, 235, 237)');
+  await expect(notice).toHaveCSS('background-color', 'rgb(255, 241, 242)');
   const sonner = await app.locator('[data-sonner-toaster]').evaluate(node => ({
     success: getComputedStyle(node).getPropertyValue('--success-border').trim(),
     warning: getComputedStyle(node).getPropertyValue('--warning-border').trim(),
   }));
-  assert.equal(sonner.success, '#79947a');
-  assert.equal(sonner.warning, '#ab873e');
+  assert.equal(sonner.success, '#059669');
+  assert.equal(sonner.warning, '#d97706');
   await notice.getByRole('button', { name: '关闭', exact: true }).click();
   await expect(notice).toBeHidden();
   await app.getByRole("button", { name: "语言", exact: true }).click();

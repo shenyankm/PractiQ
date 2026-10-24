@@ -231,7 +231,7 @@ test('study rules and backup details remain available on desktop and narrow scre
   if(width===1280) {
    await dialog.getByRole('combobox',{name:/^模式/}).click();
    await expect(page.getByRole('option',{name:'即时反馈练习',exact:true})).toHaveAttribute('data-state','checked');
-   await expect(page.getByRole('listbox')).toHaveCSS('background-color','rgb(255, 252, 250)');
+   await expect(page.getByRole('listbox')).toHaveCSS('background-color','rgb(255, 255, 255)');
    await page.screenshot({path:testInfo.outputPath('app-select-menu.png'),animations:'disabled'});
    await page.keyboard.press('Escape');
    await expect(dialog.getByRole('combobox',{name:/^模式/})).toBeFocused();
