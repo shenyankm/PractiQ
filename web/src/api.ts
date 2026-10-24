@@ -136,6 +136,8 @@ export class Client {
             DOCUMENT_TOO_LARGE: "文件超过服务限制，请选择较小的文件。",
             UNSUPPORTED_FILE: "服务不支持此文件格式，请更换文件。",
             OFFICE_NOT_FOUND: "服务尚未配置 Office 转换，请联系服务提供方或改用 PDF。",
+            OFFICE_NOT_CONFIGURED: "服务尚未配置 Office 转换，请联系服务提供方或改用 PDF。本次提交未创建任务，可以修正配置后手动重新提交。",
+            TENCENT_NOT_CONFIGURED: "服务尚未配置腾讯文档解析，请联系服务提供方。本次提交未创建任务，可以修正配置后手动重新提交。",
             STALE_RUN: "任务状态已更新，请刷新任务详情后再操作。",
             TASK_BUSY: "任务正在处理，请等待并刷新状态。",
           };

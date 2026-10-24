@@ -1105,8 +1105,8 @@
     "zh-TW": "上次直連評分結果未知，可能已產生費用。不會自動重送；如需再次呼叫模型，請明確重新評分。"
   },
   "LOCAL_GRADING_TARGET_CHANGED": {
-    "zh-CN": "评分连接或模型已更改。上次请求不会发送到新接口；如需调用当前模型，请明确重新评分。",
-    "en": "The grading connection or model changed. The previous request will not be sent to the new endpoint; explicitly regrade to use the current model.",
-    "zh-TW": "評分連線或模型已變更。上次請求不會送到新介面；如需呼叫目前模型，請明確重新評分。"
+    "zh-CN": "评分连接或模型已更改，或无法核对上次请求的连接。不会重发上次请求；如需调用当前评分服务或模型，请明确重新评分。",
+    "en": "The grading connection or model changed, or the previous connection cannot be verified. The previous request will not be resent; explicitly regrade to use the current service or model.",
+    "zh-TW": "評分連線或模型已變更，或無法核對上次請求的連線。不會重送上次請求；如需呼叫目前評分服務或模型，請明確重新評分。"
   }
 }

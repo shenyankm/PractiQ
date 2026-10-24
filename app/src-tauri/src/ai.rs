@@ -260,11 +260,14 @@ fn grade(
     snapshot_key: Option<&str>,
     locale: crate::language::Locale,
 ) -> Result<Value> {
-    let target = endpoint.model.as_ref().map(|model| json!({"kind":"direct","baseUrl":model.base_url,"model":model.model_id,"promptVersion":1}));
+    let target = endpoint.model.as_ref().map_or_else(
+        || json!({"kind":"service","serviceUrl":endpoint.origin}),
+        |model| json!({"kind":"direct","baseUrl":model.base_url,"model":model.model_id,"promptVersion":1}),
+    );
     let payload = shared
         .lock()
         .map_err(|_| crate::language::error("LOCAL_DATABASE_UNAVAILABLE", json!({})))?
-        .prepare_grade_target(id, ordinal, retry, locale, target.as_ref())?;
+        .prepare_grade_target(id, ordinal, retry, locale, Some(&target))?;
     let previous = if endpoint.model.is_some() {
         shared
             .lock()
@@ -776,6 +779,106 @@ mod tests {
         }
     }
     #[test]
+    fn service_target_changes_require_explicit_regrading_without_reusing_the_old_request() {
+        let (_dir, shared, id) = submitted();
+        let (origin, first) = server(
+            "503 Service Unavailable",
+            "{}".into(),
+            "POST /api/subjective-grades HTTP/1.1",
+        );
+        let endpoint = Endpoint::new(origin, "test-service-token".into()).unwrap();
+        let unknown = grade(
+            &shared,
+            &endpoint,
+            &id,
+            0,
+            false,
+            None,
+            crate::language::Locale::Chinese,
+        )
+        .unwrap();
+        assert_eq!(
+            unknown["attempts"][0]["grading"]["lastRequest"]["status"],
+            "unknown"
+        );
+        let old_request = first.join().unwrap();
+        let (origin, second) = server("200 OK", r#"{"status":"graded","result":{"scoreCents":500,"maxCents":1000,"reason":"Synthetic","evidence":[],"reviewReasons":[]}}"#.into(), "POST /api/subjective-grades HTTP/1.1");
+        let endpoint = Endpoint::new(origin, "test-service-token".into()).unwrap();
+        assert_eq!(
+            grade(
+                &shared,
+                &endpoint,
+                &id,
+                0,
+                false,
+                None,
+                crate::language::Locale::Chinese
+            )
+            .unwrap_err()
+            .code,
+            "LOCAL_GRADING_TARGET_CHANGED"
+        );
+        assert_eq!(
+            shared.lock().unwrap().session(&id).unwrap()["attempts"][0]["grading"]["lastRequest"],
+            unknown["attempts"][0]["grading"]["lastRequest"]
+        );
+        let graded = grade(
+            &shared,
+            &endpoint,
+            &id,
+            0,
+            true,
+            None,
+            crate::language::Locale::Chinese,
+        )
+        .unwrap();
+        let new_request = second.join().unwrap();
+        assert_ne!(old_request["requestId"], new_request["requestId"]);
+        assert_eq!(graded["attempts"][0]["earnedCents"], 500);
+    }
+
+    #[test]
+    fn legacy_service_receipts_require_explicit_regrading_before_network_work() {
+        let (_dir, shared, id) = submitted();
+        let legacy = shared
+            .lock()
+            .unwrap()
+            .prepare_grade(&id, 0, false, crate::language::Locale::Chinese)
+            .unwrap();
+        let (origin, handle) = server(
+            "200 OK",
+            r#"{"status":"ungraded","error":"Synthetic"}"#.into(),
+            "POST /api/subjective-grades HTTP/1.1",
+        );
+        let endpoint = Endpoint::new(origin, "test-service-token".into()).unwrap();
+        assert_eq!(
+            grade(
+                &shared,
+                &endpoint,
+                &id,
+                0,
+                false,
+                None,
+                crate::language::Locale::Chinese
+            )
+            .unwrap_err()
+            .code,
+            "LOCAL_GRADING_TARGET_CHANGED"
+        );
+        grade(
+            &shared,
+            &endpoint,
+            &id,
+            0,
+            true,
+            None,
+            crate::language::Locale::Chinese,
+        )
+        .unwrap();
+        assert_ne!(handle.join().unwrap()["requestId"], legacy["requestId"]);
+    }
+
+    #[test]
     fn explicit_grade_sends_frozen_payload_and_preserves_local_manual_override() {
         let (_dir, shared, id) = submitted();
         let (origin, handle) = server("200 OK", r#"{"status":"graded","result":{"scoreCents":600,"maxCents":1000,"reason":"Partial","evidence":[],"reviewReasons":[]}}"#.into(), "POST /api/subjective-grades HTTP/1.1");
@@ -801,8 +904,31 @@ mod tests {
             crate::store::hash(contract::text(&wire, "payload").as_bytes())
         );
         let store = shared.lock().unwrap();
+        let stored: String = store
+            .connect()
+            .unwrap()
+            .query_row(
+                "SELECT input FROM grade_requests WHERE id=?1",
+                [contract::text(&wire, "requestId")],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(!stored.contains("test-service-token"));
         assert_eq!(
-            store.prepare_grade(&id, 0, false, store.locale).unwrap(),
+            serde_json::from_str::<Value>(&stored).unwrap()["target"],
+            json!({"kind":"service","serviceUrl":endpoint.origin})
+        );
+        assert!(wire.get("target").is_none());
+        assert_eq!(
+            store
+                .prepare_grade_target(
+                    &id,
+                    0,
+                    false,
+                    store.locale,
+                    Some(&json!({"kind":"service","serviceUrl":endpoint.origin}))
+                )
+                .unwrap(),
             wire
         );
         store.manual_score(&id, 0, 800, "Review").unwrap();
@@ -820,7 +946,7 @@ mod tests {
     }
     #[test]
     fn network_failure_stays_unknown_and_resume_reuses_only_the_same_request() {
-        let (_dir, shared, id) = submitted();
+        let (dir, shared, id) = submitted();
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let origin = format!("http://{}", listener.local_addr().unwrap());
         drop(listener);
@@ -841,28 +967,31 @@ mod tests {
             result["attempts"][0]["grading"]["lastRequest"]["status"],
             "unknown"
         );
+        let target = json!({"kind":"service","serviceUrl":endpoint.origin});
         let wire = shared
             .lock()
             .unwrap()
-            .prepare_grade(&id, 0, false, crate::language::Locale::default())
+            .prepare_grade_target(
+                &id,
+                0,
+                false,
+                crate::language::Locale::default(),
+                Some(&target),
+            )
             .unwrap();
-        let (origin, handle) = server(
-            "200 OK",
-            r#"{"status":"ungraded","error":"Missing evidence"}"#.into(),
-            "POST /api/subjective-grades HTTP/1.1",
+        let reopened = Store::new(dir.path().to_owned()).unwrap();
+        assert_eq!(
+            reopened
+                .prepare_grade_target(
+                    &id,
+                    0,
+                    false,
+                    crate::language::Locale::English,
+                    Some(&target)
+                )
+                .unwrap(),
+            wire
         );
-        let endpoint = Endpoint::new(origin, "test-service-token".into()).unwrap();
-        grade(
-            &shared,
-            &endpoint,
-            &id,
-            0,
-            false,
-            None,
-            crate::language::Locale::default(),
-        )
-        .unwrap();
-        assert_eq!(handle.join().unwrap()["requestId"], wire["requestId"]);
         let (origin, handle) = server(
             "200 OK",
             r#"{"status":"ungraded","error":"Missing evidence"}"#.into(),

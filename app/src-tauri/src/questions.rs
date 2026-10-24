@@ -1349,11 +1349,15 @@ impl Store {
             }
         }
         drop(statement);
-        tx.execute(
-            "DELETE FROM question_reviews WHERE question_id IN (SELECT value FROM json_each(?1))",
-            [json!(old.iter().map(|row| text(row, "id")).collect::<Vec<_>>()).to_string()],
-        )
-        .map_err(err)?;
+        let mut previous: Vec<_> = old.iter().map(|row| row["question"].clone()).collect();
+        let unchanged = contract::validate_tree(&mut previous).is_ok() && previous == tree;
+        if !unchanged {
+            tx.execute(
+                "DELETE FROM question_reviews WHERE question_id IN (SELECT value FROM json_each(?1))",
+                [json!(old.iter().map(|row| text(row, "id")).collect::<Vec<_>>()).to_string()],
+            )
+            .map_err(err)?;
+        }
         let proposed_by_id: HashMap<_, _> = tree.iter().map(|q| (text(q, "id"), q)).collect();
         let cleanup = old.iter().any(|r| {
             proposed_by_id
