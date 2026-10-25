@@ -25,13 +25,13 @@ async def test_artifact_membership_serializes_reference_once(monkeypatch, presen
     saved = reference.model_dump()
     if not present:
         saved['sizeBytes'] += 1
-    review = {'units': [{'questions': [{'id': f'q{i}', 'stem': 'Saved question'} for i in range(1000)]}],
-              'visuals': [saved]}
+    values = {'visionResults': [{'index': 0, 'parsed': {'questionCount': 1000},
+                                'visuals': [{'imageRef': saved}]}]}
     store = SimpleNamespace(get_verified=AsyncMock(return_value=b'png'))
-    monkeypatch.setattr(task_api, 'client', lambda: SimpleNamespace(db=SimpleNamespace(rows=AsyncMock(return_value=[])), snapshot=AsyncMock(return_value=SimpleNamespace(values={}))))
+    monkeypatch.setattr(task_api, 'client', lambda: SimpleNamespace(db=SimpleNamespace(rows=AsyncMock(return_value=[])), snapshot=AsyncMock(return_value=SimpleNamespace(values=values))))
     monkeypatch.setattr(task_api, '_read_task_record', AsyncMock(return_value={'document': {'sha256': 'a' * 64, 'objectKey': 'source'}}))
-    monkeypatch.setattr(task_api, 'review_task', AsyncMock(return_value=review))
-    monkeypatch.setattr(task_api, 'get_task', AsyncMock(return_value={}))
+    monkeypatch.setattr(task_api, 'review_task', AsyncMock(side_effect=AssertionError('No full review read')))
+    monkeypatch.setattr(task_api, 'get_task', AsyncMock(side_effect=AssertionError('No full detail read')))
     monkeypatch.setattr(webapp, 'get_object_store', lambda: store)
     original = ArtifactReference.model_dump
     calls = 0
@@ -55,17 +55,22 @@ async def test_artifact_membership_serializes_reference_once(monkeypatch, presen
 
 
 @pytest.mark.parametrize('units', [1, 100, 300])
-@pytest.mark.parametrize('location,detail_reads,review_reads', [('source', 0, 0), ('detail', 1, 0), ('review', 1, 1)])
-async def test_artifact_authorization_short_circuits_saved_metadata(monkeypatch, units, location, detail_reads, review_reads):
-    store, document = source('quiz')
+@pytest.mark.parametrize('location', ['source', 'merged', 'unit'])
+async def test_artifact_authorization_uses_saved_references_without_full_responses(monkeypatch, tmp_path, units, location):
+    store = object_store(tmp_path)
+    document = (await store.put_document(b'quiz', upload())).model_dump()
     reference = (DocumentReference.model_validate(document) if location == 'source' else
-                 await store.put_artifact(b'png', source_sha256=document['sha256'], kind='unit-result', index=0, media_type='image/png'))
+                 await store.put_artifact(b'png', source_sha256=document['sha256'], kind='visual', index=0, media_type='image/png'))
     requested = ArtifactReference(**reference.model_dump(include=set(ArtifactReference.model_fields)))
-    saved = {'units': [{'index': i} for i in range(units)], 'reference': reference.model_dump()}
-    detail = AsyncMock(return_value=saved if location == 'detail' else {})
-    review = AsyncMock(return_value=saved if location == 'review' else {})
+    visual = {'imageRef': reference.model_dump()}
+    values = ({'result': {'questions': [{'id': f'q{i}'} for i in range(units)], 'visualElements': [visual]}}
+              if location == 'merged' else
+              {'visionResults': [{'index': i, 'parsed': {'questionCount': 1}, 'visuals': [visual]} for i in range(units)]})
+    detail = AsyncMock(side_effect=AssertionError('No full detail read'))
+    review = AsyncMock(side_effect=AssertionError('No full review read'))
     verified = AsyncMock(wraps=store.get_verified)
-    monkeypatch.setattr(task_api, 'client', lambda: SimpleNamespace(db=SimpleNamespace(rows=AsyncMock(return_value=[])), snapshot=AsyncMock(return_value=SimpleNamespace(values={}))))
+    snapshots = AsyncMock(return_value=SimpleNamespace(values=values))
+    monkeypatch.setattr(task_api, 'client', lambda: SimpleNamespace(db=SimpleNamespace(rows=AsyncMock(return_value=[])), snapshot=snapshots))
     monkeypatch.setattr(task_api, '_read_task_record', AsyncMock(return_value={'document': document}))
     monkeypatch.setattr(task_api, 'get_task', detail)
     monkeypatch.setattr(task_api, 'review_task', review)
@@ -75,10 +80,10 @@ async def test_artifact_authorization_short_circuits_saved_metadata(monkeypatch,
 
     assert response.body == (b'quiz' if location == 'source' else b'png')
     assert response.headers['Cache-Control'] == 'no-store'
-    assert detail.await_count == detail_reads
-    assert review.await_count == review_reads
+    detail.assert_not_awaited()
+    review.assert_not_awaited()
+    assert snapshots.await_count == (0 if location == 'source' else 1)
     verified.assert_awaited_once_with(reference)
-
 
 @pytest.mark.parametrize('field,value', [('objectKey', 'other-source'), ('sha256', 'f' * 64),
                                          ('sizeBytes', 5), ('mediaType', 'image/png')])
@@ -330,7 +335,7 @@ async def test_checkpoint_internal_refs_are_not_authorized(saved_checkpoint, loc
     saved.verified.assert_not_awaited()
 
 
-async def test_checkpoint_result_only_visual_retains_real_review_fallback(saved_checkpoint):
+async def test_checkpoint_result_only_visual_reuses_snapshot_without_full_responses(saved_checkpoint):
     saved = saved_checkpoint
     reference = await saved.store.put_artifact(b'visual', source_sha256=saved.document.sha256,
                                                kind='visual', index=0, media_type='image/png')
@@ -340,11 +345,60 @@ async def test_checkpoint_result_only_visual_retains_real_review_fallback(saved_
     await saved.save({'visionResults': [{'index': 0, 'parsed': {'questionCount': 1}, 'resultRef': result.model_dump()}]})
     response = await webapp.read_artifact(reference, saved.thread_id)
     assert response.body == b'visual'
-    saved.detail.assert_awaited_once()
-    saved.review.assert_awaited_once()
+    saved.detail.assert_not_awaited()
+    saved.review.assert_not_awaited()
     saved.units.assert_awaited_once()
     assert saved.verified.await_count == 2
-    assert saved.service.snapshot.await_count == 3
+    saved.service.snapshot.assert_awaited_once()
+    saved.service.db.store.asearch.assert_not_awaited()
+
+
+@pytest.mark.parametrize('count', [1, 30, 100])
+async def test_visual_authorization_stops_after_the_first_matching_unit(saved_checkpoint, count):
+    saved = saved_checkpoint
+    image = await saved.store.put_artifact(b'figure', source_sha256=saved.document.sha256,
+                                           kind='visual', index=0, media_type='image/png')
+    units = []
+    for index in range(count):
+        ref = await saved.store.put_artifact(json.dumps({'parsed': parsed(), 'visuals': [
+            {'kind': 'image', 'description': 'Saved figure', 'imageRef': image.model_dump()}]}).encode(),
+            source_sha256=saved.document.sha256, kind='unit-result', index=index, media_type='application/json')
+        units.append({'index': index, 'parsed': {'questionCount': 1}, 'resultRef': ref.model_dump()})
+        if index:
+            (saved.store.root / ref.objectKey).write_bytes(b'damaged unrelated unit')
+    await saved.save({'visionResults': units})
+    saved.verified.reset_mock()
+    response = await webapp.read_artifact(image, saved.thread_id)
+    assert response.body == b'figure'
+    saved.units.assert_awaited_once()
+    saved.service.snapshot.assert_awaited_once()
+    assert saved.verified.await_count == 2
+    saved.detail.assert_not_awaited()
+    saved.review.assert_not_awaited()
+
+
+@pytest.mark.parametrize('location', ['result-question', 'unit-question', 'superseded-unit'])
+async def test_arbitrary_nested_references_and_superseded_units_do_not_grant_artifact_access(saved_checkpoint, location):
+    saved = saved_checkpoint
+    ref = await saved.store.put_artifact(b'internal', source_sha256=saved.document.sha256,
+                                        kind='visual', index=0, media_type='image/png')
+    result = {**parsed(), 'schemaVersion': 3, 'visualElements': [], 'warnings': [], 'confidenceScore': 80}
+    result['questions'][0]['id'] = 'q0'
+    if location == 'result-question':
+        result['questions'][0]['contentBlocks'] = [{'partType': 'text', 'jsonValue': ref.model_dump()}]
+        values = {'result': result}
+    elif location == 'unit-question':
+        candidate = parsed()
+        candidate['questions'][0]['contentBlocks'] = [{'partType': 'text', 'jsonValue': ref.model_dump()}]
+        values = {'visionResults': [{'index': 0, 'parsed': candidate, 'visuals': []}]}
+    else:
+        values = {'result': result, 'visionResults': [{'index': 0, 'parsed': parsed(),
+                  'visuals': [{'kind': 'image', 'description': 'Old figure', 'imageRef': ref.model_dump()}]}]}
+    await saved.save(values)
+    with pytest.raises(HTTPException) as error:
+        await webapp.read_artifact(ref, saved.thread_id)
+    assert error.value.status_code == 404
+    saved.verified.assert_not_awaited()
 
 
 @pytest.mark.parametrize('merged', [True, False])

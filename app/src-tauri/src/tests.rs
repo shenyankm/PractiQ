@@ -60,6 +60,89 @@ fn question_query_requests_use_bank_id_lists() {
     }
 }
 #[test]
+fn bank_choices_preserve_leaf_counts_empty_banks_and_stable_order() {
+    let (_dir, store) = store();
+    let db = store.connect().unwrap();
+    for (id, created) in [("empty", 0), ("a", 1), ("z", 1)] {
+        db.execute(
+            "INSERT INTO banks VALUES(?1,'Same title','',?2)",
+            rusqlite::params![id, created],
+        )
+        .unwrap();
+    }
+    for (id, bank, mode, parent) in [
+        ("parent", "a", Some("reading"), None),
+        ("child", "a", Some("true_false"), Some("parent")),
+        ("unknown", "a", None, None),
+        ("leaf", "z", Some("short_answer"), None),
+    ] {
+        db.execute("INSERT INTO questions(id,bank_id,position,mode,parent_id,content_blocks,confidence,needs_review,missing_fields) VALUES(?1,?2,0,?3,?4,'[]',1,0,'[]')",
+            rusqlite::params![id, bank, mode, parent]).unwrap();
+    }
+    assert_eq!(
+        store.banks().unwrap(),
+        json!([
+            {"id":"z","title":"Same title","count":1},
+            {"id":"a","title":"Same title","count":2},
+            {"id":"empty","title":"Same title","count":0}
+        ])
+    );
+    let page = store.banks_page(30, 0).unwrap();
+    for (choice, row) in list(&page, "items")
+        .iter()
+        .zip(store.banks().unwrap().as_array().unwrap())
+    {
+        assert_eq!(choice["id"], row["id"]);
+        assert_eq!(choice["count"], row["count"]);
+    }
+    db.execute("DELETE FROM questions WHERE id='parent'", [])
+        .unwrap();
+    assert_eq!(store.banks().unwrap()[1]["count"], 1);
+}
+
+#[test]
+fn history_draft_counts_preserve_nested_empty_values_false_and_zero() {
+    let (_dir, store) = store();
+    let db = store.connect().unwrap();
+    db.execute("INSERT INTO sessions(id,bank_title,created_at,position,mode) VALUES('drafts','Drafts',1,0,'ordered')", []).unwrap();
+    let answers = [
+        "null",
+        " null ",
+        "false",
+        "0",
+        "\"  \"",
+        "[]",
+        "[null,\"\"]",
+        "{}",
+        "{\"a\":[null,\" \"]}",
+        "{\"value\":false}",
+        "[0]",
+        "{\"text\":\"yes\"}",
+    ];
+    for (ordinal, answer) in answers.iter().enumerate() {
+        db.execute("INSERT INTO attempts(session_id,ordinal,snapshot_question_id,answer) VALUES('drafts',?1,?2,?3)",
+            rusqlite::params![ordinal, format!("q{ordinal}"), answer]).unwrap();
+    }
+    db.execute("INSERT INTO attempts(session_id,ordinal,snapshot_question_id,answer,submitted_at) VALUES('drafts',100,'submitted','{\"text\":\"submitted\"}',1)", []).unwrap();
+    let expected = answers
+        .iter()
+        .filter(|answer| crate::exams::has_answer(&serde_json::from_str::<Value>(answer).unwrap()))
+        .count();
+    assert_eq!(expected, 5);
+    let page = store.sessions_filtered(30, 0, "active").unwrap();
+    assert_eq!(page["items"][0]["draftAnswered"], expected);
+    let selected = db
+        .prepare(crate::sessions::DRAFT_ANSWERS_SQL)
+        .unwrap()
+        .query_map(["drafts"], |row| row.get::<_, String>(0))
+        .unwrap()
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .unwrap();
+    assert_eq!(selected.len(), answers.len() - 1);
+    assert!(selected.iter().all(|answer| answer != "null"));
+}
+
+#[test]
 fn completion_requests_require_explicit_submission_or_review() {
     for request in [
         json!({"type":"submit_paper","id":"practice","submit_drafts":false}),

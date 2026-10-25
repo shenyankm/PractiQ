@@ -304,27 +304,12 @@ async def read_artifact(reference: ArtifactReference, thread_id: Annotated[UUID 
                 and not reference.objectKey.startswith(f"practiq-agent/artifacts/{source['sha256']}/")):
             raise DocumentProcessingError(404, 'Artifact not found', 'ARTIFACT_NOT_FOUND')
         metadata = reference.model_dump()
-        def contains(value):
-            if isinstance(value, dict):
-                if all(value.get(key) == item for key, item in metadata.items()):
-                    return True
-                return any(contains(item) for item in value.values())
-            return isinstance(value, list) and any(contains(item) for item in value)
         checked: ArtifactReference | DocumentReference = reference
-        if contains(source):
+        if all(source.get(key) == item for key, item in metadata.items()):
             checked = DocumentReference.model_validate(source)
         else:
             _, snapshot, _ = await task_api._read_task(service, str(thread_id))
-            values = snapshot.values or {}
-            public_refs = [*values.get('pageRefs', []), *values.get('chunkRefs', [])]
-            # Mirror review_task's vision units, not arbitrary internal checkpoint references.
-            vision_indices = set(range(len(values.get('pageRefs', []))))
-            if not values.get('result', {}).get('questions'):
-                vision_indices.update(item['index'] for item in values.get('visionResults', []) if item.get('parsed'))
-            public_refs.extend(ref for index, ref in enumerate(values.get('ocrPageRefs', [])) if index in vision_indices)
-            if (not any(all(ref.get(key) == item for key, item in metadata.items()) for ref in public_refs)
-                    and not contains(await task_api.get_task(str(thread_id)))
-                    and not contains(await task_api.review_task(str(thread_id)))):
+            if not await task_api.artifact_is_public(snapshot, source['sha256'], metadata):
                 raise DocumentProcessingError(404, 'Artifact not found', 'ARTIFACT_NOT_FOUND')
         payload = await (await asyncio.to_thread(get_object_store)).get_verified(checked)
     except DatabaseError as exc:

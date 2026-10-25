@@ -1690,12 +1690,17 @@ async def load_unit_result(item: dict[str, Any], source_sha256: str) -> dict[str
         reference = ArtifactReference.model_validate(item["resultRef"])
         if not reference.objectKey.startswith(f"practiq-agent/artifacts/{source_sha256}/unit-result/{item['index']}-") or reference.mediaType != "application/json":
             raise DocumentProcessingError(409, "Unit result reference is invalid", "UNIT_RESULT_INVALID")
-        payload = json.loads(await store.get_verified(reference))
-        parsed = ChunkParseResult.model_validate(payload["parsed"]).model_dump(mode="json")
-        visuals = [VisualElement.model_validate(value).model_dump(mode="json") for value in payload.get("visuals", [])]
+        raw = await store.get_verified(reference)
+
+        def decode() -> dict[str, Any]:
+            payload = json.loads(raw)
+            parsed = ChunkParseResult.model_validate(payload["parsed"]).model_dump(mode="json")
+            visuals = [VisualElement.model_validate(value).model_dump(mode="json") for value in payload.get("visuals", [])]
+            return {**item, "parsed": parsed, "visuals": visuals, "agentReview": payload.get("agentReview", item.get("agentReview"))}
+
+        return await _thread_io(decode)
     except (ValueError, KeyError, TypeError) as exc:
         raise DocumentProcessingError(409, "Stored unit result is invalid", "UNIT_RESULT_INVALID") from exc
-    return {**item, "parsed": parsed, "visuals": visuals, "agentReview": payload.get("agentReview", item.get("agentReview"))}
 
 
 async def _merge(state: DocumentState, *, passive: bool = False) -> dict[str, Any]:
@@ -1716,14 +1721,14 @@ async def _merge(state: DocumentState, *, passive: bool = False) -> dict[str, An
     )
     warnings.extend(f"Page {item['index'] + 1}: oversized optional context was skipped; primary extraction was retained for review."
                     for item in ordered if item.get("contextSkipped"))
-    parsed = [
+    parsed = await _thread_io(lambda: [
         (
             item["index"],
             ChunkParseResult.model_validate(item["parsed"]),
         )
         for item in ordered
         if item["parsed"] is not None
-    ]
+    ])
     if not pages and state.get("normalization") and state["document"].get("sourceType") in {"xls", "xlsx"}:
         chunk_sources = state.get("chunkSources", [])
         for index, result in parsed:
@@ -1733,10 +1738,10 @@ async def _merge(state: DocumentState, *, passive: bool = False) -> dict[str, An
     if not pages and text_ref:
         store = await asyncio.to_thread(get_object_store)
         source_text = (await store.get_verified(ArtifactReference.model_validate(text_ref))).decode("utf-8")
-    questions, groups, merge_warnings, merge_truncated, question_sources, quality = await asyncio.to_thread(
+    questions, groups, merge_warnings, merge_truncated, question_sources, quality = await _thread_io(partial(
         merge_chunk_results, [(index, item.questions, item.groups) for index, item in parsed], overlapping=not pages,
         source_text=source_text, chunk_spans=state.get("chunkSpans") if not pages else None,
-    )
+    ))
     warnings.extend(merge_warnings)
     # Preserve historical audit warnings without starting new review calls.
     agent_reviews = [item["agentReview"] for item in ordered if item.get("agentReview")]
@@ -1775,160 +1780,164 @@ async def _merge(state: DocumentState, *, passive: bool = False) -> dict[str, An
     visual_elements, crop_failures, crop_truncated = await _crop_visuals(
         state, visual_elements, persist=not passive
     )
-    crop_failures.extend(UnitFailure(stage="visual_crop", index=index, code="CROP_UNVERIFIED", retryable=False) for index in unverified_visuals)
-    if crop_truncated:
-        warnings.append(
-            f"Figure crop limit of {vision.MAX_CROPS} reached; remaining figures include descriptions only."
-        )
-    for visual in visual_elements:
-        if visual.sourceRef and visual.imageRef is None:
-            affected = visual.questionIndexes or [s.questionIndex for s in question_sources if s.unitIndex == visual.page]
-            for index in affected:
-                questions[index].needsReview = True
-                questions[index].missingFields = list(dict.fromkeys([*questions[index].missingFields, "media"]))
-                if not any(issue.questionIndex == index and issue.code == "MISSING_FIELDS" for issue in quality.issues):
-                    quality.issues.append(QualityIssue(questionIndex=index, code="MISSING_FIELDS"))
-    quality.reviewQuestionCount = sum(q.needsReview for q in questions)
-    quality.reviewRequired = bool(quality.reviewQuestionCount)
-    failures = [UnitFailure.model_validate(item) for item in unit_failures(dict(state)) if item["stage"] != "visual_crop"]
-    failures.extend(crop_failures)
-    truncated = (
-        bool(state.get("truncated")) or merge_truncated or crop_truncated
-    )
-    try:
-        questions = finalize_question_ids(questions, groups, visual_elements, question_sources, quality)
-        source_evidence = build_source_evidence(
-            source_text, questions, question_sources, state.get('chunkSpans'), text_units=state.get('textUnits'),
-            source_type=state.get('effectiveSourceType', state['document']['sourceType']),
-            tabular_rows_safe=state.get('tabularRowsSafe', False), complete=not truncated,
-        )
-        duplicate_groups = find_duplicate_question_trees(questions, groups, visual_elements, source_evidence=source_evidence)
-        source_duplicate_groups = find_source_duplicate_question_trees(questions, source_evidence=source_evidence)
-        removable_groups = [trees for trees in duplicate_groups
-                            if all(source_evidence.get(qid) for tree in trees for qid in tree)] if state.get("deduplicateQuestions", False) else []
-        by_id = {q.id: (index, q) for index, q in enumerate(questions)}
-        review_issues = {issue.questionIndex for issue in quality.issues if issue.code == 'NEEDS_REVIEW'}
-
-        def locations(trees: list[list[str]]) -> str:
-            values = []
-            for tree in trees:
-                index, _ = by_id[tree[0]]
-                units = sorted({f"{'page' if source.stage == 'vision_parse' else 'fragment'} {source.unitIndex + 1}"
-                                for source in question_sources if source.questionIndex == index})
-                values.append(", ".join(tree) + (f" ({', '.join(units)})" if units else ""))
-            return "; ".join(values)
-
-        def mark_review(index: int, question: ParsedQuestion) -> None:
-            question.needsReview = True
-            if index not in review_issues:
-                quality.issues.append(QualityIssue(questionIndex=index, code='NEEDS_REVIEW'))
-                review_issues.add(index)
-
-        for trees in [trees for trees in duplicate_groups if trees not in removable_groups]:
-            warnings.append("Possible repeated questions: " + (by_id[trees[0][0]][1].stem or "")[:80]
-                            + " — " + locations(trees)
-                            + ". All copies were retained; you decide whether to remove any.")
-            duplicates = {qid for tree in trees for qid in tree}
-            for index, question in enumerate(questions):
-                if question.id in duplicates:
-                    mark_review(index, question)
-        if state.get("deduplicateQuestions", False):
-            questions, duplicate_warnings = remove_duplicate_question_trees(
-                questions, groups, visual_elements, question_sources, quality, removable_groups,
+    def finish() -> dict[str, Any]:
+        nonlocal questions
+        crop_failures.extend(UnitFailure(stage="visual_crop", index=index, code="CROP_UNVERIFIED", retryable=False) for index in unverified_visuals)
+        if crop_truncated:
+            warnings.append(
+                f"Figure crop limit of {vision.MAX_CROPS} reached; remaining figures include descriptions only."
             )
-            warnings.extend(duplicate_warnings)
-        by_id = {q.id: (index, q) for index, q in enumerate(questions)}
-        review_issues = {issue.questionIndex for issue in quality.issues if issue.code == 'NEEDS_REVIEW'}
-        for trees in source_duplicate_groups:
-            surviving = [tree for tree in trees if all(qid in by_id for qid in tree)]
-            if len(surviving) < 2 or any(all(tree in strict for tree in surviving) for strict in duplicate_groups):
-                continue
-            for tree in surviving:
-                for qid in tree:
-                    mark_review(*by_id[qid])
-            warnings.append("Repeated source question groups: " + locations(surviving)
-                            + ". Parsed versions are not strictly identical; the remaining copies were retained for review.")
+        for visual in visual_elements:
+            if visual.sourceRef and visual.imageRef is None:
+                affected = visual.questionIndexes or [s.questionIndex for s in question_sources if s.unitIndex == visual.page]
+                for index in affected:
+                    questions[index].needsReview = True
+                    questions[index].missingFields = list(dict.fromkeys([*questions[index].missingFields, "media"]))
+                    if not any(issue.questionIndex == index and issue.code == "MISSING_FIELDS" for issue in quality.issues):
+                        quality.issues.append(QualityIssue(questionIndex=index, code="MISSING_FIELDS"))
         quality.reviewQuestionCount = sum(q.needsReview for q in questions)
         quality.reviewRequired = bool(quality.reviewQuestionCount)
-    except SourceQuestionConflict as exc:
-        # Keep successful units and require an explicit failed-unit retry. Replaying
-        # the same successful model response at merge cannot repair conflicting IDs.
-        indexes = {source.unitIndex for source in question_sources if source.questionIndex == exc.question_index}
-        update: dict[str, Any] = {"status": "", "result": {}, "processing": {},
-                                  "nextStage": "vision_review_pause" if pages else "chunk_review_pause"}
-        if pages:
-            update["visionResults"] = Overwrite([item for item in checkpoint_state.get("visionResults", []) if item["index"] not in indexes])
-            update["failures"] = [UnitFailure(stage="vision_parse", index=index, code="OUTPUT_INVALID", retryable=True).model_dump(mode="json") for index in sorted(indexes)]
-        else:
-            update["chunkResults"] = Overwrite([
-                {**{key: value for key, value in item.items() if key != "resultRef"}, "parsed": None, "failureCode": "OUTPUT_INVALID"} if item["index"] in indexes else item
-                for item in checkpoint_state.get("chunkResults", [])
-            ])
-        return update
-    processing = DocumentProcessing(
-        chunks=UnitCounts(
-            total=0 if pages else len(ordered),
-            succeeded=0 if pages else len(ordered) - len(failed_chunks),
-        ),
-        visuals=UnitCounts(
-            total=state.get("visualTotal", 0),
-            succeeded=len(state.get("visionResults", [])),
-        ),
-        truncated=truncated,
-        failures=failures,
-        questionSources=[DocumentQuestionSource(questionId=questions[item.questionIndex].id or "", stage=item.stage, unitIndex=item.unitIndex) for item in question_sources],
-        quality=ExportQuality.model_validate({
-            "reviewRequired": bool(failures or truncated or not questions) or any(q.needsReview for q in questions)
-                              or any(item["status"] != "no_discrepancy" for item in agent_reviews),
-            "reviewQuestionCount": sum(q.needsReview and q.answerMode not in COMPOSITE_MODES for q in questions),
-            "issues": [{"questionId": questions[item.questionIndex].id, "code": item.code} for item in quality.issues],
-        }),
-    )
-    missing_fields = []
-    if (not questions or state.get("truncated") or merge_truncated
-            or any(f.stage in {"vision_parse", "document_parse"} for f in failures)
-            or any(item.get("missingQuestions") for item in agent_reviews)):
-        missing_fields.append("questions")
-    if crop_failures or crop_truncated:
-        missing_fields.append("media")
-    if not questions:
-        warnings.append("No questions were extracted; source units require review.")
-    unassociated_visuals = any(not visual.questionIndexes for visual in visual_elements)
-    if unassociated_visuals:
-        warnings.append("Some source figures are not associated with questions. Review the full source: OCR figure bounds may omit detached labels or material.")
-        processing.quality.reviewRequired = True
-    status = (
-        "PARTIAL"
-        if failures or truncated or missing_fields
-        else "SUCCEEDED"
-    )
-    result = DocumentParseResult(
-        schemaVersion=3,
-        missingFields=missing_fields,
-        questions=questions,
-        groups=[DocumentGroup.model_validate({**g.model_dump(exclude={"questionIndexes"}), "questionIds": [questions[i].id for i in g.questionIndexes]}) for g in groups],
-        visualElements=[DocumentVisual.model_validate({**v.model_dump(exclude={"questionIndexes"}), "questionIds": [questions[i].id for i in v.questionIndexes]}) for v in visual_elements],
-        warnings=warnings[:1_000],
-        confidenceScore=round(
-            sum(item.confidence for item in questions) / max(1, len(questions)) * 100, 1
-        ),
-    )
-    if not passive:
-        telemetry.results.labels(status, str(processing.quality.reviewRequired).lower()).inc()
-        for failure in failures:
-            telemetry.failures.labels(failure.code).inc()
-    return {
-        "nextStage": "result_review_pause",
-        "status": status,
-        "result": result.model_dump(mode="json"),
-        "processing": processing.model_dump(mode="json"),
-    }
+        failures = [UnitFailure.model_validate(item) for item in unit_failures(dict(state)) if item["stage"] != "visual_crop"]
+        failures.extend(crop_failures)
+        truncated = (
+            bool(state.get("truncated")) or merge_truncated or crop_truncated
+        )
+        try:
+            questions = finalize_question_ids(questions, groups, visual_elements, question_sources, quality)
+            source_evidence = build_source_evidence(
+                source_text, questions, question_sources, state.get('chunkSpans'), text_units=state.get('textUnits'),
+                source_type=state.get('effectiveSourceType', state['document']['sourceType']),
+                tabular_rows_safe=state.get('tabularRowsSafe', False), complete=not truncated,
+            )
+            duplicate_groups = find_duplicate_question_trees(questions, groups, visual_elements, source_evidence=source_evidence)
+            source_duplicate_groups = find_source_duplicate_question_trees(questions, source_evidence=source_evidence) if source_evidence else []
+            removable_groups = [trees for trees in duplicate_groups
+                                if all(source_evidence.get(qid) for tree in trees for qid in tree)] if state.get("deduplicateQuestions", False) else []
+            by_id = {q.id: (index, q) for index, q in enumerate(questions)}
+            review_issues = {issue.questionIndex for issue in quality.issues if issue.code == 'NEEDS_REVIEW'}
+
+            def locations(trees: list[list[str]]) -> str:
+                values = []
+                for tree in trees:
+                    index, _ = by_id[tree[0]]
+                    units = sorted({f"{'page' if source.stage == 'vision_parse' else 'fragment'} {source.unitIndex + 1}"
+                                    for source in question_sources if source.questionIndex == index})
+                    values.append(", ".join(tree) + (f" ({', '.join(units)})" if units else ""))
+                return "; ".join(values)
+
+            def mark_review(index: int, question: ParsedQuestion) -> None:
+                question.needsReview = True
+                if index not in review_issues:
+                    quality.issues.append(QualityIssue(questionIndex=index, code='NEEDS_REVIEW'))
+                    review_issues.add(index)
+
+            for trees in [trees for trees in duplicate_groups if trees not in removable_groups]:
+                warnings.append("Possible repeated questions: " + (by_id[trees[0][0]][1].stem or "")[:80]
+                                + " — " + locations(trees)
+                                + ". All copies were retained; you decide whether to remove any.")
+                duplicates = {qid for tree in trees for qid in tree}
+                for index, question in enumerate(questions):
+                    if question.id in duplicates:
+                        mark_review(index, question)
+            if state.get("deduplicateQuestions", False):
+                questions, duplicate_warnings = remove_duplicate_question_trees(
+                    questions, groups, visual_elements, question_sources, quality, removable_groups,
+                )
+                warnings.extend(duplicate_warnings)
+            by_id = {q.id: (index, q) for index, q in enumerate(questions)}
+            review_issues = {issue.questionIndex for issue in quality.issues if issue.code == 'NEEDS_REVIEW'}
+            for trees in source_duplicate_groups:
+                surviving = [tree for tree in trees if all(qid in by_id for qid in tree)]
+                if len(surviving) < 2 or any(all(tree in strict for tree in surviving) for strict in duplicate_groups):
+                    continue
+                for tree in surviving:
+                    for qid in tree:
+                        mark_review(*by_id[qid])
+                warnings.append("Repeated source question groups: " + locations(surviving)
+                                + ". Parsed versions are not strictly identical; the remaining copies were retained for review.")
+            quality.reviewQuestionCount = sum(q.needsReview for q in questions)
+            quality.reviewRequired = bool(quality.reviewQuestionCount)
+        except SourceQuestionConflict as exc:
+            # Keep successful units and require an explicit failed-unit retry. Replaying
+            # the same successful model response at merge cannot repair conflicting IDs.
+            indexes = {source.unitIndex for source in question_sources if source.questionIndex == exc.question_index}
+            update: dict[str, Any] = {"status": "", "result": {}, "processing": {},
+                                      "nextStage": "vision_review_pause" if pages else "chunk_review_pause"}
+            if pages:
+                update["visionResults"] = Overwrite([item for item in checkpoint_state.get("visionResults", []) if item["index"] not in indexes])
+                update["failures"] = [UnitFailure(stage="vision_parse", index=index, code="OUTPUT_INVALID", retryable=True).model_dump(mode="json") for index in sorted(indexes)]
+            else:
+                update["chunkResults"] = Overwrite([
+                    {**{key: value for key, value in item.items() if key != "resultRef"}, "parsed": None, "failureCode": "OUTPUT_INVALID"} if item["index"] in indexes else item
+                    for item in checkpoint_state.get("chunkResults", [])
+                ])
+            return update
+        processing = DocumentProcessing(
+            chunks=UnitCounts(
+                total=0 if pages else len(ordered),
+                succeeded=0 if pages else len(ordered) - len(failed_chunks),
+            ),
+            visuals=UnitCounts(
+                total=state.get("visualTotal", 0),
+                succeeded=len(state.get("visionResults", [])),
+            ),
+            truncated=truncated,
+            failures=failures,
+            questionSources=[DocumentQuestionSource(questionId=questions[item.questionIndex].id or "", stage=item.stage, unitIndex=item.unitIndex) for item in question_sources],
+            quality=ExportQuality.model_validate({
+                "reviewRequired": bool(failures or truncated or not questions) or any(q.needsReview for q in questions)
+                                  or any(item["status"] != "no_discrepancy" for item in agent_reviews),
+                "reviewQuestionCount": sum(q.needsReview and q.answerMode not in COMPOSITE_MODES for q in questions),
+                "issues": [{"questionId": questions[item.questionIndex].id, "code": item.code} for item in quality.issues],
+            }),
+        )
+        missing_fields = []
+        if (not questions or state.get("truncated") or merge_truncated
+                or any(f.stage in {"vision_parse", "document_parse"} for f in failures)
+                or any(item.get("missingQuestions") for item in agent_reviews)):
+            missing_fields.append("questions")
+        if crop_failures or crop_truncated:
+            missing_fields.append("media")
+        if not questions:
+            warnings.append("No questions were extracted; source units require review.")
+        unassociated_visuals = any(not visual.questionIndexes for visual in visual_elements)
+        if unassociated_visuals:
+            warnings.append("Some source figures are not associated with questions. Review the full source: OCR figure bounds may omit detached labels or material.")
+            processing.quality.reviewRequired = True
+        status = (
+            "PARTIAL"
+            if failures or truncated or missing_fields
+            else "SUCCEEDED"
+        )
+        result = DocumentParseResult(
+            schemaVersion=3,
+            missingFields=missing_fields,
+            questions=questions,
+            groups=[DocumentGroup.model_validate({**g.model_dump(exclude={"questionIndexes"}), "questionIds": [questions[i].id for i in g.questionIndexes]}) for g in groups],
+            visualElements=[DocumentVisual.model_validate({**v.model_dump(exclude={"questionIndexes"}), "questionIds": [questions[i].id for i in v.questionIndexes]}) for v in visual_elements],
+            warnings=warnings[:1_000],
+            confidenceScore=round(
+                sum(item.confidence for item in questions) / max(1, len(questions)) * 100, 1
+            ),
+        )
+        if not passive:
+            telemetry.results.labels(status, str(processing.quality.reviewRequired).lower()).inc()
+            for failure in failures:
+                telemetry.failures.labels(failure.code).inc()
+        return {
+            "nextStage": "result_review_pause",
+            "status": status,
+            "result": result.model_dump(mode="json"),
+            "processing": processing.model_dump(mode="json"),
+        }
+
+    return await _thread_io(finish)
 
 
 async def completed_result(state: DocumentState) -> dict[str, Any]:
     """Project saved completed units; never execute graph nodes or alter checkpoints."""
     from copy import deepcopy
-    snapshot = deepcopy(state)
+    snapshot = await _thread_io(deepcopy, state)
     update = await _merge(snapshot, passive=True)
     if not update.get('result', {}).get('questions'):
         raise DocumentProcessingError(409, 'No usable completed questions', 'BANK_EXPORT_NOT_READY')

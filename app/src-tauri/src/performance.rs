@@ -8,6 +8,101 @@ use serde_json::{json, Value};
 use std::time::Instant;
 
 #[test]
+#[ignore = "paired bank and sparse draft reads; temporary databases, release only"]
+fn runtime_read_stress() {
+    fn sample(mut run: impl FnMut() -> Value) -> Value {
+        drop(run());
+        let mut times = Vec::new();
+        let mut output = Value::Null;
+        for _ in 0..7 {
+            let start = Instant::now();
+            output = run();
+            times.push(start.elapsed().as_secs_f64() * 1000.0);
+        }
+        let mut sorted = times.clone();
+        sorted.sort_by(f64::total_cmp);
+        json!({"samplesMs":times,"medianMs":sorted[3],"output":output})
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let store = Store::new(dir.path().to_owned()).unwrap();
+    let mut db = store.connect().unwrap();
+    let tx = db.transaction().unwrap();
+    for i in 0..100 {
+        tx.execute(
+            "INSERT INTO banks VALUES(?1,?2,'',?3)",
+            params![format!("b{i:03}"), format!("Bank {i}"), i],
+        )
+        .unwrap();
+    }
+    for i in 0..100_000 {
+        tx.prepare_cached("INSERT INTO questions(id,bank_id,position,mode,content_blocks,confidence,needs_review,missing_fields) VALUES(?1,?2,?3,?4,'[]',1,0,'[]')").unwrap()
+            .execute(params![format!("q{i:06}"),format!("b{:03}",i/1000),i%1000,if i%10==0 {"reading"} else {"true_false"}]).unwrap();
+    }
+    for session in 0..30 {
+        let sid = format!("s{session}");
+        tx.execute("INSERT INTO sessions(id,bank_title,created_at,position,mode) VALUES(?1,'Exam',1,0,'ordered')", [&sid]).unwrap();
+        for i in 0..1000 {
+            tx.prepare_cached("INSERT INTO attempts(session_id,ordinal,snapshot_question_id,answer) VALUES(?1,?2,?3,?4)").unwrap()
+                .execute(params![sid,i,format!("q{i:06}"),if i%100==0 {"{\"text\":\"draft\"}"} else {"null"}]).unwrap();
+        }
+    }
+    tx.commit().unwrap();
+    let legacy_banks = || {
+        let db = store.connect().unwrap();
+        let mut statement = db.prepare(&format!("SELECT b.id,b.title,COUNT(q.id) FROM banks b LEFT JOIN questions q ON q.bank_id=b.id AND (q.mode IS NULL OR q.mode NOT IN ({})) GROUP BY b.id ORDER BY b.created_at DESC,b.id DESC", crate::question_metadata::COMPOSITE_SQL)).unwrap();
+        let rows = statement.query_map([], |r| Ok(json!({"id":r.get::<_,String>(0)?,"title":r.get::<_,String>(1)?,"count":r.get::<_,i64>(2)?}))).unwrap()
+            .collect::<rusqlite::Result<Vec<_>>>().unwrap();
+        json!(rows)
+    };
+    assert_eq!(legacy_banks(), store.banks().unwrap());
+    let draft_pass = |sql: &str| {
+        let mut statement = db.prepare(sql).unwrap();
+        let mut visited = 0;
+        let mut count = 0;
+        for session in 0..30 {
+            for answer in statement
+                .query_map([format!("s{session}")], |r| r.get::<_, String>(0))
+                .unwrap()
+            {
+                visited += 1;
+                count += usize::from(crate::exams::has_answer(
+                    &serde_json::from_str::<Value>(&answer.unwrap()).unwrap(),
+                ));
+            }
+        }
+        json!({"rowsRead":visited,"draftAnswered":count})
+    };
+    let before = sample(|| {
+        draft_pass("SELECT answer FROM attempts WHERE session_id=?1 AND submitted_at IS NULL")
+    });
+    let after = sample(|| draft_pass(crate::sessions::DRAFT_ANSWERS_SQL));
+    assert_eq!(
+        before["output"],
+        json!({"rowsRead":30_000,"draftAnswered":300})
+    );
+    assert_eq!(after["output"], json!({"rowsRead":300,"draftAnswered":300}));
+    assert_eq!(
+        store.sessions_filtered(30, 0, "active").unwrap()["total"],
+        30
+    );
+    let mut legacy = sample(legacy_banks);
+    let mut current = sample(|| store.banks().unwrap());
+    assert_eq!(legacy["output"], current["output"]);
+    for result in [&mut legacy, &mut current] {
+        let bytes = serde_json::to_vec(&result["output"]).unwrap();
+        result.as_object_mut().unwrap().remove("output");
+        result["outputSha256"] = json!(crate::store::hash(&bytes));
+    }
+    let report = json!({"method":"Release Rust, temporary schema-11 database. One warmup and seven samples. Bank choices include connection setup; draft pass excludes the rest of session summaries. No IPC or WebView measurement.",
+        "banks":{"before":legacy,"after":current},"drafts":{"before":before,"after":after}});
+    std::fs::write(
+        std::env::var("PRACTIQ_BENCH_OUTPUT").expect("set PRACTIQ_BENCH_OUTPUT"),
+        serde_json::to_vec_pretty(&report).unwrap(),
+    )
+    .unwrap();
+}
+
+#[test]
 #[ignore = "paired selected snapshot reference index benchmark; release only"]
 fn selected_snapshot_references() {
     fn sample(mut run: impl FnMut() -> Vec<Value>) -> Value {

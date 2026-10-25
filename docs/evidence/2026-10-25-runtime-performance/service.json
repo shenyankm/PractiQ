@@ -1,0 +1,161 @@
+{
+  "baselineRef": "562951cd",
+  "python": "3.14.7",
+  "method": "Synthetic in-process probes, one warmup and seven serial timing samples. No real storage, rendering, providers, database or WebView. Retention counts frame-owned buffers, not RSS; ZIP timing covers compression only.",
+  "retention": [
+    {
+      "inputBytes": 8388608,
+      "cos": false,
+      "before": {
+        "sourceBytes": 8388608,
+        "base64Chars": 11184812
+      },
+      "after": {
+        "sourceBytes": 0,
+        "base64Chars": 0
+      }
+    },
+    {
+      "inputBytes": 26214400,
+      "cos": true,
+      "before": {
+        "sourceBytes": 26214400,
+        "base64Chars": 0
+      },
+      "after": {
+        "sourceBytes": 0,
+        "base64Chars": 0
+      }
+    }
+  ],
+  "merge100Pages1000Questions": {
+    "before": {
+      "samplesMs": [
+        202.30295800138265,
+        245.56304200086743,
+        203.9767079986632,
+        202.15041702613235,
+        201.6990830306895,
+        240.99016597028822,
+        203.49120802711695
+      ],
+      "medianMs": 203.49120802711695,
+      "maximumHeartbeatGap": {
+        "samplesMs": [
+          104.8653750331141,
+          147.64591597486287,
+          105.60895799426362,
+          104.61087501607835,
+          104.96687499107793,
+          143.6367920250632,
+          106.27087496686727
+        ],
+        "medianMs": 105.60895799426362
+      },
+      "sourceProofCalls": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "outputSha256": "e416d5543913c91aa232526efaab8ddf45e7f0f4d4333fde925bd245dfc6db79"
+    },
+    "after": {
+      "samplesMs": [
+        200.34337497781962,
+        238.2165829767473,
+        198.77437496325,
+        199.10383300157264,
+        200.36233303835616,
+        198.0867909733206,
+        239.596540981438
+      ],
+      "medianMs": 200.34337497781962,
+      "maximumHeartbeatGap": {
+        "samplesMs": [
+          24.384207965340465,
+          53.61966701457277,
+          17.632041999604553,
+          17.678208998404443,
+          29.428375011775643,
+          26.269416965078562,
+          49.104375008028
+        ],
+        "medianMs": 26.269416965078562
+      },
+      "sourceProofCalls": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "outputSha256": "e416d5543913c91aa232526efaab8ddf45e7f0f4d4333fde925bd245dfc6db79"
+    }
+  },
+  "boundedPng": {
+    "inputBytes": 264160,
+    "before": {
+      "samplesMs": [
+        30.475917039439082,
+        30.464833020232618,
+        30.13504098635167,
+        30.34516703337431,
+        30.313917028252035,
+        30.498415988404304,
+        30.292166979052126
+      ],
+      "medianMs": 30.34516703337431,
+      "outputBytes": 257004,
+      "reusesSourceObject": false
+    },
+    "after": {
+      "samplesMs": [
+        7.8567080199718475,
+        7.896916999015957,
+        7.9022920108400285,
+        7.926165999379009,
+        7.9051670036278665,
+        7.845875050406903,
+        7.8790829866193235
+      ],
+      "medianMs": 7.896916999015957,
+      "outputBytes": 264160,
+      "reusesSourceObject": true
+    }
+  },
+  "jpegZip": {
+    "inputBytes": 1518074,
+    "before": {
+      "samplesMs": [
+        22.718084044754505,
+        22.66254200367257,
+        22.323874989524484,
+        22.25199999520555,
+        22.779582999646664,
+        22.601082979235798,
+        22.55841705482453
+      ],
+      "medianMs": 22.601082979235798,
+      "archiveBytes": 1518140
+    },
+    "after": {
+      "samplesMs": [
+        0.1289169886149466,
+        0.11670897947624326,
+        0.11295900912955403,
+        0.11237501166760921,
+        0.11299998732283711,
+        0.11170801008120179,
+        0.11370802531018853
+      ],
+      "medianMs": 0.11299998732283711,
+      "archiveBytes": 1518196
+    }
+  }
+}

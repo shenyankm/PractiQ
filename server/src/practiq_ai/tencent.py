@@ -10,6 +10,7 @@ import re
 import time
 from collections.abc import Awaitable, Callable
 from contextlib import AsyncExitStack
+from contextvars import ContextVar
 from datetime import UTC, datetime
 from functools import partial
 from typing import Any
@@ -35,6 +36,7 @@ from .temporary import preparation
 from .tencent_staging import delete_source, source_url, staging_object, upload_source
 
 HOST = "ocr.tencentcloudapi.com"
+_RPC_CLIENT: ContextVar[httpx.AsyncClient | None] = ContextVar("tencent_rpc_client", default=None)
 BASE64_LIMIT = 8 * 1024 * 1024
 URL_LIMIT = 150 * 1024 * 1024
 RESULT_LIMIT = 100 * 1024 * 1024
@@ -132,7 +134,10 @@ async def request(action: str, data: dict[str, Any], config: Config) -> dict[str
         raise DocumentProcessingError(503, "Configure Tencent document parsing credentials", "TENCENT_NOT_CONFIGURED")
     payload = json.dumps(data, ensure_ascii=False, separators=(",", ":")).encode()
     try:
-        async with httpx.AsyncClient(timeout=60, trust_env=False, follow_redirects=False) as client:
+        async with AsyncExitStack() as resources:
+            client = _RPC_CLIENT.get()
+            if client is None:
+                client = await resources.enter_async_context(httpx.AsyncClient(timeout=60, trust_env=False, follow_redirects=False))
             async with client.stream("POST", f"https://{HOST}/", content=payload,
                                      headers=signed_headers(action, payload, config, int(time.time()))) as response:
                 response.raise_for_status()
@@ -214,7 +219,12 @@ async def parse_job(reference: ArtifactReference, runtime: Runtime[Any], *, key:
     async with asyncio.timeout(await run_remaining(runtime)), AsyncExitStack() as stack:
         with telemetry.measure("tencent_admission", {}, "durationMs"):
             await stack.enter_async_context(import_control(runtime).slot(partial(guard, runtime)))
-        return await _parse_job(reference, runtime, key=key, source_type=source_type, source_sha256=source_sha256)
+        client = await stack.enter_async_context(httpx.AsyncClient(timeout=60, trust_env=False, follow_redirects=False))
+        token = _RPC_CLIENT.set(client)
+        try:
+            return await _parse_job(reference, runtime, key=key, source_type=source_type, source_sha256=source_sha256)
+        finally:
+            _RPC_CLIENT.reset(token)
 
 
 async def _parse_job(reference: ArtifactReference, runtime: Runtime[Any], *, key: str,
@@ -290,6 +300,7 @@ async def _parse_job(reference: ArtifactReference, runtime: Runtime[Any], *, key
         record.update(taskId=task_id, requestId=diagnostic_value(result.get("RequestId")))
         _status(record, "Created")
         await store_put(runtime, "tencent_jobs", key, record)
+        del payload, data
     if not record.get("taskId"):
         raise DocumentProcessingError(409, "Previous Tencent submission has an unknown outcome; do not resubmit automatically",
                                       "TENCENT_SUBMISSION_UNKNOWN")

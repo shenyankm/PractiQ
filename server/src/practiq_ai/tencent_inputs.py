@@ -36,6 +36,8 @@ def split_image(payload: bytes, limit: int, max_parts: int) -> list[tuple[bytes,
             image.load()
         except OSError as exc:
             raise DocumentProcessingError(422, "Image scan data is invalid", "IMAGE_FORMAT_UNSUPPORTED") from exc
+        if image.format == "PNG" and len(payload) <= limit and max_parts >= 1:
+            return [(payload, "image/png", (0, 0, image.width, image.height))]
         pending = [(0, 0, image.width, image.height)]
         while pending:
             bounds = pending.pop()

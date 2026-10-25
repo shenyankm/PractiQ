@@ -4,7 +4,7 @@ import io
 import json
 from tempfile import TemporaryFile
 from typing import Any, BinaryIO, cast
-from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
+from zipfile import ZIP_DEFLATED, ZIP_STORED, ZipFile, ZipInfo
 
 from PIL import Image
 from pydantic import ValidationError
@@ -112,11 +112,11 @@ def _image(reference: ArtifactReference, payload: bytes) -> None:
             raise _invalid("Invalid packaged image content") from exc
 
 
-def _write_entry(archive: ZipFile, output: BinaryIO, name: str, payload: bytes) -> None:
+def _write_entry(archive: ZipFile, output: BinaryIO, name: str, payload: bytes, media_type: str | None = None) -> None:
     entry = ZipInfo(name)
     entry.create_system = 3
     entry.external_attr = 0o100600 << 16
-    entry.compress_type = ZIP_DEFLATED
+    entry.compress_type = ZIP_STORED if media_type in {"image/jpeg", "audio/mpeg", "audio/mp4", "audio/aac"} else ZIP_DEFLATED
     entry.compress_level = 1
     with archive.open(entry, "w") as target:
         view = memoryview(payload)
@@ -189,7 +189,7 @@ async def export_task_bank(
                 checked = source if reference.objectKey == source.objectKey else reference
                 payload = await store.get_verified(checked)
                 await _thread_io(_image, reference, payload)
-                await _thread_io(_write_entry, archive, output, name, payload)
+                await _thread_io(_write_entry, archive, output, name, payload, reference.mediaType)
                 del payload
         _limit(output.tell(), ZIP_LIMIT, "ZIP")
         output.seek(0)

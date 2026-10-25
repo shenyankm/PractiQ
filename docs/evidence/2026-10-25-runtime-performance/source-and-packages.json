@@ -1,0 +1,60 @@
+{
+  "baselineCommit": "562951cd2e891f0516e1739c0e4a2257879aecc6",
+  "sourceSha256": {
+    "app/src-tauri/src/performance.rs": "491b2e3e105a1a38889e10635351ff9b721af04bed9c44c28088467872dffae5",
+    "app/src-tauri/src/sessions.rs": "6d1aecf6204219d8e7be5f675e1e16f88e2722943baf8f60eff5bfb28a64108d",
+    "app/src-tauri/src/store.rs": "40e3abceaaba3f7bf10c2294977204a761f4644f1b9f16760c00fcb7756fe703",
+    "app/src-tauri/src/tests.rs": "a76e86fb0d256ba7fd5faea9b3aad40fdaddab3d62584db21443a687eeb3b1fd",
+    "server/scripts/benchmark_runtime_optimizations.py": "ac61a0cd766299e50b922fc10561c050bc9afd54ac6b6d5efdf3f4a15ca42944",
+    "server/src/practiq_ai/bank_export.py": "905e4641024672d93d7f90e5fc2c63f030b3d4e95168f60d6552c4e1db68c902",
+    "server/src/practiq_ai/graphs/document.py": "209c5802b2131d8390a67aa1b5711f05f3b8898d338e6dce08b4136587023cc8",
+    "server/src/practiq_ai/task_api.py": "d68934d9e82976e8898de44df03a553257884a65803ecc588e42ed1c615ad38b",
+    "server/src/practiq_ai/tencent.py": "7d31890ab27696dbac22420cb8e472ef5af95dbea25d6527d9f281db6202ccd9",
+    "server/src/practiq_ai/tencent_inputs.py": "7fa3f103550ed066a65f09e71ce320dc86a0f21b2dff38006a82e3dd44bc3d64",
+    "server/src/practiq_ai/webapp.py": "2f19415f7a3bf5897f5bd96e7db227677d10a5269c89d37026058ce32d75a560",
+    "server/tests/test_artifact_performance.py": "9a80fb0a2db298554903f7ebe27aa266c5c10681594e167e1a183ac2efd60d7e",
+    "server/tests/test_bank_export.py": "ebf88ec337abf2aa84c3615073fe9b9af64425ac82b96fcec7e5df77f17adf9a",
+    "server/tests/test_runtime_optimizations.py": "9989dcaaf571c7a77a8a7c116d57876cc449d47a0dd002098bd069fdbab48d38"
+  },
+  "measurementSha256": {
+    "service.json": "162826dc5432a9bf58ccc1e9bf65581e7e0ca822d7ab99890ee2c442418e1dcc",
+    "native.json": "c7c09c1584663f4418798e1bdf3dae827c4fe039c18c375f993506461805fdaf"
+  },
+  "packages": {
+    "app/src-tauri/target/release/bundle/macos/PractiQ.app/Contents/MacOS/PractiQ": {
+      "sha256": "5e364ef6697cc4bc0c343dfb8cb17b596622adc346fddeb8ce914dd4bd070f66",
+      "sizeBytes": 22281248
+    },
+    "app/src-tauri/target/release/bundle/dmg/PractiQ_0.2.0-beta.1_aarch64.dmg": {
+      "sha256": "4e1d0c427401d7e552c9a01802d29d5ff2a31068cd72e4f1dcd8d4a94af79bb0",
+      "sizeBytes": 12439583
+    },
+    "server/dist/practiq_ai_service-0.3.0.tar.gz": {
+      "sha256": "806dd1a8ea3e9d86f98e99367042914a4603a7461c87187cad97ca962392fda9",
+      "sizeBytes": 1901290
+    },
+    "server/dist/practiq_ai_service-0.3.0-py3-none-any.whl": {
+      "sha256": "cd79c2993d4bf22b6b8dbf4b02d1526685f057741e6aff136a7085fc17774f76",
+      "sizeBytes": 310194
+    }
+  },
+  "gateExitCodes": {
+    "verify-final": 0,
+    "app-check": 0,
+    "app-build": 0,
+    "app-browser": 0,
+    "web-check": 0
+  },
+  "serviceProbes": {
+    "status": "PASSED",
+    "probeFingerprint": "451fa7b080d5716cc26750bd9f22b494b7439feca44ac05b05303540dba64c5f",
+    "probeMetrics": {
+      "recoverySuccessRate": 100,
+      "correctStopRate": 100,
+      "routingPassRate": 100,
+      "unknownUsagePassRate": 100
+    },
+    "durableCrashRecovery": "NOT_ASSESSED",
+    "gateReasons": []
+  }
+}
