@@ -1,0 +1,65 @@
+{
+  "banks": {
+    "after": {
+      "medianMs": 10.681167,
+      "outputSha256": "c9470c6a7132254df6de1a3c78cfc687acd1bec1f08b0e3904becff0ebb5c09f",
+      "samplesMs": [
+        10.599375,
+        10.681167,
+        10.702583,
+        10.622542000000001,
+        10.695625,
+        10.620707999999999,
+        10.798874999999999
+      ]
+    },
+    "before": {
+      "medianMs": 12.55975,
+      "outputSha256": "c9470c6a7132254df6de1a3c78cfc687acd1bec1f08b0e3904becff0ebb5c09f",
+      "samplesMs": [
+        12.667583,
+        12.55975,
+        12.505832999999999,
+        12.396458,
+        12.626625,
+        12.676583,
+        12.384457999999999
+      ]
+    }
+  },
+  "drafts": {
+    "after": {
+      "medianMs": 1.4935,
+      "output": {
+        "draftAnswered": 300,
+        "rowsRead": 300
+      },
+      "samplesMs": [
+        1.5317079999999998,
+        1.516625,
+        1.488083,
+        1.4935,
+        1.4890839999999999,
+        1.500041,
+        1.478959
+      ]
+    },
+    "before": {
+      "medianMs": 2.366708,
+      "output": {
+        "draftAnswered": 300,
+        "rowsRead": 30000
+      },
+      "samplesMs": [
+        2.367334,
+        2.365959,
+        2.34825,
+        2.336542,
+        2.366708,
+        2.435833,
+        2.453833
+      ]
+    }
+  },
+  "method": "Release Rust, temporary schema-11 database. One warmup and seven samples. Bank choices include connection setup; draft pass excludes the rest of session summaries. No IPC or WebView measurement."
+}

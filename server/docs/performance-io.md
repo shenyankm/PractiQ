@@ -2,7 +2,7 @@
 
 These optimizations remove repeated work without changing task authorization,
 verified storage, explicit resume/retry, paid-call receipts, or database schemas.
-They add no cache, connection pool, configuration, or dependency.
+They add no cross-request cache, configuration, or dependency.
 
 ## Artifact authorization (recommendation 3)
 
@@ -17,10 +17,16 @@ OCR entries without a public vision unit are not authorized; once merged questio
 exist, orphan parsed-unit indices no longer expose OCR evidence. Internal text,
 input-part and unit-result references are not recursively authorized.
 
-A checkpoint membership miss retains the existing detail-then-review fallback
-for result-only references. Every accepted reference still uses `get_verified`;
-original sources retain `DocumentReference` validation. There is no cross-request
-cache, and source namespace alone never authorizes a read.
+Result-only visual references now reuse that same snapshot. Final result visuals
+are checked directly; before merge, saved successful units are loaded one at a
+time in source order and authorization stops at the first matching visual. No
+full task detail, usage diagnostics or review response is constructed. A merged
+result supersedes old unit visuals. Arbitrary dictionaries embedded in question
+content cannot grant access to internal files.
+
+Every accepted reference still uses `get_verified`; original sources retain
+`DocumentReference` validation. There is no cross-request cache, and source
+namespace alone never authorizes a read.
 
 `tests/test_artifact_performance.py` saves real in-memory LangGraph checkpoints
 and local externalized unit JSON files for N = 1, 30, 100. It first verifies that
@@ -38,16 +44,21 @@ For example, the 30-unit case previously loaded 900 unit results; it now loads
 none. This is deterministic work-count evidence, not a latency benchmark. The
 snapshot path uses the real runtime reader with an in-memory checkpointer;
 authoritative database rows are synthetic, not checkpoint SQL measurements.
-Result-only references still incur full fallback work, plus the initial snapshot
-read on a checkpoint miss. The regression also verifies this real fallback.
+For a result-only visual in the first of N saved units, the new regression checks
+one snapshot, one verified unit-result read and one verified image read, for
+N = 1, 30, 100. Later corrupt unrelated units are never opened. A reference in a
+later unit, or an absent reference, may still require preceding units; no reverse
+index or manifest was added.
 
 Coverage retains four-field mismatches, cross-task and same-source nonmember
 rejection, missing/expired/unsupported tasks, and missing/corrupt requested bytes.
 An unrelated corrupt unit no longer prevents reading a valid public source page.
 Merged/unmerged OCR exposure and internal-reference rejection are tested as well.
-This fix changes only `webapp.py` in production: it is outside `execution.code_version`'s
-hashed inputs, and `task_api.py` is unchanged, so this change alone does not alter
-the execution signature or existing-task resume compatibility.
+The October 25 runtime changes also touch hashed parser/Tencent sources, so the
+normal conservative execution signature changes. Drain unfinished tasks on their
+original deployment or retain that deployment for explicit recovery; do not
+rewrite signatures. Passive reads and exports still do not start models. See
+[resume compatibility](resume-compatibility.md).
 
 ## Resume preflight (recommendation 14)
 
@@ -103,6 +114,28 @@ later rows are not marked or sent after the failure. The existing backoff test
 also asserts publication is actually attempted on each failed connection cycle.
 These counts concern marking connections only; the existing batch SELECT and
 its reader connection are unchanged. No PostgreSQL handshake timings are claimed.
+
+## Tencent client and export lifetimes (October 25)
+
+Each admitted `parse_job` owns one private RPC `AsyncClient`, shared by its submit,
+queries and existing bounded read retries, then closed on success, failure or
+cancellation. Task-local context prevents concurrent jobs from borrowing each
+other's client. Direct standalone RPC requests still own a short-lived client;
+result-download/COS clients remain separate, with their original URL policies.
+Signed headers are built for every request. Timeout, response bounds, disabled
+proxies/redirects and no automatic submit replay remain unchanged. After the known
+task ID is persisted, the source bytes and Base64 submit dictionary are deleted
+before polling. This is a frame-lifetime guarantee, not an RSS bound.
+
+Task export constructs detail from its initial `(task, snapshot, run)` instead of
+reading the full checkpoint again. The post-build checkpoint/state read remains
+mandatory and closes the archive on conflict, failure or cancellation. Media
+entries use Stored for JPEG/MPEG/MP4/AAC; JSON, PNG and WAV retain fast Deflate.
+PNG can contain uncompressed image data, so it is not categorically treated as
+already compressed. All content checks, permissions and package limits remain.
+
+The [October 25 acceptance record](../../docs/history/performance/runtime-optimizations-20261025.md)
+contains work counts, paired probes, commands and exclusions.
 
 ## Focused reproduction
 

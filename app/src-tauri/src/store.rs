@@ -525,7 +525,7 @@ impl Store {
 
     pub fn banks(&self) -> Result<Value> {
         let db = self.connect()?;
-        let mut stmt = db.prepare(&format!("SELECT b.id,b.title,COUNT(q.id) FROM banks b LEFT JOIN questions q ON q.bank_id=b.id AND (q.mode IS NULL OR q.mode NOT IN ({COMPOSITE_SQL})) GROUP BY b.id ORDER BY b.created_at DESC,b.id DESC")).map_err(err)?;
+        let mut stmt = db.prepare(&format!("SELECT b.id,b.title,(SELECT COUNT(*) FROM questions q WHERE q.bank_id=b.id AND (q.mode IS NULL OR q.mode NOT IN ({COMPOSITE_SQL}))) FROM banks b ORDER BY b.created_at DESC,b.id DESC")).map_err(err)?;
         let rows = stmt.query_map([], |r| Ok(json!({"id":r.get::<_,String>(0)?,"title":r.get::<_,String>(1)?,"count":r.get::<_,i64>(2)?}))).map_err(err)?.collect::<std::result::Result<Vec<_>,_>>().map_err(err)?;
         Ok(json!(rows))
     }

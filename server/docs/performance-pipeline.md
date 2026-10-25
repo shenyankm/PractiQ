@@ -42,6 +42,26 @@ not upload APIs, schemas, model prompts, or explicit-action requirements.
   Once jobs settle, bundles are verified and decoded one at a time in source order,
   with the existing cumulative page, character and subimage-byte limits.
 
+## Remaining CPU and input work (October 25)
+
+A PNG page already within its submission limit reuses its exact bytes and full
+pixel bounds after successful decoding. Oversized pages and JPEG/CMYK inputs keep
+the existing lossless splitting/color-conversion path. Skipping PNG re-encoding
+can retain slightly larger input bytes, but never bypasses the configured part
+limit, page/visual budget, checksum or paid-work preflight.
+
+Externalized unit JSON decoding/validation, merge input validation and final
+result/quality construction run in the existing cancellation-draining thread
+helper. Cropping and storage retain their async boundaries; no thread races
+state publication. Cancelling a merge waits for an already-running worker before
+returning. Source-duplicate analysis is skipped only when no source proof exists;
+the preceding strict duplicate/tree validation is retained. Partial projection
+also copies its state off the event loop. This reduces event-loop blocking, not
+necessarily total CPU time; Python's GIL still limits responsiveness.
+
+The [October 25 acceptance record](../../docs/history/performance/runtime-optimizations-20261025.md)
+contains paired output hashes, heartbeat probes and validation boundaries.
+
 ## Paid work and recovery risks
 
 Concurrency intentionally changes **when charges can occur**. Later parts can be

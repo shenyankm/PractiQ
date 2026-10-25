@@ -6,6 +6,9 @@ use rusqlite::{params, OptionalExtension};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 
+pub(crate) const DRAFT_ANSWERS_SQL: &str =
+    "SELECT answer FROM attempts WHERE session_id=?1 AND submitted_at IS NULL AND answer<>'null'";
+
 #[derive(Default)]
 struct SnapshotDocument {
     content: Vec<Value>,
@@ -296,9 +299,7 @@ impl Store {
         let mut rows = stmt.query_map(params![limit, offset], |r| {
             Ok(json!({"id":r.get::<_,String>(0)?,"title":r.get::<_,String>(1)?,"createdAt":r.get::<_,i64>(2)?,"finishedAt":r.get::<_,Option<i64>>(3)?,"count":r.get::<_,i64>(4)?,"answered":r.get::<_,i64>(5)?,"correct":r.get::<_,Option<i64>>(6)?.unwrap_or(0),"graded":r.get::<_,i64>(7)?,"skipped":r.get::<_,i64>(8)?,"elapsedMs":r.get::<_,i64>(9)?,"selfGraded":r.get::<_,i64>(10)?,"autoGraded":r.get::<_,i64>(11)?,"kind":r.get::<_,String>(12)?,"submittedAt":r.get::<_,Option<i64>>(13)?,"totalCents":r.get::<_,Option<i64>>(14)?,"earnedCents":r.get::<_,Option<i64>>(15)?,"pendingGrades":r.get::<_,i64>(16)?,"deadlineAt":r.get::<_,Option<i64>>(17)?,"lastActiveAt":r.get::<_,i64>(18)?}))
         }).map_err(err)?.collect::<std::result::Result<Vec<_>,_>>().map_err(err)?;
-        let mut drafts = db
-            .prepare("SELECT answer FROM attempts WHERE session_id=?1 AND submitted_at IS NULL")
-            .map_err(err)?;
+        let mut drafts = db.prepare(DRAFT_ANSWERS_SQL).map_err(err)?;
         for session in &mut rows {
             let mut answers = drafts.query([text(session, "id")]).map_err(err)?;
             let mut count = 0;

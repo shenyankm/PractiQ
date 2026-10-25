@@ -3,6 +3,23 @@
 These changes address native recommendations **7, 6, 8 and 10** from the performance review of `5b673a6e`.
 They do not change IPC contracts, schema 11, database objects/indexes, snapshot format or cache limits.
 
+## Sparse history and bank overview reads (October 25)
+
+History excludes the exact JSON text `null` before transferring draft answers to
+Rust. Every remaining answer still uses `exams::has_answer`, including whitespace
+JSON nulls, nested empty values, Boolean false and numeric zero. The query and its
+release probe share `sessions::DRAFT_ANSWERS_SQL`. Bank choices use the existing
+bank-order index and a per-bank indexed count instead of a joined aggregate plus
+sorting. Empty banks, composite parents, descendant leaf counts and stable tie
+ordering are unchanged; no schema/index or cache was added.
+
+`tests.rs` covers both behaviors. `performance::runtime_read_stress` compares the
+old and new native reads in temporary databases (100 banks / 100k questions and
+30 sessions / 30k attempts), checks matching bank output hashes and draft counts,
+and reports timing without timing assertions. It measures the draft pass, not
+whole history-page or WebView latency. See the
+[acceptance record](../../docs/history/performance/runtime-optimizations-20261025.md).
+
 ## Changes and correctness checks
 
 - **7 — shared visual search:** search each relevant visual ID once, then map matching IDs back through the original eligible nodes. Bank scope, root order, `documentOnly`, mode and same-node favorite/wrong filters remain intact. The search regression includes scoped/shared/foreign/document-only visuals, an ineligible sibling and a cross-bank association. A test-only thread-local counter measures visual JSON searches.

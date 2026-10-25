@@ -15,6 +15,7 @@ These records preserve the result of a particular source revision, workload and 
 
 | Record | Scope |
 | --- | --- |
+| [Runtime optimizations, October 25](performance/runtime-optimizations-20261025.md) | Ten review items: buffer lifetimes, event-loop work, bounded artifact/export reads, Tencent client reuse and native SQL; paired probes and local acceptance |
 | [Cross-component optimizations, October 22](performance/performance-optimizations-20261022.md) | All 16 recommendations, deterministic work counts, bounded native timings, recovery/browser/package acceptance and exclusions |
 | [October 3](performance/performance-implementation-20261003.md) and [October 5](performance/performance-implementation-20261005.md) | Separate measured workloads and source baselines |
 | [Web fonts, October 9](performance/performance-web-fonts-20261009.md) | Static assets and repeated build samples; no initial-load or image-size claim |

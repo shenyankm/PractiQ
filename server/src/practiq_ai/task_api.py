@@ -293,6 +293,10 @@ def _task_state(snapshot, run) -> tuple[TaskState, list[TaskAction], list[dict[s
 async def get_task(thread_id: str) -> dict[str, Any]:
     service = client()
     task, snapshot, run = await _read_task(service, thread_id)
+    return await _task_detail(service, thread_id, task, snapshot, run)
+
+
+async def _task_detail(service, thread_id, task, snapshot, run) -> dict[str, Any]:
     values = snapshot.values or {}
     interruptions = _interrupts(snapshot)
     state, actions, failures = _task_state(snapshot, run)
@@ -360,9 +364,7 @@ async def export_task(thread_id: str, checkpoint_id: str | None = None, *, compl
     current_checkpoint = service.checkpoint_id(snapshot, run)
     if checkpoint_id is not None and checkpoint_id != current_checkpoint:
         raise conflict('The reviewed checkpoint changed', 'STALE_CHECKPOINT')
-    detail = DocumentTaskDetail.model_validate(await get_task(thread_id))
-    if detail.checkpointId != current_checkpoint:
-        raise conflict('The task changed during export', 'STALE_CHECKPOINT')
+    detail = DocumentTaskDetail.model_validate(await _task_detail(service, thread_id, task, snapshot, run))
     original_state = detail.state
     if completed and detail.state != 'COMPLETED':
         if not detail.canExportCompleted:
@@ -622,6 +624,36 @@ async def _task_summary(service, task, run, checkpoint_id):
         while len(service.task_summaries) > 256:
             service.task_summaries.popitem(last=False)
     return summary
+
+
+async def artifact_is_public(snapshot: StateSnapshot, source_sha256: str, metadata: dict[str, Any]) -> bool:
+    """Authorize only references exposed by saved source units or visual records."""
+    values = snapshot.values or {}
+
+    def matches(reference: Any) -> bool:
+        return isinstance(reference, dict) and all(reference.get(key) == value for key, value in metadata.items())
+
+    def visual_matches(visuals: list[dict[str, Any]]) -> bool:
+        return any(matches(visual.get(field)) for visual in visuals for field in ('imageRef', 'sourceRef'))
+
+    if any(matches(ref) for key in ('pageRefs', 'chunkRefs') for ref in values.get(key, [])):
+        return True
+    merged = bool(values.get('result', {}).get('questions'))
+    vision_indices = set(range(len(values.get('pageRefs', []))))
+    if not merged:
+        vision_indices.update(item['index'] for item in values.get('visionResults', []) if item.get('parsed'))
+    if any(index in vision_indices and matches(ref) for index, ref in enumerate(values.get('ocrPageRefs', []))):
+        return True
+    if visual_matches(values.get('result', {}).get('visualElements', [])):
+        return True
+    if not merged:
+        for key in ('visionResults', 'chunkResults'):
+            for item in sorted(values.get(key, []), key=lambda item: item['index']):
+                if item.get('parsed'):
+                    loaded = await load_unit_result(item, source_sha256)
+                    if visual_matches(loaded.get('visuals', [])):
+                        return True
+    return False
 
 
 async def review_task(thread_id: str) -> dict[str, Any]:

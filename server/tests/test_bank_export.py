@@ -17,7 +17,7 @@ from pathlib import Path
 from tempfile import TemporaryFile
 from typing import Any, cast
 from unittest.mock import AsyncMock, Mock
-from zipfile import ZipFile
+from zipfile import ZIP_DEFLATED, ZIP_STORED, ZipFile
 
 import httpx
 import pytest
@@ -258,7 +258,8 @@ async def test_saved_model_audio_is_reviewable_and_exports_without_replaying_wor
             'expires_at': utcnow() + timedelta(days=1), 'parent_thread_id': None}
     service = SimpleNamespace(db=SimpleNamespace(store=MemoryStore()), checkpoint_id=runtime.Service.checkpoint_id)
     monkeypatch.setattr(task_api, 'client', lambda: service)
-    monkeypatch.setattr(task_api, '_read_task', AsyncMock(return_value=(task, snapshot, None)))
+    reads = AsyncMock(return_value=(task, snapshot, None))
+    monkeypatch.setattr(task_api, '_read_task', reads)
     monkeypatch.setattr(task_api, 'get_object_store', lambda: store)
     monkeypatch.setattr(document, 'get_model', lambda: pytest.fail('Saved projection/export must not invoke a model'))
     thread_id = str(detail().threadId)
@@ -266,7 +267,9 @@ async def test_saved_model_audio_is_reviewable_and_exports_without_replaying_wor
     candidate = projected['result']['questions'][0]
     assert candidate['audioRef'] is None and candidate['needsReview'] and 'media' in candidate['missingFields']
     assert candidate['transcript'][0]['textValue'] == 'Supplied transcript'
+    reads.reset_mock()
     files = unpack(await task_api.export_task(thread_id, 'current-result', completed=completed))
+    assert reads.await_count == 2, 'Export must reuse its initial snapshot and retain its final race check'
     assert json.loads(files['questions.json'])['result']['questions'][0]['audioRef'] is None
     assert saved == before, 'read projection must not rewrite the original saved receipt/result'
     for inline in (False, True):
@@ -532,14 +535,14 @@ async def test_task_export_closes_archive_when_the_final_snapshot_cannot_be_used
             if failure == "cancelled":
                 await asyncio.Event().wait()
         return {"document": source.model_dump()}, "current-result" if calls == 1 else "stale", None
-    async def get_task(_thread):
+    async def task_detail(*_args):
         return detail().model_dump(mode="json")
     payload = TemporaryFile("w+b")  # noqa: SIM115 - assert production closes the transferred file
     async def export(*_args, **_kwargs):
         return payload
     monkeypatch.setattr(task_api, "client", lambda: SimpleNamespace(checkpoint_id=lambda snapshot, _run: snapshot))
     monkeypatch.setattr(task_api, "_read_task", read_task)
-    monkeypatch.setattr(task_api, "get_task", get_task)
+    monkeypatch.setattr(task_api, "_task_detail", task_detail)
     monkeypatch.setattr(task_api, "get_object_store", lambda: store)
     monkeypatch.setattr(bank_export, "export_task_bank", export)
     operation = asyncio.create_task(task_api.export_task(str(detail().threadId), "current-result"))
@@ -552,6 +555,26 @@ async def test_task_export_closes_archive_when_the_final_snapshot_cannot_be_used
         assert payload.closed
     finally:
         payload.close()
+
+
+async def test_task_export_rejects_same_checkpoint_when_run_state_changes(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    from practiq_ai import task_api
+    store, source = await source_store(tmp_path)
+    snapshot = SimpleNamespace(values={'status': 'SUCCEEDED'}, interrupts=(), next=())
+    task = {'document': source.model_dump()}
+    run = {'status': 'running', 'pause_requested': False, 'cancel_requested': False}
+    reads = AsyncMock(side_effect=[(task, snapshot, None), (task, snapshot, run)])
+    payload = io.BytesIO(b'archive')
+    monkeypatch.setattr(task_api, 'client', lambda: SimpleNamespace(checkpoint_id=lambda *_args: 'current-result'))
+    monkeypatch.setattr(task_api, '_read_task', reads)
+    monkeypatch.setattr(task_api, '_task_detail', AsyncMock(return_value=detail().model_dump(mode='json')))
+    monkeypatch.setattr(task_api, 'get_object_store', lambda: store)
+    monkeypatch.setattr(bank_export, 'export_task_bank', AsyncMock(return_value=payload))
+    with pytest.raises(DocumentProcessingError) as error:
+        await task_api.export_task(str(detail().threadId), 'current-result')
+    assert error.value.code == 'STALE_CHECKPOINT' and payload.closed and reads.await_count == 2
 
 
 async def test_export_waits_for_cancelled_preparation_before_archive_or_storage_work(tmp_path, monkeypatch):
@@ -620,13 +643,13 @@ async def test_export_waits_for_a_cancelled_writer_before_closing_its_archive(tm
     def temporary(*args, **kwargs):
         file = TemporaryFile(*args, **kwargs)  # noqa: SIM115 - production must close this file
         files.append(file); return file
-    def write(archive, output, name, payload):
+    def write(archive, output, name, payload, media_type=None):
         if not name.startswith("resources/"):
             return original_write(archive, output, name, payload)
         entered.set()
         try:
             assert released.wait(5), "Cancelled writer was never released"
-            original_write(archive, output, name, payload)
+            original_write(archive, output, name, payload, media_type)
         except BaseException as exc:
             errors.append(exc)
             raise
@@ -818,6 +841,22 @@ async def test_export_response_waits_for_a_cancelled_read_before_closing_its_arc
             operation.cancel()
             await asyncio.gather(operation, return_exceptions=True)
         payload.close()
+
+
+@pytest.mark.parametrize('media_type,stored', [
+    ('image/jpeg', True), ('audio/mpeg', True), ('audio/mp4', True), ('audio/aac', True),
+    ('image/png', False), ('audio/wav', False), (None, False),
+])
+def test_export_media_compression_preserves_exact_bytes_and_permissions(media_type, stored):
+    output = io.BytesIO()
+    payload = b'Synthetic resource bytes' * 100
+    with ZipFile(output, 'w') as archive:
+        bank_export._write_entry(archive, output, 'resource', payload, media_type)
+    with ZipFile(output) as archive:
+        entry = archive.getinfo('resource')
+        assert entry.compress_type == (ZIP_STORED if stored else ZIP_DEFLATED)
+        assert entry.external_attr >> 16 == 0o100600
+        assert archive.read('resource') == payload
 
 
 def test_export_entries_use_fast_compression_and_preserve_content_and_permissions(monkeypatch):
