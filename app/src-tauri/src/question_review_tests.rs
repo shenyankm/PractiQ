@@ -194,10 +194,12 @@ fn unchanged_tree_save_preserves_review_confirmations_after_reopen() {
     store.review_question(&root, true).unwrap();
     let before = store.question_rows().unwrap();
     let index = crate::questions::Index::new(&before);
-    let tree: Vec<_> = index.trees[root.as_str()]
+    let mut tree = json!(index.trees[root.as_str()]
         .iter()
         .map(|row| row["question"].clone())
-        .collect();
+        .collect::<Vec<_>>());
+    webview_roundtrip(&mut tree);
+    let tree = tree.as_array().unwrap().clone();
     store
         .save_question_tree(&bank, Some(&root), tree.clone())
         .unwrap();
@@ -225,6 +227,150 @@ fn unchanged_tree_save_preserves_review_confirmations_after_reopen() {
         .as_array()
         .unwrap()
         .is_empty());
+}
+
+// JavaScript JSON.stringify emits integral f64 values as integers across Tauri IPC.
+fn webview_roundtrip(value: &mut Value) {
+    match value {
+        Value::Number(number) if number.is_f64() => {
+            let number = number.as_f64().unwrap();
+            if number.fract() == 0.0 {
+                assert!(number.abs() < 9_007_199_254_740_992.0);
+                *value = json!(number as i64);
+            }
+        }
+        Value::Array(values) => values.iter_mut().for_each(webview_roundtrip),
+        Value::Object(values) => values.values_mut().for_each(webview_roundtrip),
+        _ => (),
+    }
+}
+
+fn editor_tree(store: &Store, root: &str) -> Vec<Value> {
+    let detail = store.question_detail(root).unwrap();
+    std::iter::once(detail["question"].clone())
+        .chain(
+            list(&detail, "children")
+                .iter()
+                .map(|row| row["question"].clone()),
+        )
+        .collect()
+}
+
+#[test]
+fn webview_tree_save_preserves_reviews_but_real_edits_clear_them_without_rewriting_snapshots() {
+    let (dir, store, bank, root) = setup();
+    let mut tree = editor_tree(&store, &root);
+    tree.truncate(3);
+    tree[1]["needsReview"] = json!(true);
+    tree[0]["answerMode"] = json!("listening");
+    tree[0]["questionTypeId"] = json!("listening");
+    tree[0]["sourceScore"] = json!(10.0);
+    tree[0]["audioStartSeconds"] = json!(2.0);
+    tree[0]["audioEndSeconds"] = json!(10.0);
+    tree[1]["confidence"] = json!(0.75);
+    tree[1]["sourceScore"] = json!(2.5);
+    tree[0]["contentBlocks"] =
+        json!([{"partType":"table","jsonValue":{"rows":[[1.0,0.0,-2.0,0.25,null,false,"1"]]}}]);
+    store.save_question_tree(&bank, Some(&root), tree).unwrap();
+    let confirmed = store.review_question(&root, true).unwrap();
+    let selected =
+        crate::paper::selected_rows(&store.question_rows().unwrap(), std::slice::from_ref(&root))
+            .unwrap();
+    let session = store
+        .start_paper(Paper {
+            question_ids: vec![root.clone()],
+            kind: "practice".into(),
+            minutes: None,
+            scores: vec![],
+            total_cents: 0,
+            digest: crate::paper::digest(&selected).unwrap(),
+        })
+        .unwrap();
+    let frozen = || -> String {
+        store
+            .connect()
+            .unwrap()
+            .query_row(
+                "SELECT content FROM session_documents WHERE session_id=?1",
+                [text(&session, "id")],
+                |row| row.get(0),
+            )
+            .unwrap()
+    };
+    let snapshot = frozen();
+    let mut roundtripped = json!(editor_tree(&store, &root));
+    for field in [
+        "confidence",
+        "sourceScore",
+        "audioStartSeconds",
+        "audioEndSeconds",
+    ] {
+        assert!(roundtripped[0][field].is_f64(), "{field}");
+    }
+    webview_roundtrip(&mut roundtripped);
+    for field in [
+        "confidence",
+        "sourceScore",
+        "audioStartSeconds",
+        "audioEndSeconds",
+    ] {
+        assert!(roundtripped[0][field].is_i64(), "{field}");
+    }
+    assert_eq!(roundtripped[1]["confidence"], 0.75);
+    assert_eq!(roundtripped[1]["sourceScore"], 2.5);
+    let tree = roundtripped.as_array().unwrap().clone();
+    store
+        .save_question_tree(&bank, Some(&root), tree.clone())
+        .unwrap();
+    let reopened = Store::new(dir.path().to_owned()).unwrap();
+    let rows = reopened.question_rows().unwrap();
+    let index = crate::questions::Index::new(&rows);
+    assert!(index.trees[root.as_str()].len() > 2);
+    assert!(index.trees[root.as_str()]
+        .iter()
+        .all(|row| row["reviewedAt"] == confirmed));
+    assert_eq!(
+        reopened.questions(Some(&bank), "", "", "review").unwrap(),
+        json!([])
+    );
+    assert_eq!(frozen(), snapshot);
+
+    for (node, field, value) in [
+        (0, "confidence", json!(0.5)),
+        (0, "sourceScore", json!(11)),
+        (0, "sourceScore", Value::Null),
+        (0, "audioStartSeconds", json!(3)),
+        (0, "audioEndSeconds", json!(11)),
+        (1, "confidence", json!(0.5)),
+        (1, "sourceScore", json!(3.5)),
+        (1, "stem", json!("Changed child content")),
+        (0, "contentBlocks", json!([])),
+    ] {
+        store
+            .save_question_tree(&bank, Some(&root), tree.clone())
+            .unwrap();
+        store.review_question(&root, true).unwrap();
+        let mut edited = tree.clone();
+        edited[node][field] = value;
+        store
+            .save_question_tree(&bank, Some(&root), edited)
+            .unwrap();
+        let rows = store.question_rows().unwrap();
+        let index = crate::questions::Index::new(&rows);
+        assert!(
+            index.trees[root.as_str()]
+                .iter()
+                .all(|row| row["reviewedAt"].is_null()),
+            "node {node} field {field}"
+        );
+        assert!(!store
+            .questions(Some(&bank), "", "", "review")
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .is_empty());
+        assert_eq!(frozen(), snapshot, "node {node} field {field}");
+    }
 }
 
 #[test]
