@@ -27,9 +27,25 @@ Semantic settings include model/provider identity and the fixed Responses transp
 | Recorded Pydantic version | Reject | Runtime mismatch remains conservative |
 | Source comment, identical installed runtime | Reject | Audit bytes are not rewritten |
 | Lock comment, identical installed runtime | Reject | Full lock-byte audit remains enforced |
+| Remove the dev-only Coverage requirement and package record | Reject | Locked runtime dependency closure and installed runtime remain unchanged; audit bytes differ |
+| Remove the Trove Classifiers build constraint | Reject | Locked runtime dependency closure and installed runtime remain unchanged; build provenance is not established |
 | Missing stored signature | Reject | Deterministic conservative fallback |
 
-Rejected cases retain unit results, source reference, usage and provider Store receipts. Accepted cases retain prior usage and successful unit results and make exactly one additional retry call. Other restart, PostgreSQL recovery, expiry and source-integrity behavior remains covered by existing runtime/task tests. This matrix does not test a real dependency upgrade or establish model equivalence.
+Rejected cases retain unit results, source reference, usage, model-call receipts, Tencent job receipts, spent-call budgets, allocated allowances and reserved-call totals. Accepted cases retain the original execution metadata, prior usage, successful unit results, existing receipts and spent-call records; exactly one additional retry call consumes a new budget slot rather than resetting prior spending. Tencent job receipts remain unchanged on both paths. Other restart, PostgreSQL recovery, expiry and source-integrity behavior remains covered by existing runtime/task tests.
+
+The two structured lock edits operate only on temporary copies, not the service's installed environment or repository lock/manifest. The test compares the root's runtime requirements and complete reachable package records (versions, dependencies, sources and artifact hashes), conservatively following all locked extras and markers without platform filtering. Coverage is outside that closure; the `psycopg-binary` extra is inside it. Separate negative controls change wheel hashes for OpenAI, LangGraph Checkpoint and Psycopg Binary and must change the comparison. The helper fails explicitly for multi-version locks rather than silently collapsing records. This comparison is test evidence, not a production compatibility identifier or general uv resolver. It does not rebuild/install either candidate, test a real dependency upgrade or establish model equivalence.
+
+## Why identifier separation remains blocked
+
+Equal runtime lock records and nine installed package versions are not sufficient proof of equivalent runtime artifacts. `runtime_version()` does not inventory OpenAI or LangGraph Checkpoint itself, all transitive dependencies, installed wheel hashes or native build outputs. A build-constraint edit can alter a source-built runtime artifact without changing its package version or the runtime lock records. The synthetic edits demonstrate the conservative rejection and preservation boundary, not safety of excluding all development/build metadata.
+
+Before admitting even a selected cross-deployment resume, a follow-up needs:
+
+- A precisely bounded candidate pair with relevant installed dependency/artifact and toolchain provenance, plus checkpoint deserialization, parser/model semantics and provider-receipt recovery evidence. A TOML-comment-only exception does not establish this broader boundary.
+- Versioned execution metadata that retains the complete source/lock/toolchain audit identity separately, preserves the saved original identity and conservatively rejects historical, missing or unknown compatibility metadata. Existing signatures must not be rewritten or automatically adopted.
+- One consistent compatibility decision at graph load/control, `execution.validate_execution()`/`preflight()`/`guard()` and both task-state projections in `task_api.py`. Changing the graph gate alone would disagree with advertised actions. Source/artifact verification, normalized Office engine identity, trusted settings, expiry, runtime/model/state gates, usage/receipts, budgets, admission and explicit paid-work authorization must still hold independently.
+
+No production gate, signature format or task-state projection is changed by this evidence-only work. Issue #193 remains open; a separate identifier is not delivered.
 
 ## Upgrade and recovery
 
