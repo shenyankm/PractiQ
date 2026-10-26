@@ -4,6 +4,12 @@ Tracks [#89](https://github.com/shenyankm/PractiQ/issues/89). GitHub status was 
 
 The product boundary is the [independent AI service/Web importer and offline practice app](../../README.md). Implementation of [#130](https://github.com/shenyankm/PractiQ/issues/130) and [#131](https://github.com/shenyankm/PractiQ/issues/131) is integrated through [#132](https://github.com/shenyankm/PractiQ/pull/132) and [#133](https://github.com/shenyankm/PractiQ/pull/133). Those deliveries do not complete the separate acceptance workstreams below.
 
+## Current planning scope
+
+The current [supported application](../../README.md) is macOS 14+ on Apple Silicon only; Windows/Android records below remain historical. Import quality (#90) now covers the Tencent-first service/Web pipeline, including Markdown and PPT/PPTX, with CSV retained only as historical/saved content. Final-package acceptance (#91) requires exact macOS final bytes and both direct-model and service-mode grading evidence. Trials (#92) must use the current macOS build, personal service-token/direct-grading credential boundaries and separately authorized consent. Onboarding (#93) must use the current installation guide, not retired platform commands.
+
+The priorities remain Now: #90/#91, Next: #92, Later: #93. None is completed by bug-fix PRs, a draft release, synthetic CI or another maintainer/AI rehearsal. #90 needs independently checked source annotations and separately authorized live Tencent/model evaluation; #91 needs a selected final candidate, signing and clean-target acceptance; #92 needs authorized voluntary participants and actual sanitized outcomes; #93 needs an actual consenting new contributor's setup/check record. These are external evidence/authorization dependencies, not permission to fabricate results, contact people, publish a release or run paid calls. Keep the workstreams and #89 open while their original acceptance remains unmet.
+
 ## Integrated evidence and remaining work
 
 [PR #141](https://github.com/shenyankm/PractiQ/pull/141) merged on 2026-10-04 as `934b798fcd4f229f1e5e65259ff25c7173295bd4`; its package-reference evidence is integrated in [the final-package worksheet](../acceptance/final-package-acceptance.md#engineering-reference-recorded-on-2026-10-04). The older claim that it is open is superseded. [#147](https://github.com/shenyankm/PractiQ/pull/147) also merged on October 4. The fixture, chart/source-map, handover and engineering records linked below are integrated; their historical source identities remain unchanged.
