@@ -163,11 +163,11 @@ def _create_payload(request: DocumentTaskCreate) -> dict[str, Any]:
 
 async def _parse_options(service, thread_id: str) -> dict[str, Any]:
     # The initial run input is already committed atomically with the task.
-    # Reuse it instead of changing historical run inputs or checkpoint identities.
+    # Reconstruct current options without replaying retired officeMode or rewriting audit inputs.
     rows = await service.db.rows('SELECT input FROM document_runs WHERE thread_id=%s AND input IS NOT NULL '
                                  'ORDER BY created_at,run_id LIMIT 1', (thread_id,))
     initial = rows[0]['input'] if rows else {}
-    return {'officeMode': initial.get('officeMode'), 'deduplicateQuestions': initial.get('deduplicateQuestions', False)}
+    return {'deduplicateQuestions': initial.get('deduplicateQuestions', False)}
 
 
 async def _read_task_record(service, thread_id):
@@ -212,7 +212,6 @@ async def reparse_task(thread_id: str, request: DocumentTaskReparse) -> dict[str
     if task['document'].get('sourceType') == 'csv':
         raise DocumentProcessingError(422, 'CSV document import is no longer supported; saved results remain available', 'DOCUMENT_SOURCE_TYPE_MISMATCH')
     options = await _parse_options(service, thread_id)
-    options.pop('officeMode', None)
     create = DocumentTaskCreate(requestId=request.requestId, document=DocumentReference.model_validate(task['document']),
                                 graphId=task['graph_id'], failurePolicy=task['failure_policy'], parentThreadId=UUID(thread_id),
                                 **options)
@@ -450,12 +449,12 @@ async def control_task(thread_id: str, request: DocumentTaskControl) -> dict[str
                 raise conflict('There is no acceptable partial result')
             graph_input = None
             command = {'resume': {key: request.model_dump(mode='json') for key in interruptions}} if interruptions else None
-            if request.action == 'resume' and queued_pause:
-                assert run is not None
-                graph_input, command = run['input'], run['command']
-            elif not values:
+            if not values:
                 graph_input = {'document': task['document'], 'failurePolicy': task['failure_policy'],
                                **await _parse_options(service, thread_id)}
+            elif request.action == 'resume' and queued_pause:
+                assert run is not None
+                graph_input, command = run['input'], run['command']
             if request.action == 'retry_failed':
                 retry = RetryUnits(requestId=request.requestId, units=request.units)
                 _retry_update(cast(Any, values), retry)
@@ -463,7 +462,7 @@ async def control_task(thread_id: str, request: DocumentTaskControl) -> dict[str
                     if interruptions:
                         raise conflict('Resume the paused task before retrying failed units')
                     graph_input = {'document': values['document'], 'failurePolicy': values.get('failurePolicy', 'return_partial'),
-                                   'officeMode': values.get('officeMode'), 'deduplicateQuestions': values.get('deduplicateQuestions', False),
+                                   'deduplicateQuestions': values.get('deduplicateQuestions', False),
                                    'retry': retry.model_dump(mode='json')}
             admission = await service.db.store.aget(namespace(thread_id, 'control'), 'admission', refresh_ttl=False)
             response = await _enqueue(conn, task, request_id, request_hash, graph_input=graph_input, command=command,

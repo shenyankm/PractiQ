@@ -11,8 +11,9 @@ from uuid import uuid4
 
 import pytest
 
-from practiq_ai import execution, normalization, office_service, task_api
+from practiq_ai import execution, messaging, normalization, office_service, task_api
 from practiq_ai.contracts import (
+    DocumentTaskControl,
     DocumentTaskCreate,
     DocumentTaskReparse,
     DocumentUploadRequest,
@@ -294,3 +295,74 @@ async def test_reparse_legacy_office_mode_uses_automatic_routing_without_rewriti
     child_input = (await service.db.rows('SELECT input FROM document_runs WHERE run_id=%s', (child['runId'],)))[0]['input']
     assert child_input.get('officeMode') is None and child_input['deduplicateQuestions']
     assert await service.db.rows('SELECT input FROM document_runs WHERE run_id=%s', (parent['runId'],)) == before
+
+
+@pytest.mark.parametrize("legacy_mode", ["pdf", "text"])
+@pytest.mark.parametrize("action", ["interrupt", "pause"])
+@pytest.mark.parametrize("deduplicate", [False, True])
+async def test_resume_legacy_office_without_checkpoint_uses_current_options_and_preserves_audit(monkeypatch, tmp_path, legacy_mode, action, deduplicate):
+    service, reference, model, _, _ = await setup_office(monkeypatch, tmp_path, kind="docx")
+    parser_calls = tencent_provider(monkeypatch, [ocr_text_page("First")])
+    publish = messaging.publish
+    monkeypatch.setattr(messaging, "publish", AsyncMock())
+    parent = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=reference, deduplicateQuestions=deduplicate))
+    await task_api.control_task(parent["threadId"], DocumentTaskControl(requestId=uuid4(), action=action, runId=parent["runId"]))
+    await service.wait_idle()
+    async with service.db.connection() as conn:
+        await conn.execute("UPDATE document_runs SET input=jsonb_set(input,'{officeMode}',%s::jsonb) WHERE run_id=%s",
+                           (json.dumps(legacy_mode), parent["runId"]))
+        if not deduplicate:
+            await conn.execute("UPDATE document_runs SET input=input-'deduplicateQuestions' WHERE run_id=%s", (parent["runId"],))
+    task, snapshot, _ = await task_api._read_task(service, parent["threadId"])
+    assert not snapshot.values and not model.calls and not parser_calls
+    before_run = await service.db.rows("SELECT * FROM document_runs WHERE run_id=%s", (parent["runId"],))
+    before_receipts = await service.db.rows("SELECT * FROM document_receipts WHERE thread_id=%s ORDER BY request_id", (parent["threadId"],))
+    detail = await task_api.get_task(parent["threadId"])
+    assert detail["state"] == ("CANCELLED" if action == "interrupt" else "PAUSED")
+    assert detail["allowedActions"] == ["resume"] and detail["checkpointId"] == f'pending:{parent["runId"]}'
+    monkeypatch.setattr(messaging, "publish", publish)
+    request = DocumentTaskControl(requestId=uuid4(), action="resume", checkpointId=detail["checkpointId"])
+    resumed = await task_api.control_task(parent["threadId"], request)
+    assert await task_api.control_task(parent["threadId"], request) == resumed
+    await service.wait_idle()
+    detail = await task_api.get_task(parent["threadId"])
+    assert detail["state"] == "COMPLETED", detail
+    new_input = (await service.db.rows("SELECT input FROM document_runs WHERE run_id=%s", (resumed["runId"],)))[0]["input"]
+    assert new_input == {"document": task["document"], "failurePolicy": task["failure_policy"], "deduplicateQuestions": deduplicate}
+    _, snapshot, _ = await task_api._read_task(service, parent["threadId"])
+    assert snapshot.values["officeMode"] is None and snapshot.values["execution"]["officeMode"] is None
+    assert snapshot.values["deduplicateQuestions"] is deduplicate and snapshot.values["normalization"] is None
+    assert snapshot.values["effectiveSourceType"] == "docx" and snapshot.values["execution"]["signature"] == execution.signature()
+    assert len(model.calls) == 1 and len(parser_calls) == 2
+    assert await service.db.rows("SELECT * FROM document_runs WHERE run_id=%s", (parent["runId"],)) == before_run
+    assert await service.db.rows("SELECT * FROM document_receipts WHERE thread_id=%s AND request_id<>%s ORDER BY request_id",
+                                 (parent["threadId"], str(request.requestId))) == before_receipts
+
+
+@pytest.mark.parametrize("legacy_mode", ["pdf", "text"])
+@pytest.mark.parametrize("action", ["resume", "retry_failed"])
+async def test_control_legacy_office_checkpoint_still_requires_original_execution(monkeypatch, tmp_path, legacy_mode, action):
+    invalid = {"questions": [{"stem": ""}]}
+    service, reference, model, _, _ = await setup_office(monkeypatch, tmp_path, kind="docx", responses=[invalid, invalid])
+    parser_calls = tencent_provider(monkeypatch, [ocr_text_page("First")])
+    parent = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=reference, failurePolicy="review"))
+    await service.wait_idle()
+    _, snapshot, _ = await task_api._read_task(service, parent["threadId"])
+    old_execution = {**snapshot.values["execution"], "officeMode": legacy_mode,
+                     "signature": {**snapshot.values["execution"]["signature"], "version": "pre-Tencent"}}
+    await service.graph.aupdate_state(snapshot.config, {"officeMode": legacy_mode, "execution": old_execution})
+    async with service.db.connection() as conn:
+        await conn.execute("UPDATE document_runs SET status='interrupted',cancel_requested=true WHERE run_id=%s", (parent["runId"],))
+    _, snapshot, _ = await task_api._read_task(service, parent["threadId"])
+    detail = await task_api.get_task(parent["threadId"])
+    assert detail["allowedActions"] == [] and not detail["resumeCompatible"], detail
+    before_runs = await service.db.rows("SELECT * FROM document_runs WHERE thread_id=%s", (parent["threadId"],))
+    before_receipts = await service.db.rows("SELECT * FROM document_receipts WHERE thread_id=%s", (parent["threadId"],))
+    with pytest.raises(DocumentProcessingError) as failure:
+        await task_api.control_task(parent["threadId"], DocumentTaskControl(requestId=uuid4(), action=action, checkpointId=detail["checkpointId"]))
+    assert failure.value.code == "EXECUTION_VERSION_MISMATCH"
+    _, after, _ = await task_api._read_task(service, parent["threadId"])
+    assert after == snapshot
+    assert await service.db.rows("SELECT * FROM document_runs WHERE thread_id=%s", (parent["threadId"],)) == before_runs
+    assert await service.db.rows("SELECT * FROM document_receipts WHERE thread_id=%s", (parent["threadId"],)) == before_receipts
+    assert len(model.calls) == 2 and len(parser_calls) == 2
