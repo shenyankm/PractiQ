@@ -9529,5 +9529,101 @@
       "confidenceScore": 100.0
     },
     "valid": false
+  },
+  {
+    "name": "sparse-label-only-choice",
+    "input": {
+      "schemaVersion": 3,
+      "questions": [
+        {
+          "id": "sparse",
+          "answerMode": "choice",
+          "choiceVariant": "single",
+          "options": [
+            {
+              "label": "A",
+              "content": null
+            },
+            {
+              "label": "B",
+              "content": null
+            }
+          ],
+          "confidence": 0.2
+        }
+      ],
+      "groups": [],
+      "visualElements": [],
+      "warnings": [],
+      "confidenceScore": 20
+    },
+    "valid": true,
+    "missingFields": [
+      "stem",
+      "questionTypeId",
+      "options",
+      "answerPayload",
+      "analysis",
+      "sourceText"
+    ],
+    "expectedQuestion": {
+      "stem": null,
+      "options": [
+        {
+          "label": "A",
+          "content": null
+        },
+        {
+          "label": "B",
+          "content": null
+        }
+      ],
+      "answerPayload": null,
+      "needsReview": true
+    }
+  },
+  {
+    "name": "sparse-unreadable-choice",
+    "input": {
+      "schemaVersion": 3,
+      "questions": [
+        {
+          "id": "sparse",
+          "answerMode": "choice",
+          "choiceVariant": "single",
+          "options": [
+            {
+              "label": null,
+              "content": null
+            }
+          ],
+          "confidence": 0.2
+        }
+      ],
+      "groups": [],
+      "visualElements": [],
+      "warnings": [],
+      "confidenceScore": 20
+    },
+    "valid": true,
+    "missingFields": [
+      "stem",
+      "questionTypeId",
+      "options",
+      "answerPayload",
+      "analysis",
+      "sourceText"
+    ],
+    "expectedQuestion": {
+      "stem": null,
+      "options": [
+        {
+          "label": null,
+          "content": null
+        }
+      ],
+      "answerPayload": null,
+      "needsReview": true
+    }
   }
 ]
