@@ -1247,6 +1247,36 @@ pub fn validate_tables(db: &Connection) -> Result<()> {
     }
     Ok(())
 }
+// WebView round trips erase integral float representations, not content differences.
+fn editor_content_eq(left: &Value, right: &Value) -> bool {
+    match (left, right) {
+        (Value::Number(a), Value::Number(b)) if a.is_f64() != b.is_f64() => {
+            let (float, integer) = if a.is_f64() { (a, b) } else { (b, a) };
+            let float = float.as_f64().unwrap();
+            if float.fract() != 0.0 {
+                return false;
+            }
+            // Check bounds before casting so saturation cannot hide a real integer edit.
+            if (i64::MIN as f64..0.0).contains(&float) {
+                integer.as_i64() == Some(float as i64)
+            } else if (0.0..u64::MAX as f64).contains(&float) {
+                integer.as_u64() == Some(float as u64)
+            } else {
+                false
+            }
+        }
+        (Value::Array(a), Value::Array(b)) => {
+            a.len() == b.len() && a.iter().zip(b).all(|(a, b)| editor_content_eq(a, b))
+        }
+        (Value::Object(a), Value::Object(b)) => {
+            a.len() == b.len()
+                && a.iter()
+                    .all(|(key, a)| b.get(key).is_some_and(|b| editor_content_eq(a, b)))
+        }
+        _ => left == right,
+    }
+}
+
 impl Store {
     pub fn save_question_tree(
         &self,
@@ -1326,7 +1356,12 @@ impl Store {
         let mut previous: Vec<_> = old.iter().map(|row| row["question"].clone()).collect();
         // The editor places the root first, even when the imported array did not.
         previous.sort_by_key(|question| text(question, "id") != qid);
-        let unchanged = contract::validate_tree(&mut previous).is_ok() && previous == tree;
+        let unchanged = contract::validate_tree(&mut previous).is_ok()
+            && previous.len() == tree.len()
+            && previous
+                .iter()
+                .zip(&tree)
+                .all(|(a, b)| editor_content_eq(a, b));
         if !unchanged {
             tx.execute(
                 "DELETE FROM question_reviews WHERE question_id IN (SELECT value FROM json_each(?1))",
@@ -1371,6 +1406,47 @@ impl Store {
 #[cfg(test)]
 mod snapshot_copy_tests {
     use super::*;
+
+    #[test]
+    fn editor_content_equality_ignores_only_exact_numeric_representation_changes() {
+        for (left, right, equal) in [
+            (
+                json!({"nested":[1.0, -2.0, -0.0, 0.25, null, false]}),
+                json!({"nested":[1, -2, 0, 0.25, null, false]}),
+                true,
+            ),
+            (json!(i64::MIN as f64), json!(i64::MIN), true),
+            (
+                json!(9_223_372_036_854_775_808.0),
+                json!(9_223_372_036_854_775_808_u64),
+                true,
+            ),
+            (json!(1.0), json!(2), false),
+            (json!(1.25), json!(1), false),
+            (json!(0.25), json!(0.5), false),
+            (
+                json!(9_007_199_254_740_992.0),
+                json!(9_007_199_254_740_993_u64),
+                false,
+            ),
+            (
+                json!(9_007_199_254_740_992_u64),
+                json!(9_007_199_254_740_993_u64),
+                false,
+            ),
+            (json!(i64::MIN as f64 - 2048.0), json!(i64::MIN), false),
+            (json!(u64::MAX as f64), json!(u64::MAX), false),
+            (json!([1, 2]), json!([2, 1]), false),
+            (json!([1]), json!([1, 2]), false),
+            (json!({"answer":null}), json!({}), false),
+            (json!(null), json!(0), false),
+            (json!(false), json!(0), false),
+            (json!("1"), json!(1), false),
+        ] {
+            assert_eq!(editor_content_eq(&left, &right), equal, "{left} vs {right}");
+            assert_eq!(editor_content_eq(&right, &left), equal, "{right} vs {left}");
+        }
+    }
 
     #[test]
     fn frozen_metadata_preserves_content_scope_order_and_digest() {
