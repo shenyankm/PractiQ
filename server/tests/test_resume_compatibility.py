@@ -1,6 +1,7 @@
 """Synthetic checkpoint matrix for the deliberately conservative resume gate."""
 
 import shutil
+import tomllib
 from copy import deepcopy
 from pathlib import Path
 from uuid import uuid4
@@ -13,11 +14,41 @@ from practiq_ai.errors import DocumentProcessingError
 from tests.support import parsed, run_config, setup_graph
 
 
+def _runtime_lock_records(lock):
+    """Compare locked runtime inputs, not installed/build-output equivalence."""
+    packages = {item["name"]: item for item in lock["package"]}
+    assert len(packages) == len(lock["package"]), "Revisit this fixture for multi-version locks"
+    dependencies = packages["practiq-ai-service"]["dependencies"]
+    pending = [item["name"] for item in dependencies]
+    records = {}
+    while pending:
+        name = pending.pop()
+        if name in records:
+            continue
+        records[name] = package = packages[name]
+        pending.extend(item["name"] for item in package.get("dependencies", []))
+        # Include all locked extras/markers conservatively, including psycopg-binary.
+        for extra in package.get("optional-dependencies", {}).values():
+            pending.extend(item["name"] for item in extra)
+    return {"dependencies": dependencies, "packages": records}
+
+
+@pytest.mark.parametrize("package", ["openai", "langgraph-checkpoint", "psycopg-binary"])
+def test_runtime_lock_records_detects_runtime_artifact_changes(package):
+    lock = tomllib.loads((Path(__file__).parents[1] / "uv.lock").read_text())
+    before = deepcopy(_runtime_lock_records(lock))
+    assert "coverage" not in before["packages"]
+    record = next(item for item in lock["package"] if item["name"] == package)
+    record["wheels"][0]["hash"] = "sha256:" + "0" * 64
+    assert _runtime_lock_records(lock) != before
+
+
 @pytest.mark.parametrize("change,compatible", [
     ("unchanged", True), ("credential", True), ("timeout", True), ("capacity", True),
     ("model", False), ("model-api", False), ("parser-limit", False), ("budget", False), ("run-timeout", False),
     ("state", False), ("runtime", False), ("source", False),
-    ("lock-comment", False), ("missing-signature", False),
+    ("lock-comment", False), ("lock-dev-dependency", False), ("lock-build-constraint", False),
+    ("missing-signature", False),
 ])
 async def test_checkpoint_resume_compatibility_preserves_units_usage_and_receipts(monkeypatch, tmp_path, change, compatible):
     source = Path(execution.__file__).parent
@@ -35,7 +66,11 @@ async def test_checkpoint_resume_compatibility_preserves_units_usage_and_receipt
     assert paused["__interrupt__"][0].value["kind"] == "review"
     before = deepcopy((await graph.aget_state(config)).values)
     calls = len(model.calls)
-    receipts = [item.value for item in await store.asearch(execution.namespace("thread-1", "calls"))]
+    receipts = {item.key: deepcopy(item.value) for item in await store.asearch(execution.namespace("thread-1", "calls"))}
+    budgets = {item.key: deepcopy(item.value) for item in await store.asearch(execution.namespace("thread-1", "budget"))}
+    provider_jobs = {item.key: deepcopy(item.value) for item in await store.asearch(execution.namespace("thread-1", "tencent_jobs"))}
+    assert len(receipts) == calls == sum(item["spent"] for item in budgets.values())
+    assert provider_jobs and all(item["status"] == "Success" for item in provider_jobs.values())
     kinds = list(files.put_kinds)
     if change == "credential":
         monkeypatch.setenv("LLM_API_KEY", "synthetic-rotated-key")
@@ -65,6 +100,30 @@ async def test_checkpoint_resume_compatibility_preserves_units_usage_and_receipt
         path = copied / ("contracts.py" if change == "source" else "uv.lock")
         path.write_bytes(path.read_bytes() + b"\n# synthetic non-semantic audit change\n")
         assert execution.runtime_version() == before["execution"]["signature"]["runtime"]
+    elif change in {"lock-dev-dependency", "lock-build-constraint"}:
+        path = copied / "uv.lock"
+        original = path.read_text()
+        locked = tomllib.loads(original)
+        runtime_records = deepcopy(_runtime_lock_records(locked))
+        if change == "lock-dev-dependency":
+            block = next(block for block in original.split("[[package]]") if '\nname = "coverage"\n' in block)
+            changed = original.replace("[[package]]" + block, "")
+            changed = "".join(line for line in changed.splitlines(keepends=True) if '{ name = "coverage"' not in line)
+        else:
+            changed = "".join(line for line in original.splitlines(keepends=True) if '{ name = "trove-classifiers"' not in line)
+        path.write_text(changed)
+        candidate = tomllib.loads(changed)
+        if change == "lock-dev-dependency":
+            assert not any(item["name"] == "coverage" for item in candidate["package"])
+            root = next(item for item in candidate["package"] if item["name"] == "practiq-ai-service")
+            assert not any(item["name"] == "coverage" for item in root["optional-dependencies"]["dev"])
+            assert not any(item["name"] == "coverage" for item in root["metadata"]["requires-dist"])
+        else:
+            assert not any(item["name"] == "trove-classifiers" for item in candidate["manifest"]["build-constraints"])
+        assert candidate != locked
+        assert _runtime_lock_records(candidate) == runtime_records
+        assert execution.runtime_version() == before["execution"]["signature"]["runtime"]
+        assert execution.code_version() != before["execution"]["signature"]["code"]
     elif change == "missing-signature":
         missing = deepcopy(before["execution"])
         missing.pop("signature")
@@ -81,6 +140,15 @@ async def test_checkpoint_resume_compatibility_preserves_units_usage_and_receipt
         preserved = [unit for unit in before["chunkResults"] if unit["parsed"]]
         assert len(preserved) == 1
         assert all(unit in completed["chunkResults"] for unit in preserved)
+        assert completed["execution"] == before["execution"]
+        assert all(completed["callAllowances"][key] == value for key, value in before["callAllowances"].items())
+        assert completed["reservedCalls"] >= before["reservedCalls"]
+        after_receipts = {item.key: item.value for item in await store.asearch(execution.namespace("thread-1", "calls"))}
+        assert all(after_receipts[key] == value for key, value in receipts.items())
+        assert len(after_receipts) == len(receipts) + 1
+        after_budgets = {item.key: item.value for item in await store.asearch(execution.namespace("thread-1", "budget"))}
+        assert all(after_budgets[key] == value for key, value in budgets.items())
+        assert sum(item["spent"] for item in after_budgets.values()) == calls + 1
     else:
         with pytest.raises(DocumentProcessingError) as error:
             await graph.ainvoke(resume,config)
@@ -89,4 +157,8 @@ async def test_checkpoint_resume_compatibility_preserves_units_usage_and_receipt
         after = (await graph.aget_state(config)).values
         assert after["usage"] == before["usage"] and after["document"] == before["document"]
         assert after["chunkResults"] == before["chunkResults"]
-        assert [item.value for item in await store.asearch(execution.namespace("thread-1", "calls"))] == receipts
+        assert {item.key: item.value for item in await store.asearch(execution.namespace("thread-1", "calls"))} == receipts
+        assert {item.key: item.value for item in await store.asearch(execution.namespace("thread-1", "budget"))} == budgets
+        assert after["callAllowances"] == before["callAllowances"]
+        assert after["reservedCalls"] == before["reservedCalls"]
+    assert {item.key: item.value for item in await store.asearch(execution.namespace("thread-1", "tencent_jobs"))} == provider_jobs
