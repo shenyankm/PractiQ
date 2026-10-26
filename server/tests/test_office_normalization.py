@@ -355,7 +355,7 @@ async def test_control_legacy_office_checkpoint_still_requires_original_executio
         await conn.execute("UPDATE document_runs SET status='interrupted',cancel_requested=true WHERE run_id=%s", (parent["runId"],))
     _, snapshot, _ = await task_api._read_task(service, parent["threadId"])
     detail = await task_api.get_task(parent["threadId"])
-    assert action in detail["allowedActions"] and not detail["resumeCompatible"], detail
+    assert detail["allowedActions"] == [] and not detail["resumeCompatible"], detail
     before_runs = await service.db.rows("SELECT * FROM document_runs WHERE thread_id=%s", (parent["threadId"],))
     before_receipts = await service.db.rows("SELECT * FROM document_receipts WHERE thread_id=%s", (parent["threadId"],))
     with pytest.raises(DocumentProcessingError) as failure:
