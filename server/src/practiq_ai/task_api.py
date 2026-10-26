@@ -300,6 +300,10 @@ async def _task_detail(service, thread_id, task, snapshot, run) -> dict[str, Any
     values = snapshot.values or {}
     interruptions = _interrupts(snapshot)
     state, actions, failures = _task_state(snapshot, run)
+    model_configured = not load().read_only
+    resume_compatible = model_configured and not (run and run['error_code'] == 'TASK_CHECKPOINT_UNREADABLE') and (not values.get('execution') or values['execution'].get('signature') == signature())
+    if not resume_compatible:
+        actions = [action for action in actions if action in {'pause', 'interrupt'}]
     result = DocumentParseResult.model_validate(values['result']) if values.get('result') else None
     if result is not None:
         discard_model_audio(result.questions)
@@ -319,8 +323,8 @@ async def _task_detail(service, thread_id, task, snapshot, run) -> dict[str, Any
             'failedPageCount': item.value.get('FailPageNum'), 'resultSaved': bool(item.value.get('resultRef')),
         } for item in parser_jobs],
         'parentThreadId': task['parent_thread_id'],
-        'modelConfigured': not load().read_only,
-        'resumeCompatible': not load().read_only and not (run and run['error_code'] == 'TASK_CHECKPOINT_UNREADABLE') and (not values.get('execution') or values['execution'].get('signature') == signature()),
+        'modelConfigured': model_configured,
+        'resumeCompatible': resume_compatible,
         'fileName': task['document'].get('fileName') or '文档',
         'state': state, 'phase': values.get('phase', 'pending'),
         'checkpointId': service.checkpoint_id(snapshot, run),

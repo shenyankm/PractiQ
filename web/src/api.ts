@@ -238,7 +238,7 @@ export class Client {
   async control(task: DocumentTaskDetail, action: Action) {
     const running = action === "pause" || action === "interrupt";
     if (!task.allowedActions.includes(action) || (running ? !task.runId : !task.checkpointId)) throw new ApiError("此检查点暂不允许该操作，请刷新任务。", "ACTION_UNAVAILABLE");
-    if (["resume", "retry_failed"].includes(action) && (!task.modelConfigured || !task.resumeCompatible)) throw new ApiError("服务模型未配置或检查点不兼容，无法继续。", "MODEL_NOT_CONFIGURED");
+    if (!running && (!task.modelConfigured || !task.resumeCompatible)) throw new ApiError("服务模型未配置或检查点不兼容，无法继续。", "MODEL_NOT_CONFIGURED");
     const target = running ? task.runId : task.checkpointId;
     return this.intent(`control:${task.threadId}:${action}:${target}`, requestId => { const request: DocumentTaskControl = { requestId, action, runId: running ? task.runId : null, checkpointId: running ? null : task.checkpointId, units: [] }; return this.receipt(`/api/document-tasks/${encodeURIComponent(task.threadId)}/control`, request); });
   }
