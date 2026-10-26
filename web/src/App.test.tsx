@@ -190,6 +190,28 @@ it("polling paused/partial checkpoints only reads; resume/retry/pause require ex
   await user.click(screen.getByRole("button", { name: "暂停" })); await screen.findByRole("button", { name: "继续解析" });
   expect(http.calls.filter(call => call.url.endsWith("/control")).at(-1)?.body).toMatchObject({ action: "pause", runId, checkpointId: null });
 });
+it.each([{ modelConfigured: false }, { resumeCompatible: false }])("disables advertised review acceptance for unavailable deployments: %j", async change => {
+  const user = userEvent.setup(); const http = fakeHTTP({ ...task, state: "WAITING_REVIEW", allowedActions: ["accept_partial", "retry_failed"], ...change });
+  render(<App />); await connect(user); await openTask(user);
+  for (const name of ["接受部分结果", "重试失败单元"]) {
+    const button = screen.getByRole("button", { name });
+    expect((button as HTMLButtonElement).disabled).toBe(true);
+    await user.click(button);
+  }
+  expect(screen.getByText(/继续、重试和接受部分结果暂不可用/)).toBeTruthy();
+  expect(http.calls.every(call => call.method === "GET")).toBe(true);
+});
+it("submits compatible review acceptance only after an explicit click", async () => {
+  const user = userEvent.setup(); const http = fakeHTTP({ ...task, state: "WAITING_REVIEW", allowedActions: ["accept_partial"] });
+  render(<App />); await connect(user); await openTask(user);
+  expect(http.calls.every(call => call.method === "GET")).toBe(true);
+  const button = screen.getByRole("button", { name: "接受部分结果" });
+  expect((button as HTMLButtonElement).disabled).toBe(false);
+  await user.click(button);
+  await screen.findByRole("button", { name: "暂停" });
+  expect(http.calls.filter(call => call.url.endsWith("/control"))).toHaveLength(1);
+  expect(http.calls.find(call => call.url.endsWith("/control"))?.body).toMatchObject({ action: "accept_partial", checkpointId: task.checkpointId });
+});
 it("recovers failed task/capability reads and ignores obsolete pages after a filter change", async () => {
   const user = userEvent.setup(); const http = fakeHTTP(); let failList = true, failCap = true, capReads = 0;
   http.server.intercept = url => { if (url.includes("capabilities") && ++capReads > 1 && failCap) { failCap = false; return json({ detail: { code: "SERVICE_UNAVAILABLE" } }, 503); } if (url.startsWith("/api/document-tasks?") && failList) { failList = false; return json({ detail: { code: "TASK_SERVICE_UNAVAILABLE" } }, 503); } };

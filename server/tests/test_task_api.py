@@ -8,7 +8,7 @@ from uuid import uuid4
 import httpx
 import pytest
 
-from practiq_ai import task_api
+from practiq_ai import execution, task_api
 from practiq_ai.contracts import (
     DocumentReference,
     DocumentTaskControl,
@@ -377,6 +377,47 @@ async def test_control_replays_request_admitted_during_preflight_read(monkeypatc
     runs = await api.db.rows('SELECT run_id FROM document_runs WHERE thread_id=%s AND request_id=%s',
                              (thread_id, str(request.requestId)))
     assert len(runs) == 1
+
+
+@pytest.mark.parametrize('deployment', ['read_only', 'incompatible'])
+async def test_review_acceptance_requires_model_enabled_compatible_deployment(monkeypatch, deployment):
+    api, reference, model = await setup_api(monkeypatch, [parsed('Absent from source')])
+    created = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference), failurePolicy='review'))
+    await api.wait_idle()
+    thread_id = created['threadId']
+    before = await task_api.get_task(thread_id)
+    assert before['state'] == 'WAITING_REVIEW' and before['allowedActions'] == ['accept_partial']
+    assert before['modelConfigured'] and before['resumeCompatible']
+    runs = await api.db.rows('SELECT * FROM document_runs WHERE thread_id=%s', (thread_id,))
+    control = DocumentTaskControl(requestId=uuid4(), action='accept_partial', checkpointId=before['checkpointId'])
+    with monkeypatch.context() as changed:
+        if deployment == 'read_only':
+            changed.setenv('AI_READ_ONLY', '1')
+            error_code = 'MODEL_NOT_CONFIGURED'
+        else:
+            changed_signature = {**execution.signature(), 'code': 'different-code'}
+            changed.setattr(execution, 'signature', lambda: changed_signature)
+            changed.setattr(task_api, 'signature', lambda: changed_signature)
+            error_code = 'EXECUTION_VERSION_MISMATCH'
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='http://test', headers={'Authorization': 'Bearer test-token'}) as http:
+            detail = (await http.get(f'/api/document-tasks/{thread_id}')).json()
+            assert detail['state'] == 'WAITING_REVIEW' and detail['allowedActions'] == []
+            assert detail['modelConfigured'] == (deployment != 'read_only')
+            assert not detail['resumeCompatible']
+            response = await http.post(f'/api/document-tasks/{thread_id}/control', json=control.model_dump(mode='json'))
+            assert response.status_code == 409 and response.json()['detail']['code'] == error_code
+        await api.wait_idle()
+        assert await api.db.rows('SELECT * FROM document_runs WHERE thread_id=%s', (thread_id,)) == runs
+        assert detail['checkpointId'] == before['checkpointId']
+        assert detail['result'] == before['result'] and detail['usage'] == before['usage']
+        assert len(model.calls) == 1
+    assert (await task_api.get_task(thread_id))['allowedActions'] == ['accept_partial']
+    await task_api.control_task(thread_id, control)
+    await api.wait_idle()
+    accepted = await task_api.get_task(thread_id)
+    assert accepted['state'] == 'COMPLETED'
+    assert accepted['result'] == before['result'] and accepted['processing'] == before['processing']
+    assert len(model.calls) == 1
 
 
 async def test_quality_only_review_acceptance_is_idempotent_and_not_retryable(monkeypatch):

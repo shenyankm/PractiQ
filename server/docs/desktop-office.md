@@ -35,6 +35,8 @@ Choose the mode before explicitly starting import:
 
 Printing areas may omit cells or sheets. Text export loses images, layout and native formula structure; CSV contains displayed values rather than formula expressions. Source formatting and deployment fonts affect rendering. Inspect output before relying on it; successful conversion is not proof of fidelity or AI accuracy. Conversion never silently switches modes.
 
+XLSX preparation exposes hidden sheets in a derived copy before submission. Upload validation checks ZIP metadata without decompressing members; unsupported compression, corrupt member data or invalid local headers encountered during workbook preparation fail with structured `OFFICE_INPUT_INVALID` (422), before Tencent submission or Office conversion. The original uploaded bytes remain unchanged.
+
 One task retains the original uploaded Office reference, filename and SHA-256. Normalized outputs have an ordered, checksum-verified manifest bound to the original source, mode and exact engine identity. They feed the existing TXT/CSV/PDF extractors inside the shared parser graph's prepare stage. Excel sheets share one task's limits, deadline, usage and model budget. No Office parser graph, `python-docx`, `openpyxl` or UNO bridge is introduced.
 
 ## Isolation and recovery

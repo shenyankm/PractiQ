@@ -4,6 +4,7 @@ import csv
 import hashlib
 import io
 import json
+import lzma
 import os
 import shutil
 import signal
@@ -15,6 +16,7 @@ import threading
 import time
 import zipfile
 import zlib
+from compression import zstd
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
@@ -419,7 +421,8 @@ def prepare_workbook(data: bytes, max_sheets: int = 100) -> tuple[bytes, list[st
                 return output.getvalue(), names
             finally:
                 dom.unlink()
-    except (zipfile.BadZipFile, KeyError, expat.ExpatError, RecursionError) as exc:
+    except (zipfile.BadZipFile, KeyError, ValueError, RuntimeError, EOFError, OSError,
+            zlib.error, lzma.LZMAError, zstd.ZstdError, expat.ExpatError) as exc:
         raise OfficeError("OFFICE_INPUT_INVALID") from exc
 
 

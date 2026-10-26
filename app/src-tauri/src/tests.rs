@@ -2217,6 +2217,49 @@ fn search_keeps_literal_schema_words_in_content() {
 }
 
 #[test]
+fn sparse_choice_zip_import_keeps_other_questions_and_reviewable_content() {
+    let cases: Value = serde_json::from_str(include_str!("../../fixtures/contracts.json")).unwrap();
+    for case in cases
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|case| text(case, "name").starts_with("sparse-"))
+    {
+        let (dir, mut store) = store();
+        let mut document = case["input"].clone();
+        document["questions"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!({"id":"other","stem":"Keep this question","answerMode":"short_answer"}));
+        let package = fixture_bank_zip(&document, dir.path());
+        let preview = store.preview_bank_zip(package.path()).unwrap();
+        let imported = store
+            .import(text(&preview, "ticket"), None, "Sparse")
+            .unwrap();
+        drop(store);
+        let reopened = Store::new(dir.path().to_owned()).unwrap();
+        let rows = reopened
+            .questions(Some(text(&imported, "bankId")), "", "", "")
+            .unwrap();
+        assert_eq!(rows.as_array().unwrap().len(), 2);
+        let sparse = &rows[0]["question"];
+        assert_eq!(sparse["options"], case["expectedQuestion"]["options"]);
+        assert_eq!(sparse["missingFields"], case["missingFields"]);
+        assert_eq!(sparse["needsReview"], true);
+        assert!(sparse["answerPayload"].is_null());
+        assert!(!contract::can_interact(sparse));
+        assert_eq!(contract::grade(sparse, &json!({"correct":["A"]})), None);
+        assert_eq!(rows[1]["question"]["stem"], "Keep this question");
+    }
+    let mut empty =
+        json!({"id":"empty","answerMode":"choice","choiceVariant":"single","options":[]});
+    assert_eq!(
+        contract::validate_question(&mut empty).unwrap_err().code,
+        "LOCAL_QUESTION_EMPTY"
+    );
+}
+
+#[test]
 fn partial_fill_blank_import_preserves_answers_counts_and_review_flags() {
     let cases: Value = serde_json::from_str(include_str!("../../fixtures/contracts.json")).unwrap();
     for case in cases

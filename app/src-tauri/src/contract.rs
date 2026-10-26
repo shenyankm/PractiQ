@@ -482,8 +482,11 @@ pub fn validate_question(q: &mut Value) -> Result<()> {
         "passage",
     ]
     .iter()
-    .any(|k| filled(&q[*k]))
-        && !q["audioRef"].is_object()
+    .any(|k| match &q[*k] {
+        Value::Array(items) => !items.is_empty(),
+        Value::Object(fields) => !fields.is_empty(),
+        value => filled(value),
+    }) && !q["audioRef"].is_object()
         && list(q, "transcript").is_empty()
     {
         return Err(crate::language::error(

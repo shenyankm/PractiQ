@@ -28,17 +28,19 @@ Use **Passed**, **Failed**, **Blocked**, or **Not run**, with evidence or a reas
 | Signing/notarization or publisher signature verification | Not run |
 | Clean installation, upgrade, uninstall | Not run |
 | Native file selection and authorized ZIP/audio access | Not run |
-| Service token set/read/delete, no backup leakage | Not run |
+| Service token and direct-model API key set/read/delete in macOS Keychain, no backup leakage | Not run |
 | Listening playback using an authorized public audio fixture | Not run |
 | ZIP append import; offline practice and submission | Not run |
-| Explicit grading/retry through independent service; absent evidence stays ungraded | Not run |
+| Explicit grading/retry through independent service and direct model API; absent evidence stays ungraded | Not run |
+| Failed/unknown direct-grading receipt survives restart; changed endpoint/model requires explicit regrading | Not run |
+| Grading connection settings backup/restore excludes credentials and preserves practice snapshots | Not run |
 | Offline practice with service unavailable; no import worker spawned | Not run |
 | Full backup restore after replacement confirmation | Not run |
 | Old data directories untouched; unsupported backup rejected | Not run |
 
 Record the exact macOS runtime and native Keychain/file-picker behavior. Use synthetic study data and never publish credentials, databases or backups. Real grading requires explicit provider authorization and a budget; otherwise mark it **Blocked**.
 
-Record independent-service acceptance separately: deployed source/image identity, web upload selection with no model request, explicit Start import, Word/Excel conversion using its configured engine, task progress/review/retry, ZIP export and client ZIP append import. Service Office fidelity and dependency licenses require their own evidence. Client package checks cannot establish those results, and moving conversion to the service does not waive fidelity requirements.
+Record independent-service acceptance separately: deployed source/image identity, Web upload selection with no model request, explicit Start import, Tencent receipts for every supported source type, legacy XLS (at every size) and oversized Office PDF preparation using the configured engine, task progress/review/retry, ZIP export and client ZIP append import. Record direct-grading endpoint/model and prompt/receipt identity separately from service-mode evidence; a passing service call does not validate the direct client path. Service Office fidelity and dependency licenses require their own evidence. Client package checks cannot establish those results, and moving conversion to the service does not waive fidelity requirements.
 
 ## Execute gates against final bytes
 
