@@ -191,6 +191,21 @@ async def test_export_preserves_partial_nulls_tree_and_only_portable_task_fields
     assert "usage" not in output and "threadId" not in output and "document" not in output
 
 
+async def test_export_preserves_shared_sparse_choice_contract_cases(tmp_path):
+    store, source = await source_store(tmp_path)
+    cases = json.loads((Path(__file__).parents[2] / "app/fixtures/contracts.json").read_text())
+    for case in cases:
+        if not case["name"].startswith("sparse-"):
+            continue
+        files = unpack(await bank_export.export_task_bank(detail(case["input"]), store, source=source))
+        result = json.loads(files["questions.json"])["result"]
+        question = result["questions"][0]
+        assert question["missingFields"] == case["missingFields"]
+        for key, expected in case["expectedQuestion"].items():
+            assert question[key] == expected, (case["name"], key)
+        assert DocumentParseResult.model_validate(result).questions[0].needsReview
+
+
 async def test_export_defaults_to_full_filename_when_dot_extension_has_no_stem(tmp_path):
     store = object_store(tmp_path)
     source = await store.put_document(b"quiz", upload().model_copy(update={"fileName": ".txt"}))

@@ -10,6 +10,8 @@ On the empty question-bank page, choose **Add example bank** to add the [all-typ
 2. The app validates questions, packaged images, and audio, then displays a preview. Duplicate question references within a section or visual, and passage blanks referring to absent questions, are rejected before confirmation. A new bank defaults to the package title and description; the title is editable. Appending preserves the target bank's metadata.
 3. Choose **Export bank** from a bank card's action menu, save the file, and distribute it. To share multiple banks together, copy-merge them before exporting.
 
+Sparse question records, including options with only labels or unreadable content, remain importable with their missing-field and review warnings; they do not block other questions in the bank. Incomplete choices are not automatically graded. Truly empty questions are still rejected.
+
 Sharing packages retain questions, answers, explanations, source content, shared materials, composite relationships, source scores, rubrics, images, listening audio, and review flags. They exclude bookmarks, mistake status, personal answers, practice history, grading records, connection settings, and credentials.
 
 Copy-merging also retains unlinked sections, unparsed source pages, and warnings from imports with no questions. Unparsed pages stay separate from practice questions, including after the original banks are deleted and the merged package is shared.
