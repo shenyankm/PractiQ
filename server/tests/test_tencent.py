@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import lzma
 import struct
 import zipfile
 from io import BytesIO
@@ -22,9 +23,9 @@ from practiq_ai.tencent_bundle import decode_bundle, read_bundle_image
 from tests.support import FakeObjectStore, make_image
 
 
-def archive(entries):
+def archive(entries, *, compression=zipfile.ZIP_STORED):
     buffer = BytesIO()
-    with zipfile.ZipFile(buffer, "w") as output:
+    with zipfile.ZipFile(buffer, "w", compression) as output:
         for name, value in entries:
             output.writestr(name, value)
     return buffer.getvalue()
@@ -139,37 +140,39 @@ def test_archive_rejects_unsafe_paths_and_invalid_layouts(name, value):
     assert error.value.code == "TENCENT_RESULT_INVALID"
 
 
-@pytest.mark.parametrize("compression", [zipfile.ZIP_BZIP2, zipfile.ZIP_ZSTANDARD], ids=["bzip2", "zstd"])
+@pytest.mark.parametrize("compression", [zipfile.ZIP_BZIP2, zipfile.ZIP_ZSTANDARD, zipfile.ZIP_LZMA], ids=["bzip2", "zstd", "lzma"])
 def test_decode_bundle_translates_corrupt_compressed_member_errors(compression):
-    buffer = BytesIO()
-    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
-        archive.writestr("sample_xml_full.xml", "<document/>")
-        archive.writestr("sample_ocr_page0.json", json.dumps(ocr_page()))
-    payload = buffer.getvalue()
+    # Exceed LZMA's properties length inferred from the XML prefix (28,024 bytes).
+    entries = [("sample_xml_full.xml", '<?xml version="1.0"?><document>' + " " * 32768 + '</document>'),
+               ("sample_ocr_page0.json", json.dumps(ocr_page()))]
+    payload = archive(entries, compression=compression)
     assert len(decode_bundle(payload, load(), page_count=1)) == 1
-    corrupt = bytearray(payload)
-    # The first member is XML; only its declared codec changes, not its deflate bytes.
+    corrupt = bytearray(archive(entries))
+    # Only the first member's declared codec changes, not its stored bytes.
     struct.pack_into("<H", corrupt, 8, compression)
     struct.pack_into("<H", corrupt, corrupt.index(b"PK\x01\x02") + 10, compression)
     with pytest.raises(DocumentProcessingError) as error:
         decode_bundle(bytes(corrupt), load(), page_count=1)
     assert error.value.status_code == 502 and error.value.code == "TENCENT_RESULT_INVALID"
+    if compression == zipfile.ZIP_LZMA:
+        assert isinstance(error.value.__cause__, lzma.LZMAError)
 
 
-@pytest.mark.parametrize("compression", [zipfile.ZIP_BZIP2, zipfile.ZIP_ZSTANDARD], ids=["bzip2", "zstd"])
+@pytest.mark.parametrize("compression", [zipfile.ZIP_BZIP2, zipfile.ZIP_ZSTANDARD, zipfile.ZIP_LZMA], ids=["bzip2", "zstd", "lzma"])
 def test_subimage_read_translates_corrupt_compressed_member_errors(compression):
-    buffer = BytesIO()
-    image = make_image()
-    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
-        archive.writestr("image.png", image)
-    with zipfile.ZipFile(BytesIO(buffer.getvalue())) as archive:
-        assert read_bundle_image(archive, "image.png", load()) == (image, "image/png")
-    corrupt = bytearray(buffer.getvalue())
+    # Valid PNG with trailing padding lets the malformed stream reach LZMA decoding.
+    image = make_image() + b"\x00" * 32768
+    entries = [("image.png", image)]
+    with zipfile.ZipFile(BytesIO(archive(entries, compression=compression))) as bundle:
+        assert read_bundle_image(bundle, "image.png", load()) == (image, "image/png")
+    corrupt = bytearray(archive(entries))
     struct.pack_into("<H", corrupt, 8, compression)
     struct.pack_into("<H", corrupt, corrupt.index(b"PK\x01\x02") + 10, compression)
-    with zipfile.ZipFile(BytesIO(corrupt)) as archive, pytest.raises(DocumentProcessingError) as error:
-        read_bundle_image(archive, "image.png", load())
+    with zipfile.ZipFile(BytesIO(corrupt)) as bundle, pytest.raises(DocumentProcessingError) as error:
+        read_bundle_image(bundle, "image.png", load())
     assert error.value.status_code == 502 and error.value.code == "TENCENT_RESULT_INVALID"
+    if compression == zipfile.ZIP_LZMA:
+        assert isinstance(error.value.__cause__, lzma.LZMAError)
 
 
 @pytest.mark.parametrize("url", ["http://test.cos.ap-guangzhou.myqcloud.com/x", "https://127.0.0.1/x",

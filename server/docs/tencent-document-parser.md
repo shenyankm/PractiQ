@@ -142,9 +142,9 @@ Base64-specific 8 MiB split while preserving the other limits. Image validation
 also decodes scan data, so a truncated JPEG is rejected before submission;
 tilers apply the same structured `IMAGE_FORMAT_UNSUPPORTED` error to saved inputs.
 Malformed OOXML directories and excessive workbook XML nesting fail with
-`OFFICE_INPUT_INVALID`. Corrupt archive member compression, including BZIP2 and
-Zstandard result/subimage streams, fails with `TENCENT_RESULT_INVALID` without
-resubmitting the paid job.
+`OFFICE_INPUT_INVALID`. Corrupt archive member compression, including BZIP2, LZMA
+and Zstandard result/subimage streams, fails with `TENCENT_RESULT_INVALID` without
+altering the retained result bytes or resubmitting the paid job.
 
 | Submitted source type | ResultType | Reason |
 | --- | --- | --- |
