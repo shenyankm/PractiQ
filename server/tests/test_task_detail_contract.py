@@ -36,7 +36,8 @@ APP_ROOT = Path(__file__).resolve().parents[2] / 'app'
     ('COMPLETED', 'success', False, False, 'completed', [], []),
     ('FAILED', 'error', False, False, 'prepare', [], ['resume']),
 ])
-async def test_task_detail_http_contract_for_saved_states(monkeypatch, state, run_status, pause, cancel, phase, blocking, actions):
+@pytest.mark.parametrize('deployment', ['normal', 'read_only', 'incompatible'])
+async def test_task_detail_http_contract_for_saved_states(monkeypatch, state, run_status, pause, cancel, phase, blocking, actions, deployment):
     monkeypatch.setenv('AI_SERVICE_TOKEN', 'test-token')
     monkeypatch.setenv('LLM_API_KEY', 'fake-key')
     monkeypatch.setenv('LLM_MODEL', 'fake-model')
@@ -51,6 +52,10 @@ async def test_task_detail_http_contract_for_saved_states(monkeypatch, state, ru
         await conn.execute('INSERT INTO document_runs(run_id,thread_id,request_id,context,status,pause_requested,cancel_requested,error_code) VALUES (%s,%s,%s,\'{}\',%s,%s,%s,%s)',
                            (run_id, thread_id, run_id, run_status, pause, cancel, 'STAGE_ERROR' if state == 'FAILED' else None))
     values = {'phase': phase, 'status': 'SUCCEEDED' if state == 'COMPLETED' else '', 'result': {}, 'processing': {}}
+    if deployment == 'read_only':
+        monkeypatch.setenv('AI_READ_ONLY', '1')
+    elif deployment == 'incompatible':
+        values['execution'] = {'signature': {**task_api.signature(), 'code': 'different-code'}}
     snapshot = SimpleNamespace(values=values, interrupts=[SimpleNamespace(id=str(i), value=value) for i, value in enumerate(blocking)],
                                next=('chunk_gate',) if state != 'COMPLETED' else (), created_at=None)
     await db.store.aput(namespace(thread_id, 'tencent_jobs'), 'source-0-0', {'status': 'STAGING', 'queryRequestId': 'https://unsafe?secret=x', 'errorCode': '<private>'})
@@ -67,9 +72,11 @@ async def test_task_detail_http_contract_for_saved_states(monkeypatch, state, ru
     assert wire['parserJobs'] == [{'taskId': None, 'requestId': None, 'status': 'STAGING',
                                    'successPageCount': None, 'failedPageCount': None, 'resultSaved': False,
                                    'queryRequestId': None, 'errorCode': None, 'statusUpdatedAt': None}]
-    assert wire['state'] == state and wire['phase'] == phase and wire['allowedActions'] == actions
+    expected_actions = actions if deployment == 'normal' else [action for action in actions if action in {'pause', 'interrupt'}]
+    assert wire['state'] == state and wire['phase'] == phase and wire['allowedActions'] == expected_actions
     assert wire['runId'] == run_id and wire['fileName'] == 'fixture.txt'
-    assert wire['modelConfigured'] and wire['resumeCompatible']
+    assert wire['modelConfigured'] == (deployment != 'read_only')
+    assert wire['resumeCompatible'] == (deployment == 'normal')
     assert wire['status'] == ('SUCCEEDED' if state == 'COMPLETED' else None)
     assert all(wire[field] is None for field in ('parentThreadId', 'checkpointId', 'result', 'processing'))
     assert wire['blocking'] == (['STAGE_ERROR'] if state == 'FAILED' else blocking)

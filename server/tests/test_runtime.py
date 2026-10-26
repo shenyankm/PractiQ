@@ -546,7 +546,8 @@ async def test_read_only_restart_requires_explicit_resume_and_lists_tasks(monkey
     await asyncio.sleep(0.15)
     assert len(model.calls) == 1
     state = await task_api.get_task(created['threadId'])
-    assert state['state'] == 'INTERRUPTED' and 'resume' in state['allowedActions']
+    assert state['state'] == 'INTERRUPTED' and state['allowedActions'] == []
+    assert not state['modelConfigured'] and not state['resumeCompatible']
     listing = await task_api.list_tasks(1, 0)
     assert listing['items'][0]['threadId'] == created['threadId']
     assert not listing['hasMore']
@@ -559,6 +560,8 @@ async def test_read_only_restart_requires_explicit_resume_and_lists_tasks(monkey
         assert len(model.calls) == 1
         return
     monkeypatch.delenv('AI_READ_ONLY')
+    state = await task_api.get_task(created['threadId'])
+    assert state['modelConfigured'] and state['resumeCompatible'] and 'resume' in state['allowedActions']
     await task_api.control_task(created['threadId'], DocumentTaskControl(requestId=uuid4(), action='resume', checkpointId=state['checkpointId']))
     async with asyncio.timeout(10):
         while await restarted.db.rows("SELECT run_id FROM document_runs WHERE status IN ('pending','running')"):

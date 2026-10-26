@@ -269,6 +269,21 @@ describe("task reads and explicit controls", () => {
     await expect(client.control({ ...task, allowedActions: ["resume"], resumeCompatible: false }, "resume")).rejects.toMatchObject({ code: "MODEL_NOT_CONFIGURED" });
     expect(fetcher).toHaveBeenCalledTimes(2);
   });
+  it.each([{ modelConfigured: false }, { resumeCompatible: false }])("rejects all checkpoint controls without HTTP when deployment is unavailable: %j", async change => {
+    const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);
+    const client = new Client("fake");
+    const actions = ["resume", "retry_failed", "accept_partial"] as const;
+    for (const action of actions) {
+      await expect(client.control({ ...task, state: "WAITING_REVIEW", allowedActions: [...actions], ...change }, action)).rejects.toMatchObject({ code: "MODEL_NOT_CONFIGURED" });
+    }
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+  it("submits compatible review acceptance only on explicit control", async () => {
+    const fetcher = vi.fn().mockImplementation(async (_path: string, init: RequestInit) => json({ ...receipt, requestId: JSON.parse(init.body as string).requestId }, 202)); vi.stubGlobal("fetch", fetcher);
+    await new Client("fake").control({ ...task, state: "WAITING_REVIEW", allowedActions: ["accept_partial"] }, "accept_partial");
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(fetcher.mock.calls[0][1].body)).toMatchObject({ action: "accept_partial", checkpointId: task.checkpointId, runId: null });
+  });
   it("reuses an uncertain control/reparse intent only when the user explicitly repeats it", async () => {
     let attempts = 0;
     const fetcher = vi.fn(async (_path: string, init: RequestInit) => {
