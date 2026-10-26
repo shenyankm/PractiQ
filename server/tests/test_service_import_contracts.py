@@ -1,11 +1,13 @@
 import hashlib
 from pathlib import Path
+from unittest.mock import AsyncMock
 from uuid import uuid4
 
+import httpx
 import pytest
 from pydantic import ValidationError
 
-from practiq_ai import config
+from practiq_ai import config, task_api, webapp
 from practiq_ai.contracts import (
     DocumentReference,
     DocumentTaskCreate,
@@ -63,6 +65,20 @@ def test_office_modes_are_rejected_and_new_routing_keeps_source_identity():
         'objectKey': f'practiq-agent/sources/{reference.sha256}/source.txt'})
     with pytest.raises(ValidationError):
         DocumentTaskCreate(requestId=request_id, document=normal, officeMode='text')
+
+
+@pytest.mark.parametrize('mode', ['pdf', 'text'])
+async def test_http_create_rejects_legacy_office_mode_before_admission(monkeypatch, mode):
+    create = AsyncMock()
+    monkeypatch.setattr(task_api, 'create_task', create)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=webapp.app), base_url='http://test',
+                                headers={'Authorization': 'Bearer test-token'}) as client:
+        response = await client.post('/api/document-tasks', json={
+            'requestId': str(uuid4()), 'document': office_reference().model_dump(mode='json'), 'officeMode': mode,
+        })
+    assert response.status_code == 422
+    assert 'no longer supported' in response.text
+    create.assert_not_awaited()
 
 
 def test_office_deployment_requires_explicit_absolute_engine_and_version(monkeypatch, tmp_path):

@@ -79,5 +79,7 @@ async def test_retry_preserves_admitted_dedup_flag(monkeypatch):
     retry = await task_api.control_task(receipt['threadId'], DocumentTaskControl(requestId=uuid4(), action='retry_failed', checkpointId=detail['checkpointId']))
     await service.wait_idle()
     retry_input = (await service.db.rows('SELECT input FROM document_runs WHERE run_id=%s', (retry['runId'],)))[0]['input']
-    assert retry_input['deduplicateQuestions'] is True
+    assert retry_input['deduplicateQuestions'] is True and 'officeMode' not in retry_input
     assert (await task_api.get_task(receipt['threadId']))['status'] == 'SUCCEEDED'
+    _, snapshot, _ = await task_api._read_task(service, receipt['threadId'])
+    assert snapshot.values['officeMode'] is None and snapshot.values['execution']['officeMode'] is None
