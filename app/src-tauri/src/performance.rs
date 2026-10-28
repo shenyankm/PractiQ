@@ -888,7 +888,7 @@ fn backup_restore_stress() {
             }
             counts.insert(table, json!(count));
         }
-        json!({"sha256":format!("{:x}",digest.finalize()),"tableCounts":counts,"schemaVersion":db.query_row("PRAGMA user_version",[],|r|r.get::<_,i64>(0)).unwrap()})
+        json!({"sha256":crate::store::finish_hash(digest),"tableCounts":counts,"schemaVersion":db.query_row("PRAGMA user_version",[],|r|r.get::<_,i64>(0)).unwrap()})
     }
     let dir = tempfile::tempdir().unwrap();
     let mut store = Store::new(dir.path().join("store")).unwrap();

@@ -24,7 +24,14 @@ pub fn now() -> i64 {
         .as_millis() as i64
 }
 pub fn hash(bytes: &[u8]) -> String {
-    format!("{:x}", Sha256::digest(bytes))
+    finish_hash(Sha256::new_with_prefix(bytes))
+}
+pub(crate) fn finish_hash(digest: Sha256) -> String {
+    digest
+        .finalize()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
 }
 #[cfg(test)]
 #[path = "search_performance.rs"]
