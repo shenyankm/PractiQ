@@ -241,9 +241,23 @@ async def test_failed_correction_call_write_retains_unknown_attempt_and_telemetr
     assert len(starts) == len(completed) == 2
     assert {event["callKey"] for event in starts} == {event["callKey"] for event in completed} == {call["callKey"] for call in response["calls"]}
     assert completed[-1]["outcome"] == "unknown"
-    assert completed[-1]["errorCode"] == ("AI_PROVIDER_UNAVAILABLE" if retryable else "AI_PROVIDER_ERROR")
+    assert completed[-1]["errorCode"] == ("MODEL_RESULT_UNKNOWN" if retryable else "AI_PROVIDER_ERROR")
     assert telemetry.registry.get_sample_value("practiq_model_calls_total", labels) == counter_before + 1
     assert telemetry.registry.get_sample_value("practiq_stage_seconds_count", histogram_labels) == duration_before + 1
+
+
+async def test_model_transport_failure_keeps_grading_unknown_without_replay(shared_grading_model):
+    model, valid = shared_grading_model
+    model.responses[1] = llm.APIConnectionError(request=httpx2.Request("POST", "https://example.invalid"))
+    model.responses.append(valid)
+    request = grading.GradeRequest.model_validate(payload())
+    response = await grading.grade(request)
+    assert response['status'] == 'unknown' and response['error'] == 'MODEL_RESULT_UNKNOWN'
+    assert response['usageStatus'] == 'unknown'
+    assert len(response['usage']) == 1 and len(response['calls']) == 2
+    assert len(model.calls) == 2
+    assert await grading.grade(request) == response
+    assert len(model.calls) == 2
 
 
 async def test_existing_grading_cache_preserves_responses_and_unknown_requests(setup, monkeypatch):

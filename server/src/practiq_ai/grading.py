@@ -242,7 +242,7 @@ async def grade(request: GradeRequest) -> dict:
                     result.reviewReasons.append(missing_rubric)
                 response = {"status":"graded" if result.scoreCents is not None else "ungraded", "result":result.model_dump(), "usage":[u.model_dump(mode="json") for u in usage]}
         except DocumentProcessingError as exc:
-            response = {"status":"unknown" if exc.code.startswith("AI_PROVIDER") else "ungraded", "error":exc.code, "usage":_known_usage(calls) or [u.model_dump(mode="json") for u in exc.usage], "usageStatus":"unknown"}
+            response = {"status":"unknown" if exc.code.startswith("AI_PROVIDER") or exc.code == "MODEL_RESULT_UNKNOWN" else "ungraded", "error":exc.code, "usage":_known_usage(calls) or [u.model_dump(mode="json") for u in exc.usage], "usageStatus":"unknown"}
         response["calls"] = calls
     await asyncio.to_thread(_save, request, response)
     return response

@@ -322,11 +322,11 @@ async def test_unknown_provider_usage_is_not_recorded_as_zero(monkeypatch):
     failures = [APIConnectionError(request=httpx2.Request("POST", "https://example.invalid")) for _ in range(4)]
     graph, store, _, reference, model = setup_graph(monkeypatch, failures)
     monkeypatch.setattr(llm, "_retry_delay", lambda _: 0)
-    output = await graph.ainvoke({"document": reference}, run_config())
-    assert output["status"] == "PARTIAL"
-    assert output["result"]["missingFields"] == ["questions"]
+    with pytest.raises(DocumentProcessingError) as error:
+        await graph.ainvoke({"document": reference}, run_config())
+    assert error.value.code == "MODEL_RESULT_UNKNOWN"
     records = await store.asearch(execution.namespace("thread-1", "calls"))
-    assert len(records) == len(model.calls) == 4
+    assert len(records) == len(model.calls) == 1
     assert all(item.value["status"] == "failed" and item.value["usageStatus"] == "unknown" and item.value["inputTokens"] is None for item in records)
 
 

@@ -639,13 +639,13 @@ def _status_error(status: int) -> APIStatusError:
             APIConnectionError(
                 request=httpx2.Request("POST", "https://example.invalid")
             ),
-            True,
+            False,
         ),
-        (APITimeoutError(httpx2.Request("POST", "https://example.invalid")), True),
-        (_status_error(408), True),
+        (APITimeoutError(httpx2.Request("POST", "https://example.invalid")), False),
+        (_status_error(408), False),
         (_status_error(409), True),
         (_status_error(429), True),
-        (_status_error(500), True),
+        (_status_error(500), False),
         (_status_error(400), False),
     ),
 )

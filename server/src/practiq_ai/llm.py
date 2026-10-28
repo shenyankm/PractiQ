@@ -302,10 +302,10 @@ def _validation_issues(error: ValueError, schema: type[BaseModel]) -> list[dict[
 
 
 def _retryable_openai_error(exc: Exception) -> bool:
-    if isinstance(exc, (APIConnectionError, APITimeoutError, RateLimitError)):
+    if isinstance(exc, RateLimitError):
         return True
     return isinstance(exc, APIStatusError) and (
-        exc.status_code in {408, 409, 429} or exc.status_code >= 500
+        exc.status_code in {409, 429}
     )
 
 
@@ -551,6 +551,10 @@ async def structured_call[ResultT: BaseModel](
                 error = {"status": exc.status_code, "code": exc.code, "detail": exc.detail}
             elif isinstance(exc, APIStatusError) and exc.status_code in {401, 403}:
                 error = {"status": exc.status_code, "code": "AI_PROVIDER_AUTH_ERROR", "detail": "Check the model API key and permissions, then retry failed units"}
+            elif isinstance(exc, (APIConnectionError, APITimeoutError)) or (
+                isinstance(exc, APIStatusError) and (exc.status_code == 408 or exc.status_code >= 500)
+            ):
+                error = {"status": 409, "code": "MODEL_RESULT_UNKNOWN", "detail": "Model result unknown; explicit recovery may incur another charge"}
             elif _retryable_openai_error(exc):
                 error = {"status": 502, "code": "AI_PROVIDER_UNAVAILABLE", "detail": "AI provider request failed"}
             else:
@@ -564,6 +568,9 @@ async def structured_call[ResultT: BaseModel](
             record.update(status="failed", error=error["code"], finishedAt=datetime.now(UTC).isoformat(), durationMs=round((time.monotonic() - started) * 1000, 3))
             if runtime and error["code"] != "EXECUTION_STORE_UNAVAILABLE":
                 await store_put(runtime, "calls", str(call_key), record)
+            if error["code"] == "MODEL_RESULT_UNKNOWN":
+                # Do not cache an uncertain attempt as a completed durable task.
+                raise DocumentProcessingError(error["status"], error["detail"], error["code"], usage) from None
             return {"error": error}
         finally:
             if not provider_started and record["status"] == "started":

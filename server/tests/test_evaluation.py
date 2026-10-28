@@ -719,11 +719,12 @@ def test_manual_answer_aliases_are_typed_and_cannot_invent_answers() -> None:
 @pytest.mark.parametrize("invalid_after_retry", [False, True])
 def test_exhausted_retries_preserve_actual_failure_stage(tmp_path, monkeypatch, invalid_after_retry) -> None:
     import httpx2
-    from openai import APITimeoutError
+    from openai import RateLimitError
 
     from practiq_ai import llm
 
-    error = APITimeoutError(request=httpx2.Request("POST", "https://example.invalid"))
+    response = httpx2.Response(429, request=httpx2.Request("POST", "https://example.invalid"))
+    error = RateLimitError("rate limited", response=response, body=None)
     invalid = {"questions": [{"invalid": True}], "groups": []}
     responses = [error, *([invalid] * 3 if invalid_after_retry else [error] * 3)]
     path, model = setup_runner(tmp_path, monkeypatch, responses)
@@ -1169,15 +1170,14 @@ def test_trajectory_checks_routes_and_limits_each_stage(source_type, extraction,
 
 
 
-@pytest.mark.parametrize("failure", ["timeout", "rate_limit"])
-def test_transient_probe_recovers_with_trace(tmp_path, monkeypatch, failure):
+def test_transient_probe_recovers_with_trace(tmp_path, monkeypatch):
     import httpx2
-    from openai import APITimeoutError, RateLimitError
+    from openai import RateLimitError
 
     from practiq_ai import llm
 
     request = httpx2.Request("POST", "https://example.invalid")
-    error = APITimeoutError(request=request) if failure == "timeout" else RateLimitError("SECRET_EXCEPTION", response=httpx2.Response(429, request=request), body=None)
+    error = RateLimitError("SECRET_EXCEPTION", response=httpx2.Response(429, request=request), body=None)
     path, model = setup_runner(tmp_path, monkeypatch, [error, model_result()])
     monkeypatch.setattr(llm, "_retry_delay", lambda _: 0)
     report = asyncio.run(ev.run_evaluation(path))
@@ -1193,6 +1193,22 @@ def test_transient_probe_recovers_with_trace(tmp_path, monkeypatch, failure):
     assert report["efficiency"]["costPerQualityDocument"] is None
     assert report["modelUsage"]["missingUsageCalls"] == 1
     assert "SECRET_EXCEPTION" not in json.dumps(report)
+
+
+def test_unknown_model_probe_stops_with_trace(tmp_path, monkeypatch):
+    import httpx2
+    from openai import APITimeoutError
+
+    error = APITimeoutError(request=httpx2.Request("POST", "https://example.invalid"))
+    path, model = setup_runner(tmp_path, monkeypatch, [error, model_result()])
+    report = asyncio.run(ev.run_evaluation(path))
+    assert report["status"] == "BLOCKED" and model.calls == 1
+    case = report["cases"][0]
+    assert case["error"]["code"] == "MODEL_RESULT_UNKNOWN"
+    assert len(case["modelCalls"]) == 1
+    assert case["modelCalls"][0]["validation"] == "not_run"
+    assert not any(event.get("decision") == "retry" for event in case["trajectory"]["events"])
+    assert report["modelUsage"]["missingUsageCalls"] == 1
 
 
 def test_failed_validation_is_distinct_from_returned_response(tmp_path, monkeypatch):
