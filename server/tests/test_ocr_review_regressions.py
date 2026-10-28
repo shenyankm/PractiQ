@@ -2,14 +2,27 @@
 import base64
 import json
 from copy import deepcopy
+from io import BytesIO
+from pathlib import Path
 from typing import cast
+from zipfile import ZipFile
 
 import pytest
 from langgraph.runtime import Runtime
+from PIL import Image
 
 from practiq_ai import bank_export, execution, llm
+from practiq_ai.config import load
 from practiq_ai.graphs import document
-from tests.support import FakeModel, MemoryStore, make_image, source
+from practiq_ai.tencent_bundle import decode_bundle
+from tests.support import (
+    FakeModel,
+    FakeObjectStore,
+    MemoryStore,
+    make_image,
+    question,
+    source,
+)
 
 
 async def vision_input(monkeypatch, *, page_image=False):
@@ -54,6 +67,78 @@ async def test_retained_figures_reach_models_and_keep_crop_bounds_for_every_kind
     assert visual['kind'] == kind
     assert visual['bbox'] == primary['figures'][0]['bbox']
     assert visual['cropBbox'] == primary['figures'][0]['cropBbox']
+    assert visual['imageRef'] == primary['figures'][0]['imageRef']
+    evidence = json.loads(calls[0][-1].content.split('\n')[-1])
+    assert evidence['figures'] == [{'elementIndex': 9, 'kind': 'image', 'bbox': [.2, .2, .7, .7]}]
+
+
+@pytest.mark.parametrize('native_table', [False, True])
+async def test_model_evidence_preserves_tables_and_figure_identity_in_primary_and_context(monkeypatch, native_table):
+    state, reference, image, primary = await vision_input(monkeypatch)
+    files = cast(FakeObjectStore, document.get_object_store())
+    fixtures = Path(__file__).parent / 'fixtures'
+    buffer = BytesIO()
+    with ZipFile(buffer, 'w') as archive:
+        archive.writestr('sample_ocr_page0.json', (fixtures / 'tencent-xlsx.json').read_bytes())
+        archive.writestr('sample_xml_full.xml', (fixtures / 'tencent-xlsx.xml').read_bytes())
+    table = decode_bundle(buffer.getvalue(), load(), page_count=1)[0]
+    primary['elements'] = table['elements']
+    if native_table:
+        primary['format'] = 'table'
+    else:
+        primary.update(width=1000, height=1000)
+        primary['elements'].append({'index': 9, 'figure_info': {'text_info': {'content': 'x  y\n3  4'}},
+            'polygon': {'left_top': {'x': 200, 'y': 200}, 'right_top': {'x': 700, 'y': 200},
+                        'left_bottom': {'x': 200, 'y': 700}, 'right_bottom': {'x': 700, 'y': 700}}})
+    buffer = BytesIO()
+    Image.new('RGB', (32, 32), 'red').save(buffer, 'PNG')
+    second_image = buffer.getvalue()
+    second_ref = await files.put_artifact(second_image, source_sha256=reference['sha256'],
+        kind='ocr-figure', index=1, media_type='image/png')
+    primary['figures'].append({'elementIndex': 27, 'kind': 'image', 'bbox': [.1, .1, .4, .4],
+                               'imageRef': second_ref.model_dump(mode='json')})
+    references = []
+    for index, evidence in enumerate([primary, {**primary, 'page': 1}, {'page': 2, 'failed': True}]):
+        ref = await files.put_artifact(json.dumps(evidence).encode(), source_sha256=reference['sha256'],
+            kind='ocr-page', index=index, media_type='application/json')
+        references.append(ref.model_dump(mode='json'))
+    state['ocrArtifact'] = references[0]
+    state['neighbors'] = [{'index': index, 'ocrArtifact': ref} for index, ref in enumerate(references)]
+    stored = deepcopy(files.blobs)
+    q = {**question('中文题目'), 'id': 'page:1:1'}
+    reply = {'questions': [q], 'figures': [
+        {'elementIndex': index, 'description': 'Retained source image', 'questionIndexes': [0]}
+        for index in (27, 9)]}
+    calls = []
+
+    async def call(_model, messages, schema, _kind, *, runtime=None):
+        calls.append(messages)
+        images = [message.content for message in messages if isinstance(message.content, list)]
+        assert len(images) == 2
+        for content, expected, index in zip(images, [image, second_image], [9, 27], strict=True):
+            assert f'elementIndex={index}.' in content[0]['text']
+            assert base64.b64decode(content[1]['image_url']['url'].split(',', 1)[1]) == expected
+        expected = {**primary, 'page': 1, 'figures': [
+            {'elementIndex': 9, 'kind': 'image', 'bbox': [.2, .2, .7, .7]},
+            {'elementIndex': 27, 'kind': 'image', 'bbox': [.1, .1, .4, .4]}]}
+        primary_text = messages[len(images) + 1].content.split('\n')[-1]
+        assert json.loads(primary_text) == expected
+        if len(calls) == 2:
+            context_text = messages[-1].content.split('\nCONTEXT:\n')[1].split('\nPRIMARY DRAFT:\n')[0]
+            assert json.loads(context_text) == [{**expected, 'page': 2}, {'page': 3, 'failed': True}]
+            assert context_text == json.dumps(json.loads(context_text), ensure_ascii=False, separators=(',', ':'))
+        return schema.model_validate(reply), [], None
+
+    monkeypatch.setattr(document, 'structured_call', call)
+    result = await document._vision(state, Runtime(store=MemoryStore()))
+    assert len(calls) == 2 and not result['failures']
+    assert files.blobs == stored
+    visuals = result['visionResults'][0]['visuals']
+    for visual, figure in zip(visuals, reversed(primary['figures']), strict=True):
+        assert visual['imageRef'] == figure['imageRef']
+        assert visual['bbox'] == figure['bbox']
+        assert visual.get('cropBbox') == figure.get('cropBbox')
+        assert visual['questionIndexes'] == [0]
 
 
 async def test_shared_ocr_table_keeps_page_result_within_bank_json_limit(monkeypatch):
