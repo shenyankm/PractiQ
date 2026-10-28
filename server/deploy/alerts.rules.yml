@@ -67,6 +67,16 @@ groups:
         expr: sum(increase(practiq_failures_total{code=~"MODEL_BUDGET_EXCEEDED|RUN_DEADLINE_EXCEEDED|OUTPUT_STALLED"}[5m])) > 0
         labels: {severity: warning}
         annotations: {summary: "Document execution reached a bounded stop"}
+      - alert: PractiQEstimatedCostBudget
+        expr: practiq_cost_daily_limit_micros > 0 and practiq_cost_daily_reserved_micros / practiq_cost_daily_limit_micros > 0.9
+        for: 1m
+        labels: {severity: warning}
+        annotations: {summary: "UTC-day estimated-cost reservations exceed 90% of the configured limit"}
+      - alert: PractiQWorkerSandboxDisabled
+        expr: practiq_worker_sandbox_required == 0
+        for: 1m
+        labels: {severity: warning}
+        annotations: {summary: "Native document workers do not require the OS sandbox"}
       - alert: PractiQChecksumMismatch
         expr: sum(increase(practiq_failures_total{code="DOCUMENT_CHECKSUM_MISMATCH"}[5m])) > 0
         labels: {severity: critical}

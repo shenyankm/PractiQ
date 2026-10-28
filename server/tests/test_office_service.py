@@ -138,7 +138,8 @@ async def test_worker_protocol_keeps_stdin_open_and_preserves_sheet_order_and_em
     assert Path(worker.request["source"]).name == "source.xlsx"
     assert worker.arguments == (sys.executable, "-m", "practiq_ai.office")
     env = worker.options["env"]
-    assert not any(key.startswith(("AI_", "LLM_", "DATABASE_")) for key in env)
+    assert env["AI_WORKER_SANDBOX"] == "required"
+    assert not any(key.startswith(("AI_", "LLM_", "DATABASE_")) for key in env if key != "AI_WORKER_SANDBOX")
     assert "OPENAI_API_KEY" not in env
     assert env["TMPDIR"] == env["TEMP"] == env["TMP"] == env["PRACTIQ_OFFICE_WORKSPACE"]
     assert env["PYTHONPATH"] == str(Path(office_service.__file__).parent.parent)

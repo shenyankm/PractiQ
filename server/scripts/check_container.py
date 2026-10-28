@@ -3,11 +3,14 @@
 import asyncio
 import hashlib
 import os
+import socket
 import subprocess
+import sys
 from contextlib import closing
 from dataclasses import replace
 from importlib.metadata import distribution
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import pypdfium2 as pdfium
 
@@ -31,11 +34,56 @@ async def main():
     notices = [path for path in package.files or [] if str(path).endswith('.dist-info/licenses/LICENSE')]
     assert len(notices) == 1
     assert package.locate_file(notices[0]).read_bytes() == Path('/app/LICENSE').read_bytes()
+    with TemporaryDirectory(prefix='practiq-sandbox-check-') as directory:
+        root = Path(directory)
+        workspace, forbidden = root / 'worker', root / 'private-source'
+        workspace.mkdir()
+        forbidden.write_text('private')
+        server = socket.socket(socket.AF_UNIX)
+        endpoint = root / 'outside.sock'
+        server.bind(str(endpoint))
+        server.listen()
+        probe = """
+import socket, sys
+from pathlib import Path
+from practiq_ai.worker_sandbox import enter
+enter(Path(sys.argv[1]))
+try:
+    Path(sys.argv[2]).read_bytes()
+except PermissionError:
+    pass
+else:
+    raise AssertionError('worker could read an unrelated source')
+try:
+    Path(sys.argv[2]).unlink()
+except PermissionError:
+    pass
+else:
+    raise AssertionError('worker could remove an unrelated source')
+with socket.socket(socket.AF_UNIX) as connection:
+    try:
+        connection.connect(sys.argv[3])
+    except PermissionError:
+        pass
+    else:
+        raise AssertionError('worker could connect to an external Unix service')
+try:
+    socket.socket(socket.AF_INET)
+except PermissionError:
+    pass
+else:
+    raise AssertionError('worker could create an IP socket')
+"""
+        try:
+            await asyncio.to_thread(subprocess.run, [sys.executable, '-c', probe, str(workspace), str(forbidden), str(endpoint)],
+                                    check=True, capture_output=True, timeout=15, cwd=workspace)
+        finally:
+            server.close()
     before = set(Path('/tmp').iterdir())
     document = await extract('pdf', Path('/fixtures/ai-import/formats/all-types.pdf').read_bytes())
     assert document.page_images and not document.truncated
     assert not (set(Path('/tmp').iterdir()) - before)
-    engine = Path('/usr/bin/libreoffice')
+    engine = Path('/usr/lib/libreoffice/program/soffice.bin')
     version = await asyncio.to_thread(subprocess.check_output, [str(engine), '--version'], text=True)
     config = replace(load(), office_executable=engine, office_version=version.strip())
     payload = Path('/fixtures/office/smoke.pptx').read_bytes()
@@ -53,7 +101,7 @@ async def main():
     store = get_object_store()
     reference = await store.put_artifact(b'container-check', source_sha256='a' * 64, kind='text', index=0, media_type='text/plain')
     assert await store.get_verified(reference) == b'container-check'
-    print('UID 10001: MIT notice, PDF rendering, real PPTX conversion, isolated extraction, temporary cleanup and mounted storage passed')
+    print('UID 10001: MIT notice, OS file/network sandbox, PDF rendering, real PPTX conversion, isolated extraction, temporary cleanup and mounted storage passed')
 
 
 if __name__ == '__main__':

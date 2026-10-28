@@ -149,9 +149,18 @@ async def save_import_settings(value: ImportSettingsSnapshot) -> ImportSettingsS
 
 @app.get("/api/metrics", dependencies=[Depends(authorize)])
 async def application_metrics() -> Response:
+    from .cost_budget import NAMESPACE, now
+    from .execution import code_version
     from .runtime import current
     body = generate_latest(registry)
+    settings = load()
+    body += (f'practiq_build_info{{code_hash="{code_version()}"}} 1\n'
+             f'practiq_worker_sandbox_required {int(settings.worker_sandbox == "required")}\n'
+             f'practiq_cost_budget_enabled {int(settings.cost_enabled)}\n'
+             f'practiq_cost_daily_limit_micros {settings.cost_daily_limit or 0}\n').encode()
     if current:
+        daily = await current.db.store.aget(NAMESPACE, f"day:{now().date().isoformat()}", refresh_ttl=False)
+        body += f'practiq_cost_daily_reserved_micros {daily.value["reservedMicros"] if daily else 0}\n'.encode()
         health = await (await asyncio.to_thread(get_object_store)).health()
         body += f'practiq_storage_healthy {int(health.healthy)}\n'.encode()
         for name in ('free_bytes', 'total_bytes', 'free_inodes', 'total_inodes'):

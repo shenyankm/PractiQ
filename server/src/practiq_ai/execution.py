@@ -43,7 +43,7 @@ def fingerprint(value: Any) -> str:
 @lru_cache(maxsize=1)
 def code_version() -> str:
     root = Path(__file__).parent
-    paths = [root / name for name in ("contracts.py", "grading.py", "llm.py", "execution.py", "config.py", "storage.py", "json_repair.py", "capacity.py", "telemetry.py", "runtime.py", "database.py", "task_api.py", "office.py")]
+    paths = [root / name for name in ("contracts.py", "grading.py", "llm.py", "execution.py", "config.py", "storage.py", "json_repair.py", "capacity.py", "telemetry.py", "runtime.py", "database.py", "task_api.py", "office.py", "cost_budget.py", "worker_sandbox.py")]
     if (root / "office_service.py").is_file():
         paths.append(root / "office_service.py")
     paths.append(root / "normalization.py")
@@ -78,6 +78,9 @@ def signature() -> dict[str, Any]:
     # Office manifests independently bind the engine version and executable checksum.
     for key in ("office_executable", "office_version"):
         settings.pop(key)
+    for key in list(settings):
+        if key.startswith("cost_"):
+            settings.pop(key)
     settings["storage_dir"] = str(settings["storage_dir"])
     return {"version": STATE_VERSION, "code": code_version(), "runtime": runtime_version(), "settings": settings}
 

@@ -251,3 +251,31 @@ tests:
       - eval_time: 8m
         alertname: PractiQTencentUnknownSubmission
         exp_alerts: []
+  - interval: 1m
+    input_series:
+      - series: practiq_cost_daily_limit_micros
+        values: '100x7'
+      - series: practiq_cost_daily_reserved_micros
+        values: '0 95x2 20x4'
+      - series: practiq_worker_sandbox_required
+        values: '1 0x2 1x4'
+    alert_rule_test:
+      - eval_time: 0m
+        alertname: PractiQEstimatedCostBudget
+        exp_alerts: []
+      - eval_time: 2m
+        alertname: PractiQEstimatedCostBudget
+        exp_alerts:
+          - exp_labels: {severity: warning}
+            exp_annotations: {summary: "UTC-day estimated-cost reservations exceed 90% of the configured limit"}
+      - eval_time: 2m
+        alertname: PractiQWorkerSandboxDisabled
+        exp_alerts:
+          - exp_labels: {severity: warning}
+            exp_annotations: {summary: "Native document workers do not require the OS sandbox"}
+      - eval_time: 4m
+        alertname: PractiQEstimatedCostBudget
+        exp_alerts: []
+      - eval_time: 4m
+        alertname: PractiQWorkerSandboxDisabled
+        exp_alerts: []

@@ -97,7 +97,7 @@ def _check_outputs(directory: Path, *, writing: bool = False) -> list[Path]:
     return sorted(files)
 
 
-def _run(arguments: list[str], deadline: float, output: Path | None = None) -> bytes:
+def _run(arguments: list[str], deadline: float, output: Path | None = None, *, _restart: bool = True) -> bytes:
     # Logs can contain source text. Keep them out of diagnostics and limit version output.
     with TemporaryDirectory(prefix="practiq-office-log-") as directory:
         log = Path(directory) / "version"
@@ -106,6 +106,10 @@ def _run(arguments: list[str], deadline: float, output: Path | None = None) -> b
                    if not key.startswith(("AI_", "LLM_", "DATABASE_"))}
             # LibreOffice embeds Python; bytecode writes would invalidate signed resources.
             env["PYTHONDONTWRITEBYTECODE"] = "1"
+            workspace = env.get("PRACTIQ_OFFICE_WORKSPACE")
+            if workspace:
+                env.update(HOME=workspace, XDG_CONFIG_HOME=f"{workspace}/config", XDG_CACHE_HOME=f"{workspace}/cache",
+                           XDG_DATA_HOME=f"{workspace}/data", XDG_RUNTIME_DIR=workspace, OSL_SOCKET_PATH=workspace)
             if sys.platform == "darwin":
                 # Native CoreText finds macOS fonts; generic headless VCL can omit CJK glyphs.
                 env.setdefault("SAL_USE_VCLPLUGIN", "osx")
@@ -129,12 +133,18 @@ def _run(arguments: list[str], deadline: float, output: Path | None = None) -> b
                     _check_workspace()
                     time.sleep(0.05)
                 _check_workspace()
-                if process.returncode:
+                restart = (_restart and output is not None and Path(arguments[0]).name == "soffice.bin"
+                           and process.returncode == 81)
+                if process.returncode and not restart:
                     raise OfficeError("OFFICE_CONVERSION_FAILED")
             finally:
                 with _lock:
                     _stop(process)
                     _children.discard(process)
+        # Native LibreOffice requests one profile-initialization restart (81).
+        # Keep the same profile, deadline and limits; never retry a general failure.
+        if restart:
+            return _run(arguments, deadline, output, _restart=False)
         return _read_file(log, 65536) if output is None else b""
 
 
@@ -520,23 +530,27 @@ def main() -> None:
         from .extractors.windows_job import protect_descendants
         protect_descendants()
     raw = sys.stdin.buffer.readline(65537)
-    watch_parent(_abandon)
     try:
         if len(raw) > 65536:
             raise OfficeError("OFFICE_INPUT_INVALID")
         request = json.loads(raw)
         if not isinstance(request, dict):
             raise OfficeError("OFFICE_INPUT_INVALID")
-        if request.get("type") == "detect" and set(request) == {"type", "engine"}:
-            if not isinstance(request["engine"], str):
-                raise OfficeError("OFFICE_INPUT_INVALID")
-            result = detect(request["engine"])
-        elif request.get("type") == "convert" and set(request) == {"type", "engine", "version", "source", "output", "mode", "maxPages"}:
-            if any(not isinstance(request[key], str) for key in ("engine", "version", "source", "output", "mode")):
-                raise OfficeError("OFFICE_INPUT_INVALID")
-            result = {"artifacts": convert(request["engine"], Path(request["source"]), Path(request["output"]), request["mode"], expected_version=request["version"], max_pages=request["maxPages"])}
-        else:
+        detecting = request.get("type") == "detect" and set(request) == {"type", "engine"}
+        converting = request.get("type") == "convert" and set(request) == {"type", "engine", "version", "source", "output", "mode", "maxPages"}
+        fields = ("engine",) if detecting else ("engine", "version", "source", "output", "mode")
+        if not (detecting or converting) or any(not isinstance(request[key], str) for key in fields):
             raise OfficeError("OFFICE_INPUT_INVALID")
+        from .worker_sandbox import SandboxUnavailable, enter
+        try:
+            enter(Path(os.environ["PRACTIQ_OFFICE_WORKSPACE"]), Path(request["engine"]))
+        except SandboxUnavailable as exc:
+            raise OfficeError("WORKER_SANDBOX_UNAVAILABLE") from exc
+        watch_parent(_abandon)
+        if detecting:
+            result = detect(request["engine"])
+        else:
+            result = {"artifacts": convert(request["engine"], Path(request["source"]), Path(request["output"]), request["mode"], expected_version=request["version"], max_pages=request["maxPages"])}
         print(json.dumps({"result": result}), flush=True)
     except (OfficeError, OSError, ValueError, TypeError) as exc:
         print(json.dumps({"error": exc.code if isinstance(exc, OfficeError) else "OFFICE_CONVERSION_FAILED"}), flush=True)

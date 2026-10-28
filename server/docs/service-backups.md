@@ -55,7 +55,8 @@ cd /opt/practiq/server
 export AI_MAINTENANCE_MODE=true AI_READ_ONLY=1
 /absolute/path/to/python3.14 -m dotenv -f /private/target.env run --no-override -- \
   /absolute/path/to/python3.14 -m scripts.service_backup restore \
-  --bundle /mnt/practiq-offhost/<snapshot> --output /srv/practiq-restored
+  --bundle /mnt/practiq-offhost/<snapshot> --output /srv/practiq-restored \
+  --report /private/restore-evidence.json
 ```
 
 6. The new file root is `/srv/practiq-restored/files`. The saved `config.env` and numbered extra configurations remain private snapshots, not active configuration. Review all paths, TLS material, hostnames and credentials for the clean host; never blindly start the old `.env` against the source database. `pg_restore` runs in one transaction with `--exit-on-error --no-owner --no-acl`; the target role owns restored objects. Reapply only the intended restricted database grants.
@@ -71,3 +72,12 @@ Keep `/srv/practiq-restored`, `config.env` and extra configuration snapshots pri
 8. Record time to verified ready/read/export, failed gates and actual snapshot data loss. Only after fencing and these checks may the operator enable writes or explicitly recover work. Reconcile checkout evidence separately. A restored fresh broker does not contain the old dead-letter history; retain that infrastructure archive when required, and use PostgreSQL run identities plus explicit recovery rather than inventing new task IDs.
 
 RTO ends at verified usable recovery, not the end of `pg_restore`. RPO depends on the actual successful off-host snapshot gap and acknowledged changes lost after that snapshot. Same-host container experiments cannot certify loss of the entire host, off-host accessibility, notification delivery or the production 15-minute/30-minute targets.
+
+The optional report uses a new private path outside the bundle and destination;
+it records action, image identity, code hash, snapshot time and data-operation
+duration without credentials or filesystem inventories. The
+[automated production preflight](production-readiness.md#operational-evidence-and-preflight)
+can compare it with quality/load evidence. A successful report does not establish
+full RTO until the read-only startup and usable-read checks above pass. Reconcile
+estimated-cost reservations with provider activity since the snapshot before
+reenabling paid work; restoring an older ledger cannot undo later provider charges.

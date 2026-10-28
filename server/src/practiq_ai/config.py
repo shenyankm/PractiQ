@@ -3,7 +3,9 @@
 import ipaddress
 import os
 import re
+import sys
 from dataclasses import dataclass, field
+from decimal import Decimal, InvalidOperation
 from math import isfinite
 from pathlib import Path
 from typing import Literal
@@ -53,6 +55,17 @@ class Config:
     tencent_cos_enabled: bool = False
     tencent_cos_bucket: str = ""
     tencent_cos_region: str = ""
+    cost_currency: str = ""
+    cost_task_limit: int | None = None
+    cost_daily_limit: int | None = None
+    cost_input_per_million: int = 0
+    cost_output_per_million: int = 0
+    cost_tencent_per_page: int = 0
+    worker_sandbox: str = "required"
+
+    @property
+    def cost_enabled(self) -> bool:
+        return self.cost_task_limit is not None or self.cost_daily_limit is not None
 
     @property
     def parser_configured(self) -> bool:
@@ -93,6 +106,27 @@ def service_token() -> str:
     if not all("!" <= character <= "~" for character in token):
         raise ValueError("AI_SERVICE_TOKEN must contain only visible ASCII characters without spaces")
     return token
+
+
+def _money(values: dict[str, str], key: str, *, positive: bool = False) -> int | None:
+    raw = values.get(key, "").strip()
+    if not raw:
+        return None
+    try:
+        amount = Decimal(raw) * 1_000_000
+        if not amount.is_finite() or amount != amount.to_integral_value() or not 0 <= amount <= 10**18 or positive and amount == 0:
+            raise ValueError
+        return int(amount)
+    except (InvalidOperation, ValueError) as exc:
+        raise ValueError(f"{key} requires a finite {'positive' if positive else 'nonnegative'} amount with at most six decimal places") from exc
+
+
+def worker_sandbox_mode(values: dict[str, str] | None = None) -> str:
+    values = dict(os.environ) if values is None else values
+    mode = values.get("AI_WORKER_SANDBOX", "required" if sys.platform in {"linux", "darwin"} else "disabled").strip()
+    if mode not in {"required", "disabled"}:
+        raise ValueError("AI_WORKER_SANDBOX must be required or disabled")
+    return mode
 
 
 def is_loopback_host(hostname: str | None) -> bool:
@@ -174,7 +208,24 @@ def load() -> Config:
     vision_max_bytes = _positive_int(values, "AI_MAX_VISION_BYTES", 50 * MIB)
     if source_max_bytes * 9 + 65_536 + vision_max_bytes > TEMPORARY_LIMIT:
         raise ValueError("AI_SOURCE_MAX_BYTES and AI_MAX_VISION_BYTES exceed the fixed scratch budget")
+    cost_task_limit = _money(values, "AI_TASK_COST_LIMIT", positive=True)
+    cost_daily_limit = _money(values, "AI_DAILY_COST_LIMIT", positive=True)
+    prices = {name: _money(values, key) for name, key in (
+        ("cost_input_per_million", "AI_COST_INPUT_PER_MILLION"),
+        ("cost_output_per_million", "AI_COST_OUTPUT_PER_MILLION"),
+        ("cost_tencent_per_page", "AI_COST_TENCENT_PER_PAGE"),
+    )}
+    cost_currency = values.get("AI_COST_CURRENCY", "").strip()
+    if cost_currency and not re.fullmatch(r"[A-Z]{3}", cost_currency):
+        raise ValueError("AI_COST_CURRENCY requires a three-letter uppercase currency")
+    if (cost_task_limit is not None or cost_daily_limit is not None) and (not cost_currency or None in prices.values()):
+        raise ValueError("AI_COST_CURRENCY and all AI_COST_* prices are required when cost limits are enabled")
     return Config(
+        worker_sandbox=worker_sandbox_mode(values),
+        cost_currency=cost_currency, cost_task_limit=cost_task_limit, cost_daily_limit=cost_daily_limit,
+        cost_input_per_million=prices["cost_input_per_million"] or 0,
+        cost_output_per_million=prices["cost_output_per_million"] or 0,
+        cost_tencent_per_page=prices["cost_tencent_per_page"] or 0,
         base_url=base_url,
         read_only=read_only,
         jobs_per_worker=jobs_per_worker,

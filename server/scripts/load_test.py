@@ -148,6 +148,15 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
         base_url=args.base_url.rstrip('/'), headers={'Authorization': f'Bearer {args.token}'},
         timeout=timeout, trust_env=urlsplit(args.base_url).hostname not in {'localhost', '127.0.0.1', '::1'},
     ) as metrics_client:
+        service_code = None
+        if args.environment == "production":
+            identity = await metrics_client.get("/api/metrics")
+            identity.raise_for_status()
+            codes = {sample.labels.get("code_hash") for family in text_string_to_metric_families(identity.text)
+                     for sample in family.samples if sample.name == "practiq_build_info" and sample.value == 1}
+            if codes != {code_version()}:
+                raise ValueError("Production service code does not match this load driver")
+            service_code = code_version()
         if args.input:
             graph_input = json.loads(args.input.read_text())
         else:
@@ -251,6 +260,9 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
             )
         ).strip(),
         "environment": args.environment,
+        "serviceCodeHash": service_code,
+        "entrypointHttps": urlsplit(args.base_url).scheme == "https",
+        "sourceSha256": graph_input.get("document", {}).get("sha256"),
         "codeHash": code_version(),
         "runtime": runtime_version(),
         "imageDigest": args.image_digest,
@@ -280,7 +292,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--total", type=int, default=400)
     parser.add_argument("--api", choices=("document-tasks",), default="document-tasks")
     parser.add_argument("--allow-rejections", action="store_true", help="Overload drill: count explicit 429/503 as bounded admission, but require successful work")
-    parser.add_argument("--environment", choices=("local", "container"), default="local")
+    parser.add_argument("--environment", choices=("local", "container", "production"), default="local")
     parser.add_argument("--image-digest")
     parser.add_argument("--submit-concurrency", type=int, default=100)
     parser.add_argument("--max-running", type=int, default=8)
@@ -293,8 +305,10 @@ def parse_args() -> argparse.Namespace:
         parser.error("--token or AI_SERVICE_TOKEN is required")
     if any(char in args.token for char in '\r\n'):
         parser.error('Invalid credential format')
-    if args.environment == "container" and not args.image_digest:
-        parser.error("container evidence requires --image-digest")
+    if args.environment in {"container", "production"} and not args.image_digest:
+        parser.error("container/production evidence requires --image-digest")
+    if args.environment == "production" and (urlsplit(args.base_url).scheme != "https" or not args.input):
+        parser.error("production evidence requires an HTTPS entry point and an explicit uploaded document --input")
     if min(args.total, args.submit_concurrency, args.max_running, args.graph_concurrency, args.request_timeout, args.completion_timeout) <= 0:
         parser.error("capacity parameters must be positive")
     if args.output and args.output.exists():

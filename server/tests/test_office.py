@@ -324,6 +324,23 @@ def test_run_reaps_timeout_and_nonzero_exit(tmp_path, monkeypatch):
     assert result.strip() == b"absent"
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Native POSIX Office binary")
+@pytest.mark.parametrize("always_restart", [False, True])
+def test_native_profile_restart_is_bounded_and_uses_the_same_deadline(tmp_path, always_restart):
+    marker = tmp_path / "attempts"
+    engine = tmp_path / "soffice.bin"
+    engine.write_text(f"#!/bin/sh\necho attempt >> '{marker}'\n" +
+                      ("exit 81\n" if always_restart else f"[ $(wc -l < '{marker}') -eq 1 ] && exit 81\nexit 0\n"))
+    engine.chmod(0o700)
+    if always_restart:
+        with pytest.raises(office.OfficeError, match="OFFICE_CONVERSION_FAILED"):
+            office._run([str(engine)], time.monotonic() + 10, tmp_path)
+    else:
+        assert office._run([str(engine)], time.monotonic() + 10, tmp_path) == b""
+    assert marker.read_text().splitlines() == ["attempt", "attempt"]
+    assert not office._children
+
+
 @pytest.mark.parametrize("extension", ["doc", "docx", "xls", "xlsx", "docm", "xlsm", "xlsb"])
 def test_invalid_office_input_never_launches_engine(tmp_path, monkeypatch, extension):
     source = tmp_path / f"source.{extension}"
@@ -379,9 +396,9 @@ def test_empty_sheets_are_exportable_but_identified_before_ai_submission(tmp_pat
 
 
 def test_parent_eof_reaps_only_its_office_process(tmp_path):
-    marker = tmp_path / "child.json"
     workspace = tmp_path / "practiq-office-owned"
     workspace.mkdir()
+    marker = workspace / "child.json"
     (workspace / "source.docx").write_bytes(b"private snapshot")
     # Publish the ready marker only after its PID contents are complete.
     child_code = (
@@ -398,7 +415,8 @@ office.detect=slow
 office.main()
 """
     worker = subprocess.Popen([sys.executable, "-c", probe, child_code, str(marker)], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                              env={**os.environ, "PRACTIQ_OFFICE_WORKSPACE": str(workspace)})
+                              cwd=workspace,
+                              env={**os.environ, "PYTHONPATH": str(Path(__file__).parents[1] / "src"), "PRACTIQ_OFFICE_WORKSPACE": str(workspace), "TMPDIR": str(workspace), "TEMP": str(workspace), "TMP": str(workspace)})
     unrelated = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(120)"])
     try:
         assert worker.stdin is not None
@@ -407,11 +425,11 @@ office.main()
         deadline = time.monotonic()+15
         while not marker.exists() and time.monotonic() < deadline:
             time.sleep(.05)
-        assert marker.exists()
+        assert marker.exists(), worker.stdout.read() if worker.poll() is not None and worker.stdout is not None else "worker is still running"
         pid = int(marker.read_text())
         worker.stdin.close()
         assert worker.wait(timeout=10) == 70
-        assert not workspace.exists() and marker.exists()
+        assert not workspace.exists() or not any(workspace.iterdir())
         assert unrelated.poll() is None
         if os.name != "nt":
             with pytest.raises(ProcessLookupError):
@@ -436,7 +454,10 @@ def test_private_worker_rejects_malformed_requests(payload, monkeypatch, capsys)
     assert json.loads(capsys.readouterr().out)["error"] == "OFFICE_INPUT_INVALID"
 
 
-def test_private_worker_detection_has_no_service_bootstrap(monkeypatch, capsys):
+def test_private_worker_detection_has_no_service_bootstrap(monkeypatch, capsys, tmp_path):
+    from practiq_ai import worker_sandbox
+    monkeypatch.setattr(worker_sandbox, "enter", lambda *args: None)
+    monkeypatch.setenv("PRACTIQ_OFFICE_WORKSPACE", str(tmp_path))
     monkeypatch.setattr(office.sys, "stdin", SimpleNamespace(buffer=io.BytesIO(b'{"type":"detect","engine":"/bundled/soffice"}\n')))
     monkeypatch.setattr(office, "watch_parent", lambda cleanup: None)
     monkeypatch.setattr(office, "detect", lambda engine: {"path": None})
@@ -447,7 +468,10 @@ def test_private_worker_detection_has_no_service_bootstrap(monkeypatch, capsys):
     assert json.loads(capsys.readouterr().out) == {"result": {"path": None}}
 
 
-def test_private_conversion_requires_and_forwards_the_detected_version(monkeypatch, capsys):
+def test_private_conversion_requires_and_forwards_the_detected_version(monkeypatch, capsys, tmp_path):
+    from practiq_ai import worker_sandbox
+    monkeypatch.setattr(worker_sandbox, "enter", lambda *args: None)
+    monkeypatch.setenv("PRACTIQ_OFFICE_WORKSPACE", str(tmp_path))
     request = {"type": "convert", "engine": "soffice", "version": "LibreOffice 26.2", "source": "source.docx", "output": "output", "mode": "text", "maxPages": 150}
     monkeypatch.setattr(office.sys, "stdin", SimpleNamespace(buffer=io.BytesIO(json.dumps(request).encode() + b"\n")))
     monkeypatch.setattr(office, "watch_parent", lambda cleanup: None)

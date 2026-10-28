@@ -13,6 +13,7 @@ services:
     environment:
       N_JOBS_PER_WORKER: "2"
       AI_STORAGE_DIR: /var/lib/practiq
+      AI_WORKER_SANDBOX: required
       DATABASE_URI: ${DATABASE_URI:?Set the dedicated PostgreSQL connection URL}
       RABBITMQ_URI: ${RABBITMQ_URI:?Set the restricted RabbitMQ service connection URL}
     volumes:

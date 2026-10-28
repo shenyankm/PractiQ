@@ -39,6 +39,7 @@ def _environment(directory: str) -> dict[str, str]:
         AI_MAX_VISION_BYTES=str(config.vision_max_bytes),
         AI_MAX_DOCUMENT_PAGES=str(config.max_document_pages),
         AI_MAX_VISION_PAGE_PIXELS=str(config.max_vision_page_pixels),
+        AI_WORKER_SANDBOX=config.worker_sandbox,
     )
     return env
 
@@ -59,6 +60,7 @@ async def _extract(source_type: DocumentSourceType, payload: bytes, *, timeout: 
             sys.executable, "-m", __name__, source_type, str(source), str(output),
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
             start_new_session=os.name != "nt", env=_environment(directory),
+            cwd=directory,
             stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL,
         )
         try:
@@ -162,11 +164,15 @@ def main() -> None:
     if os.name == "nt":
         from .windows_job import protect_descendants
         protect_descendants()
-    watch_parent()
-    from . import extract as extract_document
-
     source_type, source, output = sys.argv[1:]
     try:
+        from practiq_ai.worker_sandbox import SandboxUnavailable, enter
+        try:
+            enter(Path(output).parent)
+        except SandboxUnavailable as exc:
+            raise DocumentProcessingError(503, "Required worker sandbox is unavailable", "WORKER_SANDBOX_UNAVAILABLE") from exc
+        watch_parent()
+        from . import extract as extract_document
         document = extract_document(cast("DocumentSourceType", source_type), Path(source).read_bytes())
         _write_result(Path(output).parent, document)
     except DocumentProcessingError as exc:

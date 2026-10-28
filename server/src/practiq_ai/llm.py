@@ -38,7 +38,7 @@ from openai import (
 )
 from pydantic import BaseModel, ValidationError
 
-from . import telemetry
+from . import cost_budget, telemetry
 from .capacity import provider_slot
 from .config import is_loopback_host, load, require_model_config
 from .contracts import ModelCallUsage
@@ -481,6 +481,7 @@ async def structured_call[ResultT: BaseModel](
     runtime: Runtime[Any] | None = None,
     call_records: list[dict[str, Any]] | None = None,
     call_record_writer: Callable[[dict[str, Any]], Awaitable[None]] | None = None,
+    cost_scope: str | None = None,
 ) -> tuple[ResultT | None, list[ModelCallUsage], str | None]:
     """Persist each attempt before advancing; graph replay retains its call budget."""
     usage: list[ModelCallUsage] = []
@@ -526,6 +527,11 @@ async def structured_call[ResultT: BaseModel](
             async with provider_slot(record, check=lambda: guard(runtime)):
                 await guard(runtime)
                 await reserve_model_call(runtime)
+                settings = load()
+                if settings.cost_enabled:
+                    scope = f"task:{runtime.execution_info.thread_id}" if runtime and runtime.execution_info else cost_scope
+                    wire_bytes = len(json.dumps([messages_to_dict(messages), _model_schema(schema)], ensure_ascii=False).encode()) + 64 * len(messages)
+                    record["estimatedCost"] = await cost_budget.reserve(scope, str(call_key), cost_budget.model_estimate(wire_bytes, settings), "model", runtime)
                 if runtime:
                     await store_put(runtime, "calls", str(call_key), record)
                 if call_record_writer:
@@ -546,6 +552,9 @@ async def structured_call[ResultT: BaseModel](
             if isinstance(exc, DocumentProcessingError):
                 error_code = exc.code
                 record.update(status="failed", error=exc.code, finishedAt=datetime.now(UTC).isoformat(), durationMs=round((time.monotonic() - started) * 1000, 3))
+                if not provider_started:
+                    outcome = "rejected"
+                    record["status"] = "rejected"
                 if runtime is None:
                     raise
                 error = {"status": exc.status_code, "code": exc.code, "detail": exc.detail}
@@ -565,7 +574,7 @@ async def structured_call[ResultT: BaseModel](
             if error["code"] == "MODEL_BUDGET_EXCEEDED":
                 outcome = "rejected"
                 return {"error": error}
-            record.update(status="failed", error=error["code"], finishedAt=datetime.now(UTC).isoformat(), durationMs=round((time.monotonic() - started) * 1000, 3))
+            record.update(status="failed" if provider_started else "rejected", error=error["code"], finishedAt=datetime.now(UTC).isoformat(), durationMs=round((time.monotonic() - started) * 1000, 3))
             if runtime and error["code"] != "EXECUTION_STORE_UNAVAILABLE":
                 await store_put(runtime, "calls", str(call_key), record)
             if error["code"] == "MODEL_RESULT_UNKNOWN":

@@ -16,7 +16,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Literal
 
-from .config import Config
+from .config import Config, worker_sandbox_mode
 from .contracts import (
     OFFICE_FILE_MAX_BYTES,
     OFFICE_SOURCE_TYPES,
@@ -38,6 +38,7 @@ WORKER_ERRORS = {
     "OFFICE_CONVERSION_FAILED": 502, "OFFICE_ENGINE_INVALID": 503,
     "OFFICE_FORMAT_UNSUPPORTED": 422, "OFFICE_INPUT_INVALID": 422,
     "OFFICE_NOT_FOUND": 503, "OFFICE_OUTPUT_INVALID": 502,
+    "WORKER_SANDBOX_UNAVAILABLE": 503,
     "OFFICE_OUTPUT_LIMIT": 413, "OFFICE_SHEETS_UNSUPPORTED": 422, "OFFICE_TIMEOUT": 504,
 }
 
@@ -81,6 +82,7 @@ def _environment(directory: str) -> dict[str, str]:
            and key.upper() != "RABBITMQ_URI"
            and not any(word in key.upper() for word in ("API_KEY", "TOKEN", "SECRET", "PASSWORD"))}
     env.update(TMPDIR=directory, TEMP=directory, TMP=directory,
+               AI_WORKER_SANDBOX=worker_sandbox_mode(),
                PRACTIQ_OFFICE_WORKSPACE=directory, PYTHONDONTWRITEBYTECODE="1",
                PYTHONPATH=str(Path(__file__).parent.parent))
     return env
@@ -124,6 +126,7 @@ async def _launch_worker(directory: str) -> asyncio.subprocess.Process:
         sys.executable, "-m", "practiq_ai.office", stdin=asyncio.subprocess.PIPE,
         stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL,
         env=_environment(directory), limit=JSON_LINE_LIMIT,
+        cwd=directory,
         start_new_session=os.name != "nt", creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)))
     try:
         return await asyncio.shield(task)

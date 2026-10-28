@@ -591,7 +591,7 @@ def test_graph_evaluator_ignores_removed_review_setting(tmp_path, monkeypatch):
     report = asyncio.run(ev.run_evaluation(path))
     assert report["status"] == "PASSED" and model.calls == 1
     assert "import_review" not in report["settings"]
-    assert report["scorerVersion"] == "6.6.0"
+    assert report["scorerVersion"] == "6.7.0"
 
 
 @pytest.mark.parametrize("kind", ["import_review", "import_repair", "import_recheck"])

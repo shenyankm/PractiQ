@@ -17,6 +17,23 @@ from scripts import service_backup
 _native_pg = service_backup.pg
 
 
+def test_private_operation_report_binds_action_and_refuses_overwrite(tmp_path, monkeypatch, capsys):
+    import sys
+
+    report_path = tmp_path / "evidence.json"
+    monkeypatch.setattr(sys, "argv", ["service_backup.py", "verify", "--bundle", str(tmp_path / "bundle"), "--report", str(report_path)])
+    monkeypatch.setattr(service_backup, "verify", lambda path: {"snapshotUnix": time.time(), "image": "sha256:" + "a" * 64})
+    service_backup.main()
+    report = json.loads(report_path.read_text())
+    assert report["action"] == "verify" and report["kind"] == "service-backup-operation"
+    assert report["durationSeconds"] >= 0 and len(report["codeHash"]) == 64
+    assert report_path.stat().st_mode & 0o777 == 0o600
+    assert json.loads(capsys.readouterr().out) == report
+    with pytest.raises(SystemExit):
+        service_backup.main()
+    assert json.loads(report_path.read_text()) == report
+
+
 def image_fixture(path, *, oci=False):
     config = b'{"architecture":"arm64","os":"linux","config":{}}'
     digest = hashlib.sha256(config).hexdigest()

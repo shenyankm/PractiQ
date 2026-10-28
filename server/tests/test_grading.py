@@ -48,7 +48,7 @@ async def setup(monkeypatch,tmp_path,disposable_databases):
 
 @pytest.fixture
 def shared_grading_model(setup, monkeypatch):
-    config = SimpleNamespace(model_max_input_chars=500_000, structured_output_method="function_calling", provider_concurrency=4, provider_rpm=1000)
+    config = SimpleNamespace(model_max_input_chars=500_000, structured_output_method="function_calling", provider_concurrency=4, provider_rpm=1000, cost_enabled=False)
     monkeypatch.setattr(llm, "load", lambda: config)
     monkeypatch.setattr(capacity, "load", lambda: config)
     valid = {"scoreCents": 300, "maxCents": 500, "reason": "Supplied evidence", "evidence": [], "reviewReasons": []}
@@ -111,7 +111,7 @@ from tests.support import FakeModel
 
 root = Path(sys.argv[1])
 config = SimpleNamespace(maintenance=False, model_max_input_chars=500_000,
-    structured_output_method="function_calling", provider_concurrency=4, provider_rpm=1000)
+    structured_output_method="function_calling", provider_concurrency=4, provider_rpm=1000, cost_enabled=False)
 grading.load = llm.load = capacity.load = lambda: config
 valid = {"scoreCents": 300, "maxCents": 500, "reason": "Supplied evidence", "evidence": [], "reviewReasons": []}
 def block(messages, schema):

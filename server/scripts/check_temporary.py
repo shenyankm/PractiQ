@@ -112,7 +112,7 @@ async def main():
         memory_peak = int(Path('/sys/fs/cgroup/memory.peak').read_text())
         assert int(events['oom_kill']) == int(events['oom']) == 0
         assert peak_tmp <= 0.8 * 512 * MIB and memory_peak <= 0.8 * 2 * 1024 * MIB
-        version = await asyncio.to_thread(subprocess.check_output, ['/usr/bin/libreoffice', '--version'], text=True)
+        version = await asyncio.to_thread(subprocess.check_output, [str(load().office_executable), '--version'], text=True)
         print(json.dumps({'status': 'PASSED', 'codeHash': code_version(), 'pdfSourceBytes': len(pdf_bytes),
             'pdfPageBytes': sum(map(len, prepared.page_images)), 'officeSourceBytes': len(docx), 'zipBytes': zip_bytes,
             'tmpPeakBytes': peak_tmp, 'memoryPeakBytes': memory_peak, 'memoryEvents': events,

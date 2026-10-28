@@ -10,6 +10,7 @@ import statistics
 import subprocess
 import time
 from collections import Counter, defaultdict, deque
+from contextlib import AsyncExitStack
 from datetime import UTC, datetime
 from io import BytesIO
 from math import isfinite
@@ -28,7 +29,7 @@ from openai import APIError
 from PIL import Image
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from practiq_ai import telemetry
+from practiq_ai import cost_budget, telemetry
 from practiq_ai.config import load
 from practiq_ai.contracts import (
     COMPOSITE_MODES,
@@ -50,10 +51,11 @@ from practiq_ai.contracts import (
 )
 from practiq_ai.errors import DocumentProcessingError
 from practiq_ai.execution import runtime_version
+from practiq_ai.json_repair import unique_json_object
 from practiq_ai.storage import get_object_store
 
 ROOT = Path(__file__).parents[1]
-SCORER_VERSION = "6.6.0"
+SCORER_VERSION = "6.7.0"
 SOURCE_TYPES = {"text", "pdf", "image"}
 ANSWER_MODES = {"choice", "true_false", "fill_blank", "short_answer", "ordering", "matching", *COMPOSITE_MODES}
 METRICS = (
@@ -69,6 +71,7 @@ MEDIA_TYPES = {
 BLOCKING_CODES = {
     "AI_PROVIDER_ERROR", "AI_PROVIDER_UNAVAILABLE", "OBJECT_STORE_UNAVAILABLE",
     "VISION_MODEL_REQUIRED", "CONFIGURATION_ERROR", "UPLOAD_UNAVAILABLE", "MODEL_RESULT_UNKNOWN",
+    "COST_BUDGET_EXCEEDED", "COST_STORE_REQUIRED", "COST_STORE_UNAVAILABLE", "COST_CURRENCY_CONFLICT", "WORKER_SANDBOX_UNAVAILABLE",
 }
 FORBIDDEN_REPORT_KEYS = {
     "apikey", "authorization", "databaseurl", "databaseuri", "headers", "password",
@@ -213,6 +216,40 @@ class Manifest(GoldModel):
         if len(set(ids)) != len(ids):
             raise ValueError("case ids must be unique")
         return self
+
+
+class ProductionProvenance(GoldModel):
+    version: Literal[1]
+    origin: Literal["consented_real_documents"]
+    labelMethod: Literal["independent_human_review"]
+    annotatorId: str = Field(pattern=r"^[a-zA-Z0-9_-]{1,64}$")
+    reviewerId: str = Field(pattern=r"^[a-zA-Z0-9_-]{1,64}$")
+    frozenAt: str
+    manifestSha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    sourceSha256: dict[str, str]
+
+
+def load_production_provenance(manifest_path: Path, path: Path) -> dict[str, Any]:
+    if path.stat().st_size > 1024 * 1024:
+        raise ValueError("Production provenance exceeds its byte limit")
+    payload = path.read_bytes()
+    value = ProductionProvenance.model_validate(json.loads(payload, object_pairs_hook=unique_json_object))
+    frozen = datetime.fromisoformat(value.frozenAt)
+    if frozen.tzinfo is None or frozen > datetime.now(UTC) or value.annotatorId == value.reviewerId:
+        raise ValueError("Independent review must be completed and frozen before evaluation")
+    if hashlib.sha256(manifest_path.read_bytes()).hexdigest() != value.manifestSha256:
+        raise ValueError("Production manifest hash does not match frozen labels")
+    cases = [case for case in load_manifest(manifest_path)["cases"] if case["split"] == "holdout"]
+    if not cases or not any(case["expectedQuestions"] for case in cases) or set(value.sourceSha256) != {case["id"] for case in cases}:
+        raise ValueError("Production provenance must cover the complete annotated holdout")
+    for case in cases:
+        with (manifest_path.parent / case["path"]).open("rb") as source:
+            if hashlib.file_digest(source, "sha256").hexdigest() != value.sourceSha256[case["id"]]:
+                raise ValueError("Production source hash does not match frozen evidence")
+    # Identities and source filenames remain in the private annotation sidecar.
+    return {"kind": value.labelMethod, "manifestSha256": value.manifestSha256,
+            "provenanceSha256": hashlib.sha256(payload).hexdigest(), "frozenAt": value.frozenAt,
+            "sourceHashes": sorted(value.sourceSha256.values())}
 
 
 def normalize_stem(value: str | None) -> str:
@@ -448,6 +485,7 @@ def score_trajectory(case: dict[str, Any], events: list[dict[str, Any]], calls: 
         reasons.append("REQUIRED_CALL_MISSING")
     completed_stages: set[str] = set()
     units: Counter[tuple[str, str]] = Counter()
+    context_units = {event.get("unitKey") for event in events if event["event"] == "page_context" and len(event["contextPages"]) > 1}
     for event in events:
         if event["event"] == "stage" and event["outcome"] == "success":
             completed_stages.add(event["stage"])
@@ -461,11 +499,13 @@ def score_trajectory(case: dict[str, Any], events: list[dict[str, Any]], calls: 
                 reasons.append("INVALID_UNIT")
             stage_key = (unit or "unknown", kind)
             units[stage_key] += 1
-            if not 1 <= event.get("attempt", 0) <= 4 or units[stage_key] > 4:
+            if not 1 <= event.get("attempt", 0) <= 4 or units[stage_key] > (8 if kind == "vision_parse" and unit in context_units else 4):
                 reasons.append("UNIT_ATTEMPT_LIMIT")
         if event["event"] == "page_context":
             primary, pages = event["primaryPage"], event["contextPages"]
-            if primary not in pages or len(set(pages)) != len(pages) or any(page < primary - 2 or page > primary + 1 for page in pages):
+            linked = event.get("sourceLinkedPages", [])
+            if (primary not in pages or len(pages) > 8 or len(set(pages)) != len(pages) or not set(linked) <= set(pages)
+                    or any(type(page) is not int or page < 0 or (not primary - 2 <= page <= primary + 1 and page not in linked) for page in pages)):
                 reasons.append("INVALID_PAGE_CONTEXT")
     # A missing event must not turn an observed provider call into a passing trace.
     if {c.get("callKey") for c in calls} - {e["callKey"] for e in starts}:
@@ -675,7 +715,8 @@ def summarize(cases: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-async def run_evaluation(manifest_path: Path, repetitions: int = 1, case_ids: list[str] | None = None, split: str | None = None) -> dict[str, Any]:
+async def run_evaluation(manifest_path: Path, repetitions: int = 1, case_ids: list[str] | None = None, split: str | None = None,
+                         provenance_path: Path | None = None) -> dict[str, Any]:
     if repetitions < 1:
         raise ValueError("repetitions must be positive")
     manifest = load_manifest(manifest_path)
@@ -696,6 +737,14 @@ async def run_evaluation(manifest_path: Path, repetitions: int = 1, case_ids: li
         **_code_metadata(), "runtime": runtime_version(), "models": None, "settings": None, "promptHash": None,
         "cases": [],
     }
+    if provenance_path is not None:
+        try:
+            if split != "holdout" or case_ids or repetitions < 3:
+                raise ValueError("Production evaluation requires the complete holdout and three repetitions")
+            report["productionProvenance"] = load_production_provenance(manifest_path, provenance_path)
+        except (OSError, ValueError):
+            report.update(status="BLOCKED", gateReasons=["INDEPENDENT_HOLDOUT_REQUIRED"])
+            return report
     try:
         config = load()
     except ValueError:
@@ -714,70 +763,79 @@ async def run_evaluation(manifest_path: Path, repetitions: int = 1, case_ids: li
         *(hashlib.sha256((ROOT / "src/practiq_ai" / name).read_bytes()).hexdigest()
           for name in ("graphs/document.py", "graphs/vision.py", "llm.py", "contracts.py"))])
     graph = build_document_graph(InMemorySaver(), store=InMemoryStore())
-    for repetition in range(1, repetitions + 1):
-        for case in cases:
-            observer = EvaluationUsage()
-            started = time.perf_counter()
-            status, result, processing, error = "ERROR", {}, None, None
-            runnable_config = cast(RunnableConfig, {
-                "configurable": {"thread_id": str(uuid4())}, "run_id": uuid4(), "callbacks": [observer],
-            })
-            invoked = False
-            with telemetry.capture_events() as events:
-                try:
-                    reference = await prepare_document(case, manifest_path)
-                    invoked = True
-                    output = await graph.ainvoke({"document": reference}, runnable_config)
-                    result = DocumentParseResult.model_validate(output["result"]).model_dump(mode="json")
-                    processing = DocumentProcessing.model_validate(output["processing"]).model_dump(mode="json")
-                    status = output["status"]
-                except Exception as exc:  # noqa: BLE001 - retain unexpected per-case failures in the report
-                    error = _error(exc)
-                    if isinstance(exc, httpx.HTTPError):
-                        error["code"] = "UPLOAD_UNAVAILABLE"
-                    if invoked:
-                        state = (await graph.aget_state(runnable_config)).values
-                        chunks = state.get("chunkResults", [])
-                        failures = unit_failures(state)
-                        processing = DocumentProcessing.model_validate({
-                            "chunks": {"total": len(state.get("chunkRefs", [])), "succeeded": sum(chunk["parsed"] is not None for chunk in chunks)},
-                            "visuals": {"total": state.get("visualTotal", 0), "succeeded": len(state.get("visionResults", [])), "skipped": state.get("visualSkipped", 0)},
-                            "truncated": bool(state.get("truncated")), "failures": failures,
-                        }).model_dump(mode="json")
-            extraction_route = next((e["kind"] for e in events if e["event"] == "extraction_route"), None)
-            score = score_result(case, result, processing, extraction_route=extraction_route)
-            unverified = {row["predictedIndex"] for row in score["questions"] if row["expectedIndex"] is None}
-            id_indexes = {q.get("id"): i for i, q in enumerate(result.get("questions", []))}
-            unverified.update(id_indexes.get(issue["questionId"], -1) for issue in (processing or {}).get("quality", {}).get("issues", [])
-                              if issue["code"] in {"SOURCE_TEXT_NOT_FOUND", "AMBIGUOUS_OVERLAP", "OVERLAP_CONFLICT"})
-            score["unverifiedQuestions"] = len(unverified)
-            expected_error = case["expectedError"]
-            outcome_matched = (
-                error is not None and all(error[key] == value for key, value in expected_error.items())
-                if expected_error else error is None and status == case.get("expectedStatus", "SUCCEEDED") and set(result.get("missingFields", [])) == set(case.get("expectedMissingFields", []))
-            )
-            failure_codes = {item["code"] for item in (processing or {}).get("failures", [])}
-            artifact_checks = await check_visual_artifacts(result)
-            failure_codes.update(check["code"] for check in artifact_checks if check["code"])
-            blocked = bool((error and error["code"] in BLOCKING_CODES) or failure_codes.intersection(BLOCKING_CODES))
-            model_calls = list(observer.calls.values())
-            by_call = {e["callKey"]: e for e in events if e["event"] == "model_call"}
-            for call in model_calls:
-                event = by_call.get(call.get("callKey"), {})
-                call.update(validationIssues=event.get("validationIssues", []), validation=event.get("validation", "unknown"), durationMs=event.get("durationMs"), errorCode=event.get("errorCode"),
-                            **{key: event.get(key) for key in ("concurrencyWaitMs", "rateWaitMs", "providerRequestMs")})
-            report["cases"].append({
-                "id": case["id"], "sourceType": case["sourceType"], "tags": case["tags"],
-                "split": case["split"],
-                "critical": case["critical"], "repetition": repetition, "status": status,
-                "latencyMs": (time.perf_counter() - started) * 1_000,
-                "expectedError": expected_error, "outcomeMatched": outcome_matched,
-                "blocked": blocked, "error": error, "processing": processing,
-                "score": score, "modelCalls": model_calls,
-                "trajectory": score_trajectory(case, events, model_calls, config.task_max_model_calls),
-                "visualArtifactChecks": artifact_checks, "visualSemanticReview": "NOT_REVIEWED",
-            })
-            print(f"{case['id']} [{repetition}/{repetitions}]: {status}" + (f" {error['code']}" if error else ""), flush=True)
+    async with AsyncExitStack() as resources:
+        try:
+            budget_db = await resources.enter_async_context(cost_budget.evaluation_database())
+        except Exception:  # noqa: BLE001 - fail before any paid evaluation work
+            report.update(status="BLOCKED", gateReasons=["COST_STORE_UNAVAILABLE"])
+            return report
+        for repetition in range(1, repetitions + 1):
+            for case in cases:
+                observer = EvaluationUsage()
+                started = time.perf_counter()
+                status, result, processing, error = "ERROR", {}, None, None
+                runnable_config = cast(RunnableConfig, {
+                    "configurable": {"thread_id": str(uuid4())}, "run_id": uuid4(), "callbacks": [observer],
+                })
+                invoked = False
+                with telemetry.capture_events() as events:
+                    try:
+                        reference = await prepare_document(case, manifest_path)
+                        invoked = True
+                        if budget_db is not None:
+                            output = await graph.ainvoke({"document": reference}, runnable_config, context=cast(Any, {"runDatabase": budget_db}))
+                        else:
+                            output = await graph.ainvoke({"document": reference}, runnable_config)
+                        result = DocumentParseResult.model_validate(output["result"]).model_dump(mode="json")
+                        processing = DocumentProcessing.model_validate(output["processing"]).model_dump(mode="json")
+                        status = output["status"]
+                    except Exception as exc:  # noqa: BLE001 - retain unexpected per-case failures in the report
+                        error = _error(exc)
+                        if isinstance(exc, httpx.HTTPError):
+                            error["code"] = "UPLOAD_UNAVAILABLE"
+                        if invoked:
+                            state = (await graph.aget_state(runnable_config)).values
+                            chunks = state.get("chunkResults", [])
+                            failures = unit_failures(state)
+                            processing = DocumentProcessing.model_validate({
+                                "chunks": {"total": len(state.get("chunkRefs", [])), "succeeded": sum(chunk["parsed"] is not None for chunk in chunks)},
+                                "visuals": {"total": state.get("visualTotal", 0), "succeeded": len(state.get("visionResults", [])), "skipped": state.get("visualSkipped", 0)},
+                                "truncated": bool(state.get("truncated")), "failures": failures,
+                            }).model_dump(mode="json")
+                extraction_route = next((e["kind"] for e in events if e["event"] == "extraction_route"), None)
+                score = score_result(case, result, processing, extraction_route=extraction_route)
+                unverified = {row["predictedIndex"] for row in score["questions"] if row["expectedIndex"] is None}
+                id_indexes = {q.get("id"): i for i, q in enumerate(result.get("questions", []))}
+                unverified.update(id_indexes.get(issue["questionId"], -1) for issue in (processing or {}).get("quality", {}).get("issues", [])
+                                  if issue["code"] in {"SOURCE_TEXT_NOT_FOUND", "AMBIGUOUS_OVERLAP", "OVERLAP_CONFLICT"})
+                score["unverifiedQuestions"] = len(unverified)
+                expected_error = case["expectedError"]
+                outcome_matched = (
+                    error is not None and all(error[key] == value for key, value in expected_error.items())
+                    if expected_error else error is None and status == case.get("expectedStatus", "SUCCEEDED") and set(result.get("missingFields", [])) == set(case.get("expectedMissingFields", []))
+                )
+                failure_codes = {item["code"] for item in (processing or {}).get("failures", [])}
+                artifact_checks = await check_visual_artifacts(result)
+                failure_codes.update(check["code"] for check in artifact_checks if check["code"])
+                blocked = bool((error and error["code"] in BLOCKING_CODES) or failure_codes.intersection(BLOCKING_CODES))
+                model_calls = list(observer.calls.values())
+                by_call = {e["callKey"]: e for e in events if e["event"] == "model_call"}
+                for call in model_calls:
+                    event = by_call.get(call.get("callKey"), {})
+                    call.update(validationIssues=event.get("validationIssues", []), validation=event.get("validation", "unknown"), durationMs=event.get("durationMs"), errorCode=event.get("errorCode"),
+                                **{key: event.get(key) for key in ("concurrencyWaitMs", "rateWaitMs", "providerRequestMs")})
+                report["cases"].append({
+                    "id": case["id"], "sourceType": case["sourceType"], "tags": case["tags"],
+                    "split": case["split"],
+                    "critical": case["critical"], "repetition": repetition, "status": status,
+                    "latencyMs": (time.perf_counter() - started) * 1_000,
+                    "expectedError": expected_error, "outcomeMatched": outcome_matched,
+                    "blocked": blocked, "error": error, "processing": processing,
+                    "score": score, "modelCalls": model_calls,
+                    "trajectory": score_trajectory(case, events, model_calls, config.task_max_model_calls),
+                    "visualArtifactChecks": artifact_checks, "visualSemanticReview": "NOT_REVIEWED",
+                })
+                print(f"{case['id']} [{repetition}/{repetitions}]: {status}" + (f" {error['code']}" if error else ""), flush=True)
     report.update(summarize(report["cases"]))
     return report
 
@@ -1040,9 +1098,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--baseline", type=Path)
     parser.add_argument("--compare", nargs=2, type=Path, metavar=("BASELINE", "CANDIDATE"))
     parser.add_argument("--validate-only", action="store_true")
+    parser.add_argument("--production-provenance", type=Path, help="Frozen independent-human holdout annotation sidecar; no synthetic acceptance")
     args = parser.parse_args(argv)
     if args.repetitions < 1:
         parser.error("--repetitions must be positive")
+    if args.production_provenance and (args.split != "holdout" or args.case_ids or args.probes or args.compare or not args.validate_only and args.repetitions < 3):
+        parser.error("--production-provenance requires --split holdout, no case subset, and at least three repetitions unless validating only")
     if (args.compare or args.probes) and (args.baseline or args.case_ids or args.repetitions != 1 or args.validate_only or args.split or (args.compare and args.probes)):
         parser.error("--compare cannot be combined with evaluation options")
     return args
@@ -1053,6 +1114,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.validate_only:
             manifest = load_manifest(args.manifest)
+            if args.production_provenance:
+                load_production_provenance(args.manifest, args.production_provenance)
             print(f"Validated {len(manifest['cases'])} cases")
             return 0
         if args.probes:
@@ -1065,7 +1128,8 @@ def main(argv: list[str] | None = None) -> int:
                 "generatedAt": datetime.now(UTC).isoformat(), **comparison, "comparison": comparison,
             }
         else:
-            report = asyncio.run(run_evaluation(args.manifest, args.repetitions, args.case_ids, args.split))
+            report = asyncio.run(run_evaluation(args.manifest, args.repetitions, args.case_ids, args.split,
+                                               **({"provenance_path": args.production_provenance} if args.production_provenance else {})))
             if args.baseline:
                 try:
                     baseline = json.loads(args.baseline.read_text(encoding="utf-8"))

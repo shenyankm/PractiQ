@@ -1,9 +1,53 @@
 """Bounded source context remains deterministic across dispatch modes."""
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 
 from practiq_ai.graphs import document
+
+
+def test_distant_context_uses_explicit_page_references_and_unique_answer_ids():
+    from practiq_ai.graphs.source_context import source_context
+
+    def page(text):
+        return {"elements": [{"text_info": {"content": text}}], "figures": []}
+
+    pages = [page("Passage: original material"), *[page("Other material") for _ in range(4)],
+             page("17. Read the material; see page 1."), page("Other material"),
+             page("Answer key\n17. B")]
+    plan, incomplete = source_context(pages)
+    assert 0 in plan[5] and 7 in plan[5] and not incomplete
+    assert len(plan[5]) <= 8
+    # Reused printed IDs do not establish which section an answer key belongs to.
+    pages[2] = page("17. A different question")
+    plan, _ = source_context(pages)
+    assert 7 not in plan[5] and 0 in plan[5]
+    split_plan, split_incomplete = source_context(pages, page_references=False)
+    assert 0 not in split_plan[5] and 5 in split_incomplete
+
+
+def test_context_never_crosses_failed_pages_or_exceeds_its_bound():
+    from practiq_ai.graphs.source_context import source_context
+
+    pages: list[dict[str, Any]] = [{"elements": [{"text_info": {"content": "material"}}]} for _ in range(20)]
+    pages[10] = {"elements": [{"text_info": {"content": "1. 见第1至9页"}}]}
+    plan, incomplete = source_context(pages)
+    assert len(plan[10]) == 8 and 10 in incomplete
+    pages[5] = {"failed": True}
+    plan, incomplete = source_context(pages)
+    assert all(index > 5 for index in plan[10]) and 10 in incomplete
+
+
+def test_trajectory_requires_source_link_evidence_for_distant_context():
+    from scripts.evaluate import score_trajectory
+
+    case = {"sourceType": "pdf", "expectedProcess": {}}
+    event = {"event": "page_context", "primaryPage": 5, "contextPages": [0, 3, 4, 5, 6, 9]}
+    assert not score_trajectory(case, [event], [], 8)["passed"]
+    assert score_trajectory(case, [{**event, "sourceLinkedPages": [0, 9]}], [], 8)["passed"]
+    oversized = {**event, "contextPages": list(range(10)), "sourceLinkedPages": list(range(10))}
+    assert not score_trajectory(case, [oversized], [], 8)["passed"]
 
 
 def test_group_index_feedback_identifies_the_actual_array_bounds():

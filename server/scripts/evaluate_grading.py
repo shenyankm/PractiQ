@@ -16,6 +16,7 @@ from dotenv import load_dotenv
 from PIL import Image
 
 from practiq_ai.config import load
+from practiq_ai.cost_budget import evaluation_database
 from practiq_ai.grading import GradeRequest, digest_payload, grade
 
 CASES = [
@@ -109,12 +110,18 @@ async def evaluate_source(repeats: int):
     source = '一、判断题，每题1.5分，共3分。\n1. 地球围绕太阳公转。答案：正确。\n2. 2是奇数。答案：错误。\n二、简答题：3. 说明蒸发的含义。（4分）参考答案：液体表面发生汽化。评分细则：汽化2分，液体表面2分。\n三、简答题，本大题共6分，子题分配未注明。\n4. 水的化学式是什么？参考答案：H2O。\n5. 氧气的化学式是什么？参考答案：O2。'
     expected = [1.5, 1.5, 4, None, None]
     runs = []
+    scope = f"evaluation:{uuid4()}"
     for repeat in range(repeats):
-        result, usage, error = await structured_call(get_model(), [SystemMessage(content=SYSTEM_PROMPT), HumanMessage(content=source)], DocumentParseResult, "source_score_smoke")
+        result, usage, error = await structured_call(get_model(), [SystemMessage(content=SYSTEM_PROMPT), HumanMessage(content=source)], DocumentParseResult, "source_score_smoke", cost_scope=scope)
         scores = [q.sourceScore for q in result.questions] if result else []
         runs.append({"repeat":repeat,"expectedScores":expected,"scores":scores,"passed":scores==expected,"error":error,"result":result.model_dump(mode="json") if result else None,"usage":[u.model_dump(mode="json") for u in usage]})
         print(f"Source scores repeat={repeat+1}: {scores}", flush=True)
     return {"labelProvenance":"Rule-authored synthetic source; NOT production extraction acceptance","source":source,"runs":runs,"exactMatches":sum(r["passed"] for r in runs),"total":len(runs)}
+
+
+async def run_evaluation(repeats: int, anchors: dict | None, *, source_only: bool):
+    async with evaluation_database():
+        return await (evaluate_source(repeats) if source_only else evaluate(repeats, anchors))
 
 
 def main():
@@ -139,7 +146,7 @@ def main():
         load_dotenv(Path(__file__).resolve().parents[2]/".env", override=False)
         os.environ["LANGSMITH_TRACING"] = os.environ["LANGCHAIN_TRACING_V2"] = "false"
         try:
-            report = asyncio.run(evaluate_source(args.repeats) if args.source_scores_only else evaluate(args.repeats, anchors))
+            report = asyncio.run(run_evaluation(args.repeats, anchors, source_only=args.source_scores_only))
             report.setdefault("status", "PASSED" if report["exactMatches"] == report["total"] else "FAILED")
         except Exception as exc:  # noqa: BLE001 - record a blocked run without credentials
             report = {"status":"BLOCKED", "errorType":type(exc).__name__}
