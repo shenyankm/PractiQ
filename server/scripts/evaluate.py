@@ -53,7 +53,7 @@ from practiq_ai.execution import runtime_version
 from practiq_ai.storage import get_object_store
 
 ROOT = Path(__file__).parents[1]
-SCORER_VERSION = "6.5.0"
+SCORER_VERSION = "6.6.0"
 SOURCE_TYPES = {"text", "pdf", "image"}
 ANSWER_MODES = {"choice", "true_false", "fill_blank", "short_answer", "ordering", "matching", *COMPOSITE_MODES}
 METRICS = (
@@ -230,6 +230,15 @@ def _normalize_json(value: Any) -> Any:
     return value
 
 
+def _normalize_answer_payload(mode: str, payload: Any) -> Any:
+    normalized = _normalize_json(payload)
+    if mode == "choice" and isinstance(normalized, dict):
+        labels = normalized.get("correct")
+        if isinstance(labels, list) and all(isinstance(label, str) for label in labels):
+            normalized["correct"] = sorted(labels)
+    return normalized
+
+
 def load_manifest(path: Path) -> dict[str, Any]:
     manifest = Manifest.model_validate(json.loads(path.read_text(encoding="utf-8")))
     for case in manifest.cases:
@@ -265,11 +274,13 @@ def score_document_case(expected: list[dict[str, Any]], predicted: list[dict[str
             remaining.remove(actual_index)
         correct = {
             field: actual_view is not None and _normalize_json(actual_view[field]) == _normalize_json(expected_view[field])
-            for field in ("answerMode", "options", "answerPayload")
+            for field in ("answerMode", "options")
         }
+        correct["answerPayload"] = False
         if actual_view is not None:
             correct["answerPayload"] = any(
-                _normalize_json(actual_view["answerPayload"]) == _normalize_json(answer)
+                _normalize_answer_payload(actual_view["answerMode"], actual_view["answerPayload"])
+                == _normalize_answer_payload(gold["answerMode"], answer)
                 for answer in [gold["answerPayload"], *gold.get("answerAliases", [])]
             )
         for expectation, field in (("expectedMissingFields", "missingFields"), ("expectedNeedsReview", "needsReview")):
