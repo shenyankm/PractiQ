@@ -37,6 +37,15 @@ preview is omitted from model images, while the complete OCR figure inventory,
 authoritative artifacts and existing human-review requirements are retained.
 Neighbor-context completion reuses the same preview messages.
 
+PRIMARY and CONTEXT OCR JSON sent to the model omit only each figure's
+`imageRef` storage metadata and `cropBbox` repair bounds, and use compact JSON
+separators. Stored OCR artifacts retain both fields. The service still verifies
+and loads the referenced images, labels previews with their fixed `elementIndex`,
+and restores image references and crop bounds to the final visuals by that ID.
+Element order, page dimensions, polygons, original bounds, figure IDs, table
+fields/cells (including blanks), formulas and XML merged-cell layouts remain
+unchanged in model evidence. No source strings are trimmed or deduplicated.
+
 Model-facing OCR page numbers use the same one-based numbering as question IDs;
 stored OCR indices remain unchanged. Context completion preserves ordinary
 questions' existing material blocks as well as composite content. Associated

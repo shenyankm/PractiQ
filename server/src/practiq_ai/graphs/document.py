@@ -1178,6 +1178,15 @@ def _with_allowances(work: list[Send], state: DocumentState) -> list[Send]:
     return work
 
 
+def _ocr_model_evidence(page: dict[str, Any], index: int) -> dict[str, Any]:
+    # Keep storage references and crop repairs authoritative on the server.
+    evidence = {**page, "page": index + 1}
+    if "figures" in page:
+        evidence["figures"] = [{key: value for key, value in figure.items() if key not in {"imageRef", "cropBbox"}}
+                               for figure in page["figures"]]
+    return evidence
+
+
 async def _vision(state: VisionTask, runtime: Runtime[None]) -> dict[str, list[dict[str, Any]]]:
     store = await asyncio.to_thread(get_object_store)
     primary = json.loads(await store.get_verified(ArtifactReference.model_validate(state.get("ocrArtifact"))))
@@ -1185,7 +1194,7 @@ async def _vision(state: VisionTask, runtime: Runtime[None]) -> dict[str, list[d
         return _unit_failure("vision_parse", state["index"], "TENCENT_PAGE_FAILED", [])
     model = await asyncio.to_thread(get_model)
     # Stored OCR indices are zero-based; model evidence must match source-anchored IDs.
-    primary_text = json.dumps({**primary, "page": state["index"] + 1}, ensure_ascii=False, separators=(",", ":"))
+    primary_text = json.dumps(_ocr_model_evidence(primary, state["index"]), ensure_ascii=False, separators=(",", ":"))
     instruction = (
         f"PRIMARY is page {state['index'] + 1}. Extract assessment records from the supplied Tencent OCR evidence. "
         "Evidence page numbers and page:<start page>:<printed question> IDs are one-based. "
@@ -1270,7 +1279,7 @@ async def _vision(state: VisionTask, runtime: Runtime[None]) -> dict[str, list[d
             if neighbor["index"] == state["index"] or not neighbor.get("ocrArtifact"):
                 continue
             evidence = json.loads(await store.get_verified(ArtifactReference.model_validate(neighbor["ocrArtifact"])))
-            context.append({**evidence, "page": neighbor["index"] + 1})
+            context.append(_ocr_model_evidence(evidence, neighbor["index"]))
         if context and parsed.questions and all(q.id is not None for q in parsed.questions):
             context_token = PRIMARY_PAGE.set(parsed.page_result())
             try:
@@ -1281,7 +1290,7 @@ async def _vision(state: VisionTask, runtime: Runtime[None]) -> dict[str, list[d
                     "When the source links a range of material pages, retain that whole range, including its introduction. "
                     "Keep PRIMARY ordinary question IDs and records, groups and figures. Never join across failed pages. "
                     "Do not emit figures or new question starts from context pages.\nCONTEXT:\n"
-                    + json.dumps(context, ensure_ascii=False) + "\nPRIMARY DRAFT:\n" + parsed.model_dump_json(exclude_none=True, exclude_defaults=True)))
+                    + json.dumps(context, ensure_ascii=False, separators=(",", ":")) + "\nPRIMARY DRAFT:\n" + parsed.model_dump_json(exclude_none=True, exclude_defaults=True)))
                 enriched, context_usage, failure = await structured_call(model, [*messages, context_message], OcrPageParseResult,
                                                                          "vision_parse", runtime=runtime)
                 usage.extend(context_usage)
