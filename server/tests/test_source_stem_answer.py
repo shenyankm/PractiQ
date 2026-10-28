@@ -76,6 +76,8 @@ async def test_conflicting_answer_retains_actual_source_without_paid_correction(
     graph = local_graph(InMemorySaver(), store=MemoryStore())
     model.responses.append({'questions': [candidate]})
     completed = await graph.ainvoke({'document': reference}, run_config())
+    assert completed['result']['questions'][0]['answerPayload'] is None
+    assert completed['result']['questions'][0]['sourceText'] == text
     assert completed['result']['questions'][0]['needsReview']
     assert completed['processing']['quality']['reviewRequired']
     assert any('Answer/source conflict' in warning for warning in completed['result']['warnings'])

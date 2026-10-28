@@ -69,6 +69,7 @@ from practiq_ai.execution import (
 )
 from practiq_ai.extractors.isolated import _thread_io, extract
 from practiq_ai.graphs import vision
+from practiq_ai.graphs.answer_evidence import retain_source_answers
 from practiq_ai.graphs.chunking import (
     ChunkSpan,
     SourcePresenceHint,
@@ -1744,22 +1745,62 @@ async def _merge(state: DocumentState, *, passive: bool = False) -> dict[str, An
         for item in ordered
         if item["parsed"] is not None
     ])
-    if not pages and state.get("normalization") and state["document"].get("sourceType") in {"xls", "xlsx"}:
-        chunk_sources = state.get("chunkSources", [])
-        for index, result in parsed:
-            _scope_sheet_ids(result, chunk_sources[index]["sourceIndex"])
     text_ref = state.get("textRef")
     source_text = None
     if not pages and text_ref:
         store = await asyncio.to_thread(get_object_store)
         source_text = (await store.get_verified(ArtifactReference.model_validate(text_ref))).decode("utf-8")
+    # Validate published output, including resumed/stored unit results, against
+    # immutable input rather than the model's own sourceText transcription.
+    ocr_texts: dict[int, str] = {}
+    failed_ocr_pages: set[int] = set()
+    original_text = None
+    if pages and state['document']['sourceType'] in {'text', 'markdown'}:
+        store = await asyncio.to_thread(get_object_store)
+        original_text = (await store.get_verified(DocumentReference.model_validate(state['document']))).decode('utf-8-sig')
+    if pages and parsed:
+        store = await asyncio.to_thread(get_object_store)
+        refs = state.get('ocrPageRefs', [])
+        for page_index in sorted({neighbor for index, _ in parsed for neighbor in range(max(0, index - 2), min(len(refs), index + 2))}):
+            page = json.loads(await store.get_verified(ArtifactReference.model_validate(refs[page_index])))
+            if page.get('failed'):
+                failed_ocr_pages.add(page_index)
+            if not page.get('failed'):
+                layouts = [element['layout_xml'] for element in page.get('elements', []) if element.get('layout_xml')]
+                if page.get('format') == 'table' and len(layouts) == 1:
+                    rows = list(ElementTree.fromstring(layouts[0]).iter('tr'))
+                    cells = [list(row.iter('td')) for row in rows]
+                    if cells and all(cell.get('rowspan', '1') == cell.get('colspan', '1') == '1' for row in cells for cell in row):
+                        ocr_texts[page_index] = '\n'.join('\t'.join(' '.join(''.join(cell.itertext()).split()) for cell in row) for row in cells)
+                        continue
+                ocr_texts[page_index] = '\n'.join(_ocr_source_lines(page))
+    warnings.extend(f"Answer/source conflict for {question.id or question.stem}: verify the supplied answer before grading."
+                    for _, result in parsed for question in result.questions if answer_source_conflict(question.model_dump(mode='json')))
+    for index, result in parsed:
+        primary = ocr_texts.get(index, '') if pages else ''
+        if not pages and source_text is not None:
+            spans = state.get('chunkSpans', [])
+            primary = source_text[spans[index]['start']:spans[index]['end']] if index < len(spans) else source_text
+            headers = state.get('chunkHeaders', [])
+            if index < len(headers) and headers[index]:
+                primary = f'{headers[index]}\n{primary}'
+        contexts = [text for neighbor, text in ocr_texts.items() if neighbor != index and index - 2 <= neighbor < index + 2
+                    and not any(min(index, neighbor) < failed < max(index, neighbor) for failed in failed_ocr_pages)] if pages else []
+        if original_text is not None:
+            primary, contexts = original_text, []
+        removed = await _thread_io(partial(retain_source_answers, result.questions, primary, contexts))
+        warnings.extend(f"Source evidence, {'page' if pages else 'fragment'} {index + 1}, question {question + 1}: "
+                        f"removed unverified {', '.join(fields)}; retained the question for review."
+                        for question, fields in removed)
+    if not pages and state.get("normalization") and state["document"].get("sourceType") in {"xls", "xlsx"}:
+        chunk_sources = state.get("chunkSources", [])
+        for index, result in parsed:
+            _scope_sheet_ids(result, chunk_sources[index]["sourceIndex"])
     questions, groups, merge_warnings, merge_truncated, question_sources, quality = await _thread_io(partial(
         merge_chunk_results, [(index, item.questions, item.groups) for index, item in parsed], overlapping=not pages,
         source_text=source_text, chunk_spans=state.get("chunkSpans") if not pages else None,
     ))
     warnings.extend(merge_warnings)
-    warnings.extend(f"Answer/source conflict for {question.id or question.stem}: verify the supplied answer before grading."
-                    for question in questions if answer_source_conflict(question.model_dump(mode='json')))
     # Preserve historical audit warnings without starting new review calls.
     agent_reviews = [item["agentReview"] for item in ordered if item.get("agentReview")]
     for item in ordered:

@@ -244,9 +244,62 @@ A valid baseline must be PASSED. Both baseline and candidate must have at least 
 
 Scorer 5 adds structure scoring and a strict structure gate. Version 5.0.1 also checks annotated choice/matching variants and blank counts; version 5.0.0 omitted these fields and is no longer a compatible baseline. Version 4 reports can have `qualityPassed: false` for material/relationship errors while their overall status is `PASSED`; they are incompatible with the current comparator. A new three-repetition live baseline is required before making current extraction-quality claims. The scorer's offline regression tests validate the gate, not model quality.
 
+## Answer provenance in published imports
+
+The final import merge checks non-null `answerPayload` and `analysis` against
+verified text artifacts or Tencent OCR page evidence, including resumed unit
+results. TXT/Markdown inputs also use the verified original UTF-8 source when
+Tencent's text differs. The model's `sourceText` quote is not a proof. Answers require an
+explicit answer field in the matching source question or table row, or an
+unambiguous numbered entry in an explicit answer-key section in the supplied
+page context. Option text and neighboring ordinary questions are not proofs.
+Explanations require a matching supplied explanation field. Each field is checked
+independently; a genuine answer survives removal of an invented explanation.
+Table stems may omit printed question numbers and recognized type labels.
+Numbered answer-key entries may include an `Answer:` or `Reference answer:` label.
+Numeric short-answer and single-value fill-blank text preserves its printed
+spelling, including `3.00`, `1e-3` and `-0`; numeric equivalence is not a proof.
+Choice labels and boolean aliases ignore a terminal period. Printed ordering
+sequences (`1, 0`) and matching pairs (`left 0 -> right 0; left 1 -> right 1`)
+may also end in a period; the complete sequence or pair list must match.
+Explicit `Section:` and supported unnumbered exercise headings terminate local
+answer and explanation evidence.
+Local fields and an answer key may corroborate one another, but all supplied values must
+agree. Resumed tabular fragments reuse their stored source headers so later
+rows retain the same column associations used during extraction.
+Workbook row IDs establish answer associations before worksheet ID scoping.
+Native table cell layout whitespace is normalized within each cell before
+serializing rows, so embedded newlines or tabs cannot change column associations.
+Standalone answer labels remain local fields unless numbered key entries follow.
+Unnumbered choice questions may include option lines only when their labels and
+contents match the extracted options; extra question or material lines remain
+ambiguous and do not establish an answer association.
+Unnumbered ordering and matching exercises also verify their printed numeric item labels,
+sides and contents before excluding item blocks from the title comparison.
+`Answer order:` supplies an ordering sequence through the same answer proof.
+Numbered question stems must begin their source record after permitted prefixes;
+text found only in an option or inside other wording is not an association.
+Structured source answers and table evidence reject duplicate JSON keys rather
+than silently choosing the last value.
+Overly nested answer JSON remains unavailable for review instead of failing extraction.
+
+Unverified fields become null without discarding the question or retrying a
+model call. The question retains `needsReview=true`, recomputed `missingFields`,
+source associations and an import warning; export quality reflects that review.
+Unknown, ambiguous or unreadable layouts are conservative: their answers may
+need manual recovery from the retained original source. This check does not
+solve questions, validate the correctness of printed answers, rewrite existing
+saved banks or practice snapshots, or prove OCR accuracy. Model-substitute
+regressions cover the text and OCR graph paths and passive checkpoint merge.
+
 ## Offline fault probes and local review
 
 ### Deterministic answer/source conflicts
+
+The consistency rules below apply to retained unit drafts and portable banks.
+Final import publication also applies the provenance check above: unsupported
+published fields become null, while the original answer/source conflict warning
+and source evidence remain available for review.
 
 An explicit, unique answer line in a single-question source quote is compared with the extracted answer. Supported labels include `Reference answer:`, `Correct answer:`, `Answer:` and their Chinese equivalents. Choice labels are compared as sets, true/false values retain false, and single-line text or one blank is compared literally after collapsing layout whitespace. A mismatch preserves the extracted answer and source, sets `needsReview`, adds an answer/source conflict warning, and prevents subjective grading even when a rubric exists. It does not trigger a correction model call. For verified typed text records, the check uses the actual source record rather than a model-written quote. Portable banks and other layouts are checked against their retained `sourceText`.
 

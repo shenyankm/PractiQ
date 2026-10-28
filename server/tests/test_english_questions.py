@@ -1,4 +1,5 @@
 """English metadata remains source content, including incomplete listening materials."""
+import json
 from pathlib import Path
 
 import pytest
@@ -18,7 +19,12 @@ FIXTURE = Path(__file__).resolve().parents[2] / 'app/fixtures/english.json'
 
 async def test_english_pipeline_keeps_metadata_and_does_not_solve(monkeypatch):
     expected = DocumentParseResult.model_validate_json(FIXTURE.read_text())
-    source = '\n'.join(q.sourceText or '' for q in expected.questions)
+    source = '\n'.join(
+        f"{index}. {q.sourceText}\n"
+        + (f"Reference answer: {json.dumps(q.model_dump()['answerPayload'])}\n" if q.answerPayload else '')
+        + (f"Analysis: {q.analysis}\n" if q.analysis else '')
+        for index, q in enumerate(expected.questions, 1)
+    )
     graph, _, _, reference, _ = setup_graph(monkeypatch, [{'questions': [q.model_dump() for q in expected.questions]}], parts=[source])
     state = await graph.ainvoke({'document': reference}, run_config())
     actual = DocumentParseResult.model_validate(state['result'])

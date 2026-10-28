@@ -529,7 +529,7 @@ def setup_runner(tmp_path, monkeypatch, responses):
 
 
 def model_result() -> dict:
-    return {"questions": [{**question(), "questionTypeId": "choice", "confidence": 0.9, "needsReview": False, "contentBlocks": [{"partType": "text", "textValue": "question"}]}], "groups": []}
+    return {"questions": [{**question('What is 2 + 2?'), "questionTypeId": "choice", "confidence": 0.9, "needsReview": False, "contentBlocks": [{"partType": "text", "textValue": "question"}]}], "groups": []}
 
 
 def test_real_graph_runner_with_fake_model_and_store(tmp_path, monkeypatch) -> None:
@@ -557,7 +557,7 @@ def test_changed_tencent_text_keeps_ocr_route_with_original_character_context(tm
 
     path, model = setup_runner(tmp_path, monkeypatch, [model_result()])
     if large_original:
-        payload = (tmp_path / "source.txt").read_bytes() + b"x" * 90_000
+        payload = (tmp_path / "source.txt").read_bytes() + b"Material: " + b"x" * 90_000
         (tmp_path / "source.txt").write_bytes(payload)
         cast(EvaluationStore, ev.get_object_store()).blobs[document_source_key("text", hashlib.sha256(payload).hexdigest())] = payload
     tencent_provider(monkeypatch, [ocr_text_page("1. What is 2 + 2? Changed OCR whitespace.")])

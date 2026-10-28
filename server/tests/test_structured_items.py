@@ -47,6 +47,7 @@ async def test_duplicate_matching_ids_remain_reviewable_through_graph_and_export
     result = await graph.ainvoke({"document": reference}, run_config())
     parsed = result["result"]["questions"][0]
     assert parsed["needsReview"] is True
+    assert parsed['answerPayload'] is None and parsed['analysis'] is None
     assert {"items", "answerPayload"} <= set(parsed["missingFields"])
     assert result["processing"]["quality"]["reviewRequired"] is True
     detail = SimpleNamespace(state="COMPLETED", checkpointId="synthetic", status=result["status"],
@@ -58,4 +59,4 @@ async def test_duplicate_matching_ids_remain_reviewable_through_graph_and_export
     assert exported["needsReview"] is True
     assert {"items", "answerPayload"} <= set(exported["missingFields"])
     assert exported["items"] == parsed["items"]
-    assert exported["answerPayload"] == original["answerPayload"]
+    assert exported["answerPayload"] is None and exported['analysis'] is None
