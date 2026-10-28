@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from practiq_ai.contracts import ParsedQuestion, document_source_key
+from practiq_ai.contracts import ContentBlock, ParsedQuestion, document_source_key
 from practiq_ai.graphs import document
 from practiq_ai.graphs.answer_evidence import retain_source_answers
 from practiq_ai.normalization import OfficeNormalization
@@ -35,6 +35,151 @@ def structured_question(mode, stem='Printed?'):
                            for index, content in enumerate(contents)], matchingVariant='one_to_one',
                     answerPayload={'matches': [{'left': 0, 'right': 0}, {'left': 1, 'right': 1}]})
     return ParsedQuestion.model_validate(data)
+
+
+EVALUATION_CASES = json.loads((Path(__file__).parents[1] / 'evals/cases.json').read_text())['cases']
+
+
+def evaluation_questions(case_id):
+    case = next(case for case in EVALUATION_CASES if case['id'] == case_id)
+    text = (Path(__file__).parents[1] / 'evals' / case['path']).read_text()
+    questions = []
+    for index, expected in enumerate(case['expectedQuestions'], 1):
+        data = {key: value for key, value in expected.items() if key in ParsedQuestion.model_fields}
+        data.update({key: value for key, value in expected.get('expectedEvidence', {}).items() if key in ParsedQuestion.model_fields})
+        data.setdefault('id', f'page:1:{index}')
+        data.update(sourceText=expected['stem'], confidence=0.9)
+        questions.append(ParsedQuestion.model_validate(data))
+    if case_id == 'text-translation-writing':
+        questions[0].contentBlocks = [ContentBlock(partType='text', role='source_text', textValue='阅读让我们了解不同的文化。')]
+    return text, questions
+
+
+@pytest.mark.parametrize('case_id', [case['id'] for case in EVALUATION_CASES if case['sourceType'] == 'text'])
+def test_text_evaluation_sources_preserve_their_supplied_answers(case_id):
+    text, questions = evaluation_questions(case_id)
+    payloads = [question.model_dump()['answerPayload'] for question in questions]
+    retain_source_answers(questions, text, [])
+    assert [question.model_dump()['answerPayload'] for question in questions] == payloads
+
+
+@pytest.mark.parametrize('defect', ['material', 'score', 'other_prompt'])
+def test_translation_material_and_score_cannot_hide_a_different_task(defect):
+    text, questions = evaluation_questions('text-translation-writing')
+    if defect == 'material':
+        questions[0].contentBlocks[0].textValue = 'Invented material.'
+    elif defect == 'score':
+        questions[0].sourceScore = 20
+    else:
+        questions[0].stem = 'Different task.'
+    retain_source_answers(questions, text, [])
+    assert questions[0].answerPayload is None and questions[0].needsReview
+
+
+@pytest.mark.parametrize('defect', ['swapped_blanks', 'changed_passage', 'changed_options', 'missing_key', 'duplicate_key'])
+def test_composite_answers_require_verified_parent_blanks_and_options(defect):
+    text, questions = evaluation_questions('text-composites')
+    parent = questions[2]
+    if defect == 'swapped_blanks':
+        parent.passage[1].questionId, parent.passage[3].questionId = parent.passage[3].questionId, parent.passage[1].questionId
+    elif defect == 'changed_passage':
+        parent.passage[0].textValue = 'Invented material is '
+    elif defect == 'changed_options':
+        parent.options[0].content = 'Invented option'
+    elif defect == 'missing_key':
+        text = text.replace('Answers: 1 A; 2 B.', '')
+    else:
+        text = text.replace('Answers: 1 A; 2 B.', 'Answers: 1 A; 1 B; 2 B.')
+    retain_source_answers(questions, text, [])
+    assert questions[3].answerPayload is None and questions[3].needsReview
+    assert questions[1].model_dump()['answerPayload'] == {'value': True}
+
+
+@pytest.mark.parametrize('wrong_options', [False, True])
+def test_cloze_options_are_verified_within_the_printed_blank_section(wrong_options):
+    _, questions = evaluation_questions('text-composites')
+    parent, first = questions[5:7]
+    parent.passage[-1].textValue = '. Grass is '
+    parent.passage.extend([ContentBlock(partType='blank', questionId='c2'), ContentBlock(partType='text', textValue='.')])
+    second = ParsedQuestion.model_validate({**first.model_dump(), 'id': 'c2', 'stem': 'Grass is',
+        'options': [{'label': 'A', 'content': 'red'}, {'label': 'B', 'content': 'blue'}], 'answerPayload': {'correct': ['B']}})
+    if wrong_options:
+        first.options = second.model_copy(deep=True).options
+    text = ('Cloze — Complete the statement\nSnow is [1]. Grass is [2].\n'
+            '1: A. white B. green.\n2: A. red B. blue.\nAnswers: 1 A; 2 B.')
+    retain_source_answers([parent, first, second], text, [])
+    assert first.model_dump()['answerPayload'] == (None if wrong_options else {'correct': ['A']})
+    assert second.model_dump()['answerPayload'] == {'correct': ['B']}
+
+
+@pytest.mark.parametrize('analysis,kept', [('Printed explanation.', True), ('Invented explanation.', False)])
+def test_single_blank_composite_analysis_remains_independent_of_its_answer(analysis, kept):
+    text, questions = evaluation_questions('text-composites')
+    text = text.replace('1: A. white B. green. Answer: A.', '1: A. white B. green. Answer: A.\nAnalysis: Printed explanation.')
+    questions[6].analysis = analysis
+    retain_source_answers(questions, text, [])
+    assert questions[6].model_dump()['answerPayload'] == {'correct': ['A']}
+    assert questions[6].analysis == (analysis if kept else None)
+
+
+@pytest.mark.parametrize('mode', ['ordering', 'matching'])
+def test_structured_json_with_explicit_source_item_ids_retains_the_same_identities(mode):
+    candidate = structured_question(mode)
+    for item in candidate.items:
+        item.id = 7 + (item.id or 0)
+    payload = {'order': [8, 7]} if mode == 'ordering' else {'matches': [{'left': 7, 'right': 7}, {'left': 8, 'right': 8}]}
+    candidate = ParsedQuestion.model_validate({**candidate.model_dump(), 'answerPayload': payload})
+    body = 'Items: 7. Two; 8. One.' if mode == 'ordering' else 'Left: 7. One; 8. Two. Right: 7. 1; 8. 2.'
+    assert retain_source_answers([candidate], f'{mode.title()} — Printed?\n{body}\nAnswer: {json.dumps(payload)}', []) == []
+    assert candidate.model_dump()['answerPayload'] == payload
+
+
+def test_supplemental_reading_cannot_supply_a_questions_missing_answer():
+    candidate = ParsedQuestion.model_validate({**question('Printed?'), 'answerPayload': {'text': '4'}})
+    text = '1. Printed?\nSupplemental reading, not part of any question:\nAnswer: 4'
+    assert retain_source_answers([candidate], text, []) == [(0, ['answerPayload'])]
+
+
+@pytest.mark.parametrize('mode', ['ordering', 'matching'])
+@pytest.mark.parametrize('supplied', [False, True])
+def test_structured_item_grouping_keeps_following_numbered_questions(mode, supplied):
+    if mode == 'ordering':
+        parent = structured_question(mode)
+        text = 'Ordering — Printed?\nItems: 0. Two; 1. One.\n' + ('Answer order: 1, 0.\n' if supplied else '')
+    else:
+        text, parents = evaluation_questions('text-paragraph-matching')
+        parent = parents[0]
+        if not supplied:
+            text = text.replace('Answers: 1-A, 2-A', '')
+    other = ParsedQuestion.model_validate({**question('Extra question?'), 'answerPayload': {'text': '4'}})
+    text += '\n3. Extra question?\nAnswer: 4'
+    payload = parent.model_dump()['answerPayload']
+    retain_source_answers([parent, other], text, [])
+    assert parent.model_dump()['answerPayload'] == (payload if supplied else None)
+    assert other.model_dump()['answerPayload'] == {'text': '4'}
+
+
+@pytest.mark.parametrize('mode', ['ordering', 'matching'])
+def test_verified_printed_labels_map_answers_to_model_item_ids(mode):
+    candidate = structured_question(mode)
+    for index, item in enumerate(item for item in candidate.items if item.side in {None, 'left'}):
+        item.label, item.id = str(index), 1 - index
+    payload = {'order': [0, 1]} if mode == 'ordering' else {'matches': [{'left': 1, 'right': 0}, {'left': 0, 'right': 1}]}
+    candidate = ParsedQuestion.model_validate({**candidate.model_dump(), 'answerPayload': payload})
+    body = ('Items: 0. Two; 1. One.\nAnswer: 1, 0.' if mode == 'ordering' else
+            'Left: 0. One; 1. Two. Right: 0. 1; 1. 2.\nAnswer: left 0 -> right 0; left 1 -> right 1.')
+    assert retain_source_answers([candidate], f'{mode.title()} — Printed?\n{body}', []) == []
+    assert candidate.model_dump()['answerPayload'] == payload
+
+
+@pytest.mark.parametrize('mode', ['short_answer', 'fill_blank'])
+@pytest.mark.parametrize('printed,value,kept', [('20.', '20', True), ('3.00.', '3.00', True), ('3.00.', '3.0', False), ('3.00', '3.0', False)])
+def test_numeric_sentence_punctuation_keeps_the_original_number_spelling(mode, printed, value, kept):
+    payload = {'text': value} if mode == 'short_answer' else {'answers': [value]}
+    candidate = ParsedQuestion.model_validate({**question('Printed?'), 'answerMode': mode, 'answerPayload': payload,
+        **({'blankCount': 1} if mode == 'fill_blank' else {})})
+    changes = retain_source_answers([candidate], f'1. Printed?\nAnswer: {printed}', [])
+    assert changes == ([] if kept else [(0, ['answerPayload'])])
 
 
 @pytest.mark.parametrize('prefix', ['', '1. '])
@@ -434,13 +579,17 @@ def test_answer_key_cannot_resolve_reused_question_numbers_across_sections():
 
 
 @pytest.mark.parametrize('visual', [False, True])
-async def test_actual_import_preserves_unnumbered_ordering_and_matching_from_format_fixture(monkeypatch, visual):
-    original = (Path(__file__).parents[1] / 'evals/formats30/sources/text/text-03.txt').read_text()
-    text = original[original.index('Ordering —'):]
-    candidates = [structured_question('ordering', 'Sort ascending'),
-                  structured_question('matching', 'Match words and numbers (one-to-one)')]
-    for index, candidate in enumerate(candidates, 1):
-        candidate.id = f'page:1:{index}'
+@pytest.mark.parametrize('case_id', ['numeric-items', 'text-composites', 'text-translation-writing', 'text-paragraph-matching'])
+async def test_actual_import_preserves_supplied_answers_from_format_fixtures(monkeypatch, visual, case_id):
+    if case_id == 'numeric-items':
+        original = (Path(__file__).parents[1] / 'evals/formats30/sources/text/text-03.txt').read_text()
+        text = original[original.index('Ordering —'):]
+        candidates = [structured_question('ordering', 'Sort ascending'),
+                      structured_question('matching', 'Match words and numbers (one-to-one)')]
+        for index, candidate in enumerate(candidates, 1):
+            candidate.id = f'page:1:{index}'
+    else:
+        text, candidates = evaluation_questions(case_id)
     payloads = [candidate.model_dump()['answerPayload'] for candidate in candidates]
     files, reference = source(text)
     if visual:

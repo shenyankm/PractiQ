@@ -259,11 +259,14 @@ Table stems may omit printed question numbers and recognized type labels.
 Numbered answer-key entries may include an `Answer:` or `Reference answer:` label.
 Numeric short-answer and single-value fill-blank text preserves its printed
 spelling, including `3.00`, `1e-3` and `-0`; numeric equivalence is not a proof.
+One sentence-final period may be omitted from a numeric scalar answer; digits,
+decimal precision and exponent spelling still have to match literally.
 Choice labels and boolean aliases ignore a terminal period. Printed ordering
 sequences (`1, 0`) and matching pairs (`left 0 -> right 0; left 1 -> right 1`)
 may also end in a period; the complete sequence or pair list must match.
 Explicit `Section:` and supported unnumbered exercise headings terminate local
 answer and explanation evidence.
+Explicit supplemental-reading blocks also end local evidence fields.
 Local fields and an answer key may corroborate one another, but all supplied values must
 agree. Resumed tabular fragments reuse their stored source headers so later
 rows retain the same column associations used during extraction.
@@ -274,8 +277,17 @@ Standalone answer labels remain local fields unless numbered key entries follow.
 Unnumbered choice questions may include option lines only when their labels and
 contents match the extracted options; extra question or material lines remain
 ambiguous and do not establish an answer association.
-Unnumbered ordering and matching exercises also verify their printed numeric item labels,
+Unnumbered ordering and matching exercises verify their printed item labels,
 sides and contents before excluding item blocks from the title comparison.
+Paragraph matching keeps numbered statements inside the exercise and maps printed
+statement/paragraph labels to verified item IDs before comparing answer pairs.
+Translation and writing prompts are matched separately from their verified typed
+material blocks and printed point annotations.
+Word-bank and cloze child answers may use the verified parent passage, unique
+blank numbers, child wording and scoped option labels. Numbered key entries are
+linked per blank; cloze option sections cannot supply another blank's evidence.
+An explanation for a single-blank exercise can be checked independently of its
+answer; ambiguous shared explanations remain reviewable in the original source.
 `Answer order:` supplies an ordering sequence through the same answer proof.
 Numbered question stems must begin their source record after permitted prefixes;
 text found only in an option or inside other wording is not an association.

@@ -3,7 +3,7 @@
 import json
 import re
 
-from ..contracts import ParsedQuestion, question_missing_fields
+from ..contracts import ParsedItem, ParsedQuestion, question_missing_fields
 from ..json_repair import unique_json_object
 from .chunking import (
     _INLINE_LOCAL_FIELD,
@@ -60,13 +60,32 @@ def _table_records(text: str) -> list[tuple[str | None, str]] | None:
     return records
 
 
-def _records(text: str) -> list[tuple[str | None, str]]:
+def _records(text: str, *, group_items: bool = False) -> list[tuple[str | None, str]]:
     table = _table_records(text)
     if table is not None:
         return table
     starts = [match for match in QUESTION_BOUNDARY_PATTERN.finditer(text)
               if not (match[0].rstrip().endswith(('.', '．')) and text[match.end():match.end() + 1].isdigit())]
     starts = sorted([*starts, *_UNNUMBERED_EXERCISE.finditer(text)], key=lambda match: match.start())
+    filtered = []
+    structured = False
+    begin = 0
+    fields = iter(marker.start() for marker in _INLINE_LOCAL_FIELD.finditer(text)
+                  if _ANSWER.fullmatch(marker[0][:-1].strip()) or _ANALYSIS.fullmatch(marker[0][:-1].strip())) if group_items else iter(())
+    field = next(fields, None)
+    for match in starts:
+        if match.re is _UNNUMBERED_EXERCISE:
+            structured = match[0].strip().casefold().startswith(('ordering', 'matching', 'paragraph matching'))
+        else:
+            typed = _TYPE.match(text[match.end():match.end() + 128])
+            while field is not None and field < begin:
+                field = next(fields, None)
+            if group_items and structured and typed is None and (field is None or field >= match.start()):
+                continue
+            structured = bool(typed and typed[0].strip().casefold().startswith(('ordering', 'matching', 'paragraph matching')))
+        filtered.append(match)
+        begin = match.end()
+    starts = filtered
     records = []
     for index, match in enumerate(starts):
         number = re.search(r'\d+', match[0])
@@ -76,7 +95,8 @@ def _records(text: str) -> list[tuple[str | None, str]]:
 
 
 def _fields(record: str) -> dict[str, list[str]]:
-    record = re.split(r'^[ \t]*Section:[ \t]*\S', record, maxsplit=1, flags=re.IGNORECASE | re.MULTILINE)[0]
+    record = re.split(r'^[ \t]*(?:Section:[ \t]*\S|Supplemental reading(?:,[^\r\n:]*)?:)',
+                      record, maxsplit=1, flags=re.IGNORECASE | re.MULTILINE)[0]
     matches = list(_INLINE_LOCAL_FIELD.finditer(record))
     fields: dict[str, list[str]] = {'answerPayload': [], 'analysis': []}
     for index, match in enumerate(matches):
@@ -89,7 +109,18 @@ def _fields(record: str) -> dict[str, list[str]]:
     return fields
 
 
-def _answer_matches(question: ParsedQuestion, printed: str) -> bool:
+def _scalar_matches(printed: str, expected: str) -> bool:
+    return _literal(printed) == _literal(expected) or bool(
+        re.fullmatch(r'[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?\.', printed)
+        and _literal(printed[:-1]) == _literal(expected))
+
+
+def _item_parts(question: ParsedQuestion) -> list[tuple[str, list[ParsedItem]]]:
+    return [('Items', question.items)] if question.answerMode == 'ordering' else [
+        (side.title(), [item for item in question.items if item.side == side]) for side in ('left', 'right')]
+
+
+def _answer_matches(question: ParsedQuestion, printed: str, *, verified_items: bool = False) -> bool:
     if question.answerPayload is None:
         return True
     if question.answerMode in {'choice', 'true_false'}:
@@ -105,6 +136,13 @@ def _answer_matches(question: ParsedQuestion, printed: str) -> bool:
         decoded = json.loads(printed)
     except (ValueError, RecursionError):
         decoded = printed
+    labels = {side: {item.id if item.id is not None else index: item.label or str(item.id if item.id is not None else index)
+                     for index, item in enumerate(items)} for side, items in _item_parts(question)} if verified_items else {}
+    if verified_items and isinstance(decoded, (dict, list)) and any(
+        item.id not in {None, index} and item.label not in {None, str(item.id)}
+        for _, items in _item_parts(question) for index, item in enumerate(items)
+    ):
+        return False
     # JSON forms preserve pair identities, ordering and false/zero distinctions.
     if isinstance(decoded, dict):
         return json.dumps(decoded, sort_keys=True) == json.dumps(payload, sort_keys=True)
@@ -123,21 +161,34 @@ def _answer_matches(question: ParsedQuestion, printed: str) -> bool:
         } == {label.casefold() for label in expected}
     if question.answerMode == 'short_answer':
         value = decoded if isinstance(decoded, str) else printed
-        return isinstance(payload.get('text'), str) and isinstance(decoded, (str, int, float)) and _literal(value) == _literal(payload['text'])
+        return isinstance(payload.get('text'), str) and isinstance(decoded, (str, int, float)) and _scalar_matches(value, payload['text'])
     if question.answerMode == 'fill_blank':
         answers = decoded if isinstance(decoded, list) else [decoded if isinstance(decoded, str) else printed]
         expected = payload.get('answers')
-        return isinstance(expected, list) and all(isinstance(item, str) for item in [*answers, *expected]) and [_literal(item) for item in answers] == [_literal(item) for item in expected]
+        return isinstance(expected, list) and len(answers) == len(expected) and all(isinstance(item, str) for item in [*answers, *expected]) and all(
+            _scalar_matches(actual, supplied) for actual, supplied in zip(answers, expected, strict=True))
     if question.answerMode == 'ordering':
         if isinstance(decoded, list):
             return json.dumps(decoded) == json.dumps(payload.get('order'))
         order = payload.get('order')
+        if verified_items:
+            if not order or any(item not in labels['Items'] for item in order):
+                return False
+            order = [labels['Items'][item] for item in order]
+            return re.fullmatch(r'\s*' + r'\s*,\s*'.join(map(re.escape, order)) + r'\s*[.。．]?\s*', printed) is not None
         return bool(order) and all(type(item) is int for item in order) and re.fullmatch(
             r'\s*' + r'\s*,\s*'.join(map(str, order)) + r'\s*[.。．]?\s*', printed) is not None
     if question.answerMode == 'matching':
         if isinstance(decoded, list):
             return json.dumps(decoded, sort_keys=True) == json.dumps(payload.get('matches'), sort_keys=True)
         pairs = payload.get('matches')
+        if verified_items:
+            if not pairs or any(not isinstance(pair, dict) or pair.get('left') not in labels['Left'] or pair.get('right') not in labels['Right'] for pair in pairs):
+                return False
+            entries = [(re.escape(labels['Left'][pair['left']]), re.escape(labels['Right'][pair['right']])) for pair in pairs]
+            patterns = [left + r'\s*-\s*' + right if question.questionKind == 'paragraph_matching' else
+                        rf'left\s+{left}\s*->\s*right\s+{right}' for left, right in entries]
+            return re.fullmatch(r'\s*' + r'\s*[,，;；]\s*'.join(patterns) + r'\s*[.。．]?\s*', printed, re.IGNORECASE) is not None
         return bool(pairs) and all(isinstance(pair, dict) and type(pair.get('left')) is int and type(pair.get('right')) is int
                                    for pair in pairs) and re.fullmatch(
             r'\s*' + r'\s*;\s*'.join(rf'left\s+{pair["left"]}\s*->\s*right\s+{pair["right"]}' for pair in pairs)
@@ -146,20 +197,37 @@ def _answer_matches(question: ParsedQuestion, printed: str) -> bool:
 
 
 def _unnumbered_stem_matches(question: ParsedQuestion, record: str, stem: str) -> bool:
+    if question.questionKind in {'translation', 'writing'}:
+        lines = _INLINE_LOCAL_FIELD.split(record, maxsplit=1)[0].strip().splitlines()
+        if not lines:
+            return False
+        title = lines[0].strip()
+        score = re.search(r'\s*\((\d+(?:\.\d+)?)\s*points?\)\s*$', title, re.IGNORECASE)
+        if score:
+            if float(score[1]) != question.sourceScore:
+                return False
+            title = title[:score.start()].rstrip()
+        material = [block for block in question.contentBlocks if block.role in {'material', 'source_text', 'starter_text'}]
+        return title == stem and bool(material) and all(block.partType == 'text' and block.textValue for block in material) and (
+            _literal('\n'.join(lines[1:])) == _literal('\n'.join(block.textValue or '' for block in material)))
     if question.answerMode in {'ordering', 'matching'}:
-        parts = [('Items', question.items)] if question.answerMode == 'ordering' else [
-            (side.title(), [item for item in question.items if item.side == side]) for side in ('left', 'right')]
+        parts = _item_parts(question)
         pattern = re.escape(stem)
+        paragraphs = question.questionKind == 'paragraph_matching'
+        if paragraphs and question.matchingVariant == 'many_to_one':
+            pattern += r'\s+Paragraphs may be used more than once\.'
         for label, items in parts:
             if not items or any(not item.content for item in items):
                 return False
+            ids = [item.id if item.id is not None else index for index, item in enumerate(items)]
+            anchors = [item.label or str(identifier) for item, identifier in zip(items, ids, strict=True)]
+            if len(set(ids)) != len(ids) or len(set(anchors)) != len(anchors):
+                return False
             entries = []
-            for index, item in enumerate(items):
-                anchor = str(item.id if item.id is not None else index)
-                if item.label not in {None, anchor}:
-                    return False
+            for item, anchor in zip(items, anchors, strict=True):
                 entries.append(re.escape(anchor) + r'[.．、)]\s*' + re.escape(_literal(item.content or '')))
-            pattern += rf'\s+(?i:{label}):\s*' + r'\s*;\s*'.join(entries) + r'[.。．]?'
+            pattern += (r'\s+' if paragraphs else rf'\s+(?i:{label}):\s*') + (
+                r'\s+' if paragraphs else r'\s*;\s*').join(entries) + r'[.。．]?'
         body = _INLINE_LOCAL_FIELD.split(record, maxsplit=1)[0]
         return re.fullmatch(pattern, _literal(body)) is not None
     if question.answerMode != 'choice':
@@ -174,6 +242,95 @@ def _unnumbered_stem_matches(question: ParsedQuestion, record: str, stem: str) -
     return _literal('\n'.join(remaining)) == stem
 
 
+def _composite_fields(question: ParsedQuestion, questions: list[ParsedQuestion], records: list[tuple[str | None, str, str]]) -> dict[str, list[str]] | None:
+    parents = [parent for parent in questions if parent.id == question.parentId and parent.answerMode in {'word_bank', 'cloze'}]
+    if len(parents) != 1 or question.answerMode != 'choice' or not question.id:
+        return None
+    parent = parents[0]
+    blanks = [block.questionId for block in parent.passage if block.partType == 'blank']
+    if blanks.count(question.id) != 1 or len(set(blanks)) != len(blanks):
+        return None
+    if any(block.partType not in {'text', 'blank'} for block in parent.passage):
+        return None
+    marker = '\ue000'
+    passage = ''.join(marker if block.partType == 'blank' else block.textValue or '' for block in parent.passage)
+    if marker in ''.join(block.textValue or '' for block in parent.passage):
+        return None
+    pattern = re.escape(_literal(passage)).replace(marker, r'\[(\d{1,4})\]')
+    if not blanks or not pattern:
+        return None
+    children = [child for child in questions if child.parentId == parent.id]
+    candidates = []
+    for index, (_, record, body) in enumerate(records):
+        if not parent.stem or not re.match(re.escape(_literal(parent.stem)) + r'(?![\w-])', body):
+            continue
+        scope = [record]
+        for number, following, following_body in records[index + 1:]:
+            if number is None or not any(child.stem and following_body.startswith(_literal(child.stem)) for child in children):
+                break
+            scope.append(following)
+        record = '\n'.join(scope)
+        stop = next((match.start() for match in _INLINE_LOCAL_FIELD.finditer(record)
+                     if _ANSWER.fullmatch(match[0][:-1].strip()) or _ANALYSIS.fullmatch(match[0][:-1].strip())), len(record))
+        source_body = _literal(record[:stop])
+        matches = list(re.finditer(pattern, source_body))
+        if len(matches) == 1:
+            candidates.append((record, source_body, matches[0]))
+    if len(candidates) != 1:
+        return None
+    record, body, match = candidates[0]
+    numbers = match.groups()
+    if len(set(numbers)) != len(numbers):
+        return None
+    blank_index = blanks.index(question.id)
+    before = ''
+    current = 0
+    for block in parent.passage:
+        if block.partType == 'blank':
+            if current == blank_index:
+                break
+            current += 1
+            before = ''
+        else:
+            before += block.textValue or ''
+    clause = re.split(r'[.!?]\s+|[。！？]', before.strip())[-1].lstrip('.!?;。！？； ').strip()
+    if _literal(question.stem or '') != _literal(clause):
+        return None
+    options = parent.options if parent.answerMode == 'word_bank' else question.options
+    option_source = body[:match.start()] if parent.answerMode == 'word_bank' else body[match.end():]
+    if parent.answerMode == 'cloze':
+        sections = list(re.finditer(r'(?<![\w.])(\d{1,4})\s*:\s*(?=[A-Za-z][.．、)])', option_source))
+        selected = [index for index, section in enumerate(sections) if section[1] == numbers[blank_index]]
+        if sections:
+            if len(selected) != 1 or len({section[1] for section in sections}) != len(sections) or any(section[1] not in numbers for section in sections):
+                return None
+            index = selected[0]
+            option_source = option_source[sections[index].end():sections[index + 1].start() if index + 1 < len(sections) else len(option_source)]
+        elif len(blanks) != 1:
+            return None
+    if parent.answerMode == 'word_bank' and question.optionSourceId != parent.id:
+        return None
+    if not options or any(not option.label or not option.content or not re.search(
+        r'(?<!\w)' + re.escape(option.label) + r'[.．、)]\s*' + re.escape(_literal(option.content)) + r'(?!\w)', option_source)
+        for option in options):
+        return None
+    supplied = _fields(record)
+    fields: dict[str, list[str]] = {'answerPayload': [], 'analysis': supplied['analysis'] if len(blanks) == 1 else []}
+    for value in supplied['answerPayload']:
+        if len(blanks) == 1 and _answer_matches(question, value):
+            fields['answerPayload'].append(value)
+        elif re.fullmatch(r'\d{1,4}\s*[-:：]?\s*[A-Za-z]+(?:\s*[;；,，]\s*\d{1,4}\s*[-:：]?\s*[A-Za-z]+)*[.。．]?', value):
+            entries = re.findall(r'(\d{1,4})\s*[-:：]?\s*([A-Za-z]+)', value)
+            keys = [number for number, _ in entries]
+            if len(set(keys)) != len(keys) or not set(keys) <= set(numbers):
+                fields['answerPayload'].append('')
+            else:
+                fields['answerPayload'].extend(answer for number, answer in entries if number == numbers[blank_index])
+        else:
+            fields['answerPayload'].append('')
+    return fields
+
+
 def retain_source_answers(
     questions: list[ParsedQuestion], primary: str, contexts: list[str],
 ) -> list[tuple[int, list[str]]]:
@@ -185,6 +342,9 @@ def retain_source_answers(
     primary_key = _KEY.search(primary)
     records = [(number, record, _literal(_INLINE_LOCAL_FIELD.split(record, maxsplit=1)[0]))
                for number, record in _records(primary[:primary_key.start()] if primary_key else primary)]
+    item_records = [(number, record, _literal(_INLINE_LOCAL_FIELD.split(record, maxsplit=1)[0]))
+                    for number, record in _records(primary[:primary_key.start()] if primary_key else primary, group_items=True)] if any(
+                        question.answerMode in {'ordering', 'matching'} for question in questions) else records
     source_numbers = []
     answer_keys: dict[str, list[str]] = {}
     for text in [primary, *contexts]:
@@ -199,14 +359,17 @@ def retain_source_answers(
         if question.answerPayload is None and question.analysis is None:
             continue
         stem = _literal(question.stem or '')
+        composite_child = question.parentId and any(parent.id == question.parentId and parent.answerMode in {'word_bank', 'cloze'} for parent in questions)
         pattern = re.compile(r'(?<![\w-])' + re.escape(stem) + r'(?![\w-])') if stem else None
-        candidates = [(number, record) for number, record, body in records if pattern and pattern.match(body)
-                      and (number is not None or body == stem or _unnumbered_stem_matches(question, record, stem))]
+        candidates = [(number, record) for number, record, body in (item_records if question.answerMode in {'ordering', 'matching'} else records) if pattern and pattern.match(body)
+                      and (number is not None and not composite_child or body == stem or _unnumbered_stem_matches(question, record, stem))]
         if len(candidates) > 1 and question.id:
             candidates = [(number, record) for number, record in candidates if number == question.id.rsplit(':', 1)[-1]]
         fields = {'answerPayload': [], 'analysis': []}
+        verified_items = False
         if len(candidates) == 1:
             number, record = candidates[0]
+            verified_items = question.answerMode in {'ordering', 'matching'} and _unnumbered_stem_matches(question, record, stem)
             fields = _fields(record)
             # Only explicit answer-only sections may supply a numbered answer
             # from context. A neighboring ordinary question is never evidence.
@@ -217,8 +380,10 @@ def retain_source_answers(
                     fields['answerPayload'].append(prefix)
                 for name, values in _fields(body).items():
                     fields[name].extend(values)
+        elif question.parentId:
+            fields = _composite_fields(question, questions, records) or fields
         removed = []
-        if question.answerPayload is not None and not (fields['answerPayload'] and all(_answer_matches(question, value) for value in fields['answerPayload'])):
+        if question.answerPayload is not None and not (fields['answerPayload'] and all(_answer_matches(question, value, verified_items=verified_items) for value in fields['answerPayload'])):
             question.answerPayload = None
             removed.append('answerPayload')
         if question.analysis is not None and not (fields['analysis'] and all(_literal(question.analysis) == _literal(value) for value in fields['analysis'])):
