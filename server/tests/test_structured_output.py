@@ -122,6 +122,65 @@ def test_punctuation_repair_preserves_strings_false_zero_and_null():
     assert json.loads(repair_json(source)) == {'text':'逗号,}与引号"不应修改','values':[False,0,None]}
 
 
+@pytest.mark.parametrize('source', [
+    '{"stem":"Original","stem":"Replacement"}',
+    '{"stem":"Original","st\\u0065m":"Replacement",}',
+    '```json\n{"stem":"Question","answerPayload":{"text":"Original","text":"Replacement"}}\n```',
+])
+def test_duplicate_json_fields_cannot_silently_replace_source_content(source):
+    from langchain_core.messages import AIMessage
+
+    from practiq_ai.contracts import ParsedQuestion
+
+    with pytest.raises(ValueError, match='Duplicate JSON field'):
+        llm.validate_response({'raw': AIMessage(content=source), 'parsed': None}, ParsedQuestion)
+
+
+def test_json_field_names_can_repeat_in_separate_objects():
+    from langchain_core.messages import AIMessage
+
+    from practiq_ai.graphs.document import ChunkParseResult
+
+    source = '{"questions":[{"stem":"First"},{"stem":"Second"}],"groups":[]}'
+    result = llm.validate_response({'raw': AIMessage(content=source), 'parsed': None}, ChunkParseResult)
+    assert [question.stem for question in result.questions] == ['First', 'Second']
+
+
+@pytest.mark.parametrize('source', [
+    '{"questions":[,],"groups":[]}',
+    '{"questions":[],"groups":[  ,  ]}',
+])
+def test_json_repair_does_not_turn_missing_array_values_into_empty_results(source):
+    from langchain_core.messages import AIMessage
+
+    from practiq_ai.graphs.document import ChunkParseResult
+
+    with pytest.raises(ValueError):
+        llm.validate_response({'raw': AIMessage(content=source), 'parsed': None}, ChunkParseResult)
+
+
+@pytest.mark.parametrize('arguments', ['{"value":1,"value":2}', '{"value":1,"val\\u0075e":2,}'])
+async def test_responses_duplicate_arguments_enter_correction_with_known_usage(arguments):
+    requests = []
+
+    def respond(request):
+        requests.append(json.loads(request.content))
+        return httpx2.Response(200, json=wire_response(arguments if len(requests) == 1 else '{"value":3}'))
+
+    async with httpx2.AsyncClient(transport=httpx2.MockTransport(respond)) as client:
+        model = ChatOpenAI(model='qwen3.7-flash', api_key=cast(Any, 'test'), max_retries=0,
+                           use_responses_api=True, store=False, http_async_client=client)
+        records = []
+        parsed, usage, failure = await llm.structured_call(model, [HumanMessage(content='Extract')], Result, 'test', call_records=records)
+
+    assert parsed == Result(value=3) and failure is None
+    assert len(requests) == len(usage) == 2
+    assert sum(call.outputTokens for call in usage) == 10
+    assert records[0]['validationCode'] == 'OUTPUT_INVALID'
+    assert records[0]['usageStatus'] == records[1]['usageStatus'] == 'known'
+    assert 'Duplicate JSON field' in str(requests[1])
+
+
 async def test_corrections_keep_only_latest_output_and_stop_on_identical_failure():
     from tests.support import FakeModel
 

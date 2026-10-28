@@ -52,7 +52,7 @@ from .execution import (
     reserve_model_call,
     store_put,
 )
-from .json_repair import repair_json
+from .json_repair import repair_json, unique_json_object
 
 BASE_URLS = {
     "dashscope": "https://dashscope.aliyuncs.com/compatible-mode/v1",
@@ -246,6 +246,9 @@ def validate_response[ResultT: BaseModel](
     raw = response["raw"]
     # The wire arguments are authoritative, even if the SDK already parsed them.
     wire_calls = raw.additional_kwargs.get("tool_calls", [])
+    if wire_calls in (None, []) and isinstance(raw.content, list):
+        wire_calls = [{"function": block} for block in raw.content
+                      if isinstance(block, dict) and block.get("type") == "function_call"]
     if wire_calls is not None and wire_calls != []:
         if not isinstance(wire_calls, list) or len(wire_calls) != 1 or not isinstance(wire_calls[0], dict):
             raise ValueError("Expected one tool call matching the response schema")
@@ -269,11 +272,14 @@ def validate_response[ResultT: BaseModel](
     if not isinstance(source, str):
         raise ValueError("Expected a JSON object or tool arguments")  # noqa: TRY004
     try:
-        return schema.model_validate_json(source, context=context)
+        parsed = schema.model_validate_json(source, context=context)
     except ValidationError as exc:
         if not any(item["type"] == "json_invalid" for item in exc.errors()):
             raise
-        return schema.model_validate_json(repair_json(source), context=context)
+        source = repair_json(source)
+        parsed = schema.model_validate_json(source, context=context)
+    json.loads(source, object_pairs_hook=unique_json_object)
+    return parsed
 
 
 def _validation_issues(error: ValueError, schema: type[BaseModel]) -> list[dict[str, Any]]:
