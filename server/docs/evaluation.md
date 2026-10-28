@@ -274,6 +274,14 @@ Standalone answer labels remain local fields unless numbered key entries follow.
 Unnumbered choice questions may include option lines only when their labels and
 contents match the extracted options; extra question or material lines remain
 ambiguous and do not establish an answer association.
+Unnumbered ordering and matching exercises also verify their printed numeric item labels,
+sides and contents before excluding item blocks from the title comparison.
+`Answer order:` supplies an ordering sequence through the same answer proof.
+Numbered question stems must begin their source record after permitted prefixes;
+text found only in an option or inside other wording is not an association.
+Structured source answers and table evidence reject duplicate JSON keys rather
+than silently choosing the last value.
+Overly nested answer JSON remains unavailable for review instead of failing extraction.
 
 Unverified fields become null without discarding the question or retrying a
 model call. The question retains `needsReview=true`, recomputed `missingFields`,

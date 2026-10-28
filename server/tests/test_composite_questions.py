@@ -24,7 +24,7 @@ async def test_composite_pipeline_matches_desktop_fixture(monkeypatch):
     expected = DocumentParseResult.model_validate_json(FIXTURE.read_text()).model_dump()
     # The model fixture contains only source-provided answers, including the rubric.
     source = "\n".join(
-        f"{index}. {q['sourceText']}\n"
+        f"{index}. {q['stem']}\nMaterial: {q['sourceText']}\n"
         + (f"Reference answer: {json.dumps(q['answerPayload'])}\n" if q['answerPayload'] else '')
         + f"Analysis: {q['analysis']}"
         for index, q in enumerate(expected['questions'], 1)

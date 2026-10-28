@@ -19,6 +19,7 @@ from ..contracts import (
     validate_question_tree,
 )
 from ..errors import DocumentProcessingError
+from ..json_repair import unique_json_object
 
 CHUNK_TARGET_CHARS = 30_000
 CHUNK_MAX_CHARS = 40_000
@@ -209,8 +210,8 @@ def _reference_supplied(value: str) -> bool:
     if not value or value.casefold() in {'none', 'null', 'n/a', 'unknown', 'unavailable', 'not supplied'}:
         return False
     try:
-        decoded = json.loads(value)
-    except ValueError:
+        decoded = json.loads(value, object_pairs_hook=unique_json_object)
+    except (ValueError, RecursionError):
         # A malformed container or quotation is not an unambiguous answer value.
         return not value.startswith(('[', '{', '"', "'")) or (
             len(value) > 2 and value[0] == value[-1] == "'" and bool(value[1:-1].strip())
@@ -225,7 +226,10 @@ def _reference_supplied(value: str) -> bool:
             return any(nonempty(entry) for entry in (item.values() if isinstance(item, dict) else item))
         return isinstance(item, (bool, int, float))
 
-    return nonempty(decoded)
+    try:
+        return nonempty(decoded)
+    except RecursionError:
+        return False
 
 
 def source_presence_plan(
@@ -552,8 +556,11 @@ class SourceEvidence(TypedDict):
 
 
 _LOCAL_FIELD_PREFIXES = tuple(f'{field}:' for field in (
-    'Material', 'Reference answer', 'Supplied answer', 'Answer', 'Points', 'Score', 'Source score',
-    'Rubric', 'Scoring rubric', 'Supplied explanation', 'Explanation', 'Analysis', 'Instructions',
+    'Material', 'Reference answer', 'Supplied answer', 'Correct answer', 'Standard answer', 'Model answer', 'Answer',
+    'Reference answers', 'Supplied answers', 'Correct answers', 'Standard answers', 'Model answers', 'Answers',
+    'Answer order', 'Points', 'Score', 'Source score',
+    'Rubric', 'Scoring rubric', 'Supplied explanation', 'Supplied analysis', 'Supplied solution',
+    'Explanation', 'Analysis', 'Solution', 'Instructions',
     'Target language', 'Transcript', 'Play count', 'Matching policy', 'Choice variant', 'Blank count',
     'Allow reuse', 'Answer status', 'Audio status',
     'Genre', 'Minimum words', 'Maximum words', 'Source passage',

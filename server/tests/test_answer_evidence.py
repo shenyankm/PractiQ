@@ -1,6 +1,7 @@
 """Answer provenance regressions use provider substitutes, never paid models."""
 
 import json
+from pathlib import Path
 from typing import cast
 from unittest.mock import AsyncMock
 
@@ -19,8 +20,127 @@ from tests.support import (
     question,
     run_config,
     source,
+    source_presence_hints,
     tencent_provider,
 )
+
+
+def structured_question(mode, stem='Printed?'):
+    data = {**question(stem), 'answerMode': mode, 'questionTypeId': mode}
+    if mode == 'ordering':
+        data.update(items=[{'id': 0, 'content': 'Two'}, {'id': 1, 'content': 'One'}], answerPayload={'order': [1, 0]})
+    else:
+        data.update(items=[{'id': index, 'side': side, 'content': content}
+                           for side, contents in [('left', ['One', 'Two']), ('right', ['1', '2'])]
+                           for index, content in enumerate(contents)], matchingVariant='one_to_one',
+                    answerPayload={'matches': [{'left': 0, 'right': 0}, {'left': 1, 'right': 1}]})
+    return ParsedQuestion.model_validate(data)
+
+
+@pytest.mark.parametrize('prefix', ['', '1. '])
+def test_answer_order_label_retains_the_exercises_own_sequence(prefix):
+    candidate = structured_question('ordering')
+    assert retain_source_answers([candidate], f'{prefix}Printed?\nAnswer order: 1, 0.', []) == []
+    assert candidate.model_dump()['answerPayload'] == {'order': [1, 0]}
+
+
+@pytest.mark.parametrize('mode', ['ordering', 'matching'])
+@pytest.mark.parametrize('newline', ['\n', '\r\n'])
+@pytest.mark.parametrize('explicit_ids', [False, True])
+def test_unnumbered_structured_exercises_verify_their_own_items_and_answers(mode, newline, explicit_ids):
+    candidate = structured_question(mode)
+    if not explicit_ids:
+        for item in candidate.items:
+            item.id = None
+    body = ('Items: 0. Two; 1. One.\nAnswer order: 1, 0.' if mode == 'ordering' else
+            'Left: 0. One; 1. Two. Right: 0. 1; 1. 2.\nAnswer: left 0 -> right 0; left 1 -> right 1.')
+    text = f'{mode.title()} — Printed?\n{body}\nAnalysis: Printed explanation.'.replace('\n', newline)
+    candidate.analysis = 'Printed explanation.'
+    payload = candidate.model_dump()['answerPayload']
+    assert retain_source_answers([candidate], text, []) == []
+    assert candidate.model_dump()['answerPayload'] == payload and candidate.analysis == 'Printed explanation.'
+
+
+@pytest.mark.parametrize('mode', ['ordering', 'matching'])
+@pytest.mark.parametrize('renumbered', [False, True])
+def test_printed_item_labels_cannot_hide_different_payload_identities(mode, renumbered):
+    candidate = structured_question(mode)
+    items = [item for item in candidate.items if item.side in {None, 'left'}]
+    for index, item in enumerate(items):
+        item.label = str(index)
+        if renumbered:
+            item.id = 1 - index
+    body = ('Items: 0. Two; 1. One.\nAnswer: 1, 0.' if mode == 'ordering' else
+            'Left: 0. One; 1. Two. Right: 0. 1; 1. 2.\nAnswer: left 0 -> right 0; left 1 -> right 1.')
+    changes = retain_source_answers([candidate], f'{mode.title()} — Printed?\n{body}', [])
+    assert changes == ([(0, ['answerPayload'])] if renumbered else [])
+    assert (candidate.answerPayload is None) is renumbered
+
+
+@pytest.mark.parametrize('mode', ['ordering', 'matching'])
+@pytest.mark.parametrize('defect', ['changed_item', 'extra_item', 'other_question'])
+def test_unnumbered_structured_exercises_reject_unverified_item_blocks(mode, defect):
+    candidate = structured_question(mode)
+    body = 'Items: 0. Two; 1. One.' if mode == 'ordering' else 'Left: 0. One; 1. Two. Right: 0. 1; 1. 2.'
+    if defect == 'changed_item':
+        body = body.replace('Two', 'Different')
+    elif defect == 'extra_item':
+        body += '\n2. Unverified item'
+    else:
+        body += '\nOther question?'
+    answer = '1, 0.' if mode == 'ordering' else 'left 0 -> right 0; left 1 -> right 1.'
+    assert retain_source_answers([candidate], f'{mode.title()} — Printed?\n{body}\nAnswer: {answer}', []) == [(0, ['answerPayload'])]
+    assert candidate.answerPayload is None and candidate.needsReview
+
+
+@pytest.mark.parametrize('label', [
+    'Correct answer', 'Standard answer', 'Model answer', 'Answers', 'Reference answers', 'Supplied answers',
+])
+def test_declared_answer_labels_preserve_unnumbered_source_associations(label):
+    candidate = ParsedQuestion.model_validate({**question('Printed?'), 'answerPayload': {'text': '4'}})
+    assert retain_source_answers([candidate], f'Printed?\n{label}: 4', []) == []
+    assert candidate.model_dump()['answerPayload'] == {'text': '4'}
+
+
+@pytest.mark.parametrize('label', ['Solution', 'Supplied analysis', 'Supplied solution'])
+def test_declared_analysis_labels_preserve_their_literal_evidence(label):
+    candidate = ParsedQuestion.model_validate({**question('Printed?'), 'analysis': 'Printed explanation.'})
+    assert retain_source_answers([candidate], f'Printed?\n{label}: Printed explanation.', []) == []
+    assert candidate.analysis == 'Printed explanation.'
+
+
+@pytest.mark.parametrize('prefix', ['1. Another question?\nA. ', '1. Extra wording before '])
+def test_numbered_records_cannot_prove_a_stem_found_only_in_other_content(prefix):
+    candidate = ParsedQuestion.model_validate({**question('Decoy?'), 'answerPayload': {'text': '4'}, 'analysis': 'Printed explanation.'})
+    text = f'{prefix}Decoy?\nAnswer: 4\nAnalysis: Printed explanation.'
+    assert retain_source_answers([candidate], text, []) == [(0, ['answerPayload', 'analysis'])]
+    assert candidate.answerPayload is None and candidate.analysis is None and candidate.needsReview
+
+
+@pytest.mark.parametrize('printed', ['{"text":"5","text":"4"}', '{"text":"4","text":"4"}'])
+def test_duplicate_json_answer_fields_are_not_unambiguous_evidence(printed):
+    candidate = ParsedQuestion.model_validate({**question('Printed?'), 'answerPayload': {'text': '4'}})
+    assert retain_source_answers([candidate], f'1. Printed?\nAnswer: {printed}', []) == [(0, ['answerPayload'])]
+    assert candidate.answerPayload is None and candidate.needsReview
+
+
+def test_duplicate_json_table_analysis_does_not_override_conflicting_evidence():
+    candidate = ParsedQuestion.model_validate({**question('Printed?'), 'answerPayload': {'text': '4'}, 'analysis': 'Printed explanation.'})
+    text = 'stem\treference_answer\tevidence\nPrinted?\t4\t{"analysis":"Different","analysis":"Printed explanation."}'
+    assert retain_source_answers([candidate], text, []) == [(0, ['analysis'])]
+    assert candidate.model_dump()['answerPayload'] == {'text': '4'} and candidate.analysis is None
+
+
+def test_duplicate_json_answers_do_not_advertise_a_supplied_value_to_extraction():
+    hints = source_presence_hints('1. Short answer: Printed?\nReference answer: {"text":"5","text":"4"}')
+    assert hints is not None and hints['1'].get('need_answer') is False
+
+
+@pytest.mark.parametrize('depth', [500, 2000])
+def test_deep_source_answer_json_requires_review_instead_of_crashing_extraction(depth):
+    printed = '[' * depth + '1' + ']' * depth
+    hints = source_presence_hints(f'1. Short answer: Printed?\nReference answer: {printed}')
+    assert hints is not None and hints['1'].get('need_answer') is False
 
 
 @pytest.mark.parametrize('mode,payload,printed', [
@@ -311,6 +431,33 @@ def test_answer_key_cannot_resolve_reused_question_numbers_across_sections():
     candidates = [ParsedQuestion.model_validate({**question(stem), 'answerPayload': {'text': '4'}}) for stem in ['First?', 'Second?']]
     text = 'Section A\n1. First?\nSection B\n1. Second?'
     assert retain_source_answers(candidates, text, ['Answers:\n1. 4']) == [(0, ['answerPayload']), (1, ['answerPayload'])]
+
+
+@pytest.mark.parametrize('visual', [False, True])
+async def test_actual_import_preserves_unnumbered_ordering_and_matching_from_format_fixture(monkeypatch, visual):
+    original = (Path(__file__).parents[1] / 'evals/formats30/sources/text/text-03.txt').read_text()
+    text = original[original.index('Ordering —'):]
+    candidates = [structured_question('ordering', 'Sort ascending'),
+                  structured_question('matching', 'Match words and numbers (one-to-one)')]
+    for index, candidate in enumerate(candidates, 1):
+        candidate.id = f'page:1:{index}'
+    payloads = [candidate.model_dump()['answerPayload'] for candidate in candidates]
+    files, reference = source(text)
+    if visual:
+        from practiq_ai.extractors import ExtractedDocument
+
+        old_key = reference['objectKey']
+        reference.update(sourceType='pdf', mediaType='application/pdf', objectKey=document_source_key('pdf', reference['sha256']))
+        files.blobs[reference['objectKey']] = files.blobs.pop(old_key)
+        monkeypatch.setattr(document, 'extract', AsyncMock(return_value=ExtractedDocument(text='', page_images=[make_image()])))
+    tencent_provider(monkeypatch, [ocr_text_page(text)] if visual else None)
+    model = FakeModel(responses=[{'questions': [candidate.model_dump() for candidate in candidates], **({'figures': []} if visual else {})}])
+    monkeypatch.setattr(document, 'get_object_store', lambda: files)
+    monkeypatch.setattr(document, 'get_model', lambda: model)
+    result = await local_graph(store=MemoryStore()).ainvoke({'document': reference}, run_config())
+    assert result['status'] == 'SUCCEEDED'
+    assert [candidate['answerPayload'] for candidate in result['result']['questions']] == payloads
+    assert len(model.calls) == len(result['usage']) == 1
 
 
 @pytest.mark.parametrize('visual', [False, True])

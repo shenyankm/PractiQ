@@ -4,6 +4,7 @@ import json
 import re
 
 from ..contracts import ParsedQuestion, question_missing_fields
+from ..json_repair import unique_json_object
 from .chunking import (
     _INLINE_LOCAL_FIELD,
     _QUESTION_LABELS,
@@ -12,7 +13,7 @@ from .chunking import (
     _reference_supplied,
 )
 
-_ANSWER = re.compile(r'^(?:(?:reference|supplied|correct|standard|model)\s+)?answers?$|^(?:参考|正确|标准)?答案$', re.IGNORECASE)
+_ANSWER = re.compile(r'^(?:(?:reference|supplied|correct|standard|model)\s+)?answers?$|^answer\s+order$|^(?:参考|正确|标准)?答案$', re.IGNORECASE)
 _ANALYSIS = re.compile(r'^(?:supplied\s+)?(?:explanation|analysis|solution)$|^(?:答案解析|解析|解答|分析)$', re.IGNORECASE)
 _KEY = re.compile(
     r'^[^\S\r\n]*(?:#{1,6}[^\S\r\n]*)?(?:Answers?|Answer key|参考答案|标准答案|答案)'
@@ -50,7 +51,7 @@ def _table_records(text: str) -> list[tuple[str | None, str]] | None:
                 record += f'\n{label}: {value}'
         if cells.get('evidence'):
             try:
-                evidence = json.loads(cells['evidence'])
+                evidence = json.loads(cells['evidence'], object_pairs_hook=unique_json_object)
                 if isinstance(evidence, dict) and isinstance(evidence.get('analysis'), str):
                     record += '\nAnalysis: ' + evidence['analysis']
             except (ValueError, RecursionError):
@@ -144,7 +145,23 @@ def _answer_matches(question: ParsedQuestion, printed: str) -> bool:
     return False
 
 
-def _unnumbered_choice_stem_matches(question: ParsedQuestion, record: str, stem: str) -> bool:
+def _unnumbered_stem_matches(question: ParsedQuestion, record: str, stem: str) -> bool:
+    if question.answerMode in {'ordering', 'matching'}:
+        parts = [('Items', question.items)] if question.answerMode == 'ordering' else [
+            (side.title(), [item for item in question.items if item.side == side]) for side in ('left', 'right')]
+        pattern = re.escape(stem)
+        for label, items in parts:
+            if not items or any(not item.content for item in items):
+                return False
+            entries = []
+            for index, item in enumerate(items):
+                anchor = str(item.id if item.id is not None else index)
+                if item.label not in {None, anchor}:
+                    return False
+                entries.append(re.escape(anchor) + r'[.．、)]\s*' + re.escape(_literal(item.content or '')))
+            pattern += rf'\s+(?i:{label}):\s*' + r'\s*;\s*'.join(entries) + r'[.。．]?'
+        body = _INLINE_LOCAL_FIELD.split(record, maxsplit=1)[0]
+        return re.fullmatch(pattern, _literal(body)) is not None
     if question.answerMode != 'choice':
         return False
     options = {option.label.casefold(): _literal(option.content) for option in question.options if option.label and option.content}
@@ -183,8 +200,8 @@ def retain_source_answers(
             continue
         stem = _literal(question.stem or '')
         pattern = re.compile(r'(?<![\w-])' + re.escape(stem) + r'(?![\w-])') if stem else None
-        candidates = [(number, record) for number, record, body in records if pattern and pattern.search(body)
-                      and (number is not None or body == stem or _unnumbered_choice_stem_matches(question, record, stem))]
+        candidates = [(number, record) for number, record, body in records if pattern and pattern.match(body)
+                      and (number is not None or body == stem or _unnumbered_stem_matches(question, record, stem))]
         if len(candidates) > 1 and question.id:
             candidates = [(number, record) for number, record in candidates if number == question.id.rsplit(':', 1)[-1]]
         fields = {'answerPayload': [], 'analysis': []}
