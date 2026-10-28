@@ -153,6 +153,7 @@ def test_local_and_key_analysis_agreement_is_checked_independently(key_analysis,
 @pytest.mark.parametrize('printed,answer,kept', [
     ('A', ['A'], True), ('AB', ['A', 'B'], True), ('A、B', ['A', 'B'], True),
     ('["A", "B"]', ['A', 'B'], True), ('B', ['A'], False), ('A or B', ['A'], False),
+    ('B,A', ['A', 'B'], True), ('a', ['A'], True),
 ])
 def test_choice_labels_require_printed_answer_evidence(printed, answer, kept):
     candidate = ParsedQuestion.model_validate({**question('Choose?'), 'answerMode': 'choice', 'choiceVariant': 'multiple',

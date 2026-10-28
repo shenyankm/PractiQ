@@ -107,7 +107,10 @@ def _answer_matches(question: ParsedQuestion, printed: str) -> bool:
             return True
         if len(labels) == 1 and isinstance(labels[0], str) and re.fullmatch(r'[A-Z]+', labels[0]):
             labels = list(labels[0])
-        return labels == payload.get('correct')
+        expected = payload.get('correct')
+        return isinstance(expected, list) and all(isinstance(label, str) for label in [*labels, *expected]) and {
+            label.casefold() for label in labels
+        } == {label.casefold() for label in expected}
     if question.answerMode == 'short_answer':
         value = decoded if isinstance(decoded, str) else printed
         return isinstance(payload.get('text'), str) and isinstance(decoded, (str, int, float)) and _literal(value) == _literal(payload['text'])

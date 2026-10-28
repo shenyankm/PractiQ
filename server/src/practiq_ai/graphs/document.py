@@ -1778,6 +1778,8 @@ async def _merge(state: DocumentState, *, passive: bool = False) -> dict[str, An
                         ocr_texts[page_index] = '\n'.join('\t'.join(''.join(cell.itertext()) for cell in row) for row in cells)
                         continue
                 ocr_texts[page_index] = '\n'.join(_ocr_source_lines(page))
+    warnings.extend(f"Answer/source conflict for {question.id or question.stem}: verify the supplied answer before grading."
+                    for _, result in parsed for question in result.questions if answer_source_conflict(question.model_dump(mode='json')))
     for index, result in parsed:
         primary = ocr_texts.get(index, '') if pages else ''
         if not pages and source_text is not None:
@@ -1799,8 +1801,6 @@ async def _merge(state: DocumentState, *, passive: bool = False) -> dict[str, An
         source_text=source_text, chunk_spans=state.get("chunkSpans") if not pages else None,
     ))
     warnings.extend(merge_warnings)
-    warnings.extend(f"Answer/source conflict for {question.id or question.stem}: verify the supplied answer before grading."
-                    for question in questions if answer_source_conflict(question.model_dump(mode='json')))
     # Preserve historical audit warnings without starting new review calls.
     agent_reviews = [item["agentReview"] for item in ordered if item.get("agentReview")]
     for item in ordered:

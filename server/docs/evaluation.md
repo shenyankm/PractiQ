@@ -277,6 +277,11 @@ regressions cover the text and OCR graph paths and passive checkpoint merge.
 
 ### Deterministic answer/source conflicts
 
+The consistency rules below apply to retained unit drafts and portable banks.
+Final import publication also applies the provenance check above: unsupported
+published fields become null, while the original answer/source conflict warning
+and source evidence remain available for review.
+
 An explicit, unique answer line in a single-question source quote is compared with the extracted answer. Supported labels include `Reference answer:`, `Correct answer:`, `Answer:` and their Chinese equivalents. Choice labels are compared as sets, true/false values retain false, and single-line text or one blank is compared literally after collapsing layout whitespace. A mismatch preserves the extracted answer and source, sets `needsReview`, adds an answer/source conflict warning, and prevents subjective grading even when a rubric exists. It does not trigger a correction model call. For verified typed text records, the check uses the actual source record rather than a model-written quote. Portable banks and other layouts are checked against their retained `sourceText`.
 
 This is a conservative consistency check, not proof that an answer is correct or that an OCR/model quote matches the original document. Missing or ambiguous answer lines, quotes containing multiple numbered questions, multi-line text, multiple blanks, ordering and matching answers remain outside this check. A non-conflict result is not a verified-answer status. The shared `app/fixtures/answer-source-consistency.json` cases exercise Python/Rust parity; model-substitute graph tests verify actual-source conflict retention without extra calls. Native tests cover import/restart, pending scores for answered and skipped questions, blocked model requests, and corrections without rewriting existing practice snapshots.
