@@ -49,6 +49,7 @@ from practiq_ai.contracts import (
     UnitFailureStage,
     VisualElement,
     VisualKind,
+    answer_source_conflict,
     question_missing_fields,
     validate_question_tree,
 )
@@ -467,6 +468,11 @@ class ChunkParseResult(BaseModel):
                     violations.append(f"Source record {question.id} must preserve the complete printed stem")
                 if hints.get('need_answer') and question.answerPayload is None:
                     violations.append(f"Source record {question.id} requires extracted answerPayload; preserve the supplied reference answer")
+                if answer_source := hints.get('answer_source'):
+                    question.sourceText = answer_source
+        for question in self.questions:
+            if answer_source_conflict(question.model_dump(mode='json')):
+                question.needsReview = True
         if violations:
             raise ValueError('; '.join(violations))
         if any(
@@ -1743,6 +1749,8 @@ async def _merge(state: DocumentState, *, passive: bool = False) -> dict[str, An
         source_text=source_text, chunk_spans=state.get("chunkSpans") if not pages else None,
     ))
     warnings.extend(merge_warnings)
+    warnings.extend(f"Answer/source conflict for {question.id or question.stem}: verify the supplied answer before grading."
+                    for question in questions if answer_source_conflict(question.model_dump(mode='json')))
     # Preserve historical audit warnings without starting new review calls.
     agent_reviews = [item["agentReview"] for item in ordered if item.get("agentReview")]
     for item in ordered:
