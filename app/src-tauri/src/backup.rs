@@ -31,7 +31,7 @@ pub(crate) fn file_digest(path: &Path) -> Result<(u64, String)> {
         }
         digest.update(&buffer[..count]);
     }
-    Ok((size, format!("{:x}", digest.finalize())))
+    Ok((size, crate::store::finish_hash(digest)))
 }
 impl Store {
     pub fn backup(&self, destination: &Path) -> Result<Value> {
@@ -904,6 +904,32 @@ mod fault_tests;
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn file_digest_preserves_sha256_hex_encoding() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("source");
+        for (bytes, expected) in [
+            (
+                Vec::new(),
+                "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            ),
+            (
+                b"abc".to_vec(),
+                "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+            ),
+            (
+                (0..=255u8).cycle().take(256 * 257).collect(),
+                "120c518a83325c66464701a6ee080302f332bc768ea3f60473b209f1bfb091df",
+            ),
+        ] {
+            fs::write(&path, &bytes).unwrap();
+            assert_eq!(crate::store::hash(&bytes), expected);
+            assert_eq!(
+                file_digest(&path).unwrap(),
+                (bytes.len() as u64, expected.into())
+            );
+        }
+    }
     #[test]
     #[ignore = "paired audio duration pass workload; temporary databases, release only"]
     fn audio_duration_pass_stress() {
