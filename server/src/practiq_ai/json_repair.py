@@ -1,6 +1,16 @@
 """Repair punctuation only: never invent values or complete cut-off strings."""
 
 import json
+from typing import Any
+
+
+def unique_json_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("Duplicate JSON field; return each field exactly once")
+        result[key] = value
+    return result
 
 
 def repair_json(text: str) -> str:
@@ -36,10 +46,12 @@ def repair_json(text: str) -> str:
                 output.pop()
             if output and output[-1] == ",":
                 output.pop()
+                if next((part for part in reversed(output) if not part.isspace()), None) in {"{", "["}:
+                    raise ValueError("JSON contains a missing value")
         output.append(char)
     if quoted:
         raise ValueError("JSON contains an unfinished string")
     # A trailing comma at EOF is ambiguous: another field/item may have been lost.
     repaired = "".join(output) + "".join(reversed(stack))
-    json.loads(repaired)  # Missing values, broken literals and other syntax still fail.
+    json.loads(repaired, object_pairs_hook=unique_json_object)  # Missing values and duplicate fields still fail.
     return repaired
