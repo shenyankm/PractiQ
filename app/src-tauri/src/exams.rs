@@ -28,7 +28,8 @@ pub fn has_answer(v: &Value) -> bool {
     }
 }
 pub fn has_basis(q: &Value) -> bool {
-    !text(q, "scoringRubric").trim().is_empty() || contract::answer_complete(q)
+    !contract::answer_source_conflict(q)
+        && (!text(q, "scoringRubric").trim().is_empty() || contract::answer_complete(q))
 }
 pub(crate) fn validate_grade_details(response: &Value) -> Result<()> {
     let result = &response["result"];

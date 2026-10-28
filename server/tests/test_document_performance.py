@@ -72,7 +72,10 @@ async def test_vision_crops_only_missing_subimages_in_exact_figure_order(monkeyp
         data = f"subimage-{position}".encode() if position in existing else f"crop-{position}".encode()
         media_type = "image/png" if position in existing else "image/jpeg"
         assert message.content[1]["image_url"]["url"] == vision._data_url(data, media_type)
-    assert json.loads(calls.await_args.args[1][-1].content.split("\n")[-1])["figures"] == figures
+    assert json.loads(calls.await_args.args[1][-1].content.split("\n")[-1])["figures"] == [
+        {"elementIndex": index, "bbox": [position / 10, 0, .8, .8], "kind": "image"}
+        for position, index in enumerate([8, 2, 19])]
+    assert json.loads(files.blobs[ocr.objectKey]) == primary
 
 
 async def test_split_jobs_overlap_with_bounded_admission_and_ordered_replay(monkeypatch):

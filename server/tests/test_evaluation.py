@@ -173,6 +173,56 @@ def test_full_stems_aliases_and_repeated_occurrences() -> None:
     assert reordered["answerCorrect"] == 0
 
 
+@pytest.mark.parametrize(("payload", "answer_correct"), [
+    ({"correct": ["C", "A"]}, 1),
+    ({"correct": ["A", "C"]}, 1),
+    ({"correct": ["C", "B"]}, 0),
+    ({"correct": ["A"]}, 0),
+    ({"correct": ["A", "B", "C"]}, 0),
+    ({"correct": ["A", "A", "C"]}, 0),
+    ({"correct": ["C", None]}, 0),
+    ({"correct": []}, 0),
+    ({"correct": "CA"}, 0),
+    (None, 0),
+])
+def test_choice_answer_scoring_ignores_only_label_order(payload, answer_correct):
+    gold = {**question(), "choiceVariant": "multiple",
+            "options": [{"label": label, "content": label} for label in "ABC"],
+            "answerPayload": {"correct": ["A", "C"]}}
+    ev.GoldQuestion.model_validate(gold)
+    actual = {**gold, "answerPayload": payload}
+    original = deepcopy([gold, actual])
+    score = ev.score_document_case([gold], [actual])
+    assert score["answerCorrect"] == answer_correct
+    assert ev.quality_metrics([score])["parsedAnswerAccuracy"] == answer_correct * 100
+    assert score["questions"][0]["predicted"]["answerPayload"] == payload
+    assert [gold, actual] == original
+
+
+def test_choice_answer_aliases_ignore_label_order_and_keep_option_order():
+    gold = {**question(), "choiceVariant": "multiple",
+            "answerPayload": {"correct": ["B"]}, "answerAliases": [{"correct": ["B", "A"]}]}
+    ev.GoldQuestion.model_validate(gold)
+    actual = {**gold, "answerPayload": {"correct": ["A", "B"]}, "options": list(reversed(gold["options"]))}
+    score = ev.score_document_case([gold], [actual])
+    assert score["answerCorrect"] == 1
+    assert score["questions"][0]["differences"] == ["options"]
+
+
+@pytest.mark.parametrize(("fields", "expected", "predicted"), [
+    ({"answerMode": "fill_blank"}, {"answers": ["first", "second"]}, {"answers": ["second", "first"]}),
+    ({"answerMode": "ordering", "items": [{"id": 0, "content": "first"}, {"id": 1, "content": "second"}]},
+     {"order": [0, 1]}, {"order": [1, 0]}),
+])
+def test_ordered_answer_scoring_preserves_positions(fields, expected, predicted):
+    gold = {**question(), **fields, "options": [], "answerPayload": expected}
+    ev.GoldQuestion.model_validate(gold)
+    actual = {**gold, "answerPayload": predicted}
+    score = ev.score_document_case([gold], [actual])
+    assert score["answerCorrect"] == 0
+    assert score["questions"][0]["differences"] == ["answerPayload"]
+
+
 def test_stem_aliases_choose_earliest_unused_prediction_and_keep_extra_order() -> None:
     expected = [{**question("a"), "stemAliases": ["b", "1. b"]}, question("a"), question("b"), question("missing")]
     predicted = [question(stem) for stem in ["b", "a", "extra first", "2. b", "extra last"]]
@@ -541,7 +591,7 @@ def test_graph_evaluator_ignores_removed_review_setting(tmp_path, monkeypatch):
     report = asyncio.run(ev.run_evaluation(path))
     assert report["status"] == "PASSED" and model.calls == 1
     assert "import_review" not in report["settings"]
-    assert report["scorerVersion"] == "6.5.0"
+    assert report["scorerVersion"] == "6.6.0"
 
 
 @pytest.mark.parametrize("kind", ["import_review", "import_repair", "import_recheck"])
@@ -1240,7 +1290,7 @@ def test_sensitive_strings_and_old_scorers_cannot_be_published_or_compared():
     for text in ("data:image/png;base64,PRIVATE", "https://example.invalid/file?x-oss-signature=PRIVATE", "Bearer PRIVATE_TOKEN"):
         with pytest.raises(ValueError, match="credential-bearing"):
             ev.ensure_public_report({"description": text})
-    for version in ("2.0.0", "4.0.0", "5.0.0"):
+    for version in ("2.0.0", "4.0.0", "5.0.0", "6.5.0"):
         old = report_with()
         old["scorerVersion"] = version
         comparison = ev.compare_reports(old, report_with())

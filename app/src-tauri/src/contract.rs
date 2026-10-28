@@ -543,7 +543,7 @@ pub fn validate_question(q: &mut Value) -> Result<()> {
             missing.push(json!(key));
         }
     }
-    if !missing.is_empty() {
+    if !missing.is_empty() || answer_source_conflict(q) {
         q["needsReview"] = json!(true);
     }
     q["missingFields"] = json!(missing);
@@ -694,8 +694,128 @@ pub fn parse(bytes: &[u8]) -> Result<Value> {
 pub fn result(root: &Value) -> &Value {
     root.get("result").unwrap_or(root)
 }
+
+pub(crate) fn answer_source_conflict(q: &Value) -> bool {
+    let compact = |value: &str| {
+        value
+            .chars()
+            .filter(|c| !c.is_whitespace())
+            .collect::<String>()
+    };
+    let stem = compact(text(q, "stem"));
+    let source = text(q, "sourceText");
+    if stem.is_empty() || !compact(source).contains(&stem) {
+        return false;
+    }
+    let lines: Vec<_> = source
+        .lines()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .collect();
+    if lines
+        .iter()
+        .filter(|line| {
+            let rest = line.trim_start_matches(|c: char| c.is_ascii_digit());
+            rest.len() != line.len() && rest.starts_with(['.', '、', ')', '．'])
+        })
+        .count()
+        > 1
+    {
+        return false;
+    }
+    let references: Vec<_> = lines
+        .iter()
+        .enumerate()
+        .filter_map(|(index, line)| {
+            let (label, value) = line.split_once([':', '：'])?;
+            matches!(
+                label.trim().to_ascii_lowercase().as_str(),
+                "reference answer"
+                    | "correct answer"
+                    | "answer"
+                    | "参考答案"
+                    | "正确答案"
+                    | "标准答案"
+                    | "答案"
+            )
+            .then_some((index, value.trim()))
+        })
+        .collect();
+    let [(index, reference)] = references.as_slice() else {
+        return false;
+    };
+    if reference.is_empty()
+        || matches!(
+            reference.to_ascii_lowercase().as_str(),
+            "none" | "null" | "n/a" | "unknown" | "unavailable" | "not supplied"
+        )
+    {
+        return false;
+    }
+    let answer = &q["answerPayload"];
+    match text(q, "answerMode") {
+        "choice" => {
+            let labels: HashSet<_> = reference
+                .to_ascii_uppercase()
+                .chars()
+                .filter(|c| !" ,，、/;；\t".contains(*c))
+                .collect();
+            let allowed: HashSet<_> = list(q, "options")
+                .iter()
+                .filter_map(|option| option["label"].as_str())
+                .map(str::to_ascii_uppercase)
+                .collect();
+            if labels.is_empty()
+                || labels.iter().any(|c| {
+                    !c.is_ascii_uppercase()
+                        || (!allowed.is_empty() && !allowed.contains(&c.to_string()))
+                })
+            {
+                return false;
+            }
+            let Some(selected) = answer["correct"].as_array().filter(|a| !a.is_empty()) else {
+                return false;
+            };
+            let selected: Option<HashSet<_>> = selected
+                .iter()
+                .map(|value| value.as_str().map(str::to_ascii_uppercase))
+                .collect();
+            selected
+                .is_some_and(|selected| selected != labels.iter().map(char::to_string).collect())
+        }
+        "true_false" => {
+            let expected = match reference.to_ascii_lowercase().as_str() {
+                "true" | "正确" | "对" | "√" => Some(true),
+                "false" | "错误" | "错" | "×" => Some(false),
+                _ => None,
+            };
+            expected
+                .zip(answer["value"].as_bool())
+                .is_some_and(|(expected, actual)| expected != actual)
+        }
+        "short_answer" | "fill_blank"
+            if *index == lines.len() - 1 && !reference.starts_with(['[', '{', '"', '\'']) =>
+        {
+            let extracted = if text(q, "answerMode") == "short_answer" {
+                answer["text"].as_str()
+            } else if list(answer, "answers").len() == 1 {
+                answer["answers"][0].as_str()
+            } else {
+                None
+            };
+            extracted.is_some_and(|value| {
+                !value.trim().is_empty()
+                    && value.split_whitespace().collect::<Vec<_>>().join(" ")
+                        != reference.split_whitespace().collect::<Vec<_>>().join(" ")
+            })
+        }
+        _ => false,
+    }
+}
+
 pub fn grade(q: &Value, answer: &Value) -> Option<bool> {
-    if !can_interact(q)
+    if answer_source_conflict(q)
+        || !can_interact(q)
         || !answer_complete(q)
         || [
             "media",
@@ -991,6 +1111,32 @@ pub fn validate_context(groups: &[Value], visuals: &[Value], ids: &HashSet<&str>
 #[cfg(test)]
 mod validation_tests {
     use super::*;
+
+    #[test]
+    fn answer_consistency_matches_shared_cases_and_blocks_automatic_grades() {
+        let cases: Vec<Value> = serde_json::from_str(include_str!(
+            "../../fixtures/answer-source-consistency.json"
+        ))
+        .unwrap();
+        for case in cases {
+            let mut q = case["question"].clone();
+            validate_question(&mut q).unwrap();
+            assert_eq!(
+                answer_source_conflict(&q),
+                case["conflict"].as_bool().unwrap(),
+                "{}",
+                case["name"]
+            );
+            if case["conflict"] == true {
+                assert_eq!(q["needsReview"], true);
+                assert_eq!(q["answerPayload"], case["question"]["answerPayload"]);
+                assert_eq!(q["sourceText"], case["question"]["sourceText"]);
+                assert_eq!(grade(&q, &q["answerPayload"]), None);
+                q["scoringRubric"] = json!("Use the supplied reference");
+                assert!(!crate::exams::has_basis(&q));
+            }
+        }
+    }
 
     #[test]
     fn import_and_tree_validation_locate_the_invalid_question() {

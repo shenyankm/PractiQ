@@ -1,5 +1,7 @@
 # Practise, review scores, and keep drafts
 
+If a retained source quote explicitly supplies an answer that conflicts with the reference answer, the question is marked for review. Practice and exams keep it ungraded, including when skipped; it does not become automatically incorrect or enter the mistake list. AI grading is also blocked, even if a rubric is present. Open the question editor, compare the reference with the original document, and correct the reference or source evidence before starting a new practice session. Confirming review alone does not remove the conflict. Existing session snapshots and manual scores remain unchanged. The check covers explicit choice/true-false answers and literal single-line text or one blank; it cannot verify every document layout or the correctness of the original answer.
+
 Use the offline practice app on macOS. Start with the [no-model walkthrough](../../README.md#try-it-without-a-model); import and share files through the [question-bank ZIP guide](question-bank-package.md). This guide explains practice behavior and optional AI grading.
 
 ## Choose questions and start a session
