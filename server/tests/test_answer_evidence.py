@@ -80,12 +80,13 @@ def test_answer_key_context_preserves_linked_answers_without_borrowing_neighbors
 
 @pytest.mark.parametrize('label', ['Answer', 'Reference answer'])
 @pytest.mark.parametrize('same_page', [False, True])
-def test_labeled_answer_key_preserves_supplied_answer_and_analysis(label, same_page):
+@pytest.mark.parametrize('newline', ['\n', '\r\n'])
+def test_labeled_answer_key_preserves_supplied_answer_and_analysis(label, same_page, newline):
     candidate = ParsedQuestion.model_validate({**question('Printed question?'), 'answerPayload': {'text': 'four'},
                                               'analysis': 'Supplied explanation.'})
     primary = '1. Printed question?'
-    key = f'Answers:\n1. {label}: four\nAnalysis: Supplied explanation.'
-    assert retain_source_answers([candidate], primary + '\n' + key if same_page else primary, [] if same_page else [key]) == []
+    key = f'Answers:{newline}1. {label}: four{newline}Analysis: Supplied explanation.'
+    assert retain_source_answers([candidate], primary + newline + key if same_page else primary, [] if same_page else [key]) == []
     assert candidate.model_dump()['answerPayload'] == {'text': 'four'}
     assert candidate.analysis == 'Supplied explanation.'
 
@@ -148,6 +149,34 @@ def test_local_and_key_analysis_agreement_is_checked_independently(key_analysis,
     assert retain_source_answers([candidate], text, [context]) == ([] if kept else [(0, ['analysis'])])
     assert candidate.model_dump()['answerPayload'] == {'text': '4'}
     assert candidate.analysis == ('Printed explanation.' if kept else None)
+
+
+@pytest.mark.parametrize('label', ['Answer', '答案'])
+@pytest.mark.parametrize('value', ['4', '3.00', '1e-3', '-0'])
+@pytest.mark.parametrize('newline', ['\n', '\r\n'])
+def test_multiline_local_answers_are_not_numbered_answer_keys(label, value, newline):
+    candidate = ParsedQuestion.model_validate({**question('Printed?'), 'answerPayload': {'text': value}})
+    assert retain_source_answers([candidate], f'1. Printed?{newline}{label}:{newline}{value}', []) == []
+    assert candidate.model_dump()['answerPayload'] == {'text': value}
+
+
+@pytest.mark.parametrize('prefix', ['', 'Single choice: '])
+@pytest.mark.parametrize('separator', ['. ', ') ', '．'])
+def test_unnumbered_choice_identity_excludes_its_verified_option_lines(prefix, separator):
+    candidate = ParsedQuestion.model_validate({**question('Printed?'), 'answerMode': 'choice', 'choiceVariant': 'single',
+        'options': [{'label': 'A', 'content': 'Four'}, {'label': 'B', 'content': 'Five'}], 'answerPayload': {'correct': ['A']}})
+    text = f'{prefix}Printed?\nA{separator}Four\nB{separator}Five\nAnswer: A'
+    assert retain_source_answers([candidate], text, []) == []
+    assert candidate.model_dump()['answerPayload'] == {'correct': ['A']}
+
+
+@pytest.mark.parametrize('extra', ['Other?', 'A. Unverified option content'])
+def test_unnumbered_choice_cannot_hide_other_stems_or_unverified_options(extra):
+    candidate = ParsedQuestion.model_validate({**question('Printed?'), 'answerMode': 'choice', 'choiceVariant': 'single',
+        'options': [{'label': 'A', 'content': 'Four'}, {'label': 'B', 'content': 'Five'}], 'answerPayload': {'correct': ['A']}})
+    text = f'Printed?\nA. Four\nB. Five\n{extra}\nAnswer: A'
+    assert retain_source_answers([candidate], text, []) == [(0, ['answerPayload'])]
+    assert candidate.answerPayload is None and candidate.needsReview
 
 
 @pytest.mark.parametrize('printed,answer,kept', [

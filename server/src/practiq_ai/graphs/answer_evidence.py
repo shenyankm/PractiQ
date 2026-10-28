@@ -13,7 +13,12 @@ from .chunking import (
 
 _ANSWER = re.compile(r'^(?:(?:reference|supplied|correct|standard|model)\s+)?answers?$|^(?:参考|正确|标准)?答案$', re.IGNORECASE)
 _ANALYSIS = re.compile(r'^(?:supplied\s+)?(?:explanation|analysis|solution)$|^(?:答案解析|解析|解答|分析)$', re.IGNORECASE)
-_KEY = re.compile(r'^\s*(?:#{1,6}\s*)?(?:Answers?|Answer key|参考答案|标准答案|答案)\s*[:：]?\s*$', re.IGNORECASE | re.MULTILINE)
+_KEY = re.compile(
+    r'^[^\S\r\n]*(?:#{1,6}[^\S\r\n]*)?(?:Answers?|Answer key|参考答案|标准答案|答案)'
+    r'(?:[^\S\r\n]*[:：])?[^\S\r\n]*\r?$'
+    r'(?=\s*\d{1,4}\s*(?:[、)]|[.．](?!\d)))',
+    re.IGNORECASE | re.MULTILINE,
+)
 _TYPE = re.compile(r'^\s*(?:' + '|'.join(map(re.escape, _QUESTION_LABELS)) + r')\s*[:：]\s*', re.IGNORECASE)
 
 
@@ -57,13 +62,14 @@ def _records(text: str) -> list[tuple[str | None, str]]:
     table = _table_records(text)
     if table is not None:
         return table
-    starts = list(QUESTION_BOUNDARY_PATTERN.finditer(text))
+    starts = [match for match in QUESTION_BOUNDARY_PATTERN.finditer(text)
+              if not (match[0].rstrip().endswith(('.', '．')) and text[match.end():match.end() + 1].isdigit())]
     records = []
     for index, match in enumerate(starts):
         number = re.search(r'\d+', match[0])
         end = starts[index + 1].start() if index + 1 < len(starts) else len(text)
         records.append((number[0] if number else None, _TYPE.sub('', text[match.end():end])))
-    return records or [(None, text)]
+    return records or [(None, _TYPE.sub('', text))]
 
 
 def _fields(record: str) -> dict[str, list[str]]:
@@ -125,6 +131,19 @@ def _answer_matches(question: ParsedQuestion, printed: str) -> bool:
     return False
 
 
+def _unnumbered_choice_stem_matches(question: ParsedQuestion, record: str, stem: str) -> bool:
+    if question.answerMode != 'choice':
+        return False
+    options = {option.label.casefold(): _literal(option.content) for option in question.options if option.label and option.content}
+    remaining = []
+    for line in _INLINE_LOCAL_FIELD.split(record, maxsplit=1)[0].splitlines():
+        match = re.fullmatch(r'\s*([^\s.．、)]+)[.．、)]\s*(.*?)\s*', line)
+        if match and options.get(match[1].casefold()) == _literal(match[2]):
+            continue
+        remaining.append(line)
+    return _literal('\n'.join(remaining)) == stem
+
+
 def retain_source_answers(
     questions: list[ParsedQuestion], primary: str, contexts: list[str],
 ) -> list[tuple[int, list[str]]]:
@@ -152,7 +171,7 @@ def retain_source_answers(
         stem = _literal(question.stem or '')
         pattern = re.compile(r'(?<![\w-])' + re.escape(stem) + r'(?![\w-])') if stem else None
         candidates = [(number, record) for number, record, body in records if pattern and pattern.search(body)
-                      and (number is not None or body == stem)]
+                      and (number is not None or body == stem or _unnumbered_choice_stem_matches(question, record, stem))]
         if len(candidates) > 1 and question.id:
             candidates = [(number, record) for number, record in candidates if number == question.id.rsplit(':', 1)[-1]]
         fields = {'answerPayload': [], 'analysis': []}

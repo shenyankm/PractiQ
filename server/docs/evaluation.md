@@ -263,6 +263,10 @@ Only choice labels and boolean aliases ignore a terminal period. Local fields
 and an answer key may corroborate one another, but all supplied values must
 agree. Resumed tabular fragments reuse their stored source headers so later
 rows retain the same column associations used during extraction.
+Standalone answer labels remain local fields unless numbered key entries follow.
+Unnumbered choice questions may include option lines only when their labels and
+contents match the extracted options; extra question or material lines remain
+ambiguous and do not establish an answer association.
 
 Unverified fields become null without discarding the question or retrying a
 model call. The question retains `needsReview=true`, recomputed `missingFields`,
