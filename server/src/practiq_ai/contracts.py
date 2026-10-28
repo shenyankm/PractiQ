@@ -239,6 +239,47 @@ def normalize_answer(mode, payload):
     return payload if partial else schema.model_validate(payload)
 
 
+def answer_source_conflict(data: dict[str, Any]) -> bool:
+    """Compare only an explicit, local, unambiguous answer; never solve a question."""
+    source, stem = data.get('sourceText') or '', data.get('stem') or ''
+    def compact(text: str) -> str:
+        return ''.join(text.split())
+    if not stem or compact(stem) not in compact(source):
+        return False
+    lines = [line.strip() for line in source.splitlines() if line.strip()]
+    numbered = [line for line in lines if (rest := line.lstrip('0123456789')) != line and rest[:1] in {'.', '、', ')', '．'}]
+    if len(numbered) > 1:
+        return False
+    references = []
+    for index, line in enumerate(lines):
+        label, colon, value = line.replace('：', ':', 1).partition(':')
+        if colon and label.strip().lower() in {'reference answer', 'correct answer', 'answer', '参考答案', '正确答案', '标准答案', '答案'}:
+            references.append((index, value.strip()))
+    if len(references) != 1 or not (answer := data.get('answerPayload')):
+        return False
+    index, reference = references[0]
+    if not reference or reference.lower() in {'none', 'null', 'n/a', 'unknown', 'unavailable', 'not supplied'}:
+        return False
+    mode = data.get('answerMode')
+    if mode == 'choice':
+        labels = ''.join(c for c in reference.upper() if c not in ' ,，、/;；\t')
+        allowed = {option['label'].upper() for option in data.get('options', []) if option.get('label')}
+        if not labels or any(not 'A' <= c <= 'Z' for c in labels) or (allowed and not set(labels) <= allowed):
+            return False
+        selected = answer.get('correct')
+        return bool(selected) and all(isinstance(value, str) for value in selected) and set(labels) != {value.upper() for value in selected}
+    if mode == 'true_false':
+        values = {'true': True, '正确': True, '对': True, '√': True, 'false': False, '错误': False, '错': False, '×': False}
+        return reference.lower() in values and isinstance(answer.get('value'), bool) and values[reference.lower()] != answer['value']
+    # shortcut: only literal single-line text and single blanks, expand with source-labelled fixtures.
+    if index != len(lines) - 1 or reference.startswith(('[', '{', '"', "'")):
+        return False
+    extracted = answer.get('text') if mode == 'short_answer' else (
+        answer['answers'][0] if mode == 'fill_blank' and len(answer.get('answers') or []) == 1 else None
+    )
+    return isinstance(extracted, str) and bool(extracted.strip()) and ' '.join(reference.split()) != ' '.join(extracted.split())
+
+
 class OptionReferenceError(ValueError):
     pass
 
@@ -470,7 +511,7 @@ class ParsedQuestion(StrictModel):
             self.blankCount = count
         answer_references_missing(self.answerMode, self.answerPayload, self.model_dump())
         self.missingFields = question_missing_fields(self.model_dump())
-        if self.missingFields:
+        if self.missingFields or answer_source_conflict(self.model_dump(mode='json')):
             self.needsReview = True
         if not any((self.stem, self.instructions, self.audioRef, self.transcript, self.sourceText, self.options, self.items, self.contentBlocks, self.passage, self.answerPayload, self.analysis)):
             raise ValueError("An empty object is not an identifiable question")

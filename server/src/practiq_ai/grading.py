@@ -15,7 +15,12 @@ from psycopg.types.json import Jsonb
 from pydantic import Field, PrivateAttr, field_validator, model_validator
 
 from .config import database_uri, load
-from .contracts import ModelCallUsage, ParsedQuestion, StrictModel
+from .contracts import (
+    ModelCallUsage,
+    ParsedQuestion,
+    StrictModel,
+    answer_source_conflict,
+)
 from .errors import DocumentProcessingError
 from .llm import get_model, structured_call
 
@@ -196,7 +201,11 @@ async def grade(request: GradeRequest) -> dict:
     traditional = request.feedbackLocale == "zh-TW"
     q = request.question
     reference = q.answerPayload.model_dump() if isinstance(q.answerPayload, StrictModel) else q.answerPayload
-    if q.answerMode != "short_answer" or not q.stem or not request.answer.strip() or any(k in q.missingFields for k in ("stem", "material", "media", "answerMode")) or not (q.scoringRubric or reference and reference.get("text")):
+    if answer_source_conflict(q.model_dump(mode='json')):
+        response = {"status": "ungraded", "error": _localized(request.feedbackLocale,
+            "参考答案与来源原文冲突，请先人工复核", "參考答案與來源原文衝突，請先人工複核",
+            "The reference answer conflicts with the source; review it before grading."), "usage": []}
+    elif q.answerMode != "short_answer" or not q.stem or not request.answer.strip() or any(k in q.missingFields for k in ("stem", "material", "media", "answerMode")) or not (q.scoringRubric or reference and reference.get("text")):
         response = {"status":"ungraded", "error":_localized(request.feedbackLocale,
             "缺少完整题目、作答或评分依据", "缺少完整題目、作答或評分依據",
             "The question, answer, or grading evidence is incomplete."), "usage":[]}

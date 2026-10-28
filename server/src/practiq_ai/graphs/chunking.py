@@ -200,6 +200,7 @@ class SourcePresenceHint(TypedDict):
     need_analysis: bool
     stem_sha256: NotRequired[str]
     need_answer: NotRequired[bool]
+    answer_source: NotRequired[str]
 
 
 def _reference_supplied(value: str) -> bool:
@@ -291,6 +292,8 @@ def source_presence_plan(
                               'need_answer': has_answer and kind not in _COMPOSITE_LABELS and frame['id'] not in parents}
         if literal_stem and stem.strip():
             result[frame['id']]['stem_sha256'] = hashlib.sha256(stem.strip().encode('utf-8')).hexdigest()
+        if has_answer and not table:
+            result[frame['id']]['answer_source'] = raw
     plan = []
     for span in spans:
         selected = [frame for frame in frames if frame['end'] > span['start'] and frame['contentStart'] < span['end']]

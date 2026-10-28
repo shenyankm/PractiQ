@@ -368,6 +368,143 @@ fn practice(store: &Store, rows: Value, count: usize) -> Value {
         })
         .unwrap()
 }
+
+#[test]
+fn answer_source_conflicts_survive_import_and_correction_preserves_old_snapshots() {
+    let (dir, mut store) = store();
+    let cases: Vec<Value> = serde_json::from_str(include_str!(
+        "../../fixtures/answer-source-consistency.json"
+    ))
+    .unwrap();
+    let mut document: Value = serde_json::from_slice(&sample()).unwrap();
+    let mut q = cases[0]["question"].clone();
+    q["id"] = json!("conflict");
+    document["questions"] = json!([q]);
+    document["groups"] = json!([]);
+    document["visualElements"] = json!([]);
+    let preview = store
+        .preview(serde_json::to_vec(&document).unwrap(), "Conflict".into())
+        .unwrap();
+    let bank = store
+        .import(text(&preview, "ticket"), None, "Conflict")
+        .unwrap();
+    let bank = text(&bank, "bankId").to_owned();
+    drop(store);
+    let store = Store::new(dir.path().to_owned()).unwrap();
+    let rows = store.questions(Some(&bank), "", "", "").unwrap();
+    let qid = text(&rows[0], "id").to_owned();
+    assert_eq!(rows[0]["question"]["needsReview"], true);
+    assert_eq!(
+        rows[0]["question"]["answerPayload"],
+        json!({"correct":["A"]})
+    );
+    store.review_question(&qid, true).unwrap();
+    let session = practice(&store, rows, 1);
+    let sid = text(&session, "id");
+    let submitted = store
+        .save_attempt((sid, 0), json!({"correct":["A"]}), 0, true, false)
+        .unwrap();
+    assert_eq!(submitted["attempts"][0]["gradeKind"], "ungraded");
+    assert!(submitted["attempts"][0]["autoResult"].is_null());
+    assert!(store
+        .questions(Some(&bank), "", "", "wrong")
+        .unwrap()
+        .as_array()
+        .unwrap()
+        .is_empty());
+    let mut corrected = submitted["attempts"][0]["snapshot"]["question"].clone();
+    corrected["answerPayload"] = json!({"correct":["B"]});
+    store
+        .save_question_tree(&bank, Some(&qid), vec![corrected])
+        .unwrap();
+    let fresh = practice(&store, store.questions(Some(&bank), "", "", "").unwrap(), 1);
+    let graded = store
+        .save_attempt(
+            (text(&fresh, "id"), 0),
+            json!({"correct":["B"]}),
+            0,
+            true,
+            false,
+        )
+        .unwrap();
+    assert_eq!(graded["attempts"][0]["autoResult"], true);
+    let original = store.session(sid).unwrap();
+    assert_eq!(
+        original["attempts"][0]["snapshot"],
+        submitted["attempts"][0]["snapshot"]
+    );
+    assert!(original["attempts"][0]["autoResult"].is_null());
+}
+
+#[test]
+fn answer_source_conflicts_leave_exam_scores_unknown_and_prevent_model_requests() {
+    let cases: Vec<Value> = serde_json::from_str(include_str!(
+        "../../fixtures/answer-source-consistency.json"
+    ))
+    .unwrap();
+    for mode in ["choice", "short_answer"] {
+        for skipped in [false, true] {
+            let (_dir, mut store) = store();
+            let mut document: Value = serde_json::from_slice(&sample()).unwrap();
+            let mut q = cases
+                .iter()
+                .find(|case| case["conflict"] == true && case["question"]["answerMode"] == mode)
+                .unwrap()["question"]
+                .clone();
+            q["id"] = json!("conflict");
+            q["scoringRubric"] = json!("Use the supplied reference");
+            let answer = q["answerPayload"].clone();
+            document["questions"] = json!([q]);
+            document["groups"] = json!([]);
+            document["visualElements"] = json!([]);
+            let preview = store
+                .preview(serde_json::to_vec(&document).unwrap(), "Conflict".into())
+                .unwrap();
+            store
+                .import(text(&preview, "ticket"), None, "Conflict")
+                .unwrap();
+            let rows = store.question_rows().unwrap();
+            let ids = vec![text(&rows[0], "id").to_owned()];
+            let selected = crate::paper::selected_rows(&rows, &ids).unwrap();
+            let session = store
+                .start_paper(crate::exams::Paper {
+                    question_ids: ids,
+                    kind: "self_test".into(),
+                    minutes: None,
+                    scores: vec![500],
+                    total_cents: 500,
+                    digest: crate::paper::digest(&selected).unwrap(),
+                })
+                .unwrap();
+            let sid = text(&session, "id");
+            if !skipped {
+                store.save_draft((sid, 0), answer, 0).unwrap();
+            }
+            let submitted = store.submit_paper(sid, true).unwrap();
+            assert!(submitted["attempts"][0]["result"].is_null());
+            assert!(submitted["attempts"][0]["earnedCents"].is_null());
+            assert_eq!(submitted["attempts"][0]["gradeKind"], "ungraded");
+            if mode == "short_answer" && !skipped {
+                assert_eq!(
+                    store
+                        .prepare_grade(sid, 0, false, store.locale)
+                        .unwrap_err()
+                        .code,
+                    "LOCAL_GRADING_INELIGIBLE"
+                );
+                assert_eq!(
+                    store
+                        .connect()
+                        .unwrap()
+                        .query_row("SELECT COUNT(*) FROM grade_requests", [], |row| row
+                            .get::<_, i64>(0))
+                        .unwrap(),
+                    0
+                );
+            }
+        }
+    }
+}
 #[test]
 fn shared_contract_corpus() {
     let cases: Value = serde_json::from_str(include_str!("../../fixtures/contracts.json")).unwrap();

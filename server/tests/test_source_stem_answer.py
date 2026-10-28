@@ -49,6 +49,39 @@ def test_known_typed_source_records_exact_stem_and_supplied_answer_presence():
     assert hints['1'].get('need_answer') is True
 
 
+async def test_conflicting_answer_retains_actual_source_without_paid_correction(monkeypatch):
+    text = '1. Single choice: Printed stem\nA. One\nB. Two\nReference answer: B'
+    candidate = {
+        **question('Printed stem'), 'id': 'fragment:1:1', 'answerMode': 'choice',
+        'choiceVariant': 'single', 'options': [{'label': 'A', 'content': 'One'}, {'label': 'B', 'content': 'Two'}],
+        'answerPayload': {'correct': ['A']}, 'sourceText': text.replace('answer: B', 'answer: A'),
+        'needsReview': False, 'analysis': 'Supplied explanation',
+    }
+    files, reference = source(text)
+    model = FakeModel(responses=[{'questions': [candidate]}])
+    monkeypatch.setattr(document, 'get_object_store', lambda: files)
+    monkeypatch.setattr(document, 'get_model', lambda: model)
+    state = cast(document.ChunkTask, {
+        'index': 0, 'total': 1, 'fileName': 'quiz.txt', 'sourceType': 'text',
+        'artifact': {key: value for key, value in reference.items() if key not in {'sourceType', 'fileName'}},
+        'sourcePresence': source_presence_hints(text),
+    })
+    result = await document._chunk(state, Runtime(store=MemoryStore()))
+    parsed = result['chunkResults'][0]['parsed']
+    assert parsed is not None
+    kept = parsed['questions'][0]
+    assert kept['answerPayload'] == {'correct': ['A']}
+    assert kept['sourceText'] == text and kept['needsReview']
+    assert len(model.calls) == len(result['usage']) == 1
+    graph = local_graph(InMemorySaver(), store=MemoryStore())
+    model.responses.append({'questions': [candidate]})
+    completed = await graph.ainvoke({'document': reference}, run_config())
+    assert completed['result']['questions'][0]['needsReview']
+    assert completed['processing']['quality']['reviewRequired']
+    assert any('Answer/source conflict' in warning for warning in completed['result']['warnings'])
+    assert len(model.calls) == 2
+
+
 def test_known_source_rejects_paraphrased_stem():
     candidate = {**question('Reworded question'), 'id': 'fragment:1:1', 'answerPayload': {'text': 'A'}}
     hints = {'fragment:1:1': {'need_stem': True, 'stem_sha256': stem_hash('Original question')}}
