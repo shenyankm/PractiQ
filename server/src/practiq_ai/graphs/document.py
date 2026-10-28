@@ -1745,10 +1745,6 @@ async def _merge(state: DocumentState, *, passive: bool = False) -> dict[str, An
         for item in ordered
         if item["parsed"] is not None
     ])
-    if not pages and state.get("normalization") and state["document"].get("sourceType") in {"xls", "xlsx"}:
-        chunk_sources = state.get("chunkSources", [])
-        for index, result in parsed:
-            _scope_sheet_ids(result, chunk_sources[index]["sourceIndex"])
     text_ref = state.get("textRef")
     source_text = None
     if not pages and text_ref:
@@ -1775,7 +1771,7 @@ async def _merge(state: DocumentState, *, passive: bool = False) -> dict[str, An
                     rows = list(ElementTree.fromstring(layouts[0]).iter('tr'))
                     cells = [list(row.iter('td')) for row in rows]
                     if cells and all(cell.get('rowspan', '1') == cell.get('colspan', '1') == '1' for row in cells for cell in row):
-                        ocr_texts[page_index] = '\n'.join('\t'.join(''.join(cell.itertext()) for cell in row) for row in cells)
+                        ocr_texts[page_index] = '\n'.join('\t'.join(' '.join(''.join(cell.itertext()).split()) for cell in row) for row in cells)
                         continue
                 ocr_texts[page_index] = '\n'.join(_ocr_source_lines(page))
     warnings.extend(f"Answer/source conflict for {question.id or question.stem}: verify the supplied answer before grading."
@@ -1796,6 +1792,10 @@ async def _merge(state: DocumentState, *, passive: bool = False) -> dict[str, An
         warnings.extend(f"Source evidence, {'page' if pages else 'fragment'} {index + 1}, question {question + 1}: "
                         f"removed unverified {', '.join(fields)}; retained the question for review."
                         for question, fields in removed)
+    if not pages and state.get("normalization") and state["document"].get("sourceType") in {"xls", "xlsx"}:
+        chunk_sources = state.get("chunkSources", [])
+        for index, result in parsed:
+            _scope_sheet_ids(result, chunk_sources[index]["sourceIndex"])
     questions, groups, merge_warnings, merge_truncated, question_sources, quality = await _thread_io(partial(
         merge_chunk_results, [(index, item.questions, item.groups) for index, item in parsed], overlapping=not pages,
         source_text=source_text, chunk_spans=state.get("chunkSpans") if not pages else None,

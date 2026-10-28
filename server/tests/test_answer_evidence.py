@@ -9,6 +9,7 @@ import pytest
 from practiq_ai.contracts import ParsedQuestion, document_source_key
 from practiq_ai.graphs import document
 from practiq_ai.graphs.answer_evidence import retain_source_answers
+from practiq_ai.normalization import OfficeNormalization
 from tests.support import (
     FakeModel,
     MemoryStore,
@@ -65,6 +66,34 @@ def test_explicit_sections_cannot_supply_fields_to_the_preceding_question():
     text = '1. Printed?\nSection: Notes\nAnswer: 4\nAnalysis: Supplied explanation.'
     assert retain_source_answers([candidate], text, []) == [(0, ['answerPayload', 'analysis'])]
     assert candidate.answerPayload is None and candidate.analysis is None and candidate.needsReview
+
+
+@pytest.mark.parametrize('newline', ['\n', '\r\n'])
+@pytest.mark.parametrize('answer_last', [False, True])
+@pytest.mark.parametrize('exercise', [
+    'Ordering — Arrange the morning\nItems: 0. Wake; 1. Eat. Answer order: 0, 1.',
+    'Matching - Match words\nLeft: 0. One. Right: 0. 1. Answer: left 0 -> right 0.',
+    'Short answer: Other?\nAnswer: 5',
+])
+def test_unnumbered_exercises_end_the_preceding_questions_fields(newline, answer_last, exercise):
+    candidate = ParsedQuestion.model_validate({**question('The sky is blue.'), 'answerMode': 'true_false',
+                                              'answerPayload': {'value': True}, 'analysis': 'Supplied reason.'})
+    fields = ['Answer: True.', 'Analysis: Supplied reason.']
+    if answer_last:
+        fields.reverse()
+    text = '\n'.join(['1. True or false: The sky is blue.', *fields, '', exercise]).replace('\n', newline)
+    assert retain_source_answers([candidate], text, []) == []
+    assert candidate.model_dump()['answerPayload'] == {'value': True}
+    assert candidate.analysis == 'Supplied reason.'
+
+
+@pytest.mark.parametrize('heading', ['Short answer:', 'True or false:'])
+def test_unnumbered_exercises_cannot_supply_answers_to_the_preceding_question(heading):
+    candidate = ParsedQuestion.model_validate({**question('The sky is blue.'), 'answerMode': 'true_false',
+                                              'answerPayload': {'value': True}})
+    text = f'1. True or false: The sky is blue.\n{heading} Other?\nAnswer: True.'
+    assert retain_source_answers([candidate], text, []) == [(0, ['answerPayload'])]
+    assert candidate.answerPayload is None and candidate.needsReview
 
 
 @pytest.mark.parametrize('mode,printed,kept', [
@@ -352,25 +381,29 @@ async def test_text_ocr_cannot_add_answer_evidence_missing_from_original(monkeyp
 
 
 @pytest.mark.parametrize('prefix', ['', '1. ', 'Short answer: ', '1. Short answer: '])
-async def test_native_table_merge_retains_supplied_answers_and_clears_answerless_rows(monkeypatch, prefix):
+@pytest.mark.parametrize('whitespace', [' ', '\n', '\r\n', '\t'])
+async def test_native_table_merge_retains_supplied_answers_and_clears_answerless_rows(monkeypatch, prefix, whitespace):
     files, reference = source('synthetic table source')
     old_key = reference['objectKey']
     reference.update(sourceType='xlsx', mediaType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                      objectKey=document_source_key('xlsx', reference['sha256']))
     files.blobs[reference['objectKey']] = files.blobs.pop(old_key)
-    layout = f'<table><tr><td>题目</td><td>答案</td><td>解析</td></tr><tr><td>{prefix}First?</td><td>4</td><td>printed</td></tr><tr><td>Second?</td><td></td><td></td></tr></table>'
+    layout = (f'<table><tr><td>题目</td><td>答案</td><td>解析</td></tr><tr><td>{prefix}First{whitespace}question?</td>'
+              f'<td>4{whitespace}units</td><td>printed{whitespace}explanation.</td></tr><tr><td>Second?</td><td></td><td></td></tr>'
+              '<tr><td>Unaffected?</td><td>5</td><td>printed explanation.</td></tr></table>')
     ocr = await files.put_artifact(json.dumps({'format': 'table', 'elements': [{'layout_xml': layout}]}).encode(),
         source_sha256=reference['sha256'], kind='ocr-page', index=0, media_type='application/json')
-    parsed = {'questions': [{**question(stem), 'id': f'page:1:{index}', 'answerPayload': {'text': '4'}, 'analysis': 'printed'}
-                            for index, stem in enumerate(['First?', 'Second?'], 1)]}
+    parsed = {'questions': [{**question(stem), 'id': f'page:1:{index}', 'answerPayload': {'text': answer}, 'analysis': 'printed explanation.'}
+                            for index, (stem, answer) in enumerate([('First question?', '4 units'), ('Second?', '4 units'), ('Unaffected?', '5')], 1)]}
     monkeypatch.setattr(document, 'get_object_store', lambda: files)
     result = await document._merge(cast(document.DocumentState, {
         'document': reference, 'pageRefs': [ocr.model_dump()], 'ocrPageRefs': [ocr.model_dump()], 'visualTotal': 1,
         'visionResults': [{'index': 0, 'kind': 'page', 'artifact': ocr.model_dump(), 'parsed': parsed, 'visuals': []}],
     }), passive=True)
     kept = result['result']['questions']
-    assert kept[0]['answerPayload'] == {'text': '4'} and kept[0]['analysis'] == 'printed'
+    assert kept[0]['answerPayload'] == {'text': '4 units'} and kept[0]['analysis'] == 'printed explanation.'
     assert kept[1]['answerPayload'] is None and kept[1]['analysis'] is None and kept[1]['needsReview']
+    assert kept[2]['answerPayload'] == {'text': '5'} and kept[2]['analysis'] == 'printed explanation.'
 
 
 async def test_answer_key_proof_never_crosses_a_failed_ocr_page(monkeypatch):
@@ -390,28 +423,35 @@ async def test_answer_key_proof_never_crosses_a_failed_ocr_page(monkeypatch):
     assert kept['answerPayload'] is None and kept['needsReview']
 
 
-async def test_resumed_tabular_fragments_restore_source_headers_before_proof(monkeypatch):
+@pytest.mark.parametrize('same_stem', [False, True])
+async def test_resumed_tabular_fragments_restore_source_headers_before_proof(monkeypatch, same_stem):
     files, reference = source('synthetic workbook source')
     old_key = reference['objectKey']
     reference.update(sourceType='xlsx', mediaType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                      objectKey=document_source_key('xlsx', reference['sha256']))
     files.blobs[reference['objectKey']] = files.blobs.pop(old_key)
     header = 'id\troot_task\tparent_id\toption_owner\tstem\tquestion_type\treference_answer\tevidence'
-    rows = [f'{index}\t{index}\t\t\tQ{index}\tShort answer\tA{index}\t'
+    stems = ['Repeated?' if same_stem else f'Q{index}' for index in range(1, 18)]
+    rows = [f'{index}\t{index}\t\t\t{stems[index - 1]}\tShort answer\tA{index}\t'
             + json.dumps({'analysis': f'Printed explanation {index}'}) for index in range(1, 18)]
     text = header + '\n' + '\n'.join(rows)
     text_ref = await files.put_artifact(text.encode(), source_sha256=reference['sha256'], kind='text', index=0, media_type='text/plain')
+    normalized_ref = await files.put_artifact(text.encode(), source_sha256=reference['sha256'], kind='office', index=0, media_type='text/csv')
+    normalization = OfficeNormalization.model_validate({
+        'sourceSha256': reference['sha256'], 'mode': 'text', 'engine': {'name': 'test-office'},
+        'sources': [{'index': 0, 'name': 'Sheet1.csv', 'sourceType': 'csv', 'hasContent': True, 'reference': normalized_ref.model_dump()}],
+    })
     units = [{'start': 0, 'end': len(text), 'fileName': 'Sheet1.csv', 'sourceType': 'csv', 'sourceIndex': 0, 'tabularRowsSafe': True}]
     monkeypatch.setattr(document, 'get_object_store', lambda: files)
     monkeypatch.setattr(document, 'get_model', lambda: pytest.fail('resumed merge must be passive'))
     prepared = await document._assemble(cast(document.DocumentState, {'document': reference, 'textRef': text_ref.model_dump(), 'textUnits': units}))
     assert prepared['chunkHeaders'] == [None, header] and prepared['chunkNodeCounts'] == [16, 1]
     chunks = [{'index': unit, 'parsed': {'questions': [
-        {**question(f'Q{index}'), 'id': f'fragment:{unit + 1}:{index}', 'sourceText': rows[index - 1],
+        {**question(stems[index - 1]), 'id': f'fragment:{unit + 1}:{index}', 'sourceText': rows[index - 1],
          'answerPayload': {'text': f'A{index}'}, 'analysis': f'Printed explanation {index}'}
         for index in indexes]}} for unit, indexes in enumerate([range(1, 17), range(17, 18)])]
     result = await document._merge(cast(document.DocumentState, {
-        'document': reference, 'textRef': text_ref.model_dump(), 'textUnits': units,
+        'document': reference, 'textRef': text_ref.model_dump(), 'textUnits': units, 'normalization': normalization.model_dump(),
         'tabularRowsSafe': True, 'effectiveSourceType': 'csv', **prepared, 'chunkResults': chunks,
     }), passive=True)
     kept = result['result']['questions']

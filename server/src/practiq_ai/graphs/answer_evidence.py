@@ -7,6 +7,7 @@ from ..contracts import ParsedQuestion, question_missing_fields
 from .chunking import (
     _INLINE_LOCAL_FIELD,
     _QUESTION_LABELS,
+    _UNNUMBERED_EXERCISE,
     QUESTION_BOUNDARY_PATTERN,
     _reference_supplied,
 )
@@ -64,6 +65,7 @@ def _records(text: str) -> list[tuple[str | None, str]]:
         return table
     starts = [match for match in QUESTION_BOUNDARY_PATTERN.finditer(text)
               if not (match[0].rstrip().endswith(('.', '．')) and text[match.end():match.end() + 1].isdigit())]
+    starts = sorted([*starts, *_UNNUMBERED_EXERCISE.finditer(text)], key=lambda match: match.start())
     records = []
     for index, match in enumerate(starts):
         number = re.search(r'\d+', match[0])

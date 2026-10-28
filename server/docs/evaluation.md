@@ -262,10 +262,14 @@ spelling, including `3.00`, `1e-3` and `-0`; numeric equivalence is not a proof.
 Choice labels and boolean aliases ignore a terminal period. Printed ordering
 sequences (`1, 0`) and matching pairs (`left 0 -> right 0; left 1 -> right 1`)
 may also end in a period; the complete sequence or pair list must match.
-Explicit `Section:` headings terminate local answer and explanation evidence.
+Explicit `Section:` and supported unnumbered exercise headings terminate local
+answer and explanation evidence.
 Local fields and an answer key may corroborate one another, but all supplied values must
 agree. Resumed tabular fragments reuse their stored source headers so later
 rows retain the same column associations used during extraction.
+Workbook row IDs establish answer associations before worksheet ID scoping.
+Native table cell layout whitespace is normalized within each cell before
+serializing rows, so embedded newlines or tabs cannot change column associations.
 Standalone answer labels remain local fields unless numbered key entries follow.
 Unnumbered choice questions may include option lines only when their labels and
 contents match the extracted options; extra question or material lines remain
