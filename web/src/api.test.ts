@@ -438,6 +438,62 @@ it("reuses an uncertain source intent by verified content when caller changes th
   expect(JSON.parse(creates[0][1].body as string)).toEqual(JSON.parse(creates[1][1].body as string));
 });
 
+it("recovers a create after reload with its original request and options without persisting credentials", async () => {
+  const fetcher = mockUpload({ networkAtCreate: true });
+  const first = new Client("private-token");
+  await expect(first.start(new File(["same"], "same.txt"), capabilities, taskId, () => {}, true)).rejects.toMatchObject({ code: "NETWORK_ERROR" });
+  first.disconnect();
+  const restored = new Client("private-token");
+  expect(restored.pendingImports()).toHaveLength(1);
+  expect(JSON.stringify(localStorage)).not.toContain("private-token");
+  const original = restored.pendingImports()[0];
+  fetcher.mockImplementation(async (_path, init) => json({ ...receipt, requestId: JSON.parse(init.body as string).requestId }, 202));
+  await restored.retryImport(original.requestId);
+  expect(JSON.parse(fetcher.mock.calls.at(-1)![1].body as string)).toEqual(original);
+  expect(restored.pendingImports()).toEqual([]);
+});
+
+it("refuses a new create when recovery metadata cannot be saved", async () => {
+  const fetcher = mockUpload({ existing: true });
+  vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new DOMException("full", "QuotaExceededError"); });
+  await expect(new Client("fake").start(new File(["x"], "a.txt"), capabilities, taskId, () => {})).rejects.toMatchObject({ code: "RECOVERY_STORAGE_UNAVAILABLE" });
+  expect(fetcher.mock.calls.some(([url]) => url === "/api/document-tasks")).toBe(false);
+});
+
+it("persists only verified file metadata even if an upload response has extra fields", async () => {
+  const fetcher = mockUpload({ existing: true, networkAtCreate: true });
+  const original = fetcher.getMockImplementation()!;
+  fetcher.mockImplementation(async (path, init) => {
+    const response = await original(path, init);
+    if (path !== "/api/uploads") return response;
+    const prepared = await response.json();
+    return json({ ...prepared, document: { ...prepared.document, secret: "must-not-persist" } });
+  });
+  const client = new Client("private-token");
+  await expect(client.start(new File(["same"], "same.txt"), capabilities, taskId, () => {})).rejects.toMatchObject({ code: "NETWORK_ERROR" });
+  expect(client.pendingImports()).toHaveLength(1);
+  expect(JSON.stringify(localStorage)).not.toContain("must-not-persist");
+});
+
+it.each(["not JSON", "{}", '[{}]', '[{"requestId":"bad"}]'])("rejects malformed recovery metadata without posting: %s", raw => {
+  localStorage.setItem("practiq-import-intents-v1", raw);
+  const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);
+  expect(() => new Client("fake").pendingImports()).toThrow("原提交恢复记录");
+  expect(fetcher).not.toHaveBeenCalled();
+  expect(localStorage.getItem("practiq-import-intents-v1")).toBe(raw);
+});
+
+it("reselecting a pending source after reload keeps the original deduplication option", async () => {
+  const fetcher = mockUpload({ networkAtCreate: true });
+  const file = new File(["same"], "same.txt");
+  await expect(new Client("fake").start(file, capabilities, taskId, () => {}, true)).rejects.toMatchObject({ code: "NETWORK_ERROR" });
+  await expect(new Client("fake").start(file, capabilities, runId, () => {}, false)).rejects.toMatchObject({ code: "NETWORK_ERROR" });
+  const bodies = fetcher.mock.calls.filter(([url]) => url === "/api/document-tasks").map(([, init]) => JSON.parse(init.body as string));
+  expect(bodies[1]).toEqual(bodies[0]);
+  const client = new Client("fake"); client.forgetImport(taskId);
+  expect(client.pendingImports()).toEqual([]);
+});
+
 it.each([{ limit: -1, unitCalls: 4, contextUnitCalls: 8 }, { limit: 400, unitCalls: 0, contextUnitCalls: 8 }, { limit: 400, unitCalls: 4, contextUnitCalls: 1.5 }])("rejects invalid model capacity: %s", async modelBudget => {
   vi.stubGlobal("fetch", vi.fn(async () => json({ ...capabilities, modelBudget })));
   await expect(new Client("fake").capabilities()).rejects.toMatchObject({ code: "INVALID_RESPONSE" });

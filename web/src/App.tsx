@@ -3,7 +3,7 @@ import { Select, SelectOption } from "./components/ui/select";
 import { Upload, Play, RefreshCw, Download, Trash2, LockKeyhole, ChevronLeft, ChevronRight, FileText, LoaderCircle, History, Settings, Pause, Square } from "lucide-react";
 import logo from "./assets/octopus.png";
 import { ApiError, Client, downloadBlob, fileFormat, MAX_FILES, sourceLimit, validateFiles, type Action, type Capabilities, type TaskList, type UploadStage } from "./api";
-import type { DocumentTaskDetail, DocumentTaskReview, DocumentTaskSummary } from "./contracts.generated";
+import type { DocumentTaskCreate, DocumentTaskDetail, DocumentTaskReview, DocumentTaskSummary } from "./contracts.generated";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
@@ -102,6 +102,12 @@ export default function App() {
   const tokenField = useRef<HTMLInputElement>(null);
   const [operationError, setOperationError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [pendingImports, setPendingImports] = useState<DocumentTaskCreate[]>([]);
+  useEffect(() => {
+    if (!client || busy) return;
+    try { setPendingImports(client.pendingImports()); }
+    catch (error) { setOperationError(errorText(error)); }
+  }, [client, busy]);
 
   const [deleteTarget, setDeleteTarget] = useState<{ threadId: string; fileName: string } | null>(null);
   const operationNotice = useRef<HTMLDivElement>(null);
@@ -299,7 +305,7 @@ export default function App() {
               {!!files.length && <ul className="file-list">{files.map(item => <li key={item.id}><div><strong>{item.file.name}</strong><span>{sizeLabel(item.file.size)} · {fileLabels[item.state]} · {formatLabels[fileFormat(item.file).sourceType]} · 腾讯文档识别 → AI 整理</span>{item.error && <><p role="alert" className="text-destructive">{item.error}</p><small>原提交请求 ID：{item.requestId ?? item.id}</small></>}</div>{["ready", "failed"].includes(item.state) && <Button size="icon" variant="ghost" disabled={busy} aria-label={`移除文件 ${item.file.name}`} onClick={() => setFiles(previous => previous.filter(file => file.id !== item.id))}><Trash2 /></Button>}{item.state === "failed" && <Button size="sm" variant="outline" disabled={busy || capabilities.parserConfigured === false || !capabilities.modelConfigured} onClick={() => void start([item])}>重试开始</Button>}</li>)}</ul>}
               <div className="space-y-1"><label className="review-checkbox"><input type="checkbox" aria-describedby="dedup-help" checked={deduplicateQuestions} disabled={busy || !!files.length && !files.some(file => file.state === "ready")} onChange={event => setDeduplicateQuestions(event.target.checked)} />自动去重</label><p id="dedup-help" className="text-xs text-muted-foreground">仅去除完全相同的题目或整组复合题；关闭则全部保留。</p></div>
               <div className="import-submit"><p>点击“开始导入”后上传并调用模型。启用 AI 复核会增加调用与费用，结果仍需人工核对。</p><Button disabled={busy || capabilities.parserConfigured === false || !capabilities.modelConfigured || !files.some(file => file.state === "ready")} onClick={() => void start(files.filter(file => file.state === "ready"))}>{busy ? <LoaderCircle className="loading-icon" /> : <Play />}开始导入</Button></div>
-              {files.some(file => file.state === "failed") && <p className="text-xs text-muted-foreground">本批次已停止，剩余文件尚未提交。失败提交的原文件、请求 ID 和参数已保留，重新选文件不会覆盖。请先刷新任务列表核对结果，再手动“重试开始”沿用原请求；移除文件只清理本页队列，不会取消服务端任务。刷新或关闭页面会丢失此记录。</p>}
+              {files.some(file => file.state === "failed") && <p className="text-xs text-muted-foreground">本批次已停止，剩余文件尚未提交。请先刷新任务列表核对结果，再手动“重试开始”沿用原请求；移除文件只清理本页队列，不会取消服务端任务。已发起的创建请求会保留本机恢复记录；尚未上传的文件需重新选择。</p>}
             </>}
           </CardContent></Card>
           {capabilities && <aside className="import-guide" aria-label="导入说明">
@@ -339,6 +345,8 @@ export default function App() {
               {!detailFresh && <p className="notice">当前显示上次成功读取的信息，任务操作已停用，请先刷新。</p>}
               {preview && preview.checkpointId !== detail.checkpointId && <p className="notice">任务检查点正在更新，读取一致后才能继续或导出。</p>}
               <Progress task={detail} />
+              {(detail.blocking.includes("MODEL_RESULT_UNKNOWN") || detail.unknownUsageCalls.length > 0) && <div className="notice" role="alert"><p>模型请求已发送，但结果尚未确认。已保存的题目、检查点和用量记录仍保留。</p><p>请先核对模型供应商的调用记录；继续解析或重试可能再次计费，不会自动重试未知调用。</p></div>}
+              {detail.blocking.includes("RUN_DEADLINE_EXCEEDED") && <p className="notice" role="alert">本轮解析已达到运行时限，已保存的进度仍保留。可按可用操作继续解析，后续模型调用可能计费。</p>}
               <div className="task-actions" aria-label="当前任务操作">{detail.allowedActions.map(action => <Button key={action} variant="outline" disabled={busy || !detailFresh || (!["pause", "interrupt"].includes(action) && !matchingCheckpoint) || (!["pause", "interrupt"].includes(action) && (!detail.modelConfigured || !detail.resumeCompatible))} onClick={() => act(action)}>{action === "pause" ? <Pause /> : action === "interrupt" ? <Square /> : action === "resume" ? <Play /> : <RefreshCw />}{actionLabels[action]}</Button>)}<Button disabled={busy || !canExport} onClick={() => void run(async current => { const exported = await current.exportBank(detail); if (current.active) { downloadBlob(exported.blob, exported.name); setNotice("题库 ZIP 已下载。每次导出包含当前全部已完成内容，重复导入会创建独立题库。请在应用设置中追加导入。"); } })}><Download />下载题库 ZIP</Button></div>
               {detail.state !== "COMPLETED" && <p className="text-sm text-muted-foreground">暂停后可下载已完成题目，需有可用题目且检查点一致。</p>}
               <details className="task-secondary-actions"><summary>其他任务操作</summary><p className="text-sm text-muted-foreground">重新解析会重新提交腾讯识别并创建新的 AI 整理请求，可能再次计费；删除会移除此任务和检查点。已下载的题库不受影响。</p><div className="task-actions"><Button variant="outline" disabled={busy || !detailFresh || !detail.modelConfigured || detail.state === "EXPIRED"} onClick={() => void run(async current => { const receipt = await current.reparse(detail.threadId); if (current.active) { setSelected(value => value === detail.threadId ? receipt.threadId : value); setListRevision(value => value + 1); setDetailRevision(value => value + 1); setNotice("新解析任务已创建。"); } })}><RefreshCw />重新解析为新任务</Button><Button variant="destructive" disabled={busy || !detailFresh || ["RUNNING", "PENDING", "PAUSING"].includes(detail.state)} onClick={() => setDeleteTarget({ threadId: detail.threadId, fileName: detail.fileName })}><Trash2 />删除任务</Button></div></details>
@@ -362,6 +370,7 @@ export default function App() {
         {capError && <div className="error-banner" role="alert"><span className="min-w-0 flex-1">{capError}</span><Button variant="outline" onClick={() => setCapRevision(value => value + 1)}>重试读取服务能力</Button></div>}
         {notice && <p className="notice operation-notice" role="status">{notice}</p>}
         {operationError && <div ref={operationNotice} className="error-banner" role="alert"><span className="min-w-0 flex-1">{operationError}</span></div>}
+        {!!pendingImports.length && <section className="notice" aria-label="未确认的导入提交"><h2>未确认的导入提交</h2><p>原请求 ID 与文件引用已保存在本机，不含令牌或文件内容。请先查看导入记录；重试沿用原请求和参数，已有任务会返回原回执，尚未创建则会开始解析并可能计费。</p><p>清除本机恢复记录不会取消服务端任务；之后再次导入会视为新提交，可能重复计费。</p><ul>{pendingImports.map(request => <li key={request.requestId}><p>{request.document.fileName} · 自动去重：{request.deduplicateQuestions ? "开启" : "关闭"}</p><small>原提交请求 ID：{request.requestId}</small><div className="task-actions"><Button variant="outline" disabled={busy || !capabilities?.modelConfigured || capabilities.parserConfigured === false} onClick={() => void run(async current => { const receipt = await current.retryImport(request.requestId); if (current.active) { navigate("records"); setSelected(receipt.threadId); setListRevision(value => value + 1); setDetailRevision(value => value + 1); setNotice("原提交已确认，正在读取服务端任务。"); } })}>重试原提交</Button><Button variant="ghost" disabled={busy} onClick={() => void run(async current => { current.forgetImport(request.requestId); setNotice("本机恢复记录已清除，服务端任务不受影响。"); })}>已核对，清除恢复记录</Button></div></li>)}</ul></section>}
         {busy && <p role="status" className="operation-status"><LoaderCircle className="loading-icon" aria-hidden="true" />正在处理当前操作，请勿重复提交。</p>}
         <div hidden={page !== "import"} className="import-page">
           {importContent}
