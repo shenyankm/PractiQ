@@ -73,6 +73,7 @@ def _records(text: str) -> list[tuple[str | None, str]]:
 
 
 def _fields(record: str) -> dict[str, list[str]]:
+    record = re.split(r'^[ \t]*Section:[ \t]*\S', record, maxsplit=1, flags=re.IGNORECASE | re.MULTILINE)[0]
     matches = list(_INLINE_LOCAL_FIELD.finditer(record))
     fields: dict[str, list[str]] = {'answerPayload': [], 'analysis': []}
     for index, match in enumerate(matches):
@@ -125,9 +126,19 @@ def _answer_matches(question: ParsedQuestion, printed: str) -> bool:
         expected = payload.get('answers')
         return isinstance(expected, list) and all(isinstance(item, str) for item in [*answers, *expected]) and [_literal(item) for item in answers] == [_literal(item) for item in expected]
     if question.answerMode == 'ordering':
-        return isinstance(decoded, list) and json.dumps(decoded) == json.dumps(payload.get('order'))
+        if isinstance(decoded, list):
+            return json.dumps(decoded) == json.dumps(payload.get('order'))
+        order = payload.get('order')
+        return bool(order) and all(type(item) is int for item in order) and re.fullmatch(
+            r'\s*' + r'\s*,\s*'.join(map(str, order)) + r'\s*[.。．]?\s*', printed) is not None
     if question.answerMode == 'matching':
-        return isinstance(decoded, list) and json.dumps(decoded, sort_keys=True) == json.dumps(payload.get('matches'), sort_keys=True)
+        if isinstance(decoded, list):
+            return json.dumps(decoded, sort_keys=True) == json.dumps(payload.get('matches'), sort_keys=True)
+        pairs = payload.get('matches')
+        return bool(pairs) and all(isinstance(pair, dict) and type(pair.get('left')) is int and type(pair.get('right')) is int
+                                   for pair in pairs) and re.fullmatch(
+            r'\s*' + r'\s*;\s*'.join(rf'left\s+{pair["left"]}\s*->\s*right\s+{pair["right"]}' for pair in pairs)
+            + r'\s*[.。．]?\s*', printed, re.IGNORECASE) is not None
     return False
 
 

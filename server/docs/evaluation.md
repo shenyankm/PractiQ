@@ -259,8 +259,11 @@ Table stems may omit printed question numbers and recognized type labels.
 Numbered answer-key entries may include an `Answer:` or `Reference answer:` label.
 Numeric short-answer and single-value fill-blank text preserves its printed
 spelling, including `3.00`, `1e-3` and `-0`; numeric equivalence is not a proof.
-Only choice labels and boolean aliases ignore a terminal period. Local fields
-and an answer key may corroborate one another, but all supplied values must
+Choice labels and boolean aliases ignore a terminal period. Printed ordering
+sequences (`1, 0`) and matching pairs (`left 0 -> right 0; left 1 -> right 1`)
+may also end in a period; the complete sequence or pair list must match.
+Explicit `Section:` headings terminate local answer and explanation evidence.
+Local fields and an answer key may corroborate one another, but all supplied values must
 agree. Resumed tabular fragments reuse their stored source headers so later
 rows retain the same column associations used during extraction.
 Standalone answer labels remain local fields unless numbered key entries follow.

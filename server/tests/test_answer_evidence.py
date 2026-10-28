@@ -44,6 +44,54 @@ def test_literal_answers_and_explanations_are_preserved(mode, payload, printed):
     assert candidate.model_dump()['answerPayload'] == payload and candidate.analysis == 'Supplied explanation.'
 
 
+@pytest.mark.parametrize('newline', ['\n', '\r\n'])
+@pytest.mark.parametrize('heading', ['Section: Second', ' \tsection:\tSecond'])
+@pytest.mark.parametrize('answer_last', [False, True])
+def test_explicit_sections_end_local_answer_and_analysis_fields(newline, heading, answer_last):
+    candidate = ParsedQuestion.model_validate({**question('Printed?'), 'answerPayload': {'text': '4'},
+                                              'analysis': 'Supplied explanation.'})
+    fields = ['Answer: 4', 'Analysis: Supplied explanation.']
+    if answer_last:
+        fields.reverse()
+    text = newline.join(['Section: First', '1. Printed?', *fields, heading, '2. Other?', 'Answer: 5'])
+    assert retain_source_answers([candidate], text, []) == []
+    assert candidate.model_dump()['answerPayload'] == {'text': '4'}
+    assert candidate.analysis == 'Supplied explanation.'
+
+
+def test_explicit_sections_cannot_supply_fields_to_the_preceding_question():
+    candidate = ParsedQuestion.model_validate({**question('Printed?'), 'answerPayload': {'text': '4'},
+                                              'analysis': 'Supplied explanation.'})
+    text = '1. Printed?\nSection: Notes\nAnswer: 4\nAnalysis: Supplied explanation.'
+    assert retain_source_answers([candidate], text, []) == [(0, ['answerPayload', 'analysis'])]
+    assert candidate.answerPayload is None and candidate.analysis is None and candidate.needsReview
+
+
+@pytest.mark.parametrize('mode,printed,kept', [
+    ('ordering', '1, 0', True), ('ordering', '1,0.', True), ('ordering', '1,\n0。', True),
+    ('ordering', '0, 1', False), ('ordering', '1, 0 or 0, 1', False),
+    ('ordering', '1, 0 extra', False), ('ordering', '1, 0, 1', False),
+    ('ordering', '1e0, 0', False), ('ordering', '11, 0', False),
+    ('matching', 'left 0 -> right 0; left 1 -> right 1.', True),
+    ('matching', 'LEFT 0->RIGHT 0 ;\nleft 1 -> right 1', True),
+    ('matching', 'left 0 -> right 1; left 1 -> right 0.', False),
+    ('matching', 'left 0 -> right 0; left 1 -> right 1 or right 0.', False),
+    ('matching', 'left 0 -> right 0; left 1 -> right 1. Extra', False),
+    ('matching', 'left 0 -> right 0; left 1 -> right 1; left 0 -> right 1', False),
+    ('matching', 'left 0 -> right 0', False),
+    ('matching', 'left 0 -> right 0; left 11 -> right 1.', False),
+])
+def test_printed_structured_answers_require_the_complete_sequence_or_pairs(mode, printed, kept):
+    payload = {'order': [1, 0]} if mode == 'ordering' else {'matches': [{'left': 0, 'right': 0}, {'left': 1, 'right': 1}]}
+    items = ([{'id': index, 'content': str(index)} for index in range(2)] if mode == 'ordering' else
+             [{'id': index, 'side': side, 'content': str(index)} for side in ['left', 'right'] for index in range(2)])
+    candidate = ParsedQuestion.model_validate({**question('Printed?'), 'answerMode': mode, 'answerPayload': payload,
+        'items': items, **({'matchingVariant': 'one_to_one'} if mode == 'matching' else {})})
+    changes = retain_source_answers([candidate], f'1. Printed?\nAnswer: {printed}', [])
+    assert changes == ([] if kept else [(0, ['answerPayload'])])
+    assert candidate.model_dump()['answerPayload'] == (payload if kept else None)
+
+
 @pytest.mark.parametrize('text', [
     '1. Printed question?\nA. four\nB. five',
     '1. Printed question?\n2. Different question?\nAnswer: four\nAnalysis: guessed',
@@ -195,6 +243,9 @@ def test_choice_labels_require_printed_answer_evidence(printed, answer, kept):
 @pytest.mark.parametrize('mode,payload', [
     ('short_answer', {'text': None}), ('fill_blank', {'answers': None}),
     ('true_false', {'value': None}),
+    ('ordering', {'order': None}), ('ordering', {'order': [0, None]}),
+    ('matching', {'matches': None}), ('matching', {'matches': [None]}),
+    ('matching', {'matches': [{'left': 0}]}),
 ])
 def test_incomplete_answer_payloads_remain_reviewable_without_crashing(mode, payload):
     candidate = ParsedQuestion.model_validate({**question('Printed?'), 'answerMode': mode,
