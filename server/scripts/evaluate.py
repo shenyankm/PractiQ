@@ -68,7 +68,7 @@ MEDIA_TYPES = {
 }
 BLOCKING_CODES = {
     "AI_PROVIDER_ERROR", "AI_PROVIDER_UNAVAILABLE", "OBJECT_STORE_UNAVAILABLE",
-    "VISION_MODEL_REQUIRED", "CONFIGURATION_ERROR", "UPLOAD_UNAVAILABLE",
+    "VISION_MODEL_REQUIRED", "CONFIGURATION_ERROR", "UPLOAD_UNAVAILABLE", "MODEL_RESULT_UNKNOWN",
 }
 FORBIDDEN_REPORT_KEYS = {
     "apikey", "authorization", "databaseurl", "databaseuri", "headers", "password",
@@ -879,8 +879,10 @@ PROBE_TESTS = {
                                 "test_model_result_survives_artifact_write_failure",
                                 "test_retry_page_preserves_successes_without_text_model_or_chunks"],
         "test_evaluation": ["test_transient_probe_recovers_with_trace"],
+        "test_task_api": ["test_model_timeout_waits_for_explicit_resume_without_losing_receipts"],
     },
     "correctStopRate": {
+        "test_evaluation": ["test_unknown_model_probe_stops_with_trace"],
         "test_messaging": ["test_shutdown_during_delivery_admission_does_not_start_execution",
                            "test_queued_pause_stops_without_broker_and_requires_explicit_resume",
                            "test_resume_queued_pause_preserves_selected_retry_input_or_review_command"],

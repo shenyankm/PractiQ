@@ -7,6 +7,36 @@ import type { DocumentTaskDetail } from "./contracts.generated";
 
 beforeEach(() => window.history.replaceState(null, "", "/"));
 
+it("explains unknown model outcomes next to explicit recovery controls", async () => {
+  const http = fakeHTTP({ ...task, state: "INTERRUPTED", status: null, result: null, failures: [], blocking: ["MODEL_RESULT_UNKNOWN"], allowedActions: ["resume"] });
+  const user = userEvent.setup(); render(<App />); await connect(user);
+  await user.click(screen.getByRole("link", { name: "导入记录" }));
+  await user.click(await screen.findByRole("button", { name: "sample.docx" }));
+  expect(await screen.findByText(/模型请求已发送，但结果尚未确认/)).toBeTruthy();
+  expect(screen.getByText(/继续解析或重试可能再次计费/)).toBeTruthy();
+  expect(screen.getByRole("button", { name: "继续解析" }).hasAttribute("disabled")).toBe(false);
+  expect(http.calls.every(call => call.method === "GET")).toBe(true);
+});
+
+it("offers original submission recovery after remount without automatically posting", async () => {
+  const http = fakeHTTP(); const user = userEvent.setup();
+  http.server.intercept = (url, init) => { if (url === "/api/document-tasks" && init.method === "POST") throw new TypeError("lost"); };
+  render(<App />); await connect(user);
+  await user.upload(screen.getByLabelText("选择文档"), new File(["same"], "same.txt"));
+  await user.click(screen.getByRole("checkbox", { name: "自动去重" }));
+  await user.click(screen.getByRole("button", { name: "开始导入" }));
+  await screen.findByRole("button", { name: "重试原提交" });
+  const original = http.calls.find(call => call.url === "/api/document-tasks" && call.method === "POST")!.body;
+  cleanup(); render(<App />); await connect(user);
+  await screen.findByRole("button", { name: "重试原提交" });
+  expect(http.calls.filter(call => call.url === "/api/document-tasks" && call.method === "POST")).toHaveLength(1);
+  http.server.intercept = undefined;
+  await user.click(screen.getByRole("button", { name: "重试原提交" }));
+  await screen.findByText("原提交已确认，正在读取服务端任务。");
+  expect(http.calls.filter(call => call.url === "/api/document-tasks" && call.method === "POST").map(call => call.body)).toEqual([original, original]);
+  expect(screen.queryByRole("button", { name: "重试原提交" })).toBeNull();
+});
+
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
 it("shows uncertain Tencent submission and saved jobs without automatically retrying", async () => {

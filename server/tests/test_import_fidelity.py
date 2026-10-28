@@ -160,11 +160,13 @@ async def test_shared_structuring_budget_preserves_known_usage_before_provider_f
     monkeypatch.setattr(document, "get_object_store", lambda: files)
     monkeypatch.setattr(document, "extract", AsyncMock(return_value=ExtractedDocument(text="", page_images=[make_image()])))
     tencent_provider(monkeypatch, [ocr_text_page("page")])
-    state = await local_graph().ainvoke({"document": reference})
-    failure = state["processing"]["failures"][0]
-    assert len(model.calls) > 1
-    assert failure["code"] == "AI_PROVIDER_UNAVAILABLE" and failure["retryable"]
-    assert len(state["usage"]) == 1
+    from practiq_ai.errors import DocumentProcessingError
+
+    with pytest.raises(DocumentProcessingError) as failure:
+        await local_graph().ainvoke({"document": reference})
+    assert len(model.calls) == 2
+    assert failure.value.code == "MODEL_RESULT_UNKNOWN"
+    assert len(failure.value.usage) == 1
 
 
 @pytest.mark.parametrize("field", ["instructions", "options", "items", "passage", "answerPayload", "scoringRubric"])

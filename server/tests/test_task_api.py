@@ -316,6 +316,32 @@ async def test_immediate_interrupt_reports_unknown_and_resumes_saved_work(monkey
     assert len(state["unknownUsageCalls"]) == len(state["usage"]) == 1
 
 
+async def test_model_timeout_waits_for_explicit_resume_without_losing_receipts(monkeypatch):
+    import httpx2
+    from openai import APITimeoutError
+
+    error = APITimeoutError(request=httpx2.Request('POST', 'https://example.invalid'))
+    api, reference, model = await setup_api(monkeypatch, [error, parsed()])
+    request = DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference))
+    created = await task_api.create_task(request)
+    await api.wait_idle()
+    state = await task_api.get_task(created['threadId'])
+    assert state['state'] == 'INTERRUPTED'
+    assert state['blocking'] == ['MODEL_RESULT_UNKNOWN']
+    assert state['allowedActions'] == ['resume']
+    assert len(state['unknownUsageCalls']) == len(model.calls) == 1
+    assert await task_api.create_task(request) == created
+    assert len(model.calls) == 1
+    await task_api.control_task(created['threadId'], DocumentTaskControl(
+        requestId=uuid4(), action='resume', checkpointId=state['checkpointId']))
+    await api.wait_idle()
+    recovered = await task_api.get_task(created['threadId'])
+    assert recovered['status'] == 'SUCCEEDED'
+    assert len(model.calls) == 2
+    assert len(recovered['unknownUsageCalls']) == len(recovered['usage']) == 1
+    assert recovered['modelBudget']['reserved'] >= state['modelBudget']['reserved']
+
+
 @pytest.mark.parametrize('review', [False, True])
 async def test_api_retry_limits_concurrency_and_exhaustion(monkeypatch, review):
     api, reference, model = await setup_api(monkeypatch, [parsed(), *([{'questions': [{'stem': ''}]}] * 6)], parts=['First', 'Second'])

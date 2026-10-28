@@ -9,6 +9,8 @@ export type Receipt = DocumentTaskReceipt;
 export type Action = DocumentTaskDetail["allowedActions"][number];
 export type UploadStage = "hashing" | "uploading" | "starting";
 const MIB = 1024 * 1024;
+const IMPORT_INTENTS = "practiq-import-intents-v1";
+const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 export const MAX_FILES = 10;
 export const MAX_BANK_ZIP_BYTES = 300 * MIB;
 const formats: Record<string, { sourceType: SourceType; mediaType: string }> = {
@@ -205,6 +207,46 @@ export class Client {
   detail(id: string, signal?: AbortSignal) { return this.json<DocumentTaskDetail>(`/api/document-tasks/${encodeURIComponent(id)}`, undefined, signal); }
   head(id: string, signal?: AbortSignal) { return this.json<DocumentTaskHead>(`/api/document-tasks/${encodeURIComponent(id)}/head`, undefined, signal); }
   preview(id: string, signal?: AbortSignal) { return this.json<DocumentTaskReview>(`/api/document-tasks/${encodeURIComponent(id)}/preview`, undefined, signal); }
+  pendingImports(): DocumentTaskCreate[] {
+    try {
+      const raw = localStorage.getItem(IMPORT_INTENTS);
+      if (!raw) return [];
+      if (raw.length > 100_000) throw new Error();
+      const records: DocumentTaskCreate[] = JSON.parse(raw);
+      if (!Array.isArray(records) || records.length > 50 || !records.every(record => {
+        const document = record?.document;
+        return record && Object.keys(record).every(key => ["requestId", "document", "graphId", "failurePolicy", "deduplicateQuestions"].includes(key))
+          && uuid.test(record.requestId) && record.graphId === "document_parser" && record.failurePolicy === "return_partial"
+          && (record.deduplicateQuestions === undefined || typeof record.deduplicateQuestions === "boolean")
+          && document && Object.keys(document).length === 6
+          && typeof document.fileName === "string" && document.fileName.length > 0 && document.fileName.length <= 255
+          && typeof document.sha256 === "string" && /^[a-f0-9]{64}$/.test(document.sha256)
+          && Number.isSafeInteger(document.sizeBytes) && document.sizeBytes > 0
+          && Object.values(formats).some(format => format.sourceType === document.sourceType && format.mediaType === document.mediaType)
+          && document.objectKey === `practiq-agent/sources/${document.sha256}/source.${document.sourceType === "text" ? "txt" : document.sourceType === "markdown" ? "md" : document.sourceType}`;
+      }) || new Set(records.map(record => record.requestId)).size !== records.length) throw new Error();
+      return records;
+    } catch {
+      throw new ApiError("无法读取本机的原提交恢复记录。请先核对导入记录并检查浏览器存储，勿重复提交。", "RECOVERY_STORAGE_UNAVAILABLE");
+    }
+  }
+  private saveImports(records: DocumentTaskCreate[]) {
+    try {
+      if (records.length > 50) throw new Error();
+      if (records.length) localStorage.setItem(IMPORT_INTENTS, JSON.stringify(records));
+      else localStorage.removeItem(IMPORT_INTENTS);
+    } catch {
+      throw new ApiError("无法保存原提交恢复记录。请检查浏览器存储并核对导入记录，勿重复提交。", "RECOVERY_STORAGE_UNAVAILABLE");
+    }
+  }
+  async retryImport(requestId: string) {
+    const request = this.pendingImports().find(record => record.requestId === requestId);
+    if (!request) throw new ApiError("原提交恢复记录不存在，请先核对导入记录。", "ACTION_UNAVAILABLE");
+    const receipt = await this.receipt("/api/document-tasks", request);
+    this.saveImports(this.pendingImports().filter(record => record.requestId !== requestId));
+    return receipt;
+  }
+  forgetImport(requestId: string) { this.saveImports(this.pendingImports().filter(record => record.requestId !== requestId)); }
   async start(file: File, capabilities: Capabilities, requestId: string, onStage: (stage: UploadStage, requestId?: string) => void, deduplicateQuestions = false) {
     validateFiles([file], capabilities);
     const format = fileFormat(file);
@@ -226,14 +268,15 @@ export class Client {
       const uploaded = await this.json<UploadDocument>(url.pathname + url.search, { method: "PUT", headers: { "Content-Type": metadata.mediaType }, body: bytes });
       if (Object.keys(document).some(key => uploaded[key as keyof UploadDocument] !== document[key as keyof UploadDocument])) throw new ApiError("上传后的文件引用不匹配。", "INVALID_REFERENCE");
     }
-    const key = `start:${JSON.stringify(metadata)}:${deduplicateQuestions}`;
-    requestId = this.intents.get(key) || requestId;
-    this.intents.set(key, requestId);
+    const pending = this.pendingImports();
+    const original = pending.find(record => record.document.sha256 === document.sha256 && record.document.sourceType === document.sourceType);
+    requestId = original?.requestId ?? requestId;
+    if (!original) {
+      const request: DocumentTaskCreate = { requestId, document: { ...metadata, objectKey: document.objectKey }, graphId: "document_parser", failurePolicy: "return_partial", ...(deduplicateQuestions ? { deduplicateQuestions: true } : {}) };
+      this.saveImports([...pending, request]);
+    }
     onStage("starting", requestId);
-    const request: DocumentTaskCreate = { requestId, document, graphId: "document_parser", failurePolicy: "return_partial", ...(deduplicateQuestions ? { deduplicateQuestions: true } : {}) };
-    const receipt = await this.receipt("/api/document-tasks", request);
-    this.intents.delete(key);
-    return receipt;
+    return this.retryImport(requestId);
   }
   async control(task: DocumentTaskDetail, action: Action) {
     const running = action === "pause" || action === "interrupt";

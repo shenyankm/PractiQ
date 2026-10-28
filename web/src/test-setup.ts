@@ -16,4 +16,4 @@ if (!File.prototype.arrayBuffer) File.prototype.arrayBuffer = function () { retu
 if (!URL.createObjectURL) URL.createObjectURL = () => "blob:test-image";
 if (!URL.revokeObjectURL) URL.revokeObjectURL = () => {};
 
-afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(); });
+afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(); localStorage.clear(); });

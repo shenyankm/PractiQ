@@ -210,16 +210,36 @@ def test_stall_fingerprint_ignores_tool_ids_but_preserves_bad_arguments():
 
 
 async def test_transient_error_does_not_trigger_output_stall(monkeypatch):
-    from openai import APIConnectionError
+    from openai import RateLimitError
 
     from tests.support import FakeModel
 
     monkeypatch.setattr(llm, '_retry_delay', lambda _: 0)
-    error = APIConnectionError(request=httpx2.Request('POST', 'https://example.invalid'))
+    response = httpx2.Response(429, request=httpx2.Request('POST', 'https://example.invalid'))
+    error = RateLimitError('rate limited', response=response, body=None)
     model = FakeModel(responses=[{'value': -1}, error, {'value': -1}, {'value': 2}])
     result, usage, failure = await llm.structured_call(model, [HumanMessage(content='source')], Result, 'test')
     assert result == Result(value=2) and failure is None
     assert len(model.calls) == 4 and len(usage) == 3
+
+
+@pytest.mark.parametrize('status', [None, 408, 500, 503])
+async def test_uncertain_provider_outcome_stops_before_another_paid_attempt(status):
+    from openai import APIStatusError, APITimeoutError
+
+    from practiq_ai.errors import DocumentProcessingError
+    from tests.support import FakeModel
+
+    request = httpx2.Request('POST', 'https://example.invalid')
+    error = (APITimeoutError(request=request) if status is None else
+             APIStatusError('provider failure', response=httpx2.Response(status, request=request), body=None))
+    model = FakeModel(responses=[error, {'value': 2}])
+    records = []
+    with pytest.raises(DocumentProcessingError) as failure:
+        await llm.structured_call(model, [HumanMessage(content='source')], Result, 'test', call_records=records)
+    assert failure.value.code == 'MODEL_RESULT_UNKNOWN'
+    assert len(model.calls) == len(records) == 1
+    assert records[0]['usageStatus'] == 'unknown' and records[0]['inputTokens'] is None
 
 
 def test_model_schema_requires_core_fields_without_forcing_unrelated_metadata():

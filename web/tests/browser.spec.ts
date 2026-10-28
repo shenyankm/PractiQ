@@ -85,6 +85,50 @@ async function openTask(page: Page) {
 const mutations = (calls: Call[]) => calls.filter(call => call.method !== "GET");
 const starts = (calls: Call[]) => calls.filter(call => call.path === "/api/document-tasks" && call.method === "POST");
 
+test("recovers an accepted import after reload without starting a second task", async ({ page }, testInfo) => {
+  const http = await fakeHTTP(page);
+  let lost = false;
+  http.server.intercept = async (route, call) => {
+    if (call.path !== "/api/document-tasks" || call.method !== "POST" || lost) return false;
+    lost = true;
+    http.creates.set(call.body!.requestId, newTaskId);
+    http.records.set(newTaskId, { ...task, threadId: newTaskId, fileName: "recovery.txt" });
+    http.server.modelStarts++;
+    await route.abort("failed");
+    return true;
+  };
+  await connect(page);
+  await page.getByLabel("选择文档").setInputFiles({ name: "recovery.txt", mimeType: "text/plain", buffer: Buffer.from("source") });
+  await page.getByRole("checkbox", { name: "自动去重" }).check();
+  await page.getByRole("button", { name: "开始导入", exact: true }).click();
+  await expect(page.getByRole("button", { name: "重试原提交", exact: true })).toBeVisible();
+  const original = starts(http.calls)[0].body;
+  await page.reload();
+  await expect(page.getByLabel("服务访问令牌")).toHaveValue("");
+  await page.getByLabel("服务访问令牌").fill(fakeToken);
+  await page.getByRole("button", { name: "连接服务", exact: true }).click();
+  await expect(page.getByRole("button", { name: "重试原提交", exact: true })).toBeVisible();
+  expect(starts(http.calls)).toHaveLength(1);
+  expect(await page.evaluate(() => JSON.stringify(localStorage))).not.toContain(fakeToken);
+  await page.screenshot({ path: testInfo.outputPath("submission-recovery.png"), fullPage: true });
+  await page.getByRole("button", { name: "重试原提交", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "recovery.txt", exact: true })).toBeVisible();
+  expect(starts(http.calls).map(call => call.body)).toEqual([original, original]);
+  expect(http.server.modelStarts).toBe(1);
+});
+
+test("shows unknown model outcome and charge warning before explicit resume", async ({ page }, testInfo) => {
+  const http = await fakeHTTP(page, { ...task, state: "INTERRUPTED", status: null, result: null, failures: [], blocking: ["MODEL_RESULT_UNKNOWN"], allowedActions: ["resume"] });
+  await connect(page);
+  await page.getByRole("link", { name: "导入记录", exact: true }).click();
+  await page.getByRole("button", { name: "sample.docx", exact: true }).click();
+  await expect(page.getByText(/模型请求已发送，但结果尚未确认/)).toBeVisible();
+  await expect(page.getByText(/继续解析或重试可能再次计费/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "继续解析", exact: true })).toBeEnabled();
+  expect(mutations(http.calls)).toHaveLength(0);
+  await page.screenshot({ path: testInfo.outputPath("unknown-model-recovery.png"), fullPage: true });
+});
+
 for (const [width, height] of [[1440, 900], [768, 1024], [390, 844], [360, 640], [320, 640]]) {
   for (const theme of ["light", "dark"]) test(`taste import workspace at ${width}px ${theme}`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height });
