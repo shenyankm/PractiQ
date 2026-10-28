@@ -1,5 +1,6 @@
 """Model-output review and cross-unit recovery regressions."""
 
+import json
 import re
 from copy import deepcopy
 from unittest.mock import AsyncMock
@@ -20,7 +21,14 @@ from practiq_ai.contracts import (
 from practiq_ai.extractors import ExtractedDocument
 from practiq_ai.graphs import document
 from tests.db_support import setup_api
-from tests.support import make_image, run_config, setup_graph, tencent_pages
+from tests.support import (
+    make_image,
+    ocr_text_page,
+    run_config,
+    setup_graph,
+    tencent_pages,
+    tencent_provider,
+)
 
 
 def complete_question(stem, source_id, confidence=0.8):
@@ -30,6 +38,16 @@ def complete_question(stem, source_id, confidence=0.8):
         "answerPayload": {"text": "Printed answer"}, "analysis": "Printed explanation",
         "confidence": confidence, "needsReview": False,
     }
+
+
+def printed_source(questions, marker=''):
+    return '\n'.join(
+        f"{index}. {item['stem']}\n"
+        + (f"Material: {item['sourceText']}\n" if item['sourceText'] != item['stem'] else '')
+        + (f"Reference answer: {json.dumps(item['answerPayload'])}\n" if item['answerPayload'] else '')
+        + f"Analysis: {item['analysis']}\n"
+        for index, item in enumerate(questions, 1)
+    ) + f'\nMaterial: {marker}'
 
 
 def source_responses(respond, count, pages):
@@ -130,20 +148,22 @@ async def test_duplicate_ids_are_corrected_within_the_model_boundary(monkeypatch
 
 @pytest.mark.parametrize("page", [False, True])
 async def test_closed_gap_tree_is_corrected_before_merge(monkeypatch, page):
-    source = "Word bank: Choose a word. A. white B. green\nSnow is [1]. Answer: 1 A"
+    source = "Word bank: Choose a word. A. white B. green\n1. Snow is [1]. Answer: A"
     parent = {"id": "fragment:1:bank", "stem": "Choose a word.", "sourceText": source,
               "answerMode": "word_bank", "questionKind": "word_bank", "answerPayload": None,
               "options": [{"label": "A", "content": "white"}, {"label": "B", "content": "green"}]}
     child = {"id": "fragment:1:bank:1", "parentId": parent["id"], "optionSourceId": parent["id"],
-             "stem": "Snow is", "sourceText": "Snow is [1]. Answer: 1 A", "answerMode": "choice",
+             "stem": "Snow is", "sourceText": "1. Snow is [1]. Answer: A", "answerMode": "choice",
              "choiceVariant": "single", "answerPayload": {"correct": ["A"]}}
     corrected = {**parent, "passage": [{"partType": "text", "textValue": "Snow is "},
-                                      {"partType": "blank", "questionId": child["id"]}]}
+                                      {"partType": "blank", "questionId": child["id"]},
+                                      {"partType": "text", "textValue": "."}]}
     graph, _, _, reference, model = setup_graph(monkeypatch, [
         {"questions": [parent, child]}, {"questions": [corrected, child]},
     ], parts=[source])
     if page:
         tencent_pages(monkeypatch, reference, 1)
+        tencent_provider(monkeypatch, [ocr_text_page(source)])
         monkeypatch.setattr(document, "extract", AsyncMock(return_value=ExtractedDocument(
             text="", page_images=[make_image()],
         )))
@@ -175,9 +195,11 @@ async def test_shared_option_answer_conflict_retries_only_its_source_unit(monkey
         calls += 1
         return {"questions": [{**child, "answerPayload": {"correct": ["C" if calls == 1 else "B"]}}]}
 
-    api, reference, model = await setup_api(monkeypatch, source_responses(respond, 3, pages), parts=["Word bank", "Choose"])
+    parts = ['Word bank', 'Choose\nAnswer: C\nAnalysis: Printed explanation']
+    api, reference, model = await setup_api(monkeypatch, source_responses(respond, 3, pages), parts=parts)
     if pages:
         tencent_pages(monkeypatch, reference, 2)
+        tencent_provider(monkeypatch, [ocr_text_page(part) for part in parts])
         monkeypatch.setattr(document, "extract", AsyncMock(return_value=ExtractedDocument(text="", page_images=[make_image(), make_image()])))
     created = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference), failurePolicy="review"))
     thread = created["threadId"]
@@ -191,7 +213,10 @@ async def test_shared_option_answer_conflict_retries_only_its_source_unit(monkey
     await api.wait_idle()
     state = await task_api.get_task(thread)
     assert state["status"] == "SUCCEEDED" and state["failures"] == []
-    assert state["result"]["questions"][1]["answerPayload"] == {"correct": ["B"]}
+    # The retry's B is absent from the source; retain the child without inventing
+    # a correction to the source's invalid shared-option reference C.
+    assert state["result"]["questions"][1]["answerPayload"] is None
+    assert state["result"]["questions"][1]["needsReview"]
     assert len(model.calls) == len(state["usage"]) == 3 * (2 if pages else 1)
 
 
@@ -310,10 +335,11 @@ async def test_conflicting_child_unit_preserves_partial_passage_and_retry_restor
             return {"questions": [{**second[0], "instructions": "Conflicting instructions" if second_calls == 1 else parent["instructions"]}, *second[1:]]}
         return {"questions": [*second[:-1], {**second[-1], "id": "duplicate" if second_calls == 1 else "second"}]}
 
-    parts = ["\n".join(q["sourceText"] for q in unit) for unit in [first, second]]
+    parts = [printed_source(unit, marker) for unit, marker in [(first, 'First'), (second, 'Second')]]
     api, reference, model = await setup_api(monkeypatch, source_responses(respond, 3, pages), parts=parts)
     if pages:
         tencent_pages(monkeypatch, reference, 2)
+        tencent_provider(monkeypatch, [ocr_text_page(part) for part in parts])
         monkeypatch.setattr(document, "extract", AsyncMock(return_value=ExtractedDocument(
             text="", page_images=[make_image(), make_image()],
         )))
@@ -374,13 +400,14 @@ async def test_failed_word_bank_parent_can_be_accepted_without_inventing_options
         text="", page_images=[make_image(), make_image()],
     )))
     source_text = "1. ___ Answer: A"
+    tencent_provider(monkeypatch, [ocr_text_page('Word bank'), ocr_text_page(source_text)])
 
     async def page_call(_model, messages, schema, call_kind, *, runtime=None):
         if "PRIMARY is page 1" in messages[-1].content:
             return None, [], "OUTPUT_INVALID"
         return schema.model_validate({"questions": [{
             "id": "page:2:1", "parentId": "page:1:bank", "optionSourceId": "page:1:bank",
-            "stem": "1. ___", "sourceText": source_text, "answerMode": "choice",
+            "stem": "___", "sourceText": source_text, "answerMode": "choice",
             "choiceVariant": "single", "questionTypeId": "choice", "answerPayload": {"correct": ["A"]},
         }]}), [], None
 
@@ -402,10 +429,10 @@ async def test_failed_word_bank_parent_can_be_accepted_without_inventing_options
 async def test_low_confidence_model_output_requires_review_without_changing_evidence(monkeypatch, confidence, review):
     original = complete_question("Printed source", "source", confidence)
     assert not ParsedQuestion.model_validate(original).needsReview  # Historical/imported flags stay intact.
-    graph, _, _, reference, _ = setup_graph(monkeypatch, [{"questions": [original]}], parts=[original["sourceText"]])
+    graph, _, _, reference, _ = setup_graph(monkeypatch, [{"questions": [original]}], parts=[printed_source([original])])
     output = await graph.ainvoke({"document": reference}, run_config())
     question = output["result"]["questions"][0]
-    assert question["needsReview"] is review
+    assert question["needsReview"] is review, (question, output['result']['warnings'])
     assert output["processing"]["quality"]["reviewRequired"] is review
     for field in ("confidence", "sourceText", "answerPayload", "analysis"):
         assert question[field] == original[field]

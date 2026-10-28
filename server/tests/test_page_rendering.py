@@ -583,6 +583,7 @@ async def test_context_enrichment_cannot_add_a_question_with_a_false_primary_anc
     copied = {**question('Context-only question'), 'id': 'page:1:context-copy'}
     model = ocr_page_model(monkeypatch, [{'questions': [primary]}, {'questions': [primary, copied]},
                                 {'questions': [enriched]}, {'questions': []}], page_count=2)
+    tencent_provider(monkeypatch, [ocr_text_page('1. PRIMARY question'), ocr_text_page('Answers:\n1. Printed reference')])
     monkeypatch.setenv('AI_GRAPH_MAX_CONCURRENCY', '1')
     monkeypatch.setattr(document, 'get_object_store', lambda: store)
     monkeypatch.setattr(document, 'get_model', lambda: model)
@@ -606,6 +607,7 @@ async def test_primary_and_context_passes_each_have_all_correction_attempts(monk
     invalid = [{'questions': [question(f'Invalid context question {i}')]} for i in range(3)]
     model = ocr_page_model(monkeypatch, [*[{'questions': str(i)} for i in range(3)], {'questions': [primary]},
                                 *invalid, {'questions': [enriched]}, {'questions': []}], page_count=2)
+    tencent_provider(monkeypatch, [ocr_text_page('1. PRIMARY question'), ocr_text_page('Answers:\n1. Printed reference')])
     monkeypatch.setenv('AI_GRAPH_MAX_CONCURRENCY', '1')
     monkeypatch.setattr(document, 'get_object_store', lambda: store)
     monkeypatch.setattr(document, 'get_model', lambda: model)

@@ -103,7 +103,7 @@ async def test_cancelled_tencent_decode_holds_preparation_until_worker_finishes(
 
 @pytest.mark.parametrize('case', ['empty', 'truncated', 'unassociated', 'complete'])
 async def test_result_metric_uses_the_exported_quality_flag(monkeypatch, case):
-    files, reference = source('Source')
+    files, reference = source('Source\nAnswer: A\nAnalysis: Supplied analysis')
     monkeypatch.setattr(document, 'get_object_store', lambda: files)
     question = {'id': 'page:1:1', 'stem': 'Source', 'sourceText': 'Source', 'answerMode': 'choice',
                 'questionTypeId': 'single-choice', 'choiceVariant': 'single', 'analysis': 'Supplied analysis',
@@ -111,7 +111,11 @@ async def test_result_metric_uses_the_exported_quality_flag(monkeypatch, case):
                 'answerPayload': {'correct': ['A']}, 'confidence': 0.9, 'needsReview': False}
     image = await files.put_artifact(make_image(), source_sha256=reference['sha256'],
                                     kind='ocr-figure', index=0, media_type='image/png')
+    ocr = await files.put_artifact(json.dumps({'elements': [{'text_info': {
+        'content': 'Source\nAnswer: A\nAnalysis: Supplied analysis',
+    }}]}).encode(), source_sha256=reference['sha256'], kind='ocr-page', index=0, media_type='application/json')
     state = {'document': reference, 'pageRefs': [reference], 'visualTotal': 1,
+             'ocrPageRefs': [ocr.model_dump()],
              'truncated': case == 'truncated', 'visionResults': [{
                  'kind': 'page', 'index': 0, 'artifact': reference,
                  'parsed': {'questions': [] if case == 'empty' else [question], 'groups': []},

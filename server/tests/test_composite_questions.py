@@ -1,4 +1,5 @@
 """The checked-in desktop fixture is produced through the shared merge pipeline."""
+import json
 from pathlib import Path
 
 import pytest
@@ -22,7 +23,12 @@ FIXTURE = Path(__file__).resolve().parents[2] / "app/fixtures/composite.json"
 async def test_composite_pipeline_matches_desktop_fixture(monkeypatch):
     expected = DocumentParseResult.model_validate_json(FIXTURE.read_text()).model_dump()
     # The model fixture contains only source-provided answers, including the rubric.
-    source = "\n".join(q["sourceText"] for q in expected["questions"])
+    source = "\n".join(
+        f"{index}. {q['sourceText']}\n"
+        + (f"Reference answer: {json.dumps(q['answerPayload'])}\n" if q['answerPayload'] else '')
+        + f"Analysis: {q['analysis']}"
+        for index, q in enumerate(expected['questions'], 1)
+    )
     graph, _, _, reference, _ = setup_graph(monkeypatch, [{
         "questions": expected["questions"],
         "groups": [{"title": "Composite section", "questionIndexes": list(range(len(expected["questions"])))}],

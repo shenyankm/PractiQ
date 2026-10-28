@@ -242,6 +242,27 @@ A valid baseline must be PASSED. Both baseline and candidate must have at least 
 
 Scorer 5 adds structure scoring and a strict structure gate. Version 5.0.1 also checks annotated choice/matching variants and blank counts; version 5.0.0 omitted these fields and is no longer a compatible baseline. Version 4 reports can have `qualityPassed: false` for material/relationship errors while their overall status is `PASSED`; they are incompatible with the current comparator. A new three-repetition live baseline is required before making current extraction-quality claims. The scorer's offline regression tests validate the gate, not model quality.
 
+## Answer provenance in published imports
+
+The final import merge checks non-null `answerPayload` and `analysis` against
+verified text artifacts or Tencent OCR page evidence, including resumed unit
+results. TXT/Markdown inputs also use the verified original UTF-8 source when
+Tencent's text differs. The model's `sourceText` quote is not a proof. Answers require an
+explicit answer field in the matching source question or table row, or an
+unambiguous numbered entry in an explicit answer-key section in the supplied
+page context. Option text and neighboring ordinary questions are not proofs.
+Explanations require a matching supplied explanation field. Each field is checked
+independently; a genuine answer survives removal of an invented explanation.
+
+Unverified fields become null without discarding the question or retrying a
+model call. The question retains `needsReview=true`, recomputed `missingFields`,
+source associations and an import warning; export quality reflects that review.
+Unknown, ambiguous or unreadable layouts are conservative: their answers may
+need manual recovery from the retained original source. This check does not
+solve questions, validate the correctness of printed answers, rewrite existing
+saved banks or practice snapshots, or prove OCR accuracy. Model-substitute
+regressions cover the text and OCR graph paths and passive checkpoint merge.
+
 ## Offline fault probes and local review
 
 The shared text/page and PRIMARY-page extraction instructions require explicit section titles and printed instructions to remain in groups even when no questions exist, using empty question associations. Units with neither questions nor explicit sections return empty questions and groups; page markers and CONTEXT-only headings do not create groups. Answer-only PRIMARY pages still return empty questions/groups and never copy questions from neighboring pages. Context enrichment preserves PRIMARY's existing unassociated groups and rejects additional unassociated groups, including duplicate copies, inside the model correction boundary. Existing support for completing groups associated with PRIMARY questions and remapping their indexes after question reordering remains in place.
