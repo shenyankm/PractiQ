@@ -82,6 +82,8 @@ def _fields(record: str) -> dict[str, list[str]]:
 def _answer_matches(question: ParsedQuestion, printed: str) -> bool:
     if question.answerPayload is None:
         return True
+    if question.answerMode in {'choice', 'true_false'}:
+        printed = re.sub(r'[.。．]$', '', printed.strip()).rstrip()
     try:
         supplied = _reference_supplied(printed)
     except RecursionError:
@@ -128,8 +130,9 @@ def retain_source_answers(
     shortcut: unfamiliar answer layouts are retained only in source evidence for
     review; extend proofs when a real source format supplies an unambiguous link.
     """
+    primary_key = _KEY.search(primary)
     records = [(number, record, _literal(_INLINE_LOCAL_FIELD.split(record, maxsplit=1)[0]))
-               for number, record in _records(primary)]
+               for number, record in _records(primary[:primary_key.start()] if primary_key else primary)]
     source_numbers = []
     answer_keys: dict[str, list[str]] = {}
     for text in [primary, *contexts]:
@@ -163,10 +166,10 @@ def retain_source_answers(
                 for name, values in _fields(body).items():
                     fields[name].extend(values)
         removed = []
-        if question.answerPayload is not None and not (len(fields['answerPayload']) == 1 and _answer_matches(question, fields['answerPayload'][0])):
+        if question.answerPayload is not None and not (fields['answerPayload'] and all(_answer_matches(question, value) for value in fields['answerPayload'])):
             question.answerPayload = None
             removed.append('answerPayload')
-        if question.analysis is not None and not (len(fields['analysis']) == 1 and _literal(question.analysis) == _literal(fields['analysis'][0])):
+        if question.analysis is not None and not (fields['analysis'] and all(_literal(question.analysis) == _literal(value) for value in fields['analysis'])):
             question.analysis = None
             removed.append('analysis')
         if removed:

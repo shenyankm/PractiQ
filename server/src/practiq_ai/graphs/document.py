@@ -1768,6 +1768,9 @@ async def _merge(state: DocumentState, *, passive: bool = False) -> dict[str, An
         if not pages and source_text is not None:
             spans = state.get('chunkSpans', [])
             primary = source_text[spans[index]['start']:spans[index]['end']] if index < len(spans) else source_text
+            headers = state.get('chunkHeaders', [])
+            if index < len(headers) and headers[index]:
+                primary = f'{headers[index]}\n{primary}'
         contexts = [text for neighbor, text in ocr_texts.items() if neighbor != index and index - 2 <= neighbor < index + 2
                     and not any(min(index, neighbor) < failed < max(index, neighbor) for failed in failed_ocr_pages)] if pages else []
         if original_text is not None:

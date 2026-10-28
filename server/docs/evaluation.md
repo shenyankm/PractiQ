@@ -257,6 +257,10 @@ Table stems may omit printed question numbers and recognized type labels.
 Numbered answer-key entries may include an `Answer:` or `Reference answer:` label.
 Numeric short-answer and single-value fill-blank text preserves its printed
 spelling, including `3.00`, `1e-3` and `-0`; numeric equivalence is not a proof.
+Only choice labels and boolean aliases ignore a terminal period. Local fields
+and an answer key may corroborate one another, but all supplied values must
+agree. Resumed tabular fragments reuse their stored source headers so later
+rows retain the same column associations used during extraction.
 
 Unverified fields become null without discarding the question or retrying a
 model call. The question retains `needsReview=true`, recomputed `missingFields`,

@@ -105,6 +105,51 @@ def test_numeric_text_requires_literal_source_spelling(mode, printed, value, kep
     assert candidate.model_dump()['answerPayload'] == (payload if kept else None)
 
 
+@pytest.mark.parametrize('punctuation', ['.', '。', '．'])
+@pytest.mark.parametrize('mode,payload,printed', [
+    ('true_false', {'value': True}, 'True'), ('true_false', {'value': False}, 'False'),
+    ('choice', {'correct': ['A']}, 'A'), ('choice', {'correct': ['A', 'B']}, 'A,B'),
+])
+def test_choice_and_boolean_answers_allow_terminal_punctuation(mode, payload, printed, punctuation):
+    candidate = ParsedQuestion.model_validate({**question('Printed?'), 'answerMode': mode, 'answerPayload': payload,
+        **({'choiceVariant': 'multiple', 'options': [{'label': label, 'content': label} for label in ['A', 'B']]}
+           if mode == 'choice' else {})})
+    assert retain_source_answers([candidate], f'1. Printed?\nAnswer: {printed}{punctuation}', []) == []
+    assert candidate.model_dump()['answerPayload'] == payload
+
+
+@pytest.mark.parametrize('mode', ['short_answer', 'fill_blank'])
+@pytest.mark.parametrize('value,kept', [('A.', True), ('A', False)])
+def test_text_answer_punctuation_remains_literal(mode, value, kept):
+    payload = {'text': value} if mode == 'short_answer' else {'answers': [value]}
+    candidate = ParsedQuestion.model_validate({**question('Printed?'), 'answerMode': mode, 'answerPayload': payload,
+                                              **({'blankCount': 1} if mode == 'fill_blank' else {})})
+    changes = retain_source_answers([candidate], '1. Printed?\nAnswer: A.', [])
+    assert (not changes) is kept
+    assert candidate.model_dump()['answerPayload'] == (payload if kept else None)
+
+
+@pytest.mark.parametrize('key_answer,kept', [('4', True), ('"4"', True), ('5', False)])
+def test_local_answers_and_key_must_agree(key_answer, kept):
+    candidates = [ParsedQuestion.model_validate({**question(stem), 'answerPayload': {'text': answer}})
+                  for stem, answer in [('Printed?', '4'), ('Other?', '5')]]
+    text = f'1. Printed?\nAnswer: 4\n2. Other?\nAnswer: 5\nAnswers:\n1. {key_answer}\n2. 5'
+    changes = retain_source_answers(candidates, text, [])
+    assert changes == ([] if kept else [(0, ['answerPayload'])])
+    assert candidates[0].model_dump()['answerPayload'] == ({'text': '4'} if kept else None)
+    assert candidates[1].model_dump()['answerPayload'] == {'text': '5'}
+
+
+@pytest.mark.parametrize('key_analysis,kept', [('Printed explanation.', True), ('Different explanation.', False)])
+def test_local_and_key_analysis_agreement_is_checked_independently(key_analysis, kept):
+    candidate = ParsedQuestion.model_validate({**question('Printed?'), 'answerPayload': {'text': '4'}, 'analysis': 'Printed explanation.'})
+    text = '1. Printed?\nAnswer: 4\nAnalysis: Printed explanation.'
+    context = f'Answers:\n1. Answer: 4\nAnalysis: {key_analysis}'
+    assert retain_source_answers([candidate], text, [context]) == ([] if kept else [(0, ['analysis'])])
+    assert candidate.model_dump()['answerPayload'] == {'text': '4'}
+    assert candidate.analysis == ('Printed explanation.' if kept else None)
+
+
 @pytest.mark.parametrize('printed,answer,kept', [
     ('A', ['A'], True), ('AB', ['A', 'B'], True), ('A、B', ['A', 'B'], True),
     ('["A", "B"]', ['A', 'B'], True), ('B', ['A'], False), ('A or B', ['A'], False),
@@ -262,3 +307,34 @@ async def test_answer_key_proof_never_crosses_a_failed_ocr_page(monkeypatch):
     }), passive=True)
     kept = result['result']['questions'][0]
     assert kept['answerPayload'] is None and kept['needsReview']
+
+
+async def test_resumed_tabular_fragments_restore_source_headers_before_proof(monkeypatch):
+    files, reference = source('synthetic workbook source')
+    old_key = reference['objectKey']
+    reference.update(sourceType='xlsx', mediaType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                     objectKey=document_source_key('xlsx', reference['sha256']))
+    files.blobs[reference['objectKey']] = files.blobs.pop(old_key)
+    header = 'id\troot_task\tparent_id\toption_owner\tstem\tquestion_type\treference_answer\tevidence'
+    rows = [f'{index}\t{index}\t\t\tQ{index}\tShort answer\tA{index}\t'
+            + json.dumps({'analysis': f'Printed explanation {index}'}) for index in range(1, 18)]
+    text = header + '\n' + '\n'.join(rows)
+    text_ref = await files.put_artifact(text.encode(), source_sha256=reference['sha256'], kind='text', index=0, media_type='text/plain')
+    units = [{'start': 0, 'end': len(text), 'fileName': 'Sheet1.csv', 'sourceType': 'csv', 'sourceIndex': 0, 'tabularRowsSafe': True}]
+    monkeypatch.setattr(document, 'get_object_store', lambda: files)
+    monkeypatch.setattr(document, 'get_model', lambda: pytest.fail('resumed merge must be passive'))
+    prepared = await document._assemble(cast(document.DocumentState, {'document': reference, 'textRef': text_ref.model_dump(), 'textUnits': units}))
+    assert prepared['chunkHeaders'] == [None, header] and prepared['chunkNodeCounts'] == [16, 1]
+    chunks = [{'index': unit, 'parsed': {'questions': [
+        {**question(f'Q{index}'), 'id': f'fragment:{unit + 1}:{index}', 'sourceText': rows[index - 1],
+         'answerPayload': {'text': f'A{index}'}, 'analysis': f'Printed explanation {index}'}
+        for index in indexes]}} for unit, indexes in enumerate([range(1, 17), range(17, 18)])]
+    result = await document._merge(cast(document.DocumentState, {
+        'document': reference, 'textRef': text_ref.model_dump(), 'textUnits': units,
+        'tabularRowsSafe': True, 'effectiveSourceType': 'csv', **prepared, 'chunkResults': chunks,
+    }), passive=True)
+    kept = result['result']['questions']
+    assert len(kept) == 17
+    for index, candidate in enumerate(kept, 1):
+        assert candidate['answerPayload'] == {'text': f'A{index}'}
+        assert candidate['analysis'] == f'Printed explanation {index}'
