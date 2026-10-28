@@ -33,6 +33,9 @@ def _table_records(text: str) -> list[tuple[str | None, str]] | None:
     for row in rows[1:]:
         cells = dict(zip(headers, row, strict=True))
         record = row[stems[0]]
+        if prefix := QUESTION_BOUNDARY_PATTERN.match(record):
+            record = record[prefix.end():]
+        record = _TYPE.sub('', record)
         for name, value in cells.items():
             label = name.replace('_', ' ')
             if (_ANSWER.fullmatch(label) or _ANALYSIS.fullmatch(label)) and (
@@ -104,10 +107,10 @@ def _answer_matches(question: ParsedQuestion, printed: str) -> bool:
             labels = list(labels[0])
         return labels == payload.get('correct')
     if question.answerMode == 'short_answer':
-        value = printed if isinstance(decoded, bool) else str(decoded)
+        value = decoded if isinstance(decoded, str) else printed
         return isinstance(payload.get('text'), str) and isinstance(decoded, (str, int, float)) and _literal(value) == _literal(payload['text'])
     if question.answerMode == 'fill_blank':
-        answers = decoded if isinstance(decoded, list) else [str(decoded)]
+        answers = decoded if isinstance(decoded, list) else [decoded if isinstance(decoded, str) else printed]
         expected = payload.get('answers')
         return isinstance(expected, list) and all(isinstance(item, str) for item in [*answers, *expected]) and [_literal(item) for item in answers] == [_literal(item) for item in expected]
     if question.answerMode == 'ordering':
@@ -155,7 +158,8 @@ def retain_source_answers(
             if number and source_numbers.count(number) == 1 and len(answer_keys.get(number, [])) == 1:
                 body = answer_keys[number][0]
                 marker = _INLINE_LOCAL_FIELD.search(body)
-                fields['answerPayload'].append(body[:marker.start() if marker else len(body)].strip())
+                if prefix := body[:marker.start() if marker else len(body)].strip():
+                    fields['answerPayload'].append(prefix)
                 for name, values in _fields(body).items():
                     fields[name].extend(values)
         removed = []

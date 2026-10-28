@@ -78,6 +78,33 @@ def test_answer_key_context_preserves_linked_answers_without_borrowing_neighbors
     assert candidates[1].answerPayload is None
 
 
+@pytest.mark.parametrize('label', ['Answer', 'Reference answer'])
+@pytest.mark.parametrize('same_page', [False, True])
+def test_labeled_answer_key_preserves_supplied_answer_and_analysis(label, same_page):
+    candidate = ParsedQuestion.model_validate({**question('Printed question?'), 'answerPayload': {'text': 'four'},
+                                              'analysis': 'Supplied explanation.'})
+    primary = '1. Printed question?'
+    key = f'Answers:\n1. {label}: four\nAnalysis: Supplied explanation.'
+    assert retain_source_answers([candidate], primary + '\n' + key if same_page else primary, [] if same_page else [key]) == []
+    assert candidate.model_dump()['answerPayload'] == {'text': 'four'}
+    assert candidate.analysis == 'Supplied explanation.'
+
+
+@pytest.mark.parametrize('mode', ['short_answer', 'fill_blank'])
+@pytest.mark.parametrize('printed,value,kept', [
+    ('3.00', '3.00', True), ('1e-3', '1e-3', True), ('-0', '-0', True),
+    ('3.00', '3.0', False), ('1e-3', '0.001', False), ('-0', '0', False),
+    ('"3.00"', '3.00', True),
+])
+def test_numeric_text_requires_literal_source_spelling(mode, printed, value, kept):
+    payload = {'text': value} if mode == 'short_answer' else {'answers': [value]}
+    candidate = ParsedQuestion.model_validate({**question('Printed question?'), 'answerMode': mode,
+        'answerPayload': payload, **({'blankCount': 1} if mode == 'fill_blank' else {})})
+    changes = retain_source_answers([candidate], f'1. Printed question?\nReference answer: {printed}', [])
+    assert (not changes) is kept
+    assert candidate.model_dump()['answerPayload'] == (payload if kept else None)
+
+
 @pytest.mark.parametrize('printed,answer,kept', [
     ('A', ['A'], True), ('AB', ['A', 'B'], True), ('A、B', ['A', 'B'], True),
     ('["A", "B"]', ['A', 'B'], True), ('B', ['A'], False), ('A or B', ['A'], False),
@@ -198,13 +225,14 @@ async def test_text_ocr_cannot_add_answer_evidence_missing_from_original(monkeyp
     assert len(model.calls) == len(result['usage']) == 1
 
 
-async def test_native_table_merge_retains_supplied_answers_and_clears_answerless_rows(monkeypatch):
+@pytest.mark.parametrize('prefix', ['', '1. ', 'Short answer: ', '1. Short answer: '])
+async def test_native_table_merge_retains_supplied_answers_and_clears_answerless_rows(monkeypatch, prefix):
     files, reference = source('synthetic table source')
     old_key = reference['objectKey']
     reference.update(sourceType='xlsx', mediaType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                      objectKey=document_source_key('xlsx', reference['sha256']))
     files.blobs[reference['objectKey']] = files.blobs.pop(old_key)
-    layout = '<table><tr><td>题目</td><td>答案</td><td>解析</td></tr><tr><td>First?</td><td>4</td><td>printed</td></tr><tr><td>Second?</td><td></td><td></td></tr></table>'
+    layout = f'<table><tr><td>题目</td><td>答案</td><td>解析</td></tr><tr><td>{prefix}First?</td><td>4</td><td>printed</td></tr><tr><td>Second?</td><td></td><td></td></tr></table>'
     ocr = await files.put_artifact(json.dumps({'format': 'table', 'elements': [{'layout_xml': layout}]}).encode(),
         source_sha256=reference['sha256'], kind='ocr-page', index=0, media_type='application/json')
     parsed = {'questions': [{**question(stem), 'id': f'page:1:{index}', 'answerPayload': {'text': '4'}, 'analysis': 'printed'}

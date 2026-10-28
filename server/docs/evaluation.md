@@ -253,6 +253,10 @@ unambiguous numbered entry in an explicit answer-key section in the supplied
 page context. Option text and neighboring ordinary questions are not proofs.
 Explanations require a matching supplied explanation field. Each field is checked
 independently; a genuine answer survives removal of an invented explanation.
+Table stems may omit printed question numbers and recognized type labels.
+Numbered answer-key entries may include an `Answer:` or `Reference answer:` label.
+Numeric short-answer and single-value fill-blank text preserves its printed
+spelling, including `3.00`, `1e-3` and `-0`; numeric equivalence is not a proof.
 
 Unverified fields become null without discarding the question or retrying a
 model call. The question retains `needsReview=true`, recomputed `missingFields`,
