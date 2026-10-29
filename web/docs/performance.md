@@ -66,17 +66,18 @@ memory measurements.
 ### Quality JSON during resource paging (October 29)
 
 `ResultReview` formats the selected quality report through its existing React
-memoization pattern. The memo depends on the report reference and selected tab,
-so paging source associations does not format the same report again. The question
+memoization pattern. The memo depends on the report reference, selected tab and
+quality disclosure state, so paging source associations does not format the same report again. The question
 tab performs no quality serialization, including when a fresh report arrives.
-Opening resources or changing the chosen report refreshes the text. Preview
+Opening resources alone does not format the report. Expanding Quality record or
+changing the report while expanded refreshes the text; collapsed updates do not. Preview
 quality retains priority over task-processing quality. The JSON text, resource
 pagination, task APIs and explicit artifact-read actions are unchanged.
 
 `ResultReview.performance.test.tsx` checks preview and task-only inputs in
-StrictMode: opening resources and making three page changes previously formatted
-the quality object eight times; it now formats twice (StrictMode's initial
-double invocation). The test also verifies changed/hidden reports, exact text,
+StrictMode: opening Sources performs zero quality serializations; expanding the
+quality record formats it twice (StrictMode's initial double invocation), and
+three page changes perform no further serialization. The test also verifies changed/hidden reports, exact text,
 unchanged DTOs and zero network calls.
 
 The [raw report](../../docs/evidence/2026-10-29-review-quality/web.json) compares

@@ -40,7 +40,7 @@ const Usage = memo(function Usage({ task }: { task: DocumentTaskDetail }) {
   const [loaded, setLoaded] = useState(false);
   const input = loaded ? task.usage.reduce((sum, call) => sum + call.inputTokens, 0) : 0;
   const output = loaded ? task.usage.reduce((sum, call) => sum + call.outputTokens, 0) : 0;
-  return <details className="resource-card" onToggle={event => { if (event.currentTarget.open && !loaded) setLoaded(true); }}><summary>模型用量与任务诊断</summary>{loaded && <div className="space-y-3 pt-3"><p>已知用量：{task.usage.length} 次调用，输入 {input} tokens，输出 {output} tokens。</p><p>{task.unknownUsageCalls.length ? `有 ${task.unknownUsageCalls.length} 次调用未返回用量，实际总用量未知。` : "没有已记录的未知用量调用。"}</p><p>调用预算：已预留 {task.modelBudget.reserved}/{task.modelBudget.limit} 次。</p><dl className="metadata-grid"><dt>检查点</dt><dd>{task.checkpointId ?? "尚无（null）"}</dd><dt>运行 ID</dt><dd>{task.runId ?? "无（null）"}</dd><dt>父任务</dt><dd>{task.parentThreadId ?? "无（null）"}</dd><dt>到期时间</dt><dd>{task.expiresAt}</dd></dl><pre className="raw-data">{JSON.stringify({ usage: task.usage, unknownUsageCalls: task.unknownUsageCalls, processing: task.processing, blocking: task.blocking, parserJobs: task.parserJobs || [] }, null, 2)}</pre></div>}</details>;
+  return <details className="resource-card" onToggle={event => { if (event.currentTarget.open && !loaded) setLoaded(true); }}><summary>模型用量与任务诊断</summary>{loaded && <div className="space-y-3 pt-3"><p>已知用量：{task.usage.length} 次调用，输入 {input} tokens，输出 {output} tokens。</p><p>{task.unknownUsageCalls.length ? `有 ${task.unknownUsageCalls.length} 次调用未返回用量，实际总用量未知。` : "没有已记录的未知用量调用。"}</p><p>调用预算：已预留 {task.modelBudget.reserved}/{task.modelBudget.limit} 次。</p><dl className="metadata-grid"><dt>处理阶段</dt><dd>{task.phase}</dd><dt>检查点</dt><dd>{task.checkpointId ?? "尚无（null）"}</dd><dt>运行 ID</dt><dd>{task.runId ?? "无（null）"}</dd><dt>父任务</dt><dd>{task.parentThreadId ?? "无（null）"}</dd><dt>到期时间</dt><dd>{task.expiresAt}</dd></dl><pre className="raw-data">{JSON.stringify({ usage: task.usage, unknownUsageCalls: task.unknownUsageCalls, processing: task.processing, blocking: task.blocking, parserJobs: task.parserJobs || [] }, null, 2)}</pre></div>}</details>;
 });
 
 type Page = "import" | "records" | "settings";
@@ -51,7 +51,8 @@ function pageFromHash(): Page | undefined {
   if (["#task-detail", "#task-list-heading"].includes(hash)) return "records";
   return pages.find(item => `#${item.id}` === hash)?.id;
 }
-const dateLabel = (value: string) => { const date = new Date(value); return Number.isNaN(date.getTime()) ? "时间未知" : new Intl.DateTimeFormat("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }).format(date); };
+const dateFormatter = new Intl.DateTimeFormat("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false });
+const dateLabel = (value: string) => { const date = new Date(value); return Number.isNaN(date.getTime()) ? "时间未知" : dateFormatter.format(date); };
 
 export default function App() {
   const [page, setPage] = useState<Page>(() => pageFromHash() ?? "import");
@@ -153,7 +154,7 @@ export default function App() {
         if (filter && filter !== "active" || result.items.length > 0 && result.items.every(item => !["PENDING", "RUNNING", "PAUSING"].includes(item.state))) delay = 30000;
       } catch (error) {
         delay = pollRetryDelay(++failures);
-        if (!controller.signal.aborted) { setTasks({ items: [], hasMore: false }); setListError(errorText(error)); }
+        if (!controller.signal.aborted) setListError(errorText(error));
         stopped = authFailure(error);
       } finally {
         reading = false;
@@ -286,7 +287,7 @@ export default function App() {
         if (!current.active) return;
       }
       setListRevision(value => value + 1);
-      if (created) { if (!failed && !files.some(file => !items.some(item => item.id === file.id) && ["failed", "ready"].includes(file.state) && !resolved.has(file.requestId ?? file.id))) navigate("records"); setSelected(value => value === before ? created : value); setNotice("任务已创建。页面只读取进度；继续或重试需要点击对应操作。"); }
+      if (created) { if (!failed && !files.some(file => !items.some(item => item.id === file.id) && ["failed", "ready"].includes(file.state) && !resolved.has(file.requestId ?? file.id))) navigate("records"); setSelected(value => value === before ? created : value); setNotice("任务已创建。"); }
     });
   }
   const matchingCheckpoint = detailFresh && !previewError && preview?.checkpointId === detail?.checkpointId;
@@ -299,39 +300,37 @@ export default function App() {
             {!capabilities ? <p>正在读取服务支持的格式与限制…</p> : <>
               <p id="file-help" className="text-sm text-muted-foreground">最多 {MAX_FILES} 个文件 · 每个 ≤ {sizeLabel(sourceLimit(capabilities))}{capabilities.officeAvailable && sourceLimit(capabilities, "docx") < sourceLimit(capabilities) && ` · Word / Excel ≤ ${sizeLabel(sourceLimit(capabilities, "docx"))}`}</p>
               <label className="file-picker"><FileText /><span>选择文档</span><span className="file-picker-action">选择文件</span><Input className="sr-only" ref={fileInput} type="file" multiple aria-label="选择文档" aria-describedby="file-help" aria-invalid={!!fileError} accept={capabilities.sourceTypes.map(type => sourceExtensions[type]).join(",")} disabled={busy} onChange={event => chooseFiles(Array.from(event.target.files || []))} /></label>
+              <p className="supported-formats">服务支持：{capabilities.sourceTypes.map(type => formatLabels[type]).join("、")}</p>
               {capabilities.parserConfigured === false && <p className="notice">腾讯文档识别尚未配置，当前无法开始新的文档导入。</p>}
               {!capabilities.modelConfigured && <p className="notice">服务端尚未配置模型，暂不能开始解析。</p>}
               {fileError && <p role="alert" className="text-destructive">{fileError}</p>}
-              {!!files.length && <ul className="file-list">{files.map(item => <li key={item.id}><div><strong>{item.file.name}</strong><span>{sizeLabel(item.file.size)} · {fileLabels[item.state]} · {formatLabels[fileFormat(item.file).sourceType]} · 腾讯文档识别 → AI 整理</span>{item.error && <><p role="alert" className="text-destructive">{item.error}</p><small>原提交请求 ID：{item.requestId ?? item.id}</small></>}</div>{["ready", "failed"].includes(item.state) && <Button size="icon" variant="ghost" disabled={busy} aria-label={`移除文件 ${item.file.name}`} onClick={() => setFiles(previous => previous.filter(file => file.id !== item.id))}><Trash2 /></Button>}{item.state === "failed" && <Button size="sm" variant="outline" disabled={busy || capabilities.parserConfigured === false || !capabilities.modelConfigured} onClick={() => void start([item])}>重试开始</Button>}</li>)}</ul>}
-              <div className="space-y-1"><label className="review-checkbox"><input type="checkbox" aria-describedby="dedup-help" checked={deduplicateQuestions} disabled={busy || !!files.length && !files.some(file => file.state === "ready")} onChange={event => setDeduplicateQuestions(event.target.checked)} />自动去重</label><p id="dedup-help" className="text-xs text-muted-foreground">仅去除完全相同的题目或整组复合题；关闭则全部保留。</p></div>
-              <div className="import-submit"><p>点击“开始导入”后上传并调用模型。启用 AI 复核会增加调用与费用，结果仍需人工核对。</p><Button disabled={busy || capabilities.parserConfigured === false || !capabilities.modelConfigured || !files.some(file => file.state === "ready")} onClick={() => void start(files.filter(file => file.state === "ready"))}>{busy ? <LoaderCircle className="loading-icon" /> : <Play />}开始导入</Button></div>
-              {files.some(file => file.state === "failed") && <p className="text-xs text-muted-foreground">本批次已停止，剩余文件尚未提交。请先刷新任务列表核对结果，再手动“重试开始”沿用原请求；移除文件只清理本页队列，不会取消服务端任务。已发起的创建请求会保留本机恢复记录；尚未上传的文件需重新选择。</p>}
+              {!!files.length && <ul className="file-list">{files.map(item => <li key={item.id}><div><strong>{item.file.name}</strong><span>{sizeLabel(item.file.size)} · {fileLabels[item.state]} · {formatLabels[fileFormat(item.file).sourceType]}</span>{item.error && <><p role="alert" className="text-destructive">{item.error}</p><small>原提交请求 ID：{item.requestId ?? item.id}</small></>}</div>{["ready", "failed"].includes(item.state) && <Button size="icon" variant="ghost" disabled={busy} aria-label={`移除文件 ${item.file.name}`} onClick={() => setFiles(previous => previous.filter(file => file.id !== item.id))}><Trash2 /></Button>}{item.state === "failed" && <Button size="sm" variant="outline" disabled={busy || capabilities.parserConfigured === false || !capabilities.modelConfigured} onClick={() => void start([item])}>重试开始</Button>}</li>)}</ul>}
+              <div className="import-options"><label className="review-checkbox"><input type="checkbox" aria-describedby="dedup-help" checked={deduplicateQuestions} disabled={busy || !!files.length && !files.some(file => file.state === "ready")} onChange={event => setDeduplicateQuestions(event.target.checked)} />自动去重</label><p id="dedup-help">仅合并完全相同的题目或题组</p></div>
+              <div className="import-submit"><p>开始后将调用 AI，可能产生费用；结果需人工核对。</p><Button disabled={busy || capabilities.parserConfigured === false || !capabilities.modelConfigured || !files.some(file => file.state === "ready")} onClick={() => void start(files.filter(file => file.state === "ready"))}>{busy ? <LoaderCircle className="loading-icon" /> : <Play />}开始导入</Button></div>
+              {files.some(file => file.state === "failed") && <p className="notice">本批次已停止，剩余文件尚未提交。请先刷新任务列表核对结果，再手动“重试开始”沿用原请求；移除文件只清理本页队列，不会取消服务端任务。已发起的创建请求会保留本机恢复记录；尚未上传的文件需重新选择。</p>}
             </>}
           </CardContent></Card>
           {capabilities && <aside className="import-guide" aria-label="导入说明">
-            <section><h2>支持的文档</h2><p>服务支持：{capabilities.sourceTypes.map(type => formatLabels[type]).join("、")}</p>
-              <details><summary>格式与导入规则</summary><div className="space-y-2 pt-2">
-                <p>所有支持的格式统一使用腾讯文档识别，再由 AI 整理题库；不支持 CSV 导入。当前传输上限 {sizeLabel(capabilities.parserInputMaxBytes ?? 8 * 1024 * 1024)}，还受文件类型和部署限制；超限时由服务端切分，XLS 和大 Office 文件需要转换器。默认使用本地文件，服务端可主动开启私有 COS 中转。</p>
-                <p>未启用去重时仍会提示重复候选。</p><p>AI 复核会对照原文检查，最多修正一轮。</p>
-                <p>下载的 ZIP 可在应用的“设置 → 恢复备份 → 导入题库 ZIP”中追加。</p>
-              </div></details>
-            </section>
-            {capabilities.modelBudget && <section><h2>调用预算</h2><p>每任务预算 {capabilities.modelBudget.limit} 次：按完整预留计算，普通单元最多 {Math.floor(capabilities.modelBudget.limit / capabilities.modelBudget.unitCalls)} 个，带上下文的视觉单元最多 {Math.floor(capabilities.modelBudget.limit / capabilities.modelBudget.contextUnitCalls)} 个。混合任务共享预算；单元数量不等于页数，重试仍占用预算，剩余预算不足时可能仅有部分结果。</p></section>}
-            <section><h2>从文档到离线练习</h2><ol className="import-steps" aria-label="文档导入流程">{[["选择并导入", "选择文件后开始解析"], ["检查解析结果", "到导入记录核对题目与答案"], ["导出题库", "下载 ZIP，在应用中离线练习"]].map(([title, description], index) => <li key={title}><span>{index + 1}</span><div><strong>{title}</strong><p>{description}</p></div></li>)}</ol></section>
+            <details><summary>格式与导入规则</summary><div>
+              <p>腾讯文档识别后，由 AI 整理题库。超限文件由服务端切分；XLS 和大 Office 文件需要转换器。</p>
+              <p>未启用去重时保留全部题目，并提示重复候选。AI 复核最多修正一轮，会增加调用与费用。</p>
+              <p>下载的 ZIP 可在应用的“设置 → 导入与恢复 → 导入题库 ZIP”中追加。</p>
+            </div></details>
+            {capabilities.modelBudget && <details><summary>调用预算 · 每任务 {capabilities.modelBudget.limit} 次</summary><p>按完整预留计算，普通单元最多 {Math.floor(capabilities.modelBudget.limit / capabilities.modelBudget.unitCalls)} 个，带上下文的视觉单元最多 {Math.floor(capabilities.modelBudget.limit / capabilities.modelBudget.contextUnitCalls)} 个。混合任务共享预算；单元数量不等于页数，重试仍占用预算，剩余预算不足时可能仅有部分结果。</p></details>}
           </aside>}
         </div>);
   const recordsContent = (<section className="records-panel" aria-labelledby="task-list-heading">
-  <div className="section-heading"><div><h2 id="task-list-heading" tabIndex={-1}>导入任务</h2><p>保留已完成的题目与待复核项，可在详情中管理任务。</p></div><Button variant="outline" aria-label="刷新任务列表" onClick={() => setListRevision(value => value + 1)}><RefreshCw />刷新</Button></div>
+  <div className="section-heading"><div><h2 id="task-list-heading" tabIndex={-1}>导入任务</h2></div><Button variant="outline" aria-label="刷新任务列表" onClick={() => setListRevision(value => value + 1)}><RefreshCw />刷新</Button></div>
   <div className="records-toolbar"><label><span>筛选任务状态</span><Select value={filter} onValueChange={value => { setFilter(value); setOffset(0); setCursors([undefined]); }}>{[["", "全部任务"], ["active", "正在处理"], ["paused", "已暂停"], ["review", "等待复核"], ["failed", "失败"], ["completed", "已完成"], ["interrupted", "已中断"], ["expired", "已过期"]].map(([value, label]) => <SelectOption key={value} value={value}>{label}</SelectOption>)}</Select></label><span aria-live="polite">本页 {tasks.items.length} 条记录</span></div>
-  {listError && <div role="alert" className="error-banner"><p>{listError}</p><Button variant="outline" onClick={() => setListRevision(value => value + 1)}>重试任务列表</Button></div>}
+  {listError && <div role="alert" className="error-banner"><div><p>{listError}</p>{!!tasks.items.length && <p>当前显示上次读取的记录。</p>}</div><Button variant="outline" onClick={() => setListRevision(value => value + 1)}>重试任务列表</Button></div>}
   {!tasks.items.length && !listError && <div className="records-empty"><History /><p role="status">{listLoading ? "正在读取任务…" : filter ? "没有符合此状态的任务。" : "当前没有任务。"}</p>{!listLoading && (filter ? <Button variant="outline" onClick={() => { setFilter(""); setOffset(0); setCursors([undefined]); }}>查看全部任务</Button> : capabilities && <Button variant="outline" disabled={busy} onClick={() => { navigate("import"); requestAnimationFrame(() => fileInput.current?.focus()); }}>选择第一份文档</Button>)}</div>}
-  {!!tasks.items.length && <div className="records-table-scroll"><table className="records-table"><caption className="sr-only">文档导入记录</caption><thead><tr><th scope="col">文档</th><th scope="col">状态</th><th scope="col">题目</th><th scope="col">创建时间</th><th scope="col">操作</th></tr></thead><tbody>{tasks.items.map(task => <tr key={task.threadId} data-selected={selected === task.threadId}>
-    <td><button type="button" className="record-name" aria-pressed={selected === task.threadId} onClick={() => selectTask(task.threadId)}>{task.fileName}</button><small>{task.fileName.split(".").at(-1)?.toUpperCase()} 文档</small></td>
+  {!!tasks.items.length && <div className="records-table-scroll"><table className="records-table"><caption className="sr-only">文档导入记录</caption><thead><tr><th scope="col">文档</th><th scope="col">状态</th><th scope="col" className="record-number">题目</th><th scope="col" className="record-number">待复核</th><th scope="col">创建时间</th><th scope="col">操作</th></tr></thead><tbody>{tasks.items.map(task => <tr key={task.threadId} data-selected={selected === task.threadId}>
+    <td><button type="button" className="record-name" aria-pressed={selected === task.threadId} onClick={() => selectTask(task.threadId)}>{task.fileName}</button></td>
     <td><Badge variant="outline">{stateLabels[task.state]}</Badge>{task.status === "PARTIAL" && <Badge variant="secondary">部分结果</Badge>}</td>
-    <td><span>{task.questionCount} 条题目 · {task.reviewCount} 条待复核</span></td><td><time dateTime={task.createdAt}>{dateLabel(task.createdAt)}</time></td>
+    <td className="record-number"><span className="mobile-label">题目 </span>{task.questionCount}</td><td className="record-number"><span className="mobile-label">待复核 </span>{task.reviewCount > 0 ? <Badge variant="secondary">{task.reviewCount}</Badge> : 0}</td><td><time dateTime={task.createdAt}>{dateLabel(task.createdAt)}</time></td>
     <td>{task.state === "EXPIRED" ? <Button variant="destructive" size="sm" disabled={busy} aria-label={`删除已过期任务 ${task.fileName}`} onClick={() => setDeleteTarget({ threadId: task.threadId, fileName: task.fileName })}><Trash2 />删除</Button> : selected === task.threadId ? <a className="workspace-link" href="#task-detail">查看当前任务详情</a> : <Button variant="ghost" size="sm" onClick={() => selectTask(task.threadId)}>管理任务</Button>}</td>
   </tr>)}</tbody></table></div>}
-  <nav aria-label="任务列表分页" className="records-pagination"><Button variant="outline" size="icon" aria-label="上一页任务" disabled={!offset || listLoading} onClick={() => setOffset(value => Math.max(0, value - 20))}><ChevronLeft /></Button><span>第 {Math.floor(offset / 20) + 1} 页</span><Button variant="outline" size="icon" aria-label="下一页任务" disabled={!tasks.hasMore || listLoading} onClick={() => { setCursors(previous => [...previous.slice(0, offset / 20 + 1), tasks.nextCursor ?? undefined]); setOffset(value => value + 20); }}><ChevronRight /></Button></nav>
+  <nav aria-label="任务列表分页" className="records-pagination"><Button variant="outline" size="icon" aria-label="上一页任务" disabled={!offset || listLoading || !!listError} onClick={() => setOffset(value => Math.max(0, value - 20))}><ChevronLeft /></Button><span>第 {Math.floor(offset / 20) + 1} 页</span><Button variant="outline" size="icon" aria-label="下一页任务" disabled={!tasks.hasMore || listLoading || !!listError} onClick={() => { setCursors(previous => [...previous.slice(0, offset / 20 + 1), tasks.nextCursor ?? undefined]); setOffset(value => value + 20); }}><ChevronRight /></Button></nav>
 </section>);
   const detailContent = client && (<section id="task-detail" tabIndex={-1} className="task-panel" aria-label="任务详情">
           {selected && <a className="workspace-link" href="#task-list-heading">返回任务列表</a>}
@@ -341,7 +340,7 @@ export default function App() {
             {detailError && <div className="error-banner" role="alert"><span className="min-w-0 flex-1">{detailError}</span><Button variant="outline" onClick={() => setDetailRevision(value => value + 1)}>重试任务详情</Button></div>}
             {previewError && <div className="error-banner" role="alert"><span className="min-w-0 flex-1">{previewError}</span><Button variant="outline" onClick={() => setDetailRevision(value => value + 1)}>重试检查点预览</Button></div>}
             {!detail && !detailError && <p>正在读取任务详情…</p>}
-            {detail && <div className="space-y-6"><div className="task-title"><div><h2>{detail.fileName}</h2><p><Badge variant="outline">{stateLabels[detail.state]}</Badge><span>阶段：{detail.phase}</span>{detail.status && <Badge variant={detail.status === "PARTIAL" ? "secondary" : "outline"}>{detail.status === "PARTIAL" ? "部分结果" : "解析完成"}</Badge>}</p></div><Button variant="outline" aria-label="刷新任务详情" onClick={() => setDetailRevision(value => value + 1)}><RefreshCw /></Button></div>
+            {detail && <div className="space-y-6"><div className="task-title"><div><h2>{detail.fileName}</h2><p><Badge variant="outline">{stateLabels[detail.state]}</Badge>{detail.status === "PARTIAL" && <Badge variant="secondary">部分结果</Badge>}</p></div><Button variant="outline" aria-label="刷新任务详情" onClick={() => setDetailRevision(value => value + 1)}><RefreshCw /></Button></div>
               {!detailFresh && <p className="notice">当前显示上次成功读取的信息，任务操作已停用，请先刷新。</p>}
               {preview && preview.checkpointId !== detail.checkpointId && <p className="notice">任务检查点正在更新，读取一致后才能继续或导出。</p>}
               <Progress task={detail} />
@@ -362,10 +361,10 @@ export default function App() {
     <aside className="web-sidebar" aria-label="导入管理侧边栏">
       <a href="#import" className="brand" onClick={() => navigate("import")}><img src={logo} alt="PractiQ 小章鱼" /><div><strong>PractiQ</strong><span>AI 文档导入</span></div></a>
       <nav aria-label="工作区导航">{pages.map(({ id, label, icon: Icon }) => <a key={id} href={`#${id}`} aria-current={page === id ? "page" : undefined} onClick={() => navigate(id)}><Icon aria-hidden="true" />{label}</a>)}</nav>
-      <div className="sidebar-connection"><LockKeyhole aria-hidden="true" /><div><strong>{client ? "服务已连接" : "尚未连接服务"}</strong><span>访问令牌仅保留在本页</span></div></div>
+      <div className="sidebar-connection"><LockKeyhole aria-hidden="true" /><strong>{client ? "服务已连接" : "尚未连接服务"}</strong></div>
     </aside>
     <div className="web-body"><main id="main-content" tabIndex={-1} className="web-main">
-      <header className="page-intro"><div><h1 id="page-heading" tabIndex={-1}>{pages.find(item => item.id === page)!.label}</h1><p>{page === "import" ? "上传文档，整理成可复核的题库。" : page === "records" ? "查看题目、处理进度和结果，管理导入任务。" : "调整整个服务共享的识别与恢复策略。"}</p></div></header>
+      <header className="page-intro"><h1 id="page-heading" tabIndex={-1}>{pages.find(item => item.id === page)!.label}</h1></header>
       {!client ? <Card className="connection-card"><CardHeader><CardTitle role="heading" aria-level={2} className="flex items-center gap-2"><LockKeyhole />连接个人服务</CardTitle></CardHeader><CardContent className="space-y-4"><p id="service-help">使用自托管服务的 AI_SERVICE_TOKEN。令牌仅保存在本页内存，刷新后需重填。</p><form onSubmit={event => { event.preventDefault(); void connect(); }} className="connection-form"><label className="flex-1 space-y-1"><span>服务访问令牌</span><Input ref={tokenField} disabled={connecting} type="password" aria-invalid={accessInvalid || undefined} aria-describedby={accessInvalid ? "service-help access-error" : "service-help"} autoComplete="off" spellCheck={false} maxLength={4096} value={draftToken} onChange={event => setDraftToken(event.target.value)} /></label><Button type="submit" disabled={connecting || !draftToken.trim()}>连接服务</Button></form>{capError && <p id="access-error" role="alert" className="text-destructive">{capError}</p>}</CardContent></Card> : <>
         {capError && <div className="error-banner" role="alert"><span className="min-w-0 flex-1">{capError}</span><Button variant="outline" onClick={() => setCapRevision(value => value + 1)}>重试读取服务能力</Button></div>}
         {notice && <p className="notice operation-notice" role="status">{notice}</p>}
@@ -378,6 +377,6 @@ export default function App() {
         <div hidden={page !== "records"} className="records-page">{recordsContent}{detailContent}</div>
         <div hidden={page !== "settings"} className="settings-page"><ImportSettingsPanel client={client} /></div>
       </>}
-    </main><footer>PractiQ · 保留来源与不确定性，由你检查并决定下一步。</footer></div>
+    </main></div>
   </div>;
 }
