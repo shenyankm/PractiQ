@@ -1,9 +1,47 @@
 import { describe, expect, it, vi } from "vitest";
-import { Client, ApiError, MAX_BANK_ZIP_BYTES, downloadBlob, fileFormat, sha256, sourceLimit, validateFiles } from "./api";
+import { Client, ApiError, MAX_BANK_ZIP_BYTES, downloadBlob, fileFormat, readBytes, sha256, sourceLimit, validateFiles } from "./api";
 import { capabilities, task, taskId, runId } from "./test-fixtures";
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 const receipt = { threadId: taskId, requestId: taskId, runId, accepted: true };
+
+it("exports ordered chunk views without a contiguous reassembly copy", async () => {
+  const backing = new Uint8Array([255, 80, 75, 0, 128, 255]);
+  const chunks = [backing.subarray(1, 3), new Uint8Array(), backing.subarray(3, 5)];
+  const response = new Response(new ReadableStream({ start(controller) { for (const chunk of chunks) controller.enqueue(chunk); controller.close(); } }), { headers: { "Content-Type": "application/zip" } });
+  const fetcher = vi.fn(async (_path: string, _init: RequestInit) => response);
+  vi.stubGlobal("fetch", fetcher);
+  const copy = vi.spyOn(Uint8Array.prototype, "set");
+  const exported = await new Client("fake").exportBank(task);
+  const copiedBytes = copy.mock.calls.reduce((total, [bytes]) => total + bytes.length, 0);
+  copy.mockRestore();
+  // JSDOM's Blob still takes one immutable copy of these bytes.
+  expect(copiedBytes).toBe(4);
+  backing.fill(1);
+  expect([...new Uint8Array(await exported.blob.arrayBuffer())]).toEqual([80, 75, 0, 128]);
+  expect(exported.blob.type).toBe("application/zip");
+  expect(response.body?.locked).toBe(false);
+  expect(fetcher).toHaveBeenCalledTimes(1);
+  expect(new Headers(fetcher.mock.calls[0][1]?.headers).get("Authorization")).toBe("Bearer fake");
+});
+
+it("cancels an observed oversized body and releases the reader", async () => {
+  const cancel = vi.fn();
+  const response = new Response(new ReadableStream({ start(controller) { controller.enqueue(new Uint8Array(3)); controller.enqueue(new Uint8Array(3)); }, cancel }));
+  await expect(readBytes(response, 5)).rejects.toMatchObject({ code: "RESPONSE_TOO_LARGE" });
+  expect(cancel).toHaveBeenCalledTimes(1);
+  expect(response.body?.locked).toBe(false);
+});
+
+it("retains bounded bodyless responses and normalizes streamed subarray bytes", async () => {
+  const bytes = new Uint8Array([255, 80, 75, 0, 128, 255]);
+  const response = new Response(null);
+  vi.spyOn(response, "arrayBuffer").mockResolvedValue(bytes.buffer);
+  expect(await readBytes(response, bytes.length)).toEqual(bytes);
+  await expect(readBytes(response, bytes.length - 1)).rejects.toMatchObject({ code: "RESPONSE_TOO_LARGE" });
+  const streamed = new Response(new ReadableStream({ start(controller) { controller.enqueue(bytes.subarray(1, 5)); controller.close(); } }));
+  expect([...new Uint8Array((await readBytes(streamed, 4)).buffer)]).toEqual([80, 75, 0, 128]);
+});
 
 it("verifies OCR evidence and strips document-only fields from original-file reads", async () => {
   const bytes = new TextEncoder().encode('{"text":"Source <script>inert</script>"}');

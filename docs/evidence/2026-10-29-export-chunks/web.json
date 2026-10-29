@@ -1,0 +1,1448 @@
+{
+  "baseline": "125dae03a9594bd8892818819982df578412e87c",
+  "node": "v22.23.2",
+  "chromium": "153.0.8010.12",
+  "platform": "darwin arm64 27.0.0",
+  "lockSha256": "bb0f54d8ff58bdc77bf68f1ee61380dc7c9f581e92e572beec65a401f8ae4e0d",
+  "beforeSourceSha256": "9478b6232576716c53d35ddb7cb021b7e9d334c488a00d663a7b21c14afc8e43",
+  "afterSourceSha256": "f1cbe8b9156114ec7cd797ecb2ffbd97c35a1b7a01722e97fed175323250a899",
+  "probeSha256": "e7094c6d5a6fa7d5dd2adc6dfe6ec1b079b5045ae9a55efc848eefc3260f74e4",
+  "scope": "Three alternating isolated Node/Chromium process pairs; one warmup and five retained samples per case/process. Fixture/Response creation, explicit pre-sample GC and full output hashing excluded. Native browser Client export/readBytes with synthetic fetch; counts JS Uint8Array.set bytes only, not Blob internals or peak memory. No service, network throughput, ZIP parsing, provider or end-to-end download claim.",
+  "workloads": [
+    {
+      "shape": "export",
+      "bytes": 32768,
+      "chunkBytes": 8192,
+      "inputSha256": "3e1a42bb82e35c9009215e5edcdcb840f87693bdd776684a0e0f862f17e0d0b1",
+      "outputSha256": "7f68e779ea24e328c4b05d96fef9fa54a6a188f21228c759be127180ffc626a1",
+      "before": {
+        "samples": [
+          {
+            "elapsedMs": 0.30000007152557373,
+            "copiedBytes": 32768,
+            "copyCalls": 4,
+            "hash": "0faccc2514da8adb95473cf68d6374532818522ff2fab4c86c124184f5568a9e",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 0.20000004768371582,
+            "copiedBytes": 32768,
+            "copyCalls": 4,
+            "hash": "0faccc2514da8adb95473cf68d6374532818522ff2fab4c86c124184f5568a9e",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 0.20000004768371582,
+            "copiedBytes": 32768,
+            "copyCalls": 4,
+            "hash": "0faccc2514da8adb95473cf68d6374532818522ff2fab4c86c124184f5568a9e",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 0.19999992847442627,
+            "copiedBytes": 32768,
+            "copyCalls": 4,
+            "hash": "0faccc2514da8adb95473cf68d6374532818522ff2fab4c86c124184f5568a9e",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 0.20000004768371582,
+            "copiedBytes": 32768,
+            "copyCalls": 4,
+            "hash": "0faccc2514da8adb95473cf68d6374532818522ff2fab4c86c124184f5568a9e",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 0.30000007152557373,
+            "copiedBytes": 32768,
+            "copyCalls": 4,
+            "hash": "0faccc2514da8adb95473cf68d6374532818522ff2fab4c86c124184f5568a9e",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 0.20000004768371582,
+            "copiedBytes": 32768,
+            "copyCalls": 4,
+            "hash": "0faccc2514da8adb95473cf68d6374532818522ff2fab4c86c124184f5568a9e",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 0.20000004768371582,
+            "copiedBytes": 32768,
+            "copyCalls": 4,
+            "hash": "0faccc2514da8adb95473cf68d6374532818522ff2fab4c86c124184f5568a9e",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 0.19999992847442627,
+            "copiedBytes": 32768,
+            "copyCalls": 4,
+            "hash": "0faccc2514da8adb95473cf68d6374532818522ff2fab4c86c124184f5568a9e",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 0.19999992847442627,
+            "copiedBytes": 32768,
+            "copyCalls": 4,
+            "hash": "0faccc2514da8adb95473cf68d6374532818522ff2fab4c86c124184f5568a9e",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 0.10000002384185791,
+            "copiedBytes": 32768,
+            "copyCalls": 4,
+            "hash": "0faccc2514da8adb95473cf68d6374532818522ff2fab4c86c124184f5568a9e",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 0.19999992847442627,
+            "copiedBytes": 32768,
+            "copyCalls": 4,
+            "hash": "0faccc2514da8adb95473cf68d6374532818522ff2fab4c86c124184f5568a9e",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 0.09999990463256836,
+            "copiedBytes": 32768,
+            "copyCalls": 4,
+            "hash": "0faccc2514da8adb95473cf68d6374532818522ff2fab4c86c124184f5568a9e",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 0.10000002384185791,
+            "copiedBytes": 32768,
+            "copyCalls": 4,
+            "hash": "0faccc2514da8adb95473cf68d6374532818522ff2fab4c86c124184f5568a9e",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 0.30000007152557373,
+            "copiedBytes": 32768,
+            "copyCalls": 4,
+            "hash": "0faccc2514da8adb95473cf68d6374532818522ff2fab4c86c124184f5568a9e",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          }
+        ],
+        "medianMs": 0.20000004768371582
+      },
+      "after": {
+        "samples": [
+          {
+            "elapsedMs": 0.10000002384185791,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "0faccc2514da8adb95473cf68d6374532818522ff2fab4c86c124184f5568a9e",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 0.19999992847442627,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "0faccc2514da8adb95473cf68d6374532818522ff2fab4c86c124184f5568a9e",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 0.19999992847442627,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "0faccc2514da8adb95473cf68d6374532818522ff2fab4c86c124184f5568a9e",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 0.20000004768371582,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "0faccc2514da8adb95473cf68d6374532818522ff2fab4c86c124184f5568a9e",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 0.10000002384185791,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "0faccc2514da8adb95473cf68d6374532818522ff2fab4c86c124184f5568a9e",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 0.19999992847442627,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "0faccc2514da8adb95473cf68d6374532818522ff2fab4c86c124184f5568a9e",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 0.19999992847442627,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "0faccc2514da8adb95473cf68d6374532818522ff2fab4c86c124184f5568a9e",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 0.10000002384185791,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "0faccc2514da8adb95473cf68d6374532818522ff2fab4c86c124184f5568a9e",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 0.20000004768371582,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "0faccc2514da8adb95473cf68d6374532818522ff2fab4c86c124184f5568a9e",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 0.19999992847442627,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "0faccc2514da8adb95473cf68d6374532818522ff2fab4c86c124184f5568a9e",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 0.20000004768371582,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "0faccc2514da8adb95473cf68d6374532818522ff2fab4c86c124184f5568a9e",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 0.20000004768371582,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "0faccc2514da8adb95473cf68d6374532818522ff2fab4c86c124184f5568a9e",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 0.19999992847442627,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "0faccc2514da8adb95473cf68d6374532818522ff2fab4c86c124184f5568a9e",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 0.19999992847442627,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "0faccc2514da8adb95473cf68d6374532818522ff2fab4c86c124184f5568a9e",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 0.20000004768371582,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "0faccc2514da8adb95473cf68d6374532818522ff2fab4c86c124184f5568a9e",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          }
+        ],
+        "medianMs": 0.19999992847442627
+      }
+    },
+    {
+      "shape": "export",
+      "bytes": 16777216,
+      "chunkBytes": 1048576,
+      "inputSha256": "70618f21dfa8499e133a4affa7c0cf4438b6426aedb8d323ebc577cc5302aaee",
+      "outputSha256": "3d17dc3909b8f4ae9347d7911a9c67c65369927e2c8fca1f4beed0f8fb2a25cc",
+      "before": {
+        "samples": [
+          {
+            "elapsedMs": 2.8000000715255737,
+            "copiedBytes": 16777216,
+            "copyCalls": 16,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 2.600000023841858,
+            "copiedBytes": 16777216,
+            "copyCalls": 16,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 2.399999976158142,
+            "copiedBytes": 16777216,
+            "copyCalls": 16,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 2.299999952316284,
+            "copiedBytes": 16777216,
+            "copyCalls": 16,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 2.399999976158142,
+            "copiedBytes": 16777216,
+            "copyCalls": 16,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 2.600000023841858,
+            "copiedBytes": 16777216,
+            "copyCalls": 16,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 2.5,
+            "copiedBytes": 16777216,
+            "copyCalls": 16,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 2.100000023841858,
+            "copiedBytes": 16777216,
+            "copyCalls": 16,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 2.100000023841858,
+            "copiedBytes": 16777216,
+            "copyCalls": 16,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 2.200000047683716,
+            "copiedBytes": 16777216,
+            "copyCalls": 16,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 2.1999999284744263,
+            "copiedBytes": 16777216,
+            "copyCalls": 16,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 2.1999999284744263,
+            "copiedBytes": 16777216,
+            "copyCalls": 16,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 2.1999999284744263,
+            "copiedBytes": 16777216,
+            "copyCalls": 16,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 2.1999999284744263,
+            "copiedBytes": 16777216,
+            "copyCalls": 16,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 2.1999999284744263,
+            "copiedBytes": 16777216,
+            "copyCalls": 16,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          }
+        ],
+        "medianMs": 2.200000047683716
+      },
+      "after": {
+        "samples": [
+          {
+            "elapsedMs": 1.6999999284744263,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 1.2000000476837158,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 1.1999999284744263,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 1.2000000476837158,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 1.100000023841858,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 1.600000023841858,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 1.1999999284744263,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 1.399999976158142,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 1.2000000476837158,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 1.2999999523162842,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 1.5,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 1.3000000715255737,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 1.1999999284744263,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 1.100000023841858,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 1.0999999046325684,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          }
+        ],
+        "medianMs": 1.2000000476837158
+      }
+    },
+    {
+      "shape": "export",
+      "bytes": 134217728,
+      "chunkBytes": 1048576,
+      "inputSha256": "cc74de4d2da48d96fc77843ea735323e83ab81b1ad2aa3bff1ffa03a7f8462c6",
+      "outputSha256": "8136b89468943ac63dc768b6dcbb51e86e0aa6e40d9bbc453b33d01346378e7e",
+      "before": {
+        "samples": [
+          {
+            "elapsedMs": 18.600000023841858,
+            "copiedBytes": 134217728,
+            "copyCalls": 128,
+            "hash": "3f03a2263b58a175235ca76400099600f5da4407f63bf1944f2732548689281f",
+            "bytes": 134217728,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 18.5,
+            "copiedBytes": 134217728,
+            "copyCalls": 128,
+            "hash": "3f03a2263b58a175235ca76400099600f5da4407f63bf1944f2732548689281f",
+            "bytes": 134217728,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 16.800000071525574,
+            "copiedBytes": 134217728,
+            "copyCalls": 128,
+            "hash": "3f03a2263b58a175235ca76400099600f5da4407f63bf1944f2732548689281f",
+            "bytes": 134217728,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 17.100000023841858,
+            "copiedBytes": 134217728,
+            "copyCalls": 128,
+            "hash": "3f03a2263b58a175235ca76400099600f5da4407f63bf1944f2732548689281f",
+            "bytes": 134217728,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 18.800000071525574,
+            "copiedBytes": 134217728,
+            "copyCalls": 128,
+            "hash": "3f03a2263b58a175235ca76400099600f5da4407f63bf1944f2732548689281f",
+            "bytes": 134217728,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 17.899999976158142,
+            "copiedBytes": 134217728,
+            "copyCalls": 128,
+            "hash": "3f03a2263b58a175235ca76400099600f5da4407f63bf1944f2732548689281f",
+            "bytes": 134217728,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 16.200000047683716,
+            "copiedBytes": 134217728,
+            "copyCalls": 128,
+            "hash": "3f03a2263b58a175235ca76400099600f5da4407f63bf1944f2732548689281f",
+            "bytes": 134217728,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 18.100000023841858,
+            "copiedBytes": 134217728,
+            "copyCalls": 128,
+            "hash": "3f03a2263b58a175235ca76400099600f5da4407f63bf1944f2732548689281f",
+            "bytes": 134217728,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 16.100000023841858,
+            "copiedBytes": 134217728,
+            "copyCalls": 128,
+            "hash": "3f03a2263b58a175235ca76400099600f5da4407f63bf1944f2732548689281f",
+            "bytes": 134217728,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 17.699999928474426,
+            "copiedBytes": 134217728,
+            "copyCalls": 128,
+            "hash": "3f03a2263b58a175235ca76400099600f5da4407f63bf1944f2732548689281f",
+            "bytes": 134217728,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 16.700000047683716,
+            "copiedBytes": 134217728,
+            "copyCalls": 128,
+            "hash": "3f03a2263b58a175235ca76400099600f5da4407f63bf1944f2732548689281f",
+            "bytes": 134217728,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 18.100000023841858,
+            "copiedBytes": 134217728,
+            "copyCalls": 128,
+            "hash": "3f03a2263b58a175235ca76400099600f5da4407f63bf1944f2732548689281f",
+            "bytes": 134217728,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 20.700000047683716,
+            "copiedBytes": 134217728,
+            "copyCalls": 128,
+            "hash": "3f03a2263b58a175235ca76400099600f5da4407f63bf1944f2732548689281f",
+            "bytes": 134217728,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 19.399999976158142,
+            "copiedBytes": 134217728,
+            "copyCalls": 128,
+            "hash": "3f03a2263b58a175235ca76400099600f5da4407f63bf1944f2732548689281f",
+            "bytes": 134217728,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 19,
+            "copiedBytes": 134217728,
+            "copyCalls": 128,
+            "hash": "3f03a2263b58a175235ca76400099600f5da4407f63bf1944f2732548689281f",
+            "bytes": 134217728,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          }
+        ],
+        "medianMs": 18.100000023841858
+      },
+      "after": {
+        "samples": [
+          {
+            "elapsedMs": 8.700000047683716,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "3f03a2263b58a175235ca76400099600f5da4407f63bf1944f2732548689281f",
+            "bytes": 134217728,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 8.899999976158142,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "3f03a2263b58a175235ca76400099600f5da4407f63bf1944f2732548689281f",
+            "bytes": 134217728,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 8.299999952316284,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "3f03a2263b58a175235ca76400099600f5da4407f63bf1944f2732548689281f",
+            "bytes": 134217728,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 8.599999904632568,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "3f03a2263b58a175235ca76400099600f5da4407f63bf1944f2732548689281f",
+            "bytes": 134217728,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 8.400000095367432,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "3f03a2263b58a175235ca76400099600f5da4407f63bf1944f2732548689281f",
+            "bytes": 134217728,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 8.300000071525574,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "3f03a2263b58a175235ca76400099600f5da4407f63bf1944f2732548689281f",
+            "bytes": 134217728,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 8.200000047683716,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "3f03a2263b58a175235ca76400099600f5da4407f63bf1944f2732548689281f",
+            "bytes": 134217728,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 8.199999928474426,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "3f03a2263b58a175235ca76400099600f5da4407f63bf1944f2732548689281f",
+            "bytes": 134217728,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 8.600000023841858,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "3f03a2263b58a175235ca76400099600f5da4407f63bf1944f2732548689281f",
+            "bytes": 134217728,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 8.300000071525574,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "3f03a2263b58a175235ca76400099600f5da4407f63bf1944f2732548689281f",
+            "bytes": 134217728,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 9.5,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "3f03a2263b58a175235ca76400099600f5da4407f63bf1944f2732548689281f",
+            "bytes": 134217728,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 8.700000047683716,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "3f03a2263b58a175235ca76400099600f5da4407f63bf1944f2732548689281f",
+            "bytes": 134217728,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 8.399999976158142,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "3f03a2263b58a175235ca76400099600f5da4407f63bf1944f2732548689281f",
+            "bytes": 134217728,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 8.399999976158142,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "3f03a2263b58a175235ca76400099600f5da4407f63bf1944f2732548689281f",
+            "bytes": 134217728,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          },
+          {
+            "elapsedMs": 8.899999976158142,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "3f03a2263b58a175235ca76400099600f5da4407f63bf1944f2732548689281f",
+            "bytes": 134217728,
+            "type": "application/zip",
+            "name": "practiq-bank-11111111-1111-4111-8111-111111111111.zip"
+          }
+        ],
+        "medianMs": 8.400000095367432
+      }
+    },
+    {
+      "shape": "bytes-control",
+      "bytes": 16777216,
+      "chunkBytes": 1048576,
+      "inputSha256": "ab3ca92a7182ee41c1ad41eae1d09a3aec57cc00a310b060ba3b92048679a91b",
+      "outputSha256": "f81e9edc16f2eca14afd08eaa89c732aa58e551948ac94006f40aa32ffb15460",
+      "before": {
+        "samples": [
+          {
+            "elapsedMs": 1.1999999284744263,
+            "copiedBytes": 16777216,
+            "copyCalls": 16,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": null
+          },
+          {
+            "elapsedMs": 0.8999999761581421,
+            "copiedBytes": 16777216,
+            "copyCalls": 16,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": null
+          },
+          {
+            "elapsedMs": 1,
+            "copiedBytes": 16777216,
+            "copyCalls": 16,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": null
+          },
+          {
+            "elapsedMs": 1.100000023841858,
+            "copiedBytes": 16777216,
+            "copyCalls": 16,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": null
+          },
+          {
+            "elapsedMs": 1.0999999046325684,
+            "copiedBytes": 16777216,
+            "copyCalls": 16,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": null
+          },
+          {
+            "elapsedMs": 1.100000023841858,
+            "copiedBytes": 16777216,
+            "copyCalls": 16,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": null
+          },
+          {
+            "elapsedMs": 0.8999999761581421,
+            "copiedBytes": 16777216,
+            "copyCalls": 16,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": null
+          },
+          {
+            "elapsedMs": 1,
+            "copiedBytes": 16777216,
+            "copyCalls": 16,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": null
+          },
+          {
+            "elapsedMs": 1.0999999046325684,
+            "copiedBytes": 16777216,
+            "copyCalls": 16,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": null
+          },
+          {
+            "elapsedMs": 1.100000023841858,
+            "copiedBytes": 16777216,
+            "copyCalls": 16,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": null
+          },
+          {
+            "elapsedMs": 1,
+            "copiedBytes": 16777216,
+            "copyCalls": 16,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": null
+          },
+          {
+            "elapsedMs": 1.100000023841858,
+            "copiedBytes": 16777216,
+            "copyCalls": 16,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": null
+          },
+          {
+            "elapsedMs": 1.100000023841858,
+            "copiedBytes": 16777216,
+            "copyCalls": 16,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": null
+          },
+          {
+            "elapsedMs": 0.8999999761581421,
+            "copiedBytes": 16777216,
+            "copyCalls": 16,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": null
+          },
+          {
+            "elapsedMs": 1,
+            "copiedBytes": 16777216,
+            "copyCalls": 16,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": null
+          }
+        ],
+        "medianMs": 1.0999999046325684
+      },
+      "after": {
+        "samples": [
+          {
+            "elapsedMs": 1,
+            "copiedBytes": 16777216,
+            "copyCalls": 16,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": null
+          },
+          {
+            "elapsedMs": 0.8999999761581421,
+            "copiedBytes": 16777216,
+            "copyCalls": 16,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": null
+          },
+          {
+            "elapsedMs": 0.8999999761581421,
+            "copiedBytes": 16777216,
+            "copyCalls": 16,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": null
+          },
+          {
+            "elapsedMs": 0.8999999761581421,
+            "copiedBytes": 16777216,
+            "copyCalls": 16,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": null
+          },
+          {
+            "elapsedMs": 0.8999999761581421,
+            "copiedBytes": 16777216,
+            "copyCalls": 16,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": null
+          },
+          {
+            "elapsedMs": 1,
+            "copiedBytes": 16777216,
+            "copyCalls": 16,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": null
+          },
+          {
+            "elapsedMs": 1,
+            "copiedBytes": 16777216,
+            "copyCalls": 16,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": null
+          },
+          {
+            "elapsedMs": 0.8999999761581421,
+            "copiedBytes": 16777216,
+            "copyCalls": 16,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": null
+          },
+          {
+            "elapsedMs": 1,
+            "copiedBytes": 16777216,
+            "copyCalls": 16,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": null
+          },
+          {
+            "elapsedMs": 1,
+            "copiedBytes": 16777216,
+            "copyCalls": 16,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": null
+          },
+          {
+            "elapsedMs": 1.0999999046325684,
+            "copiedBytes": 16777216,
+            "copyCalls": 16,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": null
+          },
+          {
+            "elapsedMs": 1.0999999046325684,
+            "copiedBytes": 16777216,
+            "copyCalls": 16,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": null
+          },
+          {
+            "elapsedMs": 1,
+            "copiedBytes": 16777216,
+            "copyCalls": 16,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": null
+          },
+          {
+            "elapsedMs": 1,
+            "copiedBytes": 16777216,
+            "copyCalls": 16,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": null
+          },
+          {
+            "elapsedMs": 0.8999999761581421,
+            "copiedBytes": 16777216,
+            "copyCalls": 16,
+            "hash": "25e8046733c388c7c73c29c42e4a76836ceedef9b09ee23bfc13aaeec2b20bbe",
+            "bytes": 16777216,
+            "type": "application/zip",
+            "name": null
+          }
+        ],
+        "medianMs": 1
+      }
+    },
+    {
+      "shape": "bodyless-control",
+      "bytes": 32768,
+      "chunkBytes": 32768,
+      "inputSha256": "4e1fb4d0e5985728e9eab28b606769bc9945e7154df117c59ab1db727de7789a",
+      "outputSha256": "7295552931110021c072b2930823261fc156a0772bc5b47aea024624efd851db",
+      "before": {
+        "samples": [
+          {
+            "elapsedMs": 0.10000002384185791,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "cf042bdf442458cf3166c597d18fdab97af95b3ebf57eb3a756c247743a311a4",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": null
+          },
+          {
+            "elapsedMs": 0,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "cf042bdf442458cf3166c597d18fdab97af95b3ebf57eb3a756c247743a311a4",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": null
+          },
+          {
+            "elapsedMs": 0,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "cf042bdf442458cf3166c597d18fdab97af95b3ebf57eb3a756c247743a311a4",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": null
+          },
+          {
+            "elapsedMs": 0,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "cf042bdf442458cf3166c597d18fdab97af95b3ebf57eb3a756c247743a311a4",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": null
+          },
+          {
+            "elapsedMs": 0,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "cf042bdf442458cf3166c597d18fdab97af95b3ebf57eb3a756c247743a311a4",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": null
+          },
+          {
+            "elapsedMs": 0,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "cf042bdf442458cf3166c597d18fdab97af95b3ebf57eb3a756c247743a311a4",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": null
+          },
+          {
+            "elapsedMs": 0,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "cf042bdf442458cf3166c597d18fdab97af95b3ebf57eb3a756c247743a311a4",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": null
+          },
+          {
+            "elapsedMs": 0,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "cf042bdf442458cf3166c597d18fdab97af95b3ebf57eb3a756c247743a311a4",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": null
+          },
+          {
+            "elapsedMs": 0,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "cf042bdf442458cf3166c597d18fdab97af95b3ebf57eb3a756c247743a311a4",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": null
+          },
+          {
+            "elapsedMs": 0,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "cf042bdf442458cf3166c597d18fdab97af95b3ebf57eb3a756c247743a311a4",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": null
+          },
+          {
+            "elapsedMs": 0,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "cf042bdf442458cf3166c597d18fdab97af95b3ebf57eb3a756c247743a311a4",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": null
+          },
+          {
+            "elapsedMs": 0,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "cf042bdf442458cf3166c597d18fdab97af95b3ebf57eb3a756c247743a311a4",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": null
+          },
+          {
+            "elapsedMs": 0,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "cf042bdf442458cf3166c597d18fdab97af95b3ebf57eb3a756c247743a311a4",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": null
+          },
+          {
+            "elapsedMs": 0,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "cf042bdf442458cf3166c597d18fdab97af95b3ebf57eb3a756c247743a311a4",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": null
+          },
+          {
+            "elapsedMs": 0,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "cf042bdf442458cf3166c597d18fdab97af95b3ebf57eb3a756c247743a311a4",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": null
+          }
+        ],
+        "medianMs": 0
+      },
+      "after": {
+        "samples": [
+          {
+            "elapsedMs": 0,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "cf042bdf442458cf3166c597d18fdab97af95b3ebf57eb3a756c247743a311a4",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": null
+          },
+          {
+            "elapsedMs": 0,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "cf042bdf442458cf3166c597d18fdab97af95b3ebf57eb3a756c247743a311a4",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": null
+          },
+          {
+            "elapsedMs": 0,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "cf042bdf442458cf3166c597d18fdab97af95b3ebf57eb3a756c247743a311a4",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": null
+          },
+          {
+            "elapsedMs": 0,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "cf042bdf442458cf3166c597d18fdab97af95b3ebf57eb3a756c247743a311a4",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": null
+          },
+          {
+            "elapsedMs": 0,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "cf042bdf442458cf3166c597d18fdab97af95b3ebf57eb3a756c247743a311a4",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": null
+          },
+          {
+            "elapsedMs": 0,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "cf042bdf442458cf3166c597d18fdab97af95b3ebf57eb3a756c247743a311a4",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": null
+          },
+          {
+            "elapsedMs": 0,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "cf042bdf442458cf3166c597d18fdab97af95b3ebf57eb3a756c247743a311a4",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": null
+          },
+          {
+            "elapsedMs": 0,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "cf042bdf442458cf3166c597d18fdab97af95b3ebf57eb3a756c247743a311a4",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": null
+          },
+          {
+            "elapsedMs": 0,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "cf042bdf442458cf3166c597d18fdab97af95b3ebf57eb3a756c247743a311a4",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": null
+          },
+          {
+            "elapsedMs": 0,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "cf042bdf442458cf3166c597d18fdab97af95b3ebf57eb3a756c247743a311a4",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": null
+          },
+          {
+            "elapsedMs": 0,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "cf042bdf442458cf3166c597d18fdab97af95b3ebf57eb3a756c247743a311a4",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": null
+          },
+          {
+            "elapsedMs": 0,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "cf042bdf442458cf3166c597d18fdab97af95b3ebf57eb3a756c247743a311a4",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": null
+          },
+          {
+            "elapsedMs": 0,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "cf042bdf442458cf3166c597d18fdab97af95b3ebf57eb3a756c247743a311a4",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": null
+          },
+          {
+            "elapsedMs": 0,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "cf042bdf442458cf3166c597d18fdab97af95b3ebf57eb3a756c247743a311a4",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": null
+          },
+          {
+            "elapsedMs": 0,
+            "copiedBytes": 0,
+            "copyCalls": 0,
+            "hash": "cf042bdf442458cf3166c597d18fdab97af95b3ebf57eb3a756c247743a311a4",
+            "bytes": 32768,
+            "type": "application/zip",
+            "name": null
+          }
+        ],
+        "medianMs": 0
+      }
+    }
+  ]
+}

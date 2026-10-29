@@ -49,15 +49,15 @@ export function validateFiles(files: File[], capabilities: Capabilities) {
 export async function sha256(bytes: ArrayBuffer) {
   return Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)), value => value.toString(16).padStart(2, "0")).join("");
 }
-export async function readBytes(response: Response, maximum: number, signal?: AbortSignal) {
+async function readChunks(response: Response, maximum: number, signal?: AbortSignal) {
   if (Number(response.headers.get("content-length")) > maximum) throw new ApiError("响应超过浏览器大小限制。", "RESPONSE_TOO_LARGE");
   const reader = response.body?.getReader();
   if (!reader) {
     const bytes = new Uint8Array(await response.arrayBuffer());
     if (bytes.length > maximum) throw new ApiError("响应超过浏览器大小限制。", "RESPONSE_TOO_LARGE");
-    return bytes;
+    return [bytes];
   }
-  const chunks: Uint8Array[] = [];
+  const chunks: Uint8Array<ArrayBuffer>[] = [];
   let length = 0;
   const abort = () => { void reader.cancel().catch(() => {}); };
   signal?.addEventListener("abort", abort, { once: true });
@@ -76,7 +76,13 @@ export async function readBytes(response: Response, maximum: number, signal?: Ab
     signal?.removeEventListener("abort", abort);
     reader.releaseLock();
   }
-  const bytes = new Uint8Array(length);
+  return chunks;
+}
+
+export async function readBytes(response: Response, maximum: number, signal?: AbortSignal) {
+  const chunks = await readChunks(response, maximum, signal);
+  if (!response.body) return chunks[0];
+  const bytes = new Uint8Array(chunks.reduce((total, chunk) => total + chunk.length, 0));
   let offset = 0;
   for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }
   return bytes;
@@ -317,7 +323,7 @@ export class Client {
     const query = new URLSearchParams({ checkpoint_id: task.checkpointId, scope: task.state === "COMPLETED" ? "full" : "completed" });
     return this.request(`/api/document-tasks/${encodeURIComponent(task.threadId)}/export?${query}`, {}, async (response, signal) => {
       if (response.headers.get("content-type")?.split(";")[0] !== "application/zip") throw new ApiError("服务未返回题库 ZIP。", "INVALID_RESPONSE");
-      return { blob: new Blob([await readBytes(response, MAX_BANK_ZIP_BYTES, signal)], { type: "application/zip" }), name: `practiq-bank-${task.threadId.replace(/[^a-zA-Z0-9-]/g, "")}.zip` };
+      return { blob: new Blob(await readChunks(response, MAX_BANK_ZIP_BYTES, signal), { type: "application/zip" }), name: `practiq-bank-${task.threadId.replace(/[^a-zA-Z0-9-]/g, "")}.zip` };
     });
   }
 }
