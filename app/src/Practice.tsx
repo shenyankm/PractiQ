@@ -18,7 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Popover } from "radix-ui";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Info, Check, X, SkipForward, Pencil, Circle, CircleDashed, CircleDot, Flag, ArrowUpToLine, ArrowDownToLine, LocateFixed, Star } from "lucide-react";
+import { Check, X, SkipForward, Pencil, CircleDashed, CircleDot, Flag, LocateFixed, Star } from "lucide-react";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel } from "@/components/ui/alert-dialog";
 import { Content, Markdown, type MaterialReading } from "./Content";
 import { AnswerInput, AnswerDisplay, AnswerReview } from "./AnswerInput";
@@ -87,7 +87,7 @@ export function Practice(props: PracticeProps) {
     {listening && <ListeningPlayer key={`${session.id}-${listening.id}-${listening.audioRef?.sha256}`} question={listening} session={session}/>}
     <div className="grid grid-cols-1 gap-6 @2xl:grid-cols-[minmax(0,1fr)_240px]">
       <PracticeQuestion key={`${session.id}-${session.position}`} {...props} navigating={navigating} go={go} onDraft={onDraft} questionHeading={questionHeading} materialReading={materialReading} actionsContainer={actionsContainer}/>
-      <aside className="min-w-0 self-start space-y-4 @2xl:sticky @2xl:top-0">
+      <aside className="min-w-0 self-start space-y-4">
         <details ref={answerCard} className="practice-answer-card" open={!props.compact}>
           <summary className="font-medium">{t("答题卡")} · {t("第 {0} / {1} 题", {0:session.position + 1,1:session.attempts.length})}</summary>
           <AnswerCard key={session.id} session={session} answer={answer} exam={exam} go={go} boundary={scrollBoundary} compact={!!props.compact}/>
@@ -461,7 +461,7 @@ function hasAnswer(value: unknown): boolean {
 }
 
 const answerCardStates = {
-  unanswered: { label: "未作答", Marker: Circle },
+  unanswered: { label: "未作答", Marker: null },
   answered: { label: "已作答", Marker: Pencil },
   draft: { label: "草稿", Marker: Pencil },
   correct: { label: "正确", Marker: Check },
@@ -498,15 +498,15 @@ const AnswerCardItem = memo(function AnswerCardItem({ordinal, current, state, st
                   size="sm"
                   variant="outline"
                   data-answer-state={status}
-                  className="answer-card-item relative h-auto min-h-10 flex-col gap-0 px-1 py-1"
+                  className="answer-card-item relative h-10 min-h-10 gap-0 px-1 py-1"
                   aria-current={current ? "step" : undefined}
                   aria-label={t("转到第 {0} 题，{1}{2}", { 0: ordinal + 1, 1: state, 2: flagged ? t("，待检查") : "" })}
                   title={`${state}${flagged ? t("，待检查") : ""}`}
                   onClick={() => go(ordinal)}
                 >
-                  <span>{ordinal + 1}</span>
-                  <Marker className="size-3" aria-hidden="true" focusable="false"/>
-                  {flagged && <Flag className="answer-card-flag size-3" aria-hidden="true" focusable="false"/>}
+                  <span className="leading-none">{ordinal + 1}</span>
+                  {Marker && <Marker className="answer-card-marker size-2.5" aria-hidden="true" focusable="false"/>}
+                  {flagged && <Flag className="answer-card-flag size-2.5" aria-hidden="true" focusable="false"/>}
                 </Button>
   );
 });
@@ -515,7 +515,7 @@ function AnswerCardLegend({exam}: {exam: boolean}) {
   return <>
                   <h4 className="mb-2 text-sm font-medium">{t("作答与判定状态")}</h4>
                   <p className="answer-card-legend grid grid-cols-2 gap-x-2 gap-y-2 text-sm text-muted-foreground">
-                    {Object.entries(answerCardStates).filter(([status]) => exam || status !== "partial").map(([status, { label, Marker }]) => <span key={status} className="flex items-center gap-1.5"><span className="answer-card-swatch" data-answer-state={status}><Marker className="size-3" aria-hidden="true"/></span>{t(status === "incorrect" && exam ? "未得满分" : label)}</span>)}
+                    {Object.entries(answerCardStates).filter(([status]) => exam || status !== "partial").map(([status, { label, Marker }]) => <span key={status} className="flex items-center gap-1.5"><span className="answer-card-swatch" data-answer-state={status}>{Marker && <Marker className="size-3" aria-hidden="true"/>}</span>{t(status === "incorrect" && exam ? "未得满分" : label)}</span>)}
                   </p>
                   <h4 className="mb-2 mt-4 text-sm font-medium">{t("位置与检查标记")}</h4>
                   <p className="answer-card-legend grid grid-cols-2 gap-2 text-sm text-muted-foreground">
@@ -532,6 +532,7 @@ const AnswerCard = memo(function AnswerCard({session, answer, exam, go, boundary
   const grid = useRef<HTMLDivElement>(null);
   const finished = session.finishedAt !== null || (exam && session.submittedAt != null);
   const states = session.attempts.map(a => answerState(a, a.ordinal === session.position ? answer : a.answer, exam));
+  const progress = session.attempts.filter(a => exam ? hasAnswer(a.ordinal === session.position ? answer : a.answer) : a.submittedAt != null).length;
   const revealCurrent = useCallback((focus = false) => {
     const container = grid.current;
     const current = container?.querySelector<HTMLElement>('[aria-current="step"]');
@@ -547,7 +548,7 @@ const AnswerCard = memo(function AnswerCard({session, answer, exam, go, boundary
             <CardTitle>{t("答题卡")}</CardTitle>
             {compact ? <Dialog>
               <DialogTrigger asChild>
-                <Button variant="ghost" size="icon" aria-label={t("答题卡状态说明")} title={t("答题卡状态说明")}><Info/></Button>
+                <Button variant="ghost" size="sm" aria-label={t("答题卡状态说明")}>{t("状态说明")}</Button>
               </DialogTrigger>
               <DialogContent className="flex max-h-[90dvh] flex-col" aria-describedby={undefined}>
                 <DialogHeader><DialogTitle className="pr-10">{t("答题卡状态说明")}</DialogTitle></DialogHeader>
@@ -556,7 +557,7 @@ const AnswerCard = memo(function AnswerCard({session, answer, exam, go, boundary
             </Dialog> : (
             <Popover.Root>
               <Popover.Trigger asChild>
-                <Button variant="ghost" size="icon" aria-label={t("答题卡状态说明")} title={t("答题卡状态说明")}><Info/></Button>
+                <Button variant="ghost" size="sm" aria-label={t("答题卡状态说明")}>{t("状态说明")}</Button>
               </Popover.Trigger>
               <Popover.Portal>
                 <Popover.Content className="answer-card-help z-50" side="top" align="end" sideOffset={8} collisionBoundary={boundary} collisionPadding={12} aria-label={t("答题卡状态说明")}>
@@ -571,16 +572,11 @@ const AnswerCard = memo(function AnswerCard({session, answer, exam, go, boundary
             </Popover.Root>
             )}
           </CardHeader>
-          <CardContent>
-            <p className="answer-card-legend mb-3 flex flex-wrap gap-x-3 gap-y-2 text-xs" aria-label={t("本次题目状态")}>
-              {Object.entries(answerCardStates).filter(([status]) => states.some(state => state.status === status)).map(([status, { label, Marker }]) => <span key={status} className="flex items-center gap-1.5"><span className="answer-card-swatch" data-answer-state={status}><Marker className="size-3" aria-hidden="true"/></span>{t(status === "incorrect" && exam ? "未得满分" : label)} {states.filter(state => state.status === status).length}</span>)}
-            </p>
-            <div className="mb-3 flex gap-2">
-              <Button variant="outline" size="icon" aria-label={t("转到第一题")} title={t("转到第一题")} disabled={session.position === 0} onClick={() => go(0)}><ArrowUpToLine/></Button>
-              <Button variant="outline" size="icon" aria-label={t("定位当前题")} title={t("定位当前题")} onClick={() => revealCurrent(true)}><LocateFixed/></Button>
-              <Button variant="outline" size="icon" aria-label={t("转到最后一题")} title={t("转到最后一题")} disabled={session.position === session.attempts.length - 1} onClick={() => go(session.attempts.length - 1)}><ArrowDownToLine/></Button>
+          <CardContent className="flex flex-col gap-3">
+            <div className="flex flex-col gap-2">
+              <p className="text-xs text-muted-foreground">{t("{0} {1} / {2}", { 0: exam ? t("已作答") : t("已提交"), 1: progress, 2: session.attempts.length })}</p>
+              <progress className="practice-progress" aria-label={exam ? t("作答进度") : t("提交进度")} max={Math.max(1, session.attempts.length)} value={progress}/>
             </div>
-            <progress className="practice-progress mb-3" aria-label={exam ? t("作答进度") : t("提交进度")} max={Math.max(1, session.attempts.length)} value={session.attempts.filter(a => exam ? hasAnswer(a.ordinal === session.position ? answer : a.answer) : a.submittedAt != null).length}/>
             <div id="answer-card" ref={grid} role="region" aria-label={t("答题卡")} tabIndex={0} className="answer-card-grid relative grid max-h-[min(45vh,24rem)] grid-cols-4 gap-2 overflow-y-auto rounded-sm p-1 outline-none focus-visible:ring-3 focus-visible:ring-ring">
               {session.attempts.map((a, index) => {
                 const current = a.ordinal === session.position;
@@ -588,8 +584,16 @@ const AnswerCard = memo(function AnswerCard({session, answer, exam, go, boundary
                 return <AnswerCardItem key={a.ordinal} ordinal={a.ordinal} current={current} state={state.label} status={state.status} flagged={!!a.flagged} go={go}/>;
               })}
             </div>
-            <p className="mt-4 text-xs leading-5 text-muted-foreground">{finished ? t("本次共 {0} 题，作答已锁定；可切换题目回顾。", {0:session.attempts.length}) : t("{0} {1} / {2}。草稿自动保存，可随时离开后继续。", { 0: exam ? t("已作答") : t("已提交"), 1: session.attempts.filter((a) => exam ? hasAnswer(a.ordinal === session.position ? answer : a.answer) : a.submittedAt != null).length, 2: session.attempts.length })}</p>
-            <Button asChild variant="ghost" className="mt-3 w-full"><a href="#current-question">{t("返回当前题")}</a></Button>
+            <p className="answer-card-legend answer-card-counts flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground" aria-label={t("本次题目状态")}>
+              {Object.entries(answerCardStates).filter(([status]) => states.some(state => state.status === status)).map(([status, { label }]) => <span key={status} className="flex items-center gap-1.5"><span className="answer-card-swatch" data-answer-state={status} aria-hidden="true"/>{t(status === "incorrect" && exam ? "未得满分" : label)} {states.filter(state => state.status === status).length}</span>)}
+            </p>
+            {finished && <p className="text-xs leading-5 text-muted-foreground">{t("本次共 {0} 题，作答已锁定；可切换题目回顾。", {0:session.attempts.length})}</p>}
+            <nav className="grid grid-cols-3 gap-1" aria-label={t("答题卡")}>
+              <Button variant="ghost" size="sm" className="min-w-0 px-1" aria-label={t("转到第一题")} disabled={session.position === 0} onClick={() => go(0)}>{t("首题")}</Button>
+              <Button variant="ghost" size="sm" className="min-w-0 px-1" aria-label={t("定位当前题")} onClick={() => revealCurrent(true)}>{t("当前题")}</Button>
+              <Button variant="ghost" size="sm" className="min-w-0 px-1" aria-label={t("转到最后一题")} disabled={session.position === session.attempts.length - 1} onClick={() => go(session.attempts.length - 1)}>{t("末题")}</Button>
+            </nav>
+            <Button asChild variant="ghost" size="sm" className="w-full"><a href="#current-question">{t("返回题目")}</a></Button>
           </CardContent>
         </Card>
   );

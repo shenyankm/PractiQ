@@ -17,7 +17,7 @@ PractiQ works in English, Simplified Chinese and Traditional Chinese, with light
 
 ## Screenshots
 
-These screenshots were captured on **2026-10-29** from the desktop browser preview at [`0099f594`](https://github.com/shenyankm/PractiQ/commit/0099f5949b8b1b72c25f7939659b8cb1ce9d6041), in English with hand-written sample banks and practice records. All data is held in memory; no credentials, uploads or model calls were used. Click an image to view it at full size.
+These screenshots were captured on **2026-10-29** from the desktop browser preview at [`af7ab2ff`](https://github.com/shenyankm/PractiQ/commit/af7ab2ff3bf4a392103b403d73b70f0d1a5cd533), in English with hand-written sample banks and practice records. All data is held in memory; no credentials, uploads or model calls were used. Click an image to view it at full size.
 
 | Question banks | Practice |
 | :---: | :---: |

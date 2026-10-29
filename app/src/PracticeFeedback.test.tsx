@@ -337,14 +337,14 @@ it("counts partial drafts and false answers but excludes empty values, including
   }));
   vi.mocked(api).mockResolvedValue(initial);
   render(<Study initial={initial} />);
-  expect(screen.getByText("已作答 2 / 5。草稿自动保存，可随时离开后继续。")).toBeTruthy();
+  expect(screen.getByText("已作答 2 / 5")).toBeTruthy();
   expect(screen.getByRole("button", { name: "转到第 2 题，未作答" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "转到第 3 题，草稿未完成" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "转到第 4 题，已作答，未提交" })).toBeTruthy();
   await user.type(screen.getByRole("textbox", { name: "作答内容" }), "answer");
-  expect(screen.getByText("已作答 3 / 5。草稿自动保存，可随时离开后继续。")).toBeTruthy();
+  expect(screen.getByText("已作答 3 / 5")).toBeTruthy();
   await user.clear(screen.getByRole("textbox", { name: "作答内容" }));
-  expect(screen.getByText("已作答 2 / 5。草稿自动保存，可随时离开后继续。")).toBeTruthy();
+  expect(screen.getByText("已作答 2 / 5")).toBeTruthy();
 });
 
 it("announces an exam score only once and focuses a heading with its question number", () => {

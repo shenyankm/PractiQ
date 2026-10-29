@@ -38,7 +38,12 @@ for (const [width,height] of [[360,640],[390,844],[667,375],[768,900],[960,640],
     const finish = page.getByRole('button',{name:en?'Finish practice':'结束练习',exact:true});
     await finish.scrollIntoViewIfNeeded();
     const finishBox = await finish.boundingBox();
+    expect(finishBox.y).toBeGreaterThanOrEqual(viewport.y);
     expect(finishBox.y + finishBox.height).toBeLessThanOrEqual(footer.y + 1);
+    await finish.click();
+    await expect(page.getByRole('alertdialog')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(finish).toBeFocused();
     expect(await page.evaluate(() => window.__layoutNativeCalls.filter(call => call.command === 'ai_request' || ['save_attempt','submit_paper'].includes(call.request?.type)))).toEqual([]);
   });
 }

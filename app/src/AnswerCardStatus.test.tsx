@@ -21,8 +21,8 @@ function session(attempts: Partial<Attempt>[], exam = false): Session {
 }
 
 it.each([
-  { attempt: {}, label: "未作答", status: "unanswered", marker: "circle", legend: "未作答" },
-  { attempt: { answer: { text: "  " } }, label: "未作答", status: "unanswered", marker: "circle", legend: "未作答" },
+  { attempt: {}, label: "未作答", status: "unanswered", marker: null, legend: "未作答" },
+  { attempt: { answer: { text: "  " } }, label: "未作答", status: "unanswered", marker: null, legend: "未作答" },
   { attempt: { answer: { text: "Draft" } }, label: "已作答，未提交", status: "answered", marker: "pencil", legend: "已作答" },
   { attempt: { answer: { text: "Submitted" }, submittedAt: 1 }, label: "已提交，待判定", status: "pending", marker: "circle-dashed", legend: "待判定" },
   { attempt: { submittedAt: 1, result: true }, label: "正确", status: "correct", marker: "check", legend: "正确" },
@@ -30,20 +30,24 @@ it.each([
   { attempt: { submittedAt: 1, result: false, earnedCents: 100, maxCents: 200 }, exam: true, label: "部分得分", status: "partial", marker: "circle-dot", legend: "部分得分" },
   { attempt: { submittedAt: 1, result: false, earnedCents: 0, maxCents: 200 }, exam: true, label: "未得满分", status: "incorrect", marker: "x", legend: "未得满分" },
   { attempt: { skipped: true, submittedAt: 1, result: false }, label: "已跳过", status: "skipped", marker: "skip-forward", legend: "跳过" },
-])("shows the legend's $marker for $label without changing the accessible name", async ({ attempt, exam, label, status, marker, legend }) => {
+])("keeps $label readable with its compact state marker and accessible name", async ({ attempt, exam, label, status, marker, legend }) => {
   render(<Practice session={session([attempt], exam)} onSession={vi.fn()} run={job => { void job(); }} flushRef={{ current: async () => {} }} />);
   const card = within(screen.getByRole("region", { name: "答题卡" }));
   const button = card.getByRole("button", { name: `转到第 1 题，${label}` });
   // Decorative graphics have no accessible role; inspect their rendered shape.
-  const icon = button.querySelector(`svg.lucide-${marker}`);
-  expect(icon).not.toBeNull();
-  expect(icon?.getAttribute("aria-hidden")).toBe("true");
+  if (marker) {
+    const icon = button.querySelector(`svg.lucide-${marker}`);
+    expect(icon).not.toBeNull();
+    expect(icon?.getAttribute("aria-hidden")).toBe("true");
+  } else expect(button.querySelector("svg")).toBeNull();
   expect(button.textContent).toBe("1");
   expect(button.getAttribute("title")).toBe(label);
   expect(button.getAttribute("aria-current")).toBe("step");
   expect(button.getAttribute("data-answer-state")).toBe(status);
   await userEvent.click(screen.getByRole("button", { name: "答题卡状态说明" }));
-  expect(screen.getByText(legend, { selector: "p > span" }).querySelector(`svg.lucide-${marker}`)).not.toBeNull();
+  const entry = screen.getByText(legend, { selector: "p > span" });
+  if (marker) expect(entry.querySelector(`svg.lucide-${marker}`)).not.toBeNull();
+  else expect(entry.querySelector("svg")).toBeNull();
 });
 
 it("keeps false as an answered draft instead of treating it as null", () => {
@@ -103,7 +107,7 @@ it("updates the current draft marker and preserves flagged keyboard navigation",
   await user.type(screen.getByRole("textbox", { name: "作答内容" }), "Draft");
   expect(screen.getByRole("button", { name: "转到第 1 题，已作答，未提交" }).querySelector("svg.lucide-pencil")).not.toBeNull();
   await user.clear(screen.getByRole("textbox", { name: "作答内容" }));
-  expect(screen.getByRole("button", { name: "转到第 1 题，未作答" }).querySelector("svg.lucide-circle")).not.toBeNull();
+  expect(screen.getByRole("button", { name: "转到第 1 题，未作答" }).querySelector("svg")).toBeNull();
   const flagged = screen.getByRole("button", { name: "转到第 2 题，已作答，未提交，待检查" });
   expect(flagged.querySelector("svg.lucide-flag")).not.toBeNull();
   expect(flagged.getAttribute("data-answer-state")).toBe("answered");

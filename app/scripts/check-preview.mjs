@@ -820,7 +820,7 @@ base('study setup retries failed statistics and manual pages without resetting s
 });
 
 for (const colorScheme of ['light','dark']) for (const width of [1280,390]) {
- base(`answer-card status markers match the legend and preserve keyboard navigation in ${colorScheme} theme at ${width}px`,async ({page},testInfo)=>{
+ base(`answer-card states stay clear and preserve keyboard navigation in ${colorScheme} theme at ${width}px`,async ({page},testInfo)=>{
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
   await page.emulateMedia({colorScheme});
   await page.setViewportSize({width,height:844});
@@ -858,6 +858,14 @@ for (const colorScheme of ['light','dark']) for (const width of [1280,390]) {
   if (width < 768) await page.getByRole('link',{name:'查看答题卡',exact:true}).click();
   const grid=page.getByRole('region',{name:'答题卡',exact:true});
   await expect(grid.getByRole('button')).toHaveCount(8);
+  const panel=page.locator('#answer-card-panel');
+  await expect(panel.getByText('已提交 5 / 8',{exact:true})).toBeVisible();
+  await expect(panel.getByRole('progressbar',{name:'提交进度',exact:true})).toHaveAttribute('value','5');
+  await expect(panel.getByRole('button',{name:'转到第一题',exact:true})).toHaveText('首题');
+  await expect(panel.getByRole('button',{name:'定位当前题',exact:true})).toHaveText('当前题');
+  await expect(panel.getByRole('button',{name:'转到最后一题',exact:true})).toHaveText('末题');
+  await expect(panel.getByRole('link',{name:'返回题目',exact:true})).toBeVisible();
+  await expect(panel.getByText(/草稿自动保存，可随时离开后继续/)).toHaveCount(0);
   await expect(page.locator('html')).toHaveClass(colorScheme==='dark'?/dark/:/^(?!.*dark)/);
   const helpButton=page.getByRole('button',{name:'答题卡状态说明',exact:true});
   const help=page.getByRole('dialog',{name:'答题卡状态说明',exact:true});
@@ -873,8 +881,10 @@ for (const colorScheme of ['light','dark']) for (const width of [1280,390]) {
   await page.screenshot({path:testInfo.outputPath(`answer-card-help-${colorScheme}-${width}.png`)});
   await help.screenshot({path:testInfo.outputPath(`answer-card-popover-${colorScheme}-${width}.png`)});
   const matrix=[['未作答','circle','未作答','unanswered'],['已作答，未提交，待检查','pencil','已作答','answered'],['草稿未完成','pencil','草稿','draft'],['已提交，待判定','circle-dashed','待判定','pending'],['正确','check','正确','correct'],['错误','x','错误','incorrect'],['已跳过','skip-forward','跳过','skipped'],['文本不完全一致','x','错误','incorrect']];
-  for (const [,marker,legend] of matrix) {
-   await expect(help.locator('p > span').filter({hasText:legend}).locator(`svg.lucide-${marker}`)).toBeVisible();
+  for (const [,marker,legend,status] of matrix) {
+   const entry=help.locator('p > span').filter({hasText:legend});
+   if(status==='unanswered') await expect(entry.locator('svg')).toHaveCount(0);
+   else await expect(entry.locator(`svg.lucide-${marker}`)).toBeVisible();
   }
   if (width < 768) await expect(grid).toBeHidden();
   await page.keyboard.press('Escape');
@@ -887,8 +897,11 @@ for (const colorScheme of ['light','dark']) for (const width of [1280,390]) {
    await expect(button).toHaveText(String(index+1));
    await expect(button).toHaveAttribute('data-answer-state',status);
    expect(await button.evaluate(node=>node.getBoundingClientRect().height)).toBeGreaterThanOrEqual(width<768?48:40);
-   await expect(icon).toBeVisible();
-   await expect(icon).toHaveAttribute('aria-hidden','true');
+   if(status==='unanswered') await expect(button.locator('svg')).toHaveCount(0);
+   else {
+    await expect(icon).toBeVisible();
+    await expect(icon).toHaveAttribute('aria-hidden','true');
+   }
    const fits=await button.evaluate(element=>{const box=element.getBoundingClientRect();return [...element.children].every(child=>{const rect=child.getBoundingClientRect();return rect.left>=box.left&&rect.right<=box.right&&rect.top>=box.top&&rect.bottom<=box.bottom;});});
    expect(fits).toBe(true);
   }
@@ -918,7 +931,8 @@ for (const colorScheme of ['light','dark']) for (const width of [1280,390]) {
   expect(new Set(colors.slice(0,6).map(color=>color.background)).size).toBe(6);
   for(const color of colors){expect(color.text).toBeGreaterThanOrEqual(4.5);expect(color.border).toBeGreaterThanOrEqual(3);}
   await expect(current).toHaveAttribute('aria-current','step');
-  await expect(current).toHaveCSS('text-decoration-line','underline');
+  await expect(current).toHaveCSS('border-width','2px');
+  await expect(current).toHaveCSS('text-decoration-line','none');
   const flagged=grid.getByRole('button',{name:'转到第 2 题，已作答，未提交，待检查',exact:true});
   await expect(flagged.locator('svg.lucide-flag')).toBeVisible();
   const answerColor=await flagged.evaluate(node=>getComputedStyle(node).backgroundColor);
@@ -928,13 +942,15 @@ for (const colorScheme of ['light','dark']) for (const width of [1280,390]) {
   await page.keyboard.press('Enter');
   await expect(page.getByRole('heading',{name:'第 2 / 8 题',exact:true})).toBeFocused();
   await expect(flagged).toHaveAttribute('aria-current','step');
-  await expect(flagged).toHaveCSS('outline-width','3px');
-  await expect(flagged).toHaveCSS('outline-style','solid');
+  await expect(flagged).toHaveCSS('border-width','2px');
+  await expect(flagged).toHaveCSS('outline-style','none');
   await expect(flagged).toHaveCSS('background-color',answerColor);
   await expect(flagged.locator('svg.lucide-flag')).toBeVisible();
   await page.getByRole('button',{name:'定位当前题',exact:true}).focus();
   await page.keyboard.press('Enter');
   await expect(flagged).toBeFocused();
+  await expect(flagged).toHaveCSS('outline-width','3px');
+  await expect(flagged).toHaveCSS('outline-style','solid');
   await page.keyboard.press('Space');
   await expect(page.getByRole('heading',{name:'第 2 / 8 题',exact:true})).toBeVisible();
   await page.screenshot({path:testInfo.outputPath(`answer-card-markers-${colorScheme}-${width}.png`)});
