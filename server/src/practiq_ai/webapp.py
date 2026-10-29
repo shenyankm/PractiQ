@@ -149,12 +149,13 @@ async def save_import_settings(value: ImportSettingsSnapshot) -> ImportSettingsS
 
 @app.get("/api/metrics", dependencies=[Depends(authorize)])
 async def application_metrics() -> Response:
+    from .config import evaluation_configuration
     from .cost_budget import NAMESPACE, now
-    from .execution import code_version
+    from .execution import code_version, fingerprint
     from .runtime import current
     body = generate_latest(registry)
     settings = load()
-    body += (f'practiq_build_info{{code_hash="{code_version()}"}} 1\n'
+    body += (f'practiq_build_info{{code_hash="{code_version()}",configuration_hash="{fingerprint(evaluation_configuration(settings))}"}} 1\n'
              f'practiq_worker_sandbox_required {int(settings.worker_sandbox == "required")}\n'
              f'practiq_cost_budget_enabled {int(settings.cost_enabled)}\n'
              f'practiq_cost_daily_limit_micros {settings.cost_daily_limit or 0}\n').encode()

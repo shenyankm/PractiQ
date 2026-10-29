@@ -8,6 +8,7 @@ import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from threading import Thread
+from unittest.mock import AsyncMock
 
 import httpx
 import pytest
@@ -219,6 +220,39 @@ async def test_load_driver_upload_auth_partial_and_overload(monkeypatch):
     async with real_client(base_url="http://test", transport=httpx.MockTransport(lambda _: httpx.Response(503))) as client:
         task = await load_test.submit(client, asyncio.Semaphore(1), {}, 0, [])
         assert await load_test.wait_for_run(client, asyncio.Semaphore(1), *task[:2], time.monotonic()+1, task[2]) == ("rejected_503", 0, None)
+
+
+@pytest.mark.parametrize("identity", ["valid", "missing", "malformed", "conflicting"])
+async def test_production_load_binds_remote_configuration_before_submitting(monkeypatch, tmp_path, identity):
+    source = tmp_path / "source.json"
+    source.write_text(json.dumps({"document": {"sha256": "c" * 64}}))
+    code, configuration = "a" * 64, "b" * 64
+    metric = f'practiq_build_info{{code_hash="{code}",configuration_hash="{configuration}"}} 1\n'
+    if identity == "missing":
+        metric = f'practiq_build_info{{code_hash="{code}"}} 1\n'
+    elif identity == "malformed":
+        metric = metric.replace(configuration, "invalid")
+    elif identity == "conflicting":
+        metric += metric.replace(configuration, "d" * 64)
+    real_client = httpx.AsyncClient
+    monkeypatch.setattr(load_test.httpx, "AsyncClient", lambda **kwargs: real_client(
+        transport=httpx.MockTransport(lambda _: httpx.Response(200, text=metric)), **kwargs))
+    monkeypatch.setattr(load_test, "code_version", lambda: code)
+    submit = AsyncMock(return_value=("thread", "run", time.perf_counter()))
+    monkeypatch.setattr(load_test, "submit", submit)
+    monkeypatch.setattr(load_test, "wait_for_run", AsyncMock(return_value=("success", 0.1, 0)))
+    monkeypatch.setattr(load_test, "monitor", AsyncMock())
+    args = argparse.Namespace(token="fixture-token", base_url="https://fixture.example", input=source, total=1,
+                              submit_concurrency=1, request_timeout=3, completion_timeout=3, pid=None, api="document-tasks",
+                              max_running=2, graph_concurrency=2, allow_rejections=False, environment="production", image_digest="sha256:" + "e" * 64)
+    if identity == "valid":
+        report = await load_test.run(args)
+        assert report["status"] == "PASSED" and report["serviceConfigurationHash"] == configuration
+        submit.assert_awaited_once()
+    else:
+        with pytest.raises(ValueError, match="identity|configuration"):
+            await load_test.run(args)
+        submit.assert_not_awaited()
 
 
 async def test_load_monitor_parses_only_finite_unlabelled_capacity_metrics():

@@ -11,7 +11,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from practiq_ai.execution import code_version
+from practiq_ai.config import EVALUATION_SETTING_NAMES
+from practiq_ai.execution import code_version, fingerprint
 from practiq_ai.json_repair import unique_json_object
 
 MANUAL_CHECKS = ["Verify delivery of a test alert to the configured receiver", "Inspect RabbitMQ dead letters",
@@ -44,8 +45,22 @@ def check(inputs: dict[str, Any], *, code_hash: str, now: float,
             generated = datetime.fromisoformat(value["generatedAt"])
             if generated.tzinfo is None or not 0 <= now - generated.timestamp() <= max_age:
                 reasons.append(f"{name}_EVIDENCE_STALE")
-            if value.get("status") != "PASSED" or value.get("codeHash") != code_hash:
+            if value.get("status") != "PASSED" or value.get("serviceCodeHash" if name == "QUALITY" else "codeHash") != code_hash:
                 reasons.append(f"{name}_CANDIDATE_MISMATCH")
+        if not re.fullmatch(r"[a-f0-9]{64}", str(quality.get("codeHash"))):
+            reasons.append("QUALITY_CANDIDATE_MISMATCH")
+        models, settings = quality.get("models"), quality.get("settings")
+        configuration_hash = quality.get("configurationHash")
+        if (not isinstance(models, dict) or set(models) != {"provider", "modelId", "endpointHash"}
+                or any(not isinstance(models.get(key), str) or not models[key] for key in ("provider", "modelId"))
+                or not re.fullmatch(r"[a-f0-9]{64}", str(models.get("endpointHash")))
+                or not isinstance(settings, dict) or set(settings) != set(EVALUATION_SETTING_NAMES)
+                or not re.fullmatch(r"[a-f0-9]{64}", str(configuration_hash))
+                or configuration_hash != fingerprint({"models": models, "settings": settings})
+                or capacity.get("serviceConfigurationHash") != configuration_hash):
+            reasons.append("MODEL_CONFIGURATION_MISMATCH")
+        else:
+            report["configurationHash"] = configuration_hash
         provenance = quality.get("productionProvenance") or {}
         if not isinstance(provenance, dict):
             raise TypeError("Invalid provenance evidence")

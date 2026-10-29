@@ -1,5 +1,6 @@
 """Validated deployment settings; this is the only module that reads the environment."""
 
+import hashlib
 import ipaddress
 import os
 import re
@@ -8,12 +9,19 @@ from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
 from math import isfinite
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 from urllib.parse import urlsplit
 
 MIB = 1024 * 1024
 TEMPORARY_LIMIT = 384 * MIB  # Leave 128 MiB of the Compose tmpfs for profiles/runtime.
 SERVER_ROOT = Path(__file__).resolve().parents[2]
+EVALUATION_SETTING_NAMES = (
+    "source_max_bytes", "vision_max_bytes", "max_document_pages", "max_vision_page_pixels",
+    "max_total_input_chars", "graph_max_concurrency", "storage_concurrency",
+    "storage_timeout_seconds", "model_timeout_seconds", "model_max_tokens",
+    "task_max_model_calls", "run_timeout_seconds", "model_max_input_chars",
+    "provider_concurrency", "provider_rpm", "deployment_workers", "structured_output_method", "model_api",
+)
 
 
 @dataclass(frozen=True)
@@ -70,6 +78,12 @@ class Config:
     @property
     def parser_configured(self) -> bool:
         return bool(self.tencent_secret_id and self.tencent_secret_key and (not self.tencent_cos_enabled or self.tencent_cos_bucket and self.tencent_cos_region))
+
+
+def evaluation_configuration(settings: Config) -> dict[str, Any]:
+    return {"models": {"provider": settings.provider, "modelId": settings.model_id,
+                       "endpointHash": hashlib.sha256((settings.base_url or "").encode()).hexdigest()},
+            "settings": {name: getattr(settings, name) for name in EVALUATION_SETTING_NAMES}}
 
 
 def _required(values: dict[str, str], key: str) -> str:

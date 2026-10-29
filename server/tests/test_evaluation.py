@@ -536,6 +536,9 @@ def test_real_graph_runner_with_fake_model_and_store(tmp_path, monkeypatch) -> N
     path, model = setup_runner(tmp_path, monkeypatch, [model_result()] * 3)
     report = asyncio.run(ev.run_evaluation(path, repetitions=3))
     assert report["status"] == "PASSED"
+    assert report["serviceCodeHash"] == ev.code_version()
+    assert report["configurationHash"] == ev.fingerprint({key: report[key] for key in ("models", "settings")})
+    assert report["models"]["endpointHash"]
     assert model.calls == 3
     assert report["modelUsage"]["calls"] == 3
     assert report["modelUsage"]["inputTokens"] == 30

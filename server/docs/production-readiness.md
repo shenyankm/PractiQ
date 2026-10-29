@@ -183,7 +183,17 @@ python scripts/load_test.py --base-url https://imports.example.com \
 ```
 
 Supply `AI_SERVICE_TOKEN` through the private environment, not the command line.
-Production mode verifies the deployed service code hash before creating tasks.
+Production mode verifies the deployed service code hash and obtains its non-secret
+configuration fingerprint from the authenticated build metric before creating tasks.
+The fingerprint binds the provider, model, hashed endpoint and recorded evaluation
+settings, including output-token limits. Capacity evidence records this deployed
+fingerprint; the preflight requires it to match the quality report's configuration.
+Credential rotation does not alter the fingerprint, and credentials or raw model
+endpoints are not included in reports or metric labels.
+Quality reports retain their full source/script audit `codeHash` separately from
+the runtime `serviceCodeHash` used to match the deployed candidate. Historical
+reports missing either runtime or configuration identity cannot qualify production;
+regenerate them on the matching candidate and configuration.
 An input source hash must belong to the independent quality dataset to pass the
 combined preflight. The image identity is an operator-supplied deployment binding;
 the HTTP endpoint does not attest which image is running.

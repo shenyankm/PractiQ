@@ -149,14 +149,18 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
         timeout=timeout, trust_env=urlsplit(args.base_url).hostname not in {'localhost', '127.0.0.1', '::1'},
     ) as metrics_client:
         service_code = None
+        service_configuration = None
         if args.environment == "production":
             identity = await metrics_client.get("/api/metrics")
             identity.raise_for_status()
-            codes = {sample.labels.get("code_hash") for family in text_string_to_metric_families(identity.text)
-                     for sample in family.samples if sample.name == "practiq_build_info" and sample.value == 1}
-            if codes != {code_version()}:
-                raise ValueError("Production service code does not match this load driver")
-            service_code = code_version()
+            identities = {(sample.labels.get("code_hash"), sample.labels.get("configuration_hash"))
+                          for family in text_string_to_metric_families(identity.text)
+                          for sample in family.samples if sample.name == "practiq_build_info" and sample.value == 1}
+            if len(identities) != 1:
+                raise ValueError("Production service identity is missing or ambiguous")
+            service_code, service_configuration = identities.pop()
+            if service_code != code_version() or not re.fullmatch(r"[a-f0-9]{64}", str(service_configuration)):
+                raise ValueError("Production service code or model configuration is not verified")
         if args.input:
             graph_input = json.loads(args.input.read_text())
         else:
@@ -261,6 +265,7 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
         ).strip(),
         "environment": args.environment,
         "serviceCodeHash": service_code,
+        "serviceConfigurationHash": service_configuration,
         "entrypointHttps": urlsplit(args.base_url).scheme == "https",
         "sourceSha256": graph_input.get("document", {}).get("sha256"),
         "codeHash": code_version(),

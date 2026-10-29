@@ -30,7 +30,11 @@ from PIL import Image
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from practiq_ai import cost_budget, telemetry
-from practiq_ai.config import load
+from practiq_ai.config import (
+    EVALUATION_SETTING_NAMES,
+    evaluation_configuration,
+    load,
+)
 from practiq_ai.contracts import (
     COMPOSITE_MODES,
     AnswerMode,
@@ -50,7 +54,7 @@ from practiq_ai.contracts import (
     VisualKind,
 )
 from practiq_ai.errors import DocumentProcessingError
-from practiq_ai.execution import runtime_version
+from practiq_ai.execution import code_version, fingerprint, runtime_version
 from practiq_ai.json_repair import unique_json_object
 from practiq_ai.storage import get_object_store
 
@@ -77,13 +81,7 @@ FORBIDDEN_REPORT_KEYS = {
     "apikey", "authorization", "databaseurl", "databaseuri", "headers", "password",
     "signedurl", "objectkey", "accesskeyid", "accesskeysecret", "secret", "token",
 }
-SETTING_NAMES = (
-    "source_max_bytes", "vision_max_bytes", "max_document_pages", "max_vision_page_pixels",
-    "max_total_input_chars", "graph_max_concurrency", "storage_concurrency",
-    "storage_timeout_seconds", "model_timeout_seconds", "model_max_tokens",
-    "task_max_model_calls", "run_timeout_seconds", "model_max_input_chars",
-    "provider_concurrency", "provider_rpm", "deployment_workers", "structured_output_method", "model_api",
-)
+SETTING_NAMES = EVALUATION_SETTING_NAMES
 
 
 class GoldModel(BaseModel):
@@ -734,7 +732,8 @@ async def run_evaluation(manifest_path: Path, repetitions: int = 1, case_ids: li
         "scorerVersion": SCORER_VERSION, "repetitions": repetitions,
         "caseIds": [case["id"] for case in cases],
         "datasetHash": _digest({"cases": cases, "files": {case["id"]: hashlib.sha256((manifest_path.parent / case["path"]).read_bytes()).hexdigest() for case in cases}}),
-        **_code_metadata(), "runtime": runtime_version(), "models": None, "settings": None, "promptHash": None,
+        **_code_metadata(), "serviceCodeHash": code_version(), "runtime": runtime_version(),
+        "models": None, "settings": None, "configurationHash": None, "promptHash": None,
         "cases": [],
     }
     if provenance_path is not None:
@@ -756,8 +755,9 @@ async def run_evaluation(manifest_path: Path, repetitions: int = 1, case_ids: li
         unit_failures,
     )
 
-    report["models"] = {"provider": config.provider, "modelId": config.model_id}
-    report["settings"] = {name: getattr(config, name) for name in SETTING_NAMES}
+    configuration = evaluation_configuration(config)
+    report.update(configuration)
+    report["configurationHash"] = fingerprint(configuration)
     # Include inline page instructions and response schemas, not only system constants.
     report["promptHash"] = _digest([SYSTEM_PROMPT,
         *(hashlib.sha256((ROOT / "src/practiq_ai" / name).read_bytes()).hexdigest()
