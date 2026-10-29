@@ -7,6 +7,7 @@ from ..contracts import ParsedItem, ParsedQuestion, question_missing_fields
 from ..json_repair import unique_json_object
 from .chunking import (
     _INLINE_LOCAL_FIELD,
+    _PARENT_LINE,
     _QUESTION_LABELS,
     _UNNUMBERED_EXERCISE,
     QUESTION_BOUNDARY_PATTERN,
@@ -139,8 +140,7 @@ def _answer_matches(question: ParsedQuestion, printed: str, *, verified_items: b
     labels = {side: {item.id if item.id is not None else index: item.label or str(item.id if item.id is not None else index)
                      for index, item in enumerate(items)} for side, items in _item_parts(question)} if verified_items else {}
     if verified_items and isinstance(decoded, (dict, list)) and any(
-        item.id not in {None, index} and item.label not in {None, str(item.id)}
-        for _, items in _item_parts(question) for index, item in enumerate(items)
+        label != str(identifier) for side in labels.values() for identifier, label in side.items()
     ):
         return False
     # JSON forms preserve pair identities, ordering and false/zero distinctions.
@@ -310,8 +310,10 @@ def _composite_fields(question: ParsedQuestion, questions: list[ParsedQuestion],
             return None
     if parent.answerMode == 'word_bank' and question.optionSourceId != parent.id:
         return None
+    option_labels = '|'.join(re.escape(option.label) for option in options if option.label)
     if not options or any(not option.label or not option.content or not re.search(
-        r'(?<!\w)' + re.escape(option.label) + r'[.．、)]\s*' + re.escape(_literal(option.content)) + r'(?!\w)', option_source)
+        r'(?<!\w)' + re.escape(option.label) + r'[.．、)]\s*' + re.escape(_literal(option.content))
+        + rf'[.。．]?(?=\s+(?:{option_labels})[.．、)]\s|\s+Do not reuse words\.\s*$|\s*$)', option_source)
         for option in options):
         return None
     supplied = _fields(record)
@@ -361,8 +363,12 @@ def retain_source_answers(
         stem = _literal(question.stem or '')
         composite_child = question.parentId and any(parent.id == question.parentId and parent.answerMode in {'word_bank', 'cloze'} for parent in questions)
         pattern = re.compile(r'(?<![\w-])' + re.escape(stem) + r'(?![\w-])') if stem else None
+        # A stem-only match cannot certify a record expanded by item grouping.
         candidates = [(number, record) for number, record, body in (item_records if question.answerMode in {'ordering', 'matching'} else records) if pattern and pattern.match(body)
-                      and (number is not None and not composite_child or body == stem or _unnumbered_stem_matches(question, record, stem))]
+                      and (body == stem and (question.answerMode not in {'ordering', 'matching'} or (number, record, body) in records)
+                           or _unnumbered_stem_matches(question, record, stem)
+                           or number is not None and question.answerMode not in {'ordering', 'matching'}
+                           and (not composite_child or _PARENT_LINE.search(record)))]
         if len(candidates) > 1 and question.id:
             candidates = [(number, record) for number, record in candidates if number == question.id.rsplit(':', 1)[-1]]
         fields = {'answerPayload': [], 'analysis': []}

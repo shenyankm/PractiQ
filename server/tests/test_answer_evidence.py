@@ -95,6 +95,36 @@ def test_composite_answers_require_verified_parent_blanks_and_options(defect):
     assert questions[1].model_dump()['answerPayload'] == {'value': True}
 
 
+@pytest.mark.parametrize('mode', ['word_bank', 'cloze'])
+def test_numbered_composite_children_preserve_their_explicitly_scoped_answers(mode):
+    _, questions = evaluation_questions('text-composites')
+    parent, *children = questions[2:5] if mode == 'word_bank' else questions[5:7]
+    passage = 'Snow is [blank:2]. Grass is [blank:3].' if mode == 'word_bank' else 'Snow is [blank:2].'
+    text = f'1. {mode.replace("_", " ").title()}: {parent.stem}\nMaterial: {passage}'
+    if parent.options:
+        text += '\n' + '\n'.join(f'{option.label}. {option.content}' for option in parent.options)
+    for number, child in enumerate(children, 2):
+        text += f'\n{number}. Single choice: {child.stem}\nParent ID: 1.'
+        text += ' Shared option owner: 1.' if mode == 'word_bank' else '\n' + '\n'.join(f'{option.label}. {option.content}' for option in child.options)
+        text += f'\nReference answer: {child.model_dump()["answerPayload"]["correct"][0]}'
+    payloads = [child.model_dump()['answerPayload'] for child in children]
+    assert retain_source_answers([parent, *children], text, []) == []
+    assert [child.model_dump()['answerPayload'] for child in children] == payloads
+
+
+@pytest.mark.parametrize('mode', ['word_bank', 'cloze'])
+@pytest.mark.parametrize('content,kept', [('not green', True), ('not', False), ('green', False)])
+def test_composite_options_require_the_complete_printed_content(mode, content, kept):
+    text, questions = evaluation_questions('text-composites')
+    parent, child = (questions[2], questions[3]) if mode == 'word_bank' else (questions[5], questions[6])
+    text = text.replace('A. white', 'A. not green')
+    (parent.options if mode == 'word_bank' else child.options)[0].content = content
+    needs_review = child.needsReview
+    retain_source_answers(questions, text, [])
+    assert child.model_dump()['answerPayload'] == ({'correct': ['A']} if kept else None)
+    assert child.needsReview == (needs_review or not kept)
+
+
 @pytest.mark.parametrize('wrong_options', [False, True])
 def test_cloze_options_are_verified_within_the_printed_blank_section(wrong_options):
     _, questions = evaluation_questions('text-composites')
@@ -157,6 +187,38 @@ def test_structured_item_grouping_keeps_following_numbered_questions(mode, suppl
     retain_source_answers([parent, other], text, [])
     assert parent.model_dump()['answerPayload'] == (payload if supplied else None)
     assert other.model_dump()['answerPayload'] == {'text': '4'}
+
+
+@pytest.mark.parametrize('mode', ['ordering', 'matching'])
+@pytest.mark.parametrize('field', ['', 'Points: 2\n', 'Score: 2\n', 'Rubric: Printed rubric\n'])
+def test_numbered_structured_exercise_cannot_borrow_the_following_questions_fields(mode, field):
+    candidate = structured_question(mode, 'Printed?')
+    body = 'Items: 0. Two; 1. One.' if mode == 'ordering' else 'Left: 0. One; 1. Two. Right: 0. 1; 1. 2.'
+    answer = '1, 0.' if mode == 'ordering' else 'left 0 -> right 0; left 1 -> right 1.'
+    candidate.analysis = 'Following explanation.'
+    other = ParsedQuestion.model_validate({**question('Give the following answer.'), 'answerPayload': {'text': answer},
+                                          'analysis': 'Following explanation.'})
+    text = f'1. {mode.title()}: Printed?\n{field}{body}\n2. Give the following answer.\nAnswer: {answer}\nAnalysis: Following explanation.'
+    assert retain_source_answers([candidate, other], text, []) == [(0, ['answerPayload', 'analysis'])]
+    assert candidate.answerPayload is None and candidate.analysis is None and candidate.needsReview
+    assert other.model_dump()['answerPayload'] == {'text': answer} and other.analysis == 'Following explanation.'
+
+
+@pytest.mark.parametrize('mode', ['ordering', 'matching'])
+@pytest.mark.parametrize('implicit_ids', [False, True])
+@pytest.mark.parametrize('wrapped', [False, True])
+def test_json_answers_cannot_bypass_printed_label_mapping_for_positional_ids(mode, implicit_ids, wrapped):
+    candidate = structured_question(mode)
+    for index, item in enumerate(item for item in candidate.items if item.side in {None, 'left'}):
+        item.label = str(1 - index)
+    if implicit_ids:
+        for item in candidate.items:
+            item.id = None
+    body = 'Items: 1. Two; 0. One.' if mode == 'ordering' else 'Left: 1. One; 0. Two. Right: 0. 1; 1. 2.'
+    payload = candidate.model_dump()['answerPayload']
+    printed = json.dumps(payload if wrapped else payload['order' if mode == 'ordering' else 'matches'])
+    assert retain_source_answers([candidate], f'{mode.title()} — Printed?\n{body}\nAnswer: {printed}', []) == [(0, ['answerPayload'])]
+    assert candidate.answerPayload is None and candidate.needsReview
 
 
 @pytest.mark.parametrize('mode', ['ordering', 'matching'])

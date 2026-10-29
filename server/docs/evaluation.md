@@ -281,11 +281,18 @@ Unnumbered ordering and matching exercises verify their printed item labels,
 sides and contents before excluding item blocks from the title comparison.
 Paragraph matching keeps numbered statements inside the exercise and maps printed
 statement/paragraph labels to verified item IDs before comparing answer pairs.
+Numbered ordering/matching item blocks also require complete scope verification;
+an unanswered exercise cannot borrow the following question's fields, even after
+point, score or rubric annotations. JSON answers
+cannot bypass printed-label identity checks, including for implicit or positional IDs.
 Translation and writing prompts are matched separately from their verified typed
 material blocks and printed point annotations.
 Word-bank and cloze child answers may use the verified parent passage, unique
 blank numbers, child wording and scoped option labels. Numbered key entries are
 linked per blank; cloze option sections cannot supply another blank's evidence.
+Explicitly numbered children with parent declarations retain their local answer
+proof. Composite options must match complete printed contents up to the next
+option or recognized field/instruction boundary; a matching prefix is insufficient.
 An explanation for a single-blank exercise can be checked independently of its
 answer; ambiguous shared explanations remain reviewable in the original source.
 `Answer order:` supplies an ordering sequence through the same answer proof.
