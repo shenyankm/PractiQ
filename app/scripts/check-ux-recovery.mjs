@@ -249,7 +249,7 @@ for (const width of [375, 768, 1440]) {
     await expect(page.getByRole('progressbar',{name:'提交进度'})).toHaveAttribute('value','0');
     await expect(page.locator('#answer-card-panel')).toBeFocused();
     await expect(page.getByLabel('本次题目状态',{exact:true})).toBeInViewport();
-    await page.getByRole('link',{name:'返回当前题',exact:true}).click();
+    await page.getByRole('link',{name:'返回题目',exact:true}).click();
     await expect(page.locator('#current-question')).toBeFocused();
     await page.getByRole('radio').first().click();
     await page.getByRole('button',{name:'提交答案',exact:true}).click();

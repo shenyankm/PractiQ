@@ -87,7 +87,7 @@ export function Practice(props: PracticeProps) {
     {listening && <ListeningPlayer key={`${session.id}-${listening.id}-${listening.audioRef?.sha256}`} question={listening} session={session}/>}
     <div className="grid grid-cols-1 gap-6 @2xl:grid-cols-[minmax(0,1fr)_240px]">
       <PracticeQuestion key={`${session.id}-${session.position}`} {...props} navigating={navigating} go={go} onDraft={onDraft} questionHeading={questionHeading} materialReading={materialReading} actionsContainer={actionsContainer}/>
-      <aside className="min-w-0 self-start space-y-4 @2xl:sticky @2xl:top-0">
+      <aside className="min-w-0 self-start space-y-4">
         <details ref={answerCard} className="practice-answer-card" open={!props.compact}>
           <summary className="font-medium">{t("答题卡")} · {t("第 {0} / {1} 题", {0:session.position + 1,1:session.attempts.length})}</summary>
           <AnswerCard key={session.id} session={session} answer={answer} exam={exam} go={go} boundary={scrollBoundary} compact={!!props.compact}/>
