@@ -395,6 +395,19 @@ def test_release_assembly_hashes_every_public_asset_and_keeps_acceptance_pending
         release.assemble(source, "v0.1.0", staged, output)
 
 
+def test_single_artifact_download_paths_feed_release_assembly(release, source, staged):
+    workflow = yaml.load((ROOT / ".github/workflows/release.yml").read_text(), Loader=yaml.BaseLoader)
+    downloads = [step["with"] for step in workflow["jobs"]["draft"]["steps"]
+                 if step.get("uses", "").startswith("actions/download-artifact@")]
+    # A single matched artifact extracts directly into the configured download path.
+    for download, folder in zip(downloads, ("release-macos", "service-checks"), strict=True):
+        shutil.copytree(staged / folder, source / download["path"])
+    output = source / "downloaded-assets"
+    release.assemble(source, "v0.1.0", source / "app/.build/release-inputs", output)
+    assert (output / "PractiQ_0.1.0_macos_arm64.dmg").read_bytes() == b"synthetic installer"
+    assert downloads[0]["name"] == "release-macOS"
+
+
 def test_release_notes_include_generated_changes_without_completing_acceptance(release, source, staged):
     changes = source / "changes.md"
     changes.write_text("## Changes\n* Fix bank import (#123)\n\n**Full Changelog**: previous...v0.1.0\n")
