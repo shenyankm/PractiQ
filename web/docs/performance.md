@@ -63,6 +63,61 @@ body buffering; it cannot interrupt a Web Crypto digest already in progress.
 These are deterministic work/lifecycle assertions, not browser throughput or
 memory measurements.
 
+### Quality JSON during resource paging (October 29)
+
+`ResultReview` formats the selected quality report through its existing React
+memoization pattern. The memo depends on the report reference and selected tab,
+so paging source associations does not format the same report again. The question
+tab performs no quality serialization, including when a fresh report arrives.
+Opening resources or changing the chosen report refreshes the text. Preview
+quality retains priority over task-processing quality. The JSON text, resource
+pagination, task APIs and explicit artifact-read actions are unchanged.
+
+`ResultReview.performance.test.tsx` checks preview and task-only inputs in
+StrictMode: opening resources and making three page changes previously formatted
+the quality object eight times; it now formats twice (StrictMode's initial
+double invocation). The test also verifies changed/hidden reports, exact text,
+unchanged DTOs and zero network calls.
+
+The [raw report](../../docs/evidence/2026-10-29-review-quality/web.json) compares
+baseline `125dae03a9594bd8892818819982df578412e87c` with the candidate using the same
+probe and locked dependencies. Three alternating pairs use isolated Vitest/React
+development/JSDOM processes, one warmup and seven samples per case/process.
+Timers surround only the native `JSON.stringify` call for the chosen quality
+object. Setup, scheduling, DOM work, assertions and hashing are excluded; all
+input and complete visible-text output hashes match. This does not measure
+browser input latency, frame rate, memory or end-to-end import performance.
+
+| Questions / tab / page updates | Quality formats before / after | Native stringify total median ms before / after |
+| --- | ---: | ---: |
+| 20 / sources / 0 | 1 / 1 | 0.0050 / 0.0060 |
+| 1000 / sources / 10 | 11 / 1 | 3.1151 / 0.2691 |
+| 1000 / questions / 10 | 0 / 0 | 0.0000 / 0.0000 |
+
+Large inputs have 1,000 reviewable questions, 2,000 quality issues and 1,000 source
+associations. The sequence opens resources and advances ten pages. The small
+control opens a 20-question report without paging; the hidden control advances
+question pages and never opens resources.
+
+Final checks and the initial setup failure are recorded with this phase's PR.
+The first browser run used a dependency symlink outside the checkout: Vite's file
+allow list rejected KaTeX font requests. Each checkout then received its own
+unchanged locked dependencies with `npm ci`; no product filesystem policy was
+relaxed. First-failure logs, screenshots and trace remain under
+`/private/tmp/practiq-web-quality-first-browser-failure/` on the validation host.
+
+To repeat the probe, put this same test file in isolated baseline and candidate
+checkouts with matching locked dependencies, then alternate the following command
+three times per variant using fresh output paths. The normal suite runs its
+functional cases and skips only the opt-in timing case.
+
+```sh
+(cd web && PRACTIQ_BENCH_OUTPUT=/tmp/review-quality.json \
+  node node_modules/vitest/vitest.mjs run src/ResultReview.performance.test.tsx \
+  -t 'quality serialization probe')
+make web-check web-build
+```
+
 ## Practice App frontend
 
 `answerState` now returns unanswered for a null draft only after skipped/submitted
