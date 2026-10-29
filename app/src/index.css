@@ -285,11 +285,12 @@ html[lang="en"] [data-button]:not([data-size^="icon"]) {
 }
 .answer-card-item:hover { background: color-mix(in srgb, var(--answer-background), var(--answer-foreground) 8%); color: var(--answer-foreground); }
 [data-answer-state="pending"], [data-answer-state="skipped"] { border-style: dashed; }
-.answer-card-item[aria-current="step"], .answer-card-current { outline: 3px solid var(--ring); outline-offset: 2px; }
-.answer-card-item[aria-current="step"] { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; }
-.answer-card-item:focus-visible { outline: 3px solid var(--ring); outline-offset: 2px; }
-.answer-card-flag { position: absolute; bottom: 2px; right: 1px; border-radius: 2px; background: var(--warning-background); color: var(--warning-foreground); }
+.answer-card-item[aria-current="step"], .answer-card-current { border-width: 2px; border-color: var(--ring); outline: none; }
+.answer-card-item:focus-visible { outline: 3px solid var(--ring); outline-offset: 2px; box-shadow: none; }
+.answer-card-marker { position: absolute; bottom: 1px; right: 2px; }
+.answer-card-flag { position: absolute; top: 2px; right: 2px; border-radius: 2px; background: var(--warning-background); color: var(--warning-foreground); }
 .answer-card-swatch { display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center; width: 1.125rem; height: 1.125rem; border-radius: 4px; }
+.answer-card-counts .answer-card-swatch { width: 0.5rem; height: 0.5rem; border-radius: 2px; }
 .answer-card-current { background: var(--card); color: var(--primary); border-color: var(--primary); }
 .answer-card-review { background: var(--warning-background); color: var(--warning-foreground); border-color: var(--warning-border); }
 @media (max-width: 767px) {
