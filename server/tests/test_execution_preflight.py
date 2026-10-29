@@ -1,5 +1,6 @@
 """Recovery preflight bounds work without retaining verified payloads."""
 import asyncio
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
@@ -9,6 +10,15 @@ from practiq_ai import capacity, execution, normalization
 from practiq_ai.errors import DocumentProcessingError
 from practiq_ai.graphs import document
 from tests.support import make_image, object_store, source, upload
+
+
+@pytest.mark.parametrize("module", ["cost_budget.py", "worker_sandbox.py"])
+def test_production_policy_changes_invalidate_execution_identity(monkeypatch, module):
+    original = Path.read_bytes
+    target = Path(execution.__file__).parent / module
+    before = execution.code_version.__wrapped__()
+    monkeypatch.setattr(Path, "read_bytes", lambda path: original(path) + (b"\n# changed policy" if path == target else b""))
+    assert execution.code_version.__wrapped__() != before
 
 
 @pytest.mark.parametrize('corrupt', [None, 'tile', 'original'])

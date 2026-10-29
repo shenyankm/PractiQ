@@ -1,6 +1,10 @@
+import json
+from dataclasses import replace
+
 import pytest
 
 from practiq_ai import config
+from practiq_ai.execution import fingerprint
 
 
 def _env(monkeypatch: pytest.MonkeyPatch, **values: str) -> None:
@@ -32,6 +36,22 @@ def test_load_reads_model_and_storage_settings(monkeypatch: pytest.MonkeyPatch):
     assert loaded.max_document_pages == 100
     assert loaded.graph_max_concurrency == 2
     assert loaded.storage_concurrency == 4
+
+
+def test_evaluation_configuration_binds_models_and_limits_without_credentials_or_endpoints(monkeypatch):
+    _env(monkeypatch, LLM_BASE_URL="https://private-fixture.example/v1")
+    settings = replace(config.load(), api_key="private-model-fixture-key", tencent_secret_id="private-parser-fixture-id", tencent_secret_key="private-parser-fixture-key")
+    identity = config.evaluation_configuration(settings)
+    encoded = json.dumps(identity)
+    assert settings.base_url is not None
+    assert settings.base_url not in encoded
+    assert all(value not in encoded for value in (settings.api_key, settings.tencent_secret_id, settings.tencent_secret_key))
+    changed_keys = replace(settings, api_key="rotated-model-key", tencent_secret_id="rotated-id", tencent_secret_key="rotated-secret")
+    assert config.evaluation_configuration(changed_keys) == identity
+    assert all(value not in encoded for value in ("rotated-model-key", "rotated-id", "rotated-secret", "api_key", "tencent_secret_key"))
+    for field, value in (("provider", "deepseek"), ("model_id", "other-model"),
+                         ("base_url", "https://other-fixture.example/v1"), ("model_max_tokens", settings.model_max_tokens + 1)):
+        assert fingerprint(config.evaluation_configuration(replace(settings, **{field: value}))) != fingerprint(identity)
 
 
 @pytest.mark.parametrize("unavailable", ["missing", "directory"])

@@ -225,6 +225,7 @@ async def grade(request: GradeRequest) -> dict:
                 get_model(), [SystemMessage(content=prompt), HumanMessage(content=content)],
                 GradeResult, "subjective_grade", call_records=calls,
                 call_record_writer=lambda record: _record_call(request, record),
+                cost_scope=f"grade:{request.requestId}",
             )
             if result is None or result.maxCents != source_max:
                 response = {"status":"ungraded", "error":failure or _localized(request.feedbackLocale,

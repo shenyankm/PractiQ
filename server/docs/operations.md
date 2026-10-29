@@ -69,6 +69,12 @@ See the [configuration template](../../.env.example) for all variables. Limits i
 
 `deploy/alerts.rules.yml` covers partial results, unknown usage, budgets, checksums, queues, and latency. `SUCCEEDED` does not establish semantic quality; clients must still inspect `processing.quality`.
 
+The [production preflight](production-readiness.md) adds optional persistent
+estimated-cost admission, OS worker restrictions and checks over current quality,
+load, restore and monitoring reports. Cost reservations are conservative estimates;
+retain provider-side limits and reconcile unknown charges. The sandbox metric
+reports required configuration, while the host/image probes verify enforcement.
+
 Result metrics use the exported `processing.quality.reviewRequired` flag, including
 empty, truncated and unassociated-media results. Run stops emit
 `document_run_state` only after the changed status/error commits, with task/run

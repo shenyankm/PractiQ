@@ -20,6 +20,11 @@ AI_OFFICE_EXECUTABLE=/absolute/path/to/soffice
 AI_OFFICE_VERSION=LibreOffice <exact deployed version and build identity>
 ```
 
+With the required Linux [worker sandbox](production-readiness.md#native-worker-sandbox),
+select the native `soffice.bin` instead of its shell launcher, for example
+`/usr/lib/libreoffice/program/soffice.bin` in the supplied image. Retain the exact
+version from that binary. Converter caches and IPC stay in the private workspace.
+
 Use the exact output of the selected executable's `--version`, rather than the placeholder above. The executable path must be absolute and point to the trusted deployed program. Missing or mismatched configuration prevents Office processing. Neither HTTP inputs nor practice-app settings can choose an executable or command arguments. The authenticated `GET /api/import-capabilities` describes supported formats, modes, upload limits and model availability. Office sources are limited to the smaller of `AI_SOURCE_MAX_BYTES` and 25 MiB, reported as `officeSourceMaxBytes`; raising the configured limit still permits larger non-Office sources. Oversized Office metadata is rejected before upload content is read or a task is queued. A deployment without Office configuration does not advertise Office support.
 
 Settings loading validates paired configuration, the absolute path and version format. The capability response excludes Office when that path is missing or is not a regular file; conversion and Office resume verify the deployed engine's bytes and identity. An unavailable Office engine does not block non-Office work, saved-result reads or ZIP exports.

@@ -17,6 +17,15 @@ Use an existing Python 3.14+ environment and run the commands from `server/`.
 
 Evaluation uses real local file writes and `document_parser`, calling the graph locally with an in-memory checkpoint. It measures extraction of questions and supplied answers. Engineering tests and load tests cover HTTP behavior, durable recovery, and capacity. Evaluation does not use LangSmith or an LLM judge, change prompts automatically, or publish releases.
 
+Current production campaigns use scorer `6.7.0` and the
+[independent holdout/provenance procedure](production-readiness.md#independent-holdout-evidence).
+It binds private human-review declarations, exact source and label hashes and a
+complete holdout with three repetitions. Existing synthetic holdouts remain
+regression evidence. Source-linked distant context is bounded to eight pages;
+ordinary context remains two previous pages, primary and next. Historical process
+corrections below describe their original scorers and require separate baselines.
+Model confidence is an uncalibrated self-report, not an accuracy measurement.
+
 ## Check subjective grading and source-score extraction
 
 `scripts/evaluate_grading.py` uses fixed synthetic questions to check grading and source-score extraction separately. It calls the service's model logic directly with the initialized PostgreSQL database configured by `DATABASE_URI`. Evaluation requests use new IDs and remain in its grading ledger. It does not verify HTTP authentication, desktop interactions, or exactly-once provider calls.

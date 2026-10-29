@@ -83,6 +83,7 @@ from practiq_ai.graphs.chunking import (
     source_presence_plan,
     split_chunk_plan,
 )
+from practiq_ai.graphs.source_context import source_context
 from practiq_ai.import_control import current as import_control
 from practiq_ai.llm import (
     get_model,
@@ -789,6 +790,8 @@ class DocumentState(TypedDict):
     textRef: NotRequired[dict[str, Any] | None]
     pageRefs: NotRequired[list[dict[str, Any]]]
     ocrPageRefs: NotRequired[list[dict[str, Any]]]
+    contextPages: NotRequired[list[list[int]]]
+    contextIncomplete: NotRequired[list[int]]
     inputParts: NotRequired[list[dict[str, Any]]]
     visionResults: NotRequired[Annotated[list[dict[str, Any]], merge_records]]
     chunkRefs: NotRequired[list[dict[str, Any]]]
@@ -805,6 +808,7 @@ class VisionTask(TypedDict):
     kind: str
     index: int
     neighbors: NotRequired[list[dict[str, Any]]]
+    contextIncomplete: NotRequired[bool]
     artifact: dict[str, Any]
     originalDocument: NotRequired[dict[str, Any]]
     ocrArtifact: NotRequired[dict[str, Any]]
@@ -939,11 +943,11 @@ async def _parse_submissions(
     async def worker() -> None:
         nonlocal stopped
         try:
-            for index, (reference, source_type, _) in work:
+            for index, (reference, source_type, page_count) in work:
                 if stopped:
                     return
                 results[index] = await parse_job(reference, runtime, key=f"source-0-{index}",
-                                                 source_type=source_type, source_sha256=source_sha256)
+                                                 source_type=source_type, source_sha256=source_sha256, estimated_pages=page_count)
         except BaseException:
             stopped = True
             raise
@@ -1123,6 +1127,9 @@ async def _prepare(state: DocumentState, runtime: Runtime[None], *, source_types
         warnings.append("Tencent native tables do not establish coverage of every workbook sheet. Some sheet names are absent; review the original workbook for omitted questions, tables and images.")
     ocr_refs = [await put(json.dumps(page, ensure_ascii=False).encode(), "ocr-page", index, "application/json")
                 for index, page in enumerate(pages)]
+    context_pages, context_incomplete = source_context(pages, page_references=not input_parts and reference.sourceType == "pdf")
+    if context_incomplete:
+        warnings.append("Some printed page references could not be included within complete source ranges and bounded context; retain human review.")
     # Only exact Tencent evidence may retain original-text presence/dedup proofs.
     if reference.sourceType in {"text", "markdown"} and not truncated:
         contents = [(element["text_info"].get("content") if isinstance(element.get("text_info"), dict) else None) for page in pages for element in page.get("elements", [])]
@@ -1141,6 +1148,7 @@ async def _prepare(state: DocumentState, runtime: Runtime[None], *, source_types
         warnings.append("Full-page images are unavailable; review the original document and retained OCR evidence.")
     telemetry.event("extraction_route", kind="vision_parse", sourceType=reference.sourceType)
     return {"textRef": None, "normalization": normalization, "inputParts": input_parts, "pageRefs": [ref.model_dump(mode="json") for ref in page_refs],
+            "contextPages": context_pages, "contextIncomplete": context_incomplete,
             "ocrPageRefs": [ref.model_dump(mode="json") for ref in ocr_refs], "visualTotal": len(pages),
             "textUnits": [], "tabularRowsSafe": False, "effectiveSourceType": reference.sourceType,
             "warnings": warnings, "truncated": truncated, "chunkRefs": []}
@@ -1149,6 +1157,7 @@ async def _prepare(state: DocumentState, runtime: Runtime[None], *, source_types
 def _dispatch_vision(state: DocumentState) -> list[Send] | str:
     pages = state.get("pageRefs", [])
     ocr_pages = state.get("ocrPageRefs", [])
+    context_pages = state.get("contextPages")
     work = [
         Send(
             "vision",
@@ -1157,7 +1166,8 @@ def _dispatch_vision(state: DocumentState) -> list[Send] | str:
                 "index": index,
                 "neighbors": [{"index": other, "artifact": pages[other],
                                **({"ocrArtifact": ocr_pages[other]} if ocr_pages else {})}
-                              for other in range(max(0, index - 2), min(len(pages), index + 2))],
+                              for other in (context_pages[index] if context_pages else range(max(0, index - 2), min(len(pages), index + 2)))],
+                "contextIncomplete": index in state.get("contextIncomplete", []),
                 "artifact": item,
                 **({"originalDocument": state["document"]} if not state.get("inputParts") else {}),
                 **({"ocrArtifact": ocr_pages[index]} if ocr_pages else {}),
@@ -1288,6 +1298,10 @@ async def _vision(state: VisionTask, runtime: Runtime[None]) -> dict[str, list[d
             evidence = json.loads(await store.get_verified(ArtifactReference.model_validate(neighbor["ocrArtifact"])))
             context.append(_ocr_model_evidence(evidence, neighbor["index"]))
         if context and parsed.questions and all(q.id is not None for q in parsed.questions):
+            context_indexes = sorted({state["index"], *(neighbor["index"] for neighbor in state.get("neighbors", []))})
+            telemetry.event("page_context", primaryPage=state["index"], contextPages=context_indexes,
+                            sourceLinkedPages=[index for index in context_indexes if not state["index"] - 2 <= index <= state["index"] + 1],
+                            unitKey=state.get("unitKey"))
             context_token = PRIMARY_PAGE.set(parsed.page_result())
             try:
                 context_message = HumanMessage(content=(
@@ -1312,7 +1326,7 @@ async def _vision(state: VisionTask, runtime: Runtime[None]) -> dict[str, list[d
             finally:
                 PRIMARY_PAGE.reset(context_token)
         page = parsed.page_result()
-        if state.get("splitSource"):
+        if state.get("splitSource") or state.get("contextIncomplete"):
             for question in page.questions:
                 question.needsReview = True
         for figure in page.figures:

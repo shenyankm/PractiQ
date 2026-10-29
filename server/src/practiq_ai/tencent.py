@@ -20,7 +20,7 @@ import httpx
 from langgraph.runtime import Runtime
 from pydantic import BaseModel, Field, StrictInt, ValidationError, field_validator
 
-from . import telemetry
+from . import cost_budget, telemetry
 from .config import Config, load
 from .contracts import (
     OFFICE_SOURCE_TYPES,
@@ -214,7 +214,8 @@ async def _cleanup_source(record: dict[str, Any], runtime: Runtime[Any], key: st
 
 
 async def parse_job(reference: ArtifactReference, runtime: Runtime[Any], *, key: str = "source",
-                    source_type: DocumentSourceType | None = None, source_sha256: str | None = None) -> dict[str, Any]:
+                    source_type: DocumentSourceType | None = None, source_sha256: str | None = None,
+                    estimated_pages: int | None = None) -> dict[str, Any]:
     """Use service-wide admission before writing any paid submission intent."""
     async with asyncio.timeout(await run_remaining(runtime)), AsyncExitStack() as stack:
         with telemetry.measure("tencent_admission", {}, "durationMs"):
@@ -222,13 +223,13 @@ async def parse_job(reference: ArtifactReference, runtime: Runtime[Any], *, key:
         client = await stack.enter_async_context(httpx.AsyncClient(timeout=60, trust_env=False, follow_redirects=False))
         token = _RPC_CLIENT.set(client)
         try:
-            return await _parse_job(reference, runtime, key=key, source_type=source_type, source_sha256=source_sha256)
+            return await _parse_job(reference, runtime, key=key, source_type=source_type, source_sha256=source_sha256, estimated_pages=estimated_pages)
         finally:
             _RPC_CLIENT.reset(token)
 
 
 async def _parse_job(reference: ArtifactReference, runtime: Runtime[Any], *, key: str,
-                     source_type: DocumentSourceType | None, source_sha256: str | None) -> dict[str, Any]:
+                     source_type: DocumentSourceType | None, source_sha256: str | None, estimated_pages: int | None = None) -> dict[str, Any]:
     """Resume a known job; an unacknowledged submission is never replayed."""
     config = load()
     source_type = source_type or (reference.sourceType if isinstance(reference, DocumentReference) else None)
@@ -277,6 +278,11 @@ async def _parse_job(reference: ArtifactReference, runtime: Runtime[Any], *, key
                 raise DocumentProcessingError(409, "COS staging cannot resume in local-only mode", "TENCENT_COS_CONFLICT")
             record = {"sourceSha256": reference.sha256, "resultType": RESULT_TYPES[source_type]}
             data["FileBase64"] = base64.b64encode(payload).decode()
+        cost_key = hashlib.sha256(f"{info.thread_id}/{key}/{reference.sha256}".encode()).hexdigest()
+        estimate = await cost_budget.reserve(f"task:{info.thread_id}", cost_key,
+                                            cost_budget.page_estimate(estimated_pages or config.max_document_pages, config), "tencent", runtime)
+        if estimate is not None:
+            record["estimatedCost"] = estimate
         _status(record, "SUBMITTING")
         record["submittedAt"] = record["statusUpdatedAt"]
         await store_put(runtime, "tencent_jobs", key, record)

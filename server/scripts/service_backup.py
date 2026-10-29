@@ -332,11 +332,16 @@ def main() -> None:
     parser.add_argument('--output', type=Path)
     parser.add_argument('--metrics', type=Path)
     parser.add_argument('--pg-bin', type=Path, help='Trusted directory with matching pg_dump/pg_restore')
+    parser.add_argument('--report', type=Path, help='New private JSON evidence path outside backup/restore destinations')
     args = parser.parse_args()
     if args.action == 'backup' and (not args.config or not args.image or not args.image_archive):
         parser.error('backup requires --config, --image and --image-archive')
     if args.action == 'restore' and not args.output:
         parser.error('restore requires --output')
+    if args.report and (args.report.exists() or args.report.resolve().is_relative_to(args.bundle.resolve())
+                        or args.output and args.report.resolve().is_relative_to(args.output.resolve())):
+        parser.error('report must use a new path outside backup/restore destinations')
+    started = time.perf_counter()
     success, snapshot = False, None
     try:
         if args.action == 'verify':
@@ -354,7 +359,15 @@ def main() -> None:
                     await db.close()
             value = asyncio.run(run())
         success, snapshot = True, value['snapshotUnix']
-        print(json.dumps({'status': 'PASSED', 'snapshotUnix': snapshot, 'image': value['image']}))
+        report = {'schemaVersion': 1, 'kind': 'service-backup-operation', 'action': args.action, 'status': 'PASSED',
+                  'snapshotUnix': snapshot, 'image': value['image'], 'completedUnix': time.time(),
+                  'durationSeconds': round(time.perf_counter() - started, 6), 'codeHash': code_version()}
+        if args.report:
+            args.report.parent.mkdir(parents=True, exist_ok=True)
+            with args.report.open('x') as output:
+                os.fchmod(output.fileno(), 0o600)
+                output.write(json.dumps(report, indent=2) + '\n')
+        print(json.dumps(report))
     except (OSError, ValueError, RuntimeError, tarfile.TarError, KeyError, DatabaseError):
         parser.exit(1, 'Backup operation failed; preserve the incomplete bundle and inspect private configuration/permissions\n')
     finally:

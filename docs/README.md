@@ -35,6 +35,7 @@ PractiQ has an independent AI import service and Web frontend, plus an offline p
 | Configure/start the service and call subjective grading | [Service guide](../server/docs/service-guide.md) |
 | Create/query/control tasks and read/export saved results | [Document-task API](../server/docs/document-tasks.md) |
 | Back up service state, recover tasks and perform maintenance | [Operations](../server/docs/operations.md) |
+| Enforce import budgets/isolation and check current production evidence | [Production preflight](../server/docs/production-readiness.md) |
 | Configure service-side Word/Excel normalization | [Office guide](../server/docs/desktop-office.md) |
 | Validate fixtures and measure extraction/grading quality | [Evaluation](../server/docs/evaluation.md) |
 | Check checkpoint compatibility after a change | [Resume compatibility](../server/docs/resume-compatibility.md) |
