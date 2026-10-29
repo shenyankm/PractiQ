@@ -318,7 +318,7 @@ async def read_artifact(reference: ArtifactReference, thread_id: Annotated[UUID 
         if all(source.get(key) == item for key, item in metadata.items()):
             checked = DocumentReference.model_validate(source)
         else:
-            _, snapshot, _ = await task_api._read_task(service, str(thread_id))
+            _, snapshot, _ = await task_api._read_task(service, str(thread_id), task)
             if not await task_api.artifact_is_public(snapshot, source['sha256'], metadata):
                 raise DocumentProcessingError(404, 'Artifact not found', 'ARTIFACT_NOT_FOUND')
         payload = await (await asyncio.to_thread(get_object_store)).get_verified(checked)

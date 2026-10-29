@@ -242,11 +242,12 @@ def _unnumbered_stem_matches(question: ParsedQuestion, record: str, stem: str) -
     return _literal('\n'.join(remaining)) == stem
 
 
-def _composite_fields(question: ParsedQuestion, questions: list[ParsedQuestion], records: list[tuple[str | None, str, str]]) -> dict[str, list[str]] | None:
-    parents = [parent for parent in questions if parent.id == question.parentId and parent.answerMode in {'word_bank', 'cloze'}]
-    if len(parents) != 1 or question.answerMode != 'choice' or not question.id:
+def _composite_fields(
+    question: ParsedQuestion, parent: ParsedQuestion, child_stems: set[str],
+    records: list[tuple[str | None, str, str]],
+) -> dict[str, list[str]] | None:
+    if question.answerMode != 'choice' or not question.id:
         return None
-    parent = parents[0]
     blanks = [block.questionId for block in parent.passage if block.partType == 'blank']
     if blanks.count(question.id) != 1 or len(set(blanks)) != len(blanks):
         return None
@@ -261,13 +262,13 @@ def _composite_fields(question: ParsedQuestion, questions: list[ParsedQuestion],
         return None
     options = parent.options if parent.answerMode == 'word_bank' else question.options
     option_labels = '|'.join(re.escape(option.label) for option in options if option.label)
-    child_stems = {_literal(child.stem) for child in questions if child.parentId == parent.id and child.stem}
     candidates = []
     for index, (_, record, body) in enumerate(records):
         if not parent.stem or not re.match(re.escape(_literal(parent.stem)) + r'(?![\w-])', body):
             continue
         scope = [record]
-        for number, following, following_body in records[index + 1:]:
+        for later in range(index + 1, len(records)):
+            number, following, following_body = records[later]
             continuation = re.fullmatch(r'(.+?)\s*\[(\d{1,4})\][.。．]?', following_body)
             if number is None or not continuation or continuation[2] != number or continuation[1].strip() not in child_stems:
                 break
@@ -367,11 +368,17 @@ def retain_source_answers(
                 if number:
                     answer_keys.setdefault(number, []).append(body)
     changes = []
+    composite_parents = {parent.id: parent for parent in questions if parent.answerMode in {'word_bank', 'cloze'}}
+    child_stems: dict[str, set[str]] = {}
+    for child in questions:
+        if child.parentId and child.stem:
+            child_stems.setdefault(child.parentId, set()).add(_literal(child.stem))
     for index, question in enumerate(questions):
         if question.answerPayload is None and question.analysis is None:
             continue
         stem = _literal(question.stem or '')
-        composite_child = question.parentId and any(parent.id == question.parentId and parent.answerMode in {'word_bank', 'cloze'} for parent in questions)
+        parent = composite_parents.get(question.parentId) if question.parentId else None
+        composite_child = parent is not None
         pattern = re.compile(r'(?<![\w-])' + re.escape(stem) + r'(?![\w-])') if stem else None
         # A stem-only match cannot certify a record expanded by item grouping.
         candidates = [(number, record) for number, record, body in (item_records if question.answerMode in {'ordering', 'matching'} else records) if pattern and pattern.match(body)
@@ -396,8 +403,8 @@ def retain_source_answers(
                     fields['answerPayload'].append(prefix)
                 for name, values in _fields(body).items():
                     fields[name].extend(values)
-        elif question.parentId:
-            fields = _composite_fields(question, questions, records) or fields
+        elif parent is not None:
+            fields = _composite_fields(question, parent, child_stems.get(parent.id or '', set()), records) or fields
         removed = []
         if question.answerPayload is not None and not (fields['answerPayload'] and all(_answer_matches(question, value, verified_items=verified_items) for value in fields['answerPayload'])):
             question.answerPayload = None

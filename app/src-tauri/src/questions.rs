@@ -410,7 +410,11 @@ pub fn matching_roots(
     } else {
         ("LEFT JOIN choice_questions c ON c.question_id=q.id", "AND (json_array_length(?2)=0 OR EXISTS(SELECT 1 FROM json_each(?2) m WHERE COALESCE(q.question_kind,q.mode)=m.value OR (m.value='grammar_fill' AND q.mode='gap_fill') OR (q.mode='choice' AND c.variant=m.value)))")
     };
-    let sql = format!("
+    // A filter is known at build time; without one the recursive tree/matches scan
+    // is dead work SQLite cannot eliminate for a bound parameter.
+    let filtered = !filter.is_empty();
+    let sql = if filtered {
+        format!("
         WITH RECURSIVE tree(root,id) AS (
             SELECT q.id,q.id FROM questions q WHERE q.parent_id IS NULL AND {scope}
             UNION ALL SELECT t.root,q.id FROM questions q JOIN tree t ON q.parent_id=t.id
@@ -422,13 +426,25 @@ pub fn matching_roots(
                 (?3='unattempted' AND (n.mode IS NULL OR n.mode NOT IN ({COMPOSITE_SQL})) AND NOT EXISTS(SELECT 1 FROM attempts WHERE question_id=n.id AND submitted_at IS NOT NULL AND skipped=0))
         ) SELECT q.id FROM {roots} {choice}
         WHERE q.parent_id IS NULL AND {scope} {kind}
-            AND (?3='' OR q.id IN (SELECT root FROM matches))");
+            AND (?3='' OR q.id IN (SELECT root FROM matches))")
+    } else {
+        format!("SELECT q.id FROM {roots} {choice} WHERE q.parent_id IS NULL AND {scope} {kind}")
+    };
     let bank_ids = json!(banks).to_string();
     let mode = mode_list(mode);
+    let query_bindings = params![bank_ids, mode, filter];
     let total = if page.is_some() {
+        // SQLite counts placeholders up to the highest index used; bind exactly that many.
+        let count_bindings = if filtered {
+            3
+        } else if kind.is_empty() {
+            1
+        } else {
+            2
+        };
         db.query_row(
             &format!("SELECT COUNT(*) FROM ({sql})"),
-            params![bank_ids, mode, filter],
+            &query_bindings[..count_bindings],
             |r| r.get::<_, usize>(0),
         )
         .map_err(err)?
@@ -452,15 +468,15 @@ pub fn matching_roots(
         ))
         .map_err(err)?;
     let bindings = params![bank_ids, mode, filter, limit, offset];
+    let used_bindings = if page.is_some() {
+        5
+    } else if filtered {
+        3
+    } else {
+        2
+    };
     let ids: Vec<String> = statement
-        .query_map(
-            if page.is_some() {
-                bindings
-            } else {
-                &bindings[..3]
-            },
-            |r| r.get(0),
-        )
+        .query_map(&bindings[..used_bindings], |r| r.get(0))
         .map_err(err)?
         .collect::<std::result::Result<Vec<_>, _>>()
         .map_err(err)?;
