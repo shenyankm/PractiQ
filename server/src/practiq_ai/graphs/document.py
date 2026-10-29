@@ -1908,9 +1908,8 @@ async def _merge(state: DocumentState, *, passive: bool = False) -> dict[str, An
                                 + " — " + locations(trees)
                                 + ". All copies were retained; you decide whether to remove any.")
                 duplicates = {qid for tree in trees for qid in tree}
-                for index, question in enumerate(questions):
-                    if question.id in duplicates:
-                        mark_review(index, question)
+                for index, question in sorted((by_id[qid] for qid in duplicates), key=lambda item: item[0]):
+                    mark_review(index, question)
             if state.get("deduplicateQuestions", False):
                 questions, duplicate_warnings = remove_duplicate_question_trees(
                     questions, groups, visual_elements, question_sources, quality, removable_groups,

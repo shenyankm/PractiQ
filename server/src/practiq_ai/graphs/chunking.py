@@ -2,6 +2,7 @@ import hashlib
 import json
 import re
 from bisect import bisect_right
+from functools import lru_cache
 from typing import Any, NotRequired, TypedDict, cast
 
 from pydantic import ValidationError
@@ -124,7 +125,9 @@ def _closed_root_blocks(frames: list[_SourceFrame]) -> list[tuple[int, int, int]
     return blocks
 
 
+@lru_cache(maxsize=4)
 def _table_frames(text: str) -> tuple[list[_SourceFrame], str] | None:
+    # Parse once per source text; chunk planning and presence planning share it. Callers must not mutate the frames.
     lines = text.splitlines(keepends=True)
     if len(lines) < 2:
         return None
@@ -160,7 +163,9 @@ def _table_blocks(text: str) -> tuple[list[tuple[int, int, int]], str] | None:
     return (blocks, table[1]) if table and blocks is not None else None
 
 
+@lru_cache(maxsize=4)
 def _typed_frames(text: str) -> list[_SourceFrame] | None:
+    # Parse once per source text; callers must treat the frames as read-only.
     matches = list(_TYPED_QUESTION.finditer(text))
     if not matches or _UNNUMBERED_EXERCISE.search(text) or any(
         QUESTION_BOUNDARY_PATTERN.match(line) and not _TYPED_QUESTION.match(line)

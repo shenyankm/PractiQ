@@ -194,8 +194,9 @@ async def _read_snapshot(service, task, run):
     return snapshot, run
 
 
-async def _read_task(service, thread_id):
-    task = await _read_task_record(service, thread_id)
+async def _read_task(service, thread_id, task=None):
+    if task is None:
+        task = await _read_task_record(service, thread_id)
     runs = await service.db.rows('SELECT * FROM document_runs WHERE thread_id=%s ORDER BY created_at DESC LIMIT 1', (thread_id,))
     run = runs[0] if runs else None
     snapshot, run = await _read_snapshot(service, task, run)
