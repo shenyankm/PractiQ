@@ -526,12 +526,12 @@ async def structured_call[ResultT: BaseModel](
             await reserve_model_call(runtime, check_only=True)
             async with provider_slot(record, check=lambda: guard(runtime)):
                 await guard(runtime)
-                await reserve_model_call(runtime)
                 settings = load()
                 if settings.cost_enabled:
                     scope = f"task:{runtime.execution_info.thread_id}" if runtime and runtime.execution_info else cost_scope
                     wire_bytes = len(json.dumps([messages_to_dict(messages), _model_schema(schema)], ensure_ascii=False).encode()) + 64 * len(messages)
                     record["estimatedCost"] = await cost_budget.reserve(scope, str(call_key), cost_budget.model_estimate(wire_bytes, settings), "model", runtime)
+                await reserve_model_call(runtime)
                 if runtime:
                     await store_put(runtime, "calls", str(call_key), record)
                 if call_record_writer:

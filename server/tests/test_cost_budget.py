@@ -139,8 +139,13 @@ async def test_rejected_model_cost_admission_is_rechecked_on_checkpoint_resume(m
     assert error.value.code == "COST_BUDGET_EXCEEDED"
     assert not model.calls and requests
     provider_requests = list(requests)
+    for _ in range(4):
+        with pytest.raises(DocumentProcessingError) as retry_error:
+            await graph.ainvoke(None, {**config, "run_id": uuid4()})
+        assert retry_error.value.code == "COST_BUDGET_EXCEEDED"
+    assert not await store.asearch(execution.namespace("thread-1", "budget"))
     rejected = await store.asearch(execution.namespace("thread-1", "calls"))
-    assert len(rejected) == 1 and rejected[0].value["status"] == "rejected"
+    assert len(rejected) == 5 and all(item.value["status"] == "rejected" for item in rejected)
     if recovery == "new_day":
         monkeypatch.setattr(cost_budget, "now", lambda: datetime(2026, 10, 29, tzinfo=UTC))
     else:
@@ -149,9 +154,10 @@ async def test_rejected_model_cost_admission_is_rechecked_on_checkpoint_resume(m
     assert result["status"] == "SUCCEEDED"
     assert len(model.calls) == len(result["usage"]) == 1 and requests == provider_requests
     records = await store.asearch(execution.namespace("thread-1", "calls"))
-    assert len(records) == 2
-    assert any(item.key == rejected[0].key and item.value == rejected[0].value for item in records)
+    assert len(records) == 6
+    assert all(any(item.key == previous.key and item.value == previous.value for item in records) for previous in rejected)
     assert sum(item.value["status"] == "completed" for item in records) == 1
+    assert sum(item.value["spent"] for item in await store.asearch(execution.namespace("thread-1", "budget"))) == 1
 
 
 @pytest.mark.usefixtures("disposable_databases")
