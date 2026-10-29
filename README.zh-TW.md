@@ -60,15 +60,13 @@
 
 ## 安裝
 
-前往 [PractiQ v0.2.0](https://github.com/shenyankm/PractiQ/releases/tag/v0.2.0) 下載 macOS 14+、Apple Silicon 安裝套件。此版本尚未簽章或公證；校驗碼、安裝步驟及未完成的驗收項目請見發布說明。
-
-如需從原始碼建置，開啟儲存庫根目錄，讓 AI 程式設計助理使用以下提示：
+PractiQ 目前需要從原始碼安裝。你不需要自己輸入指令：開啟儲存庫根目錄，讓 AI 程式設計助理依下列提示安裝。
 
 > 閱讀 `docs/guides/installation.md`，在這台電腦上安裝 PractiQ。先檢查環境需求，只執行適合我系統的步驟，完成後告訴我執行了哪些指令、安裝套件在哪裡，以及哪些步驟失敗。安裝系統軟體前先問我。
 
 [安裝指南（英文）](docs/guides/installation.md)包含環境需求、指令與檢查步驟。應用程式支援 macOS 14+（Apple Silicon）；Linux 僅用於執行 AI 服務與 CI。
 
-PractiQ 仍在開發中。建置通過不代表已完成簽章、乾淨環境驗收或真實模型準確性驗證。已發布的安裝套件與驗證證據請見 [GitHub Releases](https://github.com/shenyankm/PractiQ/releases)。
+PractiQ 仍在開發中：這些步驟只在本機建置，建置通過也不代表已完成簽章發布。已發布的安裝套件（如有）請見 [GitHub Releases](https://github.com/shenyankm/PractiQ/releases)。
 
 桌面資料儲存在新的 `v4/` 目錄中。舊目錄會原樣保留，舊版完整備份不再接受，目前格式的題庫 ZIP 仍可匯入。詳見[資料格式說明（英文）](docs/reference/question-model.md#versions-and-directories)。
 
