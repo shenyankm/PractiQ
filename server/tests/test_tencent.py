@@ -396,6 +396,40 @@ def test_native_excel_table_preserves_cells_and_merged_layout():
         decode_bundle(payload, replace(settings, max_total_input_chars=1), page_count=1)
 
 
+@pytest.mark.parametrize("with_xml", [False, True])
+def test_native_table_layouts_index_captions_once_without_resolving_ambiguity(monkeypatch, with_xml):
+    from xml.etree import ElementTree
+
+    captions = []
+
+    class CountedElement(ElementTree.Element):
+        def find(self, path, namespaces=None):
+            if self.tag == "table" and path == "caption":
+                captions.append(self)
+            return super().find(path, namespaces)
+
+    parse = ElementTree.fromstring
+    monkeypatch.setattr(ElementTree, "fromstring", lambda text: parse(
+        text, parser=ElementTree.XMLParser(target=ElementTree.TreeBuilder(element_factory=CountedElement))))
+    xml = ("<root><table><caption> A <b>&amp;</b> B </caption><tr><td>unique</td></tr></table>"
+           "<table><caption>duplicate</caption></table><table><caption> duplicate </caption></table>"
+           "<table/><table><caption> </caption></table>"
+           "<table><caption>first</caption><caption>second</caption></table></root>")
+    names = [" A & B\n", "duplicate", "missing", "", "first", "second", None, 1]
+    entries = [(f"sample_ocr_page{index}.json", json.dumps({
+        "table_name": "fallback", "caption": name, "fields": [], "rows": []})) for index, name in enumerate(names)]
+    if with_xml:
+        entries.append(("sample_xml_full.xml", xml))
+    pages = decode_bundle(archive(entries), load(), page_count=len(names))
+    layouts = [page["elements"][0].get("layout_xml") for page in pages]
+    assert [layout is not None for layout in layouts] == ([True, False, False, True, True, False, False, False] if with_xml else [False] * len(names))
+    if with_xml:
+        assert "<td>unique</td>" in layouts[0]
+        assert len(captions) == 6
+    else:
+        assert captions == []
+
+
 @pytest.mark.parametrize("change", [{"fields": "bad"}, {"rows": [{}]}, {"rows": [{"cells": [None]}]}])
 def test_native_excel_table_rejects_invalid_collections(change):
     table = {"table_name": "Synthetic", "fields": [], "rows": [], **change}

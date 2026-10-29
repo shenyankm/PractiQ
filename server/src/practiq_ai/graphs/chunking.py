@@ -1,7 +1,7 @@
 import hashlib
 import json
 import re
-from bisect import bisect_right
+from bisect import bisect_left, bisect_right
 from functools import lru_cache
 from typing import Any, NotRequired, TypedDict, cast
 
@@ -303,9 +303,11 @@ def source_presence_plan(
             result[frame['id']]['stem_sha256'] = hashlib.sha256(stem.strip().encode('utf-8')).hexdigest()
         if has_answer and not table:
             result[frame['id']]['answer_source'] = raw
+    frame_ends = [frame['end'] for frame in frames]
+    frame_starts = [frame['contentStart'] for frame in frames]
     plan = []
     for span in spans:
-        selected = [frame for frame in frames if frame['end'] > span['start'] and frame['contentStart'] < span['end']]
+        selected = frames[bisect_right(frame_ends, span['start']):bisect_left(frame_starts, span['end'])]
         known = (not any(frame['contentStart'] < span['start'] or frame['end'] > span['end'] for frame in selected)
                  and _closed_root_blocks(selected) is not None)
         plan.append({frame['id']: result[frame['id']] for frame in selected} if known else None)

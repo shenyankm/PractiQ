@@ -196,17 +196,18 @@ def decode_bundle(payload: bytes | zipfile.ZipFile, config: Config, *, page_coun
                                    for row in value["rows"])):
                         raise ValueError("Invalid native table evidence")
                     if tables is None:
-                        tables = []
+                        tables = {}
                         xml_size = 0
                         for layout in entries:
                             if layout.filename.endswith("_xml_full.xml"):
                                 xml_size += layout.file_size
                                 if xml_size > min(MAX_PAGE_BYTES, config.max_total_input_chars * 4):
                                     raise ValueError("Native table layouts exceed the shared limit")
-                                tables.extend(ElementTree.fromstring(archive.read(layout)).iter("table"))
+                                for table in ElementTree.fromstring(archive.read(layout)).iter("table"):
+                                    if (node := table.find("caption")) is not None:
+                                        tables.setdefault("".join(node.itertext()).strip(), []).append(table)
                     caption = value.get("caption", value["table_name"])
-                    layouts = [table for table in tables if (node := table.find("caption")) is not None
-                               and "".join(node.itertext()).strip() == caption.strip()] if isinstance(caption, str) else []
+                    layouts = tables.get(caption.strip(), []) if isinstance(caption, str) else []
                     element = {"type": 3, "table_info": value}
                     if len(layouts) == 1:
                         element["layout_xml"] = ElementTree.tostring(layouts[0], encoding="unicode")
