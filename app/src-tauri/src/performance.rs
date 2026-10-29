@@ -8,6 +8,115 @@ use serde_json::{json, Value};
 use std::time::Instant;
 
 #[test]
+#[ignore = "scoped detail read benchmark; temporary databases, release only"]
+fn scoped_detail_read_stress() {
+    let mut workloads = Vec::new();
+    for mixed in [false, true] {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::new(dir.path().into()).unwrap();
+        let mut db = store.connect().unwrap();
+        let tx = db.transaction().unwrap();
+        tx.execute("INSERT INTO banks VALUES('bank','Bank','',1)", [])
+            .unwrap();
+        for index in 0..10_000 {
+            let id = format!("q{index:05}");
+            let mode = if mixed && index % 2 == 1 {
+                "short_answer"
+            } else {
+                "true_false"
+            };
+            tx.prepare_cached("INSERT INTO questions(id,bank_id,position,stem,mode,content_blocks,confidence,needs_review,missing_fields) VALUES(?1,'bank',?2,?3,?4,'[]',1,0,'[]')").unwrap()
+                .execute(params![id,index,format!("Question {index}"),mode]).unwrap();
+            if mode == "true_false" {
+                tx.prepare_cached("INSERT INTO true_false_questions VALUES(?1,'false')")
+                    .unwrap()
+                    .execute([id])
+                    .unwrap();
+            } else {
+                tx.prepare_cached("INSERT INTO short_answer_questions(question_id,answer) VALUES(?1,'\"Reference\"')")
+                    .unwrap().execute([id]).unwrap();
+            }
+        }
+        tx.commit().unwrap();
+        for count in [1, 30, 1000] {
+            let ids: Vec<_> = (0..count).map(|index| format!("q{index:05}")).collect();
+            let mut times = Vec::new();
+            let mut output_hash = None;
+            for iteration in 0..8 {
+                let started = Instant::now();
+                let rows =
+                    crate::questions::read_scoped(&db, &["bank".into()], Some(&ids)).unwrap();
+                let elapsed = started.elapsed().as_secs_f64() * 1000.0;
+                assert_eq!(rows.len(), count);
+                for (index, row) in rows.iter().enumerate() {
+                    assert_eq!(row["id"], ids[index]);
+                    assert_eq!(
+                        row["question"]["answerPayload"],
+                        if mixed && index % 2 == 1 {
+                            json!({"text":"Reference"})
+                        } else {
+                            json!({"value":false})
+                        }
+                    );
+                }
+                let actual = crate::store::hash(&serde_json::to_vec(&rows).unwrap());
+                assert!(output_hash
+                    .as_ref()
+                    .is_none_or(|expected| expected == &actual));
+                output_hash = Some(actual);
+                if iteration > 0 {
+                    times.push(elapsed);
+                }
+            }
+            workloads.push(json!({"mixed":mixed,"selected":count,"bankQuestions":10_000,"samplesMs":times,"outputSha256":output_hash}));
+        }
+    }
+    use std::io::{Cursor, Read};
+    let dir = tempfile::tempdir().unwrap();
+    let store = Store::new(dir.path().into()).unwrap();
+    let db = store.connect().unwrap();
+    db.execute("INSERT INTO banks VALUES('bank','Bank','',1)", [])
+        .unwrap();
+    let mut zip =
+        zip::ZipArchive::new(Cursor::new(include_bytes!("../../fixtures/all-types.zip"))).unwrap();
+    let mut data = String::new();
+    zip.by_name("questions.json")
+        .unwrap()
+        .read_to_string(&mut data)
+        .unwrap();
+    let document = crate::contract::parse(data.as_bytes()).unwrap();
+    let questions = list(&document, "questions");
+    let modes: std::collections::HashSet<_> =
+        questions.iter().map(|q| text(q, "answerMode")).collect();
+    assert_eq!(modes.len(), 11);
+    for (index, question) in questions.iter().enumerate() {
+        crate::questions::write(&db, question, "bank", None, index as i64, false, false).unwrap();
+    }
+    let mut times = Vec::new();
+    let mut output_hash = None;
+    for iteration in 0..8 {
+        let started = Instant::now();
+        let rows = crate::questions::read_scoped(&db, &[], None).unwrap();
+        let elapsed = started.elapsed().as_secs_f64() * 1000.0;
+        assert_eq!(rows.len(), questions.len());
+        let actual = crate::store::hash(&serde_json::to_vec(&rows).unwrap());
+        assert!(output_hash
+            .as_ref()
+            .is_none_or(|expected| expected == &actual));
+        output_hash = Some(actual);
+        if iteration > 0 {
+            times.push(elapsed);
+        }
+    }
+    workloads.push(json!({"mixed":"all-11-modes","selected":questions.len(),"bankQuestions":questions.len(),"samplesMs":times,"outputSha256":output_hash}));
+    std::fs::write(
+        std::env::var("PRACTIQ_BENCH_OUTPUT").expect("set PRACTIQ_BENCH_OUTPUT"),
+        serde_json::to_vec_pretty(&workloads).unwrap(),
+    )
+    .unwrap();
+}
+
+#[test]
 #[ignore = "paired bank and sparse draft reads; temporary databases, release only"]
 fn runtime_read_stress() {
     fn sample(mut run: impl FnMut() -> Value) -> Value {

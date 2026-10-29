@@ -560,7 +560,11 @@ pub fn read_scoped(
     }
     let scope = json!(records.iter().map(|r| text(&r.0, "id")).collect::<Vec<_>>()).to_string();
     let mut details = HashMap::new();
+    let modes: HashSet<_> = records.iter().map(|r| text(&r.0, "answerMode")).collect();
     for (mode, table, _) in DETAILS {
+        if !modes.contains(mode) {
+            continue;
+        }
         let fields = match *mode {
             "choice"=>"json_object('variant',variant,'owner',option_set_id,'answer',json(correct))",
             "true_false"=>"json_object('answer',json(value))", "fill_blank"=>"json_object('blankCount',blank_count,'answer',json(answers))",
