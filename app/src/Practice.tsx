@@ -472,23 +472,23 @@ const answerCardStates = {
 } as const;
 type AnswerCardStatus = keyof typeof answerCardStates;
 
-function answerState(a: Attempt, draft: Answer | null, exam: boolean): { status: AnswerCardStatus; label: string } {
-    if (a.skipped) return { status: "skipped", label: t("已跳过") };
+function answerState(a: Attempt, draft: Answer | null, exam: boolean) {
+    if (a.skipped) return { status: "skipped", label: "已跳过" } as const;
     if (a.submittedAt != null) {
-      if (a.result === true) return { status: "correct", label: t("正确") };
+      if (a.result === true) return { status: "correct", label: "正确" } as const;
       if (a.result === false) return exam && (a.earnedCents || 0) > 0
-        ? { status: "partial", label: t("部分得分") }
-        : { status: "incorrect", label: exam ? t("未得满分") : a.snapshot.question.answerMode === "fill_blank" && a.gradeKind === "auto" ? t("文本不完全一致") : t("错误") };
-      return { status: "pending", label: t("已提交，待判定") };
+        ? { status: "partial", label: "部分得分" } as const
+        : { status: "incorrect", label: exam ? "未得满分" : a.snapshot.question.answerMode === "fill_blank" && a.gradeKind === "auto" ? "文本不完全一致" : "错误" } as const;
+      return { status: "pending", label: "已提交，待判定" } as const;
     }
-    if (draft == null) return { status: "unanswered", label: t("未作答") };
-    if (answerReady(canInteract(a.snapshot.question) ? a.snapshot.question : { ...a.snapshot.question, answerMode: "short_answer" }, draft)) return { status: "answered", label: t("已作答，未提交") };
-    if (hasAnswer(draft)) return { status: "draft", label: t("草稿未完成") };
-    return { status: "unanswered", label: t("未作答") };
+    if (draft == null) return { status: "unanswered", label: "未作答" } as const;
+    if (answerReady(canInteract(a.snapshot.question) ? a.snapshot.question : { ...a.snapshot.question, answerMode: "short_answer" }, draft)) return { status: "answered", label: "已作答，未提交" } as const;
+    if (hasAnswer(draft)) return { status: "draft", label: "草稿未完成" } as const;
+    return { status: "unanswered", label: "未作答" } as const;
   }
 
 const AnswerCardItem = memo(function AnswerCardItem({ordinal, current, state, status, flagged, go}: {
-  ordinal: number; current: boolean; state: string; status: AnswerCardStatus; flagged: boolean;
+  ordinal: number; current: boolean; state: ReturnType<typeof answerState>["label"]; status: AnswerCardStatus; flagged: boolean;
   go: (position: number) => void;
 }) {
   useI18n();
@@ -500,8 +500,8 @@ const AnswerCardItem = memo(function AnswerCardItem({ordinal, current, state, st
                   data-answer-state={status}
                   className="answer-card-item relative h-10 min-h-10 gap-0 px-1 py-1"
                   aria-current={current ? "step" : undefined}
-                  aria-label={t("转到第 {0} 题，{1}{2}", { 0: ordinal + 1, 1: state, 2: flagged ? t("，待检查") : "" })}
-                  title={`${state}${flagged ? t("，待检查") : ""}`}
+                  aria-label={t("转到第 {0} 题，{1}{2}", { 0: ordinal + 1, 1: t(state), 2: flagged ? t("，待检查") : "" })}
+                  title={`${t(state)}${flagged ? t("，待检查") : ""}`}
                   onClick={() => go(ordinal)}
                 >
                   <span className="leading-none">{ordinal + 1}</span>
@@ -531,7 +531,9 @@ const AnswerCard = memo(function AnswerCard({session, answer, exam, go, boundary
   useI18n();
   const grid = useRef<HTMLDivElement>(null);
   const finished = session.finishedAt !== null || (exam && session.submittedAt != null);
-  const states = session.attempts.map(a => answerState(a, a.ordinal === session.position ? answer : a.answer, exam));
+  const savedStates = useMemo(() => session.attempts.map(a => answerState(a, a.answer, exam)), [session.attempts, exam]);
+  const states = savedStates.slice();
+  states[session.position] = answerState(session.attempts[session.position], answer, exam);
   const progress = session.attempts.filter(a => exam ? hasAnswer(a.ordinal === session.position ? answer : a.answer) : a.submittedAt != null).length;
   const revealCurrent = useCallback((focus = false) => {
     const container = grid.current;
