@@ -1,7 +1,86 @@
 # Native question-data performance
 
-These changes address native recommendations **7, 6, 8 and 10** from the performance review of `5b673a6e`.
+This guide includes native recommendations **7, 6, 8 and 10** from the performance review of `5b673a6e` and subsequent measured changes.
 They do not change IPC contracts, schema 11, database objects/indexes, snapshot format or cache limits.
+
+## Scoped detail tables (October 29)
+
+`questions::read_scoped` collects modes from its selected rows and queries only
+their detail tables. A judgment-only selection previously queried all eleven
+tables; it now queries one. Descendants contribute their own modes, so mixed
+composite trees still load every required detail. Empty reads retain their early
+return; incomplete null-mode questions remain reviewable. A missing selected
+detail retains the existing error.
+
+The four-line change reuses the existing `HashSet` import. It adds no schema,
+index, dependency, persistent cache or native command. Scope selection, bank
+ordering, options/items, sources, warning associations, latest attempts,
+transactions and resource verification are unchanged. The same helper serves
+detail/list reads, preview/start/edit, merge/export and backup validation.
+
+The [raw release report](../../docs/evidence/2026-10-29-scoped-reads/native.json)
+compares baseline `125dae03a9594bd8892818819982df578412e87c` with the candidate on
+macOS arm64. Both test executables contain the same probe. Three isolated process
+pairs run before/after, after/before, before/after; each workload has one warmup
+and seven measured reads per process. All complete row-array output hashes match.
+Fixture setup, assertions and hashing are excluded from timing. Connections are
+reused within each workload and OS caches are not flushed. These measurements
+exclude connection setup, IPC, WebView, full import and backup latency.
+
+| Bank contents / selected rows | Before median ms | After median ms |
+| --- | ---: | ---: |
+| one mode / 1 | 0.229 | 0.155 |
+| one mode / 30 | 0.461 | 0.300 |
+| one mode / 1000 | 8.059 | 6.055 |
+| two modes / 1 | 0.212 | 0.136 |
+| two modes / 30 | 0.444 | 0.316 |
+| two modes / 1000 | 8.661 | 6.755 |
+| all eleven modes / 26 | 0.490 | 0.489 |
+
+The one/two-mode banks contain 10,000 deterministic questions; a one-row selection
+contains only one mode even in the mixed bank. The all-eleven-mode control uses
+the 26-question `all-types.zip` fixture and exercises the path that skips no
+detail table. Benefits are limited to selections with fewer modes.
+
+Validation on the same macOS host:
+
+- The added regression checks every type in `all-types.zip`, composite subtree
+  reads, null-mode questions and missing selected-detail errors.
+- `make app-check` passed generated-contract parity, 51 shared fixtures plus the
+  sample, frontend types/lint, and 500 frontend tests (three skipped). Native tests
+  had 230 passes, 16 failures and 22 ignored benchmarks. Every failure was a
+  mock-HTTP listener denied by this sandbox; a representative failure reproduces
+  in the baseline executable. The 5,400-asset backup/recovery round trip passed.
+- Full `app-check` is **not accepted**: its native failures prevent the final
+  Clippy step. Clippy and the focused native regression are checked separately
+  after the final benchmark-only control was added. Hosted CI is separate.
+- No user database, credential store, live provider, GUI acceptance or final
+  installer was exercised. No UI or packaging behavior changed.
+
+Build the probe without running it:
+
+```sh
+TAURI_CONFIG='{"bundle":{"resources":[]}}' \
+  cargo test --release --locked --manifest-path app/src-tauri/Cargo.toml \
+  --lib scoped_detail_read_stress --no-run
+```
+
+Build this same probe with the baseline and candidate `questions.rs` in isolated
+checkouts and retain both executables printed by Cargo. Set `TEST_BINARY` to each
+retained executable and use fresh output paths, alternating the variants:
+
+```sh
+PRACTIQ_BENCH_OUTPUT=/tmp/scoped-detail-read.json "$TEST_BINARY" \
+  performance::scoped_detail_read_stress --exact --ignored
+make app-check
+cargo fmt --manifest-path app/src-tauri/Cargo.toml -- --check
+TAURI_CONFIG='{"bundle":{"resources":[]}}' \
+  cargo clippy --locked --manifest-path app/src-tauri/Cargo.toml \
+  --lib --all-targets -- -D warnings
+```
+
+Run timing separately from builds/tests. This test uses temporary databases and
+has no timing threshold. Ordinary native suites intentionally leave it ignored.
 
 ## Sparse history and bank overview reads (October 25)
 

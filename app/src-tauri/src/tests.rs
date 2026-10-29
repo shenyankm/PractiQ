@@ -1942,6 +1942,56 @@ fn missing_optional_source_page_does_not_disable_grading() {
 }
 
 #[test]
+fn scoped_reads_preserve_each_mode_nulls_and_missing_selected_detail_errors() {
+    use std::io::{Cursor, Read};
+    let (_dir, s) = store();
+    let db = s.connect().unwrap();
+    db.execute("INSERT INTO banks VALUES('bank','Bank','',1)", [])
+        .unwrap();
+    let mut zip =
+        zip::ZipArchive::new(Cursor::new(include_bytes!("../../fixtures/all-types.zip"))).unwrap();
+    let mut data = String::new();
+    zip.by_name("questions.json")
+        .unwrap()
+        .read_to_string(&mut data)
+        .unwrap();
+    let document = contract::parse(data.as_bytes()).unwrap();
+    for (index, question) in list(&document, "questions").iter().enumerate() {
+        crate::questions::write(&db, question, "bank", None, index as i64, false, false).unwrap();
+    }
+    db.execute("INSERT INTO questions(id,bank_id,position,content_blocks,confidence,needs_review,missing_fields) VALUES('incomplete','bank',100,'[]',1,1,'[\"answerMode\"]')", []).unwrap();
+    let full = crate::questions::read(&db).unwrap();
+    for row in &full {
+        let selected =
+            crate::questions::read_scoped(&db, &[], Some(&[text(row, "id").into()])).unwrap();
+        assert_eq!(selected[0], *row);
+    }
+    assert!(full.last().unwrap()["question"]["answerPayload"].is_null());
+    let boolean = full
+        .iter()
+        .find(|row| row["question"]["answerMode"] == "true_false")
+        .unwrap();
+    let id = text(boolean, "id");
+    db.execute(
+        "DELETE FROM true_false_questions WHERE question_id=?1",
+        [id],
+    )
+    .unwrap();
+    assert_eq!(
+        crate::questions::read_scoped(&db, &[], Some(&[id.into()]))
+            .unwrap_err()
+            .to_string(),
+        "Question detail is missing"
+    );
+    assert_eq!(
+        crate::questions::read_scoped(&db, &[], Some(&["incomplete".into()]))
+            .unwrap()
+            .len(),
+        1
+    );
+}
+
+#[test]
 fn paper_preview_reads_only_selected_bank_details() {
     let (_dir, mut s) = store();
     let selected_bank = import(&mut s);
