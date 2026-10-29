@@ -118,6 +118,43 @@ async def test_model_cost_rejection_happens_before_a_second_provider_call(monkey
 
 
 @pytest.mark.usefixtures("disposable_databases")
+@pytest.mark.parametrize("recovery", ["task_limit", "daily_limit", "new_day"])
+async def test_rejected_model_cost_admission_is_rechecked_on_checkpoint_resume(monkeypatch, recovery):
+    from uuid import uuid4
+
+    from practiq_ai import execution
+    from tests.support import parsed, run_config, setup_graph, tencent_provider
+
+    graph, store, _, reference, model = setup_graph(monkeypatch, [parsed()])
+    requests = tencent_provider(monkeypatch)
+    db = await new_database()
+    configure(monkeypatch, task="0.1" if recovery == "task_limit" else "1",
+              daily="2" if recovery == "task_limit" else "0.2")
+    monkeypatch.setenv("AI_MAX_DOCUMENT_PAGES", "1")
+    monkeypatch.setattr(cost_budget, "database", lambda runtime: db)
+    monkeypatch.setattr(cost_budget, "now", lambda: datetime(2026, 10, 28, 23, 59, tzinfo=UTC))
+    config = run_config()
+    with pytest.raises(DocumentProcessingError) as error:
+        await graph.ainvoke({"document": reference}, config)
+    assert error.value.code == "COST_BUDGET_EXCEEDED"
+    assert not model.calls and requests
+    provider_requests = list(requests)
+    rejected = await store.asearch(execution.namespace("thread-1", "calls"))
+    assert len(rejected) == 1 and rejected[0].value["status"] == "rejected"
+    if recovery == "new_day":
+        monkeypatch.setattr(cost_budget, "now", lambda: datetime(2026, 10, 29, tzinfo=UTC))
+    else:
+        monkeypatch.setenv("AI_TASK_COST_LIMIT" if recovery == "task_limit" else "AI_DAILY_COST_LIMIT", "2")
+    result = await graph.ainvoke(None, {**config, "run_id": uuid4()})
+    assert result["status"] == "SUCCEEDED"
+    assert len(model.calls) == len(result["usage"]) == 1 and requests == provider_requests
+    records = await store.asearch(execution.namespace("thread-1", "calls"))
+    assert len(records) == 2
+    assert any(item.key == rejected[0].key and item.value == rejected[0].value for item in records)
+    assert sum(item.value["status"] == "completed" for item in records) == 1
+
+
+@pytest.mark.usefixtures("disposable_databases")
 async def test_tencent_cost_rejection_does_not_submit_or_start_a_model(monkeypatch):
     from tests.support import run_config, setup_graph, tencent_provider
 

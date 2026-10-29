@@ -577,8 +577,8 @@ async def structured_call[ResultT: BaseModel](
             record.update(status="failed" if provider_started else "rejected", error=error["code"], finishedAt=datetime.now(UTC).isoformat(), durationMs=round((time.monotonic() - started) * 1000, 3))
             if runtime and error["code"] != "EXECUTION_STORE_UNAVAILABLE":
                 await store_put(runtime, "calls", str(call_key), record)
-            if error["code"] == "MODEL_RESULT_UNKNOWN":
-                # Do not cache an uncertain attempt as a completed durable task.
+            if error["code"] in {"MODEL_RESULT_UNKNOWN", "COST_BUDGET_EXCEEDED"}:
+                # Uncertainty and recoverable admission failures must not be cached.
                 raise DocumentProcessingError(error["status"], error["detail"], error["code"], usage) from None
             return {"error": error}
         finally:
