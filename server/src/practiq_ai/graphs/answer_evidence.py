@@ -2,6 +2,9 @@
 
 import json
 import re
+from bisect import bisect_left, bisect_right
+from collections import Counter
+from collections.abc import Iterator, Sequence
 
 from ..contracts import ParsedItem, ParsedQuestion, question_missing_fields
 from ..json_repair import unique_json_object
@@ -344,6 +347,23 @@ def _composite_fields(
     return fields
 
 
+def _stem_records(
+    records: Sequence[tuple[str | None, str, str]], stem: str,
+) -> Iterator[tuple[str | None, str, str]]:
+    """Yield literal stem prefixes from records sorted by normalized body."""
+    if not stem:
+        return
+    start = bisect_left(records, stem, key=lambda item: item[2])
+    while start < len(records):
+        body = records[start][2]
+        if not body.startswith(stem):
+            break
+        end = bisect_right(records, body, lo=start, key=lambda item: item[2])
+        if not re.match(r'[\w-]', body[len(stem):len(stem) + 1]):
+            yield from records[start:end]
+        start = end
+
+
 def retain_source_answers(
     questions: list[ParsedQuestion], primary: str, contexts: list[str],
 ) -> list[tuple[int, list[str]]]:
@@ -352,17 +372,22 @@ def retain_source_answers(
     shortcut: unfamiliar answer layouts are retained only in source evidence for
     review; extend proofs when a real source format supplies an unambiguous link.
     """
+    if not any(question.answerPayload is not None or question.analysis is not None for question in questions):
+        return []
     primary_key = _KEY.search(primary)
     records = [(number, record, _literal(_INLINE_LOCAL_FIELD.split(record, maxsplit=1)[0]))
                for number, record in _records(primary[:primary_key.start()] if primary_key else primary)]
     item_records = [(number, record, _literal(_INLINE_LOCAL_FIELD.split(record, maxsplit=1)[0]))
                     for number, record in _records(primary[:primary_key.start()] if primary_key else primary, group_items=True)] if any(
                         question.answerMode in {'ordering', 'matching'} for question in questions) else records
-    source_numbers = []
+    records_by_stem = sorted(records, key=lambda item: item[2])
+    item_records_by_stem = sorted(item_records, key=lambda item: item[2]) if item_records is not records else records_by_stem
+    source_numbers: Counter[str] = Counter(number for number, _, _ in records if number)
     answer_keys: dict[str, list[str]] = {}
-    for text in [primary, *contexts]:
+    for source_index, text in enumerate([primary, *contexts]):
         headings = list(_KEY.finditer(text))
-        source_numbers.extend(number for number, _ in _records(text[:headings[0].start()] if headings else text) if number)
+        if source_index:
+            source_numbers.update(number for number, _ in _records(text[:headings[0].start()] if headings else text) if number)
         if len(headings) == 1:
             for number, body in _records(text[headings[0].end():]):
                 if number:
@@ -379,10 +404,10 @@ def retain_source_answers(
         stem = _literal(question.stem or '')
         parent = composite_parents.get(question.parentId) if question.parentId else None
         composite_child = parent is not None
-        pattern = re.compile(r'(?<![\w-])' + re.escape(stem) + r'(?![\w-])') if stem else None
         # A stem-only match cannot certify a record expanded by item grouping.
-        candidates = [(number, record) for number, record, body in (item_records if question.answerMode in {'ordering', 'matching'} else records) if pattern and pattern.match(body)
-                      and (body == stem and (question.answerMode not in {'ordering', 'matching'} or (number, record, body) in records)
+        candidates = [(number, record) for number, record, body in _stem_records(
+                          item_records_by_stem if question.answerMode in {'ordering', 'matching'} else records_by_stem, stem)
+                      if (body == stem and (question.answerMode not in {'ordering', 'matching'} or (number, record, body) in records)
                            or _unnumbered_stem_matches(question, record, stem)
                            or number is not None and question.answerMode not in {'ordering', 'matching'}
                            and (not composite_child or _PARENT_LINE.search(record)))]
@@ -396,7 +421,7 @@ def retain_source_answers(
             fields = _fields(record)
             # Only explicit answer-only sections may supply a numbered answer
             # from context. A neighboring ordinary question is never evidence.
-            if number and source_numbers.count(number) == 1 and len(answer_keys.get(number, [])) == 1:
+            if number and source_numbers[number] == 1 and len(answer_keys.get(number, [])) == 1:
                 body = answer_keys[number][0]
                 marker = _INLINE_LOCAL_FIELD.search(body)
                 if prefix := body[:marker.start() if marker else len(body)].strip():
