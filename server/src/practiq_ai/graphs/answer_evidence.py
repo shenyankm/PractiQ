@@ -249,7 +249,7 @@ def _composite_fields(
     question: ParsedQuestion, parent: ParsedQuestion, child_stems: set[str],
     records: list[tuple[str | None, str, str]],
 ) -> dict[str, list[str]] | None:
-    if question.answerMode != 'choice' or not question.id:
+    if question.answerMode != 'choice' or not question.id or not parent.stem:
         return None
     blanks = [block.questionId for block in parent.passage if block.partType == 'blank']
     if blanks.count(question.id) != 1 or len(set(blanks)) != len(blanks):
@@ -266,8 +266,10 @@ def _composite_fields(
     options = parent.options if parent.answerMode == 'word_bank' else question.options
     option_labels = '|'.join(re.escape(option.label) for option in options if option.label)
     candidates = []
+    title = re.escape(_literal(parent.stem))
+    title_prefix = re.compile(title + r'(?![\w-])')
     for index, (_, record, body) in enumerate(records):
-        if not parent.stem or not re.match(re.escape(_literal(parent.stem)) + r'(?![\w-])', body):
+        if not title_prefix.match(body):
             continue
         scope = [record]
         for later in range(index + 1, len(records)):
@@ -284,7 +286,6 @@ def _composite_fields(
         if len(matches) == 1:
             match = matches[0]
             prefix, suffix = source_body[:match.start()].strip(), source_body[match.end():].strip()
-            title = re.escape(_literal(parent.stem))
             if parent.answerMode == 'cloze':
                 if not re.fullmatch(title + r'(?:\s+(?i:Material|Passage):)?', prefix) or not re.match(
                     r'(?:\d{1,4}\s*:\s*)?[A-Za-z]+[.．、)]\s', suffix):

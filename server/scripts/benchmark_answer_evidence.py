@@ -16,10 +16,17 @@ from practiq_ai.contracts import ParsedQuestion
 from practiq_ai.graphs import answer_evidence
 
 CASES = [(20, 'local'), (1000, 'local'), (1000, 'key'), (1000, 'saved-table'),
-         (1000, 'ambiguous'), (1000, 'no-fields'), (1000, 'records-only')]
+         (1000, 'ambiguous'), (1000, 'no-fields'), (1000, 'records-only'),
+         (20, 'composite'), (1000, 'composite')]
 
 
 def fixture(count, shape):
+    if shape == 'composite':
+        evaluations = ROOT / 'server/evals'
+        case = next(case for case in json.loads((evaluations / 'cases.json').read_text())['cases'] if case['id'] == 'text-composites')
+        composites = [ParsedQuestion.model_validate(question) for question in case['expectedQuestions'][2:7]]
+        questions, primary, contexts = fixture(count - len(composites), 'no-fields')
+        return questions + composites, primary + '\n' + (evaluations / case['path']).read_text(), contexts
     questions, records, keys = [], [], []
     for index in range(count):
         number = index + 1
@@ -41,6 +48,8 @@ def fixture(count, shape):
 def worker(ref):
     function = (answer_evidence.retain_source_answers if ref == 'current' else
                 baseline_function(ref, answer_evidence, 'retain_source_answers'))
+    if ref != 'current':
+        function.__globals__['_composite_fields'] = baseline_function(ref, answer_evidence, '_composite_fields')
     records = answer_evidence._records if ref == 'current' else baseline_function(ref, answer_evidence, '_records')
     results = []
     for count, shape in CASES:
@@ -54,6 +63,9 @@ def worker(ref):
             elapsed = (perf_counter() - started) * 1000
             if shape == 'records-only':
                 assert len(changes) == count
+            elif shape == 'composite':
+                assert changes == []
+                assert [q.model_dump(mode='json') for q in candidates] == [q.model_dump(mode='json') for q in questions]
             actual = digest([changes, [question.model_dump(mode='json') for question in candidates]])
             assert output_hash is None or output_hash == actual
             output_hash = actual

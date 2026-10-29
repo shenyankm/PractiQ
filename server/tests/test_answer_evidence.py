@@ -3,12 +3,12 @@
 import json
 from pathlib import Path
 from typing import cast
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
 from practiq_ai.contracts import ContentBlock, ParsedQuestion, document_source_key
-from practiq_ai.graphs import document
+from practiq_ai.graphs import answer_evidence, document
 from practiq_ai.graphs.answer_evidence import retain_source_answers
 from practiq_ai.normalization import OfficeNormalization
 from tests.support import (
@@ -93,6 +93,21 @@ def test_composite_answers_require_verified_parent_blanks_and_options(defect):
     retain_source_answers(questions, text, [])
     assert questions[3].answerPayload is None and questions[3].needsReview
     assert questions[1].model_dump()['answerPayload'] == {'value': True}
+
+
+@pytest.mark.parametrize('mode', ['word_bank', 'cloze'])
+@pytest.mark.parametrize('count', [20, 1000])
+def test_composite_title_normalization_is_bounded_by_children_not_source_records(monkeypatch, mode, count):
+    text, questions = evaluation_questions('text-composites')
+    parent, *children = questions[2:5] if mode == 'word_bank' else questions[5:7]
+    questions = [parent, *children]
+    expected = [question.model_dump() for question in questions]
+    text = '\n'.join(f'{index + 10}. Short answer: Unrelated question {index}?' for index in range(count)) + '\n' + text
+    literal = Mock(wraps=answer_evidence._literal)
+    monkeypatch.setattr(answer_evidence, '_literal', literal)
+    assert retain_source_answers(questions, text, []) == []
+    assert [question.model_dump() for question in questions] == expected
+    assert sum(call.args == (parent.stem,) for call in literal.call_args_list) <= 2 * len(children)
 
 
 @pytest.mark.parametrize('mode', ['word_bank', 'cloze'])
