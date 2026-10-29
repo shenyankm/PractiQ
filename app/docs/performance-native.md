@@ -3,6 +3,57 @@
 This guide includes native recommendations **7, 6, 8 and 10** from the performance review of `5b673a6e` and subsequent measured changes.
 They do not change IPC contracts, schema 11, database objects/indexes, snapshot format or cache limits.
 
+## Manual preview membership (October 29)
+
+`Store::preview_paper` used to scan all candidate roots for each manually selected
+ID. It now keeps the requested IDs in a temporary set and removes matches in one
+candidate pass, stopping when none remain. The returned IDs still come from the
+original request, preserving order. Empty/duplicate selections, child-only
+selections, stale IDs, foreign banks and changed filters retain their rejection
+paths. The set borrows IDs and adds no persistent cache or dependency.
+
+The existing `performance::paper_preview_stress` probe now includes the first and
+last 1,000 roots in reverse selection order, with and without candidate shuffling.
+Both release binaries use the same probe: baseline `2099f77a` and the candidate
+membership change. The [raw report](../../docs/evidence/2026-10-29-performance-audit/native.json)
+includes all six process runs, source/probe/binary hashes and matching complete
+output hashes for every workload. Each variant has nine samples per workload;
+the table reports medians in milliseconds.
+
+| Bank roots / selection | Before | After |
+| --- | ---: | ---: |
+| 10,000 / first 1,000, ordered candidates | 34.002 | 33.948 |
+| 10,000 / last 1,000, ordered candidates | 54.007 | 36.069 |
+| 100,000 / first 1,000, ordered candidates | 205.590 | 200.607 |
+| 100,000 / last 1,000, ordered candidates | 491.033 | 211.086 |
+| 100,000 / first 1,000, shuffled candidates | 328.504 | 204.486 |
+| 100,000 / last 1,000, shuffled candidates | 329.577 | 313.760 |
+| 100,000 / count 20, ordered control | 181.710 | 182.233 |
+| 100,000 / quota 1,000, ordered control | 201.610 | 201.982 |
+
+These are complete native preview calls on macOS arm64 with Rust 1.98.1 and
+temporary SQLite databases, excluding setup, assertions and report serialization.
+The first pair overlapped other tests; the next four runs used a coordinated quiet
+window in candidate/baseline/baseline/candidate order. All samples are retained,
+including variable shuffled-tail timings. OS caches were not flushed. There is
+no picker, IPC, WebView, live-provider, user-data or allocator/RSS evidence here.
+
+Reproduce by building the same probe with baseline and candidate `paper.rs`,
+retaining each Cargo test executable, then alternating the executables:
+
+```sh
+TAURI_CONFIG='{"bundle":{"resources":[]}}' \
+  cargo test --release --locked --manifest-path app/src-tauri/Cargo.toml \
+  --lib paper_preview_stress --no-run
+PRACTIQ_BENCH_OUTPUT=/tmp/paper-preview.json "$TEST_BINARY" \
+  performance::paper_preview_stress --exact --ignored
+TAURI_CONFIG='{"bundle":{"resources":[]}}' \
+  cargo test --locked --manifest-path app/src-tauri/Cargo.toml --lib paper::tests
+```
+
+The focused regression also verifies exact rejection messages. Complete app
+checks and browser acceptance are recorded separately in the PR.
+
 ## Scoped detail tables (October 29)
 
 `questions::read_scoped` collects modes from its selected rows and queries only

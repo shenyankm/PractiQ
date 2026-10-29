@@ -823,7 +823,7 @@ fn list_and_selection_stress() {
 }
 
 #[test]
-#[ignore = "large flat-bank count and quota preview profile"]
+#[ignore = "large flat-bank count, quota and manual preview profile"]
 fn paper_preview_stress() {
     let mut report = json!({"method":"Release Rust Store::preview_paper; temporary SQLite; 3 sequential warm samples per workload; setup, expected-output reads, assertions and JSON serialization excluded; excludes picker, IPC, WebView and physical devices","workloads":[]});
     for count in [10_000usize, 100_000] {
@@ -870,7 +870,7 @@ fn paper_preview_stress() {
         }
         tx.commit().unwrap();
         drop(input);
-        for selection in ["count", "quota"] {
+        for selection in ["count", "quota", "manual-first", "manual-last"] {
             for random in [false, true] {
                 let selected_count = if selection == "count" { 20 } else { 1000 };
                 let mut order: Vec<_> = (0..count).collect();
@@ -880,6 +880,10 @@ fn paper_preview_stress() {
                 }
                 let expected: Vec<_> = if selection == "count" {
                     order.into_iter().take(selected_count).collect()
+                } else if selection == "manual-first" {
+                    (0..selected_count).rev().collect()
+                } else if selection == "manual-last" {
+                    (count - selected_count..count).rev().collect()
                 } else {
                     let mut taken = [0; 2];
                     order
@@ -897,7 +901,8 @@ fn paper_preview_stress() {
                 let expected_digest =
                     crate::paper::digest(&crate::paper::selected_rows(&rows, &ids).unwrap())
                         .unwrap();
-                let request = json!({"bank_ids":["bank"],"search":"","mode":"","filter":"","selection":selection,"count":20,"quotas":if selection == "quota" {json!({"true_false":500,"short_answer":500})} else {json!({})},"question_ids":[],"random":random,"total_cents":selected_count*100,"budgets":{}});
+                let manual = selection.starts_with("manual");
+                let request = json!({"bank_ids":["bank"],"search":"","mode":"","filter":"","selection":if manual {"manual"} else {selection},"count":20,"quotas":if selection == "quota" {json!({"true_false":500,"short_answer":500})} else {json!({})},"question_ids":if manual {json!(ids)} else {json!([])},"random":random,"total_cents":selected_count*100,"budgets":{}});
                 let mut samples = Vec::new();
                 let mut output_hash = None;
                 for _ in 0..3 {

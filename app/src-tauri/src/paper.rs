@@ -205,10 +205,14 @@ impl Store {
                     .collect::<Vec<_>>()
             }
             "manual" => {
-                if p.question_ids
-                    .iter()
-                    .any(|id| !roots.iter().any(|r| &r.id == id))
-                {
+                let mut missing: HashSet<_> = p.question_ids.iter().collect();
+                for root in &roots {
+                    missing.remove(&root.id);
+                    if missing.is_empty() {
+                        break;
+                    }
+                }
+                if !missing.is_empty() {
                     return Err("Selected groups no longer match the filter".into());
                 }
                 p.question_ids
@@ -328,6 +332,79 @@ mod tests {
         assert_eq!(updated["questions"], original["questions"]);
         assert_eq!(updated["digest"], original["digest"]);
         assert!(list(&updated, "scores").iter().all(|score| score == 100));
+    }
+    #[test]
+    fn manual_selection_preserves_order_and_rejects_ineligible_ids() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut store = Store::new(directory.path().into()).unwrap();
+        let imported = store.add_example_bank().unwrap();
+        let bank = text(&imported, "bankId");
+        let rows = store.question_rows().unwrap();
+        let roots: Vec<_> = rows
+            .iter()
+            .filter(|row| text(&row["question"], "parentId").is_empty())
+            .map(|row| text(row, "id").to_owned())
+            .collect();
+        let ids = vec![roots[1].clone(), roots[0].clone()];
+        let request = |ids: Vec<String>| {
+            serde_json::from_value::<Preview>(json!({
+                "bank_ids":[bank], "search":"", "mode":"", "filter":"", "selection":"manual",
+                "count":0, "quotas":{}, "question_ids":ids, "random":true, "total_cents":0
+            }))
+            .unwrap()
+        };
+        assert_eq!(
+            store.preview_paper(request(ids.clone())).unwrap()["questionIds"],
+            json!(ids)
+        );
+        let child = rows
+            .iter()
+            .find(|row| !text(&row["question"], "parentId").is_empty())
+            .unwrap();
+        for (invalid, message) in [
+            (vec![], "Select distinct complete questions or groups"),
+            (
+                vec![ids[0].clone(), ids[0].clone()],
+                "Select distinct complete questions or groups",
+            ),
+            (
+                vec!["deleted".into()],
+                "Selected groups no longer match the filter",
+            ),
+            (
+                vec![text(child, "id").into()],
+                "Selected groups no longer match the filter",
+            ),
+        ] {
+            assert_eq!(
+                store
+                    .preview_paper(request(invalid))
+                    .unwrap_err()
+                    .to_string(),
+                message
+            );
+        }
+        for filter in ["favorite", "wrong"] {
+            let mut filtered = request(ids.clone());
+            filtered.filter = filter.into();
+            assert_eq!(
+                store.preview_paper(filtered).unwrap_err().to_string(),
+                "Selected groups no longer match the filter"
+            );
+        }
+        let mut searched = request(ids.clone());
+        searched.search = "a phrase absent from every fixture".into();
+        assert_eq!(
+            store.preview_paper(searched).unwrap_err().to_string(),
+            "Selected groups no longer match the filter"
+        );
+        let foreign = store.add_example_bank().unwrap();
+        let mut scoped = request(ids);
+        scoped.bank_ids = vec![text(&foreign, "bankId").into()];
+        assert_eq!(
+            store.preview_paper(scoped).unwrap_err().to_string(),
+            "Selected groups no longer match the filter"
+        );
     }
     #[test]
     fn indivisible_groups() {
