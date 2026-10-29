@@ -142,6 +142,46 @@ def test_cloze_options_are_verified_within_the_printed_blank_section(wrong_optio
     assert second.model_dump()['answerPayload'] == {'correct': ['B']}
 
 
+@pytest.mark.parametrize('mode', ['word_bank', 'cloze'])
+@pytest.mark.parametrize('omitted', ['', 'leading', 'trailing'])
+def test_composite_answers_require_the_complete_source_passage(mode, omitted):
+    _, questions = evaluation_questions('text-composites')
+    scoped = questions[2:5] if mode == 'word_bank' else questions[5:7]
+    parent, child = scoped[:2]
+    leading = 'It is not true that ' if omitted == 'leading' else ''
+    trailing = ' This statement is false.' if omitted == 'trailing' else ''
+    if mode == 'word_bank':
+        text = (f'Word bank — {parent.stem}\nBank: A. white B. green. Do not reuse words.\n'
+                f'{leading}Snow is [1]. Grass is [2].{trailing}\nAnswers: 1 A; 2 B.')
+    else:
+        text = f'Cloze — {parent.stem}\n{leading}Snow is [1].{trailing} 1: A. white B. green. Answer: A.'
+    retain_source_answers(scoped, text, [])
+    assert child.model_dump()['answerPayload'] == (None if omitted else {'correct': ['A']})
+
+
+@pytest.mark.parametrize('following_stem', ["Snow isn't which colour?", 'Snow is a different question.'])
+def test_composite_cannot_borrow_an_answer_from_a_following_child_stem_prefix(following_stem):
+    _, questions = evaluation_questions('text-composites')
+    parent, child = questions[5:7]
+    other = ParsedQuestion.model_validate({**child.model_dump(), 'id': 'other', 'parentId': None,
+                                          'stem': following_stem, 'sourceText': following_stem})
+    text = (f'Cloze — {parent.stem}\nSnow is [1]. 1: A. white B. green.\n'
+            f'2. Single choice: {following_stem}\nA. white\nB. green\nAnswer: A.')
+    retain_source_answers([parent, child, other], text, [])
+    assert child.answerPayload is None and child.needsReview
+    assert other.model_dump()['answerPayload'] == {'correct': ['A']}
+
+
+@pytest.mark.parametrize('clause,kept', [('Snow is [1].', True), ('Snow is [2].', False), ('Snow is [1]. This is false.', False)])
+def test_numbered_composite_continuations_require_the_complete_matching_blank_clause(clause, kept):
+    _, questions = evaluation_questions('text-composites')
+    parent, child = questions[2:4]
+    parent.passage = [*parent.passage[:2], ContentBlock(partType='text', textValue='.')]
+    text = f'Word bank: {parent.stem} A. white B. green\n1. {clause}\nAnswer: A.'
+    retain_source_answers([parent, child], text, [])
+    assert child.model_dump()['answerPayload'] == ({'correct': ['A']} if kept else None)
+
+
 @pytest.mark.parametrize('analysis,kept', [('Printed explanation.', True), ('Invented explanation.', False)])
 def test_single_blank_composite_analysis_remains_independent_of_its_answer(analysis, kept):
     text, questions = evaluation_questions('text-composites')

@@ -287,9 +287,12 @@ point, score or rubric annotations. JSON answers
 cannot bypass printed-label identity checks, including for implicit or positional IDs.
 Translation and writing prompts are matched separately from their verified typed
 material blocks and printed point annotations.
-Word-bank and cloze child answers may use the verified parent passage, unique
+Word-bank and cloze child answers may use the complete verified parent passage, unique
 blank numbers, child wording and scoped option labels. Numbered key entries are
 linked per blank; cloze option sections cannot supply another blank's evidence.
+Passage proofs reject omitted leading or trailing context. They extend a parent
+record only over complete child clauses carrying the matching numbered blank;
+a neighboring question with a matching stem prefix is insufficient.
 Explicitly numbered children with parent declarations retain their local answer
 proof. Composite options must match complete printed contents up to the next
 option or recognized field/instruction boundary; a matching prefix is insufficient.

@@ -259,14 +259,17 @@ def _composite_fields(question: ParsedQuestion, questions: list[ParsedQuestion],
     pattern = re.escape(_literal(passage)).replace(marker, r'\[(\d{1,4})\]')
     if not blanks or not pattern:
         return None
-    children = [child for child in questions if child.parentId == parent.id]
+    options = parent.options if parent.answerMode == 'word_bank' else question.options
+    option_labels = '|'.join(re.escape(option.label) for option in options if option.label)
+    child_stems = {_literal(child.stem) for child in questions if child.parentId == parent.id and child.stem}
     candidates = []
     for index, (_, record, body) in enumerate(records):
         if not parent.stem or not re.match(re.escape(_literal(parent.stem)) + r'(?![\w-])', body):
             continue
         scope = [record]
         for number, following, following_body in records[index + 1:]:
-            if number is None or not any(child.stem and following_body.startswith(_literal(child.stem)) for child in children):
+            continuation = re.fullmatch(r'(.+?)\s*\[(\d{1,4})\][.。．]?', following_body)
+            if number is None or not continuation or continuation[2] != number or continuation[1].strip() not in child_stems:
                 break
             scope.append(following)
         record = '\n'.join(scope)
@@ -275,7 +278,16 @@ def _composite_fields(question: ParsedQuestion, questions: list[ParsedQuestion],
         source_body = _literal(record[:stop])
         matches = list(re.finditer(pattern, source_body))
         if len(matches) == 1:
-            candidates.append((record, source_body, matches[0]))
+            match = matches[0]
+            prefix, suffix = source_body[:match.start()].strip(), source_body[match.end():].strip()
+            title = re.escape(_literal(parent.stem))
+            if parent.answerMode == 'cloze':
+                if not re.fullmatch(title + r'(?:\s+(?i:Material|Passage):)?', prefix) or not re.match(
+                    r'(?:\d{1,4}\s*:\s*)?[A-Za-z]+[.．、)]\s', suffix):
+                    continue
+            elif suffix or not re.match(title + rf'\s+(?:(?i:Bank|Options):\s*)?(?=(?:{option_labels})[.．、)]\s)', prefix):
+                continue
+            candidates.append((record, source_body, match))
     if len(candidates) != 1:
         return None
     record, body, match = candidates[0]
@@ -296,7 +308,6 @@ def _composite_fields(question: ParsedQuestion, questions: list[ParsedQuestion],
     clause = re.split(r'[.!?]\s+|[。！？]', before.strip())[-1].lstrip('.!?;。！？； ').strip()
     if _literal(question.stem or '') != _literal(clause):
         return None
-    options = parent.options if parent.answerMode == 'word_bank' else question.options
     option_source = body[:match.start()] if parent.answerMode == 'word_bank' else body[match.end():]
     if parent.answerMode == 'cloze':
         sections = list(re.finditer(r'(?<![\w.])(\d{1,4})\s*:\s*(?=[A-Za-z][.．、)])', option_source))
@@ -310,7 +321,6 @@ def _composite_fields(question: ParsedQuestion, questions: list[ParsedQuestion],
             return None
     if parent.answerMode == 'word_bank' and question.optionSourceId != parent.id:
         return None
-    option_labels = '|'.join(re.escape(option.label) for option in options if option.label)
     if not options or any(not option.label or not option.content or not re.search(
         r'(?<!\w)' + re.escape(option.label) + r'[.．、)]\s*' + re.escape(_literal(option.content))
         + rf'[.。．]?(?=\s+(?:{option_labels})[.．、)]\s|\s+Do not reuse words\.\s*$|\s*$)', option_source)
