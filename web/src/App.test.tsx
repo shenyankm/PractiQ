@@ -141,14 +141,14 @@ it("keeps Token in memory, clears it on remount, and performs no HTTP before con
 });
 it("selection is passive; explicit Start performs bounded SHA upload and task creation", async () => {
   const user = userEvent.setup(); const http = fakeHTTP(); render(<App />); await connect(user);
-  expect(screen.getByText(/启用 AI 复核会增加调用与费用/)).toBeTruthy();
+  expect(screen.getByText(/开始后将调用 AI，可能产生费用/)).toBeTruthy();
   expect((screen.getByRole("checkbox", { name: "自动去重" }) as HTMLInputElement).checked).toBe(false);
-  expect(screen.getByText(/仅去除完全相同的题目或整组复合题；关闭则全部保留/)).toBeTruthy();
+  expect(screen.getByText("仅合并完全相同的题目或题组")).toBeTruthy();
   expect((screen.getByLabelText("选择文档") as HTMLInputElement).accept).not.toContain(".csv");
   expect(screen.queryByLabelText("Word / Excel 转换模式")).toBeNull();
   await user.upload(screen.getByLabelText("选择文档"), new File(["office"], "document.docx"));
   expect(screen.getByText(/尚未提交/)).toBeTruthy(); expect(http.calls.filter(call => call.method !== "GET")).toHaveLength(0);
-  await user.click(screen.getByRole("button", { name: "开始导入" })); await screen.findByText(/任务已创建。页面/);
+  await user.click(screen.getByRole("button", { name: "开始导入" })); await screen.findByText(/任务已创建。/);
   const mutations = http.calls.filter(call => call.method !== "GET"); expect(mutations.map(call => call.method)).toEqual(["POST", "PUT", "POST"]);
   expect(mutations[0].body).toMatchObject({ sourceType: "docx", sizeBytes: 6 });
   expect(mutations[2].body).toMatchObject({ graphId: "document_parser" });
@@ -168,7 +168,7 @@ it.each(["OFFICE_NOT_CONFIGURED", "TENCENT_NOT_CONFIGURED"])("shows a definite %
   expect(http.records.has(newTaskId)).toBe(false);
   expect(http.calls.filter(call => call.url === "/api/document-tasks" && call.method === "POST")).toHaveLength(1);
   configured = true;
-  await user.click(retry); await screen.findByText(/任务已创建。页面/);
+  await user.click(retry); await screen.findByText(/任务已创建。/);
   const creates = http.calls.filter(call => call.url === "/api/document-tasks" && call.method === "POST");
   expect(creates).toHaveLength(2); expect(creates[0].body).toEqual(creates[1].body);
   expect(http.records.has(newTaskId)).toBe(true);
@@ -188,7 +188,7 @@ it.each([false, true])("never automatically replays uncertain POST, and an expli
   expect(screen.queryByLabelText("Word / Excel 转换模式")).toBeNull();
   expect(dedup.disabled).toBe(true); expect(dedup.checked).toBe(deduplicateQuestions);
   await user.click(dedup); expect(dedup.checked).toBe(deduplicateQuestions);
-  await user.click(retry); await screen.findByText(/任务已创建。页面/);
+  await user.click(retry); await screen.findByText(/任务已创建。/);
   const creates = http.calls.filter(call => call.url === "/api/document-tasks" && call.method === "POST"); expect(creates).toHaveLength(2); expect(creates[0].body).toEqual(creates[1].body);
   if (deduplicateQuestions) expect(creates[0].body).toHaveProperty("deduplicateQuestions", true);
   else expect(creates[0].body).not.toHaveProperty("deduplicateQuestions");
@@ -655,7 +655,7 @@ it("empty task states guide file selection or clear the current filter without s
   http.server.intercept = url => url.startsWith("/api/document-tasks?") ? json({ items: [], hasMore: false }) : undefined;
   render(<App />);
   await connect(user);
-  expect(screen.getByRole("list", { name: "文档导入流程" }).children).toHaveLength(3);
+  expect(screen.getByText("格式与导入规则").closest("details")?.open).toBe(false);
   await user.click(screen.getByRole("link", { name: "导入记录" }));
   await user.click(await screen.findByRole("button", { name: "选择第一份文档" }));
   await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText("选择文档")));
@@ -680,7 +680,7 @@ it("removes only unsubmitted files locally and derives picker formats from servi
   expect(screen.getByText("second.txt")).toBeTruthy();
   expect(http.calls.every(call => call.method === "GET")).toBe(true);
   await user.click(screen.getByRole("button", {name:"开始导入"}));
-  await screen.findByText(/任务已创建。页面/);
+  await screen.findByText(/任务已创建。/);
   expect(http.calls.filter(call => call.url === "/api/document-tasks" && call.method === "POST")).toHaveLength(1);
   expect(screen.queryByRole("button",{name:"移除文件 second.txt"})).toBeNull();
 });
@@ -708,7 +708,7 @@ it.each([false, true])("retains uncertain start across file reselection includin
   expect(screen.getAllByText("original.txt").length).toBeGreaterThan(0);
   expect((screen.getByRole("button", { name: "开始导入" }) as HTMLButtonElement).disabled).toBe(invalid);
   await user.click(screen.getByRole("button", { name: "重试开始" }));
-  await screen.findByText(/任务已创建。页面/);
+  await screen.findByText(/任务已创建。/);
   const creates = http.calls.filter(call => call.url === "/api/document-tasks" && call.method === "POST");
   expect(creates).toHaveLength(2); expect(creates[1].body).toEqual(creates[0].body);
 });
@@ -730,7 +730,7 @@ it.each(["network", "receipt"])("stops a duplicate-file batch after an uncertain
   expect(http.calls.filter(call => call.url === "/api/document-tasks" && call.method === "POST")).toHaveLength(1);
   expect(screen.getByText(/尚未提交/, { selector: "span" })).toBeTruthy();
   await user.click(screen.getByRole("button", { name: "重试开始" }));
-  await screen.findByText(/任务已创建。页面/);
+  await screen.findByText(/任务已创建。/);
   const creates = http.calls.filter(call => call.url === "/api/document-tasks" && call.method === "POST");
   expect(creates).toHaveLength(2); expect(creates[1].body).toEqual(creates[0].body);
   expect(screen.getByText(/尚未提交/, { selector: "span" })).toBeTruthy();
@@ -759,6 +759,10 @@ it("shows budget capacity before any upload without promising page counts", asyn
   const user = userEvent.setup(); const http = fakeHTTP();
   http.server.intercept = url => url.includes("capabilities") ? json({ ...capabilities, modelBudget: { limit: 400, unitCalls: 16, contextUnitCalls: 20 } }) : undefined;
   render(<App />); await connect(user);
+  const budget = screen.getByText("调用预算 · 每任务 400 次").closest("details")!;
+  expect(budget.open).toBe(false);
+  await user.click(screen.getByText("调用预算 · 每任务 400 次"));
+  expect(budget.open).toBe(true);
   expect(await screen.findByText(/普通单元最多 25 个.*带上下文的视觉单元最多 20 个/)).toBeTruthy();
   expect(http.calls.every(call => call.method === "GET")).toBe(true);
 });
@@ -772,7 +776,7 @@ it("resolves all retained copies when a reselected source receives the original 
   await screen.findByRole("button", { name: "重试开始" });
   await user.upload(screen.getByLabelText("选择文档"), new File(["same"], "same.txt", { lastModified: 2 }));
   await user.click(screen.getByRole("button", { name: "开始导入" }));
-  await screen.findByText(/任务已创建。页面/);
+  await screen.findByText(/任务已创建。/);
   expect(screen.queryByRole("button", { name: "重试开始" })).toBeNull();
   const creates = http.calls.filter(call => call.url === "/api/document-tasks" && call.method === "POST");
   expect(creates).toHaveLength(2); expect(creates[0].body).toEqual(creates[1].body);
@@ -786,7 +790,7 @@ it("does not treat filename, size and timestamp as proof of identical source byt
     await user.upload(screen.getByLabelText("选择文档"), new File([bytes], "same.txt", { lastModified: 1 }));
     await user.click(screen.getByRole("button", { name: "开始导入" }));
     if (bytes === "old") await screen.findByRole("button", { name: "重试开始" });
-    else await screen.findByText(/任务已创建。页面/);
+    else await screen.findByText(/任务已创建。/);
   }
   expect(screen.getByRole("button", { name: "重试开始" })).toBeTruthy();
   const creates = http.calls.filter(call => call.url === "/api/document-tasks" && call.method === "POST");
@@ -804,7 +808,7 @@ it("lets new files choose deduplication while an older uncertain retry keeps its
   await user.upload(screen.getByLabelText("选择文档"), new File(["new"], "new.txt"));
   await user.click(screen.getByRole("checkbox", { name: "自动去重" }));
   await user.click(screen.getByRole("button", { name: "重试开始" }));
-  await screen.findByText(/任务已创建。页面/);
+  await screen.findByText(/任务已创建。/);
   await user.click(screen.getByRole("button", { name: "开始导入" }));
   await waitFor(() => expect(http.calls.filter(call => call.url === "/api/document-tasks" && call.method === "POST")).toHaveLength(3));
   const creates = http.calls.filter(call => call.url === "/api/document-tasks" && call.method === "POST");
@@ -836,7 +840,8 @@ it("sidebar navigation preserves selected files and settings drafts without star
   const concurrency = await screen.findByLabelText("腾讯识别并发上限"); await user.clear(concurrency); await user.type(concurrency, "3");
   await user.click(screen.getByRole("link", { name: "导入记录" }));
   expect(await screen.findByRole("table", { name: "文档导入记录" })).toBeTruthy();
-  expect(screen.getByText("3 条题目 · 2 条待复核")).toBeTruthy();
+  expect(screen.getByRole("columnheader", { name: "待复核" })).toBeTruthy();
+  expect(screen.getByRole("table", { name: "文档导入记录" }).querySelectorAll("tbody .record-number")[1].textContent).toBe("待复核 2");
   await user.click(screen.getByRole("link", { name: "开始导入" }));
   expect(screen.getByText("pending.txt")).toBeTruthy();
   expect(screen.getByRole("button", { name: "开始导入" })).toHaveProperty("disabled", false);
@@ -859,4 +864,23 @@ it("keeps shared anchors on the current page and restores import for root histor
   expect(screen.getByRole("heading", { name: "设置", level: 1 })).toBeTruthy();
   await act(async () => { window.location.hash = ""; window.dispatchEvent(new HashChangeEvent("hashchange")); });
   expect(screen.getByRole("heading", { name: "开始导入", level: 1 })).toBeTruthy();
+});
+
+
+it("retains the last task list after a background read fails and recovers without mutations", async () => {
+  const user = userEvent.setup(); const http = fakeHTTP();
+  render(<App />); await connect(user);
+  await user.click(screen.getByRole("link", { name: "导入记录" }));
+  await screen.findByRole("button", { name: "sample.docx" });
+  http.server.intercept = url => url.startsWith("/api/document-tasks?") ? json({ detail: { code: "TASK_SERVICE_UNAVAILABLE" } }, 503) : undefined;
+  await act(async () => window.dispatchEvent(new Event("focus")));
+  await screen.findByText("当前显示上次读取的记录。");
+  expect(screen.getByRole("button", { name: "sample.docx" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "下一页任务" }).hasAttribute("disabled")).toBe(true);
+  http.server.intercept = undefined;
+  await act(async () => window.dispatchEvent(new Event("focus")));
+  await waitFor(() => expect(screen.queryByText("当前显示上次读取的记录。")).toBeNull());
+  expect(screen.getByRole("button", { name: "sample.docx" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "下一页任务" }).hasAttribute("disabled")).toBe(false);
+  expect(http.calls.every(call => call.method === "GET")).toBe(true);
 });

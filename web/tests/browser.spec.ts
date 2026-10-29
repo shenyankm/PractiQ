@@ -74,7 +74,8 @@ async function fakeHTTP(page: Page, initial: DocumentTaskDetail = task) {
 async function connect(page: Page) {
   await page.goto("/"); await page.getByLabel("服务访问令牌").fill(fakeToken); await page.getByRole("button", { name: "连接服务", exact: true }).click();
   await expect(page.getByText(/^服务支持：/)).toBeVisible();
-  await expect(page.getByText(/普通单元最多 100 个.*带上下文的视觉单元最多 50 个/)).toBeVisible();
+  await expect(page.getByText("调用预算 · 每任务 400 次", { exact: true })).toBeVisible();
+  await expect(page.getByText(/普通单元最多 100 个.*带上下文的视觉单元最多 50 个/)).toBeHidden();
 }
 async function openTask(page: Page) {
   await page.getByRole("link", { name: "导入记录", exact: true }).click();
@@ -239,7 +240,9 @@ for (const width of [1440, 390]) {
     await page.screenshot({ path: testInfo.outputPath(`management-import-${width}.png`), fullPage: true });
     await openTask(page);
     await expect(page.getByRole("table", { name: "文档导入记录" })).toBeVisible();
-    await expect(page.getByText("3 条题目 · 2 条待复核", { exact: true })).toBeVisible();
+    const counts = page.getByRole("table", { name: "文档导入记录" });
+    await expect(counts.getByRole("columnheader", { name: "待复核", exact: true })).toBeAttached();
+    await expect(counts.locator("tbody .record-number")).toHaveText(["题目 3", "待复核 2"]);
     await expect(page.getByRole("button", { name: "暂停", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "取消任务", exact: true })).toBeVisible();
     await page.evaluate(() => scrollTo(0, 0));
@@ -350,15 +353,15 @@ for (const [width, height] of [[1440, 1000], [390, 844]]) {
     const importRules = page.getByText("格式与导入规则", { exact: true });
     await importRules.focus();
     await page.keyboard.press("Enter");
-    await expect(page.getByText(/所有支持的格式统一使用腾讯文档识别/)).toBeVisible();
+    await expect(page.getByText(/腾讯文档识别后，由 AI 整理题库/)).toBeVisible();
     await expect(page.getByText(/下载的 ZIP 可在应用/)).toBeVisible();
     await page.keyboard.press("Enter");
-    await expect(page.getByText(/所有支持的格式统一使用腾讯文档识别/)).toBeHidden();
+    await expect(page.getByText(/腾讯文档识别后，由 AI 整理题库/)).toBeHidden();
     await page.evaluate(() => scrollTo(0, 0));
     await page.mouse.move(0, 0);
     await expect(page.getByRole("button", { name: "查看积分明细", exact: true })).toBeHidden();
     await expect(page.getByLabel("追加卡密")).toHaveCount(0);
-    await expect(page.getByText(/启用 AI 复核会增加调用与费用/)).toBeVisible();
+    await expect(page.getByText(/开始后将调用 AI，可能产生费用/)).toBeVisible();
     await page.screenshot({ path: `${evidence}/after-workspace-${width}.png`, fullPage: true });
     await openTask(page);
     await page.evaluate(() => scrollTo(0, 0));
@@ -472,7 +475,7 @@ test("passive file selection becomes one authenticated SHA upload only after exp
   await page.getByLabel("选择文档").setInputFiles({ name: "selected.docx", mimeType: "application/octet-stream", buffer: bytes });
   await expect(page.getByText(/尚未提交/)).toBeVisible(); expect(mutations(http.calls)).toHaveLength(0);
   await page.getByRole("button", { name: "开始导入", exact: true }).click();
-  await expect(page.getByText(/任务已创建。页面/)).toBeVisible();
+  await expect(page.getByText(/任务已创建。/)).toBeVisible();
   expect(mutations(http.calls).map(call => call.method)).toEqual(["POST", "PUT", "POST"]);
   expect(mutations(http.calls)[0].body).toMatchObject({ sourceType: "docx", mediaType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", sizeBytes: bytes.length, sha256: digest(bytes) });
   expect(starts(http.calls)[0].body).toMatchObject({ graphId: "document_parser", failurePolicy: "return_partial" });
@@ -488,7 +491,7 @@ test("invalid auth makes no model request; reload clears memory-only Token", asy
   expect(mutations(http.calls)).toHaveLength(0);
   await page.getByLabel("服务访问令牌").fill(fakeToken); await page.getByRole("button", { name: "连接服务", exact: true }).click();
   await expect(page.getByText(/^服务支持：/)).toBeVisible();
-  await expect(page.getByText(/普通单元最多 100 个.*带上下文的视觉单元最多 50 个/)).toBeVisible();
+  await expect(page.getByText("调用预算 · 每任务 400 次", { exact: true })).toBeVisible();
   expect(await page.evaluate(() => ({ local: localStorage.length, session: sessionStorage.length, query: location.search }))).toEqual({ local: 0, session: 0, query: "" });
   await page.reload(); await expect(page.getByLabel("服务访问令牌")).toHaveValue("");
   expect(await page.locator("body").innerText()).not.toContain(fakeToken);
@@ -518,7 +521,7 @@ test("uncertain accepted POST never auto replays; explicit retry preserves reque
   await expect(page.getByLabel("Word / Excel 转换模式")).toHaveCount(0);
   await page.getByLabel("选择文档").setInputFiles({ name: "uncertain.docx", mimeType: "application/octet-stream", buffer: Buffer.from("fake office") });
   await page.getByRole("button", { name: "开始导入", exact: true }).click();
-  await expect(page.getByText(/任务已创建。页面/)).toBeVisible();
+  await expect(page.getByText(/任务已创建。/)).toBeVisible();
   expect(starts(http.calls)).toHaveLength(2); expect(starts(http.calls)[0].body).toEqual(starts(http.calls)[1].body); expect(http.server.modelStarts).toBe(1);
 });
 
@@ -547,7 +550,10 @@ test("partial review preserves nulls, sources, shared material and warnings; che
   await expect(page.getByRole("heading", { name: "所属材料 · q-material", exact: true })).toBeVisible();
   await page.locator("details.question-card").filter({ hasText: "题干未提供（null）" }).locator("summary").click();
   await expect(page.getByText("<script>window.documentInjected=true</script>", { exact: true })).toBeVisible(); expect(await page.evaluate(() => (window as any).documentInjected)).toBeUndefined();
-  await page.getByRole("button", { name: "来源与资源", exact: true }).click(); await expect(page.getByRole("region", { name: "解析结果检查" }).getByText(/"questionId": "q-child"/).first()).toBeVisible();
+  await page.getByRole("button", { name: "来源与资源", exact: true }).click();
+  await expect(page.getByRole("region", { name: "解析结果检查" }).getByText(/"questionId": "q-child"/)).toHaveCount(0);
+  await page.getByText("题目来源关联", { exact: true }).click();
+  await expect(page.getByRole("region", { name: "解析结果检查" }).getByText(/"questionId": "q-child"/).first()).toBeVisible();
   expect(http.calls.some(call => call.path === "/api/artifacts/read")).toBe(false);
   await page.getByRole("button", { name: "查看图片", exact: true }).click(); const image = page.getByRole("img", { name: "已校验来源图", exact: true });
   await expect(image).toHaveAttribute("src", /^blob:/); await expect.poll(() => image.evaluate((node: HTMLImageElement) => node.complete && node.naturalWidth > 0)).toBe(true);
@@ -869,7 +875,7 @@ for (const stage of ['metadata', 'content']) {
     await page.screenshot({ path: testInfo.outputPath(`upload-recovery-${stage}.png`) });
     fail = false;
     await page.getByRole('button', { name: '重试开始', exact: true }).click();
-    await expect(page.getByText(/任务已创建。页面/)).toBeVisible();
+    await expect(page.getByText(/任务已创建。/)).toBeVisible();
     expect(starts(http.calls)).toHaveLength(1);
     expect(http.server.modelStarts).toBe(1);
   });
@@ -932,7 +938,7 @@ for (const width of [1440, 390]) test(`uncertain duplicate batch stops and faile
   await page.getByRole("button", { name: "重试开始", exact: true }).click();
   await expect(page.getByRole("button", { name: "重试开始", exact: true })).toBeEnabled();
   expect(starts(http.calls)).toHaveLength(2);
-  await expect(page.getByText(/任务已创建。页面/)).toHaveCount(0);
+  await expect(page.getByText(/任务已创建。/)).toHaveCount(0);
   const failed = page.locator(".file-list > li").filter({ has: page.getByRole("button", { name: "重试开始", exact: true }) });
   await failed.scrollIntoViewIfNeeded();
   await expect(page.getByText(/移除文件只清理本页队列，不会取消服务端任务/)).toBeVisible();

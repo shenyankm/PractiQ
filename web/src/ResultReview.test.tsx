@@ -83,8 +83,11 @@ it("disables raw HTML, external links/images and trusted math extensions", () =>
 it("preserves null answers, material/shared options, source associations and partial warnings", async () => {
   const user = userEvent.setup();
   render(<ResultReview task={task} preview={preview} client={new Client("fake")} />);
-  expect(screen.getByText(/这是部分结果/)).toBeTruthy();
-  expect(screen.getByText("保留失败单元；参考答案缺失。")).toBeTruthy();
+  const notices = within(screen.getByRole("region", { name: "结果提醒" }));
+  expect(notices.getByText(/这是部分结果/)).toBeTruthy();
+  expect(notices.getByText("保留失败单元；参考答案缺失。")).toBeTruthy();
+  expect(notices.getByText(/文档缺失字段/)).toBeTruthy();
+  expect(notices.getByText(/待人工复核/)).toBeTruthy();
   await user.click(screen.getByText("根据材料选择答案"));
   expect(screen.getByText("未提供（null），不会补写答案")).toBeTruthy();
   expect(screen.getByText("共享选项一")).toBeTruthy();
@@ -94,8 +97,14 @@ it("preserves null answers, material/shared options, source associations and par
   expect(screen.getByText(/"answerPayload": null/)).toBeTruthy();
   await user.click(screen.getByRole("button", { name: "来源与资源" }));
   expect(screen.getByText("阅读分组")).toBeTruthy();
+  expect(screen.queryByText(/"questionId": "q-child"/)).toBeNull();
+  await user.click(screen.getByText("题目来源关联", { selector: "summary" }));
   expect(screen.getAllByText(/"questionId": "q-child"/).length).toBeGreaterThan(0);
   expect(screen.getByText(/"unitIndex": 0/)).toBeTruthy();
+});
+it("omits result notices when no result needs attention", () => {
+  render(<ResultReview task={{ ...task, status: null, result: null }} preview={{ ...preview, quality: { ...preview.quality, reviewRequired: false } }} client={new Client("fake")} />);
+  expect(screen.queryByRole("region", { name: "结果提醒" })).toBeNull();
 });
 it("shows duplicate warnings in full and filters retained copies by ID without modifying results", async () => {
   const user = userEvent.setup(); const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);

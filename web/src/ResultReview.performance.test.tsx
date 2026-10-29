@@ -27,7 +27,7 @@ function fixture(count: number) {
   };
 }
 
-it.each(["preview", "task"] as const)("reuses %s quality JSON while paging and refreshes changed data only when visible", async source => {
+it.each(["preview", "task"] as const)("defers %s quality JSON until expanded and reuses it while paging", async source => {
   const data = fixture(61), client = new Client("fake"), user = userEvent.setup();
   const nativeStringify = JSON.stringify, expected = nativeStringify(data.quality, null, 2);
   const input = nativeStringify(data), stringify = vi.spyOn(JSON, "stringify");
@@ -39,6 +39,9 @@ it.each(["preview", "task"] as const)("reuses %s quality JSON while paging and r
   const rendered = render(view(data.quality));
   expect(qualityCalls(data.quality)).toBe(0);
   await user.click(screen.getByRole("button", { name: "来源与资源" }));
+  expect(qualityCalls(data.quality)).toBe(0);
+  expect(screen.queryByText(expected, { normalizer: text => text })).toBeNull();
+  await user.click(screen.getByText("质量记录", { selector: "summary" }));
   expect(screen.getByText(expected, { normalizer: text => text })).toBeTruthy();
   const openedCalls = qualityCalls(data.quality);
   expect(openedCalls).toBeGreaterThan(0);
@@ -51,6 +54,13 @@ it.each(["preview", "task"] as const)("reuses %s quality JSON while paging and r
   rendered.rerender(view(changed));
   expect(screen.getByText(nativeStringify(changed, null, 2), { normalizer: text => text })).toBeTruthy();
   expect(qualityCalls(changed)).toBeGreaterThan(0);
+  await user.click(screen.getByText("质量记录", { selector: "summary" }));
+  const collapsed = { ...changed, issues: data.quality.issues };
+  rendered.rerender(view(collapsed));
+  expect(qualityCalls(collapsed)).toBe(0);
+  expect(screen.queryByText(expected, { normalizer: text => text })).toBeNull();
+  await user.click(screen.getByText("质量记录", { selector: "summary" }));
+  expect(qualityCalls(collapsed)).toBeGreaterThan(0);
   await user.click(screen.getByRole("button", { name: "题目与材料" }));
   const hidden = { ...changed, issues: data.quality.issues };
   rendered.rerender(view(hidden));
@@ -83,7 +93,10 @@ it.skipIf(!process.env.PRACTIQ_BENCH_OUTPUT)("quality serialization probe", asyn
       const expected = nativeStringify(data.quality, null, 2), user = userEvent.setup();
       target = data.quality; calls = milliseconds = 0; stringify.mockClear();
       const rendered = render(<ResultReview task={data.task} preview={data.preview} client={client} />);
-      if (tab === "sources") await user.click(screen.getByRole("button", { name: "来源与资源" }));
+      if (tab === "sources") {
+        await user.click(screen.getByRole("button", { name: "来源与资源" }));
+        await user.click(screen.getByText("质量记录", { selector: "summary" }));
+      }
       const pages = Math.min(10, Math.ceil(count / 20) - 1);
       for (let page = 0; page < pages; page++) await user.click(screen.getByRole("button", { name: tab === "sources" ? "下一页资源" : "下一页题目" }));
       if (tab === "sources") expect(screen.getByText(expected, { normalizer: text => text })).toBeTruthy();

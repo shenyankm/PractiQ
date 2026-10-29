@@ -90,7 +90,8 @@ function SourceEvidence({ reference, client, threadId }: { reference: ArtifactRe
   }
   return <section className="resource-card">
     <h5>来源证据（只读）</h5>
-    <p className="text-xs text-muted-foreground">腾讯识别结果可能有误，请与原文件核对。SHA-256：{reference.sha256}</p>
+    <p>识别结果可能有误，请与原文件核对。</p>
+    <details className="resource-details"><summary>来源校验信息</summary><p>SHA-256：{reference.sha256}</p></details>
     {text !== null && <pre className="raw-data">{text}</pre>}
     {error && <p role="alert">来源证据无法读取或校验失败，请重试。</p>}
     <Button variant="outline" disabled={loading} onClick={() => void load()}>{loading ? "正在校验来源…" : "查看来源证据"}</Button>
@@ -107,7 +108,7 @@ function OriginalSource({ document, client, threadId }: { document: NonNullable<
     } catch { if (client.active) setError(true); }
     finally { if (client.active) setLoading(false); }
   }
-  return <section className="resource-card"><h4>原始文档</h4><p>{document.fileName || "原文件"} · 文件校验通过后下载，供人工核对。</p>
+  return <section className="resource-card"><h4>原始文档</h4><p>{document.fileName || "原文件"}</p>
     <Button variant="outline" disabled={loading} onClick={() => void download()}>{loading ? "正在校验原文件…" : "下载原文件"}</Button>
     {error && <p role="alert">原文件无法读取或校验失败，请重试。</p>}
   </section>;
@@ -169,8 +170,10 @@ export default function ResultReview({ task, preview, client }: { task: Document
   const [resourcePage, setResourcePage] = useState(0);
   const [search, setSearch] = useState("");
   const [reviewOnly, setReviewOnly] = useState(false);
+  const [sourcesExpanded, setSourcesExpanded] = useState(false);
+  const [qualityExpanded, setQualityExpanded] = useState(false);
   const quality = preview?.quality || task.processing?.quality;
-  const qualityText = useMemo(() => tab === "sources" ? JSON.stringify(quality || {}, null, 2) : "", [quality, tab]);
+  const qualityText = useMemo(() => tab === "sources" && qualityExpanded ? JSON.stringify(quality || {}, null, 2) : "", [quality, qualityExpanded, tab]);
   const {units, entries, visuals, groups, questions, sourcesById, sources} = useMemo(() => {
     const units = preview?.units || [];
     const entries: Entry[] = units.length ? units.flatMap(unit => unit.questions.map((question, ordinal) => ({question,stage:unit.stage,index:unit.index,ordinal}))) : (task.result?.questions || []).map((question, ordinal) => ({question,stage:"result",index:0,ordinal}));
@@ -207,10 +210,12 @@ export default function ResultReview({ task, preview, client }: { task: Document
   const resourceStart = currentResourcePage * 20;
   return <section className="space-y-4" aria-label="解析结果检查">
     <div className="review-header"><h3>解析结果 · {entries.length} 条题目记录</h3><div className="flex gap-2"><Button aria-pressed={tab === "questions"} variant={tab === "questions" ? "default" : "outline"} onClick={() => setTab("questions")}>题目与材料</Button><Button aria-pressed={tab === "sources"} variant={tab === "sources" ? "default" : "outline"} onClick={() => setTab("sources")}>来源与资源</Button></div></div>
-    {task.status === "PARTIAL" && <p className="notice">这是部分结果，失败单元、缺失字段与原始警告会随题库保留。</p>}
-    {!!task.result?.warnings.length && <div className="notice"><h4>结果警告</h4><ul>{task.result.warnings.map((warning, index) => <li key={index}>{warning}</li>)}</ul></div>}
-    {!!task.result?.missingFields?.length && <p className="notice">文档缺失字段：{task.result.missingFields.join("、")}</p>}
-    {preview?.quality.reviewRequired && <p className="notice">待人工复核 {preview.quality.reviewQuestionCount || 0} 题 · 导出保留复核标记</p>}
+    {(task.status === "PARTIAL" || !!task.result?.warnings.length || !!task.result?.missingFields?.length || preview?.quality.reviewRequired) && <section className="notice space-y-2" aria-label="结果提醒">
+      {task.status === "PARTIAL" && <p>这是部分结果，失败单元、缺失字段与原始警告会随题库保留。</p>}
+      {!!task.result?.warnings.length && <div><h4>结果警告</h4><ul>{task.result.warnings.map((warning, index) => <li key={index}>{warning}</li>)}</ul></div>}
+      {!!task.result?.missingFields?.length && <p>文档缺失字段：{task.result.missingFields.join("、")}</p>}
+      {preview?.quality.reviewRequired && <p>待人工复核 {preview.quality.reviewQuestionCount || 0} 题 · 导出保留复核标记</p>}
+    </section>}
     {tab === "questions" ? <>
       {!!entries.length && <div className="review-filters"><label><span>搜索解析题目</span><Input type="search" value={search} placeholder="搜索题目 ID、题干、选项或来源原文" onChange={event => { setSearch(event.target.value); setPage(0); }}/></label><label className="review-checkbox"><input type="checkbox" checked={reviewOnly} onChange={event => { setReviewOnly(event.target.checked); setPage(0); }}/>仅看需要复核</label>{(search || reviewOnly) && <Button variant="outline" onClick={() => { setSearch(""); setReviewOnly(false); setPage(0); }}>清除结果筛选</Button>}<p role="status"><span>显示 {filteredEntries.length} / {entries.length} 条记录</span>{(search.trim() || reviewOnly) && <span className="block">筛选仅影响显示，导出仍包含全部已完成题目。</span>}</p></div>}
       {filteredEntries.length ? filteredEntries.slice(currentPage * 20, currentPage * 20 + 20).map(entry => <QuestionCard key={JSON.stringify([entry.stage, entry.index, entry.question.id || entry.ordinal])} entry={entry} questions={questions} sourcesById={sourcesById} />) : <p className="text-muted-foreground">{entries.length ? "没有匹配题目，请调整或清除筛选。" : "尚无可查看的题目。"}</p>}
@@ -218,9 +223,9 @@ export default function ResultReview({ task, preview, client }: { task: Document
     </> : <div className="space-y-4">
       <section><h4>文档分组</h4>{groups.length ? groups.slice(resourceStart,resourceStart+20).map((group, index) => <div key={index} className="resource-card"><strong>{group.title}</strong><Markdown text={group.instructions} /><p>题目关联：{"questionIds" in group ? group.questionIds.join("、") : group.questionIndexes.join("、")}</p></div>) : <p>无文档分组。</p>}</section>
       {preview?.document && <OriginalSource key={preview.document.sha256} document={preview.document} client={client} threadId={task.threadId} />}
-      <section><h4>题目来源关联</h4><pre className="raw-data">{JSON.stringify(sources.slice(resourceStart,resourceStart+20), null, 2)}</pre></section>
-      <section><h4>质量记录</h4><pre className="raw-data">{qualityText}</pre></section>
       <section><h4>图片与来源单元</h4>{visuals.slice(resourceStart,resourceStart+20).map((visual, index) => <div key={index} className="resource-card"><p>{visual.label || visual.kind} · {visual.description}</p><Markdown text={visual.extractedText} /><p>题目关联：{"questionIds" in visual ? visual.questionIds?.join("、") || "未确定" : "questionIndexes" in visual ? visual.questionIndexes?.join("、") || "未确定" : "未确定"}</p>{visual.imageRef && <ImageArtifact key={`image:${visual.imageRef.sha256}`} reference={visual.imageRef} description={visual.description} client={client} threadId={task.threadId} />}{visual.sourceRef && ["image/png", "image/jpeg"].includes(visual.sourceRef.mediaType) && <ImageArtifact key={`source:${visual.sourceRef.sha256}`} reference={visual.sourceRef} description="完整来源页" client={client} threadId={task.threadId} />}</div>)}{units.slice(resourceStart,resourceStart+20).map(unit => unit.sourceRef && ["image/png", "image/jpeg"].includes(unit.sourceRef.mediaType) && <ImageArtifact key={`${unit.stage}:${unit.index}:${unit.sourceRef.sha256}`} reference={unit.sourceRef} description={`来源单元 ${unit.stage} · ${unit.index}`} client={client} threadId={task.threadId} />)}{units.slice(resourceStart,resourceStart+20).map(unit => unit.sourceRef && ["application/json", "text/plain", "text/markdown"].includes(unit.sourceRef.mediaType) && <SourceEvidence key={`evidence:${unit.stage}:${unit.index}:${unit.sourceRef.sha256}`} reference={unit.sourceRef} client={client} threadId={task.threadId} />)}{units.slice(resourceStart,resourceStart+20).map(unit => unit.evidenceRef && <SourceEvidence key={`ocr:${unit.stage}:${unit.index}:${unit.evidenceRef.sha256}`} reference={unit.evidenceRef} client={client} threadId={task.threadId} />)}{!visuals.length && !units.some(unit => unit.sourceRef || unit.evidenceRef) && <p>无关联图片。</p>}</section>
+      <details className="review-technical" open={sourcesExpanded} onToggle={event => setSourcesExpanded(event.currentTarget.open)}><summary>题目来源关联</summary>{sourcesExpanded && <pre className="raw-data">{JSON.stringify(sources.slice(resourceStart,resourceStart+20), null, 2)}</pre>}</details>
+      <details className="review-technical" open={qualityExpanded} onToggle={event => setQualityExpanded(event.currentTarget.open)}><summary>质量记录</summary>{qualityExpanded && <pre className="raw-data">{qualityText}</pre>}</details>
       {resourceCount > 20 && <nav className="flex items-center justify-between" aria-label="资源分页"><Button variant="outline" disabled={!currentResourcePage} onClick={() => setResourcePage(currentResourcePage - 1)}>上一页资源</Button><span>第 {resourceStart + 1}–{Math.min(resourceCount,resourceStart+20)} 项，共 {resourceCount} 项</span><Button variant="outline" disabled={resourceStart + 20 >= resourceCount} onClick={() => setResourcePage(currentResourcePage + 1)}>下一页资源</Button></nav>}
     </div>}
   </section>;
