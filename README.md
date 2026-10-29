@@ -58,13 +58,15 @@ Grading needs a reference answer or rubric, may cost money, and sends the curren
 
 ## Install
 
-PractiQ installs from source. You do not need to run the commands yourself: open the repository root and ask your coding agent to do it with this prompt.
+Download the macOS 14+ Apple Silicon installer from [PractiQ v0.2.1](https://github.com/shenyankm/PractiQ/releases/tag/v0.2.1). This release is unsigned and not notarized; read the release notes for checksums, installation steps and incomplete acceptance checks.
+
+To build from source, open the repository root and ask your coding agent to use this prompt:
 
 > Read `docs/guides/installation.md` and install PractiQ on this machine. Check the requirements first, run only the steps for my platform, and tell me what you ran, where the build is and anything that failed. Ask before installing system packages.
 
 The [installation guide](docs/guides/installation.md) covers requirements, commands and checks. PractiQ runs on macOS 14+ (Apple Silicon); Linux is supported only for the AI service and CI.
 
-PractiQ is still in development: these steps build on your own machine, and a passing build does not confirm a signed release. Published packages, when available, are listed on [GitHub Releases](https://github.com/shenyankm/PractiQ/releases).
+PractiQ is still in development. A passing build does not establish signing, clean-machine acceptance or live-model accuracy. Published packages and their evidence are listed on [GitHub Releases](https://github.com/shenyankm/PractiQ/releases).
 
 Desktop data lives in a new `v4/` folder. Older folders are left untouched, old full backups are no longer accepted, and current question-bank ZIP files still import. See the [data format boundaries](docs/reference/question-model.md#versions-and-directories).
 
