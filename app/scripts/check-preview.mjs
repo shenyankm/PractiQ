@@ -12,7 +12,9 @@ async function chooseType(page, dialog, label) {
 }
 
 async function editQuestion(page, trigger) {
-  await trigger.click();
+  // Save toasts can cover the last row while animating; open its menu by keyboard.
+  await expect(trigger).toBeEnabled();
+  await trigger.press('ArrowDown');
   await page.getByRole('menuitem', {name:'编辑题目',exact:true}).click();
 }
 
@@ -427,7 +429,6 @@ test('reverted empty reference answers close without losing real editor changes'
    await editor.getByRole('textbox',{name:'题干（支持 Markdown 和公式）',exact:true}).fill(`Empty reference ${mode} ${action}`);
    await editor.getByRole('button',{name:'保存题目',exact:true}).click();
    const row=page.getByRole('button',{name:new RegExp(`Empty reference ${mode} ${action}`)}).locator('..');
-   // Development overlays can cover appended rows; reopen with the keyboard.
    await editQuestion(page, row.getByRole('button',{name:/^题目更多操作/}));
    if(mode==='choice'){
     const choice=editor.getByRole('checkbox',{name:/A\./});
@@ -471,9 +472,6 @@ test('incomplete question reference fallbacks close after reverting text and kee
   await editor.getByRole('button',{name:'保存题目',exact:true}).click();
   const open=async()=>{
    const button=page.getByRole('button',{name:new RegExp(title)}).locator('..').getByRole('button',{name:/^题目更多操作/});
-   await button.evaluate(node=>node.scrollIntoView({block:'center'}));
-   await page.mouse.move(0,0);
-   await expect(page.getByText('题目已保存，练习历史不受影响。',{exact:true})).toBeHidden();
    await editQuestion(page, button);
   };
   for(const dismiss of ['Escape','close','outside']){
