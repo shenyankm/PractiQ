@@ -551,7 +551,7 @@ async def test_task_export_closes_archive_when_the_final_snapshot_cannot_be_used
                 await asyncio.Event().wait()
         return {"document": source.model_dump()}, "current-result" if calls == 1 else "stale", None
     async def task_detail(*_args):
-        return detail().model_dump(mode="json")
+        return detail()
     payload = TemporaryFile("w+b")  # noqa: SIM115 - assert production closes the transferred file
     async def export(*_args, **_kwargs):
         return payload
@@ -562,13 +562,15 @@ async def test_task_export_closes_archive_when_the_final_snapshot_cannot_be_used
     monkeypatch.setattr(bank_export, "export_task_bank", export)
     operation = asyncio.create_task(task_api.export_task(str(detail().threadId), "current-result"))
     try:
-        await entered.wait()
+        await asyncio.wait_for(entered.wait(), 2)
         if failure == "cancelled":
             operation.cancel()
         with pytest.raises(asyncio.CancelledError if failure == "cancelled" else DocumentProcessingError):
             await operation
         assert payload.closed
     finally:
+        operation.cancel()
+        await asyncio.gather(operation, return_exceptions=True)
         payload.close()
 
 
@@ -584,7 +586,7 @@ async def test_task_export_rejects_same_checkpoint_when_run_state_changes(tmp_pa
     payload = io.BytesIO(b'archive')
     monkeypatch.setattr(task_api, 'client', lambda: SimpleNamespace(checkpoint_id=lambda *_args: 'current-result'))
     monkeypatch.setattr(task_api, '_read_task', reads)
-    monkeypatch.setattr(task_api, '_task_detail', AsyncMock(return_value=detail().model_dump(mode='json')))
+    monkeypatch.setattr(task_api, '_task_detail', AsyncMock(return_value=detail()))
     monkeypatch.setattr(task_api, 'get_object_store', lambda: store)
     monkeypatch.setattr(bank_export, 'export_task_bank', AsyncMock(return_value=payload))
     with pytest.raises(DocumentProcessingError) as error:

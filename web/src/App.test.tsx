@@ -73,7 +73,7 @@ function fakeHTTP(initial: DocumentTaskDetail = task) {
     if (path === "/api/uploads/content") return json(document);
     if (path === "/api/document-tasks" && method === "POST") { records.set(newTaskId, { ...task, threadId: newTaskId, fileName: body.document.fileName }); return json({ threadId: newTaskId, requestId: body.requestId, runId, accepted: true }, 202); }
     const id = path.split("/")[3]; const current = records.get(id);
-    if (path.endsWith("/preview")) return json({ ...preview, threadId: id, checkpointId: current?.checkpointId, state: current?.state });
+    if (path.includes("/preview")) return json({ ...preview, units: new URL(url, location.origin).searchParams.get("include_result") === "false" && current?.result?.questions.length ? preview.units.filter(unit => unit.stage !== "result") : preview.units, threadId: id, checkpointId: current?.checkpointId, state: current?.state });
     if (path.endsWith("/export")) return new Response("PKfake", { headers: { "Content-Type": "application/zip" } });
     if (path.endsWith("/control")) { records.set(id, { ...current!, state: body.action === "pause" ? "PAUSED" : "RUNNING", runId, allowedActions: body.action === "pause" ? ["resume"] : ["pause", "interrupt"] }); return json({ threadId: id, requestId: body.requestId, runId, accepted: true }, 202); }
     if (path.endsWith("/reparse")) { records.set(newTaskId, { ...task, threadId: newTaskId, fileName: "reparsed.docx", parentThreadId: id, state: "PENDING", phase: "pending", checkpointId: null, result: null }); return json({ threadId: newTaskId, requestId: body.requestId, runId, accepted: true }, 202); }
@@ -212,9 +212,9 @@ it("polling paused/partial checkpoints only reads; resume/retry/pause require ex
   expect(screen.getByRole("button", { name: "重试失败单元" })).toBeTruthy(); expect(screen.getByRole("button", { name: "接受部分结果" })).toBeTruthy();
   await user.click(screen.getByText("模型用量与任务诊断")); expect(screen.getByText(/实际总用量未知/)).toBeTruthy(); expect(screen.getByText(/输入 21 tokens，输出 8 tokens/)).toBeTruthy();
   vi.useFakeTimers(); await act(async () => vi.advanceTimersByTimeAsync(6000)); expect(http.calls.every(call => call.method === "GET")).toBe(true); vi.useRealTimers();
-  const previews = http.calls.filter(call => call.url.endsWith("/preview")).length;
+  const previews = http.calls.filter(call => call.url.includes("/preview")).length;
   await user.click(screen.getByRole("button", { name: "继续解析" })); await screen.findByRole("button", { name: "暂停" });
-  expect(http.calls.filter(call => call.url.endsWith("/preview"))).toHaveLength(previews + 1);
+  expect(http.calls.filter(call => call.url.includes("/preview"))).toHaveLength(previews + 1);
   expect(http.calls.filter(call => call.url.endsWith("/head"))).toHaveLength(0);
   const resume = http.calls.find(call => call.url.endsWith("/control")); expect(resume?.body).toMatchObject({ action: "resume", runId: null, checkpointId: "checkpoint-one", units: [] });
   await user.click(screen.getByRole("button", { name: "暂停" })); await screen.findByRole("button", { name: "继续解析" });
@@ -259,10 +259,10 @@ it("recovers failed task/capability reads and ignores obsolete pages after a fil
 });
 it("disables checkpoint actions when detail/preview reads fail or disagree, then recovers explicitly", async () => {
   const user = userEvent.setup(); const http = fakeHTTP({ ...task, state: "PAUSED", allowedActions: ["resume"], canExportCompleted: true }); let failDetail = true, failPreview = true;
-  http.server.intercept = url => { if (url.endsWith(`/${taskId}`) && failDetail) { failDetail = false; return json({}, 503); } if (url.endsWith("/preview") && failPreview) { failPreview = false; return json({}, 503); } };
+  http.server.intercept = url => { if (url.endsWith(`/${taskId}`) && failDetail) { failDetail = false; return json({}, 503); } if (url.includes("/preview") && failPreview) { failPreview = false; return json({}, 503); } };
   render(<App />); await connect(user); await user.click(screen.getByRole("link", { name: "导入记录" })); await user.click(await screen.findByRole("button", { name: "sample.docx" }));
   await screen.findByRole("button", { name: "重试任务详情" }); await screen.findByRole("button", { name: "重试检查点预览" });
-  http.server.intercept = url => url.endsWith("/preview") ? json({ ...preview, checkpointId: "different-checkpoint" }) : undefined;
+  http.server.intercept = url => url.includes("/preview") ? json({ ...preview, checkpointId: "different-checkpoint" }) : undefined;
   await user.click(screen.getByRole("button", { name: "重试任务详情" })); await screen.findByRole("button", { name: "继续解析" }); expect((screen.getByRole("button", { name: "继续解析" }) as HTMLButtonElement).disabled).toBe(true);
   expect((screen.getByRole("button", { name: "下载题库 ZIP" }) as HTMLButtonElement).disabled).toBe(true);
   http.server.intercept = undefined; await user.click(screen.getByRole("button", { name: "刷新任务详情" })); await waitFor(() => expect((screen.getByRole("button", { name: "继续解析" }) as HTMLButtonElement).disabled).toBe(false));
@@ -304,7 +304,7 @@ it("deletes an expired row despite 410 detail reads only after confirmation, ret
   const user = userEvent.setup(); const http = fakeHTTP({ ...task, state: "EXPIRED", allowedActions: [] }); let failDelete = true;
   http.server.intercept = (url, init) => {
     if (init.method === "DELETE" && failDelete) { failDelete = false; return json({ detail: { code: "DELETE_UNAVAILABLE" } }, 503); }
-    if (init.method !== "DELETE" && [ `/api/document-tasks/${taskId}`, `/api/document-tasks/${taskId}/preview` ].includes(url)) return json({ detail: { code: "TASK_EXPIRED" } }, 410);
+    if (init.method !== "DELETE" && [ `/api/document-tasks/${taskId}`, `/api/document-tasks/${taskId}/preview` ].includes(new URL(url, location.origin).pathname)) return json({ detail: { code: "TASK_EXPIRED" } }, 410);
   };
   render(<App />); await connect(user);
   await user.click(screen.getByRole("link", { name: "导入记录" })); await user.click(await screen.findByRole("button", { name: "sample.docx" }));
@@ -327,7 +327,7 @@ it("deletes an expired row despite 410 detail reads only after confirmation, ret
 
 it("uses completed heads for automatic wakes but forces explicit refresh", async () => {
   const user = userEvent.setup(); const http = fakeHTTP(); render(<App />); await connect(user); await openTask(user);
-  const reads = () => ({detail:http.calls.filter(c=>c.url.endsWith(`/${taskId}`)).length,preview:http.calls.filter(c=>c.url.endsWith("/preview")).length,head:http.calls.filter(c=>c.url.endsWith("/head")).length});
+  const reads = () => ({detail:http.calls.filter(c=>c.url.endsWith(`/${taskId}`)).length,preview:http.calls.filter(c=>c.url.includes("/preview")).length,head:http.calls.filter(c=>c.url.endsWith("/head")).length});
   expect(reads()).toEqual({detail:1,preview:1,head:0});
   vi.useFakeTimers();
   for (let wake = 0; wake < 20; wake++) await act(async () => {
@@ -429,7 +429,7 @@ it.each([
   await act(async () => window.dispatchEvent(new Event("focus")));
   expect(http.calls.filter(call => call.url.endsWith("/head"))).toHaveLength(1);
   expect(http.calls.filter(call => call.url.endsWith(`/${taskId}`))).toHaveLength(2);
-  expect(http.calls.filter(call => call.url.endsWith("/preview"))).toHaveLength("checkpointId" in change || "state" in change ? 2 : 1);
+  expect(http.calls.filter(call => call.url.includes("/preview"))).toHaveLength("checkpointId" in change || "state" in change ? 2 : 1);
   if ("state" in change) {
     await act(async () => window.dispatchEvent(new Event("focus")));
     expect(http.calls.filter(call => call.url.endsWith("/head"))).toHaveLength(1);
@@ -462,7 +462,7 @@ it("disables completed actions after an automatic head failure and restores fres
 it.each(["开始导入", "设置"])("stops invisible records reads in %s and refreshes immediately without losing workspace state", async destination => {
   const user = userEvent.setup(); const http = fakeHTTP({ ...task, state: "RUNNING", allowedActions: ["pause"] });
   const questions = Array.from({ length: 25 }, (_, index) => question({ id: `q-${index}`, stem: `Kept question ${index}`, parentId: null, optionSourceId: null }));
-  http.server.intercept = url => url.endsWith("/preview") ? json({ ...preview, state: "RUNNING", units: [{ ...preview.units[0], questions }] }) : undefined;
+  http.server.intercept = url => url.includes("/preview") ? json({ ...preview, state: "RUNNING", units: [{ ...preview.units[0], questions }] }) : undefined;
   render(<App />); await connect(user);
   expect(http.calls.some(call => call.url.startsWith("/api/document-tasks"))).toBe(false);
   await user.click(screen.getByRole("link", { name: "导入记录" }));
@@ -514,7 +514,7 @@ it("preserves review state across running checkpoints and resets it for another 
   http.records.set(newTaskId, { ...running, threadId: newTaskId, fileName: "other.docx" });
   const questions = Array.from({ length: 25 }, (_, index) => question({ id: `q-${index}`, stem: `Kept question ${index}`, parentId: null, optionSourceId: null }));
   let currentPreview = { ...preview, state: running.state, units: [{ ...preview.units[0], questions }] };
-  http.server.intercept = url => url.endsWith("/preview") ? json({ ...currentPreview, threadId: url.split("/")[3], checkpointId: http.records.get(url.split("/")[3])!.checkpointId }) : undefined;
+  http.server.intercept = url => url.includes("/preview") ? json({ ...currentPreview, threadId: url.split("/")[3], checkpointId: http.records.get(url.split("/")[3])!.checkpointId }) : undefined;
   render(<App />); await connect(user);
   await user.click(screen.getByRole("link", { name: "导入记录" }));
   await user.click(await screen.findByRole("button", { name: "sample.docx" }));
@@ -540,7 +540,7 @@ it("preserves review state across running checkpoints and resets it for another 
   expect(screen.getByText("Kept question 20", { selector: "summary span" }).closest("details")).toBe(entry);
   expect(entry.open).toBe(true);
   expect(screen.getByText("Updated checkpoint analysis")).toBeTruthy();
-  expect(http.calls.filter(call => call.url.endsWith(`/${taskId}/preview`))).toHaveLength(3);
+  expect(http.calls.filter(call => call.url.includes(`/${taskId}/preview`))).toHaveLength(3);
 
   await user.click(screen.getByRole("button", { name: "来源与资源" }));
   http.records.set(taskId, { ...running, checkpointId: "checkpoint-four" });
@@ -599,11 +599,11 @@ it("discards an in-flight hidden detail without fetching its preview, then reval
   const count = http.calls.length;
   await act(async () => release(json(updated)));
   expect(http.calls).toHaveLength(count);
-  expect(http.calls.filter(call => call.url.endsWith("/preview"))).toHaveLength(1);
+  expect(http.calls.filter(call => call.url.includes("/preview"))).toHaveLength(1);
   http.server.intercept = undefined;
   await user.click(screen.getByRole("link", { name: "导入记录" }));
   await waitFor(() => expect(screen.getByRole("button", { name: "继续解析" })).toHaveProperty("disabled", false));
-  expect(http.calls.filter(call => call.url.endsWith("/preview"))).toHaveLength(2);
+  expect(http.calls.filter(call => call.url.includes("/preview"))).toHaveLength(2);
   expect(http.calls.filter(call => call.url.endsWith("/head"))).toHaveLength(0);
   expect(http.calls.every(call => call.method === "GET")).toBe(true);
 });
@@ -614,7 +614,7 @@ it("revalidates immediately when records return before a follow-up preview settl
   const updated = { ...task, checkpointId: "checkpoint-two" };
   http.records.set(taskId, updated);
   let release!: (response: Response) => void;
-  http.server.intercept = url => url.endsWith("/preview") ? new Promise(resolve => { release = resolve; }) : undefined;
+  http.server.intercept = url => url.includes("/preview") ? new Promise(resolve => { release = resolve; }) : undefined;
   await act(async () => window.dispatchEvent(new Event("focus")));
   await waitFor(() => expect(release).toBeTypeOf("function"));
   await user.click(screen.getByRole("link", { name: "设置" }));

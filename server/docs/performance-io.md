@@ -1,5 +1,19 @@
 # Service I/O work bounds
 
+## Validated HTTP read models (October 30)
+
+Detail and preview routes retain validated Pydantic models through the HTTP
+response boundary. The existing dictionary helpers still serialize for internal
+tools; export consumes the validated detail directly. Saved inputs remain
+validated, model-supplied audio remains discarded, and default HTTP JSON stays
+equivalent. The opt-in metadata preview avoids sending completed questions twice;
+see the [API contract](document-tasks.md#read-only-review-preview).
+
+The [read-path acceptance](../../docs/history/performance/read-paths-20261030.md)
+records paired actual-ASGI timings, response sizes and output hashes. It also
+retains the rejected concurrent OCR-read experiment: local small-file reads did
+not improve, so merge retains sequential verified OCR reads.
+
 These optimizations remove repeated work without changing task authorization,
 verified storage, explicit resume/retry, paid-call receipts, or database schemas.
 They add no cross-request cache, configuration, or dependency.

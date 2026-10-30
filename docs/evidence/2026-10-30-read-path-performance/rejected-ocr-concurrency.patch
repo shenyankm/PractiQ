@@ -1,0 +1,42 @@
+--- a/server/src/practiq_ai/graphs/document.py
++++ b/server/src/practiq_ai/graphs/document.py
+@@ -1779,19 +1779,28 @@
+     if pages and parsed:
+         store = await asyncio.to_thread(get_object_store)
+         refs = state.get('ocrPageRefs', [])
+-        for page_index in sorted({neighbor for index, _ in parsed for neighbor in range(max(0, index - 2), min(len(refs), index + 2))}):
+-            page = json.loads(await store.get_verified(ArtifactReference.model_validate(refs[page_index])))
++        def decode_ocr(payload: bytes) -> str | None:
++            page = json.loads(payload)
+             if page.get('failed'):
++                return None
++            layouts = [element['layout_xml'] for element in page.get('elements', []) if element.get('layout_xml')]
++            if page.get('format') == 'table' and len(layouts) == 1:
++                rows = list(ElementTree.fromstring(layouts[0]).iter('tr'))
++                cells = [list(row.iter('td')) for row in rows]
++                if cells and all(cell.get('rowspan', '1') == cell.get('colspan', '1') == '1' for row in cells for cell in row):
++                    return '\n'.join('\t'.join(' '.join(''.join(cell.itertext()).split()) for cell in row) for row in cells)
++            return '\n'.join(_ocr_source_lines(page))
++
++        async def read_ocr(page_index: int) -> tuple[int, str | None]:
++            payload = await store.get_verified(ArtifactReference.model_validate(refs[page_index]))
++            return page_index, decode_ocr(payload)
++
++        indexes = sorted({neighbor for index, _ in parsed for neighbor in range(max(0, index - 2), min(len(refs), index + 2))})
++        for page_index, text in await bounded_map(indexes, read_ocr):
++            if text is None:
+                 failed_ocr_pages.add(page_index)
+-            if not page.get('failed'):
+-                layouts = [element['layout_xml'] for element in page.get('elements', []) if element.get('layout_xml')]
+-                if page.get('format') == 'table' and len(layouts) == 1:
+-                    rows = list(ElementTree.fromstring(layouts[0]).iter('tr'))
+-                    cells = [list(row.iter('td')) for row in rows]
+-                    if cells and all(cell.get('rowspan', '1') == cell.get('colspan', '1') == '1' for row in cells for cell in row):
+-                        ocr_texts[page_index] = '\n'.join('\t'.join(' '.join(''.join(cell.itertext()).split()) for cell in row) for row in cells)
+-                        continue
+-                ocr_texts[page_index] = '\n'.join(_ocr_source_lines(page))
++            else:
++                ocr_texts[page_index] = text
+     warnings.extend(f"Answer/source conflict for {question.id or question.stem}: verify the supplied answer before grading."
+                     for _, result in parsed for question in result.questions if answer_source_conflict(question.model_dump(mode='json')))
+     for index, result in parsed:

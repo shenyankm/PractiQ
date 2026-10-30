@@ -1,5 +1,28 @@
 # Frontend work-count regressions
 
+## Metadata previews and saved practice statistics (October 30)
+
+Web detail and preview reads retain their existing lifecycle, polling, failures
+and checkpoint controls. The client opts into `include_result=false` for previews,
+so a merged result's questions/groups/visuals travel in detail only. The review
+reuses that detail content when checkpoint IDs match; source-only units still
+render, and a mismatched metadata preview cannot lend its provenance to detail
+questions. Full previews from older services and unmerged partial units retain
+their existing rendering path. Export still requires a fresh matching preview.
+
+The practice answer card caches saved status counts and progress with its saved
+states. Draft edits adjust only the current question's contribution; no status
+array copy or per-status scans are needed. The closed completion dialog also
+reuses its saved-attempt counts. Submitted/skipped precedence, false answers,
+empty drafts, fixed status order and all answer buttons remain unchanged.
+
+`ResultReview.test.tsx`, `App.test.tsx`, `api.test.ts`, `ContentPerformance.test.tsx`
+and `AnswerCardStatus.test.tsx` cover these boundaries. The opt-in answer-card
+probe records complete output hashes, noncurrent answer reads and React/JSDOM
+render durations, including small controls. See the
+[acceptance record](../../docs/history/performance/read-paths-20261030.md) for raw
+paired measurements and limits; these are not native WebView latency guarantees.
+
 These optimizations remove redundant work without changing task APIs, result
 contracts, persistence, or explicit paid-action boundaries. They add no dependency
 or additional cache layer.

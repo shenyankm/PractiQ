@@ -291,12 +291,16 @@ def _task_state(snapshot, run) -> tuple[TaskState, list[TaskAction], list[dict[s
 
 
 async def get_task(thread_id: str) -> dict[str, Any]:
+    return (await get_task_model(thread_id)).model_dump(mode='json')
+
+
+async def get_task_model(thread_id: str) -> DocumentTaskDetail:
     service = client()
     task, snapshot, run = await _read_task(service, thread_id)
     return await _task_detail(service, thread_id, task, snapshot, run)
 
 
-async def _task_detail(service, thread_id, task, snapshot, run) -> dict[str, Any]:
+async def _task_detail(service, thread_id, task, snapshot, run) -> DocumentTaskDetail:
     values = snapshot.values or {}
     interruptions = _interrupts(snapshot)
     state, actions, failures = _task_state(snapshot, run)
@@ -341,7 +345,7 @@ async def _task_detail(service, thread_id, task, snapshot, run) -> dict[str, Any
         'unknownUsageCalls': [item['callKey'] for item in calls if item['status'] != 'completed'],
         'canExportCompleted': state in {'PAUSED', 'INTERRUPTED', 'CANCELLED', 'COMPLETED'} and bool(values.get('result', {}).get('questions') or
             any(item.get('parsed') and (item['parsed'].get('questionCount') or item['parsed'].get('questions')) for key in ('visionResults', 'chunkResults') for item in values.get(key, []))),
-    }).model_dump(mode='json')
+    })
 
 
 async def get_task_head(thread_id: str) -> dict[str, Any]:
@@ -368,7 +372,7 @@ async def export_task(thread_id: str, checkpoint_id: str | None = None, *, compl
     current_checkpoint = service.checkpoint_id(snapshot, run)
     if checkpoint_id is not None and checkpoint_id != current_checkpoint:
         raise conflict('The reviewed checkpoint changed', 'STALE_CHECKPOINT')
-    detail = DocumentTaskDetail.model_validate(await _task_detail(service, thread_id, task, snapshot, run))
+    detail = await _task_detail(service, thread_id, task, snapshot, run)
     original_state = detail.state
     if completed and detail.state != 'COMPLETED':
         if not detail.canExportCompleted:
@@ -661,6 +665,10 @@ async def artifact_is_public(snapshot: StateSnapshot, source_sha256: str, metada
 
 
 async def review_task(thread_id: str) -> dict[str, Any]:
+    return (await review_task_model(thread_id)).model_dump(mode='json')
+
+
+async def review_task_model(thread_id: str, *, include_result: bool = True) -> DocumentTaskReview:
     """Read saved candidates only; never run merge, crop, or model nodes."""
     service = client()
     _task, snapshot, run = await _read_task(service, thread_id)
@@ -669,8 +677,9 @@ async def review_task(thread_id: str) -> dict[str, Any]:
     units = []
     if values.get('result', {}).get('questions'):
         result = values['result']
-        units.append({'stage': 'result', 'index': 0, 'questions': result['questions'],
-                      'groups': result.get('groups', []), 'visualElements': result.get('visualElements', [])})
+        if include_result:
+            units.append({'stage': 'result', 'index': 0, 'questions': result['questions'],
+                          'groups': result.get('groups', []), 'visualElements': result.get('visualElements', [])})
         for refs, stage in (('pageRefs', 'vision_parse'), ('chunkRefs', 'document_parse')):
             units.extend({'stage': stage, 'index': index, 'questions': [], 'groups': [], 'sourceRef': reference}
                          for index, reference in enumerate(values.get(refs, [])))
@@ -702,4 +711,4 @@ async def review_task(thread_id: str) -> dict[str, Any]:
     })
     for unit in review.units:
         discard_model_audio(unit.questions)
-    return review.model_dump(mode='json')
+    return review

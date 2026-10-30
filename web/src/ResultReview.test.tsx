@@ -8,6 +8,28 @@ import { Client } from "./api";
 import { material, preview, question, task } from "./test-fixtures";
 import htmlBlocks from "../../app/fixtures/rich-content/html-blocks.json";
 
+it("reuses matching detail questions, groups and images with a metadata-only preview", async () => {
+  const user = userEvent.setup();
+  const detail = { ...task, result: { ...task.result!, groups: [{ title: "Printed section", questionIds: ["q-child"] }],
+    visualElements: [{ kind: "image" as const, description: "Printed figure", questionIds: ["q-child"] }] } };
+  const metadata = { ...preview, units: [{ stage: "document_parse" as const, index: 0, questions: [], groups: [],
+    sourceRef: { objectKey: "saved-text", sha256: "a".repeat(64), sizeBytes: 10, mediaType: "text/plain" } }] };
+  const before = JSON.stringify([detail, metadata]);
+  const view = render(<ResultReview task={detail} preview={metadata} client={new Client("fake")} />);
+  await user.click(screen.getByText("根据材料选择答案", { selector: "summary span" }));
+  expect(screen.getByText("共享选项一")).toBeTruthy();
+  await user.click(screen.getByRole("button", { name: "来源与资源" }));
+  expect(screen.getByText("Printed section")).toBeTruthy();
+  expect(screen.getByText("image · Printed figure")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "查看来源证据" })).toBeTruthy();
+  expect(JSON.stringify([detail, metadata])).toBe(before);
+  view.rerender(<ResultReview task={detail} preview={{ ...metadata, checkpointId: "different-checkpoint" }} client={new Client("fake")} />);
+  expect(screen.queryByText("Printed section")).toBeNull();
+  expect(screen.queryByText("image · Printed figure")).toBeNull();
+  await user.click(screen.getByRole("button", { name: "题目与材料" }));
+  expect(screen.queryByText("根据材料选择答案", { selector: "summary span" })).toBeNull();
+});
+
 it.each(["sourceRef", "evidenceRef"] as const)("loads %s OCR evidence only on demand and renders source markup as inert text", async (field) => {
   const literal = '<script>window.injected=true</script>\\nOCR source';
   const evidence = vi.spyOn(Client.prototype, "evidence").mockResolvedValue({ text: async () => literal } as Blob);

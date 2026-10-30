@@ -181,7 +181,7 @@ export default function App() {
       let failed = false;
       try {
         if (!currentDetail) {
-          const [current, review] = await Promise.allSettled([client!.detail(selected!, controller.signal), client!.preview(selected!, controller.signal)]);
+          const [current, review] = await Promise.allSettled([client!.detail(selected!, controller.signal), client!.preview(selected!, controller.signal, false)]);
           if (controller.signal.aborted || !recordsVisible.current || document.hidden) return;
           if (current.status === "fulfilled") { currentDetail = current.value; setDetail(current.value); setDetailError(null); setDetailFresh(true); }
           else { failed = true; setDetailError(errorText(current.reason)); setDetailFresh(false); stopped = authFailure(current.reason); }
@@ -201,7 +201,7 @@ export default function App() {
         currentDetail = current; setDetail(current); setDetailError(null); setDetailFresh(true);
         if (force || !currentPreview || currentPreview.checkpointId !== current.checkpointId || currentPreview.state !== current.state || ["PAUSED", "WAITING_REVIEW"].includes(current.state)) {
           try {
-            const review = await client!.preview(selected!, controller.signal);
+            const review = await client!.preview(selected!, controller.signal, false);
             if (controller.signal.aborted || !recordsVisible.current || document.hidden) return;
             currentPreview = review; setPreview(review); setPreviewError(null);
           } catch (error) {

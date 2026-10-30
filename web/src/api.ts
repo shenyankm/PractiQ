@@ -212,7 +212,7 @@ export class Client {
   }
   detail(id: string, signal?: AbortSignal) { return this.json<DocumentTaskDetail>(`/api/document-tasks/${encodeURIComponent(id)}`, undefined, signal); }
   head(id: string, signal?: AbortSignal) { return this.json<DocumentTaskHead>(`/api/document-tasks/${encodeURIComponent(id)}/head`, undefined, signal); }
-  preview(id: string, signal?: AbortSignal) { return this.json<DocumentTaskReview>(`/api/document-tasks/${encodeURIComponent(id)}/preview`, undefined, signal); }
+  preview(id: string, signal?: AbortSignal, includeResult = true) { return this.json<DocumentTaskReview>(`/api/document-tasks/${encodeURIComponent(id)}/preview${includeResult ? "" : "?include_result=false"}`, undefined, signal); }
   pendingImports(): DocumentTaskCreate[] {
     try {
       const raw = localStorage.getItem(IMPORT_INTENTS);
