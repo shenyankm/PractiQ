@@ -1,0 +1,75 @@
+{
+  "baseline": "554066175cc464acb47734ef1c3d34dc8d4d1f88",
+  "method": "Three alternating isolated process pairs: before/after, after/before, before/after. Each process has one warmup and seven measured clear-and-type sequences per workload. Same locked dependencies, probe source, complete answer-card text, progress and draft hashes. React development/JSDOM render time only.",
+  "workloads": [
+    {
+      "questions": 20,
+      "exam": false,
+      "outputSha256": "d2a321726eddb7c02eacfaa760b796a2433e0929a8e94707a030548cfd51999d",
+      "before": {
+        "medianRenderMs": 8.45992799999999,
+        "noncurrentAnswerReads": [
+          646
+        ]
+      },
+      "after": {
+        "medianRenderMs": 9.893159000004061,
+        "noncurrentAnswerReads": [
+          0
+        ]
+      }
+    },
+    {
+      "questions": 20,
+      "exam": true,
+      "outputSha256": "a846b27ff1c37f800d80dc668456efd80146fa17f006b33b1da659b53be30062",
+      "before": {
+        "medianRenderMs": 7.4197619999984,
+        "noncurrentAnswerReads": [
+          969
+        ]
+      },
+      "after": {
+        "medianRenderMs": 8.546417000004226,
+        "noncurrentAnswerReads": [
+          0
+        ]
+      }
+    },
+    {
+      "questions": 1000,
+      "exam": false,
+      "outputSha256": "4cdf0454b8d7d989cade5edfd78095b64f33f8c903e070c9cf42d42a96cd18a6",
+      "before": {
+        "medianRenderMs": 28.905297999999448,
+        "noncurrentAnswerReads": [
+          33966
+        ]
+      },
+      "after": {
+        "medianRenderMs": 26.830380999995214,
+        "noncurrentAnswerReads": [
+          0
+        ]
+      }
+    },
+    {
+      "questions": 1000,
+      "exam": true,
+      "outputSha256": "2998537ade27bfae34376446b0c36b31633aefc0c1cc3bb0330fab72df50a75d",
+      "before": {
+        "medianRenderMs": 26.79620300001625,
+        "noncurrentAnswerReads": [
+          50949
+        ]
+      },
+      "after": {
+        "medianRenderMs": 24.119098000002623,
+        "noncurrentAnswerReads": [
+          0
+        ]
+      }
+    }
+  ],
+  "installedDependencyTreeSha256": "eb7babf73f0bf60092206c42f7aba24c1cfb835b7bbdb38d6f5e634b743b82e9"
+}

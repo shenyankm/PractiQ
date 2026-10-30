@@ -1,0 +1,148 @@
+{
+  "node": "v22.23.2",
+  "probeSha256": "c4320d8ee0a4bf445402c7afed2922fe6ee75771da7be57bc4a011844a2c194a",
+  "practiceSha256": "24deb21afde2a09829e722f706d105d0fb3069a29a7523b2d6dfb81bb03aa750",
+  "scope": "React development/JSDOM Profiler actual render durations for clearing and typing sixteen characters; one warmup plus seven measured sequences per workload. Fake interval timers and native/API substitutes. No browser, WebView, IPC or production input-latency measurement.",
+  "workloads": [
+    {
+      "questions": 20,
+      "exam": false,
+      "samples": [
+        {
+          "renderMs": 34.11294699999871,
+          "noncurrentAnswerReads": 0
+        },
+        {
+          "renderMs": 28.016168000000334,
+          "noncurrentAnswerReads": 0
+        },
+        {
+          "renderMs": 9.893159000004061,
+          "noncurrentAnswerReads": 0
+        },
+        {
+          "renderMs": 7.979807999994591,
+          "noncurrentAnswerReads": 0
+        },
+        {
+          "renderMs": 7.58475800000474,
+          "noncurrentAnswerReads": 0
+        },
+        {
+          "renderMs": 7.882010000011405,
+          "noncurrentAnswerReads": 0
+        },
+        {
+          "renderMs": 7.7006240000030175,
+          "noncurrentAnswerReads": 0
+        }
+      ],
+      "outputSha256": "d2a321726eddb7c02eacfaa760b796a2433e0929a8e94707a030548cfd51999d"
+    },
+    {
+      "questions": 20,
+      "exam": true,
+      "samples": [
+        {
+          "renderMs": 10.514875000009397,
+          "noncurrentAnswerReads": 0
+        },
+        {
+          "renderMs": 9.29038599999717,
+          "noncurrentAnswerReads": 0
+        },
+        {
+          "renderMs": 7.905224000006683,
+          "noncurrentAnswerReads": 0
+        },
+        {
+          "renderMs": 7.211250999999265,
+          "noncurrentAnswerReads": 0
+        },
+        {
+          "renderMs": 6.777873999998292,
+          "noncurrentAnswerReads": 0
+        },
+        {
+          "renderMs": 7.036403999999493,
+          "noncurrentAnswerReads": 0
+        },
+        {
+          "renderMs": 6.4773440000058145,
+          "noncurrentAnswerReads": 0
+        }
+      ],
+      "outputSha256": "a846b27ff1c37f800d80dc668456efd80146fa17f006b33b1da659b53be30062"
+    },
+    {
+      "questions": 1000,
+      "exam": false,
+      "samples": [
+        {
+          "renderMs": 33.89875099998062,
+          "noncurrentAnswerReads": 0
+        },
+        {
+          "renderMs": 28.43634700000416,
+          "noncurrentAnswerReads": 0
+        },
+        {
+          "renderMs": 27.150627000007717,
+          "noncurrentAnswerReads": 0
+        },
+        {
+          "renderMs": 25.803197000004502,
+          "noncurrentAnswerReads": 0
+        },
+        {
+          "renderMs": 26.28521299998988,
+          "noncurrentAnswerReads": 0
+        },
+        {
+          "renderMs": 25.351691999990635,
+          "noncurrentAnswerReads": 0
+        },
+        {
+          "renderMs": 25.3218000000129,
+          "noncurrentAnswerReads": 0
+        }
+      ],
+      "outputSha256": "4cdf0454b8d7d989cade5edfd78095b64f33f8c903e070c9cf42d42a96cd18a6"
+    },
+    {
+      "questions": 1000,
+      "exam": true,
+      "samples": [
+        {
+          "renderMs": 23.922879000037028,
+          "noncurrentAnswerReads": 0
+        },
+        {
+          "renderMs": 23.394911999958822,
+          "noncurrentAnswerReads": 0
+        },
+        {
+          "renderMs": 23.35999099997707,
+          "noncurrentAnswerReads": 0
+        },
+        {
+          "renderMs": 24.023538999987977,
+          "noncurrentAnswerReads": 0
+        },
+        {
+          "renderMs": 23.931249999960073,
+          "noncurrentAnswerReads": 0
+        },
+        {
+          "renderMs": 23.338634999973237,
+          "noncurrentAnswerReads": 0
+        },
+        {
+          "renderMs": 23.389373999938016,
+          "noncurrentAnswerReads": 0
+        }
+      ],
+      "outputSha256": "2998537ade27bfae34376446b0c36b31633aefc0c1cc3bb0330fab72df50a75d"
+    }
+  ]
+}

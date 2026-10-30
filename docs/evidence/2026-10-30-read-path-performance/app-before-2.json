@@ -1,0 +1,148 @@
+{
+  "node": "v22.23.2",
+  "probeSha256": "c4320d8ee0a4bf445402c7afed2922fe6ee75771da7be57bc4a011844a2c194a",
+  "practiceSha256": "dba711365dcfd864f20e3196d7daf5b593441d9da259bfdbfd2e32ee09d80626",
+  "scope": "React development/JSDOM Profiler actual render durations for clearing and typing sixteen characters; one warmup plus seven measured sequences per workload. Fake interval timers and native/API substitutes. No browser, WebView, IPC or production input-latency measurement.",
+  "workloads": [
+    {
+      "questions": 20,
+      "exam": false,
+      "samples": [
+        {
+          "renderMs": 37.687804999999344,
+          "noncurrentAnswerReads": 646
+        },
+        {
+          "renderMs": 29.262737000000243,
+          "noncurrentAnswerReads": 646
+        },
+        {
+          "renderMs": 11.259005999999658,
+          "noncurrentAnswerReads": 646
+        },
+        {
+          "renderMs": 9.160772000001089,
+          "noncurrentAnswerReads": 646
+        },
+        {
+          "renderMs": 8.13878799999793,
+          "noncurrentAnswerReads": 646
+        },
+        {
+          "renderMs": 7.788060999998379,
+          "noncurrentAnswerReads": 646
+        },
+        {
+          "renderMs": 8.22878800000069,
+          "noncurrentAnswerReads": 646
+        }
+      ],
+      "outputSha256": "d2a321726eddb7c02eacfaa760b796a2433e0929a8e94707a030548cfd51999d"
+    },
+    {
+      "questions": 20,
+      "exam": true,
+      "samples": [
+        {
+          "renderMs": 8.78383499999984,
+          "noncurrentAnswerReads": 969
+        },
+        {
+          "renderMs": 8.159677000001807,
+          "noncurrentAnswerReads": 969
+        },
+        {
+          "renderMs": 7.5896449999989954,
+          "noncurrentAnswerReads": 969
+        },
+        {
+          "renderMs": 7.13592800000265,
+          "noncurrentAnswerReads": 969
+        },
+        {
+          "renderMs": 6.58246600000291,
+          "noncurrentAnswerReads": 969
+        },
+        {
+          "renderMs": 6.873231000003102,
+          "noncurrentAnswerReads": 969
+        },
+        {
+          "renderMs": 25.017104999998423,
+          "noncurrentAnswerReads": 969
+        }
+      ],
+      "outputSha256": "a846b27ff1c37f800d80dc668456efd80146fa17f006b33b1da659b53be30062"
+    },
+    {
+      "questions": 1000,
+      "exam": false,
+      "samples": [
+        {
+          "renderMs": 32.9140879999959,
+          "noncurrentAnswerReads": 33966
+        },
+        {
+          "renderMs": 29.66091800002323,
+          "noncurrentAnswerReads": 33966
+        },
+        {
+          "renderMs": 30.65967200000523,
+          "noncurrentAnswerReads": 33966
+        },
+        {
+          "renderMs": 33.64800800002081,
+          "noncurrentAnswerReads": 33966
+        },
+        {
+          "renderMs": 30.801048000000264,
+          "noncurrentAnswerReads": 33966
+        },
+        {
+          "renderMs": 30.88130200001092,
+          "noncurrentAnswerReads": 33966
+        },
+        {
+          "renderMs": 35.07247499997493,
+          "noncurrentAnswerReads": 33966
+        }
+      ],
+      "outputSha256": "4cdf0454b8d7d989cade5edfd78095b64f33f8c903e070c9cf42d42a96cd18a6"
+    },
+    {
+      "questions": 1000,
+      "exam": true,
+      "samples": [
+        {
+          "renderMs": 28.330440000006547,
+          "noncurrentAnswerReads": 50949
+        },
+        {
+          "renderMs": 31.714745000004086,
+          "noncurrentAnswerReads": 50949
+        },
+        {
+          "renderMs": 34.43927100000565,
+          "noncurrentAnswerReads": 50949
+        },
+        {
+          "renderMs": 90.68140999999719,
+          "noncurrentAnswerReads": 50949
+        },
+        {
+          "renderMs": 29.363702000046487,
+          "noncurrentAnswerReads": 50949
+        },
+        {
+          "renderMs": 27.284700000011526,
+          "noncurrentAnswerReads": 50949
+        },
+        {
+          "renderMs": 28.21684999999752,
+          "noncurrentAnswerReads": 50949
+        }
+      ],
+      "outputSha256": "2998537ade27bfae34376446b0c36b31633aefc0c1cc3bb0330fab72df50a75d"
+    }
+  ]
+}
