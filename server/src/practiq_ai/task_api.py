@@ -342,7 +342,7 @@ async def _task_detail(service, thread_id, task, snapshot, run) -> DocumentTaskD
         'status': values.get('status') or None, 'result': result,
         'modelBudget': {'limit': values.get('execution', {}).get('signature', {}).get('settings', {}).get('task_max_model_calls', load().task_max_model_calls), 'reserved': values.get('reservedCalls', 0)},
         'processing': values.get('processing') or None, 'usage': list(usage.values()),
-        'unknownUsageCalls': [item['callKey'] for item in calls if item['status'] != 'completed'],
+        'unknownUsageCalls': [item['callKey'] for item in calls if item['status'] not in {'completed', 'rejected'}],
         'canExportCompleted': state in {'PAUSED', 'INTERRUPTED', 'CANCELLED', 'COMPLETED'} and bool(values.get('result', {}).get('questions') or
             any(item.get('parsed') and (item['parsed'].get('questionCount') or item['parsed'].get('questions')) for key in ('visionResults', 'chunkResults') for item in values.get(key, []))),
     })

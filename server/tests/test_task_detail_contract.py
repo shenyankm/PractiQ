@@ -85,6 +85,26 @@ async def test_task_detail_http_contract_for_saved_states(monkeypatch, state, ru
 
 
 @pytest.mark.usefixtures('disposable_databases')
+async def test_task_detail_excludes_rejected_calls_without_hiding_sent_unknowns(monkeypatch):
+    service, reference, model = await setup_api(monkeypatch)
+    created = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
+    await service.wait_idle()
+    calls = {status: str(uuid4()) for status in ('rejected', 'started', 'failed')}
+    for status, call_key in calls.items():
+        await service.db.store.aput(namespace(created['threadId'], 'calls'), call_key,
+                                   {'callKey': call_key, 'status': status, 'usageStatus': 'unknown',
+                                    'error': 'COST_BUDGET_EXCEEDED' if status == 'rejected' else 'MODEL_RESULT_UNKNOWN'})
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='http://test') as http:
+        response = await http.get(f"/api/document-tasks/{created['threadId']}", headers={'Authorization': 'Bearer test-token'})
+    assert response.status_code == 200, response.text
+    detail = response.json()
+    assert set(detail['unknownUsageCalls']) == {calls['started'], calls['failed']}
+    assert len(detail['usage']) == len(model.calls) == 1
+    retained = await service.db.store.aget(namespace(created['threadId'], 'calls'), calls['rejected'])
+    assert retained is not None and retained.value['status'] == 'rejected'
+
+
+@pytest.mark.usefixtures('disposable_databases')
 async def test_completed_task_http_preserves_result_processing_usage_and_expiry(monkeypatch):
     service, reference, model = await setup_api(monkeypatch)
     created = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
