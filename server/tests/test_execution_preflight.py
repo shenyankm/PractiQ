@@ -8,11 +8,10 @@ import pytest
 
 from practiq_ai import capacity, execution, normalization
 from practiq_ai.errors import DocumentProcessingError
-from practiq_ai.graphs import document
 from tests.support import make_image, object_store, source, upload
 
 
-@pytest.mark.parametrize("module", ["cost_budget.py", "worker_sandbox.py"])
+@pytest.mark.parametrize("module", ["cost_budget.py", "worker_sandbox.py", "retry_policy.py", "unit_results.py"])
 def test_production_policy_changes_invalidate_execution_identity(monkeypatch, module):
     original = Path.read_bytes
     target = Path(execution.__file__).parent / module
@@ -77,7 +76,7 @@ async def test_preflight_bounded_work_counts_and_discards_payloads(monkeypatch, 
     async def get_verified(reference):
         return await verify('source' if reference.objectKey == values['document']['objectKey'] else 'artifact', reference.objectKey)
 
-    async def load_result(item, source_sha256):
+    async def load_result(item, source_sha256, _store):
         assert source_sha256 == values['document']['sha256']
         return await verify('result', item['resultRef']['objectKey'])
 
@@ -93,7 +92,7 @@ async def test_preflight_bounded_work_counts_and_discards_payloads(monkeypatch, 
     monkeypatch.setattr(execution, 'validate_execution', Mock())
     monkeypatch.setattr(execution, 'get_object_store', lambda: SimpleNamespace(get_verified=get_verified))
     monkeypatch.setattr(normalization, 'verified_normalization', normalized)
-    monkeypatch.setattr(document, 'load_unit_result', load_result)
+    monkeypatch.setattr(execution, 'load_unit_result', load_result)
     monkeypatch.setattr(capacity, 'load', lambda: SimpleNamespace(storage_concurrency=concurrency))
     monkeypatch.setattr(execution, 'bounded_map', bounded_map)
 
@@ -117,7 +116,7 @@ async def test_preflight_validates_source_and_normalization_before_saved_outputs
     monkeypatch.setattr(execution, 'validate_execution', validation)
     monkeypatch.setattr(execution, 'get_object_store', lambda: SimpleNamespace(get_verified=verified))
     monkeypatch.setattr(normalization, 'verified_normalization', normalized)
-    monkeypatch.setattr(document, 'load_unit_result', result)
+    monkeypatch.setattr(execution, 'load_unit_result', result)
 
     with pytest.raises(DocumentProcessingError) as raised:
         await execution.preflight(values)
@@ -158,14 +157,14 @@ async def test_preflight_failure_or_cancellation_drains_workers(monkeypatch, sta
             assert stage == 'artifact', 'Result failure must prevent artifact reads'
             await check(reference.objectKey)
 
-    async def load_result(item, _):
+    async def load_result(item, _, _store):
         if stage == 'result':
             await check(item['resultRef']['objectKey'])
 
     monkeypatch.setattr(execution, 'validate_execution', Mock())
     monkeypatch.setattr(execution, 'get_object_store', lambda: SimpleNamespace(get_verified=verified))
     monkeypatch.setattr(normalization, 'verified_normalization', AsyncMock())
-    monkeypatch.setattr(document, 'load_unit_result', load_result)
+    monkeypatch.setattr(execution, 'load_unit_result', load_result)
     monkeypatch.setattr(capacity, 'load', lambda: SimpleNamespace(storage_concurrency=2))
 
     task = asyncio.create_task(execution.preflight(values))

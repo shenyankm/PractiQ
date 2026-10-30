@@ -68,6 +68,8 @@ CPU-bound question merging runs in a worker thread so it does not monopolize the
 
 `retry_failed` may omit `units` or send `[]` to retry all eligible units. It may also select units, for example `[{"stage":"vision_parse","index":1}]`. Indexes are zero-based; stage is `vision_parse`, `vision_describe`, or `document_parse`. Each unit allows at most two additional retry rounds, with the remainder in `retriesRemaining`. Successful units are reused. Follow `allowedActions` for exhausted retries, input limits, preparation failures, repeated truncation, and other non-retryable errors. Ordinary resume does not retry already completed PARTIAL units.
 
+API admission and graph execution share the pure retry-selection policy; only graph nodes update retry rounds and checkpoints. Saved unit results use a shared strict schema and checksum-verified reader independent of graph execution. Reading saved units preserves historical inline records and review metadata, and starts no model work. These modules are included in the conservative execution signature; deploying this refactor still requires the original version to resume older tasks.
+
 ## Human review
 
 The default is `failurePolicy="return_partial"`. With `"review"`, stage failures or source-quality issues trigger an `interrupt`. Source issues include `SOURCE_TEXT_NOT_FOUND`, `AMBIGUOUS_OVERLAP`, and `OVERLAP_CONFLICT`.

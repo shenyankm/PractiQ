@@ -167,7 +167,7 @@ async def saved_checkpoint(monkeypatch, tmp_path):
                            store=SimpleNamespace(asearch=AsyncMock(return_value=[]))))
     service.snapshot = AsyncMock(wraps=partial(runtime.Service.snapshot, cast(runtime.Service, service)))
     monkeypatch.setattr(task_api, 'client', lambda: service)
-    for owner in (webapp, document_graph):
+    for owner in (webapp, document_graph, task_api):
         monkeypatch.setattr(owner, 'get_object_store', lambda: store)
     detail = AsyncMock(wraps=task_api.get_task)
     review = AsyncMock(wraps=task_api.review_task)

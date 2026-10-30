@@ -109,7 +109,7 @@ async def test_preview_reads_are_bounded_concurrent_and_keep_unit_order(monkeypa
     entered = asyncio.Event()
     release = asyncio.Event()
     active = peak = 0
-    async def read(item, _source_sha256):
+    async def read(item, _source_sha256, _store):
         nonlocal active, peak
         active += 1
         peak = max(peak, active)
@@ -138,7 +138,7 @@ async def test_preview_failure_or_cancellation_joins_pending_reads(monkeypatch, 
     tid, model = await saved_units(monkeypatch, 2)
     entered = asyncio.Event()
     cancelled = asyncio.Event()
-    async def read(item, _source_sha256):
+    async def read(item, _source_sha256, _store):
         if item['index'] == 0:
             await asyncio.wait_for(entered.wait(), 1)
             if outcome == 'failure':

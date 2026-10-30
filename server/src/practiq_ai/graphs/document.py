@@ -47,7 +47,6 @@ from practiq_ai.contracts import (
     DocumentVisual,
     ExportQuality,
     ModelCallUsage,
-    ParsedGroup,
     ParsedQuestion,
     QualityIssue,
     RetryUnits,
@@ -57,7 +56,6 @@ from practiq_ai.contracts import (
     VisualElement,
     VisualKind,
     answer_source_conflict,
-    question_missing_fields,
     validate_question_tree,
 )
 from practiq_ai.errors import DocumentProcessingError
@@ -99,6 +97,7 @@ from practiq_ai.llm import (
     structured_call,
 )
 from practiq_ai.normalization import normalize_source
+from practiq_ai.retry_policy import RETRYABLE_CODES, selected_retry_units, unit_failures
 from practiq_ai.storage import ObjectStore, get_object_store
 from practiq_ai.temporary import LIMIT, preparation
 from practiq_ai.tencent import parse_job, submission_limit, validate_result
@@ -107,6 +106,10 @@ from practiq_ai.tencent_bundle import (
     evidence_text,
     open_bundle,
     read_bundle_image,
+)
+from practiq_ai.unit_results import (
+    UnitParseResult,
+    load_unit_result,
 )
 
 SYSTEM_PROMPT = """Extract assessment questions faithfully from the supplied fragment.
@@ -394,69 +397,13 @@ def _passage_punctuation_matches_source(question: ParsedQuestion) -> bool:
     return re.sub(r"\s+", "", printed) == re.sub(r"\s+", "", draft)
 
 
-def _rendered_strings(value: Any) -> list[str]:
-    if isinstance(value, str):
-        return [value]
-    if isinstance(value, dict):
-        value = list(value.values())
-    return [text for item in value for text in _rendered_strings(item)] if isinstance(value, list) else []
-
-
-def discard_model_audio(questions: list[ParsedQuestion]) -> None:
-    # Import tasks never create audio artifacts; portable bank contracts still support them.
-    for question in questions:
-        if question.audioRef is not None:
-            question.audioRef = None
-            question.needsReview = True
-            question.missingFields = question_missing_fields(question.model_dump())
-
-
-class ChunkParseResult(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    questions: list[ParsedQuestion] = Field(default_factory=list, max_length=1_000)
-    groups: list[ParsedGroup] = Field(default_factory=list, max_length=1_000)
-
-    @model_validator(mode="before")
-    @classmethod
-    def derive_review_labels(cls, value):
-        # These flags are computed from validated fields, not source content. A model
-        # naming an optional metadata field must not discard otherwise valid questions.
-        if not isinstance(value, dict):
-            return value
-        value = deepcopy(value)
-        if not isinstance(value.get("questions"), list):
-            return value
-        for question in value["questions"]:
-            if not isinstance(question, dict):
-                continue
-            mode = question.get("answerMode")
-            if mode in {"choice", "true_false", "fill_blank", "short_answer", "ordering", "matching", *COMPOSITE_MODES}:
-                derived = []
-                if mode != "fill_blank":
-                    derived.append("blankCount")
-                if mode not in {"choice", "word_bank"} and not question.get("options"):
-                    derived.append("choiceVariant")
-                for field in derived:
-                    if question.get(field) is not None:
-                        question[field] = None
-                        question["needsReview"] = True
-            flags = question.get("missingFields")
-            if isinstance(flags, list) and all(isinstance(flag, str) for flag in flags):
-                question["missingFields"] = [flag for flag in flags if flag in {"media", "material"}]
-                if flags:
-                    question["needsReview"] = True
-        return value
-
+class ChunkParseResult(UnitParseResult):
     @model_validator(mode="after")
     def validate_group_indexes(self) -> Self:
-        discard_model_audio(self.questions)
         violations: list[str] = []
         expected = EXPECTED_NODE_COUNT.get()
         if expected is not None and len(self.questions) != expected:
             violations.append(f"Expected exactly {expected} questions for the validated source records, including parent records; received {len(self.questions)}")
-        ids = [question.id for question in self.questions if question.id is not None]
-        if len(ids) != len(set(ids)):
-            violations.append("question IDs must be unique within this response")
         presence = EXPECTED_SOURCE_PRESENCE.get()
         if presence is not None:
             if {question.id for question in self.questions} != presence.keys():
@@ -479,19 +426,9 @@ class ChunkParseResult(BaseModel):
                     violations.append(f"Source record {question.id} requires extracted answerPayload; preserve the supplied reference answer")
                 if answer_source := hints.get('answer_source'):
                     question.sourceText = answer_source
-        for question in self.questions:
-            if answer_source_conflict(question.model_dump(mode='json')):
-                question.needsReview = True
+        self.validate_structure()
         if violations:
             raise ValueError('; '.join(violations))
-        if any(
-            index < 0 or index >= len(self.questions)
-            for group in self.groups
-            for index in group.questionIndexes
-        ):
-            raise ValueError(f"questionIndexes must reference a fragment question: use 0 <= index < {len(self.questions)}. "
-                             "Recalculate each group's offsets from the final questions array, including parent records; "
-                             "do not add or remove questions to fit the indexes")
         by_id = {q.id: q for q in self.questions if q.id}
         unit = CURRENT_UNIT.get()
         if unit and unit.startswith("vision_parse:"):
@@ -593,24 +530,9 @@ class ChunkParseResult(BaseModel):
                 if (len(children) == len(hints) == 1 and sum(q.answerMode == "gap_fill" for q in self.questions) == 1
                         and (question.stem != next(iter(hints)) or question.blankCount != 1)):
                     violations.append("The single grammar blank has its own numbered Hint: line: use that exact hint as the child stem, blankCount=1; keep the shared sentence only on the parent")
-            if parent is not None and parent.answerMode not in COMPOSITE_MODES:
-                raise ValueError("parentId must reference a composite question; standalone questions have parentId=null")
             owner = by_id.get(question.optionSourceId or "")
             if CURRENT_UNIT.get() is not None and owner is not None and (owner.answerMode != "word_bank" or question.parentId != owner.id):
                 raise ValueError("optionSourceId must reference the parent word bank")
-            if question.answerMode != "listening":
-                formulas = [formula for formula in re.findall(r"(?<!\\)\${1,2}([^$]+?)\${1,2}", question.sourceText or "")
-                            if any(marker in formula for marker in (r"\begin{", r"\int", r"\sum"))]
-                rendered = " ".join(_rendered_strings(question.model_dump(include={"stem", "instructions", "analysis", "scoringRubric", "answerPayload", "options", "items", "passage", "contentBlocks", "transcript"})))
-                normalize = lambda text: re.sub(r"\s+|\\(?:quad|,)|[&]", "", text).replace(r"\geq", r"\ge").replace(r"\leq", r"\le")
-                normalized_rendered = normalize(rendered) if formulas else ""
-                for formula in formulas:
-                    if normalize(formula) not in normalized_rendered:
-                        question.needsReview = True
-                        question.missingFields = list(dict.fromkeys([*question.missingFields, "material"]))
-            # A review heuristic for new model output, not calibrated accuracy.
-            if question.confidence < 0.5:
-                question.needsReview = True
         if violations:
             raise ValueError('; '.join(violations))
         references = {reference for question in self.questions
@@ -1727,31 +1649,11 @@ def _scope_sheet_ids(result: ChunkParseResult, source_index: int) -> None:
             block.questionId = scoped(block.questionId)
 
 
-async def load_unit_result(item: dict[str, Any], source_sha256: str) -> dict[str, Any]:
-    if not item.get("resultRef") or item.get("parsed") is None:
-        return item  # Existing checkpoints keep their inline unit records.
-    store = await asyncio.to_thread(get_object_store)
-    try:
-        reference = ArtifactReference.model_validate(item["resultRef"])
-        if not reference.objectKey.startswith(f"practiq-agent/artifacts/{source_sha256}/unit-result/{item['index']}-") or reference.mediaType != "application/json":
-            raise DocumentProcessingError(409, "Unit result reference is invalid", "UNIT_RESULT_INVALID")
-        raw = await store.get_verified(reference)
-
-        def decode() -> dict[str, Any]:
-            payload = json.loads(raw)
-            parsed = ChunkParseResult.model_validate(payload["parsed"]).model_dump(mode="json")
-            visuals = [VisualElement.model_validate(value).model_dump(mode="json") for value in payload.get("visuals", [])]
-            return {**item, "parsed": parsed, "visuals": visuals, "agentReview": payload.get("agentReview", item.get("agentReview"))}
-
-        return await _thread_io(decode)
-    except (ValueError, KeyError, TypeError) as exc:
-        raise DocumentProcessingError(409, "Stored unit result is invalid", "UNIT_RESULT_INVALID") from exc
-
-
 async def _merge(state: DocumentState, *, passive: bool = False) -> dict[str, Any]:
     checkpoint_state = state
     source_sha256 = state["document"]["sha256"]
-    state = cast(DocumentState, {**state, **{key: await bounded_map(state.get(key, []), lambda item: load_unit_result(item, source_sha256))
+    store = await asyncio.to_thread(get_object_store)
+    state = cast(DocumentState, {**state, **{key: await bounded_map(state.get(key, []), lambda item: load_unit_result(item, source_sha256, store))
                                            for key in ("visionResults", "chunkResults")}})
     pages = bool(state.get("pageRefs"))
     ordered = sorted(
@@ -2036,36 +1938,9 @@ async def completed_result(state: DocumentState) -> dict[str, Any]:
     return {'result': result, 'processing': update['processing'], 'status': 'PARTIAL'}
 
 
-MAX_UNIT_RETRIES = 2
-RETRYABLE_CODES = {"OUTPUT_INVALID", "OUTPUT_STALLED", "AI_PROVIDER_UNAVAILABLE", "AI_PROVIDER_AUTH_ERROR"}
-
-
-def unit_failures(state: dict[str, Any]) -> list[dict[str, Any]]:
-    failures = [{k: v for k, v in item.items() if k != "round"} for item in state.get("failures", [])]
-    failures.extend({"stage": "document_parse", "index": item["index"],
-                     "code": item.get("failureCode") or "OUTPUT_INVALID", "retryable": True}
-                    for item in state.get("chunkResults", []) if item.get("parsed") is None)
-    failures.extend(item for item in state.get("processing", {}).get("failures", []) if item["stage"] == "visual_crop")
-    result = []
-    for item in failures:
-        key = f"{item['stage']}:{item['index']}"
-        remaining = max(0, MAX_UNIT_RETRIES - state.get("retryCounts", {}).get(key, 0)) if item["code"] in RETRYABLE_CODES else 0
-        result.append({**item, "retryable": remaining > 0, "retriesRemaining": remaining})
-    return result
-
-
 def _retry_update(state: DocumentState, request: RetryUnits) -> dict[str, Any]:
     request_id = str(request.requestId)
-    if request_id in state.get("appliedRetries", []):
-        raise DocumentProcessingError(409, "Retry already applied", "CONTROL_ALREADY_EXECUTED")
-    failures = unit_failures(dict(state))
-    exhausted = {(item["stage"], item["index"]) for item in failures if item["code"] in RETRYABLE_CODES and not item["retriesRemaining"]}
-    if any((item.stage, item.index) in exhausted for item in request.units):
-        raise DocumentProcessingError(409, "Failed unit retry limit exceeded", "RETRY_LIMIT_EXCEEDED")
-    eligible = {(item["stage"], item["index"]) for item in failures if item["retryable"]}
-    selected = {(item.stage, item.index) for item in request.units} if request.units else eligible
-    if not selected or not selected <= eligible:
-        raise DocumentProcessingError(409, "Select existing retryable failures", "INVALID_RETRY_UNITS")
+    selected = selected_retry_units(state, request)
     vision_changed = any(stage.startswith("vision_") for stage, _ in selected)
     return {
         "retry": None,
