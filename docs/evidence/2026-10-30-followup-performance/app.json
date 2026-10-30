@@ -1,0 +1,32 @@
+{
+  "baseline": "dc5023e59947cbc219f00df6c867339a488ec863",
+  "scope": "React development/JSDOM Profiler actual render durations for clearing and typing sixteen characters; one warmup and seven measured sequences per workload. Native/API substitutes, no browser, WebView or production input-latency measurement.",
+  "probeSha256": "63d5e4c738c7b4c0f178b091769fff8b928e7cf99dd7c1825e9fecb676aa60e4",
+  "lockSha256": "c32d5e72279173d3c0d10a70532e00b856f01a8da08783f28a5f6899e2c235e8",
+  "workloads": [
+    {
+      "questions": 20,
+      "outputSha256": "6016ee2dc66a5b34f88fc2d4aa224dd91f6f945c321015416fbbf58f7fea6b95",
+      "before": {
+        "medianMs": 8.751475000000596,
+        "noncurrentAnswerReadsPerSequence": 323
+      },
+      "after": {
+        "medianMs": 8.637235000000487,
+        "noncurrentAnswerReadsPerSequence": 0
+      }
+    },
+    {
+      "questions": 1000,
+      "outputSha256": "feb2d5c00cc2e7f4e87ab426c38fc9bba311db627618e5a204a6a4786ac28873",
+      "before": {
+        "medianMs": 10.404209000000492,
+        "noncurrentAnswerReadsPerSequence": 16983
+      },
+      "after": {
+        "medianMs": 8.099168000001328,
+        "noncurrentAnswerReadsPerSequence": 0
+      }
+    }
+  ]
+}

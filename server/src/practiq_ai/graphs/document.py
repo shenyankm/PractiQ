@@ -20,7 +20,14 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.runtime import Runtime
 from langgraph.types import Overwrite, Send, interrupt
-from pydantic import BaseModel, ConfigDict, Field, StrictInt, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    PrivateAttr,
+    StrictInt,
+    model_validator,
+)
 
 from practiq_ai import telemetry
 from practiq_ai.capacity import bounded_map
@@ -738,6 +745,7 @@ class OcrFigureAssociation(BaseModel):
 
 class OcrPageParseResult(ChunkParseResult):
     figures: list[OcrFigureAssociation] = Field(default_factory=list, max_length=1_000)
+    _validated_page: PageParseResult = PrivateAttr()
 
     def page_result(self) -> PageParseResult:
         source_figures = {item["elementIndex"]: item for item in OCR_FIGURES.get() or []}
@@ -751,7 +759,7 @@ class OcrPageParseResult(ChunkParseResult):
 
     @model_validator(mode="after")
     def validate_associations(self) -> Self:
-        self.page_result()
+        self._validated_page = self.page_result()
         return self
 
 
@@ -1291,18 +1299,21 @@ async def _vision(state: VisionTask, runtime: Runtime[None]) -> dict[str, list[d
         parsed, usage, failure = await structured_call(model, messages, OcrPageParseResult, "vision_parse", runtime=runtime)
         if parsed is None:
             return _unit_failure("vision_parse", state["index"], failure or "OUTPUT_INVALID", usage)
+        # Consume the validated projection; do not mutate and revalidate the OCR response.
+        page = parsed._validated_page
         context = []
-        for neighbor in state.get("neighbors", []):
+        neighbors = state.get("neighbors", []) if parsed.questions and all(q.id is not None for q in parsed.questions) else []
+        for neighbor in neighbors:
             if neighbor["index"] == state["index"] or not neighbor.get("ocrArtifact"):
                 continue
             evidence = json.loads(await store.get_verified(ArtifactReference.model_validate(neighbor["ocrArtifact"])))
             context.append(_ocr_model_evidence(evidence, neighbor["index"]))
-        if context and parsed.questions and all(q.id is not None for q in parsed.questions):
+        if context:
             context_indexes = sorted({state["index"], *(neighbor["index"] for neighbor in state.get("neighbors", []))})
             telemetry.event("page_context", primaryPage=state["index"], contextPages=context_indexes,
                             sourceLinkedPages=[index for index in context_indexes if not state["index"] - 2 <= index <= state["index"] + 1],
                             unitKey=state.get("unitKey"))
-            context_token = PRIMARY_PAGE.set(parsed.page_result())
+            context_token = PRIMARY_PAGE.set(page)
             try:
                 context_message = HumanMessage(content=(
                     "Complete the PRIMARY draft using CONTEXT ONLY pages for existing material and printed answers. "
@@ -1319,13 +1330,13 @@ async def _vision(state: VisionTask, runtime: Runtime[None]) -> dict[str, list[d
                     if failure != "MODEL_INPUT_TOO_LARGE":
                         return _unit_failure("vision_parse", state["index"], failure or "OUTPUT_INVALID", usage)
                     context_skipped = True
-                    for question in parsed.questions:
+                    for question in page.questions:
                         question.needsReview = True
                 else:
                     parsed = enriched
+                    page = enriched._validated_page
             finally:
                 PRIMARY_PAGE.reset(context_token)
-        page = parsed.page_result()
         if state.get("splitSource") or state.get("contextIncomplete"):
             for question in page.questions:
                 question.needsReview = True

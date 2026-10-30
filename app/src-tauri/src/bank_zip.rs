@@ -83,8 +83,15 @@ fn verify_resource(reference: &Value, bytes: &[u8]) -> Result<Option<f64>> {
     {
         return Err(invalid());
     }
-    let media = text(reference, "mediaType");
-    crate::audio::media_duration(bytes, media).map_err(|_| invalid())
+    resource_duration(reference, bytes)
+}
+fn resource_duration(reference: &Value, bytes: &[u8]) -> Result<Option<f64>> {
+    crate::audio::media_duration(bytes, text(reference, "mediaType")).map_err(|_| {
+        error(format!(
+            "Invalid or missing resource: {}",
+            text(reference, "objectKey")
+        ))
+    })
 }
 pub fn filename(title: &str) -> String {
     let clean: String = title
@@ -318,7 +325,8 @@ impl Store {
                             text(&reference, "objectKey")
                         ))
                     })?;
-                let _ = verify_resource(&reference, &data)?;
+                // read_asset already verifies the size and SHA-256 of these owned bytes.
+                let _ = resource_duration(&reference, &data)?;
                 total += data.len();
                 if total > IMAGE_LIMIT {
                     return Err(error("Resources exceed 256 MiB"));
@@ -345,6 +353,109 @@ impl Store {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn export_rejects_changed_size_hash_and_invalid_media_without_publication() {
+        for case in ["size", "hash", "media"] {
+            let (dir, store, bank) = sample_store();
+            let db = store.connect().unwrap();
+            let (id, content): (String, String) = db
+                .query_row("SELECT id,content FROM visuals LIMIT 1", [], |r| {
+                    Ok((r.get(0)?, r.get(1)?))
+                })
+                .unwrap();
+            let mut visual: Value = serde_json::from_str(&content).unwrap();
+            let reference = &mut visual["imageRef"];
+            let path = store.asset_path(text(reference, "sha256")).unwrap();
+            if case == "size" {
+                reference["sizeBytes"] = json!(reference["sizeBytes"].as_u64().unwrap() + 1);
+            } else if case == "hash" {
+                let mut data = fs::read(&path).unwrap();
+                data.push(0);
+                assert!(store::valid_image(&data, text(reference, "mediaType")));
+                reference["sizeBytes"] = json!(data.len());
+                fs::write(&path, data).unwrap();
+            } else {
+                let data = b"not an image";
+                let digest = store::hash(data);
+                store.write_asset(&digest, data).unwrap();
+                reference["sha256"] = json!(digest);
+                reference["sizeBytes"] = json!(data.len());
+            }
+            db.execute(
+                "UPDATE visuals SET content=?1 WHERE id=?2",
+                rusqlite::params![visual.to_string(), id],
+            )
+            .unwrap();
+            let destination = dir.path().join("rejected.zip");
+            assert_eq!(
+                store.export_bank(&bank, &destination).unwrap_err().code,
+                "LOCAL_BANK_ZIP_INVALID",
+                "{case}"
+            );
+            assert!(!destination.exists(), "{case}");
+            assert!(path.exists(), "{case}");
+        }
+    }
+
+    #[test]
+    #[ignore = "resource export read/verify benchmark; synthetic temporary assets, release only"]
+    fn resource_export_read_benchmark() {
+        use std::{hint::black_box, time::Instant};
+        let mut workloads = Vec::new();
+        for side in [128, 2048] {
+            let mut rng = fastrand::Rng::with_seed(42);
+            let image = image::RgbImage::from_fn(side, side, |_, _| {
+                image::Rgb([rng.u8(..), rng.u8(..), rng.u8(..)])
+            });
+            let mut output = std::io::Cursor::new(Vec::new());
+            image
+                .write_to(&mut output, image::ImageFormat::Png)
+                .unwrap();
+            let bytes = output.into_inner();
+            let digest = store::hash(&bytes);
+            let reference = json!({"objectKey":"synthetic.png","sha256":digest,"sizeBytes":bytes.len(),"mediaType":"image/png"});
+            let dir = tempfile::tempdir().unwrap();
+            let store = Store::new(dir.path().into()).unwrap();
+            store.write_asset(&digest, &bytes).unwrap();
+            let mut before = Vec::new();
+            let mut after = Vec::new();
+            for pair in 0..3 {
+                for optimized in if pair % 2 == 0 {
+                    [false, true]
+                } else {
+                    [true, false]
+                } {
+                    for iteration in 0..8 {
+                        let started = Instant::now();
+                        let data = store.read_asset(&digest, bytes.len() as u64).unwrap();
+                        let duration = if optimized {
+                            resource_duration(&reference, &data)
+                        } else {
+                            verify_resource(&reference, &data)
+                        }
+                        .unwrap();
+                        black_box(&data);
+                        let elapsed = started.elapsed().as_secs_f64() * 1000.0;
+                        assert_eq!(duration, None);
+                        assert_eq!(data, bytes);
+                        if iteration > 0 {
+                            if optimized { &mut after } else { &mut before }.push(elapsed);
+                        }
+                    }
+                }
+            }
+            workloads.push(json!({"side":side,"bytes":bytes.len(),"inputSha256":digest,"beforeMs":before,"afterMs":after}));
+        }
+        let report = json!({"platform":std::env::consts::OS,"architecture":std::env::consts::ARCH,
+            "sourceSha256":store::hash(include_bytes!("bank_zip.rs")),
+            "scope":"Local resource read, bounded size/hash verification and complete PNG validation; not full bank ZIP export. Three alternating process-local pairs, one warmup and seven samples per variant; OS cache warm, synthetic temporary assets only.","workloads":workloads});
+        fs::write(
+            std::env::var("PRACTIQ_RESOURCE_BENCH_OUTPUT").expect("output path"),
+            serde_json::to_vec_pretty(&report).unwrap(),
+        )
+        .unwrap();
+    }
+
     #[test]
     fn resource_format_errors_keep_the_bank_zip_error_code() {
         for media in ["image/png", "audio/aac"] {

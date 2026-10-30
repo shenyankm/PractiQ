@@ -1,0 +1,76 @@
+{
+  "node": "v22.23.2",
+  "probeSha256": "63d5e4c738c7b4c0f178b091769fff8b928e7cf99dd7c1825e9fecb676aa60e4",
+  "sourceSha256": "ee583bb80969f264ce20adea076003ea965b6c9afa53730a737e3670ff5e0679",
+  "scope": "React development/JSDOM Profiler actual render durations for clearing and typing sixteen characters; one warmup and seven measured sequences per workload. Native/API substitutes, no browser, WebView or production input-latency measurement.",
+  "workloads": [
+    {
+      "questions": 20,
+      "samples": [
+        {
+          "renderMs": 8.503073000000768,
+          "noncurrentAnswerReads": 323
+        },
+        {
+          "renderMs": 8.751475000000596,
+          "noncurrentAnswerReads": 323
+        },
+        {
+          "renderMs": 9.4224169999992,
+          "noncurrentAnswerReads": 323
+        },
+        {
+          "renderMs": 8.975706999997783,
+          "noncurrentAnswerReads": 323
+        },
+        {
+          "renderMs": 10.548226000000454,
+          "noncurrentAnswerReads": 323
+        },
+        {
+          "renderMs": 8.517869000000701,
+          "noncurrentAnswerReads": 323
+        },
+        {
+          "renderMs": 9.44997599999931,
+          "noncurrentAnswerReads": 323
+        }
+      ],
+      "outputSha256": "6016ee2dc66a5b34f88fc2d4aa224dd91f6f945c321015416fbbf58f7fea6b95"
+    },
+    {
+      "questions": 1000,
+      "samples": [
+        {
+          "renderMs": 11.428636000000324,
+          "noncurrentAnswerReads": 16983
+        },
+        {
+          "renderMs": 10.856104999999616,
+          "noncurrentAnswerReads": 16983
+        },
+        {
+          "renderMs": 11.88034699999946,
+          "noncurrentAnswerReads": 16983
+        },
+        {
+          "renderMs": 11.333414999999718,
+          "noncurrentAnswerReads": 16983
+        },
+        {
+          "renderMs": 5.3380499999997255,
+          "noncurrentAnswerReads": 16983
+        },
+        {
+          "renderMs": 4.216804000001048,
+          "noncurrentAnswerReads": 16983
+        },
+        {
+          "renderMs": 4.544502000000648,
+          "noncurrentAnswerReads": 16983
+        }
+      ],
+      "outputSha256": "feb2d5c00cc2e7f4e87ab426c38fc9bba311db627618e5a204a6a4786ac28873"
+    }
+  ]
+}

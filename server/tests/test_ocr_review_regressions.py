@@ -127,14 +127,15 @@ async def test_model_evidence_preserves_tables_and_figure_identity_in_primary_an
             context_text = messages[-1].content.split('\nCONTEXT:\n')[1].split('\nPRIMARY DRAFT:\n')[0]
             assert json.loads(context_text) == [{**expected, 'page': 2}, {'page': 3, 'failed': True}]
             assert context_text == json.dumps(json.loads(context_text), ensure_ascii=False, separators=(',', ':'))
-        return schema.model_validate(reply), [], None
+        response = {**reply, 'figures': list(reversed(reply['figures']))} if len(calls) == 2 else reply
+        return schema.model_validate(response), [], None
 
     monkeypatch.setattr(document, 'structured_call', call)
     result = await document._vision(state, Runtime(store=MemoryStore()))
     assert len(calls) == 2 and not result['failures']
     assert files.blobs == stored
     visuals = result['visionResults'][0]['visuals']
-    for visual, figure in zip(visuals, reversed(primary['figures']), strict=True):
+    for visual, figure in zip(visuals, primary['figures'], strict=True):
         assert visual['imageRef'] == figure['imageRef']
         assert visual['bbox'] == figure['bbox']
         assert visual.get('cropBbox') == figure.get('cropBbox')

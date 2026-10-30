@@ -1,5 +1,25 @@
 # Service I/O work bounds
 
+## OCR context and validated projections (October 30 follow-up)
+
+`_vision` checks whether PRIMARY has questions with stable IDs before opening
+neighbor OCR artifacts. Empty/answer-only pages and drafts without IDs cannot
+use context enrichment, so they read only PRIMARY. Eligible context still uses
+the same ordered, size/hash-verified reads and model calls.
+
+Each `OcrPageParseResult` validates its fixed Tencent figure associations and
+creates one private `PageParseResult` projection. `_vision` consumes that
+projection without mutating the OCR response. Context enrichment validates a new
+response and preserves PRIMARY independently. Oversized context marks the
+validated PRIMARY questions for review. Explicit `page_result()` calls still
+revalidate; this is not a cross-request cache or validation bypass.
+
+See the [follow-up acceptance report](../../docs/history/performance/followup-20261030.md)
+for output-equivalence checks, work counts and local timing limits. Parser-source
+changes alter the conservative execution signature: drain unfinished imports on
+their original deployment, or retain it for explicit recovery. Never rewrite
+saved signatures; see [resume compatibility](resume-compatibility.md).
+
 ## Validated HTTP read models (October 30)
 
 Detail and preview routes retain validated Pydantic models through the HTTP
