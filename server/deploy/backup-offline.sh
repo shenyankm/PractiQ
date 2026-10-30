@@ -29,7 +29,7 @@ ai_running=$(docker inspect --format '{{.State.Running}}' "$container")
 finish() {
     status=$?
     trap - EXIT HUP INT TERM
-    if test "$ai_running" = true; then compose start ai || status=1; fi
+    if test "$ai_running" = true; then compose start --wait --wait-timeout 90 ai || status=1; fi
     if test "$status" -ne 0; then
         "$PRACTIQ_BACKUP_PYTHON" -c 'import sys; from pathlib import Path; from scripts.service_backup import metrics; metrics(Path(sys.argv[1]), success=False)' "$PRACTIQ_BACKUP_METRICS" || status=1
     fi
