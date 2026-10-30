@@ -33,10 +33,16 @@ def _replacement(path: Path, reference: DocumentReference) -> bytes:
 
 
 def _repair(store: ObjectStore, reference: DocumentReference, payload: bytes, thread_id: str) -> tuple[str, dict[str, Any]]:
+    original = store._path(reference.objectKey)
+    if os.name == 'posix':
+        owner = original
+        while owner != store.root and not owner.exists():
+            owner = owner.parent
+        if os.geteuid() != owner.stat().st_uid:
+            raise PermissionError('Run source repair as the original service/file owner; repair never changes ownership')
     key = f'.quarantine/source-repair/{uuid4()}'
     for directory in ('.quarantine', '.quarantine/source-repair', key):
         store._path(directory).mkdir(mode=0o700, exist_ok=True)
-    original = store._path(reference.objectKey)
     preserved = None
     try:
         descriptor = os.open(original, os.O_RDONLY | getattr(os, 'O_NOFOLLOW', 0) | getattr(os, 'O_NONBLOCK', 0))

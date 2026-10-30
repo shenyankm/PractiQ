@@ -147,7 +147,14 @@ stop every service and maintenance writer, retain matching database/files
 backups, and use the original deployment configuration and absolute storage
 root. Set `AI_MAINTENANCE_MODE=true`; both commands acquire the AI and legacy
 checkout ownership locks and verify the service schema before accessing a
-retained task. Replace the example UUID with that task's ID:
+retained task. On POSIX, run repair as the existing source file's owner. For a
+missing source, use the owner of its nearest existing managed parent directory.
+The Compose service normally writes as UID 10001; running repair as root would
+otherwise publish a root-owned private file that the service cannot read.
+Repair rejects a different effective UID before creating quarantine evidence and
+never changes ownership. Supply the matching private environment through the
+trusted operator mechanism for that identity. Read-only verification may run as
+another identity with read access. Replace the example UUID with that task's ID:
 
 ```sh
 cd server

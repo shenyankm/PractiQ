@@ -1,6 +1,7 @@
 """Offline source repair uses retained references and preserves damaged evidence."""
 
 import json
+import os
 import sys
 from contextlib import asynccontextmanager
 from types import SimpleNamespace
@@ -84,6 +85,35 @@ async def test_repair_preserves_bad_source_and_reference_before_replacing(repair
     assert case.reference.model_dump(mode='json') == original_reference
     assert (await source_repair.source_operation(case.db, case.thread_id, case.replacement))['status'] == 'verified'
     assert len(list(quarantine.parent.iterdir())) == 1
+
+
+@pytest.mark.skipif(os.name != 'posix', reason='POSIX file ownership boundary')
+@pytest.mark.parametrize('missing', [False, True])
+async def test_repair_refuses_a_different_file_owner_before_preserving_or_writing(repair_case, monkeypatch, missing):
+    case = repair_case
+    if missing:
+        case.source.unlink()
+        case.source.parent.rmdir()
+        owner = case.source.parent.parent
+    else:
+        case.source.write_bytes(b'oops')
+        owner = case.source
+    monkeypatch.setattr(source_repair.os, 'geteuid', lambda: owner.stat().st_uid + 1)
+    with pytest.raises(PermissionError, match='original service/file owner'):
+        await source_repair.source_operation(case.db, case.thread_id, case.replacement)
+    assert not (case.store.root / '.quarantine').exists()
+    assert not case.source.exists() if missing else case.source.read_bytes() == b'oops'
+    assert case.locks == ['acquired', 'released']
+
+
+@pytest.mark.skipif(os.name != 'posix', reason='POSIX file ownership boundary')
+async def test_read_only_verification_allows_another_permitted_identity(repair_case, monkeypatch):
+    case = repair_case
+    case.source.write_bytes(b'oops')
+    monkeypatch.setattr(source_repair.os, 'geteuid', lambda: case.source.stat().st_uid + 1)
+    result = await source_repair.source_operation(case.db, case.thread_id)
+    assert result['status'] == 'corrupt' and case.source.read_bytes() == b'oops'
+    assert not (case.store.root / '.quarantine').exists()
 
 
 @pytest.mark.parametrize('invalid', ['size', 'checksum', 'symlink', 'directory'])
