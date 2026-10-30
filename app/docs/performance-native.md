@@ -277,6 +277,23 @@ the historical parser. Neither probe measures ZIP I/O, complete restore, IPC,
 WebView or device latency. Use release builds for latency interpretation;
 unoptimized runs establish synthetic correctness/scaling evidence only.
 
+## Exam statistics and resource export (October 30 follow-up)
+
+`ExamResults` memoizes saved whole-session aggregates by attempts, practice/exam
+mode and submission state. Editing the manual score/reason no longer scans all
+other answers. Native/API updates replace attempts and refresh scores, pending
+AI eligibility, skipped counts and retry availability; the current question,
+draft, errors and grading actions remain live. Unsubmitted sessions do not scan
+attempts for result statistics.
+
+Bank ZIP export reuses `read_asset`'s bounded size/SHA-256 verification of owned
+bytes, then validates the complete media format/duration. External ZIP import
+still performs full size/hash/media verification. Damaged resources fail before
+publication, and existing output files remain protected.
+
+The [follow-up acceptance report](../../docs/history/performance/followup-20261030.md)
+records component and resource-read measurements, equivalence checks and limits.
+
 ## Limits
 
 No allocator/RSS measurement, Windows/Android device measurement, real-user workload or full application verification is included here. Shared-host timing varies; use the work-count/allocation regressions and equivalence assertions as the stable evidence. Combined application/service verification and independent review remain separate gates.

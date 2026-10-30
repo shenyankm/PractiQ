@@ -1,0 +1,62 @@
+{
+  "environment": {
+    "cpu": "Apple M4",
+    "platform": "macOS arm64",
+    "python": "3.14.7",
+    "node": "22.23.2",
+    "rust": "1.98.1"
+  },
+  "service": {
+    "command": "make verify (AI_PYTHON selects existing Python 3.14.7)",
+    "exitCode": 0,
+    "testsPassed": 3496,
+    "aggregateCoveragePercent": 93,
+    "probeMetrics": {
+      "recoverySuccessRate": 100.0,
+      "correctStopRate": 100.0,
+      "routingPassRate": 100.0,
+      "unknownUsagePassRate": 100.0
+    },
+    "packageBuildAndIntegrity": "passed"
+  },
+  "app": {
+    "command": "make app-check (same AI_PYTHON)",
+    "exitCode": 0,
+    "frontendPassed": 503,
+    "frontendSkipped": 6,
+    "nativePassed": 248,
+    "nativeIgnored": 23,
+    "formatAndClippy": "passed"
+  },
+  "uiCoverage": {
+    "command": "npm --prefix app run check:ui",
+    "exitCode": 0,
+    "testsPassed": 503,
+    "lineCoveragePercent": 93.79,
+    "branchCoveragePercent": 86.03
+  },
+  "browser": {
+    "command": "npm --prefix app run test:browser -- --retries=1",
+    "exitCode": 0,
+    "passed": 150,
+    "retriesUsed": 0
+  },
+  "finalNativeFixture": {
+    "change": "Strengthen hash-only tampering to keep valid media and matching size",
+    "focusedTestPassed": 1,
+    "allTargetClippy": "passed",
+    "productionCodeChanged": false
+  },
+  "initialAttempts": [
+    "Concurrent front-end test runs hit timeouts and were interrupted; serial UI checks passed unchanged.",
+    "The first service suite had 3495 passes and one backup scheduler subprocess timeout at 10 seconds. The six-case group and subsequent complete serial make verify passed unchanged.",
+    "Two browser suites each had 149 passes and one navigation timeout in different unchanged editor/filter tests. The isolated final suite passed all 150 without using retries.",
+    "An opt-in native probe constant assertion failed Clippy and was removed before the final complete App check."
+  ],
+  "notRun": [
+    "Live/paid model evaluation",
+    "Real native WebView, microphone/speaker or physical-device acceptance",
+    "Native installer/package verification (packaging unchanged)",
+    "Separate Web checks (Web code/shared contracts unchanged)"
+  ]
+}
