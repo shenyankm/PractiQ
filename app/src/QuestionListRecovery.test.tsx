@@ -144,3 +144,28 @@ it.each(["错题本", "收藏夹"])("distinguishes filtered emptiness from an em
   await screen.findByText("没有符合筛选的题目");
   expect(screen.queryByText(label === "错题本" ? "暂时没有错题" : "还没有收藏题目")).toBeNull();
 });
+
+it("closes compact filters when navigating to the current question-list page again", async () => {
+  const original = window.matchMedia;
+  const media = vi.spyOn(window, "matchMedia").mockImplementation(query => ({
+    ...original(query), matches: query === "(max-width: 767px)" || query === "(max-width: 1023px)",
+  }));
+  try {
+    setup(async () => ({ items: [row], total: 1, offset: 0 }));
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByRole("button", { name: "查看题目" });
+    await user.click(screen.getByRole("button", { name: "打开主导航" }));
+    await user.click(screen.getByRole("button", { name: "错题本" }));
+    await screen.findByText(row.question.stem!);
+    await user.click(screen.getByRole("button", { name: "筛选" }));
+    expect(screen.getByRole("button", { name: "筛选" }).getAttribute("aria-expanded")).toBe("true");
+    await user.click(screen.getByRole("button", { name: "打开主导航" }));
+    await user.click(screen.getByRole("button", { name: "错题本" }));
+    expect(screen.getByRole("button", { name: "筛选" }).getAttribute("aria-expanded")).toBe("false");
+    expect(screen.getByText(row.question.stem!)).toBeTruthy();
+  } finally {
+    cleanup();
+    media.mockRestore();
+  }
+});
