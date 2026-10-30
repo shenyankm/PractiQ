@@ -71,6 +71,11 @@ export function Practice(props: PracticeProps) {
     });
   }, [run, onSession, session.id, flushRef]);
   const unassessed = exam ? [] : session.attempts.filter(a => a.submittedAt != null && !a.skipped && a.result === null);
+  const finishCounts = useMemo(() => {
+    const submitted = session.attempts.filter(a => a.submittedAt != null).length;
+    const drafts = session.attempts.filter(a => a.submittedAt == null && hasAnswer(a.answer)).length;
+    return { 0: submitted, 1: drafts, 2: session.attempts.length - submitted - drafts };
+  }, [session.attempts]);
   function finish(submitDrafts: boolean) {
     run(async () => {
       setFinishing(true);
@@ -95,7 +100,7 @@ export function Practice(props: PracticeProps) {
         {!finished && <Button ref={finishButton} disabled={navigating} className="w-full" variant="outline" onClick={() => run(async () => { await flushRef.current(); onSession(await api({type:"session", id:session.id})); setConfirmFinish(true); })}>{exam ? t("交卷") : t("结束练习")}</Button>}
         <AlertDialog open={confirmFinish && !finished} onOpenChange={open => { if (!finishing) setConfirmFinish(open); }}>
           <AlertDialogContent className="sm:max-w-lg" onCloseAutoFocus={event => { event.preventDefault(); (reviewOnClose.current ? questionHeading : finishButton).current?.focus(); reviewOnClose.current = false; }}>
-            <AlertDialogHeader><AlertDialogTitle>{exam ? t("确认交卷？") : t("结束本次练习？")}</AlertDialogTitle><AlertDialogDescription>{t("已提交 {0} 题；未提交草稿 {1} 题；空白 {2} 题。结束后不能修改答案。", { 0: session.attempts.filter(a => a.submittedAt != null).length, 1: session.attempts.filter(a => a.submittedAt == null && hasAnswer(a.answer)).length, 2: session.attempts.filter(a => a.submittedAt == null && !hasAnswer(a.answer)).length })}{unassessed.length > 0 && <span className="mt-2 block">{t("还有 {0} 题未自评。结束后仍可在练习记录中核对并补充自评。", {0:unassessed.length})}</span>}</AlertDialogDescription></AlertDialogHeader>
+            <AlertDialogHeader><AlertDialogTitle>{exam ? t("确认交卷？") : t("结束本次练习？")}</AlertDialogTitle><AlertDialogDescription>{t("已提交 {0} 题；未提交草稿 {1} 题；空白 {2} 题。结束后不能修改答案。", finishCounts)}{unassessed.length > 0 && <span className="mt-2 block">{t("还有 {0} 题未自评。结束后仍可在练习记录中核对并补充自评。", {0:unassessed.length})}</span>}</AlertDialogDescription></AlertDialogHeader>
             <AlertDialogFooter className="flex-wrap"><AlertDialogCancel disabled={finishing}>{t("继续作答")}</AlertDialogCancel>{unassessed.length > 0 && <Button variant="outline" disabled={finishing} onClick={() => { reviewOnClose.current = true; setConfirmFinish(false); go(unassessed[0].ordinal); }}>{t("去核对")}</Button>}{!exam && <Button variant="outline" disabled={finishing} onClick={() => finish(false)}>{unassessed.length > 0 ? t("草稿记为跳过并结束（保留未判定）") : t("草稿记为跳过并结束")}</Button>}<Button disabled={finishing} onClick={() => finish(true)}>{finishing ? t("正在保存…") : exam ? t("确认交卷") : unassessed.length > 0 ? t("提交草稿并结束（保留未判定）") : t("提交草稿并结束")}</Button></AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
@@ -531,10 +536,23 @@ const AnswerCard = memo(function AnswerCard({session, answer, exam, go, boundary
   useI18n();
   const grid = useRef<HTMLDivElement>(null);
   const finished = session.finishedAt !== null || (exam && session.submittedAt != null);
-  const savedStates = useMemo(() => session.attempts.map(a => answerState(a, a.answer, exam)), [session.attempts, exam]);
-  const states = savedStates.slice();
-  states[session.position] = answerState(session.attempts[session.position], answer, exam);
-  const progress = session.attempts.filter(a => exam ? hasAnswer(a.ordinal === session.position ? answer : a.answer) : a.submittedAt != null).length;
+  const saved = useMemo(() => {
+    const counts: Partial<Record<AnswerCardStatus, number>> = {};
+    let progress = 0;
+    const states = session.attempts.map(a => {
+      const state = answerState(a, a.answer, exam);
+      counts[state.status] = (counts[state.status] ?? 0) + 1;
+      progress += Number(exam ? hasAnswer(a.answer) : a.submittedAt != null);
+      return state;
+    });
+    return { states, counts, progress };
+  }, [session.attempts, exam]);
+  const currentState = answerState(session.attempts[session.position], answer, exam);
+  const counts = { ...saved.counts };
+  const previousStatus = saved.states[session.position].status;
+  counts[previousStatus] = (counts[previousStatus] ?? 0) - 1;
+  counts[currentState.status] = (counts[currentState.status] ?? 0) + 1;
+  const progress = saved.progress + (exam ? Number(hasAnswer(answer)) - Number(hasAnswer(session.attempts[session.position].answer)) : 0);
   const revealCurrent = useCallback((focus = false) => {
     const container = grid.current;
     const current = container?.querySelector<HTMLElement>('[aria-current="step"]');
@@ -582,12 +600,12 @@ const AnswerCard = memo(function AnswerCard({session, answer, exam, go, boundary
             <div id="answer-card" ref={grid} role="region" aria-label={t("答题卡")} tabIndex={0} className="answer-card-grid relative grid max-h-[min(45vh,24rem)] grid-cols-4 gap-2 overflow-y-auto rounded-sm p-1 outline-none focus-visible:ring-3 focus-visible:ring-ring">
               {session.attempts.map((a, index) => {
                 const current = a.ordinal === session.position;
-                const state = states[index];
+                const state = current ? currentState : saved.states[index];
                 return <AnswerCardItem key={a.ordinal} ordinal={a.ordinal} current={current} state={state.label} status={state.status} flagged={!!a.flagged} go={go}/>;
               })}
             </div>
             <p className="answer-card-legend answer-card-counts flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground" aria-label={t("本次题目状态")}>
-              {Object.entries(answerCardStates).filter(([status]) => states.some(state => state.status === status)).map(([status, { label }]) => <span key={status} className="flex items-center gap-1.5"><span className="answer-card-swatch" data-answer-state={status} aria-hidden="true"/>{t(status === "incorrect" && exam ? "未得满分" : label)} {states.filter(state => state.status === status).length}</span>)}
+              {Object.entries(answerCardStates).filter(([status]) => (counts[status as AnswerCardStatus] ?? 0) > 0).map(([status, { label }]) => <span key={status} className="flex items-center gap-1.5"><span className="answer-card-swatch" data-answer-state={status} aria-hidden="true"/>{t(status === "incorrect" && exam ? "未得满分" : label)} {counts[status as AnswerCardStatus]}</span>)}
             </p>
             {finished && <p className="text-xs leading-5 text-muted-foreground">{t("本次共 {0} 题，作答已锁定；可切换题目回顾。", {0:session.attempts.length})}</p>}
             <nav className="grid grid-cols-3 gap-1" aria-label={t("答题卡")}>

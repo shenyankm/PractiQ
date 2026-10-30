@@ -1,6 +1,9 @@
 // @vitest-environment jsdom
+import { createHash } from "node:crypto";
+import { readFileSync, writeFileSync } from "node:fs";
+import { Profiler } from "react";
 import { afterEach, expect, it, vi } from "vitest";
-import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Blocks, Markdown } from "./Content";
 import { QuestionPreview } from "./QuestionPreview";
@@ -69,6 +72,64 @@ it("does no item scans for 999 null matching drafts while typing, and computes a
   expect(itemReads).toHaveBeenCalledTimes(3);
   expect(screen.getByRole("button", { name: /转到第 1,?000 题，草稿未完成/ })).toBeTruthy();
 }, 15_000);
+
+it("reuses saved exam progress while typing and preserves false answers", async () => {
+  const user = userEvent.setup(), answerReads = vi.fn();
+  const snapshot = { question: fixture.questions[4] as Question, groups: [], visuals: [], sources: [], warnings: [], missingAssets: false };
+  const falseQuestion = fixture.questions.find(q => q.answerMode === "true_false")! as Question;
+  const session: Session = { id: "progress", title: "Exam", kind: "self_test", createdAt: 0, finishedAt: null, position: 0, mode: "ordered",
+    attempts: Array.from({ length: 1000 }, (_, ordinal) => ({ ordinal, snapshot: ordinal === 1 ? { ...snapshot, question: falseQuestion } : snapshot,
+      get answer() { if (ordinal) answerReads(); return ordinal === 1 ? { value: false } : null; },
+      autoResult: null, result: null, gradeKind: "ungraded", submittedAt: null, skipped: false, elapsedMs: 0 })) };
+  render(<Practice session={session} onSession={vi.fn()} run={job => { void job(); }} flushRef={{ current: async () => {} }} />);
+  expect((screen.getByRole("progressbar", { name: "作答进度" }) as HTMLProgressElement).value).toBe(1);
+  answerReads.mockClear();
+  await user.type(screen.getByRole("textbox", { name: "作答内容" }), "A printed answer");
+  expect(answerReads).not.toHaveBeenCalled();
+  expect((screen.getByRole("progressbar", { name: "作答进度" }) as HTMLProgressElement).value).toBe(2);
+  expect(screen.getByLabelText("本次题目状态").textContent).toContain("已作答 2");
+  await user.clear(screen.getByRole("textbox", { name: "作答内容" }));
+  expect(answerReads).not.toHaveBeenCalled();
+  expect((screen.getByRole("progressbar", { name: "作答进度" }) as HTMLProgressElement).value).toBe(1);
+});
+
+it.skipIf(!process.env.PRACTIQ_BENCH_OUTPUT)("answer-card statistics probe", async () => {
+  const hash = (text: string) => createHash("sha256").update(text).digest("hex"), workloads = [];
+  vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+  vi.mocked(api).mockResolvedValue(undefined as never);
+  for (const count of [20, 1000]) for (const exam of [false, true]) {
+    let reads = 0, duration = 0;
+    const snapshot = { question: fixture.questions[4] as Question, groups: [], visuals: [], sources: [], warnings: [], missingAssets: false };
+    const falseAnswer = { value: false }, falseQuestion = fixture.questions.find(q => q.answerMode === "true_false")! as Question;
+    const session: Session = { id: "statistics-probe", title: "Synthetic", kind: exam ? "self_test" : "practice", createdAt: 0, finishedAt: null, position: 0, mode: "ordered",
+      attempts: Array.from({ length: count }, (_, ordinal) => ({ ordinal, snapshot: ordinal === 1 ? { ...snapshot, question: falseQuestion } : snapshot,
+        get answer() { if (ordinal) reads++; return ordinal === 1 ? falseAnswer : null; },
+        autoResult: null, result: null, gradeKind: "ungraded", submittedAt: null, skipped: false, elapsedMs: 0 })) };
+    render(<Profiler id="practice" onRender={(_id, phase, actual) => { if (phase !== "mount") duration += actual; }}>
+      <Practice session={session} onSession={vi.fn()} run={job => { void job(); }} flushRef={{ current: async () => {} }} />
+    </Profiler>);
+    const input = screen.getByRole("textbox", { name: "作答内容" }), samples = [];
+    let expected: string | undefined;
+    for (let iteration = 0; iteration < 8; iteration++) {
+      reads = duration = 0;
+      const text = "A printed answer";
+      await act(async () => { fireEvent.change(input, { target: { value: "" } }); });
+      for (let end = 1; end <= text.length; end++) await act(async () => { fireEvent.change(input, { target: { value: text.slice(0, end) } }); });
+      const output = JSON.stringify({ card: document.getElementById("answer-card-panel")!.textContent,
+        progress: (screen.getByRole("progressbar", { name: exam ? "作答进度" : "提交进度" }) as HTMLProgressElement).value,
+        draft: (input as HTMLTextAreaElement).value });
+      expect((input as HTMLTextAreaElement).value).toBe(text);
+      expected ??= hash(output);
+      expect(hash(output)).toBe(expected);
+      if (iteration) samples.push({ renderMs: duration, noncurrentAnswerReads: reads });
+    }
+    workloads.push({ questions: count, exam, samples, outputSha256: expected });
+    cleanup();
+  }
+  writeFileSync(process.env.PRACTIQ_BENCH_OUTPUT!, JSON.stringify({ node: process.version,
+    probeSha256: hash(readFileSync("src/ContentPerformance.test.tsx", "utf8")), practiceSha256: hash(readFileSync("src/Practice.tsx", "utf8")),
+    scope: "React development/JSDOM Profiler actual render durations for clearing and typing sixteen characters; one warmup plus seven measured sequences per workload. Fake interval timers and native/API substitutes. No browser, WebView, IPC or production input-latency measurement.", workloads }, null, 2) + "\n");
+});
 
 it("keeps first-occurrence blank numbering when references repeat", () => {
   render(<Blocks blocks={[{partType:"blank",questionId:"a"},{partType:"text",textValue:"between"},{partType:"blank",questionId:"a"},{partType:"blank",questionId:"b"}]} />);
