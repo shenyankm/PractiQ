@@ -125,6 +125,8 @@ Choose checks for every affected area, from the repository root. Install the loc
 
 `make app-check` verifies generated contracts, fixtures, frontend types/lint/unit tests, host Rust tests, formatting, and Clippy. It does not run Playwright or collect frontend coverage; use the separate UI/browser commands when relevant. Other app targets are unsupported; Linux service/CI work follows its own documented checks.
 
+Native command changes also pass the [native IPC fixture checks](app/docs/native-ipc-contracts.md): Rust produces settings, pagination, grading and restore payloads, and the frontend consumes the same committed samples. Regenerate them explicitly after an intentional contract change and review both consumers.
+
 `make verify` does not include dependency audits, Web checks, or an image build. Run those separately when affected. Service reports remain in `server/reports/checks/`, including on test failure. Use fresh report paths for package checks and retain first failures.
 
 Before `make audit-rust`, install the `cargo-audit` version pinned in the [App workflow](.github/workflows/app.yml); the command audits the complete lockfile and verifies all supported target graphs. Follow the dependency security guide for retained advisory limits and manual toolchain updates.

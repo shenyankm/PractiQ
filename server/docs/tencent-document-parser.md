@@ -119,7 +119,7 @@ content hashes, never source filenames. An upload intent is durable before PUT.
 A lost PUT acknowledgement can retry the same bytes at the same key; the paid
 submission intent is written separately before calling the parser. Signed source
 URLs last one hour and are never stored, logged or returned to clients. After a
-known terminal failure or a safely saved result, the service deletes its staged
+known terminal failure or a safely saved and validated result, the service deletes its staged
 object. Cleanup failures preserve the local archive and fail the prepare stage with
 `TENCENT_COS_CLEANUP_FAILED`. Explicit resume retries deletion before continuing,
 reusing the saved archive without another upload or parser submission. Configure
@@ -209,6 +209,15 @@ from validated Tencent COS HTTPS hosts without redirects, and are not saved in
 task state. Archives are retained in local content-addressed storage. Archive
 paths, expanded size, entry count, OCR schema, page indices and coordinates are
 validated before interpretation. Unsupported result layouts fail explicitly.
+Each job records downloaded and validated results separately. The existing
+archive/subimage decoder confirms validation before COS source cleanup; it does
+not decode images a second time. A malformed ZIP, JSON, XML or image keeps its
+immutable bytes, failed-result reference and original Tencent receipt. Explicit
+Resume queries the same saved task ID and downloads its result again, without
+uploading the source or submitting another recognition job. Valid split-job
+results remain reusable while only failed results are downloaded again. Older
+saved result references pass through the same validation before reuse is
+confirmed. Invalid content never triggers an automatic retry.
 Cancellation waits for archive/subimage decoding threads to finish before
 releasing their shared preparation slot and resource reservation. This bounds
 overlapping work; it does not forcibly terminate a running decoding thread.

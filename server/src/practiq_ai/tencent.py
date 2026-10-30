@@ -8,8 +8,8 @@ import json
 import random
 import re
 import time
-from collections.abc import Awaitable, Callable
-from contextlib import AsyncExitStack
+from collections.abc import AsyncIterator, Awaitable, Callable
+from contextlib import AsyncExitStack, asynccontextmanager
 from contextvars import ContextVar
 from datetime import UTC, datetime
 from functools import partial
@@ -213,6 +213,29 @@ async def _cleanup_source(record: dict[str, Any], runtime: Runtime[Any], key: st
         raise DocumentProcessingError(502, "COS cleanup failed; explicitly resume to retry cleanup without resubmitting recognition", "TENCENT_COS_CLEANUP_FAILED")
 
 
+@asynccontextmanager
+async def validate_result(record: dict[str, Any], runtime: Runtime[Any], *, key: str) -> AsyncIterator[None]:
+    """Confirm the existing decoder's outcome without reading the archive twice."""
+    if 'resultValidated' not in record:
+        yield
+        return
+    try:
+        yield
+    except DocumentProcessingError as exc:
+        if exc.code in {'TENCENT_RESULT_INVALID', 'DOCUMENT_PROCESSING_FAILED'} or exc.code.startswith('IMAGE_'):
+            record.update(resultValidated=False, resultValidationError=exc.code)
+            invalid = record.setdefault('invalidResultRefs', [])
+            if record['resultRef'] not in invalid:
+                invalid.append(record['resultRef'])
+            await store_put(runtime, 'tencent_jobs', key, record)
+        raise
+    else:
+        if not record['resultValidated']:
+            record['resultValidated'] = True
+            await store_put(runtime, 'tencent_jobs', key, record)
+        await _cleanup_source(record, runtime, key, load())
+
+
 async def parse_job(reference: ArtifactReference, runtime: Runtime[Any], *, key: str = "source",
                     source_type: DocumentSourceType | None = None, source_sha256: str | None = None,
                     estimated_pages: int | None = None) -> dict[str, Any]:
@@ -243,9 +266,11 @@ async def _parse_job(reference: ArtifactReference, runtime: Runtime[Any], *, key
     record: dict[str, Any] | None = dict(previous.value) if previous else None
     if record and record.get("sourceSha256") != reference.sha256:
         raise DocumentProcessingError(409, "Tencent job belongs to another source", "TENCENT_JOB_CONFLICT")
-    if record and record.get("resultRef"):
+    if record and record.get("resultRef") and not record.get('resultValidationError'):
         await store.get_verified(ArtifactReference.model_validate(record["resultRef"]))
-        await _cleanup_source(record, runtime, key, config)
+        record.setdefault('resultValidated', False)
+        if record['resultValidated']:
+            await _cleanup_source(record, runtime, key, config)
         return record
     if record and record.get("status") == "REJECTED":
         await _cleanup_source(record, runtime, key, config)
@@ -345,9 +370,9 @@ async def _parse_job(reference: ArtifactReference, runtime: Runtime[Any], *, key
                 payload = await _read(runtime, "tencent_download", partial(download_result, result.get("ResultUrl")))
                 artifact = await store.put_artifact(payload, source_sha256=source_sha256 or reference.sha256,
                                                     kind="tencent-result", index=0, media_type="application/octet-stream")
-            record["resultRef"] = artifact.model_dump(mode="json")
+            record.update(resultRef=artifact.model_dump(mode='json'), resultValidated=False)
+            record.pop('resultValidationError', None)
             await store_put(runtime, "tencent_jobs", key, record)
-            await _cleanup_source(record, runtime, key, config)
             return record
         if status in {"Failed", "Unknown"}:
             if status == "Failed":

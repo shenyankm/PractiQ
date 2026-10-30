@@ -63,8 +63,8 @@ async function fakeHTTP(page: Page, initial: DocumentTaskDetail = task) {
       await respond(route, { threadId: id, requestId: call.body!.requestId, runId, accepted: true }, 202); return;
     }
     if (call.path.endsWith("/reparse")) {
-      server.modelStarts++; records.set(newTaskId, { ...task, threadId: newTaskId, fileName: "reparsed.docx", parentThreadId: id, state: "PENDING", checkpointId: null, result: null });
-      await respond(route, { threadId: newTaskId, requestId: call.body!.requestId, runId, accepted: true }, 202); return;
+      if (!creates.has(call.body!.requestId)) { creates.set(call.body!.requestId, newTaskId); server.modelStarts++; records.set(newTaskId, { ...task, threadId: newTaskId, fileName: "reparsed.docx", parentThreadId: id, state: "PENDING", checkpointId: null, result: null }); }
+      await respond(route, { threadId: creates.get(call.body!.requestId), requestId: call.body!.requestId, runId, accepted: true }, 202); return;
     }
     if (call.method === "DELETE") { records.delete(id); await respond(route, { deleted: true }); return; }
     await respond(route, current);
@@ -115,6 +115,40 @@ test("recovers an accepted import after reload without starting a second task", 
   await page.getByRole("button", { name: "重试原提交", exact: true }).click();
   await expect(page.getByRole("heading", { name: "recovery.txt", exact: true })).toBeVisible();
   expect(starts(http.calls).map(call => call.body)).toEqual([original, original]);
+  expect(http.server.modelStarts).toBe(1);
+});
+
+test("recovers an accepted reparse after reload without starting a second task", async ({ page }, testInfo) => {
+  const http = await fakeHTTP(page);
+  let lost = false;
+  http.server.intercept = async (route, call) => {
+    if (!call.path.endsWith("/reparse") || lost) return false;
+    lost = true;
+    http.creates.set(call.body!.requestId, newTaskId);
+    http.records.set(newTaskId, { ...task, threadId: newTaskId, fileName: "reparsed.docx", parentThreadId: taskId, state: "PENDING", checkpointId: null, result: null });
+    http.server.modelStarts++;
+    await route.abort("failed");
+    return true;
+  };
+  await connect(page); await openTask(page);
+  await page.getByText("其他任务操作", { exact: true }).click();
+  await page.getByRole("button", { name: "重新解析为新任务", exact: true }).click();
+  await expect(page.getByRole("region", { name: "未确认的重新解析", exact: true })).toBeVisible();
+  const original = http.calls.find(call => call.path.endsWith("/reparse"))!.body;
+  await page.reload();
+  await expect(page.getByLabel("服务访问令牌")).toHaveValue("");
+  await page.getByLabel("服务访问令牌").fill(fakeToken);
+  await page.getByRole("button", { name: "连接服务", exact: true }).click();
+  const recovery = page.getByRole("region", { name: "未确认的重新解析", exact: true });
+  await expect(recovery).toBeVisible();
+  await expect(recovery.getByText(`原重新解析请求 ID：${original!.requestId}`, { exact: true })).toBeVisible();
+  expect(http.calls.filter(call => call.path.endsWith("/reparse"))).toHaveLength(1);
+  expect(await page.evaluate(() => JSON.stringify(localStorage))).not.toContain(fakeToken);
+  await page.screenshot({ path: testInfo.outputPath("reparse-recovery.png"), fullPage: true });
+  await recovery.getByRole("button", { name: "重试原重新解析", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "reparsed.docx", exact: true })).toBeVisible();
+  await expect(recovery).toBeHidden();
+  expect(http.calls.filter(call => call.path.endsWith("/reparse")).map(call => call.body)).toEqual([original, original]);
   expect(http.server.modelStarts).toBe(1);
 });
 
@@ -845,7 +879,7 @@ for (const width of [1440, 390]) {
     }).toBe(true);
     expect(mutations(http.calls)).toHaveLength(1);
     await page.screenshot({ path: testInfo.outputPath(`web-action-error-${width}.png`) });
-    await page.route('**/src/ResultReview.tsx', route => route.abort('failed'));
+    await page.route(process.env.PRACTIQ_WEB_BUILT === "1" ? '**/assets/ResultReview-*.js' : '**/src/ResultReview.tsx', route => route.abort('failed'));
     await page.reload();
     await expect(page.getByLabel('服务访问令牌')).toHaveValue('');
     await page.getByLabel('服务访问令牌').fill(fakeToken);

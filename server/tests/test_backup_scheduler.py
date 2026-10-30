@@ -8,12 +8,15 @@ import pytest
 
 
 @pytest.mark.parametrize('running,filesystem,result,invalid', [
+    ('true', 'nfs', 0, None),
     ('true', 'nfs', 1, None),
     ('false', 'nfs', 0, None),
     ('true', 'ext4', 0, None),
     ('true', 'nfs', 0, 'database'),
     ('true', 'nfs', 0, 'storage'),
     ('true', 'nfs', 0, 'restart_ai'),
+    ('true', 'nfs', 0, 'not_ready'),
+    ('false', 'nfs', 0, 'not_ready'),
 ])
 def test_backup_scheduler_preserves_stopped_services_and_recovers_after_failure(tmp_path, running, filesystem, result, invalid):
     (tmp_path / 'server').mkdir()
@@ -35,6 +38,7 @@ if name=='docker' and args==['inspect','container']: print(os.environ['DEPLOYED_
 if name=='docker' and args[:2]==['image','inspect']: print(json.dumps([dict(Config=dict(Env=[]))]))
 if name=='docker' and 'config' in args: print(os.environ['COMPOSE_CONFIG'])
 if 'start' in args and os.environ['INVALID']=='restart_ai': sys.exit(1)
+if 'start' in args and '--wait' in args and os.environ['INVALID']=='not_ready': sys.exit(1)
 if name=='findmnt': print(os.environ['FILESYSTEM'])
 if name=='python' and args[:2]==['-m','dotenv']:
     os.execv(sys.executable,[sys.executable,*args])
@@ -75,13 +79,17 @@ if name=='python' and args[:2]==['-m','scripts.service_backup']:
     script = Path(__file__).parents[1] / 'deploy/backup-offline.sh'
     process = subprocess.run(['/bin/sh', str(script)], env=environment, capture_output=True, timeout=10, check=False)
     calls = [json.loads(line) for line in log.read_text().splitlines()]
-    permitted = filesystem == 'nfs' and invalid in {None, 'restart_ai'}
-    failed = not permitted or result or invalid in {'restart_ai'}
+    permitted = filesystem == 'nfs' and invalid in {None, 'restart_ai', 'not_ready'}
+    failed = not permitted or result or invalid == 'restart_ai' or (invalid == 'not_ready' and running == 'true')
     assert process.returncode == int(bool(failed))
     assert f'practiq_backup_last_attempt_success {int(not failed)}\n' in (tmp_path / 'backup.prom').read_text()
     starts = [call for call in calls if 'start' in call]
     stops = [call for call in calls if 'stop' in call]
     assert len(starts) == len(stops) == (int(running == 'true') if permitted else 0)
+    for call in starts:
+        assert call[call.index('start'):] == ['start', '--wait', '--wait-timeout', '90', 'ai']
+    if permitted and not result:
+        assert 'practiq_backup_last_success_timestamp_seconds 123.000000\n' in (tmp_path / 'backup.prom').read_text()
     if running == 'false':
         assert not any(call[0] == 'docker' and 'start' in call for call in calls)
     if not permitted:

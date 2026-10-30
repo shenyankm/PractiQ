@@ -10,6 +10,7 @@ from langgraph.runtime import Runtime
 from practiq_ai import execution
 from practiq_ai.contracts import ArtifactReference
 from practiq_ai.graphs import document
+from practiq_ai.storage import ObjectStore
 from tests.support import FakeModel, FakeObjectStore, parsed, run_config, setup_graph
 
 
@@ -64,7 +65,7 @@ async def test_historical_audit_remains_readable_without_model_calls(monkeypatch
     archived = await files.put_artifact(json.dumps(payload).encode(), source_sha256=reference["sha256"],
                                         kind="unit-result", index=unit["index"], media_type="application/json")
     historical = {**unit, "resultRef": archived.model_dump(mode="json")}
-    loaded = await document.load_unit_result(historical, reference["sha256"])
+    loaded = await document.load_unit_result(historical, reference["sha256"], cast(ObjectStore, files))
     assert loaded["agentReview"] == audit
     state["chunkResults"] = [historical]
     result = await document._merge(cast(document.DocumentState, state), passive=True)

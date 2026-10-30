@@ -1,0 +1,476 @@
+{
+  "gradedSession": {
+    "attemptKey": "fixture-attempts",
+    "attempts": [
+      {
+        "answer": {
+          "text": "Fixture answer"
+        },
+        "autoResult": null,
+        "earnedCents": 300,
+        "elapsedMs": 0,
+        "favorite": false,
+        "flagged": false,
+        "gradeKind": "ai",
+        "grading": {
+          "ai": {
+            "result": {
+              "evidence": [
+                "Fixture answer"
+              ],
+              "maxCents": 500,
+              "reason": "Three credited items",
+              "reviewReasons": [],
+              "scoreCents": 300
+            },
+            "status": "graded"
+          }
+        },
+        "maxCents": 500,
+        "ordinal": 0,
+        "result": false,
+        "skipped": false,
+        "snapshot": {
+          "bankId": "fixture-bank",
+          "bankTitle": "IPC fixture",
+          "favorite": false,
+          "groups": [],
+          "id": "subjective",
+          "latestResult": null,
+          "materials": [],
+          "missingAssets": false,
+          "question": {
+            "allowReuse": false,
+            "analysis": "这是用于验证应用的人工编写示例。",
+            "answerMode": "short_answer",
+            "answerPayload": {
+              "text": "制定可执行的小目标，并定期复习。"
+            },
+            "blankCount": null,
+            "choiceVariant": null,
+            "confidence": 1.0,
+            "contentBlocks": [],
+            "id": "subjective",
+            "instructions": null,
+            "items": [],
+            "matchingVariant": null,
+            "maxWords": null,
+            "minWords": null,
+            "missingFields": [],
+            "needsReview": false,
+            "optionSourceId": null,
+            "options": [],
+            "parentId": null,
+            "passage": [],
+            "questionKind": null,
+            "questionTypeId": "short_answer",
+            "scoreSourceText": null,
+            "scoringRubric": null,
+            "sourceLanguage": null,
+            "sourceScore": null,
+            "sourceText": "简述你希望养成的学习习惯。",
+            "stem": "简述你希望养成的学习习惯。",
+            "targetLanguage": null,
+            "writingGenre": null
+          },
+          "rootId": "subjective",
+          "rootType": "short_answer",
+          "sources": [],
+          "visuals": [],
+          "warnings": []
+        },
+        "submittedAt": 1800000000000
+      }
+    ],
+    "bankIds": [
+      "fixture-bank"
+    ],
+    "createdAt": 1800000000000,
+    "deadlineAt": null,
+    "finishedAt": null,
+    "id": "fixture-session",
+    "kind": "self_test",
+    "mode": "ordered",
+    "position": 0,
+    "snapshotKey": "fixture-snapshot",
+    "submittedAt": 1800000000000,
+    "title": "IPC fixture · Self-test · 1 question"
+  },
+  "manualSession": {
+    "attemptKey": "fixture-manual-attempts",
+    "attempts": [
+      {
+        "answer": {
+          "text": "Fixture answer"
+        },
+        "autoResult": null,
+        "earnedCents": 400,
+        "elapsedMs": 0,
+        "favorite": false,
+        "flagged": false,
+        "gradeKind": "manual",
+        "grading": {
+          "ai": {
+            "result": {
+              "evidence": [
+                "Fixture answer"
+              ],
+              "maxCents": 500,
+              "reason": "Three credited items",
+              "reviewReasons": [],
+              "scoreCents": 300
+            },
+            "status": "graded"
+          },
+          "lastRequest": {
+            "appError": {
+              "code": "AI_PROVIDER_TIMEOUT",
+              "httpStatus": 504,
+              "message": "Archived HTTP timeout detail",
+              "params": {},
+              "requestId": "legacy-timeout-request"
+            },
+            "error": "Archived HTTP timeout detail",
+            "status": "unknown",
+            "usageStatus": "unknown"
+          },
+          "manual": {
+            "at": 1800000000000,
+            "reason": "Reviewed against the supplied reference",
+            "scoreCents": 400
+          },
+          "manualHistory": [
+            {
+              "at": 1800000000000,
+              "reason": "Reviewed against the supplied reference",
+              "scoreCents": 400
+            }
+          ]
+        },
+        "maxCents": 500,
+        "ordinal": 0,
+        "result": false,
+        "skipped": false,
+        "snapshot": {
+          "bankId": "fixture-bank",
+          "bankTitle": "IPC fixture",
+          "favorite": false,
+          "groups": [],
+          "id": "subjective",
+          "latestResult": null,
+          "materials": [],
+          "missingAssets": false,
+          "question": {
+            "allowReuse": false,
+            "analysis": "这是用于验证应用的人工编写示例。",
+            "answerMode": "short_answer",
+            "answerPayload": {
+              "text": "制定可执行的小目标，并定期复习。"
+            },
+            "blankCount": null,
+            "choiceVariant": null,
+            "confidence": 1.0,
+            "contentBlocks": [],
+            "id": "subjective",
+            "instructions": null,
+            "items": [],
+            "matchingVariant": null,
+            "maxWords": null,
+            "minWords": null,
+            "missingFields": [],
+            "needsReview": false,
+            "optionSourceId": null,
+            "options": [],
+            "parentId": null,
+            "passage": [],
+            "questionKind": null,
+            "questionTypeId": "short_answer",
+            "scoreSourceText": null,
+            "scoringRubric": null,
+            "sourceLanguage": null,
+            "sourceScore": null,
+            "sourceText": "简述你希望养成的学习习惯。",
+            "stem": "简述你希望养成的学习习惯。",
+            "targetLanguage": null,
+            "writingGenre": null
+          },
+          "rootId": "subjective",
+          "rootType": "short_answer",
+          "sources": [],
+          "visuals": [],
+          "warnings": []
+        },
+        "submittedAt": 1800000000000
+      }
+    ],
+    "bankIds": [
+      "fixture-bank"
+    ],
+    "createdAt": 1800000000000,
+    "deadlineAt": null,
+    "finishedAt": null,
+    "id": "fixture-session",
+    "kind": "self_test",
+    "mode": "ordered",
+    "position": 0,
+    "snapshotKey": "fixture-snapshot",
+    "submittedAt": 1800000000000,
+    "title": "IPC fixture · Self-test · 1 question"
+  },
+  "pages": {
+    "banks": {
+      "items": [
+        {
+          "count": 1,
+          "createdAt": 2,
+          "description": "Synthetic input",
+          "id": "fixture-bank",
+          "title": "IPC fixture"
+        }
+      ],
+      "offset": 0,
+      "total": 2
+    },
+    "emptyBanks": {
+      "items": [],
+      "offset": 0,
+      "total": 0
+    },
+    "nextBanks": {
+      "items": [
+        {
+          "count": 0,
+          "createdAt": 1,
+          "description": "",
+          "id": "empty-bank",
+          "title": "Empty bank"
+        }
+      ],
+      "offset": 1,
+      "total": 2
+    },
+    "questions": {
+      "items": [
+        {
+          "answerableCount": 1,
+          "bankId": "fixture-bank",
+          "bankTitle": "IPC fixture",
+          "favorite": false,
+          "hasPartialScore": true,
+          "hasWrong": true,
+          "id": "subjective",
+          "latestScore": {
+            "earnedCents": 300,
+            "gradeKind": "ai",
+            "maxCents": 500
+          },
+          "question": {
+            "answerMode": "short_answer",
+            "choiceVariant": null,
+            "id": "subjective",
+            "questionKind": null,
+            "sourceText": "简述你希望养成的学习习惯。",
+            "stem": "简述你希望养成的学习习惯。"
+          },
+          "reviewRequired": false
+        }
+      ],
+      "offset": 0,
+      "stats": {
+        "count": 1,
+        "feasibleCounts": [
+          1
+        ],
+        "types": {
+          "short_answer": 1
+        }
+      },
+      "total": 1
+    },
+    "sessions": {
+      "items": [
+        {
+          "answered": 1,
+          "autoGraded": 0,
+          "correct": 0,
+          "count": 1,
+          "createdAt": 1800000000000,
+          "deadlineAt": null,
+          "draftAnswered": 0,
+          "earnedCents": 300,
+          "elapsedMs": 0,
+          "finishedAt": null,
+          "graded": 1,
+          "id": "fixture-session",
+          "kind": "self_test",
+          "lastActiveAt": 1800000000000,
+          "pendingGrades": 0,
+          "selfGraded": 0,
+          "skipped": 0,
+          "submittedAt": 1800000000000,
+          "title": "IPC fixture · Self-test · 1 question",
+          "totalCents": 500
+        }
+      ],
+      "offset": 0,
+      "total": 1
+    }
+  },
+  "receipts": {
+    "graded": {
+      "result": {
+        "evidence": [
+          "Fixture answer"
+        ],
+        "maxCents": 500,
+        "reason": "Three credited items",
+        "reviewReasons": [],
+        "scoreCents": 300
+      },
+      "status": "graded"
+    },
+    "historical": {
+      "appError": {
+        "code": "AI_PROVIDER_TIMEOUT",
+        "httpStatus": 504,
+        "message": "Archived HTTP timeout detail",
+        "params": {},
+        "requestId": "legacy-timeout-request"
+      },
+      "error": "Archived HTTP timeout detail",
+      "status": "unknown",
+      "usageStatus": "unknown"
+    },
+    "unknown": {
+      "appError": {
+        "code": "LOCAL_MODEL_RESULT_UNKNOWN",
+        "message": "上次直连评分结果未知，可能已产生费用。不会自动重发；如需再次调用模型，请明确重新评分。",
+        "params": {}
+      },
+      "status": "unknown",
+      "usageStatus": "unknown"
+    }
+  },
+  "restore": {
+    "recoveryPath": "<temporary>/recovery.zip"
+  },
+  "settings": {
+    "defaults": {
+      "config": {
+        "service_url": null
+      },
+      "hasServiceToken": false
+    },
+    "direct": {
+      "config": {
+        "model": {
+          "base_url": "https://model.example.com/v1",
+          "model_id": "fixture-model"
+        },
+        "service_url": null
+      },
+      "hasApiKey": null,
+      "hasServiceToken": false
+    },
+    "service": {
+      "config": {
+        "service_url": "http://127.0.0.1:8090"
+      },
+      "hasServiceToken": null
+    }
+  },
+  "unknownSession": {
+    "attemptKey": "fixture-unknown-attempts",
+    "attempts": [
+      {
+        "answer": {
+          "text": "Fixture answer"
+        },
+        "autoResult": null,
+        "earnedCents": null,
+        "elapsedMs": 0,
+        "favorite": false,
+        "flagged": false,
+        "gradeKind": "ungraded",
+        "grading": {
+          "lastRequest": {
+            "appError": {
+              "code": "LOCAL_MODEL_RESULT_UNKNOWN",
+              "message": "上次直连评分结果未知，可能已产生费用。不会自动重发；如需再次调用模型，请明确重新评分。",
+              "params": {}
+            },
+            "status": "unknown",
+            "usageStatus": "unknown"
+          }
+        },
+        "maxCents": 500,
+        "ordinal": 0,
+        "result": null,
+        "skipped": false,
+        "snapshot": {
+          "bankId": "fixture-bank",
+          "bankTitle": "IPC fixture",
+          "favorite": false,
+          "groups": [],
+          "id": "subjective",
+          "latestResult": null,
+          "materials": [],
+          "missingAssets": false,
+          "question": {
+            "allowReuse": false,
+            "analysis": "这是用于验证应用的人工编写示例。",
+            "answerMode": "short_answer",
+            "answerPayload": {
+              "text": "制定可执行的小目标，并定期复习。"
+            },
+            "blankCount": null,
+            "choiceVariant": null,
+            "confidence": 1.0,
+            "contentBlocks": [],
+            "id": "subjective",
+            "instructions": null,
+            "items": [],
+            "matchingVariant": null,
+            "maxWords": null,
+            "minWords": null,
+            "missingFields": [],
+            "needsReview": false,
+            "optionSourceId": null,
+            "options": [],
+            "parentId": null,
+            "passage": [],
+            "questionKind": null,
+            "questionTypeId": "short_answer",
+            "scoreSourceText": null,
+            "scoringRubric": null,
+            "sourceLanguage": null,
+            "sourceScore": null,
+            "sourceText": "简述你希望养成的学习习惯。",
+            "stem": "简述你希望养成的学习习惯。",
+            "targetLanguage": null,
+            "writingGenre": null
+          },
+          "rootId": "subjective",
+          "rootType": "short_answer",
+          "sources": [],
+          "visuals": [],
+          "warnings": []
+        },
+        "submittedAt": 1800000000000
+      }
+    ],
+    "bankIds": [
+      "fixture-bank"
+    ],
+    "createdAt": 1800000000000,
+    "deadlineAt": null,
+    "finishedAt": null,
+    "id": "fixture-session",
+    "kind": "self_test",
+    "mode": "ordered",
+    "position": 0,
+    "snapshotKey": "fixture-snapshot",
+    "submittedAt": 1800000000000,
+    "title": "IPC fixture · Self-test · 1 question"
+  }
+}

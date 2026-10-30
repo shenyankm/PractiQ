@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { Client, ApiError, MAX_BANK_ZIP_BYTES, downloadBlob, fileFormat, readBytes, sha256, sourceLimit, validateFiles } from "./api";
-import { capabilities, task, taskId, runId } from "./test-fixtures";
+import { capabilities, task, taskId, runId, newTaskId } from "./test-fixtures";
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 const receipt = { threadId: taskId, requestId: taskId, runId, accepted: true };
@@ -491,6 +491,89 @@ it("recovers a create after reload with its original request and options without
   await restored.retryImport(original.requestId);
   expect(JSON.parse(fetcher.mock.calls.at(-1)![1].body as string)).toEqual(original);
   expect(restored.pendingImports()).toEqual([]);
+});
+
+it("recovers an uncertain reparse after reload and clears only its confirmed request", async () => {
+  const fetcher = vi.fn(async (_path: string, _init: RequestInit): Promise<Response> => { throw new TypeError("lost receipt"); });
+  vi.stubGlobal("fetch", fetcher);
+  const first = new Client("private-token");
+  await expect(first.reparse(taskId)).rejects.toMatchObject({ code: "NETWORK_ERROR" });
+  await expect(first.reparse(newTaskId)).rejects.toMatchObject({ code: "NETWORK_ERROR" });
+  const requests = first.pendingReparses();
+  expect(requests).toHaveLength(2);
+  expect(requests[0].requestId).not.toBe(requests[1].requestId);
+  first.disconnect();
+  const restored = new Client("private-token");
+  expect(restored.pendingReparses()).toEqual(requests);
+  expect(fetcher).toHaveBeenCalledTimes(2);
+  expect(JSON.stringify(localStorage)).not.toContain("private-token");
+  fetcher.mockImplementation(async (_path, init) => json({ ...receipt, requestId: JSON.parse(init.body as string).requestId }));
+  await restored.retryReparse(requests[1].requestId);
+  expect(fetcher).toHaveBeenLastCalledWith(`/api/document-tasks/${newTaskId}/reparse`, expect.objectContaining({ body: JSON.stringify({ requestId: requests[1].requestId }) }));
+  expect(restored.pendingReparses()).toEqual([requests[0]]);
+  await restored.reparse(taskId);
+  expect(JSON.parse(fetcher.mock.calls.at(-1)![1].body as string)).toEqual({ requestId: requests[0].requestId });
+  expect(restored.pendingReparses()).toEqual([]);
+  expect(localStorage.getItem("practiq-reparse-intents-v1")).toBeNull();
+  await restored.reparse(taskId);
+  expect(JSON.parse(fetcher.mock.calls.at(-1)![1].body as string).requestId).not.toBe(requests[0].requestId);
+});
+
+it("requires an explicit recovery clear and preserves the original ID if clearing after success fails", async () => {
+  vi.stubGlobal("fetch", vi.fn(async (_path: string, init: RequestInit) => json({ ...receipt, requestId: JSON.parse(init.body as string).requestId })));
+  const remove = vi.spyOn(Storage.prototype, "removeItem").mockImplementation(() => { throw new DOMException("blocked", "SecurityError"); });
+  const client = new Client("fake");
+  await expect(client.reparse(taskId)).rejects.toMatchObject({ code: "RECOVERY_STORAGE_UNAVAILABLE" });
+  const request = client.pendingReparses()[0];
+  remove.mockRestore();
+  await new Client("fake").retryReparse(request.requestId);
+  expect(client.pendingReparses()).toEqual([]);
+  localStorage.setItem("practiq-reparse-intents-v1", JSON.stringify([request]));
+  const calls = vi.mocked(fetch).mock.calls.length;
+  client.forgetReparse(request.requestId);
+  expect(client.pendingReparses()).toEqual([]);
+  expect(vi.mocked(fetch)).toHaveBeenCalledTimes(calls);
+  await expect(client.retryReparse(request.requestId)).rejects.toMatchObject({ code: "ACTION_UNAVAILABLE" });
+  expect(vi.mocked(fetch)).toHaveBeenCalledTimes(calls);
+});
+
+it("refuses a reparse before HTTP if its recovery record cannot be saved", async () => {
+  const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);
+  vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new DOMException("full", "QuotaExceededError"); });
+  await expect(new Client("fake").reparse(taskId)).rejects.toMatchObject({ code: "RECOVERY_STORAGE_UNAVAILABLE" });
+  expect(fetcher).not.toHaveBeenCalled();
+});
+
+it.each([
+  "", "not JSON", "{}", "[null]", "[{}]", '[{"requestId":"bad"}]', " ".repeat(10_001),
+  JSON.stringify([{ threadId: taskId, requestId: runId, token: "untrusted" }]),
+  JSON.stringify([{ threadId: "../another-task", requestId: runId }]),
+  JSON.stringify([{ threadId: taskId, requestId: 123 }]),
+  JSON.stringify([{ threadId: taskId, requestId: runId }, { threadId: newTaskId, requestId: runId }]),
+  JSON.stringify([{ threadId: taskId, requestId: runId }, { threadId: taskId, requestId: newTaskId }]),
+  JSON.stringify(Array.from({ length: 51 }, (_, index) => ({ threadId: `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`, requestId: `10000000-0000-4000-8000-${String(index).padStart(12, "0")}` }))),
+])("retains invalid or ambiguous reparse records and refuses new submissions: %s", async raw => {
+  localStorage.setItem("practiq-reparse-intents-v1", raw);
+  const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);
+  const client = new Client("fake");
+  expect(() => client.pendingReparses()).toThrow("重新解析恢复记录");
+  await expect(client.reparse(taskId)).rejects.toMatchObject({ code: "RECOVERY_STORAGE_UNAVAILABLE" });
+  expect(fetcher).not.toHaveBeenCalled();
+  expect(localStorage.getItem("practiq-reparse-intents-v1")).toBe(raw);
+});
+
+it("bounds pending reparse records and rejects invalid or disconnected targets without writing", async () => {
+  const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);
+  const client = new Client("fake");
+  await expect(client.reparse("../task")).rejects.toMatchObject({ code: "INVALID_REFERENCE" });
+  client.disconnect();
+  await expect(client.reparse(taskId)).rejects.toMatchObject({ name: "AbortError" });
+  expect(localStorage.length).toBe(0);
+  const pending = Array.from({ length: 50 }, (_, index) => ({ threadId: `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`, requestId: `10000000-0000-4000-8000-${String(index).padStart(12, "0")}` }));
+  localStorage.setItem("practiq-reparse-intents-v1", JSON.stringify(pending));
+  await expect(new Client("fake").reparse(taskId)).rejects.toMatchObject({ code: "RECOVERY_STORAGE_UNAVAILABLE" });
+  expect(fetcher).not.toHaveBeenCalled();
+  expect(new Client("fake").pendingReparses()).toEqual(pending);
 });
 
 it("refuses a new create when recovery metadata cannot be saved", async () => {

@@ -26,6 +26,7 @@ from .contracts import (
 )
 from .errors import DocumentProcessingError
 from .storage import get_object_store
+from .unit_results import load_unit_result
 
 STATE_VERSION = 7
 TTL_MINUTES = 259_200
@@ -43,7 +44,7 @@ def fingerprint(value: Any) -> str:
 @lru_cache(maxsize=1)
 def code_version() -> str:
     root = Path(__file__).parent
-    paths = [root / name for name in ("contracts.py", "grading.py", "llm.py", "execution.py", "config.py", "storage.py", "json_repair.py", "capacity.py", "telemetry.py", "runtime.py", "database.py", "task_api.py", "office.py", "cost_budget.py", "worker_sandbox.py")]
+    paths = [root / name for name in ("contracts.py", "grading.py", "llm.py", "execution.py", "config.py", "storage.py", "json_repair.py", "capacity.py", "telemetry.py", "runtime.py", "database.py", "task_api.py", "office.py", "cost_budget.py", "worker_sandbox.py", "retry_policy.py", "unit_results.py")]
     if (root / "office_service.py").is_file():
         paths.append(root / "office_service.py")
     paths.append(root / "normalization.py")
@@ -129,10 +130,9 @@ async def preflight(values: dict[str, Any]) -> None:
         references.append(part['reference'])
         if part.get('originalPageRef'):
             references.append(part['originalPageRef'])
-    from .graphs.document import load_unit_result
     # Discard payloads so bounded_map collects only validation outcomes, not file contents.
     async def verify_result(item: dict[str, Any]) -> None:
-        await load_unit_result(item, values['document']['sha256'])
+        await load_unit_result(item, values['document']['sha256'], store)
 
     await bounded_map([item for key in ('visionResults', 'chunkResults') for item in values.get(key, []) if item.get('resultRef')], verify_result)
     if values.get('textRef'):

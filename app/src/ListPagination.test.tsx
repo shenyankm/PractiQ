@@ -162,3 +162,31 @@ it("refreshes merge totals and clamps both lists after restoring a smaller backu
   await screen.findByText("Bank 0");
   expect(screen.queryByRole("navigation",{name:"题库分页"})).toBeNull();
 }, 30000);
+
+it("polls timed history only while the history page is visible", async () => {
+  vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+  try {
+    setup();
+    const base = vi.mocked(api).getMockImplementation()!;
+    vi.mocked(api).mockImplementation(async request => request.type === "sessions_page"
+      ? { items: [{ ...sessions[0], finishedAt: null, submittedAt: null, kind: "mock_exam", clockNow: 0, deadlineAt: 60_000 }], total: 1, offset: 0 } as never
+      : base(request));
+    render(<App />);
+    await loaded();
+    const historyReads = () => vi.mocked(api).mock.calls.filter(([request]) => request.type === "sessions_page").length;
+    expect(historyReads()).toBe(0);
+    await userEvent.click(screen.getByRole("button", { name: "练习记录" }));
+    await screen.findByText("Session 0");
+    const beforePoll = historyReads();
+    await act(async () => { vi.advanceTimersByTime(3000); });
+    expect(historyReads()).toBe(beforePoll + 1);
+    await userEvent.click(screen.getByRole("button", { name: "我的题库" }));
+    await screen.findByText("Bank 0");
+    const afterLeaving = historyReads();
+    await act(async () => { vi.advanceTimersByTime(6000); });
+    expect(historyReads()).toBe(afterLeaving);
+  } finally {
+    cleanup();
+    vi.useRealTimers();
+  }
+});

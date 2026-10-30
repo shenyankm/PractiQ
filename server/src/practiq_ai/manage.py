@@ -1,9 +1,11 @@
-"""Explicit database initialization and offline expired-state cleanup."""
+"""Explicit database initialization and fenced offline maintenance."""
 
 import argparse
 import asyncio
+import json
 import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 from uuid import UUID
 
 from .config import load
@@ -75,7 +77,7 @@ async def replay_run(db: Database, run_id: str):
             await conn.execute('INSERT INTO document_outbox(run_id) VALUES (%s) ON CONFLICT(run_id) DO UPDATE SET published_at=NULL', (run_id,))
 
 
-async def run(action: str, run_id: str | None = None):
+async def run(action: str, run_id: str | None = None, *, thread_id: str | None = None, source: Path | None = None):
     db = Database()
     await db.open()
     try:
@@ -100,6 +102,15 @@ async def run(action: str, run_id: str | None = None):
                 raise ValueError('replay-run requires --run-id')
             await replay_run(db, run_id)
             print('Staged the existing run for confirmed publication; original dead letter is retained')
+        elif action in {'verify-source', 'repair-source'}:
+            from .source_repair import source_operation
+
+            if thread_id is None or action == 'repair-source' and source is None:
+                raise ValueError('Source maintenance requires --thread-id and repair also requires --source')
+            result = await source_operation(db, thread_id, source if action == 'repair-source' else None)
+            print(json.dumps(result))
+            if action == 'verify-source' and result['status'] != 'verified':
+                raise SystemExit(1)
         else:
             await db.check_schema()
             print(f'Task states removed: {await cleanup(db)}')
@@ -111,12 +122,18 @@ def main():
     from dotenv import load_dotenv
 
     from .config import SERVER_ROOT
-    load_dotenv(SERVER_ROOT.parent / '.env', override=False)
     parser = argparse.ArgumentParser()
-    parser.add_argument('action', choices=['init-db', 'upgrade-db', 'replay-run', 'cleanup-state'])
+    parser.add_argument('action', choices=['init-db', 'upgrade-db', 'replay-run', 'cleanup-state', 'verify-source', 'repair-source'])
     parser.add_argument('--run-id')
+    parser.add_argument('--thread-id')
+    parser.add_argument('--source', type=Path)
     args = parser.parse_args()
-    asyncio.run(run(args.action, args.run_id))
+    if args.action in {'verify-source', 'repair-source'} and not args.thread_id:
+        parser.error('Source maintenance requires --thread-id')
+    if args.action == 'repair-source' and args.source is None or args.source is not None and args.action != 'repair-source':
+        parser.error('--source is required only for repair-source')
+    load_dotenv(SERVER_ROOT.parent / '.env', override=False)
+    asyncio.run(run(args.action, args.run_id, thread_id=args.thread_id, source=args.source))
 
 
 if __name__ == '__main__':

@@ -46,15 +46,11 @@ from .execution import (
     signature,
     supported_task_sql,
 )
-from .graphs.document import (
-    DocumentState,
-    _retry_update,
-    discard_model_audio,
-    load_unit_result,
-    unit_failures,
-)
+from .graphs.document import DocumentState
+from .retry_policy import selected_retry_units, unit_failures
 from .storage import get_object_store, validate_source_size
 from .tencent import diagnostic_value, submission_limit
+from .unit_results import discard_model_audio, load_unit_result
 
 
 def client():
@@ -342,7 +338,7 @@ async def _task_detail(service, thread_id, task, snapshot, run) -> DocumentTaskD
         'status': values.get('status') or None, 'result': result,
         'modelBudget': {'limit': values.get('execution', {}).get('signature', {}).get('settings', {}).get('task_max_model_calls', load().task_max_model_calls), 'reserved': values.get('reservedCalls', 0)},
         'processing': values.get('processing') or None, 'usage': list(usage.values()),
-        'unknownUsageCalls': [item['callKey'] for item in calls if item['status'] != 'completed'],
+        'unknownUsageCalls': [item['callKey'] for item in calls if item['status'] not in {'completed', 'rejected'}],
         'canExportCompleted': state in {'PAUSED', 'INTERRUPTED', 'CANCELLED', 'COMPLETED'} and bool(values.get('result', {}).get('questions') or
             any(item.get('parsed') and (item['parsed'].get('questionCount') or item['parsed'].get('questions')) for key in ('visionResults', 'chunkResults') for item in values.get(key, []))),
     })
@@ -462,7 +458,7 @@ async def control_task(thread_id: str, request: DocumentTaskControl) -> dict[str
                 graph_input, command = run['input'], run['command']
             if request.action == 'retry_failed':
                 retry = RetryUnits(requestId=request.requestId, units=request.units)
-                _retry_update(cast(Any, values), retry)
+                selected_retry_units(values, retry)
                 if not reviews:
                     if interruptions:
                         raise conflict('Resume the paused task before retrying failed units')
@@ -658,7 +654,7 @@ async def artifact_is_public(snapshot: StateSnapshot, source_sha256: str, metada
         for key in ('visionResults', 'chunkResults'):
             for item in sorted(values.get(key, []), key=lambda item: item['index']):
                 if item.get('parsed'):
-                    loaded = await load_unit_result(item, source_sha256)
+                    loaded = await load_unit_result(item, source_sha256, await asyncio.to_thread(get_object_store))
                     if visual_matches(loaded.get('visuals', [])):
                         return True
     return False
@@ -684,9 +680,10 @@ async def review_task_model(thread_id: str, *, include_result: bool = True) -> D
             units.extend({'stage': stage, 'index': index, 'questions': [], 'groups': [], 'sourceRef': reference}
                          for index, reference in enumerate(values.get(refs, [])))
     else:
+        store = await asyncio.to_thread(get_object_store)
         for key, stage, refs in (('visionResults', 'vision_parse', 'pageRefs'), ('chunkResults', 'document_parse', 'chunkRefs')):
             candidates = [item for item in sorted(values.get(key, []), key=lambda item: item['index']) if item.get('parsed')]
-            loaded = await bounded_map(candidates, lambda item: load_unit_result(item, _task['document']['sha256']))
+            loaded = await bounded_map(candidates, lambda item: load_unit_result(item, _task['document']['sha256'], store))
             for item in loaded:
                 references = values.get(refs, [])
                 units.append({'stage': stage, 'index': item['index'], 'questions': item['parsed'].get('questions', []),

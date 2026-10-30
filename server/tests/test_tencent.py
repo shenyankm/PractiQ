@@ -1,5 +1,6 @@
 """Provider substitutes only: no paid Tencent calls."""
 
+import base64
 import hashlib
 import json
 import lzma
@@ -16,7 +17,7 @@ from langgraph.store.memory import InMemoryStore
 
 from practiq_ai import tencent
 from practiq_ai.config import load
-from practiq_ai.contracts import DocumentReference
+from practiq_ai.contracts import DocumentReference, document_source_key
 from practiq_ai.errors import DocumentProcessingError
 from practiq_ai.execution import namespace
 from practiq_ai.tencent_bundle import decode_bundle, read_bundle_image
@@ -68,6 +69,136 @@ async def test_known_job_and_local_result_survive_replay(monkeypatch):
     assert files.blobs[result["resultRef"]["objectKey"]] == b"archive"
     assert await tencent.parse_job(reference, runtime) == result
     assert request.await_count == 2 and download.await_count == 1
+
+
+@pytest.mark.parametrize('damage', ['zip', 'json', 'xml', 'image_crc'])
+async def test_invalid_download_resumes_known_job_and_retains_failed_evidence(monkeypatch, damage):
+    from practiq_ai.extractors import ExtractedDocument
+    from practiq_ai.graphs import document
+
+    reference, files, runtime = job_runtime(monkeypatch)
+    reference = reference.model_copy(update={'objectKey': document_source_key('image', reference.sha256)})
+    files.blobs[reference.objectKey] = files.blobs.pop('source')
+    valid = archive([('sample_ocr_page0.json', json.dumps(ocr_page()))])
+    invalid = b'incomplete ZIP'
+    if damage == 'json':
+        invalid = archive([('sample_ocr_page0.json', '{')])
+    elif damage == 'xml':
+        invalid = archive([('sample_xml_full.xml', '<root>'),
+                           ('sample_ocr_page0.json', json.dumps(ocr_page()))])
+    elif damage == 'image_crc':
+        image = make_image()
+        invalid = archive([('sample_xml_full.xml', '<root><image id="p-9" page-numbers="0" src="figure.png"/></root>'),
+                           ('sample_ocr_page0.json', json.dumps(ocr_page(figures=True))), ('figure.png', image)])
+        offset = invalid.index(image)
+        invalid = invalid[:offset] + bytes([invalid[offset] ^ 1]) + invalid[offset + 1:]
+    monkeypatch.setattr(document, 'get_object_store', lambda: files)
+    monkeypatch.setattr(document, 'get_model', lambda: object())
+    monkeypatch.setattr(document, 'extract', AsyncMock(return_value=ExtractedDocument(text='', page_images=[make_image()])))
+    success = {'Status': 'Success', 'ResultUrl': 'result', 'SuccessPageNum': 1, 'FailPageNum': 0}
+    request = AsyncMock(side_effect=[{'TaskId': '123', 'RequestId': 'original-submission'}, success, success])
+    download = AsyncMock(side_effect=[invalid, valid])
+    monkeypatch.setattr(tencent, 'request', request)
+    monkeypatch.setattr(tencent, 'download_result', download)
+    state = cast(Any, {'document': reference.model_dump()})
+
+    with pytest.raises(DocumentProcessingError) as error:
+        await document._prepare(state, runtime)
+    assert error.value.code == 'TENCENT_RESULT_INVALID'
+    failed = (await runtime.store.aget(namespace('t', 'tencent_jobs'), 'source-0-0')).value
+    invalid_ref = failed['resultRef']
+    assert not failed['resultValidated'] and failed['resultValidationError'] == error.value.code
+    assert files.blobs[invalid_ref['objectKey']] == invalid
+    assert request.await_count == 2 and download.await_count == 1
+
+    assert (await document._prepare(state, runtime))['ocrPageRefs']
+    recovered = (await runtime.store.aget(namespace('t', 'tencent_jobs'), 'source-0-0')).value
+    assert recovered['resultValidated'] and 'resultValidationError' not in recovered
+    assert invalid_ref in recovered['invalidResultRefs']
+    assert files.blobs[invalid_ref['objectKey']] == invalid
+    assert files.blobs[recovered['resultRef']['objectKey']] == valid
+    assert recovered['taskId'] == '123' and recovered['requestId'] == 'original-submission'
+    assert [call.args[0] for call in request.await_args_list] == [
+        'SubmitMultimodalDocParseJob', 'DescribeMultimodalDocParseJob', 'DescribeMultimodalDocParseJob']
+    assert download.await_count == 2
+    await document._prepare(state, runtime)
+    assert request.await_count == 3 and download.await_count == 2
+
+
+@pytest.mark.parametrize('invalid', [False, True])
+async def test_legacy_result_is_validated_before_reuse_or_known_job_download(monkeypatch, invalid):
+    reference, files, runtime = job_runtime(monkeypatch)
+    valid = archive([('sample_ocr_page0.json', json.dumps(ocr_page()))])
+    payload = archive([('sample_ocr_page0.json', '{')]) if invalid else valid
+    result_ref = await files.put_artifact(payload, source_sha256=reference.sha256, kind='tencent-result', index=0,
+                                          media_type='application/octet-stream')
+    await runtime.store.aput(namespace('t', 'tencent_jobs'), 'source', {
+        'sourceSha256': reference.sha256, 'taskId': 'legacy-job', 'status': 'Success', 'resultRef': result_ref.model_dump()})
+    request = AsyncMock(return_value={'Status': 'Success', 'ResultUrl': 'result', 'SuccessPageNum': 1, 'FailPageNum': 0})
+    download = AsyncMock(return_value=valid)
+    monkeypatch.setattr(tencent, 'request', request)
+    monkeypatch.setattr(tencent, 'download_result', download)
+    result = await tencent.parse_job(reference, runtime)
+    assert result['resultValidated'] is False
+    if invalid:
+        with pytest.raises(DocumentProcessingError):
+            async with tencent.validate_result(result, runtime, key='source'):
+                decode_bundle(payload, load(), page_count=1)
+        request.assert_not_awaited()
+        result = await tencent.parse_job(reference, runtime)
+        assert request.await_args is not None
+        assert request.await_args.args[0] == 'DescribeMultimodalDocParseJob'
+        assert download.await_count == 1
+    async with tencent.validate_result(result, runtime, key='source'):
+        decode_bundle(files.blobs[result['resultRef']['objectKey']], load(), page_count=1)
+    assert (await runtime.store.aget(namespace('t', 'tencent_jobs'), 'source')).value['resultValidated']
+    assert await tencent.parse_job(reference, runtime) == result
+    assert download.await_count == int(invalid)
+
+
+async def test_split_resume_downloads_only_the_invalid_result(monkeypatch):
+    from practiq_ai.graphs import document
+
+    reference, files, runtime = job_runtime(monkeypatch)
+    payload = b'aaa\nbbb\n'
+    digest = hashlib.sha256(payload).hexdigest()
+    reference = reference.model_copy(update={'sourceType': 'text', 'mediaType': 'text/plain', 'sizeBytes': len(payload),
+                                             'sha256': digest, 'objectKey': document_source_key('text', digest)})
+    files.blobs[reference.objectKey] = payload
+    monkeypatch.setenv('AI_TENCENT_INPUT_MAX_BYTES', '4')
+    monkeypatch.setattr(document, 'get_object_store', lambda: files)
+    monkeypatch.setattr(document, 'get_model', lambda: object())
+    submitted = []
+    queried = []
+    downloaded = []
+
+    async def request(action, data, _config):
+        if action == 'SubmitMultimodalDocParseJob':
+            task_id = 'job-0' if base64.b64decode(data['FileBase64']) == b'aaa\n' else 'job-1'
+            submitted.append(task_id)
+            return {'TaskId': task_id}
+        queried.append(data['TaskId'])
+        return {'Status': 'Success', 'ResultUrl': data['TaskId'], 'SuccessPageNum': 1, 'FailPageNum': 0}
+
+    async def download(task_id):
+        downloaded.append(task_id)
+        if task_id == 'job-1' and downloaded.count(task_id) == 1:
+            return b'broken second result'
+        return archive([('sample_md_full.md', 'aaa\n' if task_id == 'job-0' else 'bbb\n')])
+
+    monkeypatch.setattr(tencent, 'request', request)
+    monkeypatch.setattr(tencent, 'download_result', download)
+    state = cast(Any, {'document': reference.model_dump()})
+    with pytest.raises(DocumentProcessingError) as error:
+        await document._prepare(state, runtime)
+    assert error.value.code == 'TENCENT_RESULT_INVALID'
+    first = (await runtime.store.aget(namespace('t', 'tencent_jobs'), 'source-0-0')).value
+    second = (await runtime.store.aget(namespace('t', 'tencent_jobs'), 'source-0-1')).value
+    assert first['resultValidated'] and not second['resultValidated']
+    assert (await document._prepare(state, runtime))['textRef']
+    assert sorted(submitted) == ['job-0', 'job-1']
+    assert queried.count('job-0') == downloaded.count('job-0') == 1
+    assert queried.count('job-1') == downloaded.count('job-1') == 2
 
 
 async def test_timeout_after_submission_never_replays_paid_request(monkeypatch):
