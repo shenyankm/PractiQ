@@ -173,3 +173,35 @@ it("offers the next unattempted batch without creating a session or invoking a m
   expect(next).toHaveBeenCalledOnce();
   expect(invoke).not.toHaveBeenCalled();
 });
+
+it("reuses saved statistics while editing and refreshes them for new attempts and modes", async () => {
+  const user = userEvent.setup();
+  const session = exam(20);
+  const answer = session.attempts[1].answer;
+  const read = vi.fn(() => answer);
+  Object.defineProperty(session.attempts[1], "answer", { get: read });
+  const props = { onSession: vi.fn(), run: vi.fn() };
+  const { rerender } = render(<ExamResults session={{ ...session, submittedAt: null }} {...props} />);
+  expect(screen.queryByRole("region", { name: "本次结果" })).toBeNull();
+  rerender(<ExamResults session={session} {...props} />);
+  expect(screen.getByRole("button", { name: "AI 评分/继续（20 题，将调用模型）" })).toBeTruthy();
+  read.mockClear();
+  await user.type(screen.getByRole("textbox", { name: "改分原因" }), "Printed reason");
+  expect(read).not.toHaveBeenCalled();
+  expect(invoke).not.toHaveBeenCalled();
+  expect(props.run).not.toHaveBeenCalled();
+
+  const attempts = session.attempts.map((a, ordinal) => ordinal === 0 ? {
+    ...a, earnedCents: 200, gradeKind: "manual" as const, result: false,
+  } : a);
+  rerender(<ExamResults session={{ ...session, attempts }} {...props} />);
+  expect(screen.getByRole("button", { name: "AI 评分/继续（19 题，将调用模型）" })).toBeTruthy();
+  expect(screen.getByText("2 / 60")).toBeTruthy();
+  expect(screen.getByRole("status").textContent).toContain("人工评分");
+  expect((screen.getByRole("button", { name: "重练本次未得满分题" }) as HTMLButtonElement).disabled).toBe(false);
+  rerender(<ExamResults session={{ ...session, attempts, position: 1 }} {...props} />);
+  expect(screen.getByRole("status").textContent).toContain("待评分");
+  rerender(<ExamResults session={{ ...session, attempts, kind: "practice", finishedAt: 1 }} {...props} />);
+  expect(screen.getByText("0 / 1")).toBeTruthy();
+  expect(screen.queryByRole("textbox", { name: "改分原因" })).toBeNull();
+});

@@ -4,7 +4,7 @@ import {
   AlertDialogTitle, AlertDialogDescription, AlertDialogFooter,
   AlertDialogCancel, AlertDialogAction,
 } from "@/components/ui/alert-dialog";
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { ai } from "./ai-api";
 import { api, type Session, type Attempt, type GradingResponse } from "./api";
 import { ErrorNotice } from "./OperationFeedback";
@@ -37,18 +37,23 @@ export function ExamResults({session,onSession,run,onNextUnattempted,draft,onDra
   const [retryConfirm,setRetryConfirm]=useState(false);
   const exam=session.kind&&session.kind!=="practice";const submitted=exam?!!session.submittedAt:!!session.finishedAt;
   const a=session.attempts[session.position];
+  const { graded, full, total, earned, pending, pendingPoints, pendingAi, retryCount, skipped, unresolved } = useMemo(() => {
+    const attempts=submitted?session.attempts:[];
+    const graded=attempts.filter(a=>exam?a.earnedCents!=null:a.result!==null);
+    const full=graded.filter(a=>exam?a.earnedCents===a.maxCents:a.result===true).length;
+    const total=attempts.reduce((n,a)=>n+(a.maxCents||0),0), earned=graded.reduce((n,a)=>n+(a.earnedCents||0),0);
+    const pending=attempts.filter(a=>exam&&a.earnedCents==null);
+    const pendingPoints=pending.reduce((n,a)=>n+(a.maxCents||0),0);
+    const pendingAi=pending.filter(a=>eligible(a)&&!a.grading?.ai&&!a.grading?.lastRequest);
+    const retryCount=attempts.filter(a=>a.result===false).length;
+    const skipped=attempts.filter(a=>a.skipped).length;
+    const unresolved=attempts.length-graded.length-(exam?0:skipped);
+    return { graded, full, total, earned, pending, pendingPoints, pendingAi, retryCount, skipped, unresolved };
+  }, [session.attempts, exam, submitted]);
   if(!submitted)return null;
-  const graded=session.attempts.filter(a=>exam?a.earnedCents!=null:a.result!==null);
-  const full=graded.filter(a=>exam?a.earnedCents===a.maxCents:a.result===true).length;
-  const total=session.attempts.reduce((n,a)=>n+(a.maxCents||0),0), earned=graded.reduce((n,a)=>n+(a.earnedCents||0),0);
-  const pending=session.attempts.filter(a=>exam&&a.earnedCents==null);
-  const pendingAi=pending.filter(a=>eligible(a)&&!a.grading?.ai&&!a.grading?.lastRequest);
   const latest=a.grading?.lastRequest;
   const configurationError = error ?? latest?.appError;
   const needsConfiguration = ["LOCAL_SERVICE_URL_REQUIRED", "LOCAL_SERVICE_TOKEN_REQUIRED", "LOCAL_SERVICE_TOKEN_INVALID", "INVALID_SERVICE_TOKEN", "LOCAL_MODEL_URL_REQUIRED", "LOCAL_MODEL_ID_REQUIRED", "LOCAL_MODEL_KEY_REQUIRED"].includes(String((configurationError as { code?: string } | null)?.code ?? ""));
-  const retryCount=session.attempts.filter(a=>a.result===false).length;
-  const skipped = session.attempts.filter(a => a.skipped).length;
-  const unresolved = session.attempts.length - graded.length - session.attempts.filter(a => !exam && a.skipped).length;
   function grade(items:Attempt[],retry=false){run(async()=>{
     stopped.current=false;setRunning(true);setError(null);setFailedAttempt(null);
     try {
@@ -71,7 +76,7 @@ export function ExamResults({session,onSession,run,onNextUnattempted,draft,onDra
       <div><dt>{exam ? t("待评分") : t("未判定")}</dt><dd>{unresolved}</dd></div>
     </dl>
     <details className="text-sm text-muted-foreground"><summary className="cursor-pointer">{t("判定详情")}</summary>
-      {exam&&<p className="mt-2">{t("已确定得分 {0} / {1} 分；{2} {3}% · 待评分 {4} 题（共 {5} 分）", { 0: earned/100, 1: total/100, 2: pending.length?t("已确定得分率"):t("得分率"), 3: total?number(earned/total*100, 1):0, 4: pending.length, 5: pending.reduce((n,a)=>n+(a.maxCents||0),0)/100 })}</p>}
+      {exam&&<p className="mt-2">{t("已确定得分 {0} / {1} 分；{2} {3}% · 待评分 {4} 题（共 {5} 分）", { 0: earned/100, 1: total/100, 2: pending.length?t("已确定得分率"):t("得分率"), 3: total?number(earned/total*100, 1):0, 4: pending.length, 5: pendingPoints/100 })}</p>}
       <p className="mt-2">{t("正确率（满分题 / 已判定题）：{0} · 未答/跳过 {1} · 未判定 {2}", { 0: graded.length?`${full}/${graded.length} · ${number(full/graded.length*100, 1)}%`:"—", 1: skipped, 2: unresolved })}</p>
     </details>
     <div className="flex flex-wrap gap-2"><Button variant="outline" disabled={!retryCount||running} onClick={()=>run(async()=>onSession(await api({type:"retry_wrong",id:session.id})))}>{exam?t("重练本次未得满分题"):t("重练本次错题")}</Button>
