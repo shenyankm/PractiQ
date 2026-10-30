@@ -3,6 +3,9 @@ use crate::{
     store::Store,
 };
 use serde_json::{json, Value};
+#[path = "native_ipc_contract_tests.rs"]
+mod native_ipc_contract_tests;
+
 fn sample() -> Vec<u8> {
     include_bytes!("../../fixtures/sample.json").to_vec()
 }
