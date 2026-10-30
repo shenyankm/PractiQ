@@ -191,6 +191,88 @@ fn explicit_recovery_rejects_bad_replacement_before_preserving_or_changing_live_
     target.save_bank(None, "After rejection", "").unwrap();
 }
 
+#[test]
+fn offline_recovery_preserves_damaged_directory_and_restores_into_empty_store() {
+    fn directory_bytes(path: &Path) -> std::collections::BTreeMap<std::path::PathBuf, Vec<u8>> {
+        let mut files = std::collections::BTreeMap::new();
+        for entry in fs::read_dir(path).unwrap() {
+            let entry = entry.unwrap();
+            let relative = std::path::PathBuf::from(entry.file_name());
+            if entry.file_type().unwrap().is_dir() {
+                for (child, bytes) in directory_bytes(&entry.path()) {
+                    files.insert(relative.join(child), bytes);
+                }
+            } else {
+                files.insert(relative, fs::read(entry.path()).unwrap());
+            }
+        }
+        files
+    }
+
+    let dir = tempfile::tempdir().unwrap();
+    let source = populated(&dir.path().join("source"), "Incoming");
+    let archive = dir.path().join("incoming.zip");
+    source.backup(&archive).unwrap();
+    let current = dir.path().join("v4");
+    let damaged = populated(&current, "Previous");
+    damaged
+        .prepare_service_settings_restore(None, crate::store::hash(b"unpublished generation"))
+        .unwrap();
+    let sidecar = fs::read(damaged.service_settings_path()).unwrap();
+    drop(damaged);
+    fs::write(current.join("practiq.sqlite"), b"damaged database header").unwrap();
+    assert!(Store::new(current.clone()).is_err());
+    assert_eq!(
+        fs::read(current.join("practiq.sqlite")).unwrap(),
+        b"damaged database header"
+    );
+    assert_eq!(
+        fs::read(current.join("service-settings-v1.sqlite")).unwrap(),
+        sidecar
+    );
+    // Whole-directory isolation also retains files that ordinary backups exclude.
+    for name in [
+        "practiq.sqlite-journal",
+        "practiq.sqlite-wal",
+        "practiq.sqlite-shm",
+        "service-settings-v1.sqlite-journal",
+        ".retained-startup-log",
+    ] {
+        fs::write(current.join(name), name.as_bytes()).unwrap();
+    }
+    fs::create_dir_all(current.join("recoveries/previous")).unwrap();
+    fs::write(current.join("recoveries/previous/inventory.json"), b"{}").unwrap();
+    let original = directory_bytes(&current);
+    let preserved = dir.path().join("v4-damaged");
+    fs::rename(&current, &preserved).unwrap();
+    crate::filesystem::sync_directory(dir.path()).unwrap();
+
+    let mut recovered = Store::new(current.clone()).unwrap();
+    assert_eq!(recovered.banks().unwrap(), json!([]));
+    let empty_database = fs::read(recovered.db_path()).unwrap();
+    let invalid = dir.path().join("unsupported.zip");
+    let mut output = ZipWriter::new(fs::File::create(&invalid).unwrap());
+    output
+        .start_file("manifest.json", SimpleFileOptions::default())
+        .unwrap();
+    output
+        .write_all(br#"{"format":"practiq-backup","version":3}"#)
+        .unwrap();
+    output.finish().unwrap();
+    assert_eq!(
+        recovered.restore(&invalid).unwrap_err().code,
+        "LOCAL_BACKUP_VERSION_UNSUPPORTED"
+    );
+    assert_eq!(fs::read(recovered.db_path()).unwrap(), empty_database);
+    assert_eq!(recovered.banks().unwrap(), json!([]));
+    assert_eq!(directory_bytes(&preserved), original);
+
+    recovered.restore(&archive).unwrap();
+    assert_intact(&recovered, "Incoming");
+    assert_eq!(directory_bytes(&preserved), original);
+    assert_intact(&Store::new(current).unwrap(), "Incoming");
+}
+
 pub(super) fn checkpoint(phase: &str) {
     if phase == "before-resource-repair" {
         crate::filesystem::FAILURE.with(|fault| {

@@ -57,6 +57,8 @@ Run `make app-dev` (or start the packaged app), then:
 
 No API key or model call is needed for this check.
 
+If a damaged database prevents the app from starting, follow [desktop data recovery](desktop-recovery.md) to preserve the complete existing directory before restoring a backup into a new one.
+
 ## Install the AI import service (optional)
 
 The service handles document import for the Web page and can grade short answers for the desktop app. Its commands use GNU Make; on a host without the native build tools, the [service guide](../../server/docs/service-guide.md) covers building the Docker image instead. It needs:
