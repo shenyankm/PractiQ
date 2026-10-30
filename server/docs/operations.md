@@ -139,6 +139,43 @@ Load configuration into the shell first. Inventory covers retained tasks, comple
 
 On POSIX, it synchronizes newly created directory entries and the initial manifest directory before any move, then synchronizes both sides of each move before publishing `completed: true`. It also synchronizes the manifest directory after the final replacement. Once the initial inventory is created, a failure before completion publication leaves it incomplete for recovery; inspect both original and quarantine paths. A final directory-sync failure is reported even if the completed replacement is already visible. Windows skips POSIX directory synchronization and does not carry this durability guarantee. Filesystem-call-order tests are not a power-loss drill; verify crash durability separately on the deployed filesystem.
 
+### Repair a retained source object
+
+A checksum or size failure blocks reads and parsing. Uploading the same source
+again does not overwrite its existing content-addressed object. To repair it,
+stop every service and maintenance writer, retain matching database/files
+backups, and use the original deployment configuration and absolute storage
+root. Set `AI_MAINTENANCE_MODE=true`; both commands acquire the AI and legacy
+checkout ownership locks and verify the service schema before accessing a
+retained task. Replace the example UUID with that task's ID:
+
+```sh
+cd server
+export AI_MAINTENANCE_MODE=true
+python -m practiq_ai.manage verify-source --thread-id 11111111-1111-4111-8111-111111111111
+python -m practiq_ai.manage repair-source --thread-id 11111111-1111-4111-8111-111111111111 \
+  --source /private/original-document.pdf
+```
+
+`verify-source` returns JSON with `verified`, `corrupt`, or `missing` and the
+existing verification error code; corrupt or missing sources produce exit status
+1. It changes no objects. `repair-source` only
+accepts a regular, non-symlink file with the exact size and SHA-256 recorded by
+that task; managed path and source/media-type checks still apply. An already
+valid object is left untouched. No task, checkpoint, receipt or model call is
+created, and source references stay unchanged.
+
+Before atomically publishing a replacement, repair fsyncs a private copy of the
+damaged bytes and a manifest under `.quarantine/source-repair/<operation-uuid>/`.
+A missing source has no original copy and is recorded as missing. The returned
+`quarantine` path identifies the retained evidence. Preserve incomplete operation
+directories on failure. A manifest with `completed: false` can accompany an
+already repaired source if final verification/publication was interrupted;
+repeat `verify-source` before deciding the next step. Repeating repair with the
+same correct original is safe. Neither command deletes quarantined evidence or
+replays unknown provider work. Restore other damaged artifacts from the matching
+backup; these commands repair only the retained original source.
+
 ## Verify recovery and capacity
 
 `make verify` uses isolated PostgreSQL databases, RabbitMQ vhosts and model fakes, without external model calls. `TEST_DATABASE_URI` may point to a dedicated disposable instance whose role can create/drop databases; otherwise the helper starts one temporary Docker PostgreSQL container bound to loopback and removes it on exit. Every test gets its own randomly named database; pure tests do not start Docker. Independent-process tests cover forced termination, unknown calls, and human-review recovery.
