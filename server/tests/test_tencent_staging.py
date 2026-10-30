@@ -55,6 +55,9 @@ async def test_cos_opt_in_uses_only_file_url_and_reuses_local_result(cos_job):
     assert url.scheme == 'https' and url.hostname == 'fixture-1250000000.cos.ap-guangzhou.myqcloud.com'
     assert url.path.endswith(reference.sha256)
     assert parse_qs(url.query)['q-header-list'] == ['host']
+    assert not result['resultValidated'] and not result['staging']['deleted']
+    async with tencent.validate_result(result, runtime, key='source'):
+        pass
     assert result['staging']['deleted'] and 'q-signature' not in json.dumps(result)
     assert files.blobs['source'] == b'synthetic source'
     assert await tencent.parse_job(reference, runtime) == result
@@ -107,13 +110,36 @@ async def test_unknown_paid_submission_keeps_source_and_never_uploads_or_submits
 async def test_cleanup_failure_keeps_saved_result_and_retries_only_cleanup(cos_job):
     reference, _, runtime = cos_job
     provider.delete_source.side_effect = [DocumentProcessingError(502, 'cleanup failed', 'TENCENT_COS_CLEANUP_FAILED'), None]
+    downloaded = await tencent.parse_job(reference, runtime)
     with pytest.raises(DocumentProcessingError, match='COS cleanup failed'):
-        await tencent.parse_job(reference, runtime)
+        async with tencent.validate_result(downloaded, runtime, key='source'):
+            pass
     result = (await runtime.store.aget(namespace('t', 'tencent_jobs'), 'source')).value
-    assert result['resultRef'] and result['staging']['cleanupError'] == 'TENCENT_COS_CLEANUP_FAILED'
+    assert result['resultValidated'] and result['staging']['cleanupError'] == 'TENCENT_COS_CLEANUP_FAILED'
     result = await tencent.parse_job(reference, runtime)
     assert result['staging']['deleted'] and 'cleanupError' not in result['staging']
     assert provider.request.await_count == 2 and provider.upload_source.await_count == 1
+
+
+async def test_invalid_download_keeps_cos_source_until_result_validation(cos_job):
+    reference, files, runtime = cos_job
+    downloaded = await tencent.parse_job(reference, runtime)
+    invalid_ref = downloaded['resultRef']
+    with pytest.raises(DocumentProcessingError):
+        async with tencent.validate_result(downloaded, runtime, key='source'):
+            raise DocumentProcessingError(502, 'Invalid JSON', 'TENCENT_RESULT_INVALID')
+    provider.delete_source.assert_not_awaited()
+    provider.request.side_effect = [{'Status': 'Success', 'ResultUrl': 'result', 'SuccessPageNum': 1, 'FailPageNum': 0}]
+    provider.download_result.return_value = b'recovered archive'
+    recovered = await tencent.parse_job(reference, runtime)
+    provider.delete_source.assert_not_awaited()
+    async with tencent.validate_result(recovered, runtime, key='source'):
+        pass
+    assert recovered['resultValidated'] and recovered['staging']['deleted']
+    assert invalid_ref in recovered['invalidResultRefs'] and files.blobs[invalid_ref['objectKey']] == b'archive'
+    assert provider.upload_source.await_count == provider.delete_source.await_count == 1
+    assert [call.args[0] for call in provider.request.await_args_list] == [
+        'SubmitMultimodalDocParseJob', 'DescribeMultimodalDocParseJob', 'DescribeMultimodalDocParseJob']
 
 
 async def test_disabled_cos_does_not_upload_even_when_bucket_is_configured(cos_job, monkeypatch):

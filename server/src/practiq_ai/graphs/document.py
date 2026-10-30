@@ -101,7 +101,7 @@ from practiq_ai.llm import (
 from practiq_ai.normalization import normalize_source
 from practiq_ai.storage import ObjectStore, get_object_store
 from practiq_ai.temporary import LIMIT, preparation
-from practiq_ai.tencent import parse_job, submission_limit
+from practiq_ai.tencent import parse_job, submission_limit, validate_result
 from practiq_ai.tencent_bundle import (
     decode_bundle,
     evidence_text,
@@ -1087,9 +1087,9 @@ async def _prepare(state: DocumentState, runtime: Runtime[None], *, source_types
     truncated = render_truncated
     total_chars = 0
     asset_bytes = 0
-    for (_, source_type, expected_count), job in zip(submissions, jobs, strict=True):
+    for index, ((_, source_type, expected_count), job) in enumerate(zip(submissions, jobs, strict=True)):
         archive_ref = ArtifactReference.model_validate(job["resultRef"])
-        async with preparation(max(1, archive_ref.sizeBytes * 2 + 8 * 1024 * 1024)):
+        async with preparation(max(1, archive_ref.sizeBytes * 2 + 8 * 1024 * 1024)), validate_result(job, runtime, key=f"source-0-{index}"):
             bundle = await store.get_verified(archive_ref)
             # Register the ZIP in the worker; _thread_io drains before ExitStack closes it.
             with ExitStack() as resources:
