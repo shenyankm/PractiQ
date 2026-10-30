@@ -5,7 +5,7 @@ import os
 import sys
 from contextlib import asynccontextmanager
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 from uuid import uuid4
 
 import pytest
@@ -250,10 +250,34 @@ async def test_manage_dispatches_explicit_source_maintenance(repair_case, monkey
     ['verify-source', '--thread-id', 'task', '--source', 'original'],
 ])
 def test_source_cli_rejects_incomplete_or_inapplicable_arguments(monkeypatch, arguments):
+    load_configuration = Mock()
+    monkeypatch.setattr('dotenv.load_dotenv', load_configuration)
     monkeypatch.setattr(sys, 'argv', ['manage', *arguments])
     with pytest.raises(SystemExit) as error:
         manage.main()
     assert error.value.code == 2
+    load_configuration.assert_not_called()
+
+
+def test_valid_source_cli_loads_configuration_before_dispatch(monkeypatch):
+    from pathlib import Path
+
+    from practiq_ai.config import SERVER_ROOT
+
+    load_configuration = Mock()
+    monkeypatch.setattr('dotenv.load_dotenv', load_configuration)
+    thread_id = str(uuid4())
+    source = Path('/unused/original.txt')
+    monkeypatch.setattr(sys, 'argv', ['manage', 'repair-source', '--thread-id', thread_id, '--source', str(source)])
+
+    async def dispatch(action, run_id, **options):
+        load_configuration.assert_called_once_with(SERVER_ROOT.parent / '.env', override=False)
+        assert (action, run_id, options) == ('repair-source', None, {'thread_id': thread_id, 'source': source})
+
+    run = AsyncMock(side_effect=dispatch)
+    monkeypatch.setattr(manage, 'run', run)
+    manage.main()
+    run.assert_awaited_once()
 
 
 @pytest.mark.usefixtures('disposable_databases')

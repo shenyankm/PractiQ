@@ -122,7 +122,6 @@ def main():
     from dotenv import load_dotenv
 
     from .config import SERVER_ROOT
-    load_dotenv(SERVER_ROOT.parent / '.env', override=False)
     parser = argparse.ArgumentParser()
     parser.add_argument('action', choices=['init-db', 'upgrade-db', 'replay-run', 'cleanup-state', 'verify-source', 'repair-source'])
     parser.add_argument('--run-id')
@@ -133,6 +132,7 @@ def main():
         parser.error('Source maintenance requires --thread-id')
     if args.action == 'repair-source' and args.source is None or args.source is not None and args.action != 'repair-source':
         parser.error('--source is required only for repair-source')
+    load_dotenv(SERVER_ROOT.parent / '.env', override=False)
     asyncio.run(run(args.action, args.run_id, thread_id=args.thread_id, source=args.source))
 
 
