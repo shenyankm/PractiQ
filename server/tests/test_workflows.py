@@ -214,7 +214,7 @@ def test_document_graph_exports_missing_questions_when_all_chunks_fail(monkeypat
 
 
 @pytest.mark.parametrize("first_chunk_delay", [0, 0.05])
-def test_document_graph_resumes_without_repeating_completed_chunk(monkeypatch, first_chunk_delay):
+async def test_document_graph_resumes_without_repeating_completed_chunk(monkeypatch, first_chunk_delay):
     fake_store, reference = source("1. First\n2. Second")
     model = FakeModel(
         responses=[
@@ -227,6 +227,18 @@ def test_document_graph_resumes_without_repeating_completed_chunk(monkeypatch, f
     original_chunk = document._chunk
     checkpointer = InMemorySaver()
     config = run_config()
+    first_chunk_saved = asyncio.Event()
+    original_put_writes = checkpointer.aput_writes
+
+    async def put_writes(config, writes, task_id, task_path=""):
+        await original_put_writes(config, writes, task_id, task_path)
+        if any(
+            channel == "chunkResults" and any(item["index"] == 0 and item.get("resultRef") for item in values)
+            for channel, values in writes
+        ):
+            first_chunk_saved.set()
+
+    monkeypatch.setattr(checkpointer, "aput_writes", put_writes)
 
     async def unstable_chunk(task, runtime):
         nonlocal interrupted
@@ -234,14 +246,7 @@ def test_document_graph_resumes_without_repeating_completed_chunk(monkeypatch, f
         if task["index"] == 1 and interrupted:
             # Returning from chunk 0 does not yet guarantee its checkpoint writes.
             async with asyncio.timeout(5):
-                while True:
-                    saved = await checkpointer.aget_tuple(config)
-                    if saved and any(
-                        channel == "chunkResults" and any(item["index"] == 0 and item.get("resultRef") for item in values)
-                        for _, channel, values in saved.pending_writes or []
-                    ):
-                        break
-                    await asyncio.sleep(0)
+                await first_chunk_saved.wait()
             raise RuntimeError("worker interrupted")
         if task["index"] == 0:
             await asyncio.sleep(first_chunk_delay)
@@ -259,13 +264,9 @@ def test_document_graph_resumes_without_repeating_completed_chunk(monkeypatch, f
     graph = local_graph(checkpointer)
 
     with pytest.raises(RuntimeError, match="worker interrupted"):
-        asyncio.run(
-            graph.ainvoke(
-                {"document": reference}, config
-            )
-        )
+        await graph.ainvoke({"document": reference}, config)
     interrupted = False
-    output = asyncio.run(graph.ainvoke(None, config))
+    output = await graph.ainvoke(None, config)
 
     assert calls == Counter({1: 2, 0: 1})
     assert [item["stem"] for item in output["result"]["questions"]] == [
