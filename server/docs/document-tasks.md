@@ -23,7 +23,7 @@ Optional `deduplicateQuestions` is a strict JSON boolean and defaults to false. 
 
 `GET /api/document-tasks/{threadId}` returns `threadId`, `runId`, `parentThreadId`, `fileName`, `modelConfigured`, `resumeCompatible`, `state`, `phase`, `progress`, `failures`, `blocking`, `allowedActions`, `checkpointId`, `expiresAt`, `updatedAt`, `status`, `result`, `processing`, `usage`, `unknownUsageCalls`, `modelBudget`, `canExportCompleted`, and `parserJobs`. Before the first checkpoint, it returns an opaque `pending:<runId>` token used only for task control. This is not a LangGraph checkpoint; clients must not parse or construct it.
 
-`GET /api/document-tasks/{threadId}/head` returns only `threadId`, `runId`, `state`, `checkpointId`, `updatedAt`, `modelConfigured` and `resumeCompatible`, using the same authentication, expiry and saved-state checks. `DocumentTaskHead` is the authoritative response model. The Web frontend uses this endpoint for subsequent polls of unchanged completed tasks; it still loads full details and previews initially, on changes and after explicit actions. Active tasks poll every 3 seconds and quiescent tasks every 30 seconds; hidden pages pause polling, and focus or visibility restoration refreshes. Head reads start no model work. Heads and lists share a 256-entry in-memory cache only for completed, quiescent checkpoints, keyed by the saved checkpoint ID and latest run ID/status. Every head request still checks the task's support and expiry, checkpoint ID, latest run and current model configuration; a cache miss or non-quiescent state loads the authoritative checkpoint. Restart discards the cache.
+`GET /api/document-tasks/{threadId}/head` returns only `threadId`, `runId`, `state`, `checkpointId`, `updatedAt`, `modelConfigured` and `resumeCompatible`, using the same authentication, expiry and saved-state checks. `DocumentTaskHead` is the authoritative response model. The Web frontend uses this endpoint for subsequent polls of unchanged completed tasks; it still loads full details and metadata previews initially, on changes and after explicit actions. Active tasks poll every 3 seconds and quiescent tasks every 30 seconds; hidden pages pause polling, and focus or visibility restoration refreshes. Head reads start no model work. Heads and lists share a 256-entry in-memory cache only for completed, quiescent checkpoints, keyed by the saved checkpoint ID and latest run ID/status. Every head request still checks the task's support and expiry, checkpoint ID, latest run and current model configuration; a cache miss or non-quiescent state loads the authoritative checkpoint. Restart discards the cache.
 
 `DocumentTaskDetail` in `contracts.py` is the authoritative response model. The existing exporter derives `taskDetail` in `app/src-tauri/contracts.json` and shared TypeScript contracts for `app/` and `web/`; `app/scripts/export-contracts.py --check` rejects field, nullability, state, phase, or action drift.
 
@@ -123,6 +123,16 @@ List responses also include `nextCursor`, an opaque continuation token or null w
 ```
 
 Stage review returns saved successful units and their source references; result review returns merged output plus source-only units with empty questions/groups and retained source references. Saved unit files are read with concurrency bounded by `AI_STORAGE_CONCURRENCY`, preserving stage/index order and verifying every reference, size and checksum on every preview request. Failure or cancellation cancels and joins pending unit reads; there is no cross-request artifact cache. Match `questionSources.stage` and `unitIndex` to these units to locate original text or page images. Failures identify failed scopes; quality and questionSources describe review issues and provenance. This endpoint does not merge, crop, call models, accept results, or write question banks. Read source content through the validated artifact API. Acceptance must carry the preview's checkpointId; an old preview cannot accept a newer result.
+
+The optional `include_result=false` query omits only the duplicated `result` unit
+when merged questions already exist. It retains the original document, source
+and OCR evidence units, failures, quality and question-source associations. Before
+merge it still returns every saved successful candidate. Omitting the query, or
+setting it to `true`, retains the complete response. The Web frontend requests
+this metadata preview and reuses questions, groups and visuals from task detail
+only when both checkpoint IDs match. It still requires a matching fresh preview
+before export or checkpoint actions. Older services returning a complete preview
+remain supported. This option changes no artifact permission or paid-action rule.
 
 Stage previews can contain the same question ID in different units. The Web review resolves material and shared-option references within the question's stage/unit first, and uses cross-unit fallback only for globally unique IDs. Ambiguous unresolved references retain their original metadata and the question's own options without displaying another unit's content.
 

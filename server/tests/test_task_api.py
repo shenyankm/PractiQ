@@ -258,7 +258,7 @@ async def test_control_input_auth_and_http_errors(monkeypatch):
         assert (await http.post(path + "/control", json={"requestId": str(uuid4()), "action": "resume", "runId": str(uuid4())}, headers=headers)).status_code == 422
         async def failure(*args):
             raise DocumentProcessingError(404, 'missing task', 'TASK_NOT_FOUND')
-        monkeypatch.setattr(task_api, "get_task", failure)
+        monkeypatch.setattr(task_api, "get_task_model", failure)
         assert (await http.get(path, headers=headers)).status_code == 404
 
 

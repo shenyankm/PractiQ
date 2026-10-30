@@ -176,7 +176,8 @@ export default function ResultReview({ task, preview, client }: { task: Document
   const qualityText = useMemo(() => tab === "sources" && qualityExpanded ? JSON.stringify(quality || {}, null, 2) : "", [quality, qualityExpanded, tab]);
   const {units, entries, visuals, groups, questions, sourcesById, sources} = useMemo(() => {
     const units = preview?.units || [];
-    const entries: Entry[] = units.length ? units.flatMap(unit => unit.questions.map((question, ordinal) => ({question,stage:unit.stage,index:unit.index,ordinal}))) : (task.result?.questions || []).map((question, ordinal) => ({question,stage:"result",index:0,ordinal}));
+    const result = (!preview || preview.checkpointId === task.checkpointId) && !units.some(unit => unit.stage === "result" || unit.questions.length) ? task.result : null;
+    const entries: Entry[] = result ? result.questions.map((question, ordinal) => ({question,stage:"result",index:0,ordinal})) : units.flatMap(unit => unit.questions.map((question, ordinal) => ({question,stage:unit.stage,index:unit.index,ordinal})));
     const questions = new Map<string,ParsedQuestion | null>();
     for (const entry of entries) {
       if (!entry.question.id) continue;
@@ -189,9 +190,9 @@ export default function ResultReview({ task, preview, client }: { task: Document
     const sourcesById = new Map<string, typeof sources>();
     for (const source of sources) { const values = sourcesById.get(source.questionId) || []; values.push(source); sourcesById.set(source.questionId,values); }
     return {units,entries,questions,sourcesById,sources,
-      visuals:units.length ? units.flatMap(unit => unit.visualElements || []) : task.result?.visualElements || [],
-      groups:units.length ? units.flatMap(unit => unit.groups) : task.result?.groups || []};
-  }, [preview, task.result, task.processing]);
+      visuals:result?.visualElements || units.flatMap(unit => unit.visualElements || []),
+      groups:result?.groups || units.flatMap(unit => unit.groups)};
+  }, [preview, task.checkpointId, task.result, task.processing]);
   const filteredEntries = useMemo(() => {
     const keyword = search.trim().toLocaleLowerCase();
     const optionMatches = new Map<ParsedQuestion["options"], boolean>();

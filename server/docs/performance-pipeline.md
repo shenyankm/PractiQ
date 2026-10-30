@@ -1,5 +1,19 @@
 # Document pipeline performance boundaries
 
+## Chunk planning worker (October 30)
+
+`_assemble` runs its complete chunk/source-presence plan through the existing
+`_thread_io` helper. The single-source and per-source-unit paths preserve spans,
+headers, node counts, presence hints, source identities and chunk bytes. No chunk
+write starts until planning succeeds. Cancellation waits for the planning worker
+to finish before returning; planning errors still prevent writes. This improves
+event-loop responsiveness, not model speed or total CPU work.
+
+The [acceptance record](../../docs/history/performance/read-paths-20261030.md)
+includes cold-plan heartbeat measurements and explicitly separates them from
+end-to-end import latency. OCR merge reads remain sequential after the concurrent
+candidate failed the local-filesystem performance comparison.
+
 This change addresses recommendations **2, 9, 15 and 16** from the performance
 review of `5b673a6e`. It changes document preparation and Tencent result handling,
 not upload APIs, schemas, model prompts, or explicit-action requirements.

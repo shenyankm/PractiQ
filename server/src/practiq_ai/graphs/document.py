@@ -1468,33 +1468,37 @@ async def _assemble(state: DocumentState) -> dict[str, Any]:
         raise DocumentProcessingError(422, "Document contains no extractable text")
 
     reference = DocumentReference.model_validate(state["document"])
-    spans: list[ChunkSpan] = []
-    chunk_sources = []
-    chunk_headers: list[str | None] = []
-    chunk_node_counts: list[int | None] = []
-    chunk_presence: list[dict[str, SourcePresenceHint] | None] = []
-    text_units = state.get("textUnits", [])
-    if text_units and not state.get("visualTotal"):
-        for unit in text_units:
-            start, end = unit["start"], min(unit["end"], len(text))
-            if end <= start:
-                continue
-            unit_text = text[start:end]
-            unit_spans, header, node_counts = split_chunk_plan(unit_text, tabular_rows_safe=unit.get('tabularRowsSafe', False), source_type=unit['sourceType'], complete=not truncated)
-            presence_plan = source_presence_plan(unit_text, unit_spans, source_type=unit['sourceType'],
-                                                 tabular_rows_safe=unit.get('tabularRowsSafe', False), complete=not truncated)
-            for span, node_count, presence in zip(unit_spans, node_counts, presence_plan, strict=True):
-                spans.append(cast(ChunkSpan, {key: value + start for key, value in span.items()}))
-                chunk_sources.append({"fileName": unit["fileName"], "sourceType": unit["sourceType"],
-                                      "sourceIndex": unit["sourceIndex"]})
-                chunk_headers.append(header if span['start'] else None)
-                chunk_node_counts.append(node_count)
-                chunk_presence.append(presence)
-    else:
-        spans, header, chunk_node_counts = split_chunk_plan(text, tabular_rows_safe=state.get('tabularRowsSafe', False), source_type=state.get('effectiveSourceType', reference.sourceType), complete=not truncated)
-        chunk_headers = [header if span['start'] else None for span in spans]
-        chunk_presence = source_presence_plan(text, spans, source_type=state.get('effectiveSourceType', reference.sourceType),
-                                              tabular_rows_safe=state.get('tabularRowsSafe', False), complete=not truncated)
+    def plan():
+        spans: list[ChunkSpan] = []
+        chunk_sources = []
+        chunk_headers: list[str | None] = []
+        chunk_node_counts: list[int | None] = []
+        chunk_presence: list[dict[str, SourcePresenceHint] | None] = []
+        text_units = state.get("textUnits", [])
+        if text_units and not state.get("visualTotal"):
+            for unit in text_units:
+                start, end = unit["start"], min(unit["end"], len(text))
+                if end <= start:
+                    continue
+                unit_text = text[start:end]
+                unit_spans, header, node_counts = split_chunk_plan(unit_text, tabular_rows_safe=unit.get('tabularRowsSafe', False), source_type=unit['sourceType'], complete=not truncated)
+                presence_plan = source_presence_plan(unit_text, unit_spans, source_type=unit['sourceType'],
+                                                     tabular_rows_safe=unit.get('tabularRowsSafe', False), complete=not truncated)
+                for span, node_count, presence in zip(unit_spans, node_counts, presence_plan, strict=True):
+                    spans.append(cast(ChunkSpan, {key: value + start for key, value in span.items()}))
+                    chunk_sources.append({"fileName": unit["fileName"], "sourceType": unit["sourceType"],
+                                          "sourceIndex": unit["sourceIndex"]})
+                    chunk_headers.append(header if span['start'] else None)
+                    chunk_node_counts.append(node_count)
+                    chunk_presence.append(presence)
+        else:
+            spans, header, chunk_node_counts = split_chunk_plan(text, tabular_rows_safe=state.get('tabularRowsSafe', False), source_type=state.get('effectiveSourceType', reference.sourceType), complete=not truncated)
+            chunk_headers = [header if span['start'] else None for span in spans]
+            chunk_presence = source_presence_plan(text, spans, source_type=state.get('effectiveSourceType', reference.sourceType),
+                                                  tabular_rows_safe=state.get('tabularRowsSafe', False), complete=not truncated)
+        return spans, chunk_sources, chunk_headers, chunk_node_counts, chunk_presence
+
+    spans, chunk_sources, chunk_headers, chunk_node_counts, chunk_presence = await _thread_io(plan)
     chunks = [text[span["start"]:span["end"]] for span in spans]
 
     async def put_chunk(item: tuple[int, str]) -> ArtifactReference:

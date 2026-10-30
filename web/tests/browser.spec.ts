@@ -55,7 +55,7 @@ async function fakeHTTP(page: Page, initial: DocumentTaskDetail = task) {
     }
     if (call.path === "/api/artifacts/read") { await route.fulfill({ contentType: "image/png", body: png }); return; }
     const id = call.path.split("/")[3], current = records.get(id);
-    if (call.path.endsWith("/preview")) { await respond(route, { ...(server.review || preview), threadId: id, checkpointId: current?.checkpointId, state: current?.state }); return; }
+    if (call.path.endsWith("/preview")) { await respond(route, { ...(server.review || preview), ...(!server.review && current?.result?.questions.length && url.searchParams.get("include_result") === "false" ? { units: preview.units.filter(unit => unit.stage !== "result") } : {}), threadId: id, checkpointId: current?.checkpointId, state: current?.state }); return; }
     if (call.path.endsWith("/export")) { await route.fulfill({ contentType: "application/zip", headers: { "Content-Disposition": `attachment; filename="practiq-bank-${id}.zip"` }, body: zip }); return; }
     if (call.path.endsWith("/control")) {
       const paused = call.body!.action === "pause", cancelled = call.body!.action === "interrupt";

@@ -237,8 +237,8 @@ async def list_document_tasks(limit: int = Query(default=20, ge=1, le=100), offs
 
 
 @app.get("/api/document-tasks/{thread_id}", response_model=DocumentTaskDetail, dependencies=[Depends(authorize)])
-async def get_document_task(thread_id: UUID) -> dict[str, Any]:
-    return await _task_response(task_api.get_task(str(thread_id)))
+async def get_document_task(thread_id: UUID) -> DocumentTaskDetail:
+    return await _task_response(task_api.get_task_model(str(thread_id)))
 
 
 @app.get("/api/document-tasks/{thread_id}/head", response_model=DocumentTaskHead, dependencies=[Depends(authorize)])
@@ -252,8 +252,8 @@ async def delete_document_task(thread_id: UUID) -> dict[str, bool]:
 
 
 @app.get("/api/document-tasks/{thread_id}/preview", response_model=DocumentTaskReview, dependencies=[Depends(authorize)])
-async def preview_document_task(thread_id: UUID) -> dict[str, Any]:
-    return await _task_response(task_api.review_task(str(thread_id)))
+async def preview_document_task(thread_id: UUID, include_result: bool = Query(default=True, description='Include the merged result unit. False retains source metadata and unmerged partial candidates.')) -> DocumentTaskReview:
+    return await _task_response(task_api.review_task_model(str(thread_id), include_result=include_result))
 
 
 @app.get("/api/document-tasks/{thread_id}/export", dependencies=[Depends(authorize), Depends(export_slot)])

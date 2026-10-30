@@ -286,6 +286,8 @@ describe("task reads and explicit controls", () => {
     await expect(client.capabilities()).resolves.toEqual(capabilities);
     await client.list(20, "failed"); await client.detail(taskId); await client.preview(taskId); await client.delete(taskId);
     expect(fetcher.mock.calls.map(([url]) => url)).toEqual(["/api/import-capabilities", "/api/document-tasks?limit=20&offset=20&state_filter=failed", `/api/document-tasks/${taskId}`, `/api/document-tasks/${taskId}/preview`, `/api/document-tasks/${taskId}`]);
+    await client.preview(taskId, undefined, false);
+    expect(fetcher.mock.calls.at(-1)?.[0]).toBe(`/api/document-tasks/${taskId}/preview?include_result=false`);
   });
   it("rejects malformed capability/JSON and never displays server-echoed credentials", async () => {
     const fetcher = vi.fn().mockResolvedValueOnce(json({ ...capabilities, sourceMaxBytes: -1 })).mockResolvedValueOnce(new Response("<html>wrong route</html>")).mockResolvedValueOnce(json({ detail: { code: "UNAUTHORIZED", message: "fake-secret" } }, 401));
