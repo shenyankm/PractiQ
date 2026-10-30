@@ -22,7 +22,7 @@ from practiq_ai.execution import namespace
 from practiq_ai.extractors import ExtractedDocument
 from practiq_ai.graphs import document, vision
 from practiq_ai.import_control import ImportControl
-from tests.support import make_image, ocr_text_page, source, tencent_provider
+from tests.support import make_image, ocr_text_page, parsed, source, tencent_provider
 
 
 def prepare(monkeypatch, text="aaa\nbbb\nccc\nddd\n", concurrency=2):
@@ -36,6 +36,47 @@ def prepare(monkeypatch, text="aaa\nbbb\nccc\nddd\n", concurrency=2):
     runtime = cast(Any, SimpleNamespace(store=InMemoryStore(), context={"importControl": control},
                                        execution_info=SimpleNamespace(thread_id="performance", run_id="run")))
     return files, reference, runtime, control
+
+
+@pytest.mark.parametrize("outcome", ["empty", "idless", "primary", "enriched", "too_large"])
+async def test_vision_reads_only_usable_context_and_projects_each_response_once(monkeypatch, outcome):
+    files, reference, runtime, _ = prepare(monkeypatch)
+    refs = []
+    for index in range(4):
+        ref = await files.put_artifact(json.dumps({"page": index, "elements": [], "figures": []}).encode(),
+                                       source_sha256=reference["sha256"], kind="ocr-page", index=index,
+                                       media_type="application/json")
+        refs.append(ref.model_dump())
+    reply = parsed("Printed question") if outcome != "empty" else {"questions": [], "groups": []}
+    if outcome not in {"empty", "idless"}:
+        reply["questions"][0]["id"] = "page:1:1"
+    original = json.dumps(reply)
+    calls = []
+
+    async def call(_model, messages, schema, _kind, *, runtime):
+        calls.append(messages)
+        if len(calls) == 2 and outcome == "too_large":
+            return None, [], "MODEL_INPUT_TOO_LARGE"
+        return schema.model_validate(reply), [], None
+
+    projection = Mock(wraps=document.OcrPageParseResult.page_result)
+    monkeypatch.setattr(document.OcrPageParseResult, "page_result", lambda self: projection(self))
+    monkeypatch.setattr(document, "structured_call", call)
+    reads = AsyncMock(wraps=files.get_verified)
+    monkeypatch.setattr(files, "get_verified", reads)
+    state = {"artifact": refs[0], "ocrArtifact": refs[0], "index": 0,
+             "neighbors": [] if outcome == "primary" else [{"index": i, "ocrArtifact": ref} for i, ref in enumerate(refs)]}
+    result = await document._vision(cast(Any, state), runtime)
+    context_used = outcome in {"enriched", "too_large"}
+    assert reads.await_count == (4 if context_used else 1)
+    assert len(calls) == (2 if context_used else 1)
+    assert projection.call_count == (2 if outcome == "enriched" else 1)
+    assert not result["failures"]
+    unit = result["visionResults"][0]
+    assert len(unit["parsed"]["questions"]) == (0 if outcome == "empty" else 1)
+    if outcome == "too_large":
+        assert unit["contextSkipped"] and unit["parsed"]["questions"][0]["needsReview"]
+    assert json.dumps(reply) == original
 
 
 @pytest.mark.parametrize("existing", [[], [0, 2], [0, 1, 2]])
