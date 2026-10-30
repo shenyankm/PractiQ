@@ -2,7 +2,7 @@ import { lazy, memo, Suspense, useEffect, useLayoutEffect, useRef, useState } fr
 import { Select, SelectOption } from "./components/ui/select";
 import { Upload, Play, RefreshCw, Download, Trash2, LockKeyhole, ChevronLeft, ChevronRight, FileText, LoaderCircle, History, Settings, Pause, Square } from "lucide-react";
 import logo from "./assets/octopus.png";
-import { ApiError, Client, downloadBlob, fileFormat, MAX_FILES, sourceLimit, validateFiles, type Action, type Capabilities, type TaskList, type UploadStage } from "./api";
+import { ApiError, Client, downloadBlob, fileFormat, MAX_FILES, sourceLimit, validateFiles, type Action, type Capabilities, type ReparseIntent, type TaskList, type UploadStage } from "./api";
 import type { DocumentTaskCreate, DocumentTaskDetail, DocumentTaskReview, DocumentTaskSummary } from "./contracts.generated";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
@@ -104,9 +104,12 @@ export default function App() {
   const [operationError, setOperationError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [pendingImports, setPendingImports] = useState<DocumentTaskCreate[]>([]);
+  const [pendingReparses, setPendingReparses] = useState<ReparseIntent[]>([]);
   useEffect(() => {
     if (!client || busy) return;
     try { setPendingImports(client.pendingImports()); }
+    catch (error) { setOperationError(errorText(error)); }
+    try { setPendingReparses(client.pendingReparses()); }
     catch (error) { setOperationError(errorText(error)); }
   }, [client, busy]);
 
@@ -370,6 +373,22 @@ export default function App() {
         {notice && <p className="notice operation-notice" role="status">{notice}</p>}
         {operationError && <div ref={operationNotice} className="error-banner" role="alert"><span className="min-w-0 flex-1">{operationError}</span></div>}
         {!!pendingImports.length && <section className="notice" aria-label="未确认的导入提交"><h2>未确认的导入提交</h2><p>原请求 ID 与文件引用已保存在本机，不含令牌或文件内容。请先查看导入记录；重试沿用原请求和参数，已有任务会返回原回执，尚未创建则会开始解析并可能计费。</p><p>清除本机恢复记录不会取消服务端任务；之后再次导入会视为新提交，可能重复计费。</p><ul>{pendingImports.map(request => <li key={request.requestId}><p>{request.document.fileName} · 自动去重：{request.deduplicateQuestions ? "开启" : "关闭"}</p><small>原提交请求 ID：{request.requestId}</small><div className="task-actions"><Button variant="outline" disabled={busy || !capabilities?.modelConfigured || capabilities.parserConfigured === false} onClick={() => void run(async current => { const receipt = await current.retryImport(request.requestId); if (current.active) { navigate("records"); setSelected(receipt.threadId); setListRevision(value => value + 1); setDetailRevision(value => value + 1); setNotice("原提交已确认，正在读取服务端任务。"); } })}>重试原提交</Button><Button variant="ghost" disabled={busy} onClick={() => void run(async current => { current.forgetImport(request.requestId); setNotice("本机恢复记录已清除，服务端任务不受影响。"); })}>已核对，清除恢复记录</Button></div></li>)}</ul></section>}
+        {!!pendingReparses.length && <section className="notice" aria-label="未确认的重新解析">
+          <h2>未确认的重新解析</h2>
+          <p>原任务与请求 ID 已保存在本机，不含令牌或文件内容。请先查看导入记录；重试沿用原请求，已有任务会返回原回执，尚未创建则会开始重新解析并可能计费。</p>
+          <p>清除本机恢复记录不会取消服务端任务；之后再次重新解析会视为新请求，可能重复计费。</p>
+          <ul>{pendingReparses.map(request => <li key={request.requestId}>
+            <p>原任务 ID：{request.threadId}</p><small>原重新解析请求 ID：{request.requestId}</small>
+            <div className="task-actions">
+              <Button variant="outline" disabled={busy} onClick={() => { navigate("records"); setSelected(request.threadId); }}>查看原任务</Button>
+              <Button variant="outline" disabled={busy || !capabilities?.modelConfigured || capabilities.parserConfigured === false} onClick={() => void run(async current => {
+                const receipt = await current.retryReparse(request.requestId);
+                if (current.active) { navigate("records"); setSelected(receipt.threadId); setListRevision(value => value + 1); setDetailRevision(value => value + 1); setNotice("原重新解析请求已确认，正在读取服务端任务。"); }
+              })}>重试原重新解析</Button>
+              <Button variant="ghost" disabled={busy} onClick={() => void run(async current => { current.forgetReparse(request.requestId); setNotice("本机重新解析恢复记录已清除，服务端任务不受影响。"); })}>已核对，清除重新解析记录</Button>
+            </div>
+          </li>)}</ul>
+        </section>}
         {busy && <p role="status" className="operation-status"><LoaderCircle className="loading-icon" aria-hidden="true" />正在处理当前操作，请勿重复提交。</p>}
         <div hidden={page !== "import"} className="import-page">
           {importContent}

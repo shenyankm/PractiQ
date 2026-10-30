@@ -8,8 +8,10 @@ export type TaskList = DocumentTaskList;
 export type Receipt = DocumentTaskReceipt;
 export type Action = DocumentTaskDetail["allowedActions"][number];
 export type UploadStage = "hashing" | "uploading" | "starting";
+export type ReparseIntent = DocumentTaskReparse & { threadId: string };
 const MIB = 1024 * 1024;
 const IMPORT_INTENTS = "practiq-import-intents-v1";
+const REPARSE_INTENTS = "practiq-reparse-intents-v1";
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 export const MAX_FILES = 10;
 export const MAX_BANK_ZIP_BYTES = 300 * MIB;
@@ -291,7 +293,48 @@ export class Client {
     const target = running ? task.runId : task.checkpointId;
     return this.intent(`control:${task.threadId}:${action}:${target}`, requestId => { const request: DocumentTaskControl = { requestId, action, runId: running ? task.runId : null, checkpointId: running ? null : task.checkpointId, units: [] }; return this.receipt(`/api/document-tasks/${encodeURIComponent(task.threadId)}/control`, request); });
   }
-  reparse(id: string) { return this.intent(`reparse:${id}`, requestId => { const request: DocumentTaskReparse = { requestId }; return this.receipt(`/api/document-tasks/${encodeURIComponent(id)}/reparse`, request); }); }
+  pendingReparses(): ReparseIntent[] {
+    try {
+      const raw = localStorage.getItem(REPARSE_INTENTS);
+      if (raw === null) return [];
+      if (raw.length > 10_000) throw new Error();
+      const records: ReparseIntent[] = JSON.parse(raw);
+      if (!Array.isArray(records) || records.length > 50 || !records.every(record => record && Object.keys(record).length === 2
+        && typeof record.requestId === "string" && uuid.test(record.requestId)
+        && typeof record.threadId === "string" && uuid.test(record.threadId))
+        || new Set(records.map(record => record.requestId.toLowerCase())).size !== records.length
+        || new Set(records.map(record => record.threadId.toLowerCase())).size !== records.length) throw new Error();
+      return records;
+    } catch {
+      throw new ApiError("无法读取本机的重新解析恢复记录。请先核对导入记录并检查浏览器存储，勿重复提交。", "RECOVERY_STORAGE_UNAVAILABLE");
+    }
+  }
+  private saveReparses(records: ReparseIntent[]) {
+    try {
+      if (records.length > 50) throw new Error();
+      if (records.length) localStorage.setItem(REPARSE_INTENTS, JSON.stringify(records));
+      else localStorage.removeItem(REPARSE_INTENTS);
+    } catch {
+      throw new ApiError("无法保存重新解析恢复记录。请检查浏览器存储并核对导入记录，勿重复提交。", "RECOVERY_STORAGE_UNAVAILABLE");
+    }
+  }
+  async retryReparse(requestId: string) {
+    const request = this.pendingReparses().find(record => record.requestId === requestId);
+    if (!request) throw new ApiError("重新解析恢复记录不存在，请先核对导入记录。", "ACTION_UNAVAILABLE");
+    const receipt = await this.receipt(`/api/document-tasks/${encodeURIComponent(request.threadId)}/reparse`, { requestId: request.requestId });
+    this.saveReparses(this.pendingReparses().filter(record => record.requestId !== requestId));
+    return receipt;
+  }
+  forgetReparse(requestId: string) { this.saveReparses(this.pendingReparses().filter(record => record.requestId !== requestId)); }
+  async reparse(id: string) {
+    if (!this.active) throw new DOMException("请求已取消", "AbortError");
+    if (!uuid.test(id)) throw new ApiError("任务引用无效。", "INVALID_REFERENCE");
+    const pending = this.pendingReparses();
+    const original = pending.find(record => record.threadId.toLowerCase() === id.toLowerCase());
+    const requestId = original?.requestId ?? crypto.randomUUID();
+    if (!original) this.saveReparses([...pending, { threadId: id, requestId }]);
+    return this.retryReparse(requestId);
+  }
   async delete(id: string) {
     const receipt = await this.json<{ deleted: boolean }>(`/api/document-tasks/${encodeURIComponent(id)}`, { method: "DELETE" });
     if (!receipt || receipt.deleted !== true) throw new ApiError("删除回执无效，结果尚未确认。请先查询任务。", "INVALID_RESPONSE");
