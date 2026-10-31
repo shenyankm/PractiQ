@@ -6,7 +6,7 @@ import { StudySetup } from "./StudySetup";
 import { api, type QuestionRow, type Session } from "./api";
 import fixture from "../fixtures/sample.json";
 vi.mock("./api", async () => ({ ...(await vi.importActual<typeof import("./api")>("./api")), api: vi.fn() }));
-afterEach(() => { cleanup(); vi.clearAllMocks(); });
+afterEach(() => { cleanup(); vi.useRealTimers(); vi.clearAllMocks(); });
 const banks = [{id:"one",title:"题库一",count:2,description:"",createdAt:0}, {id:"two",title:"题库二",count:1,description:"",createdAt:0}];
 const rows = fixture.questions.slice(0,2).map((question,i) => ({id:`q${i}`,bankId:"one",bankTitle:"题库一",question,groups:[],visuals:[],sources:[],warnings:[],missingAssets:false,favorite:false,latestResult:null})) as QuestionRow[];
 
@@ -94,7 +94,7 @@ it("drops hidden type budgets when the paper changes and does not restore them w
   expect((screen.getByLabelText("填空预算") as HTMLInputElement).value).toBe("0");
 });
 
-function setup() {
+function setup(configure?: () => void) {
   const onStart = vi.fn(async (_s: Session) => {});
   vi.mocked(api).mockImplementation(async r => {
     if(r.type === "question_stats") return {count:rows.length,types:{single:rows.length},feasibleCounts:[1,2]} as never;
@@ -106,6 +106,7 @@ function setup() {
     if(r.type === "start_paper" && r.paper.kind !== "practice" && r.paper.scores.reduce((a,b)=>a+b,0)!==r.paper.total_cents) throw new Error("分值之和必须等于总分");
     return {id:"session"} as never;
   });
+  configure?.();
   render(<StudySetup banks={banks} initialBank="one" initialFilter="" busy={false} run={job => { void job(); }} onStart={onStart} onClose={() => {}}/>);
   return onStart;
 }
@@ -134,14 +135,17 @@ it("preserves a count entered while the first statistics read is pending", async
 });
 
 it("retries statistics without resetting selections, quotas, count or exam settings", async () => {
-  setup();
-  const base = vi.mocked(api).getMockImplementation()!;
+  const mockedApi = vi.mocked(api);
+  let base!: NonNullable<ReturnType<typeof mockedApi.getMockImplementation>>;
   let resolveStats: (value: unknown) => void = () => {};
   let failing = true;
-  vi.mocked(api).mockImplementation(async request => {
-    if (request.type !== "question_stats") return base(request);
-    if (failing) throw new Error("Statistics unavailable");
-    return new Promise(resolve => { resolveStats = resolve; }) as never;
+  setup(() => {
+    base = vi.mocked(api).getMockImplementation()!;
+    vi.mocked(api).mockImplementation(async request => {
+      if (request.type !== "question_stats") return base(request);
+      if (failing) throw new Error("Statistics unavailable");
+      return new Promise(resolve => { resolveStats = resolve; }) as never;
+    });
   });
   expect((await screen.findByRole("alert")).textContent).toContain("Statistics unavailable");
   await userEvent.selectOptions(screen.getByLabelText("模式"), "mock_exam");
@@ -327,6 +331,50 @@ it("keeps manual and per-type question selection available for practice", async 
   await waitFor(() => expect(api).toHaveBeenCalledWith(expect.objectContaining({type:"start_paper",paper:expect.objectContaining({question_ids:["q1"]})})));
 });
 
+it("reads setup pages and filters immediately while only keyword edits wait", async () => {
+  vi.useFakeTimers();
+  try {
+    const user = userEvent.setup();
+    const all = Array.from({ length: 61 }, (_, i) => ({ ...rows[0], id: `q${i}`, question: { ...rows[0].question, stem: `Question ${i}` } }));
+    const stats = { count: 61, types: { single: 61 }, feasibleCounts: Array.from({ length: 61 }, (_, i) => i + 1) };
+    vi.mocked(api).mockImplementation(async request => {
+      if (request.type === "question_stats") return stats as never;
+      if (request.type === "questions_page") return { items: all.slice(request.offset, request.offset + request.limit), total: 61, offset: request.offset, ...(request.include_stats ? { stats } : {}) } as never;
+      throw new Error(request.type);
+    });
+    render(<StudySetup banks={banks} initialBank="one" initialFilter="" busy={false} run={job => { void job(); }} onStart={async () => {}} onClose={() => {}}/>);
+    await act(async () => {});
+    expect(api).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ type: "question_stats" }));
+    vi.useRealTimers();
+    await user.click(screen.getByText(/高级设置/, { selector: "summary" }));
+    await user.selectOptions(screen.getByLabelText("选题方式"), "manual");
+    await screen.findByRole("checkbox", { name: "Question 0" });
+    vi.useFakeTimers();
+    vi.mocked(api).mockClear();
+    fireEvent.click(screen.getByRole("button", { name: "下一页" }));
+    await act(async () => {});
+    expect(api).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ type: "questions_page", offset: 30 }));
+    vi.mocked(api).mockClear();
+    const search = screen.getByRole("textbox", { name: "搜索题目" });
+    fireEvent.change(search, { target: { value: "a" } });
+    await act(async () => { await vi.advanceTimersByTimeAsync(100); });
+    fireEvent.change(search, { target: { value: "ab" } });
+    await act(async () => { await vi.advanceTimersByTimeAsync(149); });
+    expect(api).not.toHaveBeenCalled();
+    await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+    expect(api).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ type: "questions_page", search: "ab", offset: 0, include_stats: true }));
+    fireEvent.click(screen.getByRole("button", { name: "下一页" }));
+    await act(async () => {});
+    vi.mocked(api).mockClear();
+    fireEvent.change(screen.getByLabelText("范围"), { target: { value: "favorite" } });
+    await act(async () => {});
+    expect(api).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ type: "questions_page", search: "ab", filter: "favorite", offset: 0, include_stats: true }));
+  } finally {
+    cleanup();
+    vi.useRealTimers();
+  }
+});
+
 it("debounces statistics, pages manual choices and preserves selections across pages", async () => {
   setup();
   await screen.findByText(/可用 2 题/);
@@ -357,11 +405,12 @@ it("debounces statistics, pages manual choices and preserves selections across p
 
 
 it("uses whole-group defaults, offers nearby counts and never silently changes an entered count", async () => {
-  const started = setup();
-  vi.mocked(api).mockImplementation(async r => {
-    if (r.type === "question_stats") return {count:24,types:{reading:8},feasibleCounts:[3,6,9,12,15,18,21,24]} as never;
-    if (r.type === "preview_paper") return {questionIds:["group"],digest:"preview",questions:rows,scores:[],count:r.request.count} as never;
-    return {id:"session"} as never;
+  const started = setup(() => {
+    vi.mocked(api).mockImplementation(async r => {
+      if (r.type === "question_stats") return {count:24,types:{reading:8},feasibleCounts:[3,6,9,12,15,18,21,24]} as never;
+      if (r.type === "preview_paper") return {questionIds:["group"],digest:"preview",questions:rows,scores:[],count:r.request.count} as never;
+      return {id:"session"} as never;
+    });
   });
   await screen.findByText(/可用 24 题/);
   const count = screen.getByLabelText("题目数量") as HTMLInputElement;
@@ -378,12 +427,13 @@ it("uses whole-group defaults, offers nearby counts and never silently changes a
 });
 
 it("reports selected material groups and answerable subquestions separately", async () => {
-  setup();
   const groups = rows.map((q, i) => ({...q,answerableCount:3,question:{...q.question,stem:`材料 ${i}`,answerMode:"reading"}}));
-  vi.mocked(api).mockImplementation(async r => {
-    if (r.type === "question_stats") return {count:6,types:{reading:2},feasibleCounts:[3,6]} as never;
-    if (r.type === "questions_page") return {items:groups,total:2,offset:0} as never;
-    return {id:"session"} as never;
+  setup(() => {
+    vi.mocked(api).mockImplementation(async r => {
+      if (r.type === "question_stats") return {count:6,types:{reading:2},feasibleCounts:[3,6]} as never;
+      if (r.type === "questions_page") return {items:groups,total:2,offset:0} as never;
+      return {id:"session"} as never;
+    });
   });
   await screen.findByText(/可用 6 题/);
   await userEvent.click(screen.getByText(/高级设置/, {selector:"summary"}));
@@ -406,7 +456,7 @@ it("keeps an explicit resumed bank scope instead of falling back to every bank",
   view.unmount();
   vi.mocked(api).mockClear();
   render(<StudySetup {...props} initialBankIds={[]}/>);
-  expect(screen.getByText("请选择至少一个题库")).toBeTruthy();
+  expect(screen.getByRole("status").textContent).toContain("请选择至少一个题库");
   expect(screen.getByRole("button",{name:"立即开始"}).hasAttribute("disabled")).toBe(true);
   expect(api).not.toHaveBeenCalled();
 });

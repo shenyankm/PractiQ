@@ -5,6 +5,7 @@ import { ChevronDown } from "lucide-react";
 import { api, isComposite, type BankChoice, type Session, type SessionKind, type QuestionSummary, type QuestionStats, type PaperPreview } from "./api";
 import { ErrorNotice } from "./OperationFeedback";
 import { cents, defaultPaperCount, questionType, types } from "./paper";
+import { useSearchReady } from "./useSearchReady";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -43,6 +44,8 @@ export function StudySetup({banks, initialBank, initialBankIds, initialFilter, i
   const mode = modes.length ? Object.keys(types()).filter(key => modes.includes(key)).join(",") : "";
   const modeLabels = modes.length ? mode.split(",").map(key => types()[key] ?? key).join("、") : t("全部题型");
   const query = JSON.stringify({bank_ids: bankIds, search, mode, filter});
+  const previousQuery = useRef(query);
+  const searchReady = useSearchReady(search, JSON.stringify([bankIds, mode, filter, selection]));
   const statsAttempt = statsRetry.query === query ? statsRetry.attempt : 0;
   const statsQuery = JSON.stringify({ query, attempt:statsAttempt });
   const pageRequest = JSON.stringify({ query, offset });
@@ -60,12 +63,15 @@ export function StudySetup({banks, initialBank, initialBankIds, initialFilter, i
     setStatsRetry({query:"",attempt:0}); setPageRetry({query:"",attempt:0});
   }, [query]);
   useEffect(() => {
+    const resetPage = previousQuery.current !== query;
+    previousQuery.current = query;
     let active = true;
     const values = JSON.parse(query);
     const needStats = completedStats.current !== statsQuery;
     const needPage = selection === "manual" && completedPage.current !== pageQuery;
     if (!needStats && !needPage) return;
     if (needPage) { setRows([]); if (!pageAttempt) setPageError(null); }
+    if (!searchReady || resetPage && offset !== 0) return;
     function acceptStats(result: QuestionStats) {
       setStats(result); setStatsError(null);
       if (!countEditedForQuery.current) setCount(defaultPaperCount(result.feasibleCounts ?? Array.from({length:Math.min(1000,result.count)},(_,i)=>i+1)));
@@ -93,9 +99,9 @@ export function StudySetup({banks, initialBank, initialBankIds, initialFilter, i
       // Independent diagnostics/retry remain available if a combined read fails.
       if (active && needStats && !statsRead) await readStats();
     }
-    const timer = setTimeout(() => void read(),150);
-    return () => { active = false; clearTimeout(timer); };
-  }, [query,statsQuery,pageQuery,pageAttempt,selection,offset]);
+    void read();
+    return () => { active = false; };
+  }, [query,statsQuery,pageQuery,pageAttempt,selection,offset,searchReady]);
     const perform = (job:()=>Promise<void>) => run(async()=>{setError(null);try{await job();}catch(e){setError(e);}});
   const invalidate = () => { setPaper(null); setScorePage(0); setReviewing(false); setEditingScore(null); };
   async function generate(withBudgets = false) {
