@@ -604,7 +604,8 @@ for (const width of [1280, 360]) {
     const http = await fakeHTTP(page);
     let fail = true, reads = 0;
     http.server.intercept = async (route, call) => {
-      if (call.path === "/api/import-capabilities" && ++reads > 1 && fail) {
+      if (call.path === "/api/import-capabilities") reads++;
+      if (call.path === "/api/import-capabilities" && fail) {
         await respond(route, { detail: { code: "TEMPORARILY_UNAVAILABLE_" + "X".repeat(40) } }, 503);
         return true;
       }
@@ -613,18 +614,20 @@ for (const width of [1280, 360]) {
     await page.goto("/");
     await page.getByLabel("服务访问令牌").fill(fakeToken);
     await page.getByRole("button", { name: "连接服务", exact: true }).click();
-    const retry = page.getByRole("button", { name: "重试读取服务能力", exact: true });
-    const banner = page.getByRole("alert").filter({ has: retry });
+    const retry = page.getByRole("button", { name: "连接服务", exact: true });
+    const banner = page.getByRole("alert");
     await expect(banner).toBeVisible();
-    const text = await banner.locator("span").boundingBox(), button = await retry.boundingBox();
+    await expect(page.getByLabel("服务访问令牌")).toHaveValue(fakeToken);
+    const text = await banner.boundingBox();
     expect(text!.width).toBeGreaterThan(width === 360 ? 240 : 280);
-    if (width === 360) expect(button!.y).toBeGreaterThanOrEqual(text!.y + text!.height);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await banner.scrollIntoViewIfNeeded();
     await page.screenshot({ path: testInfo.outputPath(`error-retry-${width}.png`), animations: "disabled" });
     fail = false;
     await retry.click();
     await expect(banner).toHaveCount(0);
+    await expect(page.getByText(/^服务支持：/)).toBeVisible();
+    expect(reads).toBe(2);
     expect(mutations(http.calls)).toHaveLength(0);
   });
 }

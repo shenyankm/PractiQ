@@ -291,11 +291,19 @@ it("submits compatible review acceptance only after an explicit click", async ()
 });
 it("recovers failed task/capability reads and ignores obsolete pages after a filter change", async () => {
   const user = userEvent.setup(); const http = fakeHTTP(); let failList = true, failCap = true, capReads = 0;
-  http.server.intercept = url => { if (url.includes("capabilities") && ++capReads > 1 && failCap) { failCap = false; return json({ detail: { code: "SERVICE_UNAVAILABLE" } }, 503); } if (url.startsWith("/api/document-tasks?") && failList) { failList = false; return json({ detail: { code: "TASK_SERVICE_UNAVAILABLE" } }, 503); } };
+  http.server.intercept = url => {
+    if (url.includes("capabilities")) {
+      capReads++;
+      if (failCap) { failCap = false; return json({ detail: { code: "SERVICE_UNAVAILABLE" } }, 503); }
+    }
+    if (url.startsWith("/api/document-tasks?") && failList) { failList = false; return json({ detail: { code: "TASK_SERVICE_UNAVAILABLE" } }, 503); }
+  };
   render(<App />); await user.type(screen.getByLabelText("服务访问令牌"), "fake-service-token"); await user.click(screen.getByRole("button", { name: "连接服务" }));
-  await screen.findByRole("button", { name: "重试读取服务能力" });
-  expect(screen.queryByText("正在验证服务")).toBeNull();
-  await user.click(await screen.findByRole("button", { name: "重试读取服务能力" })); await screen.findByText(/^服务支持：/);
+  await screen.findByRole("alert");
+  expect(screen.getByLabelText("服务访问令牌")).toHaveProperty("value", "fake-service-token");
+  expect(screen.queryByLabelText("选择文档")).toBeNull();
+  await user.click(screen.getByRole("button", { name: "连接服务" })); await screen.findByText(/^服务支持：/);
+  expect(capReads).toBe(2);
   await user.click(screen.getByRole("link", { name: "导入记录" })); await user.click(await screen.findByRole("button", { name: "重试任务列表" })); await screen.findByRole("button", { name: "sample.docx" });
   let release!: (response: Response) => void;
   http.server.intercept = url => { if (url.includes("offset=20")) return new Promise(resolve => { release = resolve; }); if (url.includes("state_filter=failed")) return json({ items: [{ ...summary, threadId: newTaskId, fileName: "current-failed.pdf" }], hasMore: false }); };
@@ -738,6 +746,7 @@ it("connects the personal service with passive reads and has no account fields",
   expect(http.calls.filter(call => call.method === "POST")).toHaveLength(0);
   await user.click(screen.getByRole("button", { name: "连接服务" }));
   await screen.findByText(/^服务支持：/);
+  expect(http.calls.filter(call => call.url === "/api/import-capabilities")).toHaveLength(1);
   expect(http.calls.filter(call => call.method === "POST")).toHaveLength(0);
   expect(screen.queryByLabelText("手机号")).toBeNull();
   expect(screen.queryByText("充值与积分明细")).toBeNull();

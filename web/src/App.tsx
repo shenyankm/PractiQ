@@ -69,7 +69,6 @@ export default function App() {
   const [client, setClient] = useState<Client | null>(null);
   const [capabilities, setCapabilities] = useState<Capabilities | null>(null);
   const [capError, setCapError] = useState<string | null>(null);
-  const [capRevision, setCapRevision] = useState(0);
   const [files, setFiles] = useState<FileItem[]>([]);
   const [fileError, setFileError] = useState<string | null>(null);
   const [deduplicateQuestions, setDeduplicateQuestions] = useState(false);
@@ -132,13 +131,6 @@ export default function App() {
     };
   }, [deleteTarget]);
   useEffect(() => () => client?.disconnect(), [client]);
-  useEffect(() => {
-    setCapabilities(null); setCapError(null);
-    if (!client) return;
-    const controller = new AbortController();
-    void client.capabilities(controller.signal).then(result => { if (!controller.signal.aborted) { setCapabilities(result); } }).catch(error => { if (!controller.signal.aborted) setCapError(errorText(error)); });
-    return () => controller.abort();
-  }, [client, capRevision]);
   useEffect(() => {
     setTasks({ items: [], hasMore: false }); setListError(null);
     if (!client) return;
@@ -247,8 +239,8 @@ export default function App() {
     let current: Client | null = null;
     try {
       current = new Client(draftToken.trim());
-      await current.capabilities();
-      if (current.active) { setClient(current); setDraftToken(""); setOperationError(null); setNotice(null); }
+      const supported = await current.capabilities();
+      if (current.active) { setClient(current); setCapabilities(supported); setDraftToken(""); setOperationError(null); setNotice(null); }
     } catch (error) { current?.disconnect(); setCapError(errorText(error)); if (error instanceof ApiError && (error.code === "INVALID_SERVICE_TOKEN" || authFailure(error))) { setAccessInvalid(true); } }
     finally { setConnecting(false); }
   }
@@ -369,7 +361,6 @@ export default function App() {
     <div className="web-body"><main id="main-content" tabIndex={-1} className="web-main">
       <header className="page-intro"><h1 id="page-heading" tabIndex={-1}>{pages.find(item => item.id === page)!.label}</h1></header>
       {!client ? <Card className="connection-card"><CardHeader><CardTitle role="heading" aria-level={2} className="flex items-center gap-2"><LockKeyhole />连接个人服务</CardTitle></CardHeader><CardContent className="space-y-4"><p id="service-help">使用自托管服务的 AI_SERVICE_TOKEN。令牌仅保存在本页内存，刷新后需重填。</p><form onSubmit={event => { event.preventDefault(); void connect(); }} className="connection-form"><label className="flex-1 space-y-1"><span>服务访问令牌</span><Input ref={tokenField} disabled={connecting} type="password" aria-invalid={accessInvalid || undefined} aria-describedby={accessInvalid ? "service-help access-error" : "service-help"} autoComplete="off" spellCheck={false} maxLength={4096} value={draftToken} onChange={event => setDraftToken(event.target.value)} /></label><Button type="submit" disabled={connecting || !draftToken.trim()}>连接服务</Button></form>{capError && <p id="access-error" role="alert" className="text-destructive">{capError}</p>}</CardContent></Card> : <>
-        {capError && <div className="error-banner" role="alert"><span className="min-w-0 flex-1">{capError}</span><Button variant="outline" onClick={() => setCapRevision(value => value + 1)}>重试读取服务能力</Button></div>}
         {notice && <p className="notice operation-notice" role="status">{notice}</p>}
         {operationError && <div ref={operationNotice} className="error-banner" role="alert"><span className="min-w-0 flex-1">{operationError}</span></div>}
         {!!pendingImports.length && <section className="notice" aria-label="未确认的导入提交"><h2>未确认的导入提交</h2><p>原请求 ID 与文件引用已保存在本机，不含令牌或文件内容。请先查看导入记录；重试沿用原请求和参数，已有任务会返回原回执，尚未创建则会开始解析并可能计费。</p><p>清除本机恢复记录不会取消服务端任务；之后再次导入会视为新提交，可能重复计费。</p><ul>{pendingImports.map(request => <li key={request.requestId}><p>{request.document.fileName} · 自动去重：{request.deduplicateQuestions ? "开启" : "关闭"}</p><small>原提交请求 ID：{request.requestId}</small><div className="task-actions"><Button variant="outline" disabled={busy || !capabilities?.modelConfigured || capabilities.parserConfigured === false} onClick={() => void run(async current => { const receipt = await current.retryImport(request.requestId); if (current.active) { navigate("records"); setSelected(receipt.threadId); setListRevision(value => value + 1); setDetailRevision(value => value + 1); setNotice("原提交已确认，正在读取服务端任务。"); } })}>重试原提交</Button><Button variant="ghost" disabled={busy} onClick={() => void run(async current => { current.forgetImport(request.requestId); setNotice("本机恢复记录已清除，服务端任务不受影响。"); })}>已核对，清除恢复记录</Button></div></li>)}</ul></section>}
