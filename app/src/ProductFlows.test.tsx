@@ -67,7 +67,7 @@ it("keeps desktop navigation focused on offline practice without AI import reque
   await userEvent.click(screen.getByRole("button", { name: "设置" }));
   await userEvent.click(await screen.findByRole("button", { name: "配置" }));
   expect(await screen.findByRole("heading", { name: "AI 服务", level: 1 })).toBeTruthy();
-  expect(screen.queryByLabelText("模型 ID")).toBeNull();
+  expect(await screen.findByLabelText("模型 ID")).toBeTruthy();
   const { invoke } = await import("@tauri-apps/api/core");
   expect(vi.mocked(invoke).mock.calls.some(([command]) => command === "ai_request" || command === "office_request")).toBe(false);
 });

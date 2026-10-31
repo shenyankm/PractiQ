@@ -767,6 +767,8 @@ base('study setup retries failed statistics and manual pages without resetting s
  await page.getByRole('button',{name:'开始练习',exact:true}).click();
  const dialog=page.getByRole('dialog');
  await expect(dialog.getByRole('alert')).toContainText('Statistics unavailable');
+ // Development Strict Mode may replay the initial read.
+ const initialStatsReads=await page.evaluate(()=>window.__studyRequests.filter(r=>r.type==='question_stats').length);
  await chooseOption(dialog.getByRole('combobox',{name:/^模式/}), 'mock_exam');
  await dialog.getByLabel('考试分钟数',{exact:true}).fill('45');
  await dialog.getByLabel('题目数量',{exact:true}).fill('10');
@@ -779,7 +781,7 @@ base('study setup retries failed statistics and manual pages without resetting s
  await statsRetry.click();
  await expect(statsRetry).toBeDisabled();
  await statsRetry.evaluate(button=>button.click());
- await expect.poll(()=>page.evaluate(()=>window.__studyRequests.filter(r=>r.type==='question_stats').length)).toBe(2);
+ await expect.poll(()=>page.evaluate(()=>window.__studyRequests.filter(r=>r.type==='question_stats').length)).toBe(initialStatsReads+1);
  await page.evaluate(()=>window.__resolveStudyStats());
  await expect(statsRetry).toHaveCount(0);
  await expect(dialog.getByRole('alert')).toHaveCount(0);
@@ -811,8 +813,8 @@ base('study setup retries failed statistics and manual pages without resetting s
  const requests=await page.evaluate(()=>window.__studyRequests);
  const statsRequests=requests.filter(r=>r.type==='question_stats');
  const pageRequests=requests.filter(r=>r.type==='questions_page');
- expect(statsRequests).toHaveLength(2);
- expect(statsRequests[1]).toEqual(statsRequests[0]);
+ expect(statsRequests).toHaveLength(initialStatsReads+1);
+ expect(statsRequests.at(-1)).toEqual(statsRequests[0]);
  expect(pageRequests[2]).toEqual(pageRequests[1]);
  expect(errors).toEqual([]);
 });

@@ -4,6 +4,7 @@ import { api, modeNames, type QuestionSummary } from "./api";
 import { questionKinds } from "./english";
 import { message, t, useI18n } from "./i18n";
 import { toast } from "./notifications";
+import { useSearchReady } from "./useSearchReady";
 import { ErrorNotice } from "./OperationFeedback";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,8 +26,13 @@ export function useQuestionListPage(page: string, bank: string | null) {
   const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(false);
   const filter = page === "wrong" ? "wrong" : page === "favorite" ? "favorite" : "";
+  const query = JSON.stringify([page, bank, search, mode, filter]);
+  const previousQuery = useRef(query);
+  const searchReady = useSearchReady(search, JSON.stringify([page, bank, mode, filter, questionRevision]));
   useEffect(() => { setOffset(0); }, [page, bank, search, mode, filter]);
   useEffect(() => {
+    const resetPage = previousQuery.current !== query;
+    previousQuery.current = query;
     if (!["questions", "wrong", "favorite"].includes(page)) return;
     let active = true;
     if (!preserveQuestionRows.current) {
@@ -36,14 +42,13 @@ export function useQuestionListPage(page: string, bank: string | null) {
     }
     preserveQuestionRows.current = false;
     setQuestionError(null);
-    const timer = setTimeout(() => {
-      void api({ type: "questions_page", bank_ids: page === "questions" && bank ? [bank] : [], search, mode, filter, limit: 30, offset })
-        .then(rows => { if (active) { setQuestions(rows.items); setQuestionTotal(rows.total); setOffset(rows.offset); } })
-        .catch(error => { if (active) setQuestionError(error); })
-        .finally(() => { if (active) setLoading(false); });
-    }, 150);
-    return () => { active = false; clearTimeout(timer); };
-  }, [page, bank, search, mode, filter, offset, questionRevision]);
+    if (!searchReady || resetPage && offset !== 0) return;
+    void api({ type: "questions_page", bank_ids: page === "questions" && bank ? [bank] : [], search, mode, filter, limit: 30, offset })
+      .then(rows => { if (active) { setQuestions(rows.items); setQuestionTotal(rows.total); setOffset(rows.offset); } })
+      .catch(error => { if (active) setQuestionError(error); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [page, bank, search, mode, filter, offset, questionRevision, query, searchReady]);
   const refresh = useCallback((preserveRows = false) => {
     preserveQuestionRows.current = preserveRows;
     setQuestionRevision(value => value + 1);
@@ -118,7 +123,7 @@ export function QuestionListPage({ state, page, compact, busy, run, onOpen, onEd
           </NativeSelect>
         </div>
         </div>
-        {hasQuestionFilters && <Button variant="outline" disabled={busy} onClick={() => { setSearch(""); setMode(""); setOffset(0); document.getElementById("question-search")?.focus(); }}>{t("清除筛选")}</Button>}
+        {hasQuestionFilters && <Button variant="outline" disabled={busy} onClick={() => { setSearch(""); setMode(""); setOffset(0); state.refresh(); document.getElementById("question-search")?.focus(); }}>{t("清除筛选")}</Button>}
       </div>
       {page === "wrong" && questions.length > 0 && <p className="text-sm text-muted-foreground">{t("错误和未得满分的题目会出现在这里，再次答对或得满分后自动移出；未评分不算错题。")}</p>}
       {loading ? loadingView : questionError != null ? (
