@@ -230,16 +230,16 @@ fn credential_account(service_url: &str) -> Result<String> {
 fn entry(app: &tauri::AppHandle, service_url: &str) -> Result<Box<dyn Credential>> {
     crate::credentials::entry(app, &credential_account(service_url)?)
 }
-fn required_service_token(entry: &impl Credential) -> Result<String> {
-    let token = entry
+fn required_credential(entry: &impl Credential, missing_code: &str) -> Result<String> {
+    let value = entry
         .read()?
         .filter(|s| !s.trim().is_empty())
-        .ok_or(crate::language::error(
-            "LOCAL_SERVICE_TOKEN_REQUIRED",
-            json!({}),
-        ))?;
-    validate_service_token(&token)?;
-    Ok(token.trim().to_owned())
+        .ok_or(crate::language::error(missing_code, json!({})))?;
+    validate_service_token(&value)?;
+    Ok(value.trim().to_owned())
+}
+fn required_service_token(entry: &impl Credential) -> Result<String> {
+    required_credential(entry, "LOCAL_SERVICE_TOKEN_REQUIRED")
 }
 fn persist_with_secret(
     entry: &impl Credential,
@@ -266,15 +266,7 @@ fn model_account(config: &ConnectionSettings) -> Result<String> {
 }
 
 fn model_key(entry: &impl Credential) -> Result<String> {
-    let key = entry
-        .read()?
-        .filter(|s| !s.trim().is_empty())
-        .ok_or(crate::language::error(
-            "LOCAL_MODEL_KEY_REQUIRED",
-            json!({}),
-        ))?;
-    validate_service_token(&key)?;
-    Ok(key.trim().to_owned())
+    required_credential(entry, "LOCAL_MODEL_KEY_REQUIRED")
 }
 
 pub fn model_settings(
@@ -564,6 +556,15 @@ impl Store {
     ) -> Result<Value> {
         self.save_settings_with(config, service_token, |url| entry(app, url))
     }
+    fn persist_settings(&self, config: &ServiceSettings) -> Result<()> {
+        self.update_sidecar(|mut state| {
+            if state.pending.is_some() {
+                return Err("Service settings restoration is pending".into());
+            }
+            state.active = Some(config.clone());
+            Ok(state)
+        })
+    }
     fn save_model_settings_with<C: Credential>(
         &self,
         config: ServiceSettings,
@@ -586,15 +587,7 @@ impl Store {
             }
             _ => Some(false),
         };
-        let persist = || {
-            self.update_sidecar(|mut state| {
-                if state.pending.is_some() {
-                    return Err("Service settings restoration is pending".into());
-                }
-                state.active = Some(config.clone());
-                Ok(state)
-            })
-        };
+        let persist = || self.persist_settings(&config);
         if let (Some(_), Some(key)) = (&model.base_url, &api_key) {
             let entry = credential(&model_account(model)?)?;
             let key = key.trim();
@@ -632,15 +625,7 @@ impl Store {
             (None, _) => Some(false),
         };
         // Do not hold a SQLite write transaction while the OS credential UI waits.
-        let persist = || {
-            self.update_sidecar(|mut state| {
-                if state.pending.is_some() {
-                    return Err("Service settings restoration is pending".into());
-                }
-                state.active = Some(config.clone());
-                Ok(state)
-            })
-        };
+        let persist = || self.persist_settings(&config);
         if let (Some(url), Some(token)) = (&config.service_url, &service_token) {
             let entry = credential(url)?;
             let token = token.trim();
@@ -766,6 +751,10 @@ mod tests {
             .unwrap();
         assert_eq!(result["hasApiKey"], false);
         assert!(credential.0.lock().unwrap().value.is_none());
+        assert_eq!(
+            model_key(&credential).unwrap_err().code,
+            "LOCAL_MODEL_KEY_REQUIRED"
+        );
     }
     #[test]
     fn model_backups_reject_unknown_fields_invalid_urls_and_secret_fields() {
@@ -1257,38 +1246,47 @@ mod tests {
         );
     }
     #[test]
-    fn pending_restore_rejects_service_save_and_rolls_back_mock_token() {
-        let dir = tempfile::tempdir().unwrap();
-        let store = Store::new(dir.path().to_owned()).unwrap();
-        seed_legacy(&store);
-        store
-            .save_settings_with(config("https://old.example.com"), None, fail_credential)
-            .unwrap();
-        let before = std::fs::read(store.db_path()).unwrap();
-        store
-            .prepare_service_settings_restore(
-                Some(config("https://new.example.com")),
-                hash(&before),
-            )
-            .unwrap();
-        let credential = mock_entry(Some("dummy-old-token"));
-        assert!(store
-            .save_settings_with(
-                config("https://other.example.com"),
-                Some("dummy-new-token".into()),
-                |_| Ok(credential.clone())
-            )
-            .is_err());
-        assert_eq!(
-            credential.read().unwrap().as_deref(),
-            Some("dummy-old-token")
-        );
-        assert!(std::fs::read(store.db_path()).unwrap() == before);
-        store.finish_service_settings_restore(false).unwrap();
-        assert_eq!(
-            store.service_settings().unwrap(),
-            config("https://old.example.com")
-        );
+    fn pending_restore_rejects_settings_saves_and_rolls_back_credentials() {
+        for direct in [false, true] {
+            let dir = tempfile::tempdir().unwrap();
+            let store = Store::new(dir.path().to_owned()).unwrap();
+            seed_legacy(&store);
+            store
+                .save_settings_with(config("https://old.example.com"), None, fail_credential)
+                .unwrap();
+            let before = std::fs::read(store.db_path()).unwrap();
+            store
+                .prepare_service_settings_restore(
+                    Some(config("https://new.example.com")),
+                    hash(&before),
+                )
+                .unwrap();
+            let credential = mock_entry(Some("dummy-old-token"));
+            let save = if direct {
+                store.save_model_settings_with(
+                    direct_config(),
+                    Some("dummy-new-token".into()),
+                    |_| Ok(credential.clone()),
+                )
+            } else {
+                store.save_settings_with(
+                    config("https://other.example.com"),
+                    Some("dummy-new-token".into()),
+                    |_| Ok(credential.clone()),
+                )
+            };
+            assert!(save.is_err());
+            assert_eq!(
+                credential.read().unwrap().as_deref(),
+                Some("dummy-old-token")
+            );
+            assert!(std::fs::read(store.db_path()).unwrap() == before);
+            store.finish_service_settings_restore(false).unwrap();
+            assert_eq!(
+                store.service_settings().unwrap(),
+                config("https://old.example.com")
+            );
+        }
     }
     #[test]
     fn recovery_boundary_blocks_active_store_writes_until_restore_finishes() {

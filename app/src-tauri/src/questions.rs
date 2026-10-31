@@ -967,25 +967,21 @@ fn thaw_questions(doc: &Value, questions: Value) -> Result<Vec<Value>> {
     }
     Ok(rows)
 }
+fn read_session_document(db: &Connection, sid: &str) -> Result<String> {
+    db.query_row(
+        "SELECT content FROM session_documents WHERE session_id=?1",
+        [sid],
+        |r| r.get(0),
+    )
+    .map_err(err)
+}
 pub fn session_rows(db: &Connection, sid: &str) -> Result<Vec<Value>> {
-    let raw: String = db
-        .query_row(
-            "SELECT content FROM session_documents WHERE session_id=?1",
-            [sid],
-            |r| r.get(0),
-        )
-        .map_err(err)?;
+    let raw = read_session_document(db, sid)?;
     thaw(&json_read(raw)?)
 }
 /// Parse the immutable document once, but expand only the target's dependency closure.
 pub fn session_context(db: &Connection, sid: &str, qid: &str) -> Result<Vec<Value>> {
-    let raw: String = db
-        .query_row(
-            "SELECT content FROM session_documents WHERE session_id=?1",
-            [sid],
-            |r| r.get(0),
-        )
-        .map_err(err)?;
+    let raw = read_session_document(db, sid)?;
     context_from_document(&json_read(raw)?, qid)
 }
 pub(crate) fn context_from_document(doc: &Value, qid: &str) -> Result<Vec<Value>> {
@@ -1058,13 +1054,7 @@ impl Store {
                 return Ok(doc.clone());
             }
         }
-        let raw: String = db
-            .query_row(
-                "SELECT content FROM session_documents WHERE session_id=?1",
-                [sid],
-                |r| r.get(0),
-            )
-            .map_err(err)?;
+        let raw = read_session_document(db, sid)?;
         let size = raw.len();
         let doc = std::sync::Arc::new(json_read(raw)?);
         // ponytail: retain one immutable document, capped by its encoded size; larger sessions read through.
