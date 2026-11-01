@@ -2,6 +2,9 @@ import type { en } from "./en";
 
 // Traditional Chinese copy is written for Taiwan usage, not character-converted from the Simplified source.
 export const zhTW: Record<keyof typeof en, string> = {
+  "导入解析诊断": "匯入解析診斷",
+  "保留导入时各快照的解析状态、失败单元和复核原因，供对照原文检查。": "保留匯入時各快照的解析狀態、失敗單元和複核原因，供對照原文檢查。",
+  "仅完全相同的内容会跳过。部分结果与最终完整结果追加到同一题库，会重复加入已有题目，不会增量更新。建议将最终完整结果导入新题库。": "僅完全相同的內容會略過。部分結果與最終完整結果追加到同一題庫，會重複加入已有題目，不會增量更新。建議將最終完整結果匯入新題庫。",
   "更多题库操作": "更多題庫操作",
   "作答与判定状态": "作答與判定狀態",
   "位置与检查标记": "位置與檢查標記",

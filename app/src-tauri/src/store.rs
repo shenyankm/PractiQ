@@ -6,7 +6,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     fs,
     io::Read,
     path::{Path, PathBuf},
@@ -404,8 +404,9 @@ impl Store {
             serde_json::json!({}),
         ))?;
         let r = contract::result(&p.root);
+        let diagnostics = crate::import_diagnostics::from_root(&p.root)?;
         Ok(
-            json!({"ticket":p.ticket,"title":p.title,"count":list(r,"questions").iter().filter(|q|!crate::questions::composite(q)).count(),"reviewCount":list(r,"questions").iter().filter(|q|q["needsReview"]==true && !crate::questions::composite(q)).count(),"questions":r["questions"],"groups":r["groups"],"visuals":r["visualElements"],"warnings":r["warnings"],"status":p.root["status"],"processing":p.root["processing"],"missingAssets":p.missing,"assetCount":p.assets.len()}),
+            json!({"ticket":p.ticket,"title":p.title,"count":list(r,"questions").iter().filter(|q|!crate::questions::composite(q)).count(),"reviewCount":list(r,"questions").iter().filter(|q|q["needsReview"]==true && !crate::questions::composite(q)).count(),"questions":r["questions"],"groups":r["groups"],"visuals":r["visualElements"],"warnings":r["warnings"],"status":p.root["status"],"processing":p.root["processing"],"importDiagnostics":diagnostics,"missingAssets":p.missing,"assetCount":p.assets.len()}),
         )
     }
     pub fn import(&mut self, ticket: &str, bank_id: Option<String>, title: &str) -> Result<Value> {
@@ -477,14 +478,91 @@ impl Store {
             )
             .map_err(err)?;
         }
-        if tx
+        let previous: Option<String> = tx
             .query_row(
-                "SELECT EXISTS(SELECT 1 FROM imports WHERE bank_id=?1 AND digest=?2)",
+                "SELECT id FROM imports WHERE bank_id=?1 AND digest=?2",
                 params![bank, digest],
-                |r| r.get::<_, bool>(0),
+                |r| r.get(0),
             )
-            .map_err(err)?
-        {
+            .optional()
+            .map_err(err)?;
+        if let Some(import) = previous {
+            let saved_ids = tx
+                .prepare("SELECT id FROM questions WHERE import_id=?1 ORDER BY position")
+                .map_err(err)?
+                .query_map([&import], |row| row.get::<_, String>(0))
+                .map_err(err)?
+                .collect::<std::result::Result<Vec<_>, _>>()
+                .map_err(err)?;
+            let questions = list(contract::result(&p.root), "questions");
+            // Recover old diagnostics only when both content and source associations prove the mapping.
+            if saved_ids.len() == questions.len() {
+                let ids: HashMap<_, _> = questions
+                    .iter()
+                    .zip(&saved_ids)
+                    .map(|(question, id)| (text(question, "id").to_owned(), id.clone()))
+                    .collect();
+                let diagnostics = crate::import_diagnostics::from_root(&p.root)?;
+                if !diagnostics.is_empty() {
+                    let rows = crate::questions::read_scoped(&tx, &[], Some(&saved_ids))?;
+                    let by_id: HashMap<_, _> =
+                        rows.iter().map(|row| (text(row, "id"), row)).collect();
+                    let mut intact = true;
+                    let mut identities = HashSet::new();
+                    for question in questions {
+                        let Some(row) = by_id.get(ids[text(question, "id")].as_str()) else {
+                            intact = false;
+                            break;
+                        };
+                        let mut expected = question.clone();
+                        crate::questions::remap(&mut expected, &ids)?;
+                        let mut actual = row["question"].clone();
+                        contract::validate_question(&mut expected)?;
+                        contract::validate_question(&mut actual)?;
+                        if let (Some(expected), Some(actual)) =
+                            (expected.as_object_mut(), actual.as_object_mut())
+                        {
+                            let keys: HashSet<_> =
+                                expected.keys().chain(actual.keys()).cloned().collect();
+                            for key in keys {
+                                expected.entry(key.clone()).or_insert(Value::Null);
+                                actual.entry(key).or_insert(Value::Null);
+                            }
+                        }
+                        let expected_sources: HashSet<_> = diagnostics.iter().flat_map(|d| list(&d["processing"],"questionSources")).filter(|source| source["questionId"] == question["id"]).map(|source| json!({"questionId":row["id"],"stage":source["stage"],"unitIndex":source["unitIndex"]}).to_string()).collect();
+                        let actual_sources: HashSet<_> =
+                            list(row, "sources").iter().map(Value::to_string).collect();
+                        let source_units: std::collections::BTreeSet<_> = list(row, "sources")
+                            .iter()
+                            .map(|source| json!([source["stage"], source["unitIndex"]]).to_string())
+                            .collect();
+                        let identity = json!([
+                            question["stem"],
+                            question["sourceText"],
+                            question["answerMode"],
+                            question["answerPayload"],
+                            question["options"],
+                            question["items"],
+                            source_units
+                        ])
+                        .to_string();
+                        if !crate::questions::editor_content_eq(&expected, &actual)
+                            || expected_sources != actual_sources
+                            || !identities.insert(identity)
+                        {
+                            intact = false;
+                            break;
+                        }
+                    }
+                    if intact {
+                        crate::import_diagnostics::write(
+                            &tx,
+                            &import,
+                            &crate::import_diagnostics::remap(&diagnostics, &ids),
+                        )?;
+                    }
+                }
+            }
             tx.commit().map_err(err)?;
             return Ok(json!({"duplicate":true,"bankId":bank,"count":0}));
         }
@@ -521,7 +599,14 @@ impl Store {
                 false,
             )?;
         }
-        crate::questions::put_context(&tx, &bank, r, &ids, &import_id, &p.root["processing"])?;
+        let diagnostics = crate::import_diagnostics::from_root(&p.root)?;
+        let processing = json!({"questionSources":diagnostics.iter().flat_map(|diagnostic| list(&diagnostic["processing"],"questionSources")).collect::<Vec<_>>()});
+        crate::questions::put_context(&tx, &bank, r, &ids, &import_id, &processing)?;
+        crate::import_diagnostics::write(
+            &tx,
+            &import_id,
+            &crate::import_diagnostics::remap(&diagnostics, &id_map),
+        )?;
         tx.commit().map_err(err)?;
         let count = list(r, "questions")
             .iter()
@@ -716,6 +801,14 @@ impl Store {
             .filter(|row| !crate::questions::composite(&row["question"]))
             .count());
         root["favorite"] = json!(index.trees[qid].iter().any(|row| row["favorite"] == true));
+        let tree_ids: HashSet<_> = index.trees[qid].iter().map(|row| text(row, "id")).collect();
+        root["importDiagnostics"] =
+            json!(crate::import_diagnostics::read(&db, text(row, "bankId"))?
+                .into_iter()
+                .filter(|diagnostic| list(diagnostic, "questionIds")
+                    .iter()
+                    .any(|id| tree_ids.contains(id.as_str().unwrap_or(""))))
+                .collect::<Vec<_>>());
         // The viewer/editor receives the tree once; ancestor material stays on its owner.
         root["children"] = json!(index.trees[qid]
             .iter()

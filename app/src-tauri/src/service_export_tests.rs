@@ -10,6 +10,363 @@ use serde_json::{json, Value};
 use std::{io::Read, path::Path};
 
 #[test]
+fn stored_diagnostics_reject_cross_bank_references_without_publishing_files() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut store = Store::new(dir.path().into()).unwrap();
+    let root = json!({"status":"PARTIAL","processing":null,"result":{"schemaVersion":3,"questions":[{"id":"q","stem":"Source question","answerMode":"short_answer","answerPayload":null}],"groups":[],"visualElements":[],"warnings":[],"confidenceScore":0}});
+    let mut banks = Vec::new();
+    for title in ["First", "Second"] {
+        let preview = store
+            .preview(serde_json::to_vec(&root).unwrap(), title.into())
+            .unwrap();
+        banks.push(
+            store.import(text(&preview, "ticket"), None, title).unwrap()["bankId"]
+                .as_str()
+                .unwrap()
+                .to_owned(),
+        );
+    }
+    let rows = store.question_rows().unwrap();
+    let foreign = rows.iter().find(|row| row["bankId"] == banks[1]).unwrap();
+    let corrupted = json!([{"questionIds":[foreign["id"]],"status":"PARTIAL","processing":null}]);
+    store.connect().unwrap().execute("UPDATE import_warnings SET message=?1 WHERE position=-1 AND import_id IN (SELECT id FROM imports WHERE bank_id=?2)",rusqlite::params![corrupted.to_string(),banks[0]]).unwrap();
+    let before = store.banks().unwrap();
+    let error = crate::import_diagnostics::read(&store.connect().unwrap(), &banks[0]).unwrap_err();
+    assert!(error.to_string().contains("another bank"));
+    for (file, backup) in [("invalid-backup.zip", true), ("invalid-bank.zip", false)] {
+        let destination = dir.path().join(file);
+        assert!(if backup {
+            store.backup(&destination)
+        } else {
+            store.export_bank(&banks[0], &destination)
+        }
+        .is_err());
+        assert!(!destination.exists());
+    }
+    assert_eq!(store.banks().unwrap(), before);
+}
+
+#[test]
+fn appended_snapshots_keep_separate_diagnostics_and_duplicate_import_repairs_old_metadata() {
+    use std::io::Write;
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../fixtures/service-export/partial-media-bank.zip");
+    let dir = tempfile::tempdir().unwrap();
+    let mut store = Store::new(dir.path().into()).unwrap();
+    let preview = store.preview_bank_zip(&fixture).unwrap();
+    let imported = store
+        .import(text(&preview, "ticket"), None, "Partial")
+        .unwrap();
+    let bank = text(&imported, "bankId");
+    store
+        .connect()
+        .unwrap()
+        .execute("DELETE FROM import_warnings WHERE position=-1", [])
+        .unwrap();
+    store
+        .connect()
+        .unwrap()
+        .execute("UPDATE questions SET position=3-position", [])
+        .unwrap();
+    let preview = store.preview_bank_zip(&fixture).unwrap();
+    assert_eq!(
+        store
+            .import(text(&preview, "ticket"), Some(bank.into()), "Partial")
+            .unwrap()["duplicate"],
+        true
+    );
+    assert!(
+        crate::import_diagnostics::read(&store.connect().unwrap(), bank)
+            .unwrap()
+            .is_empty()
+    );
+    store
+        .connect()
+        .unwrap()
+        .execute("UPDATE questions SET position=3-position", [])
+        .unwrap();
+    for _ in 0..2 {
+        let preview = store.preview_bank_zip(&fixture).unwrap();
+        let duplicate = store
+            .import(text(&preview, "ticket"), Some(bank.into()), "Partial")
+            .unwrap();
+        assert_eq!(duplicate["duplicate"], true);
+        assert_eq!(
+            crate::import_diagnostics::read(&store.connect().unwrap(), bank)
+                .unwrap()
+                .len(),
+            1
+        );
+    }
+    let mut archive = zip::ZipArchive::new(std::fs::File::open(&fixture).unwrap()).unwrap();
+    let mut full: Value =
+        serde_json::from_reader(archive.by_name("questions.json").unwrap()).unwrap();
+    full["status"] = json!("SUCCEEDED");
+    full["processing"]["failures"] = json!([]);
+    full["processing"]["truncated"] = json!(false);
+    let mut extra = full["result"]["questions"][1].clone();
+    extra["id"] = json!("new-child");
+    extra["stem"] = json!("A new question in the final snapshot");
+    full["result"]["questions"]
+        .as_array_mut()
+        .unwrap()
+        .push(extra);
+    full["processing"]["questionSources"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!({"questionId":"new-child","stage":"document_parse","unitIndex":1}));
+    let path = dir.path().join("full.zip");
+    let mut writer = zip::ZipWriter::new(std::fs::File::create(&path).unwrap());
+    for i in 0..archive.len() {
+        let mut entry = archive.by_index(i).unwrap();
+        let name = entry.name().unwrap().into_owned();
+        writer
+            .start_file(&name, zip::write::SimpleFileOptions::default())
+            .unwrap();
+        if name == "questions.json" {
+            writer
+                .write_all(&serde_json::to_vec(&full).unwrap())
+                .unwrap();
+        } else {
+            std::io::copy(&mut entry, &mut writer).unwrap();
+        }
+    }
+    writer.finish().unwrap();
+    let preview = store.preview_bank_zip(&path).unwrap();
+    let appended = store
+        .import(text(&preview, "ticket"), Some(bank.into()), "Final")
+        .unwrap();
+    assert_eq!(appended["duplicate"], false);
+    assert_eq!(store.banks().unwrap()[0]["count"], 5);
+    let shared = dir.path().join("snapshots.zip");
+    store.export_bank(bank, &shared).unwrap();
+    let preview = store.preview_bank_zip(&shared).unwrap();
+    assert_eq!(preview["status"], "PARTIAL");
+    assert!(preview["processing"].is_null());
+    assert_eq!(list(&preview, "importDiagnostics").len(), 2);
+    assert_eq!(
+        preview["importDiagnostics"][0]["processing"]["failures"][0]["code"],
+        "MODEL_UNAVAILABLE"
+    );
+    assert_eq!(preview["importDiagnostics"][1]["status"], "SUCCEEDED");
+    let copy = store
+        .import(text(&preview, "ticket"), None, "Both snapshots")
+        .unwrap();
+    let rows = store.question_rows().unwrap();
+    assert!(rows
+        .iter()
+        .filter(|row| row["bankId"] == copy["bankId"])
+        .all(|row| !list(row, "sources").is_empty()));
+    let deleted = rows
+        .iter()
+        .find(|row| {
+            row["bankId"] == copy["bankId"]
+                && row["question"]["answerMode"] == "choice"
+                && row["question"]["answerPayload"].is_null()
+        })
+        .unwrap();
+    store
+        .delete_question(text(&deleted["question"], "parentId"))
+        .unwrap();
+    let pruned = dir.path().join("deleted-question.zip");
+    store.export_bank(text(&copy, "bankId"), &pruned).unwrap();
+    let preview = store.preview_bank_zip(&pruned).unwrap();
+    assert_eq!(
+        preview["importDiagnostics"][0]["processing"]["quality"]["issues"],
+        json!([])
+    );
+    assert_eq!(
+        preview["importDiagnostics"][0]["processing"]["chunks"]["total"],
+        2
+    );
+    let before = store.banks().unwrap();
+    store
+        .connect()
+        .unwrap()
+        .execute(
+            "UPDATE import_warnings SET message='[{}]' WHERE position=-1",
+            [],
+        )
+        .unwrap();
+    assert!(store.backup(&dir.path().join("invalid.zip")).is_err());
+    assert_eq!(store.banks().unwrap(), before);
+    assert!(!dir.path().join("invalid.zip").exists());
+}
+
+#[test]
+fn import_diagnostics_reject_invalid_shapes_counts_and_references_before_preview() {
+    let result: Value =
+        serde_json::from_slice(include_bytes!("../../fixtures/sample.json")).unwrap();
+    let valid = json!({"questionIds":["q0"],"status":"PARTIAL","processing":null});
+    let root = json!({"result":result,"importDiagnostics":[valid]});
+    crate::contract::parse(&serde_json::to_vec(&root).unwrap()).unwrap();
+    for (pointer, value) in [
+        ("/importDiagnostics", json!({})),
+        ("/importDiagnostics/0/status", json!("COMPLETED")),
+        ("/importDiagnostics/0/questionIds", json!(["q0", "q0"])),
+        ("/importDiagnostics/0/questionIds", json!(["missing"])),
+        ("/importDiagnostics/0/threadId", json!("private")),
+        (
+            "/importDiagnostics/0/processing",
+            json!({"chunks":{"total":0,"succeeded":1,"skipped":0},"visuals":{"total":0,"succeeded":0,"skipped":0},"truncated":false,"failures":[]}),
+        ),
+        (
+            "/importDiagnostics/0/processing",
+            json!({"chunks":{"total":u64::MAX,"succeeded":u64::MAX,"skipped":1},"visuals":{"total":0,"succeeded":0,"skipped":0},"truncated":false,"failures":[]}),
+        ),
+        (
+            "/importDiagnostics/0/processing",
+            json!({"chunks":{"total":1,"succeeded":1,"skipped":0},"visuals":{"total":0,"succeeded":0,"skipped":0},"truncated":false,"failures":[],"questionSources":[{"questionId":"q1","stage":"document_parse","unitIndex":0}]}),
+        ),
+    ] {
+        let mut invalid = root.clone();
+        if pointer.ends_with("threadId") {
+            invalid["importDiagnostics"][0]["threadId"] = value;
+        } else {
+            *invalid.pointer_mut(pointer).unwrap() = value;
+        }
+        assert!(
+            crate::contract::parse(&serde_json::to_vec(&invalid).unwrap()).is_err(),
+            "{pointer}"
+        );
+    }
+}
+
+#[test]
+fn zero_question_diagnostics_survive_merging_with_regular_content() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut store = Store::new(dir.path().into()).unwrap();
+    let result = json!({"schemaVersion":3,"questions":[],"groups":[],"visualElements":[],"warnings":[],"confidenceScore":0});
+    let processing = json!({"chunks":{"total":1,"succeeded":0,"skipped":0},"visuals":{"total":0,"succeeded":0,"skipped":0},"truncated":false,"failures":[{"stage":"document_parse","index":0,"code":"OUTPUT_INVALID","retryable":true}],"questionSources":[],"quality":{"reviewRequired":true,"reviewQuestionCount":0,"issues":[]}});
+    let root = json!({"result":result,"status":"PARTIAL","processing":processing});
+    let preview = store
+        .preview(serde_json::to_vec(&root).unwrap(), "No questions".into())
+        .unwrap();
+    let empty = store
+        .import(text(&preview, "ticket"), None, "No questions")
+        .unwrap();
+    let mut regular: Value =
+        serde_json::from_slice(include_bytes!("../../fixtures/sample.json")).unwrap();
+    regular["visualElements"] = json!([]);
+    let preview = store
+        .preview(serde_json::to_vec(&regular).unwrap(), "Regular".into())
+        .unwrap();
+    let regular = store
+        .import(text(&preview, "ticket"), None, "Regular")
+        .unwrap();
+    let merged = store
+        .merge_banks(
+            &[
+                text(&empty, "bankId").into(),
+                text(&regular, "bankId").into(),
+            ],
+            "Merged",
+        )
+        .unwrap();
+    let exported = dir.path().join("empty-diagnostics.zip");
+    store
+        .export_bank(text(&merged, "bankId"), &exported)
+        .unwrap();
+    let preview = store.preview_bank_zip(&exported).unwrap();
+    assert_eq!(preview["status"], "PARTIAL");
+    assert_eq!(preview["importDiagnostics"][0]["questionIds"], json!([]));
+    assert_eq!(preview["processing"], processing);
+}
+
+#[test]
+fn duplicate_content_without_unique_source_evidence_does_not_guess_old_diagnostic_ids() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut store = Store::new(dir.path().into()).unwrap();
+    let question =
+        json!({"id":"a","stem":"Identical","answerMode":"short_answer","answerPayload":null});
+    let mut other = question.clone();
+    other["id"] = json!("b");
+    let root = json!({"status":"PARTIAL","processing":null,"result":{"schemaVersion":3,"questions":[question,other],"groups":[],"visualElements":[],"warnings":[],"confidenceScore":0}});
+    let raw = serde_json::to_vec(&root).unwrap();
+    let preview = store.preview(raw.clone(), "Ambiguous".into()).unwrap();
+    let imported = store
+        .import(text(&preview, "ticket"), None, "Ambiguous")
+        .unwrap();
+    let bank = text(&imported, "bankId");
+    store
+        .connect()
+        .unwrap()
+        .execute("DELETE FROM import_warnings WHERE position=-1", [])
+        .unwrap();
+    let preview = store.preview(raw, "Ambiguous".into()).unwrap();
+    assert_eq!(
+        store
+            .import(text(&preview, "ticket"), Some(bank.into()), "Ambiguous")
+            .unwrap()["duplicate"],
+        true
+    );
+    assert!(
+        crate::import_diagnostics::read(&store.connect().unwrap(), bank)
+            .unwrap()
+            .is_empty()
+    );
+    assert_eq!(store.banks().unwrap()[0]["count"], 2);
+}
+
+#[test]
+fn import_diagnostics_survive_restart_share_merge_and_backup() {
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../fixtures/service-export/partial-media-bank.zip");
+    let dir = tempfile::tempdir().unwrap();
+    let mut store = Store::new(dir.path().into()).unwrap();
+    let preview = store.preview_bank_zip(&fixture).unwrap();
+    let processing = preview["processing"].clone();
+    let imported = store
+        .import(text(&preview, "ticket"), None, "Partial")
+        .unwrap();
+    let bank = text(&imported, "bankId").to_owned();
+    drop(store);
+    let mut store = Store::new(dir.path().into()).unwrap();
+    let root = store.questions(Some(&bank), "", "", "").unwrap()[0].clone();
+    let detail = store.question_detail(text(&root, "id")).unwrap();
+    assert_eq!(detail["importDiagnostics"][0]["status"], "PARTIAL");
+    assert_eq!(
+        detail["importDiagnostics"][0]["processing"]["failures"],
+        processing["failures"]
+    );
+    assert_eq!(
+        detail["importDiagnostics"][0]["processing"]["truncated"],
+        true
+    );
+    let other = store.save_bank(None, "Empty", "").unwrap();
+    let merged = store
+        .merge_banks(&[bank.clone(), other.as_str().unwrap().into()], "Merged")
+        .unwrap();
+    let merged = text(&merged, "bankId");
+    let shared = dir.path().join("shared.zip");
+    store.export_bank(merged, &shared).unwrap();
+    let portable = store.preview_bank_zip(&shared).unwrap();
+    assert_eq!(portable["status"], "PARTIAL");
+    assert_eq!(portable["processing"]["failures"], processing["failures"]);
+    assert_eq!(
+        portable["processing"]["quality"]["issues"][0]["code"],
+        "NEEDS_REVIEW"
+    );
+    let again = store
+        .import(text(&portable, "ticket"), None, "Reimported")
+        .unwrap();
+    let backup = dir.path().join("backup.zip");
+    store.backup(&backup).unwrap();
+    let restored = tempfile::tempdir().unwrap();
+    let mut target = Store::new(restored.path().into()).unwrap();
+    target.restore(&backup).unwrap();
+    let rows = target
+        .questions(Some(text(&again, "bankId")), "", "", "")
+        .unwrap();
+    let detail = target.question_detail(text(&rows[0], "id")).unwrap();
+    assert_eq!(detail["importDiagnostics"][0]["status"], "PARTIAL");
+    assert_eq!(
+        detail["importDiagnostics"][0]["processing"]["failures"],
+        processing["failures"]
+    );
+}
+
+#[test]
 #[ignore = "requires explicitly supplied live service ZIPs and an isolated evidence directory"]
 fn live_service_exports_survive_sqlite_import_and_restart() {
     let directory = std::path::PathBuf::from(

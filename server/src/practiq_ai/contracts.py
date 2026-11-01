@@ -786,6 +786,23 @@ class DocumentProcessing(StrictModel):
     quality: ExportQuality = Field(default_factory=ExportQuality)
 
 
+class BankImportDiagnostic(StrictModel):
+    """Portable extraction diagnostics scoped to one imported snapshot, without task state."""
+
+    questionIds: list[Annotated[str, Field(min_length=1, max_length=128)]] = Field(max_length=1_000, json_schema_extra={"uniqueItems": True})
+    status: Literal["SUCCEEDED", "PARTIAL"] | None
+    processing: DocumentProcessing | None
+
+    @model_validator(mode="after")
+    def validate_references(self) -> Self:
+        ids = set(self.questionIds)
+        if len(ids) != len(self.questionIds):
+            raise ValueError("diagnostic question IDs must be unique")
+        if self.processing and any(item.questionId not in ids for item in [*self.processing.questionSources, *self.processing.quality.issues]):
+            raise ValueError("diagnostics must reference their own snapshot questions")
+        return self
+
+
 class FailedUnit(StrictModel):
     stage: Literal["vision_parse", "vision_describe", "document_parse"]
     index: StrictInt = Field(ge=0)

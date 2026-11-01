@@ -34,6 +34,8 @@ The service token stays only in page memory and clears on reload. Only explicit 
 
 ## Interrupted imports and page reloads
 
+ZIP export errors retain their error codes and give distinct recovery guidance: split the original source for package limits, inspect/reparse invalid content, restore missing or changed source/resources, refresh the detail and preview for a stale checkpoint, or wait and manually retry a temporary-capacity failure. Download failures never automatically reparse a document or replay a request.
+
 Task state, checkpoints, call receipts and results belong to the service. Closing the page does not cancel an accepted task. Reconnect with the service token and open Import history to read its current progress. File selection and reconnection never start parsing.
 
 Before task creation, the Web client saves the original request ID, verified document reference and import options in origin-scoped `practiq-import-intents-v1` browser storage. It saves no token or file contents. After reload, the recovery panel offers an explicit retry with the exact original payload: an accepted request returns its original receipt; an unaccepted request may start parsing and incur charges. Reselecting that source reuses the pending request and its original options. Storage errors prevent a new task submission; malformed records are retained for investigation. At most 50 unresolved submissions are retained. Clear a recovery entry only after checking service history; clearing it does not cancel the service task and a later new submission may incur another charge. Browser storage deletion or a different origin loses these local recovery hints; service history remains authoritative.

@@ -1423,7 +1423,7 @@ fn association_insert_failure_rolls_back_all_import_rows_and_assets() {
     use crate::store::Pending;
     let (_dir, s) = store();
     let mut pending = Pending::new(sample(), "Association failure".into()).unwrap();
-    pending.root["processing"] = json!({"questionSources":[
+    pending.root["processing"] = json!({"chunks":{"total":2,"succeeded":2,"skipped":0},"visuals":{"total":0,"succeeded":0,"skipped":0},"truncated":false,"failures":[],"questionSources":[
         {"questionId":"q0","stage":"document_parse","unitIndex":0},
         {"questionId":"q1","stage":"document_parse","unitIndex":1}
     ]});

@@ -240,7 +240,7 @@ impl Store {
                 })
                 .collect()
         };
-        let mut warnings = tx.prepare("SELECT w.message FROM import_warnings w JOIN imports i ON i.id=w.import_id WHERE i.bank_id=?1 ORDER BY i.created_at,w.position").map_err(error)?.query_map([bank_id],|r|r.get::<_,String>(0)).map_err(error)?.collect::<std::result::Result<Vec<_>,_>>().map_err(error)?;
+        let mut warnings = tx.prepare("SELECT w.message FROM import_warnings w JOIN imports i ON i.id=w.import_id WHERE i.bank_id=?1 AND w.position>=0 ORDER BY i.created_at,w.position").map_err(error)?.query_map([bank_id],|r|r.get::<_,String>(0)).map_err(error)?.collect::<std::result::Result<Vec<_>,_>>().map_err(error)?;
         let mut visuals = clean("visuals");
         {
             let mut query = tx.prepare("SELECT content FROM visuals WHERE bank_id=?1 AND document_level=1 AND (?2 OR json_extract(content, '$.documentOnly')=1) ORDER BY rowid").map_err(error)?;
@@ -278,6 +278,8 @@ impl Store {
         }).map_err(error)?.collect::<std::result::Result<Vec<_>,_>>().map_err(error)?);
         drop(query);
         let root = json!({"missingFields":missing_fields,"schemaVersion":3,"questions":rows.iter().map(|r|r["question"].clone()).collect::<Vec<_>>(),"groups":groups,"visualElements":visuals,"warnings":warnings,"confidenceScore":if rows.is_empty() { 0.0 } else { rows.iter().map(|r|r["question"]["confidence"].as_f64().unwrap_or(0.0)).fold(1.0,f64::min)*100.0 }});
+        let root =
+            crate::import_diagnostics::wrap(root, crate::import_diagnostics::read(&tx, bank_id)?);
         let bytes = serde_json::to_vec(&root).map_err(error)?;
         contract::parse(&bytes)?;
         let refs = references(&root)?;

@@ -1,4 +1,7 @@
 export const en = {
+  "导入解析诊断": "Import parsing diagnostics",
+  "保留导入时各快照的解析状态、失败单元和复核原因，供对照原文检查。": "Each snapshot retains its parsing status, failed units and review reasons for checking against the source.",
+  "仅完全相同的内容会跳过。部分结果与最终完整结果追加到同一题库，会重复加入已有题目，不会增量更新。建议将最终完整结果导入新题库。": "Only identical content is skipped. Appending a partial result and its final complete result to the same bank adds existing questions again; it does not update them incrementally. Import the final complete result into a new bank.",
   "更多题库操作": "More bank actions",
   "作答与判定状态": "Answer and grading states",
   "位置与检查标记": "Position and review markers",

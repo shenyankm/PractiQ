@@ -8,6 +8,7 @@ mod contract;
 mod credentials;
 mod exams;
 mod filesystem;
+mod import_diagnostics;
 mod language;
 mod model_grading;
 mod paper;

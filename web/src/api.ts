@@ -151,8 +151,18 @@ export class Client {
             STALE_RUN: "任务状态已更新，请刷新任务详情后再操作。",
             TASK_BUSY: "任务正在处理，请等待并刷新状态。",
           };
+          const exportRecovery: Record<string, string> = pathname.endsWith("/export") ? {
+            BANK_EXPORT_TOO_LARGE: "题库超过 ZIP、题目或资源数量限制。请拆分原文后分别解析和导出；重复下载不能解决超限。",
+            BANK_EXPORT_INVALID: "题库内容或资源不符合导入要求。请检查解析结果，修复资源或重新解析原文后再导出。",
+            OBJECT_NOT_FOUND: "原文件或资源已丢失。请恢复服务端原文件或资源，或重新解析原文后再导出；重复下载不能修复资源。",
+            DOCUMENT_SIZE_MISMATCH: "原文件或资源大小校验失败。请恢复服务端原文件或资源，或重新解析原文后再导出。",
+            DOCUMENT_CHECKSUM_MISMATCH: "原文件或资源校验失败。请恢复服务端原文件或资源，或重新解析原文后再导出。",
+            STALE_CHECKPOINT: "任务在导出前或导出期间已变化。请刷新任务详情和检查点预览，核对结果后再下载。",
+            BANK_EXPORT_NOT_READY: "当前没有可导出的已完成题目。请刷新任务详情，按任务状态等待处理完成或处理失败单元。",
+            TEMPORARY_BUSY: "服务端临时存储空间或并发容量正忙。请稍后手动重试下载，无需重新解析原文。",
+          } : {};
           const message = response.status === 401 || response.status === 403 ? "服务访问令牌无效，请检查 AI_SERVICE_TOKEN。"
-            : known[code] ?? (response.status === 429 ? "请求过于频繁，请稍后再操作。"
+            : exportRecovery[code] ?? known[code] ?? (response.status === 429 ? "请求过于频繁，请稍后再操作。"
             : upload ? uploadRetry
             : !mutation ? "读取失败，请稍后重试读取。"
             : response.status >= 500 || response.status === 408 ? "操作结果尚未确认，请先查询原任务；不要重复提交。"

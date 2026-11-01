@@ -5,6 +5,22 @@ import { capabilities, task, taskId, runId, newTaskId } from "./test-fixtures";
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 const receipt = { threadId: taskId, requestId: taskId, runId, accepted: true };
 
+it.each([
+  ["BANK_EXPORT_TOO_LARGE", 413, "拆分原文"],
+  ["BANK_EXPORT_INVALID", 422, "检查解析结果"],
+  ["OBJECT_NOT_FOUND", 404, "恢复服务端原文件或资源"],
+  ["DOCUMENT_SIZE_MISMATCH", 409, "恢复服务端原文件或资源"],
+  ["DOCUMENT_CHECKSUM_MISMATCH", 409, "恢复服务端原文件或资源"],
+  ["STALE_CHECKPOINT", 409, "刷新任务详情"],
+  ["BANK_EXPORT_NOT_READY", 409, "可导出的已完成题目"],
+  ["TEMPORARY_BUSY", 503, "稍后手动重试下载"],
+] as const)("gives actionable export recovery for %s without replaying it", async (code, status, guidance) => {
+  const fetcher = vi.fn(async () => json({ detail: { code } }, status));
+  vi.stubGlobal("fetch", fetcher);
+  await expect(new Client("fake").exportBank(task)).rejects.toMatchObject({ code, status, message: expect.stringContaining(guidance) });
+  expect(fetcher).toHaveBeenCalledTimes(1);
+});
+
 it("exports ordered chunk views without a contiguous reassembly copy", async () => {
   const backing = new Uint8Array([255, 80, 75, 0, 128, 255]);
   const chunks = [backing.subarray(1, 3), new Uint8Array(), backing.subarray(3, 5)];

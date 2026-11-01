@@ -578,7 +578,7 @@ pub fn read_scoped(
     let mut options = related(db, "SELECT owner_id,json_object('label',label,'content',content) FROM question_options WHERE owner_id IN (SELECT value FROM json_each(?1)) ORDER BY owner_id,position", &scope)?;
     let mut items = related(db, "SELECT question_id,json_object('id',item_id,'side',side,'content',content,'label',label) FROM question_items WHERE question_id IN (SELECT value FROM json_each(?1)) ORDER BY question_id,position", &scope)?;
     let mut sources = related(db, "SELECT question_id,json_object('questionId',question_id,'stage',stage,'unitIndex',unit_index) FROM question_sources WHERE question_id IN (SELECT value FROM json_each(?1)) ORDER BY question_id,stage,unit_index", &scope)?;
-    let warnings = related(db, "SELECT import_id,json_quote(message) FROM import_warnings WHERE message NOT IN ('PRACTIQ_MISSING:questions','PRACTIQ_MISSING:media') AND import_id IN (SELECT import_id FROM questions WHERE id IN (SELECT value FROM json_each(?1))) ORDER BY import_id,position", &scope)?;
+    let warnings = related(db, "SELECT import_id,json_quote(message) FROM import_warnings WHERE position>=0 AND message NOT IN ('PRACTIQ_MISSING:questions','PRACTIQ_MISSING:media') AND import_id IN (SELECT import_id FROM questions WHERE id IN (SELECT value FROM json_each(?1))) ORDER BY import_id,position", &scope)?;
     let mut latest = related(db, "SELECT q.id,COALESCE((SELECT json_object('result',result,'earnedCents',earned_cents,'maxCents',max_cents,'gradeKind',grade_kind) FROM attempts WHERE question_id=q.id AND result IS NOT NULL ORDER BY submitted_at DESC,rowid DESC LIMIT 1),'null') FROM questions q WHERE q.id IN (SELECT value FROM json_each(?1))", &scope)?;
     let mut rows = Vec::new();
     for (mut q, bank, import, blocks, missing, favorite, title, reviewed_at) in records {
@@ -1204,7 +1204,7 @@ pub fn copy_context(
         )
         .map_err(err)?;
     }
-    let mut statement = db.prepare("SELECT id FROM imports i WHERE bank_id IN (SELECT value FROM json_each(?1)) AND id NOT IN (SELECT import_id FROM questions WHERE import_id IS NOT NULL) AND EXISTS(SELECT 1 FROM import_warnings WHERE import_id=i.id) ORDER BY created_at,rowid").map_err(err)?;
+    let mut statement = db.prepare("SELECT id FROM imports i WHERE bank_id IN (SELECT value FROM json_each(?1)) AND id NOT IN (SELECT import_id FROM questions WHERE import_id IS NOT NULL) AND EXISTS(SELECT 1 FROM import_warnings WHERE import_id=i.id AND position>=0) ORDER BY created_at,rowid").map_err(err)?;
     let imports = statement
         .query_map([&scope], |r| r.get::<_, String>(0))
         .map_err(err)?;
@@ -1217,8 +1217,9 @@ pub fn copy_context(
             params![source, bank, digest, crate::store::now()],
         )
         .map_err(err)?;
-        db.execute("INSERT INTO import_warnings SELECT ?1,position,message FROM import_warnings WHERE import_id=?2", params![source,original]).map_err(err)?;
+        db.execute("INSERT INTO import_warnings SELECT ?1,position,message FROM import_warnings WHERE import_id=?2 AND position>=0", params![source,original]).map_err(err)?;
     }
+    crate::import_diagnostics::copy(db, source_banks, bank, ids)?;
     Ok(())
 }
 
@@ -1258,7 +1259,7 @@ pub fn validate_tables(db: &Connection) -> Result<()> {
     Ok(())
 }
 // WebView round trips erase integral float representations, not content differences.
-fn editor_content_eq(left: &Value, right: &Value) -> bool {
+pub(crate) fn editor_content_eq(left: &Value, right: &Value) -> bool {
     match (left, right) {
         (Value::Number(a), Value::Number(b)) if a.is_f64() != b.is_f64() => {
             let (float, integer) = if a.is_f64() { (a, b) } else { (b, a) };
