@@ -549,7 +549,7 @@ async def test_recovery_provider_invalid_calls_survive_provider_restart(tmp_path
 
 @pytest.mark.parametrize('code', ['SOURCE_TEXT_NOT_FOUND', 'AMBIGUOUS_OVERLAP', 'OVERLAP_CONFLICT', 'MISSING_FIELDS', 'NEEDS_REVIEW'])
 @pytest.mark.parametrize('policy', ['review', 'return_partial'])
-async def test_quality_review_preserves_results_and_only_blocks_source_issues(monkeypatch, code, policy):
+async def test_quality_review_preserves_results_and_pauses_all_quality_issues(monkeypatch, code, policy):
     graph, _, _, reference, model = setup_graph(monkeypatch, [parsed()])
     original = document._merge
     quality = {'reviewRequired': True, 'reviewQuestionCount': 1, 'issues': [{'questionIndex': 0, 'code': code}]}
@@ -563,7 +563,7 @@ async def test_quality_review_preserves_results_and_only_blocks_source_issues(mo
     graph = local_graph(InMemorySaver())
     config = run_config()
     result = await graph.ainvoke({'document': reference, 'failurePolicy': policy}, config)
-    blocked = policy == 'review' and code not in {'MISSING_FIELDS', 'NEEDS_REVIEW'}
+    blocked = policy == 'review'
     assert bool(result.get('__interrupt__')) == blocked
     if blocked:
         interruption = result['__interrupt__'][0].value

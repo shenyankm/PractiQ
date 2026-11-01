@@ -26,6 +26,7 @@ from pydantic import (
     Field,
     PrivateAttr,
     StrictInt,
+    ValidationInfo,
     model_validator,
 )
 
@@ -88,6 +89,7 @@ from practiq_ai.graphs.chunking import (
     source_presence_plan,
     split_chunk_plan,
 )
+from practiq_ai.graphs.ocr_validation import question_issues
 from practiq_ai.graphs.source_context import source_context
 from practiq_ai.import_control import current as import_control
 from practiq_ai.llm import (
@@ -573,6 +575,8 @@ class ChunkParseResult(UnitParseResult):
 
 
 class PageParseResult(ChunkParseResult):
+    _figure_ids: list[int] | None = PrivateAttr(default=None)
+
     @model_validator(mode="before")
     @classmethod
     def retain_incomplete_page(cls, value):
@@ -602,7 +606,8 @@ class PageParseResult(ChunkParseResult):
     figures: list[vision.PageFigure] = Field(default_factory=list, max_length=1_000)
 
     @model_validator(mode="after")
-    def validate_figure_indexes(self) -> Self:
+    def validate_figure_indexes(self, info: ValidationInfo) -> Self:
+        self._figure_ids = info.context.get('figureIds') if isinstance(info.context, dict) else None
         if any(i < 0 or i >= len(self.questions) for figure in self.figures for i in figure.questionIndexes):
             raise ValueError("figure questionIndexes must reference this page response")
         primary = PRIMARY_PAGE.get()
@@ -634,20 +639,23 @@ class PageParseResult(ChunkParseResult):
                 remaining_groups.remove(match_group)
             if any(not group.questionIndexes for group in remaining_groups):
                 raise ValueError("Context enrichment must not add unassociated groups; preserve only the PRIMARY groups with empty questionIndexes")
-            remaining = list(self.figures)
-            for figure in primary.figures:
+            remaining = list(enumerate(self.figures))
+            for source_index, figure in enumerate(primary.figures):
                 owners = {primary.questions[i].id for i in figure.questionIndexes}
-                match = next((candidate for candidate in remaining
-                              if candidate.kind == figure.kind and candidate.bbox == figure.bbox
+                match = next(((index, candidate) for index, candidate in remaining
+                              if (primary._figure_ids is None or self._figure_ids is not None
+                                  and self._figure_ids[index] == primary._figure_ids[source_index])
+                              and candidate.kind == figure.kind and candidate.bbox == figure.bbox
                               and {self.questions[i].id for i in candidate.questionIndexes} == owners), None)
                 if match is None:
                     raise ValueError("Context enrichment must preserve every PRIMARY figure with its original kind, bbox and question associations; remap questionIndexes when reordering questions")
+                _, candidate = match
                 # Context may add rows, but never change or remove PRIMARY cells or text.
-                rows = iter(match.tableRows or [])
+                rows = iter(candidate.tableRows or [])
                 if (figure.tableRows is not None and not all(any(row == original for row in rows) for original in figure.tableRows)
-                        or figure.extractedText and figure.extractedText not in (match.extractedText or "")
-                        or vision.is_answer_role(figure.role) and not vision.is_answer_role(match.role)
-                        or figure.label is not None and match.label != figure.label):
+                        or figure.extractedText and figure.extractedText not in (candidate.extractedText or "")
+                        or vision.is_answer_role(figure.role) and not vision.is_answer_role(candidate.role)
+                        or figure.label is not None and candidate.label != figure.label):
                     raise ValueError("Context enrichment must preserve the PRIMARY figure payload: every original table row/cell in order, extractedText, printed label and answer-bearing role; only add context content")
                 remaining.remove(match)
         return self
@@ -673,14 +681,23 @@ class OcrPageParseResult(ChunkParseResult):
         source_figures = {item["elementIndex"]: item for item in OCR_FIGURES.get() or []}
         if len(self.figures) != len(source_figures) or {item.elementIndex for item in self.figures} != source_figures.keys():
             raise ValueError("Retain every supplied OCR figure exactly once by elementIndex; never invent figures")
+        associations = {figure.elementIndex: figure for figure in self.figures}
+        self.figures = [associations[identifier] for identifier in source_figures]
         return PageParseResult.model_validate({
             **self.model_dump(exclude={"figures"}),
             "figures": [{**figure.model_dump(exclude={"elementIndex"}),
                          "bbox": source_figures[figure.elementIndex]["bbox"]} for figure in self.figures],
-        })
+        }, context={'figureIds': [figure.elementIndex for figure in self.figures]})
 
     @model_validator(mode="after")
     def validate_associations(self) -> Self:
+        page = OCR_PAGE.get()
+        if page is not None:
+            issues = question_issues(OCR_TEXT.get() or '', self.questions, native_table=page.get('format') == 'table',
+                                     figures=evidence_text([figure.model_dump(include={'tableRows', 'extractedText'}) for figure in self.figures]),
+                                     formulas=[evidence_text(element['formula_info']) for element in page.get('elements', []) if 'formula_info' in element])
+            if issues:
+                raise ValueError('; '.join(issues))
         self._validated_page = self.page_result()
         return self
 
@@ -1159,6 +1176,7 @@ async def _vision(state: VisionTask, runtime: Runtime[None]) -> dict[str, list[d
         "Never emit empty media blocks. Composite continuations retain their original source IDs. "
         "The supplied figures are the COMPLETE PRIMARY figure inventory. Return each once by elementIndex; "
         "do not return coordinates or infer new figures from text. Associate figures with zero-based indexes in this response's questions. "
+        "Native workbook images can have bbox=null; retain their fixed identities and never invent page coordinates. "
         "Classify kind/role from available evidence. Use role=answer for supplied solutions, analyses, answers or rubrics. "
         "Do not invent image contents: keep descriptions factual about the source evidence and require human review. "
         "Keep every table cell, blank cell, sign, unit and formula. Use tableRows only for faithful rectangular tables; "
@@ -1183,7 +1201,7 @@ async def _vision(state: VisionTask, runtime: Runtime[None]) -> dict[str, list[d
     if primary["figures"]:
         figures = primary["figures"][:vision.MAX_CROPS]
         crops: list[bytes | None] = [None] * len(figures)
-        missing = [index for index, figure in enumerate(figures) if not figure.get("imageRef")]
+        missing = [index for index, figure in enumerate(figures) if not figure.get("imageRef") and figure.get('bbox') is not None]
         if missing and state["artifact"]["mediaType"] in {"image/png", "image/jpeg"}:
             payload = await store.get_verified(ArtifactReference.model_validate(state["artifact"]))
             generated = await asyncio.to_thread(vision.crop_figures, payload, [figures[index]["bbox"] for index in missing])
@@ -1684,7 +1702,7 @@ async def _merge(state: DocumentState, *, passive: bool = False) -> dict[str, An
     # Validate published output, including resumed/stored unit results, against
     # immutable input rather than the model's own sourceText transcription.
     ocr_texts: dict[int, str] = {}
-    failed_ocr_pages: set[int] = set()
+    context_pages: list[list[int]] = []
     original_text = None
     if pages and state['document']['sourceType'] in {'text', 'markdown'}:
         store = await asyncio.to_thread(get_object_store)
@@ -1692,10 +1710,9 @@ async def _merge(state: DocumentState, *, passive: bool = False) -> dict[str, An
     if pages and parsed:
         store = await asyncio.to_thread(get_object_store)
         refs = state.get('ocrPageRefs', [])
-        for page_index in sorted({neighbor for index, _ in parsed for neighbor in range(max(0, index - 2), min(len(refs), index + 2))}):
-            page = json.loads(await store.get_verified(ArtifactReference.model_validate(refs[page_index])))
-            if page.get('failed'):
-                failed_ocr_pages.add(page_index)
+        ocr_pages = [json.loads(payload) for payload in await bounded_map(refs, lambda ref: store.get_verified(ArtifactReference.model_validate(ref)))]
+        context_pages, _ = source_context(ocr_pages, page_references=not state.get('inputParts') and state['document']['sourceType'] == 'pdf')
+        for page_index, page in enumerate(ocr_pages):
             if not page.get('failed'):
                 layouts = [element['layout_xml'] for element in page.get('elements', []) if element.get('layout_xml')]
                 if page.get('format') == 'table' and len(layouts) == 1:
@@ -1715,8 +1732,7 @@ async def _merge(state: DocumentState, *, passive: bool = False) -> dict[str, An
             headers = state.get('chunkHeaders', [])
             if index < len(headers) and headers[index]:
                 primary = f'{headers[index]}\n{primary}'
-        contexts = [text for neighbor, text in ocr_texts.items() if neighbor != index and index - 2 <= neighbor < index + 2
-                    and not any(min(index, neighbor) < failed < max(index, neighbor) for failed in failed_ocr_pages)] if pages else []
+        contexts = [ocr_texts[neighbor] for neighbor in context_pages[index] if neighbor != index and neighbor in ocr_texts] if pages and index < len(context_pages) else []
         if original_text is not None:
             primary, contexts = original_text, []
         removed = await _thread_io(partial(retain_source_answers, result.questions, primary, contexts))
@@ -1982,12 +1998,12 @@ async def _gate(state: DocumentState, *, phase: str) -> dict[str, Any]:
 
 async def _review(state: DocumentState, *, phase: str) -> dict[str, Any]:
     failures = [item for item in unit_failures(dict(state)) if (item["stage"].startswith("vision_") if phase == "vision" else item["stage"] == ("visual_crop" if phase == "result" else "document_parse"))]
-    quality_issues = [item for item in state.get("processing", {}).get("quality", {}).get("issues", [])
-                      if item["code"] in {"SOURCE_TEXT_NOT_FOUND", "AMBIGUOUS_OVERLAP", "OVERLAP_CONFLICT"}] if phase == "result" else []
+    quality = state.get('processing', {}).get('quality', {}) if phase == 'result' else {}
+    quality_issues = quality.get('issues', [])
     next_stage = ("merge" if state.get("pageRefs") else "chunk_gate" if state.get("chunkRefs") else "assemble") if phase == "vision" else "merge"
     if phase == "result":
         next_stage = "finish"
-    if state.get("failurePolicy") != "review" or not (failures or quality_issues):
+    if state.get("failurePolicy") != "review" or not (failures or quality_issues or quality.get('reviewRequired')):
         return {"nextStage": next_stage, "phase": phase}
     can_accept = (
         bool((state.get("textRef") and not state.get("pageRefs")) or any((item.get("parsed") or {}).get("questions") for item in state.get("visionResults", [])))

@@ -72,11 +72,13 @@ API admission and graph execution share the pure retry-selection policy; only gr
 
 ## Human review
 
-The default is `failurePolicy="return_partial"`. With `"review"`, stage failures or source-quality issues trigger an `interrupt`. Source issues include `SOURCE_TEXT_NOT_FOUND`, `AMBIGUOUS_OVERLAP`, and `OVERLAP_CONFLICT`.
+The default is `failurePolicy="return_partial"`, including tasks created by the Web frontend. With `"review"`, stage failures, source-quality issues or final `quality.reviewRequired` trigger an `interrupt`. Source issues include `SOURCE_TEXT_NOT_FOUND`, `AMBIGUOUS_OVERLAP`, `OVERLAP_CONFLICT`, `MISSING_FIELDS` and `NEEDS_REVIEW`.
 
 Review payloads contain `kind=review`, `stage`, `failures`, `qualityIssues`, and `canAccept`. Retryable failures allow `retry_failed`; usable results are required for `accept_partial`. Source-quality-only review permits acceptance without automatically rerunning successful units. Acceptance still resumes graph execution: `accept_partial`, `resume` and `retry_failed` are advertised only in a model-enabled deployment with a compatible checkpoint. A read-only or incompatible deployment retains review results for inspection but cannot accept them or export a waiting-review bank; use the original compatible, model-enabled deployment to accept.
 
-`MISSING_FIELDS`, general `NEEDS_REVIEW`, and missing source answers mark drafts but do not independently pause tasks. Acceptance preserves missing fields and quality flags; it does not mark the content as verified. The service has no result-editing API. The Web frontend can preview and accept partial results, then export a ZIP; the desktop edits questions after offline ZIP import.
+With `return_partial`, quality flags remain visible without pausing. With `review`, `MISSING_FIELDS`, general `NEEDS_REVIEW` and missing source answers also pause at final review, including when no unit failed. Acceptance preserves missing fields and quality flags; it does not mark the content as verified. The service has no result-editing API. The Web frontend can preview and accept partial results, then export a ZIP; the desktop edits questions after offline ZIP import.
+
+Recognizable OCR question omissions, reversed reading order and omitted source formulas enter bounded model-output correction. Exhausted correction exposes the existing failed-unit retry action. An explicit retry reuses the saved Tencent evidence and successful units; it does not submit recognition again. Successful units with only review flags still require human inspection rather than automatic reprocessing.
 
 ## Recovery and retention
 

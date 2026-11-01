@@ -29,6 +29,34 @@ def _rendered_strings(value: Any) -> list[str]:
     return [text for item in value for text in _rendered_strings(item)] if isinstance(value, list) else []
 
 
+def rendered_text(question: ParsedQuestion) -> str:
+    return ' '.join(_rendered_strings(question.model_dump(include={
+        'stem', 'instructions', 'analysis', 'scoringRubric', 'answerPayload',
+        'options', 'items', 'passage', 'contentBlocks', 'transcript',
+    })))
+
+
+def missing_formulas(source: str, rendered: str) -> list[str]:
+    """Compare literal math evidence, without solving or rewriting expressions."""
+    normalize = lambda text: re.sub(r'\s+|\\(?:quad|,)', '', text).replace(r'\geq', r'\ge').replace(r'\leq', r'\le')
+    target = normalize(rendered)
+    closing = {'$': '$', '$$': '$$', r'\(': r'\)', r'\[': r'\]'}
+    delimiter = None
+    start = 0
+    missing = []
+    # Scan tokens once, including when hostile/unreadable source math never closes.
+    for match in re.finditer(r'(?<!\\)(\$\$?|\\[()\[\]])', source):
+        if delimiter is None:
+            delimiter = closing.get(match[0])
+            start = match.end()
+        elif match[0] == delimiter:
+            formula = source[start:match.start()]
+            if formula.strip() and normalize(formula) not in target:
+                missing.append(formula)
+            delimiter = None
+    return missing
+
+
 def discard_model_audio(questions: list[ParsedQuestion]) -> None:
     # Import tasks never create audio artifacts; portable bank contracts still support them.
     for question in questions:
@@ -99,16 +127,9 @@ class UnitParseResult(BaseModel):
             parent = by_id.get(question.parentId or "")
             if parent is not None and parent.answerMode not in COMPOSITE_MODES:
                 raise ValueError("parentId must reference a composite question; standalone questions have parentId=null")
-            if question.answerMode != "listening":
-                formulas = [formula for formula in re.findall(r"(?<!\\)\${1,2}([^$]+?)\${1,2}", question.sourceText or "")
-                            if any(marker in formula for marker in (r"\begin{", r"\int", r"\sum"))]
-                rendered = " ".join(_rendered_strings(question.model_dump(include={"stem", "instructions", "analysis", "scoringRubric", "answerPayload", "options", "items", "passage", "contentBlocks", "transcript"})))
-                normalize = lambda text: re.sub(r"\s+|\\(?:quad|,)|[&]", "", text).replace(r"\geq", r"\ge").replace(r"\leq", r"\le")
-                normalized_rendered = normalize(rendered) if formulas else ""
-                for formula in formulas:
-                    if normalize(formula) not in normalized_rendered:
-                        question.needsReview = True
-                        question.missingFields = list(dict.fromkeys([*question.missingFields, "material"]))
+            if question.answerMode != "listening" and missing_formulas(question.sourceText or '', rendered_text(question)):
+                question.needsReview = True
+                question.missingFields = list(dict.fromkeys([*question.missingFields, "material"]))
             # A review heuristic for new model output, not calibrated accuracy.
             if question.confidence < 0.5:
                 question.needsReview = True

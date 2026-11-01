@@ -27,6 +27,24 @@ are normalized against each OCR page's own width and height before cropping the
 stored source page. Models may associate and classify known figures, but cannot
 invent or modify their bounds.
 
+Native-table JSON can have XML-linked images without page coordinates. These
+images keep their supplied identities and verified original bytes, with
+`bbox=null`; they are available to structuring and portable-bank export without
+inventing a page rectangle. Context enrichment preserves associations by the
+fixed figure ID even when coordinates are absent or identical. Associations
+still require human review.
+
+Structuring validates recognizable numbered question starts and literal question
+positions against the retained reading-order evidence. Missing questions,
+collapsed repeated questions and reversed source order enter the existing bounded
+output-correction loop. Numbered passage/item lists and answer-key pages do not
+create extra questions. Untyped statements without a clear question boundary
+remain reviewable; this check is not a complete document-accuracy measurement.
+Delimited math, including fractions, roots and scripts, and explicit Tencent
+formula elements are compared with displayed question/table content rather than
+the model's `sourceText` alone. This checks literal preservation, not mathematical
+equivalence or correctness.
+
 Model-facing figure previews are capped at 200 KiB before Base64 encoding.
 Verified Tencent subimages at or below that limit are sent unchanged; larger
 subimages use the bounded JPEG encoder over their full extent. These previews
@@ -225,6 +243,9 @@ overlapping work; it does not forcibly terminate a running decoding thread.
 Tencent `Success` may include failed pages. Missing page evidence is retained as
 a page failure and remains available for human partial-result review; the task
 must not claim complete recognition. Semantic retries reuse stored OCR evidence.
+Final printed-answer verification recomputes the same bounded source-page links
+used by structuring, including uniquely linked answer-key pages. It never crosses
+a failed page or relaxes ambiguous question-number checks.
 Retrying Tencent recognition requires an explicit new parsing action. If optional
 neighbor-context enrichment exceeds the model input limit, the valid primary
 extraction is retained with review flags and a warning rather than discarded.
@@ -306,7 +327,7 @@ list before refreshing, disconnecting or closing the page.
 
 The authenticated capabilities response reports the same per-unit reservations
 used by dispatch. With a 400-call budget, ordinary/context units reserve 4/8 calls
-without AI review (100/50 full reservations), or 16/20 with review (25/20).
+(100/50 full reservations). There is no independent AI review pass.
 Mixed units share the budget; units do not equal pages. Reservations are retained
 on failure and retry, and a last unit may receive only the remaining allowance.
 The pre-import Web hint describes full reservation capacity, not guaranteed output
