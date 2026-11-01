@@ -5,14 +5,24 @@ use std::sync::OnceLock;
 pub type Result<T> = std::result::Result<T, crate::AppError>;
 pub const MAX_JSON: usize = 32 * 1024 * 1024;
 
-fn schemas() -> &'static (jsonschema::Validator, jsonschema::Validator) {
-    static SCHEMAS: OnceLock<(jsonschema::Validator, jsonschema::Validator)> = OnceLock::new();
+fn schemas() -> &'static (
+    jsonschema::Validator,
+    jsonschema::Validator,
+    jsonschema::Validator,
+) {
+    static SCHEMAS: OnceLock<(
+        jsonschema::Validator,
+        jsonschema::Validator,
+        jsonschema::Validator,
+    )> = OnceLock::new();
     SCHEMAS.get_or_init(|| {
         let schemas: Value =
             serde_json::from_str(include_str!("../contracts.json")).expect("bundled schemas");
         (
             jsonschema::validator_for(&schemas["result"]).expect("result schema"),
             jsonschema::validator_for(&schemas["processing"]).expect("processing schema"),
+            jsonschema::validator_for(&schemas["bankImportDiagnostic"])
+                .expect("import diagnostic schema"),
         )
     })
 }
@@ -664,33 +674,53 @@ pub fn parse(bytes: &[u8]) -> Result<Value> {
             }
         }
     }
-    if let Some(processing) = root.get("processing").filter(|v| !v.is_null()) {
-        schema_check(&schemas().1, processing, "processing")?;
-        let ids: HashSet<_> = list(self::result(&root), "questions")
-            .iter()
-            .map(|q| text(q, "id"))
-            .collect();
-        if list(processing, "questionSources")
-            .iter()
-            .chain(list(&processing["quality"], "issues"))
-            .any(|r| !ids.contains(text(r, "questionId")))
-        {
-            return Err("Processing references a missing question".into());
-        }
-        for key in ["chunks", "visuals"] {
-            let c = &processing[key];
-            if c["succeeded"].as_u64().unwrap_or(0) + c["skipped"].as_u64().unwrap_or(0)
-                > c["total"].as_u64().unwrap_or(0)
-            {
-                return Err(crate::language::error(
-                    "LOCAL_PROCESSING_COUNT_INVALID",
-                    serde_json::json!({"key": key}),
-                ));
-            }
-        }
-    }
+    let ids = list(self::result(&root), "questions")
+        .iter()
+        .map(|q| text(q, "id"))
+        .collect();
+    validate_processing(&root["processing"], &ids)?;
+    crate::import_diagnostics::from_root(&root)?;
     Ok(root)
 }
+
+pub(crate) fn validate_import_diagnostic(value: &Value) -> Result<()> {
+    schema_check(&schemas().2, value, "importDiagnostics")?;
+    let ids: HashSet<_> = list(value, "questionIds")
+        .iter()
+        .filter_map(Value::as_str)
+        .collect();
+    validate_processing(&value["processing"], &ids)
+}
+
+fn validate_processing(processing: &Value, ids: &HashSet<&str>) -> Result<()> {
+    if processing.is_null() {
+        return Ok(());
+    }
+    schema_check(&schemas().1, processing, "processing")?;
+    if list(processing, "questionSources")
+        .iter()
+        .chain(list(&processing["quality"], "issues"))
+        .any(|item| !ids.contains(text(item, "questionId")))
+    {
+        return Err("Processing references a missing question".into());
+    }
+    for key in ["chunks", "visuals"] {
+        let counts = &processing[key];
+        if counts["succeeded"]
+            .as_u64()
+            .unwrap_or(0)
+            .checked_add(counts["skipped"].as_u64().unwrap_or(0))
+            .is_none_or(|sum| sum > counts["total"].as_u64().unwrap_or(0))
+        {
+            return Err(crate::language::error(
+                "LOCAL_PROCESSING_COUNT_INVALID",
+                json!({"key":key}),
+            ));
+        }
+    }
+    Ok(())
+}
+
 pub fn result(root: &Value) -> &Value {
     root.get("result").unwrap_or(root)
 }

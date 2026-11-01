@@ -2,6 +2,7 @@ import { message, renderMessage, type Message, t, useI18n } from "./i18n";
 import { useTheme, type ThemeState } from "./theme";
 import { HistoryPage, useHistoryPage } from "./HistoryPage";
 import { QuestionListPage, useQuestionListPage } from "./QuestionListPage";
+import { ImportDiagnostics } from "./ImportDiagnostics";
 import logo from "../src-tauri/icons/icon.png";
 import { lazy, Suspense, useCallback, useEffect, useRef, useState, useSyncExternalStore, type ComponentProps } from "react";
 import { Tooltip } from "radix-ui";
@@ -679,6 +680,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
               refreshQuestions();
             })}>{detail.reviewedAt == null ? t("标记已复核") : t("撤销复核确认")}</Button>
             <ErrorBoundary fallback={<RenderFailure />}><Suspense fallback={loadingView}>
+            <ImportDiagnostics diagnostics={detail.importDiagnostics} />
             {!!detail.children?.length && <QuestionPreview questions={[detail.question,...detail.children.map(c=>c.question)]} reviewedQuestionIds={[detail,...detail.children].filter(row => row.reviewedAt != null).map(row => row.question.id || row.id)} groups={Array.from(new Map([detail,...detail.children].flatMap(r=>r.groups).map(g=>[g.id,g])).values())} visuals={Array.from(new Map([detail,...detail.children].flatMap(r=>r.visuals).map(v=>[v.id,v])).values())}/>}
             {!detail.children?.length && <Content snapshot={detail} source />}
             <AnswerInput

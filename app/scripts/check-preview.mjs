@@ -162,6 +162,7 @@ for (const [locale, width, theme] of [['zh-CN', 1280, 'light'], ['en', 960, 'dar
   await page.addInitScript(language => Object.defineProperty(navigator, 'languages', {get:()=>[language]}), locale);
   await page.goto('/');
   const english=locale==='en';
+  await expect(page.getByRole('button',{name:english?'New bank':'新建题库',exact:true})).toBeEnabled();
   if(width<768) await page.getByRole('button',{name:english?'Open navigation':'打开主导航',exact:true}).click();
   await page.getByRole('button',{name:english?'Settings':'设置',exact:true}).click();
   const exportButton=page.getByRole('button',{name:english?'Export backup':'导出备份',exact:true});

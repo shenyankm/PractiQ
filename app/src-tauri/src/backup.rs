@@ -53,6 +53,7 @@ impl Store {
         // In-flight model requests are task state, not portable practice history.
         db.execute("DELETE FROM grade_requests WHERE response IS NULL", [])
             .map_err(err)?;
+        crate::import_diagnostics::validate_database(&db)?;
         let (database_size, database_hash) = file_digest(&snapshot)?;
         let assets=db.prepare("SELECT hash,media,size,path FROM assets ORDER BY hash").map_err(err)?.query_map([],|r| Ok(json!({"sha256":r.get::<_,String>(0)?,"mediaType":r.get::<_,String>(1)?,"sizeBytes":r.get::<_,u64>(2)?,"file":r.get::<_,String>(3)?}))).map_err(err)?.collect::<std::result::Result<Vec<_>,_>>().map_err(err)?;
         let version: i64 = db
@@ -764,6 +765,7 @@ fn validate_database_contents(db: &Connection) -> Result<()> {
     let mut questions: Vec<_> = rows.iter().map(|r| r["question"].clone()).collect();
     crate::contract::validate_tree(&mut questions)?;
     crate::questions::validate_tables(db)?;
+    crate::import_diagnostics::validate_database(db)?;
     let doc = crate::questions::freeze(&rows);
     crate::contract::validate_context(
         crate::contract::list(&doc, "groups"),

@@ -2,7 +2,7 @@ import { COMPOSITE_MODES } from "./contracts.generated";
 import nativeMessages from "./locales/native.json";
 import { t, locale, MessageError, renderMessage, type LanguageRequest, type Locale } from "./i18n";
 import { invoke } from "./transport";
-import type { Question, Answer, ArtifactReference, ContentBlock as Block } from "./contracts.generated";
+import type { Question, Answer, ArtifactReference, BankImportDiagnostic, ContentBlock as Block } from "./contracts.generated";
 export type { Question, Answer, Block };
 export type Mode = NonNullable<Question["answerMode"]>;
 export function isComposite(q: Pick<Question, "answerMode">) { return COMPOSITE_MODES.includes(q.answerMode || ""); }
@@ -67,6 +67,7 @@ export interface Snapshot {
   missingAssets: boolean;
 }
 export interface QuestionRow extends Snapshot {
+  importDiagnostics?: BankImportDiagnostic[];
   answerableCount?: number;
   latestScore?: { earnedCents: number; maxCents: number; gradeKind: string } | null;
   rootId?: string;
@@ -157,6 +158,7 @@ export interface SessionSummary {
   autoGraded: number;
 }
 export interface Preview {
+  importDiagnostics?: BankImportDiagnostic[];
   groups?: Group[];
   visuals?: Visual[];
   questions?: Question[];

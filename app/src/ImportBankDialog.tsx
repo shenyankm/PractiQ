@@ -4,6 +4,7 @@ import type { DocumentQualityIssue, DocumentQuestionSource } from "./contracts.g
 import { message, t } from "./i18n";
 import { toast } from "./notifications";
 import { QuestionPreview } from "./QuestionPreview";
+import { ImportDiagnostics } from "./ImportDiagnostics";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -38,11 +39,13 @@ export function ImportBankDialog({ preview, banks, initialBank, busy, run, onClo
             <NativeSelectOption value="new">{t("新建题库")}</NativeSelectOption>
             {banks.map(choice => <NativeSelectOption key={choice.id} value={choice.id}>{choice.title}</NativeSelectOption>)}
           </NativeSelect>
+          {bank !== "new" && <p id="import-append-risk" role="alert" className="rounded-lg border p-3 text-sm">{t("仅完全相同的内容会跳过。部分结果与最终完整结果追加到同一题库，会重复加入已有题目，不会增量更新。建议将最终完整结果导入新题库。")}</p>}
           {bank === "new" && <div className="space-y-2"><Label htmlFor="import-title">{t("题库名称")}</Label><Input id="import-title" disabled={busy} value={title} onChange={event => setTitle(event.target.value)} /></div>}
           <div className="rounded-lg border p-4 text-sm">
             <p>{t("已加载 {0} 张图片，缺失 {1} 个资源。", { 0: preview.assetCount, 1: preview.missingAssets.length })}</p>
           </div>
           {preview.status === "PARTIAL" && <p className="text-sm">{t("这是部分解析结果，可能未包含原文的全部题目。")}</p>}
+          <ImportDiagnostics diagnostics={preview.importDiagnostics} />
           {preview.warnings.map((warning, index) => <p key={index} className="text-sm text-muted-foreground">{warning}</p>)}
           {preview.missingAssets.length > 0 && <details className="text-xs text-muted-foreground">
             <summary>{t("缺失资源详情")}</summary>
@@ -52,7 +55,7 @@ export function ImportBankDialog({ preview, banks, initialBank, busy, run, onClo
         </div>
         <DialogFooter className="shrink-0 border-t bg-background pt-3">
           <Button variant="outline" disabled={busy} onClick={onClose}>{t("取消")}</Button>
-          <Button disabled={busy || !importTitle} onClick={() => run(async () => {
+          <Button disabled={busy || !importTitle} aria-describedby={bank !== "new" ? "import-append-risk" : undefined} onClick={() => run(async () => {
             if (submitting.current) return;
             submitting.current = true;
             let result;

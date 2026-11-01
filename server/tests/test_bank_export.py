@@ -24,10 +24,35 @@ import pytest
 from PIL import Image
 
 from practiq_ai import bank_export, telemetry
-from practiq_ai.contracts import DocumentParseResult, DocumentTaskDetail
+from practiq_ai.contracts import (
+    BankImportDiagnostic,
+    DocumentParseResult,
+    DocumentTaskDetail,
+)
 from practiq_ai.errors import DocumentProcessingError
 from practiq_ai.graphs import document
 from tests.support import make_image, object_store, question, upload
+
+
+@pytest.mark.parametrize('question_ids', [['q', 'q'], ['other']])
+def test_import_diagnostics_reject_duplicate_or_foreign_question_references(question_ids):
+    with pytest.raises(ValueError):
+        BankImportDiagnostic.model_validate({'questionIds': question_ids, 'status': 'PARTIAL', 'processing': {
+            'chunks': {'total': 1, 'succeeded': 1, 'skipped': 0}, 'visuals': {'total': 0, 'succeeded': 0, 'skipped': 0},
+            'truncated': False, 'failures': [], 'questionSources': [{'questionId': 'q', 'stage': 'document_parse', 'unitIndex': 0}],
+        }})
+
+
+def test_import_diagnostics_retain_status_failures_and_quality_without_task_state():
+    payload = {'questionIds': ['q'], 'status': 'PARTIAL', 'processing': {
+        'chunks': {'total': 2, 'succeeded': 1, 'skipped': 0}, 'visuals': {'total': 0, 'succeeded': 0, 'skipped': 0},
+        'truncated': True, 'failures': [{'stage': 'document_parse', 'index': 1, 'code': 'OUTPUT_INVALID', 'retryable': True, 'retriesRemaining': 0}],
+        'questionSources': [{'questionId': 'q', 'stage': 'document_parse', 'unitIndex': 0}],
+        'quality': {'reviewRequired': True, 'reviewQuestionCount': 1, 'issues': [{'questionId': 'q', 'code': 'NEEDS_REVIEW'}]},
+    }}
+    assert BankImportDiagnostic.model_validate(payload).model_dump(mode='json') == payload
+    with pytest.raises(ValueError):
+        BankImportDiagnostic.model_validate(payload | {'threadId': 'private-task'})
 
 
 @pytest.mark.parametrize('page_kind', ['page', 'ocr-input'])
