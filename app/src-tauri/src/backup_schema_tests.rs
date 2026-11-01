@@ -50,6 +50,134 @@ fn library_with_images(path: &Path, count: u32) -> Store {
 }
 
 #[test]
+fn restore_matches_assets_by_hash_and_rejects_inconsistent_manifests() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = library_with_images(&dir.path().join("source"), 3);
+    let archive = dir.path().join("source.zip");
+    source.backup(&archive).unwrap();
+    for recover in [false, true] {
+        for (case, code) in [
+            ("reordered", None),
+            ("media", Some("LOCAL_BACKUP_IMAGE_MANIFEST")),
+            ("missing-media", Some("LOCAL_BACKUP_IMAGE_MANIFEST")),
+            ("size", Some("LOCAL_BACKUP_IMAGE_SIZE")),
+            ("duplicate", Some("LOCAL_IMAGE_MANIFEST_INVALID")),
+            ("path", Some("LOCAL_IMAGE_MANIFEST_INVALID")),
+        ] {
+            let mut input = ZipArchive::new(fs::File::open(&archive).unwrap()).unwrap();
+            let modified = dir.path().join(format!("{case}-{recover}.zip"));
+            let mut output = ZipWriter::new(fs::File::create(&modified).unwrap());
+            for index in 0..input.len() {
+                let mut entry = input.by_index(index).unwrap();
+                output
+                    .start_file(entry.name().unwrap(), SimpleFileOptions::default())
+                    .unwrap();
+                if entry.name().unwrap() == "manifest.json" {
+                    let mut manifest: Value = serde_json::from_reader(&mut entry).unwrap();
+                    let assets = manifest["assets"].as_array_mut().unwrap();
+                    match case {
+                        "reordered" => assets.reverse(),
+                        "media" => assets[0]["mediaType"] = json!("image/jpeg"),
+                        "missing-media" => {
+                            assets[0].as_object_mut().unwrap().remove("mediaType");
+                        }
+                        "size" => assets[0]["sizeBytes"] = json!(1),
+                        "duplicate" => assets[1] = assets[0].clone(),
+                        "path" => assets[0]["file"] = json!("assets/elsewhere"),
+                        _ => unreachable!(),
+                    }
+                    output
+                        .write_all(&serde_json::to_vec(&manifest).unwrap())
+                        .unwrap();
+                } else {
+                    std::io::copy(&mut entry, &mut output).unwrap();
+                }
+            }
+            output.finish().unwrap();
+            let target_dir = dir.path().join(format!("target-{case}-{recover}"));
+            let mut target = Store::new(target_dir.clone()).unwrap();
+            target.save_bank(None, "Keep this bank", "").unwrap();
+            let before = file_digest(&target.db_path()).unwrap();
+            let result = if recover {
+                target.restore_recovering(&modified)
+            } else {
+                target.restore(&modified)
+            };
+            if let Some(code) = code {
+                assert_eq!(result.unwrap_err().code, code, "{case}, repair={recover}");
+                assert_eq!(file_digest(&target.db_path()).unwrap(), before);
+            } else {
+                let result = result.unwrap();
+                assert!(Path::new(result["recoveryPath"].as_str().unwrap()).exists());
+                let second = dir.path().join(format!("round-trip-{recover}.zip"));
+                target.backup(&second).unwrap();
+                let mut second = ZipArchive::new(fs::File::open(&second).unwrap()).unwrap();
+                let actual: Value =
+                    serde_json::from_reader(second.by_name("manifest.json").unwrap()).unwrap();
+                let expected: Value =
+                    serde_json::from_reader(input.by_name("manifest.json").unwrap()).unwrap();
+                assert_eq!(actual["assets"], expected["assets"]);
+            }
+            drop(target);
+            let reopened = Store::new(target_dir).unwrap();
+            assert_eq!(
+                reopened.banks().unwrap()[0]["title"],
+                if code.is_some() {
+                    "Keep this bank"
+                } else {
+                    "Resources"
+                }
+            );
+        }
+    }
+}
+
+#[test]
+#[ignore = "full resource-rich restore benchmark; temporary databases, release only"]
+fn asset_restore_stress() {
+    use std::time::Instant;
+    let mut workloads = Vec::new();
+    for count in [20, 1000, 5400] {
+        let dir = tempfile::tempdir().unwrap();
+        let source = library_with_images(&dir.path().join("source"), count);
+        let archive = dir.path().join("source.zip");
+        source.backup(&archive).unwrap();
+        let mut zip = ZipArchive::new(fs::File::open(&archive).unwrap()).unwrap();
+        let expected: Value =
+            serde_json::from_reader(zip.by_name("manifest.json").unwrap()).unwrap();
+        let mut samples = Vec::new();
+        for iteration in 0..4 {
+            let target_dir = dir.path().join(format!("target-{iteration}"));
+            let mut target = Store::new(target_dir.clone()).unwrap();
+            let started = Instant::now();
+            let result = target.restore(&archive).unwrap();
+            let elapsed = started.elapsed().as_secs_f64() * 1000.0;
+            assert!(Path::new(result["recoveryPath"].as_str().unwrap()).is_file());
+            drop(target);
+            let reopened = Store::new(target_dir).unwrap();
+            assert_eq!(reopened.banks().unwrap(), source.banks().unwrap());
+            let second = dir.path().join(format!("round-trip-{iteration}.zip"));
+            reopened.backup(&second).unwrap();
+            let mut second = ZipArchive::new(fs::File::open(&second).unwrap()).unwrap();
+            let actual: Value =
+                serde_json::from_reader(second.by_name("manifest.json").unwrap()).unwrap();
+            assert_eq!(actual["assets"], expected["assets"]);
+            assert_eq!(actual["database"], expected["database"]);
+            if iteration > 0 {
+                samples.push(elapsed);
+            }
+        }
+        workloads.push(json!({"assets":count,"samplesMs":samples,"archiveSha256":file_digest(&archive).unwrap().1,"inventorySha256":crate::store::hash(&serde_json::to_vec(&expected["assets"]).unwrap()),"database":expected["database"]}));
+    }
+    let report = json!({"probeSha256":crate::store::hash(include_bytes!("backup_schema_tests.rs")),"backupSourceSha256":crate::store::hash(include_bytes!("backup.rs")),"scope":"Complete release Store::restore into a fresh temporary store, one warmup and three measured samples per resource count. Includes staging, all validation, resource publication, recovery backup and fsync. Setup, output verification, reopen and round-trip backup are excluded. OS caches are not flushed. No user data, providers, picker, IPC or WebView.","workloads":workloads});
+    fs::write(
+        std::env::var("PRACTIQ_BENCH_OUTPUT").expect("set PRACTIQ_BENCH_OUTPUT"),
+        serde_json::to_vec_pretty(&report).unwrap(),
+    )
+    .unwrap();
+}
+
+#[test]
 fn large_asset_inventory_round_trips_and_keeps_restore_recovery_available() {
     let dir = tempfile::tempdir().unwrap();
     let source = library_with_images(&dir.path().join("source"), 5400);

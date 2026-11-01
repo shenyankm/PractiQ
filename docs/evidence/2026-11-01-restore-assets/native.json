@@ -1,0 +1,137 @@
+{
+  "date": "2026-11-01",
+  "baselineCommit": "5e09984a",
+  "environment": {
+    "cpu": "Apple M4",
+    "os": "macOS 27.0.1 arm64",
+    "rust": "1.98.1"
+  },
+  "executionOrder": [
+    "baseline",
+    "candidate"
+  ],
+  "summary": [
+    {
+      "assets": 20,
+      "beforeMedianMs": 331.026709,
+      "afterMedianMs": 187.842958,
+      "reductionPercent": 43.25444053518956
+    },
+    {
+      "assets": 1000,
+      "beforeMedianMs": 15877.138500000001,
+      "afterMedianMs": 8476.359834,
+      "reductionPercent": 46.612799063256894
+    },
+    {
+      "assets": 5400,
+      "beforeMedianMs": 92889.3745,
+      "afterMedianMs": 47666.971125000004,
+      "reductionPercent": 48.68415103279654
+    }
+  ],
+  "before": {
+    "backupSourceSha256": "3a29625e8ee2709f8c6aba06c10a99878daf8fb93ea9edd894c87922c8128dd1",
+    "probeSha256": "44d7d4a1be5e1fb630159b61208b48bf1a148a574f4c0e31494c30c246e976eb",
+    "scope": "Complete release Store::restore into a fresh temporary store, one warmup and three measured samples per resource count. Includes staging, all validation, resource publication, recovery backup and fsync. Setup, output verification, reopen and round-trip backup are excluded. OS caches are not flushed. No user data, providers, picker, IPC or WebView.",
+    "workloads": [
+      {
+        "archiveSha256": "06d216b02600278cedd24c94a57764b5835ce912864b59dfe1d2ea72b6b1fc87",
+        "assets": 20,
+        "database": {
+          "file": "practiq.sqlite",
+          "sha256": "bbc2e66c496e988b9b7efaab86b7e8b89630862cd39db6162bb2bc92846f9f46",
+          "sizeBytes": 335872
+        },
+        "inventorySha256": "2d67653fb1f5f257562ff05c78eb728d311006edebdd2a2147363bba587b9a60",
+        "samplesMs": [
+          336.638,
+          331.026709,
+          324.55533399999996
+        ]
+      },
+      {
+        "archiveSha256": "8dee61508fe8eba3b1436e0fc26abb489422ddeae584def9562d3e51a277b8c7",
+        "assets": 1000,
+        "database": {
+          "file": "practiq.sqlite",
+          "sha256": "37e2305f668b077d4dffa8f0def4f0fd0f70a88acba048e514931ca33a4d92cc",
+          "sizeBytes": 1073152
+        },
+        "inventorySha256": "3536e8d50fe1870d6229239c85d6fcfea59320c6bf280ac2362a33d505d7423f",
+        "samplesMs": [
+          15877.138500000001,
+          15817.20625,
+          16523.249540999997
+        ]
+      },
+      {
+        "archiveSha256": "94190e7a17f191406bbcc006f8186cf18d76393962c4a4dcc957d23124710369",
+        "assets": 5400,
+        "database": {
+          "file": "practiq.sqlite",
+          "sha256": "2e251436ca87f46ef30d4ea44d12ef49f26d18939da23b0da5a2e2e71d88045b",
+          "sizeBytes": 4333568
+        },
+        "inventorySha256": "d70ca8544c84e618a2eb2b9dc3f9a9211f20914bd9a31be88206de960cf1d416",
+        "samplesMs": [
+          98375.0485,
+          92889.3745,
+          87320.141875
+        ]
+      }
+    ]
+  },
+  "after": {
+    "backupSourceSha256": "e0853b218b42688e03d689f9663a7c7cdb0060ea4ec7611552ad05e2dc1596d7",
+    "probeSha256": "44d7d4a1be5e1fb630159b61208b48bf1a148a574f4c0e31494c30c246e976eb",
+    "scope": "Complete release Store::restore into a fresh temporary store, one warmup and three measured samples per resource count. Includes staging, all validation, resource publication, recovery backup and fsync. Setup, output verification, reopen and round-trip backup are excluded. OS caches are not flushed. No user data, providers, picker, IPC or WebView.",
+    "workloads": [
+      {
+        "archiveSha256": "f2a1994303c3a4c010a17668dacf41051f60f3d997240141c4202d91788c6772",
+        "assets": 20,
+        "database": {
+          "file": "practiq.sqlite",
+          "sha256": "bbc2e66c496e988b9b7efaab86b7e8b89630862cd39db6162bb2bc92846f9f46",
+          "sizeBytes": 335872
+        },
+        "inventorySha256": "2d67653fb1f5f257562ff05c78eb728d311006edebdd2a2147363bba587b9a60",
+        "samplesMs": [
+          182.860167,
+          187.842958,
+          196.94500000000002
+        ]
+      },
+      {
+        "archiveSha256": "5cc9352a1184285c565f269600a43b0810918ec5a602fefe50a02b04187884ca",
+        "assets": 1000,
+        "database": {
+          "file": "practiq.sqlite",
+          "sha256": "37e2305f668b077d4dffa8f0def4f0fd0f70a88acba048e514931ca33a4d92cc",
+          "sizeBytes": 1073152
+        },
+        "inventorySha256": "3536e8d50fe1870d6229239c85d6fcfea59320c6bf280ac2362a33d505d7423f",
+        "samplesMs": [
+          8476.359834,
+          8525.430458,
+          7831.054292
+        ]
+      },
+      {
+        "archiveSha256": "1cfcee1571676976078bfe361ddce44f8bbf04450fc567e6dabb7c10b60739f8",
+        "assets": 5400,
+        "database": {
+          "file": "practiq.sqlite",
+          "sha256": "2e251436ca87f46ef30d4ea44d12ef49f26d18939da23b0da5a2e2e71d88045b",
+          "sizeBytes": 4333568
+        },
+        "inventorySha256": "d70ca8544c84e618a2eb2b9dc3f9a9211f20914bd9a31be88206de960cf1d416",
+        "samplesMs": [
+          42933.215458,
+          47666.971125000004,
+          50854.164292
+        ]
+      }
+    ]
+  }
+}

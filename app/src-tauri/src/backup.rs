@@ -314,20 +314,16 @@ impl Store {
                     .validate()
             })
             .transpose()?;
-        let assets = {
-            manifest["assets"]
-                .as_array()
-                .ok_or(crate::language::error(
-                    "LOCAL_IMAGE_MANIFEST_MISSING",
-                    serde_json::json!({}),
-                ))?
-                .clone()
-        };
+        let assets = manifest["assets"].as_array().ok_or(crate::language::error(
+            "LOCAL_IMAGE_MANIFEST_MISSING",
+            serde_json::json!({}),
+        ))?;
+        let mut assets_by_hash = std::collections::HashMap::new();
         let mut allowed = std::collections::HashSet::from([
             "manifest.json".to_owned(),
             "practiq.sqlite".to_owned(),
         ]);
-        for asset in &assets {
+        for asset in assets {
             let digest = asset["sha256"].as_str().ok_or(crate::language::error(
                 "LOCAL_IMAGE_HASH_INVALID",
                 serde_json::json!({}),
@@ -340,6 +336,7 @@ impl Store {
                     serde_json::json!({}),
                 ));
             }
+            assets_by_hash.insert(digest, asset);
         }
         if archive.len() != allowed.len() {
             return Err(crate::language::error(
@@ -405,7 +402,7 @@ impl Store {
             dir: staging.path().to_owned(),
             ..Default::default()
         };
-        for asset in &assets {
+        for asset in assets {
             let digest = asset["sha256"].as_str().ok_or(crate::language::error(
                 "LOCAL_IMAGE_HASH_INVALID",
                 serde_json::json!({}),
@@ -423,7 +420,9 @@ impl Store {
                     serde_json::json!({}),
                 ));
             }
-            staged.write_asset(digest, &data)?;
+            crate::assets::verify_asset(digest, &data)?;
+            // Staging is disposable; publication below fsyncs the final resource files.
+            fs::write(staged.asset_path(digest)?, &data).map_err(err)?;
         }
         // Open only the validated staging database, never the live database.
         let db = staged.connect()?;
@@ -456,9 +455,10 @@ impl Store {
                     serde_json::json!({}),
                 ));
             }
-            if !assets.iter().any(|a| {
-                a["sha256"] == *digest && a["sizeBytes"] == *size && a["mediaType"] == *media
-            }) {
+            if !assets_by_hash
+                .get(digest.as_str())
+                .is_some_and(|a| a["sizeBytes"] == *size && a["mediaType"] == *media)
+            {
                 return Err(crate::language::error(
                     "LOCAL_BACKUP_IMAGE_MANIFEST",
                     serde_json::json!({}),
