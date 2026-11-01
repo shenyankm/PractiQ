@@ -294,6 +294,67 @@ publication, and existing output files remain protected.
 The [follow-up acceptance report](../../docs/history/performance/followup-20261030.md)
 records component and resource-read measurements, equivalence checks and limits.
 
+## Restore resource staging and lookup (November 1)
+
+Restore builds a borrowed hash-to-manifest-entry index during the existing path
+and duplicate checks. Database asset rows use that index to verify size and media
+type; manifest order remains irrelevant. The manifest array is borrowed instead
+of deep-cloned. For 5,400 distinct assets, this replaces 14,582,700 manifest-entry
+comparisons with 5,400 indexed lookups and 5,400 insertions. These are work counts,
+not an isolated timing attribution.
+
+Private staging files retain the shared byte-limit and SHA-256 checks but no
+longer invoke durable publication for each temporary copy. Complete database,
+resource and audio validation still finishes before publication. Final resource
+files use the existing file/directory synchronization before the database is
+replaced; repair mode also durably preserves the previous damaged state first.
+An interruption while staging leaves the current generation authoritative. No
+schema, archive format, dependency, native command or persistent cache changes.
+
+The [raw paired report](../../docs/evidence/2026-11-01-restore-assets/native.json)
+compares baseline `5e09984a` with the final implementation using the same release
+probe. Each workload contains deterministic one-pixel PNGs referenced by document
+visuals. Each variant runs one warmup and three measured ordinary `Store::restore`
+calls into fresh temporary stores. Every restore is reopened and backed up again;
+database size/hash and the ordered resource manifest must exactly match the
+source. Archive hashes include generation timestamps; database and inventory
+hashes match across variants. Fixture creation, reopen, assertions and round-trip
+backup are outside timings. Resource publication, recovery backup and
+synchronization are inside timings.
+
+| Assets | Before median ms | After median ms | Reduction |
+| --- | ---: | ---: | ---: |
+| 20 | 331.027 | 187.843 | 43.3% |
+| 1,000 | 15,877.139 | 8,476.360 | 46.6% |
+| 5,400 | 92,889.375 | 47,666.971 | 48.7% |
+
+`make app-check` passed contract parity, 51 shared cases plus the sample,
+TypeScript, lint, 527 frontend tests (six skipped), 251 native tests (24 ignored),
+formatting and Clippy. The new manifest regression checks reordering, duplicate
+entries, path, size and media mismatches in ordinary and repair modes, preserving
+the live database on rejection. Fault tests cover failed publication and forced
+process termination after staging and around database replacement. The release
+benchmark ran separately; no timing assertion was added to the regular suite.
+
+Build the same probe with baseline and candidate production files in isolated
+checkouts, retain both executables, then run each separately with fresh reports:
+
+```sh
+TAURI_CONFIG='{"bundle":{"resources":[]}}' \
+  cargo test --release --locked --manifest-path app/src-tauri/Cargo.toml \
+  --lib asset_restore_stress --no-run
+PRACTIQ_BENCH_OUTPUT=/tmp/restore-assets.json "$TEST_BINARY" \
+  backup::schema_tests::asset_restore_stress --exact --ignored
+make app-check AI_PYTHON=/path/to/python3.14
+```
+
+This is a local filesystem workload on Apple M4/macOS 27.0.1 with Rust 1.98.1.
+Baseline runs precede candidate runs; OS caches are not flushed. The measurements
+do not establish real-user or whole-application latency, and do not isolate the
+index, clone removal and temporary-file synchronization changes from one another.
+Large media files can shift the cost toward decoding and hashing. No physical
+power-loss, GUI, installer, allocator/RSS or live-provider measurement is included.
+
 ## Limits
 
 No allocator/RSS measurement, Windows/Android device measurement, real-user workload or full application verification is included here. Shared-host timing varies; use the work-count/allocation regressions and equivalence assertions as the stable evidence. Combined application/service verification and independent review remain separate gates.

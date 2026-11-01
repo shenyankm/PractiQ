@@ -435,6 +435,7 @@ fn restore_child() {
 #[test]
 fn killed_restore_reopens_a_complete_generation() {
     for (recover, phase) in [
+        (false, "before-resource-repair"),
         (false, "before-publish"),
         (false, "after-publish"),
         (true, "before-resource-repair"),
@@ -495,7 +496,7 @@ fn killed_restore_reopens_a_complete_generation() {
         reader.join().unwrap();
         assert!(reached, "restore did not reach {phase}");
         let mut store = Store::new(dir.path().join("current")).unwrap();
-        if phase == "before-resource-repair" {
+        if recover && phase == "before-resource-repair" {
             assert_eq!(store.banks().unwrap()[0]["title"], "Old");
             assert_eq!(
                 fs::read(store.asset_path(&damaged).unwrap()).unwrap(),
@@ -511,6 +512,13 @@ fn killed_restore_reopens_a_complete_generation() {
                     "Old"
                 },
             );
+        }
+        if !recover && phase == "before-resource-repair" {
+            assert!(fs::read_dir(store.dir.join("recoveries"))
+                .unwrap()
+                .next()
+                .is_none());
+            continue;
         }
         let recovery = fs::read_dir(store.dir.join("recoveries"))
             .unwrap()

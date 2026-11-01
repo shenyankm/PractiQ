@@ -7,6 +7,16 @@ use std::{collections::HashSet, fs, io::Write, path::PathBuf};
 // Match the accepted source-image upload limit, including full-page references.
 pub const LIMIT: usize = 25 * 1024 * 1024;
 
+pub(crate) fn verify_asset(digest: &str, bytes: &[u8]) -> Result<()> {
+    if bytes.len() > LIMIT || hash(bytes) != digest {
+        return Err(crate::language::error(
+            "LOCAL_ASSET_CHECKSUM_MISMATCH",
+            serde_json::json!({}),
+        ));
+    }
+    Ok(())
+}
+
 impl Store {
     pub fn collect_unused_assets(&self) -> Result<()> {
         let mut db = self.connect()?;
@@ -102,12 +112,7 @@ impl Store {
         asset_path(&self.dir, digest)
     }
     pub fn write_asset(&self, digest: &str, bytes: &[u8]) -> Result<()> {
-        if bytes.len() > LIMIT || hash(bytes) != digest {
-            return Err(crate::language::error(
-                "LOCAL_ASSET_CHECKSUM_MISMATCH",
-                serde_json::json!({}),
-            ));
-        }
+        verify_asset(digest, bytes)?;
         let path = self.asset_path(digest)?;
         if path.exists() {
             self.read_asset(digest, bytes.len() as u64)?;
