@@ -124,7 +124,7 @@ export const QuestionPreview = memo(function QuestionPreview({ questions, groups
   return (
     <div className="space-y-4">
       {reviewMode && <div className="flex flex-wrap items-center gap-3 rounded border bg-muted/30 p-3 text-sm">
-        <p>{t("待复核 {0} 项；材料题会保留关联内容。", { 0: reviewQuestions.length })}</p>
+        <p>{t("待复核 {0} 项", { 0: reviewQuestions.length })}</p>
         {reviewQuestions.length > 0 && <><label className="flex items-center gap-2"><Checkbox checked={onlyReview} onCheckedChange={checked => { setOnlyReview(checked === true); setPage(0); }}/>{t("仅看待复核")}</label><Button size="sm" variant="outline" onClick={nextReview}>{t("下一个待复核问题")}</Button></>}
       </div>}
       {[...context.values()].sort((a, b) => a.index - b.index).map(({ question: original, index: i }) => {

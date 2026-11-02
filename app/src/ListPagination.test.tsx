@@ -39,6 +39,7 @@ function setup() {
       case "delete_bank": records=records.filter(b=>b.id!==r.id); return null as never;
       case "question_stats": return {count:31,types:{single:31}} as never;
       case "pick_import": return {ticket:"zip",title:"Imported",count:1,reviewCount:0,assetCount:0,missingAssets:[],warnings:[]} as never;
+      case "backup_status": return {lastBackupAt:null,newAttempts:0,changedNotes:0,due:false} as never;
       case "settings": return {config:{service_url:null},hasServiceToken:false} as never;
       default: throw new Error(r.type);
     }

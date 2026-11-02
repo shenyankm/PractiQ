@@ -241,7 +241,7 @@ test('study rules and backup details remain available on desktop and narrow scre
    await expect(dialog).toBeVisible();
   }
   await chooseOption(dialog.getByRole('combobox',{name:/^模式/}), 'self_test');
-  await expect(dialog.getByText(/作答时隐藏答案，交卷后核对评分；先预览配分/)).toBeVisible();
+  await expect(dialog.getByText("交卷后查看答案与评分。",{exact:true})).toBeVisible();
   await expect(dialog.getByRole('button',{name:'预览题目与配分',exact:true})).toBeVisible();
   await expect(dialog.getByRole('button',{name:'开始考试',exact:true})).toBeHidden();
   await chooseOption(dialog.getByRole('combobox',{name:/^模式/}), 'mock_exam');
@@ -270,7 +270,7 @@ test('study rules and backup details remain available on desktop and narrow scre
   if(width===390) await page.getByRole('button',{name:'打开主导航',exact:true}).click();
   await page.getByRole('button',{name:'设置',exact:true}).click();
   const details=page.getByText('备份范围与注意事项',{exact:true});
-  await expect(page.getByText('备份题库与学习记录，不含访问令牌。',{exact:true})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'学习数据备份',exact:true})).toBeVisible();
   await expect(page.getByText(/不包含原始文档、AI 任务及服务访问令牌/)).toBeHidden();
   await details.focus();
   await page.keyboard.press('Enter');

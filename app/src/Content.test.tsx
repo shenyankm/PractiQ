@@ -117,7 +117,7 @@ it("fits images initially and allows explicit original-size inspection without r
   await user.click(screen.getByRole("button", {name:"原始尺寸"}));
   expect(dialog.querySelector("img")?.className).toBe("max-w-none");
   expect(screen.getByRole("button", {name:"适应窗口"}).hasAttribute("aria-pressed")).toBe(false);
-  expect(screen.getByText("原始尺寸下可横向和纵向滚动查看细节。")).toBeTruthy();
+  expect(dialog.querySelector(".image-viewport")?.className).toContain("overflow-auto");
   await user.keyboard("{Escape}");
   await user.click(screen.getByRole("button", {name:"放大查看图片"}));
   expect(screen.getByRole("dialog").querySelector("img")?.className).toContain("max-w-full");

@@ -197,7 +197,7 @@ export function ConnectionSettingsPanel({
               </NativeSelect>
             </div>
             {direct ? <>
-              <p className="text-sm text-muted-foreground">{t("使用兼容 OpenAI 的 Chat Completions API，无需部署评分服务。评分时会发送当前题目、相关材料、图片和作答，可能产生模型费用。")}</p>
+              <p className="text-sm text-muted-foreground">{t("兼容 OpenAI Chat Completions API。评分会发送题目、材料、图片与作答，可能产生费用。")}</p>
               <div className="space-y-2">
                 <Label htmlFor="modelUrl">{t("模型 API 地址")}</Label>
                 <Input id="modelUrl" type="url" autoCapitalize="none" enterKeyHint="done" autoComplete="off" spellCheck={false} placeholder="https://api.example.com/v1" value={config.model?.base_url || ""} onChange={e => modelField("base_url", e.target.value)}/>
@@ -227,14 +227,14 @@ export function ConnectionSettingsPanel({
                 value={serviceToken}
                 onChange={(e) => { invalidate(); setTestResult(null); setServiceToken(e.target.value); }}
               />
-              {saved && <p className="text-sm text-muted-foreground">{t(configured ? direct ? "API Key 已保存；留空保留。" : "令牌已保存；留空保留。" : "离开输入框后自动安全保存。")}</p>}
+              {saved && configured && <p className="text-sm text-muted-foreground">{t(direct ? "API Key 已保存；留空保留。" : "令牌已保存；留空保留。")}</p>}
             </div>
           </fieldset>
           {saved && <div role="status" className="connection-status"><p className="text-sm text-muted-foreground">{saving ? t("正在保存配置…") : saveError != null ? t("配置未保存") : dirty ? t("有未保存的修改") : justSaved ? t("连接配置已保存") : t("配置已读取")}</p><p className="text-sm">{operation === "test" ? t("测试中…") : testResult ? t(testResult.error ? "连接测试失败" : "连接测试通过") : missing.length ? t("未配置") : t("已配置 · 尚未测试")}</p></div>}
           {saveError != null && <div role="alert" className="flex flex-wrap items-start justify-between gap-3 text-sm text-destructive"><div className="min-w-0 flex-1"><ErrorNotice error={saveError} /></div><Button type="button" variant="outline" disabled={busy || operation !== null} onClick={save}>{t("重试保存")}</Button></div>}
           {testResult && (testResult.error ? <div role="alert" className="text-destructive"><ErrorNotice error={testResult.error} /></div> : null)}
           {clearError != null && <div role="alert" className="text-destructive"><ErrorNotice error={clearError} /></div>}
-          {direct && <p className="text-sm text-muted-foreground">{t("测试连接仅读取模型列表，不进行评分。含图题需要支持图片的模型；评分 JSON 无效时保持未判定。")}</p>}
+          {direct && <p className="text-sm text-muted-foreground">{t("测试仅读取模型列表，不评分。含图题需支持图片的模型。")}</p>}
           <div className="flex flex-wrap items-center justify-end gap-3 border-t pt-4">
           <Button variant="outline" type="button" disabled={busy || operation !== null || dirty || !saved || !endpoint || configured === false} onClick={clearToken}>{t(direct ? "清除已保存的 API Key" : "清除已保存的访问令牌")}</Button>
           <Button variant="outline" type="button" disabled={busy || operation !== null || !saved || missing.length > 0} onClick={() => {

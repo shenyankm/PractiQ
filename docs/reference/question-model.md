@@ -14,6 +14,8 @@ App model API keys and service access tokens stay in macOS Keychain; the Web ser
 
 Python execution state uses version 7, with code, runtime and semantic settings included in its signature. A mismatched signature prevents resume; use the original deployment or reparse the source. Unsupported source formats and graph identifiers return `TASK_FORMAT_UNSUPPORTED`, and are excluded from task lists and scheduling without rewriting their records.
 
+Personal notes, mistake causes and the local backup reminder use `v4/learning-v1.sqlite`, a separate strictly validated version-1 SQLite sidecar. The practice schema remains 11. Full version-4 backups carry optional version-1 `learningData` in the manifest; shared question-bank ZIPs exclude it. The reminder timestamp is local metadata and is not restored from a portable backup. Old schema-11 backups without annotations remain supported and clear current notes on full replacement. Annotation publication and rollback share the existing durable pending-restore record with connection settings. See the [practice guide](../guides/practice-guide.md#daily-review-statistics-and-personal-notes) for limits and user-facing behavior.
+
 ## Entity relationships
 
 ```mermaid

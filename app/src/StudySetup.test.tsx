@@ -539,7 +539,7 @@ it("offers only feasible quick counts and explains each session mode before star
   expect(screen.getByLabelText("题目数量")).toHaveProperty("value","5");
   expect(screen.getByRole("button",{name:"5 题"}).getAttribute("aria-pressed")).toBe("true");
   await user.selectOptions(screen.getByLabelText("模式"),"self_test");
-  expect(screen.getByText("作答时隐藏答案，交卷后核对评分；先预览配分，更改选题或总分后需重新预览。")).toBeTruthy();
+  expect(screen.getByText("交卷后查看答案与评分。")).toBeTruthy();
   await user.selectOptions(screen.getByLabelText("模式"),"mock_exam");
   expect(screen.getByText("到时自动交卷，关闭应用后仍会计时。")).toBeTruthy();
   expect(vi.mocked(api).mock.calls.every(([request])=>request.type==="question_stats")).toBe(true);

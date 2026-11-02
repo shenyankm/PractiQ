@@ -3,6 +3,7 @@ import { useTheme, type ThemeState } from "./theme";
 import { HistoryPage, useHistoryPage } from "./HistoryPage";
 import { QuestionListPage, useQuestionListPage } from "./QuestionListPage";
 import { ImportDiagnostics } from "./ImportDiagnostics";
+import { QuestionNotesForTree } from "./QuestionNotes";
 import logo from "../src-tauri/icons/icon.png";
 import { lazy, Suspense, useCallback, useEffect, useRef, useState, useSyncExternalStore, type ComponentProps } from "react";
 import { Tooltip } from "radix-ui";
@@ -26,6 +27,7 @@ import {
   ArrowLeft,
   Play,
   BookmarkX,
+  CalendarCheck,
 } from "lucide-react";
 import { toast } from "./notifications";
 import { canCloseWindow, useUnsavedChanges } from "./useUnsavedChanges";
@@ -78,8 +80,10 @@ const ConnectionSettingsPanel = lazy(() => import("./ConnectionSettings").then(m
 const ImportBankDialog = lazy(() => import("./ImportBankDialog").then(module => ({default:module.ImportBankDialog})));
 const SettingsPage = lazy(() => import("./SettingsPage").then(module => ({default:module.SettingsPage})));
 const BankList = lazy(() => import("./BankList").then(module => ({default:module.BankList})));
+const LearningPage = lazy(() => import("./LearningPage").then(module => ({default:module.LearningPage})));
 
 type Page =
+  | "learning"
   | "banks"
   | "questions"
   | "wrong"
@@ -168,7 +172,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
   }, []);
   const [operationError, setOperationError] = useState<{ error: unknown } | null>(null);
   const operationNotice = useRef<HTMLDivElement>(null);
-  const [practiceSetup, setPracticeSetup] = useState<{ bank: string | null; bankIds?: string[]; filter?: string } | null>(null);
+  const [practiceSetup, setPracticeSetup] = useState<{ bank: string | null; bankIds?: string[]; filter?: string; mode?: string; search?: string } | null>(null);
   const [mergeOpen, setMergeOpen] = useState(false);
   const mergeTrigger = useRef<HTMLButtonElement>(null);
   function closeMerge() {
@@ -293,7 +297,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
     if (p) setImportPreview({ preview: p, initialBank: "new" });
   }
   const heading =
-    page === "banks"
+    page === "learning" ? t("学习概览") : page === "banks"
       ? t("我的题库")
       : page === "questions"
         ? currentBank?.title || t("题库")
@@ -326,6 +330,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
           {(
             [
               { id: "banks", label: t("我的题库"), icon: BookOpen },
+              { id: "learning", label: t("学习概览"), icon: CalendarCheck },
               { id: "wrong", label: t("错题本"), icon: BookmarkX },
               { id: "favorite", label: t("收藏夹"), icon: Star },
               { id: "history", label: t("练习记录"), icon: History },
@@ -470,6 +475,10 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
           </div>
           <ErrorBoundary key={page} fallback={<RenderFailure />}><Suspense fallback={loadingView}>
           {page === "history" && <HistoryPage state={history} busy={busy} onOpen={openSession} onBrowse={() => navigate("banks")} />}
+          {page === "learning" && <LearningPage revision={listRevision} busy={busy} run={run}
+            onSettings={() => navigate("settings")}
+            onPractice={(bank,mode) => setPracticeSetup({bank,mode,filter:"",search:""})}
+            onStart={async next => { await flushRef.current(); setSession(next); setSessionOffset(0); setPage("practice"); }} />}
           {page === "banks" && <BankList
             offset={bankOffset}
             onOffsetChange={setBankOffset}
@@ -680,6 +689,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
               refreshQuestions();
             })}>{detail.reviewedAt == null ? t("标记已复核") : t("撤销复核确认")}</Button>
             <ErrorBoundary fallback={<RenderFailure />}><Suspense fallback={loadingView}>
+            <QuestionNotesForTree key={detail.id} rows={[detail,...detail.children ?? []]} disabled={busy}/>
             <ImportDiagnostics diagnostics={detail.importDiagnostics} />
             {!!detail.children?.length && <QuestionPreview questions={[detail.question,...detail.children.map(c=>c.question)]} reviewedQuestionIds={[detail,...detail.children].filter(row => row.reviewedAt != null).map(row => row.question.id || row.id)} groups={Array.from(new Map([detail,...detail.children].flatMap(r=>r.groups).map(g=>[g.id,g])).values())} visuals={Array.from(new Map([detail,...detail.children].flatMap(r=>r.visuals).map(v=>[v.id,v])).values())}/>}
             {!detail.children?.length && <Content snapshot={detail} source />}
@@ -705,7 +715,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
           </DialogContent>
         </Dialog>
       )}
-      {practiceSetup && <ErrorBoundary fallback={<RenderFailureDialog onClose={() => setPracticeSetup(null)} />}><Suspense fallback={loadingView}><StudySetup banks={banks} initialBank={practiceSetup.bank} initialBankIds={practiceSetup.bankIds} initialFilter={practiceSetup.filter ?? filter} initialMode={mode} initialSearch={search} busy={busy} run={run} onClose={()=>setPracticeSetup(null)} onStart={async s=>{await flushRef.current();setSession(s);setSessionOffset(0);setPracticeSetup(null);setPage("practice");}}/></Suspense></ErrorBoundary>}
+      {practiceSetup && <ErrorBoundary fallback={<RenderFailureDialog onClose={() => setPracticeSetup(null)} />}><Suspense fallback={loadingView}><StudySetup banks={banks} initialBank={practiceSetup.bank} initialBankIds={practiceSetup.bankIds} initialFilter={practiceSetup.filter ?? filter} initialMode={practiceSetup.mode ?? mode} initialSearch={practiceSetup.search ?? search} busy={busy} run={run} onClose={()=>setPracticeSetup(null)} onStart={async s=>{await flushRef.current();setSession(s);setSessionOffset(0);setPracticeSetup(null);setPage("practice");}}/></Suspense></ErrorBoundary>}
       <AlertDialog
         open={!!confirm}
         onOpenChange={(v) => {

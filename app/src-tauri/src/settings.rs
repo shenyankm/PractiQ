@@ -31,6 +31,8 @@ struct PendingServiceRestore {
     candidate_sha256: String,
     previous: Option<ServiceSettings>,
     next: Option<ServiceSettings>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    learning: Option<crate::learning::LearningRestore>,
 }
 #[derive(Default)]
 struct ServiceSettingsState {
@@ -81,7 +83,11 @@ fn read_sidecar(db: &Connection) -> Result<ServiceSettingsState> {
             |r| Ok((r.get(0)?, r.get(1)?)),
         )
         .map_err(err)?;
-    if active.len() > 8192 || pending.as_ref().is_some_and(|s| s.len() > 32768) {
+    if active.len() > 8192
+        || pending
+            .as_ref()
+            .is_some_and(|s| s.len() > 2 * crate::learning::DATA_LIMIT + 32768)
+    {
         return Err("Service settings exceed their size limit".into());
     }
     let active: Option<ServiceSettings> = serde_json::from_str(&active).map_err(err)?;
@@ -104,6 +110,10 @@ fn read_sidecar(db: &Connection) -> Result<ServiceSettingsState> {
                 candidate_sha256: p.candidate_sha256,
                 previous: p.previous.map(ServiceSettings::validate).transpose()?,
                 next: p.next.map(ServiceSettings::validate).transpose()?,
+                learning: p
+                    .learning
+                    .map(crate::learning::LearningRestore::validate)
+                    .transpose()?,
             })
         })
         .transpose()?;
@@ -416,10 +426,19 @@ impl Store {
         }
         Ok(state.active)
     }
+    #[cfg(test)]
     pub(crate) fn prepare_service_settings_restore(
         &self,
         next: Option<ServiceSettings>,
         candidate_sha256: String,
+    ) -> Result<()> {
+        self.prepare_settings_and_learning_restore(next, candidate_sha256, None)
+    }
+    pub(crate) fn prepare_settings_and_learning_restore(
+        &self,
+        next: Option<ServiceSettings>,
+        candidate_sha256: String,
+        learning: Option<crate::learning::LearningRestore>,
     ) -> Result<()> {
         self.update_sidecar(|mut state| {
             if state.pending.is_some() {
@@ -429,6 +448,7 @@ impl Store {
                 candidate_sha256,
                 previous: state.active.clone(),
                 next,
+                learning,
             });
             Ok(state)
         })?;
@@ -441,6 +461,13 @@ impl Store {
                 .pending
                 .take()
                 .ok_or("Service settings restoration is not pending")?;
+            if let Some(learning) = pending.learning {
+                self.publish_learning(if success {
+                    learning.next
+                } else {
+                    learning.previous
+                })?;
+            }
             state.active = if success {
                 pending.next
             } else {

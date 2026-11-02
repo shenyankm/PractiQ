@@ -185,7 +185,20 @@ interface PaperSelection { bank_ids: string[]; search: string; mode: string; fil
 export interface PlaybackState { used:number; position:number; active:boolean; limit:number; restricted:boolean }
 export interface AudioLink { url: string; label: string }
 export interface StagedAudio { lease: string; reference: NonNullable<Question["audioRef"]>; duration: number }
+export type MistakeCause = "knowledge" | "misread" | "calculation" | "other";
+export interface QuestionNote { body: string; cause: MistakeCause | null; updatedAt: number }
+export interface BackupStatus { lastBackupAt: number | null; newAttempts: number; changedNotes: number; due: boolean }
+export interface LearningScores { graded: number; correct: number }
+export interface LearningCounts { submitted: number; skipped: number; ungraded: number; auto: LearningScores; selfAssessed: LearningScores; ai: LearningScores; manual: LearningScores }
+export interface ReviewItem { rootId: string; bankId: string; bankTitle: string; stem: string | null; count: number; reason: "repeated_wrong" | "wrong" | "stale"; lastAnsweredAt: number; causes: MistakeCause[] }
+export interface LearningOverview { days: number; since: number; through: number; counts: LearningCounts; banks: {id:string;title:string;available:boolean;counts:LearningCounts}[]; kinds: {kind:string;counts:LearningCounts}[]; review: ReviewItem[]; backup: BackupStatus }
+export interface ImportDuplicates { groups: {id:string;stem:string|null;count:number}[]; check: string }
 export type Request =
+  | { type: "learning_overview"; days: 7 | 30; today_start: number; since: number }
+  | { type: "backup_status" }
+  | { type: "question_note"; id: string }
+  | { type: "save_question_note"; id: string; body: string; cause: MistakeCause | null }
+  | { type: "import_duplicates"; ticket: string; bank_id: string }
   | { type:"pick_audio" }
   | { type:"pick_audio_qr" }
   | { type:"decode_audio_qr"; hash:string }
@@ -223,7 +236,7 @@ export type Request =
         | "info";
     }
   | { type: "restore"; recover_assets?: boolean }
-  | { type: "import"; ticket: string; bank_id: string | null; title: string }
+  | { type: "import"; ticket: string; bank_id: string | null; title: string; skip_duplicates?: boolean; duplicate_check?: string }
   | { type: "save_bank"; id: string | null; title: string; description: string }
   | {
       type: "delete_bank" | "delete_question" | "question_detail" | "session";
@@ -246,6 +259,11 @@ export type Request =
   | { type: "position"; id: string; position: number }
   | { type: "asset"; hash: string };
 type ResponseMap = {
+  learning_overview: LearningOverview;
+  backup_status: BackupStatus;
+  question_note: QuestionNote | null;
+  save_question_note: QuestionNote;
+  import_duplicates: ImportDuplicates;
   asset: ArrayBuffer;
   pick_audio: StagedAudio|null;
   pick_audio_qr: AudioLink[]|null;
@@ -253,7 +271,7 @@ type ResponseMap = {
   import_audio_url: {audio:StagedAudio|null;links:AudioLink[]};
   release_audio: null;
   listening_playback: PlaybackState;
-  backup: { path: string } | null;
+  backup: { path: string; reminderError?: string } | null;
   banks: BankChoice[];
   banks_page: BankPage;
   complete_review: Session;
@@ -263,7 +281,7 @@ type ResponseMap = {
   favorite: boolean;
   review_question: number | null;
   flag: Session;
-  import: { duplicate: boolean; bankId: string; count: number };
+  import: { duplicate: boolean; bankId: string; count: number; skippedCount?: number };
   info: { dataDirectory: string; version: string };
   language: Locale | null;
   manual_score: Session;

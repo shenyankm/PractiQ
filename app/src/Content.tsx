@@ -125,7 +125,7 @@ function ImageAsset({ visual, original = false }: { visual: Visual; original?: b
           {!original && src && <img src={src} alt={visual.description} className="max-h-[min(28vh,20rem)] max-w-full object-contain"/>}
           <Button ref={zoomButton} size="sm" variant="outline" onClick={() => { setOriginalSize(false); setExpanded(true); }}><ZoomIn/>{original ? t("查看原页") : t("放大查看图片")}</Button>
           <Dialog open={expanded} onOpenChange={setExpanded}><DialogContent onCloseAutoFocus={(event) => { event.preventDefault(); zoomButton.current?.focus(); }} className="image-viewer flex max-h-[90dvh] flex-col sm:max-w-[90vw]"><DialogHeader className="shrink-0 pr-8"><DialogTitle>{original ? t("查看原页") : t("查看图片")}</DialogTitle><DialogDescription>{visual.description || t("原始图片")}</DialogDescription></DialogHeader>
-            <div className="flex shrink-0 flex-wrap items-center gap-3"><Button variant="outline" onClick={() => setOriginalSize(value => !value)}>{originalSize ? t("适应窗口") : t("原始尺寸")}</Button><p className="text-sm text-muted-foreground">{t("原始尺寸下可横向和纵向滚动查看细节。")}</p></div>
+            <div className="flex shrink-0 flex-wrap items-center gap-3"><Button variant="outline" onClick={() => setOriginalSize(value => !value)}>{originalSize ? t("适应窗口") : t("原始尺寸")}</Button></div>
             <div className="image-viewport min-h-0 overflow-auto" tabIndex={0} aria-label={t("图片浏览区域")}>{src ? <img src={src} alt={visual.description} className={originalSize ? "max-w-none" : "mx-auto h-auto max-h-[60dvh] max-w-full object-contain"}/> : <p>{loading ? t("正在加载原页…") : t("原页不可用，请重新导入来源资源。")}</p>}</div></DialogContent></Dialog>
         </>
       ) : visual.imageRef ? (
@@ -222,14 +222,14 @@ export const Content = memo(function Content({
         {open && <div id={materialId} role="region" aria-label={t("题目材料")} tabIndex={0} className="practice-material-body space-y-4 overflow-auto p-2" ref={node=>{if(node) node.scrollTop=materialReading.current[materialKey]?.scrollTop ?? 0;}} onScroll={event=>{materialReading.current[materialKey]={open:true,scrollTop:event.currentTarget.scrollTop};}}>{materials.map(material)}{snapshot.visuals.map(v=><ImageAsset key={v.id} visual={v}/>)}</div>}
       </div> : <>
         <Button ref={trigger} variant="outline" onClick={()=>setOpen(true)}>{t("查看原文")}</Button>
-        <Dialog open={open} onOpenChange={setOpen}><DialogContent className="flex max-h-[85vh] flex-col sm:max-w-4xl" onCloseAutoFocus={e=>{e.preventDefault();trigger.current?.focus();}}><DialogHeader><DialogTitle>{t("查看原文")}</DialogTitle><DialogDescription>{t("题目材料；点击空位可定位对应子题。")}</DialogDescription></DialogHeader><div className="min-h-0 space-y-6 overflow-auto pr-3">{materials.map(material)}{snapshot.visuals.map(v=><ImageAsset key={v.id} visual={v}/>)}</div></DialogContent></Dialog>
+        <Dialog open={open} onOpenChange={setOpen}><DialogContent className="flex max-h-[85vh] flex-col sm:max-w-4xl" onCloseAutoFocus={e=>{e.preventDefault();trigger.current?.focus();}}><DialogHeader><DialogTitle>{t("查看原文")}</DialogTitle><DialogDescription>{t("点击空位可定位子题。")}</DialogDescription></DialogHeader><div className="min-h-0 space-y-6 overflow-auto pr-3">{materials.map(material)}{snapshot.visuals.map(v=><ImageAsset key={v.id} visual={v}/>)}</div></DialogContent></Dialog>
       </> : !materialDialog && materials.filter(m=>m.id!==q.id).map(material)}
       {(!materialDialog || !ownMaterial) && <Blocks blocks={[...(q.passage || []), ...q.contentBlocks]} language={block=>materialLanguage(q,block.role)} />}
       {!materialDialog && !!q.transcript?.length && <LazyDetails summary={t("听力原文")}><Blocks blocks={q.transcript} language={block=>materialLanguage(q,block.role)}/></LazyDetails>}
       {snapshot.visuals.map((v) => (
         <div key={v.id} className="space-y-2">
           <ImageAsset visual={{...v, extractedText: q.contentBlocks.some(b => b.markdownValue === v.extractedText) ? null : v.extractedText}} />
-          {!exam && revealOriginal && v.sourceRef && <ImageAsset original visual={{...v, imageRef: v.sourceRef, label: null, extractedText: null, description: t("完整来源页，可能含参考答案。可对照检查表头、图例和裁剪边缘。")}} />}
+          {!exam && revealOriginal && v.sourceRef && <ImageAsset original visual={{...v, imageRef: v.sourceRef, label: null, extractedText: null, description: t("完整来源页，可能含参考答案。")}} />}
         </div>
       ))}
       {source && (

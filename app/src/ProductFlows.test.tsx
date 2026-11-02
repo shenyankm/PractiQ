@@ -32,7 +32,7 @@ it("keeps backup exclusions available on demand and restore warnings visible", a
   await userEvent.click(screen.getByRole("button", { name: "设置" }));
   const summary = await screen.findByText("备份范围与注意事项", { selector: "summary" });
   expect(screen.queryByText("管理 AI 服务连接与本地学习数据")).toBeNull();
-  expect(screen.getByText("备份题库与学习记录，不含访问令牌。")).toBeTruthy();
+  expect(screen.queryByText("备份题库与学习记录，不含访问令牌。")).toBeNull();
   expect(summary.closest("details")?.open).toBe(false);
   await userEvent.click(summary);
   expect(summary.closest("details")?.open).toBe(true);
@@ -118,6 +118,8 @@ function setup(question = row, failReview = false) {
         return reviewedAt as never;
       }
       case "info": return { version: "test", dataDirectory: "/tmp/test" } as never;
+      case "backup_status": return {lastBackupAt:null,newAttempts:0,changedNotes:0,due:false} as never;
+      case "import_duplicates": return {groups:[],check:"test-comparison"} as never;
       case "settings": return { config: { service_url: null }, hasServiceToken: false } as never;
       case "pick_import": return null as never;
       case "question_stats": return { count: 0, types: {}, feasibleCounts: [] } as never;
@@ -245,7 +247,7 @@ it("shows partial credit from a material group's child when the parent has no re
   await screen.findByText("English");
   await userEvent.click(screen.getByRole("button", { name: "错题本" }));
   expect(await screen.findByText("部分得分")).toBeTruthy();
-  expect(screen.getByText(/未评分不算错题。/)).toBeTruthy();
+  expect(screen.getByText(/未评分不计入。/)).toBeTruthy();
   expect(within(screen.getByRole("banner")).queryByRole("button", { name: "导入题库 ZIP" })).toBeNull();
 });
 

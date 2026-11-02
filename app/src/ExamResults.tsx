@@ -117,7 +117,7 @@ export function ExamResults({session,onSession,run,onNextUnattempted,draft,onDra
         } catch (error) { setError(error); }
         finally { setSaving(false); }
       });}catch(e){setError(e);}}}>{saving ? t("正在保存…") : t("保存人工评分")}</Button></div>
-      <p className="text-xs text-muted-foreground">{t("人工评分草稿仅在本次应用运行期间保留；点击保存后才写入记录。")}</p>
+      <p className="text-xs text-muted-foreground">{t("人工评分需点击保存；未保存草稿将在退出应用后丢失。")}</p>
     </>}
     {error != null && <div role="alert"><ErrorNotice error={error} /></div>}
     {needsConfiguration && onConfigure && <Button variant="outline" disabled={running || saving} onClick={onConfigure}>{t("配置 AI 服务")}</Button>}
