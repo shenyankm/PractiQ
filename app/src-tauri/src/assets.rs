@@ -7,6 +7,11 @@ use std::{collections::HashSet, fs, io::Write, path::PathBuf};
 // Match the accepted source-image upload limit, including full-page references.
 pub const LIMIT: usize = 25 * 1024 * 1024;
 
+#[cfg(test)]
+thread_local! {
+    pub(crate) static READS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
 pub(crate) fn verify_asset(digest: &str, bytes: &[u8]) -> Result<()> {
     if bytes.len() > LIMIT || hash(bytes) != digest {
         return Err(crate::language::error(
@@ -158,6 +163,8 @@ fn asset_path(dir: &std::path::Path, digest: &str) -> Result<PathBuf> {
 }
 
 fn read_asset(dir: &std::path::Path, digest: &str, size: u64) -> Result<Vec<u8>> {
+    #[cfg(test)]
+    READS.with(|reads| reads.set(reads.get() + 1));
     let path = asset_path(dir, digest)?;
     if fs::symlink_metadata(&path)
         .map_err(err)?

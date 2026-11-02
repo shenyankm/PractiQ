@@ -497,11 +497,11 @@ impl Store {
         fault_tests::checkpoint("before-resource-repair");
         let publication = (|| -> Result<Value> {
             for (digest, _, size, _) in &rows {
+                if recover_assets && self.read_asset(digest, *size).is_ok() {
+                    continue;
+                }
                 let bytes = staged.read_asset(digest, *size)?;
                 if recover_assets {
-                    if self.read_asset(digest, *size).is_ok() {
-                        continue;
-                    }
                     let path = self.asset_path(digest)?;
                     let mut replacement = tempfile::NamedTempFile::new_in(
                         path.parent().ok_or("Invalid resource directory")?,
