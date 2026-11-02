@@ -3,6 +3,77 @@
 This guide includes native recommendations **7, 6, 8 and 10** from the performance review of `5b673a6e` and subsequent measured changes.
 They do not change IPC contracts, schema 11, database objects/indexes, snapshot format or cache limits.
 
+## Scoped SQL reads (November 2)
+
+`questions::prepare_root_metadata` and `questions::summaries` keep the requested
+recursive tree outermost with `CROSS JOIN`, then look up questions through their
+existing primary keys. SQLite previously chose a full question-table scan even
+when the request contained one root. This affects question-page summaries,
+filtered statistics and paper-preview metadata. The regression requests one
+reading group and an absent ID from 10,001 questions: its original metadata query
+takes 10,000 full-scan steps; the new query must stay below 100, without a timing limit.
+It also checks missing IDs, descendant counts, favorite/review flags, reviewed
+children and nullable root scores.
+
+Sorting, latest-attempt tie breaking, reviewed-state exclusion, null values,
+root/state-filter SQL and all parameter bindings retain their existing behavior.
+There are no persistent index, schema, configuration, dependency or backup changes.
+
+The opt-in `store::search_tests::scoped_sql_read_stress` probe uses temporary
+databases. It seeds 1,000, 10,000 or 100,000 true/false questions, groups the first
+600 under 30 added reading roots, and reads 30 roots / 630 nodes. It covers
+summaries, selected/all-root metadata, typed/untyped favorite filters, a complete
+plain page and typed statistics. Setup, equality checks, output hashing and query
+plans are outside timing; native result projection is inside timing. Each case
+has one warmup and seven samples, with reused connections for direct helper
+reads and normal connection setup for Store calls. OS caches are not flushed.
+
+Build the same probe with the baseline and candidate `questions.rs`, retain each
+test executable, and alternate them while other builds/tests are idle:
+
+```sh
+TAURI_CONFIG='{"bundle":{"resources":[]}}' \
+  cargo test --release --locked --manifest-path app/src-tauri/Cargo.toml \
+  --lib scoped_sql_read_stress --no-run
+PRACTIQ_SQL_PERF_OUTPUT=/tmp/scoped-sql-read.json "$TEST_BINARY" \
+  store::search_tests::scoped_sql_read_stress --exact --ignored
+make app-check AI_PYTHON=/path/to/python3.14
+```
+
+These workloads exclude user data, IPC, WebView, live providers and production
+load. The probe records SQLite/source/probe hashes, raw samples, output hashes,
+metadata query plans and full-scan/VM-step counts; it has no timing threshold.
+
+Baseline `c6b9b6cd1c091bf48735cb6010d51d74902e9c22` and the candidate use the
+same probe on macOS arm64 / Darwin 27.0.0, Rust 1.98.1 and bundled SQLite 3.50.2.
+Three process pairs run before/after, after/before, before/after, with other task
+builds/tests idle. Each version has 21 measured samples per workload and size;
+every complete output hash matches. The
+[raw report](../../docs/evidence/2026-11-02-sql-reads/native.json) retains all
+samples, controls, plans and source/probe/binary hashes. Medians for 100,030
+questions are in milliseconds:
+
+| Read | Before | After | Reduction |
+| --- | ---: | ---: | ---: |
+| 30-root summaries | 11.567 | 0.705 | 93.9% |
+| 30-root metadata | 13.039 | 0.519 | 96.0% |
+| All-root metadata | 183.546 | 146.940 | 19.9% |
+| Complete 30-row page | 21.343 | 13.662 | 36.0% |
+| Typed favorite statistics | 82.345 | 70.259 | 14.7% |
+| Typed favorite root filter, unchanged control | 69.114 | 68.633 | — |
+| Untyped favorite root filter, unchanged control | 69.173 | 68.723 | — |
+
+The unchanged filter controls vary from -1.9% to +0.7% across sizes; no gain is
+claimed for them. Selected metadata full-scan steps fall from 100,029 to zero;
+the plan replaces the full root-table scan with primary-key lookups for the 630
+selected nodes. These synthetic databases have no attempts or resource payloads,
+so the measurements do not establish history-heavy or production latency.
+
+`VITEST_MAX_WORKERS=2 make app-check AI_PYTHON=/path/to/python3.14` passed on the
+final source: generated contracts, 51 shared fixtures plus the sample, frontend
+types/lint and 531 tests (six skipped), 258 native tests (25 ignored benchmarks),
+formatting and Clippy. No GUI or installer acceptance was run for this SQL change.
+
 ## Manual preview membership (October 29)
 
 `Store::preview_paper` used to scan all candidate roots for each manually selected

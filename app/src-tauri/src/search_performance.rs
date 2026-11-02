@@ -24,6 +24,53 @@ fn seed(count: usize) -> (tempfile::TempDir, Store) {
 }
 
 #[test]
+fn selected_root_metadata_keeps_descendant_flags_without_scanning_other_roots() {
+    let (_dir, store) = seed(10_000);
+    let db = store.connect().unwrap();
+    db.execute("INSERT INTO questions(id,bank_id,position,mode,content_blocks,confidence,needs_review,missing_fields) VALUES('reading','bank',10000,'reading','[]',1,0,'[]')", []).unwrap();
+    db.execute(
+        "INSERT INTO reading_questions VALUES('reading','\"Material\"')",
+        [],
+    )
+    .unwrap();
+    db.execute("UPDATE questions SET parent_id='reading',favorite=1,needs_review=1 WHERE id IN ('q00000','q00001')", []).unwrap();
+    db.execute("INSERT INTO question_reviews VALUES('q00000',1)", [])
+        .unwrap();
+    let roots = vec!["reading".to_owned(), "missing".to_owned()];
+    let mut statement = crate::questions::prepare_root_metadata(&db).unwrap();
+    let metadata = statement
+        .query_map([json!(roots).to_string()], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, usize>(2)?,
+            ))
+        })
+        .unwrap()
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .unwrap();
+    assert_eq!(metadata, vec![("reading".into(), "reading".into(), 2)]);
+    let summaries = crate::questions::summaries(&db, &roots).unwrap();
+    assert_eq!(summaries.len(), 1);
+    assert_eq!(summaries[0]["answerableCount"], 2);
+    assert_eq!(summaries[0]["favorite"], true);
+    assert_eq!(summaries[0]["reviewRequired"], true);
+    assert_eq!(summaries[0]["hasWrong"], false);
+    assert!(summaries[0]["latestScore"].is_null());
+    db.execute("INSERT INTO question_reviews VALUES('q00001',1)", [])
+        .unwrap();
+    assert_eq!(
+        crate::questions::summaries(&db, &roots).unwrap()[0]["reviewRequired"],
+        false
+    );
+    let scanned = statement.get_status(rusqlite::StatementStatus::FullscanStep);
+    assert!(
+        scanned < 100,
+        "scanned {scanned} rows for one selected root"
+    );
+}
+
+#[test]
 fn plain_pages_preserve_filters_order_totals_and_clamped_offsets() {
     let (_dir, store) = seed(73);
     let db = store.connect().unwrap();
@@ -460,6 +507,117 @@ fn measure(mut run: impl FnMut() -> Value) -> Value {
     times.sort_by(f64::total_cmp);
     let bytes = serde_json::to_vec(&value).unwrap();
     json!({"medianMs":times[1],"maxMs":times[2],"jsonBytes":bytes.len(),"outputSha256":hash(&bytes)})
+}
+
+#[test]
+#[ignore = "paired scoped SQL workload; temporary databases, release only"]
+fn scoped_sql_read_stress() {
+    fn sample(mut run: impl FnMut() -> Value) -> Value {
+        let expected = run();
+        let mut times = Vec::new();
+        for _ in 0..7 {
+            let start = Instant::now();
+            let value = run();
+            times.push(start.elapsed().as_secs_f64() * 1000.0);
+            assert_eq!(value, expected);
+        }
+        let mut sorted = times.clone();
+        sorted.sort_by(f64::total_cmp);
+        json!({"samplesMs":times,"medianMs":sorted[3],"outputSha256":hash(&serde_json::to_vec(&expected).unwrap())})
+    }
+    let mut report = json!({"sqliteVersion":rusqlite::version(),
+        "sourceSha256":hash(include_bytes!("questions.rs")),
+        "probeSha256":hash(include_bytes!("search_performance.rs")),"workloads":[]});
+    for count in [1_000, 10_000, 100_000] {
+        let (_dir, store) = seed(count);
+        let mut db = store.connect().unwrap();
+        let tx = db.transaction().unwrap();
+        let roots: Vec<_> = (0..30).map(|i| format!("reading{i:02}")).collect();
+        for (i, root) in roots.iter().enumerate() {
+            tx.execute("INSERT INTO questions(id,bank_id,position,mode,content_blocks,confidence,needs_review,missing_fields) VALUES(?1,'bank',?2,'reading','[]',1,0,'[]')", params![root,count+i]).unwrap();
+            tx.execute(
+                "INSERT INTO reading_questions VALUES(?1,'\"Material\"')",
+                [root],
+            )
+            .unwrap();
+            tx.execute("UPDATE questions SET parent_id=?1,favorite=1,needs_review=1 WHERE position>=?2 AND position<?3 AND mode='true_false'", params![root,i*20,(i+1)*20]).unwrap();
+        }
+        tx.commit().unwrap();
+        let (all_roots, total) = crate::questions::matching_roots(&db, &[], "", "", None).unwrap();
+        assert_eq!(total, count - 600 + roots.len());
+        let mut workload = json!({"questions":count+30,"selectedRoots":30,"selectedNodes":630});
+        workload["summaries"] = sample(|| {
+            let rows = crate::questions::summaries(&db, &roots).unwrap();
+            assert_eq!(rows.len(), 30);
+            assert!(rows.iter().all(|row| row["answerableCount"] == 20));
+            json!(rows)
+        });
+        for (name, selected) in [("selectedMetadata", &roots), ("allMetadata", &all_roots)] {
+            let scope = json!(selected).to_string();
+            workload[name] = sample(|| {
+                crate::questions::prepare_root_metadata(&db)
+                    .unwrap()
+                    .query_map([&scope], |row| {
+                        Ok((
+                            row.get::<_, String>(0)?,
+                            row.get::<_, String>(1)?,
+                            row.get::<_, usize>(2)?,
+                        ))
+                    })
+                    .unwrap()
+                    .collect::<std::result::Result<Vec<_>, _>>()
+                    .map(|rows| json!(rows))
+                    .unwrap()
+            });
+            let mut statement = crate::questions::prepare_root_metadata(&db).unwrap();
+            let mut rows = statement.query([&scope]).unwrap();
+            while rows.next().unwrap().is_some() {}
+            drop(rows);
+            workload[name]["fullscanSteps"] =
+                json!(statement.get_status(rusqlite::StatementStatus::FullscanStep));
+            workload[name]["vmSteps"] =
+                json!(statement.get_status(rusqlite::StatementStatus::VmStep));
+            let sql = statement.expanded_sql().unwrap();
+            workload[name]["plan"] = json!(db
+                .prepare(&format!("EXPLAIN QUERY PLAN {sql}"))
+                .unwrap()
+                .query_map([], |row| row.get::<_, String>(3))
+                .unwrap()
+                .collect::<std::result::Result<Vec<_>, _>>()
+                .unwrap());
+        }
+        for (name, mode) in [("filteredRoots", "reading"), ("allTypeFilteredRoots", "")] {
+            workload[name] = sample(|| {
+                let (ids, total) =
+                    crate::questions::matching_roots(&db, &[], mode, "favorite", None).unwrap();
+                assert_eq!(ids, roots);
+                assert_eq!(total, 30);
+                json!(ids)
+            });
+        }
+        workload["plainPage"] = sample(|| {
+            let page = store
+                .query_questions(&[], ("", "", ""), Some((30, 0)))
+                .unwrap();
+            assert_eq!(page["total"], total);
+            assert_eq!(list(&page, "items").len(), 30);
+            page
+        });
+        workload["readingStats"] = sample(|| {
+            let stats = store
+                .question_stats(&[], ("", "reading", "favorite"))
+                .unwrap();
+            assert_eq!(stats["count"], 600);
+            assert_eq!(stats["types"], json!({"reading":30}));
+            stats
+        });
+        report["workloads"].as_array_mut().unwrap().push(workload);
+    }
+    fs::write(
+        std::env::var("PRACTIQ_SQL_PERF_OUTPUT").expect("set PRACTIQ_SQL_PERF_OUTPUT"),
+        serde_json::to_vec_pretty(&report).unwrap(),
+    )
+    .unwrap();
 }
 
 #[test]
