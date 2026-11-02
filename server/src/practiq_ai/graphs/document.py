@@ -693,9 +693,14 @@ class OcrPageParseResult(ChunkParseResult):
     def validate_associations(self) -> Self:
         page = OCR_PAGE.get()
         if page is not None:
+            elements = page.get('elements', [])
+            formula_text = ''
+            if any('formula_info' in element for element in elements):
+                formula_text = evidence_text([{**element, 'formula_info': f"$${evidence_text(element['formula_info'])}$$"}
+                                              if 'formula_info' in element else element for element in elements])
             issues = question_issues(OCR_TEXT.get() or '', self.questions, self.groups, native_table=page.get('format') == 'table',
                                      figures=evidence_text([figure.model_dump(include={'tableRows', 'extractedText'}) for figure in self.figures]),
-                                     formulas=[evidence_text(element['formula_info']) for element in page.get('elements', []) if 'formula_info' in element])
+                                     formula_text=formula_text)
             if issues:
                 raise ValueError('; '.join(issues))
         self._validated_page = self.page_result()
@@ -1710,7 +1715,7 @@ async def _merge(state: DocumentState, *, passive: bool = False) -> dict[str, An
     if pages and parsed:
         store = await asyncio.to_thread(get_object_store)
         refs = state.get('ocrPageRefs', [])
-        ocr_pages = [json.loads(payload) for payload in await bounded_map(refs, lambda ref: store.get_verified(ArtifactReference.model_validate(ref)))]
+        ocr_pages = [json.loads(await store.get_verified(ArtifactReference.model_validate(ref))) for ref in refs]
         context_pages, _ = source_context(ocr_pages, page_references=not state.get('inputParts') and state['document']['sourceType'] == 'pdf')
         for page_index, page in enumerate(ocr_pages):
             if not page.get('failed'):

@@ -7,17 +7,31 @@ from practiq_ai.contracts import ParsedGroup, ParsedQuestion
 from practiq_ai.tencent_bundle import evidence_text
 from practiq_ai.unit_results import missing_formulas, rendered_text
 
+from .answer_evidence import _records
 from .chunking import _UNNUMBERED_EXERCISE
 from .source_context import ANSWER_HEADING, NUMBER
 
 
+def _formula_source(text: str, questions: list[ParsedQuestion]) -> str:
+    heading = ANSWER_HEADING.search(text)
+    if heading is None:
+        return text
+    source = text[:heading.start()]
+    counts = Counter(NUMBER.findall(source))
+    answers = _records(text[heading.end():])
+    answer_counts = Counter(number for number, _ in answers)
+    numbers = {question.id.rsplit(':', 1)[-1] for question in questions if question.id}
+    return '\n'.join([source, *(body for number, body in answers
+                              if number in numbers and counts[number] == answer_counts[number] == 1)])
+
+
 def question_issues(text: str, questions: list[ParsedQuestion], groups: list[ParsedGroup], *, native_table: bool = False,
-                    figures: str = '', formulas: list[str] | None = None) -> list[str]:
+                    figures: str = '', formula_text: str = '') -> list[str]:
     issues = []
     # Answer keys and numbered passage/item lists are not new question starts.
     heading = ANSWER_HEADING.search(text)
     source = text[:heading.start()] if heading else text
-    material = '\n'.join(evidence_text(question.model_dump(include={'passage', 'items'})) for question in questions)
+    material = '\n'.join(evidence_text(question.model_dump(include={'options', 'passage', 'items'})) for question in questions)
     material += '\n' + '\n'.join(evidence_text(block.model_dump()) for question in questions for block in question.contentBlocks
                                  if block.role in {'material', 'source_text', 'starter_text'})
     starts = [] if native_table else list(NUMBER.finditer(source))
@@ -62,6 +76,6 @@ def question_issues(text: str, questions: list[ParsedQuestion], groups: list[Par
     if [positions[index] for index in sorted(positions)] != sorted(positions.values()):
         issues.append('Retain source reading order for questions; remap groups and figure indexes after correction')
     rendered = ' '.join(rendered_questions) + shared_content
-    if questions and (missing_formulas(text, rendered) or any(missing_formulas(f'$${formula}$$', rendered) for formula in formulas or [])):
+    if questions and any(missing_formulas(_formula_source(evidence, questions), rendered) for evidence in (text, formula_text)):
         issues.append('Retain every source formula in displayed content, not only sourceText')
     return issues

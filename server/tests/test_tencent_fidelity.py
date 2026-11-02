@@ -133,7 +133,7 @@ def ocr_validation():
         page = {**ocr_text_page(text), 'page': 0, 'figures': []}
         page['elements'].extend(extra_elements)
         page_token = document.OCR_PAGE.set(page)
-        text_token = document.OCR_TEXT.set(text)
+        text_token = document.OCR_TEXT.set('\n'.join(document._ocr_source_lines(page)))
         figure_token = document.OCR_FIGURES.set([])
         try:
             return document.OcrPageParseResult.model_validate({'questions': questions, 'groups': list(groups), 'figures': []})
@@ -187,6 +187,17 @@ def test_numbered_writing_material_does_not_invent_new_questions(ocr_validation)
     assert len(ocr_validation('Write an essay\n1. Who are you?\n2. Where are you?', [row]).questions) == 1
 
 
+@pytest.mark.parametrize('separator', [')', '.'])
+def test_numbered_choice_options_are_not_separate_questions(ocr_validation, separator):
+    row = {**question('Which sentence is a question?'), 'id': 'page:1:1',
+           'answerMode': 'choice', 'choiceVariant': 'single',
+           'options': [{'label': '1', 'content': 'Where are you?'}, {'label': '2', 'content': 'How are you?'}]}
+    text = f'1. Which sentence is a question?\n1{separator} Where are you?\n2{separator} How are you?'
+    assert len(ocr_validation(text, [row]).questions) == 1
+    with pytest.raises(ValidationError, match='source question 3'):
+        ocr_validation(text + '\n3. Another standalone question?', [row])
+
+
 def test_ambiguous_numbered_statements_remain_reviewable(ocr_validation):
     row = {**question('Describe the process'), 'id': 'page:1:1', 'needsReview': False}
     parsed = ocr_validation('1. Describe the process\n2. Further context without question cues', [row])
@@ -223,6 +234,30 @@ def test_nested_tencent_formula_is_checked_without_model_source_text(ocr_validat
         ocr_validation('1. Compute?', [row], elements)
     row['contentBlocks'].append({'partType': 'formula', 'latexValue': r'\sqrt{x}'})
     ocr_validation('1. Compute?', [row], elements)
+
+
+@pytest.mark.parametrize('formula_element', [False, True])
+def test_mixed_answer_key_does_not_attach_other_questions_formulas(ocr_validation, formula_element):
+    row = {**question('What is two plus two?'), 'id': 'page:1:17', 'answerPayload': {'text': '4'}}
+    text = '17. What is two plus two?'
+    elements = [{'text_info': {'content': 'Answer key\n1.'}}, {'formula_info': {'content': r'\sqrt{x}'}},
+                {'text_info': {'content': '17. 4'}}] if formula_element else []
+    if not formula_element:
+        text += '\nAnswer key\n1. $\\sqrt{x}$\n17. 4'
+    assert ocr_validation(text, [row], elements).questions[0].answerPayload.text == '4'
+
+
+@pytest.mark.parametrize('formula_element', [False, True])
+def test_mixed_answer_key_still_checks_current_questions_formula(ocr_validation, formula_element):
+    row = {**question('Compute?'), 'id': 'page:1:17'}
+    text = '17. Compute?'
+    elements = [{'text_info': {'content': 'Answer key\n1. 4\n17.'}}, {'formula_info': {'content': r'\sqrt{x}'}}] if formula_element else []
+    if not formula_element:
+        text += '\nAnswer key\n1. 4\n17. $\\sqrt{x}$'
+    with pytest.raises(ValidationError, match='formula'):
+        ocr_validation(text, [row], elements)
+    row['answerPayload'] = {'text': r'\sqrt{x}'}
+    assert ocr_validation(text, [row], elements).questions[0].answerPayload.text == r'\sqrt{x}'
 
 
 @pytest.mark.parametrize('field', ['title', 'instructions'])

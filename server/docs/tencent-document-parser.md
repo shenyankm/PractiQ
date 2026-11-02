@@ -37,13 +37,16 @@ still require human review.
 Structuring validates recognizable numbered question starts and literal question
 positions against the retained reading-order evidence. Missing questions,
 collapsed repeated questions and reversed source order enter the existing bounded
-output-correction loop. Numbered passage/item lists and answer-key pages do not
-create extra questions. Untyped statements without a clear question boundary
-remain reviewable; this check is not a complete document-accuracy measurement.
+output-correction loop. Retained numbered options, passage/item lists and
+answer-key pages do not create extra questions. Untyped statements without a
+clear question boundary remain reviewable; this check is not a complete
+document-accuracy measurement.
 Delimited math, including fractions, roots and scripts, and explicit Tencent
 formula elements are compared with displayed question/table content and shared
 group titles/instructions rather than the model's `sourceText` alone. This checks
 literal preservation, not mathematical equivalence or correctness.
+Answer-key formulas are required only for unambiguously linked PRIMARY questions;
+other questions' answers remain in their original source evidence.
 
 Model-facing figure previews are capped at 200 KiB before Base64 encoding.
 Verified Tencent subimages at or below that limit are sent unchanged; larger
@@ -246,6 +249,8 @@ must not claim complete recognition. Semantic retries reuse stored OCR evidence.
 Final printed-answer verification recomputes the same bounded source-page links
 used by structuring, including uniquely linked answer-key pages. It never crosses
 a failed page or relaxes ambiguous question-number checks.
+Saved OCR evidence uses sequential local reads; model units retain bounded
+concurrency, and final results follow source order.
 Retrying Tencent recognition requires an explicit new parsing action. If optional
 neighbor-context enrichment exceeds the model input limit, the valid primary
 extraction is retained with review flags and a warning rather than discarded.
