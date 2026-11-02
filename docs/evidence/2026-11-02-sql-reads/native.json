@@ -1,0 +1,2616 @@
+{
+  "date": "2026-11-02",
+  "baselineCommit": "c6b9b6cd1c091bf48735cb6010d51d74902e9c22",
+  "environment": {
+    "system": "Darwin",
+    "release": "27.0.0",
+    "machine": "arm64",
+    "rust": "rustc 1.98.1 (48a229cea 2026-09-01)"
+  },
+  "binarySha256": {
+    "before": "7f19e8fe3ab1cd4ac22ad363768aae92a3aa5961b45bbb4dec74d2bff7db2c09",
+    "after": "00c3300dd019f4901fc5ea5480ee9b30b181a58691e272d3c569caa966d8b3e4"
+  },
+  "sourceSha256": {
+    "before": "f15506f537ec1f8f4d03d4ab51656df3dceae4757171b337bf485dd8e7657ef3",
+    "after": "439b66964e95b78d056626ea5ce5b32672a1f88c7593dbee2e2f5556e7d1c766"
+  },
+  "method": "Same native release probe; three sequential pairs ordered before/after, after/before, before/after; one warmup and seven timed samples per workload and process. No concurrent task builds/tests; warm OS caches. Assertions, hashes, setup and plans excluded; native projection included.",
+  "validation": {
+    "command": "VITEST_MAX_WORKERS=2 make app-check AI_PYTHON=/Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14",
+    "result": "passed",
+    "frontendTestsPassed": 531,
+    "frontendTestsSkipped": 6,
+    "nativeTestsPassed": 258,
+    "nativeBenchmarksIgnored": 25,
+    "sharedContractCases": 51,
+    "formatAndClippy": "passed"
+  },
+  "runs": [
+    {
+      "pair": 1,
+      "variant": "before",
+      "command": [
+        "/tmp/practiq-sql-baseline-accepted",
+        "store::search_tests::scoped_sql_read_stress",
+        "--exact",
+        "--ignored",
+        "--test-threads=1"
+      ],
+      "data": {
+        "probeSha256": "c1ad2bdbad6c22c613054c4aac78f579727ee9efddce97cf987ab0e9d2653475",
+        "sourceSha256": "f15506f537ec1f8f4d03d4ab51656df3dceae4757171b337bf485dd8e7657ef3",
+        "sqliteVersion": "3.50.2",
+        "workloads": [
+          {
+            "allMetadata": {
+              "fullscanSteps": 1029,
+              "medianMs": 1.230709,
+              "outputSha256": "c3d5a53277669705cf9642d07f33ac4d137534f7597f93e4188105d3555586b0",
+              "plan": [
+                "CO-ROUTINE tree",
+                "SETUP",
+                "SCAN json_each VIRTUAL TABLE INDEX 1:",
+                "RECURSIVE STEP",
+                "SCAN t",
+                "SEARCH q USING INDEX questions_parent (parent_id=?)",
+                "SCAN r",
+                "BLOOM FILTER ON t (root=?)",
+                "SEARCH t USING AUTOMATIC COVERING INDEX (root=?)",
+                "SEARCH n USING INDEX sqlite_autoindex_questions_1 (id=?)",
+                "SEARCH c USING INDEX sqlite_autoindex_choice_questions_1 (question_id=?) LEFT-JOIN",
+                "USE TEMP B-TREE FOR GROUP BY"
+              ],
+              "samplesMs": [
+                1.194042,
+                1.2507499999999998,
+                1.313458,
+                0.9828339999999999,
+                1.230709,
+                1.2318749999999998,
+                1.0627499999999999
+              ],
+              "vmSteps": 97236
+            },
+            "allTypeFilteredRoots": {
+              "medianMs": 0.792417,
+              "outputSha256": "913a978f536ebb31caf7adc86c11bd9a81d0e943fa574ceacdb890993386ceca",
+              "samplesMs": [
+                0.850708,
+                0.735042,
+                0.792417,
+                0.767833,
+                0.7558750000000001,
+                0.801333,
+                0.798208
+              ]
+            },
+            "filteredRoots": {
+              "medianMs": 0.8540000000000001,
+              "outputSha256": "913a978f536ebb31caf7adc86c11bd9a81d0e943fa574ceacdb890993386ceca",
+              "samplesMs": [
+                0.7701669999999999,
+                0.788833,
+                0.899625,
+                0.904333,
+                0.8540000000000001,
+                0.8466250000000001,
+                0.880542
+              ]
+            },
+            "plainPage": {
+              "medianMs": 0.553709,
+              "outputSha256": "c010fde0cb57d22bd1b0011f715f089abd32be79f4b748c4c732861758231c17",
+              "samplesMs": [
+                0.628,
+                0.571125,
+                0.538084,
+                0.515083,
+                0.553416,
+                0.554,
+                0.553709
+              ]
+            },
+            "questions": 1030,
+            "readingStats": {
+              "medianMs": 1.7435420000000001,
+              "outputSha256": "56b520698900fb859d4d8219572105b39b151698dd008ed5c39e2d58994c9ee9",
+              "samplesMs": [
+                1.968208,
+                1.7435420000000001,
+                1.73125,
+                1.76275,
+                1.672833,
+                1.775834,
+                1.686458
+              ]
+            },
+            "selectedMetadata": {
+              "fullscanSteps": 1029,
+              "medianMs": 0.870459,
+              "outputSha256": "4a332de7d3b5c8e5499571a9f2db82fc14744c3530ffe19524881ae10d152c1c",
+              "plan": [
+                "CO-ROUTINE tree",
+                "SETUP",
+                "SCAN json_each VIRTUAL TABLE INDEX 1:",
+                "RECURSIVE STEP",
+                "SCAN t",
+                "SEARCH q USING INDEX questions_parent (parent_id=?)",
+                "SCAN r",
+                "BLOOM FILTER ON t (root=?)",
+                "SEARCH t USING AUTOMATIC COVERING INDEX (root=?)",
+                "SEARCH n USING INDEX sqlite_autoindex_questions_1 (id=?)",
+                "SEARCH c USING INDEX sqlite_autoindex_choice_questions_1 (question_id=?) LEFT-JOIN",
+                "USE TEMP B-TREE FOR GROUP BY"
+              ],
+              "samplesMs": [
+                0.761875,
+                0.870459,
+                0.656333,
+                0.9406249999999999,
+                0.9930410000000001,
+                0.961042,
+                0.6445
+              ],
+              "vmSteps": 57636
+            },
+            "selectedNodes": 630,
+            "selectedRoots": 30,
+            "summaries": {
+              "medianMs": 0.841333,
+              "outputSha256": "8aabcab93359333b1c48325dbef49921cb12dd46849c2e988568703dc7995fbf",
+              "samplesMs": [
+                0.841333,
+                0.81575,
+                0.866667,
+                0.8777499999999999,
+                0.817083,
+                0.844542,
+                0.8286250000000001
+              ]
+            }
+          },
+          {
+            "allMetadata": {
+              "fullscanSteps": 10029,
+              "medianMs": 11.094833,
+              "outputSha256": "34e73979b9985bdfee9a3448d5ccc70d0731b0cb88fcd645508bf21534b30415",
+              "plan": [
+                "CO-ROUTINE tree",
+                "SETUP",
+                "SCAN json_each VIRTUAL TABLE INDEX 1:",
+                "RECURSIVE STEP",
+                "SCAN t",
+                "SEARCH q USING INDEX questions_parent (parent_id=?)",
+                "SCAN r",
+                "BLOOM FILTER ON t (root=?)",
+                "SEARCH t USING AUTOMATIC COVERING INDEX (root=?)",
+                "SEARCH n USING INDEX sqlite_autoindex_questions_1 (id=?)",
+                "SEARCH c USING INDEX sqlite_autoindex_choice_questions_1 (question_id=?) LEFT-JOIN",
+                "USE TEMP B-TREE FOR GROUP BY"
+              ],
+              "samplesMs": [
+                11.259542000000001,
+                11.203125,
+                11.076,
+                10.960458,
+                11.094833,
+                11.4135,
+                11.021667
+              ],
+              "vmSteps": 1051236
+            },
+            "allTypeFilteredRoots": {
+              "medianMs": 6.072666,
+              "outputSha256": "913a978f536ebb31caf7adc86c11bd9a81d0e943fa574ceacdb890993386ceca",
+              "samplesMs": [
+                6.072666,
+                6.2162500000000005,
+                6.049583,
+                5.90025,
+                6.0010829999999995,
+                6.185084000000001,
+                6.251333000000001
+              ]
+            },
+            "filteredRoots": {
+              "medianMs": 6.0855,
+              "outputSha256": "913a978f536ebb31caf7adc86c11bd9a81d0e943fa574ceacdb890993386ceca",
+              "samplesMs": [
+                6.009083,
+                6.282792,
+                6.09375,
+                6.0855,
+                6.118042,
+                5.91,
+                5.891875000000001
+              ]
+            },
+            "plainPage": {
+              "medianMs": 2.116459,
+              "outputSha256": "719dd5f602e7fabb13a9fd371aa26d47620a09dd8ec3f188d56e92e513d62677",
+              "samplesMs": [
+                2.233334,
+                2.183834,
+                2.1765830000000004,
+                2.116459,
+                2.084416,
+                2.108,
+                2.0998750000000004
+              ]
+            },
+            "questions": 10030,
+            "readingStats": {
+              "medianMs": 8.190833,
+              "outputSha256": "56b520698900fb859d4d8219572105b39b151698dd008ed5c39e2d58994c9ee9",
+              "samplesMs": [
+                8.629541,
+                8.190833,
+                7.900582999999999,
+                7.965042,
+                8.169541,
+                9.12875,
+                8.296583
+              ]
+            },
+            "selectedMetadata": {
+              "fullscanSteps": 10029,
+              "medianMs": 1.753209,
+              "outputSha256": "4a332de7d3b5c8e5499571a9f2db82fc14744c3530ffe19524881ae10d152c1c",
+              "plan": [
+                "CO-ROUTINE tree",
+                "SETUP",
+                "SCAN json_each VIRTUAL TABLE INDEX 1:",
+                "RECURSIVE STEP",
+                "SCAN t",
+                "SEARCH q USING INDEX questions_parent (parent_id=?)",
+                "SCAN r",
+                "BLOOM FILTER ON t (root=?)",
+                "SEARCH t USING AUTOMATIC COVERING INDEX (root=?)",
+                "SEARCH n USING INDEX sqlite_autoindex_questions_1 (id=?)",
+                "SEARCH c USING INDEX sqlite_autoindex_choice_questions_1 (question_id=?) LEFT-JOIN",
+                "USE TEMP B-TREE FOR GROUP BY"
+              ],
+              "samplesMs": [
+                1.6559579999999998,
+                1.8303749999999999,
+                1.753209,
+                1.736375,
+                1.7481669999999998,
+                1.7799999999999998,
+                1.784667
+              ],
+              "vmSteps": 120636
+            },
+            "selectedNodes": 630,
+            "selectedRoots": 30,
+            "summaries": {
+              "medianMs": 1.695708,
+              "outputSha256": "8aabcab93359333b1c48325dbef49921cb12dd46849c2e988568703dc7995fbf",
+              "samplesMs": [
+                1.707625,
+                1.6881249999999999,
+                1.7004590000000002,
+                1.656083,
+                1.695708,
+                1.7007079999999999,
+                1.680166
+              ]
+            }
+          },
+          {
+            "allMetadata": {
+              "fullscanSteps": 100029,
+              "medianMs": 183.10125,
+              "outputSha256": "12481b729272b97b0f23ff0567a0f3a14bc8c99dbf5f95832abb42c34a69faa7",
+              "plan": [
+                "CO-ROUTINE tree",
+                "SETUP",
+                "SCAN json_each VIRTUAL TABLE INDEX 1:",
+                "RECURSIVE STEP",
+                "SCAN t",
+                "SEARCH q USING INDEX questions_parent (parent_id=?)",
+                "SCAN r",
+                "BLOOM FILTER ON t (root=?)",
+                "SEARCH t USING AUTOMATIC COVERING INDEX (root=?)",
+                "SEARCH n USING INDEX sqlite_autoindex_questions_1 (id=?)",
+                "SEARCH c USING INDEX sqlite_autoindex_choice_questions_1 (question_id=?) LEFT-JOIN",
+                "USE TEMP B-TREE FOR GROUP BY"
+              ],
+              "samplesMs": [
+                181.464917,
+                181.640084,
+                181.533208,
+                185.15462499999998,
+                183.545791,
+                183.10125,
+                183.266458
+              ],
+              "vmSteps": 10591236
+            },
+            "allTypeFilteredRoots": {
+              "medianMs": 67.842,
+              "outputSha256": "913a978f536ebb31caf7adc86c11bd9a81d0e943fa574ceacdb890993386ceca",
+              "samplesMs": [
+                67.792167,
+                67.842,
+                68.818375,
+                67.982917,
+                67.216,
+                67.578416,
+                67.898084
+              ]
+            },
+            "filteredRoots": {
+              "medianMs": 68.257125,
+              "outputSha256": "913a978f536ebb31caf7adc86c11bd9a81d0e943fa574ceacdb890993386ceca",
+              "samplesMs": [
+                68.503,
+                68.257125,
+                68.019042,
+                68.777,
+                68.837125,
+                67.27875,
+                68.054417
+              ]
+            },
+            "plainPage": {
+              "medianMs": 20.862584,
+              "outputSha256": "25d6a79b8f22f9856f5b2af271e9b17f7f6190e34ff866dfdcf24164c43514c7",
+              "samplesMs": [
+                20.862584,
+                20.404875,
+                21.09525,
+                20.726208999999997,
+                21.171415999999997,
+                22.193082999999998,
+                20.526833
+              ]
+            },
+            "questions": 100030,
+            "readingStats": {
+              "medianMs": 82.034459,
+              "outputSha256": "56b520698900fb859d4d8219572105b39b151698dd008ed5c39e2d58994c9ee9",
+              "samplesMs": [
+                81.02595799999999,
+                84.439542,
+                81.17066700000001,
+                82.278709,
+                82.034459,
+                84.39141599999999,
+                81.951625
+              ]
+            },
+            "selectedMetadata": {
+              "fullscanSteps": 100029,
+              "medianMs": 13.03525,
+              "outputSha256": "4a332de7d3b5c8e5499571a9f2db82fc14744c3530ffe19524881ae10d152c1c",
+              "plan": [
+                "CO-ROUTINE tree",
+                "SETUP",
+                "SCAN json_each VIRTUAL TABLE INDEX 1:",
+                "RECURSIVE STEP",
+                "SCAN t",
+                "SEARCH q USING INDEX questions_parent (parent_id=?)",
+                "SCAN r",
+                "BLOOM FILTER ON t (root=?)",
+                "SEARCH t USING AUTOMATIC COVERING INDEX (root=?)",
+                "SEARCH n USING INDEX sqlite_autoindex_questions_1 (id=?)",
+                "SEARCH c USING INDEX sqlite_autoindex_choice_questions_1 (question_id=?) LEFT-JOIN",
+                "USE TEMP B-TREE FOR GROUP BY"
+              ],
+              "samplesMs": [
+                12.754334,
+                13.03525,
+                13.130666,
+                12.552875,
+                12.883375000000001,
+                13.087584,
+                13.098084
+              ],
+              "vmSteps": 750636
+            },
+            "selectedNodes": 630,
+            "selectedRoots": 30,
+            "summaries": {
+              "medianMs": 11.677916,
+              "outputSha256": "8aabcab93359333b1c48325dbef49921cb12dd46849c2e988568703dc7995fbf",
+              "samplesMs": [
+                11.677916,
+                11.452957999999999,
+                12.148292,
+                11.567292,
+                11.559750000000001,
+                12.059834,
+                12.219209
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "pair": 1,
+      "variant": "after",
+      "command": [
+        "/tmp/practiq-sql-accepted",
+        "store::search_tests::scoped_sql_read_stress",
+        "--exact",
+        "--ignored",
+        "--test-threads=1"
+      ],
+      "data": {
+        "probeSha256": "c1ad2bdbad6c22c613054c4aac78f579727ee9efddce97cf987ab0e9d2653475",
+        "sourceSha256": "439b66964e95b78d056626ea5ce5b32672a1f88c7593dbee2e2f5556e7d1c766",
+        "sqliteVersion": "3.50.2",
+        "workloads": [
+          {
+            "allMetadata": {
+              "fullscanSteps": 0,
+              "medianMs": 0.821167,
+              "outputSha256": "c3d5a53277669705cf9642d07f33ac4d137534f7597f93e4188105d3555586b0",
+              "plan": [
+                "CO-ROUTINE tree",
+                "SETUP",
+                "SCAN json_each VIRTUAL TABLE INDEX 1:",
+                "RECURSIVE STEP",
+                "SCAN t",
+                "SEARCH q USING INDEX questions_parent (parent_id=?)",
+                "SCAN t",
+                "SEARCH r USING INDEX sqlite_autoindex_questions_1 (id=?)",
+                "SEARCH n USING INDEX sqlite_autoindex_questions_1 (id=?)",
+                "SEARCH c USING INDEX sqlite_autoindex_choice_questions_1 (question_id=?) LEFT-JOIN",
+                "USE TEMP B-TREE FOR GROUP BY"
+              ],
+              "samplesMs": [
+                0.852125,
+                0.9085420000000001,
+                0.821167,
+                0.79225,
+                0.812291,
+                0.780917,
+                0.826708
+              ],
+              "vmSteps": 85903
+            },
+            "allTypeFilteredRoots": {
+              "medianMs": 0.86025,
+              "outputSha256": "913a978f536ebb31caf7adc86c11bd9a81d0e943fa574ceacdb890993386ceca",
+              "samplesMs": [
+                0.982625,
+                0.86025,
+                0.8230829999999999,
+                0.8948339999999999,
+                0.897875,
+                0.826209,
+                0.780125
+              ]
+            },
+            "filteredRoots": {
+              "medianMs": 0.800959,
+              "outputSha256": "913a978f536ebb31caf7adc86c11bd9a81d0e943fa574ceacdb890993386ceca",
+              "samplesMs": [
+                0.8007920000000001,
+                0.838,
+                0.746708,
+                0.7873749999999999,
+                0.815875,
+                0.877625,
+                0.800959
+              ]
+            },
+            "plainPage": {
+              "medianMs": 0.4695,
+              "outputSha256": "c010fde0cb57d22bd1b0011f715f089abd32be79f4b748c4c732861758231c17",
+              "samplesMs": [
+                0.567042,
+                0.455292,
+                0.4695,
+                0.451459,
+                0.4695,
+                0.439208,
+                0.50225
+              ]
+            },
+            "questions": 1030,
+            "readingStats": {
+              "medianMs": 1.523875,
+              "outputSha256": "56b520698900fb859d4d8219572105b39b151698dd008ed5c39e2d58994c9ee9",
+              "samplesMs": [
+                1.577333,
+                1.523875,
+                1.644083,
+                1.499584,
+                1.4330420000000001,
+                1.518917,
+                1.537459
+              ]
+            },
+            "selectedMetadata": {
+              "fullscanSteps": 0,
+              "medianMs": 0.6285000000000001,
+              "outputSha256": "4a332de7d3b5c8e5499571a9f2db82fc14744c3530ffe19524881ae10d152c1c",
+              "plan": [
+                "CO-ROUTINE tree",
+                "SETUP",
+                "SCAN json_each VIRTUAL TABLE INDEX 1:",
+                "RECURSIVE STEP",
+                "SCAN t",
+                "SEARCH q USING INDEX questions_parent (parent_id=?)",
+                "SCAN t",
+                "SEARCH r USING INDEX sqlite_autoindex_questions_1 (id=?)",
+                "SEARCH n USING INDEX sqlite_autoindex_questions_1 (id=?)",
+                "SEARCH c USING INDEX sqlite_autoindex_choice_questions_1 (question_id=?) LEFT-JOIN",
+                "USE TEMP B-TREE FOR GROUP BY"
+              ],
+              "samplesMs": [
+                0.7029160000000001,
+                0.463833,
+                0.4235,
+                0.565084,
+                0.6285000000000001,
+                0.6339170000000001,
+                0.639959
+              ],
+              "vmSteps": 47903
+            },
+            "selectedNodes": 630,
+            "selectedRoots": 30,
+            "summaries": {
+              "medianMs": 0.927167,
+              "outputSha256": "8aabcab93359333b1c48325dbef49921cb12dd46849c2e988568703dc7995fbf",
+              "samplesMs": [
+                1.007167,
+                0.6268750000000001,
+                0.787875,
+                1.035209,
+                0.927167,
+                0.7052090000000001,
+                0.973916
+              ]
+            }
+          },
+          {
+            "allMetadata": {
+              "fullscanSteps": 0,
+              "medianMs": 9.637500000000001,
+              "outputSha256": "34e73979b9985bdfee9a3448d5ccc70d0731b0cb88fcd645508bf21534b30415",
+              "plan": [
+                "CO-ROUTINE tree",
+                "SETUP",
+                "SCAN json_each VIRTUAL TABLE INDEX 1:",
+                "RECURSIVE STEP",
+                "SCAN t",
+                "SEARCH q USING INDEX questions_parent (parent_id=?)",
+                "SCAN t",
+                "SEARCH r USING INDEX sqlite_autoindex_questions_1 (id=?)",
+                "SEARCH n USING INDEX sqlite_autoindex_questions_1 (id=?)",
+                "SEARCH c USING INDEX sqlite_autoindex_choice_questions_1 (question_id=?) LEFT-JOIN",
+                "USE TEMP B-TREE FOR GROUP BY"
+              ],
+              "samplesMs": [
+                9.630583999999999,
+                9.614542,
+                9.749,
+                9.637500000000001,
+                9.566208,
+                10.014583,
+                9.674
+              ],
+              "vmSteps": 940903
+            },
+            "allTypeFilteredRoots": {
+              "medianMs": 6.004583,
+              "outputSha256": "913a978f536ebb31caf7adc86c11bd9a81d0e943fa574ceacdb890993386ceca",
+              "samplesMs": [
+                6.157,
+                5.971459,
+                5.988333,
+                6.004583,
+                6.154583,
+                6.0745000000000005,
+                5.840542
+              ]
+            },
+            "filteredRoots": {
+              "medianMs": 6.020333,
+              "outputSha256": "913a978f536ebb31caf7adc86c11bd9a81d0e943fa574ceacdb890993386ceca",
+              "samplesMs": [
+                6.020333,
+                6.16075,
+                6.009375,
+                5.942917,
+                5.975458000000001,
+                6.278167000000001,
+                6.310166
+              ]
+            },
+            "plainPage": {
+              "medianMs": 1.558458,
+              "outputSha256": "719dd5f602e7fabb13a9fd371aa26d47620a09dd8ec3f188d56e92e513d62677",
+              "samplesMs": [
+                1.558458,
+                1.508542,
+                1.485708,
+                1.5440829999999999,
+                1.579084,
+                1.559375,
+                1.606708
+              ]
+            },
+            "questions": 10030,
+            "readingStats": {
+              "medianMs": 6.973291000000001,
+              "outputSha256": "56b520698900fb859d4d8219572105b39b151698dd008ed5c39e2d58994c9ee9",
+              "samplesMs": [
+                6.968875000000001,
+                6.973291000000001,
+                6.8620410000000005,
+                7.030625000000001,
+                7.225375,
+                6.9826250000000005,
+                6.866209
+              ]
+            },
+            "selectedMetadata": {
+              "fullscanSteps": 0,
+              "medianMs": 0.472458,
+              "outputSha256": "4a332de7d3b5c8e5499571a9f2db82fc14744c3530ffe19524881ae10d152c1c",
+              "plan": [
+                "CO-ROUTINE tree",
+                "SETUP",
+                "SCAN json_each VIRTUAL TABLE INDEX 1:",
+                "RECURSIVE STEP",
+                "SCAN t",
+                "SEARCH q USING INDEX questions_parent (parent_id=?)",
+                "SCAN t",
+                "SEARCH r USING INDEX sqlite_autoindex_questions_1 (id=?)",
+                "SEARCH n USING INDEX sqlite_autoindex_questions_1 (id=?)",
+                "SEARCH c USING INDEX sqlite_autoindex_choice_questions_1 (question_id=?) LEFT-JOIN",
+                "USE TEMP B-TREE FOR GROUP BY"
+              ],
+              "samplesMs": [
+                0.47470900000000005,
+                0.478708,
+                0.468375,
+                0.472458,
+                0.46941700000000003,
+                0.471042,
+                0.473666
+              ],
+              "vmSteps": 47903
+            },
+            "selectedNodes": 630,
+            "selectedRoots": 30,
+            "summaries": {
+              "medianMs": 0.684083,
+              "outputSha256": "8aabcab93359333b1c48325dbef49921cb12dd46849c2e988568703dc7995fbf",
+              "samplesMs": [
+                0.6879580000000001,
+                0.658625,
+                0.661084,
+                0.708292,
+                0.72525,
+                0.684083,
+                0.671291
+              ]
+            }
+          },
+          {
+            "allMetadata": {
+              "fullscanSteps": 0,
+              "medianMs": 149.306208,
+              "outputSha256": "12481b729272b97b0f23ff0567a0f3a14bc8c99dbf5f95832abb42c34a69faa7",
+              "plan": [
+                "CO-ROUTINE tree",
+                "SETUP",
+                "SCAN json_each VIRTUAL TABLE INDEX 1:",
+                "RECURSIVE STEP",
+                "SCAN t",
+                "SEARCH q USING INDEX questions_parent (parent_id=?)",
+                "SCAN t",
+                "SEARCH r USING INDEX sqlite_autoindex_questions_1 (id=?)",
+                "SEARCH n USING INDEX sqlite_autoindex_questions_1 (id=?)",
+                "SEARCH c USING INDEX sqlite_autoindex_choice_questions_1 (question_id=?) LEFT-JOIN",
+                "USE TEMP B-TREE FOR GROUP BY"
+              ],
+              "samplesMs": [
+                149.306208,
+                150.735792,
+                149.465542,
+                147.360666,
+                147.212291,
+                149.64404100000002,
+                148.00016699999998
+              ],
+              "vmSteps": 9490903
+            },
+            "allTypeFilteredRoots": {
+              "medianMs": 69.269625,
+              "outputSha256": "913a978f536ebb31caf7adc86c11bd9a81d0e943fa574ceacdb890993386ceca",
+              "samplesMs": [
+                69.269625,
+                69.60695799999999,
+                69.507625,
+                68.91975000000001,
+                68.882541,
+                70.487958,
+                69.056209
+              ]
+            },
+            "filteredRoots": {
+              "medianMs": 68.758,
+              "outputSha256": "913a978f536ebb31caf7adc86c11bd9a81d0e943fa574ceacdb890993386ceca",
+              "samplesMs": [
+                69.47508300000001,
+                68.21337500000001,
+                68.75925,
+                68.965041,
+                68.758,
+                68.648792,
+                68.651667
+              ]
+            },
+            "plainPage": {
+              "medianMs": 14.062,
+              "outputSha256": "25d6a79b8f22f9856f5b2af271e9b17f7f6190e34ff866dfdcf24164c43514c7",
+              "samplesMs": [
+                14.70475,
+                14.273124999999999,
+                13.603083999999999,
+                14.062,
+                13.134916,
+                14.043583,
+                14.237917
+              ]
+            },
+            "questions": 100030,
+            "readingStats": {
+              "medianMs": 70.258709,
+              "outputSha256": "56b520698900fb859d4d8219572105b39b151698dd008ed5c39e2d58994c9ee9",
+              "samplesMs": [
+                70.24674999999999,
+                70.97225,
+                70.774459,
+                70.787542,
+                70.15579199999999,
+                70.258709,
+                69.92524999999999
+              ]
+            },
+            "selectedMetadata": {
+              "fullscanSteps": 0,
+              "medianMs": 0.517667,
+              "outputSha256": "4a332de7d3b5c8e5499571a9f2db82fc14744c3530ffe19524881ae10d152c1c",
+              "plan": [
+                "CO-ROUTINE tree",
+                "SETUP",
+                "SCAN json_each VIRTUAL TABLE INDEX 1:",
+                "RECURSIVE STEP",
+                "SCAN t",
+                "SEARCH q USING INDEX questions_parent (parent_id=?)",
+                "SCAN t",
+                "SEARCH r USING INDEX sqlite_autoindex_questions_1 (id=?)",
+                "SEARCH n USING INDEX sqlite_autoindex_questions_1 (id=?)",
+                "SEARCH c USING INDEX sqlite_autoindex_choice_questions_1 (question_id=?) LEFT-JOIN",
+                "USE TEMP B-TREE FOR GROUP BY"
+              ],
+              "samplesMs": [
+                0.51975,
+                0.512792,
+                0.514125,
+                0.517667,
+                0.5143329999999999,
+                0.576583,
+                0.5565840000000001
+              ],
+              "vmSteps": 47903
+            },
+            "selectedNodes": 630,
+            "selectedRoots": 30,
+            "summaries": {
+              "medianMs": 0.715708,
+              "outputSha256": "8aabcab93359333b1c48325dbef49921cb12dd46849c2e988568703dc7995fbf",
+              "samplesMs": [
+                0.76075,
+                0.715708,
+                0.7074590000000001,
+                0.702292,
+                0.697875,
+                0.723167,
+                0.764459
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "pair": 2,
+      "variant": "after",
+      "command": [
+        "/tmp/practiq-sql-accepted",
+        "store::search_tests::scoped_sql_read_stress",
+        "--exact",
+        "--ignored",
+        "--test-threads=1"
+      ],
+      "data": {
+        "probeSha256": "c1ad2bdbad6c22c613054c4aac78f579727ee9efddce97cf987ab0e9d2653475",
+        "sourceSha256": "439b66964e95b78d056626ea5ce5b32672a1f88c7593dbee2e2f5556e7d1c766",
+        "sqliteVersion": "3.50.2",
+        "workloads": [
+          {
+            "allMetadata": {
+              "fullscanSteps": 0,
+              "medianMs": 0.821708,
+              "outputSha256": "c3d5a53277669705cf9642d07f33ac4d137534f7597f93e4188105d3555586b0",
+              "plan": [
+                "CO-ROUTINE tree",
+                "SETUP",
+                "SCAN json_each VIRTUAL TABLE INDEX 1:",
+                "RECURSIVE STEP",
+                "SCAN t",
+                "SEARCH q USING INDEX questions_parent (parent_id=?)",
+                "SCAN t",
+                "SEARCH r USING INDEX sqlite_autoindex_questions_1 (id=?)",
+                "SEARCH n USING INDEX sqlite_autoindex_questions_1 (id=?)",
+                "SEARCH c USING INDEX sqlite_autoindex_choice_questions_1 (question_id=?) LEFT-JOIN",
+                "USE TEMP B-TREE FOR GROUP BY"
+              ],
+              "samplesMs": [
+                0.821708,
+                0.8155,
+                0.809666,
+                0.808916,
+                0.838542,
+                0.830375,
+                0.8232499999999999
+              ],
+              "vmSteps": 85903
+            },
+            "allTypeFilteredRoots": {
+              "medianMs": 0.788291,
+              "outputSha256": "913a978f536ebb31caf7adc86c11bd9a81d0e943fa574ceacdb890993386ceca",
+              "samplesMs": [
+                0.80025,
+                0.785209,
+                0.780042,
+                0.810792,
+                0.884166,
+                0.788291,
+                0.772167
+              ]
+            },
+            "filteredRoots": {
+              "medianMs": 0.7941670000000001,
+              "outputSha256": "913a978f536ebb31caf7adc86c11bd9a81d0e943fa574ceacdb890993386ceca",
+              "samplesMs": [
+                0.791792,
+                0.776375,
+                0.774458,
+                0.847208,
+                0.894084,
+                0.8034169999999999,
+                0.7941670000000001
+              ]
+            },
+            "plainPage": {
+              "medianMs": 0.49712499999999993,
+              "outputSha256": "c010fde0cb57d22bd1b0011f715f089abd32be79f4b748c4c732861758231c17",
+              "samplesMs": [
+                0.51125,
+                0.467416,
+                0.460958,
+                0.658917,
+                0.5552079999999999,
+                0.49712499999999993,
+                0.473209
+              ]
+            },
+            "questions": 1030,
+            "readingStats": {
+              "medianMs": 1.588875,
+              "outputSha256": "56b520698900fb859d4d8219572105b39b151698dd008ed5c39e2d58994c9ee9",
+              "samplesMs": [
+                1.634375,
+                1.588875,
+                1.5896249999999998,
+                1.654709,
+                1.5442500000000001,
+                1.584125,
+                1.523542
+              ]
+            },
+            "selectedMetadata": {
+              "fullscanSteps": 0,
+              "medianMs": 0.466792,
+              "outputSha256": "4a332de7d3b5c8e5499571a9f2db82fc14744c3530ffe19524881ae10d152c1c",
+              "plan": [
+                "CO-ROUTINE tree",
+                "SETUP",
+                "SCAN json_each VIRTUAL TABLE INDEX 1:",
+                "RECURSIVE STEP",
+                "SCAN t",
+                "SEARCH q USING INDEX questions_parent (parent_id=?)",
+                "SCAN t",
+                "SEARCH r USING INDEX sqlite_autoindex_questions_1 (id=?)",
+                "SEARCH n USING INDEX sqlite_autoindex_questions_1 (id=?)",
+                "SEARCH c USING INDEX sqlite_autoindex_choice_questions_1 (question_id=?) LEFT-JOIN",
+                "USE TEMP B-TREE FOR GROUP BY"
+              ],
+              "samplesMs": [
+                0.47154199999999996,
+                0.460625,
+                0.48045899999999997,
+                0.49037500000000006,
+                0.466792,
+                0.459833,
+                0.45637500000000003
+              ],
+              "vmSteps": 47903
+            },
+            "selectedNodes": 630,
+            "selectedRoots": 30,
+            "summaries": {
+              "medianMs": 0.647625,
+              "outputSha256": "8aabcab93359333b1c48325dbef49921cb12dd46849c2e988568703dc7995fbf",
+              "samplesMs": [
+                0.695125,
+                0.650583,
+                0.647625,
+                0.648667,
+                0.643459,
+                0.631166,
+                0.633041
+              ]
+            }
+          },
+          {
+            "allMetadata": {
+              "fullscanSteps": 0,
+              "medianMs": 10.071208,
+              "outputSha256": "34e73979b9985bdfee9a3448d5ccc70d0731b0cb88fcd645508bf21534b30415",
+              "plan": [
+                "CO-ROUTINE tree",
+                "SETUP",
+                "SCAN json_each VIRTUAL TABLE INDEX 1:",
+                "RECURSIVE STEP",
+                "SCAN t",
+                "SEARCH q USING INDEX questions_parent (parent_id=?)",
+                "SCAN t",
+                "SEARCH r USING INDEX sqlite_autoindex_questions_1 (id=?)",
+                "SEARCH n USING INDEX sqlite_autoindex_questions_1 (id=?)",
+                "SEARCH c USING INDEX sqlite_autoindex_choice_questions_1 (question_id=?) LEFT-JOIN",
+                "USE TEMP B-TREE FOR GROUP BY"
+              ],
+              "samplesMs": [
+                9.993167000000001,
+                9.845917,
+                10.202042,
+                9.788708,
+                10.296166000000001,
+                10.071208,
+                10.145292
+              ],
+              "vmSteps": 940903
+            },
+            "allTypeFilteredRoots": {
+              "medianMs": 6.345625,
+              "outputSha256": "913a978f536ebb31caf7adc86c11bd9a81d0e943fa574ceacdb890993386ceca",
+              "samplesMs": [
+                6.390333,
+                6.680833,
+                6.258541,
+                6.668167,
+                6.345625,
+                6.261292,
+                6.084916
+              ]
+            },
+            "filteredRoots": {
+              "medianMs": 6.237917,
+              "outputSha256": "913a978f536ebb31caf7adc86c11bd9a81d0e943fa574ceacdb890993386ceca",
+              "samplesMs": [
+                6.1235409999999995,
+                6.5589580000000005,
+                6.304708,
+                6.237917,
+                6.075708,
+                6.207875,
+                6.4784999999999995
+              ]
+            },
+            "plainPage": {
+              "medianMs": 1.730458,
+              "outputSha256": "719dd5f602e7fabb13a9fd371aa26d47620a09dd8ec3f188d56e92e513d62677",
+              "samplesMs": [
+                1.730458,
+                1.6513339999999999,
+                1.54175,
+                1.598416,
+                1.918917,
+                1.790459,
+                1.74975
+              ]
+            },
+            "questions": 10030,
+            "readingStats": {
+              "medianMs": 7.41325,
+              "outputSha256": "56b520698900fb859d4d8219572105b39b151698dd008ed5c39e2d58994c9ee9",
+              "samplesMs": [
+                7.584667,
+                7.295041,
+                7.403584,
+                7.302375,
+                7.458041000000001,
+                7.41325,
+                7.824792
+              ]
+            },
+            "selectedMetadata": {
+              "fullscanSteps": 0,
+              "medianMs": 0.49637499999999996,
+              "outputSha256": "4a332de7d3b5c8e5499571a9f2db82fc14744c3530ffe19524881ae10d152c1c",
+              "plan": [
+                "CO-ROUTINE tree",
+                "SETUP",
+                "SCAN json_each VIRTUAL TABLE INDEX 1:",
+                "RECURSIVE STEP",
+                "SCAN t",
+                "SEARCH q USING INDEX questions_parent (parent_id=?)",
+                "SCAN t",
+                "SEARCH r USING INDEX sqlite_autoindex_questions_1 (id=?)",
+                "SEARCH n USING INDEX sqlite_autoindex_questions_1 (id=?)",
+                "SEARCH c USING INDEX sqlite_autoindex_choice_questions_1 (question_id=?) LEFT-JOIN",
+                "USE TEMP B-TREE FOR GROUP BY"
+              ],
+              "samplesMs": [
+                0.6162080000000001,
+                0.582042,
+                0.497208,
+                0.49637499999999996,
+                0.485292,
+                0.479542,
+                0.491
+              ],
+              "vmSteps": 47903
+            },
+            "selectedNodes": 630,
+            "selectedRoots": 30,
+            "summaries": {
+              "medianMs": 0.7648750000000001,
+              "outputSha256": "8aabcab93359333b1c48325dbef49921cb12dd46849c2e988568703dc7995fbf",
+              "samplesMs": [
+                0.723709,
+                0.781792,
+                0.903959,
+                0.7648750000000001,
+                0.8022090000000001,
+                0.7170839999999999,
+                0.732375
+              ]
+            }
+          },
+          {
+            "allMetadata": {
+              "fullscanSteps": 0,
+              "medianMs": 145.30362499999998,
+              "outputSha256": "12481b729272b97b0f23ff0567a0f3a14bc8c99dbf5f95832abb42c34a69faa7",
+              "plan": [
+                "CO-ROUTINE tree",
+                "SETUP",
+                "SCAN json_each VIRTUAL TABLE INDEX 1:",
+                "RECURSIVE STEP",
+                "SCAN t",
+                "SEARCH q USING INDEX questions_parent (parent_id=?)",
+                "SCAN t",
+                "SEARCH r USING INDEX sqlite_autoindex_questions_1 (id=?)",
+                "SEARCH n USING INDEX sqlite_autoindex_questions_1 (id=?)",
+                "SEARCH c USING INDEX sqlite_autoindex_choice_questions_1 (question_id=?) LEFT-JOIN",
+                "USE TEMP B-TREE FOR GROUP BY"
+              ],
+              "samplesMs": [
+                144.807125,
+                146.681417,
+                145.210875,
+                145.30362499999998,
+                145.352917,
+                145.97554200000002,
+                144.5545
+              ],
+              "vmSteps": 9490903
+            },
+            "allTypeFilteredRoots": {
+              "medianMs": 68.697458,
+              "outputSha256": "913a978f536ebb31caf7adc86c11bd9a81d0e943fa574ceacdb890993386ceca",
+              "samplesMs": [
+                68.691709,
+                68.886833,
+                68.362542,
+                68.350625,
+                68.708292,
+                68.697458,
+                83.44699999999999
+              ]
+            },
+            "filteredRoots": {
+              "medianMs": 68.478958,
+              "outputSha256": "913a978f536ebb31caf7adc86c11bd9a81d0e943fa574ceacdb890993386ceca",
+              "samplesMs": [
+                68.26124999999999,
+                68.472458,
+                69.37,
+                68.749958,
+                68.478958,
+                69.11604200000001,
+                67.675291
+              ]
+            },
+            "plainPage": {
+              "medianMs": 13.478708000000001,
+              "outputSha256": "25d6a79b8f22f9856f5b2af271e9b17f7f6190e34ff866dfdcf24164c43514c7",
+              "samplesMs": [
+                13.906625,
+                12.849292,
+                13.171833000000001,
+                13.478708000000001,
+                12.825625,
+                13.644791999999999,
+                14.218292
+              ]
+            },
+            "questions": 100030,
+            "readingStats": {
+              "medianMs": 71.31975,
+              "outputSha256": "56b520698900fb859d4d8219572105b39b151698dd008ed5c39e2d58994c9ee9",
+              "samplesMs": [
+                69.45729200000001,
+                70.166417,
+                71.080833,
+                71.346541,
+                71.644583,
+                71.499291,
+                71.31975
+              ]
+            },
+            "selectedMetadata": {
+              "fullscanSteps": 0,
+              "medianMs": 0.513458,
+              "outputSha256": "4a332de7d3b5c8e5499571a9f2db82fc14744c3530ffe19524881ae10d152c1c",
+              "plan": [
+                "CO-ROUTINE tree",
+                "SETUP",
+                "SCAN json_each VIRTUAL TABLE INDEX 1:",
+                "RECURSIVE STEP",
+                "SCAN t",
+                "SEARCH q USING INDEX questions_parent (parent_id=?)",
+                "SCAN t",
+                "SEARCH r USING INDEX sqlite_autoindex_questions_1 (id=?)",
+                "SEARCH n USING INDEX sqlite_autoindex_questions_1 (id=?)",
+                "SEARCH c USING INDEX sqlite_autoindex_choice_questions_1 (question_id=?) LEFT-JOIN",
+                "USE TEMP B-TREE FOR GROUP BY"
+              ],
+              "samplesMs": [
+                0.5395829999999999,
+                0.522459,
+                0.509834,
+                0.509958,
+                0.5172920000000001,
+                0.513458,
+                0.5105
+              ],
+              "vmSteps": 47903
+            },
+            "selectedNodes": 630,
+            "selectedRoots": 30,
+            "summaries": {
+              "medianMs": 0.69575,
+              "outputSha256": "8aabcab93359333b1c48325dbef49921cb12dd46849c2e988568703dc7995fbf",
+              "samplesMs": [
+                0.726,
+                0.704792,
+                0.69575,
+                0.695792,
+                0.684083,
+                0.6825829999999999,
+                0.687083
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "pair": 2,
+      "variant": "before",
+      "command": [
+        "/tmp/practiq-sql-baseline-accepted",
+        "store::search_tests::scoped_sql_read_stress",
+        "--exact",
+        "--ignored",
+        "--test-threads=1"
+      ],
+      "data": {
+        "probeSha256": "c1ad2bdbad6c22c613054c4aac78f579727ee9efddce97cf987ab0e9d2653475",
+        "sourceSha256": "f15506f537ec1f8f4d03d4ab51656df3dceae4757171b337bf485dd8e7657ef3",
+        "sqliteVersion": "3.50.2",
+        "workloads": [
+          {
+            "allMetadata": {
+              "fullscanSteps": 1029,
+              "medianMs": 1.064,
+              "outputSha256": "c3d5a53277669705cf9642d07f33ac4d137534f7597f93e4188105d3555586b0",
+              "plan": [
+                "CO-ROUTINE tree",
+                "SETUP",
+                "SCAN json_each VIRTUAL TABLE INDEX 1:",
+                "RECURSIVE STEP",
+                "SCAN t",
+                "SEARCH q USING INDEX questions_parent (parent_id=?)",
+                "SCAN r",
+                "BLOOM FILTER ON t (root=?)",
+                "SEARCH t USING AUTOMATIC COVERING INDEX (root=?)",
+                "SEARCH n USING INDEX sqlite_autoindex_questions_1 (id=?)",
+                "SEARCH c USING INDEX sqlite_autoindex_choice_questions_1 (question_id=?) LEFT-JOIN",
+                "USE TEMP B-TREE FOR GROUP BY"
+              ],
+              "samplesMs": [
+                1.06175,
+                1.069042,
+                1.102666,
+                1.044041,
+                1.048,
+                1.081417,
+                1.064
+              ],
+              "vmSteps": 97236
+            },
+            "allTypeFilteredRoots": {
+              "medianMs": 0.7903330000000001,
+              "outputSha256": "913a978f536ebb31caf7adc86c11bd9a81d0e943fa574ceacdb890993386ceca",
+              "samplesMs": [
+                0.810125,
+                0.7903330000000001,
+                0.776625,
+                0.7812910000000001,
+                0.77225,
+                0.864542,
+                0.8314159999999999
+              ]
+            },
+            "filteredRoots": {
+              "medianMs": 0.7743329999999999,
+              "outputSha256": "913a978f536ebb31caf7adc86c11bd9a81d0e943fa574ceacdb890993386ceca",
+              "samplesMs": [
+                0.816334,
+                0.787792,
+                0.774083,
+                0.7743329999999999,
+                0.761417,
+                0.774458,
+                0.762875
+              ]
+            },
+            "plainPage": {
+              "medianMs": 0.5411250000000001,
+              "outputSha256": "c010fde0cb57d22bd1b0011f715f089abd32be79f4b748c4c732861758231c17",
+              "samplesMs": [
+                0.6377499999999999,
+                0.578708,
+                0.550166,
+                0.5411250000000001,
+                0.506,
+                0.51425,
+                0.506875
+              ]
+            },
+            "questions": 1030,
+            "readingStats": {
+              "medianMs": 1.726666,
+              "outputSha256": "56b520698900fb859d4d8219572105b39b151698dd008ed5c39e2d58994c9ee9",
+              "samplesMs": [
+                1.790083,
+                1.712042,
+                1.756,
+                1.7803339999999999,
+                1.726666,
+                1.661958,
+                1.627667
+              ]
+            },
+            "selectedMetadata": {
+              "fullscanSteps": 1029,
+              "medianMs": 0.688542,
+              "outputSha256": "4a332de7d3b5c8e5499571a9f2db82fc14744c3530ffe19524881ae10d152c1c",
+              "plan": [
+                "CO-ROUTINE tree",
+                "SETUP",
+                "SCAN json_each VIRTUAL TABLE INDEX 1:",
+                "RECURSIVE STEP",
+                "SCAN t",
+                "SEARCH q USING INDEX questions_parent (parent_id=?)",
+                "SCAN r",
+                "BLOOM FILTER ON t (root=?)",
+                "SEARCH t USING AUTOMATIC COVERING INDEX (root=?)",
+                "SEARCH n USING INDEX sqlite_autoindex_questions_1 (id=?)",
+                "SEARCH c USING INDEX sqlite_autoindex_choice_questions_1 (question_id=?) LEFT-JOIN",
+                "USE TEMP B-TREE FOR GROUP BY"
+              ],
+              "samplesMs": [
+                0.670709,
+                0.6905,
+                0.734417,
+                0.691166,
+                0.6857500000000001,
+                0.688542,
+                0.68525
+              ],
+              "vmSteps": 57636
+            },
+            "selectedNodes": 630,
+            "selectedRoots": 30,
+            "summaries": {
+              "medianMs": 0.816667,
+              "outputSha256": "8aabcab93359333b1c48325dbef49921cb12dd46849c2e988568703dc7995fbf",
+              "samplesMs": [
+                0.8546670000000001,
+                0.82275,
+                0.8335830000000001,
+                0.8058749999999999,
+                0.8039580000000001,
+                0.8045,
+                0.816667
+              ]
+            }
+          },
+          {
+            "allMetadata": {
+              "fullscanSteps": 10029,
+              "medianMs": 11.419791,
+              "outputSha256": "34e73979b9985bdfee9a3448d5ccc70d0731b0cb88fcd645508bf21534b30415",
+              "plan": [
+                "CO-ROUTINE tree",
+                "SETUP",
+                "SCAN json_each VIRTUAL TABLE INDEX 1:",
+                "RECURSIVE STEP",
+                "SCAN t",
+                "SEARCH q USING INDEX questions_parent (parent_id=?)",
+                "SCAN r",
+                "BLOOM FILTER ON t (root=?)",
+                "SEARCH t USING AUTOMATIC COVERING INDEX (root=?)",
+                "SEARCH n USING INDEX sqlite_autoindex_questions_1 (id=?)",
+                "SEARCH c USING INDEX sqlite_autoindex_choice_questions_1 (question_id=?) LEFT-JOIN",
+                "USE TEMP B-TREE FOR GROUP BY"
+              ],
+              "samplesMs": [
+                11.495375000000001,
+                11.419791,
+                11.47025,
+                11.330207999999999,
+                11.036459,
+                11.247625000000001,
+                11.451125
+              ],
+              "vmSteps": 1051236
+            },
+            "allTypeFilteredRoots": {
+              "medianMs": 5.93925,
+              "outputSha256": "913a978f536ebb31caf7adc86c11bd9a81d0e943fa574ceacdb890993386ceca",
+              "samplesMs": [
+                5.892292,
+                5.93925,
+                5.870833,
+                5.938083000000001,
+                6.227084,
+                6.277167,
+                5.972958
+              ]
+            },
+            "filteredRoots": {
+              "medianMs": 5.998208,
+              "outputSha256": "913a978f536ebb31caf7adc86c11bd9a81d0e943fa574ceacdb890993386ceca",
+              "samplesMs": [
+                5.924375,
+                6.134334,
+                5.986334,
+                6.122041,
+                6.027583000000001,
+                5.942666,
+                5.998208
+              ]
+            },
+            "plainPage": {
+              "medianMs": 2.111208,
+              "outputSha256": "719dd5f602e7fabb13a9fd371aa26d47620a09dd8ec3f188d56e92e513d62677",
+              "samplesMs": [
+                2.1382499999999998,
+                2.070291,
+                2.049792,
+                2.111208,
+                2.0513329999999996,
+                2.211291,
+                2.395584
+              ]
+            },
+            "questions": 10030,
+            "readingStats": {
+              "medianMs": 8.441832999999999,
+              "outputSha256": "56b520698900fb859d4d8219572105b39b151698dd008ed5c39e2d58994c9ee9",
+              "samplesMs": [
+                8.517291,
+                8.264166999999999,
+                8.752958999999999,
+                8.515292,
+                8.441832999999999,
+                8.06025,
+                8.292000000000002
+              ]
+            },
+            "selectedMetadata": {
+              "fullscanSteps": 10029,
+              "medianMs": 1.702166,
+              "outputSha256": "4a332de7d3b5c8e5499571a9f2db82fc14744c3530ffe19524881ae10d152c1c",
+              "plan": [
+                "CO-ROUTINE tree",
+                "SETUP",
+                "SCAN json_each VIRTUAL TABLE INDEX 1:",
+                "RECURSIVE STEP",
+                "SCAN t",
+                "SEARCH q USING INDEX questions_parent (parent_id=?)",
+                "SCAN r",
+                "BLOOM FILTER ON t (root=?)",
+                "SEARCH t USING AUTOMATIC COVERING INDEX (root=?)",
+                "SEARCH n USING INDEX sqlite_autoindex_questions_1 (id=?)",
+                "SEARCH c USING INDEX sqlite_autoindex_choice_questions_1 (question_id=?) LEFT-JOIN",
+                "USE TEMP B-TREE FOR GROUP BY"
+              ],
+              "samplesMs": [
+                1.757125,
+                1.682458,
+                1.702166,
+                1.6751660000000002,
+                1.662458,
+                1.756209,
+                1.747583
+              ],
+              "vmSteps": 120636
+            },
+            "selectedNodes": 630,
+            "selectedRoots": 30,
+            "summaries": {
+              "medianMs": 1.724041,
+              "outputSha256": "8aabcab93359333b1c48325dbef49921cb12dd46849c2e988568703dc7995fbf",
+              "samplesMs": [
+                1.724041,
+                1.681709,
+                1.671834,
+                1.681459,
+                1.744334,
+                1.781875,
+                1.7848339999999998
+              ]
+            }
+          },
+          {
+            "allMetadata": {
+              "fullscanSteps": 100029,
+              "medianMs": 183.74475,
+              "outputSha256": "12481b729272b97b0f23ff0567a0f3a14bc8c99dbf5f95832abb42c34a69faa7",
+              "plan": [
+                "CO-ROUTINE tree",
+                "SETUP",
+                "SCAN json_each VIRTUAL TABLE INDEX 1:",
+                "RECURSIVE STEP",
+                "SCAN t",
+                "SEARCH q USING INDEX questions_parent (parent_id=?)",
+                "SCAN r",
+                "BLOOM FILTER ON t (root=?)",
+                "SEARCH t USING AUTOMATIC COVERING INDEX (root=?)",
+                "SEARCH n USING INDEX sqlite_autoindex_questions_1 (id=?)",
+                "SEARCH c USING INDEX sqlite_autoindex_choice_questions_1 (question_id=?) LEFT-JOIN",
+                "USE TEMP B-TREE FOR GROUP BY"
+              ],
+              "samplesMs": [
+                183.74475,
+                183.852959,
+                181.12491699999998,
+                185.16825,
+                182.348166,
+                182.36112500000002,
+                183.798958
+              ],
+              "vmSteps": 10591236
+            },
+            "allTypeFilteredRoots": {
+              "medianMs": 69.575666,
+              "outputSha256": "913a978f536ebb31caf7adc86c11bd9a81d0e943fa574ceacdb890993386ceca",
+              "samplesMs": [
+                70.548208,
+                70.11254100000001,
+                69.394917,
+                69.575666,
+                69.308708,
+                69.172542,
+                70.440917
+              ]
+            },
+            "filteredRoots": {
+              "medianMs": 69.135041,
+              "outputSha256": "913a978f536ebb31caf7adc86c11bd9a81d0e943fa574ceacdb890993386ceca",
+              "samplesMs": [
+                67.716333,
+                67.914458,
+                69.135041,
+                69.11416600000001,
+                71.02808300000001,
+                71.036292,
+                71.008375
+              ]
+            },
+            "plainPage": {
+              "medianMs": 21.624000000000002,
+              "outputSha256": "25d6a79b8f22f9856f5b2af271e9b17f7f6190e34ff866dfdcf24164c43514c7",
+              "samplesMs": [
+                21.695417000000003,
+                21.663999999999998,
+                21.985417,
+                21.624000000000002,
+                21.072958,
+                21.602957999999997,
+                21.330708
+              ]
+            },
+            "questions": 100030,
+            "readingStats": {
+              "medianMs": 82.34462500000001,
+              "outputSha256": "56b520698900fb859d4d8219572105b39b151698dd008ed5c39e2d58994c9ee9",
+              "samplesMs": [
+                83.507584,
+                82.037875,
+                82.58958399999999,
+                82.732084,
+                82.021916,
+                82.34462500000001,
+                81.64299999999999
+              ]
+            },
+            "selectedMetadata": {
+              "fullscanSteps": 100029,
+              "medianMs": 12.840292,
+              "outputSha256": "4a332de7d3b5c8e5499571a9f2db82fc14744c3530ffe19524881ae10d152c1c",
+              "plan": [
+                "CO-ROUTINE tree",
+                "SETUP",
+                "SCAN json_each VIRTUAL TABLE INDEX 1:",
+                "RECURSIVE STEP",
+                "SCAN t",
+                "SEARCH q USING INDEX questions_parent (parent_id=?)",
+                "SCAN r",
+                "BLOOM FILTER ON t (root=?)",
+                "SEARCH t USING AUTOMATIC COVERING INDEX (root=?)",
+                "SEARCH n USING INDEX sqlite_autoindex_questions_1 (id=?)",
+                "SEARCH c USING INDEX sqlite_autoindex_choice_questions_1 (question_id=?) LEFT-JOIN",
+                "USE TEMP B-TREE FOR GROUP BY"
+              ],
+              "samplesMs": [
+                12.78525,
+                13.167083,
+                12.840292,
+                12.817958,
+                13.1745,
+                12.712875,
+                13.210291000000002
+              ],
+              "vmSteps": 750636
+            },
+            "selectedNodes": 630,
+            "selectedRoots": 30,
+            "summaries": {
+              "medianMs": 11.491292,
+              "outputSha256": "8aabcab93359333b1c48325dbef49921cb12dd46849c2e988568703dc7995fbf",
+              "samplesMs": [
+                11.134958000000001,
+                11.491292,
+                12.049166,
+                11.527208,
+                11.466624999999999,
+                11.784584,
+                11.40525
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "pair": 3,
+      "variant": "before",
+      "command": [
+        "/tmp/practiq-sql-baseline-accepted",
+        "store::search_tests::scoped_sql_read_stress",
+        "--exact",
+        "--ignored",
+        "--test-threads=1"
+      ],
+      "data": {
+        "probeSha256": "c1ad2bdbad6c22c613054c4aac78f579727ee9efddce97cf987ab0e9d2653475",
+        "sourceSha256": "f15506f537ec1f8f4d03d4ab51656df3dceae4757171b337bf485dd8e7657ef3",
+        "sqliteVersion": "3.50.2",
+        "workloads": [
+          {
+            "allMetadata": {
+              "fullscanSteps": 1029,
+              "medianMs": 1.003708,
+              "outputSha256": "c3d5a53277669705cf9642d07f33ac4d137534f7597f93e4188105d3555586b0",
+              "plan": [
+                "CO-ROUTINE tree",
+                "SETUP",
+                "SCAN json_each VIRTUAL TABLE INDEX 1:",
+                "RECURSIVE STEP",
+                "SCAN t",
+                "SEARCH q USING INDEX questions_parent (parent_id=?)",
+                "SCAN r",
+                "BLOOM FILTER ON t (root=?)",
+                "SEARCH t USING AUTOMATIC COVERING INDEX (root=?)",
+                "SEARCH n USING INDEX sqlite_autoindex_questions_1 (id=?)",
+                "SEARCH c USING INDEX sqlite_autoindex_choice_questions_1 (question_id=?) LEFT-JOIN",
+                "USE TEMP B-TREE FOR GROUP BY"
+              ],
+              "samplesMs": [
+                1.0298749999999999,
+                1.003708,
+                1.005166,
+                0.993959,
+                1.0093750000000001,
+                1.002833,
+                0.997459
+              ],
+              "vmSteps": 97236
+            },
+            "allTypeFilteredRoots": {
+              "medianMs": 0.7735,
+              "outputSha256": "913a978f536ebb31caf7adc86c11bd9a81d0e943fa574ceacdb890993386ceca",
+              "samplesMs": [
+                0.7815409999999999,
+                0.751583,
+                0.7735,
+                0.757667,
+                0.766833,
+                0.812375,
+                0.862792
+              ]
+            },
+            "filteredRoots": {
+              "medianMs": 0.7738750000000001,
+              "outputSha256": "913a978f536ebb31caf7adc86c11bd9a81d0e943fa574ceacdb890993386ceca",
+              "samplesMs": [
+                0.7925,
+                0.769833,
+                0.772042,
+                0.7903330000000001,
+                0.82875,
+                0.7738750000000001,
+                0.767708
+              ]
+            },
+            "plainPage": {
+              "medianMs": 0.5645,
+              "outputSha256": "c010fde0cb57d22bd1b0011f715f089abd32be79f4b748c4c732861758231c17",
+              "samplesMs": [
+                0.5645,
+                0.545958,
+                0.5395000000000001,
+                0.6652920000000001,
+                0.606834,
+                0.561833,
+                0.572042
+              ]
+            },
+            "questions": 1030,
+            "readingStats": {
+              "medianMs": 1.6544999999999999,
+              "outputSha256": "56b520698900fb859d4d8219572105b39b151698dd008ed5c39e2d58994c9ee9",
+              "samplesMs": [
+                1.746375,
+                1.677792,
+                1.668875,
+                1.6544999999999999,
+                1.623375,
+                1.604458,
+                1.604208
+              ]
+            },
+            "selectedMetadata": {
+              "fullscanSteps": 1029,
+              "medianMs": 0.66425,
+              "outputSha256": "4a332de7d3b5c8e5499571a9f2db82fc14744c3530ffe19524881ae10d152c1c",
+              "plan": [
+                "CO-ROUTINE tree",
+                "SETUP",
+                "SCAN json_each VIRTUAL TABLE INDEX 1:",
+                "RECURSIVE STEP",
+                "SCAN t",
+                "SEARCH q USING INDEX questions_parent (parent_id=?)",
+                "SCAN r",
+                "BLOOM FILTER ON t (root=?)",
+                "SEARCH t USING AUTOMATIC COVERING INDEX (root=?)",
+                "SEARCH n USING INDEX sqlite_autoindex_questions_1 (id=?)",
+                "SEARCH c USING INDEX sqlite_autoindex_choice_questions_1 (question_id=?) LEFT-JOIN",
+                "USE TEMP B-TREE FOR GROUP BY"
+              ],
+              "samplesMs": [
+                0.675541,
+                0.663916,
+                0.659917,
+                0.66725,
+                0.657833,
+                0.66425,
+                0.679791
+              ],
+              "vmSteps": 57636
+            },
+            "selectedNodes": 630,
+            "selectedRoots": 30,
+            "summaries": {
+              "medianMs": 0.8268340000000001,
+              "outputSha256": "8aabcab93359333b1c48325dbef49921cb12dd46849c2e988568703dc7995fbf",
+              "samplesMs": [
+                0.842416,
+                0.8268340000000001,
+                0.824292,
+                0.8109999999999999,
+                0.897334,
+                0.848667,
+                0.821292
+              ]
+            }
+          },
+          {
+            "allMetadata": {
+              "fullscanSteps": 10029,
+              "medianMs": 11.1425,
+              "outputSha256": "34e73979b9985bdfee9a3448d5ccc70d0731b0cb88fcd645508bf21534b30415",
+              "plan": [
+                "CO-ROUTINE tree",
+                "SETUP",
+                "SCAN json_each VIRTUAL TABLE INDEX 1:",
+                "RECURSIVE STEP",
+                "SCAN t",
+                "SEARCH q USING INDEX questions_parent (parent_id=?)",
+                "SCAN r",
+                "BLOOM FILTER ON t (root=?)",
+                "SEARCH t USING AUTOMATIC COVERING INDEX (root=?)",
+                "SEARCH n USING INDEX sqlite_autoindex_questions_1 (id=?)",
+                "SEARCH c USING INDEX sqlite_autoindex_choice_questions_1 (question_id=?) LEFT-JOIN",
+                "USE TEMP B-TREE FOR GROUP BY"
+              ],
+              "samplesMs": [
+                11.38375,
+                11.371834000000002,
+                11.124833,
+                11.004625,
+                11.1425,
+                11.194374999999999,
+                11.079042000000001
+              ],
+              "vmSteps": 1051236
+            },
+            "allTypeFilteredRoots": {
+              "medianMs": 6.027792,
+              "outputSha256": "913a978f536ebb31caf7adc86c11bd9a81d0e943fa574ceacdb890993386ceca",
+              "samplesMs": [
+                6.1213750000000005,
+                6.3110420000000005,
+                6.039583,
+                5.984375,
+                5.932584,
+                5.794708,
+                6.027792
+              ]
+            },
+            "filteredRoots": {
+              "medianMs": 5.981,
+              "outputSha256": "913a978f536ebb31caf7adc86c11bd9a81d0e943fa574ceacdb890993386ceca",
+              "samplesMs": [
+                6.0978330000000005,
+                6.054833,
+                5.981,
+                6.180333,
+                5.954375,
+                5.94525,
+                5.846083
+              ]
+            },
+            "plainPage": {
+              "medianMs": 2.0976250000000003,
+              "outputSha256": "719dd5f602e7fabb13a9fd371aa26d47620a09dd8ec3f188d56e92e513d62677",
+              "samplesMs": [
+                2.313458,
+                2.0976250000000003,
+                2.0812500000000003,
+                2.17075,
+                2.1189999999999998,
+                2.078042,
+                2.013042
+              ]
+            },
+            "questions": 10030,
+            "readingStats": {
+              "medianMs": 8.122375,
+              "outputSha256": "56b520698900fb859d4d8219572105b39b151698dd008ed5c39e2d58994c9ee9",
+              "samplesMs": [
+                8.119917000000001,
+                8.328416,
+                8.075583,
+                8.122375,
+                8.336125,
+                8.383916,
+                8.081667000000001
+              ]
+            },
+            "selectedMetadata": {
+              "fullscanSteps": 10029,
+              "medianMs": 1.708916,
+              "outputSha256": "4a332de7d3b5c8e5499571a9f2db82fc14744c3530ffe19524881ae10d152c1c",
+              "plan": [
+                "CO-ROUTINE tree",
+                "SETUP",
+                "SCAN json_each VIRTUAL TABLE INDEX 1:",
+                "RECURSIVE STEP",
+                "SCAN t",
+                "SEARCH q USING INDEX questions_parent (parent_id=?)",
+                "SCAN r",
+                "BLOOM FILTER ON t (root=?)",
+                "SEARCH t USING AUTOMATIC COVERING INDEX (root=?)",
+                "SEARCH n USING INDEX sqlite_autoindex_questions_1 (id=?)",
+                "SEARCH c USING INDEX sqlite_autoindex_choice_questions_1 (question_id=?) LEFT-JOIN",
+                "USE TEMP B-TREE FOR GROUP BY"
+              ],
+              "samplesMs": [
+                1.715916,
+                1.7085,
+                1.7,
+                1.701583,
+                1.708916,
+                1.7575830000000001,
+                1.7214159999999998
+              ],
+              "vmSteps": 120636
+            },
+            "selectedNodes": 630,
+            "selectedRoots": 30,
+            "summaries": {
+              "medianMs": 1.675583,
+              "outputSha256": "8aabcab93359333b1c48325dbef49921cb12dd46849c2e988568703dc7995fbf",
+              "samplesMs": [
+                1.675583,
+                1.648791,
+                1.651875,
+                1.682209,
+                1.692417,
+                1.6881249999999999,
+                1.622375
+              ]
+            }
+          },
+          {
+            "allMetadata": {
+              "fullscanSteps": 100029,
+              "medianMs": 185.233333,
+              "outputSha256": "12481b729272b97b0f23ff0567a0f3a14bc8c99dbf5f95832abb42c34a69faa7",
+              "plan": [
+                "CO-ROUTINE tree",
+                "SETUP",
+                "SCAN json_each VIRTUAL TABLE INDEX 1:",
+                "RECURSIVE STEP",
+                "SCAN t",
+                "SEARCH q USING INDEX questions_parent (parent_id=?)",
+                "SCAN r",
+                "BLOOM FILTER ON t (root=?)",
+                "SEARCH t USING AUTOMATIC COVERING INDEX (root=?)",
+                "SEARCH n USING INDEX sqlite_autoindex_questions_1 (id=?)",
+                "SEARCH c USING INDEX sqlite_autoindex_choice_questions_1 (question_id=?) LEFT-JOIN",
+                "USE TEMP B-TREE FOR GROUP BY"
+              ],
+              "samplesMs": [
+                182.01325,
+                183.500666,
+                183.730125,
+                185.233333,
+                189.564458,
+                185.591333,
+                187.292958
+              ],
+              "vmSteps": 10591236
+            },
+            "allTypeFilteredRoots": {
+              "medianMs": 69.936083,
+              "outputSha256": "913a978f536ebb31caf7adc86c11bd9a81d0e943fa574ceacdb890993386ceca",
+              "samplesMs": [
+                70.829667,
+                68.948042,
+                68.898084,
+                70.116208,
+                70.10504200000001,
+                69.936083,
+                68.83925
+              ]
+            },
+            "filteredRoots": {
+              "medianMs": 69.819333,
+              "outputSha256": "913a978f536ebb31caf7adc86c11bd9a81d0e943fa574ceacdb890993386ceca",
+              "samplesMs": [
+                68.476333,
+                69.149792,
+                71.52491699999999,
+                71.69895799999999,
+                69.819333,
+                69.744833,
+                71.059959
+              ]
+            },
+            "plainPage": {
+              "medianMs": 21.392416,
+              "outputSha256": "25d6a79b8f22f9856f5b2af271e9b17f7f6190e34ff866dfdcf24164c43514c7",
+              "samplesMs": [
+                21.123541999999997,
+                21.342792,
+                21.88025,
+                21.488833,
+                21.392416,
+                21.6785,
+                20.585666
+              ]
+            },
+            "questions": 100030,
+            "readingStats": {
+              "medianMs": 82.851083,
+              "outputSha256": "56b520698900fb859d4d8219572105b39b151698dd008ed5c39e2d58994c9ee9",
+              "samplesMs": [
+                82.13974999999999,
+                82.11749999999999,
+                82.596292,
+                83.713125,
+                82.851083,
+                83.45016700000001,
+                83.36854100000001
+              ]
+            },
+            "selectedMetadata": {
+              "fullscanSteps": 100029,
+              "medianMs": 13.045875,
+              "outputSha256": "4a332de7d3b5c8e5499571a9f2db82fc14744c3530ffe19524881ae10d152c1c",
+              "plan": [
+                "CO-ROUTINE tree",
+                "SETUP",
+                "SCAN json_each VIRTUAL TABLE INDEX 1:",
+                "RECURSIVE STEP",
+                "SCAN t",
+                "SEARCH q USING INDEX questions_parent (parent_id=?)",
+                "SCAN r",
+                "BLOOM FILTER ON t (root=?)",
+                "SEARCH t USING AUTOMATIC COVERING INDEX (root=?)",
+                "SEARCH n USING INDEX sqlite_autoindex_questions_1 (id=?)",
+                "SEARCH c USING INDEX sqlite_autoindex_choice_questions_1 (question_id=?) LEFT-JOIN",
+                "USE TEMP B-TREE FOR GROUP BY"
+              ],
+              "samplesMs": [
+                13.357707999999999,
+                13.620125,
+                12.992208999999999,
+                13.039333000000001,
+                13.683833,
+                12.745583,
+                13.045875
+              ],
+              "vmSteps": 750636
+            },
+            "selectedNodes": 630,
+            "selectedRoots": 30,
+            "summaries": {
+              "medianMs": 11.644583,
+              "outputSha256": "8aabcab93359333b1c48325dbef49921cb12dd46849c2e988568703dc7995fbf",
+              "samplesMs": [
+                12.160917,
+                12.075583000000002,
+                11.747,
+                11.344375,
+                11.399417,
+                11.644583,
+                11.315792
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "pair": 3,
+      "variant": "after",
+      "command": [
+        "/tmp/practiq-sql-accepted",
+        "store::search_tests::scoped_sql_read_stress",
+        "--exact",
+        "--ignored",
+        "--test-threads=1"
+      ],
+      "data": {
+        "probeSha256": "c1ad2bdbad6c22c613054c4aac78f579727ee9efddce97cf987ab0e9d2653475",
+        "sourceSha256": "439b66964e95b78d056626ea5ce5b32672a1f88c7593dbee2e2f5556e7d1c766",
+        "sqliteVersion": "3.50.2",
+        "workloads": [
+          {
+            "allMetadata": {
+              "fullscanSteps": 0,
+              "medianMs": 0.829459,
+              "outputSha256": "c3d5a53277669705cf9642d07f33ac4d137534f7597f93e4188105d3555586b0",
+              "plan": [
+                "CO-ROUTINE tree",
+                "SETUP",
+                "SCAN json_each VIRTUAL TABLE INDEX 1:",
+                "RECURSIVE STEP",
+                "SCAN t",
+                "SEARCH q USING INDEX questions_parent (parent_id=?)",
+                "SCAN t",
+                "SEARCH r USING INDEX sqlite_autoindex_questions_1 (id=?)",
+                "SEARCH n USING INDEX sqlite_autoindex_questions_1 (id=?)",
+                "SEARCH c USING INDEX sqlite_autoindex_choice_questions_1 (question_id=?) LEFT-JOIN",
+                "USE TEMP B-TREE FOR GROUP BY"
+              ],
+              "samplesMs": [
+                0.8228340000000001,
+                0.835708,
+                0.874791,
+                0.801625,
+                0.851916,
+                0.815416,
+                0.829459
+              ],
+              "vmSteps": 85903
+            },
+            "allTypeFilteredRoots": {
+              "medianMs": 0.757792,
+              "outputSha256": "913a978f536ebb31caf7adc86c11bd9a81d0e943fa574ceacdb890993386ceca",
+              "samplesMs": [
+                0.757833,
+                0.757792,
+                0.7454999999999999,
+                0.748375,
+                0.7527499999999999,
+                0.7960419999999999,
+                0.853541
+              ]
+            },
+            "filteredRoots": {
+              "medianMs": 0.770875,
+              "outputSha256": "913a978f536ebb31caf7adc86c11bd9a81d0e943fa574ceacdb890993386ceca",
+              "samplesMs": [
+                0.8112090000000001,
+                0.779084,
+                0.766208,
+                0.770875,
+                0.78025,
+                0.755834,
+                0.755292
+              ]
+            },
+            "plainPage": {
+              "medianMs": 0.484125,
+              "outputSha256": "c010fde0cb57d22bd1b0011f715f089abd32be79f4b748c4c732861758231c17",
+              "samplesMs": [
+                0.5446249999999999,
+                0.488833,
+                0.469625,
+                0.469583,
+                0.484125,
+                0.5462079999999999,
+                0.449625
+              ]
+            },
+            "questions": 1030,
+            "readingStats": {
+              "medianMs": 1.499625,
+              "outputSha256": "56b520698900fb859d4d8219572105b39b151698dd008ed5c39e2d58994c9ee9",
+              "samplesMs": [
+                1.547792,
+                1.5645,
+                1.499625,
+                1.474042,
+                1.534666,
+                1.453375,
+                1.43475
+              ]
+            },
+            "selectedMetadata": {
+              "fullscanSteps": 0,
+              "medianMs": 0.462375,
+              "outputSha256": "4a332de7d3b5c8e5499571a9f2db82fc14744c3530ffe19524881ae10d152c1c",
+              "plan": [
+                "CO-ROUTINE tree",
+                "SETUP",
+                "SCAN json_each VIRTUAL TABLE INDEX 1:",
+                "RECURSIVE STEP",
+                "SCAN t",
+                "SEARCH q USING INDEX questions_parent (parent_id=?)",
+                "SCAN t",
+                "SEARCH r USING INDEX sqlite_autoindex_questions_1 (id=?)",
+                "SEARCH n USING INDEX sqlite_autoindex_questions_1 (id=?)",
+                "SEARCH c USING INDEX sqlite_autoindex_choice_questions_1 (question_id=?) LEFT-JOIN",
+                "USE TEMP B-TREE FOR GROUP BY"
+              ],
+              "samplesMs": [
+                0.462375,
+                0.454125,
+                0.456625,
+                0.48216699999999996,
+                0.50825,
+                0.48183299999999996,
+                0.448208
+              ],
+              "vmSteps": 47903
+            },
+            "selectedNodes": 630,
+            "selectedRoots": 30,
+            "summaries": {
+              "medianMs": 0.6815,
+              "outputSha256": "8aabcab93359333b1c48325dbef49921cb12dd46849c2e988568703dc7995fbf",
+              "samplesMs": [
+                0.7094999999999999,
+                0.699333,
+                0.6687919999999999,
+                1.0111670000000001,
+                0.6815,
+                0.653666,
+                0.669042
+              ]
+            }
+          },
+          {
+            "allMetadata": {
+              "fullscanSteps": 0,
+              "medianMs": 9.508792,
+              "outputSha256": "34e73979b9985bdfee9a3448d5ccc70d0731b0cb88fcd645508bf21534b30415",
+              "plan": [
+                "CO-ROUTINE tree",
+                "SETUP",
+                "SCAN json_each VIRTUAL TABLE INDEX 1:",
+                "RECURSIVE STEP",
+                "SCAN t",
+                "SEARCH q USING INDEX questions_parent (parent_id=?)",
+                "SCAN t",
+                "SEARCH r USING INDEX sqlite_autoindex_questions_1 (id=?)",
+                "SEARCH n USING INDEX sqlite_autoindex_questions_1 (id=?)",
+                "SEARCH c USING INDEX sqlite_autoindex_choice_questions_1 (question_id=?) LEFT-JOIN",
+                "USE TEMP B-TREE FOR GROUP BY"
+              ],
+              "samplesMs": [
+                9.540625,
+                9.400625,
+                9.640625,
+                9.508792,
+                9.429083,
+                9.574042,
+                9.435374999999999
+              ],
+              "vmSteps": 940903
+            },
+            "allTypeFilteredRoots": {
+              "medianMs": 5.935042,
+              "outputSha256": "913a978f536ebb31caf7adc86c11bd9a81d0e943fa574ceacdb890993386ceca",
+              "samplesMs": [
+                5.89575,
+                5.878625,
+                5.858916,
+                5.9421669999999995,
+                5.935042,
+                6.059,
+                5.939167
+              ]
+            },
+            "filteredRoots": {
+              "medianMs": 5.90675,
+              "outputSha256": "913a978f536ebb31caf7adc86c11bd9a81d0e943fa574ceacdb890993386ceca",
+              "samplesMs": [
+                5.982584,
+                6.055292000000001,
+                5.90675,
+                5.803083,
+                5.803333,
+                5.854375,
+                5.977625000000001
+              ]
+            },
+            "plainPage": {
+              "medianMs": 1.4205,
+              "outputSha256": "719dd5f602e7fabb13a9fd371aa26d47620a09dd8ec3f188d56e92e513d62677",
+              "samplesMs": [
+                1.527333,
+                1.456041,
+                1.4175419999999999,
+                1.456708,
+                1.413042,
+                1.419916,
+                1.4205
+              ]
+            },
+            "questions": 10030,
+            "readingStats": {
+              "medianMs": 7.122125,
+              "outputSha256": "56b520698900fb859d4d8219572105b39b151698dd008ed5c39e2d58994c9ee9",
+              "samplesMs": [
+                7.0204580000000005,
+                7.136540999999999,
+                6.909958,
+                7.122125,
+                7.264708,
+                7.213917,
+                6.870458
+              ]
+            },
+            "selectedMetadata": {
+              "fullscanSteps": 0,
+              "medianMs": 0.480667,
+              "outputSha256": "4a332de7d3b5c8e5499571a9f2db82fc14744c3530ffe19524881ae10d152c1c",
+              "plan": [
+                "CO-ROUTINE tree",
+                "SETUP",
+                "SCAN json_each VIRTUAL TABLE INDEX 1:",
+                "RECURSIVE STEP",
+                "SCAN t",
+                "SEARCH q USING INDEX questions_parent (parent_id=?)",
+                "SCAN t",
+                "SEARCH r USING INDEX sqlite_autoindex_questions_1 (id=?)",
+                "SEARCH n USING INDEX sqlite_autoindex_questions_1 (id=?)",
+                "SEARCH c USING INDEX sqlite_autoindex_choice_questions_1 (question_id=?) LEFT-JOIN",
+                "USE TEMP B-TREE FOR GROUP BY"
+              ],
+              "samplesMs": [
+                0.485875,
+                0.476917,
+                0.468291,
+                0.483375,
+                0.480667,
+                0.479333,
+                0.502292
+              ],
+              "vmSteps": 47903
+            },
+            "selectedNodes": 630,
+            "selectedRoots": 30,
+            "summaries": {
+              "medianMs": 0.673958,
+              "outputSha256": "8aabcab93359333b1c48325dbef49921cb12dd46849c2e988568703dc7995fbf",
+              "samplesMs": [
+                0.6925,
+                0.685292,
+                0.671333,
+                0.673958,
+                0.674042,
+                0.673083,
+                0.660667
+              ]
+            }
+          },
+          {
+            "allMetadata": {
+              "fullscanSteps": 0,
+              "medianMs": 146.940167,
+              "outputSha256": "12481b729272b97b0f23ff0567a0f3a14bc8c99dbf5f95832abb42c34a69faa7",
+              "plan": [
+                "CO-ROUTINE tree",
+                "SETUP",
+                "SCAN json_each VIRTUAL TABLE INDEX 1:",
+                "RECURSIVE STEP",
+                "SCAN t",
+                "SEARCH q USING INDEX questions_parent (parent_id=?)",
+                "SCAN t",
+                "SEARCH r USING INDEX sqlite_autoindex_questions_1 (id=?)",
+                "SEARCH n USING INDEX sqlite_autoindex_questions_1 (id=?)",
+                "SEARCH c USING INDEX sqlite_autoindex_choice_questions_1 (question_id=?) LEFT-JOIN",
+                "USE TEMP B-TREE FOR GROUP BY"
+              ],
+              "samplesMs": [
+                146.940167,
+                147.773875,
+                147.748833,
+                147.18158300000002,
+                146.394375,
+                144.80637499999997,
+                146.09770899999998
+              ],
+              "vmSteps": 9490903
+            },
+            "allTypeFilteredRoots": {
+              "medianMs": 68.524083,
+              "outputSha256": "913a978f536ebb31caf7adc86c11bd9a81d0e943fa574ceacdb890993386ceca",
+              "samplesMs": [
+                68.938875,
+                68.722917,
+                68.524083,
+                68.698875,
+                67.703459,
+                68.42125,
+                68.112083
+              ]
+            },
+            "filteredRoots": {
+              "medianMs": 68.242708,
+              "outputSha256": "913a978f536ebb31caf7adc86c11bd9a81d0e943fa574ceacdb890993386ceca",
+              "samplesMs": [
+                68.632875,
+                68.242708,
+                68.75525,
+                67.792833,
+                67.8685,
+                68.620375,
+                67.456666
+              ]
+            },
+            "plainPage": {
+              "medianMs": 13.66225,
+              "outputSha256": "25d6a79b8f22f9856f5b2af271e9b17f7f6190e34ff866dfdcf24164c43514c7",
+              "samplesMs": [
+                12.973500000000001,
+                13.66225,
+                13.316583,
+                14.464540999999999,
+                13.7675,
+                13.258291,
+                13.772625
+              ]
+            },
+            "questions": 100030,
+            "readingStats": {
+              "medianMs": 69.46504200000001,
+              "outputSha256": "56b520698900fb859d4d8219572105b39b151698dd008ed5c39e2d58994c9ee9",
+              "samplesMs": [
+                69.049417,
+                69.61975,
+                69.22191699999999,
+                70.517041,
+                69.104083,
+                69.46504200000001,
+                70.553125
+              ]
+            },
+            "selectedMetadata": {
+              "fullscanSteps": 0,
+              "medianMs": 0.55875,
+              "outputSha256": "4a332de7d3b5c8e5499571a9f2db82fc14744c3530ffe19524881ae10d152c1c",
+              "plan": [
+                "CO-ROUTINE tree",
+                "SETUP",
+                "SCAN json_each VIRTUAL TABLE INDEX 1:",
+                "RECURSIVE STEP",
+                "SCAN t",
+                "SEARCH q USING INDEX questions_parent (parent_id=?)",
+                "SCAN t",
+                "SEARCH r USING INDEX sqlite_autoindex_questions_1 (id=?)",
+                "SEARCH n USING INDEX sqlite_autoindex_questions_1 (id=?)",
+                "SEARCH c USING INDEX sqlite_autoindex_choice_questions_1 (question_id=?) LEFT-JOIN",
+                "USE TEMP B-TREE FOR GROUP BY"
+              ],
+              "samplesMs": [
+                0.51925,
+                0.561083,
+                0.55875,
+                0.512291,
+                0.528125,
+                0.5711660000000001,
+                0.597334
+              ],
+              "vmSteps": 47903
+            },
+            "selectedNodes": 630,
+            "selectedRoots": 30,
+            "summaries": {
+              "medianMs": 0.710625,
+              "outputSha256": "8aabcab93359333b1c48325dbef49921cb12dd46849c2e988568703dc7995fbf",
+              "samplesMs": [
+                0.7502500000000001,
+                0.725125,
+                0.715083,
+                0.710625,
+                0.697791,
+                0.692875,
+                0.692833
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "comparisons": [
+    {
+      "questions": 1030,
+      "case": "summaries",
+      "beforeMedianMs": 0.8268340000000001,
+      "beforeSampleCount": 21,
+      "afterMedianMs": 0.6815,
+      "afterSampleCount": 21,
+      "reductionPercent": 17.577167847476037
+    },
+    {
+      "questions": 1030,
+      "case": "selectedMetadata",
+      "beforeMedianMs": 0.68525,
+      "beforeSampleCount": 21,
+      "afterMedianMs": 0.47154199999999996,
+      "afterSampleCount": 21,
+      "reductionPercent": 31.186866107260137
+    },
+    {
+      "questions": 1030,
+      "case": "allMetadata",
+      "beforeMedianMs": 1.06175,
+      "beforeSampleCount": 21,
+      "afterMedianMs": 0.8228340000000001,
+      "afterSampleCount": 21,
+      "reductionPercent": 22.502095596891913
+    },
+    {
+      "questions": 1030,
+      "case": "filteredRoots",
+      "beforeMedianMs": 0.787792,
+      "beforeSampleCount": 21,
+      "afterMedianMs": 0.791792,
+      "afterSampleCount": 21,
+      "reductionPercent": -0.5077482381136145
+    },
+    {
+      "questions": 1030,
+      "case": "allTypeFilteredRoots",
+      "beforeMedianMs": 0.7815409999999999,
+      "beforeSampleCount": 21,
+      "afterMedianMs": 0.7960419999999999,
+      "afterSampleCount": 21,
+      "reductionPercent": -1.855436886868378
+    },
+    {
+      "questions": 1030,
+      "case": "plainPage",
+      "beforeMedianMs": 0.553709,
+      "beforeSampleCount": 21,
+      "afterMedianMs": 0.473209,
+      "afterSampleCount": 21,
+      "reductionPercent": 14.538322476246545
+    },
+    {
+      "questions": 1030,
+      "case": "readingStats",
+      "beforeMedianMs": 1.712042,
+      "beforeSampleCount": 21,
+      "afterMedianMs": 1.537459,
+      "afterSampleCount": 21,
+      "reductionPercent": 10.197354971431782
+    },
+    {
+      "questions": 10030,
+      "case": "summaries",
+      "beforeMedianMs": 1.6881249999999999,
+      "beforeSampleCount": 21,
+      "afterMedianMs": 0.6879580000000001,
+      "afterSampleCount": 21,
+      "reductionPercent": 59.24721214365049
+    },
+    {
+      "questions": 10030,
+      "case": "selectedMetadata",
+      "beforeMedianMs": 1.7214159999999998,
+      "beforeSampleCount": 21,
+      "afterMedianMs": 0.479542,
+      "afterSampleCount": 21,
+      "reductionPercent": 72.14258494169916
+    },
+    {
+      "questions": 10030,
+      "case": "allMetadata",
+      "beforeMedianMs": 11.203125,
+      "beforeSampleCount": 21,
+      "afterMedianMs": 9.640625,
+      "afterSampleCount": 21,
+      "reductionPercent": 13.947001394700143
+    },
+    {
+      "questions": 10030,
+      "case": "filteredRoots",
+      "beforeMedianMs": 6.009083,
+      "beforeSampleCount": 21,
+      "afterMedianMs": 6.055292000000001,
+      "afterSampleCount": 21,
+      "reductionPercent": -0.7689858835366437
+    },
+    {
+      "questions": 10030,
+      "case": "allTypeFilteredRoots",
+      "beforeMedianMs": 6.027792,
+      "beforeSampleCount": 21,
+      "afterMedianMs": 6.059,
+      "afterSampleCount": 21,
+      "reductionPercent": -0.5177351839612321
+    },
+    {
+      "questions": 10030,
+      "case": "plainPage",
+      "beforeMedianMs": 2.111208,
+      "beforeSampleCount": 21,
+      "afterMedianMs": 1.5440829999999999,
+      "afterSampleCount": 21,
+      "reductionPercent": 26.86258293829884
+    },
+    {
+      "questions": 10030,
+      "case": "readingStats",
+      "beforeMedianMs": 8.292000000000002,
+      "beforeSampleCount": 21,
+      "afterMedianMs": 7.136540999999999,
+      "afterSampleCount": 21,
+      "reductionPercent": 13.934623733719276
+    },
+    {
+      "questions": 100030,
+      "case": "summaries",
+      "beforeMedianMs": 11.567292,
+      "beforeSampleCount": 21,
+      "afterMedianMs": 0.704792,
+      "afterSampleCount": 21,
+      "reductionPercent": 93.90702681319016
+    },
+    {
+      "questions": 100030,
+      "case": "selectedMetadata",
+      "beforeMedianMs": 13.039333000000001,
+      "beforeSampleCount": 21,
+      "afterMedianMs": 0.51925,
+      "afterSampleCount": 21,
+      "reductionPercent": 96.01781778255068
+    },
+    {
+      "questions": 100030,
+      "case": "allMetadata",
+      "beforeMedianMs": 183.545791,
+      "beforeSampleCount": 21,
+      "afterMedianMs": 146.940167,
+      "afterSampleCount": 21,
+      "reductionPercent": 19.94359216877929
+    },
+    {
+      "questions": 100030,
+      "case": "filteredRoots",
+      "beforeMedianMs": 69.11416600000001,
+      "beforeSampleCount": 21,
+      "afterMedianMs": 68.632875,
+      "afterSampleCount": 21,
+      "reductionPercent": 0.6963709870998258
+    },
+    {
+      "questions": 100030,
+      "case": "allTypeFilteredRoots",
+      "beforeMedianMs": 69.172542,
+      "beforeSampleCount": 21,
+      "afterMedianMs": 68.722917,
+      "afterSampleCount": 21,
+      "reductionPercent": 0.6500050265609847
+    },
+    {
+      "questions": 100030,
+      "case": "plainPage",
+      "beforeMedianMs": 21.342792,
+      "beforeSampleCount": 21,
+      "afterMedianMs": 13.66225,
+      "afterSampleCount": 21,
+      "reductionPercent": 35.986585072843326
+    },
+    {
+      "questions": 100030,
+      "case": "readingStats",
+      "beforeMedianMs": 82.34462500000001,
+      "beforeSampleCount": 21,
+      "afterMedianMs": 70.258709,
+      "afterSampleCount": 21,
+      "reductionPercent": 14.677237281729083
+    }
+  ]
+}

@@ -41,6 +41,7 @@ pub(crate) fn mode_list(mode: &str) -> String {
     .to_string()
 }
 pub(crate) fn prepare_root_metadata(db: &Connection) -> Result<rusqlite::Statement<'_>> {
+    // Keep selected nodes outermost so SQLite uses primary-key lookups, not a full scan.
     db.prepare(&format!("
         WITH RECURSIVE tree(root,id) AS (
             SELECT value,value FROM json_each(?1)
@@ -48,7 +49,7 @@ pub(crate) fn prepare_root_metadata(db: &Connection) -> Result<rusqlite::Stateme
         ) SELECT t.root,
             COALESCE(CASE WHEN r.question_kind IS NOT NULL THEN r.question_kind WHEN r.mode='gap_fill' THEN 'grammar_fill' WHEN r.mode='choice' THEN c.variant ELSE r.mode END,''),
             SUM(n.mode IS NULL OR n.mode NOT IN ({COMPOSITE_SQL}))
-        FROM tree t JOIN questions r ON r.id=t.root JOIN questions n ON n.id=t.id
+        FROM tree t CROSS JOIN questions r ON r.id=t.root CROSS JOIN questions n ON n.id=t.id
         LEFT JOIN choice_questions c ON c.question_id=r.id GROUP BY t.root
     ")).map_err(err)
 }
@@ -489,6 +490,7 @@ pub fn read(db: &Connection) -> Result<Vec<Value>> {
 }
 
 pub(crate) fn summaries(db: &Connection, roots: &[String]) -> Result<Vec<Value>> {
+    // Keep summary work bounded to the requested trees even without planner statistics.
     let mut statement = db.prepare(&format!("
         WITH RECURSIVE tree(root,id) AS (
             SELECT value,value FROM json_each(?1)
@@ -499,7 +501,7 @@ pub(crate) fn summaries(db: &Connection, roots: &[String]) -> Result<Vec<Value>>
                 MAX(n.needs_review=1 AND review.question_id IS NULL) AS review,
                 MAX(COALESCE(a.result=0,0)) AS wrong,
                 MAX(COALESCE(a.result=0 AND a.earned_cents>0 AND a.earned_cents<a.max_cents,0)) AS partial
-            FROM tree t JOIN questions n ON n.id=t.id
+            FROM tree t CROSS JOIN questions n ON n.id=t.id
             LEFT JOIN question_reviews review ON review.question_id=n.id
             LEFT JOIN attempts a ON a.rowid=(SELECT rowid FROM attempts WHERE question_id=n.id AND result IS NOT NULL ORDER BY submitted_at DESC,rowid DESC LIMIT 1)
             GROUP BY t.root
