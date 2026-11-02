@@ -693,7 +693,7 @@ class OcrPageParseResult(ChunkParseResult):
     def validate_associations(self) -> Self:
         page = OCR_PAGE.get()
         if page is not None:
-            issues = question_issues(OCR_TEXT.get() or '', self.questions, native_table=page.get('format') == 'table',
+            issues = question_issues(OCR_TEXT.get() or '', self.questions, self.groups, native_table=page.get('format') == 'table',
                                      figures=evidence_text([figure.model_dump(include={'tableRows', 'extractedText'}) for figure in self.figures]),
                                      formulas=[evidence_text(element['formula_info']) for element in page.get('elements', []) if 'formula_info' in element])
             if issues:

@@ -129,14 +129,14 @@ async def test_native_table_image_survives_prepare_structuring_and_final_merge(m
 
 @pytest.fixture
 def ocr_validation():
-    def validate(text, questions, extra_elements=()):
+    def validate(text, questions, extra_elements=(), *, groups=()):
         page = {**ocr_text_page(text), 'page': 0, 'figures': []}
         page['elements'].extend(extra_elements)
         page_token = document.OCR_PAGE.set(page)
         text_token = document.OCR_TEXT.set(text)
         figure_token = document.OCR_FIGURES.set([])
         try:
-            return document.OcrPageParseResult.model_validate({'questions': questions, 'figures': []})
+            return document.OcrPageParseResult.model_validate({'questions': questions, 'groups': list(groups), 'figures': []})
         finally:
             document.OCR_FIGURES.reset(figure_token)
             document.OCR_TEXT.reset(text_token)
@@ -223,6 +223,22 @@ def test_nested_tencent_formula_is_checked_without_model_source_text(ocr_validat
         ocr_validation('1. Compute?', [row], elements)
     row['contentBlocks'].append({'partType': 'formula', 'latexValue': r'\sqrt{x}'})
     ocr_validation('1. Compute?', [row], elements)
+
+
+@pytest.mark.parametrize('field', ['title', 'instructions'])
+@pytest.mark.parametrize('preceding_question', [False, True])
+def test_page_formula_can_be_retained_in_shared_group_content(ocr_validation, field, preceding_question):
+    instruction = 'Use $f(x)=x^2$ for all questions'
+    rows = [{**question('Earlier question?'), 'id': 'page:1:1'}] if preceding_question else []
+    number = len(rows) + 1
+    rows.append({**question('Compute the derivative?'), 'id': f'page:1:{number}'})
+    group = {'title': 'Section', 'questionIndexes': [number - 1], field: instruction}
+    text = ('1. Earlier question?\n' if preceding_question else '') + f'{instruction}\n{number}. Compute the derivative?'
+    parsed = ocr_validation(text, rows, groups=[group])
+    assert getattr(parsed.groups[0], field) == instruction
+    group[field] = 'Section'
+    with pytest.raises(ValidationError, match='formula'):
+        ocr_validation(text, rows, groups=[group])
 
 
 def test_matrix_cell_boundaries_are_part_of_formula_fidelity(ocr_validation):

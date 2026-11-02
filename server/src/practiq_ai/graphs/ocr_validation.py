@@ -3,7 +3,7 @@
 import re
 from collections import Counter
 
-from practiq_ai.contracts import ParsedQuestion
+from practiq_ai.contracts import ParsedGroup, ParsedQuestion
 from practiq_ai.tencent_bundle import evidence_text
 from practiq_ai.unit_results import missing_formulas, rendered_text
 
@@ -11,7 +11,7 @@ from .chunking import _UNNUMBERED_EXERCISE
 from .source_context import ANSWER_HEADING, NUMBER
 
 
-def question_issues(text: str, questions: list[ParsedQuestion], *, native_table: bool = False,
+def question_issues(text: str, questions: list[ParsedQuestion], groups: list[ParsedGroup], *, native_table: bool = False,
                     figures: str = '', formulas: list[str] | None = None) -> list[str]:
     issues = []
     # Answer keys and numbered passage/item lists are not new question starts.
@@ -24,6 +24,7 @@ def question_issues(text: str, questions: list[ParsedQuestion], *, native_table:
     counts = Counter(match[1] for match in starts)
     stems = [re.sub(r'\s+', '', question.stem or '') for question in questions]
     rendered_questions = [rendered_text(question) for question in questions]
+    shared_content = figures + '\n' + evidence_text([group.model_dump(include={'title', 'instructions'}) for group in groups])
     positions: dict[int, int] = {}
     for offset, match in enumerate(starts):
         end = starts[offset + 1].start() if offset + 1 < len(starts) else len(source)
@@ -50,7 +51,7 @@ def question_issues(text: str, questions: list[ParsedQuestion], *, native_table:
             if index in positions:
                 issues.append(f'Retain source question {match[1]} as a separate record; repeated questions must not collapse')
             positions[index] = match.start()
-            if missing_formulas(record, rendered_questions[index] + figures):
+            if missing_formulas(record, rendered_questions[index] + shared_content):
                 issues.append(f'Retain every source formula for question {match[1]} in displayed content, not only sourceText')
     for index, question in enumerate(questions):
         if index in positions or not question.stem:
@@ -60,7 +61,7 @@ def question_issues(text: str, questions: list[ParsedQuestion], *, native_table:
             positions[index] = position
     if [positions[index] for index in sorted(positions)] != sorted(positions.values()):
         issues.append('Retain source reading order for questions; remap groups and figure indexes after correction')
-    rendered = ' '.join(rendered_questions) + figures
+    rendered = ' '.join(rendered_questions) + shared_content
     if questions and (missing_formulas(text, rendered) or any(missing_formulas(f'$${formula}$$', rendered) for formula in formulas or [])):
         issues.append('Retain every source formula in displayed content, not only sourceText')
     return issues

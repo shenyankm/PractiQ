@@ -41,9 +41,9 @@ output-correction loop. Numbered passage/item lists and answer-key pages do not
 create extra questions. Untyped statements without a clear question boundary
 remain reviewable; this check is not a complete document-accuracy measurement.
 Delimited math, including fractions, roots and scripts, and explicit Tencent
-formula elements are compared with displayed question/table content rather than
-the model's `sourceText` alone. This checks literal preservation, not mathematical
-equivalence or correctness.
+formula elements are compared with displayed question/table content and shared
+group titles/instructions rather than the model's `sourceText` alone. This checks
+literal preservation, not mathematical equivalence or correctness.
 
 Model-facing figure previews are capped at 200 KiB before Base64 encoding.
 Verified Tencent subimages at or below that limit are sent unchanged; larger
