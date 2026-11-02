@@ -134,6 +134,25 @@ async def test_unit_result_persistence_obeys_stage_deadline(monkeypatch):
     assert execution.CURRENT_EXECUTION.get() is None
 
 
+async def test_durable_unit_summary_projects_only_public_visual_references(monkeypatch, tmp_path):
+    from tests.support import make_image, object_store
+    files = object_store(tmp_path)
+    image = await files.put_artifact(make_image(), source_sha256='a' * 64, kind='visual', index=0, media_type='image/png')
+    monkeypatch.setattr(document, 'validate_execution', lambda *_: None)
+    monkeypatch.setattr(document, 'guard', AsyncMock())
+    monkeypatch.setattr(document, 'run_remaining', AsyncMock(return_value=10))
+    monkeypatch.setattr(document, 'get_object_store', lambda: files)
+    visual = {'kind': 'image', 'description': 'Saved figure', 'imageRef': image.model_dump()}
+    async def node(_state):
+        return {'visionResults': [{'index': 0, 'parsed': parsed(), 'visuals': [visual]}]}
+    result = await document._guarded(node)({'execution': {}, 'sourceSha256': 'a' * 64}, Runtime(context=cast(Any, {})))
+    unit = result['visionResults'][0]
+    assert unit['publicRefs'] == [image.model_dump()] and unit['visuals'] == []
+    assert unit['parsed'] == {'questionCount': 1}
+    loaded = await document.load_unit_result(unit, 'a' * 64, files)
+    assert loaded['visuals'][0]['imageRef'] == image.model_dump()
+
+
 async def test_pause_while_waiting_for_provider_prevents_dispatch_and_resumes(monkeypatch):
     graph, store, _, reference, model = setup_graph(monkeypatch, [parsed()])
     config = run_config()

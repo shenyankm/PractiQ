@@ -654,6 +654,10 @@ async def artifact_is_public(snapshot: StateSnapshot, source_sha256: str, metada
         for key in ('visionResults', 'chunkResults'):
             for item in sorted(values.get(key, []), key=lambda item: item['index']):
                 if item.get('parsed'):
+                    if 'publicRefs' in item:
+                        if any(matches(reference) for reference in item['publicRefs']):
+                            return True
+                        continue
                     loaded = await load_unit_result(item, source_sha256, await asyncio.to_thread(get_object_store))
                     if visual_matches(loaded.get('visuals', [])):
                         return True

@@ -15,7 +15,7 @@ from practiq_ai import runtime, task_api, webapp
 from practiq_ai.contracts import ArtifactReference, DocumentReference
 from practiq_ai.errors import DocumentProcessingError
 from practiq_ai.graphs import document as document_graph
-from tests.support import object_store, parsed, source, upload
+from tests.support import make_image, object_store, parsed, source, upload
 
 
 @pytest.mark.parametrize('present', [True, False])
@@ -351,6 +351,41 @@ async def test_checkpoint_result_only_visual_reuses_snapshot_without_full_respon
     assert saved.verified.await_count == 2
     saved.service.snapshot.assert_awaited_once()
     saved.service.db.store.asearch.assert_not_awaited()
+
+
+async def test_public_unit_references_avoid_reloading_unrelated_results(saved_checkpoint):
+    saved = saved_checkpoint
+    payload = make_image()
+    images, units = [], []
+    for index in range(10):
+        image = await saved.store.put_artifact(payload, source_sha256=saved.document.sha256,
+                                               kind='visual', index=index, media_type='image/png')
+        result = await saved.store.put_artifact(json.dumps({'parsed': parsed(), 'visuals': [
+            {'kind': 'image', 'description': 'Saved figure', 'imageRef': image.model_dump()}]}).encode(),
+            source_sha256=saved.document.sha256, kind='unit-result', index=index, media_type='application/json')
+        images.append(image)
+        units.append({'index': index, 'parsed': {'questionCount': 1}, 'resultRef': result.model_dump(),
+                      'publicRefs': [image.model_dump()]})
+    await saved.save({'visionResults': units})
+    saved.verified.reset_mock()
+    for image in images:
+        assert (await webapp.read_artifact(image, saved.thread_id)).body == payload
+    saved.units.assert_not_awaited()
+    assert saved.verified.await_count == len(images)
+    (saved.store.root / images[0].objectKey).write_bytes(b'x')
+    with pytest.raises(HTTPException) as corrupt:
+        await webapp.read_artifact(images[0], saved.thread_id)
+    assert corrupt.value.status_code == 409
+    # Current checkpoints and complete metadata still decide access on every request.
+    with pytest.raises(HTTPException):
+        await webapp.read_artifact(images[0].model_copy(update={'sizeBytes': 9}), saved.thread_id)
+    await saved.save({'visionResults': [{'index': 0, 'parsed': None, 'publicRefs': [images[0].model_dump()]}]})
+    with pytest.raises(HTTPException):
+        await webapp.read_artifact(images[0], saved.thread_id)
+    saved.task['expires_at'] = datetime.now(UTC) - timedelta(seconds=1)
+    with pytest.raises(HTTPException) as expired:
+        await webapp.read_artifact(images[1], saved.thread_id)
+    assert expired.value.status_code == 410
 
 
 @pytest.mark.parametrize('count', [1, 30, 100])
