@@ -52,6 +52,36 @@ def check_questions(questions: list[dict[str, Any]]) -> list[str]:
     return errors
 
 
+
+def read_native_report(path: Path, zip_hashes: dict[str, str], repetitions: int) -> tuple[list[dict[str, Any]], list[str]]:
+    try:
+        rows = json.loads(path.read_text())
+    except (OSError, ValueError):
+        return [], ["native report missing or invalid"]
+    if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
+        return [], ["native report must contain result records"]
+    expected = {(name, repetition) for name in zip_hashes for repetition in range(repetitions)}
+    observed = []
+    errors = []
+    for row in rows:
+        name, repetition = row.get("name"), row.get("repetition")
+        if not isinstance(name, str) or name not in zip_hashes or type(repetition) is not int:
+            errors.append("native case/repetition mismatch")
+            continue
+        observed.append((name, repetition))
+        if row.get("zipSha256") != zip_hashes[name]:
+            errors.append("native ZIP checksum mismatch")
+        if row.get("firstRun") is not (repetition == 0):
+            errors.append("native first-run marker mismatch")
+        if (row.get("questions"), row.get("correct"), row.get("earnedCents")) != (3, 3, 300):
+            errors.append("native practice results incomplete")
+        if row.get("reopen") is not True or row.get("backupRestore") is not True:
+            errors.append("native persistence/restore evidence missing")
+    if len(rows) != len(expected) or set(observed) != expected:
+        errors.append("native case/repetition coverage incomplete")
+    return rows, errors
+
+
 def fixtures(output: Path) -> None:
     (output / "sources").mkdir()
     (output / "exports").mkdir()
@@ -187,18 +217,21 @@ async def run(output: Path, live: bool, native_binary: Path) -> dict[str, Any]:
                     if result != detail["result"]:
                         sample["qualityErrors"].append("HTTP/export result mismatch")
                 sample["zipSha256"] = hashlib.sha256(path.read_bytes()).hexdigest()
+                _, sample["nativeErrors"] = read_native_report(
+                    output / f"{sample['name']}-native.json", {sample["name"]: sample["zipSha256"]}, 1)
             native_env = {**os.environ, "PRACTIQ_WORKFLOW_DIR": str(output), "PRACTIQ_BENCH_OUTPUT": str(output / "native.json")}
             with (output / "native.log").open("x") as log_native:
                 native_status = await command_result([str(native_binary), "performance::workflow_practice",
                     "--exact", "--ignored", "--nocapture"], native_env, log_native, 120)
-            if (output / "native.json").exists():
-                report["native"] = json.loads((output / "native.json").read_text())
-            if native_status:
+            hashes = {name: hashlib.sha256((output / "exports" / f"{name}.zip").read_bytes()).hexdigest()
+                      if (output / "exports" / f"{name}.zip").exists() else "" for name in ("txt", "md", "png")}
+            report["native"], report["nativeErrors"] = read_native_report(output / "native.json", hashes, 8)
+            if native_status or report["nativeErrors"]:
                 report["gateReasons"].append("NATIVE_WORKFLOW_FAILED")
             if browser_status:
                 report["gateReasons"].append("BROWSER_WORKFLOW_FAILED")
             for sample in report["samples"]:
-                if sample.get("error") or sample["qualityErrors"]:
+                if sample.get("error") or sample["qualityErrors"] or sample.get("nativeErrors"):
                     report["gateReasons"].append("IMPORT_OR_CONTENT_FAILED:" + sample["name"])
             if len(report["samples"]) != 3:
                 report["gateReasons"].append("THREE_SAMPLES_REQUIRED")

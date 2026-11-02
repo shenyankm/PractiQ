@@ -71,6 +71,10 @@ try {
         { timeout: 120_000, env: { ...process.env, PRACTIQ_WORKFLOW_DIR: output,
           PRACTIQ_WORKFLOW_CASE: name, PRACTIQ_BENCH_OUTPUT: path.join(output, `${name}-native.json`) } });
       await writeFile(path.join(output, `${name}-native.log`), native.stdout + native.stderr);
+      const nativeEvidence = JSON.parse(await readFile(path.join(output, `${name}-native.json`), "utf8"));
+      expect(Array.isArray(nativeEvidence)).toBe(true);
+      expect(nativeEvidence).toHaveLength(1);
+      expect(nativeEvidence[0]).toMatchObject({ name, repetition: 0 });
       sample.phasesMs.nativeHandoffAndPractice = performance.now() - handoff;
       sample.phasesMs.startToPracticeRestored = performance.now() - started;
       expect(creates).toBe(1);
