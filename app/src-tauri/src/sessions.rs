@@ -100,7 +100,7 @@ impl Store {
         let db = self.connect()?;
         self.session_with(&db, sid, snapshot_key, true)
     }
-    fn session_with(
+    pub(crate) fn session_with(
         &self,
         db: &rusqlite::Connection,
         sid: &str,
