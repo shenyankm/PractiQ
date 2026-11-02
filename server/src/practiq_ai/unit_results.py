@@ -123,11 +123,17 @@ class UnitParseResult(BaseModel):
                              "Recalculate each group's offsets from the final questions array, including parent records; "
                              "do not add or remove questions to fit the indexes")
         by_id = {q.id: q for q in self.questions if q.id}
-        for question in self.questions:
+        group_texts: dict[int, list[str]] = {}
+        for group in self.groups:
+            text = ' '.join(_rendered_strings(group.model_dump(include={'title', 'instructions'})))
+            for index in group.questionIndexes:
+                group_texts.setdefault(index, []).append(text)
+        for index, question in enumerate(self.questions):
             parent = by_id.get(question.parentId or "")
             if parent is not None and parent.answerMode not in COMPOSITE_MODES:
                 raise ValueError("parentId must reference a composite question; standalone questions have parentId=null")
-            if question.answerMode != "listening" and missing_formulas(question.sourceText or '', rendered_text(question)):
+            group_content = ' '.join(group_texts.get(index, []))
+            if question.answerMode != "listening" and missing_formulas(question.sourceText or '', rendered_text(question) + group_content):
                 question.needsReview = True
                 question.missingFields = list(dict.fromkeys([*question.missingFields, "material"]))
             # A review heuristic for new model output, not calibrated accuracy.

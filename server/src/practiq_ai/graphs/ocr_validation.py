@@ -12,17 +12,23 @@ from .chunking import _UNNUMBERED_EXERCISE
 from .source_context import ANSWER_HEADING, NUMBER
 
 
-def _formula_source(text: str, questions: list[ParsedQuestion]) -> str:
+def _formula_source(text: str, questions: list[ParsedQuestion]) -> tuple[str, str]:
     heading = ANSWER_HEADING.search(text)
+    source = text[:heading.start()] if heading else text
+    numbers = {question.id.rsplit(':', 1)[-1] for question in questions if question.id}
+    starts = [match.start() for match in NUMBER.finditer(source) if match[1] in numbers]
+    for question in questions:
+        if question.stem and (position := source.find(question.stem)) >= 0 and source.find(question.stem, position + 1) < 0:
+            starts.append(position)
+    start = min(starts, default=len(source))
+    prefix, source = source[:start], source[start:]
     if heading is None:
-        return text
-    source = text[:heading.start()]
+        return source, prefix
     counts = Counter(NUMBER.findall(source))
     answers = _records(text[heading.end():])
     answer_counts = Counter(number for number, _ in answers)
-    numbers = {question.id.rsplit(':', 1)[-1] for question in questions if question.id}
     return '\n'.join([source, *(body for number, body in answers
-                              if number in numbers and counts[number] == answer_counts[number] == 1)])
+                              if number in numbers and counts[number] == answer_counts[number] == 1)]), prefix
 
 
 def question_issues(text: str, questions: list[ParsedQuestion], groups: list[ParsedGroup], *, native_table: bool = False,
@@ -76,6 +82,10 @@ def question_issues(text: str, questions: list[ParsedQuestion], groups: list[Par
     if [positions[index] for index in sorted(positions)] != sorted(positions.values()):
         issues.append('Retain source reading order for questions; remap groups and figure indexes after correction')
     rendered = ' '.join(rendered_questions) + shared_content
-    if questions and any(missing_formulas(_formula_source(evidence, questions), rendered) for evidence in (text, formula_text)):
+    sources = [_formula_source(evidence, questions) for evidence in (text, formula_text)]
+    if questions and any(missing_formulas(source, rendered) for source, _ in sources):
         issues.append('Retain every source formula in displayed content, not only sourceText')
+    if any(missing_formulas(prefix, rendered) for _, prefix in sources):
+        for question in questions:
+            question.needsReview = True
     return issues

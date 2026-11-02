@@ -47,6 +47,11 @@ group titles/instructions rather than the model's `sourceText` alone. This check
 literal preservation, not mathematical equivalence or correctness.
 Answer-key formulas are required only for unambiguously linked PRIMARY questions;
 other questions' answers remain in their original source evidence.
+Saved-unit material checks count shared group formulas only for questions
+associated with that group.
+Page prefixes before the first anchored current question can contain preceding
+question continuations. Missing prefix formulas require human review instead of
+forcing that material into new questions or discarding the page.
 
 Model-facing figure previews are capped at 200 KiB before Base64 encoding.
 Verified Tencent subimages at or below that limit are sent unchanged; larger

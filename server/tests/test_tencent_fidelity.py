@@ -220,6 +220,17 @@ def test_portable_formula_review_checks_more_than_integrals(formula):
     assert parsed.needsReview and 'material' in parsed.missingFields
 
 
+@pytest.mark.parametrize('field', ['title', 'instructions'])
+@pytest.mark.parametrize('associated', [False, True])
+def test_portable_formula_review_counts_only_associated_group_content(field, associated):
+    rows = [{**question('Compute?'), 'sourceText': 'Given $f(x)=x^2$\nAnswer: supplied\nAnalysis: provided',
+             'answerPayload': {'text': 'supplied'}, 'analysis': 'provided'}, question('Other?')]
+    group = {'title': 'Section', 'questionIndexes': [0 if associated else 1], field: 'Use $f(x)=x^2$'}
+    parsed = document.ChunkParseResult.model_validate({'questions': rows, 'groups': [group]}).questions[0]
+    assert parsed.needsReview is not associated
+    assert ('material' in parsed.missingFields) is not associated
+
+
 @pytest.mark.parametrize('delimiters', [('$', '$'), ('$$', '$$'), (r'\(', r'\)'), (r'\[', r'\]')])
 def test_formula_delimiters_preserve_literal_math(ocr_validation, delimiters):
     formula = r'\sqrt{x}+\frac{1}{2}'
@@ -260,6 +271,24 @@ def test_mixed_answer_key_still_checks_current_questions_formula(ocr_validation,
     assert ocr_validation(text, [row], elements).questions[0].answerPayload.text == r'\sqrt{x}'
 
 
+@pytest.mark.parametrize('formula_element', [False, True])
+@pytest.mark.parametrize('numbered', [False, True])
+def test_preceding_question_continuation_does_not_become_new_question_material(ocr_validation, formula_element, numbered):
+    row = {**question('What is two plus two?'), 'id': 'page:1:2' if numbered else None}
+    line = ('2. ' if numbered else '') + row['stem']
+    text = 'continued from question 1:' if formula_element else f'continued from question 1: $\\sqrt{{x}}$\n{line}'
+    elements = [{'formula_info': {'content': r'\sqrt{x}'}}, {'text_info': {'content': line}}] if formula_element else []
+    parsed = ocr_validation(text, [row], elements)
+    assert len(parsed.questions) == 1 and parsed.questions[0].stem == row['stem']
+    assert parsed.questions[0].needsReview
+    if formula_element:
+        elements.append({'formula_info': {'content': 'y^2'}})
+    else:
+        text += ' Given $y^2$.'
+    with pytest.raises(ValidationError, match='formula'):
+        ocr_validation(text, [row], elements)
+
+
 @pytest.mark.parametrize('field', ['title', 'instructions'])
 @pytest.mark.parametrize('preceding_question', [False, True])
 def test_page_formula_can_be_retained_in_shared_group_content(ocr_validation, field, preceding_question):
@@ -272,8 +301,11 @@ def test_page_formula_can_be_retained_in_shared_group_content(ocr_validation, fi
     parsed = ocr_validation(text, rows, groups=[group])
     assert getattr(parsed.groups[0], field) == instruction
     group[field] = 'Section'
-    with pytest.raises(ValidationError, match='formula'):
-        ocr_validation(text, rows, groups=[group])
+    if preceding_question:
+        with pytest.raises(ValidationError, match='formula'):
+            ocr_validation(text, rows, groups=[group])
+    else:
+        assert ocr_validation(text, rows, groups=[group]).questions[0].needsReview
 
 
 def test_matrix_cell_boundaries_are_part_of_formula_fidelity(ocr_validation):
