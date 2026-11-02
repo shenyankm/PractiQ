@@ -1,0 +1,28 @@
+[
+  {
+    "backupRestore": true,
+    "correct": 3,
+    "earnedCents": 300,
+    "firstRun": true,
+    "name": "png",
+    "phasesMs": {
+      "backup": 11.0845,
+      "firstPage": 0.720042,
+      "importZip": 2.0747920000000004,
+      "initialize": 11.360541999999999,
+      "previewPaper": 1.300375,
+      "previewZip": 16.733999999999998,
+      "readResults": 0.21329199999999998,
+      "reopen": 1.231333,
+      "restore": 21.957125,
+      "saveAndNavigate": 3.032708,
+      "startPaper": 1.7732080000000001,
+      "submitPaper": 1.451042
+    },
+    "questions": 3,
+    "reopen": true,
+    "repetition": 0,
+    "totalMs": 79.099375,
+    "zipSha256": "678b677eea232995bf00de1edb02607dcbd667007c04a816df5188e5ce2dbf60"
+  }
+]

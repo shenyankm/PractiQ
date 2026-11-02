@@ -1,0 +1,254 @@
+{
+  "threadId": "3bbbffad-388c-5711-9392-69931084bace",
+  "runId": "c266e04e-9334-484c-aea7-1906f4921b34",
+  "parentThreadId": null,
+  "modelConfigured": true,
+  "resumeCompatible": true,
+  "fileName": "quiz.png",
+  "state": "COMPLETED",
+  "phase": "completed",
+  "checkpointId": "1f1d6c59-9465-600e-800b-dd736746018c",
+  "updatedAt": "2026-11-02T13:59:19.361922+00:00",
+  "expiresAt": "2027-05-01T13:59:07.148353+00:00",
+  "allowedActions": [],
+  "failures": [],
+  "blocking": [],
+  "progress": {
+    "visuals": {
+      "total": 1,
+      "succeeded": 1,
+      "failed": 0,
+      "remaining": 0
+    },
+    "chunks": {
+      "total": 0,
+      "succeeded": 0,
+      "failed": 0,
+      "remaining": 0
+    }
+  },
+  "status": "SUCCEEDED",
+  "result": {
+    "schemaVersion": 3,
+    "questions": [
+      {
+        "id": "q0",
+        "parentId": null,
+        "questionKind": null,
+        "instructions": null,
+        "audioRef": null,
+        "audioStartSeconds": 0,
+        "audioEndSeconds": null,
+        "transcript": [],
+        "examPlayCount": 2,
+        "sourceLanguage": null,
+        "targetLanguage": null,
+        "writingGenre": null,
+        "minWords": null,
+        "maxWords": null,
+        "optionSourceId": null,
+        "passage": [],
+        "allowReuse": false,
+        "blankCount": null,
+        "stem": "The Earth orbits the Sun.",
+        "answerMode": "true_false",
+        "questionTypeId": null,
+        "choiceVariant": null,
+        "matchingVariant": null,
+        "items": [],
+        "options": [],
+        "answerPayload": {
+          "value": true
+        },
+        "sourceScore": null,
+        "scoringRubric": null,
+        "scoreSourceText": null,
+        "analysis": null,
+        "contentBlocks": [],
+        "sourceText": "1. The Earth orbits the Sun.\nAnswer: True",
+        "confidence": 0.97,
+        "needsReview": true,
+        "missingFields": [
+          "questionTypeId",
+          "analysis"
+        ]
+      },
+      {
+        "id": "q1",
+        "parentId": null,
+        "questionKind": null,
+        "instructions": null,
+        "audioRef": null,
+        "audioStartSeconds": 0,
+        "audioEndSeconds": null,
+        "transcript": [],
+        "examPlayCount": 2,
+        "sourceLanguage": null,
+        "targetLanguage": null,
+        "writingGenre": null,
+        "minWords": null,
+        "maxWords": null,
+        "optionSourceId": null,
+        "passage": [],
+        "allowReuse": false,
+        "blankCount": null,
+        "stem": "Two plus two equals five.",
+        "answerMode": "true_false",
+        "questionTypeId": null,
+        "choiceVariant": null,
+        "matchingVariant": null,
+        "items": [],
+        "options": [],
+        "answerPayload": {
+          "value": false
+        },
+        "sourceScore": null,
+        "scoringRubric": null,
+        "scoreSourceText": null,
+        "analysis": null,
+        "contentBlocks": [],
+        "sourceText": "2. Two plus two equals five.\nAnswer: False",
+        "confidence": 0.97,
+        "needsReview": true,
+        "missingFields": [
+          "questionTypeId",
+          "analysis"
+        ]
+      },
+      {
+        "id": "q2",
+        "parentId": null,
+        "questionKind": null,
+        "instructions": null,
+        "audioRef": null,
+        "audioStartSeconds": 0,
+        "audioEndSeconds": null,
+        "transcript": [],
+        "examPlayCount": 2,
+        "sourceLanguage": null,
+        "targetLanguage": null,
+        "writingGenre": null,
+        "minWords": null,
+        "maxWords": null,
+        "optionSourceId": null,
+        "passage": [],
+        "allowReuse": false,
+        "blankCount": null,
+        "stem": "A triangle has three sides.",
+        "answerMode": "true_false",
+        "questionTypeId": null,
+        "choiceVariant": null,
+        "matchingVariant": null,
+        "items": [],
+        "options": [],
+        "answerPayload": {
+          "value": true
+        },
+        "sourceScore": null,
+        "scoringRubric": null,
+        "scoreSourceText": null,
+        "analysis": null,
+        "contentBlocks": [],
+        "sourceText": "3. A triangle has three sides.\nAnswer: True",
+        "confidence": 0.97,
+        "needsReview": true,
+        "missingFields": [
+          "questionTypeId",
+          "analysis"
+        ]
+      }
+    ],
+    "groups": [
+      {
+        "title": "True or false questions. Extract the supplied answers.",
+        "instructions": null,
+        "questionIds": [
+          "q0",
+          "q1",
+          "q2"
+        ]
+      }
+    ],
+    "visualElements": [],
+    "warnings": [],
+    "confidenceScore": 97,
+    "missingFields": []
+  },
+  "modelBudget": {
+    "limit": 4,
+    "reserved": 4
+  },
+  "processing": {
+    "chunks": {
+      "total": 0,
+      "succeeded": 0,
+      "skipped": 0
+    },
+    "visuals": {
+      "total": 1,
+      "succeeded": 1,
+      "skipped": 0
+    },
+    "truncated": false,
+    "failures": [],
+    "questionSources": [
+      {
+        "questionId": "q0",
+        "stage": "vision_parse",
+        "unitIndex": 0
+      },
+      {
+        "questionId": "q1",
+        "stage": "vision_parse",
+        "unitIndex": 0
+      },
+      {
+        "questionId": "q2",
+        "stage": "vision_parse",
+        "unitIndex": 0
+      }
+    ],
+    "quality": {
+      "reviewRequired": true,
+      "reviewQuestionCount": 3,
+      "issues": [
+        {
+          "questionId": "q0",
+          "code": "MISSING_FIELDS"
+        },
+        {
+          "questionId": "q1",
+          "code": "MISSING_FIELDS"
+        },
+        {
+          "questionId": "q2",
+          "code": "MISSING_FIELDS"
+        }
+      ]
+    }
+  },
+  "usage": [
+    {
+      "callKey": "c6734931-3ceb-47ab-819a-ec6c8f10aac9",
+      "modelId": "deepseek-v4.1-flash",
+      "inputTokens": 9572,
+      "outputTokens": 834,
+      "callKind": "vision_parse"
+    }
+  ],
+  "unknownUsageCalls": [],
+  "canExportCompleted": true,
+  "parserJobs": [
+    {
+      "queryRequestId": "9e1323fa-0a8b-4262-948b-188fc972b960",
+      "errorCode": null,
+      "statusUpdatedAt": "2026-11-02T13:59:14.003071+00:00",
+      "taskId": "1508831857755504640",
+      "requestId": "eb7ea1fc-8e90-4449-8280-8f01a82ffc66",
+      "status": "Success",
+      "successPageCount": 1,
+      "failedPageCount": 0,
+      "resultSaved": true
+    }
+  ]
+}
