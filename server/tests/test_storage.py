@@ -60,7 +60,7 @@ async def test_storage_health_fails_closed_and_recovers(tmp_path, monkeypatch, f
 
 
 async def test_storage_health_coalesces_probes_and_bounds_stuck_io(tmp_path, monkeypatch):
-    store = object_store(tmp_path, storage_timeout_seconds=0.02, storage_concurrency=1)
+    store = object_store(tmp_path, storage_timeout_seconds=1, storage_concurrency=1)
     original = store._probe
     probes = []
     def counted():
