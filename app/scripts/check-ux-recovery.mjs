@@ -151,7 +151,8 @@ for (const width of [1280, 360]) {
     await page.getByRole('button', { name: '导入与恢复', exact: true }).click();
     expect(await page.evaluate(() => globalThis.auditImports || 0)).toBe(0);
     await page.getByRole('menuitem', { name: '导入题库 ZIP', exact: true }).click();
-    await chooseOption(page.getByRole('combobox', { name: '导入到', exact: true }), 'preview-bank-0');
+    // Use an empty bank to exercise a committed import rather than a duplicate receipt.
+    await chooseOption(page.getByRole('combobox', { name: '导入到', exact: true }), 'preview-bank-3');
     await page.getByRole('button', { name: '确认导入', exact: true }).click();
     await expect(page.getByText('已导入 9 道题目', { exact: true })).toBeVisible();
     await expect(retry).toBeVisible();

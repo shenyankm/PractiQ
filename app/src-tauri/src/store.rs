@@ -437,7 +437,16 @@ impl Store {
         bank_id: Option<String>,
         title: &str,
     ) -> Result<Value> {
-        let result = self.import_pending_inner(p, bank_id, title);
+        self.import_pending_skipping(p, bank_id, title, &HashSet::new())
+    }
+    pub(crate) fn import_pending_skipping(
+        &self,
+        p: &Pending,
+        bank_id: Option<String>,
+        title: &str,
+        skipped: &HashSet<String>,
+    ) -> Result<Value> {
+        let result = self.import_pending_inner(p, bank_id, title, skipped);
         if result.is_err() {
             let _ = self.collect_unused_assets();
         }
@@ -448,6 +457,7 @@ impl Store {
         p: &Pending,
         bank_id: Option<String>,
         title: &str,
+        skipped: &HashSet<String>,
     ) -> Result<Value> {
         let title = valid_title(title)?;
         for (digest, (_, bytes)) in &p.assets {
@@ -574,7 +584,8 @@ impl Store {
             return Ok(json!({"duplicate":true,"bankId":bank,"count":0}));
         }
         let import_id = id();
-        let r = contract::result(&p.root);
+        let filtered = crate::import_duplicates::without(&p.root, skipped);
+        let r = contract::result(&filtered);
         let ids: Vec<String> = list(r, "questions").iter().map(|_| id()).collect();
         let id_map: HashMap<_, _> = list(r, "questions")
             .iter()
@@ -606,7 +617,13 @@ impl Store {
                 false,
             )?;
         }
-        let diagnostics = crate::import_diagnostics::from_root(&p.root)?;
+        let diagnostics = crate::import_diagnostics::remap(
+            &crate::import_diagnostics::from_root(&p.root)?,
+            &list(r, "questions")
+                .iter()
+                .map(|q| (text(q, "id").to_owned(), text(q, "id").to_owned()))
+                .collect(),
+        );
         let processing = json!({"questionSources":diagnostics.iter().flat_map(|diagnostic| list(&diagnostic["processing"],"questionSources")).collect::<Vec<_>>()});
         crate::questions::put_context(&tx, &bank, r, &ids, &import_id, &processing)?;
         crate::import_diagnostics::write(
@@ -619,7 +636,9 @@ impl Store {
             .iter()
             .filter(|q| !crate::questions::composite(q))
             .count();
-        Ok(json!({"duplicate":false,"bankId":bank,"count":count}))
+        Ok(
+            json!({"duplicate":count == 0 && !skipped.is_empty(),"bankId":bank,"count":count,"skippedCount":list(contract::result(&p.root),"questions").iter().filter(|q|skipped.contains(text(q,"id")) && !crate::questions::composite(q)).count()}),
+        )
     }
 
     pub fn banks(&self) -> Result<Value> {

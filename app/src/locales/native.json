@@ -1108,5 +1108,10 @@
     "zh-CN": "评分连接或模型已更改，或无法核对上次请求的连接。不会重发上次请求；如需调用当前评分服务或模型，请明确重新评分。",
     "en": "The grading connection or model changed, or the previous connection cannot be verified. The previous request will not be resent; explicitly regrade to use the current service or model.",
     "zh-TW": "評分連線或模型已變更，或無法核對上次請求的連線。不會重送上次請求；如需呼叫目前評分服務或模型，請明確重新評分。"
+  },
+  "LOCAL_DUPLICATE_CHECK_CHANGED": {
+    "zh-CN": "题库内容已变化，请重新检查重复题后确认导入。",
+    "zh-TW": "題庫內容已變更，請重新檢查重複題後確認匯入。",
+    "en": "The bank changed. Check duplicates again before confirming import."
   }
 }

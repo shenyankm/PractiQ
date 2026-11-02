@@ -30,6 +30,7 @@ const test=base.extend({observedCalls:[async ({page},use)=>{
     case 'question_stats':return {count:questions.length,types:questions.reduce((types,{question:q})=>{const type=q.answerMode==='choice'?q.choiceVariant:q.answerMode;types[type]=(types[type]||0)+1;return types;},{})};
     case 'questions_page':return {items:questions.slice(request.offset,request.offset+request.limit),total:questions.length,offset:request.offset};
     case 'info':return {version:'preview',dataDirectory:'/local/test'};
+    case 'backup_status': return {lastBackupAt:null,newAttempts:0,changedNotes:0,due:false};
     case 'settings':return settings;
     case 'test_settings':return null;
     case 'save_settings': {

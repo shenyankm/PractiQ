@@ -1,6 +1,7 @@
 import { createPortal } from "react-dom";
 import { duration, t, useI18n } from "./i18n";
 import { ListeningPlayer } from "./ListeningPlayer";
+import { QuestionNotesButton } from "./QuestionNotes";
 import { questionKinds } from "./english";
 import { ExamResults, type GradingDraft } from "./ExamResults";
 import { memo, useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
@@ -87,12 +88,13 @@ export function Practice(props: PracticeProps) {
     });
   }
   return <div className="practice-session @container space-y-4" aria-busy={navigating}>
-    <div className="practice-overview"><p className="text-sm text-muted-foreground">{t(finished ? "本次作答已结束，正在回顾作答与解析。" : exam ? "答案自动保存，交卷后统一核对评分。" : "草稿自动保存，提交后查看答案与解析。")}</p><Button asChild variant="outline"><a href="#answer-card-panel" onClick={() => { if (answerCard.current) answerCard.current.open = true; }}>{t("查看答题卡")}</a></Button></div>
+    <div className="practice-overview"><p className="text-sm text-muted-foreground">{t(finished ? "作答已结束，答案已锁定。" : exam ? "答案自动保存。" : "草稿自动保存。")}</p><Button asChild variant="outline"><a href="#answer-card-panel" onClick={() => { if (answerCard.current) answerCard.current.open = true; }}>{t("查看答题卡")}</a></Button></div>
     <div ref={setScrollBoundary} className="practice-scroll space-y-4">
     {listening && <ListeningPlayer key={`${session.id}-${listening.id}-${listening.audioRef?.sha256}`} question={listening} session={session}/>}
     <div className="grid grid-cols-1 gap-6 @2xl:grid-cols-[minmax(0,1fr)_240px]">
       <PracticeQuestion key={`${session.id}-${session.position}`} {...props} navigating={navigating} go={go} onDraft={onDraft} questionHeading={questionHeading} materialReading={materialReading} actionsContainer={actionsContainer}/>
       <aside className="min-w-0 self-start space-y-4">
+        {(finished || (!exam && session.attempts[session.position].submittedAt != null)) && session.attempts[session.position].favorite != null && session.attempts[session.position].snapshot.id && <QuestionNotesButton key={session.attempts[session.position].snapshot.id} id={session.attempts[session.position].snapshot.id!} disabled={navigating}/>}
         <details ref={answerCard} className="practice-answer-card" open={!props.compact}>
           <summary className="font-medium">{t("答题卡")} · {t("第 {0} / {1} 题", {0:session.position + 1,1:session.attempts.length})}</summary>
           <AnswerCard key={session.id} session={session} answer={answer} exam={exam} go={go} boundary={scrollBoundary} compact={!!props.compact}/>
@@ -535,7 +537,6 @@ const AnswerCard = memo(function AnswerCard({session, answer, exam, go, boundary
 }) {
   useI18n();
   const grid = useRef<HTMLDivElement>(null);
-  const finished = session.finishedAt !== null || (exam && session.submittedAt != null);
   const saved = useMemo(() => {
     const counts: Partial<Record<AnswerCardStatus, number>> = {};
     let progress = 0;
@@ -607,7 +608,6 @@ const AnswerCard = memo(function AnswerCard({session, answer, exam, go, boundary
             <p className="answer-card-legend answer-card-counts flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground" aria-label={t("本次题目状态")}>
               {Object.entries(answerCardStates).filter(([status]) => (counts[status as AnswerCardStatus] ?? 0) > 0).map(([status, { label }]) => <span key={status} className="flex items-center gap-1.5"><span className="answer-card-swatch" data-answer-state={status} aria-hidden="true"/>{t(status === "incorrect" && exam ? "未得满分" : label)} {counts[status as AnswerCardStatus]}</span>)}
             </p>
-            {finished && <p className="text-xs leading-5 text-muted-foreground">{t("本次共 {0} 题，作答已锁定；可切换题目回顾。", {0:session.attempts.length})}</p>}
             <nav className="grid grid-cols-3 gap-1" aria-label={t("答题卡")}>
               <Button variant="ghost" size="sm" className="min-w-0 px-1" aria-label={t("转到第一题")} disabled={session.position === 0} onClick={() => go(0)}>{t("首题")}</Button>
               <Button variant="ghost" size="sm" className="min-w-0 px-1" aria-label={t("定位当前题")} onClick={() => revealCurrent(true)}>{t("当前题")}</Button>

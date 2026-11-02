@@ -73,7 +73,7 @@ export function EnglishFields({question:q,patch,images=[],onPendingChange,onDraf
         <Button variant="outline" disabled={picking} onClick={()=>void pick("qr")}>{t("识别二维码图片")}</Button>
       </div>
       {images.length>0 && <details><summary>{t("识别题目图片中的二维码")}</summary><div className="flex flex-wrap gap-2">{images.map((image,i)=><Button key={image.hash} variant="outline" disabled={picking} onClick={()=>void pick("qr",image.hash)}>{t("识别图片 {0}",{0:i+1})}{image.label ? " · "+image.label : ""}</Button>)}</div></details>}
-      <p className="text-xs text-muted-foreground">{t("支持音频直链或含公开音频链接的网页。二维码先识别网址，点击获取后才联网；下载后可离线播放。")}</p>
+      <p className="text-xs text-muted-foreground">{t("支持音频直链或公开音频网页；二维码仅识别网址，点击获取才联网，下载后可离线播放。")}</p>
       {picking && <p role="status">{t("正在处理听力资源…")}</p>}
       {links.length>0 && <div className="space-y-2"><p>{t("请选择资源网址，再点击获取音频。")}</p>{links.map(link=><Button key={link.url} variant="outline" disabled={picking} className="h-auto w-full justify-start whitespace-normal break-all text-left" onClick={()=>{changeUrl(link.url);setLinks([]);}}>{link.label ? link.label+" · " : ""}{link.url}</Button>)}</div>}
       {error != null && <div role="alert"><ErrorNotice error={error} /></div>}

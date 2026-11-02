@@ -1,11 +1,12 @@
-import { useRef, type ComponentProps } from "react";
+import { useEffect, useRef, useState, type ComponentProps } from "react";
 import { Download, ArchiveRestore } from "lucide-react";
-import { api } from "./api";
-import { message, t } from "./i18n";
+import { api, type BackupStatus } from "./api";
+import { date, message, t } from "./i18n";
+import { ErrorNotice } from "./OperationFeedback";
 import { toast } from "./notifications";
 import { ConnectionSettingsPanel } from "./ConnectionSettings";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 export function SettingsPage({ busy, run, flushRef, revision, version, onConfigure, onPickImport, onRestore, restoreOpen, onRestoreOpenChange }: {
@@ -21,18 +22,25 @@ export function SettingsPage({ busy, run, flushRef, revision, version, onConfigu
   onRestoreOpenChange: (open: boolean) => void;
 }) {
   const restoreTrigger = useRef<HTMLButtonElement>(null);
+  const [backup, setBackup] = useState<BackupStatus | null>(null), [backupError, setBackupError] = useState<unknown>(null), [backupRevision, setBackupRevision] = useState(0);
+  useEffect(() => {
+    let active = true;
+    void api({type:"backup_status"}).then(status=>{if(active){setBackup(status);setBackupError(null);}}).catch(error=>{if(active)setBackupError(error);});
+    return ()=>{active=false;};
+  },[revision,backupRevision]);
   return <div className="mx-auto max-w-3xl space-y-6">
     <ConnectionSettingsPanel key={revision} busy={busy} run={run} onConfigure={onConfigure} flushRef={flushRef} />
     <Card>
       <CardHeader>
         <CardTitle><h2>{t("学习数据备份")}</h2></CardTitle>
-        <CardDescription>{t("备份题库与学习记录，不含访问令牌。")}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {backupError != null && <div role="alert"><ErrorNotice error={backupError}/><Button variant="outline" disabled={busy} onClick={()=>setBackupRevision(value=>value+1)}>{t("重试")}</Button></div>}
+        {backup && <div className="space-y-1 text-sm" role="status"><p>{backup.lastBackupAt == null ? t("尚未导出学习数据备份。") : t("上次成功备份：{0}",{0:date(backup.lastBackupAt)})}</p>{backup.due && backup.lastBackupAt != null && <p>{t("有新记录，建议备份。")}</p>}</div>}
         <div className="flex flex-wrap gap-3">
           <Button disabled={busy} onClick={() => run(async () => {
             const result = await api({ type: "backup" });
-            if (result) toast.success(message("备份已保存：{0}", { 0: result.path }));
+            if (result) { toast.success(message("备份已保存：{0}", { 0: result.path })); setBackupRevision(value=>value+1); if(result.reminderError) toast.info(message("备份文件已保存，但备份提醒状态未更新。")); }
           })}><Download />{t("导出备份")}</Button>
           <DropdownMenu open={restoreOpen} onOpenChange={onRestoreOpenChange}>
             <DropdownMenuTrigger asChild><Button ref={restoreTrigger} variant="outline" disabled={busy}><ArchiveRestore />{t("导入与恢复")}</Button></DropdownMenuTrigger>

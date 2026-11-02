@@ -138,7 +138,7 @@ export function StudySetup({banks, initialBank, initialBankIds, initialFilter, i
   catch { allocatedScore = "—"; }
   return <Dialog open onOpenChange={v => { if (!v && !busy) onClose(); }}>
     <DialogContent className="study-setup flex max-h-[90vh] flex-col overflow-hidden sm:max-w-3xl">
-      <DialogHeader className="shrink-0 pr-8"><DialogTitle ref={title} tabIndex={-1}>{reviewing ? t("检查题目与配分") : t("开始练习或考试")}</DialogTitle><DialogDescription>{kind === "practice" ? t("提交后查看参考答案，可对照自评。") : t("作答时隐藏答案，交卷后核对评分；先预览配分，更改选题或总分后需重新预览。")}</DialogDescription></DialogHeader>
+      <DialogHeader className="shrink-0 pr-8"><DialogTitle ref={title} tabIndex={-1}>{reviewing ? t("检查题目与配分") : t("开始练习或考试")}</DialogTitle><DialogDescription>{kind === "practice" ? t("提交后查看参考答案，可对照自评。") : t("交卷后查看答案与评分。")}</DialogDescription></DialogHeader>
       <div ref={scroll} className="study-setup-fields min-h-0 flex-1 overflow-y-auto">
       <fieldset disabled={busy} className="min-w-0 space-y-5 p-1 text-sm">
         <div hidden={reviewing} className="space-y-5">
@@ -172,7 +172,7 @@ export function StudySetup({banks, initialBank, initialBankIds, initialFilter, i
           </div>}
         </details>
         </div>
-        {kind !== "practice" && reviewing && !!preview.length && <section className="space-y-4"><h3 className="font-semibold">{t("选题与配分预览 · {0} 题", { 0: preview.length })}</h3><p className="text-muted-foreground">{t("材料题按子题计数，原卷分值仅供参考。")}</p>
+        {kind !== "practice" && reviewing && !!preview.length && <section className="space-y-4"><h3 className="font-semibold">{t("选题与配分预览 · {0} 题", { 0: preview.length })}</h3><p className="text-muted-foreground">{t("原卷分值仅供参考。")}</p>
           <details><summary className="cursor-pointer">{t("按题型分配总分")}</summary><div className="my-3 grid grid-cols-1 gap-3 sm:grid-cols-3">{previewTypes.map(k => <label className="grid gap-2" key={k}>{t("{0}预算", { 0: types()[k] || t("未分类") })}<Input aria-label={t("{0}预算", { 0: types()[k] || t("未分类") })} value={budgets[k] || "0"} onChange={e => setBudgets({...budgets, [k]:e.target.value})}/></label>)}</div><Button variant="outline" onClick={() => perform(async () => { await generate(true); })}>{t("按题型预算重新配分（覆盖逐题修改）")}</Button></details>
           <div className="divide-y">{preview.slice(currentScorePage * 30, currentScorePage * 30 + 30).map((q, index) => {
             const i = currentScorePage * 30 + index;

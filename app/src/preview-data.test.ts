@@ -376,3 +376,12 @@ it("paginates large data and exposes failure and loading scenarios without nativ
  mode.value="missing";const {invoke}=await import("./transport");await expect(invoke("read_asset",{hash:"anything"})).rejects.toThrow("资源缺失");
  mode.value="slow";vi.useFakeTimers();try {const result=call({type:"banks"});await vi.advanceTimersByTimeAsync(1500);expect(await result).toBeTruthy();} finally {vi.useRealTimers();}
 });
+
+it("compares the selected preview bank and appends imports to that bank",async()=>{
+ const {api}=await import("./api");
+ expect((await api({type:"import_duplicates",ticket:"preview-ticket",bank_id:"preview-bank-3"})).groups).toHaveLength(0);
+ expect((await api({type:"import_duplicates",ticket:"preview-ticket",bank_id:"preview-bank-0"})).groups).toHaveLength(sample.questions.length);
+ const result=await api({type:"import",ticket:"preview-ticket",bank_id:"preview-bank-3",title:"Empty",skip_duplicates:true,duplicate_check:"preview-comparison"});
+ expect(result.bankId).toBe("preview-bank-3");expect(result.count).toBe(sample.questions.length);
+ const repeated=await api({type:"import",ticket:"preview-ticket",bank_id:"preview-bank-3",title:"Empty"});expect(repeated.duplicate).toBe(true);
+});

@@ -7,7 +7,7 @@ import { ErrorNotice } from "./OperationFeedback";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Empty, EmptyContent, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
+import { Empty, EmptyContent, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Label } from "@/components/ui/label";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 
@@ -111,7 +111,6 @@ export function HistoryPage({ state, busy, onOpen, onBrowse }: {
           <EmptyHeader>
             <EmptyMedia><History /></EmptyMedia>
             <EmptyTitle>{sessionFilter === "all" ? t("还没有练习记录") : t("没有符合此状态的记录")}</EmptyTitle>
-            <EmptyDescription>{sessionFilter === "all" ? t("开始练习后，即可在这里继续作答或回顾结果。") : t("尝试选择其他状态。")}</EmptyDescription>
           </EmptyHeader>
           <EmptyContent><Button variant="outline" disabled={busy} onClick={() => { if (sessionFilter === "all") onBrowse(); else { state.setFilter("all"); } }}>{sessionFilter === "all" ? t("查看题库") : t("查看全部记录")}</Button></EmptyContent>
         </Empty>

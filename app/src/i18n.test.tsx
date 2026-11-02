@@ -45,6 +45,7 @@ beforeEach(() => {
       case "question_stats": return {count:0,types:{}};
       case "info": return { version: "test", dataDirectory: "/test" };
       case "save_settings": return {config:request.config,hasServiceToken:false};
+      case "backup_status": return {lastBackupAt:null,newAttempts:0,changedNotes:0,due:false} as never;
       case "settings": return { config: { service_url: null }, hasServiceToken: false };
       default: throw new Error(`Unexpected command: ${request.type}`);
     }
@@ -78,7 +79,7 @@ it.each([0, 1, 2])("keeps bank, word and review counts grammatical (%s)", count 
   expect(translate("en", "已选 {0} 个题库，共 {1} 题；原库保留。", { 0: count, 1: count })).toBe(`${count} ${count === 1 ? "bank" : "banks"} selected, ${count} ${count === 1 ? "question" : "questions"} in total. Original banks are kept.`);
   expect(translate("en", "当前 {0} 词", { 0: count })).toBe(`Word count: ${count}`);
   expect(translate("en", "已加载 {0} 张图片，缺失 {1} 个资源。", { 0: count, 1: count })).toBe(`Loaded images: ${count}; missing resources: ${count}.`);
-  expect(translate("en", "已识别 {0} 道题目，其中 {1} 道待复核，仍可直接练习。", { 0: count, 1: count })).toBe(`Found ${count} ${count === 1 ? "question" : "questions"}; needing review: ${count}. You can still practice now.`);
+  expect(translate("en", "共 {0} 题，{1} 题待复核。", { 0: count, 1: count })).toBe(`${count} ${count === 1 ? "question" : "questions"}; ${count} needing review.`);
 });
 it("resolves the system language and prefers a saved selection across remounts", async () => {
   expect(systemLocale(["zh-TW"])).toBe("zh-TW");

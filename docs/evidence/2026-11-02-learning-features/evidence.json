@@ -1,0 +1,142 @@
+{
+  "capturedAt": "2026-11-02T15:13:37.464399+00:00",
+  "head": "400b8e7acff90076b7528e621e6934b4835b1cad",
+  "uncommittedSource": true,
+  "sourceSha256": {
+    "app/src-tauri/src/learning.rs": "72f0cd000bd2e0e349799d9efd2294f6ef216dcde4eb18c996155efc5455ba4b",
+    "app/src-tauri/src/import_duplicates.rs": "646cde8e7e2d763dceff96ed719a936c0ac36b8f771a1ac8df60f67889a0e4a7",
+    "app/src-tauri/src/lib.rs": "fbef3053b096e241ac99ce18f0f13888cd0bb8d0c2ef922b8e6013c285a76ab4",
+    "app/src-tauri/src/backup.rs": "1783e9ea68819fcd48d32a72950b7e23190af0c01d2e92985fe8e9b3e899f263",
+    "app/src-tauri/src/settings.rs": "489e00cbbe5e438856279ab4276b875710ccd455ba9d117ef88faed8fda68709",
+    "app/src-tauri/src/store.rs": "752aeced23e2eeeb69d612cc9939167cedf0c504bfd5efbcf6903ee7b94ceda6",
+    "app/src/api.ts": "2a52c9d5f0977b5b476f0e41ba4dbfa3ac83f604f10b3e0ed365f13b5eec6115",
+    "app/src/App.tsx": "61b66604d3571b2f42fcf6b63484492be63ed715a7d172f8dbf7549555cfcace",
+    "app/src/LearningPage.tsx": "a062a884b83b00bf7da02e2cc665a6c850d016bd3b9b1d8b7a7b5abe4a974b3f",
+    "app/src/QuestionNotes.tsx": "f37aeaa7edb74d4da6198731d4b4429b4755d2b7511a6928623bd53b2c212709",
+    "app/src/ImportBankDialog.tsx": "07879afee5bac7ec9419ad1c1539333d1a49754afb70bb2800c8c68dff7fef8c",
+    "app/src/SettingsPage.tsx": "1666344042e15cde4fbc0a3b4cbcfa012ce963b9c482ed4011e4c5d0647f2e11",
+    "app/src/Practice.tsx": "6437509882607eaea585017c8e29865ed1af22dbb2ef9c67b02387ce6a1f3f6e"
+  },
+  "screenshots": {
+    "overview-zh-light.png": {
+      "sha256": "53071fe79676c410e4895b4dfa30749ece33f41353bff4fb8123337fb141ab6a",
+      "context": {
+        "viewportWidth": 1440,
+        "viewportHeight": 900,
+        "theme": "light",
+        "locale": "zh-CN",
+        "title": "learning overview fits and opens targeted practice zh-CN light 1440"
+      }
+    },
+    "overview-en-dark.png": {
+      "sha256": "d29c56f4447be75e67c68f6aaa6e46e8a693e65c64db27a370447062879d338d",
+      "context": {
+        "viewportWidth": 1440,
+        "viewportHeight": 900,
+        "theme": "dark",
+        "locale": "en",
+        "title": "learning overview fits and opens targeted practice en dark 1440"
+      }
+    },
+    "notes.png": {
+      "sha256": "abfc6407c895792a2cc7172f4ed16494088bcb8cedeb9a90b48998eb867be930",
+      "context": {
+        "viewportWidth": 1280,
+        "viewportHeight": 900,
+        "theme": "light",
+        "locale": "zh-CN",
+        "title": "review starts explicitly, notes persist after reopening, and duplicate policy is sent only on confirmation"
+      }
+    },
+    "duplicates.png": {
+      "sha256": "da9a46f1f97297cac2791cfcd4249859895593c9f838f2a85c2a0d10b5494b5c",
+      "context": {
+        "viewportWidth": 1280,
+        "viewportHeight": 900,
+        "theme": "light",
+        "locale": "zh-CN",
+        "title": "review starts explicitly, notes persist after reopening, and duplicate policy is sent only on confirmation"
+      }
+    }
+  },
+  "native": {
+    "identifier": "com.practiq.acceptance.learning20261102",
+    "schemaVersion": 11,
+    "banks": 1,
+    "answerableQuestions": 20,
+    "submittedAttempts": 1,
+    "gradingRequestRecords": 0,
+    "duplicatePreviewGroups": 18,
+    "duplicatePreviewQuestions": 20,
+    "restoredNotes": [
+      {
+        "bodyEmpty": true,
+        "cause": "misread"
+      }
+    ],
+    "preRestoreCopyRetainsNewerBody": true,
+    "finalBinarySha256": "7afcfd30b93aeece139b94a0e8c54f57bfd7a916987fa6e2986deca0171eb733",
+    "finalSourceBuildSmoke": "Learning overview loaded through the final native command contract; 1 submitted, 0 ungraded, 0 skipped; automatic grading 0/1; local midnight shown.",
+    "finalBuild": "debug macOS app, unsigned and not notarized"
+  },
+  "design": {
+    "style": "achromatic-ledger",
+    "seed": 1225574192,
+    "kept": "existing palette, typography, octopus identity and components",
+    "inspectionWidths": [
+      1440,
+      1024,
+      960
+    ],
+    "failures": 0,
+    "warnings": 0
+  },
+  "checks": {
+    "appCheck": "passed",
+    "frontendPassed": 540,
+    "frontendSkipped": 6,
+    "rustPassed": 273,
+    "rustIgnored": 27,
+    "selectedBrowserPassed": 25,
+    "frontendProductionBuild": "passed",
+    "gitDiffCheck": "passed",
+    "realModelCalls": "not requested or performed"
+  },
+  "screenshotsCapturedAt": "2026-11-02T15:36:13.040076+00:00",
+  "screenshotsSourceSha256": {
+    "app/src/LearningPage.tsx": "afaf92e10daf6b3b46cd2fb12ffe06bf3911518f559c518c71a6f088feed8ebe",
+    "app/src/QuestionNotes.tsx": "1e40d7c021c020f285685c210be713b0c8bacfd7d75a968f4b9035141f046c30",
+    "app/src/ImportBankDialog.tsx": "2c5e221cc049d633b127db30e1255417923393b53634fa8b3407ac795aab1431",
+    "app/src/SettingsPage.tsx": "165dcd32766650f93a9e3168b86b68a1fd6711311cee3da1171163ef63caab7e",
+    "app/src/Practice.tsx": "6098dd07e6d547b4b4e4d21fbd9221e893b0a9c1d15533977864bcfdd9483637",
+    "app/src/QuestionPreview.tsx": "69bae47c0182eb7106438bdafb45f96f37d232c2541cdc2bdb949f9a2da74e36",
+    "app/src/locales/en.ts": "4fc3a3b692559e248a687115139cdeda9739e787be7914860e51229d0b75588a",
+    "app/src/locales/zh-TW.ts": "2d8cf968b3a91f488cb3be72406f7036b99050081f0db6cbfb00fc83b2b3ba5f"
+  },
+  "prChecks": {
+    "typeScript": "passed",
+    "eslint": "passed",
+    "coverage": {
+      "passed": 540,
+      "skipped": 6,
+      "statements": 89.24,
+      "branches": 85.09,
+      "functions": 86.82,
+      "lines": 92.97
+    },
+    "fullBrowserInitial": {
+      "passed": 162,
+      "failed": 2,
+      "reason": "Existing import-recovery fixture expected new questions for an identical complete receipt."
+    },
+    "focusedBrowserAfterFixtureCorrection": {
+      "passed": 2,
+      "failed": 0,
+      "change": "Use an empty destination bank to exercise committed import recovery."
+    },
+    "fullBrowserRepeatedAfterTestOnlyCorrection": false,
+    "nativeFeatureSourceHashesUnchanged": true,
+    "stagedDiffAndLocalLinks": "passed",
+    "realModelCalls": "not performed"
+  }
+}

@@ -1,7 +1,7 @@
 import sample from "../fixtures/sample.json";
 import english from "../fixtures/english.json";
 import composite from "../fixtures/composite.json";
-import type { Answer, Bank, Question, QuestionRow, Request, Session, SettingsResult, Preview } from "./api";
+import type { Answer, Bank, Question, QuestionRow, Request, Session, SettingsResult, Preview, QuestionNote, LearningCounts, LearningOverview } from "./api";
 import type { Request as AiRequest } from "./ai-api";
 import type { PreviewScenario } from "./preview-mode";
 import { COMPOSITE_MODES } from "./contracts.generated";
@@ -69,7 +69,7 @@ function leaves(items:QuestionRow[]) { return items.filter(q=>!rows.some(c=>c.ba
 function bankList() { return banks.map(b=>({...b,count:leaves(rows.filter(q=>q.bankId===b.id)).length})); }
 function makeSession(id:string,title:string,kind:Session["kind"],done:boolean,items=rows.slice(0,9)):Session {
   return {id,title,kind,createdAt:now-3600000,finishedAt:done ? now-600000:null,submittedAt:kind!=="practice" && done ? now-600000:null,position:0,mode:"ordered",clockNow:Date.now(),deadlineAt:kind==="mock_exam" && !done ? Date.now()+1800000:null,
-    attempts:structuredClone(items).map((snapshot,i)=>({ordinal:i,snapshot,answer:done || i===0 ? snapshot.question.answerPayload:null,autoResult:done && i%3!==2 ? i%3===0:null,result:done && i%3!==2 ? i%3===0:null,gradeKind:done && i%3!==2 ? "auto":"ungraded",maxCents:1000,earnedCents:done && i%3!==2 ? i%3===0 ? 1000:400:null,submittedAt:done ? now-600000:null,skipped:done && i===7,elapsedMs:30000,flagged:i===2}))};
+    attempts:structuredClone(items).map((snapshot,i)=>({ordinal:i,snapshot,favorite:snapshot.favorite,answer:done || i===0 ? snapshot.question.answerPayload:null,autoResult:done && i%3!==2 ? i%3===0:null,result:done && i%3!==2 ? i%3===0:null,gradeKind:done && i%3!==2 ? "auto":"ungraded",maxCents:1000,earnedCents:done && i%3!==2 ? i%3===0 ? 1000:400:null,submittedAt:done ? now-600000:null,skipped:done && i===7,elapsedMs:30000,flagged:i===2}))};
 }
 const sessions=[makeSession("preview-practice","每日练习 · 未完成","practice",false),makeSession("preview-exam","模拟考试 · 进行中","mock_exam",false),makeSession("preview-review","自主测验 · 待评分","self_test",true),makeSession("preview-finished","基础知识 · 已完成","practice",true)];
 sessions[2].finishedAt=null;
@@ -86,6 +86,42 @@ Object.assign(gradingSession.attempts[3],{gradeKind:"manual",earnedCents:800,res
 gradingSession.attempts[4].snapshot.question.answerPayload=null;
 sessions.push(gradingSession);
 let settings:SettingsResult={config:{service_url:"https://service.example.invalid"},hasServiceToken:true};
+const notes = new Map<string,QuestionNote>();
+let lastBackupAt: number | null = null;
+function previewCounts(): LearningCounts { return {submitted:0,skipped:0,ungraded:0,auto:{graded:0,correct:0},selfAssessed:{graded:0,correct:0},ai:{graded:0,correct:0},manual:{graded:0,correct:0}}; }
+function backupStatus() { return {lastBackupAt,newAttempts:sessions.flatMap(session=>session.attempts).filter(attempt=>(attempt.submittedAt ?? 0)>(lastBackupAt ?? 0)).length,changedNotes:[...notes.values()].filter(note=>note.updatedAt>(lastBackupAt ?? 0)).length,due:lastBackupAt==null && banks.length>0}; }
+function learningOverview(days:7|30):LearningOverview {
+  const through=Date.now(),today=new Date();today.setHours(0,0,0,0);
+  const since=today.getTime()-(days-1)*86400000;
+  const counts=previewCounts(),byBank=new Map<string,{id:string;title:string;available:boolean;counts:LearningCounts}>(),byKind=new Map<string,LearningCounts>();
+  const history=new Map<string,{last:number;wrong:number;result:boolean|null}>();
+  function add(counts:LearningCounts,attempt:Session["attempts"][number]) {
+    counts.submitted++;
+    if(attempt.skipped){counts.skipped++;return;}
+    if(attempt.result==null || attempt.gradeKind==="ungraded"){counts.ungraded++;return;}
+    const score=counts[attempt.gradeKind==="self" ? "selfAssessed":attempt.gradeKind];score.graded++;score.correct+=Number(attempt.result);
+  }
+  for(const session of sessions) for(const attempt of session.attempts) {
+    if(attempt.submittedAt==null || attempt.submittedAt>through)continue;
+    const row=attempt.snapshot as QuestionRow;
+    if(!attempt.skipped) {
+      const previous=history.get(row.id) ?? {last:0,wrong:0,result:null};
+      previous.wrong+=Number(attempt.result===false);if(attempt.submittedAt>=previous.last){previous.last=attempt.submittedAt;previous.result=attempt.result;}history.set(row.id,previous);
+    }
+    if(attempt.submittedAt<since)continue;
+    const bank=byBank.get(row.bankId) ?? {id:row.bankId,title:row.bankTitle,available:banks.some(b=>b.id===row.bankId),counts:previewCounts()};
+    const kind=questionType(row.question),category=byKind.get(kind) ?? previewCounts();
+    add(counts,attempt);add(bank.counts,attempt);add(category,attempt);byBank.set(row.bankId,bank);byKind.set(kind,category);
+  }
+  const review=roots(rows).flatMap(root=>{
+    const attempts=tree(root).map(row=>history.get(row.id)).filter(value=>value!=null);
+    const last=Math.max(0,...attempts.map(attempt=>attempt.last));
+    if(!last || last>=today.getTime() || !attempts.some(attempt=>attempt.result!=null && (attempt.result===false || through-attempt.last>=7*86400000)))return [];
+    const repeated=attempts.some(attempt=>attempt.result===false && attempt.wrong>=2),wrong=attempts.some(attempt=>attempt.result===false);
+    return [{rootId:root.id,bankId:root.bankId,bankTitle:root.bankTitle,stem:root.question.stem,count:root.answerableCount,reason:repeated ? "repeated_wrong" as const:wrong ? "wrong" as const:"stale" as const,lastAnsweredAt:last,causes:tree(root).flatMap(row=>notes.get(row.id)?.cause ? [notes.get(row.id)!.cause!]:[])}];
+  }).slice(0,20);
+  return {days,since,through,counts,banks:[...byBank.values()],kinds:[...byKind].map(([kind,counts])=>({kind,counts})),review,backup:backupStatus()};
+}
 function getSession(id:string) {const s=sessions.find(s=>s.id===id);if(!s)throw new Error("示例练习不存在");return s;}
 function summary(s:Session) {const a=s.attempts;return {...s,attempts:undefined,count:a.length,answered:a.filter(a=>a.submittedAt!=null).length,draftAnswered:a.filter(a=>a.answer!=null).length,correct:a.filter(a=>a.result===true).length,graded:a.filter(a=>a.result!=null).length,skipped:a.filter(a=>a.skipped).length,elapsedMs:a.reduce((n,a)=>n+a.elapsedMs,0),selfGraded:a.filter(a=>a.gradeKind==="self").length,autoGraded:a.filter(a=>a.gradeKind==="auto").length,pendingGrades:a.filter(a=>a.submittedAt && a.gradeKind==="ungraded").length,totalCents:a.reduce((n,a)=>n+(a.maxCents||0),0),earnedCents:a.reduce((n,a)=>n+(a.earnedCents||0),0),lastActiveAt:now};}
 function page<T>(items:T[],offset=0,limit=20) {return {items:items.slice(offset,offset+limit),total:items.length,offset};}
@@ -106,8 +142,8 @@ function score(s:Session,ordinal:number,answer:Answer|null) {
   if(a.snapshot.question.answerPayload && a.snapshot.question.answerMode!=="short_answer") {a.result=JSON.stringify(answer)===JSON.stringify(a.snapshot.question.answerPayload);a.autoResult=a.result;a.gradeKind="auto";a.earnedCents=a.result ? a.maxCents:0;}
 }
 function addBank(title:string) {const id=crypto.randomUUID();banks.push({id,title,description:"演示导入",createdAt:Date.now(),count:9});rows.push(...structuredClone(sampleRows).map(q=>({...q,id:crypto.randomUUID(),bankId:id,bankTitle:title})));return {duplicate:false,bankId:id,count:9};}
-function copyBankRows(sourceBank:string,bankId:string,title:string) {
-  const copied=structuredClone(rows.filter(q=>q.bankId===sourceBank));
+function copyBankRows(sourceBank:string,bankId:string,title:string,items=rows) {
+  const copied=structuredClone(items.filter(q=>q.bankId===sourceBank));
   const ids=new Map(copied.map(q=>[q.question.id,crypto.randomUUID()]));
   const contexts={groups:new Map<string,string>(),visuals:new Map<string,string>()};
   const remap=(ref:string)=>{const id=ids.get(ref);if(!id)throw new Error(`Unknown question reference: ${ref}`);return id;};
@@ -130,9 +166,20 @@ function copyBankRows(sourceBank:string,bankId:string,title:string) {
   }
   return copied;
 }
+function previewDuplicates(bank:string) {
+  // The import preview fixture contains independent roots; native tests cover material-tree comparison.
+  const signature=(q:Question)=>JSON.stringify({...q,id:null});
+  const existing=new Set(rows.filter(row=>row.bankId===bank).map(row=>signature(row.question)));
+  return sampleRows.filter(row=>existing.has(signature(row.question)));
+}
 function request(r:Request,scenario:PreviewScenario):unknown {
   const empty=banks.length===0;
   switch(r.type) {
+    case "learning_overview": return learningOverview(r.days);
+    case "backup_status": return backupStatus();
+    case "question_note": return notes.get(r.id) ?? null;
+    case "save_question_note": {const note={body:r.body,cause:r.cause,updatedAt:Date.now()};notes.set(r.id,note);return note;}
+    case "import_duplicates": return {groups:previewDuplicates(r.bank_id).map(row=>({id:row.question.id!,stem:row.question.stem,count:1})),check:"preview-comparison"};
     case "language": return null;
     case "save_language": return r.locale;
     case "info": return {version:"开发预览",dataDirectory:"仅内存 · 不写入本地数据"};
@@ -159,9 +206,18 @@ function request(r:Request,scenario:PreviewScenario):unknown {
     case "save_question_tree": {rows=rows.filter(q=>!(q.bankId===r.bank_id && (q.id===r.root_id || r.questions.some(v=>v.id===q.question.id))));for(const q of r.questions)rows.push({id:q.id!,bankId:r.bank_id,bankTitle:banks.find(b=>b.id===r.bank_id)?.title||"",question:q,groups:[],visuals:[],sources:[],warnings:[],missingAssets:false,favorite:false,latestResult:null});return r.questions[0].id;}
     case "merge_banks": {const id=crypto.randomUUID();const copied=r.bank_ids.flatMap(bank=>copyBankRows(bank,id,r.title));banks.push({id,title:r.title,description:"示例合并题库",createdAt:Date.now(),count:0});rows.push(...copied);return {bankId:id,count:copied.filter(q=>!COMPOSITE_MODES.includes(q.question.answerMode||"")).length};}
     case "pick_import": return preview();
-    case "import": return addBank(r.title);
+    case "import": {
+      if(!r.bank_id)return addBank(r.title);
+      const bank=banks.find(bank=>bank.id===r.bank_id);if(!bank)throw Error("Destination bank no longer exists");
+      const duplicates=new Set(previewDuplicates(bank.id).map(row=>row.id));
+      if(duplicates.size===sampleRows.length)return {bankId:bank.id,count:0,duplicate:true};
+      const selected=sampleRows.filter(row=>!r.skip_duplicates || !duplicates.has(row.id));
+      const copied=copyBankRows("preview-bank-0",bank.id,bank.title,selected);copied.forEach(row=>{row.favorite=false;});rows.push(...copied);
+      return {bankId:bank.id,count:copied.length,duplicate:false,skippedCount:r.skip_duplicates?duplicates.size:0};
+    }
     case "add_example_bank": return addBank("示例题库");
-    case "backup": case "export_bank": return {path:"[演示] 未创建文件"};
+    case "backup": lastBackupAt=Date.now();return {path:"[演示] 未创建文件"};
+    case "export_bank": return {path:"[演示] 未创建文件"};
     case "restore": return {recoveryPath:"[演示] 未替换本地数据"};
     case "preview_paper": {
       const q=r.request;let candidates=filtered({bank_ids:q.bank_ids,search:q.search,mode:q.mode,filter:q.filter},empty);

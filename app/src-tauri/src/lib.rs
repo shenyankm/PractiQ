@@ -9,7 +9,9 @@ mod credentials;
 mod exams;
 mod filesystem;
 mod import_diagnostics;
+mod import_duplicates;
 mod language;
+mod learning;
 mod model_grading;
 mod paper;
 #[cfg(test)]
@@ -63,6 +65,27 @@ enum Request {
         ticket: String,
         bank_id: Option<String>,
         title: String,
+        #[serde(default)]
+        skip_duplicates: bool,
+        duplicate_check: Option<String>,
+    },
+    ImportDuplicates {
+        ticket: String,
+        bank_id: String,
+    },
+    LearningOverview {
+        days: u8,
+        today_start: i64,
+        since: i64,
+    },
+    BackupStatus,
+    QuestionNote {
+        id: String,
+    },
+    SaveQuestionNote {
+        id: String,
+        body: String,
+        cause: Option<learning::MistakeCause>,
     },
     Banks,
     BanksPage {
@@ -333,7 +356,12 @@ async fn request(
             Request::AddExampleBank=>store.add_example_bank(),
             Request::PickImport=>store.preview_bank_zip(selected.as_ref().ok_or(language::error("LOCAL_FILE_NOT_SELECTED",json!({})))?.as_path()),
             Request::ExportBank{bank_id}=>store.export_bank(&bank_id,selected.as_ref().ok_or(language::error("LOCAL_SAVE_LOCATION_MISSING",json!({})))?.as_path()),
-            Request::Import{ticket,bank_id,title}=>store.import(&ticket,bank_id,&title),
+            Request::Import{ticket,bank_id,title,skip_duplicates,duplicate_check}=>store.import_checked(&ticket,bank_id,&title,skip_duplicates,duplicate_check.as_deref()),
+            Request::ImportDuplicates{ticket,bank_id}=>store.import_duplicates(&ticket,&bank_id),
+            Request::LearningOverview{days,today_start,since}=>store.learning_overview(days,today_start,since),
+            Request::BackupStatus=>store.backup_status(),
+            Request::QuestionNote{id}=>store.question_note(&id),
+            Request::SaveQuestionNote{id,body,cause}=>store.save_question_note(&id,body,cause),
             Request::Banks=>store.banks(),
             Request::BanksPage{limit,offset}=>store.banks_page(limit,offset),
             Request::SaveBank{id,title,description}=>store.save_bank(id,&title,&description),
@@ -363,7 +391,7 @@ async fn request(
             Request::SaveDraft{id,ordinal,answer,elapsed_ms}=>store.save_draft((&id,ordinal),answer,elapsed_ms),
             Request::SelfAssess{id,ordinal,result,snapshot_key}=>store.self_assess_with_key(&id,ordinal,result,snapshot_key.as_deref()),
             Request::Position{id,position,snapshot_key}=>store.position(&id,position,snapshot_key.as_deref()),
-            Request::Backup=>store.backup(selected.as_ref().ok_or(language::error("LOCAL_SAVE_LOCATION_MISSING", json!({})))?.as_path()),
+            Request::Backup=>store.export_backup(selected.as_ref().ok_or(language::error("LOCAL_SAVE_LOCATION_MISSING", json!({})))?.as_path()),
             Request::Restore{recover_assets}=>{
                 let path=selected.as_ref().ok_or(language::error("LOCAL_BACKUP_NOT_SELECTED", json!({})))?.as_path();
                 if recover_assets {store.restore_recovering(path)} else {store.restore(path)}

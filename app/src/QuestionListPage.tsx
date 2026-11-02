@@ -125,7 +125,7 @@ export function QuestionListPage({ state, page, compact, busy, run, onOpen, onEd
         </div>
         {hasQuestionFilters && <Button variant="outline" disabled={busy} onClick={() => { setSearch(""); setMode(""); setOffset(0); state.refresh(); document.getElementById("question-search")?.focus(); }}>{t("清除筛选")}</Button>}
       </div>
-      {page === "wrong" && questions.length > 0 && <p className="text-sm text-muted-foreground">{t("错误和未得满分的题目会出现在这里，再次答对或得满分后自动移出；未评分不算错题。")}</p>}
+      {page === "wrong" && questions.length > 0 && <p className="text-sm text-muted-foreground">{t("收录答错或未得满分的题目；答对或得满分后移出，未评分不计入。")}</p>}
       {loading ? loadingView : questionError != null ? (
         <div role="alert" className="space-y-3 rounded-xl border p-4">
           <p className="font-medium">{t("加载题目失败")}</p>
@@ -226,7 +226,7 @@ export function QuestionListPage({ state, page, compact, busy, run, onOpen, onEd
             <EmptyHeader>
               <EmptyMedia>{page === "favorite" ? <Star /> : <BookOpen />}</EmptyMedia>
               <EmptyTitle>{hasQuestionFilters ? t("没有符合筛选的题目") : page === "wrong" ? t("暂时没有错题") : page === "favorite" ? t("还没有收藏题目") : t("没有找到题目")}</EmptyTitle>
-              <EmptyDescription>{hasQuestionFilters ? t("清除筛选以查看当前列表中的全部题目。") : page === "wrong" ? t("错误和未得满分的题目会出现在这里，再次答对或得满分后自动移出；未评分不算错题。") : page === "favorite" ? t("浏览题库时点击题目旁的星标，即可在这里集中复习。") : t("尝试调整筛选，或导入新的题目。")}</EmptyDescription>
+              <EmptyDescription>{hasQuestionFilters ? t("清除筛选以查看当前列表中的全部题目。") : page === "wrong" ? t("收录答错或未得满分的题目；答对或得满分后移出，未评分不计入。") : page === "favorite" ? t("点击题目旁的星标，加入收藏。") : t("尝试调整筛选，或导入新的题目。")}</EmptyDescription>
             </EmptyHeader>
             {page === "favorite" && !hasQuestionFilters && <EmptyContent><Button variant="outline" onClick={onBrowse}>{t("浏览题库")}</Button></EmptyContent>}
           </Empty>

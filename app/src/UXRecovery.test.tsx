@@ -47,6 +47,8 @@ function setup() {
       case "session": return session as never;
       case "position": session = { ...session, position: request.position }; return session as never;
       case "manual_score": return session as never;
+      case "backup_status": return {lastBackupAt:null,newAttempts:0,changedNotes:0,due:false} as never;
+      case "import_duplicates": return {groups:[],check:"test-comparison"} as never;
       case "settings": return { config: { service_url: null }, hasServiceToken: false } as never;
       case "save_settings": return { config: request.config, hasServiceToken: false } as never;
       default: throw new Error(`Unexpected request: ${request.type}`);

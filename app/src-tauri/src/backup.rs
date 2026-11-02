@@ -38,6 +38,7 @@ impl Store {
         if destination.starts_with(self.dir.join("assets"))
             || destination == self.db_path()
             || destination == self.service_settings_path()
+            || destination == self.learning_path()
         {
             return Err(crate::language::error(
                 "LOCAL_BACKUP_OVERWRITE",
@@ -64,6 +65,10 @@ impl Store {
             manifest["serviceSettings"] =
                 serde_json::to_value(crate::settings::ServiceSettingsBackup { version: 1, config })
                     .map_err(err)?;
+        }
+        let learning = self.learning_backup(&db)?;
+        if !learning.notes.is_empty() {
+            manifest["learningData"] = serde_json::to_value(learning).map_err(err)?;
         }
         let manifest = serde_json::to_vec(&manifest).map_err(err)?;
         if manifest.len() > MANIFEST_LIMIT {
@@ -251,6 +256,7 @@ impl Store {
             asset["actualSizeBytes"] = json!(bytes.len());
         }
         let mut inventory = json!({"format":"practiq-recovery","version":1,"schemaVersion":11,"database":{"file":"practiq.sqlite","sha256":database_hash,"sizeBytes":database_size},"assets":assets});
+        inventory["learningData"] = serde_json::to_value(self.learning_data()?).map_err(err)?;
         if let Some(config) = self.service_settings_override()? {
             inventory["serviceSettings"] =
                 serde_json::to_value(crate::settings::ServiceSettingsBackup { version: 1, config })
@@ -315,6 +321,16 @@ impl Store {
                     .validate()
             })
             .transpose()?;
+        let mut learning = manifest
+            .get("learningData")
+            .map(|value| -> Result<_> {
+                serde_json::from_value::<crate::learning::LearningData>(value.clone())
+                    .map_err(err)?
+                    .validate()
+            })
+            .transpose()?
+            .unwrap_or_default();
+        learning.last_backup_at = None;
         let assets = manifest["assets"].as_array().ok_or(crate::language::error(
             "LOCAL_IMAGE_MANIFEST_MISSING",
             serde_json::json!({}),
@@ -428,6 +444,18 @@ impl Store {
         // Open only the validated staging database, never the live database.
         let db = staged.connect()?;
         validate_database_contents(&db)?;
+        for id in learning.notes.keys() {
+            let exists: bool = db
+                .query_row(
+                    "SELECT EXISTS(SELECT 1 FROM questions WHERE id=?1)",
+                    [id],
+                    |r| r.get(0),
+                )
+                .map_err(err)?;
+            if !exists {
+                return Err("Backup note refers to an unknown question".into());
+            }
+        }
         let rows = db
             .prepare("SELECT hash,media,size,path FROM assets")
             .map_err(err)?
@@ -521,7 +549,14 @@ impl Store {
                 .backup(rusqlite::MAIN_DB, &previous, None)
                 .map_err(err)?;
             // Replace only after all resources validate. Keep a rollback generation until fsync succeeds.
-            self.prepare_service_settings_restore(service_settings, file_digest(&candidate)?.1)?;
+            self.prepare_settings_and_learning_restore(
+                service_settings,
+                file_digest(&candidate)?.1,
+                Some(crate::learning::LearningRestore {
+                    previous: self.learning_data()?,
+                    next: learning,
+                }),
+            )?;
             #[cfg(test)]
             fault_tests::checkpoint("before-publish");
             if let Err(error) = crate::filesystem::replace(&candidate, &self.db_path()) {

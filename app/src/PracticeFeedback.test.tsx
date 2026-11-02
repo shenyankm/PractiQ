@@ -150,8 +150,7 @@ it("shows finished review copy, readable answers and a visible state legend with
   const initial = practice();
   initial.attempts.push({...initial.attempts[0], ordinal:1, answer:null, skipped:true});
   render(<Study initial={initial}/>);
-  expect(screen.getByText("本次作答已结束，正在回顾作答与解析。")).toBeTruthy();
-  expect(screen.getByText("本次共 2 题，作答已锁定；可切换题目回顾。")).toBeTruthy();
+  expect(screen.getByText("作答已结束，答案已锁定。")).toBeTruthy();
   expect(screen.queryByText(/草稿自动保存/)).toBeNull();
   expect(screen.queryByRole("textbox")).toBeNull();
   expect(within(screen.getByRole("region", {name:"我的答案"})).getByText("My answer")).toBeTruthy();
