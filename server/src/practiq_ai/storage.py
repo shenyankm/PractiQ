@@ -6,7 +6,9 @@ import os
 import re
 import shutil
 import tempfile
+import threading
 import time
+from collections.abc import AsyncIterator
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from functools import lru_cache
@@ -27,6 +29,7 @@ from .contracts import (
     document_source_limit,
 )
 from .errors import DocumentProcessingError
+from .extractors.isolated import _thread_io
 
 SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 ARTIFACT_KEY_PATTERN = re.compile(
@@ -75,6 +78,8 @@ class ObjectStore:
         self._health_checked_at = 0.0
         self._health_lock = asyncio.Lock()
         self._root_identity: tuple[int, int] | None = None
+        self._directory_lock = threading.Lock()
+        self._synced_directories: dict[Path, tuple[tuple[int, int], ...]] = {}
 
     async def health(self) -> StorageHealth:
         async with self._health_lock:
@@ -170,6 +175,65 @@ class ObjectStore:
         await self.get_verified(prepared.document)
         return prepared.document
 
+    async def put_document_stream(self, chunks: AsyncIterator[bytes], request: DocumentUploadRequest) -> DocumentReference:
+        prepared = await self.prepare_document(request)
+        reference = prepared.document
+        path = self._path(reference.objectKey)
+        await self._call(lambda: path.parent.mkdir(parents=True, exist_ok=True))
+        async def io(function: Any, *args: Any) -> Any:
+            try:
+                async with asyncio.timeout(self._config.storage_timeout_seconds), self._slots:
+                    return await _thread_io(function, *args)
+            except TimeoutError as exc:
+                self._health_checked_at = 0
+                raise self._unavailable() from exc
+        name = None
+        try:
+            with tempfile.NamedTemporaryFile(dir=path.parent, delete=False) as target:
+                name = target.name
+                digest = hashlib.sha256()
+                size = 0
+                buffered = bytearray()
+                def write(chunk: bytes | bytearray) -> None:
+                    target.write(chunk)
+                    digest.update(chunk)
+                async for chunk in chunks:
+                    size += len(chunk)
+                    if size > reference.sizeBytes:
+                        raise DocumentProcessingError(413, "Uploaded file exceeds declared size", "DOCUMENT_TOO_LARGE")
+                    if buffered and len(buffered) + len(chunk) > 1024 * 1024:
+                        await io(write, buffered)
+                        buffered.clear()
+                    if len(chunk) >= 1024 * 1024:
+                        await io(write, chunk)
+                    else:
+                        buffered.extend(chunk)
+                if buffered:
+                    await io(write, buffered)
+                    buffered.clear()
+                if size != reference.sizeBytes or digest.hexdigest() != reference.sha256:
+                    raise DocumentProcessingError(409, "Source does not match metadata", "DOCUMENT_CHECKSUM_MISMATCH")
+                await io(target.flush)
+                if reference.sourceType in OFFICE_SOURCE_TYPES:
+                    def validate() -> None:
+                        with Path(name).open('rb') as source:
+                            self._validate_office(source.read(reference.sizeBytes + 1), reference.sourceType)
+                    await io(validate)
+                if prepared.upload is not None:
+                    await io(os.fsync, target.fileno())
+            if prepared.upload is not None:
+                await io(self._publish, name, path)
+            await self.get_verified(reference)
+            return reference
+        except TimeoutError:
+            raise
+        except OSError as exc:
+            self._health_checked_at = 0
+            raise self._unavailable() from exc
+        finally:
+            if name is not None:
+                Path(name).unlink(missing_ok=True)
+
     @staticmethod
     def _validate_office(payload: bytes, source_type: str) -> None:
         from .office import OfficeError, _validate_legacy, _validate_ooxml
@@ -257,29 +321,46 @@ class ObjectStore:
                 target.write(payload)
                 target.flush()
                 os.fsync(target.fileno())
-            if os.name == 'nt':
-                import ctypes
-                from ctypes import wintypes
-                move = ctypes.WinDLL('kernel32', use_last_error=True).MoveFileExW
-                move.argtypes = (wintypes.LPCWSTR, wintypes.LPCWSTR, wintypes.DWORD)
-                move.restype = wintypes.BOOL
-                # REPLACE_EXISTING | WRITE_THROUGH: Windows has no directory fsync.
-                if not move(name, str(path), 0x1 | 0x8):
-                    raise ctypes.WinError(ctypes.get_last_error())
-            else:
-                os.replace(name, path)
-                # Persist entries before checkpoints can reference this file.
-                for directory in path.parents:
-                    fd = os.open(directory, os.O_RDONLY | os.O_DIRECTORY)
-                    try:
-                        os.fsync(fd)
-                    finally:
-                        os.close(fd)
-                    if directory == self.root.parent:
-                        break
+            self._publish(name, path)
         finally:
             if name is not None:
                 Path(name).unlink(missing_ok=True)
+
+    def _publish(self, name: str, path: Path) -> None:
+        if os.name == 'nt':
+            import ctypes
+            from ctypes import wintypes
+            move = ctypes.WinDLL('kernel32', use_last_error=True).MoveFileExW
+            move.argtypes = (wintypes.LPCWSTR, wintypes.LPCWSTR, wintypes.DWORD)
+            move.restype = wintypes.BOOL
+            # REPLACE_EXISTING | WRITE_THROUGH: Windows has no directory fsync.
+            if not move(name, str(path), 0x1 | 0x8):
+                raise ctypes.WinError(ctypes.get_last_error())
+        else:
+            os.replace(name, path)
+            self._sync_directories(path)
+
+    def _sync_directories(self, path: Path) -> None:
+        # Ancestors need one successful sync per directory generation; every new entry syncs its parent.
+        with self._directory_lock:
+            directories = []
+            for directory in path.parents:
+                directories.append(directory)
+                if directory == self.root.parent:
+                    break
+            identity = tuple((info.st_dev, info.st_ino) for info in (directory.stat() for directory in directories))
+            changed = self._synced_directories.get(path.parent) != identity
+            for directory in directories if changed else directories[:1]:
+                fd = os.open(directory, os.O_RDONLY | os.O_DIRECTORY)
+                try:
+                    os.fsync(fd)
+                finally:
+                    os.close(fd)
+            if changed:
+                self._synced_directories.pop(path.parent, None)
+                self._synced_directories[path.parent] = identity
+                if len(self._synced_directories) > 256:
+                    del self._synced_directories[next(iter(self._synced_directories))]
 
     def _read(self, key: str, size: int) -> bytes:
         with self._path(key).open("rb") as source:

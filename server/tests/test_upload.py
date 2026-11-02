@@ -138,19 +138,28 @@ async def test_upload_hash_runs_off_event_loop_while_health_remains_responsive(t
     hash_threads = []
     sha256 = hashlib.sha256
 
-    def gated_hash(data):
-        thread = threading.get_ident()
-        hash_threads.append(thread)
-        loop.call_soon_threadsafe(hash_started.set)
-        # Fail on thread affinity rather than deadlocking if hashing regresses.
-        if thread != event_loop_thread:
-            assert release_hash.wait(10)
-        return sha256(data)
+    class GatedHash:
+        def __init__(self, data=b''):
+            self.digest = sha256()
+            if data:
+                self.update(data)
+
+        def update(self, data):
+            thread = threading.get_ident()
+            hash_threads.append(thread)
+            loop.call_soon_threadsafe(hash_started.set)
+            # Fail on thread affinity rather than deadlocking if hashing regresses.
+            if thread != event_loop_thread:
+                assert release_hash.wait(10)
+            self.digest.update(data)
+
+        def hexdigest(self):
+            return self.digest.hexdigest()
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url='http://test',
                            headers={'Authorization': 'Bearer test-token'}) as client:
         prepared = await client.post('/api/uploads', json=metadata.model_dump())
-        monkeypatch.setattr(storage.hashlib, 'sha256', gated_hash)
+        monkeypatch.setattr(storage.hashlib, 'sha256', GatedHash)
         pending = asyncio.create_task(client.put(prepared.json()['upload']['url'], content=payload))
         try:
             async with asyncio.timeout(10):
