@@ -336,18 +336,11 @@ async def upload_content(request: Request, metadata: Annotated[DocumentUploadReq
     try:
         store = await asyncio.to_thread(get_object_store)
         await store.require_available()
-        await store.prepare_document(metadata)
-        assert metadata.sizeBytes is not None
-        payload = bytearray()
         try:
             async with asyncio.timeout(load().upload_timeout_seconds):
-                async for chunk in request.stream():
-                    if len(payload) + len(chunk) > metadata.sizeBytes:
-                        raise DocumentProcessingError(413, "Uploaded file exceeds declared size", "DOCUMENT_TOO_LARGE")
-                    payload.extend(chunk)
+                return await store.put_document_stream(request.stream(), metadata)
         except TimeoutError as exc:
             raise DocumentProcessingError(408, "Upload reception timed out", "UPLOAD_TIMEOUT") from exc
-        return await store.put_document(bytes(payload), metadata)
     except DatabaseError as exc:
         raise HTTPException(503, {"code": "TASK_SERVICE_UNAVAILABLE", "message": "Task database is unavailable"}) from exc
     except DocumentProcessingError as exc:

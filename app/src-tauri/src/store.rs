@@ -14,6 +14,11 @@ use std::{
 };
 use uuid::Uuid;
 
+#[cfg(test)]
+thread_local! {
+    pub(crate) static OPENS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
 pub fn id() -> String {
     Uuid::new_v4().to_string()
 }
@@ -370,6 +375,8 @@ impl Store {
         if self.service_settings_recovery_required.get() {
             return Err("Database restoration requires recovery; restart before continuing".into());
         }
+        #[cfg(test)]
+        OPENS.with(|opens| opens.set(opens.get() + 1));
         let mut db = Connection::open(self.db_path()).map_err(err)?;
         db.busy_timeout(std::time::Duration::from_secs(5))
             .map_err(err)?;

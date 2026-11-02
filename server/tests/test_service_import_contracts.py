@@ -31,20 +31,25 @@ def office_reference(kind='docx'):
 
 
 @pytest.mark.parametrize('kind', OFFICE)
-async def test_office_upload_verifies_original_bytes_and_family_before_publishing(tmp_path, kind):
+@pytest.mark.parametrize('streamed', [False, True])
+async def test_office_upload_verifies_original_bytes_and_family_before_publishing(tmp_path, kind, streamed):
     stem = '中文 试卷' if kind in {'doc', 'docx'} else '中文 表格'
     fixture = Path(__file__).parents[2] / f'app/fixtures/office/{stem}.{kind}'
     payload = fixture.read_bytes()
     request = DocumentUploadRequest.model_validate({'sourceType': kind, 'fileName': fixture.name,
         'mediaType': OFFICE[kind], 'sizeBytes': len(payload), 'sha256': hashlib.sha256(payload).hexdigest()})
     store = object_store(tmp_path)
-    reference = await store.put_document(payload, request)
+    async def put(data, metadata):
+        async def chunks():
+            yield data
+        return await store.put_document_stream(chunks(), metadata) if streamed else await store.put_document(data, metadata)
+    reference = await put(payload, request)
     assert reference.objectKey.endswith(f'/source.{kind}')
     assert await store.get_verified(reference) == payload
     bad = b'not an Office container'
     invalid = request.model_copy(update={'sizeBytes': len(bad), 'sha256': hashlib.sha256(bad).hexdigest()})
     with pytest.raises(DocumentProcessingError) as error:
-        await store.put_document(bad, invalid)
+        await put(bad, invalid)
     assert error.value.code == 'OFFICE_INPUT_INVALID'
     assert not (tmp_path / f'practiq-agent/sources/{invalid.sha256}/source.{kind}').exists()
 

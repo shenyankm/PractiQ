@@ -57,6 +57,28 @@ fn start(store: &Store, rows: &[Value], kind: &str) -> Value {
 }
 
 #[test]
+fn session_updates_reuse_their_connection_for_the_compact_response() {
+    let (_dir, store, rows) = setup();
+    let session = start(&store, &rows, "self_test");
+    let sid = text(&session, "id");
+    crate::store::OPENS.with(|opens| opens.set(0));
+    let flagged = store.flag_with_key(sid, 0, true, None).unwrap();
+    assert_eq!(crate::store::OPENS.with(|opens| opens.get()), 1);
+    assert_eq!(flagged["attempts"][0]["flagged"], true);
+    store.submit_paper_data(sid, true).unwrap();
+    crate::store::OPENS.with(|opens| opens.set(0));
+    let scored = store
+        .manual_score_with_key(sid, 0, 50, "Reviewed reference", None)
+        .unwrap();
+    assert_eq!(crate::store::OPENS.with(|opens| opens.get()), 1);
+    assert_eq!(scored["attempts"][0]["earnedCents"], 50);
+    crate::store::OPENS.with(|opens| opens.set(0));
+    let finished = store.complete_review_data(sid).unwrap();
+    assert_eq!(crate::store::OPENS.with(|opens| opens.get()), 1);
+    assert!(!finished["finishedAt"].is_null());
+}
+
+#[test]
 fn structured_items_import_review_and_legacy_fallback_persist_without_regrading() {
     let cases: Vec<Value> =
         serde_json::from_str(include_str!("../../fixtures/structured-items.json")).unwrap();

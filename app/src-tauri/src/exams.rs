@@ -279,7 +279,7 @@ impl Store {
         let db = self.connect()?;
         self.session_now_with(&db)?;
         db.execute("UPDATE sessions SET finished_at=COALESCE(finished_at,?2),last_active_at=?2 WHERE id=?1 AND submitted_at IS NOT NULL",params![sid,self.session_clock.now()?]).map_err(err)?;
-        self.session_data(sid, None)
+        self.session_with(&db, sid, None, true)
     }
     #[cfg(test)]
     pub fn flag(&self, sid: &str, ordinal: usize, value: bool) -> Result<Value> {
@@ -293,9 +293,10 @@ impl Store {
         value: bool,
         snapshot_key: Option<&str>,
     ) -> Result<Value> {
-        self.expire_exam(sid)?;
-        self.connect()?.execute("UPDATE attempts SET flagged=?3 WHERE session_id=?1 AND ordinal=?2 AND EXISTS(SELECT 1 FROM sessions WHERE id=?1 AND submitted_at IS NULL AND finished_at IS NULL)",params![sid,ordinal,value]).map_err(err)?;
-        self.session_data(sid, snapshot_key)
+        let db = self.connect()?;
+        self.expire_exam_with(&db, sid)?;
+        db.execute("UPDATE attempts SET flagged=?3 WHERE session_id=?1 AND ordinal=?2 AND EXISTS(SELECT 1 FROM sessions WHERE id=?1 AND submitted_at IS NULL AND finished_at IS NULL)",params![sid,ordinal,value]).map_err(err)?;
+        self.session_with(&db, sid, snapshot_key, true)
     }
     #[cfg(test)]
     pub fn manual_score(
@@ -336,7 +337,7 @@ impl Store {
             params![sid, self.session_clock.now()?],
         )
         .map_err(err)?;
-        self.session_data(sid, snapshot_key)
+        self.session_with(&db, sid, snapshot_key, true)
     }
     pub fn enrich_session(s: &mut Value) -> Result<()> {
         let locked = text(s, "kind") != "practice" && s["submittedAt"].is_null();

@@ -2067,6 +2067,9 @@ def _guarded(function: Callable[..., Awaitable[dict[str, Any]]], *, with_runtime
                                     source_sha256 = state.get("sourceSha256") or state["execution"]["document"]["sha256"]
                                     reference = await store.put_artifact(payload, source_sha256=source_sha256, kind="unit-result", index=item["index"], media_type="application/json")
                                     item["resultRef"] = reference.model_dump(mode="json")
+                                    # Keep only the public reference projection beside the durable unit receipt.
+                                    item["publicRefs"] = [visual[field] for visual in item.get("visuals", [])
+                                                          for field in ("imageRef", "sourceRef") if visual.get(field)]
                                     item["parsed"] = {"questionCount":len(item["parsed"].get("questions", []))}
                                     item["visuals"] = []
             except TimeoutError as exc:

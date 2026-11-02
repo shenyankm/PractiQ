@@ -30,7 +30,7 @@ ROOT = Path(__file__).resolve().parents[2]
 def baseline_function(ref, module, name):
     path = Path(module.__file__).relative_to(ROOT).as_posix()
     source = subprocess.check_output(['git', 'show', f'{ref}:{path}'], cwd=ROOT, text=True)
-    node = next(node for node in ast.parse(source).body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == name)
+    node = next(node for node in ast.parse(source).body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) and node.name == name)
     node.decorator_list = []
     namespace = dict(vars(module))
     exec(compile(ast.Module(body=[node], type_ignores=[]), path, 'exec'), namespace)  # noqa: S102 - explicitly selected local Git baseline

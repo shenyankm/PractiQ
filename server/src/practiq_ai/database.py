@@ -8,6 +8,7 @@ from typing import Any, LiteralString
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.store.postgres.aio import AsyncPostgresStore
 from psycopg import AsyncConnection
+from psycopg.pq import TransactionStatus
 from psycopg.rows import dict_row
 
 from .config import database_uri
@@ -89,6 +90,9 @@ class Database:
         self.read_lock = asyncio.Lock()
         self.connections: list[AsyncConnection[dict[str, Any]]] = []
         self.reader: AsyncConnection[dict[str, Any]] | None = None
+        self._connection_slots = asyncio.Semaphore(4)
+        self._idle_connections: list[AsyncConnection[dict[str, Any]]] = []
+        self._pool_open = False
         self.checkpointer: AsyncPostgresSaver
         self.store: AsyncPostgresStore
 
@@ -107,11 +111,13 @@ class Database:
             self.checkpointer = AsyncPostgresSaver(self.connections[0])
             self.store = AsyncPostgresStore(self.connections[1])
             self.reader = await self.connect()
+            self._pool_open = True
         except BaseException:
             await self.close()
             raise
 
     async def close(self):
+        self._pool_open = False
         # Upstream Store has no close API; reap its batch worker before closing the connection.
         store = getattr(self, 'store', None)
         if store is not None and store._task is not None:
@@ -122,11 +128,29 @@ class Database:
             self.reader = None
         while self.connections:
             await self.connections.pop().close()
+        while self._idle_connections:
+            await self._idle_connections.pop().close()
 
     @asynccontextmanager
     async def connection(self):
-        async with await self.connect() as conn:
-            yield conn
+        if not self._pool_open:
+            async with await self.connect() as conn:
+                yield conn
+            return
+        async with self._connection_slots:
+            conn = self._idle_connections.pop() if self._idle_connections else await self.connect()
+            try:
+                yield conn
+                await conn.commit()
+            except BaseException:
+                # Cancelled transaction entry can leave driver state active even when PostgreSQL is idle.
+                await conn.close()
+                raise
+            finally:
+                if self._pool_open and not conn.closed and conn.info.transaction_status == TransactionStatus.IDLE:
+                    self._idle_connections.append(conn)
+                else:
+                    await conn.close()
 
     async def rows(self, query: LiteralString, params: Any = ()) -> list[dict[str, Any]]:
         if self.reader is not None:

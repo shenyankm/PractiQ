@@ -50,6 +50,86 @@ fn library_with_images(path: &Path, count: u32) -> Store {
 }
 
 #[test]
+fn repair_reads_staged_resources_again_only_when_replacing_live_bytes() {
+    for damaged in [0, 1, 3] {
+        let dir = tempfile::tempdir().unwrap();
+        let source = library_with_images(&dir.path().join("source"), 3);
+        let archive = dir.path().join("incoming.zip");
+        source.backup(&archive).unwrap();
+        let mut target = library_with_images(&dir.path().join("target"), 3);
+        let db = target.connect().unwrap();
+        let hashes = db
+            .prepare("SELECT hash FROM assets ORDER BY hash")
+            .unwrap()
+            .query_map([], |row| row.get::<_, String>(0))
+            .unwrap()
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .unwrap();
+        drop(db);
+        for digest in hashes.iter().take(damaged) {
+            fs::write(target.asset_path(digest).unwrap(), b"damaged").unwrap();
+        }
+        crate::assets::READS.with(|reads| reads.set(0));
+        target.restore_recovering(&archive).unwrap();
+        assert_eq!(crate::assets::READS.with(|reads| reads.get()), 6 + damaged);
+        let reopened = Store::new(target.dir.clone()).unwrap();
+        reopened.backup(&dir.path().join("roundtrip.zip")).unwrap();
+    }
+}
+
+#[test]
+#[ignore = "release repair I/O benchmark; only temporary databases and synthetic pixels"]
+fn repair_asset_io_stress() {
+    let mut workloads = Vec::new();
+    for count in [20, 200] {
+        let dir = tempfile::tempdir().unwrap();
+        let source = library_with_images(&dir.path().join("source"), count);
+        let archive = dir.path().join("incoming.zip");
+        source.backup(&archive).unwrap();
+        let mut samples = Vec::new();
+        let mut reads = Vec::new();
+        for iteration in 0..4 {
+            let mut target =
+                library_with_images(&dir.path().join(format!("target-{iteration}")), count);
+            let digest: String = target
+                .connect()
+                .unwrap()
+                .query_row("SELECT hash FROM assets ORDER BY hash LIMIT 1", [], |row| {
+                    row.get(0)
+                })
+                .unwrap();
+            fs::write(target.asset_path(&digest).unwrap(), b"damaged").unwrap();
+            crate::assets::READS.with(|reads| reads.set(0));
+            let started = std::time::Instant::now();
+            target.restore_recovering(&archive).unwrap();
+            let elapsed = started.elapsed().as_secs_f64() * 1000.0;
+            let observed = crate::assets::READS.with(|reads| reads.get());
+            let reopened = Store::new(target.dir.clone()).unwrap();
+            assert_eq!(reopened.banks().unwrap(), source.banks().unwrap());
+            let output = dir.path().join(format!("roundtrip-{iteration}.zip"));
+            reopened.backup(&output).unwrap();
+            let mut zip = ZipArchive::new(fs::File::open(output).unwrap()).unwrap();
+            let manifest: Value =
+                serde_json::from_reader(zip.by_name("manifest.json").unwrap()).unwrap();
+            assert_eq!(manifest["assets"].as_array().unwrap().len(), count as usize);
+            if iteration > 0 {
+                samples.push(elapsed);
+                reads.push(observed);
+            }
+        }
+        workloads.push(
+            json!({"assets":count,"damaged":1,"samplesMs":samples,"verifiedAssetReads":reads}),
+        );
+    }
+    let report = json!({"scope":"Release Store::restore_recovering, one warmup and three measured samples. Includes validation, repair, durable recovery copy and database publication. Setup, reopen and roundtrip backup excluded. Warm OS caches, synthetic pixels, no UI/providers/power-loss measurement.","workloads":workloads});
+    fs::write(
+        std::env::var("PRACTIQ_BENCH_OUTPUT").unwrap(),
+        serde_json::to_vec_pretty(&report).unwrap(),
+    )
+    .unwrap();
+}
+
+#[test]
 fn restore_matches_assets_by_hash_and_rejects_inconsistent_manifests() {
     let dir = tempfile::tempdir().unwrap();
     let source = library_with_images(&dir.path().join("source"), 3);
