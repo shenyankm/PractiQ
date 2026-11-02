@@ -155,8 +155,16 @@ async def test_auth_failure_can_be_explicitly_retried_without_replaying_successe
     await task_api.control_task(created['threadId'], DocumentTaskControl(requestId=uuid4(), action='retry_failed', checkpointId=state['checkpointId']))
     await api.wait_idle()
     state = await task_api.get_task(created['threadId'])
-    assert state['state'] == 'COMPLETED' and len(model.calls) == 3
+    assert state['state'] == 'WAITING_REVIEW' and state['allowedActions'] == ['accept_partial']
+    assert state['failures'] == [] and len(model.calls) == 3
     assert [q['stem'] for q in state['result']['questions']] == ['First', 'Second']
+    assert state['processing']['quality']['reviewRequired']
+    await task_api.control_task(created['threadId'], DocumentTaskControl(requestId=uuid4(), action='accept_partial', checkpointId=state['checkpointId']))
+    await api.wait_idle()
+    accepted = await task_api.get_task(created['threadId'])
+    assert accepted['state'] == 'COMPLETED' and len(model.calls) == 3
+    assert accepted['result'] == state['result'] and accepted['processing'] == state['processing']
+    state = accepted
     assert len(state['unknownUsageCalls']) == 1
     listing = await task_api.list_tasks()
     assert listing['items'][0]['questionCount'] == 2
@@ -454,7 +462,7 @@ async def test_quality_only_review_acceptance_is_idempotent_and_not_retryable(mo
     state = await task_api.get_task(thread_id)
     assert state['state'] == 'WAITING_REVIEW'
     assert state['allowedActions'] == ['accept_partial'] and state['failures'] == []
-    assert state['blocking'][0]['qualityIssues'][0]['code'] == 'SOURCE_TEXT_NOT_FOUND'
+    assert {'SOURCE_TEXT_NOT_FOUND', 'MISSING_FIELDS'} <= {issue['code'] for issue in state['blocking'][0]['qualityIssues']}
     monkeypatch.setenv('AI_SERVICE_TOKEN', 'test-token')
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='http://test') as http:
         assert (await http.get(f'/api/document-tasks/{thread_id}/preview')).status_code == 401

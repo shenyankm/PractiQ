@@ -386,8 +386,12 @@ def test_page_result_retains_structured_questions_and_figures():
     })
     assert parsed.questions[0].stem == "Visible question"
     assert parsed.figures[0].bbox == [0.1, 0.1, 0.6, 0.6]
+    unlocated = document.PageParseResult.model_validate({"figures": [{"kind": "image", "description": "Native workbook image", "bbox": None}]})
+    assert unlocated.figures[0].bbox is None
+    with pytest.raises(ValueError, match="bbox"):
+        document.PageParseResult.model_validate({"figures": [{"kind": "image", "description": "Missing coordinate field"}]})
     for bbox in ([0, 0, 2, 1], [0, 0, 0, 1], [0, 0, 1, 0],
-                 [float("nan"), 0, 1, 1], [0, 0, float("inf"), 1], None):
+                 [float("nan"), 0, 1, 1], [0, 0, float("inf"), 1]):
         with pytest.raises(ValueError, match="bbox"):
             document.PageParseResult.model_validate({"figures": [{"kind": "chart", "description": "bad", "bbox": bbox}]})
 

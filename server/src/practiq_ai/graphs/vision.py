@@ -53,11 +53,11 @@ class PageFigure(BaseModel):
     extractedText: str | None = Field(default=None, max_length=100_000, description="For tables: complete GFM Markdown table including headers and every cell; for merged/multilevel cells use faithful readable text without inventing a flattened table. For other figures: visible text or null.")
     label: VisualLabel | None = None
     description: VisualDescription
-    bbox: list[float] = Field(min_length=4, max_length=4, description="[x0, y0, x1, y1] relative to the full page, normalized to [0, 1], from top-left to bottom-right with positive area.")
+    bbox: list[float] | None = Field(min_length=4, max_length=4, description="Fixed Tencent bounds, or null for linked native-workbook images without page coordinates. Never invent coordinates.")
 
     @field_validator("bbox")
     @classmethod
-    def validate_bbox(cls, bbox: list[float]) -> list[float]:
+    def validate_bbox(cls, bbox: list[float] | None) -> list[float] | None:
         VisualContent.validate_bbox(bbox)
         return bbox
 

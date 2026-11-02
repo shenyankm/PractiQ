@@ -214,7 +214,9 @@ def decode_bundle(payload: bytes | zipfile.ZipFile, config: Config, *, page_coun
                     text_size += len(json.dumps(element, ensure_ascii=False))
                     if text_size > config.max_total_input_chars:
                         raise ValueError("Native table evidence exceeds the shared document limit")
-                    pages[page] = {"page": page, "format": "table", "elements": [element], "figures": []}
+                    figures = [{'elementIndex': identifier, 'kind': 'image', 'bbox': None, 'imageMember': member}
+                               for (number, identifier), member in image_members.items() if number == page]
+                    pages[page] = {"page": page, "format": "table", "elements": [element], "figures": figures}
                     continue
                 width, height, elements = value["width"], value["height"], value["elements"]
                 if (type(width) is not int or type(height) is not int or width <= 0 or height <= 0
