@@ -1,5 +1,40 @@
 # Service I/O work bounds
 
+## Uploads, publication and connection reuse (November 2)
+
+Binary uploads hash and write incoming chunks through a buffer capped at 1 MiB;
+larger incoming chunks are written directly. Storage slots and deadlines apply,
+and cancellation drains active file operations before closing or removing the
+temporary file. Size/hash and Office-family validation precede atomic publication;
+the published file is still read back and verified. Office validation and final
+read-back may each hold a complete bounded source in memory. Uploads do not create
+tasks or start models.
+
+Each file still syncs before rename and its direct parent syncs afterward. A
+bounded per-store directory map avoids repeating ancestor syncs only after that
+entire directory chain has synced successfully. Every write compares device/inode
+identities for the whole chain. Replacement, restart, eviction or an incomplete
+first sync requires a full chain sync. A lock serializes the durability decision
+across concurrent publishers; no persistent cache or relaxed durability setting
+is introduced.
+
+New successful unit summaries retain `publicRefs`, projected only from visual
+`imageRef`/`sourceRef` fields after the unit artifact is durably saved. Partial
+result image authorization checks those references without opening unit files.
+Historical summaries retain the ordered, early-exit reader described below.
+Current task membership, expiry, all four reference fields and requested-file
+verification remain required. Merged results still supersede unit references.
+
+Short PostgreSQL operations reuse at most four connections without a new
+dependency. Only normally completed borrowers return idle connections; any
+exception or cancellation closes the session and rolls back unfinished work.
+Failed work is never automatically replayed. The
+existing dedicated sessions and ownership locks are unchanged.
+
+See the [paired acceptance report](../../docs/history/performance/io-20261102.md)
+for raw measurements, the initial upload regression, native work counts and limits.
+Parser-source changes require the existing resume compatibility deployment rules.
+
 ## OCR context and validated projections (October 30 follow-up)
 
 `_vision` checks whether PRIMARY has questions with stable IDs before opening

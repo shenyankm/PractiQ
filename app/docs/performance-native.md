@@ -426,6 +426,24 @@ index, clone removal and temporary-file synchronization changes from one another
 Large media files can shift the cost toward decoding and hashing. No physical
 power-loss, GUI, installer, allocator/RSS or live-provider measurement is included.
 
+## Repair reads and operation-local connections (November 2)
+
+Repair restore still validates every staged resource before publication and
+durably preserves the previous state. During publication it verifies each live
+resource first and rereads the staged file only for missing or damaged resources.
+For N resources and D replacements, verified asset reads fall from 3N to 2N+D.
+Ordinary restore and the archive/database formats are unchanged.
+
+Flagging, manual scoring and review completion reuse their operation's existing
+SQLite connection when assembling the compact response. A normal flag operation
+opens one connection instead of three; manual scoring and review completion open
+one instead of two. Expired-exam submission retains its existing recovery path.
+There is no persistent connection or change to database-replacement recovery.
+
+The [November 2 acceptance](../../docs/history/performance/io-20261102.md)
+retains release repair samples and deterministic read/open-count regressions.
+Tiny-image repair samples do not establish a stable wall-clock improvement.
+
 ## Limits
 
 No allocator/RSS measurement, Windows/Android device measurement, real-user workload or full application verification is included here. Shared-host timing varies; use the work-count/allocation regressions and equivalence assertions as the stable evidence. Combined application/service verification and independent review remain separate gates.

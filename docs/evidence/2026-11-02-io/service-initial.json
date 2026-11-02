@@ -1,0 +1,177 @@
+{
+  "baseline": "55d742a0f59e6fca6e4058d9030ad57aacfb3418",
+  "python": "3.14.7",
+  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "scope": "Three alternating before/after pairs on temporary local files and disposable PostgreSQL. Artifact samples include real fsync with call-count instrumentation; authorization measures only the membership check using real verified unit files. Upload calls the route with generated chunks, preserves read-back verification and includes one separate tracemalloc run. No OS cache flush, warmup exclusion, user data, providers, TCP upload, UI, whole-process RSS or power-loss measurement.",
+  "probeSha256": "8733a07a3d1c8f67c0d57e1020c2c0223e7dbe5e95ec2fe1e027170ca6c256e1",
+  "sourceSha256": {
+    "server/src/practiq_ai/storage.py": "2b5303ec17c06a0318a817e58305054d2ae0cd25faaa3a47a83185ec5b613718",
+    "server/src/practiq_ai/task_api.py": "f510eabeb4ef2c7a5f9eaf1dedf838201bb52e63d5176dbda03971f74063cce0",
+    "server/src/practiq_ai/webapp.py": "2d5ecc218b3e4078cbc8c17b5712f79f4637fa0f959a21d7a68ddbd8d342d341",
+    "server/src/practiq_ai/database.py": "94a724bb74800018753e3b2435072db8941f22ec5d8510c25a0496f5d7b34ceb"
+  },
+  "artifacts": {
+    "artifacts": 100,
+    "before": {
+      "samples": [
+        {
+          "ms": 57.49999999534339,
+          "fsync": {
+            "file": 100,
+            "directory": 600
+          }
+        },
+        {
+          "ms": 56.70866707805544,
+          "fsync": {
+            "file": 100,
+            "directory": 600
+          }
+        },
+        {
+          "ms": 49.359750002622604,
+          "fsync": {
+            "file": 100,
+            "directory": 600
+          }
+        }
+      ],
+      "medianMs": 56.70866707805544
+    },
+    "after": {
+      "samples": [
+        {
+          "ms": 94.72720802295953,
+          "fsync": {
+            "file": 100,
+            "directory": 105
+          }
+        },
+        {
+          "ms": 46.352250035852194,
+          "fsync": {
+            "file": 100,
+            "directory": 105
+          }
+        },
+        {
+          "ms": 42.48616599943489,
+          "fsync": {
+            "file": 100,
+            "directory": 105
+          }
+        }
+      ],
+      "medianMs": 46.352250035852194
+    }
+  },
+  "authorization": {
+    "units": 100,
+    "distinctImageAuthorizations": 100,
+    "before": {
+      "samples": [
+        {
+          "ms": 2519.194999942556,
+          "unitFileReads": 5050
+        },
+        {
+          "ms": 2452.8787080198526,
+          "unitFileReads": 5050
+        },
+        {
+          "ms": 2271.1553749395534,
+          "unitFileReads": 5050
+        }
+      ],
+      "medianMs": 2452.8787080198526
+    },
+    "after": {
+      "samples": [
+        {
+          "ms": 2.469582948833704,
+          "unitFileReads": 0
+        },
+        {
+          "ms": 2.4137499276548624,
+          "unitFileReads": 0
+        },
+        {
+          "ms": 2.4257920449599624,
+          "unitFileReads": 0
+        }
+      ],
+      "medianMs": 2.4257920449599624
+    }
+  },
+  "uploads": {
+    "sourceBytes": 17825792,
+    "chunkBytes": 69632,
+    "before": {
+      "samples": [
+        {
+          "ms": 26.08424995560199
+        },
+        {
+          "ms": 28.239291976206005
+        },
+        {
+          "ms": 19.548833020962775
+        }
+      ],
+      "medianMs": 26.08424995560199,
+      "instrumentedPeakPythonBytes": 55375387
+    },
+    "after": {
+      "samples": [
+        {
+          "ms": 36.564124980941415
+        },
+        {
+          "ms": 35.2889170171693
+        },
+        {
+          "ms": 36.35879198554903
+        }
+      ],
+      "medianMs": 36.35879198554903,
+      "instrumentedPeakPythonBytes": 17970892
+    }
+  },
+  "postgres": {
+    "durableAutocommitWrites": 30,
+    "before": {
+      "samples": [
+        {
+          "ms": 1349.6131669962779,
+          "backendCount": 30
+        },
+        {
+          "ms": 1328.9595000678673,
+          "backendCount": 30
+        },
+        {
+          "ms": 1311.2381669925526,
+          "backendCount": 30
+        }
+      ],
+      "medianMs": 1328.9595000678673
+    },
+    "after": {
+      "samples": [
+        {
+          "ms": 13.987125013954937,
+          "backendCount": 1
+        },
+        {
+          "ms": 8.882833062671125,
+          "backendCount": 1
+        },
+        {
+          "ms": 9.389374987222254,
+          "backendCount": 1
+        }
+      ],
+      "medianMs": 9.389374987222254
+    }
+  }
+}

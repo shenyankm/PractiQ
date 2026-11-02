@@ -1,0 +1,33 @@
+{
+  "scope": "Release Store::restore_recovering, one warmup and three measured samples. Includes validation, repair, durable recovery copy and database publication. Setup, reopen and roundtrip backup excluded. Warm OS caches, synthetic pixels, no UI/providers/power-loss measurement.",
+  "workloads": [
+    {
+      "assets": 20,
+      "damaged": 1,
+      "samplesMs": [
+        142.91125,
+        142.432292,
+        138.897041
+      ],
+      "verifiedAssetReads": [
+        41,
+        41,
+        41
+      ]
+    },
+    {
+      "assets": 200,
+      "damaged": 1,
+      "samplesMs": [
+        934.3369580000001,
+        941.8418750000001,
+        930.3385
+      ],
+      "verifiedAssetReads": [
+        401,
+        401,
+        401
+      ]
+    }
+  ]
+}
