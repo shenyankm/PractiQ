@@ -46,10 +46,22 @@
 
 ## PR preparation follow-up
 
-The UI copy was subsequently shortened across the learning pages and existing practice, history, question review, image viewer, audio and connection settings screens. Necessary save, grading, cost, network and replacement guidance remains. The four browser screenshots above were refreshed after this cleanup; `screenshotsCapturedAt` and `screenshotsSourceSha256` identify that capture. The original `capturedAt`, `sourceSha256`, native binary hash and native observations remain the historical native acceptance record. All six feature-related Rust source hashes still match it. No further native binary or installer acceptance is claimed for the copy-only changes.
+The UI copy was subsequently shortened across the learning pages and existing practice, history, question review, image viewer, audio and connection settings screens. Necessary save, grading, cost, network and replacement guidance remains. The four browser screenshots above were refreshed after this cleanup; `screenshotsCapturedAt` and `screenshotsSourceSha256` identify that capture. The original `capturedAt`, `sourceSha256`, native binary hash and native observations remain the historical native acceptance record. All six feature-related Rust source hashes matched it at the initial PR commit `57959e58`. The review fixes below subsequently changed three Rust files; their validation is recorded separately. No further native binary or installer acceptance is claimed for the copy-only changes.
 
 - TypeScript and ESLint passed.
 - `npx vitest run --coverage --maxWorkers=4`: 540 passed, 6 existing skips; statements 89.24%, branches 85.09%, functions 86.82%, lines 92.97%.
 - The production frontend build passed after the copy cleanup.
 - `npm --prefix app run test:browser`: the complete initial run had 162 passes and 2 failures in an existing import-recovery fixture. It imported an identical snapshot into its source bank but still expected 9 new questions; the updated preview correctly skipped that receipt.
 - The fixture now imports into an empty bank to retain its original committed-write/recovery purpose. `npx playwright test check-ux-recovery.mjs --grep 'overview and committed import recover without replay' --output=/tmp/practiq-learning-browser-rerun` in `app/` passed both widths (2/2) after that test-only change. The whole suite was not repeated afterward. Initial failure screenshots, contexts and traces remain in the original local browser output; the focused run used a separate output directory.
+
+## PR review follow-up
+
+Three review findings were reproduced by failing native tests before repair:
+
+- When every incoming question tree is skipped, document-level groups and images are excluded as well. A warnings-only result change can no longer add global images or alter the next duplicate comparison.
+- Daily review gathers mistake causes from every tree node, including intermediate material parents, while counting and prioritizing answerable children as before.
+- The next explicit note save prunes entries for deleted questions before enforcing note capacity. A bounded local `removedNoteChanges` counter preserves pending backup reminders, is excluded from portable backups, and resets after successful explicit backup or full restore. Passive reads do not prune data.
+
+The duplicate-import and learning modules passed 15 focused native tests, including capacity cases with 10,000 entries and nearly 4 MiB of note text. The original PR commit's App quality job passed all 164 browser tests remotely; the initial local failure/rerun record above remains unchanged.
+
+`make app-check` with Python 3.14.7 passed after the review fixes: shared contracts/fixtures, TypeScript, ESLint, 540 frontend tests (6 skips), Rust formatting, 275 Rust tests (27 existing ignores), doc tests and Clippy. The feature-related native integration tests use temporary SQLite stores and fake models; no paid work was started.

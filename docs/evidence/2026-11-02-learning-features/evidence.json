@@ -137,6 +137,28 @@
     "fullBrowserRepeatedAfterTestOnlyCorrection": false,
     "nativeFeatureSourceHashesUnchanged": true,
     "stagedDiffAndLocalLinks": "passed",
+    "realModelCalls": "not performed",
+    "head": "57959e5805dd15928b10349443df0370f8127aaa",
+    "remoteBrowserAtOriginalHead": {
+      "passed": 164,
+      "runId": 41474284964,
+      "jobId": 125375952762
+    }
+  },
+  "reviewFollowup": {
+    "findingsReproducedBeforeFix": 3,
+    "sourceSha256": {
+      "app/src-tauri/src/learning.rs": "24917c30f15aefb2d7cd129c2cf2387619ca856ff86d0d265d225d4d23574f93",
+      "app/src-tauri/src/import_duplicates.rs": "410e58add511bb61f45e5863bfd613b158bc88d068140f5bd6587b2f8e2a62d2",
+      "app/src-tauri/src/backup.rs": "abf6b1d85f5cf6959c33488ac2ec7b51663f2bd96879b19d361f1ef359c5a71d"
+    },
+    "focusedNativePassed": 15,
+    "appCheck": "passed",
+    "frontendPassed": 540,
+    "frontendSkipped": 6,
+    "rustPassed": 275,
+    "rustIgnored": 27,
+    "clippy": "passed",
     "realModelCalls": "not performed"
   }
 }

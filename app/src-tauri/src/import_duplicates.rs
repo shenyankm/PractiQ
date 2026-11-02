@@ -189,9 +189,13 @@ pub(crate) fn without(root: &Value, skipped: &HashSet<String>) -> Value {
         .as_array_mut()
         .unwrap()
         .retain(|q| !skipped.contains(text(q, "id")));
+    let keep_context = skipped.is_empty() || !list(result, "questions").is_empty();
     for key in ["groups", "visualElements"] {
         if let Some(items) = result[key].as_array_mut() {
             items.retain_mut(|item| {
+                if !keep_context {
+                    return false;
+                }
                 let Some(ids) = item["questionIds"].as_array_mut() else {
                     return true;
                 };
@@ -379,5 +383,41 @@ mod tests {
             store.import(&ticket, Some(bank.into()), "Bank").unwrap()["duplicate"],
             true
         );
+    }
+    #[test]
+    fn skipping_all_trees_preserves_document_visuals_and_comparison_signatures() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut store = Store::new(dir.path().into()).unwrap();
+        let mut root = document(false);
+        let sample: Value =
+            serde_json::from_slice(include_bytes!("../../fixtures/sample.json")).unwrap();
+        let mut visual = sample["visualElements"][0].clone();
+        visual["questionIds"] = json!([]);
+        root["visualElements"] = json!([visual]);
+        let ticket = preview(&mut store, &root);
+        let bank = store.import(&ticket, None, "Bank").unwrap();
+        let bank = text(&bank, "bankId");
+        let before = store.questions(Some(bank), "", "", "").unwrap();
+        root["warnings"] = json!(["Updated document warning"]);
+        let ticket = preview(&mut store, &root);
+        let comparison = store.import_duplicates(&ticket, bank).unwrap();
+        assert_eq!(list(&comparison, "groups").len(), 1);
+        let result = store
+            .import_checked(
+                &ticket,
+                Some(bank.into()),
+                "Bank",
+                true,
+                comparison["check"].as_str(),
+            )
+            .unwrap();
+        assert_eq!(result["duplicate"], true);
+        assert_eq!(result["skippedCount"], 1);
+        assert_eq!(
+            store.questions(Some(bank), "", "", "").unwrap()[0]["visuals"],
+            before[0]["visuals"]
+        );
+        let ticket = preview(&mut store, &root);
+        assert_eq!(store.import_duplicates(&ticket, bank).unwrap(), comparison);
     }
 }

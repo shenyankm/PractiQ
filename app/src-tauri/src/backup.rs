@@ -331,6 +331,7 @@ impl Store {
             .transpose()?
             .unwrap_or_default();
         learning.last_backup_at = None;
+        learning.removed_note_changes = None;
         let assets = manifest["assets"].as_array().ok_or(crate::language::error(
             "LOCAL_IMAGE_MANIFEST_MISSING",
             serde_json::json!({}),

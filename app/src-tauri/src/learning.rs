@@ -33,6 +33,8 @@ pub(crate) struct LearningData {
     pub version: u8,
     pub notes: BTreeMap<String, Note>,
     pub last_backup_at: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub removed_note_changes: Option<u32>,
 }
 impl Default for LearningData {
     fn default() -> Self {
@@ -40,6 +42,7 @@ impl Default for LearningData {
             version: 1,
             notes: BTreeMap::new(),
             last_backup_at: None,
+            removed_note_changes: None,
         }
     }
 }
@@ -182,6 +185,7 @@ impl Store {
         data.notes
             .retain(|id, note| ids.contains(id) && (!note.body.is_empty() || note.cause.is_some()));
         data.last_backup_at = None;
+        data.removed_note_changes = None;
         Ok(data)
     }
     pub fn question_note(&self, id: &str) -> Result<Value> {
@@ -206,15 +210,39 @@ impl Store {
         body: String,
         cause: Option<MistakeCause>,
     ) -> Result<Value> {
-        self.question_note(id)?;
+        let db = self.connect()?;
+        let mut exists = db
+            .prepare_cached("SELECT EXISTS(SELECT 1 FROM questions WHERE id=?1)")
+            .map_err(err)?;
+        if !exists
+            .query_row([id], |row| row.get::<_, bool>(0))
+            .map_err(err)?
+        {
+            return Err("Question no longer exists".into());
+        }
         let note = Note {
             body,
             cause,
             updated_at: now(),
         };
         self.update_learning(|mut data| {
-            // Retain the cleared entry's timestamp so deleting a note still makes a backup due.
-            data.notes.insert(id.into(), note.clone());
+            let since = data.last_backup_at.unwrap_or(0);
+            let mut removed = data.removed_note_changes.unwrap_or(0);
+            let mut notes = BTreeMap::new();
+            for (note_id, note) in data.notes {
+                if exists
+                    .query_row([&note_id], |row| row.get::<_, bool>(0))
+                    .map_err(err)?
+                {
+                    notes.insert(note_id, note);
+                } else if note.updated_at > since {
+                    removed = removed.saturating_add(1);
+                }
+            }
+            // Reclaim inaccessible notes without losing changes that still need a backup.
+            data.removed_note_changes = (removed > 0).then_some(removed);
+            notes.insert(id.into(), note.clone());
+            data.notes = notes;
             Ok(data)
         })?;
         Ok(json!(note))
@@ -234,7 +262,8 @@ impl Store {
             .notes
             .values()
             .filter(|note| note.updated_at > since)
-            .count();
+            .count()
+            + data.removed_note_changes.unwrap_or(0) as usize;
         let has_banks: bool = db
             .query_row("SELECT EXISTS(SELECT 1 FROM banks)", [], |r| r.get(0))
             .map_err(err)?;
@@ -254,6 +283,7 @@ impl Store {
         tests::backup_mark_checkpoint(self);
         if let Err(error) = self.update_learning(|mut data| {
             data.last_backup_at = Some(now());
+            data.removed_note_changes = None;
             Ok(data)
         }) {
             // The archive is already published; never report the completed export as failed.
@@ -379,22 +409,20 @@ impl Store {
             .map_err(err)?
         {
             let (root, id, mode, bank, title, stem) = row.map_err(err)?;
+            let candidate = candidates.entry(root.clone()).or_insert_with(|| (json!({"rootId":root,"bankId":bank,"bankTitle":title,"stem":stem,"count":0,"reason":"stale","causes":[]}),0,3));
+            if let Some(cause) = notes.get(&id).and_then(|note| note.cause.as_ref()) {
+                let cause = json!(cause);
+                if !list(&candidate.0, "causes").contains(&cause) {
+                    candidate.0["causes"].as_array_mut().unwrap().push(cause);
+                }
+            }
             if mode
                 .as_deref()
                 .is_some_and(|mode| crate::question_metadata::COMPOSITE_MODES.contains(&mode))
             {
                 continue;
             }
-            let candidate = candidates.entry(root.clone()).or_insert_with(|| (json!({"rootId":root,"bankId":bank,"bankTitle":title,"stem":stem,"count":0,"reason":"stale","causes":[]}),0,3));
             candidate.0["count"] = json!(candidate.0["count"].as_u64().unwrap_or(0) + 1);
-            for note_id in [&id, &root] {
-                if let Some(cause) = notes.get(note_id).and_then(|note| note.cause.as_ref()) {
-                    let cause = json!(cause);
-                    if !list(&candidate.0, "causes").contains(&cause) {
-                        candidate.0["causes"].as_array_mut().unwrap().push(cause);
-                    }
-                }
-            }
             if let Some(h) = history.get(&id) {
                 candidate.1 = candidate.1.max(h.last_answered);
                 if let Some((at, correct)) = h.latest {
@@ -775,6 +803,22 @@ mod tests {
             .unwrap();
         let group_id = text(group, "id");
         attempt(&store, group_id, today - 8 * DAY, Some(true), "auto", false);
+        let nested: String = store
+            .connect()
+            .unwrap()
+            .query_row(
+                "SELECT id FROM questions WHERE parent_id=?1 AND mode='word_bank'",
+                [group_id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        store
+            .save_question_note(
+                &nested,
+                "Nested material cause".into(),
+                Some(MistakeCause::Calculation),
+            )
+            .unwrap();
         let result = store
             .learning_overview_at(30, today, today + 1, today - 29 * DAY)
             .unwrap();
@@ -784,6 +828,7 @@ mod tests {
             .unwrap();
         assert_eq!(review["reason"], "stale");
         assert_eq!(review["count"], 6);
+        assert_eq!(review["causes"], json!(["calculation"]));
         assert!(list(&result, "kinds")
             .iter()
             .any(|r| r["kind"] == "reading"));
@@ -820,5 +865,69 @@ mod tests {
             .unwrap()
             .notes
             .is_empty());
+    }
+    #[test]
+    fn note_updates_reclaim_deleted_question_capacity_and_keep_backup_reminders() {
+        for (count, body_size) in [(10_000, 1), (200, 20_000)] {
+            let (dir, store, bank, old_id) = fixture();
+            let sample: Value =
+                serde_json::from_slice(include_bytes!("../../fixtures/sample.json")).unwrap();
+            let root = json!({"schemaVersion":3,"questions":[sample["questions"][0]],"groups":[],"visualElements":[],"warnings":[],"confidenceScore":100,"missingFields":[]});
+            let pending =
+                Pending::new(serde_json::to_vec(&root).unwrap(), "New bank".into()).unwrap();
+            let new_bank = store.import_pending(&pending, None, "New bank").unwrap();
+            let new_id = text(
+                &store
+                    .questions(Some(text(&new_bank, "bankId")), "", "", "")
+                    .unwrap()[0],
+                "id",
+            )
+            .to_owned();
+            store
+                .update_learning(|mut data| {
+                    data.last_backup_at = Some(now() - 8 * DAY);
+                    data.notes = (0..count)
+                        .map(|i| {
+                            (
+                                if i == 0 {
+                                    old_id.clone()
+                                } else {
+                                    format!("deleted-{i}")
+                                },
+                                Note {
+                                    body: "x".repeat(body_size),
+                                    cause: None,
+                                    updated_at: now(),
+                                },
+                            )
+                        })
+                        .collect();
+                    Ok(data)
+                })
+                .unwrap();
+            store.delete_bank(&bank).unwrap();
+            store
+                .save_question_note(&new_id, "New note".into(), None)
+                .unwrap();
+            assert_eq!(store.learning_data().unwrap().notes.len(), 1);
+            assert_eq!(store.question_note(&new_id).unwrap()["body"], "New note");
+            assert_eq!(store.backup_status().unwrap()["changedNotes"], count + 1);
+            assert_eq!(store.backup_status().unwrap()["due"], true);
+            store
+                .save_question_note(&new_id, "Updated note".into(), None)
+                .unwrap();
+            assert_eq!(
+                store.question_note(&new_id).unwrap()["body"],
+                "Updated note"
+            );
+            assert_eq!(store.backup_status().unwrap()["changedNotes"], count + 1);
+            let portable =
+                serde_json::to_value(store.learning_backup(&store.connect().unwrap()).unwrap())
+                    .unwrap();
+            assert!(portable.get("removedNoteChanges").is_none());
+            store.export_backup(&dir.path().join("backup.zip")).unwrap();
+            assert_eq!(store.backup_status().unwrap()["changedNotes"], 0);
+            assert_eq!(store.backup_status().unwrap()["due"], false);
+        }
     }
 }
