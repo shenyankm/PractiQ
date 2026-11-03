@@ -21,7 +21,7 @@
     "class-variance-authority": "^0.7.1",
     "cn": "^0.5.1",
     "katex": "0.19.1",
-    "lucide-react": "^1.61.0",
+    "lucide-react": "^1.66.0",
     "radix-ui": "^1.8.1",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
