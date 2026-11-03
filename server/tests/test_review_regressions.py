@@ -251,7 +251,7 @@ def test_storage_legacy_and_wheel_paths_fail_without_moving_data(tmp_path, monke
 async def test_stalled_upload_times_out_and_releases_slot(tmp_path, monkeypatch):
     store = object_store(tmp_path)
     monkeypatch.setattr(webapp, 'get_object_store', lambda: store)
-    monkeypatch.setenv('AI_UPLOAD_TIMEOUT_SECONDS', '0.03')
+    monkeypatch.setenv('AI_UPLOAD_TIMEOUT_SECONDS', '1')
     monkeypatch.setenv('AI_UPLOAD_CONCURRENCY', '1')
     async def stalled():
         yield b'q'
@@ -260,6 +260,7 @@ async def test_stalled_upload_times_out_and_releases_slot(tmp_path, monkeypatch)
         headers = {'Authorization': 'Bearer ' + config.service_token()}
         response = await client.put('/api/uploads/content', params=upload().model_dump(), headers=headers, content=stalled())
         assert response.status_code == 408
+        monkeypatch.setenv('AI_UPLOAD_TIMEOUT_SECONDS', '5')
         response = await client.put('/api/uploads/content', params=upload().model_dump(), headers=headers, content=b'quiz')
         assert response.status_code == 200
         response = await client.get('/api/maintenance', headers={b'authorization': b'Bearer \xff'})

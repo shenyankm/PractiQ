@@ -1,0 +1,443 @@
+{
+  "samples": [
+    {
+      "name": "txt",
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/api/import-capabilities",
+          "status": 200,
+          "ms": 4.181415999999899
+        },
+        {
+          "method": "GET",
+          "path": "/api/import-settings",
+          "status": 200,
+          "ms": 8.263667000000055
+        },
+        {
+          "method": "POST",
+          "path": "/api/uploads",
+          "status": 201,
+          "ms": 3.197125000000028
+        },
+        {
+          "method": "PUT",
+          "path": "/api/uploads/content",
+          "status": 200,
+          "ms": 5.348292000000015
+        },
+        {
+          "method": "POST",
+          "path": "/api/document-tasks",
+          "status": 202,
+          "ms": 49.75199999999995
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/50592da8-0c20-5f5b-b3e5-095e65e3eaed/preview",
+          "status": 200,
+          "ms": 73.10675000000003
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 75.75295799999992
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/50592da8-0c20-5f5b-b3e5-095e65e3eaed",
+          "status": 200,
+          "ms": 81.662375
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 19.993832999999995
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/50592da8-0c20-5f5b-b3e5-095e65e3eaed",
+          "status": 200,
+          "ms": 25.039291999999932
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/50592da8-0c20-5f5b-b3e5-095e65e3eaed/preview",
+          "status": 200,
+          "ms": 9.419666000000234
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 17.550374999999804
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/50592da8-0c20-5f5b-b3e5-095e65e3eaed",
+          "status": 200,
+          "ms": 19.141583000000537
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 19.923625000001266
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/50592da8-0c20-5f5b-b3e5-095e65e3eaed",
+          "status": 200,
+          "ms": 22.82183299999997
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/50592da8-0c20-5f5b-b3e5-095e65e3eaed/preview",
+          "status": 200,
+          "ms": 11.953207999998995
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 20.969332999999097
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/50592da8-0c20-5f5b-b3e5-095e65e3eaed",
+          "status": 200,
+          "ms": 16.65649999999914
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 21.157207999998718
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/50592da8-0c20-5f5b-b3e5-095e65e3eaed",
+          "status": 200,
+          "ms": 12.52441700000054
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/50592da8-0c20-5f5b-b3e5-095e65e3eaed/preview",
+          "status": 200,
+          "ms": 4.461542000000918
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/50592da8-0c20-5f5b-b3e5-095e65e3eaed/export",
+          "status": 200,
+          "ms": 22.30529100000058
+        }
+      ],
+      "phasesMs": {
+        "connect": 228.04075,
+        "startToResultVisible": 15402.4545,
+        "download": 67.20449999999983,
+        "startToDownloaded": 15470.427,
+        "nativeHandoffAndPractice": 87.9013329999998,
+        "startToPracticeRestored": 15558.33125
+      },
+      "error": null,
+      "threadId": "50592da8-0c20-5f5b-b3e5-095e65e3eaed",
+      "modelCalls": 1,
+      "unknownCalls": [],
+      "reviewRequired": true
+    },
+    {
+      "name": "md",
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/api/import-capabilities",
+          "status": 200,
+          "ms": 11.959374999998545
+        },
+        {
+          "method": "GET",
+          "path": "/api/import-settings",
+          "status": 200,
+          "ms": 2.6137500000004366
+        },
+        {
+          "method": "POST",
+          "path": "/api/uploads",
+          "status": 201,
+          "ms": 2.688833000000159
+        },
+        {
+          "method": "PUT",
+          "path": "/api/uploads/content",
+          "status": 200,
+          "ms": 4.078832999999577
+        },
+        {
+          "method": "POST",
+          "path": "/api/document-tasks",
+          "status": 202,
+          "ms": 46.74354200000016
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 14.177416999998968
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/b4784660-00b1-5d7d-b742-bf4a4e1a1744/preview",
+          "status": 200,
+          "ms": 16.20720799999981
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/b4784660-00b1-5d7d-b742-bf4a4e1a1744",
+          "status": 200,
+          "ms": 18.783125000001746
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 11.175374999998894
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/b4784660-00b1-5d7d-b742-bf4a4e1a1744",
+          "status": 200,
+          "ms": 18.033500000001368
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/b4784660-00b1-5d7d-b742-bf4a4e1a1744/preview",
+          "status": 200,
+          "ms": 11.02875000000131
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 14.056958999997732
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/b4784660-00b1-5d7d-b742-bf4a4e1a1744",
+          "status": 200,
+          "ms": 13.31512500000099
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 16.237208000002283
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/b4784660-00b1-5d7d-b742-bf4a4e1a1744",
+          "status": 200,
+          "ms": 11.69024999999965
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/b4784660-00b1-5d7d-b742-bf4a4e1a1744/preview",
+          "status": 200,
+          "ms": 8.12279099999796
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 14.16675000000032
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/b4784660-00b1-5d7d-b742-bf4a4e1a1744",
+          "status": 200,
+          "ms": 16.943875000000844
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/b4784660-00b1-5d7d-b742-bf4a4e1a1744/preview",
+          "status": 200,
+          "ms": 7.017292000000452
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/b4784660-00b1-5d7d-b742-bf4a4e1a1744/export",
+          "status": 200,
+          "ms": 15.806166000002122
+        }
+      ],
+      "phasesMs": {
+        "connect": 143.47291699999914,
+        "startToResultVisible": 12327.776084000001,
+        "download": 64.47841699999844,
+        "startToDownloaded": 12392.710959,
+        "nativeHandoffAndPractice": 101.90191699999923,
+        "startToPracticeRestored": 12494.614542
+      },
+      "error": null,
+      "threadId": "b4784660-00b1-5d7d-b742-bf4a4e1a1744",
+      "modelCalls": 1,
+      "unknownCalls": [],
+      "reviewRequired": true
+    },
+    {
+      "name": "png",
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/api/import-capabilities",
+          "status": 200,
+          "ms": 13.242624999998952
+        },
+        {
+          "method": "GET",
+          "path": "/api/import-settings",
+          "status": 200,
+          "ms": 2.5050000000010186
+        },
+        {
+          "method": "POST",
+          "path": "/api/uploads",
+          "status": 201,
+          "ms": 2.734082999999373
+        },
+        {
+          "method": "PUT",
+          "path": "/api/uploads/content",
+          "status": 200,
+          "ms": 1.6716670000023441
+        },
+        {
+          "method": "POST",
+          "path": "/api/document-tasks",
+          "status": 202,
+          "ms": 12.957291000002442
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 7.9750829999975394
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/3bbbffad-388c-5711-9392-69931084bace/preview",
+          "status": 200,
+          "ms": 15.101125000001048
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/3bbbffad-388c-5711-9392-69931084bace",
+          "status": 200,
+          "ms": 15.194916000000376
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 24.497791000001598
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/3bbbffad-388c-5711-9392-69931084bace",
+          "status": 200,
+          "ms": 25.934250000002066
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/3bbbffad-388c-5711-9392-69931084bace/preview",
+          "status": 200,
+          "ms": 9.062540999999328
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 15.263584000000264
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/3bbbffad-388c-5711-9392-69931084bace",
+          "status": 200,
+          "ms": 18.674999999995634
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 16.240708999997878
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/3bbbffad-388c-5711-9392-69931084bace",
+          "status": 200,
+          "ms": 14.348583999999391
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/3bbbffad-388c-5711-9392-69931084bace/preview",
+          "status": 200,
+          "ms": 9.831665999998222
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 16.337959000004048
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/3bbbffad-388c-5711-9392-69931084bace",
+          "status": 200,
+          "ms": 21.551792000005662
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 8.49958300000435
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/3bbbffad-388c-5711-9392-69931084bace",
+          "status": 200,
+          "ms": 10.18329200000153
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/3bbbffad-388c-5711-9392-69931084bace/preview",
+          "status": 200,
+          "ms": 5.260541999996349
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/3bbbffad-388c-5711-9392-69931084bace/export",
+          "status": 200,
+          "ms": null,
+          "cancelled": true
+        }
+      ],
+      "phasesMs": {
+        "connect": 135.56412499999715,
+        "startToResultVisible": 15260.824832999999,
+        "download": 58.65141700000095,
+        "startToDownloaded": 15320.119207999996,
+        "nativeHandoffAndPractice": 96.23483299999498,
+        "startToPracticeRestored": 15416.355582999997
+      },
+      "error": null,
+      "threadId": "3bbbffad-388c-5711-9392-69931084bace",
+      "modelCalls": 1,
+      "unknownCalls": [],
+      "reviewRequired": true
+    }
+  ]
+}

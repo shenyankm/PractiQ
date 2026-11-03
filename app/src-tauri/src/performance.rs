@@ -8,6 +8,169 @@ use serde_json::{json, Value};
 use std::time::Instant;
 
 #[test]
+#[ignore = "explicit workflow ZIPs; temporary databases and release binary required"]
+fn workflow_practice() {
+    fn timed<T>(phases: &mut Value, name: &str, operation: impl FnOnce() -> T) -> T {
+        let start = Instant::now();
+        let output = operation();
+        phases[name] = json!(start.elapsed().as_secs_f64() * 1000.0);
+        output
+    }
+    fn stable(mut session: Value) -> Value {
+        for key in ["snapshotKey", "attemptKey"] {
+            session.as_object_mut().unwrap().remove(key);
+        }
+        session
+    }
+    let directory = std::path::PathBuf::from(
+        std::env::var_os("PRACTIQ_WORKFLOW_DIR").expect("PRACTIQ_WORKFLOW_DIR"),
+    );
+    let mut samples = Vec::new();
+    let single = std::env::var("PRACTIQ_WORKFLOW_CASE").ok();
+    assert!(single
+        .as_ref()
+        .is_none_or(|name| ["txt", "md", "png"].contains(&name.as_str())));
+    for name in ["txt", "md", "png"] {
+        if single.as_ref().is_some_and(|selected| selected != name) {
+            continue;
+        }
+        let file = directory.join("exports").join(format!("{name}.zip"));
+        for repetition in 0..if single.is_some() { 1 } else { 8 } {
+            let dir = tempfile::tempdir().unwrap();
+            let restore_dir = tempfile::tempdir().unwrap();
+            let mut phases = json!({});
+            let start = Instant::now();
+            let mut store = timed(&mut phases, "initialize", || {
+                Store::new(dir.path().into()).unwrap()
+            });
+            let preview = timed(&mut phases, "previewZip", || {
+                store.preview_bank_zip(&file).unwrap()
+            });
+            assert_eq!(preview["count"], 3);
+            assert_eq!(preview["missingAssets"], json!([]));
+            let imported = timed(&mut phases, "importZip", || {
+                store.import(text(&preview, "ticket"), None, name).unwrap()
+            });
+            let bank = text(&imported, "bankId").to_owned();
+            let list_page = timed(&mut phases, "firstPage", || {
+                store
+                    .query_questions(std::slice::from_ref(&bank), ("", "", ""), Some((30, 0)))
+                    .unwrap()
+            });
+            assert_eq!(list_page["total"], 3);
+            let rows = store.question_rows().unwrap();
+            assert_eq!(rows.len(), 3);
+            let answers: Vec<_> = rows
+                .iter()
+                .map(|row| {
+                    assert_eq!(row["question"]["answerMode"], "true_false");
+                    assert!(row["question"]["answerPayload"]["value"].is_boolean());
+                    row["question"]["answerPayload"].clone()
+                })
+                .collect();
+            let paper = timed(&mut phases, "previewPaper", || {
+                store
+                    .preview_paper(crate::paper::Preview {
+                        bank_ids: vec![bank.clone()],
+                        search: "".into(),
+                        mode: "".into(),
+                        filter: "".into(),
+                        selection: "count".into(),
+                        count: 3,
+                        quotas: Default::default(),
+                        question_ids: vec![],
+                        random: false,
+                        total_cents: 300,
+                        budgets: Default::default(),
+                    })
+                    .unwrap()
+            });
+            let session = timed(&mut phases, "startPaper", || {
+                store
+                    .start_paper_data(crate::exams::Paper {
+                        question_ids: serde_json::from_value(paper["questionIds"].clone()).unwrap(),
+                        kind: "self_test".into(),
+                        minutes: None,
+                        scores: vec![100; 3],
+                        total_cents: 300,
+                        digest: text(&paper, "digest").into(),
+                    })
+                    .unwrap()
+            });
+            let sid = text(&session, "id").to_owned();
+            assert!(list(&store.session(&sid).unwrap(), "attempts")
+                .iter()
+                .all(|a| a["snapshot"]["question"]["answerPayload"].is_null()));
+            timed(&mut phases, "saveAndNavigate", || {
+                for (ordinal, answer) in answers.iter().enumerate() {
+                    store
+                        .save_draft((&sid, ordinal), answer.clone(), 10)
+                        .unwrap();
+                    store.position(&sid, (ordinal + 1).min(2), None).unwrap();
+                }
+            });
+            timed(&mut phases, "submitPaper", || {
+                store.submit_paper_data(&sid, true).unwrap()
+            });
+            let finished = timed(&mut phases, "readResults", || store.session(&sid).unwrap());
+            assert!(list(&finished, "attempts")
+                .iter()
+                .all(|a| a["autoResult"] == true && a["earnedCents"] == 100));
+            let completed_rows = store.question_rows().unwrap();
+            for (before, after) in rows.iter().zip(&completed_rows) {
+                for key in ["question", "sources", "warnings", "visuals", "groups"] {
+                    assert_eq!(before[key], after[key]);
+                }
+            }
+            drop(store);
+            let reopened = timed(&mut phases, "reopen", || {
+                Store::new(dir.path().into()).unwrap()
+            });
+            assert_eq!(
+                stable(reopened.session(&sid).unwrap()),
+                stable(finished.clone())
+            );
+            assert_eq!(reopened.question_rows().unwrap(), completed_rows);
+            let backup = dir.path().join("backup.zip");
+            timed(&mut phases, "backup", || reopened.backup(&backup).unwrap());
+            let mut restored = Store::new(restore_dir.path().into()).unwrap();
+            timed(&mut phases, "restore", || {
+                restored.restore(&backup).unwrap()
+            });
+            assert_eq!(stable(restored.session(&sid).unwrap()), stable(finished));
+            assert_eq!(restored.question_rows().unwrap(), completed_rows);
+            let total = start.elapsed().as_secs_f64() * 1000.0;
+            let db = restored.connect().unwrap();
+            assert_eq!(
+                db.query_row("PRAGMA integrity_check", [], |r| r.get::<_, String>(0))
+                    .unwrap(),
+                "ok"
+            );
+            assert_eq!(
+                db.query_row("SELECT COUNT(*) FROM pragma_foreign_key_check", [], |r| {
+                    r.get::<_, usize>(0)
+                })
+                .unwrap(),
+                0
+            );
+            assert_eq!(
+                db.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
+                    .unwrap(),
+                11
+            );
+            samples.push(json!({"name":name,"repetition":repetition,"firstRun":repetition==0,
+                "phasesMs":phases,"totalMs":total,"zipSha256":crate::store::hash(&std::fs::read(&file).unwrap()),
+                "questions":3,"correct":3,"earnedCents":300,"reopen":true,"backupRestore":true}));
+        }
+    }
+    std::fs::write(
+        std::env::var("PRACTIQ_BENCH_OUTPUT").expect("PRACTIQ_BENCH_OUTPUT"),
+        serde_json::to_vec_pretty(&samples).unwrap(),
+    )
+    .unwrap();
+}
+
+#[test]
 #[ignore = "scoped detail read benchmark; temporary databases, release only"]
 fn scoped_detail_read_stress() {
     let mut workloads = Vec::new();

@@ -61,6 +61,7 @@ The API guide owns task payloads and controls; the user import guide explains th
 | Prepare issues/PRs and choose checks | [Contributing](../CONTRIBUTING.md) |
 | Review daily practice, notes, duplicate import and backup reminder acceptance | [Offline learning features](evidence/2026-11-02-learning-features/README.md) |
 | Reproduce performance work-count and bounded timing checks | [Service I/O](../server/docs/performance-io.md), [document pipeline](../server/docs/performance-pipeline.md), [native data](../app/docs/performance-native.md), [frontend](../web/docs/performance.md) |
+| Reproduce connected Web import and native practice acceptance | [Unified workflow acceptance](history/performance/workflow-20261102.md) |
 | Report vulnerabilities and review dependencies | [Security policy](../SECURITY.md) |
 | Review dependency risks and repository safeguards | [Dependency security](maintainers/dependency-security.md) |
 | Review outstanding workstream status | [Roadmap evidence](maintainers/roadmap-evidence.md) |
