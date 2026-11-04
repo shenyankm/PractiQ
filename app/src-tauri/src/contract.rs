@@ -35,6 +35,77 @@ fn schema_check(schema: &jsonschema::Validator, value: &Value, prefix: &str) -> 
     }
     Ok(())
 }
+pub(crate) fn grade_result(value: &Value) -> Result<()> {
+    static SCHEMA: OnceLock<jsonschema::Validator> = OnceLock::new();
+    let schema = SCHEMA.get_or_init(|| {
+        let schemas: Value =
+            serde_json::from_str(include_str!("../contracts.json")).expect("bundled schemas");
+        jsonschema::validator_for(&schemas["gradeResult"]).expect("grading schema")
+    });
+    schema_check(schema, value, "gradeResult")
+}
+
+pub(crate) fn grade_evidence(result: &Value, input: &Value) -> Result<()> {
+    grade_result(result)?;
+    let invalid = || crate::language::error("LOCAL_MODEL_RESPONSE_INVALID", json!({}));
+    if text(result, "reason").trim().is_empty() {
+        return Err(invalid());
+    }
+    let criteria = list(result, "criteria");
+    if result["scoreCents"].is_null() {
+        return if criteria.is_empty()
+            && list(result, "reviewReasons")
+                .iter()
+                .any(|s| s.as_str().is_some_and(|s| !s.trim().is_empty()))
+        {
+            Ok(())
+        } else {
+            Err(invalid())
+        };
+    }
+    let maximum = result["assessmentMaxCents"]
+        .as_i64()
+        .or_else(|| result["maxCents"].as_i64())
+        .ok_or_else(invalid)?;
+    let total = result["maxCents"].as_i64().ok_or_else(invalid)?;
+    if maximum != crate::model_grading::assessment_max(input)? {
+        return Err(invalid());
+    }
+    let awarded: i64 = criteria
+        .iter()
+        .filter_map(|c| c["scoreCents"].as_i64())
+        .sum();
+    if criteria.is_empty()
+        || criteria
+            .iter()
+            .filter_map(|c| c["maxCents"].as_i64())
+            .sum::<i64>()
+            != maximum
+        || result["scoreCents"].as_i64() != Some((awarded * total + maximum / 2) / maximum)
+    {
+        return Err(invalid());
+    }
+    let refs = [
+        text(&input["question"], "scoringRubric"),
+        text(&input["question"]["answerPayload"], "text"),
+    ];
+    let mut names = HashSet::new();
+    for c in criteria {
+        if text(c, "criterion").trim().is_empty()
+            || !names.insert(text(c, "criterion"))
+            || text(c, "reason").trim().is_empty()
+            || c["scoreCents"].as_i64() > c["maxCents"].as_i64()
+            || text(c, "referenceQuote").trim().is_empty()
+            || !refs.iter().any(|r| r.contains(text(c, "referenceQuote")))
+            || (c["scoreCents"].as_i64().unwrap_or(0) > 0
+                && text(c, "answerQuote").trim().is_empty())
+            || !text(input, "answer").contains(text(c, "answerQuote"))
+        {
+            return Err(invalid());
+        }
+    }
+    Ok(())
+}
 pub fn list<'a>(v: &'a Value, key: &str) -> &'a [Value] {
     v.get(key)
         .and_then(Value::as_array)

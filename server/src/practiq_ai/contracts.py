@@ -57,6 +57,67 @@ class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class GradeCriterion(StrictModel):
+    criterion: str = Field(min_length=1, max_length=2000)
+    scoreCents: int = Field(strict=True, ge=0, le=100_000_000)
+    maxCents: int = Field(strict=True, ge=1, le=100_000_000)
+    referenceQuote: str = Field(min_length=1, max_length=20_000)
+    answerQuote: str = Field(max_length=20_000)
+    reason: str = Field(min_length=1, max_length=20_000)
+
+
+class GradeResult(StrictModel):
+    scoreCents: int | None = Field(strict=True, ge=0, le=100_000_000)
+    maxCents: int = Field(strict=True, ge=1, le=100_000_000)
+    reason: str = Field(min_length=1, max_length=20_000)
+    evidence: list[str] = Field(max_length=100)
+    reviewReasons: list[str] = Field(max_length=100)
+    # Older saved results have no breakdown; new model results are checked below.
+    criteria: list[GradeCriterion] = Field(default_factory=list, max_length=50)
+    assessmentMaxCents: int | None = Field(default=None, strict=True, ge=1, le=100_000_000)
+
+    @field_validator("scoreCents", mode="before")
+    @classmethod
+    def integer_wire_value(cls, value):
+        if isinstance(value, str) and 1 <= len(value) <= 9 and value.isascii() and value.isdecimal():
+            return int(value)
+        return value
+
+    @model_validator(mode="after")
+    def bounds(self):
+        if self.scoreCents is not None and self.scoreCents > self.maxCents:
+            raise ValueError("Score exceeds maximum")
+        if not self.reason.strip() or any(len(s) > 20_000 for s in [*self.evidence, *self.reviewReasons]):
+            raise ValueError("Invalid grading explanation")
+        return self
+
+    def verify_evidence(self, question: dict, answer: str) -> None:
+        if self.scoreCents is None:
+            if not any(s.strip() for s in self.reviewReasons) or self.criteria:
+                raise ValueError("Abstention requires a reason and no scored criteria")
+            return
+        maximum = self.assessmentMaxCents or self.maxCents
+        expected = round(question["sourceScore"] * 100) if question.get("scoringRubric") and question.get("sourceScore") else self.maxCents
+        if maximum != expected:
+            raise ValueError("Assessment maximum differs from supplied evidence")
+        if not self.criteria or sum(c.maxCents for c in self.criteria) != maximum:
+            raise ValueError("Missing criteria or inconsistent maximum")
+        awarded = sum(c.scoreCents for c in self.criteria)
+        if self.scoreCents != (awarded * self.maxCents + maximum // 2) // maximum:
+            raise ValueError("Criterion scores do not match total")
+        references = [question.get("scoringRubric") or "", (question.get("answerPayload") or {}).get("text") or ""]
+        names = set()
+        for criterion in self.criteria:
+            if (not criterion.criterion.strip() or criterion.criterion in names
+                or not criterion.reason.strip() or criterion.scoreCents > criterion.maxCents
+                or not criterion.referenceQuote.strip()
+                or not any(criterion.referenceQuote in ref for ref in references)
+                or (criterion.scoreCents > 0 and not criterion.answerQuote.strip())
+                or criterion.answerQuote not in answer):
+                raise ValueError("Invalid criterion or ungrounded quotation")
+            names.add(criterion.criterion)
+
+
 def _non_blank(value: str) -> str:
     stripped = value.strip()
     if not stripped:

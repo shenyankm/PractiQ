@@ -1,0 +1,11 @@
+{
+  "verificationPassed": true,
+  "signature": "ad-hoc",
+  "developmentCandidate": true,
+  "publisherVerification": "UNVERIFIED",
+  "notarization": "NOT_RUN",
+  "cleanMachine": "NOT_RUN",
+  "scope": "Locally sealed acceptance copy; not a Developer ID signed release",
+  "installerSha256": "5460411ed66d42b03844c8391207fa3d30e5d9f5bacf8edb6bb8ecca47b745ae",
+  "containedApplicationVerified": true
+}

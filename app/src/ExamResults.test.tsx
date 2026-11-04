@@ -9,6 +9,27 @@ import { blankQuestion, type Attempt, type Session } from "./api";
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
+it("grades only the submitted current practice answer and renders scoring quotations", async () => {
+  const session = exam(2);
+  session.kind = "practice";
+  session.submittedAt = session.finishedAt = null;
+  session.attempts[1].submittedAt = null;
+  const onSession = vi.fn();
+  vi.mocked(invoke).mockResolvedValue(session);
+  const view = render(<ExamResults session={session} onSession={onSession} run={job=>{void job();}}/>);
+  expect(invoke).not.toHaveBeenCalled();
+  await userEvent.click(screen.getByRole("button", {name:"AI 评分/继续（1 题，将调用模型）"}));
+  await waitFor(()=>expect(onSession).toHaveBeenCalled());
+  expect(invoke).toHaveBeenCalledExactlyOnceWith("ai_request", expect.objectContaining({request:{type:"grade",id:session.id,ordinal:0,retry:false}}));
+  const result = {scoreCents:200,maxCents:300,reason:"Partial",evidence:[],reviewReasons:[],criteria:[{criterion:"Meaning",scoreCents:200,maxCents:300,referenceQuote:"Reference",answerQuote:"My answer",reason:"Partial match"}]};
+  session.attempts[0].grading = {ai:{status:"graded",result}};
+  view.rerender(<ExamResults session={{...session}} onSession={onSession} run={job=>{void job();}}/>);
+  expect(screen.getByText("评分依据：Reference")).toBeTruthy();
+  expect(screen.getByText("作答引用：My answer")).toBeTruthy();
+  view.rerender(<ExamResults session={{...session,position:1}} onSession={onSession} run={job=>{void job();}}/>);
+  expect(screen.queryByRole("button", {name:/AI 评分\/继续/})).toBeNull();
+});
+
 function exam(count = 1): Session {
   const question = { ...blankQuestion(), answerMode: "short_answer" as const, choiceVariant: null, options: [], stem: "Explain the result", answerPayload: { text: "Reference answer" } };
   const attempts: Attempt[] = Array.from({ length: count }, (_, ordinal) => ({

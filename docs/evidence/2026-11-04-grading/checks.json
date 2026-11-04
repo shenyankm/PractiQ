@@ -1,0 +1,79 @@
+{
+  "baseCommit": "ebb55f2ceda18fbe6f96ceabf0e0b10ffa9407fa",
+  "uncommittedLocalCandidate": true,
+  "server": {
+    "status": "PASSED",
+    "command": "make verify AI_PYTHON=<existing Python 3.14>",
+    "testsPassed": 3676,
+    "combinedCoveragePercent": 93,
+    "lineCoveragePercent": 94.7,
+    "branchCoveragePercent": 90.05,
+    "recoveryProbes": "PASSED",
+    "packageBuild": "PASSED"
+  },
+  "frontend": {
+    "status": "PASSED",
+    "testsPassed": 542,
+    "testsSkipped": 6,
+    "lineCoveragePercent": 92.97,
+    "typescript": "PASSED",
+    "eslint": "PASSED"
+  },
+  "nativeRust": {
+    "status": "PASSED",
+    "testsPassed": 277,
+    "optInTestsIgnored": 27,
+    "finalGradingFocusedTestsPassed": 6,
+    "clippyAllTargets": "PASSED",
+    "formatting": "PASSED",
+    "explicitNativeCredentialTest": "PASSED (both namespaces)"
+  },
+  "sharedContracts": {
+    "status": "PASSED",
+    "fixtures": 51,
+    "generatedTypesAndSchemas": "CURRENT",
+    "scoringEvidenceCases": 14
+  },
+  "qualityPreflight": {
+    "status": "VALIDATED",
+    "syntheticCases": 26,
+    "repeatsPlanned": 3,
+    "gradingActionsPlanned": 78,
+    "realModelCalls": 0,
+    "independentCalibration": "NOT_ESTABLISHED"
+  },
+  "uiMechanicalReview": {
+    "status": "PASSED",
+    "findings": 0
+  },
+  "previousRuns": [
+    {
+      "status": "FAILED",
+      "testsPassed": 3674,
+      "failures": [
+        "Backup scheduler subprocess exceeded its existing 10-second test timeout",
+        "E2E provider substitute still returned the old scoring contract"
+      ],
+      "resolution": [
+        "Scheduler isolated recheck: 9 passed",
+        "Recovery-provider substitute updated; grading E2E recheck: 1 passed",
+        "Full verification rerun: 3676 passed"
+      ]
+    },
+    {
+      "status": "INTERRUPTED",
+      "reason": "Stopped the premature rerun to synchronize the E2E provider substitute; interrupted coverage is not an acceptance result"
+    },
+    {
+      "status": "FAILED",
+      "check": "Raw development bundle strict signature verification",
+      "resolution": "Raw failure retained; separate local copy sealed ad-hoc and rebuilt into a verified DMG"
+    }
+  ],
+  "remoteCI": "NOT_RUN",
+  "publisherSignature": "UNVERIFIED",
+  "notarization": "NOT_RUN",
+  "realModelQuality": "NOT_RUN",
+  "phase": "Initial engineering acceptance before real-provider authorization",
+  "laterRealProviderFollowup": "live-service-8360d179d29f/checks.json"
+}

@@ -9,7 +9,7 @@ from practiq_ai.contracts import (  # noqa: E402
     AnswerMode, BankImportDiagnostic, COMPOSITE_MODES, QUESTION_KIND_MODES, DocumentParseResult, DocumentProcessing,
     DocumentSourceType, DocumentTaskControl, DocumentTaskCreate, DocumentTaskDetail, DocumentTaskHead, DocumentTaskList,
     DocumentTaskReceipt, DocumentTaskReparse, DocumentTaskReview, DocumentTaskSummary, DocumentUploadRequest,
-    DocumentUploadResponse, ImportCapabilities, ImportSettingsSnapshot, ImportSourceType, OfficeMode,
+    DocumentUploadResponse, GradeResult, ImportCapabilities, ImportSettingsSnapshot, ImportSourceType, OfficeMode,
 )
 
 path = Path(__file__).resolve().parents[1] / 'src-tauri/contracts.json'
@@ -27,6 +27,7 @@ def write_changed(target: Path, value: str, message: str) -> None:
 content = json.dumps({name: model.model_json_schema(mode='serialization') for name, model in {
     'result': DocumentParseResult, 'processing': DocumentProcessing, 'bankImportDiagnostic': BankImportDiagnostic,
     'taskSummary': DocumentTaskSummary, 'taskReview': DocumentTaskReview, 'taskDetail': DocumentTaskDetail,
+    'gradeResult': GradeResult,
 }.items()}, ensure_ascii=False, indent=2) + '\n'
 write_changed(path, content, 'AI contract changed: run app/scripts/export-contracts.py and review the desktop importer.')
 
@@ -61,7 +62,7 @@ def ts_type(node):
 schema = DocumentParseResult.model_json_schema(mode='serialization')
 wire_models = (BankImportDiagnostic, DocumentTaskSummary, DocumentTaskReview, DocumentTaskDetail, DocumentTaskHead, DocumentTaskList,
                DocumentTaskCreate, DocumentTaskControl, DocumentTaskReparse, DocumentTaskReceipt,
-               DocumentUploadRequest, DocumentUploadResponse, ImportCapabilities, ImportSettingsSnapshot)
+               DocumentUploadRequest, DocumentUploadResponse, ImportCapabilities, ImportSettingsSnapshot, GradeResult)
 definitions = {}
 for model in wire_models:
     definitions.update(model.model_json_schema(mode='serialization').get('$defs', {}))

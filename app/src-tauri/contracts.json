@@ -5086,5 +5086,134 @@
     ],
     "title": "DocumentTaskDetail",
     "type": "object"
+  },
+  "gradeResult": {
+    "$defs": {
+      "GradeCriterion": {
+        "additionalProperties": false,
+        "properties": {
+          "criterion": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Criterion",
+            "type": "string"
+          },
+          "scoreCents": {
+            "maximum": 100000000,
+            "minimum": 0,
+            "title": "Scorecents",
+            "type": "integer"
+          },
+          "maxCents": {
+            "maximum": 100000000,
+            "minimum": 1,
+            "title": "Maxcents",
+            "type": "integer"
+          },
+          "referenceQuote": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "title": "Referencequote",
+            "type": "string"
+          },
+          "answerQuote": {
+            "maxLength": 20000,
+            "title": "Answerquote",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "criterion",
+          "scoreCents",
+          "maxCents",
+          "referenceQuote",
+          "answerQuote",
+          "reason"
+        ],
+        "title": "GradeCriterion",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "scoreCents": {
+        "anyOf": [
+          {
+            "maximum": 100000000,
+            "minimum": 0,
+            "type": "integer"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Scorecents"
+      },
+      "maxCents": {
+        "maximum": 100000000,
+        "minimum": 1,
+        "title": "Maxcents",
+        "type": "integer"
+      },
+      "reason": {
+        "maxLength": 20000,
+        "minLength": 1,
+        "title": "Reason",
+        "type": "string"
+      },
+      "evidence": {
+        "items": {
+          "type": "string"
+        },
+        "maxItems": 100,
+        "title": "Evidence",
+        "type": "array"
+      },
+      "reviewReasons": {
+        "items": {
+          "type": "string"
+        },
+        "maxItems": 100,
+        "title": "Reviewreasons",
+        "type": "array"
+      },
+      "criteria": {
+        "items": {
+          "$ref": "#/$defs/GradeCriterion"
+        },
+        "maxItems": 50,
+        "title": "Criteria",
+        "type": "array"
+      },
+      "assessmentMaxCents": {
+        "anyOf": [
+          {
+            "maximum": 100000000,
+            "minimum": 1,
+            "type": "integer"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Assessmentmaxcents"
+      }
+    },
+    "required": [
+      "scoreCents",
+      "maxCents",
+      "reason",
+      "evidence",
+      "reviewReasons"
+    ],
+    "title": "GradeResult",
+    "type": "object"
   }
 }

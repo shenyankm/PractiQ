@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label";
 export interface GradingDraft { score: string; reason: string }
 
 function gradingStatus(status: string) { return ({graded: t("已完成"), ungraded:t("未能评分，需复核"), unknown:t("评分结果待确认")})[status] || status; }
-function eligible(a:Attempt){const q=a.snapshot.question;return q.answerMode==="short_answer"&&!!q.stem&&!!a.answer?.text?.trim()&&!!(q.scoringRubric||q.answerPayload?.text)&&!a.snapshot.missingAssets&&!q.missingFields.some(k=>["stem","material","media","answerMode"].includes(k))&&a.gradeKind!=="manual";}
+function eligible(a:Attempt){const q=a.snapshot.question;return a.submittedAt!=null&&!a.skipped&&q.answerMode==="short_answer"&&!!q.stem&&!!a.answer?.text?.trim()&&!!(q.scoringRubric||q.answerPayload?.text)&&!a.snapshot.missingAssets&&!q.missingFields.some(k=>["stem","material","media","answerMode"].includes(k))&&!["manual","self"].includes(a.gradeKind);}
 function GradeDetails({request}: {request: GradingResponse}) {
   const error = request.appError || request.error;
   return <div className="space-y-2">
@@ -24,6 +24,17 @@ function GradeDetails({request}: {request: GradingResponse}) {
     {typeof request.result?.reason === "string" && request.result.reason && <p>{request.result.reason}</p>}
     {Array.isArray(request.result?.evidence) && request.result.evidence.filter(e=>typeof e === "string").map((e,i)=><p key={i}>{e}</p>)}
     {Array.isArray(request.result?.reviewReasons) && request.result.reviewReasons.filter(e=>typeof e === "string").map((e,i)=><p key={i}>{t("复核提示：{0}", {0:e})}</p>)}
+    {Array.isArray(request.result?.criteria) && request.result.criteria.length > 0 && <details open>
+      <summary className="cursor-pointer font-medium">{t("评分点（原始分值）")}</summary>
+      <ol className="mt-3 space-y-4">
+        {request.result.criteria.filter(c=>c && typeof c.criterion === "string" && typeof c.referenceQuote === "string" && typeof c.answerQuote === "string" && typeof c.reason === "string" && Number.isSafeInteger(c.scoreCents) && Number.isSafeInteger(c.maxCents)).map((c,i)=><li key={i} className="space-y-1 break-words">
+          <p className="font-medium">{c.criterion} · {c.scoreCents/100} / {c.maxCents/100}</p>
+          <p>{t("评分依据：{0}", {0:c.referenceQuote})}</p>
+          <p>{t("作答引用：{0}", {0:c.answerQuote || t("未找到对应作答")})}</p>
+          <p className="text-muted-foreground">{c.reason}</p>
+        </li>)}
+      </ol>
+    </details>}
   </div>;
 }
 export function ExamResults({session,onSession,run,onNextUnattempted,draft,onDraftChange,onConfigure}:{session:Session;onSession:(s:Session)=>void;run:(j:()=>Promise<void>)=>void;onNextUnattempted?:()=>void;draft?:GradingDraft;onDraftChange?:(draft:GradingDraft)=>void;onConfigure?:()=>void}) {
@@ -35,8 +46,8 @@ export function ExamResults({session,onSession,run,onNextUnattempted,draft,onDra
   const { score, reason } = draft ?? localDraft;
   const changeDraft = onDraftChange ?? setLocalDraft;
   const [retryConfirm,setRetryConfirm]=useState(false);
-  const exam=session.kind&&session.kind!=="practice";const submitted=exam?!!session.submittedAt:!!session.finishedAt;
   const a=session.attempts[session.position];
+  const exam=session.kind&&session.kind!=="practice";const submitted=exam?!!session.submittedAt:!!session.finishedAt||a.submittedAt!=null;
   const { graded, full, total, earned, pending, pendingPoints, pendingAi, retryCount, skipped, unresolved } = useMemo(() => {
     const attempts=submitted?session.attempts:[];
     const graded=attempts.filter(a=>exam?a.earnedCents!=null:a.result!==null);
@@ -44,12 +55,12 @@ export function ExamResults({session,onSession,run,onNextUnattempted,draft,onDra
     const total=attempts.reduce((n,a)=>n+(a.maxCents||0),0), earned=graded.reduce((n,a)=>n+(a.earnedCents||0),0);
     const pending=attempts.filter(a=>exam&&a.earnedCents==null);
     const pendingPoints=pending.reduce((n,a)=>n+(a.maxCents||0),0);
-    const pendingAi=pending.filter(a=>eligible(a)&&!a.grading?.ai&&!a.grading?.lastRequest);
+    const pendingAi=(exam?pending:[session.attempts[session.position]]).filter(a=>eligible(a)&&!a.grading?.ai&&!a.grading?.lastRequest);
     const retryCount=attempts.filter(a=>a.result===false).length;
     const skipped=attempts.filter(a=>a.skipped).length;
     const unresolved=attempts.length-graded.length-(exam?0:skipped);
     return { graded, full, total, earned, pending, pendingPoints, pendingAi, retryCount, skipped, unresolved };
-  }, [session.attempts, exam, submitted]);
+  }, [session.attempts, session.position, exam, submitted]);
   if(!submitted)return null;
   const latest=a.grading?.lastRequest;
   const configurationError = error ?? latest?.appError;
@@ -81,16 +92,17 @@ export function ExamResults({session,onSession,run,onNextUnattempted,draft,onDra
     </details>
     <div className="flex flex-wrap gap-2"><Button variant="outline" disabled={!retryCount||running} onClick={()=>run(async()=>onSession(await api({type:"retry_wrong",id:session.id})))}>{exam?t("重练本次未得满分题"):t("重练本次错题")}</Button>
     {onNextUnattempted&&<Button variant="outline" disabled={running} onClick={onNextUnattempted}>{t("继续下一批未做题")}</Button>}
-    {exam&&<>{!!pendingAi.length&&<Button disabled={running} onClick={()=>grade(pendingAi)}>{t("AI 评分/继续（{0} 题，将调用模型）", { 0: pendingAi.length })}</Button>}{running&&<Button variant="outline" onClick={()=>{stopped.current=true;}}>{t("停止后续评分")}</Button>}{!session.finishedAt&&<Button variant="outline" disabled={running} onClick={()=>run(async()=>onSession(await api({type:"complete_review",id:session.id})))}>{t("结束核对（可保留未判定）")}</Button>}</>}
+    {!!pendingAi.length&&<Button disabled={running} onClick={()=>grade(pendingAi)}>{t("AI 评分/继续（{0} 题，将调用模型）", { 0: pendingAi.length })}</Button>}{running&&<Button variant="outline" onClick={()=>{stopped.current=true;}}>{t("停止后续评分")}</Button>}{exam&&!session.finishedAt&&<Button variant="outline" disabled={running} onClick={()=>run(async()=>onSession(await api({type:"complete_review",id:session.id})))}>{t("结束核对（可保留未判定）")}</Button>}
     </div>
-    {exam&&<>
-      <p role="status" aria-live="polite" aria-atomic="true">{t("当前题：{0} / {1} 分 · {2}", { 0: a.earnedCents==null?t("待评分"):a.earnedCents/100, 1: (a.maxCents||0)/100, 2: a.gradeKind==="ai"?t("AI 评分"):a.gradeKind==="manual"?t("人工评分"):a.gradeKind==="auto"?t("自动判分"):t("未判定") })}{a.earnedCents!=null&&a.earnedCents>0&&a.earnedCents<(a.maxCents||0)&&` · ${t("部分得分")}`}</p>
+    {(exam || a.snapshot.question.answerMode === "short_answer")&&<>
+      {!exam && a.earnedCents==null && a.gradeKind!=="self" && <p className="text-sm text-muted-foreground">{t("练习评分使用原题分值；未提供分值时按百分制评分。")}</p>}
+      {!exam && a.gradeKind==="self" ? <p>{t("用户自评")} · {t(a.result ? "回答正确" : "回答错误")}</p> : <p role="status" aria-live="polite" aria-atomic="true">{t("当前题：{0} / {1} 分 · {2}", { 0: a.earnedCents==null?t("待评分"):a.earnedCents/100, 1: a.maxCents!=null?a.maxCents/100:!exam?(a.snapshot.question.sourceScore||100):0, 2: a.gradeKind==="ai"?t("AI 评分"):a.gradeKind==="manual"?t("人工评分"):a.gradeKind==="auto"?t("自动判分"):t("未判定") })}{a.earnedCents!=null&&a.earnedCents>0&&a.earnedCents<(a.maxCents||0)&&` · ${t("部分得分")}`}</p>}
       {a.grading?.ai&&<GradeDetails request={a.grading.ai}/>}
       {latest&&<div className="space-y-2"><p>{t("上次请求：{0}", {0:gradingStatus(latest.status)})}{a.earnedCents!=null&&` · ${t("已有得分保留。")}`}</p><GradeDetails request={latest}/></div>}
       {eligible(a)&&!a.grading?.ai&&!latest&&<p>{t("尚未请求 AI 评分。")}</p>}
       {eligible(a)&&latest?.status==="unknown"&&<><p>{t("先核对上次请求；重新评分会创建新的付费请求。")}</p><Button variant="outline" disabled={running} onClick={()=>grade([a])}>{t("核对上次评分结果")}</Button></>}
       {a.grading?.manual&&<p>{t("人工改分原因：{0}", { 0: a.grading.manual.reason })}</p>}
-      {!eligible(a)&&a.earnedCents==null&&<p>{t("缺少完整题目、作答或评分依据，需人工处理。")}</p>}
+      {!eligible(a)&&a.earnedCents==null&&a.gradeKind!=="self"&&<p>{t("缺少完整题目、作答或评分依据，需人工处理。")}</p>}
       {eligible(a) && (a.grading?.ai || a.grading?.lastRequest || (failedAttempt?.sessionId === session.id && failedAttempt.ordinal === a.ordinal && (error as {code?:string} | null)?.code === "LOCAL_GRADING_TARGET_CHANGED")) && (
         <AlertDialog open={retryConfirm} onOpenChange={setRetryConfirm}>
           <AlertDialogTrigger asChild>
@@ -108,7 +120,7 @@ export function ExamResults({session,onSession,run,onNextUnattempted,draft,onDra
           </AlertDialogContent>
         </AlertDialog>
       )}
-      <div className="flex flex-wrap items-end gap-3"><div className="w-32 space-y-2"><Label htmlFor="manual-score">{t("人工得分")}</Label><Input id="manual-score" inputMode="decimal" disabled={saving || running} aria-label={t("人工得分")} placeholder={t("得分")} value={score} onChange={e=>changeDraft({ score: e.target.value, reason })}/></div><div className="basis-full space-y-2 sm:basis-0 sm:flex-1"><Label htmlFor="manual-reason">{t("改分原因")}</Label><Input id="manual-reason" disabled={saving || running} aria-label={t("改分原因")} placeholder={t("人工评分/改分原因（必填）")} value={reason} onChange={e=>changeDraft({ score, reason: e.target.value })}/></div><Button variant="outline" disabled={saving || running} onClick={()=>{try{const value=cents(score);if(!reason.trim())throw new MessageError(message("请填写原因"));setError(null);run(async()=>{
+      {exam&&<><div className="flex flex-wrap items-end gap-3"><div className="w-32 space-y-2"><Label htmlFor="manual-score">{t("人工得分")}</Label><Input id="manual-score" inputMode="decimal" disabled={saving || running} aria-label={t("人工得分")} placeholder={t("得分")} value={score} onChange={e=>changeDraft({ score: e.target.value, reason })}/></div><div className="basis-full space-y-2 sm:basis-0 sm:flex-1"><Label htmlFor="manual-reason">{t("改分原因")}</Label><Input id="manual-reason" disabled={saving || running} aria-label={t("改分原因")} placeholder={t("人工评分/改分原因（必填）")} value={reason} onChange={e=>changeDraft({ score, reason: e.target.value })}/></div><Button variant="outline" disabled={saving || running} onClick={()=>{try{const value=cents(score);if(!reason.trim())throw new MessageError(message("请填写原因"));setError(null);run(async()=>{
         setSaving(true);
         try {
           const updated = await api({type:"manual_score",id:session.id,ordinal:a.ordinal,cents:value,reason});
@@ -117,7 +129,7 @@ export function ExamResults({session,onSession,run,onNextUnattempted,draft,onDra
         } catch (error) { setError(error); }
         finally { setSaving(false); }
       });}catch(e){setError(e);}}}>{saving ? t("正在保存…") : t("保存人工评分")}</Button></div>
-      <p className="text-xs text-muted-foreground">{t("人工评分需点击保存；未保存草稿将在退出应用后丢失。")}</p>
+      <p className="text-xs text-muted-foreground">{t("人工评分需点击保存；未保存草稿将在退出应用后丢失。")}</p></>}
     </>}
     {error != null && <div role="alert"><ErrorNotice error={error} /></div>}
     {needsConfiguration && onConfigure && <Button variant="outline" disabled={running || saving} onClick={onConfigure}>{t("配置 AI 服务")}</Button>}

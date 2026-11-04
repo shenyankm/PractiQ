@@ -1,4 +1,9 @@
 export const en = {
+  "评分点（原始分值）": "Scoring points (original scale)",
+  "评分依据：{0}": "Reference: {0}",
+  "作答引用：{0}": "Answer quotation: {0}",
+  "未找到对应作答": "No matching response",
+  "练习评分使用原题分值；未提供分值时按百分制评分。": "Practice uses the original maximum, or a 100-point scale when none was supplied.",
   "导入解析诊断": "Import parsing diagnostics",
   "仅完全相同的内容会跳过。部分结果与最终完整结果追加到同一题库，会重复加入已有题目，不会增量更新。建议将最终完整结果导入新题库。": "Only identical content is skipped. Appending a partial result and its final complete result to the same bank adds existing questions again; it does not update them incrementally. Import the final complete result into a new bank.",
   "更多题库操作": "More bank actions",

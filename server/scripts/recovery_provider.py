@@ -48,7 +48,10 @@ def app_for(log: Path, invalid_responses: int = 0, delay: float = 0) -> FastAPI:
             data = json.loads(content[0]["text"] if isinstance(content, list) else content)
             maximum = data["assessmentMaxCents"]
             result = {"scoreCents": maximum * 3 // 5, "maxCents": maximum,
-                      "reason": "Synthetic partial-credit response", "evidence": ["synthetic fixture"], "reviewReasons": []}
+                      "reason": "Synthetic partial-credit response", "evidence": ["synthetic fixture"], "reviewReasons": [],
+                      "criteria": [{"criterion":"Synthetic holistic criterion", "scoreCents":maximum * 3 // 5, "maxCents":maximum,
+                                    "referenceQuote":data["question"].get("scoringRubric") or (data["question"].get("answerPayload") or {}).get("text") or "",
+                                    "answerQuote":data["answer"], "reason":"Synthetic recovery fixture, not a quality assessment"}]}
         request_id = str(uuid4())
         async with lock:
             if call_count < invalid_responses:

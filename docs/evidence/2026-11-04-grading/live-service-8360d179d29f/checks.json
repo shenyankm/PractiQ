@@ -1,0 +1,53 @@
+{
+  "status": "PASSED",
+  "scope": "Follow-up evaluator correction; no production grading changes after live run",
+  "focusedTests": {
+    "passed": 29,
+    "command": "python3.14 -m pytest tests/test_grading_evaluation.py tests/test_grading_evidence.py -q"
+  },
+  "ruff": "PASSED",
+  "pyright": {
+    "status": "PASSED",
+    "errors": 0,
+    "warnings": 0,
+    "pythonPath": "existing Python 3.14 interpreter"
+  },
+  "fullSuiteAfterScorerCorrection": "NOT_RUN; prior full run 3676 passed",
+  "initialReport": "FAILED 25/26; retained unchanged",
+  "offlineRescore": "PASSED 26/26",
+  "allRawResponsesIdentical": true,
+  "anchorHashIdentical": true,
+  "productionGradingSourceHashesUnchanged": true,
+  "providerRequests": 26,
+  "additionalProviderRequests": 0,
+  "receiptReplayAddedRequests": 0,
+  "inputTokens": 39226,
+  "outputTokens": 9559,
+  "structuredCorrectionRequests": 1,
+  "monetaryCost": "UNKNOWN",
+  "independentCalibration": "NOT_ESTABLISHED",
+  "nativeDirectRealProvider": "NOT_RUN",
+  "previousChecks": [
+    {
+      "status": "FAILED",
+      "check": "Regression test before scorer fix",
+      "result": "1 failed, 14 passed"
+    },
+    {
+      "status": "FAILED",
+      "check": "Pyright without explicit interpreter",
+      "result": "496 errors from unresolved installed dependencies"
+    },
+    {
+      "status": "FAILED",
+      "check": "Pyright with correct interpreter before test annotation fix",
+      "result": "1 inferred dictionary value type error"
+    }
+  ],
+  "sha256": {
+    "report.json": "7333f49024c9fd287b1c2706d2a57a165f43838a0a6eb662d1d0972519954f85",
+    "rescored.json": "eb6b02a764fcc9aaafe1a4979ed4a79fb51256ec8ef3366d1aa977deb1c1538f",
+    "calls.json": "85258d01e54d0b548d099681d9dedf10e6ef5bdb4df0b674e98794587faa0d74",
+    "driver.txt": "68c0d7861d14a6b4892b3f38b2f5b8d1d368c368a6135959ea0e3455c1983ac9"
+  }
+}

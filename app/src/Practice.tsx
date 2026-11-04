@@ -266,7 +266,7 @@ function PracticeQuestion({
   const selfAllowed =
     !attempt.skipped &&
     !exam && (attempt.autoResult === null || q.answerMode === "fill_blank");
-  const resultLabel = exam
+  const resultLabel = exam || attempt.earnedCents != null
     ? attempt.earnedCents == null ? t("待评分") : t("{0}{1} / {2} 分", { 0: attempt.skipped ? t("未答 · ") : attempt.earnedCents > 0 && attempt.earnedCents < (attempt.maxCents || 0) ? `${t("部分得分")} · ` : "", 1: attempt.earnedCents / 100, 2: (attempt.maxCents || 0) / 100 })
     : attempt.skipped ? t("已跳过") : attempt.result === true ? t("回答正确") : attempt.result === false
       ? q.answerMode === "fill_blank" && attempt.gradeKind === "auto" ? t("文本不完全一致") : t("回答错误")
@@ -321,7 +321,7 @@ function PracticeQuestion({
               <div className="flex flex-wrap items-center gap-3">
                 <Badge
                   variant={
-                    attempt.result === false && !(exam && (attempt.earnedCents || 0) > 0) ? "destructive" : "secondary"
+                    attempt.result === false && !(attempt.earnedCents != null && attempt.earnedCents > 0) ? "destructive" : "secondary"
                   }
                 >
                   {resultLabel}
@@ -483,7 +483,7 @@ function answerState(a: Attempt, draft: Answer | null, exam: boolean) {
     if (a.skipped) return { status: "skipped", label: "已跳过" } as const;
     if (a.submittedAt != null) {
       if (a.result === true) return { status: "correct", label: "正确" } as const;
-      if (a.result === false) return exam && (a.earnedCents || 0) > 0
+      if (a.result === false) return (a.earnedCents || 0) > 0
         ? { status: "partial", label: "部分得分" } as const
         : { status: "incorrect", label: exam ? "未得满分" : a.snapshot.question.answerMode === "fill_blank" && a.gradeKind === "auto" ? "文本不完全一致" : "错误" } as const;
       return { status: "pending", label: "已提交，待判定" } as const;
@@ -522,7 +522,7 @@ function AnswerCardLegend({exam}: {exam: boolean}) {
   return <>
                   <h4 className="mb-2 text-sm font-medium">{t("作答与判定状态")}</h4>
                   <p className="answer-card-legend grid grid-cols-2 gap-x-2 gap-y-2 text-sm text-muted-foreground">
-                    {Object.entries(answerCardStates).filter(([status]) => exam || status !== "partial").map(([status, { label, Marker }]) => <span key={status} className="flex items-center gap-1.5"><span className="answer-card-swatch" data-answer-state={status}>{Marker && <Marker className="size-3" aria-hidden="true"/>}</span>{t(status === "incorrect" && exam ? "未得满分" : label)}</span>)}
+                    {Object.entries(answerCardStates).map(([status, { label, Marker }]) => <span key={status} className="flex items-center gap-1.5"><span className="answer-card-swatch" data-answer-state={status}>{Marker && <Marker className="size-3" aria-hidden="true"/>}</span>{t(status === "incorrect" && exam ? "未得满分" : label)}</span>)}
                   </p>
                   <h4 className="mb-2 mt-4 text-sm font-medium">{t("位置与检查标记")}</h4>
                   <p className="answer-card-legend grid grid-cols-2 gap-2 text-sm text-muted-foreground">

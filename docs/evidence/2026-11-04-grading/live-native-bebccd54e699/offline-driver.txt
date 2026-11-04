@@ -1,0 +1,28 @@
+import hashlib,json,subprocess
+from pathlib import Path
+ROOT=Path(__file__).resolve().parents[3]; b=ROOT/'app/.build/grading-direct-live';p=ROOT/'app/src-tauri/src/ai.rs'
+out=ROOT/'docs/evidence/2026-11-04-grading/live-native-bebccd54e699'
+original=(b/'ai-original.rs').read_bytes();assert p.read_bytes()==original
+probe=(b/'probe.rs').read_text().replace('        let model: settings::ConnectionSettings =', (b/'offline-block.rs').read_text()+'        let model: settings::ConnectionSettings =',1)
+candidate=original[:-2]+probe.encode()+b'}\n';p.write_bytes(candidate)
+raw=(out/'report.json').read_bytes(); report=json.loads(raw)
+corpus=json.loads((ROOT/'server/evals/grading-practice-v2.json').read_text());names=[r['case'] for r in report['runs']]
+config={'model':report['model'],'cases':[next(c for c in corpus['cases'] if c['name']==n) for n in names],
+ 'output':str(out/'offline-persistence.json'),'offline':True,'retainedReport':str(out/'report.json')}
+try:
+ with (b/'offline-build.jsonl').open('w') as stdout,(b/'offline-build.log').open('w') as stderr:
+  build=subprocess.run(['cargo','test','--manifest-path','app/src-tauri/Cargo.toml','--lib','--no-run','--message-format=json'],cwd=ROOT,stdout=stdout,stderr=stderr)
+ assert build.returncode==0
+ rows=[json.loads(line) for line in (b/'offline-build.jsonl').read_text().splitlines() if line.startswith('{')]
+ binary=next(r['executable'] for r in rows if r.get('reason')=='compiler-artifact' and r.get('executable') and r['target']['name']=='practiq_desktop')
+ run=subprocess.run([binary,'ai::tests::live_direct_provider_acceptance','--exact','--ignored','--nocapture'],cwd=ROOT,input=json.dumps(config),text=True,capture_output=True,timeout=120)
+ (out/'offline-execution.log').write_text(run.stdout+run.stderr)
+ assert raw==(out/'report.json').read_bytes()
+ assert run.returncode==0,'Offline check failed; outputs retained'
+ print('Offline native persistence passed; retained original report unchanged')
+finally:
+ assert p.read_bytes()==candidate
+ p.write_bytes(original)
+ (out/'offline-probe.txt').write_text(probe)
+ (out/'offline-driver.txt').write_bytes(Path(__file__).read_bytes())
+ (out/'offline-source-restored.json').write_text(json.dumps({'restoredOriginalAiSource':p.read_bytes()==original})+'\n')

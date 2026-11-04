@@ -27,6 +27,7 @@ it.each([
   { attempt: { answer: { text: "Submitted" }, submittedAt: 1 }, label: "已提交，待判定", status: "pending", marker: "circle-dashed", legend: "待判定" },
   { attempt: { submittedAt: 1, result: true }, label: "正确", status: "correct", marker: "check", legend: "正确" },
   { attempt: { submittedAt: 1, result: false }, label: "错误", status: "incorrect", marker: "x", legend: "错误" },
+  { attempt: { submittedAt: 1, result: false, gradeKind: "ai" as const, earnedCents: 60, maxCents: 100 }, label: "部分得分", status: "partial", marker: "circle-dot", legend: "部分得分" },
   { attempt: { submittedAt: 1, result: false, earnedCents: 100, maxCents: 200 }, exam: true, label: "部分得分", status: "partial", marker: "circle-dot", legend: "部分得分" },
   { attempt: { submittedAt: 1, result: false, earnedCents: 0, maxCents: 200 }, exam: true, label: "未得满分", status: "incorrect", marker: "x", legend: "未得满分" },
   { attempt: { skipped: true, submittedAt: 1, result: false }, label: "已跳过", status: "skipped", marker: "skip-forward", legend: "跳过" },

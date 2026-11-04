@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 11,
+  "scoredAttempts": [
+    {
+      "gradeKind": "ai",
+      "earnedCents": 6000,
+      "maxCents": 10000
+    }
+  ],
+  "receiptStatuses": [
+    "graded",
+    "ungraded",
+    "unknown"
+  ],
+  "originalDatabaseUnchanged": true,
+  "backupExcludesDummyKey": true,
+  "backupManifestVersion": 4,
+  "http": {
+    "realModelCalls": 0,
+    "modelListReads": 1,
+    "modelCalls": 3,
+    "outcomes": [
+      "valid",
+      "invalid_reference",
+      "connection_dropped"
+    ]
+  },
+  "credentialDeletionVerifiedByNativeTest": true,
+  "restoreCompletedThroughNativePicker": true,
+  "independentReview": "NOT_RUN",
+  "partialCreditMarkerVerifiedInFinalNativeGui": true,
+  "credentialDeletionVerifiedAfterRestore": true,
+  "qaApplication": {
+    "identifier": "com.practiq.acceptance.grading20261104",
+    "executableSha256": "8a5a4c777c1f643960277bd779d3e6e768c80c8610184e3e750574c6629ed782",
+    "scope": "Isolated macOS GUI candidate, not the standard release installer"
+  },
+  "sourceSha256": {
+    "app/src-tauri/src/model_grading.rs": "224e642882190e8189aa9474da66eecca492d3259f201a106e885e9d0702d98f",
+    "app/src-tauri/src/ai.rs": "83fac91667abaf36da9b61cc0a77d21b5314163d964111707326921be19f491d",
+    "app/src-tauri/src/contract.rs": "b1085e2da092d85a69469b91e7848e31b796d824187223a9d6d889dd0e9280aa",
+    "app/src-tauri/src/exams.rs": "c02b376b9c6282ad2583f5fde476df58a089b334a78edfbe65e1e5c7d8d272a9",
+    "app/src-tauri/src/sessions.rs": "f22d68a2b9f9c2bd10e7bf4e9b2b556d43ab04ba2657cc57d007a644a2b36f49",
+    "app/src/ExamResults.tsx": "43a88aa3a9770af121b9028c36647dfecb0c0441dca1ac46128b473a99c017e0",
+    "app/src/Practice.tsx": "d7a42a50e44fc93c69f3c601f49e39c0cb6ce96164a1f84c0a8bd3c2a249b087",
+    "app/src-tauri/contracts.json": "7bfe129701bc55aff5ad07d7d7b14a0cb1c39d462fd7e9d3de720da0bf5ac0ae",
+    "server/src/practiq_ai/contracts.py": "fb881cf94ab3850f7dbbb44fb34d994e867a8bfa72bae6d78986051d19b87d97",
+    "server/src/practiq_ai/grading.py": "9030aa9fd5bc40bc2334f26f747f1e7902fe652f674b10f667332e9993323b84",
+    "server/evals/grading-practice-v2.json": "30cfd82ede5447784b691f09ee7ab721646d3945c983f9fe5071a6c8fd3ae190",
+    "server/evals/badcases/grading-evidence-v2.json": "31fabffaa3d56d72c0ea4bc7def862fc81e97c5999aa6d66f9139403c5adbd37"
+  },
+  "fixtureServerSha256": "22d8820fcaa726d81fd1a8907655314f0411592449cdf9fe21f7a0663e1b1d6d",
+  "nativeCredentialNamespaces": [
+    "ai-service-token-",
+    "ai-model-key-v1-"
+  ]
+}

@@ -31,6 +31,13 @@ pub fn has_basis(q: &Value) -> bool {
     !contract::answer_source_conflict(q)
         && (!text(q, "scoringRubric").trim().is_empty() || contract::answer_complete(q))
 }
+fn practice_grading_max(q: &Value) -> i64 {
+    q["sourceScore"]
+        .as_f64()
+        .map(|score| (score * 100.0).round_ties_even() as i64)
+        .filter(|n| (1..=100_000_000).contains(n))
+        .unwrap_or(10_000)
+}
 pub(crate) fn validate_grade_details(response: &Value) -> Result<()> {
     let result = &response["result"];
     if result.is_null() && response["status"] != "graded" {
@@ -577,13 +584,12 @@ impl Store {
     ) -> Result<Value> {
         let db = self.connect()?;
         self.session_now_with(&db)?;
-        let (snapshot,answer,max,submitted,kind,grade_kind):(String,String,Option<i64>,Option<i64>,String,String)=db.query_row("SELECT a.snapshot_question_id,a.answer,a.max_cents,s.submitted_at,s.kind,a.grade_kind FROM attempts a JOIN sessions s ON s.id=a.session_id WHERE a.session_id=?1 AND a.ordinal=?2",params![sid,ordinal],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?,r.get(5)?))).map_err(err)?;
+        let (snapshot,answer,max,submitted,grade_kind):(String,String,Option<i64>,Option<i64>,String)=db.query_row("SELECT a.snapshot_question_id,a.answer,a.max_cents,CASE WHEN s.kind='practice' THEN a.submitted_at ELSE s.submitted_at END,a.grade_kind FROM attempts a JOIN sessions s ON s.id=a.session_id WHERE a.session_id=?1 AND a.ordinal=?2",params![sid,ordinal],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?))).map_err(err)?;
         let snapshot = crate::questions::snapshot(&db, sid, &snapshot)?;
         let answer: Value = serde_json::from_str(&answer).map_err(err)?;
         let q = &snapshot["question"];
         if submitted.is_none()
-            || kind == "practice"
-            || grade_kind == "manual"
+            || matches!(grade_kind.as_str(), "manual" | "self")
             || text(q, "answerMode") != "short_answer"
             || !has_basis(q)
             || !usable(&snapshot)
@@ -594,6 +600,7 @@ impl Store {
                 serde_json::json!({}),
             ));
         }
+        let max = max.unwrap_or_else(|| practice_grading_max(q));
         let mut images = Vec::new();
         let mut seen = HashSet::new();
         for v in list(&snapshot, "visuals") {
@@ -778,13 +785,15 @@ impl Store {
     ) -> Result<Value> {
         let mut db = self.connect()?;
         let tx = db.transaction().map_err(err)?;
-        let max: i64 = tx
+        let (max, qid): (Option<i64>, String) = tx
             .query_row(
-                "SELECT max_cents FROM attempts WHERE session_id=?1 AND ordinal=?2",
+                "SELECT max_cents,snapshot_question_id FROM attempts WHERE session_id=?1 AND ordinal=?2",
                 params![sid, ordinal],
-                |r| r.get(0),
+                |r| Ok((r.get(0)?, r.get(1)?)),
             )
             .map_err(err)?;
+        let snapshot = crate::questions::snapshot(&tx, sid, &qid)?;
+        let max = max.unwrap_or_else(|| practice_grading_max(&snapshot["question"]));
         let score = if response["status"] == "graded" {
             Some(
                 response["result"]["scoreCents"]
@@ -812,7 +821,7 @@ impl Store {
                 serde_json::json!({}),
             ));
         }
-        tx.execute("UPDATE attempts SET grading=json_set(CASE WHEN ?4 IS NULL THEN grading ELSE json_remove(grading,'$.lastRequest') END,CASE WHEN ?4 IS NULL THEN '$.lastRequest' ELSE '$.ai' END,json(?3)),earned_cents=CASE WHEN grade_kind='manual' OR ?4 IS NULL THEN earned_cents ELSE ?4 END,result=CASE WHEN grade_kind='manual' OR ?4 IS NULL THEN result ELSE (?4=max_cents) END,grade_kind=CASE WHEN grade_kind='manual' OR ?4 IS NULL THEN grade_kind ELSE 'ai' END WHERE session_id=?1 AND ordinal=?2 AND ?5=(SELECT id FROM grade_requests WHERE session_id=?1 AND ordinal=?2 ORDER BY created_at DESC,rowid DESC LIMIT 1)",params![sid,ordinal,response.to_string(),score,rid]).map_err(err)?;
+        tx.execute("UPDATE attempts SET grading=json_set(CASE WHEN ?4 IS NULL THEN grading ELSE json_remove(grading,'$.lastRequest') END,CASE WHEN ?4 IS NULL THEN '$.lastRequest' ELSE '$.ai' END,json(?3)),max_cents=CASE WHEN grade_kind IN ('manual','self') OR ?4 IS NULL THEN max_cents ELSE ?6 END,earned_cents=CASE WHEN grade_kind IN ('manual','self') OR ?4 IS NULL THEN earned_cents ELSE ?4 END,result=CASE WHEN grade_kind IN ('manual','self') OR ?4 IS NULL THEN result ELSE (?4=?6) END,grade_kind=CASE WHEN grade_kind IN ('manual','self') OR ?4 IS NULL THEN grade_kind ELSE 'ai' END WHERE session_id=?1 AND ordinal=?2 AND ?5=(SELECT id FROM grade_requests WHERE session_id=?1 AND ordinal=?2 ORDER BY created_at DESC,rowid DESC LIMIT 1)",params![sid,ordinal,response.to_string(),score,rid,max]).map_err(err)?;
         tx.commit().map_err(err)?;
         self.session_data(sid, snapshot_key)
     }
