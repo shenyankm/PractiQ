@@ -10,7 +10,7 @@ from langgraph.types import Command
 from psycopg import Error as DatabaseError
 
 from . import telemetry
-from .config import load, rabbitmq_uri, require_model_config
+from .config import load, rabbitmq_uris, require_model_config
 from .database import Database, utcnow, watch_ownership
 from .errors import DocumentProcessingError
 from .execution import (
@@ -67,7 +67,7 @@ class Service:
             self.graphs = {name: build_document_graph(self.db.checkpointer, store=self.db.store, name=name, source_types=types)
                            for name, types in GRAPH_FORMATS.items()}
             if not load().read_only:
-                rabbitmq_uri()
+                rabbitmq_uris()
             await self.reconcile()
             self.accepting = True
             self.loop = asyncio.create_task(self.controls(), name='document-controls')

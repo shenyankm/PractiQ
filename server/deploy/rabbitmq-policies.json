@@ -1,0 +1,20 @@
+{
+  "policies": [
+    {
+      "vhost": "practiq",
+      "name": "practiq-document-capacity",
+      "pattern": "^practiq[.]document[.]v1$",
+      "apply-to": "quorum_queues",
+      "priority": 10,
+      "definition": {"max-length": 1000, "max-length-bytes": 1048576, "overflow": "reject-publish"}
+    },
+    {
+      "vhost": "practiq",
+      "name": "practiq-dead-letter-capacity",
+      "pattern": "^practiq[.]document[.]v1[.]dead$",
+      "apply-to": "quorum_queues",
+      "priority": 10,
+      "definition": {"max-length": 10000, "max-length-bytes": 10485760, "overflow": "reject-publish"}
+    }
+  ]
+}

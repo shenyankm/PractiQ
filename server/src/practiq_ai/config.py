@@ -2,6 +2,7 @@
 
 import hashlib
 import ipaddress
+import json
 import os
 import re
 import sys
@@ -10,7 +11,7 @@ from decimal import Decimal, InvalidOperation
 from math import isfinite
 from pathlib import Path
 from typing import Any, Literal
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 
 MIB = 1024 * 1024
 TEMPORARY_LIMIT = 384 * MIB  # Leave 128 MiB of the Compose tmpfs for profiles/runtime.
@@ -314,7 +315,10 @@ def database_uri() -> str:
 
 def rabbitmq_uri() -> str:
     """Broker credentials come only from trusted deployment configuration."""
-    value = _required(dict(os.environ), "RABBITMQ_URI")
+    return _validate_rabbitmq_uri(_required(dict(os.environ), "RABBITMQ_URI"))
+
+
+def _validate_rabbitmq_uri(value: str) -> str:
     try:
         url = urlsplit(value)
         valid = ((url.scheme == 'amqps' or (url.scheme == 'amqp' and is_loopback_host(url.hostname)))
@@ -325,3 +329,20 @@ def rabbitmq_uri() -> str:
     if not valid:
         raise ValueError('RABBITMQ_URI requires AMQPS or loopback AMQP with a host and explicit virtual host')
     return value
+
+
+def rabbitmq_uris() -> tuple[str, ...]:
+    primary = rabbitmq_uri()
+    try:
+        fallback = json.loads(os.environ.get('RABBITMQ_FAILOVER_URIS', '[]'))
+        if not isinstance(fallback, list) or len(fallback) > 2:
+            raise ValueError
+        for value in fallback:
+            if not isinstance(value, str) or not value:
+                raise ValueError
+            _validate_rabbitmq_uri(value)
+            if unquote(urlsplit(value).path) != unquote(urlsplit(primary).path):
+                raise ValueError
+    except (ValueError, TypeError):
+        raise ValueError('RABBITMQ_FAILOVER_URIS must be a JSON array of at most two valid AMQPS or loopback AMQP URLs for the same vhost') from None
+    return tuple(dict.fromkeys([primary, *fallback]))

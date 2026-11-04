@@ -144,7 +144,7 @@ async def run(output: Path, live: bool, native_binary: Path) -> dict[str, Any]:
     fixtures(output)
     # Never inherit service data locations, runtime credentials or proxy credentials.
     env = {key: value for key, value in os.environ.items()
-           if not key.startswith(("AI_", "LLM_")) and key not in {"DATABASE_URI", "RABBITMQ_URI"}}
+           if not key.startswith(("AI_", "LLM_")) and key not in {"DATABASE_URI", "RABBITMQ_URI", "RABBITMQ_FAILOVER_URIS"}}
     settings = {key: value for key, value in dotenv_values(ROOT / ".env").items()
                 if value is not None and key.startswith(("AI_", "LLM_"))} if live else {
                     "LLM_PROVIDER": "openai", "LLM_API_KEY": "synthetic", "LLM_MODEL": "synthetic",

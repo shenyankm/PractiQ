@@ -113,13 +113,13 @@ async def test_repeated_publication_failures_back_off_even_when_connection_clean
         if len(delays) == 3:
             service.stopping = True
     monkeypatch.setattr(messaging, 'load', lambda: SimpleNamespace(read_only=False))
-    monkeypatch.setattr(messaging, 'rabbitmq_uri', lambda: 'amqp://host/vhost')
+    monkeypatch.setattr(messaging, 'rabbitmq_uris', lambda: ('amqp://host/vhost',))
     monkeypatch.setattr(messaging.aio_pika, 'connect', AsyncMock(return_value=connection))
     monkeypatch.setattr(messaging, 'topology', AsyncMock(return_value=queue))
     publish = AsyncMock(side_effect=TimeoutError('confirm unknown'))
     monkeypatch.setattr(messaging, 'publish', publish)
     monkeypatch.setattr(messaging.asyncio, 'wait_for', wait_for)
-    await messaging.Delivery(service).run()
+    await messaging.Delivery(service).publishing()
     assert delays == [1, 2, 4]
     assert connection.close.await_count == 3
     assert publish.await_count == 3
@@ -286,7 +286,8 @@ async def test_broker_failure_keeps_old_execution_exclusive_and_outbox_durable(m
     second = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
     await asyncio.sleep(.2)
     assert not model.calls and len(service.active) == 1
-    assert (await service.db.rows('SELECT published_at FROM document_outbox WHERE run_id=%s', (second['runId'],)))[0]['published_at'] is None
+    # The publisher may recover while the old consumer still owns its execution.
+    assert (await service.db.rows('SELECT status FROM document_runs WHERE run_id=%s', (second['runId'],)))[0]['status'] == 'pending'
     release.set()
     async with asyncio.timeout(60):
         while not service.delivery.connected:
@@ -637,16 +638,16 @@ async def test_outbox_reuses_batch_connection_and_commits_each_confirm(monkeypat
         service.stopping = True
 
     monkeypatch.setattr(messaging, 'load', lambda: SimpleNamespace(read_only=False))
-    monkeypatch.setattr(messaging, 'rabbitmq_uri', lambda: 'amqp://localhost/vhost')
+    monkeypatch.setattr(messaging, 'rabbitmq_uris', lambda: ('amqp://localhost/vhost',))
     monkeypatch.setattr(messaging.aio_pika, 'connect', AsyncMock(return_value=broker))
     monkeypatch.setattr(messaging, 'topology', AsyncMock(return_value=queue))
     monkeypatch.setattr(delivery, 'wait', wait)
 
     if failure == 'cancel' and batch_size >= 2:
         with pytest.raises(asyncio.CancelledError):
-            await delivery.run()
+            await delivery.publishing()
     else:
-        await delivery.run()
+        await delivery.publishing()
 
     if batch_size == 0:
         assert events == []

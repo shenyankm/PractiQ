@@ -19,6 +19,7 @@ duration = Histogram("practiq_stage_seconds", "Execution duration", ["stage", "o
 results = Counter("practiq_document_results", "Merged results", ["status", "review"], registry=registry)
 failures = Counter("practiq_failures", "Processing failures", ["code"], registry=registry)
 deliveries = Counter("practiq_delivery_events", "AMQP delivery outcomes", ["outcome"], registry=registry)
+broker_failures = Counter("practiq_broker_failures", "Sanitized AMQP failures", ["role", "stage", "reason"], registry=registry)
 logger = logging.getLogger("practiq.events")
 _EVENTS: ContextVar[list[dict[str, Any]] | None] = ContextVar("evaluation_events", default=None)
 EVENT_FIELDS = {
@@ -26,6 +27,7 @@ EVENT_FIELDS = {
     "threadId", "runId", "durationMs", "errorCode", "attempt", "validation",
     "validationIssues", "decision", "sourceType", "status", "reviewRequired", "primaryPage", "contextPages", "sourceLinkedPages",
     "concurrencyWaitMs", "rateWaitMs", "providerRequestMs",
+    "role", "reason",
 }
 
 

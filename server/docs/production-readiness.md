@@ -207,9 +207,11 @@ the HTTP endpoint does not attest which image is running.
    the data-restore timer alone is not full RTO.
 4. From the deployment's protected Prometheus API, save a fresh instant-query JSON
    vector containing `up`, `probe_success`, backup success/timestamp, storage and
-   broker health, sandbox/cost configuration including a positive daily cost limit, outbox age, unknown Tencent jobs and
+   broker health for both connection roles, broker resource alarms, queue consumers/dead-letter totals, oldest pending run,
+   sandbox/cost configuration including a positive daily cost limit, outbox age, unknown Tencent jobs and
    `ALERTS` for this deployment. Required jobs are `practiq-ai`, `practiq-ready`,
-   `practiq-backups` and `practiq-containers`. Keep other deployments out of the
+   `practiq-backups`, `practiq-containers`, `practiq-rabbitmq` and `practiq-rabbitmq-queues`. Queue samples must carry
+   the dedicated `practiq` vhost and actual main/DLQ names. Keep other deployments out of the
    vector. Test a real receiver notification separately and inspect dead letters;
    the offline preflight sends no notifications.
 5. Combine evidence without contacting models or changing the deployment:

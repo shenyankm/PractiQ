@@ -924,6 +924,10 @@ def ensure_public_report(value: Any) -> None:
 # These are the existing behavioral checks, executed once by the normal pytest run.
 PROBE_TESTS = {
     "recoverySuccessRate": {
+        "test_broker_operations": ["test_publisher_failure_does_not_close_consumer_or_lose_its_ack",
+                                   "test_memory_alarm_keeps_consumer_ack_and_outbox_recovers",
+                                   "test_capacity_policy_rejects_publish_and_full_dlq_retains_dead_letters",
+                                   "test_three_node_quorum_survives_connected_leader_loss_without_repeating_models"],
         "test_messaging": ["test_ambiguous_broker_windows_do_not_repeat_models",
                            "test_broker_failure_keeps_old_execution_exclusive_and_outbox_durable",
                            "test_consumer_timeout_does_not_overlap_or_repeat_old_execution",

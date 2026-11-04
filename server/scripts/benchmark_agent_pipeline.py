@@ -98,13 +98,16 @@ async def dispatch_sample(module):
 
     with pytest.MonkeyPatch.context() as patch:
         patch.setattr(module, "load", lambda: SimpleNamespace(read_only=False))
-        patch.setattr(module, "rabbitmq_uri", lambda: "amqp://localhost/synthetic")
+        if hasattr(module, 'rabbitmq_uris'):
+            patch.setattr(module, 'rabbitmq_uris', lambda: ('amqp://localhost/synthetic',))
+        else:
+            patch.setattr(module, 'rabbitmq_uri', lambda: 'amqp://localhost/synthetic')
         patch.setattr(module.aio_pika, "connect", AsyncMock(return_value=broker))
         patch.setattr(module, "topology", AsyncMock(return_value=queue))
         patch.setattr(module, "publish", publish)
         patch.setattr(delivery, "wait", wait)
         started = perf_counter()
-        await asyncio.wait_for(delivery.run(), 5)
+        await asyncio.wait_for(getattr(delivery, 'publishing', delivery.run)(), 5)
         elapsed = (perf_counter() - started) * 1000
     assert published == [row["run_id"] for batch in batches for row in batch]
     return {"ms": elapsed, "idleWaitsWithBacklog": gaps, "published": len(published), "outputSha256": digest(published)}

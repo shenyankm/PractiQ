@@ -279,3 +279,123 @@ tests:
       - eval_time: 4m
         alertname: PractiQWorkerSandboxDisabled
         exp_alerts: []
+  - interval: 1m
+    input_series:
+      - series: 'practiq_broker_required{job="practiq-ai",instance="app"}'
+        values: '1x8'
+      - series: 'practiq_broker_connected{job="practiq-ai",instance="app"}'
+        values: '0x3 1x5'
+      - series: 'up{job="practiq-rabbitmq",instance="node"}'
+        values: '1x8'
+      - series: 'up{job="practiq-rabbitmq-queues",instance="node"}'
+        values: '1x8'
+      - series: 'rabbitmq_detailed_queue_messages{vhost="practiq",queue="practiq.document.v1.dead"}'
+        values: '0 1x2 0x5'
+      - series: 'rabbitmq_detailed_queue_consumers{vhost="practiq",queue="practiq.document.v1"}'
+        values: '0x3 1x5'
+      - series: practiq_pending_oldest_seconds
+        values: '1801x6 0x2'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: PractiQBrokerUnavailable
+        exp_alerts:
+          - exp_labels: {severity: critical, job: practiq-ai, instance: app}
+            exp_annotations: {summary: "Broker unavailable; committed outbox is retained"}
+      - eval_time: 2m
+        alertname: PractiQDeadLetters
+        exp_alerts:
+          - exp_labels: {severity: critical, vhost: practiq, queue: practiq.document.v1.dead}
+            exp_annotations: {summary: "RabbitMQ dead letters require inspection and explicit recovery"}
+      - eval_time: 2m
+        alertname: PractiQBrokerNoConsumer
+        exp_alerts:
+          - exp_labels: {severity: critical, vhost: practiq, queue: practiq.document.v1}
+            exp_annotations: {summary: "RabbitMQ document queue has no consumer or its metrics are missing"}
+      - eval_time: 2m
+        alertname: PractiQBrokerMonitoringUnavailable
+        exp_alerts: []
+      - eval_time: 4m
+        alertname: PractiQBrokerUnavailable
+        exp_alerts: []
+      - eval_time: 4m
+        alertname: PractiQDeadLetters
+        exp_alerts: []
+      - eval_time: 4m
+        alertname: PractiQBrokerNoConsumer
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: PractiQPendingRunStalled
+        exp_alerts:
+          - exp_labels: {severity: warning}
+            exp_annotations: {summary: "A committed document run has waited more than 30 minutes"}
+      - eval_time: 7m
+        alertname: PractiQPendingRunStalled
+        exp_alerts: []
+  - interval: 1m
+    input_series:
+      - series: practiq_broker_required
+        values: '1x3 0x4'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: PractiQBrokerMonitoringUnavailable
+        exp_alerts:
+          - exp_labels: {severity: critical, job: practiq-rabbitmq}
+            exp_annotations: {summary: "RabbitMQ node or queue monitoring is unavailable"}
+          - exp_labels: {severity: critical, job: practiq-rabbitmq-queues}
+            exp_annotations: {summary: "RabbitMQ node or queue monitoring is unavailable"}
+      - eval_time: 2m
+        alertname: PractiQBrokerNoConsumer
+        exp_alerts:
+          - exp_labels: {severity: critical, vhost: practiq, queue: practiq.document.v1}
+            exp_annotations: {summary: "RabbitMQ document queue has no consumer or its metrics are missing"}
+      - eval_time: 5m
+        alertname: PractiQBrokerMonitoringUnavailable
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: PractiQBrokerNoConsumer
+        exp_alerts: []
+  - interval: 1m
+    input_series:
+      - series: 'rabbitmq_alarms_memory_used_watermark{job="practiq-rabbitmq",instance="node"}'
+        values: '0 1x2 0x6'
+      - series: 'rabbitmq_alarms_free_disk_space_watermark{job="practiq-rabbitmq",instance="disk"}'
+        values: '0 1x2 0x6'
+      - series: 'rabbitmq_process_resident_memory_bytes{instance="node"}'
+        values: '900x7 100x2'
+      - series: 'rabbitmq_resident_memory_limit_bytes{instance="node"}'
+        values: '1000x9'
+      - series: 'rabbitmq_disk_space_available_bytes{instance="disk"}'
+        values: '1200x7 2000x2'
+      - series: 'rabbitmq_disk_space_available_limit_bytes{instance="disk"}'
+        values: '1000x9'
+      - series: 'practiq_broker_failures_total{role="publisher",stage="publish",reason="timeout"}'
+        values: '0 1 2 4 4x12'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: PractiQBrokerResourceAlarm
+        exp_alerts:
+          - exp_labels: {severity: critical, job: practiq-rabbitmq, instance: node}
+            exp_annotations: {summary: "RabbitMQ resource alarm blocks publishing; inspect memory and disk"}
+          - exp_labels: {severity: critical, job: practiq-rabbitmq, instance: disk}
+            exp_annotations: {summary: "RabbitMQ resource alarm blocks publishing; inspect memory and disk"}
+      - eval_time: 4m
+        alertname: PractiQBrokerResourceAlarm
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: PractiQBrokerCapacity
+        exp_alerts:
+          - exp_labels: {severity: warning, instance: node}
+            exp_annotations: {summary: "RabbitMQ is approaching its memory or disk watermark"}
+          - exp_labels: {severity: warning, instance: disk}
+            exp_annotations: {summary: "RabbitMQ is approaching its memory or disk watermark"}
+      - eval_time: 8m
+        alertname: PractiQBrokerCapacity
+        exp_alerts: []
+      - eval_time: 3m
+        alertname: PractiQBrokerFailures
+        exp_alerts:
+          - exp_labels: {severity: warning, role: publisher, stage: publish, reason: timeout}
+            exp_annotations: {summary: "Repeated RabbitMQ failures; inspect the sanitized role, stage and reason"}
+      - eval_time: 15m
+        alertname: PractiQBrokerFailures
+        exp_alerts: []
