@@ -346,7 +346,7 @@ impl Store {
             return Err(ineligible());
         }
         tx.execute(
-            "UPDATE attempts SET result=?3,grade_kind='self' WHERE session_id=?1 AND ordinal=?2",
+            "UPDATE attempts SET result=?3,grade_kind='self',max_cents=NULL,earned_cents=NULL WHERE session_id=?1 AND ordinal=?2",
             params![sid, ordinal, result],
         )
         .map_err(err)?;

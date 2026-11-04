@@ -28,7 +28,7 @@ def test_statistics_keep_missing_scores_out_of_numeric_samples():
     result = ev.summarize([
         {"case": "a", "actualCents": n, "expectedCents": 200} for n in [100, 300, None]
     ])["a"]
-    assert result == {"runs": 3, "graded": 2, "failed": 1, "meanCents": 200, "varianceCentsSquared": 10000,
+    assert result == {"runs": 3, "graded": 2, "abstained":0, "failed": 1, "meanCents": 200, "varianceCentsSquared": 10000,
                       "rangeCents": 200, "meanAbsoluteErrorCents": 100, "maxAbsoluteErrorCents": 100}
 
 
@@ -79,3 +79,55 @@ def test_cli_bad_anchors_exit_before_creating_report(tmp_path, monkeypatch, caps
     assert error.value.code == 2
     assert "Invalid anchors" in capsys.readouterr().err
     assert not output.exists()
+
+
+def test_practice_corpus_preflight_requires_independent_review_without_model_calls(monkeypatch, capsys):
+    from pathlib import Path
+    path = Path(__file__).parents[1] / "evals/grading-practice-v2.json"
+    anchors = ev.load_anchors(path)
+    assert len(anchors["cases"]) == 26
+    assert len({c["subject"] for c in anchors["cases"]}) == 7
+    monkeypatch.setattr(ev, "load_dotenv", lambda *a, **k: pytest.fail("Preflight must not load model credentials"))
+    monkeypatch.setattr("sys.argv", ["evaluate_grading.py", "--validate-only", "--anchors", str(path), "--repeats", "3"])
+    assert ev.main() == 0
+    assert json.loads(capsys.readouterr().out)["gradingActions"] == 78
+    monkeypatch.setattr("sys.argv", ["evaluate_grading.py", "--live", "--anchors", str(path), "--require-independent-review"])
+    with pytest.raises(SystemExit):
+        ev.main()
+
+
+async def test_expected_abstention_never_counts_a_provider_failure_as_correct(monkeypatch):
+    anchors = {"labelProvenance":"Synthetic", "cases":[{"name":"abstain", "expectedCents":None,
+        "payload":{"question":{"stem":"Explain", "answerMode":"short_answer"},"answer":"Answer","maxCents":500}}]}
+    monkeypatch.setattr(ev, "load", lambda: SimpleNamespace(model_id="fake"))
+    async def failed(_request):
+        return {"status":"unknown", "error":"Timeout"}
+    monkeypatch.setattr(ev, "grade", failed)
+    report = await ev.evaluate(1, anchors)
+    assert report["status"] == "FAILED" and report["exactMatches"] == 0
+    assert report["calibrationStatus"] == "NOT_ESTABLISHED"
+    async def abstain(_request):
+        return {"status":"ungraded", "result":{"scoreCents":None,"reviewReasons":["Missing reference"]}}
+    monkeypatch.setattr(ev, "grade", abstain)
+    assert (await ev.evaluate(1, anchors))["exactMatches"] == 1
+
+
+@pytest.mark.parametrize("basis,calls,usage,matched", [
+    (False, [], [], True),
+    (True, [], [], False),
+    (False, [{"status":"started"}], [], False),
+    (False, [], [{"inputTokens":1}], False),
+    (False, [], None, False),
+])
+async def test_expected_missing_basis_counts_only_a_known_local_refusal(monkeypatch, basis, calls, usage, matched):
+    question: dict = {"stem":"Explain", "answerMode":"short_answer"}
+    if basis:
+        question["answerPayload"] = {"text":"Reference"}
+    anchors = {"labelProvenance":"Synthetic", "cases":[{"name":"no_grade", "expectedCents":None,
+        "payload":{"question":question,"answer":"Answer","maxCents":500}}]}
+    monkeypatch.setattr(ev, "load", lambda: SimpleNamespace(model_id="fake"))
+    async def refused(_request):
+        return {"status":"ungraded", "error":"Missing grading evidence", "calls":calls, "usage":usage}
+    monkeypatch.setattr(ev, "grade", refused)
+    report = await ev.evaluate(1, anchors)
+    assert report["runs"][0]["matched"] is matched

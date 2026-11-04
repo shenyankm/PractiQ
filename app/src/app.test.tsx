@@ -349,6 +349,7 @@ it("requires fee confirmation before retrying AI grading", async () => {
   const user = userEvent.setup();
   const session = examSession();
   session.submittedAt = 1;
+  session.attempts[0].submittedAt = 1;
   session.attempts[0].grading = { lastRequest: { status: "FAILED", error: "模型暂不可用" } };
   vi.mocked(invoke).mockResolvedValue(session);
   render(<ExamResults session={session} onSession={vi.fn()} run={job => { void job(); }} />);

@@ -1,0 +1,129 @@
+"""One explicitly authorized live round; synthetic inputs, disposable PostgreSQL."""
+import asyncio
+import hashlib
+import json
+import os
+import subprocess
+import sys
+import time
+from pathlib import Path
+from urllib.parse import urlsplit
+from uuid import uuid4
+
+ROOT = Path(__file__).resolve().parents[2]
+sys.path[:0] = [str(ROOT / 'server'), str(ROOT / 'server/src')]
+from dotenv import load_dotenv
+load_dotenv(ROOT / '.env', override=False)
+os.environ.update(AI_AGENT_MAX_TOKENS='4096', AI_AGENT_TIMEOUT_SECONDS='120',
+    AI_PROVIDER_CONCURRENCY='1', AI_GRAPH_MAX_CONCURRENCY='1', N_JOBS_PER_WORKER='1',
+    AI_MAINTENANCE_MODE='false', LANGSMITH_TRACING='false', LANGCHAIN_TRACING_V2='false')
+os.environ.pop('TEST_DATABASE_URI', None)
+from practiq_ai import grading, llm
+from practiq_ai.config import load
+from practiq_ai.database import Database
+from practiq_ai.errors import DocumentProcessingError
+from scripts import evaluate_grading as ev
+from tests import db_support
+
+LIMIT = 104
+OUT = ROOT / 'docs/evidence/2026-11-04-grading' / ('live-service-' + uuid4().hex[:12])
+OUT.mkdir(exist_ok=False)
+os.environ['AI_STORAGE_DIR'] = str(OUT / 'disposable-storage')
+settings = load()
+anchors = ev.load_anchors(ROOT / 'server/evals/grading-practice-v2.json')
+assert len(anchors['cases']) == 26 and llm.MAX_MODEL_CALLS == 4
+assert settings.model_max_tokens == 4096
+state = {'requests': 0, 'stop': False, 'requestIds': []}
+
+
+def admit(count, limit):
+    if count >= limit:
+        raise DocumentProcessingError(429, 'Live evaluation request cap reached', 'LIVE_EVAL_REQUEST_LIMIT')
+    return count + 1
+
+assert admit(0, 1) == 1
+try:
+    admit(1, 1)
+except DocumentProcessingError as exc:
+    assert exc.code == 'LIVE_EVAL_REQUEST_LIMIT'
+else:
+    raise AssertionError('Request admission did not enforce its limit')
+
+
+def save(name, value):
+    raw = json.dumps(value, ensure_ascii=False, indent=2).replace(settings.api_key, '[redacted]')
+    (OUT / name).write_text(raw + '\n')
+
+
+async def main():
+    started = time.monotonic()
+    db = None
+    try:
+        uri = await asyncio.to_thread(db_support.create_database)
+        os.environ['DATABASE_URI'] = uri
+        db = Database(uri)
+        await db.open()
+        await db.initialize()
+        assert (await db.rows('SELECT COUNT(*) AS n FROM grades'))[0]['n'] == 0
+        model = llm.get_model()
+        client = model.http_async_client
+        assert client is not None and hasattr(client, 'event_hooks')
+        host = urlsplit(settings.base_url).hostname
+
+        async def count_request(request):
+            assert request.url.host == host and request.method == 'POST'
+            assert request.url.path.endswith('/responses')
+            state['requests'] = admit(state['requests'], LIMIT)
+            save('request-count.json', {'requests':state['requests'], 'maxRequests':LIMIT})
+
+        client.event_hooks.setdefault('request', []).append(count_request)
+        original = grading.grade
+
+        async def observed_grade(request):
+            if state['stop']:
+                raise DocumentProcessingError(409, 'Stopped after provider uncertainty', 'LIVE_EVAL_STOPPED')
+            state['requestIds'].append(str(request.requestId))
+            result = await original(request)
+            save('latest-response.json', result)
+            if result.get('status') == 'unknown' or str(result.get('error','')).startswith('AI_PROVIDER'):
+                state['stop'] = True
+            return result
+
+        ev.grade = observed_grade
+        print('LIVE_ROUND_STARTED model=' + settings.model_id + ' cases=26 max_requests=104 max_output_tokens=4096', flush=True)
+        report = await ev.evaluate(1, anchors)
+        before_replay = state['requests']
+        rows = await db.rows('SELECT id, digest, response FROM grades ORDER BY id')
+        calls = await db.rows('SELECT record FROM grade_calls ORDER BY sequence')
+        # Replaying the completed first request must return the durable receipt, not make a paid call.
+        first_payload = anchors['cases'][0]['payload']
+        first = ev.request_for(first_payload)
+        first.requestId = state['requestIds'][0]
+        replay = await original(first)
+        assert state['requests'] == before_replay
+        report.update(executionMode='service grading / Responses API', providerHost=host,
+            requestCap=LIMIT, actualProviderRequests=state['requests'], maxOutputTokens=4096,
+            durationSeconds=round(time.monotonic()-started,3), unknownStop=state['stop'],
+            completedReceiptCount=len(rows), replayAddedRequests=state['requests']-before_replay,
+            nativeDirectRealProvider='NOT_RUN', monetaryCost='UNKNOWN (gateway pricing not configured)',
+            sourceSha256={str(p.relative_to(ROOT)):hashlib.sha256(p.read_bytes()).hexdigest() for p in [
+                ROOT/'server/src/practiq_ai/grading.py', ROOT/'server/src/practiq_ai/contracts.py',
+                ROOT/'server/scripts/evaluate_grading.py', ROOT/'server/evals/grading-practice-v2.json']})
+        if state['stop']:
+            report['campaignStatus'] = 'INCOMPLETE'
+        save('report.json', report)
+        save('calls.json', [row['record'] for row in calls])
+        print('LIVE_ROUND_FINISHED status=' + report['status'] + ' exact=' + str(report['exactMatches']) + '/26 requests=' + str(state['requests']), flush=True)
+    except Exception as exc:
+        save('blocked.json', {'status':'BLOCKED','errorType':type(exc).__name__,'actualProviderRequests':state['requests']})
+        print('LIVE_ROUND_BLOCKED errorType=' + type(exc).__name__, flush=True)
+        raise
+    finally:
+        if db is not None:
+            await db.close()
+        if db_support.CONTAINER:
+            result = await asyncio.to_thread(subprocess.run, ['docker','rm','--force',db_support.CONTAINER], capture_output=True, timeout=30)
+            save('cleanup.json', {'disposablePostgresRemoved':result.returncode == 0})
+    print('EVIDENCE=' + str(OUT.relative_to(ROOT)), flush=True)
+
+asyncio.run(main())

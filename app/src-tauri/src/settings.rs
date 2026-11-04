@@ -2055,15 +2055,20 @@ mod tests {
     #[test]
     #[ignore = "uses an isolated native credential entry; run explicitly on the target OS"]
     fn native_keychain_roundtrip() {
-        let entry = crate::credentials::desktop_entry(
-            &format!("com.practiq.test.{}", crate::store::id()),
-            &credential_account("https://example.com").unwrap(),
-        )
-        .unwrap();
-        entry.write(Some("practiq-dummy-test-value")).unwrap();
-        let read = required_service_token(&entry).unwrap();
-        entry.write(None).unwrap();
-        assert_eq!(read, "practiq-dummy-test-value");
-        assert!(entry.read().unwrap().is_none());
+        for prefix in ["ai-service-token-", "ai-model-key-v1-"] {
+            let entry = crate::credentials::desktop_entry(
+                &format!("com.practiq.test.{}", crate::store::id()),
+                &format!(
+                    "{prefix}{}",
+                    crate::store::hash(crate::store::id().as_bytes())
+                ),
+            )
+            .unwrap();
+            entry.write(Some("practiq-dummy-test-value")).unwrap();
+            let read = required_service_token(&entry).unwrap();
+            entry.write(None).unwrap();
+            assert_eq!(read, "practiq-dummy-test-value");
+            assert!(entry.read().unwrap().is_none());
+        }
     }
 }

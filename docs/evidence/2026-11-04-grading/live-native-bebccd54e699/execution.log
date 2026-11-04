@@ -1,0 +1,21 @@
+
+running 1 test
+LIVE_NATIVE_CASE_FINISHED science_full matched=true
+LIVE_NATIVE_CASE_FINISHED science_partial matched=true
+LIVE_NATIVE_CASE_FINISHED science_instruction matched=true
+LIVE_NATIVE_CASE_FINISHED conflicting_rubric matched=true
+test ai::tests::live_direct_provider_acceptance ... FAILED
+
+failures:
+
+failures:
+    ai::tests::live_direct_provider_acceptance
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 304 filtered out; finished in 22.52s
+
+
+thread 'ai::tests::live_direct_provider_acceptance' (142966063) panicked at src/ai.rs:1434:26:
+assertion failed: row["matched"] == true && row["cachedWithDisconnectedClient"] == true &&
+            row["reopened"] == true && row["backupRestored"] == true &&
+    row["practiceSessionUnfinished"] == true
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace

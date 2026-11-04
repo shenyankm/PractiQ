@@ -1,0 +1,54 @@
+{
+  "nativeRealModelOutcomes": {
+    "status": "PASSED",
+    "cases": 4,
+    "nativeDispatches": 4,
+    "knownUsageReceipts": 4,
+    "automaticApplicationRetries": false,
+    "inputTokens": 2629,
+    "outputTokens": 3140
+  },
+  "disconnectedClientCachedReads": {
+    "status": "PASSED",
+    "cases": 4
+  },
+  "originalCombinedProbe": {
+    "status": "FAILED",
+    "retained": true,
+    "reason": "Compact session_data compared with expanded test-only session; differing field snapshot"
+  },
+  "offlineRetainedResponsePersistence": {
+    "status": "PASSED",
+    "cases": 4,
+    "additionalProviderRequests": 0,
+    "rawResponsesUnchanged": true
+  },
+  "keychainCleanup": "PASSED",
+  "originalUserDatabaseUnchanged": true,
+  "temporarySourceRestored": true,
+  "regressions": {
+    "aiTestsPassed": 20,
+    "modelGradingTestsPassed": 6,
+    "formatting": "PASSED"
+  },
+  "guiWithRealProvider": "NOT_RUN",
+  "fullRustSuiteThisFollowup": "NOT_RUN",
+  "independentCalibration": "NOT_ESTABLISHED",
+  "monetaryCost": "UNKNOWN",
+  "sha256": {
+    "offline-driver.txt": "516ebdd2135547142cd4f331295ed3148880164c602162d9635f25fdf11cf369",
+    "preflight.log": "02b6dcae8926453312c98d718bed83aa1337ab8a653b8111aad9ec5de4f0bf0b",
+    "report.json": "f283635c74629766013183974d2735ad54d73b7f89d04c05fa4c17097753e3d2",
+    "offline-execution.log": "ed13bc3729b2ad278a56e4837c2c76e242668df3a5759ee104475d14f682a3a4",
+    "report.cleanup.json": "9b42560d3399bbed40d411edbcfb73095deceb2a40e086b5b474dc217c501423",
+    "driver.txt": "b41017f0069b7478ad319d855fc3dead328d368eba031e437fa22f652fb4646b",
+    "offline-source-restored.json": "1886950992872192a9beacd9f86624f19f58966f9c9b919c44b9304176570382",
+    "source-restored.json": "1886950992872192a9beacd9f86624f19f58966f9c9b919c44b9304176570382",
+    "offline-probe.txt": "1e79ab17ffb136b29d624f13d2fc4da4574b9f63bf2cf4a7fcfddb2a02eb95d7",
+    "offline-persistence.json": "a7f42e6e4bc47c4d970d5304eb947f348435e6e177ab0ddadca6f697221b4bf9",
+    "metadata.json": "7b2137b15911dd88499a6ce31651a78c00ff5f1419a1213d4a0226c376d85b9d",
+    "README.md": "d48aeb514ebefa9422c14ff135b66da4be7ca606ca3016257581c466b1720e73",
+    "execution.log": "1a8210ecb9ae46ac8f67b660a20c7d4d70e4dbe288eb757003ad126c09f13c04",
+    "probe.txt": "ef9a4248a0923a226e7594fbb3f3f7c568480c5ed50a1ae6a8597b1262672057"
+  }
+}

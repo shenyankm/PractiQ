@@ -56,6 +56,8 @@ Open **Settings → AI service**, choose **Direct model API** and enter an OpenA
 
 Grading needs a reference answer or rubric, may cost money, and sends the current question, materials, images and your answer to the provider you chose. Each action makes at most one request, and an unknown result is never resent automatically. Keys stay in the system credential store and out of backups. See the [practice guide](docs/guides/practice-guide.md) for limits and retry rules.
 
+Ordinary practice supports explicit grading after submitting the current short answer; tests and exams still require paper submission. New results show individual scoring points and verified reference/answer quotations. Practice uses a 100-point scale if no source maximum was supplied. Independent human-labelled grading-quality acceptance remains pending.
+
 ## Install
 
 Download the macOS 14+ Apple Silicon installer from [PractiQ v0.2.1](https://github.com/shenyankm/PractiQ/releases/tag/v0.2.1). This release is unsigned and not notarized; read the release notes for checksums, installation steps and incomplete acceptance checks.

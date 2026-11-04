@@ -1,0 +1,59 @@
+"""Explicit native acceptance; credentials go to test stdin, never arguments/files."""
+import hashlib,json,subprocess,sys,uuid
+from pathlib import Path
+ROOT=Path(__file__).resolve().parents[3]
+sys.path.insert(0,str(ROOT/'server/src'))
+from dotenv import load_dotenv
+from practiq_ai.config import load
+load_dotenv(ROOT/'.env',override=False)
+settings=load()
+assert settings.api_key and settings.base_url.startswith('https://')
+b=ROOT/'app/.build/grading-direct-live'
+p=ROOT/'app/src-tauri/src/ai.rs'
+original=(b/'ai-original.rs').read_bytes();candidate=(b/'ai-candidate.rs').read_bytes()
+assert p.read_bytes()==candidate
+corpus=json.loads((ROOT/'server/evals/grading-practice-v2.json').read_text())
+names=['science_full','science_partial','science_instruction','conflicting_rubric']
+cases=[next(c for c in corpus['cases'] if c['name']==name) for name in names]
+assert len(cases)==4 and len(set(names))==4
+out=ROOT/'docs/evidence/2026-11-04-grading'/('live-native-'+uuid.uuid4().hex[:12])
+out.mkdir(exist_ok=False)
+userdb=Path.home()/'Library/Application Support/com.practiq.desktop/v4/practiq.sqlite'
+def digest(path):return hashlib.sha256(path.read_bytes()).hexdigest()
+before=digest(userdb) if userdb.exists() else None
+config={'model':{'base_url':settings.base_url.rstrip('/'),'model_id':settings.model_id},'cases':cases,'output':str(out/'report.json')}
+try:
+    with (b/'build-final.jsonl').open('w') as stdout,(b/'build-final.log').open('w') as stderr:
+        build=subprocess.run(['cargo','test','--manifest-path','app/src-tauri/Cargo.toml','--lib','--no-run','--message-format=json'],cwd=ROOT,stdout=stdout,stderr=stderr)
+    assert build.returncode==0,'Native probe compilation failed; see local build log'
+    artifacts=[json.loads(line) for line in (b/'build-final.jsonl').read_text().splitlines() if line.startswith('{')]
+    binaries=[row['executable'] for row in artifacts if row.get('reason')=='compiler-artifact' and row.get('executable') and row['target']['name']=='practiq_desktop']
+    assert len(binaries)==1
+    command=[binaries[0],'ai::tests::live_direct_provider_acceptance','--exact','--ignored','--nocapture']
+    dry=subprocess.run(command,cwd=ROOT,input=json.dumps(dict(config,preflight=True)),text=True,capture_output=True,timeout=120)
+    (out/'preflight.log').write_text(dry.stdout+dry.stderr)
+    assert dry.returncode==0,'Native preflight failed; no provider request sent'
+    print('PREFLIGHT_PASSED native_keychain_then_chat_completions model='+settings.model_id+' max_requests=4',flush=True)
+    run=subprocess.run(command,cwd=ROOT,input=json.dumps(dict(config,key=settings.api_key,preflight=False)),text=True,capture_output=True,timeout=600)
+    (out/'execution.log').write_text((run.stdout+run.stderr).replace(settings.api_key,'[redacted]'))
+    print('NATIVE_RUN_FINISHED exit='+str(run.returncode),flush=True)
+    metadata={'testExitCode':run.returncode,'modelId':settings.model_id,'caseNames':names,'requestCap':4,
+        'executionMode':'native Rust ai::grade -> model_grading::grade -> reqwest Chat Completions',
+        'frontendNativeIpcThisRun':'NOT_RUN','independentCalibration':'NOT_ESTABLISHED','monetaryCost':'UNKNOWN',
+        'originalUserDatabaseUnchanged':before==(digest(userdb) if userdb.exists() else None),
+        'testExecutableSha256':digest(Path(binaries[0])),
+        'productionAiSourceSha256':hashlib.sha256(original).hexdigest(),
+        'probeSha256':digest(b/'probe.rs'),
+        'corpusSha256':digest(ROOT/'server/evals/grading-practice-v2.json'),
+        'sourceSha256':{str(f.relative_to(ROOT)):digest(f) for f in [ROOT/'app/src-tauri/src/model_grading.rs',ROOT/'app/src-tauri/src/exams.rs',ROOT/'app/src-tauri/src/credentials.rs']}}
+    (out/'metadata.json').write_text(json.dumps(metadata,indent=2)+'\n')
+    assert run.returncode==0,'Native acceptance failed; raw outcomes retained'
+finally:
+    assert p.read_bytes()==candidate,'Concurrent source edit detected; refusing to overwrite it'
+    p.write_bytes(original)
+    (out/'source-restored.json').write_text(json.dumps({'restoredOriginalAiSource':p.read_bytes()==original})+'\n')
+    (out/'probe.txt').write_bytes((b/'probe.rs').read_bytes())
+    (out/'driver.txt').write_bytes(Path(__file__).read_bytes())
+    for f in out.iterdir():
+        assert settings.api_key.encode() not in f.read_bytes(),'Credential detected in evidence'
+    print('EVIDENCE='+str(out.relative_to(ROOT)),flush=True)

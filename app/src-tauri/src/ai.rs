@@ -145,6 +145,15 @@ impl Endpoint {
             return Err(error);
         }
         crate::exams::validate_grade_details(&value)?;
+        if value.get("result").is_some_and(|r| !r.is_null()) {
+            let input: Value = serde_json::from_str(
+                payload["payload"]
+                    .as_str()
+                    .ok_or("Missing grading payload")?,
+            )
+            .map_err(|_| crate::language::error("LOCAL_RESPONSE_INVALID", json!({})))?;
+            crate::contract::grade_evidence(&value["result"], &input)?;
+        }
         Ok(value)
     }
 }
@@ -263,7 +272,7 @@ fn grade(
 ) -> Result<Value> {
     let target = endpoint.model.as_ref().map_or_else(
         || json!({"kind":"service","serviceUrl":endpoint.origin}),
-        |model| json!({"kind":"direct","baseUrl":model.base_url,"model":model.model_id,"promptVersion":1}),
+        |model| json!({"kind":"direct","baseUrl":model.base_url,"model":model.model_id,"promptVersion":crate::model_grading::PROMPT_VERSION}),
     );
     let payload = shared
         .lock()
@@ -315,7 +324,7 @@ pub fn request(
     let endpoint = if let Some(model) = config.model {
         if !retry {
             let model = model.clone().validate()?;
-            let target = json!({"kind":"direct","baseUrl":model.base_url,"model":model.model_id,"promptVersion":1});
+            let target = json!({"kind":"direct","baseUrl":model.base_url,"model":model.model_id,"promptVersion":crate::model_grading::PROMPT_VERSION});
             if let Some(session) = shared
                 .lock()
                 .map_err(|_| crate::language::error("LOCAL_DATABASE_UNAVAILABLE", json!({})))?
@@ -411,6 +420,9 @@ mod tests {
         (origin, handle)
     }
     fn submitted() -> (tempfile::TempDir, Shared, String) {
+        submitted_kind("self_test")
+    }
+    fn submitted_kind(kind: &str) -> (tempfile::TempDir, Shared, String) {
         let dir = tempfile::tempdir().unwrap();
         let store = Store::new(dir.path().to_owned()).unwrap();
         let mut result: Value =
@@ -425,7 +437,7 @@ mod tests {
         let session = store
             .start_paper(crate::exams::Paper {
                 question_ids,
-                kind: "self_test".into(),
+                kind: kind.into(),
                 minutes: None,
                 scores: vec![1000],
                 total_cents: 1000,
@@ -434,11 +446,84 @@ mod tests {
             .unwrap();
         let id = contract::text(&session, "id").to_owned();
         store
-            .save_attempt((&id, 0), json!({"text":"Student answer"}), 0, false, false)
+            .save_attempt(
+                (&id, 0),
+                json!({"text":"Student answer"}),
+                0,
+                kind == "practice",
+                false,
+            )
             .unwrap();
-        store.submit_paper(&id, true).unwrap();
+        if kind != "practice" {
+            store.submit_paper(&id, true).unwrap();
+        }
         assert!(!bank["bankId"].is_null());
         (dir, Arc::new(Mutex::new(store)), id)
+    }
+
+    #[test]
+    fn practice_grading_preserves_self_assessment_and_survives_reopen_and_backup() {
+        let (dir, shared, id) = submitted_kind("practice");
+        let mut result = scored(6000);
+        result["maxCents"] = json!(10000);
+        result["criteria"][0]["maxCents"] = json!(10000);
+        let body =
+            json!({"choices":[{"finish_reason":"stop","message":{"content":result.to_string()}}]})
+                .to_string();
+        let (origin, handle) = server("200 OK", body, "POST /chat/completions HTTP/1.1");
+        let endpoint = direct(origin);
+        let session = grade(
+            &shared,
+            &endpoint,
+            &id,
+            0,
+            false,
+            None,
+            crate::language::Locale::English,
+        )
+        .unwrap();
+        handle.join().unwrap();
+        assert!(session["submittedAt"].is_null());
+        assert!(session["finishedAt"].is_null());
+        assert_eq!(session["attempts"][0]["maxCents"], 10000);
+        assert_eq!(session["attempts"][0]["earnedCents"], 6000);
+        let response = session["attempts"][0]["grading"]["ai"].clone();
+        let rid: String = shared
+            .lock()
+            .unwrap()
+            .connect()
+            .unwrap()
+            .query_row(
+                "SELECT id FROM grade_requests WHERE session_id=?1",
+                [&id],
+                |r| r.get(0),
+            )
+            .unwrap();
+        let mut store = Store::new(dir.path().to_owned()).unwrap();
+        assert_eq!(
+            store.session(&id).unwrap()["attempts"][0]["earnedCents"],
+            6000
+        );
+        store.self_assess(&id, 0, true).unwrap();
+        let late = store.record_grade(&id, 0, &rid, &response).unwrap();
+        assert_eq!(late["attempts"][0]["gradeKind"], "self");
+        assert_eq!(late["attempts"][0]["result"], true);
+        assert!(late["attempts"][0]["earnedCents"].is_null());
+        assert!(late["attempts"][0]["maxCents"].is_null());
+        assert_eq!(
+            store
+                .prepare_grade(&id, 0, true, store.locale)
+                .unwrap_err()
+                .code,
+            "LOCAL_GRADING_INELIGIBLE"
+        );
+        let backup = dir.path().join("grading.zip");
+        store.backup(&backup).unwrap();
+        store.restore(&backup).unwrap();
+        assert_eq!(
+            store.session(&id).unwrap()["attempts"][0]["grading"]["ai"],
+            response
+        );
     }
 
     #[test]
@@ -478,8 +563,11 @@ mod tests {
         });
         endpoint
     }
+    fn scored(score: i64) -> Value {
+        json!({"scoreCents":score,"maxCents":1000,"reason":"Partial","evidence":["Student answer"],"reviewReasons":[],"criteria":[{"criterion":"Reference match","scoreCents":score,"maxCents":1000,"referenceQuote":"制定可执行的小目标","answerQuote":"Student answer","reason":"Partial match"}]})
+    }
     fn completion() -> String {
-        json!({"id":"fixture-receipt","choices":[{"finish_reason":"stop","message":{"content":json!({"scoreCents":600,"maxCents":1000,"reason":"Partial","evidence":["Reference"],"reviewReasons":[]}).to_string()}}],"usage":{"prompt_tokens":50,"completion_tokens":20,"total_tokens":70}}).to_string()
+        json!({"id":"fixture-receipt","choices":[{"finish_reason":"stop","message":{"content":scored(600).to_string()}}],"usage":{"prompt_tokens":50,"completion_tokens":20,"total_tokens":70}}).to_string()
     }
     #[test]
     fn direct_grading_uses_chat_completions_and_reuses_local_receipts_without_resending() {
@@ -521,7 +609,7 @@ mod tests {
     fn interrupted_direct_requests_survive_reopening_without_another_paid_call() {
         let (dir, shared, id) = submitted();
         let endpoint = direct("http://127.0.0.1:9".into());
-        let target = json!({"kind":"direct","baseUrl":endpoint.model.as_ref().unwrap().base_url,"model":"fixture-model","promptVersion":1});
+        let target = json!({"kind":"direct","baseUrl":endpoint.model.as_ref().unwrap().base_url,"model":"fixture-model","promptVersion":crate::model_grading::PROMPT_VERSION});
         {
             let store = shared.lock().unwrap();
             let payload = store
@@ -858,7 +946,11 @@ mod tests {
             "unknown"
         );
         let old_request = first.join().unwrap();
-        let (origin, second) = server("200 OK", r#"{"status":"graded","result":{"scoreCents":500,"maxCents":1000,"reason":"Synthetic","evidence":[],"reviewReasons":[]}}"#.into(), "POST /api/subjective-grades HTTP/1.1");
+        let (origin, second) = server(
+            "200 OK",
+            json!({"status":"graded","result":scored(500)}).to_string(),
+            "POST /api/subjective-grades HTTP/1.1",
+        );
         let endpoint = Endpoint::new(origin, "test-service-token".into()).unwrap();
         assert_eq!(
             grade(
@@ -1007,7 +1099,11 @@ mod tests {
     #[test]
     fn explicit_grade_sends_frozen_payload_and_preserves_local_manual_override() {
         let (_dir, shared, id) = submitted();
-        let (origin, handle) = server("200 OK", r#"{"status":"graded","result":{"scoreCents":600,"maxCents":1000,"reason":"Partial","evidence":[],"reviewReasons":[]}}"#.into(), "POST /api/subjective-grades HTTP/1.1");
+        let (origin, handle) = server(
+            "200 OK",
+            json!({"status":"graded","result":scored(600)}).to_string(),
+            "POST /api/subjective-grades HTTP/1.1",
+        );
         let endpoint = Endpoint::new(origin, "test-service-token".into()).unwrap();
         let result = grade(
             &shared,

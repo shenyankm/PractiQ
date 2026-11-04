@@ -28,21 +28,30 @@ CASES = [
 
 def load_anchors(path: Path) -> dict:
     data = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(data, dict) or set(data) != {"labelProvenance", "cases"} or not isinstance(data["labelProvenance"], str) or not data["labelProvenance"].strip():
+    if not isinstance(data, dict) or not {"labelProvenance", "cases"} <= set(data) or set(data) - {"labelProvenance", "cases", "independentReview"} or not isinstance(data.get("labelProvenance"), str) or not data["labelProvenance"].strip():
         raise ValueError("Anchors require labelProvenance and cases")
+    review = data.get("independentReview")
+    if review is not None and (not isinstance(review, dict) or set(review) != {"reviewer", "reviewedAt", "sourceConsent"} or any(not isinstance(v, str) or not v.strip() for v in review.values())):
+        raise ValueError("Independent review requires reviewer, reviewedAt and sourceConsent")
     if not isinstance(data["cases"], list) or not 1 <= len(data["cases"]) <= 100:
         raise ValueError("Provide 1–100 anchors")
     names = set()
     for case in data["cases"]:
-        if not isinstance(case, dict) or set(case) != {"name", "expectedCents", "payload"}:
+        if not isinstance(case, dict) or set(case) - {"name", "expectedCents", "payload", "subject", "toleranceCents"} or not {"name", "expectedCents", "payload"} <= set(case):
             raise ValueError("Each anchor requires name, expectedCents and payload")
         name = case["name"]
         if not isinstance(name, str) or not name.strip() or name in names:
             raise ValueError("Anchor names must be unique nonempty strings")
         names.add(name)
         request = request_for(case["payload"])
-        if type(case["expectedCents"]) is not int or not 0 <= case["expectedCents"] <= request.maxCents:
+        expected = case["expectedCents"]
+        if expected is not None and (type(expected) is not int or not 0 <= expected <= request.maxCents):
             raise ValueError("Expected score must be within maxCents")
+        tolerance = case.get("toleranceCents", 0)
+        if type(tolerance) is not int or not 0 <= tolerance <= request.maxCents or (expected is None and tolerance):
+            raise ValueError("Invalid score tolerance")
+        if "subject" in case and (not isinstance(case["subject"], str) or not case["subject"].strip()):
+            raise ValueError("Subject must be nonempty")
     return data
 
 
@@ -61,8 +70,9 @@ def summarize(results: list[dict[str, Any]]) -> dict:
     report = {}
     for name, rows in groups.items():
         values = [r["actualCents"] for r in rows if r["actualCents"] is not None]
-        errors = [abs(r["actualCents"] - r["expectedCents"]) for r in rows if r["actualCents"] is not None]
-        report[name] = {"runs": len(rows), "graded": len(values), "failed": len(rows)-len(values),
+        errors = [abs(r["actualCents"] - r["expectedCents"]) for r in rows if r["actualCents"] is not None and r["expectedCents"] is not None]
+        abstained = sum(r["expectedCents"] is None and r.get("matched") is True for r in rows)
+        report[name] = {"runs": len(rows), "graded": len(values), "abstained":abstained, "failed": len(rows)-len(values)-abstained,
                         "meanCents": statistics.mean(values) if values else None,
                         "varianceCentsSquared": statistics.pvariance(values) if values else None,
                         "rangeCents": max(values)-min(values) if values else None,
@@ -93,11 +103,23 @@ async def evaluate(repeats: int, anchors: dict | None = None):
                 response = {"status":"failed", "errorType":type(exc).__name__}
             actual=(response.get("result") or {}).get("scoreCents")
             expected=case["expectedCents"]
-            results.append({"case":case["name"],"repeat":repeat+1,"expectedCents":expected,"actualCents":actual,"absoluteErrorCents":abs(actual-expected) if actual is not None else None,"response":response})
+            abstained = response.get("status") == "ungraded" and (response.get("result") or {}).get("reviewReasons") and actual is None
+            question = request.question.model_dump(mode="json")
+            has_basis = question.get("scoringRubric") or (question.get("answerPayload") or {}).get("text")
+            local_refusal = (not has_basis and response.get("status") == "ungraded"
+                and isinstance(response.get("error"), str) and bool(response["error"].strip())
+                and response.get("result") is None and response.get("calls", []) == [] and response.get("usage") == [])
+            abstained = abstained or local_refusal
+            matched = bool(abstained) if expected is None else actual == expected
+            error = abs(actual-expected) if actual is not None and expected is not None else None
+            results.append({"case":case["name"],"subject":case.get("subject", "unspecified"),"repeat":repeat+1,"expectedCents":expected,"actualCents":actual,"absoluteErrorCents":error,"normalizedAbsoluteError":error/request.maxCents if error is not None else None,"matched":matched,"withinTolerance":matched or error is not None and error <= case.get("toleranceCents",0),"response":response})
             print(f'{case["name"]} repeat={repeat+1}: expected={expected}, actual={actual}',flush=True)
-    matched = sum(r["actualCents"]==r["expectedCents"] for r in results)
+    matched = sum(r["matched"] for r in results)
     return {"labelProvenance":provenance, "modelId":config.model_id,"repetitions":repeats,"runs":results,"exactMatches":matched,"total":len(results),
-            "status":"PASSED" if matched==len(results) else "FAILED", "statistics":summarize(results)}
+            "status":"PASSED" if all(r["withinTolerance"] for r in results) else "FAILED", "statistics":summarize(results),
+            "independentReview": anchors.get("independentReview") if anchors else None,
+            "calibrationStatus":"INDEPENDENT_LABELS_RECORDED" if anchors and anchors.get("independentReview") else "NOT_ESTABLISHED",
+            "anchorSha256":hashlib.sha256(json.dumps(cases,ensure_ascii=False,sort_keys=True).encode()).hexdigest()}
 
 
 async def evaluate_source(repeats: int):
@@ -127,12 +149,14 @@ async def run_evaluation(repeats: int, anchors: dict | None, *, source_only: boo
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--live", action="store_true")
+    parser.add_argument("--validate-only", action="store_true")
+    parser.add_argument("--require-independent-review", action="store_true")
     parser.add_argument("--source-scores-only", action="store_true")
     parser.add_argument("--anchors", type=Path)
     parser.add_argument("--repeats", type=int, default=10)
     parser.add_argument("--output", type=Path, default=Path("reports/grading") / f"{uuid4()}.json")
     args = parser.parse_args()
-    if not args.live or not 1 <= args.repeats <= 100:
+    if (not args.live and not args.validate_only) or not 1 <= args.repeats <= 100:
         parser.error("Use --live explicitly; repeats must be 1–100 (model charges apply)")
     if args.anchors and args.source_scores_only:
         parser.error("--anchors cannot be combined with --source-scores-only")
@@ -140,6 +164,13 @@ def main():
         anchors = load_anchors(args.anchors) if args.anchors else None
     except (OSError, ValueError) as exc:
         parser.error(f"Invalid anchors: {exc}")
+    if args.require_independent_review and (not anchors or not anchors.get("independentReview")):
+        parser.error("Independent reviewer provenance is required before live calibration")
+    if args.validate_only:
+        if not anchors:
+            parser.error("--validate-only requires --anchors")
+        print(json.dumps({"status":"VALIDATED", "cases":len(anchors["cases"]), "gradingActions":len(anchors["cases"])*args.repeats, "independentReview":bool(anchors.get("independentReview"))}))
+        return 0
     args.output.parent.mkdir(parents=True, exist_ok=True)
     # Reserve the report before any paid call; never overwrite previous evidence.
     with args.output.open("x", encoding="utf-8") as output:

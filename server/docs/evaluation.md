@@ -50,6 +50,21 @@ Inspect `exactMatches`, `total`, and individual results. Exit code 0 means all g
 
 These rule-based synthetic samples are not independent teacher annotations or cross-subject calibration. They do not establish accuracy for formal exam grading.
 
+`evals/grading-practice-v2.json` adds 26 explicitly synthetic examples across science, mathematics, programming, English, history, reading and safety/abstention. They are engineering examples awaiting independent review. Validate them without credentials, database access or model calls:
+
+```sh
+python scripts/evaluate_grading.py --validate-only \
+  --anchors evals/grading-practice-v2.json --repeats 3
+```
+
+External anchors may add `subject` and `toleranceCents`; `expectedCents: null` explicitly expects abstention. Failed/unknown requests never count as successful abstention. Reports preserve per-case variance/error, normalized error, tolerance outcomes, the frozen anchor hash, and `calibrationStatus`. `PASSED` means the selected samples met their declared scores/tolerances, while `NOT_ESTABLISHED` still means independent grading quality has not been established.
+
+A known local refusal also satisfies expected abstention when the request has no reference/rubric, the response is ungraded with a reason, and no result, calls or usage are recorded. Provider failures do not qualify. The [2026-11-04 real-provider follow-up](../../docs/evidence/2026-11-04-grading/live-service-8360d179d29f/README.md) retains the initial scorer failure and the corrected offline rescore of identical responses; it is synthetic service-mode evidence, not teacher calibration or native direct-provider acceptance.
+
+For an independently reviewed corpus, record an `independentReview` object containing nonempty `reviewer`, `reviewedAt` and `sourceConsent` strings, retain its original provenance, and use `--require-independent-review`. That option rejects unreviewed input before loading credentials or making paid calls. This records the supplied review provenance; it cannot certify that a person actually performed the review. Reviewers must approve the frozen inputs and expected scores before viewing model outputs. Do not relabel failed cases to match predictions. Real runs still require an approved provider budget and isolated evaluation state. No independent human review or new real-model run is implied by checking in this corpus.
+
+`evals/badcases/grading-evidence-v2.json` is shared by the Python and native Rust tests. It checks score sums, proportional conversion, reference/answer quotations, missing/duplicated criteria, zero credit and abstention; it is not a model-quality dataset.
+
 ## Extraction dataset and human gold labels
 
 `evals/cases.json` uses `schemaVersion: 2` with synthetic cases. The active scorer version in `scripts/evaluate.py` is `6.6.0`; freeze a separate three-repetition baseline for this version rather than reusing historical 6.2.0/6.3.0/6.4.0/6.5.0 reports. The active manifest covers Text, PDF, and Image; seven basic question types; reading, word-bank, and cloze composites; and cases involving Chinese, missing source answers, long stems with identical prefixes, legitimate duplicates, long text spanning chunks, text without questions, and corrupt PDFs. Two focused text cases cover multiple-choice and ordinary fill-blank extraction. Six additional regression cases cover listening without audio, grammar fill, sentence selection, paragraph matching, translation/writing, and supplied or absent grading evidence. Their source and labels are synthetic maintenance fixtures, not independent teacher annotations. Real-model results remain separate from fixture validation. Manifest fields mean:

@@ -1,0 +1,25 @@
+{
+  "testExitCode": 101,
+  "modelId": "deepseek-v4.1-flash",
+  "caseNames": [
+    "science_full",
+    "science_partial",
+    "science_instruction",
+    "conflicting_rubric"
+  ],
+  "requestCap": 4,
+  "executionMode": "native Rust ai::grade -> model_grading::grade -> reqwest Chat Completions",
+  "frontendNativeIpcThisRun": "NOT_RUN",
+  "independentCalibration": "NOT_ESTABLISHED",
+  "monetaryCost": "UNKNOWN",
+  "originalUserDatabaseUnchanged": true,
+  "testExecutableSha256": "1b017f5fec9dc3da88ef505817512ace8c1cee8c8d1d967c0452bfac45e82864",
+  "productionAiSourceSha256": "83fac91667abaf36da9b61cc0a77d21b5314163d964111707326921be19f491d",
+  "probeSha256": "ef9a4248a0923a226e7594fbb3f3f7c568480c5ed50a1ae6a8597b1262672057",
+  "corpusSha256": "30cfd82ede5447784b691f09ee7ab721646d3945c983f9fe5071a6c8fd3ae190",
+  "sourceSha256": {
+    "app/src-tauri/src/model_grading.rs": "224e642882190e8189aa9474da66eecca492d3259f201a106e885e9d0702d98f",
+    "app/src-tauri/src/exams.rs": "c02b376b9c6282ad2583f5fde476df58a089b334a78edfbe65e1e5c7d8d272a9",
+    "app/src-tauri/src/credentials.rs": "5691b1cdf977091ffa11df26fc2c5e3c1adff1fbaf2a6322faee554fcb01057b"
+  }
+}

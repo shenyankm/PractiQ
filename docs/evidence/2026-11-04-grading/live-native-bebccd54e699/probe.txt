@@ -1,0 +1,105 @@
+    #[test]
+    #[ignore = "explicit authorized live-provider acceptance; stdin carries native-only credentials"]
+    fn live_direct_provider_acceptance() {
+        use crate::credentials::Credential;
+        let mut stdin = String::new();
+        std::io::stdin().read_to_string(&mut stdin).unwrap();
+        let mut config: Value = serde_json::from_str(&stdin).unwrap();
+        stdin.clear();
+        let cases = config["cases"].as_array().unwrap();
+        assert_eq!(cases.len(), 4);
+        let output = std::path::PathBuf::from(config["output"].as_str().unwrap());
+        let preflight = config["preflight"] == true;
+        let mut prepared = Vec::new();
+        for case in cases {
+            let dir = tempfile::tempdir().unwrap();
+            let store = Store::new(dir.path().to_owned()).unwrap();
+            let mut document: Value = serde_json::from_slice(include_bytes!("../../fixtures/sample.json")).unwrap();
+            document["visualElements"] = json!([]);
+            let question = &mut document["questions"][4];
+            question["analysis"] = Value::Null;
+            question["sourceText"] = case["payload"]["question"]["stem"].clone();
+            for (key, value) in case["payload"]["question"].as_object().unwrap() {
+                question[key] = value.clone();
+            }
+            let pending = Pending::new(serde_json::to_vec(&document).unwrap(), "Live synthetic grading".into()).unwrap();
+            store.import_pending(&pending, None, "Live synthetic grading").unwrap();
+            let rows = store.question_rows().unwrap();
+            let row = rows.iter().find(|row| row["question"]["stem"] == case["payload"]["question"]["stem"]).unwrap();
+            let question_ids = vec![contract::text(row,"id").to_owned()];
+            let selected = crate::paper::selected_rows(&rows, &question_ids).unwrap();
+            let practice = case["subject"] == "science";
+            let session = store.start_paper(crate::exams::Paper {
+                question_ids, kind: if practice {"practice"} else {"self_test"}.into(), minutes: None,
+                scores: vec![500], total_cents: 500, digest: crate::paper::digest(&selected).unwrap(),
+            }).unwrap();
+            let id = contract::text(&session,"id").to_owned();
+            store.save_attempt((&id,0),json!({"text":case["payload"]["answer"]}),0,practice,false).unwrap();
+            if !practice {store.submit_paper(&id,true).unwrap();}
+            let target = json!({"kind":"direct","baseUrl":config["model"]["base_url"],"model":config["model"]["model_id"],"promptVersion":crate::model_grading::PROMPT_VERSION});
+            assert!(store.prepare_grade_target(&id,0,false,crate::language::Locale::Chinese,Some(&target)).is_ok());
+            prepared.push((dir, Arc::new(Mutex::new(store)), id, practice));
+        }
+        if preflight {println!("PREFLIGHT_PASSED cases=4 provider_requests=0"); return;}
+        let model: settings::ConnectionSettings = serde_json::from_value(config["model"].clone()).unwrap();
+        let model = model.validate().unwrap();
+        let key = config["key"].take().as_str().unwrap().to_owned();
+        let entry = crate::credentials::desktop_entry(
+            &format!("com.practiq.acceptance.live.{}",crate::store::id()),
+            &format!("ai-model-key-v1-{}",crate::store::hash(crate::store::id().as_bytes())),
+        ).unwrap();
+        assert!(entry.read().unwrap().is_none());
+        entry.write(Some(&key)).unwrap();
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let native_key = entry.read().unwrap().unwrap();
+            assert!(native_key == key);
+            let mut endpoint = Endpoint::new(model.base_url.clone().unwrap(),native_key).unwrap();
+            endpoint.model = Some(model.clone());
+            let mut rows = Vec::new();
+            for (index,(dir, shared, id, practice)) in prepared.iter().enumerate() {
+                let case = &config["cases"][index];
+                let started = std::time::Instant::now();
+                let outcome = grade(shared,&endpoint,id,0,false,None,crate::language::Locale::Chinese).unwrap();
+                let duration = started.elapsed().as_millis();
+                let db = shared.lock().unwrap().connect().unwrap();
+                let (wire,response): (String,String) = db.query_row("SELECT input,response FROM grade_requests WHERE session_id=?1",[id],|r|Ok((r.get(0)?,r.get(1)?))).unwrap();
+                let response: Value = serde_json::from_str(&response).unwrap();
+                let actual = response["result"]["scoreCents"].clone();
+                let expected = case["expectedCents"].clone();
+                let matched = if expected.is_null() {response["status"]=="ungraded" && response["result"]["reviewReasons"].as_array().is_some_and(|r| !r.is_empty())} else {response["status"]=="graded" && actual==expected};
+                let mut disconnected = Endpoint::new(model.base_url.clone().unwrap(),String::new()).unwrap();
+                disconnected.model = Some(model.clone());
+                disconnected.client = Client::builder().proxy(reqwest::Proxy::all("http://127.0.0.1:9").unwrap()).timeout(Duration::from_secs(1)).build().unwrap();
+                let replay = grade(shared,&disconnected,id,0,false,None,crate::language::Locale::Chinese).unwrap();
+                let replay_ok = replay["attempts"]==outcome["attempts"];
+                let mut reopened = Store::new(dir.path().to_owned()).unwrap();
+                let reopen_ok = reopened.session(id).unwrap()["attempts"]==outcome["attempts"];
+                let archive = dir.path().join("native-live-backup.zip");
+                reopened.backup(&archive).unwrap();
+                reopened.restore(&archive).unwrap();
+                let restored = reopened.session(id).unwrap();
+                let restore_ok = restored["attempts"]==outcome["attempts"];
+                let mut zip = zip::ZipArchive::new(std::fs::File::open(&archive).unwrap()).unwrap();
+                for i in 0..zip.len() {let mut raw=Vec::new();zip.by_index(i).unwrap().read_to_end(&mut raw).unwrap();assert!(!raw.windows(key.len()).any(|s|s==key.as_bytes()));}
+                rows.push(json!({"case":case["name"],"expectedCents":expected,"actualCents":actual,"matched":matched,
+                    "response":response,"wire":serde_json::from_str::<Value>(&wire).unwrap(),"durationMs":duration,
+                    "cachedWithDisconnectedClient":replay_ok,"reopened":reopen_ok,"backupRestored":restore_ok,
+                    "practiceSessionUnfinished": !practice || outcome["submittedAt"].is_null(),"backupExcludesKey":true}));
+                let report = json!({"model":model,"nativeDispatches":rows.len(),"requestCap":4,"maxOutputTokens":4096,"automaticRetries":false,"runs":rows});
+                let serialized = serde_json::to_string_pretty(&report).unwrap();
+                assert!(!serialized.contains(&key));
+                std::fs::write(&output,serialized).unwrap();
+                println!("LIVE_NATIVE_CASE_FINISHED {} matched={matched}",case["name"].as_str().unwrap());
+                if rows.last().unwrap()["response"]["usageStatus"] != "known" {break;}
+            }
+        }));
+        entry.write(None).unwrap();
+        let deleted = entry.read().unwrap().is_none();
+        std::fs::write(output.with_extension("cleanup.json"),json!({"isolatedNativeKeyDeleted":deleted}).to_string()).unwrap();
+        assert!(deleted);
+        if let Err(panic) = result {std::panic::resume_unwind(panic);}
+        let report: Value = serde_json::from_slice(&std::fs::read(output).unwrap()).unwrap();
+        let runs = report["runs"].as_array().unwrap();
+        assert_eq!(runs.len(),4);
+        for row in runs {assert!(row["matched"]==true && row["cachedWithDisconnectedClient"]==true && row["reopened"]==true && row["backupRestored"]==true && row["practiceSessionUnfinished"]==true);}
+    }

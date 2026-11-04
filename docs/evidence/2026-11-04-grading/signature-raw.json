@@ -1,0 +1,10 @@
+{
+  "verificationPassed": false,
+  "signature": "Signature=adhoc",
+  "notarization": "NOT_RUN",
+  "cleanMachine": "NOT_RUN",
+  "developmentCandidate": true,
+  "publisherVerification": "UNVERIFIED",
+  "verificationError": "code has no resources but signature indicates they must be present",
+  "note": "The standard local build is an unsigned development candidate under the existing release policy; a linker ad-hoc signature is not a sealed publisher-signed application."
+}

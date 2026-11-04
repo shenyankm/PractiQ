@@ -95,7 +95,7 @@ export interface GradingResponse {
   status: string;
   error?: string;
   appError?: unknown;
-  result?: { scoreCents: number | null; maxCents: number; reason: string; evidence: string[]; reviewReasons: string[] };
+  result?: import("./contracts.generated").GradeResult;
 }
 export interface Bank extends BankChoice {
   description: string;

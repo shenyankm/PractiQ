@@ -2,6 +2,8 @@
 
 Tracks [#91](https://github.com/shenyankm/PractiQ/issues/91). The current app target is macOS 14+ on Apple Silicon. The independent service and Web frontend retain their separate deployment and acceptance boundaries. Historical cross-platform evidence below is not current support or release acceptance. No final signing, clean-machine or live-model acceptance is recorded by this worksheet.
 
+The [November 4 grading checks](../evidence/2026-11-04-grading/README.md) add local macOS native grading, Keychain, restart and backup/restore evidence using synthetic data and a loopback model substitute. The GUI candidate uses an isolated application identifier; its hashes and the separately inspected standard installer are recorded independently. These checks do not turn the release matrix below into signed, clean-machine or real-model acceptance.
+
 ## Candidate identity
 
 Use one clean main commit and retain its SHA in every platform record. Signing, repackaging or reselecting source invalidates earlier artifact hashes.
