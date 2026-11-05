@@ -1,0 +1,5 @@
+trees 20 typed 0.136 0.0202 85.1
+trees 1000 typed 7.2565 1.2545 82.7
+duplicates 20 typed 0.3727 0.2565 31.2
+duplicates 1000 typed 20.3393 13.0083 36.0
+duplicates 1000 no-quote 16.5117 10.8526 34.3

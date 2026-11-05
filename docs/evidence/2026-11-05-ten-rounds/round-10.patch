@@ -1,0 +1,5 @@
+--- a/server/src/practiq_ai/graphs/answer_evidence.py
++++ b/server/src/practiq_ai/graphs/answer_evidence.py
+@@ -32 +32 @@
+-    return re.sub(r'\s+', ' ', text).strip()
++    return ' '.join(text.split())

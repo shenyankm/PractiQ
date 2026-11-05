@@ -1,0 +1,6 @@
+--- a/server/src/practiq_ai/graphs/chunking.py
++++ b/server/src/practiq_ai/graphs/chunking.py
+@@ -790 +790,2 @@
+-    validate_question_tree([q.model_copy(deep=True) for q in questions])
++    # Tree validation replaces review fields; nested source content stays read-only.
++    validate_question_tree([q.model_copy() for q in questions])

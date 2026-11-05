@@ -1,0 +1,77 @@
+diff --git a/server/src/practiq_ai/graphs/answer_evidence.py b/server/src/practiq_ai/graphs/answer_evidence.py
+index f32d1db7..54b18b17 100644
+--- a/server/src/practiq_ai/graphs/answer_evidence.py
++++ b/server/src/practiq_ai/graphs/answer_evidence.py
+@@ -9 +9 @@ from collections.abc import Iterator, Sequence
+-from ..contracts import ParsedItem, ParsedQuestion, question_missing_fields
++from ..contracts import ParsedItem, ParsedQuestion, StrictModel, question_missing_fields
+@@ -32 +32 @@ def _literal(text: str) -> str:
+-    return re.sub(r'\s+', ' ', text).strip()
++    return ' '.join(text.split())
+@@ -35,0 +36,2 @@ def _table_records(text: str) -> list[tuple[str | None, str]] | None:
++    if '\t' not in text:
++        return None
+@@ -74,19 +76,20 @@ def _records(text: str, *, group_items: bool = False) -> list[tuple[str | None,
+-    filtered = []
+-    structured = False
+-    begin = 0
+-    fields = iter(marker.start() for marker in _INLINE_LOCAL_FIELD.finditer(text)
+-                  if _ANSWER.fullmatch(marker[0][:-1].strip()) or _ANALYSIS.fullmatch(marker[0][:-1].strip())) if group_items else iter(())
+-    field = next(fields, None)
+-    for match in starts:
+-        if match.re is _UNNUMBERED_EXERCISE:
+-            structured = match[0].strip().casefold().startswith(('ordering', 'matching', 'paragraph matching'))
+-        else:
+-            typed = _TYPE.match(text[match.end():match.end() + 128])
+-            while field is not None and field < begin:
+-                field = next(fields, None)
+-            if group_items and structured and typed is None and (field is None or field >= match.start()):
+-                continue
+-            structured = bool(typed and typed[0].strip().casefold().startswith(('ordering', 'matching', 'paragraph matching')))
+-        filtered.append(match)
+-        begin = match.end()
+-    starts = filtered
++    if group_items:
++        filtered = []
++        structured = False
++        begin = 0
++        fields = iter(marker.start() for marker in _INLINE_LOCAL_FIELD.finditer(text)
++                      if _ANSWER.fullmatch(marker[0][:-1].strip()) or _ANALYSIS.fullmatch(marker[0][:-1].strip()))
++        field = next(fields, None)
++        for match in starts:
++            if match.re is _UNNUMBERED_EXERCISE:
++                structured = match[0].strip().casefold().startswith(('ordering', 'matching', 'paragraph matching'))
++            else:
++                typed = _TYPE.match(text[match.end():match.end() + 128])
++                while field is not None and field < begin:
++                    field = next(fields, None)
++                if structured and typed is None and (field is None or field >= match.start()):
++                    continue
++                structured = bool(typed and typed[0].strip().casefold().startswith(('ordering', 'matching', 'paragraph matching')))
++            filtered.append(match)
++            begin = match.end()
++        starts = filtered
+@@ -117 +120,2 @@ def _scalar_matches(printed: str, expected: str) -> bool:
+-    return _literal(printed) == _literal(expected) or bool(
++    normalized_expected = _literal(expected)
++    return _literal(printed) == normalized_expected or bool(
+@@ -119 +123 @@ def _scalar_matches(printed: str, expected: str) -> bool:
+-        and _literal(printed[:-1]) == _literal(expected))
++        and _literal(printed[:-1]) == normalized_expected)
+@@ -138 +142 @@ def _answer_matches(question: ParsedQuestion, printed: str, *, verified_items: b
+-    payload = question.model_dump(include={'answerPayload'})['answerPayload']
++    payload = question.answerPayload.model_dump() if isinstance(question.answerPayload, StrictModel) else question.answerPayload
+diff --git a/server/src/practiq_ai/graphs/chunking.py b/server/src/practiq_ai/graphs/chunking.py
+index 508d371c..6b2b40a0 100644
+--- a/server/src/practiq_ai/graphs/chunking.py
++++ b/server/src/practiq_ai/graphs/chunking.py
+@@ -380 +380 @@ def _normalized_source(text: str, start: int) -> tuple[str, list[int]]:
+-    return re.sub(r"\s+", "", text), positions
++    return ''.join(text.split()), positions
+@@ -385 +385 @@ def _source_locations(source: tuple[str, list[int]], quote: str | None) -> list[
+-    needle = re.sub(r"\s+", "", quote or "")
++    needle = ''.join((quote or '').split())
+@@ -790 +790,2 @@ def _whole_question_trees(questions: list[ParsedQuestion]) -> list[list[int]]:
+-    validate_question_tree([q.model_copy(deep=True) for q in questions])
++    # Tree validation replaces review fields; nested source content stays read-only.
++    validate_question_tree([q.model_copy() for q in questions])

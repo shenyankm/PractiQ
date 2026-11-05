@@ -1,0 +1,22 @@
+--- a/server/src/practiq_ai/graphs/chunking.py
++++ b/server/src/practiq_ai/graphs/chunking.py
+@@ -283,0 +284 @@
++            lines = [line.strip() for line in raw.splitlines()]
+@@ -286,2 +287,2 @@
+-            reference_lines = [line.strip().removeprefix('Reference answer:') for line in raw.splitlines()[1:]
+-                               if line.strip().startswith('Reference answer:')]
++            reference_lines = [line.removeprefix('Reference answer:') for line in lines[1:]
++                               if line.startswith('Reference answer:')]
+@@ -289,4 +290,3 @@
+-                          and not any(line.strip().startswith(('Answer:', 'Supplied answer:')) for line in raw.splitlines()[1:])
+-                          and all(line.strip() != 'No reference answer is supplied for this question.' for line in raw.splitlines())
+-                          and all(line.strip() == 'Answer status: supplied' for line in raw.splitlines()
+-                                  if line.strip().startswith('Answer status:')))
++                          and not any(line.startswith(('Answer:', 'Supplied answer:')) for line in lines[1:])
++                          and all(line != 'No reference answer is supplied for this question.' for line in lines)
++                          and all(line == 'Answer status: supplied' for line in lines if line.startswith('Answer status:')))
+@@ -296,2 +296,2 @@
+-            has_analysis = any(line.strip().startswith(('Supplied explanation:', 'Analysis:')) and bool(line.partition(':')[2].strip())
+-                               for line in raw.splitlines())
++            has_analysis = any(line.startswith(('Supplied explanation:', 'Analysis:')) and bool(line.partition(':')[2].strip())
++                               for line in lines)

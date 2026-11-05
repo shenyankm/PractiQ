@@ -1,0 +1,8 @@
+--- a/server/src/practiq_ai/graphs/answer_evidence.py
++++ b/server/src/practiq_ai/graphs/answer_evidence.py
+@@ -9 +9 @@
+-from ..contracts import ParsedItem, ParsedQuestion, question_missing_fields
++from ..contracts import ParsedItem, ParsedQuestion, StrictModel, question_missing_fields
+@@ -141 +141 @@
+-    payload = question.model_dump(include={'answerPayload'})['answerPayload']
++    payload = question.answerPayload.model_dump() if isinstance(question.answerPayload, StrictModel) else question.answerPayload

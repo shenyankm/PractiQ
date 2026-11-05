@@ -6,7 +6,7 @@ from bisect import bisect_left, bisect_right
 from collections import Counter
 from collections.abc import Iterator, Sequence
 
-from ..contracts import ParsedItem, ParsedQuestion, question_missing_fields
+from ..contracts import ParsedItem, ParsedQuestion, StrictModel, question_missing_fields
 from ..json_repair import unique_json_object
 from .chunking import (
     _INLINE_LOCAL_FIELD,
@@ -29,10 +29,12 @@ _TYPE = re.compile(r'^\s*(?:' + '|'.join(map(re.escape, _QUESTION_LABELS)) + r')
 
 
 def _literal(text: str) -> str:
-    return re.sub(r'\s+', ' ', text).strip()
+    return ' '.join(text.split())
 
 
 def _table_records(text: str) -> list[tuple[str | None, str]] | None:
+    if '\t' not in text:
+        return None
     rows = [line.split('\t') for line in text.splitlines() if line.strip()]
     if not rows or len(rows[0]) < 2 or any(len(row) != len(rows[0]) for row in rows):
         return None
@@ -71,25 +73,26 @@ def _records(text: str, *, group_items: bool = False) -> list[tuple[str | None, 
     starts = [match for match in QUESTION_BOUNDARY_PATTERN.finditer(text)
               if not (match[0].rstrip().endswith(('.', '．')) and text[match.end():match.end() + 1].isdigit())]
     starts = sorted([*starts, *_UNNUMBERED_EXERCISE.finditer(text)], key=lambda match: match.start())
-    filtered = []
-    structured = False
-    begin = 0
-    fields = iter(marker.start() for marker in _INLINE_LOCAL_FIELD.finditer(text)
-                  if _ANSWER.fullmatch(marker[0][:-1].strip()) or _ANALYSIS.fullmatch(marker[0][:-1].strip())) if group_items else iter(())
-    field = next(fields, None)
-    for match in starts:
-        if match.re is _UNNUMBERED_EXERCISE:
-            structured = match[0].strip().casefold().startswith(('ordering', 'matching', 'paragraph matching'))
-        else:
-            typed = _TYPE.match(text[match.end():match.end() + 128])
-            while field is not None and field < begin:
-                field = next(fields, None)
-            if group_items and structured and typed is None and (field is None or field >= match.start()):
-                continue
-            structured = bool(typed and typed[0].strip().casefold().startswith(('ordering', 'matching', 'paragraph matching')))
-        filtered.append(match)
-        begin = match.end()
-    starts = filtered
+    if group_items:
+        filtered = []
+        structured = False
+        begin = 0
+        fields = iter(marker.start() for marker in _INLINE_LOCAL_FIELD.finditer(text)
+                      if _ANSWER.fullmatch(marker[0][:-1].strip()) or _ANALYSIS.fullmatch(marker[0][:-1].strip()))
+        field = next(fields, None)
+        for match in starts:
+            if match.re is _UNNUMBERED_EXERCISE:
+                structured = match[0].strip().casefold().startswith(('ordering', 'matching', 'paragraph matching'))
+            else:
+                typed = _TYPE.match(text[match.end():match.end() + 128])
+                while field is not None and field < begin:
+                    field = next(fields, None)
+                if structured and typed is None and (field is None or field >= match.start()):
+                    continue
+                structured = bool(typed and typed[0].strip().casefold().startswith(('ordering', 'matching', 'paragraph matching')))
+            filtered.append(match)
+            begin = match.end()
+        starts = filtered
     records = []
     for index, match in enumerate(starts):
         number = re.search(r'\d+', match[0])
@@ -114,9 +117,10 @@ def _fields(record: str) -> dict[str, list[str]]:
 
 
 def _scalar_matches(printed: str, expected: str) -> bool:
-    return _literal(printed) == _literal(expected) or bool(
+    normalized_expected = _literal(expected)
+    return _literal(printed) == normalized_expected or bool(
         re.fullmatch(r'[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?\.', printed)
-        and _literal(printed[:-1]) == _literal(expected))
+        and _literal(printed[:-1]) == normalized_expected)
 
 
 def _item_parts(question: ParsedQuestion) -> list[tuple[str, list[ParsedItem]]]:
@@ -135,7 +139,7 @@ def _answer_matches(question: ParsedQuestion, printed: str, *, verified_items: b
         return False
     if not supplied:
         return False
-    payload = question.model_dump(include={'answerPayload'})['answerPayload']
+    payload = question.answerPayload.model_dump() if isinstance(question.answerPayload, StrictModel) else question.answerPayload
     try:
         decoded = json.loads(printed)
     except (ValueError, RecursionError):

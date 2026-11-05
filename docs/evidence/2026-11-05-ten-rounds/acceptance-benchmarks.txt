@@ -1,0 +1,112 @@
+Round 1
+presence 20 typed 0.1824 0.1795 1.6
+presence 1000 typed 9.4078 8.9778 4.6
+presence 1000 table 5.1631 5.1473 0.3
+cold-plan 20 typed 0.2636 0.2508 4.9
+cold-plan 1000 typed 12.555 11.8819 5.4
+cold-plan 1000 table 7.187 6.9245 3.7
+Round 2
+records 20 typed 0.0425 0.0379 10.9
+records 1000 typed 2.0435 1.8446 9.7
+records 1000 table 2.6886 2.7744 -3.2
+records 1000 grouped 12.2842 12.0896 1.6
+answers 20 typed 0.6875 0.6925 -0.7
+answers 1000 typed 34.7455 35.0408 -0.8
+answers 1000 table 32.4113 32.8766 -1.4
+answers 1000 no-quote 36.0671 34.9682 3.0
+Round 3
+records 20 typed 0.0383 0.0311 18.9
+records 1000 typed 1.8123 1.4605 19.4
+records 1000 table 2.7514 2.7581 -0.2
+records 1000 grouped 11.9946 11.9516 0.4
+answers 20 typed 0.6986 0.6688 4.3
+answers 1000 typed 34.5015 34.2642 0.7
+answers 1000 table 32.1997 32.4135 -0.7
+answers 1000 no-quote 36.0407 34.5709 4.1
+Round 4
+answer-match 20 typed 0.12 0.0851 29.1
+answer-match 1000 typed 5.8371 4.181 28.4
+answers 20 typed 0.6635 0.6313 4.9
+answers 1000 typed 34.3436 32.3456 5.8
+answers 1000 table 32.4361 30.7134 5.3
+answers 1000 no-quote 34.7365 32.885 5.3
+Round 5
+scalar 20 numeric 0.027 0.0222 17.9
+scalar 1000 numeric 1.2951 1.0855 16.2
+answer-match 20 typed 0.0856 0.0856 0.0
+answer-match 1000 typed 5.7626 4.4778 22.3
+answers 20 typed 1.8485 0.6815 63.1
+answers 1000 typed 89.6185 36.388 59.4
+answers 1000 table 37.4882 33.5219 10.6
+answers 1000 no-quote 37.0545 37.8069 -2.0
+Round 6
+normalize 20 ascii 0.0231 0.0164 29.2
+normalize 1500 ascii 1.5565 1.1663 25.1
+normalize 3000 unicode 1.9538 1.1869 39.3
+evidence 20 typed 0.2549 0.2101 17.6
+evidence 1000 typed 14.0767 11.9064 15.4
+evidence 1000 partial 12.4857 10.83 13.3
+evidence 1000 table 12.0064 10.8962 9.2
+Round 7
+evidence 20 typed 0.2068 0.2145 -3.7
+evidence 1000 typed 11.9237 12.1356 -1.8
+evidence 1000 partial 10.5088 11.694 -11.3
+evidence 1000 table 10.9897 11.483 -4.5
+Round 8
+duplicates 20 typed 0.3656 0.3753 -2.7
+duplicates 1000 typed 18.314 18.6134 -1.6
+duplicates 1000 no-quote 16.3465 7.3509 55.0
+Round 9
+trees 20 typed 0.1335 0.0207 84.5
+trees 1000 typed 7.2692 1.1475 84.2
+duplicates 20 typed 0.3838 0.2545 33.7
+duplicates 1000 typed 19.629 12.4681 36.5
+duplicates 1000 no-quote 7.6023 1.4341 81.1
+Round 10
+literal 20 ascii 0.0081 0.0018 77.8
+literal 1500 ascii 0.4976 0.106 78.7
+literal 3000 unicode 1.0339 0.2678 74.1
+scalar 20 numeric 0.0218 0.0102 52.9
+scalar 1000 numeric 1.1205 0.4838 56.8
+answer-match 20 typed 0.0903 0.0723 20.0
+answer-match 1000 typed 4.0841 3.5516 13.0
+answers 20 typed 0.632 0.6058 4.1
+answers 1000 typed 33.0708 31.4254 5.0
+answers 1000 table 30.8939 29.283 5.2
+answers 1000 no-quote 32.9157 32.1974 2.2
+Baseline to final
+projection 20 typed 7.1825 6.6659 7.2
+projection 1000 typed 310.3932 298.2954 3.9
+presence 20 typed 0.1924 0.1948 -1.3
+presence 1000 typed 9.2553 9.5447 -3.1
+presence 1000 table 5.1732 5.3349 -3.1
+cold-plan 20 typed 0.258 0.2662 -3.2
+cold-plan 1000 typed 12.2867 12.7946 -4.1
+cold-plan 1000 table 7.0684 7.0435 0.4
+records 20 typed 0.0409 0.0306 25.1
+records 1000 typed 2.0057 1.6715 16.7
+records 1000 table 2.6772 2.7097 -1.2
+records 1000 grouped 12.394 12.3043 0.7
+answers 20 typed 0.6822 0.6236 8.6
+answers 1000 typed 34.086 31.0314 9.0
+answers 1000 table 31.8408 30.7395 3.5
+answers 1000 no-quote 35.1137 31.2888 10.9
+answer-match 20 typed 0.1242 0.0746 40.0
+answer-match 1000 typed 5.8394 3.7549 35.7
+scalar 20 numeric 0.025 0.0104 58.4
+scalar 1000 numeric 1.2607 0.4938 60.8
+normalize 20 ascii 0.0222 0.0161 27.4
+normalize 1500 ascii 1.543 1.1755 23.8
+normalize 3000 unicode 1.9136 1.1508 39.9
+literal 20 ascii 0.008 0.0017 78.8
+literal 1500 ascii 0.4877 0.1056 78.3
+literal 3000 unicode 1.0007 0.2618 73.8
+evidence 20 typed 0.2515 0.2088 17.0
+evidence 1000 typed 13.973 11.6656 16.5
+evidence 1000 partial 12.215 10.3728 15.1
+evidence 1000 table 11.8433 10.6827 9.8
+trees 20 typed 0.1343 0.0199 85.2
+trees 1000 typed 7.0783 1.1858 83.2
+duplicates 20 typed 0.3544 0.2544 28.2
+duplicates 1000 typed 18.2299 12.5176 31.3
+duplicates 1000 no-quote 16.2366 1.4591 91.0

@@ -15,6 +15,7 @@ These records preserve the result of a particular source revision, workload and 
 
 | Record | Scope |
 | --- | --- |
+| [Ten rounds, November 5](performance/ten-rounds-20261105.md) | Seven retained source/answer validation optimizations, three reverted experiments, paired CPU/output evidence and passive projection controls |
 | [Unified workflow, November 2](performance/workflow-20261102.md) | Production Web, real Tencent/model and downloaded ZIP through native practice/restore; 3/3 functional chains, 2/3 strict content gates |
 | [Read paths, October 30](performance/read-paths-20261030.md) | Chunk planning responsiveness, validated HTTP models, metadata previews and saved practice statistics; rejected OCR concurrency, paired evidence and validation |
 | [Cross-component audit, October 29](../evidence/2026-10-29-performance-audit/README.md) | Source-presence ranges, native-table captions, answer-card drafts and manual paper selection; equivalent outputs, bounded measurements and local validation |

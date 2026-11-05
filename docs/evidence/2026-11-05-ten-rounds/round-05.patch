@@ -1,0 +1,9 @@
+--- a/server/src/practiq_ai/graphs/answer_evidence.py
++++ b/server/src/practiq_ai/graphs/answer_evidence.py
+@@ -120 +120,2 @@
+-    return _literal(printed) == _literal(expected) or bool(
++    normalized_expected = _literal(expected)
++    return _literal(printed) == normalized_expected or bool(
+@@ -122 +123 @@
+-        and _literal(printed[:-1]) == _literal(expected))
++        and _literal(printed[:-1]) == normalized_expected)

@@ -1,0 +1,14 @@
+rm -f server/reports/checks/probes.xml server/reports/checks/probes.json server/reports/checks/probes.md server/reports/checks/coverage.xml
+cd server && uv lock --check --python "/Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14"
+Using CPython 3.14.7 interpreter at: /Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14
+Resolved 97 packages in 27ms
+cd server && "/Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14" -m ruff check src tests scripts
+All checks passed!
+cd server && "/Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14" -m pyright --pythonpath "/Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14"
+/Users/sheny/Developer/code/PractiQ/server/tests/test_validation_performance.py
+  /Users/sheny/Developer/code/PractiQ/server/tests/test_validation_performance.py:92:23 - error: Argument of type "list[dict[str, str | dict[str, Unknown]]]" cannot be assigned to parameter "contentBlocks" of type "list[ContentBlock]" in function "__init__" (reportArgumentType)
+1 error, 0 warnings, 0 informations
+WARNING: there is a new pyright version available (v1.1.411 -> v1.1.414).
+Please install the new version or set PYRIGHT_PYTHON_FORCE_VERSION to `latest`
+
+make: *** [verify] Error 1

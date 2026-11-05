@@ -1,0 +1,42 @@
+--- a/server/src/practiq_ai/graphs/answer_evidence.py
++++ b/server/src/practiq_ai/graphs/answer_evidence.py
+@@ -76,19 +76,20 @@
+-    filtered = []
+-    structured = False
+-    begin = 0
+-    fields = iter(marker.start() for marker in _INLINE_LOCAL_FIELD.finditer(text)
+-                  if _ANSWER.fullmatch(marker[0][:-1].strip()) or _ANALYSIS.fullmatch(marker[0][:-1].strip())) if group_items else iter(())
+-    field = next(fields, None)
+-    for match in starts:
+-        if match.re is _UNNUMBERED_EXERCISE:
+-            structured = match[0].strip().casefold().startswith(('ordering', 'matching', 'paragraph matching'))
+-        else:
+-            typed = _TYPE.match(text[match.end():match.end() + 128])
+-            while field is not None and field < begin:
+-                field = next(fields, None)
+-            if group_items and structured and typed is None and (field is None or field >= match.start()):
+-                continue
+-            structured = bool(typed and typed[0].strip().casefold().startswith(('ordering', 'matching', 'paragraph matching')))
+-        filtered.append(match)
+-        begin = match.end()
+-    starts = filtered
++    if group_items:
++        filtered = []
++        structured = False
++        begin = 0
++        fields = iter(marker.start() for marker in _INLINE_LOCAL_FIELD.finditer(text)
++                      if _ANSWER.fullmatch(marker[0][:-1].strip()) or _ANALYSIS.fullmatch(marker[0][:-1].strip()))
++        field = next(fields, None)
++        for match in starts:
++            if match.re is _UNNUMBERED_EXERCISE:
++                structured = match[0].strip().casefold().startswith(('ordering', 'matching', 'paragraph matching'))
++            else:
++                typed = _TYPE.match(text[match.end():match.end() + 128])
++                while field is not None and field < begin:
++                    field = next(fields, None)
++                if structured and typed is None and (field is None or field >= match.start()):
++                    continue
++                structured = bool(typed and typed[0].strip().casefold().startswith(('ordering', 'matching', 'paragraph matching')))
++            filtered.append(match)
++            begin = match.end()
++        starts = filtered

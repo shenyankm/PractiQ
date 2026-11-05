@@ -1,5 +1,20 @@
 # Document pipeline performance boundaries
 
+## Source validation CPU work (November 5)
+
+Ten measured experiments retained seven focused changes in source/answer
+validation and reverted three. Source quote normalization keeps absolute offsets;
+literal answer normalization preserves Unicode whitespace and punctuation rules.
+Ordinary records skip table and item-grouping work they cannot use. Answer proof
+serializes only its payload. Duplicate detection retains all tree and JSON
+fingerprint validation, and preserves input review fields with private
+shallow copies before validation.
+
+The [round-by-round acceptance](../../docs/history/performance/ten-rounds-20261105.md)
+includes original/final output hashes, controls and passive projection limits.
+These are local CPU improvements, not Tencent/model or full import speed claims.
+Parser changes retain the existing deployment/signature recovery boundary.
+
 ## Chunk planning worker (October 30)
 
 `_assemble` runs its complete chunk/source-presence plan through the existing
