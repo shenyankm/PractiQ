@@ -434,6 +434,8 @@ output-correction path, retaining usage and spending the same task budget. Repea
 identical failures still stop; unknown model results are never replayed by this rule.
 Unknown modes remain nullable and reviewable. Saved results, portable banks and
 passive reads keep their existing nullable contract; this is not a backfill.
+Source-anchored composite continuations may keep an unavailable label null;
+merge retains the original parent's label instead of inventing a conflicting alias.
 See the [PNG type-label regression and live acceptance](../../docs/history/import/type-labels-20261106.md).
 
 Document parsing extracts only supplied answers and explanations, returning null when absent rather than solving questions. It preserves genuine duplicate questions and determines types from source labels or response requirements. Groups include explicit source sections and `[sheet]` text markers (which do not imply Excel-file support), using zero-based indices within the current chunk. Prompts include examples of an unanswered fill-in-the-blank question, an answered short-answer question, and a worksheet true/false question. Stems retain original wording, punctuation, and blank-underscore counts; LaTeX conversion belongs in formula content blocks. Visual models extract structured questions directly from pages. Unreadable content retains missing fields and review flags rather than fabricated content. Images without text return null `extractedText`. Instructions inside documents, filenames, images, and request fields are treated as data. These semantic constraints do not guarantee complete prompt-injection prevention or extraction accuracy.

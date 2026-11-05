@@ -1,10 +1,15 @@
 {
   "additional.txt": "9bb0e9625cf54da4862ee9f6b056ddf2b7b9ae1a5a242b67bc33a1c20f952afe",
+  "compatible-focused.txt": "62e5b0b100a2c17576eb9dda9021893de482c083b3c696e1570d9fb666b5a6f2",
+  "continuations.txt": "181efed38701b6380cedc784f5d512c57d24cae8d3c5d51ef20c36bc564c2ab2",
   "final-focused.txt": "99551db0fd574251b27a12898f3a1c165da04bbfe4e8c596ad4c0502a4cedb9a",
   "focused-final.txt": "7fc5f60e8254c3f74e46d8bd045c6740635c150b8a86b6f0ea5ff8c8f2483c92",
   "full-live-failed.json": "3459adee78b3564e8e682102a2756fa7de097c27e800fc3431d31f5617610263",
   "initial-live-passed.json": "63b8998bb1924efb117e9a628a3db349cba329a2bc899b914a9cf347d1df811e",
-  "png-comparison.json": "1df67c588a4d41fd775579e4e90a710f5b998125e17a15536c144290525f7d60",
-  "png-final-passed.json": "70926154836c5f27d5261f832b7bdabef4b0a2a40679c6aefe3c9b55150b6842",
+  "png-before-continuation-comparison.json": "1df67c588a4d41fd775579e4e90a710f5b998125e17a15536c144290525f7d60",
+  "png-before-continuation-passed.json": "70926154836c5f27d5261f832b7bdabef4b0a2a40679c6aefe3c9b55150b6842",
+  "png-comparison.json": "4f39b5d3c66c89afe9b9860393e3adadcc029d7aa32cc82bba360c664d06b6dd",
+  "png-final-passed.json": "4006356bffe67839794049d76096e0865ea62816179831c593431d3bf69c1435",
+  "types-compatible.txt": "f3f68d7d4d766eb0fd34b7a481c94d44da43a2598478e988789071e453b638b8",
   "types-final.txt": "f3f68d7d4d766eb0fd34b7a481c94d44da43a2598478e988789071e453b638b8"
 }

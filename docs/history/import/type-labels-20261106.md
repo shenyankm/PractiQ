@@ -23,6 +23,8 @@ assign a default, replace a supplied custom label or solve missing answers.
 This check applies only to newly received model responses, including responses
 already parsed by the SDK. Public contracts remain nullable. Unknown modes,
 saved results, bank ZIPs and passive reads retain their previous review behavior.
+Source-anchored composite continuations may leave an unavailable label null;
+merge preserves the original parent's label without a conflicting alias.
 No schema, generated contract, migration, dependency or desktop code changes.
 
 ## Deterministic regression
@@ -39,7 +41,9 @@ answer-provenance, Office, context and duplicate tests still isolate their
 intended behavior. The public nullable fields were not tightened to make these
 tests pass. Focused suites passed **279** and **521** tests before the final
 Office fixture completion; the final Office, label and workflow group passed
-**71** tests. Ruff, Pyright and generated-contract parity passed.
+**71** tests. Composite-continuation compatibility adds two cases; the final
+continuation/label/reference group passed **114**, and label/workflow/recovery
+group passed **83**. Ruff, Pyright and generated-contract parity passed.
 Full current-head service CI exercises `make verify`
 on Python 3.14 and 3.15; use the PR checks for its final results.
 
@@ -52,7 +56,7 @@ The same PNG SHA-256 was used throughout:
 | --- | --- | --- |
 | Initial fixed prompt | 3/3 TXT/Markdown/PNG content and browser/native chains passed; 24 repeated native cases passed | Before the final Chinese example wording correction; retain its separate code hash |
 | Final full run | Failed | TXT stopped with `MODEL_RESULT_UNKNOWN`; Markdown passed; PNG returned an empty question array. Missing exports caused downstream native checks to fail. No unknown TXT call was replayed |
-| Final PNG-only run | Passed | Final service code hash matches the candidate; three supplied stems, modes and answers preserved; all three labels present; exact HTTP/ZIP equality and native practice/reopen/backup/restore passed |
+| Final PNG-only run (including continuation compatibility) | Passed | Final service code hash matches the candidate; three supplied stems, modes and answers preserved; all three labels present; exact HTTP/ZIP equality and native practice/reopen/backup/restore passed |
 
 `png-comparison.json` records the original null labels beside the final labels.
 The final PNG run made one known model call and no unknown calls. Missing supplied

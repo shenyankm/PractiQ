@@ -8,8 +8,10 @@ from langchain_core.messages import HumanMessage
 from pydantic import ValidationError
 
 from practiq_ai import llm
+from practiq_ai.contracts import DocumentQuality, QuestionSource
 from practiq_ai.execution import namespace
 from practiq_ai.graphs import document
+from practiq_ai.graphs.chunking import finalize_question_ids
 from practiq_ai.unit_results import UnitParseResult
 from scripts.accept_workflow import EXPECTED, SOURCE
 from tests.support import FakeModel, ocr_text_page, question, setup_graph
@@ -116,3 +118,28 @@ def test_unknown_modes_and_saved_missing_labels_remain_reviewable(ocr_context):
 def test_supplied_type_labels_are_not_replaced(ocr_context, label):
     parsed = document.OcrPageParseResult.model_validate(png_reply(label))
     assert all(q.questionTypeId == label for q in parsed.questions)
+
+
+@pytest.mark.parametrize('stage,prefix', [('vision_parse', 'page'), ('document_parse', 'fragment')])
+def test_continuation_can_keep_unknown_label_and_merge_original_type(stage, prefix):
+    original = {'id': f'{prefix}:1:article', 'stem': 'Printed article', 'answerMode': 'reading',
+                'questionTypeId': 'Source reading label', 'passage': [{'partType': 'text', 'textValue': 'First part.'}]}
+    continued = {**original, 'questionTypeId': None, 'passage': [{'partType': 'text', 'textValue': 'Second part.'}]}
+    start_token = document.CURRENT_UNIT.set(f'{stage}:0:0')
+    try:
+        with pytest.raises(ValidationError, match='questionTypeId'):
+            document.ChunkParseResult.model_validate({'questions': [continued]}, context={'requireTypeLabels': True})
+    finally:
+        document.CURRENT_UNIT.reset(start_token)
+    token = document.CURRENT_UNIT.set(f'{stage}:1:0')
+    try:
+        first = document.ChunkParseResult.model_validate({'questions': [original]}).questions[0]
+        second = document.ChunkParseResult.model_validate({'questions': [continued]},
+            context={'requireTypeLabels': True}).questions[0]
+    finally:
+        document.CURRENT_UNIT.reset(token)
+    assert second.questionTypeId is None
+    sources = [QuestionSource(questionIndex=i, stage=stage, unitIndex=i) for i in range(2)]
+    merged = finalize_question_ids([first, second], [], [], sources, DocumentQuality())
+    assert len(merged) == 1 and merged[0].questionTypeId == 'Source reading label'
+    assert [block.textValue for block in merged[0].passage] == ['First part.', 'Second part.']

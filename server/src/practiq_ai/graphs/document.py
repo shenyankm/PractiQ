@@ -150,6 +150,10 @@ nonempty questionTypeId: copy the literal source type label when supplied;
 otherwise use that same recognized answerMode as the label. Do not leave the label
 null for a recognized type or erase a known answerMode to avoid filling its label.
 Use answerMode=null only when type evidence is absent.
+Composite continuations keep the original parent's type label when PRIMARY or
+CONTEXT supplies it. If that label is unavailable, keep questionTypeId=null on
+the continuation instead of inventing a different label; its original parent
+supplies the label during merge.
 For example, source "单选题：选出正确项。 A. 甲 B." yields answerMode="choice",
 questionTypeId="单选题", choiceVariant="single", options=[{"label":"A","content":"甲"},
 {"label":"B","content":null}], answerPayload=null, analysis=null, and missingFields
@@ -436,9 +440,17 @@ class ChunkParseResult(UnitParseResult):
             raise ValueError('; '.join(violations))
         by_id = {q.id: q for q in self.questions if q.id}
         unit = CURRENT_UNIT.get()
-        if (isinstance(info.context, dict) and info.context.get('requireTypeLabels')
-                and any(q.answerMode is not None and q.questionTypeId is None for q in self.questions)):
-            violations.append("Known answerMode requires questionTypeId; copy the literal source type label when supplied, otherwise use its recognized answerMode. Do not erase the known answerMode")
+        if isinstance(info.context, dict) and info.context.get('requireTypeLabels'):
+            for question in self.questions:
+                if question.answerMode is None or question.questionTypeId is not None:
+                    continue
+                anchor = re.match(r"^(?:page|fragment):(\d+):", question.id or "")
+                if (unit and unit.startswith(('vision_parse:', 'document_parse:'))
+                        and question.answerMode in COMPOSITE_MODES and anchor
+                        and 0 < int(anchor[1]) < int(unit.split(':')[1]) + 1):
+                    continue
+                violations.append("Known answerMode requires questionTypeId; copy the literal source type label when supplied, otherwise use its recognized answerMode. Do not erase the known answerMode")
+                break
         if unit and unit.startswith("vision_parse:"):
             page = OCR_PAGE.get() or {}
             tables = [element["table_info"] for element in page.get("elements", []) if "table_info" in element]
