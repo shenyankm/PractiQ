@@ -3,23 +3,23 @@ import { chooseOption } from "../../shared/select-test.mjs";
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { expect, test as runner, type Page, type Route } from "playwright/test";
-import type { DocumentTaskDetail, DocumentTaskReview } from "../src/contracts.generated";
+import type { DocumentTaskDetail, DocumentTaskReview, ImportSettingsSnapshot } from "../src/contracts.generated";
 import { capabilities, material, newTaskId, preview, question, runId, summary, task, taskId } from "../src/test-fixtures";
 import { layoutImage, layoutSnapshots, layoutViewports } from "../../app/scripts/responsive-fixtures.mjs";
 
 // All HTTP here is synthetic. No model, Office worker, or live service is used.
 const test = withEvidence(runner);
 
-const fakeToken = "fake-service-token";
 const digest = (bytes: Buffer) => createHash("sha256").update(bytes).digest("hex");
 const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jF1sAAAAASUVORK5CYII=", "base64");
 const zip = Buffer.concat([Buffer.from([0x50, 0x4b, 5, 6]), Buffer.alloc(18)]); // Empty ZIP transport fixture.
-type Call = { method: string; path: string; query: string; body: Record<string, any> | null; bytes: Buffer | null; authenticated: boolean };
+type Call = { method: string; path: string; query: string; body: Record<string, any> | null; bytes: Buffer | null; authorization: string | undefined };
 type Intercept = (route: Route, call: Call) => Promise<boolean>;
 const respond = (route: Route, body: unknown, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
 async function fakeHTTP(page: Page, initial: DocumentTaskDetail = task) {
   const calls: Call[] = [];
   const records = new Map([[initial.threadId, structuredClone(initial)]]);
+  let settings: ImportSettingsSnapshot = { revision: taskId, settings: { tencentConcurrency: 5, readRetryCount: 2, retryBaseSeconds: 1, deduplicateQuestions: false, generateAnswers: false } };
   const uploads = new Map<string, Record<string, unknown>>();
   const creates = new Map<string, string>();
   const server: { intercept?: Intercept; review?: DocumentTaskReview; hasMore: boolean; modelStarts: number } = { hasMore: false, modelStarts: 0 };
@@ -27,12 +27,11 @@ async function fakeHTTP(page: Page, initial: DocumentTaskDetail = task) {
     const request = route.request(), url = new URL(request.url());
     const raw = request.postDataBuffer();
     const jsonBody = request.headers()["content-type"]?.includes("application/json");
-    const call: Call = { method: request.method(), path: url.pathname, query: url.search, body: jsonBody && raw ? JSON.parse(raw.toString()) : null, bytes: jsonBody ? null : raw, authenticated: request.headers().authorization === `Bearer ${fakeToken}` };
+    const call: Call = { method: request.method(), path: url.pathname, query: url.search, body: jsonBody && raw ? JSON.parse(raw.toString()) : null, bytes: jsonBody ? null : raw, authorization: request.headers().authorization };
     calls.push(call);
-    if (!call.authenticated) { await respond(route, { detail: { code: "INVALID_TOKEN" } }, 401); return; }
     if (await server.intercept?.(route, call)) return;
     if (call.path === "/api/import-capabilities") { await respond(route, capabilities); return; }
-    if (call.path === "/api/import-settings") { await respond(route, { revision: taskId, settings: { tencentConcurrency: 5, readRetryCount: 2, retryBaseSeconds: 1 } }); return; }
+    if (call.path === "/api/import-settings") { if (call.method === "PUT") settings = { revision: crypto.randomUUID(), settings: call.body!.settings }; await respond(route, settings); return; }
     if (call.path === "/api/document-tasks" && call.method === "GET") {
       await respond(route, { items: Array.from(records.values()).map(current => ({ ...summary, threadId: current.threadId, fileName: current.fileName, state: current.state, checkpointId: current.checkpointId, status: current.status })), hasMore: server.hasMore }); return;
     }
@@ -72,8 +71,7 @@ async function fakeHTTP(page: Page, initial: DocumentTaskDetail = task) {
   return { calls, records, creates, server };
 }
 async function connect(page: Page) {
-  await page.goto("/"); await page.getByLabel("服务访问令牌").fill(fakeToken); await page.getByRole("button", { name: "连接服务", exact: true }).click();
-  await expect(page.getByText(/^服务支持：/)).toBeVisible();
+  await page.goto("/"); await expect(page.getByText(/^服务支持：/)).toBeVisible();
   await expect(page.getByText("调用预算 · 每任务 400 次", { exact: true })).toBeVisible();
   await expect(page.getByText(/普通单元最多 100 个.*带上下文的视觉单元最多 50 个/)).toBeHidden();
 }
@@ -100,17 +98,18 @@ test("recovers an accepted import after reload without starting a second task", 
   };
   await connect(page);
   await page.getByLabel("选择文档").setInputFiles({ name: "recovery.txt", mimeType: "text/plain", buffer: Buffer.from("source") });
-  await page.getByRole("checkbox", { name: "自动去重" }).check();
+  await page.getByRole("link", { name: "设置", exact: true }).click();
+  await page.getByRole("switch", { name: "自动去重", exact: true }).check();
+  await expect(page.getByText("设置已保存", { exact: true })).toBeVisible();
+  await page.getByRole("link", { name: "开始导入", exact: true }).click();
   await page.getByRole("button", { name: "开始导入", exact: true }).click();
   await expect(page.getByRole("button", { name: "重试原提交", exact: true })).toBeVisible();
   const original = starts(http.calls)[0].body;
   await page.reload();
-  await expect(page.getByLabel("服务访问令牌")).toHaveValue("");
-  await page.getByLabel("服务访问令牌").fill(fakeToken);
-  await page.getByRole("button", { name: "连接服务", exact: true }).click();
+  await expect(page.getByLabel("服务访问令牌")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "重试原提交", exact: true })).toBeVisible();
   expect(starts(http.calls)).toHaveLength(1);
-  expect(await page.evaluate(() => JSON.stringify(localStorage))).not.toContain(fakeToken);
+  expect(http.calls.every(call => !call.authorization)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath("submission-recovery.png"), fullPage: true });
   await page.getByRole("button", { name: "重试原提交", exact: true }).click();
   await expect(page.getByRole("heading", { name: "recovery.txt", exact: true })).toBeVisible();
@@ -136,14 +135,12 @@ test("recovers an accepted reparse after reload without starting a second task",
   await expect(page.getByRole("region", { name: "未确认的重新解析", exact: true })).toBeVisible();
   const original = http.calls.find(call => call.path.endsWith("/reparse"))!.body;
   await page.reload();
-  await expect(page.getByLabel("服务访问令牌")).toHaveValue("");
-  await page.getByLabel("服务访问令牌").fill(fakeToken);
-  await page.getByRole("button", { name: "连接服务", exact: true }).click();
+  await expect(page.getByLabel("服务访问令牌")).toHaveCount(0);
   const recovery = page.getByRole("region", { name: "未确认的重新解析", exact: true });
   await expect(recovery).toBeVisible();
   await expect(recovery.getByText(`原重新解析请求 ID：${original!.requestId}`, { exact: true })).toBeVisible();
   expect(http.calls.filter(call => call.path.endsWith("/reparse"))).toHaveLength(1);
-  expect(await page.evaluate(() => JSON.stringify(localStorage))).not.toContain(fakeToken);
+  expect(http.calls.every(call => !call.authorization)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath("reparse-recovery.png"), fullPage: true });
   await recovery.getByRole("button", { name: "重试原重新解析", exact: true }).click();
   await expect(page.getByRole("heading", { name: "reparsed.docx", exact: true })).toBeVisible();
@@ -182,7 +179,7 @@ for (const [width, height] of [[1440, 900], [768, 1024], [390, 844], [360, 640],
     await page.screenshot({ path: `${output}/import-${width}-${theme}.png`, fullPage: true });
     await writeFile(`${output}/import-${width}-${theme}.json`, JSON.stringify({ width, height, theme, start: bounds, source: "Chromium; synthetic HTTP; no live service" }, null, 2));
     if (width === 1440) {
-      // Static rendered fixture lets Taste inspect the authenticated UI without a token or service.
+      // Static rendered fixture lets Taste inspect the import UI without a token or service.
       const logo = `data:image/png;base64,${(await readFile(new URL("../src/assets/octopus.png", import.meta.url))).toString("base64")}`;
       const html = await page.evaluate(logo => {
         const copy = document.documentElement.cloneNode(true) as HTMLElement;
@@ -222,16 +219,14 @@ for (const width of [1440, 390]) {
     await page.getByLabel("腾讯识别并发上限").fill("3");
     await page.goBack();
     await expect(page).toHaveURL(new RegExp(`#${anchor}$`));
-    await expect(page.getByRole("heading", { name: "导入记录", exact: true })).toBeVisible();
+    await expect(page.getByRole("main", { name: "导入记录" })).toBeVisible();
     await expect(page.getByRole("link", { name: "导入记录", exact: true })).toHaveAttribute("aria-current", "page");
     await expect(page.getByRole("heading", { name: "sample.docx", exact: true })).toBeVisible();
     await page.goForward();
-    await expect(page.getByRole("heading", { name: "设置", exact: true })).toBeVisible();
+    await expect(page.getByRole("main", { name: "设置" })).toBeVisible();
     await expect(page.getByLabel("腾讯识别并发上限")).toHaveValue("3");
     await page.goto(`/#${anchor}`); await page.reload();
-    await expect(page.getByRole("heading", { name: "导入记录", exact: true })).toBeVisible();
-    await page.getByLabel("服务访问令牌").fill(fakeToken);
-    await page.getByRole("button", { name: "连接服务", exact: true }).click();
+    await expect(page.getByRole("main", { name: "导入记录" })).toBeVisible();
     await expect(page.getByRole("table", { name: "文档导入记录" })).toBeVisible();
     expect(mutations(http.calls)).toHaveLength(0);
   });
@@ -259,7 +254,7 @@ for (const width of [1440, 390]) {
   test(`sidebar import management and durable settings at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 1000 });
     const http = await fakeHTTP(page, { ...task, state: "RUNNING", phase: "vision", runId, allowedActions: ["pause", "interrupt"] });
-    let saved = { revision: taskId, settings: { tencentConcurrency: 5, readRetryCount: 2, retryBaseSeconds: 1 } };
+    let saved = { revision: taskId, settings: { tencentConcurrency: 5, readRetryCount: 2, retryBaseSeconds: 1, deduplicateQuestions: false, generateAnswers: false } };
     http.server.intercept = async (route, call) => {
       if (call.path !== "/api/import-settings") return false;
       if (call.method === "PUT") {
@@ -272,6 +267,9 @@ for (const width of [1440, 390]) {
     await page.getByLabel("选择文档").setInputFiles({ name: "pending.txt", mimeType: "text/plain", buffer: Buffer.from("Unsubmitted source") });
     await page.evaluate(() => scrollTo(0, 0));
     await page.screenshot({ path: testInfo.outputPath(`management-import-${width}.png`), fullPage: true });
+    const importBody = await page.locator(".web-body").boundingBox();
+    const importCard = await page.locator(".import-page [data-slot='card']").boundingBox();
+    expect(Math.abs(importCard!.x - importBody!.x - (importBody!.x + importBody!.width - importCard!.x - importCard!.width))).toBeLessThan(2);
     await openTask(page);
     await expect(page.getByRole("table", { name: "文档导入记录" })).toBeVisible();
     const counts = page.getByRole("table", { name: "文档导入记录" });
@@ -284,15 +282,25 @@ for (const width of [1440, 390]) {
     await page.getByRole("link", { name: "设置", exact: true }).click();
     const concurrency = page.getByLabel("腾讯识别并发上限");
     await expect(concurrency).toHaveValue("5");
-    await concurrency.fill("6"); await page.getByRole("button", { name: "保存设置", exact: true }).click();
+    const settingsBody = await page.locator(".web-body").boundingBox();
+    const settingsCard = await page.locator(".settings-panel").boundingBox();
+    expect(Math.abs(settingsCard!.x - settingsBody!.x - (settingsBody!.x + settingsBody!.width - settingsCard!.x - settingsCard!.width))).toBeLessThan(2);
+    await expect(page.getByRole("button", { name: "保存设置", exact: true })).toHaveCount(0);
+    await concurrency.fill("6"); await expect(concurrency).toHaveAttribute("aria-invalid", "true");
     expect(mutations(http.calls)).toHaveLength(0);
+    await page.getByRole("switch", { name: "自动去重", exact: true }).check();
+    await page.getByRole("switch", { name: "AI 生成答案与解析", exact: true }).check();
     await concurrency.fill("2"); await page.getByLabel("读取失败重试次数").fill("0"); await page.getByLabel("初始退避间隔（秒）").fill("1.5");
     await page.getByRole("link", { name: "开始导入", exact: true }).click();
     await expect(page.getByText("pending.txt", { exact: true })).toBeVisible();
     await page.getByRole("link", { name: "设置", exact: true }).click(); await expect(concurrency).toHaveValue("2");
-    await page.getByRole("button", { name: "保存设置", exact: true }).click(); await expect(page.getByText("设置已保存", { exact: true })).toBeVisible();
+    await expect(page.getByText("设置已保存", { exact: true })).toBeVisible();
     await page.evaluate(() => scrollTo(0, 0));
     await page.screenshot({ path: testInfo.outputPath(`management-settings-${width}.png`), fullPage: true });
+    const notice = page.locator(".settings-toast");
+    await expect(notice).toHaveCSS("position", "fixed");
+    expect(saved.settings).toMatchObject({ deduplicateQuestions: true, generateAnswers: true });
+    await expect(notice).toBeHidden({ timeout: 5000 });
     expect(mutations(http.calls).map(call => [call.method, call.path])).toEqual([["PUT", "/api/import-settings"]]);
     await page.getByRole("link", { name: "导入记录", exact: true }).click();
     await page.getByRole("button", { name: "暂停", exact: true }).click(); await expect(page.getByRole("button", { name: "继续解析", exact: true })).toBeEnabled();
@@ -300,12 +308,13 @@ for (const width of [1440, 390]) {
     await page.getByRole("button", { name: "暂停", exact: true }).click(); await expect(page.getByRole("button", { name: "重试失败单元", exact: true })).toBeEnabled();
     await page.getByRole("button", { name: "重试失败单元", exact: true }).click(); await expect(page.getByRole("button", { name: "取消任务", exact: true })).toBeEnabled();
     await page.getByRole("button", { name: "取消任务", exact: true }).click(); await expect(page.getByRole("button", { name: "继续解析", exact: true })).toBeEnabled();
-    await page.reload(); await page.getByLabel("服务访问令牌").fill(fakeToken); await page.getByRole("button", { name: "连接服务", exact: true }).click();
-    await page.getByRole("link", { name: "设置", exact: true }).click();
+    await page.reload(); await page.getByRole("link", { name: "设置", exact: true }).click();
     await expect(concurrency).toHaveValue("2"); await expect(page.getByLabel("读取失败重试次数")).toHaveValue("0");
+    await expect(page.getByRole("switch", { name: "自动去重", exact: true })).toBeChecked();
+    await expect(page.getByRole("switch", { name: "AI 生成答案与解析", exact: true })).toBeChecked();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     expect(http.server.modelStarts).toBe(0);
-    expect(http.calls.every(call => call.authenticated)).toBe(true);
+    expect(http.calls.every(call => !call.authorization)).toBe(true);
   });
 }
 
@@ -380,9 +389,10 @@ for (const [width, height] of [[1440, 1000], [390, 844]]) {
     const http = await fakeHTTP(page);
     await page.goto("/");
     await page.mouse.move(0, 0);
-    await expect(page.getByRole("heading", { name: "连接个人服务", exact: true })).toBeVisible();
+    await expect(page.getByText(/^服务支持：/)).toBeVisible();
+    await expect(page.getByLabel("服务访问令牌")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "刷新余额与商品" })).toBeHidden();
-    await page.screenshot({ path: `${evidence}/after-connection-${width}.png`, fullPage: true });
+    await page.screenshot({ path: `${evidence}/after-open-${width}.png`, fullPage: true });
     await connect(page);
     const importRules = page.getByText("格式与导入规则", { exact: true });
     await importRules.focus();
@@ -430,7 +440,9 @@ for (const [width, height] of [[1440, 1000], [390, 844]]) {
     await expect(page.getByRole("button", { name: "断开连接", exact: true })).toHaveCount(0);
     await expect(page.getByText("服务已连接", { exact: true })).toBeAttached();
     await page.reload();
-    await expect(page.getByRole("heading", { name: "连接个人服务", exact: true })).toBeVisible();
+    await expect(page.getByRole("main", { name: "导入记录" })).toBeVisible();
+    await expect(page.getByRole("table", { name: "文档导入记录" })).toBeVisible();
+    await expect(page.getByLabel("服务访问令牌")).toHaveCount(0);
   });
 }
 
@@ -460,8 +472,7 @@ test("workspace preserves layout values across breakpoint boundaries", async ({ 
     await page.setViewportSize({ width, height: 900 });
     const padding = width <= 767 ? "24px 16px" : width <= 1100 ? "24px" : "32px";
     await expect(page.locator(".web-main")).toHaveCSS("padding", padding);
-    await expect(page.locator(".web-main")).toHaveCSS("max-width", "1320px");
-    await expect(page.locator(".page-intro")).toHaveCSS("margin-bottom", "28px");
+    await expect(page.locator(".page-intro")).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   }
   expect(mutations(http.calls)).toHaveLength(0);
@@ -502,9 +513,9 @@ test("workspace fits narrow and desktop windows with keyboard shortcuts to conte
   expect(mutations(http.calls)).toHaveLength(0);
 });
 
-test("passive file selection becomes one authenticated SHA upload only after explicit Start", async ({ page }) => {
+test("passive file selection becomes one SHA upload only after explicit Start", async ({ page }) => {
   const http = await fakeHTTP(page);
-  await page.goto("/"); expect(http.calls.length === 0).toBe(true); await connect(page);
+  await connect(page);
   const bytes = Buffer.from("synthetic office file");
   await page.getByLabel("选择文档").setInputFiles({ name: "selected.docx", mimeType: "application/octet-stream", buffer: bytes });
   await expect(page.getByText(/尚未提交/)).toBeVisible(); expect(mutations(http.calls)).toHaveLength(0);
@@ -514,21 +525,20 @@ test("passive file selection becomes one authenticated SHA upload only after exp
   expect(mutations(http.calls)[0].body).toMatchObject({ sourceType: "docx", mediaType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", sizeBytes: bytes.length, sha256: digest(bytes) });
   expect(starts(http.calls)[0].body).toMatchObject({ graphId: "document_parser", failurePolicy: "return_partial" });
   expect(starts(http.calls)[0].body).not.toHaveProperty("officeMode");
-  expect(http.calls.every(call => (call.authenticated) && !call.query.includes(fakeToken))).toBe(true);
+  expect(http.calls.every(call => (!call.authorization))).toBe(true);
   expect(http.server.modelStarts).toBe(1);
 });
 
-test("invalid auth makes no model request; reload clears memory-only Token", async ({ page }) => {
-  const http = await fakeHTTP(page); await page.goto("/");
-  await page.getByLabel("服务访问令牌").fill("invalid-synthetic-token"); await page.getByRole("button", { name: "连接服务", exact: true }).click();
-  await expect(page.getByText(/服务访问令牌无效/).first()).toBeVisible();
-  expect(mutations(http.calls)).toHaveLength(0);
-  await page.getByLabel("服务访问令牌").fill(fakeToken); await page.getByRole("button", { name: "连接服务", exact: true }).click();
-  await expect(page.getByText(/^服务支持：/)).toBeVisible();
+test("opening and reloading the personal workspace never asks for a token or starts work", async ({ page }) => {
+  const http = await fakeHTTP(page); await connect(page);
+  await expect(page.getByLabel("服务访问令牌")).toHaveCount(0);
   await expect(page.getByText("调用预算 · 每任务 400 次", { exact: true })).toBeVisible();
+  expect(mutations(http.calls)).toHaveLength(0);
+  await page.reload();
+  await expect(page.getByText(/^服务支持：/)).toBeVisible();
+  expect(mutations(http.calls)).toHaveLength(0);
+  expect(http.calls.every(call => !call.authorization)).toBe(true);
   expect(await page.evaluate(() => ({ local: localStorage.length, session: sessionStorage.length, query: location.search }))).toEqual({ local: 0, session: 0, query: "" });
-  await page.reload(); await expect(page.getByLabel("服务访问令牌")).toHaveValue("");
-  expect(await page.locator("body").innerText()).not.toContain(fakeToken);
 });
 
 test("uncertain accepted POST never auto replays; explicit retry preserves requestId and source", async ({ page }) => {
@@ -591,10 +601,10 @@ test("partial review preserves nulls, sources, shared material and warnings; che
   expect(http.calls.some(call => call.path === "/api/artifacts/read")).toBe(false);
   await page.getByRole("button", { name: "查看图片", exact: true }).click(); const image = page.getByRole("img", { name: "已校验来源图", exact: true });
   await expect(image).toHaveAttribute("src", /^blob:/); await expect.poll(() => image.evaluate((node: HTMLImageElement) => node.complete && node.naturalWidth > 0)).toBe(true);
-  expect(http.calls.find(call => call.path === "/api/artifacts/read")).toMatchObject({ authenticated: true, body: imageRef });
+  expect(http.calls.find(call => call.path === "/api/artifacts/read")).toMatchObject({ authorization: undefined, body: imageRef });
   const downloading = page.waitForEvent("download"); await page.getByRole("button", { name: "下载题库 ZIP", exact: true }).click(); const downloaded = await downloading;
   expect(downloaded.suggestedFilename()).toBe(`practiq-bank-${taskId}.zip`); expect(await readFile((await downloaded.path())!)).toEqual(zip);
-  expect(http.calls.find(call => call.path.endsWith("/export"))).toMatchObject({ method: "GET", authenticated: true, query: "?checkpoint_id=checkpoint-one&scope=full" });
+  expect(http.calls.find(call => call.path.endsWith("/export"))).toMatchObject({ method: "GET", authorization: undefined, query: "?checkpoint_id=checkpoint-one&scope=full" });
   expect(starts(http.calls)).toHaveLength(0); expect(http.calls.some(call => /\/(control|reparse)$/.test(call.path))).toBe(false); expect(external).toEqual([]);
 });
 
@@ -612,22 +622,21 @@ for (const width of [1280, 360]) {
       return false;
     };
     await page.goto("/");
-    await page.getByLabel("服务访问令牌").fill(fakeToken);
-    await page.getByRole("button", { name: "连接服务", exact: true }).click();
-    const retry = page.getByRole("button", { name: "连接服务", exact: true });
+    const retry = page.getByRole("button", { name: "重试连接", exact: true });
     const banner = page.getByRole("alert");
     await expect(banner).toBeVisible();
-    await expect(page.getByLabel("服务访问令牌")).toHaveValue(fakeToken);
+    await expect(page.getByLabel("服务访问令牌")).toHaveCount(0);
     const text = await banner.boundingBox();
     expect(text!.width).toBeGreaterThan(width === 360 ? 240 : 280);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await banner.scrollIntoViewIfNeeded();
     await page.screenshot({ path: testInfo.outputPath(`error-retry-${width}.png`), animations: "disabled" });
+    const initialReads = reads;
     fail = false;
     await retry.click();
     await expect(banner).toHaveCount(0);
     await expect(page.getByText(/^服务支持：/)).toBeVisible();
-    expect(reads).toBe(2);
+    expect(reads).toBe(initialReads + 1);
     expect(mutations(http.calls)).toHaveLength(0);
   });
 }
@@ -884,9 +893,7 @@ for (const width of [1440, 390]) {
     await page.screenshot({ path: testInfo.outputPath(`web-action-error-${width}.png`) });
     await page.route(process.env.PRACTIQ_WEB_BUILT === "1" ? '**/assets/ResultReview-*.js' : '**/src/ResultReview.tsx', route => route.abort('failed'));
     await page.reload();
-    await expect(page.getByLabel('服务访问令牌')).toHaveValue('');
-    await page.getByLabel('服务访问令牌').fill(fakeToken);
-    await page.getByRole('button', { name: '连接服务', exact: true }).click();
+    await expect(page.getByLabel("服务访问令牌")).toHaveCount(0);
     await page.getByRole("link", { name: "导入记录", exact: true }).click(); await page.getByRole('button', { name: /sample.docx/ }).click();
     await expect(page.getByRole('heading', { name: '此界面暂时无法显示', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: '下载题库 ZIP', exact: true })).toBeEnabled();

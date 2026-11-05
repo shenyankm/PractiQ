@@ -28,7 +28,7 @@ function fixture(count: number) {
 }
 
 it.each(["preview", "task"] as const)("defers %s quality JSON until expanded and reuses it while paging", async source => {
-  const data = fixture(61), client = new Client("fake"), user = userEvent.setup();
+  const data = fixture(61), client = new Client(), user = userEvent.setup();
   const nativeStringify = JSON.stringify, expected = nativeStringify(data.quality, null, 2);
   const input = nativeStringify(data), stringify = vi.spyOn(JSON, "stringify");
   const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);
@@ -73,7 +73,7 @@ it.each(["preview", "task"] as const)("defers %s quality JSON until expanded and
 });
 
 it.skipIf(!process.env.PRACTIQ_BENCH_OUTPUT)("quality serialization probe", async () => {
-  const nativeStringify = JSON.stringify, client = new Client("fake"), workloads = [];
+  const nativeStringify = JSON.stringify, client = new Client(), workloads = [];
   const hash = (value: string) => createHash("sha256").update(value).digest("hex");
   let target: unknown, calls = 0, milliseconds = 0;
   const stringify = vi.spyOn(JSON, "stringify").mockImplementation((...args) => {

@@ -1,15 +1,17 @@
 import { useEffect, useState } from "react";
-import { Check, RefreshCw, Save } from "lucide-react";
+import { createPortal } from "react-dom";
+import { Check, LoaderCircle, RefreshCw, X } from "lucide-react";
 import { ApiError, type Client } from "./api";
 import type { ImportSettingsSnapshot } from "./contracts.generated";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
+import { Switch } from "./components/ui/switch";
 
-const errorText = (error: unknown) => error instanceof ApiError && error.code === "IMPORT_SETTINGS_CONFLICT" ? "设置已在其他页面更新。请重新读取，再调整并保存。" : error instanceof ApiError ? error.message : "无法读取或保存设置，请手动重试。";
+const errorText = (error: unknown) => error instanceof ApiError && error.code === "IMPORT_SETTINGS_CONFLICT" ? "设置已在其他页面更新。请重新读取后再调整。" : error instanceof ApiError ? error.message : "无法读取或保存设置，请手动重试。";
 
-export function ImportSettingsPanel({ client }: { client: Client }) {
+export function ImportSettingsPanel({ client, onSettingsChange, onPendingChange }: { client: Client; onSettingsChange?: (value: ImportSettingsSnapshot) => void; onPendingChange?: (pending: boolean) => void }) {
   const [snapshot, setSnapshot] = useState<ImportSettingsSnapshot | null>(null);
-  const [draft, setDraft] = useState({ tencentConcurrency: "5", readRetryCount: "2", retryBaseSeconds: "1" });
+  const [draft, setDraft] = useState({ tencentConcurrency: "5", readRetryCount: "2", retryBaseSeconds: "1", deduplicateQuestions: false, generateAnswers: false });
   const [revision, setRevision] = useState(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -20,35 +22,54 @@ export function ImportSettingsPanel({ client }: { client: Client }) {
     setLoading(true); setError(null); setSaved(false);
     void client.importSettings(controller.signal).then(value => {
       if (controller.signal.aborted) return;
-      setSnapshot(value); setDraft({ tencentConcurrency: String(value.settings.tencentConcurrency), readRetryCount: String(value.settings.readRetryCount), retryBaseSeconds: String(value.settings.retryBaseSeconds) });
+      setSnapshot(value); setDraft({ tencentConcurrency: String(value.settings.tencentConcurrency), readRetryCount: String(value.settings.readRetryCount), retryBaseSeconds: String(value.settings.retryBaseSeconds), deduplicateQuestions: value.settings.deduplicateQuestions ?? false, generateAnswers: value.settings.generateAnswers ?? false });
+      onSettingsChange?.(value);
     }).catch(error => { if (!controller.signal.aborted) setError(errorText(error)); }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [client, revision]);
-  const changed = !!snapshot && Object.keys(draft).some(key => Number(draft[key as keyof typeof draft]) !== snapshot.settings[key as keyof typeof snapshot.settings]);
-  async function save() {
-    if (!snapshot || saving || !changed) return;
-    setSaving(true); setError(null); setSaved(false);
-    try {
-      const value = await client.saveImportSettings({ revision: snapshot.revision, settings: { tencentConcurrency: Number(draft.tencentConcurrency), readRetryCount: Number(draft.readRetryCount), retryBaseSeconds: Number(draft.retryBaseSeconds) } });
-      if (client.active) { setSnapshot(value); setSaved(true); }
-    } catch (error) { if (client.active) setError(errorText(error)); }
-    finally { setSaving(false); }
-  }
+  }, [client, revision, onSettingsChange]);
+  const numericKeys = ["tencentConcurrency", "readRetryCount", "retryBaseSeconds"] as const;
+  const changed = !!snapshot && (numericKeys.some(key => draft[key].trim() === "" || Number(draft[key]) !== snapshot.settings[key])
+    || draft.deduplicateQuestions !== (snapshot.settings.deduplicateQuestions ?? false)
+    || draft.generateAnswers !== (snapshot.settings.generateAnswers ?? false));
+  const valid = numericKeys.every(key => draft[key].trim() !== "")
+    && Number.isInteger(Number(draft.tencentConcurrency)) && Number(draft.tencentConcurrency) >= 1 && Number(draft.tencentConcurrency) <= 5
+    && Number.isInteger(Number(draft.readRetryCount)) && Number(draft.readRetryCount) >= 0 && Number(draft.readRetryCount) <= 5
+    && Number.isFinite(Number(draft.retryBaseSeconds)) && Number(draft.retryBaseSeconds) >= 0.5 && Number(draft.retryBaseSeconds) <= 10;
+  useEffect(() => { onPendingChange?.(loading || saving || changed || !!error); }, [loading, saving, changed, error, onPendingChange]);
+  useEffect(() => {
+    if (!saved || changed || saving) return;
+    const timer = setTimeout(() => setSaved(false), 3000);
+    return () => clearTimeout(timer);
+  }, [saved, changed, saving]);
+  useEffect(() => {
+    if (!snapshot || loading || saving || !changed || !valid || error) return;
+    const timer = setTimeout(() => {
+      setSaving(true); setSaved(false);
+      void client.saveImportSettings({ revision: snapshot.revision, settings: {
+        tencentConcurrency: Number(draft.tencentConcurrency), readRetryCount: Number(draft.readRetryCount), retryBaseSeconds: Number(draft.retryBaseSeconds),
+        deduplicateQuestions: draft.deduplicateQuestions, generateAnswers: draft.generateAnswers,
+      } }).then(value => {
+        if (client.active) { setSnapshot(value); setSaved(true); onSettingsChange?.(value); }
+      }).catch(error => { if (client.active) setError(errorText(error)); })
+        .finally(() => { if (client.active) setSaving(false); });
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [client, snapshot, draft, loading, saving, changed, valid, error, onSettingsChange]);
   return <section className="settings-panel" aria-labelledby="execution-settings-heading">
     <div className="section-heading"><div><h2 id="execution-settings-heading">识别与恢复</h2><p>整个服务共享此设置。</p></div><Button variant="outline" disabled={loading || saving} onClick={() => setRevision(value => value + 1)}><RefreshCw />重新读取设置</Button></div>
     {loading && <p role="status">正在读取导入设置…</p>}
     {error && <p className="error-banner" role="alert">{error}</p>}
-    {snapshot && <form onSubmit={event => { event.preventDefault(); void save(); }}>
-      <fieldset disabled={loading || saving} className="settings-fields">
+    {snapshot && <form onSubmit={event => event.preventDefault()}>
+      <fieldset disabled={loading} className="settings-fields">
+        {([["deduplicateQuestions", "自动去重"], ["generateAnswers", "AI 生成答案与解析"]] as const).map(([key, label]) =>
+          <div className="setting-row" key={key}><label htmlFor={key}><strong>{label}</strong></label><Switch id={key} checked={draft[key]} onCheckedChange={checked => { setDraft(previous => ({ ...previous, [key]: checked })); setSaved(false); }} /></div>)}
         {([
-          ["tencentConcurrency", "腾讯识别并发上限", "1–5 个；调低不会中断正在处理的任务。", 1, 5, 1],
-          ["readRetryCount", "读取失败重试次数", "0–5 次，0 表示不重试；仅限已知任务的查询与结果下载。", 0, 5, 1],
-          ["retryBaseSeconds", "初始退避间隔（秒）", "0.5–10 秒；重试间隔逐次翻倍。", 0.5, 10, "any"],
-        ] as const).map(([key, label, help, min, max, step]) => <div className="setting-row" key={key}><div><label htmlFor={key}><strong>{label}</strong></label><p id={`${key}-help`}>{help}</p></div><Input id={key} type="number" min={min} max={max} step={step} required aria-describedby={`${key}-help`} value={draft[key]} onChange={event => { setDraft(previous => ({ ...previous, [key]: event.target.value })); setSaved(false); }} /></div>)}
+          ["tencentConcurrency", "腾讯识别并发上限", 1, 5, 1],
+          ["readRetryCount", "读取失败重试次数", 0, 5, 1],
+          ["retryBaseSeconds", "初始退避间隔（秒）", 0.5, 10, "any"],
+        ] as const).map(([key, label, min, max, step]) => <div className="setting-row" key={key}><label htmlFor={key}><strong>{label}</strong></label><Input id={key} type="number" min={min} max={max} step={step} required aria-invalid={draft[key] !== "" && (!Number.isFinite(Number(draft[key])) || Number(draft[key]) < min || Number(draft[key]) > max || step === 1 && !Number.isInteger(Number(draft[key]))) || undefined} value={draft[key]} onChange={event => { setDraft(previous => ({ ...previous, [key]: event.target.value })); setSaved(false); }} /></div>)}
       </fieldset>
-      <p className="settings-safety">付费提交不会自动重试。结果未知时，先核对腾讯云任务。</p>
-      <div className="settings-save"><Button type="submit" disabled={loading || saving || !changed}><Save />{saving ? "正在保存…" : "保存设置"}</Button>{saved && <span role="status"><Check />设置已保存</span>}</div>
     </form>}
-    <section className="connection-info"><h2>服务连接</h2><p>访问令牌仅保留在当前页面，刷新后需重新连接。</p></section>
+    {!error && (changed || saving || saved) && createPortal(<div className="settings-toast"><span role="status">{!valid ? "数值无效，尚未保存" : changed || saving ? <><LoaderCircle className="loading-icon" />正在自动保存…</> : <><Check />设置已保存</>}</span>{saved && !changed && !saving && <Button variant="ghost" size="icon" aria-label="关闭保存提示" onClick={() => setSaved(false)}><X /></Button>}</div>, document.body)}
   </section>;
 }

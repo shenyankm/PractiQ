@@ -15,7 +15,7 @@ it("reuses matching detail questions, groups and images with a metadata-only pre
   const metadata = { ...preview, units: [{ stage: "document_parse" as const, index: 0, questions: [], groups: [],
     sourceRef: { objectKey: "saved-text", sha256: "a".repeat(64), sizeBytes: 10, mediaType: "text/plain" } }] };
   const before = JSON.stringify([detail, metadata]);
-  const view = render(<ResultReview task={detail} preview={metadata} client={new Client("fake")} />);
+  const view = render(<ResultReview task={detail} preview={metadata} client={new Client()} />);
   await user.click(screen.getByText("根据材料选择答案", { selector: "summary span" }));
   expect(screen.getByText("共享选项一")).toBeTruthy();
   await user.click(screen.getByRole("button", { name: "来源与资源" }));
@@ -23,7 +23,7 @@ it("reuses matching detail questions, groups and images with a metadata-only pre
   expect(screen.getByText("image · Printed figure")).toBeTruthy();
   expect(screen.getByRole("button", { name: "查看来源证据" })).toBeTruthy();
   expect(JSON.stringify([detail, metadata])).toBe(before);
-  view.rerender(<ResultReview task={detail} preview={{ ...metadata, checkpointId: "different-checkpoint" }} client={new Client("fake")} />);
+  view.rerender(<ResultReview task={detail} preview={{ ...metadata, checkpointId: "different-checkpoint" }} client={new Client()} />);
   expect(screen.queryByText("Printed section")).toBeNull();
   expect(screen.queryByText("image · Printed figure")).toBeNull();
   await user.click(screen.getByRole("button", { name: "题目与材料" }));
@@ -35,7 +35,7 @@ it.each(["sourceRef", "evidenceRef"] as const)("loads %s OCR evidence only on de
   const evidence = vi.spyOn(Client.prototype, "evidence").mockResolvedValue({ text: async () => literal } as Blob);
   const reference = { objectKey: "managed-ocr", sha256: "a".repeat(64), sizeBytes: literal.length, mediaType: "application/json" };
   const checkpoint = { ...preview, units: [{ ...preview.units[0], sourceRef: undefined, [field]: reference, visualElements: [] }] };
-  const { container } = render(<ResultReview task={task} preview={checkpoint} client={new Client("fake")} />);
+  const { container } = render(<ResultReview task={task} preview={checkpoint} client={new Client()} />);
   await userEvent.click(screen.getByRole("button", { name: "来源与资源" }));
   expect(evidence).not.toHaveBeenCalled();
   await userEvent.click(screen.getByRole("button", { name: "查看来源证据" }));
@@ -50,7 +50,7 @@ it("downloads the original document only after an explicit action", async () => 
   vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:original");
   const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
   const document = { objectKey: "managed-source", sha256: "a".repeat(64), sizeBytes: 6, mediaType: "text/plain", sourceType: "text" as const, fileName: "source.txt" };
-  const view = render(<ResultReview task={task} preview={{ ...preview, document }} client={new Client("fake")} />);
+  const view = render(<ResultReview task={task} preview={{ ...preview, document }} client={new Client()} />);
   await userEvent.click(screen.getByRole("button", { name: "来源与资源" }));
   expect(source).not.toHaveBeenCalled();
   await userEvent.click(screen.getByRole("button", { name: "下载原文件" }));
@@ -70,7 +70,7 @@ for (const source of ["checkpoint", "result"]) {
     const { container } = render(<ResultReview
       task={{ ...task, result: { ...task.result!, questions: records } }}
       preview={source === "checkpoint" ? { ...preview, units: [{ ...preview.units[0], questions: records }] } : null}
-      client={new Client("fake")}
+      client={new Client()}
     />);
     await user.click(screen.getByText("Alpha", { selector: "summary span" }));
     expect(screen.getByRole("heading", { name: "完整题干" })).toBeTruthy();
@@ -104,7 +104,7 @@ it("disables raw HTML, external links/images and trusted math extensions", () =>
 });
 it("preserves null answers, material/shared options, source associations and partial warnings", async () => {
   const user = userEvent.setup();
-  render(<ResultReview task={task} preview={preview} client={new Client("fake")} />);
+  render(<ResultReview task={task} preview={preview} client={new Client()} />);
   const notices = within(screen.getByRole("region", { name: "结果提醒" }));
   expect(notices.getByText(/这是部分结果/)).toBeTruthy();
   expect(notices.getByText("保留失败单元；参考答案缺失。")).toBeTruthy();
@@ -125,7 +125,7 @@ it("preserves null answers, material/shared options, source associations and par
   expect(screen.getByText(/"unitIndex": 0/)).toBeTruthy();
 });
 it("omits result notices when no result needs attention", () => {
-  render(<ResultReview task={{ ...task, status: null, result: null }} preview={{ ...preview, quality: { ...preview.quality, reviewRequired: false } }} client={new Client("fake")} />);
+  render(<ResultReview task={{ ...task, status: null, result: null }} preview={{ ...preview, quality: { ...preview.quality, reviewRequired: false } }} client={new Client()} />);
   expect(screen.queryByRole("region", { name: "结果提醒" })).toBeNull();
 });
 it("shows duplicate warnings in full and filters retained copies by ID without modifying results", async () => {
@@ -136,7 +136,7 @@ it("shows duplicate warnings in full and filters retained copies by ID without m
   const detail = { ...task, result: { ...task.result!, questions: copies, groups: [], visualElements: [], warnings: [warning] } };
   const checkpoint = { ...preview, units: copies.map((q, index) => ({ ...preview.units[0], stage: "document_parse" as const, index, questions: [q], groups: [], visualElements: [] })), questionSources: sources };
   const before = JSON.stringify({ detail, checkpoint });
-  render(<ResultReview task={detail} preview={checkpoint} client={new Client("fake")} />);
+  render(<ResultReview task={detail} preview={checkpoint} client={new Client()} />);
   expect(screen.getByText(warning)).toBeTruthy();
   expect(screen.getAllByText("重复题目", { selector: "summary span" })).toHaveLength(2);
   const search = screen.getByRole("searchbox", { name: "搜索解析题目" });
@@ -154,7 +154,7 @@ it("shows duplicate warnings in full and filters retained copies by ID without m
   expect(fetcher).not.toHaveBeenCalled(); expect(JSON.stringify({ detail, checkpoint })).toBe(before);
 });
 it("shows HTML blocks as inert source text and retains missing stems/types", async () => {
-  const user = userEvent.setup(); const { container } = render(<ResultReview task={task} preview={preview} client={new Client("fake")} />);
+  const user = userEvent.setup(); const { container } = render(<ResultReview task={task} preview={preview} client={new Client()} />);
   await user.click(screen.getByText("题干未提供（null）"));
   expect(screen.getByText("<script>window.documentInjected=true</script>")).toBeTruthy();
   expect(container.querySelector("script")).toBeNull();
@@ -163,7 +163,7 @@ it("shows HTML blocks as inert source text and retains missing stems/types", asy
 it("retains the same HTML source fields as the App without activating markup", async () => {
   const q = question({ id: "q-html", stem: "Escaped HTML fixture", parentId: null, optionSourceId: null,
     contentBlocks: htmlBlocks as ReturnType<typeof question>["contentBlocks"] });
-  const { container } = render(<ResultReview task={{ ...task, result: { ...task.result!, questions: [q], groups: [], visualElements: [] } }} preview={null} client={new Client("fake")} />);
+  const { container } = render(<ResultReview task={{ ...task, result: { ...task.result!, questions: [q], groups: [], visualElements: [] } }} preview={null} client={new Client()} />);
   await userEvent.click(screen.getByText("Escaped HTML fixture"));
   for (const value of new Set(htmlBlocks.flatMap(block => [block.textValue, block.markdownValue]))) expect(screen.getByText(value).tagName).toBe("PRE");
   expect(container.querySelector("script,img,table,a")).toBeNull();
@@ -172,23 +172,23 @@ it("paginates every question record without modifying the DTO, and supports resu
   const user = userEvent.setup();
   const questions = Array.from({ length: 21 }, (_, index) => question({ id: `q-${index}`, parentId: null, optionSourceId: null, stem: `题目 ${index}` }));
   const before = JSON.stringify(questions);
-  const { rerender } = render(<ResultReview task={task} preview={{ ...preview, units: [{ ...preview.units[0], questions }] }} client={new Client("fake")} />);
+  const { rerender } = render(<ResultReview task={task} preview={{ ...preview, units: [{ ...preview.units[0], questions }] }} client={new Client()} />);
   expect(screen.queryByText("题目 20")).toBeNull();
   await user.click(screen.getByRole("button", { name: "下一页题目" }));
   expect(screen.getByText("题目 20")).toBeTruthy();
   await user.click(screen.getByRole("button", { name: "上一页题目" }));
   expect(screen.getByText("题目 0")).toBeTruthy();
   expect(JSON.stringify(questions)).toBe(before);
-  rerender(<ResultReview task={task} preview={null} client={new Client("fake")} />);
+  rerender(<ResultReview task={task} preview={null} client={new Client()} />);
   expect(screen.getByText("根据材料选择答案")).toBeTruthy();
-  rerender(<ResultReview task={{ ...task, result: null, processing: null, status: null }} preview={null} client={new Client("fake")} />);
+  rerender(<ResultReview task={{ ...task, result: null, processing: null, status: null }} preview={null} client={new Client()} />);
   expect(screen.getByText(/尚无可查看的题目/)).toBeTruthy();
   await user.click(screen.getByRole("button", { name: "来源与资源" }));
   expect(screen.getByText("无文档分组。")).toBeTruthy(); expect(screen.getByText("无关联图片。")).toBeTruthy();
 });
 it("renders structured formulas/blanks/items and only reads images on an explicit click", async () => {
   const errors = vi.spyOn(console, "error").mockImplementation(() => {});
-  const user = userEvent.setup(); const client = new Client("fake"); const image = vi.spyOn(client, "image").mockResolvedValue(new Blob(["image"], { type: "image/png" })); const create = vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:checked-image"); const revoke = vi.spyOn(URL, "revokeObjectURL");
+  const user = userEvent.setup(); const client = new Client(); const image = vi.spyOn(client, "image").mockResolvedValue(new Blob(["image"], { type: "image/png" })); const create = vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:checked-image"); const revoke = vi.spyOn(URL, "revokeObjectURL");
   const reference = { objectKey: "managed/image.png", sha256: "a".repeat(64), mediaType: "image/png", sizeBytes: 5 };
   const q = question({ parentId: null, optionSourceId: null, answerPayload: { text: "原文答案" }, analysis: "解析原文", scoringRubric: "文档评分依据", options: [{ label: null, content: null }], items: [{ id: 1, side: "left", content: "项目" }], contentBlocks: [{ partType: "formula", label: "公式", role: "question", latexValue: "x^2" }, { partType: "blank", questionId: "child" }, { partType: "text", textValue: "独立正文", jsonValue: { rows: [["a"]] } }] });
   const view = render(<ResultReview task={task} preview={{ ...preview, units: [{ ...preview.units[0], questions: [q], visualElements: [{ kind: "image", description: "受校验图片", imageRef: reference, sourceRef: reference, questionIndexes: [0] }], sourceRef: reference }] }} client={client} />);
@@ -207,7 +207,7 @@ it("renders structured formulas/blanks/items and only reads images on an explici
   view.unmount(); expect(revoke).toHaveBeenCalledWith("blob:checked-image");
 });
 it("does not leak an object URL if image loading completes after unmount, and allows a manual error retry", async () => {
-  const user = userEvent.setup(); const client = new Client("fake"); const reference = { objectKey: "managed", sha256: "a".repeat(64), mediaType: "image/png", sizeBytes: 1 };
+  const user = userEvent.setup(); const client = new Client(); const reference = { objectKey: "managed", sha256: "a".repeat(64), mediaType: "image/png", sizeBytes: 1 };
   let finish!: (blob: Blob) => void;
   vi.spyOn(client, "image").mockImplementationOnce(() => new Promise(resolve => { finish = resolve; })).mockRejectedValueOnce(new Error("failed")).mockResolvedValueOnce(new Blob(["x"]));
   const create = vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:retry");
@@ -223,7 +223,7 @@ it("paginates source resources and preserves unit-local duplicate question refer
   const user = userEvent.setup();
   const units = [0,1].map(index=>({...preview.units[0],stage:"document_parse" as const,index,questions:[question({id:"owner",stem:`Owner ${index}`,parentId:null,optionSourceId:null}),question({id:`child${index}`,stem:`Child ${index}`,parentId:"owner",optionSourceId:null})],groups:Array.from({length:25},(_,i)=>({title:`Group ${index}-${i}`,questionIndexes:[0,1]})),visualElements:[]}));
   units[0].questions.unshift(question({id:JSON.stringify(["document_parse",1,"owner"]),stem:"Collision bait",parentId:null,optionSourceId:null}));
-  render(<ResultReview task={task} preview={{...preview,units}} client={new Client("fake")}/>);
+  render(<ResultReview task={task} preview={{...preview,units}} client={new Client()}/>);
   await user.click(screen.getByText("Child 1"));
   const child = screen.getByText("Child 1",{selector:"summary span"}).closest("details")!;
   expect(within(child).getByText("Owner 1")).toBeTruthy(); expect(within(child).queryByText("Owner 0")).toBeNull();
@@ -243,7 +243,7 @@ it("uses local duplicate owners and only unique cross-unit material and options"
     [owners[1], question({ id: "local-1", stem: "Local child 1", parentId: "owner", optionSourceId: "owner" })],
     [question({ id: "unresolved", stem: "Unresolved child", parentId: "owner", optionSourceId: "owner", options: [{ label: "A", content: "Own unresolved option" }] }), question({ id: "unique-child", stem: "Unique child", parentId: "unique", optionSourceId: "unique" })],
   ].map((questions, index) => ({ ...preview.units[0], stage: "document_parse" as const, index, questions, groups: [] }));
-  render(<ResultReview task={task} preview={{ ...preview, units, questionSources: [] }} client={new Client("fake")} />);
+  render(<ResultReview task={task} preview={{ ...preview, units, questionSources: [] }} client={new Client()} />);
   for (const index of [0, 1]) {
     await user.click(screen.getByText(`Local child ${index}`));
     const child = within(screen.getByText(`Local child ${index}`, { selector: "summary span" }).closest("details")!);
@@ -265,7 +265,7 @@ it("uses local duplicate owners and only unique cross-unit material and options"
 
 it("filters all checkpoints locally, resets pagination and retains shared material context", async () => {
   const user = userEvent.setup();
-  const client = new Client("fake");
+  const client = new Client();
   const image = vi.spyOn(client, "image");
   const records = [material, ...Array.from({ length: 22 }, (_, index) => question({id:`filtered-${index}`, stem:`Record ${index}`, needsReview:index === 21}))];
   const view = { ...preview, units: [{...preview.units[0], questions:records}] };
@@ -312,7 +312,7 @@ it.each([
 ] as const)("prioritizes readable reference answers and retains raw evidence: %j", async (answer, text) => {
   const q = question({id:"readable", stem:"Readable review", parentId:null, optionSourceId:null, answerPayload:structuredClone(answer) as ReturnType<typeof question>["answerPayload"], items:[{id:1,side:"left",content:"First"},{id:2,side:"right",content:"Second"}]});
   const original = JSON.stringify(q);
-  const {container} = render(<ResultReview task={{...task,result:{...task.result!,questions:[q]}}} preview={null} client={new Client("fake")}/>);
+  const {container} = render(<ResultReview task={{...task,result:{...task.result!,questions:[q]}}} preview={null} client={new Client()}/>);
   await userEvent.click(screen.getByText("Readable review", {selector:"summary span"}));
   const card = container.querySelector(".question-card")!;
   const reference = screen.getByRole("heading", {name:"文档提供的参考答案"}).parentElement!;
@@ -335,7 +335,7 @@ it.each([
 ] as const)("resolves optional item IDs using contract positions: %j", async ({answer,items,expected}) => {
   const q=question({stem:"Positional answers",answerMode:"order" in answer ? "ordering" : "matching",answerPayload:structuredClone(answer) as ReturnType<typeof question>["answerPayload"],items:items.map(item=>({...item}))});
   const original=JSON.stringify(q);
-  render(<ResultReview task={{...task,result:{...task.result!,questions:[q]}}} preview={null} client={new Client("fake")}/>);
+  render(<ResultReview task={{...task,result:{...task.result!,questions:[q]}}} preview={null} client={new Client()}/>);
   await userEvent.click(screen.getByText("Positional answers",{selector:"summary span"}));
   const reference=screen.getByRole("heading",{name:"文档提供的参考答案"}).parentElement!;
   expect(within(reference).getAllByRole("listitem").map(item=>item.textContent)).toEqual(expected);
@@ -351,7 +351,7 @@ it.each(["image", "evidence"] as const)("cancels a stalled %s body when its view
   const digest = vi.spyOn(crypto.subtle, "digest");
   const reference = { objectKey: "managed", sha256: "a".repeat(64), sizeBytes: 1, mediaType: kind === "image" ? "image/png" : "text/plain" };
   const checkpoint = { ...preview, units: [{ ...preview.units[0], sourceRef: reference, evidenceRef: null, visualElements: [] }] };
-  render(<ResultReview task={task} preview={checkpoint} client={new Client("fake")} />);
+  render(<ResultReview task={task} preview={checkpoint} client={new Client()} />);
   await userEvent.click(screen.getByRole("button", { name: "来源与资源" }));
   await userEvent.click(screen.getByRole("button", { name: kind === "image" ? "查看图片" : "查看来源证据" }));
   expect(response.body?.locked).toBe(true);
@@ -366,7 +366,7 @@ it.each(["image", "evidence"] as const)("cancels a stalled %s body when its view
 for (const kind of ["image", "evidence"] as const) {
   it.each(["client", "task", "objectKey", "sha256", "sizeBytes", "mediaType"] as const)(`resets ${kind} on %s replacement and ignores late publication in StrictMode`, async identity => {
     const user = userEvent.setup();
-    const client = new Client("fake");
+    const client = new Client();
     const reference = { objectKey: "managed", sha256: "a".repeat(64), sizeBytes: 1, mediaType: kind === "image" ? "image/png" : "text/plain" };
     const nextReference = { ...reference,
       ...(identity === "objectKey" ? { objectKey: "replacement" } : {}),
@@ -388,7 +388,7 @@ for (const kind of ["image", "evidence"] as const) {
     const loadLabel = kind === "image" ? "查看图片" : "查看来源证据";
     await user.click(screen.getByRole("button", { name: loadLabel }));
     const oldSignal = read.mock.calls[0][2]!;
-    const nextClient = identity === "client" ? new Client("replacement") : client;
+    const nextClient = identity === "client" ? new Client() : client;
     const nextTask = identity === "task" ? "replacement-task" : task.threadId;
     view.rerender(review(nextReference, nextClient, nextTask));
     expect(oldSignal.aborted).toBe(true);
@@ -420,7 +420,7 @@ for (const kind of ["image", "evidence"] as const) {
 }
 
 it("reloads images explicitly and releases each replaced object URL", async () => {
-  const client = new Client("fake");
+  const client = new Client();
   const image = vi.spyOn(client, "image").mockResolvedValue(new Blob(["image"]));
   vi.spyOn(URL, "createObjectURL").mockReturnValueOnce("blob:first").mockReturnValueOnce("blob:second");
   const revoke = vi.spyOn(URL, "revokeObjectURL");
@@ -441,7 +441,7 @@ it("offers explicit evidence retry after failure and suppresses a late cancellat
     .mockResolvedValueOnce({ text: async () => "verified evidence" } as Blob)
     .mockImplementationOnce(() => new Promise((_resolve, reject) => { fail = reject; }));
   const reference = { objectKey: "managed", sha256: "a".repeat(64), sizeBytes: 1, mediaType: "text/plain" };
-  const client = new Client("fake");
+  const client = new Client();
   const checkpoint = { ...preview, units: [{ ...preview.units[0], sourceRef: reference, evidenceRef: null, visualElements: [] }] };
   const view = render(<ResultReview task={task} preview={checkpoint} client={client} />);
   await userEvent.click(screen.getByRole("button", { name: "来源与资源" }));

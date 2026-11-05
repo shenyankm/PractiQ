@@ -3,9 +3,53 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it, vi } from "vitest";
 import App from "./App";
 import { capabilities, newTaskId, preview, question, runId, summary, task, taskId } from "./test-fixtures";
-import type { DocumentTaskDetail } from "./contracts.generated";
+import type { DocumentTaskDetail, ImportSettingsSnapshot } from "./contracts.generated";
 
 beforeEach(() => window.history.replaceState(null, "", "/"));
+
+it("opens the import workspace automatically without a service token", async () => {
+  const http = fakeHTTP();
+  render(<App />);
+  await screen.findByText(/^服务支持：/);
+  expect(screen.queryByLabelText("服务访问令牌")).toBeNull();
+  expect(screen.queryByRole("button", { name: "连接服务" })).toBeNull();
+  expect(screen.queryByText(/访问令牌/)).toBeNull();
+  expect(http.calls.every(call => call.method === "GET" && call.auth === null)).toBe(true);
+});
+
+it("generates answers only when opted in and explicitly starting import", async () => {
+  const http = fakeHTTP(); const user = userEvent.setup();
+  render(<App />); await connect(user);
+  expect(screen.queryByRole("checkbox")).toBeNull();
+  await setImportOption(user, "AI 生成答案与解析");
+  await user.upload(screen.getByLabelText("选择文档"), new File(["1. What is 1 + 1?"], "quiz.txt"));
+  expect(http.calls.filter(call => call.method === "POST")).toHaveLength(0);
+  await user.click(screen.getByRole("button", { name: "开始导入" }));
+  await screen.findByText(/任务已创建。/);
+  expect(http.calls.find(call => call.url === "/api/document-tasks" && call.method === "POST")?.body).toMatchObject({ generateAnswers: true });
+});
+
+it("waits for saved switch values before authorizing a new import", async () => {
+  const http = fakeHTTP(); const user = userEvent.setup();
+  let finish!: (response: Response) => void;
+  http.server.intercept = (url, init) => {
+    if (url === "/api/import-settings" && init.method === "PUT") return new Promise(resolve => { finish = resolve; });
+  };
+  render(<App />); await connect(user);
+  await user.upload(screen.getByLabelText("选择文档"), new File(["quiz"], "quiz.txt"));
+  await user.click(screen.getByRole("link", { name: "设置" }));
+  await user.click(await screen.findByRole("switch", { name: "AI 生成答案与解析" }));
+  await connect(user);
+  expect(screen.getByRole("button", { name: "开始导入" })).toHaveProperty("disabled", true);
+  await waitFor(() => expect(finish).toBeDefined());
+  const request = http.calls.find(call => call.method === "PUT")!.body!;
+  await act(async () => finish(json({ ...request, revision: newTaskId })));
+  await waitFor(() => expect(screen.getByRole("button", { name: "开始导入" })).toHaveProperty("disabled", false));
+  expect(http.calls.filter(call => call.method === "POST")).toHaveLength(0);
+  await user.click(screen.getByRole("button", { name: "开始导入" }));
+  await screen.findByText(/任务已创建。/);
+  expect(http.calls.find(call => call.url === "/api/document-tasks" && call.method === "POST")?.body).toHaveProperty("generateAnswers", true);
+});
 
 it("explains unknown model outcomes next to explicit recovery controls", async () => {
   const http = fakeHTTP({ ...task, state: "INTERRUPTED", status: null, result: null, failures: [], blocking: ["MODEL_RESULT_UNKNOWN"], allowedActions: ["resume"] });
@@ -23,7 +67,7 @@ it("offers original submission recovery after remount without automatically post
   http.server.intercept = (url, init) => { if (url === "/api/document-tasks" && init.method === "POST") throw new TypeError("lost"); };
   render(<App />); await connect(user);
   await user.upload(screen.getByLabelText("选择文档"), new File(["same"], "same.txt"));
-  await user.click(screen.getByRole("checkbox", { name: "自动去重" }));
+  await setImportOption(user, "自动去重");
   await user.click(screen.getByRole("button", { name: "开始导入" }));
   await screen.findByRole("button", { name: "重试原提交" });
   const original = http.calls.find(call => call.url === "/api/document-tasks" && call.method === "POST")!.body;
@@ -105,6 +149,7 @@ type Call = { url: string; method: string; body: Record<string, unknown> | null;
 function fakeHTTP(initial: DocumentTaskDetail = task) {
   const calls: Call[] = [];
   const records = new Map([[initial.threadId, structuredClone(initial)]]);
+  let settings: ImportSettingsSnapshot = { revision: taskId, settings: { tencentConcurrency: 5, readRetryCount: 2, retryBaseSeconds: 1, deduplicateQuestions: false, generateAnswers: false } };
   let document: Record<string, unknown>;
   const server: { intercept?: (url: string, init: RequestInit) => Promise<Response | undefined> | Response | undefined } = {};
   const fetcher = vi.fn(async (url: string, init: RequestInit) => {
@@ -114,7 +159,7 @@ function fakeHTTP(initial: DocumentTaskDetail = task) {
     const intercepted = await server.intercept?.(url, init); if (intercepted) return intercepted;
     const path = new URL(url, location.origin).pathname;
     if (path === "/api/import-capabilities") return json(capabilities);
-    if (path === "/api/import-settings") return json({ revision: taskId, settings: { tencentConcurrency: 5, readRetryCount: 2, retryBaseSeconds: 1 } });
+    if (path === "/api/import-settings") { if (method === "PUT") settings = { revision: crypto.randomUUID(), settings: body.settings }; return json(settings); }
     if (path === "/api/document-tasks" && method === "GET") return json({ items: Array.from(records.values()).map(current => ({ ...summary, threadId: current.threadId, fileName: current.fileName, state: current.state, checkpointId: current.checkpointId, status: current.status })), hasMore: new URL(url, location.origin).searchParams.get("offset") === "0" });
     if (path === "/api/uploads") { document = { ...body, objectKey: `practiq-agent/sources/${body.sha256}/source.${body.sourceType === "text" ? "txt" : body.sourceType}` }; return json({ document, upload: { method: "PUT", url: "/api/uploads/content?" + new URLSearchParams(body), headers: { "Content-Type": body.mediaType } } }); }
     if (path === "/api/uploads/content") return json(document);
@@ -130,8 +175,16 @@ function fakeHTTP(initial: DocumentTaskDetail = task) {
   vi.stubGlobal("fetch", fetcher);
   return { calls, records, server, fetcher };
 }
-async function connect(user: ReturnType<typeof userEvent.setup>) { await user.click(screen.getByRole("link", { name: "开始导入" })); await user.type(screen.getByLabelText("服务访问令牌"), "fake-service-token"); await user.click(screen.getByRole("button", { name: "连接服务" }));
+async function connect(user: ReturnType<typeof userEvent.setup>) { await user.click(screen.getByRole("link", { name: "开始导入" }));
   await screen.findByText(/^服务支持：/);
+}
+async function setImportOption(user: ReturnType<typeof userEvent.setup>, label: string, checked = true) {
+  await user.click(screen.getByRole("link", { name: "设置" }));
+  const control = await screen.findByRole("switch", { name: label });
+  if (control.getAttribute("aria-checked") !== String(checked)) {
+    await user.click(control); await screen.findByText("设置已保存");
+  }
+  await connect(user);
 }
 async function openTask(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole("link", { name: "导入记录" }));
@@ -167,10 +220,8 @@ it("recovers polling after a hung read and backs off repeated failures without m
   expect(http.calls.every(call => call.method === 'GET')).toBe(true);
 });
 
-it("keeps Token in memory, clears it on remount, and performs no HTTP before connect", async () => {
+it("loads service capabilities automatically on every mount without credentials or mutations", async () => {
   const user = userEvent.setup(); const http = fakeHTTP(); const persist = vi.spyOn(Storage.prototype, "setItem"); render(<App />);
-  expect(screen.getByText(/令牌仅保存在本页内存，刷新后需重填/)).toBeTruthy();
-  expect(http.calls.length === 0).toBe(true);
   await connect(user);
   const rules = screen.getByText("格式与导入规则", { selector: "summary" });
   expect(rules.closest("details")?.open).toBe(false);
@@ -179,18 +230,18 @@ it("keeps Token in memory, clears it on remount, and performs no HTTP before con
   expect(rules.closest("details")?.open).toBe(true);
   expect(screen.getByText("服务支持：PDF、TXT、Markdown、PNG/JPEG、Word (.doc)、Word (.docx)、PPT (.ppt)、PPT (.pptx)、Excel (.xls)、Excel (.xlsx)")).toBeTruthy();
   expect(screen.queryByLabelText("服务访问令牌")).toBeNull(); expect(persist).not.toHaveBeenCalled();
-  expect(http.calls.every(call => call.auth === "Bearer fake-service-token" && !call.url.includes("fake-service-token") && call.method === "GET")).toBe(true);
+  expect(http.calls.every(call => call.auth === null && call.method === "GET")).toBe(true);
   expect(screen.queryByRole("button", { name: "断开连接" })).toBeNull();
   expect(screen.getByText("服务已连接")).toBeTruthy();
-  cleanup(); render(<App />); expect((screen.getByLabelText("服务访问令牌") as HTMLInputElement).value).toBe("");
+  cleanup(); render(<App />); await screen.findByText(/^服务支持：/); expect(screen.queryByLabelText("服务访问令牌")).toBeNull();
   const count = http.calls.length; vi.useFakeTimers(); await act(async () => vi.advanceTimersByTimeAsync(10_000)); expect(http.calls).toHaveLength(count);
   expect(localStorage.length).toBe(0); expect(sessionStorage.length).toBe(0);
 });
 it("selection is passive; explicit Start performs bounded SHA upload and task creation", async () => {
   const user = userEvent.setup(); const http = fakeHTTP(); render(<App />); await connect(user);
   expect(screen.getByText(/开始后将调用 AI，可能产生费用/)).toBeTruthy();
-  expect((screen.getByRole("checkbox", { name: "自动去重" }) as HTMLInputElement).checked).toBe(false);
-  expect(screen.getByText("仅合并完全相同的题目或题组")).toBeTruthy();
+  expect(screen.queryByRole("checkbox", { name: "自动去重" })).toBeNull();
+  expect(screen.queryByText("仅合并完全相同的题目或题组")).toBeNull();
   expect((screen.getByLabelText("选择文档") as HTMLInputElement).accept).not.toContain(".csv");
   expect(screen.queryByLabelText("Word / Excel 转换模式")).toBeNull();
   await user.upload(screen.getByLabelText("选择文档"), new File(["office"], "document.docx"));
@@ -225,16 +276,14 @@ it.each([false, true])("never automatically replays uncertain POST, and an expli
   let rejectCreate!: () => void;
   http.server.intercept = (url, init) => { if (url === "/api/document-tasks" && init.method === "POST" && fail) { fail = false; return new Promise((_, reject) => { rejectCreate = () => reject(new TypeError("lost reply")); }); } };
   render(<App />); await connect(user); await user.upload(screen.getByLabelText("选择文档"), new File(["office"], "document.docx"));
-  const dedup = screen.getByRole("checkbox", { name: "自动去重" }) as HTMLInputElement;
-  if (deduplicateQuestions) await user.click(dedup);
-  expect(http.calls.every(call => call.method === "GET")).toBe(true);
+  if (deduplicateQuestions) await setImportOption(user, "自动去重");
+  expect(http.calls.filter(call => call.method === "POST")).toHaveLength(0);
   await user.click(screen.getByRole("button", { name: "开始导入" }));
-  await waitFor(() => expect(rejectCreate).toBeDefined()); expect(dedup.disabled).toBe(true);
+  await waitFor(() => expect(rejectCreate).toBeDefined());
   await act(async () => rejectCreate()); const retry = await screen.findByRole("button", { name: "重试开始" });
   expect(http.calls.filter(call => call.url === "/api/document-tasks" && call.method === "POST")).toHaveLength(1);
   expect(screen.queryByLabelText("Word / Excel 转换模式")).toBeNull();
-  expect(dedup.disabled).toBe(true); expect(dedup.checked).toBe(deduplicateQuestions);
-  await user.click(dedup); expect(dedup.checked).toBe(deduplicateQuestions);
+  await setImportOption(user, "自动去重", !deduplicateQuestions);
   await user.click(retry); await screen.findByText(/任务已创建。/);
   const creates = http.calls.filter(call => call.url === "/api/document-tasks" && call.method === "POST"); expect(creates).toHaveLength(2); expect(creates[0].body).toEqual(creates[1].body);
   if (deduplicateQuestions) expect(creates[0].body).toHaveProperty("deduplicateQuestions", true);
@@ -298,11 +347,10 @@ it("recovers failed task/capability reads and ignores obsolete pages after a fil
     }
     if (url.startsWith("/api/document-tasks?") && failList) { failList = false; return json({ detail: { code: "TASK_SERVICE_UNAVAILABLE" } }, 503); }
   };
-  render(<App />); await user.type(screen.getByLabelText("服务访问令牌"), "fake-service-token"); await user.click(screen.getByRole("button", { name: "连接服务" }));
+  render(<App />);
   await screen.findByRole("alert");
-  expect(screen.getByLabelText("服务访问令牌")).toHaveProperty("value", "fake-service-token");
   expect(screen.queryByLabelText("选择文档")).toBeNull();
-  await user.click(screen.getByRole("button", { name: "连接服务" })); await screen.findByText(/^服务支持：/);
+  await user.click(screen.getByRole("button", { name: "重试连接" })); await screen.findByText(/^服务支持：/);
   expect(capReads).toBe(2);
   await user.click(screen.getByRole("link", { name: "导入记录" })); await user.click(await screen.findByRole("button", { name: "重试任务列表" })); await screen.findByRole("button", { name: "sample.docx" });
   let release!: (response: Response) => void;
@@ -332,7 +380,7 @@ it.each([false, true])("explains partial export requirements without bypassing r
   expect((screen.getByRole("button", { name: "下载题库 ZIP" }) as HTMLButtonElement).disabled).toBe(!canExportCompleted);
   expect(http.calls.every(call => call.method === "GET" && !call.url.includes("/export?"))).toBe(true);
 });
-it("exports the current partial checkpoint via authenticated ZIP GET and never starts a model", async () => {
+it("exports the current partial checkpoint via ZIP GET and never starts a model", async () => {
   const user = userEvent.setup(); const http = fakeHTTP(); const create = vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:bank"); const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
   render(<App />); await connect(user); await openTask(user);
   expect(screen.queryByText("筛选仅影响显示，导出仍包含全部已完成题目。")).toBeNull();
@@ -344,7 +392,7 @@ it("exports the current partial checkpoint via authenticated ZIP GET and never s
   await user.click(screen.getByRole("checkbox", { name: "仅看需要复核" }));
   expect(screen.getByText("筛选仅影响显示，导出仍包含全部已完成题目。")).toBeTruthy();
   await user.click(screen.getByRole("button", { name: "下载题库 ZIP" })); await screen.findByText(/题库 ZIP 已下载/);
-  expect(http.calls.find(call => call.url.includes("/export?"))).toMatchObject({ method: "GET", auth: "Bearer fake-service-token", url: `/api/document-tasks/${taskId}/export?checkpoint_id=checkpoint-one&scope=full` });
+  expect(http.calls.find(call => call.url.includes("/export?"))).toMatchObject({ method: "GET", auth: null, url: `/api/document-tasks/${taskId}/export?checkpoint_id=checkpoint-one&scope=full` });
   expect(create).toHaveBeenCalledTimes(1); expect(click).toHaveBeenCalledTimes(1); expect(http.calls.filter(call => call.method !== "GET")).toHaveLength(0);
 });
 it("creates a reparse task only on explicit action and confirms deletion before HTTP", async () => {
@@ -458,7 +506,7 @@ it("loads diagnostics on first expansion, retains them on reopen and updates new
     expect(diagnostic).toHaveBeenCalledTimes(loadedCalls + 1);
     expect(diagnostic).toHaveBeenLastCalledWith({ usage: updated.usage, unknownUsageCalls: updated.unknownUsageCalls, processing: updated.processing, blocking: updated.blocking, parserJobs: updated.parserJobs || [] });
     expect(http.calls.every(call => call.method === "GET")).toBe(true);
-    expect(http.calls.every(call => call.auth === "Bearer fake-service-token")).toBe(true);
+    expect(http.calls.every(call => call.auth === null)).toBe(true);
   } finally { stringify.mockRestore(); }
 });
 it.each(["RUNNING", "PAUSED", "WAITING_REVIEW", "FAILED", "INTERRUPTED"] as const)("reads %s directly for ten polling rounds without redundant heads", async state => {
@@ -533,7 +581,7 @@ it.each(["开始导入", "设置"])("stops invisible records reads in %s and ref
   expect(entry.open).toBe(true);
   const panel = screen.getByRole("region", { name: "任务详情" });
   await user.click(screen.getByRole("link", { name: destination }));
-  expect(document.activeElement).toBe(screen.getByRole("heading", { name: destination, level: 1 }));
+  expect(document.activeElement).toBe(screen.getByRole("main", { name: destination }));
   const reads = () => http.calls.filter(call => call.url.startsWith("/api/document-tasks")).length;
   const before = reads();
   vi.useFakeTimers();
@@ -741,10 +789,8 @@ it("removes only unsubmitted files locally and derives picker formats from servi
 });
 
 it("connects the personal service with passive reads and has no account fields", async () => {
-  const user = userEvent.setup(), http = fakeHTTP(); render(<App />);
-  await user.type(screen.getByLabelText("服务访问令牌"), "personal-token");
+  const http = fakeHTTP(); render(<App />);
   expect(http.calls.filter(call => call.method === "POST")).toHaveLength(0);
-  await user.click(screen.getByRole("button", { name: "连接服务" }));
   await screen.findByText(/^服务支持：/);
   expect(http.calls.filter(call => call.url === "/api/import-capabilities")).toHaveLength(1);
   expect(http.calls.filter(call => call.method === "POST")).toHaveLength(0);
@@ -854,7 +900,7 @@ it("does not treat filename, size and timestamp as proof of identical source byt
   expect(creates[0].body?.document).not.toEqual(creates[1].body?.document);
 });
 
-it("lets new files choose deduplication while an older uncertain retry keeps its original options", async () => {
+it.each([["自动去重", "deduplicateQuestions"], ["AI 生成答案与解析", "generateAnswers"]])("keeps %s frozen for uncertain retries while new files use their own choice", async (label, field) => {
   const user = userEvent.setup(); const http = fakeHTTP(); let fail = true;
   http.server.intercept = (url, init) => { if (url === "/api/document-tasks" && init.method === "POST" && fail) { fail = false; throw new TypeError("lost reply"); } };
   render(<App />); await connect(user);
@@ -862,14 +908,14 @@ it("lets new files choose deduplication while an older uncertain retry keeps its
   await user.click(screen.getByRole("button", { name: "开始导入" }));
   await screen.findByRole("button", { name: "重试开始" });
   await user.upload(screen.getByLabelText("选择文档"), new File(["new"], "new.txt"));
-  await user.click(screen.getByRole("checkbox", { name: "自动去重" }));
+  await setImportOption(user, label);
   await user.click(screen.getByRole("button", { name: "重试开始" }));
   await screen.findByText(/任务已创建。/);
   await user.click(screen.getByRole("button", { name: "开始导入" }));
   await waitFor(() => expect(http.calls.filter(call => call.url === "/api/document-tasks" && call.method === "POST")).toHaveLength(3));
   const creates = http.calls.filter(call => call.url === "/api/document-tasks" && call.method === "POST");
   expect(creates[0].body).toEqual(creates[1].body);
-  expect(creates[2].body).toHaveProperty("deduplicateQuestions", true);
+  expect(creates[2].body).toHaveProperty(field, true);
 });
 
 it("keeps task deletion unconfirmed until an affirmative receipt arrives", async () => {
@@ -900,16 +946,16 @@ it("sidebar navigation preserves selected files and settings drafts without star
   expect(screen.getByRole("table", { name: "文档导入记录" }).querySelectorAll("tbody .record-number")[1].textContent).toBe("待复核 2");
   await user.click(screen.getByRole("link", { name: "开始导入" }));
   expect(screen.getByText("pending.txt")).toBeTruthy();
-  expect(screen.getByRole("button", { name: "开始导入" })).toHaveProperty("disabled", false);
+  expect(screen.getByRole("button", { name: "开始导入" })).toHaveProperty("disabled", true);
   await user.click(screen.getByRole("link", { name: "设置" }));
   expect(concurrency).toHaveProperty("value", "3");
-  expect(http.calls.every(call => call.method === "GET")).toBe(true);
+  expect(http.calls.filter(call => call.method === "POST")).toHaveLength(0);
 });
 
 it.each(["task-detail", "task-list-heading"])("opens the records page for a direct #%s anchor", anchor => {
   window.history.replaceState(null, "", `/#${anchor}`);
   render(<App />);
-  expect(screen.getByRole("heading", { name: "导入记录", level: 1 })).toBeTruthy();
+  expect(screen.getByRole("main", { name: "导入记录" })).toBeTruthy();
   expect(screen.getByRole("link", { name: "导入记录" }).getAttribute("aria-current")).toBe("page");
 });
 
@@ -917,9 +963,9 @@ it("keeps shared anchors on the current page and restores import for root histor
   const user = userEvent.setup(); render(<App />);
   await user.click(screen.getByRole("link", { name: "设置" }));
   await act(async () => { window.location.hash = "main-content"; window.dispatchEvent(new HashChangeEvent("hashchange")); });
-  expect(screen.getByRole("heading", { name: "设置", level: 1 })).toBeTruthy();
+  expect(screen.getByRole("main", { name: "设置" })).toBeTruthy();
   await act(async () => { window.location.hash = ""; window.dispatchEvent(new HashChangeEvent("hashchange")); });
-  expect(screen.getByRole("heading", { name: "开始导入", level: 1 })).toBeTruthy();
+  expect(screen.getByRole("main", { name: "开始导入" })).toBeTruthy();
 });
 
 
