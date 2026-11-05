@@ -1,0 +1,5 @@
+--- a/server/src/practiq_ai/graphs/answer_evidence.py
++++ b/server/src/practiq_ai/graphs/answer_evidence.py
+@@ -35,0 +36,2 @@
++    if '\t' not in text:
++        return None

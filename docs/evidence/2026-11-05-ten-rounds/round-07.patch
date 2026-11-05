@@ -1,0 +1,11 @@
+--- a/server/src/practiq_ai/graphs/chunking.py
++++ b/server/src/practiq_ai/graphs/chunking.py
+@@ -4,0 +5 @@
++from copy import deepcopy
+@@ -779,0 +781 @@
++            record = _canonical_source_parts(raw, physical, header)
+@@ -781,2 +783,2 @@
+-                'canonical_quote': _canonical_source_parts(raw, physical, header, left, right),
+-                'full_source': {'context': prefix, 'record': _canonical_source_parts(raw, physical, header)},
++                'canonical_quote': deepcopy(record) if left == 0 and right == len(raw) else _canonical_source_parts(raw, physical, header, left, right),
++                'full_source': {'context': prefix, 'record': record},

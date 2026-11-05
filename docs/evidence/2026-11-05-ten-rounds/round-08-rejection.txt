@@ -1,0 +1,46 @@
+FFF                                                                      [100%]
+=================================== FAILURES ===================================
+_________ test_absent_quote_does_not_bypass_invalid_json_evidence[nan] _________
+
+value = nan
+
+    @pytest.mark.parametrize('value', [float('nan'), float('inf'), -float('inf')])
+    def test_absent_quote_does_not_bypass_invalid_json_evidence(value):
+        question = ParsedQuestion(id='q', stem='Prompt', answerMode='short_answer',
+            contentBlocks=[{'partType': 'table', 'jsonValue': {'value': value}}])
+>       with pytest.raises(ValueError, match='Out of range float values'):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+server/tests/test_validation_performance.py:93: Failed
+_________ test_absent_quote_does_not_bypass_invalid_json_evidence[inf] _________
+
+value = inf
+
+    @pytest.mark.parametrize('value', [float('nan'), float('inf'), -float('inf')])
+    def test_absent_quote_does_not_bypass_invalid_json_evidence(value):
+        question = ParsedQuestion(id='q', stem='Prompt', answerMode='short_answer',
+            contentBlocks=[{'partType': 'table', 'jsonValue': {'value': value}}])
+>       with pytest.raises(ValueError, match='Out of range float values'):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+server/tests/test_validation_performance.py:93: Failed
+________ test_absent_quote_does_not_bypass_invalid_json_evidence[-inf] _________
+
+value = -inf
+
+    @pytest.mark.parametrize('value', [float('nan'), float('inf'), -float('inf')])
+    def test_absent_quote_does_not_bypass_invalid_json_evidence(value):
+        question = ParsedQuestion(id='q', stem='Prompt', answerMode='short_answer',
+            contentBlocks=[{'partType': 'table', 'jsonValue': {'value': value}}])
+>       with pytest.raises(ValueError, match='Out of range float values'):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+server/tests/test_validation_performance.py:93: Failed
+=========================== short test summary info ============================
+FAILED server/tests/test_validation_performance.py::test_absent_quote_does_not_bypass_invalid_json_evidence[nan]
+FAILED server/tests/test_validation_performance.py::test_absent_quote_does_not_bypass_invalid_json_evidence[inf]
+FAILED server/tests/test_validation_performance.py::test_absent_quote_does_not_bypass_invalid_json_evidence[-inf]
+3 failed, 34 deselected in 0.76s

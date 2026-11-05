@@ -1,0 +1,37 @@
+{
+  "command": "make verify AI_PYTHON=/Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14",
+  "exitCode": 0,
+  "suite": {
+    "tests": 3773,
+    "errors": 0,
+    "failures": 0,
+    "skipped": 0
+  },
+  "pytestSeconds": 829.08,
+  "coveragePercent": 93,
+  "evaluationFixtures": 30,
+  "probeMetrics": {
+    "recoverySuccessRate": 100.0,
+    "correctStopRate": 100.0,
+    "routingPassRate": 100.0,
+    "unknownUsagePassRate": 100.0
+  },
+  "probeCount": 66,
+  "checks": [
+    "uv lock --check",
+    "Ruff",
+    "Pyright",
+    "evaluation fixtures",
+    "coverage pytest",
+    "recovery probes",
+    "wheel/sdist build",
+    "package integrity"
+  ],
+  "sha256": {
+    "verify.txt": "84d27b85a8d2f3408c97d9a641b632d48743950c8c0eca2391ad5fb688501e72",
+    "coverage.xml": "e5fe920100d42e95c177959daa3753ddfffef883e3180b9ea9dec5f3620744d4",
+    "probes.json": "f81cb0be4a6e4ce812cd86f842a24ac452043f57f2b22a4306cfacedd32a0449",
+    "probes.md": "189f112fc0b486ccd64e61d329c4b0402c4830af960bcab207e0f00afa7bb4d1"
+  },
+  "durableCrashRecovery": "NOT_ASSESSED"
+}

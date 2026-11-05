@@ -1,0 +1,8 @@
+--- a/server/src/practiq_ai/graphs/chunking.py
++++ b/server/src/practiq_ai/graphs/chunking.py
+@@ -380 +380 @@
+-    return re.sub(r"\s+", "", text), positions
++    return ''.join(text.split()), positions
+@@ -385 +385 @@
+-    needle = re.sub(r"\s+", "", quote or "")
++    needle = ''.join((quote or '').split())

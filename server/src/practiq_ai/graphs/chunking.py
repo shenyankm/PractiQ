@@ -377,12 +377,12 @@ def _legacy_split_chunk_spans(text: str, target_chars: int) -> list[ChunkSpan]:
 
 def _normalized_source(text: str, start: int) -> tuple[str, list[int]]:
     positions = [start + index for index, char in enumerate(text) if not char.isspace()]
-    return re.sub(r"\s+", "", text), positions
+    return ''.join(text.split()), positions
 
 
 def _source_locations(source: tuple[str, list[int]], quote: str | None) -> list[tuple[int, int]]:
     text, positions = source
-    needle = re.sub(r"\s+", "", quote or "")
+    needle = ''.join((quote or '').split())
     if not needle:
         return []
     locations = []
@@ -787,7 +787,8 @@ def build_source_evidence(
 
 
 def _whole_question_trees(questions: list[ParsedQuestion]) -> list[list[int]]:
-    validate_question_tree([q.model_copy(deep=True) for q in questions])
+    # Tree validation replaces review fields; nested source content stays read-only.
+    validate_question_tree([q.model_copy() for q in questions])
     by_id = {q.id: q for q in questions}
     trees: dict[str, list[int]] = {}
     for index, question in enumerate(questions):

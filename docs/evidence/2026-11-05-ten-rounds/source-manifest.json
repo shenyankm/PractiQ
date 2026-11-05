@@ -1,0 +1,34 @@
+{
+  "baseline": "4cdc1b327872d2018444e01ac7e186d1ef468735",
+  "branch": "refactor/performance-ten-rounds",
+  "retainedRounds": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    9,
+    10
+  ],
+  "rejectedRounds": [
+    1,
+    7,
+    8
+  ],
+  "sha256": {
+    "server/src/practiq_ai/graphs/chunking.py": "3c8c07031a163bc8072a7a033bf0a1e87696c15c584aef807eeea2f9390b39cd",
+    "server/src/practiq_ai/graphs/answer_evidence.py": "7cd6c4742a73d4901f12f17d6fdfa5a1b3168dc97b59afc74a53bb4e1e90a088",
+    "server/scripts/benchmark_ten_rounds.py": "e547de7bf0fae7cee1d0b704957f10bfc4273ad5146ff68b117f10842d3b54bd",
+    "server/tests/test_validation_performance.py": "eb73cfd1200307118baa4a16e81a86688a9f2670741bb6f08325651feef87184"
+  },
+  "consumerChecks": [
+    {
+      "command": "python3.14 app/scripts/export-contracts.py --check",
+      "exitCode": 0
+    },
+    {
+      "command": "python3.14 app/scripts/check-fixtures.py",
+      "exitCode": 0
+    }
+  ]
+}

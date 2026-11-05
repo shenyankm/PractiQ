@@ -1,0 +1,5 @@
+--- a/server/src/practiq_ai/graphs/chunking.py
++++ b/server/src/practiq_ai/graphs/chunking.py
+@@ -850,0 +851,2 @@
++        if not evidence and any(not questions[index].sourceText for index in indexes):
++            continue
