@@ -22,6 +22,7 @@ it("generates answers only when opted in and explicitly starting import", async 
   render(<App />); await connect(user);
   expect(screen.queryByRole("checkbox")).toBeNull();
   await setImportOption(user, "AI 生成答案与解析");
+  expect(screen.getByText("自动去重未开启 · AI 生成已开启")).toBeTruthy();
   await user.upload(screen.getByLabelText("选择文档"), new File(["1. What is 1 + 1?"], "quiz.txt"));
   expect(http.calls.filter(call => call.method === "POST")).toHaveLength(0);
   await user.click(screen.getByRole("button", { name: "开始导入" }));
@@ -223,12 +224,13 @@ it("recovers polling after a hung read and backs off repeated failures without m
 it("loads service capabilities automatically on every mount without credentials or mutations", async () => {
   const user = userEvent.setup(); const http = fakeHTTP(); const persist = vi.spyOn(Storage.prototype, "setItem"); render(<App />);
   await connect(user);
-  const rules = screen.getByText("格式与导入规则", { selector: "summary" });
+  const rules = screen.getByText("导入说明", { selector: "summary" });
   expect(rules.closest("details")?.open).toBe(false);
-  expect(screen.getByText("服务支持：PDF、TXT、Markdown、PNG/JPEG、Word (.doc)、Word (.docx)、PPT (.ppt)、PPT (.pptx)、Excel (.xls)、Excel (.xlsx)").closest("details")).toBeNull();
+  expect(screen.getByText("服务支持：PDF、TXT、Markdown、图片、Word、PPT、Excel").closest("details")).toBeNull();
+  expect(screen.getByText(/^完整格式：/).closest("details")).toBe(rules.closest("details"));
   await user.click(rules);
   expect(rules.closest("details")?.open).toBe(true);
-  expect(screen.getByText("服务支持：PDF、TXT、Markdown、PNG/JPEG、Word (.doc)、Word (.docx)、PPT (.ppt)、PPT (.pptx)、Excel (.xls)、Excel (.xlsx)")).toBeTruthy();
+  expect(screen.getByText("完整格式：PDF、TXT、Markdown、PNG/JPEG、Word (.doc)、Word (.docx)、PPT (.ppt)、PPT (.pptx)、Excel (.xls)、Excel (.xlsx)")).toBeTruthy();
   expect(screen.queryByLabelText("服务访问令牌")).toBeNull(); expect(persist).not.toHaveBeenCalled();
   expect(http.calls.every(call => call.auth === null && call.method === "GET")).toBe(true);
   expect(screen.queryByRole("button", { name: "断开连接" })).toBeNull();
@@ -241,6 +243,7 @@ it("selection is passive; explicit Start performs bounded SHA upload and task cr
   const user = userEvent.setup(); const http = fakeHTTP(); render(<App />); await connect(user);
   expect(screen.getByText(/开始后将调用 AI，可能产生费用/)).toBeTruthy();
   expect(screen.queryByRole("checkbox", { name: "自动去重" })).toBeNull();
+  expect(screen.getByText("自动去重未开启 · AI 生成未开启")).toBeTruthy();
   expect(screen.queryByText("仅合并完全相同的题目或题组")).toBeNull();
   expect((screen.getByLabelText("选择文档") as HTMLInputElement).accept).not.toContain(".csv");
   expect(screen.queryByLabelText("Word / Excel 转换模式")).toBeNull();
@@ -300,7 +303,7 @@ it("displays the source-specific Office ceiling alongside the configured general
   const user = userEvent.setup(); const http = fakeHTTP();
   http.server.intercept = url => url.includes("capabilities") ? json({ ...capabilities, sourceMaxBytes: 100 * 1024 * 1024, officeSourceMaxBytes: 25 * 1024 * 1024 }) : undefined;
   render(<App />); await connect(user);
-  expect(screen.getByText(/每个 ≤ 100.0 MiB · Word \/ Excel ≤ 25.0 MiB/)).toBeTruthy();
+  expect(screen.getByText(/单文件 ≤ 100.0 MiB · Word \/ Excel ≤ 25.0 MiB/)).toBeTruthy();
   expect(http.calls.every(call => call.method === "GET")).toBe(true);
 });
 it("polling paused/partial checkpoints only reads; resume/retry/pause require explicit clicks", async () => {
@@ -424,7 +427,8 @@ it("deletes an expired row despite 410 detail reads only after confirmation, ret
   await user.click(screen.getByRole("button", { name: "确认删除" })); await screen.findByText("任务已删除。");
   await waitFor(() => expect(screen.queryByRole("button", { name: "删除已过期任务 sample.docx" })).toBeNull());
   expect(http.calls.filter(call => call.method === "DELETE")).toHaveLength(2); expect(http.records.has(taskId)).toBe(false);
-  expect(screen.getByText("选择一个任务查看结果")).toBeTruthy();
+  expect(screen.queryByText("选择一个任务查看结果")).toBeNull();
+  expect(screen.queryByRole("region", { name: "任务详情" })).toBeNull();
 });
 
 
@@ -758,9 +762,13 @@ it("empty task states guide file selection or clear the current filter without s
   http.server.intercept = url => url.startsWith("/api/document-tasks?") ? json({ items: [], hasMore: false }) : undefined;
   render(<App />);
   await connect(user);
-  expect(screen.getByText("格式与导入规则").closest("details")?.open).toBe(false);
+  expect(screen.getByText("导入说明").closest("details")?.open).toBe(false);
   await user.click(screen.getByRole("link", { name: "导入记录" }));
-  await user.click(await screen.findByRole("button", { name: "选择第一份文档" }));
+  await screen.findByRole("button", { name: "选择第一份文档" });
+  expect(screen.queryByText("本页 0 条记录")).toBeNull();
+  expect(screen.queryByRole("navigation", { name: "任务列表分页" })).toBeNull();
+  expect(screen.queryByRole("region", { name: "任务详情" })).toBeNull();
+  await user.click(screen.getByRole("button", { name: "选择第一份文档" }));
   await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText("选择文档")));
   await user.click(screen.getByRole("link", { name: "导入记录" }));
   await user.selectOptions(screen.getByLabelText("筛选任务状态"), "failed");
@@ -863,7 +871,7 @@ it("shows budget capacity before any upload without promising page counts", asyn
   render(<App />); await connect(user);
   const budget = screen.getByText("调用预算 · 每任务 400 次").closest("details")!;
   expect(budget.open).toBe(false);
-  await user.click(screen.getByText("调用预算 · 每任务 400 次"));
+  await user.click(screen.getByText("导入说明", { selector: "summary" }));
   expect(budget.open).toBe(true);
   expect(await screen.findByText(/普通单元最多 25 个.*带上下文的视觉单元最多 20 个/)).toBeTruthy();
   expect(http.calls.every(call => call.method === "GET")).toBe(true);
@@ -984,5 +992,32 @@ it("retains the last task list after a background read fails and recovers withou
   await waitFor(() => expect(screen.queryByText("当前显示上次读取的记录。")).toBeNull());
   expect(screen.getByRole("button", { name: "sample.docx" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "下一页任务" }).hasAttribute("disabled")).toBe(false);
+  expect(http.calls.every(call => call.method === "GET")).toBe(true);
+});
+
+it("keeps previous-page navigation when a later task page becomes empty", async () => {
+  const user = userEvent.setup(); const http = fakeHTTP();
+  http.server.intercept = url => url.startsWith("/api/document-tasks?") && url.includes("offset=20") ? json({ items: [], hasMore: false }) : undefined;
+  render(<App />); await connect(user);
+  await user.click(screen.getByRole("link", { name: "导入记录" }));
+  await screen.findByRole("button", { name: "sample.docx" });
+  await user.click(screen.getByRole("button", { name: "下一页任务" }));
+  await screen.findByText("当前没有任务。");
+  expect(screen.getByText("第 2 页")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "上一页任务" })).toHaveProperty("disabled", false);
+  await user.click(screen.getByRole("button", { name: "上一页任务" }));
+  await screen.findByRole("button", { name: "sample.docx" });
+  expect(http.calls.every(call => call.method === "GET")).toBe(true);
+});
+
+it("retains a selected task's details when a filter has no matching rows", async () => {
+  const user = userEvent.setup(); const http = fakeHTTP();
+  render(<App />); await connect(user); await openTask(user);
+  http.server.intercept = url => url.startsWith("/api/document-tasks?") && url.includes("state_filter=failed") ? json({ items: [], hasMore: false }) : undefined;
+  await user.selectOptions(screen.getByLabelText("筛选任务状态"), "failed");
+  await screen.findByText("没有符合此状态的任务。");
+  expect(screen.getByRole("region", { name: "任务详情" })).toBeTruthy();
+  expect(screen.getByRole("heading", { name: "sample.docx", level: 2 })).toBeTruthy();
+  expect(screen.getByText("根据材料选择答案")).toBeTruthy();
   expect(http.calls.every(call => call.method === "GET")).toBe(true);
 });

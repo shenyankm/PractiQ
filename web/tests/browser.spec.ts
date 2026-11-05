@@ -72,7 +72,7 @@ async function fakeHTTP(page: Page, initial: DocumentTaskDetail = task) {
 }
 async function connect(page: Page) {
   await page.goto("/"); await expect(page.getByText(/^服务支持：/)).toBeVisible();
-  await expect(page.getByText("调用预算 · 每任务 400 次", { exact: true })).toBeVisible();
+  await expect(page.getByText("调用预算 · 每任务 400 次", { exact: true })).toBeHidden();
   await expect(page.getByText(/普通单元最多 100 个.*带上下文的视觉单元最多 50 个/)).toBeHidden();
 }
 async function openTask(page: Page) {
@@ -200,7 +200,8 @@ for (const [width, height] of [[1440, 900], [768, 1024], [390, 844], [360, 640],
     await page.screenshot({ path: `${output}/settings-${width}-${theme}.png`, fullPage: true });
     await page.getByRole("link", { name: "导入记录", exact: true }).click();
     await expect(page.getByRole("button", { name: "sample.docx", exact: true })).toBeVisible();
-    expect((await page.getByRole("region", { name: "任务详情", exact: true }).boundingBox())!.height).toBeLessThan(90);
+    await expect(page.getByRole("region", { name: "任务详情", exact: true })).toHaveCount(0);
+    await expect(page.locator(".records-panel").getByText("选择一个任务查看结果", { exact: true })).toBeVisible();
     if (width >= 768) await expect(page.locator(".records-table tbody td").nth(2)).toHaveCSS("text-align", "right");
     await page.screenshot({ path: `${output}/records-${width}-${theme}.png`, fullPage: true });
     expect(mutations(http.calls)).toHaveLength(0);
@@ -394,7 +395,7 @@ for (const [width, height] of [[1440, 1000], [390, 844]]) {
     await expect(page.getByRole("button", { name: "刷新余额与商品" })).toBeHidden();
     await page.screenshot({ path: `${evidence}/after-open-${width}.png`, fullPage: true });
     await connect(page);
-    const importRules = page.getByText("格式与导入规则", { exact: true });
+    const importRules = page.getByText("导入说明", { exact: true });
     await importRules.focus();
     await page.keyboard.press("Enter");
     await expect(page.getByText(/腾讯文档识别后，由 AI 整理题库/)).toBeVisible();
@@ -532,7 +533,7 @@ test("passive file selection becomes one SHA upload only after explicit Start", 
 test("opening and reloading the personal workspace never asks for a token or starts work", async ({ page }) => {
   const http = await fakeHTTP(page); await connect(page);
   await expect(page.getByLabel("服务访问令牌")).toHaveCount(0);
-  await expect(page.getByText("调用预算 · 每任务 400 次", { exact: true })).toBeVisible();
+  await expect(page.getByText("调用预算 · 每任务 400 次", { exact: true })).toBeHidden();
   expect(mutations(http.calls)).toHaveLength(0);
   await page.reload();
   await expect(page.getByText(/^服务支持：/)).toBeVisible();
@@ -655,7 +656,7 @@ test("failed reads retry explicitly and stale pages cannot overwrite a new filte
   await connect(page); await page.getByRole("link", { name: "导入记录", exact: true }).click(); await page.getByRole("button", { name: "重试任务列表", exact: true }).click(); await expect(page.getByRole("button", { name: /sample.docx/ })).toBeVisible();
   await page.getByRole("button", { name: "下一页任务", exact: true }).click(); await expect.poll(() => !!release).toBe(true);
   await page.getByRole("link", { name: "导入记录", exact: true }).click(); await chooseOption(page.getByLabel("筛选任务状态"), "failed"); await expect(page.getByRole("button", { name: /current-failed.pdf/ })).toBeVisible();
-  await release!(); await expect(page.getByRole("button", { name: /sample.docx/ })).toHaveCount(0); await expect(page.getByText("第 1 页", { exact: true })).toBeVisible();
+  await release!(); await expect(page.getByRole("button", { name: /sample.docx/ })).toHaveCount(0); await expect(page.getByRole("navigation", { name: "任务列表分页", exact: true })).toHaveCount(0);
   expect(mutations(http.calls)).toHaveLength(0);
 });
 
@@ -690,7 +691,8 @@ test("expired task deletion stays explicit and recoverable when detail and previ
   await page.getByRole("button", { name: "确认删除", exact: true }).click();
   await expect(page.getByText("任务已删除。", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "删除已过期任务 sample.docx", exact: true })).toHaveCount(0);
-  await expect(page.getByText("选择一个任务查看结果", { exact: true })).toBeVisible();
+  await expect(page.getByText("选择一个任务查看结果", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "任务详情", exact: true })).toHaveCount(0);
   expect(mutations(http.calls).map(call => call.method)).toEqual(["DELETE", "DELETE"]);
   expect(http.records.has(taskId)).toBe(false); expect(http.server.modelStarts).toBe(0);
 });
@@ -717,11 +719,22 @@ test("server format, byte limit, and model availability gate submission before a
   await expect(page.getByText(/服务端尚未配置模型/)).toBeVisible(); expect(mutations(http.calls)).toHaveLength(0);
 });
 
-test("empty task guidance preserves keyboard focus and only reads when clearing a filter", async ({ page }) => {
+test("empty task guidance preserves keyboard focus and only reads when clearing a filter", async ({ page }, testInfo) => {
   const http = await fakeHTTP(page);
   http.records.clear();
   await connect(page);
-  await page.getByRole("link", { name: "导入记录", exact: true }).click(); await page.getByRole("button", { name: "选择第一份文档" }).click();
+  await page.getByRole("link", { name: "导入记录", exact: true }).click();
+  await expect(page.getByRole("button", { name: "选择第一份文档" })).toBeVisible();
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect(page.getByText("本页 0 条记录", { exact: true })).toHaveCount(0);
+    await expect(page.getByRole("navigation", { name: "任务列表分页", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "任务详情", exact: true })).toHaveCount(0);
+    expect((await page.locator(".records-panel").boundingBox())!.height).toBeLessThan(340);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath(`records-empty-${width}.png`), fullPage: true });
+  }
+  await page.getByRole("button", { name: "选择第一份文档" }).click();
   await expect(page.getByLabel("选择文档")).toBeFocused();
   await page.getByRole("link", { name: "导入记录", exact: true }).click(); await chooseOption(page.getByLabel("筛选任务状态"), "failed");
   await expect(page.getByText("没有符合此状态的任务。", { exact: true })).toBeVisible();
