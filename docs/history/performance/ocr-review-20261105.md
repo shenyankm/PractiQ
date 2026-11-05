@@ -108,6 +108,10 @@ omitted `questionTypeId` on all three questions. Their `missingFields` and
 This is a real-model metadata-completeness limit, not a grading accuracy claim.
 These optimizations never assign that field or remove its review flag.
 
+Follow-up: the [November 6 type-label fix](../import/type-labels-20261106.md)
+addresses this defect in new model responses. The original 2/3 result and its
+failed artifacts remain the evidence for this November 5 run.
+
 The live service code hash was
 `140a376c3ba6c7a9e558a9d0c7d345515843b4ac7314fdfa834d5c35550233fb`,
 before the final lazy native-image-index allocation and failed-prefix cleanup.

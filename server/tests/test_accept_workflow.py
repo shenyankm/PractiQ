@@ -50,7 +50,7 @@ def native_rows(hashes, repetitions):
             for name,digest in hashes.items() for repetition in range(repetitions)]
 
 
-@pytest.mark.parametrize("names,repetitions", [(["txt"], 1), (["txt","md","png"], 8)])
+@pytest.mark.parametrize("names,repetitions", [(["txt"], 1), (["png"], 1), (["txt","md","png"], 8)])
 def test_native_evidence_accepts_exact_case_and_repetition_coverage(tmp_path, names, repetitions):
     hashes = {name:"a"*64 for name in names}
     rows = native_rows(hashes, repetitions)

@@ -143,7 +143,7 @@ async def test_source_warning_after_safe_removal_names_only_surviving_trees_and_
 
 
 async def test_unknown_source_warning_never_claims_original_source_equality(monkeypatch):
-    questions = [ParsedQuestion(id=f'q{index}', stem='Explain', answerMode='short_answer', sourceText='Explain') for index in range(2)]
+    questions = [ParsedQuestion(id=f'q{index}', stem='Explain', answerMode='short_answer', questionTypeId='short_answer', sourceText='Explain') for index in range(2)]
     graph, _, _, reference, _model = setup_graph(monkeypatch, [{'questions': [question.model_dump(mode='json') for question in questions]}], parts=['An unstructured source'])
     result = await graph.ainvoke({'document': reference, 'deduplicateQuestions': True}, run_config())
     assert len(result['result']['questions']) == 2

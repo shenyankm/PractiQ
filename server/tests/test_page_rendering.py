@@ -626,10 +626,10 @@ async def test_context_correction_retains_primary_composite_material(monkeypatch
     material = [{'partType': 'text', 'textValue': 'They arrive '},
                 {'partType': 'blank', 'questionId': 'page:1:2'},
                 {'partType': 'text', 'textValue': ' every day.'}]
-    parent = {'id': 'page:1:1', 'answerMode': mode, 'stem': 'Printed exercise',
+    parent = {'id': 'page:1:1', 'answerMode': mode, 'questionTypeId': mode, 'stem': 'Printed exercise',
               'passage': material if mode != 'reading' else material[:1],
               'options': options if mode == 'word_bank' else []}
-    child = {'id': 'page:1:2', 'parentId': parent['id'], 'answerMode': 'choice',
+    child = {'id': 'page:1:2', 'parentId': parent['id'], 'answerMode': 'choice', 'questionTypeId': 'choice',
              'choiceVariant': 'single', 'stem': 'Choose the supplied word',
              'options': [] if mode == 'word_bank' else options,
              'optionSourceId': parent['id'] if mode == 'word_bank' else None,
@@ -676,7 +676,7 @@ async def test_context_correction_preserves_composite_payload_and_allows_additio
     options = [{'label': 'A', 'content': 'early'}, {'label': 'B', 'content': 'late'}]
     blocks = [{'partType': 'text', 'textValue': text} for text in ['Printed first part', 'Printed second part']]
     mode = {'options': 'word_bank', 'transcript': 'listening'}.get(field, 'reading')
-    parent = {'id': 'page:1:1', 'answerMode': mode, 'stem': 'Printed exercise',
+    parent = {'id': 'page:1:1', 'answerMode': mode, 'questionTypeId': mode, 'stem': 'Printed exercise',
               field: options if field == 'options' else blocks}
     if mode == 'word_bank':
         parent['passage'] = [blocks[0], {'partType': 'blank', 'questionId': 'page:1:2'}]
@@ -684,7 +684,7 @@ async def test_context_correction_preserves_composite_payload_and_allows_additio
     complete = {**parent, field: [*parent[field], extra]}
     broken_items = {'removed': parent[field][1:], 'changed': [extra, parent[field][1]],
                     'reordered': parent[field][::-1]}[loss]
-    child = {'id': 'page:1:2', 'parentId': parent['id'], 'answerMode': 'choice',
+    child = {'id': 'page:1:2', 'parentId': parent['id'], 'answerMode': 'choice', 'questionTypeId': 'choice',
              'choiceVariant': 'single', 'stem': 'Choose the supplied word',
              'options': [] if mode == 'word_bank' else options,
              'optionSourceId': parent['id'] if mode == 'word_bank' else None,

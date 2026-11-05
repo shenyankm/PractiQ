@@ -33,12 +33,12 @@ def printed_bank(start: int, physical: int):
         f'{physical + 1}. Single choice: Snow is\nParent ID: {physical}. Shared option owner: {physical}.\nReference answer: A',
         f'{physical + 2}. Single choice: Grass is\nParent ID: {physical}. Shared option owner: {physical}.\nReference answer: B',
     ]
-    questions = [ParsedQuestion(id=ids[0], stem='Choose words', answerMode='word_bank', sourceText=quotes[0],
+    questions = [ParsedQuestion(id=ids[0], stem='Choose words', answerMode='word_bank', questionTypeId='word_bank', sourceText=quotes[0],
                                options=[ParsedOption(label='A', content='white'), ParsedOption(label='B', content='green')],
                                passage=[ContentBlock(partType='text', textValue='Snow is '), ContentBlock(partType='blank', questionId=ids[1]),
                                         ContentBlock(partType='text', textValue='. Grass is '), ContentBlock(partType='blank', questionId=ids[2])])]
     questions.extend(ParsedQuestion(id=ids[index], parentId=ids[0], optionSourceId=ids[0], stem=stem,
-                                    answerMode='choice', choiceVariant='single', answerPayload={'correct': [label]}, sourceText=quotes[index])
+                                    answerMode='choice', questionTypeId='choice', choiceVariant='single', answerPayload={'correct': [label]}, sourceText=quotes[index])
                      for index, (stem, label) in enumerate((('Snow is', 'A'), ('Grass is', 'B')), 1))
     return questions
 
@@ -257,7 +257,7 @@ async def test_opt_in_retains_unverified_source_records_with_omitted_different_e
     from tests.support import run_config, setup_graph
     text = ('1. Explain gravity.\nPoints: 3\nRubric: Describe attraction.\n\n'
             '2. Explain gravity.\nPoints: 7\nRubric: Include the inverse-square relationship.')
-    questions = [ParsedQuestion(id=f'q{index}', stem='Explain gravity.', answerMode='short_answer',
+    questions = [ParsedQuestion(id=f'q{index}', stem='Explain gravity.', answerMode='short_answer', questionTypeId='short_answer',
                                 sourceText='Explain gravity.') for index in range(2)]
     assert evidence(text, questions) == {}
     assert chunking.find_duplicate_question_trees(questions, [], []) == [[['q0'], ['q1']]]

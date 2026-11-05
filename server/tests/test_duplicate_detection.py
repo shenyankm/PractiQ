@@ -23,7 +23,7 @@ from tests.support import run_config, setup_graph
 
 
 def single(qid, *, answer="Printed", number=1, **changes):
-    return ParsedQuestion(id=qid, stem="What label was printed?", answerMode="short_answer",
+    return ParsedQuestion(id=qid, stem="What label was printed?", answerMode="short_answer", questionTypeId="short_answer",
                           answerPayload={"text": answer}, sourceText=f"{number}. What label was printed? Answer: {answer}", **changes)
 
 

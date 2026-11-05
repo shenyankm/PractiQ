@@ -199,11 +199,11 @@ async def test_material_and_blank_anchors_remain_with_their_own_sheet(monkeypatc
         stem = "First" if "PRIMARY is page 1" in messages[1].content else "Second"
         prefix = "page:1" if "PRIMARY is page 1" in messages[1].content else "page:2"
         return {"questions": [
-            {"id": prefix + ":bank", "stem": stem, "sourceText": stem, "answerMode": "word_bank",
+            {"id": prefix + ":bank", "stem": stem, "sourceText": stem, "answerMode": "word_bank", "questionTypeId": "word_bank",
              "options": [{"label": "A", "content": "word"}], "passage": [
                  {"partType": "text", "textValue": stem}, {"partType": "blank", "questionId": prefix + ":bank:1"}]},
             {"id": prefix + ":bank:1", "parentId": prefix + ":bank", "optionSourceId": prefix + ":bank",
-             "stem": stem + " gap", "sourceText": stem, "answerMode": "choice", "choiceVariant": "single",
+             "stem": stem + " gap", "sourceText": stem, "answerMode": "choice", "questionTypeId": "choice", "choiceVariant": "single",
              "answerPayload": {"correct": ["A"]}}], "groups": []}
 
     service, reference, model, _, _ = await setup_office(monkeypatch, tmp_path, responses=[respond] * 4)

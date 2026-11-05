@@ -1,6 +1,7 @@
 """Opt-in Web -> real service -> exported ZIP -> native practice acceptance.
 
-Default providers are substitutes. --live explicitly authorizes three small imports.
+Default providers are substitutes. --live authorizes the selected small imports
+(TXT, Markdown and PNG by default; --case selects one).
 Only fresh disposable PostgreSQL/RabbitMQ and a new output directory are used.
 """
 
@@ -135,12 +136,14 @@ async def command_result(command: list[str], env: dict[str, str], log: Any, time
             await process.wait()
 
 
-async def run(output: Path, live: bool, native_binary: Path) -> dict[str, Any]:
+async def run(output: Path, live: bool, native_binary: Path, case: str | None = None) -> dict[str, Any]:
     from practiq_ai.config import evaluation_configuration, load
     from practiq_ai.execution import code_version
     from tests.db_support import cleanup, new_database
 
     fixtures(output)
+    cases = [case] if case else ["txt", "md", "png"]
+    repetitions = 1 if case else 8
     # Never inherit service data locations, runtime credentials or proxy credentials.
     env = {key: value for key, value in os.environ.items()
            if not key.startswith(("AI_", "LLM_")) and key not in {"DATABASE_URI", "RABBITMQ_URI", "RABBITMQ_FAILOVER_URIS"}}
@@ -156,10 +159,14 @@ async def run(output: Path, live: bool, native_binary: Path) -> dict[str, Any]:
                AI_TASK_MAX_MODEL_CALLS="4", AI_RUN_TIMEOUT_SECONDS="240",
                LANGSMITH_TRACING="false", LANGCHAIN_TRACING_V2="false",
                PRACTIQ_ACCEPT_PORT=str(port), PYTHONPATH=os.pathsep.join([str(ROOT / "server/src"), str(ROOT / "server")]))
+    env.pop("PRACTIQ_WORKFLOW_CASE", None)
+    if case:
+        env["PRACTIQ_WORKFLOW_CASE"] = case
     report: dict[str, Any] = {"schemaVersion": 1, "generatedAt": datetime.now(UTC).isoformat(),
         "revision": (await asyncio.to_thread(subprocess.check_output, ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True)).strip(),
         "python": platform.python_version(), "platform": platform.platform(), "liveProviders": live,
-        "scope": "Production Chromium Web and loopback HTTP service; disposable PostgreSQL/RabbitMQ; real local files and release Rust/SQLite. Native phase excludes Tauri IPC/WebView. Three tiny fixtures, no capacity/p95 or before/after speedup claim.",
+        "scope": "Production Chromium Web and loopback HTTP service; disposable PostgreSQL/RabbitMQ; real local files and release Rust/SQLite. Native phase excludes Tauri IPC/WebView. Selected cases/repetitions recorded separately; no capacity/p95 or before/after speedup claim.",
+        "selectedCases": cases, "nativeRepetitions": repetitions,
         "status": "FAILED", "gateReasons": [], "samples": []}
     process = None
     memory = None
@@ -218,12 +225,15 @@ async def run(output: Path, live: bool, native_binary: Path) -> dict[str, Any]:
                 _, sample["nativeErrors"] = read_native_report(
                     output / f"{sample['name']}-native.json", {sample["name"]: sample["zipSha256"]}, 1)
             native_env = {**os.environ, "PRACTIQ_WORKFLOW_DIR": str(output), "PRACTIQ_BENCH_OUTPUT": str(output / "native.json")}
+            native_env.pop("PRACTIQ_WORKFLOW_CASE", None)
+            if case:
+                native_env["PRACTIQ_WORKFLOW_CASE"] = case
             with (output / "native.log").open("x") as log_native:
                 native_status = await command_result([str(native_binary), "performance::workflow_practice",
                     "--exact", "--ignored", "--nocapture"], native_env, log_native, 120)
             hashes = {name: hashlib.sha256((output / "exports" / f"{name}.zip").read_bytes()).hexdigest()
-                      if (output / "exports" / f"{name}.zip").exists() else "" for name in ("txt", "md", "png")}
-            report["native"], report["nativeErrors"] = read_native_report(output / "native.json", hashes, 8)
+                      if (output / "exports" / f"{name}.zip").exists() else "" for name in cases}
+            report["native"], report["nativeErrors"] = read_native_report(output / "native.json", hashes, repetitions)
             if native_status or report["nativeErrors"]:
                 report["gateReasons"].append("NATIVE_WORKFLOW_FAILED")
             if browser_status:
@@ -231,8 +241,8 @@ async def run(output: Path, live: bool, native_binary: Path) -> dict[str, Any]:
             for sample in report["samples"]:
                 if sample.get("error") or sample["qualityErrors"] or sample.get("nativeErrors"):
                     report["gateReasons"].append("IMPORT_OR_CONTENT_FAILED:" + sample["name"])
-            if len(report["samples"]) != 3:
-                report["gateReasons"].append("THREE_SAMPLES_REQUIRED")
+            if [sample["name"] for sample in report["samples"]] != cases:
+                report["gateReasons"].append("SELECTED_CASES_REQUIRED")
             process.terminate()
             await asyncio.wait_for(process.wait(), 30)
         events = []
@@ -271,7 +281,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--serve", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--synthetic", action="store_true", help=argparse.SUPPRESS)
-    parser.add_argument("--live", action="store_true", help="Authorize exactly three source imports with .env providers")
+    parser.add_argument("--live", action="store_true", help="Authorize selected source imports with .env providers")
+    parser.add_argument("--case", choices=("txt", "md", "png"), help="Run only this source; one native repetition")
     parser.add_argument("--output", type=Path)
     parser.add_argument("--native-binary", type=Path)
     args = parser.parse_args()
@@ -283,7 +294,7 @@ def main() -> None:
     if args.output.exists():
         parser.error("Use a new output directory; failed/unknown imports are never replayed")
     args.output.mkdir(parents=True, mode=0o700)
-    report = asyncio.run(run(args.output.resolve(), args.live, args.native_binary.resolve()))
+    report = asyncio.run(run(args.output.resolve(), args.live, args.native_binary.resolve(), args.case))
     print(report["status"], report["gateReasons"])
     raise SystemExit(0 if report["status"] == "PASSED" else 1)
 

@@ -1,0 +1,1362 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-11-05T17:38:14.793582+00:00",
+  "revision": "47e2d8c93c8af4930a966c68d99abd649c54eeb1",
+  "python": "3.14.7",
+  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "liveProviders": true,
+  "scope": "Production Chromium Web and loopback HTTP service; disposable PostgreSQL/RabbitMQ; real local files and release Rust/SQLite. Native phase excludes Tauri IPC/WebView. Three tiny fixtures, no capacity/p95 or before/after speedup claim.",
+  "status": "FAILED",
+  "gateReasons": [
+    "NATIVE_WORKFLOW_FAILED",
+    "BROWSER_WORKFLOW_FAILED",
+    "IMPORT_OR_CONTENT_FAILED:txt",
+    "IMPORT_OR_CONTENT_FAILED:png"
+  ],
+  "samples": [
+    {
+      "name": "txt",
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/api/import-capabilities",
+          "status": 200,
+          "ms": 9.075416999999902,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/import-settings",
+          "status": 200,
+          "ms": 9.069458999999938,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/import-settings",
+          "status": 200,
+          "ms": 16.306582999999932,
+          "hasAuthorization": false
+        },
+        {
+          "method": "POST",
+          "path": "/api/uploads",
+          "status": 201,
+          "ms": 0.8355420000000322,
+          "hasAuthorization": false
+        },
+        {
+          "method": "PUT",
+          "path": "/api/uploads/content",
+          "status": 200,
+          "ms": 4.075707999999963,
+          "hasAuthorization": false
+        },
+        {
+          "method": "POST",
+          "path": "/api/document-tasks",
+          "status": 202,
+          "ms": 35.06550000000004,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/de27382b-b711-5808-8026-c22e94d27356/preview",
+          "status": 200,
+          "ms": 56.76416700000004,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 57.08295799999996,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/de27382b-b711-5808-8026-c22e94d27356",
+          "status": 200,
+          "ms": 63.115957999999864,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 9.019917000000532,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/de27382b-b711-5808-8026-c22e94d27356",
+          "status": 200,
+          "ms": 11.438334000000395,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/de27382b-b711-5808-8026-c22e94d27356/preview",
+          "status": 200,
+          "ms": 3.821125000000393,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 3.585084000000279,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/de27382b-b711-5808-8026-c22e94d27356",
+          "status": 200,
+          "ms": 4.507542000000285,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 8.066917000000103,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/de27382b-b711-5808-8026-c22e94d27356",
+          "status": 200,
+          "ms": 7.679916999999477,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/de27382b-b711-5808-8026-c22e94d27356/preview",
+          "status": 200,
+          "ms": 4.14837499999885,
+          "hasAuthorization": false
+        }
+      ],
+      "phasesMs": {
+        "connect": 165.58499999999992
+      },
+      "error": "Import terminal: INTERRUPTED/null",
+      "threadId": "de27382b-b711-5808-8026-c22e94d27356",
+      "qualityErrors": [
+        "missing exported ZIP"
+      ],
+      "stages": [
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T17:38:28.697660+00:00",
+          "stage": "prepare",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "de27382b-b711-5808-8026-c22e94d27356",
+          "runId": "16797ac0-2526-4da8-a4ec-3962ac8da9d3",
+          "durationMs": 7027.272
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T17:38:28.707716+00:00",
+          "stage": "gate",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "de27382b-b711-5808-8026-c22e94d27356",
+          "runId": "16797ac0-2526-4da8-a4ec-3962ac8da9d3",
+          "durationMs": 5.891
+        },
+        {
+          "event": "model_call",
+          "timestamp": "2026-11-05T17:38:30.266132+00:00",
+          "callKey": "adaf9ba9-afb5-467f-bfed-aa1650d038bc",
+          "kind": "vision_parse",
+          "outcome": "unknown",
+          "runId": "16797ac0-2526-4da8-a4ec-3962ac8da9d3",
+          "errorCode": "MODEL_RESULT_UNKNOWN",
+          "schema": "OcrPageParseResult",
+          "attempt": 1,
+          "validation": "not_run",
+          "threadId": "de27382b-b711-5808-8026-c22e94d27356",
+          "unitKey": "vision_parse:0:0",
+          "durationMs": 1546.88,
+          "concurrencyWaitMs": 0.002,
+          "rateWaitMs": 1.829,
+          "providerRequestMs": 1535.878
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T17:38:30.267864+00:00",
+          "stage": "vision",
+          "outcome": "error",
+          "unitIndex": 0,
+          "unitKey": "vision_parse:0:0",
+          "errorCode": "MODEL_RESULT_UNKNOWN",
+          "threadId": "de27382b-b711-5808-8026-c22e94d27356",
+          "runId": "16797ac0-2526-4da8-a4ec-3962ac8da9d3",
+          "durationMs": 1556.557
+        },
+        {
+          "event": "document_run_state",
+          "timestamp": "2026-11-05T17:38:30.279945+00:00",
+          "threadId": "de27382b-b711-5808-8026-c22e94d27356",
+          "runId": "16797ac0-2526-4da8-a4ec-3962ac8da9d3",
+          "status": "interrupted",
+          "errorCode": "MODEL_RESULT_UNKNOWN"
+        }
+      ]
+    },
+    {
+      "name": "md",
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/api/import-capabilities",
+          "status": 200,
+          "ms": 4.547124999999141,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/import-settings",
+          "status": 200,
+          "ms": 4.649375000000873,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/import-settings",
+          "status": 200,
+          "ms": 13.549208000000363,
+          "hasAuthorization": false
+        },
+        {
+          "method": "POST",
+          "path": "/api/uploads",
+          "status": 201,
+          "ms": 2.8020420000011654,
+          "hasAuthorization": false
+        },
+        {
+          "method": "PUT",
+          "path": "/api/uploads/content",
+          "status": 200,
+          "ms": 2.5932919999995647,
+          "hasAuthorization": false
+        },
+        {
+          "method": "POST",
+          "path": "/api/document-tasks",
+          "status": 202,
+          "ms": 35.9028330000001,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/50196597-31ca-55bc-8b50-e1737b503fb9/preview",
+          "status": 200,
+          "ms": 7.440791999999419,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 8.872541000000638,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/50196597-31ca-55bc-8b50-e1737b503fb9",
+          "status": 200,
+          "ms": 10.304415999999037,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 7.221625000000131,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/50196597-31ca-55bc-8b50-e1737b503fb9",
+          "status": 200,
+          "ms": 7.177332999999635,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/50196597-31ca-55bc-8b50-e1737b503fb9/preview",
+          "status": 200,
+          "ms": 3.9648329999999987,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 6.7803749999984575,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/50196597-31ca-55bc-8b50-e1737b503fb9",
+          "status": 200,
+          "ms": 5.563459000000876,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 9.138542000000598,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/50196597-31ca-55bc-8b50-e1737b503fb9",
+          "status": 200,
+          "ms": 9.150208000002749,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/50196597-31ca-55bc-8b50-e1737b503fb9/preview",
+          "status": 200,
+          "ms": 3.2683749999996508,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 12.387375000002066,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/50196597-31ca-55bc-8b50-e1737b503fb9",
+          "status": 200,
+          "ms": 11.798957999999402,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 7.701292000001558,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/50196597-31ca-55bc-8b50-e1737b503fb9",
+          "status": 200,
+          "ms": 6.706500000000233,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 13.653958999999304,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/50196597-31ca-55bc-8b50-e1737b503fb9",
+          "status": 200,
+          "ms": 14.372875000000931,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 9.285832999998092,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/50196597-31ca-55bc-8b50-e1737b503fb9",
+          "status": 200,
+          "ms": 9.267083999999159,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 8.809124999999767,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/50196597-31ca-55bc-8b50-e1737b503fb9",
+          "status": 200,
+          "ms": 9.175333999999566,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 10.388832999997248,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/50196597-31ca-55bc-8b50-e1737b503fb9",
+          "status": 200,
+          "ms": 10.234208000001672,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 11.482499999998254,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/50196597-31ca-55bc-8b50-e1737b503fb9",
+          "status": 200,
+          "ms": 14.584875000000466,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 17.718000000000757,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/50196597-31ca-55bc-8b50-e1737b503fb9",
+          "status": 200,
+          "ms": 15.519124999998894,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 11.846291000001656,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/50196597-31ca-55bc-8b50-e1737b503fb9",
+          "status": 200,
+          "ms": 11.547207999996317,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 17.43575000000419,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/50196597-31ca-55bc-8b50-e1737b503fb9",
+          "status": 200,
+          "ms": 18.27745799999684,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 13.87879100000282,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/50196597-31ca-55bc-8b50-e1737b503fb9",
+          "status": 200,
+          "ms": 11.573540999997931,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 18.33216700000048,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/50196597-31ca-55bc-8b50-e1737b503fb9",
+          "status": 200,
+          "ms": 18.968290999997407,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 22.183875000002445,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/50196597-31ca-55bc-8b50-e1737b503fb9",
+          "status": 200,
+          "ms": 23.391833000001498,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 19.16837499999383,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/50196597-31ca-55bc-8b50-e1737b503fb9",
+          "status": 200,
+          "ms": 18.953999999997905,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 10.96770899999683,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/50196597-31ca-55bc-8b50-e1737b503fb9",
+          "status": 200,
+          "ms": 14.326500000002852,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 11.490375000008498,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/50196597-31ca-55bc-8b50-e1737b503fb9",
+          "status": 200,
+          "ms": 11.942750000001979,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 11.967875000002095,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/50196597-31ca-55bc-8b50-e1737b503fb9",
+          "status": 200,
+          "ms": 12.844666999997571,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 7.735167000006186,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/50196597-31ca-55bc-8b50-e1737b503fb9",
+          "status": 200,
+          "ms": 8.738624999998137,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 7.73908400000073,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/50196597-31ca-55bc-8b50-e1737b503fb9",
+          "status": 200,
+          "ms": 6.998915999996825,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 6.847166000006837,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/50196597-31ca-55bc-8b50-e1737b503fb9",
+          "status": 200,
+          "ms": 6.183707999996841,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 13.128624999997555,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/50196597-31ca-55bc-8b50-e1737b503fb9",
+          "status": 200,
+          "ms": 12.301166000004741,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 18.485207999998238,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/50196597-31ca-55bc-8b50-e1737b503fb9",
+          "status": 200,
+          "ms": 18.11775000000489,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 5.753083000003244,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/50196597-31ca-55bc-8b50-e1737b503fb9",
+          "status": 200,
+          "ms": 5.6007079999981215,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 5.667542000010144,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/50196597-31ca-55bc-8b50-e1737b503fb9",
+          "status": 200,
+          "ms": 5.490499999999884,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 8.543292000002111,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/50196597-31ca-55bc-8b50-e1737b503fb9",
+          "status": 200,
+          "ms": 8.542875000013737,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 18.790082999999868,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/50196597-31ca-55bc-8b50-e1737b503fb9",
+          "status": 200,
+          "ms": 20.704707999990205,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 24.682375000003958,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/50196597-31ca-55bc-8b50-e1737b503fb9",
+          "status": 200,
+          "ms": 24.503333000000566,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 6.393374999999651,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/50196597-31ca-55bc-8b50-e1737b503fb9",
+          "status": 200,
+          "ms": 8.132374999986496,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 8.780958000003011,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/50196597-31ca-55bc-8b50-e1737b503fb9",
+          "status": 200,
+          "ms": 15.747875000000931,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/50196597-31ca-55bc-8b50-e1737b503fb9/preview",
+          "status": 200,
+          "ms": 5.50641600000381,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/50196597-31ca-55bc-8b50-e1737b503fb9/export",
+          "status": 200,
+          "ms": 12.113333000001148,
+          "hasAuthorization": false
+        }
+      ],
+      "phasesMs": {
+        "connect": 64.70399999999972,
+        "startToResultVisible": 96782.084416,
+        "download": 79.72491599999194,
+        "startToDownloaded": 96863.689958,
+        "nativeHandoffAndPractice": 145.692292000007,
+        "startToPracticeRestored": 97009.384375
+      },
+      "error": null,
+      "threadId": "50196597-31ca-55bc-8b50-e1737b503fb9",
+      "browserPerformance": {
+        "domContentLoadedMs": 26.90000000037253,
+        "loadMs": 26.90000000037253,
+        "longTasks": {
+          "supported": true,
+          "count": 1,
+          "totalMs": 84,
+          "maxMs": 84
+        }
+      },
+      "modelCalls": 2,
+      "unknownCalls": [],
+      "reviewRequired": true,
+      "qualityErrors": [],
+      "zipSha256": "2cd84d6fffefcd6521faa4ae5d94f6c85d140d646d8dd13e7d709cc45c1b3596",
+      "nativeErrors": [],
+      "stages": [
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T17:38:37.711653+00:00",
+          "stage": "prepare",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "50196597-31ca-55bc-8b50-e1737b503fb9",
+          "runId": "7446abc7-c1e7-430b-a8ea-84846f8cc10f",
+          "durationMs": 6777.878
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T17:38:37.723944+00:00",
+          "stage": "gate",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "50196597-31ca-55bc-8b50-e1737b503fb9",
+          "runId": "7446abc7-c1e7-430b-a8ea-84846f8cc10f",
+          "durationMs": 7.861
+        },
+        {
+          "event": "model_call",
+          "timestamp": "2026-11-05T17:40:00.323816+00:00",
+          "callKey": "b2b4a679-9947-4a6f-90dc-50fcd536f8bc",
+          "kind": "vision_parse",
+          "outcome": "known",
+          "runId": "7446abc7-c1e7-430b-a8ea-84846f8cc10f",
+          "errorCode": "OUTPUT_INVALID",
+          "schema": "OcrPageParseResult",
+          "attempt": 1,
+          "validation": "failed",
+          "threadId": "50196597-31ca-55bc-8b50-e1737b503fb9",
+          "unitKey": "vision_parse:0:0",
+          "durationMs": 82587.346,
+          "concurrencyWaitMs": 0.003,
+          "rateWaitMs": 2.287,
+          "providerRequestMs": 82574.743,
+          "validationIssues": [
+            {
+              "path": [],
+              "type": "invalid_response"
+            }
+          ]
+        },
+        {
+          "event": "model_call",
+          "timestamp": "2026-11-05T17:40:06.182305+00:00",
+          "callKey": "a419d457-f56a-46e7-a3a0-92b93e75904d",
+          "kind": "vision_parse",
+          "outcome": "known",
+          "runId": "7446abc7-c1e7-430b-a8ea-84846f8cc10f",
+          "errorCode": null,
+          "schema": "OcrPageParseResult",
+          "attempt": 2,
+          "validation": "passed",
+          "threadId": "50196597-31ca-55bc-8b50-e1737b503fb9",
+          "unitKey": "vision_parse:0:0",
+          "durationMs": 5845.525,
+          "concurrencyWaitMs": 0.001,
+          "rateWaitMs": 1.566,
+          "providerRequestMs": 5837.737
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T17:40:06.186526+00:00",
+          "stage": "vision",
+          "outcome": "success",
+          "unitIndex": 0,
+          "unitKey": "vision_parse:0:0",
+          "errorCode": null,
+          "threadId": "50196597-31ca-55bc-8b50-e1737b503fb9",
+          "runId": "7446abc7-c1e7-430b-a8ea-84846f8cc10f",
+          "durationMs": 88459.109
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T17:40:06.191209+00:00",
+          "stage": "gate",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "50196597-31ca-55bc-8b50-e1737b503fb9",
+          "runId": "7446abc7-c1e7-430b-a8ea-84846f8cc10f",
+          "durationMs": 2.515
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T17:40:06.194949+00:00",
+          "stage": "gate",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "50196597-31ca-55bc-8b50-e1737b503fb9",
+          "runId": "7446abc7-c1e7-430b-a8ea-84846f8cc10f",
+          "durationMs": 2.068
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T17:40:06.198240+00:00",
+          "stage": "review",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "50196597-31ca-55bc-8b50-e1737b503fb9",
+          "runId": "7446abc7-c1e7-430b-a8ea-84846f8cc10f",
+          "durationMs": 2.148
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T17:40:06.206413+00:00",
+          "stage": "merge",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "50196597-31ca-55bc-8b50-e1737b503fb9",
+          "runId": "7446abc7-c1e7-430b-a8ea-84846f8cc10f",
+          "durationMs": 6.553
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T17:40:06.209943+00:00",
+          "stage": "gate",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "50196597-31ca-55bc-8b50-e1737b503fb9",
+          "runId": "7446abc7-c1e7-430b-a8ea-84846f8cc10f",
+          "durationMs": 2.04
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T17:40:06.212739+00:00",
+          "stage": "review",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "50196597-31ca-55bc-8b50-e1737b503fb9",
+          "runId": "7446abc7-c1e7-430b-a8ea-84846f8cc10f",
+          "durationMs": 1.641
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T17:40:06.215784+00:00",
+          "stage": "gate",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "50196597-31ca-55bc-8b50-e1737b503fb9",
+          "runId": "7446abc7-c1e7-430b-a8ea-84846f8cc10f",
+          "durationMs": 1.731
+        },
+        {
+          "event": "document_run_state",
+          "timestamp": "2026-11-05T17:40:06.222181+00:00",
+          "threadId": "50196597-31ca-55bc-8b50-e1737b503fb9",
+          "runId": "7446abc7-c1e7-430b-a8ea-84846f8cc10f",
+          "status": "success",
+          "errorCode": null
+        }
+      ]
+    },
+    {
+      "name": "png",
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/api/import-capabilities",
+          "status": 200,
+          "ms": 33.960542000000714,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/import-settings",
+          "status": 200,
+          "ms": 36.96691600000486,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/import-settings",
+          "status": 200,
+          "ms": 7.8790420000004815,
+          "hasAuthorization": false
+        },
+        {
+          "method": "POST",
+          "path": "/api/uploads",
+          "status": 201,
+          "ms": 3.313666000001831,
+          "hasAuthorization": false
+        },
+        {
+          "method": "PUT",
+          "path": "/api/uploads/content",
+          "status": 200,
+          "ms": 1.5206250000046566,
+          "hasAuthorization": false
+        },
+        {
+          "method": "POST",
+          "path": "/api/document-tasks",
+          "status": 202,
+          "ms": 13.382083999997121,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/469dda1e-e611-56a3-b13f-9ce345e85a89/preview",
+          "status": 200,
+          "ms": 6.214749999999185,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 7.429000000003725,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/469dda1e-e611-56a3-b13f-9ce345e85a89",
+          "status": 200,
+          "ms": 9.043915999995079,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 9.44550000000163,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/469dda1e-e611-56a3-b13f-9ce345e85a89",
+          "status": 200,
+          "ms": 9.58904099999927,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/469dda1e-e611-56a3-b13f-9ce345e85a89/preview",
+          "status": 200,
+          "ms": 3.7282500000001164,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 7.3454579999961425,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/469dda1e-e611-56a3-b13f-9ce345e85a89",
+          "status": 200,
+          "ms": 10.065958000006503,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 6.298250000007101,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/469dda1e-e611-56a3-b13f-9ce345e85a89",
+          "status": 200,
+          "ms": 6.267250000004424,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/469dda1e-e611-56a3-b13f-9ce345e85a89/preview",
+          "status": 200,
+          "ms": 4.301707999999053,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 5.846583999998984,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/469dda1e-e611-56a3-b13f-9ce345e85a89",
+          "status": 200,
+          "ms": 5.022124999988591,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 5.4357079999899724,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/469dda1e-e611-56a3-b13f-9ce345e85a89",
+          "status": 200,
+          "ms": 5.1857920000038575,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 7.501041000010446,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/469dda1e-e611-56a3-b13f-9ce345e85a89",
+          "status": 200,
+          "ms": 8.540208000005805,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 7.4716670000052545,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/469dda1e-e611-56a3-b13f-9ce345e85a89",
+          "status": 200,
+          "ms": 6.374332999999751,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 6.141084000002593,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/469dda1e-e611-56a3-b13f-9ce345e85a89",
+          "status": 200,
+          "ms": 6.766917000000831,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 8.516750000009779,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/469dda1e-e611-56a3-b13f-9ce345e85a89",
+          "status": 200,
+          "ms": 8.189584000007017,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 7.430332999996608,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/469dda1e-e611-56a3-b13f-9ce345e85a89",
+          "status": 200,
+          "ms": 9.202833000017563,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/469dda1e-e611-56a3-b13f-9ce345e85a89/preview",
+          "status": 200,
+          "ms": 4.501958000008017,
+          "hasAuthorization": false
+        }
+      ],
+      "phasesMs": {
+        "connect": 110.3492910000059
+      },
+      "error": "Import terminal: COMPLETED/PARTIAL",
+      "threadId": "469dda1e-e611-56a3-b13f-9ce345e85a89",
+      "qualityErrors": [
+        "missing exported ZIP"
+      ],
+      "stages": [
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T17:40:15.624383+00:00",
+          "stage": "prepare",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "469dda1e-e611-56a3-b13f-9ce345e85a89",
+          "runId": "c7c81f06-fa6e-4b17-acc5-f231fd9ff8ea",
+          "durationMs": 7141.414
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T17:40:15.629981+00:00",
+          "stage": "gate",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "469dda1e-e611-56a3-b13f-9ce345e85a89",
+          "runId": "c7c81f06-fa6e-4b17-acc5-f231fd9ff8ea",
+          "durationMs": 3.8
+        },
+        {
+          "event": "model_call",
+          "timestamp": "2026-11-05T17:40:35.726872+00:00",
+          "callKey": "573ce619-45ab-4b6b-a024-e631fe16a397",
+          "kind": "vision_parse",
+          "outcome": "known",
+          "runId": "c7c81f06-fa6e-4b17-acc5-f231fd9ff8ea",
+          "errorCode": null,
+          "schema": "OcrPageParseResult",
+          "attempt": 1,
+          "validation": "passed",
+          "threadId": "469dda1e-e611-56a3-b13f-9ce345e85a89",
+          "unitKey": "vision_parse:0:0",
+          "durationMs": 20088.771,
+          "concurrencyWaitMs": 0.001,
+          "rateWaitMs": 1.762,
+          "providerRequestMs": 20082.215
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T17:40:35.736466+00:00",
+          "stage": "vision",
+          "outcome": "success",
+          "unitIndex": 0,
+          "unitKey": "vision_parse:0:0",
+          "errorCode": null,
+          "threadId": "469dda1e-e611-56a3-b13f-9ce345e85a89",
+          "runId": "c7c81f06-fa6e-4b17-acc5-f231fd9ff8ea",
+          "durationMs": 20104.798
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T17:40:35.749039+00:00",
+          "stage": "gate",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "469dda1e-e611-56a3-b13f-9ce345e85a89",
+          "runId": "c7c81f06-fa6e-4b17-acc5-f231fd9ff8ea",
+          "durationMs": 8.083
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T17:40:35.759709+00:00",
+          "stage": "gate",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "469dda1e-e611-56a3-b13f-9ce345e85a89",
+          "runId": "c7c81f06-fa6e-4b17-acc5-f231fd9ff8ea",
+          "durationMs": 5.599
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T17:40:35.766412+00:00",
+          "stage": "review",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "469dda1e-e611-56a3-b13f-9ce345e85a89",
+          "runId": "c7c81f06-fa6e-4b17-acc5-f231fd9ff8ea",
+          "durationMs": 4.037
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T17:40:35.776907+00:00",
+          "stage": "merge",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "469dda1e-e611-56a3-b13f-9ce345e85a89",
+          "runId": "c7c81f06-fa6e-4b17-acc5-f231fd9ff8ea",
+          "durationMs": 7.438
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T17:40:35.782455+00:00",
+          "stage": "gate",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "469dda1e-e611-56a3-b13f-9ce345e85a89",
+          "runId": "c7c81f06-fa6e-4b17-acc5-f231fd9ff8ea",
+          "durationMs": 3.307
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T17:40:35.787414+00:00",
+          "stage": "review",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "469dda1e-e611-56a3-b13f-9ce345e85a89",
+          "runId": "c7c81f06-fa6e-4b17-acc5-f231fd9ff8ea",
+          "durationMs": 3.201
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T17:40:35.795248+00:00",
+          "stage": "gate",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "469dda1e-e611-56a3-b13f-9ce345e85a89",
+          "runId": "c7c81f06-fa6e-4b17-acc5-f231fd9ff8ea",
+          "durationMs": 5.686
+        },
+        {
+          "event": "document_run_state",
+          "timestamp": "2026-11-05T17:40:35.800288+00:00",
+          "threadId": "469dda1e-e611-56a3-b13f-9ce345e85a89",
+          "runId": "c7c81f06-fa6e-4b17-acc5-f231fd9ff8ea",
+          "status": "success",
+          "errorCode": null
+        }
+      ]
+    }
+  ],
+  "serviceCodeHash": "df5e905467eb0db5cdd4be9c9bef2e923f9399c5dabcad9e0b9080344b1c2dc8",
+  "native": [],
+  "nativeErrors": [
+    "native report missing or invalid"
+  ],
+  "serviceMemory": {
+    "sampledPeakRssBytes": 206159872,
+    "samples": 1302,
+    "scope": "Service PID only, ps sampling at >=100ms; excludes renderer/Office/browser/native/DB/broker and can miss peaks."
+  },
+  "harnessSha256": {
+    "server/scripts/accept_workflow.py": "aa39d56c1bc9644c8708a604327f9da71d8baef926c192800e547f56d9827ab3",
+    "web/scripts/accept-workflow.mjs": "493afb72e4261fc641d4cbce314418f58d90ed0f7025df79bddde68f14d4e2d7",
+    "app/src-tauri/src/performance.rs": "1973edcb5a4d3d4e9dfacf718d1a4bb46c2f9dd1e78adf9a38a8eca0d23e1b46"
+  },
+  "inputSha256": {
+    "quiz.md": "dd617f936a9317271a1b89e2d458fd3462b77a2bc740298e81b1f4d144d1a30f",
+    "quiz.txt": "dd617f936a9317271a1b89e2d458fd3462b77a2bc740298e81b1f4d144d1a30f",
+    "quiz.png": "741967673509a2bc53c54147b162b6e98f423ae0c673790adcd25adafa4a80cb"
+  },
+  "retentionNote": "Provider configuration omitted. Preserve all outcomes; unknown TXT call was not replayed."
+}

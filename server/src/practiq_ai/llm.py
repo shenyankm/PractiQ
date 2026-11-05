@@ -414,7 +414,8 @@ async def structured_attempt[ResultT: BaseModel](
     if call_key is not None:
         usage = usage.model_copy(update={"callKey": call_key})
     try:
-        parsed = validate_response(response, schema, responses_api=isinstance(model, ChatOpenAI) and model.use_responses_api is True)
+        parsed = validate_response(response, schema, context={'requireTypeLabels': True},
+                                   responses_api=isinstance(model, ChatOpenAI) and model.use_responses_api is True)
         if call_record is not None:
             call_record["validation"] = "passed"
         return parsed, messages, usage
