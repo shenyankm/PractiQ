@@ -141,7 +141,7 @@ async def create_task(request: DocumentTaskCreate) -> dict[str, Any]:
             (thread_id, request_hash, request.graphId, json_encode(request.document.model_dump(mode='json')), request.failurePolicy,
              str(request.parentThreadId) if request.parentThreadId else None, utcnow() + timedelta(minutes=TTL_MINUTES)))).fetchone()
         response = await _enqueue(conn, task, request_id, request_hash,
-                                  graph_input=request.model_dump(mode='json', include={'document', 'failurePolicy', 'officeMode', 'deduplicateQuestions'}))
+                                  graph_input=request.model_dump(mode='json', include={'document', 'failurePolicy', 'officeMode', 'deduplicateQuestions', 'generateAnswers'}))
         await _save_receipt(conn, thread_id, request_id, request_hash, response)
     service.notify()
     return response
@@ -154,6 +154,8 @@ def _create_payload(request: DocumentTaskCreate) -> dict[str, Any]:
         exclude.add('officeMode')
     if not request.deduplicateQuestions:
         exclude.add('deduplicateQuestions')
+    if not request.generateAnswers:
+        exclude.add('generateAnswers')
     return request.model_dump(mode='json', exclude=exclude)
 
 
@@ -163,7 +165,7 @@ async def _parse_options(service, thread_id: str) -> dict[str, Any]:
     rows = await service.db.rows('SELECT input FROM document_runs WHERE thread_id=%s AND input IS NOT NULL '
                                  'ORDER BY created_at,run_id LIMIT 1', (thread_id,))
     initial = rows[0]['input'] if rows else {}
-    return {'deduplicateQuestions': initial.get('deduplicateQuestions', False)}
+    return {'deduplicateQuestions': initial.get('deduplicateQuestions', False), 'generateAnswers': initial.get('generateAnswers', False)}
 
 
 async def _read_task_record(service, thread_id):
@@ -464,6 +466,7 @@ async def control_task(thread_id: str, request: DocumentTaskControl) -> dict[str
                         raise conflict('Resume the paused task before retrying failed units')
                     graph_input = {'document': values['document'], 'failurePolicy': values.get('failurePolicy', 'return_partial'),
                                    'deduplicateQuestions': values.get('deduplicateQuestions', False),
+                                   'generateAnswers': values.get('generateAnswers', False),
                                    'retry': retry.model_dump(mode='json')}
             admission = await service.db.store.aget(namespace(thread_id, 'control'), 'admission', refresh_ttl=False)
             response = await _enqueue(conn, task, request_id, request_hash, graph_input=graph_input, command=command,

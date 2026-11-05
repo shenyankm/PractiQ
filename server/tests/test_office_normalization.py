@@ -328,7 +328,7 @@ async def test_resume_legacy_office_without_checkpoint_uses_current_options_and_
     detail = await task_api.get_task(parent["threadId"])
     assert detail["state"] == "COMPLETED", detail
     new_input = (await service.db.rows("SELECT input FROM document_runs WHERE run_id=%s", (resumed["runId"],)))[0]["input"]
-    assert new_input == {"document": task["document"], "failurePolicy": task["failure_policy"], "deduplicateQuestions": deduplicate}
+    assert new_input == {"document": task["document"], "failurePolicy": task["failure_policy"], "deduplicateQuestions": deduplicate, "generateAnswers": False}
     _, snapshot, _ = await task_api._read_task(service, parent["threadId"])
     assert snapshot.values["officeMode"] is None and snapshot.values["execution"]["officeMode"] is None
     assert snapshot.values["deduplicateQuestions"] is deduplicate and snapshot.values["normalization"] is None

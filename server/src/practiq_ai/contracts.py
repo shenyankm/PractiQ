@@ -613,6 +613,8 @@ class ImportBudgetCapacity(StrictModel):
 
 
 class ImportSettings(StrictModel):
+    deduplicateQuestions: StrictBool = False
+    generateAnswers: StrictBool = False
     tencentConcurrency: StrictInt = Field(ge=1, le=5)
     readRetryCount: StrictInt = Field(ge=0, le=5)
     retryBaseSeconds: float = Field(ge=0.5, le=10, allow_inf_nan=False, strict=True)
@@ -879,6 +881,7 @@ class DocumentParseInput(StrictModel):
     failurePolicy: Literal["return_partial", "review"] = "return_partial"
     officeMode: OfficeMode | None = None
     deduplicateQuestions: StrictBool = False
+    generateAnswers: StrictBool = False
     retry: RetryUnits | None = None
 
     @model_validator(mode="after")
@@ -905,6 +908,7 @@ class DocumentTaskCreate(StrictModel):
     parentThreadId: UUID | None = None
     officeMode: OfficeMode | None = None
     deduplicateQuestions: StrictBool = False
+    generateAnswers: StrictBool = False
 
     @model_validator(mode="after")
     def validate_document(self) -> Self:
@@ -956,7 +960,7 @@ DocumentParseInput.model_rebuild()
 TaskState = Literal["PENDING", "RUNNING", "PAUSING", "PAUSED", "INTERRUPTED", "CANCELLED", "FAILED", "WAITING_REVIEW", "COMPLETED", "EXPIRED"]
 
 
-TaskPhase = Literal["pending", "prepare", "vision", "chunk", "vision_review", "chunk_review", "result_review", "result", "completed"]
+TaskPhase = Literal["pending", "prepare", "vision", "chunk", "vision_review", "chunk_review", "answer_generation", "result_review", "result", "completed"]
 
 
 class TaskUnitProgress(StrictModel):

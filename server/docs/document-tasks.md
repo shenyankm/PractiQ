@@ -4,7 +4,7 @@ This guide covers task creation, status polling, pause, resume, and human review
 
 ## Create and query
 
-First obtain a `document` reference through the [authenticated upload API](service-guide.md#import-workflow). This example omits the reference fields; replace the `document` string with the complete returned object before sending:
+First obtain a `document` reference through the [same-origin upload API](service-guide.md#import-workflow). This example omits the reference fields; replace the `document` string with the complete returned object before sending:
 
 ```json
 {
@@ -15,7 +15,7 @@ First obtain a `document` reference through the [authenticated upload API](servi
 }
 ```
 
-`POST /api/document-tasks` returns HTTP 202 with `threadId`, `runId`, `requestId`, and `accepted`. A 202 response means durable queue admission. All document, upload, artifact and grading APIs require `Authorization: Bearer <AI_SERVICE_TOKEN>`. Artifact reads also require a valid task `thread_id` and a reference present in that task. See [personal use and safe upgrades](personal-use.md).
+`POST /api/document-tasks` returns HTTP 202 with `threadId`, `runId`, `requestId`, and `accepted`. A 202 response means durable queue admission. Document, upload, artifact and grading APIs require no application access token. Artifact reads also require a valid task `thread_id` and a reference present in that task. See [personal use and safe upgrades](personal-use.md).
 
 `graphId` accepts `document_parser` (the default, for all formats), `text_csv_parser` (retained graph name for TXT/Markdown), or `pdf_parser`. Optional `parentThreadId` links only to an existing task in the new runtime and does not overwrite it. Unknown fields, raw state, URLs, Base64, server file paths, and client-supplied model results are rejected.
 
@@ -105,7 +105,7 @@ See [operations](operations.md) for deployment, exclusive locking, recovery acce
 
 ## Task list
 
-`GET /api/document-tasks?limit=20&offset=0` uses the same service-token authentication. It returns `items` containing threadId, fileName, createdAt, expiresAt, state, status, checkpointId, questionCount, and reviewCount, plus `hasMore`. Limit is 1–100. Results sort by creation time and task ID descending. Summaries read saved checkpoints without loading all call logs; expired tasks appear as EXPIRED. Use the single-task endpoint for full state. The optional `state_filter` is one of `active`, `paused`, `completed`, `cancelled`, `failed`, `review`, `interrupted`, or `expired`. Filtering precedes pagination across the full history; `active` includes PENDING, RUNNING and PAUSING. `completed` means parsing completed, regardless of whether a downloaded result has been imported into a desktop bank.
+`GET /api/document-tasks?limit=20&offset=0` requires no application access token. It returns `items` containing threadId, fileName, createdAt, expiresAt, state, status, checkpointId, questionCount, and reviewCount, plus `hasMore`. Limit is 1–100. Results sort by creation time and task ID descending. Summaries read saved checkpoints without loading all call logs; expired tasks appear as EXPIRED. Use the single-task endpoint for full state. The optional `state_filter` is one of `active`, `paused`, `completed`, `cancelled`, `failed`, `review`, `interrupted`, or `expired`. Filtering precedes pagination across the full history; `active` includes PENDING, RUNNING and PAUSING. `completed` means parsing completed, regardless of whether a downloaded result has been imported into a desktop bank.
 
 Optional `sha256` filters by the source document's 64-character lowercase hexadecimal digest, with the same pagination. This supports duplicate-source reminders without parsing or making a model call. Optional `officeMode=pdf|text` filters Office deduplication by the persisted mode.
 
@@ -148,7 +148,7 @@ Startup first checks the final checkpoint's run ownership and result validity. C
 
 For a supported historical task stopped before any checkpoint values were saved, explicit resume reconstructs a current input from the original source, failure policy and deduplication option. Retired `officeMode` values are not replayed, including for queued pauses; the new execution uses automatic Tencent routing. Original run inputs and request receipts remain unchanged for audit. Parsing again uses the same current-option reconstruction in a new task. This does not migrate real checkpoint state or bypass execution-signature checks: incompatible saved executions still require the original deployment or an explicit new parse. New HTTP task inputs continue to reject non-null `officeMode`. Resume, failed-unit retry and parsing again are explicit actions and may incur provider charges.
 
-An unreadable checkpoint or incompatible saved result encountered during startup recovery marks only the affected run `FAILED` with `TASK_CHECKPOINT_UNREADABLE`. Other tasks can start normally. The failed task remains listed and deletable through the authenticated API; its detail/head/preview expose a non-resumable diagnostic view without the unreadable result. Original checkpoint bytes, local artifacts, provider receipts and usage records are retained until explicit deletion. Correct the deployment or use the original compatible version for investigation; explicitly parsing again creates a new potentially paid task. Recovery never repairs content, rewrites execution signatures or automatically replays uncertain model work. Database errors still abort startup rather than being misclassified as per-task content corruption.
+An unreadable checkpoint or incompatible saved result encountered during startup recovery marks only the affected run `FAILED` with `TASK_CHECKPOINT_UNREADABLE`. Other tasks can start normally. The failed task remains listed and deletable through the same-origin API; its detail/head/preview expose a non-resumable diagnostic view without the unreadable result. Original checkpoint bytes, local artifacts, provider receipts and usage records are retained until explicit deletion. Correct the deployment or use the original compatible version for investigation; explicitly parsing again creates a new potentially paid task. Recovery never repairs content, rewrites execution signatures or automatically replays uncertain model work. Database errors still abort startup rather than being misclassified as per-task content corruption.
 
 Model 401/403 responses are saved as `AI_PROVIDER_AUTH_ERROR` without automatic retry. After correcting credentials, explicitly use retry_failed to start another failed-unit round. Successful units, historical usage, and remaining budget are preserved. Permanent provider errors remain non-retryable, and ordinary resume cannot replay a cached error.
 
@@ -164,7 +164,7 @@ Only oversized Office sources use the service [Office adapter](desktop-office.md
 
 ## Download a bank ZIP
 
-`GET /api/document-tasks/{threadId}/export` is authenticated and makes no model call. The task must be `COMPLETED` with a current result; optional `checkpoint_id` binds the download to the displayed result. Stale checkpoints return 409 / `STALE_CHECKPOINT`, incomplete results return 409 / `BANK_EXPORT_NOT_READY`. The response is `application/zip` with attachment disposition and no-store caching.
+`GET /api/document-tasks/{threadId}/export` is same-origin and makes no model call. The task must be `COMPLETED` with a current result; optional `checkpoint_id` binds the download to the displayed result. Stale checkpoints return 409 / `STALE_CHECKPOINT`, incomplete results return 409 / `BANK_EXPORT_NOT_READY`. The response is `application/zip` with attachment disposition and no-store caching.
 
 The [existing ZIP format](../../docs/guides/question-bank-package.md) preserves supplied content, nulls, partial status, processing/source associations, warnings and checksum-verified resources. It excludes task usage, credentials and personal practice data. Desktop **Settings → Restore backup → Import bank ZIP** validates and appends it; full study-data restore is a separate confirmed replacement.
 
@@ -175,3 +175,9 @@ Paused, interrupted and cancelled tasks with completed usable units may export `
 A model transport failure, HTTP 408 or provider 5xx response has an uncertain outcome and stops the run with `MODEL_RESULT_UNKNOWN`. The service does not automatically repeat that paid attempt. Explicit resume reuses completed durable work and preserves unknown usage and consumed budget; it may issue a new paid call for the unfinished attempt. Quota/conflict rejections retain bounded retries, and known invalid responses retain bounded correction. Service-mode grading also preserves an unknown receipt without replaying that request.
 
 The Web client persists only unresolved creation payloads (request ID, verified file reference and options) in origin-scoped browser storage before POST. Reconnection only reads state. Explicit original-submission retry sends the unchanged payload to the existing idempotent creation endpoint, recovering the original receipt even if the first response was lost. Credentials and source bytes are never persisted in browser storage. Task state and checkpoints remain authoritative in PostgreSQL; local recovery hints do not change task retention.
+
+## Optional answer generation
+
+`generateAnswers` is a strict boolean, defaults to false and is fixed for each task. Omitted and explicit false retain historical idempotency hashes. True adds a post-extraction generation stage; it fills wholly missing answer/analysis fields, preserves provided or partial source answers, validates against original option labels, item IDs and question trees, and marks generated content for review. It does not relax extraction provenance checks.
+
+Generation has its own durable unit reservations within the existing task budget. A checkpoint is retained between generated questions. Known failures/abstentions preserve source questions and partial export, while unknown provider results retain receipts and stop without automatic replay. Passive projections replay saved generation records only when the original question hash still matches. Resume/retry cannot change the flag, and explicit reparse inherits it. The observable phase may be `answer_generation`.

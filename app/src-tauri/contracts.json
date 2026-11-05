@@ -4939,6 +4939,7 @@
           "chunk",
           "vision_review",
           "chunk_review",
+          "answer_generation",
           "result_review",
           "result",
           "completed"

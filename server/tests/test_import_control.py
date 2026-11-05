@@ -21,7 +21,7 @@ from tests.db_support import SERVICES, setup_api
 @pytest.mark.parametrize('values', [
     {'tencentConcurrency': 0}, {'tencentConcurrency': 6}, {'tencentConcurrency': True},
     {'readRetryCount': -1}, {'readRetryCount': 6}, {'readRetryCount': '2'},
-    {'retryBaseSeconds': 0}, {'retryBaseSeconds': float('nan')}, {'retryBaseSeconds': 11}, {'extra': 1},
+    {'deduplicateQuestions': 'true'}, {'generateAnswers': 1}, {'retryBaseSeconds': 0}, {'retryBaseSeconds': float('nan')}, {'retryBaseSeconds': 11}, {'extra': 1},
 ])
 def test_import_settings_reject_unsafe_or_unknown_values(values):
     with pytest.raises(ValidationError):
@@ -96,15 +96,13 @@ async def test_configured_read_retries_and_base_delay_do_not_repeat_submissions(
 
 
 @pytest.mark.usefixtures('disposable_databases')
-async def test_authenticated_settings_survive_service_restart_and_reject_stale_writes(monkeypatch):
+async def test_settings_survive_service_restart_and_reject_stale_writes(monkeypatch):
     service, _, model = await setup_api(monkeypatch)
     monkeypatch.setenv('AI_SERVICE_TOKEN', 'test-token')
     headers = {'Authorization': 'Bearer test-token'}
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='http://test') as http:
-        assert (await http.get('/api/import-settings')).status_code == 401
-        assert (await http.put('/api/import-settings', json={})).status_code == 401
         original = (await http.get('/api/import-settings', headers=headers)).json()
-        value = {**original, 'settings': {'tencentConcurrency': 2, 'readRetryCount': 0, 'retryBaseSeconds': 2}}
+        value = {**original, 'settings': {'tencentConcurrency': 2, 'readRetryCount': 0, 'retryBaseSeconds': 2, 'deduplicateQuestions': True, 'generateAnswers': True}}
         invalid = await http.put('/api/import-settings', headers=headers, json={**value, 'settings': {'tencentConcurrency': 6}})
         assert invalid.status_code == 422
         assert (await http.get('/api/import-settings', headers=headers)).json() == original
