@@ -39,11 +39,11 @@ def test_mixed_numbered_and_unnumbered_exercises_disable_exact_count_and_ids(tex
 async def test_complete_mixed_extraction_is_not_corrected_to_one_question(monkeypatch):
     files, reference = source(SOURCE)
     questions = [
-        {'id': 'fragment:1:reading', 'stem': 'Morning', 'answerMode': 'reading',
+        {'id': 'fragment:1:reading', 'stem': 'Morning', 'answerMode': 'reading', 'questionTypeId': 'Reading comprehension',
          'passage': [{'partType': 'text', 'textValue': 'The sky is blue.'}]},
         {'id': 'fragment:1:1', 'parentId': 'fragment:1:reading', 'stem': 'The sky is blue.',
-         'answerMode': 'true_false', 'answerPayload': {'value': True}},
-        {'id': 'fragment:1:ordering', 'stem': 'Arrange the morning', 'answerMode': 'ordering',
+         'answerMode': 'true_false', 'questionTypeId': 'True or false', 'answerPayload': {'value': True}},
+        {'id': 'fragment:1:ordering', 'stem': 'Arrange the morning', 'answerMode': 'ordering', 'questionTypeId': 'Ordering',
          'items': [{'id': 0, 'content': 'Wake'}, {'id': 1, 'content': 'Eat'}],
          'answerPayload': {'order': [0, 1]}},
     ]
@@ -65,19 +65,19 @@ async def test_complete_mixed_extraction_is_not_corrected_to_one_question(monkey
 
 def source_gap(kind="grammar_fill"):
     questions = [{'id': 'fragment:1:parent', 'stem': 'Finish the statement', 'answerMode': 'gap_fill',
-             'questionKind': 'grammar_fill',
+             'questionKind': 'grammar_fill', 'questionTypeId': 'Grammar fill',
              'sourceText': 'Grammar fill: Finish the statement\nBirds (2) ____ south.\n2. Hint: fly',
              'passage': [{'partType': 'text', 'textValue': 'Birds '},
                          {'partType': 'blank', 'questionId': 'fragment:1:2'},
                          {'partType': 'text', 'textValue': ' south.'}]},
             {'id': 'fragment:1:2', 'parentId': 'fragment:1:parent', 'stem': 'Hint: fly',
-             'answerMode': 'fill_blank', 'blankCount': 1, 'sourceText': '2. Hint: fly',
+             'answerMode': 'fill_blank', 'questionTypeId': 'fill_blank', 'blankCount': 1, 'sourceText': '2. Hint: fly',
              'answerPayload': {'answers': ['fly']}}]
     if kind == 'sentence_selection':
-        questions[0].update(questionKind=kind, answerMode='word_bank',
+        questions[0].update(questionKind=kind, answerMode='word_bank', questionTypeId='Sentence selection',
                             options=[{'label': 'A', 'content': 'fly'}])
         questions[0]['sourceText'] = questions[0]['sourceText'].replace('Grammar fill:', 'Sentence selection:')
-        questions[1].update(answerMode='choice', choiceVariant='single', blankCount=None,
+        questions[1].update(answerMode='choice', questionTypeId='choice', choiceVariant='single', blankCount=None,
                             optionSourceId='fragment:1:parent', answerPayload={'correct': ['A']})
     return questions
 
@@ -159,7 +159,7 @@ async def test_explicit_dash_titles_are_corrected_together_without_generic_repla
                 ('ordering', 'Ordering', 'Arrange these events'), ('matching', 'Matching', 'Link the items')]
     if only_reading:
         headings = headings[:1]
-    correct = [{'id': f'fragment:1:{mode}', 'answerMode': mode, 'stem': title,
+    correct = [{'id': f'fragment:1:{mode}', 'answerMode': mode, 'questionTypeId': label, 'stem': title,
                 'sourceText': f'{label} — {title}'} for mode, label, title in headings]
     wrong = deepcopy(correct)
     for question, (_, label, _) in zip(wrong, headings, strict=True):

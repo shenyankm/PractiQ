@@ -1,0 +1,459 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-11-05T17:44:02.338985+00:00",
+  "revision": "47e2d8c93c8af4930a966c68d99abd649c54eeb1",
+  "python": "3.14.7",
+  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "liveProviders": true,
+  "scope": "Production Chromium Web and loopback HTTP service; disposable PostgreSQL/RabbitMQ; real local files and release Rust/SQLite. Native phase excludes Tauri IPC/WebView. Three tiny fixtures, no capacity/p95 or before/after speedup claim.",
+  "selectedCases": [
+    "png"
+  ],
+  "nativeRepetitions": 1,
+  "status": "PASSED",
+  "gateReasons": [],
+  "samples": [
+    {
+      "name": "png",
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/api/import-capabilities",
+          "status": 200,
+          "ms": 10.614332999999988,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/import-settings",
+          "status": 200,
+          "ms": 16.005583000000115,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/import-settings",
+          "status": 200,
+          "ms": 17.64587500000016,
+          "hasAuthorization": false
+        },
+        {
+          "method": "POST",
+          "path": "/api/uploads",
+          "status": 201,
+          "ms": 0.7192919999999958,
+          "hasAuthorization": false
+        },
+        {
+          "method": "PUT",
+          "path": "/api/uploads/content",
+          "status": 200,
+          "ms": 9.034332999999833,
+          "hasAuthorization": false
+        },
+        {
+          "method": "POST",
+          "path": "/api/document-tasks",
+          "status": 202,
+          "ms": 33.16862500000002,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/461560ec-4331-5778-88ba-78049b45765f/preview",
+          "status": 200,
+          "ms": 55.26537499999995,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 55.38820899999996,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/461560ec-4331-5778-88ba-78049b45765f",
+          "status": 200,
+          "ms": 60.909458000000086,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 17.68029200000001,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/461560ec-4331-5778-88ba-78049b45765f",
+          "status": 200,
+          "ms": 19.230375000000095,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/461560ec-4331-5778-88ba-78049b45765f/preview",
+          "status": 200,
+          "ms": 4.3081660000007105,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 4.147708000000421,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/461560ec-4331-5778-88ba-78049b45765f",
+          "status": 200,
+          "ms": 4.1542499999995925,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 6.3836670000000595,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/461560ec-4331-5778-88ba-78049b45765f",
+          "status": 200,
+          "ms": 5.663125000000946,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/461560ec-4331-5778-88ba-78049b45765f/preview",
+          "status": 200,
+          "ms": 5.412082999999257,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 3.598541999999725,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/461560ec-4331-5778-88ba-78049b45765f",
+          "status": 200,
+          "ms": 4.161917000001267,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 4.378333000000566,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/461560ec-4331-5778-88ba-78049b45765f",
+          "status": 200,
+          "ms": 4.759624999998778,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 21.153792000000976,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/461560ec-4331-5778-88ba-78049b45765f",
+          "status": 200,
+          "ms": 20.496750000002066,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 8.921417000001384,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/461560ec-4331-5778-88ba-78049b45765f",
+          "status": 200,
+          "ms": 9.06879100000151,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 5.040124999999534,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/461560ec-4331-5778-88ba-78049b45765f",
+          "status": 200,
+          "ms": 7.6258750000015425,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 12.808000000000902,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/461560ec-4331-5778-88ba-78049b45765f",
+          "status": 200,
+          "ms": 16.328457999999955,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/461560ec-4331-5778-88ba-78049b45765f/preview",
+          "status": 200,
+          "ms": 3.793582999998762,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/461560ec-4331-5778-88ba-78049b45765f/export",
+          "status": 200,
+          "ms": 14.509791000000405,
+          "hasAuthorization": false
+        }
+      ],
+      "phasesMs": {
+        "connect": 199.0724170000001,
+        "startToResultVisible": 27428.103792,
+        "download": 57.022625000001426,
+        "startToDownloaded": 27486.783334,
+        "nativeHandoffAndPractice": 109.8502499999995,
+        "startToPracticeRestored": 27596.637000000002
+      },
+      "error": null,
+      "threadId": "461560ec-4331-5778-88ba-78049b45765f",
+      "browserPerformance": {
+        "domContentLoadedMs": 77.40000000037253,
+        "loadMs": 77.40000000037253,
+        "longTasks": {
+          "supported": true,
+          "count": 0,
+          "totalMs": 0,
+          "maxMs": 0
+        }
+      },
+      "modelCalls": 1,
+      "unknownCalls": [],
+      "reviewRequired": true,
+      "qualityErrors": [],
+      "zipSha256": "a5a0359ff996e921be4a23b1aa87347bfab9f64e1392581882c25ab86148c205",
+      "nativeErrors": [],
+      "stages": [
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T17:44:17.096041+00:00",
+          "stage": "prepare",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "461560ec-4331-5778-88ba-78049b45765f",
+          "runId": "0cccf918-359c-4650-acf9-cb5f49b6b6c2",
+          "durationMs": 7245.539
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T17:44:17.102666+00:00",
+          "stage": "gate",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "461560ec-4331-5778-88ba-78049b45765f",
+          "runId": "0cccf918-359c-4650-acf9-cb5f49b6b6c2",
+          "durationMs": 3.854
+        },
+        {
+          "event": "model_call",
+          "timestamp": "2026-11-05T17:44:36.157870+00:00",
+          "callKey": "2c10531b-6c45-492a-bd3f-8a012ea6a630",
+          "kind": "vision_parse",
+          "outcome": "known",
+          "runId": "0cccf918-359c-4650-acf9-cb5f49b6b6c2",
+          "errorCode": null,
+          "schema": "OcrPageParseResult",
+          "attempt": 1,
+          "validation": "passed",
+          "threadId": "461560ec-4331-5778-88ba-78049b45765f",
+          "unitKey": "vision_parse:0:0",
+          "durationMs": 19045.244,
+          "concurrencyWaitMs": 0.002,
+          "rateWaitMs": 1.852,
+          "providerRequestMs": 19035.047
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T17:44:36.170334+00:00",
+          "stage": "vision",
+          "outcome": "success",
+          "unitIndex": 0,
+          "unitKey": "vision_parse:0:0",
+          "errorCode": null,
+          "threadId": "461560ec-4331-5778-88ba-78049b45765f",
+          "runId": "0cccf918-359c-4650-acf9-cb5f49b6b6c2",
+          "durationMs": 19064.462
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T17:44:36.178536+00:00",
+          "stage": "gate",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "461560ec-4331-5778-88ba-78049b45765f",
+          "runId": "0cccf918-359c-4650-acf9-cb5f49b6b6c2",
+          "durationMs": 5.417
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T17:44:36.183882+00:00",
+          "stage": "gate",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "461560ec-4331-5778-88ba-78049b45765f",
+          "runId": "0cccf918-359c-4650-acf9-cb5f49b6b6c2",
+          "durationMs": 3.332
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T17:44:36.188118+00:00",
+          "stage": "review",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "461560ec-4331-5778-88ba-78049b45765f",
+          "runId": "0cccf918-359c-4650-acf9-cb5f49b6b6c2",
+          "durationMs": 2.778
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T17:44:36.196028+00:00",
+          "stage": "merge",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "461560ec-4331-5778-88ba-78049b45765f",
+          "runId": "0cccf918-359c-4650-acf9-cb5f49b6b6c2",
+          "durationMs": 6.204
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T17:44:36.199520+00:00",
+          "stage": "gate",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "461560ec-4331-5778-88ba-78049b45765f",
+          "runId": "0cccf918-359c-4650-acf9-cb5f49b6b6c2",
+          "durationMs": 1.963
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T17:44:36.202400+00:00",
+          "stage": "review",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "461560ec-4331-5778-88ba-78049b45765f",
+          "runId": "0cccf918-359c-4650-acf9-cb5f49b6b6c2",
+          "durationMs": 1.828
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T17:44:36.205761+00:00",
+          "stage": "gate",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "461560ec-4331-5778-88ba-78049b45765f",
+          "runId": "0cccf918-359c-4650-acf9-cb5f49b6b6c2",
+          "durationMs": 2.051
+        },
+        {
+          "event": "document_run_state",
+          "timestamp": "2026-11-05T17:44:36.213669+00:00",
+          "threadId": "461560ec-4331-5778-88ba-78049b45765f",
+          "runId": "0cccf918-359c-4650-acf9-cb5f49b6b6c2",
+          "status": "success",
+          "errorCode": null
+        }
+      ]
+    }
+  ],
+  "serviceCodeHash": "df5e905467eb0db5cdd4be9c9bef2e923f9399c5dabcad9e0b9080344b1c2dc8",
+  "native": [
+    {
+      "backupRestore": true,
+      "correct": 3,
+      "earnedCents": 300,
+      "firstRun": true,
+      "name": "png",
+      "phasesMs": {
+        "backup": 9.771082999999999,
+        "firstPage": 0.391125,
+        "importZip": 0.89625,
+        "initialize": 2.7508749999999997,
+        "previewPaper": 0.701375,
+        "previewZip": 1.747042,
+        "readResults": 0.21504099999999998,
+        "reopen": 1.26575,
+        "restore": 23.291208,
+        "saveAndNavigate": 2.796375,
+        "startPaper": 1.008042,
+        "submitPaper": 1.084667
+      },
+      "questions": 3,
+      "reopen": true,
+      "repetition": 0,
+      "totalMs": 50.896667,
+      "zipSha256": "a5a0359ff996e921be4a23b1aa87347bfab9f64e1392581882c25ab86148c205"
+    }
+  ],
+  "nativeErrors": [],
+  "serviceMemory": {
+    "sampledPeakRssBytes": 203833344,
+    "samples": 289,
+    "scope": "Service PID only, ps sampling at >=100ms; excludes renderer/Office/browser/native/DB/broker and can miss peaks."
+  },
+  "harnessSha256": {
+    "server/scripts/accept_workflow.py": "dad41b826573577b89019ea59ed18d54367bdd48522c01ba1501ac597e3f8c93",
+    "web/scripts/accept-workflow.mjs": "15cf0b2ef52a78d57945e0e77c8c6190acf32afd6b6673b18c7f04e550a2c628",
+    "app/src-tauri/src/performance.rs": "1973edcb5a4d3d4e9dfacf718d1a4bb46c2f9dd1e78adf9a38a8eca0d23e1b46"
+  },
+  "inputSha256": {
+    "quiz.md": "dd617f936a9317271a1b89e2d458fd3462b77a2bc740298e81b1f4d144d1a30f",
+    "quiz.txt": "dd617f936a9317271a1b89e2d458fd3462b77a2bc740298e81b1f4d144d1a30f",
+    "quiz.png": "741967673509a2bc53c54147b162b6e98f423ae0c673790adcd25adafa4a80cb"
+  },
+  "retentionNote": "Provider configuration omitted. Preserve all outcomes; unknown TXT call was not replayed."
+}

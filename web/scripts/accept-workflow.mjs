@@ -12,6 +12,7 @@ const browser = await chromium.launch({ headless: true });
 const samples = [];
 try {
   for (const [name, mimeType] of [["txt", "text/plain"], ["md", "text/markdown"], ["png", "image/png"]]) {
+    if (process.env.PRACTIQ_WORKFLOW_CASE && name !== process.env.PRACTIQ_WORKFLOW_CASE) continue;
     const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, acceptDownloads: true });
     await context.addInitScript(() => {
       const stats = { supported: PerformanceObserver.supportedEntryTypes.includes("longtask"), count: 0, totalMs: 0, maxMs: 0 };

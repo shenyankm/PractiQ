@@ -48,6 +48,7 @@ def evaluation_questions(case_id):
         data = {key: value for key, value in expected.items() if key in ParsedQuestion.model_fields}
         data.update({key: value for key, value in expected.get('expectedEvidence', {}).items() if key in ParsedQuestion.model_fields})
         data.setdefault('id', f'page:1:{index}')
+        data.setdefault('questionTypeId', data.get('answerMode'))
         data.update(sourceText=expected['stem'], confidence=0.9)
         questions.append(ParsedQuestion.model_validate(data))
     if case_id == 'text-translation-writing':

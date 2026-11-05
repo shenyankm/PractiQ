@@ -80,7 +80,7 @@ async def test_merge_preserves_section_only_units_and_continuation_confidence(mo
         if "PRIMARY is page 1" in prompt or prompt.endswith(parts[0]):
             return {"questions": [], "groups": [section] if has_section else []}
         first = "PRIMARY is page 2" in prompt or prompt.endswith("First")
-        return {"questions": [{"id": parent_id, "stem": "Article", "answerMode": "reading",
+        return {"questions": [{"id": parent_id, "stem": "Article", "answerMode": "reading", "questionTypeId": "reading",
                                "sourceText": "First" if first else "Second", "confidence": 0.95 if first else 0.2,
                                "passage": [{"partType": "text", "textValue": "First" if first else "Second"}]}]}
 
@@ -150,10 +150,10 @@ async def test_duplicate_ids_are_corrected_within_the_model_boundary(monkeypatch
 async def test_closed_gap_tree_is_corrected_before_merge(monkeypatch, page):
     source = "Word bank: Choose a word. A. white B. green\n1. Snow is [1]. Answer: A"
     parent = {"id": "fragment:1:bank", "stem": "Choose a word.", "sourceText": source,
-              "answerMode": "word_bank", "questionKind": "word_bank", "answerPayload": None,
+              "answerMode": "word_bank", "questionTypeId": "Word bank", "questionKind": "word_bank", "answerPayload": None,
               "options": [{"label": "A", "content": "white"}, {"label": "B", "content": "green"}]}
     child = {"id": "fragment:1:bank:1", "parentId": parent["id"], "optionSourceId": parent["id"],
-             "stem": "Snow is", "sourceText": "1. Snow is [1]. Answer: A", "answerMode": "choice",
+             "stem": "Snow is", "sourceText": "1. Snow is [1]. Answer: A", "answerMode": "choice", "questionTypeId": "choice",
              "choiceVariant": "single", "answerPayload": {"correct": ["A"]}}
     corrected = {**parent, "passage": [{"partType": "text", "textValue": "Snow is "},
                                       {"partType": "blank", "questionId": child["id"]},

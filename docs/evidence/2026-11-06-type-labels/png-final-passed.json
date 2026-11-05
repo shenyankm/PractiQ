@@ -1,0 +1,417 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-11-05T17:56:57.520512+00:00",
+  "revision": "4ad49fce1b02d474e8e1f373e70fd3170338cace",
+  "python": "3.14.7",
+  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "liveProviders": true,
+  "scope": "Production Chromium Web and loopback HTTP service; disposable PostgreSQL/RabbitMQ; real local files and release Rust/SQLite. Native phase excludes Tauri IPC/WebView. Selected cases/repetitions recorded separately; no capacity/p95 or before/after speedup claim.",
+  "selectedCases": [
+    "png"
+  ],
+  "nativeRepetitions": 1,
+  "status": "PASSED",
+  "gateReasons": [],
+  "samples": [
+    {
+      "name": "png",
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/api/import-capabilities",
+          "status": 200,
+          "ms": 61.01941599999998,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/import-settings",
+          "status": 200,
+          "ms": 68.36679100000003,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/import-settings",
+          "status": 200,
+          "ms": 28.1087500000001,
+          "hasAuthorization": false
+        },
+        {
+          "method": "POST",
+          "path": "/api/uploads",
+          "status": 201,
+          "ms": 0.8152500000001055,
+          "hasAuthorization": false
+        },
+        {
+          "method": "PUT",
+          "path": "/api/uploads/content",
+          "status": 200,
+          "ms": 5.332249999999931,
+          "hasAuthorization": false
+        },
+        {
+          "method": "POST",
+          "path": "/api/document-tasks",
+          "status": 202,
+          "ms": 52.63499999999999,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/e480a781-a317-5aa8-9c71-d2a21151f63a/preview",
+          "status": 200,
+          "ms": 145.836,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 145.94712500000014,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/e480a781-a317-5aa8-9c71-d2a21151f63a",
+          "status": 200,
+          "ms": 156.69045800000004,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 22.44983400000001,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/e480a781-a317-5aa8-9c71-d2a21151f63a",
+          "status": 200,
+          "ms": 18.302040999999917,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/e480a781-a317-5aa8-9c71-d2a21151f63a/preview",
+          "status": 200,
+          "ms": 6.085458999999901,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 8.536124999999629,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/e480a781-a317-5aa8-9c71-d2a21151f63a",
+          "status": 200,
+          "ms": 7.7289160000000265,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 5.918749999998909,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/e480a781-a317-5aa8-9c71-d2a21151f63a",
+          "status": 200,
+          "ms": 7.25616699999955,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/e480a781-a317-5aa8-9c71-d2a21151f63a/preview",
+          "status": 200,
+          "ms": 4.984582999999475,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 4.556624999999258,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/e480a781-a317-5aa8-9c71-d2a21151f63a",
+          "status": 200,
+          "ms": 4.848500000000058,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 4.817124999997759,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/e480a781-a317-5aa8-9c71-d2a21151f63a",
+          "status": 200,
+          "ms": 3.7588750000031723,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 4.895583999998053,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/e480a781-a317-5aa8-9c71-d2a21151f63a",
+          "status": 200,
+          "ms": 6.582542000000103,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/e480a781-a317-5aa8-9c71-d2a21151f63a/preview",
+          "status": 200,
+          "ms": 3.9147919999995793,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/e480a781-a317-5aa8-9c71-d2a21151f63a/export",
+          "status": 200,
+          "ms": 17.981415999998717,
+          "hasAuthorization": false
+        }
+      ],
+      "phasesMs": {
+        "connect": 188.92162500000006,
+        "startToResultVisible": 18426.251500000002,
+        "download": 57.69270800000231,
+        "startToDownloaded": 18485.961334000003,
+        "nativeHandoffAndPractice": 103.77808300000106,
+        "startToPracticeRestored": 18589.745417000002
+      },
+      "error": null,
+      "threadId": "e480a781-a317-5aa8-9c71-d2a21151f63a",
+      "browserPerformance": {
+        "domContentLoadedMs": 72.89999999850988,
+        "loadMs": 72.89999999850988,
+        "longTasks": {
+          "supported": true,
+          "count": 0,
+          "totalMs": 0,
+          "maxMs": 0
+        }
+      },
+      "modelCalls": 1,
+      "unknownCalls": [],
+      "reviewRequired": true,
+      "qualityErrors": [],
+      "zipSha256": "b1b227fa0c1f13952ad04bf22a04abe86105b7a6ef33cbb2cf157677354f145f",
+      "nativeErrors": [],
+      "stages": [
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T17:57:13.519726+00:00",
+          "stage": "prepare",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "e480a781-a317-5aa8-9c71-d2a21151f63a",
+          "runId": "a0df015e-5c0a-4150-8cfd-f70504b0e443",
+          "durationMs": 7285.597
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T17:57:13.525633+00:00",
+          "stage": "gate",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "e480a781-a317-5aa8-9c71-d2a21151f63a",
+          "runId": "a0df015e-5c0a-4150-8cfd-f70504b0e443",
+          "durationMs": 3.364
+        },
+        {
+          "event": "model_call",
+          "timestamp": "2026-11-05T17:57:22.300997+00:00",
+          "callKey": "57c544ff-fbf3-4856-8aeb-f374191c40a2",
+          "kind": "vision_parse",
+          "outcome": "known",
+          "runId": "a0df015e-5c0a-4150-8cfd-f70504b0e443",
+          "errorCode": null,
+          "schema": "OcrPageParseResult",
+          "attempt": 1,
+          "validation": "passed",
+          "threadId": "e480a781-a317-5aa8-9c71-d2a21151f63a",
+          "unitKey": "vision_parse:0:0",
+          "durationMs": 8765.974,
+          "concurrencyWaitMs": 0.002,
+          "rateWaitMs": 1.837,
+          "providerRequestMs": 8753.853
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T17:57:22.307405+00:00",
+          "stage": "vision",
+          "outcome": "success",
+          "unitIndex": 0,
+          "unitKey": "vision_parse:0:0",
+          "errorCode": null,
+          "threadId": "e480a781-a317-5aa8-9c71-d2a21151f63a",
+          "runId": "a0df015e-5c0a-4150-8cfd-f70504b0e443",
+          "durationMs": 8779.049
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T17:57:22.312279+00:00",
+          "stage": "gate",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "e480a781-a317-5aa8-9c71-d2a21151f63a",
+          "runId": "a0df015e-5c0a-4150-8cfd-f70504b0e443",
+          "durationMs": 3.176
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T17:57:22.315706+00:00",
+          "stage": "gate",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "e480a781-a317-5aa8-9c71-d2a21151f63a",
+          "runId": "a0df015e-5c0a-4150-8cfd-f70504b0e443",
+          "durationMs": 1.869
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T17:57:22.318490+00:00",
+          "stage": "review",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "e480a781-a317-5aa8-9c71-d2a21151f63a",
+          "runId": "a0df015e-5c0a-4150-8cfd-f70504b0e443",
+          "durationMs": 1.743
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T17:57:22.326337+00:00",
+          "stage": "merge",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "e480a781-a317-5aa8-9c71-d2a21151f63a",
+          "runId": "a0df015e-5c0a-4150-8cfd-f70504b0e443",
+          "durationMs": 6.407
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T17:57:22.330192+00:00",
+          "stage": "gate",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "e480a781-a317-5aa8-9c71-d2a21151f63a",
+          "runId": "a0df015e-5c0a-4150-8cfd-f70504b0e443",
+          "durationMs": 2.273
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T17:57:22.333029+00:00",
+          "stage": "review",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "e480a781-a317-5aa8-9c71-d2a21151f63a",
+          "runId": "a0df015e-5c0a-4150-8cfd-f70504b0e443",
+          "durationMs": 1.872
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T17:57:22.336243+00:00",
+          "stage": "gate",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "e480a781-a317-5aa8-9c71-d2a21151f63a",
+          "runId": "a0df015e-5c0a-4150-8cfd-f70504b0e443",
+          "durationMs": 2.033
+        },
+        {
+          "event": "document_run_state",
+          "timestamp": "2026-11-05T17:57:22.344126+00:00",
+          "threadId": "e480a781-a317-5aa8-9c71-d2a21151f63a",
+          "runId": "a0df015e-5c0a-4150-8cfd-f70504b0e443",
+          "status": "success",
+          "errorCode": null
+        }
+      ]
+    }
+  ],
+  "serviceCodeHash": "4fa9338b843e4efd9d691dee163c8aaf4ff69a552de305f82794fd410edb6ca7",
+  "native": [
+    {
+      "backupRestore": true,
+      "correct": 3,
+      "earnedCents": 300,
+      "firstRun": true,
+      "name": "png",
+      "phasesMs": {
+        "backup": 10.679334,
+        "firstPage": 0.400083,
+        "importZip": 0.979375,
+        "initialize": 3.145209,
+        "previewPaper": 0.729083,
+        "previewZip": 1.8053329999999999,
+        "readResults": 0.223,
+        "reopen": 1.289958,
+        "restore": 23.230166999999998,
+        "saveAndNavigate": 3.413209,
+        "startPaper": 1.176208,
+        "submitPaper": 1.194125
+      },
+      "questions": 3,
+      "reopen": true,
+      "repetition": 0,
+      "totalMs": 53.460875,
+      "zipSha256": "b1b227fa0c1f13952ad04bf22a04abe86105b7a6ef33cbb2cf157677354f145f"
+    }
+  ],
+  "nativeErrors": [],
+  "serviceMemory": {
+    "sampledPeakRssBytes": 198688768,
+    "samples": 210,
+    "scope": "Service PID only, ps sampling at >=100ms; excludes renderer/Office/browser/native/DB/broker and can miss peaks."
+  },
+  "harnessSha256": {
+    "server/scripts/accept_workflow.py": "dad41b826573577b89019ea59ed18d54367bdd48522c01ba1501ac597e3f8c93",
+    "web/scripts/accept-workflow.mjs": "15cf0b2ef52a78d57945e0e77c8c6190acf32afd6b6673b18c7f04e550a2c628",
+    "app/src-tauri/src/performance.rs": "1973edcb5a4d3d4e9dfacf718d1a4bb46c2f9dd1e78adf9a38a8eca0d23e1b46"
+  },
+  "inputSha256": {
+    "quiz.md": "dd617f936a9317271a1b89e2d458fd3462b77a2bc740298e81b1f4d144d1a30f",
+    "quiz.txt": "dd617f936a9317271a1b89e2d458fd3462b77a2bc740298e81b1f4d144d1a30f",
+    "quiz.png": "741967673509a2bc53c54147b162b6e98f423ae0c673790adcd25adafa4a80cb"
+  },
+  "retentionNote": "Provider configuration omitted. Final composite-continuation-compatible candidate; no unknown TXT replay."
+}

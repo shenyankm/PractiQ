@@ -18,7 +18,7 @@ def gap_tree(prefix: str, parent_number: int, child_number: int, mode: str = "ga
     parent_id, child_id = f"{prefix}:{parent_number}", f"{prefix}:{child_number}"
     options = [{"label": "A", "content": "white"}, {"label": "B", "content": "green"}]
     parent = {
-        "id": parent_id, "stem": "Complete the supplied passage", "answerMode": mode,
+        "id": parent_id, "stem": "Complete the supplied passage", "answerMode": mode, "questionTypeId": mode,
         "passage": [{"partType": "text", "textValue": "They "},
                     {"partType": "blank", "questionId": child_id},
                     {"partType": "text", "textValue": " early."}],
@@ -26,10 +26,10 @@ def gap_tree(prefix: str, parent_number: int, child_number: int, mode: str = "ga
     }
     child = {
         "id": child_id, "parentId": parent_id, "stem": "Hint: leave", "answerMode": "fill_blank",
-        "blankCount": 1, "answerPayload": {"answers": ["left"]},
+        "questionTypeId": "fill_blank", "blankCount": 1, "answerPayload": {"answers": ["left"]},
     }
     if mode != "gap_fill":
-        child.update(answerMode="choice", choiceVariant="single", blankCount=None,
+        child.update(answerMode="choice", questionTypeId="choice", choiceVariant="single", blankCount=None,
                      options=[] if mode == "word_bank" else options,
                      optionSourceId=parent_id if mode == "word_bank" else None,
                      answerPayload={"correct": ["A"]})
@@ -85,7 +85,7 @@ async def test_local_blank_error_is_corrected_with_both_known_attempts(monkeypat
 
 async def test_missing_local_option_parent_is_corrected_before_saving_the_page(monkeypatch):
     correct = gap_tree("page:16", 44, 45, "word_bank")
-    correct.append({"id": "page:16:46", "stem": "Retain this unrelated question", "answerMode": "short_answer"})
+    correct.append({"id": "page:16:46", "stem": "Retain this unrelated question", "answerMode": "short_answer", "questionTypeId": "short_answer"})
     incorrect = deepcopy(correct)
     incorrect[1]["parentId"] = None
     incorrect[0]["contentBlocks"] = [{"partType": "text", "role": "material", "textValue": "They [blank:45] early."}]
