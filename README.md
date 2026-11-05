@@ -11,9 +11,10 @@ Turn documents into question banks, then practise and take mock exams offline on
 - **Import and review**: pull questions out of documents with AI, check anything that needs a second look, and organise your banks.
 - **Practise and test**: choose questions across banks by type, mistakes, bookmarks or unanswered questions, then practise, self-test or run a timed mock exam.
 - **Review scores**: score objective questions on your device, ask AI to grade short answers, or adjust marks yourself.
+- **Review and track learning**: revisit suggested questions, view 7- or 30-day statistics, and keep personal notes and mistake causes.
 - **Keep and share**: pick up a session where you left off, back up your records, and share a bank with its images and audio as a ZIP file.
 
-PractiQ works in English, Simplified Chinese and Traditional Chinese, with light and dark themes, seven basic question types and English listening, reading, cloze, translation and writing. Your data stays on your device, with no account and no cloud sync.
+PractiQ works in English, Simplified Chinese and Traditional Chinese, with light and dark themes, seven basic question types and English listening, reading, cloze, translation and writing. Practice records stay on your device, with no account and no cloud sync. AI import sends documents to your self-hosted service, Tencent Cloud and your configured model provider; optional AI grading sends grading content to the selected endpoint.
 
 ## Screenshots
 
@@ -46,13 +47,15 @@ Document import runs in the Web page of the self-hosted AI service:
 3. Review the questions, images and anything flagged for review, then download a question-bank ZIP.
 4. In the desktop app, open **Settings → Import and restore → Import bank ZIP**.
 
-The service reads **PDF, TXT, Markdown, PNG/JPEG, DOC, DOCX, PPT, PPTX, XLS and XLSX** with Tencent Cloud's [asynchronous multimodal document parsing](https://cloud.tencent.com/document/product/866/139312). Tencent gives each user **1,000 free pages** on first activation, valid for one year.
+The service reads **PDF, TXT, Markdown, PNG/JPEG, DOC, DOCX, PPT, PPTX, XLS and XLSX** with Tencent Cloud's [asynchronous multimodal document parsing](https://cloud.tencent.com/document/api/866/139312). New CSV imports are not supported. Tencent's [billing guide](https://cloud.tencent.com/document/product/866/17619) lists a one-time **1,000-page free allowance**, valid for one year; check eligibility and remaining quota in your Tencent account. Parsing and model calls are billed separately.
+
+By default, import extracts supplied answers and explanations. To fill missing answers or explanations, enable **AI 生成答案与解析** in the Web settings, wait for it to save, then explicitly select **Start import**. Existing answers are preserved; generated content is marked for review and shares the task's model-call budget.
 
 Reading and downloading results never calls a model. Resuming, retrying or parsing again may cost money at your model provider. Download what you want to keep within **180 days**; a task expiring never affects banks you already imported. See the [import task guide](docs/guides/import-tasks.md).
 
 ## Grade short answers with AI
 
-Open **Settings → AI service**, choose **Direct model API** and enter an OpenAI-compatible API address (including the `/v1` or other base path your provider requires), model ID and your own API key. Offline practice and local scoring need none of this.
+Open **Settings → AI service**, choose **Direct model API** and enter an OpenAI-compatible Chat Completions API address (including the `/v1` or other base path your provider requires), model ID and your own API key. Offline practice and local scoring need none of this.
 
 Grading needs a reference answer or rubric, may cost money, and sends the current question, materials, images and your answer to the provider you chose. Each action makes at most one request, and an unknown result is never resent automatically. Keys stay in the system credential store and out of backups. See the [practice guide](docs/guides/practice-guide.md) for limits and retry rules.
 
@@ -62,6 +65,8 @@ Ordinary practice supports explicit grading after submitting the current short a
 
 Download the macOS 14+ Apple Silicon installer from [PractiQ v0.2.1](https://github.com/shenyankm/PractiQ/releases/tag/v0.2.1). This release is unsigned and not notarized; read the release notes for checksums, installation steps and incomplete acceptance checks.
 
+[v0.2.2-rc.1](https://github.com/shenyankm/PractiQ/releases/tag/v0.2.2-rc.1) is also available as a prerelease, unsigned and not notarized. This README describes the current source; published installers may not include every feature described here.
+
 To build from source, open the repository root and ask your coding agent to use this prompt:
 
 > Read `docs/guides/installation.md` and install PractiQ on this machine. Check the requirements first, run only the steps for my platform, and tell me what you ran, where the build is and anything that failed. Ask before installing system packages.
@@ -70,15 +75,15 @@ The [installation guide](docs/guides/installation.md) covers requirements, comma
 
 PractiQ is still in development. A passing build does not establish signing, clean-machine acceptance or live-model accuracy. Published packages and their evidence are listed on [GitHub Releases](https://github.com/shenyankm/PractiQ/releases).
 
-Desktop data lives in a new `v4/` folder. Older folders are left untouched, old full backups are no longer accepted, and current question-bank ZIP files still import. See the [data format boundaries](docs/reference/question-model.md#versions-and-directories).
+Desktop data lives in `v4/` with SQLite schema 11. Full backups use container version 4 and schema 11; earlier backups with those versions remain supported. Older schemas are rejected without migration, older directories are left untouched, and current question-bank ZIP files still import. See the [data format boundaries](docs/reference/question-model.md#versions-and-directories).
 
 ## Self-host the import service
 
-Document import needs the self-hosted AI service. It requires Python 3.14+, uv, Node.js 22.12+, PostgreSQL, RabbitMQ and a model that accepts text and images. The [installation guide](docs/guides/installation.md) and [personal-use guide](server/docs/personal-use.md) cover setup and upgrades; configure your own model provider, with charges paid directly and no PractiQ billing.
+Document import needs the self-hosted AI service. It requires Python 3.14+, uv, Node.js 22.12+, PostgreSQL, RabbitMQ, Tencent parsing credentials and a model endpoint supporting the Responses API with text, images and structured output. Keep the service on loopback. The [installation guide](docs/guides/installation.md), [personal-use guide](server/docs/personal-use.md) and [Tencent setup guide](server/docs/tencent-document-parser.md) cover setup and upgrades; configure your own providers, with charges paid directly and no PractiQ billing.
 
 ## Documentation and development
 
-Start with the [documentation index](docs/README.md). It links the [question model](docs/reference/question-model.md), [document task API](server/docs/document-tasks.md), [operations](server/docs/operations.md) and contributor guides. Run `make app-check`, `make web-check` or `make verify` for the part you changed; Playwright covers the app's bilingual interactions with mocked native commands and no model calls:
+Start with the [documentation index](docs/README.md). It links the [question model](docs/reference/question-model.md), [document task API](server/docs/document-tasks.md), [operations](server/docs/operations.md) and contributor guides. Run `make app-check`, `make web-check` or `make verify` for the part you changed; Playwright covers interactions in all three app languages with mocked native commands and no model calls:
 
 ```sh
 cd app
