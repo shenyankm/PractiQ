@@ -1,8 +1,8 @@
 # Changelog
 
-## 0.2.2 — Unreleased
+## [0.2.2](https://github.com/shenyankm/PractiQ/releases/tag/v0.2.2) — 2026-11-05
 
-Prepared for macOS 14+ on Apple Silicon. Publication is pending final-candidate checks and the signing, clean-machine and live-model acceptance required by the [release policy](docs/maintainers/releases.md).
+Published for macOS 14+ on Apple Silicon with explicit maintainer approval to defer the signing, clean-machine and live-model requirements in the [release policy](docs/maintainers/releases.md). The installer is unsigned and not notarized; final clean-machine and live-model acceptance remain incomplete. Same-candidate automated checks passed, and all four unchanged release attachments have verified checksums and Actions provenance. See the release notes for evidence and limitations.
 
 - Add a learning overview with daily review suggestions, 7- and 30-day statistics, personal notes, mistake causes and backup reminders.
 - Grade submitted short answers during ordinary practice with individual scoring points and checked reference/answer quotations; preserve explicit grading and retry controls.
@@ -15,6 +15,8 @@ Prepared for macOS 14+ on Apple Silicon. Publication is pending final-candidate 
 - Correct the three README translations for provider data flow, model API requirements, import options and backup compatibility.
 
 Desktop data remains in `v4/` with SQLite schema 11; full backup version 4, bank ZIP version 2 and AI JSON schema 3 are unchanged. Full backups may include optional version-1 learning notes and grading connection settings, without credentials. The independent AI service source remains `0.3.0` and requires separate deployment.
+
+[Changes since v0.2.1](https://github.com/shenyankm/PractiQ/compare/v0.2.1...v0.2.2).
 
 ## [0.2.2-rc.1](https://github.com/shenyankm/PractiQ/releases/tag/v0.2.2-rc.1) — 2026-11-02
 

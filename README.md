@@ -63,9 +63,9 @@ Ordinary practice supports explicit grading after submitting the current short a
 
 ## Install
 
-Download the macOS 14+ Apple Silicon installer from [PractiQ v0.2.1](https://github.com/shenyankm/PractiQ/releases/tag/v0.2.1). This release is unsigned and not notarized; read the release notes for checksums, installation steps and incomplete acceptance checks.
+Download the macOS 14+ Apple Silicon installer from [PractiQ v0.2.2](https://github.com/shenyankm/PractiQ/releases/tag/v0.2.2). This release is unsigned and not notarized; read the release notes for checksums, installation steps and incomplete acceptance checks.
 
-[v0.2.2-rc.1](https://github.com/shenyankm/PractiQ/releases/tag/v0.2.2-rc.1) is also available as a prerelease, unsigned and not notarized. This README describes the current source; published installers may not include every feature described here.
+This README describes the current source; published installers may not include every later source change. Earlier releases and prereleases remain available on [GitHub Releases](https://github.com/shenyankm/PractiQ/releases).
 
 To build from source, open the repository root and ask your coding agent to use this prompt:
 
