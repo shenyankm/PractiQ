@@ -63,9 +63,9 @@
 
 ## 安装
 
-前往 [PractiQ v0.2.1](https://github.com/shenyankm/PractiQ/releases/tag/v0.2.1) 下载 macOS 14+、Apple Silicon 安装包。此版本尚未签名或公证；校验和、安装步骤及未完成的验收项见发布说明。
+前往 [PractiQ v0.2.2](https://github.com/shenyankm/PractiQ/releases/tag/v0.2.2) 下载 macOS 14+、Apple Silicon 安装包。此版本尚未签名或公证；校验和、安装步骤及未完成的验收项见发布说明。
 
-另有预发布版 [v0.2.2-rc.1](https://github.com/shenyankm/PractiQ/releases/tag/v0.2.2-rc.1)，同样未签名或公证。本 README 描述当前源码，已发布安装包可能尚未包含这里列出的全部功能。
+本 README 描述当前源码，已发布安装包可能尚未包含后续源码改动。早期版本和预发布版仍可在 [GitHub Releases](https://github.com/shenyankm/PractiQ/releases) 中获取。
 
 如需从源码构建，打开仓库根目录，让 AI 编程助手使用以下提示：
 
