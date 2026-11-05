@@ -11,9 +11,10 @@
 - **匯入與複核**：用 AI 從文件中擷取題目，檢查需要複核的內容，整理自己的題庫。
 - **練習與組卷**：跨題庫依題型、錯題、收藏或未作答題目挑選題目，進行練習、自我測驗或限時模擬考。
 - **查看評分**：客觀題立即在本機評分，簡答題可交由 AI 評分，也可以自行調整分數。
+- **複習與紀錄**：依推薦題目複習，查看近 7 天或 30 天的學習統計，記錄個人筆記與錯因。
 - **儲存與分享**：下次接續上次的進度練習，備份個人紀錄，將題庫連同圖片與音訊匯出為 ZIP 分享。
 
-應用程式提供簡體中文、繁體中文與英文介面，支援淺色與深色主題、七種基本題型，以及英語聽力、閱讀、克漏字、翻譯與寫作。資料只儲存在你的裝置上，不需要帳號，也不會同步到雲端。
+應用程式提供簡體中文、繁體中文與英文介面，支援淺色與深色主題、七種基本題型，以及英語聽力、閱讀、克漏字、翻譯與寫作。練習紀錄儲存在你的裝置上，不需要帳號，也不會同步到雲端。AI 匯入會將文件傳送至自架服務、騰訊雲與設定的模型供應商；選用的 AI 批改會將評分內容傳送至所選端點。
 
 本文件採用台灣繁體中文用語；應用程式提供繁體中文介面，下列操作名稱以繁體中文介面為準。
 
@@ -43,24 +44,30 @@
 
 文件匯入在自行架設的 AI 服務網頁中進行：
 
-1. [啟動服務](#自架匯入服務)，開啟網頁並填入服務存取權杖（`AI_SERVICE_TOKEN`）。
+1. [啟動服務](#自架匯入服務)，開啟網頁即可使用，不需登入或填寫存取權杖。
 2. 一次最多選擇 10 份檔案，點選**开始导入**。僅選擇檔案不會上傳或解析。
 3. 檢查題目、圖片與需要複核的內容，再下載題庫 ZIP。
 4. 在桌面應用程式中開啟**設定 → 匯入與還原 → 匯入題庫 ZIP**。
 
-服務透過騰訊雲的[非同步多模態文件解析](https://cloud.tencent.com/document/product/866/139312)讀取 **PDF、TXT、Markdown、PNG/JPEG、DOC、DOCX、PPT、PPTX、XLS 及 XLSX**。騰訊雲於首次啟用時提供 **1,000 頁免費額度，有效期限一年**。
+服務透過騰訊雲的[非同步多模態文件解析](https://cloud.tencent.com/document/api/866/139312)讀取 **PDF、TXT、Markdown、PNG/JPEG、DOC、DOCX、PPT、PPTX、XLS 及 XLSX**，不支援新建 CSV 匯入。騰訊雲[計費說明](https://cloud.tencent.com/document/product/866/17619)列有首次啟用的一次性 **1,000 頁免費額度，有效期限一年**；領取資格與剩餘額度以騰訊雲帳號為準。文件解析與模型呼叫分別計費。
+
+預設僅擷取原文已有的答案與解析。如需補充缺漏內容，在網頁設定中開啟**AI 生成答案与解析**，等待儲存成功，再點選**开始导入**。原有答案會保留，生成內容標記為待核對，並共用匯入作業的模型呼叫預算。
 
 查看與下載結果不會呼叫模型；接續、重試或重新解析可能產生供應商費用。請在 **180 天**內下載需要保留的結果，匯入作業到期不影響已匯入的題庫。詳見[匯入任務指南（英文）](docs/guides/import-tasks.md)。
 
 ## 使用 AI 批改主觀題
 
-開啟**設定 → AI 服務**，選擇**直連模型 API**，填入相容 OpenAI 的 API 位址（包含 `/v1` 或供應商要求的基礎路徑）、模型 ID 及自己的 API 金鑰。離線練習與本機評分不需要這些設定。
+開啟**設定 → AI 服務**，選擇**直連模型 API**，填入相容 OpenAI Chat Completions 的 API 位址（包含 `/v1` 或供應商要求的基礎路徑）、模型 ID 及自己的 API 金鑰。離線練習與本機評分不需要這些設定。
 
 批改必須有參考答案或評分規準，可能產生費用，並會將目前題目、材料、圖片與你的作答傳送給所選供應商。每次操作最多請求一次，結果不明時不會自動重新傳送。金鑰儲存在系統憑證存放區，不會納入備份。詳見[練習指南（英文）](docs/guides/practice-guide.md)中的批改限制與重試規則。
+
+一般練習提交目前簡答題後也可主動評分；自我測驗與模擬考仍須先交卷。評分結果顯示逐項得分、評分依據與作答引文，並驗證引文與分數總和；原題未提供分值時，練習採百分制評分。評分仍用於個人輔助核對，獨立人工標註的品質驗收尚未完成。
 
 ## 安裝
 
 前往 [PractiQ v0.2.1](https://github.com/shenyankm/PractiQ/releases/tag/v0.2.1) 下載 macOS 14+、Apple Silicon 安裝套件。此版本尚未簽章或公證；校驗碼、安裝步驟及未完成的驗收項目請見發布說明。
+
+另有預發布版 [v0.2.2-rc.1](https://github.com/shenyankm/PractiQ/releases/tag/v0.2.2-rc.1)，同樣未簽章或公證。本 README 描述目前原始碼，已發布安裝套件可能尚未包含這裡列出的全部功能。
 
 如需從原始碼建置，開啟儲存庫根目錄，讓 AI 程式設計助理使用以下提示：
 
@@ -70,15 +77,15 @@
 
 PractiQ 仍在開發中。建置通過不代表已完成簽章、乾淨環境驗收或真實模型準確性驗證。已發布的安裝套件與驗證證據請見 [GitHub Releases](https://github.com/shenyankm/PractiQ/releases)。
 
-桌面資料儲存在新的 `v4/` 目錄中。舊目錄會原樣保留，舊版完整備份不再接受，目前格式的題庫 ZIP 仍可匯入。詳見[資料格式說明（英文）](docs/reference/question-model.md#versions-and-directories)。
+桌面資料儲存在 `v4/` 目錄中，SQLite schema 為 11。完整備份使用容器版本 4、schema 11；先前使用相同版本的備份仍受支援。更舊的 schema 不會自動遷移，舊目錄會原樣保留，目前格式的題庫 ZIP 仍可匯入。詳見[資料格式說明（英文）](docs/reference/question-model.md#versions-and-directories)。
 
 ## 自架匯入服務
 
-文件匯入需要自行架設的 AI 服務，需要 Python 3.14+、uv、Node.js 22.12+、PostgreSQL、RabbitMQ，以及支援文字與圖片輸入的模型。[安裝指南（英文）](docs/guides/installation.md)與[個人自架服務指南（英文）](server/docs/personal-use.md)說明部署與升級；模型設定由你提供，費用直接支付給供應商，PractiQ 不提供計費。
+文件匯入需要自行架設的 AI 服務，需要 Python 3.14+、uv、Node.js 22.12+、PostgreSQL、RabbitMQ、騰訊雲解析憑證，以及支援 Responses API、文字與圖片輸入和結構化輸出的模型端點。服務應綁定本機回環位址。[安裝指南（英文）](docs/guides/installation.md)、[個人自架服務指南（英文）](server/docs/personal-use.md)與[騰訊雲設定指南](server/docs/tencent-document-parser.md)說明部署與升級；供應商設定由你提供，費用直接支付給供應商，PractiQ 不提供計費。
 
 ## 文件與開發
 
-先看[文件索引（英文）](docs/README.md)，其中有[題型模型（英文）](docs/reference/question-model.md)、[文件任務 API（英文）](server/docs/document-tasks.md)、[部署與維運（英文）](server/docs/operations.md)與貢獻指南。依改動的部分執行 `make app-check`、`make web-check` 或 `make verify`；Playwright 涵蓋應用程式的雙語互動，使用模擬的原生命令，不會呼叫模型：
+先看[文件索引（英文）](docs/README.md)，其中有[題型模型（英文）](docs/reference/question-model.md)、[文件任務 API（英文）](server/docs/document-tasks.md)、[部署與維運（英文）](server/docs/operations.md)與貢獻指南。依改動的部分執行 `make app-check`、`make web-check` 或 `make verify`；Playwright 涵蓋應用程式的三語互動，使用模擬的原生命令，不會呼叫模型：
 
 ```sh
 cd app
