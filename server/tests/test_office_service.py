@@ -148,7 +148,7 @@ async def test_worker_protocol_keeps_stdin_open_and_preserves_sheet_order_and_em
 
 
 @pytest.mark.parametrize("name", ["AWS_SESSION_TOKEN", "GH_TOKEN", "GITHUB_TOKEN", "NPM_TOKEN",
-                                 "SERVICE_TOKEN", "CI_JOB_TOKEN", "RABBITMQ_URI"])
+                                 "SERVICE_TOKEN", "CI_JOB_TOKEN", "RABBITMQ_URI", "RABBITMQ_FAILOVER_URIS"])
 @pytest.mark.parametrize("casing", [str.upper, str.lower, str.title], ids=["upper", "lower", "mixed"])
 async def test_worker_does_not_inherit_deployment_tokens(tmp_path, monkeypatch, name, casing):
     credential = casing(name)
@@ -175,11 +175,12 @@ async def test_worker_does_not_inherit_deployment_tokens(tmp_path, monkeypatch, 
     assert env["PYTHONDONTWRITEBYTECODE"] == "1"
 
 
-def test_conversion_child_does_not_inherit_broker_credentials(monkeypatch, tmp_path):
-    monkeypatch.setenv("RABBITMQ_URI", "amqp://audit-user:dummy-password@127.0.0.1/practiq")
+@pytest.mark.parametrize('name', ['RABBITMQ_URI', 'RABBITMQ_FAILOVER_URIS'])
+def test_conversion_child_does_not_inherit_broker_credentials(monkeypatch, tmp_path, name):
+    monkeypatch.setenv(name, "amqp://audit-user:dummy-password@127.0.0.1/practiq")
     monkeypatch.setattr(office.os, "environ", office_service._environment(str(tmp_path)))
     output = office._run(
-        [sys.executable, "-c", "import os; print('RABBITMQ_URI' in os.environ)"],
+        [sys.executable, "-c", f"import os; print({name!r} in os.environ)"],
         time.monotonic() + 10,
     )
     assert output.strip() == b"False"

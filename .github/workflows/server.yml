@@ -49,6 +49,7 @@ jobs:
       TEST_DATABASE_URI: postgresql://postgres:practiq-test@127.0.0.1:5432/postgres
       TEST_RABBITMQ_URI: amqp://practiq-test:practiq-test@127.0.0.1:5672/
       TEST_RABBITMQ_MANAGEMENT_URL: http://127.0.0.1:15672
+      TEST_RABBITMQ_PROMETHEUS_URL: http://127.0.0.1:15692
     services:
       postgres:
         image: postgres:16
@@ -67,6 +68,7 @@ jobs:
         ports:
           - 5672:5672
           - 15672:15672
+          - 15692:15692
         options: >-
           --health-cmd "rabbitmq-diagnostics -q check_running"
           --health-interval 5s --health-timeout 5s --health-retries 12
@@ -74,6 +76,15 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.ref || github.sha }}
+      - name: Configure disposable broker monitoring and watermarks
+        env:
+          BROKER_CONTAINER: ${{ job.services.rabbitmq.id }}
+        run: |
+          docker cp server/deploy/rabbitmq.conf "$BROKER_CONTAINER:/etc/rabbitmq/conf.d/20-practiq.conf"
+          docker cp server/deploy/rabbitmq-enabled-plugins "$BROKER_CONTAINER:/etc/rabbitmq/enabled_plugins"
+          docker restart "$BROKER_CONTAINER"
+          curl --fail --max-time 3 --retry 60 --retry-all-errors --retry-delay 1 --retry-max-time 60 http://127.0.0.1:15672/api/overview --user practiq-test:practiq-test > /dev/null
+          curl --fail --max-time 3 --retry 60 --retry-all-errors --retry-delay 1 --retry-max-time 60 http://127.0.0.1:15692/metrics > /dev/null
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: ${{ matrix.python }}
@@ -98,12 +109,13 @@ jobs:
         if: matrix.python == '3.15'
         run: npx --prefix web playwright install --with-deps chromium
       - name: Verify independent service web frontend
+        id: web_checks
         if: matrix.python == '3.15'
         env:
           VITEST_MAX_WORKERS: '2'
         run: make web-check
       - name: Upload service web check reports
-        if: ${{ always() && matrix.python == '3.15' }}
+        if: ${{ always() && matrix.python == '3.15' && (steps.web_checks.outcome == 'success' || steps.web_checks.outcome == 'failure') }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: service-web-checks

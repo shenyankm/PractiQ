@@ -92,7 +92,7 @@ groups:
         labels: {severity: warning}
         annotations: {summary: "Model-stage P95 exceeds 180 seconds"}
       - alert: PractiQBrokerUnavailable
-        expr: practiq_broker_connected == 0
+        expr: practiq_broker_connected == 0 and on(job,instance) practiq_broker_required == 1
         for: 2m
         labels: {severity: critical}
         annotations: {summary: "Broker unavailable; committed outbox is retained"}
@@ -105,3 +105,37 @@ groups:
         expr: sum(increase(practiq_delivery_events_total{outcome=~"poison|unsupported"}[5m])) > 0
         labels: {severity: warning}
         annotations: {summary: "Inspect the durable RabbitMQ dead-letter queue; replay requires an operator"}
+      - alert: PractiQBrokerMonitoringUnavailable
+        expr: (up{job=~"practiq-rabbitmq(-queues)?"} == 0 or absent(up{job="practiq-rabbitmq"}) or absent(up{job="practiq-rabbitmq-queues"})) and on() max(practiq_broker_required) == 1
+        for: 2m
+        labels: {severity: critical}
+        annotations: {summary: "RabbitMQ node or queue monitoring is unavailable"}
+      - alert: PractiQBrokerResourceAlarm
+        expr: rabbitmq_alarms_memory_used_watermark > 0 or rabbitmq_alarms_free_disk_space_watermark > 0
+        for: 1m
+        labels: {severity: critical}
+        annotations: {summary: "RabbitMQ resource alarm blocks publishing; inspect memory and disk"}
+      - alert: PractiQBrokerCapacity
+        expr: rabbitmq_process_resident_memory_bytes / rabbitmq_resident_memory_limit_bytes > 0.85 or rabbitmq_disk_space_available_bytes < rabbitmq_disk_space_available_limit_bytes * 1.5
+        for: 5m
+        labels: {severity: warning}
+        annotations: {summary: "RabbitMQ is approaching its memory or disk watermark"}
+      - alert: PractiQDeadLetters
+        expr: max by(vhost,queue) (rabbitmq_detailed_queue_messages{vhost="practiq",queue="practiq.document.v1.dead"}) > 0
+        for: 1m
+        labels: {severity: critical}
+        annotations: {summary: "RabbitMQ dead letters require inspection and explicit recovery"}
+      - alert: PractiQBrokerNoConsumer
+        expr: (max by(vhost,queue) (rabbitmq_detailed_queue_consumers{vhost="practiq",queue="practiq.document.v1"}) == 0 or absent(rabbitmq_detailed_queue_consumers{vhost="practiq",queue="practiq.document.v1"})) and on() max(practiq_broker_required) == 1
+        for: 2m
+        labels: {severity: critical}
+        annotations: {summary: "RabbitMQ document queue has no consumer or its metrics are missing"}
+      - alert: PractiQPendingRunStalled
+        expr: practiq_pending_oldest_seconds > 1800
+        for: 5m
+        labels: {severity: warning}
+        annotations: {summary: "A committed document run has waited more than 30 minutes"}
+      - alert: PractiQBrokerFailures
+        expr: sum by(role,stage,reason) (increase(practiq_broker_failures_total[10m])) > 3
+        labels: {severity: warning}
+        annotations: {summary: "Repeated RabbitMQ failures; inspect the sanitized role, stage and reason"}

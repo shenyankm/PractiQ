@@ -99,6 +99,50 @@ def test_web_audit_step_preserves_failing_exit_status(tmp_path, exit_code):
     assert result.returncode == exit_code, result.stdout + result.stderr
 
 
+@pytest.mark.parametrize("failure", ["", "copy", "management", "prometheus"])
+def test_broker_setup_waits_for_http_without_requiring_a_running_erlang_node(tmp_path, failure):
+    root = Path(__file__).resolve().parents[2]
+    workflow = yaml.load((root / ".github/workflows/server.yml").read_text(), Loader=yaml.BaseLoader)
+    setup, = (step for step in workflow["jobs"]["quality"]["steps"]
+              if step.get("name") == "Configure disposable broker monitoring and watermarks")
+    for name in ("docker", "curl"):
+        executable = tmp_path / name
+        executable.write_text(f"#!{sys.executable}\n" + '''
+import json
+import os
+import sys
+from pathlib import Path
+
+name, args = Path(sys.argv[0]).name, sys.argv[1:]
+with Path(os.environ["CALLS"]).open("a") as calls:
+    calls.write(json.dumps([name, *args]) + "\\n")
+failure = os.environ["FAILURE"]
+if name == "docker":
+    if args[0] == "exec":
+        sys.exit(69)  # The Erlang node is not reachable immediately after restart.
+    sys.exit(17 if failure == "copy" and args[0] == "cp" else 0)
+assert {"--fail", "--retry-all-errors", "--retry-max-time", "--max-time"} <= set(args)
+stage = "management" if any("/api/overview" in arg for arg in args) else "prometheus"
+sys.exit(22 if failure == stage else 0)
+''')
+        executable.chmod(0o755)
+    calls = tmp_path / "calls.jsonl"
+    result = subprocess.run(
+        ["bash", "-e", "-c", setup["run"]], cwd=root,
+        env={**os.environ, "PATH": f"{tmp_path}{os.pathsep}{os.environ['PATH']}",
+             "BROKER_CONTAINER": "disposable-test", "CALLS": str(calls), "FAILURE": failure},
+        capture_output=True, text=True, check=False,
+    )
+    assert result.returncode == {"": 0, "copy": 17, "management": 22, "prometheus": 22}[failure], result.stderr
+    requests = [json.loads(line) for line in calls.read_text().splitlines()]
+    http_calls = [args for name, *args in requests if name == "curl"]
+    assert len(http_calls) == {"": 2, "copy": 0, "management": 1, "prometheus": 2}[failure]
+    if http_calls:
+        assert "http://127.0.0.1:15672/api/overview" in http_calls[0]
+    if len(http_calls) == 2:
+        assert "http://127.0.0.1:15692/metrics" in http_calls[1]
+
+
 @pytest.mark.parametrize("failure", ["", "lock", "tests", "combine", "coverage", "probes"])
 def test_verify_keeps_reports_without_hiding_failures(tmp_path, failure):
     shutil.copyfile(Path(__file__).resolve().parents[2] / "Makefile", tmp_path / "Makefile")
@@ -597,7 +641,10 @@ def test_service_web_upload_covers_configured_nonhidden_report_outputs():
         if step.get("uses", "").startswith("actions/upload-artifact@")
         and step["with"].get("name", "").startswith("service-web-checks")
     )
-    assert upload["if"] == "${{ always() && matrix.python == '3.15' }}"
+    web_check, = (step for step in workflow["jobs"]["quality"]["steps"] if step.get("run") == "make web-check")
+    assert web_check["id"] == "web_checks"
+    assert upload["if"] == ("${{ always() && matrix.python == '3.15' && "
+                            "(steps.web_checks.outcome == 'success' || steps.web_checks.outcome == 'failure') }}")
     assert "continue-on-error" not in upload
     assert upload["with"]["name"] == "service-web-checks"
     assert upload["with"]["if-no-files-found"] == "error"

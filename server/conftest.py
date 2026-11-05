@@ -4,7 +4,7 @@ import os
 import pytest
 
 for key in tuple(os.environ):
-    if key.startswith(("AI_", "LLM_")) or key in {"N_JOBS_PER_WORKER", "DATABASE_URI", "REDIS_URI"}:
+    if key.startswith(("AI_", "LLM_")) or key in {"N_JOBS_PER_WORKER", "DATABASE_URI", "REDIS_URI", "RABBITMQ_FAILOVER_URIS"}:
         os.environ.pop(key)
 
 os.environ.update({

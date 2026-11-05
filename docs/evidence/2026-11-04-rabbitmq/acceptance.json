@@ -1,0 +1,171 @@
+{
+  "schemaVersion": 1,
+  "kind": "rabbitmq-optimization-local-acceptance",
+  "status": "PASSED",
+  "generatedAt": "2026-11-04T15:18:59.018905+00:00",
+  "environment": {
+    "os": "Darwin",
+    "architecture": "arm64",
+    "python": "3.14.7",
+    "database": "Disposable PostgreSQL 16",
+    "broker": "Disposable RabbitMQ 4.3.6",
+    "providers": "Model/Tencent substitutes"
+  },
+  "baseCommit": "4c6a10dce99ba564f7eb1ded1d3aacd63ae3ee43",
+  "changeFileHashes": {
+    ".env.example": "33552e128011571b1038464231a82759997cc20c9664e7c4f893b3d0bdc30293",
+    ".github/workflows/server.yml": "e9bd0527197cb563dcbf9dbcc08802303ddbde3df5a20d1fd45f2a649a4ca581",
+    "server/conftest.py": "19801ba2ba57c1f7f7974c27dee6ee1d15f040527d6810d5c19979b75358e0dc",
+    "server/deploy/alerts.rules.yml": "410539e5471e71f9c4421d60e161e0f43a15bf0687b82aa3031c68d098ef267f",
+    "server/deploy/alerts.test.yml": "8adaa33cc7299672fef4181fd289871e1404a8efc8cfe18e321de387cb087372",
+    "server/deploy/prometheus.example.yml": "5db01a7a9be37d854a1263fdb3a8589af03146ae600790ce48d8f2f31c685fd6",
+    "server/deploy/rabbitmq-cluster.compose.yml": "95719c40babd167ef0c3058e097f5e1833d48a36b514a9927b763052941391aa",
+    "server/deploy/rabbitmq-cluster.conf": "a5da511a61e8af3793750f77b08f9a12039e259b648d4e5ef1f03b03d0630db8",
+    "server/deploy/rabbitmq-enabled-plugins": "a63f0dd4e9181c82af9ad191df89429da0b761517e4a05570a0c67de4c0c1c2d",
+    "server/deploy/rabbitmq-policies.json": "b17dab7a3631b771737ea08bd665ed65343f3f0e0b1391a5aa335acac7f85e8b",
+    "server/deploy/rabbitmq.conf": "a98bccb959ecfca2938cfc3e8037e90b055295e1cf16646a5778835d8b786fc7",
+    "server/deploy/service.compose.yml": "f982dbe7d35f55aeb1a18a7e33d789b08ac991c100a297faaa8de4e673d82f84",
+    "server/docs/operations.md": "13e6ed607021d18d243055583881df5fc77a642d0831a872a8a0b947d799ca81",
+    "server/docs/production-readiness.md": "db924d44466890fc91e6b485c8c92176ecea3d3b13662a8d3bd939b54d3cc35a",
+    "server/docs/rabbitmq.md": "3f35177f5b947a35aa30edcbdf705ac8d0990edd2d4ddfbfca85ad391c7e79cc",
+    "server/scripts/accept_workflow.py": "ab909eb541e771d70166c95c1d75f659907f64b3b6003db2c5767edc5e48402d",
+    "server/scripts/benchmark_agent_pipeline.py": "cbcdbb4dfa4c66347858b2ddb2aa7c7ba2967e49221c0c49ea62516becd1b04c",
+    "server/scripts/evaluate.py": "710f0e9f643657138e0f75ea389e3a31e3af329b4e1424d4e79ba7ed11c706e4",
+    "server/scripts/production_acceptance.py": "07a300ca4b09ed4c32371c914fe47a045f44d54867545f64f9f72e84cbe301e3",
+    "server/src/practiq_ai/config.py": "75964fd10f2f6587ff7318013fe783cdb491305cd7c17e28a216cf72aae50a16",
+    "server/src/practiq_ai/messaging.py": "3a6b4138975ef391a8ce099f32982db5e922144c2a38cb18d24a62f0e16b1606",
+    "server/src/practiq_ai/office_service.py": "db2f4a50c7e2519496f44422723634c9ffe65192af837d12ab09250e490918c4",
+    "server/src/practiq_ai/runtime.py": "87fdb60635ddbb0ae1696169f3f58baa36ec87b56f86d2464b14775f22a56e0c",
+    "server/src/practiq_ai/telemetry.py": "1a07741638d8945dda462ec61dad72e1c90e18267b11869be5abeec1fb9cbae8",
+    "server/src/practiq_ai/webapp.py": "e2df319fbad607c18cd99af897c362178df28a9e0d1766cc7fa7f0dfa464f19d",
+    "server/tests/mq_cluster_support.py": "7c92b80fd25363727463a9b9c2615785ff8edc5fc91df17c8f4cae1b72790a85",
+    "server/tests/mq_support.py": "dc28321ae55ad6966d06c82525a74a8acf9a73cf21fcadd6ecb16c753b4f15dd",
+    "server/tests/test_agent_pipeline.py": "e372e294ab4c08a272ed2419a7b043d1e4dcd0cd225cc92268f57c6b3a06b777",
+    "server/tests/test_broker_operations.py": "1702c4c9a34ef7abe48e85b1c3a2bb317e0f701af78c76a8cfa6da59583530c4",
+    "server/tests/test_messaging.py": "8d26f498f739df89ccf63b20c08a7407450a72369a3f03cb2b8b320b765e563d",
+    "server/tests/test_office_service.py": "6a6c1676cdd7204e0f183589c2c0c31f47fa2fc3a68e6e47c10fa2da033246a9",
+    "server/tests/test_production_acceptance.py": "4ef43192b0ab83c4f7c081f226b3b403bf41b18193ed24fa39986f165d4eabc5",
+    "server/tests/test_task_detail_contract.py": "5ea2d41f3044148aa10d866a39ae3a887039d7cf5353a23183bf8dcf9b2f4b54"
+  },
+  "changeBindingSha256": "25b930465d8c6ed9d9c9805cc2133fa30373e01491f7cd5409410bf902597a05",
+  "makeVerify": {
+    "status": "PASSED",
+    "tests": 3719,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "pytestSeconds": 745.608,
+    "combinedCoveragePercent": 93.5,
+    "statementCoveragePercent": 94.76,
+    "branchCoveragePercent": 90.21,
+    "evaluationFixturesValidated": 30
+  },
+  "probeFingerprint": "a408b69fa5ddd59ae62e0133f384c1aef5ef3914b133d4d3a7cd94e14908ae6a",
+  "probeMetrics": {
+    "recoverySuccessRate": 100.0,
+    "correctStopRate": 100.0,
+    "routingPassRate": 100.0,
+    "unknownUsagePassRate": 100.0
+  },
+  "brokerOperationCases": 27,
+  "brokerScenarios": {
+    "test_publisher_failure_does_not_close_consumer_or_lose_its_ack": {
+      "status": "PASSED",
+      "cases": 1,
+      "seconds": 2.707
+    },
+    "test_broker_failure_logs_only_sanitized_reason_and_verified_identity": {
+      "status": "PASSED",
+      "cases": 9,
+      "seconds": 0.01
+    },
+    "test_wrapped_tls_error_remains_diagnosable_without_logging_its_message": {
+      "status": "PASSED",
+      "cases": 1,
+      "seconds": 0.001
+    },
+    "test_read_only_control_wake_is_consumed_without_connecting": {
+      "status": "PASSED",
+      "cases": 1,
+      "seconds": 0.002
+    },
+    "test_memory_alarm_keeps_consumer_ack_and_outbox_recovers": {
+      "status": "PASSED",
+      "cases": 1,
+      "seconds": 7.72
+    },
+    "test_capacity_policy_rejects_publish_and_full_dlq_retains_dead_letters": {
+      "status": "PASSED",
+      "cases": 1,
+      "seconds": 9.472
+    },
+    "test_broker_deployment_preserves_data_and_bounds_resources": {
+      "status": "PASSED",
+      "cases": 1,
+      "seconds": 0.011
+    },
+    "test_failover_endpoints_reject_invalid_or_different_vhosts_without_credentials": {
+      "status": "PASSED",
+      "cases": 9,
+      "seconds": 0.01
+    },
+    "test_failover_is_optional_and_preserves_endpoint_order": {
+      "status": "PASSED",
+      "cases": 1,
+      "seconds": 0.001
+    },
+    "test_passive_metrics_expose_connection_roles_pending_age_and_read_only": {
+      "status": "PASSED",
+      "cases": 1,
+      "seconds": 1.716
+    },
+    "test_three_node_quorum_survives_connected_leader_loss_without_repeating_models": {
+      "status": "PASSED",
+      "cases": 1,
+      "seconds": 12.532
+    }
+  },
+  "alertsCheck": {
+    "status": "PASSED",
+    "command": "make alerts-check",
+    "files": {
+      "server/deploy/alerts.rules.yml": "410539e5471e71f9c4421d60e161e0f43a15bf0687b82aa3031c68d098ef267f",
+      "server/deploy/alerts.test.yml": "8adaa33cc7299672fef4181fd289871e1404a8efc8cfe18e321de387cb087372",
+      "server/deploy/prometheus.example.yml": "5db01a7a9be37d854a1263fdb3a8589af03146ae600790ce48d8f2f31c685fd6"
+    }
+  },
+  "threeNodeProfileSmoke": {
+    "schemaVersion": 1,
+    "kind": "rabbitmq-profile-smoke",
+    "status": "PASSED",
+    "environment": "local-disposable-docker",
+    "queues": {
+      "practiq.document.v1": {
+        "members": 3,
+        "maxLength": 1000,
+        "maxBodyBytes": 1048576,
+        "overflow": "reject-publish"
+      },
+      "practiq.document.v1.dead": {
+        "members": 3,
+        "maxLength": 10000,
+        "maxBodyBytes": 10485760,
+        "overflow": "reject-publish"
+      }
+    },
+    "prometheusStatus": 200,
+    "memoryWatermarkBytes": 805306368,
+    "scope": "Local node replication, mounted policy import and exporter; not cross-host HA"
+  },
+  "packages": {
+    "practiq_ai_service-0.3.0.tar.gz": "4b54a8c49620dd3e9250e1d14c23119da36e16443613db4cf87d1fe508398343",
+    "practiq_ai_service-0.3.0-py3-none-any.whl": "cdc251e5e2845b22ed21debc13e5736f41663030bbef8f25f84948b269c002d8"
+  },
+  "notValidated": [
+    "Hosted CI",
+    "Live deployment and effective policies on existing brokers",
+    "Delivery to a real alert receiver",
+    "Cross-host/disk disaster recovery and end-to-end HA",
+    "Real provider billing, model quality or production capacity"
+  ]
+}

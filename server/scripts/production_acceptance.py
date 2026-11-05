@@ -95,6 +95,7 @@ def check(inputs: dict[str, Any], *, code_hash: str, now: float,
         samples = monitoring["data"]["result"]
         metrics: dict[str, list[float]] = {}
         jobs: dict[str, list[float]] = {}
+        queues: dict[tuple[str, str], list[float]] = {}
         for sample in samples:
             labels = sample["metric"]
             timestamp, value = sample["value"]
@@ -102,17 +103,26 @@ def check(inputs: dict[str, Any], *, code_hash: str, now: float,
                 reasons.append("MONITORING_STALE")
             name = labels["__name__"]
             expected_job = "practiq-ready" if name == "probe_success" else "practiq-backups" if name.startswith("practiq_backup_") else "practiq-ai"
+            if name.startswith('rabbitmq_detailed_'):
+                expected_job = 'practiq-rabbitmq-queues'
+            elif name.startswith('rabbitmq_'):
+                expected_job = 'practiq-rabbitmq'
             if labels.get("job") == expected_job:
                 metrics.setdefault(name, []).append(_number(value))
+                if expected_job == 'practiq-rabbitmq-queues' and labels.get('vhost') == 'practiq':
+                    queues.setdefault((labels.get('queue', ''), name), []).append(_number(value))
             if labels["__name__"] == "up":
                 jobs.setdefault(labels.get("job", ""), []).append(_number(value))
             if labels["__name__"] == "ALERTS" and labels.get("alertstate") == "firing":
                 reasons.append("ACTIVE_ALERTS")
-        for job in ("practiq-ai", "practiq-ready", "practiq-backups", "practiq-containers"):
+        for job in ("practiq-ai", "practiq-ready", "practiq-backups", "practiq-containers", "practiq-rabbitmq", "practiq-rabbitmq-queues"):
             if not jobs.get(job) or any(value != 1 for value in jobs[job]):
                 reasons.append("MONITORING_INCOMPLETE")
         required = {"probe_success": 1, "practiq_backup_last_attempt_success": 1,
                     "practiq_storage_healthy": 1, "practiq_broker_connected": 1,
+                    "practiq_broker_publisher_connected": 1, "practiq_broker_consumer_connected": 1,
+                    "practiq_broker_required": 1,
+                    "rabbitmq_alarms_memory_used_watermark": 0, "rabbitmq_alarms_free_disk_space_watermark": 0,
                     "practiq_worker_sandbox_required": 1, "practiq_cost_budget_enabled": 1,
                     "practiq_tencent_unknown_jobs": 0}
         if any(not metrics.get(name) or any(value != expected for value in metrics[name]) for name, expected in required.items()):
@@ -124,6 +134,14 @@ def check(inputs: dict[str, Any], *, code_hash: str, now: float,
             reasons.append("BACKUP_STALE")
         if not metrics.get("practiq_outbox_oldest_seconds") or max(metrics["practiq_outbox_oldest_seconds"]) > 120:
             reasons.append("OUTBOX_STALLED")
+        if not metrics.get('practiq_pending_oldest_seconds') or max(metrics['practiq_pending_oldest_seconds']) > 1800:
+            reasons.append('PENDING_RUN_STALLED')
+        consumers = queues.get(('practiq.document.v1', 'rabbitmq_detailed_queue_consumers'), [])
+        dead_letters = queues.get(('practiq.document.v1.dead', 'rabbitmq_detailed_queue_messages'), [])
+        if not consumers or max(consumers) < 1 or not dead_letters:
+            reasons.append('BROKER_QUEUE_MONITORING_INCOMPLETE')
+        if any(value > 0 for value in dead_letters):
+            reasons.append('BROKER_DEAD_LETTERS')
     except (KeyError, TypeError, ValueError, OverflowError):
         return {**report, "status": "BLOCKED", "gateReasons": [*dict.fromkeys(reasons), "INVALID_EVIDENCE"]}
     return {**report, "status": "FAILED" if reasons else "PASSED", "gateReasons": list(dict.fromkeys(reasons))}

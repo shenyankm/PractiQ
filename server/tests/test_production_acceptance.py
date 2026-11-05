@@ -26,15 +26,22 @@ def evidence():
     restore = {"schemaVersion": 1, "kind": "service-backup-operation", "action": "restore", "status": "PASSED",
                "completedUnix": now, "snapshotUnix": now - 100, "durationSeconds": 20, "codeHash": code, "image": image}
     samples = [{"metric": {"__name__": "up", "job": job}, "value": [now, "1"]}
-               for job in ("practiq-ai", "practiq-ready", "practiq-backups", "practiq-containers")]
+               for job in ("practiq-ai", "practiq-ready", "practiq-backups", "practiq-containers", "practiq-rabbitmq", "practiq-rabbitmq-queues")]
     samples.extend({"metric": {"__name__": name, "job": "practiq-ready" if name == "probe_success" else "practiq-backups" if name.startswith("practiq_backup_") else "practiq-ai"}, "value": [now, str(value)]} for name, value in {
         "probe_success": 1, "practiq_backup_last_attempt_success": 1,
         "practiq_storage_healthy": 1, "practiq_broker_connected": 1,
+        "practiq_broker_publisher_connected": 1, "practiq_broker_consumer_connected": 1, "practiq_broker_required": 1,
+        "practiq_pending_oldest_seconds": 0,
         "practiq_worker_sandbox_required": 1, "practiq_cost_budget_enabled": 1,
         "practiq_cost_daily_limit_micros": 1_000_000,
         "practiq_backup_last_success_timestamp_seconds": now - 100,
         "practiq_outbox_oldest_seconds": 0, "practiq_tencent_unknown_jobs": 0,
     }.items())
+    samples.extend({'metric': {'__name__': name, 'job': 'practiq-rabbitmq'}, 'value': [now, '0']}
+                   for name in ('rabbitmq_alarms_memory_used_watermark', 'rabbitmq_alarms_free_disk_space_watermark'))
+    samples.extend({'metric': {'__name__': name, 'job': 'practiq-rabbitmq-queues', 'vhost': 'practiq', 'queue': queue}, 'value': [now, str(value)]}
+                   for name, queue, value in [('rabbitmq_detailed_queue_consumers', 'practiq.document.v1', 1),
+                                              ('rabbitmq_detailed_queue_messages', 'practiq.document.v1.dead', 0)])
     monitoring = {"status": "success", "data": {"resultType": "vector", "result": samples}}
     return {"quality": quality, "capacity": capacity, "restore": restore, "monitoring": monitoring}, code, now
 
@@ -106,3 +113,29 @@ def test_another_job_cannot_supply_missing_readiness_evidence():
         if sample["metric"]["__name__"] == "probe_success":
             sample["metric"]["job"] = "unrelated-ready"
     assert "MONITORING_INCOMPLETE" in production_acceptance.check(inputs, code_hash=code, now=now)["gateReasons"]
+
+
+@pytest.mark.parametrize('change,reason', [
+    ('missing', 'BROKER_QUEUE_MONITORING_INCOMPLETE'), ('wrong_vhost', 'BROKER_QUEUE_MONITORING_INCOMPLETE'),
+    ('no_consumer', 'BROKER_QUEUE_MONITORING_INCOMPLETE'), ('dead_letters', 'BROKER_DEAD_LETTERS'),
+    ('alarm', 'MONITORING_INCOMPLETE'), ('publisher', 'MONITORING_INCOMPLETE'), ('pending', 'PENDING_RUN_STALLED'),
+])
+def test_broker_operational_gaps_cannot_pass_preflight(change, reason):
+    inputs, code, now = evidence()
+    samples = inputs['monitoring']['data']['result']
+    for sample in samples:
+        labels = sample['metric']
+        name = labels['__name__']
+        if change == 'missing' and name.startswith('rabbitmq_detailed_'):
+            labels['job'] = 'unrelated'
+        elif change == 'wrong_vhost' and name.startswith('rabbitmq_detailed_'):
+            labels['vhost'] = 'unrelated'
+        elif ((change == 'no_consumer' and name == 'rabbitmq_detailed_queue_consumers')
+              or (change == 'publisher' and name == 'practiq_broker_publisher_connected')):
+            sample['value'][1] = '0'
+        elif ((change == 'dead_letters' and name == 'rabbitmq_detailed_queue_messages')
+              or (change == 'alarm' and name == 'rabbitmq_alarms_memory_used_watermark')):
+            sample['value'][1] = '1'
+        elif change == 'pending' and name == 'practiq_pending_oldest_seconds':
+            sample['value'][1] = '1801'
+    assert reason in production_acceptance.check(inputs, code_hash=code, now=now)['gateReasons']

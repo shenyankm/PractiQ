@@ -167,8 +167,9 @@ async def application_metrics() -> Response:
         for name in ('free_bytes', 'total_bytes', 'free_inodes', 'total_inodes'):
             if (value := getattr(health, name)) is not None:
                 body += f'practiq_storage_{name} {value}\n'.encode()
-        rows = await current.db.rows(f"SELECT r.status,count(*) AS n FROM document_runs r JOIN document_tasks t ON t.thread_id=r.thread_id WHERE r.status IN ('pending','running') AND {supported_task_sql('t')} GROUP BY r.status")
+        rows = await current.db.rows(f"SELECT r.status,count(*) AS n,extract(epoch FROM now()-min(r.created_at)) AS age FROM document_runs r JOIN document_tasks t ON t.thread_id=r.thread_id WHERE r.status IN ('pending','running') AND {supported_task_sql('t')} GROUP BY r.status")
         counts = {row['status']: row['n'] for row in rows}
+        pending_age = next((max(0, row['age']) for row in rows if row['status'] == 'pending'), 0)
         outbox = (await current.db.rows('SELECT count(*) AS n,coalesce(extract(epoch FROM now()-min(created_at)),0) AS age FROM document_outbox WHERE published_at IS NULL'))[0]
         unknown = (await current.db.rows(f"""
             SELECT count(*) AS n FROM document_tasks t JOIN store s
@@ -179,10 +180,14 @@ async def application_metrics() -> Response:
         """))[0]['n']
         jobs = load().jobs_per_worker
         body += (f"practiq_broker_connected {int(current.delivery.connected)}\n"
+                 f"practiq_broker_publisher_connected {int(current.delivery.publisher_connected)}\n"
+                 f"practiq_broker_consumer_connected {int(current.delivery.consumer_connected)}\n"
+                 f"practiq_broker_required {int(not settings.read_only)}\n"
                  f"practiq_outbox_pending {outbox['n']}\n"
                  f"practiq_outbox_oldest_seconds {outbox['age']}\n"
                  f"practiq_tencent_unknown_jobs {unknown}\n"
                  f"practiq_pending_runs {counts.get('pending', 0)}\n"
+                 f"practiq_pending_oldest_seconds {pending_age}\n"
                  f"practiq_running_runs {counts.get('running', 0)}\n"
                  f"practiq_queue_capacity {load().max_busy_threads}\n"
                  f"practiq_workers_max {jobs}\n"

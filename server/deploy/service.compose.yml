@@ -48,8 +48,17 @@ services:
     ports:
       - "127.0.0.1:5672:5672"
       - "127.0.0.1:15672:15672"
+      - "127.0.0.1:15692:15692"
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
+      - ./rabbitmq.conf:/etc/rabbitmq/conf.d/20-practiq.conf:ro
+      - ./rabbitmq-enabled-plugins:/etc/rabbitmq/enabled_plugins:ro
+      - ./rabbitmq-policies.json:/etc/rabbitmq/practiq-policies.json:ro
+    cpus: 2
+    mem_limit: 1536m
+    pids_limit: 512
+    ulimits:
+      nofile: {soft: 65536, hard: 65536}
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"]
       interval: 10s

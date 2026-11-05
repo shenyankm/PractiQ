@@ -33,4 +33,15 @@ scrape_configs:
   - job_name: practiq-containers
     static_configs:
       - targets: [127.0.0.1:8082]
+  - job_name: practiq-rabbitmq
+    static_configs:
+      - targets: [127.0.0.1:15692]
+  - job_name: practiq-rabbitmq-queues
+    metrics_path: /metrics/detailed
+    params:
+      vhost: [practiq]
+      family: [queue_coarse_metrics, queue_consumer_count]
+      queue: ['^practiq[.]document[.]v1([.]dead)?$']
+    static_configs:
+      - targets: [127.0.0.1:15692]
 # Add the deployment's Alertmanager receiver before admitting production traffic.

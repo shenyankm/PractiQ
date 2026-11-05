@@ -1,0 +1,72 @@
+# Local three-node acceptance profile; distribute nodes across failure domains for host HA.
+x-broker: &broker
+  image: rabbitmq:4.3.6-management@sha256:8dd6e3570ddaa2ef82a6c3a8950e79c1f73893adfbdddbc374fc1f1ac8a0f5dd
+  restart: unless-stopped
+  environment:
+    RABBITMQ_DEFAULT_USER: ${RABBITMQ_ADMIN_USER:?Set the separate administrator}
+    RABBITMQ_DEFAULT_PASS: ${RABBITMQ_ADMIN_PASSWORD:?Set its password}
+    RABBITMQ_DEFAULT_VHOST: practiq
+    RABBITMQ_ERLANG_COOKIE: ${RABBITMQ_CLUSTER_COOKIE:?Set a private shared Erlang cookie}
+  cpus: 2
+  mem_limit: 1536m
+  pids_limit: 512
+  ulimits:
+    nofile: {soft: 65536, hard: 65536}
+  healthcheck:
+    test: [CMD, rabbitmq-diagnostics, -q, check_running]
+    interval: 5s
+    timeout: 5s
+    retries: 24
+    start_period: 20s
+  stop_grace_period: 70s
+services:
+  rabbitmq-1:
+    <<: *broker
+    hostname: practiq-rabbitmq-1
+    networks:
+      default: {aliases: [practiq-rabbitmq-1]}
+    ports:
+      - "127.0.0.1:${RABBITMQ_NODE1_AMQP_PORT:-5673}:5672"
+      - "127.0.0.1:${RABBITMQ_NODE1_MANAGEMENT_PORT:-15673}:15672"
+      - "127.0.0.1:${RABBITMQ_NODE1_METRICS_PORT:-15693}:15692"
+    volumes:
+      - ./rabbitmq.conf:/etc/rabbitmq/conf.d/20-practiq.conf:ro
+      - ./rabbitmq-cluster.conf:/etc/rabbitmq/conf.d/30-cluster.conf:ro
+      - ./rabbitmq-enabled-plugins:/etc/rabbitmq/enabled_plugins:ro
+      - ./rabbitmq-policies.json:/etc/rabbitmq/practiq-policies.json:ro
+      - rabbitmq-1-data:/var/lib/rabbitmq
+  rabbitmq-2:
+    <<: *broker
+    hostname: practiq-rabbitmq-2
+    networks:
+      default: {aliases: [practiq-rabbitmq-2]}
+    ports:
+      - "127.0.0.1:${RABBITMQ_NODE2_AMQP_PORT:-5674}:5672"
+      - "127.0.0.1:${RABBITMQ_NODE2_MANAGEMENT_PORT:-15674}:15672"
+      - "127.0.0.1:${RABBITMQ_NODE2_METRICS_PORT:-15694}:15692"
+    volumes:
+      - ./rabbitmq.conf:/etc/rabbitmq/conf.d/20-practiq.conf:ro
+      - ./rabbitmq-cluster.conf:/etc/rabbitmq/conf.d/30-cluster.conf:ro
+      - ./rabbitmq-enabled-plugins:/etc/rabbitmq/enabled_plugins:ro
+      - ./rabbitmq-policies.json:/etc/rabbitmq/practiq-policies.json:ro
+      - rabbitmq-2-data:/var/lib/rabbitmq
+  rabbitmq-3:
+    <<: *broker
+    hostname: practiq-rabbitmq-3
+    networks:
+      default: {aliases: [practiq-rabbitmq-3]}
+    ports:
+      - "127.0.0.1:${RABBITMQ_NODE3_AMQP_PORT:-5675}:5672"
+      - "127.0.0.1:${RABBITMQ_NODE3_MANAGEMENT_PORT:-15675}:15672"
+      - "127.0.0.1:${RABBITMQ_NODE3_METRICS_PORT:-15695}:15692"
+    volumes:
+      - ./rabbitmq.conf:/etc/rabbitmq/conf.d/20-practiq.conf:ro
+      - ./rabbitmq-cluster.conf:/etc/rabbitmq/conf.d/30-cluster.conf:ro
+      - ./rabbitmq-enabled-plugins:/etc/rabbitmq/enabled_plugins:ro
+      - ./rabbitmq-policies.json:/etc/rabbitmq/practiq-policies.json:ro
+      - rabbitmq-3-data:/var/lib/rabbitmq
+
+volumes:
+  rabbitmq-1-data:
+  rabbitmq-2-data:
+  rabbitmq-3-data:

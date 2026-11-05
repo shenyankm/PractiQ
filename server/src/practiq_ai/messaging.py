@@ -2,7 +2,9 @@
 
 import asyncio
 import logging
+import ssl
 from math import ceil
+from typing import Literal
 from uuid import UUID
 
 import aio_pika
@@ -11,7 +13,7 @@ from pamqp.commands import Basic
 from psycopg import Error as DatabaseError
 
 from . import telemetry
-from .config import load, rabbitmq_uri
+from .config import load, rabbitmq_uris
 from .errors import DocumentProcessingError
 
 QUEUE = 'practiq.document.v1'
@@ -19,6 +21,31 @@ DEAD_QUEUE = QUEUE + '.dead'
 DEAD_EXCHANGE = QUEUE + '.dlx'
 VERSION_HEADER = 'practiq-version'
 PUBLISH_TIMEOUT = 5
+
+
+def failure(exc: Exception, role: Literal['publisher', 'consumer'], stage: str, run_id: str | None = None):
+    # Exception strings and broker URLs can contain credentials; classify only known types/codes.
+    if isinstance(exc, ssl.SSLError) or isinstance(exc.__cause__, ssl.SSLError):
+        reason = 'tls'
+    elif isinstance(exc, (aio_pika.exceptions.AuthenticationError, aio_pika.exceptions.ProbableAuthenticationError)):
+        reason = 'authentication'
+    elif getattr(exc, 'reply_code', None) in {403, 530} or (exc.args and exc.args[0] in (403, 530)):
+        reason = 'permission'
+    elif isinstance(exc, aio_pika.exceptions.ChannelPreconditionFailed):
+        reason = 'topology_conflict'
+    elif isinstance(exc, aio_pika.exceptions.ChannelNotFoundEntity):
+        reason = 'not_found'
+    elif isinstance(exc, TimeoutError):
+        reason = 'timeout'
+    elif isinstance(exc, aio_pika.exceptions.DeliveryError):
+        reason = 'publish_rejected'
+    elif isinstance(exc, (ConnectionError, aio_pika.exceptions.AMQPConnectionError,
+                          aio_pika.exceptions.ChannelClosed, aio_pika.exceptions.ChannelInvalidStateError)):
+        reason = 'connection_lost'
+    else:
+        reason = 'unexpected'
+    telemetry.broker_failures.labels(role, stage, reason).inc()
+    telemetry.event('broker_failure', errorCode='BROKER_UNAVAILABLE', role=role, stage=stage, reason=reason, runId=run_id)
 
 
 def decode(message: AbstractIncomingMessage) -> str:
@@ -62,15 +89,22 @@ async def publish(channel: AbstractChannel, run_id: str):
 class Delivery:
     def __init__(self, service):
         self.service = service
-        self.connected = False
+        self.publisher_connected = False
+        self.consumer_connected = False
         self.failed = asyncio.Event()
         self.wake = asyncio.Event()
         self.handlers: set[asyncio.Task] = set()
+
+    @property
+    def connected(self) -> bool:
+        return self.publisher_connected and self.consumer_connected
 
     async def consume(self, message: AbstractIncomingMessage):
         task = asyncio.current_task()
         assert task is not None
         self.handlers.add(task)
+        run_id = None
+        stage = 'execute'
         try:
             try:
                 run_id = decode(message)
@@ -81,6 +115,7 @@ class Delivery:
                 return
             if await self.service.deliver(run_id):
                 # Completion or deferred outbox admission is committed first; ambiguous ACKs are safe.
+                stage = 'ack'
                 await message.ack()
                 telemetry.deliveries.labels('acknowledged').inc()
         except DatabaseError:
@@ -88,14 +123,14 @@ class Delivery:
             self.service.fatal(70)
         except DocumentProcessingError:
             telemetry.deliveries.labels('unsupported').inc()
-            telemetry.event('delivery_rejected', errorCode='TASK_FORMAT_UNSUPPORTED')
+            telemetry.event('delivery_rejected', errorCode='TASK_FORMAT_UNSUPPORTED', runId=run_id)
             await message.reject(requeue=False)
         except asyncio.CancelledError:
             self.failed.set()
             raise
-        except Exception:  # noqa: BLE001 - never log broker credentials or message bytes
+        except Exception as exc:  # noqa: BLE001 - never log broker credentials or message bytes
             telemetry.deliveries.labels('infrastructure_failed').inc()
-            telemetry.event('delivery_failed', errorCode='MESSAGE_INFRASTRUCTURE_FAILED')
+            failure(exc, 'consumer', stage, run_id)
             self.failed.set()
         finally:
             self.handlers.discard(task)
@@ -104,28 +139,33 @@ class Delivery:
         # Client connection exceptions can embed the URL; suppress third-party logs.
         for name in ('aio_pika', 'aiormq'):
             logging.getLogger(name).setLevel(logging.CRITICAL)
+        while load().read_only and not self.service.stopping:
+            self.wake.clear()
+            await self.wait(1)
+        if self.service.stopping:
+            return
+        async with asyncio.TaskGroup() as group:
+            group.create_task(self.publishing(), name='document-publisher')
+            group.create_task(self.listening(), name='document-consumer')
+
+    async def publishing(self):
         delay = 1
+        endpoints, endpoint = rabbitmq_uris(), 0
         while not self.service.stopping:
             connection = None
+            stage, run_id = 'connect', None
             try:
                 self.wake.clear()
-                if load().read_only:
-                    await self.wait(1)
-                    continue
-                connection = await aio_pika.connect(rabbitmq_uri(), timeout=5)
+                connection = await aio_pika.connect(endpoints[endpoint], timeout=5, client_properties={'connection_name': 'practiq-publisher'})
                 publisher = await connection.channel(publisher_confirms=True, on_return_raises=True)
-                consumer = await connection.channel()
-                queue = await topology(consumer)
-                self.failed.clear()
-                underlay = await consumer.get_underlay_channel()
-                # RabbitMQ 4.3 may cancel a timed-out consumer without closing its channel.
-                underlay.on_consumer_cancel_callbacks.add(lambda _frame: self.failed.set())
-                tag = await queue.consume(self.consume, no_ack=False)
-                self.connected = True
+                stage = 'topology'
+                await topology(publisher)
+                self.publisher_connected = True
                 while not self.service.stopping:
                     self.wake.clear()
-                    if connection.is_closed or consumer.is_closed or self.failed.is_set():
-                        raise RuntimeError('Delivery connection lost')
+                    stage, run_id = 'outbox', None
+                    if connection.is_closed or publisher.is_closed:
+                        raise ConnectionError('Publisher connection lost')
                     rows = await self.service.db.rows(
                         "SELECT o.run_id,o.created_at FROM document_outbox o JOIN document_runs r USING(run_id) JOIN document_tasks t USING(thread_id) "
                         "WHERE o.published_at IS NULL ORDER BY o.created_at LIMIT 100")
@@ -134,36 +174,82 @@ class Delivery:
                             for row in rows:
                                 if self.service.stopping:
                                     break
-                                await publish(publisher, row['run_id'])
+                                stage, run_id = 'publish', row['run_id']
+                                await publish(publisher, run_id)
+                                stage = 'outbox'
                                 await conn.execute('UPDATE document_outbox SET published_at=now() WHERE run_id=%s AND created_at=%s', (row['run_id'], row['created_at']))
                     delay = 1
                     if len(rows) < 100:
                         await self.wait(1)
-                await queue.cancel(tag, timeout=5)
             except asyncio.CancelledError:
                 raise
             except DatabaseError:
                 self.service.accepting = False
                 self.service.fatal(70)
                 return
-            except Exception:  # noqa: BLE001 - retry unknown confirms without exposing URLs
-                telemetry.event('broker_unavailable', errorCode='BROKER_UNAVAILABLE')
+            except Exception as exc:  # noqa: BLE001 - retry unknown confirms without exposing URLs
+                failure(exc, 'publisher', stage, run_id)
             finally:
-                self.connected = False
-                if connection is not None:
+                self.publisher_connected = False
+                await self.close(connection, 'publisher')
+            endpoint = (endpoint + 1) % len(endpoints)
+            delay = await self.backoff(delay)
+
+    async def listening(self):
+        delay = 1
+        endpoints, endpoint = rabbitmq_uris(), 0
+        while not self.service.stopping:
+            connection = None
+            stage = 'connect'
+            try:
+                connection = await aio_pika.connect(endpoints[endpoint], timeout=5, client_properties={'connection_name': 'practiq-consumer'})
+                consumer = await connection.channel()
+                stage = 'topology'
+                queue = await topology(consumer)
+                self.failed.clear()
+                underlay = await consumer.get_underlay_channel()
+                # RabbitMQ 4.3 may cancel a timed-out consumer without closing its channel.
+                underlay.on_consumer_cancel_callbacks.add(lambda _frame: self.failed.set())
+                stage = 'subscribe'
+                tag = await queue.consume(self.consume, no_ack=False)
+                self.consumer_connected = True
+                stage = 'consume'
+                while not self.service.stopping:
+                    if connection.is_closed or consumer.is_closed or self.failed.is_set():
+                        raise ConnectionError('Consumer connection lost')
                     try:
-                        await connection.close()
-                    except Exception:  # noqa: BLE001 - cleanup failure must not prevent recovery
-                        telemetry.event('broker_close_failed', errorCode='BROKER_UNAVAILABLE')
+                        await asyncio.wait_for(self.failed.wait(), timeout=1)
+                    except TimeoutError:
+                        delay = 1
+                stage = 'cancel'
+                await queue.cancel(tag, timeout=5)
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:  # noqa: BLE001 - reconnect without exposing broker credentials
+                failure(exc, 'consumer', stage)
+            finally:
+                self.consumer_connected = False
+                await self.close(connection, 'consumer')
             # Old executions keep ownership and finish before another subscription.
             while pending := {*self.handlers, *self.service.active.values()}:
                 await asyncio.gather(*pending, return_exceptions=True)
-            if not self.service.stopping:
-                try:
-                    await asyncio.wait_for(self.service.stop_event.wait(), timeout=delay)
-                except TimeoutError:
-                    pass
-                delay = min(delay * 2, 30)
+            endpoint = (endpoint + 1) % len(endpoints)
+            delay = await self.backoff(delay)
+
+    async def close(self, connection, role: Literal['publisher', 'consumer']):
+        if connection is not None:
+            try:
+                await connection.close()
+            except Exception as exc:  # noqa: BLE001 - cleanup failure must not prevent recovery
+                failure(exc, role, 'close')
+
+    async def backoff(self, delay):
+        if not self.service.stopping:
+            try:
+                await asyncio.wait_for(self.service.stop_event.wait(), timeout=delay)
+            except TimeoutError:
+                pass
+        return min(delay * 2, 30)
 
     async def wait(self, seconds):
         try:

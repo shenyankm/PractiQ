@@ -55,14 +55,14 @@ async def test_full_outbox_batch_drains_before_idle_wait(monkeypatch):
         service.stopping = True
 
     monkeypatch.setattr(messaging, "load", lambda: SimpleNamespace(read_only=False))
-    monkeypatch.setattr(messaging, "rabbitmq_uri", lambda: "amqp://localhost/synthetic")
+    monkeypatch.setattr(messaging, "rabbitmq_uris", lambda: ("amqp://localhost/synthetic",))
     monkeypatch.setattr(messaging.aio_pika, "connect", AsyncMock(return_value=broker))
     monkeypatch.setattr(messaging, "topology", AsyncMock(return_value=queue))
     monkeypatch.setattr(messaging, "publish", published)
     monkeypatch.setattr(delivery, "wait", idle)
-    await asyncio.wait_for(delivery.run(), .5)
+    await asyncio.wait_for(delivery.publishing(), .5)
     assert published.await_count == 101 and db.rows.await_count == 2
-    queue.cancel.assert_awaited_once()
+    queue.consume.assert_not_awaited()
     broker.close.assert_awaited_once()
 
 

@@ -198,7 +198,7 @@ async def test_unknown_tencent_gauge_survives_reads_and_excludes_active_and_reso
 
     monkeypatch.setenv('AI_SERVICE_TOKEN', 'test-token')
     db = await new_database()
-    service = SimpleNamespace(db=db, delivery=SimpleNamespace(connected=True), active={})
+    service = SimpleNamespace(db=db, delivery=SimpleNamespace(connected=True, publisher_connected=True, consumer_connected=True), active={})
     monkeypatch.setattr(runtime, 'current', service)
     health = StorageHealth(healthy=True)
     monkeypatch.setattr(webapp, 'get_object_store', lambda: SimpleNamespace(health=AsyncMock(return_value=health)))
