@@ -196,7 +196,7 @@ async def test_metrics_and_logs_do_not_contain_document_content(monkeypatch, cap
         assert 0 <= record[field] <= record["durationMs"]
         assert any(f'"{field}":' in event for event in events)
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=webapp.app), base_url="http://test") as client:
-        assert (await client.get("/api/metrics")).status_code == 401
+        assert (await client.get('/api/metrics', headers={'Origin': 'https://unrelated.example'})).status_code == 403
         response = await client.get("/api/metrics", headers={"Authorization": "Bearer test-token"})
         assert response.status_code == 200 and "practiq_stage_seconds_bucket" in response.text
         response = await client.get("/api/maintenance", headers={"Authorization": "Bearer test-token"})

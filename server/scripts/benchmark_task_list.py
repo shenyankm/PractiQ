@@ -15,7 +15,7 @@ import pytest
 async def probe(question_count):
     with pytest.MonkeyPatch.context() as patch:
         for key, value in {
-            'AI_SERVICE_TOKEN': 'test-token', 'LLM_PROVIDER': 'dashscope',
+            'LLM_PROVIDER': 'dashscope',
             'LLM_API_KEY': 'synthetic-key', 'LLM_MODEL': 'synthetic',
             'AI_DEPLOYMENT_WORKERS': '1', 'N_JOBS_PER_WORKER': '8',
             'AI_GRAPH_MAX_CONCURRENCY': '2', 'AI_PROVIDER_CONCURRENCY': '16',
@@ -65,7 +65,7 @@ async def probe(question_count):
 async def filter_probe(history_count):
     """Compare the former recursive history scan with the production filtered path."""
     with pytest.MonkeyPatch.context() as patch:
-        for key, value in {'AI_SERVICE_TOKEN': 'test-token', 'LLM_PROVIDER': 'dashscope',
+        for key, value in {'LLM_PROVIDER': 'dashscope',
                            'LLM_API_KEY': 'synthetic-key', 'LLM_MODEL': 'synthetic'}.items():
             patch.setenv(key, value)
         from practiq_ai import task_api

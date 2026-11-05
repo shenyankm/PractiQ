@@ -11,7 +11,6 @@ import json
 import os
 import platform
 import re
-import secrets
 import socket
 import subprocess
 import sys
@@ -149,11 +148,10 @@ async def run(output: Path, live: bool, native_binary: Path) -> dict[str, Any]:
                 if value is not None and key.startswith(("AI_", "LLM_"))} if live else {
                     "LLM_PROVIDER": "openai", "LLM_API_KEY": "synthetic", "LLM_MODEL": "synthetic",
                     "LLM_BASE_URL": "http://127.0.0.1:9/v1"}
-    token = secrets.token_urlsafe(32)
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
         port = sock.getsockname()[1]
-    env.update(settings, AI_SERVICE_TOKEN=token, AI_READ_ONLY="0", AI_MAINTENANCE="0",
+    env.update(settings, AI_READ_ONLY="0", AI_MAINTENANCE="0",
                AI_STORAGE_DIR=str(output / "storage"), AI_WEB_DIR=str(ROOT / "web/dist"),
                AI_TASK_MAX_MODEL_CALLS="4", AI_RUN_TIMEOUT_SECONDS="240",
                LANGSMITH_TRACING="false", LANGCHAIN_TRACING_V2="false",

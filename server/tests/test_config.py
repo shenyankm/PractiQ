@@ -73,30 +73,16 @@ def test_office_availability_is_checked_only_for_office_work(monkeypatch, tmp_pa
     assert error.value.status_code == 503 and error.value.code == "OFFICE_ENGINE_INVALID"
 
 
-def test_load_requires_service_token(monkeypatch: pytest.MonkeyPatch):
-    _env(monkeypatch, AI_SERVICE_TOKEN='')
-    with pytest.raises(ValueError, match='AI_SERVICE_TOKEN'):
-        config.load()
-
-
-@pytest.mark.parametrize("token", ["审计令牌", "bad token", "bad\ttoken", "bad\ntoken", "bad\x1btoken", "bad\x7ftoken"])
 @pytest.mark.parametrize("read_only", ["0", "1"])
-def test_service_token_rejects_unusable_bearer_credentials(monkeypatch, token, read_only):
-    _env(monkeypatch, AI_SERVICE_TOKEN=token, AI_READ_ONLY=read_only)
-    for read in (config.load, config.service_token):
-        with pytest.raises(ValueError, match="AI_SERVICE_TOKEN") as error:
-            read()
-        assert token not in str(error.value)
+def test_service_configuration_needs_no_access_token(monkeypatch, read_only):
+    _env(monkeypatch, AI_READ_ONLY=read_only)
+    monkeypatch.delenv("AI_SERVICE_TOKEN", raising=False)
+    assert config.load().read_only == (read_only == "1")
+    monkeypatch.setenv("AI_SERVICE_TOKEN", "unused legacy value")
+    assert config.load().read_only == (read_only == "1")
 
 
-def test_service_token_preserves_visible_ascii_and_trims_surrounding_whitespace(monkeypatch):
-    token = "service-Token_123.!~"
-    _env(monkeypatch, AI_SERVICE_TOKEN=f"  {token}\n")
-    config.load()
-    assert config.service_token() == token
-
-
-def test_service_read_only_requires_auth_but_no_model(monkeypatch):
+def test_service_read_only_needs_no_token_or_model(monkeypatch):
     from practiq_ai.errors import DocumentProcessingError
 
     _env(monkeypatch, AI_READ_ONLY='1')
@@ -109,9 +95,8 @@ def test_service_read_only_requires_auth_but_no_model(monkeypatch):
     assert error.value.code == 'MODEL_NOT_CONFIGURED'
     monkeypatch.setenv('AI_DESKTOP_MODE', '0')
     assert config.load().read_only
-    monkeypatch.delenv('AI_SERVICE_TOKEN')
-    with pytest.raises(ValueError, match='AI_SERVICE_TOKEN'):
-        config.load()
+    monkeypatch.delenv('AI_SERVICE_TOKEN', raising=False)
+    assert config.load().read_only
 
 
 def test_load_defaults_worker_limit(monkeypatch: pytest.MonkeyPatch):
@@ -131,14 +116,6 @@ def test_responses_rejects_chat_native_schema_before_model_work(monkeypatch):
     _env(monkeypatch, AI_STRUCTURED_OUTPUT_METHOD='json_schema')
     with pytest.raises(ValueError, match='Responses API requires'):
         config.load()
-
-
-def test_auth_token_does_not_require_model_or_storage_settings(monkeypatch: pytest.MonkeyPatch):
-    for key in ("LLM_API_KEY", "AI_STORAGE_DIR"):
-        monkeypatch.delenv(key, raising=False)
-    monkeypatch.setenv('AI_SERVICE_TOKEN', 'token')
-
-    assert config.service_token() == 'token'
 
 
 @pytest.mark.parametrize(

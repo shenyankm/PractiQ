@@ -200,7 +200,7 @@ def main() -> None:
     parser.add_argument("--baseline-ref", required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
-    settings = {"AI_READ_ONLY": "1", "AI_SERVICE_TOKEN": "synthetic-benchmark-token", "AI_TENCENT_SECRET_ID": "synthetic-id",
+    settings = {"AI_READ_ONLY": "1", "AI_TENCENT_SECRET_ID": "synthetic-id",
                 "AI_TENCENT_SECRET_KEY": "synthetic-key", "AI_TENCENT_COS_ENABLED": "false", "AI_TENCENT_COS_BUCKET": "", "AI_TENCENT_COS_REGION": ""}
     with patch.dict(os.environ, settings):
         report = asyncio.run(run(args.baseline_ref))

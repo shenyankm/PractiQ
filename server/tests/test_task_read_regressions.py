@@ -105,7 +105,7 @@ async def test_unreadable_terminal_checkpoint_degrades_without_breaking_task_rea
         'detail': f'/api/document-tasks/{damaged}',
         'head': f'/api/document-tasks/{damaged}/head',
     }[read]
-    assert (await http.get(path, headers={'Authorization': 'Bearer wrong'})).status_code == 401
+    assert (await http.get(path, headers={'Origin': 'https://unrelated.example'})).status_code == 403
     before = await http.get(path)
     assert before.status_code == 200, before.text
     saved_tasks.runs[damaged]['status'] = run_status
@@ -162,7 +162,7 @@ async def test_import_settings_map_unavailable_runtime_to_structured_503(http, m
     control = ImportControl()
     monkeypatch.setattr(runtime, 'current', None if unavailable == 'absent' else SimpleNamespace(accepting=False))
     body = {'json': control.snapshot.model_dump(mode='json')} if method == 'PUT' else {}
-    assert (await http.request(method, '/api/import-settings', headers={'Authorization': 'Bearer wrong'}, **body)).status_code == 401
+    assert (await http.request(method, '/api/import-settings', headers={'Origin': 'https://unrelated.example'}, **body)).status_code == 403
     comparison = await http.get('/api/document-tasks')
     assert comparison.status_code == 503 and comparison.json()['detail']['code'] == 'TASK_SERVICE_UNAVAILABLE'
 
@@ -196,7 +196,7 @@ async def test_artifact_read_honors_unreadable_checkpoint_quarantine(http, saved
     endpoint = f'/api/artifacts/read?thread_id={thread_id}'
     download = AsyncMock(wraps=saved_tasks.files.get_verified)
     monkeypatch.setattr(saved_tasks.files, 'get_verified', download)
-    assert (await http.post(endpoint, json=reference, headers={'Authorization': 'Bearer wrong'})).status_code == 401
+    assert (await http.post(endpoint, json=reference, headers={'Origin': 'https://unrelated.example'})).status_code == 403
     assert (await http.post('/api/artifacts/read', json=reference)).status_code == 404
     assert (await http.post('/api/artifacts/read?thread_id=invalid', json=reference)).status_code == 422
     assert (await http.post(f'/api/artifacts/read?thread_id={uuid4()}', json=reference)).status_code == 404
@@ -232,14 +232,14 @@ async def test_cancelled_paused_checkpoint_does_not_advertise_rejected_retry(htt
         next=('chunk_gate',), interrupts=(Interrupt(value={'kind': 'pause'}, id='saved-pause'),),
     )
     endpoint = f'/api/document-tasks/{thread_id}'
-    assert (await http.get(endpoint, headers={'Authorization': 'Bearer wrong'})).status_code == 401
+    assert (await http.get(endpoint, headers={'Origin': 'https://unrelated.example'})).status_code == 403
     response = await http.get(endpoint)
     assert response.status_code == 200, response.text
     detail = response.json()
     assert detail['state'] == state and detail['failures'][0]['retryable']
     request = {'requestId': str(uuid4()), 'action': 'retry_failed', 'checkpointId': detail['checkpointId']}
     assert (await http.post(endpoint + '/control', json=request,
-                            headers={'Authorization': 'Bearer wrong'})).status_code == 401
+                            headers={'Origin': 'https://unrelated.example'})).status_code == 403
     retry = await http.post(endpoint + '/control', json=request)
     assert retry.status_code == 409, retry.text
     assert retry.json()['detail']['code'] == 'INVALID_CONTROL'

@@ -151,7 +151,7 @@ async def test_metadata_preview_omits_only_merged_result_and_validates_query(sav
     before = deepcopy(snapshot.values)
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=webapp.app), base_url='http://test') as client:
         path = f'/api/document-tasks/{thread}/preview'
-        assert (await client.get(path + '?include_result=false')).status_code == 401
+        assert (await client.get(path + '?include_result=false', headers={'Origin': 'https://unrelated.example'})).status_code == 403
         read.assert_not_awaited()
         client.headers['Authorization'] = 'Bearer read-path-test'
         assert (await client.get(path + '?include_result=invalid')).status_code == 422

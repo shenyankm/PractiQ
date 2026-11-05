@@ -7,7 +7,6 @@ from fastapi import HTTPException, Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse, Response
 
-from .auth import authenticate
 from .config import load
 
 DEFAULT_JSON_BODY_BYTES = 1 * 1024 * 1024
@@ -50,8 +49,6 @@ class JsonBodyLimitMiddleware:
             headers = dict(scope['headers'])
             if int(headers.get(b'content-length', b'0')) > maximum:
                 raise _BodyTooLarge
-            authorization = headers.get(b'authorization', b'').decode('latin-1')
-            authenticate(authorization)
             settings = load()
             loop = asyncio.get_running_loop()
             if self.receiving.get(loop, 0) >= settings.upload_concurrency:
@@ -104,7 +101,15 @@ class JsonBodyLimitMiddleware:
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        response = apply_security_headers(await call_next(request))
+        origin = request.headers.get('origin')
+        if request.url.path.startswith('/api/') and (
+            request.headers.get('sec-fetch-site') == 'cross-site'
+            or origin is not None and origin != str(request.base_url).rstrip('/')
+        ):
+            response = JSONResponse({'detail': {'code': 'CROSS_ORIGIN_REQUEST', 'message': 'Cross-origin API requests are not allowed', 'params': {}}}, 403)
+        else:
+            response = await call_next(request)
+        response = apply_security_headers(response)
         # Static assets use the same-origin Web client; uploaded artifacts remain
         # under the strict API policy and are displayed only through checked blobs.
         if (request.url.path not in {'/ok', '/ready'}

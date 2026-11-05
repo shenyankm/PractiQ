@@ -116,13 +116,6 @@ def _positive_float(values: dict[str, str], key: str, default: float) -> float:
     return value
 
 
-def service_token() -> str:
-    token = _required(dict(os.environ), "AI_SERVICE_TOKEN")
-    if not all("!" <= character <= "~" for character in token):
-        raise ValueError("AI_SERVICE_TOKEN must contain only visible ASCII characters without spaces")
-    return token
-
-
 def _money(values: dict[str, str], key: str, *, positive: bool = False) -> int | None:
     raw = values.get(key, "").strip()
     if not raw:
@@ -165,7 +158,6 @@ def load() -> Config:
             raise ValueError("AI_OFFICE_EXECUTABLE must be an explicit absolute path")
         if not office_version.startswith(("LibreOffice ", "LibreOfficeDev ")) or len(office_version) > 255:
             raise ValueError("AI_OFFICE_VERSION must contain the exact deployed LibreOffice version")
-    service_token()
     tencent_input_max_bytes = _positive_int(values, "AI_TENCENT_INPUT_MAX_BYTES", 150 * MIB)
     if not 4 <= tencent_input_max_bytes <= 150 * MIB:
         raise ValueError("AI_TENCENT_INPUT_MAX_BYTES must be between 4 and 157286400")

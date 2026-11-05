@@ -4,9 +4,15 @@ PractiQ is an open-source personal document importer and offline practice app. T
 
 ## Access
 
-`AI_SERVICE_TOKEN` must use visible ASCII characters without spaces. Configuration rejects Unicode, internal whitespace and control characters before startup; surrounding whitespace is trimmed.
+The personal service has no application access token or login page. Open the Web
+page to read capabilities and use the import workspace; native clients do not
+need an Authorization header. Legacy `AI_SERVICE_TOKEN` values are ignored.
 
-Set `AI_SERVICE_TOKEN` in the service environment. The Web importer and optional App grading use `Authorization: Bearer <token>`. The token authorizes all personal imports and grading on this deployment; do not share it as a customer credential. Keep the service on loopback, or behind your private authenticated TLS access path. Model keys stay on the service. Web keeps the service token only in page memory and clears it on reload. The App keeps it in platform credential storage, outside backups.
+Keep the service on loopback. If you expose it through a private HTTPS proxy,
+configure access control at that proxy. Cross-origin browser API requests are
+rejected; the Web client uses same-origin requests without cookies or credentials.
+Model and Tencent credentials remain on the service. Opening or reloading the
+page only reads service state and never starts paid work.
 
 Only Start import, resume, retry, parse again and explicit grading authorize model work. File selection, task reads, partial export and downloads do not call a model. Unknown results retain their call records; inspect provider usage before explicitly retrying because the provider may have charged for the earlier request.
 

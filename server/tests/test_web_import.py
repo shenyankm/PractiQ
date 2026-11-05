@@ -29,10 +29,9 @@ def service_token(monkeypatch):
     monkeypatch.setenv("AI_SERVICE_TOKEN", "test-service-token")
 
 
-async def test_capabilities_are_authenticated_and_report_tencent_configuration(monkeypatch, tmp_path):
+async def test_capabilities_need_no_token_and_report_tencent_configuration(monkeypatch, tmp_path):
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=webapp.app), base_url="http://test") as client:
-        assert (await client.get("/api/import-capabilities")).status_code == 401
-        client.headers["Authorization"] = "Bearer test-service-token"
+        assert (await client.get("/api/import-capabilities")).status_code == 200
         response = await client.get("/api/import-capabilities")
         assert response.status_code == 200, response.text
         assert set(response.json()["sourceTypes"]) == {"image", "text", "markdown", "pdf", "doc", "docx", "ppt", "pptx", "xlsx"}
@@ -65,8 +64,7 @@ async def test_http_bank_export_requires_current_completed_checkpoint_and_preser
     detail = await task_api.get_task(receipt["threadId"])
     endpoint = f'/api/document-tasks/{receipt["threadId"]}/export'
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=webapp.app), base_url="http://test") as client:
-        assert (await client.get(endpoint)).status_code == 401
-        client.headers["Authorization"] = "Bearer test-service-token"
+        assert (await client.get(endpoint)).status_code == 200
         stale = await client.get(endpoint, params={"checkpoint_id": "old"})
         assert stale.status_code == 409 and stale.json()["detail"]["code"] == "STALE_CHECKPOINT"
         exported = await client.get(endpoint, params={"checkpoint_id": detail["checkpointId"]})
@@ -104,7 +102,7 @@ async def test_saved_non_office_reads_survive_unavailable_office_engine(monkeypa
             "export": f'/api/document-tasks/{receipt["threadId"]}/export'}[read]
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=webapp.app, raise_app_exceptions=False),
                                 base_url="http://test", headers={"Authorization": "Bearer test-service-token"}) as client:
-        assert (await client.get(path, headers={"Authorization": "Bearer wrong"})).status_code == 401
+        assert (await client.get(path, headers={"Authorization": "Bearer wrong"})).status_code == 200
         response = await client.get(path, params={"checkpoint_id": detail["checkpointId"]} if read == "export" else {})
     assert response.status_code == 200, response.text
     if read == "detail":
@@ -238,8 +236,6 @@ async def test_review_exposes_rendered_source_and_authenticated_ocr_evidence(mon
     assert unit['sourceRef']['mediaType'] == 'image/png' and unit['evidenceRef']['mediaType'] == 'application/json'
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=webapp.app), base_url='http://test') as client:
         path = f"/api/artifacts/read?thread_id={receipt['threadId']}"
-        assert (await client.post(path, json=unit['evidenceRef'])).status_code == 401
-        client.headers['Authorization'] = 'Bearer test-service-token'
         response = await client.post(path, json=unit['evidenceRef'])
         assert response.status_code == 200 and response.json()['elements']
         forged = {**unit['evidenceRef'], 'sha256':'a'*64}

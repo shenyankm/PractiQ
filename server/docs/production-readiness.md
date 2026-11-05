@@ -2,7 +2,7 @@
 
 This guide targets the existing personal, single-process deployment. Keep the
 service, PostgreSQL, RabbitMQ and exporters on loopback/private interfaces; expose
-only the authenticated Web/API through the trusted HTTPS entry point. Follow
+only the Web/API behind proxy access control through the trusted HTTPS entry point. Follow
 [operations](operations.md), [delivery/recovery](rabbitmq.md) and
 [matching backups](service-backups.md). The commands below do not certify a
 deployment merely because they exist in the repository.
@@ -88,7 +88,7 @@ the same profile and original deadline; general failures are not retried.
 Run `make image-check` on the actual Linux host/kernel before accepting files.
 It verifies real PDF rendering and PPTX conversion in the hardened image. Run
 `tests/test_worker_sandbox.py` on each supported host for explicit denied-file,
-denied-network and descendant tests. The authenticated sandbox metric reports
+denied-network and descendant tests. The sandbox metric reports
 required configuration, not a successful host sandbox probe.
 `AI_WORKER_SANDBOX=disabled` is an explicit development escape hatch; Compose
 overrides it to `required`, and production preflight rejects the disabled metric.
@@ -182,9 +182,9 @@ python scripts/load_test.py --base-url https://imports.example.com \
   --max-running 2 --graph-concurrency 2 --output /private/capacity.json
 ```
 
-Supply `AI_SERVICE_TOKEN` through the private environment, not the command line.
+The service requires no application access token; configure private HTTPS access at the proxy before production use.
 Production mode verifies the deployed service code hash and obtains its non-secret
-configuration fingerprint from the authenticated build metric before creating tasks.
+configuration fingerprint from the build metric before creating tasks.
 The fingerprint binds the provider, model, hashed endpoint and recorded evaluation
 settings, including output-token limits. Capacity evidence records this deployed
 fingerprint; the preflight requires it to match the quality report's configuration.

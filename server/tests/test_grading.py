@@ -623,7 +623,7 @@ async def test_traditional_chinese_failures_use_traditional_copy(setup, monkeypa
     assert response["error"] == "結果未知；請檢查紀錄後明確重新評分"
 
 
-def test_grading_endpoint_digest_auth_and_limits(setup,monkeypatch):
+def test_grading_endpoint_digest_and_limits_without_token(setup,monkeypatch):
     seen = []
     async def fake(request):
         seen.append(request)
@@ -631,11 +631,6 @@ def test_grading_endpoint_digest_auth_and_limits(setup,monkeypatch):
     monkeypatch.setattr(webapp,"grade",fake)
     monkeypatch.setenv("AI_SERVICE_TOKEN", "test-token")
     client=TestClient(webapp.app)
-    unauthorized = client.post("/api/subjective-grades",json=wire(payload()))
-    assert unauthorized.status_code == 401
-    assert unauthorized.json()["detail"]["code"] == "INVALID_SERVICE_TOKEN"
-    assert not seen
-    client.headers["Authorization"] = "Bearer test-token"
     assert client.post("/api/subjective-grades",json=wire(payload())).status_code==200
     bad=wire(payload());bad["payload"]=bad["payload"].replace("液体变成气体", "changed")
     invalid = client.post("/api/subjective-grades",json=bad)

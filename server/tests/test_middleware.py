@@ -15,9 +15,9 @@ from practiq_ai.webapp import app
 
 @pytest.mark.parametrize('suffix', ['', '/control', '/reparse'])
 @pytest.mark.parametrize('content_length', [None, DEFAULT_JSON_BODY_BYTES + 1, 1])
-@pytest.mark.parametrize('authenticated', [False, True])
-async def test_task_mutations_reject_large_headers_or_unauthenticated_streams_before_reading(
-    monkeypatch, suffix, content_length, authenticated,
+@pytest.mark.parametrize('legacy_header', [False, True])
+async def test_task_mutations_keep_stream_limits_without_authentication(
+    monkeypatch, suffix, content_length, legacy_header,
 ):
     monkeypatch.setenv('AI_SERVICE_TOKEN', 'test-token')
     reads = []
@@ -32,24 +32,20 @@ async def test_task_mutations_reject_large_headers_or_unauthenticated_streams_be
     headers = {'Content-Type': 'application/json'}
     if content_length is not None:
         headers['Content-Length'] = str(content_length)
-    if authenticated:
+    if legacy_header:
         headers['Authorization'] = 'Bearer test-token'
     async with AsyncClient(transport=ASGITransport(app=app), base_url='http://test') as client:
         response = await client.post(path, content=chunks(), headers=headers)
 
     oversized_header = content_length == DEFAULT_JSON_BODY_BYTES + 1
-    if authenticated or oversized_header:
-        assert response.status_code == 413
-        assert response.json()['detail']['code'] == 'REQUEST_TOO_LARGE'
-    else:
-        assert response.status_code == 401
-        assert response.json()['detail']['code'] == 'INVALID_SERVICE_TOKEN'
-    assert reads == ([DEFAULT_JSON_BODY_BYTES, 1] if authenticated and not oversized_header else [])
+    assert response.status_code == 413
+    assert response.json()['detail']['code'] == 'REQUEST_TOO_LARGE'
+    assert reads == ([DEFAULT_JSON_BODY_BYTES, 1] if not oversized_header else [])
 
 
 @pytest.mark.parametrize('streamed', [False, True])
-@pytest.mark.parametrize('authenticated', [False, True])
-async def test_reparse_accepts_limit_sized_json_only_with_auth(monkeypatch, streamed, authenticated):
+@pytest.mark.parametrize('legacy_header', [False, True])
+async def test_reparse_accepts_limit_sized_json_without_authentication(monkeypatch, streamed, legacy_header):
     monkeypatch.setenv('AI_SERVICE_TOKEN', 'test-token')
     thread_id, request_id = str(uuid4()), str(uuid4())
     receipt = {'threadId': thread_id, 'requestId': request_id, 'runId': str(uuid4()), 'accepted': True}
@@ -62,21 +58,17 @@ async def test_reparse_accepts_limit_sized_json_only_with_auth(monkeypatch, stre
         yield body[100:]
 
     headers = {'Content-Type': 'application/json'}
-    if authenticated:
+    if legacy_header:
         headers.update(Authorization='Bearer test-token')
     async with AsyncClient(transport=ASGITransport(app=app), base_url='http://test') as client:
         response = await client.post(f'/api/document-tasks/{thread_id}/reparse',
                                      content=chunks() if streamed else body, headers=headers)
 
-    if authenticated:
-        assert response.status_code == 202
-        assert response.json() == receipt
-        reparse.assert_awaited_once()
-        assert reparse.call_args.args[0] == thread_id
-        assert str(reparse.call_args.args[1].requestId) == request_id
-    else:
-        assert response.status_code == 401
-        reparse.assert_not_awaited()
+    assert response.status_code == 202
+    assert response.json() == receipt
+    reparse.assert_awaited_once()
+    assert reparse.call_args.args[0] == thread_id
+    assert str(reparse.call_args.args[1].requestId) == request_id
 
 
 @pytest.mark.parametrize('outcome', ['timeout', 'cancel', 'disconnect', 'too_large', 'complete'])

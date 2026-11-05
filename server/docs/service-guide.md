@@ -41,7 +41,7 @@ the [image-maintenance procedure](../../docs/maintainers/dependency-security.md)
 
 ### Configure and start
 
-Provision an empty dedicated PostgreSQL database and its owner. Configure the service token, model, PostgreSQL URL (`DATABASE_URI`), dedicated RabbitMQ vhost URL (`RABBITMQ_URI`), and file storage in `.env`, then install locked dependencies, initialize the service tables and start:
+Provision an empty dedicated PostgreSQL database and its owner. Configure the model, PostgreSQL URL (`DATABASE_URI`), dedicated RabbitMQ vhost URL (`RABBITMQ_URI`), and file storage in `.env`, then install locked dependencies, initialize the service tables and start:
 
 ```sh
 make install-locked AI_PYTHON=/path/to/python3.14
@@ -77,21 +77,21 @@ Local directories remain authoritative and are used without COS in the default m
 
 ## Import workflow
 
-Open the built Web frontend at the service root, or run `make web-dev` for its loopback development proxy. The Web service access token stay in memory; provider credentials and Office executable paths stay in the service environment. File selection is passive; Start import authorizes upload, normalization and parsing. The desktop uses the resulting ZIP offline and calls the service only for explicit grading.
+Open the built Web frontend at the service root, or run `make web-dev` for its loopback development proxy. No service access token is required; provider credentials and Office executable paths stay in the service environment. File selection is passive; Start import authorizes upload, normalization and parsing. The desktop uses the resulting ZIP offline and calls the service only for explicit grading.
 
 Connecting validates the token and loads capabilities in one request. On failure, the token remains in the form for an explicit retry with the connection button.
 
-`GET /api/import-capabilities` is authenticated and reports supported source types, the configured `sourceMaxBytes`, Office availability/modes and model configuration. When Office is available, `officeSourceMaxBytes` is the smaller of `sourceMaxBytes` and the converter's 25 MiB ceiling; otherwise it is null. Upload metadata, binary upload and task admission reject oversized sources before reading their content or queuing work. Non-Office formats retain the configured `sourceMaxBytes`. Read-only deployments can serve existing results without a configured model; new model work returns `MODEL_NOT_CONFIGURED`.
+`GET /api/import-capabilities` is same-origin and reports supported source types, the configured `sourceMaxBytes`, Office availability/modes and model configuration. When Office is available, `officeSourceMaxBytes` is the smaller of `sourceMaxBytes` and the converter's 25 MiB ceiling; otherwise it is null. Upload metadata, binary upload and task admission reject oversized sources before reading their content or queuing work. Non-Office formats retain the configured `sourceMaxBytes`. Read-only deployments can serve existing results without a configured model; new model work returns `MODEL_NOT_CONFIGURED`.
 
 Upload the source, create a task, then read and download the result:
 
-1. Send `Authorization: Bearer <AI_SERVICE_TOKEN>` to `POST /api/uploads` to request a file reference.
-2. Send the raw bytes with an authenticated PUT to the returned address using its Content-Type. A file already verified in this personal deployment may return a reference without requiring upload.
+1. Send `POST /api/uploads` to request a file reference.
+2. Send the raw bytes with an same-origin PUT to the returned address using its Content-Type. A file already verified in this personal deployment may return a reference without requiring upload.
 3. Submit `document` and a UUID `requestId` to `POST /api/document-tasks`; poll `GET /api/document-tasks/{threadId}`. Official native Graph/SDK APIs are not exposed.
 4. Submit an `ArtifactReference` to `POST /api/artifacts/read?thread_id=<ownedTaskId>` to read asset bytes after authentication, size, and SHA-256 checks.
 5. For a completed result, `GET /api/document-tasks/{threadId}/export?checkpoint_id=<currentCheckpoint>` downloads the existing desktop-compatible bank ZIP. A stale checkpoint returns `STALE_CHECKPOINT`; a missing usable result returns `BANK_EXPORT_NOT_READY`; a paused task with completed units can request `scope=completed`. Export makes no model call.
 
-Export verifies and writes one resource at a time into a private disk ZIP, then streams it in 64 KiB chunks. The single-process service allows one export build/download per event loop until that response finishes. A competing authenticated export receives HTTP 429 with `BANK_EXPORT_BUSY` and `Retry-After: 1`; retry explicitly after the current download finishes. Completion, failed builds, disconnects and cancellation close the temporary archive and release the slot. Existing JSON, individual resource, expanded-resource and ZIP limits still apply.
+Export verifies and writes one resource at a time into a private disk ZIP, then streams it in 64 KiB chunks. The single-process service allows one export build/download per event loop until that response finishes. A competing same-origin export receives HTTP 429 with `BANK_EXPORT_BUSY` and `Retry-After: 1`; retry explicitly after the current download finishes. Completion, failed builds, disconnects and cancellation close the temporary archive and release the slot. Existing JSON, individual resource, expanded-resource and ZIP limits still apply.
 
 The service supports `text_csv_parser`, `pdf_parser`, and the all-format `document_parser`. Task input rejects URLs, Base64, and server paths. The former product `/api/v1/ai/*` endpoints have been removed.
 
@@ -101,7 +101,7 @@ Pause, interrupt, resume, retry, and partial-result acceptance use `POST /api/do
 
 ## Request subjective grading
 
-Clients should call `POST /api/subjective-grades` only after an explicit grading or regrading action. The endpoint uses the same personal service Bearer token as document import and returns one question's result directly. It does not create a document task or offer document-task pause/resume controls.
+Clients should call `POST /api/subjective-grades` only after an explicit grading or regrading action. The endpoint uses the same loopback personal service as document import and returns one question's result directly. It does not create a document task or offer document-task pause/resume controls.
 
 Grading requires a complete short-answer question, a nonempty answer, and a reference answer or rubric. Parsed fields `sourceScore`, `scoringRubric`, and `scoreSourceText` preserve the source score, rubric, and score text; missing values remain `null`. New JSON may omit these optional fields. Parsing does not generate answers or grading evidence.
 
@@ -237,7 +237,7 @@ Document runs enter through RabbitMQ after a transactional PostgreSQL outbox/rec
 
 ```mermaid
 graph TD
-    Client[Client] --> API[FastAPI authenticated upload and task APIs]
+    Client[Client] --> API[FastAPI same-origin upload and task APIs]
     API --> DB[(PostgreSQL runs / outbox / receipts)]
     DB --> Publisher[Confirmed mandatory publisher]
     Publisher --> MQ[(RabbitMQ quorum queue)]
@@ -256,12 +256,12 @@ graph TD
 
 Document parsing follows these constraints:
 
-- Sources enter storage through a service-token-authenticated PUT. Size and SHA-256 are checked before parsing.
-- PDF and image recognition uses Tencent asynchronous document parsing; see the [integration and recovery boundaries](tencent-document-parser.md). PDF pages are still rendered at approximately 200 DPI for authenticated source review and crops. The structuring model consumes saved OCR evidence and associates known figure IDs; coordinates come from OCR, not the model. Each page includes adjacent OCR pages as context and emits only questions starting on that page. Content beyond that window remains incomplete and flagged for review. Semantic retries reuse saved evidence without another Tencent submission. Tencent failed pages retain their source and require explicit partial acceptance or a new parsing task. Pillow crops normalized OCR bounds. Descriptions use the `[page crop]` prefix. Individual page/text failures retain details and return `PARTIAL`.
+- Sources enter storage through a bounded PUT. Size and SHA-256 are checked before parsing.
+- PDF and image recognition uses Tencent asynchronous document parsing; see the [integration and recovery boundaries](tencent-document-parser.md). PDF pages are still rendered at approximately 200 DPI for same-origin source review and crops. The structuring model consumes saved OCR evidence and associates known figure IDs; coordinates come from OCR, not the model. Each page includes adjacent OCR pages as context and emits only questions starting on that page. Content beyond that window remains incomplete and flagged for review. Semantic retries reuse saved evidence without another Tencent submission. Tencent failed pages retain their source and require explicit partial acceptance or a new parsing task. Pillow crops normalized OCR bounds. Descriptions use the `[page crop]` prefix. Individual page/text failures retain details and return `PARTIAL`.
 - Graph state stores references and structured results, not file Base64.
 - Pydantic validates model output. Failed calls remain subject to shared retry and concurrency limits.
 
-Assets may contain both `imageRef` (a crop) and optional `sourceRef` (the complete source page), each an `ArtifactReference`. Both use the same authenticated read API with size/digest checks. New JSON may omit `sourceRef`; clients should retain it when present so readers can inspect crop edges and context. Full pages may contain answers; the desktop removes their references and hides their controls before self-test or mock-exam submission.
+Assets may contain both `imageRef` (a crop) and optional `sourceRef` (the complete source page), each an `ArtifactReference`. Both use the same same-origin read API with size/digest checks. New JSON may omit `sourceRef`; clients should retain it when present so readers can inspect crop edges and context. Full pages may contain answers; the desktop removes their references and hides their controls before self-test or mock-exam submission.
 
 The page window is bounded to two prior pages, the primary page and one next page. Associated source passages belong in typed practice material as well as the audit quote. A final white-paper diagram crop is rejected as `CROP_UNVERIFIED` when source foreground ink crosses its boundary; the original page remains available. This conservative guard cannot prove semantic completeness or detect content wholly outside the box, and may reject nearby text touching the edge. It does not expand crops.
 
@@ -271,7 +271,7 @@ For simple tables, the model returns rectangular cell arrays. The service escape
 
 PDFium renders in a terminable isolated process. Page images and crops enter asset storage; temporary files are removed after extraction. Page-count, pixel, aggregate vision-byte, and crop limits still apply. Full-page recognition increases model calls, cost, and latency.
 
-The extractor delivers binary page images and a bounded manifest. The parent reads/writes temporary files in a thread and waits for active file operations before cleanup on cancellation. Workers start with the service interpreter through `python -m practiq_ai.extractors.isolated` or `python -m practiq_ai.office`. The PDF/image/text/CSV worker inherits only OS paths, runtime library paths, locale and font settings. Its package path and temporary directories are set explicitly, and the four source/page/pixel/vision-byte limits come from validated parent settings. It receives read-only settings and a fixed internal placeholder token for the shared settings loader, never the service token, provider credentials, database URI, proxy settings or unrelated deployment environment. Office retains its separate environment filter and trusted engine configuration. This internal protocol ships with the independent service; external task and artifact APIs remain authenticated and checksum-checked.
+The extractor delivers binary page images and a bounded manifest. The parent reads/writes temporary files in a thread and waits for active file operations before cleanup on cancellation. Workers start with the service interpreter through `python -m practiq_ai.extractors.isolated` or `python -m practiq_ai.office`. The PDF/image/text/CSV worker inherits only OS paths, runtime library paths, locale and font settings. Its package path and temporary directories are set explicitly, and the four source/page/pixel/vision-byte limits come from validated parent settings. It receives read-only settings, never provider credentials, database URI, proxy settings or unrelated deployment environment. Office retains its separate environment filter and trusted engine configuration. This internal protocol ships with the independent service; external task and artifact APIs remain same-origin and checksum-checked.
 
 Returned `page` values are zero-based. Automated tests do not call real models; recognition quality requires separate acceptance.
 
@@ -299,4 +299,4 @@ Python extracts, associates, and exports `schemaVersion: 3` JSON. Rust validates
 
 English question kinds include listening, reading, word-bank, cloze, grammar fill, sentence selection, paragraph matching, translation, and writing. Parsing extracts only supplied content; the desktop attaches listening audio locally. See the [English question model](../../docs/reference/question-model.md#english-question-types) for fields, passage dialogs, and playback rules.
 
-Configure your own provider and service token; there are no account, point or payment APIs. See [personal deployment and upgrade](personal-use.md).
+Configure your own provider; there are no account, point or payment APIs. See [personal deployment and upgrade](personal-use.md).

@@ -121,7 +121,7 @@ async def test_server_auth_routes_and_graphs(tmp_path):
     try:
         await asyncio.to_thread(server.start)
         assert server.client.get('/ok', headers={'Authorization': ''}).json() == {'ok': True}
-        assert server.client.post('/api/uploads', json={}, headers={'Authorization': ''}).status_code == 401
+        assert server.client.post('/api/uploads', json={}, headers={'Origin': 'https://unrelated.example'}).status_code == 403
         assert server.client.post('/api/uploads', json={}).status_code == 422
         for route in ['/threads', '/runs', '/store/items', '/assistants/search', '/api/v1/ai/parse-document']:
             assert server.client.post(route, json={}).status_code == 404

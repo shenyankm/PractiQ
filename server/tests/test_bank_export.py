@@ -750,7 +750,7 @@ async def test_export_http_global_slot_holds_through_download_and_releases_after
     try:
         await asyncio.wait_for(entered.wait(), timeout=5)
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=webapp.app), base_url="http://test") as client:
-            assert (await client.get(endpoint)).status_code == 401
+            assert (await client.get(endpoint, headers={'Origin': 'https://unrelated.example'})).status_code == 403
             client.headers.update(credentials)
             busy = await client.get(endpoint)
             assert busy.status_code == 429 and busy.json()["detail"]["code"] == "BANK_EXPORT_BUSY"

@@ -13,16 +13,11 @@ from tests.db_support import new_database, setup_api
 
 
 @pytest.mark.usefixtures('disposable_databases')
-async def test_personal_import_needs_only_service_token_and_has_no_billing(monkeypatch):
+async def test_personal_import_needs_no_access_token_and_has_no_billing(monkeypatch):
     service, reference, model = await setup_api(monkeypatch)
     assert not any(name.startswith(('import_', 'payment_')) for name in await service.db.tables())
     request = DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)).model_dump(mode='json')
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=webapp.app), base_url='http://test') as client:
-        for authorization in ('', 'Bearer wrong', 'Account retired-token'):
-            response = await client.post('/api/document-tasks', json=request, headers={'Authorization': authorization})
-            assert response.status_code == 401
-        assert not model.calls and not await service.db.rows('SELECT * FROM document_tasks')
-        client.headers['Authorization'] = 'Bearer test-token'
         response = await client.post('/api/document-tasks', json=request)
         assert response.status_code == 202, response.text
         assert (await client.post('/api/document-tasks', json=request)).json() == response.json()
