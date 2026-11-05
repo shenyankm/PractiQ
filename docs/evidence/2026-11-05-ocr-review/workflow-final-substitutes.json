@@ -1,0 +1,1563 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-11-05T15:18:40.742596+00:00",
+  "revision": "6ec1c5d98a109118997fdb13a3f122062865486a",
+  "python": "3.14.7",
+  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "liveProviders": false,
+  "scope": "Production Chromium Web and loopback HTTP service; disposable PostgreSQL/RabbitMQ; real local files and release Rust/SQLite. Native phase excludes Tauri IPC/WebView. Three tiny fixtures, no capacity/p95 or before/after speedup claim.",
+  "status": "PASSED",
+  "gateReasons": [],
+  "samples": [
+    {
+      "name": "txt",
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/api/import-capabilities",
+          "status": 200,
+          "ms": 6.47037499999999,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/import-settings",
+          "status": 200,
+          "ms": 12.39370800000006,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/import-settings",
+          "status": 200,
+          "ms": 10.787124999999946,
+          "hasAuthorization": false
+        },
+        {
+          "method": "POST",
+          "path": "/api/uploads",
+          "status": 201,
+          "ms": 2.220874999999978,
+          "hasAuthorization": false
+        },
+        {
+          "method": "PUT",
+          "path": "/api/uploads/content",
+          "status": 200,
+          "ms": 3.829458000000045,
+          "hasAuthorization": false
+        },
+        {
+          "method": "POST",
+          "path": "/api/document-tasks",
+          "status": 202,
+          "ms": 35.988207999999986,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/e5351cc1-5963-584d-a11b-21b07361608e/preview",
+          "status": 200,
+          "ms": 56.57075000000009,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 56.74758399999996,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/e5351cc1-5963-584d-a11b-21b07361608e",
+          "status": 200,
+          "ms": 63.30362500000001,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 8.66604099999995,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/e5351cc1-5963-584d-a11b-21b07361608e",
+          "status": 200,
+          "ms": 9.482250000000022,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/e5351cc1-5963-584d-a11b-21b07361608e/preview",
+          "status": 200,
+          "ms": 3.8011670000000777,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/e5351cc1-5963-584d-a11b-21b07361608e/export",
+          "status": 200,
+          "ms": 15.646541999999954,
+          "hasAuthorization": false
+        }
+      ],
+      "phasesMs": {
+        "connect": 131.05899999999997,
+        "startToResultVisible": 3303.0946670000003,
+        "download": 56.989416999999776,
+        "startToDownloaded": 3361.3973749999996,
+        "nativeHandoffAndPractice": 91.3813339999997,
+        "startToPracticeRestored": 3452.7839999999997
+      },
+      "error": null,
+      "threadId": "e5351cc1-5963-584d-a11b-21b07361608e",
+      "browserPerformance": {
+        "domContentLoadedMs": 63.40000000037253,
+        "loadMs": 63.5,
+        "longTasks": {
+          "supported": true,
+          "count": 0,
+          "totalMs": 0,
+          "maxMs": 0
+        }
+      },
+      "modelCalls": 1,
+      "unknownCalls": [],
+      "reviewRequired": true,
+      "qualityErrors": [],
+      "zipSha256": "65a5b141b5e4a3990bb82caf333cb83cbc6112fa615b494a2367ca5c5d668ab5",
+      "nativeErrors": [],
+      "stages": [
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T15:18:46.919186+00:00",
+          "stage": "prepare",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "e5351cc1-5963-584d-a11b-21b07361608e",
+          "runId": "d6740e1f-9c3c-4cd3-b4ea-7af73107012a",
+          "durationMs": 36.523
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T15:18:46.924556+00:00",
+          "stage": "gate",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "e5351cc1-5963-584d-a11b-21b07361608e",
+          "runId": "d6740e1f-9c3c-4cd3-b4ea-7af73107012a",
+          "durationMs": 3.45
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T15:18:46.928313+00:00",
+          "stage": "gate",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "e5351cc1-5963-584d-a11b-21b07361608e",
+          "runId": "d6740e1f-9c3c-4cd3-b4ea-7af73107012a",
+          "durationMs": 2.027
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T15:18:46.931907+00:00",
+          "stage": "review",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "e5351cc1-5963-584d-a11b-21b07361608e",
+          "runId": "d6740e1f-9c3c-4cd3-b4ea-7af73107012a",
+          "durationMs": 2.43
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T15:18:46.937177+00:00",
+          "stage": "assemble",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "e5351cc1-5963-584d-a11b-21b07361608e",
+          "runId": "d6740e1f-9c3c-4cd3-b4ea-7af73107012a",
+          "durationMs": 3.628
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T15:18:46.941774+00:00",
+          "stage": "gate",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "e5351cc1-5963-584d-a11b-21b07361608e",
+          "runId": "d6740e1f-9c3c-4cd3-b4ea-7af73107012a",
+          "durationMs": 2.655
+        },
+        {
+          "event": "model_call",
+          "timestamp": "2026-11-05T15:18:46.954256+00:00",
+          "callKey": "fffd4a49-562f-4b58-bcd1-0cac5c9ebe51",
+          "kind": "document_parse",
+          "outcome": "known",
+          "runId": "d6740e1f-9c3c-4cd3-b4ea-7af73107012a",
+          "errorCode": null,
+          "schema": "ChunkParseResult",
+          "attempt": 1,
+          "validation": "passed",
+          "threadId": "e5351cc1-5963-584d-a11b-21b07361608e",
+          "unitKey": "document_parse:0:0",
+          "durationMs": 6.548,
+          "concurrencyWaitMs": 0.002,
+          "rateWaitMs": 1.442,
+          "providerRequestMs": 1.072
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T15:18:46.958714+00:00",
+          "stage": "chunk",
+          "outcome": "success",
+          "unitIndex": 0,
+          "unitKey": "document_parse:0:0",
+          "errorCode": null,
+          "threadId": "e5351cc1-5963-584d-a11b-21b07361608e",
+          "runId": "d6740e1f-9c3c-4cd3-b4ea-7af73107012a",
+          "durationMs": 15.395
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T15:18:46.962365+00:00",
+          "stage": "gate",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "e5351cc1-5963-584d-a11b-21b07361608e",
+          "runId": "d6740e1f-9c3c-4cd3-b4ea-7af73107012a",
+          "durationMs": 2.069
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T15:18:46.965772+00:00",
+          "stage": "gate",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "e5351cc1-5963-584d-a11b-21b07361608e",
+          "runId": "d6740e1f-9c3c-4cd3-b4ea-7af73107012a",
+          "durationMs": 1.868
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T15:18:46.968379+00:00",
+          "stage": "review",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "e5351cc1-5963-584d-a11b-21b07361608e",
+          "runId": "d6740e1f-9c3c-4cd3-b4ea-7af73107012a",
+          "durationMs": 1.637
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T15:18:46.975822+00:00",
+          "stage": "merge",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "e5351cc1-5963-584d-a11b-21b07361608e",
+          "runId": "d6740e1f-9c3c-4cd3-b4ea-7af73107012a",
+          "durationMs": 6.134
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T15:18:46.979751+00:00",
+          "stage": "gate",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "e5351cc1-5963-584d-a11b-21b07361608e",
+          "runId": "d6740e1f-9c3c-4cd3-b4ea-7af73107012a",
+          "durationMs": 2.372
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T15:18:46.983498+00:00",
+          "stage": "review",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "e5351cc1-5963-584d-a11b-21b07361608e",
+          "runId": "d6740e1f-9c3c-4cd3-b4ea-7af73107012a",
+          "durationMs": 2.115
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T15:18:46.987116+00:00",
+          "stage": "gate",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "e5351cc1-5963-584d-a11b-21b07361608e",
+          "runId": "d6740e1f-9c3c-4cd3-b4ea-7af73107012a",
+          "durationMs": 2.137
+        },
+        {
+          "event": "document_run_state",
+          "timestamp": "2026-11-05T15:18:46.996549+00:00",
+          "threadId": "e5351cc1-5963-584d-a11b-21b07361608e",
+          "runId": "d6740e1f-9c3c-4cd3-b4ea-7af73107012a",
+          "status": "success",
+          "errorCode": null
+        }
+      ]
+    },
+    {
+      "name": "md",
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/api/import-capabilities",
+          "status": 200,
+          "ms": 4.798540999999204,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/import-settings",
+          "status": 200,
+          "ms": 4.723041000000194,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/import-settings",
+          "status": 200,
+          "ms": 15.235791999999492,
+          "hasAuthorization": false
+        },
+        {
+          "method": "POST",
+          "path": "/api/uploads",
+          "status": 201,
+          "ms": 2.1505839999999807,
+          "hasAuthorization": false
+        },
+        {
+          "method": "PUT",
+          "path": "/api/uploads/content",
+          "status": 200,
+          "ms": 3.0719579999995403,
+          "hasAuthorization": false
+        },
+        {
+          "method": "POST",
+          "path": "/api/document-tasks",
+          "status": 202,
+          "ms": 36.904999999999745,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/1ef592de-d367-5e8a-b021-8de335e2836e/preview",
+          "status": 200,
+          "ms": 7.452040999999554,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 7.873083999999835,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/1ef592de-d367-5e8a-b021-8de335e2836e",
+          "status": 200,
+          "ms": 9.789542000000438,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 9.646624999999403,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/1ef592de-d367-5e8a-b021-8de335e2836e",
+          "status": 200,
+          "ms": 10.602750000000015,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/1ef592de-d367-5e8a-b021-8de335e2836e/preview",
+          "status": 200,
+          "ms": 4.207292000000052,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/1ef592de-d367-5e8a-b021-8de335e2836e/export",
+          "status": 200,
+          "ms": 13.376916999999594,
+          "hasAuthorization": false
+        }
+      ],
+      "phasesMs": {
+        "connect": 64.90966599999956,
+        "startToResultVisible": 3199.9413329999998,
+        "download": 52.429833000000144,
+        "startToDownloaded": 3253.38375,
+        "nativeHandoffAndPractice": 61.425792,
+        "startToPracticeRestored": 3314.8107500000006
+      },
+      "error": null,
+      "threadId": "1ef592de-d367-5e8a-b021-8de335e2836e",
+      "browserPerformance": {
+        "domContentLoadedMs": 29,
+        "loadMs": 29,
+        "longTasks": {
+          "supported": true,
+          "count": 0,
+          "totalMs": 0,
+          "maxMs": 0
+        }
+      },
+      "modelCalls": 1,
+      "unknownCalls": [],
+      "reviewRequired": true,
+      "qualityErrors": [],
+      "zipSha256": "65a5b141b5e4a3990bb82caf333cb83cbc6112fa615b494a2367ca5c5d668ab5",
+      "nativeErrors": [],
+      "stages": [
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T15:18:50.475646+00:00",
+          "stage": "prepare",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "1ef592de-d367-5e8a-b021-8de335e2836e",
+          "runId": "8b46c5bb-91ed-4b40-9c81-db4a12fd8a37",
+          "durationMs": 24.189
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T15:18:50.479692+00:00",
+          "stage": "gate",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "1ef592de-d367-5e8a-b021-8de335e2836e",
+          "runId": "8b46c5bb-91ed-4b40-9c81-db4a12fd8a37",
+          "durationMs": 2.314
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T15:18:50.482912+00:00",
+          "stage": "gate",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "1ef592de-d367-5e8a-b021-8de335e2836e",
+          "runId": "8b46c5bb-91ed-4b40-9c81-db4a12fd8a37",
+          "durationMs": 1.922
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T15:18:50.485691+00:00",
+          "stage": "review",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "1ef592de-d367-5e8a-b021-8de335e2836e",
+          "runId": "8b46c5bb-91ed-4b40-9c81-db4a12fd8a37",
+          "durationMs": 1.672
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T15:18:50.492203+00:00",
+          "stage": "assemble",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "1ef592de-d367-5e8a-b021-8de335e2836e",
+          "runId": "8b46c5bb-91ed-4b40-9c81-db4a12fd8a37",
+          "durationMs": 5.009
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T15:18:50.499900+00:00",
+          "stage": "gate",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "1ef592de-d367-5e8a-b021-8de335e2836e",
+          "runId": "8b46c5bb-91ed-4b40-9c81-db4a12fd8a37",
+          "durationMs": 5.092
+        },
+        {
+          "event": "model_call",
+          "timestamp": "2026-11-05T15:18:50.513644+00:00",
+          "callKey": "c7920791-26c9-4865-ae43-ce80b1ebfe70",
+          "kind": "document_parse",
+          "outcome": "known",
+          "runId": "8b46c5bb-91ed-4b40-9c81-db4a12fd8a37",
+          "errorCode": null,
+          "schema": "ChunkParseResult",
+          "attempt": 1,
+          "validation": "passed",
+          "threadId": "1ef592de-d367-5e8a-b021-8de335e2836e",
+          "unitKey": "document_parse:0:0",
+          "durationMs": 6.404,
+          "concurrencyWaitMs": 0.003,
+          "rateWaitMs": 1.645,
+          "providerRequestMs": 0.767
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T15:18:50.517475+00:00",
+          "stage": "chunk",
+          "outcome": "success",
+          "unitIndex": 0,
+          "unitKey": "document_parse:0:0",
+          "errorCode": null,
+          "threadId": "1ef592de-d367-5e8a-b021-8de335e2836e",
+          "runId": "8b46c5bb-91ed-4b40-9c81-db4a12fd8a37",
+          "durationMs": 15.499
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T15:18:50.521719+00:00",
+          "stage": "gate",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "1ef592de-d367-5e8a-b021-8de335e2836e",
+          "runId": "8b46c5bb-91ed-4b40-9c81-db4a12fd8a37",
+          "durationMs": 2.435
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T15:18:50.525602+00:00",
+          "stage": "gate",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "1ef592de-d367-5e8a-b021-8de335e2836e",
+          "runId": "8b46c5bb-91ed-4b40-9c81-db4a12fd8a37",
+          "durationMs": 2.22
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T15:18:50.528586+00:00",
+          "stage": "review",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "1ef592de-d367-5e8a-b021-8de335e2836e",
+          "runId": "8b46c5bb-91ed-4b40-9c81-db4a12fd8a37",
+          "durationMs": 1.762
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T15:18:50.535303+00:00",
+          "stage": "merge",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "1ef592de-d367-5e8a-b021-8de335e2836e",
+          "runId": "8b46c5bb-91ed-4b40-9c81-db4a12fd8a37",
+          "durationMs": 5.204
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T15:18:50.539805+00:00",
+          "stage": "gate",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "1ef592de-d367-5e8a-b021-8de335e2836e",
+          "runId": "8b46c5bb-91ed-4b40-9c81-db4a12fd8a37",
+          "durationMs": 2.488
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T15:18:50.545748+00:00",
+          "stage": "review",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "1ef592de-d367-5e8a-b021-8de335e2836e",
+          "runId": "8b46c5bb-91ed-4b40-9c81-db4a12fd8a37",
+          "durationMs": 2.405
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T15:18:50.550378+00:00",
+          "stage": "gate",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "1ef592de-d367-5e8a-b021-8de335e2836e",
+          "runId": "8b46c5bb-91ed-4b40-9c81-db4a12fd8a37",
+          "durationMs": 2.439
+        },
+        {
+          "event": "document_run_state",
+          "timestamp": "2026-11-05T15:18:50.554368+00:00",
+          "threadId": "1ef592de-d367-5e8a-b021-8de335e2836e",
+          "runId": "8b46c5bb-91ed-4b40-9c81-db4a12fd8a37",
+          "status": "success",
+          "errorCode": null
+        }
+      ]
+    },
+    {
+      "name": "png",
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/api/import-capabilities",
+          "status": 200,
+          "ms": 14.335791999999856,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/import-settings",
+          "status": 200,
+          "ms": 14.33154100000047,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/import-settings",
+          "status": 200,
+          "ms": 4.175208999999995,
+          "hasAuthorization": false
+        },
+        {
+          "method": "POST",
+          "path": "/api/uploads",
+          "status": 201,
+          "ms": 2.552458999999544,
+          "hasAuthorization": false
+        },
+        {
+          "method": "PUT",
+          "path": "/api/uploads/content",
+          "status": 200,
+          "ms": 1.524000000000342,
+          "hasAuthorization": false
+        },
+        {
+          "method": "POST",
+          "path": "/api/document-tasks",
+          "status": 202,
+          "ms": 7.373375000000124,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 5.58075000000008,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/db8a81a0-e385-5ccd-bd69-ce4eb16b0fe2/preview",
+          "status": 200,
+          "ms": 7.68908300000021,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/db8a81a0-e385-5ccd-bd69-ce4eb16b0fe2",
+          "status": 200,
+          "ms": 7.80883300000005,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 5.0552499999994325,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/db8a81a0-e385-5ccd-bd69-ce4eb16b0fe2",
+          "status": 200,
+          "ms": 7.9343339999995806,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/db8a81a0-e385-5ccd-bd69-ce4eb16b0fe2/preview",
+          "status": 200,
+          "ms": 3.224458999999115,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/db8a81a0-e385-5ccd-bd69-ce4eb16b0fe2/export",
+          "status": 200,
+          "ms": 13.991541000001234,
+          "hasAuthorization": false
+        }
+      ],
+      "phasesMs": {
+        "connect": 64.17950000000019,
+        "startToResultVisible": 3195.8945829999993,
+        "download": 54.03974999999991,
+        "startToDownloaded": 3252.2114579999998,
+        "nativeHandoffAndPractice": 63.19020900000032,
+        "startToPracticeRestored": 3315.4027079999996
+      },
+      "error": null,
+      "threadId": "db8a81a0-e385-5ccd-bd69-ce4eb16b0fe2",
+      "browserPerformance": {
+        "domContentLoadedMs": 28.299999999813735,
+        "loadMs": 28.299999999813735,
+        "longTasks": {
+          "supported": true,
+          "count": 0,
+          "totalMs": 0,
+          "maxMs": 0
+        }
+      },
+      "modelCalls": 1,
+      "unknownCalls": [],
+      "reviewRequired": true,
+      "qualityErrors": [],
+      "zipSha256": "283643982f8cda66bb73106a087367627b92661dc609a4a5e2cbc5f73ed5f215",
+      "nativeErrors": [],
+      "stages": [
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T15:18:54.124081+00:00",
+          "stage": "prepare",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "db8a81a0-e385-5ccd-bd69-ce4eb16b0fe2",
+          "runId": "953d66c6-95d2-4549-a9bf-a85b2c5deb97",
+          "durationMs": 172.52
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T15:18:54.129744+00:00",
+          "stage": "gate",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "db8a81a0-e385-5ccd-bd69-ce4eb16b0fe2",
+          "runId": "953d66c6-95d2-4549-a9bf-a85b2c5deb97",
+          "durationMs": 3.607
+        },
+        {
+          "event": "model_call",
+          "timestamp": "2026-11-05T15:18:54.144477+00:00",
+          "callKey": "96717d86-0750-40c6-9db8-41e8bb540db1",
+          "kind": "vision_parse",
+          "outcome": "known",
+          "runId": "953d66c6-95d2-4549-a9bf-a85b2c5deb97",
+          "errorCode": null,
+          "schema": "OcrPageParseResult",
+          "attempt": 1,
+          "validation": "passed",
+          "threadId": "db8a81a0-e385-5ccd-bd69-ce4eb16b0fe2",
+          "unitKey": "vision_parse:0:0",
+          "durationMs": 7.699,
+          "concurrencyWaitMs": 0.001,
+          "rateWaitMs": 1.47,
+          "providerRequestMs": 1.586
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T15:18:54.147729+00:00",
+          "stage": "vision",
+          "outcome": "success",
+          "unitIndex": 0,
+          "unitKey": "vision_parse:0:0",
+          "errorCode": null,
+          "threadId": "db8a81a0-e385-5ccd-bd69-ce4eb16b0fe2",
+          "runId": "953d66c6-95d2-4549-a9bf-a85b2c5deb97",
+          "durationMs": 16.379
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T15:18:54.151336+00:00",
+          "stage": "gate",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "db8a81a0-e385-5ccd-bd69-ce4eb16b0fe2",
+          "runId": "953d66c6-95d2-4549-a9bf-a85b2c5deb97",
+          "durationMs": 2.177
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T15:18:54.154809+00:00",
+          "stage": "gate",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "db8a81a0-e385-5ccd-bd69-ce4eb16b0fe2",
+          "runId": "953d66c6-95d2-4549-a9bf-a85b2c5deb97",
+          "durationMs": 2.001
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T15:18:54.158767+00:00",
+          "stage": "review",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "db8a81a0-e385-5ccd-bd69-ce4eb16b0fe2",
+          "runId": "953d66c6-95d2-4549-a9bf-a85b2c5deb97",
+          "durationMs": 2.274
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T15:18:54.165609+00:00",
+          "stage": "merge",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "db8a81a0-e385-5ccd-bd69-ce4eb16b0fe2",
+          "runId": "953d66c6-95d2-4549-a9bf-a85b2c5deb97",
+          "durationMs": 5.462
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T15:18:54.169809+00:00",
+          "stage": "gate",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "db8a81a0-e385-5ccd-bd69-ce4eb16b0fe2",
+          "runId": "953d66c6-95d2-4549-a9bf-a85b2c5deb97",
+          "durationMs": 2.536
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T15:18:54.173221+00:00",
+          "stage": "review",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "db8a81a0-e385-5ccd-bd69-ce4eb16b0fe2",
+          "runId": "953d66c6-95d2-4549-a9bf-a85b2c5deb97",
+          "durationMs": 1.908
+        },
+        {
+          "event": "stage",
+          "timestamp": "2026-11-05T15:18:54.176484+00:00",
+          "stage": "gate",
+          "outcome": "success",
+          "unitIndex": null,
+          "unitKey": null,
+          "errorCode": null,
+          "threadId": "db8a81a0-e385-5ccd-bd69-ce4eb16b0fe2",
+          "runId": "953d66c6-95d2-4549-a9bf-a85b2c5deb97",
+          "durationMs": 1.983
+        },
+        {
+          "event": "document_run_state",
+          "timestamp": "2026-11-05T15:18:54.179361+00:00",
+          "threadId": "db8a81a0-e385-5ccd-bd69-ce4eb16b0fe2",
+          "runId": "953d66c6-95d2-4549-a9bf-a85b2c5deb97",
+          "status": "success",
+          "errorCode": null
+        }
+      ]
+    }
+  ],
+  "serviceCodeHash": "c4da2aea99461675d48ac2af29df7be53b79c00ca42f78f9271f9d4cf0303b5c",
+  "native": [
+    {
+      "backupRestore": true,
+      "correct": 3,
+      "earnedCents": 300,
+      "firstRun": true,
+      "name": "txt",
+      "phasesMs": {
+        "backup": 10.537875,
+        "firstPage": 0.39275,
+        "importZip": 0.9117500000000001,
+        "initialize": 3.00675,
+        "previewPaper": 0.725833,
+        "previewZip": 1.8727500000000001,
+        "readResults": 0.235,
+        "reopen": 1.32825,
+        "restore": 22.351584,
+        "saveAndNavigate": 3.130417,
+        "startPaper": 1.240583,
+        "submitPaper": 1.3322919999999998
+      },
+      "questions": 3,
+      "reopen": true,
+      "repetition": 0,
+      "totalMs": 51.987375,
+      "zipSha256": "65a5b141b5e4a3990bb82caf333cb83cbc6112fa615b494a2367ca5c5d668ab5"
+    },
+    {
+      "backupRestore": true,
+      "correct": 3,
+      "earnedCents": 300,
+      "firstRun": false,
+      "name": "txt",
+      "phasesMs": {
+        "backup": 9.961875000000001,
+        "firstPage": 0.359375,
+        "importZip": 0.735208,
+        "initialize": 2.295708,
+        "previewPaper": 0.649625,
+        "previewZip": 0.150916,
+        "readResults": 0.216875,
+        "reopen": 1.257542,
+        "restore": 23.164292,
+        "saveAndNavigate": 3.162375,
+        "startPaper": 0.9927499999999999,
+        "submitPaper": 1.15
+      },
+      "questions": 3,
+      "reopen": true,
+      "repetition": 1,
+      "totalMs": 49.2815,
+      "zipSha256": "65a5b141b5e4a3990bb82caf333cb83cbc6112fa615b494a2367ca5c5d668ab5"
+    },
+    {
+      "backupRestore": true,
+      "correct": 3,
+      "earnedCents": 300,
+      "firstRun": false,
+      "name": "txt",
+      "phasesMs": {
+        "backup": 9.524625,
+        "firstPage": 0.366833,
+        "importZip": 0.750792,
+        "initialize": 2.4926660000000003,
+        "previewPaper": 0.654375,
+        "previewZip": 0.161583,
+        "readResults": 0.23954099999999998,
+        "reopen": 1.289833,
+        "restore": 20.352625,
+        "saveAndNavigate": 2.789667,
+        "startPaper": 1.017625,
+        "submitPaper": 1.2979580000000002
+      },
+      "questions": 3,
+      "reopen": true,
+      "repetition": 2,
+      "totalMs": 45.971458,
+      "zipSha256": "65a5b141b5e4a3990bb82caf333cb83cbc6112fa615b494a2367ca5c5d668ab5"
+    },
+    {
+      "backupRestore": true,
+      "correct": 3,
+      "earnedCents": 300,
+      "firstRun": false,
+      "name": "txt",
+      "phasesMs": {
+        "backup": 8.958625,
+        "firstPage": 0.365208,
+        "importZip": 0.7854169999999999,
+        "initialize": 2.390334,
+        "previewPaper": 0.6727080000000001,
+        "previewZip": 0.16629200000000002,
+        "readResults": 0.22270800000000002,
+        "reopen": 1.323833,
+        "restore": 20.285666,
+        "saveAndNavigate": 3.244125,
+        "startPaper": 1.11175,
+        "submitPaper": 1.215125
+      },
+      "questions": 3,
+      "reopen": true,
+      "repetition": 3,
+      "totalMs": 45.827334,
+      "zipSha256": "65a5b141b5e4a3990bb82caf333cb83cbc6112fa615b494a2367ca5c5d668ab5"
+    },
+    {
+      "backupRestore": true,
+      "correct": 3,
+      "earnedCents": 300,
+      "firstRun": false,
+      "name": "txt",
+      "phasesMs": {
+        "backup": 8.742709,
+        "firstPage": 0.366875,
+        "importZip": 0.790083,
+        "initialize": 2.6738750000000002,
+        "previewPaper": 0.676959,
+        "previewZip": 0.17908400000000002,
+        "readResults": 0.2165,
+        "reopen": 1.299833,
+        "restore": 23.709958999999998,
+        "saveAndNavigate": 3.326917,
+        "startPaper": 1.034625,
+        "submitPaper": 1.2132910000000001
+      },
+      "questions": 3,
+      "reopen": true,
+      "repetition": 4,
+      "totalMs": 48.871041,
+      "zipSha256": "65a5b141b5e4a3990bb82caf333cb83cbc6112fa615b494a2367ca5c5d668ab5"
+    },
+    {
+      "backupRestore": true,
+      "correct": 3,
+      "earnedCents": 300,
+      "firstRun": false,
+      "name": "txt",
+      "phasesMs": {
+        "backup": 9.532791000000001,
+        "firstPage": 0.3325,
+        "importZip": 0.711959,
+        "initialize": 2.305,
+        "previewPaper": 0.62675,
+        "previewZip": 0.150042,
+        "readResults": 0.21875,
+        "reopen": 1.172125,
+        "restore": 18.45225,
+        "saveAndNavigate": 2.701875,
+        "startPaper": 0.936708,
+        "submitPaper": 1.174125
+      },
+      "questions": 3,
+      "reopen": true,
+      "repetition": 5,
+      "totalMs": 42.811834,
+      "zipSha256": "65a5b141b5e4a3990bb82caf333cb83cbc6112fa615b494a2367ca5c5d668ab5"
+    },
+    {
+      "backupRestore": true,
+      "correct": 3,
+      "earnedCents": 300,
+      "firstRun": false,
+      "name": "txt",
+      "phasesMs": {
+        "backup": 11.833,
+        "firstPage": 0.373208,
+        "importZip": 0.7757499999999999,
+        "initialize": 2.198,
+        "previewPaper": 0.632375,
+        "previewZip": 0.123375,
+        "readResults": 0.18395799999999998,
+        "reopen": 1.154042,
+        "restore": 19.6645,
+        "saveAndNavigate": 2.7664590000000002,
+        "startPaper": 0.965417,
+        "submitPaper": 0.9810000000000001
+      },
+      "questions": 3,
+      "reopen": true,
+      "repetition": 6,
+      "totalMs": 46.236292,
+      "zipSha256": "65a5b141b5e4a3990bb82caf333cb83cbc6112fa615b494a2367ca5c5d668ab5"
+    },
+    {
+      "backupRestore": true,
+      "correct": 3,
+      "earnedCents": 300,
+      "firstRun": false,
+      "name": "txt",
+      "phasesMs": {
+        "backup": 8.7595,
+        "firstPage": 0.335167,
+        "importZip": 0.71725,
+        "initialize": 2.22425,
+        "previewPaper": 0.6034579999999999,
+        "previewZip": 0.131959,
+        "readResults": 0.194709,
+        "reopen": 1.164334,
+        "restore": 19.654917,
+        "saveAndNavigate": 2.7935,
+        "startPaper": 1.022084,
+        "submitPaper": 1.0596670000000001
+      },
+      "questions": 3,
+      "reopen": true,
+      "repetition": 7,
+      "totalMs": 42.960832999999994,
+      "zipSha256": "65a5b141b5e4a3990bb82caf333cb83cbc6112fa615b494a2367ca5c5d668ab5"
+    },
+    {
+      "backupRestore": true,
+      "correct": 3,
+      "earnedCents": 300,
+      "firstRun": true,
+      "name": "md",
+      "phasesMs": {
+        "backup": 9.092457999999999,
+        "firstPage": 0.328542,
+        "importZip": 0.713208,
+        "initialize": 2.158625,
+        "previewPaper": 0.63625,
+        "previewZip": 0.128167,
+        "readResults": 0.196875,
+        "reopen": 1.161708,
+        "restore": 20.485833,
+        "saveAndNavigate": 2.694208,
+        "startPaper": 0.954875,
+        "submitPaper": 1.0304579999999999
+      },
+      "questions": 3,
+      "reopen": true,
+      "repetition": 0,
+      "totalMs": 43.9345,
+      "zipSha256": "65a5b141b5e4a3990bb82caf333cb83cbc6112fa615b494a2367ca5c5d668ab5"
+    },
+    {
+      "backupRestore": true,
+      "correct": 3,
+      "earnedCents": 300,
+      "firstRun": false,
+      "name": "md",
+      "phasesMs": {
+        "backup": 10.288166,
+        "firstPage": 0.30233400000000005,
+        "importZip": 0.680625,
+        "initialize": 2.166167,
+        "previewPaper": 0.626292,
+        "previewZip": 0.119917,
+        "readResults": 0.22949999999999998,
+        "reopen": 1.1408749999999999,
+        "restore": 19.717166000000002,
+        "saveAndNavigate": 2.613292,
+        "startPaper": 0.9268329999999999,
+        "submitPaper": 1.15975
+      },
+      "questions": 3,
+      "reopen": true,
+      "repetition": 1,
+      "totalMs": 44.292333000000006,
+      "zipSha256": "65a5b141b5e4a3990bb82caf333cb83cbc6112fa615b494a2367ca5c5d668ab5"
+    },
+    {
+      "backupRestore": true,
+      "correct": 3,
+      "earnedCents": 300,
+      "firstRun": false,
+      "name": "md",
+      "phasesMs": {
+        "backup": 10.3745,
+        "firstPage": 0.371917,
+        "importZip": 0.85,
+        "initialize": 2.309417,
+        "previewPaper": 0.672875,
+        "previewZip": 0.154541,
+        "readResults": 0.190584,
+        "reopen": 1.143542,
+        "restore": 23.264166,
+        "saveAndNavigate": 2.823333,
+        "startPaper": 0.958292,
+        "submitPaper": 1.139958
+      },
+      "questions": 3,
+      "reopen": true,
+      "repetition": 2,
+      "totalMs": 48.943792,
+      "zipSha256": "65a5b141b5e4a3990bb82caf333cb83cbc6112fa615b494a2367ca5c5d668ab5"
+    },
+    {
+      "backupRestore": true,
+      "correct": 3,
+      "earnedCents": 300,
+      "firstRun": false,
+      "name": "md",
+      "phasesMs": {
+        "backup": 9.651292,
+        "firstPage": 0.34287500000000004,
+        "importZip": 0.753625,
+        "initialize": 2.2781670000000003,
+        "previewPaper": 0.630834,
+        "previewZip": 0.13924999999999998,
+        "readResults": 0.221583,
+        "reopen": 1.18625,
+        "restore": 22.430249999999997,
+        "saveAndNavigate": 2.7122499999999996,
+        "startPaper": 0.9546669999999999,
+        "submitPaper": 1.144667
+      },
+      "questions": 3,
+      "reopen": true,
+      "repetition": 3,
+      "totalMs": 46.983292000000006,
+      "zipSha256": "65a5b141b5e4a3990bb82caf333cb83cbc6112fa615b494a2367ca5c5d668ab5"
+    },
+    {
+      "backupRestore": true,
+      "correct": 3,
+      "earnedCents": 300,
+      "firstRun": false,
+      "name": "md",
+      "phasesMs": {
+        "backup": 9.781625,
+        "firstPage": 0.34075,
+        "importZip": 0.739542,
+        "initialize": 2.251542,
+        "previewPaper": 0.636875,
+        "previewZip": 0.128291,
+        "readResults": 0.200292,
+        "reopen": 1.1855,
+        "restore": 23.463209,
+        "saveAndNavigate": 2.706833,
+        "startPaper": 1.077458,
+        "submitPaper": 1.0883749999999999
+      },
+      "questions": 3,
+      "reopen": true,
+      "repetition": 4,
+      "totalMs": 48.041334,
+      "zipSha256": "65a5b141b5e4a3990bb82caf333cb83cbc6112fa615b494a2367ca5c5d668ab5"
+    },
+    {
+      "backupRestore": true,
+      "correct": 3,
+      "earnedCents": 300,
+      "firstRun": false,
+      "name": "md",
+      "phasesMs": {
+        "backup": 10.816958,
+        "firstPage": 0.34079200000000004,
+        "importZip": 0.7421249999999999,
+        "initialize": 2.264959,
+        "previewPaper": 0.6464580000000001,
+        "previewZip": 0.131459,
+        "readResults": 0.206042,
+        "reopen": 1.207709,
+        "restore": 22.300333,
+        "saveAndNavigate": 2.778333,
+        "startPaper": 0.971,
+        "submitPaper": 1.0920420000000002
+      },
+      "questions": 3,
+      "reopen": true,
+      "repetition": 5,
+      "totalMs": 48.145166,
+      "zipSha256": "65a5b141b5e4a3990bb82caf333cb83cbc6112fa615b494a2367ca5c5d668ab5"
+    },
+    {
+      "backupRestore": true,
+      "correct": 3,
+      "earnedCents": 300,
+      "firstRun": false,
+      "name": "md",
+      "phasesMs": {
+        "backup": 10.402292000000001,
+        "firstPage": 0.338792,
+        "importZip": 0.747583,
+        "initialize": 2.324959,
+        "previewPaper": 0.6479170000000001,
+        "previewZip": 0.13349999999999998,
+        "readResults": 0.204958,
+        "reopen": 1.1862920000000001,
+        "restore": 21.537792,
+        "saveAndNavigate": 2.8359579999999998,
+        "startPaper": 0.95325,
+        "submitPaper": 1.125
+      },
+      "questions": 3,
+      "reopen": true,
+      "repetition": 6,
+      "totalMs": 46.89925,
+      "zipSha256": "65a5b141b5e4a3990bb82caf333cb83cbc6112fa615b494a2367ca5c5d668ab5"
+    },
+    {
+      "backupRestore": true,
+      "correct": 3,
+      "earnedCents": 300,
+      "firstRun": false,
+      "name": "md",
+      "phasesMs": {
+        "backup": 10.719833,
+        "firstPage": 0.330583,
+        "importZip": 0.716167,
+        "initialize": 2.339542,
+        "previewPaper": 0.635708,
+        "previewZip": 0.12191700000000001,
+        "readResults": 0.203792,
+        "reopen": 1.1844169999999998,
+        "restore": 21.343625000000003,
+        "saveAndNavigate": 2.815375,
+        "startPaper": 0.963292,
+        "submitPaper": 1.07175
+      },
+      "questions": 3,
+      "reopen": true,
+      "repetition": 7,
+      "totalMs": 46.95725,
+      "zipSha256": "65a5b141b5e4a3990bb82caf333cb83cbc6112fa615b494a2367ca5c5d668ab5"
+    },
+    {
+      "backupRestore": true,
+      "correct": 3,
+      "earnedCents": 300,
+      "firstRun": true,
+      "name": "png",
+      "phasesMs": {
+        "backup": 10.068624999999999,
+        "firstPage": 0.32795799999999997,
+        "importZip": 0.730667,
+        "initialize": 2.245,
+        "previewPaper": 0.6303329999999999,
+        "previewZip": 0.13275,
+        "readResults": 0.196625,
+        "reopen": 1.150375,
+        "restore": 22.555333,
+        "saveAndNavigate": 2.752584,
+        "startPaper": 0.947708,
+        "submitPaper": 1.010667
+      },
+      "questions": 3,
+      "reopen": true,
+      "repetition": 0,
+      "totalMs": 47.171459,
+      "zipSha256": "283643982f8cda66bb73106a087367627b92661dc609a4a5e2cbc5f73ed5f215"
+    },
+    {
+      "backupRestore": true,
+      "correct": 3,
+      "earnedCents": 300,
+      "firstRun": false,
+      "name": "png",
+      "phasesMs": {
+        "backup": 8.845875,
+        "firstPage": 0.328416,
+        "importZip": 0.74825,
+        "initialize": 2.285666,
+        "previewPaper": 0.61425,
+        "previewZip": 0.1235,
+        "readResults": 0.209708,
+        "reopen": 1.18875,
+        "restore": 19.549791,
+        "saveAndNavigate": 2.725375,
+        "startPaper": 0.937083,
+        "submitPaper": 1.028333
+      },
+      "questions": 3,
+      "reopen": true,
+      "repetition": 1,
+      "totalMs": 42.990792,
+      "zipSha256": "283643982f8cda66bb73106a087367627b92661dc609a4a5e2cbc5f73ed5f215"
+    },
+    {
+      "backupRestore": true,
+      "correct": 3,
+      "earnedCents": 300,
+      "firstRun": false,
+      "name": "png",
+      "phasesMs": {
+        "backup": 10.114375,
+        "firstPage": 0.329042,
+        "importZip": 0.71475,
+        "initialize": 2.268041,
+        "previewPaper": 0.636209,
+        "previewZip": 0.137708,
+        "readResults": 0.192,
+        "reopen": 1.179292,
+        "restore": 20.359334,
+        "saveAndNavigate": 2.648375,
+        "startPaper": 0.941291,
+        "submitPaper": 1.021959
+      },
+      "questions": 3,
+      "reopen": true,
+      "repetition": 2,
+      "totalMs": 45.081999999999994,
+      "zipSha256": "283643982f8cda66bb73106a087367627b92661dc609a4a5e2cbc5f73ed5f215"
+    },
+    {
+      "backupRestore": true,
+      "correct": 3,
+      "earnedCents": 300,
+      "firstRun": false,
+      "name": "png",
+      "phasesMs": {
+        "backup": 9.175875,
+        "firstPage": 0.323875,
+        "importZip": 0.696125,
+        "initialize": 2.162833,
+        "previewPaper": 0.62075,
+        "previewZip": 0.121,
+        "readResults": 0.20225,
+        "reopen": 1.145042,
+        "restore": 19.3875,
+        "saveAndNavigate": 2.7569169999999996,
+        "startPaper": 0.945584,
+        "submitPaper": 1.036292
+      },
+      "questions": 3,
+      "reopen": true,
+      "repetition": 3,
+      "totalMs": 42.928042,
+      "zipSha256": "283643982f8cda66bb73106a087367627b92661dc609a4a5e2cbc5f73ed5f215"
+    },
+    {
+      "backupRestore": true,
+      "correct": 3,
+      "earnedCents": 300,
+      "firstRun": false,
+      "name": "png",
+      "phasesMs": {
+        "backup": 12.181208,
+        "firstPage": 0.349209,
+        "importZip": 0.750625,
+        "initialize": 2.290083,
+        "previewPaper": 0.60775,
+        "previewZip": 0.130958,
+        "readResults": 0.199792,
+        "reopen": 1.1215000000000002,
+        "restore": 28.958333,
+        "saveAndNavigate": 2.6917500000000003,
+        "startPaper": 0.9202499999999999,
+        "submitPaper": 1.015833
+      },
+      "questions": 3,
+      "reopen": true,
+      "repetition": 4,
+      "totalMs": 56.319583,
+      "zipSha256": "283643982f8cda66bb73106a087367627b92661dc609a4a5e2cbc5f73ed5f215"
+    },
+    {
+      "backupRestore": true,
+      "correct": 3,
+      "earnedCents": 300,
+      "firstRun": false,
+      "name": "png",
+      "phasesMs": {
+        "backup": 10.504583,
+        "firstPage": 0.34,
+        "importZip": 0.7510830000000001,
+        "initialize": 2.3596250000000003,
+        "previewPaper": 0.658416,
+        "previewZip": 0.134417,
+        "readResults": 0.203917,
+        "reopen": 1.172542,
+        "restore": 22.617959,
+        "saveAndNavigate": 2.6960830000000002,
+        "startPaper": 0.968167,
+        "submitPaper": 1.0597919999999998
+      },
+      "questions": 3,
+      "reopen": true,
+      "repetition": 5,
+      "totalMs": 47.949375,
+      "zipSha256": "283643982f8cda66bb73106a087367627b92661dc609a4a5e2cbc5f73ed5f215"
+    },
+    {
+      "backupRestore": true,
+      "correct": 3,
+      "earnedCents": 300,
+      "firstRun": false,
+      "name": "png",
+      "phasesMs": {
+        "backup": 10.708792,
+        "firstPage": 0.34245800000000004,
+        "importZip": 0.725334,
+        "initialize": 2.241,
+        "previewPaper": 0.643542,
+        "previewZip": 0.12879100000000002,
+        "readResults": 0.20475,
+        "reopen": 1.1658339999999998,
+        "restore": 22.591125,
+        "saveAndNavigate": 2.660666,
+        "startPaper": 0.956083,
+        "submitPaper": 1.046167
+      },
+      "questions": 3,
+      "reopen": true,
+      "repetition": 6,
+      "totalMs": 47.871708,
+      "zipSha256": "283643982f8cda66bb73106a087367627b92661dc609a4a5e2cbc5f73ed5f215"
+    },
+    {
+      "backupRestore": true,
+      "correct": 3,
+      "earnedCents": 300,
+      "firstRun": false,
+      "name": "png",
+      "phasesMs": {
+        "backup": 10.243375,
+        "firstPage": 0.328125,
+        "importZip": 0.79475,
+        "initialize": 2.2704999999999997,
+        "previewPaper": 0.6325000000000001,
+        "previewZip": 0.12545800000000001,
+        "readResults": 0.215125,
+        "reopen": 1.213916,
+        "restore": 21.384083,
+        "saveAndNavigate": 2.9256249999999997,
+        "startPaper": 0.9812919999999999,
+        "submitPaper": 1.189584
+      },
+      "questions": 3,
+      "reopen": true,
+      "repetition": 7,
+      "totalMs": 46.957958,
+      "zipSha256": "283643982f8cda66bb73106a087367627b92661dc609a4a5e2cbc5f73ed5f215"
+    }
+  ],
+  "nativeErrors": [],
+  "serviceMemory": {
+    "sampledPeakRssBytes": 178782208,
+    "samples": 134,
+    "scope": "Service PID only, ps sampling at >=100ms; excludes renderer/Office/browser/native/DB/broker and can miss peaks."
+  },
+  "harnessSha256": {
+    "server/scripts/accept_workflow.py": "aa39d56c1bc9644c8708a604327f9da71d8baef926c192800e547f56d9827ab3",
+    "web/scripts/accept-workflow.mjs": "493afb72e4261fc641d4cbce314418f58d90ed0f7025df79bddde68f14d4e2d7",
+    "app/src-tauri/src/performance.rs": "1973edcb5a4d3d4e9dfacf718d1a4bb46c2f9dd1e78adf9a38a8eca0d23e1b46"
+  },
+  "inputSha256": {
+    "quiz.md": "dd617f936a9317271a1b89e2d458fd3462b77a2bc740298e81b1f4d144d1a30f",
+    "quiz.txt": "dd617f936a9317271a1b89e2d458fd3462b77a2bc740298e81b1f4d144d1a30f",
+    "quiz.png": "741967673509a2bc53c54147b162b6e98f423ae0c673790adcd25adafa4a80cb"
+  },
+  "retentionNote": "Configuration omitted from public evidence. Synthetic questions; live failure retained without retry. See acceptance document for code identities."
+}

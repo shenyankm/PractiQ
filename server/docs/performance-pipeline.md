@@ -1,5 +1,20 @@
 # Document pipeline performance boundaries
 
+## OCR review and context planning (November 5)
+
+OCR review indexes printed question numbers without collapsing ambiguous owners.
+Formula checks defer rendered-text normalization until a closed formula needs it.
+Context planning indexes answer associations and failed-page ranges, preserving
+the existing local-first eight-page cap and incomplete flags. Native-table image
+associations are grouped lazily by page; empty label sets skip repair scans.
+
+The [20 optimization/control experiments](../../docs/history/performance/ocr-review-20261105.md)
+retain eight local changes and document equivalent outputs, no-gain controls,
+source identities and real workflow limits. Live strict content acceptance was
+2/3 because the PNG model omitted type labels; that first failure remains in the
+evidence. Final substitute HTTP/browser/native acceptance passed. These are local
+CPU improvements, with no provider speed or model-quality improvement claim.
+
 ## Source validation CPU work (November 5)
 
 Ten measured experiments retained seven focused changes in source/answer

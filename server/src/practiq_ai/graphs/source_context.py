@@ -17,7 +17,13 @@ def source_context(pages: list[dict[str, Any]], *, page_references: bool = True)
     numbers = [set(NUMBER.findall(text)) for text in texts]
     answers = {index for index, text in enumerate(texts) if ANSWER_HEADING.search(text)}
     owners = Counter(number for index, ids in enumerate(numbers) if index not in answers for number in ids)
-    failed = {index for index, page in enumerate(pages) if page.get("failed")}
+    failed_prefix = [0]
+    for page in pages:
+        failed_prefix.append(failed_prefix[-1] + bool(page.get("failed")))
+    answer_pages: dict[str, set[int]] = {}
+    for index in answers:
+        for number in numbers[index]:
+            answer_pages.setdefault(number, set()).add(index)
     plans, incomplete = [], []
     for index, text in enumerate(texts):
         adjacent = list(range(max(0, index - 2), min(len(pages), index + 2)))
@@ -35,19 +41,20 @@ def source_context(pages: list[dict[str, Any]], *, page_references: bool = True)
             linked.update(range(first, last + 1))
         if index not in answers:
             unique = {number for number in numbers[index] if owners[number] == 1}
-            linked.update(other for other in answers if unique & numbers[other])
+            for number in unique:
+                linked.update(answer_pages.get(number, ()))
         # Keep local context first; distant pages need a printed association and
         # a complete intervening source range. Ambiguity remains human-reviewable.
         selected = []
         for other in [*adjacent, *sorted(linked)]:
             if other in selected:
                 continue
-            if any(min(index, other) <= gap <= max(index, other) for gap in failed):
+            if failed_prefix[max(index, other) + 1] != failed_prefix[min(index, other)]:
                 invalid = invalid or other in linked
                 continue
             if len(selected) >= MAX_CONTEXT_PAGES:
                 invalid = True
-                continue
+                break
             selected.append(other)
         plans.append(sorted(selected))
         if invalid:

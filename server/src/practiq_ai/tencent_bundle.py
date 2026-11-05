@@ -107,6 +107,8 @@ def _label_crop_bbox(figure: dict[str, Any], elements: list[dict[str, Any]], wid
     original = _bbox(figure, width, height)
     labels = {line.strip() for line in evidence_text(figure.get("figure_info")).splitlines()
               if re.fullmatch(r"[\w.()+−/\-]{1,16}", line.strip())}
+    if not labels:
+        return None
     candidates = []
     for element in elements:
         if element is figure or not isinstance(element.get("text_info"), dict):
@@ -177,6 +179,7 @@ def decode_bundle(payload: bytes | zipfile.ZipFile, config: Config, *, page_coun
             if result_type != 9:
                 raise ValueError("Unexpected result format")
             image_members = _image_members(archive, seen)
+            page_images: dict[int, list[dict[str, Any]]] | None = None
             tables = None
             for entry in entries:
                 path = PurePosixPath(entry.filename)
@@ -214,8 +217,12 @@ def decode_bundle(payload: bytes | zipfile.ZipFile, config: Config, *, page_coun
                     text_size += len(json.dumps(element, ensure_ascii=False))
                     if text_size > config.max_total_input_chars:
                         raise ValueError("Native table evidence exceeds the shared document limit")
-                    figures = [{'elementIndex': identifier, 'kind': 'image', 'bbox': None, 'imageMember': member}
-                               for (number, identifier), member in image_members.items() if number == page]
+                    if page_images is None:
+                        page_images = {}
+                        for (number, identifier), member in image_members.items():
+                            page_images.setdefault(number, []).append(
+                                {'elementIndex': identifier, 'kind': 'image', 'bbox': None, 'imageMember': member})
+                    figures = page_images.get(page, [])
                     pages[page] = {"page": page, "format": "table", "elements": [element], "figures": figures}
                     continue
                 width, height, elements = value["width"], value["height"], value["elements"]
