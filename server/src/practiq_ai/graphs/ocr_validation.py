@@ -13,6 +13,8 @@ from .source_context import ANSWER_HEADING, NUMBER
 
 
 def _formula_source(text: str, questions: list[ParsedQuestion]) -> tuple[str, str]:
+    if not text:
+        return '', ''
     heading = ANSWER_HEADING.search(text)
     source = text[:heading.start()] if heading else text
     numbers = {question.id.rsplit(':', 1)[-1] for question in questions if question.id}
@@ -46,6 +48,10 @@ def question_issues(text: str, questions: list[ParsedQuestion], groups: list[Par
     rendered_questions = [rendered_text(question) for question in questions]
     shared_content = figures + '\n' + evidence_text([group.model_dump(include={'title', 'instructions'}) for group in groups])
     positions: dict[int, int] = {}
+    by_number: dict[str, list[int]] = {}
+    for index, question in enumerate(questions):
+        if question.id:
+            by_number.setdefault(question.id.rsplit(':', 1)[-1], []).append(index)
     for offset, match in enumerate(starts):
         end = starts[offset + 1].start() if offset + 1 < len(starts) else len(source)
         record = source[match.end():end].strip()
@@ -53,8 +59,7 @@ def question_issues(text: str, questions: list[ParsedQuestion], groups: list[Par
         # shortcut: untyped statements need human review, extend only with proven source boundaries.
         if first_line in material:
             continue
-        anchors = [index for index, question in enumerate(questions)
-                   if counts[match[1]] == 1 and question.id and question.id.rsplit(':', 1)[-1] == match[1]]
+        anchors = by_number.get(match[1], []) if counts[match[1]] == 1 else []
         line = re.sub(r'\s+', '', first_line)
         owners = anchors or [index for index, stem in enumerate(stems) if stem and stem in line]
         if not first_line or not (re.search(r'[?？]|_{2,}', first_line) or _UNNUMBERED_EXERCISE.match(first_line)):

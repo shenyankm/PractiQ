@@ -39,7 +39,7 @@ def rendered_text(question: ParsedQuestion) -> str:
 def missing_formulas(source: str, rendered: str) -> list[str]:
     """Compare literal math evidence, without solving or rewriting expressions."""
     normalize = lambda text: re.sub(r'\s+|\\(?:quad|,)', '', text).replace(r'\geq', r'\ge').replace(r'\leq', r'\le')
-    target = normalize(rendered)
+    target = None
     closing = {'$': '$', '$$': '$$', r'\(': r'\)', r'\[': r'\]'}
     delimiter = None
     start = 0
@@ -51,8 +51,11 @@ def missing_formulas(source: str, rendered: str) -> list[str]:
             start = match.end()
         elif match[0] == delimiter:
             formula = source[start:match.start()]
-            if formula.strip() and normalize(formula) not in target:
-                missing.append(formula)
+            if formula.strip():
+                if target is None:
+                    target = normalize(rendered)
+                if normalize(formula) not in target:
+                    missing.append(formula)
             delimiter = None
     return missing
 
