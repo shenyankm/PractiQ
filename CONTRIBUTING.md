@@ -97,6 +97,8 @@ Preserve review flags, immutable practice and score snapshots, resource checksum
 - Update affected documentation, contracts, and `.env.example`. Desktop frontend copy uses Simplified Chinese message keys with English and Traditional Chinese translations in `app/src/locales/en.ts` and `app/src/locales/zh-TW.ts`.
 - Keep secrets, personal learning data, local databases, and generated build output out of Git. Never put API keys in SQLite, logs, fixtures, or backups.
 
+Check new ignore rules with `git check-ignore -v --no-index <path>` and audit already tracked matches with `git ls-files -ci --exclude-standard`. Use `git rm --cached <path>` to stop tracking disposable output while keeping the local file. Keep referenced historical reports, fixtures, and curated evidence versioned; add a narrow `.gitignore` exception for an intentionally retained file instead of force-adding it. Removing a file in a new commit does not remove it from Git history; follow [SECURITY.md](SECURITY.md) if credentials were exposed.
+
 When shared AI contracts change, run `/path/to/python3.14 app/scripts/export-contracts.py` and commit all affected generated files:
 
 - `app/src-tauri/contracts.json`
