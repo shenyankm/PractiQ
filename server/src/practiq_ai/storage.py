@@ -32,6 +32,7 @@ from .errors import DocumentProcessingError
 from .extractors.isolated import _thread_io
 
 SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
+PENDING_FILE_PREFIX = '.practiq-pending-'
 ARTIFACT_KEY_PATTERN = re.compile(
     r"^practiq-agent/artifacts/[0-9a-f]{64}/[a-z][a-z0-9_-]{0,63}/"
     r"(?:0|[1-9][0-9]*)-([0-9a-f]{64})\.([a-z0-9]+)$"
@@ -53,13 +54,17 @@ def validate_source_size(size: int, source_type: DocumentSourceType, config: Con
 
 
 async def verify_payload(reference: DocumentReference | ArtifactReference, payload: bytes) -> None:
+    await asyncio.to_thread(_verify_payload, reference, payload)
+
+
+def _verify_payload(reference: DocumentReference | ArtifactReference, payload: bytes) -> None:
     if len(payload) != reference.sizeBytes:
         raise DocumentProcessingError(
             409,
             "Stored document size does not match",
             "DOCUMENT_SIZE_MISMATCH",
         )
-    digest = (await asyncio.to_thread(hashlib.sha256, payload)).hexdigest()
+    digest = hashlib.sha256(payload).hexdigest()
     if digest != reference.sha256:
         raise DocumentProcessingError(
             409,
@@ -189,7 +194,7 @@ class ObjectStore:
                 raise self._unavailable() from exc
         name = None
         try:
-            with tempfile.NamedTemporaryFile(dir=path.parent, delete=False) as target:
+            with tempfile.NamedTemporaryFile(dir=path.parent, prefix=PENDING_FILE_PREFIX, delete=False) as target:
                 name = target.name
                 digest = hashlib.sha256()
                 size = 0
@@ -287,20 +292,7 @@ class ObjectStore:
             raise _invalid_reference()
         if isinstance(reference, DocumentReference):
             validate_source_size(reference.sizeBytes, reference.sourceType, self._config)
-        size = await self._head_size(reference.objectKey)
-        if size is None:
-            raise DocumentProcessingError(
-                404, "Stored object was not found", "OBJECT_NOT_FOUND"
-            )
-        if size != reference.sizeBytes:
-            raise DocumentProcessingError(
-                409,
-                "Stored document size does not match",
-                "DOCUMENT_SIZE_MISMATCH",
-            )
-        payload = await self._call(self._read, reference.objectKey, reference.sizeBytes)
-        await verify_payload(reference, payload)
-        return payload
+        return await self._call(self._read, reference)
 
     def _path(self, key: str) -> Path:
         path = self.root / key
@@ -316,7 +308,7 @@ class ObjectStore:
         # Same-directory replacement keeps readers from observing partial files.
         name = None
         try:
-            with tempfile.NamedTemporaryFile(dir=path.parent, delete=False) as target:
+            with tempfile.NamedTemporaryFile(dir=path.parent, prefix=PENDING_FILE_PREFIX, delete=False) as target:
                 name = target.name
                 target.write(payload)
                 target.flush()
@@ -362,9 +354,18 @@ class ObjectStore:
                 if len(self._synced_directories) > 256:
                     del self._synced_directories[next(iter(self._synced_directories))]
 
-    def _read(self, key: str, size: int) -> bytes:
-        with self._path(key).open("rb") as source:
-            return source.read(size + 1)
+    def _read(self, reference: ArtifactReference | DocumentReference) -> bytes:
+        try:
+            source = self._path(reference.objectKey).open("rb")
+        except FileNotFoundError as exc:
+            raise DocumentProcessingError(404, "Stored object was not found", "OBJECT_NOT_FOUND") from exc
+        with source:
+            if os.fstat(source.fileno()).st_size != reference.sizeBytes:
+                raise DocumentProcessingError(409, "Stored document size does not match", "DOCUMENT_SIZE_MISMATCH")
+            payload = source.read(reference.sizeBytes + 1)
+        # The same storage slot bounds reading and hashing, even after cancellation.
+        _verify_payload(reference, payload)
+        return payload
 
     def _size(self, key: str) -> int | None:
         try:

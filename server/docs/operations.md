@@ -140,6 +140,15 @@ python scripts/storage_gc.py --output /absolute/new-inventory.json
 
 Load configuration into the shell first. Inventory covers retained tasks, complete checkpoint history, and Store. Any read failure stops the operation. Retention defaults to at least 187 days. `--quarantine` requires maintenance mode after draining and stopping the service. The exclusive lock prevents concurrent startup. The script persists a recovery manifest before moving files into `.quarantine/<runId>/` within the same root; it does not delete original file contents.
 
+New source/artifact staging files use the reserved `.practiq-pending-` prefix.
+After the same retention period, their recognized temporary names are eligible
+individually even when the source hash still has retained tasks. They cannot be
+valid published references. Current files, all valid references under a retained
+source, legacy ambiguous temporary names and unrecognized names stay protected.
+The normal dry-run, maintenance/exclusive-ownership, identity recheck and durable
+manifest rules still apply. No startup scan or automatic deletion is added;
+quarantine preserves bytes and does not itself free disk space.
+
 On POSIX, it synchronizes newly created directory entries and the initial manifest directory before any move, then synchronizes both sides of each move before publishing `completed: true`. It also synchronizes the manifest directory after the final replacement. Once the initial inventory is created, a failure before completion publication leaves it incomplete for recovery; inspect both original and quarantine paths. A final directory-sync failure is reported even if the completed replacement is already visible. Windows skips POSIX directory synchronization and does not carry this durability guarantee. Filesystem-call-order tests are not a power-loss drill; verify crash durability separately on the deployed filesystem.
 
 ### Repair a retained source object

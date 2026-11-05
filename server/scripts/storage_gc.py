@@ -15,9 +15,10 @@ from practiq_ai.config import load
 from practiq_ai.database import Database
 from practiq_ai.execution import TTL_MINUTES
 from practiq_ai.manage import exclusive
-from practiq_ai.storage import ObjectStore, get_object_store
+from practiq_ai.storage import PENDING_FILE_PREFIX, ObjectStore, get_object_store
 
 KEY = re.compile(r"^practiq-agent/(?:sources|artifacts)/([0-9a-f]{64})/")
+PENDING_FILE = re.compile(re.escape(PENDING_FILE_PREFIX) + r'[a-z0-9_]{8}')
 
 
 def referenced_sources(value: Any) -> set[str]:
@@ -67,7 +68,8 @@ def inventory(store: ObjectStore) -> list[dict[str, Any]]:
 
 def candidates(items: list[dict[str, Any]], sources: set[str], cutoff: float) -> list[dict[str, Any]]:
     return [item for item in items if item["modified"] < cutoff
-            and (match := KEY.match(item["key"])) and match.group(1) not in sources]
+            and (match := KEY.match(item["key"]))
+            and (match.group(1) not in sources or PENDING_FILE.fullmatch(Path(item['key']).name))]
 
 
 def _sync_directory(path: Path) -> None:

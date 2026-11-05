@@ -1,5 +1,39 @@
 # Service I/O work bounds
 
+## Interrupted publication inventory (November 5)
+
+New same-directory publication files have reserved pending names. A hard process
+kill before rename may leave their complete or partial bytes on disk. The existing
+offline storage inventory can now identify those files after its normal retention
+period, even under a still-referenced source hash, and quarantine them with its
+durable recovery manifest. Published references are never assigned pending names.
+Legacy ambiguous names remain protected. Cooperative cancellation still drains
+workers and removes temporary files immediately; publication fsync/rename barriers
+are unchanged. This improves recoverability, not physical disk usage: quarantine
+retains bytes, and no automatic cleanup or deletion is introduced. See
+[storage maintenance](operations.md) and the November 5 report below.
+
+## Verified read capacity and deadlines (November 5)
+
+Each local verified read opens, checks the open file's size, reads at most the
+declared size plus one byte, and verifies SHA-256 in one storage worker. The
+existing storage semaphore and timeout cover this entire operation. Cancellation
+or timeout retains capacity until an already-running worker actually finishes;
+it cannot move hashing into an unbounded queue in the default executor. No failed
+operation is replayed. Explicit subsequent reads still reopen and verify bytes.
+
+Namespace, source-type limits, missing-file and size/checksum errors remain in
+force. File descriptors close before hashing, including on a read failure. The
+standalone asynchronous payload validator used by Office and test stores keeps
+the same shared validation. No file bytes, hashes or references are cached.
+
+See [the measurements and recovery record](../../docs/history/performance/resource-recovery-20261105.md)
+for alternating small/typical/25 MiB controls, allocation tradeoffs, timeout and
+cancellation regressions, current integration checks and remaining limits.
+The conservative execution signature includes `storage.py`; unfinished imports
+must retain their original deployment for explicit recovery under the existing
+[resume compatibility rules](resume-compatibility.md).
+
 ## Uploads, publication and connection reuse (November 2)
 
 Binary uploads hash and write incoming chunks through a buffer capped at 1 MiB;
