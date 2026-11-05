@@ -5,7 +5,6 @@ import asyncio
 import hashlib
 import json
 import math
-import os
 import re
 import statistics
 import subprocess
@@ -128,7 +127,7 @@ async def wait_for_run(
 
 
 async def run(args: argparse.Namespace) -> dict[str, Any]:
-    headers = {"Authorization": f"Bearer {args.token}"}
+    headers = {}
     limits = httpx.Limits(
         max_connections=args.submit_concurrency + 20,
         max_keepalive_connections=args.submit_concurrency,
@@ -145,7 +144,7 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
         timeout=timeout,
         trust_env=urlsplit(args.base_url).hostname not in {"localhost", "127.0.0.1", "::1"},
     ) as client, httpx.AsyncClient(
-        base_url=args.base_url.rstrip('/'), headers={'Authorization': f'Bearer {args.token}'},
+        base_url=args.base_url.rstrip('/'),
         timeout=timeout, trust_env=urlsplit(args.base_url).hostname not in {'localhost', '127.0.0.1', '::1'},
     ) as metrics_client:
         service_code = None
@@ -289,7 +288,6 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--base-url", required=True)
-    parser.add_argument("--token", default=os.getenv("AI_SERVICE_TOKEN"), help='Personal service token; prefer AI_SERVICE_TOKEN')
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--input", type=Path)
     source.add_argument("--text")
@@ -306,10 +304,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--completion-timeout", type=float, default=1_800)
     parser.add_argument("--pid", type=int)
     args = parser.parse_args()
-    if not args.token:
-        parser.error("--token or AI_SERVICE_TOKEN is required")
-    if any(char in args.token for char in '\r\n'):
-        parser.error('Invalid credential format')
     if args.environment in {"container", "production"} and not args.image_digest:
         parser.error("container/production evidence requires --image-digest")
     if args.environment == "production" and (urlsplit(args.base_url).scheme != "https" or not args.input):

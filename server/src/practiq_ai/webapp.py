@@ -10,7 +10,7 @@ from uuid import UUID
 from weakref import WeakKeyDictionary
 
 from anyio import CancelScope
-from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.staticfiles import StaticFiles
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from psycopg import Error as DatabaseError
@@ -107,12 +107,6 @@ class BankZipResponse(StreamingResponse):
             # Includes disconnect before the iterator starts and cancelled reads.
             self.file.close()
 
-
-def authorize(authorization: str | None = Header(default=None)) -> None:
-    from .auth import authenticate
-    authenticate(authorization)
-
-
 async def upload_slot() -> AsyncGenerator[None]:
     try:
         config = load()
@@ -137,17 +131,17 @@ def model_configured() -> None:
         raise HTTPException(exc.status_code, {"code": exc.code, "message": exc.detail}) from exc
 
 
-@app.get('/api/import-settings', response_model=ImportSettingsSnapshot, dependencies=[Depends(authorize)])
+@app.get('/api/import-settings', response_model=ImportSettingsSnapshot)
 async def get_import_settings() -> ImportSettingsSnapshot:
     return await _task_response(task_api.get_import_settings())
 
 
-@app.put('/api/import-settings', response_model=ImportSettingsSnapshot, dependencies=[Depends(authorize)])
+@app.put('/api/import-settings', response_model=ImportSettingsSnapshot)
 async def save_import_settings(value: ImportSettingsSnapshot) -> ImportSettingsSnapshot:
     return await _task_response(task_api.save_import_settings(value))
 
 
-@app.get("/api/metrics", dependencies=[Depends(authorize)])
+@app.get("/api/metrics")
 async def application_metrics() -> Response:
     from .config import evaluation_configuration
     from .cost_budget import NAMESPACE, now
@@ -195,12 +189,12 @@ async def application_metrics() -> Response:
     return Response(body, headers={"Content-Type": CONTENT_TYPE_LATEST})
 
 
-@app.get("/api/maintenance", dependencies=[Depends(authorize)])
+@app.get("/api/maintenance")
 async def maintenance_status() -> dict[str, bool]:
     return {"enabled": load().maintenance}
 
 
-@app.get("/api/import-capabilities", response_model=ImportCapabilities, dependencies=[Depends(authorize)])
+@app.get("/api/import-capabilities", response_model=ImportCapabilities)
 async def import_capabilities() -> ImportCapabilities:
     settings = load()
     office = settings.parser_configured
@@ -228,12 +222,12 @@ async def _task_response[ResultT](operation: Awaitable[ResultT]) -> ResultT:
         raise HTTPException(503, {"code": "TASK_SERVICE_UNAVAILABLE", "message": "Task database is unavailable"}) from exc
 
 
-@app.post("/api/document-tasks", status_code=202, response_model=DocumentTaskReceipt, dependencies=[Depends(authorize)])
+@app.post("/api/document-tasks", status_code=202, response_model=DocumentTaskReceipt)
 async def create_document_task(request: DocumentTaskCreate) -> dict[str, Any]:
     return await _task_response(task_api.create_task(request))
 
 
-@app.get("/api/document-tasks", response_model=DocumentTaskList, dependencies=[Depends(authorize)])
+@app.get("/api/document-tasks", response_model=DocumentTaskList)
 async def list_document_tasks(limit: int = Query(default=20, ge=1, le=100), offset: int = Query(default=0, ge=0),
                               sha256: str | None = Query(default=None, pattern=r'^[a-f0-9]{64}$'),
                               state_filter: task_api.TaskFilter | None = None, officeMode: OfficeMode | None = None,
@@ -241,27 +235,27 @@ async def list_document_tasks(limit: int = Query(default=20, ge=1, le=100), offs
     return await _task_response(task_api.list_tasks(limit, offset, sha256, state_filter, officeMode, cursor))
 
 
-@app.get("/api/document-tasks/{thread_id}", response_model=DocumentTaskDetail, dependencies=[Depends(authorize)])
+@app.get("/api/document-tasks/{thread_id}", response_model=DocumentTaskDetail)
 async def get_document_task(thread_id: UUID) -> DocumentTaskDetail:
     return await _task_response(task_api.get_task_model(str(thread_id)))
 
 
-@app.get("/api/document-tasks/{thread_id}/head", response_model=DocumentTaskHead, dependencies=[Depends(authorize)])
+@app.get("/api/document-tasks/{thread_id}/head", response_model=DocumentTaskHead)
 async def get_document_task_head(thread_id: UUID) -> dict[str, Any]:
     return await _task_response(task_api.get_task_head(str(thread_id)))
 
 
-@app.delete("/api/document-tasks/{thread_id}", dependencies=[Depends(authorize)])
+@app.delete("/api/document-tasks/{thread_id}")
 async def delete_document_task(thread_id: UUID) -> dict[str, bool]:
     return await _task_response(task_api.delete_task(str(thread_id)))
 
 
-@app.get("/api/document-tasks/{thread_id}/preview", response_model=DocumentTaskReview, dependencies=[Depends(authorize)])
+@app.get("/api/document-tasks/{thread_id}/preview", response_model=DocumentTaskReview)
 async def preview_document_task(thread_id: UUID, include_result: bool = Query(default=True, description='Include the merged result unit. False retains source metadata and unmerged partial candidates.')) -> DocumentTaskReview:
     return await _task_response(task_api.review_task_model(str(thread_id), include_result=include_result))
 
 
-@app.get("/api/document-tasks/{thread_id}/export", dependencies=[Depends(authorize), Depends(export_slot)])
+@app.get("/api/document-tasks/{thread_id}/export", dependencies=[Depends(export_slot)])
 async def export_document_task(thread_id: UUID, checkpoint_id: str | None = Query(default=None, max_length=255),
                                scope: str = Query(default='full', pattern='^(full|completed)$')) -> Response:
     try:
@@ -277,12 +271,12 @@ async def export_document_task(thread_id: UUID, checkpoint_id: str | None = Quer
         raise
 
 
-@app.post("/api/document-tasks/{thread_id}/control", status_code=202, response_model=DocumentTaskReceipt, dependencies=[Depends(authorize)])
+@app.post("/api/document-tasks/{thread_id}/control", status_code=202, response_model=DocumentTaskReceipt)
 async def control_document_task(thread_id: UUID, request: DocumentTaskControl) -> dict[str, Any]:
     return await _task_response(task_api.control_task(str(thread_id), request))
 
 
-@app.post("/api/document-tasks/{thread_id}/reparse", status_code=202, response_model=DocumentTaskReceipt, dependencies=[Depends(authorize)])
+@app.post("/api/document-tasks/{thread_id}/reparse", status_code=202, response_model=DocumentTaskReceipt)
 async def reparse_document_task(thread_id: UUID, request: DocumentTaskReparse) -> dict[str, Any]:
     return await _task_response(task_api.reparse_task(str(thread_id), request))
 
@@ -292,7 +286,7 @@ async def reparse_document_task(thread_id: UUID, request: DocumentTaskReparse) -
     "/api/uploads",
     status_code=201,
     response_model=DocumentUploadResponse,
-    dependencies=[Depends(authorize), Depends(upload_slot)],
+    dependencies=[Depends(upload_slot)],
 )
 async def upload_document(request: DocumentUploadRequest) -> DocumentUploadResponse:
     try:
@@ -306,7 +300,7 @@ async def upload_document(request: DocumentUploadRequest) -> DocumentUploadRespo
         ) from exc
 
 
-@app.post("/api/artifacts/read", dependencies=[Depends(authorize)])
+@app.post("/api/artifacts/read")
 async def read_artifact(reference: ArtifactReference, thread_id: Annotated[UUID | None, Query()] = None) -> Response:
     """Private verified download; never expose service credentials to clients."""
     try:
@@ -335,7 +329,7 @@ async def read_artifact(reference: ArtifactReference, thread_id: Annotated[UUID 
                     headers={"Cache-Control": "no-store"})
 
 
-@app.put("/api/uploads/content", dependencies=[Depends(authorize), Depends(upload_slot)])
+@app.put("/api/uploads/content", dependencies=[Depends(upload_slot)])
 async def upload_content(request: Request, metadata: Annotated[DocumentUploadRequest, Query()]) -> DocumentReference:
     """Private, bounded binary upload; references never expose filesystem paths."""
     try:
@@ -364,7 +358,7 @@ async def readiness() -> Response:
     return Response(status_code=200 if ready else 503)
 
 
-@app.post("/api/subjective-grades", dependencies=[Depends(authorize), Depends(upload_slot), Depends(model_configured)])
+@app.post("/api/subjective-grades", dependencies=[Depends(upload_slot), Depends(model_configured)])
 async def subjective_grade(request: GradeWireRequest) -> dict:
     validation = asyncio.create_task(asyncio.to_thread(request.verified_request))
     try:

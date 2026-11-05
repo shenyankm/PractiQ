@@ -41,7 +41,7 @@ Export a bank from its card menu to share its questions without your answers or 
 
 Document import runs in the Web page of the self-hosted AI service:
 
-1. [Start the service](#self-host-the-import-service), open its Web page and enter the access token (`AI_SERVICE_TOKEN`).
+1. [Start the service](#self-host-the-import-service), open its Web page and start importing without a login.
 2. Choose up to 10 files and select **Start import**. Choosing files does not upload or parse them.
 3. Review the questions, images and anything flagged for review, then download a question-bank ZIP.
 4. In the desktop app, open **Settings → Import and restore → Import bank ZIP**.

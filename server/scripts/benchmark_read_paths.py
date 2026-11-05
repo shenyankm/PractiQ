@@ -210,7 +210,7 @@ def main():
     baseline = subprocess.check_output(['git', 'rev-parse', args.baseline], cwd=ROOT, text=True).strip()
     with pytest.MonkeyPatch.context() as patch:
         patch.setenv('AI_READ_ONLY', '1')
-        patch.setenv('AI_SERVICE_TOKEN', 'synthetic-benchmark-only')
+
         patch.setenv('AI_STORAGE_CONCURRENCY', '4')
         source_hashes = {}
         for module in (document, task_api, webapp):

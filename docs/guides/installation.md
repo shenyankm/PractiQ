@@ -79,7 +79,6 @@ Set these values in `.env`:
 
 | Setting | Purpose |
 | --- | --- |
-| `AI_SERVICE_TOKEN` | Access token shared by the Web page and the desktop app |
 | `LLM_PROVIDER`, `LLM_API_KEY`, `LLM_MODEL` | The model used for question structuring and grading |
 | `AI_TENCENT_SECRET_ID`, `AI_TENCENT_SECRET_KEY` | Tencent Cloud credentials for document parsing |
 | `DATABASE_URI` | PostgreSQL address |
@@ -101,7 +100,7 @@ The service listens on `127.0.0.1:8090`, keeps tasks in PostgreSQL, delivers wor
 ### Confirm the service works
 
 1. Open `http://127.0.0.1:8090/ok` and `http://127.0.0.1:8090/ready`; both should return a success response (for example with `curl`).
-2. Open `http://127.0.0.1:8090/` and enter the service token.
+2. Open `http://127.0.0.1:8090/` to use the import workspace without a login.
 3. Import one small PDF or TXT file and download the resulting question-bank ZIP.
 
 The last step calls Tencent and your model provider, and may cost money. Skip it if credentials are not configured.

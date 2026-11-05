@@ -16,7 +16,7 @@ from practiq_ai.extractors import ExtractedDocument, isolated
 
 
 async def worker(mode, mib):
-    os.environ.update(AI_SERVICE_TOKEN='benchmark', LLM_PROVIDER='dashscope', LLM_API_KEY='synthetic', LLM_MODEL='synthetic')
+    os.environ.update(LLM_PROVIDER='dashscope', LLM_API_KEY='synthetic', LLM_MODEL='synthetic')
     source = ExtractedDocument(text='synthetic', page_images=[b'x' * (1024 * 1024) for _ in range(mib)])
     elapsed, stalls = [], []
     running = False

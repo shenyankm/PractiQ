@@ -74,7 +74,7 @@ from practiq_ai.execution import (
     validate_execution,
 )
 from practiq_ai.extractors.isolated import _thread_io, extract
-from practiq_ai.graphs import vision
+from practiq_ai.graphs import answer_generation, vision
 from practiq_ai.graphs.answer_evidence import retain_source_answers
 from practiq_ai.graphs.chunking import (
     ChunkSpan,
@@ -718,6 +718,10 @@ class DocumentState(TypedDict):
     document: dict[str, Any]
     officeMode: NotRequired[str | None]
     deduplicateQuestions: NotRequired[bool]
+    generateAnswers: NotRequired[bool]
+    answerResults: NotRequired[dict[str, Any]]
+    unitKey: NotRequired[str]
+    callAllowance: NotRequired[int]
     normalization: NotRequired[dict[str, Any] | None]
     effectiveSourceType: NotRequired[str]
     textUnits: NotRequired[list[dict[str, Any]]]
@@ -805,6 +809,8 @@ async def _load_context(state: DocumentState, runtime: Runtime[None]) -> dict[st
             raise DocumentProcessingError(409, "Retry cannot change Office conversion mode", "INVALID_CONTROL")
         if execution.get("deduplicateQuestions", False) != incoming.deduplicateQuestions:
             raise DocumentProcessingError(409, "Retry cannot change question deduplication", "INVALID_CONTROL")
+        if execution.get("generateAnswers", False) != incoming.generateAnswers:
+            raise DocumentProcessingError(409, "Retry cannot change answer generation", "INVALID_CONTROL")
         token = CURRENT_EXECUTION.set(execution)
         try:
             await guard(runtime, execution)
@@ -817,6 +823,7 @@ async def _load_context(state: DocumentState, runtime: Runtime[None]) -> dict[st
     execution["document"] = incoming.document.model_dump(mode="json")
     execution["officeMode"] = incoming.officeMode
     execution["deduplicateQuestions"] = incoming.deduplicateQuestions
+    execution["generateAnswers"] = incoming.generateAnswers
     context = runtime.context if isinstance(runtime.context, dict) else {}
     if expires_at := context.get("documentControl", {}).get("expiresAt"):
         execution["expiresAt"] = expires_at
@@ -829,6 +836,8 @@ async def _load_context(state: DocumentState, runtime: Runtime[None]) -> dict[st
         "document": incoming.document.model_dump(mode="json"),
         "officeMode": incoming.officeMode,
         "deduplicateQuestions": incoming.deduplicateQuestions,
+        "generateAnswers": incoming.generateAnswers,
+        "answerResults": {},
         "normalization": None,
         "effectiveSourceType": incoming.document.sourceType,
         "textUnits": [],
@@ -1929,12 +1938,19 @@ async def _merge(state: DocumentState, *, passive: bool = False) -> dict[str, An
                 sum(item.confidence for item in questions) / max(1, len(questions)) * 100, 1
             ),
         )
+        if state.get("generateAnswers") and state.get("answerResults"):
+            projected, projected_processing, generation_failed = answer_generation.project(
+                result.model_dump(mode="json"), processing.model_dump(mode="json"), state.get("answerResults", {}))
+            result = DocumentParseResult.model_validate(projected)
+            processing = DocumentProcessing.model_validate(projected_processing)
+            if generation_failed:
+                status = "PARTIAL"
         if not passive:
             telemetry.results.labels(status, str(processing.quality.reviewRequired).lower()).inc()
             for failure in failures:
                 telemetry.failures.labels(failure.code).inc()
         return {
-            "nextStage": "result_review_pause",
+            "nextStage": "answer_gate" if state.get("generateAnswers") and not passive else "result_review_pause",
             "status": status,
             "result": result.model_dump(mode="json"),
             "processing": processing.model_dump(mode="json"),
@@ -2029,7 +2045,8 @@ def _guarded(function: Callable[..., Awaitable[dict[str, Any]]], *, with_runtime
     async def run(state: Any, runtime: Runtime[None]) -> dict[str, Any]:
         if "document" in state:
             DocumentParseInput.model_validate({"document": state["document"], "officeMode": state.get("officeMode"),
-                                               "deduplicateQuestions": state.get("deduplicateQuestions", False)})
+                                               "deduplicateQuestions": state.get("deduplicateQuestions", False),
+                                               "generateAnswers": state.get("generateAnswers", False)})
         await asyncio.to_thread(validate_execution, state.get("execution"))
         if "document" in state and "document" in state["execution"] and state["execution"]["document"] != DocumentReference.model_validate(state["document"]).model_dump(mode="json"):
             raise DocumentProcessingError(409, "Resume cannot change the source document", "INVALID_CONTROL")
@@ -2037,6 +2054,8 @@ def _guarded(function: Callable[..., Awaitable[dict[str, Any]]], *, with_runtime
             raise DocumentProcessingError(409, "Resume cannot change Office conversion mode", "INVALID_CONTROL")
         if "document" in state and state["execution"].get("deduplicateQuestions", False) != state.get("deduplicateQuestions", False):
             raise DocumentProcessingError(409, "Resume cannot change question deduplication", "INVALID_CONTROL")
+        if "document" in state and state["execution"].get("generateAnswers", False) != state.get("generateAnswers", False):
+            raise DocumentProcessingError(409, "Resume cannot change answer generation", "INVALID_CONTROL")
         token = CURRENT_EXECUTION.set(state["execution"])
         artifact_token = CURRENT_ARTIFACT.set(state.get("artifact"))
         unit_token = CURRENT_UNIT.set(state.get("unitKey"))
@@ -2124,6 +2143,10 @@ def build_document_graph(
     builder.add_node("assemble", _guarded(_assemble))
     builder.add_node("chunk", _guarded(_chunk, with_runtime=True), input_schema=ChunkTask)
     builder.add_node("merge", _guarded(_merge))
+    builder.add_node("answer_gate", _guarded(answer_generation.gate))
+    builder.add_node("answer_generate", _guarded(answer_generation.generate, with_runtime=True))
+    builder.add_conditional_edges("answer_gate", lambda state: state["nextStage"], ["answer_generate", "result_review_pause"])
+    builder.add_edge("answer_generate", "answer_gate")
     builder.add_node("vision_gate", _guarded(partial(_gate, phase="vision")))
     builder.add_node("chunk_gate", _guarded(partial(_gate, phase="chunk")))
     builder.add_node("vision_review_pause", _guarded(partial(_gate, phase="vision_review")))
@@ -2146,7 +2169,7 @@ def build_document_graph(
     builder.add_conditional_edges("chunk_gate", _dispatch_chunks, ["chunk", "chunk_review_pause"])
     builder.add_edge("chunk", "chunk_gate")
     builder.add_conditional_edges("chunk_review", lambda state: state["nextStage"], ["chunk_gate", "merge"])
-    builder.add_conditional_edges("merge", lambda state: state["nextStage"], ["result_review_pause", "vision_review_pause", "chunk_review_pause"])
+    builder.add_conditional_edges("merge", lambda state: state["nextStage"], ["answer_gate", "result_review_pause", "vision_review_pause", "chunk_review_pause"])
     builder.add_conditional_edges("result_review", lambda state: state["nextStage"], ["finish", "vision_gate", "chunk_gate"])
     builder.add_edge("finish", END)
     return cast(

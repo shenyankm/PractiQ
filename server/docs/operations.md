@@ -57,7 +57,7 @@ New model output with `confidence < 0.5` always requires review. This threshold 
 
 Successful checkpointed units are reused. A provider request whose result was not persisted blocks automatic same-run recovery with MODEL_RESULT_UNKNOWN; unknown usage remains recorded. Exactly-once provider calls are not guaranteed. Pause does not forcibly cancel accepted remote requests, and canceling a local wait does not terminate an underlying synchronous thread.
 
-See [RabbitMQ delivery, upgrade, rollback and dead-letter recovery](rabbitmq.md) for transactional delivery; see [personal deployment](personal-use.md) for schema 5, service-token access and safe migration.
+See [RabbitMQ delivery, upgrade, rollback and dead-letter recovery](rabbitmq.md) for transactional delivery; see [personal deployment](personal-use.md) for schema 5, loopback access and safe migration.
 
 ## Configuration and observability
 
@@ -65,7 +65,7 @@ See the [configuration template](../../.env.example) for all variables. Limits i
 
 - `GET /ok`: public liveness check returning only `{"ok":true}`.
 - `GET /ready`: returns 200 when the database, exclusive-lock monitor, control coordinator, file storage and broker subscription are available (read-only mode needs no broker), otherwise 503, without sensitive details.
-- `GET /api/metrics`: Bearer-authenticated stage, call, and result metrics, including `practiq_pending_runs`, `practiq_running_runs`, `practiq_workers_max`, and `practiq_workers_available`. The native `/metrics` endpoint is unavailable.
+- `GET /api/metrics`: Loopback stage, call, and result metrics, including `practiq_pending_runs`, `practiq_running_runs`, `practiq_workers_max`, and `practiq_workers_available`. The native `/metrics` endpoint is unavailable.
 - `GET /api/maintenance`: reads maintenance configuration. `AI_MAINTENANCE_MODE=true` rejects uploads and new runs while retaining reads and pause/cancel controls; queued work continues draining.
 - `provider_concurrency_wait`, `provider_rate_wait`, and `provider_request` distinguish local waits from SDK request duration. SDK duration is not pure model inference time.
 - Logs and metrics exclude document text, images, credentials, and raw error details. Unknown usage does not mean zero cost. Reconcile provider billing with persistent call records separately.
@@ -103,7 +103,7 @@ Unhealthy storage returns 503 `OBJECT_STORE_UNAVAILABLE` for new upload preparat
 
 ### Monitoring installation and verification
 
-`deploy/prometheus.example.yml` fixes the job names used by the rules. Adapt the public HTTPS readiness target and local ports, then merge it into the deployment's existing Prometheus configuration. It expects a loopback blackbox exporter with an `http_2xx` module at `127.0.0.1:9115`, cAdvisor at `127.0.0.1:8082` exposing the Compose service label `ai`, and the existing Alertmanager at `127.0.0.1:9093`. These exporters and the receiver are deployment prerequisites; the service Compose file does not install or expose them. Keep metrics/exporter ports private. Store the service Bearer token in a private mode-0600 credentials file readable only by the monitoring identity, not in YAML or command history.
+`deploy/prometheus.example.yml` fixes the job names used by the rules. Adapt the public HTTPS readiness target and local ports, then merge it into the deployment's existing Prometheus configuration. It expects a loopback blackbox exporter with an `http_2xx` module at `127.0.0.1:9115`, cAdvisor at `127.0.0.1:8082` exposing the Compose service label `ai`, and the existing Alertmanager at `127.0.0.1:9093`. These exporters and the receiver are deployment prerequisites; the service Compose file does not install or expose them. Keep metrics/exporter ports private. The loopback service metrics require no application credential.
 
 Alerts include missing/down service scrapes, missing/failed external readiness probes, unhealthy/full file storage, and container OOM/restart signals. Storage metrics are `practiq_storage_healthy` and `practiq_storage_{free,total}_{bytes,inodes}`; unavailable measurements are omitted, not reported as zero.
 
@@ -192,7 +192,7 @@ backup; these commands repair only the retained original source.
 
 TXT/CSV extraction workers read parser limits without loading LangGraph or public contract models. Real-worker import tests guard this startup boundary without replacing extraction or changing deadlines.
 
-Export `AI_SERVICE_TOKEN` privately into the shell and use an isolated test deployment. The same token authorizes task and metrics APIs. Start the service, then run this load test from the repository root:
+Use an isolated loopback test deployment; task and metrics APIs require no application access token. Start the service, then run this load test from the repository root:
 
 ```sh
 cd server
@@ -204,7 +204,7 @@ python -m dotenv -f ../.env run -- python scripts/load_test.py \
 
 The load driver supports only the document business API. It uses the Prometheus text parser for the five capacity gauges and retains only finite, unlabelled samples; labelled series are not combined into deployment totals. Load tests/evaluations connected to real models incur costs and require separate planning. Historical Agent Server, Redis, licensing, and capacity reports remain historical evidence, not acceptance of the current runtime.
 
-Uploads, task creation, polling and metrics share the personal service Bearer token. Reports contain no credentials. The driver retains global queue admission, worker concurrency and provider limits. Its synthetic thresholds do not establish production capacity for large documents.
+Uploads, task creation, polling and metrics use the same loopback service without an application access token. Reports contain no credentials. The driver retains global queue admission, worker concurrency and provider limits. Its synthetic thresholds do not establish production capacity for large documents.
 
 For an intentional overload test, pass `--allow-rejections`: explicit 429/503 outcomes are permitted, but at least one task must still succeed. Otherwise rejection is a failed strict-capacity gate.
 
@@ -258,7 +258,7 @@ The [October 9 isolated deployment checks](../../docs/history/operations/operati
 Only supported task records participate in startup recovery, scheduling and queue capacity. Unsupported records remain unchanged and return `TASK_FORMAT_UNSUPPORTED` on direct access. Read-only service mode leaves unfinished tasks waiting and makes no model calls. Ordinary independent deployments retain checkpoint recovery of originally authorized unfinished runs; unknown paid-call outcomes require explicit recovery. Browser GET polling starts no new model work. Desktop ZIP backups exclude legacy AI task directories.
 
 Tencent import diagnostics now include safe provider error codes, query request
-IDs and last status-transition timestamps in authenticated task details. Inspect
+IDs and last status-transition timestamps in task details. Inspect
 `practiq_stage_seconds{stage=~"tencent_submit|tencent_query|tencent_download"}` for
 phase latency and `tencent_read_retry` events for bounded retry attempts. Request
 IDs stay out of metric labels and logs. The database-derived

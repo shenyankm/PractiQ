@@ -109,16 +109,12 @@ export async function withDeadline<T>(milliseconds: number, signals: AbortSignal
 export class Client {
   private readonly session = new AbortController();
   private readonly intents = new Map<string, string>();
-  constructor(private readonly token: string) {
-    if (!token.trim() || /[\r\n]/.test(token)) throw new ApiError("请输入有效的服务访问令牌。", "INVALID_SERVICE_TOKEN");
-  }
   get active() { return !this.session.signal.aborted; }
   disconnect() { this.session.abort(); this.intents.clear(); }
   private async request<T>(path: string, init: RequestInit, read: (response: Response, signal: AbortSignal) => Promise<T>, signal?: AbortSignal) {
     if (!this.active || signal?.aborted) throw new DOMException("请求已取消", "AbortError");
     if (!path.startsWith("/api/") || path.startsWith("//")) throw new ApiError("服务返回了无效地址。", "INVALID_URL");
     const headers = new Headers(init.headers);
-    headers.set("Authorization", `Bearer ${this.token}`);
     const signals = [this.session.signal];
     if (signal) signals.push(signal);
     const pathname = path.split("?")[0];
@@ -161,7 +157,7 @@ export class Client {
             BANK_EXPORT_NOT_READY: "当前没有可导出的已完成题目。请刷新任务详情，按任务状态等待处理完成或处理失败单元。",
             TEMPORARY_BUSY: "服务端临时存储空间或并发容量正忙。请稍后手动重试下载，无需重新解析原文。",
           } : {};
-          const message = response.status === 401 || response.status === 403 ? "服务访问令牌无效，请检查 AI_SERVICE_TOKEN。"
+          const message = response.status === 401 || response.status === 403 ? "服务拒绝了请求，请检查服务或反向代理的访问配置。"
             : exportRecovery[code] ?? known[code] ?? (response.status === 429 ? "请求过于频繁，请稍后再操作。"
             : upload ? uploadRetry
             : !mutation ? "读取失败，请稍后重试读取。"
@@ -186,6 +182,7 @@ export class Client {
   }
   private checkedSettings(value: ImportSettingsSnapshot) {
     const settings = value?.settings;
+    if (settings && ((settings.deduplicateQuestions !== undefined && typeof settings.deduplicateQuestions !== "boolean") || (settings.generateAnswers !== undefined && typeof settings.generateAnswers !== "boolean"))) throw new ApiError("导入设置响应无效，请重新读取。", "INVALID_RESPONSE");
     if (!value || typeof value.revision !== "string" || !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(value.revision) || !settings || !Number.isInteger(settings.tencentConcurrency) || settings.tencentConcurrency! < 1 || settings.tencentConcurrency! > 5 || !Number.isInteger(settings.readRetryCount) || settings.readRetryCount! < 0 || settings.readRetryCount! > 5 || !Number.isFinite(settings.retryBaseSeconds) || settings.retryBaseSeconds! < 0.5 || settings.retryBaseSeconds! > 10) throw new ApiError("导入设置响应无效，请重新读取。", "INVALID_RESPONSE");
     return value;
   }
@@ -233,9 +230,10 @@ export class Client {
       const records: DocumentTaskCreate[] = JSON.parse(raw);
       if (!Array.isArray(records) || records.length > 50 || !records.every(record => {
         const document = record?.document;
-        return record && Object.keys(record).every(key => ["requestId", "document", "graphId", "failurePolicy", "deduplicateQuestions"].includes(key))
+        return record && Object.keys(record).every(key => ["requestId", "document", "graphId", "failurePolicy", "deduplicateQuestions", "generateAnswers"].includes(key))
           && uuid.test(record.requestId) && record.graphId === "document_parser" && record.failurePolicy === "return_partial"
           && (record.deduplicateQuestions === undefined || typeof record.deduplicateQuestions === "boolean")
+          && (record.generateAnswers === undefined || typeof record.generateAnswers === "boolean")
           && document && Object.keys(document).length === 6
           && typeof document.fileName === "string" && document.fileName.length > 0 && document.fileName.length <= 255
           && typeof document.sha256 === "string" && /^[a-f0-9]{64}$/.test(document.sha256)
@@ -265,7 +263,7 @@ export class Client {
     return receipt;
   }
   forgetImport(requestId: string) { this.saveImports(this.pendingImports().filter(record => record.requestId !== requestId)); }
-  async start(file: File, capabilities: Capabilities, requestId: string, onStage: (stage: UploadStage, requestId?: string) => void, deduplicateQuestions = false) {
+  async start(file: File, capabilities: Capabilities, requestId: string, onStage: (stage: UploadStage, requestId?: string) => void, deduplicateQuestions = false, generateAnswers = false) {
     validateFiles([file], capabilities);
     const format = fileFormat(file);
     if (capabilities.parserConfigured === false) throw new ApiError("服务端尚未配置腾讯文档解析。", "TENCENT_NOT_CONFIGURED");
@@ -290,7 +288,7 @@ export class Client {
     const original = pending.find(record => record.document.sha256 === document.sha256 && record.document.sourceType === document.sourceType);
     requestId = original?.requestId ?? requestId;
     if (!original) {
-      const request: DocumentTaskCreate = { requestId, document: { ...metadata, objectKey: document.objectKey }, graphId: "document_parser", failurePolicy: "return_partial", ...(deduplicateQuestions ? { deduplicateQuestions: true } : {}) };
+      const request: DocumentTaskCreate = { requestId, document: { ...metadata, objectKey: document.objectKey }, graphId: "document_parser", failurePolicy: "return_partial", ...(deduplicateQuestions ? { deduplicateQuestions: true } : {}), ...(generateAnswers ? { generateAnswers: true } : {}) };
       this.saveImports([...pending, request]);
     }
     onStage("starting", requestId);

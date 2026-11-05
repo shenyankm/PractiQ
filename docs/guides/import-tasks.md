@@ -6,9 +6,11 @@ The independent AI service's Web frontend handles source selection, upload, task
 
 ## Start and review
 
-Enter your self-hosted service access token (`AI_SERVICE_TOKEN`). It remains in page memory and clears on reload. Choose up to ten supported files and explicitly start import. File selection makes no upload or model request. The server validates source bytes and stores the original SHA-256; Tencent asynchronous recognition remains part of the same task.
+Open the self-hosted Web page; it reads service capabilities automatically without a token. Choose up to ten supported files and explicitly start import. File selection makes no upload or model request. The server validates source bytes and stores the original SHA-256; Tencent asynchronous recognition remains part of the same task.
 
 **自动去重** is off by default. When enabled before **开始导入**, it merges only questions or complete composite-question trees with identical business payloads and source evidence, retaining source associations and warnings. Missing or conflicting evidence is kept for review. When disabled, possible duplicate candidates appear in result warnings and all copies remain. The choice is fixed for each submitted file and retained by explicit retries and parse again; start a new import to change it. Selecting the checkbox makes no request.
+
+**自动去重**和**AI 生成答案与解析**位于设置页，以开关形式自动保存，默认关闭。开启 AI 生成并保存成功后，再点击**开始导入**，服务会在提取完成后补充缺失答案或解析，保留原文已有或部分提供的答案；资料不足仍留空。生成内容会标记为待核对，并共享任务调用预算。重试保留原选项，查看和导出不会触发生成。
 
 Inspect saved questions, supplied answers, images, source associations, quality warnings, errors and usage. `COMPLETED` can contain `PARTIAL`; a completed task is not a claim that extraction is accurate. Missing answers remain null and require review. Parsing does not solve unanswered questions.
 

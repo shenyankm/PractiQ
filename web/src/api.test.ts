@@ -17,7 +17,7 @@ it.each([
 ] as const)("gives actionable export recovery for %s without replaying it", async (code, status, guidance) => {
   const fetcher = vi.fn(async () => json({ detail: { code } }, status));
   vi.stubGlobal("fetch", fetcher);
-  await expect(new Client("fake").exportBank(task)).rejects.toMatchObject({ code, status, message: expect.stringContaining(guidance) });
+  await expect(new Client().exportBank(task)).rejects.toMatchObject({ code, status, message: expect.stringContaining(guidance) });
   expect(fetcher).toHaveBeenCalledTimes(1);
 });
 
@@ -28,7 +28,7 @@ it("exports ordered chunk views without a contiguous reassembly copy", async () 
   const fetcher = vi.fn(async (_path: string, _init: RequestInit) => response);
   vi.stubGlobal("fetch", fetcher);
   const copy = vi.spyOn(Uint8Array.prototype, "set");
-  const exported = await new Client("fake").exportBank(task);
+  const exported = await new Client().exportBank(task);
   const copiedBytes = copy.mock.calls.reduce((total, [bytes]) => total + bytes.length, 0);
   copy.mockRestore();
   // JSDOM's Blob still takes one immutable copy of these bytes.
@@ -38,7 +38,7 @@ it("exports ordered chunk views without a contiguous reassembly copy", async () 
   expect(exported.blob.type).toBe("application/zip");
   expect(response.body?.locked).toBe(false);
   expect(fetcher).toHaveBeenCalledTimes(1);
-  expect(new Headers(fetcher.mock.calls[0][1]?.headers).get("Authorization")).toBe("Bearer fake");
+  expect(new Headers(fetcher.mock.calls[0][1]?.headers).get("Authorization")).toBeNull();
 });
 
 it("cancels an observed oversized body and releases the reader", async () => {
@@ -64,7 +64,7 @@ it("verifies OCR evidence and strips document-only fields from original-file rea
   const reference = { objectKey: "managed-ocr", sha256: await sha256(bytes.buffer), sizeBytes: bytes.length, mediaType: "application/json" };
   const fetcher = vi.fn().mockImplementation(async (_path, init) => new Response(bytes, { headers: { "Content-Type": JSON.parse(init.body as string).mediaType } }));
   vi.stubGlobal("fetch", fetcher);
-  const client = new Client("fake");
+  const client = new Client();
   expect((await client.evidence(reference, taskId)).size).toBe(bytes.length);
   await client.source({ ...reference, mediaType: "text/plain", sourceType: "text", fileName: "source.txt" }, taskId);
   expect(JSON.parse(fetcher.mock.calls[1][1].body)).toEqual({ ...reference, mediaType: "text/plain" });
@@ -73,7 +73,7 @@ it("verifies OCR evidence and strips document-only fields from original-file rea
 
 it.each([{ mediaType: "text/html" }, { sizeBytes: 25 * 1024 * 1024 + 1 }, { sizeBytes: 1.5 }])("rejects unsafe evidence metadata before fetching: %s", async change => {
   const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);
-  await expect(new Client("fake").evidence({ objectKey: "managed", sha256: "a".repeat(64), sizeBytes: 1, mediaType: "application/json", ...change }, taskId)).rejects.toMatchObject({ code: "INVALID_REFERENCE" });
+  await expect(new Client().evidence({ objectKey: "managed", sha256: "a".repeat(64), sizeBytes: 1, mediaType: "application/json", ...change }, taskId)).rejects.toMatchObject({ code: "INVALID_REFERENCE" });
   expect(fetcher).not.toHaveBeenCalled();
 });
 
@@ -86,7 +86,7 @@ it.each(["headers", "body"])("bounds stalled %s and permits the next read", asyn
     return new Response(new ReadableStream({ start(controller) { signal.addEventListener("abort", () => controller.error(signal.reason)); } }));
   });
   vi.stubGlobal("fetch", fetcher);
-  const client = new Client("fake");
+  const client = new Client();
   const pending = expect(client.capabilities()).rejects.toMatchObject({ code: "REQUEST_TIMEOUT" });
   await vi.advanceTimersByTimeAsync(30_000);
   await pending;
@@ -99,7 +99,7 @@ it("does not replay a timed out mutation and preserves its request ID for explic
   vi.useFakeTimers();
   const fetcher = vi.fn((_path: string, init: RequestInit) => new Promise<Response>((_resolve, reject) => init.signal!.addEventListener("abort", () => reject(init.signal!.reason))));
   vi.stubGlobal("fetch", fetcher);
-  const client = new Client("fake");
+  const client = new Client();
   const pending = expect(client.reparse(taskId)).rejects.toMatchObject({ code: "REQUEST_TIMEOUT" });
   await vi.advanceTimersByTimeAsync(125_000);
   await pending;
@@ -114,7 +114,7 @@ it("bounds export body reception and cancels its reader", async () => {
   vi.useFakeTimers();
   const cancel = vi.fn();
   vi.stubGlobal("fetch", vi.fn(async () => new Response(new ReadableStream({ cancel }), { headers: { "Content-Type": "application/zip" } })));
-  const client = new Client("fake");
+  const client = new Client();
   const pending = expect(client.exportBank(task)).rejects.toMatchObject({ code: "REQUEST_TIMEOUT" });
   await vi.advanceTimersByTimeAsync(600_000);
   await pending;
@@ -126,7 +126,7 @@ it("disconnect cancels a stalled response body and clears its deadline", async (
   vi.useFakeTimers();
   const cancel = vi.fn();
   vi.stubGlobal("fetch", vi.fn(async () => new Response(new ReadableStream({ cancel }))));
-  const client = new Client("fake");
+  const client = new Client();
   const pending = expect(client.capabilities()).rejects.toMatchObject({ name: "AbortError" });
   await vi.advanceTimersByTimeAsync(0);
   client.disconnect();
@@ -161,7 +161,7 @@ describe("source selection and bounded upload", () => {
     const office = new File(["x"], "large.docx");
     Object.defineProperty(office, "size", { value: 25 * 1024 * 1024 + 1 });
     const read = vi.spyOn(office, "arrayBuffer"); const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);
-    await expect(new Client("fake").start(office, limits, taskId, () => {})).rejects.toMatchObject({ code: "DOCUMENT_TOO_LARGE" });
+    await expect(new Client().start(office, limits, taskId, () => {})).rejects.toMatchObject({ code: "DOCUMENT_TOO_LARGE" });
     expect(read).not.toHaveBeenCalled(); expect(fetcher).not.toHaveBeenCalled();
     const pdf = new File(["x"], "large.pdf"); Object.defineProperty(pdf, "size", { value: office.size });
     expect(() => validateFiles([pdf], limits)).not.toThrow();
@@ -183,10 +183,10 @@ describe("source selection and bounded upload", () => {
     expect(() => validateFiles([new File(["x"], "a.docx")], { ...capabilities, sourceTypes: ["pdf"] })).toThrow("暂不支持");
     expect(sourceLimit({ ...capabilities, sourceMaxBytes: 101 * 1024 * 1024 })).toBe(101 * 1024 * 1024);
   });
-  it("hashes exact bytes, uploads with Bearer authentication, accepts reordered fields, then creates one explicit task", async () => {
+  it("hashes exact bytes, uploads without credentials, accepts reordered fields, then creates one explicit task", async () => {
     const fetcher = mockUpload();
     const stages: string[] = [];
-    const client = new Client("fake-service-token");
+    const client = new Client();
     await expect(client.start(new File(["hello"], "a.txt"), capabilities, taskId, stage => stages.push(stage))).resolves.toEqual(receipt);
     expect(stages).toEqual(["hashing", "uploading", "starting"]);
     expect(fetcher.mock.calls).toHaveLength(3);
@@ -199,39 +199,39 @@ describe("source selection and bounded upload", () => {
     expect(create).not.toHaveProperty("deduplicateQuestions");
     for (const [url, init] of fetcher.mock.calls) {
       expect(url).not.toContain("fake-service-token");
-      expect(new Headers(init.headers).get("Authorization")).toBe("Bearer fake-service-token");
+      expect(new Headers(init.headers).get("Authorization")).toBeNull();
       expect(init).toMatchObject({ credentials: "omit", redirect: "error", cache: "no-store" });
     }
     client.disconnect();
   });
   it.each([" notes.txt", "notes.txt ", "\nnotes.txt\t"])("normalizes filename whitespace before upload and strict reference checks: %j", async name => {
     const fetcher = mockUpload();
-    await expect(new Client("fake").start(new File(["hello"], name), capabilities, taskId, () => {})).resolves.toEqual(receipt);
+    await expect(new Client().start(new File(["hello"], name), capabilities, taskId, () => {})).resolves.toEqual(receipt);
     expect(fetcher.mock.calls).toHaveLength(3);
     expect(JSON.parse(fetcher.mock.calls[0][1].body as string)).toMatchObject({ fileName: "notes.txt" });
     expect(JSON.parse(fetcher.mock.calls[2][1].body as string).document).toMatchObject({ fileName: "notes.txt" });
   });
   it("skips existing binary upload and lets the server route Office automatically", async () => {
     const fetcher = mockUpload({ existing: true });
-    await new Client("fake").start(new File(["office"], "a.docx"), capabilities, taskId, () => {});
+    await new Client().start(new File(["office"], "a.docx"), capabilities, taskId, () => {});
     expect(fetcher.mock.calls).toHaveLength(2);
     expect(JSON.parse(fetcher.mock.calls[1][1].body as string)).toMatchObject({ requestId: taskId, document: { sourceType: "docx", mediaType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" } });
   });
   it.each([false, true])("sends deduplication only when explicitly enabled (%s)", async deduplicateQuestions => {
     const fetcher = mockUpload({ existing: true });
-    await new Client("fake").start(new File(["x"], "a.txt"), capabilities, taskId, () => {}, deduplicateQuestions);
+    await new Client().start(new File(["x"], "a.txt"), capabilities, taskId, () => {}, deduplicateQuestions);
     const create = JSON.parse(fetcher.mock.calls[1][1].body as string);
     if (deduplicateQuestions) expect(create).toHaveProperty("deduplicateQuestions", true);
     else expect(create).not.toHaveProperty("deduplicateQuestions");
   });
   it.each([{ badReference: true }, { badUrl: true }])("rejects altered reference or external upload URL before PUT/model submission: %j", async options => {
     const fetcher = mockUpload(options);
-    await expect(new Client("fake").start(new File(["x"], "a.txt"), capabilities, taskId, () => {})).rejects.toBeInstanceOf(ApiError);
+    await expect(new Client().start(new File(["x"], "a.txt"), capabilities, taskId, () => {})).rejects.toBeInstanceOf(ApiError);
     expect(fetcher.mock.calls).toHaveLength(1);
   });
   it("rejects an altered uploaded reference before task creation", async () => {
     const fetcher = mockUpload({ badUploadedReference: true });
-    await expect(new Client("fake").start(new File(["x"], "a.txt"), capabilities, taskId, () => {})).rejects.toMatchObject({ code: "INVALID_REFERENCE" });
+    await expect(new Client().start(new File(["x"], "a.txt"), capabilities, taskId, () => {})).rejects.toMatchObject({ code: "INVALID_REFERENCE" });
     expect(fetcher.mock.calls.map(([url]) => new URL(url, location.origin).pathname)).toEqual(["/api/uploads", "/api/uploads/content"]);
   });
   it.each(["OFFICE_NOT_CONFIGURED", "TENCENT_NOT_CONFIGURED"])("identifies a pre-creation %s rejection and allows only explicit resubmission", async code => {
@@ -241,7 +241,7 @@ describe("source selection and bounded upload", () => {
       if (path === "/api/document-tasks" && !configured) return json({ detail: { code } }, 503);
       return original(path, init);
     });
-    const client = new Client("fake");
+    const client = new Client();
     const file = new File(["hello"], "fixture.txt");
     await expect(client.start(file, capabilities, taskId, () => {})).rejects.toMatchObject({
       code, status: 503, message: expect.stringContaining("本次提交未创建任务"),
@@ -255,7 +255,7 @@ describe("source selection and bounded upload", () => {
   });
   it("does not replay an uncertain create automatically and preserves the supplied request ID for explicit retry", async () => {
     const fetcher = mockUpload({ existing: true, networkAtCreate: true });
-    const client = new Client("fake");
+    const client = new Client();
     const file = new File(["x"], "a.txt");
     await expect(client.start(file, capabilities, taskId, () => {})).rejects.toMatchObject({ code: "NETWORK_ERROR" });
     expect(fetcher.mock.calls).toHaveLength(2);
@@ -265,7 +265,7 @@ describe("source selection and bounded upload", () => {
   });
   it("blocks unavailable cloud parsing/model and mismatched bytes without posting", async () => {
     const fetcher = mockUpload();
-    const client = new Client("fake");
+    const client = new Client();
     const office = new File(["x"], "a.xls");
     await expect(client.start(office, { ...capabilities, parserConfigured: false }, taskId, () => {})).rejects.toMatchObject({ code: "TENCENT_NOT_CONFIGURED" });
     await expect(client.start(office, { ...capabilities, modelConfigured: false }, taskId, () => {})).rejects.toMatchObject({ code: "MODEL_NOT_CONFIGURED" });
@@ -278,27 +278,27 @@ describe("source selection and bounded upload", () => {
 describe("task reads and explicit controls", () => {
   it.each([8 * 1024 * 1024, 150 * 1024 * 1024])("accepts local and COS transport ceilings: %s", async parserInputMaxBytes => {
     vi.stubGlobal("fetch", vi.fn(async () => json({ ...capabilities, parserInputMaxBytes })));
-    await expect(new Client("fake").capabilities()).resolves.toMatchObject({ parserInputMaxBytes });
+    await expect(new Client().capabilities()).resolves.toMatchObject({ parserInputMaxBytes });
   });
   it.each([0, -1, 3, 1.5, "8388608", 150 * 1024 * 1024 + 1])("rejects an invalid Tencent per-job limit: %s", async parserInputMaxBytes => {
     vi.stubGlobal("fetch", vi.fn(async () => json({ ...capabilities, parserInputMaxBytes })));
-    await expect(new Client("fake").capabilities()).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
+    await expect(new Client().capabilities()).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
   });
   it.each([0, -1, 1.5, "25", 26 * 1024 * 1024])("rejects an invalid optional Office limit: %s", async officeSourceMaxBytes => {
     vi.stubGlobal("fetch", vi.fn(async () => json({ ...capabilities, officeSourceMaxBytes })));
-    await expect(new Client("fake").capabilities()).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
+    await expect(new Client().capabilities()).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
   });
   it("accepts absent or null Office limits from older or non-Office services", async () => {
     const noOffice = { ...capabilities, officeAvailable: false, officeModes: [], sourceTypes: ["text"], officeSourceMaxBytes: null };
     vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(json(capabilities)).mockResolvedValueOnce(json(noOffice)));
-    const client = new Client("fake");
+    const client = new Client();
     await expect(client.capabilities()).resolves.toEqual(capabilities);
     await expect(client.capabilities()).resolves.toEqual(noOffice);
   });
-  it("reads capabilities/list/detail/preview and deletes using only same-origin authenticated paths", async () => {
+  it("reads capabilities/list/detail/preview and deletes using only same-origin paths", async () => {
     const fetcher = vi.fn(async (url: string) => json(url.includes("capabilities") ? capabilities : url.includes("preview") ? { units: [] } : url.includes("?") ? { items: [], hasMore: false } : { deleted: true }));
     vi.stubGlobal("fetch", fetcher);
-    const client = new Client("fake");
+    const client = new Client();
     await expect(client.capabilities()).resolves.toEqual(capabilities);
     await client.list(20, "failed"); await client.detail(taskId); await client.preview(taskId); await client.delete(taskId);
     expect(fetcher.mock.calls.map(([url]) => url)).toEqual(["/api/import-capabilities", "/api/document-tasks?limit=20&offset=20&state_filter=failed", `/api/document-tasks/${taskId}`, `/api/document-tasks/${taskId}/preview`, `/api/document-tasks/${taskId}`]);
@@ -308,14 +308,14 @@ describe("task reads and explicit controls", () => {
   it("rejects malformed capability/JSON and never displays server-echoed credentials", async () => {
     const fetcher = vi.fn().mockResolvedValueOnce(json({ ...capabilities, sourceMaxBytes: -1 })).mockResolvedValueOnce(new Response("<html>wrong route</html>")).mockResolvedValueOnce(json({ detail: { code: "UNAUTHORIZED", message: "fake-secret" } }, 401));
     vi.stubGlobal("fetch", fetcher);
-    const client = new Client("fake-secret");
+    const client = new Client();
     await expect(client.capabilities()).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
     await expect(client.list(0)).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
     await expect(client.detail(taskId)).rejects.toMatchObject({ status: 401, message: expect.not.stringContaining("fake-secret") });
   });
   it("targets running operations by run ID, and checkpoint operations by checkpoint ID", async () => {
     const fetcher = vi.fn().mockImplementation(async (_path: string, init: RequestInit) => json({ ...receipt, requestId: JSON.parse(init.body as string).requestId }, 202)); vi.stubGlobal("fetch", fetcher);
-    const client = new Client("fake");
+    const client = new Client();
     await client.control({ ...task, runId, allowedActions: ["pause"] }, "pause");
     await client.control({ ...task, allowedActions: ["resume", "retry_failed", "accept_partial"] }, "retry_failed");
     expect(JSON.parse(fetcher.mock.calls[0][1].body)).toMatchObject({ action: "pause", runId, checkpointId: null, units: [] });
@@ -327,7 +327,7 @@ describe("task reads and explicit controls", () => {
   });
   it.each([{ modelConfigured: false }, { resumeCompatible: false }])("rejects all checkpoint controls without HTTP when deployment is unavailable: %j", async change => {
     const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);
-    const client = new Client("fake");
+    const client = new Client();
     const actions = ["resume", "retry_failed", "accept_partial"] as const;
     for (const action of actions) {
       await expect(client.control({ ...task, state: "WAITING_REVIEW", allowedActions: [...actions], ...change }, action)).rejects.toMatchObject({ code: "MODEL_NOT_CONFIGURED" });
@@ -336,7 +336,7 @@ describe("task reads and explicit controls", () => {
   });
   it("submits compatible review acceptance only on explicit control", async () => {
     const fetcher = vi.fn().mockImplementation(async (_path: string, init: RequestInit) => json({ ...receipt, requestId: JSON.parse(init.body as string).requestId }, 202)); vi.stubGlobal("fetch", fetcher);
-    await new Client("fake").control({ ...task, state: "WAITING_REVIEW", allowedActions: ["accept_partial"] }, "accept_partial");
+    await new Client().control({ ...task, state: "WAITING_REVIEW", allowedActions: ["accept_partial"] }, "accept_partial");
     expect(fetcher).toHaveBeenCalledTimes(1);
     expect(JSON.parse(fetcher.mock.calls[0][1].body)).toMatchObject({ action: "accept_partial", checkpointId: task.checkpointId, runId: null });
   });
@@ -347,7 +347,7 @@ describe("task reads and explicit controls", () => {
       return json({ ...receipt, requestId: JSON.parse(init.body as string).requestId }, 202);
     });
     vi.stubGlobal("fetch", fetcher);
-    const client = new Client("fake"); const paused = { ...task, allowedActions: ["resume"] as const };
+    const client = new Client(); const paused = { ...task, allowedActions: ["resume"] as const };
     await expect(client.control({ ...paused, allowedActions: [...paused.allowedActions] }, "resume")).rejects.toMatchObject({ code: "NETWORK_ERROR" });
     expect(fetcher).toHaveBeenCalledTimes(1);
     await client.control({ ...paused, allowedActions: [...paused.allowedActions] }, "resume");
@@ -358,15 +358,14 @@ describe("task reads and explicit controls", () => {
     await client.reparse(taskId);
     expect(JSON.parse(fetcher.mock.calls[3][1].body as string).requestId).toBe(JSON.parse(fetcher.mock.calls[4][1].body as string).requestId);
   });
-  it("disconnect cancels in-flight reads and rejects new HTTP; token is never persisted", async () => {
+  it("disconnect cancels in-flight reads and rejects new HTTP; no credentials are sent or persisted", async () => {
     const fetcher = vi.fn((_url: string, init: RequestInit) => new Promise<Response>((_resolve, reject) => init.signal!.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")))));
     vi.stubGlobal("fetch", fetcher);
-    const client = new Client("fake"); const pending = client.list(0); client.disconnect();
+    const client = new Client(); const pending = client.list(0); client.disconnect();
     await expect(pending).rejects.toMatchObject({ name: "AbortError" });
     await expect(client.list(0)).rejects.toMatchObject({ name: "AbortError" });
     expect(fetcher).toHaveBeenCalledTimes(1);
     expect(localStorage.length).toBe(0); expect(sessionStorage.length).toBe(0);
-    expect(() => new Client("\r\nsecret")).toThrow("服务访问令牌"); expect(() => new Client(" ")).toThrow("服务访问令牌");
   });
 });
 describe("checked private downloads", () => {
@@ -374,14 +373,14 @@ describe("checked private downloads", () => {
     const bytes = new TextEncoder().encode("fake image");
     const reference = { objectKey: "practiq-agent/artifacts/image.png", sha256: await sha256(bytes.buffer), sizeBytes: bytes.length, mediaType: "image/png" };
     const fetcher = vi.fn().mockResolvedValue(new Response(bytes, { headers: { "Content-Type": "image/png" } })); vi.stubGlobal("fetch", fetcher);
-    const blob = await new Client("fake").image(reference, taskId);
+    const blob = await new Client().image(reference, taskId);
     expect(blob.size).toBe(bytes.length); expect(blob.type).toBe("image/png");
     expect(fetcher.mock.calls[0][0]).toBe(`/api/artifacts/read?thread_id=${taskId}`); expect(JSON.parse(fetcher.mock.calls[0][1].body)).toEqual(reference);
   });
   it("rejects SVG, altered bytes, oversized streams and mismatched media", async () => {
     const reference = { objectKey: "managed.png", sha256: "a".repeat(64), sizeBytes: 1, mediaType: "image/png" };
     const fetcher = vi.fn().mockResolvedValueOnce(new Response("x", { headers: { "Content-Type": "image/png" } })).mockResolvedValueOnce(new Response("xx", { headers: { "Content-Type": "image/png" } })).mockResolvedValueOnce(new Response("x", { headers: { "Content-Type": "image/jpeg" } })).mockResolvedValueOnce(new Response("x", { headers: { "Content-Type": "image/png", "Content-Length": "2" } }));
-    vi.stubGlobal("fetch", fetcher); const client = new Client("fake");
+    vi.stubGlobal("fetch", fetcher); const client = new Client();
     await expect(client.image({ ...reference, mediaType: "image/svg+xml" }, taskId)).rejects.toMatchObject({ code: "INVALID_REFERENCE" });
     await expect(client.image(reference, taskId)).rejects.toMatchObject({ code: "ARTIFACT_CHECKSUM_MISMATCH" });
     await expect(client.image(reference, taskId)).rejects.toMatchObject({ code: "RESPONSE_TOO_LARGE" });
@@ -390,7 +389,7 @@ describe("checked private downloads", () => {
   });
   it("exports only completed visible checkpoint ZIPs with auth and a safe local filename", async () => {
     const fetcher = vi.fn().mockResolvedValueOnce(new Response("PKfake", { headers: { "Content-Type": "application/zip" } })).mockResolvedValueOnce(new Response("html", { headers: { "Content-Type": "text/html" } })).mockResolvedValueOnce(json({ detail: { code: "STALE_CHECKPOINT" } }, 409)); vi.stubGlobal("fetch", fetcher);
-    const client = new Client("fake");
+    const client = new Client();
     const exported = await client.exportBank(task);
     expect(fetcher.mock.calls[0][0]).toBe(`/api/document-tasks/${taskId}/export?checkpoint_id=checkpoint-one&scope=full`);
     expect(exported).toMatchObject({ name: `practiq-bank-${taskId}.zip` }); expect(exported.blob.type).toBe("application/zip");
@@ -404,7 +403,7 @@ describe("checked private downloads", () => {
   });
   it("allows the shared 300 MiB ZIP ceiling and rejects larger declared responses without allocating them", async () => {
     const fetcher = vi.fn().mockResolvedValueOnce(new Response("PKfake", { headers: { "Content-Type": "application/zip", "Content-Length": String(257 * 1024 * 1024) } })).mockResolvedValueOnce(new Response("PKfake", { headers: { "Content-Type": "application/zip", "Content-Length": String(MAX_BANK_ZIP_BYTES + 1) } }));
-    vi.stubGlobal("fetch", fetcher); const client = new Client("fake");
+    vi.stubGlobal("fetch", fetcher); const client = new Client();
     await expect(client.exportBank(task)).resolves.toMatchObject({ name: `practiq-bank-${taskId}.zip` });
     await expect(client.exportBank(task)).rejects.toMatchObject({ code: "RESPONSE_TOO_LARGE" });
     expect(MAX_BANK_ZIP_BYTES).toBe(300 * 1024 * 1024);
@@ -416,7 +415,7 @@ describe("checked private downloads", () => {
       headers: { "Content-Type": failure === "content type" ? "text/html" : "application/zip", "Content-Length": failure === "content type" ? "1" : String(MAX_BANK_ZIP_BYTES + 1) },
     });
     vi.stubGlobal("fetch", vi.fn(async () => response));
-    await expect(new Client("fake").exportBank(task)).rejects.toMatchObject({ code: failure === "declared size" ? "RESPONSE_TOO_LARGE" : failure === "content type" ? "INVALID_RESPONSE" : "HTTP_503" });
+    await expect(new Client().exportBank(task)).rejects.toMatchObject({ code: failure === "declared size" ? "RESPONSE_TOO_LARGE" : failure === "content type" ? "INVALID_RESPONSE" : "HTTP_503" });
     expect(cancel).toHaveBeenCalledTimes(1);
     expect(response.body?.locked).toBe(false);
   });
@@ -430,7 +429,7 @@ it.each([
   ["write", "/api/document-tasks/example/reparse", 409, "STALE_RUN", /任务状态已更新/],
 ])("gives actionable safe feedback for %s %s", async (kind, _path, status, code, message) => {
   vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ detail: { code, message: "secret remote diagnostics" } }), { status: status as number })));
-  const client = new Client("fake");
+  const client = new Client();
   const result = kind === "write" ? client.reparse(taskId) : client.capabilities();
   await expect(result).rejects.toThrow(message as RegExp);
   expect(fetch).toHaveBeenCalledOnce();
@@ -442,7 +441,7 @@ it.each(["metadata", "content"] as const)("offers upload retry when %s transport
     if (stage === "metadata" ? path === "/api/uploads" : path.startsWith("/api/uploads/content?")) throw new TypeError("Connection lost");
     return original(path, init);
   });
-  await expect(new Client("fake").start(new File(["x"], "a.txt"), capabilities, taskId, () => {})).rejects.toThrow("重试上传");
+  await expect(new Client().start(new File(["x"], "a.txt"), capabilities, taskId, () => {})).rejects.toThrow("重试上传");
   expect(fetcher.mock.calls.some(([path]) => path === "/api/document-tasks")).toBe(false);
 });
 it.each(["metadata", "content"] as const)("offers upload retry when %s returns a server error without starting a task", async stage => {
@@ -451,7 +450,7 @@ it.each(["metadata", "content"] as const)("offers upload retry when %s returns a
     if (stage === "metadata" ? path === "/api/uploads" : path.startsWith("/api/uploads/content?")) return json({ detail: { code: "UPLOAD_STORAGE_UNAVAILABLE" } }, 503);
     return original(path, init);
   });
-  await expect(new Client("fake").start(new File(["x"], "a.txt"), capabilities, taskId, () => {})).rejects.toThrow("重试上传");
+  await expect(new Client().start(new File(["x"], "a.txt"), capabilities, taskId, () => {})).rejects.toThrow("重试上传");
   expect(fetcher.mock.calls.some(([path]) => path === "/api/document-tasks")).toBe(false);
 });
 it.each(["metadata", "content"] as const)("offers upload retry when %s times out without starting a task", async stage => {
@@ -465,7 +464,7 @@ it.each(["metadata", "content"] as const)("offers upload retry when %s times out
     }
     return original(path, init);
   });
-  const pending = expect(new Client("fake").start(new File(["x"], "a.txt"), capabilities, taskId, () => {})).rejects.toThrow("上传超时");
+  const pending = expect(new Client().start(new File(["x"], "a.txt"), capabilities, taskId, () => {})).rejects.toThrow("上传超时");
   await vi.waitFor(() => expect(stalled).toBe(true));
   await vi.advanceTimersByTimeAsync(125_000); await pending;
   expect(fetcher.mock.calls.some(([path]) => path === "/api/document-tasks")).toBe(false);
@@ -479,7 +478,7 @@ it.each(["network", "server", "timeout"] as const)("treats POST artifact reads a
   });
   vi.stubGlobal("fetch", fetcher);
   const reference = { objectKey: "managed.png", sha256: "a".repeat(64), sizeBytes: 1, mediaType: "image/png" };
-  const pending = expect(new Client("fake").image(reference, taskId)).rejects.toThrow(/重试读取/);
+  const pending = expect(new Client().image(reference, taskId)).rejects.toThrow(/重试读取/);
   if (failure === "timeout") await vi.advanceTimersByTimeAsync(125_000);
   await pending;
   expect(fetcher).toHaveBeenCalledOnce();
@@ -487,7 +486,7 @@ it.each(["network", "server", "timeout"] as const)("treats POST artifact reads a
 });
 
 it("reuses an uncertain source intent by verified content when caller changes the request ID", async () => {
-  const fetcher = mockUpload({ networkAtCreate: true }); const client = new Client("fake");
+  const fetcher = mockUpload({ networkAtCreate: true }); const client = new Client();
   for (const id of [taskId, runId]) await expect(client.start(new File(["same"], "same.txt"), capabilities, id, () => {})).rejects.toMatchObject({ code: "NETWORK_ERROR" });
   const creates = fetcher.mock.calls.filter(call => call[0] === "/api/document-tasks");
   expect(creates).toHaveLength(2);
@@ -496,10 +495,10 @@ it("reuses an uncertain source intent by verified content when caller changes th
 
 it("recovers a create after reload with its original request and options without persisting credentials", async () => {
   const fetcher = mockUpload({ networkAtCreate: true });
-  const first = new Client("private-token");
+  const first = new Client();
   await expect(first.start(new File(["same"], "same.txt"), capabilities, taskId, () => {}, true)).rejects.toMatchObject({ code: "NETWORK_ERROR" });
   first.disconnect();
-  const restored = new Client("private-token");
+  const restored = new Client();
   expect(restored.pendingImports()).toHaveLength(1);
   expect(JSON.stringify(localStorage)).not.toContain("private-token");
   const original = restored.pendingImports()[0];
@@ -512,14 +511,14 @@ it("recovers a create after reload with its original request and options without
 it("recovers an uncertain reparse after reload and clears only its confirmed request", async () => {
   const fetcher = vi.fn(async (_path: string, _init: RequestInit): Promise<Response> => { throw new TypeError("lost receipt"); });
   vi.stubGlobal("fetch", fetcher);
-  const first = new Client("private-token");
+  const first = new Client();
   await expect(first.reparse(taskId)).rejects.toMatchObject({ code: "NETWORK_ERROR" });
   await expect(first.reparse(newTaskId)).rejects.toMatchObject({ code: "NETWORK_ERROR" });
   const requests = first.pendingReparses();
   expect(requests).toHaveLength(2);
   expect(requests[0].requestId).not.toBe(requests[1].requestId);
   first.disconnect();
-  const restored = new Client("private-token");
+  const restored = new Client();
   expect(restored.pendingReparses()).toEqual(requests);
   expect(fetcher).toHaveBeenCalledTimes(2);
   expect(JSON.stringify(localStorage)).not.toContain("private-token");
@@ -538,11 +537,11 @@ it("recovers an uncertain reparse after reload and clears only its confirmed req
 it("requires an explicit recovery clear and preserves the original ID if clearing after success fails", async () => {
   vi.stubGlobal("fetch", vi.fn(async (_path: string, init: RequestInit) => json({ ...receipt, requestId: JSON.parse(init.body as string).requestId })));
   const remove = vi.spyOn(Storage.prototype, "removeItem").mockImplementation(() => { throw new DOMException("blocked", "SecurityError"); });
-  const client = new Client("fake");
+  const client = new Client();
   await expect(client.reparse(taskId)).rejects.toMatchObject({ code: "RECOVERY_STORAGE_UNAVAILABLE" });
   const request = client.pendingReparses()[0];
   remove.mockRestore();
-  await new Client("fake").retryReparse(request.requestId);
+  await new Client().retryReparse(request.requestId);
   expect(client.pendingReparses()).toEqual([]);
   localStorage.setItem("practiq-reparse-intents-v1", JSON.stringify([request]));
   const calls = vi.mocked(fetch).mock.calls.length;
@@ -556,7 +555,7 @@ it("requires an explicit recovery clear and preserves the original ID if clearin
 it("refuses a reparse before HTTP if its recovery record cannot be saved", async () => {
   const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);
   vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new DOMException("full", "QuotaExceededError"); });
-  await expect(new Client("fake").reparse(taskId)).rejects.toMatchObject({ code: "RECOVERY_STORAGE_UNAVAILABLE" });
+  await expect(new Client().reparse(taskId)).rejects.toMatchObject({ code: "RECOVERY_STORAGE_UNAVAILABLE" });
   expect(fetcher).not.toHaveBeenCalled();
 });
 
@@ -571,7 +570,7 @@ it.each([
 ])("retains invalid or ambiguous reparse records and refuses new submissions: %s", async raw => {
   localStorage.setItem("practiq-reparse-intents-v1", raw);
   const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);
-  const client = new Client("fake");
+  const client = new Client();
   expect(() => client.pendingReparses()).toThrow("重新解析恢复记录");
   await expect(client.reparse(taskId)).rejects.toMatchObject({ code: "RECOVERY_STORAGE_UNAVAILABLE" });
   expect(fetcher).not.toHaveBeenCalled();
@@ -580,22 +579,22 @@ it.each([
 
 it("bounds pending reparse records and rejects invalid or disconnected targets without writing", async () => {
   const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);
-  const client = new Client("fake");
+  const client = new Client();
   await expect(client.reparse("../task")).rejects.toMatchObject({ code: "INVALID_REFERENCE" });
   client.disconnect();
   await expect(client.reparse(taskId)).rejects.toMatchObject({ name: "AbortError" });
   expect(localStorage.length).toBe(0);
   const pending = Array.from({ length: 50 }, (_, index) => ({ threadId: `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`, requestId: `10000000-0000-4000-8000-${String(index).padStart(12, "0")}` }));
   localStorage.setItem("practiq-reparse-intents-v1", JSON.stringify(pending));
-  await expect(new Client("fake").reparse(taskId)).rejects.toMatchObject({ code: "RECOVERY_STORAGE_UNAVAILABLE" });
+  await expect(new Client().reparse(taskId)).rejects.toMatchObject({ code: "RECOVERY_STORAGE_UNAVAILABLE" });
   expect(fetcher).not.toHaveBeenCalled();
-  expect(new Client("fake").pendingReparses()).toEqual(pending);
+  expect(new Client().pendingReparses()).toEqual(pending);
 });
 
 it("refuses a new create when recovery metadata cannot be saved", async () => {
   const fetcher = mockUpload({ existing: true });
   vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new DOMException("full", "QuotaExceededError"); });
-  await expect(new Client("fake").start(new File(["x"], "a.txt"), capabilities, taskId, () => {})).rejects.toMatchObject({ code: "RECOVERY_STORAGE_UNAVAILABLE" });
+  await expect(new Client().start(new File(["x"], "a.txt"), capabilities, taskId, () => {})).rejects.toMatchObject({ code: "RECOVERY_STORAGE_UNAVAILABLE" });
   expect(fetcher.mock.calls.some(([url]) => url === "/api/document-tasks")).toBe(false);
 });
 
@@ -608,7 +607,7 @@ it("persists only verified file metadata even if an upload response has extra fi
     const prepared = await response.json();
     return json({ ...prepared, document: { ...prepared.document, secret: "must-not-persist" } });
   });
-  const client = new Client("private-token");
+  const client = new Client();
   await expect(client.start(new File(["same"], "same.txt"), capabilities, taskId, () => {})).rejects.toMatchObject({ code: "NETWORK_ERROR" });
   expect(client.pendingImports()).toHaveLength(1);
   expect(JSON.stringify(localStorage)).not.toContain("must-not-persist");
@@ -617,7 +616,7 @@ it("persists only verified file metadata even if an upload response has extra fi
 it.each(["not JSON", "{}", '[{}]', '[{"requestId":"bad"}]'])("rejects malformed recovery metadata without posting: %s", raw => {
   localStorage.setItem("practiq-import-intents-v1", raw);
   const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);
-  expect(() => new Client("fake").pendingImports()).toThrow("原提交恢复记录");
+  expect(() => new Client().pendingImports()).toThrow("原提交恢复记录");
   expect(fetcher).not.toHaveBeenCalled();
   expect(localStorage.getItem("practiq-import-intents-v1")).toBe(raw);
 });
@@ -625,17 +624,17 @@ it.each(["not JSON", "{}", '[{}]', '[{"requestId":"bad"}]'])("rejects malformed 
 it("reselecting a pending source after reload keeps the original deduplication option", async () => {
   const fetcher = mockUpload({ networkAtCreate: true });
   const file = new File(["same"], "same.txt");
-  await expect(new Client("fake").start(file, capabilities, taskId, () => {}, true)).rejects.toMatchObject({ code: "NETWORK_ERROR" });
-  await expect(new Client("fake").start(file, capabilities, runId, () => {}, false)).rejects.toMatchObject({ code: "NETWORK_ERROR" });
+  await expect(new Client().start(file, capabilities, taskId, () => {}, true)).rejects.toMatchObject({ code: "NETWORK_ERROR" });
+  await expect(new Client().start(file, capabilities, runId, () => {}, false)).rejects.toMatchObject({ code: "NETWORK_ERROR" });
   const bodies = fetcher.mock.calls.filter(([url]) => url === "/api/document-tasks").map(([, init]) => JSON.parse(init.body as string));
   expect(bodies[1]).toEqual(bodies[0]);
-  const client = new Client("fake"); client.forgetImport(taskId);
+  const client = new Client(); client.forgetImport(taskId);
   expect(client.pendingImports()).toEqual([]);
 });
 
 it.each([{ limit: -1, unitCalls: 4, contextUnitCalls: 8 }, { limit: 400, unitCalls: 0, contextUnitCalls: 8 }, { limit: 400, unitCalls: 4, contextUnitCalls: 1.5 }])("rejects invalid model capacity: %s", async modelBudget => {
   vi.stubGlobal("fetch", vi.fn(async () => json({ ...capabilities, modelBudget })));
-  await expect(new Client("fake").capabilities()).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
+  await expect(new Client().capabilities()).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
 });
 
 it.each([null, {}, { ...receipt, requestId: runId }, { ...receipt, accepted: "yes" }, { ...receipt, accepted: false }, { ...receipt, runId: null }, { ...receipt, runId: undefined }])("retains the original intent when a creation receipt is invalid: %s", async invalid => {
@@ -646,7 +645,7 @@ it.each([null, {}, { ...receipt, requestId: runId }, { ...receipt, accepted: "ye
     if (fail) { fail = false; return json(invalid); }
     return json({ ...receipt, requestId: body.requestId });
   }));
-  const client = new Client("fake"); const file = new File(["source"], "source.txt");
+  const client = new Client(); const file = new File(["source"], "source.txt");
   await expect(client.start(file, capabilities, taskId, () => {})).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
   await expect(client.start(file, capabilities, runId, () => {})).resolves.toMatchObject({ requestId: taskId });
   expect(bodies[0]).toEqual(bodies[1]);
@@ -659,7 +658,7 @@ it.each(["reparse", "resume"] as const)("retains an uncertain %s intent after in
     const body = JSON.parse(init.body as string); bodies.push(body);
     return json(bodies.length <= invalid.length ? { ...invalid[bodies.length - 1], requestId: body.requestId } : { ...receipt, requestId: body.requestId });
   }));
-  const client = new Client("fake");
+  const client = new Client();
   const perform = () => action === "reparse" ? client.reparse(taskId) : client.control({ ...task, allowedActions: ["resume"] }, "resume");
   for (let attempt = 0; attempt < invalid.length; attempt++) await expect(perform()).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
   expect(bodies).toHaveLength(invalid.length);
@@ -669,14 +668,14 @@ it.each(["reparse", "resume"] as const)("retains an uncertain %s intent after in
 
 it.each([null, {}, { deleted: false }, { deleted: "true" }])("does not confirm task deletion from a malformed or negative success receipt: %s", async value => {
   vi.stubGlobal("fetch", vi.fn(async () => json(value)));
-  await expect(new Client("fake").delete(taskId)).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
+  await expect(new Client().delete(taskId)).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
 });
 
 it.each(["image", "evidence"] as const)("cancels view-owned %s reads during headers and body, without disconnecting or retrying", async kind => {
   vi.useFakeTimers();
   const bytes = new TextEncoder().encode("x");
   const reference = { objectKey: "managed", sha256: await sha256(bytes.buffer), sizeBytes: bytes.length, mediaType: kind === "image" ? "image/png" : "text/plain" };
-  const client = new Client("fake");
+  const client = new Client();
   for (const stage of ["headers", "body"]) {
     const controller = new AbortController();
     const cancel = vi.fn();
@@ -709,7 +708,7 @@ it.each(["image", "evidence"] as const)("cancels view-owned %s reads during head
 it.each(["image", "evidence"] as const)("retains %s MIME, byte and hash checks with a view signal", async kind => {
   const bytes = new TextEncoder().encode("x");
   const reference = { objectKey: "managed", sha256: await sha256(bytes.buffer), sizeBytes: 1, mediaType: kind === "image" ? "image/png" : "text/plain" };
-  const client = new Client("fake");
+  const client = new Client();
   const signal = new AbortController().signal;
   for (const [body, mediaType, code] of [
     ["x", "text/html", "ARTIFACT_CHECKSUM_MISMATCH"],

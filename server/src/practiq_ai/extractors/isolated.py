@@ -34,7 +34,7 @@ def _environment(directory: str) -> dict[str, str]:
     env.update(
         TMPDIR=directory, TEMP=directory, TMP=directory, PYTHONDONTWRITEBYTECODE="1",
         PYTHONPATH=str(Path(__file__).resolve().parents[2]),
-        AI_READ_ONLY="1", AI_SERVICE_TOKEN="extraction-worker", AI_STORAGE_DIR=directory,
+        AI_READ_ONLY="1", AI_STORAGE_DIR=directory,
         AI_SOURCE_MAX_BYTES=str(config.source_max_bytes),
         AI_MAX_VISION_BYTES=str(config.vision_max_bytes),
         AI_MAX_DOCUMENT_PAGES=str(config.max_document_pages),

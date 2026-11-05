@@ -102,7 +102,7 @@ async def profile_case(original, optimized, count, shape):
     if shape == 'typed':
         with TemporaryDirectory() as directory, pytest.MonkeyPatch.context() as patch:
             patch.setenv('AI_READ_ONLY', '1')
-            patch.setenv('AI_SERVICE_TOKEN', 'synthetic-benchmark-only')
+
             patch.setenv('AI_STORAGE_DIR', directory)
             store = ObjectStore(load())
             try:

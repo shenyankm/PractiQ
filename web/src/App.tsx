@@ -1,9 +1,9 @@
 import { lazy, memo, Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Select, SelectOption } from "./components/ui/select";
-import { Upload, Play, RefreshCw, Download, Trash2, LockKeyhole, ChevronLeft, ChevronRight, FileText, LoaderCircle, History, Settings, Pause, Square } from "lucide-react";
+import { Upload, Play, RefreshCw, Download, Trash2, Server, ChevronLeft, ChevronRight, FileText, LoaderCircle, History, Settings, Pause, Square } from "lucide-react";
 import logo from "./assets/octopus.png";
 import { ApiError, Client, downloadBlob, fileFormat, MAX_FILES, sourceLimit, validateFiles, type Action, type Capabilities, type ReparseIntent, type TaskList, type UploadStage } from "./api";
-import type { DocumentTaskCreate, DocumentTaskDetail, DocumentTaskReview, DocumentTaskSummary } from "./contracts.generated";
+import type { DocumentTaskCreate, DocumentTaskDetail, DocumentTaskReview, DocumentTaskSummary, ImportSettingsSnapshot } from "./contracts.generated";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
@@ -14,7 +14,7 @@ import { ImportSettingsPanel } from "./ImportSettingsPanel";
 const ResultReview = lazy(() => import("./ResultReview"));
 
 const sourceExtensions: Record<Capabilities["sourceTypes"][number], string> = { pdf: ".pdf", text: ".txt", markdown: ".md", ppt: ".ppt", pptx: ".pptx", image: ".png,.jpg,.jpeg", doc: ".doc", docx: ".docx", xls: ".xls", xlsx: ".xlsx" };
-type FileItem = { id: string; file: File; requestId?: string; deduplicateQuestions?: boolean; state: "ready" | UploadStage | "created" | "failed"; error?: string };
+type FileItem = { id: string; file: File; requestId?: string; deduplicateQuestions?: boolean; generateAnswers?: boolean; state: "ready" | UploadStage | "created" | "failed"; error?: string };
 const stateLabels: Record<DocumentTaskSummary["state"], string> = { PENDING: "等待开始", RUNNING: "正在解析", PAUSING: "正在暂停", PAUSED: "已暂停", INTERRUPTED: "已中断", CANCELLED: "已取消", FAILED: "失败", WAITING_REVIEW: "等待复核", COMPLETED: "已完成", EXPIRED: "已过期" };
 const actionLabels: Record<Action, string> = { pause: "暂停", interrupt: "取消任务", resume: "继续解析", retry_failed: "重试失败单元", accept_partial: "接受部分结果" };
 const formatLabels: Record<Capabilities["sourceTypes"][number], string> = { pdf: "PDF", text: "TXT", markdown: "Markdown", ppt: "PPT (.ppt)", pptx: "PPT (.pptx)", image: "PNG/JPEG", doc: "Word (.doc)", docx: "Word (.docx)", xls: "Excel (.xls)", xlsx: "Excel (.xlsx)" };
@@ -61,17 +61,19 @@ export default function App() {
   const listWake = useRef<(() => void) | null>(null);
   const detailWake = useRef<(() => void) | null>(null);
   const previousPage = useRef(page);
-  useLayoutEffect(() => { if (previousPage.current !== page) { previousPage.current = page; document.getElementById("page-heading")?.focus(); } }, [page]);
+  useLayoutEffect(() => { if (previousPage.current !== page) { previousPage.current = page; document.getElementById("main-content")?.focus(); } }, [page]);
   function navigate(value: Page) { setPage(value); setDeleteTarget(null); window.location.hash = value; }
   useEffect(() => { const change = () => { const next = pageFromHash(); if (next) setPage(next); }; window.addEventListener("hashchange", change); return () => window.removeEventListener("hashchange", change); }, []);
-  const [draftToken, setDraftToken] = useState("");
-  const [connecting, setConnecting] = useState(false);
+  const [connectionRevision, setConnectionRevision] = useState(0);
   const [client, setClient] = useState<Client | null>(null);
   const [capabilities, setCapabilities] = useState<Capabilities | null>(null);
   const [capError, setCapError] = useState<string | null>(null);
   const [files, setFiles] = useState<FileItem[]>([]);
   const [fileError, setFileError] = useState<string | null>(null);
-  const [deduplicateQuestions, setDeduplicateQuestions] = useState(false);
+  const [importSettings, setImportSettings] = useState<ImportSettingsSnapshot | null>(null);
+  const [settingsPending, setSettingsPending] = useState(true);
+  const deduplicateQuestions = importSettings?.settings.deduplicateQuestions ?? false;
+  const generateAnswers = importSettings?.settings.generateAnswers ?? false;
   const [tasks, setTasks] = useState<TaskList>({ items: [], hasMore: false });
   const [listError, setListError] = useState<string | null>(null);
   const [listLoading, setListLoading] = useState(false);
@@ -98,8 +100,6 @@ export default function App() {
   const [detailFresh, setDetailFresh] = useState(false);
   const [detailRevision, setDetailRevision] = useState(0);
   const [busy, setBusy] = useState(false);
-  const [accessInvalid, setAccessInvalid] = useState(false);
-  const tokenField = useRef<HTMLInputElement>(null);
   const [operationError, setOperationError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [pendingImports, setPendingImports] = useState<DocumentTaskCreate[]>([]);
@@ -119,7 +119,6 @@ export default function App() {
   const fileInput = useRef<HTMLInputElement>(null);
   const deletePrompt = useRef<HTMLDivElement>(null);
   const deleteCompleted = useRef(false);
-  useEffect(() => { if (accessInvalid && !connecting) tokenField.current?.focus(); }, [accessInvalid, connecting]);
   useEffect(() => {
     if (!deleteTarget) return;
     deleteCompleted.current = false;
@@ -130,7 +129,6 @@ export default function App() {
       if (target instanceof HTMLElement && target.isConnected) target.focus();
     };
   }, [deleteTarget]);
-  useEffect(() => () => client?.disconnect(), [client]);
   useEffect(() => {
     setTasks({ items: [], hasMore: false }); setListError(null);
     if (!client) return;
@@ -233,17 +231,14 @@ export default function App() {
     recordsVisible.current = page === "records";
     listWake.current?.(); detailWake.current?.();
   }, [page]);
-  async function connect() {
-    if (connecting) return;
-    setConnecting(true); setCapError(null); setAccessInvalid(false);
-    let current: Client | null = null;
-    try {
-      current = new Client(draftToken.trim());
-      const supported = await current.capabilities();
-      if (current.active) { setClient(current); setCapabilities(supported); setDraftToken(""); setOperationError(null); setNotice(null); }
-    } catch (error) { current?.disconnect(); setCapError(errorText(error)); if (error instanceof ApiError && (error.code === "INVALID_SERVICE_TOKEN" || authFailure(error))) { setAccessInvalid(true); } }
-    finally { setConnecting(false); }
-  }
+  useEffect(() => {
+    const current = new Client();
+    setClient(null); setCapabilities(null); setCapError(null);
+    void Promise.all([current.capabilities(), current.importSettings()]).then(([supported, settings]) => {
+      if (current.active) { setClient(current); setCapabilities(supported); setImportSettings(settings); }
+    }).catch(error => { if (current.active) setCapError(errorText(error)); });
+    return () => current.disconnect();
+  }, [connectionRevision]);
 
   async function run(perform: (current: Client) => Promise<void>) {
     if (!client || job.current) return;
@@ -272,10 +267,11 @@ export default function App() {
       let created: string | null = null; let failed = false; const resolved = new Set<string>();
       for (const item of items) {
         const deduplicate = item.deduplicateQuestions ?? deduplicateQuestions;
+        const generate = item.generateAnswers ?? generateAnswers;
         const update = (value: Partial<FileItem>) => { if (current.active) setFiles(previous => previous.map(file => file.id === item.id ? { ...file, ...value } : file)); };
-        update({ deduplicateQuestions: deduplicate, error: undefined });
+        update({ deduplicateQuestions: deduplicate, generateAnswers: generate, error: undefined });
         try {
-          const receipt = await current.start(item.file, capabilities, item.requestId ?? item.id, (stage, requestId) => update({ state: stage, ...(requestId ? { requestId } : {}) }), deduplicate);
+          const receipt = await current.start(item.file, capabilities, item.requestId ?? item.id, (stage, requestId) => update({ state: stage, ...(requestId ? { requestId } : {}) }), deduplicate, generate);
           if (current.active) setFiles(previous => previous.map(file => (file.requestId ?? file.id) === receipt.requestId ? { ...file, state: "created", error: undefined } : file));
           created = receipt.threadId; resolved.add(receipt.requestId);
         } catch (error) { failed = true; update({ state: "failed", error: errorText(error) }); break; }
@@ -300,14 +296,14 @@ export default function App() {
               {!capabilities.modelConfigured && <p className="notice">服务端尚未配置模型，暂不能开始解析。</p>}
               {fileError && <p role="alert" className="text-destructive">{fileError}</p>}
               {!!files.length && <ul className="file-list">{files.map(item => <li key={item.id}><div><strong>{item.file.name}</strong><span>{sizeLabel(item.file.size)} · {fileLabels[item.state]} · {formatLabels[fileFormat(item.file).sourceType]}</span>{item.error && <><p role="alert" className="text-destructive">{item.error}</p><small>原提交请求 ID：{item.requestId ?? item.id}</small></>}</div>{["ready", "failed"].includes(item.state) && <Button size="icon" variant="ghost" disabled={busy} aria-label={`移除文件 ${item.file.name}`} onClick={() => setFiles(previous => previous.filter(file => file.id !== item.id))}><Trash2 /></Button>}{item.state === "failed" && <Button size="sm" variant="outline" disabled={busy || capabilities.parserConfigured === false || !capabilities.modelConfigured} onClick={() => void start([item])}>重试开始</Button>}</li>)}</ul>}
-              <div className="import-options"><label className="review-checkbox"><input type="checkbox" aria-describedby="dedup-help" checked={deduplicateQuestions} disabled={busy || !!files.length && !files.some(file => file.state === "ready")} onChange={event => setDeduplicateQuestions(event.target.checked)} />自动去重</label><p id="dedup-help">仅合并完全相同的题目或题组</p></div>
-              <div className="import-submit"><p>开始后将调用 AI，可能产生费用；结果需人工核对。</p><Button disabled={busy || capabilities.parserConfigured === false || !capabilities.modelConfigured || !files.some(file => file.state === "ready")} onClick={() => void start(files.filter(file => file.state === "ready"))}>{busy ? <LoaderCircle className="loading-icon" /> : <Play />}开始导入</Button></div>
+              <div className="import-submit"><p>开始后将调用 AI，可能产生费用；结果需人工核对。</p><Button disabled={busy || settingsPending || capabilities.parserConfigured === false || !capabilities.modelConfigured || !files.some(file => file.state === "ready")} onClick={() => void start(files.filter(file => file.state === "ready"))}>{busy ? <LoaderCircle className="loading-icon" /> : <Play />}开始导入</Button></div>
               {files.some(file => file.state === "failed") && <p className="notice">本批次已停止，剩余文件尚未提交。请先刷新任务列表核对结果，再手动“重试开始”沿用原请求；移除文件只清理本页队列，不会取消服务端任务。已发起的创建请求会保留本机恢复记录；尚未上传的文件需重新选择。</p>}
             </>}
           </CardContent></Card>
           {capabilities && <aside className="import-guide" aria-label="导入说明">
             <details><summary>格式与导入规则</summary><div>
               <p>腾讯文档识别后，由 AI 整理题库。超限文件由服务端切分；XLS 和大 Office 文件需要转换器。</p>
+              <p>在设置中开启“AI 生成答案与解析”后，仅补充缺失字段，保留原文已有或部分提供的答案。生成内容需人工核对，资料不足时仍留空，并与提取共享任务调用预算。</p>
               <p>未启用去重时保留全部题目，并提示重复候选。AI 复核最多修正一轮，会增加调用与费用。</p>
               <p>下载的 ZIP 可在应用的“设置 → 导入与恢复 → 导入题库 ZIP”中追加。</p>
             </div></details>
@@ -354,19 +350,18 @@ export default function App() {
   return <div className="web-shell">
     <a className="skip-link" href="#main-content">跳到主要内容</a>
     <aside className="web-sidebar" aria-label="导入管理侧边栏">
-      <a href="#import" className="brand" onClick={() => navigate("import")}><img src={logo} alt="PractiQ 小章鱼" /><div><strong>PractiQ</strong><span>AI 文档导入</span></div></a>
+      <a href="#import" className="brand" onClick={() => navigate("import")}><img src={logo} alt="PractiQ 小章鱼" /><strong>PractiQ</strong></a>
       <nav aria-label="工作区导航">{pages.map(({ id, label, icon: Icon }) => <a key={id} href={`#${id}`} aria-current={page === id ? "page" : undefined} onClick={() => navigate(id)}><Icon aria-hidden="true" />{label}</a>)}</nav>
-      <div className="sidebar-connection"><LockKeyhole aria-hidden="true" /><strong>{client ? "服务已连接" : "尚未连接服务"}</strong></div>
+      <div className="sidebar-connection"><Server aria-hidden="true" /><strong>{client ? "服务已连接" : "尚未连接服务"}</strong></div>
     </aside>
-    <div className="web-body"><main id="main-content" tabIndex={-1} className="web-main">
-      <header className="page-intro"><h1 id="page-heading" tabIndex={-1}>{pages.find(item => item.id === page)!.label}</h1></header>
-      {!client ? <Card className="connection-card"><CardHeader><CardTitle role="heading" aria-level={2} className="flex items-center gap-2"><LockKeyhole />连接个人服务</CardTitle></CardHeader><CardContent className="space-y-4"><p id="service-help">使用自托管服务的 AI_SERVICE_TOKEN。令牌仅保存在本页内存，刷新后需重填。</p><form onSubmit={event => { event.preventDefault(); void connect(); }} className="connection-form"><label className="flex-1 space-y-1"><span>服务访问令牌</span><Input ref={tokenField} disabled={connecting} type="password" aria-invalid={accessInvalid || undefined} aria-describedby={accessInvalid ? "service-help access-error" : "service-help"} autoComplete="off" spellCheck={false} maxLength={4096} value={draftToken} onChange={event => setDraftToken(event.target.value)} /></label><Button type="submit" disabled={connecting || !draftToken.trim()}>连接服务</Button></form>{capError && <p id="access-error" role="alert" className="text-destructive">{capError}</p>}</CardContent></Card> : <>
+    <div className="web-body"><main id="main-content" tabIndex={-1} className="web-main" data-page={page} aria-label={pages.find(item => item.id === page)!.label}>
+      {!client ? <section aria-label="服务状态" className="notice">{capError ? <><p role="alert">{capError}</p><Button variant="outline" onClick={() => setConnectionRevision(value => value + 1)}>重试连接</Button></> : <p role="status">正在读取服务状态…</p>}</section> : <>
         {notice && <p className="notice operation-notice" role="status">{notice}</p>}
         {operationError && <div ref={operationNotice} className="error-banner" role="alert"><span className="min-w-0 flex-1">{operationError}</span></div>}
-        {!!pendingImports.length && <section className="notice" aria-label="未确认的导入提交"><h2>未确认的导入提交</h2><p>原请求 ID 与文件引用已保存在本机，不含令牌或文件内容。请先查看导入记录；重试沿用原请求和参数，已有任务会返回原回执，尚未创建则会开始解析并可能计费。</p><p>清除本机恢复记录不会取消服务端任务；之后再次导入会视为新提交，可能重复计费。</p><ul>{pendingImports.map(request => <li key={request.requestId}><p>{request.document.fileName} · 自动去重：{request.deduplicateQuestions ? "开启" : "关闭"}</p><small>原提交请求 ID：{request.requestId}</small><div className="task-actions"><Button variant="outline" disabled={busy || !capabilities?.modelConfigured || capabilities.parserConfigured === false} onClick={() => void run(async current => { const receipt = await current.retryImport(request.requestId); if (current.active) { navigate("records"); setSelected(receipt.threadId); setListRevision(value => value + 1); setDetailRevision(value => value + 1); setNotice("原提交已确认，正在读取服务端任务。"); } })}>重试原提交</Button><Button variant="ghost" disabled={busy} onClick={() => void run(async current => { current.forgetImport(request.requestId); setNotice("本机恢复记录已清除，服务端任务不受影响。"); })}>已核对，清除恢复记录</Button></div></li>)}</ul></section>}
+        {!!pendingImports.length && <section className="notice" aria-label="未确认的导入提交"><h2>未确认的导入提交</h2><p>原请求 ID 与文件引用已保存在本机，不含文件内容。请先查看导入记录；重试沿用原请求和参数，已有任务会返回原回执，尚未创建则会开始解析并可能计费。</p><p>清除本机恢复记录不会取消服务端任务；之后再次导入会视为新提交，可能重复计费。</p><ul>{pendingImports.map(request => <li key={request.requestId}><p>{request.document.fileName} · 自动去重：{request.deduplicateQuestions ? "开启" : "关闭"}</p>{request.generateAnswers && <p>AI 生成答案与解析：开启</p>}<small>原提交请求 ID：{request.requestId}</small><div className="task-actions"><Button variant="outline" disabled={busy || !capabilities?.modelConfigured || capabilities.parserConfigured === false} onClick={() => void run(async current => { const receipt = await current.retryImport(request.requestId); if (current.active) { navigate("records"); setSelected(receipt.threadId); setListRevision(value => value + 1); setDetailRevision(value => value + 1); setNotice("原提交已确认，正在读取服务端任务。"); } })}>重试原提交</Button><Button variant="ghost" disabled={busy} onClick={() => void run(async current => { current.forgetImport(request.requestId); setNotice("本机恢复记录已清除，服务端任务不受影响。"); })}>已核对，清除恢复记录</Button></div></li>)}</ul></section>}
         {!!pendingReparses.length && <section className="notice" aria-label="未确认的重新解析">
           <h2>未确认的重新解析</h2>
-          <p>原任务与请求 ID 已保存在本机，不含令牌或文件内容。请先查看导入记录；重试沿用原请求，已有任务会返回原回执，尚未创建则会开始重新解析并可能计费。</p>
+          <p>原任务与请求 ID 已保存在本机，不含文件内容。请先查看导入记录；重试沿用原请求，已有任务会返回原回执，尚未创建则会开始重新解析并可能计费。</p>
           <p>清除本机恢复记录不会取消服务端任务；之后再次重新解析会视为新请求，可能重复计费。</p>
           <ul>{pendingReparses.map(request => <li key={request.requestId}>
             <p>原任务 ID：{request.threadId}</p><small>原重新解析请求 ID：{request.requestId}</small>
@@ -385,7 +380,7 @@ export default function App() {
           {importContent}
         </div>
         <div hidden={page !== "records"} className="records-page">{recordsContent}{detailContent}</div>
-        <div hidden={page !== "settings"} className="settings-page"><ImportSettingsPanel client={client} /></div>
+        <div hidden={page !== "settings"} className="settings-page"><ImportSettingsPanel client={client} onSettingsChange={setImportSettings} onPendingChange={setSettingsPending} /></div>
       </>}
     </main></div>
   </div>;

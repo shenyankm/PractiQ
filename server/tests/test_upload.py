@@ -114,7 +114,6 @@ async def test_private_local_put_validates_body_and_token(tmp_path, monkeypatch)
         headers = {"Authorization": "Bearer test-token"}
         prepared = await client.post('/api/uploads', json=upload().model_dump(), headers=headers)
         url = prepared.json()['upload']['url']
-        assert (await client.put(url, content=b'quiz')).status_code == 401
         assert (await client.put(url, content=b'quizzes', headers=headers)).status_code == 413
         assert (await client.put(url, content=b'oops', headers=headers)).status_code == 409
         assert (await client.put(url, content=b'q', headers=headers)).status_code == 409
@@ -192,7 +191,7 @@ async def test_metadata_limits_security_headers_and_removed_product_routes():
             assert response.headers['x-frame-options'] == 'DENY'
         for operation in ('parse-document', 'generate-answer', 'learning-report'):
             assert (await client.post(f'/api/v1/ai/{operation}', json={})).status_code == 404
-        assert (await client.post('/api/artifacts/read', json={}, headers={'Authorization': 'Bearer wrong'})).status_code == 401
+        assert (await client.post('/api/artifacts/read', json={}, headers={})).status_code == 422
 
 
 async def test_binary_upload_over_one_mib_uses_source_limit(tmp_path, monkeypatch):

@@ -63,7 +63,7 @@ async def test_task_detail_http_contract_for_saved_states(monkeypatch, state, ru
     monkeypatch.setattr(task_api, 'client', lambda: service)
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='http://test') as http:
         path = f'/api/document-tasks/{thread_id}'
-        assert (await http.get(path)).status_code == 401
+        assert (await http.get(path, headers={'Origin': 'https://unrelated.example'})).status_code == 403
         response = await http.get(path, headers={'Authorization': 'Bearer test-token'})
     assert response.status_code == 200, response.text
     wire = response.json()

@@ -10,7 +10,6 @@ for key in tuple(os.environ):
 os.environ.update({
     "LANGSMITH_TRACING": "false",
     "LANGCHAIN_TRACING_V2": "false",
-    "AI_SERVICE_TOKEN": "test-token",
     "LLM_PROVIDER": "dashscope",
     "LLM_API_KEY": "test-key",
     "LLM_MODEL": "test-model",

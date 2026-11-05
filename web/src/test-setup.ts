@@ -9,6 +9,7 @@ window.matchMedia ??= (query: string) => ({
 });
 
 HTMLElement.prototype.scrollIntoView = vi.fn();
+globalThis.ResizeObserver = class { observe() {} unobserve() {} disconnect() {} };
 
 Object.defineProperty(crypto, "subtle", { value: webcrypto.subtle });
 Object.defineProperty(crypto, "randomUUID", { value: randomUUID });

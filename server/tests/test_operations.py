@@ -18,13 +18,12 @@ from scripts import load_test, storage_gc
 from tests.support import object_store, upload
 
 
-def test_load_cli_uses_personal_service_token(monkeypatch):
-    monkeypatch.setenv('AI_SERVICE_TOKEN', 'personal-fixture')
+def test_load_cli_needs_no_service_token(monkeypatch):
+    monkeypatch.delenv('AI_SERVICE_TOKEN', raising=False)
     monkeypatch.setattr(sys, 'argv', ['load_test.py', '--base-url', 'http://127.0.0.1:8090', '--text', 'synthetic'])
-    assert load_test.parse_args().token == 'personal-fixture'
-    monkeypatch.delenv('AI_SERVICE_TOKEN')
-    with pytest.raises(SystemExit):
-        load_test.parse_args()
+    args = load_test.parse_args()
+    assert args.base_url == 'http://127.0.0.1:8090'
+    assert not hasattr(args, 'token')
 
 
 @pytest.mark.parametrize("status", [200, 503])
@@ -175,12 +174,12 @@ async def test_cleanup_fails_closed_and_preserves_inventory_before_mutation(tmp_
         storage_gc.inventory(store)
 
 
-async def test_load_driver_upload_auth_partial_and_overload(monkeypatch):
+async def test_load_driver_upload_partial_and_overload_without_token(monkeypatch):
     requests = []
 
     def handle(request):
         requests.append(request)
-        assert request.headers['Authorization'] == 'Bearer test-token'
+        assert 'Authorization' not in request.headers
         assert 'X-Practiq-Phone' not in request.headers
         if request.method == "POST" and request.url.path == "/api/uploads":
             return httpx.Response(200, json={"upload": {"url": "/api/uploads/content", "headers": {"Content-Type": "text/plain"}}, "document": {}})
