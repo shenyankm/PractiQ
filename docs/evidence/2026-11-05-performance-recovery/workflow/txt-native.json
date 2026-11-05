@@ -1,0 +1,28 @@
+[
+  {
+    "backupRestore": true,
+    "correct": 3,
+    "earnedCents": 300,
+    "firstRun": true,
+    "name": "txt",
+    "phasesMs": {
+      "backup": 11.331166,
+      "firstPage": 0.527542,
+      "importZip": 1.700834,
+      "initialize": 5.648667,
+      "previewPaper": 0.858792,
+      "previewZip": 4.099083,
+      "readResults": 0.2625,
+      "reopen": 1.317,
+      "restore": 23.065166,
+      "saveAndNavigate": 4.009333000000001,
+      "startPaper": 1.4465000000000001,
+      "submitPaper": 1.671625
+    },
+    "questions": 3,
+    "reopen": true,
+    "repetition": 0,
+    "totalMs": 63.016957999999995,
+    "zipSha256": "65a5b141b5e4a3990bb82caf333cb83cbc6112fa615b494a2367ca5c5d668ab5"
+  }
+]

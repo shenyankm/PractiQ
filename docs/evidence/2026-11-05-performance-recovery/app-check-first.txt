@@ -1,0 +1,34 @@
+"/Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14" app/scripts/export-contracts.py --check
+"/Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14" app/scripts/check-fixtures.py
+51 shared contract cases and the sample validated by Python
+cd app && TAURI_CONFIG='{"bundle":{"resources":[]}}' npm run check
+
+> practiq-desktop@0.2.2-rc.1 check
+> tsc -b && npm run lint && vitest run && cargo fmt --manifest-path src-tauri/Cargo.toml --check && cargo test --manifest-path src-tauri/Cargo.toml && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+
+
+> practiq-desktop@0.2.2-rc.1 lint
+> cd .. && node app/node_modules/eslint/bin/eslint.js --config app/eslint.config.mjs "app/src/**/*.{ts,tsx}" shared/*.tsx --max-warnings 0
+
+
+ RUN  v5.0.5 /Users/sheny/Developer/code/PractiQ/app
+
+TAP version 13
+ ❯ .build/grading-local-20261104/payload/Applications/ChatGPT.app/Contents/Resources/artifact-template-picker/server.test.mjs (0 test)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  .build/grading-local-20261104/payload/Applications/ChatGPT.app/Contents/Resources/artifact-template-picker/server.test.mjs [ .build/grading-local-20261104/payload/Applications/ChatGPT.app/Contents/Resources/artifact-template-picker/server.test.mjs ]
+Error: No test suite found in file /Users/sheny/Developer/code/PractiQ/app/.build/grading-local-20261104/payload/Applications/ChatGPT.app/Contents/Resources/artifact-template-picker/server.test.mjs
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 44 passed | 4 skipped (49)
+      Tests  542 passed | 6 skipped (548)
+   Start at  12:47:28
+   Duration  51.07s (tests 71%, environment 18%, import 11%)
+
+    Isolate  49 workers spawned · ~425ms startup each (spawn + environment, per file)
+             at least ~9.99s faster with isolate: false — reuses workers across files instead of one per file
+
+make: *** [app-check] Error 1

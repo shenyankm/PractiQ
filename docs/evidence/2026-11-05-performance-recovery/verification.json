@@ -1,0 +1,58 @@
+{
+  "status": "PASSED",
+  "baseline": "5973846cfdd2d5ec6948562e443642deb5042a02",
+  "branch": "fix/performance-recovery-20261105",
+  "serviceCodeHash": "a9f2afc1f2b5eab8ce63f8b7972f1ef636003cd70c9fab26692f2de1ef5a3c06",
+  "probeFingerprint": "b355b1bcb62b5ac1c56d7e4abcd61d9948e60dedb492f961fbf907e7872efbeb",
+  "sourceSha256": {
+    "app/src-tauri/src/backup_schema_tests.rs": "d86683d3b7b7bf2f7afe165bea0d6fd0fc18b21f8732b0404a84b42adf5d4fe1",
+    "app/vite.config.ts": "a5f0e8a578ec88b18175d1489c77e0da33a259000ed2b948406184347dbf21de",
+    "server/scripts/benchmark_io.py": "75042a333b6cabdb46ec86cb73bfb4a91cb8f1537154450162f8354bfb1b4c9e",
+    "server/scripts/storage_gc.py": "7f1dd5022ea75558dd9cfea1db918208bebe29f4480f7d24a9722163e277fbb5",
+    "server/src/practiq_ai/storage.py": "d93077823eaa54a642c08ef2e005518df3ff4a14e56d855c1f1ba7102c42f824",
+    "server/tests/test_storage.py": "94147ddb1d8301e553ac3fb9768ffc3ad26da20b2f9b30f485c76e8eca36acdd",
+    "server/tests/test_storage_gc_durability.py": "8299c45c393459e14c099a71521146325e033466e83b1b68ccf0859f8622df16",
+    "web/scripts/accept-workflow.mjs": "493afb72e4261fc641d4cbce314418f58d90ed0f7025df79bddde68f14d4e2d7",
+    "server/scripts/accept_workflow.py": "aa39d56c1bc9644c8708a604327f9da71d8baef926c192800e547f56d9827ab3",
+    "app/src-tauri/src/performance.rs": "1973edcb5a4d3d4e9dfacf718d1a4bb46c2f9dd1e78adf9a38a8eca0d23e1b46",
+    "server/uv.lock": "d3d63a26da993732edb226e87357d9756bcf2b2601a545692c8923a3ec7cf3fa",
+    "app/package-lock.json": "87dcd8343161d0bde65d1858997f2cec902e79ba591ebfaf8c62001cc2279fe0",
+    "web/package-lock.json": "e2d0176ce87b86a4291a1175305ef430a4a80fede3c799298df915fc18bb2fdd",
+    "app/src-tauri/Cargo.lock": "0fcf2aaa2a16f8f238acc4f5b6d4a4ae8ebb030878cad30aad35b556ddef88b6",
+    "docs/evidence/2026-11-05-performance-recovery/check-repeated-storage.py": "f7581b6b12791ae646d5615e727cdc3b5bd71c8d5a3c7e85525204e0048d549f",
+    "docs/evidence/2026-11-05-performance-recovery/check-test-discovery.py": "8c7599972e6d3328ddf9c2d654bf83e9db68af8522f7b77ed7894b35a2aef4ab"
+  },
+  "verified": {
+    "pairedIo": true,
+    "connectedWorkflow": true,
+    "repeatedStorage": true,
+    "discoveryCanary": true,
+    "fullWeb": true,
+    "fullApp": true,
+    "finalFocusedTests": 93
+  },
+  "pending": null,
+  "limits": [
+    "provider substitutes only",
+    "no installer/WebView or clean-machine acceptance",
+    "no physical disk exhaustion, host/power-loss or multi-host disaster drill",
+    "no production or paid provider work",
+    "quarantine retains bytes; no automatic deletion"
+  ],
+  "verifiedAt": "2026-11-05T05:43:36.757482+00:00",
+  "serviceTests": 3736,
+  "serviceCoveragePercent": 93,
+  "probeMetrics": {
+    "recoverySuccessRate": 100.0,
+    "correctStopRate": 100.0,
+    "routingPassRate": 100.0,
+    "unknownUsagePassRate": 100.0
+  },
+  "durableCrashRecovery": "NOT_ASSESSED",
+  "nativeWorkflowCases": 24,
+  "package": {
+    "wheelSha256": "9adff23724c17058e8eb2646d54028e64d15197941548a5da055c2df4f1a637e",
+    "sdistSha256": "7a97df49f3466aa39cdfcc795ace37d91fe4c8096d53840c00941d6b7a5a5b46"
+  },
+  "sourceDiffSha256": "c26bf36e0d27002780c626fe041c66c25d71c5926544e707f7f716aaeff113ec"
+}

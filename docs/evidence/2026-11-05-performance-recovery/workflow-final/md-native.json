@@ -1,0 +1,28 @@
+[
+  {
+    "backupRestore": true,
+    "correct": 3,
+    "earnedCents": 300,
+    "firstRun": true,
+    "name": "md",
+    "phasesMs": {
+      "backup": 31.43,
+      "firstPage": 0.504584,
+      "importZip": 2.235875,
+      "initialize": 3.553417,
+      "previewPaper": 1.063958,
+      "previewZip": 2.137708,
+      "readResults": 0.516708,
+      "reopen": 3.108041,
+      "restore": 24.62375,
+      "saveAndNavigate": 4.002333999999999,
+      "startPaper": 1.4084160000000001,
+      "submitPaper": 1.617875
+    },
+    "questions": 3,
+    "reopen": true,
+    "repetition": 0,
+    "totalMs": 85.23783399999999,
+    "zipSha256": "65a5b141b5e4a3990bb82caf333cb83cbc6112fa615b494a2367ca5c5d668ab5"
+  }
+]

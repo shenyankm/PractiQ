@@ -1,0 +1,2 @@
+   Compiling practiq-desktop v0.2.2-rc.1 (/Users/sheny/Developer/code/PractiQ/app/src-tauri)
+    Finished `release` profile [optimized] target(s) in 45.31s

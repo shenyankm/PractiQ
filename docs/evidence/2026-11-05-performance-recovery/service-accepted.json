@@ -1,0 +1,2141 @@
+{
+  "baseline": "5973846cfdd2d5ec6948562e443642deb5042a02",
+  "python": "3.14.7",
+  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "scope": "Three alternating before/after pairs on temporary local files and disposable PostgreSQL. Artifact samples include real fsync with call-count instrumentation; authorization measures only the membership check using real verified unit files. Upload calls the route with generated chunks, preserves read-back verification and includes one separate tracemalloc run. Verified reads: three alternating pairs per workload, one first batch and seven warm batches per process/store; first batches follow fixture publication and are not cold OS-cache reads. Equality assertions are outside timing. Warm p95 is nearest-rank over 21 batches; traced allocation/work counts are separate instrumented batches. No OS cache flush, warmup exclusion, user data, providers, TCP upload, UI, whole-process RSS or power-loss measurement.",
+  "probeSha256": "75042a333b6cabdb46ec86cb73bfb4a91cb8f1537154450162f8354bfb1b4c9e",
+  "sourceSha256": {
+    "server/src/practiq_ai/storage.py": "d93077823eaa54a642c08ef2e005518df3ff4a14e56d855c1f1ba7102c42f824",
+    "server/src/practiq_ai/task_api.py": "197c5eb3e7b2aab69e20596488843ed23337b2222f68220e94ad17397c23d280",
+    "server/src/practiq_ai/webapp.py": "8bfa4c95b5ddbb9b08211f1192210e297682856f6a1e7a8f42a2cc44ec499197",
+    "server/src/practiq_ai/database.py": "030092a97d55229651c9269925d601dbba1e88ab3c04bf9703b7f0acf49e5cf7"
+  },
+  "artifacts": {
+    "artifacts": 100,
+    "before": {
+      "samples": [
+        {
+          "ms": 42.47958306223154,
+          "fsync": {
+            "file": 100,
+            "directory": 105
+          }
+        },
+        {
+          "ms": 38.419249933212996,
+          "fsync": {
+            "file": 100,
+            "directory": 105
+          }
+        },
+        {
+          "ms": 38.62820798531175,
+          "fsync": {
+            "file": 100,
+            "directory": 105
+          }
+        }
+      ],
+      "medianMs": 38.62820798531175
+    },
+    "after": {
+      "samples": [
+        {
+          "ms": 41.37045796960592,
+          "fsync": {
+            "file": 100,
+            "directory": 105
+          }
+        },
+        {
+          "ms": 36.86470817774534,
+          "fsync": {
+            "file": 100,
+            "directory": 105
+          }
+        },
+        {
+          "ms": 37.17729193158448,
+          "fsync": {
+            "file": 100,
+            "directory": 105
+          }
+        }
+      ],
+      "medianMs": 37.17729193158448
+    }
+  },
+  "authorization": {
+    "units": 100,
+    "distinctImageAuthorizations": 100,
+    "before": {
+      "samples": [
+        {
+          "ms": 2.3758749011904,
+          "unitFileReads": 0
+        },
+        {
+          "ms": 2.3612910881638527,
+          "unitFileReads": 0
+        },
+        {
+          "ms": 2.329374896362424,
+          "unitFileReads": 0
+        }
+      ],
+      "medianMs": 2.3612910881638527
+    },
+    "after": {
+      "samples": [
+        {
+          "ms": 2.3902500979602337,
+          "unitFileReads": 0
+        },
+        {
+          "ms": 2.3750830441713333,
+          "unitFileReads": 0
+        },
+        {
+          "ms": 2.3505832068622112,
+          "unitFileReads": 0
+        }
+      ],
+      "medianMs": 2.3750830441713333
+    }
+  },
+  "uploads": {
+    "sourceBytes": 17825792,
+    "chunkBytes": 69632,
+    "before": {
+      "samples": [
+        {
+          "ms": 19.707250175997615
+        },
+        {
+          "ms": 19.5888748858124
+        },
+        {
+          "ms": 20.137457875534892
+        }
+      ],
+      "medianMs": 19.707250175997615,
+      "instrumentedPeakPythonBytes": 17971074
+    },
+    "after": {
+      "samples": [
+        {
+          "ms": 20.416499814018607
+        },
+        {
+          "ms": 21.165166050195694
+        },
+        {
+          "ms": 19.777624867856503
+        }
+      ],
+      "medianMs": 20.416499814018607,
+      "instrumentedPeakPythonBytes": 17971110
+    }
+  },
+  "verifiedReads": [
+    {
+      "sourceBytes": 4096,
+      "readsPerBatch": 100,
+      "clientConcurrency": 1,
+      "storageConcurrency": 4,
+      "outputSha256": "301b2609e0767ef87eb424209f9435d542c4587b16cf6b3c616d35c7c5fb29a0",
+      "before": {
+        "samples": [
+          {
+            "pair": 0,
+            "firstBatch": true,
+            "ms": 27.62729092501104,
+            "cpuMs": 23.959000000000064
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 28.30299991182983,
+            "cpuMs": 24.296000000000095
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 29.942540917545557,
+            "cpuMs": 25.65799999999996
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 31.95495903491974,
+            "cpuMs": 27.69200000000005
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 29.969959054142237,
+            "cpuMs": 26.080000000000105
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 30.2716251462698,
+            "cpuMs": 26.308
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 29.232207918539643,
+            "cpuMs": 25.692999999999966
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 28.83500000461936,
+            "cpuMs": 24.84200000000003,
+            "instrumentedPeakPythonBytes": 598890,
+            "storageJobs": 200,
+            "defaultThreadJobs": 100
+          },
+          {
+            "pair": 1,
+            "firstBatch": true,
+            "ms": 34.25266686826944,
+            "cpuMs": 29.766999999999655
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 33.780790865421295,
+            "cpuMs": 29.081000000000135
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 31.94275009445846,
+            "cpuMs": 27.67300000000006
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 31.88612498342991,
+            "cpuMs": 27.51400000000004
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 40.29037500731647,
+            "cpuMs": 33.84199999999993
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 34.87012488767505,
+            "cpuMs": 30.389
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 35.77958303503692,
+            "cpuMs": 30.734999999999957
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 35.78124986961484,
+            "cpuMs": 31.09099999999998,
+            "instrumentedPeakPythonBytes": 598666,
+            "storageJobs": 200,
+            "defaultThreadJobs": 100
+          },
+          {
+            "pair": 2,
+            "firstBatch": true,
+            "ms": 31.816250178962946,
+            "cpuMs": 28.083999999999776
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 31.10149991698563,
+            "cpuMs": 26.69800000000011
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 38.50483288988471,
+            "cpuMs": 32.54099999999971
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 31.37212502770126,
+            "cpuMs": 27.064999999999895
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 31.149874906986952,
+            "cpuMs": 26.79800000000032
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 29.738791985437274,
+            "cpuMs": 25.476999999999972
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 30.13854194432497,
+            "cpuMs": 25.963999999999654
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 28.72499986551702,
+            "cpuMs": 24.623999999999757,
+            "instrumentedPeakPythonBytes": 598666,
+            "storageJobs": 200,
+            "defaultThreadJobs": 100
+          }
+        ],
+        "warmMedianMs": 31.149874906986952,
+        "warmP95Ms": 38.50483288988471,
+        "medianCpuMs": 26.79800000000032
+      },
+      "after": {
+        "samples": [
+          {
+            "pair": 0,
+            "firstBatch": true,
+            "ms": 13.9510000590235,
+            "cpuMs": 12.391999999999959
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 15.241333050653338,
+            "cpuMs": 13.263000000000025
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 14.146332861855626,
+            "cpuMs": 12.606000000000117
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 13.315083924680948,
+            "cpuMs": 11.771000000000198
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 14.183208113536239,
+            "cpuMs": 12.170000000000014
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 14.446874847635627,
+            "cpuMs": 12.442000000000064
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 14.102708082646132,
+            "cpuMs": 12.084999999999901
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 14.088582945987582,
+            "cpuMs": 12.070000000000025,
+            "instrumentedPeakPythonBytes": 598242,
+            "storageJobs": 100,
+            "defaultThreadJobs": 0
+          },
+          {
+            "pair": 1,
+            "firstBatch": true,
+            "ms": 13.78895784728229,
+            "cpuMs": 12.036000000000158
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 14.655667124316096,
+            "cpuMs": 12.661999999999951
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 14.079499989748001,
+            "cpuMs": 12.077999999999811
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 15.300791943445802,
+            "cpuMs": 13.179000000000052
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 14.681999804452062,
+            "cpuMs": 12.658000000000058
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 14.577416935935616,
+            "cpuMs": 12.57700000000006
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 14.243250014260411,
+            "cpuMs": 12.231000000000103
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 16.247124876827,
+            "cpuMs": 13.899000000000106,
+            "instrumentedPeakPythonBytes": 598162,
+            "storageJobs": 100,
+            "defaultThreadJobs": 0
+          },
+          {
+            "pair": 2,
+            "firstBatch": true,
+            "ms": 16.823124838992953,
+            "cpuMs": 14.935999999999616
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 15.467084012925625,
+            "cpuMs": 13.406999999999947
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 15.852292068302631,
+            "cpuMs": 13.825999999999894
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 15.383833087980747,
+            "cpuMs": 13.323999999999891
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 15.664707869291306,
+            "cpuMs": 13.624999999999776
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 15.853833174332976,
+            "cpuMs": 13.879999999999892
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 17.903083004057407,
+            "cpuMs": 13.872999999999802
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 16.055583022534847,
+            "cpuMs": 13.837999999999795,
+            "instrumentedPeakPythonBytes": 598154,
+            "storageJobs": 100,
+            "defaultThreadJobs": 0
+          }
+        ],
+        "warmMedianMs": 14.681999804452062,
+        "warmP95Ms": 16.247124876827,
+        "medianCpuMs": 12.661999999999951
+      }
+    },
+    {
+      "sourceBytes": 4096,
+      "readsPerBatch": 100,
+      "clientConcurrency": 8,
+      "storageConcurrency": 4,
+      "outputSha256": "301b2609e0767ef87eb424209f9435d542c4587b16cf6b3c616d35c7c5fb29a0",
+      "before": {
+        "samples": [
+          {
+            "pair": 0,
+            "firstBatch": true,
+            "ms": 31.608458142727613,
+            "cpuMs": 40.892999999999624
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 29.48158304207027,
+            "cpuMs": 38.68000000000027
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 32.555750105530024,
+            "cpuMs": 42.84700000000008
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 34.900959115475416,
+            "cpuMs": 44.784000000000376
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 32.10674994625151,
+            "cpuMs": 42.0670000000003
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 31.618000008165836,
+            "cpuMs": 42.05399999999982
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 32.31650008819997,
+            "cpuMs": 42.933999999999806
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 30.794499907642603,
+            "cpuMs": 41.26999999999992,
+            "instrumentedPeakPythonBytes": 880718,
+            "storageJobs": 200,
+            "defaultThreadJobs": 100
+          },
+          {
+            "pair": 1,
+            "firstBatch": true,
+            "ms": 29.439750127494335,
+            "cpuMs": 39.107
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 29.496875125914812,
+            "cpuMs": 39.53899999999999
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 29.490374960005283,
+            "cpuMs": 39.524000000000115
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 30.90866608545184,
+            "cpuMs": 40.89099999999979
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 29.865958029404283,
+            "cpuMs": 39.472999999999644
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 28.840832877904177,
+            "cpuMs": 38.37399999999968
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 29.611959122121334,
+            "cpuMs": 39.2030000000001
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 30.665250029414892,
+            "cpuMs": 40.455999999999825,
+            "instrumentedPeakPythonBytes": 769600,
+            "storageJobs": 200,
+            "defaultThreadJobs": 100
+          },
+          {
+            "pair": 2,
+            "firstBatch": true,
+            "ms": 30.385958030819893,
+            "cpuMs": 39.61799999999993
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 29.992458876222372,
+            "cpuMs": 39.72900000000035
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 28.74904195778072,
+            "cpuMs": 38.14499999999921
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 28.80695811472833,
+            "cpuMs": 38.32699999999978
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 28.64412497729063,
+            "cpuMs": 37.85900000000009
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 28.562833089381456,
+            "cpuMs": 37.80500000000053
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 30.0349579192698,
+            "cpuMs": 39.03299999999987
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 28.103417018428445,
+            "cpuMs": 36.86699999999998,
+            "instrumentedPeakPythonBytes": 870058,
+            "storageJobs": 200,
+            "defaultThreadJobs": 100
+          }
+        ],
+        "warmMedianMs": 29.865958029404283,
+        "warmP95Ms": 32.555750105530024,
+        "medianCpuMs": 39.524000000000115
+      },
+      "after": {
+        "samples": [
+          {
+            "pair": 0,
+            "firstBatch": true,
+            "ms": 16.071083024144173,
+            "cpuMs": 22.164999999999768
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 16.622958006337285,
+            "cpuMs": 22.90900000000029
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 16.150792129337788,
+            "cpuMs": 22.616999999999887
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 16.787916887551546,
+            "cpuMs": 23.174999999999724
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 15.939833130687475,
+            "cpuMs": 22.17799999999981
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 16.178958816453815,
+            "cpuMs": 22.41300000000024
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 15.996084082871675,
+            "cpuMs": 22.079999999999878
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 15.797042055055499,
+            "cpuMs": 21.82700000000004,
+            "instrumentedPeakPythonBytes": 868247,
+            "storageJobs": 100,
+            "defaultThreadJobs": 0
+          },
+          {
+            "pair": 1,
+            "firstBatch": true,
+            "ms": 14.318959088996053,
+            "cpuMs": 19.64100000000002
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 15.684999991208315,
+            "cpuMs": 21.87600000000023
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 16.129291150718927,
+            "cpuMs": 22.540000000000227
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 15.513750026002526,
+            "cpuMs": 21.705000000000307
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 15.641458099707961,
+            "cpuMs": 21.818000000000115
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 15.731208957731724,
+            "cpuMs": 21.903000000000006
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 15.696750022470951,
+            "cpuMs": 21.862999999999744
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 15.140417031943798,
+            "cpuMs": 21.05099999999993,
+            "instrumentedPeakPythonBytes": 856315,
+            "storageJobs": 100,
+            "defaultThreadJobs": 0
+          },
+          {
+            "pair": 2,
+            "firstBatch": true,
+            "ms": 18.15024996176362,
+            "cpuMs": 20.469999999999544
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 14.782167039811611,
+            "cpuMs": 20.042000000000115
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 15.369792003184557,
+            "cpuMs": 21.20899999999981
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 15.685624908655882,
+            "cpuMs": 22.12899999999962
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 15.53237484768033,
+            "cpuMs": 21.882999999999875
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 15.86020807735622,
+            "cpuMs": 22.45800000000031
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 14.564999844878912,
+            "cpuMs": 20.341000000000165
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 15.096375020220876,
+            "cpuMs": 21.241999999999983,
+            "instrumentedPeakPythonBytes": 862788,
+            "storageJobs": 100,
+            "defaultThreadJobs": 0
+          }
+        ],
+        "warmMedianMs": 15.696750022470951,
+        "warmP95Ms": 16.622958006337285,
+        "medianCpuMs": 21.882999999999875
+      }
+    },
+    {
+      "sourceBytes": 131072,
+      "readsPerBatch": 40,
+      "clientConcurrency": 1,
+      "storageConcurrency": 4,
+      "outputSha256": "1d1cf1885932af0175997fb11fdd691b9e4c0a00f276e0b58ece61a4f9d03f50",
+      "before": {
+        "samples": [
+          {
+            "pair": 0,
+            "firstBatch": true,
+            "ms": 14.377082930877805,
+            "cpuMs": 12.82899999999998
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 13.81866610608995,
+            "cpuMs": 12.209000000000358
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 13.081458164379,
+            "cpuMs": 11.401999999999468
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 13.215625192970037,
+            "cpuMs": 11.554000000000286
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 13.761250069364905,
+            "cpuMs": 11.981999999999715
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 13.607499888166785,
+            "cpuMs": 11.927000000000021
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 13.833166100084782,
+            "cpuMs": 12.177999999999578
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 13.406374957412481,
+            "cpuMs": 11.708000000000496,
+            "instrumentedPeakPythonBytes": 5401262,
+            "storageJobs": 80,
+            "defaultThreadJobs": 40
+          },
+          {
+            "pair": 1,
+            "firstBatch": true,
+            "ms": 14.425416942685843,
+            "cpuMs": 12.892000000000792
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 14.10937518812716,
+            "cpuMs": 12.445000000000483
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 12.347875162959099,
+            "cpuMs": 10.705999999999882
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 12.452375143766403,
+            "cpuMs": 10.82499999999964
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 12.962250038981438,
+            "cpuMs": 11.346999999999774
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 12.634166982024908,
+            "cpuMs": 11.003999999999792
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 13.179250061511993,
+            "cpuMs": 11.561000000000377
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 12.384708039462566,
+            "cpuMs": 10.906000000000304,
+            "instrumentedPeakPythonBytes": 5401262,
+            "storageJobs": 80,
+            "defaultThreadJobs": 40
+          },
+          {
+            "pair": 2,
+            "firstBatch": true,
+            "ms": 13.672957895323634,
+            "cpuMs": 12.229999999999741
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 13.860875042155385,
+            "cpuMs": 12.265000000000192
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 13.115125009790063,
+            "cpuMs": 11.493000000000642
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 12.917750049382448,
+            "cpuMs": 11.297999999999142
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 13.31245806068182,
+            "cpuMs": 11.684000000000694
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 15.415709000080824,
+            "cpuMs": 13.484000000000052
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 13.308374909684062,
+            "cpuMs": 11.677999999999855
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 13.297124998643994,
+            "cpuMs": 11.59099999999924,
+            "instrumentedPeakPythonBytes": 5401262,
+            "storageJobs": 80,
+            "defaultThreadJobs": 40
+          }
+        ],
+        "warmMedianMs": 13.297124998643994,
+        "warmP95Ms": 14.10937518812716,
+        "medianCpuMs": 11.59099999999924
+      },
+      "after": {
+        "samples": [
+          {
+            "pair": 0,
+            "firstBatch": true,
+            "ms": 8.632750017568469,
+            "cpuMs": 7.849000000000217
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 8.251749910414219,
+            "cpuMs": 7.337000000000593
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 8.116000099107623,
+            "cpuMs": 7.213000000000136
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 8.067042101174593,
+            "cpuMs": 7.140999999999842
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 7.675166008993983,
+            "cpuMs": 6.813999999999432
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 7.981542032212019,
+            "cpuMs": 7.1110000000000895
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 8.301832946017385,
+            "cpuMs": 7.446999999999981
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 7.7075830195099115,
+            "cpuMs": 6.849000000000771,
+            "instrumentedPeakPythonBytes": 5400110,
+            "storageJobs": 40,
+            "defaultThreadJobs": 0
+          },
+          {
+            "pair": 1,
+            "firstBatch": true,
+            "ms": 8.014666847884655,
+            "cpuMs": 7.2390000000002175
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 8.167250081896782,
+            "cpuMs": 7.269000000000858
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 7.992791011929512,
+            "cpuMs": 7.2070000000001855
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 7.9309160355478525,
+            "cpuMs": 7.033999999999985
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 8.077583042904735,
+            "cpuMs": 7.197000000000564
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 7.855916861444712,
+            "cpuMs": 6.946000000000119
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 7.6526671182364225,
+            "cpuMs": 6.782999999999539
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 8.365624817088246,
+            "cpuMs": 7.334000000000174,
+            "instrumentedPeakPythonBytes": 5400110,
+            "storageJobs": 40,
+            "defaultThreadJobs": 0
+          },
+          {
+            "pair": 2,
+            "firstBatch": true,
+            "ms": 7.65174999833107,
+            "cpuMs": 6.925999999999988
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 7.538625039160252,
+            "cpuMs": 6.731999999999516
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 7.482832996174693,
+            "cpuMs": 6.668999999999592
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 7.580040954053402,
+            "cpuMs": 6.758000000000486
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 7.212499855086207,
+            "cpuMs": 6.384000000000611
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 10.705499909818172,
+            "cpuMs": 9.089999999999598
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 7.562792161479592,
+            "cpuMs": 6.867000000000623
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 8.69487482123077,
+            "cpuMs": 7.74700000000017,
+            "instrumentedPeakPythonBytes": 5400110,
+            "storageJobs": 40,
+            "defaultThreadJobs": 0
+          }
+        ],
+        "warmMedianMs": 7.981542032212019,
+        "warmP95Ms": 8.69487482123077,
+        "medianCpuMs": 7.1110000000000895
+      }
+    },
+    {
+      "sourceBytes": 131072,
+      "readsPerBatch": 40,
+      "clientConcurrency": 8,
+      "storageConcurrency": 4,
+      "outputSha256": "1d1cf1885932af0175997fb11fdd691b9e4c0a00f276e0b58ece61a4f9d03f50",
+      "before": {
+        "samples": [
+          {
+            "pair": 0,
+            "firstBatch": true,
+            "ms": 13.120209099724889,
+            "cpuMs": 18.940000000000623
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 12.344708200544119,
+            "cpuMs": 17.94700000000038
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 12.80608307570219,
+            "cpuMs": 18.670000000000186
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 12.681875145062804,
+            "cpuMs": 18.658999999999537
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 12.962125008925796,
+            "cpuMs": 18.968000000000096
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 12.568000005558133,
+            "cpuMs": 18.651000000000195
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 12.148917187005281,
+            "cpuMs": 17.9330000000002
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 12.135124998167157,
+            "cpuMs": 18.040000000000056,
+            "instrumentedPeakPythonBytes": 5430123,
+            "storageJobs": 80,
+            "defaultThreadJobs": 40
+          },
+          {
+            "pair": 1,
+            "firstBatch": true,
+            "ms": 13.489792123436928,
+            "cpuMs": 19.121999999999417
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 13.384167104959488,
+            "cpuMs": 18.837000000000437
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 12.35949993133545,
+            "cpuMs": 17.756000000000327
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 13.01687490195036,
+            "cpuMs": 18.316999999999695
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 12.93316693045199,
+            "cpuMs": 18.41199999999965
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 12.38212501630187,
+            "cpuMs": 17.566999999999666
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 12.11104216054082,
+            "cpuMs": 17.31499999999997
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 12.22958299331367,
+            "cpuMs": 17.625000000000668,
+            "instrumentedPeakPythonBytes": 5411558,
+            "storageJobs": 80,
+            "defaultThreadJobs": 40
+          },
+          {
+            "pair": 2,
+            "firstBatch": true,
+            "ms": 12.185292085632682,
+            "cpuMs": 16.958999999999946
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 11.31995813921094,
+            "cpuMs": 16.25399999999999
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 11.501583037897944,
+            "cpuMs": 16.805999999999877
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 12.601041933521628,
+            "cpuMs": 18.518000000000256
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 12.71799998357892,
+            "cpuMs": 18.461000000000283
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 13.138167094439268,
+            "cpuMs": 19.117000000000495
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 12.624040944501758,
+            "cpuMs": 18.44300000000043
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 12.792416848242283,
+            "cpuMs": 18.7280000000003,
+            "instrumentedPeakPythonBytes": 5554748,
+            "storageJobs": 80,
+            "defaultThreadJobs": 40
+          }
+        ],
+        "warmMedianMs": 12.601041933521628,
+        "warmP95Ms": 13.138167094439268,
+        "medianCpuMs": 18.41199999999965
+      },
+      "after": {
+        "samples": [
+          {
+            "pair": 0,
+            "firstBatch": true,
+            "ms": 6.9943328853696585,
+            "cpuMs": 11.061999999999905
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 6.896208040416241,
+            "cpuMs": 11.105000000000587
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 6.872874917462468,
+            "cpuMs": 11.29699999999989
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 6.820875220000744,
+            "cpuMs": 10.767000000000415
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 6.730916909873486,
+            "cpuMs": 10.477999999999987
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 7.158250082284212,
+            "cpuMs": 11.222000000000065
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 7.454958977177739,
+            "cpuMs": 11.28199999999957
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 8.311290992423892,
+            "cpuMs": 13.068999999999775,
+            "instrumentedPeakPythonBytes": 5416056,
+            "storageJobs": 40,
+            "defaultThreadJobs": 0
+          },
+          {
+            "pair": 1,
+            "firstBatch": true,
+            "ms": 7.387041114270687,
+            "cpuMs": 11.353999999999864
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 6.35941606014967,
+            "cpuMs": 10.285000000000544
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 6.976166972890496,
+            "cpuMs": 10.769999999999946
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 7.260707905516028,
+            "cpuMs": 11.385000000000645
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 7.354167057201266,
+            "cpuMs": 11.588000000000598
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 7.691166829317808,
+            "cpuMs": 12.321000000000026
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 7.716709049418569,
+            "cpuMs": 11.706999999999468
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 7.146082818508148,
+            "cpuMs": 11.285999999999241,
+            "instrumentedPeakPythonBytes": 5673066,
+            "storageJobs": 40,
+            "defaultThreadJobs": 0
+          },
+          {
+            "pair": 2,
+            "firstBatch": true,
+            "ms": 6.124499952420592,
+            "cpuMs": 10.114000000000622
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 6.455875001847744,
+            "cpuMs": 10.167000000000037
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 6.4560831524431705,
+            "cpuMs": 10.276000000000174
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 6.7969998344779015,
+            "cpuMs": 11.203999999999326
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 6.4282501116395,
+            "cpuMs": 10.399000000000491
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 6.436333991587162,
+            "cpuMs": 10.742000000000473
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 7.140625035390258,
+            "cpuMs": 11.333000000000482
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 6.847625132650137,
+            "cpuMs": 11.027999999999594,
+            "instrumentedPeakPythonBytes": 5541316,
+            "storageJobs": 40,
+            "defaultThreadJobs": 0
+          }
+        ],
+        "warmMedianMs": 6.896208040416241,
+        "warmP95Ms": 7.716709049418569,
+        "medianCpuMs": 11.203999999999326
+      }
+    },
+    {
+      "sourceBytes": 26214400,
+      "readsPerBatch": 4,
+      "clientConcurrency": 1,
+      "storageConcurrency": 4,
+      "outputSha256": "274cfad30f4426f4f5be4c2b609e1de33f92f3d7aba125993c4f1b6b67f49f92",
+      "before": {
+        "samples": [
+          {
+            "pair": 0,
+            "firstBatch": true,
+            "ms": 52.18724999576807,
+            "cpuMs": 48.88799999999982
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 42.12412494234741,
+            "cpuMs": 41.59800000000047
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 43.19658316671848,
+            "cpuMs": 42.653000000000496
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 42.65591595321894,
+            "cpuMs": 42.156000000000304
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 42.7406660746783,
+            "cpuMs": 42.308999999999486
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 42.27570816874504,
+            "cpuMs": 41.847000000000634
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 42.67979203723371,
+            "cpuMs": 42.22600000000032
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 41.7414999101311,
+            "cpuMs": 41.364999999999874,
+            "instrumentedPeakPythonBytes": 104996402,
+            "storageJobs": 8,
+            "defaultThreadJobs": 4
+          },
+          {
+            "pair": 1,
+            "firstBatch": true,
+            "ms": 42.37945890054107,
+            "cpuMs": 42.013999999999996
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 42.84429200924933,
+            "cpuMs": 42.39100000000029
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 40.59358290396631,
+            "cpuMs": 40.3450000000003
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 40.58775003068149,
+            "cpuMs": 40.42100000000026
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 39.61729118600488,
+            "cpuMs": 39.485999999999244
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 40.07195821031928,
+            "cpuMs": 39.90699999999947
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 39.29691715165973,
+            "cpuMs": 39.16800000000009
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 39.80175009928644,
+            "cpuMs": 39.63499999999964,
+            "instrumentedPeakPythonBytes": 104996402,
+            "storageJobs": 8,
+            "defaultThreadJobs": 4
+          },
+          {
+            "pair": 2,
+            "firstBatch": true,
+            "ms": 43.65320806391537,
+            "cpuMs": 43.126
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 42.41587477736175,
+            "cpuMs": 41.98500000000038
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 43.73333300463855,
+            "cpuMs": 43.12900000000042
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 42.87891695275903,
+            "cpuMs": 42.455999999999605
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 43.150041019544005,
+            "cpuMs": 42.5570000000004
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 44.07220892608166,
+            "cpuMs": 43.3980000000016
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 47.64654184691608,
+            "cpuMs": 46.16000000000042
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 44.252249877899885,
+            "cpuMs": 43.65300000000083,
+            "instrumentedPeakPythonBytes": 104996402,
+            "storageJobs": 8,
+            "defaultThreadJobs": 4
+          }
+        ],
+        "warmMedianMs": 42.65591595321894,
+        "warmP95Ms": 44.252249877899885,
+        "medianCpuMs": 42.156000000000304
+      },
+      "after": {
+        "samples": [
+          {
+            "pair": 0,
+            "firstBatch": true,
+            "ms": 54.516791831701994,
+            "cpuMs": 49.131000000000036
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 39.67466717585921,
+            "cpuMs": 39.58800000000018
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 41.142042027786374,
+            "cpuMs": 39.90899999999975
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 41.047750040888786,
+            "cpuMs": 40.916000000000174
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 40.476375026628375,
+            "cpuMs": 40.293000000000134
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 40.68329185247421,
+            "cpuMs": 40.37200000000052
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 41.395416017621756,
+            "cpuMs": 40.86500000000015
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 40.74158286675811,
+            "cpuMs": 40.54399999999969,
+            "instrumentedPeakPythonBytes": 104995786,
+            "storageJobs": 4,
+            "defaultThreadJobs": 0
+          },
+          {
+            "pair": 1,
+            "firstBatch": true,
+            "ms": 42.11537493392825,
+            "cpuMs": 41.79699999999986
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 41.68466595001519,
+            "cpuMs": 41.33499999999923
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 43.1965000461787,
+            "cpuMs": 42.487000000000386
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 38.85770798660815,
+            "cpuMs": 38.78800000000027
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 40.15254112891853,
+            "cpuMs": 40.06600000000038
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 39.189166156575084,
+            "cpuMs": 39.10600000000031
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 42.65845799818635,
+            "cpuMs": 42.03500000000027
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 42.70699992775917,
+            "cpuMs": 42.132999999999754,
+            "instrumentedPeakPythonBytes": 104995786,
+            "storageJobs": 4,
+            "defaultThreadJobs": 0
+          },
+          {
+            "pair": 2,
+            "firstBatch": true,
+            "ms": 40.98475002683699,
+            "cpuMs": 40.65800000000053
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 42.15650004334748,
+            "cpuMs": 41.742000000001056
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 41.34737513959408,
+            "cpuMs": 41.074000000000055
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 41.45870800130069,
+            "cpuMs": 41.15900000000039
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 41.203249944373965,
+            "cpuMs": 40.910000000000224
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 41.50095791555941,
+            "cpuMs": 41.14599999999946
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 39.977791951969266,
+            "cpuMs": 39.73899999999908
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 41.342249838635325,
+            "cpuMs": 41.051999999998756,
+            "instrumentedPeakPythonBytes": 104995786,
+            "storageJobs": 4,
+            "defaultThreadJobs": 0
+          }
+        ],
+        "warmMedianMs": 41.203249944373965,
+        "warmP95Ms": 42.70699992775917,
+        "medianCpuMs": 40.910000000000224
+      }
+    },
+    {
+      "sourceBytes": 26214400,
+      "readsPerBatch": 4,
+      "clientConcurrency": 4,
+      "storageConcurrency": 4,
+      "outputSha256": "274cfad30f4426f4f5be4c2b609e1de33f92f3d7aba125993c4f1b6b67f49f92",
+      "before": {
+        "samples": [
+          {
+            "pair": 0,
+            "firstBatch": true,
+            "ms": 15.784875024110079,
+            "cpuMs": 48.795000000000144
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 15.084542101249099,
+            "cpuMs": 47.60399999999976
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 15.218707965686917,
+            "cpuMs": 47.78899999999986
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 14.984291978180408,
+            "cpuMs": 47.48799999999953
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 14.77812509983778,
+            "cpuMs": 47.353999999998564
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 14.56533302552998,
+            "cpuMs": 46.28699999999952
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 15.340333105996251,
+            "cpuMs": 47.213999999998535
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 15.443083131685853,
+            "cpuMs": 48.39100000000052,
+            "instrumentedPeakPythonBytes": 105144386,
+            "storageJobs": 8,
+            "defaultThreadJobs": 4
+          },
+          {
+            "pair": 1,
+            "firstBatch": true,
+            "ms": 14.564374927431345,
+            "cpuMs": 46.81599999999975
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 15.690499916672707,
+            "cpuMs": 48.194000000000514
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 15.114083886146545,
+            "cpuMs": 47.27199999999954
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 14.84024990350008,
+            "cpuMs": 46.787999999999386
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 14.81729093939066,
+            "cpuMs": 46.492000000000644
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 14.04549996368587,
+            "cpuMs": 45.075999999999894
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 14.356750063598156,
+            "cpuMs": 45.10999999999932
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 15.023374930024147,
+            "cpuMs": 46.94200000000137,
+            "instrumentedPeakPythonBytes": 105275726,
+            "storageJobs": 8,
+            "defaultThreadJobs": 4
+          },
+          {
+            "pair": 2,
+            "firstBatch": true,
+            "ms": 15.672874869778752,
+            "cpuMs": 48.38400000000043
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 14.8157081566751,
+            "cpuMs": 46.56999999999911
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 14.440750004723668,
+            "cpuMs": 45.53399999999996
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 14.122915919870138,
+            "cpuMs": 45.097000000000165
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 14.149750117212534,
+            "cpuMs": 45.00200000000021
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 14.374790946021676,
+            "cpuMs": 45.10999999999932
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 16.340124886482954,
+            "cpuMs": 49.68100000000142
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 14.024667209014297,
+            "cpuMs": 44.1470000000006,
+            "instrumentedPeakPythonBytes": 105140016,
+            "storageJobs": 8,
+            "defaultThreadJobs": 4
+          }
+        ],
+        "warmMedianMs": 14.81729093939066,
+        "warmP95Ms": 15.690499916672707,
+        "medianCpuMs": 46.787999999999386
+      },
+      "after": {
+        "samples": [
+          {
+            "pair": 0,
+            "firstBatch": true,
+            "ms": 15.311208087950945,
+            "cpuMs": 48.54299999999867
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 14.34645801782608,
+            "cpuMs": 46.08799999999924
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 14.542041113600135,
+            "cpuMs": 45.71999999999932
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 14.607209013774991,
+            "cpuMs": 47.413999999999845
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 14.345958130434155,
+            "cpuMs": 46.28800000000055
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 14.639416942372918,
+            "cpuMs": 47.409000000000034
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 14.42254101857543,
+            "cpuMs": 46.027999999999736
+          },
+          {
+            "pair": 0,
+            "firstBatch": false,
+            "ms": 15.187542187049985,
+            "cpuMs": 47.98399999999958,
+            "instrumentedPeakPythonBytes": 105403108,
+            "storageJobs": 4,
+            "defaultThreadJobs": 0
+          },
+          {
+            "pair": 1,
+            "firstBatch": true,
+            "ms": 14.40054108388722,
+            "cpuMs": 45.990999999999005
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 14.66587488539517,
+            "cpuMs": 47.56600000000155
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 14.323666924610734,
+            "cpuMs": 45.8949999999998
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 14.187624910846353,
+            "cpuMs": 46.3110000000011
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 12.62608403339982,
+            "cpuMs": 45.82500000000067
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 12.690333183854818,
+            "cpuMs": 45.70400000000063
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 14.737999998033047,
+            "cpuMs": 46.29100000000008
+          },
+          {
+            "pair": 1,
+            "firstBatch": false,
+            "ms": 14.392458135262132,
+            "cpuMs": 46.068,
+            "instrumentedPeakPythonBytes": 105272283,
+            "storageJobs": 4,
+            "defaultThreadJobs": 0
+          },
+          {
+            "pair": 2,
+            "firstBatch": true,
+            "ms": 13.71904113329947,
+            "cpuMs": 44.98399999999947
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 14.148416928946972,
+            "cpuMs": 45.08899999999905
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 14.012667117640376,
+            "cpuMs": 45.55000000000042
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 13.930333079770207,
+            "cpuMs": 45.875999999999806
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 14.115042053163052,
+            "cpuMs": 45.62199999999983
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 14.61316691711545,
+            "cpuMs": 47.41000000000106
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 13.392292195931077,
+            "cpuMs": 43.20700000000066
+          },
+          {
+            "pair": 2,
+            "firstBatch": false,
+            "ms": 13.177583925426006,
+            "cpuMs": 43.73000000000005,
+            "instrumentedPeakPythonBytes": 105271659,
+            "storageJobs": 4,
+            "defaultThreadJobs": 0
+          }
+        ],
+        "warmMedianMs": 14.345958130434155,
+        "warmP95Ms": 14.737999998033047,
+        "medianCpuMs": 46.027999999999736
+      }
+    }
+  ],
+  "postgres": {
+    "durableAutocommitWrites": 30,
+    "before": {
+      "samples": [
+        {
+          "ms": 51.29812494851649,
+          "backendCount": 1
+        },
+        {
+          "ms": 6.5517909824848175,
+          "backendCount": 1
+        },
+        {
+          "ms": 5.652124993503094,
+          "backendCount": 1
+        }
+      ],
+      "medianMs": 6.5517909824848175
+    },
+    "after": {
+      "samples": [
+        {
+          "ms": 11.9783328846097,
+          "backendCount": 1
+        },
+        {
+          "ms": 6.691250018775463,
+          "backendCount": 1
+        },
+        {
+          "ms": 7.433624938130379,
+          "backendCount": 1
+        }
+      ],
+      "medianMs": 7.433624938130379
+    }
+  }
+}

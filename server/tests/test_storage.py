@@ -190,6 +190,43 @@ async def test_storage_timeout(tmp_path, monkeypatch):
         await asyncio.to_thread(store._executor.shutdown)
 
 
+@pytest.mark.parametrize('interruption', ['cancel', 'timeout'])
+async def test_verified_hash_keeps_storage_capacity_until_worker_finishes(tmp_path, monkeypatch, interruption):
+    store = object_store(tmp_path, storage_concurrency=1, storage_timeout_seconds=.2)
+    reference = await store.put_document(b'quiz', upload())
+    started, release = threading.Event(), threading.Event()
+    sha256 = storage.hashlib.sha256
+    calls = []
+    def blocked(payload=b''):
+        calls.append(threading.get_ident())
+        started.set()
+        assert release.wait(5)
+        return sha256(payload)
+    monkeypatch.setattr(storage.hashlib, 'sha256', blocked)
+    pending = asyncio.create_task(store.get_verified(reference))
+    try:
+        assert await asyncio.to_thread(started.wait, 1)
+        if interruption == 'cancel':
+            pending.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await pending
+        else:
+            with pytest.raises(DocumentProcessingError) as error:
+                await asyncio.wait_for(asyncio.shield(pending), 1)
+            assert error.value.code == 'OBJECT_STORE_UNAVAILABLE'
+        assert store._slots.locked()
+        with pytest.raises(DocumentProcessingError) as error:
+            await store.get_verified(reference)
+        assert error.value.code == 'OBJECT_STORE_UNAVAILABLE'
+        assert len(calls) == 1
+    finally:
+        release.set()
+        await asyncio.gather(pending, return_exceptions=True)
+        await asyncio.to_thread(store._executor.shutdown)
+    assert calls[0] != threading.get_ident()
+    assert await object_store(tmp_path).get_verified(reference) == b'quiz'
+
+
 async def test_directory_sync_failure_does_not_return_a_reference(tmp_path, monkeypatch):
     import stat
     sync = storage.os.fsync

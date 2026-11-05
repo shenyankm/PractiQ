@@ -1,0 +1,573 @@
+diff --git a/app/src-tauri/src/backup_schema_tests.rs b/app/src-tauri/src/backup_schema_tests.rs
+index 6ba55247..f2e4d8de 100644
+--- a/app/src-tauri/src/backup_schema_tests.rs
++++ b/app/src-tauri/src/backup_schema_tests.rs
+@@ -81,27 +81,32 @@ fn repair_reads_staged_resources_again_only_when_replacing_live_bytes() {
+ #[ignore = "release repair I/O benchmark; only temporary databases and synthetic pixels"]
+ fn repair_asset_io_stress() {
+     let mut workloads = Vec::new();
+-    for count in [20, 200] {
++    for (count, damaged) in [(20, 1), (200, 1), (2000, 2000)] {
+         let dir = tempfile::tempdir().unwrap();
+         let source = library_with_images(&dir.path().join("source"), count);
+         let archive = dir.path().join("incoming.zip");
+         source.backup(&archive).unwrap();
+         let mut samples = Vec::new();
+         let mut reads = Vec::new();
++        let mut inventories = Vec::new();
+         for iteration in 0..4 {
+             let mut target =
+                 library_with_images(&dir.path().join(format!("target-{iteration}")), count);
+-            let digest: String = target
+-                .connect()
++            let db = target.connect().unwrap();
++            let hashes = db
++                .prepare("SELECT hash FROM assets ORDER BY hash")
+                 .unwrap()
+-                .query_row("SELECT hash FROM assets ORDER BY hash LIMIT 1", [], |row| {
+-                    row.get(0)
+-                })
++                .query_map([], |row| row.get::<_, String>(0))
++                .unwrap()
++                .collect::<std::result::Result<Vec<_>, _>>()
+                 .unwrap();
+-            fs::write(target.asset_path(&digest).unwrap(), b"damaged").unwrap();
++            drop(db);
++            for digest in hashes.iter().take(damaged) {
++                fs::write(target.asset_path(digest).unwrap(), b"damaged").unwrap();
++            }
+             crate::assets::READS.with(|reads| reads.set(0));
+             let started = std::time::Instant::now();
+-            target.restore_recovering(&archive).unwrap();
++            let result = target.restore_recovering(&archive).unwrap();
+             let elapsed = started.elapsed().as_secs_f64() * 1000.0;
+             let observed = crate::assets::READS.with(|reads| reads.get());
+             let reopened = Store::new(target.dir.clone()).unwrap();
+@@ -112,16 +117,30 @@ fn repair_asset_io_stress() {
+             let manifest: Value =
+                 serde_json::from_reader(zip.by_name("manifest.json").unwrap()).unwrap();
+             assert_eq!(manifest["assets"].as_array().unwrap().len(), count as usize);
++            let inventory: Value = serde_json::from_slice(
++                &fs::read(
++                    Path::new(result["recoveryPath"].as_str().unwrap()).join("inventory.json"),
++                )
++                .unwrap(),
++            )
++            .unwrap();
++            let inventory_hash =
++                crate::store::hash(&serde_json::to_vec(&inventory["assets"]).unwrap());
++            assert_eq!(
++                inventory["assets"].as_array().unwrap().len(),
++                count as usize
++            );
+             if iteration > 0 {
+                 samples.push(elapsed);
+                 reads.push(observed);
++                inventories.push(inventory_hash);
+             }
+         }
+         workloads.push(
+-            json!({"assets":count,"damaged":1,"samplesMs":samples,"verifiedAssetReads":reads}),
++            json!({"assets":count,"damaged":damaged,"samplesMs":samples,"verifiedAssetReads":reads,"inventorySha256":inventories}),
+         );
+     }
+-    let report = json!({"scope":"Release Store::restore_recovering, one warmup and three measured samples. Includes validation, repair, durable recovery copy and database publication. Setup, reopen and roundtrip backup excluded. Warm OS caches, synthetic pixels, no UI/providers/power-loss measurement.","workloads":workloads});
++    let report = json!({"scope":"Release Store::restore_recovering, one warmup and three measured samples. Includes validation, repair, durable recovery copy and database publication. Setup, reopen, inventory hashing and roundtrip backup excluded. Warm OS caches, synthetic pixels, no UI/providers/power-loss measurement.","workloads":workloads});
+     fs::write(
+         std::env::var("PRACTIQ_BENCH_OUTPUT").unwrap(),
+         serde_json::to_vec_pretty(&report).unwrap(),
+diff --git a/app/vite.config.ts b/app/vite.config.ts
+index ec915e2b..ee897f60 100644
+--- a/app/vite.config.ts
++++ b/app/vite.config.ts
+@@ -5,6 +5,7 @@ import { fileURLToPath, URL } from "node:url";
+ export default defineConfig(({ mode }) => ({
+   cacheDir: `node_modules/.vite/${mode}`,
+   test: {
++    include: ["src/**/*.test.{ts,tsx}"],
+     setupFiles: ["./src/test-setup.ts"],
+     coverage: {
+       provider: "v8",
+diff --git a/server/scripts/benchmark_io.py b/server/scripts/benchmark_io.py
+index 8333e665..4890c5bf 100644
+--- a/server/scripts/benchmark_io.py
++++ b/server/scripts/benchmark_io.py
+@@ -13,7 +13,7 @@ from dataclasses import replace
+ from pathlib import Path
+ from statistics import median
+ from tempfile import TemporaryDirectory
+-from time import perf_counter
++from time import perf_counter, process_time
+ from types import SimpleNamespace
+ from typing import Any, cast
+ 
+@@ -131,6 +131,71 @@ async def uploads(baseline):
+                        'instrumentedPeakPythonBytes': samples[3]['instrumentedPeakPythonBytes']} for label, samples in rows.items()}}
+ 
+ 
++async def verified_reads(baseline):
++    original = baseline_function(baseline, storage, 'ObjectStore')
++    original.get_verified.__globals__['verify_payload'] = baseline_function(baseline, storage, 'verify_payload')
++    results = []
++    for size, count, concurrency in ((4096, 100, 1), (4096, 100, 8),
++                                     (128 * 1024, 40, 1), (128 * 1024, 40, 8),
++                                     (load().source_max_bytes, 4, 1), (load().source_max_bytes, 4, 4)):
++        payload = (b'synthetic source\n' * (size // 17 + 1))[:size]
++        rows = {label: [] for label in ('before', 'after')}
++        for pair in range(3):
++            for label in (('before', 'after') if pair % 2 == 0 else ('after', 'before')):
++                with TemporaryDirectory(prefix='practiq-io-reads-') as directory:
++                    store = (original if label == 'before' else storage.ObjectStore)(replace(load(), storage_dir=Path(directory)))
++                    try:
++                        reference = await store.put_document(payload, upload(payload))
++                        gate = asyncio.Semaphore(concurrency)
++                        async def read(gate=gate, store=store, reference=reference):
++                            async with gate:
++                                return await store.get_verified(reference)
++                        for iteration in range(8):
++                            cpu = process_time()
++                            started = perf_counter()
++                            values = await asyncio.gather(*(read() for _ in range(count)))
++                            elapsed = (perf_counter() - started) * 1000
++                            cpu_ms = (process_time() - cpu) * 1000
++                            assert len(values) == count and all(value == payload for value in values)
++                            del values
++                            rows[label].append({'pair': pair, 'firstBatch': iteration == 0,
++                                                'ms': elapsed, 'cpuMs': cpu_ms})
++                        calls = 0
++                        default_calls = 0
++                        call = store._call
++                        to_thread = asyncio.to_thread
++                        async def observed(*args, call=call):
++                            nonlocal calls
++                            calls += 1
++                            return await call(*args)
++                        async def offload(*args, to_thread=to_thread, **kwargs):
++                            nonlocal default_calls
++                            default_calls += 1
++                            return await to_thread(*args, **kwargs)
++                        with pytest.MonkeyPatch.context() as patch:
++                            patch.setattr(store, '_call', observed)
++                            patch.setattr(asyncio, 'to_thread', offload)
++                            tracemalloc.start()
++                            values = await asyncio.gather(*(read() for _ in range(count)))
++                            peak = tracemalloc.get_traced_memory()[1]
++                            tracemalloc.stop()
++                            assert all(value == payload for value in values)
++                            rows[label][-1].update(instrumentedPeakPythonBytes=peak, storageJobs=calls,
++                                                   defaultThreadJobs=default_calls)
++                    finally:
++                        store._executor.shutdown()
++        report = {'sourceBytes': size, 'readsPerBatch': count, 'clientConcurrency': concurrency,
++                  'storageConcurrency': load().storage_concurrency, 'outputSha256': hashlib.sha256(payload).hexdigest()}
++        for label, samples in rows.items():
++            warm = [row for row in samples if not row['firstBatch']]
++            timings = sorted(row['ms'] for row in warm)
++            report[label] = {'samples': samples, 'warmMedianMs': median(timings),
++                             'warmP95Ms': timings[int((len(timings) - 1) * .95)],
++                             'medianCpuMs': median(row['cpuMs'] for row in warm)}
++        results.append(report)
++    return results
++
++
+ async def connections(baseline):
+     db = await new_database()
+     original = baseline_function(baseline, database, 'Database')(db.uri)
+@@ -160,7 +225,8 @@ async def connections(baseline):
+ 
+ async def profile(baseline):
+     return {'artifacts': await artifacts(baseline), 'authorization': await authorization(baseline),
+-            'uploads': await uploads(baseline), 'postgres': await connections(baseline)}
++            'uploads': await uploads(baseline), 'verifiedReads': await verified_reads(baseline),
++            'postgres': await connections(baseline)}
+ 
+ 
+ def main():
+@@ -181,6 +247,9 @@ def main():
+                   'scope': 'Three alternating before/after pairs on temporary local files and disposable PostgreSQL. '
+                            'Artifact samples include real fsync with call-count instrumentation; authorization measures only the membership check using real verified unit files. '
+                            'Upload calls the route with generated chunks, preserves read-back verification and includes one separate tracemalloc run. '
++                           'Verified reads: three alternating pairs per workload, one first batch and seven warm batches per process/store; '
++                           'first batches follow fixture publication and are not cold OS-cache reads. Equality assertions are outside timing. '
++                           'Warm p95 is nearest-rank over 21 batches; traced allocation/work counts are separate instrumented batches. '
+                            'No OS cache flush, warmup exclusion, user data, providers, TCP upload, UI, whole-process RSS or power-loss measurement.',
+                   'probeSha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+                   'sourceSha256': source_hashes, **asyncio.run(profile(baseline))}
+diff --git a/server/scripts/storage_gc.py b/server/scripts/storage_gc.py
+index 1b1b359e..7d76fbe0 100644
+--- a/server/scripts/storage_gc.py
++++ b/server/scripts/storage_gc.py
+@@ -15,9 +15,10 @@ from practiq_ai.config import load
+ from practiq_ai.database import Database
+ from practiq_ai.execution import TTL_MINUTES
+ from practiq_ai.manage import exclusive
+-from practiq_ai.storage import ObjectStore, get_object_store
++from practiq_ai.storage import PENDING_FILE_PREFIX, ObjectStore, get_object_store
+ 
+ KEY = re.compile(r"^practiq-agent/(?:sources|artifacts)/([0-9a-f]{64})/")
++PENDING_FILE = re.compile(re.escape(PENDING_FILE_PREFIX) + r'[a-z0-9_]{8}')
+ 
+ 
+ def referenced_sources(value: Any) -> set[str]:
+@@ -67,7 +68,8 @@ def inventory(store: ObjectStore) -> list[dict[str, Any]]:
+ 
+ def candidates(items: list[dict[str, Any]], sources: set[str], cutoff: float) -> list[dict[str, Any]]:
+     return [item for item in items if item["modified"] < cutoff
+-            and (match := KEY.match(item["key"])) and match.group(1) not in sources]
++            and (match := KEY.match(item["key"]))
++            and (match.group(1) not in sources or PENDING_FILE.fullmatch(Path(item['key']).name))]
+ 
+ 
+ def _sync_directory(path: Path) -> None:
+diff --git a/server/src/practiq_ai/storage.py b/server/src/practiq_ai/storage.py
+index c8420a64..ddf4eaf4 100644
+--- a/server/src/practiq_ai/storage.py
++++ b/server/src/practiq_ai/storage.py
+@@ -32,6 +32,7 @@ from .errors import DocumentProcessingError
+ from .extractors.isolated import _thread_io
+ 
+ SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
++PENDING_FILE_PREFIX = '.practiq-pending-'
+ ARTIFACT_KEY_PATTERN = re.compile(
+     r"^practiq-agent/artifacts/[0-9a-f]{64}/[a-z][a-z0-9_-]{0,63}/"
+     r"(?:0|[1-9][0-9]*)-([0-9a-f]{64})\.([a-z0-9]+)$"
+@@ -53,13 +54,17 @@ def validate_source_size(size: int, source_type: DocumentSourceType, config: Con
+ 
+ 
+ async def verify_payload(reference: DocumentReference | ArtifactReference, payload: bytes) -> None:
++    await asyncio.to_thread(_verify_payload, reference, payload)
++
++
++def _verify_payload(reference: DocumentReference | ArtifactReference, payload: bytes) -> None:
+     if len(payload) != reference.sizeBytes:
+         raise DocumentProcessingError(
+             409,
+             "Stored document size does not match",
+             "DOCUMENT_SIZE_MISMATCH",
+         )
+-    digest = (await asyncio.to_thread(hashlib.sha256, payload)).hexdigest()
++    digest = hashlib.sha256(payload).hexdigest()
+     if digest != reference.sha256:
+         raise DocumentProcessingError(
+             409,
+@@ -189,7 +194,7 @@ class ObjectStore:
+                 raise self._unavailable() from exc
+         name = None
+         try:
+-            with tempfile.NamedTemporaryFile(dir=path.parent, delete=False) as target:
++            with tempfile.NamedTemporaryFile(dir=path.parent, prefix=PENDING_FILE_PREFIX, delete=False) as target:
+                 name = target.name
+                 digest = hashlib.sha256()
+                 size = 0
+@@ -287,20 +292,7 @@ class ObjectStore:
+             raise _invalid_reference()
+         if isinstance(reference, DocumentReference):
+             validate_source_size(reference.sizeBytes, reference.sourceType, self._config)
+-        size = await self._head_size(reference.objectKey)
+-        if size is None:
+-            raise DocumentProcessingError(
+-                404, "Stored object was not found", "OBJECT_NOT_FOUND"
+-            )
+-        if size != reference.sizeBytes:
+-            raise DocumentProcessingError(
+-                409,
+-                "Stored document size does not match",
+-                "DOCUMENT_SIZE_MISMATCH",
+-            )
+-        payload = await self._call(self._read, reference.objectKey, reference.sizeBytes)
+-        await verify_payload(reference, payload)
+-        return payload
++        return await self._call(self._read, reference)
+ 
+     def _path(self, key: str) -> Path:
+         path = self.root / key
+@@ -316,7 +308,7 @@ class ObjectStore:
+         # Same-directory replacement keeps readers from observing partial files.
+         name = None
+         try:
+-            with tempfile.NamedTemporaryFile(dir=path.parent, delete=False) as target:
++            with tempfile.NamedTemporaryFile(dir=path.parent, prefix=PENDING_FILE_PREFIX, delete=False) as target:
+                 name = target.name
+                 target.write(payload)
+                 target.flush()
+@@ -362,9 +354,18 @@ class ObjectStore:
+                 if len(self._synced_directories) > 256:
+                     del self._synced_directories[next(iter(self._synced_directories))]
+ 
+-    def _read(self, key: str, size: int) -> bytes:
+-        with self._path(key).open("rb") as source:
+-            return source.read(size + 1)
++    def _read(self, reference: ArtifactReference | DocumentReference) -> bytes:
++        try:
++            source = self._path(reference.objectKey).open("rb")
++        except FileNotFoundError as exc:
++            raise DocumentProcessingError(404, "Stored object was not found", "OBJECT_NOT_FOUND") from exc
++        with source:
++            if os.fstat(source.fileno()).st_size != reference.sizeBytes:
++                raise DocumentProcessingError(409, "Stored document size does not match", "DOCUMENT_SIZE_MISMATCH")
++            payload = source.read(reference.sizeBytes + 1)
++        # The same storage slot bounds reading and hashing, even after cancellation.
++        _verify_payload(reference, payload)
++        return payload
+ 
+     def _size(self, key: str) -> int | None:
+         try:
+diff --git a/server/tests/test_storage.py b/server/tests/test_storage.py
+index d01bda31..3eedfb09 100644
+--- a/server/tests/test_storage.py
++++ b/server/tests/test_storage.py
+@@ -190,6 +190,43 @@ async def test_storage_timeout(tmp_path, monkeypatch):
+         await asyncio.to_thread(store._executor.shutdown)
+ 
+ 
++@pytest.mark.parametrize('interruption', ['cancel', 'timeout'])
++async def test_verified_hash_keeps_storage_capacity_until_worker_finishes(tmp_path, monkeypatch, interruption):
++    store = object_store(tmp_path, storage_concurrency=1, storage_timeout_seconds=.2)
++    reference = await store.put_document(b'quiz', upload())
++    started, release = threading.Event(), threading.Event()
++    sha256 = storage.hashlib.sha256
++    calls = []
++    def blocked(payload=b''):
++        calls.append(threading.get_ident())
++        started.set()
++        assert release.wait(5)
++        return sha256(payload)
++    monkeypatch.setattr(storage.hashlib, 'sha256', blocked)
++    pending = asyncio.create_task(store.get_verified(reference))
++    try:
++        assert await asyncio.to_thread(started.wait, 1)
++        if interruption == 'cancel':
++            pending.cancel()
++            with pytest.raises(asyncio.CancelledError):
++                await pending
++        else:
++            with pytest.raises(DocumentProcessingError) as error:
++                await asyncio.wait_for(asyncio.shield(pending), 1)
++            assert error.value.code == 'OBJECT_STORE_UNAVAILABLE'
++        assert store._slots.locked()
++        with pytest.raises(DocumentProcessingError) as error:
++            await store.get_verified(reference)
++        assert error.value.code == 'OBJECT_STORE_UNAVAILABLE'
++        assert len(calls) == 1
++    finally:
++        release.set()
++        await asyncio.gather(pending, return_exceptions=True)
++        await asyncio.to_thread(store._executor.shutdown)
++    assert calls[0] != threading.get_ident()
++    assert await object_store(tmp_path).get_verified(reference) == b'quiz'
++
++
+ async def test_directory_sync_failure_does_not_return_a_reference(tmp_path, monkeypatch):
+     import stat
+     sync = storage.os.fsync
+diff --git a/server/tests/test_storage_gc_durability.py b/server/tests/test_storage_gc_durability.py
+index edeab3e9..d92f194d 100644
+--- a/server/tests/test_storage_gc_durability.py
++++ b/server/tests/test_storage_gc_durability.py
+@@ -1,15 +1,112 @@
+ """Synthetic filesystem ordering checks, not power-loss tests."""
+ 
++import asyncio
++import hashlib
+ import json
++import multiprocessing
+ import os
++import threading
+ from pathlib import Path
+ from types import SimpleNamespace
+ from unittest.mock import AsyncMock
+ 
+ import pytest
+ 
++from practiq_ai.contracts import ArtifactReference
++from practiq_ai.errors import DocumentProcessingError
+ from scripts import storage_gc
+-from tests.support import object_store
++from tests.support import object_store, upload
++
++
++def publication_child(directory, mode, phase, ready):
++    from practiq_ai import storage
++
++    store = object_store(Path(directory))
++    payload = b'Interrupted local publication'
++    def stop_before_publish(name: str, path: Path | None) -> None:
++        ready.send(name)
++        threading.Event().wait(30)
++    store._publish = stop_before_publish
++    if phase == 'created':
++        create = storage.tempfile.NamedTemporaryFile
++        def stop_on_create(*args, **kwargs):
++            target = create(*args, **kwargs)
++            stop_before_publish(target.name, None)
++            return target
++        storage.tempfile.NamedTemporaryFile = stop_on_create
++    async def write():
++        if mode == 'artifact':
++            await store.put_artifact(payload, source_sha256=hashlib.sha256(payload).hexdigest(),
++                                     kind='text', index=1, media_type='text/plain')
++        else:
++            async def chunks():
++                yield payload
++            await store.put_document_stream(chunks(), upload(payload))
++    asyncio.run(write())
++
++
++@pytest.mark.parametrize('mode', ['artifact', 'upload'])
++@pytest.mark.parametrize('phase', ['created', 'before-publish'])
++async def test_killed_publication_can_be_quarantined_without_removing_live_source_files(tmp_path, monkeypatch, mode, phase):
++    store = object_store(tmp_path / 'files')
++    payload = b'Interrupted local publication'
++    source = hashlib.sha256(payload).hexdigest()
++    kept = await store.put_artifact(b'kept', source_sha256=source, kind='text', index=0, media_type='text/plain')
++    context = multiprocessing.get_context('spawn')
++    receive, send = context.Pipe(duplex=False)
++    child = context.Process(target=publication_child, args=(store.root, mode, phase, send))
++    child.start()
++    send.close()
++    try:
++        assert await asyncio.to_thread(receive.poll, 10)
++        pending = Path(receive.recv())
++        child.kill()
++        await asyncio.to_thread(child.join, 10)
++        assert child.exitcode is not None and child.exitcode != 0
++    finally:
++        if child.is_alive():
++            child.kill()
++            child.join(10)
++        receive.close()
++    retained = b'' if phase == 'created' else payload
++    assert pending.read_bytes() == retained
++    os.utime(pending, (0, 0))
++    os.utime(store.root / kept.objectKey, (0, 0))
++    monkeypatch.setattr(storage_gc, 'get_object_store', lambda: store)
++    monkeypatch.setattr(storage_gc, 'live_sources', AsyncMock(return_value={source}))
++    args = SimpleNamespace(output=tmp_path / 'inventory.json', retention_days=187, quarantine=True)
++    result = await storage_gc.scan(args, None)
++    assert result['completed'] and result['objects'] == 1
++    key = pending.relative_to(store.root).as_posix()
++    assert result['candidates'][0]['key'] == key
++    assert not pending.exists()
++    assert (store.root / '.quarantine' / result['runId'] / key).read_bytes() == retained
++    assert await object_store(store.root).get_verified(kept) == b'kept'
++    args.output = tmp_path / 'second-inventory.json'
++    assert (await storage_gc.scan(args, None))['objects'] == 0
++
++
++@pytest.mark.parametrize('name,recognized', [
++    ('.practiq-pending-abc_0123', True),
++    ('.practiq-pending-short', False),
++    ('.practiq-pending-abcdefgh.json', False),
++    ('tmpabcdefgh', False),
++    ('source.txt', False),
++])
++@pytest.mark.parametrize('modified', [0, 10])
++def test_cleanup_retains_recent_pending_and_unrecognized_files_for_live_sources(name, recognized, modified):
++    item = {'key': f'practiq-agent/sources/{"a" * 64}/{name}', 'modified': modified}
++    selected = storage_gc.candidates([item], {'a' * 64}, 10)
++    assert selected == ([item] if recognized and modified < 10 else [])
++
++
++async def test_pending_file_name_cannot_be_a_verified_public_reference(tmp_path):
++    key = f'practiq-agent/artifacts/{"a" * 64}/text/.practiq-pending-abcdefgh'
++    reference = ArtifactReference(objectKey=key, sha256=hashlib.sha256(b'pending').hexdigest(),
++                                  mediaType='text/plain', sizeBytes=7)
++    with pytest.raises(DocumentProcessingError) as error:
++        await object_store(tmp_path).get_verified(reference)
++    assert error.value.code == 'INVALID_OBJECT_REFERENCE'
+ 
+ 
+ @pytest.fixture
+diff --git a/web/scripts/accept-workflow.mjs b/web/scripts/accept-workflow.mjs
+index daf0a6c7..ad13c63d 100644
+--- a/web/scripts/accept-workflow.mjs
++++ b/web/scripts/accept-workflow.mjs
+@@ -8,22 +8,34 @@ import { execFile } from "node:child_process";
+ import { promisify } from "node:util";
+ 
+ const output = process.env.PRACTIQ_ACCEPT_OUTPUT;
+-const token = process.env.AI_SERVICE_TOKEN;
+ const browser = await chromium.launch({ headless: true });
+ const samples = [];
+ try {
+   for (const [name, mimeType] of [["txt", "text/plain"], ["md", "text/markdown"], ["png", "image/png"]]) {
+     const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, acceptDownloads: true });
++    await context.addInitScript(() => {
++      const stats = { supported: PerformanceObserver.supportedEntryTypes.includes("longtask"), count: 0, totalMs: 0, maxMs: 0 };
++      window.practiqWorkflowLongTasks = stats;
++      if (stats.supported) new PerformanceObserver(list => {
++        for (const entry of list.getEntries()) {
++          stats.count++; stats.totalMs += entry.duration; stats.maxMs = Math.max(stats.maxMs, entry.duration);
++        }
++      }).observe({ type: "longtask", buffered: true });
++    });
+     const page = await context.newPage();
+     const sample = { name, requests: [], phasesMs: {}, error: null };
+     samples.push(sample);
+     const starts = new Map();
+-    let detail = null, creates = 0;
+-    page.on("request", request => starts.set(request, performance.now()));
++    let detail = null, creates = 0, mutations = 0;
++    page.on("request", request => {
++      starts.set(request, performance.now());
++      if (new URL(request.url()).pathname.startsWith("/api/") && request.method() !== "GET") mutations++;
++    });
+     page.on("response", async response => {
+       const request = response.request(), url = new URL(response.url());
+       if (!url.pathname.startsWith("/api/")) return;
+-      const row = { method: request.method(), path: url.pathname, status: response.status(), ms: null };
++      const row = { method: request.method(), path: url.pathname, status: response.status(), ms: null,
++        hasAuthorization: !!request.headers().authorization };
+       sample.requests.push(row);
+       try {
+       await response.finished();
+@@ -41,14 +53,13 @@ try {
+     try {
+       let started = performance.now();
+       await page.goto(process.env.PRACTIQ_ACCEPT_URL);
+-      await page.getByLabel("服务访问令牌").fill(token);
+-      await page.getByRole("button", { name: "连接服务", exact: true }).click();
+       await expect(page.getByText(/^服务支持：/)).toBeVisible();
+       sample.phasesMs.connect = performance.now() - started;
+       await page.getByLabel("选择文档").setInputFiles({ name: `quiz.${name}`, mimeType,
+         buffer: await readFile(path.join(output, "sources", `quiz.${name}`)) });
+       await expect(page.getByRole("button", { name: "开始导入", exact: true })).toBeEnabled();
+       expect(creates).toBe(0);
++      expect(mutations).toBe(0);
+       started = performance.now();
+       await page.getByRole("button", { name: "开始导入", exact: true }).click();
+       const download = page.getByRole("button", { name: "下载题库 ZIP", exact: true });
+@@ -58,6 +69,11 @@ try {
+       await expect(download).toBeEnabled();
+       await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+       sample.phasesMs.startToResultVisible = performance.now() - started;
++      sample.browserPerformance = await page.evaluate(() => {
++        const navigation = performance.getEntriesByType("navigation")[0];
++        return { domContentLoadedMs: navigation?.domContentLoadedEventEnd,
++          loadMs: navigation?.loadEventEnd, longTasks: { ...window.practiqWorkflowLongTasks } };
++      });
+       await writeFile(path.join(output, `${name}-detail.json`), JSON.stringify(detail, null, 2) + "\n");
+       const downloadStart = performance.now();
+       const pending = page.waitForEvent("download");
+@@ -79,17 +95,18 @@ try {
+       sample.phasesMs.startToPracticeRestored = performance.now() - started;
+       expect(creates).toBe(1);
+       const usage = JSON.stringify(detail.usage);
+-      const again = await context.request.get(`${process.env.PRACTIQ_ACCEPT_URL}/api/document-tasks/${sample.threadId}`, { headers: { Authorization: `Bearer ${token}` } });
++      const again = await context.request.get(`${process.env.PRACTIQ_ACCEPT_URL}/api/document-tasks/${sample.threadId}`);
+       expect(JSON.stringify((await again.json()).usage)).toBe(usage);
+       sample.modelCalls = detail.usage.length;
+       sample.unknownCalls = detail.unknownUsageCalls;
+       sample.reviewRequired = detail.processing?.quality?.reviewRequired;
+       expect(detail.unknownUsageCalls).toEqual([]);
+       expect(detail.failures).toEqual([]);
+-      expect(await page.evaluate(() => JSON.stringify([localStorage, sessionStorage]))).not.toContain(token);
++      expect(sample.requests.every(request => request.method === "GET" || request.path === "/api/uploads" || request.path === "/api/uploads/content" || request.path === "/api/document-tasks")).toBe(true);
++      expect(sample.requests.some(request => request.hasAuthorization)).toBe(false);
+       await page.screenshot({ path: path.join(output, `${name}-result.png`), fullPage: true });
+     } catch (error) {
+-      sample.error = String(error.message).replaceAll(token, "[redacted]").slice(0, 1200);
++      sample.error = String(error.message).slice(0, 1200);
+       if (detail) await writeFile(path.join(output, `${name}-detail.json`), JSON.stringify(detail, null, 2) + "\n");
+       // Unknown mutations are never retried by this harness.
+     } finally {

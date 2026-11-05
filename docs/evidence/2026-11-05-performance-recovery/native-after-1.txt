@@ -1,0 +1,27 @@
+
+running 1 test
+test backup::schema_tests::repair_asset_io_stress has been running for over 60 seconds
+test backup::schema_tests::repair_asset_io_stress ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 304 filtered out; finished in 193.10s
+
+real 193.11
+user 1.72
+sys 14.21
+            30162944  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+                6298  page reclaims
+                  50  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+                   0  signals received
+              199162  voluntary context switches
+               31556  involuntary context switches
+        122120372285  instructions retired
+         49109533831  cycles elapsed
+            20775488  peak memory footprint

@@ -1,15 +1,112 @@
 """Synthetic filesystem ordering checks, not power-loss tests."""
 
+import asyncio
+import hashlib
 import json
+import multiprocessing
 import os
+import threading
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
 
+from practiq_ai.contracts import ArtifactReference
+from practiq_ai.errors import DocumentProcessingError
 from scripts import storage_gc
-from tests.support import object_store
+from tests.support import object_store, upload
+
+
+def publication_child(directory, mode, phase, ready):
+    from practiq_ai import storage
+
+    store = object_store(Path(directory))
+    payload = b'Interrupted local publication'
+    def stop_before_publish(name: str, path: Path | None) -> None:
+        ready.send(name)
+        threading.Event().wait(30)
+    store._publish = stop_before_publish
+    if phase == 'created':
+        create = storage.tempfile.NamedTemporaryFile
+        def stop_on_create(*args, **kwargs):
+            target = create(*args, **kwargs)
+            stop_before_publish(target.name, None)
+            return target
+        storage.tempfile.NamedTemporaryFile = stop_on_create
+    async def write():
+        if mode == 'artifact':
+            await store.put_artifact(payload, source_sha256=hashlib.sha256(payload).hexdigest(),
+                                     kind='text', index=1, media_type='text/plain')
+        else:
+            async def chunks():
+                yield payload
+            await store.put_document_stream(chunks(), upload(payload))
+    asyncio.run(write())
+
+
+@pytest.mark.parametrize('mode', ['artifact', 'upload'])
+@pytest.mark.parametrize('phase', ['created', 'before-publish'])
+async def test_killed_publication_can_be_quarantined_without_removing_live_source_files(tmp_path, monkeypatch, mode, phase):
+    store = object_store(tmp_path / 'files')
+    payload = b'Interrupted local publication'
+    source = hashlib.sha256(payload).hexdigest()
+    kept = await store.put_artifact(b'kept', source_sha256=source, kind='text', index=0, media_type='text/plain')
+    context = multiprocessing.get_context('spawn')
+    receive, send = context.Pipe(duplex=False)
+    child = context.Process(target=publication_child, args=(store.root, mode, phase, send))
+    child.start()
+    send.close()
+    try:
+        assert await asyncio.to_thread(receive.poll, 10)
+        pending = Path(receive.recv())
+        child.kill()
+        await asyncio.to_thread(child.join, 10)
+        assert child.exitcode is not None and child.exitcode != 0
+    finally:
+        if child.is_alive():
+            child.kill()
+            child.join(10)
+        receive.close()
+    retained = b'' if phase == 'created' else payload
+    assert pending.read_bytes() == retained
+    os.utime(pending, (0, 0))
+    os.utime(store.root / kept.objectKey, (0, 0))
+    monkeypatch.setattr(storage_gc, 'get_object_store', lambda: store)
+    monkeypatch.setattr(storage_gc, 'live_sources', AsyncMock(return_value={source}))
+    args = SimpleNamespace(output=tmp_path / 'inventory.json', retention_days=187, quarantine=True)
+    result = await storage_gc.scan(args, None)
+    assert result['completed'] and result['objects'] == 1
+    key = pending.relative_to(store.root).as_posix()
+    assert result['candidates'][0]['key'] == key
+    assert not pending.exists()
+    assert (store.root / '.quarantine' / result['runId'] / key).read_bytes() == retained
+    assert await object_store(store.root).get_verified(kept) == b'kept'
+    args.output = tmp_path / 'second-inventory.json'
+    assert (await storage_gc.scan(args, None))['objects'] == 0
+
+
+@pytest.mark.parametrize('name,recognized', [
+    ('.practiq-pending-abc_0123', True),
+    ('.practiq-pending-short', False),
+    ('.practiq-pending-abcdefgh.json', False),
+    ('tmpabcdefgh', False),
+    ('source.txt', False),
+])
+@pytest.mark.parametrize('modified', [0, 10])
+def test_cleanup_retains_recent_pending_and_unrecognized_files_for_live_sources(name, recognized, modified):
+    item = {'key': f'practiq-agent/sources/{"a" * 64}/{name}', 'modified': modified}
+    selected = storage_gc.candidates([item], {'a' * 64}, 10)
+    assert selected == ([item] if recognized and modified < 10 else [])
+
+
+async def test_pending_file_name_cannot_be_a_verified_public_reference(tmp_path):
+    key = f'practiq-agent/artifacts/{"a" * 64}/text/.practiq-pending-abcdefgh'
+    reference = ArtifactReference(objectKey=key, sha256=hashlib.sha256(b'pending').hexdigest(),
+                                  mediaType='text/plain', sizeBytes=7)
+    with pytest.raises(DocumentProcessingError) as error:
+        await object_store(tmp_path).get_verified(reference)
+    assert error.value.code == 'INVALID_OBJECT_REFERENCE'
 
 
 @pytest.fixture

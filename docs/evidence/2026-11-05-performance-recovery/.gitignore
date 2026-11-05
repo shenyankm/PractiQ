@@ -1,0 +1,4 @@
+# Disposable runtime state stays local; reports, fixtures and exports are curated evidence.
+workflow*/storage/
+# The final connected run retains the review screenshots.
+workflow/*-result.png

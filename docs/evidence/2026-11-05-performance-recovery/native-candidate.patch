@@ -1,0 +1,24 @@
+diff --git a/app/src-tauri/src/backup.rs b/app/src-tauri/src/backup.rs
+index 6b7a910e..3fb58a80 100644
+--- a/app/src-tauri/src/backup.rs
++++ b/app/src-tauri/src/backup.rs
+@@ -206,8 +206,18 @@ impl Store {
+             .query_map([], |row| Ok(json!({"sha256":row.get::<_,String>(0)?,"mediaType":row.get::<_,String>(1)?,"sizeBytes":row.get::<_,u64>(2)?,"originalFile":row.get::<_,String>(3)?,"indexed":true}))).map_err(err)?
+             .collect::<std::result::Result<Vec<_>,_>>().map_err(err)?;
+         drop(db);
++        let mut unindexed: std::collections::HashSet<_> =
++            replacements.iter().map(|row| row.0.as_str()).collect();
++        for asset in &assets {
++            if unindexed.is_empty() {
++                break;
++            }
++            if let Some(digest) = asset["sha256"].as_str() {
++                unindexed.remove(digest);
++            }
++        }
+         for (digest, media, size, _) in replacements {
+-            if !assets.iter().any(|asset| asset["sha256"] == *digest) {
++            if unindexed.remove(digest.as_str()) {
+                 assets.push(
+                     json!({"sha256":digest,"mediaType":media,"sizeBytes":size,"indexed":false}),
+                 );

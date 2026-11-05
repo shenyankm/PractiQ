@@ -1,0 +1,84 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+_ test_killed_publication_can_be_quarantined_without_removing_live_source_files[artifact] _
+
+tmp_path = PosixPath('/private/var/folders/1b/b19xbzjx7xqc4kl0k9x_y4y80000gp/T/pytest-of-sheny/pytest-1057/test_killed_publication_can_be0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d645cd0>
+mode = 'artifact'
+
+    @pytest.mark.parametrize('mode', ['artifact', 'upload'])
+    async def test_killed_publication_can_be_quarantined_without_removing_live_source_files(tmp_path, monkeypatch, mode):
+        store = object_store(tmp_path / 'files')
+        payload = b'Interrupted local publication'
+        source = hashlib.sha256(payload).hexdigest()
+        kept = await store.put_artifact(b'kept', source_sha256=source, kind='text', index=0, media_type='text/plain')
+        context = multiprocessing.get_context('spawn')
+        receive, send = context.Pipe(duplex=False)
+        child = context.Process(target=publication_child, args=(store.root, mode, send))
+        child.start()
+        send.close()
+        try:
+            assert await __import__('asyncio').to_thread(receive.poll, 10)
+            pending = Path(receive.recv())
+            child.kill()
+            await __import__('asyncio').to_thread(child.join, 10)
+            assert child.exitcode is not None and child.exitcode != 0
+        finally:
+            if child.is_alive():
+                child.kill()
+                child.join(10)
+            receive.close()
+        assert pending.read_bytes() == payload
+        os.utime(pending, (0, 0))
+        os.utime(store.root / kept.objectKey, (0, 0))
+        monkeypatch.setattr(storage_gc, 'get_object_store', lambda: store)
+        monkeypatch.setattr(storage_gc, 'live_sources', AsyncMock(return_value={source}))
+        args = SimpleNamespace(output=tmp_path / 'inventory.json', retention_days=187, quarantine=True)
+        result = await storage_gc.scan(args, None)
+>       assert result['completed'] and result['objects'] == 1
+E       assert (True and 0 == 1)
+
+tests/test_storage_gc_durability.py:67: AssertionError
+_ test_killed_publication_can_be_quarantined_without_removing_live_source_files[upload] _
+
+tmp_path = PosixPath('/private/var/folders/1b/b19xbzjx7xqc4kl0k9x_y4y80000gp/T/pytest-of-sheny/pytest-1057/test_killed_publication_can_be1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10dac2c30>
+mode = 'upload'
+
+    @pytest.mark.parametrize('mode', ['artifact', 'upload'])
+    async def test_killed_publication_can_be_quarantined_without_removing_live_source_files(tmp_path, monkeypatch, mode):
+        store = object_store(tmp_path / 'files')
+        payload = b'Interrupted local publication'
+        source = hashlib.sha256(payload).hexdigest()
+        kept = await store.put_artifact(b'kept', source_sha256=source, kind='text', index=0, media_type='text/plain')
+        context = multiprocessing.get_context('spawn')
+        receive, send = context.Pipe(duplex=False)
+        child = context.Process(target=publication_child, args=(store.root, mode, send))
+        child.start()
+        send.close()
+        try:
+            assert await __import__('asyncio').to_thread(receive.poll, 10)
+            pending = Path(receive.recv())
+            child.kill()
+            await __import__('asyncio').to_thread(child.join, 10)
+            assert child.exitcode is not None and child.exitcode != 0
+        finally:
+            if child.is_alive():
+                child.kill()
+                child.join(10)
+            receive.close()
+        assert pending.read_bytes() == payload
+        os.utime(pending, (0, 0))
+        os.utime(store.root / kept.objectKey, (0, 0))
+        monkeypatch.setattr(storage_gc, 'get_object_store', lambda: store)
+        monkeypatch.setattr(storage_gc, 'live_sources', AsyncMock(return_value={source}))
+        args = SimpleNamespace(output=tmp_path / 'inventory.json', retention_days=187, quarantine=True)
+        result = await storage_gc.scan(args, None)
+>       assert result['completed'] and result['objects'] == 1
+E       assert (True and 0 == 1)
+
+tests/test_storage_gc_durability.py:67: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_storage_gc_durability.py::test_killed_publication_can_be_quarantined_without_removing_live_source_files[artifact]
+FAILED tests/test_storage_gc_durability.py::test_killed_publication_can_be_quarantined_without_removing_live_source_files[upload]
+2 failed, 10 deselected in 2.45s

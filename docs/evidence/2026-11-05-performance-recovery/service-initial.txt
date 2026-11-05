@@ -1,0 +1,4 @@
+artifacts {'before': 75.173, 'after': 69.285}
+authorization {'before': 2.505, 'after': 2.423}
+uploads {'before': 20.264, 'after': 21.925}
+postgres {'before': 8.318, 'after': 8.322}

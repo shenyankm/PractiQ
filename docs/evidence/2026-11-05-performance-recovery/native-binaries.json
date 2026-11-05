@@ -1,0 +1,21 @@
+{
+  "directory": "/var/folders/1b/b19xbzjx7xqc4kl0k9x_y4y80000gp/T/practiq-performance-20261105-xxg7l4g7",
+  "before": {
+    "executable": "/var/folders/1b/b19xbzjx7xqc4kl0k9x_y4y80000gp/T/practiq-performance-20261105-xxg7l4g7/before",
+    "sha256": "e131404601f0181dca2793441bf550fb42d0cdd1b4734ca8312fd6f73464da3d",
+    "sourceSha256": "abf6b1d85f5cf6959c33488ac2ec7b51663f2bd96879b19d361f1ef359c5a71d"
+  },
+  "probeSha256": "4b147b3c074433abaf3ff70dd5b1b9e923d820c237db515009557f2ab8d8c7bf",
+  "after": {
+    "executable": "/var/folders/1b/b19xbzjx7xqc4kl0k9x_y4y80000gp/T/practiq-performance-20261105-xxg7l4g7/after",
+    "sha256": "73728dcc9c9ba8b82d351d94e8bdea2ba5d54ee612409e9f4e811ca38389eee4",
+    "sourceSha256": "b023bf3a65703284ed0c0312ccb4d2fbd1ed526aacf3ff058595d81451fe4cd9",
+    "probeSha256": "8ec5d0062c0ebc4bbfc8c7b41b0d4ba771741c5e6e2d3209481aaa5c03f5f09c"
+  },
+  "accepted": {
+    "executable": "/var/folders/1b/b19xbzjx7xqc4kl0k9x_y4y80000gp/T/practiq-performance-20261105-xxg7l4g7/accepted",
+    "sha256": "dd97438184a877f36c53982292a7f7993b2018818efb92c2823f9b7b57f69d57",
+    "sourceSha256": "abf6b1d85f5cf6959c33488ac2ec7b51663f2bd96879b19d361f1ef359c5a71d",
+    "probeSha256": "d86683d3b7b7bf2f7afe165bea0d6fd0fc18b21f8732b0404a84b42adf5d4fe1"
+  }
+}
