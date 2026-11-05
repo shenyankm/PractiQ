@@ -5,6 +5,7 @@ import { fileURLToPath, URL } from "node:url";
 export default defineConfig(({ mode }) => ({
   cacheDir: `node_modules/.vite/${mode}`,
   test: {
+    include: ["src/**/*.test.{ts,tsx}"],
     setupFiles: ["./src/test-setup.ts"],
     coverage: {
       provider: "v8",
