@@ -30,5 +30,3 @@ Thu Nov  5 23:13:37 2026    server/reports/checks/twenty-rounds/review.prof
        98    0.038    0.000    0.728    0.007 ocr_validation.py:15(_formula_source)
    123248    0.676    0.000    0.676    0.000 {method 'find' of 'str' objects}
 6770/6672    0.024    0.000    0.606    0.000 {built-in method builtins.__build_class__}
-
-

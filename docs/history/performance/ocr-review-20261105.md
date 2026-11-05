@@ -4,6 +4,7 @@ Baseline: `6ec1c5d98a109118997fdb13a3f122062865486a` (clean, current `main`).
 Implementation: `e3baa69a`. Python 3.14.7, macOS 27.0.1, Apple arm64.
 The [evidence directory](../../evidence/2026-11-05-ocr-review/) retains raw samples,
 output hashes, first failures and separate live/substitute workflow results.
+Retained terminal output has trailing whitespace removed; JSON values are unchanged.
 
 ## Scope and decisions
 

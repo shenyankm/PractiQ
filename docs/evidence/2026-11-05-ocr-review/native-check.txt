@@ -307,4 +307,3 @@ test backup::schema_tests::large_asset_inventory_round_trips_and_keeps_restore_r
 test backup::schema_tests::large_asset_inventory_round_trips_and_keeps_restore_recovery_available ... ok
 
 test result: ok. 277 passed; 0 failed; 27 ignored; 0 measured; 0 filtered out; finished in 130.12s
-

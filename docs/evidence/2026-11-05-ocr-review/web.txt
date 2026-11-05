@@ -26,14 +26,14 @@ npm --prefix web run check
 
  % Coverage report from v8
 -------------------|---------|----------|---------|---------|-------------------
-File               | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
+File               | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s
 -------------------|---------|----------|---------|---------|-------------------
-All files          |   96.35 |    91.99 |   96.65 |   98.64 |                   
- App.tsx           |   94.88 |    89.24 |   95.17 |   97.61 | ...02-204,336,357 
- ...tingsPanel.tsx |   95.71 |    87.64 |    93.1 |    97.5 | 62                
- RenderFailure.tsx |      50 |      100 |      50 |      50 | 6                 
- ResultReview.tsx  |   99.07 |    94.04 |     100 |   99.28 | 108               
- api.ts            |   97.25 |    94.92 |   98.71 |     100 | ...60,278,368,374 
+All files          |   96.35 |    91.99 |   96.65 |   98.64 |
+ App.tsx           |   94.88 |    89.24 |   95.17 |   97.61 | ...02-204,336,357
+ ...tingsPanel.tsx |   95.71 |    87.64 |    93.1 |    97.5 | 62
+ RenderFailure.tsx |      50 |      100 |      50 |      50 | 6
+ ResultReview.tsx  |   99.07 |    94.04 |     100 |   99.28 | 108
+ api.ts            |   97.25 |    94.92 |   98.71 |     100 | ...60,278,368,374
 -------------------|---------|----------|---------|---------|-------------------
 
 =============================== Coverage summary ===============================
@@ -104,18 +104,18 @@ Running 57 tests using 1 worker
   ✓  48 tests/browser.spec.ts:843:3 › all reviewed question layouts at 390x844 (3.2s)
   ✓  49 tests/browser.spec.ts:843:3 › all reviewed question layouts at 1280x720 (3.5s)
 [WebServer] 11:15:36 PM [vite] (client) [console.error] TypeError: Failed to fetch dynamically imported module: http://127.0.0.1:1671/src/ResultReview.tsx
-[WebServer] 
+[WebServer]
 [WebServer] The above error occurred in one of your React components.
-[WebServer] 
+[WebServer]
 [WebServer] React will try to recreate this component tree from scratch using the error boundary you provided, ErrorBoundary.
-[WebServer] 
+[WebServer]
   ✓  50 tests/browser.spec.ts:889:3 › error recovery and result isolation at 1440px (2.5s)
 [WebServer] 11:15:39 PM [vite] (client) [console.error] TypeError: Failed to fetch dynamically imported module: http://127.0.0.1:1671/src/ResultReview.tsx
-[WebServer] 
+[WebServer]
 [WebServer] The above error occurred in one of your React components.
-[WebServer] 
+[WebServer]
 [WebServer] React will try to recreate this component tree from scratch using the error boundary you provided, ErrorBoundary.
-[WebServer] 
+[WebServer]
   ✓  51 tests/browser.spec.ts:889:3 › error recovery and result isolation at 390px (2.5s)
   ✓  52 tests/browser.spec.ts:921:3 › upload transport recovery stays explicit before a task exists (metadata) (834ms)
   ✓  53 tests/browser.spec.ts:921:3 › upload transport recovery stays explicit before a task exists (content) (836ms)
