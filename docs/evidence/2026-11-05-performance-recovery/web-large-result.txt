@@ -1,0 +1,8 @@
+
+ RUN  v5.0.5 /Users/sheny/Developer/code/PractiQ/web
+
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 2 skipped (3)
+   Start at  13:06:43
+   Duration  3.94s (tests 56%, environment 18%, import 14%, setup 7%, transform 5%)

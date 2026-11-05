@@ -1,0 +1,119 @@
+{
+  "node": "v22.23.2",
+  "workloads": [
+    {
+      "questions": 20,
+      "issues": 40,
+      "tab": "sources",
+      "pageUpdates": 0,
+      "inputSha256": "1183153430bbff8ab800790b1b8115865367b53e92818f5451b3f7056e20a0f0",
+      "outputSha256": "aae46799887ebef97c98be9b05e12c9ebff2e64eb4ac76a8f95ba4ae98662651",
+      "samples": [
+        {
+          "calls": 1,
+          "stringifyMs": 0.01245799999992414
+        },
+        {
+          "calls": 1,
+          "stringifyMs": 0.00941699999998491
+        },
+        {
+          "calls": 1,
+          "stringifyMs": 0.010416999999961263
+        },
+        {
+          "calls": 1,
+          "stringifyMs": 0.01154099999985192
+        },
+        {
+          "calls": 1,
+          "stringifyMs": 0.011708999999882508
+        },
+        {
+          "calls": 1,
+          "stringifyMs": 0.009958000000096945
+        },
+        {
+          "calls": 1,
+          "stringifyMs": 0.0099169999998594
+        }
+      ]
+    },
+    {
+      "questions": 1000,
+      "issues": 2000,
+      "tab": "sources",
+      "pageUpdates": 10,
+      "inputSha256": "e8f9eecf90f2a2566e81c41b5a92ee4b3fb3b2156f1e3cfffdc37b720d348ff3",
+      "outputSha256": "1bcb72c3883e2755a7bfcf916c21323b6586b000fbef02b8e8fa77541fc58bad",
+      "samples": [
+        {
+          "calls": 1,
+          "stringifyMs": 0.2771669999997357
+        },
+        {
+          "calls": 1,
+          "stringifyMs": 0.2610829999998714
+        },
+        {
+          "calls": 1,
+          "stringifyMs": 0.2772920000002159
+        },
+        {
+          "calls": 1,
+          "stringifyMs": 0.261417000000165
+        },
+        {
+          "calls": 1,
+          "stringifyMs": 0.42487500000015643
+        },
+        {
+          "calls": 1,
+          "stringifyMs": 0.26954099999966274
+        },
+        {
+          "calls": 1,
+          "stringifyMs": 0.2957080000001042
+        }
+      ]
+    },
+    {
+      "questions": 1000,
+      "issues": 2000,
+      "tab": "questions",
+      "pageUpdates": 10,
+      "inputSha256": "e8f9eecf90f2a2566e81c41b5a92ee4b3fb3b2156f1e3cfffdc37b720d348ff3",
+      "outputSha256": "2c5ef8cc0c727f5d233a41d5ee7b4f48f12d5121c37afef15fa70cc0bb0b54a9",
+      "samples": [
+        {
+          "calls": 0,
+          "stringifyMs": 0
+        },
+        {
+          "calls": 0,
+          "stringifyMs": 0
+        },
+        {
+          "calls": 0,
+          "stringifyMs": 0
+        },
+        {
+          "calls": 0,
+          "stringifyMs": 0
+        },
+        {
+          "calls": 0,
+          "stringifyMs": 0
+        },
+        {
+          "calls": 0,
+          "stringifyMs": 0
+        },
+        {
+          "calls": 0,
+          "stringifyMs": 0
+        }
+      ]
+    }
+  ]
+}

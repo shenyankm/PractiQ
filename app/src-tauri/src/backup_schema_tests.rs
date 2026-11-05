@@ -81,27 +81,32 @@ fn repair_reads_staged_resources_again_only_when_replacing_live_bytes() {
 #[ignore = "release repair I/O benchmark; only temporary databases and synthetic pixels"]
 fn repair_asset_io_stress() {
     let mut workloads = Vec::new();
-    for count in [20, 200] {
+    for (count, damaged) in [(20, 1), (200, 1), (2000, 2000)] {
         let dir = tempfile::tempdir().unwrap();
         let source = library_with_images(&dir.path().join("source"), count);
         let archive = dir.path().join("incoming.zip");
         source.backup(&archive).unwrap();
         let mut samples = Vec::new();
         let mut reads = Vec::new();
+        let mut inventories = Vec::new();
         for iteration in 0..4 {
             let mut target =
                 library_with_images(&dir.path().join(format!("target-{iteration}")), count);
-            let digest: String = target
-                .connect()
+            let db = target.connect().unwrap();
+            let hashes = db
+                .prepare("SELECT hash FROM assets ORDER BY hash")
                 .unwrap()
-                .query_row("SELECT hash FROM assets ORDER BY hash LIMIT 1", [], |row| {
-                    row.get(0)
-                })
+                .query_map([], |row| row.get::<_, String>(0))
+                .unwrap()
+                .collect::<std::result::Result<Vec<_>, _>>()
                 .unwrap();
-            fs::write(target.asset_path(&digest).unwrap(), b"damaged").unwrap();
+            drop(db);
+            for digest in hashes.iter().take(damaged) {
+                fs::write(target.asset_path(digest).unwrap(), b"damaged").unwrap();
+            }
             crate::assets::READS.with(|reads| reads.set(0));
             let started = std::time::Instant::now();
-            target.restore_recovering(&archive).unwrap();
+            let result = target.restore_recovering(&archive).unwrap();
             let elapsed = started.elapsed().as_secs_f64() * 1000.0;
             let observed = crate::assets::READS.with(|reads| reads.get());
             let reopened = Store::new(target.dir.clone()).unwrap();
@@ -112,16 +117,30 @@ fn repair_asset_io_stress() {
             let manifest: Value =
                 serde_json::from_reader(zip.by_name("manifest.json").unwrap()).unwrap();
             assert_eq!(manifest["assets"].as_array().unwrap().len(), count as usize);
+            let inventory: Value = serde_json::from_slice(
+                &fs::read(
+                    Path::new(result["recoveryPath"].as_str().unwrap()).join("inventory.json"),
+                )
+                .unwrap(),
+            )
+            .unwrap();
+            let inventory_hash =
+                crate::store::hash(&serde_json::to_vec(&inventory["assets"]).unwrap());
+            assert_eq!(
+                inventory["assets"].as_array().unwrap().len(),
+                count as usize
+            );
             if iteration > 0 {
                 samples.push(elapsed);
                 reads.push(observed);
+                inventories.push(inventory_hash);
             }
         }
         workloads.push(
-            json!({"assets":count,"damaged":1,"samplesMs":samples,"verifiedAssetReads":reads}),
+            json!({"assets":count,"damaged":damaged,"samplesMs":samples,"verifiedAssetReads":reads,"inventorySha256":inventories}),
         );
     }
-    let report = json!({"scope":"Release Store::restore_recovering, one warmup and three measured samples. Includes validation, repair, durable recovery copy and database publication. Setup, reopen and roundtrip backup excluded. Warm OS caches, synthetic pixels, no UI/providers/power-loss measurement.","workloads":workloads});
+    let report = json!({"scope":"Release Store::restore_recovering, one warmup and three measured samples. Includes validation, repair, durable recovery copy and database publication. Setup, reopen, inventory hashing and roundtrip backup excluded. Warm OS caches, synthetic pixels, no UI/providers/power-loss measurement.","workloads":workloads});
     fs::write(
         std::env::var("PRACTIQ_BENCH_OUTPUT").unwrap(),
         serde_json::to_vec_pretty(&report).unwrap(),

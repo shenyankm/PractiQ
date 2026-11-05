@@ -1,0 +1,361 @@
+{
+  "samples": [
+    {
+      "name": "txt",
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/api/import-capabilities",
+          "status": 200,
+          "ms": 8.535499999999956,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/import-settings",
+          "status": 200,
+          "ms": 8.58133399999997,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/import-settings",
+          "status": 200,
+          "ms": 12.18441699999994,
+          "hasAuthorization": false
+        },
+        {
+          "method": "POST",
+          "path": "/api/uploads",
+          "status": 201,
+          "ms": 0.8205000000000382,
+          "hasAuthorization": false
+        },
+        {
+          "method": "PUT",
+          "path": "/api/uploads/content",
+          "status": 200,
+          "ms": 5.784832999999935,
+          "hasAuthorization": false
+        },
+        {
+          "method": "POST",
+          "path": "/api/document-tasks",
+          "status": 202,
+          "ms": 53.090167000000065,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/abf1728b-0533-5ee5-8fb9-c8961e9c75d3/preview",
+          "status": 200,
+          "ms": 71.2668749999998,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 72.12358299999983,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/abf1728b-0533-5ee5-8fb9-c8961e9c75d3",
+          "status": 200,
+          "ms": 78.16829200000006,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 39.64395799999966,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/abf1728b-0533-5ee5-8fb9-c8961e9c75d3",
+          "status": 200,
+          "ms": 43.08937500000047,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/abf1728b-0533-5ee5-8fb9-c8961e9c75d3/preview",
+          "status": 200,
+          "ms": 6.966875000000073,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/abf1728b-0533-5ee5-8fb9-c8961e9c75d3/export",
+          "status": 200,
+          "ms": 29.736042000000452,
+          "hasAuthorization": false
+        }
+      ],
+      "phasesMs": {
+        "connect": 136.76991699999996,
+        "startToResultVisible": 3364.3060830000004,
+        "download": 75.42749999999978,
+        "startToDownloaded": 3443.8073750000003,
+        "nativeHandoffAndPractice": 199.33491700000013,
+        "startToPracticeRestored": 3643.148792
+      },
+      "error": null,
+      "threadId": "abf1728b-0533-5ee5-8fb9-c8961e9c75d3",
+      "browserPerformance": {
+        "domContentLoadedMs": 63.19999980926514,
+        "loadMs": 63.299999952316284,
+        "longTasks": {
+          "supported": true,
+          "count": 0,
+          "totalMs": 0,
+          "maxMs": 0
+        }
+      },
+      "modelCalls": 1,
+      "unknownCalls": [],
+      "reviewRequired": true
+    },
+    {
+      "name": "md",
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/api/import-capabilities",
+          "status": 200,
+          "ms": 15.683082999999897,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/import-settings",
+          "status": 200,
+          "ms": 15.627416999999696,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/import-settings",
+          "status": 200,
+          "ms": 5.4062089999997625,
+          "hasAuthorization": false
+        },
+        {
+          "method": "POST",
+          "path": "/api/uploads",
+          "status": 201,
+          "ms": 4.069084000000657,
+          "hasAuthorization": false
+        },
+        {
+          "method": "PUT",
+          "path": "/api/uploads/content",
+          "status": 200,
+          "ms": 4.561333999999988,
+          "hasAuthorization": false
+        },
+        {
+          "method": "POST",
+          "path": "/api/document-tasks",
+          "status": 202,
+          "ms": 42.460041000000274,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/ce27008f-d1e8-5fb9-8d48-30538f2f1404/preview",
+          "status": 200,
+          "ms": 11.88945799999965,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 13.411207999999533,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/ce27008f-d1e8-5fb9-8d48-30538f2f1404",
+          "status": 200,
+          "ms": 17.507042000000183,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 18.076084000000264,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/ce27008f-d1e8-5fb9-8d48-30538f2f1404",
+          "status": 200,
+          "ms": 28.50025000000005,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/ce27008f-d1e8-5fb9-8d48-30538f2f1404/preview",
+          "status": 200,
+          "ms": 15.621875000000728,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/ce27008f-d1e8-5fb9-8d48-30538f2f1404/export",
+          "status": 200,
+          "ms": 13.462500000000546,
+          "hasAuthorization": false
+        }
+      ],
+      "phasesMs": {
+        "connect": 67.71429100000023,
+        "startToResultVisible": 3245.4946249999994,
+        "download": 49.93666699999994,
+        "startToDownloaded": 3300.140707999999,
+        "nativeHandoffAndPractice": 95.86716699999852,
+        "startToPracticeRestored": 3396.0097910000004
+      },
+      "error": null,
+      "threadId": "ce27008f-d1e8-5fb9-8d48-30538f2f1404",
+      "browserPerformance": {
+        "domContentLoadedMs": 31.5,
+        "loadMs": 31.5,
+        "longTasks": {
+          "supported": true,
+          "count": 0,
+          "totalMs": 0,
+          "maxMs": 0
+        }
+      },
+      "modelCalls": 1,
+      "unknownCalls": [],
+      "reviewRequired": true
+    },
+    {
+      "name": "png",
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/api/import-capabilities",
+          "status": 200,
+          "ms": 34.48170899999968,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/import-settings",
+          "status": 200,
+          "ms": 33.368875000000116,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/import-settings",
+          "status": 200,
+          "ms": 9.507125000000087,
+          "hasAuthorization": false
+        },
+        {
+          "method": "POST",
+          "path": "/api/uploads",
+          "status": 201,
+          "ms": 5.006875000000946,
+          "hasAuthorization": false
+        },
+        {
+          "method": "PUT",
+          "path": "/api/uploads/content",
+          "status": 200,
+          "ms": 4.271375000000262,
+          "hasAuthorization": false
+        },
+        {
+          "method": "POST",
+          "path": "/api/document-tasks",
+          "status": 202,
+          "ms": 15.784375000001091,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 9.30120800000077,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/6ea2bf4a-be9f-5bd9-ab5b-3c871b85dc34/preview",
+          "status": 200,
+          "ms": 11.187749999999141,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/6ea2bf4a-be9f-5bd9-ab5b-3c871b85dc34",
+          "status": 200,
+          "ms": 12.602999999999156,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks",
+          "status": 200,
+          "ms": 22.134625000000597,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/6ea2bf4a-be9f-5bd9-ab5b-3c871b85dc34",
+          "status": 200,
+          "ms": 25.025916000000507,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/6ea2bf4a-be9f-5bd9-ab5b-3c871b85dc34/preview",
+          "status": 200,
+          "ms": 4.518000000000029,
+          "hasAuthorization": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/document-tasks/6ea2bf4a-be9f-5bd9-ab5b-3c871b85dc34/export",
+          "status": 200,
+          "ms": 21.130667000001267,
+          "hasAuthorization": false
+        }
+      ],
+      "phasesMs": {
+        "connect": 126.59583399999974,
+        "startToResultVisible": 3212.41625,
+        "download": 67.16270799999984,
+        "startToDownloaded": 3281.0070840000008,
+        "nativeHandoffAndPractice": 137.73812499999985,
+        "startToPracticeRestored": 3418.7467500000002
+      },
+      "error": null,
+      "threadId": "6ea2bf4a-be9f-5bd9-ab5b-3c871b85dc34",
+      "browserPerformance": {
+        "domContentLoadedMs": 50.10000014305115,
+        "loadMs": 50.10000014305115,
+        "longTasks": {
+          "supported": true,
+          "count": 0,
+          "totalMs": 0,
+          "maxMs": 0
+        }
+      },
+      "modelCalls": 1,
+      "unknownCalls": [],
+      "reviewRequired": true
+    }
+  ]
+}

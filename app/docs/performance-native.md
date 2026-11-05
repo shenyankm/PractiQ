@@ -1,5 +1,11 @@
 # Native question-data performance
 
+Current resource/recovery controls, the withdrawn repair-membership experiment
+and source-only unit-test discovery are recorded in the
+[November 5 report](../../docs/history/performance/resource-recovery-20261105.md).
+App unit tests use the same `src/**/*.test.{ts,tsx}` scope as Web so local
+installer contents cannot enter a check. Existing build artifacts remain intact.
+
 This guide includes native recommendations **7, 6, 8 and 10** from the performance review of `5b673a6e` and subsequent measured changes.
 They do not change IPC contracts, schema 11, database objects/indexes, snapshot format or cache limits.
 

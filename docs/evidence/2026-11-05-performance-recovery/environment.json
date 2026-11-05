@@ -1,0 +1,26 @@
+{
+  "baseline": "5973846cfdd2d5ec6948562e443642deb5042a02",
+  "initialBranch": "main",
+  "initialWorktree": "clean",
+  "branch": "fix/performance-recovery-20261105",
+  "python": "3.14.7",
+  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "commands": {
+    "service": "make verify AI_PYTHON=<existing Python 3.14.7>",
+    "web": "VITEST_MAX_WORKERS=2 make web-check web-build",
+    "app": "VITEST_MAX_WORKERS=2 make app-check AI_PYTHON=<existing Python 3.14.7>",
+    "io": "cd server && PYTHONPATH=src:. \"$AI_PYTHON\" scripts/benchmark_io.py --baseline 5973846c --output <new-path>",
+    "queue": "cd server && PYTHONPATH=src:. \"$AI_PYTHON\" scripts/benchmark_runtime.py --documents <1|16|64> --rounds 3 --output <new-path>",
+    "discovery": "\"$AI_PYTHON\" docs/evidence/2026-11-05-performance-recovery/check-test-discovery.py",
+    "repeated": "\"$AI_PYTHON\" docs/evidence/2026-11-05-performance-recovery/check-repeated-storage.py <before|after>",
+    "finalService": "make verify AI_PYTHON=<existing Python 3.14.7> (make-verify-final.txt)",
+    "workflow": "cd server && PYTHONPATH=src:. \"$AI_PYTHON\" scripts/accept_workflow.py --output <fresh-directory> --native-binary <accepted release test executable>"
+  },
+  "scope": "Disposable state and provider substitutes only. Existing dev containers are excluded. No deployment, paid calls or physical power-loss claims.",
+  "buildDiagnostics": "/Users/sheny/Developer/code/PractiQ/server/reports/checks/performance-20261105-builds-rr22l9ab",
+  "cpu": "Apple M4",
+  "physicalMemoryBytes": 17179869184,
+  "node": "22.23.2",
+  "rust": "1.98.1",
+  "sourceDiffSha256": "c26bf36e0d27002780c626fe041c66c25d71c5926544e707f7f716aaeff113ec"
+}

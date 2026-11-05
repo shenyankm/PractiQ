@@ -1,0 +1,146 @@
+[
+  {
+    "file": "/Users/sheny/Developer/code/PractiQ/app/src/AnswerCardStatus.test.tsx"
+  },
+  {
+    "file": "/Users/sheny/Developer/code/PractiQ/app/src/AnswerDisplay.performance.test.tsx"
+  },
+  {
+    "file": "/Users/sheny/Developer/code/PractiQ/app/src/AnswerInput.test.tsx"
+  },
+  {
+    "file": "/Users/sheny/Developer/code/PractiQ/app/src/BankEditor.test.tsx"
+  },
+  {
+    "file": "/Users/sheny/Developer/code/PractiQ/app/src/ButtonFocus.test.tsx"
+  },
+  {
+    "file": "/Users/sheny/Developer/code/PractiQ/app/src/Composite.test.tsx"
+  },
+  {
+    "file": "/Users/sheny/Developer/code/PractiQ/app/src/ConnectionSettings.test.tsx"
+  },
+  {
+    "file": "/Users/sheny/Developer/code/PractiQ/app/src/Content.test.tsx"
+  },
+  {
+    "file": "/Users/sheny/Developer/code/PractiQ/app/src/ContentPerformance.test.tsx"
+  },
+  {
+    "file": "/Users/sheny/Developer/code/PractiQ/app/src/EnglishQuestions.test.tsx"
+  },
+  {
+    "file": "/Users/sheny/Developer/code/PractiQ/app/src/EnglishWords.performance.test.tsx"
+  },
+  {
+    "file": "/Users/sheny/Developer/code/PractiQ/app/src/ErrorBoundary.test.tsx"
+  },
+  {
+    "file": "/Users/sheny/Developer/code/PractiQ/app/src/ExamResults.performance.test.tsx"
+  },
+  {
+    "file": "/Users/sheny/Developer/code/PractiQ/app/src/ExamResults.test.tsx"
+  },
+  {
+    "file": "/Users/sheny/Developer/code/PractiQ/app/src/ImportBankDialog.test.tsx"
+  },
+  {
+    "file": "/Users/sheny/Developer/code/PractiQ/app/src/ImportDiagnostics.test.tsx"
+  },
+  {
+    "file": "/Users/sheny/Developer/code/PractiQ/app/src/LearningPage.test.tsx"
+  },
+  {
+    "file": "/Users/sheny/Developer/code/PractiQ/app/src/LegacyErrors.test.tsx"
+  },
+  {
+    "file": "/Users/sheny/Developer/code/PractiQ/app/src/ListPagination.test.tsx"
+  },
+  {
+    "file": "/Users/sheny/Developer/code/PractiQ/app/src/ListeningPlayer.test.tsx"
+  },
+  {
+    "file": "/Users/sheny/Developer/code/PractiQ/app/src/NativeIpcContracts.test.ts"
+  },
+  {
+    "file": "/Users/sheny/Developer/code/PractiQ/app/src/OperationFeedback.test.tsx"
+  },
+  {
+    "file": "/Users/sheny/Developer/code/PractiQ/app/src/PracticeFeedback.test.tsx"
+  },
+  {
+    "file": "/Users/sheny/Developer/code/PractiQ/app/src/PracticePerformance.test.tsx"
+  },
+  {
+    "file": "/Users/sheny/Developer/code/PractiQ/app/src/ProductFlows.test.tsx"
+  },
+  {
+    "file": "/Users/sheny/Developer/code/PractiQ/app/src/QuestionEditor.performance.test.tsx"
+  },
+  {
+    "file": "/Users/sheny/Developer/code/PractiQ/app/src/QuestionEditor.test.tsx"
+  },
+  {
+    "file": "/Users/sheny/Developer/code/PractiQ/app/src/QuestionListPage.test.tsx"
+  },
+  {
+    "file": "/Users/sheny/Developer/code/PractiQ/app/src/QuestionListRecovery.test.tsx"
+  },
+  {
+    "file": "/Users/sheny/Developer/code/PractiQ/app/src/QuestionNotes.test.tsx"
+  },
+  {
+    "file": "/Users/sheny/Developer/code/PractiQ/app/src/QuestionPreview.test.tsx"
+  },
+  {
+    "file": "/Users/sheny/Developer/code/PractiQ/app/src/QuestionRefresh.test.tsx"
+  },
+  {
+    "file": "/Users/sheny/Developer/code/PractiQ/app/src/ReviewFixes.test.tsx"
+  },
+  {
+    "file": "/Users/sheny/Developer/code/PractiQ/app/src/Select.test.tsx"
+  },
+  {
+    "file": "/Users/sheny/Developer/code/PractiQ/app/src/SessionNavigation.test.tsx"
+  },
+  {
+    "file": "/Users/sheny/Developer/code/PractiQ/app/src/SessionProgress.test.tsx"
+  },
+  {
+    "file": "/Users/sheny/Developer/code/PractiQ/app/src/StudySetup.test.tsx"
+  },
+  {
+    "file": "/Users/sheny/Developer/code/PractiQ/app/src/UXRecovery.test.tsx"
+  },
+  {
+    "file": "/Users/sheny/Developer/code/PractiQ/app/src/api.test.ts"
+  },
+  {
+    "file": "/Users/sheny/Developer/code/PractiQ/app/src/app.test.tsx"
+  },
+  {
+    "file": "/Users/sheny/Developer/code/PractiQ/app/src/asset-urls.test.ts"
+  },
+  {
+    "file": "/Users/sheny/Developer/code/PractiQ/app/src/content-localization.test.tsx"
+  },
+  {
+    "file": "/Users/sheny/Developer/code/PractiQ/app/src/i18n.test.tsx"
+  },
+  {
+    "file": "/Users/sheny/Developer/code/PractiQ/app/src/localization-source.test.ts"
+  },
+  {
+    "file": "/Users/sheny/Developer/code/PractiQ/app/src/paper.test.ts"
+  },
+  {
+    "file": "/Users/sheny/Developer/code/PractiQ/app/src/preview-data.test.ts"
+  },
+  {
+    "file": "/Users/sheny/Developer/code/PractiQ/app/src/theme-menu.test.tsx"
+  },
+  {
+    "file": "/Users/sheny/Developer/code/PractiQ/app/src/theme.test.tsx"
+  }
+]

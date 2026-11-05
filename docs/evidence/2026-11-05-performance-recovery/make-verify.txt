@@ -1,0 +1,249 @@
+rm -f server/reports/checks/probes.xml server/reports/checks/probes.json server/reports/checks/probes.md server/reports/checks/coverage.xml
+cd server && uv lock --check --python "/Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14"
+Using CPython 3.14.7 interpreter at: /Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14
+Resolved 97 packages in 19ms
+cd server && "/Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14" -m ruff check src tests scripts
+All checks passed!
+cd server && "/Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14" -m pyright --pythonpath "/Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14"
+0 errors, 0 warnings, 0 informations
+WARNING: there is a new pyright version available (v1.1.411 -> v1.1.414).
+Please install the new version or set PYRIGHT_PYTHON_FORCE_VERSION to `latest`
+
+cd server && "/Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14" scripts/evaluate.py --validate-only
+Validated 30 cases
+============================= test session starts ==============================
+platform darwin -- Python 3.14.7, pytest-9.1.1, pluggy-1.6.0
+rootdir: /Users/sheny/Developer/code/PractiQ/server
+configfile: pyproject.toml
+testpaths: tests
+plugins: langsmith-0.11.0, anyio-4.14.2, asyncio-1.3.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=function, asyncio_default_test_loop_scope=function
+collected 3721 items
+
+tests/test_accept_workflow.py ...........................                [  0%]
+tests/test_agent_pipeline.py ...............                             [  1%]
+tests/test_answer_consistency.py .......................                 [  1%]
+tests/test_answer_evidence.py .......................................... [  2%]
+........................................................................ [  4%]
+........................................................................ [  6%]
+........................................................................ [  8%]
+..........................................                               [  9%]
+tests/test_answer_evidence_index.py .............                        [ 10%]
+tests/test_answer_generation.py ..........                               [ 10%]
+tests/test_artifact_performance.py ..................................... [ 11%]
+.................................                                        [ 12%]
+tests/test_backup_scheduler.py .........                                 [ 12%]
+tests/test_bank_export.py .............................................. [ 13%]
+.......................................                                  [ 14%]
+tests/test_benchmark_processing.py .                                     [ 14%]
+tests/test_broker_operations.py ...........................              [ 15%]
+tests/test_checkpoint_heads.py .                                         [ 15%]
+tests/test_checkpoint_recovery.py ..................                     [ 16%]
+tests/test_chunking.py .........................................         [ 17%]
+tests/test_ci.py ....................................................... [ 18%]
+...............                                                          [ 19%]
+tests/test_ci_scope.py ................................................. [ 20%]
+........................................................................ [ 22%]
+......                                                                   [ 22%]
+tests/test_closed_review_fixes.py .......................                [ 23%]
+tests/test_composite_questions.py ......................                 [ 23%]
+tests/test_config.py ..............................                      [ 24%]
+tests/test_cost_budget.py ...............                                [ 24%]
+tests/test_database_connections.py .....                                 [ 25%]
+tests/test_dedup_task_options.py ............                            [ 25%]
+tests/test_density_chunking.py ......................................... [ 26%]
+.................                                                        [ 26%]
+tests/test_desktop_package.py ......................                     [ 27%]
+tests/test_diagram_crop_boundary.py ...................                  [ 28%]
+tests/test_diagram_crop_pipeline.py ...............                      [ 28%]
+tests/test_document_performance.py ..............                        [ 28%]
+tests/test_documents.py ......................                           [ 29%]
+tests/test_duplicate_detection.py ........................               [ 30%]
+tests/test_e2e.py ......                                                 [ 30%]
+tests/test_english_questions.py ..................                       [ 30%]
+tests/test_evaluation.py ............................................... [ 31%]
+........................................................................ [ 33%]
+....................................                                     [ 34%]
+tests/test_execution_preflight.py .......................                [ 35%]
+tests/test_extractor_environment.py ...........                          [ 35%]
+tests/test_figure_previews.py ..                                         [ 35%]
+tests/test_fixture_cleanup.py ....                                       [ 35%]
+tests/test_format_evaluation.py ...                                      [ 36%]
+tests/test_format_graphs.py ............................................ [ 37%]
+                                                                         [ 37%]
+tests/test_grading.py ..............................................     [ 38%]
+tests/test_grading_evaluation.py ...............                         [ 38%]
+tests/test_grading_evidence.py ..............                            [ 39%]
+tests/test_import.py ...                                                 [ 39%]
+tests/test_import_control.py ......................                      [ 39%]
+tests/test_import_corpus.py .                                            [ 39%]
+tests/test_import_engineering.py .........                               [ 40%]
+tests/test_import_fidelity.py ........................                   [ 40%]
+tests/test_import_review_removed.py ..........                           [ 41%]
+tests/test_import_routing.py ..........                                  [ 41%]
+tests/test_local_question_references.py .........................        [ 42%]
+tests/test_messaging.py ................................................ [ 43%]
+.......................                                                  [ 43%]
+tests/test_middleware.py ................................                [ 44%]
+tests/test_model_routing.py ........                                     [ 44%]
+tests/test_ocr_label_crops.py ............                               [ 45%]
+tests/test_ocr_review_regressions.py ..................                  [ 45%]
+tests/test_office.py ................................................... [ 47%]
+..........................................                               [ 48%]
+tests/test_office_normalization.py ............................          [ 49%]
+tests/test_office_service.py ........................................... [ 50%]
+..............................                                           [ 51%]
+tests/test_office_upload_limits.py .............                         [ 51%]
+tests/test_office_workbook.py ..........................                 [ 52%]
+tests/test_operations.py ...............                                 [ 52%]
+tests/test_page_rendering.py ........................................... [ 53%]
+.................................................................        [ 55%]
+tests/test_parsing_review_fixes.py ..................................... [ 56%]
+.                                                                        [ 56%]
+tests/test_personal_use.py ...............................               [ 57%]
+tests/test_pipeline_performance.py ....                                  [ 57%]
+tests/test_production_acceptance.py ..............................       [ 58%]
+tests/test_production_limits.py ................                         [ 58%]
+tests/test_production_provenance.py ........                             [ 58%]
+tests/test_question_completeness.py ...............                      [ 59%]
+tests/test_queue_upgrade.py .........                                    [ 59%]
+tests/test_read_path_optimizations.py ........                           [ 59%]
+tests/test_read_performance.py ......                                    [ 59%]
+tests/test_release_checks.py ....                                        [ 59%]
+tests/test_release_workflow.py ......................................... [ 61%]
+........................................................................ [ 62%]
+........................................................................ [ 64%]
+........................................................................ [ 66%]
+..........................                                               [ 67%]
+tests/test_responses_api.py ............................................ [ 68%]
+.................................                                        [ 69%]
+tests/test_resume_compatibility.py ...................                   [ 70%]
+tests/test_retry_policy.py ......                                        [ 70%]
+tests/test_review_queue.py ....                                          [ 70%]
+tests/test_review_regressions.py ..................................      [ 71%]
+tests/test_rich_report.py .............                                  [ 71%]
+tests/test_runtime.py ..........................................         [ 72%]
+tests/test_runtime_deadline.py .                                         [ 72%]
+tests/test_runtime_deadline_state.py ....                                [ 72%]
+tests/test_runtime_optimizations.py .........                            [ 73%]
+tests/test_runtime_recovery.py ...............                           [ 73%]
+tests/test_schemas.py ...................                                [ 74%]
+tests/test_service_access.py ......                                      [ 74%]
+tests/test_service_backup.py ........................                    [ 74%]
+tests/test_service_import_contracts.py ............                      [ 75%]
+tests/test_service_license.py .......................                    [ 75%]
+tests/test_service_package.py ........................................   [ 76%]
+tests/test_source_duplicates.py .................                        [ 77%]
+tests/test_source_evidence.py ..................................         [ 78%]
+tests/test_source_exercises.py ......................................... [ 79%]
+...............................                                          [ 80%]
+tests/test_source_presence.py ..................                         [ 80%]
+tests/test_source_presence_spans.py ...                                  [ 80%]
+tests/test_source_repair.py ..............................               [ 81%]
+tests/test_source_scope.py ..............                                [ 81%]
+tests/test_source_stem_answer.py ....................................... [ 82%]
+..........................................                               [ 84%]
+tests/test_stability.py ......                                           [ 84%]
+tests/test_storage.py ...................................                [ 85%]
+tests/test_storage_gc_durability.py ..........                           [ 85%]
+tests/test_structured_items.py .............                             [ 85%]
+tests/test_structured_output.py ........................................ [ 86%]
+.....................                                                    [ 87%]
+tests/test_task_api.py ................................                  [ 88%]
+tests/test_task_detail_contract.py ..................................... [ 89%]
+.                                                                        [ 89%]
+tests/test_task_execution.py ........................................... [ 90%]
+............                                                             [ 90%]
+tests/test_task_list_performance.py ...                                  [ 90%]
+tests/test_task_read_regressions.py ....................                 [ 91%]
+tests/test_temporary.py ......                                           [ 91%]
+tests/test_tencent.py .................................................. [ 92%]
+....................................                                     [ 93%]
+tests/test_tencent_bundle_performance.py ...............                 [ 94%]
+tests/test_tencent_fidelity.py ......................................... [ 95%]
+..........                                                               [ 95%]
+tests/test_tencent_inputs.py .....................................       [ 96%]
+tests/test_tencent_staging.py .......................                    [ 97%]
+tests/test_unit_result_storage.py ....                                   [ 97%]
+tests/test_unit_results.py ............                                  [ 97%]
+tests/test_upload.py ..................                                  [ 98%]
+tests/test_vision_context.py ..........                                  [ 98%]
+tests/test_web_import.py ................                                [ 98%]
+tests/test_worker_sandbox.py ..                                          [ 98%]
+tests/test_workflows.py .......................................          [100%]
+
+=============================== warnings summary ===============================
+tests/test_bank_export.py::test_export_peak_memory_tracks_one_resource_instead_of_the_expanded_bank
+  tests/test_bank_export.py:499: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+    async def test_export_peak_memory_tracks_one_resource_instead_of_the_expanded_bank(tmp_path, record_property):
+
+tests/test_e2e.py::test_e2e_upload_parse_artifacts_and_restart[text]
+tests/test_e2e.py::test_e2e_upload_parse_artifacts_and_restart[image]
+tests/test_e2e.py::test_e2e_upload_parse_artifacts_and_restart[pdf]
+tests/test_e2e.py::test_e2e_review_acceptance_is_explicit_and_survives_restart
+tests/test_e2e.py::test_e2e_grading_digest_replay_and_restart
+  /Users/sheny/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/asyncio/threads.py:26: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
+    return await loop.run_in_executor(None, func_call)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+- generated xml file: /Users/sheny/Developer/code/PractiQ/server/reports/checks/probes.xml -
+================= 3721 passed, 6 warnings in 880.22s (0:14:40) =================
+Combined 12 files, skipped 258
+Name                                         Stmts   Miss Branch BrPart  Cover   Missing
+----------------------------------------------------------------------------------------
+src/practiq_ai/bank_export.py                  145      3     42      3    97%   86, 169, 175
+src/practiq_ai/config.py                       226      5     80      3    97%   136, 160, 229, 319-320
+src/practiq_ai/contracts.py                    710     31    266     31    94%   102, 269, 290, 323, 371, 388, 390, 447, 450, 475, 543, 547, 549, 551, 556, 558, 560, 562, 564, 705, 710, 727, 734, 736, 738, 740, 744, 750, 779, 949, 953
+src/practiq_ai/cost_budget.py                   78      5     22      3    92%   64, 73, 86, 99-100
+src/practiq_ai/database.py                     177      8     46      4    95%   80, 115-117, 123->126, 205, 222, 273-274
+src/practiq_ai/execution.py                    214     16     82      9    91%   48->50, 66-67, 131->129, 173, 188, 198-199, 206, 218-219, 232, 234, 240, 242, 247, 265-266
+src/practiq_ai/extractors/__init__.py           34      1     12      1    96%   48
+src/practiq_ai/extractors/csv.py                16      1      4      1    90%   15
+src/practiq_ai/extractors/isolated.py          122     32     30      4    70%   69, 76-77, 108, 149-160, 164-179, 183
+src/practiq_ai/extractors/windows_job.py        29     29      6      0     0%   3-43
+src/practiq_ai/grading.py                      156      5     46      2    97%   224, 226-231, 234->236
+src/practiq_ai/graphs/answer_evidence.py       352     21    202     21    92%   42, 129, 134-135, 179, 186, 190, 199, 206, 209->213, 228, 253, 256, 258, 262, 265, 301, 305->313, 322, 325-326, 328, 347, 394->393
+src/practiq_ai/graphs/answer_generation.py     134     15     48      9    86%   42, 55, 67, 69, 111-112, 121->123, 132, 142-143, 156-160, 170
+src/practiq_ai/graphs/chunking.py              775     22    394     25    96%   105, 110, 114, 118, 133, 145, 227, 246, 268, 462->455, 485->482, 638->637, 648->647, 690->689, 694, 700, 703, 746, 755, 761, 910, 956, 965->960, 1008->1010, 1031-1034, 1057
+src/practiq_ai/graphs/document.py             1206     31    546     34    96%   380, 394, 467, 474->473, 525->516, 584, 602->601, 807, 809, 811, 813, 821, 939, 967, 1026, 1093, 1285, 1367->1375, 1370, 1423-1427, 1429-1433, 1735->1738, 1785, 1787, 1789->1780, 1816, 1849->exit, 1947, 1968, 2011->2009, 2040, 2052, 2054, 2056, 2058
+src/practiq_ai/graphs/ocr_validation.py         77      0     40      1    99%   64->66
+src/practiq_ai/graphs/source_context.py         47      2     20      1    96%   33-34
+src/practiq_ai/graphs/vision.py                151      5     64      5    95%   83, 85, 145, 148, 186
+src/practiq_ai/json_repair.py                   49      1     36      1    98%   21
+src/practiq_ai/llm.py                          379      6    168      6    98%   185->187, 204->203, 273, 503, 638-639, 644-645
+src/practiq_ai/manage.py                       113      9     38      5    91%   68, 85-87, 102, 104, 115-116, 140
+src/practiq_ai/messaging.py                    209      6     56      0    98%   122-123, 125-127, 227
+src/practiq_ai/middleware.py                    75      1     18      1    98%   93
+src/practiq_ai/normalization.py                 79      6     28      4    91%   50, 52, 82, 91, 94-95
+src/practiq_ai/office.py                       455     30    186     19    91%   48-49, 60, 69, 73, 113->116, 132, 160-161, 162->157, 280, 290-297, 299, 310, 329, 404, 416, 457, 500, 530-531, 535, 547-548, 562
+src/practiq_ai/office_service.py               171      7     60      6    94%   93->95, 102-103, 106-107, 141->143, 212, 222, 229
+src/practiq_ai/runtime.py                      286     18     96     12    92%   123-124, 144->146, 151->153, 153->156, 156->158, 197->185, 211-215, 253, 257, 263-264, 296-297, 314, 322, 328, 335-336, 344->exit
+src/practiq_ai/source_repair.py                 95      3     34      4    95%   31, 37->43, 55, 68
+src/practiq_ai/storage.py                      295     19     78      8    92%   125->131, 145, 192-193, 226->228, 228->230, 233, 235-236, 299, 317->exit, 322-329, 338->342, 384-386, 392-393
+src/practiq_ai/task_api.py                     491     14    202     16    96%   129, 153->155, 208, 237->234, 274, 282, 377, 411, 438, 440, 442, 450, 452, 533, 545-549, 575->589
+src/practiq_ai/temporary.py                     53      2      8      1    95%   63-64, 70->72
+src/practiq_ai/tencent.py                      305     18     98     16    92%   111, 134, 147, 151, 167, 173-174, 187, 191, 225->231, 228->230, 261, 268, 276-277, 282, 297, 303, 330, 352
+src/practiq_ai/tencent_bundle.py               205     13    102     13    92%   40, 44, 54, 57, 93, 98, 106, 141->134, 178, 216, 230, 234, 241, 250
+src/practiq_ai/tencent_inputs.py                62      3     28      3    93%   23, 52, 71
+src/practiq_ai/tencent_staging.py               60      5     12      3    89%   58, 68, 84-86
+src/practiq_ai/unit_results.py                 118      2     62      3    97%   52->48, 80, 86
+src/practiq_ai/webapp.py                       255     10     30      0    96%   113-114, 130-131, 265-266, 269-271, 344
+src/practiq_ai/worker_sandbox.py                94     66     30      3    27%   26-27, 32-34, 39-100, 104-121, 131, 133, 137
+----------------------------------------------------------------------------------------
+TOTAL                                         8786    471   3374    281    93%
+
+9 files skipped due to complete coverage.
+Wrote XML report to reports/checks/coverage.xml
+PASSED: reports/checks/probes.json
+cd server && uv build --python "/Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14"
+Building source distribution...
+Building wheel from source distribution...
+Successfully built dist/practiq_ai_service-0.3.0.tar.gz
+Successfully built dist/practiq_ai_service-0.3.0-py3-none-any.whl
+cd server && "/Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14" scripts/check_package.py
+{
+  "sourceFiles": 47,
+  "wheelSha256": "96f974dd05ee91859d993c823859c680618f14e58b0bead2ce6c038538a1adb7",
+  "sdistSha256": "37bb15f7c562454eb8e1c6b1f740bbab79bde9517da84a9490bdbc6f19c08109",
+  "licenseSha256": "045e49d0a632ea4bf644d1db045d300b313c03097212268a6c3dc15235795079"
+}

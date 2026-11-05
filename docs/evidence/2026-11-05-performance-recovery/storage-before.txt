@@ -1,0 +1,165 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+___ test_verified_hash_keeps_storage_capacity_until_worker_finishes[cancel] ____
+
+tmp_path = PosixPath('/private/var/folders/1b/b19xbzjx7xqc4kl0k9x_y4y80000gp/T/pytest-of-sheny/pytest-1054/test_verified_hash_keeps_stora0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d035ba0>
+interruption = 'cancel'
+
+    @pytest.mark.parametrize('interruption', ['cancel', 'timeout'])
+    async def test_verified_hash_keeps_storage_capacity_until_worker_finishes(tmp_path, monkeypatch, interruption):
+        store = object_store(tmp_path, storage_concurrency=1, storage_timeout_seconds=.2)
+        reference = await store.put_document(b'quiz', upload())
+        started, release = threading.Event(), threading.Event()
+        sha256 = storage.hashlib.sha256
+        calls = []
+        def blocked(payload=b''):
+            calls.append(threading.get_ident())
+            started.set()
+            assert release.wait(5)
+            return sha256(payload)
+        monkeypatch.setattr(storage.hashlib, 'sha256', blocked)
+        pending = asyncio.create_task(store.get_verified(reference))
+        try:
+            assert await asyncio.to_thread(started.wait, 1)
+            if interruption == 'cancel':
+                pending.cancel()
+                with pytest.raises(asyncio.CancelledError):
+                    await pending
+            else:
+                with pytest.raises(DocumentProcessingError) as error:
+                    await asyncio.wait_for(asyncio.shield(pending), 1)
+                assert error.value.code == 'OBJECT_STORE_UNAVAILABLE'
+>           assert store._slots.locked()
+E           assert False
+E            +  where False = locked()
+E            +    where locked = <asyncio.locks.Semaphore object at 0x10d06de80 [unlocked, value:1]>.locked
+E            +      where <asyncio.locks.Semaphore object at 0x10d06de80 [unlocked, value:1]> = <practiq_ai.storage.ObjectStore object at 0x10d06dd30>._slots
+
+tests/test_storage.py:217: AssertionError
+___ test_verified_hash_keeps_storage_capacity_until_worker_finishes[timeout] ___
+
+fut = <Future cancelled>, timeout = 1
+
+    async def wait_for(fut, timeout):
+        """Wait for the single Future or coroutine to complete, with timeout.
+
+        Coroutine will be wrapped in Task.
+
+        Returns result of the Future or coroutine.  When a timeout occurs,
+        it cancels the task and raises TimeoutError.  To avoid the task
+        cancellation, wrap it in shield().
+
+        If the wait is cancelled, the task is also cancelled.
+
+        If the task suppresses the cancellation and returns a value instead,
+        that value is returned.
+
+        This function is a coroutine.
+        """
+        # The special case for timeout <= 0 is for the following case:
+        #
+        # async def test_waitfor():
+        #     func_started = False
+        #
+        #     async def func():
+        #         nonlocal func_started
+        #         func_started = True
+        #
+        #     try:
+        #         await asyncio.wait_for(func(), 0)
+        #     except asyncio.TimeoutError:
+        #         assert not func_started
+        #     else:
+        #         assert False
+        #
+        # asyncio.run(test_waitfor())
+
+
+        if timeout is not None and timeout <= 0:
+            fut = ensure_future(fut)
+
+            if fut.done():
+                return fut.result()
+
+            await _cancel_and_wait(fut)
+            try:
+                return fut.result()
+            except exceptions.CancelledError as exc:
+                raise TimeoutError from exc
+
+        async with timeouts.timeout(timeout):
+>           return await fut
+                   ^^^^^^^^^
+E           asyncio.exceptions.CancelledError
+
+../../../../.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/asyncio/tasks.py:488: CancelledError
+
+The above exception was the direct cause of the following exception:
+
+tmp_path = PosixPath('/private/var/folders/1b/b19xbzjx7xqc4kl0k9x_y4y80000gp/T/pytest-of-sheny/pytest-1054/test_verified_hash_keeps_stora1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d164170>
+interruption = 'timeout'
+
+    @pytest.mark.parametrize('interruption', ['cancel', 'timeout'])
+    async def test_verified_hash_keeps_storage_capacity_until_worker_finishes(tmp_path, monkeypatch, interruption):
+        store = object_store(tmp_path, storage_concurrency=1, storage_timeout_seconds=.2)
+        reference = await store.put_document(b'quiz', upload())
+        started, release = threading.Event(), threading.Event()
+        sha256 = storage.hashlib.sha256
+        calls = []
+        def blocked(payload=b''):
+            calls.append(threading.get_ident())
+            started.set()
+            assert release.wait(5)
+            return sha256(payload)
+        monkeypatch.setattr(storage.hashlib, 'sha256', blocked)
+        pending = asyncio.create_task(store.get_verified(reference))
+        try:
+            assert await asyncio.to_thread(started.wait, 1)
+            if interruption == 'cancel':
+                pending.cancel()
+                with pytest.raises(asyncio.CancelledError):
+                    await pending
+            else:
+                with pytest.raises(DocumentProcessingError) as error:
+>                   await asyncio.wait_for(asyncio.shield(pending), 1)
+
+tests/test_storage.py:215:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+../../../../.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/asyncio/tasks.py:487: in wait_for
+    async with timeouts.timeout(timeout):
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <Timeout [expired]>
+exc_type = <class 'asyncio.exceptions.CancelledError'>
+exc_val = CancelledError(), exc_tb = <traceback object at 0x10d146d40>
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> bool | None:
+        assert self._state in (_State.ENTERED, _State.EXPIRING)
+
+        if self._timeout_handler is not None:
+            self._timeout_handler.cancel()
+            self._timeout_handler = None
+
+        if self._state is _State.EXPIRING:
+            self._state = _State.EXPIRED
+
+            if self._task.uncancel() <= self._cancelling and exc_type is not None:
+                # Since there are no new cancel requests, we're
+                # handling this.
+                if issubclass(exc_type, exceptions.CancelledError):
+>                   raise TimeoutError from exc_val
+E                   TimeoutError
+
+../../../../.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/asyncio/timeouts.py:115: TimeoutError
+=========================== short test summary info ============================
+FAILED tests/test_storage.py::test_verified_hash_keeps_storage_capacity_until_worker_finishes[cancel]
+FAILED tests/test_storage.py::test_verified_hash_keeps_storage_capacity_until_worker_finishes[timeout]
+2 failed, 33 deselected in 2.14s

@@ -8,22 +8,34 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
 const output = process.env.PRACTIQ_ACCEPT_OUTPUT;
-const token = process.env.AI_SERVICE_TOKEN;
 const browser = await chromium.launch({ headless: true });
 const samples = [];
 try {
   for (const [name, mimeType] of [["txt", "text/plain"], ["md", "text/markdown"], ["png", "image/png"]]) {
     const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, acceptDownloads: true });
+    await context.addInitScript(() => {
+      const stats = { supported: PerformanceObserver.supportedEntryTypes.includes("longtask"), count: 0, totalMs: 0, maxMs: 0 };
+      window.practiqWorkflowLongTasks = stats;
+      if (stats.supported) new PerformanceObserver(list => {
+        for (const entry of list.getEntries()) {
+          stats.count++; stats.totalMs += entry.duration; stats.maxMs = Math.max(stats.maxMs, entry.duration);
+        }
+      }).observe({ type: "longtask", buffered: true });
+    });
     const page = await context.newPage();
     const sample = { name, requests: [], phasesMs: {}, error: null };
     samples.push(sample);
     const starts = new Map();
-    let detail = null, creates = 0;
-    page.on("request", request => starts.set(request, performance.now()));
+    let detail = null, creates = 0, mutations = 0;
+    page.on("request", request => {
+      starts.set(request, performance.now());
+      if (new URL(request.url()).pathname.startsWith("/api/") && request.method() !== "GET") mutations++;
+    });
     page.on("response", async response => {
       const request = response.request(), url = new URL(response.url());
       if (!url.pathname.startsWith("/api/")) return;
-      const row = { method: request.method(), path: url.pathname, status: response.status(), ms: null };
+      const row = { method: request.method(), path: url.pathname, status: response.status(), ms: null,
+        hasAuthorization: !!request.headers().authorization };
       sample.requests.push(row);
       try {
       await response.finished();
@@ -41,14 +53,13 @@ try {
     try {
       let started = performance.now();
       await page.goto(process.env.PRACTIQ_ACCEPT_URL);
-      await page.getByLabel("服务访问令牌").fill(token);
-      await page.getByRole("button", { name: "连接服务", exact: true }).click();
       await expect(page.getByText(/^服务支持：/)).toBeVisible();
       sample.phasesMs.connect = performance.now() - started;
       await page.getByLabel("选择文档").setInputFiles({ name: `quiz.${name}`, mimeType,
         buffer: await readFile(path.join(output, "sources", `quiz.${name}`)) });
       await expect(page.getByRole("button", { name: "开始导入", exact: true })).toBeEnabled();
       expect(creates).toBe(0);
+      expect(mutations).toBe(0);
       started = performance.now();
       await page.getByRole("button", { name: "开始导入", exact: true }).click();
       const download = page.getByRole("button", { name: "下载题库 ZIP", exact: true });
@@ -58,6 +69,11 @@ try {
       await expect(download).toBeEnabled();
       await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
       sample.phasesMs.startToResultVisible = performance.now() - started;
+      sample.browserPerformance = await page.evaluate(() => {
+        const navigation = performance.getEntriesByType("navigation")[0];
+        return { domContentLoadedMs: navigation?.domContentLoadedEventEnd,
+          loadMs: navigation?.loadEventEnd, longTasks: { ...window.practiqWorkflowLongTasks } };
+      });
       await writeFile(path.join(output, `${name}-detail.json`), JSON.stringify(detail, null, 2) + "\n");
       const downloadStart = performance.now();
       const pending = page.waitForEvent("download");
@@ -79,17 +95,18 @@ try {
       sample.phasesMs.startToPracticeRestored = performance.now() - started;
       expect(creates).toBe(1);
       const usage = JSON.stringify(detail.usage);
-      const again = await context.request.get(`${process.env.PRACTIQ_ACCEPT_URL}/api/document-tasks/${sample.threadId}`, { headers: { Authorization: `Bearer ${token}` } });
+      const again = await context.request.get(`${process.env.PRACTIQ_ACCEPT_URL}/api/document-tasks/${sample.threadId}`);
       expect(JSON.stringify((await again.json()).usage)).toBe(usage);
       sample.modelCalls = detail.usage.length;
       sample.unknownCalls = detail.unknownUsageCalls;
       sample.reviewRequired = detail.processing?.quality?.reviewRequired;
       expect(detail.unknownUsageCalls).toEqual([]);
       expect(detail.failures).toEqual([]);
-      expect(await page.evaluate(() => JSON.stringify([localStorage, sessionStorage]))).not.toContain(token);
+      expect(sample.requests.every(request => request.method === "GET" || request.path === "/api/uploads" || request.path === "/api/uploads/content" || request.path === "/api/document-tasks")).toBe(true);
+      expect(sample.requests.some(request => request.hasAuthorization)).toBe(false);
       await page.screenshot({ path: path.join(output, `${name}-result.png`), fullPage: true });
     } catch (error) {
-      sample.error = String(error.message).replaceAll(token, "[redacted]").slice(0, 1200);
+      sample.error = String(error.message).slice(0, 1200);
       if (detail) await writeFile(path.join(output, `${name}-detail.json`), JSON.stringify(detail, null, 2) + "\n");
       // Unknown mutations are never retried by this harness.
     } finally {

@@ -1,0 +1,274 @@
+{
+  "threadId": "c5c4bac9-5da4-5ce4-b46c-73b40aad2bf0",
+  "runId": "389db988-b6aa-4d64-85b2-7cdbbfab6f20",
+  "parentThreadId": null,
+  "modelConfigured": true,
+  "resumeCompatible": true,
+  "fileName": "quiz.txt",
+  "state": "COMPLETED",
+  "phase": "completed",
+  "checkpointId": "1f1d8d65-4539-6098-800f-3d28d05c9dab",
+  "updatedAt": "2026-11-05T05:04:07.455952+00:00",
+  "expiresAt": "2027-05-04T05:04:07.162851+00:00",
+  "allowedActions": [],
+  "failures": [],
+  "blocking": [],
+  "progress": {
+    "visuals": {
+      "total": 0,
+      "succeeded": 0,
+      "failed": 0,
+      "remaining": 0
+    },
+    "chunks": {
+      "total": 1,
+      "succeeded": 1,
+      "failed": 0,
+      "remaining": 0
+    }
+  },
+  "status": "SUCCEEDED",
+  "result": {
+    "schemaVersion": 3,
+    "questions": [
+      {
+        "id": "q0",
+        "parentId": null,
+        "questionKind": null,
+        "instructions": null,
+        "audioRef": null,
+        "audioStartSeconds": 0,
+        "audioEndSeconds": null,
+        "transcript": [],
+        "examPlayCount": 2,
+        "sourceLanguage": null,
+        "targetLanguage": null,
+        "writingGenre": null,
+        "minWords": null,
+        "maxWords": null,
+        "optionSourceId": null,
+        "passage": [],
+        "allowReuse": false,
+        "blankCount": null,
+        "stem": "The Earth orbits the Sun.",
+        "answerMode": "true_false",
+        "questionTypeId": "imported-short",
+        "choiceVariant": null,
+        "matchingVariant": null,
+        "items": [],
+        "options": [],
+        "answerPayload": {
+          "value": true
+        },
+        "sourceScore": null,
+        "scoringRubric": null,
+        "scoreSourceText": null,
+        "analysis": null,
+        "contentBlocks": [
+          {
+            "label": null,
+            "partType": "text",
+            "questionId": null,
+            "role": null,
+            "textValue": "The Earth orbits the Sun.",
+            "markdownValue": null,
+            "latexValue": null,
+            "jsonValue": null
+          }
+        ],
+        "sourceText": "The Earth orbits the Sun.",
+        "confidence": 0.8,
+        "needsReview": true,
+        "missingFields": [
+          "analysis"
+        ]
+      },
+      {
+        "id": "q1",
+        "parentId": null,
+        "questionKind": null,
+        "instructions": null,
+        "audioRef": null,
+        "audioStartSeconds": 0,
+        "audioEndSeconds": null,
+        "transcript": [],
+        "examPlayCount": 2,
+        "sourceLanguage": null,
+        "targetLanguage": null,
+        "writingGenre": null,
+        "minWords": null,
+        "maxWords": null,
+        "optionSourceId": null,
+        "passage": [],
+        "allowReuse": false,
+        "blankCount": null,
+        "stem": "Two plus two equals five.",
+        "answerMode": "true_false",
+        "questionTypeId": "imported-short",
+        "choiceVariant": null,
+        "matchingVariant": null,
+        "items": [],
+        "options": [],
+        "answerPayload": {
+          "value": false
+        },
+        "sourceScore": null,
+        "scoringRubric": null,
+        "scoreSourceText": null,
+        "analysis": null,
+        "contentBlocks": [
+          {
+            "label": null,
+            "partType": "text",
+            "questionId": null,
+            "role": null,
+            "textValue": "Two plus two equals five.",
+            "markdownValue": null,
+            "latexValue": null,
+            "jsonValue": null
+          }
+        ],
+        "sourceText": "Two plus two equals five.",
+        "confidence": 0.8,
+        "needsReview": true,
+        "missingFields": [
+          "analysis"
+        ]
+      },
+      {
+        "id": "q2",
+        "parentId": null,
+        "questionKind": null,
+        "instructions": null,
+        "audioRef": null,
+        "audioStartSeconds": 0,
+        "audioEndSeconds": null,
+        "transcript": [],
+        "examPlayCount": 2,
+        "sourceLanguage": null,
+        "targetLanguage": null,
+        "writingGenre": null,
+        "minWords": null,
+        "maxWords": null,
+        "optionSourceId": null,
+        "passage": [],
+        "allowReuse": false,
+        "blankCount": null,
+        "stem": "A triangle has three sides.",
+        "answerMode": "true_false",
+        "questionTypeId": "imported-short",
+        "choiceVariant": null,
+        "matchingVariant": null,
+        "items": [],
+        "options": [],
+        "answerPayload": {
+          "value": true
+        },
+        "sourceScore": null,
+        "scoringRubric": null,
+        "scoreSourceText": null,
+        "analysis": null,
+        "contentBlocks": [
+          {
+            "label": null,
+            "partType": "text",
+            "questionId": null,
+            "role": null,
+            "textValue": "A triangle has three sides.",
+            "markdownValue": null,
+            "latexValue": null,
+            "jsonValue": null
+          }
+        ],
+        "sourceText": "A triangle has three sides.",
+        "confidence": 0.8,
+        "needsReview": true,
+        "missingFields": [
+          "analysis"
+        ]
+      }
+    ],
+    "groups": [],
+    "visualElements": [],
+    "warnings": [],
+    "confidenceScore": 80,
+    "missingFields": []
+  },
+  "modelBudget": {
+    "limit": 4,
+    "reserved": 4
+  },
+  "processing": {
+    "chunks": {
+      "total": 1,
+      "succeeded": 1,
+      "skipped": 0
+    },
+    "visuals": {
+      "total": 0,
+      "succeeded": 0,
+      "skipped": 0
+    },
+    "truncated": false,
+    "failures": [],
+    "questionSources": [
+      {
+        "questionId": "q0",
+        "stage": "document_parse",
+        "unitIndex": 0
+      },
+      {
+        "questionId": "q1",
+        "stage": "document_parse",
+        "unitIndex": 0
+      },
+      {
+        "questionId": "q2",
+        "stage": "document_parse",
+        "unitIndex": 0
+      }
+    ],
+    "quality": {
+      "reviewRequired": true,
+      "reviewQuestionCount": 3,
+      "issues": [
+        {
+          "questionId": "q0",
+          "code": "MISSING_FIELDS"
+        },
+        {
+          "questionId": "q1",
+          "code": "MISSING_FIELDS"
+        },
+        {
+          "questionId": "q2",
+          "code": "MISSING_FIELDS"
+        }
+      ]
+    }
+  },
+  "usage": [
+    {
+      "callKey": "e0ad00bf-5bff-444a-bf36-4a4c24a8885a",
+      "modelId": "fake",
+      "inputTokens": 10,
+      "outputTokens": 5,
+      "callKind": "document_parse"
+    }
+  ],
+  "unknownUsageCalls": [],
+  "canExportCompleted": true,
+  "parserJobs": [
+    {
+      "queryRequestId": "32b12834-ebed-45a4-8e1a-ef6bcf77092a",
+      "errorCode": null,
+      "statusUpdatedAt": "2026-11-05T05:04:07.363728+00:00",
+      "taskId": "synthetic-dd617f936a9317271a1b89e2d458fd3462b77a2bc740298e81b1f4d144d1a30f",
+      "requestId": "4518295e-bd3b-4284-850b-3a5a3206aaef",
+      "status": "Success",
+      "successPageCount": 1,
+      "failedPageCount": 0,
+      "resultSaved": true
+    }
+  ]
+}

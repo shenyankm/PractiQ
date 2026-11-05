@@ -1,0 +1,207 @@
+{
+  "variant": "after",
+  "baseline": "5973846c",
+  "reads": 30000,
+  "sourceBytes": 131072,
+  "inputSha256": "97feab15b0226dc35a78389c3b1058dc16828bac49c14ada7a450d2f5acfea35",
+  "clientConcurrency": 10,
+  "storageConcurrency": 4,
+  "cpuSecondsIncludingAssertionsAndSnapshots": 10.564568,
+  "processMaxRssBytes": 157597696,
+  "scope": "Same 30000 verified reads, twelve cycles plus idle. Warm OS cache, sampled RSS/fds/threads. No latency comparison, user data, providers, host crash, power loss or long-duration leak guarantee.",
+  "samples": [
+    {
+      "cycle": 0,
+      "rssBytes": 155041792,
+      "fdCount": 7,
+      "threads": [
+        "MainThread",
+        "practiq-storage_0",
+        "asyncio_0"
+      ],
+      "storageBytes": 131072
+    },
+    {
+      "cycle": 1,
+      "rssBytes": 155320320,
+      "fdCount": 7,
+      "threads": [
+        "MainThread",
+        "practiq-storage_0",
+        "asyncio_0",
+        "practiq-storage_1",
+        "practiq-storage_2",
+        "practiq-storage_3"
+      ],
+      "storageBytes": 131072
+    },
+    {
+      "cycle": 2,
+      "rssBytes": 155320320,
+      "fdCount": 7,
+      "threads": [
+        "MainThread",
+        "practiq-storage_0",
+        "asyncio_0",
+        "practiq-storage_1",
+        "practiq-storage_2",
+        "practiq-storage_3"
+      ],
+      "storageBytes": 131072
+    },
+    {
+      "cycle": 3,
+      "rssBytes": 155320320,
+      "fdCount": 7,
+      "threads": [
+        "MainThread",
+        "practiq-storage_0",
+        "asyncio_0",
+        "practiq-storage_1",
+        "practiq-storage_2",
+        "practiq-storage_3"
+      ],
+      "storageBytes": 131072
+    },
+    {
+      "cycle": 4,
+      "rssBytes": 155320320,
+      "fdCount": 7,
+      "threads": [
+        "MainThread",
+        "practiq-storage_0",
+        "asyncio_0",
+        "practiq-storage_1",
+        "practiq-storage_2",
+        "practiq-storage_3"
+      ],
+      "storageBytes": 131072
+    },
+    {
+      "cycle": 5,
+      "rssBytes": 155418624,
+      "fdCount": 7,
+      "threads": [
+        "MainThread",
+        "practiq-storage_0",
+        "asyncio_0",
+        "practiq-storage_1",
+        "practiq-storage_2",
+        "practiq-storage_3"
+      ],
+      "storageBytes": 131072
+    },
+    {
+      "cycle": 6,
+      "rssBytes": 155582464,
+      "fdCount": 7,
+      "threads": [
+        "MainThread",
+        "practiq-storage_0",
+        "asyncio_0",
+        "practiq-storage_1",
+        "practiq-storage_2",
+        "practiq-storage_3"
+      ],
+      "storageBytes": 131072
+    },
+    {
+      "cycle": 7,
+      "rssBytes": 155582464,
+      "fdCount": 7,
+      "threads": [
+        "MainThread",
+        "practiq-storage_0",
+        "asyncio_0",
+        "practiq-storage_1",
+        "practiq-storage_2",
+        "practiq-storage_3"
+      ],
+      "storageBytes": 131072
+    },
+    {
+      "cycle": 8,
+      "rssBytes": 152944640,
+      "fdCount": 7,
+      "threads": [
+        "MainThread",
+        "practiq-storage_0",
+        "asyncio_0",
+        "practiq-storage_1",
+        "practiq-storage_2",
+        "practiq-storage_3"
+      ],
+      "storageBytes": 131072
+    },
+    {
+      "cycle": 9,
+      "rssBytes": 152944640,
+      "fdCount": 7,
+      "threads": [
+        "MainThread",
+        "practiq-storage_0",
+        "asyncio_0",
+        "practiq-storage_1",
+        "practiq-storage_2",
+        "practiq-storage_3"
+      ],
+      "storageBytes": 131072
+    },
+    {
+      "cycle": 10,
+      "rssBytes": 151715840,
+      "fdCount": 7,
+      "threads": [
+        "MainThread",
+        "practiq-storage_0",
+        "asyncio_0",
+        "practiq-storage_1",
+        "practiq-storage_2",
+        "practiq-storage_3"
+      ],
+      "storageBytes": 131072
+    },
+    {
+      "cycle": 11,
+      "rssBytes": 151715840,
+      "fdCount": 7,
+      "threads": [
+        "MainThread",
+        "practiq-storage_0",
+        "asyncio_0",
+        "practiq-storage_1",
+        "practiq-storage_2",
+        "practiq-storage_3"
+      ],
+      "storageBytes": 131072
+    },
+    {
+      "cycle": 12,
+      "rssBytes": 149880832,
+      "fdCount": 7,
+      "threads": [
+        "MainThread",
+        "practiq-storage_0",
+        "asyncio_0",
+        "practiq-storage_1",
+        "practiq-storage_2",
+        "practiq-storage_3"
+      ],
+      "storageBytes": 131072
+    },
+    {
+      "cycle": "idle",
+      "rssBytes": 149864448,
+      "fdCount": 7,
+      "threads": [
+        "MainThread",
+        "practiq-storage_0",
+        "asyncio_0",
+        "practiq-storage_1",
+        "practiq-storage_2",
+        "practiq-storage_3"
+      ],
+      "storageBytes": 131072
+    }
+  ]
+}

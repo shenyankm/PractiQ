@@ -1,0 +1,9 @@
+{
+  "baseline": "5973846c",
+  "beforeFiles": 50,
+  "afterFiles": 48,
+  "sourceFiles": 48,
+  "canaryExcluded": true,
+  "allSourceTestsRetained": true,
+  "configSha256": "a5f0e8a578ec88b18175d1489c77e0da33a259000ed2b948406184347dbf21de"
+}

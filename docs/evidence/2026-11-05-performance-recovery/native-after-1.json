@@ -1,0 +1,62 @@
+{
+  "scope": "Release Store::restore_recovering, one warmup and three measured samples. Includes validation, repair, durable recovery copy and database publication. Setup, reopen, inventory hashing and roundtrip backup excluded. Warm OS caches, synthetic pixels, no UI/providers/power-loss measurement.",
+  "workloads": [
+    {
+      "assets": 20,
+      "damaged": 1,
+      "inventorySha256": [
+        "16874a2625decda54c8a7d6cc7237466d912b1f79a1617f9ddbd4c235f259c5a",
+        "16874a2625decda54c8a7d6cc7237466d912b1f79a1617f9ddbd4c235f259c5a",
+        "16874a2625decda54c8a7d6cc7237466d912b1f79a1617f9ddbd4c235f259c5a"
+      ],
+      "samplesMs": [
+        150.56975,
+        119.821042,
+        151.21425
+      ],
+      "verifiedAssetReads": [
+        41,
+        41,
+        41
+      ]
+    },
+    {
+      "assets": 200,
+      "damaged": 1,
+      "inventorySha256": [
+        "2153eadfc3b8ce05a0a256530f6a2f2bbc1f5e70c3ca6ee7b687cf406fa498bc",
+        "2153eadfc3b8ce05a0a256530f6a2f2bbc1f5e70c3ca6ee7b687cf406fa498bc",
+        "2153eadfc3b8ce05a0a256530f6a2f2bbc1f5e70c3ca6ee7b687cf406fa498bc"
+      ],
+      "samplesMs": [
+        894.9520829999999,
+        849.9007079999999,
+        819.301958
+      ],
+      "verifiedAssetReads": [
+        401,
+        401,
+        401
+      ]
+    },
+    {
+      "assets": 2000,
+      "damaged": 2000,
+      "inventorySha256": [
+        "9528364c00f3addd22eb02cd3c95cb6c7eada0b766eb3508ee5ef5b06f935853",
+        "9528364c00f3addd22eb02cd3c95cb6c7eada0b766eb3508ee5ef5b06f935853",
+        "9528364c00f3addd22eb02cd3c95cb6c7eada0b766eb3508ee5ef5b06f935853"
+      ],
+      "samplesMs": [
+        26958.276625,
+        23848.12425,
+        28058.063125
+      ],
+      "verifiedAssetReads": [
+        6000,
+        6000,
+        6000
+      ]
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "runs": [
+    {
+      "documents": 64,
+      "concurrency": 8,
+      "graphConcurrency": 2,
+      "modelDelaySeconds": 0.1,
+      "seconds": 4.152110333088785,
+      "successfulDocumentsPerMinute": 924.8309153536861,
+      "queueWaitMedianMs": 1926.8600000000001,
+      "okP95Ms": 1.3882501516491175,
+      "modelCalls": 64,
+      "allCompleted": true
+    },
+    {
+      "documents": 64,
+      "concurrency": 8,
+      "graphConcurrency": 2,
+      "modelDelaySeconds": 0.1,
+      "seconds": 4.005952083040029,
+      "successfulDocumentsPerMinute": 958.5736225496508,
+      "queueWaitMedianMs": 1653.4389999999999,
+      "okP95Ms": 1.3368751388043165,
+      "modelCalls": 64,
+      "allCompleted": true
+    },
+    {
+      "documents": 64,
+      "concurrency": 8,
+      "graphConcurrency": 2,
+      "modelDelaySeconds": 0.1,
+      "seconds": 4.341486624907702,
+      "successfulDocumentsPerMinute": 884.4896533757343,
+      "queueWaitMedianMs": 1859.507,
+      "okP95Ms": 1.3320420403033495,
+      "modelCalls": 64,
+      "allCompleted": true
+    }
+  ],
+  "medianSeconds": 4.152110333088785,
+  "medianDocumentsPerMinute": 924.8309153536861
+}
