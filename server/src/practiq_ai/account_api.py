@@ -124,6 +124,7 @@ async def profile(value: AccountChange):
     encoded = await auth.password_hash(value.password) if value.password else user['password_hash']
     try:
         async with auth.db().transaction() as conn:
+            user = await auth.current_actor(conn)
             await conn.execute('UPDATE auth_users SET email=%s,name=%s,password_hash=%s WHERE id=%s', (value.email.lower() if value.email else user['email'], value.name if value.name is not None else user['name'], encoded, user['id']))
             if value.password or value.email:
                 await conn.execute('DELETE FROM auth_sessions WHERE user_id=%s', (user['id'],))
@@ -162,6 +163,7 @@ async def token_create(value: AccountTokenCreate):
     await auth.rate('token:' + me()['id'], 10, 3600)
     raw = 'pq_grade_' + secrets.token_urlsafe(32)
     async with auth.db().transaction() as conn:
+        await auth.current_actor(conn)
         await conn.execute("INSERT INTO auth_tokens(digest,id,user_id,kind,name,expires_at) VALUES(%s,%s,%s,'grading',%s,%s)", (auth.digest(raw), str(uuid4()), me()['id'], value.name, datetime.now(UTC) + timedelta(days=90)))
         await auth.audit('grading_token_create', me()['id'], conn=conn)
     return {'token': raw}
@@ -196,6 +198,7 @@ async def users(offset: int = Query(default=0, ge=0)):
 async def user_change(user_id: str, value: AdministrationUserChange):
     await confirm(value.currentPassword)
     async with auth.db().transaction() as conn:
+        await auth.current_actor(conn)
         admins = await (await conn.execute("SELECT id FROM auth_users WHERE role='admin' AND enabled")).fetchall()
         if len(admins) == 1 and admins[0]['id'] == user_id and (not value.enabled or value.role != 'admin'):
             raise HTTPException(409, {'code': 'LAST_ADMIN'})
@@ -217,6 +220,7 @@ async def reset_link(user_id: str, value: AccountPasswordConfirm):
         raise HTTPException(404)
     raw = secrets.token_urlsafe(32)
     async with auth.db().transaction() as conn:
+        await auth.current_actor(conn)
         await conn.execute("DELETE FROM auth_tokens WHERE user_id=%s AND kind='reset'", (user_id,))
         await conn.execute("INSERT INTO auth_tokens(digest,id,user_id,kind,expires_at) VALUES(%s,%s,%s,'reset',%s)", (auth.digest(raw), str(uuid4()), user_id, datetime.now(UTC) + timedelta(minutes=30)))
         await auth.audit('reset_link_create', user_id, conn=conn)
@@ -234,6 +238,7 @@ async def save_settings(value: AdministrationSettings):
     if load().read_only:
         raise HTTPException(409, {'code': 'SERVICE_READ_ONLY'})
     async with auth.db().transaction() as conn:
+        await auth.current_actor(conn)
         await conn.execute('UPDATE auth_settings SET value=%s WHERE id=1', (Jsonb(value.model_dump()),))
         await auth.audit('settings_update', 'settings', value.model_dump(), conn=conn)
     return value

@@ -396,3 +396,32 @@ async def test_unknown_document_pagination_is_bounded_and_only_known_pages_are_s
     usage = (await client.get('/api/me/usage')).json()
     assert usage['usedPages'] == (reported or 50)
     assert usage['remainingPages'] == 50 - (reported or 50)
+
+
+@pytest.mark.parametrize(('method', 'path', 'body'), [
+    ('POST', '/api/auth/login', {'email': 'admin@example.test', 'password': PASSWORD}),
+    ('POST', '/api/me/tokens', {'currentPassword': PASSWORD, 'name': 'App'}),
+    ('PATCH', '/api/me/profile', {'currentPassword': PASSWORD, 'name': 'stale update'}),
+    ('POST', '/api/admin/users/admin/reset-link', {'currentPassword': PASSWORD}),
+    ('PATCH', '/api/admin/users/admin', {'currentPassword': PASSWORD, 'enabled': True, 'role': 'admin', 'limits': None}),
+])
+async def test_concurrent_password_reset_fences_in_flight_credential_mutations(accounts, monkeypatch, method, path, body):
+    database, client = accounts
+    await login(client)
+    replacement = await identity.password_hash('replacement-test-password')
+    verify = identity.verify
+
+    async def reset_after_verification(password, encoded):
+        valid = await verify(password, encoded)
+        async with database.transaction() as conn:
+            await conn.execute("UPDATE auth_users SET password_hash=%s WHERE id='admin'", (replacement,))
+            await conn.execute('DELETE FROM auth_sessions')
+            await conn.execute('DELETE FROM auth_tokens')
+        return valid
+    monkeypatch.setattr(identity, 'verify', reset_after_verification)
+    response = await client.request(method, path, json=body)
+    assert response.status_code == 401, response.text
+    assert not await database.rows('SELECT * FROM auth_sessions')
+    assert not await database.rows('SELECT * FROM auth_tokens')
+    admin = (await database.rows("SELECT * FROM auth_users WHERE id='admin'"))[0]
+    assert admin['password_hash'] == replacement and admin['name'] != 'stale update'

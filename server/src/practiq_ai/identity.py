@@ -57,6 +57,17 @@ def public_user(user: dict) -> dict:
     return {key: user[key] for key in ('id', 'email', 'name', 'role', 'enabled')}
 
 
+async def current_actor(conn) -> dict:
+    """Fence credential mutations against a concurrent reset, revocation or role change."""
+    user = actor.get()
+    if user is None:
+        raise HTTPException(401, {'code': 'LOGIN_REQUIRED'})
+    row = await (await conn.execute("SELECT u.* FROM auth_users u JOIN auth_sessions s ON s.user_id=u.id WHERE u.id=%s AND s.digest=%s AND s.expires_at>now() AND s.last_seen>now()-interval '24 hours' AND u.enabled", (user['id'], user['credential_id']))).fetchone()
+    if row is None or any(row[key] != user[key] for key in ('password_hash', 'email', 'role')):
+        raise HTTPException(401, {'code': 'LOGIN_REQUIRED'})
+    return row
+
+
 async def settings() -> dict:
     return {'freePages': 50, **(await db().rows('SELECT value FROM auth_settings WHERE id=1'))[0]['value']}
 
@@ -185,6 +196,10 @@ async def admit(conn, task):
 async def session(request: Request, response, user: dict):
     raw = secrets.token_urlsafe(32)
     async with db().transaction() as conn:
+        latest = await (await conn.execute('SELECT * FROM auth_users WHERE id=%s AND enabled', (user['id'],))).fetchone()
+        if latest is None or any(latest[key] != user[key] for key in ('password_hash', 'email')):
+            raise HTTPException(401, {'code': 'INVALID_CREDENTIALS'})
+        user = latest
         await conn.execute('DELETE FROM auth_sessions WHERE digest=%s', (digest(request.cookies.get(cookie_name(request), '')),))
         await conn.execute('INSERT INTO auth_sessions(digest,user_id,expires_at) VALUES(%s,%s,%s)', (digest(raw), user['id'], datetime.now(UTC) + timedelta(days=7)))
     response.set_cookie(cookie_name(request), raw, max_age=604800, httponly=True, secure=request.url.scheme == 'https', samesite='lax', path='/')
