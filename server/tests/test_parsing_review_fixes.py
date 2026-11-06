@@ -97,7 +97,7 @@ async def test_merge_preserves_section_only_units_and_continuation_confidence(mo
         assert "If no questions exist, return empty questions/groups." not in system
         assert "Keep explicit section titles and printed instructions even when no questions exist" in system
         assert "questionIndexes=[]" in system
-        assert "If neither questions nor explicit sections exist, return questions=[] and groups=[]." in system
+        assert "For ordinary question documents, if neither questions nor explicit sections exist, return questions=[] and groups=[]." in system
         prompt = " ".join(message.content for message in messages if isinstance(message.content, str))
         assert "return questions=[] and groups=[] unless PRIMARY contains a continued composite passage" not in prompt
         if pages:

@@ -48,6 +48,8 @@ A second PR review identified two further paths: locally rejected TXT/Markdown p
 
 A further source-proof review found answer-sheet line boundaries narrower than the accepted printed-number syntax. Matching and the existing answer-proof record splitter now share one bounded prefix rule, including colon, Chinese question labels, full-width closing parentheses and canonical leading zeros. Four newly supported fixtures failed before the fix; all five format fixtures now retain literal answers and analysis while altered quotes/answers remain rejected. Answer-sheet proof does not borrow an absent PRIMARY answer from CONTEXT. The shared helper participates in execution fingerprints, with regression checks. The 365 affected selection/evidence/identity tests, Ruff/Pyright and rebuilt archive integrity passed.
 
+The first full remote Python 3.14 run after the implementation fixes recorded 3,842 passed, seven skipped and four failed assertions that still expected the old unscoped prompt sentence. The expected wording now includes the ordinary-question-document scope; section-only/continuation behavior assertions remain in place. All 50 parsing-review/context regressions and focused Ruff checks passed after that fixture update. A fresh complete CI run still gates merge; the original failed CI log remains retained.
+
 The initial failures and successful reruns remain under ignored `server/reports/checks/import-suite-*`; they were not deleted or relabeled. The first full `make verify` remains recorded as failed; the focused repairs are separate successful runs. Remote CI and review are checked against the final PR head before merging.
 
 ## Limits
