@@ -1,4 +1,5 @@
-import type { ArtifactReference, DocumentCorrections, DocumentCorrectionSave, DocumentReference, DocumentSourceType, DocumentTaskControl, DocumentTaskCreate, DocumentTaskDetail, DocumentTaskHead, DocumentTaskList, DocumentTaskReceipt, DocumentTaskReparse, DocumentTaskReview, DocumentUploadResponse, ImportCapabilities, ImportSettingsSnapshot } from "./contracts.generated";
+import type { ArtifactReference, DocumentCorrections, DocumentCorrectionSave, DocumentReference, DocumentSourceType, DocumentTaskControl, DocumentTaskCreate, DocumentTaskDetail, DocumentTaskHead, DocumentTaskList, DocumentTaskReceipt, DocumentTaskReparse, DocumentTaskReview, DocumentReparseSelection, DocumentAnswerMatches, DocumentAnswerProposal, DocumentAnswerSource, DocumentUploadResponse, ImportCapabilities, ImportSettingsSnapshot } from "./contracts.generated";
+import { validPages, validReparseSelection } from "./importSelection";
 import { IMPORT_SOURCE_TYPES } from "./contracts.generated";
 
 export type SourceType = Exclude<DocumentSourceType, "csv">;
@@ -145,6 +146,11 @@ export class Client {
             OFFICE_NOT_CONFIGURED: "服务尚未配置 Office 转换，请联系服务提供方或改用 PDF。本次提交未创建任务，可以修正配置后手动重新提交。",
             TENCENT_NOT_CONFIGURED: "服务尚未配置腾讯文档解析，请联系服务提供方。本次提交未创建任务，可以修正配置后手动重新提交。",
             STALE_RUN: "任务状态已更新，请刷新任务详情后再操作。",
+            SOURCE_SELECTION_INVALID: "所选页码或来源单元不可用，请核对原文件和任务检查点。",
+            ANSWER_SOURCE_UNAVAILABLE: "请选择已完成且以答案卷用途导入的任务；来源可能尚未完成或已过期。",
+            ANSWER_SOURCE_STALE: "答案卷检查点已变化，请重新读取匹配建议。",
+            ANSWER_REPLACEMENT_REQUIRED: "题目已有参考答案，请明确确认替换后再保存。",
+            ANSWER_MATCH_INVALID: "答案与所选来源或题型不一致，请核对，或改为人工编辑。",
             CORRECTION_CONFLICT: "其他窗口已保存修订，请重新读取后核对，草稿仍保留。",
             CORRECTION_INVALID: "修改与题组或答案引用冲突，请核对选项、作答方式和所属材料。",
             CORRECTION_PROTECTED_FIELD: "来源证据、资源和题组关联不可修改。",
@@ -227,6 +233,13 @@ export class Client {
     return this.json<TaskList>(`/api/document-tasks?${query}`, undefined, signal);
   }
   detail(id: string, signal?: AbortSignal) { return this.json<DocumentTaskDetail>(`/api/document-tasks/${encodeURIComponent(id)}`, undefined, signal); }
+  answerMatches(task: DocumentTaskDetail, answerTaskId: string) {
+    return this.json<DocumentAnswerMatches>(`/api/document-tasks/${encodeURIComponent(task.threadId)}/answer-matches?${new URLSearchParams({ checkpoint_id: task.checkpointId!, answer_task_id: answerTaskId })}`);
+  }
+  answerProposal(task: DocumentTaskDetail, questionIndex: number, source: DocumentAnswerSource) {
+    const query = new URLSearchParams({ checkpoint_id: task.checkpointId!, question_index: String(questionIndex), answer_task_id: source.taskId, answer_checkpoint_id: source.checkpointId, answer_question_index: String(source.questionIndex), replace_existing: String(!!source.replaceExisting) });
+    return this.json<DocumentAnswerProposal>(`/api/document-tasks/${encodeURIComponent(task.threadId)}/answer-proposal?${query}`);
+  }
   corrections(id: string) { return this.json<DocumentCorrections>(`/api/document-tasks/${encodeURIComponent(id)}/corrections`); }
   async saveCorrection(id: string, value: DocumentCorrectionSave) {
     const saved = await this.json<DocumentCorrections>(`/api/document-tasks/${encodeURIComponent(id)}/corrections`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(value) });
@@ -239,14 +252,15 @@ export class Client {
     try {
       const raw = localStorage.getItem(IMPORT_INTENTS);
       if (!raw) return [];
-      if (raw.length > 100_000) throw new Error();
+      if (raw.length > 1024 * 1024) throw new Error();
       const records: DocumentTaskCreate[] = JSON.parse(raw);
       if (!Array.isArray(records) || records.length > 50 || !records.every(record => {
         const document = record?.document;
-        return record && Object.keys(record).every(key => ["requestId", "document", "graphId", "failurePolicy", "deduplicateQuestions", "generateAnswers"].includes(key))
+        return record && Object.keys(record).every(key => ["requestId", "document", "graphId", "failurePolicy", "deduplicateQuestions", "generateAnswers", "pages", "documentRole"].includes(key))
           && uuid.test(record.requestId) && record.graphId === "document_parser" && record.failurePolicy === "return_partial"
           && (record.deduplicateQuestions === undefined || typeof record.deduplicateQuestions === "boolean")
           && (record.generateAnswers === undefined || typeof record.generateAnswers === "boolean")
+          && validPages(record.pages) && (record.documentRole === undefined || ["questions", "answers"].includes(record.documentRole))
           && document && Object.keys(document).length === 6
           && typeof document.fileName === "string" && document.fileName.length > 0 && document.fileName.length <= 255
           && typeof document.sha256 === "string" && /^[a-f0-9]{64}$/.test(document.sha256)
@@ -261,7 +275,7 @@ export class Client {
   }
   private saveImports(records: DocumentTaskCreate[]) {
     try {
-      if (records.length > 50) throw new Error();
+      if (records.length > 50 || JSON.stringify(records).length > 1024 * 1024) throw new Error();
       if (records.length) localStorage.setItem(IMPORT_INTENTS, JSON.stringify(records));
       else localStorage.removeItem(IMPORT_INTENTS);
     } catch {
@@ -276,9 +290,11 @@ export class Client {
     return receipt;
   }
   forgetImport(requestId: string) { this.saveImports(this.pendingImports().filter(record => record.requestId !== requestId)); }
-  async start(file: File, capabilities: Capabilities, requestId: string, onStage: (stage: UploadStage, requestId?: string) => void, deduplicateQuestions = false, generateAnswers = false) {
+  async start(file: File, capabilities: Capabilities, requestId: string, onStage: (stage: UploadStage, requestId?: string) => void, deduplicateQuestions = false, generateAnswers = false, pages?: number[] | null, documentRole: "questions" | "answers" = "questions") {
     validateFiles([file], capabilities);
     const format = fileFormat(file);
+    if (!validPages(pages) || pages && ["text", "markdown"].includes(format.sourceType)) throw new ApiError("TXT/Markdown 不使用页码；其他文件请选择有效页面。", "SOURCE_SELECTION_INVALID");
+    if (documentRole === "answers" && generateAnswers) throw new ApiError("答案卷仅提取已有答案，请关闭自动生成。", "ANSWER_MATCH_INVALID");
     if (capabilities.parserConfigured === false) throw new ApiError("服务端尚未配置腾讯文档解析。", "TENCENT_NOT_CONFIGURED");
     if (!capabilities.modelConfigured) throw new ApiError("服务端尚未配置模型。", "MODEL_NOT_CONFIGURED");
     onStage("hashing");
@@ -299,9 +315,10 @@ export class Client {
     }
     const pending = this.pendingImports();
     const original = pending.find(record => record.document.sha256 === document.sha256 && record.document.sourceType === document.sourceType);
+    if (original && (JSON.stringify(original.pages ?? null) !== JSON.stringify(pages ?? null) || (original.documentRole ?? "questions") !== documentRole)) throw new ApiError("此文件有未确认的原提交，请先使用原请求恢复后再更改范围或用途。", "RECOVERY_PENDING");
     requestId = original?.requestId ?? requestId;
     if (!original) {
-      const request: DocumentTaskCreate = { requestId, document: { ...metadata, objectKey: document.objectKey }, graphId: "document_parser", failurePolicy: "return_partial", ...(deduplicateQuestions ? { deduplicateQuestions: true } : {}), ...(generateAnswers ? { generateAnswers: true } : {}) };
+      const request: DocumentTaskCreate = { requestId, document: { ...metadata, objectKey: document.objectKey }, graphId: "document_parser", failurePolicy: "return_partial", ...(deduplicateQuestions ? { deduplicateQuestions: true } : {}), ...(generateAnswers ? { generateAnswers: true } : {}), ...(pages ? { pages } : {}), ...(documentRole === "answers" ? { documentRole } : {}) };
       this.saveImports([...pending, request]);
     }
     onStage("starting", requestId);
@@ -318,9 +335,9 @@ export class Client {
     try {
       const raw = localStorage.getItem(REPARSE_INTENTS);
       if (raw === null) return [];
-      if (raw.length > 10_000) throw new Error();
+      if (raw.length > 4 * 1024 * 1024) throw new Error();
       const records: ReparseIntent[] = JSON.parse(raw);
-      if (!Array.isArray(records) || records.length > 50 || !records.every(record => record && Object.keys(record).length === 2
+      if (!Array.isArray(records) || records.length > 50 || !records.every(record => record && Object.keys(record).every(k => ["requestId", "threadId", "selection"].includes(k)) && validReparseSelection(record.selection)
         && typeof record.requestId === "string" && uuid.test(record.requestId)
         && typeof record.threadId === "string" && uuid.test(record.threadId))
         || new Set(records.map(record => record.requestId.toLowerCase())).size !== records.length
@@ -332,7 +349,7 @@ export class Client {
   }
   private saveReparses(records: ReparseIntent[]) {
     try {
-      if (records.length > 50) throw new Error();
+      if (records.length > 50 || JSON.stringify(records).length > 4 * 1024 * 1024) throw new Error();
       if (records.length) localStorage.setItem(REPARSE_INTENTS, JSON.stringify(records));
       else localStorage.removeItem(REPARSE_INTENTS);
     } catch {
@@ -342,18 +359,20 @@ export class Client {
   async retryReparse(requestId: string) {
     const request = this.pendingReparses().find(record => record.requestId === requestId);
     if (!request) throw new ApiError("重新解析恢复记录不存在，请先核对导入记录。", "ACTION_UNAVAILABLE");
-    const receipt = await this.receipt(`/api/document-tasks/${encodeURIComponent(request.threadId)}/reparse`, { requestId: request.requestId });
+    const receipt = await this.receipt(`/api/document-tasks/${encodeURIComponent(request.threadId)}/reparse`, { requestId: request.requestId, ...(request.selection ? { selection: request.selection } : {}) });
     this.saveReparses(this.pendingReparses().filter(record => record.requestId !== requestId));
     return receipt;
   }
   forgetReparse(requestId: string) { this.saveReparses(this.pendingReparses().filter(record => record.requestId !== requestId)); }
-  async reparse(id: string) {
+  async reparse(id: string, selection?: DocumentReparseSelection) {
     if (!this.active) throw new DOMException("请求已取消", "AbortError");
     if (!uuid.test(id)) throw new ApiError("任务引用无效。", "INVALID_REFERENCE");
     const pending = this.pendingReparses();
     const original = pending.find(record => record.threadId.toLowerCase() === id.toLowerCase());
+    if (!validReparseSelection(selection)) throw new ApiError("请选择有效来源单元。", "SOURCE_SELECTION_INVALID");
+    if (original && JSON.stringify(original.selection ?? null) !== JSON.stringify(selection ?? null)) throw new ApiError("此任务有未确认的重新解析，请先沿用原请求恢复。", "RECOVERY_PENDING");
     const requestId = original?.requestId ?? crypto.randomUUID();
-    if (!original) this.saveReparses([...pending, { threadId: id, requestId }]);
+    if (!original) this.saveReparses([...pending, { threadId: id, requestId, ...(selection ? { selection } : {}) }]);
     return this.retryReparse(requestId);
   }
   async delete(id: string) {
@@ -382,10 +401,14 @@ export class Client {
     const { objectKey, sha256, sizeBytes, mediaType } = reference;
     return this.artifact({ objectKey, sha256, sizeBytes, mediaType }, threadId, 50 * MIB);
   }
-  async exportBank(task: DocumentTaskDetail, revisionId?: string) {
+  async exportBank(task: DocumentTaskDetail, revisionId?: string, questionIndexes?: number[]) {
     if ((!task.canExportCompleted && (task.state !== "COMPLETED" || !task.result)) || !task.checkpointId) throw new ApiError("任务结果尚不可导出。", "BANK_EXPORT_NOT_READY");
     const query = new URLSearchParams({ checkpoint_id: task.checkpointId, scope: task.state === "COMPLETED" ? "full" : "completed" });
     if (revisionId) query.set("revision_id", revisionId);
+    if (questionIndexes) {
+      if (!questionIndexes.length || questionIndexes.length > 2000 || questionIndexes.some(v => !Number.isSafeInteger(v) || v < 0 || !task.result || v >= task.result.questions.length)) throw new ApiError("请选择当前结果中的题目。", "SOURCE_SELECTION_INVALID");
+      for (const index of questionIndexes) query.append("question_index", String(index));
+    }
     return this.request(`/api/document-tasks/${encodeURIComponent(task.threadId)}/export?${query}`, {}, async (response, signal) => {
       if (response.headers.get("content-type")?.split(";")[0] !== "application/zip") throw new ApiError("服务未返回题库 ZIP。", "INVALID_RESPONSE");
       return { blob: new Blob(await readChunks(response, MAX_BANK_ZIP_BYTES, signal), { type: "application/zip" }), name: `practiq-bank-${revisionId ? "revised-" : ""}${task.threadId.replace(/[^a-zA-Z0-9-]/g, "")}.zip` };

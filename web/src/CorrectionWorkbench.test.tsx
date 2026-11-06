@@ -261,3 +261,42 @@ it.each([false, true])("unlocks an oversized correction after a definitive rejec
   await user.click(screen.getByRole("button", { name: "放弃本次修改" }));
   expect(screen.getByRole("button", { name: "返回题目列表" })).toHaveProperty("disabled", false);
 });
+
+it("restores a draft and the exact uncertain request after remount without replaying it", async () => {
+  vi.spyOn(Client.prototype, "evidence").mockRejectedValue(Error("unavailable"));
+  const save = vi.spyOn(Client.prototype, "saveCorrection").mockRejectedValue(new ApiError("lost", "NETWORK_ERROR"));
+  const view = render(<ResultReview task={detail} preview={metadata} client={new Client()} />);
+  const user = await open();
+  await user.click(screen.getByRole("button", { name: "人工校对" }));
+  await user.clear(screen.getByRole("textbox", { name: "题干" }));
+  await user.type(screen.getByRole("textbox", { name: "题干" }), "Persistent draft");
+  await user.click(screen.getByRole("button", { name: "保存修订" }));
+  await screen.findByText(/保存请求 ID：/);
+  const request = structuredClone(save.mock.calls[0][1]);
+  view.unmount();
+  render(<ResultReview task={detail} preview={metadata} client={new Client()} />);
+  await user.click(screen.getByRole("button", { name: "恢复第 1 题草稿" }));
+  expect(screen.getByRole("textbox", { name: "题干" })).toHaveProperty("value", "Persistent draft");
+  expect(screen.getByText(new RegExp(request.requestId))).toBeTruthy();
+  expect(save).toHaveBeenCalledTimes(1);
+  await user.click(screen.getByRole("button", { name: "保存修订" }));
+  expect(save.mock.calls[1][1]).toEqual(request);
+});
+
+it("blocks submission when durable draft storage fails and allows explicit storage recovery", async () => {
+  vi.spyOn(Client.prototype, "evidence").mockRejectedValue(Error("unavailable"));
+  const save = vi.spyOn(Client.prototype, "saveCorrection").mockRejectedValue(new ApiError("lost", "NETWORK_ERROR"));
+  render(<ResultReview task={detail} preview={metadata} client={new Client()} />);
+  const user = await open();
+  const storage = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw Error("quota"); });
+  await user.click(screen.getByRole("button", { name: "人工校对" }));
+  expect(await screen.findByText(/无法读取或保存本机校对草稿/)).toBeTruthy();
+  expect(screen.getByRole("button", { name: "保存修订" })).toHaveProperty("disabled", true);
+  expect(save).not.toHaveBeenCalled();
+  storage.mockRestore();
+  await user.click(screen.getByRole("button", { name: "重试保存本机草稿" }));
+  expect(screen.getByRole("button", { name: "保存修订" })).toHaveProperty("disabled", false);
+  await user.click(screen.getByRole("button", { name: "保存修订" }));
+  await screen.findByText(/保存请求 ID：/);
+  expect(save).toHaveBeenCalledTimes(1);
+});

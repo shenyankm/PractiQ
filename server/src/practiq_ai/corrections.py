@@ -44,7 +44,10 @@ def validate_edit(original: ParsedQuestion, edited: ParsedQuestion, result: Docu
         for block, new in zip(old_blocks, new_blocks, strict=True)
     ):
         raise DocumentProcessingError(422, 'Content structure and resource data cannot be edited', 'CORRECTION_PROTECTED_FIELD')
-    candidate = ParsedQuestion.model_validate({**before, **{key: after[key] for key in EDITABLE_FIELDS}, 'needsReview': True})
+    try:
+        candidate = ParsedQuestion.model_validate({**before, **{key: after[key] for key in EDITABLE_FIELDS}, 'needsReview': True})
+    except ValidationError as exc:
+        raise DocumentProcessingError(422, 'Correction does not satisfy the question contract', 'CORRECTION_INVALID') from exc
     result.questions[index] = candidate
     try:
         validate_question_tree(result.questions)

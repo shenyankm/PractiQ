@@ -30,6 +30,9 @@ EXPECTED = [("The Earth orbits the Sun.", True), ("Two plus two equals five.", F
             ("A triangle has three sides.", True)]
 SOURCE = "True or false questions. Extract the supplied answers.\n\n" + "\n\n".join(
     f"{i}. {stem}\nAnswer: {answer}" for i, (stem, answer) in enumerate(EXPECTED, 1))
+QUESTION_SOURCE = "True or false questions.\n\n" + "\n\n".join(f'{i}. {stem}' for i, (stem, _) in enumerate(EXPECTED, 1))
+ANSWER_SOURCE = "Reference answers\n" + '\n'.join(f'{i}. {answer}' for i, (_, answer) in enumerate(EXPECTED, 1))
+PAGE_SOURCES = [f'{i}. {stem}\nAnswer: {answer}' for i, (stem, answer) in enumerate(EXPECTED, 1)]
 
 
 def check_questions(questions: list[dict[str, Any]]) -> list[str]:
@@ -102,15 +105,34 @@ def serve(synthetic: bool) -> None:
         from tests.support import FakeModel, ocr_text_page, question, tencent_provider
 
         patch = pytest.MonkeyPatch()
-        tencent_provider(patch, [ocr_text_page(SOURCE)])
+        suite = os.environ.get('PRACTIQ_IMPORT_SUITE') == '1'
+        def evidence(data, payload):
+            if data['FileType'] in {5, 6}:
+                return [ocr_text_page(payload.decode('utf-8-sig'))]
+            return [ocr_text_page(text) for text in PAGE_SOURCES] if data['FileType'] == 1 else [ocr_text_page(SOURCE)]
+        provider_calls = tencent_provider(patch, evidence if suite else [ocr_text_page(SOURCE)])
         rows = [{**question(stem), "answerMode": "true_false", "answerPayload": {"value": answer}}
                 for stem, answer in EXPECTED]
         def response(_messages, schema):
-            result = {"questions": rows, "groups": []}
+            selected = rows
+            if suite:
+                system = str(_messages[0].content)
+                content = str(_messages[-1].content)
+                if 'This input is a supplied answer sheet' in system:
+                    selected = [{**question(str(index)), 'answerMode': 'true_false', 'questionTypeId': 'true_false',
+                                 'answerPayload': {'value': answer}, 'sourceText': f'{index}. {answer}'}
+                                for index, (_, answer) in enumerate(EXPECTED, 1)]
+                elif schema.__name__ == 'OcrPageParseResult':
+                    selected = [{**row, 'sourceText': PAGE_SOURCES[index]} for index, row in enumerate(rows) if row['stem'] in content]
+                else:
+                    selected = [{**row, 'answerPayload': None, 'sourceText': f'{index}. {row["stem"]}'} for index, row in enumerate(rows, 1)]
+                ledger = {'tencentSubmissions': sum(action == 'SubmitMultimodalDocParseJob' for action, _ in provider_calls), 'modelCalls': len(model.calls)}
+                Path(os.environ['PRACTIQ_PROVIDER_LEDGER']).write_text(json.dumps(ledger))
+            result = {"questions": selected, "groups": []}
             if schema.__name__ == "OcrPageParseResult":
                 result["figures"] = []
             return result
-        model = FakeModel(responses=[response] * 12)
+        model = FakeModel(responses=[response] * (32 if suite else 12))
         patch.setattr(document, "get_model", lambda *args: model)
     uvicorn.run("practiq_ai.webapp:app", host="127.0.0.1", port=int(os.environ["PRACTIQ_ACCEPT_PORT"]),
                 access_log=False, log_level="warning")

@@ -1599,6 +1599,15 @@
         "title": "Filename",
         "type": "string"
       },
+      "documentRole": {
+        "default": "questions",
+        "enum": [
+          "questions",
+          "answers"
+        ],
+        "title": "Documentrole",
+        "type": "string"
+      },
       "createdAt": {
         "title": "Createdat",
         "type": "string"
@@ -1884,6 +1893,84 @@
         "title": "ContentBlock",
         "type": "object"
       },
+      "DocumentAnswerEvidence": {
+        "additionalProperties": false,
+        "properties": {
+          "selection": {
+            "$ref": "#/$defs/DocumentAnswerSource"
+          },
+          "sourceSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Sourcesha256",
+            "type": "string"
+          },
+          "fileName": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Filename"
+          },
+          "sourceText": {
+            "anyOf": [
+              {
+                "maxLength": 120000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Sourcetext"
+          }
+        },
+        "required": [
+          "selection",
+          "sourceSha256"
+        ],
+        "title": "DocumentAnswerEvidence",
+        "type": "object"
+      },
+      "DocumentAnswerSource": {
+        "additionalProperties": false,
+        "properties": {
+          "taskId": {
+            "format": "uuid",
+            "title": "Taskid",
+            "type": "string"
+          },
+          "checkpointId": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Checkpointid",
+            "type": "string"
+          },
+          "questionIndex": {
+            "minimum": 0,
+            "title": "Questionindex",
+            "type": "integer"
+          },
+          "replaceExisting": {
+            "default": false,
+            "title": "Replaceexisting",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "taskId",
+          "checkpointId",
+          "questionIndex"
+        ],
+        "title": "DocumentAnswerSource",
+        "type": "object"
+      },
       "DocumentCorrections": {
         "additionalProperties": false,
         "properties": {
@@ -1993,6 +2080,17 @@
           "savedAt": {
             "title": "Savedat",
             "type": "string"
+          },
+          "answerEvidence": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/DocumentAnswerEvidence"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
           }
         },
         "required": [
@@ -5002,6 +5100,30 @@
       },
       "fileName": {
         "title": "Filename",
+        "type": "string"
+      },
+      "pages": {
+        "anyOf": [
+          {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Pages"
+      },
+      "documentRole": {
+        "default": "questions",
+        "enum": [
+          "questions",
+          "answers"
+        ],
+        "title": "Documentrole",
         "type": "string"
       },
       "state": {

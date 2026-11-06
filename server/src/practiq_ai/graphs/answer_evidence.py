@@ -6,6 +6,7 @@ from bisect import bisect_left, bisect_right
 from collections import Counter
 from collections.abc import Iterator, Sequence
 
+from ..answer_matching import PRINTED_NUMBER_PREFIX
 from ..contracts import ParsedItem, ParsedQuestion, StrictModel, question_missing_fields
 from ..json_repair import unique_json_object
 from .chunking import (
@@ -66,11 +67,12 @@ def _table_records(text: str) -> list[tuple[str | None, str]] | None:
     return records
 
 
-def _records(text: str, *, group_items: bool = False) -> list[tuple[str | None, str]]:
+def _records(text: str, *, group_items: bool = False, answer_sheet: bool = False) -> list[tuple[str | None, str]]:
     table = _table_records(text)
     if table is not None:
         return table
-    starts = [match for match in QUESTION_BOUNDARY_PATTERN.finditer(text)
+    boundary = PRINTED_NUMBER_PREFIX if answer_sheet else QUESTION_BOUNDARY_PATTERN
+    starts = [match for match in boundary.finditer(text)
               if not (match[0].rstrip().endswith(('.', '．')) and text[match.end():match.end() + 1].isdigit())]
     starts = sorted([*starts, *_UNNUMBERED_EXERCISE.finditer(text)], key=lambda match: match.start())
     if group_items:
@@ -97,7 +99,7 @@ def _records(text: str, *, group_items: bool = False) -> list[tuple[str | None, 
     for index, match in enumerate(starts):
         number = re.search(r'\d+', match[0])
         end = starts[index + 1].start() if index + 1 < len(starts) else len(text)
-        records.append((number[0] if number else None, _TYPE.sub('', text[match.end():end])))
+        records.append((str(int(number[0])) if answer_sheet and number else number[0] if number else None, _TYPE.sub('', text[match.end():end])))
     return records or [(None, _TYPE.sub('', text))]
 
 
@@ -370,7 +372,7 @@ def _stem_records(
 
 
 def retain_source_answers(
-    questions: list[ParsedQuestion], primary: str, contexts: list[str],
+    questions: list[ParsedQuestion], primary: str, contexts: list[str], *, answer_sheet: bool = False,
 ) -> list[tuple[int, list[str]]]:
     """Clear fields without a literal, question-scoped proof in trusted input.
 
@@ -380,16 +382,17 @@ def retain_source_answers(
     if not any(question.answerPayload is not None or question.analysis is not None for question in questions):
         return []
     primary_key = _KEY.search(primary)
+    evidence_primary = primary[:primary_key.start()] if primary_key and not answer_sheet else primary
     records = [(number, record, _literal(_INLINE_LOCAL_FIELD.split(record, maxsplit=1)[0]))
-               for number, record in _records(primary[:primary_key.start()] if primary_key else primary)]
+               for number, record in _records(evidence_primary, answer_sheet=answer_sheet)]
     item_records = [(number, record, _literal(_INLINE_LOCAL_FIELD.split(record, maxsplit=1)[0]))
-                    for number, record in _records(primary[:primary_key.start()] if primary_key else primary, group_items=True)] if any(
+                    for number, record in _records(evidence_primary, group_items=True, answer_sheet=answer_sheet)] if any(
                         question.answerMode in {'ordering', 'matching'} for question in questions) else records
     records_by_stem = sorted(records, key=lambda item: item[2])
     item_records_by_stem = sorted(item_records, key=lambda item: item[2]) if item_records is not records else records_by_stem
     source_numbers: Counter[str] = Counter(number for number, _, _ in records if number)
     answer_keys: dict[str, list[str]] = {}
-    for source_index, text in enumerate([primary, *contexts]):
+    for source_index, text in enumerate([primary, *contexts] if not answer_sheet else []):
         headings = list(_KEY.finditer(text))
         if source_index:
             source_numbers.update(number for number, _ in _records(text[:headings[0].start()] if headings else text) if number)
@@ -418,12 +421,22 @@ def retain_source_answers(
                            and (not composite_child or _PARENT_LINE.search(record)))]
         if len(candidates) > 1 and question.id:
             candidates = [(number, record) for number, record in candidates if number == question.id.rsplit(':', 1)[-1]]
+        if answer_sheet:
+            quote = question.sourceText or ''
+            printed = PRINTED_NUMBER_PREFIX.match(quote)
+            candidates = [(number, record) for number, record, _ in records
+                          if printed and number == str(int(printed['number'])) and _literal(record) in _literal(quote)] if quote and _literal(quote) in _literal(primary) else []
         fields = {'answerPayload': [], 'analysis': []}
         verified_items = False
         if len(candidates) == 1:
             number, record = candidates[0]
             verified_items = question.answerMode in {'ordering', 'matching'} and _unnumbered_stem_matches(question, record, stem)
             fields = _fields(record)
+            if answer_sheet and not fields['answerPayload']:
+                marker = _INLINE_LOCAL_FIELD.search(record)
+                prefix = record[:marker.start() if marker else len(record)].strip()
+                if prefix:
+                    fields['answerPayload'].append(prefix)
             # Only explicit answer-only sections may supply a numbered answer
             # from context. A neighboring ordinary question is never evidence.
             if number and source_numbers[number] == 1 and len(answer_keys.get(number, [])) == 1:

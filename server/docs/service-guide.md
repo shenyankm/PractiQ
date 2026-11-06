@@ -99,6 +99,8 @@ Application errors return a structured `detail` containing a stable `code` and o
 
 Pause, interrupt, resume, retry, and partial-result acceptance use `POST /api/document-tasks/{threadId}/control`. See [task controls](document-tasks.md) for requests, idempotency, and the 180-day retention period.
 
+See [selected imports, draft recovery and supplied answer sheets](import-selection.md) for the bounded optional workflow and API fields.
+
 ## Request subjective grading
 
 Clients should call `POST /api/subjective-grades` only after an explicit grading or regrading action. The endpoint uses the same loopback personal service as document import and returns one question's result directly. It does not create a document task or offer document-task pause/resume controls.

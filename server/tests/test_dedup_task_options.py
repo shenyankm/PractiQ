@@ -24,7 +24,7 @@ def source():
 
 def test_false_dedup_preserves_historical_create_payload():
     request = DocumentTaskCreate(requestId=uuid4(), document=source())
-    old_payload = request.model_dump(mode='json', exclude={'officeMode', 'deduplicateQuestions', 'generateAnswers'})
+    old_payload = request.model_dump(mode='json', exclude={'officeMode', 'deduplicateQuestions', 'generateAnswers', 'pages', 'documentRole', 'reparseSelection'})
     assert not DocumentParseInput(document=source()).deduplicateQuestions
     assert task_api._create_payload(request) == old_payload
     assert task_api._create_payload(request.model_copy(update={'deduplicateQuestions': False})) == old_payload
@@ -69,10 +69,11 @@ async def test_dedup_flag_is_admitted_once_replayed_and_preserved_on_reparse(mon
 
 
 @pytest.mark.usefixtures('disposable_databases')
-async def test_retry_preserves_admitted_dedup_flag(monkeypatch):
+@pytest.mark.parametrize('role', ['questions', 'answers'])
+async def test_retry_preserves_admitted_dedup_flag(monkeypatch, role):
     invalid = {'questions': [{'stem': ''}]}
     service, reference, _model = await setup_api(monkeypatch, [invalid, invalid, parsed('Fixed')])
-    receipt = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference), deduplicateQuestions=True))
+    receipt = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference), deduplicateQuestions=True, documentRole=role))
     await service.wait_idle()
     detail = await task_api.get_task(receipt['threadId'])
     assert detail['status'] == 'PARTIAL'
@@ -80,6 +81,7 @@ async def test_retry_preserves_admitted_dedup_flag(monkeypatch):
     await service.wait_idle()
     retry_input = (await service.db.rows('SELECT input FROM document_runs WHERE run_id=%s', (retry['runId'],)))[0]['input']
     assert retry_input['deduplicateQuestions'] is True and 'officeMode' not in retry_input
+    assert retry_input['documentRole'] == role and retry_input['pages'] is None
     assert (await task_api.get_task(receipt['threadId']))['status'] == 'SUCCEEDED'
     _, snapshot, _ = await task_api._read_task(service, receipt['threadId'])
     assert snapshot.values['officeMode'] is None and snapshot.values['execution']['officeMode'] is None

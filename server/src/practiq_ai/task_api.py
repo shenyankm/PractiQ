@@ -17,6 +17,10 @@ from .config import load, require_model_config
 from .contracts import (
     COMPOSITE_MODES,
     OFFICE_SOURCE_TYPES,
+    DocumentAnswerEvidence,
+    DocumentAnswerMatches,
+    DocumentAnswerProposal,
+    DocumentAnswerSource,
     DocumentCorrections,
     DocumentCorrectionSave,
     DocumentParseResult,
@@ -51,6 +55,7 @@ from .execution import (
 )
 from .graphs.document import DocumentState
 from .retry_policy import selected_retry_units, unit_failures
+from .source_selection import active_indices
 from .storage import get_object_store, validate_source_size
 from .tencent import diagnostic_value, submission_limit
 from .unit_results import discard_model_audio, load_unit_result
@@ -118,7 +123,7 @@ async def _save_receipt(conn, thread_id, request_id, request_hash, response):
     await conn.execute('INSERT INTO document_receipts VALUES (%s,%s,%s,%s)', (thread_id, request_id, request_hash, json_encode(response)))
 
 
-async def create_task(request: DocumentTaskCreate) -> dict[str, Any]:
+async def create_task(request: DocumentTaskCreate, *, reparse_origin: dict[str, Any] | None = None) -> dict[str, Any]:
     service = client()
     request_id = str(request.requestId)
     thread_id = str(uuid5(NAMESPACE_URL, f'practiq/document/{request_id}'))
@@ -128,6 +133,8 @@ async def create_task(request: DocumentTaskCreate) -> dict[str, Any]:
         if previous:
             return previous
         settings = load()
+        if request.pages and max(request.pages) > settings.max_document_pages:
+            raise DocumentProcessingError(422, 'Selected pages exceed the configured limit', 'SOURCE_SELECTION_INVALID')
         if not settings.parser_configured:
             raise DocumentProcessingError(503, 'Configure Tencent parsing credentials and, when enabled, private COS staging', 'TENCENT_NOT_CONFIGURED')
         validate_source_size(request.document.sizeBytes, request.document.sourceType, settings)
@@ -140,11 +147,14 @@ async def create_task(request: DocumentTaskCreate) -> dict[str, Any]:
             if not parent:
                 raise DocumentProcessingError(404, 'Parent task not found', 'TASK_NOT_FOUND')
             require_supported_task(parent)
+        seed = await _reparse_seed(service, request) if request.reparseSelection is not None else None
         task = await (await conn.execute('INSERT INTO document_tasks(thread_id,request_hash,graph_id,document,failure_policy,parent_thread_id,expires_at) VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING *',
             (thread_id, request_hash, request.graphId, json_encode(request.document.model_dump(mode='json')), request.failurePolicy,
              str(request.parentThreadId) if request.parentThreadId else None, utcnow() + timedelta(minutes=TTL_MINUTES)))).fetchone()
         response = await _enqueue(conn, task, request_id, request_hash,
-                                  graph_input=request.model_dump(mode='json', include={'document', 'failurePolicy', 'officeMode', 'deduplicateQuestions', 'generateAnswers'}))
+                                  graph_input={**request.model_dump(mode='json', include={'document', 'failurePolicy', 'officeMode', 'deduplicateQuestions', 'generateAnswers', 'pages', 'documentRole'}),
+                                               'requestOrigin': reparse_origin or {'kind': 'create'},
+                                               **({'reparseSeed': seed} if seed is not None else {})})
         await _save_receipt(conn, thread_id, request_id, request_hash, response)
     service.notify()
     return response
@@ -159,16 +169,56 @@ def _create_payload(request: DocumentTaskCreate) -> dict[str, Any]:
         exclude.add('deduplicateQuestions')
     if not request.generateAnswers:
         exclude.add('generateAnswers')
+    if request.pages is None:
+        exclude.add('pages')
+    if request.documentRole == 'questions':
+        exclude.add('documentRole')
+    if request.reparseSelection is None:
+        exclude.add('reparseSelection')
     return request.model_dump(mode='json', exclude=exclude)
 
 
-async def _parse_options(service, thread_id: str) -> dict[str, Any]:
+async def _parse_options(service, thread_id: str, *, include_seed: bool = False) -> dict[str, Any]:
     # The initial run input is already committed atomically with the task.
     # Reconstruct current options without replaying retired officeMode or rewriting audit inputs.
     rows = await service.db.rows('SELECT input FROM document_runs WHERE thread_id=%s AND input IS NOT NULL '
                                  'ORDER BY created_at,run_id LIMIT 1', (thread_id,))
     initial = rows[0]['input'] if rows else {}
-    return {'deduplicateQuestions': initial.get('deduplicateQuestions', False), 'generateAnswers': initial.get('generateAnswers', False)}
+    options = {'deduplicateQuestions': initial.get('deduplicateQuestions', False), 'generateAnswers': initial.get('generateAnswers', False),
+               'pages': initial.get('pages'), 'documentRole': initial.get('documentRole', 'questions')}
+    if include_seed and initial.get('reparseSeed') is not None:
+        options['reparseSeed'] = initial['reparseSeed']
+    return options
+
+
+async def _reparse_seed(service, request: DocumentTaskCreate) -> dict[str, Any]:
+    selection = request.reparseSelection
+    assert selection is not None and request.parentThreadId is not None
+    task, snapshot, run = await _read_task(service, str(request.parentThreadId))
+    if service.checkpoint_id(snapshot, run) != selection.checkpointId:
+        raise conflict('The reviewed source checkpoint changed', 'STALE_CHECKPOINT')
+    if _task_state(snapshot, run)[0] != 'COMPLETED':
+        raise conflict('Selective reparse requires a completed source task', 'SOURCE_SELECTION_INVALID')
+    if request.document.model_dump(mode='json') != task['document']:
+        raise conflict('Selective reparse cannot change its source', 'SOURCE_SELECTION_INVALID')
+    values = snapshot.values
+    if request.pages != values.get('pages') or request.documentRole != values.get('documentRole', 'questions'):
+        raise conflict('Selective reparse retains the original range and document role', 'SOURCE_SELECTION_INVALID')
+    store = await asyncio.to_thread(get_object_store)
+    for unit in selection.units:
+        key = 'visionResults' if unit.stage == 'vision_parse' else 'chunkResults'
+        item = next((v for v in values.get(key, []) if v['index'] == unit.index), None)
+        if item is None or unit.index not in active_indices(values, unit.stage):
+            raise conflict('Selected source unit is unavailable', 'SOURCE_SELECTION_INVALID')
+        loaded = await load_unit_result(item, request.document.sha256, store)
+        if loaded.get('parsed') is None:
+            raise conflict('Selected source unit is not complete', 'SOURCE_SELECTION_INVALID')
+    prepared = {key: values[key] for key in ('normalization', 'effectiveSourceType', 'textUnits', 'chunkSources', 'chunkHeaders',
+                 'chunkNodeCounts', 'chunkPresence', 'tabularRowsSafe', 'textRef', 'pageRefs', 'ocrPageRefs', 'contextPages',
+                 'contextIncomplete', 'inputParts', 'chunkRefs', 'chunkSpans', 'truncated') if key in values}
+    prepared['warnings'] = [*values.get('warnings', []), 'Explicit source-unit reparse reuses verified Tencent evidence; original results are preserved.']
+    return {'sourceSha256': request.document.sha256, 'parentCheckpointId': selection.checkpointId,
+            'units': [unit.model_dump(mode='json') for unit in selection.units], 'prepared': prepared}
 
 
 async def _read_task_record(service, thread_id):
@@ -206,6 +256,17 @@ async def _read_task(service, thread_id, task=None):
 
 async def reparse_task(thread_id: str, request: DocumentTaskReparse) -> dict[str, Any]:
     service = client()
+    origin = {'kind': 'reparse', 'parentThreadId': thread_id, 'selection': request.selection.model_dump(mode='json') if request.selection else None}
+    child_id = str(uuid5(NAMESPACE_URL, f'practiq/document/{request.requestId}'))
+    accepted = await service.db.rows('SELECT t.*, r.response, n.input AS initial_input FROM document_tasks t '
+        'JOIN document_receipts r USING(thread_id) JOIN document_runs n ON n.thread_id=t.thread_id AND n.request_id=r.request_id '
+        'WHERE t.thread_id=%s AND r.request_id=%s', (child_id, str(request.requestId)))
+    if accepted and (saved_origin := (accepted[0]['initial_input'] or {}).get('requestOrigin')):
+        if saved_origin != origin or str(accepted[0]['parent_thread_id']) != thread_id:
+            raise conflict('Request ID was used for another reparse selection', 'REQUEST_CONFLICT')
+        require_supported_task(accepted[0])
+        remaining_ttl({'expiresAt': accepted[0]['expires_at'].isoformat()})
+        return accepted[0]['response']
     tasks = await service.db.rows('SELECT * FROM document_tasks WHERE thread_id=%s', (thread_id,))
     if not tasks:
         raise DocumentProcessingError(404, 'Document task not found', 'TASK_NOT_FOUND')
@@ -216,6 +277,7 @@ async def reparse_task(thread_id: str, request: DocumentTaskReparse) -> dict[str
     options = await _parse_options(service, thread_id)
     create = DocumentTaskCreate(requestId=request.requestId, document=DocumentReference.model_validate(task['document']),
                                 graphId=task['graph_id'], failurePolicy=task['failure_policy'], parentThreadId=UUID(thread_id),
+                                reparseSelection=request.selection,
                                 **options)
     async with service.db.connection() as conn:
         previous = await _replay(conn, str(uuid5(NAMESPACE_URL, f'practiq/document/{request.requestId}')),
@@ -225,7 +287,7 @@ async def reparse_task(thread_id: str, request: DocumentTaskReparse) -> dict[str
     remaining_ttl({'expiresAt': task['expires_at'].isoformat()})
     require_model_config()
     await get_object_store().get_verified(create.document)
-    return await create_task(create)
+    return await create_task(create, reparse_origin=origin)
 
 
 def _interrupts(snapshot):
@@ -331,14 +393,16 @@ async def _task_detail(service, thread_id, task, snapshot, run) -> DocumentTaskD
         'modelConfigured': model_configured,
         'resumeCompatible': resume_compatible,
         'fileName': task['document'].get('fileName') or '文档',
+        'pages': values.get('pages', ((run or {}).get('input') or {}).get('pages')),
+        'documentRole': values.get('documentRole', ((run or {}).get('input') or {}).get('documentRole', 'questions')),
         'state': state, 'phase': values.get('phase', 'pending'),
         'checkpointId': service.checkpoint_id(snapshot, run),
         'updatedAt': snapshot.created_at or task['created_at'].isoformat(), 'expiresAt': task['expires_at'].isoformat(),
         'allowedActions': actions, 'failures': failures,
         'blocking': list(interruptions.values()) or ([run['error_code']] if run and run['error_code'] else []),
         'progress': {
-            'visuals': _counts(len(values.get('pageRefs', [])), len(values.get('visionResults', [])), sum(f['stage'].startswith('vision_') for f in failures)),
-            'chunks': _counts(len(values.get('chunkRefs', [])), sum(item.get('parsed') is not None for item in values.get('chunkResults', [])), sum(f['stage'] == 'document_parse' for f in failures)),
+            'visuals': _counts(len(active_indices(values, 'vision_parse')), len(values.get('visionResults', [])), sum(f['stage'].startswith('vision_') for f in failures)),
+            'chunks': _counts(len(active_indices(values, 'document_parse')), sum(item.get('parsed') is not None for item in values.get('chunkResults', [])), sum(f['stage'] == 'document_parse' for f in failures)),
         },
         'status': values.get('status') or None, 'result': result,
         'modelBudget': {'limit': values.get('execution', {}).get('signature', {}).get('settings', {}).get('task_max_model_calls', load().task_max_model_calls), 'reserved': values.get('reservedCalls', 0)},
@@ -367,8 +431,8 @@ async def get_task_head(thread_id: str) -> dict[str, Any]:
 
 
 async def export_task(thread_id: str, checkpoint_id: str | None = None, *, completed: bool = False,
-                      revision_id: UUID | None = None) -> BinaryIO:
-    from .bank_export import export_task_bank
+                      revision_id: UUID | None = None, question_indexes: list[int] | None = None) -> BinaryIO:
+    from .bank_export import append_export_warning, export_task_bank
     service = client()
     task, snapshot, run = await _read_task(service, thread_id)
     current_checkpoint = service.checkpoint_id(snapshot, run)
@@ -376,19 +440,45 @@ async def export_task(thread_id: str, checkpoint_id: str | None = None, *, compl
         raise conflict('The reviewed checkpoint changed', 'STALE_CHECKPOINT')
     detail = await _task_detail(service, thread_id, task, snapshot, run)
     original_state = detail.state
+    answer_sources: dict[int, Any] = {}
     if revision_id is not None:
         from .corrections import corrected_result
         if detail.state != 'COMPLETED' or detail.result is None or current_checkpoint is None:
             raise conflict('Revisions require a completed result', 'CORRECTION_NOT_READY')
         corrections = await _read_corrections(service, thread_id, current_checkpoint)
         detail.result = corrected_result(detail.result, corrections, revision_id)
-        detail.result.warnings.append('Human-corrected revision; original source evidence and review flags are retained.')
+        append_export_warning(detail.result, 'Human-corrected revision; original source evidence and review flags are retained.')
+        previous_answers: dict[int, Any] = {}
+        for edit in corrections.edits:
+            if edit.answerEvidence is not None:
+                answer_sources[edit.questionIndex] = edit.answerEvidence
+            elif previous_answers.get(edit.questionIndex) != edit.question.answerPayload:
+                answer_sources.pop(edit.questionIndex, None)
+            previous_answers[edit.questionIndex] = edit.question.answerPayload
+            if edit.requestId == revision_id:
+                break
     if completed and detail.state != 'COMPLETED':
         if not detail.canExportCompleted:
             raise conflict('No completed questions are available', 'BANK_EXPORT_NOT_READY')
         from .graphs.document import completed_result
         update = await completed_result(cast(DocumentState, snapshot.values))
         detail = DocumentTaskDetail.model_validate({**detail.model_dump(), **update, 'state': 'COMPLETED'})
+    retained_indexes = list(range(len(detail.result.questions))) if detail.result else []
+    if question_indexes is not None:
+        from .bank_export import select_questions
+        if detail.result is None:
+            raise conflict('No saved questions are available', 'BANK_EXPORT_NOT_READY')
+        detail.result, retained_indexes = select_questions(detail.result, question_indexes)
+        if detail.processing:
+            ids = {q.id for q in detail.result.questions}
+            detail.processing = detail.processing.model_copy(deep=True)
+            detail.processing.questionSources = [source for source in detail.processing.questionSources if source.questionId in ids]
+            detail.processing.quality.issues = [issue for issue in detail.processing.quality.issues if issue.questionId in ids]
+            detail.processing.quality.reviewQuestionCount = sum(q.needsReview and q.answerMode not in COMPOSITE_MODES for q in detail.result.questions)
+    if detail.result is not None:
+        for index in retained_indexes:
+            if evidence := answer_sources.get(index):
+                append_export_warning(detail.result, f'Supplied answer source for original question {index + 1}: {evidence.fileName or "answer document"}; SHA-256 {evidence.sourceSha256}; source excerpt: {(evidence.sourceText or "unavailable")[:1_200]}')
     payload = await export_task_bank(detail, get_object_store(), source=DocumentReference.model_validate(task['document']))
     try:
         _, latest, latest_run = await _read_task(service, thread_id)
@@ -465,7 +555,7 @@ async def control_task(thread_id: str, request: DocumentTaskControl) -> dict[str
             command = {'resume': {key: request.model_dump(mode='json') for key in interruptions}} if interruptions else None
             if not values:
                 graph_input = {'document': task['document'], 'failurePolicy': task['failure_policy'],
-                               **await _parse_options(service, thread_id)}
+                               **await _parse_options(service, thread_id, include_seed=True)}
             elif request.action == 'resume' and queued_pause:
                 assert run is not None
                 graph_input, command = run['input'], run['command']
@@ -478,6 +568,7 @@ async def control_task(thread_id: str, request: DocumentTaskControl) -> dict[str
                     graph_input = {'document': values['document'], 'failurePolicy': values.get('failurePolicy', 'return_partial'),
                                    'deduplicateQuestions': values.get('deduplicateQuestions', False),
                                    'generateAnswers': values.get('generateAnswers', False),
+                                   'pages': values.get('pages'), 'documentRole': values.get('documentRole', 'questions'),
                                    'retry': retry.model_dump(mode='json')}
             admission = await service.db.store.aget(namespace(thread_id, 'control'), 'admission', refresh_ttl=False)
             response = await _enqueue(conn, task, request_id, request_hash, graph_input=graph_input, command=command,
@@ -628,7 +719,8 @@ async def _task_summary(service, task, run, checkpoint_id):
     snapshot, run = await _read_snapshot(service, task, run)
     values = snapshot.values or {}
     questions = values.get('result', {}).get('questions', [])
-    summary = {'state': _task_state(snapshot, run)[0], 'status': values.get('status') or None,
+    summary = {'documentRole': values.get('documentRole', ((run or {}).get('input') or {}).get('documentRole', 'questions')),
+               'state': _task_state(snapshot, run)[0], 'status': values.get('status') or None,
                'checkpointId': service.checkpoint_id(snapshot, run), 'questionCount': scorable_count(questions),
                'reviewCount': sum(bool(q.get('needsReview')) and q.get('answerMode') not in COMPOSITE_MODES for q in questions),
                'head': {'updatedAt': snapshot.created_at or task['created_at'].isoformat(),
@@ -772,6 +864,8 @@ async def save_correction(thread_id: str, request: DocumentCorrectionSave) -> Do
         previous_index = next((index for index, edit in enumerate(saved.edits) if edit.requestId == request.requestId), None)
         if previous_index is not None:
             previous = saved.edits[previous_index]
+            if (previous.answerEvidence.selection if previous.answerEvidence else None) != request.answerSource:
+                raise conflict('Request ID was used for another answer source', 'REQUEST_CONFLICT')
             if previous.questionIndex != request.questionIndex:
                 raise conflict('Request ID was used for a different correction', 'REQUEST_CONFLICT')
             # Replay normalization uses the original tree, even if later revisions change shared options.
@@ -787,14 +881,82 @@ async def save_correction(thread_id: str, request: DocumentCorrectionSave) -> Do
         if request.expectedRevision != (saved.edits[-1].requestId if saved.edits else None):
             raise conflict('Another correction was saved; reload before saving', 'CORRECTION_CONFLICT')
         result = corrected_result(original, saved)
+        evidence = None
+        if request.answerSource is not None:
+            from .answer_matching import associated_question
+            source_task, source_result, source_checkpoint = await _answer_source(service, request.answerSource.taskId)
+            if str(request.answerSource.taskId) == thread_id or source_checkpoint != request.answerSource.checkpointId:
+                raise conflict('The selected answer checkpoint changed', 'ANSWER_SOURCE_STALE')
+            if request.answerSource.questionIndex >= len(source_result.questions):
+                raise DocumentProcessingError(422, 'Answer index is outside the saved source', 'ANSWER_MATCH_INVALID')
+            target = result.questions[request.questionIndex]
+            if target.answerPayload is not None and not request.answerSource.replaceExisting:
+                raise conflict('Explicitly confirm replacement of the supplied answer', 'ANSWER_REPLACEMENT_REQUIRED')
+            supplied = source_result.questions[request.answerSource.questionIndex]
+            associated = associated_question(target, supplied)
+            # Compare against the same tree normalization used for ordinary corrections.
+            expected = validate_edit(original.questions[request.questionIndex], associated, result.model_copy(deep=True), request.questionIndex)
+            received = validate_edit(original.questions[request.questionIndex], request.question, result.model_copy(deep=True), request.questionIndex)
+            if expected != received:
+                raise DocumentProcessingError(422, 'The correction differs from its selected supplied answer', 'ANSWER_MATCH_INVALID')
+            evidence = DocumentAnswerEvidence(selection=request.answerSource, sourceSha256=source_task['document']['sha256'],
+                                              fileName=source_task['document'].get('fileName'), sourceText=supplied.sourceText)
         question = validate_edit(original.questions[request.questionIndex], request.question, result, request.questionIndex)
         if len(saved.edits) >= 500:
             raise DocumentProcessingError(413, 'Correction history reached its limit', 'CORRECTION_HISTORY_LIMIT')
         saved.edits.append(DocumentQuestionCorrection(requestId=request.requestId, questionIndex=request.questionIndex,
-                                                       question=question, savedAt=utcnow().isoformat()))
+                                                       question=question, savedAt=utcnow().isoformat(), answerEvidence=evidence))
         value = saved.model_dump(mode='json')
         if len(json_encode(value, ensure_ascii=False).encode()) > 8 * 1024 * 1024:
             raise DocumentProcessingError(413, 'Correction history reached its byte limit', 'CORRECTION_HISTORY_LIMIT')
         await service.db.store.aput(namespace(thread_id, 'corrections'), request.checkpointId, value, index=False,
                                    ttl=remaining_ttl({'expiresAt': task['expires_at'].isoformat()}) if service.db.store.supports_ttl else None)
         return saved
+
+
+async def _answer_source(service, thread_id: UUID):
+    try:
+        task, snapshot, run = await _read_task(service, str(thread_id))
+    except DocumentProcessingError as exc:
+        raise conflict('The answer source is unavailable; retain your draft', 'ANSWER_SOURCE_UNAVAILABLE') from exc
+    if _task_state(snapshot, run)[0] != 'COMPLETED' or not snapshot.values.get('result') or snapshot.values.get('documentRole') != 'answers':
+        raise conflict('Choose a completed document imported with the answer-sheet role', 'ANSWER_SOURCE_UNAVAILABLE')
+    return task, DocumentParseResult.model_validate(snapshot.values['result']), service.checkpoint_id(snapshot, run)
+
+
+async def answer_matches(thread_id: str, answer_task_id: UUID, checkpoint_id: str) -> DocumentAnswerMatches:
+    from .answer_matching import match_answers
+    from .corrections import corrected_result
+    service = client()
+    _, snapshot, run = await _read_task(service, thread_id)
+    checkpoint = service.checkpoint_id(snapshot, run)
+    if checkpoint is None or checkpoint != checkpoint_id or _task_state(snapshot, run)[0] != 'COMPLETED' or not snapshot.values.get('result'):
+        raise conflict('Read a completed, current question checkpoint first', 'STALE_CHECKPOINT')
+    if str(answer_task_id) == thread_id:
+        raise conflict('Choose a separate answer document', 'ANSWER_MATCH_INVALID')
+    _, answers, answer_checkpoint = await _answer_source(service, answer_task_id)
+    target = corrected_result(DocumentParseResult.model_validate(snapshot.values['result']), await _read_corrections(service, thread_id, checkpoint))
+    return DocumentAnswerMatches(checkpointId=checkpoint, answerTaskId=answer_task_id, answerCheckpointId=answer_checkpoint,
+                                 matches=match_answers(target, answers))
+
+
+async def answer_proposal(thread_id: str, checkpoint_id: str, question_index: int, source: DocumentAnswerSource) -> DocumentAnswerProposal:
+    from .answer_matching import associated_question
+    from .corrections import corrected_result, validate_edit
+    service = client()
+    _, snapshot, run = await _read_task(service, thread_id)
+    if service.checkpoint_id(snapshot, run) != checkpoint_id or _task_state(snapshot, run)[0] != 'COMPLETED' or not snapshot.values.get('result'):
+        raise conflict('Read the current completed question checkpoint first', 'STALE_CHECKPOINT')
+    original = DocumentParseResult.model_validate(snapshot.values['result'])
+    corrections = await _read_corrections(service, thread_id, checkpoint_id)
+    target = corrected_result(original, corrections)
+    _, answers, answer_checkpoint = await _answer_source(service, source.taskId)
+    if str(source.taskId) == thread_id or answer_checkpoint != source.checkpointId:
+        raise conflict('The selected answer checkpoint changed', 'ANSWER_SOURCE_STALE')
+    if question_index < 0 or question_index >= len(target.questions) or source.questionIndex >= len(answers.questions):
+        raise DocumentProcessingError(422, 'Question or answer index is outside its checkpoint', 'ANSWER_MATCH_INVALID')
+    if target.questions[question_index].answerPayload is not None and not source.replaceExisting:
+        raise conflict('Confirm replacement of the supplied answer', 'ANSWER_REPLACEMENT_REQUIRED')
+    candidate = associated_question(target.questions[question_index], answers.questions[source.questionIndex])
+    candidate = validate_edit(original.questions[question_index], candidate, target, question_index)
+    return DocumentAnswerProposal(checkpointId=checkpoint_id, answerSource=source, question=candidate, corrections=corrections)
