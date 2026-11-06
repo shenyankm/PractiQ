@@ -62,6 +62,42 @@ def _invalid(message: str) -> DocumentProcessingError:
     return DocumentProcessingError(422, message, "BANK_EXPORT_INVALID")
 
 
+def append_export_warning(result: DocumentParseResult, warning: str) -> None:
+    if len(result.warnings) >= 1_000:
+        result.warnings[-1] += '\n' + warning
+    else:
+        result.warnings.append(warning)
+
+
+def select_questions(result: DocumentParseResult, indexes: list[int]) -> tuple[DocumentParseResult, list[int]]:
+    if not indexes or len(indexes) > 2_000 or any(type(index) is not int or index < 0 or index >= len(result.questions) for index in indexes):
+        raise _invalid('Select valid question indexes before exporting')
+    selected = set(indexes)
+    by_id = {q.id: index for index, q in enumerate(result.questions) if q.id is not None}
+    # A material and its linked children travel together; retained blanks must never point outside the bank.
+    while True:
+        required = set(selected)
+        for index, question in enumerate(result.questions):
+            related = {by_id[value] for value in (question.parentId, question.optionSourceId) if value in by_id}
+            if index in selected:
+                required.update(related)
+            if related & selected:
+                required.add(index)
+        if required == selected:
+            break
+        selected = required
+    value = result.model_copy(deep=True)
+    retained = sorted(selected)
+    value.questions = [value.questions[index] for index in retained]
+    ids = {q.id for q in value.questions if q.id is not None}
+    value.groups = [group.model_copy(update={'questionIds': [qid for qid in group.questionIds if qid in ids]})
+                    for group in value.groups if not group.questionIds or ids.intersection(group.questionIds)]
+    value.visualElements = [visual.model_copy(update={'questionIds': [qid for qid in visual.questionIds if qid in ids]})
+                           for visual in value.visualElements if not visual.questionIds or ids.intersection(visual.questionIds)]
+    append_export_warning(value, 'Selected-question export includes required material and shared-option groups.')
+    return DocumentParseResult.model_validate(value.model_dump(mode='json')), retained
+
+
 def _limit(size: int, maximum: int, label: str) -> None:
     if size > maximum:
         raise DocumentProcessingError(413, f"{label} exceeds desktop package limit", "BANK_EXPORT_TOO_LARGE")

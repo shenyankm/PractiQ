@@ -1,0 +1,120 @@
+{
+  "serviceCodeHash": "1df75501154365f7e5327b574e0192baafb8ae7479e0b0a3e7561bfbc660a074",
+  "nativeBinarySha256": "98a3898983f9b62714772ea2f75f4ed8a4b40c933ed4b17577aeba069225b398",
+  "status": "PASSED",
+  "liveProviders": false,
+  "scope": "Production Web/HTTP, disposable PostgreSQL/RabbitMQ and local artifacts; release native SQLite. No Tauri IPC or installed-package claim.",
+  "browser": {
+    "status": "PASSED",
+    "liveProviders": false,
+    "error": null,
+    "samples": [
+      {
+        "name": "start",
+        "variant": "desktop",
+        "width": 1440,
+        "height": 1040,
+        "noHorizontalOverflow": true
+      },
+      {
+        "name": "start",
+        "variant": "narrow",
+        "width": 390,
+        "height": 844,
+        "noHorizontalOverflow": true
+      },
+      {
+        "name": "draft",
+        "variant": "desktop",
+        "width": 1440,
+        "height": 1040,
+        "noHorizontalOverflow": true
+      },
+      {
+        "name": "draft",
+        "variant": "narrow",
+        "width": 390,
+        "height": 844,
+        "noHorizontalOverflow": true
+      },
+      {
+        "name": "matching",
+        "variant": "desktop",
+        "width": 1440,
+        "height": 1040,
+        "noHorizontalOverflow": true
+      },
+      {
+        "name": "matching",
+        "variant": "narrow",
+        "width": 390,
+        "height": 844,
+        "noHorizontalOverflow": true
+      },
+      {
+        "name": "range",
+        "variant": "desktop",
+        "width": 1440,
+        "height": 1040,
+        "noHorizontalOverflow": true
+      },
+      {
+        "name": "range",
+        "variant": "narrow",
+        "width": 390,
+        "height": 844,
+        "noHorizontalOverflow": true
+      }
+    ],
+    "browserRestartRecovered": true,
+    "unknownSaveRecoveredWithoutReplay": true,
+    "retainedRequestId": "10e92a5d-3ee9-439c-9ca8-7c0824289627",
+    "selectedOriginalIndex": 0,
+    "targetThreadId": "aeb0127e-92c4-51b2-a9ab-d7b48fb3c27c",
+    "answerThreadId": "8a50967c-ccb3-58ac-93a3-ad9c6e4ba768",
+    "rangeThreadId": "45c97b0a-0abf-5680-a6b5-e81e84d7403e",
+    "reparseThreadId": "71c234f0-5182-5111-b7e4-014f4db67c56",
+    "providerBeforeReparse": {
+      "tencentSubmissions": 3,
+      "modelCalls": 3
+    },
+    "providerAfterReparse": {
+      "tencentSubmissions": 3,
+      "modelCalls": 4
+    },
+    "providerCallsBefore": 1,
+    "providerCallsAfter": 1,
+    "originalsAndUsageUnchanged": true,
+    "confirmedRevisions": 2
+  },
+  "zipSha256": "a7d6b026d6d4223680216a62cea9cc72e11049ca6e91af89e60897765da476dd",
+  "native": [
+    {
+      "backupRestore": true,
+      "correct": 1,
+      "earnedCents": 100,
+      "firstRun": true,
+      "name": "png",
+      "phasesMs": {
+        "backup": 17.507375,
+        "firstPage": 0.681333,
+        "importZip": 2.4260409999999997,
+        "initialize": 10.416165999999999,
+        "previewPaper": 0.96725,
+        "previewZip": 14.630374999999999,
+        "readResults": 0.242959,
+        "reopen": 1.325167,
+        "restore": 27.124709,
+        "saveAndNavigate": 1.142583,
+        "startPaper": 1.684208,
+        "submitPaper": 1.284416
+      },
+      "questions": 1,
+      "reopen": true,
+      "repetition": 0,
+      "totalMs": 85.419333,
+      "zipSha256": "a7d6b026d6d4223680216a62cea9cc72e11049ca6e91af89e60897765da476dd"
+    }
+  ],
+  "environment": "macOS arm64; Python 3.14.7; production Vite assets; Chromium; disposable PostgreSQL/RabbitMQ; release Rust test binary"
+}

@@ -720,3 +720,38 @@ it.each(["image", "evidence"] as const)("retains %s MIME, byte and hash checks w
     await expect(client[kind](reference, taskId, signal)).rejects.toMatchObject({ code });
   }
 });
+
+it("retains the exact selective reparse across reload and refuses a changed scope", async () => {
+  const fetcher = vi.fn(async (_path: string, _init: RequestInit): Promise<Response> => { throw new TypeError("lost receipt"); });
+  vi.stubGlobal("fetch", fetcher);
+  const selection = { checkpointId: "current-cp", units: [{ stage: "vision_parse" as const, index: 2 }] };
+  await expect(new Client().reparse(taskId, selection)).rejects.toMatchObject({ code: "NETWORK_ERROR" });
+  const restored = new Client(), pending = restored.pendingReparses()[0];
+  expect(pending.selection).toEqual(selection);
+  await expect(restored.reparse(taskId, { ...selection, units: [{ stage: "vision_parse", index: 3 }] })).rejects.toMatchObject({ code: "RECOVERY_PENDING" });
+  expect(fetcher).toHaveBeenCalledTimes(1);
+  fetcher.mockImplementation(async (_path, init) => json({ ...receipt, requestId: JSON.parse(init.body as string).requestId }));
+  await restored.retryReparse(pending.requestId);
+  expect(JSON.parse(fetcher.mock.calls.at(-1)![1].body as string)).toEqual({ requestId: pending.requestId, selection });
+});
+it("exports explicit question indexes with the selected saved revision", async () => {
+  const fetcher = vi.fn(async (_path: string) => new Response(new Uint8Array([80, 75]), { headers: { "Content-Type": "application/zip" } }));
+  vi.stubGlobal("fetch", fetcher);
+  await new Client().exportBank(task, runId, [0]);
+  const query = new URL(String(fetcher.mock.calls[0][0]), "http://localhost").searchParams;
+  expect(query.getAll("question_index")).toEqual(["0"]); expect(query.get("revision_id")).toBe(runId);
+  await expect(new Client().exportBank(task, runId, [])).rejects.toMatchObject({ code: "SOURCE_SELECTION_INVALID" });
+  expect(fetcher).toHaveBeenCalledTimes(1);
+});
+it("freezes page and answer-role options in an uncertain upload intent", async () => {
+  const fetcher = mockUpload({ networkAtCreate: true });
+  const file = new File(["bounded PDF fixture"], "answers.pdf", { type: "application/pdf" });
+  await expect(new Client().start(file, capabilities, taskId, () => {}, false, false, [2], "answers")).rejects.toMatchObject({ code: "NETWORK_ERROR" });
+  const restored = new Client(), pending = restored.pendingImports()[0];
+  expect(pending).toMatchObject({ pages: [2], documentRole: "answers" });
+  await expect(restored.start(file, capabilities, runId, () => {}, false, false, [1], "answers")).rejects.toMatchObject({ code: "RECOVERY_PENDING" });
+  expect(fetcher.mock.calls.filter(call => call[0] === "/api/document-tasks")).toHaveLength(1);
+  fetcher.mockImplementation(async (_path, init) => json({ ...receipt, requestId: JSON.parse(init.body as string).requestId }, 202));
+  await restored.retryImport(pending.requestId);
+  expect(JSON.parse(fetcher.mock.calls.at(-1)![1].body as string)).toEqual(pending);
+});

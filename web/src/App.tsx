@@ -1,4 +1,5 @@
 import { lazy, memo, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { parsePages } from "./importSelection";
 import { Select, SelectOption } from "./components/ui/select";
 import { Upload, Play, RefreshCw, Download, Trash2, Server, ChevronLeft, ChevronRight, FileText, LoaderCircle, History, Settings, Pause, Square } from "lucide-react";
 import logo from "./assets/octopus.png";
@@ -10,11 +11,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
 import { Badge } from "./components/ui/badge";
 import { ErrorBoundary } from "../../shared/error-boundary";
 import { RenderFailure } from "./RenderFailure";
+import { CorrectionDraftRecovery } from "./CorrectionDraftRecovery";
 import { ImportSettingsPanel } from "./ImportSettingsPanel";
 const ResultReview = lazy(() => import("./ResultReview"));
 
 const sourceExtensions: Record<Capabilities["sourceTypes"][number], string> = { pdf: ".pdf", text: ".txt", markdown: ".md", ppt: ".ppt", pptx: ".pptx", image: ".png,.jpg,.jpeg", doc: ".doc", docx: ".docx", xls: ".xls", xlsx: ".xlsx" };
-type FileItem = { id: string; file: File; requestId?: string; deduplicateQuestions?: boolean; generateAnswers?: boolean; state: "ready" | UploadStage | "created" | "failed"; error?: string };
+type FileItem = { id: string; file: File; requestId?: string; deduplicateQuestions?: boolean; generateAnswers?: boolean; pages?: number[] | null; documentRole?: "questions" | "answers"; state: "ready" | UploadStage | "created" | "failed"; error?: string };
 const stateLabels: Record<DocumentTaskSummary["state"], string> = { PENDING: "等待开始", RUNNING: "正在解析", PAUSING: "正在暂停", PAUSED: "已暂停", INTERRUPTED: "已中断", CANCELLED: "已取消", FAILED: "失败", WAITING_REVIEW: "等待复核", COMPLETED: "已完成", EXPIRED: "已过期" };
 const actionLabels: Record<Action, string> = { pause: "暂停", interrupt: "取消任务", resume: "继续解析", retry_failed: "重试失败单元", accept_partial: "接受部分结果" };
 const formatLabels: Record<Capabilities["sourceTypes"][number], string> = { pdf: "PDF", text: "TXT", markdown: "Markdown", ppt: "PPT (.ppt)", pptx: "PPT (.pptx)", image: "PNG/JPEG", doc: "Word (.doc)", docx: "Word (.docx)", xls: "Excel (.xls)", xlsx: "Excel (.xlsx)" };
@@ -78,6 +80,8 @@ export default function App() {
   const [capabilities, setCapabilities] = useState<Capabilities | null>(null);
   const [capError, setCapError] = useState<string | null>(null);
   const [files, setFiles] = useState<FileItem[]>([]);
+  const [pageRange, setPageRange] = useState("");
+  const [documentRole, setDocumentRole] = useState<"questions" | "answers">("questions");
   const [fileError, setFileError] = useState<string | null>(null);
   const [importSettings, setImportSettings] = useState<ImportSettingsSnapshot | null>(null);
   const [settingsPending, setSettingsPending] = useState(true);
@@ -276,11 +280,13 @@ export default function App() {
       let created: string | null = null; let failed = false; const resolved = new Set<string>();
       for (const item of items) {
         const deduplicate = item.deduplicateQuestions ?? deduplicateQuestions;
-        const generate = item.generateAnswers ?? generateAnswers;
+        const role = item.documentRole ?? documentRole;
+        const generate = role === "answers" ? false : item.generateAnswers ?? generateAnswers;
+        const selectedPages = item.pages === undefined ? parsePages(pageRange) : item.pages;
         const update = (value: Partial<FileItem>) => { if (current.active) setFiles(previous => previous.map(file => file.id === item.id ? { ...file, ...value } : file)); };
-        update({ deduplicateQuestions: deduplicate, generateAnswers: generate, error: undefined });
+        update({ deduplicateQuestions: deduplicate, generateAnswers: generate, pages: selectedPages ?? null, documentRole: role, error: undefined });
         try {
-          const receipt = await current.start(item.file, capabilities, item.requestId ?? item.id, (stage, requestId) => update({ state: stage, ...(requestId ? { requestId } : {}) }), deduplicate, generate);
+          const receipt = await current.start(item.file, capabilities, item.requestId ?? item.id, (stage, requestId) => update({ state: stage, ...(requestId ? { requestId } : {}) }), deduplicate, generate, selectedPages, role);
           if (current.active) setFiles(previous => previous.map(file => (file.requestId ?? file.id) === receipt.requestId ? { ...file, state: "created", error: undefined } : file));
           created = receipt.threadId; resolved.add(receipt.requestId);
         } catch (error) { failed = true; update({ state: "failed", error: errorText(error) }); break; }
@@ -298,6 +304,9 @@ export default function App() {
   }
   const importContent = (<div className="import-workspace"><Card><CardHeader className="import-card-heading"><CardTitle role="heading" aria-level={2} id="import-heading" tabIndex={-1}>导入文档</CardTitle><span id="file-limit">最多 {MAX_FILES} 个文件</span></CardHeader><CardContent className="space-y-4">
             {!capabilities ? <p>正在读取服务支持的格式与限制…</p> : <>
+              <div className="correction-fields"><label>文件用途<Select disabled={busy} value={documentRole} onValueChange={value => setDocumentRole(value as "questions" | "answers")}><SelectOption value="questions">题目文件</SelectOption><SelectOption value="answers">答案卷（仅提取已有答案）</SelectOption></Select></label><label>页面范围（留空为全部）<Input aria-describedby="page-range-help" value={pageRange} maxLength={8000} placeholder="例如 1,3-5" disabled={busy} onChange={event => setPageRange(event.target.value)} /></label></div>
+              <p id="page-range-help" className="import-cost-note">页码从 1 开始；TXT/Markdown 不支持。范围仅限制题目整理，腾讯仍可能按整份文件计费。</p>
+              {documentRole === "answers" && <p>答案卷只提取已有内容，不生成答案。导入完成后，在题目任务中选择“关联答案卷”核对并采用。</p>}
               <label className="file-picker"><FileText aria-hidden="true" /><span className="file-picker-action">选择文件</span><Input className="sr-only" ref={fileInput} type="file" multiple aria-label="选择文档" aria-describedby="file-limit file-help" aria-invalid={!!fileError} accept={capabilities.sourceTypes.map(type => sourceExtensions[type]).join(",")} disabled={busy} onChange={event => chooseFiles(Array.from(event.target.files || []))} /></label>
               <div className="upload-details"><p className="supported-formats">服务支持：{[...new Set(capabilities.sourceTypes.map(type => formatGroups[type]))].join("、")}</p>
               <p id="file-help">单文件 ≤ {sizeLabel(sourceLimit(capabilities))}{capabilities.officeAvailable && sourceLimit(capabilities, "docx") < sourceLimit(capabilities) && ` · Word / Excel ≤ ${sizeLabel(sourceLimit(capabilities, "docx"))}`}</p></div>
@@ -328,7 +337,7 @@ export default function App() {
   {!tasks.items.length && !listError && <div className="records-empty"><History aria-hidden="true" /><p role="status">{listLoading ? "正在读取任务…" : filter ? "没有符合此状态的任务。" : "当前没有任务。"}</p>{!listLoading && (filter ? <Button variant="outline" onClick={() => { setFilter(""); setOffset(0); setCursors([undefined]); }}>查看全部任务</Button> : capabilities && <Button disabled={busy} onClick={() => { navigate("import"); requestAnimationFrame(() => fileInput.current?.focus()); }}>选择第一份文档</Button>)}</div>}
   {!!tasks.items.length && <div className="records-table-scroll"><table className="records-table"><caption className="sr-only">文档导入记录</caption><thead><tr><th scope="col">文档</th><th scope="col">状态</th><th scope="col" className="record-number">题目</th><th scope="col" className="record-number">待复核</th><th scope="col">创建时间</th><th scope="col">操作</th></tr></thead><tbody>{tasks.items.map(task => <tr key={task.threadId} data-selected={selected === task.threadId}>
     <td><button type="button" className="record-name" aria-pressed={selected === task.threadId} onClick={() => selectTask(task.threadId)}>{task.fileName}</button></td>
-    <td><Badge variant="outline">{stateLabels[task.state]}</Badge>{task.status === "PARTIAL" && <Badge variant="secondary">部分结果</Badge>}</td>
+    <td>{task.documentRole === "answers" && <Badge variant="secondary">答案卷</Badge>}<Badge variant="outline">{stateLabels[task.state]}</Badge>{task.status === "PARTIAL" && <Badge variant="secondary">部分结果</Badge>}</td>
     <td className="record-number"><span className="mobile-label">题目 </span>{task.questionCount}</td><td className="record-number"><span className="mobile-label">待复核 </span>{task.reviewCount > 0 ? <Badge variant="secondary">{task.reviewCount}</Badge> : 0}</td><td><time dateTime={task.createdAt}>{dateLabel(task.createdAt)}</time></td>
     <td>{task.state === "EXPIRED" ? <Button variant="destructive" size="sm" disabled={busy} aria-label={`删除已过期任务 ${task.fileName}`} onClick={() => setDeleteTarget({ threadId: task.threadId, fileName: task.fileName })}><Trash2 />删除</Button> : selected === task.threadId ? <a className="workspace-link" href="#task-detail">查看当前任务详情</a> : <Button variant="ghost" size="sm" onClick={() => selectTask(task.threadId)}>管理任务</Button>}</td>
   </tr>)}</tbody></table></div>}
@@ -346,6 +355,7 @@ export default function App() {
             {detail && <div className="space-y-6"><div className="task-title"><div><h2>{detail.fileName}</h2><p><Badge variant="outline">{stateLabels[detail.state]}</Badge>{detail.status === "PARTIAL" && <Badge variant="secondary">部分结果</Badge>}</p></div><Button variant="outline" aria-label="刷新任务详情" onClick={refreshDetail}><RefreshCw /></Button></div>
               {!detailFresh && <p className="notice">当前显示上次成功读取的信息，任务操作已停用，请先刷新。</p>}
               {preview && preview.checkpointId !== detail.checkpointId && <p className="notice">任务检查点正在更新，读取一致后才能继续或导出。</p>}
+              <p>文件用途：{detail.documentRole === "answers" ? "答案卷（仅提取已有答案）" : "题目文件"} · 页面范围：{detail.pages?.join(", ") || "全部"}</p>
               <Progress task={detail} />
               {(detail.blocking.includes("MODEL_RESULT_UNKNOWN") || detail.unknownUsageCalls.length > 0) && <div className="notice" role="alert"><p>模型请求已发送，但结果尚未确认。已保存的题目、检查点和用量记录仍保留。</p><p>请先核对模型供应商的调用记录；继续解析或重试可能再次计费，不会自动重试未知调用。</p></div>}
               {detail.blocking.includes("RUN_DEADLINE_EXCEEDED") && <p className="notice" role="alert">本轮解析已达到运行时限，已保存的进度仍保留。可按可用操作继续解析，后续模型调用可能计费。</p>}
@@ -354,7 +364,7 @@ export default function App() {
               <details className="task-secondary-actions"><summary>其他任务操作</summary><p className="text-sm text-muted-foreground">重新解析会重新提交腾讯识别并创建新的 AI 整理请求，可能再次计费；删除会移除此任务和检查点。已下载的题库不受影响。</p><div className="task-actions"><Button variant="outline" disabled={busy || !detailFresh || !detail.modelConfigured || detail.state === "EXPIRED"} onClick={() => void run(async current => { const receipt = await current.reparse(detail.threadId); if (current.active) { setSelected(value => value === detail.threadId ? receipt.threadId : value); setListRevision(value => value + 1); setDetailRevision(value => value + 1); setNotice("新解析任务已创建。"); } })}><RefreshCw />重新解析为新任务</Button><Button variant="destructive" disabled={busy || !detailFresh || ["RUNNING", "PENDING", "PAUSING"].includes(detail.state)} onClick={() => setDeleteTarget({ threadId: detail.threadId, fileName: detail.fileName })}><Trash2 />删除任务</Button></div></details>
               {!!detail.failures.length && <section className="notice"><h3>失败单元</h3><ul>{detail.failures.map(failure => <li key={`${failure.stage}:${failure.index}`}>{failure.stage} · {failure.index} · {failure.code} · {failure.retryable ? `可重试，剩余 ${failure.retriesRemaining ?? 0} 次` : "不可重试"}</li>)}</ul></section>}
               {(!detail.modelConfigured || !detail.resumeCompatible) && <p className="notice">{!detail.modelConfigured ? "服务端模型未配置。" : "当前模型配置与检查点不兼容。"}继续、重试和接受部分结果暂不可用，现有结果仍可检查。</p>}
-              <ErrorBoundary key={selected} fallback={<RenderFailure />}><Suspense fallback={<p>正在加载结果检查视图…</p>}><ResultReview task={detail} preview={preview} client={client} unavailable={busy} onLeaveGuardChange={registerCorrectionGuard} /></Suspense></ErrorBoundary>
+              <ErrorBoundary key={selected} fallback={<RenderFailure />}><Suspense fallback={<p>正在加载结果检查视图…</p>}><ResultReview task={detail} preview={preview} client={client} unavailable={busy} onLeaveGuardChange={registerCorrectionGuard} onReparse={selection => { void run(async current => { const receipt = await current.reparse(detail.threadId, selection); if (current.active) { setSelected(value => value === detail.threadId ? receipt.threadId : value); setListRevision(value => value + 1); setDetailRevision(value => value + 1); setNotice("所选来源单元已创建新解析任务，原任务保留。"); } }); }} /></Suspense></ErrorBoundary>
               <Usage task={detail} />
             </div>}
           </>}
@@ -391,7 +401,7 @@ export default function App() {
         <div hidden={page !== "import"} className="import-page">
           {importContent}
         </div>
-        <div hidden={page !== "records"} className="records-page">{recordsContent}{detailContent}</div>
+        <div hidden={page !== "records"} className="records-page"><CorrectionDraftRecovery excludeTaskId={!detailError && detail?.threadId === selected ? selected : undefined} onOpen={draft => selectTask(draft.taskId)} />{recordsContent}{detailContent}</div>
         <div hidden={page !== "settings"} className="settings-page"><ImportSettingsPanel client={client} onSettingsChange={setImportSettings} onPendingChange={setSettingsPending} /></div>
       </>}
     </main></div>

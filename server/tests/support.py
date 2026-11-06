@@ -3,6 +3,7 @@ import asyncio
 import hashlib
 import json
 import zipfile
+from collections.abc import Callable
 from dataclasses import replace
 from io import BytesIO
 from pathlib import Path
@@ -74,7 +75,7 @@ class FakeModel(BaseChatModel):
         return RunnableLambda(invoke)
 
 
-def tencent_provider(monkeypatch, pages: list[dict[str, Any]] | None = None):
+def tencent_provider(monkeypatch, pages: list[dict[str, Any]] | Callable[[dict[str, Any], bytes], list[dict[str, Any]]] | None = None):
     """Replace only Tencent HTTP; plain-text fixtures echo the actual input bytes."""
     import base64
 
@@ -91,7 +92,7 @@ def tencent_provider(monkeypatch, pages: list[dict[str, Any]] | None = None):
         if action == "SubmitMultimodalDocParseJob":
             payload = base64.b64decode(data["FileBase64"])
             task_id = "synthetic-" + hashlib.sha256(payload).hexdigest()
-            evidence = pages
+            evidence = pages(data, payload) if callable(pages) else pages
             if evidence is None:
                 assert data["FileType"] in {5, 6}, "Visual fixtures must provide explicit Tencent OCR evidence"
                 evidence = [ocr_text_page(payload.decode("utf-8-sig"))]

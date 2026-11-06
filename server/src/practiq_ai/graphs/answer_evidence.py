@@ -370,7 +370,7 @@ def _stem_records(
 
 
 def retain_source_answers(
-    questions: list[ParsedQuestion], primary: str, contexts: list[str],
+    questions: list[ParsedQuestion], primary: str, contexts: list[str], *, answer_sheet: bool = False,
 ) -> list[tuple[int, list[str]]]:
     """Clear fields without a literal, question-scoped proof in trusted input.
 
@@ -381,7 +381,7 @@ def retain_source_answers(
         return []
     primary_key = _KEY.search(primary)
     records = [(number, record, _literal(_INLINE_LOCAL_FIELD.split(record, maxsplit=1)[0]))
-               for number, record in _records(primary[:primary_key.start()] if primary_key else primary)]
+               for number, record in _records(primary[:primary_key.start()] if primary_key and not answer_sheet else primary)]
     item_records = [(number, record, _literal(_INLINE_LOCAL_FIELD.split(record, maxsplit=1)[0]))
                     for number, record in _records(primary[:primary_key.start()] if primary_key else primary, group_items=True)] if any(
                         question.answerMode in {'ordering', 'matching'} for question in questions) else records
@@ -418,12 +418,22 @@ def retain_source_answers(
                            and (not composite_child or _PARENT_LINE.search(record)))]
         if len(candidates) > 1 and question.id:
             candidates = [(number, record) for number, record in candidates if number == question.id.rsplit(':', 1)[-1]]
+        if answer_sheet:
+            quote = question.sourceText or ''
+            printed = re.match(r'^\s*(?:第\s*)?(\d{1,6})(?:\s*[.．、:：)）题]|\s*$)', quote)
+            candidates = [(number, record) for number, record, _ in records
+                          if printed and number == printed[1] and _literal(record) in _literal(quote)] if quote and _literal(quote) in _literal(primary) else []
         fields = {'answerPayload': [], 'analysis': []}
         verified_items = False
         if len(candidates) == 1:
             number, record = candidates[0]
             verified_items = question.answerMode in {'ordering', 'matching'} and _unnumbered_stem_matches(question, record, stem)
             fields = _fields(record)
+            if answer_sheet and not fields['answerPayload']:
+                marker = _INLINE_LOCAL_FIELD.search(record)
+                prefix = record[:marker.start() if marker else len(record)].strip()
+                if prefix:
+                    fields['answerPayload'].append(prefix)
             # Only explicit answer-only sections may supply a numbered answer
             # from context. A neighboring ordinary question is never evidence.
             if number and source_numbers[number] == 1 and len(answer_keys.get(number, [])) == 1:

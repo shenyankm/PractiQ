@@ -25,6 +25,14 @@ fn workflow_practice() {
     let directory = std::path::PathBuf::from(
         std::env::var_os("PRACTIQ_WORKFLOW_DIR").expect("PRACTIQ_WORKFLOW_DIR"),
     );
+    let expected_count = std::env::var("PRACTIQ_WORKFLOW_COUNT")
+        .map(|value| {
+            value
+                .parse::<usize>()
+                .expect("PRACTIQ_WORKFLOW_COUNT must be an integer")
+        })
+        .unwrap_or(3);
+    assert!((1..=3).contains(&expected_count));
     let mut samples = Vec::new();
     let single = std::env::var("PRACTIQ_WORKFLOW_CASE").ok();
     assert!(single
@@ -46,7 +54,7 @@ fn workflow_practice() {
             let preview = timed(&mut phases, "previewZip", || {
                 store.preview_bank_zip(&file).unwrap()
             });
-            assert_eq!(preview["count"], 3);
+            assert_eq!(preview["count"], expected_count);
             assert_eq!(preview["missingAssets"], json!([]));
             let imported = timed(&mut phases, "importZip", || {
                 store.import(text(&preview, "ticket"), None, name).unwrap()
@@ -57,9 +65,9 @@ fn workflow_practice() {
                     .query_questions(std::slice::from_ref(&bank), ("", "", ""), Some((30, 0)))
                     .unwrap()
             });
-            assert_eq!(list_page["total"], 3);
+            assert_eq!(list_page["total"], expected_count);
             let rows = store.question_rows().unwrap();
-            assert_eq!(rows.len(), 3);
+            assert_eq!(rows.len(), expected_count);
             let answers: Vec<_> = rows
                 .iter()
                 .map(|row| {
@@ -76,11 +84,11 @@ fn workflow_practice() {
                         mode: "".into(),
                         filter: "".into(),
                         selection: "count".into(),
-                        count: 3,
+                        count: expected_count,
                         quotas: Default::default(),
                         question_ids: vec![],
                         random: false,
-                        total_cents: 300,
+                        total_cents: expected_count as i64 * 100,
                         budgets: Default::default(),
                     })
                     .unwrap()
@@ -91,8 +99,8 @@ fn workflow_practice() {
                         question_ids: serde_json::from_value(paper["questionIds"].clone()).unwrap(),
                         kind: "self_test".into(),
                         minutes: None,
-                        scores: vec![100; 3],
-                        total_cents: 300,
+                        scores: vec![100; expected_count],
+                        total_cents: expected_count as i64 * 100,
                         digest: text(&paper, "digest").into(),
                     })
                     .unwrap()
@@ -106,7 +114,9 @@ fn workflow_practice() {
                     store
                         .save_draft((&sid, ordinal), answer.clone(), 10)
                         .unwrap();
-                    store.position(&sid, (ordinal + 1).min(2), None).unwrap();
+                    store
+                        .position(&sid, (ordinal + 1).min(expected_count - 1), None)
+                        .unwrap();
                 }
             });
             timed(&mut phases, "submitPaper", || {
@@ -160,7 +170,7 @@ fn workflow_practice() {
             );
             samples.push(json!({"name":name,"repetition":repetition,"firstRun":repetition==0,
                 "phasesMs":phases,"totalMs":total,"zipSha256":crate::store::hash(&std::fs::read(&file).unwrap()),
-                "questions":3,"correct":3,"earnedCents":300,"reopen":true,"backupRestore":true}));
+                "questions":expected_count,"correct":expected_count,"earnedCents":expected_count as i64 * 100,"reopen":true,"backupRestore":true}));
         }
     }
     std::fs::write(

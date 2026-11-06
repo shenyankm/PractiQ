@@ -876,7 +876,29 @@ class RetryUnits(StrictModel):
     units: list[FailedUnit] = Field(default_factory=list, max_length=2_000)
 
 
-class DocumentParseInput(StrictModel):
+class DocumentImportOptions(StrictModel):
+    pages: list[Annotated[StrictInt, Field(ge=1)]] | None = Field(default=None, min_length=1, max_length=2_000)
+    documentRole: Literal['questions', 'answers'] = 'questions'
+
+    @field_validator('pages')
+    @classmethod
+    def canonical_pages(cls, value):
+        return sorted(set(value)) if value is not None else None
+
+
+class DocumentReparseSelection(StrictModel):
+    checkpointId: str = Field(min_length=1, max_length=255)
+    units: list[FailedUnit] = Field(min_length=1, max_length=2_000)
+
+    @field_validator('units')
+    @classmethod
+    def parsing_units(cls, value):
+        if any(unit.stage not in {'vision_parse', 'document_parse'} for unit in value):
+            raise ValueError('Selective reparse requires document or vision parsing units')
+        return list({(unit.stage, unit.index): unit for unit in value}.values())
+
+
+class DocumentParseInput(DocumentImportOptions):
     document: DocumentReference
     failurePolicy: Literal["return_partial", "review"] = "return_partial"
     officeMode: OfficeMode | None = None
@@ -894,13 +916,17 @@ class DocumentParseInput(StrictModel):
             raise ValueError("document mediaType does not match sourceType")
         if self.officeMode is not None:
             raise ValueError("Office conversion modes are no longer supported; document routing is automatic")
+        if self.documentRole == "answers" and self.generateAnswers:
+            raise ValueError("Answer sheets only extract supplied answers; generation must be disabled")
+        if self.pages is not None and document.sourceType in {'text', 'markdown', 'csv'}:
+            raise ValueError('Page selection requires a paginated document or image')
         return self
 
 
 GraphId = Literal["document_parser", "text_csv_parser", "pdf_parser"]
 
 
-class DocumentTaskCreate(StrictModel):
+class DocumentTaskCreate(DocumentImportOptions):
     requestId: UUID
     graphId: GraphId = "document_parser"
     document: DocumentReference
@@ -909,13 +935,16 @@ class DocumentTaskCreate(StrictModel):
     officeMode: OfficeMode | None = None
     deduplicateQuestions: StrictBool = False
     generateAnswers: StrictBool = False
+    reparseSelection: DocumentReparseSelection | None = None
 
     @model_validator(mode="after")
     def validate_document(self) -> Self:
         if self.document.sourceType == "csv":
             raise ValueError("CSV document import is no longer supported; saved tasks and banks are retained")
-        parsed = DocumentParseInput(document=self.document, officeMode=self.officeMode)
+        parsed = DocumentParseInput(document=self.document, officeMode=self.officeMode, pages=self.pages, documentRole=self.documentRole, generateAnswers=self.generateAnswers)
         self.officeMode = parsed.officeMode
+        if self.reparseSelection is not None and self.parentThreadId is None:
+            raise ValueError('Selective reparse requires a parent task')
         if self.document.sourceType in OFFICE_SOURCE_TYPES and self.graphId != "document_parser":
             raise ValueError("Office documents require document_parser")
         return self
@@ -930,6 +959,7 @@ class DocumentTaskReceipt(StrictModel):
 
 class DocumentTaskReparse(StrictModel):
     requestId: UUID
+    selection: DocumentReparseSelection | None = None
 
 
 TaskAction = Literal["pause", "interrupt", "resume", "retry_failed", "accept_partial"]
@@ -1001,6 +1031,8 @@ class DocumentTaskDetail(StrictModel):
     modelConfigured: bool
     resumeCompatible: bool
     fileName: str
+    pages: list[int] | None = None
+    documentRole: Literal['questions', 'answers'] = 'questions'
     state: TaskState
     phase: TaskPhase
     checkpointId: str | None
@@ -1023,6 +1055,7 @@ class DocumentTaskDetail(StrictModel):
 class DocumentTaskSummary(StrictModel):
     threadId: UUID
     fileName: str
+    documentRole: Literal['questions', 'answers'] = 'questions'
     createdAt: str
     expiresAt: str
     state: TaskState
@@ -1060,16 +1093,51 @@ class ReviewUnit(StrictModel):
     sourcePage: int | None = Field(default=None, ge=0)
 
 
+class DocumentAnswerSource(StrictModel):
+    taskId: UUID
+    checkpointId: str = Field(min_length=1, max_length=255)
+    questionIndex: StrictInt = Field(ge=0)
+    replaceExisting: StrictBool = False
+
+
+class DocumentAnswerEvidence(StrictModel):
+    selection: DocumentAnswerSource
+    sourceSha256: str = Field(pattern=r'^[a-f0-9]{64}$')
+    fileName: str | None = Field(default=None, max_length=255)
+    sourceText: str | None = Field(default=None, max_length=120_000)
+
+
+class DocumentAnswerMatch(StrictModel):
+    questionIndex: int = Field(ge=0)
+    candidates: list[int] = Field(default_factory=list, max_length=2_000)
+    status: Literal['unique', 'ambiguous', 'unmatched', 'has_answer']
+
+
+class DocumentAnswerMatches(StrictModel):
+    checkpointId: str
+    answerTaskId: UUID
+    answerCheckpointId: str
+    matches: list[DocumentAnswerMatch]
+
+
 class DocumentQuestionCorrection(StrictModel):
     requestId: UUID
     questionIndex: int = Field(ge=0)
     question: ParsedQuestion
     savedAt: str
+    answerEvidence: DocumentAnswerEvidence | None = None
 
 
 class DocumentCorrections(StrictModel):
     checkpointId: str = Field(min_length=1, max_length=255)
     edits: list[DocumentQuestionCorrection] = Field(default_factory=list, max_length=500)
+
+
+class DocumentAnswerProposal(StrictModel):
+    checkpointId: str
+    answerSource: DocumentAnswerSource
+    question: ParsedQuestion
+    corrections: DocumentCorrections
 
 
 class DocumentCorrectionSave(StrictModel):
@@ -1078,6 +1146,7 @@ class DocumentCorrectionSave(StrictModel):
     expectedRevision: UUID | None
     questionIndex: int = Field(ge=0)
     question: ParsedQuestion
+    answerSource: DocumentAnswerSource | None = None
 
 
 class DocumentTaskReview(StrictModel):

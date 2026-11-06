@@ -10,14 +10,31 @@ from pathlib import Path
 from zipfile import ZipFile
 
 import httpx
-from accept_workflow import ROOT, command_result, fixtures
+from accept_workflow import (
+    ANSWER_SOURCE,
+    PAGE_SOURCES,
+    QUESTION_SOURCE,
+    ROOT,
+    command_result,
+    fixtures,
+)
 
 
-async def run(output: Path, native: Path) -> None:
+async def run(output: Path, native: Path, *, suite: bool = False) -> None:
     from practiq_ai.execution import code_version
     from tests.db_support import cleanup, new_database
     output.mkdir(parents=True, exist_ok=False)
     fixtures(output)
+    if suite:
+        from PIL import Image, ImageDraw, ImageFont
+        (output / 'sources/questions.txt').write_text(QUESTION_SOURCE)
+        (output / 'sources/answers.txt').write_text(ANSWER_SOURCE)
+        pages = []
+        for text in PAGE_SOURCES:
+            image = Image.new('RGB', (1100, 550), 'white')
+            ImageDraw.Draw(image).multiline_text((30, 30), text, fill='black', font=ImageFont.truetype('/System/Library/Fonts/Supplemental/Arial.ttf', 25), spacing=7)
+            pages.append(image)
+        pages[0].save(output / 'sources/range.pdf', format='PDF', save_all=True, append_images=pages[1:])
     process = None
     report = {'serviceCodeHash': code_version(), 'nativeBinarySha256': hashlib.sha256(native.read_bytes()).hexdigest(), 'status': 'FAILED', 'liveProviders': False, 'scope': 'Production Web/HTTP, disposable PostgreSQL/RabbitMQ and local artifacts; release native SQLite. No Tauri IPC or installed-package claim.'}
     try:
@@ -33,6 +50,8 @@ async def run(output: Path, native: Path) -> None:
                    AI_READ_ONLY='0', AI_STORAGE_DIR=str(output / 'storage'), AI_WEB_DIR=str(ROOT / 'web/dist'),
                    LANGSMITH_TRACING='false', LANGCHAIN_TRACING_V2='false', PRACTIQ_ACCEPT_PORT=str(port),
                    PYTHONPATH=os.pathsep.join([str(ROOT / 'server/src'), str(ROOT / 'server')]))
+        if suite:
+            env.update(PRACTIQ_IMPORT_SUITE='1', PRACTIQ_PROVIDER_LEDGER=str(output / 'provider-events.json'))
         with (output / 'service.log').open('x') as log:
             process = await asyncio.create_subprocess_exec(sys.executable, str(ROOT / 'server/scripts/accept_workflow.py'), '--serve', '--synthetic', env=env, cwd=ROOT / 'server', stdout=log, stderr=log)
             async with httpx.AsyncClient(base_url=f'http://127.0.0.1:{port}', trust_env=False) as client:
@@ -49,19 +68,22 @@ async def run(output: Path, native: Path) -> None:
                     raise TimeoutError('Service readiness deadline')
             env.update(PRACTIQ_ACCEPT_URL=f'http://127.0.0.1:{port}', PRACTIQ_ACCEPT_OUTPUT=str(output))
             with (output / 'browser.log').open('x') as browser_log:
-                assert await command_result(['node', 'web/scripts/accept-corrections.mjs'], env, browser_log, 180) == 0
+                assert await command_result(['node', 'web/scripts/accept-import-suite.mjs' if suite else 'web/scripts/accept-corrections.mjs'], env, browser_log, 300 if suite else 180) == 0
             browser = json.loads((output / 'browser.json').read_text())
             assert browser['status'] == 'PASSED'
             report['browser'] = browser
             with ZipFile(output / 'exports/png.zip') as archive, ZipFile(output / 'original.zip') as original:
                 revised = json.loads(archive.read('questions.json'))
                 baseline = json.loads(original.read('questions.json'))
-            expected = browser['saved']['edits'][0]['question']
+            expected = browser['saved']['edits'][-1]['question']
             assert revised['result']['questions'][0] == expected
-            assert baseline['result']['questions'][0]['stem'] != expected['stem']
+            if suite:
+                assert len(revised['result']['questions']) == 1 and baseline['result']['questions'][0]['answerPayload'] is None
+            else:
+                assert baseline['result']['questions'][0]['stem'] != expected['stem']
             assert revised['result']['questions'][0]['sourceText'] == baseline['result']['questions'][0]['sourceText']
             report['zipSha256'] = hashlib.sha256((output / 'exports/png.zip').read_bytes()).hexdigest()
-            env.update(PRACTIQ_WORKFLOW_DIR=str(output), PRACTIQ_WORKFLOW_CASE='png', PRACTIQ_BENCH_OUTPUT=str(output / 'native.json'))
+            env.update(PRACTIQ_WORKFLOW_DIR=str(output), PRACTIQ_WORKFLOW_CASE='png', PRACTIQ_WORKFLOW_COUNT='1' if suite else '3', PRACTIQ_BENCH_OUTPUT=str(output / 'native.json'))
             with (output / 'native.log').open('x') as native_log:
                 assert await command_result([str(native), '--exact', 'performance::workflow_practice', '--ignored', '--nocapture'], env, native_log, 120) == 0
             rows = json.loads((output / 'native.json').read_text())
@@ -80,5 +102,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--native-binary', type=Path, required=True)
+    parser.add_argument('--suite', action='store_true', help='Exercise persistent drafts, ranges, selective reparse, answer matching and selected exports')
     args = parser.parse_args()
-    asyncio.run(run(args.output.resolve(), args.native_binary.resolve()))
+    asyncio.run(run(args.output.resolve(), args.native_binary.resolve(), suite=args.suite))

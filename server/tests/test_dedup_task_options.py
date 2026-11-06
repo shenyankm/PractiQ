@@ -24,7 +24,7 @@ def source():
 
 def test_false_dedup_preserves_historical_create_payload():
     request = DocumentTaskCreate(requestId=uuid4(), document=source())
-    old_payload = request.model_dump(mode='json', exclude={'officeMode', 'deduplicateQuestions', 'generateAnswers'})
+    old_payload = request.model_dump(mode='json', exclude={'officeMode', 'deduplicateQuestions', 'generateAnswers', 'pages', 'documentRole', 'reparseSelection'})
     assert not DocumentParseInput(document=source()).deduplicateQuestions
     assert task_api._create_payload(request) == old_payload
     assert task_api._create_payload(request.model_copy(update={'deduplicateQuestions': False})) == old_payload

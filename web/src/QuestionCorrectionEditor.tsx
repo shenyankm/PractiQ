@@ -1,17 +1,11 @@
 import { useEffect, useRef, useState } from "react";
+import type { EditorDraft } from "./correctionDrafts";
 import type { ParsedQuestion } from "./contracts.generated";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Select, SelectOption } from "./components/ui/select";
 
-type Props = { question: ParsedQuestion; saving: boolean; checking?: boolean; unconfirmed?: boolean; saveBlocked?: boolean; onSave: (question: ParsedQuestion) => Promise<void>; onCancel: () => void };
-const labels = { choice: "选择题", true_false: "判断题", fill_blank: "填空题", short_answer: "简答题", ordering: "排序题", matching: "匹配题", reading: "阅读理解", word_bank: "选词填空", cloze: "完形填空", listening: "听力题", gap_fill: "语法填空" };
-export default function QuestionCorrectionEditor({ question: startingQuestion, saving, checking = false, unconfirmed = false, saveBlocked = false, onSave, onCancel }: Props) {
-  const firstField = useRef<HTMLTextAreaElement>(null);
-  useEffect(() => { firstField.current?.focus(); }, []);
-  const [question] = useState(startingQuestion);
-  const [draft, setDraft] = useState(question);
-  const [initialAnswer] = useState(() => {
+export function answerText(question: ParsedQuestion): string {
     const a: Record<string, unknown> | null = question.answerPayload;
     if (!a) return "";
     if (Array.isArray(a.correct)) return a.correct.join("、");
@@ -21,9 +15,18 @@ export default function QuestionCorrectionEditor({ question: startingQuestion, s
     if (Array.isArray(a.order)) return a.order.join("、");
     if (Array.isArray(a.matches)) return a.matches.map((p: {left?: number; right?: number} | null) => `${p?.left ?? ""}=${p?.right ?? ""}`).join("\n");
     return "";
-  });
-  const [answer, setAnswer] = useState(initialAnswer);
+}
+type Props = { question: ParsedQuestion; saving: boolean; checking?: boolean; unconfirmed?: boolean; saveBlocked?: boolean; restored?: EditorDraft; onDraftChange?: (value: EditorDraft) => void; onSave: (question: ParsedQuestion) => Promise<void>; onCancel: () => void };
+const labels = { choice: "选择题", true_false: "判断题", fill_blank: "填空题", short_answer: "简答题", ordering: "排序题", matching: "匹配题", reading: "阅读理解", word_bank: "选词填空", cloze: "完形填空", listening: "听力题", gap_fill: "语法填空" };
+export default function QuestionCorrectionEditor({ question: startingQuestion, saving, checking = false, unconfirmed = false, saveBlocked = false, restored, onDraftChange, onSave, onCancel }: Props) {
+  const firstField = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => { firstField.current?.focus(); }, []);
+  const [question] = useState(restored?.original ?? startingQuestion);
+  const [draft, setDraft] = useState(restored?.question ?? question);
+  const [initialAnswer] = useState(() => restored?.initialAnswer ?? answerText(question));
+  const [answer, setAnswer] = useState(restored?.answer ?? initialAnswer);
   const [error, setError] = useState("");
+  useEffect(() => { onDraftChange?.({ original: question, question: draft, answer, initialAnswer }); }, [question, draft, answer, initialAnswer, onDraftChange]);
   const composite = ["reading", "word_bank", "cloze", "listening", "gap_fill"].includes(draft.answerMode || "");
   const itemLabels = draft.answerMode === "matching"
     ? (["left", "right"] as const).flatMap(side => draft.items.filter(item => item.side === side).map((item,index) => `${side === "left" ? "左侧" : "右侧"} ${item.id ?? index} ${item.content ?? ""}`))

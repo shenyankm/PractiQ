@@ -22,6 +22,9 @@ from practiq_ai.bank_export import ZIP_CHUNK_BYTES
 from practiq_ai.config import load, require_model_config
 from practiq_ai.contracts import (
     ArtifactReference,
+    DocumentAnswerMatches,
+    DocumentAnswerProposal,
+    DocumentAnswerSource,
     DocumentCorrections,
     DocumentCorrectionSave,
     DocumentReference,
@@ -262,6 +265,19 @@ async def get_document_corrections(thread_id: UUID) -> DocumentCorrections:
     return await _task_response(task_api.get_corrections(str(thread_id)))
 
 
+@app.get('/api/document-tasks/{thread_id}/answer-matches', response_model=DocumentAnswerMatches)
+async def get_answer_matches(thread_id: UUID, answer_task_id: UUID, checkpoint_id: str = Query(min_length=1, max_length=255)) -> DocumentAnswerMatches:
+    return await _task_response(task_api.answer_matches(str(thread_id), answer_task_id, checkpoint_id))
+
+
+@app.get('/api/document-tasks/{thread_id}/answer-proposal', response_model=DocumentAnswerProposal)
+async def get_answer_proposal(thread_id: UUID, answer_task_id: UUID, question_index: int = Query(ge=0), answer_question_index: int = Query(ge=0),
+                              checkpoint_id: str = Query(min_length=1, max_length=255), answer_checkpoint_id: str = Query(min_length=1, max_length=255),
+                              replace_existing: bool = False) -> DocumentAnswerProposal:
+    source = DocumentAnswerSource(taskId=answer_task_id, checkpointId=answer_checkpoint_id, questionIndex=answer_question_index, replaceExisting=replace_existing)
+    return await _task_response(task_api.answer_proposal(str(thread_id), checkpoint_id, question_index, source))
+
+
 @app.put('/api/document-tasks/{thread_id}/corrections', response_model=DocumentCorrections)
 async def save_document_correction(thread_id: UUID, request: DocumentCorrectionSave) -> DocumentCorrections:
     return await _task_response(task_api.save_correction(str(thread_id), request))
@@ -269,10 +285,15 @@ async def save_document_correction(thread_id: UUID, request: DocumentCorrectionS
 
 @app.get("/api/document-tasks/{thread_id}/export", dependencies=[Depends(export_slot)])
 async def export_document_task(thread_id: UUID, checkpoint_id: str | None = Query(default=None, max_length=255),
-                               scope: str = Query(default='full', pattern='^(full|completed)$'), revision_id: UUID | None = None) -> Response:
+                               scope: str = Query(default='full', pattern='^(full|completed)$'), revision_id: UUID | None = None,
+                               question_index: Annotated[list[int] | None, Query(min_length=1, max_length=2_000)] = None) -> Response:
+    options: dict[str, Any] = {}
+    if question_index is not None:
+        options['question_indexes'] = question_index
+    if revision_id is not None:
+        options['revision_id'] = revision_id
     try:
-        payload = await task_api.export_task(str(thread_id), checkpoint_id, completed=scope == 'completed',
-                                           **({'revision_id': revision_id} if revision_id is not None else {}))
+        payload = await task_api.export_task(str(thread_id), checkpoint_id, completed=scope == 'completed', **options)
     except DocumentProcessingError as exc:
         raise HTTPException(exc.status_code, {"code": exc.code, "message": exc.detail}) from exc
     except DatabaseError as exc:
