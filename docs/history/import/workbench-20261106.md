@@ -31,9 +31,15 @@ The reviewer reproduced post-submission input being lost when a delayed response
 - Lock editable inputs, Radix selectors and option controls during saves/receipt reads. Uncertain saves keep their submitted draft and original ID; explicit retries reuse that request.
 - Register a leave guard at the App task boundary. Draft-only replacement/detail refresh requires discard confirmation. In-flight/uncertain saves block replacement until recovery. Parent mutations use the same guard.
 - Existing hidden workspace containers preserve editors during page navigation. Passive original downloads retain drafts.
-- A definitively rejected first save can unlock input; later errors cannot clear previously unconfirmed request IDs.
+- A definitive validation/concurrency rejection can unlock input, including on replay. Changed-checkpoint, not-ready and read-only errors preserve previously uncertain request IDs.
 
 Review fixes passed the full Web check (280 tests, one skipped), production build, all 60 production-browser cases, and the actual temporary HTTP/PostgreSQL/native ZIP workflow with substitutes. Controlled browser failures use intercepted HTTP; the separate integration flow uses the real service. Results are recorded in `review-fixes.json` and `review-http-native.json`, preserving original acceptance. No service/native source changed for these fixes.
+
+## Hosted review follow-up
+
+Hosted review found that rereading another writer's revision could replace an uncertain request and silently rebase its draft, and that a definitive rejection on retry left the editor locked. Retain the exact submitted request until resolved. Bind drafts to their starting revision and original answer; adopting a newly read revision requires an explicit action. Definitive validation/concurrency rejections release the request so the draft can be corrected or discarded; state changes that cannot establish the earlier outcome retain it.
+
+Passed the full Web check (286 tests, one existing skip), production build, all 63 Chromium cases and the real HTTP/PostgreSQL/native workflow with substitutes. Six component regressions and three controlled browser cases cover this follow-up. The initial focused browser conflict fixture used a top-level error code instead of the service's `detail.code`; corrected the fixture and passed the full rerun. Original results and provider usage remained unchanged. See `review-fixes.json` and `hosted-review-http-native.json` in the retained evidence. Service and native source remain unchanged.
 
 ## Limits
 

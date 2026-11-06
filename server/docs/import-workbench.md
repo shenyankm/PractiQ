@@ -18,10 +18,10 @@ Open a task under **导入记录**, expand a question, and choose **对照原文
 | Editing | Task replacement or detail refresh requires explicit draft-discard confirmation. Other workspace pages hide the editor without unmounting it. |
 | Saving or reading receipts | Inputs, selectors, option controls, save and cancel are locked for the request; task replacement is blocked. |
 | Save succeeded | Close the editor, show the saved result and enable revised export. |
-| Definitively rejected first save | Retain and unlock the draft for correction. |
-| Network failure or uncertain receipt | Retain the submitted draft and original request ID. Inputs and discard remain locked; explicitly read saved revisions or retry the original request. Block task replacement and operations resetting the result view. |
+| Definitive validation/concurrency rejection, including an explicit retry | Release the rejected request ID; retain and unlock the draft for correction or discard. A changed checkpoint/read-only response cannot resolve a previously uncertain save. |
+| Network failure or uncertain receipt | Retain the submitted draft and original request ID. Inputs and discard remain locked; explicitly read saved revisions or retry the exact original request, including its revision and payload. Block task replacement and operations resetting the result view. |
 | Original request ID found | Confirm the previous save without another write and release the task guard. |
-| Another window saved first | Reject overwriting its version. Reload revisions and inspect history before deciding whether to save the draft. |
+| Another window saved first | Reject overwriting its version. Reload revisions and inspect history. Keep the draft bound to its original revision until explicitly choosing to continue on the newly read version; only then issue a new request. |
 | Source verification failure | Display an error and explicit retry; never substitute another source. |
 | Task expiry/deletion | Revisions share the existing task lifetime; downloaded banks are unaffected. |
 | Read-only service | Reads/exports remain available; saves are rejected. |

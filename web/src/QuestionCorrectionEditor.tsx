@@ -4,11 +4,12 @@ import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Select, SelectOption } from "./components/ui/select";
 
-type Props = { question: ParsedQuestion; saving: boolean; checking?: boolean; unconfirmed?: boolean; onSave: (question: ParsedQuestion) => Promise<void>; onCancel: () => void };
+type Props = { question: ParsedQuestion; saving: boolean; checking?: boolean; unconfirmed?: boolean; saveBlocked?: boolean; onSave: (question: ParsedQuestion) => Promise<void>; onCancel: () => void };
 const labels = { choice: "选择题", true_false: "判断题", fill_blank: "填空题", short_answer: "简答题", ordering: "排序题", matching: "匹配题", reading: "阅读理解", word_bank: "选词填空", cloze: "完形填空", listening: "听力题", gap_fill: "语法填空" };
-export default function QuestionCorrectionEditor({ question, saving, checking = false, unconfirmed = false, onSave, onCancel }: Props) {
+export default function QuestionCorrectionEditor({ question: startingQuestion, saving, checking = false, unconfirmed = false, saveBlocked = false, onSave, onCancel }: Props) {
   const firstField = useRef<HTMLTextAreaElement>(null);
   useEffect(() => { firstField.current?.focus(); }, []);
+  const [question] = useState(startingQuestion);
   const [draft, setDraft] = useState(question);
   const [initialAnswer] = useState(() => {
     const a: Record<string, unknown> | null = question.answerPayload;
@@ -32,7 +33,7 @@ export default function QuestionCorrectionEditor({ question, saving, checking = 
   const inputsLocked = locked || unconfirmed;
   async function submit(event: React.FormEvent) {
     event.preventDefault();
-    if (locked) return;
+    if (locked || saveBlocked) return;
     setError("");
     try {
       let payload: ParsedQuestion["answerPayload"] = answer === initialAnswer && draft.answerMode === question.answerMode ? question.answerPayload : null;
@@ -69,6 +70,6 @@ export default function QuestionCorrectionEditor({ question, saving, checking = 
     <label>评分依据<textarea value={draft.scoringRubric ?? ""} maxLength={100000} onChange={e => set({ scoringRubric: e.target.value || null })} /></label>
     </fieldset>
     {error && <p role="alert">{error}</p>}
-    <div className="task-actions"><Button disabled={locked} type="submit">{saving ? "正在保存…" : "保存修订"}</Button><Button type="button" variant="outline" disabled={locked || unconfirmed} onClick={onCancel}>放弃本次修改</Button></div>
+    <div className="task-actions"><Button disabled={locked || saveBlocked} type="submit">{saving ? "正在保存…" : "保存修订"}</Button><Button type="button" variant="outline" disabled={locked || unconfirmed} onClick={onCancel}>放弃本次修改</Button></div>
   </form>;
 }

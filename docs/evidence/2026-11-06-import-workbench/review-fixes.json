@@ -18,5 +18,25 @@
   },
   "realHttpAndNative": "PASSED with substitutes; see review-http-native.json",
   "backendSourceChangedForReviewFix": false,
-  "realProvidersCalled": false
+  "realProvidersCalled": false,
+  "hostedReviewFollowup": {
+    "resolvedComments": [
+      "Retain the exact pending request when reload advances the revision",
+      "Unlock the draft after a definitive replay rejection"
+    ],
+    "webPassed": 286,
+    "webSkipped": 1,
+    "productionBrowserPassed": 63,
+    "newBrowserRegressionCases": 3,
+    "exactRetryIncludes": [
+      "requestId",
+      "expectedRevision",
+      "question"
+    ],
+    "rebaseRequiresExplicitAction": true,
+    "draftOriginalAnswerPreservedAcrossReload": true,
+    "uncertainStateErrorsPreserveRequest": true,
+    "realHttpAndNative": "PASSED with substitutes; see hosted-review-http-native.json",
+    "retainedFailure": "Initial focused browser conflict fixture used a top-level code instead of detail.code. Corrected the fixture to the service error envelope; full rerun passed."
+  }
 }

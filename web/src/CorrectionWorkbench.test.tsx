@@ -173,3 +173,71 @@ it("keeps an unconfirmed request and its submitted draft locked until explicit r
   expect(save).toHaveBeenCalledTimes(2);
   expect(save.mock.calls[1][1].requestId).toBe(id);
 });
+
+it("retries the exact uncertain request after another writer advances the revision", async () => {
+  vi.spyOn(Client.prototype, "evidence").mockResolvedValue({ text: async () => "Original question" } as Blob);
+  const save = vi.spyOn(Client.prototype, "saveCorrection")
+    .mockRejectedValueOnce(new ApiError("lost", "NETWORK_ERROR"))
+    .mockRejectedValueOnce(new ApiError("Other writer", "CORRECTION_CONFLICT", 409))
+    .mockImplementation(async (_id, value) => ({ checkpointId: value.checkpointId, edits: [{ ...value, savedAt: "2026-11-06T00:00:00Z" }] }));
+  const otherId = "22222222-2222-4222-8222-222222222222";
+  vi.spyOn(Client.prototype, "corrections").mockResolvedValue({ checkpointId: task.checkpointId!, edits: [{ requestId: otherId, questionIndex: 0, question: { ...original, stem: "Other writer", answerPayload: { value: true } }, savedAt: "2026-11-06T00:00:00Z" }] });
+  render(<ResultReview task={detail} preview={metadata} client={new Client()} />);
+  const user = await open();
+  await user.click(screen.getByRole("button", { name: "人工校对" }));
+  await user.type(screen.getByRole("textbox", { name: "题干" }), " retained");
+  await user.click(screen.getByRole("button", { name: "保存修订" }));
+  await screen.findByText(/保存请求 ID：/);
+  const submitted = structuredClone(save.mock.calls[0][1]);
+  await user.click(screen.getByRole("button", { name: "重新读取已保存修订" }));
+  await user.click(screen.getByRole("button", { name: "保存修订" }));
+  await screen.findByText("Other writer", { selector: "[role=alert]" });
+  expect(save.mock.calls[1][1]).toEqual(submitted);
+  expect(screen.queryByText(/保存请求 ID：/)).toBeNull();
+  expect(screen.getByRole("button", { name: "保存修订" })).toHaveProperty("disabled", true);
+  expect(screen.getByRole("textbox", { name: "题干" })).toHaveProperty("value", "Original question retained");
+  await user.click(screen.getByRole("button", { name: "保留草稿，在已读取版本上继续" }));
+  await user.click(screen.getByRole("button", { name: "保存修订" }));
+  await screen.findByText(/修订已保存/);
+  expect(save.mock.calls[2][1]).toMatchObject({ expectedRevision: otherId, question: submitted.question });
+  expect(save.mock.calls[2][1].requestId).not.toBe(submitted.requestId);
+});
+
+it.each(["CORRECTION_INVALID", "HTTP_422"])("unlocks a retained request after a definitive %s replay rejection", async code => {
+  vi.spyOn(Client.prototype, "evidence").mockResolvedValue({ text: async () => "Original question" } as Blob);
+  const save = vi.spyOn(Client.prototype, "saveCorrection")
+    .mockRejectedValueOnce(new ApiError("lost", "NETWORK_ERROR"))
+    .mockRejectedValueOnce(new ApiError("Rejected", code, 422))
+    .mockImplementation(async (_id, value) => ({ checkpointId: value.checkpointId, edits: [{ ...value, savedAt: "2026-11-06T00:00:00Z" }] }));
+  render(<ResultReview task={detail} preview={metadata} client={new Client()} />);
+  const user = await open();
+  await user.click(screen.getByRole("button", { name: "人工校对" }));
+  await user.click(screen.getByRole("button", { name: "保存修订" }));
+  await screen.findByText(/保存请求 ID：/);
+  await user.click(screen.getByRole("button", { name: "保存修订" }));
+  await screen.findByText("Rejected");
+  expect(save.mock.calls[1][1]).toEqual(save.mock.calls[0][1]);
+  expect(screen.queryByText(/保存请求 ID：/)).toBeNull();
+  expect(screen.getByRole("button", { name: "放弃本次修改" })).toHaveProperty("disabled", false);
+  await user.type(screen.getByRole("textbox", { name: "题干" }), " corrected");
+  await user.click(screen.getByRole("button", { name: "保存修订" }));
+  await screen.findByText(/修订已保存/);
+  expect(save.mock.calls[2][1].requestId).not.toBe(save.mock.calls[0][1].requestId);
+  expect(save.mock.calls[2][1].question.stem).toBe("Original question corrected");
+});
+
+it.each(["STALE_CHECKPOINT", "CORRECTION_NOT_READY", "SERVICE_READ_ONLY"])("preserves an uncertain request when replay returns %s", async code => {
+  vi.spyOn(Client.prototype, "evidence").mockRejectedValue(Error("unavailable"));
+  const save = vi.spyOn(Client.prototype, "saveCorrection")
+    .mockRejectedValueOnce(new ApiError("lost", "NETWORK_ERROR"))
+    .mockRejectedValueOnce(new ApiError("State changed", code, 409));
+  render(<ResultReview task={detail} preview={metadata} client={new Client()} />);
+  const user = await open();
+  await user.click(screen.getByRole("button", { name: "人工校对" }));
+  await user.click(screen.getByRole("button", { name: "保存修订" }));
+  await screen.findByText(/保存请求 ID：/);
+  await user.click(screen.getByRole("button", { name: "保存修订" }));
+  await screen.findByText("State changed");
+  expect(screen.getByText(new RegExp(save.mock.calls[0][1].requestId))).toBeTruthy();
+  expect(screen.getByRole("textbox", { name: "题干" }).matches(":disabled")).toBe(true);
+});

@@ -1128,3 +1128,73 @@ test("delayed and uncertain correction responses keep submitted input and reques
   expect(http.calls.filter(call => call.method === "PUT")).toHaveLength(1);
   expect(http.server.modelStarts).toBe(0);
 });
+
+test("uncertain correction retries stay bound to their original revision until explicit rebase", async ({ page }) => {
+  const http = await fakeHTTP(page);
+  http.server.review = { ...preview, corrections: { checkpointId: task.checkpointId!, edits: [] } };
+  const otherId = "22222222-2222-4222-8222-222222222222";
+  const writes: Record<string, any>[] = [];
+  http.server.intercept = async (route, call) => {
+    if (!call.path.endsWith("/corrections")) return false;
+    if (call.method === "GET") {
+      await respond(route, { checkpointId: task.checkpointId, edits: [{ requestId: otherId, questionIndex: 1, question: { ...task.result!.questions[1], stem: "Other writer", answerPayload: { correct: ["B"] } }, savedAt: "2026-11-06T00:00:00Z" }] });
+    } else {
+      writes.push(call.body!);
+      if (writes.length === 1) await route.abort("failed");
+      else if (writes.length === 2) await respond(route, { detail: { message: "Other writer", code: "CORRECTION_CONFLICT" } }, 409);
+      else await respond(route, { checkpointId: task.checkpointId, edits: [{ ...call.body, savedAt: "2026-11-06T00:00:00Z" }] });
+    }
+    return true;
+  };
+  await connect(page); await openTask(page);
+  await page.getByText("根据材料选择答案", { selector: "summary span", exact: true }).click();
+  await page.getByRole("button", { name: "对照原文与校对", exact: true }).click();
+  await page.getByRole("button", { name: "人工校对", exact: true }).click();
+  await page.getByRole("textbox", { name: "题干", exact: true }).fill("Retained draft");
+  await page.getByRole("button", { name: "保存修订", exact: true }).click();
+  await expect(page.getByText(/保存请求 ID：/)).toBeVisible();
+  await page.getByRole("button", { name: "重新读取已保存修订", exact: true }).click();
+  await expect(page.getByText(/已重新读取修订/)).toBeVisible();
+  await page.getByRole("button", { name: "保存修订", exact: true }).click();
+  await expect(page.getByText(/保存请求 ID：/)).toHaveCount(0);
+  expect(writes[1]).toEqual(writes[0]);
+  await expect(page.getByRole("button", { name: "保存修订", exact: true })).toBeDisabled();
+  await expect(page.getByRole("textbox", { name: "题干", exact: true })).toHaveValue("Retained draft");
+  await page.getByRole("button", { name: "保留草稿，在已读取版本上继续", exact: true }).click();
+  await page.getByRole("button", { name: "保存修订", exact: true }).click();
+  await expect(page.getByText(/修订已保存/)).toBeVisible();
+  expect(writes[2].expectedRevision).toBe(otherId);
+  expect(writes[2].requestId).not.toBe(writes[0].requestId);
+  expect(writes[2].question).toEqual(writes[0].question);
+  expect(http.server.modelStarts).toBe(0);
+});
+
+for (const code of ["CORRECTION_INVALID", "HTTP_422"]) test(`definitive ${code} replay rejection unlocks the correction draft`, async ({ page }) => {
+  const http = await fakeHTTP(page);
+  http.server.review = { ...preview, corrections: { checkpointId: task.checkpointId!, edits: [] } };
+  const writes: Record<string, any>[] = [];
+  http.server.intercept = async (route, call) => {
+    if (!call.path.endsWith("/corrections") || call.method !== "PUT") return false;
+    writes.push(call.body!);
+    if (writes.length === 1) await route.abort("failed");
+    else if (writes.length === 2) await respond(route, code === "HTTP_422" ? { detail: [{ msg: "invalid" }] } : { detail: { message: "Invalid correction", code } }, 422);
+    else await respond(route, { checkpointId: task.checkpointId, edits: [{ ...call.body, savedAt: "2026-11-06T00:00:00Z" }] });
+    return true;
+  };
+  await connect(page); await openTask(page);
+  await page.getByText("根据材料选择答案", { selector: "summary span", exact: true }).click();
+  await page.getByRole("button", { name: "对照原文与校对", exact: true }).click();
+  await page.getByRole("button", { name: "人工校对", exact: true }).click();
+  await page.getByRole("button", { name: "保存修订", exact: true }).click();
+  await expect(page.getByText(/保存请求 ID：/)).toBeVisible();
+  await page.getByRole("button", { name: "保存修订", exact: true }).click();
+  await expect(page.getByText(/保存请求 ID：/)).toHaveCount(0);
+  expect(writes[1]).toEqual(writes[0]);
+  await expect(page.getByRole("button", { name: "放弃本次修改", exact: true })).toBeEnabled();
+  await page.getByRole("textbox", { name: "题干", exact: true }).fill("Corrected after rejection");
+  await page.getByRole("button", { name: "保存修订", exact: true }).click();
+  await expect(page.getByText(/修订已保存/)).toBeVisible();
+  expect(writes[2].requestId).not.toBe(writes[0].requestId);
+  expect(writes[2].question.stem).toBe("Corrected after rejection");
+  expect(http.server.modelStarts).toBe(0);
+});
