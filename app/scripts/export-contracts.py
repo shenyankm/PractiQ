@@ -9,6 +9,7 @@ from practiq_ai.contracts import (  # noqa: E402
     AnswerMode, BankImportDiagnostic, COMPOSITE_MODES, QUESTION_KIND_MODES, DocumentParseResult, DocumentProcessing,
     DocumentSourceType, DocumentTaskControl, DocumentTaskCreate, DocumentTaskDetail, DocumentTaskHead, DocumentTaskList,
     DocumentTaskReceipt, DocumentTaskReparse, DocumentTaskReview, DocumentTaskSummary, DocumentUploadRequest,
+    DocumentCorrectionSave, DocumentCorrections,
     DocumentUploadResponse, GradeResult, ImportCapabilities, ImportSettingsSnapshot, ImportSourceType, OfficeMode,
 )
 
@@ -62,7 +63,7 @@ def ts_type(node):
 schema = DocumentParseResult.model_json_schema(mode='serialization')
 wire_models = (BankImportDiagnostic, DocumentTaskSummary, DocumentTaskReview, DocumentTaskDetail, DocumentTaskHead, DocumentTaskList,
                DocumentTaskCreate, DocumentTaskControl, DocumentTaskReparse, DocumentTaskReceipt,
-               DocumentUploadRequest, DocumentUploadResponse, ImportCapabilities, ImportSettingsSnapshot, GradeResult)
+               DocumentUploadRequest, DocumentUploadResponse, ImportCapabilities, ImportSettingsSnapshot, GradeResult, DocumentCorrectionSave, DocumentCorrections)
 definitions = {}
 for model in wire_models:
     definitions.update(model.model_json_schema(mode='serialization').get('$defs', {}))

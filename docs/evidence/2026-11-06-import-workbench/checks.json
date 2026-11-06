@@ -1,0 +1,37 @@
+{
+  "service": {
+    "command": "make verify",
+    "passed": 3820,
+    "warnings": 6,
+    "coveragePercent": 93,
+    "recoveryProbes": "PASSED",
+    "packageIntegrity": "PASSED",
+    "wheelSha256": "62a6b539f282a79a5d4816751f2a3e6349006dd1289d1ca49f484c94b1475540",
+    "sdistSha256": "473011c83204ca3c65da3a745f10038d59c63a13c8b1ba43f6e6199581e7237c"
+  },
+  "web": {
+    "passed": 276,
+    "skipped": 1,
+    "types": "PASSED",
+    "lint": "PASSED",
+    "build": "PASSED"
+  },
+  "browser": {
+    "existingSuitePassed": 57,
+    "keyboardFocusPassed": 1,
+    "productionHttpNativeFlow": "PASSED"
+  },
+  "app": {
+    "frontendPassed": 542,
+    "frontendSkipped": 6,
+    "nativePassed": 277,
+    "nativeIgnored": 27,
+    "contracts": "PASSED",
+    "clippy": "PASSED"
+  },
+  "focusedReadAndCorrections": {
+    "passed": 18
+  },
+  "liveProviders": false,
+  "published": false
+}

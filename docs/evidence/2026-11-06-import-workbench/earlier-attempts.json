@@ -1,0 +1,13 @@
+{
+  "firstBrowserAttempt": "Acceptance helper used native selectOption against a Radix button; failed before saving. Corrected helper uses the real accessible combobox/options.",
+  "secondAttempt": "Browser and all native workflow assertions passed, but native report writing failed because PRACTIQ_BENCH_OUTPUT was missing. Same ZIP then passed native rerun.",
+  "finalAttempt": "Entire corrected helper passed, including browser reload, checksum comparison and native report.",
+  "checks": "See acceptance.json. No real providers were called.",
+  "fullServiceFirstRun": {
+    "passed": 3816,
+    "failed": 3,
+    "coveragePercent": 93,
+    "reason": "One old read-path test double lacked Store.aget for the additive corrections read. The shared fixture was completed; focused read/correction checks passed 18/18 before rerunning the full gate."
+  },
+  "screenshots": "Retained from the bounded visual inspection (run 04); final run 05 verifies the final Web behavior without taking another screenshot set."
+}

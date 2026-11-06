@@ -5,7 +5,9 @@ import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
 import { Image as ImageIcon, ChevronLeft, ChevronRight } from "lucide-react";
-import type { ArtifactReference, ContentBlock, DocumentTaskDetail, DocumentTaskReview, ParsedQuestion } from "./contracts.generated";
+import type { ArtifactReference, ContentBlock, DocumentCorrections, DocumentTaskDetail, DocumentTaskReview, ParsedQuestion } from "./contracts.generated";
+import CorrectionWorkbench, { type CorrectionLeaveGuard } from "./CorrectionWorkbench";
+import { Select, SelectOption } from "./components/ui/select";
 import { Client, downloadBlob } from "./api";
 import { Button } from "./components/ui/button";
 import { Badge } from "./components/ui/badge";
@@ -22,7 +24,7 @@ const QuestionRecord = memo(function QuestionRecord({ question }: { question: Pa
     {loaded && <pre className="raw-data">{JSON.stringify(question, null, 2)}</pre>}
   </details>;
 });
-function Blocks({ blocks }: { blocks: ContentBlock[] }) {
+export function Blocks({ blocks }: { blocks: ContentBlock[] }) {
   return <div className="space-y-3">{blocks.map((block, index) => <div key={index}>
     {block.label && <p className="font-medium">{block.label}</p>}
     {block.role && <Badge variant="outline">{block.role}</Badge>}
@@ -122,7 +124,7 @@ function answerItemContent(items: ParsedQuestion["items"], id: number | null | u
   if (id == null) return "未提供答案（null）";
   return items.find((item,index) => (item.id ?? index) === id)?.content ?? `未关联题项（${id}）`;
 }
-function ReferenceAnswer({ question: q }: { question: ParsedQuestion }) {
+export function ReferenceAnswer({ question: q }: { question: ParsedQuestion }) {
   const answer: Record<string, unknown> | null = q.answerPayload;
   if (answer == null) return <p>未提供（null），不会补写答案</p>;
   if (Array.isArray(answer.correct) && answer.correct.every(value => value == null || typeof value === "string")) return <p>{answer.correct.map(value => value ?? "未提供答案（null）").join("、") || "参考答案为空"}</p>;
@@ -144,7 +146,7 @@ function ReferenceAnswer({ question: q }: { question: ParsedQuestion }) {
   return <p>答案结构需人工核对，请展开来源与技术详情。</p>;
 }
 const missingFieldNames: Record<string, string> = { stem:"题干", questionTypeId:"题型", answerMode:"作答方式", choiceVariant:"选择题类型", matchingVariant:"匹配方式", options:"选项", items:"题项", answerPayload:"参考答案", analysis:"解析", sourceText:"来源原文", media:"图片或音频", material:"材料" };
-function QuestionCard({ entry, questions, sourcesById }: { entry: Entry; questions: Map<string, ParsedQuestion | null>; sourcesById: Map<string, NonNullable<DocumentTaskReview>["questionSources"]> }) {
+function QuestionCard({ entry, questions, sourcesById, onCompare }: { entry: Entry; questions: Map<string, ParsedQuestion | null>; sourcesById: Map<string, NonNullable<DocumentTaskReview>["questionSources"]>; onCompare: () => void }) {
   const [expanded, setExpanded] = useState(false);
   const q = entry.question;
   const parent = relatedQuestion(entry, questions, q.parentId);
@@ -154,6 +156,7 @@ function QuestionCard({ entry, questions, sourcesById }: { entry: Entry; questio
     <summary><span className="font-medium">{q.stem?.slice(0, 160) || "题干未提供（null）"}</span><span className="flex flex-wrap gap-2"><Badge variant="outline">{q.answerMode ? questionTypes[q.answerMode] : "题型未知（null）"}</Badge>{q.needsReview && <Badge variant="secondary">需要复核</Badge>}</span></summary>
     {expanded && <div className="space-y-5 pt-4">
       {(q.needsReview || q.missingFields.length > 0) && <p className="notice">需要人工复核{q.missingFields.length > 0 ? `；缺失：${q.missingFields.map(field => missingFieldNames[field] || field).join("、")}` : "；请与原文件核对。"}</p>}
+      <Button variant="outline" onClick={onCompare}>对照原文与校对</Button>
       <section><h4>完整题干</h4><Markdown text={q.stem} /><Markdown text={q.instructions} /><Blocks blocks={[...(q.passage || []), ...q.contentBlocks, ...(q.transcript || [])]} /></section>
       {parent && <section className="material-context"><h4>所属材料 · {parent.id}</h4><Markdown text={parent.stem} /><Markdown text={parent.instructions} /><Blocks blocks={[...(parent.passage || []), ...parent.contentBlocks]} /></section>}
       {(q.options.length > 0 || owner) && <section><h4>{owner ? `共享选项 · ${q.optionSourceId}` : "选项"}</h4>{(owner?.options || q.options).map((option, index) => <div key={index} className="option-row"><span>{option.label ?? "标签未提供（null）"}</span><Markdown text={option.content} /></div>)}</section>}
@@ -164,8 +167,18 @@ function QuestionCard({ entry, questions, sourcesById }: { entry: Entry; questio
     </div>}
   </details>;
 }
-export default function ResultReview({ task, preview, client }: { task: DocumentTaskDetail; preview: DocumentTaskReview | null; client: Client }) {
+export default function ResultReview({ task, preview, client, unavailable = false, onLeaveGuardChange }: { task: DocumentTaskDetail; preview: DocumentTaskReview | null; client: Client; unavailable?: boolean; onLeaveGuardChange?: (guard: CorrectionLeaveGuard) => void }) {
+  const listHeading = useRef<HTMLHeadingElement>(null);
+  const compared = useRef(false);
   const [page, setPage] = useState(0);
+  const [issueFilter, setIssueFilter] = useState("all");
+  const [selectedEntry, setSelectedEntry] = useState<(Entry & { task: DocumentTaskDetail; preview: DocumentTaskReview | null; units: DocumentTaskReview["units"] }) | null>(null);
+  useEffect(() => {
+    if (selectedEntry) compared.current = true;
+    else if (compared.current) { listHeading.current?.focus(); compared.current = false; }
+  }, [selectedEntry]);
+  const [savedCorrections, setSavedCorrections] = useState<DocumentCorrections | null>(null);
+  const corrections = savedCorrections?.checkpointId === task.checkpointId ? savedCorrections : preview?.checkpointId === task.checkpointId ? preview.corrections ?? null : null;
   const [tab, setTab] = useState<"questions" | "sources">("questions");
   const [resourcePage, setResourcePage] = useState(0);
   const [search, setSearch] = useState("");
@@ -177,7 +190,9 @@ export default function ResultReview({ task, preview, client }: { task: Document
   const {units, entries, visuals, groups, questions, sourcesById, sources} = useMemo(() => {
     const units = preview?.units || [];
     const result = (!preview || preview.checkpointId === task.checkpointId) && !units.some(unit => unit.stage === "result" || unit.questions.length) ? task.result : null;
-    const entries: Entry[] = result ? result.questions.map((question, ordinal) => ({question,stage:"result",index:0,ordinal})) : units.flatMap(unit => unit.questions.map((question, ordinal) => ({question,stage:unit.stage,index:unit.index,ordinal})));
+    const originalEntries: Entry[] = result ? result.questions.map((question, ordinal) => ({question,stage:"result",index:0,ordinal})) : units.flatMap(unit => unit.questions.map((question, ordinal) => ({question,stage:unit.stage,index:unit.index,ordinal})));
+    const revised = new Map(corrections?.edits?.map(edit => [edit.questionIndex, edit.question]));
+    const entries = originalEntries.map(entry => entry.stage === "result" && revised.has(entry.ordinal) ? { ...entry, question: revised.get(entry.ordinal)! } : entry);
     const questions = new Map<string,ParsedQuestion | null>();
     for (const entry of entries) {
       if (!entry.question.id) continue;
@@ -192,25 +207,38 @@ export default function ResultReview({ task, preview, client }: { task: Document
     return {units,entries,questions,sourcesById,sources,
       visuals:result?.visualElements || units.flatMap(unit => unit.visualElements || []),
       groups:result?.groups || units.flatMap(unit => unit.groups)};
-  }, [preview, task.checkpointId, task.result, task.processing]);
+  }, [preview, task.checkpointId, task.result, task.processing, corrections]);
   const filteredEntries = useMemo(() => {
     const keyword = search.trim().toLocaleLowerCase();
     const optionMatches = new Map<ParsedQuestion["options"], boolean>();
     return entries.filter(entry => {
       const q = entry.question;
       if (reviewOnly && !q.needsReview) return false;
+      if (issueFilter === "answer" && q.answerPayload != null) return false;
+      if (issueFilter === "type" && q.answerMode && q.questionTypeId) return false;
+      if (issueFilter === "relation" && !q.missingFields.includes("material") && !q.parentId && !q.optionSourceId) return false;
+      if (issueFilter === "answer" && ["reading", "word_bank", "cloze", "listening", "gap_fill"].includes(q.answerMode || "")) return false;
       if (!keyword || [q.id, q.stem, q.sourceText].some(text => text?.toLocaleLowerCase().includes(keyword))) return true;
       const options = relatedQuestion(entry, questions, q.optionSourceId)?.options || q.options;
       if (!optionMatches.has(options)) optionMatches.set(options, options.some(option => option.content?.toLocaleLowerCase().includes(keyword)));
       return optionMatches.get(options)!;
     });
-  }, [entries, questions, search, reviewOnly]);
+  }, [entries, questions, search, reviewOnly, issueFilter]);
   const currentPage = Math.min(page, Math.max(0, Math.ceil(filteredEntries.length / 20) - 1));
   const resourceCount = Math.max(groups.length, visuals.length, units.length, sources.length);
   const currentResourcePage = Math.min(resourcePage, Math.max(0, Math.ceil(resourceCount / 20) - 1));
   const resourceStart = currentResourcePage * 20;
+  if (selectedEntry) {
+    const current = task.checkpointId === selectedEntry.task.checkpointId ? entries.find(entry => entry.stage === selectedEntry.stage && entry.index === selectedEntry.index && entry.ordinal === selectedEntry.ordinal) ?? selectedEntry : selectedEntry;
+    if (current) {
+      const associations = (selectedEntry.preview?.questionSources ?? selectedEntry.task.processing?.questionSources ?? []).filter(source => source.questionId === current.question.id);
+      const relatedUnits = selectedEntry.units.filter(unit => unit.stage !== "result" && (unit.stage === current.stage && unit.index === current.index || associations.some(source => source.stage === unit.stage && source.unitIndex === unit.index)));
+      const original = current.stage === "result" ? selectedEntry.task.result?.questions[current.ordinal] ?? selectedEntry.question : selectedEntry.question;
+      return <CorrectionWorkbench key={`${selectedEntry.task.threadId}:${selectedEntry.task.checkpointId}:${current.ordinal}`} task={selectedEntry.task} preview={selectedEntry.preview} question={current.question} original={original} questionIndex={current.ordinal} units={relatedUnits} corrections={savedCorrections?.checkpointId === selectedEntry.task.checkpointId ? savedCorrections : selectedEntry.preview?.corrections ?? null} client={client} unavailable={unavailable} onLeaveGuardChange={onLeaveGuardChange} onSaved={setSavedCorrections} onClose={() => setSelectedEntry(null)} />;
+    }
+  }
   return <section className="space-y-4" aria-label="解析结果检查">
-    <div className="review-header"><h3>解析结果 · {entries.length} 条题目记录</h3><div className="flex gap-2"><Button aria-pressed={tab === "questions"} variant={tab === "questions" ? "default" : "outline"} onClick={() => setTab("questions")}>题目与材料</Button><Button aria-pressed={tab === "sources"} variant={tab === "sources" ? "default" : "outline"} onClick={() => setTab("sources")}>来源与资源</Button></div></div>
+    <div className="review-header"><h3 ref={listHeading} tabIndex={-1}>解析结果 · {entries.length} 条题目记录</h3><div className="flex gap-2"><Button aria-pressed={tab === "questions"} variant={tab === "questions" ? "default" : "outline"} onClick={() => setTab("questions")}>题目与材料</Button><Button aria-pressed={tab === "sources"} variant={tab === "sources" ? "default" : "outline"} onClick={() => setTab("sources")}>来源与资源</Button></div></div>
     {(task.status === "PARTIAL" || !!task.result?.warnings.length || !!task.result?.missingFields?.length || preview?.quality.reviewRequired) && <section className="notice space-y-2" aria-label="结果提醒">
       {task.status === "PARTIAL" && <p>这是部分结果，失败单元、缺失字段与原始警告会随题库保留。</p>}
       {!!task.result?.warnings.length && <div><h4>结果警告</h4><ul>{task.result.warnings.map((warning, index) => <li key={index}>{warning}</li>)}</ul></div>}
@@ -218,8 +246,8 @@ export default function ResultReview({ task, preview, client }: { task: Document
       {preview?.quality.reviewRequired && <p>待人工复核 {preview.quality.reviewQuestionCount || 0} 题 · 导出保留复核标记</p>}
     </section>}
     {tab === "questions" ? <>
-      {!!entries.length && <div className="review-filters"><label><span>搜索解析题目</span><Input type="search" value={search} placeholder="搜索题目 ID、题干、选项或来源原文" onChange={event => { setSearch(event.target.value); setPage(0); }}/></label><label className="review-checkbox"><input type="checkbox" checked={reviewOnly} onChange={event => { setReviewOnly(event.target.checked); setPage(0); }}/>仅看需要复核</label>{(search || reviewOnly) && <Button variant="outline" onClick={() => { setSearch(""); setReviewOnly(false); setPage(0); }}>清除结果筛选</Button>}<p role="status"><span>显示 {filteredEntries.length} / {entries.length} 条记录</span>{(search.trim() || reviewOnly) && <span className="block">筛选仅影响显示，导出仍包含全部已完成题目。</span>}</p></div>}
-      {filteredEntries.length ? filteredEntries.slice(currentPage * 20, currentPage * 20 + 20).map(entry => <QuestionCard key={JSON.stringify([entry.stage, entry.index, entry.question.id || entry.ordinal])} entry={entry} questions={questions} sourcesById={sourcesById} />) : <p className="text-muted-foreground">{entries.length ? "没有匹配题目，请调整或清除筛选。" : "尚无可查看的题目。"}</p>}
+      {!!entries.length && <div className="review-filters"><label><span>搜索解析题目</span><Input type="search" value={search} placeholder="搜索题目 ID、题干、选项或来源原文" onChange={event => { setSearch(event.target.value); setPage(0); }}/></label><label><span>问题分类</span><Select value={issueFilter} onValueChange={value => { setIssueFilter(value); setPage(0); }}><SelectOption value="all">全部问题</SelectOption><SelectOption value="answer">缺少参考答案</SelectOption><SelectOption value="type">题型信息缺失</SelectOption><SelectOption value="relation">材料与关联核对</SelectOption></Select></label><label className="review-checkbox"><input type="checkbox" checked={reviewOnly} onChange={event => { setReviewOnly(event.target.checked); setPage(0); }}/>仅看需要复核</label>{(search || reviewOnly || issueFilter !== "all") && <Button variant="outline" onClick={() => { setSearch(""); setReviewOnly(false); setIssueFilter("all"); setPage(0); }}>清除结果筛选</Button>}<p role="status"><span>显示 {filteredEntries.length} / {entries.length} 条记录</span>{(search.trim() || reviewOnly || issueFilter !== "all") && <span className="block">筛选仅影响显示，导出仍包含全部已完成题目。</span>}</p></div>}
+      {filteredEntries.length ? filteredEntries.slice(currentPage * 20, currentPage * 20 + 20).map(entry => <QuestionCard key={JSON.stringify([entry.stage, entry.index, entry.question.id || entry.ordinal])} entry={entry} questions={questions} sourcesById={sourcesById} onCompare={() => setSelectedEntry({ ...entry, task, preview, units })} />) : <p className="text-muted-foreground">{entries.length ? "没有匹配题目，请调整或清除筛选。" : "尚无可查看的题目。"}</p>}
       {filteredEntries.length > 20 && <nav className="flex items-center justify-between" aria-label="结果分页"><Button variant="outline" disabled={!currentPage} onClick={() => setPage(currentPage - 1)}><ChevronLeft />上一页题目</Button><span>第 {currentPage * 20 + 1}–{Math.min(filteredEntries.length, currentPage * 20 + 20)} 条，共 {filteredEntries.length} 条</span><Button variant="outline" disabled={(currentPage + 1) * 20 >= filteredEntries.length} onClick={() => setPage(currentPage + 1)}>下一页题目<ChevronRight /></Button></nav>}
     </> : <div className="space-y-4">
       <section><h4>文档分组</h4>{groups.length ? groups.slice(resourceStart,resourceStart+20).map((group, index) => <div key={index} className="resource-card"><strong>{group.title}</strong><Markdown text={group.instructions} /><p>题目关联：{"questionIds" in group ? group.questionIds.join("、") : group.questionIndexes.join("、")}</p></div>) : <p>无文档分组。</p>}</section>

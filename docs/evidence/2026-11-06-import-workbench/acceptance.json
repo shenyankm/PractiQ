@@ -1,0 +1,117 @@
+{
+  "serviceCodeHash": "e8591d42e286247988959442f6a9b1841fad3ed241ea0a33192ab64bb71daa14",
+  "nativeBinarySha256": "db649e6479a4a6aa5fc97a5e89755ce588aca3d67a050186cac2493d031fa078",
+  "status": "PASSED",
+  "liveProviders": false,
+  "scope": "Production Web/HTTP, disposable PostgreSQL/RabbitMQ and local artifacts; release native SQLite. No Tauri IPC or installed-package claim.",
+  "browser": {
+    "status": "PASSED",
+    "samples": [
+      {
+        "name": "desktop-light",
+        "width": 1440,
+        "height": 1040,
+        "noHorizontalOverflow": true
+      },
+      {
+        "name": "narrow-dark",
+        "width": 390,
+        "height": 844,
+        "noHorizontalOverflow": true
+      }
+    ],
+    "providerCallsBefore": 1,
+    "providerCallsAfter": 1,
+    "error": null,
+    "saved": {
+      "checkpointId": "1f1d9a35-d7cb-6b86-800b-30da59cd79a3",
+      "edits": [
+        {
+          "requestId": "16aebb03-34a3-41b9-beea-7382f3726568",
+          "questionIndex": 0,
+          "question": {
+            "id": "q0",
+            "parentId": null,
+            "questionKind": null,
+            "instructions": null,
+            "audioRef": null,
+            "audioStartSeconds": 0,
+            "audioEndSeconds": null,
+            "transcript": [],
+            "examPlayCount": 2,
+            "sourceLanguage": null,
+            "targetLanguage": null,
+            "writingGenre": null,
+            "minWords": null,
+            "maxWords": null,
+            "optionSourceId": null,
+            "passage": [],
+            "allowReuse": false,
+            "blankCount": null,
+            "stem": "人工校对：The Earth orbits the Sun.",
+            "answerMode": "true_false",
+            "questionTypeId": "判断题",
+            "choiceVariant": null,
+            "matchingVariant": null,
+            "items": [],
+            "options": [],
+            "answerPayload": {
+              "value": false
+            },
+            "sourceScore": null,
+            "scoringRubric": null,
+            "scoreSourceText": null,
+            "analysis": "人工核对后保存的解析。",
+            "contentBlocks": [
+              {
+                "label": null,
+                "partType": "text",
+                "questionId": null,
+                "role": null,
+                "textValue": "人工校对：The Earth orbits the Sun.",
+                "markdownValue": null,
+                "latexValue": null,
+                "jsonValue": null
+              }
+            ],
+            "sourceText": "The Earth orbits the Sun.",
+            "confidence": 0.8,
+            "needsReview": true,
+            "missingFields": []
+          },
+          "savedAt": "2026-11-06T05:31:52.975157+00:00"
+        }
+      ]
+    },
+    "threadId": "e2afe34a-87bc-554b-8e6c-c0b9c18485d7"
+  },
+  "zipSha256": "7ee6b65e16d95b27a3c06ad596f99d48b81e3e25950ae6767f4e81d1b4c01c55",
+  "native": [
+    {
+      "backupRestore": true,
+      "correct": 3,
+      "earnedCents": 300,
+      "firstRun": true,
+      "name": "png",
+      "phasesMs": {
+        "backup": 12.45275,
+        "firstPage": 0.6056250000000001,
+        "importZip": 2.0752919999999997,
+        "initialize": 9.332917,
+        "previewPaper": 0.944666,
+        "previewZip": 12.505791,
+        "readResults": 0.254459,
+        "reopen": 1.335291,
+        "restore": 24.005834,
+        "saveAndNavigate": 3.184,
+        "startPaper": 1.702458,
+        "submitPaper": 1.329833
+      },
+      "questions": 3,
+      "reopen": true,
+      "repetition": 0,
+      "totalMs": 75.582375,
+      "zipSha256": "7ee6b65e16d95b27a3c06ad596f99d48b81e3e25950ae6767f4e81d1b4c01c55"
+    }
+  ]
+}

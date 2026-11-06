@@ -1,0 +1,22 @@
+{
+  "resolvedComments": [
+    "P2: preserve edits during delayed saves",
+    "P2: guard task replacement with drafts or unconfirmed request IDs"
+  ],
+  "web": {
+    "passed": 280,
+    "skipped": 1,
+    "types": "PASSED",
+    "lint": "PASSED",
+    "coverage": "PASSED",
+    "build": "PASSED"
+  },
+  "browser": {
+    "productionSuitePassed": 60,
+    "delayedResponseAndTaskSwitchCasesPassed": 2,
+    "mockHttpForControlledFailures": true
+  },
+  "realHttpAndNative": "PASSED with substitutes; see review-http-native.json",
+  "backendSourceChangedForReviewFix": false,
+  "realProvidersCalled": false
+}

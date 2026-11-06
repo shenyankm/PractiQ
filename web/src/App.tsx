@@ -1,4 +1,4 @@
-import { lazy, memo, Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { lazy, memo, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Select, SelectOption } from "./components/ui/select";
 import { Upload, Play, RefreshCw, Download, Trash2, Server, ChevronLeft, ChevronRight, FileText, LoaderCircle, History, Settings, Pause, Square } from "lucide-react";
 import logo from "./assets/octopus.png";
@@ -56,6 +56,14 @@ const dateFormatter = new Intl.DateTimeFormat("zh-CN", { month: "2-digit", day: 
 const dateLabel = (value: string) => { const date = new Date(value); return Number.isNaN(date.getTime()) ? "时间未知" : dateFormatter.format(date); };
 
 export default function App() {
+  const correctionLeaveGuard = useRef<(() => boolean) | null>(null);
+  const registerCorrectionGuard = useCallback((guard: (() => boolean) | null) => { correctionLeaveGuard.current = guard; }, []);
+  function leaveCorrection() {
+    if (correctionLeaveGuard.current?.() !== false) return true;
+    setOperationError("请先处理当前校对：保存或明确放弃草稿；未确认的保存请先重新读取修订。");
+    return false;
+  }
+  function refreshDetail() { if (leaveCorrection()) setDetailRevision(value => value + 1); }
   const [page, setPage] = useState<Page>(() => pageFromHash() ?? "import");
   // Wake the existing pollers on workspace changes without discarding their caches.
   const recordsVisible = useRef(page === "records");
@@ -89,7 +97,7 @@ export default function App() {
     if (panel && !panel.closest("[hidden]")) { panel.focus(); panel.scrollIntoView({ block: "start" }); }
   }
   useLayoutEffect(() => { if (selected) focusTask(); }, [selected]);
-  function selectTask(id: string) { setSelected(id); setDeleteTarget(null); if (id === selected) focusTask(); }
+  function selectTask(id: string) { if (id !== selected && !leaveCorrection()) return false; setSelected(id); setDeleteTarget(null); if (id === selected) focusTask(); return true; }
   const [detail, setDetail] = useState<DocumentTaskDetail | null>(null);
   useLayoutEffect(() => {
     const panel = document.getElementById("task-detail");
@@ -241,8 +249,8 @@ export default function App() {
     return () => current.disconnect();
   }, [connectionRevision]);
 
-  async function run(perform: (current: Client) => Promise<void>) {
-    if (!client || job.current) return;
+  async function run(perform: (current: Client) => Promise<void>, changesTask = true) {
+    if (!client || job.current || (changesTask && !leaveCorrection())) return;
     const id = Symbol(); job.current = id; setBusy(true); setOperationError(null); setNotice(null);
     try { await perform(client); }
     catch (error) { if (client.active && job.current === id) setOperationError(errorText(error)); }
@@ -332,21 +340,21 @@ export default function App() {
 
           {deleteTarget && <div ref={deletePrompt} tabIndex={-1} onKeyDown={event => { if (event.key === "Escape" && !busy) setDeleteTarget(null); }} className="notice delete-confirmation" role="group" aria-label="删除任务确认"><p>确认删除“{deleteTarget.fileName}”及其检查点？已下载的题库不受影响。</p><div className="flex gap-2 mt-3"><Button variant="destructive" disabled={busy} onClick={() => void run(async current => { await current.delete(deleteTarget.threadId); if (current.active) { deleteCompleted.current = true; setSelected(value => value === deleteTarget.threadId ? null : value); setListRevision(value => value + 1); setDeleteTarget(null); setNotice("任务已删除。"); } })}>确认删除</Button><Button variant="outline" disabled={busy} onClick={() => setDeleteTarget(null)}>保留任务</Button></div></div>}
           {selected && <>
-            {detailError && <div className="error-banner" role="alert"><span className="min-w-0 flex-1">{detailError}</span><Button variant="outline" onClick={() => setDetailRevision(value => value + 1)}>重试任务详情</Button></div>}
-            {previewError && <div className="error-banner" role="alert"><span className="min-w-0 flex-1">{previewError}</span><Button variant="outline" onClick={() => setDetailRevision(value => value + 1)}>重试检查点预览</Button></div>}
+            {detailError && <div className="error-banner" role="alert"><span className="min-w-0 flex-1">{detailError}</span><Button variant="outline" onClick={refreshDetail}>重试任务详情</Button></div>}
+            {previewError && <div className="error-banner" role="alert"><span className="min-w-0 flex-1">{previewError}</span><Button variant="outline" onClick={refreshDetail}>重试检查点预览</Button></div>}
             {!detail && !detailError && <p>正在读取任务详情…</p>}
-            {detail && <div className="space-y-6"><div className="task-title"><div><h2>{detail.fileName}</h2><p><Badge variant="outline">{stateLabels[detail.state]}</Badge>{detail.status === "PARTIAL" && <Badge variant="secondary">部分结果</Badge>}</p></div><Button variant="outline" aria-label="刷新任务详情" onClick={() => setDetailRevision(value => value + 1)}><RefreshCw /></Button></div>
+            {detail && <div className="space-y-6"><div className="task-title"><div><h2>{detail.fileName}</h2><p><Badge variant="outline">{stateLabels[detail.state]}</Badge>{detail.status === "PARTIAL" && <Badge variant="secondary">部分结果</Badge>}</p></div><Button variant="outline" aria-label="刷新任务详情" onClick={refreshDetail}><RefreshCw /></Button></div>
               {!detailFresh && <p className="notice">当前显示上次成功读取的信息，任务操作已停用，请先刷新。</p>}
               {preview && preview.checkpointId !== detail.checkpointId && <p className="notice">任务检查点正在更新，读取一致后才能继续或导出。</p>}
               <Progress task={detail} />
               {(detail.blocking.includes("MODEL_RESULT_UNKNOWN") || detail.unknownUsageCalls.length > 0) && <div className="notice" role="alert"><p>模型请求已发送，但结果尚未确认。已保存的题目、检查点和用量记录仍保留。</p><p>请先核对模型供应商的调用记录；继续解析或重试可能再次计费，不会自动重试未知调用。</p></div>}
               {detail.blocking.includes("RUN_DEADLINE_EXCEEDED") && <p className="notice" role="alert">本轮解析已达到运行时限，已保存的进度仍保留。可按可用操作继续解析，后续模型调用可能计费。</p>}
-              <div className="task-actions" aria-label="当前任务操作">{detail.allowedActions.map(action => <Button key={action} variant="outline" disabled={busy || !detailFresh || (!["pause", "interrupt"].includes(action) && !matchingCheckpoint) || (!["pause", "interrupt"].includes(action) && (!detail.modelConfigured || !detail.resumeCompatible))} onClick={() => act(action)}>{action === "pause" ? <Pause /> : action === "interrupt" ? <Square /> : action === "resume" ? <Play /> : <RefreshCw />}{actionLabels[action]}</Button>)}<Button disabled={busy || !canExport} onClick={() => void run(async current => { const exported = await current.exportBank(detail); if (current.active) { downloadBlob(exported.blob, exported.name); setNotice("题库 ZIP 已下载。每次导出包含当前全部已完成内容，重复导入会创建独立题库。请在应用设置中追加导入。"); } })}><Download />下载题库 ZIP</Button></div>
+              <div className="task-actions" aria-label="当前任务操作">{detail.allowedActions.map(action => <Button key={action} variant="outline" disabled={busy || !detailFresh || (!["pause", "interrupt"].includes(action) && !matchingCheckpoint) || (!["pause", "interrupt"].includes(action) && (!detail.modelConfigured || !detail.resumeCompatible))} onClick={() => act(action)}>{action === "pause" ? <Pause /> : action === "interrupt" ? <Square /> : action === "resume" ? <Play /> : <RefreshCw />}{actionLabels[action]}</Button>)}<Button disabled={busy || !canExport} onClick={() => void run(async current => { const exported = await current.exportBank(detail); if (current.active) { downloadBlob(exported.blob, exported.name); setNotice("题库 ZIP 已下载。每次导出包含当前全部已完成内容，重复导入会创建独立题库。请在应用设置中追加导入。"); } }, false)}><Download />下载题库 ZIP</Button></div>
               {detail.state !== "COMPLETED" && <p className="text-sm text-muted-foreground">暂停后可下载已完成题目，需有可用题目且检查点一致。</p>}
               <details className="task-secondary-actions"><summary>其他任务操作</summary><p className="text-sm text-muted-foreground">重新解析会重新提交腾讯识别并创建新的 AI 整理请求，可能再次计费；删除会移除此任务和检查点。已下载的题库不受影响。</p><div className="task-actions"><Button variant="outline" disabled={busy || !detailFresh || !detail.modelConfigured || detail.state === "EXPIRED"} onClick={() => void run(async current => { const receipt = await current.reparse(detail.threadId); if (current.active) { setSelected(value => value === detail.threadId ? receipt.threadId : value); setListRevision(value => value + 1); setDetailRevision(value => value + 1); setNotice("新解析任务已创建。"); } })}><RefreshCw />重新解析为新任务</Button><Button variant="destructive" disabled={busy || !detailFresh || ["RUNNING", "PENDING", "PAUSING"].includes(detail.state)} onClick={() => setDeleteTarget({ threadId: detail.threadId, fileName: detail.fileName })}><Trash2 />删除任务</Button></div></details>
               {!!detail.failures.length && <section className="notice"><h3>失败单元</h3><ul>{detail.failures.map(failure => <li key={`${failure.stage}:${failure.index}`}>{failure.stage} · {failure.index} · {failure.code} · {failure.retryable ? `可重试，剩余 ${failure.retriesRemaining ?? 0} 次` : "不可重试"}</li>)}</ul></section>}
               {(!detail.modelConfigured || !detail.resumeCompatible) && <p className="notice">{!detail.modelConfigured ? "服务端模型未配置。" : "当前模型配置与检查点不兼容。"}继续、重试和接受部分结果暂不可用，现有结果仍可检查。</p>}
-              <ErrorBoundary key={selected} fallback={<RenderFailure />}><Suspense fallback={<p>正在加载结果检查视图…</p>}><ResultReview task={detail} preview={preview} client={client} /></Suspense></ErrorBoundary>
+              <ErrorBoundary key={selected} fallback={<RenderFailure />}><Suspense fallback={<p>正在加载结果检查视图…</p>}><ResultReview task={detail} preview={preview} client={client} unavailable={busy} onLeaveGuardChange={registerCorrectionGuard} /></Suspense></ErrorBoundary>
               <Usage task={detail} />
             </div>}
           </>}
@@ -362,7 +370,7 @@ export default function App() {
       {!client ? <section aria-label="服务状态" className="notice">{capError ? <><p role="alert">{capError}</p><Button variant="outline" onClick={() => setConnectionRevision(value => value + 1)}>重试连接</Button></> : <p role="status">正在读取服务状态…</p>}</section> : <>
         {notice && <p className="notice operation-notice" role="status">{notice}</p>}
         {operationError && <div ref={operationNotice} className="error-banner" role="alert"><span className="min-w-0 flex-1">{operationError}</span></div>}
-        {!!pendingImports.length && <section className="notice" aria-label="未确认的导入提交"><h2>未确认的导入提交</h2><p>原请求 ID 与文件引用已保存在本机，不含文件内容。请先查看导入记录；重试沿用原请求和参数，已有任务会返回原回执，尚未创建则会开始解析并可能计费。</p><p>清除本机恢复记录不会取消服务端任务；之后再次导入会视为新提交，可能重复计费。</p><ul>{pendingImports.map(request => <li key={request.requestId}><p>{request.document.fileName} · 自动去重：{request.deduplicateQuestions ? "开启" : "关闭"}</p>{request.generateAnswers && <p>AI 生成答案与解析：开启</p>}<small>原提交请求 ID：{request.requestId}</small><div className="task-actions"><Button variant="outline" disabled={busy || !capabilities?.modelConfigured || capabilities.parserConfigured === false} onClick={() => void run(async current => { const receipt = await current.retryImport(request.requestId); if (current.active) { navigate("records"); setSelected(receipt.threadId); setListRevision(value => value + 1); setDetailRevision(value => value + 1); setNotice("原提交已确认，正在读取服务端任务。"); } })}>重试原提交</Button><Button variant="ghost" disabled={busy} onClick={() => void run(async current => { current.forgetImport(request.requestId); setNotice("本机恢复记录已清除，服务端任务不受影响。"); })}>已核对，清除恢复记录</Button></div></li>)}</ul></section>}
+        {!!pendingImports.length && <section className="notice" aria-label="未确认的导入提交"><h2>未确认的导入提交</h2><p>原请求 ID 与文件引用已保存在本机，不含文件内容。请先查看导入记录；重试沿用原请求和参数，已有任务会返回原回执，尚未创建则会开始解析并可能计费。</p><p>清除本机恢复记录不会取消服务端任务；之后再次导入会视为新提交，可能重复计费。</p><ul>{pendingImports.map(request => <li key={request.requestId}><p>{request.document.fileName} · 自动去重：{request.deduplicateQuestions ? "开启" : "关闭"}</p>{request.generateAnswers && <p>AI 生成答案与解析：开启</p>}<small>原提交请求 ID：{request.requestId}</small><div className="task-actions"><Button variant="outline" disabled={busy || !capabilities?.modelConfigured || capabilities.parserConfigured === false} onClick={() => void run(async current => { const receipt = await current.retryImport(request.requestId); if (current.active) { navigate("records"); setSelected(receipt.threadId); setListRevision(value => value + 1); setDetailRevision(value => value + 1); setNotice("原提交已确认，正在读取服务端任务。"); } })}>重试原提交</Button><Button variant="ghost" disabled={busy} onClick={() => void run(async current => { current.forgetImport(request.requestId); setNotice("本机恢复记录已清除，服务端任务不受影响。"); }, false)}>已核对，清除恢复记录</Button></div></li>)}</ul></section>}
         {!!pendingReparses.length && <section className="notice" aria-label="未确认的重新解析">
           <h2>未确认的重新解析</h2>
           <p>原任务与请求 ID 已保存在本机，不含文件内容。请先查看导入记录；重试沿用原请求，已有任务会返回原回执，尚未创建则会开始重新解析并可能计费。</p>
@@ -370,12 +378,12 @@ export default function App() {
           <ul>{pendingReparses.map(request => <li key={request.requestId}>
             <p>原任务 ID：{request.threadId}</p><small>原重新解析请求 ID：{request.requestId}</small>
             <div className="task-actions">
-              <Button variant="outline" disabled={busy} onClick={() => { navigate("records"); setSelected(request.threadId); }}>查看原任务</Button>
+              <Button variant="outline" disabled={busy} onClick={() => { if (selectTask(request.threadId)) navigate("records"); }}>查看原任务</Button>
               <Button variant="outline" disabled={busy || !capabilities?.modelConfigured || capabilities.parserConfigured === false} onClick={() => void run(async current => {
                 const receipt = await current.retryReparse(request.requestId);
                 if (current.active) { navigate("records"); setSelected(receipt.threadId); setListRevision(value => value + 1); setDetailRevision(value => value + 1); setNotice("原重新解析请求已确认，正在读取服务端任务。"); }
               })}>重试原重新解析</Button>
-              <Button variant="ghost" disabled={busy} onClick={() => void run(async current => { current.forgetReparse(request.requestId); setNotice("本机重新解析恢复记录已清除，服务端任务不受影响。"); })}>已核对，清除重新解析记录</Button>
+              <Button variant="ghost" disabled={busy} onClick={() => void run(async current => { current.forgetReparse(request.requestId); setNotice("本机重新解析恢复记录已清除，服务端任务不受影响。"); }, false)}>已核对，清除重新解析记录</Button>
             </div>
           </li>)}</ul>
         </section>}

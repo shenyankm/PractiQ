@@ -115,7 +115,7 @@ async def saved_read(monkeypatch):
     snapshot = SimpleNamespace(values={'result': result, 'status': 'SUCCEEDED', 'phase': 'completed', 'chunkRefs': [ref.model_dump(mode='json')]},
                                interrupts=(), next=(), created_at=now.isoformat())
     task = {'document': reference, 'parent_thread_id': None, 'created_at': now, 'expires_at': now + timedelta(days=1)}
-    service = SimpleNamespace(db=SimpleNamespace(store=SimpleNamespace(asearch=AsyncMock(return_value=[]))), checkpoint_id=lambda *_: 'saved-checkpoint')
+    service = SimpleNamespace(db=SimpleNamespace(store=SimpleNamespace(asearch=AsyncMock(return_value=[]), aget=AsyncMock(return_value=None))), checkpoint_id=lambda *_: 'saved-checkpoint')
     read = AsyncMock(return_value=(task, snapshot, None))
     monkeypatch.setattr(task_api, 'client', lambda: service)
     monkeypatch.setattr(task_api, '_read_task', read)

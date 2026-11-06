@@ -22,6 +22,8 @@ from practiq_ai.bank_export import ZIP_CHUNK_BYTES
 from practiq_ai.config import load, require_model_config
 from practiq_ai.contracts import (
     ArtifactReference,
+    DocumentCorrections,
+    DocumentCorrectionSave,
     DocumentReference,
     DocumentSourceType,
     DocumentTaskControl,
@@ -255,11 +257,22 @@ async def preview_document_task(thread_id: UUID, include_result: bool = Query(de
     return await _task_response(task_api.review_task_model(str(thread_id), include_result=include_result))
 
 
+@app.get('/api/document-tasks/{thread_id}/corrections', response_model=DocumentCorrections)
+async def get_document_corrections(thread_id: UUID) -> DocumentCorrections:
+    return await _task_response(task_api.get_corrections(str(thread_id)))
+
+
+@app.put('/api/document-tasks/{thread_id}/corrections', response_model=DocumentCorrections)
+async def save_document_correction(thread_id: UUID, request: DocumentCorrectionSave) -> DocumentCorrections:
+    return await _task_response(task_api.save_correction(str(thread_id), request))
+
+
 @app.get("/api/document-tasks/{thread_id}/export", dependencies=[Depends(export_slot)])
 async def export_document_task(thread_id: UUID, checkpoint_id: str | None = Query(default=None, max_length=255),
-                               scope: str = Query(default='full', pattern='^(full|completed)$')) -> Response:
+                               scope: str = Query(default='full', pattern='^(full|completed)$'), revision_id: UUID | None = None) -> Response:
     try:
-        payload = await task_api.export_task(str(thread_id), checkpoint_id, completed=scope == 'completed')
+        payload = await task_api.export_task(str(thread_id), checkpoint_id, completed=scope == 'completed',
+                                           **({'revision_id': revision_id} if revision_id is not None else {}))
     except DocumentProcessingError as exc:
         raise HTTPException(exc.status_code, {"code": exc.code, "message": exc.detail}) from exc
     except DatabaseError as exc:

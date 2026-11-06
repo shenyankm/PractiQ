@@ -1021,3 +1021,66 @@ it("retains a selected task's details when a filter has no matching rows", async
   expect(screen.getByText("根据材料选择答案")).toBeTruthy();
   expect(http.calls.every(call => call.method === "GET")).toBe(true);
 });
+
+it("confirms draft discard before task replacement and protects refresh and parent mutations", async () => {
+  const http = fakeHTTP(); const user = userEvent.setup();
+  http.records.set(newTaskId, { ...task, threadId: newTaskId, fileName: "second.docx" });
+  http.server.intercept = (url) => {
+    if (url.includes("/preview")) return json({ ...preview, units: [], corrections: { checkpointId: task.checkpointId, edits: [] } });
+  };
+  const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+  render(<App />); await connect(user); await openTask(user);
+  await user.click(screen.getByText("根据材料选择答案", { selector: "summary span" }));
+  await user.click(screen.getByRole("button", { name: "对照原文与校对" }));
+  await user.click(screen.getByRole("button", { name: "人工校对" }));
+  await user.type(screen.getByRole("textbox", { name: "题干" }), " retained draft");
+  vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+  await user.click(screen.getByRole("button", { name: "下载题库 ZIP" }));
+  await waitFor(() => expect(http.calls.some(call => call.url.includes("/export?"))).toBe(true));
+  expect(confirm).not.toHaveBeenCalled();
+  await user.click(screen.getByRole("button", { name: "second.docx" }));
+  expect(confirm).toHaveBeenCalledTimes(1);
+  expect((screen.getByRole("textbox", { name: "题干" }) as HTMLTextAreaElement).value).toContain("retained draft");
+  await user.click(screen.getByRole("button", { name: "刷新任务详情" }));
+  expect(confirm).toHaveBeenCalledTimes(2);
+  await user.click(screen.getByText("其他任务操作"));
+  await user.click(screen.getByRole("button", { name: "重新解析为新任务" }));
+  expect(confirm).toHaveBeenCalledTimes(3);
+  expect(http.calls.filter(call => call.method !== "GET")).toHaveLength(0);
+  confirm.mockReturnValue(true);
+  await user.click(screen.getByRole("button", { name: "second.docx" }));
+  expect(await screen.findByRole("heading", { name: "second.docx", level: 2 })).toBeTruthy();
+  expect(screen.queryByRole("form", { name: "人工校对题目" })).toBeNull();
+});
+
+it("blocks task replacement during delayed or uncertain correction saves and retains the original request ID", async () => {
+  const http = fakeHTTP(); const user = userEvent.setup();
+  http.records.set(newTaskId, { ...task, threadId: newTaskId, fileName: "second.docx" });
+  let reject!: (error: Error) => void;
+  http.server.intercept = (url, init) => {
+    if (url.includes("/preview")) return json({ ...preview, units: [], corrections: { checkpointId: task.checkpointId, edits: [] } });
+    if (url.endsWith("/corrections") && init.method === "PUT") return new Promise((_resolve, fail) => { reject = fail; });
+  };
+  const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+  render(<App />); await connect(user); await openTask(user);
+  await user.click(screen.getByText("根据材料选择答案", { selector: "summary span" }));
+  await user.click(screen.getByRole("button", { name: "对照原文与校对" }));
+  await user.click(screen.getByRole("button", { name: "人工校对" }));
+  await user.type(screen.getByRole("textbox", { name: "题干" }), " submitted");
+  await user.click(screen.getByRole("button", { name: "保存修订" }));
+  await waitFor(() => expect(reject).toBeDefined());
+  const request = http.calls.find(call => call.url.endsWith("/corrections") && call.method === "PUT")!.body!;
+  await user.click(screen.getByRole("button", { name: "second.docx" }));
+  expect(confirm).not.toHaveBeenCalled();
+  expect(screen.getByRole("textbox", { name: "题干" })).toBeTruthy();
+  await act(async () => reject(new TypeError("lost response")));
+  expect(await screen.findByText(new RegExp(String(request.requestId)))).toBeTruthy();
+  await user.click(screen.getByRole("button", { name: "second.docx" }));
+  expect(confirm).not.toHaveBeenCalled();
+  expect(screen.getByText(new RegExp(String(request.requestId)))).toBeTruthy();
+  // Other workspace pages hide the task without unmounting its draft or request.
+  await user.click(screen.getByRole("link", { name: "设置" }));
+  await user.click(screen.getByRole("link", { name: "导入记录" }));
+  expect((screen.getByRole("textbox", { name: "题干" }) as HTMLTextAreaElement).value).toContain("submitted");
+  expect(screen.getByText(new RegExp(String(request.requestId)))).toBeTruthy();
+});
