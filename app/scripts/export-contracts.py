@@ -5,7 +5,8 @@ from typing import get_args
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'server/src'))
-from practiq_ai.contracts import (  # noqa: E402
+from practiq_ai.contracts import (
+    AccountOperation, AccountSecret, AccountResetLink, AccountSessionInfo, AccountTokenInfo, AdministrationUser, AccountUsage, AdministrationAudit, AccountCall, AccountCredentials, AccountChange, AccountUser, AccountSession, AccountReset, AccountLimits, AdministrationSettings, AdministrationUserChange, AccountTokenCreate, AccountPasswordConfirm,  # noqa: E402
     AnswerMode, BankImportDiagnostic, COMPOSITE_MODES, QUESTION_KIND_MODES, DocumentParseResult, DocumentProcessing,
     DocumentSourceType, DocumentTaskControl, DocumentTaskCreate, DocumentTaskDetail, DocumentTaskHead, DocumentTaskList,
     DocumentTaskReceipt, DocumentTaskReparse, DocumentTaskReview, DocumentTaskSummary, DocumentUploadRequest,
@@ -61,7 +62,7 @@ def ts_type(node):
     raise ValueError(f'Unsupported schema type: {node}')
 
 schema = DocumentParseResult.model_json_schema(mode='serialization')
-wire_models = (BankImportDiagnostic, DocumentTaskSummary, DocumentTaskReview, DocumentTaskDetail, DocumentTaskHead, DocumentTaskList,
+wire_models = (AccountOperation, AccountSecret, AccountResetLink, AccountSessionInfo, AccountTokenInfo, AdministrationUser, AccountUsage, AdministrationAudit, AccountCall, AccountCredentials, AccountChange, AccountUser, AccountSession, AccountReset, AccountLimits, AdministrationSettings, AdministrationUserChange, AccountTokenCreate, AccountPasswordConfirm, BankImportDiagnostic, DocumentTaskSummary, DocumentTaskReview, DocumentTaskDetail, DocumentTaskHead, DocumentTaskList,
                DocumentTaskCreate, DocumentTaskControl, DocumentTaskReparse, DocumentTaskReceipt,
                DocumentUploadRequest, DocumentUploadResponse, ImportCapabilities, ImportSettingsSnapshot, GradeResult, DocumentCorrectionSave, DocumentCorrections, DocumentAnswerMatches, DocumentAnswerProposal)
 definitions = {}

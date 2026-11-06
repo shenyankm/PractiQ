@@ -12,6 +12,7 @@ from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 from langgraph.types import StateSnapshot
 from psycopg import Error as DatabaseError
 
+from . import identity
 from .capacity import bounded_map
 from .config import load, require_model_config
 from .contracts import (
@@ -69,13 +70,32 @@ def client():
 
 
 async def get_import_settings() -> ImportSettingsSnapshot:
-    return client().import_control.snapshot
+    snapshot = client().import_control.snapshot
+    if identity.actor.get():
+        user = (await client().db.rows('SELECT preferences FROM auth_users WHERE id=%s', (identity.owner.get(),)))[0]
+        prefs = user['preferences']
+        return ImportSettingsSnapshot(revision=prefs.get('revision', UUID(int=0)), settings=snapshot.settings.model_copy(update={k: prefs.get(k, False) for k in ('deduplicateQuestions', 'generateAnswers')}))
+    return snapshot
 
 
 async def save_import_settings(value: ImportSettingsSnapshot) -> ImportSettingsSnapshot:
     if load().read_only:
         raise DocumentProcessingError(409, 'Service is read-only', 'SERVICE_READ_ONLY')
     service = client()
+    if identity.actor.get():
+        from psycopg.types.json import Jsonb
+        async with service.db.transaction() as conn:
+            user = await (await conn.execute('SELECT preferences FROM auth_users WHERE id=%s', (identity.owner.get(),))).fetchone()
+            assert user is not None
+            if str(value.revision) != str(user['preferences'].get('revision', UUID(int=0))):
+                raise conflict('Preferences changed; reload', 'IMPORT_SETTINGS_CONFLICT')
+            for key in ('tencentConcurrency', 'readRetryCount', 'retryBaseSeconds'):
+                if getattr(value.settings, key) != getattr(service.import_control.snapshot.settings, key):
+                    raise DocumentProcessingError(403, 'Global import settings require administration', 'ADMIN_REQUIRED')
+            prefs = {k: getattr(value.settings, k) for k in ('deduplicateQuestions', 'generateAnswers')}
+            prefs['revision'] = str(uuid4())
+            await conn.execute('UPDATE auth_users SET preferences=%s WHERE id=%s', (Jsonb(prefs), identity.owner.get()))
+        return ImportSettingsSnapshot(revision=UUID(prefs['revision']), settings=value.settings)
     return await service.import_control.save(service.db.store, value)
 
 
@@ -99,6 +119,7 @@ async def _admit(conn):
 
 async def _enqueue(conn, task, request_id, request_hash, *, graph_input=None, command=None, base=None, generation=0):
     await _admit(conn)
+    await identity.admit(conn, task)
     run_id = str(uuid4())
     context = {'documentControl': {'requestId': request_id, 'fingerprint': request_hash,
                                   'generation': generation, 'expiresAt': task['expires_at'].isoformat()}}
@@ -126,7 +147,7 @@ async def _save_receipt(conn, thread_id, request_id, request_hash, response):
 async def create_task(request: DocumentTaskCreate, *, reparse_origin: dict[str, Any] | None = None) -> dict[str, Any]:
     service = client()
     request_id = str(request.requestId)
-    thread_id = str(uuid5(NAMESPACE_URL, f'practiq/document/{request_id}'))
+    thread_id = str(uuid5(NAMESPACE_URL, f'practiq/document/{identity.owner.get()}/{request_id}' if identity.owner.get() else f'practiq/document/{request_id}'))
     request_hash = fingerprint(_create_payload(request))
     async with service.db.transaction() as conn:
         previous = await _replay(conn, thread_id, request_id, request_hash)
@@ -148,9 +169,9 @@ async def create_task(request: DocumentTaskCreate, *, reparse_origin: dict[str, 
                 raise DocumentProcessingError(404, 'Parent task not found', 'TASK_NOT_FOUND')
             require_supported_task(parent)
         seed = await _reparse_seed(service, request) if request.reparseSelection is not None else None
-        task = await (await conn.execute('INSERT INTO document_tasks(thread_id,request_hash,graph_id,document,failure_policy,parent_thread_id,expires_at) VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING *',
+        task = await (await conn.execute('INSERT INTO document_tasks(thread_id,request_hash,graph_id,document,failure_policy,parent_thread_id,expires_at,owner_id) VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *',
             (thread_id, request_hash, request.graphId, json_encode(request.document.model_dump(mode='json')), request.failurePolicy,
-             str(request.parentThreadId) if request.parentThreadId else None, utcnow() + timedelta(minutes=TTL_MINUTES)))).fetchone()
+             str(request.parentThreadId) if request.parentThreadId else None, utcnow() + timedelta(minutes=TTL_MINUTES), identity.owner.get()))).fetchone()
         response = await _enqueue(conn, task, request_id, request_hash,
                                   graph_input={**request.model_dump(mode='json', include={'document', 'failurePolicy', 'officeMode', 'deduplicateQuestions', 'generateAnswers', 'pages', 'documentRole'}),
                                                'requestOrigin': reparse_origin or {'kind': 'create'},
@@ -626,6 +647,8 @@ async def list_tasks(limit: int = 20, offset: int = 0, sha256: str | None = None
     service = client()
     after = None
     scope = [sha256, state_filter, office_mode]
+    if identity.actor.get():
+        scope.append(identity.owner.get())
     if cursor:
         try:
             if offset or len(cursor) > 2048:
@@ -643,6 +666,9 @@ async def list_tasks(limit: int = 20, offset: int = 0, sha256: str | None = None
     params: tuple[Any, ...] = (sha256,) if sha256 else ()
     join: LiteralString = ''
     where = supported_task_sql('t') + source_filter
+    if identity.owner.get():
+        where += ' AND t.owner_id=%s'
+        params += (identity.owner.get(),)
     if office_mode is not None:
         where += (" AND (t.document->>'sourceType') IN ('doc','docx','xls','xlsx')"
                   " AND (SELECT (initial.input->>'officeMode') FROM document_runs initial"

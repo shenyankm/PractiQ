@@ -59,7 +59,7 @@ type Props = { restoreRequestId?: string | null; association?: AnswerAssociation
 export default function CorrectionWorkbench({ restoreRequestId, association, task, preview, question, original, questionIndex, units, corrections, client, onSaved, onClose, unavailable = false, onLeaveGuardChange }: Props) {
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => { heading.current?.focus(); }, []);
-  const [restored, setRestored] = useState(() => correctionDrafts().find(v => v.taskId === task.threadId && v.checkpointId === task.checkpointId && v.questionIndex === questionIndex && (restoreRequestId === undefined || (v.pending?.requestId ?? null) === restoreRequestId)));
+  const [restored, setRestored] = useState(() => correctionDrafts(client.storageScope).find(v => v.taskId === task.threadId && v.checkpointId === task.checkpointId && v.questionIndex === questionIndex && (restoreRequestId === undefined || (v.pending?.requestId ?? null) === restoreRequestId)));
   const [editing, setEditing] = useState(!!restored || !!association);
   const [answerSource, setAnswerSource] = useState(restored?.answerSource ?? restored?.pending?.answerSource ?? association?.source ?? null);
   const associationDraft = useRef<EditorDraft | undefined>(association ? { original: question, question: association.question, initialAnswer: answerText(question), answer: answerText(association.question) } : undefined);
@@ -79,16 +79,16 @@ export default function CorrectionWorkbench({ restoreRequestId, association, tas
   const persistEditor = useCallback((editor: EditorDraft) => {
     editorDraft.current = editor;
     try {
-      putCorrectionDraft({ version: 1, taskId: task.threadId, fileName: task.fileName, checkpointId: task.checkpointId!, questionIndex, revision: draftRevision, answerSource, editor, pending: pendingSave.current, updatedAt: new Date().toISOString() });
+      putCorrectionDraft({ version: 1, taskId: task.threadId, fileName: task.fileName, checkpointId: task.checkpointId!, questionIndex, revision: draftRevision, answerSource, editor, pending: pendingSave.current, updatedAt: new Date().toISOString() }, client.storageScope);
       setStorageError("");
     } catch (e) { setStorageError(e instanceof Error ? e.message : "本机草稿保存失败，请保留页面后重试。"); }
-  }, [task.threadId, task.fileName, task.checkpointId, questionIndex, draftRevision, answerSource]);
+  }, [client.storageScope, task.threadId, task.fileName, task.checkpointId, questionIndex, draftRevision, answerSource]);
   const discard = useCallback(() => {
     try {
-      removeCorrectionDraft({ taskId: task.threadId, checkpointId: task.checkpointId!, questionIndex });
+      removeCorrectionDraft({ taskId: task.threadId, checkpointId: task.checkpointId!, questionIndex }, client.storageScope);
       setRestored(undefined); editorDraft.current = undefined; associationDraft.current = undefined; setAnswerSource(null); setEditing(false); setError(""); setStorageError(""); return true;
     } catch (e) { setStorageError(e instanceof Error ? e.message : "无法清除本机草稿，请重试。"); return false; }
-  }, [task.threadId, task.checkpointId, questionIndex]);
+  }, [client.storageScope, task.threadId, task.checkpointId, questionIndex]);
   useEffect(() => {
     if (!editing && !saving && !reloading && !pendingRequestId) return;
     const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); };
@@ -113,12 +113,12 @@ export default function CorrectionWorkbench({ restoreRequestId, association, tas
     try {
       const request = pendingSave.current ?? { checkpointId: task.checkpointId, expectedRevision: draftRevision, questionIndex, question: value, requestId: crypto.randomUUID(), ...(answerSource ? { answerSource } : {}) };
       if (!editorDraft.current) throw Error("校对草稿尚未保存，请稍后重试。");
-      putCorrectionDraft({ version: 1, taskId: task.threadId, fileName: task.fileName, checkpointId: task.checkpointId, questionIndex, revision: draftRevision, answerSource, editor: editorDraft.current, pending: request, updatedAt: new Date().toISOString() });
+      putCorrectionDraft({ version: 1, taskId: task.threadId, fileName: task.fileName, checkpointId: task.checkpointId, questionIndex, revision: draftRevision, answerSource, editor: editorDraft.current, pending: request, updatedAt: new Date().toISOString() }, client.storageScope);
       pendingSave.current = request;
       setPendingRequestId(pendingSave.current.requestId);
       const saved = await client.saveCorrection(task.threadId, pendingSave.current);
       if (!client.active) return;
-      removeCorrectionDraft({ taskId: task.threadId, checkpointId: task.checkpointId, questionIndex, requestId: pendingSave.current.requestId });
+      removeCorrectionDraft({ taskId: task.threadId, checkpointId: task.checkpointId, questionIndex, requestId: pendingSave.current.requestId }, client.storageScope);
       pendingSave.current = null; setPendingRequestId(null); setRestored(undefined); associationDraft.current = undefined; setAnswerSource(null);
       onSaved(saved); setEditing(false); setNotice("修订已保存。下载修订版会包含全部已保存修改，原始题库保留。");
     } catch (e) {
@@ -127,7 +127,7 @@ export default function CorrectionWorkbench({ restoreRequestId, association, tas
         (!wasUnconfirmed && ["CORRECTION_NOT_READY", "STALE_CHECKPOINT", "SERVICE_READ_ONLY"].includes(e.code))
       )) {
         const rejected = pendingSave.current;
-        if (rejected) { try { removeCorrectionDraft({ taskId: task.threadId, checkpointId: task.checkpointId!, questionIndex, requestId: rejected.requestId }); } catch (storage) { setStorageError(storage instanceof Error ? storage.message : "本机请求记录清理失败。"); } }
+        if (rejected) { try { removeCorrectionDraft({ taskId: task.threadId, checkpointId: task.checkpointId!, questionIndex, requestId: rejected.requestId }, client.storageScope); } catch (storage) { setStorageError(storage instanceof Error ? storage.message : "本机请求记录清理失败。"); } }
         pendingSave.current = null; setPendingRequestId(null);
         if (editorDraft.current) persistEditor(editorDraft.current);
       }
@@ -142,7 +142,7 @@ export default function CorrectionWorkbench({ restoreRequestId, association, tas
       if (saved.checkpointId !== task.checkpointId) throw Error("任务检查点已变化，请刷新任务后再校对。");
       onSaved(saved);
       if (pendingSave.current && saved.edits?.some(edit => edit.requestId === pendingSave.current!.requestId)) {
-        removeCorrectionDraft({ taskId: task.threadId, checkpointId: task.checkpointId!, questionIndex, requestId: pendingSave.current.requestId });
+        removeCorrectionDraft({ taskId: task.threadId, checkpointId: task.checkpointId!, questionIndex, requestId: pendingSave.current.requestId }, client.storageScope);
         pendingSave.current = null; setPendingRequestId(null); setRestored(undefined); associationDraft.current = undefined; setAnswerSource(null); setEditing(false); setNotice("上次保存已确认，修订已经保留，无需重复提交。"); return;
       }
       setNotice("已重新读取修订。正在编辑的草稿保持不变，请核对修改历史后决定是否保存。");

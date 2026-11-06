@@ -200,7 +200,7 @@ describe("source selection and bounded upload", () => {
     for (const [url, init] of fetcher.mock.calls) {
       expect(url).not.toContain("fake-service-token");
       expect(new Headers(init.headers).get("Authorization")).toBeNull();
-      expect(init).toMatchObject({ credentials: "omit", redirect: "error", cache: "no-store" });
+      expect(init).toMatchObject({ credentials: "same-origin", redirect: "error", cache: "no-store" });
     }
     client.disconnect();
   });
@@ -311,7 +311,7 @@ describe("task reads and explicit controls", () => {
     const client = new Client();
     await expect(client.capabilities()).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
     await expect(client.list(0)).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
-    await expect(client.detail(taskId)).rejects.toMatchObject({ status: 401, message: expect.not.stringContaining("fake-secret") });
+    await expect(new Client().detail(taskId)).rejects.toMatchObject({ status: 401, message: expect.not.stringContaining("fake-secret") });
   });
   it("targets running operations by run ID, and checkpoint operations by checkpoint ID", async () => {
     const fetcher = vi.fn().mockImplementation(async (_path: string, init: RequestInit) => json({ ...receipt, requestId: JSON.parse(init.body as string).requestId }, 202)); vi.stubGlobal("fetch", fetcher);

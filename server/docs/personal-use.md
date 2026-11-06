@@ -1,3 +1,9 @@
+# Multi-user service update
+
+The current service uses schema 6 with authenticated user and administrator areas.
+See [accounts and deployment](accounts.md) for current setup and recovery.
+The personal-mode description below is historical and applies to the previous schema-5 deployment only; retain its database and storage separately.
+
 # Personal self-hosted use
 
 PractiQ is an open-source personal document importer and offline practice app. There are no users, phone accounts, account tokens, products, point balances, recharge, checkout or billing APIs. You configure your own model provider and pay that provider directly. Model usage, unknown results, per-task call budgets, provider limits and explicit recovery remain available.

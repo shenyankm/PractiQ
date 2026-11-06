@@ -132,7 +132,7 @@ class ObjectStore:
         return StorageHealth(True, disk.free, disk.total, free_inodes, inodes.f_files if inodes else None)
 
     async def prepare_document(
-        self, request: DocumentUploadRequest
+        self, request: DocumentUploadRequest, *, check_existing: bool = True
     ) -> DocumentUploadResponse:
         assert (
             request.sha256 is not None
@@ -141,7 +141,7 @@ class ObjectStore:
         )
         validate_source_size(request.sizeBytes, request.sourceType, self._config)
         key = document_source_key(request.sourceType, request.sha256)
-        existing_size = await self._head_size(key)
+        existing_size = await self._head_size(key) if check_existing else None
         if existing_size is not None and existing_size != request.sizeBytes:
             raise DocumentProcessingError(
                 409,
@@ -180,8 +180,8 @@ class ObjectStore:
         await self.get_verified(prepared.document)
         return prepared.document
 
-    async def put_document_stream(self, chunks: AsyncIterator[bytes], request: DocumentUploadRequest) -> DocumentReference:
-        prepared = await self.prepare_document(request)
+    async def put_document_stream(self, chunks: AsyncIterator[bytes], request: DocumentUploadRequest, *, check_existing: bool = True) -> DocumentReference:
+        prepared = await self.prepare_document(request, check_existing=check_existing)
         reference = prepared.document
         path = self._path(reference.objectKey)
         await self._call(lambda: path.parent.mkdir(parents=True, exist_ok=True))
@@ -226,7 +226,8 @@ class ObjectStore:
                     await io(validate)
                 if prepared.upload is not None:
                     await io(os.fsync, target.fileno())
-            if prepared.upload is not None:
+            # Non-owners prove exact bytes before checking shared-file existence.
+            if prepared.upload is not None and (check_existing or await self._head_size(reference.objectKey) is None):
                 await io(self._publish, name, path)
             await self.get_verified(reference)
             return reference

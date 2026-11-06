@@ -14,6 +14,7 @@ from PIL import Image
 from psycopg.types.json import Jsonb
 from pydantic import Field, PrivateAttr, model_validator
 
+from . import identity
 from .config import database_uri, load
 from .contracts import (
     GradeResult,
@@ -132,8 +133,8 @@ def _feedback_language(locale: str) -> str:
 def _claim(request: GradeRequest):
     with _database() as db:
         # Concurrent requests wait for the first claim's commit, then observe its receipt.
-        claimed = db.execute("INSERT INTO grades VALUES(%s,%s,NULL) ON CONFLICT(id) DO NOTHING RETURNING id",
-                             (str(request.requestId), request.inputDigest)).fetchone()
+        claimed = db.execute("INSERT INTO grades(id,digest,response,owner_id) VALUES(%s,%s,NULL,%s) ON CONFLICT(id) DO NOTHING RETURNING id",
+                             (str(request.requestId), request.inputDigest, identity.owner.get())).fetchone()
         if claimed:
             return None
         row = db.execute("SELECT digest,response FROM grades WHERE id=%s", (str(request.requestId),)).fetchone()

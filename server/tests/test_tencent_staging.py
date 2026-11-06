@@ -23,6 +23,10 @@ provider = cast(Any, tencent)
 
 @pytest.fixture
 def cos_job(monkeypatch):
+    from practiq_ai import identity
+    monkeypatch.setattr(identity, "reserve", AsyncMock())
+    monkeypatch.setattr(identity, "record_call", AsyncMock())
+    monkeypatch.setattr(identity, "release", AsyncMock())
     for key, value in {'AI_TENCENT_SECRET_ID': 'synthetic-id', 'AI_TENCENT_SECRET_KEY': 'synthetic-secret',
                        'AI_TENCENT_COS_ENABLED': 'true', 'AI_TENCENT_COS_BUCKET': 'fixture-1250000000',
                        'AI_TENCENT_COS_REGION': 'ap-guangzhou'}.items():

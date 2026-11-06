@@ -248,7 +248,7 @@ export default function ResultReview({ task, preview, client, unavailable = fals
   }
   return <section className="space-y-4" aria-label="解析结果检查">
     <div className="review-header"><h3 ref={listHeading} tabIndex={-1}>解析结果 · {entries.length} 条题目记录</h3><div className="flex gap-2"><Button aria-pressed={tab === "questions"} variant={tab === "questions" ? "default" : "outline"} onClick={() => setTab("questions")}>题目与材料</Button><Button aria-pressed={tab === "sources"} variant={tab === "sources" ? "default" : "outline"} onClick={() => setTab("sources")}>来源与资源</Button></div></div>
-    <CorrectionDraftRecovery task={task} onOpen={draft => { const entry = entries.find(e => e.stage === "result" && e.ordinal === draft.questionIndex); if (entry) setSelectedEntry({ ...entry, task, preview, units, recoveryRequestId: draft.pending?.requestId ?? null }); }} />
+    <CorrectionDraftRecovery scope={client.storageScope} task={task} onOpen={draft => { const entry = entries.find(e => e.stage === "result" && e.ordinal === draft.questionIndex); if (entry) setSelectedEntry({ ...entry, task, preview, units, recoveryRequestId: draft.pending?.requestId ?? null }); }} />
     {(task.status === "PARTIAL" || !!task.result?.warnings.length || !!task.result?.missingFields?.length || preview?.quality.reviewRequired) && <section className="notice space-y-2" aria-label="结果提醒">
       {task.status === "PARTIAL" && <p>这是部分结果，失败单元、缺失字段与原始警告会随题库保留。</p>}
       {!!task.result?.warnings.length && <div><h4>结果警告</h4><ul>{task.result.warnings.map((warning, index) => <li key={index}>{warning}</li>)}</ul></div>}

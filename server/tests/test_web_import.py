@@ -29,6 +29,7 @@ def service_token(monkeypatch):
     monkeypatch.setenv("AI_SERVICE_TOKEN", "test-service-token")
 
 
+@pytest.mark.usefixtures("business_http")
 async def test_capabilities_need_no_token_and_report_tencent_configuration(monkeypatch, tmp_path):
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=webapp.app), base_url="http://test") as client:
         assert (await client.get("/api/import-capabilities")).status_code == 200
@@ -53,6 +54,7 @@ async def test_capabilities_need_no_token_and_report_tencent_configuration(monke
         assert not (await client.get("/api/import-capabilities")).json()["modelConfigured"]
 
 
+@pytest.mark.usefixtures("business_http")
 async def test_http_bank_export_requires_current_completed_checkpoint_and_preserves_portable_result(monkeypatch, tmp_path):
     service, _, model = await setup_api(monkeypatch)
     store = object_store(tmp_path)
@@ -82,6 +84,7 @@ async def test_http_bank_export_requires_current_completed_checkpoint_and_preser
         assert missing.status_code == 404
 
 
+@pytest.mark.usefixtures("business_http")
 @pytest.mark.parametrize("read", ["maintenance", "capabilities", "detail", "export"])
 async def test_saved_non_office_reads_survive_unavailable_office_engine(monkeypatch, tmp_path, read):
     engine = tmp_path / "soffice"
@@ -120,6 +123,7 @@ async def test_saved_non_office_reads_survive_unavailable_office_engine(monkeypa
     assert len(model.calls) == 1
 
 
+@pytest.mark.usefixtures("business_http")
 async def test_capabilities_do_not_advertise_directory_as_office_engine(monkeypatch, tmp_path):
     monkeypatch.setenv("AI_OFFICE_EXECUTABLE", str(tmp_path))
     monkeypatch.setenv("AI_OFFICE_VERSION", "LibreOffice 26.8.0.3")
@@ -146,6 +150,7 @@ async def test_non_office_queue_still_runs_after_configured_engine_disappears(mo
     assert len(model.calls) == 1 and len(detail["usage"]) == 1
 
 
+@pytest.mark.usefixtures("business_http")
 async def test_upload_remains_available_in_service_read_only_mode_but_start_is_blocked(monkeypatch, tmp_path):
     await setup_api(monkeypatch)
     store = object_store(tmp_path)
@@ -163,6 +168,7 @@ async def test_upload_remains_available_in_service_read_only_mode_but_start_is_b
         assert created.status_code == 409 and created.json()["detail"]["code"] == "MODEL_NOT_CONFIGURED"
 
 
+@pytest.mark.usefixtures("business_http")
 async def test_original_image_source_is_checked_downloadable_but_other_source_keys_are_rejected(monkeypatch, tmp_path):
     service, _, _ = await setup_api(monkeypatch)
     store = object_store(tmp_path)
@@ -186,6 +192,7 @@ async def test_original_image_source_is_checked_downloadable_but_other_source_ke
         assert (await client.post(endpoint, json={**reference, "objectKey": source.objectKey.replace("source.png", "source.txt"), "mediaType": "text/plain"})).status_code == 404
 
 
+@pytest.mark.usefixtures("business_http")
 async def test_optional_web_assets_preserve_api_precedence_and_missing_assets(tmp_path):
     application = FastAPI()
     application.add_middleware(SecurityHeadersMiddleware)
@@ -219,6 +226,7 @@ def test_openapi_exposes_strict_shared_receipts_and_office_create_mode():
     assert "officeMode" in schema["components"]["schemas"]["DocumentTaskCreate"]["properties"]
 
 
+@pytest.mark.usefixtures("business_http")
 async def test_review_exposes_rendered_source_and_authenticated_ocr_evidence(monkeypatch, tmp_path):
     service, _, model = await setup_api(monkeypatch)
     store = object_store(tmp_path)

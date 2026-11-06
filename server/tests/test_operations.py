@@ -254,6 +254,7 @@ async def test_production_load_binds_remote_configuration_before_submitting(monk
         submit.assert_not_awaited()
 
 
+@pytest.mark.usefixtures("business_http")
 async def test_load_monitor_parses_only_finite_unlabelled_capacity_metrics():
     done = asyncio.Event()
     samples = {}

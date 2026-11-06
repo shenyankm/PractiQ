@@ -1,4 +1,5 @@
 export const en = {
+  "多用户服务：在用户网页的账户与安全中创建个人评分令牌；失效后需手动替换。": "Multi-user service: create a personal grading token under Account and security in the user portal. Replace it explicitly when it expires.",
   "评分点（原始分值）": "Scoring points (original scale)",
   "评分依据：{0}": "Reference: {0}",
   "作答引用：{0}": "Answer quotation: {0}",

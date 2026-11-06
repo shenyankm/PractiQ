@@ -255,6 +255,7 @@ async def test_retry_through_api_and_review_accept(monkeypatch):
     assert len(model.calls) == len(state["usage"]) == 4
 
 
+@pytest.mark.usefixtures("business_http")
 async def test_control_input_auth_and_http_errors(monkeypatch):
     monkeypatch.setenv("AI_SERVICE_TOKEN", "test-token")
     headers = {"Authorization": "Bearer test-token"}
@@ -412,6 +413,7 @@ async def test_control_replays_request_admitted_during_preflight_read(monkeypatc
     assert len(runs) == 1
 
 
+@pytest.mark.usefixtures("business_http")
 @pytest.mark.parametrize('deployment', ['read_only', 'incompatible'])
 async def test_review_acceptance_requires_model_enabled_compatible_deployment(monkeypatch, deployment):
     api, reference, model = await setup_api(monkeypatch, [parsed('Absent from source')])
@@ -453,6 +455,7 @@ async def test_review_acceptance_requires_model_enabled_compatible_deployment(mo
     assert len(model.calls) == 1
 
 
+@pytest.mark.usefixtures("business_http")
 async def test_quality_only_review_acceptance_is_idempotent_and_not_retryable(monkeypatch):
     api, reference, model = await setup_api(monkeypatch, [parsed('Absent from source')])
     created = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference), failurePolicy='review'))
@@ -564,6 +567,7 @@ async def test_status_filter_paginates_after_scanning_all_records(monkeypatch):
     assert not (await task_api.list_tasks(state_filter='active'))['items']
 
 
+@pytest.mark.usefixtures("business_http")
 async def test_head_returns_only_current_read_state_without_building_usage_or_results(monkeypatch):
     service, reference, model = await setup_api(monkeypatch, [parsed()])
     created = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(),document=DocumentReference.model_validate(reference)))
@@ -583,6 +587,7 @@ async def test_head_returns_only_current_read_state_without_building_usage_or_re
         assert response.status_code == 200 and response.json() == head
 
 
+@pytest.mark.usefixtures("business_http")
 async def test_legacy_csv_reparse_returns_controlled_http_error_and_preserves_saved_task(monkeypatch):
     service, reference, model = await setup_api(monkeypatch)
     receipt = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))

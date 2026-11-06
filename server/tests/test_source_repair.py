@@ -272,7 +272,7 @@ def test_valid_source_cli_loads_configuration_before_dispatch(monkeypatch):
 
     async def dispatch(action, run_id, **options):
         load_configuration.assert_called_once_with(SERVER_ROOT.parent / '.env', override=False)
-        assert (action, run_id, options) == ('repair-source', None, {'thread_id': thread_id, 'source': source})
+        assert (action, run_id, options) == ('repair-source', None, {'thread_id': thread_id, 'source': source, 'backup_bundle': None})
 
     run = AsyncMock(side_effect=dispatch)
     monkeypatch.setattr(manage, 'run', run)

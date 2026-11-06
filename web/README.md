@@ -1,3 +1,9 @@
+# Multi-user service update
+
+The current service uses schema 6 with authenticated user and administrator areas.
+See [accounts and deployment](../server/docs/accounts.md) for current setup and recovery.
+The personal-mode description below is historical and applies to the previous schema-5 deployment only; retain its database and storage separately.
+
 # PractiQ AI import Web
 
 This React/Vite frontend uses the local personal service to upload source documents, inspect tasks and download question-bank ZIPs. Practice remains in the offline app. No account, phone, products, point balance or checkout is required. See [personal use](../server/docs/personal-use.md).

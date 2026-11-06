@@ -7,6 +7,14 @@ import type { DocumentTaskDetail, ImportSettingsSnapshot } from "./contracts.gen
 
 beforeEach(() => window.history.replaceState(null, "", "/"));
 
+it("opens the requested saved task directly without a list selection or mutation", async () => {
+  const http = fakeHTTP();
+  render(<App initialTaskId={taskId} />);
+  expect(await screen.findByRole('heading', {name:'sample.docx'})).toBeTruthy();
+  expect(http.calls.some(call => call.url === `/api/document-tasks/${taskId}`)).toBe(true);
+  expect(http.calls.every(call => call.method === 'GET')).toBe(true);
+});
+
 it("opens the import workspace automatically without a service token", async () => {
   const http = fakeHTTP();
   render(<App />);
@@ -947,16 +955,16 @@ it("sidebar navigation preserves selected files and settings drafts without star
   expect(screen.getByRole("link", { name: "开始导入" }).getAttribute("aria-current")).toBe("page");
   await user.upload(screen.getByLabelText("选择文档"), new File(["unchanged"], "pending.txt"));
   await user.click(screen.getByRole("link", { name: "设置" }));
-  const concurrency = await screen.findByLabelText("腾讯识别并发上限"); await user.clear(concurrency); await user.type(concurrency, "3");
+  const concurrency = await screen.findByLabelText("腾讯识别并发上限"); expect(concurrency).toHaveProperty("disabled", true);
   await user.click(screen.getByRole("link", { name: "导入记录" }));
   expect(await screen.findByRole("table", { name: "文档导入记录" })).toBeTruthy();
   expect(screen.getByRole("columnheader", { name: "待复核" })).toBeTruthy();
   expect(screen.getByRole("table", { name: "文档导入记录" }).querySelectorAll("tbody .record-number")[1].textContent).toBe("待复核 2");
   await user.click(screen.getByRole("link", { name: "开始导入" }));
   expect(screen.getByText("pending.txt")).toBeTruthy();
-  expect(screen.getByRole("button", { name: "开始导入" })).toHaveProperty("disabled", true);
+  expect(screen.getByRole("button", { name: "开始导入" })).toHaveProperty("disabled", false);
   await user.click(screen.getByRole("link", { name: "设置" }));
-  expect(concurrency).toHaveProperty("value", "3");
+  expect(concurrency).toHaveProperty("value", "5");
   expect(http.calls.filter(call => call.method === "POST")).toHaveLength(0);
 });
 
@@ -1099,4 +1107,14 @@ it.each(["txt", "md"])("allows fixing a locally rejected page range without rese
   await screen.findByText(/任务已创建。/);
   const creates = http.calls.filter(call => call.url === "/api/document-tasks" && call.method === "POST");
   expect(creates).toHaveLength(1); expect(creates[0].body?.pages).toBeUndefined();
+});
+
+it.each(['USER_QUOTA_EXCEEDED', 'FREE_PAGE_QUOTA_EXCEEDED'])("explains %s without automatically resuming paid work", async (reason) => {
+  const http = fakeHTTP({ ...task, state: "PAUSED", blocking: [{ kind: "pause", reason }], allowedActions: ["resume"] });
+  const user = userEvent.setup();
+  render(<App />); await connect(user);
+  await user.click(screen.getByRole("link", { name: "导入记录" }));
+  await user.click(await screen.findByRole("button", { name: "sample.docx" }));
+  expect(await screen.findByText(reason === 'USER_QUOTA_EXCEEDED' ? /每日调用额度已用尽/ : /剩余免费页数不足，本次识别未提交/)).toBeTruthy();
+  expect(http.calls.every(call => call.method === 'GET')).toBe(true);
 });

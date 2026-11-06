@@ -95,6 +95,7 @@ async def test_configured_read_retries_and_base_delay_do_not_repeat_submissions(
     assert all(0 < call.args[0] <= 1 for call in sleep.await_args_list)
 
 
+@pytest.mark.usefixtures("business_http")
 @pytest.mark.usefixtures('disposable_databases')
 async def test_settings_survive_service_restart_and_reject_stale_writes(monkeypatch):
     service, _, model = await setup_api(monkeypatch)
@@ -122,6 +123,7 @@ async def test_settings_survive_service_restart_and_reject_stale_writes(monkeypa
     assert not model.calls
 
 
+@pytest.mark.usefixtures("business_http")
 @pytest.mark.parametrize('omitted', ['tencentConcurrency', 'readRetryCount', 'retryBaseSeconds'])
 @pytest.mark.usefixtures('disposable_databases')
 async def test_settings_put_rejects_incomplete_snapshots_without_overwriting_saved_values(monkeypatch, omitted):

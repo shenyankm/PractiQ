@@ -1,0 +1,126 @@
+import { afterEach, expect, it, vi } from 'vitest';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import AccountPortal from './AccountPortal';
+import { setAccount, storageKey } from './accountClient';
+const response = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json' } });
+const anonymous = { user: null, csrf: 'test-csrf', registrationEnabled: true };
+afterEach(() => { cleanup(); setAccount(null); vi.unstubAllGlobals(); });
+it('discards an older session response after a newer account reload completes', async () => {
+  const {capabilities, taskId} = await import('./test-fixtures');
+  let finishFirst!: (value: Response) => void;
+  const first = new Promise<Response>(resolve => {finishFirst = resolve;});
+  let reads = 0;
+  const account = (id: string) => ({...anonymous,csrf:`csrf-${id}`,user:{id,email:`${id}@example.test`,name:'',role:'user',enabled:true}});
+  const fetcher = vi.fn(async (path: string) => {
+    if (path === '/api/auth/session') return ++reads === 1 ? first : response(account('new'));
+    if (path === '/api/import-capabilities') return response(capabilities);
+    if (path === '/api/import-settings') return response({revision:taskId,settings:{tencentConcurrency:5,readRetryCount:2,retryBaseSeconds:1,deduplicateQuestions:false,generateAnswers:false}});
+    return response({items:[],hasMore:false});
+  }); vi.stubGlobal('fetch',fetcher);
+  render(<AccountPortal />);
+  await waitFor(() => expect(reads).toBe(1));
+  act(() => {window.dispatchEvent(new Event('practiq-session-expired'));});
+  await screen.findByText('new@example.test');
+  await act(async () => {finishFirst(response(account('old'))); await first;});
+  expect(screen.queryByText('old@example.test')).toBeNull();
+  expect(storageKey('draft')).toBe('draft.user.new');
+});
+it('loads an anonymous session and exposes login, registration and assisted recovery', async () => {
+  const fetcher = vi.fn(async (_path: string, _init?: RequestInit) => response(anonymous)); vi.stubGlobal('fetch', fetcher);
+  render(<AccountPortal />);
+  expect(await screen.findByRole('heading', { name: '登录 PractiQ' })).toBeTruthy();
+  expect(screen.getByRole('link', { name: '注册账户' })).toBeTruthy();
+  expect(screen.getByText(/忘记密码请联系管理员/)).toBeTruthy();
+  expect(fetcher).toHaveBeenCalledTimes(1);
+  expect(fetcher.mock.calls[0][0]).toBe('/api/auth/session');
+});
+it('submits login with session CSRF and retains a rejected login without replay', async () => {
+  const fetcher = vi.fn(async (path: string, _init?: RequestInit) => path === '/api/auth/session' ? response(anonymous) : response({ detail: { code: 'INVALID_CREDENTIALS' } }, 401)); vi.stubGlobal('fetch', fetcher);
+  render(<AccountPortal />); const user = userEvent.setup();
+  await user.type(await screen.findByLabelText('登录邮箱'), 'one@example.test');
+  await user.type(screen.getByLabelText('密码'), 'long-test-password');
+  await user.click(screen.getByRole('button', { name: '登录' }));
+  expect(await screen.findByRole('alert')).toHaveProperty('textContent', '邮箱或密码错误，或账户已停用。');
+  expect(fetcher.mock.calls.filter(([path]) => path === '/api/auth/login')).toHaveLength(1);
+  const init = fetcher.mock.calls[1][1] as RequestInit;
+  expect(new Headers(init.headers).get('X-CSRF-Token')).toBe('test-csrf');
+  expect(init.credentials).toBe('same-origin');
+});
+it('namespaces local recovery by authenticated user and never adopts old keys', () => {
+  setAccount({ ...anonymous, user: { id: 'user-one', email: 'one@example.test', name: '', role: 'user', enabled: true } });
+  expect(storageKey('practiq-import-intents-v1')).toBe('practiq-import-intents-v1.user.user-one');
+  setAccount({ ...anonymous, user: { id: 'user-two', email: 'two@example.test', name: '', role: 'user', enabled: true } });
+  expect(storageKey('practiq-import-intents-v1')).toBe('practiq-import-intents-v1.user.user-two');
+});
+it('lets an administrator select a user, change limits and issue a bounded reset link explicitly', async () => {
+  history.replaceState(null, '', '/admin');
+  const userRow = { id: 'selected-user', email: 'other@example.test', name: '', role: 'user', enabled: true, limits: { freePages:50 } };
+  const fetcher = vi.fn(async (path: string, init?: RequestInit) => {
+    if (path === '/api/auth/session') return response({ ...anonymous, user: { ...userRow, id: 'admin', role: 'admin' } });
+    if (path === '/api/admin/users?offset=0') return response([userRow]);
+    if (path === '/api/admin/settings') return response({registrationEnabled:true,freePages:50,modelCalls:123,tencentCalls:9,activeTasks:3});
+    if (path.endsWith('/reset-link')) return response({ path: '/reset-password#once-only-reset' });
+    expect(init?.method).toBe('PATCH'); return response({ ok: true });
+  }); vi.stubGlobal('fetch', fetcher);
+  render(<AccountPortal />); const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', { name: '选择' }));
+  expect(screen.getByLabelText('用户编号', { selector: '#user-id' })).toHaveProperty('value', 'selected-user');
+  expect(screen.getByLabelText('每日模型调用数')).toHaveProperty('value', '123');
+  const pages = screen.getByLabelText('免费页数总额度（含已用页数）');
+  expect(pages).toHaveProperty('value', '50');
+  await user.clear(pages); await user.type(pages, '75');
+  await user.type(screen.getByLabelText('管理员当前密码', { selector: '#admin-password' }), 'long-test-password');
+  await user.click(screen.getByRole('button', { name: '更新指定用户' }));
+  await screen.findByText('操作已完成。');
+  expect(fetcher.mock.calls.some(([path, init]) => path === '/api/admin/users/selected-user' && init?.method === 'PATCH')).toBe(true);
+  const update = fetcher.mock.calls.find(([path, init]) => path === '/api/admin/users/selected-user' && init?.method === 'PATCH');
+  expect(JSON.parse(update?.[1]?.body as string).limits.freePages).toBe(75);
+  expect(JSON.parse(update?.[1]?.body as string).limits.modelCalls).toBe(123);
+  await user.type(screen.getByLabelText('管理员当前密码', { selector: '#reset-admin-password' }), 'long-test-password');
+  await user.click(screen.getByRole('button', { name: '生成一次性重置链接' }));
+  expect(await screen.findByLabelText('一次性重置链接')).toHaveProperty('value', expect.stringContaining('#once-only-reset'));
+  history.replaceState(null, '', '/');
+});
+it('denies the administration UI to a normal user without fetching administrative records', async () => {
+  history.replaceState(null, '', '/admin');
+  const fetcher = vi.fn(async () => response({ ...anonymous, user: { id: 'ordinary', email: 'one@example.test', name: '', role: 'user', enabled: true } })); vi.stubGlobal('fetch', fetcher);
+  render(<AccountPortal />);
+  expect(await screen.findByRole('alert')).toHaveProperty('textContent', '没有管理权限。');
+  expect(fetcher).toHaveBeenCalledTimes(1);
+  history.replaceState(null, '', '/');
+});
+it('keeps pending records bound to the original account and stops its client after a switch', async () => {
+  const { Client } = await import('./api');
+  const snapshot = (id: string) => ({ ...anonymous, user: { id, email: `${id}@example.test`, name: '', role: 'user' as const, enabled: true } });
+  setAccount(snapshot('one')); const first = new Client();
+  const sha = 'a'.repeat(64);
+  const pending = { requestId: '11111111-1111-4111-8111-111111111111', graphId: 'document_parser', failurePolicy: 'return_partial', document: { sourceType: 'text', fileName: 'private-one.txt', mediaType: 'text/plain', sizeBytes: 4, sha256: sha, objectKey: `practiq-agent/sources/${sha}/source.txt` } };
+  localStorage.setItem(storageKey('practiq-import-intents-v1'), JSON.stringify([pending]));
+  setAccount(snapshot('two')); const second = new Client();
+  expect(first.active).toBe(false);
+  expect(second.pendingImports()).toEqual([]);
+  expect(first.pendingImports()).toEqual([pending]);
+  await expect(first.capabilities()).rejects.toHaveProperty('name','AbortError');
+  localStorage.clear();
+});
+it('preserves selected source files across portal pages without submitting them', async () => {
+  const { capabilities, taskId } = await import('./test-fixtures');
+  const fetcher = vi.fn(async (path: string) => {
+    if (path === '/api/auth/session') return response({ ...anonymous, user: { id:'navigation', email:'one@example.test', name:'', role:'user', enabled:true } });
+    if (path === '/api/import-capabilities') return response(capabilities);
+    if (path === '/api/import-settings') return response({ revision:taskId, settings:{ tencentConcurrency:5, readRetryCount:2, retryBaseSeconds:1, deduplicateQuestions:false, generateAnswers:false } });
+    if (path.startsWith('/api/me/usage')) return response({ limits:{freePages:50,modelCalls:1000,tencentCalls:50,activeTasks:2},usedPages:50,remainingPages:0,daily:[],calls:[{call_key:'unknown-call',scope:'grade:test',kind:'modelCalls',day:'2026-11-07',record:{status:'started',usageStatus:'unknown'}}] });
+    return response({items:[],hasMore:false});
+  }); vi.stubGlobal('fetch',fetcher);
+  render(<AccountPortal />); const user = userEvent.setup();
+  await user.upload(await screen.findByLabelText('选择文档'),new File(['private source'],'pending-portal.txt',{type:'text/plain'}));
+  await user.click(screen.getByRole('button',{name:'用量'}));
+  await screen.findByRole('heading',{name:'个人用量'});
+  expect(await screen.findByText('未知用量')).toBeTruthy();
+  expect(screen.getByText(/免费识别额度：剩余 0 \/ 50 页/)).toBeTruthy();
+  expect(screen.getByText(/免费页数已用尽/)).toBeTruthy();
+  await user.click(screen.getByRole('button',{name:'导入工作区'}));
+  expect(screen.getByText('pending-portal.txt')).toBeTruthy();
+  expect(fetcher.mock.calls.some(([path]) => path === '/api/uploads' || path === '/api/document-tasks')).toBe(false);
+});

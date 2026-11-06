@@ -96,3 +96,11 @@ npm run test:browser
 Report reproducible bugs or propose improvements through [GitHub Issues](https://github.com/shenyankm/PractiQ/issues/new/choose). Follow [the contribution guide](CONTRIBUTING.md) for changes and [the security policy](SECURITY.md) for private vulnerability reports.
 
 Project source uses the [MIT license](LICENSE). Bundled dependencies retain their [upstream notices](app/licenses/README.md).
+
+## User and administrator Web
+
+The service now targets schema 6 with a personal portal and `/admin`. Start with a
+new database, storage root and RabbitMQ vhost, then explicitly bootstrap an
+administrator offline. The first release does not verify email or send mail.
+See [account setup and recovery](server/docs/accounts.md). Offline macOS practice
+and direct model grading remain independent of service accounts.

@@ -1125,6 +1125,10 @@ async def _prepare(state: DocumentState, runtime: Runtime[None], *, source_types
         if source_type in OFFICE_SOURCE_TYPES and count >= settings.max_document_pages:
             truncated = True
             warnings.append("Office recognition reached the configured page limit; review the original for additional content.")
+        page_limit = job.get('pageLimit', settings.max_document_pages)
+        if source_type in {*OFFICE_SOURCE_TYPES, 'text', 'markdown'} and count >= page_limit and page_limit < settings.max_document_pages:
+            truncated = True
+            warnings.append("Recognition reached the account's remaining free page quota; additional source pages may be unprocessed. Contact an administrator before explicitly parsing again.")
         if job.get("FailPageNum") or len(decoded) != count:
             truncated = True
             warnings.append("Tencent parsing contains failed or missing pages; retain human review.")

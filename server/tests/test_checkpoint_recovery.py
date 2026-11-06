@@ -22,6 +22,7 @@ from tests.support import parsed
 pytestmark = pytest.mark.usefixtures('disposable_databases')
 
 
+@pytest.mark.usefixtures("business_http")
 @pytest.mark.parametrize('result', [{'schemaVersion': 999}, None, 'unreadable'])
 async def test_unreadable_checkpoint_is_isolated_during_restart_and_remains_deletable(monkeypatch, result):
     service, reference, model = await setup_api(monkeypatch, [parsed('damaged'), parsed('healthy'), parsed('new')])

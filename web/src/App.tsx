@@ -28,10 +28,12 @@ const pollRetryDelay = (failures: number) => Math.min(30_000, 3000 * 2 ** Math.m
 const sizeLabel = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1)} MiB`;
 
 function Progress({ task }: { task: DocumentTaskDetail }) {
+  const quotaBlocked = task.blocking.some(value => value === 'USER_QUOTA_EXCEEDED' || value && typeof value === 'object' && 'reason' in value && value.reason === 'USER_QUOTA_EXCEEDED');
+  const pagesBlocked = task.blocking.some(value => value === 'FREE_PAGE_QUOTA_EXCEEDED' || value && typeof value === 'object' && 'reason' in value && value.reason === 'FREE_PAGE_QUOTA_EXCEEDED');
   const jobs = task.parserJobs || [];
   const active = ["RUNNING", "PENDING", "PAUSING"].includes(task.state);
   const uncertain = jobs.some(job => job.status === "Unknown" || (job.status === "SUBMITTING" && !job.taskId && !active));
-  return <>{!!jobs.length && <section aria-label="腾讯文档识别"><p role="status">腾讯文档识别：已保存 {jobs.filter(job => job.resultSaved).length} 个任务结果 · 处理中 {jobs.filter(job => ["STAGING", "Created", "Processing"].includes(job.status) || (active && job.status === "SUBMITTING")).length} 个任务</p>
+  return <>{pagesBlocked && <p className="notice" role="status">剩余免费页数不足，本次识别未提交。新账户默认共有 50 页免费额度，不按日恢复；请联系管理员调整额度后手动继续。已保存结果仍可查看和下载。</p>}{quotaBlocked && <p className="notice" role="status">每日调用额度已用尽。额度按新加坡时间零点重置；恢复后请手动继续任务，也可联系管理员调整额度。</p>}{!!jobs.length && <section aria-label="腾讯文档识别"><p role="status">腾讯文档识别：已保存 {jobs.filter(job => job.resultSaved).length} 个任务结果 · 处理中 {jobs.filter(job => ["STAGING", "Created", "Processing"].includes(job.status) || (active && job.status === "SUBMITTING")).length} 个任务</p>
     {uncertain && <p className="notice" role="alert">上次腾讯提交结果尚未确认。请先核对腾讯云记录；重新解析会创建新任务并可能再次计费。任务 ID 与请求 ID 可在任务诊断中查看。</p>}
     {jobs.some(job => ["REJECTED", "Failed"].includes(job.status)) && <p className="notice">腾讯文档识别失败。请核对任务诊断，修正问题后再重新解析。</p>}
   </section>}<div className="progress-grid">{(["chunks", "visuals"] as const).map(kind => {
@@ -57,7 +59,8 @@ function pageFromHash(): Page | undefined {
 const dateFormatter = new Intl.DateTimeFormat("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false });
 const dateLabel = (value: string) => { const date = new Date(value); return Number.isNaN(date.getTime()) ? "时间未知" : dateFormatter.format(date); };
 
-export default function App() {
+export default function App({ initialTaskId, hideSkipLink = false, focusMain = false }: { initialTaskId?: string; hideSkipLink?: boolean; focusMain?: boolean } = {}) {
+  useLayoutEffect(() => { if (focusMain) document.getElementById("main-content")?.focus(); }, [focusMain]);
   const correctionLeaveGuard = useRef<(() => boolean) | null>(null);
   const registerCorrectionGuard = useCallback((guard: (() => boolean) | null) => { correctionLeaveGuard.current = guard; }, []);
   function leaveCorrection() {
@@ -66,7 +69,7 @@ export default function App() {
     return false;
   }
   function refreshDetail() { if (leaveCorrection()) setDetailRevision(value => value + 1); }
-  const [page, setPage] = useState<Page>(() => pageFromHash() ?? "import");
+  const [page, setPage] = useState<Page>(() => initialTaskId ? "records" : pageFromHash() ?? "import");
   // Wake the existing pollers on workspace changes without discarding their caches.
   const recordsVisible = useRef(page === "records");
   const listWake = useRef<(() => void) | null>(null);
@@ -95,7 +98,7 @@ export default function App() {
   const cursor = cursors[offset / 20];
   const [filter, setFilter] = useState("");
   const [listRevision, setListRevision] = useState(0);
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(initialTaskId ?? null);
   function focusTask() {
     const panel = document.getElementById("task-detail");
     if (panel && !panel.closest("[hidden]")) { panel.focus(); panel.scrollIntoView({ block: "start" }); }
@@ -370,7 +373,7 @@ export default function App() {
           </>}
         </section>);
   return <div className="web-shell">
-    <a className="skip-link" href="#main-content">跳到主要内容</a>
+    {!hideSkipLink && <a className="skip-link" href="#main-content">跳到主要内容</a>}
     <aside className="web-sidebar" aria-label="导入管理侧边栏">
       <a href="#import" className="brand" onClick={() => navigate("import")}><img src={logo} alt="PractiQ 小章鱼" /><strong>PractiQ</strong></a>
       <nav aria-label="工作区导航">{pages.map(({ id, label, icon: Icon }) => <a key={id} href={`#${id}`} aria-current={page === id ? "page" : undefined} onClick={() => navigate(id)}><Icon aria-hidden="true" />{label}</a>)}</nav>
@@ -401,7 +404,7 @@ export default function App() {
         <div hidden={page !== "import"} className="import-page">
           {importContent}
         </div>
-        <div hidden={page !== "records"} className="records-page"><CorrectionDraftRecovery excludeTaskId={!detailError && detail?.threadId === selected ? selected : undefined} onOpen={draft => selectTask(draft.taskId)} />{recordsContent}{detailContent}</div>
+        <div hidden={page !== "records"} className="records-page"><CorrectionDraftRecovery scope={client.storageScope} excludeTaskId={!detailError && detail?.threadId === selected ? selected : undefined} onOpen={draft => selectTask(draft.taskId)} />{recordsContent}{detailContent}</div>
         <div hidden={page !== "settings"} className="settings-page"><ImportSettingsPanel client={client} onSettingsChange={setImportSettings} onPendingChange={setSettingsPending} /></div>
       </>}
     </main></div>

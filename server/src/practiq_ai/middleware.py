@@ -41,7 +41,7 @@ class JsonBodyLimitMiddleware:
         # Bound every task mutation; binary uploads own their streaming/body limits.
         if (scope['type'] != 'http' or scope['method'] not in {'POST', 'PUT', 'PATCH'}
                 or not (scope['path'].rstrip('/') in {'/api/uploads', '/api/artifacts/read', '/api/document-tasks', '/api/subjective-grades', '/api/import-settings'}
-                        or scope['path'].startswith('/api/document-tasks/'))):
+                        or scope['path'].startswith(('/api/document-tasks/', '/api/auth/', '/api/me/', '/api/admin/')))):
             await self.app(scope, receive, send)
             return
         maximum = GRADING_JSON_BODY_BYTES if scope['path'].rstrip('/') == '/api/subjective-grades' else self.maximum
@@ -110,6 +110,8 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         else:
             response = await call_next(request)
         response = apply_security_headers(response)
+        if request.url.path.startswith('/api/'):
+            response.headers['Cache-Control'] = 'no-store'
         # Static assets use the same-origin Web client; uploaded artifacts remain
         # under the strict API policy and are displayed only through checked blobs.
         if (request.url.path not in {'/ok', '/ready'}
