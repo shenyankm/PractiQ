@@ -28,6 +28,7 @@ async function fakeHTTP(page: Page, initial: DocumentTaskDetail = task) {
     const raw = request.postDataBuffer();
     const jsonBody = request.headers()["content-type"]?.includes("application/json");
     const call: Call = { method: request.method(), path: url.pathname, query: url.search, body: jsonBody && raw ? JSON.parse(raw.toString()) : null, bytes: jsonBody ? null : raw, authorization: request.headers().authorization };
+    if (call.path === '/api/auth/session') { await respond(route, { user: { id: 'browser-fixture', email: 'browser@example.test', name: '测试账户', role: 'user', enabled: true }, csrf: 'fixture-csrf', registrationEnabled: true }); return; }
     calls.push(call);
     if (await server.intercept?.(route, call)) return;
     if (call.path === "/api/import-capabilities") { await respond(route, capabilities); return; }
@@ -217,7 +218,7 @@ for (const width of [1440, 390]) {
     await page.getByRole("link", { name: anchor === "task-detail" ? "查看当前任务详情" : "返回任务列表", exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`#${anchor}$`));
     await page.getByRole("link", { name: "设置", exact: true }).click();
-    await page.getByLabel("腾讯识别并发上限").fill("3");
+    await expect(page.getByLabel("腾讯识别并发上限")).toBeDisabled();
     await page.goBack();
     await expect(page).toHaveURL(new RegExp(`#${anchor}$`));
     await expect(page.getByRole("main", { name: "导入记录" })).toBeVisible();
@@ -225,7 +226,7 @@ for (const width of [1440, 390]) {
     await expect(page.getByRole("heading", { name: "sample.docx", exact: true })).toBeVisible();
     await page.goForward();
     await expect(page.getByRole("main", { name: "设置" })).toBeVisible();
-    await expect(page.getByLabel("腾讯识别并发上限")).toHaveValue("3");
+    await expect(page.getByLabel("腾讯识别并发上限")).toHaveValue("5");
     await page.goto(`/#${anchor}`); await page.reload();
     await expect(page.getByRole("main", { name: "导入记录" })).toBeVisible();
     await expect(page.getByRole("table", { name: "文档导入记录" })).toBeVisible();
@@ -287,14 +288,14 @@ for (const width of [1440, 390]) {
     const settingsCard = await page.locator(".settings-panel").boundingBox();
     expect(Math.abs(settingsCard!.x - settingsBody!.x - (settingsBody!.x + settingsBody!.width - settingsCard!.x - settingsCard!.width))).toBeLessThan(2);
     await expect(page.getByRole("button", { name: "保存设置", exact: true })).toHaveCount(0);
-    await concurrency.fill("6"); await expect(concurrency).toHaveAttribute("aria-invalid", "true");
+    await expect(concurrency).toBeDisabled();
     expect(mutations(http.calls)).toHaveLength(0);
     await page.getByRole("switch", { name: "自动去重", exact: true }).check();
     await page.getByRole("switch", { name: "AI 生成答案与解析", exact: true }).check();
-    await concurrency.fill("2"); await page.getByLabel("读取失败重试次数").fill("0"); await page.getByLabel("初始退避间隔（秒）").fill("1.5");
+    await expect(page.getByLabel("读取失败重试次数")).toBeDisabled(); await expect(page.getByLabel("初始退避间隔（秒）")).toBeDisabled();
     await page.getByRole("link", { name: "开始导入", exact: true }).click();
     await expect(page.getByText("pending.txt", { exact: true })).toBeVisible();
-    await page.getByRole("link", { name: "设置", exact: true }).click(); await expect(concurrency).toHaveValue("2");
+    await page.getByRole("link", { name: "设置", exact: true }).click(); await expect(concurrency).toHaveValue("5");
     await expect(page.getByText("设置已保存", { exact: true })).toBeVisible();
     await page.evaluate(() => scrollTo(0, 0));
     await page.screenshot({ path: testInfo.outputPath(`management-settings-${width}.png`), fullPage: true });
@@ -310,7 +311,7 @@ for (const width of [1440, 390]) {
     await page.getByRole("button", { name: "重试失败单元", exact: true }).click(); await expect(page.getByRole("button", { name: "取消任务", exact: true })).toBeEnabled();
     await page.getByRole("button", { name: "取消任务", exact: true }).click(); await expect(page.getByRole("button", { name: "继续解析", exact: true })).toBeEnabled();
     await page.reload(); await page.getByRole("link", { name: "设置", exact: true }).click();
-    await expect(concurrency).toHaveValue("2"); await expect(page.getByLabel("读取失败重试次数")).toHaveValue("0");
+    await expect(concurrency).toHaveValue("5"); await expect(page.getByLabel("读取失败重试次数")).toHaveValue("2");
     await expect(page.getByRole("switch", { name: "自动去重", exact: true })).toBeChecked();
     await expect(page.getByRole("switch", { name: "AI 生成答案与解析", exact: true })).toBeChecked();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -471,7 +472,7 @@ test("workspace preserves layout values across breakpoint boundaries", async ({ 
   await connect(page);
   for (const width of [767, 768, 1050, 1051, 1100, 1101]) {
     await page.setViewportSize({ width, height: 900 });
-    const padding = width <= 767 ? "24px 16px" : width <= 1100 ? "24px" : "32px";
+    const padding = width <= 767 ? "8px 16px 24px" : width <= 1100 ? "24px" : "32px";
     await expect(page.locator(".web-main")).toHaveCSS("padding", padding);
     await expect(page.locator(".page-intro")).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

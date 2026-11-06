@@ -273,6 +273,7 @@ def pg_tool(tool, uri, *arguments):
             assert result.returncode == 0, result.stderr.decode()
 
 
+@pytest.mark.usefixtures("business_http")
 @pytest.mark.usefixtures('disposable_databases')
 async def test_full_backup_restore_preserves_checkpoints_files_and_readonly_export(tmp_path, monkeypatch):
     import httpx

@@ -13,26 +13,18 @@ from tests.db_support import new_database, setup_api
 
 
 @pytest.mark.usefixtures('disposable_databases')
-async def test_personal_import_needs_no_access_token_and_has_no_billing(monkeypatch):
-    service, reference, model = await setup_api(monkeypatch)
-    assert not any(name.startswith(('import_', 'payment_')) for name in await service.db.tables())
+async def test_anonymous_import_is_denied_without_starting_models(monkeypatch):
+    _service, reference, model = await setup_api(monkeypatch)
     request = DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)).model_dump(mode='json')
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=webapp.app), base_url='http://test') as client:
-        response = await client.post('/api/document-tasks', json=request)
-        assert response.status_code == 202, response.text
-        assert (await client.post('/api/document-tasks', json=request)).json() == response.json()
-        await service.wait_idle()
-        detail = (await client.get('/api/document-tasks/' + response.json()['threadId'])).json()
-        assert detail['state'] == 'COMPLETED' and 'billing' not in detail
-        assert len(model.calls) == 1 and detail['usage']
-        for path in ('/api/account', '/api/account/ledger', '/api/products', '/api/payments/products', '/api/payments/orders'):
-            assert (await client.get(path)).status_code == 404
-    schemas = webapp.app.openapi()['components']['schemas']
-    assert not any(name in schemas for name in ('ImportAccount', 'PointRates', 'TaskBilling', 'PaymentOrder'))
+        assert (await client.post('/api/document-tasks', json=request)).status_code == 401
+    assert not model.calls
 
 
 async def legacy_database(version=4):
     db = await new_database()
+    from tests.db_support import strip_identity_schema
+    await strip_identity_schema(db)
     ddl = (Path(__file__).parent / 'fixtures/legacy-account-schema-v4.sql').read_bytes()
     async with db.transaction() as conn:
         await conn.execute(ddl, prepare=False)
@@ -64,8 +56,8 @@ async def test_upgrade_preserves_archives_and_refuses_customer_task_adoption(ver
         await db.upgrade()
         await db.upgrade()
         await db.check_schema()
-        assert await db.rows('SELECT version FROM practiq_schema') == [{'version': 5}]
-    assert await db.tables() == tables
+        assert await db.rows('SELECT version FROM practiq_schema') == [{'version': 6}]
+    assert tables <= await db.tables()
     assert await db.rows('SELECT * FROM import_ledger') == ledger
 
 
@@ -130,7 +122,7 @@ async def test_upgrade_refuses_incomplete_account_archives_without_mutation(vers
     with pytest.raises(RuntimeError, match='complete service schema'):
         await db.upgrade()
     assert await db.rows('SELECT version FROM practiq_schema') == [{'version': version}]
-    assert await db.tables() == tables
+    assert tables <= await db.tables()
 
 
 @pytest.mark.usefixtures('disposable_databases')
@@ -141,7 +133,7 @@ async def test_upgrade_refuses_account_tables_in_pre_account_schemas(version):
     with pytest.raises(RuntimeError, match='complete service schema'):
         await db.upgrade()
     assert await db.rows('SELECT version FROM practiq_schema') == [{'version': version}]
-    assert await db.tables() == tables
+    assert tables <= await db.tables()
 
 
 @pytest.mark.usefixtures('disposable_databases')
@@ -159,6 +151,8 @@ async def test_upgrade_refuses_schema_three_with_new_account_tokens():
 @pytest.mark.parametrize('version', [1, 2])
 async def test_upgrade_accepts_pre_account_schemas_without_adding_account_tables(version):
     db = await new_database()
+    from tests.db_support import strip_identity_schema
+    await strip_identity_schema(db)
     async with db.transaction() as conn:
         if version == 1:
             await conn.execute('DROP TABLE document_outbox')

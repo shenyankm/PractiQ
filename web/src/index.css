@@ -283,3 +283,39 @@ summary { cursor: pointer; list-style-position: inside; font-size: 14px; }
 .correction-history summary { cursor: pointer; font-weight: 600; }
 .source-navigation { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: .75rem; }
 @media (max-width: 900px) { .correction-columns { grid-template-columns: minmax(0, 1fr); } .source-pane { position: static; max-height: 50vh; } .correction-fields { grid-template-columns: 1fr; } .correction-option { grid-template-columns: 4rem minmax(0, 1fr); } .correction-option button { grid-column: 2; } }
+
+.account-header { display:flex; align-items:center; gap:1rem; padding:.75rem 1.5rem; border-bottom:1px solid var(--border); background:var(--background); }
+.account-header > a:first-child { display:flex; align-items:center; gap:.6rem; margin-right:auto; font-size:1.1rem; font-weight:650; }
+.account-header img { width:32px; height:32px; }
+.account-navigation { display:flex; gap:.5rem; padding:.75rem 1.5rem; flex-wrap:wrap; }
+.account-layout { display:grid; grid-template-columns:200px minmax(0,1fr); }
+.account-layout > nav { padding:1rem; display:flex; flex-direction:column; gap:.5rem; }
+.account-content { max-width:1100px; width:100%; margin:0 auto; padding:2rem; min-width:0; }
+.account-content h1,.account-auth h1 { font-size:1.5rem; font-weight:650; margin-bottom:1rem; }
+.account-content h2 { font-size:1.15rem; font-weight:600; margin:1.5rem 0 .75rem; }
+.account-auth { max-width:440px; margin:4rem auto; padding:1.5rem; }
+.account-form { max-width:560px; margin:1.5rem 0; }
+.account-form fieldset { display:grid; gap:1rem; }
+.account-field { display:grid; gap:.4rem; }
+.account-bank { display:flex; justify-content:space-between; align-items:center; gap:1rem; padding:1rem 0; border-bottom:1px solid var(--border); }
+.account-table { max-width:100%; overflow:auto; margin:1rem 0; }
+.account-content table { width:100%; border-collapse:collapse; }
+.account-content th,.account-content td { text-align:left; padding:.7rem; border-bottom:1px solid var(--border); max-width:420px; overflow-wrap:anywhere; }
+.account-content pre { max-height:400px; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; }
+@media(max-width:768px) { .account-layout { display:block; } .account-layout > nav { flex-direction:row; flex-wrap:wrap; } .account-content { padding:1rem; } .account-header { flex-wrap:wrap; } .account-bank { align-items:start; flex-direction:column; } }
+@media(max-width:767px) {
+  .account-header { min-height:48px; padding:6px 16px; gap:8px; flex-wrap:nowrap; }
+  .account-header > span { display:none; }
+  .account-header > a:first-child { font-size:14px; gap:6px; }
+  .account-header img { width:26px; height:26px; }
+  .account-navigation { flex-wrap:nowrap; gap:4px; padding:0 16px; overflow-x:auto; }
+  .account-navigation button { min-height:48px; padding-inline:8px; font-size:14px; white-space:nowrap; }
+  .account-navigation + div .web-sidebar { padding-block:8px; }
+  .account-navigation + div .web-sidebar .brand { display:none; }
+  .account-navigation + div .web-sidebar nav { margin-top:0; }
+  .account-navigation + div .web-main { padding-top:8px; }
+}
+@media(max-width:767px) {
+  .account-navigation + div .import-page .file-picker { padding-block:8px; }
+}
+.account-header > span { min-width:0; max-width:30vw; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }

@@ -2,6 +2,7 @@
 import asyncio
 from datetime import timedelta
 from json import dumps
+from pathlib import Path
 from uuid import uuid4
 
 import pytest
@@ -10,7 +11,7 @@ from practiq_ai import manage, runtime, task_api
 from practiq_ai.contracts import DocumentReference, DocumentTaskCreate
 from practiq_ai.database import utcnow
 from practiq_ai.execution import namespace
-from tests.db_support import new_database, setup_api
+from tests.db_support import new_database, setup_api, strip_identity_schema
 
 pytestmark = pytest.mark.usefixtures('disposable_databases')
 
@@ -27,6 +28,7 @@ async def test_upgrade_retains_history_receipts_files_deadlines_and_only_stages_
     monkeypatch.setenv('DATABASE_URI', db.uri)
     deadline = utcnow() + timedelta(seconds=100)
     ids = {}
+    await strip_identity_schema(db)
     async with db.transaction() as conn:
         for state in ('pending', 'running', 'waiting', 'interrupted', 'error', 'success', 'cancelled', 'unknown', 'paused'):
             tid, rid = str(uuid4()), str(uuid4())
@@ -44,8 +46,8 @@ async def test_upgrade_retains_history_receipts_files_deadlines_and_only_stages_
     heads = await db.checkpoint_heads([completed['threadId']])
     with pytest.raises(RuntimeError, match='upgrade-db'):
         await db.check_schema()
-    await manage.run('upgrade-db')
-    await manage.run('upgrade-db')
+    await manage.run('upgrade-db', backup_bundle=Path('verified-test-backup'))
+    await manage.run('upgrade-db', backup_bundle=Path('verified-test-backup'))
     await db.check_schema()
     assert {row['run_id'] for row in await db.rows('SELECT * FROM document_outbox')} == {ids['pending'][1], ids['running'][1]}
     assert await db.rows('SELECT * FROM document_receipts') == before_receipts
@@ -66,7 +68,7 @@ async def test_upgrade_and_replay_cannot_take_live_service_ownership(monkeypatch
     service, _, _ = await setup_api(monkeypatch)
     monkeypatch.setenv('DATABASE_URI', service.db.uri)
     with pytest.raises(RuntimeError, match='Stop the service'):
-        await manage.run('upgrade-db')
+        await manage.run('upgrade-db', backup_bundle=Path('verified-test-backup'))
     with pytest.raises(RuntimeError, match='Stop the service'):
         await manage.run('replay-run', str(uuid4()))
 
@@ -80,6 +82,7 @@ async def test_startup_recovers_upgrade_interrupted_after_schema_commit(monkeypa
     service.accepting = True
     receipt = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
     deadline = utcnow() + timedelta(seconds=100)
+    await strip_identity_schema(db)
     async with db.transaction() as conn:
         await conn.execute("UPDATE document_runs SET status='running',deadline=%s WHERE run_id=%s", (deadline, receipt['runId']))
         await conn.execute('DROP TABLE document_outbox')
@@ -181,3 +184,9 @@ async def test_explicit_replay_stages_only_pending_known_calls(monkeypatch):
     await db.store.aput(namespace(receipt['threadId'], 'calls'), 'unknown', {'runId': receipt['runId'], 'status': 'started'}, index=False)
     with pytest.raises(RuntimeError, match='unknown'):
         await manage.replay_run(db, receipt['runId'])
+
+
+@pytest.fixture(autouse=True)
+def verified_upgrade_backup(monkeypatch):
+    from scripts import service_backup
+    monkeypatch.setattr(service_backup, 'verify', lambda path: {'version': 1})

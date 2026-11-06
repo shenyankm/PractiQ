@@ -2,6 +2,7 @@ import type { en } from "./en";
 
 // Traditional Chinese copy is written for Taiwan usage, not character-converted from the Simplified source.
 export const zhTW: Record<keyof typeof en, string> = {
+  "多用户服务：在用户网页的账户与安全中创建个人评分令牌；失效后需手动替换。": "多使用者服務：在使用者網頁的帳戶與安全中建立個人評分權杖；失效後需手動替換。",
   "评分点（原始分值）": "評分點（原始分值）",
   "评分依据：{0}": "評分依據：{0}",
   "作答引用：{0}": "作答引用：{0}",

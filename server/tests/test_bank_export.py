@@ -720,6 +720,7 @@ async def test_export_waits_for_a_cancelled_writer_before_closing_its_archive(tm
             file.close()
 
 
+@pytest.mark.usefixtures("business_http")
 @pytest.mark.parametrize("failure", [None, "cancelled", "disconnect"])
 async def test_export_http_global_slot_holds_through_download_and_releases_after_response(monkeypatch, failure):
     from practiq_ai import task_api, webapp
@@ -776,6 +777,7 @@ async def test_export_http_global_slot_holds_through_download_and_releases_after
             file.close()
 
 
+@pytest.mark.usefixtures("business_http")
 async def test_export_http_slot_releases_after_archive_build_failure(monkeypatch):
     from practiq_ai import task_api, webapp
     monkeypatch.setenv("AI_SERVICE_TOKEN", "export-test-token")

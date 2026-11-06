@@ -1,9 +1,10 @@
+import { accountStorageScope, storageKey } from "./accountClient";
 import type { DocumentAnswerSource, DocumentCorrectionSave, ParsedQuestion } from "./contracts.generated";
 
 export type EditorDraft = { original: ParsedQuestion; question: ParsedQuestion; answer: string; initialAnswer: string };
 export type CorrectionDraft = { version: 1; taskId: string; fileName: string; checkpointId: string; questionIndex: number; revision: string | null; answerSource?: DocumentAnswerSource | null; editor: EditorDraft; pending: DocumentCorrectionSave | null; updatedAt: string };
 const key = "practiq.correction-drafts.v1";
-const pendingPrefix = key + ".requests.";
+const scopedPrefix = (scope: string) => storageKey(key, scope) + ".requests.";
 const maximum = 4 * 1024 * 1024;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const unavailable = () => Error("无法读取或保存本机校对草稿。请保留当前页面，检查浏览器存储后重试；未确认请求不会自动重发。");
@@ -25,18 +26,18 @@ function decode(raw: string): CorrectionDraft[] {
 }
 function identity(value: Pick<CorrectionDraft, "taskId" | "checkpointId" | "questionIndex">) { return JSON.stringify([value.taskId, value.checkpointId, value.questionIndex]); }
 // shortcut: one mutable draft per question; add tab-specific drafts if simultaneous editing is needed.
-function mutableDrafts() { return decode(localStorage.getItem(key) ?? "[]"); }
+function mutableDrafts(scope: string) { return decode(localStorage.getItem(storageKey(key, scope)) ?? "[]"); }
 function sameEditor(a: CorrectionDraft, b: CorrectionDraft) { return identity(a) === identity(b) && a.revision === b.revision && JSON.stringify(a.editor) === JSON.stringify(b.editor) && JSON.stringify(a.answerSource ?? null) === JSON.stringify(b.answerSource ?? null); }
-export function correctionDrafts(): CorrectionDraft[] {
+export function correctionDrafts(scope = accountStorageScope()): CorrectionDraft[] {
   try {
-    const mutable = mutableDrafts(), pending: CorrectionDraft[] = [];
+    const mutable = mutableDrafts(scope), pending: CorrectionDraft[] = [];
     for (let index = 0; index < localStorage.length; index++) {
       const name = localStorage.key(index);
-      if (!name?.startsWith(pendingPrefix)) continue;
+      if (!name?.startsWith(scopedPrefix(scope))) continue;
       const raw = localStorage.getItem(name);
       if (raw === null) continue;
       const value = decode(`[${raw}]`)[0];
-      if (!value?.pending || pendingPrefix + value.pending.requestId !== name) throw unavailable();
+      if (!value?.pending || scopedPrefix(scope) + value.pending.requestId !== name) throw unavailable();
       pending.push(value);
     }
     if (pending.length > 50) throw unavailable();
@@ -44,37 +45,37 @@ export function correctionDrafts(): CorrectionDraft[] {
   } catch { throw unavailable(); }
 }
 function changed() { window.dispatchEvent(new Event("correction-drafts-change")); }
-function write(values: CorrectionDraft[]) {
+function write(values: CorrectionDraft[], scope: string) {
   const raw = JSON.stringify(values);
   if (values.length > 20 || new TextEncoder().encode(raw).length > maximum) throw unavailable();
-  if (values.length) localStorage.setItem(key, raw); else localStorage.removeItem(key);
+  if (values.length) localStorage.setItem(storageKey(key, scope), raw); else localStorage.removeItem(storageKey(key, scope));
   changed();
 }
-export function putCorrectionDraft(value: CorrectionDraft) {
+export function putCorrectionDraft(value: CorrectionDraft, scope = accountStorageScope()) {
   try {
     if (value.pending) {
       // Separate immutable keys keep one tab from losing another tab's unconfirmed request.
-      const name = pendingPrefix + value.pending.requestId, raw = localStorage.getItem(name);
+      const name = scopedPrefix(scope) + value.pending.requestId, raw = localStorage.getItem(name);
       if (raw !== null) {
         const old = decode(`[${raw}]`)[0];
         if (identity(old) !== identity(value) || JSON.stringify(old.pending) !== JSON.stringify(value.pending)) throw unavailable();
       } else {
-        const existing = correctionDrafts();
+        const existing = correctionDrafts(scope);
         if (existing.filter(v => v.pending).length >= 50 || new TextEncoder().encode(JSON.stringify([...existing, value])).length > maximum) throw unavailable();
         localStorage.setItem(name, JSON.stringify(value));
       }
       changed(); return;
     }
-    write([...mutableDrafts().filter(v => identity(v) !== identity(value)), value]);
+    write([...mutableDrafts(scope).filter(v => identity(v) !== identity(value)), value], scope);
   } catch { throw unavailable(); }
 }
-export function removeCorrectionDraft(value: Pick<CorrectionDraft, "taskId" | "checkpointId" | "questionIndex"> & { requestId?: string }) {
+export function removeCorrectionDraft(value: Pick<CorrectionDraft, "taskId" | "checkpointId" | "questionIndex"> & { requestId?: string }, scope = accountStorageScope()) {
   try {
-    const raw = value.requestId ? localStorage.getItem(pendingPrefix + value.requestId) : null;
+    const raw = value.requestId ? localStorage.getItem(scopedPrefix(scope) + value.requestId) : null;
     const confirmed = raw ? decode(`[${raw}]`)[0] : undefined;
-    const drafts = mutableDrafts().filter(v => identity(v) !== identity(value) || value.requestId && (!confirmed || !sameEditor(v, confirmed)));
-    write(drafts);
-    if (value.requestId) localStorage.removeItem(pendingPrefix + value.requestId);
+    const drafts = mutableDrafts(scope).filter(v => identity(v) !== identity(value) || value.requestId && (!confirmed || !sameEditor(v, confirmed)));
+    write(drafts, scope);
+    if (value.requestId) localStorage.removeItem(scopedPrefix(scope) + value.requestId);
     changed();
   } catch { throw unavailable(); }
 }

@@ -118,3 +118,25 @@ async def setup_api(monkeypatch, responses=None, parts=None):
                 await asyncio.sleep(0.01)
     service.wait_idle = finish
     return service, reference, model
+
+
+async def seed_browser_identity(db):
+    """Explicit test operator bootstrap for independent-process acceptance."""
+    from practiq_ai.identity import digest, password_hash
+    encoded = await password_hash('synthetic-browser-password')
+    async with db.transaction() as conn:
+        await conn.execute("INSERT INTO auth_users(id,email,password_hash,role) VALUES('browser-user','browser@example.test',%s,'admin')", (encoded,))
+        await conn.execute("INSERT INTO auth_sessions(digest,user_id,expires_at) VALUES(%s,'browser-user',now()+interval '7 days')", (digest('synthetic-browser-session'),))
+
+
+def browser_headers():
+    from practiq_ai.identity import csrf
+    return {'Cookie': 'practiq_session=synthetic-browser-session', 'X-CSRF-Token': csrf('synthetic-browser-session')}
+
+
+async def strip_identity_schema(db):
+    """Construct a real pre-six fixture, rather than only changing its marker."""
+    async with db.transaction() as conn:
+        await conn.execute('ALTER TABLE document_tasks DROP COLUMN owner_id')
+        await conn.execute('ALTER TABLE grades DROP COLUMN owner_id')
+        await conn.execute('DROP TABLE auth_uploads,auth_sessions,auth_tokens,auth_calls,auth_audit,auth_limits,auth_settings,auth_users CASCADE')

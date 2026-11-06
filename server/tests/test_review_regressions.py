@@ -248,6 +248,7 @@ def test_storage_legacy_and_wheel_paths_fail_without_moving_data(tmp_path, monke
     assert config.storage_path(str(legacy)) == legacy
 
 
+@pytest.mark.usefixtures("business_http")
 async def test_stalled_upload_times_out_and_releases_slot(tmp_path, monkeypatch):
     store = object_store(tmp_path)
     monkeypatch.setattr(webapp, 'get_object_store', lambda: store)

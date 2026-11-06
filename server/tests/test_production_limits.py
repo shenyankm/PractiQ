@@ -183,6 +183,7 @@ async def test_upload_backpressure_releases_slot_on_cancellation(monkeypatch):
     assert error.value.status_code == 503
 
 
+@pytest.mark.usefixtures("business_http")
 async def test_metrics_and_logs_do_not_contain_document_content(monkeypatch, caplog):
     caplog.set_level(logging.INFO, logger="practiq.events")
     graph, store, _, reference, _ = setup_graph(monkeypatch, [parsed("private document phrase")])

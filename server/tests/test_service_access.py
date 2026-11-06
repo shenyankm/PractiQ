@@ -8,6 +8,7 @@ from practiq_ai import runtime, task_api, webapp
 from practiq_ai.config import load
 
 
+@pytest.mark.usefixtures("business_http")
 async def test_local_metadata_needs_no_token_or_model_work(monkeypatch):
     monkeypatch.delenv('AI_SERVICE_TOKEN', raising=False)
     monkeypatch.setattr(runtime, 'current', None)
@@ -18,6 +19,7 @@ async def test_local_metadata_needs_no_token_or_model_work(monkeypatch):
             assert response.status_code == 200, response.text
 
 
+@pytest.mark.usefixtures("business_http")
 @pytest.mark.parametrize('headers', [
     {'Origin': 'https://unrelated.example'}, {'Origin': 'null'}, {'Sec-Fetch-Site': 'cross-site'},
 ])
@@ -43,12 +45,14 @@ async def test_cross_site_browser_requests_stop_before_work(monkeypatch, headers
     assert checked
 
 
+@pytest.mark.usefixtures("business_http")
 async def test_same_origin_browser_reads_do_not_need_a_token():
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=webapp.app), base_url='http://test') as client:
         response = await client.get('/api/import-capabilities', headers={'Origin': 'http://test', 'Sec-Fetch-Site': 'same-origin'})
     assert response.status_code == 200
 
 
+@pytest.mark.usefixtures("business_http")
 async def test_metrics_bind_only_non_secret_model_configuration(monkeypatch):
     from practiq_ai import runtime, webapp
     from practiq_ai.config import evaluation_configuration, load

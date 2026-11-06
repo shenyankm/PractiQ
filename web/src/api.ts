@@ -1,3 +1,4 @@
+import { accountHeaders, accountStorageScope, sessionExpired, storageKey } from "./accountClient";
 import type { ArtifactReference, DocumentCorrections, DocumentCorrectionSave, DocumentReference, DocumentSourceType, DocumentTaskControl, DocumentTaskCreate, DocumentTaskDetail, DocumentTaskHead, DocumentTaskList, DocumentTaskReceipt, DocumentTaskReparse, DocumentTaskReview, DocumentReparseSelection, DocumentAnswerMatches, DocumentAnswerProposal, DocumentAnswerSource, DocumentUploadResponse, ImportCapabilities, ImportSettingsSnapshot } from "./contracts.generated";
 import { validPages, validReparseSelection } from "./importSelection";
 import { IMPORT_SOURCE_TYPES } from "./contracts.generated";
@@ -108,17 +109,21 @@ export async function withDeadline<T>(milliseconds: number, signals: AbortSignal
 
 /** Same-origin personal-service client. Its lifetime ends on disconnect; mutations are never retried here. */
 export class Client {
+  constructor(readonly administrative = false) {}
+  readonly storageScope = accountStorageScope();
   private readonly session = new AbortController();
   private readonly intents = new Map<string, string>();
-  get active() { return !this.session.signal.aborted; }
+  get active() { return !this.session.signal.aborted && this.storageScope === accountStorageScope(); }
   disconnect() { this.session.abort(); this.intents.clear(); }
   private async request<T>(path: string, init: RequestInit, read: (response: Response, signal: AbortSignal) => Promise<T>, signal?: AbortSignal) {
     if (!this.active || signal?.aborted) throw new DOMException("请求已取消", "AbortError");
     if (!path.startsWith("/api/") || path.startsWith("//")) throw new ApiError("服务返回了无效地址。", "INVALID_URL");
     const headers = new Headers(init.headers);
+    accountHeaders(headers);
+    if (this.administrative && (path.startsWith('/api/document-tasks') || path.startsWith('/api/artifacts/') || path === '/api/import-settings')) path = path.replace('/api/', '/api/admin/');
     const signals = [this.session.signal];
     if (signal) signals.push(signal);
-    const pathname = path.split("?")[0];
+    const pathname = path.split("?")[0].replace("/api/admin/", "/api/");
     const upload = pathname === "/api/uploads" || pathname === "/api/uploads/content";
     // Upload transport and POST artifact reads do not create tasks.
     const mutation = !!init.method && !["GET", "HEAD"].includes(init.method) && !upload && pathname !== "/api/artifacts/read";
@@ -127,19 +132,25 @@ export class Client {
     return withDeadline(timeout, signals, async requestSignal => {
       let response: Response;
       try {
-        response = await fetch(path, { ...init, headers, cache: "no-store", credentials: "omit", redirect: "error", signal: requestSignal });
+        response = await fetch(path, { ...init, headers, cache: "no-store", credentials: "same-origin", redirect: "error", signal: requestSignal });
       } catch {
         if (!this.active || signal?.aborted) throw new DOMException("请求已取消", "AbortError");
         throw new ApiError(upload ? uploadRetry : mutation ? "连接中断，操作结果尚未确认。请先查询原任务，再决定是否重试。" : "无法连接服务。请检查服务状态，再手动重试读取。", "NETWORK_ERROR");
       }
       try {
         if (!response.ok) {
+          if (response.status === 401) sessionExpired();
           let code = `HTTP_${response.status}`;
           try {
             const body = JSON.parse(new TextDecoder().decode(await readBytes(response, 64 * 1024, requestSignal))) as { detail?: { code?: string } };
             if (body.detail?.code && /^[A-Z0-9_]{1,64}$/.test(body.detail.code)) code = body.detail.code;
           } catch { /* Error bodies may be empty, text, or validation arrays. */ }
           const known: Record<string, string> = {
+            USER_QUOTA_EXCEEDED: '每日调用额度已用尽，请等待新加坡时间次日零点或联系管理员调整额度，然后手动继续。',
+            FREE_PAGE_QUOTA_EXCEEDED: '剩余免费页数不足。新账户默认共有 50 页免费额度，不按日恢复；请联系管理员调整额度。',
+            USER_TASK_LIMIT: '进行中的任务已达到个人上限，请等待任务停止或完成后再手动提交。',
+            ACCOUNT_DISABLED: '账户已停用，请联系管理员。',
+
             DOCUMENT_TOO_LARGE: "文件超过服务限制，请选择较小的文件。",
             UNSUPPORTED_FILE: "服务不支持此文件格式，请更换文件。",
             OFFICE_NOT_FOUND: "服务尚未配置 Office 转换，请联系服务提供方或改用 PDF。",
@@ -250,7 +261,7 @@ export class Client {
   preview(id: string, signal?: AbortSignal, includeResult = true) { return this.json<DocumentTaskReview>(`/api/document-tasks/${encodeURIComponent(id)}/preview${includeResult ? "" : "?include_result=false"}`, undefined, signal); }
   pendingImports(): DocumentTaskCreate[] {
     try {
-      const raw = localStorage.getItem(IMPORT_INTENTS);
+      const raw = localStorage.getItem(storageKey(IMPORT_INTENTS, this.storageScope));
       if (!raw) return [];
       if (raw.length > 1024 * 1024) throw new Error();
       const records: DocumentTaskCreate[] = JSON.parse(raw);
@@ -276,8 +287,8 @@ export class Client {
   private saveImports(records: DocumentTaskCreate[]) {
     try {
       if (records.length > 50 || JSON.stringify(records).length > 1024 * 1024) throw new Error();
-      if (records.length) localStorage.setItem(IMPORT_INTENTS, JSON.stringify(records));
-      else localStorage.removeItem(IMPORT_INTENTS);
+      if (records.length) localStorage.setItem(storageKey(IMPORT_INTENTS, this.storageScope), JSON.stringify(records));
+      else localStorage.removeItem(storageKey(IMPORT_INTENTS, this.storageScope));
     } catch {
       throw new ApiError("无法保存原提交恢复记录。请检查浏览器存储并核对导入记录，勿重复提交。", "RECOVERY_STORAGE_UNAVAILABLE");
     }
@@ -333,7 +344,7 @@ export class Client {
   }
   pendingReparses(): ReparseIntent[] {
     try {
-      const raw = localStorage.getItem(REPARSE_INTENTS);
+      const raw = localStorage.getItem(storageKey(REPARSE_INTENTS, this.storageScope));
       if (raw === null) return [];
       if (raw.length > 4 * 1024 * 1024) throw new Error();
       const records: ReparseIntent[] = JSON.parse(raw);
@@ -350,8 +361,8 @@ export class Client {
   private saveReparses(records: ReparseIntent[]) {
     try {
       if (records.length > 50 || JSON.stringify(records).length > 4 * 1024 * 1024) throw new Error();
-      if (records.length) localStorage.setItem(REPARSE_INTENTS, JSON.stringify(records));
-      else localStorage.removeItem(REPARSE_INTENTS);
+      if (records.length) localStorage.setItem(storageKey(REPARSE_INTENTS, this.storageScope), JSON.stringify(records));
+      else localStorage.removeItem(storageKey(REPARSE_INTENTS, this.storageScope));
     } catch {
       throw new ApiError("无法保存重新解析恢复记录。请检查浏览器存储并核对导入记录，勿重复提交。", "RECOVERY_STORAGE_UNAVAILABLE");
     }

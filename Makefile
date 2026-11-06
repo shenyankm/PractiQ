@@ -23,7 +23,7 @@ server-dev:
 init-db:
 	cd server && "$(AI_PYTHON)" -m practiq_ai.manage init-db
 upgrade-db:
-	cd server && "$(AI_PYTHON)" -m practiq_ai.manage upgrade-db
+	cd server && "$(AI_PYTHON)" -m practiq_ai.manage upgrade-db --backup-bundle "$(UPGRADE_BACKUP)"
 verify:
 	rm -f server/reports/checks/probes.xml server/reports/checks/probes.json server/reports/checks/probes.md server/reports/checks/coverage.xml
 	cd server && uv lock --check --python "$(AI_PYTHON)"

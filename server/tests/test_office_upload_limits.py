@@ -73,6 +73,7 @@ async def test_capabilities_report_effective_office_limit(monkeypatch, tmp_path,
     assert (await webapp.import_capabilities()).model_dump()["officeSourceMaxBytes"] is None
 
 
+@pytest.mark.usefixtures("business_http")
 async def test_binary_upload_rejects_office_metadata_before_consuming_body(tmp_path, monkeypatch):
     store = object_store(tmp_path, source_max_bytes=30 * 1024 * 1024)
     monkeypatch.setattr(webapp, "get_object_store", lambda: store)
@@ -88,6 +89,7 @@ async def test_binary_upload_rejects_office_metadata_before_consuming_body(tmp_p
     assert not list(tmp_path.rglob("source.docx"))
 
 
+@pytest.mark.usefixtures("business_http")
 @pytest.mark.parametrize("corruption", ["extract_version", "utf8_filename"])
 async def test_malformed_ooxml_central_directory_returns_structured_upload_error(tmp_path, monkeypatch, corruption):
     source = (Path(__file__).parents[2] / "app/fixtures/office/中文 试卷.docx").read_bytes()

@@ -24,6 +24,7 @@ from tests.db_support import new_database, setup_api
 APP_ROOT = Path(__file__).resolve().parents[2] / 'app'
 
 
+@pytest.mark.usefixtures("business_http")
 @pytest.mark.usefixtures('disposable_databases')
 @pytest.mark.parametrize(('state', 'run_status', 'pause', 'cancel', 'phase', 'blocking', 'actions'), [
     ('PENDING', 'pending', False, False, 'pending', [], ['pause', 'interrupt']),
@@ -84,6 +85,7 @@ async def test_task_detail_http_contract_for_saved_states(monkeypatch, state, ru
     assert wire['usage'] == wire['unknownUsageCalls'] == wire['failures'] == []
 
 
+@pytest.mark.usefixtures("business_http")
 @pytest.mark.usefixtures('disposable_databases')
 async def test_task_detail_excludes_rejected_calls_without_hiding_sent_unknowns(monkeypatch):
     service, reference, model = await setup_api(monkeypatch)
@@ -104,6 +106,7 @@ async def test_task_detail_excludes_rejected_calls_without_hiding_sent_unknowns(
     assert retained is not None and retained.value['status'] == 'rejected'
 
 
+@pytest.mark.usefixtures("business_http")
 @pytest.mark.usefixtures('disposable_databases')
 async def test_completed_task_http_preserves_result_processing_usage_and_expiry(monkeypatch):
     service, reference, model = await setup_api(monkeypatch)

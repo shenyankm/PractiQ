@@ -29,6 +29,7 @@ from tests.support import object_store, parsed, upload
 pytestmark = pytest.mark.usefixtures('disposable_databases')
 
 
+@pytest.mark.usefixtures("business_http")
 async def test_storage_failure_blocks_admission_but_preserves_reads_and_receipt_replay(monkeypatch):
     service, reference, model = await setup_api(monkeypatch)
     request = DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference))
@@ -144,6 +145,7 @@ async def test_temporary_budget_stop_requires_explicit_resume_without_model_repl
 
 
 
+@pytest.mark.usefixtures("business_http")
 async def test_personal_load_driver_uses_real_auth_upload_queue_and_export(monkeypatch, tmp_path):
     _service, _, model = await setup_api(monkeypatch, [parsed('First')])
     files = object_store(tmp_path / 'uploaded-files')

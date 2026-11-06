@@ -1,5 +1,6 @@
 """Strict public contracts for PractiQ."""
 
+from datetime import date, datetime
 from math import isfinite
 from typing import Annotated, Any, Literal, Self
 from uuid import UUID
@@ -1160,3 +1161,125 @@ class DocumentTaskReview(StrictModel):
     quality: ExportQuality
     questionSources: list[DocumentQuestionSource]
     corrections: DocumentCorrections | None = None
+
+
+class AccountCredentials(StrictModel):
+    email: str = Field(min_length=3, max_length=254, pattern=r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
+    password: str = Field(min_length=12, max_length=128, repr=False)
+
+
+class AccountChange(StrictModel):
+    currentPassword: str = Field(min_length=1, max_length=128, repr=False)
+    name: str | None = Field(default=None, max_length=80)
+    email: str | None = Field(default=None, min_length=3, max_length=254, pattern=r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
+    password: str | None = Field(default=None, min_length=12, max_length=128, repr=False)
+
+
+class AccountUser(StrictModel):
+    id: str
+    email: str
+    name: str
+    role: Literal['user', 'admin']
+    enabled: bool
+
+
+class AccountSession(StrictModel):
+    user: AccountUser | None
+    csrf: str
+    registrationEnabled: bool
+
+
+class AccountReset(StrictModel):
+    token: str = Field(min_length=20, max_length=256, repr=False)
+    password: str = Field(min_length=12, max_length=128, repr=False)
+
+
+class AccountLimits(StrictModel):
+    freePages: StrictInt = Field(ge=0, le=1_000_000)
+    modelCalls: StrictInt = Field(ge=0, le=1_000_000)
+    tencentCalls: StrictInt = Field(ge=0, le=100_000)
+    activeTasks: StrictInt = Field(ge=1, le=300)
+
+
+class AdministrationSettings(AccountLimits):
+    registrationEnabled: StrictBool
+
+
+class AdministrationUserChange(StrictModel):
+    currentPassword: str = Field(min_length=1, max_length=128, repr=False)
+    enabled: StrictBool
+    role: Literal['user', 'admin']
+    limits: AccountLimits | None = None
+
+
+class AccountTokenCreate(StrictModel):
+    currentPassword: str = Field(min_length=1, max_length=128, repr=False)
+    name: str = Field(min_length=1, max_length=80)
+
+
+class AccountPasswordConfirm(StrictModel):
+    currentPassword: str = Field(min_length=1, max_length=128, repr=False)
+
+
+class AccountOperation(StrictModel):
+    ok: bool
+
+
+class AccountSecret(StrictModel):
+    token: str
+
+
+class AccountResetLink(StrictModel):
+    path: str
+
+
+class AccountSessionInfo(StrictModel):
+    id: str
+    createdAt: datetime
+    expiresAt: datetime
+    lastSeen: datetime
+
+
+class AccountTokenInfo(StrictModel):
+    id: str
+    name: str
+    created_at: datetime
+    expires_at: datetime
+
+
+class AdministrationUser(AccountUser):
+    limits: dict[str, int]
+    created_at: datetime
+
+
+class AccountDailyUsage(StrictModel):
+    day: date
+    kind: Literal['modelCalls', 'tencentCalls']
+    calls: int
+
+
+class AccountCall(StrictModel):
+    call_key: str
+    scope: str
+    kind: Literal['modelCalls', 'tencentCalls']
+    day: date
+    record: dict[str, Any]
+    user_id: str | None = None
+    created_at: datetime | None = None
+
+
+class AccountUsage(StrictModel):
+    limits: AccountLimits
+    usedPages: int = Field(ge=0)
+    remainingPages: int = Field(ge=0)
+    daily: list[AccountDailyUsage]
+    calls: list[AccountCall]
+
+
+class AdministrationAudit(StrictModel):
+    id: int
+    actor: str
+    action: str
+    target: str
+    created_at: datetime
+    detail: dict[str, Any]

@@ -19,13 +19,15 @@ import pytest
 import uvicorn
 
 from scripts.recovery_provider import app_for
+from tests.db_support import browser_headers
 from tests.support import make_blank_pdf, make_image
 
 
 @pytest.fixture
 async def service(tmp_path, disposable_databases):
-    from tests.db_support import new_database
+    from tests.db_support import new_database, seed_browser_identity
     db = await new_database()
+    await seed_browser_identity(db)
     calls = tmp_path / "calls.jsonl"
     sock = socket.socket()
     sock.bind(("127.0.0.1", 0))
@@ -64,7 +66,7 @@ async def service(tmp_path, disposable_databases):
                                        stdout=log, stderr=log, cwd=tmp_path, env=env, text=True)
             try:
                 with httpx.Client(base_url=f"http://127.0.0.1:{port}",
-                                  headers={"Authorization": "Bearer e2e-token"}, timeout=10, trust_env=False) as client:
+                                  headers=browser_headers(), timeout=10, trust_env=False) as client:
                     deadline = time.monotonic() + 30
                     while time.monotonic() < deadline and process.poll() is None:
                         try:
@@ -173,7 +175,7 @@ def test_e2e_upload_parse_artifacts_and_restart(service, kind):
             assert "parserJobs" not in questions and "usage" not in questions
             for reference in references:
                 assert hashlib.sha256(bank.read("resources/" + reference["objectKey"])).hexdigest() == reference["sha256"]
-        assert "practiq_workers_available" in client.get("/api/metrics", headers={"Authorization": "Bearer e2e-token"}).text
+        assert "practiq_workers_available" in client.get("/api/metrics", headers=browser_headers()).text
     with start(read_only=True) as client:
         restored = client.get(path).json()
         assert restored["result"] == state["result"] and restored["usage"] == state["usage"]
@@ -192,7 +194,7 @@ def test_e2e_upload_parse_artifacts_and_restart(service, kind):
             (path + '/control', {'requestId': str(uuid4()), 'action': 'resume', 'checkpointId': restored['checkpointId']}),
             ('/api/subjective-grades', {}),
         ):
-            rejected = client.post(url, json=body, headers={"Authorization": "Bearer e2e-token"} if url == "/api/subjective-grades" else None)
+            rejected = client.post(url, json=body, headers=browser_headers() if url == "/api/subjective-grades" else None)
             assert rejected.status_code == 409, rejected.text
             assert rejected.json()['detail']['code'] == 'MODEL_NOT_CONFIGURED'
         listing = client.get("/api/document-tasks").json()["items"]
