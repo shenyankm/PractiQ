@@ -7,6 +7,14 @@ import type { DocumentTaskDetail, ImportSettingsSnapshot } from "./contracts.gen
 
 beforeEach(() => window.history.replaceState(null, "", "/"));
 
+it("opens the requested saved task directly without a list selection or mutation", async () => {
+  const http = fakeHTTP();
+  render(<App initialTaskId={taskId} />);
+  expect(await screen.findByRole('heading', {name:'sample.docx'})).toBeTruthy();
+  expect(http.calls.some(call => call.url === `/api/document-tasks/${taskId}`)).toBe(true);
+  expect(http.calls.every(call => call.method === 'GET')).toBe(true);
+});
+
 it("opens the import workspace automatically without a service token", async () => {
   const http = fakeHTTP();
   render(<App />);

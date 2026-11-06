@@ -3,6 +3,7 @@ import asyncio
 import hashlib
 import hmac
 import secrets
+from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -16,9 +17,28 @@ from psycopg.types.json import Jsonb
 
 actor: ContextVar[dict[str, Any] | None] = ContextVar('actor', default=None)
 owner: ContextVar[str | None] = ContextVar('owner', default=None)
+_operator_evaluation: ContextVar[bool] = ContextVar('operator_evaluation', default=False)
 PASSWORDS = PasswordHasher()
 HASH_SLOTS = asyncio.Semaphore(2)
 COOKIE = 'practiq_session'
+
+
+@contextmanager
+def operator_evaluation():
+    """Standalone operator calls use evaluation receipts, never an inferred user owner."""
+    from .runtime import current
+    if current is not None or actor.get() is not None:
+        raise RuntimeError('Operator evaluation requires a standalone process')
+    token = _operator_evaluation.set(True)
+    try:
+        yield
+    finally:
+        _operator_evaluation.reset(token)
+
+
+def _evaluating() -> bool:
+    from .runtime import current
+    return _operator_evaluation.get() and current is None and actor.get() is None
 
 
 def db():
@@ -131,6 +151,8 @@ async def page_usage(conn, user_id: str) -> int:
 
 
 async def reserve(scope: str, key: str, kind: str, record: dict, *, pages: int = 1, allow_partial: bool = False):
+    if _evaluating():
+        return
     from .errors import DocumentProcessingError
     day = datetime.now(ZoneInfo('Asia/Singapore')).date()
     async with db().transaction() as conn:
@@ -168,12 +190,16 @@ async def reserve(scope: str, key: str, kind: str, record: dict, *, pages: int =
 
 
 async def record_call(key: str, record: dict):
+    if _evaluating():
+        return
     async with db().transaction() as conn:
         await conn.execute('UPDATE auth_calls SET record=%s WHERE call_key=%s', (Jsonb({**record, 'admissionState': 'dispatched'}), key))
 
 
 async def release(key: str):
     """Release only a positively unsubmitted admission, never an uncertain call."""
+    if _evaluating():
+        return
     async with db().transaction() as conn:
         await conn.execute("DELETE FROM auth_calls WHERE call_key=%s AND record->>'admissionState'='reserved'", (key,))
 

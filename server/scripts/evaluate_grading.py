@@ -18,6 +18,7 @@ from PIL import Image
 from practiq_ai.config import load
 from practiq_ai.cost_budget import evaluation_database
 from practiq_ai.grading import GradeRequest, digest_payload, grade
+from practiq_ai.identity import operator_evaluation
 
 CASES = [
     ("full", "液体表面发生的汽化现象", 500),
@@ -142,8 +143,9 @@ async def evaluate_source(repeats: int):
 
 
 async def run_evaluation(repeats: int, anchors: dict | None, *, source_only: bool):
-    async with evaluation_database():
-        return await (evaluate_source(repeats) if source_only else evaluate(repeats, anchors))
+    with operator_evaluation():
+        async with evaluation_database():
+            return await (evaluate_source(repeats) if source_only else evaluate(repeats, anchors))
 
 
 def main():

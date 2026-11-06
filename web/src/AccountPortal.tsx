@@ -807,8 +807,11 @@ export default function AccountPortal() {
   const reset = location.pathname === "/reset-password";
   useEffect(() => {
     if (reset) history.replaceState(null, "", "/reset-password");
-    const controller = new AbortController();
+    let controller = new AbortController();
     async function load() {
+      controller.abort();
+      const current = new AbortController();
+      controller = current;
       setLoading(true);
       setAccount(null);
       updateAccount(null);
@@ -817,16 +820,16 @@ export default function AccountPortal() {
           "/api/auth/session",
           "GET",
           undefined,
-          controller.signal,
+          current.signal,
         );
-        if (!controller.signal.aborted) {
+        if (!current.signal.aborted) {
           setAccount(result);
           updateAccount(result);
         }
       } catch (e) {
-        if (!controller.signal.aborted) setError(errorMessage(e));
+        if (!current.signal.aborted) setError(errorMessage(e));
       } finally {
-        if (!controller.signal.aborted) setLoading(false);
+        if (!current.signal.aborted) setLoading(false);
       }
     }
     void load();

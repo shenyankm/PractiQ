@@ -49,7 +49,8 @@ class AccountMiddleware(BaseHTTPMiddleware):
                     if not rows:
                         raise HTTPException(404, {'code': 'TASK_NOT_FOUND'})
                     auth.owner.set(rows[0]['owner_id'])
-                    if not rows[0]['owner_id'] and request.method not in {'GET', 'HEAD'}:
+                    artifact_read = path == '/api/artifacts/read' and request.method == 'POST'
+                    if not rows[0]['owner_id'] and request.method not in {'GET', 'HEAD'} and not artifact_read:
                         raise HTTPException(409, {'code': 'HISTORICAL_OWNERSHIP_REQUIRED'})
                 else:
                     await auth.require_task(target)

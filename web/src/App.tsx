@@ -69,7 +69,7 @@ export default function App({ initialTaskId, hideSkipLink = false, focusMain = f
     return false;
   }
   function refreshDetail() { if (leaveCorrection()) setDetailRevision(value => value + 1); }
-  const [page, setPage] = useState<Page>(() => pageFromHash() ?? "import");
+  const [page, setPage] = useState<Page>(() => initialTaskId ? "records" : pageFromHash() ?? "import");
   // Wake the existing pollers on workspace changes without discarding their caches.
   const recordsVisible = useRef(page === "records");
   const listWake = useRef<(() => void) | null>(null);
@@ -81,7 +81,7 @@ export default function App({ initialTaskId, hideSkipLink = false, focusMain = f
   const [connectionRevision, setConnectionRevision] = useState(0);
   const [client, setClient] = useState<Client | null>(null);
   const [capabilities, setCapabilities] = useState<Capabilities | null>(null);
-  const [capError, setCapError] = useState<string | null>(initialTaskId ?? null);
+  const [capError, setCapError] = useState<string | null>(null);
   const [files, setFiles] = useState<FileItem[]>([]);
   const [pageRange, setPageRange] = useState("");
   const [documentRole, setDocumentRole] = useState<"questions" | "answers">("questions");
@@ -98,7 +98,7 @@ export default function App({ initialTaskId, hideSkipLink = false, focusMain = f
   const cursor = cursors[offset / 20];
   const [filter, setFilter] = useState("");
   const [listRevision, setListRevision] = useState(0);
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(initialTaskId ?? null);
   function focusTask() {
     const panel = document.getElementById("task-detail");
     if (panel && !panel.closest("[hidden]")) { panel.focus(); panel.scrollIntoView({ block: "start" }); }

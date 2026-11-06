@@ -425,3 +425,28 @@ async def test_concurrent_password_reset_fences_in_flight_credential_mutations(a
     assert not await database.rows('SELECT * FROM auth_tokens')
     admin = (await database.rows("SELECT * FROM auth_users WHERE id='admin'"))[0]
     assert admin['password_hash'] == replacement and admin['name'] != 'stale update'
+
+
+async def test_admin_can_read_verified_historical_sources_but_cannot_mutate_them(accounts):
+    import hashlib
+
+    from psycopg.types.json import Jsonb
+
+    from practiq_ai.contracts import DocumentUploadRequest
+    from practiq_ai.storage import get_object_store
+    database, client = accounts
+    await login(client)
+    source = b'preserved historical source'
+    metadata = DocumentUploadRequest(sourceType='text', fileName='history.txt', mediaType='text/plain', sizeBytes=len(source), sha256=hashlib.sha256(source).hexdigest())
+    store = get_object_store()
+    reference = await store.put_document(source, metadata)
+    task = str(uuid4())
+    async with database.transaction() as conn:
+        await conn.execute("INSERT INTO document_tasks(thread_id,request_hash,graph_id,document,failure_policy,expires_at) VALUES(%s,'x','document_parser',%s,'return_partial',now()+interval '1 day')", (task, Jsonb(reference.model_dump(mode='json'))))
+    artifact = reference.model_dump(include={'objectKey','sha256','sizeBytes','mediaType'})
+    read = await client.post('/api/admin/artifacts/read?thread_id=' + task, json=artifact)
+    assert read.status_code == 200 and read.content == source
+    blocked = await client.post('/api/admin/document-tasks/' + task + '/control', json={})
+    assert blocked.status_code == 409 and blocked.json()['detail']['code'] == 'HISTORICAL_OWNERSHIP_REQUIRED'
+    await login(client, 'reader@example.test', register=True)
+    assert (await client.post('/api/artifacts/read?thread_id=' + task, json=artifact)).status_code == 404

@@ -95,6 +95,11 @@ and, when useful, configure the existing estimated-cost budgets. Calls and audit
 evidence survive task deletion. Saved results retain the existing 180-day expiry;
 download required ZIPs before expiry.
 
+Explicit standalone evaluation scripts use an operator-only admission context,
+with their existing evaluation receipts and optional cost-budget database. They
+do not infer or charge an application user. That context refuses a running service
+or authenticated HTTP actor and cannot disable HTTP ownership enforcement.
+
 ## macOS App connection
 
 Local practice, ZIP imports and direct model grading still require no account.

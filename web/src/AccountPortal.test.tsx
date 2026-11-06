@@ -1,11 +1,31 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import AccountPortal from './AccountPortal';
 import { setAccount, storageKey } from './accountClient';
 const response = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json' } });
 const anonymous = { user: null, csrf: 'test-csrf', registrationEnabled: true };
 afterEach(() => { cleanup(); setAccount(null); vi.unstubAllGlobals(); });
+it('discards an older session response after a newer account reload completes', async () => {
+  const {capabilities, taskId} = await import('./test-fixtures');
+  let finishFirst!: (value: Response) => void;
+  const first = new Promise<Response>(resolve => {finishFirst = resolve;});
+  let reads = 0;
+  const account = (id: string) => ({...anonymous,csrf:`csrf-${id}`,user:{id,email:`${id}@example.test`,name:'',role:'user',enabled:true}});
+  const fetcher = vi.fn(async (path: string) => {
+    if (path === '/api/auth/session') return ++reads === 1 ? first : response(account('new'));
+    if (path === '/api/import-capabilities') return response(capabilities);
+    if (path === '/api/import-settings') return response({revision:taskId,settings:{tencentConcurrency:5,readRetryCount:2,retryBaseSeconds:1,deduplicateQuestions:false,generateAnswers:false}});
+    return response({items:[],hasMore:false});
+  }); vi.stubGlobal('fetch',fetcher);
+  render(<AccountPortal />);
+  await waitFor(() => expect(reads).toBe(1));
+  act(() => {window.dispatchEvent(new Event('practiq-session-expired'));});
+  await screen.findByText('new@example.test');
+  await act(async () => {finishFirst(response(account('old'))); await first;});
+  expect(screen.queryByText('old@example.test')).toBeNull();
+  expect(storageKey('draft')).toBe('draft.user.new');
+});
 it('loads an anonymous session and exposes login, registration and assisted recovery', async () => {
   const fetcher = vi.fn(async (_path: string, _init?: RequestInit) => response(anonymous)); vi.stubGlobal('fetch', fetcher);
   render(<AccountPortal />);
