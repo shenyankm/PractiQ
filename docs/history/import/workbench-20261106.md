@@ -41,6 +41,12 @@ Hosted review found that rereading another writer's revision could replace an un
 
 Passed the full Web check (286 tests, one existing skip), production build, all 63 Chromium cases and the real HTTP/PostgreSQL/native workflow with substitutes. Six component regressions and three controlled browser cases cover this follow-up. The initial focused browser conflict fixture used a top-level error code instead of the service's `detail.code`; corrected the fixture and passed the full rerun. Original results and provider usage remained unchanged. See `review-fixes.json` and `hosted-review-http-native.json` in the retained evidence. Service and native source remain unchanged.
 
+## Hosted review: normalized-answer replay
+
+A second hosted review reproduced an idempotency failure: a shared-option answer `b` was saved as `B`, then the unchanged request was rejected as conflicting. Replay now reconstructs the question tree preceding that receipt and applies the same validation/normalization before comparison. Later edits removing an old option cannot change replay semantics. Different/invalid answers or another question index still conflict. No contract or storage schema change.
+
+The new real HTTP/PostgreSQL regression failed before the fix and passed afterward, together with all 11 correction tests. Ruff and Pyright passed. Original result and usage remain unchanged, with one substitute model call. The original full local service verification predates this backend fix; latest-head hosted service CI is required before merge. The first test fixture used dicts in a typed constructor; switched it to model validation to satisfy Pyright.
+
 ## Limits
 
 No real paid Tencent/model call, extraction-accuracy claim, teacher calibration, Tauri IPC/WebView, installer, signing or notarization acceptance. The native phase uses the release Rust/SQLite test. Historical/Office sources lacking complete images require original-file inspection. Drafts do not survive a confirmed full reload. Revisions expire with tasks; download ZIPs for retention.

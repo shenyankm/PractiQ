@@ -38,5 +38,15 @@
     "uncertainStateErrorsPreserveRequest": true,
     "realHttpAndNative": "PASSED with substitutes; see hosted-review-http-native.json",
     "retainedFailure": "Initial focused browser conflict fixture used a top-level code instead of detail.code. Corrected the fixture to the service error envelope; full rerun passed."
+  },
+  "normalizationReplayFollowup": {
+    "resolvedComment": "Normalize replayed corrections against the tree preceding their own receipt",
+    "reproducedBeforeFix": true,
+    "focusedServiceTestsPassed": 11,
+    "ruff": "PASSED",
+    "pyright": "PASSED",
+    "regression": "Real HTTP/PostgreSQL: shared-option b -> B, identical replay, changed/invalid payload and question-index rejection, replay after subsequent edits remove B, unchanged source/usage and one substitute model call",
+    "fullLatestHeadServiceCI": "Required before merge; initial full local service run predates this focused backend fix",
+    "publicContractsChanged": false
   }
 }

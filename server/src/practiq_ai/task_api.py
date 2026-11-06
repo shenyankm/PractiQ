@@ -769,9 +769,19 @@ async def save_correction(thread_id: str, request: DocumentCorrectionSave) -> Do
         original = DocumentParseResult.model_validate(snapshot.values['result'])
         if request.questionIndex >= len(original.questions):
             raise DocumentProcessingError(422, 'Question index is outside the result', 'CORRECTION_INVALID')
-        previous = next((edit for edit in saved.edits if edit.requestId == request.requestId), None)
-        if previous:
-            if previous.questionIndex != request.questionIndex or previous.question != request.question.model_copy(update={'needsReview': True}):
+        previous_index = next((index for index, edit in enumerate(saved.edits) if edit.requestId == request.requestId), None)
+        if previous_index is not None:
+            previous = saved.edits[previous_index]
+            if previous.questionIndex != request.questionIndex:
+                raise conflict('Request ID was used for a different correction', 'REQUEST_CONFLICT')
+            # Replay normalization uses the original tree, even if later revisions change shared options.
+            historical = saved.model_copy(update={'edits': saved.edits[:previous_index]})
+            try:
+                replayed = validate_edit(original.questions[request.questionIndex], request.question,
+                                         corrected_result(original, historical), request.questionIndex)
+            except DocumentProcessingError as exc:
+                raise conflict('Request ID was used for a different correction', 'REQUEST_CONFLICT') from exc
+            if previous.question != replayed:
                 raise conflict('Request ID was used for a different correction', 'REQUEST_CONFLICT')
             return saved
         if request.expectedRevision != (saved.edits[-1].requestId if saved.edits else None):

@@ -30,6 +30,8 @@ Record selection, recovery links, detail refresh and parent mutations that may r
 
 Drafts and unconfirmed request IDs remain in the current editor, including while another workspace page is visible. Browser reload/closing prompts before leaving; recovery after a confirmed full reload is not provided. Changed checkpoints reject old saves. Download a ZIP before task expiry for long-term retention.
 
+Identical correction retries are normalized against the historical question tree immediately preceding their receipt, including shared option labels. Later revisions cannot change replay semantics; a reused request ID with different question content is rejected.
+
 ## Contract and persistence
 
 `DocumentCorrectionSave`, `DocumentCorrections` and `DocumentQuestionCorrection` in `contracts.py` are authoritative; the existing exporter derives Web/App types.

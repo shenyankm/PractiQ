@@ -150,6 +150,52 @@ async def test_answer_edit_references_and_generated_type_contract(monkeypatch):
     assert len(model.calls) == 1
 
 
+@pytest.mark.usefixtures('disposable_databases')
+async def test_shared_option_correction_replay_normalizes_against_its_historical_tree(monkeypatch):
+    service, reference, model = await setup_api(monkeypatch)
+    receipt = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
+    await service.wait_idle()
+    thread = receipt['threadId']
+    document = result()
+    parent = ParsedQuestion.model_validate({'id': 'bank', 'stem': 'Word bank', 'answerMode': 'word_bank',
+                            'options': [{'label': 'A', 'content': 'First'}, {'label': 'B', 'content': 'Second'}],
+                            'passage': [{'partType': 'text', 'textValue': 'Choose '}, {'partType': 'blank', 'questionId': 'child'}]})
+    child = ParsedQuestion(id='child', parentId='bank', optionSourceId='bank', stem='Choose',
+                           answerMode='choice', choiceVariant='single', answerPayload={'correct': ['A']})
+    document.questions = [parent, child]
+    document = DocumentParseResult.model_validate(document.model_dump(mode='json'))
+    await service.graph.aupdate_state({'configurable': {'thread_id': thread}},
+                                      {'result': document.model_dump(mode='json')}, as_node='finish')
+    before = await task_api.get_task(thread)
+    request = {'requestId': str(uuid4()), 'checkpointId': before['checkpointId'], 'expectedRevision': None,
+               'questionIndex': 1, 'question': {**before['result']['questions'][1], 'answerPayload': {'correct': ['b']}}}
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=webapp.app), base_url='http://test') as http:
+        path = f'/api/document-tasks/{thread}/corrections'
+        first = await http.put(path, json=request)
+        assert first.status_code == 200, first.text
+        saved = first.json()
+        assert saved['edits'][0]['question']['answerPayload'] == {'correct': ['B']}
+        assert (await http.put(path, json=request)).json() == saved
+        different = {**request, 'question': {**request['question'], 'answerPayload': {'correct': ['a']}}}
+        assert (await http.put(path, json=different)).json()['detail']['code'] == 'REQUEST_CONFLICT'
+        invalid = {**request, 'question': {**request['question'], 'answerPayload': {'correct': ['C']}}}
+        assert (await http.put(path, json=invalid)).json()['detail']['code'] == 'REQUEST_CONFLICT'
+        different_index = {**request, 'questionIndex': 0, 'question': before['result']['questions'][0]}
+        assert (await http.put(path, json=different_index)).json()['detail']['code'] == 'REQUEST_CONFLICT'
+        # Later edits can remove the old label; replay uses the tree preceding its own receipt.
+        second = {**request, 'requestId': str(uuid4()), 'expectedRevision': request['requestId'],
+                  'question': {**request['question'], 'answerPayload': {'correct': ['A']}}}
+        assert (await http.put(path, json=second)).status_code == 200
+        third = {**request, 'requestId': str(uuid4()), 'expectedRevision': second['requestId'], 'questionIndex': 0,
+                 'question': {**before['result']['questions'][0], 'options': [{'label': 'A', 'content': 'First'}]}}
+        latest = await http.put(path, json=third)
+        assert latest.status_code == 200, latest.text
+        assert (await http.put(path, json=request)).json() == latest.json()
+        assert len((await http.get(path)).json()['edits']) == 3
+    after = await task_api.get_task(thread)
+    assert after['result'] == before['result'] and after['usage'] == before['usage'] and len(model.calls) == 1
+
+
 def test_editable_rich_text_preserves_structure_and_original_source():
     original = result()
     question = original.questions[0]
