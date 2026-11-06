@@ -256,3 +256,34 @@ def test_printed_number_prefers_original_source_and_rejects_decimal_wording(stem
     from practiq_ai.answer_matching import printed_number
     from practiq_ai.contracts import ParsedQuestion
     assert printed_number(ParsedQuestion(stem=stem, sourceText=source)) == expected
+
+
+@pytest.mark.usefixtures('disposable_databases')
+@pytest.mark.parametrize('action', ['pause', 'interrupt'])
+async def test_cold_resume_of_selected_reparse_retains_prepared_evidence_after_parent_deletion(monkeypatch, action):
+    from unittest.mock import AsyncMock
+
+    from practiq_ai import messaging, task_api
+    from practiq_ai.contracts import DocumentTaskControl
+    from tests.db_support import setup_api
+    from tests.support import parsed
+    service, source, model = await setup_api(monkeypatch, [parsed(), parsed()])
+    parent = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(source)))
+    await service.wait_idle()
+    original = await task_api.get_task(parent['threadId'])
+    publish = messaging.publish
+    monkeypatch.setattr(messaging, 'publish', AsyncMock())
+    child = await task_api.reparse_task(parent['threadId'], DocumentTaskReparse.model_validate({'requestId': str(uuid4()),
+        'selection': {'checkpointId': original['checkpointId'], 'units': [{'stage': 'document_parse', 'index': 0}]}}))
+    await task_api.control_task(child['threadId'], DocumentTaskControl(requestId=uuid4(), action=action, runId=child['runId']))
+    await service.wait_idle()
+    _, snapshot, _ = await task_api._read_task(service, child['threadId'])
+    assert not snapshot.values and len(model.calls) == 1
+    await task_api.delete_task(parent['threadId'])
+    paused = await task_api.get_task(child['threadId'])
+    monkeypatch.setattr(messaging, 'publish', publish)
+    resumed = await task_api.control_task(child['threadId'], DocumentTaskControl(requestId=uuid4(), action='resume', checkpointId=paused['checkpointId']))
+    assert await task_api.control_task(child['threadId'], DocumentTaskControl(requestId=resumed['requestId'], action='resume', checkpointId=paused['checkpointId'])) == resumed
+    await service.wait_idle()
+    after = await task_api.get_task(child['threadId'])
+    assert after['state'] == 'COMPLETED' and not after['parserJobs'] and len(model.calls) == 2

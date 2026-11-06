@@ -42,6 +42,8 @@ The bounded visual check covered Start, restored drafts, matching and original-p
 
 PR #514 subsequently identified two answer-association issues: unrelated manual edits dropped export provenance, and numeric wording could take precedence over printed source numbering. The fixes retain proof while the supplied answer is unchanged, clear it on a manual answer replacement, prefer original-source numbering and reject decimal prefixes. The 115 focused selection/correction/export regressions, Ruff, Pyright and rebuilt archive integrity checks passed. This follow-up changes no Web layout; the retained browser/native snapshot above remains the original feature-acceptance run.
 
+A later control-path check reproduced additional Tencent work when a selected reparse was paused/cancelled before its first checkpoint. Cold resume now retains its durable private preparation seed, and failed-unit retry explicitly retains range/role. Both pause and interrupt regressions failed before the fix and passed afterwards, including parent deletion and receipt replay. The complete affected selection/options/Office/task-API rerun passed 94 tests; Ruff, Pyright and rebuilt archive integrity passed.
+
 The initial failures and successful reruns remain under ignored `server/reports/checks/import-suite-*`; they were not deleted or relabeled. The first full `make verify` remains recorded as failed; the focused repairs are separate successful runs. Remote CI and review are checked against the final PR head before merging.
 
 ## Limits

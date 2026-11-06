@@ -178,14 +178,17 @@ def _create_payload(request: DocumentTaskCreate) -> dict[str, Any]:
     return request.model_dump(mode='json', exclude=exclude)
 
 
-async def _parse_options(service, thread_id: str) -> dict[str, Any]:
+async def _parse_options(service, thread_id: str, *, include_seed: bool = False) -> dict[str, Any]:
     # The initial run input is already committed atomically with the task.
     # Reconstruct current options without replaying retired officeMode or rewriting audit inputs.
     rows = await service.db.rows('SELECT input FROM document_runs WHERE thread_id=%s AND input IS NOT NULL '
                                  'ORDER BY created_at,run_id LIMIT 1', (thread_id,))
     initial = rows[0]['input'] if rows else {}
-    return {'deduplicateQuestions': initial.get('deduplicateQuestions', False), 'generateAnswers': initial.get('generateAnswers', False),
-            'pages': initial.get('pages'), 'documentRole': initial.get('documentRole', 'questions')}
+    options = {'deduplicateQuestions': initial.get('deduplicateQuestions', False), 'generateAnswers': initial.get('generateAnswers', False),
+               'pages': initial.get('pages'), 'documentRole': initial.get('documentRole', 'questions')}
+    if include_seed and initial.get('reparseSeed') is not None:
+        options['reparseSeed'] = initial['reparseSeed']
+    return options
 
 
 async def _reparse_seed(service, request: DocumentTaskCreate) -> dict[str, Any]:
@@ -552,7 +555,7 @@ async def control_task(thread_id: str, request: DocumentTaskControl) -> dict[str
             command = {'resume': {key: request.model_dump(mode='json') for key in interruptions}} if interruptions else None
             if not values:
                 graph_input = {'document': task['document'], 'failurePolicy': task['failure_policy'],
-                               **await _parse_options(service, thread_id)}
+                               **await _parse_options(service, thread_id, include_seed=True)}
             elif request.action == 'resume' and queued_pause:
                 assert run is not None
                 graph_input, command = run['input'], run['command']
@@ -565,6 +568,7 @@ async def control_task(thread_id: str, request: DocumentTaskControl) -> dict[str
                     graph_input = {'document': values['document'], 'failurePolicy': values.get('failurePolicy', 'return_partial'),
                                    'deduplicateQuestions': values.get('deduplicateQuestions', False),
                                    'generateAnswers': values.get('generateAnswers', False),
+                                   'pages': values.get('pages'), 'documentRole': values.get('documentRole', 'questions'),
                                    'retry': retry.model_dump(mode='json')}
             admission = await service.db.store.aget(namespace(thread_id, 'control'), 'admission', refresh_ttl=False)
             response = await _enqueue(conn, task, request_id, request_hash, graph_input=graph_input, command=command,
