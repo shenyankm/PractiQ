@@ -214,7 +214,7 @@ export default function ResultReview({ task, preview, client, unavailable = fals
     return entries.filter(entry => {
       const q = entry.question;
       if (reviewOnly && !q.needsReview) return false;
-      if (issueFilter === "answer" && q.answerPayload != null) return false;
+      if (issueFilter === "answer" && q.answerPayload != null && !q.missingFields.includes("answerPayload")) return false;
       if (issueFilter === "type" && q.answerMode && q.questionTypeId) return false;
       if (issueFilter === "relation" && !q.missingFields.includes("material") && !q.parentId && !q.optionSourceId) return false;
       if (issueFilter === "answer" && ["reading", "word_bank", "cloze", "listening", "gap_fill"].includes(q.answerMode || "")) return false;

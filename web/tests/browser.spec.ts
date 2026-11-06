@@ -1169,7 +1169,7 @@ test("uncertain correction retries stay bound to their original revision until e
   expect(http.server.modelStarts).toBe(0);
 });
 
-for (const code of ["CORRECTION_INVALID", "HTTP_422"]) test(`definitive ${code} replay rejection unlocks the correction draft`, async ({ page }) => {
+for (const code of ["CORRECTION_INVALID", "HTTP_422", "REQUEST_TOO_LARGE"]) test(`definitive ${code} replay rejection unlocks the correction draft`, async ({ page }) => {
   const http = await fakeHTTP(page);
   http.server.review = { ...preview, corrections: { checkpointId: task.checkpointId!, edits: [] } };
   const writes: Record<string, any>[] = [];
@@ -1177,7 +1177,7 @@ for (const code of ["CORRECTION_INVALID", "HTTP_422"]) test(`definitive ${code} 
     if (!call.path.endsWith("/corrections") || call.method !== "PUT") return false;
     writes.push(call.body!);
     if (writes.length === 1) await route.abort("failed");
-    else if (writes.length === 2) await respond(route, code === "HTTP_422" ? { detail: [{ msg: "invalid" }] } : { detail: { message: "Invalid correction", code } }, 422);
+    else if (writes.length === 2) await respond(route, code === "HTTP_422" ? { detail: [{ msg: "invalid" }] } : { detail: { message: "Invalid correction", code } }, code === "REQUEST_TOO_LARGE" ? 413 : 422);
     else await respond(route, { checkpointId: task.checkpointId, edits: [{ ...call.body, savedAt: "2026-11-06T00:00:00Z" }] });
     return true;
   };
@@ -1197,4 +1197,20 @@ for (const code of ["CORRECTION_INVALID", "HTTP_422"]) test(`definitive ${code} 
   expect(writes[2].requestId).not.toBe(writes[0].requestId);
   expect(writes[2].question.stem).toBe("Corrected after rejection");
   expect(http.server.modelStarts).toBe(0);
+});
+
+test("missing-answer navigation includes incomplete payloads while preserving complete false and zero", async ({ page }) => {
+  const records = [material,
+    question({ answerMode: "fill_blank", answerPayload: { answers: ["0", null] } }),
+    question({ id: "null-choice", parentId: null, optionSourceId: null, stem: "Unknown choice", answerPayload: { correct: [null] } }),
+    question({ id: "false", parentId: null, optionSourceId: null, stem: "Complete false", answerMode: "true_false", answerPayload: { value: false }, missingFields: [] }),
+    question({ id: "zero", parentId: null, optionSourceId: null, stem: "Complete zero", answerMode: "short_answer", answerPayload: { text: "0" }, missingFields: [] }),
+  ];
+  const http = await fakeHTTP(page, { ...task, result: { ...task.result!, questions: records } });
+  await connect(page); await openTask(page);
+  await chooseOption(page.getByRole("combobox", { name: "问题分类" }), "answer");
+  await expect(page.getByText("显示 2 / 5 条记录", { exact: true })).toBeVisible();
+  for (const stem of ["根据材料选择答案", "Unknown choice"]) await expect(page.getByText(stem, { selector: "summary span", exact: true })).toBeVisible();
+  for (const stem of ["Complete false", "Complete zero", material.stem!]) await expect(page.getByText(stem, { selector: "summary span", exact: true })).toHaveCount(0);
+  expect(mutations(http.calls)).toHaveLength(0);
 });

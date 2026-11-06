@@ -99,7 +99,7 @@ export default function CorrectionWorkbench({ task, preview, question, original,
       onSaved(saved); setEditing(false); setNotice("修订已保存。下载修订版会包含全部已保存修改，原始题库保留。");
     } catch (e) {
       if (e instanceof ApiError && e.status >= 400 && e.status < 500 && (
-        ["CORRECTION_CONFLICT", "CORRECTION_INVALID", "CORRECTION_PROTECTED_FIELD", "CORRECTION_HISTORY_LIMIT", "HTTP_422"].includes(e.code) ||
+        ["CORRECTION_CONFLICT", "CORRECTION_INVALID", "CORRECTION_PROTECTED_FIELD", "CORRECTION_HISTORY_LIMIT", "REQUEST_TOO_LARGE", "HTTP_422"].includes(e.code) ||
         (!wasUnconfirmed && ["CORRECTION_NOT_READY", "STALE_CHECKPOINT", "SERVICE_READ_ONLY"].includes(e.code))
       )) {
         pendingSave.current = null; setPendingRequestId(null);

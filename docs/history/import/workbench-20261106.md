@@ -47,6 +47,14 @@ A second hosted review reproduced an idempotency failure: a shared-option answer
 
 The new real HTTP/PostgreSQL regression failed before the fix and passed afterward, together with all 11 correction tests. Ruff and Pyright passed. Original result and usage remain unchanged, with one substitute model call. The original full local service verification predates this backend fix; latest-head hosted service CI is required before merge. The first test fixture used dicts in a typed constructor; switched it to model validation to satisfy Pyright.
 
+## Hosted review: body limits and incomplete answers
+
+The next review identified a locked draft after the middleware's definitive `REQUEST_TOO_LARGE` rejection and an answer filter based only on payload presence. The editor now releases the rejected request on first attempt or replay. The filter respects the service's answer-completeness flag, includes partial/null answer entries, and preserves complete false/zero answers and material-parent exclusions.
+
+Regressions cover first/replayed 413 recovery, the real service body limit without history changes, partial blanks/null choices, complete false/zero answers and passive filtering. The initial UI test helpers used the wrong Select interaction; corrected the native unit interaction and shared browser helper before the successful reruns.
+
+The final follow-up passed the complete Web check (289 tests, one existing skip), production build, all 65 production Chromium cases, all 11 service correction cases, Ruff, Pyright and real HTTP/PostgreSQL/native acceptance with substitutes. Final service code identity is `48188058eed8b38e63b0bb3d41dc7b90fe178766ab75780e2efaf1f15e3aec4b`; see `final-http-native.json`.
+
 ## Limits
 
 No real paid Tencent/model call, extraction-accuracy claim, teacher calibration, Tauri IPC/WebView, installer, signing or notarization acceptance. The native phase uses the release Rust/SQLite test. Historical/Office sources lacking complete images require original-file inspection. Drafts do not survive a confirmed full reload. Revisions expire with tasks; download ZIPs for retention.

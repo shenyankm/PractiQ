@@ -48,5 +48,24 @@
     "regression": "Real HTTP/PostgreSQL: shared-option b -> B, identical replay, changed/invalid payload and question-index rejection, replay after subsequent edits remove B, unchanged source/usage and one substitute model call",
     "fullLatestHeadServiceCI": "Required before merge; initial full local service run predates this focused backend fix",
     "publicContractsChanged": false
+  },
+  "bodyLimitAndAnswerFilterFollowup": {
+    "resolvedComments": [
+      "Release pending corrections after body-size rejection",
+      "Include incomplete payloads in missing-answer navigation"
+    ],
+    "webPassed": 289,
+    "webSkipped": 1,
+    "productionBrowserPassed": 65,
+    "focusedServiceTestsPassed": 11,
+    "ruff": "PASSED",
+    "pyright": "PASSED",
+    "realHttpAndNative": "PASSED with substitutes; see final-http-native.json",
+    "regressions": [
+      "First and replayed REQUEST_TOO_LARGE release draft",
+      "Actual 1 MiB HTTP middleware rejection leaves history unchanged",
+      "Partial blank/null choice payloads visible; complete false/zero and material parents excluded"
+    ],
+    "retainedTestHelperFailures": "Initial unit test clicked native option; switched to selectOptions. Initial browser helper used wrong arguments; used the shared control/value helper and reran."
   }
 }

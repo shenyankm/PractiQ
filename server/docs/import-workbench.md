@@ -18,7 +18,7 @@ Open a task under **导入记录**, expand a question, and choose **对照原文
 | Editing | Task replacement or detail refresh requires explicit draft-discard confirmation. Other workspace pages hide the editor without unmounting it. |
 | Saving or reading receipts | Inputs, selectors, option controls, save and cancel are locked for the request; task replacement is blocked. |
 | Save succeeded | Close the editor, show the saved result and enable revised export. |
-| Definitive validation/concurrency rejection, including an explicit retry | Release the rejected request ID; retain and unlock the draft for correction or discard. A changed checkpoint/read-only response cannot resolve a previously uncertain save. |
+| Definitive validation/concurrency/body-size rejection, including an explicit retry | Release the rejected request ID; retain and unlock the draft for correction or discard. A changed checkpoint/read-only response cannot resolve a previously uncertain save. |
 | Network failure or uncertain receipt | Retain the submitted draft and original request ID. Inputs and discard remain locked; explicitly read saved revisions or retry the exact original request, including its revision and payload. Block task replacement and operations resetting the result view. |
 | Original request ID found | Confirm the previous save without another write and release the task guard. |
 | Another window saved first | Reject overwriting its version. Reload revisions and inspect history. Keep the draft bound to its original revision until explicitly choosing to continue on the newly read version; only then issue a new request. |
@@ -31,6 +31,8 @@ Record selection, recovery links, detail refresh and parent mutations that may r
 Drafts and unconfirmed request IDs remain in the current editor, including while another workspace page is visible. Browser reload/closing prompts before leaving; recovery after a confirmed full reload is not provided. Changed checkpoints reject old saves. Download a ZIP before task expiry for long-term retention.
 
 Identical correction retries are normalized against the historical question tree immediately preceding their receipt, including shared option labels. Later revisions cannot change replay semantics; a reused request ID with different question content is rejected.
+
+The missing-reference-answer filter includes null payloads and payloads marked incomplete by `missingFields: ["answerPayload"]`, including partially answered blanks and null choice entries. Complete false/zero answers and material parents are excluded.
 
 ## Contract and persistence
 

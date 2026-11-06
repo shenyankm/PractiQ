@@ -241,3 +241,23 @@ it.each(["STALE_CHECKPOINT", "CORRECTION_NOT_READY", "SERVICE_READ_ONLY"])("pres
   expect(screen.getByText(new RegExp(save.mock.calls[0][1].requestId))).toBeTruthy();
   expect(screen.getByRole("textbox", { name: "题干" }).matches(":disabled")).toBe(true);
 });
+
+it.each([false, true])("unlocks an oversized correction after a definitive rejection (replay: %s)", async replay => {
+  vi.spyOn(Client.prototype, "evidence").mockRejectedValue(Error("unavailable"));
+  const save = vi.spyOn(Client.prototype, "saveCorrection").mockRejectedValue(new ApiError("Too large", "REQUEST_TOO_LARGE", 413));
+  if (replay) save.mockRejectedValueOnce(new ApiError("lost", "NETWORK_ERROR"));
+  render(<ResultReview task={detail} preview={metadata} client={new Client()} />);
+  const user = await open();
+  await user.click(screen.getByRole("button", { name: "人工校对" }));
+  await user.click(screen.getByRole("button", { name: "保存修订" }));
+  if (replay) {
+    await screen.findByText(/保存请求 ID：/);
+    await user.click(screen.getByRole("button", { name: "保存修订" }));
+    expect(save.mock.calls[1][1]).toEqual(save.mock.calls[0][1]);
+  }
+  await screen.findByText("Too large");
+  expect(screen.queryByText(/保存请求 ID：/)).toBeNull();
+  expect(screen.getByRole("textbox", { name: "题干" }).matches(":disabled")).toBe(false);
+  await user.click(screen.getByRole("button", { name: "放弃本次修改" }));
+  expect(screen.getByRole("button", { name: "返回题目列表" })).toHaveProperty("disabled", false);
+});

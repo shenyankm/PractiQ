@@ -67,6 +67,8 @@ async def test_http_correction_reopen_history_export_and_immutable_source(monkey
         saved = first.json()
         assert len(saved['edits']) == 1 and saved['edits'][0]['question']['needsReview']
         assert (await http.put(path, json=request)).json() == saved  # Lost response: explicit replay is idempotent.
+        oversized = {**request, 'question': {**question, 'answerPayload': {'text': 'x' * (1024 * 1024)}}}
+        assert (await http.put(path, json=oversized)).json()['detail']['code'] == 'REQUEST_TOO_LARGE'
         assert (await http.get(path)).json() == saved
         review = (await http.get(f'/api/document-tasks/{thread}/preview?include_result=false')).json()
         assert review['corrections'] == saved and all(not unit['questions'] for unit in review['units'])
