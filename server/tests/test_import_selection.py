@@ -287,3 +287,28 @@ async def test_cold_resume_of_selected_reparse_retains_prepared_evidence_after_p
     await service.wait_idle()
     after = await task_api.get_task(child['threadId'])
     assert after['state'] == 'COMPLETED' and not after['parserJobs'] and len(model.calls) == 2
+
+
+@pytest.mark.parametrize('record', ['1: B', '第1题：B', '1）B', '1. B', '第 001 题：B'])
+def test_answer_sheet_proof_uses_the_same_numbering_as_matching(record):
+    from practiq_ai.answer_matching import printed_number
+    from practiq_ai.contracts import ParsedQuestion
+    from practiq_ai.graphs.answer_evidence import retain_source_answers
+    quote = record + '\nAnalysis: Literal reason'
+    primary = 'Reference answers\n' + quote + '\n2. C\nAnalysis: Other reason'
+    question = ParsedQuestion(stem='1', answerMode='short_answer', answerPayload={'text': 'B'}, analysis='Literal reason', sourceText=quote)
+    assert printed_number(question) == '1'
+    assert retain_source_answers([question], primary, [], answer_sheet=True) == []
+    assert question.model_dump()['answerPayload'] == {'text': 'B'} and question.analysis == 'Literal reason'
+    for text, answer in [(quote.replace('Literal reason', 'Invented reason'), 'B'), (quote, 'C')]:
+        invalid = ParsedQuestion(stem='1', answerMode='short_answer', answerPayload={'text': answer}, sourceText=text)
+        assert retain_source_answers([invalid], primary, [], answer_sheet=True)
+        assert invalid.answerPayload is None
+
+
+def test_answer_sheet_quote_cannot_borrow_an_answer_from_context_only():
+    from practiq_ai.contracts import ParsedQuestion
+    from practiq_ai.graphs.answer_evidence import retain_source_answers
+    question = ParsedQuestion(stem='1', answerMode='short_answer', answerPayload={'text': 'B'}, sourceText='1.')
+    assert retain_source_answers([question], '1.', ['Answers\n1. B'], answer_sheet=True)
+    assert question.answerPayload is None

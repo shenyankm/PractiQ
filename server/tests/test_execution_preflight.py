@@ -11,7 +11,7 @@ from practiq_ai.errors import DocumentProcessingError
 from tests.support import make_image, object_store, source, upload
 
 
-@pytest.mark.parametrize("module", ["cost_budget.py", "worker_sandbox.py", "retry_policy.py", "unit_results.py"])
+@pytest.mark.parametrize("module", ["cost_budget.py", "worker_sandbox.py", "retry_policy.py", "unit_results.py", "source_selection.py", "answer_matching.py"])
 def test_production_policy_changes_invalidate_execution_identity(monkeypatch, module):
     original = Path.read_bytes
     target = Path(execution.__file__).parent / module

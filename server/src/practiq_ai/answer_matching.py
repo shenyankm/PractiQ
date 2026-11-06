@@ -11,12 +11,19 @@ from .contracts import (
 )
 from .errors import DocumentProcessingError
 
+PRINTED_NUMBER_PREFIX = re.compile(
+    r'^[^\S\r\n]*(?:第[^\S\r\n]*)?(?P<number>\d{1,6})'
+    r'(?:[^\S\r\n]*题[^\S\r\n]*[:：.．、)）]?[^\S\r\n]*'
+    r'|[^\S\r\n]*(?:[.．](?!\d)|[、:：)）])[^\S\r\n]*'
+    r'|[^\S\r\n]*(?=\r?$))', re.MULTILINE,
+)
+
 
 def printed_number(question: ParsedQuestion) -> str | None:
     for value in (question.sourceText, question.stem):
-        match = re.match(r'^\s*(?:第\s*)?(\d{1,6})(?:\s*(?:[.．](?!\d)|[、:：)）题])|\s*$)', value or '')
+        match = PRINTED_NUMBER_PREFIX.match(value or '')
         if match:
-            return str(int(match[1]))
+            return str(int(match['number']))
     return None
 
 

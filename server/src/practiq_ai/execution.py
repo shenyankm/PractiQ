@@ -44,7 +44,7 @@ def fingerprint(value: Any) -> str:
 @lru_cache(maxsize=1)
 def code_version() -> str:
     root = Path(__file__).parent
-    paths = [root / name for name in ("contracts.py", "grading.py", "llm.py", "execution.py", "config.py", "storage.py", "json_repair.py", "capacity.py", "telemetry.py", "runtime.py", "database.py", "task_api.py", "office.py", "cost_budget.py", "worker_sandbox.py", "retry_policy.py", "unit_results.py", "source_selection.py")]
+    paths = [root / name for name in ("contracts.py", "grading.py", "llm.py", "execution.py", "config.py", "storage.py", "json_repair.py", "capacity.py", "telemetry.py", "runtime.py", "database.py", "task_api.py", "office.py", "cost_budget.py", "worker_sandbox.py", "retry_policy.py", "unit_results.py", "source_selection.py", "answer_matching.py")]
     if (root / "office_service.py").is_file():
         paths.append(root / "office_service.py")
     paths.append(root / "normalization.py")
