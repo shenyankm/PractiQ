@@ -1,0 +1,81 @@
+{
+  "status": "PASSED",
+  "samples": [
+    {
+      "name": "desktop-light",
+      "width": 1440,
+      "height": 1040,
+      "noHorizontalOverflow": true
+    },
+    {
+      "name": "narrow-dark",
+      "width": 390,
+      "height": 844,
+      "noHorizontalOverflow": true
+    }
+  ],
+  "providerCallsBefore": 1,
+  "providerCallsAfter": 1,
+  "error": null,
+  "saved": {
+    "checkpointId": "1f1d9a35-d7cb-6b86-800b-30da59cd79a3",
+    "edits": [
+      {
+        "requestId": "16aebb03-34a3-41b9-beea-7382f3726568",
+        "questionIndex": 0,
+        "question": {
+          "id": "q0",
+          "parentId": null,
+          "questionKind": null,
+          "instructions": null,
+          "audioRef": null,
+          "audioStartSeconds": 0,
+          "audioEndSeconds": null,
+          "transcript": [],
+          "examPlayCount": 2,
+          "sourceLanguage": null,
+          "targetLanguage": null,
+          "writingGenre": null,
+          "minWords": null,
+          "maxWords": null,
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "人工校对：The Earth orbits the Sun.",
+          "answerMode": "true_false",
+          "questionTypeId": "判断题",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": {
+            "value": false
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "人工核对后保存的解析。",
+          "contentBlocks": [
+            {
+              "label": null,
+              "partType": "text",
+              "questionId": null,
+              "role": null,
+              "textValue": "人工校对：The Earth orbits the Sun.",
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            }
+          ],
+          "sourceText": "The Earth orbits the Sun.",
+          "confidence": 0.8,
+          "needsReview": true,
+          "missingFields": []
+        },
+        "savedAt": "2026-11-06T05:31:52.975157+00:00"
+      }
+    ]
+  },
+  "threadId": "e2afe34a-87bc-554b-8e6c-c0b9c18485d7"
+}

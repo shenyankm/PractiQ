@@ -1,4 +1,4 @@
-import type { ArtifactReference, DocumentReference, DocumentSourceType, DocumentTaskControl, DocumentTaskCreate, DocumentTaskDetail, DocumentTaskHead, DocumentTaskList, DocumentTaskReceipt, DocumentTaskReparse, DocumentTaskReview, DocumentUploadResponse, ImportCapabilities, ImportSettingsSnapshot } from "./contracts.generated";
+import type { ArtifactReference, DocumentCorrections, DocumentCorrectionSave, DocumentReference, DocumentSourceType, DocumentTaskControl, DocumentTaskCreate, DocumentTaskDetail, DocumentTaskHead, DocumentTaskList, DocumentTaskReceipt, DocumentTaskReparse, DocumentTaskReview, DocumentUploadResponse, ImportCapabilities, ImportSettingsSnapshot } from "./contracts.generated";
 import { IMPORT_SOURCE_TYPES } from "./contracts.generated";
 
 export type SourceType = Exclude<DocumentSourceType, "csv">;
@@ -145,6 +145,13 @@ export class Client {
             OFFICE_NOT_CONFIGURED: "服务尚未配置 Office 转换，请联系服务提供方或改用 PDF。本次提交未创建任务，可以修正配置后手动重新提交。",
             TENCENT_NOT_CONFIGURED: "服务尚未配置腾讯文档解析，请联系服务提供方。本次提交未创建任务，可以修正配置后手动重新提交。",
             STALE_RUN: "任务状态已更新，请刷新任务详情后再操作。",
+            CORRECTION_CONFLICT: "其他窗口已保存修订，请重新读取后核对，草稿仍保留。",
+            CORRECTION_INVALID: "修改与题组或答案引用冲突，请核对选项、作答方式和所属材料。",
+            CORRECTION_PROTECTED_FIELD: "来源证据、资源和题组关联不可修改。",
+            CORRECTION_NOT_READY: "任务尚未完成或结果已变化，请刷新后再校对。",
+            CORRECTION_HISTORY_LIMIT: "此检查点的修订记录已达上限，请下载修订版后继续在练习应用中编辑。",
+            SERVICE_READ_ONLY: "服务当前只读，无法保存修改。",
+            STALE_CHECKPOINT: "任务检查点已变化，请刷新后重新核对。",
             TASK_BUSY: "任务正在处理，请等待并刷新状态。",
           };
           const exportRecovery: Record<string, string> = pathname.endsWith("/export") ? {
@@ -220,6 +227,12 @@ export class Client {
     return this.json<TaskList>(`/api/document-tasks?${query}`, undefined, signal);
   }
   detail(id: string, signal?: AbortSignal) { return this.json<DocumentTaskDetail>(`/api/document-tasks/${encodeURIComponent(id)}`, undefined, signal); }
+  corrections(id: string) { return this.json<DocumentCorrections>(`/api/document-tasks/${encodeURIComponent(id)}/corrections`); }
+  async saveCorrection(id: string, value: DocumentCorrectionSave) {
+    const saved = await this.json<DocumentCorrections>(`/api/document-tasks/${encodeURIComponent(id)}/corrections`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(value) });
+    if (saved.checkpointId !== value.checkpointId || !Array.isArray(saved.edits) || !saved.edits.some(edit => edit.requestId === value.requestId && edit.questionIndex === value.questionIndex)) throw new ApiError("修订回执未确认，请重新读取已保存修订。", "INVALID_RESPONSE");
+    return saved;
+  }
   head(id: string, signal?: AbortSignal) { return this.json<DocumentTaskHead>(`/api/document-tasks/${encodeURIComponent(id)}/head`, undefined, signal); }
   preview(id: string, signal?: AbortSignal, includeResult = true) { return this.json<DocumentTaskReview>(`/api/document-tasks/${encodeURIComponent(id)}/preview${includeResult ? "" : "?include_result=false"}`, undefined, signal); }
   pendingImports(): DocumentTaskCreate[] {
@@ -369,12 +382,13 @@ export class Client {
     const { objectKey, sha256, sizeBytes, mediaType } = reference;
     return this.artifact({ objectKey, sha256, sizeBytes, mediaType }, threadId, 50 * MIB);
   }
-  async exportBank(task: DocumentTaskDetail) {
+  async exportBank(task: DocumentTaskDetail, revisionId?: string) {
     if ((!task.canExportCompleted && (task.state !== "COMPLETED" || !task.result)) || !task.checkpointId) throw new ApiError("任务结果尚不可导出。", "BANK_EXPORT_NOT_READY");
     const query = new URLSearchParams({ checkpoint_id: task.checkpointId, scope: task.state === "COMPLETED" ? "full" : "completed" });
+    if (revisionId) query.set("revision_id", revisionId);
     return this.request(`/api/document-tasks/${encodeURIComponent(task.threadId)}/export?${query}`, {}, async (response, signal) => {
       if (response.headers.get("content-type")?.split(";")[0] !== "application/zip") throw new ApiError("服务未返回题库 ZIP。", "INVALID_RESPONSE");
-      return { blob: new Blob(await readChunks(response, MAX_BANK_ZIP_BYTES, signal), { type: "application/zip" }), name: `practiq-bank-${task.threadId.replace(/[^a-zA-Z0-9-]/g, "")}.zip` };
+      return { blob: new Blob(await readChunks(response, MAX_BANK_ZIP_BYTES, signal), { type: "application/zip" }), name: `practiq-bank-${revisionId ? "revised-" : ""}${task.threadId.replace(/[^a-zA-Z0-9-]/g, "")}.zip` };
     });
   }
 }

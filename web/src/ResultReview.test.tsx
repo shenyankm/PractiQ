@@ -458,3 +458,22 @@ it("offers explicit evidence retry after failure and suppresses a late cancellat
   expect(screen.queryByText("verified evidence")).toBeNull();
   expect((screen.getByRole("button", { name: "查看来源证据" }) as HTMLButtonElement).disabled).toBe(false);
 });
+
+it("filters missing and incomplete reference answers using the contract completeness flags", async () => {
+  const records = [
+    question({ id: "partial", parentId: null, optionSourceId: null, stem: "Partial blanks", answerMode: "fill_blank", answerPayload: { answers: ["0", null] } }),
+    question({ id: "null-choice", parentId: null, optionSourceId: null, stem: "Unknown choice", answerPayload: { correct: [null] } }),
+    question({ id: "absent", parentId: null, optionSourceId: null, stem: "Absent answer" }),
+    question({ id: "false", parentId: null, optionSourceId: null, stem: "Complete false", answerMode: "true_false", answerPayload: { value: false }, missingFields: [] }),
+    question({ id: "zero", parentId: null, optionSourceId: null, stem: "Complete zero", answerMode: "short_answer", answerPayload: { text: "0" }, missingFields: [] }),
+    material,
+  ];
+  const before = JSON.stringify(records);
+  render(<ResultReview task={{ ...task, result: { ...task.result!, questions: records } }} preview={null} client={new Client()} />);
+  const user = userEvent.setup();
+  await user.selectOptions(screen.getByRole("combobox", { name: "问题分类" }), "answer");
+  expect(screen.getByText("显示 3 / 6 条记录")).toBeTruthy();
+  for (const stem of ["Partial blanks", "Unknown choice", "Absent answer"]) expect(screen.getByText(stem, { selector: "summary span" })).toBeTruthy();
+  for (const stem of ["Complete false", "Complete zero", material.stem!]) expect(screen.queryByText(stem, { selector: "summary span" })).toBeNull();
+  expect(JSON.stringify(records)).toBe(before);
+});

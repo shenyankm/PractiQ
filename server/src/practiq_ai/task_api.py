@@ -17,7 +17,10 @@ from .config import load, require_model_config
 from .contracts import (
     COMPOSITE_MODES,
     OFFICE_SOURCE_TYPES,
+    DocumentCorrections,
+    DocumentCorrectionSave,
     DocumentParseResult,
+    DocumentQuestionCorrection,
     DocumentReference,
     DocumentTaskControl,
     DocumentTaskCreate,
@@ -363,7 +366,8 @@ async def get_task_head(thread_id: str) -> dict[str, Any]:
     }).model_dump(mode='json')
 
 
-async def export_task(thread_id: str, checkpoint_id: str | None = None, *, completed: bool = False) -> BinaryIO:
+async def export_task(thread_id: str, checkpoint_id: str | None = None, *, completed: bool = False,
+                      revision_id: UUID | None = None) -> BinaryIO:
     from .bank_export import export_task_bank
     service = client()
     task, snapshot, run = await _read_task(service, thread_id)
@@ -372,6 +376,13 @@ async def export_task(thread_id: str, checkpoint_id: str | None = None, *, compl
         raise conflict('The reviewed checkpoint changed', 'STALE_CHECKPOINT')
     detail = await _task_detail(service, thread_id, task, snapshot, run)
     original_state = detail.state
+    if revision_id is not None:
+        from .corrections import corrected_result
+        if detail.state != 'COMPLETED' or detail.result is None or current_checkpoint is None:
+            raise conflict('Revisions require a completed result', 'CORRECTION_NOT_READY')
+        corrections = await _read_corrections(service, thread_id, current_checkpoint)
+        detail.result = corrected_result(detail.result, corrections, revision_id)
+        detail.result.warnings.append('Human-corrected revision; original source evidence and review flags are retained.')
     if completed and detail.state != 'COMPLETED':
         if not detail.canExportCompleted:
             raise conflict('No completed questions are available', 'BANK_EXPORT_NOT_READY')
@@ -645,6 +656,8 @@ async def artifact_is_public(snapshot: StateSnapshot, source_sha256: str, metada
 
     if any(matches(ref) for key in ('pageRefs', 'chunkRefs') for ref in values.get(key, [])):
         return True
+    if any(matches(part.get('originalPageRef')) for part in values.get('inputParts', [])):
+        return True
     merged = bool(values.get('result', {}).get('questions'))
     vision_indices = set(range(len(values.get('pageRefs', []))))
     if not merged:
@@ -705,14 +718,83 @@ async def review_task_model(thread_id: str, *, include_result: bool = True) -> D
         index = unit['index']
         if unit['stage'] == 'vision_parse' and index < len(evidence) and evidence[index] != unit.get('sourceRef'):
             unit['evidenceRef'] = evidence[index]
+        if unit['stage'] == 'vision_parse':
+            parts = values.get('inputParts', [])
+            part = parts[index] if index < len(parts) else {}
+            unit['originalPageRef'] = part.get('originalPageRef')
+            unit['sourcePage'] = part.get('sourcePage', index)
     processing = values.get('processing', {})
+    checkpoint = service.checkpoint_id(snapshot, run)
     review = DocumentTaskReview.model_validate({
         'document': _task['document'] if {'objectKey', 'sha256', 'sizeBytes', 'mediaType'} <= _task['document'].keys() else None,
         'threadId': thread_id, 'checkpointId': service.checkpoint_id(snapshot, run),
         'state': state, 'phase': values.get('phase', 'pending'), 'units': units,
         'failures': failures, 'quality': processing.get('quality', {}),
         'questionSources': processing.get('questionSources', []),
+        'corrections': await _read_corrections(service, thread_id, checkpoint)
+                       if checkpoint is not None and state == 'COMPLETED' and values.get('result', {}).get('questions') else None,
     })
     for unit in review.units:
         discard_model_audio(unit.questions)
     return review
+
+
+async def _read_corrections(service, thread_id: str, checkpoint_id: str) -> DocumentCorrections:
+    saved = await service.db.store.aget(namespace(thread_id, 'corrections'), checkpoint_id, refresh_ttl=False)
+    return DocumentCorrections.model_validate(saved.value) if saved else DocumentCorrections(checkpointId=checkpoint_id)
+
+
+async def get_corrections(thread_id: str) -> DocumentCorrections:
+    service = client()
+    _task, snapshot, run = await _read_task(service, thread_id)
+    checkpoint = service.checkpoint_id(snapshot, run)
+    if checkpoint is None:
+        raise conflict('No saved result is available', 'CORRECTION_NOT_READY')
+    return await _read_corrections(service, thread_id, checkpoint)
+
+
+async def save_correction(thread_id: str, request: DocumentCorrectionSave) -> DocumentCorrections:
+    from .corrections import corrected_result, validate_edit
+    if load().read_only:
+        raise conflict('Service is read-only', 'SERVICE_READ_ONLY')
+    service = client()
+    # Share the existing task admission lock; a resume cannot race a correction.
+    async with service.db.transaction():
+        task, snapshot, run = await _read_task(service, thread_id)
+        if service.checkpoint_id(snapshot, run) != request.checkpointId:
+            raise conflict('The reviewed checkpoint changed', 'STALE_CHECKPOINT')
+        if _task_state(snapshot, run)[0] != 'COMPLETED' or not snapshot.values.get('result', {}).get('questions'):
+            raise conflict('Wait for a completed result before correcting', 'CORRECTION_NOT_READY')
+        saved = await _read_corrections(service, thread_id, request.checkpointId)
+        original = DocumentParseResult.model_validate(snapshot.values['result'])
+        if request.questionIndex >= len(original.questions):
+            raise DocumentProcessingError(422, 'Question index is outside the result', 'CORRECTION_INVALID')
+        previous_index = next((index for index, edit in enumerate(saved.edits) if edit.requestId == request.requestId), None)
+        if previous_index is not None:
+            previous = saved.edits[previous_index]
+            if previous.questionIndex != request.questionIndex:
+                raise conflict('Request ID was used for a different correction', 'REQUEST_CONFLICT')
+            # Replay normalization uses the original tree, even if later revisions change shared options.
+            historical = saved.model_copy(update={'edits': saved.edits[:previous_index]})
+            try:
+                replayed = validate_edit(original.questions[request.questionIndex], request.question,
+                                         corrected_result(original, historical), request.questionIndex)
+            except DocumentProcessingError as exc:
+                raise conflict('Request ID was used for a different correction', 'REQUEST_CONFLICT') from exc
+            if previous.question != replayed:
+                raise conflict('Request ID was used for a different correction', 'REQUEST_CONFLICT')
+            return saved
+        if request.expectedRevision != (saved.edits[-1].requestId if saved.edits else None):
+            raise conflict('Another correction was saved; reload before saving', 'CORRECTION_CONFLICT')
+        result = corrected_result(original, saved)
+        question = validate_edit(original.questions[request.questionIndex], request.question, result, request.questionIndex)
+        if len(saved.edits) >= 500:
+            raise DocumentProcessingError(413, 'Correction history reached its limit', 'CORRECTION_HISTORY_LIMIT')
+        saved.edits.append(DocumentQuestionCorrection(requestId=request.requestId, questionIndex=request.questionIndex,
+                                                       question=question, savedAt=utcnow().isoformat()))
+        value = saved.model_dump(mode='json')
+        if len(json_encode(value, ensure_ascii=False).encode()) > 8 * 1024 * 1024:
+            raise DocumentProcessingError(413, 'Correction history reached its byte limit', 'CORRECTION_HISTORY_LIMIT')
+        await service.db.store.aput(namespace(thread_id, 'corrections'), request.checkpointId, value, index=False,
+                                   ttl=remaining_ttl({'expiresAt': task['expires_at'].isoformat()}) if service.db.store.supports_ttl else None)
+        return saved

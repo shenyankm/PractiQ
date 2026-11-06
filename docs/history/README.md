@@ -6,6 +6,7 @@ These records preserve the result of a particular source revision, workload and 
 
 | Record | Scope |
 | --- | --- |
+| [Import correction workbench, November 6](import/workbench-20261106.md) | Source comparison, human revision history, optimistic saves and explicit revised ZIP export |
 | [PNG type labels, November 6](import/type-labels-20261106.md) | New-response correction for missing known type labels; saved null compatibility, call budgets and same-source live workflow acceptance |
 | [Extractor startup, October 16](../extractor-startup-20261016.md) | Reduced worker imports; original timeout remains unresolved |
 | [Native import acceptance, 2026-09-29](import/ai-import-acceptance-20260929.md) | Former desktop import flow; small real-model sample and failures |

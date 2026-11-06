@@ -1056,6 +1056,28 @@ class ReviewUnit(StrictModel):
     visualElements: list[VisualElement | DocumentVisual] = Field(default_factory=list)
     sourceRef: ArtifactReference | None = None
     evidenceRef: ArtifactReference | None = None
+    originalPageRef: ArtifactReference | None = None
+    sourcePage: int | None = Field(default=None, ge=0)
+
+
+class DocumentQuestionCorrection(StrictModel):
+    requestId: UUID
+    questionIndex: int = Field(ge=0)
+    question: ParsedQuestion
+    savedAt: str
+
+
+class DocumentCorrections(StrictModel):
+    checkpointId: str = Field(min_length=1, max_length=255)
+    edits: list[DocumentQuestionCorrection] = Field(default_factory=list, max_length=500)
+
+
+class DocumentCorrectionSave(StrictModel):
+    requestId: UUID
+    checkpointId: str = Field(min_length=1, max_length=255)
+    expectedRevision: UUID | None
+    questionIndex: int = Field(ge=0)
+    question: ParsedQuestion
 
 
 class DocumentTaskReview(StrictModel):
@@ -1068,3 +1090,4 @@ class DocumentTaskReview(StrictModel):
     failures: list[UnitFailure]
     quality: ExportQuality
     questionSources: list[DocumentQuestionSource]
+    corrections: DocumentCorrections | None = None

@@ -264,3 +264,22 @@ summary { cursor: pointer; list-style-position: inside; font-size: 14px; }
 .question-card > div > section { min-width: 0; }
 .question-card ol .document-content { display: inline; }
 .question-card ol .document-content > p { display: inline; }
+
+/* Source and human corrections share the existing document review surface. */
+.correction-workbench { display: grid; gap: 1rem; }
+.correction-columns { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1.5rem; align-items: start; }
+.source-pane { position: sticky; top: 1rem; max-height: 75vh; overflow: auto; padding: 1rem; background: var(--muted); border-radius: 12px; }
+.source-pane h4, .correction-question h4 { font-weight: 600; margin-block: 1rem .5rem; }
+.source-pane img { width: 100%; height: auto; }
+.source-text { white-space: pre-wrap; overflow-wrap: anywhere; font-family: inherit; line-height: 1.7; }
+.source-text mark { background: var(--primary); color: var(--primary-foreground); }
+.correction-editor { display: grid; gap: 1rem; }
+.correction-editor label { display: grid; gap: .5rem; font-weight: 500; }
+.correction-editor textarea { width: 100%; min-height: 6rem; resize: vertical; padding: .75rem; border: 1px solid var(--border); border-radius: 8px; background: var(--background); color: var(--foreground); font: inherit; }
+.correction-editor textarea:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.correction-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.correction-option { display: grid; grid-template-columns: 5rem minmax(0, 1fr) auto; gap: .5rem; align-items: start; margin-block: .75rem; }
+.correction-history { margin-block: 1.5rem; padding-block: 1rem; border-block: 1px solid var(--border); }
+.correction-history summary { cursor: pointer; font-weight: 600; }
+.source-navigation { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: .75rem; }
+@media (max-width: 900px) { .correction-columns { grid-template-columns: minmax(0, 1fr); } .source-pane { position: static; max-height: 50vh; } .correction-fields { grid-template-columns: 1fr; } .correction-option { grid-template-columns: 4rem minmax(0, 1fr); } .correction-option button { grid-column: 2; } }

@@ -1,0 +1,71 @@
+{
+  "resolvedComments": [
+    "P2: preserve edits during delayed saves",
+    "P2: guard task replacement with drafts or unconfirmed request IDs"
+  ],
+  "web": {
+    "passed": 280,
+    "skipped": 1,
+    "types": "PASSED",
+    "lint": "PASSED",
+    "coverage": "PASSED",
+    "build": "PASSED"
+  },
+  "browser": {
+    "productionSuitePassed": 60,
+    "delayedResponseAndTaskSwitchCasesPassed": 2,
+    "mockHttpForControlledFailures": true
+  },
+  "realHttpAndNative": "PASSED with substitutes; see review-http-native.json",
+  "backendSourceChangedForReviewFix": false,
+  "realProvidersCalled": false,
+  "hostedReviewFollowup": {
+    "resolvedComments": [
+      "Retain the exact pending request when reload advances the revision",
+      "Unlock the draft after a definitive replay rejection"
+    ],
+    "webPassed": 286,
+    "webSkipped": 1,
+    "productionBrowserPassed": 63,
+    "newBrowserRegressionCases": 3,
+    "exactRetryIncludes": [
+      "requestId",
+      "expectedRevision",
+      "question"
+    ],
+    "rebaseRequiresExplicitAction": true,
+    "draftOriginalAnswerPreservedAcrossReload": true,
+    "uncertainStateErrorsPreserveRequest": true,
+    "realHttpAndNative": "PASSED with substitutes; see hosted-review-http-native.json",
+    "retainedFailure": "Initial focused browser conflict fixture used a top-level code instead of detail.code. Corrected the fixture to the service error envelope; full rerun passed."
+  },
+  "normalizationReplayFollowup": {
+    "resolvedComment": "Normalize replayed corrections against the tree preceding their own receipt",
+    "reproducedBeforeFix": true,
+    "focusedServiceTestsPassed": 11,
+    "ruff": "PASSED",
+    "pyright": "PASSED",
+    "regression": "Real HTTP/PostgreSQL: shared-option b -> B, identical replay, changed/invalid payload and question-index rejection, replay after subsequent edits remove B, unchanged source/usage and one substitute model call",
+    "fullLatestHeadServiceCI": "Required before merge; initial full local service run predates this focused backend fix",
+    "publicContractsChanged": false
+  },
+  "bodyLimitAndAnswerFilterFollowup": {
+    "resolvedComments": [
+      "Release pending corrections after body-size rejection",
+      "Include incomplete payloads in missing-answer navigation"
+    ],
+    "webPassed": 289,
+    "webSkipped": 1,
+    "productionBrowserPassed": 65,
+    "focusedServiceTestsPassed": 11,
+    "ruff": "PASSED",
+    "pyright": "PASSED",
+    "realHttpAndNative": "PASSED with substitutes; see final-http-native.json",
+    "regressions": [
+      "First and replayed REQUEST_TOO_LARGE release draft",
+      "Actual 1 MiB HTTP middleware rejection leaves history unchanged",
+      "Partial blank/null choice payloads visible; complete false/zero and material parents excluded"
+    ],
+    "retainedTestHelperFailures": "Initial unit test clicked native option; switched to selectOptions. Initial browser helper used wrong arguments; used the shared control/value helper and reran."
+  }
+}

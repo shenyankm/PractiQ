@@ -1884,6 +1884,30 @@
         "title": "ContentBlock",
         "type": "object"
       },
+      "DocumentCorrections": {
+        "additionalProperties": false,
+        "properties": {
+          "checkpointId": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Checkpointid",
+            "type": "string"
+          },
+          "edits": {
+            "items": {
+              "$ref": "#/$defs/DocumentQuestionCorrection"
+            },
+            "maxItems": 500,
+            "title": "Edits",
+            "type": "array"
+          }
+        },
+        "required": [
+          "checkpointId"
+        ],
+        "title": "DocumentCorrections",
+        "type": "object"
+      },
       "DocumentGroup": {
         "additionalProperties": false,
         "properties": {
@@ -1948,6 +1972,36 @@
           "code"
         ],
         "title": "DocumentQualityIssue",
+        "type": "object"
+      },
+      "DocumentQuestionCorrection": {
+        "additionalProperties": false,
+        "properties": {
+          "requestId": {
+            "format": "uuid",
+            "title": "Requestid",
+            "type": "string"
+          },
+          "questionIndex": {
+            "minimum": 0,
+            "title": "Questionindex",
+            "type": "integer"
+          },
+          "question": {
+            "$ref": "#/$defs/ParsedQuestion"
+          },
+          "savedAt": {
+            "title": "Savedat",
+            "type": "string"
+          }
+        },
+        "required": [
+          "requestId",
+          "questionIndex",
+          "question",
+          "savedAt"
+        ],
+        "title": "DocumentQuestionCorrection",
         "type": "object"
       },
       "DocumentQuestionSource": {
@@ -2977,6 +3031,30 @@
               }
             ],
             "default": null
+          },
+          "originalPageRef": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ArtifactReference"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "sourcePage": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Sourcepage"
           }
         },
         "required": [
@@ -3283,6 +3361,17 @@
         },
         "title": "Questionsources",
         "type": "array"
+      },
+      "corrections": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/DocumentCorrections"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null
       }
     },
     "required": [
