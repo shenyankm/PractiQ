@@ -162,7 +162,7 @@ function fakeHTTP(initial: DocumentTaskDetail = task) {
     if (path === "/api/import-capabilities") return json(capabilities);
     if (path === "/api/import-settings") { if (method === "PUT") settings = { revision: crypto.randomUUID(), settings: body.settings }; return json(settings); }
     if (path === "/api/document-tasks" && method === "GET") return json({ items: Array.from(records.values()).map(current => ({ ...summary, threadId: current.threadId, fileName: current.fileName, state: current.state, checkpointId: current.checkpointId, status: current.status })), hasMore: new URL(url, location.origin).searchParams.get("offset") === "0" });
-    if (path === "/api/uploads") { document = { ...body, objectKey: `practiq-agent/sources/${body.sha256}/source.${body.sourceType === "text" ? "txt" : body.sourceType}` }; return json({ document, upload: { method: "PUT", url: "/api/uploads/content?" + new URLSearchParams(body), headers: { "Content-Type": body.mediaType } } }); }
+    if (path === "/api/uploads") { document = { ...body, objectKey: `practiq-agent/sources/${body.sha256}/source.${body.sourceType === "text" ? "txt" : body.sourceType === "markdown" ? "md" : body.sourceType}` }; return json({ document, upload: { method: "PUT", url: "/api/uploads/content?" + new URLSearchParams(body), headers: { "Content-Type": body.mediaType } } }); }
     if (path === "/api/uploads/content") return json(document);
     if (path === "/api/document-tasks" && method === "POST") { records.set(newTaskId, { ...task, threadId: newTaskId, fileName: body.document.fileName }); return json({ threadId: newTaskId, requestId: body.requestId, runId, accepted: true }, 202); }
     const id = path.split("/")[3]; const current = records.get(id);
@@ -1083,4 +1083,20 @@ it("blocks task replacement during delayed or uncertain correction saves and ret
   await user.click(screen.getByRole("link", { name: "导入记录" }));
   expect((screen.getByRole("textbox", { name: "题干" }) as HTMLTextAreaElement).value).toContain("submitted");
   expect(screen.getByText(new RegExp(String(request.requestId)))).toBeTruthy();
+});
+
+it.each(["txt", "md"])("allows fixing a locally rejected page range without reselecting the %s file", async extension => {
+  const http = fakeHTTP(), user = userEvent.setup();
+  render(<App />); await connect(user);
+  await user.upload(screen.getByLabelText("选择文档"), new File(["1. Original source"], `questions.${extension}`));
+  const range = screen.getByRole("textbox", { name: "页面范围（留空为全部）" });
+  await user.type(range, "2");
+  await user.click(screen.getByRole("button", { name: /^开始导入$/ }));
+  await screen.findByText(/TXT\/Markdown 不使用页码/);
+  expect(http.calls.some(call => call.method !== "GET")).toBe(false);
+  await user.clear(range);
+  await user.click(screen.getByRole("button", { name: "重试开始" }));
+  await screen.findByText(/任务已创建。/);
+  const creates = http.calls.filter(call => call.url === "/api/document-tasks" && call.method === "POST");
+  expect(creates).toHaveLength(1); expect(creates[0].body?.pages).toBeUndefined();
 });

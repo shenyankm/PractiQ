@@ -118,3 +118,29 @@ def test_context_retains_two_prior_material_pages_and_next_answer_page(monkeypat
     serial = document._dispatch_vision(state)
     assert isinstance(serial, list) and len(serial) == 1
     assert serial[0].arg['neighbors'] == task['neighbors']
+
+
+@pytest.mark.parametrize('role', ['questions', 'answers'])
+async def test_answer_sheet_vision_extracts_answers_without_ordinary_answer_page_suppression(monkeypatch, role):
+    import json
+    from unittest.mock import AsyncMock
+
+    from langgraph.runtime import Runtime
+
+    from tests.support import FakeObjectStore, ocr_text_page
+    files = FakeObjectStore({})
+    primary = await files.put_artifact(json.dumps({**ocr_text_page('Reference answers\n1. True'), 'figures': []}).encode(), source_sha256='a' * 64,
+                                       kind='ocr-page', index=0, media_type='application/json')
+    monkeypatch.setattr(document, 'get_object_store', lambda: files)
+    monkeypatch.setattr(document, 'get_model', lambda: object())
+    calls = AsyncMock(return_value=(None, [], 'OUTPUT_INVALID'))
+    monkeypatch.setattr(document, 'structured_call', calls)
+    await document._vision({'kind': 'page', 'index': 0, 'artifact': primary.model_dump(), 'ocrArtifact': primary.model_dump(), 'documentRole': role}, Runtime(context=None))
+    messages = calls.call_args_list[0].args[1]
+    instruction = str(messages[1].content)
+    suppression = 'An answer-only PRIMARY page must return questions=[] and groups=[]'
+    assert (suppression in instruction) is (role == 'questions')
+    if role == 'answers':
+        assert 'Extract supplied answer records starting on PRIMARY' in instruction
+        assert 'Preserve each answer record' in instruction
+        assert 'remove only printed question numbers' not in instruction

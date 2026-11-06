@@ -284,9 +284,9 @@ export default function App() {
         const generate = role === "answers" ? false : item.generateAnswers ?? generateAnswers;
         const selectedPages = item.pages === undefined ? parsePages(pageRange) : item.pages;
         const update = (value: Partial<FileItem>) => { if (current.active) setFiles(previous => previous.map(file => file.id === item.id ? { ...file, ...value } : file)); };
-        update({ deduplicateQuestions: deduplicate, generateAnswers: generate, pages: selectedPages ?? null, documentRole: role, error: undefined });
+        update({ error: undefined });
         try {
-          const receipt = await current.start(item.file, capabilities, item.requestId ?? item.id, (stage, requestId) => update({ state: stage, ...(requestId ? { requestId } : {}) }), deduplicate, generate, selectedPages, role);
+          const receipt = await current.start(item.file, capabilities, item.requestId ?? item.id, (stage, requestId) => update({ state: stage, ...(requestId ? { requestId, deduplicateQuestions: deduplicate, generateAnswers: generate, pages: selectedPages ?? null, documentRole: role } : {}) }), deduplicate, generate, selectedPages, role);
           if (current.active) setFiles(previous => previous.map(file => (file.requestId ?? file.id) === receipt.requestId ? { ...file, state: "created", error: undefined } : file));
           created = receipt.threadId; resolved.add(receipt.requestId);
         } catch (error) { failed = true; update({ state: "failed", error: errorText(error) }); break; }

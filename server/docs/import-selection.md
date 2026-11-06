@@ -6,7 +6,7 @@ All new source imports still use Tencent recognition followed by the existing qu
 
 The Web Start form accepts one-based page numbers such as `1,3-5`; blank means all pages. `DocumentTaskCreate.pages` contains 1–2,000 positive page numbers, canonicalized to sorted unique values. TXT/Markdown have no pages and reject this option. Images use page 1; multi-page sources keep original page references, including split image tiles. The service checks known PDF/image bounds before Tencent submission and checks retained page evidence before structuring. Office page bounds are known only after recognition.
 
-This option limits question structuring. Tencent can still recognize the entire source, and its charges may reflect the whole source. It does not add a local recognition fallback, crop Office documents before submission, or guarantee lower Tencent charges. Unknown creation recovery reuses the original range and document role.
+This option limits question structuring. Tencent can still recognize the entire source, and its charges may reflect the whole source. It does not add a local recognition fallback, crop Office documents before submission, or guarantee lower Tencent charges. Unknown creation recovery reuses the original range and document role. A local pre-submission validation rejection leaves these options editable, so TXT/Markdown page-range mistakes can be corrected without reselecting the file.
 
 ## Reparse selected sources
 
@@ -20,7 +20,7 @@ Unit indexes are zero-based retained source indexes. Only completed `document_pa
 
 ## Supplied answer sheets
 
-Choose **答案卷** in Start or upload through **关联答案卷**. `documentRole: "answers"` uses the same graph to extract supplied numbered answers, never solve them; `generateAnswers: true` is rejected for that role. Literal source quotes and answer-presence proofs remain required. A separate completed answer task is the source of truth; its original source hash, filename, checkpoint, question index and supplied quote are copied into each confirmed association receipt.
+Choose **答案卷** in Start or upload through **关联答案卷**. `documentRole: "answers"` uses the same graph to extract supplied numbered answers, never solve them; `generateAnswers: true` is rejected for that role. Literal source quotes and answer-presence proofs remain required. Visual answer-only PRIMARY pages produce supplied answer records with their printed numbers retained; ordinary question imports continue to suppress answer-only pages as new questions. A separate completed answer task is the source of truth; its original source hash, filename, checkpoint, question index and supplied quote are copied into each confirmed association receipt.
 
 `GET /api/document-tasks/{id}/answer-matches` reads current corrected target questions and a completed answer task. Only unique printed numbers on both sides receive a unique suggestion. Duplicate/missing numbers remain ambiguous/unmatched; existing answers remain protected. Literal source numbering takes priority over wording; decimal prefixes are not question numbers. Suggestions never save edits. A user may choose another source record and explicitly allow replacement of an existing answer.
 
