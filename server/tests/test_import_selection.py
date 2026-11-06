@@ -173,6 +173,24 @@ async def test_answer_association_requires_confirmation_and_preserves_source_evi
     assert (await task_api.get_task_model(target['threadId'])).result == before.result
     assert len(model.calls) == 2
 
+    # Unrelated manual edits keep the supplied answer's proof; changing the answer clears it.
+    import json
+    from zipfile import ZipFile
+    manual = DocumentCorrectionSave.model_validate({'requestId': str(uuid4()), 'checkpointId': before.checkpointId,
+        'expectedRevision': str(request.requestId), 'questionIndex': 0,
+        'question': {**saved.edits[0].question.model_dump(), 'stem': '1. Revised question wording'}})
+    await task_api.save_correction(target['threadId'], manual)
+    with await task_api.export_task(target['threadId'], before.checkpointId, revision_id=manual.requestId, question_indexes=[0]) as payload, ZipFile(payload) as archive:
+        exported = json.loads(archive.read('questions.json'))['result']
+        assert exported['questions'][0]['answerPayload'] == {'text': 'Source answer'}
+        assert any(answer_reference['sha256'] in warning and 'Source answer' in warning for warning in exported['warnings'])
+    changed = manual.model_copy(update={'requestId': uuid4(), 'expectedRevision': manual.requestId,
+        'question': manual.question.model_copy(update={'answerPayload': {'text': 'Manual replacement'}})})
+    await task_api.save_correction(target['threadId'], changed)
+    with await task_api.export_task(target['threadId'], before.checkpointId, revision_id=changed.requestId) as payload, ZipFile(payload) as archive:
+        assert not any(answer_reference['sha256'] in warning for warning in json.loads(archive.read('questions.json'))['result']['warnings'])
+    assert len(model.calls) == 2
+
 
 def test_answer_only_evidence_requires_a_literal_numbered_record_and_exact_answer():
     from practiq_ai.contracts import ParsedQuestion
@@ -226,3 +244,15 @@ def test_literal_answer_conversion_does_not_solve_or_invent_labels(mode, text, e
     source = ParsedQuestion(stem='1', answerMode='short_answer', answerPayload={'text': text})
     assert associated_question(target, source).model_dump()['answerPayload'] == expected
     assert target.answerPayload is None
+
+
+@pytest.mark.parametrize(('stem', 'source', 'expected'), [
+    ('3.5 kg of material is used.', '1. 3.5 kg of material is used.', '1'),
+    ('2024: consider the population.', '2. 2024: consider the population.', '2'),
+    ('3.5 kg of material is used.', None, None),
+    ('Unnumbered wording', '3. Third question', '3'),
+])
+def test_printed_number_prefers_original_source_and_rejects_decimal_wording(stem, source, expected):
+    from practiq_ai.answer_matching import printed_number
+    from practiq_ai.contracts import ParsedQuestion
+    assert printed_number(ParsedQuestion(stem=stem, sourceText=source)) == expected

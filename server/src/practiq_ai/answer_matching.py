@@ -13,8 +13,8 @@ from .errors import DocumentProcessingError
 
 
 def printed_number(question: ParsedQuestion) -> str | None:
-    for value in (question.stem, question.sourceText):
-        match = re.match(r'^\s*(?:第\s*)?(\d{1,6})(?:\s*[.．、:：)）题]|\s*$)', value or '')
+    for value in (question.sourceText, question.stem):
+        match = re.match(r'^\s*(?:第\s*)?(\d{1,6})(?:\s*(?:[.．](?!\d)|[、:：)）题])|\s*$)', value or '')
         if match:
             return str(int(match[1]))
     return None

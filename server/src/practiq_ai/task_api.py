@@ -445,8 +445,13 @@ async def export_task(thread_id: str, checkpoint_id: str | None = None, *, compl
         corrections = await _read_corrections(service, thread_id, current_checkpoint)
         detail.result = corrected_result(detail.result, corrections, revision_id)
         append_export_warning(detail.result, 'Human-corrected revision; original source evidence and review flags are retained.')
+        previous_answers: dict[int, Any] = {}
         for edit in corrections.edits:
-            answer_sources[edit.questionIndex] = edit.answerEvidence
+            if edit.answerEvidence is not None:
+                answer_sources[edit.questionIndex] = edit.answerEvidence
+            elif previous_answers.get(edit.questionIndex) != edit.question.answerPayload:
+                answer_sources.pop(edit.questionIndex, None)
+            previous_answers[edit.questionIndex] = edit.question.answerPayload
             if edit.requestId == revision_id:
                 break
     if completed and detail.state != 'COMPLETED':
