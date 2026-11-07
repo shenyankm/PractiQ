@@ -1,0 +1,81 @@
+
+> practiq-ai-web@0.1.0 test:browser
+> playwright test payments.spec.ts --max-failures=2
+
+[WebServer] (node:62527) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 6 tests using 1 worker
+
+(node:62528) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  1 tests/payments.spec.ts:56:3 › payment can start again in the same page after PAID (461ms)
+(node:62534) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  2 tests/payments.spec.ts:56:3 › payment can start again in the same page after CLOSED (344ms)
+Testing stopped early after 2 maximum allowed failures.
+
+
+  1) tests/payments.spec.ts:56:3 › payment can start again in the same page after PAID ─────────────
+
+    Error: expect(received).not.toBe(expected) // Object.is equality
+
+    Expected: not "d6454fb9-729b-4281-86b7-c5dd8a8e4083"
+
+      67 |     await expect(pay).toBeDisabled();
+      68 |     expect(server.requests).toHaveLength(2);
+    > 69 |     expect(server.requests[1]).not.toBe(server.requests[0]);
+         |                                    ^
+      70 |     expect(server.orders).toHaveLength(2);
+      71 |   });
+      72 | }
+        at /Users/sheny/Developer/code/PractiQ/web/tests/payments.spec.ts:69:36
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/browser/payments-payment-can-start-again-in-the-same-page-after-PAID/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/browser/payments-payment-can-start-again-in-the-same-page-after-PAID/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/browser/payments-payment-can-start-again-in-the-same-page-after-PAID/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/browser/payments-payment-can-start-again-in-the-same-page-after-PAID/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) tests/payments.spec.ts:56:3 › payment can start again in the same page after CLOSED ───────────
+
+    Error: expect(received).not.toBe(expected) // Object.is equality
+
+    Expected: not "533abcd0-ae9e-4964-8839-2c2511338f8d"
+
+      67 |     await expect(pay).toBeDisabled();
+      68 |     expect(server.requests).toHaveLength(2);
+    > 69 |     expect(server.requests[1]).not.toBe(server.requests[0]);
+         |                                    ^
+      70 |     expect(server.orders).toHaveLength(2);
+      71 |   });
+      72 | }
+        at /Users/sheny/Developer/code/PractiQ/web/tests/payments.spec.ts:69:36
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/browser/payments-payment-can-start-e0890--the-same-page-after-CLOSED/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/browser/payments-payment-can-start-e0890--the-same-page-after-CLOSED/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/browser/payments-payment-can-start-e0890--the-same-page-after-CLOSED/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/browser/payments-payment-can-start-e0890--the-same-page-after-CLOSED/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2 failed
+    tests/payments.spec.ts:56:3 › payment can start again in the same page after PAID ──────────────
+    tests/payments.spec.ts:56:3 › payment can start again in the same page after CLOSED ────────────
+  4 did not run
+  1 error was not a part of any test, see above for details

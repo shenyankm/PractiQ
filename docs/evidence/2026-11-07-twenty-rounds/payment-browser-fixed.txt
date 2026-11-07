@@ -1,0 +1,19 @@
+
+> practiq-ai-web@0.1.0 test:browser
+> playwright test payments.spec.ts
+
+[WebServer] (node:62649) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 6 tests using 1 worker
+
+(node:62650) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 tests/payments.spec.ts:56:3 › payment can start again in the same page after PAID (527ms)
+  ✓  2 tests/payments.spec.ts:56:3 › payment can start again in the same page after CLOSED (283ms)
+  ✓  3 tests/payments.spec.ts:74:1 › lost create response retains its request ID until that receipt is confirmed settled (335ms)
+  ✓  4 tests/payments.spec.ts:94:1 › a lost create response can settle through query without replaying create (286ms)
+  ✓  5 tests/payments.spec.ts:112:1 › production payments ignore unresolved sandbox receipts but retain their history (221ms)
+  ✓  6 tests/payments.spec.ts:129:1 › saved receipts remain visible when the current payment offer is unavailable (99ms)
+
+  6 passed (2.6s)

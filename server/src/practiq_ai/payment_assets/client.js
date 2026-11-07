@@ -4,7 +4,7 @@ const list = document.querySelector("#orders");
 const pay = document.querySelector("#pay");
 let csrf = "";
 let unsettled = false;
-const requestId = crypto.randomUUID();
+let requestId = crypto.randomUUID();
 const states = { UNKNOWN: "结果待确认，请勿重复付款", PENDING_PAYMENT: "待付款", PAID: "已付款", CLOSED: "已关闭" };
 
 async function api(path, method = "GET", body) {
@@ -25,8 +25,13 @@ async function act(button, operation) {
 
 async function refresh() {
   const orders = await api("/api/me/payments");
-  unsettled = orders.some(order => ["UNKNOWN", "PENDING_PAYMENT"].includes(order.state));
+  let offer = null;
+  try { offer = await api("/api/me/payments/offer"); } catch (error) { message.textContent = error.message; }
+  if (orders.some(order => order.requestId === requestId && ["PAID", "CLOSED"].includes(order.state))) requestId = crypto.randomUUID();
+  unsettled = !offer || orders.some(order => order.environment === offer.environment && ["UNKNOWN", "PENDING_PAYMENT"].includes(order.state));
   pay.disabled = unsettled;
+  document.querySelector("#offer").hidden = !offer;
+  if (offer) document.querySelector("#offer-detail").textContent = (offer.environment === "sandbox" ? "沙箱体验，不涉及真实资金。" : "正式收款。") + " " + offer.subject + " · ¥" + offer.amount;
   list.replaceChildren();
   document.querySelector("#empty").textContent = orders.length ? "" : "暂无收款订单。";
   for (const order of orders) {
@@ -59,6 +64,7 @@ async function refresh() {
     }
     list.append(row);
   }
+  return offer;
 }
 
 function submitForm(result) {
@@ -86,10 +92,7 @@ document.querySelector("#refresh").onclick = (event) => act(event.target, refres
   try {
     const session = await api("/api/auth/session"); csrf = session.csrf;
     if (!session.user) { message.textContent = "请先登录账号，再查看订单或发起付款。"; return; }
-    await refresh();
-    const offer = await api("/api/me/payments/offer");
-    document.querySelector("#offer-detail").textContent = (offer.environment === "sandbox" ? "沙箱体验，不涉及真实资金。" : "正式收款。") + " " + offer.subject + " · ¥" + offer.amount;
-    document.querySelector("#offer").hidden = false;
+    if (!await refresh()) return;
     message.textContent = location.pathname.endsWith("/return") ? "已返回商户。请查询原订单确认支付结果，同步回跳不代表付款成功。" : "可在下方发起付款或查询自己的订单。";
   } catch (error) { message.textContent = error.message; }
 })();

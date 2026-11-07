@@ -73,7 +73,12 @@
     "web-browser.txt": "dc6a4bd1ec1690b9bcb118c6a831fd40501a419388093d8692a62b131fdb7b32",
     "web-build.txt": "5fe501f91c2a2d2d0d3aac8140b5024c8f5a83d244fb5c2da98cad54f6107b13",
     "web-check.txt": "ea4462da691c21bf966531138ec0743675917a82830a84351756cc88feb708b6",
-    "payment-review-fix.txt": "17668654e98ffbe09b191fcb1cf133ede028e93c116c3f649fdeb7238ae787a3"
+    "payment-review-fix.txt": "17668654e98ffbe09b191fcb1cf133ede028e93c116c3f649fdeb7238ae787a3",
+    "payment-browser-fixed.txt": "17e7d4d15fdf4625fbffbcc096c6e993f69d8a96f9c377fea792a7bd6b6f023c",
+    "payment-browser-red.txt": "858904655a769b8f4d748a2d6a1856cc1f55de08a17b35f5be4f7bfa2ce6313c",
+    "payment-review-pyright.txt": "f552d237ad0bd249c05f97eb62dbc65d2d0e4a5fe2346608e10fb7838dba9ed1",
+    "payment-review-api.txt": "3a5ec1dea21640ff672cff3834a15826f96d3407cb4ffad1a6917c8f07d91e58",
+    "payment-review-browser-full.txt": "7d5248d4c984a536ad0bbc201a927b26642a7bccef801d9e317d9c89253795ad"
   },
   "reviewFollowup": {
     "finding": "CodeQL py/weak-crypto-key at test_payments.py:22",
@@ -81,6 +86,21 @@
     "paymentTestsPassed": 19,
     "seconds": 13.48,
     "ruff": "passed",
+    "remoteCI": "pending on follow-up commit"
+  },
+  "paymentPageReview": {
+    "findings": [
+      "Rotate the payment request ID only after its associated order settles",
+      "Scope payment blocking to the current offer environment"
+    ],
+    "fix": "Add the original requestId to authorized order receipts, preserve it through uncertainty, and check unsettled orders against the loaded offer environment. Keep saved receipts readable if the offer is unavailable.",
+    "newBrowserCases": 6,
+    "fullBrowserPassed": 71,
+    "paymentAPITestsPassed": 19,
+    "paymentAPITestSeconds": 11.19,
+    "pyrightErrors": 0,
+    "ruff": "passed",
+    "sharedContractCheck": "passed, generated files unchanged",
     "remoteCI": "pending on follow-up commit"
   }
 }

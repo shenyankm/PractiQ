@@ -103,6 +103,12 @@ a new order while the old result remains unresolved. The UI offers explicit
 query and reuse of the original order, and blocks creating another unresolved
 order in the same environment.
 
+Saved order responses include the original `requestId`. The browser keeps that
+UUID through uncertain outcomes, including a lost create response, and rotates
+it only after its matching saved receipt is confirmed paid or closed. Historical
+receipts remain visible across environments; only unresolved orders in the
+current offer's environment block starting a payment.
+
 ## APIs and recovery
 
 All account APIs use the existing same-origin HttpOnly session, CSRF protection
@@ -151,3 +157,9 @@ checks and disposable PostgreSQL. It covers ownership, CSRF, immutable server
 prices, unknown receipts, refund replay and amount reservations, notifications,
 background recovery, config protection and the schema-6 upgrade. These tests do
 not prove real buyer payment or production readiness.
+
+`web/tests/payments.spec.ts` runs the actual payment assets in Chromium against
+substitute HTTP responses. It covers repeat payment after settlement, lost
+responses and request-ID reuse, sandbox/production isolation and receipt reads
+when the current offer is unavailable. Gateway submission is replaced locally;
+these browser checks do not submit money or validate merchant activation.

@@ -96,8 +96,12 @@ See [reproduction instructions](../../evidence/2026-11-07-twenty-rounds/README.m
 
 - PR review follow-up: CodeQL flagged a 1,024-bit ephemeral RSA test key. It now uses 2,048 bits; production credentials and performance modules are unchanged. All 19 payment tests and focused Ruff passed ([log](../../evidence/2026-11-07-twenty-rounds/payment-review-fix.txt)); the follow-up commit is revalidated by hosted CI.
 
+- Two subsequent payment-page review findings are fixed: settled receipts rotate only their original request ID, and unresolved sandbox receipts cannot block a production offer. Saved order responses add `requestId` for correlation even after lost responses. Six new Chromium cases pass, as do all **71** browser cases, 19 payment API tests, Ruff, Pyright and the unchanged shared-contract exporter ([full browser log](../../evidence/2026-11-07-twenty-rounds/payment-review-browser-full.txt)). The pre-fix same-page regressions remain in `payment-browser-red.txt`.
+
 ## Scope and rollout limits
 
 The changes do not bypass checksum, XML entity/association, numeric-coordinate, duplicate-field, source-answer, revision, ownership or unknown-result boundaries. Correction output and edit snapshots stay independent; all applicable earlier revisions are validated before the selected revision is returned.
 
-No live Tencent/model request, paid transaction, production migration, deployment, hosted CI or native App acceptance was performed. App/Web implementations are unchanged by this performance run. The previously requested payment/header work is included in this all-diff publication; payment configuration stays paused. The running development service was not restarted. Parser/helper source changes may affect conservative execution signatures; retain the original deployment for unfinished imports, and use explicit documented recovery rather than changing stored signatures or replaying uncertain work.
+No live Tencent/model request, paid transaction, production migration, deployment or native App acceptance was performed. App/Web implementations are unchanged by this performance run. The previously requested payment/header work is included in this all-diff publication; payment configuration stays paused. The running development service was not restarted. Parser/helper source changes may affect conservative execution signatures; retain the original deployment for unfinished imports, and use explicit documented recovery rather than changing stored signatures or replaying uncertain work.
+
+Hosted CI and current-head review gates are tracked in [PR #519](https://github.com/shenyankm/PractiQ/pull/519).

@@ -88,7 +88,7 @@ async def order_for(order_id: str, *, admin: bool = False) -> dict:
 
 async def snapshot(order: dict) -> dict:
     refunds = await auth.db().rows('SELECT id,amount,state FROM payment_refunds WHERE order_id=%s ORDER BY created_at', (order['id'],))
-    return {'id': order['id'], 'state': order['state'], 'amount': money(order['amount']), 'subject': order['subject'],
+    return {'id': order['id'], 'requestId': order['request_id'], 'state': order['state'], 'amount': money(order['amount']), 'subject': order['subject'],
             'environment': order['environment'], 'refunds': [{'id': r['id'], 'amount': money(r['amount']), 'state': r['state']} for r in refunds]}
 
 

@@ -1303,6 +1303,7 @@ class PaymentRefund(StrictModel):
 
 class PaymentOrder(StrictModel):
     id: str
+    requestId: UUID
     state: Literal['UNKNOWN', 'PENDING_PAYMENT', 'PAID', 'CLOSED']
     amount: str
     subject: str

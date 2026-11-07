@@ -146,6 +146,8 @@ async def test_order_ownership_csrf_idempotency_and_server_price(account, config
     database, client, _ = account
     assert (await client.post('/api/me/payments', json={'requestId': str(uuid4()), 'amount': '0.01'})).status_code == 422
     result, request_id = await create(client)
+    assert result['order']['requestId'] == request_id
+    assert (await client.get('/api/me/payments')).json()[0]['requestId'] == request_id
     assert result['order']['amount'] == '1.00' and config.private_key not in result['paymentHtml']
     assert '<form' in result['paymentHtml'] and quote_plus(config.return_url) in result['paymentHtml']
     assert 'notify_url' not in result['paymentHtml']

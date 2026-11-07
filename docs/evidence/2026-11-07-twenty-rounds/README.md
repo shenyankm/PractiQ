@@ -36,6 +36,10 @@ production/user database, model, Tencent or payment call is part of a probe.
   `web-browser.txt`, `focused-final.txt` and `audit.txt` retain the other check logs;
   `probes.json` and `probes.md` record the final recovery gates.
 
+The `payment-*.txt` logs retain PR follow-up checks: weak-key correction, the
+pre-fix same-page failures, six payment browser regressions, all 71 browser cases,
+19 payment API tests and Pyright. These are separate from timed performance probes.
+
 The predeclared retention rule requires at least 8% improvement in the selected
 large workload, at least two faster process pairs, equal outputs and boundary
 outcomes, and no control regression exceeding both 10% and 0.02 ms. A fast change
