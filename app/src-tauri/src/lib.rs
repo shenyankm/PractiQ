@@ -4,6 +4,8 @@ mod audio;
 mod audio_import;
 mod backup;
 mod bank_zip;
+mod cloud;
+mod cloud_files;
 mod contract;
 mod credentials;
 mod exams;
@@ -436,6 +438,20 @@ async fn ai_request(
     .await
     .map_err(|e| AppError::from(e.to_string()))?
 }
+#[tauri::command]
+async fn cloud_request(
+    app: tauri::AppHandle,
+    request: cloud::Request,
+    context: Option<cloud::Context>,
+) -> std::result::Result<Value, AppError> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let value = cloud::request(app.clone(), request, context)?;
+        let generation = app.state::<cloud::State>().lock()?.epoch;
+        Ok(json!({"value":value,"generation":generation}))
+    })
+    .await
+    .map_err(|_| cloud::error("CLOUD_UNAVAILABLE"))?
+}
 pub(crate) const DATA_DIRECTORY: &str = "v4";
 
 pub fn run() {
@@ -451,12 +467,18 @@ pub fn run() {
     builder
         .setup(|app| {
             let dir = app.path().app_data_dir()?.join(DATA_DIRECTORY);
+            app.manage(cloud::State::new(dir.clone()));
             app.manage(Arc::new(Mutex::new(
                 Store::new(dir).map_err(std::io::Error::other)?,
             )));
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![request, ai_request, read_asset])
+        .invoke_handler(tauri::generate_handler![
+            request,
+            ai_request,
+            read_asset,
+            cloud_request
+        ])
         .build(tauri::generate_context!())
         .expect("Unable to start PractiQ")
         .run(|app, event| {

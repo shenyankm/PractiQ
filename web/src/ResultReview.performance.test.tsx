@@ -4,8 +4,8 @@ import { StrictMode } from "react";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { expect, it, vi } from "vitest";
-import ResultReview from "./ResultReview";
-import { Client } from "./api";
+import ResultReview from "../../shared/cloud/ResultReview";
+import { Client } from "../../shared/cloud/api";
 import type { DocumentTaskReview } from "./contracts.generated";
 import { preview, question, task } from "./test-fixtures";
 

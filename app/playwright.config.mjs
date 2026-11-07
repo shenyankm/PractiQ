@@ -13,6 +13,8 @@ export default defineConfig({
     { command: 'npx vite build --mode test --outDir .build/dist-browser-test && npx vite preview --outDir .build/dist-browser-test --host 127.0.0.1 --port 1423 --strictPort', url: 'http://127.0.0.1:1423', reuseExistingServer: false },
   ],
   projects: [
+    { name: "cloud-native", testMatch: "check-cloud-native.ts", use: { baseURL: "http://127.0.0.1:1422", viewport: { width: 1440, height: 1040 }, locale: "zh-CN" } },
+    { name: "cloud-workspace", testMatch: "check-cloud-workspace.ts", use: { baseURL: "http://127.0.0.1:1422", viewport: { width: 1440, height: 1040 }, locale: "zh-CN" } },
     { name: 'mocked', testMatch: 'check-i18n.mjs', use: { baseURL: 'http://127.0.0.1:1421', viewport: { width: 960, height: 820 }, locale: 'en-US' } },
     { name: 'preview', testMatch: ['check-preview.mjs', 'check-ux-recovery.mjs', 'check-uiux-fixes.mjs', 'check-taste-ui.mjs', 'check-learning.mjs'], use: { baseURL: 'http://127.0.0.1:1422', viewport: { width: 1280, height: 900 }, locale: 'zh-CN' } },
     { name: 'rich-content', testMatch: ['check-rich-content.mjs', 'check-responsive-content.mjs'], use: { baseURL: 'http://127.0.0.1:1422', viewport: { width: 1280, height: 850 }, locale: 'zh-CN' } },

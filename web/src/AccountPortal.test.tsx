@@ -1,8 +1,10 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import AccountPortal from './AccountPortal';
-import { setAccount, storageKey } from './accountClient';
+import UserPortal from '../../shared/cloud/AccountPortal';
+import AdminPortal from './AdminPortal';
+function AccountPortal() { return location.pathname === '/admin' ? <AdminPortal /> : <UserPortal />; }
+import { setAccount, storageKey } from '../../shared/cloud/accountClient';
 const response = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json' } });
 const anonymous = { user: null, csrf: 'test-csrf', registrationEnabled: true };
 afterEach(() => { cleanup(); setAccount(null); vi.unstubAllGlobals(); history.replaceState(null,'','/'); });
@@ -50,12 +52,12 @@ it('does not show a reset link for a different selected user when a response is 
   render(<AccountPortal />);const user=userEvent.setup();
   await user.click(within((await screen.findByText('one@example.test')).closest('tr')!).getByRole('button',{name:'选择'}));
   await user.type(screen.getByLabelText('管理员当前密码',{selector:'#reset-admin-password'}),'synthetic-password');
-  await user.click(screen.getByRole('button',{name:'生成一次性重置链接'}));
+  await user.click(screen.getByRole('button',{name:'生成一次性重置码'}));
   await user.click(within(screen.getByText('two@example.test').closest('tr')!).getByRole('button',{name:'选择'}));
   await act(async()=>{finish(response({path:'/reset-password#one-only'}));await pending;});
   expect(screen.getByLabelText('用户编号',{selector:'#user-id'})).toHaveProperty('value','two');
   expect(screen.getByLabelText('用户编号',{selector:'#user-id'})).toHaveProperty('readOnly',true);
-  expect(screen.queryByLabelText('一次性重置链接')).toBeNull();
+  expect(screen.queryByLabelText('一次性重置码')).toBeNull();
   history.replaceState(null,'','/');
 });
 
@@ -153,7 +155,7 @@ it('loads an anonymous session and exposes login, registration and assisted reco
   const fetcher = vi.fn(async (_path: string, _init?: RequestInit) => response(anonymous)); vi.stubGlobal('fetch', fetcher);
   render(<AccountPortal />);
   expect(await screen.findByRole('heading', { name: '登录 PractiQ' })).toBeTruthy();
-  expect(screen.getByRole('link', { name: '注册账户' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: '注册账户' })).toBeTruthy();
   expect(screen.getByText(/忘记密码请联系管理员/)).toBeTruthy();
   expect(fetcher).toHaveBeenCalledTimes(1);
   expect(fetcher.mock.calls[0][0]).toBe('/api/auth/session');
@@ -201,20 +203,20 @@ it('lets an administrator select a user, change limits and issue a bounded reset
   expect(JSON.parse(update?.[1]?.body as string).limits.freePages).toBe(75);
   expect(JSON.parse(update?.[1]?.body as string).limits.modelCalls).toBe(123);
   await user.type(screen.getByLabelText('管理员当前密码', { selector: '#reset-admin-password' }), 'long-test-password');
-  await user.click(screen.getByRole('button', { name: '生成一次性重置链接' }));
-  expect(await screen.findByLabelText('一次性重置链接')).toHaveProperty('value', expect.stringContaining('#once-only-reset'));
+  await user.click(screen.getByRole('button', { name: '生成一次性重置码' }));
+  expect(await screen.findByLabelText('一次性重置码')).toHaveProperty('value', 'once-only-reset');
   history.replaceState(null, '', '/');
 });
 it('denies the administration UI to a normal user without fetching administrative records', async () => {
   history.replaceState(null, '', '/admin');
   const fetcher = vi.fn(async () => response({ ...anonymous, user: { id: 'ordinary', email: 'one@example.test', name: '', role: 'user', enabled: true } })); vi.stubGlobal('fetch', fetcher);
   render(<AccountPortal />);
-  expect(await screen.findByRole('alert')).toHaveProperty('textContent', '没有管理权限。');
+  expect(await screen.findByRole('alert')).toHaveProperty('textContent', expect.stringContaining('没有管理权限。'));
   expect(fetcher).toHaveBeenCalledTimes(1);
   history.replaceState(null, '', '/');
 });
 it('keeps pending records bound to the original account and stops its client after a switch', async () => {
-  const { Client } = await import('./api');
+  const { Client } = await import('../../shared/cloud/api');
   const snapshot = (id: string) => ({ ...anonymous, user: { id, email: `${id}@example.test`, name: '', role: 'user' as const, enabled: true } });
   setAccount(snapshot('one')); const first = new Client();
   const sha = 'a'.repeat(64);

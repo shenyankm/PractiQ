@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 import { ErrorBoundary } from "../../shared/error-boundary";
-import { RenderFailure } from "./RenderFailure";
+import { RenderFailure } from "../../shared/cloud/RenderFailure";
 it("keeps surrounding inputs and task actions when a result fails to render", () => {
   vi.spyOn(console, "error").mockImplementation(() => {});
   const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);

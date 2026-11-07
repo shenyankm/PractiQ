@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { correctionDrafts, putCorrectionDraft, removeCorrectionDraft, type CorrectionDraft } from "./correctionDrafts";
+import { correctionDrafts, putCorrectionDraft, removeCorrectionDraft, type CorrectionDraft } from "../../shared/cloud/correctionDrafts";
 import { question, task } from "./test-fixtures";
 
 function draft(): CorrectionDraft {

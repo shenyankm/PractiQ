@@ -1,9 +1,10 @@
+import { nativeBridge } from "./transport";
 import { lazy, memo, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { parsePages } from "./importSelection";
 import { Select, SelectOption } from "./components/ui/select";
 import { Upload, Play, RefreshCw, Download, Trash2, Server, ChevronLeft, ChevronRight, FileText, LoaderCircle, History, Settings, Pause, Square } from "lucide-react";
 import logo from "./assets/octopus.png";
-import { ApiError, Client, downloadBlob, fileFormat, MAX_FILES, sourceLimit, validateFiles, type Action, type Capabilities, type ReparseIntent, type TaskList, type UploadStage } from "./api";
+import { ApiError, Client, downloadBlob, fileFormat, MAX_FILES, sourceLimit, validateFiles, type Action, type Capabilities, type ReparseIntent, type TaskList, type UploadStage, type SourceFile } from "./api";
 import type { DocumentTaskCreate, DocumentTaskDetail, DocumentTaskReview, DocumentTaskSummary, ImportSettingsSnapshot } from "./contracts.generated";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
@@ -16,7 +17,7 @@ import { ImportSettingsPanel } from "./ImportSettingsPanel";
 const ResultReview = lazy(() => import("./ResultReview"));
 
 const sourceExtensions: Record<Capabilities["sourceTypes"][number], string> = { pdf: ".pdf", text: ".txt", markdown: ".md", ppt: ".ppt", pptx: ".pptx", image: ".png,.jpg,.jpeg", doc: ".doc", docx: ".docx", xls: ".xls", xlsx: ".xlsx" };
-type FileItem = { id: string; file: File; requestId?: string; deduplicateQuestions?: boolean; generateAnswers?: boolean; pages?: number[] | null; documentRole?: "questions" | "answers"; state: "ready" | UploadStage | "created" | "failed"; error?: string };
+type FileItem = { id: string; file: SourceFile; requestId?: string; deduplicateQuestions?: boolean; generateAnswers?: boolean; pages?: number[] | null; documentRole?: "questions" | "answers"; state: "ready" | UploadStage | "created" | "failed"; error?: string };
 const stateLabels: Record<DocumentTaskSummary["state"], string> = { PENDING: "等待开始", RUNNING: "正在解析", PAUSING: "正在暂停", PAUSED: "已暂停", INTERRUPTED: "已中断", CANCELLED: "已取消", FAILED: "失败", WAITING_REVIEW: "等待复核", COMPLETED: "已完成", EXPIRED: "已过期" };
 const actionLabels: Record<Action, string> = { pause: "暂停", interrupt: "取消任务", resume: "继续解析", retry_failed: "重试失败单元", accept_partial: "接受部分结果" };
 const formatLabels: Record<Capabilities["sourceTypes"][number], string> = { pdf: "PDF", text: "TXT", markdown: "Markdown", ppt: "PPT (.ppt)", pptx: "PPT (.pptx)", image: "PNG/JPEG", doc: "Word (.doc)", docx: "Word (.docx)", xls: "Excel (.xls)", xlsx: "Excel (.xlsx)" };
@@ -60,8 +61,17 @@ const dateFormatter = new Intl.DateTimeFormat("zh-CN", { month: "2-digit", day: 
 const dateLabel = (value: string) => { const date = new Date(value); return Number.isNaN(date.getTime()) ? "时间未知" : dateFormatter.format(date); };
 
 export default function App({ requestedTask, hideSkipLink = false, focusMain = false }: { requestedTask?: {id:string}; hideSkipLink?: boolean; focusMain?: boolean } = {}) {
+  const Main = nativeBridge() ? "section" : "main";
   useLayoutEffect(() => { if (focusMain) document.getElementById("main-content")?.focus(); }, [focusMain]);
+  const activeJob = useRef(false);
   const correctionLeaveGuard = useRef<(() => boolean) | null>(null);
+  useEffect(() => {
+    const leave = (event: Event) => { if (activeJob.current) { setOperationError("云端操作仍在提交，请等待结果；未确认的请求会保留原记录，勿重复提交。"); event.preventDefault(); } else if (correctionLeaveGuard.current?.() === false) event.preventDefault(); };
+    const close = (event: Event) => { if (activeJob.current || correctionLeaveGuard.current) event.preventDefault(); };
+    document.addEventListener("practiq-cloud-before-leave", leave);
+    document.addEventListener("practiq-before-window-close", close);
+    return () => { document.removeEventListener("practiq-cloud-before-leave", leave); document.removeEventListener("practiq-before-window-close", close); };
+  }, []);
   const registerCorrectionGuard = useCallback((guard: (() => boolean) | null) => { correctionLeaveGuard.current = guard; }, []);
   function leaveCorrection() {
     if (correctionLeaveGuard.current?.() !== false) return true;
@@ -271,12 +281,12 @@ export default function App({ requestedTask, hideSkipLink = false, focusMain = f
 
   async function run(perform: (current: Client) => Promise<void>, changesTask = true) {
     if (!client || job.current || (changesTask && !leaveCorrection())) return;
-    const id = Symbol(); job.current = id; setBusy(true); setOperationError(null); setNotice(null);
+    const id = Symbol(); job.current = id; activeJob.current = true; setBusy(true); setOperationError(null); setNotice(null);
     try { await perform(client); }
     catch (error) { if (client.active && job.current === id) setOperationError(errorText(error)); }
-    finally { if (job.current === id) { job.current = null; setBusy(false); } }
+    finally { if (job.current === id) { job.current = null; activeJob.current = false; setBusy(false); } }
   }
-  function chooseFiles(chosen: File[]) {
+  function chooseFiles(chosen: SourceFile[]) {
     setFileError(null);
     if (!capabilities) return;
     const pending = files.filter(item => item.state === "failed");
@@ -323,7 +333,7 @@ export default function App({ requestedTask, hideSkipLink = false, focusMain = f
               <div className="correction-fields"><label>文件用途<Select disabled={busy} value={documentRole} onValueChange={value => setDocumentRole(value as "questions" | "answers")}><SelectOption value="questions">题目文件</SelectOption><SelectOption value="answers">答案卷（仅提取已有答案）</SelectOption></Select></label><label>页面范围（留空为全部）<Input aria-describedby="page-range-help" value={pageRange} maxLength={8000} placeholder="例如 1,3-5" disabled={busy} onChange={event => setPageRange(event.target.value)} /></label></div>
               <p id="page-range-help" className="import-cost-note">页码从 1 开始；TXT/Markdown 不支持。范围仅限制题目整理，腾讯仍可能按整份文件计费。</p>
               {documentRole === "answers" && <p>答案卷只提取已有内容，不生成答案。导入完成后，在题目任务中选择“关联答案卷”核对并采用。</p>}
-              <label className="file-picker"><FileText aria-hidden="true" /><span className="file-picker-action">选择文件</span><Input className="sr-only" ref={fileInput} type="file" multiple aria-label="选择文档" aria-describedby="file-limit file-help" aria-invalid={!!fileError} accept={capabilities.sourceTypes.map(type => sourceExtensions[type]).join(",")} disabled={busy} onChange={event => chooseFiles(Array.from(event.target.files || []))} /></label>
+              <label className="file-picker"><FileText aria-hidden="true" /><span className="file-picker-action">选择文件</span>{nativeBridge() ? <Button type="button" aria-label="选择云端导入文件" disabled={busy} onClick={() => { void nativeBridge()!.pickSources().then(chooseFiles).catch(error => setFileError(error instanceof Error ? error.message : "文件选择失败。")); }}>选择云端导入文件</Button> : <Input className="sr-only" ref={fileInput} type="file" multiple aria-label="选择文档" aria-describedby="file-limit file-help" aria-invalid={!!fileError} accept={capabilities.sourceTypes.map(type => sourceExtensions[type]).join(",")} disabled={busy} onChange={event => chooseFiles(Array.from(event.target.files || []))} />}</label>
               <div className="upload-details"><p className="supported-formats">服务支持：{[...new Set(capabilities.sourceTypes.map(type => formatGroups[type]))].join("、")}</p>
               <p id="file-help">单文件 ≤ {sizeLabel(sourceLimit(capabilities))}{capabilities.officeAvailable && sourceLimit(capabilities, "docx") < sourceLimit(capabilities) && ` · Word / Excel ≤ ${sizeLabel(sourceLimit(capabilities, "docx"))}`}</p></div>
               {capabilities.parserConfigured === false && <p className="notice">腾讯文档识别尚未配置，当前无法开始新的文档导入。</p>}
@@ -375,7 +385,7 @@ export default function App({ requestedTask, hideSkipLink = false, focusMain = f
               <Progress task={detail} />
               {(detail.blocking.includes("MODEL_RESULT_UNKNOWN") || detail.unknownUsageCalls.length > 0) && <div className="notice" role="alert"><p>模型请求已发送，但结果尚未确认。已保存的题目、检查点和用量记录仍保留。</p><p>请先核对模型供应商的调用记录；继续解析或重试可能再次计费，不会自动重试未知调用。</p></div>}
               {detail.blocking.includes("RUN_DEADLINE_EXCEEDED") && <p className="notice" role="alert">本轮解析已达到运行时限，已保存的进度仍保留。可按可用操作继续解析，后续模型调用可能计费。</p>}
-              <div className="task-actions" aria-label="当前任务操作">{detail.allowedActions.map(action => <Button key={action} variant="outline" disabled={busy || !detailFresh || (!["pause", "interrupt"].includes(action) && !matchingCheckpoint) || (!["pause", "interrupt"].includes(action) && (!detail.modelConfigured || !detail.resumeCompatible))} onClick={() => act(action)}>{action === "pause" ? <Pause /> : action === "interrupt" ? <Square /> : action === "resume" ? <Play /> : <RefreshCw />}{actionLabels[action]}</Button>)}<Button disabled={busy || !canExport} onClick={() => void run(async current => { const exported = await current.exportBank(detail); if (current.active) { downloadBlob(exported.blob, exported.name); setNotice("题库 ZIP 已下载。每次导出包含当前全部已完成内容，重复导入会创建独立题库。请在应用设置中追加导入。"); } }, false)}><Download />下载题库 ZIP</Button></div>
+              <div className="task-actions" aria-label="当前任务操作">{detail.allowedActions.map(action => <Button key={action} variant="outline" disabled={busy || !detailFresh || (!["pause", "interrupt"].includes(action) && !matchingCheckpoint) || (!["pause", "interrupt"].includes(action) && (!detail.modelConfigured || !detail.resumeCompatible))} onClick={() => act(action)}>{action === "pause" ? <Pause /> : action === "interrupt" ? <Square /> : action === "resume" ? <Play /> : <RefreshCw />}{actionLabels[action]}</Button>)}<Button disabled={busy || !canExport} onClick={() => void run(async current => { const exported = await current.exportBank(detail); if (current.active) { await downloadBlob(exported.blob, exported.name); setNotice("题库 ZIP 已下载。每次导出包含当前全部已完成内容，重复导入会创建独立题库。请在应用设置中追加导入。"); } }, false)}><Download />下载题库 ZIP</Button></div>
               {detail.state !== "COMPLETED" && <p className="text-sm text-muted-foreground">暂停后可下载已完成题目，需有可用题目且检查点一致。</p>}
               <details className="task-secondary-actions"><summary>其他任务操作</summary><p className="text-sm text-muted-foreground">重新解析会重新提交腾讯识别并创建新的 AI 整理请求，可能再次计费；删除会移除此任务和检查点。已下载的题库不受影响。</p><div className="task-actions"><Button variant="outline" disabled={busy || !detailFresh || !detail.modelConfigured || detail.state === "EXPIRED"} onClick={() => void run(async current => { const receipt = await current.reparse(detail.threadId); if (current.active) { setSelected(value => value === detail.threadId ? receipt.threadId : value); setListRevision(value => value + 1); setDetailRevision(value => value + 1); setNotice("新解析任务已创建。"); } })}><RefreshCw />重新解析为新任务</Button><Button variant="destructive" disabled={busy || !detailFresh || ["RUNNING", "PENDING", "PAUSING"].includes(detail.state)} onClick={() => setDeleteTarget({ threadId: detail.threadId, fileName: detail.fileName })}><Trash2 />删除任务</Button></div></details>
               {!!detail.failures.length && <section className="notice"><h3>失败单元</h3><ul>{detail.failures.map(failure => <li key={`${failure.stage}:${failure.index}`}>{failure.stage} · {failure.index} · {failure.code} · {failure.retryable ? `可重试，剩余 ${failure.retriesRemaining ?? 0} 次` : "不可重试"}</li>)}</ul></section>}
@@ -392,7 +402,7 @@ export default function App({ requestedTask, hideSkipLink = false, focusMain = f
       <nav aria-label="工作区导航">{pages.map(({ id, label, icon: Icon }) => <a key={id} href={`#${id}`} aria-current={page === id ? "page" : undefined} onClick={() => navigate(id)}><Icon aria-hidden="true" />{label}</a>)}</nav>
       <div className="sidebar-connection"><Server aria-hidden="true" /><strong>{client ? "服务已连接" : "尚未连接服务"}</strong></div>
     </aside>
-    <div className="web-body"><main id="main-content" tabIndex={-1} className="web-main" data-page={page} aria-label={pages.find(item => item.id === page)!.label}>
+    <div className="web-body"><Main id="main-content" tabIndex={-1} className="web-main" data-page={page} aria-label={pages.find(item => item.id === page)!.label}>
       {!client ? <section aria-label="服务状态" className="notice">{capError ? <><p role="alert">{capError}</p><Button variant="outline" onClick={() => setConnectionRevision(value => value + 1)}>重试连接</Button></> : <p role="status">正在读取服务状态…</p>}</section> : <>
         {notice && <p className="notice operation-notice" role="status">{notice}</p>}
         {operationError && <div ref={operationNotice} className="error-banner" role="alert"><span className="min-w-0 flex-1">{operationError}</span></div>}
@@ -420,6 +430,6 @@ export default function App({ requestedTask, hideSkipLink = false, focusMain = f
         <div hidden={page !== "records"} className="records-page"><CorrectionDraftRecovery scope={client.storageScope} excludeTaskId={!detailError && detail?.threadId === selected ? selected : undefined} onOpen={draft => selectTask(draft.taskId)} />{recordsContent}{detailContent}</div>
         <div hidden={page !== "settings"} className="settings-page"><ImportSettingsPanel client={client} onSettingsChange={setImportSettings} onPendingChange={setSettingsPending} /></div>
       </>}
-    </main></div>
+    </Main></div>
   </div>;
 }

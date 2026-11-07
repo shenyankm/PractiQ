@@ -443,7 +443,9 @@ class WebStaticFiles(StaticFiles):
             # Unknown/removed API routes keep their existing 404 semantics even
             # when the optional frontend is mounted at the root.
             raise HTTPException(404, "Not Found")
-        if path.rstrip('/') in {'login', 'register', 'reset-password', 'admin'}:
+        if path.rstrip('/') in {'register', 'reset-password', 'payments'}:
+            raise HTTPException(404, 'Not Found')
+        if path.rstrip('/') in {'admin', 'login'}:
             path = 'index.html'
         return await super().get_response(path, scope)
 

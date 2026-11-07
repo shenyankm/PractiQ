@@ -1,8 +1,8 @@
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { expect, it, vi } from "vitest";
-import { Client } from "./api";
-import { ImportSettingsPanel } from "./ImportSettingsPanel";
+import { Client } from "../../shared/cloud/api";
+import { ImportSettingsPanel } from "../../shared/cloud/ImportSettingsPanel";
 import { newTaskId, taskId } from "./test-fixtures";
 import type { ImportSettingsSnapshot } from "./contracts.generated";
 

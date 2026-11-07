@@ -1113,5 +1113,125 @@
     "zh-CN": "题库内容已变化，请重新检查重复题后确认导入。",
     "zh-TW": "題庫內容已變更，請重新檢查重複題後確認匯入。",
     "en": "The bank changed. Check duplicates again before confirming import."
+  },
+  "CLOUD_ORIGIN_REQUIRED": {
+    "zh-CN": "请先连接云端服务。",
+    "zh-TW": "請先連線雲端服務。",
+    "en": "Connect to a cloud service first."
+  },
+  "CLOUD_ORIGIN_INVALID": {
+    "zh-CN": "请输入 HTTPS 服务根地址；本机开发可使用 HTTP。",
+    "zh-TW": "請輸入 HTTPS 服務根位址；本機開發可使用 HTTP。",
+    "en": "Enter an HTTPS service origin; HTTP is allowed for loopback development."
+  },
+  "CLOUD_ACCOUNT_CHANGED": {
+    "zh-CN": "云端连接或账号已变化，请重新读取登录状态。",
+    "zh-TW": "雲端連線或帳號已變更，請重新讀取登入狀態。",
+    "en": "The service or account changed. Reload the login status."
+  },
+  "CLOUD_UNAVAILABLE": {
+    "zh-CN": "云端连接不可用，请稍后手动重试。",
+    "zh-TW": "雲端連線無法使用，請稍後手動重試。",
+    "en": "The cloud connection is unavailable. Retry explicitly later."
+  },
+  "CLOUD_CONFIG_INVALID": {
+    "zh-CN": "云端连接配置无法识别，已保留原文件；请联系管理员处理。离线练习仍可用。",
+    "zh-TW": "雲端連線設定無法辨識，已保留原檔；請聯絡管理員處理。離線練習仍可使用。",
+    "en": "The cloud settings are unrecognized and were preserved. Contact your administrator; offline practice remains available."
+  },
+  "CLOUD_CONFIG_WRITE": {
+    "zh-CN": "云端连接配置未能保存，请检查磁盘权限。",
+    "zh-TW": "雲端連線設定無法儲存，請檢查磁碟權限。",
+    "en": "Cloud settings could not be saved. Check disk permissions."
+  },
+  "CLOUD_CREDENTIAL_INVALID": {
+    "zh-CN": "本机登录凭证无法读取，请清除本机登录状态后重新登录。",
+    "zh-TW": "本機登入憑證無法讀取，請清除本機登入狀態後重新登入。",
+    "en": "The local login credential is unreadable. Forget local login and sign in again."
+  },
+  "CLOUD_RESPONSE_INVALID": {
+    "zh-CN": "云端响应未通过校验，操作未确认；请查询原记录。",
+    "zh-TW": "雲端回應未通過驗證，操作尚未確認；請查詢原紀錄。",
+    "en": "The cloud response failed validation. Query the original record before retrying."
+  },
+  "CLOUD_RESULT_UNKNOWN": {
+    "zh-CN": "云端操作结果未确认，请查询原记录，勿重复提交。",
+    "zh-TW": "雲端操作結果尚未確認，請查詢原紀錄，勿重複提交。",
+    "en": "The cloud outcome is unknown. Query the original record; do not submit again."
+  },
+  "CLOUD_PATH_INVALID": {
+    "zh-CN": "云端请求地址或操作不受支持。",
+    "zh-TW": "雲端請求位址或操作不受支援。",
+    "en": "The cloud path or operation is unsupported."
+  },
+  "CLOUD_REQUEST_TOO_LARGE": {
+    "zh-CN": "请求超过大小限制，请减少内容后重试。",
+    "zh-TW": "請求超過大小限制，請減少內容後重試。",
+    "en": "The request exceeds its size limit. Reduce its content and retry."
+  },
+  "CLOUD_RESPONSE_TOO_LARGE": {
+    "zh-CN": "云端文件或响应超过大小限制，请分批导出。",
+    "zh-TW": "雲端檔案或回應超過大小限制，請分批匯出。",
+    "en": "The cloud file or response exceeds its size limit. Export smaller batches."
+  },
+  "CLOUD_FILENAME_INVALID": {
+    "zh-CN": "文件名无效，请使用普通文件名。",
+    "zh-TW": "檔名無效，請使用一般檔名。",
+    "en": "The filename is invalid. Use a regular filename."
+  },
+  "CLOUD_FILE_INVALID": {
+    "zh-CN": "无法读取所选文件，请重新选择。",
+    "zh-TW": "無法讀取所選檔案，請重新選擇。",
+    "en": "The selected file could not be read. Select it again."
+  },
+  "CLOUD_FILE_RESELECT": {
+    "zh-CN": "所选文件已失效，请重新选择后上传。",
+    "zh-TW": "所選檔案已失效，請重新選擇後上傳。",
+    "en": "The file selection expired. Select the file again before uploading."
+  },
+  "CLOUD_SAVE_FAILED": {
+    "zh-CN": "文件未能保存，请检查目标目录和磁盘空间。",
+    "zh-TW": "檔案無法儲存，請檢查目的資料夾和磁碟空間。",
+    "en": "The file could not be saved. Check the destination and free disk space."
+  },
+  "UNSUPPORTED_FILE": {
+    "zh-CN": "请选择服务支持的文档格式。",
+    "zh-TW": "請選擇服務支援的文件格式。",
+    "en": "Select a document format supported by the service."
+  },
+  "FILE_COUNT_LIMIT": {
+    "zh-CN": "一次最多选择 10 个文件。",
+    "zh-TW": "一次最多選擇 10 個檔案。",
+    "en": "Select at most 10 files at a time."
+  },
+  "INVALID_REFERENCE": {
+    "zh-CN": "云端文件引用不匹配，已停止上传。",
+    "zh-TW": "雲端檔案參照不符，已停止上傳。",
+    "en": "The cloud file reference does not match. Upload stopped."
+  },
+  "INVALID_URL": {
+    "zh-CN": "云端上传地址未通过校验，已停止上传。",
+    "zh-TW": "雲端上傳位址未通過驗證，已停止上傳。",
+    "en": "The cloud upload URL failed validation. Upload stopped."
+  },
+  "PAYMENT_FORM_INVALID": {
+    "zh-CN": "付款表单校验失败，请查询原订单，勿重复付款。",
+    "zh-TW": "付款表單驗證失敗，請查詢原訂單，勿重複付款。",
+    "en": "The payment form failed validation. Query the original order; do not pay again."
+  },
+  "PAYMENT_REQUEST_INVALID": {
+    "zh-CN": "付款请求无效，请刷新原订单。",
+    "zh-TW": "付款請求無效，請重新整理原訂單。",
+    "en": "The payment request is invalid. Refresh the original order."
+  },
+  "PAYMENT_BROWSER_FAILED": {
+    "zh-CN": "无法打开收银台，请查询原订单后继续付款。",
+    "zh-TW": "無法開啟收銀台，請查詢原訂單後繼續付款。",
+    "en": "The cashier could not be opened. Query the original order before continuing."
+  },
+  "CLOUD_PREVIEW_UNAVAILABLE": {
+    "zh-CN": "开发预览不会连接真实云端服务，请关闭开发预览后操作。",
+    "zh-TW": "開發預覽不會連線真實雲端服務，請關閉開發預覽後操作。",
+    "en": "Development preview does not connect to cloud services. Disable preview to continue."
   }
 }

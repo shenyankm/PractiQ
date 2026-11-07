@@ -80,8 +80,8 @@ Shared-contract checks need the locked service dependencies, even when the AI se
 
 | Area | Responsibility |
 | --- | --- |
-| `app/` | Offline Tauri/React practice app with Rust and SQLite, targeting macOS. Imports bank ZIPs and supports explicit model/service connection checks; only explicit AI grading or retry starts model work. |
-| `web/` | Authenticated user portal and administration area for explicit document import, task control, result review, usage, and bank ZIP download. |
+| `app/` | macOS Tauri/React practice app with Rust and SQLite, plus optional customer accounts and native uploads to the independent cloud service. Offline practice/ZIP import remain login-free; cloud import/recovery and subjective grading require explicit actions. |
+| `web/` | Administrator-only Web for user policy, task inspection/recovery, provider usage and audits. Customer UI lives in the App; all document processing remains in the service. |
 | `server/` | Python/LangGraph document processing and grading, with PostgreSQL state, RabbitMQ delivery, and local file storage. |
 | `shared/` | Frontend code used by both App and Web; validate both consumers when affected. |
 

@@ -1,6 +1,6 @@
 # Import, export, and back up question-bank ZIP files
 
-A single ZIP is enough to share a question bank. The app no longer offers separate JSON or image-directory pickers. The independent service's Web frontend parses documents and downloads this same ZIP format; app import remains offline on macOS.
+A single ZIP is enough to share a question bank. The app no longer offers separate JSON or image-directory pickers. The App uploads sources to the independent cloud service and downloads this same ZIP format; recognition and parsing remain cloud-side, and local bank import stays offline on macOS.
 
 ## Import and share
 

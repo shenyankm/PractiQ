@@ -1,1 +1,1 @@
-export { SelectControl as Select, SelectOption } from "../../../../shared/select";
+export * from "../../../../shared/cloud/components/ui/select";

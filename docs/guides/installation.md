@@ -61,7 +61,7 @@ If a damaged database prevents the app from starting, follow [desktop data recov
 
 ## Install the AI import service (optional)
 
-The service handles document import for the Web page and can grade short answers for the desktop app. Its commands use GNU Make; on a host without the native build tools, the [service guide](../../server/docs/service-guide.md) covers building the Docker image instead. It needs:
+The service handles document import uploaded through the App and can grade short answers for the desktop app. Its commands use GNU Make; on a host without the native build tools, the [service guide](../../server/docs/service-guide.md) covers building the Docker image instead. It needs:
 
 - Python 3.14+ and uv
 - Node.js 22.12 or newer for the Web page
@@ -121,4 +121,4 @@ The last step calls Tencent and your model provider, and may cost money. Skip it
 - Import, resume and download documents: [import tasks](import-tasks.md).
 - Deploy the service for personal use and upgrade old databases: [personal-use guide](../../server/docs/personal-use.md).
 - Configure Tencent parsing limits, splitting and private COS staging: [Tencent parser setup](../../server/docs/tencent-document-parser.md).
-- Open the service Web page in development: run `make web-dev` in a second terminal; it forwards API requests to the service.
+- Open the administrator Web in development with `make web-dev`. Users connect the service origin in App → Cloud service; see [account setup](../../server/docs/accounts.md).

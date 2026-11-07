@@ -3,7 +3,7 @@
 The service has an optional Alipay `alipay.trade.page.pay` integration. It records
 account-owned receipts and supports query, close, administrator refund, refund
 query and signed asynchronous notifications. It does not automatically increase
-document-page allowances or change the offline macOS app. Configure the product,
+document-page allowances or require login for offline practice. The App opens this existing web checkout in the system browser; there is no native payment SDK. Configure the product,
 price and fulfillment policy before collecting production money.
 
 Payments are disabled unless `ALIPAY_ENABLED=true`. No existing database,
@@ -48,7 +48,7 @@ ALIPAY_ENABLED=true ALIPAY_MODE=sandbox \
 ALIPAY_BASE_URL=http://127.0.0.1:8090 make server-dev
 ```
 
-Open <http://127.0.0.1:8090/payments>. The sandbox default amount is ¥0.01 and the
+Connect `http://127.0.0.1:8090` in App → Cloud service, sign in, and open Orders and payments. The sandbox default amount is ¥0.01 and the
 subject is explicitly labeled as sandbox. Selecting “前往支付宝付款” creates one
 durable order before rendering and posting the SDK form to the sandbox gateway.
 The result page is exactly `http://127.0.0.1:8090/payments/return`; changing the
@@ -103,8 +103,8 @@ a new order while the old result remains unresolved. The UI offers explicit
 query and reuse of the original order, and blocks creating another unresolved
 order in the same environment.
 
-Saved order responses include the original `requestId`. The browser keeps that
-UUID through uncertain outcomes, including a lost create response, and rotates
+Saved order responses include the original `requestId`. The App keeps that
+UUID in account-and-origin-scoped recovery storage through uncertain outcomes, including a lost create response, and rotates
 it only after its matching saved receipt is confirmed paid or closed. Historical
 receipts remain visible across environments; only unresolved orders in the
 current offer's environment block starting a payment.
@@ -158,8 +158,10 @@ prices, unknown receipts, refund replay and amount reservations, notifications,
 background recovery, config protection and the schema-6 upgrade. These tests do
 not prove real buyer payment or production readiness.
 
-`web/tests/payments.spec.ts` runs the actual payment assets in Chromium against
-substitute HTTP responses. It covers repeat payment after settlement, lost
-responses and request-ID reuse, sandbox/production isolation and receipt reads
-when the current offer is unavailable. Gateway submission is replaced locally;
-these browser checks do not submit money or validate merchant activation.
+`app/src/CloudPayments.test.tsx` exercises the migrated customer order view with
+substitute native/HTTP responses, including lost-response request reuse across
+remounts, matching terminal receipts, environment isolation and disabled offers.
+Native tests verify restricted Alipay form reconstruction. The customer `/payments`
+page and assets were removed; only `/payments/return` remains to direct buyers
+back to the App for an authenticated query. Tests submit no money and do not
+validate merchant activation.

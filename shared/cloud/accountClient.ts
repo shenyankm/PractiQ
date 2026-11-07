@@ -1,9 +1,10 @@
 import type { AccountSession } from "./contracts.generated";
+import { nativeBridge, serviceFetch } from "./transport";
 let session: AccountSession | null = null;
 export function setAccount(value: AccountSession | null) {
   session = value;
 }
-export function accountStorageScope() { return session?.user ? `.user.${session.user.id}` : ''; }
+export function accountStorageScope() { return session?.user ? `${nativeBridge() ? ".service." + encodeURIComponent(nativeBridge()!.origin) : ""}.user.${session.user.id}` : ''; }
 export function storageKey(key: string, scope = accountStorageScope()) { return key + scope; }
 export function accountHeaders(headers: Headers) {
   if (session) headers.set("X-CSRF-Token", session.csrf);
@@ -20,7 +21,7 @@ export async function accountRequest<T>(
   const headers = new Headers();
   accountHeaders(headers);
   if (value !== undefined) headers.set("Content-Type", "application/json");
-  const response = await fetch(path, {
+  const response = await serviceFetch(path, {
     method,
     headers,
     body: value === undefined ? undefined : JSON.stringify(value),

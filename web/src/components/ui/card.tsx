@@ -1,1 +1,1 @@
-export { Card, CardHeader, CardTitle, CardContent } from "../../../../shared/ui";
+export * from "../../../../shared/cloud/components/ui/card";

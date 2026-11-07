@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { parsePages, validPages, validReparseSelection } from "./importSelection";
+import { parsePages, validPages, validReparseSelection } from "../../shared/cloud/importSelection";
 
 it("parses explicit source-page ranges without silently skipping invalid input", () => {
   expect(parsePages(" ")).toBeUndefined();

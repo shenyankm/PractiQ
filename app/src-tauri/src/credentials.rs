@@ -23,7 +23,8 @@ fn error(code: &str) -> crate::AppError {
 fn validate_account(account: &str) -> Result<()> {
     let digest = account
         .strip_prefix("ai-service-token-")
-        .or_else(|| account.strip_prefix("ai-model-key-v1-"));
+        .or_else(|| account.strip_prefix("ai-model-key-v1-"))
+        .or_else(|| account.strip_prefix("ai-account-session-v1-"));
     if !digest.is_some_and(|digest| {
         digest.len() == 64
             && digest
@@ -71,7 +72,11 @@ mod tests {
 
     #[test]
     fn credential_accounts_keep_separate_versioned_namespaces() {
-        for prefix in ["ai-service-token-", "ai-model-key-v1-"] {
+        for prefix in [
+            "ai-service-token-",
+            "ai-model-key-v1-",
+            "ai-account-session-v1-",
+        ] {
             assert!(validate_account(&format!("{prefix}{}", "a".repeat(64))).is_ok());
             assert!(validate_account(&format!("{prefix}{}", "A".repeat(64))).is_err());
         }
