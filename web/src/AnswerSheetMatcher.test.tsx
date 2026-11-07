@@ -1,9 +1,9 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { expect, it, vi } from "vitest";
-import ResultReview from "./ResultReview";
-import { AnswerSheetMatcher } from "./AnswerSheetMatcher";
-import { ApiError, Client } from "./api";
+import ResultReview from "../../shared/cloud/ResultReview";
+import { AnswerSheetMatcher } from "../../shared/cloud/AnswerSheetMatcher";
+import { ApiError, Client } from "../../shared/cloud/api";
 import type { DocumentAnswerMatches } from "./contracts.generated";
 import { capabilities, newTaskId, preview, question, task, summary } from "./test-fixtures";
 

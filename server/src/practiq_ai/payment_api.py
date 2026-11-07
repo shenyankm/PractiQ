@@ -1,11 +1,10 @@
 """Same-origin account payment controls and signed provider notifications."""
-from pathlib import Path
 from typing import Annotated
 from urllib.parse import parse_qsl
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi import Path as Parameter
-from starlette.responses import FileResponse, HTMLResponse, PlainTextResponse
+from starlette.responses import HTMLResponse, PlainTextResponse
 
 from . import identity as auth
 from . import payments
@@ -21,7 +20,6 @@ from .contracts import (
 from .payment_config import cents, load, money
 
 router = APIRouter()
-ASSETS = Path(__file__).parent / 'payment_assets'
 OrderId = Annotated[str, Parameter(pattern=r'^[a-f0-9]{32}$')]
 
 
@@ -107,22 +105,7 @@ async def notify(request: Request):
         return PlainTextResponse('fail')
 
 
-@router.get('/payments', response_class=HTMLResponse)
 @router.get('/payments/return', response_class=HTMLResponse)
-async def payment_page():
-    return HTMLResponse((ASSETS / 'index.html').read_text(), headers={'Cache-Control': 'no-store'})
-
-
-@router.get('/payments/client.js')
-async def payment_script():
-    return FileResponse(ASSETS / 'client.js', media_type='text/javascript')
-
-
-@router.get('/payments/style.css')
-async def payment_style():
-    return FileResponse(ASSETS / 'style.css', media_type='text/css')
-
-
-@router.get('/payments/octopus.png')
-async def payment_logo():
-    return FileResponse(ASSETS / 'octopus.png', media_type='image/png')
+async def payment_return():
+    # Return parameters are never proof of payment; the native app queries its receipt.
+    return HTMLResponse('<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="referrer" content="no-referrer"><title>返回 PractiQ</title><h1>请返回 PractiQ App</h1><p>正在确认支付结果。请在 App 的订单与付款中查询原订单；同步回跳不代表付款成功。</p></html>', headers={'Cache-Control': 'no-store'})

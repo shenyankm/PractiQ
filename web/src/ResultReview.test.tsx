@@ -3,8 +3,8 @@ import { StrictMode } from "react";
 import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { expect, it, vi } from "vitest";
-import ResultReview, { ImageArtifact, Markdown } from "./ResultReview";
-import { Client } from "./api";
+import ResultReview, { ImageArtifact, Markdown } from "../../shared/cloud/ResultReview";
+import { Client } from "../../shared/cloud/api";
 import { material, preview, question, task } from "./test-fixtures";
 import htmlBlocks from "../../app/fixtures/rich-content/html-blocks.json";
 

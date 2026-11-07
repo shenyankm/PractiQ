@@ -267,6 +267,10 @@ function initialize(scenario: PreviewScenario) {
   }
 }
 export async function demoInvoke(command:string,args:Record<string,unknown>,scenario:PreviewScenario):Promise<unknown> {
+  if (command === "cloud_request") {
+    if ((args.request as {type?:string})?.type === "status") return {value:{origin:null,generation:0},generation:0};
+    throw {code:"CLOUD_PREVIEW_UNAVAILABLE"};
+  }
   initialize(scenario);
   const type=(args.request as {type?:string}|undefined)?.type;
   if(scenario==="slow")await new Promise(resolve=>setTimeout(resolve,1500));

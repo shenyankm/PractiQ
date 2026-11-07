@@ -39,6 +39,7 @@ impl Store {
             || destination == self.db_path()
             || destination == self.service_settings_path()
             || destination == self.learning_path()
+            || destination == self.dir.join("account-service-v1.json")
         {
             return Err(crate::language::error(
                 "LOCAL_BACKUP_OVERWRITE",
@@ -942,6 +943,32 @@ mod fault_tests;
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn cloud_account_settings_are_not_exported_or_replaced_by_practice_backup() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::new(dir.path().into()).unwrap();
+        let config = dir.path().join("account-service-v1.json");
+        fs::write(
+            &config,
+            br#"{"version":1,"origin":"https://private.example.test"}"#,
+        )
+        .unwrap();
+        assert!(store.backup(&config).is_err());
+        let backup = dir.path().join("practice.zip");
+        store.backup(&backup).unwrap();
+        let mut zip = ZipArchive::new(fs::File::open(&backup).unwrap()).unwrap();
+        assert!(zip.by_name("account-service-v1.json").is_err());
+        let mut manifest = String::new();
+        zip.by_name("manifest.json")
+            .unwrap()
+            .read_to_string(&mut manifest)
+            .unwrap();
+        assert!(!manifest.contains("private.example.test") && !manifest.contains("accountSession"));
+        let restored_dir = tempfile::tempdir().unwrap();
+        let mut restored = Store::new(restored_dir.path().into()).unwrap();
+        restored.restore(&backup).unwrap();
+        assert!(!restored.dir.join("account-service-v1.json").exists());
+    }
     #[test]
     fn file_digest_preserves_sha256_hex_encoding() {
         let dir = tempfile::tempdir().unwrap();

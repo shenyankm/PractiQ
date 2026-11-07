@@ -1,67 +1,50 @@
-# Multi-user service update
+# PractiQ administration Web
 
-The current service uses schema 6 with authenticated user and administrator areas.
-See [accounts and deployment](../server/docs/accounts.md) for current setup and recovery.
-The personal-mode description below is historical and applies to the previous schema-5 deployment only; retain its database and storage separately.
-
-# PractiQ AI import Web
-
-This React/Vite frontend uses the local personal service to upload source documents, inspect tasks and download question-bank ZIPs. Practice remains in the offline app. No account, phone, products, point balance or checkout is required. See [personal use](../server/docs/personal-use.md).
+`web/` builds the service's administrator interface. Customer accounts, document
+upload, personal tasks, result review, usage and orders live in the macOS App's
+**Cloud service** area. Document recognition, splitting, parsing, model calls,
+accounting and saved results remain on the independent service. There is no
+second backend or local document parser.
 
 ```sh
-npm ci --prefix web
-npm --prefix web run dev
-npm --prefix web run check
-npm --prefix web run test:browser
-npm --prefix web run build
+make web-install
+make web-dev
+make web-check
+make web-build
 ```
 
-Development binds to `127.0.0.1:5173` and proxies `/api` to the loopback service on port `8090`. Production builds into `web/dist`; the independent service serves those assets from `/` when available and can also run without Web assets. API requests use the same origin as the page. The page reads service capabilities automatically, with an explicit retry if the service is unavailable. No access token or connection form is required. Provider credentials and model configuration stay on the server. No credentials are saved in browser storage or included in URLs.
+Development binds to `127.0.0.1:5173` and proxies `/api` to port `8090`.
+Production serves `web/dist` from `/`, `/admin` and `/login`. The previous
+`/register`, `/reset-password` and `/payments` customer pages return 404. The
+minimal `/payments/return` page only directs the buyer back to the App; it does
+not confirm payment. Old cached assets must be invalidated when deploying.
 
-The sidebar separates **Start import**, **Import history** and **Settings**. Start import accepts at most ten files and uses the service's supported formats and source-specific limits. Selection is passive; explicit Start computes SHA-256, uploads exact bytes and creates tasks with stable request IDs. Leading and trailing filename whitespace is trimmed for format checks and upload metadata, matching the service; file contents are unchanged. Every supported source uses Tencent recognition before question structuring; oversized inputs are prepared/split by the service. Failed files and frozen deduplication options survive navigation and reselection within this page. Unresolved creation requests also retain their original IDs, verified references and options across reloads in browser storage; explicit retries reuse them. Files not yet uploaded must be selected again. When the selected batch completes submission and no pending files remain, the page opens its import history automatically.
+Administrators sign in with an explicitly bootstrapped account. An ordinary
+account receives a permission message without user or administrator controls.
+The interface includes user activation, roles and quotas, registration policy,
+shared execution settings, task inspection and explicit recovery, provider usage,
+audit history and the administrator's own account security. Password recovery
+shows a short-lived one-time reset code for entry in the App. Administrators must
+verify the requester's identity independently before sharing it.
 
-Task-creation errors `OFFICE_NOT_CONFIGURED` and `TENCENT_NOT_CONFIGURED` are definite admission rejections: no task was created, so correct the service configuration and retry explicitly. The Web frontend preserves the request ID but never retries automatically. Network failures, timeouts and other server failures still retain the unknown-outcome warning; inspect saved tasks before resubmitting those requests.
+Browser requests remain same-origin, use HttpOnly session cookies and CSRF
+protection, and never store authentication secrets in browser storage. Provider
+configuration and payment credentials stay on the server. Administration reads
+never start model work; recovery actions that can incur charges remain explicit.
+Server authorization is authoritative for every customer and administrative API.
 
-Import history uses a centered 1100 px content area with its heading, status filter and refresh action in a compact toolbar. Empty lists show one compact file-selection prompt without a zero count or unused detail card. A single first page omits pagination; later empty pages retain previous-page navigation. Selecting a task opens its details, and explicit deletion confirmation remains available even without a selection. Import history shows filenames, state, separate question and review-count columns, and creation times. Background read failures retain the last list with a stale-data notice and disable paging until a successful read; switching filters or pages still clears the old list. Selecting a record opens progress, source/result review, model usage and the server-authorized pause, resume, retry and cancel actions. Cancellation retains the task and its partial results; deletion remains a separate confirmed action. Navigation and settings changes never start model work.
+`shared/cloud/` contains the migrated customer workspace and reusable account,
+rendering and task-inspection components. The production Web entry imports only
+administration views; the customer portal, workspace and orders are not build
+entries. Types are generated from the existing Python contracts.
 
-Settings are shared by the entire service and stored in PostgreSQL, across browsers and service restarts. The `GET /api/import-settings` returns a revision and current settings; `PUT` requires that revision, rejecting stale writes with `IMPORT_SETTINGS_CONFLICT`. Valid edits automatically save after 600 ms; no Save button is required. Editing during a write retains the latest draft and saves it with the returned revision. The defaults are five Tencent workflows, two retries after a failed known-job read, and a one-second base backoff. Concurrency is restricted to 1–5, retries to 0–5, and base delay to 0.5–10 seconds. Lowering concurrency drains existing workflows before admitting more; in-flight requests are not interrupted. Each read captures its retry policy when it begins, doubles the delay with jitter and obeys the saved run deadline. Paid submission, authentication/permanent errors and unknown outcomes never gain automatic retries. Saving settings does not change model/provider credentials, document-worker/LLM allocation or existing conservative call reservations. Failed or uncertain saves retain the draft; explicitly reload to reconcile. Read-only service mode permits reading settings and rejects writes.
+Vitest still exercises the shared workspace alongside administrator interactions
+and includes shared source files in coverage. Web Playwright checks the actual
+administrator entry with synthetic API responses. The former customer browser
+suite now runs under the App's `cloud-workspace` Playwright project through a
+development-only harness; native IPC flows have separate App tests. These tests
+do not prove real provider calls or macOS Keychain/dialog acceptance.
 
-Polling only reads task lists, heads, details and previews. Processing tasks refresh every 3 seconds; quiescent tasks refresh every 30 seconds. Hidden pages pause polling and focus/visibility restores a fresh read. After the initial detail and preview, unchanged completed tasks use the `/api/document-tasks/{threadId}/head` response. Lists use `nextCursor` for subsequent pages, bound to the same filter; the service retains offset compatibility. Resume, retry failed units, accept partial results, pause, interrupt, reparse and delete require their corresponding actions. Checkpoint actions and export stay disabled when the latest detail and preview disagree or cannot be read. Task deletion requires confirmation, including expired tasks whose detail and preview are unavailable. An expired row can be deleted directly from the list; a pending or failed deletion retains its confirmation, and failures require an explicit retry. Completed partial results can be exported without changing their status, warnings, review flags, missing values or source associations. ZIP downloads use same-origin requests for the current checkpoint and the same 300 MiB archive ceiling as the service and native importer. In the desktop app, **Settings → Import and restore → Import bank ZIP** appends the downloaded bank.
-
-The import workspace uses the existing octopus brand and blue action tokens. Wide windows use a persistent sidebar and dedicated import, history and settings content. The centered import card has an 820 px maximum content width, a single file-selection action and the file-count limit in its header. Supported formats are grouped without repeating file extensions; precise formats, import rules and call budgets share one collapsed disclosure inside the card. Size limits remain next to the picker, while the saved defaults appear beside Start and the paid-work warning sits directly below it. Repeated page descriptions and workflow/footer copy are omitted. Settings keep automatic deduplication and AI answer/explanation generation as switches, plus three numeric controls with right-aligned values and no save button. Both switches default off; their saved values apply to future explicit imports. New imports wait until settings have saved successfully, preventing stale generation options from authorizing paid work. Save progress and success appear as a fixed toast in the upper-right corner; success dismisses after three seconds or through its close button. Valid edits save after 600 ms of inactivity; in-flight writes are serialized against returned revisions. Invalid drafts are not submitted, and failed/uncertain writes stop automatic saving until an explicit reload. Import and Settings are centered within the sidebar content area, without repeated page headings. Narrow windows use the same three navigation destinations above stacked record details without page-wide horizontal scrolling. Keyboard users can skip the header, jump from the selected task to its details, and return to the task list. Browser Back/Forward and direct `#task-detail` / `#task-list-heading` links open the Import history page; shared anchors keep the current page. Narrow/touch layouts provide 48 px action targets. Failed capability verification is shown as a failure, not an indefinite connecting state; retry remains explicit. Result-view buttons expose their selected state to assistive technology.
-
-Result review displays questions, parent material, shared options, source units, quality records and immutable image references without adding answers. Partial results, original warnings, missing fields and review requirements share one visible notice region. Same-task checkpoint updates preserve search, review filtering, the selected tab, pagination and expanded questions with stable identities while refreshing their content. Selecting another task or explicitly refreshing task details resets the review; either action also recovers a caught result-rendering failure without replaying task operations. Document/model HTML is inert; external Markdown images and links never make requests. Math renderers use the pinned top-level KaTeX version through npm overrides so their generated classes match the imported stylesheet. Source associations, quality JSON and OCR checksums are available in collapsed technical disclosures after readable resources. Quality JSON is formatted only while its disclosure is open on the Sources tab and reused during pagination. Images are fetched only on an explicit click through the artifact endpoint, checked against MIME, byte size and SHA-256, then displayed through a temporary blob URL. Unread response bodies are cancelled when a size, format or HTTP error rejects the response. Image and download URLs are released after use. Known model usage and calls with unknown usage remain distinct.
-
-KaTeX keeps all 20 font faces in WOFF2, supported by Vite's modern browser targets; redundant WOFF/TTF fallbacks are excluded. The result review remains lazy, so this reduces complete static assets rather than initial JavaScript/CSS. The [October 9 measurement](../docs/history/performance/performance-web-fonts-20261009.md) preserves before/after samples and limits. Run `PRACTIQ_WEB_BUILT=1 npm --prefix web run test:browser -- --grep 'all KaTeX font faces'` from the repository root after building to verify every font face against production assets with synthetic HTTP responses.
-
-Vitest uses at most two workers and enforces the existing desktop coverage thresholds (80% statements, 73% branches/functions, 85% lines). Playwright uses one Chromium worker on loopback port `1671` and intercepts every API request with synthetic HTTP responses. Its ZIP fixture checks download transport and bytes; native ZIP compatibility is covered by the shared service/desktop contract and native tests. These browser tests do not run a model, Office conversion, or a real service. A separate bounded hosting smoke may load built assets from a disposable read-only local service with model configuration absent; that checks static hosting, same-origin access and passive file selection, not live AI parsing or production deployment.
-
-There is no application login or access-token setting. Only explicit import/control actions start model work; task reads and ZIP exports remain passive.
-
-## Interrupted imports and page reloads
-
-ZIP export errors retain their error codes and give distinct recovery guidance: split the original source for package limits, inspect/reparse invalid content, restore missing or changed source/resources, refresh the detail and preview for a stale checkpoint, or wait and manually retry a temporary-capacity failure. Download failures never automatically reparse a document or replay a request.
-
-Task state, checkpoints, call receipts and results belong to the service. Closing the page does not cancel an accepted task. Reopen the Web page and open Import history to read its current progress. File selection and reconnection never start parsing.
-
-Before task creation, the Web client saves the original request ID, verified document reference and import options in origin-scoped `practiq-import-intents-v1` browser storage. It saves no token or file contents. After reload, the recovery panel offers an explicit retry with the exact original payload: an accepted request returns its original receipt; an unaccepted request may start parsing and incur charges. Reselecting that source reuses the pending request and its original options. Storage errors prevent a new task submission; malformed records are retained for investigation. At most 50 unresolved submissions are retained. Clear a recovery entry only after checking service history; clearing it does not cancel the service task and a later new submission may incur another charge. Browser storage deletion or a different origin loses these local recovery hints; service history remains authoritative.
-
-Reparse actions use the same explicit recovery rule. Before sending, the client saves the original task ID, request ID and optional checkpoint/unit selection in `practiq-reparse-intents-v1`, with at most 50 unresolved reparses and one per original task. Reloading or reconnecting never resends them. The recovery panel lets you inspect the original task, retry its exact request, or clear the hint after checking service history. A confirmed receipt removes only that request; a later new reparse receives a new ID. Invalid, ambiguous or unavailable browser storage blocks a new reparse and retains existing records. No token or source content is stored. Clearing a hint does not cancel an accepted task, and another reparse may incur another charge.
-
-Model transport failures, HTTP 408 and provider 5xx responses stop with `MODEL_RESULT_UNKNOWN` rather than automatically repeating a potentially paid call. Known usage, unknown-call receipts and completed checkpoints remain saved. The task detail shows the uncertainty and potential charge beside explicit resume/retry controls. Explicit recovery may make another call; quota/conflict rejections retain bounded backoff and known invalid outputs retain bounded correction.
-
-## Interface previews
-
-[Start import](docs/screenshots/import-management.png), [Import history](docs/screenshots/import-records.png), and [Settings](docs/screenshots/import-settings.png) show the October 29, 2026 interface at 1440 × 900. These Chromium captures use synthetic HTTP fixtures; they contain no real service data or credentials.
-
-## Optional AI answers and explanations
-
-**AI 生成答案与解析** is off by default. Enable its switch in Settings to save the default for future imports. Saving it is passive; explicit Start freezes `generateAnswers` and `deduplicateQuestions` with the upload intent. Subsequent settings changes do not alter existing tasks or uncertain retries. The extraction pass still copies only supplied answers. A separate checkpointed step supplements wholly missing answer/analysis fields, preserving existing or partially supplied answers, original question structure and source references. Incomplete source context remains unanswered. Generated content is flagged for manual review and remains in exported banks.
-
-Generation uses the existing per-task call budget and usage/unknown-result receipts. Exhausted budgets or known failures preserve extracted questions and partial export; uncertain model results stop for explicit recovery. Restoring the page, polling, viewing results and exporting never call a generation model. Retries retain the original option; reparse inherits it as a new explicit paid action.
-
-## Draft recovery and selected import work
-
-The [import selection and recovery guide](../server/docs/import-selection.md) describes page ranges, selective source-unit reparse, separate answer sheets and selected-question export. These controls do not change the offline bank format.
-
-Correction fields persist locally after each change. The recovery panel opens the same task/checkpoint/question, exports a JSON backup, or explicitly deletes a local draft. Draft content is private to this browser origin and may include source text and answers; clearing browser data loses it. Up to 20 mutable drafts and 50 immutable unconfirmed requests fit within the 4 MiB recovery budget. Use one window per question: mutable drafts are not collaborative editing. Each pending save has its own immutable request key so one window cannot overwrite another window's unconfirmed ID. Storage errors block submission. Refresh/reconnect never retries a save or starts a model; read saved revisions first to reconcile an uncertain request. A changed checkpoint disables applying an old draft but retains its backup. Expired/deleted tasks can still have recoverable local backups.
+See [accounts and deployment](../server/docs/accounts.md),
+[App cloud workflow](../docs/guides/cloud-service.md) and
+[document tasks](../docs/guides/import-tasks.md).

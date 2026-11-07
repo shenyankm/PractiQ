@@ -211,6 +211,10 @@ async def test_optional_web_assets_preserve_api_precedence_and_missing_assets(tm
         assert (await client.get("/ok")).json() == {"ok": True}
         page = await client.get("/")
         assert "Import workspace" in page.text
+        for route in ("/admin", "/login"):
+            assert (await client.get(route)).status_code == 200
+        for route in ("/register", "/reset-password", "/payments"):
+            assert (await client.get(route)).status_code == 404
         assert page.headers["content-security-policy"] == WEB_CONTENT_SECURITY_POLICY
         assert (await client.get("/ok")).headers["content-security-policy"] == "default-src 'none'; frame-ancestors 'none'"
         assert (await client.get("/../outside")).status_code == 404

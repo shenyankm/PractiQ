@@ -1,4 +1,4 @@
-# User portal and administration
+# App accounts and Web administration
 
 The multi-user service uses PostgreSQL schema 7 and same-origin session cookies.
 Optional [Alipay web payments](alipay.md) use separate account-owned receipt tables
@@ -44,21 +44,22 @@ The administration execution panel edits those shared numeric controls; answer
 generation and deduplication switches belong to each user's import preferences.
 Browser sessions expire after seven days or 24 idle hours. Logout, session revocation and account
 changes never start a model. No authentication token is stored in browser storage.
-Recovery hints and correction drafts are partitioned by user. Old unowned browser
+Recovery hints and correction drafts are partitioned by user and, in the App, service origin. Old unowned browser
 records are preserved and are not automatically adopted.
 Opening a saved bank keeps the existing workspace and selected source files;
 unsaved or uncertain corrections still require the existing leave/recovery action.
 Token and session revocation use separate targets. Administration edits the selected
-user's read-only identifier, and reset links remain bound to their selected target account.
+user's read-only identifier, and reset codes remain bound to their selected target account.
 
 Changing a password or login email requires the current password and revokes all
 sessions and grading tokens. Without email verification, an administrator must
 check a recovery request through an independent trusted channel before generating
-a reset link. The `/admin` user page displays that link once; it expires after
-30 minutes. Visiting a link does not consume it. Submitting a new password consumes
-it once and revokes all login credentials. Tokens use URL fragments, which are
-removed from browser history when the reset page opens. Do not paste links into
-logs, public issues, analytics, or shared screenshots.
+a reset code. The `/admin` user page displays the code once; it expires after
+30 minutes. Enter it in App → Cloud service → Reset password. Submitting the new
+password consumes it once and revokes all login credentials. The API retains its
+existing reset-link response shape for compatibility, but `/reset-password` is no
+longer a public Web page. Do not paste codes into logs, public issues, analytics
+or shared screenshots.
 
 Administrators can activate/deactivate users, change roles and quotas, inspect
 cross-user task results, explicitly pause/resume/retry tasks, inspect provider
@@ -73,8 +74,8 @@ Re-enabling an account does not resume its tasks automatically.
 New accounts receive **50 free recognition pages in total**, not 50 pages per
 day or 50 documents. Registration snapshots the default page allowance; changing
 the new-account default does not refill existing accounts. Administrators may
-change an account's total allowance (including pages already used). No checkout
-or automatic refill is provided. The allowance is stored in the existing JSON
+change an account's total allowance (including pages already used). Payment does not provide
+automatic refill. The allowance is stored in the existing JSON
 policy and call receipts; no new database table or schema migration is required.
 
 Page quota is reserved atomically before submission, across all of a user's
@@ -114,7 +115,11 @@ or authenticated HTTP actor and cannot disable HTTP ownership enforcement.
 ## macOS App connection
 
 Local practice, ZIP imports and direct model grading still require no account.
-For optional service grading, create a personal grading token in User portal →
+Customer login, registration, source upload, task/result review, banks, usage and
+orders now live in App → Cloud service; the Web root and `/admin` are administrator-only.
+The App performs no local recognition/parsing. See the [cloud workflow](../../docs/guides/cloud-service.md)
+for native origin configuration, Keychain/session handling and recovery boundaries.
+For optional service grading, create a personal grading token in App → Cloud service →
 Account and security. Copy the service origin and token into the App's existing
 AI service connection fields. A token is displayed once, lasts 90 days, and only
 allows the passive connection check and explicit subjective grading. It cannot

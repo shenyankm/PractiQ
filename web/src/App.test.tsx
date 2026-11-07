@@ -1,7 +1,7 @@
 import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it, vi } from "vitest";
-import App from "./App";
+import App from "../../shared/cloud/App";
 import { capabilities, newTaskId, preview, question, runId, summary, task, taskId } from "./test-fixtures";
 import type { DocumentTaskDetail, ImportSettingsSnapshot } from "./contracts.generated";
 

@@ -1,8 +1,8 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { expect, it, vi } from "vitest";
-import ResultReview from "./ResultReview";
-import { ApiError, Client } from "./api";
+import ResultReview from "../../shared/cloud/ResultReview";
+import { ApiError, Client } from "../../shared/cloud/api";
 import type { DocumentCorrections } from "./contracts.generated";
 import { preview, question, task } from "./test-fixtures";
 

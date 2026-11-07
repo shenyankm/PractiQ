@@ -1,12 +1,12 @@
 # Document import tasks
 
-The Web workspace outlines three steps: select and import, check results, then export a question-bank ZIP for offline practice. Task status filtering has a visible label. An empty filtered list offers **查看全部任务**, which resets the filter and pagination using read-only requests. An empty unfiltered list offers **选择第一份文档**, which focuses the file picker; selection remains passive until **开始导入**.
+The App cloud workspace outlines three steps: select and import, check results, then export a question-bank ZIP for offline practice. Task status filtering has a visible label. An empty filtered list offers **查看全部任务**, which resets the filter and pagination using read-only requests. An empty unfiltered list offers **选择第一份文档**, which focuses the file picker; selection remains passive until **开始导入**.
 
-The independent AI service's Web frontend handles source selection, upload, task history, progress and saved-result review. The desktop app imports downloaded question-bank ZIP files under **Settings → Import and restore**. It contains no AI document-task interface.
+The App provides native file selection/upload, account login, personal task history, progress and saved-result review. All recognition, splitting, parsing and model calls remain in the independent cloud service. Import downloaded banks locally under **Settings → Import and restore**. See [Cloud service](cloud-service.md) for connection and account setup.
 
 ## Start and review
 
-Open the self-hosted Web page; it reads service capabilities automatically without a token. Choose up to ten supported files and explicitly start import. File selection makes no upload or model request. The server validates source bytes and stores the original SHA-256; Tencent asynchronous recognition remains part of the same task.
+Connect the service origin in App → Cloud service and register or sign in; the workspace then reads capabilities automatically. Choose up to ten supported files and explicitly start import. File selection makes no upload or model request. The server validates source bytes and stores the original SHA-256; Tencent asynchronous recognition remains part of the same task.
 
 **自动去重** is off by default. When enabled before **开始导入**, it merges only questions or complete composite-question trees with identical business payloads and source evidence, retaining source associations and warnings. Missing or conflicting evidence is kept for review. When disabled, possible duplicate candidates appear in result warnings and all copies remain. The choice is fixed for each submitted file and retained by explicit retries and parse again; start a new import to change it. Selecting the checkbox makes no request.
 
@@ -14,7 +14,7 @@ Open the self-hosted Web page; it reads service capabilities automatically witho
 
 Inspect saved questions, supplied answers, images, source associations, quality warnings, errors and usage. `COMPLETED` can contain `PARTIAL`; a completed task is not a claim that extraction is accurate. Missing answers remain null and require review. Parsing does not solve unanswered questions.
 
-Model calls use your configured provider directly, with recorded usage and a per-task call budget. Unknown results remain available for inspection and explicit recovery. **下载题库 ZIP** exports completed questions from paused tasks when available, retaining missing-field and review warnings; export never resumes parsing. See [personal use](../../server/docs/personal-use.md).
+Service model calls use its server-configured provider, with recorded usage and a per-task call budget. Unknown results remain available for inspection and explicit recovery. **下载题库 ZIP** exports completed questions from paused tasks when available, retaining missing-field and review warnings; export never resumes parsing. See [personal use](../../server/docs/personal-use.md).
 
 Download a completed result as a bank ZIP, then open it with the desktop importer. Review flags do not block ZIP import or offline practice. Native import lets you create a bank or append to an existing one. Personal answers and historical score snapshots stay local.
 
@@ -34,7 +34,7 @@ The server owns parsing state and `allowedActions`. Read the latest detail befor
 
 Reading lists, details, preview artifacts and downloading ZIP files do not call a model. Resume, failed-unit retry and parse again can call the configured provider and incur charges. Accepting partial content preserves missing fields and warnings; it does not verify their correctness. Successful checkpointed units are reused.
 
-An uncertain mutation is not a successful transition. Persistent server receipts bind request IDs to their original payloads; explicit replay must reuse both. Do not create an automatic new request after a connection failure. Query saved state first. Web refresh/reopening performs reads, never a control or new parsing action.
+An uncertain mutation is not a successful transition. Persistent server receipts bind request IDs to their original payloads; explicit replay must reuse both. Do not create an automatic new request after a connection failure. Query saved state first. App refresh/reopening performs reads, never a control or new parsing action.
 
 ## Office and retention
 

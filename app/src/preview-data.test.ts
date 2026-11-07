@@ -385,3 +385,8 @@ it("compares the selected preview bank and appends imports to that bank",async()
  expect(result.bankId).toBe("preview-bank-3");expect(result.count).toBe(sample.questions.length);
  const repeated=await api({type:"import",ticket:"preview-ticket",bank_id:"preview-bank-3",title:"Empty"});expect(repeated.duplicate).toBe(true);
 });
+
+it("keeps cloud operations disabled in development preview", async () => {
+ expect(await call({type:"status"},"cloud_request")).toEqual({value:{origin:null,generation:0},generation:0});
+ await expect(call({type:"configure",origin:"https://cloud.example.test"},"cloud_request")).rejects.toEqual({code:"CLOUD_PREVIEW_UNAVAILABLE"});
+});

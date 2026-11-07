@@ -70,6 +70,6 @@ export function ImportSettingsPanel({ client, onSettingsChange, onPendingChange 
         ] as const).map(([key, label, min, max, step]) => <div className="setting-row" key={key}><label htmlFor={key}><strong>{label}</strong></label><Input id={key} type="number" min={min} max={max} step={step} disabled={!client.administrative} required aria-invalid={draft[key] !== "" && (!Number.isFinite(Number(draft[key])) || Number(draft[key]) < min || Number(draft[key]) > max || step === 1 && !Number.isInteger(Number(draft[key]))) || undefined} value={draft[key]} onChange={event => { setDraft(previous => ({ ...previous, [key]: event.target.value })); setSaved(false); }} /></div>)}
       </fieldset>
     </form>}
-    {!error && (changed || saving || saved) && createPortal(<div className="settings-toast"><span role="status">{!valid ? "数值无效，尚未保存" : changed || saving ? <><LoaderCircle className="loading-icon" />正在自动保存…</> : <><Check />设置已保存</>}</span>{saved && !changed && !saving && <Button variant="ghost" size="icon" aria-label="关闭保存提示" onClick={() => setSaved(false)}><X /></Button>}</div>, document.body)}
+    {!error && (changed || saving || saved) && createPortal(<div className="settings-toast"><span role="status">{!valid ? "数值无效，尚未保存" : changed || saving ? <><LoaderCircle className="loading-icon" />正在自动保存…</> : <><Check />设置已保存</>}</span>{saved && !changed && !saving && <Button variant="ghost" size="icon" aria-label="关闭保存提示" onClick={() => setSaved(false)}><X /></Button>}</div>, document.querySelector(".cloud-portal") || document.body)}
   </section>;
 }

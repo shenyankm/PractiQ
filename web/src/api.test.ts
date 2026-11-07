@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { Client, ApiError, MAX_BANK_ZIP_BYTES, downloadBlob, fileFormat, readBytes, sha256, sourceLimit, validateFiles } from "./api";
+import { Client, ApiError, MAX_BANK_ZIP_BYTES, downloadBlob, fileFormat, readBytes, sha256, sourceLimit, validateFiles } from "../../shared/cloud/api";
 import { capabilities, task, taskId, runId, newTaskId } from "./test-fixtures";
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -34,8 +34,8 @@ it("exports ordered chunk views without a contiguous reassembly copy", async () 
   // JSDOM's Blob still takes one immutable copy of these bytes.
   expect(copiedBytes).toBe(4);
   backing.fill(1);
-  expect([...new Uint8Array(await exported.blob.arrayBuffer())]).toEqual([80, 75, 0, 128]);
-  expect(exported.blob.type).toBe("application/zip");
+  expect([...new Uint8Array(await exported.blob!.arrayBuffer())]).toEqual([80, 75, 0, 128]);
+  expect(exported.blob!.type).toBe("application/zip");
   expect(response.body?.locked).toBe(false);
   expect(fetcher).toHaveBeenCalledTimes(1);
   expect(new Headers(fetcher.mock.calls[0][1]?.headers).get("Authorization")).toBeNull();
@@ -392,7 +392,7 @@ describe("checked private downloads", () => {
     const client = new Client();
     const exported = await client.exportBank(task);
     expect(fetcher.mock.calls[0][0]).toBe(`/api/document-tasks/${taskId}/export?checkpoint_id=checkpoint-one&scope=full`);
-    expect(exported).toMatchObject({ name: `practiq-bank-${taskId}.zip` }); expect(exported.blob.type).toBe("application/zip");
+    expect(exported).toMatchObject({ name: `practiq-bank-${taskId}.zip` }); expect(exported.blob!.type).toBe("application/zip");
     await expect(client.exportBank(task)).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
     await expect(client.exportBank(task)).rejects.toMatchObject({ code: "STALE_CHECKPOINT" });
     await expect(client.exportBank({ ...task, state: "WAITING_REVIEW" })).rejects.toMatchObject({ code: "BANK_EXPORT_NOT_READY" });

@@ -1,6 +1,6 @@
 # Multi-user service update
 
-The current service uses schema 7 with authenticated user and administrator areas.
+The current schema-7 service uses customer accounts in the macOS App and an administrator-only Web. The App is an upload/control/review client; all recognition and import processing stay on this service. See the [App cloud workflow](../../docs/guides/cloud-service.md).
 See [accounts and deployment](accounts.md) for current setup and recovery.
 Optional service-only Alipay web payments and the schema-6 upgrade procedure are
 documented in [Alipay payments](alipay.md). They are disabled by default and do not

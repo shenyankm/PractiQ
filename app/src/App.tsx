@@ -18,6 +18,7 @@ import {
   Star,
   History,
   Settings,
+  Cloud,
   Languages,
   Palette,
   RefreshCw,
@@ -78,6 +79,7 @@ const QuestionEditor = lazy(() => import("./QuestionEditor").then(module => ({de
 const Practice = lazy(() => import("./Practice").then(module => ({default:module.Practice})));
 const ConnectionSettingsPanel = lazy(() => import("./ConnectionSettings").then(module => ({default:module.ConnectionSettingsPanel})));
 const ImportBankDialog = lazy(() => import("./ImportBankDialog").then(module => ({default:module.ImportBankDialog})));
+const CloudPage = lazy(() => import("./CloudPage").then(module => ({default:module.CloudPage})));
 const SettingsPage = lazy(() => import("./SettingsPage").then(module => ({default:module.SettingsPage})));
 const BankList = lazy(() => import("./BankList").then(module => ({default:module.BankList})));
 const LearningPage = lazy(() => import("./LearningPage").then(module => ({default:module.LearningPage})));
@@ -89,6 +91,7 @@ type Page =
   | "wrong"
   | "favorite"
   | "history"
+  | "cloud"
   | "settings"
   | "service-settings"
   | "practice";
@@ -270,6 +273,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
     };
   }, [openConfirm]);
   function navigate(next: Page, bankId: string | null = null, showRestore = false) {
+    if (page === "cloud" && !document.dispatchEvent(new Event("practiq-cloud-before-leave", { cancelable: true }))) return;
     setOperationError(null);
     run(async () => {
       await flushRef.current();
@@ -309,7 +313,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
               ? t("练习记录")
               : page === "practice"
                 ? t(session && (session.finishedAt != null || (session.kind && session.kind !== "practice" && session.submittedAt != null)) ? "练习回顾" : "专注练习")
-                : page === "service-settings" ? t("AI 服务") : t("设置");
+                : page === "cloud" ? t("云端服务") : page === "service-settings" ? t("AI 服务") : t("设置");
   const loadingView = <p role="status" className="p-4 text-sm text-muted-foreground">{t("加载中…")}</p>;
   const listPage = ["questions", "wrong", "favorite"].includes(page);
   const languageError = language.error != null && <div role="alert" className="text-xs text-destructive"><p>{t(language.error.key)}</p><ErrorNotice error={language.error.cause} /><Button size="sm" variant="outline" disabled={language.saving || busy} onClick={() => {
@@ -334,6 +338,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
               { id: "wrong", label: t("错题本"), icon: BookmarkX },
               { id: "favorite", label: t("收藏夹"), icon: Star },
               { id: "history", label: t("练习记录"), icon: History },
+              { id: "cloud", label: t("云端服务"), icon: Cloud },
             ] as const
           ).map(({ id, label, icon: Icon }) => (
             <SidebarButton
@@ -553,6 +558,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
               />
             </div>
           )}
+          {page === "cloud" && <CloudPage />}
           {page === "settings" && (
             <SettingsPage busy={busy} run={run} flushRef={flushRef} revision={settingsRevision} version={info?.version}
               restoreOpen={restoreOpen} onRestoreOpenChange={setRestoreOpen}

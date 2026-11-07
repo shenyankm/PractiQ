@@ -1,1 +1,1 @@
-export { Badge } from "../../../../shared/ui";
+export * from "../../../../shared/cloud/components/ui/badge";

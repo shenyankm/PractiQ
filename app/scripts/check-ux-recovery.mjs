@@ -4,7 +4,7 @@ import { withEvidence } from '../../shared/browser-evidence.mjs';
 const test = withEvidence(runner);
 
 async function inject(page, source) {
-  await page.route('**/src/transport.ts', async route => {
+  await page.route('**/src/transport.ts*', async route => {
     const response = await route.fetch();
     const body = await response.text();
     const target = 'const scenario = previewMode();';

@@ -1,7 +1,11 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "module": "ESNext",
     "skipLibCheck": true,
     "moduleResolution": "Bundler",
@@ -15,14 +19,46 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "paths": {
-      "@/*": ["./src/*"],
-      "react": ["./node_modules/@types/react"],
-      "react/jsx-runtime": ["./node_modules/@types/react/jsx-runtime"],
-      "radix-ui": ["./node_modules/radix-ui"],
-      "class-variance-authority": ["./node_modules/class-variance-authority"],
-      "lucide-react": ["./node_modules/lucide-react"],
-      "cn": ["./node_modules/cn"]
+      "@/*": [
+        "./src/*"
+      ],
+      "react": [
+        "./node_modules/@types/react"
+      ],
+      "react/jsx-runtime": [
+        "./node_modules/@types/react/jsx-runtime"
+      ],
+      "radix-ui": [
+        "./node_modules/radix-ui"
+      ],
+      "class-variance-authority": [
+        "./node_modules/class-variance-authority"
+      ],
+      "lucide-react": [
+        "./node_modules/lucide-react"
+      ],
+      "cn": [
+        "./node_modules/cn"
+      ],
+      "react-dom": [
+        "./node_modules/@types/react-dom"
+      ],
+      "react-markdown": [
+        "./node_modules/react-markdown"
+      ],
+      "remark-gfm": [
+        "./node_modules/remark-gfm"
+      ],
+      "remark-math": [
+        "./node_modules/remark-math"
+      ],
+      "rehype-katex": [
+        "./node_modules/rehype-katex"
+      ]
     }
   },
-  "include": ["src", "vite.config.ts"]
+  "include": [
+    "src",
+    "vite.config.ts"
+  ]
 }

@@ -1,1 +1,1 @@
-export { Input } from "../../../../shared/ui";
+export * from "../../../../shared/cloud/components/ui/input";

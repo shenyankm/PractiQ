@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ArtifactReference, DocumentAnswerSource, DocumentCorrectionSave, DocumentCorrections, DocumentTaskDetail, DocumentTaskReview, ParsedQuestion, ReviewUnit } from "./contracts.generated";
+import { nativeBridge } from "./transport";
 import { ApiError, Client, downloadBlob } from "./api";
 import { Button } from "./components/ui/button";
 import { Blocks, Markdown, ReferenceAnswer } from "./ResultReview";
@@ -101,6 +102,8 @@ export default function CorrectionWorkbench({ restoreRequestId, association, tas
         setError("保存或核对尚未完成，请先重新读取已保存修订，保留原请求后再切换任务。");
         return false;
       }
+      // Native confirm is asynchronous; require the explicit editor Save/Discard action.
+      if (editing && nativeBridge()) { setError("请先保存修订或点击“放弃本次修改”，再切换。"); return false; }
       if (editing && !window.confirm("当前校对草稿尚未保存。确认放弃草稿并继续吗？")) return false;
       return !editing || discard();
     });
@@ -159,13 +162,13 @@ export default function CorrectionWorkbench({ restoreRequestId, association, tas
     {notice && <p role="status">{notice}</p>}{error && <p role="alert">{error}</p>}{pendingRequestId && <p role="status">保存请求 ID：{pendingRequestId} · {saving ? "正在等待保存回执。" : "结果尚未确认，先重新读取修订或使用原请求重试。"}</p>}
     <div className="correction-columns">
       <div>{units.length > 1 && <nav className="source-navigation" aria-label="关联来源">{units.map((unit,index) => <Button key={`${unit.stage}:${unit.index}`} variant={index === sourceIndex ? "default" : "outline"} onClick={() => setSourceIndex(index)}>来源 {index + 1}</Button>)}</nav>}<EvidencePane key={`${units[sourceIndex]?.stage}:${units[sourceIndex]?.index}`} unit={units[sourceIndex]} original={preview?.document} question={original} client={client} threadId={task.threadId} />
-        {preview?.document && <Button variant="outline" onClick={async () => { try { const blob = await client.source(preview.document!, task.threadId); if (client.active) downloadBlob(blob, preview.document!.fileName ?? "source"); } catch { setError("原文件读取或校验失败，请重试。"); } }}>下载原文件核对</Button>}
+        {preview?.document && <Button variant="outline" onClick={async () => { try { const blob = await client.source(preview.document!, task.threadId); if (client.active) await downloadBlob(blob, preview.document!.fileName ?? "source"); } catch { setError("原文件读取或校验失败，请重试。"); } }}>下载原文件核对</Button>}
       </div>
       <div className="correction-question">
         {editing ? <QuestionCorrectionEditor question={question} saving={saving} checking={reloading} unconfirmed={!!pendingRequestId} saveBlocked={rebaseRequired || !!storageError} restored={restored?.editor ?? associationDraft.current} onDraftChange={persistEditor} onSave={save} onCancel={discard} /> : <><h4>当前题目</h4><Markdown text={question.stem} /><Blocks blocks={question.contentBlocks} /><p>题型标签：{question.questionTypeId ?? "未提供"}</p><div>{question.options.map((option,index) => <p key={index}>{option.label} · {option.content}</p>)}</div><h4>当前参考答案</h4><ReferenceAnswer question={question} /><h4>解析</h4><Markdown text={question.analysis} /><h4>评分依据</h4><Markdown text={question.scoringRubric} /><Button disabled={!canEdit || reloading || !!pendingRequestId} onClick={() => { setDraftRevision(revision ?? null); setEditing(true); }}>人工校对</Button>{!canEdit && <p>任务完成并读取一致的修订记录后，才能保存人工修改。</p>}</>}
         {rebaseRequired && <div role="status"><p>其他修订已更新。请先核对修改历史；继续保存会将当前草稿应用到已读取的版本。</p><Button variant="outline" onClick={() => setDraftRevision(revision ?? null)}>保留草稿，在已读取版本上继续</Button></div>}
         <details className="correction-history"><summary>原始解析与修改历史</summary><h4>原始解析（只读）</h4><Markdown text={original.stem} /><Blocks blocks={original.contentBlocks} /><p>题型标签：{original.questionTypeId ?? "未提供"}</p><ReferenceAnswer question={original} /><Markdown text={original.analysis} /><Markdown text={original.scoringRubric} />{corrections?.edits?.filter(edit => edit.questionIndex === questionIndex).map((edit,index) => <section key={edit.requestId}><h4>第 {index + 1} 次修改 · <time dateTime={edit.savedAt}>{new Date(edit.savedAt).toLocaleString()}</time></h4><Markdown text={edit.question.stem} /><Blocks blocks={edit.question.contentBlocks} /><p>题型标签：{edit.question.questionTypeId ?? "未提供"}</p>{edit.question.options.map((option,i) => <p key={i}>{option.label} · {option.content}</p>)}<ReferenceAnswer question={edit.question} /><Markdown text={edit.question.analysis} /><Markdown text={edit.question.scoringRubric} />{edit.answerEvidence && <details><summary>已确认的答案来源 · {edit.answerEvidence.fileName ?? "答案卷"}</summary><Markdown text={edit.answerEvidence.sourceText} /><p>SHA-256：{edit.answerEvidence.sourceSha256}</p><p>来源任务：{edit.answerEvidence.selection.taskId} · 第 {edit.answerEvidence.selection.questionIndex + 1} 条</p></details>}</section>)}</details>
-        <div className="task-actions"><Button variant="outline" disabled={saving || reloading} onClick={() => void reload()}>{reloading ? "正在读取…" : "重新读取已保存修订"}</Button><Button disabled={!revision || editing || saving} onClick={async () => { try { const exported = await client.exportBank(task, revision); if (client.active) downloadBlob(exported.blob, exported.name); } catch (e) { setError(e instanceof Error ? e.message : "修订版导出失败，请重试。"); } }}>下载修订版 ZIP</Button></div>
+        <div className="task-actions"><Button variant="outline" disabled={saving || reloading} onClick={() => void reload()}>{reloading ? "正在读取…" : "重新读取已保存修订"}</Button><Button disabled={!revision || editing || saving} onClick={async () => { try { const exported = await client.exportBank(task, revision); if (client.active) await downloadBlob(exported.blob, exported.name); } catch (e) { setError(e instanceof Error ? e.message : "修订版导出失败，请重试。"); } }}>下载修订版 ZIP</Button></div>
         <p>修订版包含本次解析结果全部已保存修改，保留原有来源与复核标记。任务上方的下载按钮导出原始解析结果。</p>
       </div>
     </div>

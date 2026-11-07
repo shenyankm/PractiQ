@@ -3,6 +3,9 @@ import type { ArtifactReference, DocumentCorrections, DocumentCorrectionSave, Do
 import { validPages, validReparseSelection } from "./importSelection";
 import { IMPORT_SOURCE_TYPES } from "./contracts.generated";
 
+import { nativeBridge, serviceFetch, type SourceFile } from "./transport";
+export type { SourceFile } from "./transport";
+
 export type SourceType = Exclude<DocumentSourceType, "csv">;
 export type Capabilities = ImportCapabilities;
 export type UploadDocument = DocumentReference;
@@ -37,12 +40,12 @@ export class ApiError extends Error {
 }
 export const isOffice = (source: SourceType) => ["doc", "docx", "ppt", "pptx", "xls", "xlsx"].includes(source);
 export const sourceLimit = (capabilities: Capabilities, source?: SourceType) => source && isOffice(source) ? Math.min(capabilities.sourceMaxBytes, capabilities.officeSourceMaxBytes ?? capabilities.sourceMaxBytes) : capabilities.sourceMaxBytes;
-export function fileFormat(file: File) {
+export function fileFormat(file: SourceFile) {
   const format = formats[file.name.trim().split(".").at(-1)?.toLowerCase() || ""];
   if (!format || file.name.length > 255) throw new ApiError("请选择支持的文档格式，文件名最多 255 个字符。", "UNSUPPORTED_FILE");
   return format;
 }
-export function validateFiles(files: File[], capabilities: Capabilities) {
+export function validateFiles(files: SourceFile[], capabilities: Capabilities) {
   if (!files.length || files.length > MAX_FILES) throw new ApiError("一次请选择 1–10 个文件。", "FILE_COUNT_LIMIT");
   for (const file of files) {
     const format = fileFormat(file);
@@ -111,9 +114,10 @@ export async function withDeadline<T>(milliseconds: number, signals: AbortSignal
 export class Client {
   constructor(readonly administrative = false) {}
   readonly storageScope = accountStorageScope();
+  private readonly native = nativeBridge();
   private readonly session = new AbortController();
   private readonly intents = new Map<string, string>();
-  get active() { return !this.session.signal.aborted && this.storageScope === accountStorageScope(); }
+  get active() { return !this.session.signal.aborted && this.storageScope === accountStorageScope() && this.native === nativeBridge(); }
   disconnect() { this.session.abort(); this.intents.clear(); }
   private async request<T>(path: string, init: RequestInit, read: (response: Response, signal: AbortSignal) => Promise<T>, signal?: AbortSignal) {
     if (!this.active || signal?.aborted) throw new DOMException("请求已取消", "AbortError");
@@ -132,7 +136,7 @@ export class Client {
     return withDeadline(timeout, signals, async requestSignal => {
       let response: Response;
       try {
-        response = await fetch(path, { ...init, headers, cache: "no-store", credentials: "same-origin", redirect: "error", signal: requestSignal });
+        response = await (this.native ? this.native.fetch.bind(this.native) : serviceFetch)(path, { ...init, headers, cache: "no-store", credentials: "same-origin", redirect: "error", signal: requestSignal });
       } catch {
         if (!this.active || signal?.aborted) throw new DOMException("请求已取消", "AbortError");
         throw new ApiError(upload ? uploadRetry : mutation ? "连接中断，操作结果尚未确认。请先查询原任务，再决定是否重试。" : "无法连接服务。请检查服务状态，再手动重试读取。", "NETWORK_ERROR");
@@ -301,7 +305,7 @@ export class Client {
     return receipt;
   }
   forgetImport(requestId: string) { this.saveImports(this.pendingImports().filter(record => record.requestId !== requestId)); }
-  async start(file: File, capabilities: Capabilities, requestId: string, onStage: (stage: UploadStage, requestId?: string) => void, deduplicateQuestions = false, generateAnswers = false, pages?: number[] | null, documentRole: "questions" | "answers" = "questions") {
+  async start(file: SourceFile, capabilities: Capabilities, requestId: string, onStage: (stage: UploadStage, requestId?: string) => void, deduplicateQuestions = false, generateAnswers = false, pages?: number[] | null, documentRole: "questions" | "answers" = "questions") {
     validateFiles([file], capabilities);
     const format = fileFormat(file);
     if (!validPages(pages) || pages && ["text", "markdown"].includes(format.sourceType)) throw new ApiError("TXT/Markdown 不使用页码；其他文件请选择有效页面。", "SOURCE_SELECTION_INVALID");
@@ -309,12 +313,21 @@ export class Client {
     if (capabilities.parserConfigured === false) throw new ApiError("服务端尚未配置腾讯文档解析。", "TENCENT_NOT_CONFIGURED");
     if (!capabilities.modelConfigured) throw new ApiError("服务端尚未配置模型。", "MODEL_NOT_CONFIGURED");
     onStage("hashing");
-    const bytes = await file.arrayBuffer();
+    let document: DocumentReference;
+    let metadata: Omit<DocumentReference, "objectKey">;
+    if (!this.active) throw new DOMException("Disconnected", "AbortError");
+    if (file.nativeTicket && this.native) {
+      onStage("uploading");
+      document = await this.native.upload(file.nativeTicket);
+      metadata = { ...format, fileName: file.name.trim(), sizeBytes: file.size, sha256: document.sha256 };
+      if (document.fileName !== metadata.fileName || document.sizeBytes !== metadata.sizeBytes || document.sourceType !== format.sourceType || document.mediaType !== format.mediaType) throw new ApiError("上传后的文件引用不匹配。", "INVALID_REFERENCE");
+    } else {
+    const bytes = await file.arrayBuffer!();
     if (bytes.byteLength !== file.size) throw new ApiError("文件内容与声明大小不一致。", "DOCUMENT_SIZE_MISMATCH");
-    const metadata = { ...format, fileName: file.name.trim(), sizeBytes: file.size, sha256: await sha256(bytes) };
+    metadata = { ...format, fileName: file.name.trim(), sizeBytes: file.size, sha256: await sha256(bytes) };
     onStage("uploading");
     const prepared = await this.post<DocumentUploadResponse>("/api/uploads", metadata);
-    const document = prepared.document;
+    document = prepared.document;
     const suffix = format.sourceType === "text" ? "txt" : format.sourceType === "markdown" ? "md" : format.sourceType;
     if (document.sha256 !== metadata.sha256 || document.sizeBytes !== metadata.sizeBytes || document.mediaType !== metadata.mediaType || document.sourceType !== metadata.sourceType || document.fileName !== metadata.fileName || document.objectKey !== `practiq-agent/sources/${metadata.sha256}/source.${suffix}`) throw new ApiError("服务返回的文件引用不匹配。", "INVALID_REFERENCE");
     if (prepared.upload) {
@@ -323,6 +336,7 @@ export class Client {
       if (prepared.upload.method !== "PUT" || url.origin !== location.origin || url.pathname !== "/api/uploads/content" || url.hash || Array.from(url.searchParams).length !== keys.length || !keys.every(key => url.searchParams.get(key) === String(metadata[key]))) throw new ApiError("服务返回的上传地址不匹配。", "INVALID_URL");
       const uploaded = await this.json<UploadDocument>(url.pathname + url.search, { method: "PUT", headers: { "Content-Type": metadata.mediaType }, body: bytes });
       if (Object.keys(document).some(key => uploaded[key as keyof UploadDocument] !== document[key as keyof UploadDocument])) throw new ApiError("上传后的文件引用不匹配。", "INVALID_REFERENCE");
+    }
     }
     const pending = this.pendingImports();
     const original = pending.find(record => record.document.sha256 === document.sha256 && record.document.sourceType === document.sourceType);
@@ -420,6 +434,12 @@ export class Client {
       if (!questionIndexes.length || questionIndexes.length > 2000 || questionIndexes.some(v => !Number.isSafeInteger(v) || v < 0 || !task.result || v >= task.result.questions.length)) throw new ApiError("请选择当前结果中的题目。", "SOURCE_SELECTION_INVALID");
       for (const index of questionIndexes) query.append("question_index", String(index));
     }
+    if (!this.active) throw new DOMException("Disconnected", "AbortError");
+    if (this.native) {
+      const saved = await this.native.download(`/api/document-tasks/${encodeURIComponent(task.threadId)}/export?${query}`, `practiq-bank-${task.threadId}.zip`);
+      if (!saved) throw new ApiError("已取消保存题库。", "DOWNLOAD_CANCELLED");
+      return { blob: null, name: `practiq-bank-${task.threadId}.zip` };
+    }
     return this.request(`/api/document-tasks/${encodeURIComponent(task.threadId)}/export?${query}`, {}, async (response, signal) => {
       if (response.headers.get("content-type")?.split(";")[0] !== "application/zip") throw new ApiError("服务未返回题库 ZIP。", "INVALID_RESPONSE");
       return { blob: new Blob(await readChunks(response, MAX_BANK_ZIP_BYTES, signal), { type: "application/zip" }), name: `practiq-bank-${revisionId ? "revised-" : ""}${task.threadId.replace(/[^a-zA-Z0-9-]/g, "")}.zip` };
@@ -427,7 +447,10 @@ export class Client {
   }
 }
 
-export function downloadBlob(blob: Blob, name: string) {
+export async function downloadBlob(blob: Blob | null, name: string) {
+  if (!blob) return;
+  const native = nativeBridge();
+  if (native) { const saved = await native.save(new Uint8Array(await blob.arrayBuffer()), name); if (!saved) throw new ApiError("已取消保存文件。", "DOWNLOAD_CANCELLED"); return; }
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url; link.download = name; link.click();

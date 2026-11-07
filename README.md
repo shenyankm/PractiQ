@@ -40,16 +40,16 @@ Export a bank from its card menu to share its questions without your answers or 
 
 ## Import documents with AI
 
-Document import runs in the Web page of the self-hosted AI service:
+Use **Cloud service** in the macOS App to upload documents to the independently hosted AI service:
 
-1. [Start the service](#self-host-the-import-service), open its Web page and start importing without a login.
+1. [Start the service](#self-host-the-import-service), connect its origin in the App, then register or sign in. Offline practice still needs no login.
 2. Choose up to 10 files and select **Start import**. Choosing files does not upload or parse them.
 3. Review the questions, images and anything flagged for review, then download a question-bank ZIP.
 4. In the desktop app, open **Settings → Import and restore → Import bank ZIP**.
 
 The service reads **PDF, TXT, Markdown, PNG/JPEG, DOC, DOCX, PPT, PPTX, XLS and XLSX** with Tencent Cloud's [asynchronous multimodal document parsing](https://cloud.tencent.com/document/api/866/139312). New CSV imports are not supported. Tencent's [billing guide](https://cloud.tencent.com/document/product/866/17619) lists a one-time **1,000-page free allowance**, valid for one year; check eligibility and remaining quota in your Tencent account. Parsing and model calls are billed separately.
 
-By default, import extracts supplied answers and explanations. To fill missing answers or explanations, enable **AI 生成答案与解析** in the Web settings, wait for it to save, then explicitly select **Start import**. Existing answers are preserved; generated content is marked for review and shares the task's model-call budget.
+By default, import extracts supplied answers and explanations. To fill missing answers or explanations, enable **AI 生成答案与解析** in the App cloud workspace settings, wait for it to save, then explicitly select **Start import**. Existing answers are preserved; generated content is marked for review and shares the task's model-call budget.
 
 Reading and downloading results never calls a model. Resuming, retrying or parsing again may cost money at your model provider. Download what you want to keep within **180 days**; a task expiring never affects banks you already imported. See the [import task guide](docs/guides/import-tasks.md).
 
@@ -79,7 +79,7 @@ Desktop data lives in `v4/` with SQLite schema 11. Full backups use container ve
 
 ## Self-host the import service
 
-Document import needs the self-hosted AI service. It requires Python 3.14+, uv, Node.js 22.12+, PostgreSQL, RabbitMQ, Tencent parsing credentials and a model endpoint supporting the Responses API with text, images and structured output. Keep the service on loopback. The [installation guide](docs/guides/installation.md), [personal-use guide](server/docs/personal-use.md) and [Tencent setup guide](server/docs/tencent-document-parser.md) cover setup and upgrades; configure your own providers, with charges paid directly and no PractiQ billing.
+Document import needs the self-hosted AI service. It requires Python 3.14+, uv, Node.js 22.12+, PostgreSQL, RabbitMQ, Tencent parsing credentials and a model endpoint supporting the Responses API with text, images and structured output. Keep the service on loopback. The [installation guide](docs/guides/installation.md), [account deployment guide](server/docs/accounts.md) and [Tencent setup guide](server/docs/tencent-document-parser.md) cover setup and upgrades; configure your own providers, with provider charges paid directly. Optional Alipay order receipts are disabled by default and do not refill page allowances.
 
 ## Documentation and development
 
@@ -97,10 +97,13 @@ Report reproducible bugs or propose improvements through [GitHub Issues](https:/
 
 Project source uses the [MIT license](LICENSE). Bundled dependencies retain their [upstream notices](app/licenses/README.md).
 
-## User and administrator Web
+## App accounts and administrator Web
 
-The service now targets schema 6 with a personal portal and `/admin`. Start with a
-new database, storage root and RabbitMQ vhost, then explicitly bootstrap an
-administrator offline. The first release does not verify email or send mail.
-See [account setup and recovery](server/docs/accounts.md). Offline macOS practice
-and direct model grading remain independent of service accounts.
+The macOS App includes customer login/registration, account security, cloud uploads,
+personal tasks/results, usage, banks and orders. All document recognition and model
+work remain on the independent service. New users receive 50 free recognition pages
+in total. The Web frontend contains only administration at `/admin`; public user
+pages have been removed. Existing service schema 7 and practice schema 11 are unchanged.
+See [App cloud workflow](docs/guides/cloud-service.md) and
+[account setup and recovery](server/docs/accounts.md). Email is currently an
+unverified login identifier; recovery requires an administrator-issued code.

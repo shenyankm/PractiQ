@@ -4,7 +4,7 @@ import { chooseOption } from '../../shared/select-test.mjs';
 const test=withEvidence(runner);
 
 async function observe(page,seedReview=false) {
-  await page.route('**/src/transport.ts',async route=>{
+  await page.route('**/src/transport.ts*',async route=>{
     const response=await route.fetch(),body=await response.text(),target='const scenario = previewMode();';
     expect(body).toContain(target);
     await route.fulfill({response,body:body.replace(target,`

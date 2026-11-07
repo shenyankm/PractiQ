@@ -1,8 +1,8 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { expect, it, vi } from "vitest";
-import ResultReview, { Markdown } from "./ResultReview";
-import { Client } from "./api";
+import ResultReview, { Markdown } from "../../shared/cloud/ResultReview";
+import { Client } from "../../shared/cloud/api";
 import { preview, question, task } from "./test-fixtures";
 
 const { parse } = vi.hoisted(() => ({ parse: vi.fn() }));
