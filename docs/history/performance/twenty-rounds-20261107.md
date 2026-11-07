@@ -94,6 +94,8 @@ See [reproduction instructions](../../evidence/2026-11-07-twenty-rounds/README.m
 - Locked Python runtime/development and build dependency audits: no known vulnerabilities reported.
 - All 20 candidate patches replayed; removing rejected candidates exactly reproduced the final seven modules.
 
+- PR review follow-up: CodeQL flagged a 1,024-bit ephemeral RSA test key. It now uses 2,048 bits; production credentials and performance modules are unchanged. All 19 payment tests and focused Ruff passed ([log](../../evidence/2026-11-07-twenty-rounds/payment-review-fix.txt)); the follow-up commit is revalidated by hosted CI.
+
 ## Scope and rollout limits
 
 The changes do not bypass checksum, XML entity/association, numeric-coordinate, duplicate-field, source-answer, revision, ownership or unknown-result boundaries. Correction output and edit snapshots stay independent; all applicable earlier revisions are validated before the selected revision is returned.

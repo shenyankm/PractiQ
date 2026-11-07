@@ -72,6 +72,15 @@
     "verify.txt": "3547dcca49eaa6d0c97859cd77a273afcfa50a153a3c0e620dcb72ac4e0faf83",
     "web-browser.txt": "dc6a4bd1ec1690b9bcb118c6a831fd40501a419388093d8692a62b131fdb7b32",
     "web-build.txt": "5fe501f91c2a2d2d0d3aac8140b5024c8f5a83d244fb5c2da98cad54f6107b13",
-    "web-check.txt": "ea4462da691c21bf966531138ec0743675917a82830a84351756cc88feb708b6"
+    "web-check.txt": "ea4462da691c21bf966531138ec0743675917a82830a84351756cc88feb708b6",
+    "payment-review-fix.txt": "17668654e98ffbe09b191fcb1cf133ede028e93c116c3f649fdeb7238ae787a3"
+  },
+  "reviewFollowup": {
+    "finding": "CodeQL py/weak-crypto-key at test_payments.py:22",
+    "fix": "Generate ephemeral payment test RSA keys with 2048 bits instead of 1024; no production key/configuration changes.",
+    "paymentTestsPassed": 19,
+    "seconds": 13.48,
+    "ruff": "passed",
+    "remoteCI": "pending on follow-up commit"
   }
 }

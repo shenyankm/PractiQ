@@ -19,7 +19,7 @@ PASSWORD = 'payment-integration-test-password'
 
 @pytest.fixture
 def config(monkeypatch, tmp_path):
-    key = RSA.generate(1024)
+    key = RSA.generate(2048)
     app = {'appId': '2026000000000001', 'pid': '2088000000000001',
            'appPrivatePkcsKey': base64.b64encode(key.export_key(format='DER', pkcs=1)).decode(),
            'alipayPublicKey': base64.b64encode(key.public_key().export_key(format='DER')).decode()}
