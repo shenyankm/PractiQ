@@ -21,15 +21,18 @@ def corrected_result(original: DocumentParseResult, corrections: DocumentCorrect
                      revision: UUID | None = None) -> DocumentParseResult:
     result = original.model_copy(deep=True)
     found = revision is None
+    pending: dict[int, ParsedQuestion] = {}
     for edit in corrections.edits:
         if edit.questionIndex >= len(result.questions):
             raise DocumentProcessingError(409, 'Revision no longer matches its result', 'CORRECTION_CONFLICT')
-        result.questions[edit.questionIndex] = edit.question.model_copy(deep=True)
+        pending[edit.questionIndex] = edit.question
         if edit.requestId == revision:
             found = True
             break
     if not found:
         raise DocumentProcessingError(404, 'Revision not found for this checkpoint', 'CORRECTION_NOT_FOUND')
+    for index, question in pending.items():
+        result.questions[index] = question.model_copy(deep=True)
     return result
 
 

@@ -1,0 +1,11 @@
+--- a/server/src/practiq_ai/graphs/ocr_validation.py
++++ b/server/src/practiq_ai/graphs/ocr_validation.py
+@@ -41,7 +41,7 @@
+     # Answer keys and numbered passage/item lists are not new question starts.
+     heading = ANSWER_HEADING.search(text)
+     source = text[:heading.start()] if heading else text
+-    material = '\n'.join(evidence_text(question.model_dump(include={'options', 'passage', 'items'})) for question in questions)
++    material = '\n'.join((evidence_text(question.model_dump(include={'options', 'passage', 'items'})) if question.options or question.passage or question.items else '') for question in questions)
+     material += '\n' + '\n'.join(evidence_text(block.model_dump()) for question in questions for block in question.contentBlocks
+                                  if block.role in {'material', 'source_text', 'starter_text'})
+     starts = [] if native_table else list(NUMBER.finditer(source))

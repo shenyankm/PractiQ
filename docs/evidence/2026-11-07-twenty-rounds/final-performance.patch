@@ -1,0 +1,185 @@
+diff --git a/server/src/practiq_ai/answer_matching.py b/server/src/practiq_ai/answer_matching.py
+index de3f4159..8b20af3e 100644
+--- a/server/src/practiq_ai/answer_matching.py
++++ b/server/src/practiq_ai/answer_matching.py
+@@ -30,19 +30,17 @@ def printed_number(question: ParsedQuestion) -> str | None:
+ def match_answers(target: DocumentParseResult, answers: DocumentParseResult) -> list[DocumentAnswerMatch]:
+     by_number: dict[str, list[int]] = {}
+     counts: dict[str, int] = {}
+-    for question in target.questions:
+-        if question.answerMode in COMPOSITE_MODES:
+-            continue
+-        if (number := printed_number(question)) is not None:
++    numbers = [None if question.answerMode in COMPOSITE_MODES else printed_number(question) for question in target.questions]
++    for number in numbers:
++        if number is not None:
+             counts[number] = counts.get(number, 0) + 1
+     for index, question in enumerate(answers.questions):
+         if question.answerPayload is not None and (number := printed_number(question)) is not None:
+             by_number.setdefault(number, []).append(index)
+     matches = []
+-    for index, question in enumerate(target.questions):
++    for index, (question, number) in enumerate(zip(target.questions, numbers, strict=True)):
+         if question.answerMode in COMPOSITE_MODES:
+             continue
+-        number = printed_number(question)
+         candidates = by_number.get(number, []) if number is not None else []
+         status = ('has_answer' if question.answerPayload is not None else 'unmatched' if not candidates else
+                   'unique' if len(candidates) == 1 and number is not None and counts.get(number, 0) == 1 else 'ambiguous')
+diff --git a/server/src/practiq_ai/corrections.py b/server/src/practiq_ai/corrections.py
+index 1044753a..4308665c 100644
+--- a/server/src/practiq_ai/corrections.py
++++ b/server/src/practiq_ai/corrections.py
+@@ -21,15 +21,18 @@ def corrected_result(original: DocumentParseResult, corrections: DocumentCorrect
+                      revision: UUID | None = None) -> DocumentParseResult:
+     result = original.model_copy(deep=True)
+     found = revision is None
++    pending: dict[int, ParsedQuestion] = {}
+     for edit in corrections.edits:
+         if edit.questionIndex >= len(result.questions):
+             raise DocumentProcessingError(409, 'Revision no longer matches its result', 'CORRECTION_CONFLICT')
+-        result.questions[edit.questionIndex] = edit.question.model_copy(deep=True)
++        pending[edit.questionIndex] = edit.question
+         if edit.requestId == revision:
+             found = True
+             break
+     if not found:
+         raise DocumentProcessingError(404, 'Revision not found for this checkpoint', 'CORRECTION_NOT_FOUND')
++    for index, question in pending.items():
++        result.questions[index] = question.model_copy(deep=True)
+     return result
+ 
+ 
+diff --git a/server/src/practiq_ai/graphs/ocr_validation.py b/server/src/practiq_ai/graphs/ocr_validation.py
+index 601fcd29..690b41e6 100644
+--- a/server/src/practiq_ai/graphs/ocr_validation.py
++++ b/server/src/practiq_ai/graphs/ocr_validation.py
+@@ -18,10 +18,12 @@ def _formula_source(text: str, questions: list[ParsedQuestion]) -> tuple[str, st
+     heading = ANSWER_HEADING.search(text)
+     source = text[:heading.start()] if heading else text
+     numbers = {question.id.rsplit(':', 1)[-1] for question in questions if question.id}
+-    starts = [match.start() for match in NUMBER.finditer(source) if match[1] in numbers]
+-    for question in questions:
+-        if question.stem and (position := source.find(question.stem)) >= 0 and source.find(question.stem, position + 1) < 0:
+-            starts.append(position)
++    first = next((match.start() for match in NUMBER.finditer(source) if match[1] in numbers), None)
++    starts = [] if first is None else [first]
++    if 0 not in starts:
++        for question in questions:
++            if question.stem and (position := source.find(question.stem)) >= 0 and source.find(question.stem, position + 1) < 0:
++                starts.append(position)
+     start = min(starts, default=len(source))
+     prefix, source = source[:start], source[start:]
+     if heading is None:
+diff --git a/server/src/practiq_ai/json_repair.py b/server/src/practiq_ai/json_repair.py
+index 5de7161a..e8dab021 100644
+--- a/server/src/practiq_ai/json_repair.py
++++ b/server/src/practiq_ai/json_repair.py
+@@ -5,11 +5,9 @@ from typing import Any
+ 
+ 
+ def unique_json_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+-    result: dict[str, Any] = {}
+-    for key, value in pairs:
+-        if key in result:
+-            raise ValueError("Duplicate JSON field; return each field exactly once")
+-        result[key] = value
++    result = dict(pairs)
++    if len(result) != len(pairs):
++        raise ValueError("Duplicate JSON field; return each field exactly once")
+     return result
+ 
+ 
+diff --git a/server/src/practiq_ai/source_selection.py b/server/src/practiq_ai/source_selection.py
+index cec84030..c1bb4ca5 100644
+--- a/server/src/practiq_ai/source_selection.py
++++ b/server/src/practiq_ai/source_selection.py
+@@ -12,14 +12,19 @@ def page_indices(state: Mapping[str, Any]) -> list[int]:
+         return list(range(len(refs)))
+     parts = state.get('inputParts', [])
+     sources = [parts[index].get('sourcePage', index) if index < len(parts) else index for index in range(len(refs))]
+-    if not set(requested) <= {index + 1 for index in sources}:
++    requested = set(requested)
++    if not requested <= {index + 1 for index in sources}:
+         raise DocumentProcessingError(422, 'Selected pages are outside the retained source', 'SOURCE_SELECTION_INVALID')
+     return [index for index, source in enumerate(sources) if source + 1 in requested]
+ 
+ 
+ def active_indices(state: Mapping[str, Any], stage: str) -> list[int]:
+-    available = page_indices(state) if stage == 'vision_parse' else list(range(len(state.get('chunkRefs', []))))
+     selected = state.get('selectedUnits')
++    if stage != 'vision_parse' and selected is not None:
++        bounds = range(len(state.get('chunkRefs', [])))
++        requested = {unit['index'] for unit in selected if unit['stage'] == stage}
++        return sorted({int(index) for index in requested if index in bounds})
++    available = page_indices(state) if stage == 'vision_parse' else list(range(len(state.get('chunkRefs', []))))
+     if selected is None:
+         return available
+     requested = {unit['index'] for unit in selected if unit['stage'] == stage}
+diff --git a/server/src/practiq_ai/tencent_bundle.py b/server/src/practiq_ai/tencent_bundle.py
+index ccbfa136..6f55c13a 100644
+--- a/server/src/practiq_ai/tencent_bundle.py
++++ b/server/src/practiq_ai/tencent_bundle.py
+@@ -21,13 +21,17 @@ from .errors import DocumentProcessingError
+ MAX_ENTRIES = 2_000
+ MAX_EXPANDED_BYTES = 150 * 1024 * 1024
+ MAX_PAGE_BYTES = 8 * 1024 * 1024
++_IMAGE_ID = re.compile(r"p-(\d+)")
++_IMAGE_PAGE = re.compile(r"\d+")
+ 
+ 
+ def evidence_text(value: Any) -> str:
+     """Keep literal OCR strings for review quotes, including newlines and LaTeX."""
+     if isinstance(value, str):
+         return value
+-    values = value.values() if isinstance(value, dict) else value if isinstance(value, list) else []
++    if not isinstance(value, (dict, list)):
++        return ""
++    values = value.values() if isinstance(value, dict) else value
+     return "\n\n".join(text for item in values if (text := evidence_text(item)))
+ 
+ 
+@@ -46,10 +50,10 @@ def _image_members(archive: zipfile.ZipFile, member_names: set[str]) -> dict[tup
+         def start(name, attrs):
+             if name != "image" or not attrs.get("src"):
+                 return
+-            identifier = re.fullmatch(r"p-(\d+)", attrs.get("id", ""))
++            identifier = _IMAGE_ID.fullmatch(attrs.get("id", ""))
+             pages = attrs.get("page-numbers", "")
+             member = attrs["src"]
+-            if (identifier is None or not re.fullmatch(r"\d+", pages) or member not in member_names
++            if (identifier is None or not _IMAGE_PAGE.fullmatch(pages) or member not in member_names
+                     or not member.lower().endswith((".png", ".jpg", ".jpeg"))):
+                 raise ValueError("Image source must reference a local archive member and one page")
+             key = (int(pages), int(identifier[1]))
+@@ -89,10 +93,14 @@ def read_bundle_image(archive: zipfile.ZipFile, member: str, config: Config) ->
+ def _bbox(element: dict[str, Any], width: int, height: int) -> list[float]:
+     polygon = element["polygon"]
+     points = [polygon[key] for key in ("left_top", "right_top", "left_bottom", "right_bottom")]
+-    if any(type(p[axis]) not in {int, float} for p in points for axis in ("x", "y")):
++    if any(type(p[axis]) not in (int, float) for p in points for axis in ("x", "y")):
+         raise ValueError("Coordinates must be numeric")
+-    xs, ys = [p["x"] / width for p in points], [p["y"] / height for p in points]
+-    values = [min(xs), min(ys), max(xs), max(ys)]
++    xs, ys = [p["x"] for p in points], [p["y"] for p in points]
++    if width > 0 and height > 0:
++        values = [min(xs) / width, min(ys) / height, max(xs) / width, max(ys) / height]
++    else:
++        xs, ys = [x / width for x in xs], [y / height for y in ys]
++        values = [min(xs), min(ys), max(xs), max(ys)]
+     if (any(not isfinite(v) or not 0 <= v <= 1 for v in values)
+             or values[0] >= values[2] or values[1] >= values[3]):
+         raise ValueError("Invalid element coordinates")
+diff --git a/server/src/practiq_ai/unit_results.py b/server/src/practiq_ai/unit_results.py
+index 22f6b3d0..d48ff935 100644
+--- a/server/src/practiq_ai/unit_results.py
++++ b/server/src/practiq_ai/unit_results.py
+@@ -38,6 +38,8 @@ def rendered_text(question: ParsedQuestion) -> str:
+ 
+ def missing_formulas(source: str, rendered: str) -> list[str]:
+     """Compare literal math evidence, without solving or rewriting expressions."""
++    if '$' not in source and r'\(' not in source and r'\[' not in source:
++        return []
+     normalize = lambda text: re.sub(r'\s+|\\(?:quad|,)', '', text).replace(r'\geq', r'\ge').replace(r'\leq', r'\le')
+     target = None
+     closing = {'$': '$', '$$': '$$', r'\(': r'\)', r'\[': r'\]'}

@@ -1,0 +1,22 @@
+--- a/server/src/practiq_ai/graphs/ocr_validation.py
++++ b/server/src/practiq_ai/graphs/ocr_validation.py
+@@ -46,7 +46,7 @@
+                                  if block.role in {'material', 'source_text', 'starter_text'})
+     starts = [] if native_table else list(NUMBER.finditer(source))
+     counts = Counter(match[1] for match in starts)
+-    stems = [re.sub(r'\s+', '', question.stem or '') for question in questions]
++    stems = None
+     rendered_questions = [rendered_text(question) for question in questions]
+     shared_content = figures + '\n' + evidence_text([group.model_dump(include={'title', 'instructions'}) for group in groups])
+     positions: dict[int, int] = {}
+@@ -63,7 +63,9 @@
+             continue
+         anchors = by_number.get(match[1], []) if counts[match[1]] == 1 else []
+         line = re.sub(r'\s+', '', first_line)
+-        owners = anchors or [index for index, stem in enumerate(stems) if stem and stem in line]
++        if not anchors and stems is None:
++            stems = [re.sub(r'\s+', '', question.stem or '') for question in questions]
++        owners = anchors or [index for index, stem in enumerate(stems or []) if stem and stem in line]
+         if not first_line or not (re.search(r'[?？]|_{2,}', first_line) or _UNNUMBERED_EXERCISE.match(first_line)):
+             if len(owners) != 1:
+                 for question in questions:

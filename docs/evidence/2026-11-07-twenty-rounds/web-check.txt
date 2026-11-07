@@ -1,0 +1,50 @@
+
+> practiq-ai-web@0.1.0 check
+> tsc -b && npm run lint && npm run test:coverage
+
+
+> practiq-ai-web@0.1.0 lint
+> cd .. && node web/node_modules/eslint/bin/eslint.js --config web/eslint.config.mjs "web/src/**/*.{ts,tsx}" shared/*.tsx --max-warnings 0
+
+
+> practiq-ai-web@0.1.0 test:coverage
+> vitest run --coverage
+
+
+ RUN  v5.0.5 /Users/sheny/Developer/code/PractiQ/web
+      Coverage enabled with v8
+
+
+ Test Files  12 passed (12)
+      Tests  321 passed | 1 skipped (322)
+   Start at  14:10:31
+   Duration  17.10s (tests 82%, environment 11%, import 4%, setup 2%, worker 1%)
+
+    Isolate  12 workers spawned · ~353ms startup each (spawn + environment, per file)
+             at least ~1.77s faster with isolate: false — reuses workers across files instead of one per file
+
+ % Coverage report from v8
+-------------------|---------|----------|---------|---------|-------------------
+File               | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
+-------------------|---------|----------|---------|---------|-------------------
+All files          |   86.24 |    83.51 |   81.69 |   91.59 |                   
+ AccountPortal.tsx |    72.7 |    68.61 |   57.72 |   77.77 | ...1057,1066-1090 
+ ...eetMatcher.tsx |   76.74 |    72.53 |   72.72 |   94.28 | 40,57,70,96       
+ App.tsx           |   93.28 |    88.97 |    92.9 |   96.73 | ...32,383,391,420 
+ ...ftRecovery.tsx |      72 |    55.55 |      70 |   83.33 | 24-25             
+ ...nWorkbench.tsx |   81.56 |    77.13 |      75 |   89.28 | ...49,156,161-162 
+ ...tingsPanel.tsx |   95.71 |    88.17 |    93.1 |    97.5 | 62                
+ ...tionEditor.tsx |   66.66 |    62.96 |   64.44 |   80.35 | ...51,56,68,72-73 
+ RenderFailure.tsx |      50 |      100 |      50 |      50 | 6                 
+ ResultReview.tsx  |   88.85 |    87.75 |   88.57 |   97.12 | 112,188,260-262   
+ accountClient.ts  |   89.47 |    94.44 |   85.71 |     100 | 34                
+ api.ts            |   94.49 |    94.02 |   94.18 |   97.61 | 248-254,257-258   
+ ...ctionDrafts.ts |   90.24 |    93.04 |     100 |   98.21 | 80                
+-------------------|---------|----------|---------|---------|-------------------
+
+=============================== Coverage summary ===============================
+Statements   : 86.24% ( 1888/2189 )
+Branches     : 83.51% ( 2118/2536 )
+Functions    : 81.69% ( 540/661 )
+Lines        : 91.59% ( 1243/1357 )
+================================================================================

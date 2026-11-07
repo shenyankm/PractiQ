@@ -1,0 +1,29 @@
+--- a/server/src/practiq_ai/answer_matching.py
++++ b/server/src/practiq_ai/answer_matching.py
+@@ -18,6 +18,8 @@
+     r'|[^\S\r\n]*(?=\r?$))', re.MULTILINE,
+ )
+ 
++
++_ANSWER_VALUES = re.compile(r'[,，、;；\s]+')
+ 
+ def printed_number(question: ParsedQuestion) -> str | None:
+     for value in (question.sourceText, question.stem):
+@@ -54,7 +56,7 @@
+     payload = supplied.answerPayload.model_dump(mode='json') if isinstance(supplied.answerPayload, BaseModel) else supplied.answerPayload
+     if isinstance(payload, dict) and isinstance(text := payload.get('text'), str):
+         if target.answerMode == 'choice':
+-            payload = {'correct': [value for value in re.split(r'[,，、;；\s]+', text.strip()) if value]}
++            payload = {'correct': [value for value in _ANSWER_VALUES.split(text.strip()) if value]}
+         elif target.answerMode == 'true_false':
+             labels = {'true': True, 'false': False, '正确': True, '错误': False, '对': True, '错': False, '√': True, '×': False}
+             if text.strip().lower() in labels:
+@@ -62,7 +64,7 @@
+         elif target.answerMode == 'fill_blank' and target.blankCount == 1:
+             payload = {'answers': [text]}
+         elif target.answerMode == 'ordering':
+-            values = re.split(r'[,，、;；\s]+', text.strip())
++            values = _ANSWER_VALUES.split(text.strip())
+             if all(re.fullmatch(r'\d+', value) for value in values):
+                 payload = {'order': [int(value) for value in values]}
+         elif target.answerMode == 'matching':

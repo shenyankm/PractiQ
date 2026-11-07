@@ -1,0 +1,13 @@
+--- a/server/src/practiq_ai/tencent_bundle.py
++++ b/server/src/practiq_ai/tencent_bundle.py
+@@ -27,7 +27,9 @@
+     """Keep literal OCR strings for review quotes, including newlines and LaTeX."""
+     if isinstance(value, str):
+         return value
+-    values = value.values() if isinstance(value, dict) else value if isinstance(value, list) else []
++    if not isinstance(value, (dict, list)):
++        return ""
++    values = value.values() if isinstance(value, dict) else value
+     return "\n\n".join(text for item in values if (text := evidence_text(item)))
+ 
+ 

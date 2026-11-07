@@ -1,0 +1,16 @@
+--- a/server/src/practiq_ai/unit_results.py
++++ b/server/src/practiq_ai/unit_results.py
+@@ -24,9 +24,10 @@
+ def _rendered_strings(value: Any) -> list[str]:
+     if isinstance(value, str):
+         return [value]
+-    if isinstance(value, dict):
+-        value = list(value.values())
+-    return [text for item in value for text in _rendered_strings(item)] if isinstance(value, list) else []
++    if not isinstance(value, (dict, list)):
++        return []
++    values = value.values() if isinstance(value, dict) else value
++    return [text for item in values for text in _rendered_strings(item)]
+ 
+ 
+ def rendered_text(question: ParsedQuestion) -> str:

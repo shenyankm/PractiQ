@@ -1,0 +1,277 @@
+
+CASE pages
+Sat Nov  7 13:51:47 2026    /tmp/practiq-perf20-20261107/pages.prof
+
+         4007 function calls in 0.004 seconds
+
+   Ordered by: cumulative time
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000    0.004    0.004 benchmark_twenty_rounds.py:49(<lambda>)
+        1    0.004    0.004    0.004    0.004 source_selection.py:8(page_indices)
+     2003    0.000    0.000    0.000    0.000 {method 'get' of 'dict' objects}
+     2001    0.000    0.000    0.000    0.000 {built-in method builtins.len}
+        1    0.000    0.000    0.000    0.000 {method 'disable' of '_lsprof.Profiler' objects}
+
+
+
+CASE active
+Sat Nov  7 13:52:02 2026    /tmp/practiq-perf20-20261107/active.prof
+
+         6 function calls in 0.000 seconds
+
+   Ordered by: cumulative time
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000    0.000    0.000 benchmark_twenty_rounds.py:53(<lambda>)
+        1    0.000    0.000    0.000    0.000 source_selection.py:20(active_indices)
+        1    0.000    0.000    0.000    0.000 {method 'disable' of '_lsprof.Profiler' objects}
+        2    0.000    0.000    0.000    0.000 {method 'get' of 'dict' objects}
+        1    0.000    0.000    0.000    0.000 {built-in method builtins.len}
+
+
+
+CASE matching
+Sat Nov  7 13:52:02 2026    /tmp/practiq-perf20-20261107/matching.prof
+
+         13003 function calls in 0.003 seconds
+
+   Ordered by: cumulative time
+   List reduced from 10 to 8 due to restriction <8>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000    0.003    0.003 benchmark_twenty_rounds.py:58(<lambda>)
+        1    0.001    0.001    0.003    0.003 answer_matching.py:30(match_answers)
+     3000    0.001    0.000    0.001    0.000 answer_matching.py:22(printed_number)
+     1000    0.000    0.000    0.001    0.000 main.py:270(__init__)
+     3000    0.000    0.000    0.000    0.000 {method 'match' of 're.Pattern' objects}
+     1000    0.000    0.000    0.000    0.000 {method 'validate_python' of 'pydantic_core._pydantic_core.SchemaValidator' objects}
+     2000    0.000    0.000    0.000    0.000 {method 'get' of 'dict' objects}
+     2000    0.000    0.000    0.000    0.000 {method 'append' of 'list' objects}
+
+
+
+CASE associate
+Sat Nov  7 13:52:02 2026    /tmp/practiq-perf20-20261107/associate.prof
+
+         108 function calls (106 primitive calls) in 0.000 seconds
+
+   Ordered by: cumulative time
+   List reduced from 23 to 8 due to restriction <8>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000    0.000    0.000 benchmark_twenty_rounds.py:65(<lambda>)
+        1    0.000    0.000    0.000    0.000 answer_matching.py:53(associated_question)
+        1    0.000    0.000    0.000    0.000 main.py:410(model_copy)
+    33/31    0.000    0.000    0.000    0.000 copy.py:110(deepcopy)
+        1    0.000    0.000    0.000    0.000 {method 'disable' of '_lsprof.Profiler' objects}
+        1    0.000    0.000    0.000    0.000 main.py:1034(__copy__)
+        6    0.000    0.000    0.000    0.000 copy.py:212(_keep_alive)
+        6    0.000    0.000    0.000    0.000 copy.py:172(_deepcopy_list)
+
+
+
+CASE associate-large
+Sat Nov  7 13:52:03 2026    /tmp/practiq-perf20-20261107/associate-large.prof
+
+         106 function calls (104 primitive calls) in 0.000 seconds
+
+   Ordered by: cumulative time
+   List reduced from 23 to 8 due to restriction <8>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000    0.000    0.000 benchmark_twenty_rounds.py:65(<lambda>)
+        1    0.000    0.000    0.000    0.000 answer_matching.py:53(associated_question)
+        1    0.000    0.000    0.000    0.000 main.py:410(model_copy)
+    33/31    0.000    0.000    0.000    0.000 copy.py:110(deepcopy)
+        1    0.000    0.000    0.000    0.000 {method 'disable' of '_lsprof.Profiler' objects}
+        1    0.000    0.000    0.000    0.000 main.py:1034(__copy__)
+        6    0.000    0.000    0.000    0.000 copy.py:212(_keep_alive)
+        6    0.000    0.000    0.000    0.000 copy.py:172(_deepcopy_list)
+
+
+
+CASE objects
+Sat Nov  7 13:52:03 2026    /tmp/practiq-perf20-20261107/objects.prof
+
+         3 function calls in 0.000 seconds
+
+   Ordered by: cumulative time
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000    0.000    0.000 benchmark_twenty_rounds.py:68(<lambda>)
+        1    0.000    0.000    0.000    0.000 json_repair.py:7(unique_json_object)
+        1    0.000    0.000    0.000    0.000 {method 'disable' of '_lsprof.Profiler' objects}
+
+
+
+CASE ocr-text
+Sat Nov  7 13:52:03 2026    /tmp/practiq-perf20-20261107/ocr-text.prof
+
+         47008 function calls (23008 primitive calls) in 0.005 seconds
+
+   Ordered by: cumulative time
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000    0.005    0.005 benchmark_twenty_rounds.py:72(<lambda>)
+   8001/1    0.002    0.000    0.005    0.005 tencent_bundle.py:26(evidence_text)
+   7001/1    0.001    0.000    0.005    0.005 {method 'join' of 'str' objects}
+10001/1001    0.001    0.000    0.005    0.000 tencent_bundle.py:31(<genexpr>)
+    20003    0.001    0.000    0.001    0.000 {built-in method builtins.isinstance}
+     2000    0.000    0.000    0.000    0.000 {method 'values' of 'dict' objects}
+        1    0.000    0.000    0.000    0.000 {method 'disable' of '_lsprof.Profiler' objects}
+
+
+
+CASE rendered-strings
+Sat Nov  7 13:52:03 2026    /tmp/practiq-perf20-20261107/rendered-strings.prof
+
+         32006 function calls (24006 primitive calls) in 0.003 seconds
+
+   Ordered by: cumulative time
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000    0.003    0.003 benchmark_twenty_rounds.py:72(<lambda>)
+   8001/1    0.002    0.000    0.003    0.003 unit_results.py:24(_rendered_strings)
+    22003    0.001    0.000    0.001    0.000 {built-in method builtins.isinstance}
+     2000    0.000    0.000    0.000    0.000 {method 'values' of 'dict' objects}
+        1    0.000    0.000    0.000    0.000 {method 'disable' of '_lsprof.Profiler' objects}
+
+
+
+CASE formulas
+Sat Nov  7 13:52:03 2026    /tmp/practiq-perf20-20261107/formulas.prof
+
+         7 function calls in 0.001 seconds
+
+   Ordered by: cumulative time
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000    0.001    0.001 benchmark_twenty_rounds.py:77(<lambda>)
+        1    0.001    0.001    0.001    0.001 unit_results.py:39(missing_formulas)
+        1    0.000    0.000    0.000    0.000 {method 'disable' of '_lsprof.Profiler' objects}
+        1    0.000    0.000    0.000    0.000 __init__.py:280(finditer)
+        1    0.000    0.000    0.000    0.000 __init__.py:330(_compile)
+        1    0.000    0.000    0.000    0.000 {built-in method builtins.isinstance}
+        1    0.000    0.000    0.000    0.000 {method 'finditer' of 're.Pattern' objects}
+
+
+
+CASE formula-source
+Sat Nov  7 13:52:04 2026    /tmp/practiq-perf20-20261107/formula-source.prof
+
+         5007 function calls in 0.016 seconds
+
+   Ordered by: cumulative time
+   List reduced from 11 to 8 due to restriction <8>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000    0.016    0.016 benchmark_twenty_rounds.py:80(<lambda>)
+        1    0.001    0.001    0.016    0.016 ocr_validation.py:15(_formula_source)
+     2000    0.015    0.000    0.015    0.000 {method 'find' of 'str' objects}
+        1    0.000    0.000    0.000    0.000 {method 'search' of 're.Pattern' objects}
+     1000    0.000    0.000    0.000    0.000 {method 'rsplit' of 'str' objects}
+     1000    0.000    0.000    0.000    0.000 {method 'append' of 'list' objects}
+     1000    0.000    0.000    0.000    0.000 {method 'start' of 're.Match' objects}
+        1    0.000    0.000    0.000    0.000 {built-in method builtins.min}
+
+
+
+CASE review
+Sat Nov  7 13:52:05 2026    /tmp/practiq-perf20-20261107/review.prof
+
+         113058 function calls (92058 primitive calls) in 0.036 seconds
+
+   Ordered by: cumulative time
+   List reduced from 43 to 8 due to restriction <8>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000    0.036    0.036 benchmark_twenty_rounds.py:87(<lambda>)
+        1    0.002    0.002    0.036    0.036 ocr_validation.py:36(question_issues)
+        2    0.001    0.000    0.016    0.008 ocr_validation.py:15(_formula_source)
+     2000    0.015    0.000    0.015    0.000 {method 'find' of 'str' objects}
+     1000    0.000    0.000    0.008    0.000 unit_results.py:32(rendered_text)
+5004/1004    0.001    0.000    0.005    0.000 {method 'join' of 'str' objects}
+12000/1000    0.003    0.000    0.005    0.000 unit_results.py:24(_rendered_strings)
+     1001    0.000    0.000    0.005    0.000 ocr_validation.py:42(<genexpr>)
+
+
+
+CASE boxes
+Sat Nov  7 13:52:05 2026    /tmp/practiq-perf20-20261107/boxes.prof
+
+         23002 function calls in 0.003 seconds
+
+   Ordered by: cumulative time
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000    0.003    0.003 benchmark_twenty_rounds.py:91(<lambda>)
+     1000    0.002    0.000    0.003    0.000 tencent_bundle.py:89(_bbox)
+     9000    0.001    0.000    0.001    0.000 tencent_bundle.py:92(<genexpr>)
+     5000    0.000    0.000    0.001    0.000 tencent_bundle.py:96(<genexpr>)
+     2000    0.000    0.000    0.000    0.000 {built-in method builtins.max}
+     2000    0.000    0.000    0.000    0.000 {built-in method builtins.min}
+     4000    0.000    0.000    0.000    0.000 {built-in method math.isfinite}
+        1    0.000    0.000    0.000    0.000 {method 'disable' of '_lsprof.Profiler' objects}
+
+
+
+CASE images
+Sat Nov  7 13:52:06 2026    /tmp/practiq-perf20-20261107/images.prof
+
+         7067 function calls in 0.001 seconds
+
+   Ordered by: cumulative time
+   List reduced from 51 to 8 due to restriction <8>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000    0.001    0.001 benchmark_twenty_rounds.py:100(<lambda>)
+        1    0.000    0.000    0.001    0.001 tencent_bundle.py:34(_image_members)
+        1    0.000    0.000    0.001    0.001 {method 'Parse' of 'pyexpat.xmlparser' objects}
+      501    0.000    0.000    0.001    0.000 tencent_bundle.py:46(start)
+     1000    0.000    0.000    0.001    0.000 __init__.py:169(fullmatch)
+     1000    0.000    0.000    0.000    0.000 __init__.py:330(_compile)
+     1000    0.000    0.000    0.000    0.000 {method 'fullmatch' of 're.Pattern' objects}
+     1500    0.000    0.000    0.000    0.000 {method 'get' of 'dict' objects}
+
+
+
+CASE context
+Sat Nov  7 13:52:06 2026    /tmp/practiq-perf20-20261107/context.prof
+
+         22759 function calls (21418 primitive calls) in 0.004 seconds
+
+   Ordered by: cumulative time
+   List reduced from 24 to 8 due to restriction <8>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000    0.004    0.004 benchmark_twenty_rounds.py:106(<lambda>)
+        1    0.002    0.002    0.004    0.004 source_context.py:15(source_context)
+  596/149    0.000    0.000    0.000    0.000 tencent_bundle.py:26(evidence_text)
+     7123    0.000    0.000    0.000    0.000 {built-in method builtins.max}
+     7123    0.000    0.000    0.000    0.000 {built-in method builtins.min}
+  447/149    0.000    0.000    0.000    0.000 {method 'join' of 'str' objects}
+  894/298    0.000    0.000    0.000    0.000 tencent_bundle.py:31(<genexpr>)
+      300    0.000    0.000    0.000    0.000 {built-in method builtins.sorted}
+
+
+
+CASE repair
+Sat Nov  7 13:52:06 2026    /tmp/practiq-perf20-20261107/repair.prof
+
+         43803 function calls in 0.006 seconds
+
+   Ordered by: cumulative time
+   List reduced from 18 to 8 due to restriction <8>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000    0.006    0.006 benchmark_twenty_rounds.py:109(<lambda>)
+        1    0.003    0.003    0.006    0.006 json_repair.py:16(repair_json)
+    43781    0.002    0.000    0.002    0.000 {method 'append' of 'list' objects}
+        1    0.000    0.000    0.000    0.000 __init__.py:304(loads)
+        1    0.000    0.000    0.000    0.000 decoder.py:340(decode)
+        1    0.000    0.000    0.000    0.000 decoder.py:351(raw_decode)
+        2    0.000    0.000    0.000    0.000 {method 'join' of 'str' objects}
+        1    0.000    0.000    0.000    0.000 json_repair.py:7(unique_json_object)
+
+
