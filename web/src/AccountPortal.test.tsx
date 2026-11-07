@@ -79,6 +79,32 @@ it('fetches the next administrator task page when paging without starting work',
   history.replaceState(null,'','/');
 });
 
+it('keeps administrator inspection and recovery available when preview loading fails', async () => {
+  history.replaceState(null,'','/admin');
+  const {task,summary,taskId,runId}=await import('./test-fixtures');
+  let finish!: (value:Response)=>void;
+  const pending=new Promise<Response>(resolve=>{finish=resolve;});
+  const fetcher=vi.fn(async(path:string,_init?:RequestInit)=>{
+    if(path==='/api/auth/session')return response({...anonymous,user:{id:'admin',email:'admin@example.test',name:'',role:'admin',enabled:true}});
+    if(path==='/api/admin/settings')return response({registrationEnabled:true,freePages:50,modelCalls:1000,tencentCalls:50,activeTasks:2});
+    if(path.startsWith('/api/admin/users'))return response([]);
+    if(path.startsWith('/api/admin/document-tasks?'))return response({items:[summary],hasMore:false});
+    if(path.includes('/preview'))return pending;
+    return response({...task,runId,state:'RUNNING',allowedActions:['pause','interrupt']});
+  });vi.stubGlobal('fetch',fetcher);
+  render(<AccountPortal />);const user=userEvent.setup();
+  await user.click(await screen.findByRole('button',{name:'任务'}));
+  await user.click(await screen.findByRole('button',{name:taskId}));
+  await screen.findByRole('heading',{name:'sample.docx'});
+  expect(screen.getByRole('button',{name:'pause'})).toBeTruthy();
+  await act(async()=>{finish(response({},500));await pending;});
+  await screen.findByRole('alert');
+  expect(screen.getByRole('heading',{name:'sample.docx'})).toBeTruthy();
+  expect(screen.getByText(/fake-model/)).toBeTruthy();
+  expect(screen.getByRole('button',{name:'interrupt'})).toBeTruthy();
+  expect(fetcher.mock.calls.every(([,init])=>!init?.method||init.method==='GET')).toBe(true);
+});
+
 it('keeps administrator task details bound to the latest selection after a delayed read', async () => {
   history.replaceState(null,'','/admin');
   const {task,preview,summary,taskId,newTaskId}=await import('./test-fixtures');

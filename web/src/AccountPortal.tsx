@@ -733,8 +733,14 @@ function AdminTasks() {
     setDetail(null);
     setPreview(null);
     try {
-      const [current, review] = await Promise.all([client.detail(target, controller.signal), client.preview(target, controller.signal)]);
-      if (!controller.signal.aborted && selectedId.current === target) { setDetail(current); setPreview(review); }
+      await Promise.all([
+        client.detail(target, controller.signal).then(current => {
+          if (!controller.signal.aborted && selectedId.current === target) setDetail(current);
+        }),
+        client.preview(target, controller.signal).then(review => {
+          if (!controller.signal.aborted && selectedId.current === target) setPreview(review);
+        }),
+      ]);
     } catch (error) {
       if (!controller.signal.aborted) throw error;
     }
