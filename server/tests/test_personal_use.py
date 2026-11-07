@@ -56,7 +56,7 @@ async def test_upgrade_preserves_archives_and_refuses_customer_task_adoption(ver
         await db.upgrade()
         await db.upgrade()
         await db.check_schema()
-        assert await db.rows('SELECT version FROM practiq_schema') == [{'version': 6}]
+        assert await db.rows('SELECT version FROM practiq_schema') == [{'version': 7}]
     assert tables <= await db.tables()
     assert await db.rows('SELECT * FROM import_ledger') == ledger
 
@@ -149,7 +149,7 @@ async def test_upgrade_refuses_schema_three_with_new_account_tokens():
 
 @pytest.mark.usefixtures('disposable_databases')
 @pytest.mark.parametrize('version', [1, 2])
-async def test_upgrade_accepts_pre_account_schemas_without_adding_account_tables(version):
+async def test_upgrade_accepts_pre_account_schemas_without_restoring_legacy_tables(version):
     db = await new_database()
     from tests.db_support import strip_identity_schema
     await strip_identity_schema(db)
@@ -159,4 +159,8 @@ async def test_upgrade_accepts_pre_account_schemas_without_adding_account_tables
         await conn.execute('UPDATE practiq_schema SET version=%s', (version,))
     await db.upgrade()
     await db.check_schema()
-    assert not any(name.startswith(('import_', 'payment_')) for name in await db.tables())
+    from practiq_ai.payment_schema import PAYMENT_TABLES
+
+    tables = await db.tables()
+    assert {name for name in tables if name.startswith('payment_')} == PAYMENT_TABLES
+    assert not any(name.startswith('import_') for name in tables)

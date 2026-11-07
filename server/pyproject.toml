@@ -23,6 +23,7 @@ dependencies = [
   "openai==3.2.0",
   "prometheus-client==0.26.0",
   "argon2-cffi==25.1.0",
+  "alipay-sdk-python==3.7.1411",
 ]
 
 [project.optional-dependencies]

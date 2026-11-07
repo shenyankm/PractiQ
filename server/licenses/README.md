@@ -8,3 +8,7 @@
 - yarl 1.25.1 and propcache 0.5.4: upstream Apache-2.0 LICENSE and NOTICE, retained byte-for-byte.
 
 These supplemental notices ship in the service wheel/source archive and image. Existing dependencies retain their installed distribution notices. The separately pinned RabbitMQ image retains its MPL-2.0 terms and [upstream source](https://github.com/rabbitmq/rabbitmq-server/tree/v4.3.6); keep the image and its notices when deploying. Neither broker nor Python AMQP packages belong in the practice-app distribution.
+
+Optional service-side Alipay integration retains the official SDK and transitive
+dependency notices/source links in [alipay/](alipay/README.md). Payment dependencies
+and credentials are not part of the offline practice application.

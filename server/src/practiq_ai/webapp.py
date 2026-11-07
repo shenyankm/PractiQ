@@ -55,6 +55,7 @@ from practiq_ai.extractors.isolated import _thread_io
 from practiq_ai.grading import GradeWireRequest, grade
 from practiq_ai.llm import import_call_allowance
 from practiq_ai.middleware import JsonBodyLimitMiddleware, SecurityHeadersMiddleware
+from practiq_ai.payment_api import router as payment_router
 from practiq_ai.storage import get_object_store
 from practiq_ai.telemetry import configure_logging, registry
 from practiq_ai.tencent import submission_limit
@@ -69,15 +70,24 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     service = runtime.Service(Database())
     await service.start()
     runtime.current = service
+    payment_worker = None
     try:
+        if os.environ.get('ALIPAY_ENABLED') == 'true':
+            from . import payments
+            payments.load()
+            payment_worker = asyncio.create_task(payments.reconcile_loop(), name='alipay-reconciliation')
         yield
     finally:
+        if payment_worker is not None:
+            payment_worker.cancel()
+            await asyncio.gather(payment_worker, return_exceptions=True)
         await service.stop(timeout=60)
         runtime.current = None
 
 
 app = FastAPI(lifespan=lifespan)
 app.include_router(account_router)
+app.include_router(payment_router)
 app.add_exception_handler(RequestValidationError, private_validation_error)
 app.add_middleware(AccountMiddleware)
 app.add_middleware(JsonBodyLimitMiddleware)

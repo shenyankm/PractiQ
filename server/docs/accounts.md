@@ -1,6 +1,9 @@
 # User portal and administration
 
-The multi-user service uses PostgreSQL schema 6 and same-origin session cookies.
+The multi-user service uses PostgreSQL schema 7 and same-origin session cookies.
+Optional [Alipay web payments](alipay.md) use separate account-owned receipt tables
+and an explicit offline schema-6-to-7 upgrade. Payment does not automatically alter
+document-page allowances; native offline practice remains independent.
 The first release sends no email. Email is a case-insensitive, unverified login
 identifier, not evidence of identity. Public registration is enabled after an
 operator has bootstrapped an administrator and can be disabled at `/admin`.
@@ -131,7 +134,8 @@ verify it, then run:
 make upgrade-db AI_PYTHON=/absolute/path/to/python3.14 UPGRADE_BACKUP=/absolute/path/to/verified/bundle
 ```
 
-The bundle is verified before schema changes. Schema 5 upgrades atomically to 6.
+The bundle is verified before schema changes. Schema 5 upgrades atomically through
+the existing account migration to 7; schema 6 receives only the additive payment tables.
 Existing older-version safety gates remain. Historical rows retain null ownership;
 ordinary users cannot see them and offline cleanup leaves them intact. There is
 no automatic ownership assignment or mapping tool. Historical tasks cannot resume
@@ -140,6 +144,6 @@ backup, login and inspection never run models.
 
 Restore only into a new database and storage root with the matching executable.
 The restore tool revokes all sessions and reset/grading tokens before reopening
-schema-6 data, preventing old credentials from being resurrected. Users must log
+schema-7 data, preventing old credentials from being resurrected. Users must log
 in and explicitly create new App tokens. Rollback uses the complete matching old
 backup and old executable; no in-place downgrade is supported.

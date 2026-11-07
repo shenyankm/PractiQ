@@ -187,7 +187,7 @@ async def test_upgrade_requires_a_verified_backup_before_any_mutation(accounts, 
         await manage.run('upgrade-db')
     with pytest.raises(ValueError, match='manifest'):
         await manage.run('upgrade-db', backup_bundle=tmp_path)
-    assert await database.rows('SELECT version FROM practiq_schema') == [{'version': 6}]
+    assert await database.rows('SELECT version FROM practiq_schema') == [{'version': 7}]
 
 
 async def test_offline_schema_five_upgrade_preserves_unowned_work(accounts):

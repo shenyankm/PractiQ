@@ -188,7 +188,7 @@ async def test_existing_schema_five_gets_additive_sort_indexes():
     await db.check_schema()
     await db.ensure_indexes()
     await db.ensure_indexes()
-    assert await db.rows('SELECT version FROM practiq_schema') == [{'version': 6}]
+    assert await db.rows('SELECT version FROM practiq_schema') == [{'version': 7}]
     indexes = await db.rows("SELECT indexname FROM pg_indexes WHERE schemaname='public'")
     assert {'document_task_order', 'document_run_latest', 'document_active_order'} <= {row['indexname'] for row in indexes}
 
@@ -626,7 +626,7 @@ async def test_missing_checkpoint_tables_fail_closed():
     await db.connections[0].execute('DROP TABLE checkpoint_writes')
     with pytest.raises(RuntimeError, match='Incomplete PostgreSQL state'):
         await db.check_schema()
-    assert await db.rows('SELECT version FROM practiq_schema') == [{'version': 6}]
+    assert await db.rows('SELECT version FROM practiq_schema') == [{'version': 7}]
 
 @pytest.mark.usefixtures("business_http")
 @pytest.mark.parametrize('pending', [False, True])

@@ -1,7 +1,10 @@
 # Multi-user service update
 
-The current service uses schema 6 with authenticated user and administrator areas.
+The current service uses schema 7 with authenticated user and administrator areas.
 See [accounts and deployment](accounts.md) for current setup and recovery.
+Optional service-only Alipay web payments and the schema-6 upgrade procedure are
+documented in [Alipay payments](alipay.md). They are disabled by default and do not
+change page allowances or the offline App.
 The personal-mode description below is historical and applies to the previous schema-5 deployment only; retain its database and storage separately.
 
 # Personal self-hosted use
