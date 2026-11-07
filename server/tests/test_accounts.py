@@ -450,3 +450,23 @@ async def test_admin_can_read_verified_historical_sources_but_cannot_mutate_them
     assert blocked.status_code == 409 and blocked.json()['detail']['code'] == 'HISTORICAL_OWNERSHIP_REQUIRED'
     await login(client, 'reader@example.test', register=True)
     assert (await client.post('/api/artifacts/read?thread_id=' + task, json=artifact)).status_code == 404
+
+
+@pytest.mark.parametrize('close', ['registration', 'administrator'])
+async def test_registration_rechecks_policy_after_password_hashing(accounts, monkeypatch, close):
+    database, client = accounts
+    hash_password = identity.password_hash
+
+    async def close_during_hash(password):
+        encoded = await hash_password(password)
+        async with database.transaction() as conn:
+            if close == 'registration':
+                await conn.execute("UPDATE auth_settings SET value=jsonb_set(value,'{registrationEnabled}','false')")
+            else:
+                await conn.execute("UPDATE auth_users SET enabled=false WHERE role='admin'")
+        return encoded
+    monkeypatch.setattr(identity, 'password_hash', close_during_hash)
+    csrf = (await client.get('/api/auth/session')).json()['csrf']
+    response = await client.post('/api/auth/register', json={'email': 'late@example.test', 'password': PASSWORD}, headers={'X-CSRF-Token': csrf})
+    assert response.status_code == 403
+    assert not await database.rows("SELECT id FROM auth_users WHERE email='late@example.test'")

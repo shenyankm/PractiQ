@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import type {
   AccountUsage,
@@ -22,6 +22,7 @@ const messages: Record<string, string> = {
   INVALID_CREDENTIALS: "邮箱或密码错误，或账户已停用。",
   CSRF_INVALID: "页面凭证已过期，请刷新后手动重试。",
   AUTH_RATE_LIMITED: "操作过于频繁，请稍后再试。",
+  REGISTRATION_DISABLED: "公开注册暂未开放，请联系管理员。",
   EMAIL_UNAVAILABLE: "此邮箱无法使用。",
   LAST_ADMIN: "必须保留至少一位有效管理员。",
   PASSWORD_REQUIRED: "请核对当前密码。",
@@ -39,6 +40,7 @@ function Field({
   onChange,
   min,
   max,
+  readOnly = false,
 }: {
   name: string;
   label: string;
@@ -47,6 +49,7 @@ function Field({
   onChange: (v: string) => void;
   min?: number;
   max?: number;
+  readOnly?: boolean;
 }) {
   return (
     <label className="account-field" htmlFor={name}>
@@ -57,6 +60,7 @@ function Field({
         type={type}
         value={value}
         required
+        readOnly={readOnly}
         min={min}
         max={max}
         minLength={type === "password" ? 1 : undefined}
@@ -118,25 +122,31 @@ function Form({
 function Records({ path, refresh = 0, onSelect, paginated = false }: { path: string; refresh?: number; onSelect?: (row: Record<string, unknown>) => void; paginated?: boolean }) {
   const [offset, setOffset] = useState(0);
   const [rows, setRows] = useState<Record<string, unknown>[]>([]),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    [loading, setLoading] = useState(true);
   useEffect(() => {
     const controller = new AbortController();
+    setError("");
+    setRows([]);
+    setLoading(true);
     void request<Record<string, unknown>[]>(
       paginated ? `${path}${path.includes("?") ? "&" : "?"}offset=${offset}` : path,
       "GET",
       undefined,
       controller.signal,
     )
-      .then(setRows)
+      .then(value => { if (!controller.signal.aborted) setRows(value); })
       .catch((e) => {
         if (!controller.signal.aborted) setError(errorMessage(e));
-      });
+      })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
   }, [path, refresh, paginated, offset]);
   return (
     <>
       {error && <p role="alert">{error}</p>}
-      {!rows.length && !error && <p>暂无记录。</p>}
+      {loading && <p role="status">正在读取记录…</p>}
+      {!loading && !rows.length && !error && <p>暂无记录。</p>}
       {!!rows.length && (
         <div className="account-table">
           <table>
@@ -207,7 +217,8 @@ function AccountSettings({ user, onNameSaved }: { user: AccountUser; onNameSaved
     [newPassword, setNewPassword] = useState(""),
     [token, setToken] = useState(""),
     [tokenName, setTokenName] = useState("macOS App"),
-    [revoke, setRevoke] = useState(""),
+    [revokeToken, setRevokeToken] = useState(""),
+    [revokeSession, setRevokeSession] = useState(""),
     [revision, setRevision] = useState(0);
   return (
     <>
@@ -304,41 +315,44 @@ function AccountSettings({ user, onNameSaved }: { user: AccountUser; onNameSaved
           </Button>
         </div>
       )}
-      <Records path="/api/me/tokens" refresh={revision} onSelect={row => setRevoke(String(row.id))} />
+      <Records path="/api/me/tokens" refresh={revision} onSelect={row => setRevokeToken(String(row.id))} />
       <Form
         label="撤销指定令牌"
         submit={async () => {
           await request(
-            `/api/me/tokens/${encodeURIComponent(revoke)}`,
+            `/api/me/tokens/${encodeURIComponent(revokeToken)}`,
             "DELETE",
           );
+          setToken("");
+          setRevokeToken("");
           setRevision((v) => v + 1);
         }}
       >
         <Field
           name="revoke-token"
           label="令牌编号"
-          value={revoke}
-          onChange={setRevoke}
+          value={revokeToken}
+          onChange={setRevokeToken}
         />
       </Form>
       <h2>登录会话</h2>
-      <Records path="/api/me/sessions" refresh={revision} onSelect={row => setRevoke(String(row.id))} />
+      <Records path="/api/me/sessions" refresh={revision} onSelect={row => setRevokeSession(String(row.id))} />
       <Form
         label="撤销指定会话"
         submit={async () => {
           await request(
-            `/api/me/sessions/${encodeURIComponent(revoke)}`,
+            `/api/me/sessions/${encodeURIComponent(revokeSession)}`,
             "DELETE",
           );
+          setRevokeSession("");
           setRevision((v) => v + 1);
         }}
       >
         <Field
           name="revoke-session"
           label="会话编号"
-          value={revoke}
-          onChange={setRevoke}
+          value={revokeSession}
+          onChange={setRevokeSession}
         />
       </Form>
     </>
@@ -540,7 +554,7 @@ function AdminUsers() {
       activeTasks: 2,
     }),
     [override, setOverride] = useState(false),
-    [link, setLink] = useState(""),
+    [link, setLink] = useState<{userId:string;url:string} | null>(null),
     [revision, setRevision] = useState(0),
     [offset, setOffset] = useState(0);
   return (
@@ -550,6 +564,7 @@ function AdminUsers() {
       {!defaults && !defaultsError && <p role="status">正在读取默认额度…</p>}
       <Records path={`/api/admin/users?offset=${offset}`} refresh={revision} onSelect={defaults ? row => {
         setId(String(row.id)); setEnabled(row.enabled === true); setRole(row.role === 'admin' ? 'admin' : 'user');
+        setPassword(""); setLink(null);
         const saved = row.limits as Partial<AccountLimits>; setOverride(Object.keys(saved).length > 0);
         setLimits({ freePages: saved.freePages ?? defaults.freePages, modelCalls: saved.modelCalls ?? defaults.modelCalls, tencentCalls: saved.tencentCalls ?? defaults.tencentCalls, activeTasks: saved.activeTasks ?? defaults.activeTasks });
       } : undefined} />
@@ -566,6 +581,7 @@ function AdminUsers() {
       {id && <>
       <h2>编辑选中的用户</h2>
       <Form
+        key={`update-${id}`}
         label="更新指定用户"
         submit={async () => {
           await request(`/api/admin/users/${encodeURIComponent(id)}`, "PATCH", {
@@ -578,7 +594,7 @@ function AdminUsers() {
           setRevision((v) => v + 1);
         }}
       >
-        <Field name="user-id" label="用户编号" value={id} onChange={setId} />
+        <Field name="user-id" label="用户编号" value={id} onChange={setId} readOnly />
         <Field
           name="admin-password"
           label="管理员当前密码"
@@ -635,15 +651,16 @@ function AdminUsers() {
           )}
       </Form>
       <Form
+        key={`reset-${id}`}
         label="生成一次性重置链接"
         submit={async () => {
-          setLink("");
+          setLink(null);
           const result = await request<{ path: string }>(
             `/api/admin/users/${encodeURIComponent(id)}/reset-link`,
             "POST",
             { currentPassword: password },
           );
-          setLink(location.origin + result.path);
+          setLink({userId:id,url:location.origin + result.path});
           setPassword("");
         }}
       >
@@ -652,6 +669,7 @@ function AdminUsers() {
           label="用户编号"
           value={id}
           onChange={setId}
+          readOnly
         />
         <Field
           name="reset-admin-password"
@@ -665,7 +683,7 @@ function AdminUsers() {
           分钟有效，仅展示本次，访问链接本身不重置密码。
         </p>
       </Form>
-      {link && <Input aria-label="一次性重置链接" readOnly value={link} />}
+      {link?.userId === id && <Input aria-label="一次性重置链接" readOnly value={link.url} />}
       </>}
     </>
   );
@@ -678,18 +696,53 @@ function AdminTasks() {
     [id, setId] = useState(""),
     [error, setError] = useState(""),
     [offset, setOffset] = useState(0);
-  async function read() {
+  const selectedId = useRef(""), pageOffset = useRef(0);
+  const listRequest = useRef<AbortController | null>(null), detailRequest = useRef<AbortController | null>(null);
+  const readPage = useCallback(async (nextOffset: number) => {
+    listRequest.current?.abort();
+    const controller = new AbortController();
+    listRequest.current = controller;
+    pageOffset.current = nextOffset;
+    setOffset(nextOffset);
+    setTasks(null);
     setError("");
     try {
-      setTasks(await client.list(offset));
-      if (id) {
-        setPreview(null);
-        setDetail(await client.detail(id));
-        setPreview(await client.preview(id));
-      }
-    } catch (e) {
-      setError(errorMessage(e));
+      const result = await client.list(nextOffset, "", controller.signal);
+      if (!controller.signal.aborted) setTasks(result);
+    } catch (error) {
+      if (!controller.signal.aborted) throw error;
     }
+  }, [client]);
+  useEffect(() => {
+    void readPage(0).catch(error => setError(errorMessage(error)));
+    return () => { listRequest.current?.abort(); detailRequest.current?.abort(); };
+  }, [readPage]);
+  function selectId(value: string) {
+    selectedId.current = value;
+    detailRequest.current?.abort();
+    setId(value);
+    setDetail(null);
+    setPreview(null);
+    setError("");
+  }
+  async function readDetail(target = selectedId.current) {
+    if (!target || selectedId.current !== target) return;
+    detailRequest.current?.abort();
+    const controller = new AbortController();
+    detailRequest.current = controller;
+    setDetail(null);
+    setPreview(null);
+    try {
+      const [current, review] = await Promise.all([client.detail(target, controller.signal), client.preview(target, controller.signal)]);
+      if (!controller.signal.aborted && selectedId.current === target) { setDetail(current); setPreview(review); }
+    } catch (error) {
+      if (!controller.signal.aborted) throw error;
+    }
+  }
+  async function read() {
+    setError("");
+    await readPage(pageOffset.current);
+    await readDetail();
   }
   return (
     <>
@@ -702,11 +755,7 @@ function AdminTasks() {
           任务编号（留空读取列表）
           <Input
             value={id}
-            onChange={(e) => {
-              setId(e.target.value);
-              setDetail(null);
-              setPreview(null);
-            }}
+            onChange={(e) => selectId(e.target.value)}
           />
         </label>
       </Form>
@@ -719,9 +768,8 @@ function AdminTasks() {
           <Button
             variant="outline"
             onClick={() => {
-              setId(task.threadId);
-              setDetail(null);
-              setPreview(null);
+              selectId(task.threadId);
+              void readDetail(task.threadId).catch(error => setError(errorMessage(error)));
             }}
           >
             {task.threadId}
@@ -731,14 +779,14 @@ function AdminTasks() {
       <Button
         variant="outline"
         disabled={!offset}
-        onClick={() => setOffset((v) => Math.max(0, v - 20))}
+        onClick={() => { void readPage(Math.max(0, offset - 20)).catch(error => setError(errorMessage(error))); }}
       >
         上一页
       </Button>
       <Button
         variant="outline"
         disabled={!tasks?.hasMore}
-        onClick={() => setOffset((v) => v + 20)}
+        onClick={() => { void readPage(offset + 20).catch(error => setError(errorMessage(error))); }}
       >
         下一页
       </Button>
@@ -801,7 +849,7 @@ export default function AccountPortal() {
     [resetToken] = useState(() =>
       location.pathname === "/reset-password" ? location.hash.slice(1) : "",
     ),
-    [task, setTask] = useState<string>();
+    [task, setTask] = useState<{id:string}>();
   const admin = location.pathname === "/admin";
   const register = location.pathname === "/register";
   const reset = location.pathname === "/reset-password";
@@ -815,6 +863,7 @@ export default function AccountPortal() {
       setLoading(true);
       setAccount(null);
       updateAccount(null);
+      setTask(undefined);
       try {
         const result = await request<AccountSession>(
           "/api/auth/session",
@@ -983,7 +1032,7 @@ export default function AccountPortal() {
       <div key={user.id}>
         <div hidden={page !== "workspace"}>
           <Suspense fallback={<p>正在载入工作区…</p>}>
-            <Workspace key={task ?? "default"} initialTaskId={task} hideSkipLink focusMain={focusMain} />
+            <Workspace requestedTask={task} hideSkipLink focusMain={focusMain} />
           </Suspense>
         </div>
         {page !== "workspace" && (
@@ -991,7 +1040,7 @@ export default function AccountPortal() {
             {page === "banks" ? (
               <Banks
                 open={(id) => {
-                  setTask(id);
+                  setTask({id});
                   location.hash = "records";
                   setPage("workspace");
                 }}

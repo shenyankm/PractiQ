@@ -1,11 +1,108 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import AccountPortal from './AccountPortal';
 import { setAccount, storageKey } from './accountClient';
 const response = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json' } });
 const anonymous = { user: null, csrf: 'test-csrf', registrationEnabled: true };
-afterEach(() => { cleanup(); setAccount(null); vi.unstubAllGlobals(); });
+afterEach(() => { cleanup(); setAccount(null); vi.unstubAllGlobals(); history.replaceState(null,'','/'); });
+
+it('keeps token and session deletion targets separate and refreshes failed reads after creation', async () => {
+  const rows: {id:string;name:string}[] = [];
+  let tokenReads = 0;
+  const fetcher = vi.fn(async (path: string, init?: RequestInit) => {
+    if (path === '/api/auth/session') return response({...anonymous,user:{id:'owner',email:'owner@example.test',name:'',role:'user',enabled:true}});
+    if (path === '/api/me/tokens' && init?.method === 'POST') {rows.push({id:'token-one',name:'macOS App'}); return response({token:'pq_grade_synthetic'});}
+    if (path === '/api/me/tokens') return ++tokenReads === 1 ? response({},500) : response(rows);
+    if (path === '/api/me/sessions') return response([{id:'session-one',lastSeen:'2026-11-07T00:00:00Z'}]);
+    if (path === '/api/me/tokens/token-one' && init?.method === 'DELETE') {rows.length=0;return response({ok:true});}
+    return response({items:[],hasMore:false});
+  }); vi.stubGlobal('fetch',fetcher);
+  render(<AccountPortal />); const user=userEvent.setup();
+  await user.click(await screen.findByRole('button',{name:'账户与安全'}));
+  await screen.findByText('请求失败 (500)');
+  await user.type(screen.getByLabelText('当前密码',{selector:'#token-password'}),'synthetic-password');
+  await user.click(screen.getByRole('button',{name:'创建个人评分令牌'}));
+  const tokenRow=(await screen.findByText('token-one')).closest('tr')!;
+  expect(screen.queryByText('请求失败 (500)')).toBeNull();
+  await user.click(within(tokenRow).getByRole('button',{name:'选择'}));
+  await user.click(within(screen.getByText('session-one').closest('tr')!).getByRole('button',{name:'选择'}));
+  expect(screen.getByLabelText('令牌编号')).toHaveProperty('value','token-one');
+  expect(screen.getByLabelText('会话编号')).toHaveProperty('value','session-one');
+  await user.click(screen.getByRole('button',{name:'撤销指定令牌'}));
+  await waitFor(()=>expect(screen.queryByText('token-one')).toBeNull());
+  expect(screen.queryByLabelText('新评分令牌')).toBeNull();
+  expect(fetcher.mock.calls.some(([path,init])=>path==='/api/me/tokens/token-one'&&init?.method==='DELETE')).toBe(true);
+});
+
+it('does not show a reset link for a different selected user when a response is delayed', async () => {
+  history.replaceState(null,'','/admin');
+  let finish!: (value:Response)=>void;
+  const pending=new Promise<Response>(resolve=>{finish=resolve;});
+  const users=['one','two'].map(id=>({id,email:`${id}@example.test`,name:'',role:'user',enabled:true,limits:{}}));
+  const fetcher=vi.fn(async(path:string,_init?:RequestInit)=>{
+    if(path==='/api/auth/session')return response({...anonymous,user:{...users[0],id:'admin',email:'admin@example.test',role:'admin'}});
+    if(path==='/api/admin/settings')return response({registrationEnabled:true,freePages:50,modelCalls:1000,tencentCalls:50,activeTasks:2});
+    if(path.startsWith('/api/admin/users?'))return response(users);
+    if(path.endsWith('/reset-link'))return pending;
+    return response({ok:true});
+  });vi.stubGlobal('fetch',fetcher);
+  render(<AccountPortal />);const user=userEvent.setup();
+  await user.click(within((await screen.findByText('one@example.test')).closest('tr')!).getByRole('button',{name:'选择'}));
+  await user.type(screen.getByLabelText('管理员当前密码',{selector:'#reset-admin-password'}),'synthetic-password');
+  await user.click(screen.getByRole('button',{name:'生成一次性重置链接'}));
+  await user.click(within(screen.getByText('two@example.test').closest('tr')!).getByRole('button',{name:'选择'}));
+  await act(async()=>{finish(response({path:'/reset-password#one-only'}));await pending;});
+  expect(screen.getByLabelText('用户编号',{selector:'#user-id'})).toHaveProperty('value','two');
+  expect(screen.getByLabelText('用户编号',{selector:'#user-id'})).toHaveProperty('readOnly',true);
+  expect(screen.queryByLabelText('一次性重置链接')).toBeNull();
+  history.replaceState(null,'','/');
+});
+
+it('fetches the next administrator task page when paging without starting work', async () => {
+  history.replaceState(null,'','/admin');
+  const {summary}=await import('./test-fixtures');
+  const fetcher=vi.fn(async(path:string,_init?:RequestInit)=>{
+    if(path==='/api/auth/session')return response({...anonymous,user:{id:'admin',email:'admin@example.test',name:'',role:'admin',enabled:true}});
+    if(path==='/api/admin/settings')return response({registrationEnabled:true,freePages:50,modelCalls:1000,tencentCalls:50,activeTasks:2});
+    if(path.startsWith('/api/admin/users'))return response([]);
+    if(path.startsWith('/api/admin/document-tasks?'))return response({items:[{...summary,fileName:path.includes('offset=20')?'second.txt':'first.txt'}],hasMore:!path.includes('offset=20')});
+    return response({});
+  });vi.stubGlobal('fetch',fetcher);
+  render(<AccountPortal />);const user=userEvent.setup();
+  await user.click(await screen.findByRole('button',{name:'任务'}));
+  await user.click(screen.getByRole('button',{name:'读取任务'}));
+  await screen.findByText(/first.txt/);
+  await user.click(screen.getByRole('button',{name:'下一页'}));
+  await screen.findByText(/second.txt/);
+  expect(fetcher.mock.calls.every(([,init])=>!init?.method||init.method==='GET')).toBe(true);
+  history.replaceState(null,'','/');
+});
+
+it('keeps administrator task details bound to the latest selection after a delayed read', async () => {
+  history.replaceState(null,'','/admin');
+  const {task,preview,summary,taskId,newTaskId}=await import('./test-fixtures');
+  let finish!: (value:Response)=>void;
+  const delayed=new Promise<Response>(resolve=>{finish=resolve;});
+  const fetcher=vi.fn(async(path:string,_init?:RequestInit)=>{
+    if(path==='/api/auth/session')return response({...anonymous,user:{id:'admin',email:'admin@example.test',name:'',role:'admin',enabled:true}});
+    if(path==='/api/admin/settings')return response({registrationEnabled:true,freePages:50,modelCalls:1000,tencentCalls:50,activeTasks:2});
+    if(path.startsWith('/api/admin/users'))return response([]);
+    if(path.startsWith('/api/admin/document-tasks?'))return response({items:[summary,{...summary,threadId:newTaskId,fileName:'second.docx'}],hasMore:false});
+    if(path.includes('/preview'))return response({...preview,threadId:path.includes(newTaskId)?newTaskId:taskId});
+    if(path===`/api/admin/document-tasks/${taskId}`)return delayed;
+    return response({...task,threadId:newTaskId,fileName:'second.docx'});
+  });vi.stubGlobal('fetch',fetcher);
+  render(<AccountPortal />);const user=userEvent.setup();
+  await user.click(await screen.findByRole('button',{name:'任务'}));
+  await user.click(await screen.findByRole('button',{name:taskId}));
+  await user.click(screen.getByRole('button',{name:newTaskId}));
+  await screen.findByRole('heading',{name:'second.docx'});
+  await act(async()=>{finish(response(task));await delayed;});
+  expect(screen.queryByRole('heading',{name:'sample.docx'})).toBeNull();
+  expect(screen.getByRole('heading',{name:'second.docx'})).toBeTruthy();
+  expect(fetcher.mock.calls.every(([,init])=>!init?.method||init.method==='GET')).toBe(true);
+});
 it('discards an older session response after a newer account reload completes', async () => {
   const {capabilities, taskId} = await import('./test-fixtures');
   let finishFirst!: (value: Response) => void;
@@ -105,11 +202,15 @@ it('keeps pending records bound to the original account and stops its client aft
   localStorage.clear();
 });
 it('preserves selected source files across portal pages without submitting them', async () => {
-  const { capabilities, taskId } = await import('./test-fixtures');
+  const { capabilities, taskId, summary, task, preview } = await import('./test-fixtures');
+  let accountId='navigation';
   const fetcher = vi.fn(async (path: string) => {
-    if (path === '/api/auth/session') return response({ ...anonymous, user: { id:'navigation', email:'one@example.test', name:'', role:'user', enabled:true } });
+    if (path === '/api/auth/session') return response({ ...anonymous, user: { id:accountId, email:`${accountId}@example.test`, name:'', role:'user', enabled:true } });
     if (path === '/api/import-capabilities') return response(capabilities);
     if (path === '/api/import-settings') return response({ revision:taskId, settings:{ tencentConcurrency:5, readRetryCount:2, retryBaseSeconds:1, deduplicateQuestions:false, generateAnswers:false } });
+    if (path.startsWith('/api/me/banks')) return response({items:[summary],hasMore:false});
+    if (path === `/api/document-tasks/${taskId}`) return response(task);
+    if (path.includes(`/api/document-tasks/${taskId}/preview`)) return response(preview);
     if (path.startsWith('/api/me/usage')) return response({ limits:{freePages:50,modelCalls:1000,tencentCalls:50,activeTasks:2},usedPages:50,remainingPages:0,daily:[],calls:[{call_key:'unknown-call',scope:'grade:test',kind:'modelCalls',day:'2026-11-07',record:{status:'started',usageStatus:'unknown'}}] });
     return response({items:[],hasMore:false});
   }); vi.stubGlobal('fetch',fetcher);
@@ -122,5 +223,16 @@ it('preserves selected source files across portal pages without submitting them'
   expect(screen.getByText(/免费页数已用尽/)).toBeTruthy();
   await user.click(screen.getByRole('button',{name:'导入工作区'}));
   expect(screen.getByText('pending-portal.txt')).toBeTruthy();
+  await user.click(screen.getByRole('button',{name:'我的题库'}));
+  await user.click(await screen.findByRole('button',{name:'查看结果与下载'}));
+  await screen.findByRole('heading',{name:'sample.docx'});
+  await user.click(screen.getByRole('link',{name:'开始导入'}));
+  expect(screen.getByText('pending-portal.txt')).toBeTruthy();
+  const taskReads=fetcher.mock.calls.filter(([path])=>path===`/api/document-tasks/${taskId}`).length;
+  accountId='switched';
+  act(()=>{window.dispatchEvent(new Event('practiq-session-expired'));});
+  await screen.findByText('switched@example.test');
+  await screen.findByRole('main',{name:'开始导入'});
+  expect(fetcher.mock.calls.filter(([path])=>path===`/api/document-tasks/${taskId}`)).toHaveLength(taskReads);
   expect(fetcher.mock.calls.some(([path]) => path === '/api/uploads' || path === '/api/document-tasks')).toBe(false);
 });

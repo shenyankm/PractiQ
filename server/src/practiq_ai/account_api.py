@@ -69,6 +69,9 @@ async def register(value: AccountCredentials, request: Request, response: Respon
         async with auth.db().transaction() as conn:
             defaults = await (await conn.execute('SELECT value FROM auth_settings WHERE id=1')).fetchone()
             assert defaults is not None
+            ready = await (await conn.execute("SELECT 1 FROM auth_users WHERE role='admin' AND enabled LIMIT 1")).fetchone()
+            if not defaults['value']['registrationEnabled'] or not ready:
+                raise HTTPException(403, {'code': 'REGISTRATION_DISABLED'})
             user = await (await conn.execute("INSERT INTO auth_users(id,email,password_hash,role,limits) VALUES(%s,%s,%s,'user',%s) RETURNING *", (str(uuid4()), value.email.lower(), encoded, Jsonb({'freePages': defaults['value'].get('freePages', 50)})))).fetchone()
     except UniqueViolation as exc:
         raise HTTPException(409, {'code': 'EMAIL_UNAVAILABLE'}) from exc
