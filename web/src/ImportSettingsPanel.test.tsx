@@ -63,24 +63,19 @@ it("saves service settings with a revision and reloads persisted values without 
   const user = userEvent.setup();
   render(<ImportSettingsPanel client={new Client(true)} />);
   await screen.findByLabelText("腾讯识别并发上限");
-  for (const label of ["自动去重", "AI 生成答案与解析"]) {
-    const control = screen.getByRole("switch", { name: label });
-    expect(control.getAttribute("aria-checked")).toBe("false");
-    await user.click(control);
-  }
+  expect(screen.queryAllByRole("switch")).toHaveLength(0);
   for (const [label, value] of [["腾讯识别并发上限", "2"], ["读取失败重试次数", "0"], ["初始退避间隔（秒）", "1.5"]]) {
     await user.clear(screen.getByLabelText(label)); await user.type(screen.getByLabelText(label), value);
   }
   await screen.findByText("设置已保存");
   const writes = fetcher.mock.calls.filter(([, init]) => init.method === "PUT");
   expect(writes).toHaveLength(1);
-  expect(JSON.parse(writes[0][1].body as string)).toEqual({ revision: taskId, settings: { ...initial.settings, tencentConcurrency: 2, readRetryCount: 0, retryBaseSeconds: 1.5, deduplicateQuestions: true, generateAnswers: true } });
+  expect(JSON.parse(writes[0][1].body as string)).toEqual({ revision: taskId, settings: { ...initial.settings, tencentConcurrency: 2, readRetryCount: 0, retryBaseSeconds: 1.5 } });
   expect(persist).not.toHaveBeenCalled();
   cleanup(); render(<ImportSettingsPanel client={new Client(true)} />);
   expect(await screen.findByLabelText("腾讯识别并发上限")).toHaveProperty("value", "2");
   expect(screen.getByLabelText("读取失败重试次数")).toHaveProperty("value", "0");
-  expect(screen.getByRole("switch", { name: "自动去重" }).getAttribute("aria-checked")).toBe("true");
-  expect(screen.getByRole("switch", { name: "AI 生成答案与解析" }).getAttribute("aria-checked")).toBe("true");
+  expect(screen.queryAllByRole("switch")).toHaveLength(0);
   expect(fetcher.mock.calls.every(([path]) => path === "/api/admin/import-settings")).toBe(true);
 });
 

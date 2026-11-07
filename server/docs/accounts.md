@@ -4,6 +4,8 @@ The multi-user service uses PostgreSQL schema 6 and same-origin session cookies.
 The first release sends no email. Email is a case-insensitive, unverified login
 identifier, not evidence of identity. Public registration is enabled after an
 operator has bootstrapped an administrator and can be disabled at `/admin`.
+Registration policy and administrator availability are rechecked in the account
+creation transaction, including requests already hashing a password when policy changes.
 Passwords require 12–128 characters and use Argon2id.
 
 ## Fresh deployment (default)
@@ -34,11 +36,17 @@ administrator session; configure private monitoring authentication accordingly.
 
 Users can import sources, read their own task history and results, download ZIPs,
 change personal import defaults, inspect usage, and manage account security.
-Recognition concurrency/retry/backoff belong to administrators. Browser sessions
-expire after seven days or 24 idle hours. Logout, session revocation and account
+Recognition concurrency/retry/backoff belong to administrators.
+The administration execution panel edits those shared numeric controls; answer
+generation and deduplication switches belong to each user's import preferences.
+Browser sessions expire after seven days or 24 idle hours. Logout, session revocation and account
 changes never start a model. No authentication token is stored in browser storage.
 Recovery hints and correction drafts are partitioned by user. Old unowned browser
 records are preserved and are not automatically adopted.
+Opening a saved bank keeps the existing workspace and selected source files;
+unsaved or uncertain corrections still require the existing leave/recovery action.
+Token and session revocation use separate targets. Administration edits the selected
+user's read-only identifier, and reset links remain bound to their selected target account.
 
 Changing a password or login email requires the current password and revokes all
 sessions and grading tokens. Without email verification, an administrator must

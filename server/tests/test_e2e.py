@@ -125,6 +125,60 @@ def wait_task(client, path, expected):
         time.sleep(0.05)
 
 
+def test_e2e_account_and_owned_task_crud_without_passive_model_work(service):
+    start, calls = service
+    password = 'synthetic-crud-password'
+    with start() as admin, httpx.Client(base_url=admin.base_url, trust_env=False, timeout=10) as alice, httpx.Client(base_url=admin.base_url, trust_env=False, timeout=10) as bob:
+        for client, email in ((alice, 'alice@example.test'), (bob, 'bob@example.test')):
+            session = client.get('/api/auth/session').json()
+            registered = client.post('/api/auth/register', json={'email': email, 'password': password}, headers={'X-CSRF-Token': session['csrf']})
+            assert registered.status_code == 200, registered.text
+            client.headers['X-CSRF-Token'] = registered.json()['csrf']
+        assert alice.patch('/api/me/profile', json={'currentPassword': password, 'name': 'CRUD Alice'}).status_code == 200
+        assert alice.get('/api/auth/session').json()['user']['name'] == 'CRUD Alice'
+        token = alice.post('/api/me/tokens', json={'currentPassword': password, 'name': 'CRUD App'}).json()['token']
+        token_id = alice.get('/api/me/tokens').json()[0]['id']
+        assert token not in alice.get('/api/me/tokens').text
+        assert bob.delete('/api/me/tokens/' + token_id).status_code == 200
+        assert alice.get('/api/maintenance', headers={'Authorization': 'Bearer ' + token}).status_code == 200
+        assert alice.delete('/api/me/tokens/' + token_id).status_code == 200
+        assert alice.get('/api/maintenance', headers={'Authorization': 'Bearer ' + token}).status_code == 401
+        data = b'Synthetic recovery question'
+        document = upload(alice, data)
+        assert not calls.exists(), 'Account CRUD and uploading must not invoke a model'
+        created = alice.post('/api/document-tasks', json={'requestId': str(uuid4()), 'document': document})
+        assert created.status_code == 202, created.text
+        task_id = created.json()['threadId']
+        path = '/api/document-tasks/' + task_id
+        detail = wait_task(alice, path, 'COMPLETED')
+        assert alice.get('/api/document-tasks').json()['items'][0]['threadId'] == task_id
+        assert alice.get('/api/me/banks').json()['items'][0]['threadId'] == task_id
+        assert bob.get('/api/document-tasks').json()['items'] == []
+        reference = {key: document[key] for key in ('objectKey', 'sha256', 'sizeBytes', 'mediaType')}
+        assert bob.get(path).status_code == 404
+        assert bob.post('/api/artifacts/read?thread_id=' + task_id, json=reference).status_code == 404
+        assert bob.delete(path).status_code == 404
+        assert admin.get('/api/admin' + path.removeprefix('/api')).status_code == 200
+        revision = str(uuid4())
+        correction = {'requestId': revision, 'checkpointId': detail['checkpointId'], 'expectedRevision': None, 'questionIndex': 0,
+                      'question': {**detail['result']['questions'][0], 'stem': 'Human reviewed synthetic question'}}
+        assert bob.put(path + '/corrections', json=correction).status_code == 404
+        saved = alice.put(path + '/corrections', json=correction)
+        assert saved.status_code == 200, saved.text
+        assert alice.get(path + '/corrections').json() == saved.json()
+        exported = alice.get(path + '/export', params={'checkpoint_id': detail['checkpointId'], 'revision_id': revision})
+        assert exported.status_code == 200, exported.text
+        with ZipFile(BytesIO(exported.content)) as archive:
+            assert json.loads(archive.read('questions.json'))['result']['questions'][0]['stem'] == correction['question']['stem']
+        assert alice.get('/api/me/usage').json()['usedPages'] == 1
+        assert alice.delete(path).status_code == 200
+        assert alice.get(path).status_code == 404
+        assert alice.get('/api/document-tasks').json()['items'] == []
+        assert alice.get('/api/me/banks').json()['items'] == []
+        assert alice.get('/api/me/usage').json()['usedPages'] == 1
+        assert len(calls.read_text().splitlines()) == 1
+
+
 @pytest.mark.parametrize("kind", ["text", "image", "pdf"])
 def test_e2e_upload_parse_artifacts_and_restart(service, kind):
     start, calls = service

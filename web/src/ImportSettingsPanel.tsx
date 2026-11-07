@@ -56,12 +56,12 @@ export function ImportSettingsPanel({ client, onSettingsChange, onPendingChange 
     return () => clearTimeout(timer);
   }, [client, snapshot, draft, loading, saving, changed, valid, error, onSettingsChange]);
   return <section className="settings-panel" aria-labelledby="execution-settings-heading">
-    <div className="section-heading"><div><h2 id="execution-settings-heading">识别与恢复</h2><p>{client.administrative ? "整个服务共享此设置。" : "导入偏好仅应用于你的后续任务。识别执行参数由管理员设置。"}</p></div><Button variant="outline" disabled={loading || saving} onClick={() => setRevision(value => value + 1)}><RefreshCw />重新读取设置</Button></div>
+    <div className="section-heading"><div><h2 id="execution-settings-heading">识别与恢复</h2><p>{client.administrative ? "全服务共享识别并发与读取恢复参数。自动去重和答案生成由用户在导入偏好中选择。" : "导入偏好仅应用于你的后续任务。识别执行参数由管理员设置。"}</p></div><Button variant="outline" disabled={loading || saving} onClick={() => setRevision(value => value + 1)}><RefreshCw />重新读取设置</Button></div>
     {loading && <p role="status">正在读取导入设置…</p>}
     {error && <p className="error-banner" role="alert">{error}</p>}
     {snapshot && <form onSubmit={event => event.preventDefault()}>
       <fieldset disabled={loading} className="settings-fields">
-        {([["deduplicateQuestions", "自动去重"], ["generateAnswers", "AI 生成答案与解析"]] as const).map(([key, label]) =>
+        {!client.administrative && ([["deduplicateQuestions", "自动去重"], ["generateAnswers", "AI 生成答案与解析"]] as const).map(([key, label]) =>
           <div className="setting-row" key={key}><label htmlFor={key}><strong>{label}</strong></label><Switch id={key} checked={draft[key]} onCheckedChange={checked => { setDraft(previous => ({ ...previous, [key]: checked })); setSaved(false); }} /></div>)}
         {([
           ["tencentConcurrency", "腾讯识别并发上限", 1, 5, 1],

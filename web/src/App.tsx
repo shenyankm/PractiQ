@@ -59,7 +59,7 @@ function pageFromHash(): Page | undefined {
 const dateFormatter = new Intl.DateTimeFormat("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false });
 const dateLabel = (value: string) => { const date = new Date(value); return Number.isNaN(date.getTime()) ? "时间未知" : dateFormatter.format(date); };
 
-export default function App({ initialTaskId, hideSkipLink = false, focusMain = false }: { initialTaskId?: string; hideSkipLink?: boolean; focusMain?: boolean } = {}) {
+export default function App({ requestedTask, hideSkipLink = false, focusMain = false }: { requestedTask?: {id:string}; hideSkipLink?: boolean; focusMain?: boolean } = {}) {
   useLayoutEffect(() => { if (focusMain) document.getElementById("main-content")?.focus(); }, [focusMain]);
   const correctionLeaveGuard = useRef<(() => boolean) | null>(null);
   const registerCorrectionGuard = useCallback((guard: (() => boolean) | null) => { correctionLeaveGuard.current = guard; }, []);
@@ -69,7 +69,7 @@ export default function App({ initialTaskId, hideSkipLink = false, focusMain = f
     return false;
   }
   function refreshDetail() { if (leaveCorrection()) setDetailRevision(value => value + 1); }
-  const [page, setPage] = useState<Page>(() => initialTaskId ? "records" : pageFromHash() ?? "import");
+  const [page, setPage] = useState<Page>(() => requestedTask ? "records" : pageFromHash() ?? "import");
   // Wake the existing pollers on workspace changes without discarding their caches.
   const recordsVisible = useRef(page === "records");
   const listWake = useRef<(() => void) | null>(null);
@@ -98,7 +98,8 @@ export default function App({ initialTaskId, hideSkipLink = false, focusMain = f
   const cursor = cursors[offset / 20];
   const [filter, setFilter] = useState("");
   const [listRevision, setListRevision] = useState(0);
-  const [selected, setSelected] = useState<string | null>(initialTaskId ?? null);
+  const [selected, setSelected] = useState<string | null>(requestedTask?.id ?? null);
+  const handledTask = useRef(requestedTask);
   function focusTask() {
     const panel = document.getElementById("task-detail");
     if (panel && !panel.closest("[hidden]")) { panel.focus(); panel.scrollIntoView({ block: "start" }); }
@@ -117,6 +118,18 @@ export default function App({ initialTaskId, hideSkipLink = false, focusMain = f
   const [detailRevision, setDetailRevision] = useState(0);
   const [busy, setBusy] = useState(false);
   const [operationError, setOperationError] = useState<string | null>(null);
+  useEffect(() => {
+    if (!requestedTask || handledTask.current === requestedTask) return;
+    handledTask.current = requestedTask;
+    if (requestedTask.id !== selected && correctionLeaveGuard.current?.() === false) {
+      setOperationError("请先处理当前校对：保存或明确放弃草稿；未确认的保存请先重新读取修订。");
+      return;
+    }
+    setSelected(requestedTask.id);
+    setPage("records");
+    setDeleteTarget(null);
+    window.location.hash = "records";
+  }, [requestedTask, selected]);
   const [notice, setNotice] = useState<string | null>(null);
   const [pendingImports, setPendingImports] = useState<DocumentTaskCreate[]>([]);
   const [pendingReparses, setPendingReparses] = useState<ReparseIntent[]>([]);

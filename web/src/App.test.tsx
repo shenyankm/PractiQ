@@ -9,10 +9,23 @@ beforeEach(() => window.history.replaceState(null, "", "/"));
 
 it("opens the requested saved task directly without a list selection or mutation", async () => {
   const http = fakeHTTP();
-  render(<App initialTaskId={taskId} />);
+  render(<App requestedTask={{id:taskId}} />);
   expect(await screen.findByRole('heading', {name:'sample.docx'})).toBeTruthy();
   expect(http.calls.some(call => call.url === `/api/document-tasks/${taskId}`)).toBe(true);
   expect(http.calls.every(call => call.method === 'GET')).toBe(true);
+});
+
+it("opens a repeated saved-bank request after manually selecting a different task", async () => {
+  const http=fakeHTTP();
+  http.records.set(newTaskId,{...task,threadId:newTaskId,fileName:'other-bank.docx'});
+  const requestedTask={id:taskId};
+  const view=render(<App requestedTask={requestedTask} />);const user=userEvent.setup();
+  await screen.findByRole('heading',{name:'sample.docx'});
+  await user.click(within(screen.getByText('other-bank.docx').closest('tr')!).getByRole('button',{name:'管理任务'}));
+  await screen.findByRole('heading',{name:'other-bank.docx'});
+  view.rerender(<App requestedTask={{id:taskId}} />);
+  await screen.findByRole('heading',{name:'sample.docx'});
+  expect(http.calls.every(call=>call.method==='GET')).toBe(true);
 });
 
 it("opens the import workspace automatically without a service token", async () => {
