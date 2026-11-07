@@ -11,17 +11,26 @@ export function Payments() {
   const read = useCallback(async () => {
     const saved = await accountRequest<PaymentOrder[]>("/api/me/payments");
     setOrders(saved);
-    const original = localStorage.getItem(key);
-    if (original && saved.some(order => order.requestId === original && ["PAID", "CLOSED"].includes(order.state))) { localStorage.removeItem(key); }
+    for (const order of saved.filter(order => ["PAID", "CLOSED"].includes(order.state))) {
+      for (const recoveryKey of [key, `${key}.${order.environment}`]) {
+        if (localStorage.getItem(recoveryKey) === order.requestId) localStorage.removeItem(recoveryKey);
+      }
+    }
     try { setOffer(await accountRequest<PaymentOffer>("/api/me/payments/offer")); }
     catch { setOffer(null); setError("支付当前未开通或配置不可用，已保存订单仍可查看。"); }
   }, [key]);
   async function checkout() {
-    const saved = localStorage.getItem(key);
+    if (!offer) throw new Error("Payment offer unavailable");
+    const recoveryKey = `${key}.${offer.environment}`;
+    const legacy = localStorage.getItem(key);
+    const legacyOrder = legacy ? orders.find(order => order.requestId === legacy) : undefined;
+    const current = localStorage.getItem(recoveryKey);
+    if (!current && legacy && !legacyOrder) throw new Error("Unknown legacy payment environment");
+    const saved = current || (legacyOrder?.environment === offer.environment ? legacy : null);
     if (saved && !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(saved)) throw new Error("Invalid payment recovery record");
     const id = saved || crypto.randomUUID();
-    localStorage.setItem(key, id);
-    if (localStorage.getItem(key) !== id) throw new Error("Payment request was not saved");
+    localStorage.setItem(recoveryKey, id);
+    if (localStorage.getItem(recoveryKey) !== id) throw new Error("Payment request was not saved");
     await nativeBridge()!.checkout(id);
   }
   useEffect(() => { let active = true; void read().catch(() => { if (active) setError("订单读取失败，请手动刷新。"); }); return () => { active = false; }; }, [read]);

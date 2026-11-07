@@ -298,7 +298,7 @@ impl Snapshot {
 }
 
 pub(crate) fn validate_path(path: &str, method: &Method) -> Result<()> {
-    if path.len() > 16 * 1024
+    if path.len() > 64 * 1024
         || !path.starts_with("/api/")
         || path.contains(['#', '\\', '\r', '\n'])
     {
@@ -430,34 +430,78 @@ pub(crate) fn fetch(
         context,
         path == "/api/auth/session" && method == Method::GET,
     )?;
-    let response = match snapshot.send(method, path, body, None) {
-        Ok(value) => value,
-        Err(failure) => {
-            if path.split('?').next() == Some("/api/auth/logout") {
-                state.clear(&snapshot, &credential(app, &snapshot.origin)?)?;
-            }
-            return Err(failure);
+    let logout = path.split('?').next() == Some("/api/auth/logout");
+    let result = (|| {
+        let response = snapshot.send(method, path, body, None)?;
+        let status = response.status().as_u16();
+        let media_type = response
+            .headers()
+            .get(header::CONTENT_TYPE)
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("application/octet-stream")
+            .to_owned();
+        let cookie_name = if snapshot.origin.starts_with("https://") {
+            "__Host-practiq_session="
+        } else {
+            "practiq_session="
+        };
+        let cookie = response
+            .headers()
+            .get_all(header::SET_COOKIE)
+            .iter()
+            .filter_map(|v| v.to_str().ok())
+            .find_map(|v| v.split(';').next().filter(|v| v.starts_with(cookie_name)))
+            .map(str::to_owned);
+        let mut bytes = read_response(response)?;
+        state.current(&snapshot)?;
+        if matches!(
+            path.split('?').next().unwrap_or(""),
+            "/api/auth/session" | "/api/auth/login" | "/api/auth/register"
+        ) && (200..300).contains(&status)
+        {
+            let value: Value =
+                serde_json::from_slice(&bytes).map_err(|_| error("CLOUD_RESPONSE_INVALID"))?;
+            let value = state.accept(
+                &snapshot,
+                cookie,
+                value,
+                &credential(app, &snapshot.origin)?,
+            )?;
+            bytes = serde_json::to_vec(&value).map_err(|_| error("CLOUD_RESPONSE_INVALID"))?;
+        } else if (status == 401
+            && !matches!(
+                path.split('?').next(),
+                Some("/api/auth/login" | "/api/auth/register")
+            ))
+            && !logout
+        {
+            state.clear(&snapshot, &credential(app, &snapshot.origin)?)?;
         }
-    };
-    let status = response.status().as_u16();
-    let media_type = response
-        .headers()
-        .get(header::CONTENT_TYPE)
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream")
-        .to_owned();
-    let cookie_name = if snapshot.origin.starts_with("https://") {
-        "__Host-practiq_session="
+        Ok(json!({"status":status,"mediaType":media_type,"bytes":STANDARD.encode(bytes)}))
+    })();
+    if logout {
+        finish_logout(
+            state,
+            &snapshot,
+            &credential(app, &snapshot.origin)?,
+            result,
+        )
     } else {
-        "practiq_session="
-    };
-    let cookie = response
-        .headers()
-        .get_all(header::SET_COOKIE)
-        .iter()
-        .filter_map(|v| v.to_str().ok())
-        .find_map(|v| v.split(';').next().filter(|v| v.starts_with(cookie_name)))
-        .map(str::to_owned);
+        result
+    }
+}
+
+fn finish_logout<T>(
+    state: &State,
+    snapshot: &Snapshot,
+    credential: &dyn Credential,
+    result: Result<T>,
+) -> Result<T> {
+    state.clear(snapshot, credential)?;
+    result
+}
+
+fn read_response(response: reqwest::blocking::Response) -> Result<Vec<u8>> {
     if response
         .content_length()
         .is_some_and(|n| n > MAX_RESPONSE as u64)
@@ -472,31 +516,7 @@ pub(crate) fn fetch(
     if bytes.len() > MAX_RESPONSE {
         return Err(error("CLOUD_RESPONSE_TOO_LARGE"));
     }
-    state.current(&snapshot)?;
-    if matches!(
-        path.split('?').next().unwrap_or(""),
-        "/api/auth/session" | "/api/auth/login" | "/api/auth/register"
-    ) && (200..300).contains(&status)
-    {
-        let value: Value =
-            serde_json::from_slice(&bytes).map_err(|_| error("CLOUD_RESPONSE_INVALID"))?;
-        let value = state.accept(
-            &snapshot,
-            cookie,
-            value,
-            &credential(app, &snapshot.origin)?,
-        )?;
-        bytes = serde_json::to_vec(&value).map_err(|_| error("CLOUD_RESPONSE_INVALID"))?;
-    } else if (status == 401
-        && !matches!(
-            path.split('?').next(),
-            Some("/api/auth/login" | "/api/auth/register")
-        ))
-        || path.split('?').next() == Some("/api/auth/logout")
-    {
-        state.clear(&snapshot, &credential(app, &snapshot.origin)?)?;
-    }
-    Ok(json!({"status":status,"mediaType":media_type,"bytes":STANDARD.encode(bytes)}))
+    Ok(bytes)
 }
 
 pub(crate) fn request(app: AppHandle, value: Request, context: Option<Context>) -> Result<Value> {
@@ -580,6 +600,86 @@ mod tests {
     }
     fn test_credential() -> keyring::Entry {
         keyring::Entry::new_with_credential(Box::new(keyring::mock::MockCredential::default()))
+    }
+    #[test]
+    fn export_paths_cover_the_supported_two_thousand_question_selection() {
+        let mut path = "/api/document-tasks/11111111-1111-4111-8111-111111111111/export?checkpoint_id=checkpoint&scope=full".to_owned();
+        for index in 0..2000 {
+            path.push_str(&format!("&question_index={index}"));
+        }
+        assert!(path.len() > 16 * 1024 && path.len() < 64 * 1024);
+        assert!(validate_path(&path, &Method::GET).is_ok());
+        path.push_str(&"x".repeat(64 * 1024));
+        assert!(validate_path(&path, &Method::GET).is_err());
+    }
+    #[test]
+    fn logout_clears_credentials_when_a_response_body_is_truncated_or_oversized() {
+        use std::net::TcpListener;
+        for headers in [
+            "Content-Length: 100",
+            "Content-Length: 67108865",
+            "Transfer-Encoding: chunked",
+        ] {
+            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            let address = listener.local_addr().unwrap();
+            let headers = headers.to_owned();
+            let server = std::thread::spawn(move || {
+                let (mut socket, _) = listener.accept().unwrap();
+                let mut request = [0; 4096];
+                assert!(socket.read(&mut request).unwrap() > 0);
+                socket
+                    .write_all(
+                        format!(
+                            "HTTP/1.1 502 Bad Gateway\r\n{headers}\r\nConnection: close\r\n\r\nx"
+                        )
+                        .as_bytes(),
+                    )
+                    .unwrap();
+            });
+            let dir = tempfile::tempdir().unwrap();
+            let state = State::new(dir.path().into());
+            state.configure(format!("http://{address}")).unwrap();
+            state.lock().unwrap().secret = Secret {
+                cookie: "practiq_session=retained".into(),
+                csrf: "a".repeat(64),
+            };
+            let before = snapshot(&state);
+            let entry = test_credential();
+            entry.write(Some("retained")).unwrap();
+            let response = before
+                .send(Method::POST, "/api/auth/logout", None, None)
+                .unwrap();
+            let result = read_response(response);
+            assert!(result.is_err());
+            assert!(finish_logout(&state, &before, &entry, result).is_err());
+            assert!(entry.read().unwrap().is_none());
+            assert!(state.lock().unwrap().secret.cookie.is_empty());
+            server.join().unwrap();
+        }
+    }
+    #[test]
+    fn failed_logout_does_not_clear_a_newer_account_session() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = State::new(dir.path().into());
+        state.configure("https://cloud.test".into()).unwrap();
+        let before = snapshot(&state);
+        let entry = test_credential();
+        state
+            .accept(
+                &before,
+                Some("__Host-practiq_session=new-login".into()),
+                json!({"user":{"id":"new-user"},"csrf":"a".repeat(64)}),
+                &entry,
+            )
+            .unwrap();
+        let result: Result<Vec<u8>> = Err(error("CLOUD_RESPONSE_INVALID"));
+        assert_eq!(
+            finish_logout(&state, &before, &entry, result)
+                .unwrap_err()
+                .code,
+            "CLOUD_ACCOUNT_CHANGED"
+        );
+        assert!(entry.read().unwrap().unwrap().contains("new-login"));
     }
     #[test]
     fn queued_actions_are_bound_to_the_origin_and_session_generation() {

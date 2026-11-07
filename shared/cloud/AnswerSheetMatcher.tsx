@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { DocumentAnswerMatches, DocumentCorrections, DocumentTaskDetail, DocumentTaskSummary, ParsedQuestion } from "./contracts.generated";
 import type { AnswerAssociation } from "./CorrectionWorkbench";
-import { Client } from "./api";
+import { Client, type SourceFile } from "./api";
+import { nativeBridge } from "./transport";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Select, SelectOption } from "./components/ui/select";
@@ -16,7 +17,7 @@ export function AnswerSheetMatcher({ task, questions, client, unavailable, onAss
   const [matches, setMatches] = useState<DocumentAnswerMatches | null>(null);
   const [choices, setChoices] = useState<Record<number, string>>({});
   const [replace, setReplace] = useState<Record<number, boolean>>({});
-  const [file, setFile] = useState<File | null>(null);
+  const [file, setFile] = useState<SourceFile | null>(null);
   const [pendingImport, setPendingImport] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -72,7 +73,13 @@ export function AnswerSheetMatcher({ task, questions, client, unavailable, onAss
   }
   return <section className="space-y-3" aria-label="关联答案卷">
     <h4>关联答案卷</h4><p>分别导入题目和答案卷，按印刷题号提出候选。重号、缺号和格式冲突需人工核对；采用后仍需在校对编辑器保存。</p>
-    <label className="grid gap-1.5">选择答案卷文件<Input type="file" disabled={busy || unavailable || !!pendingImport} onChange={event => setFile(event.target.files?.[0] ?? null)} /></label>
+    {nativeBridge() ? <div><Button variant="outline" disabled={busy || unavailable || !!pendingImport} onClick={async () => {
+      if (busy || unavailable || pendingImport) return;
+      setBusy(true); setError(""); const attempt = ++generation.current;
+      try { const files = await nativeBridge()!.pickSources(); if (!client.active || attempt !== generation.current) return; if (files.length > 1) throw Error("答案卷请一次选择一个文件。"); if (files.length) setFile(files[0]); }
+      catch (e) { if (attempt === generation.current) setError(e instanceof Error ? e.message : "答案卷文件选择失败。"); }
+      finally { if (attempt === generation.current) setBusy(false); }
+    }}>选择答案卷文件</Button>{file && <p>{file.name}</p>}</div> : <label className="grid gap-1.5">选择答案卷文件<Input type="file" disabled={busy || unavailable || !!pendingImport} onChange={event => setFile(event.target.files?.[0] ?? null)} /></label>}
     <Button variant="outline" disabled={busy || unavailable || !file || !!pendingImport} onClick={() => void upload()}>导入答案卷（将调用 AI）</Button>
     {pendingImport && <p>未确认导入请求：{pendingImport} <Button variant="outline" disabled={busy || unavailable} onClick={() => void upload(true)}>沿用原请求恢复答案卷导入</Button></p>}
     <label className="grid gap-1.5">已完成的答案卷任务<Select value={sourceId} disabled={busy || unavailable} onValueChange={value => { generation.current++; setSourceId(value); setSource(null); setMatches(null); }}><SelectOption value="">请选择以答案卷用途导入的文件</SelectOption>{records.filter(record => record.threadId !== task.threadId && record.documentRole === "answers").map(record => <SelectOption key={record.threadId} value={record.threadId}>{record.fileName}</SelectOption>)}{sourceId && !records.some(r => r.threadId === sourceId) && <SelectOption value={sourceId}>新导入的答案卷</SelectOption>}</Select></label>

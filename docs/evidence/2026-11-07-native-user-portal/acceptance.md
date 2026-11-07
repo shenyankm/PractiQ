@@ -63,3 +63,25 @@ Email remains an unverified login identifier with administrator-issued reset
 codes. Payment remains disabled until separately configured and does not refill
 page allowances. See the [cloud workflow](../../guides/cloud-service.md) for rollout
 and recovery, including preservation of old browser-local drafts.
+
+## PR review follow-up
+
+PR #521 identified four integration gaps, corrected before merge:
+
+- Native export URLs now allow a bounded 64 KiB request target, covering the
+  shared API's 2,000 selected-question parameters. The regression exercises the
+  complete selection and rejects an oversized URL.
+- The answer-sheet matcher uses the same native picker/ticket uploader as the
+  main workspace. Selection remains passive; explicit Start submits an answers
+  task with generation disabled. A lost-create-response test retains the same
+  request and avoids uploading twice.
+- Payment recovery IDs are partitioned by environment. Switching from sandbox
+  to production preserves unresolved sandbox evidence without reusing that ID.
+  Legacy ambiguous records remain intact and fail closed.
+- Native logout cleanup runs even if response headers arrive but body reading
+  fails or exceeds its bound. Loopback regressions simulate truncated, oversized
+  and invalid chunked responses; stale logout cannot clear a newer login.
+
+Focused native regressions: 17 passed. Frontend consumer checks and Clippy were
+repeated for these changes. These checks still use substitutes, not real paid
+providers or native dialog acceptance.

@@ -76,8 +76,11 @@ hints/drafts are not silently adopted by a native account.
 The optional existing Alipay web checkout opens a restricted form in the system
 browser; it adds no native payment SDK and does not increase document allowances.
 Return to the App and query the original order. Uncertain creates retain their
-account-scoped request ID across remounts/restarts, and only a matching paid or
-closed receipt releases it. No real payment configuration is required for offline
+account-and-environment-scoped request ID across remounts/restarts, and only a matching paid or
+closed receipt releases it. Sandbox and production recovery IDs remain separate; unresolved old receipts are
+retained when the offer changes. A legacy request without a saved receipt is
+preserved and blocks a new checkout until its environment can be reconciled.
+No real payment configuration is required for offline
 practice. See [Alipay setup](../../server/docs/alipay.md).
 
 Optional service grading retains its separate connection flow. Create a personal
