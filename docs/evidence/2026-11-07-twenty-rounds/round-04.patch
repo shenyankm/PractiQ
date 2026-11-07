@@ -1,0 +1,14 @@
+--- a/server/src/practiq_ai/answer_matching.py
++++ b/server/src/practiq_ai/answer_matching.py
+@@ -57,8 +57,9 @@
+             payload = {'correct': [value for value in re.split(r'[,，、;；\s]+', text.strip()) if value]}
+         elif target.answerMode == 'true_false':
+             labels = {'true': True, 'false': False, '正确': True, '错误': False, '对': True, '错': False, '√': True, '×': False}
+-            if text.strip().lower() in labels:
+-                payload = {'value': labels[text.strip().lower()]}
++            label = text.strip().lower()
++            if label in labels:
++                payload = {'value': labels[label]}
+         elif target.answerMode == 'fill_blank' and target.blankCount == 1:
+             payload = {'answers': [text]}
+         elif target.answerMode == 'ordering':

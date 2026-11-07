@@ -1,0 +1,24 @@
+--- a/server/src/practiq_ai/tencent_bundle.py
++++ b/server/src/practiq_ai/tencent_bundle.py
+@@ -21,6 +21,8 @@
+ MAX_ENTRIES = 2_000
+ MAX_EXPANDED_BYTES = 150 * 1024 * 1024
+ MAX_PAGE_BYTES = 8 * 1024 * 1024
++_IMAGE_ID = re.compile(r"p-(\d+)")
++_IMAGE_PAGE = re.compile(r"\d+")
+ 
+ 
+ def evidence_text(value: Any) -> str:
+@@ -48,10 +50,10 @@
+         def start(name, attrs):
+             if name != "image" or not attrs.get("src"):
+                 return
+-            identifier = re.fullmatch(r"p-(\d+)", attrs.get("id", ""))
++            identifier = _IMAGE_ID.fullmatch(attrs.get("id", ""))
+             pages = attrs.get("page-numbers", "")
+             member = attrs["src"]
+-            if (identifier is None or not re.fullmatch(r"\d+", pages) or member not in member_names
++            if (identifier is None or not _IMAGE_PAGE.fullmatch(pages) or member not in member_names
+                     or not member.lower().endswith((".png", ".jpg", ".jpeg"))):
+                 raise ValueError("Image source must reference a local archive member and one page")
+             key = (int(pages), int(identifier[1]))

@@ -1,0 +1,7 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>收款 · PractiQ</title><link rel="stylesheet" href="/payments/style.css"><script src="/payments/client.js" defer></script></head>
+<body><header><a href="/" class="brand"><img src="/payments/octopus.png" alt="PractiQ 小章鱼" width="44" height="44">PractiQ</a><a href="/">返回工作台</a></header>
+<main><h1>收款与订单</h1><p id="message" role="status" aria-live="polite">正在确认支付结果。请登录后查看自己的订单；无订单时不会发起付款。</p>
+<section aria-labelledby="offer-title" id="offer" hidden><h2 id="offer-title">支付宝收款</h2><p id="offer-detail"></p><p>金额由服务端确定。收款不自动增加文档识别额度；额度由管理员调整。付款结果以服务端查询为准；结果待确认时请勿重复付款。</p><button id="pay" type="button">前往支付宝付款</button></section>
+<section aria-labelledby="orders-title"><h2 id="orders-title">我的订单</h2><button id="refresh" type="button">刷新订单</button><p id="empty">登录后可查看最近 50 笔订单。</p><ul id="orders"></ul></section>
+<p><a href="/login">登录账号</a></p></main></body></html>

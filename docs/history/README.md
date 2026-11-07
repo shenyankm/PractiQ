@@ -17,6 +17,7 @@ These records preserve the result of a particular source revision, workload and 
 
 | Record | Scope |
 | --- | --- |
+| [Twenty rounds, November 7](performance/twenty-rounds-20261107.md) | Twelve retained service CPU optimizations, eight reverted candidates, isolated measurements, unchanged-output and recovery boundaries |
 | [OCR review, November 5](performance/ocr-review-20261105.md) | Twenty optimization/control experiments, eight local changes, output-equivalent CPU/ZIP measurements; live 2/3 strict content gates and final substitute/native acceptance |
 | [Ten rounds, November 5](performance/ten-rounds-20261105.md) | Seven retained source/answer validation optimizations, three reverted experiments, paired CPU/output evidence and passive projection controls |
 | [Unified workflow, November 2](performance/workflow-20261102.md) | Production Web, real Tencent/model and downloaded ZIP through native practice/restore; 3/3 functional chains, 2/3 strict content gates |

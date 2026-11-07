@@ -18,10 +18,12 @@ def _formula_source(text: str, questions: list[ParsedQuestion]) -> tuple[str, st
     heading = ANSWER_HEADING.search(text)
     source = text[:heading.start()] if heading else text
     numbers = {question.id.rsplit(':', 1)[-1] for question in questions if question.id}
-    starts = [match.start() for match in NUMBER.finditer(source) if match[1] in numbers]
-    for question in questions:
-        if question.stem and (position := source.find(question.stem)) >= 0 and source.find(question.stem, position + 1) < 0:
-            starts.append(position)
+    first = next((match.start() for match in NUMBER.finditer(source) if match[1] in numbers), None)
+    starts = [] if first is None else [first]
+    if 0 not in starts:
+        for question in questions:
+            if question.stem and (position := source.find(question.stem)) >= 0 and source.find(question.stem, position + 1) < 0:
+                starts.append(position)
     start = min(starts, default=len(source))
     prefix, source = source[:start], source[start:]
     if heading is None:

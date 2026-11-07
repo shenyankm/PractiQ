@@ -1,0 +1,11 @@
+--- a/server/src/practiq_ai/graphs/source_context.py
++++ b/server/src/practiq_ai/graphs/source_context.py
+@@ -46,7 +46,7 @@
+         # Keep local context first; distant pages need a printed association and
+         # a complete intervening source range. Ambiguity remains human-reviewable.
+         selected = []
+-        for other in [*adjacent, *sorted(linked)]:
++        for other in [*adjacent, *(other for other in range(len(pages)) if other in linked)]:
+             if other in selected:
+                 continue
+             if failed_prefix[max(index, other) + 1] != failed_prefix[min(index, other)]:

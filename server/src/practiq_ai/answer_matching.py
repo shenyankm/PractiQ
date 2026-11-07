@@ -30,19 +30,17 @@ def printed_number(question: ParsedQuestion) -> str | None:
 def match_answers(target: DocumentParseResult, answers: DocumentParseResult) -> list[DocumentAnswerMatch]:
     by_number: dict[str, list[int]] = {}
     counts: dict[str, int] = {}
-    for question in target.questions:
-        if question.answerMode in COMPOSITE_MODES:
-            continue
-        if (number := printed_number(question)) is not None:
+    numbers = [None if question.answerMode in COMPOSITE_MODES else printed_number(question) for question in target.questions]
+    for number in numbers:
+        if number is not None:
             counts[number] = counts.get(number, 0) + 1
     for index, question in enumerate(answers.questions):
         if question.answerPayload is not None and (number := printed_number(question)) is not None:
             by_number.setdefault(number, []).append(index)
     matches = []
-    for index, question in enumerate(target.questions):
+    for index, (question, number) in enumerate(zip(target.questions, numbers, strict=True)):
         if question.answerMode in COMPOSITE_MODES:
             continue
-        number = printed_number(question)
         candidates = by_number.get(number, []) if number is not None else []
         status = ('has_answer' if question.answerPayload is not None else 'unmatched' if not candidates else
                   'unique' if len(candidates) == 1 and number is not None and counts.get(number, 0) == 1 else 'ambiguous')

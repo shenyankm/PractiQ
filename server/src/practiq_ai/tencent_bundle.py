@@ -21,13 +21,17 @@ from .errors import DocumentProcessingError
 MAX_ENTRIES = 2_000
 MAX_EXPANDED_BYTES = 150 * 1024 * 1024
 MAX_PAGE_BYTES = 8 * 1024 * 1024
+_IMAGE_ID = re.compile(r"p-(\d+)")
+_IMAGE_PAGE = re.compile(r"\d+")
 
 
 def evidence_text(value: Any) -> str:
     """Keep literal OCR strings for review quotes, including newlines and LaTeX."""
     if isinstance(value, str):
         return value
-    values = value.values() if isinstance(value, dict) else value if isinstance(value, list) else []
+    if not isinstance(value, (dict, list)):
+        return ""
+    values = value.values() if isinstance(value, dict) else value
     return "\n\n".join(text for item in values if (text := evidence_text(item)))
 
 
@@ -46,10 +50,10 @@ def _image_members(archive: zipfile.ZipFile, member_names: set[str]) -> dict[tup
         def start(name, attrs):
             if name != "image" or not attrs.get("src"):
                 return
-            identifier = re.fullmatch(r"p-(\d+)", attrs.get("id", ""))
+            identifier = _IMAGE_ID.fullmatch(attrs.get("id", ""))
             pages = attrs.get("page-numbers", "")
             member = attrs["src"]
-            if (identifier is None or not re.fullmatch(r"\d+", pages) or member not in member_names
+            if (identifier is None or not _IMAGE_PAGE.fullmatch(pages) or member not in member_names
                     or not member.lower().endswith((".png", ".jpg", ".jpeg"))):
                 raise ValueError("Image source must reference a local archive member and one page")
             key = (int(pages), int(identifier[1]))
@@ -89,10 +93,14 @@ def read_bundle_image(archive: zipfile.ZipFile, member: str, config: Config) -> 
 def _bbox(element: dict[str, Any], width: int, height: int) -> list[float]:
     polygon = element["polygon"]
     points = [polygon[key] for key in ("left_top", "right_top", "left_bottom", "right_bottom")]
-    if any(type(p[axis]) not in {int, float} for p in points for axis in ("x", "y")):
+    if any(type(p[axis]) not in (int, float) for p in points for axis in ("x", "y")):
         raise ValueError("Coordinates must be numeric")
-    xs, ys = [p["x"] / width for p in points], [p["y"] / height for p in points]
-    values = [min(xs), min(ys), max(xs), max(ys)]
+    xs, ys = [p["x"] for p in points], [p["y"] for p in points]
+    if width > 0 and height > 0:
+        values = [min(xs) / width, min(ys) / height, max(xs) / width, max(ys) / height]
+    else:
+        xs, ys = [x / width for x in xs], [y / height for y in ys]
+        values = [min(xs), min(ys), max(xs), max(ys)]
     if (any(not isfinite(v) or not 0 <= v <= 1 for v in values)
             or values[0] >= values[2] or values[1] >= values[3]):
         raise ValueError("Invalid element coordinates")

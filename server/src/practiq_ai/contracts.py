@@ -1283,3 +1283,40 @@ class AdministrationAudit(StrictModel):
     target: str
     created_at: datetime
     detail: dict[str, Any]
+
+
+class PaymentCreate(StrictModel):
+    requestId: UUID
+
+
+class PaymentRefundRequest(AccountPasswordConfirm):
+    requestId: UUID
+    amount: str = Field(pattern=r'^[0-9]{1,9}(\.[0-9]{1,2})?$')
+    reason: str = Field(min_length=1, max_length=200)
+
+
+class PaymentRefund(StrictModel):
+    id: str
+    amount: str
+    state: Literal['UNKNOWN', 'SUCCESS']
+
+
+class PaymentOrder(StrictModel):
+    id: str
+    requestId: UUID
+    state: Literal['UNKNOWN', 'PENDING_PAYMENT', 'PAID', 'CLOSED']
+    amount: str
+    subject: str
+    environment: Literal['sandbox', 'production']
+    refunds: list[PaymentRefund]
+
+
+class PaymentForm(StrictModel):
+    order: PaymentOrder
+    paymentHtml: str
+
+
+class PaymentOffer(StrictModel):
+    amount: str
+    subject: str
+    environment: Literal['sandbox', 'production']

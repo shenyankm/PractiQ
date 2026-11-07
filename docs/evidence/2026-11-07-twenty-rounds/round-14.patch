@@ -1,0 +1,17 @@
+--- a/server/src/practiq_ai/tencent_bundle.py
++++ b/server/src/practiq_ai/tencent_bundle.py
+@@ -93,8 +93,12 @@
+     points = [polygon[key] for key in ("left_top", "right_top", "left_bottom", "right_bottom")]
+     if any(type(p[axis]) not in {int, float} for p in points for axis in ("x", "y")):
+         raise ValueError("Coordinates must be numeric")
+-    xs, ys = [p["x"] / width for p in points], [p["y"] / height for p in points]
+-    values = [min(xs), min(ys), max(xs), max(ys)]
++    xs, ys = [p["x"] for p in points], [p["y"] for p in points]
++    if width > 0 and height > 0:
++        values = [min(xs) / width, min(ys) / height, max(xs) / width, max(ys) / height]
++    else:
++        xs, ys = [x / width for x in xs], [y / height for y in ys]
++        values = [min(xs), min(ys), max(xs), max(ys)]
+     if (any(not isfinite(v) or not 0 <= v <= 1 for v in values)
+             or values[0] >= values[2] or values[1] >= values[3]):
+         raise ValueError("Invalid element coordinates")

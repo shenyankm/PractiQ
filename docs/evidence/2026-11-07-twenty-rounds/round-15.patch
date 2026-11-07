@@ -1,0 +1,11 @@
+--- a/server/src/practiq_ai/tencent_bundle.py
++++ b/server/src/practiq_ai/tencent_bundle.py
+@@ -91,7 +91,7 @@
+ def _bbox(element: dict[str, Any], width: int, height: int) -> list[float]:
+     polygon = element["polygon"]
+     points = [polygon[key] for key in ("left_top", "right_top", "left_bottom", "right_bottom")]
+-    if any(type(p[axis]) not in {int, float} for p in points for axis in ("x", "y")):
++    if any(type(p[axis]) not in (int, float) for p in points for axis in ("x", "y")):
+         raise ValueError("Coordinates must be numeric")
+     xs, ys = [p["x"] for p in points], [p["y"] for p in points]
+     if width > 0 and height > 0:

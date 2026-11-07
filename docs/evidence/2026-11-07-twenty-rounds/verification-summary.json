@@ -1,0 +1,106 @@
+{
+  "environment": "local macOS Apple Silicon, Python 3.14.7, disposable PostgreSQL/RabbitMQ, substituted providers",
+  "makeVerify": {
+    "exitCode": 0,
+    "passed": 3923,
+    "warnings": 7,
+    "seconds": 836.7,
+    "combinedCoveragePercent": 92,
+    "coverageXml": {
+      "version": "7.16.0",
+      "timestamp": "1794033271336",
+      "lines-valid": "10332",
+      "lines-covered": "9684",
+      "line-rate": "0.9373",
+      "branches-valid": "3912",
+      "branches-covered": "3465",
+      "branch-rate": "0.8857",
+      "complexity": "0"
+    },
+    "packageSourceFiles": 58
+  },
+  "recoveryProbes": {
+    "status": "PASSED",
+    "count": 66,
+    "metrics": {
+      "recoverySuccessRate": 100.0,
+      "correctStopRate": 100.0,
+      "routingPassRate": 100.0,
+      "unknownUsagePassRate": 100.0
+    },
+    "gateReasons": []
+  },
+  "firstAttempt": {
+    "passed": 3921,
+    "failed": 2,
+    "reason": "Obsolete schema-1/2 upgrade table assertions; aligned with exact PAYMENT_TABLES allowlist and reran the complete gate."
+  },
+  "focusedFinal": {
+    "passed": 50,
+    "seconds": 19.2
+  },
+  "web": {
+    "passed": 321,
+    "skipped": 1,
+    "lineCoveragePercent": 91.59,
+    "browserPassed": 65,
+    "buildPassed": true
+  },
+  "contracts": {
+    "exporterCheckPassed": true,
+    "fixtureCases": 51,
+    "sampleValidated": true
+  },
+  "audit": {
+    "runtimeDevelopment": "No known vulnerabilities found",
+    "build": "No known vulnerabilities found"
+  },
+  "notRun": [
+    "Live Tencent/model calls",
+    "Real buyer payment",
+    "Production merchant activation",
+    "Production migration/deployment",
+    "Native App acceptance",
+    "Hosted CI (pending PR)"
+  ],
+  "evidenceSha256": {
+    "audit.txt": "9dcb3bf3aa8063fe890695ff59f76407f94815d3d168d22a0e6b118be4bdf1d8",
+    "focused-final.txt": "2d1c26f119c5ada0fe4bcceef384953cb3419944c8f5c85083bc34be4810245e",
+    "probes.json": "c54f6313a77309f660ca44a3d8c0a11777706eba92120805434f043367af8989",
+    "probes.md": "189f112fc0b486ccd64e61d329c4b0402c4830af960bcab207e0f00afa7bb4d1",
+    "verify-first-attempt.txt": "3604a4136ac26b42cadf9ae7371a6b741357555278ca74221ef1c0e2f7762117",
+    "verify.txt": "3547dcca49eaa6d0c97859cd77a273afcfa50a153a3c0e620dcb72ac4e0faf83",
+    "web-browser.txt": "dc6a4bd1ec1690b9bcb118c6a831fd40501a419388093d8692a62b131fdb7b32",
+    "web-build.txt": "5fe501f91c2a2d2d0d3aac8140b5024c8f5a83d244fb5c2da98cad54f6107b13",
+    "web-check.txt": "ea4462da691c21bf966531138ec0743675917a82830a84351756cc88feb708b6",
+    "payment-review-fix.txt": "17668654e98ffbe09b191fcb1cf133ede028e93c116c3f649fdeb7238ae787a3",
+    "payment-browser-fixed.txt": "17e7d4d15fdf4625fbffbcc096c6e993f69d8a96f9c377fea792a7bd6b6f023c",
+    "payment-browser-red.txt": "858904655a769b8f4d748a2d6a1856cc1f55de08a17b35f5be4f7bfa2ce6313c",
+    "payment-review-pyright.txt": "f552d237ad0bd249c05f97eb62dbc65d2d0e4a5fe2346608e10fb7838dba9ed1",
+    "payment-review-api.txt": "3a5ec1dea21640ff672cff3834a15826f96d3407cb4ffad1a6917c8f07d91e58",
+    "payment-review-browser-full.txt": "7d5248d4c984a536ad0bbc201a927b26642a7bccef801d9e317d9c89253795ad"
+  },
+  "reviewFollowup": {
+    "finding": "CodeQL py/weak-crypto-key at test_payments.py:22",
+    "fix": "Generate ephemeral payment test RSA keys with 2048 bits instead of 1024; no production key/configuration changes.",
+    "paymentTestsPassed": 19,
+    "seconds": 13.48,
+    "ruff": "passed",
+    "remoteCI": "pending on follow-up commit"
+  },
+  "paymentPageReview": {
+    "findings": [
+      "Rotate the payment request ID only after its associated order settles",
+      "Scope payment blocking to the current offer environment"
+    ],
+    "fix": "Add the original requestId to authorized order receipts, preserve it through uncertainty, and check unsettled orders against the loaded offer environment. Keep saved receipts readable if the offer is unavailable.",
+    "newBrowserCases": 6,
+    "fullBrowserPassed": 71,
+    "paymentAPITestsPassed": 19,
+    "paymentAPITestSeconds": 11.19,
+    "pyrightErrors": 0,
+    "ruff": "passed",
+    "sharedContractCheck": "passed, generated files unchanged",
+    "remoteCI": "pending on follow-up commit"
+  }
+}

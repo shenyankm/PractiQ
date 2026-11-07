@@ -1067,7 +1067,7 @@ export default function AccountPortal() {
       <header className="account-header">
         <a href="/">
           <img src={logo} alt="" />
-          PractiQ {admin ? "管理" : "用户门户"}
+          PractiQ{admin ? " 管理" : ""}
         </a>
         {user && (
           <>

@@ -1,0 +1,16 @@
+--- a/server/src/practiq_ai/source_selection.py
++++ b/server/src/practiq_ai/source_selection.py
+@@ -19,8 +19,12 @@
+ 
+ 
+ def active_indices(state: Mapping[str, Any], stage: str) -> list[int]:
++    selected = state.get('selectedUnits')
++    if stage != 'vision_parse' and selected is not None:
++        bounds = range(len(state.get('chunkRefs', [])))
++        requested = {unit['index'] for unit in selected if unit['stage'] == stage}
++        return sorted({int(index) for index in requested if index in bounds})
+     available = page_indices(state) if stage == 'vision_parse' else list(range(len(state.get('chunkRefs', []))))
+-    selected = state.get('selectedUnits')
+     if selected is None:
+         return available
+     requested = {unit['index'] for unit in selected if unit['stage'] == stage}

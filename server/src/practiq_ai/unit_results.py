@@ -38,6 +38,8 @@ def rendered_text(question: ParsedQuestion) -> str:
 
 def missing_formulas(source: str, rendered: str) -> list[str]:
     """Compare literal math evidence, without solving or rewriting expressions."""
+    if '$' not in source and r'\(' not in source and r'\[' not in source:
+        return []
     normalize = lambda text: re.sub(r'\s+|\\(?:quad|,)', '', text).replace(r'\geq', r'\ge').replace(r'\leq', r'\le')
     target = None
     closing = {'$': '$', '$$': '$$', r'\(': r'\)', r'\[': r'\]'}
