@@ -412,6 +412,8 @@ function PracticeQuestion({
     const target = blankTargets.find(a => a.snapshot.question.id === id);
     if (target) go(target.ordinal);
   }, [blankTargets, go]);
+  const handleAutosave = useCallback(() => { void persist().catch(() => {}); }, [persist]);
+  const loadCurrentSession = useCallback(() => api({type:"session",id:session.id}), [session.id]);
   const blankAnswers = useMemo(() => blankTargets.length ? Object.fromEntries(blankTargets.map(a => {
     const value = a.ordinal === session.position ? answer : a.answer;
     return [a.snapshot.question.id || "", value?.correct?.join(", ") || value?.answers?.join(", ") || ""];
@@ -443,7 +445,7 @@ function PracticeQuestion({
           </div>
           <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
             <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground" title={session.title}>{session.title}</p>
-            <PracticeClock elapsed={elapsed} active={!submitted && !finished} deadlineAt={exam && !handedIn ? session.deadlineAt : null} clockNow={session.clockNow} saved={saved} finished={finished} onAutosave={() => { void persist().catch(() => {}); }} loadSession={() => api({type:"session",id:session.id})} onSession={onSession}/>
+            <PracticeClock elapsed={elapsed} active={!submitted && !finished} deadlineAt={exam && !handedIn ? session.deadlineAt : null} clockNow={session.clockNow} saved={saved} finished={finished} onAutosave={handleAutosave} loadSession={loadCurrentSession} onSession={onSession}/>
           </div>
         </CardHeader>
         <CardContent className="practice-question-body space-y-4">
@@ -553,7 +555,7 @@ function PracticeQuestion({
   );
 }
 
-function PracticeClock({elapsed, active, deadlineAt, clockNow, saved, finished, onAutosave, loadSession, onSession}: {
+const PracticeClock = memo(function PracticeClock({elapsed, active, deadlineAt, clockNow, saved, finished, onAutosave, loadSession, onSession}: {
   elapsed: MutableRefObject<number>; active: boolean; deadlineAt?: number | null; clockNow?: number;
   saved: "已保存" | "保存中…" | "保存失败" | "待保存"; finished: boolean;
   onAutosave: () => void; loadSession: () => Promise<Session>; onSession: (session: Session) => void;
@@ -611,7 +613,7 @@ function PracticeClock({elapsed, active, deadlineAt, clockNow, saved, finished, 
     <span>{duration(seconds)} · {finished ? t("历史快照") : t(saved)}</span>
     {deadlineAt ? <p role="timer">{t("剩余 {0}（后台与关闭应用不暂停）", { 0: duration(Math.max(0, deadlineAt-clock)) })}</p> : null}
   </div>;
-}
+});
 
 // Match native has_answer: a partial draft counts, but whitespace-only values do not.
 function hasAnswer(value: unknown): boolean {

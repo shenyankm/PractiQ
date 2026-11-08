@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { BookOpen, CircleAlert, MoreHorizontal, Pencil, Search, SlidersHorizontal, Star, Trash2 } from "lucide-react";
 import { api, modeNames, type QuestionSummary } from "./api";
 import { questionKinds } from "./english";
@@ -73,6 +73,101 @@ export function useQuestionListPage(page: string, bank: string | null) {
   return { questions, questionTotal, questionError, search, setSearch, mode, setMode, questionFiltersOpen, setQuestionFiltersOpen, offset, setOffset, loading, filter, refresh, reset, favorite };
 }
 
+const QuestionRowItem = memo(function QuestionRowItem({
+  row,
+  index,
+  page,
+  busy,
+  onOpen,
+  onFavorite,
+  onEdit,
+  onDelete,
+}: {
+  row: QuestionSummary;
+  index: number;
+  page: string;
+  busy: boolean;
+  onOpen: (id: string) => void;
+  onFavorite: (row: QuestionSummary) => void;
+  onEdit: (row: QuestionSummary, trigger: HTMLElement | null) => void;
+  onDelete: (row: QuestionSummary, trigger: HTMLElement | null) => void;
+}) {
+  useI18n();
+  return (
+    <div className="question-row flex min-h-20 flex-wrap items-center gap-3 p-3 sm:flex-nowrap sm:gap-4 sm:p-4">
+      <span className="w-8 shrink-0 text-sm tabular-nums text-muted-foreground">
+        {index}
+      </span>
+      <button
+        className="flex min-w-0 flex-1 flex-col items-stretch gap-2 rounded-sm text-left focus-visible:outline-2 focus-visible:outline-ring"
+        disabled={busy}
+        onClick={() => onOpen(row.id)}
+      >
+        <div className="flex min-w-0 items-start gap-3">
+          <Badge variant="outline" className="mt-0.5 shrink-0">
+            {modeNames()[row.question.answerMode || ""] || t("未知题型")}
+          </Badge>
+          <p className="line-clamp-2 min-w-0 flex-1 text-sm leading-6 wrap-anywhere">
+            {row.question.stem || row.question.sourceText || t("题干缺失")}
+          </p>
+        </div>
+        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {row.reviewRequired && (
+              <CircleAlert className="size-4 review-warning" role="img" aria-label={t("待复核")} />
+            )}
+            {row.hasWrong && (
+              <Badge variant="destructive">{row.hasPartialScore ? t("部分得分") : t("错题")}</Badge>
+            )}
+          </div>
+          {row.latestScore && <span className="text-xs tabular-nums text-muted-foreground">{t("上次 {0} / {1} 分", { 0: row.latestScore.earnedCents / 100, 1: row.latestScore.maxCents / 100 })}</span>}
+          {page !== "questions" && (
+            <span className="max-w-full truncate text-xs text-muted-foreground" title={row.bankTitle}>
+              {row.bankTitle}
+            </span>
+          )}
+        </div>
+      </button>
+      <div className="question-actions flex shrink-0 gap-3 sm:gap-4">
+        <Button
+          size="icon"
+          variant="ghost"
+          aria-label={row.favorite ? t("取消收藏") : t("收藏题目")}
+          aria-pressed={row.favorite}
+          disabled={busy}
+          onClick={() => onFavorite(row)}
+        >
+          <Star
+            className={row.favorite ? "fill-current text-amber-500 dark:text-amber-400" : ""}
+          />
+        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button id={`question-actions-${row.id}`} size="icon" variant="ghost" aria-label={t("题目更多操作 {0}", {0: index})} disabled={busy}>
+              <MoreHorizontal />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              disabled={busy}
+              onSelect={() => onEdit(row, document.getElementById(`question-actions-${row.id}`))}
+            >
+              <Pencil />{t("编辑题目")}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              variant="destructive"
+              disabled={busy}
+              onSelect={() => onDelete(row, document.getElementById(`question-actions-${row.id}`))}
+            >
+              <Trash2 />{t("删除题目")}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </div>
+  );
+});
+
 export function QuestionListPage({ state, page, compact, busy, run, onOpen, onEdit, onDelete, onBrowse }: {
   state: ReturnType<typeof useQuestionListPage>;
   page: string;
@@ -86,6 +181,9 @@ export function QuestionListPage({ state, page, compact, busy, run, onOpen, onEd
 }) {
   useI18n();
   const { questions, questionTotal, questionError, search, setSearch, mode, setMode, questionFiltersOpen, setQuestionFiltersOpen, offset, setOffset, loading } = state;
+  const onFavorite = useCallback((row: QuestionSummary) => {
+    run(() => state.favorite(row));
+  }, [run, state]);
   const hasQuestionFilters = !!(search || mode);
   const loadingView = <p role="status" className="p-4 text-sm text-muted-foreground">{t("加载中…")}</p>;
   return (
@@ -136,76 +234,21 @@ export function QuestionListPage({ state, page, compact, busy, run, onOpen, onEd
         <>
           <div className="divide-y rounded-xl border bg-card">
             {questions.map((row, i) => (
-              <div key={row.id} className="question-row flex min-h-20 flex-wrap items-center gap-3 p-3 sm:flex-nowrap sm:gap-4 sm:p-4">
-                <span className="w-8 shrink-0 text-sm text-muted-foreground">
-                  {offset + i + 1}
-                </span>
-                <button
-                  className="flex min-w-0 flex-1 flex-col items-stretch gap-2 rounded-sm text-left focus-visible:outline-2 focus-visible:outline-ring"
-                  disabled={busy}
-                  onClick={() => onOpen(row.id)}
-                >
-                  <div className="flex min-w-0 items-start gap-3">
-                    <Badge variant="outline" className="mt-0.5 shrink-0">
-                      {modeNames()[row.question.answerMode || ""] || t("未知题型")}
-                    </Badge>
-                    <p className="line-clamp-2 min-w-0 flex-1 text-sm leading-6 wrap-anywhere">
-                      {row.question.stem || row.question.sourceText || t("题干缺失")}
-                    </p>
-                  </div>
-                  <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                      {row.reviewRequired && (
-                        <CircleAlert className="size-4 review-warning" role="img" aria-label={t("待复核")} />
-                      )}
-                      {row.hasWrong && (
-                        <Badge variant="destructive">{row.hasPartialScore ? t("部分得分") : t("错题")}</Badge>
-                      )}
-                    </div>
-                    {row.latestScore && <span className="text-xs text-muted-foreground">{t("上次 {0} / {1} 分", { 0: row.latestScore.earnedCents / 100, 1: row.latestScore.maxCents / 100 })}</span>}
-                    {page !== "questions" && (
-                      <span className="max-w-full truncate text-xs text-muted-foreground" title={row.bankTitle}>
-                        {row.bankTitle}
-                      </span>
-                    )}
-                  </div>
-                </button>
-                <div className="question-actions flex shrink-0 gap-3 sm:gap-4">
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  aria-label={row.favorite ? t("取消收藏") : t("收藏题目")}
-                  aria-pressed={row.favorite}
-                  disabled={busy}
-                  onClick={() => run(() => state.favorite(row))}
-                >
-                  <Star
-                    className={row.favorite ? "fill-current text-amber-500 dark:text-amber-400" : ""}
-                  />
-                </Button>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild><Button id={`question-actions-${row.id}`} size="icon" variant="ghost" aria-label={t("题目更多操作 {0}", {0: offset + i + 1})} disabled={busy}><MoreHorizontal /></Button></DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                <DropdownMenuItem
-                  disabled={busy}
-                  onSelect={() => onEdit(row, document.getElementById(`question-actions-${row.id}`))}
-                >
-                  <Pencil />{t("编辑题目")}
-                </DropdownMenuItem>
-                <DropdownMenuItem variant="destructive"
-                  disabled={busy}
-                  onSelect={() => onDelete(row, document.getElementById(`question-actions-${row.id}`))}
-                >
-                  <Trash2 />{t("删除题目")}
-                </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                </div>
-              </div>
+              <QuestionRowItem
+                key={row.id}
+                row={row}
+                index={offset + i + 1}
+                page={page}
+                busy={busy}
+                onOpen={onOpen}
+                onFavorite={onFavorite}
+                onEdit={onEdit}
+                onDelete={onDelete}
+              />
             ))}
           </div>
           {questionTotal > 30 && <div className="flex items-center justify-between text-sm text-muted-foreground">
-            <span>{t("第 {0}–{1} 题", { 0: offset + 1, 1: Math.min(offset + 30, questionTotal) })}</span>
+            <span className="tabular-nums">{t("第 {0}–{1} 题", { 0: offset + 1, 1: Math.min(offset + 30, questionTotal) })}</span>
             <div className="flex gap-2">
               <Button
                 variant="outline"

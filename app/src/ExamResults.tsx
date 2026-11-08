@@ -66,19 +66,22 @@ export function ExamResults({
   const [retryConfirm,setRetryConfirm]=useState(false);
   const a=session.attempts[session.position];
   const exam=session.kind&&session.kind!=="practice";const submitted=exam?!!session.submittedAt:!!session.finishedAt||a.submittedAt!=null;
-  const { graded, full, total, earned, pending, pendingPoints, pendingAi, retryCount, skipped, unresolved } = useMemo(() => {
+  const { graded, full, total, earned, pending, pendingPoints, retryCount, skipped, unresolved } = useMemo(() => {
     const attempts=submitted?session.attempts:[];
     const graded=attempts.filter(a=>exam?a.earnedCents!=null:a.result!==null);
     const full=graded.filter(a=>exam?a.earnedCents===a.maxCents:a.result===true).length;
     const total=attempts.reduce((n,a)=>n+(a.maxCents||0),0), earned=graded.reduce((n,a)=>n+(a.earnedCents||0),0);
     const pending=attempts.filter(a=>exam&&a.earnedCents==null);
     const pendingPoints=pending.reduce((n,a)=>n+(a.maxCents||0),0);
-    const pendingAi=(exam?pending:[session.attempts[session.position]]).filter(a=>eligible(a)&&!a.grading?.ai&&!a.grading?.lastRequest);
     const retryCount=attempts.filter(a=>a.result===false).length;
     const skipped=attempts.filter(a=>a.skipped).length;
     const unresolved=attempts.length-graded.length-(exam?0:skipped);
-    return { graded, full, total, earned, pending, pendingPoints, pendingAi, retryCount, skipped, unresolved };
-  }, [session.attempts, session.position, exam, submitted]);
+    return { graded, full, total, earned, pending, pendingPoints, retryCount, skipped, unresolved };
+  }, [session.attempts, exam, submitted]);
+  const pendingAi = useMemo(() => {
+    const candidates = exam ? pending : (a ? [a] : []);
+    return candidates.filter(item => eligible(item) && !item.grading?.ai && !item.grading?.lastRequest);
+  }, [exam, pending, a]);
   if(!submitted)return null;
   const latest=a.grading?.lastRequest;
   const configurationError = error ?? latest?.appError;

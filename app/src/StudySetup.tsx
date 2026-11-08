@@ -128,14 +128,26 @@ export function StudySetup({banks, initialBank, initialBankIds, initialFilter, i
   const quickCounts = [5, 10, 20, 50].filter(n => feasibleCounts.includes(n));
   const invalidCount = selection === "count" && !feasibleCounts.includes(count);
   const nearbyCounts = [feasibleCounts.filter(n => n < count).at(-1), feasibleCounts.find(n => n > count)].filter(n => n != null);
-  const manualCount = Object.values(selected).reduce((sum, item) => sum + item.count, 0);
-  const selectedGroups = selection === "manual" ? Object.values(selected).filter(item => item.group).length : Object.entries(quotas).reduce((sum, [type, amount]) => sum + (COMPOSITE_FILTERS.includes(type) ? amount : 0), 0);
-  const selectedSingles = selection === "manual" ? Object.values(selected).filter(item => !item.group).length : Object.entries(quotas).reduce((sum, [type, amount]) => sum + (COMPOSITE_FILTERS.includes(type) ? 0 : amount), 0);
+  const { manualCount, selectedGroups, selectedSingles } = useMemo(() => {
+    if (selection === "manual") {
+      let count = 0, groups = 0, singles = 0;
+      for (const item of Object.values(selected)) {
+        count += item.count;
+        if (item.group) groups += 1;
+        else singles += 1;
+      }
+      return { manualCount: count, selectedGroups: groups, selectedSingles: singles };
+    }
+    const groups = Object.entries(quotas).reduce((sum, [type, amount]) => sum + (COMPOSITE_FILTERS.includes(type) ? amount : 0), 0);
+    const singles = Object.entries(quotas).reduce((sum, [type, amount]) => sum + (COMPOSITE_FILTERS.includes(type) ? 0 : amount), 0);
+    return { manualCount: 0, selectedGroups: groups, selectedSingles: singles };
+  }, [selection, selected, quotas]);
   const invalidSelection = invalidCount || (selection === "manual" && (manualCount < 1 || manualCount > 1000)) || (selection === "quota" && (!Object.values(quotas).some(n => n > 0) || Object.entries(quotas).some(([type, n]) => !Number.isInteger(n) || n < 0 || n > (stats.types[type] || 0))));
   const selectionSummary = selection === "count" ? t("{0} 题", {0:count}) : selection === "quota" ? t("{0} 组 + {1} 单题；小题数将在生成时确定", {0:selectedGroups,1:selectedSingles}) : selectedGroups ? selectedSingles ? t("{0} 组 + {1} 单题 / {2} 小题", {0:selectedGroups,1:selectedSingles,2:manualCount}) : t("{0} 组 / {1} 小题", {0:selectedGroups,1:manualCount}) : t("{0} 题", {0:manualCount});
-  let allocatedScore: string;
-  try { allocatedScore = String(scores.reduce((sum, value) => sum + cents(value), 0) / 100); }
-  catch { allocatedScore = "—"; }
+  const allocatedScore = useMemo(() => {
+    try { return String(scores.reduce((sum, value) => sum + cents(value), 0) / 100); }
+    catch { return "—"; }
+  }, [scores]);
   return <Dialog open onOpenChange={v => { if (!v && !busy) onClose(); }}>
     <DialogContent className="study-setup flex max-h-[90vh] flex-col overflow-hidden sm:max-w-3xl">
       <DialogHeader className="shrink-0 pr-8"><DialogTitle ref={title} tabIndex={-1}>{reviewing ? t("检查题目与配分") : t("开始练习或考试")}</DialogTitle><DialogDescription>{kind === "practice" ? t("提交后查看参考答案，可对照自评。") : t("交卷后查看答案与评分。")}</DialogDescription></DialogHeader>
