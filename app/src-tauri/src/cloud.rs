@@ -321,7 +321,7 @@ pub(crate) fn validate_path(path: &str, method: &Method) -> Result<()> {
             method == Method::GET
         }
         "/api/me/tokens" | "/api/me/payments" => method == Method::GET || method == Method::POST,
-        "/api/me/payments/offer" => method == Method::GET,
+        "/api/me/payments/offer" | "/api/me/plans" => method == Method::GET,
         "/api/import-settings" => method == Method::GET || method == Method::PUT,
         "/api/uploads" | "/api/artifacts/read" => method == Method::POST,
         "/api/uploads/content" => method == Method::PUT,
@@ -402,6 +402,7 @@ pub(crate) enum Request {
     Checkout {
         request_id: String,
         order_id: Option<String>,
+        product_id: Option<String>,
     },
 }
 
@@ -581,7 +582,15 @@ pub(crate) fn request(app: AppHandle, value: Request, context: Option<Context>) 
         Request::Checkout {
             request_id,
             order_id,
-        } => super::cloud_files::checkout(&app, &state, bound()?, &request_id, order_id.as_deref()),
+            product_id,
+        } => super::cloud_files::checkout(
+            &app,
+            &state,
+            bound()?,
+            &request_id,
+            order_id.as_deref(),
+            product_id.as_deref(),
+        ),
     }
 }
 

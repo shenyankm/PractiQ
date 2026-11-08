@@ -247,8 +247,8 @@ it('preserves selected source files across portal pages without submitting them'
   await user.click(screen.getByRole('button',{name:'用量'}));
   await screen.findByRole('heading',{name:'个人用量'});
   expect(await screen.findByText('未知用量')).toBeTruthy();
-  expect(screen.getByText(/免费识别额度：剩余 0 \/ 50 页/)).toBeTruthy();
-  expect(screen.getByText(/免费页数已用尽/)).toBeTruthy();
+  expect(screen.getByText(/可用识别额度：0 页/)).toBeTruthy();
+  expect(screen.getByText(/可用页数已用尽/)).toBeTruthy();
   await user.click(screen.getByRole('button',{name:'导入工作区'}));
   expect(screen.getByText('pending-portal.txt')).toBeTruthy();
   await user.click(screen.getByRole('button',{name:'我的题库'}));

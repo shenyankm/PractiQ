@@ -49,10 +49,10 @@ function CustomerArea({ user, focusMain, onNameSaved }: { user: AccountUser; foc
   const [page, setPage] = useState("workspace");
   const [task, setTask] = useState<{id: string}>();
   return <>
-      <nav className="account-navigation" aria-label="个人导航">{[["workspace", "导入工作区"], ["banks", "我的题库"], ["usage", "用量"], ["payments", "订单与付款"], ["account", "账户与安全"]].map(([id, label]) => <Button key={id} variant={page === id ? "secondary" : "ghost"} onClick={() => setPage(id)}>{label}</Button>)}</nav>
+      <nav className="account-navigation" aria-label="个人导航">{[["workspace", "导入工作区"], ["banks", "我的题库"], ["usage", "用量"], ["plans", "套餐与额度"], ["payments", "订单与付款"], ["account", "账户与安全"]].map(([id, label]) => <Button key={id} variant={page === id ? "secondary" : "ghost"} onClick={() => setPage(id)}>{label}</Button>)}</nav>
       <div key={user.id}>
         <div hidden={page !== "workspace"}><Suspense fallback={<p>正在载入工作区…</p>}><Workspace requestedTask={task} hideSkipLink focusMain={focusMain} /></Suspense></div>
-        {page !== "workspace" && <Content className="account-content">{page === "banks" ? <Banks open={id => { setTask({ id }); location.hash = "records"; setPage("workspace"); }} /> : page === "usage" ? <Usage /> : page === "payments" ? <Payments /> : <AccountSettings user={user} onNameSaved={onNameSaved} />}</Content>}
+        {page !== "workspace" && <Content className="account-content">{page === "banks" ? <Banks open={id => { setTask({ id }); location.hash = "records"; setPage("workspace"); }} /> : page === "usage" ? <Usage /> : (page === "plans" || page === "payments") ? <Payments key={page} view={page === "plans" ? "plans" : "orders"} onNavigate={setPage} /> : <AccountSettings user={user} onNameSaved={onNameSaved} />}</Content>}
       </div>
     </>;
 }

@@ -151,7 +151,7 @@ export class Client {
           } catch { /* Error bodies may be empty, text, or validation arrays. */ }
           const known: Record<string, string> = {
             USER_QUOTA_EXCEEDED: '每日调用额度已用尽，请等待新加坡时间次日零点或联系管理员调整额度，然后手动继续。',
-            FREE_PAGE_QUOTA_EXCEEDED: '剩余免费页数不足。新账户默认共有 50 页免费额度，不按日恢复；请联系管理员调整额度。',
+            FREE_PAGE_QUOTA_EXCEEDED: '可用识别页数不足。请前往“套餐与额度”查看免费与付费余额，购买套餐或加量包后手动继续。',
             USER_TASK_LIMIT: '进行中的任务已达到个人上限，请等待任务停止或完成后再手动提交。',
             ACCOUNT_DISABLED: '账户已停用，请联系管理员。',
 

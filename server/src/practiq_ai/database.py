@@ -11,16 +11,17 @@ from psycopg import AsyncConnection
 from psycopg.pq import TransactionStatus
 from psycopg.rows import dict_row
 
+from .billing_schema import BILLING_DDL, BILLING_TABLES
 from .config import database_uri
 from .identity_schema import IDENTITY_DDL, IDENTITY_TABLES
 from .payment_schema import PAYMENT_DDL, PAYMENT_TABLES
 
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 8
 # Separate session ownership from short API transactions, scoped to this database.
 LOCK_NAMESPACE = 817241
 DDL = """
 CREATE TABLE practiq_schema(version integer NOT NULL);
-INSERT INTO practiq_schema VALUES (7);
+INSERT INTO practiq_schema VALUES (8);
 CREATE TABLE document_tasks (
  thread_id text PRIMARY KEY, request_hash text NOT NULL, graph_id text NOT NULL,
  document jsonb NOT NULL, failure_policy text NOT NULL, parent_thread_id text,
@@ -55,7 +56,7 @@ CREATE TABLE document_outbox (
 );
 CREATE INDEX document_outbox_pending ON document_outbox(created_at) WHERE published_at IS NULL;
 """
-DDL += OUTBOX_DDL + IDENTITY_DDL + PAYMENT_DDL
+DDL += OUTBOX_DDL + IDENTITY_DDL + PAYMENT_DDL + BILLING_DDL
 INDEX_DDL = """
 CREATE INDEX IF NOT EXISTS document_task_order ON document_tasks(created_at DESC,thread_id DESC);
 CREATE INDEX IF NOT EXISTS document_run_latest ON document_runs(thread_id,created_at DESC);
@@ -189,8 +190,8 @@ class Database:
     async def check_schema(self):
         tables = await self.tables()
         if 'practiq_schema' not in tables or await self.rows('SELECT version FROM practiq_schema') != [{'version': SCHEMA_VERSION}]:
-            raise RuntimeError('Unsupported service schema; use init-db only for an empty database, or upgrade-db for schema 1 through 6')
-        if not STATE_TABLES | TASK_TABLES | IDENTITY_TABLES | PAYMENT_TABLES <= tables:
+            raise RuntimeError('Unsupported service schema; use init-db only for an empty database, or upgrade-db for schema 1 through 7')
+        if not STATE_TABLES | TASK_TABLES | IDENTITY_TABLES | PAYMENT_TABLES | BILLING_TABLES <= tables:
             raise RuntimeError('Incomplete PostgreSQL state; restore the entire service database before starting')
     @asynccontextmanager
     async def transaction(self):
@@ -228,9 +229,9 @@ class Database:
             return
         version = versions[0]['version'] if len(versions) == 1 else None
         required = TASK_TABLES - ({'document_outbox'} if version == 1 else set())
-        if version not in {1, 2, 3, 4, 5, 6} or not STATE_TABLES | required <= tables or (version == 6 and not IDENTITY_TABLES <= tables):
-            raise RuntimeError('Upgrade requires complete service schema 1 through 6')
-        if tables & PAYMENT_TABLES:
+        if version not in {1, 2, 3, 4, 5, 6, 7} or not STATE_TABLES | required <= tables or (version in {6, 7} and not IDENTITY_TABLES <= tables) or (version == 7 and not PAYMENT_TABLES <= tables):
+            raise RuntimeError('Upgrade requires complete service schema 1 through 7')
+        if (version != 7 and tables & PAYMENT_TABLES) or tables & BILLING_TABLES:
             raise RuntimeError('Unexpected payment tables in an older schema; restore the matching offline backup')
         legacy = LEGACY_ACCOUNT_TABLES - {'import_account_tokens'} | {'import_cards'} if version == 3 else LEGACY_ACCOUNT_TABLES
         if ((version in {3, 4} and not legacy <= tables)
@@ -248,9 +249,11 @@ class Database:
             if version == 1:
                 await conn.execute(OUTBOX_DDL, prepare=False)
                 await conn.execute('DROP INDEX IF EXISTS document_queue')
-            if version != 6:
+            if version not in {6, 7}:
                 await conn.execute(IDENTITY_DDL, prepare=False)
-            await conn.execute(PAYMENT_DDL, prepare=False)
+            if version != 7:
+                await conn.execute(PAYMENT_DDL, prepare=False)
+            await conn.execute(BILLING_DDL, prepare=False)
             await conn.execute('UPDATE practiq_schema SET version=%s', (SCHEMA_VERSION,))
 
     async def acquire(self, message: str = 'Another service already owns this database', *, slot: int = 1) -> Ownership:

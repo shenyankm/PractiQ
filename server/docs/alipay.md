@@ -2,9 +2,9 @@
 
 The service has an optional Alipay `alipay.trade.page.pay` integration. It records
 account-owned receipts and supports query, close, administrator refund, refund
-query and signed asynchronous notifications. It does not automatically increase
-document-page allowances or require login for offline practice. The App opens this existing web checkout in the system browser; there is no native payment SDK. Configure the product,
-price and fulfillment policy before collecting production money.
+query and signed asynchronous notifications. Verified production catalog orders issue page grants exactly once; legacy orders
+without a product and all sandbox orders issue none. Offline practice requires no login. The App opens this existing web checkout in the system browser; there is no native payment SDK. The fixed catalog and fulfillment/refund policy are documented in [plans](../../docs/guides/plans.md).
+Complete merchant activation and real-buyer acceptance before enabling production.
 
 Payments are disabled unless `ALIPAY_ENABLED=true`. No existing database,
 credential, historical payment table or page allowance is changed by installing
@@ -12,7 +12,7 @@ the code. The new `payment_*` tables are separate from historical archives.
 
 ## Database rollout
 
-New installations use service schema 7. For an existing schema-6 installation,
+New installations use service schema 8. For an existing schema-6/7 installation,
 stop the service, retain a verified matching **database and storage backup** with
 the original deployment image, then run the existing offline upgrade command:
 
@@ -20,8 +20,10 @@ the original deployment image, then run the existing offline upgrade command:
 make upgrade-db UPGRADE_BACKUP=/absolute/path/to/verified/bundle
 ```
 
-The upgrade only adds payment tables to schema 6 and changes the schema marker;
-it preserves accounts, sessions, ownership, task receipts and historical tables.
+The upgrade adds payment tables to schema 6, then adds the nullable order-product
+snapshot plus grant/allocation tables to schema 6/7. It preserves accounts, sessions,
+ownership, task receipts, historical payments and page usage; no old order grants pages.
+The old default task concurrency 2 becomes Free concurrency 1; per-user overrides remain.
 Schemas 1–5 keep their existing ownership/archive checks before the additive
 upgrade. Startup never upgrades a database. Rollback requires the original
 executable and the entire matching pre-upgrade database/storage backup. Do not
@@ -48,7 +50,7 @@ ALIPAY_ENABLED=true ALIPAY_MODE=sandbox \
 ALIPAY_BASE_URL=http://127.0.0.1:8090 make server-dev
 ```
 
-Connect `http://127.0.0.1:8090` in App → Cloud service, sign in, and open Orders and payments. The sandbox default amount is ¥0.01 and the
+Connect `http://127.0.0.1:8090` in App → Cloud service, sign in, and open Orders and payments. The sandbox default amount is ¥0.01; sandbox catalog orders issue no real grants. The
 subject is explicitly labeled as sandbox. Selecting “前往支付宝付款” creates one
 durable order before rendering and posting the SDK form to the sandbox gateway.
 The result page is exactly `http://127.0.0.1:8090/payments/return`; changing the
@@ -74,7 +76,7 @@ production transactions during development or tests.
 | `ALIPAY_MODE` | `sandbox` (default) or explicit `production`. |
 | `ALIPAY_BASE_URL` | Exact deployed origin, no path/query/credentials. Production requires HTTPS. |
 | `ALIPAY_PRODUCTION_CONFIG` | Absolute protected JSON file, mode `0600`, with the same first-application field structure; never reuse sandbox application values. |
-| `ALIPAY_AMOUNT` | Server-owned decimal yuan amount, 0.01 through 100000000; production has no default. |
+| `ALIPAY_AMOUNT` | Legacy receipt/sandbox test amount, 0.01 through 100000000; production has no default. Production catalog orders use their immutable catalog price instead. |
 | `ALIPAY_SUBJECT` | Server-owned order subject, 1–128 characters; production has no default. |
 | `ALIPAY_NOTIFY_URL` | Optional exact `ALIPAY_BASE_URL` + `/payments/notify`, HTTPS only. Omit it when not deployed. |
 
@@ -117,9 +119,10 @@ native tokens cannot use payment APIs. All money uses integer cents/decimal text
 
 | Route | Behavior |
 | --- | --- |
-| `GET /api/me/payments/offer` | Current configured price/subject/environment, no credentials. |
+| `GET /api/me/plans` | Fixed catalog, current plan, expiry and grant balances; available with checkout disabled. |
+| `GET /api/me/payments/offer` | Legacy configured amount/subject/environment, no credentials. |
 | `GET /api/me/payments` | Own latest 50 orders and refund receipts; passive. |
-| `POST /api/me/payments` | Explicit start with UUID `requestId`; replay reuses the same order. Client price/owner fields are rejected. |
+| `POST /api/me/payments` | Explicit start with UUID `requestId` and catalog `productId` for new production orders; UUID-only requests remain for sandbox/legacy replay. Replay preserves the product and original order. Client price/owner fields are rejected. |
 | `GET /api/me/payments/{id}` | Own saved receipt only. |
 | `POST /api/me/payments/{id}/query` | Verify current provider status. |
 | `POST /api/me/payments/{id}/form` | Query first, then regenerate the original order's form; never another order number. |
@@ -127,7 +130,9 @@ native tokens cannot use payment APIs. All money uses integer cents/decimal text
 | `POST /api/admin/payments/{id}/refunds` | Administrator/current-password confirmation, UUID `requestId`, decimal `amount`, and bounded `reason`. |
 | `POST /api/admin/payments/{id}/refunds/{refund_id}/query` | Query the saved refund; no refund mutation. |
 
-A new partial refund uses a new UUID. Repeating the same refund UUID returns its
+Legacy non-product orders allow partial refunds, each with a new UUID. Catalog
+products require unused/unreserved grants and a full buyer-paid-amount refund;
+the grant is frozen before submission and revoked only after verified success. Repeating the same refund UUID returns its
 stored receipt and cannot resend it; changing its order/amount/reason conflicts.
 Unknown and successful refunds both reserve their amount against the original
 paid total, including concurrent requests. Uncertain submission is deliberately

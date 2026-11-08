@@ -56,7 +56,7 @@ async def test_upgrade_preserves_archives_and_refuses_customer_task_adoption(ver
         await db.upgrade()
         await db.upgrade()
         await db.check_schema()
-        assert await db.rows('SELECT version FROM practiq_schema') == [{'version': 7}]
+        assert await db.rows('SELECT version FROM practiq_schema') == [{'version': 8}]
     assert tables <= await db.tables()
     assert await db.rows('SELECT * FROM import_ledger') == ledger
 

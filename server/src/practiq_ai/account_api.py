@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException, Query, Request, Response
 from psycopg.errors import UniqueViolation
 from psycopg.types.json import Jsonb
 
+from . import billing
 from . import identity as auth
 from .contracts import (
     AccountCall,
@@ -185,8 +186,10 @@ async def usage(offset: int = Query(default=0, ge=0)):
     defaults = await auth.settings()
     async with auth.db().connection() as conn:
         pages = await auth.page_usage(conn, me()['id'])
+        state = await billing.balance(conn, me(), defaults)
     limits = {k: me()['limits'].get(k, defaults[k]) for k in ('freePages', 'modelCalls', 'tencentCalls', 'activeTasks')}
-    return {'limits': limits, 'usedPages': pages, 'remainingPages': max(0, limits['freePages'] - pages),
+    limits['activeTasks'] = state['activeTasks']
+    return {'limits': limits, 'usedPages': pages, 'remainingPages': state['remainingPages'],
             'daily': await auth.db().rows('SELECT day,kind,count(*) AS calls FROM auth_calls WHERE user_id=%s GROUP BY day,kind ORDER BY day DESC LIMIT 62', (me()['id'],)),
             'calls': await auth.db().rows('SELECT call_key,kind,scope,day,record FROM auth_calls WHERE user_id=%s ORDER BY created_at DESC LIMIT 100 OFFSET %s', (me()['id'], offset))}
 

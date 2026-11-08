@@ -1287,6 +1287,47 @@ class AdministrationAudit(StrictModel):
 
 class PaymentCreate(StrictModel):
     requestId: UUID
+    productId: Literal['plus', 'pro', 'pages50'] | None = None
+
+
+class PlanProduct(StrictModel):
+    id: Literal['free', 'plus', 'pro', 'pages50']
+    version: Literal[1] = 1
+    name: str
+    amount: str
+    pages: int = Field(ge=0)
+    durationDays: int | None
+    activeTasks: int = Field(ge=1)
+    priority: bool
+
+
+class PageGrant(StrictModel):
+    orderId: str
+    productId: Literal['plus', 'pro', 'pages50']
+    totalPages: int
+    usedPages: int
+    remainingPages: int
+    expiresAt: datetime
+    state: Literal['active', 'expired', 'refund_pending', 'refunded']
+
+
+class PlanBalance(StrictModel):
+    plan: Literal['free', 'plus', 'pro']
+    expiresAt: datetime | None
+    activeTasks: int
+    freePages: int
+    freeUsedPages: int
+    freeRemainingPages: int
+    remainingPages: int
+    grants: list[PageGrant]
+
+
+class AccountPlan(StrictModel):
+    products: list[PlanProduct]
+    balance: PlanBalance
+    checkoutEnabled: bool
+    environment: Literal['sandbox', 'production'] | None
+    sandboxAmount: str | None
 
 
 class PaymentRefundRequest(AccountPasswordConfirm):
@@ -1309,6 +1350,8 @@ class PaymentOrder(StrictModel):
     subject: str
     environment: Literal['sandbox', 'production']
     refunds: list[PaymentRefund]
+    productId: Literal['plus', 'pro', 'pages50'] | None = None
+    providerClosed: bool = False
 
 
 class PaymentForm(StrictModel):

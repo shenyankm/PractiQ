@@ -1128,6 +1128,6 @@ it.each(['USER_QUOTA_EXCEEDED', 'FREE_PAGE_QUOTA_EXCEEDED'])("explains %s withou
   render(<App />); await connect(user);
   await user.click(screen.getByRole("link", { name: "导入记录" }));
   await user.click(await screen.findByRole("button", { name: "sample.docx" }));
-  expect(await screen.findByText(reason === 'USER_QUOTA_EXCEEDED' ? /每日调用额度已用尽/ : /剩余免费页数不足，本次识别未提交/)).toBeTruthy();
+  expect(await screen.findByText(reason === 'USER_QUOTA_EXCEEDED' ? /每日调用额度已用尽/ : /可用识别页数不足，本次识别未提交/)).toBeTruthy();
   expect(http.calls.every(call => call.method === 'GET')).toBe(true);
 });

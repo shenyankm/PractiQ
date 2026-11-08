@@ -21,6 +21,17 @@ DEAD_QUEUE = QUEUE + '.dead'
 DEAD_EXCHANGE = QUEUE + '.dlx'
 VERSION_HEADER = 'practiq-version'
 PUBLISH_TIMEOUT = 5
+# Bound the premium head start: old standard work eventually outranks new Pro work.
+DISPATCH_SQL = """
+SELECT o.run_id,o.created_at FROM document_outbox o
+JOIN document_runs r USING(run_id) JOIN document_tasks t USING(thread_id)
+WHERE o.published_at IS NULL
+ORDER BY o.created_at - CASE WHEN EXISTS (
+ SELECT 1 FROM page_grants g WHERE g.owner_id=t.owner_id AND g.state='active'
+ AND g.expires_at>now() AND g.product->>'id'='pro'
+) THEN interval '2 minutes' ELSE interval '0' END,o.run_id
+LIMIT %s
+"""
 
 
 def failure(exc: Exception, role: Literal['publisher', 'consumer'], stage: str, run_id: str | None = None):
@@ -166,9 +177,13 @@ class Delivery:
                     stage, run_id = 'outbox', None
                     if connection.is_closed or publisher.is_closed:
                         raise ConnectionError('Publisher connection lost')
-                    rows = await self.service.db.rows(
-                        "SELECT o.run_id,o.created_at FROM document_outbox o JOIN document_runs r USING(run_id) JOIN document_tasks t USING(thread_id) "
-                        "WHERE o.published_at IS NULL ORDER BY o.created_at LIMIT 100")
+                    queued = await publisher.declare_queue(QUEUE, durable=True, passive=True, timeout=5)
+                    # Retained dead-letter receipts are not live broker backlog.
+                    ready = queued.declaration_result.message_count
+                    if type(ready) is not int or ready < 0:
+                        raise TypeError('Broker queue depth unavailable')
+                    capacity = max(0, load().jobs_per_worker - len(self.service.active) - ready)
+                    rows = await self.service.db.rows(DISPATCH_SQL, (capacity,))
                     if rows:
                         async with self.service.db.connection() as conn:
                             for row in rows:
@@ -179,7 +194,7 @@ class Delivery:
                                 stage = 'outbox'
                                 await conn.execute('UPDATE document_outbox SET published_at=now() WHERE run_id=%s AND created_at=%s', (row['run_id'], row['created_at']))
                     delay = 1
-                    if len(rows) < 100:
+                    if not capacity or len(rows) < capacity:
                         await self.wait(1)
             except asyncio.CancelledError:
                 raise

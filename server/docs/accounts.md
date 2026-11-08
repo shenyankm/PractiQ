@@ -1,9 +1,9 @@
 # App accounts and Web administration
 
-The multi-user service uses PostgreSQL schema 7 and same-origin session cookies.
+The multi-user service uses PostgreSQL schema 8 and same-origin session cookies.
 Optional [Alipay web payments](alipay.md) use separate account-owned receipt tables
-and an explicit offline schema-6-to-7 upgrade. Payment does not automatically alter
-document-page allowances; native offline practice remains independent.
+and an explicit offline upgrade. Verified production catalog orders grant separate
+expiring allowances; historical and sandbox orders do not. Native offline practice remains independent. See [plans and billing](../../docs/guides/plans.md).
 The first release sends no email. Email is a case-insensitive, unverified login
 identifier, not evidence of identity. Public registration is enabled after an
 operator has bootstrapped an administrator and can be disabled at `/admin`.
@@ -74,9 +74,11 @@ Re-enabling an account does not resume its tasks automatically.
 New accounts receive **50 free recognition pages in total**, not 50 pages per
 day or 50 documents. Registration snapshots the default page allowance; changing
 the new-account default does not refill existing accounts. Administrators may
-change an account's total allowance (including pages already used). Payment does not provide
-automatic refill. The allowance is stored in the existing JSON
-policy and call receipts; no new database table or schema migration is required.
+change an account's total allowance (including pages already used). Free allowances remain in the existing JSON policy and call receipts. Schema 8 adds
+independent paid grants and per-call allocations, without reclassifying historical calls.
+Paid grants are spent by earliest expiry before lifetime free pages; unknown reservations
+remain allocated even after expiry. Known lower terminal counts release only their
+original allocation, never move charges into another grant or user.
 
 Page quota is reserved atomically before submission, across all of a user's
 tasks. PDFs reserve their verified page count; each submitted image/tile counts
@@ -92,8 +94,8 @@ an explicit new recognition attempt does. Unknown outcomes retain their reserved
 pages, and task deletion does not reset usage. Calls recorded before page-quota
 support are preserved without inventing historical page counts.
 
-Additional safety defaults are 1000 model calls/day, 50 Tencent submissions/day and two active
-(pending/running/pausing) tasks per user. Only daily call limits reset at midnight in
+Additional safety defaults are 1000 model calls/day, 50 Tencent submissions/day and Free/Plus/Pro active-task limits of 1/2/3 respectively. Explicit
+per-user administrator limits take precedence. Only daily call limits reset at midnight in
 Asia/Singapore. Administrators can override defaults per account. Existing global,
 per-task, provider and optional estimated-cost budgets remain additional limits.
 Tencent queries/downloads and local reads are passive. Actual model attempts and
@@ -140,7 +142,10 @@ make upgrade-db AI_PYTHON=/absolute/path/to/python3.14 UPGRADE_BACKUP=/absolute/
 ```
 
 The bundle is verified before schema changes. Schema 5 upgrades atomically through
-the existing account migration to 7; schema 6 receives only the additive payment tables.
+the existing account migration to 8; schema 6 receives payment and grant tables; schema 7
+receives only the order-product/verified-closure columns and grant/allocation tables. The old default
+active-task limit of 2 becomes the Free default of 1; explicit per-user overrides and
+other custom defaults are preserved. No historical order is granted a product.
 Existing older-version safety gates remain. Historical rows retain null ownership;
 ordinary users cannot see them and offline cleanup leaves them intact. There is
 no automatic ownership assignment or mapping tool. Historical tasks cannot resume
@@ -149,6 +154,6 @@ backup, login and inspection never run models.
 
 Restore only into a new database and storage root with the matching executable.
 The restore tool revokes all sessions and reset/grading tokens before reopening
-schema-7 data, preventing old credentials from being resurrected. Users must log
+schema-8 data, preventing old credentials from being resurrected. Users must log
 in and explicitly create new App tokens. Rollback uses the complete matching old
 backup and old executable; no in-place downgrade is supported.

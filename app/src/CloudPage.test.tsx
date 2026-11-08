@@ -56,7 +56,7 @@ afterEach(() => { cleanup(); setNativeBridge(null); setAccount(null); vi.clearAl
 
 it("only reads native connection metadata before a service is explicitly configured", async () => {
   const { calls } = fixture({ origin: null }); render(<CloudPage />);
-  await waitFor(() => expect(screen.getByRole("button", { name: "连接云端服务" }).hasAttribute("disabled")).toBe(false));
+  await waitFor(() => expect(screen.getByLabelText("云端服务地址").hasAttribute("disabled")).toBe(false));
   expect(calls).toEqual([{ type: "status" }]);
   expect(screen.queryByLabelText("登录邮箱")).toBeNull();
 });
@@ -109,7 +109,7 @@ it("native file selection stays passive and only Start uploads and creates a clo
 it("displays the lifetime 50-page allowance without starting paid work", async () => {
   const { calls } = fixture({ loggedIn: true }); render(<CloudPage />); const events = userEvent.setup();
   await events.click(await screen.findByRole("button", { name: "用量" }));
-  expect(await screen.findByText(/免费识别额度：剩余 50 \/ 50 页/)).toBeTruthy();
+  expect(await screen.findByText(/可用识别额度：50 页/)).toBeTruthy();
   expect(calls.some(c => c.method === "POST" || c.type === "upload")).toBe(false);
 });
 
@@ -136,6 +136,7 @@ it("connects a service only on explicit native configuration and then reads its 
 it("forgets only this device's account session without implying server revocation",async()=>{
   const {calls}=fixture({loggedIn:true});render(<CloudPage />);const events=userEvent.setup();
   await screen.findByRole("button",{name:"退出登录"});
+  await events.click(screen.getByText("云端连接设置"));
   await events.click(screen.getByRole("button",{name:"清除本机登录状态"}));
   await screen.findByRole("heading",{name:"登录 PractiQ"});
   expect(calls.filter(c=>c.type==="forget_session")).toHaveLength(1);

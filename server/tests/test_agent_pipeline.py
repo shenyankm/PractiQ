@@ -44,7 +44,7 @@ async def test_full_outbox_batch_drains_before_idle_wait(monkeypatch):
     batches = [[{"run_id": str(uuid4()), "created_at": "synthetic"} for _ in range(size)] for size in (100, 1)]
     db = SimpleNamespace(rows=AsyncMock(side_effect=batches), connection=connection)
     service = SimpleNamespace(stopping=False, db=db, active={})
-    channel = SimpleNamespace(is_closed=False, get_underlay_channel=AsyncMock(
+    channel = SimpleNamespace(is_closed=False, declare_queue=AsyncMock(return_value=SimpleNamespace(declaration_result=SimpleNamespace(message_count=0))), get_underlay_channel=AsyncMock(
         return_value=SimpleNamespace(on_consumer_cancel_callbacks=set())))
     broker = SimpleNamespace(channel=AsyncMock(return_value=channel), is_closed=False, close=AsyncMock())
     queue = SimpleNamespace(consume=AsyncMock(), cancel=AsyncMock())
@@ -54,7 +54,7 @@ async def test_full_outbox_batch_drains_before_idle_wait(monkeypatch):
     async def idle(_seconds):
         service.stopping = True
 
-    monkeypatch.setattr(messaging, "load", lambda: SimpleNamespace(read_only=False))
+    monkeypatch.setattr(messaging, "load", lambda: SimpleNamespace(read_only=False, jobs_per_worker=100))
     monkeypatch.setattr(messaging, "rabbitmq_uris", lambda: ("amqp://localhost/synthetic",))
     monkeypatch.setattr(messaging.aio_pika, "connect", AsyncMock(return_value=broker))
     monkeypatch.setattr(messaging, "topology", AsyncMock(return_value=queue))

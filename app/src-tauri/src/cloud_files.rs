@@ -443,14 +443,18 @@ pub(crate) fn checkout(
     context: &Context,
     request_id: &str,
     order_id: Option<&str>,
+    product_id: Option<&str>,
 ) -> Result<Value> {
+    if product_id.is_some_and(|id| !["plus", "pro", "pages50"].contains(&id)) {
+        return Err(error("PLAN_PRODUCT_INVALID"));
+    }
     uuid::Uuid::parse_str(request_id).map_err(|_| error("PAYMENT_REQUEST_INVALID"))?;
     let (path, body) = if let Some(id) = order_id {
         (format!("/api/me/payments/{id}/form"), None)
     } else {
         (
             "/api/me/payments".into(),
-            Some(json!({"requestId":request_id})),
+            Some(json!({"requestId":request_id,"productId":product_id})),
         )
     };
     let reply = crate::cloud::fetch(app, state, context, &path, Method::POST, body)?;

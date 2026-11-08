@@ -34,7 +34,7 @@ function Progress({ task }: { task: DocumentTaskDetail }) {
   const jobs = task.parserJobs || [];
   const active = ["RUNNING", "PENDING", "PAUSING"].includes(task.state);
   const uncertain = jobs.some(job => job.status === "Unknown" || (job.status === "SUBMITTING" && !job.taskId && !active));
-  return <>{pagesBlocked && <p className="notice" role="status">剩余免费页数不足，本次识别未提交。新账户默认共有 50 页免费额度，不按日恢复；请联系管理员调整额度后手动继续。已保存结果仍可查看和下载。</p>}{quotaBlocked && <p className="notice" role="status">每日调用额度已用尽。额度按新加坡时间零点重置；恢复后请手动继续任务，也可联系管理员调整额度。</p>}{!!jobs.length && <section aria-label="腾讯文档识别"><p role="status">腾讯文档识别：已保存 {jobs.filter(job => job.resultSaved).length} 个任务结果 · 处理中 {jobs.filter(job => ["STAGING", "Created", "Processing"].includes(job.status) || (active && job.status === "SUBMITTING")).length} 个任务</p>
+  return <>{pagesBlocked && <p className="notice" role="status">可用识别页数不足，本次识别未提交。请前往“套餐与额度”查看余额，购买套餐或加量包后手动继续。已保存结果仍可查看和下载。</p>}{quotaBlocked && <p className="notice" role="status">每日调用额度已用尽。额度按新加坡时间零点重置；恢复后请手动继续任务，也可联系管理员调整额度。</p>}{!!jobs.length && <section aria-label="腾讯文档识别"><p role="status">腾讯文档识别：已保存 {jobs.filter(job => job.resultSaved).length} 个任务结果 · 处理中 {jobs.filter(job => ["STAGING", "Created", "Processing"].includes(job.status) || (active && job.status === "SUBMITTING")).length} 个任务</p>
     {uncertain && <p className="notice" role="alert">上次腾讯提交结果尚未确认。请先核对腾讯云记录；重新解析会创建新任务并可能再次计费。任务 ID 与请求 ID 可在任务诊断中查看。</p>}
     {jobs.some(job => ["REJECTED", "Failed"].includes(job.status)) && <p className="notice">腾讯文档识别失败。请核对任务诊断，修正问题后再重新解析。</p>}
   </section>}<div className="progress-grid">{(["chunks", "visuals"] as const).map(kind => {

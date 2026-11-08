@@ -47,3 +47,9 @@ it("awaits the native confirmation result instead of treating its Promise as con
  expect(await nativeCloudBridge("https://cloud.test",1).confirm("Keep the draft?" )).toBe(false);
  expect(invoke).toHaveBeenCalledExactlyOnceWith("cloud_request",{request:{type:"confirm",message:"Keep the draft?"},context:{origin:"https://cloud.test",generation:1}});
 });
+
+it("passes a selected catalog SKU through the typed native checkout command",async()=>{
+ vi.mocked(invoke).mockResolvedValue({value:null,generation:2} as never);
+ await nativeCloudBridge("https://cloud.test",2).checkout("11111111-1111-4111-8111-111111111111",undefined,"plus");
+ expect(invoke).toHaveBeenCalledExactlyOnceWith("cloud_request",{request:{type:"checkout",request_id:"11111111-1111-4111-8111-111111111111",order_id:null,product_id:"plus"},context:{origin:"https://cloud.test",generation:2}});
+});

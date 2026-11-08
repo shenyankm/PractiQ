@@ -39,6 +39,6 @@ export function nativeCloudBridge(origin: string, generation = 0): NativeBridge 
     upload: ticket => call<DocumentReference>({ type: "upload", ticket }),
     download: (path, name) => call<boolean>({ type: "download", path, name }),
     save: (bytes, name) => call<boolean>({ type: "save", bytes: encode(bytes), name }),
-    checkout: async (requestId, orderId) => { await call({ type: "checkout", request_id: requestId, order_id: orderId ?? null }); },
+    checkout: async (requestId, orderId, productId) => { await call({ type: "checkout", request_id: requestId, order_id: orderId ?? null, product_id: productId ?? null }); },
   };
 }

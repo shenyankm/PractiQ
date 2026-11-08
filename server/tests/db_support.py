@@ -137,6 +137,7 @@ def browser_headers():
 async def strip_identity_schema(db):
     """Construct a real pre-six fixture, rather than only changing its marker."""
     async with db.transaction() as conn:
+        await conn.execute('DROP TABLE page_allocations,page_grants')
         await conn.execute('DROP TABLE payment_notifications,payment_refunds,payment_orders')
         await conn.execute('ALTER TABLE document_tasks DROP COLUMN owner_id')
         await conn.execute('ALTER TABLE grades DROP COLUMN owner_id')
