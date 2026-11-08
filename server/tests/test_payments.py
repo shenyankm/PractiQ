@@ -543,3 +543,21 @@ async def test_new_production_orders_require_a_catalog_sku_and_reject_client_ful
     assert (await client.post('/api/me/payments', json={'requestId': str(uuid4()), 'productId': 'plus', 'providerClosed': False})).status_code == 422
     assert (await client.post('/api/me/payments', json={'requestId': str(uuid4()), 'productId': 'free'})).status_code == 422
     assert not await database.rows('SELECT * FROM payment_orders')
+
+
+async def test_admin_order_inspection_is_private_passive_and_retains_refunds(account):
+    database, client, gateway = account
+    result, _ = await create(client)
+    order_id = result['order']['id']
+    rows = (await client.get('/api/admin/payments?offset=0')).json()
+    assert rows[0]['id'] == order_id and rows[0]['ownerId'] == 'alice'
+    assert rows[0]['grant'] is None
+    assert not any(key in str(rows) for key in ('password_hash', 'private_key', 'paymentHtml'))
+    assert (await client.get('/api/admin/payments/' + order_id)).status_code == 200
+    assert gateway.refund_calls == 0
+    assert not await database.rows('SELECT * FROM auth_calls')
+    client.cookies.set('practiq_session', 'bob')
+    client.headers['X-CSRF-Token'] = identity.csrf('bob')
+    for path in ('/api/admin/payments', '/api/admin/payments/' + order_id):
+        assert (await client.get(path)).status_code == 403
+    assert (await client.post('/api/admin/payments/' + order_id + '/query')).status_code == 403
