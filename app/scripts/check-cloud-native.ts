@@ -120,3 +120,39 @@ test('App keeps offline practice available and submits cloud imports only throug
   await expect(sidebar.getByRole('button',{name:'个人中心',exact:true})).toHaveAttribute('aria-description','未登录');
   expect(errors).toEqual([]); expect(external).toEqual([]);
 });
+
+for (const language of ['en','zh-TW'] as const) test(`cloud account and plan copy follows ${language}`,async({page},testInfo)=>{
+  await page.addInitScript(({language})=>{
+    sessionStorage.setItem('practiq-preview','off');
+    const w=window as unknown as {__TAURI_INTERNALS__:unknown};
+    w.__TAURI_INTERNALS__={invoke:async(command:string,args:{request:Record<string,unknown>;context:{origin:string;generation:number}|null})=>{
+      if(command==='cloud_request') {
+        const {previewCloud}=await import('/src/cloud-preview.ts');
+        return previewCloud(args.request,args.context,'normal');
+      }
+      switch(args.request.type){
+        case 'language':return language;case 'banks':return [];
+        case 'info':return {version:'Localization substitute',dataDirectory:'isolated'};
+        case 'banks_page':case 'sessions_page':return {items:[],total:0,offset:0};
+        case 'unfinished_session':return null;
+        case 'backup_status':return {lastBackupAt:null,newAttempts:0,changedNotes:0,due:false};
+        default:throw Error('Unexpected local action');
+      }
+    }};
+  },{language});
+  await page.goto('/');
+  const english=language==='en';
+  await page.locator('#app-sidebar').getByRole('button',{name:english?'Account':'個人中心',exact:true}).click();
+  await expect(page.getByRole('heading',{name:english?'Sign in to PractiQ':'登入 PractiQ',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:english?'Register account':'註冊帳戶',exact:true}).click();
+  await page.getByLabel(english?'Login email':'登入電子郵件',{exact:true}).fill('locale@example.test');
+  await page.getByLabel(english?'Password (at least 12 characters)':'密碼（至少 12 字符）',{exact:true}).fill('localized-test-password');
+  await page.getByRole('button',{name:english?'Register and sign in':'註冊並登入',exact:true}).click();
+  await expect(page.getByRole('region',{name:english?'Profile':'個人信息',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:english?'Plans and allowance':'套餐與額度',exact:true}).click();
+  await expect(page.getByRole('heading',{name:english?'Current plan · Free':'當前套餐 · Free',exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:english?'Buy Plus':'購買 Plus',exact:true})).toBeDisabled();
+  await page.screenshot({path:testInfo.outputPath(`plans-${language}-light.png`),fullPage:true});
+  await page.evaluate(()=>document.documentElement.classList.add('dark'));
+  await page.screenshot({path:testInfo.outputPath(`plans-${language}-dark.png`),fullPage:true});
+});

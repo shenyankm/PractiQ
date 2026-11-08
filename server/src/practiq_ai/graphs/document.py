@@ -1032,7 +1032,7 @@ async def _prepare(state: DocumentState, runtime: Runtime[None], *, source_types
         artifact = await put(prepared, "visible-workbook", 0, reference.mediaType)
         submissions = [(artifact, "xlsx", None)]
         input_parts.append({"reference": artifact.model_dump(mode="json"), "preparation": "visible_excel_sheets"})
-    if len(prepared) > limit or reference.sourceType == "xls":
+    if len(prepared) > limit:
         from practiq_ai.tencent_inputs import split_image, split_text
         submissions = []
         if reference.sourceType in {"text", "markdown"}:

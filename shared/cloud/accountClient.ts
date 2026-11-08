@@ -1,3 +1,4 @@
+import { t } from "./i18n";
 import type { AccountSession } from "./contracts.generated";
 import { nativeBridge, serviceFetch } from "./transport";
 let session: AccountSession | null = null;
@@ -33,7 +34,7 @@ export async function accountRequest<T>(
   if (!response.ok) {
     const data = await response.json().catch(() => null);
     if (response.status === 401 && path !== "/api/auth/login") sessionExpired();
-    throw new Error(data?.detail?.code ?? `请求失败 (${response.status})`);
+    throw new Error(data?.detail?.code ?? t("请求失败 ({0})", response.status));
   }
   return response.json() as Promise<T>;
 }

@@ -1354,6 +1354,12 @@ class PaymentOrder(StrictModel):
     providerClosed: bool = False
 
 
+class AdministrationPaymentOrder(PaymentOrder):
+    ownerId: str
+    createdAt: datetime
+    grant: PageGrant | None
+
+
 class PaymentForm(StrictModel):
     order: PaymentOrder
     paymentHtml: str

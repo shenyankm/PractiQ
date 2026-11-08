@@ -39,3 +39,17 @@ async def business_http(monkeypatch):
 
     yield
     webapp.app.middleware_stack = None
+
+
+@pytest.fixture
+def load_credentials(monkeypatch, tmp_path):
+    """Capacity tests isolate login; test_monitoring checks real credential boundaries."""
+    from unittest.mock import AsyncMock
+
+    from scripts import load_test
+    path = tmp_path / 'metrics-token'
+    path.write_text('m' * 43)
+    path.chmod(0o600)
+    monkeypatch.setattr(load_test, 'login', AsyncMock())
+    monkeypatch.setattr(load_test.getpass, 'getpass', lambda _: 'isolated-test-password')
+    return path

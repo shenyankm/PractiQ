@@ -170,3 +170,21 @@ Native tests verify restricted Alipay form reconstruction. The customer `/paymen
 page and assets were removed; only `/payments/return` remains to direct buyers
 back to the App for an authenticated query. Tests submit no money and do not
 validate merchant activation.
+
+## Administrator order operations
+
+Web → Orders and refunds lists bounded pages of account-owned orders, exposes
+saved entitlement/refund states and supports direct order lookup. Reads remain
+available with payment disabled. Explicit signed provider queries, current-password
+refund submission and original-refund queries reuse the existing server receipt
+and audit boundaries. Only administrator sessions can use `/api/admin/payments`
+and its order/query routes; metrics and grading credentials cannot.
+
+Before refund submission the browser saves the non-secret original request ID,
+order, amount and reason in account-scoped local recovery storage. Passwords are
+never saved. Lost responses keep that immutable request; reopening never resends
+it. Query the saved refund or explicitly retry the same request. Unreadable local
+records or unavailable storage block new dispatch. Definitive validation/password
+rejections release only the local unsent intent; unknown provider results retain
+server reservations and frozen grants. A confirmed refund clears the matching
+local recovery record. Real buyer and merchant activation acceptance remain separate.

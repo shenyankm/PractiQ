@@ -6,6 +6,8 @@ The product boundary is the [independent AI service/Web importer and offline pra
 
 ## Current planning scope
 
+The [November 9 engineering completion record](../acceptance/engineering-completion-20261109.md) tracks current App/administration, monitoring authentication and connected workflow repairs. External quality, signing, production and participant evidence remains separate.
+
 The current [supported application](../../README.md) is macOS 14+ on Apple Silicon only; Windows/Android records below remain historical. Import quality (#90) now covers the Tencent-first service/Web pipeline, including Markdown and PPT/PPTX, with CSV retained only as historical/saved content. Final-package acceptance (#91) requires exact macOS final bytes and both direct-model and service-mode grading evidence. Trials (#92) must use the current macOS build, personal service-token/direct-grading credential boundaries and separately authorized consent. Onboarding (#93) must use the current installation guide, not retired platform commands.
 
 The priorities remain Now: #90/#91, Next: #92, Later: #93. None is completed by bug-fix PRs, a draft release, synthetic CI or another maintainer/AI rehearsal. #90 needs independently checked source annotations and separately authorized live Tencent/model evaluation; #91 needs a selected final candidate, signing and clean-target acceptance; #92 needs authorized voluntary participants and actual sanitized outcomes; #93 needs an actual consenting new contributor's setup/check record. These are external evidence/authorization dependencies, not permission to fabricate results, contact people, publish a release or run paid calls. Keep the workstreams and #89 open while their original acceptance remains unmet.

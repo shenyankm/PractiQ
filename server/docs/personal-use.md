@@ -1,7 +1,10 @@
 # Multi-user service update
 
 The current schema-8 service uses customer accounts in the macOS App and an administrator-only Web. The App is an upload/control/review client; all recognition and import processing stay on this service. See the [App cloud workflow](../../docs/guides/cloud-service.md).
-See [accounts and deployment](accounts.md) for current setup and recovery.
+See [accounts and deployment](accounts.md) for current setup and recovery, including
+restricted metrics credentials and authenticated load-test setup. New customer
+workflow acceptance uses the built App with an explicit native-IPC substitute;
+the administrator Web has no upload entry.
 Optional service-only Alipay web payments and the explicit offline upgrade procedure are
 documented in [Alipay payments](alipay.md). They are disabled by default. Only verified production catalog orders issue
 separate expiring page grants; historical/sandbox receipts do not. The offline App

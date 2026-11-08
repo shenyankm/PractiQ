@@ -2,6 +2,8 @@
 import asyncio
 import hashlib
 import hmac
+import os
+import re
 import secrets
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -115,6 +117,11 @@ async def authenticate(request: Request) -> dict | None:
     raw = request.cookies.get(cookie_name(request), '')
     bearer = request.headers.get('authorization', '')
     if bearer:
+        monitoring = os.environ.get('AI_METRICS_TOKEN', '')
+        if (request.method in {'GET', 'HEAD'} and request.url.path == '/api/metrics'
+                and re.fullmatch(r'[A-Za-z0-9_-]{43,128}', monitoring)
+                and hmac.compare_digest(digest(bearer), digest('Bearer ' + monitoring))):
+            return {'id': 'monitoring', 'role': 'admin'}
         if not bearer.startswith('Bearer pq_grade_') or request.url.path not in {'/api/maintenance', '/api/subjective-grades'}:
             raise HTTPException(401, {'code': 'INVALID_ACCESS_TOKEN'})
         rows = await db().rows("SELECT u.*,t.id AS credential_id FROM auth_tokens t JOIN auth_users u ON u.id=t.user_id WHERE t.digest=%s AND t.kind='grading' AND t.expires_at>now() AND u.enabled", (digest(bearer[7:]),))

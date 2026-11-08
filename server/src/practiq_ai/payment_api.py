@@ -2,7 +2,7 @@
 from typing import Annotated
 from urllib.parse import parse_qsl
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi import Path as Parameter
 from starlette.responses import HTMLResponse, PlainTextResponse
 
@@ -11,6 +11,7 @@ from . import identity as auth
 from .account_api import confirm
 from .contracts import (
     AccountPlan,
+    AdministrationPaymentOrder,
     PaymentCreate,
     PaymentForm,
     PaymentOffer,
@@ -57,6 +58,32 @@ async def orders():
     assert user is not None
     rows = await auth.db().rows('SELECT * FROM payment_orders WHERE owner_id=%s ORDER BY created_at DESC LIMIT 50', (user['id'],))
     return [await payments.snapshot(order) for order in rows]
+
+
+async def admin_snapshot(order: dict) -> dict:
+    async with auth.db().connection() as conn:
+        user = await (await conn.execute('SELECT * FROM auth_users WHERE id=%s', (order['owner_id'],))).fetchone()
+        assert user is not None
+        grants = (await billing.balance(conn, user))['grants']
+    return {**await payments.snapshot(order), 'ownerId': order['owner_id'], 'createdAt': order['created_at'],
+            'grant': next((g for g in grants if g['orderId'] == order['id']), None)}
+
+
+@router.get('/api/admin/payments', response_model=list[AdministrationPaymentOrder])
+async def admin_orders(offset: int = Query(default=0, ge=0)):
+    rows = await auth.db().rows('SELECT * FROM payment_orders ORDER BY created_at DESC,id LIMIT 50 OFFSET %s', (offset,))
+    return [await admin_snapshot(order) for order in rows]
+
+
+@router.get('/api/admin/payments/{order_id}', response_model=AdministrationPaymentOrder)
+async def admin_order(order_id: OrderId):
+    return await admin_snapshot(await payments.order_for(order_id, admin=True))
+
+
+@router.post('/api/admin/payments/{order_id}/query', response_model=AdministrationPaymentOrder)
+async def admin_order_query(order_id: OrderId):
+    await query_limit()
+    return await admin_snapshot(await payments.query(await payments.order_for(order_id, admin=True)))
 
 
 @router.post('/api/me/payments', response_model=PaymentForm)

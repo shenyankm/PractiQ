@@ -30,7 +30,7 @@ New users receive 50 free document-recognition pages in total, with no daily ref
 - `make server-dev`: run Uvicorn on loopback with PostgreSQL and RabbitMQ, loading `.env`.
 - `make test` / `make test-server`: AI tests without external model calls.
 - `make install-locked`: install locked runtime/development dependencies into the selected interpreter without a project `.venv`.
-- `make upgrade-db UPGRADE_BACKUP=/absolute/path/to/verified/bundle`: explicitly upgrade service schema 1–6 to 7 offline under runtime ownership; verify and retain database/storage backups.
+- `make upgrade-db UPGRADE_BACKUP=/absolute/path/to/verified/bundle`: explicitly upgrade service schema 1–7 to 8 offline under runtime ownership; verify and retain database/storage backups.
 - `make verify`: lockfile consistency, Ruff, Pyright, evaluation fixtures, one test run with 90% coverage, recovery probes and package build. Reports go to `server/reports/checks/`, including on test failure.
 - `make audit` / `make image-check`: audit locked dependencies (network required) / build the Docker image without publishing.
 

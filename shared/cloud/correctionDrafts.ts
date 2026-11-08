@@ -1,3 +1,4 @@
+import { t } from "./i18n";
 import { accountStorageScope, storageKey } from "./accountClient";
 import type { DocumentAnswerSource, DocumentCorrectionSave, ParsedQuestion } from "./contracts.generated";
 
@@ -7,7 +8,7 @@ const key = "practiq.correction-drafts.v1";
 const scopedPrefix = (scope: string) => storageKey(key, scope) + ".requests.";
 const maximum = 4 * 1024 * 1024;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const unavailable = () => Error("无法读取或保存本机校对草稿。请保留当前页面，检查浏览器存储后重试；未确认请求不会自动重发。");
+const unavailable = () => Error(t("无法读取或保存本机校对草稿。请保留当前页面，检查浏览器存储后重试；未确认请求不会自动重发。"));
 function question(value: unknown): value is ParsedQuestion {
   if (!value || typeof value !== "object") return false;
   const q = value as ParsedQuestion;

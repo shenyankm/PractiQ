@@ -1,3 +1,4 @@
+import { cloudLocale, t, useCloudLocale } from "./i18n";
 import { nativeBridge } from "./transport";
 import { lazy, memo, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { parsePages } from "./importSelection";
@@ -23,30 +24,32 @@ const actionLabels: Record<Action, string> = { pause: "暂停", interrupt: "取�
 const formatLabels: Record<Capabilities["sourceTypes"][number], string> = { pdf: "PDF", text: "TXT", markdown: "Markdown", ppt: "PPT (.ppt)", pptx: "PPT (.pptx)", image: "PNG/JPEG", doc: "Word (.doc)", docx: "Word (.docx)", xls: "Excel (.xls)", xlsx: "Excel (.xlsx)" };
 const formatGroups: Record<Capabilities["sourceTypes"][number], string> = { pdf: "PDF", text: "TXT", markdown: "Markdown", ppt: "PPT", pptx: "PPT", image: "图片", doc: "Word", docx: "Word", xls: "Excel", xlsx: "Excel" };
 const fileLabels: Record<FileItem["state"], string> = { ready: "尚未提交", hashing: "校验文件", uploading: "上传文件", starting: "创建任务", created: "任务已创建", failed: "提交失败" };
-const errorText = (error: unknown) => error instanceof ApiError ? error.message : "读取或操作失败，请手动重试。";
+const errorText = (error: unknown) => error instanceof ApiError ? error.message : t("读取或操作失败，请手动重试。");
 const authFailure = (error: unknown) => error instanceof ApiError && [401, 403].includes(error.status);
 const pollRetryDelay = (failures: number) => Math.min(30_000, 3000 * 2 ** Math.min(failures - 1, 4)) * (0.8 + Math.random() * 0.2);
 const sizeLabel = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1)} MiB`;
 
 function Progress({ task }: { task: DocumentTaskDetail }) {
+  useCloudLocale();
   const quotaBlocked = task.blocking.some(value => value === 'USER_QUOTA_EXCEEDED' || value && typeof value === 'object' && 'reason' in value && value.reason === 'USER_QUOTA_EXCEEDED');
   const pagesBlocked = task.blocking.some(value => value === 'FREE_PAGE_QUOTA_EXCEEDED' || value && typeof value === 'object' && 'reason' in value && value.reason === 'FREE_PAGE_QUOTA_EXCEEDED');
   const jobs = task.parserJobs || [];
   const active = ["RUNNING", "PENDING", "PAUSING"].includes(task.state);
   const uncertain = jobs.some(job => job.status === "Unknown" || (job.status === "SUBMITTING" && !job.taskId && !active));
-  return <>{pagesBlocked && <p className="notice" role="status">可用识别页数不足，本次识别未提交。请前往“套餐与额度”查看余额，购买套餐或加量包后手动继续。已保存结果仍可查看和下载。</p>}{quotaBlocked && <p className="notice" role="status">每日调用额度已用尽。额度按新加坡时间零点重置；恢复后请手动继续任务，也可联系管理员调整额度。</p>}{!!jobs.length && <section aria-label="腾讯文档识别"><p role="status">腾讯文档识别：已保存 {jobs.filter(job => job.resultSaved).length} 个任务结果 · 处理中 {jobs.filter(job => ["STAGING", "Created", "Processing"].includes(job.status) || (active && job.status === "SUBMITTING")).length} 个任务</p>
-    {uncertain && <p className="notice" role="alert">上次腾讯提交结果尚未确认。请先核对腾讯云记录；重新解析会创建新任务并可能再次计费。任务 ID 与请求 ID 可在任务诊断中查看。</p>}
-    {jobs.some(job => ["REJECTED", "Failed"].includes(job.status)) && <p className="notice">腾讯文档识别失败。请核对任务诊断，修正问题后再重新解析。</p>}
+  return <>{pagesBlocked && <p className="notice" role="status">{t("可用识别页数不足，本次识别未提交。请前往“套餐与额度”查看余额，购买套餐或加量包后手动继续。已保存结果仍可查看和下载。")}</p>}{quotaBlocked && <p className="notice" role="status">{t("每日调用额度已用尽。额度按新加坡时间零点重置；恢复后请手动继续任务，也可联系管理员调整额度。")}</p>}{!!jobs.length && <section aria-label={t("腾讯文档识别")}><p role="status">{t("腾讯文档识别：已保存 ")}{jobs.filter(job => job.resultSaved).length}{t(" 个任务结果 · 处理中 ")}{jobs.filter(job => ["STAGING", "Created", "Processing"].includes(job.status) || (active && job.status === "SUBMITTING")).length}{t(" 个任务")}</p>
+    {uncertain && <p className="notice" role="alert">{t("上次腾讯提交结果尚未确认。请先核对腾讯云记录；重新解析会创建新任务并可能再次计费。任务 ID 与请求 ID 可在任务诊断中查看。")}</p>}
+    {jobs.some(job => ["REJECTED", "Failed"].includes(job.status)) && <p className="notice">{t("腾讯文档识别失败。请核对任务诊断，修正问题后再重新解析。")}</p>}
   </section>}<div className="progress-grid">{(["chunks", "visuals"] as const).map(kind => {
     const progress = task.progress[kind];
-    return <section key={kind}><div className="flex justify-between"><strong>{kind === "chunks" ? "文本单元" : "视觉单元"}</strong><span>{progress.succeeded + progress.failed}/{progress.total}</span></div><progress aria-label={kind === "chunks" ? "文本单元进度" : "视觉单元进度"} value={progress.succeeded + progress.failed} max={Math.max(1, progress.total)} /><p className="text-sm text-muted-foreground">{progress.total ? `成功 ${progress.succeeded} · 失败 ${progress.failed} · 剩余 ${progress.remaining}` : "尚无处理单元"}</p></section>;
+    return <section key={kind}><div className="flex justify-between"><strong>{kind === "chunks" ? t("文本单元") : t("视觉单元")}</strong><span>{progress.succeeded + progress.failed}/{progress.total}</span></div><progress aria-label={kind === "chunks" ? t("文本单元进度") : t("视觉单元进度")} value={progress.succeeded + progress.failed} max={Math.max(1, progress.total)} /><p className="text-sm text-muted-foreground">{progress.total ? t("成功 {0} · 失败 {1} · 剩余 {2}", progress.succeeded, progress.failed, progress.remaining) : t("尚无处理单元")}</p></section>;
   })}</div></>;
 }
 const Usage = memo(function Usage({ task }: { task: DocumentTaskDetail }) {
+  useCloudLocale();
   const [loaded, setLoaded] = useState(false);
   const input = loaded ? task.usage.reduce((sum, call) => sum + call.inputTokens, 0) : 0;
   const output = loaded ? task.usage.reduce((sum, call) => sum + call.outputTokens, 0) : 0;
-  return <details className="resource-card" onToggle={event => { if (event.currentTarget.open && !loaded) setLoaded(true); }}><summary>模型用量与任务诊断</summary>{loaded && <div className="space-y-3 pt-3"><p>已知用量：{task.usage.length} 次调用，输入 {input} tokens，输出 {output} tokens。</p><p>{task.unknownUsageCalls.length ? `有 ${task.unknownUsageCalls.length} 次调用未返回用量，实际总用量未知。` : "没有已记录的未知用量调用。"}</p><p>调用预算：已预留 {task.modelBudget.reserved}/{task.modelBudget.limit} 次。</p><dl className="metadata-grid"><dt>处理阶段</dt><dd>{task.phase}</dd><dt>检查点</dt><dd>{task.checkpointId ?? "尚无（null）"}</dd><dt>运行 ID</dt><dd>{task.runId ?? "无（null）"}</dd><dt>父任务</dt><dd>{task.parentThreadId ?? "无（null）"}</dd><dt>到期时间</dt><dd>{task.expiresAt}</dd></dl><pre className="raw-data">{JSON.stringify({ usage: task.usage, unknownUsageCalls: task.unknownUsageCalls, processing: task.processing, blocking: task.blocking, parserJobs: task.parserJobs || [] }, null, 2)}</pre></div>}</details>;
+  return <details className="resource-card" onToggle={event => { if (event.currentTarget.open && !loaded) setLoaded(true); }}><summary>{t("模型用量与任务诊断")}</summary>{loaded && <div className="space-y-3 pt-3"><p>{t("已知用量：")}{task.usage.length}{t(" 次调用，输入 ")}{input}{t(" tokens，输出 ")}{output} {t("tokens。")}</p><p>{task.unknownUsageCalls.length ? t("有 {0} 次调用未返回用量，实际总用量未知。", task.unknownUsageCalls.length) : t("没有已记录的未知用量调用。")}</p><p>{t("调用预算：已预留 ")}{task.modelBudget.reserved}/{task.modelBudget.limit}{t(" 次。")}</p><dl className="metadata-grid"><dt>{t("处理阶段")}</dt><dd>{task.phase}</dd><dt>{t("检查点")}</dt><dd>{task.checkpointId ?? t("尚无（null）")}</dd><dt>{t("运行 ID")}</dt><dd>{task.runId ?? t("无（null）")}</dd><dt>{t("父任务")}</dt><dd>{task.parentThreadId ?? t("无（null）")}</dd><dt>{t("到期时间")}</dt><dd>{task.expiresAt}</dd></dl><pre className="raw-data">{JSON.stringify({ usage: task.usage, unknownUsageCalls: task.unknownUsageCalls, processing: task.processing, blocking: task.blocking, parserJobs: task.parserJobs || [] }, null, 2)}</pre></div>}</details>;
 });
 
 type Page = "import" | "records" | "settings";
@@ -57,16 +60,16 @@ function pageFromHash(): Page | undefined {
   if (["#task-detail", "#task-list-heading"].includes(hash)) return "records";
   return pages.find(item => `#${item.id}` === hash)?.id;
 }
-const dateFormatter = new Intl.DateTimeFormat("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false });
-const dateLabel = (value: string) => { const date = new Date(value); return Number.isNaN(date.getTime()) ? "时间未知" : dateFormatter.format(date); };
+const dateLabel = (value: string) => { const date = new Date(value); return Number.isNaN(date.getTime()) ? t("时间未知") : date.toLocaleString(cloudLocale(), { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }); };
 
 export default function App({ requestedTask, hideSkipLink = false, focusMain = false }: { requestedTask?: {id:string}; hideSkipLink?: boolean; focusMain?: boolean } = {}) {
+  useCloudLocale();
   const Main = nativeBridge() ? "section" : "main";
   useLayoutEffect(() => { if (focusMain) document.getElementById("main-content")?.focus(); }, [focusMain]);
   const activeJob = useRef(false);
   const correctionLeaveGuard = useRef<(() => boolean) | null>(null);
   useEffect(() => {
-    const leave = (event: Event) => { if (activeJob.current) { setOperationError("云端操作仍在提交，请等待结果；未确认的请求会保留原记录，勿重复提交。"); event.preventDefault(); } else if (correctionLeaveGuard.current?.() === false) event.preventDefault(); };
+    const leave = (event: Event) => { if (activeJob.current) { setOperationError(t("云端操作仍在提交，请等待结果；未确认的请求会保留原记录，勿重复提交。")); event.preventDefault(); } else if (correctionLeaveGuard.current?.() === false) event.preventDefault(); };
     const close = (event: Event) => { if (activeJob.current || correctionLeaveGuard.current) event.preventDefault(); };
     document.addEventListener("practiq-cloud-before-leave", leave);
     document.addEventListener("practiq-before-window-close", close);
@@ -75,7 +78,7 @@ export default function App({ requestedTask, hideSkipLink = false, focusMain = f
   const registerCorrectionGuard = useCallback((guard: (() => boolean) | null) => { correctionLeaveGuard.current = guard; }, []);
   function leaveCorrection() {
     if (correctionLeaveGuard.current?.() !== false) return true;
-    setOperationError("请先处理当前校对：保存或明确放弃草稿；未确认的保存请先重新读取修订。");
+    setOperationError(t("请先处理当前校对：保存或明确放弃草稿；未确认的保存请先重新读取修订。"));
     return false;
   }
   function refreshDetail() { if (leaveCorrection()) setDetailRevision(value => value + 1); }
@@ -132,7 +135,7 @@ export default function App({ requestedTask, hideSkipLink = false, focusMain = f
     if (!requestedTask || handledTask.current === requestedTask) return;
     handledTask.current = requestedTask;
     if (requestedTask.id !== selected && correctionLeaveGuard.current?.() === false) {
-      setOperationError("请先处理当前校对：保存或明确放弃草稿；未确认的保存请先重新读取修订。");
+      setOperationError(t("请先处理当前校对：保存或明确放弃草稿；未确认的保存请先重新读取修订。"));
       return;
     }
     setSelected(requestedTask.id);
@@ -293,7 +296,7 @@ export default function App({ requestedTask, hideSkipLink = false, focusMain = f
     try {
       validateFiles(chosen, capabilities);
       const additions = chosen;
-      if (pending.length + additions.length > MAX_FILES) throw new ApiError("请先处理保留的失败提交；每次最多保留 10 个文件。", "FILE_COUNT_LIMIT");
+      if (pending.length + additions.length > MAX_FILES) throw new ApiError(t("请先处理保留的失败提交；每次最多保留 10 个文件。"), "FILE_COUNT_LIMIT");
       setFiles([...pending, ...additions.map(file => ({ file, id: crypto.randomUUID(), state: "ready" as const }))]);
     }
     catch (error) { setFiles(pending); setFileError(errorText(error)); }
@@ -319,111 +322,111 @@ export default function App({ requestedTask, hideSkipLink = false, focusMain = f
         if (!current.active) return;
       }
       setListRevision(value => value + 1);
-      if (created) { if (!failed && !files.some(file => !items.some(item => item.id === file.id) && ["failed", "ready"].includes(file.state) && !resolved.has(file.requestId ?? file.id))) navigate("records"); setSelected(value => value === before ? created : value); setNotice("任务已创建。"); }
+      if (created) { if (!failed && !files.some(file => !items.some(item => item.id === file.id) && ["failed", "ready"].includes(file.state) && !resolved.has(file.requestId ?? file.id))) navigate("records"); setSelected(value => value === before ? created : value); setNotice(t("任务已创建。")); }
     });
   }
   const matchingCheckpoint = detailFresh && !previewError && preview?.checkpointId === detail?.checkpointId;
   const canExport = !!detail && (detail.canExportCompleted || detail.state === "COMPLETED" && !!detail.result) && !!detail.checkpointId && matchingCheckpoint;
   function act(action: Action) {
     if (!detail) return;
-    void run(async current => { await current.control(detail, action); if (current.active) { setListRevision(value => value + 1); setDetailRevision(value => value + 1); setNotice("操作已提交，正在读取服务端最新状态。"); } });
+    void run(async current => { await current.control(detail, action); if (current.active) { setListRevision(value => value + 1); setDetailRevision(value => value + 1); setNotice(t("操作已提交，正在读取服务端最新状态。")); } });
   }
-  const importContent = (<div className="import-workspace"><Card><CardHeader className="import-card-heading"><CardTitle role="heading" aria-level={2} id="import-heading" tabIndex={-1}>导入文档</CardTitle><span id="file-limit">最多 {MAX_FILES} 个文件</span></CardHeader><CardContent className="space-y-4">
-            {!capabilities ? <p>正在读取服务支持的格式与限制…</p> : <>
-              <div className="correction-fields"><label>文件用途<Select disabled={busy} value={documentRole} onValueChange={value => setDocumentRole(value as "questions" | "answers")}><SelectOption value="questions">题目文件</SelectOption><SelectOption value="answers">答案卷（仅提取已有答案）</SelectOption></Select></label><label>页面范围（留空为全部）<Input aria-describedby="page-range-help" value={pageRange} maxLength={8000} placeholder="例如 1,3-5" disabled={busy} onChange={event => setPageRange(event.target.value)} /></label></div>
-              <p id="page-range-help" className="import-cost-note">页码从 1 开始；TXT/Markdown 不支持。范围仅限制题目整理，腾讯仍可能按整份文件计费。</p>
-              {documentRole === "answers" && <p>答案卷只提取已有内容，不生成答案。导入完成后，在题目任务中选择“关联答案卷”核对并采用。</p>}
-              <label className="file-picker"><FileText aria-hidden="true" /><span className="file-picker-action">选择文件</span>{nativeBridge() ? <Button type="button" aria-label="选择云端导入文件" disabled={busy} onClick={() => { void nativeBridge()!.pickSources().then(chooseFiles).catch(error => setFileError(error instanceof Error ? error.message : "文件选择失败。")); }}>选择云端导入文件</Button> : <Input className="sr-only" ref={fileInput} type="file" multiple aria-label="选择文档" aria-describedby="file-limit file-help" aria-invalid={!!fileError} accept={capabilities.sourceTypes.map(type => sourceExtensions[type]).join(",")} disabled={busy} onChange={event => chooseFiles(Array.from(event.target.files || []))} />}</label>
-              <div className="upload-details"><p className="supported-formats">服务支持：{[...new Set(capabilities.sourceTypes.map(type => formatGroups[type]))].join("、")}</p>
-              <p id="file-help">单文件 ≤ {sizeLabel(sourceLimit(capabilities))}{capabilities.officeAvailable && sourceLimit(capabilities, "docx") < sourceLimit(capabilities) && ` · Word / Excel ≤ ${sizeLabel(sourceLimit(capabilities, "docx"))}`}</p></div>
-              {capabilities.parserConfigured === false && <p className="notice">腾讯文档识别尚未配置，当前无法开始新的文档导入。</p>}
-              {!capabilities.modelConfigured && <p className="notice">服务端尚未配置模型，暂不能开始解析。</p>}
+  const importContent = (<div className="import-workspace"><Card><CardHeader className="import-card-heading"><CardTitle role="heading" aria-level={2} id="import-heading" tabIndex={-1}>{t("导入文档")}</CardTitle><span id="file-limit">{t("最多 ")}{MAX_FILES}{t(" 个文件")}</span></CardHeader><CardContent className="space-y-4">
+            {!capabilities ? <p>{t("正在读取服务支持的格式与限制…")}</p> : <>
+              <div className="correction-fields"><label>{t("文件用途")}<Select disabled={busy} value={documentRole} onValueChange={value => setDocumentRole(value as "questions" | "answers")}><SelectOption value="questions">{t("题目文件")}</SelectOption><SelectOption value="answers">{t("答案卷（仅提取已有答案）")}</SelectOption></Select></label><label>{t("页面范围（留空为全部）")}<Input aria-describedby="page-range-help" value={pageRange} maxLength={8000} placeholder={t("例如 1,3-5")} disabled={busy} onChange={event => setPageRange(event.target.value)} /></label></div>
+              <p id="page-range-help" className="import-cost-note">{t("页码从 1 开始；TXT/Markdown 不支持。范围仅限制题目整理，腾讯仍可能按整份文件计费。")}</p>
+              {documentRole === "answers" && <p>{t("答案卷只提取已有内容，不生成答案。导入完成后，在题目任务中选择“关联答案卷”核对并采用。")}</p>}
+              <label className="file-picker"><FileText aria-hidden="true" /><span className="file-picker-action">{t("选择文件")}</span>{nativeBridge() ? <Button type="button" aria-label={t("选择云端导入文件")} disabled={busy} onClick={() => { void nativeBridge()!.pickSources().then(chooseFiles).catch(error => setFileError(error instanceof Error ? error.message : t("文件选择失败。"))); }}>{t("选择云端导入文件")}</Button> : <Input className="sr-only" ref={fileInput} type="file" multiple aria-label={t("选择文档")} aria-describedby="file-limit file-help" aria-invalid={!!fileError} accept={capabilities.sourceTypes.map(type => sourceExtensions[type]).join(",")} disabled={busy} onChange={event => chooseFiles(Array.from(event.target.files || []))} />}</label>
+              <div className="upload-details"><p className="supported-formats">{t("服务支持：")}{[...new Set(capabilities.sourceTypes.map(type => t(formatGroups[type])))].join("、")}</p>
+              <p id="file-help">{t("单文件 ≤ ")}{sizeLabel(sourceLimit(capabilities))}{capabilities.officeAvailable && sourceLimit(capabilities, "docx") < sourceLimit(capabilities) && ` · Word / Excel ≤ ${sizeLabel(sourceLimit(capabilities, "docx"))}`}</p></div>
+              {capabilities.parserConfigured === false && <p className="notice">{t("腾讯文档识别尚未配置，当前无法开始新的文档导入。")}</p>}
+              {!capabilities.modelConfigured && <p className="notice">{t("服务端尚未配置模型，暂不能开始解析。")}</p>}
               {fileError && <p role="alert" className="text-destructive">{fileError}</p>}
-              {!!files.length && <ul className="file-list">{files.map(item => <li key={item.id}><div><strong>{item.file.name}</strong><span>{sizeLabel(item.file.size)} · {fileLabels[item.state]} · {formatLabels[fileFormat(item.file).sourceType]}</span>{item.error && <><p role="alert" className="text-destructive">{item.error}</p><small>原提交请求 ID：{item.requestId ?? item.id}</small></>}</div>{["ready", "failed"].includes(item.state) && <Button size="icon" variant="ghost" disabled={busy} aria-label={`移除文件 ${item.file.name}`} onClick={() => setFiles(previous => previous.filter(file => file.id !== item.id))}><Trash2 /></Button>}{item.state === "failed" && <Button size="sm" variant="outline" disabled={busy || capabilities.parserConfigured === false || !capabilities.modelConfigured} onClick={() => void start([item])}>重试开始</Button>}</li>)}</ul>}
-              <div className="import-footer"><div className="import-submit"><p>{settingsPending ? "导入设置待确认" : `自动去重${deduplicateQuestions ? "已开启" : "未开启"} · AI 生成${generateAnswers ? "已开启" : "未开启"}`}</p><Button disabled={busy || settingsPending || capabilities.parserConfigured === false || !capabilities.modelConfigured || !files.some(file => file.state === "ready")} onClick={() => void start(files.filter(file => file.state === "ready"))}>{busy ? <LoaderCircle className="loading-icon" /> : <Play />}开始导入</Button></div>
-              <p className="import-cost-note">开始后将调用 AI，可能产生费用；结果需人工核对。</p></div>
-              {files.some(file => file.state === "failed") && <p className="notice">本批次已停止，剩余文件尚未提交。请先刷新任务列表核对结果，再手动“重试开始”沿用原请求；移除文件只清理本页队列，不会取消服务端任务。已发起的创建请求会保留本机恢复记录；尚未上传的文件需重新选择。</p>}
+              {!!files.length && <ul className="file-list">{files.map(item => <li key={item.id}><div><strong>{item.file.name}</strong><span>{sizeLabel(item.file.size)} · {t(fileLabels[item.state])} · {formatLabels[fileFormat(item.file).sourceType]}</span>{item.error && <><p role="alert" className="text-destructive">{item.error}</p><small>{t("原提交请求 ID：")}{item.requestId ?? item.id}</small></>}</div>{["ready", "failed"].includes(item.state) && <Button size="icon" variant="ghost" disabled={busy} aria-label={t("移除文件 {0}", item.file.name)} onClick={() => setFiles(previous => previous.filter(file => file.id !== item.id))}><Trash2 /></Button>}{item.state === "failed" && <Button size="sm" variant="outline" disabled={busy || capabilities.parserConfigured === false || !capabilities.modelConfigured} onClick={() => void start([item])}>{t("重试开始")}</Button>}</li>)}</ul>}
+              <div className="import-footer"><div className="import-submit"><p>{settingsPending ? t("导入设置待确认") : t("自动去重{0} · AI 生成{1}", deduplicateQuestions ? "已开启" : "未开启", generateAnswers ? "已开启" : "未开启")}</p><Button disabled={busy || settingsPending || capabilities.parserConfigured === false || !capabilities.modelConfigured || !files.some(file => file.state === "ready")} onClick={() => void start(files.filter(file => file.state === "ready"))}>{busy ? <LoaderCircle className="loading-icon" /> : <Play />}{t("开始导入")}</Button></div>
+              <p className="import-cost-note">{t("开始后将调用 AI，可能产生费用；结果需人工核对。")}</p></div>
+              {files.some(file => file.state === "failed") && <p className="notice">{t("本批次已停止，剩余文件尚未提交。请先刷新任务列表核对结果，再手动“重试开始”沿用原请求；移除文件只清理本页队列，不会取消服务端任务。已发起的创建请求会保留本机恢复记录；尚未上传的文件需重新选择。")}</p>}
             </>}
-          {capabilities && <aside className="import-guide" aria-label="导入说明">
-            <details><summary>导入说明</summary><div>
-              <p>完整格式：{capabilities.sourceTypes.map(type => formatLabels[type]).join("、")}</p>
-              <p>腾讯文档识别后，由 AI 整理题库。超限文件由服务端切分；XLS 和大 Office 文件需要转换器。</p>
-              <p>在设置中开启“AI 生成答案与解析”后，仅补充缺失字段，保留原文已有或部分提供的答案。生成内容需人工核对，资料不足时仍留空，并与提取共享任务调用预算。</p>
-              <p>未启用去重时保留全部题目，并提示重复候选。AI 复核最多修正一轮，会增加调用与费用。</p>
-              <p>下载的 ZIP 可在应用的“设置 → 导入与恢复 → 导入题库 ZIP”中追加。</p>
-              {capabilities.modelBudget && <><h3>调用预算 · 每任务 {capabilities.modelBudget.limit} 次</h3><p>按完整预留计算，普通单元最多 {Math.floor(capabilities.modelBudget.limit / capabilities.modelBudget.unitCalls)} 个，带上下文的视觉单元最多 {Math.floor(capabilities.modelBudget.limit / capabilities.modelBudget.contextUnitCalls)} 个。混合任务共享预算；单元数量不等于页数，重试仍占用预算，剩余预算不足时可能仅有部分结果。</p></>}
+          {capabilities && <aside className="import-guide" aria-label={t("导入说明")}>
+            <details><summary>{t("导入说明")}</summary><div>
+              <p>{t("完整格式：")}{capabilities.sourceTypes.map(type => formatLabels[type]).join("、")}</p>
+              <p>{t("腾讯文档识别后，由 AI 整理题库。超限文件由服务端切分；大 Office 文件需要转换器。")}</p>
+              <p>{t("在设置中开启“AI 生成答案与解析”后，仅补充缺失字段，保留原文已有或部分提供的答案。生成内容需人工核对，资料不足时仍留空，并与提取共享任务调用预算。")}</p>
+              <p>{t("未启用去重时保留全部题目，并提示重复候选。AI 复核最多修正一轮，会增加调用与费用。")}</p>
+              <p>{t("下载的 ZIP 可在应用的“设置 → 导入与恢复 → 导入题库 ZIP”中追加。")}</p>
+              {capabilities.modelBudget && <><h3>{t("调用预算 · 每任务 ")}{capabilities.modelBudget.limit}{t(" 次")}</h3><p>{t("按完整预留计算，普通单元最多 ")}{Math.floor(capabilities.modelBudget.limit / capabilities.modelBudget.unitCalls)}{t(" 个，带上下文的视觉单元最多 ")}{Math.floor(capabilities.modelBudget.limit / capabilities.modelBudget.contextUnitCalls)}{t(" 个。混合任务共享预算；单元数量不等于页数，重试仍占用预算，剩余预算不足时可能仅有部分结果。")}</p></>}
             </div></details>
           </aside>}
           </CardContent></Card>
         </div>);
   const recordsContent = (<section className="records-panel" aria-labelledby="task-list-heading">
-  <div className="records-header"><div className="records-heading"><h2 id="task-list-heading" tabIndex={-1}>导入任务</h2>{!!tasks.items.length && <span aria-live="polite">本页 {tasks.items.length} 条记录</span>}</div>
-  <div className="records-toolbar"><label><span className="sr-only">筛选任务状态</span><Select value={filter} onValueChange={value => { setFilter(value); setOffset(0); setCursors([undefined]); }}>{[["", "全部任务"], ["active", "正在处理"], ["paused", "已暂停"], ["review", "等待复核"], ["failed", "失败"], ["completed", "已完成"], ["interrupted", "已中断"], ["expired", "已过期"]].map(([value, label]) => <SelectOption key={value} value={value}>{label}</SelectOption>)}</Select></label><Button variant="outline" aria-label="刷新任务列表" onClick={() => setListRevision(value => value + 1)}><RefreshCw />刷新</Button></div></div>
-  {listError && <div role="alert" className="error-banner"><div><p>{listError}</p>{!!tasks.items.length && <p>当前显示上次读取的记录。</p>}</div><Button variant="outline" onClick={() => setListRevision(value => value + 1)}>重试任务列表</Button></div>}
-  {!tasks.items.length && !listError && <div className="records-empty"><History aria-hidden="true" /><p role="status">{listLoading ? "正在读取任务…" : filter ? "没有符合此状态的任务。" : "当前没有任务。"}</p>{!listLoading && (filter ? <Button variant="outline" onClick={() => { setFilter(""); setOffset(0); setCursors([undefined]); }}>查看全部任务</Button> : capabilities && <Button disabled={busy} onClick={() => { navigate("import"); requestAnimationFrame(() => fileInput.current?.focus()); }}>选择第一份文档</Button>)}</div>}
-  {!!tasks.items.length && <div className="records-table-scroll"><table className="records-table"><caption className="sr-only">文档导入记录</caption><thead><tr><th scope="col">文档</th><th scope="col">状态</th><th scope="col" className="record-number">题目</th><th scope="col" className="record-number">待复核</th><th scope="col">创建时间</th><th scope="col">操作</th></tr></thead><tbody>{tasks.items.map(task => <tr key={task.threadId} data-selected={selected === task.threadId}>
+  <div className="records-header"><div className="records-heading"><h2 id="task-list-heading" tabIndex={-1}>{t("导入任务")}</h2>{!!tasks.items.length && <span aria-live="polite">{t("本页 ")}{tasks.items.length}{t(" 条记录")}</span>}</div>
+  <div className="records-toolbar"><label><span className="sr-only">{t("筛选任务状态")}</span><Select value={filter} onValueChange={value => { setFilter(value); setOffset(0); setCursors([undefined]); }}>{[["", t("全部任务")], ["active", t("正在处理")], ["paused", t("已暂停")], ["review", t("等待复核")], ["failed", t("失败")], ["completed", t("已完成")], ["interrupted", t("已中断")], ["expired", t("已过期")]].map(([value, label]) => <SelectOption key={value} value={value}>{label}</SelectOption>)}</Select></label><Button variant="outline" aria-label={t("刷新任务列表")} onClick={() => setListRevision(value => value + 1)}><RefreshCw />{t("刷新")}</Button></div></div>
+  {listError && <div role="alert" className="error-banner"><div><p>{listError}</p>{!!tasks.items.length && <p>{t("当前显示上次读取的记录。")}</p>}</div><Button variant="outline" onClick={() => setListRevision(value => value + 1)}>{t("重试任务列表")}</Button></div>}
+  {!tasks.items.length && !listError && <div className="records-empty"><History aria-hidden="true" /><p role="status">{listLoading ? t("正在读取任务…") : filter ? t("没有符合此状态的任务。") : t("当前没有任务。")}</p>{!listLoading && (filter ? <Button variant="outline" onClick={() => { setFilter(""); setOffset(0); setCursors([undefined]); }}>{t("查看全部任务")}</Button> : capabilities && <Button disabled={busy} onClick={() => { navigate("import"); requestAnimationFrame(() => fileInput.current?.focus()); }}>{t("选择第一份文档")}</Button>)}</div>}
+  {!!tasks.items.length && <div className="records-table-scroll"><table className="records-table"><caption className="sr-only">{t("文档导入记录")}</caption><thead><tr><th scope="col">{t("文档")}</th><th scope="col">{t("状态")}</th><th scope="col" className="record-number">{t("题目")}</th><th scope="col" className="record-number">{t("待复核")}</th><th scope="col">{t("创建时间")}</th><th scope="col">{t("操作")}</th></tr></thead><tbody>{tasks.items.map(task => <tr key={task.threadId} data-selected={selected === task.threadId}>
     <td><button type="button" className="record-name" aria-pressed={selected === task.threadId} onClick={() => selectTask(task.threadId)}>{task.fileName}</button></td>
-    <td>{task.documentRole === "answers" && <Badge variant="secondary">答案卷</Badge>}<Badge variant="outline">{stateLabels[task.state]}</Badge>{task.status === "PARTIAL" && <Badge variant="secondary">部分结果</Badge>}</td>
-    <td className="record-number"><span className="mobile-label">题目 </span>{task.questionCount}</td><td className="record-number"><span className="mobile-label">待复核 </span>{task.reviewCount > 0 ? <Badge variant="secondary">{task.reviewCount}</Badge> : 0}</td><td><time dateTime={task.createdAt}>{dateLabel(task.createdAt)}</time></td>
-    <td>{task.state === "EXPIRED" ? <Button variant="destructive" size="sm" disabled={busy} aria-label={`删除已过期任务 ${task.fileName}`} onClick={() => setDeleteTarget({ threadId: task.threadId, fileName: task.fileName })}><Trash2 />删除</Button> : selected === task.threadId ? <a className="workspace-link" href="#task-detail">查看当前任务详情</a> : <Button variant="ghost" size="sm" onClick={() => selectTask(task.threadId)}>管理任务</Button>}</td>
+    <td>{task.documentRole === "answers" && <Badge variant="secondary">{t("答案卷")}</Badge>}<Badge variant="outline">{t(stateLabels[task.state])}</Badge>{task.status === "PARTIAL" && <Badge variant="secondary">{t("部分结果")}</Badge>}</td>
+    <td className="record-number"><span className="mobile-label">{t("题目 ")}</span>{task.questionCount}</td><td className="record-number"><span className="mobile-label">{t("待复核 ")}</span>{task.reviewCount > 0 ? <Badge variant="secondary">{task.reviewCount}</Badge> : 0}</td><td><time dateTime={task.createdAt}>{dateLabel(task.createdAt)}</time></td>
+    <td>{task.state === "EXPIRED" ? <Button variant="destructive" size="sm" disabled={busy} aria-label={t("删除已过期任务 {0}", task.fileName)} onClick={() => setDeleteTarget({ threadId: task.threadId, fileName: task.fileName })}><Trash2 />{t("删除")}</Button> : selected === task.threadId ? <a className="workspace-link" href="#task-detail">{t("查看当前任务详情")}</a> : <Button variant="ghost" size="sm" onClick={() => selectTask(task.threadId)}>{t("管理任务")}</Button>}</td>
   </tr>)}</tbody></table></div>}
-  {!!tasks.items.length && !selected && <p className="records-hint">选择一个任务查看结果</p>}
-  {(offset > 0 || tasks.hasMore) && <nav aria-label="任务列表分页" className="records-pagination"><Button variant="outline" size="icon" aria-label="上一页任务" disabled={!offset || listLoading || !!listError} onClick={() => setOffset(value => Math.max(0, value - 20))}><ChevronLeft /></Button><span>第 {Math.floor(offset / 20) + 1} 页</span><Button variant="outline" size="icon" aria-label="下一页任务" disabled={!tasks.hasMore || listLoading || !!listError} onClick={() => { setCursors(previous => [...previous.slice(0, offset / 20 + 1), tasks.nextCursor ?? undefined]); setOffset(value => value + 20); }}><ChevronRight /></Button></nav>}
+  {!!tasks.items.length && !selected && <p className="records-hint">{t("选择一个任务查看结果")}</p>}
+  {(offset > 0 || tasks.hasMore) && <nav aria-label={t("任务列表分页")} className="records-pagination"><Button variant="outline" size="icon" aria-label={t("上一页任务")} disabled={!offset || listLoading || !!listError} onClick={() => setOffset(value => Math.max(0, value - 20))}><ChevronLeft /></Button><span>{t("第 ")}{Math.floor(offset / 20) + 1}{t(" 页")}</span><Button variant="outline" size="icon" aria-label={t("下一页任务")} disabled={!tasks.hasMore || listLoading || !!listError} onClick={() => { setCursors(previous => [...previous.slice(0, offset / 20 + 1), tasks.nextCursor ?? undefined]); setOffset(value => value + 20); }}><ChevronRight /></Button></nav>}
 </section>);
-  const detailContent = client && (selected || deleteTarget) && (<section id="task-detail" tabIndex={-1} className="task-panel" aria-label="任务详情">
-          {selected && <a className="workspace-link" href="#task-list-heading">返回任务列表</a>}
+  const detailContent = client && (selected || deleteTarget) && (<section id="task-detail" tabIndex={-1} className="task-panel" aria-label={t("任务详情")}>
+          {selected && <a className="workspace-link" href="#task-list-heading">{t("返回任务列表")}</a>}
 
-          {deleteTarget && <div ref={deletePrompt} tabIndex={-1} onKeyDown={event => { if (event.key === "Escape" && !busy) setDeleteTarget(null); }} className="notice delete-confirmation" role="group" aria-label="删除任务确认"><p>确认删除“{deleteTarget.fileName}”及其检查点？已下载的题库不受影响。</p><div className="flex gap-2 mt-3"><Button variant="destructive" disabled={busy} onClick={() => void run(async current => { await current.delete(deleteTarget.threadId); if (current.active) { deleteCompleted.current = true; setSelected(value => value === deleteTarget.threadId ? null : value); setListRevision(value => value + 1); setDeleteTarget(null); setNotice("任务已删除。"); } })}>确认删除</Button><Button variant="outline" disabled={busy} onClick={() => setDeleteTarget(null)}>保留任务</Button></div></div>}
+          {deleteTarget && <div ref={deletePrompt} tabIndex={-1} onKeyDown={event => { if (event.key === "Escape" && !busy) setDeleteTarget(null); }} className="notice delete-confirmation" role="group" aria-label={t("删除任务确认")}><p>{t("确认删除“")}{deleteTarget.fileName}{t("”及其检查点？已下载的题库不受影响。")}</p><div className="flex gap-2 mt-3"><Button variant="destructive" disabled={busy} onClick={() => void run(async current => { await current.delete(deleteTarget.threadId); if (current.active) { deleteCompleted.current = true; setSelected(value => value === deleteTarget.threadId ? null : value); setListRevision(value => value + 1); setDeleteTarget(null); setNotice(t("任务已删除。")); } })}>{t("确认删除")}</Button><Button variant="outline" disabled={busy} onClick={() => setDeleteTarget(null)}>{t("保留任务")}</Button></div></div>}
           {selected && <>
-            {detailError && <div className="error-banner" role="alert"><span className="min-w-0 flex-1">{detailError}</span><Button variant="outline" onClick={refreshDetail}>重试任务详情</Button></div>}
-            {previewError && <div className="error-banner" role="alert"><span className="min-w-0 flex-1">{previewError}</span><Button variant="outline" onClick={refreshDetail}>重试检查点预览</Button></div>}
-            {!detail && !detailError && <p>正在读取任务详情…</p>}
-            {detail && <div className="space-y-6"><div className="task-title"><div><h2>{detail.fileName}</h2><p><Badge variant="outline">{stateLabels[detail.state]}</Badge>{detail.status === "PARTIAL" && <Badge variant="secondary">部分结果</Badge>}</p></div><Button variant="outline" aria-label="刷新任务详情" onClick={refreshDetail}><RefreshCw /></Button></div>
-              {!detailFresh && <p className="notice">当前显示上次成功读取的信息，任务操作已停用，请先刷新。</p>}
-              {preview && preview.checkpointId !== detail.checkpointId && <p className="notice">任务检查点正在更新，读取一致后才能继续或导出。</p>}
-              <p>文件用途：{detail.documentRole === "answers" ? "答案卷（仅提取已有答案）" : "题目文件"} · 页面范围：{detail.pages?.join(", ") || "全部"}</p>
+            {detailError && <div className="error-banner" role="alert"><span className="min-w-0 flex-1">{detailError}</span><Button variant="outline" onClick={refreshDetail}>{t("重试任务详情")}</Button></div>}
+            {previewError && <div className="error-banner" role="alert"><span className="min-w-0 flex-1">{previewError}</span><Button variant="outline" onClick={refreshDetail}>{t("重试检查点预览")}</Button></div>}
+            {!detail && !detailError && <p>{t("正在读取任务详情…")}</p>}
+            {detail && <div className="space-y-6"><div className="task-title"><div><h2>{detail.fileName}</h2><p><Badge variant="outline">{t(stateLabels[detail.state])}</Badge>{detail.status === "PARTIAL" && <Badge variant="secondary">{t("部分结果")}</Badge>}</p></div><Button variant="outline" aria-label={t("刷新任务详情")} onClick={refreshDetail}><RefreshCw /></Button></div>
+              {!detailFresh && <p className="notice">{t("当前显示上次成功读取的信息，任务操作已停用，请先刷新。")}</p>}
+              {preview && preview.checkpointId !== detail.checkpointId && <p className="notice">{t("任务检查点正在更新，读取一致后才能继续或导出。")}</p>}
+              <p>{t("文件用途：")}{detail.documentRole === "answers" ? t("答案卷（仅提取已有答案）") : t("题目文件")}{t(" · 页面范围：")}{detail.pages?.join(", ") || t("全部")}</p>
               <Progress task={detail} />
-              {(detail.blocking.includes("MODEL_RESULT_UNKNOWN") || detail.unknownUsageCalls.length > 0) && <div className="notice" role="alert"><p>模型请求已发送，但结果尚未确认。已保存的题目、检查点和用量记录仍保留。</p><p>请先核对模型供应商的调用记录；继续解析或重试可能再次计费，不会自动重试未知调用。</p></div>}
-              {detail.blocking.includes("RUN_DEADLINE_EXCEEDED") && <p className="notice" role="alert">本轮解析已达到运行时限，已保存的进度仍保留。可按可用操作继续解析，后续模型调用可能计费。</p>}
-              <div className="task-actions" aria-label="当前任务操作">{detail.allowedActions.map(action => <Button key={action} variant="outline" disabled={busy || !detailFresh || (!["pause", "interrupt"].includes(action) && !matchingCheckpoint) || (!["pause", "interrupt"].includes(action) && (!detail.modelConfigured || !detail.resumeCompatible))} onClick={() => act(action)}>{action === "pause" ? <Pause /> : action === "interrupt" ? <Square /> : action === "resume" ? <Play /> : <RefreshCw />}{actionLabels[action]}</Button>)}<Button disabled={busy || !canExport} onClick={() => void run(async current => { const exported = await current.exportBank(detail); if (current.active) { await downloadBlob(exported.blob, exported.name); setNotice("题库 ZIP 已下载。每次导出包含当前全部已完成内容，重复导入会创建独立题库。请在应用设置中追加导入。"); } }, false)}><Download />下载题库 ZIP</Button></div>
-              {detail.state !== "COMPLETED" && <p className="text-sm text-muted-foreground">暂停后可下载已完成题目，需有可用题目且检查点一致。</p>}
-              <details className="task-secondary-actions"><summary>其他任务操作</summary><p className="text-sm text-muted-foreground">重新解析会重新提交腾讯识别并创建新的 AI 整理请求，可能再次计费；删除会移除此任务和检查点。已下载的题库不受影响。</p><div className="task-actions"><Button variant="outline" disabled={busy || !detailFresh || !detail.modelConfigured || detail.state === "EXPIRED"} onClick={() => void run(async current => { const receipt = await current.reparse(detail.threadId); if (current.active) { setSelected(value => value === detail.threadId ? receipt.threadId : value); setListRevision(value => value + 1); setDetailRevision(value => value + 1); setNotice("新解析任务已创建。"); } })}><RefreshCw />重新解析为新任务</Button><Button variant="destructive" disabled={busy || !detailFresh || ["RUNNING", "PENDING", "PAUSING"].includes(detail.state)} onClick={() => setDeleteTarget({ threadId: detail.threadId, fileName: detail.fileName })}><Trash2 />删除任务</Button></div></details>
-              {!!detail.failures.length && <section className="notice"><h3>失败单元</h3><ul>{detail.failures.map(failure => <li key={`${failure.stage}:${failure.index}`}>{failure.stage} · {failure.index} · {failure.code} · {failure.retryable ? `可重试，剩余 ${failure.retriesRemaining ?? 0} 次` : "不可重试"}</li>)}</ul></section>}
-              {(!detail.modelConfigured || !detail.resumeCompatible) && <p className="notice">{!detail.modelConfigured ? "服务端模型未配置。" : "当前模型配置与检查点不兼容。"}继续、重试和接受部分结果暂不可用，现有结果仍可检查。</p>}
-              <ErrorBoundary key={selected} fallback={<RenderFailure />}><Suspense fallback={<p>正在加载结果检查视图…</p>}><ResultReview task={detail} preview={preview} client={client} unavailable={busy} onLeaveGuardChange={registerCorrectionGuard} onReparse={selection => { void run(async current => { const receipt = await current.reparse(detail.threadId, selection); if (current.active) { setSelected(value => value === detail.threadId ? receipt.threadId : value); setListRevision(value => value + 1); setDetailRevision(value => value + 1); setNotice("所选来源单元已创建新解析任务，原任务保留。"); } }); }} /></Suspense></ErrorBoundary>
+              {(detail.blocking.includes("MODEL_RESULT_UNKNOWN") || detail.unknownUsageCalls.length > 0) && <div className="notice" role="alert"><p>{t("模型请求已发送，但结果尚未确认。已保存的题目、检查点和用量记录仍保留。")}</p><p>{t("请先核对模型供应商的调用记录；继续解析或重试可能再次计费，不会自动重试未知调用。")}</p></div>}
+              {detail.blocking.includes("RUN_DEADLINE_EXCEEDED") && <p className="notice" role="alert">{t("本轮解析已达到运行时限，已保存的进度仍保留。可按可用操作继续解析，后续模型调用可能计费。")}</p>}
+              <div className="task-actions" aria-label={t("当前任务操作")}>{detail.allowedActions.map(action => <Button key={action} variant="outline" disabled={busy || !detailFresh || (!["pause", "interrupt"].includes(action) && !matchingCheckpoint) || (!["pause", "interrupt"].includes(action) && (!detail.modelConfigured || !detail.resumeCompatible))} onClick={() => act(action)}>{action === "pause" ? <Pause /> : action === "interrupt" ? <Square /> : action === "resume" ? <Play /> : <RefreshCw />}{t(actionLabels[action])}</Button>)}<Button disabled={busy || !canExport} onClick={() => void run(async current => { const exported = await current.exportBank(detail); if (current.active) { await downloadBlob(exported.blob, exported.name); setNotice(t("题库 ZIP 已下载。每次导出包含当前全部已完成内容，重复导入会创建独立题库。请在应用设置中追加导入。")); } }, false)}><Download />{t("下载题库 ZIP")}</Button></div>
+              {detail.state !== "COMPLETED" && <p className="text-sm text-muted-foreground">{t("暂停后可下载已完成题目，需有可用题目且检查点一致。")}</p>}
+              <details className="task-secondary-actions"><summary>{t("其他任务操作")}</summary><p className="text-sm text-muted-foreground">{t("重新解析会重新提交腾讯识别并创建新的 AI 整理请求，可能再次计费；删除会移除此任务和检查点。已下载的题库不受影响。")}</p><div className="task-actions"><Button variant="outline" disabled={busy || !detailFresh || !detail.modelConfigured || detail.state === "EXPIRED"} onClick={() => void run(async current => { const receipt = await current.reparse(detail.threadId); if (current.active) { setSelected(value => value === detail.threadId ? receipt.threadId : value); setListRevision(value => value + 1); setDetailRevision(value => value + 1); setNotice(t("新解析任务已创建。")); } })}><RefreshCw />{t("重新解析为新任务")}</Button><Button variant="destructive" disabled={busy || !detailFresh || ["RUNNING", "PENDING", "PAUSING"].includes(detail.state)} onClick={() => setDeleteTarget({ threadId: detail.threadId, fileName: detail.fileName })}><Trash2 />{t("删除任务")}</Button></div></details>
+              {!!detail.failures.length && <section className="notice"><h3>{t("失败单元")}</h3><ul>{detail.failures.map(failure => <li key={`${failure.stage}:${failure.index}`}>{failure.stage} · {failure.index} · {failure.code} · {failure.retryable ? t("可重试，剩余 {0} 次", failure.retriesRemaining ?? 0) : t("不可重试")}</li>)}</ul></section>}
+              {(!detail.modelConfigured || !detail.resumeCompatible) && <p className="notice">{!detail.modelConfigured ? t("服务端模型未配置。") : t("当前模型配置与检查点不兼容。")}{t("继续、重试和接受部分结果暂不可用，现有结果仍可检查。")}</p>}
+              <ErrorBoundary key={selected} fallback={<RenderFailure />}><Suspense fallback={<p>{t("正在加载结果检查视图…")}</p>}><ResultReview task={detail} preview={preview} client={client} unavailable={busy} onLeaveGuardChange={registerCorrectionGuard} onReparse={selection => { void run(async current => { const receipt = await current.reparse(detail.threadId, selection); if (current.active) { setSelected(value => value === detail.threadId ? receipt.threadId : value); setListRevision(value => value + 1); setDetailRevision(value => value + 1); setNotice(t("所选来源单元已创建新解析任务，原任务保留。")); } }); }} /></Suspense></ErrorBoundary>
               <Usage task={detail} />
             </div>}
           </>}
         </section>);
   return <div className="web-shell">
-    {!hideSkipLink && <a className="skip-link" href="#main-content">跳到主要内容</a>}
-    <aside className="web-sidebar" aria-label="导入管理侧边栏">
-      <a href="#import" className="brand" onClick={() => navigate("import")}><img src={logo} alt="PractiQ 小章鱼" /><strong>PractiQ</strong></a>
-      <nav aria-label="工作区导航">{pages.map(({ id, label, icon: Icon }) => <a key={id} href={`#${id}`} aria-current={page === id ? "page" : undefined} onClick={() => navigate(id)}><Icon aria-hidden="true" />{label}</a>)}</nav>
-      <div className="sidebar-connection"><Server aria-hidden="true" /><strong>{client ? "服务已连接" : "尚未连接服务"}</strong></div>
+    {!hideSkipLink && <a className="skip-link" href="#main-content">{t("跳到主要内容")}</a>}
+    <aside className="web-sidebar" aria-label={t("导入管理侧边栏")}>
+      <a href="#import" className="brand" onClick={() => navigate("import")}><img src={logo} alt={t("PractiQ 小章鱼")} /><strong>PractiQ</strong></a>
+      <nav aria-label={t("工作区导航")}>{pages.map(({ id, label, icon: Icon }) => <a key={id} href={`#${id}`} aria-current={page === id ? "page" : undefined} onClick={() => navigate(id)}><Icon aria-hidden="true" />{label}</a>)}</nav>
+      <div className="sidebar-connection"><Server aria-hidden="true" /><strong>{client ? t("服务已连接") : t("尚未连接服务")}</strong></div>
     </aside>
     <div className="web-body"><Main id="main-content" tabIndex={-1} className="web-main" data-page={page} aria-label={pages.find(item => item.id === page)!.label}>
-      {!client ? <section aria-label="服务状态" className="notice">{capError ? <><p role="alert">{capError}</p><Button variant="outline" onClick={() => setConnectionRevision(value => value + 1)}>重试连接</Button></> : <p role="status">正在读取服务状态…</p>}</section> : <>
+      {!client ? <section aria-label={t("服务状态")} className="notice">{capError ? <><p role="alert">{capError}</p><Button variant="outline" onClick={() => setConnectionRevision(value => value + 1)}>{t("重试连接")}</Button></> : <p role="status">{t("正在读取服务状态…")}</p>}</section> : <>
         {notice && <p className="notice operation-notice" role="status">{notice}</p>}
         {operationError && <div ref={operationNotice} className="error-banner" role="alert"><span className="min-w-0 flex-1">{operationError}</span></div>}
-        {!!pendingImports.length && <section className="notice" aria-label="未确认的导入提交"><h2>未确认的导入提交</h2><p>原请求 ID 与文件引用已保存在本机，不含文件内容。请先查看导入记录；重试沿用原请求和参数，已有任务会返回原回执，尚未创建则会开始解析并可能计费。</p><p>清除本机恢复记录不会取消服务端任务；之后再次导入会视为新提交，可能重复计费。</p><ul>{pendingImports.map(request => <li key={request.requestId}><p>{request.document.fileName} · 自动去重：{request.deduplicateQuestions ? "开启" : "关闭"}</p>{request.generateAnswers && <p>AI 生成答案与解析：开启</p>}<small>原提交请求 ID：{request.requestId}</small><div className="task-actions"><Button variant="outline" disabled={busy || !capabilities?.modelConfigured || capabilities.parserConfigured === false} onClick={() => void run(async current => { const receipt = await current.retryImport(request.requestId); if (current.active) { navigate("records"); setSelected(receipt.threadId); setListRevision(value => value + 1); setDetailRevision(value => value + 1); setNotice("原提交已确认，正在读取服务端任务。"); } })}>重试原提交</Button><Button variant="ghost" disabled={busy} onClick={() => void run(async current => { current.forgetImport(request.requestId); setNotice("本机恢复记录已清除，服务端任务不受影响。"); }, false)}>已核对，清除恢复记录</Button></div></li>)}</ul></section>}
-        {!!pendingReparses.length && <section className="notice" aria-label="未确认的重新解析">
-          <h2>未确认的重新解析</h2>
-          <p>原任务与请求 ID 已保存在本机，不含文件内容。请先查看导入记录；重试沿用原请求，已有任务会返回原回执，尚未创建则会开始重新解析并可能计费。</p>
-          <p>清除本机恢复记录不会取消服务端任务；之后再次重新解析会视为新请求，可能重复计费。</p>
+        {!!pendingImports.length && <section className="notice" aria-label={t("未确认的导入提交")}><h2>{t("未确认的导入提交")}</h2><p>{t("原请求 ID 与文件引用已保存在本机，不含文件内容。请先查看导入记录；重试沿用原请求和参数，已有任务会返回原回执，尚未创建则会开始解析并可能计费。")}</p><p>{t("清除本机恢复记录不会取消服务端任务；之后再次导入会视为新提交，可能重复计费。")}</p><ul>{pendingImports.map(request => <li key={request.requestId}><p>{request.document.fileName}{t(" · 自动去重：")}{request.deduplicateQuestions ? t("开启") : t("关闭")}</p>{request.generateAnswers && <p>{t("AI 生成答案与解析：开启")}</p>}<small>{t("原提交请求 ID：")}{request.requestId}</small><div className="task-actions"><Button variant="outline" disabled={busy || !capabilities?.modelConfigured || capabilities.parserConfigured === false} onClick={() => void run(async current => { const receipt = await current.retryImport(request.requestId); if (current.active) { navigate("records"); setSelected(receipt.threadId); setListRevision(value => value + 1); setDetailRevision(value => value + 1); setNotice(t("原提交已确认，正在读取服务端任务。")); } })}>{t("重试原提交")}</Button><Button variant="ghost" disabled={busy} onClick={() => void run(async current => { current.forgetImport(request.requestId); setNotice(t("本机恢复记录已清除，服务端任务不受影响。")); }, false)}>{t("已核对，清除恢复记录")}</Button></div></li>)}</ul></section>}
+        {!!pendingReparses.length && <section className="notice" aria-label={t("未确认的重新解析")}>
+          <h2>{t("未确认的重新解析")}</h2>
+          <p>{t("原任务与请求 ID 已保存在本机，不含文件内容。请先查看导入记录；重试沿用原请求，已有任务会返回原回执，尚未创建则会开始重新解析并可能计费。")}</p>
+          <p>{t("清除本机恢复记录不会取消服务端任务；之后再次重新解析会视为新请求，可能重复计费。")}</p>
           <ul>{pendingReparses.map(request => <li key={request.requestId}>
-            <p>原任务 ID：{request.threadId}</p><small>原重新解析请求 ID：{request.requestId}</small>
+            <p>{t("原任务 ID：")}{request.threadId}</p><small>{t("原重新解析请求 ID：")}{request.requestId}</small>
             <div className="task-actions">
-              <Button variant="outline" disabled={busy} onClick={() => { if (selectTask(request.threadId)) navigate("records"); }}>查看原任务</Button>
+              <Button variant="outline" disabled={busy} onClick={() => { if (selectTask(request.threadId)) navigate("records"); }}>{t("查看原任务")}</Button>
               <Button variant="outline" disabled={busy || !capabilities?.modelConfigured || capabilities.parserConfigured === false} onClick={() => void run(async current => {
                 const receipt = await current.retryReparse(request.requestId);
-                if (current.active) { navigate("records"); setSelected(receipt.threadId); setListRevision(value => value + 1); setDetailRevision(value => value + 1); setNotice("原重新解析请求已确认，正在读取服务端任务。"); }
-              })}>重试原重新解析</Button>
-              <Button variant="ghost" disabled={busy} onClick={() => void run(async current => { current.forgetReparse(request.requestId); setNotice("本机重新解析恢复记录已清除，服务端任务不受影响。"); }, false)}>已核对，清除重新解析记录</Button>
+                if (current.active) { navigate("records"); setSelected(receipt.threadId); setListRevision(value => value + 1); setDetailRevision(value => value + 1); setNotice(t("原重新解析请求已确认，正在读取服务端任务。")); }
+              })}>{t("重试原重新解析")}</Button>
+              <Button variant="ghost" disabled={busy} onClick={() => void run(async current => { current.forgetReparse(request.requestId); setNotice(t("本机重新解析恢复记录已清除，服务端任务不受影响。")); }, false)}>{t("已核对，清除重新解析记录")}</Button>
             </div>
           </li>)}</ul>
         </section>}
-        {busy && <p role="status" className="operation-status"><LoaderCircle className="loading-icon" aria-hidden="true" />正在处理当前操作，请勿重复提交。</p>}
+        {busy && <p role="status" className="operation-status"><LoaderCircle className="loading-icon" aria-hidden="true" />{t("正在处理当前操作，请勿重复提交。")}</p>}
         <div hidden={page !== "import"} className="import-page">
           {importContent}
         </div>

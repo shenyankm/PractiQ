@@ -253,7 +253,7 @@ async def test_oversized_office_without_engine_fails_before_any_paid_job(monkeyp
     assert calls == []
 
 
-@pytest.mark.parametrize("kind,limit", [("doc", 700), ("docx", 700), ("xls", 700), ("xlsx", 700), ("xls", 8 * 1024 * 1024)])
+@pytest.mark.parametrize("kind,limit", [("doc", 700), ("docx", 700), ("xls", 700), ("xlsx", 700)])
 async def test_oversized_office_reuses_isolated_pdf_conversion_before_tencent(monkeypatch, kind, limit):
     from practiq_ai.extractors import ExtractedDocument
 

@@ -1,3 +1,4 @@
+import { t } from "./i18n";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { accountRequest, setAccount } from "./accountClient";
 import { errorMessage } from "./accountUI";
@@ -19,7 +20,7 @@ export function useAccount() {
     return () => { controller.abort(); setAccount(null); };
   }, [revision]);
   useEffect(() => {
-    const expired = () => { setError("登录已失效，请重新登录。"); reload(); };
+    const expired = () => { setError(t("登录已失效，请重新登录。")); reload(); };
     window.addEventListener("practiq-session-expired", expired);
     const channel = new BroadcastChannel("practiq-account"); channel.onmessage = reload;
     return () => { channel.close(); window.removeEventListener("practiq-session-expired", expired); };

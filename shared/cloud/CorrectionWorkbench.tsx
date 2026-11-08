@@ -1,3 +1,4 @@
+import { t, useCloudLocale } from "./i18n";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ArtifactReference, DocumentAnswerSource, DocumentCorrectionSave, DocumentCorrections, DocumentTaskDetail, DocumentTaskReview, ParsedQuestion, ReviewUnit } from "./contracts.generated";
 import { nativeBridge } from "./transport";
@@ -8,6 +9,7 @@ import QuestionCorrectionEditor, { answerText } from "./QuestionCorrectionEditor
 import { correctionDrafts, putCorrectionDraft, removeCorrectionDraft, type EditorDraft } from "./correctionDrafts";
 
 function EvidencePane({ unit, original, question, client, threadId }: { unit?: ReviewUnit; original?: DocumentTaskReview["document"]; question: ParsedQuestion; client: Client; threadId: string }) {
+  useCloudLocale();
   const reference = unit?.originalPageRef ?? unit?.sourceRef ?? (original?.sourceType === "image" ? original : undefined);
   const [evidence, setEvidence] = useState<{ url?: string; text?: string; error?: string }>({});
   const [attempt, setAttempt] = useState(0);
@@ -33,22 +35,22 @@ function EvidencePane({ unit, original, question, client, threadId }: { unit?: R
           }
           setEvidence({ text });
         }
-      } catch { if (!controller.signal.aborted) setEvidence({ error: "来源读取或校验失败，请重试。" }); }
+      } catch { if (!controller.signal.aborted) setEvidence({ error: t("来源读取或校验失败，请重试。") }); }
     }
     void read(reference);
     return () => { controller.abort(); if (url) URL.revokeObjectURL(url); };
   }, [reference, client, threadId, attempt]);
   const quote = question.sourceText?.trim();
   const match = quote && evidence.text ? evidence.text.indexOf(quote) : -1;
-  return <section className="source-pane" aria-label="原文对照">
-    <h4>{unit?.stage === "vision_parse" ? `来源页 ${(unit.sourcePage ?? unit.index) + 1}` : "来源文本片段"}</h4>
-    {reference?.mediaType === "application/json" && <p>此处是已保存的识别证据，可能与原文件有差异，请核对原文件。</p>}
-    {!reference && <p>此题没有可定位的来源页。以下仅显示保存的来源原文，不推断页码。</p>}
-    {reference && !evidence.url && evidence.text === undefined && !evidence.error && <p role="status">正在校验来源…</p>}
-    {evidence.url && <img src={evidence.url} alt={`题目来源${unit ? ` · 第 ${(unit.sourcePage ?? unit.index) + 1} 页` : "原图"}`} />}
+  return <section className="source-pane" aria-label={t("原文对照")}>
+    <h4>{unit?.stage === "vision_parse" ? t("来源页 {0}", (unit.sourcePage ?? unit.index) + 1) : t("来源文本片段")}</h4>
+    {reference?.mediaType === "application/json" && <p>{t("此处是已保存的识别证据，可能与原文件有差异，请核对原文件。")}</p>}
+    {!reference && <p>{t("此题没有可定位的来源页。以下仅显示保存的来源原文，不推断页码。")}</p>}
+    {reference && !evidence.url && evidence.text === undefined && !evidence.error && <p role="status">{t("正在校验来源…")}</p>}
+    {evidence.url && <img src={evidence.url} alt={t("题目来源{0}", unit ? ` · 第 ${(unit.sourcePage ?? unit.index) + 1} 页` : "原图")} />}
     {evidence.text !== undefined && <pre className="source-text">{match >= 0 && quote ? <>{evidence.text.slice(0, match)}<mark>{quote}</mark>{evidence.text.slice(match + quote.length)}</> : evidence.text}</pre>}
     {!reference && <Markdown text={question.sourceText} />}
-    {evidence.error && <><p role="alert">{evidence.error}</p><Button variant="outline" onClick={() => setAttempt(v => v + 1)}>重试读取来源</Button></>}
+    {evidence.error && <><p role="alert">{evidence.error}</p><Button variant="outline" onClick={() => setAttempt(v => v + 1)}>{t("重试读取来源")}</Button></>}
   </section>;
 }
 
@@ -58,6 +60,7 @@ export type AnswerAssociation = { question: ParsedQuestion; source: DocumentAnsw
 
 type Props = { restoreRequestId?: string | null; association?: AnswerAssociation; task: DocumentTaskDetail; preview: DocumentTaskReview | null; question: ParsedQuestion; original: ParsedQuestion; questionIndex: number; units: ReviewUnit[]; corrections: DocumentCorrections | null; client: Client; onSaved: (value: DocumentCorrections) => void; onClose: () => void; unavailable?: boolean; onLeaveGuardChange?: (guard: CorrectionLeaveGuard) => void };
 export default function CorrectionWorkbench({ restoreRequestId, association, task, preview, question, original, questionIndex, units, corrections, client, onSaved, onClose, unavailable = false, onLeaveGuardChange }: Props) {
+  useCloudLocale();
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => { heading.current?.focus(); }, []);
   const [restored, setRestored] = useState(() => correctionDrafts(client.storageScope).find(v => v.taskId === task.threadId && v.checkpointId === task.checkpointId && v.questionIndex === questionIndex && (restoreRequestId === undefined || (v.pending?.requestId ?? null) === restoreRequestId)));
@@ -82,13 +85,13 @@ export default function CorrectionWorkbench({ restoreRequestId, association, tas
     try {
       putCorrectionDraft({ version: 1, taskId: task.threadId, fileName: task.fileName, checkpointId: task.checkpointId!, questionIndex, revision: draftRevision, answerSource, editor, pending: pendingSave.current, updatedAt: new Date().toISOString() }, client.storageScope);
       setStorageError("");
-    } catch (e) { setStorageError(e instanceof Error ? e.message : "本机草稿保存失败，请保留页面后重试。"); }
+    } catch (e) { setStorageError(e instanceof Error ? e.message : t("本机草稿保存失败，请保留页面后重试。")); }
   }, [client.storageScope, task.threadId, task.fileName, task.checkpointId, questionIndex, draftRevision, answerSource]);
   const discard = useCallback(() => {
     try {
       removeCorrectionDraft({ taskId: task.threadId, checkpointId: task.checkpointId!, questionIndex }, client.storageScope);
       setRestored(undefined); editorDraft.current = undefined; associationDraft.current = undefined; setAnswerSource(null); setEditing(false); setError(""); setStorageError(""); return true;
-    } catch (e) { setStorageError(e instanceof Error ? e.message : "无法清除本机草稿，请重试。"); return false; }
+    } catch (e) { setStorageError(e instanceof Error ? e.message : t("无法清除本机草稿，请重试。")); return false; }
   }, [client.storageScope, task.threadId, task.checkpointId, questionIndex]);
   useEffect(() => {
     if (!editing && !saving && !reloading && !pendingRequestId) return;
@@ -99,23 +102,23 @@ export default function CorrectionWorkbench({ restoreRequestId, association, tas
   useLayoutEffect(() => {
     onLeaveGuardChange?.(() => {
       if (saving || reloading || pendingRequestId) {
-        setError("保存或核对尚未完成，请先重新读取已保存修订，保留原请求后再切换任务。");
+        setError(t("保存或核对尚未完成，请先重新读取已保存修订，保留原请求后再切换任务。"));
         return false;
       }
       // Native confirm is asynchronous; require the explicit editor Save/Discard action.
-      if (editing && nativeBridge()) { setError("请先保存修订或点击“放弃本次修改”，再切换。"); return false; }
-      if (editing && !window.confirm("当前校对草稿尚未保存。确认放弃草稿并继续吗？")) return false;
+      if (editing && nativeBridge()) { setError(t("请先保存修订或点击“放弃本次修改”，再切换。")); return false; }
+      if (editing && !window.confirm(t("当前校对草稿尚未保存。确认放弃草稿并继续吗？"))) return false;
       return !editing || discard();
     });
     return () => onLeaveGuardChange?.(null);
   }, [editing, saving, reloading, pendingRequestId, onLeaveGuardChange, discard]);
   async function save(value: ParsedQuestion) {
-    if (!task.checkpointId || !corrections) throw Error("请先重新读取已保存修订。");
+    if (!task.checkpointId || !corrections) throw Error(t("请先重新读取已保存修订。"));
     setSaving(true); setError("");
     const wasUnconfirmed = !!pendingSave.current;
     try {
       const request = pendingSave.current ?? { checkpointId: task.checkpointId, expectedRevision: draftRevision, questionIndex, question: value, requestId: crypto.randomUUID(), ...(answerSource ? { answerSource } : {}) };
-      if (!editorDraft.current) throw Error("校对草稿尚未保存，请稍后重试。");
+      if (!editorDraft.current) throw Error(t("校对草稿尚未保存，请稍后重试。"));
       putCorrectionDraft({ version: 1, taskId: task.threadId, fileName: task.fileName, checkpointId: task.checkpointId, questionIndex, revision: draftRevision, answerSource, editor: editorDraft.current, pending: request, updatedAt: new Date().toISOString() }, client.storageScope);
       pendingSave.current = request;
       setPendingRequestId(pendingSave.current.requestId);
@@ -123,18 +126,18 @@ export default function CorrectionWorkbench({ restoreRequestId, association, tas
       if (!client.active) return;
       removeCorrectionDraft({ taskId: task.threadId, checkpointId: task.checkpointId, questionIndex, requestId: pendingSave.current.requestId }, client.storageScope);
       pendingSave.current = null; setPendingRequestId(null); setRestored(undefined); associationDraft.current = undefined; setAnswerSource(null);
-      onSaved(saved); setEditing(false); setNotice("修订已保存。下载修订版会包含全部已保存修改，原始题库保留。");
+      onSaved(saved); setEditing(false); setNotice(t("修订已保存。下载修订版会包含全部已保存修改，原始题库保留。"));
     } catch (e) {
       if (e instanceof ApiError && e.status >= 400 && e.status < 500 && (
         ["CORRECTION_CONFLICT", "CORRECTION_INVALID", "CORRECTION_PROTECTED_FIELD", "CORRECTION_HISTORY_LIMIT", "REQUEST_TOO_LARGE", "HTTP_422", "ANSWER_MATCH_INVALID", "ANSWER_SOURCE_STALE", "ANSWER_SOURCE_UNAVAILABLE", "ANSWER_REPLACEMENT_REQUIRED"].includes(e.code) ||
         (!wasUnconfirmed && ["CORRECTION_NOT_READY", "STALE_CHECKPOINT", "SERVICE_READ_ONLY"].includes(e.code))
       )) {
         const rejected = pendingSave.current;
-        if (rejected) { try { removeCorrectionDraft({ taskId: task.threadId, checkpointId: task.checkpointId!, questionIndex, requestId: rejected.requestId }, client.storageScope); } catch (storage) { setStorageError(storage instanceof Error ? storage.message : "本机请求记录清理失败。"); } }
+        if (rejected) { try { removeCorrectionDraft({ taskId: task.threadId, checkpointId: task.checkpointId!, questionIndex, requestId: rejected.requestId }, client.storageScope); } catch (storage) { setStorageError(storage instanceof Error ? storage.message : t("本机请求记录清理失败。")); } }
         pendingSave.current = null; setPendingRequestId(null);
         if (editorDraft.current) persistEditor(editorDraft.current);
       }
-      setError("保存未完成或回执未确认。草稿仍保留；请重新读取已保存修订，核对后再保存。");
+      setError(t("保存未完成或回执未确认。草稿仍保留；请重新读取已保存修订，核对后再保存。"));
       throw e;
     } finally { setSaving(false); }
   }
@@ -142,34 +145,34 @@ export default function CorrectionWorkbench({ restoreRequestId, association, tas
     setReloading(true); setError("");
     try {
       const saved = await client.corrections(task.threadId);
-      if (saved.checkpointId !== task.checkpointId) throw Error("任务检查点已变化，请刷新任务后再校对。");
+      if (saved.checkpointId !== task.checkpointId) throw Error(t("任务检查点已变化，请刷新任务后再校对。"));
       onSaved(saved);
       if (pendingSave.current && saved.edits?.some(edit => edit.requestId === pendingSave.current!.requestId)) {
         removeCorrectionDraft({ taskId: task.threadId, checkpointId: task.checkpointId!, questionIndex, requestId: pendingSave.current.requestId }, client.storageScope);
-        pendingSave.current = null; setPendingRequestId(null); setRestored(undefined); associationDraft.current = undefined; setAnswerSource(null); setEditing(false); setNotice("上次保存已确认，修订已经保留，无需重复提交。"); return;
+        pendingSave.current = null; setPendingRequestId(null); setRestored(undefined); associationDraft.current = undefined; setAnswerSource(null); setEditing(false); setNotice(t("上次保存已确认，修订已经保留，无需重复提交。")); return;
       }
-      setNotice("已重新读取修订。正在编辑的草稿保持不变，请核对修改历史后决定是否保存。");
-    } catch (e) { setError(e instanceof Error ? e.message : "读取失败，请重试。"); }
+      setNotice(t("已重新读取修订。正在编辑的草稿保持不变，请核对修改历史后决定是否保存。"));
+    } catch (e) { setError(e instanceof Error ? e.message : t("读取失败，请重试。")); }
     finally { setReloading(false); }
   }
-  return <section className="correction-workbench" aria-label="对照与校对工作台">
-    <div className="review-header"><h3 ref={heading} tabIndex={-1}>对照与校对 · 第 {questionIndex + 1} 条</h3><Button variant="outline" disabled={editing || saving || reloading || !!pendingRequestId} onClick={onClose}>返回题目列表</Button></div>
-    <p>先核对来源，再修改题目。只保存人工修订，不重新解析文档。</p>
-    <p>校对草稿保存在此浏览器，刷新后可恢复；未确认请求不会自动重发。</p>
-    {answerSource && <p>已关联答案卷第 {answerSource.questionIndex + 1} 条，保存时会保留来源证据。<Button variant="outline" disabled={saving || reloading || !!pendingRequestId} onClick={() => setAnswerSource(null)}>改为人工编辑</Button></p>}
-    {restored && <p role="status">已恢复本机草稿{restored.pending ? "及原保存请求，请显式读取修订或重试。" : "，请核对后继续。"}</p>}
-    {storageError && <div role="alert"><p>{storageError}</p><Button variant="outline" disabled={saving || reloading || !editorDraft.current} onClick={() => editorDraft.current && persistEditor(editorDraft.current)}>重试保存本机草稿</Button></div>}
-    {notice && <p role="status">{notice}</p>}{error && <p role="alert">{error}</p>}{pendingRequestId && <p role="status">保存请求 ID：{pendingRequestId} · {saving ? "正在等待保存回执。" : "结果尚未确认，先重新读取修订或使用原请求重试。"}</p>}
+  return <section className="correction-workbench" aria-label={t("对照与校对工作台")}>
+    <div className="review-header"><h3 ref={heading} tabIndex={-1}>{t("对照与校对 · 第 ")}{questionIndex + 1}{t(" 条")}</h3><Button variant="outline" disabled={editing || saving || reloading || !!pendingRequestId} onClick={onClose}>{t("返回题目列表")}</Button></div>
+    <p>{t("先核对来源，再修改题目。只保存人工修订，不重新解析文档。")}</p>
+    <p>{t("校对草稿保存在此浏览器，刷新后可恢复；未确认请求不会自动重发。")}</p>
+    {answerSource && <p>{t("已关联答案卷第 ")}{answerSource.questionIndex + 1}{t(" 条，保存时会保留来源证据。")}<Button variant="outline" disabled={saving || reloading || !!pendingRequestId} onClick={() => setAnswerSource(null)}>{t("改为人工编辑")}</Button></p>}
+    {restored && <p role="status">{t("已恢复本机草稿")}{restored.pending ? t("及原保存请求，请显式读取修订或重试。") : t("，请核对后继续。")}</p>}
+    {storageError && <div role="alert"><p>{storageError}</p><Button variant="outline" disabled={saving || reloading || !editorDraft.current} onClick={() => editorDraft.current && persistEditor(editorDraft.current)}>{t("重试保存本机草稿")}</Button></div>}
+    {notice && <p role="status">{notice}</p>}{error && <p role="alert">{error}</p>}{pendingRequestId && <p role="status">{t("保存请求 ID：")}{pendingRequestId} · {saving ? t("正在等待保存回执。") : t("结果尚未确认，先重新读取修订或使用原请求重试。")}</p>}
     <div className="correction-columns">
-      <div>{units.length > 1 && <nav className="source-navigation" aria-label="关联来源">{units.map((unit,index) => <Button key={`${unit.stage}:${unit.index}`} variant={index === sourceIndex ? "default" : "outline"} onClick={() => setSourceIndex(index)}>来源 {index + 1}</Button>)}</nav>}<EvidencePane key={`${units[sourceIndex]?.stage}:${units[sourceIndex]?.index}`} unit={units[sourceIndex]} original={preview?.document} question={original} client={client} threadId={task.threadId} />
-        {preview?.document && <Button variant="outline" onClick={async () => { try { const blob = await client.source(preview.document!, task.threadId); if (client.active) await downloadBlob(blob, preview.document!.fileName ?? "source"); } catch { setError("原文件读取或校验失败，请重试。"); } }}>下载原文件核对</Button>}
+      <div>{units.length > 1 && <nav className="source-navigation" aria-label={t("关联来源")}>{units.map((unit,index) => <Button key={`${unit.stage}:${unit.index}`} variant={index === sourceIndex ? "default" : "outline"} onClick={() => setSourceIndex(index)}>{t("来源 ")}{index + 1}</Button>)}</nav>}<EvidencePane key={`${units[sourceIndex]?.stage}:${units[sourceIndex]?.index}`} unit={units[sourceIndex]} original={preview?.document} question={original} client={client} threadId={task.threadId} />
+        {preview?.document && <Button variant="outline" onClick={async () => { try { const blob = await client.source(preview.document!, task.threadId); if (client.active) await downloadBlob(blob, preview.document!.fileName ?? "source"); } catch { setError(t("原文件读取或校验失败，请重试。")); } }}>{t("下载原文件核对")}</Button>}
       </div>
       <div className="correction-question">
-        {editing ? <QuestionCorrectionEditor question={question} saving={saving} checking={reloading} unconfirmed={!!pendingRequestId} saveBlocked={rebaseRequired || !!storageError} restored={restored?.editor ?? associationDraft.current} onDraftChange={persistEditor} onSave={save} onCancel={discard} /> : <><h4>当前题目</h4><Markdown text={question.stem} /><Blocks blocks={question.contentBlocks} /><p>题型标签：{question.questionTypeId ?? "未提供"}</p><div>{question.options.map((option,index) => <p key={index}>{option.label} · {option.content}</p>)}</div><h4>当前参考答案</h4><ReferenceAnswer question={question} /><h4>解析</h4><Markdown text={question.analysis} /><h4>评分依据</h4><Markdown text={question.scoringRubric} /><Button disabled={!canEdit || reloading || !!pendingRequestId} onClick={() => { setDraftRevision(revision ?? null); setEditing(true); }}>人工校对</Button>{!canEdit && <p>任务完成并读取一致的修订记录后，才能保存人工修改。</p>}</>}
-        {rebaseRequired && <div role="status"><p>其他修订已更新。请先核对修改历史；继续保存会将当前草稿应用到已读取的版本。</p><Button variant="outline" onClick={() => setDraftRevision(revision ?? null)}>保留草稿，在已读取版本上继续</Button></div>}
-        <details className="correction-history"><summary>原始解析与修改历史</summary><h4>原始解析（只读）</h4><Markdown text={original.stem} /><Blocks blocks={original.contentBlocks} /><p>题型标签：{original.questionTypeId ?? "未提供"}</p><ReferenceAnswer question={original} /><Markdown text={original.analysis} /><Markdown text={original.scoringRubric} />{corrections?.edits?.filter(edit => edit.questionIndex === questionIndex).map((edit,index) => <section key={edit.requestId}><h4>第 {index + 1} 次修改 · <time dateTime={edit.savedAt}>{new Date(edit.savedAt).toLocaleString()}</time></h4><Markdown text={edit.question.stem} /><Blocks blocks={edit.question.contentBlocks} /><p>题型标签：{edit.question.questionTypeId ?? "未提供"}</p>{edit.question.options.map((option,i) => <p key={i}>{option.label} · {option.content}</p>)}<ReferenceAnswer question={edit.question} /><Markdown text={edit.question.analysis} /><Markdown text={edit.question.scoringRubric} />{edit.answerEvidence && <details><summary>已确认的答案来源 · {edit.answerEvidence.fileName ?? "答案卷"}</summary><Markdown text={edit.answerEvidence.sourceText} /><p>SHA-256：{edit.answerEvidence.sourceSha256}</p><p>来源任务：{edit.answerEvidence.selection.taskId} · 第 {edit.answerEvidence.selection.questionIndex + 1} 条</p></details>}</section>)}</details>
-        <div className="task-actions"><Button variant="outline" disabled={saving || reloading} onClick={() => void reload()}>{reloading ? "正在读取…" : "重新读取已保存修订"}</Button><Button disabled={!revision || editing || saving} onClick={async () => { try { const exported = await client.exportBank(task, revision); if (client.active) await downloadBlob(exported.blob, exported.name); } catch (e) { setError(e instanceof Error ? e.message : "修订版导出失败，请重试。"); } }}>下载修订版 ZIP</Button></div>
-        <p>修订版包含本次解析结果全部已保存修改，保留原有来源与复核标记。任务上方的下载按钮导出原始解析结果。</p>
+        {editing ? <QuestionCorrectionEditor question={question} saving={saving} checking={reloading} unconfirmed={!!pendingRequestId} saveBlocked={rebaseRequired || !!storageError} restored={restored?.editor ?? associationDraft.current} onDraftChange={persistEditor} onSave={save} onCancel={discard} /> : <><h4>{t("当前题目")}</h4><Markdown text={question.stem} /><Blocks blocks={question.contentBlocks} /><p>{t("题型标签：")}{question.questionTypeId ?? t("未提供")}</p><div>{question.options.map((option,index) => <p key={index}>{option.label} · {option.content}</p>)}</div><h4>{t("当前参考答案")}</h4><ReferenceAnswer question={question} /><h4>{t("解析")}</h4><Markdown text={question.analysis} /><h4>{t("评分依据")}</h4><Markdown text={question.scoringRubric} /><Button disabled={!canEdit || reloading || !!pendingRequestId} onClick={() => { setDraftRevision(revision ?? null); setEditing(true); }}>{t("人工校对")}</Button>{!canEdit && <p>{t("任务完成并读取一致的修订记录后，才能保存人工修改。")}</p>}</>}
+        {rebaseRequired && <div role="status"><p>{t("其他修订已更新。请先核对修改历史；继续保存会将当前草稿应用到已读取的版本。")}</p><Button variant="outline" onClick={() => setDraftRevision(revision ?? null)}>{t("保留草稿，在已读取版本上继续")}</Button></div>}
+        <details className="correction-history"><summary>{t("原始解析与修改历史")}</summary><h4>{t("原始解析（只读）")}</h4><Markdown text={original.stem} /><Blocks blocks={original.contentBlocks} /><p>{t("题型标签：")}{original.questionTypeId ?? t("未提供")}</p><ReferenceAnswer question={original} /><Markdown text={original.analysis} /><Markdown text={original.scoringRubric} />{corrections?.edits?.filter(edit => edit.questionIndex === questionIndex).map((edit,index) => <section key={edit.requestId}><h4>{t("第 ")}{index + 1}{t(" 次修改 · ")}<time dateTime={edit.savedAt}>{new Date(edit.savedAt).toLocaleString()}</time></h4><Markdown text={edit.question.stem} /><Blocks blocks={edit.question.contentBlocks} /><p>{t("题型标签：")}{edit.question.questionTypeId ?? t("未提供")}</p>{edit.question.options.map((option,i) => <p key={i}>{option.label} · {option.content}</p>)}<ReferenceAnswer question={edit.question} /><Markdown text={edit.question.analysis} /><Markdown text={edit.question.scoringRubric} />{edit.answerEvidence && <details><summary>{t("已确认的答案来源 · ")}{edit.answerEvidence.fileName ?? t("答案卷")}</summary><Markdown text={edit.answerEvidence.sourceText} /><p>SHA-256：{edit.answerEvidence.sourceSha256}</p><p>{t("来源任务：")}{edit.answerEvidence.selection.taskId}{t(" · 第 ")}{edit.answerEvidence.selection.questionIndex + 1}{t(" 条")}</p></details>}</section>)}</details>
+        <div className="task-actions"><Button variant="outline" disabled={saving || reloading} onClick={() => void reload()}>{reloading ? t("正在读取…") : t("重新读取已保存修订")}</Button><Button disabled={!revision || editing || saving} onClick={async () => { try { const exported = await client.exportBank(task, revision); if (client.active) await downloadBlob(exported.blob, exported.name); } catch (e) { setError(e instanceof Error ? e.message : t("修订版导出失败，请重试。")); } }}>{t("下载修订版 ZIP")}</Button></div>
+        <p>{t("修订版包含本次解析结果全部已保存修改，保留原有来源与复核标记。任务上方的下载按钮导出原始解析结果。")}</p>
       </div>
     </div>
   </section>;

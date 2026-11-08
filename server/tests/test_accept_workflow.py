@@ -9,7 +9,7 @@ from scripts.accept_workflow import EXPECTED, check_questions, read_native_repor
 
 
 def valid():
-    return [{"stem": stem, "answerMode": "true_false", "answerPayload": {"value": answer},
+    return [{"stem": stem, "answerMode": "true_false", "questionTypeId": "true_false", "answerPayload": {"value": answer},
              "needsReview": False, "missingFields": []} for stem, answer in EXPECTED]
 
 
@@ -25,7 +25,21 @@ def test_workflow_preserves_absent_optional_explanations_for_review():
     assert check_questions(rows) == []
 
 
-@pytest.mark.parametrize("change", ["missing", "duplicate", "answer", "mode", "required_field", "stem"])
+def test_workflow_preserves_literal_source_type_labels():
+    rows = valid()
+    for row in rows:
+        row['questionTypeId'] = 'True or false questions'
+    assert check_questions(rows) == []
+
+
+@pytest.mark.parametrize('label', [None, '', 'choice', 'Unrelated source type'])
+def test_workflow_rejects_missing_or_unrelated_type_labels(label):
+    rows = valid()
+    rows[0]['questionTypeId'] = label
+    assert check_questions(rows)
+
+
+@pytest.mark.parametrize("change", ["missing", "duplicate", "answer", "mode", "required_field", "stem", "type"])
 def test_workflow_quality_rejects_changed_or_incomplete_output(change):
     rows = deepcopy(valid())
     if change == "missing":
@@ -38,6 +52,8 @@ def test_workflow_quality_rejects_changed_or_incomplete_output(change):
         rows[0]["answerMode"] = "short_answer"
     elif change == "required_field":
         rows[0]["missingFields"] = ["answerPayload"]
+    elif change == 'type':
+        rows[0]['questionTypeId'] = None
     else:
         rows[0]["stem"] = "The Moon orbits the Sun."
     assert check_questions(rows)

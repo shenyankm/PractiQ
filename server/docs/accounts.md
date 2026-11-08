@@ -32,8 +32,9 @@ with the same explicit command, including recovery from operator lockout.
 Start the service on loopback behind a trusted HTTPS reverse proxy. Forwarded
 headers must only be trusted from that proxy. HTTPS requests receive Secure,
 HttpOnly, SameSite=Lax cookies. Local HTTP development is loopback-only. Do not
-expose PostgreSQL, RabbitMQ, workers or raw storage. Metrics now require an
-administrator session; configure private monitoring authentication accordingly.
+expose PostgreSQL, RabbitMQ, workers or raw storage. Metrics require an administrator session or the operator-configured read-only
+`AI_METRICS_TOKEN`. The token permits only GET/HEAD `/api/metrics`; it grants no
+customer, grading or administration access. See [production preflight](production-readiness.md#monitoring-authentication).
 
 ## Accounts and recovery
 

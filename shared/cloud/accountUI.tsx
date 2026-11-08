@@ -1,3 +1,4 @@
+import { cloudLocale, t, useCloudLocale } from "./i18n";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { accountRequest as request } from "./accountClient";
 import { Button } from "./components/ui/button";
@@ -15,8 +16,8 @@ const messages: Record<string, string> = {
 };
 export const errorMessage = (e: unknown) =>
   e instanceof Error
-    ? (messages[e.message] ?? e.message)
-    : "操作失败，请刷新核对状态后再决定是否重试。";
+    ? (t(messages[e.message] ?? e.message))
+    : t("操作失败，请刷新核对状态后再决定是否重试。");
 export function Field({
   name,
   label,
@@ -38,6 +39,7 @@ export function Field({
   readOnly?: boolean;
   autoComplete?: string;
 }) {
+  useCloudLocale();
   return (
     <label className="account-field" htmlFor={name}>
       {label}
@@ -73,6 +75,7 @@ export function Form({
   submit: () => Promise<void>;
   label: string;
 }) {
+  useCloudLocale();
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [saved, setSaved] = useState(false);
@@ -95,18 +98,19 @@ export function Form({
     <form className="account-form" onSubmit={(e) => void send(e)}>
       <fieldset disabled={busy}>
         {children}
-        <Button type="submit">{busy ? "正在处理…" : label}</Button>
+        <Button type="submit">{busy ? t("正在处理…") : label}</Button>
       </fieldset>
       {error && (
         <p role="alert" className="error-banner">
           {error}
         </p>
       )}
-      {saved && <p role="status">操作已完成。</p>}
+      {saved && <p role="status">{t("操作已完成。")}</p>}
     </form>
   );
 }
 export function Records({ path, refresh = 0, onSelect, paginated = false }: { path: string; refresh?: number; onSelect?: (row: Record<string, unknown>) => void; paginated?: boolean }) {
+  useCloudLocale();
   const [offset, setOffset] = useState(0);
   const [rows, setRows] = useState<Record<string, unknown>[]>([]),
     [error, setError] = useState(""),
@@ -132,39 +136,39 @@ export function Records({ path, refresh = 0, onSelect, paginated = false }: { pa
   return (
     <>
       {error && <p role="alert">{error}</p>}
-      {loading && <p role="status">正在读取记录…</p>}
-      {!loading && !rows.length && !error && <p>暂无记录。</p>}
+      {loading && <p role="status">{t("正在读取记录…")}</p>}
+      {!loading && !rows.length && !error && <p>{t("暂无记录。")}</p>}
       {!!rows.length && (
         <div className="account-table">
           <table>
             <thead>
               <tr>
-                {onSelect && <th>操作</th>}
+                {onSelect && <th>{t("操作")}</th>}
                 {Object.keys(rows[0]).map((key) => (
                   <th key={key}>
                     {(
                       {
-                        id: "编号",
-                        email: "邮箱",
-                        name: "名称",
-                        role: "角色",
-                        enabled: "启用",
-                        limits: "个人额度",
-                        created_at: "创建时间",
-                        expires_at: "失效时间",
-                        lastSeen: "最近活动",
-                        createdAt: "创建时间",
-                        expiresAt: "失效时间",
-                        actor: "操作者",
-                        action: "操作",
-                        target: "对象",
-                        detail: "详情",
-                        call_key: "调用编号",
-                        user_id: "用户",
-                        scope: "任务或评分",
-                        kind: "调用类型",
-                        day: "日期",
-                        record: "回执",
+                        id: t("编号"),
+                        email: t("邮箱"),
+                        name: t("名称"),
+                        role: t("角色"),
+                        enabled: t("启用"),
+                        limits: t("个人额度"),
+                        created_at: t("创建时间"),
+                        expires_at: t("失效时间"),
+                        lastSeen: t("最近活动"),
+                        createdAt: t("创建时间"),
+                        expiresAt: t("失效时间"),
+                        actor: t("操作者"),
+                        action: t("操作"),
+                        target: t("对象"),
+                        detail: t("详情"),
+                        call_key: t("调用编号"),
+                        user_id: t("用户"),
+                        scope: t("任务或评分"),
+                        kind: t("调用类型"),
+                        day: t("日期"),
+                        record: t("回执"),
                       } as Record<string, string>
                     )[key] ?? key}
                   </th>
@@ -174,16 +178,16 @@ export function Records({ path, refresh = 0, onSelect, paginated = false }: { pa
             <tbody>
               {rows.map((row, i) => (
                 <tr key={String(row.id ?? row.call_key ?? i)}>
-                  {onSelect && <td><Button variant="outline" onClick={() => onSelect(row)}>选择</Button></td>}
+                  {onSelect && <td><Button variant="outline" onClick={() => onSelect(row)}>{t("选择")}</Button></td>}
                   {Object.entries(row).map(([key, value]) => (
                     <td key={key}>
                       {value !== null && typeof value === "object" ? (
                         <details>
-                          <summary>查看详情</summary>
+                          <summary>{t("查看详情")}</summary>
                           <pre>{JSON.stringify(value, null, 2)}</pre>
                         </details>
                       ) : (
-                        typeof value === 'boolean' ? (value ? '已启用' : '已停用') : key === 'role' ? (value === 'admin' ? '管理员' : '普通用户') : /^(created_at|expires_at|createdAt|expiresAt|lastSeen)$/.test(key) && value ? new Date(String(value)).toLocaleString('zh-CN', { hour12: false }) : String(value ?? '—')
+                        typeof value === 'boolean' ? (value ? t("已启用") : t("已停用")) : key === 'role' ? (value === 'admin' ? t("管理员") : t("普通用户")) : /^(created_at|expires_at|createdAt|expiresAt|lastSeen)$/.test(key) && value ? new Date(String(value)).toLocaleString(cloudLocale(), { hour12: false }) : String(value ?? '—')
                       )}
                     </td>
                   ))}
@@ -193,7 +197,7 @@ export function Records({ path, refresh = 0, onSelect, paginated = false }: { pa
           </table>
         </div>
       )}
-      {paginated && <nav aria-label="记录分页"><Button variant="outline" disabled={!offset} onClick={() => setOffset(v => Math.max(0, v - 100))}>上一页</Button><Button variant="outline" disabled={rows.length < 100} onClick={() => setOffset(v => v + 100)}>下一页</Button></nav>}
+      {paginated && <nav aria-label={t("记录分页")}><Button variant="outline" disabled={!offset} onClick={() => setOffset(v => Math.max(0, v - 100))}>{t("上一页")}</Button><Button variant="outline" disabled={rows.length < 100} onClick={() => setOffset(v => v + 100)}>{t("下一页")}</Button></nav>}
     </>
   );
 }

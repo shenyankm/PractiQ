@@ -160,7 +160,7 @@ async def create_task(request: DocumentTaskCreate, *, reparse_origin: dict[str, 
             raise DocumentProcessingError(503, 'Configure Tencent parsing credentials and, when enabled, private COS staging', 'TENCENT_NOT_CONFIGURED')
         validate_source_size(request.document.sizeBytes, request.document.sourceType, settings)
         if (request.document.sourceType in OFFICE_SOURCE_TYPES
-                and (request.document.sourceType == 'xls' or request.document.sizeBytes > submission_limit(request.document.sourceType, settings))
+                and request.document.sizeBytes > submission_limit(request.document.sourceType, settings)
                 and not (settings.office_executable and settings.office_executable.is_file())):
             raise DocumentProcessingError(503, 'Office preparation requires the configured converter', 'OFFICE_NOT_CONFIGURED')
         if request.parentThreadId:

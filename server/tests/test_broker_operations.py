@@ -217,9 +217,11 @@ async def test_capacity_policy_rejects_publish_and_full_dlq_retains_dead_letters
         channel = await connection.channel(on_return_raises=True)
         queue = await messaging.topology(channel)
         accepted_ids = []
+        attempted_ids = set()
         for _ in range(10):
             try:
                 run_id = str(uuid4())
+                attempted_ids.add(run_id)
                 await messaging.publish(channel, run_id)
                 accepted_ids.append(run_id)
             except aio_pika.exceptions.DeliveryError:
@@ -227,16 +229,28 @@ async def test_capacity_policy_rejects_publish_and_full_dlq_retains_dead_letters
         # Quorum queues can accept a small in-flight overshoot before rejecting publishers.
         accepted = len(accepted_ids)
         assert 2 <= accepted < 10
+        # Fill the target explicitly; neither queue must overshoot its configured capacity.
+        filled_ids = []
+        for _ in range(10):
+            run_id = str(uuid4())
+            attempted_ids.add(run_id)
+            try:
+                confirmation = await channel.default_exchange.publish(aio_pika.Message(
+                    run_id.encode('ascii'), content_type='text/plain', headers={messaging.VERSION_HEADER: 1},
+                    delivery_mode=aio_pika.DeliveryMode.PERSISTENT, message_id=run_id,
+                ), routing_key=messaging.DEAD_QUEUE, mandatory=True, timeout=5)
+                assert isinstance(confirmation, Basic.Ack)
+                filled_ids.append(run_id)
+            except aio_pika.exceptions.DeliveryError:
+                break
+        assert 1 <= len(filled_ids) < 10
         for _ in range(accepted):
             message = await queue.get(timeout=5)
             assert message is not None
             await message.reject(requeue=False)
-        async with asyncio.timeout(15):
-            while not any(sample.name == 'rabbitmq_detailed_queue_messages_ready' and sample.labels.get('vhost') == vhost
-                          and sample.labels.get('queue') == messaging.DEAD_QUEUE and 1 < sample.value < accepted for sample in await broker_metrics(True)):
-                await asyncio.sleep(.1)
+        # basic.reject has no response; close-ok fences all preceding channel frames.
+        await channel.close()
         # A broker restart verifies retained dead letters survive beyond the worker's retry timer.
-        await asyncio.to_thread(api, 'DELETE', f'/api/policies/{vhost}/{policies[1]["name"]}')
         await asyncio.to_thread(subprocess.run, ['docker', 'restart', container], check=True, capture_output=True, timeout=60)
         async with asyncio.timeout(40):
             while True:
@@ -245,17 +259,25 @@ async def test_capacity_policy_rejects_publish_and_full_dlq_retains_dead_letters
                     break
                 except httpx.HTTPError:
                     await asyncio.sleep(.2)
+        await asyncio.to_thread(api, 'DELETE', f'/api/policies/{vhost}/{policies[1]["name"]}')
         async with await aio_pika.connect(os.environ['RABBITMQ_URI']) as recovered:
             dlq = await (await recovered.channel()).get_queue(messaging.DEAD_QUEUE)
             seen = set()
-            async with asyncio.timeout(40):
-                while seen != set(accepted_ids):
-                    message = await dlq.get(fail=False)
-                    if message is None:
-                        await asyncio.sleep(.1)
-                    else:
-                        seen.add(messaging.decode(message))
-                        await message.ack()
+            expected = set(accepted_ids + filled_ids)
+            try:
+                # The broker's default dead-letter retry interval is 180 seconds.
+                async with asyncio.timeout(240):
+                    while not expected.issubset(seen):
+                        message = await dlq.get(fail=False)
+                        if message is None:
+                            await asyncio.sleep(.1)
+                        else:
+                            identifier = messaging.decode(message)
+                            assert identifier in attempted_ids
+                            seen.add(identifier)
+                            await message.ack()
+            except TimeoutError:
+                pytest.fail(f'Confirmed messages missing after restart: {expected - seen}; other attempted messages: {seen - expected}')
 
 
 def test_broker_deployment_preserves_data_and_bounds_resources():
