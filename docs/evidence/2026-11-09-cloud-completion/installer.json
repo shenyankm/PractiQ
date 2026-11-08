@@ -1,0 +1,16 @@
+{
+  "passed": true,
+  "packageMode": "desktop-practice",
+  "manifest": {
+    "schemaVersion": 2,
+    "packageMode": "desktop-practice",
+    "platform": "darwin",
+    "architecture": "arm64",
+    "desktopVersion": "0.2.2"
+  },
+  "embeddedAiEngines": [],
+  "noticeSha256": "e00e36ecc8060895cbcc7bb5f0c477f6514d4f34ad3081e857fd8e057c63348f",
+  "sizeBytes": 27804057,
+  "desktopVersion": "0.2.2",
+  "installerSha256": "e90dc39afdd2a2e5e679449993adb0653031f9c2c7847f5774dbd672a9c4c367"
+}

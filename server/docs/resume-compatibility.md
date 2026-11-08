@@ -48,7 +48,7 @@ Before admitting even a selected cross-deployment resume, a follow-up needs:
 - Versioned execution metadata that retains the complete source/lock/toolchain audit identity separately, preserves the saved original identity and conservatively rejects historical, missing or unknown compatibility metadata. Existing signatures must not be rewritten or automatically adopted.
 - One consistent compatibility decision at graph load/control, `execution.validate_execution()`/`preflight()`/`guard()` and both task-state projections in `task_api.py`. Changing the graph gate alone would disagree with advertised actions. Source/artifact verification, normalized Office engine identity, trusted settings, expiry, runtime/model/state gates, usage/receipts, budgets, admission and explicit paid-work authorization must still hold independently.
 
-No production gate, signature format or task-state projection is changed by this evidence-only work. Issue #193 remains open; a separate identifier is not delivered.
+No production gate, signature format or task-state projection is changed by this evidence-only work. Issue #193 was closed on 2026-11-05; the separate identifier is not implemented. Closure does not change this conservative policy.
 
 ## Upgrade and recovery
 
@@ -57,4 +57,4 @@ No production gate, signature format or task-state projection is changed by this
 3. If an execution signature mismatches, restore the original deployment or explicitly create a new task. Do not rewrite the saved signature, reset call budgets, refund unknown usage, or silently replay model work.
 4. A future narrower compatibility identifier needs a versioned fallback, complete relevant runtime dependency provenance and tested state/parser/provider-receipt transitions, including actual narrowly selected upgrades. Comment-only tests above are insufficient to permit those upgrades.
 
-The current safe limitation is intentional: even a non-semantic development/build lock edit blocks old checkpoints. Tests and this operational boundary can be reviewed independently while #193 remains open for any future evidence-backed identifier separation.
+The current safe limitation is intentional: even a non-semantic development/build lock edit blocks old checkpoints. Tests and this operational boundary can be reviewed independently if a future separately scoped change establishes evidence-backed identifier separation.

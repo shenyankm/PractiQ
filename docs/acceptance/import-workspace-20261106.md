@@ -1,5 +1,7 @@
 # Import workspace acceptance — November 6, 2026
 
+This is historical engineering evidence for its recorded Web customer surface. The current customer workflow is in the macOS App; the old `accept_corrections.py --suite` command does not validate the current administration-only Web. Use the [current App workflow evidence](../evidence/2026-11-09-cloud-completion/README.md); range/answer-sheet browser substitutes remain distinct from connected HTTP acceptance.
+
 This delivery covers local correction recovery, page selection, selective source-unit reparse, supplied answer-sheet matching and selected-question ZIP export. [Behavior and API guide](../../server/docs/import-selection.md) documents the boundaries. The original feature-acceptance [machine evidence](evidence/import-workspace-20261106/acceptance.json) retains the service execution hash, native binary/ZIP hashes, provider counters and native phase results. All sources are synthetic fixtures committed in the acceptance runner. No real Tencent or LLM calls were made.
 
 ## Production Web → HTTP → native SQLite
