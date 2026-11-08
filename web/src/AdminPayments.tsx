@@ -64,7 +64,7 @@ export function AdminPayments() {
       settle(await request<PaymentRefund>(`/api/admin/payments/${attempt.orderId}/refunds`, "POST", { requestId: attempt.requestId, amount: attempt.amount, reason: attempt.reason, currentPassword }));
       setOrder(await request(`/api/admin/payments/${attempt.orderId}`)); setRevision(v => v + 1);
     } catch (e) {
-      if (e instanceof Error && ["PASSWORD_REQUIRED", "CSRF_INVALID", "REFUND_AMOUNT_INVALID", "PLAN_REFUND_REQUIRES_UNUSED_FULL_ORDER", "REFUND_LIMIT_EXCEEDED"].includes(e.message) && localStorage.getItem(key) === encoded) { localStorage.removeItem(key); setIntent(null); }
+      if (!intent && e instanceof Error && ["PASSWORD_REQUIRED", "CSRF_INVALID", "REFUND_AMOUNT_INVALID", "PLAN_REFUND_REQUIRES_UNUSED_FULL_ORDER", "REFUND_LIMIT_EXCEEDED"].includes(e.message) && localStorage.getItem(key) === encoded) { localStorage.removeItem(key); setIntent(null); }
       throw e;
     }
   }

@@ -8,7 +8,7 @@ const id = 'a'.repeat(32), requestId = '11111111-1111-4111-8111-111111111111';
 const order: AdministrationPaymentOrder = {id,requestId,ownerId:'customer',createdAt:'2026-11-09T00:00:00Z',state:'PAID',amount:'39.00',subject:'Plus test order',environment:'production',refunds:[],productId:'plus',providerClosed:false,grant:{orderId:id,productId:'plus',state:'active',totalPages:100,usedPages:0,remainingPages:100,expiresAt:'2026-12-09T00:00:00Z'}};
 beforeEach(() => { localStorage.clear(); setAccount({user:{id:'admin',email:'admin@example.test',name:'',role:'admin',enabled:true},csrf:'test-csrf',registrationEnabled:true}); });
 afterEach(() => { cleanup(); setAccount(null); vi.restoreAllMocks(); });
-function setup(options: {lost?:boolean; reject?:boolean; readFailure?:boolean; pageFull?:boolean} = {}) {
+function setup(options: {lost?:boolean; reject?:string; readFailure?:boolean; pageFull?:boolean} = {}) {
   const current = structuredClone(order); let writes=0, succeed=false;
   const calls: {path:string;method:string;body:Record<string,unknown>}[]=[];
   vi.stubGlobal('fetch',vi.fn(async(path:string,init:RequestInit)=>{
@@ -19,7 +19,7 @@ function setup(options: {lost?:boolean; reject?:boolean; readFailure?:boolean; p
     }
     if(path.endsWith('/refunds')) {
       writes++;
-      if(options.reject)return Response.json({detail:{code:'PASSWORD_REQUIRED'}},{status:403});
+      if(options.reject)return Response.json({detail:{code:options.reject}},{status:403});
       if(!current.refunds.length)current.refunds=[{id:String(body.requestId),amount:String(body.amount),state:'UNKNOWN'}];
       current.grant!.state='refund_pending';
       if(options.lost&&writes===1)throw new TypeError('Connection lost');
@@ -67,7 +67,7 @@ it('retains a lost refund across remount, retries only the original request and 
   expect(calls.filter(c=>c.path.endsWith('/refunds'))).toHaveLength(2);
 });
 it('clears only definitively rejected refund intents and never stores passwords',async()=>{
-  setup({reject:true});render(<AdminPayments/>);await select();await fill();
+  setup({reject:'PASSWORD_REQUIRED'});render(<AdminPayments/>);await select();await fill();
   await userEvent.click(screen.getByRole('button',{name:'确认发起退款'}));await screen.findByText('请核对当前密码。');
   expect(localStorage.getItem(storageKey('practiq-admin-refund-v1'))).toBeNull();
 });
@@ -113,4 +113,21 @@ it('reconciles a retained successful refund after provider closure without anoth
   expect(localStorage.getItem(key)).toBeNull();
   expect(screen.queryByText(/保留的退款请求/)).toBeNull();
   expect(calls.some(c=>c.path.endsWith('/refunds'))).toBe(false);
+});
+it.each(['PASSWORD_REQUIRED','CSRF_INVALID'])('retains an uncertain original refund when its retry fails with %s',async(code)=>{
+  const options:{lost:boolean;reject?:string}={lost:true};
+  const {calls,current}=setup(options);render(<AdminPayments/>);await select();await fill();
+  await userEvent.click(screen.getByRole('button',{name:'确认发起退款'}));await screen.findByRole('alert');
+  const key=storageKey('practiq-admin-refund-v1'),saved=localStorage.getItem(key)!;
+  expect(current.grant!.state).toBe('refund_pending');
+  options.reject=code;
+  await userEvent.type(screen.getByLabelText('管理员当前密码'),'incorrect-password');
+  await userEvent.click(screen.getByRole('button',{name:'显式重试原退款'}));
+  await waitFor(()=>expect(calls.filter(c=>c.path.endsWith('/refunds'))).toHaveLength(2));
+  await waitFor(()=>expect(screen.getByLabelText('管理员当前密码')).toHaveProperty('value',''));
+  expect(localStorage.getItem(key)).toBe(saved);
+  const writes=calls.filter(c=>c.path.endsWith('/refunds'));expect(writes[1].body.requestId).toBe(writes[0].body.requestId);
+  await userEvent.click(screen.getByRole('button',{name:'读取原订单'}));
+  expect(await screen.findByRole('button',{name:'查询退款 '+JSON.parse(saved).requestId})).toBeTruthy();
+  expect(screen.getByRole('button',{name:'显式重试原退款'})).toBeTruthy();
 });
