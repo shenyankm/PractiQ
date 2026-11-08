@@ -1125,13 +1125,15 @@ test('practice radio arrows select answers while question shortcuts navigate out
  await expect(heading).toHaveText('第 1 / 9 题');
  const radios=page.getByRole('radiogroup',{name:'选择答案',exact:true}).getByRole('radio');
  await radios.nth(0).click();
- await page.keyboard.press('ArrowRight');
+ await page.keyboard.down('ArrowRight');
  await expect(radios.nth(1)).toBeFocused();
  await expect(radios.nth(1)).toHaveAttribute('aria-checked','true');
+ await page.keyboard.up('ArrowRight');
  await expect(heading).toHaveText('第 1 / 9 题');
- await page.keyboard.press('ArrowLeft');
+ await page.keyboard.down('ArrowLeft');
  await expect(radios.nth(0)).toBeFocused();
  await expect(radios.nth(0)).toHaveAttribute('aria-checked','true');
+ await page.keyboard.up('ArrowLeft');
  await heading.focus();
  await page.keyboard.press('ArrowRight');
  await expect(heading).toHaveText('第 2 / 9 题');
