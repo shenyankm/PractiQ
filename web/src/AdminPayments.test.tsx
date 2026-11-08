@@ -101,3 +101,16 @@ it('does not overwrite an unconfirmed refund created by another window',async()=
   expect(calls.some(c=>c.path.endsWith('/refunds'))).toBe(false);
   expect(screen.getByLabelText('退款原因')).toHaveProperty('value',other.reason);
 });
+it('reconciles a retained successful refund after provider closure without another refund',async()=>{
+  const {calls,current}=setup();
+  const key=storageKey('practiq-admin-refund-v1');
+  localStorage.setItem(key,JSON.stringify({orderId:id,requestId,amount:'39.00',reason:'Response lost before verified provider closure'}));
+  current.providerClosed=true;current.refunds=[{id:requestId,amount:'39.00',state:'SUCCESS'}];current.grant!.state='refunded';
+  render(<AdminPayments/>);await select();
+  expect(screen.getByRole('button',{name:'显式重试原退款'})).toHaveProperty('disabled',true);
+  const query=screen.getByRole('button',{name:'查询退款 '+requestId});expect(query).toHaveProperty('disabled',false);
+  await userEvent.click(query);await screen.findByText('原退款已确认成功。');
+  expect(localStorage.getItem(key)).toBeNull();
+  expect(screen.queryByText(/保留的退款请求/)).toBeNull();
+  expect(calls.some(c=>c.path.endsWith('/refunds'))).toBe(false);
+});
