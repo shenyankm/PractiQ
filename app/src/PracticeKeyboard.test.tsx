@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { api, blankQuestion, type Session, type Attempt } from "./api";
 import { Practice } from "./Practice";
@@ -220,4 +220,44 @@ it("does not trigger hotkeys when typing in a text input or textarea", async () 
   await user.keyboard("j");
   expect((textarea as HTMLTextAreaElement).value).toBe("j");
   expect(api).not.toHaveBeenCalledWith(expect.objectContaining({ type: "position" }));
+});
+
+
+it.each(["choice", "true_false"] as const)("preserves focused %s radio arrow navigation", async mode => {
+  const user = userEvent.setup();
+  const session = choiceSession();
+  session.attempts[0].snapshot.question.answerMode = mode;
+  vi.mocked(api).mockResolvedValue(null as never);
+  render(<Practice session={session} onSession={vi.fn()} run={job => { void job(); }} flushRef={{ current: async () => {} }} />);
+  const radios = screen.getAllByRole("radio");
+  await user.click(radios[0]);
+  await user.keyboard("{ArrowRight>}");
+  await waitFor(() => expect(radios[1].getAttribute("aria-checked")).toBe("true"));
+  await user.keyboard("{/ArrowRight}");
+  expect(document.activeElement).toBe(radios[1]);
+  expect(api).not.toHaveBeenCalledWith(expect.objectContaining({ type: "position" }));
+  await user.keyboard("{ArrowLeft>}");
+  await waitFor(() => expect(document.activeElement).toBe(radios[0]));
+  await user.keyboard("{/ArrowLeft}");
+  expect(api).not.toHaveBeenCalledWith(expect.objectContaining({ type: "position" }));
+});
+
+it.each(["a", "1"])("cannot select a non-reusable sibling option with %s", async key => {
+  const user = userEvent.setup();
+  const session = choiceSession();
+  for (const attempt of session.attempts) {
+    attempt.snapshot = { ...attempt.snapshot, question: { ...attempt.snapshot.question, optionSourceId: "shared-options" },
+      materials: [{ ...blankQuestion(), id: "shared-options", allowReuse: false }] };
+  }
+  session.attempts[1].answer = { correct: ["A"] };
+  vi.mocked(api).mockResolvedValue(null as never);
+  render(<Practice session={session} onSession={vi.fn()} run={job => { void job(); }} flushRef={{ current: async () => {} }} />);
+  const radioA = screen.getByRole("radio", { name: /Option Alpha/ }) as HTMLButtonElement;
+  expect(radioA.disabled).toBe(true);
+  await user.keyboard(key);
+  expect(radioA.getAttribute("aria-checked")).toBe("false");
+  expect(api).not.toHaveBeenCalled();
+  await user.keyboard("b");
+  expect(screen.getByRole("radio", { name: /Option Beta/ }).getAttribute("aria-checked")).toBe("true");
+  expect(api).toHaveBeenLastCalledWith(expect.objectContaining({ type: "save_draft", answer: { correct: ["B"] } }));
 });

@@ -22,7 +22,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Check, X, SkipForward, Pencil, CircleDashed, CircleDot, Flag, LocateFixed, Star } from "lucide-react";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel } from "@/components/ui/alert-dialog";
 import { Content, Markdown, type MaterialReading } from "./Content";
-import { AnswerInput, AnswerDisplay, AnswerReview } from "./AnswerInput";
+import { AnswerInput, AnswerDisplay, AnswerReview, choiceOptionDisabled } from "./AnswerInput";
 import type { MutableRefObject } from "react";
 type PracticeProps = {
   compact?: boolean;
@@ -49,6 +49,7 @@ export function Practice(props: PracticeProps) {
   const answer = !finished && draft?.sessionId === session.id && draft.position === session.position ? draft.answer : attempt.answer;
   const onDraft = useCallback((answer: Answer | null) => setDraft({ sessionId: session.id, position: session.position, answer }), [session.id, session.position]);
   const [actionsContainer, setActionsContainer] = useState<HTMLDivElement | null>(null);
+  const [gradingContainer, setGradingContainer] = useState<HTMLDivElement | null>(null);
   const [confirmFinish,setConfirmFinish]=useState(false);
   const [finishing, setFinishing] = useState(false);
   const [navigating, setNavigating] = useState(false);
@@ -93,17 +94,20 @@ export function Practice(props: PracticeProps) {
     <div ref={setScrollBoundary} className="practice-scroll space-y-4">
     {submitted && (
       <ExamResults
+        key={session.id}
         session={session}
         onSession={onSession}
         run={run}
         onNextUnattempted={props.onNextUnattempted}
         onConfigure={props.onConfigureGrading}
-        mode="summary"
+        draft={props.gradingDrafts ? props.gradingDrafts[`${session.id}:${attempt.ordinal}`] ?? { score: "", reason: "" } : undefined}
+        onDraftChange={props.onGradingDraftChange ? draft => props.onGradingDraftChange?.(attempt.ordinal, draft) : undefined}
+        questionContainer={gradingContainer}
       />
     )}
     {listening && <ListeningPlayer key={`${session.id}-${listening.id}-${listening.audioRef?.sha256}`} question={listening} session={session}/>}
     <div className="grid grid-cols-1 gap-6 @2xl:grid-cols-[minmax(0,1fr)_240px]">
-      <PracticeQuestion key={`${session.id}-${session.position}`} {...props} navigating={navigating} go={go} onDraft={onDraft} questionHeading={questionHeading} materialReading={materialReading} actionsContainer={actionsContainer}/>
+      <PracticeQuestion key={`${session.id}-${session.position}`} {...props} setGradingContainer={setGradingContainer} navigating={navigating} go={go} onDraft={onDraft} questionHeading={questionHeading} materialReading={materialReading} actionsContainer={actionsContainer}/>
       <aside className="min-w-0 self-start space-y-4">
         {(finished || (!exam && session.attempts[session.position].submittedAt != null)) && session.attempts[session.position].favorite != null && session.attempts[session.position].snapshot.id && <QuestionNotesButton key={session.attempts[session.position].snapshot.id} id={session.attempts[session.position].snapshot.id!} disabled={navigating}/>}
         <details ref={answerCard} className="practice-answer-card" open={!props.compact}>
@@ -163,9 +167,7 @@ function PracticeQuestion({
   onSession,
   run,
   flushRef,
-  gradingDrafts,
-  onGradingDraftChange,
-  onConfigureGrading,
+  setGradingContainer,
   go,
   onDraft,
   questionHeading,
@@ -173,6 +175,7 @@ function PracticeQuestion({
   actionsContainer,
   navigating,
 }: PracticeProps & {
+  setGradingContainer: (container: HTMLDivElement | null) => void;
   navigating: boolean;
   go: (position: number) => void;
   onDraft: (answer: Answer | null) => void;
@@ -183,6 +186,7 @@ function PracticeQuestion({
   useI18n();
   const attempt = session.attempts[session.position];
   const q = attempt.snapshot.question;
+  const usedOptions = useMemo(() => q.optionSourceId && attempt.snapshot.materials?.some(p=>p.id===q.optionSourceId && !p.allowReuse) ? session.attempts.filter(a=>a.ordinal!==session.position && a.snapshot.question.optionSourceId===q.optionSourceId).flatMap(a=>a.answer?.correct || []) : [], [q.optionSourceId, attempt.snapshot.materials, session.attempts, session.position]);
   const [answer, setAnswer] = useState<Answer | null>(attempt.answer);
   const [saved, setSaved] = useState<"已保存" | "保存中…" | "保存失败" | "待保存">("已保存");
   const [saveError, setSaveError] = useState(false);
@@ -289,10 +293,8 @@ function PracticeQuestion({
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       const target = e.target as HTMLElement | null;
-      const isInput = target && (
-        ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName) ||
-        target.isContentEditable
-      );
+      if (e.defaultPrevented || target?.closest('[role="dialog"], [role="alertdialog"]')) return;
+      const isControl = target?.closest('input, textarea, select, button, a, summary, [contenteditable]:not([contenteditable="false"]), [role="radio"], [role="checkbox"], [role="combobox"], [role="slider"], [role="tab"], [role="menuitem"]');
 
       // Cmd+Enter or Ctrl+Enter: submit answer in practice mode
       if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
@@ -308,8 +310,8 @@ function PracticeQuestion({
         return;
       }
 
-      // If user is inside an input, textarea, or contentEditable, don't hijack typing!
-      if (isInput) return;
+      // Focused controls keep their own keyboard behavior.
+      if (isControl) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
 
       // Question flipping: ArrowLeft / ArrowRight / J / K
@@ -330,7 +332,7 @@ function PracticeQuestion({
 
       // Choice options hotkeys (A-D, 1-4)
       if (!submitted && !finished && !navigating && !submissionJob.current) {
-        if (q.answerMode === "choice" && q.options.length > 0) {
+        if (q.answerMode === "choice" && canInteract(q)) {
           let index = -1;
           const keyUpper = e.key.toUpperCase();
           if (/^[1-9]$/.test(e.key)) {
@@ -345,6 +347,7 @@ function PracticeQuestion({
           if (index >= 0 && index < q.options.length) {
             const opt = q.options[index];
             const label = opt.label || String(index + 1);
+            if (choiceOptionDisabled(q, answerRef.current, usedOptions, label)) return;
             e.preventDefault();
             if (q.choiceVariant === "multiple") {
               const current = answerRef.current?.correct || [];
@@ -398,7 +401,7 @@ function PracticeQuestion({
     q, go, persist, run, onSession, flushRef,
     exam, handedIn, submitted, finished, navigating,
     attempt.flagged, attempt.snapshot.id, favorite,
-    change,
+    change, usedOptions,
   ]);
   const blankTargets = useMemo(() => {
     const ids = new Set([q, ...(attempt.snapshot.materials || [])]
@@ -466,7 +469,7 @@ function PracticeQuestion({
           {submitted || finished ? <AnswerReview question={q} answer={hasAnswer(answer) ? answer : null}/> : <AnswerInput
             question={q}
             value={answer}
-            usedOptions={q.optionSourceId && attempt.snapshot.materials?.some(p=>p.id===q.optionSourceId && !p.allowReuse) ? session.attempts.filter(a=>a.ordinal!==session.position && a.snapshot.question.optionSourceId===q.optionSourceId).flatMap(a=>a.answer?.correct || []) : []}
+            usedOptions={usedOptions}
             onChange={change}
             disabled={navigating || submitted || finished || submitting}
           />}
@@ -520,11 +523,7 @@ function PracticeQuestion({
               <Markdown>{q.analysis || t("原文未提供解析。")}</Markdown>
             </section>
           )}
-          <ExamResults session={session} onSession={onSession} run={run}
-            draft={gradingDrafts ? gradingDrafts[`${session.id}:${attempt.ordinal}`] ?? { score: "", reason: "" } : undefined}
-            onDraftChange={onGradingDraftChange ? draft => onGradingDraftChange(attempt.ordinal, draft) : undefined}
-            onConfigure={onConfigureGrading}
-            mode="question"/>
+          <div ref={setGradingContainer}/>
         </CardContent>
           {/* Keep answer state with the question and its actions beside navigation. */}
           {!exam && !submitted && !finished && actionsContainer && createPortal(<>

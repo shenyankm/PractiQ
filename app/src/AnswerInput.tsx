@@ -9,6 +9,9 @@ import { ArrowUp, ArrowDown } from "lucide-react";
 import { type Question, type Answer, canInteract, itemIds } from "./api";
 import { answerLanguage, countEnglishWords, materialLanguage } from "./english";
 import { Markdown, LazyDetails } from "./Content";
+export function choiceOptionDisabled(q: Question, value: Answer | null, usedOptions: string[], label: string) {
+  return q.choiceVariant !== "multiple" && usedOptions.includes(label) && !value?.correct?.includes(label);
+}
 export function AnswerInput({
   question: q,
   value,
@@ -70,7 +73,7 @@ export function AnswerInput({
               }
             />
           ) : (
-            <RadioGroupItem className="mt-1 shrink-0" id={`${prefix}-${i}`} value={o.label!} disabled={usedOptions.includes(o.label!) && !a.correct?.includes(o.label!)} />
+            <RadioGroupItem className="mt-1 shrink-0" id={`${prefix}-${i}`} value={o.label!} disabled={choiceOptionDisabled(q, value, usedOptions, o.label!)} />
           )}
           <div className="grid min-w-0 flex-1 grid-cols-[auto_minmax(0,1fr)] items-start gap-2 leading-[1.75]">
             <span className="min-w-6 font-medium">{o.label}.</span>

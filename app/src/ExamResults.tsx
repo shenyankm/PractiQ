@@ -5,6 +5,7 @@ import {
   AlertDialogCancel, AlertDialogAction,
 } from "@/components/ui/alert-dialog";
 import { useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { ai } from "./ai-api";
 import { api, type Session, type Attempt, type GradingResponse } from "./api";
 import { ErrorNotice } from "./OperationFeedback";
@@ -45,7 +46,7 @@ export function ExamResults({
   draft,
   onDraftChange,
   onConfigure,
-  mode = "all",
+  questionContainer,
 }: {
   session: Session;
   onSession: (s: Session) => void;
@@ -54,15 +55,16 @@ export function ExamResults({
   draft?: GradingDraft;
   onDraftChange?: (draft: GradingDraft) => void;
   onConfigure?: () => void;
-  mode?: "all" | "summary" | "question";
+  questionContainer?: HTMLElement | null;
 }) {
   useI18n();
   const [running,setRunning]=useState(false); const stopped=useRef(false);const [error, setError] = useState<unknown>(null);
   const [failedAttempt, setFailedAttempt] = useState<{ sessionId: string; ordinal: number } | null>(null);
-  const [localDraft, setLocalDraft] = useState<GradingDraft>({ score: "", reason: "" });
+  const [localDrafts, setLocalDrafts] = useState<Record<string, GradingDraft>>({});
   const [saving, setSaving] = useState(false);
-  const { score, reason } = draft ?? localDraft;
-  const changeDraft = onDraftChange ?? setLocalDraft;
+  const draftKey = `${session.id}:${session.attempts[session.position].ordinal}`;
+  const { score, reason } = draft ?? localDrafts[draftKey] ?? { score: "", reason: "" };
+  const changeDraft = onDraftChange ?? ((value: GradingDraft) => setLocalDrafts(previous => ({ ...previous, [draftKey]: value })));
   const [retryConfirm,setRetryConfirm]=useState(false);
   const a=session.attempts[session.position];
   const exam=session.kind&&session.kind!=="practice";const submitted=exam?!!session.submittedAt:!!session.finishedAt||a.submittedAt!=null;
@@ -160,18 +162,17 @@ export function ExamResults({
         finally { setSaving(false); }
       });}catch(e){setError(e);}}}>{saving ? t("正在保存…") : t("保存人工评分")}</Button></div>
       <p className="text-xs text-muted-foreground">{t("人工评分需点击保存；未保存草稿将在退出应用后丢失。")}</p></>}
-      {mode === "question" && error != null && <div role="alert"><ErrorNotice error={error} /></div>}
-      {mode === "question" && needsConfiguration && onConfigure && <Button variant="outline" disabled={running || saving} onClick={onConfigure}>{t("配置 AI 服务")}</Button>}
     </>
   ) : null;
 
-  if (mode === "summary") {
-    return <section className="space-y-3 rounded-lg border bg-card p-4 shadow-none" aria-label={t("本次结果")}>{summaryPart}</section>;
-  }
-
-  if (mode === "question") {
-    if (!questionPart) return null;
-    return <section className="space-y-3 rounded-lg border bg-muted/20 p-4" aria-label={t("核对评分")}>{questionPart}</section>;
+  if (questionContainer !== undefined) {
+    return <>
+      <section className="space-y-3 rounded-lg border bg-card p-4 shadow-none" aria-label={t("本次结果")}>{summaryPart}</section>
+      {questionContainer && questionPart && createPortal(
+        <section className="space-y-3 rounded-lg border bg-muted/20 p-4" aria-label={t("核对评分")}>{questionPart}</section>,
+        questionContainer,
+      )}
+    </>;
   }
 
   return (
