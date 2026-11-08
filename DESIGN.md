@@ -223,6 +223,14 @@ PractiQ 的绝大部分表面处于纯平状态。静止的卡片、选项容器
 ### Badges
 - **Style:** 胶囊形 Pill 轮廓，高度 `1.25rem` (20px)，字号 12px，内边距 `0.125rem 0.5rem`。
 
+### List Pagination (`<ListPagination>`)
+- **形态与排版**：标准列表底部分页导航条，包含当前区间等宽状态文案 (`tabular-nums`) 与左右并列的轻量线框操作按钮（`Button variant="outline"`）。
+- **无障碍契约**：使用语义化 `<nav>` 容器与明确的 `aria-label`，状态文本使用 `role="status"` 实时反馈页码区间，首末页自动禁用按钮并保留键盘 Tab 焦点可及性。
+
+### Question Type Badge (`<QuestionTypeBadge>`)
+- **形态与排版**：胶囊型微尺寸徽章，内联解析题型（单选、多选、判断、填空、简答等）与主/子题复合关系。
+- **语义变体契约**：列表浏览统一使用 `outline` 细线框减少视觉噪声；做题题头使用 `secondary` 浅蓝底突出题型引导；单/多选自动补全后缀，确保题型语义全局一致。
+
 ## Do's and Don'ts
 
 ### Do:

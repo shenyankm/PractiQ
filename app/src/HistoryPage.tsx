@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Empty, EmptyContent, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
+import { ListPagination } from "@/components/ui/pagination";
 import { Label } from "@/components/ui/label";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 
@@ -116,13 +117,14 @@ export function HistoryPage({ state, busy, onOpen, onBrowse }: {
         </Empty>
       ))}
     {sessionPage.total > 30 && <div className="mt-5 flex items-center justify-end gap-3">
-        <nav aria-label={t("练习记录分页")} className="flex flex-1 items-center justify-between gap-3">
-          <span role="status" className="text-sm text-muted-foreground">{!summaryLoading && !summaryError && t("{0}–{1} / {2} 条", {0: sessionPage.total ? sessionPage.offset + 1 : 0, 1: sessionPage.offset + sessionPage.items.length, 2: sessionPage.total})}</span>
-          <div className="flex gap-2">
-            <Button variant="outline" disabled={busy || summaryLoading || !!summaryError || sessionPage.offset === 0} onClick={() => setSessionOffset(Math.max(0, sessionPage.offset - 30))}>{t("上一页")}</Button>
-            <Button variant="outline" disabled={busy || summaryLoading || !!summaryError || sessionPage.offset + 30 >= sessionPage.total} onClick={() => setSessionOffset(sessionPage.offset + 30)}>{t("下一页")}</Button>
-          </div>
-        </nav>
+        <ListPagination
+          ariaLabel={t("练习记录分页")}
+          offset={sessionPage.offset}
+          total={sessionPage.total}
+          itemCount={sessionPage.items.length}
+          disabled={busy || summaryLoading || !!summaryError}
+          onOffsetChange={setSessionOffset}
+        />
     </div>}
   </>;
 }

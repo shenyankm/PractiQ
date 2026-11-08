@@ -2,20 +2,19 @@ import { createPortal } from "react-dom";
 import { duration, t, useI18n } from "./i18n";
 import { ListeningPlayer } from "./ListeningPlayer";
 import { QuestionNotesButton } from "./QuestionNotes";
-import { questionKinds } from "./english";
 import { ExamResults, type GradingDraft } from "./ExamResults";
 import { memo, useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import {
   api,
   answerReady,
   canInteract,
-  modeNames,
   type Answer,
   type Attempt,
   type Session,
 } from "./api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { QuestionTypeBadge } from "@/components/ui/question-type-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Popover } from "radix-ui";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -434,14 +433,13 @@ function PracticeQuestion({
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="secondary">
-                {(q.questionKind ? questionKinds()[q.questionKind] : modeNames()[q.answerMode || ""]) || t("自由作答")}
-                {q.answerMode === "choice"
-                  ? q.choiceVariant === "multiple"
-                    ? t(" · 多选")
-                    : t(" · 单选")
-                  : ""}
-              </Badge>
+              <QuestionTypeBadge
+                variant="secondary"
+                answerMode={q.answerMode}
+                questionKind={q.questionKind}
+                choiceVariant={q.choiceVariant}
+                fallback={t("自由作答")}
+              />
               <h2 id="current-question" ref={questionHeading} tabIndex={-1} className="text-sm tabular-nums text-muted-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring">{t("第 {0} / {1} 题", { 0: session.position + 1, 1: session.attempts.length })}</h2>
             </div>
             {attempt.snapshot.id && favorite != null && <Button size="icon" variant="ghost" aria-label={favorite?t("取消收藏"):t("收藏原题")} aria-pressed={favorite} onClick={()=>run(async()=>{await api({type:"favorite",id:attempt.snapshot.id!,value:!favorite});onSession(await api({type:"session",id:session.id}));})}><Star className={favorite ? "fill-current" : ""}/></Button>}
