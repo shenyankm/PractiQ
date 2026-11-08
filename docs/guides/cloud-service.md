@@ -70,11 +70,13 @@ Correction drafts may contain private source text. They stay on this device,
 can be exported explicitly, and are not practice backups. Old browser-origin
 hints/drafts are not silently adopted by a native account.
 
-## Orders and service grading
+## Plans, orders and service grading
+
+**Plans and allowance** shows the current plan, expiry, free/paid page ledger and fixed catalog. See [pricing and quota rules](plans.md). Purchases are manual; no recurring billing or annual plan.
 
 **Orders and payments** displays existing receipts even when payment is disabled.
 The optional existing Alipay web checkout opens a restricted form in the system
-browser; it adds no native payment SDK and does not increase document allowances.
+browser; it adds no native payment SDK and issues independent page grants only for verified production catalog orders. Sandbox and historical non-product orders do not increase allowances.
 Return to the App and query the original order. Uncertain creates retain their
 account-and-environment-scoped request ID across remounts/restarts, and only a matching paid or
 closed receipt releases it. Sandbox and production recovery IDs remain separate; unresolved old receipts are
@@ -90,8 +92,7 @@ only permits connection checks and explicit grading. It is stored in the existin
 Keychain namespace, outside SQLite and backups. Account login does not silently
 replace grading settings or retry an uncertain grade.
 
-The service remains on schema 7 and practice data on schema 11. This UI migration
-requires no database upgrade. Existing accounts, uploads, tasks, payments, ZIPs,
+The service now uses schema 8, requiring a backed-up explicit offline upgrade from schema 7. Practice data remains schema 11. Existing accounts, uploads, tasks, payments, ZIPs,
 practice data and old credential namespaces are preserved. The Web deployment is
 now administration-only; update it with the matching App and backend revision.
 Before replacing the old customer Web build, save unfinished corrections on the

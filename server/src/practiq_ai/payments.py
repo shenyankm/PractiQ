@@ -18,7 +18,9 @@ from alipay.aop.api.request.AlipayTradeQueryRequest import AlipayTradeQueryReque
 from alipay.aop.api.request.AlipayTradeRefundRequest import AlipayTradeRefundRequest
 from alipay.aop.api.util.SignatureUtils import get_sign_content, verify_with_rsa
 from fastapi import HTTPException
+from psycopg.types.json import Jsonb
 
+from . import billing
 from . import identity as auth
 from .payment_config import PaymentConfig, cents, load, money
 
@@ -89,23 +91,32 @@ async def order_for(order_id: str, *, admin: bool = False) -> dict:
 async def snapshot(order: dict) -> dict:
     refunds = await auth.db().rows('SELECT id,amount,state FROM payment_refunds WHERE order_id=%s ORDER BY created_at', (order['id'],))
     return {'id': order['id'], 'requestId': order['request_id'], 'state': order['state'], 'amount': money(order['amount']), 'subject': order['subject'],
-            'environment': order['environment'], 'refunds': [{'id': r['id'], 'amount': money(r['amount']), 'state': r['state']} for r in refunds]}
+            'environment': order['environment'], 'productId': order['product']['id'] if order.get('product') else None, 'providerClosed': order.get('provider_closed', False), 'refunds': [{'id': r['id'], 'amount': money(r['amount']), 'state': r['state']} for r in refunds]}
 
 
-async def create(request_id: str) -> dict:
+async def create(request_id: str, product_id: str | None = None) -> dict:
     writable()
     config = load()
     async with auth.db().transaction() as conn:
         user = await auth.current_actor(conn)
         order = await (await conn.execute('SELECT * FROM payment_orders WHERE owner_id=%s AND request_id=%s', (user['id'], request_id))).fetchone()
+        if order is not None and (order['product']['id'] if order.get('product') else None) != product_id:
+            raise HTTPException(409, {'code': 'PAYMENT_PRODUCT_CHANGED'})
         if order is None:
+            if config.mode == 'production' and product_id is None:
+                raise HTTPException(422, {'code': 'PLAN_PRODUCT_REQUIRED'})
+            item = billing.product(product_id) if product_id else None
+            if item and config.mode == 'production':
+                await billing.check_purchase(conn, user, item)
+            amount = cents(item.amount) if item and config.mode == 'production' else config.amount
+            subject = f'PractiQ {item.name} · {item.pages} 页 / {item.durationDays} 天' if item else config.subject
             pending = await (await conn.execute("SELECT 1 FROM payment_orders WHERE owner_id=%s AND environment=%s AND state IN ('UNKNOWN','PENDING_PAYMENT') LIMIT 1", (user['id'], config.mode))).fetchone()
             if pending:
                 raise HTTPException(409, {'code': 'PAYMENT_PENDING_EXISTS'})
-            order = await (await conn.execute('INSERT INTO payment_orders(id,owner_id,request_id,environment,app_id,seller_id,amount,subject,return_url) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *',
-                           (uuid4().hex, user['id'], request_id, config.mode, config.app_id, config.seller_id, config.amount, config.subject, config.return_url))).fetchone()
+            order = await (await conn.execute('INSERT INTO payment_orders(id,owner_id,request_id,environment,app_id,seller_id,amount,subject,return_url,product) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *',
+                           (uuid4().hex, user['id'], request_id, config.mode, config.app_id, config.seller_id, amount, subject, config.return_url, Jsonb(item.model_dump()) if item else None))).fetchone()
             assert order is not None
-            await auth.audit('payment_create', order['id'], {'environment': config.mode, 'amount': money(config.amount)}, conn=conn)
+            await auth.audit('payment_create', order['id'], {'environment': config.mode, 'amount': money(amount), 'productId': product_id}, conn=conn)
     assert order is not None
     return await payment_form(order, config)
 
@@ -113,7 +124,7 @@ async def create(request_id: str) -> dict:
 async def payment_form(order: dict, config: PaymentConfig) -> dict:
     writable()
     bound(config, order)
-    if order['state'] in {'PAID', 'CLOSED'}:
+    if order['state'] in {'PAID', 'CLOSED'} or order.get('provider_closed'):
         raise HTTPException(409, {'code': 'PAYMENT_ALREADY_SETTLED'})
     request = AlipayTradePagePayRequest()
     request.biz_content = {'out_trade_no': order['id'], 'total_amount': money(order['amount']), 'subject': order['subject'],
@@ -160,6 +171,11 @@ async def query(order: dict, config: PaymentConfig | None = None) -> dict:
         updated = await (await conn.execute("UPDATE payment_orders SET state=CASE WHEN state='PAID' OR (state='CLOSED' AND %s!='PAID') THEN state ELSE %s END,paid_amount=coalesce(%s,paid_amount),trade_no=coalesce(trade_no,%s) WHERE id=%s AND (trade_no IS NULL OR trade_no=%s) RETURNING *", (state, state, paid_amount, result['trade_no'], order['id'], result['trade_no']))).fetchone()
         if updated is None:
             raise HTTPException(409, {'code': 'PAYMENT_RESPONSE_MISMATCH'})
+        if state == 'CLOSED':
+            await billing.provider_closed(conn, updated)
+            updated['provider_closed'] = True
+        else:
+            await billing.fulfill(conn, updated)
     return updated
 
 
@@ -192,8 +208,11 @@ async def notify(params: dict[str, str]) -> bool:
         if inserted is None:
             previous = await (await conn.execute('SELECT order_id,trade_no,event_type FROM payment_notifications WHERE app_id=%s AND notify_id=%s', (config.app_id, params['notify_id']))).fetchone()
             return previous == {'order_id': order['id'], 'trade_no': params['trade_no'], 'event_type': event}
+        if params['trade_status'] == 'TRADE_CLOSED' and params['notify_type'] == 'trade_status_sync':
+            await billing.provider_closed(conn, order)
         if params['trade_status'] in PAID and event.endswith(':payment') and params['notify_type'] == 'trade_status_sync':
             await conn.execute("UPDATE payment_orders SET state='PAID',trade_no=coalesce(trade_no,%s) WHERE id=%s", (params['trade_no'], order['id']))
+            await billing.fulfill(conn, {**order, 'state': 'PAID'})
     return True
 
 
@@ -232,6 +251,7 @@ async def refund(order: dict, request_id: str, amount: int, reason: str) -> dict
         assert used is not None
         if order['paid_amount'] is None or used['amount'] + amount > order['paid_amount']:
             raise HTTPException(409, {'code': 'REFUND_LIMIT_EXCEEDED'})
+        await billing.freeze_refund(conn, order, amount)
         # Reserve unknown outcomes before sending. Replay returns this receipt, never resends.
         await conn.execute('INSERT INTO payment_refunds(id,order_id,amount,reason) VALUES(%s,%s,%s,%s)', (request_id, order['id'], amount, reason))
         await auth.audit('payment_refund', order['id'], {'requestId': request_id, 'amount': money(amount)}, conn=conn)
@@ -245,6 +265,7 @@ async def refund(order: dict, request_id: str, amount: int, reason: str) -> dict
             raise HTTPException(409, {'code': 'REFUND_RESPONSE_MISMATCH'})
         async with auth.db().transaction() as conn:
             await conn.execute("UPDATE payment_refunds SET state='SUCCESS' WHERE id=%s", (request_id,))
+            await billing.finish_refund(conn, order['id'])
     rows = await auth.db().rows('SELECT id,amount,state FROM payment_refunds WHERE id=%s', (request_id,))
     return {'id': rows[0]['id'], 'amount': money(rows[0]['amount']), 'state': rows[0]['state']}
 
@@ -266,6 +287,7 @@ async def refund_query(order: dict, refund_id: str) -> dict:
                 raise HTTPException(409, {'code': 'REFUND_RESPONSE_MISMATCH'})
             async with auth.db().transaction() as conn:
                 await conn.execute("UPDATE payment_refunds SET state='SUCCESS' WHERE id=%s", (refund_id,))
+                await billing.finish_refund(conn, order['id'])
             receipt['state'] = 'SUCCESS'
     return {'id': receipt['id'], 'amount': money(receipt['amount']), 'state': receipt['state']}
 

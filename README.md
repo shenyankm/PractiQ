@@ -79,7 +79,7 @@ Desktop data lives in `v4/` with SQLite schema 11. Full backups use container ve
 
 ## Self-host the import service
 
-Document import needs the self-hosted AI service. It requires Python 3.14+, uv, Node.js 22.12+, PostgreSQL, RabbitMQ, Tencent parsing credentials and a model endpoint supporting the Responses API with text, images and structured output. Keep the service on loopback. The [installation guide](docs/guides/installation.md), [account deployment guide](server/docs/accounts.md) and [Tencent setup guide](server/docs/tencent-document-parser.md) cover setup and upgrades; configure your own providers, with provider charges paid directly. Optional Alipay order receipts are disabled by default and do not refill page allowances.
+Document import needs the self-hosted AI service. It requires Python 3.14+, uv, Node.js 22.12+, PostgreSQL, RabbitMQ, Tencent parsing credentials and a model endpoint supporting the Responses API with text, images and structured output. Keep the service on loopback. The [installation guide](docs/guides/installation.md), [account deployment guide](server/docs/accounts.md) and [Tencent setup guide](server/docs/tencent-document-parser.md) cover setup and upgrades; configure your own providers, with provider charges paid directly. Optional Alipay payments are disabled by default; only verified production catalog orders grant expiring page allowances. See [plans](docs/guides/plans.md).
 
 ## Documentation and development
 
@@ -103,7 +103,7 @@ The macOS App includes customer login/registration, account security, cloud uplo
 personal tasks/results, usage, banks and orders. All document recognition and model
 work remain on the independent service. New users receive 50 free recognition pages
 in total. The Web frontend contains only administration at `/admin`; public user
-pages have been removed. Existing service schema 7 and practice schema 11 are unchanged.
+pages have been removed. Service schema 8 requires an explicit backed-up offline upgrade; practice schema 11 is unchanged.
 See [App cloud workflow](docs/guides/cloud-service.md) and
 [account setup and recovery](server/docs/accounts.md). Email is currently an
 unverified login identifier; recovery requires an administrator-issued code.

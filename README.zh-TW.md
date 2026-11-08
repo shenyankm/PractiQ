@@ -81,7 +81,7 @@ PractiQ 仍在開發中。建置通過不代表已完成簽章、乾淨環境驗
 
 ## 自架匯入服務
 
-文件匯入需要自行架設的 AI 服務，需要 Python 3.14+、uv、Node.js 22.12+、PostgreSQL、RabbitMQ、騰訊雲解析憑證，以及支援 Responses API、文字與圖片輸入和結構化輸出的模型端點。服務應綁定本機回環位址。[安裝指南（英文）](docs/guides/installation.md)、[個人自架服務指南（英文）](server/docs/personal-use.md)與[騰訊雲設定指南](server/docs/tencent-document-parser.md)說明部署與升級；供應商設定由你提供，費用直接支付給供應商，PractiQ 不提供計費。
+文件匯入需要自行架設的 AI 服務，需要 Python 3.14+、uv、Node.js 22.12+、PostgreSQL、RabbitMQ、騰訊雲解析憑證，以及支援 Responses API、文字與圖片輸入和結構化輸出的模型端點。服務應綁定本機回環位址。[安裝指南（英文）](docs/guides/installation.md)、[個人自架服務指南（英文）](server/docs/personal-use.md)與[騰訊雲設定指南](server/docs/tencent-document-parser.md)說明部署與升級；供應商設定由你提供，費用直接支付給供應商，營運方可選擇啟用雲端方案收款，預設關閉。
 
 ## 文件與開發
 
@@ -100,3 +100,5 @@ npm run test:browser
 專案原始碼採用 [MIT 授權條款](LICENSE)，內建相依套件保留各自的[上游授權聲明（英文）](app/licenses/README.md)。
 
 Web 僅保留管理後台；使用者帳號、額度、作業、結果和訂單均在 App 中操作。新使用者共有 50 頁免費識別額度，不按日恢復。電子郵件暫不驗證，忘記密碼需向管理員取得一次性重設碼。詳見[雲端服務指南（英文）](docs/guides/cloud-service.md)。
+
+方案與額度：Free 註冊贈送共計 50 頁；Plus ¥39／100 頁／30 天，Pro ¥99／300 頁／30 天，加購包 ¥19.90／50 頁／365 天。手動購買，不自動續費；僅經驗證的正式付款發放獨立權益，支付預設關閉。服務 schema 8 需離線備份升級，本機練習不受影響。詳見[方案規則](docs/guides/plans.md)。

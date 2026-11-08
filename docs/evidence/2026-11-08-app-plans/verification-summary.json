@@ -1,0 +1,44 @@
+{
+  "status": "PASSED",
+  "scope": "Local source and substituted-provider acceptance; no production deployment or real payment",
+  "baseCommit": "3a5ceb788dbe07a2c780c8534807a53279abe1c2",
+  "branch": "feat/app-plans-and-entitlements",
+  "workingTreeChanges": true,
+  "service": {
+    "testsPassed": 3947,
+    "warnings": 7,
+    "coveragePercent": 92,
+    "recoveryProbes": "PASSED",
+    "staticChecks": "PASSED",
+    "packageBuild": "PASSED"
+  },
+  "app": {
+    "testsPassed": 571,
+    "testsSkipped": 6,
+    "typesLintCoverage": "PASSED",
+    "nativeCloudTestsPassed": 17,
+    "clippy": "PASSED",
+    "browserNativeWorkflow": "PASSED",
+    "nativePackageInspection": "PASSED",
+    "fullCheck": "PASSED",
+    "nativeFullTestsPassed": 294,
+    "nativeTestsIgnored": 27
+  },
+  "web": {
+    "testsPassed": 322,
+    "testsSkipped": 1,
+    "typesLintCoverage": "PASSED",
+    "productionBuild": "PASSED"
+  },
+  "jointRuntimeBillingTestsPassed": 138,
+  "serviceSchema": 8,
+  "practiceSchema": 11,
+  "existingDatabaseUpgraded": false,
+  "productionPaymentsEnabled": false,
+  "limitations": [
+    "No live buyer payment/refund",
+    "No actual merchant activation or provider-cost measurement",
+    "No clean-machine/native dialog/Keychain acceptance",
+    "Local unsigned/not-notarized build, not published"
+  ]
+}

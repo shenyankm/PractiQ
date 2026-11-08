@@ -132,7 +132,7 @@ async def test_startup_does_not_reset_published_outbox_or_replay_dead_letters(mo
     original = service.db.rows
     async def rows(query, params=()):
         result = await original(query, params)
-        if 'LIMIT 100' in query and 'document_outbox' in query:
+        if query == messaging.DISPATCH_SQL:
             observed.set()
         return result
     monkeypatch.setattr(service.db, 'rows', rows)

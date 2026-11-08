@@ -3,6 +3,7 @@ import { accountRequest as request } from "./accountClient";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 const messages: Record<string, string> = {
+  PLAN_REFUND_REQUIRES_UNUSED_FULL_ORDER: "套餐与加量包仅支持未使用、未预留额度的整单退款。请核对订单的实际付款金额及额度明细。",
   INVALID_CREDENTIALS: "邮箱或密码错误，或账户已停用。",
   CSRF_INVALID: "页面凭证已过期，请刷新后手动重试。",
   AUTH_RATE_LIMITED: "操作过于频繁，请稍后再试。",

@@ -2,6 +2,7 @@ import type { en } from "./en";
 
 // Traditional Chinese copy is written for Taiwan usage, not character-converted from the Simplified source.
 export const zhTW: Record<keyof typeof en, string> = {
+  "云端连接设置": "雲端連線設定",
   "例如 https://service.example.com": "https://service.example.com",
   "清除本机登录状态": "清除本機登入狀態",
   "云端服务": "雲端服務",

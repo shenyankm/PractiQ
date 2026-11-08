@@ -1233,5 +1233,10 @@
     "zh-CN": "开发预览不会连接真实云端服务，请关闭开发预览后操作。",
     "zh-TW": "開發預覽不會連線真實雲端服務，請關閉開發預覽後操作。",
     "en": "Development preview does not connect to cloud services. Disable preview to continue."
+  },
+  "PLAN_PRODUCT_INVALID": {
+    "zh-CN": "请选择有效的套餐或加量包。",
+    "en": "Choose a valid plan or page add-on.",
+    "zh-TW": "請選擇有效的方案或加購頁數包。"
   }
 }

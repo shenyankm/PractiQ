@@ -178,8 +178,8 @@ export function Usage() {
       {error && <p role="alert">{error}</p>}
       {data && (
         <>
-          <p role="status">免费识别额度：剩余 {data.remainingPages} / {data.limits.freePages} 页，已使用或预留 {data.usedPages} 页。</p>
-          {data.remainingPages === 0 && <p className="notice">免费页数已用尽。请联系管理员调整额度；已保存的结果仍可查看和下载。</p>}
+          <p role="status">可用识别额度：{data.remainingPages} 页，累计已使用或预留 {data.usedPages} 页。</p>
+          {data.remainingPages === 0 && <p className="notice">可用页数已用尽。请前往“套餐与额度”购买套餐或加量包；已保存的结果仍可查看和下载。</p>}
           <p>
             每日模型 {data.limits.modelCalls} 次 · 腾讯提交{" "}
             {data.limits.tencentCalls} 次 · 进行中任务 {data.limits.activeTasks}{" "}

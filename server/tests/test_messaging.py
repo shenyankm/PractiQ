@@ -102,7 +102,7 @@ async def test_repeated_publication_failures_back_off_even_when_connection_clean
         yield SimpleNamespace(execute=AsyncMock())
     service = SimpleNamespace(stopping=False, active={}, stop_event=SimpleNamespace(wait=AsyncMock()),
                               db=SimpleNamespace(rows=AsyncMock(return_value=[{'run_id': str(uuid4())}]), connection=database_connection))
-    channel = SimpleNamespace(is_closed=False, get_underlay_channel=AsyncMock(return_value=SimpleNamespace(on_consumer_cancel_callbacks=set())))
+    channel = SimpleNamespace(is_closed=False, declare_queue=AsyncMock(return_value=SimpleNamespace(declaration_result=SimpleNamespace(message_count=0))), get_underlay_channel=AsyncMock(return_value=SimpleNamespace(on_consumer_cancel_callbacks=set())))
     connection = SimpleNamespace(channel=AsyncMock(return_value=channel), is_closed=False,
                                  close=AsyncMock(side_effect=close_error))
     queue = SimpleNamespace(consume=AsyncMock())
@@ -112,7 +112,7 @@ async def test_repeated_publication_failures_back_off_even_when_connection_clean
         delays.append(timeout)
         if len(delays) == 3:
             service.stopping = True
-    monkeypatch.setattr(messaging, 'load', lambda: SimpleNamespace(read_only=False))
+    monkeypatch.setattr(messaging, 'load', lambda: SimpleNamespace(read_only=False, jobs_per_worker=4))
     monkeypatch.setattr(messaging, 'rabbitmq_uris', lambda: ('amqp://host/vhost',))
     monkeypatch.setattr(messaging.aio_pika, 'connect', AsyncMock(return_value=connection))
     monkeypatch.setattr(messaging, 'topology', AsyncMock(return_value=queue))
@@ -304,14 +304,16 @@ async def test_infrastructure_poison_reaches_delivery_limit_without_model_work(m
 
     from tests.db_support import setup_api
 
+    monkeypatch.setenv('N_JOBS_PER_WORKER', '1')
     original = aio_pika.Channel.declare_queue
     async def declare(channel, name, **kwargs):
-        if name == messaging.QUEUE:
+        if name == messaging.QUEUE and not kwargs.get('passive'):
             kwargs['arguments'] = {**kwargs['arguments'], 'x-delivery-limit': 1,
                                    'x-delayed-retry-min': 1000, 'x-delayed-retry-max': 1000}
         return await original(channel, name, **kwargs)
     monkeypatch.setattr(aio_pika.Channel, 'declare_queue', declare)
     service, reference, model = await setup_api(monkeypatch)
+    deliver = service.deliver
     attempts = AsyncMock(side_effect=RuntimeError('infrastructure poison'))
     monkeypatch.setattr(service, 'deliver', attempts)
     receipt = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
@@ -330,6 +332,14 @@ async def test_infrastructure_poison_reaches_delivery_limit_without_model_work(m
         await message.ack()
     assert 1 <= attempts.await_count <= 3 and not model.calls
     assert (await service.db.rows('SELECT status FROM document_runs'))[0]['status'] == 'pending'
+    # One retained dead-letter receipt must not block the only slot for healthy work.
+    monkeypatch.setattr(service, 'deliver', deliver)
+    healthy = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
+    async with asyncio.timeout(10):
+        while (await service.db.rows('SELECT status FROM document_runs WHERE run_id=%s', (healthy['runId'],)))[0]['status'] in {'pending', 'running'}:
+            await asyncio.sleep(.02)
+    assert (await service.db.rows('SELECT status FROM document_runs WHERE run_id=%s', (healthy['runId'],)))[0]['status'] == 'success'
+    assert len(model.calls) == 1
 
 
 def test_amqp_notice_inventory_matches_lock_and_exact_texts():
@@ -355,7 +365,7 @@ async def test_consumer_timeout_does_not_overlap_or_repeat_old_execution(monkeyp
 
     original_declare = aio_pika.Channel.declare_queue
     async def declare(channel, name, **kwargs):
-        if name == messaging.QUEUE:
+        if name == messaging.QUEUE and not kwargs.get('passive'):
             # Exercise the broker timeout with an intentionally short test-only limit.
             kwargs['arguments'] = {**kwargs['arguments'], 'x-consumer-timeout': 60_000}
         return await original_declare(channel, name, **kwargs)
@@ -627,7 +637,7 @@ async def test_outbox_reuses_batch_connection_and_commits_each_confirm(monkeypat
             raise TimeoutError('unknown confirmation')
         return Basic.Ack()
 
-    channel = SimpleNamespace(is_closed=False, default_exchange=SimpleNamespace(publish=broker_publish),
+    channel = SimpleNamespace(is_closed=False, declare_queue=AsyncMock(return_value=SimpleNamespace(declaration_result=SimpleNamespace(message_count=0))), default_exchange=SimpleNamespace(publish=broker_publish),
                               get_underlay_channel=AsyncMock(return_value=SimpleNamespace(on_consumer_cancel_callbacks=set())))
     broker = SimpleNamespace(channel=AsyncMock(return_value=channel), is_closed=False, close=AsyncMock())
     queue = SimpleNamespace(consume=AsyncMock(), cancel=AsyncMock())
@@ -637,7 +647,7 @@ async def test_outbox_reuses_batch_connection_and_commits_each_confirm(monkeypat
     async def wait(_):
         service.stopping = True
 
-    monkeypatch.setattr(messaging, 'load', lambda: SimpleNamespace(read_only=False))
+    monkeypatch.setattr(messaging, 'load', lambda: SimpleNamespace(read_only=False, jobs_per_worker=4))
     monkeypatch.setattr(messaging, 'rabbitmq_uris', lambda: ('amqp://localhost/vhost',))
     monkeypatch.setattr(messaging.aio_pika, 'connect', AsyncMock(return_value=broker))
     monkeypatch.setattr(messaging, 'topology', AsyncMock(return_value=queue))
@@ -672,3 +682,23 @@ async def test_outbox_reuses_batch_connection_and_commits_each_confirm(monkeypat
         service.fatal.assert_not_called()
     broker.close.assert_awaited_once()
     assert not delivery.connected
+
+
+@pytest.mark.parametrize(('active', 'queued', 'expected'), [(0, 0, 4), (2, 1, 1), (3, 5, 0)])
+async def test_publication_capacity_uses_live_broker_backlog_and_executions(monkeypatch, active, queued, expected):
+    service = SimpleNamespace(stopping=False, active={str(n): None for n in range(active)})
+    async def rows(query, params):
+        assert query == messaging.DISPATCH_SQL and params == (expected,)
+        service.stopping = True
+        return []
+    service.db = SimpleNamespace(rows=rows)
+    channel = SimpleNamespace(is_closed=False, declare_queue=AsyncMock(return_value=SimpleNamespace(declaration_result=SimpleNamespace(message_count=queued))))
+    broker = SimpleNamespace(is_closed=False, channel=AsyncMock(return_value=channel), close=AsyncMock())
+    monkeypatch.setattr(messaging, 'load', lambda: SimpleNamespace(read_only=False, jobs_per_worker=4))
+    monkeypatch.setattr(messaging, 'rabbitmq_uris', lambda: ('amqp://localhost/vhost',))
+    monkeypatch.setattr(messaging, 'topology', AsyncMock())
+    monkeypatch.setattr(messaging.aio_pika, 'connect', AsyncMock(return_value=broker))
+    delivery = messaging.Delivery(service)
+    monkeypatch.setattr(delivery, 'wait', AsyncMock())
+    await delivery.publishing()
+    channel.declare_queue.assert_awaited_once_with(messaging.QUEUE, durable=True, passive=True, timeout=5)

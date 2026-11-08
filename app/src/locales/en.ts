@@ -1,4 +1,5 @@
 export const en = {
+  "云端连接设置": "Cloud connection settings",
   "例如 https://service.example.com": "https://service.example.com",
   "清除本机登录状态": "Forget local login",
   "云端服务": "Cloud service",

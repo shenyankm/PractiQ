@@ -6,10 +6,11 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi import Path as Parameter
 from starlette.responses import HTMLResponse, PlainTextResponse
 
+from . import billing, payments
 from . import identity as auth
-from . import payments
 from .account_api import confirm
 from .contracts import (
+    AccountPlan,
     PaymentCreate,
     PaymentForm,
     PaymentOffer,
@@ -27,6 +28,21 @@ async def query_limit() -> None:
     user = auth.actor.get()
     assert user is not None
     await auth.rate('payment-query:' + user['id'], 120, 3600)
+
+
+@router.get('/api/me/plans', response_model=AccountPlan)
+async def plans():
+    user = auth.actor.get()
+    assert user is not None
+    async with auth.db().connection() as conn:
+        state = await billing.balance(conn, user)
+    try:
+        config = load()
+    except HTTPException:
+        config = None
+    return {'products': billing.PRODUCTS, 'balance': state, 'checkoutEnabled': config is not None,
+            'environment': config.mode if config else None,
+            'sandboxAmount': money(config.amount) if config and config.mode == 'sandbox' else None}
 
 
 @router.get('/api/me/payments/offer', response_model=PaymentOffer)
@@ -48,7 +64,7 @@ async def create(value: PaymentCreate):
     user = auth.actor.get()
     assert user is not None
     await auth.rate('payment:' + user['id'], 30, 3600)
-    return await payments.create(str(value.requestId))
+    return await payments.create(str(value.requestId), value.productId)
 
 
 @router.get('/api/me/payments/{order_id}', response_model=PaymentOrder)

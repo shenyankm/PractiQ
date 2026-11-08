@@ -1,4 +1,4 @@
-import type { DocumentReference } from "./contracts.generated";
+import type { DocumentReference, PaymentCreate } from "./contracts.generated";
 
 export type SourceFile = Pick<File, "name" | "size"> & { arrayBuffer?: () => Promise<ArrayBuffer>; nativeTicket?: string };
 export interface NativeBridge {
@@ -10,7 +10,7 @@ export interface NativeBridge {
   upload(ticket: string): Promise<DocumentReference>;
   download(path: string, name: string): Promise<boolean>;
   save(bytes: Uint8Array, name: string): Promise<boolean>;
-  checkout(requestId: string, orderId?: string): Promise<void>;
+  checkout(requestId: string, orderId?: string, productId?: NonNullable<PaymentCreate["productId"]>): Promise<void>;
 }
 let native: NativeBridge | null = null;
 export const nativeBridge = () => native;

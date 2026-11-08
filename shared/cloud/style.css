@@ -322,3 +322,45 @@ summary { cursor: pointer; list-style-position: inside; font-size: 14px; }
 .cloud-portal.embedded .sidebar-connection { display: none; }
 
 @keyframes import-spin { to { transform: rotate(360deg); } }
+
+.plans-page { max-width: 1120px; margin-inline: auto; }
+.plans-heading, .plan-topup, .plan-recovery { display: flex; justify-content: space-between; align-items: center; gap: 20px; }
+.plans-heading { margin-bottom: 28px; }
+.plans-heading h1 { margin-bottom: 8px; }
+.plans-page p { line-height: 1.75; }
+.plans-page > .notice { margin-bottom: 20px; }
+.plan-balance { padding-block: 0 28px; margin-bottom: 28px; border-bottom: 1px solid var(--border); }
+.plan-balance h2 { font-size: 18px; margin-bottom: 8px; }
+.plan-balance dl { display: flex; gap: 48px; flex-wrap: wrap; margin-top: 22px; }
+.plan-balance dt { font-size: 13px; color: var(--muted-foreground); }
+.plan-balance dd { font-size: 28px; font-weight: 650; font-variant-numeric: tabular-nums; margin: 8px 0 0; }
+.plan-balance dd span { font-size: 14px; font-weight: 400; }
+.plan-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; align-items: stretch; }
+.plan-option { display: flex; flex-direction: column; padding: 24px; border: 1px solid var(--border); border-radius: 14px; background: var(--card); }
+.plan-recommended { border-color: var(--primary); }
+.plan-option-title { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+.plan-option h2 { font-size: 21px; }
+.plan-option > p:not(.plan-price) { color: var(--muted-foreground); font-size: 14px; }
+.plan-tag { background: var(--primary); color: var(--primary-foreground); font-size: 11px; border-radius: 6px; padding: 4px 7px; }
+.plan-price { font-size: 36px; font-weight: 650; margin-block: 22px; font-variant-numeric: tabular-nums; }
+.plan-price span { font-size: 14px; color: var(--muted-foreground); font-weight: 400; }
+.plan-option ul { display: grid; gap: 14px; margin-bottom: 26px; font-size: 13px; }
+.plan-option li { display: flex; align-items: center; gap: 8px; }
+.plan-option li svg { flex-shrink: 0; color: var(--muted-foreground); }
+.plan-option > button { margin-top: auto; width: 100%; white-space: normal; min-height: 38px; }
+.plan-topup { padding-block: 26px; margin-top: 16px; border-bottom: 1px solid var(--border); }
+.plan-topup h2, .plan-included h2, .plan-ledger h2 { font-size: 17px; margin-bottom: 10px; }
+.plan-included, .plan-ledger { margin-top: 30px; }
+.plan-included p { max-width: 76ch; margin-bottom: 10px; font-size: 14px; }
+.plan-rules { margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--border); }
+.plan-rules ul { list-style: disc; padding-left: 20px; max-width: 80ch; }
+.plan-rules li { font-size: 13px; line-height: 1.8; margin-block: 10px; }
+.plan-recovery { padding: 16px 0; margin-bottom: 20px; border-bottom: 1px solid var(--border); }
+.plan-orders { list-style: none; padding: 0; }
+.plans-page td, .plans-page th { font-variant-numeric: tabular-nums; white-space: nowrap; }
+@media (max-width: 1050px) {
+  .plan-options { grid-template-columns: minmax(0, 1fr); }
+  .plan-option { padding: 20px; }
+  .plans-heading, .plan-topup, .plan-recovery { align-items: flex-start; flex-wrap: wrap; }
+  .plan-balance dl { gap: 24px; }
+}

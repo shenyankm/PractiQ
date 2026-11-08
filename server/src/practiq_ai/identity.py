@@ -153,7 +153,9 @@ async def page_usage(conn, user_id: str) -> int:
 async def reserve(scope: str, key: str, kind: str, record: dict, *, pages: int = 1, allow_partial: bool = False):
     if _evaluating():
         return
+    from . import billing
     from .errors import DocumentProcessingError
+    state = None
     day = datetime.now(ZoneInfo('Asia/Singapore')).date()
     async with db().transaction() as conn:
         table = 'document_tasks' if scope.startswith('task:') else 'grades'
@@ -182,17 +184,25 @@ async def reserve(scope: str, key: str, kind: str, record: dict, *, pages: int =
         if kind == 'tencentCalls':
             if type(pages) is not int or pages < 1:
                 raise ValueError('Page reservation must be a positive integer')
-            remaining = user['limits'].get('freePages', defaults.get('freePages', 50)) - await page_usage(conn, user['id'])
+            state = await billing.balance(conn, user, defaults)
+            remaining = state['remainingPages']
             if remaining < 1 or (pages > remaining and not allow_partial):
-                raise DocumentProcessingError(429, 'Lifetime free page quota is insufficient; contact an administrator', 'FREE_PAGE_QUOTA_EXCEEDED')
+                raise DocumentProcessingError(429, 'Recognition page quota is insufficient; choose a plan or add pages', 'FREE_PAGE_QUOTA_EXCEEDED')
             record.update(quotaPages=min(pages, remaining), pageLimit=min(pages, remaining))
         await conn.execute('INSERT INTO auth_calls(call_key,user_id,scope,kind,day,record) VALUES(%s,%s,%s,%s,%s,%s)', (key, user['id'], scope, kind, day, Jsonb({**record, 'admissionState': 'reserved'})))
+        if state is not None:
+            await billing.allocate(conn, key, state, record['quotaPages'])
 
 
 async def record_call(key: str, record: dict):
     if _evaluating():
         return
     async with db().transaction() as conn:
+        previous = await (await conn.execute('SELECT record FROM auth_calls WHERE call_key=%s', (key,))).fetchone()
+        if previous and 'quotaPages' in previous['record']:
+            from . import billing
+            record['quotaPages'] = min(previous['record']['quotaPages'], record.get('quotaPages', previous['record']['quotaPages']))
+            await billing.settle(conn, key, record['quotaPages'])
         await conn.execute('UPDATE auth_calls SET record=%s WHERE call_key=%s', (Jsonb({**record, 'admissionState': 'dispatched'}), key))
 
 
@@ -215,7 +225,8 @@ async def admit(conn, task):
     assert defaults_row is not None
     defaults = defaults_row['value']
     count = (await (await conn.execute("SELECT count(*) AS n FROM document_runs r JOIN document_tasks t USING(thread_id) WHERE t.owner_id=%s AND r.status IN ('pending','running')", (user['id'],))).fetchone())['n']
-    if count >= user['limits'].get('activeTasks', defaults['activeTasks']):
+    from . import billing
+    if count >= (await billing.balance(conn, user, defaults))['activeTasks']:
         raise DocumentProcessingError(429, 'Account task concurrency limit reached', 'USER_TASK_LIMIT')
 
 

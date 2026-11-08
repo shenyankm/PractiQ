@@ -245,6 +245,7 @@ async def test_offline_schema_six_upgrade_preserves_users_and_requires_complete_
     database, _, _ = account
     users = await database.rows('SELECT * FROM auth_users ORDER BY id')
     async with database.transaction() as conn:
+        await conn.execute('DROP TABLE page_allocations,page_grants')
         await conn.execute('DROP TABLE payment_notifications,payment_refunds,payment_orders')
         await conn.execute('UPDATE practiq_schema SET version=6')
     with pytest.raises(RuntimeError, match='Unsupported service schema'):
@@ -252,4 +253,293 @@ async def test_offline_schema_six_upgrade_preserves_users_and_requires_complete_
     await database.upgrade()
     await database.check_schema()
     assert await database.rows('SELECT * FROM auth_users ORDER BY id') == users
+    assert not await database.rows('SELECT * FROM payment_orders')
+
+
+@pytest.fixture
+async def production(account, config, monkeypatch):
+    from dataclasses import replace
+
+    from practiq_ai import payment_api
+    configured = replace(config, mode='production')
+    monkeypatch.setattr(payments, 'load', lambda: configured)
+    monkeypatch.setattr(payment_api, 'load', lambda: configured)
+    return account
+
+
+async def purchase(client, product_id):
+    response = await client.post('/api/me/payments', json={'requestId': str(uuid4()), 'productId': product_id})
+    assert response.status_code == 200, response.text
+    return response.json()['order']
+
+
+async def test_catalog_remains_visible_without_checkout_and_has_exact_agreed_prices(account, monkeypatch):
+    _, client, _ = account
+    monkeypatch.delenv('ALIPAY_ENABLED')
+    result = (await client.get('/api/me/plans')).json()
+    assert result['checkoutEnabled'] is False and result['environment'] is None
+    assert [(p['id'], p['amount'], p['pages'], p['durationDays'], p['activeTasks']) for p in result['products']] == [
+        ('free', '0.00', 50, None, 1), ('plus', '39.00', 100, 30, 2), ('pro', '99.00', 300, 30, 3), ('pages50', '19.90', 50, 365, 1)]
+    assert result['balance']['remainingPages'] == 50
+    assert (await client.post('/api/me/payments', json={'requestId': str(uuid4()), 'productId': 'plus'})).status_code == 503
+
+
+@pytest.mark.parametrize(('sku', 'amount', 'pages', 'days'), [('plus', '39.00', 100, 30), ('pro', '99.00', 300, 30), ('pages50', '19.90', 50, 365)])
+async def test_verified_production_query_grants_once_and_preserves_order_product(production, sku, amount, pages, days):
+    database, client, gateway = production
+    order = await purchase(client, sku)
+    assert order['amount'] == amount and order['productId'] == sku
+    assert not await database.rows('SELECT * FROM page_grants')
+    gateway.amount = gateway.buyer_amount = amount
+    gateway.state = 'TRADE_SUCCESS'
+    for _ in range(2):
+        assert (await client.post('/api/me/payments/' + order['id'] + '/query')).status_code == 200
+    grants = await database.rows('SELECT * FROM page_grants')
+    assert len(grants) == 1 and (grants[0]['expires_at'] - grants[0]['starts_at']).days == days
+    result = (await client.get('/api/me/plans')).json()['balance']
+    assert result['remainingPages'] == 50 + pages and result['freeRemainingPages'] == 50
+    assert result['plan'] == (sku if sku != 'pages50' else 'free')
+    replay = await client.post('/api/me/payments', json={'requestId': order['requestId'], 'productId': 'pro' if sku != 'pro' else 'plus'})
+    assert replay.status_code == 409
+    assert (await client.get('/api/me/usage')).json()['remainingPages'] == 50 + pages
+    assert not await database.rows('SELECT * FROM auth_calls')
+
+
+async def test_signed_production_notify_is_atomic_and_sandbox_never_grants(account, production, config):
+    database, client, gateway = production
+    order = await purchase(client, 'plus')
+    fields = {'app_id': config.app_id, 'seller_id': config.seller_id, 'out_trade_no': order['id'],
+              'trade_no': 'trade-' + order['id'], 'total_amount': '39.00', 'trade_status': 'TRADE_SUCCESS',
+              'notify_type': 'trade_status_sync', 'notify_id': 'plan-notice'}
+    assert (await client.post('/payments/notify', data=signed(config, {**fields, 'total_amount': '0.01'}))).text == 'fail'
+    for _ in range(2):
+        assert (await client.post('/payments/notify', data=signed(config, fields))).text == 'success'
+    assert len(await database.rows('SELECT * FROM page_grants')) == 1
+    gateway.amount = gateway.buyer_amount = '39.00'
+    gateway.state = 'TRADE_SUCCESS'
+    await payments.reconcile_once()
+    assert len(await database.rows('SELECT * FROM page_grants')) == 1
+    client.cookies.set('practiq_session', 'bob')
+    client.headers['X-CSRF-Token'] = identity.csrf('bob')
+    assert (await client.get('/api/me/plans')).json()['balance']['remainingPages'] == 50
+    assert (await client.get('/api/me/payments/' + order['id'])).status_code == 404
+
+
+async def test_sandbox_paid_receipts_do_not_change_real_page_allowances(account):
+    database, client, gateway = account
+    order = await purchase(client, 'pro')
+    assert order['amount'] == '1.00'
+    gateway.state = 'TRADE_SUCCESS'
+    await client.post('/api/me/payments/' + order['id'] + '/query')
+    assert not await database.rows('SELECT * FROM page_grants')
+    assert (await client.get('/api/me/plans')).json()['balance']['remainingPages'] == 50
+
+
+async def task_scope(database):
+    task = str(uuid4())
+    async with database.transaction() as conn:
+        await conn.execute("INSERT INTO document_tasks(thread_id,request_hash,graph_id,document,failure_policy,expires_at,owner_id) VALUES(%s,'x','document_parser','{}','return_partial',now()+interval '1 day','alice')", (task,))
+    return 'task:' + task
+
+
+async def paid_plan(client, gateway, sku='plus'):
+    order = await purchase(client, sku)
+    gateway.amount = gateway.buyer_amount = order['amount']
+    gateway.state = 'TRADE_SUCCESS'
+    assert (await client.post('/api/me/payments/' + order['id'] + '/query')).status_code == 200
+    return order
+
+
+async def test_expiring_paid_pages_are_used_before_free_and_unknown_reservations_are_retained(production):
+    database, client, gateway = production
+    order = await paid_plan(client, gateway)
+    scope = await task_scope(database)
+    receipt = {}
+    await identity.reserve(scope, 'paid-reservation', 'tencentCalls', receipt, pages=120)
+    state = (await client.get('/api/me/plans')).json()['balance']
+    assert (state['freeUsedPages'], state['freeRemainingPages'], state['remainingPages']) == (20, 30, 30)
+    assert state['grants'][0]['usedPages'] == 100
+    await identity.record_call('paid-reservation', {**receipt, 'taskId': 'unknown-submission'})
+    await identity.release('paid-reservation')
+    assert (await client.get('/api/me/plans')).json()['balance']['remainingPages'] == 30
+    # A terminal known page count releases excess reservations, including the free tail.
+    await identity.record_call('paid-reservation', {**receipt, 'quotaPages': 40})
+    state = (await client.get('/api/me/plans')).json()['balance']
+    assert (state['freeUsedPages'], state['grants'][0]['usedPages'], state['remainingPages']) == (0, 40, 110)
+    # An older response cannot enlarge a settled reservation.
+    await identity.record_call('paid-reservation', receipt)
+    assert (await client.get('/api/me/plans')).json()['balance']['remainingPages'] == 110
+    async with database.transaction() as conn:
+        await conn.execute("UPDATE page_grants SET expires_at=now()-interval '1 second' WHERE order_id=%s", (order['id'],))
+    state = (await client.get('/api/me/plans')).json()['balance']
+    assert state['plan'] == 'free' and state['remainingPages'] == 50 and state['grants'][0]['state'] == 'expired'
+
+
+async def test_atomic_concurrent_reservations_cannot_overdraw_paid_or_free_pages(production):
+    import asyncio
+
+    from practiq_ai.errors import DocumentProcessingError
+    database, client, gateway = production
+    await paid_plan(client, gateway)
+    scope = await task_scope(database)
+    result = await asyncio.gather(identity.reserve(scope, 'first-spend', 'tencentCalls', {}, pages=100), identity.reserve(scope, 'second-spend', 'tencentCalls', {}, pages=100), return_exceptions=True)
+    assert sum(isinstance(item, DocumentProcessingError) for item in result) == 1
+    assert (await client.get('/api/me/plans')).json()['balance']['remainingPages'] == 50
+    await identity.release('first-spend')
+    await identity.release('second-spend')
+    assert (await client.get('/api/me/plans')).json()['balance']['remainingPages'] == 150
+
+
+async def test_refund_freezes_unused_entitlement_before_unknown_provider_write(production):
+    database, client, gateway = production
+    order = await paid_plan(client, gateway)
+    gateway.uncertain = True
+    body = {'requestId': str(uuid4()), 'amount': '39.00', 'reason': 'unused plan', 'currentPassword': PASSWORD}
+    path = '/api/admin/payments/' + order['id'] + '/refunds'
+    assert (await client.post(path, json=body)).status_code == 503
+    assert (await client.post(path, json=body)).json()['state'] == 'UNKNOWN'
+    assert gateway.refund_calls == 1
+    state = (await client.get('/api/me/plans')).json()['balance']
+    assert state['plan'] == 'free' and state['remainingPages'] == 50 and state['grants'][0]['state'] == 'refund_pending'
+    # A verified refund query revokes the frozen grant, without deleting practice data.
+    async with database.transaction() as conn:
+        await conn.execute("UPDATE payment_refunds SET created_at=now()-interval '11 seconds'")
+    from unittest.mock import AsyncMock
+    # Exercise the verified provider-response path, not a direct grant mutation.
+    execute = AsyncMock(return_value={'code': '10000', 'refund_status': 'REFUND_SUCCESS', 'out_trade_no': order['id'], 'trade_no': 'trade-' + order['id'], 'out_request_no': body['requestId'], 'refund_amount': '39.00'})
+    import unittest.mock
+    with unittest.mock.patch.object(payments, 'execute', execute):
+        assert (await client.post(path + '/' + body['requestId'] + '/query')).json()['state'] == 'SUCCESS'
+    assert (await client.get('/api/me/plans')).json()['balance']['grants'][0]['state'] == 'refunded'
+
+
+async def test_used_or_partially_refunded_plan_cannot_start_refund(production):
+    database, client, gateway = production
+    order = await paid_plan(client, gateway)
+    body = {'requestId': str(uuid4()), 'amount': '1.00', 'reason': 'partial', 'currentPassword': PASSWORD}
+    path = '/api/admin/payments/' + order['id'] + '/refunds'
+    assert (await client.post(path, json=body)).status_code == 409
+    await identity.reserve(await task_scope(database), 'used-plan', 'tencentCalls', {}, pages=1)
+    assert (await client.post(path, json={**body, 'amount': '39.00'})).status_code == 409
+    assert gateway.refund_calls == 0 and not await database.rows('SELECT * FROM payment_refunds')
+
+
+async def test_plan_repurchase_is_blocked_but_topup_is_independent(production):
+    _, client, gateway = production
+    await paid_plan(client, gateway)
+    response = await client.post('/api/me/payments', json={'requestId': str(uuid4()), 'productId': 'pro'})
+    assert response.status_code == 409 and response.json()['detail']['code'] == 'PLAN_ALREADY_ACTIVE'
+    await paid_plan(client, gateway, 'pages50')
+    state = (await client.get('/api/me/plans')).json()['balance']
+    assert state['plan'] == 'plus' and state['activeTasks'] == 2 and state['remainingPages'] == 200
+
+
+async def test_schema_seven_upgrade_preserves_old_calls_orders_and_free_balance(account):
+    database, client, _ = account
+    old, _ = await create(client)
+    scope = await task_scope(database)
+    await identity.reserve(scope, 'old-usage', 'tencentCalls', {}, pages=12)
+    before = await database.rows('SELECT * FROM auth_calls')
+    async with database.transaction() as conn:
+        await conn.execute('DROP TABLE page_allocations,page_grants')
+        await conn.execute('ALTER TABLE payment_orders DROP COLUMN product,DROP COLUMN provider_closed')
+        await conn.execute('UPDATE practiq_schema SET version=7')
+    with pytest.raises(RuntimeError, match='Unsupported service schema'):
+        await database.check_schema()
+    await database.upgrade()
+    await database.check_schema()
+    assert await database.rows('SELECT * FROM auth_calls') == before
+    assert (await client.get('/api/me/plans')).json()['balance']['remainingPages'] == 38
+    assert (await client.get('/api/me/payments/' + old['order']['id'])).json()['productId'] is None
+    assert not await database.rows('SELECT * FROM page_grants')
+
+
+@pytest.mark.parametrize(('sku', 'maximum'), [(None, 1), ('plus', 2), ('pro', 3)])
+async def test_plan_concurrency_is_enforced_at_server_admission(production, sku, maximum):
+    from practiq_ai.errors import DocumentProcessingError
+    database, client, gateway = production
+    if sku:
+        await paid_plan(client, gateway, sku)
+    for _ in range(maximum):
+        scope = await task_scope(database)
+        async with database.transaction() as conn:
+            await identity.admit(conn, {'owner_id': 'alice'})
+            await conn.execute("INSERT INTO document_runs(run_id,thread_id,request_id,context) VALUES(%s,%s,'start','{}')", (str(uuid4()), scope[5:]))
+    async with database.transaction() as conn:
+        with pytest.raises(DocumentProcessingError, match='concurrency limit'):
+            await identity.admit(conn, {'owner_id': 'alice'})
+
+
+async def test_pro_dispatch_has_bounded_priority_and_retained_receipts_do_not_block_new_work(production):
+    from practiq_ai.messaging import DISPATCH_SQL
+    database, client, gateway = production
+    await paid_plan(client, gateway, 'pro')
+    ids = []
+    for premium in (False, True):
+        scope = await task_scope(database)
+        run_id = str(uuid4())
+        ids.append(run_id)
+        async with database.transaction() as conn:
+            if not premium:
+                await conn.execute("UPDATE document_tasks SET owner_id='bob' WHERE thread_id=%s", (scope[5:],))
+            await conn.execute("INSERT INTO document_runs(run_id,thread_id,request_id,context) VALUES(%s,%s,'start','{}')", (run_id, scope[5:]))
+            await conn.execute('INSERT INTO document_outbox(run_id) VALUES(%s)', (run_id,))
+    assert [r['run_id'] for r in await database.rows(DISPATCH_SQL, (1,))] == [ids[1]]
+    async with database.transaction() as conn:
+        await conn.execute("UPDATE document_outbox SET created_at=now()-interval '3 minutes' WHERE run_id=%s", (ids[0],))
+    assert [r['run_id'] for r in await database.rows(DISPATCH_SQL, (1,))] == [ids[0]]
+    async with database.transaction() as conn:
+        await conn.execute('UPDATE document_outbox SET published_at=now() WHERE run_id=%s', (ids[0],))
+    # A published pending receipt may be dead-lettered; it must not consume a live dispatch slot.
+    assert [r['run_id'] for r in await database.rows(DISPATCH_SQL, (1,))] == [ids[1]]
+    assert not await database.rows(DISPATCH_SQL, (0,))
+    async with database.transaction() as conn:
+        await conn.execute("UPDATE document_runs SET status='success' WHERE run_id=%s", (ids[0],))
+    assert [r['run_id'] for r in await database.rows(DISPATCH_SQL, (1,))] == [ids[1]]
+
+
+@pytest.mark.parametrize('via', ['query', 'notification', 'close_before_paid'])
+async def test_verified_provider_closure_revokes_grants_and_fences_late_paid_events(production, config, via):
+    database, client, gateway = production
+    order = await purchase(client, 'plus')
+    path = '/api/me/payments/' + order['id']
+    gateway.amount = gateway.buyer_amount = '39.00'
+    if via != 'close_before_paid':
+        gateway.state = 'TRADE_SUCCESS'
+        assert (await client.post(path + '/query')).status_code == 200
+        assert (await client.get('/api/me/plans')).json()['balance']['remainingPages'] == 150
+    fields = {'app_id': config.app_id, 'seller_id': config.seller_id, 'out_trade_no': order['id'],
+              'trade_no': 'trade-' + order['id'], 'total_amount': '39.00', 'trade_status': 'TRADE_CLOSED',
+              'notify_type': 'trade_status_sync', 'notify_id': 'closed-plan-notice'}
+    if via == 'query':
+        gateway.state = 'TRADE_CLOSED'
+        assert (await client.post(path + '/query')).status_code == 200
+    else:
+        for _ in range(2):
+            assert (await client.post('/payments/notify', data=signed(config, fields))).text == 'success'
+    assert (await client.get(path)).json()['providerClosed'] is True
+    assert (await client.get('/api/me/plans')).json()['balance']['remainingPages'] == 50
+    # Validly signed but late payment success cannot restore an already closed trade.
+    assert (await client.post('/payments/notify', data=signed(config, {**fields, 'notify_id': 'late-paid-notice', 'trade_status': 'TRADE_SUCCESS'}))).text == 'success'
+    assert (await client.get('/api/me/plans')).json()['balance']['remainingPages'] == 50
+    assert (await client.post(path + '/form')).status_code == 409
+    assert all(grant['state'] == 'refunded' for grant in await database.rows('SELECT * FROM page_grants'))
+
+
+async def test_full_unused_plan_refund_uses_verified_buyer_payment_after_discount(production):
+    _, client, gateway = production
+    order = await purchase(client, 'plus')
+    gateway.state, gateway.amount, gateway.buyer_amount, gateway.uncertain = 'TRADE_SUCCESS', '39.00', '0.50', True
+    assert (await client.post('/api/me/payments/' + order['id'] + '/query')).status_code == 200
+    body = {'requestId': str(uuid4()), 'amount': '0.50', 'reason': 'unused discounted order', 'currentPassword': PASSWORD}
+    assert (await client.post('/api/admin/payments/' + order['id'] + '/refunds', json=body)).status_code == 503
+    state = (await client.get('/api/me/plans')).json()['balance']
+    assert state['remainingPages'] == 50 and state['grants'][0]['state'] == 'refund_pending'
+
+
+async def test_new_production_orders_require_a_catalog_sku_and_reject_client_fulfillment_fields(production):
+    database, client, _ = production
+    assert (await client.post('/api/me/payments', json={'requestId': str(uuid4())})).status_code == 422
+    assert (await client.post('/api/me/payments', json={'requestId': str(uuid4()), 'productId': 'plus', 'providerClosed': False})).status_code == 422
+    assert (await client.post('/api/me/payments', json={'requestId': str(uuid4()), 'productId': 'free'})).status_code == 422
     assert not await database.rows('SELECT * FROM payment_orders')

@@ -79,7 +79,7 @@ PractiQ 仍在开发中。构建通过不代表已完成签名、干净环境验
 
 ## 自建导入服务
 
-文档导入需要自建 AI 服务，需要 Python 3.14+、uv、Node.js 22.12+、PostgreSQL、RabbitMQ、腾讯云解析凭据，以及支持 Responses API、文字与图片输入和结构化输出的模型接口。服务应绑定本机回环地址。[安装指南（英文）](docs/guides/installation.md)、[个人自托管指南](server/docs/personal-use.md)和[腾讯云配置指南](server/docs/tencent-document-parser.md)说明部署与升级；供应商配置由你提供，费用直接支付给供应商，PractiQ 不提供计费。
+文档导入需要自建 AI 服务，需要 Python 3.14+、uv、Node.js 22.12+、PostgreSQL、RabbitMQ、腾讯云解析凭据，以及支持 Responses API、文字与图片输入和结构化输出的模型接口。服务应绑定本机回环地址。[安装指南（英文）](docs/guides/installation.md)、[个人自托管指南](server/docs/personal-use.md)和[腾讯云配置指南](server/docs/tencent-document-parser.md)说明部署与升级；自建部署的供应商配置由你提供，费用直接支付给供应商。运营方可选开启云端套餐收款，默认关闭，详见[套餐规则](docs/guides/plans.md)。
 
 ## 文档与开发
 
@@ -98,3 +98,5 @@ npm run test:browser
 项目源码使用 [MIT 许可证](LICENSE)，内置依赖保留各自的[上游许可声明](app/licenses/README.md)。
 
 Web 仅保留管理后台；用户账号、额度、任务、结果和订单均在 App 中操作。新用户共有 50 页免费识别额度，不按日恢复。邮箱暂不验证，忘记密码需向管理员获取一次性重置码。详见[云端服务指南（英文）](docs/guides/cloud-service.md)。
+
+套餐与额度：Free 注册赠送共计 50 页；Plus ¥39／100 页／30 天，Pro ¥99／300 页／30 天，加量包 ¥19.90／50 页／365 天。手动购买，不自动续费；仅经验证的正式付款发放独立权益，支付默认关闭。服务 schema 8 需离线备份升级，本地练习不受影响。详见[套餐规则](docs/guides/plans.md)。
