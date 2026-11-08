@@ -18,7 +18,6 @@ import {
   Star,
   History,
   Settings,
-  Cloud,
   Languages,
   Palette,
   RefreshCw,
@@ -29,7 +28,11 @@ import {
   Play,
   BookmarkX,
   CalendarCheck,
+  UserRound,
 } from "lucide-react";
+import { cloudRequest, nativeCloudBridge, type CloudStatus } from "./cloudTransport";
+import { nativeBridge, setNativeBridge } from "../../shared/cloud/transport";
+import type { AccountSession, AccountUser } from "./contracts.generated";
 import { toast } from "./notifications";
 import { canCloseWindow, useUnsavedChanges } from "./useUnsavedChanges";
 import type { GradingDraft } from "./ExamResults";
@@ -92,18 +95,19 @@ type Page =
   | "favorite"
   | "history"
   | "cloud"
+  | "account"
   | "settings"
   | "service-settings"
   | "practice";
-function SidebarButton({ collapsed, label, children, className = "", ...props }: ComponentProps<typeof Button> & { collapsed: boolean; label: string }) {
+function SidebarButton({ collapsed, label, description, children, className = "", ...props }: ComponentProps<typeof Button> & { collapsed: boolean; label: string; description?: string }) {
   return (
     <Tooltip.Root>
       <Tooltip.Trigger asChild>
-        <Button variant="ghost" aria-label={label} className={`w-full justify-start gap-3 overflow-hidden px-3.5 aria-[current=page]:bg-primary/10 aria-[current=page]:text-primary ${className}`} {...props}>
+        <Button variant="ghost" aria-label={label} aria-description={description} className={`w-full justify-start gap-3 overflow-hidden px-3.5 aria-[current=page]:bg-primary/10 aria-[current=page]:text-primary ${className}`} {...props}>
           {children}<span aria-hidden={collapsed} className="sidebar-label shrink-0">{label}</span>
         </Button>
       </Tooltip.Trigger>
-      {collapsed && <Tooltip.Portal><Tooltip.Content side="right" sideOffset={8} className="z-50 rounded-md bg-popover px-3 py-2 text-sm text-popover-foreground shadow-md ring-1 ring-border">{label}</Tooltip.Content></Tooltip.Portal>}
+      {(collapsed || Boolean(description)) && <Tooltip.Portal><Tooltip.Content side="right" sideOffset={8} className="z-50 rounded-md bg-popover px-3 py-2 text-sm text-popover-foreground shadow-md ring-1 ring-border">{label}{description && ` · ${description}`}</Tooltip.Content></Tooltip.Portal>}
     </Tooltip.Root>
   );
 }
@@ -130,6 +134,38 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
   const [languageOpen, setLanguageOpen] = useState(false);
   const languageTrigger = useRef<HTMLButtonElement>(null);
   const [page, setPage] = useState<Page>("banks");
+  const [accountSummary, setAccountSummary] = useState<{ status: "loading" | "disconnected" | "signedOut" | "ready" | "unavailable"; user?: AccountUser | null }>({ status: "loading" });
+  useEffect(() => {
+    let active = true, revision = 0;
+    async function refresh() {
+      const current = ++revision;
+      setAccountSummary({ status: "loading" });
+      try {
+        const status = await cloudRequest<CloudStatus>({ type: "status" });
+        if (!active || current !== revision) return;
+        if (!status.origin) { setAccountSummary({ status: "disconnected" }); return; }
+        const existing = nativeBridge();
+        const bridge = existing?.origin === status.origin ? existing : nativeCloudBridge(status.origin, status.generation);
+        // Anonymous session reads rotate native generations; share the portal's context.
+        setNativeBridge(bridge);
+        const response = await bridge.fetch("/api/auth/session", { method: "GET", cache: "no-store" });
+        if ([401, 403].includes(response.status)) {
+          if (active && current === revision) setAccountSummary({ status: "signedOut" });
+          return;
+        }
+        if (!response.ok) throw new Error("Account unavailable");
+        const session = await response.json() as AccountSession;
+        if (active && current === revision) setAccountSummary({ status: session.user ? "ready" : "signedOut", user: session.user });
+      } catch { if (active && current === revision) setAccountSummary({ status: "unavailable" }); }
+    }
+    const expired = () => { ++revision; setAccountSummary({ status: "signedOut" }); };
+    const channel = new BroadcastChannel("practiq-account");
+    channel.onmessage = () => { void refresh(); };
+    window.addEventListener("practiq-cloud-account-changed", refresh);
+    window.addEventListener("practiq-session-expired", expired);
+    void refresh();
+    return () => { active = false; ++revision; channel.close(); window.removeEventListener("practiq-cloud-account-changed", refresh); window.removeEventListener("practiq-session-expired", expired); setNativeBridge(null); };
+  }, []);
   const pageHeading = useRef<HTMLHeadingElement>(null);
   const previousPage = useRef<Page>(page);
   const [restoreOpen, setRestoreOpen] = useState(false);
@@ -273,7 +309,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
     };
   }, [openConfirm]);
   function navigate(next: Page, bankId: string | null = null, showRestore = false) {
-    if (page === "cloud" && !document.dispatchEvent(new Event("practiq-cloud-before-leave", { cancelable: true }))) return;
+    if ((page === "cloud" || page === "account") && !document.dispatchEvent(new Event("practiq-cloud-before-leave", { cancelable: true }))) return;
     setOperationError(null);
     run(async () => {
       await flushRef.current();
@@ -313,7 +349,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
               ? t("练习记录")
               : page === "practice"
                 ? t(session && (session.finishedAt != null || (session.kind && session.kind !== "practice" && session.submittedAt != null)) ? "练习回顾" : "专注练习")
-                : page === "cloud" ? t("云端服务") : page === "service-settings" ? t("AI 服务") : t("设置");
+                : page === "cloud" ? t("云端服务") : page === "account" ? t("个人中心") : page === "service-settings" ? t("AI 服务") : t("设置");
   const loadingView = <p role="status" className="p-4 text-sm text-muted-foreground">{t("加载中…")}</p>;
   const listPage = ["questions", "wrong", "favorite"].includes(page);
   const languageError = language.error != null && <div role="alert" className="text-xs text-destructive"><p>{t(language.error.key)}</p><ErrorNotice error={language.error.cause} /><Button size="sm" variant="outline" disabled={language.saving || busy} onClick={() => {
@@ -338,7 +374,6 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
               { id: "wrong", label: t("错题本"), icon: BookmarkX },
               { id: "favorite", label: t("收藏夹"), icon: Star },
               { id: "history", label: t("练习记录"), icon: History },
-              { id: "cloud", label: t("云端服务"), icon: Cloud },
             ] as const
           ).map(({ id, label, icon: Icon }) => (
             <SidebarButton
@@ -359,6 +394,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
           ))}
         </nav>
         <div className="mt-auto space-y-4 pt-6">
+          <SidebarButton collapsed={sidebarCollapsed} label={t("个人中心")} description={accountSummary.status === "ready" ? accountSummary.user?.name || accountSummary.user?.email : t(accountSummary.status === "loading" ? "读取账户状态…" : accountSummary.status === "disconnected" ? "未连接云端" : accountSummary.status === "signedOut" ? "未登录" : "账户状态暂不可用")} aria-current={page === "account" ? "page" : undefined} disabled={busy} onClick={() => navigate("account")}><UserRound /></SidebarButton>
           <div className="space-y-2">
             <DropdownMenu open={themeOpen} onOpenChange={setThemeOpen}>
               <DropdownMenuTrigger asChild>
@@ -558,7 +594,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
               />
             </div>
           )}
-          {page === "cloud" && <CloudPage />}
+          {(page === "cloud" || page === "account") && <CloudPage key={page} initialPage={page === "account" ? "account" : "workspace"} />}
           {page === "settings" && (
             <SettingsPage busy={busy} run={run} flushRef={flushRef} revision={settingsRevision} version={info?.version}
               restoreOpen={restoreOpen} onRestoreOpenChange={setRestoreOpen}

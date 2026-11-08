@@ -1,6 +1,6 @@
 # Plans and page allowances
 
-The App's **Cloud service → 套餐与额度** page displays the server-owned catalog,
+The App's **Account → 套餐与额度** page displays the server-owned catalog,
 current plan, expiry, free balance, purchased grants and usage. **订单与付款**
 keeps payment/refund receipts and explicit recovery actions. Web remains admin-only.
 

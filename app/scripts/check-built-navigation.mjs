@@ -3,9 +3,9 @@ import { test, expect } from 'playwright/test';
 // Exercise the minified production assets. Native commands are mocked here;
 // the installed macOS app still needs native acceptance.
 const languages = [
-  { locale: 'zh-CN', open: '打开主导航', drawer: '主导航', banks: '我的题库', nav: ['我的题库', '学习概览', '错题本', '收藏夹', '练习记录', '云端服务', '设置'], theme: '主题', language: '语言', close: '关闭' },
-  { locale: 'zh-TW', open: '開啟主導航', drawer: '主導航', banks: '我的題庫', nav: ['我的題庫', '學習概覽', '錯題本', '收藏夾', '練習紀錄', '雲端服務', '設定'], theme: '主題', language: '語言', close: '關閉' },
-  { locale: 'en', open: 'Open navigation', drawer: 'Main navigation', banks: 'My banks', nav: ['My banks', 'Learning overview', 'Mistakes', 'Favorites', 'History', 'Cloud service', 'Settings'], theme: 'Theme', language: 'Language', close: 'Close' },
+  { locale: 'zh-CN', open: '打开主导航', drawer: '主导航', banks: '我的题库', nav: ['我的题库', '学习概览', '错题本', '收藏夹', '练习记录', '个人中心', '设置'], theme: '主题', language: '语言', close: '关闭' },
+  { locale: 'zh-TW', open: '開啟主導航', drawer: '主導航', banks: '我的題庫', nav: ['我的題庫', '學習概覽', '錯題本', '收藏夾', '練習紀錄', '個人中心', '設定'], theme: '主題', language: '語言', close: '關閉' },
+  { locale: 'en', open: 'Open navigation', drawer: 'Main navigation', banks: 'My banks', nav: ['My banks', 'Learning overview', 'Mistakes', 'Favorites', 'History', 'Account', 'Settings'], theme: 'Theme', language: 'Language', close: 'Close' },
 ];
 
 async function withinViewport(page, locator, name) {

@@ -50,7 +50,7 @@ ALIPAY_ENABLED=true ALIPAY_MODE=sandbox \
 ALIPAY_BASE_URL=http://127.0.0.1:8090 make server-dev
 ```
 
-Connect `http://127.0.0.1:8090` in App → Cloud service, sign in, and open Orders and payments. The sandbox default amount is ¥0.01; sandbox catalog orders issue no real grants. The
+Connect `http://127.0.0.1:8090` in App → Account, sign in, and open Orders and payments. The sandbox default amount is ¥0.01; sandbox catalog orders issue no real grants. The
 subject is explicitly labeled as sandbox. Selecting “前往支付宝付款” creates one
 durable order before rendering and posting the SDK form to the sandbox gateway.
 The result page is exactly `http://127.0.0.1:8090/payments/return`; changing the

@@ -121,4 +121,4 @@ The last step calls Tencent and your model provider, and may cost money. Skip it
 - Import, resume and download documents: [import tasks](import-tasks.md).
 - Deploy the service for personal use and upgrade old databases: [personal-use guide](../../server/docs/personal-use.md).
 - Configure Tencent parsing limits, splitting and private COS staging: [Tencent parser setup](../../server/docs/tencent-document-parser.md).
-- Open the administrator Web in development with `make web-dev`. Users connect the service origin in App → Cloud service; see [account setup](../../server/docs/accounts.md).
+- Open the administrator Web in development with `make web-dev`. Users connect the service origin in App → Account; see [account setup](../../server/docs/accounts.md).

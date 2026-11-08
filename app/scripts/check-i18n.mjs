@@ -18,6 +18,7 @@ const test=base.extend({observedCalls:[async ({page},use)=>{
   window.__TAURI_INTERNALS__={invoke:async(command,args)=>{
    const request = args?.request;
    await window.__recordMockCall({command,request});
+   if (command==='cloud_request' && request.type==='status') return {value:{origin:null,generation:0},generation:0};
    if (command!=='request') throw Error(`Unexpected native command: ${command}`);
    switch(request.type){
     case 'language':return lang;
@@ -52,7 +53,7 @@ const test=base.extend({observedCalls:[async ({page},use)=>{
  expect(await page.evaluate(async () => (await import('/node_modules/@tauri-apps/api/core.js')).isTauri())).toBe(false);
  await use(observedCalls);
  expect(errors).toEqual([]);
- expect(observedCalls.filter(c=>c.command!=='request')).toEqual([]);
+ expect(observedCalls.filter(c=>c.command!=='request').every(c=>c.command==='cloud_request' && c.request.type==='status')).toBe(true);
 
 }, {auto:true}]});
 
@@ -321,7 +322,7 @@ test('offline ZIP entry and service settings never submit documents or start mod
  await expect(token).toHaveValue('');
  await page.getByRole('button',{name:'Back to settings',exact:true}).click();
  await expect(page.getByRole('status').filter({hasText:'Not configured'})).toBeVisible();
- expect(observedCalls.every(c=>c.command==='request')).toBe(true);
+ expect(observedCalls.filter(c=>c.command!=='request').every(c=>c.command==='cloud_request' && c.request.type==='status')).toBe(true);
 });
 
 test('practice preserves answers across sidebar and viewport changes',async ({page,observedCalls})=>{

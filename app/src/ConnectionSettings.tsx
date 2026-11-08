@@ -227,7 +227,7 @@ export function ConnectionSettingsPanel({
                 value={serviceToken}
                 onChange={(e) => { invalidate(); setTestResult(null); setServiceToken(e.target.value); }}
               />
-              {!direct && <p className="text-sm text-muted-foreground">{t("多用户服务：在本应用的云端服务 → 账户与安全中创建个人评分令牌；失效后需手动替换。")}</p>}
+              {!direct && <p className="text-sm text-muted-foreground">{t("多用户服务：在本应用的个人中心 → 账户与安全中创建个人评分令牌；失效后需手动替换。")}</p>}
               {saved && configured && <p className="text-sm text-muted-foreground">{t(direct ? "API Key 已安全保存；留空将保持当前配置不变。" : "访问令牌已安全保存；留空将保持当前配置不变。")}</p>}
             </div>
           </fieldset>

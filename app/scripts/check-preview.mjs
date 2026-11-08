@@ -1138,3 +1138,60 @@ test('practice radio arrows select answers while question shortcuts navigate out
  await page.keyboard.press('ArrowRight');
  await expect(heading).toHaveText('第 2 / 9 题');
 });
+
+
+for (const width of [960, 1280]) for (const colorScheme of ['light', 'dark']) {
+ test(`account entry, profile and quota preview at ${width}px ${colorScheme}`, async ({page}, testInfo) => {
+  await page.setViewportSize({width,height:width===960?640:850});
+  await page.emulateMedia({colorScheme,reducedMotion:'reduce'});
+  await page.goto('/');
+  const sidebar=page.locator('#app-sidebar');
+  const entry=sidebar.getByRole('button',{name:'个人中心',exact:true});
+  await expect(sidebar.getByRole('button',{name:'设置',exact:true})).toBeInViewport();
+  await expect(entry).toHaveAttribute('aria-description','未登录');
+  await entry.click();
+  await expect(page.getByRole('heading',{name:'个人中心',exact:true})).toBeVisible();
+  await expect(page.getByText(/开发预览：仅演示账户与资料/)).toBeVisible();
+  await page.getByLabel('登录邮箱',{exact:true}).fill('preview-account@example.test');
+  await page.getByLabel('密码',{exact:true}).fill('preview-only-password');
+  await page.getByRole('button',{name:'登录',exact:true}).click();
+  const profile=page.getByRole('region',{name:'个人信息',exact:true});
+  await expect(profile.getByText('preview-account@example.test',{exact:true})).toBeVisible();
+  await expect(profile.getByText('普通用户',{exact:true})).toBeVisible();
+  await expect(entry).toHaveAttribute('aria-description','演示用户');
+  await page.getByLabel('昵称',{exact:true}).fill('预览昵称');
+  await page.locator('#current-password').fill('preview-only-password');
+  await page.getByRole('button',{name:'保存账户信息',exact:true}).click();
+  await expect(entry).toHaveAttribute('aria-description','预览昵称');
+  await page.locator('.app-content').evaluate(node=>{node.scrollTop=0;});
+  await page.screenshot({path:testInfo.outputPath(`account-profile-${width}-${colorScheme}.png`)});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.getByRole('button',{name:'用量',exact:true}).click();
+  await expect(page.getByText(/可用识别额度：50 页/)).toBeVisible();
+  await page.getByRole('button',{name:'套餐与额度',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'当前套餐 · Free',exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'购买 Plus',exact:true})).toBeDisabled();
+  await page.getByRole('button',{name:'退出登录',exact:true}).click();
+  await expect(entry).toHaveAttribute('aria-description','未登录');
+  await sidebar.getByRole('button',{name:'我的题库',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'我的题库',exact:true})).toBeVisible();
+  expect(await page.evaluate(()=>JSON.stringify({local:localStorage,session:sessionStorage}))).not.toContain('preview-only-password');
+ });
+}
+
+test('account connection guidance and registration preview stay passive until explicit actions', async ({page}) => {
+ await page.addInitScript(()=>sessionStorage.setItem('practiq-preview','unconfigured'));
+ await page.goto('/');
+ const entry=page.locator('#app-sidebar').getByRole('button',{name:'个人中心',exact:true});
+ await expect(entry).toHaveAttribute('aria-description','未连接云端');
+ await entry.click();
+ await expect(page.getByText('登录与注册',{exact:true})).toBeVisible();
+ await page.getByLabel('云端服务地址',{exact:true}).fill('https://preview.practiq.invalid');
+ await page.getByRole('button',{name:'连接云端服务',exact:true}).click();
+ await expect(entry).toHaveAttribute('aria-description','未登录');
+ await page.getByRole('button',{name:'注册账户',exact:true}).click();
+ await page.getByLabel('登录邮箱',{exact:true}).fill('registered@example.test');
+ await page.getByLabel('密码（至少 12 字符）',{exact:true}).fill('preview-only-password');
+ await page.getByRole('button',{name:'注册并登录',exact:true}).click();
+ await expect(page.getByRole('region',{name:'个人信息'}).getByText('registered@example.test',{exact:true})).toBeVisible();
+});
