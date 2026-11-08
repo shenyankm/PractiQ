@@ -228,14 +228,14 @@ export function ConnectionSettingsPanel({
                 onChange={(e) => { invalidate(); setTestResult(null); setServiceToken(e.target.value); }}
               />
               {!direct && <p className="text-sm text-muted-foreground">{t("多用户服务：在本应用的云端服务 → 账户与安全中创建个人评分令牌；失效后需手动替换。")}</p>}
-              {saved && configured && <p className="text-sm text-muted-foreground">{t(direct ? "API Key 已保存；留空保留。" : "令牌已保存；留空保留。")}</p>}
+              {saved && configured && <p className="text-sm text-muted-foreground">{t(direct ? "API Key 已安全保存；留空将保持当前配置不变。" : "访问令牌已安全保存；留空将保持当前配置不变。")}</p>}
             </div>
           </fieldset>
-          {saved && <div role="status" className="connection-status"><p className="text-sm text-muted-foreground">{saving ? t("正在保存配置…") : saveError != null ? t("配置未保存") : dirty ? t("有未保存的修改") : justSaved ? t("连接配置已保存") : t("配置已读取")}</p><p className="text-sm">{operation === "test" ? t("测试中…") : testResult ? t(testResult.error ? "连接测试失败" : "连接测试通过") : missing.length ? t("未配置") : t("已配置 · 尚未测试")}</p></div>}
+          {saved && <div role="status" className="connection-status"><p className="text-sm text-muted-foreground">{saving ? t("正在保存配置…") : saveError != null ? t("配置未保存") : dirty ? t("有未保存的修改") : justSaved ? t("连接配置已保存") : t("已加载配置")}</p><p className="text-sm">{operation === "test" ? t("测试中…") : testResult ? t(testResult.error ? "连接测试失败" : "连接测试通过") : missing.length ? t("未配置") : t("已配置 · 尚未测试")}</p></div>}
           {saveError != null && <div role="alert" className="flex flex-wrap items-start justify-between gap-3 text-sm text-destructive"><div className="min-w-0 flex-1"><ErrorNotice error={saveError} /></div><Button type="button" variant="outline" disabled={busy || operation !== null} onClick={save}>{t("重试保存")}</Button></div>}
           {testResult && (testResult.error ? <div role="alert" className="text-destructive"><ErrorNotice error={testResult.error} /></div> : null)}
           {clearError != null && <div role="alert" className="text-destructive"><ErrorNotice error={clearError} /></div>}
-          {direct && <p className="text-sm text-muted-foreground">{t("测试仅读取模型列表，不评分。含图题需支持图片的模型。")}</p>}
+          {direct && <p className="text-sm text-muted-foreground">{t("连接测试仅拉取模型列表，不产生评分费用。若题目包含配图，请确保所选模型支持多模态视觉识别。")}</p>}
           <div className="flex flex-wrap items-center justify-end gap-3 border-t pt-4">
           <Button variant="outline" type="button" disabled={busy || operation !== null || dirty || !saved || !endpoint || configured === false} onClick={clearToken}>{t(direct ? "清除已保存的 API Key" : "清除已保存的访问令牌")}</Button>
           <Button variant="outline" type="button" disabled={busy || operation !== null || !saved || missing.length > 0} onClick={() => {

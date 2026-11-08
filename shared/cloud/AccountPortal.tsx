@@ -35,7 +35,7 @@ export default function AccountPortal({ embedded = false }: { embedded?: boolean
         {mode === "reset" ? <Field name="reset-code" label="管理员提供的一次性重置码" type="password" autoComplete="off" value={token} onChange={setToken} /> : <Field name="login-email" label="登录邮箱" type="email" value={email} onChange={setEmail} />}
         <label className="account-field">{mode === "login" ? "密码" : "密码（至少 12 字符）"}<Input type="password" autoComplete={mode === "login" ? "current-password" : "new-password"} minLength={12} maxLength={128} required value={password} onChange={e => setPassword(e.target.value)} /></label>
       </Form>}
-      <p>邮箱暂不验证，仅作为登录标识。忘记密码请联系管理员核实身份，获取一次性重置码。</p>
+      <p>登录邮箱仅作为账户标识，无需接收验证邮件。忘记密码请联系管理员核实身份，获取一次性重置码。</p>
       {mode !== "login" && <Button variant="ghost" onClick={() => changeMode("login")}>返回登录</Button>}
       {auth.account?.registrationEnabled && <Button variant="ghost" onClick={() => changeMode("register")}>注册账户</Button>}
       <Button variant="ghost" onClick={() => changeMode("reset")}>重置密码</Button>
