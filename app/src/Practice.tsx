@@ -44,6 +44,7 @@ export function Practice(props: PracticeProps) {
   const listening=attempt.snapshot.materials?.find(q=>q.answerMode === "listening");
   const exam = !!session.kind && session.kind !== "practice";
   const finished = session.finishedAt !== null || (exam && session.submittedAt != null);
+  const submitted = exam ? session.submittedAt != null : session.finishedAt !== null || attempt.submittedAt != null;
   const [draft, setDraft] = useState<{ sessionId: string; position: number; answer: Answer | null }>();
   const answer = !finished && draft?.sessionId === session.id && draft.position === session.position ? draft.answer : attempt.answer;
   const onDraft = useCallback((answer: Answer | null) => setDraft({ sessionId: session.id, position: session.position, answer }), [session.id, session.position]);
@@ -90,6 +91,16 @@ export function Practice(props: PracticeProps) {
   return <div className="practice-session @container space-y-4" aria-busy={navigating}>
     <div className="practice-overview"><p className="text-sm text-muted-foreground">{t(finished ? "作答已结束，答案已锁定。" : exam ? "答案自动保存。" : "草稿自动保存。")}</p><Button asChild variant="outline"><a href="#answer-card-panel" onClick={() => { if (answerCard.current) answerCard.current.open = true; }}>{t("查看答题卡")}</a></Button></div>
     <div ref={setScrollBoundary} className="practice-scroll space-y-4">
+    {submitted && (
+      <ExamResults
+        session={session}
+        onSession={onSession}
+        run={run}
+        onNextUnattempted={props.onNextUnattempted}
+        onConfigure={props.onConfigureGrading}
+        mode="summary"
+      />
+    )}
     {listening && <ListeningPlayer key={`${session.id}-${listening.id}-${listening.audioRef?.sha256}`} question={listening} session={session}/>}
     <div className="grid grid-cols-1 gap-6 @2xl:grid-cols-[minmax(0,1fr)_240px]">
       <PracticeQuestion key={`${session.id}-${session.position}`} {...props} navigating={navigating} go={go} onDraft={onDraft} questionHeading={questionHeading} materialReading={materialReading} actionsContainer={actionsContainer}/>
@@ -101,9 +112,38 @@ export function Practice(props: PracticeProps) {
         </details>
         {!finished && <Button ref={finishButton} disabled={navigating} className="w-full" variant="outline" onClick={() => run(async () => { await flushRef.current(); onSession(await api({type:"session", id:session.id})); setConfirmFinish(true); })}>{exam ? t("交卷") : t("结束练习")}</Button>}
         <AlertDialog open={confirmFinish && !finished} onOpenChange={open => { if (!finishing) setConfirmFinish(open); }}>
-          <AlertDialogContent className="sm:max-w-lg" onCloseAutoFocus={event => { event.preventDefault(); (reviewOnClose.current ? questionHeading : finishButton).current?.focus(); reviewOnClose.current = false; }}>
-            <AlertDialogHeader><AlertDialogTitle>{exam ? t("确认交卷？") : t("结束本次练习？")}</AlertDialogTitle><AlertDialogDescription>{t("已提交 {0} 题；未提交草稿 {1} 题；空白 {2} 题。结束后不能修改答案。", finishCounts)}{unassessed.length > 0 && <span className="mt-2 block">{t("还有 {0} 题未自评。结束后仍可在练习记录中核对并补充自评。", {0:unassessed.length})}</span>}</AlertDialogDescription></AlertDialogHeader>
-            <AlertDialogFooter className="flex-wrap"><AlertDialogCancel disabled={finishing}>{t("继续作答")}</AlertDialogCancel>{unassessed.length > 0 && <Button variant="outline" disabled={finishing} onClick={() => { reviewOnClose.current = true; setConfirmFinish(false); go(unassessed[0].ordinal); }}>{t("去核对")}</Button>}{!exam && <Button variant="outline" disabled={finishing} onClick={() => finish(false)}>{unassessed.length > 0 ? t("草稿记为跳过并结束（保留未判定）") : t("草稿记为跳过并结束")}</Button>}<Button disabled={finishing} onClick={() => finish(true)}>{finishing ? t("正在保存…") : exam ? t("确认交卷") : unassessed.length > 0 ? t("提交草稿并结束（保留未判定）") : t("提交草稿并结束")}</Button></AlertDialogFooter>
+          <AlertDialogContent className="sm:max-w-md" onCloseAutoFocus={event => { event.preventDefault(); (reviewOnClose.current ? questionHeading : finishButton).current?.focus(); reviewOnClose.current = false; }}>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{exam ? t("确认交卷？") : t("结束本次练习？")}</AlertDialogTitle>
+              <AlertDialogDescription className="space-y-2">
+                <span className="block text-sm leading-relaxed text-muted-foreground">{t("已提交 {0} 题；未提交草稿 {1} 题；空白 {2} 题。结束后不能修改答案。", finishCounts)}</span>
+                {unassessed.length > 0 && (
+                  <span className="flex items-center justify-between gap-2 rounded-lg border border-[var(--warning-border)] bg-[var(--warning-background)] p-2.5 text-xs text-[var(--warning-foreground)]">
+                    <span className="flex-1">{t("还有 {0} 题未自评。结束后仍可在练习记录中核对并补充自评。", {0:unassessed.length})}</span>
+                    <Button
+                      size="xs"
+                      variant="outline"
+                      className="shrink-0 border-[var(--warning-border)] bg-card text-xs text-[var(--warning-foreground)] hover:bg-[var(--warning-background)]"
+                      disabled={finishing}
+                      onClick={() => { reviewOnClose.current = true; setConfirmFinish(false); go(unassessed[0].ordinal); }}
+                    >
+                      {t("去核对")}
+                    </Button>
+                  </span>
+                )}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={finishing}>{t("继续作答")}</AlertDialogCancel>
+              {!exam && finishCounts[1] > 0 && (
+                <Button variant="outline" disabled={finishing} onClick={() => finish(false)}>
+                  {t("草稿记为跳过并结束")}
+                </Button>
+              )}
+              <Button disabled={finishing} onClick={() => finish(true)}>
+                {finishing ? t("正在保存…") : exam ? t("确认交卷") : t("提交草稿并结束")}
+              </Button>
+            </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
       </aside>
@@ -123,7 +163,6 @@ function PracticeQuestion({
   onSession,
   run,
   flushRef,
-  onNextUnattempted,
   gradingDrafts,
   onGradingDraftChange,
   onConfigureGrading,
@@ -239,14 +278,128 @@ function PracticeQuestion({
         };
     };
   }, [session.id, session.position, submitted, finished, persist, flushRef]);
-  function change(a: Answer | null) {
+  const change = useCallback((a: Answer | null) => {
     if (navigating || submissionJob.current || submitted || finished) return;
     setAnswer(a);
     onDraft(a);
     answerRef.current = a;
     setSaved("待保存");
     void persist().catch(() => {});
-  }
+  }, [navigating, submitted, finished, onDraft, persist]);
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      const target = e.target as HTMLElement | null;
+      const isInput = target && (
+        ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName) ||
+        target.isContentEditable
+      );
+
+      // Cmd+Enter or Ctrl+Enter: submit answer in practice mode
+      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+        if (!exam && !submitted && !finished) {
+          const interactiveQ = canInteract(q) ? q : { ...q, answerMode: "short_answer" as const };
+          if (!navigating && !submissionJob.current && answerReady(interactiveQ, answerRef.current)) {
+            e.preventDefault();
+            run(async () => {
+              onSession(await persist(true));
+            });
+          }
+        }
+        return;
+      }
+
+      // If user is inside an input, textarea, or contentEditable, don't hijack typing!
+      if (isInput) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      // Question flipping: ArrowLeft / ArrowRight / J / K
+      if (e.key === "ArrowLeft" || e.key === "k" || e.key === "K") {
+        if (!navigating && session.position > 0) {
+          e.preventDefault();
+          go(session.position - 1);
+        }
+        return;
+      }
+      if (e.key === "ArrowRight" || e.key === "j" || e.key === "J") {
+        if (!navigating && session.position < session.attempts.length - 1) {
+          e.preventDefault();
+          go(session.position + 1);
+        }
+        return;
+      }
+
+      // Choice options hotkeys (A-D, 1-4)
+      if (!submitted && !finished && !navigating && !submissionJob.current) {
+        if (q.answerMode === "choice" && q.options.length > 0) {
+          let index = -1;
+          const keyUpper = e.key.toUpperCase();
+          if (/^[1-9]$/.test(e.key)) {
+            index = parseInt(e.key, 10) - 1;
+          } else if (/^[A-Z]$/.test(keyUpper)) {
+            index = q.options.findIndex(o => o.label?.toUpperCase() === keyUpper);
+            if (index === -1 && keyUpper.charCodeAt(0) >= 65 && keyUpper.charCodeAt(0) <= 90) {
+              index = keyUpper.charCodeAt(0) - 65;
+            }
+          }
+
+          if (index >= 0 && index < q.options.length) {
+            const opt = q.options[index];
+            const label = opt.label || String(index + 1);
+            e.preventDefault();
+            if (q.choiceVariant === "multiple") {
+              const current = answerRef.current?.correct || [];
+              const next = current.includes(label) ? current.filter(x => x !== label) : [...current, label];
+              change({ correct: next });
+            } else {
+              change({ correct: [label] });
+            }
+            return;
+          }
+        }
+
+        // True/False hotkeys
+        if (q.answerMode === "true_false") {
+          if (["1", "t", "T", "y", "Y"].includes(e.key)) {
+            e.preventDefault();
+            change({ value: true });
+            return;
+          }
+          if (["2", "f", "F", "n", "N"].includes(e.key)) {
+            e.preventDefault();
+            change({ value: false });
+            return;
+          }
+        }
+      }
+
+      // Flagging / Bookmark hotkey: F
+      if (e.key === "f" || e.key === "F") {
+        if (exam && !handedIn) {
+          e.preventDefault();
+          run(async () => {
+            await flushRef.current();
+            onSession(await api({ type: "flag", id: session.id, ordinal: session.position, value: !attempt.flagged }));
+          });
+        } else if (attempt.snapshot.id && favorite != null) {
+          e.preventDefault();
+          run(async () => {
+            await api({ type: "favorite", id: attempt.snapshot.id!, value: !favorite });
+            onSession(await api({ type: "session", id: session.id }));
+          });
+        }
+        return;
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [
+    session.id, session.position, session.attempts.length,
+    q, go, persist, run, onSession, flushRef,
+    exam, handedIn, submitted, finished, navigating,
+    attempt.flagged, attempt.snapshot.id, favorite,
+    change,
+  ]);
   const blankTargets = useMemo(() => {
     const ids = new Set([q, ...(attempt.snapshot.materials || [])]
       .flatMap(material => [...(material.passage || []), ...material.contentBlocks])
@@ -284,7 +437,7 @@ function PracticeQuestion({
                     : t(" · 单选")
                   : ""}
               </Badge>
-              <h2 id="current-question" ref={questionHeading} tabIndex={-1} className="text-sm text-muted-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring">{t("第 {0} / {1} 题", { 0: session.position + 1, 1: session.attempts.length })}</h2>
+              <h2 id="current-question" ref={questionHeading} tabIndex={-1} className="text-sm tabular-nums text-muted-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring">{t("第 {0} / {1} 题", { 0: session.position + 1, 1: session.attempts.length })}</h2>
             </div>
             {attempt.snapshot.id && favorite != null && <Button size="icon" variant="ghost" aria-label={favorite?t("取消收藏"):t("收藏原题")} aria-pressed={favorite} onClick={()=>run(async()=>{await api({type:"favorite",id:attempt.snapshot.id!,value:!favorite});onSession(await api({type:"session",id:session.id}));})}><Star className={favorite ? "fill-current" : ""}/></Button>}
           </div>
@@ -365,10 +518,11 @@ function PracticeQuestion({
               <Markdown>{q.analysis || t("原文未提供解析。")}</Markdown>
             </section>
           )}
-          <ExamResults session={session} onSession={onSession} run={run} onNextUnattempted={onNextUnattempted}
+          <ExamResults session={session} onSession={onSession} run={run}
             draft={gradingDrafts ? gradingDrafts[`${session.id}:${attempt.ordinal}`] ?? { score: "", reason: "" } : undefined}
             onDraftChange={onGradingDraftChange ? draft => onGradingDraftChange(attempt.ordinal, draft) : undefined}
-            onConfigure={onConfigureGrading}/>
+            onConfigure={onConfigureGrading}
+            mode="question"/>
         </CardContent>
           {/* Keep answer state with the question and its actions beside navigation. */}
           {!exam && !submitted && !finished && actionsContainer && createPortal(<>
@@ -453,7 +607,7 @@ function PracticeClock({elapsed, active, deadlineAt, clockNow, saved, finished, 
       document.removeEventListener("visibilitychange", refresh);
     };
   }, [elapsed, active, deadlineAt, clockNow]);
-  return <div className="space-y-1 text-xs text-muted-foreground">
+  return <div className="space-y-1 text-xs tabular-nums text-muted-foreground">
     <span>{duration(seconds)} · {finished ? t("历史快照") : t(saved)}</span>
     {deadlineAt ? <p role="timer">{t("剩余 {0}（后台与关闭应用不暂停）", { 0: duration(Math.max(0, deadlineAt-clock)) })}</p> : null}
   </div>;
@@ -573,7 +727,7 @@ const AnswerCard = memo(function AnswerCard({session, answer, exam, go, boundary
               </DialogTrigger>
               <DialogContent className="flex max-h-[90dvh] flex-col" aria-describedby={undefined}>
                 <DialogHeader><DialogTitle className="pr-10">{t("答题卡状态说明")}</DialogTitle></DialogHeader>
-                <div className="min-h-0 overflow-y-auto" tabIndex={0}><AnswerCardLegend exam={exam}/></div>
+                <div className="min-h-0 overflow-y-auto rounded-sm outline-none focus-visible:ring-3 focus-visible:ring-ring" tabIndex={0}><AnswerCardLegend exam={exam}/></div>
               </DialogContent>
             </Dialog> : (
             <Popover.Root>
@@ -595,7 +749,7 @@ const AnswerCard = memo(function AnswerCard({session, answer, exam, go, boundary
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
             <div className="flex flex-col gap-2">
-              <p className="text-xs text-muted-foreground">{t("{0} {1} / {2}", { 0: exam ? t("已作答") : t("已提交"), 1: progress, 2: session.attempts.length })}</p>
+              <p className="text-xs tabular-nums text-muted-foreground">{t("{0} {1} / {2}", { 0: exam ? t("已作答") : t("已提交"), 1: progress, 2: session.attempts.length })}</p>
               <progress className="practice-progress" aria-label={exam ? t("作答进度") : t("提交进度")} max={Math.max(1, session.attempts.length)} value={progress}/>
             </div>
             <div id="answer-card" ref={grid} role="region" aria-label={t("答题卡")} tabIndex={0} className="answer-card-grid relative grid max-h-[min(45vh,24rem)] grid-cols-4 gap-2 overflow-y-auto rounded-sm p-1 outline-none focus-visible:ring-3 focus-visible:ring-ring">
@@ -605,7 +759,7 @@ const AnswerCard = memo(function AnswerCard({session, answer, exam, go, boundary
                 return <AnswerCardItem key={a.ordinal} ordinal={a.ordinal} current={current} state={state.label} status={state.status} flagged={!!a.flagged} go={go}/>;
               })}
             </div>
-            <p className="answer-card-legend answer-card-counts flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground" aria-label={t("本次题目状态")}>
+            <p className="answer-card-legend answer-card-counts flex flex-wrap gap-x-3 gap-y-1 text-xs tabular-nums text-muted-foreground" aria-label={t("本次题目状态")}>
               {Object.entries(answerCardStates).filter(([status]) => (counts[status as AnswerCardStatus] ?? 0) > 0).map(([status, { label }]) => <span key={status} className="flex items-center gap-1.5"><span className="answer-card-swatch" data-answer-state={status} aria-hidden="true"/>{t(status === "incorrect" && exam ? "未得满分" : label)} {counts[status as AnswerCardStatus]}</span>)}
             </p>
             <nav className="grid grid-cols-3 gap-1" aria-label={t("答题卡")}>

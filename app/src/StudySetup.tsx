@@ -1,6 +1,6 @@
 import { COMPOSITE_FILTERS } from "./contracts.generated";
 import { message, MessageError, t, useI18n } from "./i18n";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { api, isComposite, type BankChoice, type Session, type SessionKind, type QuestionSummary, type QuestionStats, type PaperPreview } from "./api";
 import { ErrorNotice } from "./OperationFeedback";
@@ -124,7 +124,7 @@ export function StudySetup({banks, initialBank, initialBankIds, initialFilter, i
   }
   const available = stats.count;
   const chosen = banks.filter(b => bankIds.includes(b.id));
-  const feasibleCounts = stats.feasibleCounts ?? Array.from({length:Math.min(1000, available)}, (_, i) => i + 1);
+  const feasibleCounts = useMemo(() => stats.feasibleCounts ?? Array.from({length:Math.min(1000, available)}, (_, i) => i + 1), [stats.feasibleCounts, available]);
   const quickCounts = [5, 10, 20, 50].filter(n => feasibleCounts.includes(n));
   const invalidCount = selection === "count" && !feasibleCounts.includes(count);
   const nearbyCounts = [feasibleCounts.filter(n => n < count).at(-1), feasibleCounts.find(n => n > count)].filter(n => n != null);
@@ -141,27 +141,103 @@ export function StudySetup({banks, initialBank, initialBankIds, initialFilter, i
       <DialogHeader className="shrink-0 pr-8"><DialogTitle ref={title} tabIndex={-1}>{reviewing ? t("检查题目与配分") : t("开始练习或考试")}</DialogTitle><DialogDescription>{kind === "practice" ? t("提交后查看参考答案，可对照自评。") : t("交卷后查看答案与评分。")}</DialogDescription></DialogHeader>
       <div ref={scroll} className="study-setup-fields min-h-0 flex-1 overflow-y-auto">
       <fieldset disabled={busy} className="min-w-0 space-y-5 p-1 text-sm">
-        <div hidden={reviewing} className="space-y-5">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <label className="grid content-start gap-2 font-medium">{t("模式")}<NativeSelect disabled={busy} className="w-full" value={kind} onValueChange={value => { setKind(value as SessionKind); invalidate(); }}><NativeSelectOption value="practice">{t("即时反馈练习")}</NativeSelectOption><NativeSelectOption value="self_test">{t("不限时自测")}</NativeSelectOption><NativeSelectOption value="mock_exam">{t("限时模考")}</NativeSelectOption></NativeSelect></label>
-          {kind === "mock_exam" && <label className="grid content-start gap-2 font-medium">{t("考试时长（分钟）")}<Input aria-label={t("考试分钟数")} type="number" min={1} max={1440} value={minutes} onChange={e => setMinutes(Number(e.target.value))}/></label>}
-          {selection === "count" && <div className="grid gap-2"><label className="grid content-start gap-2 font-medium">{t("题目数量")}<Input aria-describedby="count-help" aria-invalid={!loading && available > 0 && invalidCount} type="number" min={1} max={Math.min(1000, available)} value={count} onChange={e => { countEditedForQuery.current = true; setCount(Number(e.target.value)); invalidate(); }}/></label>
-            {quickCounts.length > 0 && <div className="flex flex-wrap gap-2" role="group" aria-label={t("快捷选题")}>{quickCounts.map(n => <Button key={n} variant={count === n ? "secondary" : "outline"} aria-pressed={count === n} disabled={busy || loading} onClick={() => { countEditedForQuery.current = true; setCount(n); invalidate(); }}>{t("{0} 题", {0:n})}</Button>)}</div>}
-            <p id="count-help" className="text-sm text-muted-foreground">{t("材料题整组选取，按小题计数；上限 1000。")}</p></div>}
-          {kind !== "practice" && <label className="grid content-start gap-2 font-medium">{t("考试总分")}<Input aria-label={t("考试总分")} inputMode="decimal" aria-describedby="total-unit" value={total} onChange={e => { setTotal(e.target.value); invalidate(); }}/><span id="total-unit" className="font-normal text-muted-foreground">{t("单位：分")}</span></label>}
+        <div hidden={reviewing} className="space-y-4">
+        {/* Core Mode & Timing Group */}
+        <div className="space-y-4 rounded-xl border border-border bg-card p-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <label className="grid content-start gap-2 font-medium">
+              {t("模式")}
+              <NativeSelect disabled={busy} aria-label={t("模式")} className="w-full" value={kind} onValueChange={value => { setKind(value as SessionKind); invalidate(); }}>
+                <NativeSelectOption value="practice">{t("即时反馈练习")}</NativeSelectOption>
+                <NativeSelectOption value="self_test">{t("不限时自测")}</NativeSelectOption>
+                <NativeSelectOption value="mock_exam">{t("限时模考")}</NativeSelectOption>
+              </NativeSelect>
+            </label>
+            {selection !== "manual" && (
+              <label className="grid content-start gap-2 font-medium">
+                {t("出题顺序")}
+                <NativeSelect disabled={busy} aria-label={t("出题顺序")} className="w-full" value={random ? "random" : "ordered"} onValueChange={value => { setRandom(value === "random"); invalidate(); }}>
+                  <NativeSelectOption value="ordered">{t("顺序练习")}</NativeSelectOption>
+                  <NativeSelectOption value="random">{t("随机抽题")}</NativeSelectOption>
+                </NativeSelect>
+              </label>
+            )}
+          </div>
+          {kind !== "practice" && (
+            <div className="grid grid-cols-1 gap-4 border-t border-border/80 pt-3 sm:grid-cols-2">
+              {kind === "mock_exam" && (
+                <label className="grid content-start gap-2 font-medium">
+                  {t("考试时长（分钟）")}
+                  <Input aria-label={t("考试分钟数")} type="number" min={1} max={1440} value={minutes} onChange={e => setMinutes(Number(e.target.value))}/>
+                </label>
+              )}
+              <label className="grid content-start gap-2 font-medium">
+                {t("考试总分")}
+                <Input aria-label={t("考试总分")} inputMode="decimal" aria-describedby="total-unit" value={total} onChange={e => { setTotal(e.target.value); invalidate(); }}/>
+                <span id="total-unit" className="font-normal text-muted-foreground">{t("单位：分")}</span>
+              </label>
+            </div>
+          )}
+          {kind === "mock_exam" && <p className="workflow-note">{t("到时自动交卷，关闭应用后仍会计时。")}</p>}
         </div>
-        {kind === "mock_exam" && <p className="workflow-note">{t("到时自动交卷，关闭应用后仍会计时。")}</p>}
-        {invalidCount && !loading && available > 0 && <div role="status" className="space-y-2 text-sm"><p>{t(feasibleCounts.length ? "该数量无法由完整题组组成，请选择可用数量。" : "当前完整题组均超过 1000 小题上限，请调整筛选。")}</p><div className="flex gap-2">{nearbyCounts.map(n => <Button key={n} variant="outline" onClick={() => { countEditedForQuery.current = true; setCount(n); invalidate(); }}>{t("选择 {0} 小题", {0:n})}</Button>)}</div></div>}
-        {selection !== "manual" && <label className="grid content-start gap-2 font-medium">{t("出题顺序")}<NativeSelect disabled={busy} aria-label={t("出题顺序")} className="w-full sm:max-w-[calc(50%-0.5rem)]" value={random ? "random" : "ordered"} onValueChange={value => { setRandom(value === "random"); invalidate(); }}><NativeSelectOption value="ordered">{t("顺序练习")}</NativeSelectOption><NativeSelectOption value="random">{t("随机抽题")}</NativeSelectOption></NativeSelect></label>}
-        <details ref={advanced} className="rounded-lg border p-4" onToggle={event => { if (event.currentTarget.open) setAdvancedLoaded(true); }}>
+
+        {/* Question Volume Group */}
+        {selection === "count" && (
+          <div className="space-y-3 rounded-xl border border-border bg-card p-4">
+            <div className="grid gap-2">
+              <label className="grid content-start gap-2 font-medium">
+                {t("题目数量")}
+                <Input
+                  aria-describedby="count-help"
+                  aria-invalid={!loading && available > 0 && invalidCount}
+                  type="number"
+                  min={1}
+                  max={Math.min(1000, available)}
+                  value={count}
+                  onChange={e => { countEditedForQuery.current = true; setCount(Number(e.target.value)); invalidate(); }}
+                />
+              </label>
+              {quickCounts.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5 pt-1" role="group" aria-label={t("快捷选题")}>
+                  {quickCounts.map(n => (
+                    <Button
+                      key={n}
+                      size="xs"
+                      variant={count === n ? "secondary" : "outline"}
+                      aria-pressed={count === n}
+                      disabled={busy || loading}
+                      onClick={() => { countEditedForQuery.current = true; setCount(n); invalidate(); }}
+                    >
+                      {t("{0} 题", {0:n})}
+                    </Button>
+                  ))}
+                </div>
+              )}
+              <p id="count-help" className="text-xs text-muted-foreground">{t("材料题整组选取，按小题计数；上限 1000。")}</p>
+            </div>
+          </div>
+        )}
+        {invalidCount && !loading && available > 0 && (
+          <div role="status" className="rounded-lg border border-[var(--warning-border)] bg-[var(--warning-background)] p-3 text-sm text-[var(--warning-foreground)]">
+            <p>{t(feasibleCounts.length ? "该数量无法由完整题组组成，请选择可用数量。" : "当前完整题组均超过 1000 小题上限，请调整筛选。")}</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {nearbyCounts.map(n => (
+                <Button key={n} size="xs" variant="outline" onClick={() => { countEditedForQuery.current = true; setCount(n); invalidate(); }}>
+                  {t("选择 {0} 小题", {0:n})}
+                </Button>
+              ))}
+            </div>
+          </div>
+        )}
+        <details ref={advanced} className="rounded-xl border border-border bg-card/60 p-4 transition-colors" onToggle={event => { if (event.currentTarget.open) setAdvancedLoaded(true); }}>
           <summary className="cursor-pointer font-medium">{t("高级设置 · 筛选与选题方式")}</summary>
           {advancedLoaded && <div className="mt-4 space-y-5">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="grid gap-2"><span className="font-medium">{t("题型")}</span><DropdownMenu modal={false}><DropdownMenuTrigger asChild><Button type="button" variant="outline" className="w-full justify-between font-normal" aria-label={t("题型")} disabled={busy}><span className="truncate">{modeLabels}</span><ChevronDown className="shrink-0 text-muted-foreground" /></Button></DropdownMenuTrigger><DropdownMenuContent align="start" className="max-h-80 overflow-y-auto"><DropdownMenuCheckboxItem checked={!modes.length} disabled={busy} onSelect={event => event.preventDefault()} onCheckedChange={() => { setModes([]); invalidate(); }}>{t("全部题型")}</DropdownMenuCheckboxItem>{Object.entries(types()).map(([k, v]) => <DropdownMenuCheckboxItem key={k} checked={modes.includes(k)} disabled={busy} onSelect={event => event.preventDefault()} onCheckedChange={checked => { setModes(checked ? [...modes, k] : modes.filter(m => m !== k)); invalidate(); }}>{v}</DropdownMenuCheckboxItem>)}</DropdownMenuContent></DropdownMenu></div>
-              <label className="grid gap-2">{t("范围")}<NativeSelect disabled={busy} className="w-full" value={filter} onValueChange={value => { setFilter(value); invalidate(); }}>{[["",t("全部")],["wrong",t("错题")],["favorite",t("收藏")],["unattempted",t("未做题")],["review",t("待复核")]].map(([k, v]) => <NativeSelectOption key={k} value={k}>{v}</NativeSelectOption>)}</NativeSelect></label>
+              <label className="grid gap-2">{t("范围")}<NativeSelect disabled={busy} aria-label={t("范围")} className="w-full" value={filter} onValueChange={value => { setFilter(value); invalidate(); }}>{[["",t("全部")],["wrong",t("错题")],["favorite",t("收藏")],["unattempted",t("未做题")],["review",t("待复核")]].map(([k, v]) => <NativeSelectOption key={k} value={k}>{v}</NativeSelectOption>)}</NativeSelect></label>
             </div>
             <label className="grid gap-2">{t("关键词")}<Input aria-label={t("搜索题目")} placeholder={t("搜索题干或关键词")} value={search} onChange={e => { setSearch(e.target.value); invalidate(); }}/></label>
-            <label className="grid gap-2">{t("选题方式")}<NativeSelect disabled={busy} className="w-full" value={selection} onValueChange={value => { setSelection(value); invalidate(); }}><NativeSelectOption value="count">{t("总题数")}</NativeSelectOption><NativeSelectOption value="quota">{t("按题型数量")}</NativeSelectOption><NativeSelectOption value="manual">{t("手动选择")}</NativeSelectOption></NativeSelect></label>
+            <label className="grid gap-2">{t("选题方式")}<NativeSelect disabled={busy} aria-label={t("选题方式")} className="w-full" value={selection} onValueChange={value => { setSelection(value); invalidate(); }}><NativeSelectOption value="count">{t("总题数")}</NativeSelectOption><NativeSelectOption value="quota">{t("按题型数量")}</NativeSelectOption><NativeSelectOption value="manual">{t("手动选择")}</NativeSelectOption></NativeSelect></label>
             {selection === "quota" && <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">{Object.entries(types()).map(([k, v]) => <label className="grid gap-2" key={k}>{t(COMPOSITE_FILTERS.includes(k) ? "{0}（可用 {1} 组）" : "{0}（可用 {1} 题）", { 0: v, 1: stats.types[k] || 0 })}<Input aria-label={t(COMPOSITE_FILTERS.includes(k) ? "{0}组数" : "{0}题数", { 0: v })} type="number" min={0} max={stats.types[k] || 0} value={quotas[k] || 0} onChange={e => { setQuotas({...quotas, [k]:Number(e.target.value)}); invalidate(); }}/></label>)}</div>}
             {selection === "manual" && <div className="space-y-2">{rows.map(q => <label key={q.id} className="flex items-start gap-2 rounded-md border p-3"><Checkbox className="mt-0.5" disabled={busy || loading} checked={q.id in selected} onCheckedChange={checked => { setSelected(previous => { const next = {...previous}; if (checked === true) next[q.id] = {count:q.answerableCount ?? 1,group:isComposite(q.question)}; else delete next[q.id]; return next; }); invalidate(); }}/><span>{q.question.stem || t("题干缺失")}{isComposite(q.question) && <span className="ml-2 text-muted-foreground">{t("{0} 小题", {0:q.answerableCount ?? 0})}</span>}</span></label>)}
               {rootCount > 30 && <div className="flex flex-wrap items-center justify-between gap-3">

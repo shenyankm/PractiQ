@@ -315,7 +315,7 @@ it.each([true, false])("keeps unassessed answers while finishing with submit_dra
   render(<Study initial={initial} />);
   await user.click(screen.getByRole("button", { name: "结束练习" }));
   const dialog = await screen.findByRole("alertdialog");
-  await user.click(within(dialog).getByRole("button", { name: submitDrafts ? "提交草稿并结束（保留未判定）" : "草稿记为跳过并结束（保留未判定）" }));
+  await user.click(within(dialog).getByRole("button", { name: submitDrafts ? "提交草稿并结束" : "草稿记为跳过并结束" }));
   await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
   expect(vi.mocked(api).mock.calls.map(([request]) => request)).toEqual([
     { type: "session", id: "practice" },
