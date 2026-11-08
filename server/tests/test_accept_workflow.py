@@ -25,6 +25,20 @@ def test_workflow_preserves_absent_optional_explanations_for_review():
     assert check_questions(rows) == []
 
 
+def test_workflow_preserves_literal_source_type_labels():
+    rows = valid()
+    for row in rows:
+        row['questionTypeId'] = 'True or false questions'
+    assert check_questions(rows) == []
+
+
+@pytest.mark.parametrize('label', [None, '', 'choice', 'Unrelated source type'])
+def test_workflow_rejects_missing_or_unrelated_type_labels(label):
+    rows = valid()
+    rows[0]['questionTypeId'] = label
+    assert check_questions(rows)
+
+
 @pytest.mark.parametrize("change", ["missing", "duplicate", "answer", "mode", "required_field", "stem", "type"])
 def test_workflow_quality_rejects_changed_or_incomplete_output(change):
     rows = deepcopy(valid())

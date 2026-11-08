@@ -67,7 +67,7 @@ it("routes application JSX copy and accessible labels through the dictionary", (
   function scan(directory: string) {
     for (const entry of readdirSync(directory,{withFileTypes:true})) {
       const path = join(directory,entry.name);
-      if (entry.isDirectory() && entry.name !== 'components') scan(path);
+      if (entry.isDirectory()) scan(path);
       else if (entry.name.endsWith('.tsx') && !entry.name.includes('.test.')) failures.push(...untranslated(readFileSync(path,'utf8')).map(s=>`${path}:${s}`));
     }
   }

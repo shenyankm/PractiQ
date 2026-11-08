@@ -51,9 +51,10 @@ def check_questions(questions: list[dict[str, Any]]) -> list[str]:
         errors.append("question completeness/stem mismatch")
     for stem, answer in EXPECTED:
         row = found.get(stem, {})
-        if (row.get("answerMode") != "true_false" or row.get("questionTypeId") != "true_false"
-                or row.get("answerPayload") != {"value": answer}):
-            errors.append("question type/reference answer mismatch")
+        if row.get("questionTypeId") not in {"true_false", "True or false questions"}:
+            errors.append("missing or source-inappropriate question type label")
+        if row.get("answerMode") != "true_false" or row.get("answerPayload") != {"value": answer}:
+            errors.append("question mode/reference answer mismatch")
     return errors
 
 

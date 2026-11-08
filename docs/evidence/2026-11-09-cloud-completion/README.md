@@ -53,13 +53,15 @@ scripts remain historical source and are not current acceptance commands.
 ## Local checks
 
 - App types/lint/coverage: 595 passed, 6 skipped (including live language changes in memoized content).
-- Web types/lint/coverage: 329 passed, 1 skipped, including persisted refund identity and another-window protection.
+- Web types/lint/coverage: 330 passed, 1 skipped, including persisted refund identity and another-window protection.
 - `make app-check`: shared contracts/fixtures, App tests, 294 Rust tests (27 ignored), formatting and all-target Clippy passed.
 - App cloud browser suites: 68 passed, including English/Traditional Chinese plans and light/dark screenshots.
 - Administrator Web browser suite: 4 passed, including explicit refund and reload without another write.
 - Capacity/authentication focused regressions: 25 passed after updating old personal-mode test adapters.
 - Current App and DMG built; [final installer inspection](installer.json) passed for the recorded DMG SHA-256 with no embedded AI engines. Signing and installation are separate.
 - `make verify`: 3953 tests passed, 92% coverage; Ruff, Pyright, locked dependencies, evaluation fixtures, recovery probes and service package checks passed. No interrupted run is counted as passing.
+
+PR review additionally exposed a retained successful refund that could remain locked after provider closure and an overly strict canonical type-label gate. The original-receipt query now stays available for its retained request, with a regression proving cleanup without a new refund. The quality gate accepts the fixture’s literal source label while rejecting missing/unrelated labels (34 focused workflow tests passed). The localization guard continues scanning existing App components as well as shared cloud code.
 
 Initial failures were retained in the ignored
 `server/reports/checks/completion-20261109/` tree: missing browser/runtime caches,
