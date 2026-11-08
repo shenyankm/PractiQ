@@ -63,6 +63,8 @@ scripts remain historical source and are not current acceptance commands.
 
 PR review additionally exposed a retained successful refund that could remain locked after provider closure and an overly strict canonical type-label gate. The original-receipt query now stays available for its retained request, with a regression proving cleanup without a new refund. The quality gate accepts the fixture’s literal source label while rejecting missing/unrelated labels (34 focused workflow tests passed). The localization guard continues scanning existing App components as well as shared cloud code.
 
+Remote Python 3.15 CI exposed an existing broker-capacity probe waiting for a particular quorum-queue overshoot count. It now fills the dead-letter target until explicit publish rejection, restarts while that target remains full, then removes the limit and requires every confirmed source and prefilled message to survive. The focused probe and the full 27-test broker group passed locally. No production broker policy or runtime behavior was relaxed.
+
 Initial failures were retained in the ignored
 `server/reports/checks/completion-20261109/` tree: missing browser/runtime caches,
 legacy load-test adapters, the harness's missing server import path, native-window
