@@ -26,6 +26,7 @@ from dotenv import dotenv_values
 from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / 'server'))
 EXPECTED = [("The Earth orbits the Sun.", True), ("Two plus two equals five.", False),
             ("A triangle has three sides.", True)]
 SOURCE = "True or false questions. Extract the supplied answers.\n\n" + "\n\n".join(
@@ -50,7 +51,8 @@ def check_questions(questions: list[dict[str, Any]]) -> list[str]:
         errors.append("question completeness/stem mismatch")
     for stem, answer in EXPECTED:
         row = found.get(stem, {})
-        if row.get("answerMode") != "true_false" or row.get("answerPayload") != {"value": answer}:
+        if (row.get("answerMode") != "true_false" or row.get("questionTypeId") != "true_false"
+                or row.get("answerPayload") != {"value": answer}):
             errors.append("question type/reference answer mismatch")
     return errors
 
@@ -111,7 +113,7 @@ def serve(synthetic: bool) -> None:
                 return [ocr_text_page(payload.decode('utf-8-sig'))]
             return [ocr_text_page(text) for text in PAGE_SOURCES] if data['FileType'] == 1 else [ocr_text_page(SOURCE)]
         provider_calls = tencent_provider(patch, evidence if suite else [ocr_text_page(SOURCE)])
-        rows = [{**question(stem), "answerMode": "true_false", "answerPayload": {"value": answer}}
+        rows = [{**question(stem), "answerMode": "true_false", "questionTypeId": "true_false", "answerPayload": {"value": answer}}
                 for stem, answer in EXPECTED]
         def response(_messages, schema):
             selected = rows
@@ -168,7 +170,7 @@ async def run(output: Path, live: bool, native_binary: Path, case: str | None = 
     repetitions = 1 if case else 8
     # Never inherit service data locations, runtime credentials or proxy credentials.
     env = {key: value for key, value in os.environ.items()
-           if not key.startswith(("AI_", "LLM_")) and key not in {"DATABASE_URI", "RABBITMQ_URI", "RABBITMQ_FAILOVER_URIS"}}
+           if not key.startswith(("AI_", "LLM_", "ALIPAY_")) and key not in {"DATABASE_URI", "RABBITMQ_URI", "RABBITMQ_FAILOVER_URIS"}}
     settings = {key: value for key, value in dotenv_values(ROOT / ".env").items()
                 if value is not None and key.startswith(("AI_", "LLM_"))} if live else {
                     "LLM_PROVIDER": "openai", "LLM_API_KEY": "synthetic", "LLM_MODEL": "synthetic",
@@ -176,8 +178,8 @@ async def run(output: Path, live: bool, native_binary: Path, case: str | None = 
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
         port = sock.getsockname()[1]
-    env.update(settings, AI_READ_ONLY="0", AI_MAINTENANCE="0",
-               AI_STORAGE_DIR=str(output / "storage"), AI_WEB_DIR=str(ROOT / "web/dist"),
+    env.update(settings, ALIPAY_ENABLED="false", AI_READ_ONLY="0", AI_MAINTENANCE="0",
+               AI_STORAGE_DIR=str(output / "storage"), AI_WEB_DIR=str(ROOT / "app/dist"),
                AI_TASK_MAX_MODEL_CALLS="4", AI_RUN_TIMEOUT_SECONDS="240",
                LANGSMITH_TRACING="false", LANGCHAIN_TRACING_V2="false",
                PRACTIQ_ACCEPT_PORT=str(port), PYTHONPATH=os.pathsep.join([str(ROOT / "server/src"), str(ROOT / "server")]))
@@ -187,7 +189,7 @@ async def run(output: Path, live: bool, native_binary: Path, case: str | None = 
     report: dict[str, Any] = {"schemaVersion": 1, "generatedAt": datetime.now(UTC).isoformat(),
         "revision": (await asyncio.to_thread(subprocess.check_output, ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True)).strip(),
         "python": platform.python_version(), "platform": platform.platform(), "liveProviders": live,
-        "scope": "Production Chromium Web and loopback HTTP service; disposable PostgreSQL/RabbitMQ; real local files and release Rust/SQLite. Native phase excludes Tauri IPC/WebView. Selected cases/repetitions recorded separately; no capacity/p95 or before/after speedup claim.",
+        "scope": "Built App in Chromium, native IPC substitute and loopback HTTP service; disposable PostgreSQL/RabbitMQ; real local files and release Rust/SQLite. Native phase uses the real Rust/SQLite harness; no actual Tauri IPC/WebView or Keychain claim. Selected cases/repetitions recorded separately; no capacity/p95 or before/after speedup claim.",
         "selectedCases": cases, "nativeRepetitions": repetitions,
         "status": "FAILED", "gateReasons": [], "samples": []}
     process = None
@@ -195,6 +197,12 @@ async def run(output: Path, live: bool, native_binary: Path, case: str | None = 
     rss: list[int] = []
     try:
         db = await new_database()
+        # Explicit operator bootstrap only in this freshly created disposable database.
+        import secrets
+
+        from practiq_ai.identity import password_hash
+        async with db.transaction() as conn:
+            await conn.execute("INSERT INTO auth_users(id,email,password_hash,role) VALUES('acceptance-admin','operator@example.test',%s,'admin')", (await password_hash(secrets.token_urlsafe(32)),))
         await db.close()
         env.update(DATABASE_URI=db.uri, RABBITMQ_URI=os.environ["RABBITMQ_URI"])
         # The service is a child process; the parent only needs matching safe config for identity.
@@ -226,7 +234,7 @@ async def run(output: Path, live: bool, native_binary: Path, case: str | None = 
             browser_env = {**env, "PRACTIQ_ACCEPT_URL": f"http://127.0.0.1:{port}",
                            "PRACTIQ_ACCEPT_OUTPUT": str(output), "PRACTIQ_ACCEPT_NATIVE": str(native_binary)}
             with (output / "browser.log").open("x") as log_browser:
-                browser_status = await command_result(["node", "web/scripts/accept-workflow.mjs"], browser_env, log_browser, 900)
+                browser_status = await command_result(["node", "app/scripts/accept-workflow.mjs"], browser_env, log_browser, 900)
             browser_report = json.loads((output / "browser.json").read_text())
             report["samples"] = browser_report["samples"]
             for sample in report["samples"]:
@@ -241,8 +249,19 @@ async def run(output: Path, live: bool, native_binary: Path, case: str | None = 
                     result = content.get("result", content)
                     sample["qualityErrors"] = check_questions(result["questions"])
                     detail = json.loads((output / f"{sample['name']}-detail.json").read_text())
-                    if result != detail["result"]:
-                        sample["qualityErrors"].append("HTTP/export result mismatch")
+                    from practiq_ai.contracts import (
+                        DocumentCorrections,
+                        DocumentParseResult,
+                    )
+                    from practiq_ai.corrections import corrected_result
+                    corrections = DocumentCorrections.model_validate_json((output / f"{sample['name']}-corrections.json").read_text())
+                    expected = corrected_result(DocumentParseResult.model_validate(detail["result"]), corrections)
+                    from practiq_ai.bank_export import append_export_warning
+                    append_export_warning(expected, 'Human-corrected revision; original source evidence and review flags are retained.')
+                    if result != expected.model_dump(mode='json'):
+                        sample["qualityErrors"].append("HTTP/revised export result mismatch")
+                    if not all(sample.get(field) is True for field in ('accountReopen', 'correctionSaved', 'correctionReopen', 'offlineAfterLogout')):
+                        sample["qualityErrors"].append("App account/correction workflow evidence incomplete")
                 sample["zipSha256"] = hashlib.sha256(path.read_bytes()).hexdigest()
                 _, sample["nativeErrors"] = read_native_report(
                     output / f"{sample['name']}-native.json", {sample["name"]: sample["zipSha256"]}, 1)
@@ -292,7 +311,7 @@ async def run(output: Path, live: bool, native_binary: Path, case: str | None = 
         report["serviceMemory"] = {"sampledPeakRssBytes": max(rss, default=0), "samples": len(rss),
                                    "scope": "Service PID only, ps sampling at >=100ms; excludes renderer/Office/browser/native/DB/broker and can miss peaks."}
         await cleanup()
-        paths = [Path(__file__), ROOT / "web/scripts/accept-workflow.mjs", ROOT / "app/src-tauri/src/performance.rs"]
+        paths = [Path(__file__), ROOT / "app/scripts/accept-workflow.mjs", ROOT / "app/src-tauri/src/performance.rs"]
         report["harnessSha256"] = {str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest() for path in paths}
         report["inputSha256"] = {path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in (output / "sources").iterdir()}
         (output / "report.json").write_text(json.dumps(report, indent=2) + "\n")
