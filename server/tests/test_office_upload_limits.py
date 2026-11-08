@@ -145,7 +145,7 @@ async def test_direct_office_task_is_rejected_before_queue_admission(monkeypatch
 
 
 @pytest.mark.usefixtures("disposable_databases")
-@pytest.mark.parametrize("source_type,size", [("docx",9 * 1024 * 1024), ("xls",1024)])
+@pytest.mark.parametrize("source_type,size", [("docx",9 * 1024 * 1024), ("xls",9 * 1024 * 1024)])
 async def test_missing_converter_rejects_office_task_before_queueing(monkeypatch, source_type, size):
     service, _, model = await setup_api(monkeypatch)
     monkeypatch.delenv('AI_OFFICE_EXECUTABLE', raising=False)

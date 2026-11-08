@@ -72,7 +72,7 @@ def test_csv_cannot_enter_uploads_or_new_tasks_but_saved_references_still_valida
     assert DocumentReference.model_validate(reference.model_dump()).sourceType == "csv"
 
 
-@pytest.mark.parametrize("kind", ["doc", "docx", "xlsx"])
+@pytest.mark.parametrize("kind", ["doc", "docx", "xls", "xlsx"])
 async def test_office_original_enters_tencent_without_local_conversion(monkeypatch, kind):
     fixture = Path(__file__).parents[2] / "app/fixtures/office" / (f"中文 试卷.{kind}" if kind.startswith("doc") else f"中文 表格.{kind}")
     payload = fixture.read_bytes()

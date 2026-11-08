@@ -224,7 +224,7 @@ async def import_capabilities() -> ImportCapabilities:
     office_limit = document_source_limit("docx", settings.source_max_bytes)
     if not converter:
         office_limit = min(office_limit, *(submission_limit(kind, settings) for kind in ("docx", "pptx", "xlsx")))
-    return ImportCapabilities(sourceTypes=[kind for kind in get_args(DocumentSourceType) if kind != "csv" and (kind != "xls" or converter)],
+    return ImportCapabilities(sourceTypes=[kind for kind in get_args(DocumentSourceType) if kind != "csv"],
                               sourceMaxBytes=settings.source_max_bytes, officeAvailable=office,
                               modelBudget=ImportBudgetCapacity(limit=settings.task_max_model_calls,
                                                                unitCalls=import_call_allowance(),
