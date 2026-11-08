@@ -17,7 +17,7 @@ export function AccountSettings({ user, onNameSaved }: { user: AccountUser; onNa
   return (
     <>
       <h1>账户与安全</h1>
-      <p>邮箱暂不验证，仅作为登录标识。忘记密码请联系管理员。</p>
+      <p>登录邮箱仅作为账户标识，无需接收验证邮件。如需重置密码，请联系管理员协助处理。</p>
       <Form
         label="保存账户信息"
         submit={async () => {
@@ -69,7 +69,7 @@ export function AccountSettings({ user, onNameSaved }: { user: AccountUser; onNa
       </Form>
       <h2>App 评分连接</h2>
       <p>
-        令牌仅允许连接检查和显式评分，有效期 90 天。复制到本应用设置中的 AI 服务连接设置，凭证由 Keychain 保存。
+        个人评分令牌专用于连接健康检查与主观题 AI 评分，有效期 90 天。请复制后填入本应用「设置 → AI 服务」中，凭证将安全保存在本机 Keychain。
       </p>
       <Form
         label="创建个人评分令牌"
@@ -101,7 +101,7 @@ export function AccountSettings({ user, onNameSaved }: { user: AccountUser; onNa
       </Form>
       {token && (
         <div className="notice">
-          <p>令牌仅展示本次，请立即复制。离开页面后无法再次查看。</p>
+          <p>评分令牌仅在生成时展示一次，离开本页面后将无法再次查看，请妥善保存并立即填入设置。</p>
           <Input aria-label="新评分令牌" readOnly value={token} />
           <Button variant="outline" onClick={() => setToken("")}>
             隐藏令牌

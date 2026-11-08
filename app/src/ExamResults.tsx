@@ -132,9 +132,9 @@ export function ExamResults({
       {a.grading?.ai&&<GradeDetails request={a.grading.ai}/>}
       {latest&&<div className="space-y-2"><p>{t("上次请求：{0}", {0:gradingStatus(latest.status)})}{a.earnedCents!=null&&` · ${t("已有得分保留。")}`}</p><GradeDetails request={latest}/></div>}
       {eligible(a)&&!a.grading?.ai&&!latest&&<p>{t("尚未请求 AI 评分。")}</p>}
-      {eligible(a)&&latest?.status==="unknown"&&<><p>{t("先核对上次请求；重新评分会创建新的付费请求。")}</p><Button variant="outline" disabled={running} onClick={()=>grade([a])}>{t("核对上次评分结果")}</Button></>}
+      {eligible(a)&&latest?.status==="unknown"&&<><p>{t("建议先核对上次评分结果；重新评分将发起新的调用，可能再次产生费用。")}</p><Button variant="outline" disabled={running} onClick={()=>grade([a])}>{t("核对上次评分结果")}</Button></>}
       {a.grading?.manual&&<p>{t("人工改分原因：{0}", { 0: a.grading.manual.reason })}</p>}
-      {!eligible(a)&&a.earnedCents==null&&a.gradeKind!=="self"&&<p>{t("缺少完整题目、作答或评分依据，需人工处理。")}</p>}
+      {!eligible(a)&&a.earnedCents==null&&a.gradeKind!=="self"&&<p>{t("当前题缺少完整题目、作答或评分依据，无法进行 AI 评分，需人工核对。")}</p>}
       {eligible(a) && (a.grading?.ai || a.grading?.lastRequest || (failedAttempt?.sessionId === session.id && failedAttempt.ordinal === a.ordinal && (error as {code?:string} | null)?.code === "LOCAL_GRADING_TARGET_CHANGED")) && (
         <AlertDialog open={retryConfirm} onOpenChange={setRetryConfirm}>
           <AlertDialogTrigger asChild>
