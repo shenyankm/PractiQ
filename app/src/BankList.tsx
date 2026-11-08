@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
+import { ListPagination } from "@/components/ui/pagination";
 import { ErrorNotice } from "./OperationFeedback";
 
 export function BankList({ offset, onOffsetChange, revision, onLoadingChange, busy, ready, run, onOpenSession, onAddExample, onImport, onHistory, onOpenQuestions, onPractice, onEdit, onDelete }: {
@@ -102,14 +103,13 @@ export function BankList({ offset, onOffsetChange, revision, onLoadingChange, bu
         </CardContent>
       </Card>)}
     </div>
-    {page.total > 30 && (
-        <nav aria-label={t("题库分页")} className="flex flex-1 flex-wrap items-center justify-between gap-3">
-          <span role="status" className="text-sm text-muted-foreground">{!loading && !error && t("{0}–{1} / {2} 条", { 0: page.total ? page.offset + 1 : 0, 1: page.offset + page.items.length, 2: page.total })}</span>
-          <div className="flex gap-2">
-            <Button variant="outline" disabled={busy || loading || !!error || page.offset === 0} onClick={() => onOffsetChange(Math.max(0, page.offset - 30))}>{t("上一页")}</Button>
-            <Button variant="outline" disabled={busy || loading || !!error || page.offset + 30 >= page.total} onClick={() => onOffsetChange(page.offset + 30)}>{t("下一页")}</Button>
-          </div>
-        </nav>
-    )}
+    <ListPagination
+      ariaLabel={t("题库分页")}
+      offset={page.offset}
+      total={page.total}
+      itemCount={page.items.length}
+      disabled={busy || loading || !!error}
+      onOffsetChange={onOffsetChange}
+    />
   </div>;
 }

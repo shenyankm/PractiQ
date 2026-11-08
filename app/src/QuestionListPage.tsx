@@ -7,6 +7,8 @@ import { toast } from "./notifications";
 import { useSearchReady } from "./useSearchReady";
 import { ErrorNotice } from "./OperationFeedback";
 import { Badge } from "@/components/ui/badge";
+import { QuestionTypeBadge } from "@/components/ui/question-type-badge";
+import { ListPagination } from "@/components/ui/pagination";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Empty, EmptyContent, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
@@ -104,9 +106,7 @@ const QuestionRowItem = memo(function QuestionRowItem({
         onClick={() => onOpen(row.id)}
       >
         <div className="flex min-w-0 items-start gap-3">
-          <Badge variant="outline" className="mt-0.5 shrink-0">
-            {modeNames()[row.question.answerMode || ""] || t("未知题型")}
-          </Badge>
+          <QuestionTypeBadge answerMode={row.question.answerMode} className="mt-0.5" />
           <p className="line-clamp-2 min-w-0 flex-1 text-sm leading-6 wrap-anywhere">
             {row.question.stem || row.question.sourceText || t("题干缺失")}
           </p>
@@ -247,21 +247,14 @@ export function QuestionListPage({ state, page, compact, busy, run, onOpen, onEd
               />
             ))}
           </div>
-          {questionTotal > 30 && <div className="flex items-center justify-between text-sm text-muted-foreground">
-            <span className="tabular-nums">{t("第 {0}–{1} 题", { 0: offset + 1, 1: Math.min(offset + 30, questionTotal) })}</span>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                disabled={loading || busy || offset === 0}
-                onClick={() => setOffset(Math.max(0, offset - 30))}
-              >{t("上一页")}</Button>
-              <Button
-                variant="outline"
-                disabled={loading || busy || offset + 30 >= questionTotal}
-                onClick={() => setOffset(offset + 30)}
-              >{t("下一页")}</Button>
-            </div>
-          </div>}
+          <ListPagination
+            className="text-sm text-muted-foreground"
+            offset={offset}
+            total={questionTotal}
+            disabled={loading || busy}
+            onOffsetChange={setOffset}
+            label={<span className="tabular-nums">{t("第 {0}–{1} 题", { 0: offset + 1, 1: Math.min(offset + 30, questionTotal) })}</span>}
+          />
         </>
       ) : (
         !loading && (

@@ -7,6 +7,7 @@ import { ErrorNotice } from "./OperationFeedback";
 import { cents, defaultPaperCount, questionType, types } from "./paper";
 import { useSearchReady } from "./useSearchReady";
 import { Button } from "@/components/ui/button";
+import { ListPagination } from "@/components/ui/pagination";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
@@ -266,10 +267,13 @@ export function StudySetup({banks, initialBank, initialBankIds, initialFilter, i
             const i = currentScorePage * 30 + index;
             return <div key={q.id} className="flex items-center gap-3 py-3"><span className="min-w-0 flex-1 break-words">{i + 1}. {q.question.stem || t("题干缺失")}{q.question.sourceScore != null && t("（原卷 {0} 分）", { 0: q.question.sourceScore })}</span>{editingScore === i ? <Input autoFocus className="w-24 shrink-0" inputMode="decimal" aria-label={t("第 {0} 题分值", { 0: i + 1 })} value={scores[i]} onBlur={() => setEditingScore(null)} onChange={e => setScores(scores.map((s, j) => j === i ? e.target.value : s))}/> : <Button variant="outline" className="shrink-0" aria-describedby={`${scoreId}-${i}`} aria-label={t("第 {0} 题分值", { 0: i + 1 })} onClick={() => setEditingScore(i)}><span id={`${scoreId}-${i}`}>{t("{0} 分", {0: /^\d+(\.\d{1,2})?$/.test(scores[i] ?? "") ? Number(scores[i]) : scores[i] || "—"})}</span></Button>}</div>;
           })}</div>
-          {preview.length > 30 && <nav aria-label={t("选题与配分预览 · {0} 题", { 0: preview.length })} className="flex flex-wrap items-center justify-between gap-3">
-            <span role="status">{t("第 {0}–{1} 项", { 0: currentScorePage * 30 + 1, 1: Math.min(currentScorePage * 30 + 30, preview.length) })}</span>
-            <div className="flex gap-2"><Button variant="outline" disabled={!currentScorePage} onClick={() => setScorePage(currentScorePage - 1)}>{t("上一页")}</Button><Button variant="outline" disabled={(currentScorePage + 1) * 30 >= preview.length} onClick={() => setScorePage(currentScorePage + 1)}>{t("下一页")}</Button></div>
-          </nav>}
+          <ListPagination
+            ariaLabel={t("选题与配分预览 · {0} 题", { 0: preview.length })}
+            offset={currentScorePage * 30}
+            total={preview.length}
+            onOffsetChange={newOffset => setScorePage(Math.floor(newOffset / 30))}
+            label={<span role="status">{t("第 {0}–{1} 项", { 0: currentScorePage * 30 + 1, 1: Math.min(currentScorePage * 30 + 30, preview.length) })}</span>}
+          />
         </section>}
       </fieldset>
       </div>
