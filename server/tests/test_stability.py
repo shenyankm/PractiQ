@@ -146,14 +146,16 @@ async def test_temporary_budget_stop_requires_explicit_resume_without_model_repl
 
 
 @pytest.mark.usefixtures("business_http")
-async def test_personal_load_driver_uses_real_auth_upload_queue_and_export(monkeypatch, tmp_path):
+async def test_load_driver_uses_real_upload_queue_and_export_with_substituted_auth(monkeypatch, tmp_path, load_credentials):
     _service, _, model = await setup_api(monkeypatch, [parsed('First')])
     files = object_store(tmp_path / 'uploaded-files')
     for module in (runtime, task_api, execution, webapp, storage, document):
         monkeypatch.setattr(module, 'get_object_store', lambda: files)
+    from practiq_ai import identity
+    monkeypatch.setattr(identity, "db", lambda: _service.db)
     real_client = httpx.AsyncClient
     monkeypatch.setattr(load_test.httpx, 'AsyncClient', lambda **kwargs: real_client(transport=httpx.ASGITransport(app=webapp.app), **kwargs))
-    args = argparse.Namespace(token='test-token',
+    args = argparse.Namespace(metrics_token_file=load_credentials, email='load@example.test',
                               base_url='http://test', input=None, text='1. First', total=1,
                               submit_concurrency=1, request_timeout=5, completion_timeout=10,
                               pid=None, api='document-tasks', max_running=8, graph_concurrency=2,
