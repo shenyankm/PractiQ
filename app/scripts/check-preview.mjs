@@ -1116,3 +1116,25 @@ for (const width of [360, 390, 1280]) {
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  });
 }
+
+test('practice radio arrows select answers while question shortcuts navigate outside controls', async ({page}) => {
+ await page.goto('/');
+ await page.getByRole('button',{name:'开始练习',exact:true}).first().click();
+ await page.getByRole('button',{name:'立即开始',exact:true}).click();
+ const heading=page.locator('#current-question');
+ await expect(heading).toHaveText('第 1 / 9 题');
+ const radios=page.getByRole('radiogroup',{name:'选择答案',exact:true}).getByRole('radio');
+ await radios.nth(0).click();
+ await page.keyboard.down('ArrowRight');
+ await expect(radios.nth(1)).toBeFocused();
+ await expect(radios.nth(1)).toHaveAttribute('aria-checked','true');
+ await page.keyboard.up('ArrowRight');
+ await expect(heading).toHaveText('第 1 / 9 题');
+ await page.keyboard.down('ArrowLeft');
+ await expect(radios.nth(0)).toBeFocused();
+ await expect(radios.nth(0)).toHaveAttribute('aria-checked','true');
+ await page.keyboard.up('ArrowLeft');
+ await heading.focus();
+ await page.keyboard.press('ArrowRight');
+ await expect(heading).toHaveText('第 2 / 9 题');
+});

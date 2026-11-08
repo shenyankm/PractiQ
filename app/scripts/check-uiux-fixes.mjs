@@ -3,7 +3,7 @@ import { withEvidence } from '../../shared/browser-evidence.mjs';
 import { installLayoutSession } from './responsive-fixtures.mjs';
 
 const test = withEvidence(runner);
-for (const [width,height] of [[360,640],[390,844],[667,375],[768,900],[960,640],[1280,720]]) for (const theme of ['light','dark']) for (const locale of ['zh-CN','en']) {
+for (const [width,height] of [[360,640],[390,844],[667,375],[768,900],[960,560],[960,640],[1280,720]]) for (const theme of ['light','dark']) for (const locale of ['zh-CN','en']) {
   test(`UI gallery fixes at ${width}x${height} ${theme} ${locale}`, async ({page},testInfo) => {
     const en = locale === 'en';
     await page.setViewportSize({width,height});
@@ -29,9 +29,14 @@ for (const [width,height] of [[360,640],[390,844],[667,375],[768,900],[960,640],
     const help = page.getByRole('dialog');
     await expect(help).toBeVisible();
     const helpBox = await help.boundingBox();
-    expect(helpBox.height).toBeGreaterThanOrEqual(Math.min(220,height * .6));
+    const availableHeight = width < 768 ? height : await help.evaluate(node => Number.parseFloat(getComputedStyle(node).getPropertyValue('--radix-popover-content-available-height')));
+    expect(availableHeight).toBeGreaterThan(0);
+    expect(helpBox.height).toBeGreaterThanOrEqual(Math.min(220,height * .6,availableHeight));
     expect(helpBox.y).toBeGreaterThanOrEqual(width < 768 ? 0 : viewport.y);
     expect(helpBox.y + helpBox.height).toBeLessThanOrEqual(width < 768 ? height : footer.y + 1);
+    const lastLegend = help.getByText(en?'Flagged':'待检查',{exact:true});
+    await lastLegend.scrollIntoViewIfNeeded();
+    await expect(lastLegend).toBeInViewport();
     await page.screenshot({path:testInfo.outputPath('answer-card-help.png')});
     await page.keyboard.press('Escape');
     await expect(page.getByRole('button',{name:en?'Answer sheet legend':'答题卡状态说明',exact:true})).toBeFocused();

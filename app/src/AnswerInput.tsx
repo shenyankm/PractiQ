@@ -9,6 +9,9 @@ import { ArrowUp, ArrowDown } from "lucide-react";
 import { type Question, type Answer, canInteract, itemIds } from "./api";
 import { answerLanguage, countEnglishWords, materialLanguage } from "./english";
 import { Markdown, LazyDetails } from "./Content";
+export function choiceOptionDisabled(q: Question, value: Answer | null, usedOptions: string[], label: string) {
+  return q.choiceVariant !== "multiple" && usedOptions.includes(label) && !value?.correct?.includes(label);
+}
 export function AnswerInput({
   question: q,
   value,
@@ -54,7 +57,7 @@ export function AnswerInput({
         <label
           key={i}
           htmlFor={`${prefix}-${i}`}
-          className="flex cursor-pointer items-start gap-3 rounded-lg border px-4 py-3"
+          className="flex cursor-pointer items-start gap-3 rounded-lg border px-4 py-3 hover:bg-muted/30 transition-colors"
         >
           {multiple ? (
             <Checkbox
@@ -70,13 +73,18 @@ export function AnswerInput({
               }
             />
           ) : (
-            <RadioGroupItem className="mt-1 shrink-0" id={`${prefix}-${i}`} value={o.label!} disabled={usedOptions.includes(o.label!) && !a.correct?.includes(o.label!)} />
+            <RadioGroupItem className="mt-1 shrink-0" id={`${prefix}-${i}`} value={o.label!} disabled={choiceOptionDisabled(q, value, usedOptions, o.label!)} />
           )}
           <div className="grid min-w-0 flex-1 grid-cols-[auto_minmax(0,1fr)] items-start gap-2 leading-[1.75]">
             <span className="min-w-6 font-medium">{o.label}.</span>
             <Markdown lang={materialLanguage(q)}>{o.content}</Markdown>
             {usedOptions.includes(o.label!) && <span className="text-xs text-muted-foreground">{t("已使用")}</span>}
           </div>
+          {!disabled && (
+            <kbd aria-hidden="true" className="hidden shrink-0 select-none rounded border border-border/60 bg-muted/40 px-1.5 py-0.5 text-xs tabular-nums font-mono text-muted-foreground sm:inline-block">
+              {o.label || i + 1}
+            </kbd>
+          )}
         </label>
       ));
       return multiple ? (
@@ -106,14 +114,21 @@ export function AnswerInput({
           {[
             ["true", t("正确")],
             ["false", t("错误")],
-          ].map(([v, t]) => (
+          ].map(([v, labelText], idx) => (
             <label
               key={v}
               htmlFor={`${prefix}-${v}`}
-              className="flex items-center gap-3 rounded-lg border p-4"
+              className="flex items-center justify-between gap-3 rounded-lg border p-4 hover:bg-muted/30 transition-colors cursor-pointer"
             >
-              <RadioGroupItem id={`${prefix}-${v}`} value={v} />
-              {t}
+              <div className="flex items-center gap-3">
+                <RadioGroupItem id={`${prefix}-${v}`} value={v} />
+                <span>{labelText}</span>
+              </div>
+              {!disabled && (
+                <kbd aria-hidden="true" className="hidden shrink-0 select-none rounded border border-border/60 bg-muted/40 px-1.5 py-0.5 text-xs tabular-nums font-mono text-muted-foreground sm:inline-block">
+                  {idx + 1}
+                </kbd>
+              )}
             </label>
           ))}
         </RadioGroup>
@@ -253,7 +268,7 @@ export function AnswerInput({
           rows={q.questionKind === "writing" ? 14 : 7}
           spellCheck={false}
         />
-        {q.questionKind === "writing" && <p role="status" className="text-sm text-muted-foreground">{t("当前 {0} 词",{0:words})}
+        {q.questionKind === "writing" && <p role="status" className="text-sm tabular-nums text-muted-foreground">{t("当前 {0} 词",{0:words})}
           {range && <span> · {range}</span>}
           {(q.minWords != null && words<q.minWords || q.maxWords != null && words>q.maxWords) && <span> · {t("词数超出要求范围，仍可提交。")}</span>}
         </p>}

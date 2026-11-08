@@ -5,12 +5,14 @@ import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { api, blankQuestion, type Answer, type Session } from "./api";
 import { Practice } from "./Practice";
+import { ai } from "./ai-api";
 import { AnswerDisplay } from "./AnswerInput";
 import { ErrorBoundary } from "../../shared/error-boundary";
 import { RenderFailure } from "./RenderFailure";
 import type { GradingResponse } from "./api";
 
 vi.mock("./api", async () => ({ ...await vi.importActual("./api"), api: vi.fn() }));
+vi.mock("./ai-api", () => ({ ai: vi.fn() }));
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
 function practice(): Session {
@@ -315,7 +317,7 @@ it.each([true, false])("keeps unassessed answers while finishing with submit_dra
   render(<Study initial={initial} />);
   await user.click(screen.getByRole("button", { name: "结束练习" }));
   const dialog = await screen.findByRole("alertdialog");
-  await user.click(within(dialog).getByRole("button", { name: submitDrafts ? "提交草稿并结束（保留未判定）" : "草稿记为跳过并结束（保留未判定）" }));
+  await user.click(within(dialog).getByRole("button", { name: submitDrafts ? "提交草稿并结束" : "草稿记为跳过并结束" }));
   await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
   expect(vi.mocked(api).mock.calls.map(([request]) => request)).toEqual([
     { type: "session", id: "practice" },
@@ -366,4 +368,41 @@ it("opens the compact answer card explicitly without saving or grading", async (
   expect(details.open).toBe(true);
   expect(screen.getByRole("region", {name:"答题卡"})).toBeTruthy();
   expect(api).not.toHaveBeenCalled();
+});
+
+
+it.each(["practice", "self_test"] as const)("shares target-change failure and explicit retry between the summary and question views in %s", async kind => {
+  const user = userEvent.setup();
+  const initial = practice();
+  initial.kind = kind;
+  vi.mocked(ai).mockRejectedValueOnce({ code: "LOCAL_GRADING_TARGET_CHANGED", message: "Target changed" }).mockResolvedValue(initial);
+  render(<Study initial={initial} />);
+  expect(ai).not.toHaveBeenCalled();
+  await user.click(screen.getByRole("button", { name: "AI 评分/继续（1 题，将调用模型）" }));
+  const details = screen.getByRole("region", { name: "核对评分" });
+  await user.click(await within(details).findByRole("button", { name: "重新评分当前题" }));
+  expect(ai).toHaveBeenCalledExactlyOnceWith({ type: "grade", id: initial.id, ordinal: 0, retry: false });
+  await user.click(screen.getByRole("button", { name: "确认重新评分" }));
+  await waitFor(() => expect(ai).toHaveBeenCalledTimes(2));
+  expect(ai).toHaveBeenLastCalledWith({ type: "grade", id: initial.id, ordinal: 0, retry: true });
+});
+
+
+it("locks question grading controls while a summary batch is running", async () => {
+  const user = userEvent.setup();
+  const initial = practice();
+  initial.kind = "self_test";
+  initial.attempts.push({ ...initial.attempts[0], ordinal: 1 });
+  initial.attempts[0].grading = { lastRequest: { status: "unknown" } };
+  let finish!: (session: Session) => void;
+  vi.mocked(ai).mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+  render(<Study initial={initial} />);
+  await user.click(screen.getByRole("button", { name: "AI 评分/继续（1 题，将调用模型）" }));
+  for (const name of ["重新评分当前题", "核对上次评分结果", "保存人工评分"]) {
+    expect((screen.getByRole("button", { name }) as HTMLButtonElement).disabled).toBe(true);
+  }
+  expect((screen.getByRole("textbox", { name: "人工得分" }) as HTMLInputElement).disabled).toBe(true);
+  expect(ai).toHaveBeenCalledExactlyOnceWith({ type: "grade", id: initial.id, ordinal: 1, retry: false });
+  await act(async () => finish(initial));
+  await waitFor(() => expect((screen.getByRole("button", { name: "重新评分当前题" }) as HTMLButtonElement).disabled).toBe(false));
 });
