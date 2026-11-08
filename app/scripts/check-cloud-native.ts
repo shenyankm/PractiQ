@@ -13,7 +13,7 @@ test('App keeps offline practice available and submits cloud imports only throug
     let user: unknown=null, generation=1, paid=false;
     let payment: {id:string;requestId:string;productId:string;state:string;environment:string;amount:string;subject:string;refunds:unknown[]} | null=null;
     const products=[{id:'free',name:'Free',amount:'0.00',pages:50,durationDays:null,activeTasks:1,priority:false},{id:'plus',name:'Plus',amount:'39.00',pages:100,durationDays:30,activeTasks:2,priority:false},{id:'pro',name:'Pro',amount:'99.00',pages:300,durationDays:30,activeTasks:3,priority:true},{id:'pages50',name:'50 页加量包',amount:'19.90',pages:50,durationDays:365,activeTasks:1,priority:false}];
-    w.__TAURI_INTERNALS__={invoke:async(command:string,args:{request:Record<string,unknown>})=>{
+    w.__TAURI_INTERNALS__={invoke:async(command:string,args:{request:Record<string,unknown>;context?:{origin:string;generation:number}})=>{
       const r=args.request; await w.__recordCloudCall({command,request:r});
       if(command==='cloud_request'){
         let value: unknown;
@@ -23,7 +23,8 @@ test('App keeps offline practice available and submits cloud imports only throug
         else if(r.type==='checkout') {payment={id:'f'.repeat(32),requestId:String(r.request_id),productId:String(r.product_id),state:'PENDING_PAYMENT',environment:'production',amount:'39.00',subject:'PractiQ Plus · 100 页 / 30 天',refunds:[]};value=null;}
         else if(r.type==='fetch'){
           let data: unknown={items:[],hasMore:false}; const path=String(r.path).split("?")[0], body=r.body as {email:string;requestId:string};
-          if(path==='/api/auth/session') data={user,csrf:'',registrationEnabled:true};
+          if(path!=='/api/auth/session' && args.context?.generation!==generation) throw {code:'CLOUD_ACCOUNT_CHANGED'};
+          if(path==='/api/auth/session') {if(!user) generation++;data={user,csrf:'',registrationEnabled:true};}
           else if(path==='/api/auth/register'||path==='/api/auth/login') { user={id:'app-owner',name:'',email:body.email,role:'user',enabled:true}; generation++; data={user,csrf:'',registrationEnabled:true}; }
           else if(path==='/api/auth/logout') {user=null;generation++;data={ok:true};}
           else if(path==='/api/import-capabilities') data=capabilities;
@@ -53,14 +54,17 @@ test('App keeps offline practice available and submits cloud imports only throug
   await page.goto('/');
   const sidebar=page.locator('#app-sidebar');
   await expect(page.getByRole('heading',{name:'我的题库',exact:true})).toBeVisible();
-  expect(calls.some(c=>c.command==='cloud_request')).toBe(false);
-  await sidebar.getByRole('button',{name:'云端服务',exact:true}).click();
+  await expect(sidebar.getByRole('button',{name:'个人中心',exact:true})).toHaveAttribute('aria-description','未登录');
+  expect(calls.filter(c=>c.command==='cloud_request').every(c=>c.request.type==='status'||c.request.type==='fetch'&&c.request.method==='GET'&&c.request.path==='/api/auth/session')).toBe(true);
+  await sidebar.getByRole('button',{name:'个人中心',exact:true}).click();
   await page.getByRole('button',{name:'注册账户',exact:true}).click();
   await page.getByLabel('登录邮箱',{exact:true}).fill('app-ui@example.test');
   await page.getByLabel('密码（至少 12 字符）',{exact:true}).fill('app-ui-test-password');
   await page.screenshot({path:testInfo.outputPath('cloud-register-light.png'),fullPage:true});
   await page.getByRole('button',{name:'注册并登录',exact:true}).click();
-  await expect(page.getByText('app-ui@example.test',{exact:true})).toBeVisible();
+  await expect(page.getByRole('region',{name:'个人信息'}).getByText('app-ui@example.test',{exact:true})).toBeVisible();
+  await expect(sidebar.getByRole('button',{name:'个人中心',exact:true})).toHaveAttribute('aria-description','app-ui@example.test');
+  await page.getByRole('button',{name:'导入工作区',exact:true}).click();
   await page.getByRole('button',{name:'选择云端导入文件',exact:true}).click();
   await expect(page.getByText('cloud-only.txt',{exact:true})).toBeVisible();
   expect(calls.some(c=>c.request.type==='upload'||c.request.path==='/api/document-tasks'&&c.request.method==='POST')).toBe(false);
@@ -104,7 +108,15 @@ test('App keeps offline practice available and submits cloud imports only throug
   await page.screenshot({path:testInfo.outputPath('plans-ledger-dark.png'),fullPage:true});
   await page.getByRole('button',{name:'退出登录',exact:true}).click();
   await expect(page.getByRole('heading',{name:'登录 PractiQ',exact:true})).toBeVisible();
+  await expect(sidebar.getByRole('button',{name:'个人中心',exact:true})).toHaveAttribute('aria-description','未登录');
+  await page.getByLabel('登录邮箱',{exact:true}).fill('app-ui@example.test');
+  await page.getByLabel('密码',{exact:true}).fill('app-ui-test-password');
+  await page.getByRole('button',{name:'登录',exact:true}).click();
+  await expect(page.getByRole('region',{name:'个人信息'}).getByText('app-ui@example.test',{exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'退出登录',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'登录 PractiQ',exact:true})).toBeVisible();
   await sidebar.getByRole('button',{name:'我的题库',exact:true}).click();
   await expect(page.getByRole('heading',{name:'我的题库',exact:true})).toBeVisible();
+  await expect(sidebar.getByRole('button',{name:'个人中心',exact:true})).toHaveAttribute('aria-description','未登录');
   expect(errors).toEqual([]); expect(external).toEqual([]);
 });

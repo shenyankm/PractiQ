@@ -1,4 +1,12 @@
 export const en = {
+  "个人中心": "Account",
+  "读取账户状态…": "Loading account…",
+  "未连接云端": "Cloud not connected",
+  "未登录": "Not signed in",
+  "账户状态暂不可用": "Account status unavailable",
+  "登录与注册": "Sign in or register",
+  "先连接云端服务，即可登录或注册账户。离线练习始终可用。": "Connect a cloud service to sign in or register. Offline practice is always available.",
+  "开发预览：仅演示账户与资料，所有更改仅保存在内存中。请勿输入真实密码。": "Development preview: accounts and profiles are simulated in memory. Do not enter a real password.",
   "云端连接设置": "Cloud connection settings",
   "例如 https://service.example.com": "https://service.example.com",
   "清除本机登录状态": "Forget local login",
@@ -9,7 +17,7 @@ export const en = {
   "正在连接…": "Connecting…",
   "正在读取连接配置…": "Loading connection settings…",
 
-  "多用户服务：在本应用的云端服务 → 账户与安全中创建个人评分令牌；失效后需手动替换。": "Multi-user service: create a personal grading token under Account and security in this app’s Cloud service → Account and security. Replace it explicitly when it expires.",
+  "多用户服务：在本应用的个人中心 → 账户与安全中创建个人评分令牌；失效后需手动替换。": "Multi-user service: create a personal grading token in this app’s Account → Account and security. Replace it explicitly when it expires.",
   "评分点（原始分值）": "Scoring points (original scale)",
   "评分依据：{0}": "Reference: {0}",
   "作答引用：{0}": "Answer quotation: {0}",

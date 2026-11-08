@@ -40,7 +40,7 @@ Export a bank from its card menu to share its questions without your answers or 
 
 ## Import documents with AI
 
-Use **Cloud service** in the macOS App to upload documents to the independently hosted AI service:
+Use **Account → Import workspace** in the macOS App to upload documents to the independently hosted AI service:
 
 1. [Start the service](#self-host-the-import-service), connect its origin in the App, then register or sign in. Offline practice still needs no login.
 2. Choose up to 10 files and select **Start import**. Choosing files does not upload or parse them.

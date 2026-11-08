@@ -5,6 +5,8 @@ import { ApiError } from "../../shared/cloud/api";
 import type { NativeBridge, SourceFile } from "../../shared/cloud/transport";
 import type { DocumentReference } from "./contracts.generated";
 
+export type CloudStatus = { origin: string | null; generation: number };
+
 export async function cloudRequest<T>(request: Record<string, unknown>, context?: { origin: string; generation: number }): Promise<T> {
   try {
     const reply = await invoke<{value: T; generation: number}>("cloud_request", { request, context: context ? {...context} : null });

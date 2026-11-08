@@ -17,6 +17,11 @@ export function AccountSettings({ user, onNameSaved }: { user: AccountUser; onNa
   return (
     <>
       <h1>账户与安全</h1>
+      <section aria-label="个人信息" className="mb-6">
+        <dl className="grid gap-4 sm:grid-cols-2">
+          {[["昵称", user.name || "未设置昵称"], ["登录邮箱", user.email], ["账户角色", user.role === "admin" ? "管理员" : "普通用户"], ["账户状态", user.enabled ? "正常" : "已停用"], ["账户 ID", user.id]].map(([label, value]) => <div key={label}><dt className="text-sm text-muted-foreground">{label}</dt><dd className="mt-1 break-all font-medium">{value}</dd></div>)}
+        </dl>
+      </section>
       <p>登录邮箱仅作为账户标识，无需接收验证邮件。如需重置密码，请联系管理员协助处理。</p>
       <Form
         label="保存账户信息"

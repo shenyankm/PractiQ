@@ -11,7 +11,7 @@ import { Input } from "./components/ui/input";
 import logo from "./assets/octopus.png";
 const Workspace = lazy(() => import("./App"));
 
-export default function AccountPortal({ embedded = false }: { embedded?: boolean } = {}) {
+export default function AccountPortal({ embedded = false, initialPage = "workspace" }: { embedded?: boolean; initialPage?: "workspace" | "account" } = {}) {
   const auth = useAccount();
   const [mode, setMode] = useState("login");
   const [focusMain, setFocusMain] = useState(false);
@@ -40,13 +40,13 @@ export default function AccountPortal({ embedded = false }: { embedded?: boolean
       {auth.account?.registrationEnabled && <Button variant="ghost" onClick={() => changeMode("register")}>注册账户</Button>}
       <Button variant="ghost" onClick={() => changeMode("reset")}>重置密码</Button>
       <Button variant="outline" onClick={auth.reload}>重新读取登录状态</Button>
-    </section> : <CustomerArea key={user.id} user={user} focusMain={focusMain} onNameSaved={name => auth.updateName(user.id, name)} />}
+    </section> : <CustomerArea key={user.id} user={user} initialPage={initialPage} focusMain={focusMain} onNameSaved={name => auth.updateName(user.id, name)} />}
   </>;
 }
 
-function CustomerArea({ user, focusMain, onNameSaved }: { user: AccountUser; focusMain: boolean; onNameSaved: (name: string) => void }) {
+function CustomerArea({ user, initialPage, focusMain, onNameSaved }: { user: AccountUser; initialPage: "workspace" | "account"; focusMain: boolean; onNameSaved: (name: string) => void }) {
   const Content = nativeBridge() ? "section" : "main";
-  const [page, setPage] = useState("workspace");
+  const [page, setPage] = useState<string>(initialPage);
   const [task, setTask] = useState<{id: string}>();
   return <>
       <nav className="account-navigation" aria-label="个人导航">{[["workspace", "导入工作区"], ["banks", "我的题库"], ["usage", "用量"], ["plans", "套餐与额度"], ["payments", "订单与付款"], ["account", "账户与安全"]].map(([id, label]) => <Button key={id} variant={page === id ? "secondary" : "ghost"} onClick={() => setPage(id)}>{label}</Button>)}</nav>

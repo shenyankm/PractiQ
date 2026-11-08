@@ -6,7 +6,7 @@ The App provides native file selection/upload, account login, personal task hist
 
 ## Start and review
 
-Connect the service origin in App → Cloud service and register or sign in; the workspace then reads capabilities automatically. Choose up to ten supported files and explicitly start import. File selection makes no upload or model request. The server validates source bytes and stores the original SHA-256; Tencent asynchronous recognition remains part of the same task.
+Connect the service origin in App → Account and register or sign in; open Import workspace to read capabilities automatically. Choose up to ten supported files and explicitly start import. File selection makes no upload or model request. The server validates source bytes and stores the original SHA-256; Tencent asynchronous recognition remains part of the same task.
 
 **自动去重** is off by default. When enabled before **开始导入**, it merges only questions or complete composite-question trees with identical business payloads and source evidence, retaining source associations and warnings. Missing or conflicting evidence is kept for review. When disabled, possible duplicate candidates appear in result warnings and all copies remain. The choice is fixed for each submitted file and retained by explicit retries and parse again; start a new import to change it. Selecting the checkbox makes no request.
 

@@ -55,7 +55,7 @@ Changing a password or login email requires the current password and revokes all
 sessions and grading tokens. Without email verification, an administrator must
 check a recovery request through an independent trusted channel before generating
 a reset code. The `/admin` user page displays the code once; it expires after
-30 minutes. Enter it in App → Cloud service → Reset password. Submitting the new
+30 minutes. Enter it in App → Account → Reset password. Submitting the new
 password consumes it once and revokes all login credentials. The API retains its
 existing reset-link response shape for compatibility, but `/reset-password` is no
 longer a public Web page. Do not paste codes into logs, public issues, analytics
@@ -118,10 +118,10 @@ or authenticated HTTP actor and cannot disable HTTP ownership enforcement.
 
 Local practice, ZIP imports and direct model grading still require no account.
 Customer login, registration, source upload, task/result review, banks, usage and
-orders now live in App → Cloud service; the Web root and `/admin` are administrator-only.
+orders now live in App → Account; the Web root and `/admin` are administrator-only.
 The App performs no local recognition/parsing. See the [cloud workflow](../../docs/guides/cloud-service.md)
 for native origin configuration, Keychain/session handling and recovery boundaries.
-For optional service grading, create a personal grading token in App → Cloud service →
+For optional service grading, create a personal grading token in App → Account →
 Account and security. Copy the service origin and token into the App's existing
 AI service connection fields. A token is displayed once, lasts 90 days, and only
 allows the passive connection check and explicit subjective grading. It cannot

@@ -1,12 +1,24 @@
 # Cloud services in the macOS App
 
 Offline practice, local question-bank ZIP import and direct model grading need
-no account. Open **Cloud service** only when using a separately deployed PractiQ
+no account. Open **Account** only when using a separately deployed PractiQ
 service. Enter its root HTTPS origin (for example `https://service.example.com`)
 and select **Connect to cloud service**. HTTP is allowed only for loopback
 development. No document is uploaded by connecting or signing in.
 
 ## Accounts
+
+The App sidebar always includes **Account** (个人中心), with the current cloud
+identity or disconnected/signed-out/unavailable state in its accessible description
+and hover/focus tooltip. Opening it goes directly
+to personal information after login: name, login email, role, account status and
+account ID. Usage, plans and orders remain available in the same area. Without a
+configured service, the page explains the connection step instead of hiding the
+account entry. Switching services, logging out or session expiry updates the
+sidebar; stale account reads cannot replace a newer identity. Startup only reads
+connection/session metadata and never starts model work.
+The sidebar and account page share the current native connection context, so
+anonymous session-cookie rotation after logout cannot invalidate the next login.
 
 Register with an email and a 12–128 character password when public registration
 is enabled, or sign in to an existing account. Email is currently an unverified
@@ -86,7 +98,7 @@ No real payment configuration is required for offline
 practice. See [Alipay setup](../../server/docs/alipay.md).
 
 Optional service grading retains its separate connection flow. Create a personal
-90-day grading token under **Cloud service → Account and security**, then copy it
+90-day grading token under **Account → Account and security**, then copy it
 and the service origin into **Settings → AI service**. This restricted credential
 only permits connection checks and explicit grading. It is stored in the existing
 Keychain namespace, outside SQLite and backups. Account login does not silently

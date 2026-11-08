@@ -1,4 +1,5 @@
 import sample from "../fixtures/sample.json";
+import { previewCloud } from "./cloud-preview";
 import english from "../fixtures/english.json";
 import composite from "../fixtures/composite.json";
 import type { Answer, Bank, Question, QuestionRow, Request, Session, SettingsResult, Preview, QuestionNote, LearningCounts, LearningOverview } from "./api";
@@ -268,8 +269,7 @@ function initialize(scenario: PreviewScenario) {
 }
 export async function demoInvoke(command:string,args:Record<string,unknown>,scenario:PreviewScenario):Promise<unknown> {
   if (command === "cloud_request") {
-    if ((args.request as {type?:string})?.type === "status") return {value:{origin:null,generation:0},generation:0};
-    throw {code:"CLOUD_PREVIEW_UNAVAILABLE"};
+    return previewCloud(args.request as Record<string, unknown>, args.context as {origin:string;generation:number} | null, scenario);
   }
   initialize(scenario);
   const type=(args.request as {type?:string}|undefined)?.type;
