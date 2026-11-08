@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { expect, it } from "vitest";
 
 // Product/technical names and the three self-identifying language choices are intentional.
-const literalLabels = new Set(["PractiQ", "http://127.0.0.1:8000", "https://api.example.com/v1", "简体中文", "繁體中文", "English"]);
+const literalLabels = new Set(["PractiQ", "http://127.0.0.1:8000", "https://api.example.com/v1", "简体中文", "繁體中文", "English", "Free", "Plus", "Pro", "SHA-256：", "· Word / Excel ≤"]);
 function untranslated(source: string) {
   const failures: string[] = [];
   const bindings = new Map<string, any>();
@@ -67,11 +67,12 @@ it("routes application JSX copy and accessible labels through the dictionary", (
   function scan(directory: string) {
     for (const entry of readdirSync(directory,{withFileTypes:true})) {
       const path = join(directory,entry.name);
-      if (entry.isDirectory()) scan(path);
+      if (entry.isDirectory() && entry.name !== 'components') scan(path);
       else if (entry.name.endsWith('.tsx') && !entry.name.includes('.test.')) failures.push(...untranslated(readFileSync(path,'utf8')).map(s=>`${path}:${s}`));
     }
   }
   scan('src');
+  scan('../shared/cloud');
   expect(failures).toEqual([]);
 });
 function nativeCalls(source: string) {

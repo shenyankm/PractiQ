@@ -1,3 +1,4 @@
+import { t } from "./i18n";
 import type { DocumentReparseSelection } from "./contracts.generated";
 
 export function validPages(value: unknown): value is number[] | null | undefined {
@@ -8,9 +9,9 @@ export function parsePages(raw: string): number[] | undefined {
   const pages = new Set<number>();
   for (const piece of raw.trim().split(/[,，\s]+/)) {
     const match = piece.match(/^(\d+)(?:-(\d+))?$/);
-    if (!match) throw Error("页码请填写如 1,3-5 的范围。");
+    if (!match) throw Error(t("页码请填写如 1,3-5 的范围。"));
     const first = Number(match[1]), last = Number(match[2] ?? match[1]);
-    if (first < 1 || last < first || last > 2000) throw Error("请选择 1–2000 内从小到大的页码范围。");
+    if (first < 1 || last < first || last > 2000) throw Error(t("请选择 1–2000 内从小到大的页码范围。"));
     for (let index = first; index <= last; index++) pages.add(index);
   }
   return [...pages].sort((a, b) => a - b);

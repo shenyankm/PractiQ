@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { invoke } from "./transport";
+import { setCloudLocale } from "../../shared/cloud/i18n";
 import { en } from "./locales/en";
 import { zhTW } from "./locales/zh-TW";
 
@@ -32,6 +33,7 @@ function isLocale(value: unknown): value is Locale { return value === "zh-CN" ||
 // One desktop window owns the locale. Async callbacks read the current language,
 // rather than retaining the language in which a request was started.
 let current: Locale = systemLocale(typeof navigator === "undefined" ? [] : navigator.languages);
+setCloudLocale(current);
 export function locale() { return current; }
 export function formatLocale(language: Locale = current, languages: readonly string[] = typeof navigator === "undefined" ? [] : navigator.languages): string {
   const match = languages.map(contentLanguage).find(value => {
@@ -100,7 +102,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false), [saving, setSaving] = useState(false), [error, setError] = useState<LanguageFailure | null>(null);
   const lock = useRef(false);
   const generation = useRef(0);
-  const apply = useCallback((value: Locale) => { current = value; document.documentElement.lang = value; setLanguage(value); }, []);
+  const apply = useCallback((value: Locale) => { current = value; setCloudLocale(value); document.documentElement.lang = value; setLanguage(value); }, []);
   const reload = useCallback(async () => {
     if (lock.current) return;
     const request = ++generation.current;
