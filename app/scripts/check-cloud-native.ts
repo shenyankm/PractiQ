@@ -9,7 +9,7 @@ test('App keeps offline practice available and submits cloud imports only throug
   await page.exposeFunction('__recordCloudCall',(call:{command:string;request:Record<string,unknown>})=>calls.push(call));
   await page.addInitScript(({capabilities,task,preview,taskId,runId})=>{
     const w=window as unknown as {isTauri:boolean; __recordCloudCall:(call:unknown)=>Promise<void>; __TAURI_INTERNALS__:unknown};
-    w.isTauri=false; sessionStorage.setItem("practiq-preview", "off");
+    w.isTauri=false; sessionStorage.setItem("practiq-preview", "normal");
     let user: unknown=null, generation=1, paid=false;
     let payment: {id:string;requestId:string;productId:string;state:string;environment:string;amount:string;subject:string;refunds:unknown[]} | null=null;
     const products=[{id:'free',name:'Free',amount:'0.00',pages:50,durationDays:null,activeTasks:1,priority:false},{id:'plus',name:'Plus',amount:'39.00',pages:100,durationDays:30,activeTasks:2,priority:false},{id:'pro',name:'Pro',amount:'99.00',pages:300,durationDays:30,activeTasks:3,priority:true},{id:'pages50',name:'50 页加量包',amount:'19.90',pages:50,durationDays:365,activeTasks:1,priority:false}];
@@ -52,11 +52,17 @@ test('App keeps offline practice available and submits cloud imports only throug
     }};
   },{capabilities,task,preview,taskId,runId});
   await page.goto('/');
+  await expect(page.locator('.preview-controls')).toHaveCount(0);
+  await expect(page.getByText(/开发预览：仅演示账户与资料/)).toHaveCount(0);
   const sidebar=page.locator('#app-sidebar');
   await expect(page.getByRole('heading',{name:'我的题库',exact:true})).toBeVisible();
   await expect(sidebar.getByRole('button',{name:'个人中心',exact:true})).toHaveAttribute('aria-description','未登录');
   expect(calls.filter(c=>c.command==='cloud_request').every(c=>c.request.type==='status'||c.request.type==='fetch'&&c.request.method==='GET'&&c.request.path==='/api/auth/session')).toBe(true);
   await sidebar.getByRole('button',{name:'个人中心',exact:true}).click();
+  await expect(page.getByLabel('云端服务地址',{exact:true})).toHaveCount(0);
+  await expect(page.getByText('云端连接设置',{exact:true})).toHaveCount(0);
+  await expect(page.getByText('http://127.0.0.1:8090',{exact:true})).toHaveCount(0);
+  await expect(page.locator('.account-header:empty')).toHaveCount(0);
   await page.getByRole('button',{name:'注册账户',exact:true}).click();
   await page.getByLabel('登录邮箱',{exact:true}).fill('app-ui@example.test');
   await page.getByLabel('密码（至少 12 字符）',{exact:true}).fill('app-ui-test-password');
@@ -123,11 +129,10 @@ test('App keeps offline practice available and submits cloud imports only throug
 
 for (const language of ['en','zh-TW'] as const) test(`cloud account and plan copy follows ${language}`,async({page},testInfo)=>{
   await page.addInitScript(({language})=>{
-    sessionStorage.setItem('practiq-preview','off');
     const w=window as unknown as {__TAURI_INTERNALS__:unknown};
     w.__TAURI_INTERNALS__={invoke:async(command:string,args:{request:Record<string,unknown>;context:{origin:string;generation:number}|null})=>{
       if(command==='cloud_request') {
-        const {previewCloud}=await import('/src/cloud-preview.ts');
+        const {previewCloud}=await import('/scripts/fixtures/cloud-preview.ts');
         return previewCloud(args.request,args.context,'normal');
       }
       switch(args.request.type){

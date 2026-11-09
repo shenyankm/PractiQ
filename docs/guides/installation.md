@@ -105,7 +105,7 @@ The service listens on `127.0.0.1:8090`, keeps tasks in PostgreSQL, delivers wor
 
 1. Open `http://127.0.0.1:8090/ok` and `http://127.0.0.1:8090/ready`; both should return a success response (for example with `curl`).
 2. Open `http://127.0.0.1:8090/admin` and sign in as the administrator created above.
-3. In the App, connect the service origin under **Account**, then import one small PDF or TXT file from the **Import workspace** and download the resulting question-bank ZIP.
+3. In an App with an existing native service connection, open **Account**, then import one small PDF or TXT file from the **Import workspace** and download the resulting question-bank ZIP. The account page does not expose connection settings; see [cloud connection configuration](cloud-service.md).
 
 The last step calls Tencent and your model provider, and may cost money. Skip it if credentials are not configured.
 
@@ -125,4 +125,4 @@ The last step calls Tencent and your model provider, and may cost money. Skip it
 - Import, resume and download documents: [import tasks](import-tasks.md).
 - Deploy the service for multiple users, bootstrap administrators and upgrade old databases: [account deployment guide](../../server/docs/accounts.md). The [personal-use guide](../../server/docs/personal-use.md) documents the retired schema-5 personal deployment and its migration.
 - Configure Tencent parsing limits, splitting and private COS staging: [Tencent parser setup](../../server/docs/tencent-document-parser.md).
-- Open the administrator Web in development with `make web-dev`. Users connect the service origin in App → Account; see [account setup](../../server/docs/accounts.md).
+- Open the administrator Web in development with `make web-dev`. The App uses its existing native connection without displaying its address; see [account setup](cloud-service.md).

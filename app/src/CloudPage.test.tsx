@@ -49,14 +49,16 @@ function fixture(options: { origin?: string | null; loggedIn?: boolean; registra
     }
     return { value, generation } as never;
   });
-  return { calls, native };
+  return { calls, native, setOrigin: (value: string) => { origin = value; } };
 }
 beforeEach(() => { globalThis.ResizeObserver = class { observe() {} unobserve() {} disconnect() {} }; HTMLElement.prototype.scrollIntoView = vi.fn(); localStorage.clear(); history.replaceState(null, "", "/"); });
 afterEach(() => { cleanup(); setNativeBridge(null); setAccount(null); vi.clearAllMocks(); });
 
-it("only reads native connection metadata before a service is explicitly configured", async () => {
+it("keeps unavailable account service recoverable without asking for a backend address", async () => {
   const { calls } = fixture({ origin: null }); render(<CloudPage />);
-  await waitFor(() => expect(screen.getByLabelText("云端服务地址").hasAttribute("disabled")).toBe(false));
+  await screen.findByText("账户服务暂不可用，请稍后重试。离线练习仍可使用。");
+  expect(screen.queryByLabelText("云端服务地址")).toBeNull();
+  expect(screen.queryByText("云端连接设置")).toBeNull();
   expect(calls).toEqual([{ type: "status" }]);
   expect(screen.queryByLabelText("登录邮箱")).toBeNull();
 });
@@ -118,27 +120,27 @@ it("logs out explicitly while keeping offline access and the selected cloud orig
   await events.click(await screen.findByRole("button", { name: "退出登录" }));
   await screen.findByRole("heading", { name: "登录 PractiQ" });
   expect(calls.filter(c => c.path === "/api/auth/logout")).toHaveLength(1);
-  expect((screen.getByLabelText("云端服务地址") as HTMLInputElement).value).toBe("http://127.0.0.1:8090");
-  expect(screen.getByText(/离线练习和题库导入无需登录/)).toBeTruthy();
+  expect(screen.queryByLabelText("云端服务地址")).toBeNull();
+  expect(screen.queryByText("http://127.0.0.1:8090")).toBeNull();
+  expect(calls.some(c => c.type === "configure")).toBe(false);
 });
 
-it("connects a service only on explicit native configuration and then reads its login policy", async () => {
-  const { calls } = fixture({origin:null}); render(<CloudPage />); const events=userEvent.setup();
-  const input = await screen.findByLabelText("云端服务地址");
-  await waitFor(()=>expect(input.hasAttribute("disabled")).toBe(false));
-  await events.type(input,"http://127.0.0.1:8100");
-  expect(calls).toEqual([{type:"status"}]);
-  await events.click(screen.getByRole("button",{name:"连接云端服务"}));
-  await screen.findByRole("heading",{name:"登录 PractiQ"});
-  expect(calls.filter(c=>c.type==="configure")).toEqual([{type:"configure",origin:"http://127.0.0.1:8100"}]);
-  expect(calls.some(c=>c.method==="POST")).toBe(false);
+it("retries only connection and session reads, without configuring a service or starting paid work", async () => {
+  const { calls, setOrigin } = fixture({ origin: null }); render(<CloudPage />); const events = userEvent.setup();
+  await screen.findByText("账户服务暂不可用，请稍后重试。离线练习仍可使用。");
+  setOrigin("http://127.0.0.1:8090");
+  await events.click(screen.getByRole("button", { name: "重试" }));
+  await screen.findByRole("heading", { name: "登录 PractiQ" });
+  expect(calls.filter(c => c.type === "status")).toHaveLength(2);
+  expect(calls.every(c => c.type === "status" || c.type === "fetch" && c.method === "GET")).toBe(true);
+  expect(screen.queryByLabelText("云端服务地址")).toBeNull();
 });
-it("forgets only this device's account session without implying server revocation",async()=>{
-  const {calls}=fixture({loggedIn:true});render(<CloudPage />);const events=userEvent.setup();
-  await screen.findByRole("button",{name:"退出登录"});
-  await events.click(screen.getByText("云端连接设置"));
-  await events.click(screen.getByRole("button",{name:"清除本机登录状态"}));
-  await screen.findByRole("heading",{name:"登录 PractiQ"});
-  expect(calls.filter(c=>c.type==="forget_session")).toHaveLength(1);
-  expect(calls.some(c=>c.path==="/api/auth/logout"||c.type==="configure")).toBe(false);
+
+it("opens the existing account directly without exposing connection settings or its origin", async () => {
+  const { calls } = fixture({ loggedIn: true }); render(<CloudPage initialPage="account" />);
+  await screen.findByRole("region", { name: "个人信息" });
+  expect(screen.queryByText("云端连接设置")).toBeNull();
+  expect(screen.queryByLabelText("云端服务地址")).toBeNull();
+  expect(screen.queryByText("http://127.0.0.1:8090")).toBeNull();
+  expect(calls.some(c => c.type === "configure" || c.type === "forget_session")).toBe(false);
 });

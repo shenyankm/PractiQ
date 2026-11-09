@@ -22,10 +22,10 @@ export default function AccountPortal({ embedded = false, initialPage = "workspa
   function changeMode(value: string) { setMode(value); setPassword(""); setToken(""); auth.setError(""); }
   return <>
     {!embedded && user && <a className="skip-link" href="#main-content" onClick={event => { event.preventDefault(); setFocusMain(true); const main = document.getElementById("main-content"); main?.focus(); main?.scrollIntoView(); }}>{t("跳到主要内容")}</a>}
-    <header className="account-header">
+    {(!embedded || user) && <header className="account-header">
       {!embedded && <a href="#"><img src={logo} alt="" />PractiQ</a>}
       {user && <><span>{user.name || user.email}</span><Button variant="outline" onClick={() => { if (document.dispatchEvent(new Event("practiq-cloud-before-leave", {cancelable:true}))) void auth.logout(); }}>{t("退出登录")}</Button></>}
-    </header>
+    </header>}
     {auth.error && <p role="alert">{auth.error}</p>}
     {auth.loading ? <p role="status">{t("正在读取登录状态…")}</p> : !user ? <section className="account-card">
       <h1>{mode === "reset" ? t("重置密码") : mode === "register" ? t("注册 PractiQ") : t("登录 PractiQ")}</h1>

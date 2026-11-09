@@ -1,10 +1,10 @@
 import { test as runner, expect } from 'playwright/test';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { withEvidence } from '../../shared/browser-evidence.mjs';
+import { withBrowserFixtures } from './browser-fixtures.mjs';
 import { chooseOption } from '../../shared/select-test.mjs';
 
-const test = withEvidence(runner);
+const test = withBrowserFixtures(runner);
 // Baseline capture runs before the presentation changes; normal runs assert the new behavior.
 const phase = process.env.PRACTIQ_TASTE_PHASE === 'before' ? 'before' : 'after';
 const evidenceRoot = process.env.PRACTIQ_TASTE_EVIDENCE_DIR;

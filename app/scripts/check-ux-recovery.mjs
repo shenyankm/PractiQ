@@ -1,13 +1,13 @@
 import { chooseOption } from "../../shared/select-test.mjs";
 import { test as runner, expect } from 'playwright/test';
-import { withEvidence } from '../../shared/browser-evidence.mjs';
-const test = withEvidence(runner);
+import { withBrowserFixtures } from './browser-fixtures.mjs';
+const test = withBrowserFixtures(runner);
 
 async function inject(page, source) {
-  await page.route('**/src/transport.ts*', async route => {
+  await page.route('**/scripts/fixtures/transport.ts*', async route => {
     const response = await route.fetch();
     const body = await response.text();
-    const target = 'const scenario = previewMode();';
+    const target = 'const scenario = fixtureScenario();';
     expect(body).toContain(target);
     await route.fulfill({ response, body: body.replace(target, `${source}\n${target}`) });
   });
@@ -169,7 +169,7 @@ for (const width of [1280, 360]) {
       // preview's grading fixture deliberately has missing evidence.
       if (command === 'request' && args?.request?.type === 'session' && args.request.id === 'preview-grading') {
         if (globalThis.auditFailReturn) { globalThis.auditFailReturn = false; throw { code: 'OPERATION_FAILED', diagnostic: 'Session read unavailable (synthetic)' }; }
-        const { demoInvoke } = await import('/src/preview-data.ts');
+        const { demoInvoke } = await import('/scripts/fixtures/preview-data.ts');
         const session = await demoInvoke(command, args, 'normal');
         session.attempts[0].snapshot.question.answerPayload = { text: 'Checked reference' };
         return session;
@@ -440,7 +440,7 @@ for (const [width, locale] of [[1280, 'zh-CN'], [390, 'zh-CN'], [360, 'en']]) {
     await page.setViewportSize({ width, height: 850 });
     await page.addInitScript(language => {
       Object.defineProperty(navigator, 'languages', { get: () => [language] });
-      if (!sessionStorage.getItem('practiq-preview')) sessionStorage.setItem('practiq-preview', 'empty');
+      if (!sessionStorage.getItem('practiq-test-scenario')) sessionStorage.setItem('practiq-test-scenario', 'empty');
     }, locale);
     await inject(page, `
       if (command === 'request' && args?.request?.type === 'banks_page') {
@@ -450,7 +450,6 @@ for (const [width, locale] of [[1280, 'zh-CN'], [390, 'zh-CN'], [360, 'en']]) {
       }
     `);
     await page.goto('/');
-    await page.addStyleTag({ content: '.preview-controls { display: none; }' });
     const refresh = page.locator('header').getByRole('button', { name: label, exact: true });
     await expect(refresh).toBeEnabled();
     await expect(page.getByRole('button', { name: label, exact: true })).toHaveCount(1);
@@ -470,9 +469,8 @@ for (const [width, locale] of [[1280, 'zh-CN'], [390, 'zh-CN'], [360, 'en']]) {
     await refresh.click();
     await expect(empty).toBeVisible();
     await expect(page.getByRole('alert')).toHaveCount(0);
-    await page.evaluate(() => sessionStorage.setItem('practiq-preview', 'many'));
+    await page.evaluate(() => sessionStorage.setItem('practiq-test-scenario', 'many'));
     await page.reload();
-    await page.addStyleTag({ content: ".preview-controls { display: none; }" });
     const next = page.getByRole('button', { name: english ? 'Next page' : '下一页', exact: true });
     await expect(next).toBeEnabled(); await next.click();
     await expect(refresh).toBeEnabled();

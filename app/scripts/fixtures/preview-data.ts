@@ -1,15 +1,15 @@
-import sample from "../fixtures/sample.json";
+import sample from "../../fixtures/sample.json";
 import { previewCloud } from "./cloud-preview";
-import english from "../fixtures/english.json";
-import composite from "../fixtures/composite.json";
-import type { Answer, Bank, Question, QuestionRow, Request, Session, SettingsResult, Preview, QuestionNote, LearningCounts, LearningOverview } from "./api";
-import type { Request as AiRequest } from "./ai-api";
-import type { PreviewScenario } from "./preview-mode";
-import { COMPOSITE_MODES } from "./contracts.generated";
+import english from "../../fixtures/english.json";
+import composite from "../../fixtures/composite.json";
+import type { Answer, Bank, Question, QuestionRow, Request, Session, SettingsResult, Preview, QuestionNote, LearningCounts, LearningOverview } from "../../src/api";
+import type { Request as AiRequest } from "../../src/ai-api";
+import type { PreviewScenario } from "./scenario";
+import { COMPOSITE_MODES } from "../../src/contracts.generated";
 
 const now = Date.now();
-const imageUrl = new URL("../fixtures/resources/practiq-agent/artifacts/194d631965b1f86c4cf32eac39eee06a6a0523a127204b3995999240546deeaa/fixture/0-194d631965b1f86c4cf32eac39eee06a6a0523a127204b3995999240546deeaa.png", import.meta.url).href;
-const audioUrl = new URL("../fixtures/resources/audio/chimes.wav", import.meta.url).href;
+const imageUrl = new URL("../../fixtures/resources/practiq-agent/artifacts/194d631965b1f86c4cf32eac39eee06a6a0523a127204b3995999240546deeaa/fixture/0-194d631965b1f86c4cf32eac39eee06a6a0523a127204b3995999240546deeaa.png", import.meta.url).href;
+const audioUrl = new URL("../../fixtures/resources/audio/chimes.wav", import.meta.url).href;
 const banks: Bank[] = ["基础知识 · 全题型", "英语专项 · 听力与写作", "阅读与组合题", "新建空题库"].map((title,i)=>({id:`preview-bank-${i}`,title,description:i===3 ? "用于预览空题库与新增题目。":"开发预览样例，可编辑、收藏和练习；重置后恢复。",count:0,createdAt:now-i*86400000}));
 let rows: QuestionRow[] = [sample,english,composite].flatMap((fixture,bankIndex)=> {
   const questions=fixture.questions as Question[];

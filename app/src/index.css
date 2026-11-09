@@ -133,13 +133,6 @@ html[lang="en"] [data-button]:not([data-size^="icon"]) {
 @media (max-width: 767px) {
   .app-header { min-height: 4.5rem; padding: 1rem; }
   .app-content { padding: var(--space-page); }
-  html:not([data-uiux-evidence]) #root:has(.preview-controls) .app-shell { height: calc(100dvh - 6rem); }
-  .preview-controls {
-    z-index: 40;
-    max-width: calc(100vw - 1.5rem);
-    max-height: 50dvh;
-    overflow-y: auto;
-  }
   html [data-slot="dialog-content"],
   html [data-slot="alert-dialog-content"] {
     max-height: calc(100dvh - var(--app-safe-top) - var(--app-safe-bottom) - 1rem);
