@@ -60,6 +60,18 @@ addressing CVE-2026-112940, CVE-2026-112913, CVE-2026-112907 and
 CVE-2026-115883. Keep the existing failing audit thresholds; downstream CI gates
 were failing because these audits failed, not because the gates needed relaxing.
 
+## November 2026 SQLite audit remediation
+
+The App uses `rusqlite` 0.41.1 with bundled `libsqlite3-sys` 0.39.1
+(SQLite 3.54.1), addressing
+[RUSTSEC-2026-0459](https://rustsec.org/advisories/RUSTSEC-2026-0459).
+Keep the existing statement cache, bundled engine, backup and checked unsigned
+integer conversions (`fallible_uint`); disable
+the new default WebAssembly backend because the App supports macOS only.
+The [upstream build notes](https://github.com/rusqlite/rusqlite/blob/v0.41.1/README.md#notes-on-building-rusqlite-and-libsqlite3-sys)
+describe the bundled engine. This update changes no practice schema or backup
+format. Retain the complete audit and both macOS target-graph checks.
+
 ## Repository and deployment safeguards
 
 [Dependabot configuration](../../.github/dependabot.yml) schedules weekly GitHub

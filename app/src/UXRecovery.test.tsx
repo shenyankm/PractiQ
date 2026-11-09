@@ -150,7 +150,6 @@ it("keeps the import preview retryable when the write itself fails", async () =>
   vi.mocked(api).mockImplementation(async request => { if (request.type === "import") throw new Error("Write failed"); return original(request); });
   const user = userEvent.setup(); render(<App />);
   await user.click(await screen.findByRole("button", { name: "导入" }));
-  await user.click(await screen.findByRole("menuitem", { name: "导入题库 ZIP" }));
   await user.click(await screen.findByRole("button", { name: "确认导入" }));
   expect(await screen.findByRole("alert")).toBeTruthy();
   expect(screen.getByRole("dialog", { name: "导入题库" })).toBeTruthy();

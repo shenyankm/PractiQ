@@ -800,5 +800,8 @@
   "额度已被其他操作更新，请重新选择用户以读取最新额度，再决定是否调整。": "The allowance changed in another operation. Select the user again to read the latest allowance before deciding whether to adjust it.",
   "修改免费总额度需要填写调整原因。": "Changing the total free allowance requires a reason.",
   "该凭证已失效或不属于所选用户，请重新读取凭证列表。": "This credential is no longer available or does not belong to the selected user. Read the credential list again.",
-  "未找到该用户，请重新搜索并选择用户。": "User not found. Search and select the user again."
+  "未找到该用户，请重新搜索并选择用户。": "User not found. Search and select the user again.",
+  "更改云端服务地址": "Change cloud service address",
+  "清除本机登录状态": "Forget local login",
+  "导入结果": "Import results"
 }

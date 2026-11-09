@@ -2,14 +2,15 @@ import { beforeEach, expect, it, vi } from "vitest";
 import { canInteract, type Bank, type PaperPreview, type Question, type QuestionPage as SummaryPage, type QuestionRow, type Request, type Session, type SessionPage, type SettingsResult } from "./api";
 import composite from "../fixtures/composite.json";
 import sample from "../fixtures/sample.json";
-import type { PreviewScenario } from "./preview-mode";
+import type { PreviewScenario } from "../scripts/fixtures/scenario";
 const mode=vi.hoisted(()=>({value:"normal" as PreviewScenario}));
-vi.mock("./preview-mode",()=>({previewMode:()=>mode.value}));
+vi.mock("../scripts/fixtures/scenario",()=>({fixtureScenario:()=>mode.value}));
+vi.mock("./transport",()=>import("../scripts/fixtures/transport"));
 vi.mock("@tauri-apps/api/core",()=>({invoke:vi.fn(()=>{throw new Error("Native IPC must not run");})}));
 beforeEach(()=>{vi.resetModules();mode.value="normal";});
 type QuestionPage = Omit<SummaryPage,"items"> & {items:QuestionRow[]};
 async function call<T>(request:Record<string,unknown>, command="request") {
- const {invoke}=await import("./transport");
+ const {invoke}=await import("../scripts/fixtures/transport");
  const result=await invoke<T>(command,{request});
  if(command==="request" && request.type==="questions_page") {
   const page=result as SummaryPage;
@@ -201,7 +202,7 @@ it("inherits ancestor contexts in child-first order with isolated copies and roo
  root.missingAssets=true;root.sources=[{fileName:"outer.pdf"}];root.warnings=["Outer warning"];root.favorite=true;root.reviewedAt=1;
  leaf.sources=[{fileName:"leaf.pdf"}];leaf.warnings=["Own warning"];leaf.reviewedAt=2;
  const source=structuredClone(items);
- const {hydrateQuestion}=await import("./preview-data");
+ const {hydrateQuestion}=await import("../scripts/fixtures/preview-data");
  const result=hydrateQuestion(leaf,items);
  expect(result.groups.map(g=>[g.id,g.title])).toEqual([["shared","Child wins"],["near","Near"],["outer","Outer"]]);
  expect(result.visuals.map(v=>[v.id,v.description])).toEqual([["child","Child"],["same","Near wins"],["near","Near"],["outer","Outer"]]);
@@ -213,7 +214,7 @@ it("inherits ancestor contexts in child-first order with isolated copies and roo
 
 it.each(["material","media","options"] as const)("propagates the ancestor %s quality gap without changing own flags",async(field)=>{
  const items=materialRows(),leaf=items[2];items[1].question.missingFields=[field];
- const {hydrateQuestion}=await import("./preview-data");
+ const {hydrateQuestion}=await import("../scripts/fixtures/preview-data");
  expect(hydrateQuestion(leaf,items)).toMatchObject({missingAssets:true,question:{missingFields:leaf.question.missingFields,needsReview:leaf.question.needsReview}});
  items[1].question.missingFields=["answerPayload"];
  expect(hydrateQuestion(leaf,items).missingAssets).toBe(false);
@@ -221,7 +222,7 @@ it.each(["material","media","options"] as const)("propagates the ancestor %s qua
 
 it("handles missing parents and cyclic material references with native root projections",async()=>{
  const items=materialRows(),[root,parent,leaf]=items;
- const {hydrateQuestion}=await import("./preview-data");
+ const {hydrateQuestion}=await import("../scripts/fixtures/preview-data");
  root.question.parentId="absent";
  expect(hydrateQuestion(leaf,items)).toMatchObject({missingAssets:true,rootId:root.id,rootType:"reading"});
  root.question.parentId=parent.question.id;
@@ -373,7 +374,7 @@ it("paginates large data and exposes failure and loading scenarios without nativ
  expect(a.total).toBeGreaterThan(20);expect(b.items.length).toBeGreaterThan(0);
  expect(b.items.some(b=>a.items.some(a=>a.id===b.id))).toBe(false);
  mode.value="error";await expect(call({type:"backup"})).rejects.toThrow("演示请求失败");
- mode.value="missing";const {invoke}=await import("./transport");await expect(invoke("read_asset",{hash:"anything"})).rejects.toThrow("资源缺失");
+ mode.value="missing";const {invoke}=await import("../scripts/fixtures/transport");await expect(invoke("read_asset",{hash:"anything"})).rejects.toThrow("资源缺失");
  mode.value="slow";vi.useFakeTimers();try {const result=call({type:"banks"});await vi.advanceTimersByTimeAsync(1500);expect(await result).toBeTruthy();} finally {vi.useRealTimers();}
 });
 
@@ -387,7 +388,7 @@ it("compares the selected preview bank and appends imports to that bank",async()
 });
 
 it("previews cloud accounts without native IPC, stored credentials or paid work", async () => {
- const {invoke}=await import("./transport");
+ const {invoke}=await import("../scripts/fixtures/transport");
  const status=await invoke<{value:{origin:string;generation:number}}>("cloud_request",{request:{type:"status"}});
  const context={...status.value};
  async function cloud(path:string,method="GET",body?:unknown) {
@@ -413,7 +414,7 @@ it("previews cloud accounts without native IPC, stored credentials or paid work"
 
 it("configures an isolated preview origin explicitly and rejects stale origin contexts",async()=>{
  mode.value="unconfigured";
- const {invoke}=await import("./transport");
+ const {invoke}=await import("../scripts/fixtures/transport");
  expect(await invoke("cloud_request",{request:{type:"status"}})).toMatchObject({value:{origin:null}});
  const connected=await invoke<{value:{origin:string;generation:number}}>("cloud_request",{request:{type:"configure",origin:"https://demo.example.test"}});
  expect(connected.value.origin).toBe("https://demo.example.test");

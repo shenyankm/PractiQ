@@ -12,7 +12,7 @@ import { Input } from "./components/ui/input";
 import logo from "./assets/octopus.png";
 const Workspace = lazy(() => import("./App"));
 
-export default function AccountPortal({ embedded = false, initialPage = "workspace" }: { embedded?: boolean; initialPage?: "workspace" | "account" } = {}) {
+export default function AccountPortal({ embedded = false, initialPage = "workspace", onChangeService, onForgetSession }: { embedded?: boolean; initialPage?: "workspace" | "account"; onChangeService?: () => void; onForgetSession?: () => void } = {}) {
   useCloudLocale();
   const auth = useAccount();
   const [mode, setMode] = useState("login");
@@ -22,10 +22,10 @@ export default function AccountPortal({ embedded = false, initialPage = "workspa
   function changeMode(value: string) { setMode(value); setPassword(""); setToken(""); auth.setError(""); }
   return <>
     {!embedded && user && <a className="skip-link" href="#main-content" onClick={event => { event.preventDefault(); setFocusMain(true); const main = document.getElementById("main-content"); main?.focus(); main?.scrollIntoView(); }}>{t("跳到主要内容")}</a>}
-    <header className="account-header">
+    {(!embedded || user) && <header className="account-header">
       {!embedded && <a href="#"><img src={logo} alt="" />PractiQ</a>}
       {user && <><span>{user.name || user.email}</span><Button variant="outline" onClick={() => { if (document.dispatchEvent(new Event("practiq-cloud-before-leave", {cancelable:true}))) void auth.logout(); }}>{t("退出登录")}</Button></>}
-    </header>
+    </header>}
     {auth.error && <p role="alert">{auth.error}</p>}
     {auth.loading ? <p role="status">{t("正在读取登录状态…")}</p> : !user ? <section className="account-card">
       <h1>{mode === "reset" ? t("重置密码") : mode === "register" ? t("注册 PractiQ") : t("登录 PractiQ")}</h1>
@@ -42,6 +42,10 @@ export default function AccountPortal({ embedded = false, initialPage = "workspa
       {auth.account?.registrationEnabled && <Button variant="ghost" onClick={() => changeMode("register")}>{t("注册账户")}</Button>}
       <Button variant="ghost" onClick={() => changeMode("reset")}>{t("重置密码")}</Button>
       <Button variant="outline" onClick={auth.reload}>{t("重新读取登录状态")}</Button>
+      {(onChangeService || onForgetSession) && <div className="mt-2 flex flex-wrap justify-center gap-1 border-t border-border pt-3">
+        {onChangeService && <Button variant="link" onClick={onChangeService}>{t("更改云端服务地址")}</Button>}
+        {onForgetSession && <Button variant="link" onClick={() => void onForgetSession()}>{t("清除本机登录状态")}</Button>}
+      </div>}
     </section> : <CustomerArea key={user.id} user={user} initialPage={initialPage} focusMain={focusMain} onNameSaved={name => auth.updateName(user.id, name)} />}
   </>;
 }
@@ -52,7 +56,7 @@ function CustomerArea({ user, initialPage, focusMain, onNameSaved }: { user: Acc
   const [page, setPage] = useState<string>(initialPage);
   const [task, setTask] = useState<{id: string}>();
   return <>
-      <nav className="account-navigation" aria-label={t("个人导航")}>{[["workspace", t("导入工作区")], ["banks", t("我的题库")], ["usage", t("用量")], ["plans", t("套餐与额度")], ["payments", t("订单与付款")], ["account", t("账户与安全")]].map(([id, label]) => <Button key={id} variant={page === id ? "secondary" : "ghost"} onClick={() => setPage(id)}>{label}</Button>)}</nav>
+      <nav className="account-navigation" aria-label={t("个人导航")}>{[["workspace", t("导入工作区")], ["banks", t("导入结果")], ["usage", t("用量")], ["plans", t("套餐与额度")], ["payments", t("订单与付款")], ["account", t("账户与安全")]].map(([id, label]) => <Button key={id} variant={page === id ? "secondary" : "ghost"} onClick={() => setPage(id)}>{label}</Button>)}</nav>
       <div key={user.id}>
         <div hidden={page !== "workspace"}><Suspense fallback={<p>{t("正在载入工作区…")}</p>}><Workspace requestedTask={task} hideSkipLink focusMain={focusMain} /></Suspense></div>
         {page !== "workspace" && <Content className="account-content">{page === "banks" ? <Banks open={id => { setTask({ id }); location.hash = "records"; setPage("workspace"); }} /> : page === "usage" ? <Usage /> : (page === "plans" || page === "payments") ? <Payments key={page} view={page === "plans" ? "plans" : "orders"} onNavigate={setPage} /> : <AccountSettings user={user} onNameSaved={onNameSaved} />}</Content>}

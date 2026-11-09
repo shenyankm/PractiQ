@@ -1,3 +1,4 @@
+import { installBrowserFixtures } from "./browser-fixtures.mjs";
 import { chooseOption } from "../../shared/select-test.mjs";
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -51,6 +52,7 @@ async function capture(page, name) {
 
 try {
   const app = await browser.newPage({ viewport: { width: 1440, height: 1000 }, locale: "zh-CN", reducedMotion: "reduce" });
+  await installBrowserFixtures(app);
   app.on("pageerror", error => report.errors.push(error.message));
   await app.addInitScript(() => {
     localStorage.setItem("practiq-theme", "light");

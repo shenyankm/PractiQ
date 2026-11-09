@@ -15,6 +15,18 @@ it.each([['en', 'Sign in to PractiQ', 'Login email'], ['zh-TW', '登入 PractiQ'
   await screen.findByRole('heading',{name:heading});
   expect(screen.getByLabelText(label)).toBeTruthy();
 });
+it('localizes the personal area navigation in English', async () => {
+  setCloudLocale('en');
+  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+    if (String(input).includes('/api/auth/session')) return Response.json({ user: { id: 'u1', email: 'ada@example.test', name: 'Ada', role: 'user', enabled: true }, csrf: 'token', registrationEnabled: true });
+    return Response.json({});
+  }));
+  render(<Portal embedded />);
+  expect(await screen.findByRole('button', { name: 'Import results' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Import workspace' })).toBeTruthy();
+  expect(screen.queryByRole('button', { name: '我的题库' })).toBeNull();
+});
+
 it('keeps every cloud message and placeholder translated without touching source content', () => {
   for (const [key, value] of Object.entries(en)) {
     expect(value, key).toBeTruthy(); expect(zhTW[key as keyof typeof zhTW], key).toBeTruthy();

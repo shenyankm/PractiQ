@@ -402,7 +402,7 @@ export default function App({ requestedTask, hideSkipLink = false, focusMain = f
     {!hideSkipLink && <a className="skip-link" href="#main-content">{t("跳到主要内容")}</a>}
     <aside className="web-sidebar" aria-label={t("导入管理侧边栏")}>
       <a href="#import" className="brand" onClick={() => navigate("import")}><img src={logo} alt={t("PractiQ 小章鱼")} /><strong>PractiQ</strong></a>
-      <nav aria-label={t("工作区导航")}>{pages.map(({ id, label, icon: Icon }) => <a key={id} href={`#${id}`} aria-current={page === id ? "page" : undefined} onClick={() => navigate(id)}><Icon aria-hidden="true" />{label}</a>)}</nav>
+      <nav aria-label={t("工作区导航")}>{pages.map(({ id, label, icon: Icon }) => <a key={id} href={`#${id}`} aria-current={page === id ? "page" : undefined} onClick={() => navigate(id)}><Icon aria-hidden="true" />{t(label)}</a>)}</nav>
       <div className="sidebar-connection"><Server aria-hidden="true" /><strong>{client ? t("服务已连接") : t("尚未连接服务")}</strong></div>
     </aside>
     <div className="web-body"><Main id="main-content" tabIndex={-1} className="web-main" data-page={page} aria-label={pages.find(item => item.id === page)!.label}>

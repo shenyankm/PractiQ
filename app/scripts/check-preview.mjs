@@ -1,9 +1,9 @@
-import { withEvidence } from "../../shared/browser-evidence.mjs";
+import { withBrowserFixtures } from "./browser-fixtures.mjs";
 import { chooseOption } from "../../shared/select-test.mjs";
 import { test as runner, expect } from 'playwright/test';
 import { writeFile } from 'node:fs/promises';
 
-const base = withEvidence(runner);
+const base = withBrowserFixtures(runner);
 
 async function chooseType(page, dialog, label) {
   await dialog.getByRole('button', { name: '题型', exact: true }).click();
@@ -212,11 +212,11 @@ test('development preview pages stay offline',async ({page},testInfo)=>{
  await expect(page.getByText('下面哪一个是质数？',{exact:true}).first()).toBeVisible();
  await expect(page.locator('aside').getByRole('button',{name:'导入题库',exact:true})).toHaveCount(0);
  await page.getByRole('button',{name:'我的题库',exact:true}).click();
- await page.getByRole('button',{name:'导入',exact:true}).click();
  await expect(page.getByRole('dialog',{name:'导入题库',exact:true})).toHaveCount(0);
- await expect(page.getByRole('menuitem',{name:'导入题库 ZIP',exact:true})).toBeVisible();
- await expect(page.getByRole('menuitem',{name:'恢复学习数据备份',exact:true})).toBeVisible();
- await page.keyboard.press('Escape');
+ await page.getByRole('button',{name:'导入',exact:true}).click();
+ await expect(page.getByRole('dialog',{name:'导入题库',exact:true})).toBeVisible();
+ await page.getByRole('button',{name:'取消',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'我的题库',exact:true})).toBeVisible();
  await page.getByRole('button',{name:'我的题库',exact:true}).click();
  const bank=page.locator('[data-slot=card]').filter({has:page.getByText('基础知识 · 全题型',{exact:true})});
  await bank.getByRole('button',{name:'查看题目',exact:true}).click();
@@ -688,18 +688,16 @@ test('preview inline material hides ancestor answer passage before submission',a
 
 for(const scenario of ['empty','many','unconfigured','missing','slow','error']) {
  test(`preview scenario ${scenario} stays offline`,async ({page})=>{
-  await page.addInitScript(value=>sessionStorage.setItem('practiq-preview',value),scenario);
+  await page.addInitScript(value=>sessionStorage.setItem('practiq-test-scenario',value),scenario);
   await page.goto('/');
   await expect(page.getByRole('heading',{name:'我的题库',exact:true})).toBeVisible();
   if(scenario==='empty') {
    await expect(page.getByText('从第一个题库开始',{exact:true})).toBeVisible();
    await page.getByRole('button',{name:'导入题库 ZIP',exact:true}).click();
-   await expect(page.getByRole('menuitem',{name:'恢复学习数据备份',exact:true})).toBeVisible();
-   await page.getByRole('menuitem',{name:'导入题库 ZIP',exact:true}).click();
    await expect(page.getByRole('dialog',{name:'导入题库',exact:true})).toBeVisible();
    await expect(page.getByRole('combobox',{name:'导入到',exact:true})).toHaveAttribute('data-value', 'new');
    await page.getByRole('button',{name:'取消',exact:true}).click();
-   await expect(page.getByRole('heading',{name:'设置',exact:true})).toBeVisible();
+   await expect(page.getByRole('heading',{name:'我的题库',exact:true})).toBeVisible();
   }
   else if(scenario==='error') await expect(page.getByRole('alert').filter({hasText:'演示请求失败'}).first()).toBeVisible();
   else await expect(page.getByText('基础知识 · 全题型',{exact:true}).first()).toBeVisible();
@@ -731,7 +729,7 @@ for(const scenario of ['empty','many','unconfigured','missing','slow','error']) 
 base('study setup retries failed statistics and manual pages without resetting settings',async ({page})=>{
  const errors=[];page.on('pageerror',error=>errors.push(error.message));
  await page.addInitScript(()=>{
-  sessionStorage.setItem('practiq-preview','local');
+  sessionStorage.setItem('practiq-test-scenario','local');
   window.isTauri=false;
   const questions=Array.from({length:31},(_,i)=>({id:`q${i}`,bankId:'one',bankTitle:'Retry bank',question:{id:`q${i}`,parentId:null,stem:`Retry question ${i}`,answerMode:'short_answer',questionTypeId:'简答题',options:[],items:[],answerPayload:{text:'Reference'},analysis:null,sourceText:null,contentBlocks:[],needsReview:false,missingFields:[],confidence:1},groups:[],visuals:[],sources:[],warnings:[],missingAssets:false,favorite:false,latestResult:null}));
   const bank={id:'one',title:'Retry bank',description:'',count:31,createdAt:1};
@@ -826,7 +824,7 @@ for (const colorScheme of ['light','dark']) for (const width of [1280,390]) {
   await page.emulateMedia({colorScheme});
   await page.setViewportSize({width,height:844});
   await page.addInitScript(()=>{
-   sessionStorage.setItem('practiq-preview','local');
+   sessionStorage.setItem('practiq-test-scenario','local');
    window.isTauri=false;
    const question={id:'q',parentId:null,passage:[],allowReuse:false,stem:'Answer-card status matrix',answerMode:'short_answer',questionTypeId:'简答题',choiceVariant:null,matchingVariant:null,options:[],items:[],answerPayload:{text:'Reference'},analysis:null,sourceText:null,contentBlocks:[],needsReview:false,missingFields:[],confidence:1};
    const snapshot={question,groups:[],visuals:[],sources:[],warnings:[],missingAssets:false};
@@ -965,7 +963,7 @@ for (const width of [960,1280]) {
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
   await page.setViewportSize({width,height:640});
   await page.addInitScript(()=>{
-   sessionStorage.setItem('practiq-preview','local');
+   sessionStorage.setItem('practiq-test-scenario','local');
    window.isTauri=false;
    const questions=Array.from({length:1000},(_,i)=>({id:`q${i}`,bankId:'one',bankTitle:'Large bank',question:{id:`q${i}`,parentId:null,stem:`Question ${i+1}`,answerMode:'short_answer',questionTypeId:'简答题',options:[],items:[],answerPayload:{text:'Reference'},analysis:null,sourceText:null,contentBlocks:[],needsReview:false,missingFields:[],confidence:1},groups:[],visuals:[],sources:[],warnings:[],missingAssets:false,favorite:false,latestResult:null}));
    const bank={id:'one',title:'Large bank',description:'',count:1000,createdAt:1};
@@ -1151,7 +1149,7 @@ for (const width of [960, 1280]) for (const colorScheme of ['light', 'dark']) {
   await expect(entry).toHaveAttribute('aria-description','未登录');
   await entry.click();
   await expect(page.getByRole('heading',{name:'个人中心',exact:true})).toBeVisible();
-  await expect(page.getByText(/开发预览：仅演示账户与资料/)).toBeVisible();
+  await expect(page.getByText(/开发预览：仅演示账户与资料/)).toHaveCount(0);
   await page.getByLabel('登录邮箱',{exact:true}).fill('preview-account@example.test');
   await page.getByLabel('密码',{exact:true}).fill('preview-only-password');
   await page.getByRole('button',{name:'登录',exact:true}).click();
@@ -1179,19 +1177,17 @@ for (const width of [960, 1280]) for (const colorScheme of ['light', 'dark']) {
  });
 }
 
-test('account connection guidance and registration preview stay passive until explicit actions', async ({page}) => {
- await page.addInitScript(()=>sessionStorage.setItem('practiq-preview','unconfigured'));
+test('unconfigured accounts offer a connection entry and offline access', async ({page}) => {
+ await page.addInitScript(()=>sessionStorage.setItem('practiq-test-scenario','unconfigured'));
  await page.goto('/');
- const entry=page.locator('#app-sidebar').getByRole('button',{name:'个人中心',exact:true});
- await expect(entry).toHaveAttribute('aria-description','未连接云端');
- await entry.click();
- await expect(page.getByText('登录与注册',{exact:true})).toBeVisible();
- await page.getByLabel('云端服务地址',{exact:true}).fill('https://preview.practiq.invalid');
- await page.getByRole('button',{name:'连接云端服务',exact:true}).click();
- await expect(entry).toHaveAttribute('aria-description','未登录');
- await page.getByRole('button',{name:'注册账户',exact:true}).click();
- await page.getByLabel('登录邮箱',{exact:true}).fill('registered@example.test');
- await page.getByLabel('密码（至少 12 字符）',{exact:true}).fill('preview-only-password');
- await page.getByRole('button',{name:'注册并登录',exact:true}).click();
- await expect(page.getByRole('region',{name:'个人信息'}).getByText('registered@example.test',{exact:true})).toBeVisible();
+ const sidebar=page.locator('#app-sidebar');
+ await sidebar.getByRole('button',{name:'个人中心',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'连接云端服务',exact:true})).toBeVisible();
+ await expect(page.getByLabel('云端服务地址',{exact:true})).toBeVisible();
+ await expect(page.getByText('云端连接设置',{exact:true})).toHaveCount(0);
+ await page.getByLabel('云端服务地址',{exact:true}).fill('https://cloud.example.test');
+ await page.getByRole('button',{name:'重试',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'连接云端服务',exact:true})).toBeVisible();
+ await sidebar.getByRole('button',{name:'我的题库',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'我的题库',exact:true})).toBeVisible();
 });

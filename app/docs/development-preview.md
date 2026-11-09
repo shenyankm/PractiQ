@@ -1,41 +1,53 @@
-# Development preview
+# Desktop development and browser tests
 
-`make app-dev AI_PYTHON=/path/to/python3.14` starts with in-memory demo data. You can also run `npm run dev` in a browser without the independent AI service. Expand the “开发预览” panel at the lower right to switch scenarios or reset changes. Switching reloads the app and returns to the home page. “真实本地数据” uses native commands and requires the desktop app.
+`make app-dev AI_PYTHON=/path/to/python3.14` starts the real macOS client.
+Development and production use the same native Tauri commands, SQLite data,
+Keychain credentials and explicit cloud connection flow. There is no development
+preview panel, automatic demo-data mode or `design-preview` application mode.
+Old `practiq-preview` session-storage values have no effect.
 
-| Page or flow | Demo coverage |
-| --- | --- |
-| Question banks | Populated and empty banks, creation, editing, merging, deletion and pagination |
-| Question list, detail and editor | All 11 answer modes; single/multiple choice, matching variants, English question kinds, composite materials, formulas, tables, images, audio, review warnings and missing reference answers |
-| Wrong answers and favorites | Existing records, removing favorites, search/type/bank filters and empty results |
-| Practice setup and answers | Ordered, random, manual and quota selection; practice, self-tests and timed exams; drafts, skips, flags, submission and historical snapshots |
-| Practice history and grading | Active, finished and review states; objective results, ungraded answers, partial credit, simulated AI scores, manual overrides, failures, unknown results and missing grading evidence |
-| Settings and AI service connection | Configured/unconfigured service URL and access token, simulated saving and connection tests; backup, restore, ZIP import confirmation and feedback |
-| Account and personal information | Sidebar login state, connection guidance, login/registration/logout, editable demo name, profile information, free allowance, fixed catalog and disabled checkout |
-| Theme and language | Existing theme/language menus; source-language document content stays unchanged |
+Running `npm --prefix app run dev` starts only the frontend server. A standalone
+browser does not provide the native database, file dialogs or account bridge;
+use `make app-dev` for ordinary development.
 
-Global scenarios include normal, empty, many pages, a 1.5-second request delay, failed requests, an unconfigured AI service and missing resources. Empty data still allows bank creation; the unconfigured scenario accepts a simulated service connection.
+## Browser-only fixtures
 
-Native pages without search, state filters or statistics use SQL count and pagination, returning only the selected root IDs to Rust. They retain exact totals, bank creation/position/ID ordering and the existing last-page clamp. Search, state filters and statistics retain the full-root path. The [paired release benchmark](../../docs/evidence/2026-10-13-question-pagination/README.md) records the measured benefit and limits; SQLite still scans for exact counts and may sort rows, so this does not make total process memory constant.
+Playwright suites that need synthetic banks, practice history or accounts install
+`app/scripts/browser-fixtures.mjs` explicitly. It substitutes the transport module
+only in that test page. Its in-memory data and scenario selector live under
+`app/scripts/fixtures/`, outside the application source and build entry points.
+Tests select a scenario with their own `practiq-test-scenario` session-storage
+key. No application menu, URL flag or environment mode enables these fixtures.
+Native-interface browser suites supply their own IPC substitutes instead.
 
-Question pagination and statistics use `bank_ids`: an empty array selects all banks, `[id]` selects one bank, and multiple IDs select several banks. Type filters match root question kinds, single/multiple choice variants and the `grammar_fill` alias used by native commands. Composite results include all descendants and count only answerable nodes. Review filtering includes a root when it or any descendant has an imported `needsReview` flag without a separate `reviewedAt` confirmation. Confirming or undoing review updates the entire descendant tree and preserves imported quality flags, missing-field markers and warnings. Favorite changes apply to the selected subtree, while a favorite-filtered search must match content and favorite state on the same original node. Selected paper questions and their practice snapshots retain the full material ancestor chain in source order and inherit options from their shared option owner. Ancestor passage blocks whose roles contain answer, analysis, solution, explanation, rubric, transcript or their native Chinese equivalents are excluded from practice materials; source questions and each answerable question’s own answer fields remain intact. Snapshots include the root ID and type, inherit ancestor groups and visuals in child-first order with ID deduplication, and propagate missing parents, unavailable ancestor resources and material/media/options quality gaps. Hydration creates independent copies without inheriting ancestor warnings, sources, favorites or review confirmations. Global visuals apply only within their source bank, and document-only visuals stay out of question context. Merged bank copies receive fresh question and context IDs, with parent, option-owner and passage-blank references remapped within each source bank so repeated composite content stays isolated. Global visual references become explicit copied-question references during merging. Copies preserve favorites and imported quality flags, but start without local review confirmations or practice results and scores.
+These tests verify UI behavior with synthetic data. They do not verify native
+file dialogs, Keychain, SQLite persistence, real provider quality or payments.
+The App's explicit “Add example bank” action remains a real local import and is
+independent of these test fixtures.
 
-In development mode, `transport.ts` sends business calls to `preview-data.ts`. Unknown commands fail without native fallback. Only fixed repository image/audio fixtures are read through Vite. Changes stay in memory; tokens are not persisted, no models are called, and file selection, backup, ZIP import and restoration are simulated. Cloud accounts use an in-memory service simulation with a visible development-preview notice; never enter real passwords. The normal scenario starts connected to `https://preview.practiq.invalid` and signed out; the unconfigured scenario demonstrates explicit connection first. Source upload, parsing, cloud grading and payment execution remain unavailable in this preview. Production customer operations use the App native bridge to the independent service; Web is administrator-only.
+Run from the repository root:
 
-The preview validates UI behavior and interaction. It does not validate native storage, extraction quality, file authorization or model services. Scoring and question selection remain simplified demonstrations; native tests verify their full rules.
+```sh
+npm --prefix app run check:ui
+npm --prefix app run test:browser
+# Focused synthetic UI interaction suites:
+npm --prefix app run test:preview
+```
 
-The [shared UI conventions](../../docs/ui-design-system.md) document the deliberate
-Nova overrides, spacing and read-only states. Browser acceptance uses
-`shared/browser-evidence.mjs` to hide development controls, finish animations and
-record the rendered theme, language and viewport. The development panel keeps its
-own space during ordinary narrow-screen preview; acceptance captures use the full
-application viewport. See the [2026-10-21 fixes and gallery](../../docs/evidence/2026-10-21-uiux-fixes/README.md).
+For the standalone screenshot checker, start the ordinary Vite server on its
+expected loopback port, then run the checker in another terminal:
 
-For clean App screenshots without the floating preview panel, run `npm --prefix app run dev -- --mode design-preview --port 1426` from the repository root. It uses the same in-memory data and production [shared theme](../../docs/product/design.md); language follows the browser preference or the sidebar language menu.
+```sh
+npm --prefix app run dev -- --port 1426
+node app/scripts/check-design-preview.mjs
+```
 
-Run `node app/scripts/check-design-preview.mjs` against the App design-preview server to capture App pages and check responsive layout, control sizes, theme/language switching and offline behavior. The script covers App only; its screenshots and report are written to `app/.build/design-preview/`.
+The checker explicitly installs browser fixtures and writes screenshots/reports
+under `app/.build/design-preview/`; this historical script/output name does not
+represent an application mode. Screenshots use the same App components and theme.
+`shared/browser-evidence.mjs` finishes animations and records the rendered theme,
+language and viewport without hiding application controls.
 
-Practice keeps submission and question navigation in one persistent toolbar, with a separate navigation row on narrow screens. The question editor puts the stem, options and reference answer before optional type and instruction fields under “更多设置” (More settings); existing English and listening settings open automatically. Practice history separates the title/status, result, and time/progress while retaining unknown counts and expandable grading details. See the [before/after acceptance record](../../docs/evidence/2026-10-19-app-priority-1-3/README.md).
-
-For Web screenshot acceptance, run `npm --prefix web run test:browser -- --grep 'import flow screenshot acceptance'`. The tests use the personal service-token flow with authenticated synthetic HTTP fixtures, including verified ZIP download and checkpoint changes. Screenshots are written under `web/test-results/browser/`. The Web `design-preview` mode has been removed. See the [UI/UX acceptance record](../../docs/evidence/2026-10-14-uiux/README.md).
-
-Run `npx vitest run`, `npm run test:browser` or `npm run test:preview` from `app/`. `npm run build` checks the production build, which excludes preview code and demo resources.
+Administrator Web screenshots use `npm --prefix web run test:browser` with
+substituted HTTP responses. Web remains administrator-only; it does not provide
+a customer preview application.

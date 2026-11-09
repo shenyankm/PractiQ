@@ -28,6 +28,22 @@ function Study({ initial, onError = () => {} }: { initial: Session; onError?: (e
   return <Practice session={session} onSession={setSession} run={job => { void job().catch(onError); }} flushRef={{ current: async () => {} }} />;
 }
 
+it("shows a prominent countdown for a timed mock exam", () => {
+  const initial = practice();
+  initial.kind = "mock_exam";
+  initial.finishedAt = null;
+  initial.submittedAt = null;
+  initial.attempts[0].submittedAt = null;
+  initial.attempts[0].result = null;
+  initial.deadlineAt = Date.now() + 25 * 60 * 1000;
+  initial.clockNow = Date.now();
+  render(<Study initial={initial} />);
+  const timer = screen.getByRole("timer");
+  expect(timer.textContent).toMatch(/^2[45]:\d{2}$/);
+  expect(timer.getAttribute("aria-label")).toMatch(/^剩余 /);
+  expect(screen.getByText("计时不会因切到后台或关闭应用而暂停")).toBeTruthy();
+});
+
 it.each([
   { scoreCents: 500, maxCents: 1000, reason: "ok" },
   { scoreCents: 500, maxCents: 1000, reason: {}, evidence: {}, reviewReasons: [null, {}] },

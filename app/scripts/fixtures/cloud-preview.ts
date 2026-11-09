@@ -1,5 +1,5 @@
-import type { AccountPlan, AccountSession, AccountUser, AccountUsage, ImportCapabilities } from "./contracts.generated";
-import type { PreviewScenario } from "./preview-mode";
+import type { AccountPlan, AccountSession, AccountUser, AccountUsage, ImportCapabilities } from "../../src/contracts.generated";
+import type { PreviewScenario } from "./scenario";
 
 let initialized = false, generation = 1;
 let origin: string | null = "https://preview.practiq.invalid";

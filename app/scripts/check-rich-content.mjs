@@ -8,7 +8,6 @@ test('rich content renders math, tables and images with keyboard zoom', async ({
   const fontRequests = [];
   page.on('request', r => { if (r.resourceType() === 'font') fontRequests.push(r.url()); });
   // This fixture owns a deterministic asset mock; bypass the general preview data.
-  await page.addInitScript(() => sessionStorage.setItem('practiq-preview', 'real'));
   await page.goto('/fixtures/rich-content/');
   await page.locator('figure').first().scrollIntoViewIfNeeded();
   const zoom = page.getByRole('button',{name:'放大查看图片'});

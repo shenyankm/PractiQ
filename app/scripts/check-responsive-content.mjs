@@ -44,7 +44,6 @@ for (const variant of variants) {
     await page.setViewportSize({ width, height });
     await installLayoutSession(page, variant);
     await page.goto('/');
-    await page.addStyleTag({ content: '.preview-controls { display: none; }' });
     const navigation = page.getByRole('button', { name: '打开主导航', exact: true });
     if (await navigation.isVisible()) await navigation.click();
     await page.getByRole('button', { name: '练习记录', exact: true }).click();

@@ -5,15 +5,17 @@ import userEvent from "@testing-library/user-event";
 import { CloudPage } from "./CloudPage";
 import { invoke } from "./transport";
 import { setNativeBridge } from "../../shared/cloud/transport";
+import { setCloudLocale } from "../../shared/cloud/i18n";
 import { setAccount } from "../../shared/cloud/accountClient";
 import { capabilities, task, preview, taskId, runId } from "../../shared/cloud/test-fixtures";
 
 vi.mock("./transport", () => ({ invoke: vi.fn() }));
 const email = "native@example.test", password = "native-test-password";
 const user = { id: "native-owner", email, name: "", role: "user", enabled: true };
-function fixture(options: { origin?: string | null; loggedIn?: boolean; registration?: boolean; rejectLogin?: boolean } = {}) {
+function fixture(options: { origin?: string | null; loggedIn?: boolean; registration?: boolean; rejectLogin?: boolean; unavailableOrigin?: string; invalidCredential?: boolean } = {}) {
   let origin = options.origin === undefined ? "http://127.0.0.1:8090" : options.origin;
   let generation = 1, current = options.loggedIn ? user : null;
+  let invalidCredential = options.invalidCredential;
   const calls: Record<string, unknown>[] = [];
   const native = vi.mocked(invoke).mockImplementation(async (_command, args) => {
     const request = args!.request as Record<string, unknown>;
@@ -25,6 +27,8 @@ function fixture(options: { origin?: string | null; loggedIn?: boolean; registra
     else {
       expect(context?.origin).toBe(origin);
       if (request.type === "fetch") {
+        if (invalidCredential) throw { code: "CLOUD_CREDENTIAL_INVALID" };
+        if (origin === options.unavailableOrigin) throw { code: "CLOUD_RESULT_UNKNOWN" };
         let status = 200, data: unknown;
         const path = String(request.path).split("?")[0], body = request.body as Record<string, unknown>;
         if (path === "/api/auth/session") data = { user: current, csrf: "", registrationEnabled: options.registration !== false };
@@ -44,21 +48,92 @@ function fixture(options: { origin?: string | null; loggedIn?: boolean; registra
         value = { status, mediaType: "application/json", bytes: Buffer.from(JSON.stringify(data)).toString("base64") };
       } else if (request.type === "pick_sources") value = [{ nativeTicket: "opaque-native-file-ticket", name: "native-upload.txt", size: 4 }];
       else if (request.type === "upload") value = { sourceType: "text", mediaType: "text/plain", fileName: "native-upload.txt", sizeBytes: 4, sha256: "a".repeat(64), objectKey: `practiq-agent/sources/${"a".repeat(64)}/source.txt` };
-      else if (request.type === "forget_session") { current = null; ++generation; value = null; }
+      else if (request.type === "forget_session") { current = null; invalidCredential = false; ++generation; value = null; }
       else throw new Error(`Unexpected native cloud command ${request.type}`);
     }
     return { value, generation } as never;
   });
-  return { calls, native };
+  return { calls, native, setOrigin: (value: string) => { origin = value; } };
 }
 beforeEach(() => { globalThis.ResizeObserver = class { observe() {} unobserve() {} disconnect() {} }; HTMLElement.prototype.scrollIntoView = vi.fn(); localStorage.clear(); history.replaceState(null, "", "/"); });
-afterEach(() => { cleanup(); setNativeBridge(null); setAccount(null); vi.clearAllMocks(); });
+afterEach(() => { cleanup(); setNativeBridge(null); setAccount(null); setCloudLocale("zh-CN"); vi.clearAllMocks(); });
 
-it("only reads native connection metadata before a service is explicitly configured", async () => {
+it("localizes the import workspace tabs", async () => {
+  fixture({ loggedIn: true });
+  setCloudLocale("en");
+  render(<CloudPage />);
+  expect(await screen.findByRole("link", { name: "Start import" })).toBeTruthy();
+  expect(screen.getByRole("link", { name: "Import history" })).toBeTruthy();
+  expect(screen.getByRole("link", { name: "Settings" })).toBeTruthy();
+});
+
+it("asks for a service address only when no cloud connection exists", async () => {
   const { calls } = fixture({ origin: null }); render(<CloudPage />);
-  await waitFor(() => expect(screen.getByLabelText("云端服务地址").hasAttribute("disabled")).toBe(false));
+  const address = await screen.findByLabelText("云端服务地址");
+  expect(screen.queryByText("云端连接设置")).toBeNull();
   expect(calls).toEqual([{ type: "status" }]);
   expect(screen.queryByLabelText("登录邮箱")).toBeNull();
+  await userEvent.type(address, "https://cloud.example.test");
+  await userEvent.click(screen.getByRole("button", { name: "连接云端服务" }));
+  await waitFor(() => expect(calls.some(call => call.type === "configure")).toBe(true));
+  expect(await screen.findByLabelText("登录邮箱")).toBeTruthy();
+});
+
+it("lets a user correct an unreachable saved service address", async () => {
+  const { calls } = fixture({ unavailableOrigin: "http://127.0.0.1:8090" }); render(<CloudPage />);
+  const events = userEvent.setup();
+  await screen.findByRole("heading", { name: "登录 PractiQ" });
+  expect(screen.queryByLabelText("登录邮箱")).toBeNull();
+  await events.click(screen.getByRole("button", { name: "更改云端服务地址" }));
+  const address = screen.getByLabelText("云端服务地址") as HTMLInputElement;
+  expect(address.value).toBe("http://127.0.0.1:8090");
+  await events.clear(address);
+  await events.type(address, "https://cloud.example.test");
+  await events.click(screen.getByRole("button", { name: "连接云端服务" }));
+  await waitFor(() => expect(calls.some(call => call.type === "configure" && call.origin === "https://cloud.example.test")).toBe(true));
+  expect(await screen.findByLabelText("登录邮箱")).toBeTruthy();
+  expect(calls.some(call => call.type === "forget_session" || call.method === "POST")).toBe(false);
+});
+
+it("cancels service editing without changing the saved connection", async () => {
+  const { calls } = fixture(); render(<CloudPage />);
+  const events = userEvent.setup();
+  await events.click(await screen.findByRole("button", { name: "更改云端服务地址" }));
+  await events.clear(screen.getByLabelText("云端服务地址"));
+  await events.type(screen.getByLabelText("云端服务地址"), "https://other.example.test");
+  await events.click(screen.getByRole("button", { name: "取消" }));
+  expect(await screen.findByLabelText("登录邮箱")).toBeTruthy();
+  expect(calls.some(call => call.type === "configure" || call.type === "forget_session")).toBe(false);
+});
+
+it("recovers from undecodable credentials without a session or logout request", async () => {
+  const { calls } = fixture({ invalidCredential: true }); render(<CloudPage />);
+  const events = userEvent.setup();
+  await screen.findByRole("heading", { name: "登录 PractiQ" });
+  expect(screen.queryByLabelText("登录邮箱")).toBeNull();
+  expect(screen.queryByRole("button", { name: "退出登录" })).toBeNull();
+  expect(calls.some(call => call.type === "forget_session")).toBe(false);
+  await events.click(screen.getByRole("button", { name: "清除本机登录状态" }));
+  await events.type(await screen.findByLabelText("登录邮箱"), email);
+  expect(calls.filter(call => call.type === "forget_session")).toHaveLength(1);
+  expect(calls.some(call => call.type === "configure" || call.method === "POST")).toBe(false);
+  await events.type(screen.getByLabelText("密码"), password);
+  await events.click(screen.getByRole("button", { name: "登录" }));
+  expect(await screen.findByText(email)).toBeTruthy();
+});
+
+it("reports a failed local credential clear and waits for an explicit retry", async () => {
+  const { calls, native } = fixture(); render(<CloudPage />);
+  const events = userEvent.setup();
+  const clear = await screen.findByRole("button", { name: "清除本机登录状态" });
+  native.mockRejectedValueOnce({ code: "CLOUD_UNAVAILABLE" });
+  await events.click(clear);
+  expect(await screen.findByRole("alert")).toBeTruthy();
+  expect(calls.some(call => call.type === "forget_session")).toBe(false);
+  await events.click(clear);
+  await waitFor(() => expect(calls.filter(call => call.type === "forget_session")).toHaveLength(1));
+  expect(await screen.findByLabelText("登录邮箱")).toBeTruthy();
+  expect(screen.queryByRole("alert")).toBeNull();
 });
 
 it("registers through native IPC without browser fetch or persisted passwords", async () => {
@@ -118,27 +193,27 @@ it("logs out explicitly while keeping offline access and the selected cloud orig
   await events.click(await screen.findByRole("button", { name: "退出登录" }));
   await screen.findByRole("heading", { name: "登录 PractiQ" });
   expect(calls.filter(c => c.path === "/api/auth/logout")).toHaveLength(1);
-  expect((screen.getByLabelText("云端服务地址") as HTMLInputElement).value).toBe("http://127.0.0.1:8090");
-  expect(screen.getByText(/离线练习和题库导入无需登录/)).toBeTruthy();
+  expect(screen.queryByLabelText("云端服务地址")).toBeNull();
+  expect(screen.queryByText("http://127.0.0.1:8090")).toBeNull();
+  expect(calls.some(c => c.type === "configure")).toBe(false);
 });
 
-it("connects a service only on explicit native configuration and then reads its login policy", async () => {
-  const { calls } = fixture({origin:null}); render(<CloudPage />); const events=userEvent.setup();
-  const input = await screen.findByLabelText("云端服务地址");
-  await waitFor(()=>expect(input.hasAttribute("disabled")).toBe(false));
-  await events.type(input,"http://127.0.0.1:8100");
-  expect(calls).toEqual([{type:"status"}]);
-  await events.click(screen.getByRole("button",{name:"连接云端服务"}));
-  await screen.findByRole("heading",{name:"登录 PractiQ"});
-  expect(calls.filter(c=>c.type==="configure")).toEqual([{type:"configure",origin:"http://127.0.0.1:8100"}]);
-  expect(calls.some(c=>c.method==="POST")).toBe(false);
+it("retries only connection and session reads, without configuring a service or starting paid work", async () => {
+  const { calls, setOrigin } = fixture({ origin: null }); render(<CloudPage />); const events = userEvent.setup();
+  await screen.findByRole("heading", { name: "连接云端服务" });
+  setOrigin("http://127.0.0.1:8090");
+  await events.click(screen.getByRole("button", { name: "重试" }));
+  await screen.findByRole("heading", { name: "登录 PractiQ" });
+  expect(calls.filter(c => c.type === "status")).toHaveLength(2);
+  expect(calls.every(c => c.type === "status" || c.type === "fetch" && c.method === "GET")).toBe(true);
+  expect(screen.queryByLabelText("云端服务地址")).toBeNull();
 });
-it("forgets only this device's account session without implying server revocation",async()=>{
-  const {calls}=fixture({loggedIn:true});render(<CloudPage />);const events=userEvent.setup();
-  await screen.findByRole("button",{name:"退出登录"});
-  await events.click(screen.getByText("云端连接设置"));
-  await events.click(screen.getByRole("button",{name:"清除本机登录状态"}));
-  await screen.findByRole("heading",{name:"登录 PractiQ"});
-  expect(calls.filter(c=>c.type==="forget_session")).toHaveLength(1);
-  expect(calls.some(c=>c.path==="/api/auth/logout"||c.type==="configure")).toBe(false);
+
+it("opens the existing account directly without exposing connection settings or its origin", async () => {
+  const { calls } = fixture({ loggedIn: true }); render(<CloudPage initialPage="account" />);
+  await screen.findByRole("region", { name: "个人信息" });
+  expect(screen.queryByText("云端连接设置")).toBeNull();
+  expect(screen.queryByLabelText("云端服务地址")).toBeNull();
+  expect(screen.queryByText("http://127.0.0.1:8090")).toBeNull();
+  expect(calls.some(c => c.type === "configure" || c.type === "forget_session")).toBe(false);
 });
