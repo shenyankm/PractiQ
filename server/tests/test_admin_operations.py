@@ -41,7 +41,7 @@ async def admin_service(disposable_databases, monkeypatch):
 
 async def add_call(db, key, user='alice', kind='modelCalls', record=None, scope='grade:example'):
     async with db.transaction() as conn:
-        await conn.execute("INSERT INTO auth_calls(call_key,user_id,scope,kind,day,record) VALUES(%s,%s,%s,%s,'2026-11-09',%s)", (key, user, scope, kind, Jsonb(record or {'status': 'completed', 'usageStatus': 'known', 'inputTokens': 5, 'outputTokens': 3, 'modelId': 'test-model'})))
+        await conn.execute("INSERT INTO auth_calls(call_key,user_id,scope,kind,day,record,created_at) VALUES(%s,%s,%s,%s,'2026-11-09',%s,'2026-11-09T00:00:00Z')", (key, user, scope, kind, Jsonb(record or {'status': 'completed', 'usageStatus': 'known', 'inputTokens': 5, 'outputTokens': 3, 'modelId': 'test-model'})))
 
 
 async def test_allowance_conflicts_audit_and_receipt_preservation(admin_service):
