@@ -12,7 +12,7 @@ import { Input } from "./components/ui/input";
 import logo from "./assets/octopus.png";
 const Workspace = lazy(() => import("./App"));
 
-export default function AccountPortal({ embedded = false, initialPage = "workspace" }: { embedded?: boolean; initialPage?: "workspace" | "account" } = {}) {
+export default function AccountPortal({ embedded = false, initialPage = "workspace", onChangeService, onForgetSession }: { embedded?: boolean; initialPage?: "workspace" | "account"; onChangeService?: () => void; onForgetSession?: () => void } = {}) {
   useCloudLocale();
   const auth = useAccount();
   const [mode, setMode] = useState("login");
@@ -42,6 +42,10 @@ export default function AccountPortal({ embedded = false, initialPage = "workspa
       {auth.account?.registrationEnabled && <Button variant="ghost" onClick={() => changeMode("register")}>{t("注册账户")}</Button>}
       <Button variant="ghost" onClick={() => changeMode("reset")}>{t("重置密码")}</Button>
       <Button variant="outline" onClick={auth.reload}>{t("重新读取登录状态")}</Button>
+      {(onChangeService || onForgetSession) && <div className="mt-2 flex flex-wrap justify-center gap-1 border-t border-border pt-3">
+        {onChangeService && <Button variant="link" onClick={onChangeService}>{t("更改云端服务地址")}</Button>}
+        {onForgetSession && <Button variant="link" onClick={() => void onForgetSession()}>{t("清除本机登录状态")}</Button>}
+      </div>}
     </section> : <CustomerArea key={user.id} user={user} initialPage={initialPage} focusMain={focusMain} onNameSaved={name => auth.updateName(user.id, name)} />}
   </>;
 }

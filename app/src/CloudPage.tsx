@@ -14,6 +14,7 @@ export function CloudPage({ initialPage = "workspace" }: { initialPage?: "worksp
   const [connected, setConnected] = useState("");
   const [unconfigured, setUnconfigured] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(false);
   const [origin, setOrigin] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -22,6 +23,7 @@ export function CloudPage({ initialPage = "workspace" }: { initialPage?: "worksp
     setLoading(true);
     setConnected("");
     setUnconfigured(false);
+    setEditing(false);
     void cloudRequest<CloudStatus>({ type: "status" }).then(value => {
       if (!active) return;
       if (!value.origin) { setUnconfigured(true); return; }
@@ -41,6 +43,7 @@ export function CloudPage({ initialPage = "workspace" }: { initialPage?: "worksp
       const value = await cloudRequest<CloudStatus>({ type: "configure", origin: origin.trim() });
       if (value.origin) {
         setOrigin(value.origin);
+        setEditing(false);
         window.dispatchEvent(new Event("practiq-cloud-account-changed"));
         setRevision(current => current + 1);
       }
@@ -50,10 +53,26 @@ export function CloudPage({ initialPage = "workspace" }: { initialPage?: "worksp
       setBusy(false);
     }
   }
+  async function forgetLocalSession() {
+    const bridge = nativeBridge();
+    if (!bridge || busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      await bridge.forgetSession();
+      setLoading(true);
+      window.dispatchEvent(new Event("practiq-cloud-account-changed"));
+      setRevision(current => current + 1);
+    } catch (cause) {
+      setError(errorMessage(cause, false));
+    } finally {
+      setBusy(false);
+    }
+  }
   if (loading) return <p role="status">{t("读取账户状态…")}</p>;
-  if (unconfigured) return <Card className="mx-auto max-w-3xl">
+  if (unconfigured || editing) return <Card className="mx-auto max-w-3xl">
     <CardHeader>
-      <CardTitle><h2>{t("连接云端服务")}</h2></CardTitle>
+      <CardTitle><h2>{editing ? t("更改云端服务地址") : t("连接云端服务")}</h2></CardTitle>
       <CardDescription>{t("文档识别、解析和模型调用均在云端进行。离线练习和题库导入无需登录。")}</CardDescription>
     </CardHeader>
     <CardContent className="space-y-4">
@@ -66,7 +85,10 @@ export function CloudPage({ initialPage = "workspace" }: { initialPage?: "worksp
       {error && <p role="alert" className="text-destructive">{error}</p>}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">{t("连接后即可登录、注册或管理云端导入任务；地址保存在本机，可随时重新连接。")}</p>
-        <Button type="button" variant="ghost" disabled={busy} onClick={() => setRevision(value => value + 1)}>{t("重试")}</Button>
+        <div className="flex gap-2">
+          {editing && <Button type="button" variant="ghost" disabled={busy} onClick={() => { setEditing(false); setError(""); }}>{t("取消")}</Button>}
+          {!editing && <Button type="button" variant="ghost" disabled={busy} onClick={() => setRevision(value => value + 1)}>{t("重试")}</Button>}
+        </div>
       </div>
     </CardContent>
   </Card>;
@@ -74,5 +96,10 @@ export function CloudPage({ initialPage = "workspace" }: { initialPage?: "worksp
     <p role="status">{t("账户服务暂不可用，请稍后重试。离线练习仍可使用。")}</p>
     <Button variant="outline" onClick={() => setRevision(value => value + 1)}>{t("重试")}</Button>
   </div>;
-  return <div className="cloud-portal embedded" key={`${connected}:${revision}`}><Portal embedded initialPage={initialPage} /></div>;
+  return <div className="space-y-3">
+    {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+    <div className="cloud-portal embedded" key={`${connected}:${revision}`}>
+      <Portal embedded initialPage={initialPage} onChangeService={() => { setError(""); setOrigin(connected); setEditing(true); }} onForgetSession={forgetLocalSession} />
+    </div>
+  </div>;
 }

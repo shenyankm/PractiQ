@@ -2,9 +2,10 @@
 
 Offline practice, local question-bank ZIP import and direct model grading need
 no account. Open **Account** only when using a separately deployed PractiQ
-service. The account page uses the existing native connection directly; once a service
-is configured it does not display a backend address, URL input or
-connection-settings panel. A fresh installation with no configured service shows
+service. The account page uses the existing native connection directly. The
+signed-out page provides **Change cloud service address** (更改云端服务地址),
+including when the saved address cannot be reached. The address input opens only
+on request, and Cancel preserves the saved connection. A fresh installation with no configured service shows
 a connect form with the service address, so cloud accounts and document import
 remain reachable without editing files. No document is uploaded by opening the
 account page or signing in.
@@ -16,8 +17,9 @@ identity or disconnected/signed-out/unavailable state in its accessible descript
 and hover/focus tooltip. Opening it goes directly
 to personal information after login: name, login email, role, account status and
 account ID. Usage, plans and orders remain available in the same area. Without a
-configured service, the page shows a temporary-unavailability message and a
-passive retry action. Local practice remains available. The existing native
+configured service, the page shows the connect form and a passive retry action.
+If connection metadata cannot be read, it shows a temporary-unavailability message
+and retry action. Local practice remains available. The existing native
 connection configuration is unchanged; this UI change adds no default endpoint. Switching services, logging out or session expiry updates the
 sidebar; stale account reads cannot replace a newer identity. Startup only reads
 connection/session metadata and never starts model work.
@@ -48,10 +50,13 @@ responses. Each origin retains its own Keychain entry; reconnecting to that
 origin can restore its still-valid session.
 
 **Log out** requests server revocation and clears the local session even if the
-network outcome is unknown. The native **Forget local login** operation only removes this device's credential
-and does not revoke a server session; it is no longer exposed in the account
-page's removed connection-settings panel. Use account session revocation from
-another authorized login when remote revocation is needed. Existing grading/model credential namespaces are unchanged.
+network outcome is unknown. The signed-out page also provides **Forget local
+login** (清除本机登录状态), including when saved credentials cannot be decoded and
+no login form is available. This explicit native operation removes this device's
+credential for the current origin without reading it or contacting the server,
+then reloads the login page. It does not revoke a server session. Use account
+session revocation from another authorized login when remote revocation is needed.
+Existing grading/model credential namespaces are unchanged.
 
 ## Upload and cloud processing
 
