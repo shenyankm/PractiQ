@@ -128,16 +128,14 @@ function setup(question = row, failReview = false) {
   });
 }
 
-it("opens Restore backup from the bank header without starting the ZIP picker", async () => {
+it("opens the ZIP picker directly from the bank header", async () => {
   setup(); render(<App/>);
   await screen.findByText("English");
   expect(api).not.toHaveBeenCalledWith({ type: "pick_import" });
-  expect(screen.queryByRole("button", { name: "已有题库 ZIP？前往设置导入" })).toBeNull();
   await userEvent.click(within(screen.getByRole("banner")).getByRole("button", { name: "导入" }));
-  expect(await screen.findByRole("menuitem", { name: "导入题库 ZIP" })).toBeTruthy();
-  expect(screen.getByRole("menuitem", { name: "恢复学习数据备份" })).toBeTruthy();
-  expect(screen.getByRole("heading", { level: 1, hidden: true }).textContent).toBe("设置");
-  expect(api).not.toHaveBeenCalledWith({ type: "pick_import" });
+  await waitFor(() => expect(api).toHaveBeenCalledWith({ type: "pick_import" }));
+  expect(screen.queryByRole("menuitem", { name: "恢复学习数据备份" })).toBeNull();
+  expect(screen.getByRole("heading", { level: 1, hidden: true }).textContent).toBe("我的题库");
 });
 
 it("opens the existing offline ZIP entry with an explicit append/replace distinction", async () => {
@@ -152,7 +150,7 @@ it("opens the existing offline ZIP entry with an explicit append/replace distinc
   await waitFor(() => expect(api).toHaveBeenCalledWith({ type: "pick_import" }));
 });
 
-it.each([false, true])("routes empty states through Restore backup before ZIP selection (existing bank=%s)", async existing => {
+it.each([false, true])("opens the ZIP picker directly from the banks page (existing bank=%s)", async existing => {
   setup();
   const original = vi.mocked(api).getMockImplementation()!;
   vi.mocked(api).mockImplementation(async request => {
@@ -167,13 +165,25 @@ it.each([false, true])("routes empty states through Restore backup before ZIP se
   const importButton = await screen.findByRole("button", { name: existing ? "导入" : "导入题库 ZIP" });
   await waitFor(() => expect(importButton.hasAttribute("disabled")).toBe(false));
   await userEvent.click(importButton);
-  await screen.findByRole("menuitem", { name: "导入题库 ZIP" });
-  expect(api).not.toHaveBeenCalledWith({ type: "pick_import" });
-  await userEvent.click(screen.getByRole("menuitem", { name: "导入题库 ZIP" }));
   await waitFor(() => expect(api).toHaveBeenCalledWith({ type: "pick_import" }));
   const target = await screen.findByRole("combobox", { name: "导入到" });
   expect((target as HTMLSelectElement).value).toBe("new");
-  expect(screen.getByRole("heading", { level: 1, hidden: true }).textContent).toBe("设置");
+  expect(screen.getByRole("heading", { level: 1, hidden: true }).textContent).toBe("我的题库");
+});
+
+it("offers cloud parsing from the empty bank list without replacing offline import", async () => {
+  setup();
+  const original = vi.mocked(api).getMockImplementation()!;
+  vi.mocked(api).mockImplementation(async request => {
+    if (request.type === "banks") return [] as never;
+    if (request.type === "banks_page") return { items: [], total: 0, offset: 0 } as never;
+    if (request.type === "unfinished_session") return null as never;
+    return original(request);
+  });
+  render(<App />);
+  await userEvent.click(await screen.findByRole("button", { name: "从云端解析文档" }));
+  expect(await screen.findByText("账户服务暂不可用，请稍后重试。离线练习仍可使用。")).toBeTruthy();
+  expect(api).not.toHaveBeenCalledWith({ type: "pick_import" });
 });
 
 it("requires Restore backup and explicit destination selection from a question list", async () => {
@@ -201,6 +211,29 @@ it("requires Restore backup and explicit destination selection from a question l
   expect(api).not.toHaveBeenCalledWith(expect.objectContaining({ type: "import" }));
   await userEvent.click(screen.getByRole("button", { name: "确认导入" }));
   await waitFor(() => expect(api).toHaveBeenCalledWith({ type: "import", ticket: "zip", bank_id: "bank", title: "Imported" }));
+});
+
+it("labels a timed mock exam and confirms leaving without pausing the clock", async () => {
+  setup();
+  const original = vi.mocked(api).getMockImplementation()!;
+  const session = {
+    id: "exam", title: "English · Mock exam · 20", kind: "mock_exam", createdAt: 1,
+    deadlineAt: Date.now() + 25 * 60_000, clockNow: Date.now(), finishedAt: null, submittedAt: null,
+    position: 0, mode: "ordered",
+    attempts: [{ ordinal: 0, snapshot: { question: fixture.questions[0], groups: [], visuals: [], sources: [], warnings: [], missingAssets: false }, answer: null, autoResult: null, result: null, gradeKind: "ungraded", submittedAt: null, skipped: false, elapsedMs: 0 }],
+  };
+  vi.mocked(api).mockImplementation(async request => ["session", "save_answer", "position"].includes(request.type) ? session as never : original(request));
+  render(<App />);
+  await userEvent.click(await screen.findByRole("button", { name: "继续考试" }));
+  expect(await screen.findByRole("heading", { name: "模拟考试", level: 1 })).toBeTruthy();
+  const timer = await screen.findByRole("timer");
+  expect(timer.textContent).toMatch(/^\d{1,2}:\d{2}$/);
+  await userEvent.click(screen.getByRole("button", { name: "返回练习记录" }));
+  const dialog = await screen.findByRole("alertdialog");
+  expect(dialog.textContent).toContain("离开模拟考试？");
+  expect(dialog.textContent).toContain("计时不会暂停");
+  await userEvent.click(within(dialog).getByRole("button", { name: "取消" }));
+  expect(screen.getByRole("heading", { name: "模拟考试", level: 1 })).toBeTruthy();
 });
 
 it("shows saved exam answers, filters history natively and focuses the page heading", async () => {
@@ -351,7 +384,6 @@ it("appends an untitled import using the selected bank title without prompting f
   });
   render(<App/>); await screen.findByText("English");
   await user.click(screen.getByRole("button",{name:"导入"}));
-  await user.click(await screen.findByRole("menuitem",{name:"导入题库 ZIP"}));
   const dialog=await screen.findByRole("dialog",{name:"导入题库"});
   expect(within(dialog).getByRole("button",{name:"确认导入"}).hasAttribute("disabled")).toBe(true);
   await user.selectOptions(within(dialog).getByLabelText("导入到"),"bank");

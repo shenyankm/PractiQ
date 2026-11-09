@@ -348,7 +348,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
             : page === "history"
               ? t("练习记录")
               : page === "practice"
-                ? t(session && (session.finishedAt != null || (session.kind && session.kind !== "practice" && session.submittedAt != null)) ? "练习回顾" : "专注练习")
+                ? t(session && (session.finishedAt != null || (session.kind && session.kind !== "practice" && session.submittedAt != null)) ? "练习回顾" : session?.kind === "mock_exam" ? "模拟考试" : session?.kind === "self_test" ? "自主测验" : "专注练习")
                 : page === "cloud" ? t("云端服务") : page === "account" ? t("个人中心") : page === "service-settings" ? t("AI 服务") : t("设置");
   const loadingView = <p role="status" className="p-4 text-sm text-muted-foreground">{t("加载中…")}</p>;
   const listPage = ["questions", "wrong", "favorite"].includes(page);
@@ -394,7 +394,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
           ))}
         </nav>
         <div className="mt-auto space-y-4 pt-6">
-          <SidebarButton collapsed={sidebarCollapsed} label={t("个人中心")} description={accountSummary.status === "ready" ? accountSummary.user?.name || accountSummary.user?.email : t(accountSummary.status === "loading" ? "读取账户状态…" : accountSummary.status === "disconnected" ? "未连接云端" : accountSummary.status === "signedOut" ? "未登录" : "账户状态暂不可用")} aria-current={page === "account" ? "page" : undefined} disabled={busy} onClick={() => navigate("account")}><UserRound /></SidebarButton>
+          <SidebarButton collapsed={sidebarCollapsed} label={t("个人中心")} description={accountSummary.status === "ready" ? accountSummary.user?.name || accountSummary.user?.email : t(accountSummary.status === "loading" ? "读取账户状态…" : accountSummary.status === "disconnected" ? "未连接云端" : accountSummary.status === "signedOut" ? "未登录" : "账户状态暂不可用")} aria-current={page === "account" || page === "cloud" ? "page" : undefined} disabled={busy} onClick={() => navigate("account")}><UserRound /></SidebarButton>
           <div className="space-y-2">
             <DropdownMenu open={themeOpen} onOpenChange={setThemeOpen}>
               <DropdownMenuTrigger asChild>
@@ -456,7 +456,16 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
         <header className="app-header flex shrink-0 flex-wrap items-center justify-between gap-4 border-b">
           <div className="flex min-w-0 items-center gap-3">
             {compact && !["questions", "practice", "service-settings"].includes(page) && <Button size="icon" variant="ghost" aria-label={t("打开主导航")} aria-expanded={navigationOpen} disabled={busy} onClick={() => setNavigationOpen(true)}><Menu /></Button>}
-            {page === "practice" && <Button size="icon" variant="ghost" aria-label={t("返回练习记录")} disabled={busy} onClick={() => navigate("history")}><ArrowLeft /></Button>}
+            {page === "practice" && <Button size="icon" variant="ghost" aria-label={t("返回练习记录")} disabled={busy} onClick={event => {
+              const timed = session?.kind === "mock_exam" && session.deadlineAt != null && session.finishedAt == null && session.submittedAt == null;
+              if (!timed) { navigate("history"); return; }
+              openConfirm({
+                title: message("离开模拟考试？"),
+                label: message("离开考试"),
+                description: message("计时不会暂停。离开后可在“练习记录”中继续作答。"),
+                action: async () => { navigate("history"); },
+              }, event.currentTarget);
+            }}><ArrowLeft /></Button>}
             {page === "questions" && (
               <Button
                 size="icon"
@@ -490,7 +499,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
             )}
 
             {page === "banks" && (
-              <><Button variant="outline" size={compact ? "icon" : "default"} aria-label={t("刷新")} title={t("刷新")} disabled={busy || bankListLoading} onClick={() => setListRevision(value => value + 1)}>{compact ? <RefreshCw /> : t("刷新")}</Button><Button variant="outline" disabled={bankActionsUnavailable} onClick={event => { bankEditorTrigger.current = event.currentTarget; setOperationError(null); setBankEditor({ id: null, title: "", description: "" }); }}><Plus />{t("新建题库")}</Button><Button variant="outline" disabled={bankActionsUnavailable} onClick={() => navigate("settings", null, true)}><Upload />{t("导入")}</Button></>
+              <><Button variant="outline" size={compact ? "icon" : "default"} aria-label={t("刷新")} title={t("刷新")} disabled={busy || bankListLoading} onClick={() => setListRevision(value => value + 1)}>{compact ? <RefreshCw /> : t("刷新")}</Button><Button variant="outline" disabled={bankActionsUnavailable} onClick={event => { bankEditorTrigger.current = event.currentTarget; setOperationError(null); setBankEditor({ id: null, title: "", description: "" }); }}><Plus />{t("新建题库")}</Button><Button variant="outline" disabled={bankActionsUnavailable} onClick={() => run(pickImport)}><Upload />{t("导入")}</Button></>
             )}
             {page === "banks" && banks.length > 1 && (
               compact ? <DropdownMenu><DropdownMenuTrigger asChild><Button ref={mergeTrigger} size="icon" variant="outline" disabled={bankActionsUnavailable} aria-label={t("更多题库操作")}><MoreHorizontal /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onSelect={() => setMergeOpen(true)}>{t("合并题库")}</DropdownMenuItem></DropdownMenuContent></DropdownMenu> : <Button ref={mergeTrigger} variant="outline" disabled={bankActionsUnavailable} onClick={() => setMergeOpen(true)}>{t("合并题库")}</Button>
@@ -530,7 +539,8 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
             run={run}
             onAddExample={() => run(async () => { await api({ type: "add_example_bank" }); await reloadBanks(); })}
             onOpenSession={openSession}
-            onImport={() => navigate("settings", null, true)}
+            onImport={() => run(pickImport)}
+            onCloudImport={() => navigate("cloud")}
             onHistory={() => { history.setFilter("active"); navigate("history"); }}
             onOpenQuestions={bankId => navigate("questions", bankId)}
             onPractice={bankId => setPracticeSetup({ bank: bankId })}

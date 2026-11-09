@@ -255,7 +255,7 @@ it('preserves selected source files across portal pages without submitting them'
   expect(screen.getByText(/可用页数已用尽/)).toBeTruthy();
   await user.click(screen.getByRole('button',{name:'导入工作区'}));
   expect(screen.getByText('pending-portal.txt')).toBeTruthy();
-  await user.click(screen.getByRole('button',{name:'我的题库'}));
+  await user.click(screen.getByRole('button',{name:'导入结果'}));
   await user.click(await screen.findByRole('button',{name:'查看结果与下载'}));
   await screen.findByRole('heading',{name:'sample.docx'});
   await user.click(screen.getByRole('link',{name:'开始导入'}));

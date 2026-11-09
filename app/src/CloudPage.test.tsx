@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { CloudPage } from "./CloudPage";
 import { invoke } from "./transport";
 import { setNativeBridge } from "../../shared/cloud/transport";
+import { setCloudLocale } from "../../shared/cloud/i18n";
 import { setAccount } from "../../shared/cloud/accountClient";
 import { capabilities, task, preview, taskId, runId } from "../../shared/cloud/test-fixtures";
 
@@ -52,7 +53,16 @@ function fixture(options: { origin?: string | null; loggedIn?: boolean; registra
   return { calls, native, setOrigin: (value: string) => { origin = value; } };
 }
 beforeEach(() => { globalThis.ResizeObserver = class { observe() {} unobserve() {} disconnect() {} }; HTMLElement.prototype.scrollIntoView = vi.fn(); localStorage.clear(); history.replaceState(null, "", "/"); });
-afterEach(() => { cleanup(); setNativeBridge(null); setAccount(null); vi.clearAllMocks(); });
+afterEach(() => { cleanup(); setNativeBridge(null); setAccount(null); setCloudLocale("zh-CN"); vi.clearAllMocks(); });
+
+it("localizes the import workspace tabs", async () => {
+  fixture({ loggedIn: true });
+  setCloudLocale("en");
+  render(<CloudPage />);
+  expect(await screen.findByRole("link", { name: "Start import" })).toBeTruthy();
+  expect(screen.getByRole("link", { name: "Import history" })).toBeTruthy();
+  expect(screen.getByRole("link", { name: "Settings" })).toBeTruthy();
+});
 
 it("keeps unavailable account service recoverable without asking for a backend address", async () => {
   const { calls } = fixture({ origin: null }); render(<CloudPage />);

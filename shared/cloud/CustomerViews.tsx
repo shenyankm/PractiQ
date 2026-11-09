@@ -179,12 +179,12 @@ export function Usage() {
           <p>{t("每日模型 ")}{data.limits.modelCalls}{t(" 次 · 腾讯提交")}{" "}
             {data.limits.tencentCalls}{t(" 次 · 进行中任务 ")}{data.limits.activeTasks}{" "}{t("个")}</p>
           <p>{t("每日调用次数按新加坡时间零点重置，免费页数不重置。任务暂停后需要手动继续。")}</p>
-          <table>
+          <div className="account-table"><table>
             <thead>
               <tr>
-                <th>{t("日期")}</th>
-                <th>{t("调用类型")}</th>
-                <th>{t("次数")}</th>
+                <th scope="col">{t("日期")}</th>
+                <th scope="col">{t("调用类型")}</th>
+                <th scope="col">{t("次数")}</th>
               </tr>
             </thead>
             <tbody>
@@ -196,7 +196,7 @@ export function Usage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
           <h2>{t("调用记录")}</h2>
           <div className="account-table"><table><thead><tr><th scope="col">{t("日期")}</th><th scope="col">{t("类型")}</th><th scope="col">{t("用量状态")}</th><th scope="col">{t("输入 / 输出 tokens")}</th></tr></thead><tbody>{data.calls.map(call => <tr key={call.call_key}><td>{call.day}</td><td>{call.kind === 'modelCalls' ? t("模型调用") : t("腾讯提交")}</td><td>{call.kind === 'tencentCalls' ? (call.record.taskId ? t("已确认提交") : t("提交结果未知")) : call.record.usageStatus === 'known' ? t("已知用量") : t("未知用量")}</td><td>{call.kind === 'tencentCalls' ? '—' : `${typeof call.record.inputTokens === 'number' ? call.record.inputTokens : t("未知")} / ${typeof call.record.outputTokens === 'number' ? call.record.outputTokens : t("未知")}`}</td></tr>)}</tbody></table></div>
           <details>
@@ -230,7 +230,7 @@ export function Banks({ open }: { open: (id: string) => void }) {
   }, [offset]);
   return (
     <>
-      <h1>{t("我的题库")}</h1>
+      <h1>{t("导入结果")}</h1>
       <p>{t("查看保存的解析结果、复核内容并下载题库 ZIP。下载不启动模型。")}</p>
       {error && <p role="alert">{error}</p>}
       {data?.items.length === 0 && <p>{t("尚无已保存结果，请先导入文档。")}</p>}

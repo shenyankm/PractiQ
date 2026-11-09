@@ -423,6 +423,11 @@ function PracticeQuestion({
   const selfAllowed =
     !attempt.skipped &&
     !exam && (attempt.autoResult === null || q.answerMode === "fill_blank");
+  const submitReady = answerReady(canInteract(q) ? q : { ...q, answerMode: "short_answer" as const }, answer);
+  const submitHint = submitReady ? null
+    : q.answerMode === "choice" ? (q.choiceVariant === "multiple" ? t("至少选择一个选项后可提交") : t("选择一个选项后可提交"))
+      : q.answerMode === "true_false" ? t("选择判断结果后可提交")
+        : t("填写答案后可提交");
   const resultLabel = exam || attempt.earnedCents != null
     ? attempt.earnedCents == null ? t("待评分") : t("{0}{1} / {2} 分", { 0: attempt.skipped ? t("未答 · ") : attempt.earnedCents > 0 && attempt.earnedCents < (attempt.maxCents || 0) ? `${t("部分得分")} · ` : "", 1: attempt.earnedCents / 100, 2: (attempt.maxCents || 0) / 100 })
     : attempt.skipped ? t("已跳过") : attempt.result === true ? t("回答正确") : attempt.result === false
@@ -525,19 +530,15 @@ function PracticeQuestion({
         </CardContent>
           {/* Keep answer state with the question and its actions beside navigation. */}
           {!exam && !submitted && !finished && actionsContainer && createPortal(<>
+              {submitHint && !navigating && !submitting && <p className="submit-hint">{submitHint}</p>}
               <Button
-                disabled={
-                  navigating || submitting || !answerReady(
-                    canInteract(q) ? q : { ...q, answerMode: "short_answer" },
-                    answer,
-                  )
-                }
+                disabled={navigating || submitting || !submitReady}
                 onClick={() =>
                   run(async () => {
                     onSession(await persist(true));
                   })
                 }
-              >{t("提交答案")}</Button>
+              >{t("提交答案")}<kbd aria-hidden="true" className="hidden shrink-0 rounded border border-primary-foreground/30 bg-primary-foreground/10 px-1.5 py-0.5 font-mono text-xs tabular-nums text-primary-foreground/80 sm:inline-block">⌘↵</kbd></Button>
               <Button
                 variant="outline"
                 disabled={navigating || submitting}
@@ -606,11 +607,25 @@ const PracticeClock = memo(function PracticeClock({elapsed, active, deadlineAt, 
       document.removeEventListener("visibilitychange", refresh);
     };
   }, [elapsed, active, deadlineAt, clockNow]);
-  return <div className="space-y-1 text-xs tabular-nums text-muted-foreground">
-    <span>{duration(seconds)} · {finished ? t("历史快照") : t(saved)}</span>
-    {deadlineAt ? <p role="timer">{t("剩余 {0}（后台与关闭应用不暂停）", { 0: duration(Math.max(0, deadlineAt-clock)) })}</p> : null}
+  const remaining = deadlineAt ? Math.max(0, deadlineAt - clock) : null;
+  const urgent = remaining != null && remaining <= 5 * 60 * 1000;
+  return <div className="space-y-1 text-right text-xs tabular-nums text-muted-foreground">
+    {remaining != null && <p className="flex items-baseline justify-end gap-2">
+      <span>{t("剩余")}</span>
+      <span role="timer" aria-label={t("剩余 {0}", { 0: duration(remaining) })} className={`text-2xl font-semibold leading-none tracking-tight ${urgent ? "text-warning-foreground" : "text-foreground"}`}>{countdown(remaining)}</span>
+    </p>}
+    <p>{duration(seconds)} · {finished ? t("历史快照") : t(saved)}</p>
+    {remaining != null && <p>{t("计时不会因切到后台或关闭应用而暂停")}</p>}
   </div>;
 });
+
+function countdown(ms: number) {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const hours = Math.floor(total / 3600), minutes = Math.floor((total % 3600) / 60), seconds = total % 60;
+  return hours
+    ? `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`
+    : `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
 
 // Match native has_answer: a partial draft counts, but whitespace-only values do not.
 function hasAnswer(value: unknown): boolean {

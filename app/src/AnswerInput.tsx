@@ -53,11 +53,13 @@ export function AnswerInput({
   switch (q.answerMode) {
     case "choice": {
       const multiple = q.choiceVariant === "multiple";
-      const options = q.options.map((o, i) => (
+      const options = q.options.map((o, i) => {
+        const selected = multiple ? (a.correct?.includes(o.label!) ?? false) : (a.correct?.[0] ?? "") === o.label;
+        return (
         <label
           key={i}
           htmlFor={`${prefix}-${i}`}
-          className="flex cursor-pointer items-start gap-3 rounded-lg border px-4 py-3 hover:bg-muted/30 transition-colors"
+          className={`flex cursor-pointer items-start gap-3 rounded-lg border px-4 py-3 transition-colors ${selected ? "border-primary bg-secondary" : "hover:bg-muted/30"}`}
         >
           {multiple ? (
             <Checkbox
@@ -86,7 +88,8 @@ export function AnswerInput({
             </kbd>
           )}
         </label>
-      ));
+        );
+      });
       return multiple ? (
         <fieldset disabled={disabled} className="space-y-3">
           <legend className="mb-2 text-sm text-muted-foreground">{t("多选题，可选择多个答案")}</legend>

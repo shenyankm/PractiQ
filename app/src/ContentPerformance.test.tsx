@@ -161,10 +161,12 @@ it("uses native exam time across wall-clock jumps and resynchronizes after sleep
   render(<Practice session={session} onSession={onSession} run={job=>{void job();}} flushRef={{current:async()=>{}}}/>);
   vi.setSystemTime(wall - 120_000);
   await act(async () => { await vi.advanceTimersByTimeAsync(1_000); });
-  expect(screen.getByRole("timer").textContent).toContain("0 分 59 秒");
+  expect(screen.getByRole("timer").textContent).toBe("0:59");
+  expect(screen.getByRole("timer").getAttribute("aria-label")).toContain("0 分 59 秒");
   vi.setSystemTime(wall + 7_200_000);
   await act(async () => { await vi.advanceTimersByTimeAsync(2_000); });
-  expect(screen.getByRole("timer").textContent).toContain("0 分 57 秒");
+  expect(screen.getByRole("timer").textContent).toBe("0:57");
+  expect(screen.getByRole("timer").getAttribute("aria-label")).toContain("0 分 57 秒");
   expect(onSession).not.toHaveBeenCalled();
   const expired = {...session,submittedAt:wall+60_000,attempts:[{...session.attempts[0],submittedAt:wall+60_000}]};
   vi.mocked(api).mockResolvedValue(expired);
