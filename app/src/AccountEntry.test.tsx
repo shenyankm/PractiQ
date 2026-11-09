@@ -42,15 +42,15 @@ function fixture(origin: string | null, user: AccountUser | null = null) {
   return state;
 }
 
-it("keeps local work available when account service is unavailable without exposing configuration", async () => {
+it("keeps local work available and offers a connection entry when no cloud service is configured", async () => {
   fixture(null); render(<App />); const user = userEvent.setup();
   const entry = screen.getByRole("button", { name: "个人中心" });
   await waitFor(() => expect(entry.getAttribute("aria-description")).toBe("未连接云端"));
   expect(invoke).toHaveBeenCalledExactlyOnceWith("cloud_request", { request: { type: "status" }, context: null });
   await user.click(entry);
   await screen.findByRole("heading", { name: "个人中心", level: 1 });
-  expect(await screen.findByText("账户服务暂不可用，请稍后重试。离线练习仍可使用。")).toBeTruthy();
-  expect(screen.queryByLabelText("云端服务地址")).toBeNull();
+  expect(await screen.findByRole("heading", { name: "连接云端服务", level: 2 })).toBeTruthy();
+  expect(screen.getByLabelText("云端服务地址")).toBeTruthy();
   await user.click(screen.getByRole("button", { name: "我的题库" }));
   await screen.findByRole("heading", { name: "我的题库", level: 1 });
 });

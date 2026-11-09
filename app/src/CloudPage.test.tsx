@@ -64,13 +64,16 @@ it("localizes the import workspace tabs", async () => {
   expect(screen.getByRole("link", { name: "Settings" })).toBeTruthy();
 });
 
-it("keeps unavailable account service recoverable without asking for a backend address", async () => {
+it("asks for a service address only when no cloud connection exists", async () => {
   const { calls } = fixture({ origin: null }); render(<CloudPage />);
-  await screen.findByText("账户服务暂不可用，请稍后重试。离线练习仍可使用。");
-  expect(screen.queryByLabelText("云端服务地址")).toBeNull();
+  const address = await screen.findByLabelText("云端服务地址");
   expect(screen.queryByText("云端连接设置")).toBeNull();
   expect(calls).toEqual([{ type: "status" }]);
   expect(screen.queryByLabelText("登录邮箱")).toBeNull();
+  await userEvent.type(address, "https://cloud.example.test");
+  await userEvent.click(screen.getByRole("button", { name: "连接云端服务" }));
+  await waitFor(() => expect(calls.some(call => call.type === "configure")).toBe(true));
+  expect(await screen.findByLabelText("登录邮箱")).toBeTruthy();
 });
 
 it("registers through native IPC without browser fetch or persisted passwords", async () => {
@@ -137,7 +140,7 @@ it("logs out explicitly while keeping offline access and the selected cloud orig
 
 it("retries only connection and session reads, without configuring a service or starting paid work", async () => {
   const { calls, setOrigin } = fixture({ origin: null }); render(<CloudPage />); const events = userEvent.setup();
-  await screen.findByText("账户服务暂不可用，请稍后重试。离线练习仍可使用。");
+  await screen.findByRole("heading", { name: "连接云端服务" });
   setOrigin("http://127.0.0.1:8090");
   await events.click(screen.getByRole("button", { name: "重试" }));
   await screen.findByRole("heading", { name: "登录 PractiQ" });

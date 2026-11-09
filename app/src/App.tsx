@@ -308,21 +308,23 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
       unlisten?.();
     };
   }, [openConfirm]);
+  // Runs inside an already-held operation; callers that need one start it themselves.
+  async function transitionTo(next: Page, bankId: string | null = null, showRestore = false) {
+    await flushRef.current();
+    flushRef.current = async () => {};
+    setOperationError(null);
+    setPage(next);
+    setGradingReturn(null);
+    setNavigationOpen(false);
+    setRestoreOpen(showRestore);
+    setBank(bankId);
+    setDetail(null);
+    resetQuestions();
+    if (next === "banks" || next === "history") setListRevision(v => v + 1);
+  }
   function navigate(next: Page, bankId: string | null = null, showRestore = false) {
     if ((page === "cloud" || page === "account") && !document.dispatchEvent(new Event("practiq-cloud-before-leave", { cancelable: true }))) return;
-    setOperationError(null);
-    run(async () => {
-      await flushRef.current();
-      flushRef.current = async () => {};
-      setPage(next);
-      setGradingReturn(null);
-      setNavigationOpen(false);
-      setRestoreOpen(showRestore);
-      setBank(bankId);
-      setDetail(null);
-      resetQuestions();
-      if (next === "banks" || next === "history") setListRevision(v => v + 1);
-    });
+    run(() => transitionTo(next, bankId, showRestore));
   }
   function openSession(id: string) {
     run(async () => {
@@ -463,7 +465,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                 title: message("离开模拟考试？"),
                 label: message("离开考试"),
                 description: message("计时不会暂停。离开后可在“练习记录”中继续作答。"),
-                action: async () => { navigate("history"); },
+                action: async () => { await transitionTo("history"); },
               }, event.currentTarget);
             }}><ArrowLeft /></Button>}
             {page === "questions" && (

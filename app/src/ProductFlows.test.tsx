@@ -222,7 +222,7 @@ it("labels a timed mock exam and confirms leaving without pausing the clock", as
     position: 0, mode: "ordered",
     attempts: [{ ordinal: 0, snapshot: { question: fixture.questions[0], groups: [], visuals: [], sources: [], warnings: [], missingAssets: false }, answer: null, autoResult: null, result: null, gradeKind: "ungraded", submittedAt: null, skipped: false, elapsedMs: 0 }],
   };
-  vi.mocked(api).mockImplementation(async request => ["session", "save_answer", "position"].includes(request.type) ? session as never : original(request));
+  vi.mocked(api).mockImplementation(async request => ["session", "save_attempt", "save_draft", "position"].includes(request.type) ? session as never : original(request));
   render(<App />);
   await userEvent.click(await screen.findByRole("button", { name: "继续考试" }));
   expect(await screen.findByRole("heading", { name: "模拟考试", level: 1 })).toBeTruthy();
@@ -234,6 +234,10 @@ it("labels a timed mock exam and confirms leaving without pausing the clock", as
   expect(dialog.textContent).toContain("计时不会暂停");
   await userEvent.click(within(dialog).getByRole("button", { name: "取消" }));
   expect(screen.getByRole("heading", { name: "模拟考试", level: 1 })).toBeTruthy();
+  await userEvent.click(screen.getByRole("button", { name: "返回练习记录" }));
+  const leave = await screen.findByRole("alertdialog");
+  await userEvent.click(within(leave).getByRole("button", { name: "离开考试" }));
+  expect(await screen.findByRole("heading", { name: "练习记录", level: 1 })).toBeTruthy();
 });
 
 it("shows saved exam answers, filters history natively and focuses the page heading", async () => {

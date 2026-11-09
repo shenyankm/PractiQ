@@ -762,4 +762,5 @@ export const en = {
   "填写答案后可提交": "Enter an answer to submit",
   "导入题库 ZIP 即可离线练习；PDF、Word 或图片可先在云端解析成题库。": "Import a question-bank ZIP to practise offline. To turn PDFs, Word files or images into a bank, parse them in the cloud first.",
   "从云端解析文档": "Parse a document in the cloud",
+  "连接后即可登录、注册或管理云端导入任务；地址保存在本机，可随时重新连接。": "Connect to sign in, register or manage cloud import tasks. The address is saved on this device and can be changed by connecting again.",
 } as const;

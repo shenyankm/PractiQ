@@ -1177,16 +1177,17 @@ for (const width of [960, 1280]) for (const colorScheme of ['light', 'dark']) {
  });
 }
 
-test('unavailable accounts offer retry and offline access without backend configuration', async ({page}) => {
+test('unconfigured accounts offer a connection entry and offline access', async ({page}) => {
  await page.addInitScript(()=>sessionStorage.setItem('practiq-test-scenario','unconfigured'));
  await page.goto('/');
  const sidebar=page.locator('#app-sidebar');
  await sidebar.getByRole('button',{name:'个人中心',exact:true}).click();
- await expect(page.getByText('账户服务暂不可用，请稍后重试。离线练习仍可使用。',{exact:true})).toBeVisible();
- await expect(page.getByLabel('云端服务地址',{exact:true})).toHaveCount(0);
+ await expect(page.getByRole('heading',{name:'连接云端服务',exact:true})).toBeVisible();
+ await expect(page.getByLabel('云端服务地址',{exact:true})).toBeVisible();
  await expect(page.getByText('云端连接设置',{exact:true})).toHaveCount(0);
+ await page.getByLabel('云端服务地址',{exact:true}).fill('https://cloud.example.test');
  await page.getByRole('button',{name:'重试',exact:true}).click();
- await expect(page.getByText('账户服务暂不可用，请稍后重试。离线练习仍可使用。',{exact:true})).toBeVisible();
+ await expect(page.getByRole('heading',{name:'连接云端服务',exact:true})).toBeVisible();
  await sidebar.getByRole('button',{name:'我的题库',exact:true}).click();
  await expect(page.getByRole('heading',{name:'我的题库',exact:true})).toBeVisible();
 });

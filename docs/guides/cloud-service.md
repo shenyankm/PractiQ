@@ -2,9 +2,12 @@
 
 Offline practice, local question-bank ZIP import and direct model grading need
 no account. Open **Account** only when using a separately deployed PractiQ
-service. The account page uses the existing native connection directly; it does
-not display a backend address, URL input or connection-settings panel. No document
-is uploaded by opening the account page or signing in.
+service. The account page uses the existing native connection directly; once a service
+is configured it does not display a backend address, URL input or
+connection-settings panel. A fresh installation with no configured service shows
+a connect form with the service address, so cloud accounts and document import
+remain reachable without editing files. No document is uploaded by opening the
+account page or signing in.
 
 ## Accounts
 
