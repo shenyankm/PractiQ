@@ -38,7 +38,9 @@ free total. Older administrative API callers changing that total must supply
 calls, tasks waiting/running for over 30 minutes, and unresolved refunds/frozen
 entitlements. The 30-minute view is a diagnostic age threshold, not proof of a
 failed task. Active calls remain pending rather than being labelled unknown merely
-because they have no answer yet. Missing task artifacts remain visible in the
+because they have no answer yet. Service grading is pending only while the original
+claimed request is executing; cancellation or restart leaves unfinished calls unknown.
+Replaying its receipt does not mark it active again. Missing task artifacts remain visible in the
 blocked worklist. Opening a task retains diagnostics even if result preview fails.
 
 Task search accepts account/email, filename/exact task ID, creation time and task
@@ -60,8 +62,10 @@ cover all matching records, not just the current page. Groups by the ledger's
 Singapore day, user and provider/model have their own pagination. Displayed tokens
 are known values; incomplete token receipts have a separate count and do not imply
 zero cost. Recognition page totals include held reservations. Tencent terminal
-status is read from the matching task namespace and provider task ID only; source
-hash coincidence or another account's receipt cannot establish an outcome.
+status is read from the matching task namespace and provider task ID, or the exact
+durable submission hash of task ID, job key and source hash for pre-ID rejections.
+Source hash coincidence or another account's receipt cannot establish an outcome.
+Definitive rejection changes the displayed outcome without releasing retained pages.
 
 **审计** filters operator, action, object, account association and time. New policy
 and allowance events show before/after values and reason; historical details remain

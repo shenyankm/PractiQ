@@ -26,6 +26,9 @@ from .contracts import (
 from .errors import DocumentProcessingError
 from .llm import get_model, structured_call
 
+# Single-process liveness is transient; durable unfinished receipts remain unknown after restart.
+active_requests: set[str] = set()
+
 
 class GradeImage(StrictModel):
     sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
@@ -183,6 +186,15 @@ async def grade(request: GradeRequest) -> dict:
     previous = await asyncio.to_thread(_claim, request)
     if previous is not None:
         return previous
+    request_id = str(request.requestId)
+    active_requests.add(request_id)
+    try:
+        return await _grade(request)
+    finally:
+        active_requests.remove(request_id)
+
+
+async def _grade(request: GradeRequest) -> dict:
     english = request.feedbackLocale == "en"
     traditional = request.feedbackLocale == "zh-TW"
     q = request.question

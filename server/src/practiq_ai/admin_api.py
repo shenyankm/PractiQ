@@ -9,7 +9,7 @@ from typing import Annotated, Any, LiteralString, cast
 from fastapi import APIRouter, HTTPException, Query
 from psycopg.types.json import Jsonb
 
-from . import billing, task_api
+from . import billing, grading, task_api
 from . import identity as auth
 from .account_api import confirm
 from .config import load
@@ -31,20 +31,22 @@ from .contracts import (
 router = APIRouter(prefix='/api/admin')
 Filters = Annotated[AdministrationFilter, Query()]
 
-# Match Tencent receipts by both task namespace and provider task ID, never by source alone.
+# Match provider IDs or the exact durable submission hash within the task namespace.
 CALLS: LiteralString = """WITH receipts AS (
  SELECT c.*,u.email,coalesce(j.value->>'status',c.record->>'status','unknown') AS status,
  CASE WHEN c.kind='tencentCalls' THEN 'Tencent' ELSE coalesce(c.record->>'modelId','unknown') END AS provider
  FROM auth_calls c JOIN auth_users u ON u.id=c.user_id
  LEFT JOIN LATERAL (SELECT s.value FROM store s
   WHERE c.kind='tencentCalls' AND s.prefix='document_tasks.'||split_part(c.scope,':',2)||'.tencent_jobs'
-  AND s.value->>'taskId'=c.record->>'taskId' ORDER BY s.key LIMIT 1) j ON true
+  AND (s.value->>'taskId'=c.record->>'taskId'
+   OR c.call_key=encode(sha256(convert_to(split_part(c.scope,':',2)||'/'||s.key||'/'||(s.value->>'sourceSha256'),'UTF8')),'hex'))
+  ORDER BY s.key LIMIT 1) j ON true
 ), calls AS (
  SELECT receipts.*, CASE
  WHEN status IN ('completed','Success') THEN 'completed'
  WHEN status IN ('failed','rejected','Failed','REJECTED') AND coalesce(record->>'error','')!='MODEL_RESULT_UNKNOWN' THEN 'failed'
  WHEN record->>'admissionState'='reserved' THEN 'reserved'
- WHEN kind='modelCalls' AND status='started' AND NOT EXISTS (SELECT 1 FROM document_runs r WHERE receipts.scope='task:'||r.thread_id AND r.status IN ('pending','running')) THEN 'unknown'
+ WHEN kind='modelCalls' AND status='started' AND NOT (scope=ANY(%s::text[]) OR EXISTS (SELECT 1 FROM document_runs r WHERE receipts.scope='task:'||r.thread_id AND r.status IN ('pending','running'))) THEN 'unknown'
  WHEN status IN ('Unknown','unknown') OR record->>'error'='MODEL_RESULT_UNKNOWN'
   OR (kind='modelCalls' AND record->>'usageStatus'='unknown' AND status!='started')
   OR (kind='tencentCalls' AND status='SUBMITTING' AND record->>'taskId' IS NULL) THEN 'unknown'
@@ -66,6 +68,7 @@ def period(filters: AdministrationFilter, column: LiteralString) -> tuple[Litera
 
 def call_where(filters: AdministrationFilter) -> tuple[LiteralString, list[Any]]:
     where, args = period(filters, 'created_at')
+    args.insert(0, [f'grade:{request_id}' for request_id in grading.active_requests])
     if filters.userId:
         where += ' AND user_id=%s'
         args.append(filters.userId)

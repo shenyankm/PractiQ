@@ -16,7 +16,7 @@
   },
   "service_focused": {
     "command": "python3.14 -m pytest -q tests/test_admin_operations.py",
-    "passed": 19,
+    "passed": 24,
     "database": "disposable PostgreSQL"
   },
   "service_full": {
@@ -30,7 +30,8 @@
     "evaluationFixtures": "passed",
     "recoveryProbes": "passed",
     "packageBuildAndIntegrity": "passed",
-    "durationSeconds": 889.17
+    "durationSeconds": 889.17,
+    "testedCommit": "3ed61d0f880c645ae18d41a64014d1d7a417f8aa"
   },
   "app_check": {
     "command": "make app-check AI_PYTHON=.../python3.14",
@@ -59,5 +60,16 @@
     "operations-dark.png": "761deeaadadc33f628471576c8257b9a939008bcc10c57549279c506461739cb",
     "user-detail-light.png": "6a796b3a61208c2e8f7beb76123adb8ac934dbebf2e3a5a608b9efc324ba540b",
     "operations-light.png": "1f4abda6add4ec0676f183015a05e18a6d7e1fdd997728c52f603412923eb478"
+  },
+  "review_regressions": {
+    "command": "python3.14 -m pytest -q tests/test_admin_operations.py tests/test_grading.py tests/test_tencent.py tests/test_tencent_staging.py",
+    "passed": 180,
+    "ruff": "passed",
+    "pyright": "passed",
+    "beforeFix": "4 failed, 2 passed",
+    "accountTaskCompatibility": {
+      "passed": 62,
+      "command": "python3.14 -m pytest -q tests/test_accounts.py tests/test_task_api.py tests/test_task_list_performance.py"
+    }
   }
 }

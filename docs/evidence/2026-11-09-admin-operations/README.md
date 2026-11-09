@@ -29,7 +29,8 @@ acceptance. Screenshots use only synthetic accounts, calls and balances.
 `test_admin_operations.py` exercises the actual FastAPI authorization/CSRF stack
 and disposable PostgreSQL, including transactional allowance conflict/audit,
 retained unknown pages, immediate credential invalidation, foreign-target denial,
-SQL search boundaries, namespace-bound Tencent receipt status, anomaly selection,
+SQL search boundaries, exact Tencent submission identity (including rejection before
+a provider task ID), active/duplicate/cancelled grading, actual model-budget errors, anomaly selection,
 related historical audits, passive operations and safe monitoring-file reads.
 It does not invoke a model, Tencent, Alipay, a production service or native UI.
 
@@ -60,3 +61,8 @@ Final command outcomes are retained in [checks.json](checks.json). Initial lint/
 and outdated frontend-fixture failures were corrected. A full service run was
 interrupted after the final historical-audit association repair; that interrupted
 run is not counted as passing. The final complete service run is recorded separately.
+
+PR review regressions first reproduced all three findings. Follow-up focused tests
+cover normal grading completion and cancellation without replay, exact rejected-job
+association without source-only matching, and nested model-budget blocking reasons.
+The full local service result predates these fixes; current-head CI is tracked on the PR.

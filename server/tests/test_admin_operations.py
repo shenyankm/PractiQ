@@ -1,4 +1,6 @@
 """Real PostgreSQL support operations; paid providers are never invoked."""
+import asyncio
+import hashlib
 import json
 from collections import OrderedDict
 from datetime import UTC, datetime, timedelta
@@ -9,7 +11,7 @@ import httpx
 import pytest
 from psycopg.types.json import Jsonb
 
-from practiq_ai import admin_api, identity, runtime, task_api, webapp
+from practiq_ai import admin_api, grading, identity, runtime, task_api, webapp
 from practiq_ai.config import load
 from practiq_ai.contracts import AdministrationFilter
 from practiq_ai.import_control import ImportControl
@@ -220,7 +222,8 @@ async def test_payment_filters_and_frozen_refunds_do_not_contact_providers(admin
     assert (await db.rows('SELECT count(*) AS n FROM payment_refunds'))[0]['n'] == 0
 
 
-async def test_anomaly_queries_preserve_current_runs_and_show_blocked_tasks(admin_service, monkeypatch):
+@pytest.mark.parametrize('blocking', ['FREE_PAGE_QUOTA_EXCEEDED', {'reviewFailures': [{'code': 'MODEL_BUDGET_EXCEEDED'}]}, 'COST_BUDGET_EXCEEDED'])
+async def test_anomaly_queries_preserve_current_runs_and_show_blocked_tasks(admin_service, monkeypatch, blocking):
     from practiq_ai.errors import DocumentProcessingError
     db, client = admin_service
     ids = [str(uuid4()), str(uuid4()), str(uuid4())]
@@ -236,7 +239,7 @@ async def test_anomaly_queries_preserve_current_runs_and_show_blocked_tasks(admi
     async def detail(task):
         if task == ids[1]:
             raise DocumentProcessingError(404, 'Artifact unavailable', 'OBJECT_NOT_FOUND')
-        return SimpleNamespace(blocking=['FREE_PAGE_QUOTA_EXCEEDED'] if task == ids[0] else [])
+        return SimpleNamespace(blocking=[blocking] if task == ids[0] else [])
     monkeypatch.setattr(task_api, '_task_summaries', summaries)
     monkeypatch.setattr(task_api, 'get_task_model', detail)
     await sign_in(client)
@@ -304,3 +307,73 @@ def test_monitoring_does_not_follow_links_or_block_on_fifo(tmp_path):
     fifo = tmp_path / 'fifo'
     os.mkfifo(fifo)
     assert admin_api.read_monitoring(fifo) == ('unavailable', None)
+
+
+async def test_rejected_tencent_submission_uses_exact_durable_identity(admin_service):
+    db, client = admin_service
+    task = str(uuid4())
+    source = 'a' * 64
+    key = hashlib.sha256(f'{task}/rejected/{source}'.encode()).hexdigest()
+    unknown = hashlib.sha256(f'{task}/uncertain/{source}'.encode()).hexdigest()
+    for call_key in [key, unknown]:
+        await add_call(db, call_key, kind='tencentCalls', scope='task:'+task,
+                       record={'status': 'SUBMITTING', 'sourceSha256': source, 'quotaPages': 3})
+    await db.store.aput(('document_tasks', task, 'tencent_jobs'), 'rejected', {'sourceSha256': source, 'status': 'REJECTED'})
+    await db.store.aput(('document_tasks', str(uuid4()), 'tencent_jobs'), 'uncertain', {'sourceSha256': source, 'status': 'Success'})
+    await sign_in(client)
+    response = await client.get('/api/admin/calls?kind=tencentCalls')
+    assert response.status_code == 200, response.text
+    assert {row['call_key']: row['state'] for row in response.json()} == {key: 'failed', unknown: 'unknown'}
+    totals = (await client.get('/api/admin/usage/summary')).json()['totals']
+    assert totals['failedCalls'] == totals['unknownCalls'] == 1
+    detail = (await client.get('/api/admin/users/alice')).json()
+    assert detail['heldPages'] == 6 and detail['unknownPages'] == 3
+    assert all(row['record']['status'] == 'SUBMITTING' for row in await db.rows('SELECT record FROM auth_calls'))
+
+
+@pytest.mark.parametrize('cancel', [False, True])
+async def test_active_grading_is_pending_until_completion_or_cancellation(admin_service, monkeypatch, cancel):
+    db, client = admin_service
+    monkeypatch.setenv('DATABASE_URI', db.uri)
+    started, release = asyncio.Event(), asyncio.Event()
+    calls = 0
+    async def model(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        started.set()
+        await release.wait()
+        return None, [], 'AI_PROVIDER_TIMEOUT'
+    monkeypatch.setattr(grading, 'get_model', lambda: None)
+    monkeypatch.setattr(grading, 'structured_call', model)
+    request = grading.GradeRequest.model_validate({
+        'requestId': str(uuid4()), 'inputDigest': 'a'*64, 'maxCents': 500,
+        'question': {'stem': 'Explain evaporation', 'answerMode': 'short_answer',
+                     'questionTypeId': 'short answer', 'answerPayload': {'text': 'Liquid turns to gas'}},
+        'answer': 'Liquid turns to gas',
+    })
+    await add_call(db, 'live-grade', scope=f'grade:{request.requestId}', record={'status': 'started', 'usageStatus': 'unknown'})
+    await sign_in(client)
+    async def state():
+        response = await client.get('/api/admin/calls?q=live-grade')
+        assert response.status_code == 200, response.text
+        return response.json()[0]['state']
+    assert await state() == 'unknown'
+    operation = asyncio.create_task(grading.grade(request))
+    try:
+        await asyncio.wait_for(started.wait(), timeout=5)
+        assert await state() == 'pending'
+        assert (await grading.grade(request))['status'] == 'unknown'
+        assert await state() == 'pending' and calls == 1
+        if cancel:
+            operation.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await operation
+        else:
+            release.set()
+            assert (await operation)['status'] == 'unknown'
+        assert await state() == 'unknown'
+        assert (await client.get('/api/admin/usage/summary')).json()['totals']['unknownCalls'] == 1
+        assert (await grading.grade(request))['status'] == 'unknown' and calls == 1
+    finally:
+        operation.cancel()
+        await asyncio.gather(operation, return_exceptions=True)

@@ -743,7 +743,7 @@ async def list_tasks(limit: int = 20, offset: int = 0, sha256: str | None = None
                         detail = await get_task_model(str(item['threadId']))
                         include = bool(detail.blocking)
                         if admin_filter.issue == 'quota':
-                            include = any(any(code in str(reason) for code in ('QUOTA', 'COST_BUDGET_EXCEEDED', 'MODEL_CALL_LIMIT')) for reason in detail.blocking)
+                            include = any(any(code in str(reason) for code in ('QUOTA', 'COST_BUDGET_EXCEEDED', 'MODEL_BUDGET_EXCEEDED')) for reason in detail.blocking)
                     except DocumentProcessingError:
                         include = admin_filter.issue == 'blocked'
             if include:
