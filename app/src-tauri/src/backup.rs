@@ -49,7 +49,11 @@ impl Store {
         let dir = tempfile::tempdir_in(&self.dir).map_err(err)?;
         let snapshot = dir.path().join("practiq.sqlite");
         self.connect()?
-            .backup(rusqlite::MAIN_DB, &snapshot, None)
+            .backup(
+                rusqlite::MAIN_DB,
+                &snapshot,
+                None::<fn(rusqlite::backup::Progress)>,
+            )
             .map_err(err)?;
         let db = Connection::open(&snapshot).map_err(err)?;
         // In-flight model requests are task state, not portable practice history.
@@ -194,7 +198,11 @@ impl Store {
         let temporary = tempfile::tempdir_in(parent).map_err(err)?;
         let database = temporary.path().join("practiq.sqlite");
         self.connect()?
-            .backup(rusqlite::MAIN_DB, &database, None)
+            .backup(
+                rusqlite::MAIN_DB,
+                &database,
+                None::<fn(rusqlite::backup::Progress)>,
+            )
             .map_err(err)?;
         fs::OpenOptions::new()
             .write(true)
@@ -548,7 +556,11 @@ impl Store {
             }
             let previous = staging.path().join("previous.sqlite");
             self.connect()?
-                .backup(rusqlite::MAIN_DB, &previous, None)
+                .backup(
+                    rusqlite::MAIN_DB,
+                    &previous,
+                    None::<fn(rusqlite::backup::Progress)>,
+                )
                 .map_err(err)?;
             // Replace only after all resources validate. Keep a rollback generation until fsync succeeds.
             self.prepare_settings_and_learning_restore(

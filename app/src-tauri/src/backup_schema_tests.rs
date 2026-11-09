@@ -621,7 +621,11 @@ fn regression_restore_rejects_invalid_session_records_without_replacement() {
         source
             .connect()
             .unwrap()
-            .backup(rusqlite::MAIN_DB, &candidate, None)
+            .backup(
+                rusqlite::MAIN_DB,
+                &candidate,
+                None::<fn(rusqlite::backup::Progress)>,
+            )
             .unwrap();
         Connection::open(&candidate)
             .unwrap()
@@ -808,7 +812,11 @@ fn restore_validates_saved_answers_against_frozen_questions_before_replacement()
         source
             .connect()
             .unwrap()
-            .backup(rusqlite::MAIN_DB, &candidate, None)
+            .backup(
+                rusqlite::MAIN_DB,
+                &candidate,
+                None::<fn(rusqlite::backup::Progress)>,
+            )
             .unwrap();
         let db = Connection::open(&candidate).unwrap();
         db.execute(

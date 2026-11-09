@@ -498,7 +498,12 @@ fn archive_contention() {
     let mut report = json!({"questions":500,"images":assets.len(),"resourceBytes":assets.iter().map(|(_,b)|b.len()).sum::<usize>(),"repetitions":3,"inputSha256":crate::store::hash(&serde_json::to_vec(&rows).unwrap()),"probeSha256":crate::store::hash(include_bytes!("performance.rs")),"samples":{}});
     report["componentProbes"]["databaseSnapshot"] = measure(|| {
         let snapshot = dir.path().join("snapshot.sqlite");
-        db.backup(rusqlite::MAIN_DB, &snapshot, None).unwrap();
+        db.backup(
+            rusqlite::MAIN_DB,
+            &snapshot,
+            None::<fn(rusqlite::backup::Progress)>,
+        )
+        .unwrap();
         json!({"bytes":std::fs::metadata(snapshot).unwrap().len()})
     });
     report["componentProbes"]["resourceReadHashDecode"] = measure(|| {
