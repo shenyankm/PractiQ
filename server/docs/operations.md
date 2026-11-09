@@ -289,16 +289,20 @@ paid intent. Already submitted remote work and other clients share the actual
 account quota; an unknown submission still requires explicit reconciliation.
 
 
-### Shared import settings
+### Shared import execution settings
 
-The App and administrator Web **Settings** routes persist Tencent concurrency (1–5, default 5), known-job read
+The administrator Web **Settings** page persists Tencent concurrency (1–5, default 5), known-job read
 retries (0–5 after the first attempt, default 2), and base retry delay
-(0.5–10 seconds, default 1) in the existing PostgreSQL Store. The service
-loads the record at startup; no schema migration or environment file rewrite
-is required. A revision protects updates from stale client overwrites. Every PUT snapshot
-must include all three setting values; missing fields are rejected without changing
-the saved record.
-Authenticated reads and saves are passive and never start model work.
+(0.5–10 seconds, default 1) in the existing PostgreSQL Store. These shared execution
+controls are administrator-only: customer saves that change them are rejected with
+`ADMIN_REQUIRED`, and the App import-settings panel disables them. The App's own
+import preferences (automatic deduplication and AI answer/analysis generation) are
+stored per account and affect only that account's later tasks; they do not change
+the shared execution record. The service loads the shared record at startup; no
+schema migration or environment file rewrite is required. A revision protects
+updates from stale administrator overwrites. Every PUT snapshot must include all
+three setting values; missing fields are rejected without changing the saved record.
+Authenticated reads are passive; administrator saves never start model work.
 Read-only deployments reject setting writes. Model/provider credentials and
 worker/LLM allocation remain trusted service environment configuration.
 
